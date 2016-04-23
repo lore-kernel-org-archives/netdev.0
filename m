@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v5 08/21] IB/hns: Add icm support
-Date: Sat, 23 Apr 2016 18:26:46 +0800
-Message-ID: <1461407219-72027-9-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v5 18/21] IB/hns: Add CQ operation implemention support
+Date: Sat, 23 Apr 2016 18:26:56 +0800
+Message-ID: <1461407219-72027-19-git-send-email-oulijun@huawei.com>
 References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,814 +20,1081 @@ In-Reply-To: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch mainly added icm support for RoCE. It inits the icm
-which managers the relative memory blocks for RoCE. the data
-structures of RoCE will be located in it. for example, CQ table,
-QP table and MTPT table so on.
+This patch was implemention for Completion Queue(CQ) operations.
+A CQ can be used to multiplex work completions from multiple work
+queues across queue pairs on the same HCA. CQ as the notification
+mechanism for Work Request completions.
+CQ operations implemention as follows:
+    1. create CQ. CQ are created through the Channel Interface,
+       The maximum number of Completion Queue Entries (CQEs) that
+       may be outstanding on a CQ must be specified when the CQ
+       is created.
+    2. destroy CQ. Destroys the specified CQ. Resources allocated
+       by the Channel Interface to implement the CQ must be
+       deallocated during the destroy operation.
+    3. request completion notification. Requests the CQ event handler
+       be called when the next completion entry of the specified type
+       is added to the specified CQ.
+    4. poll CQ. Polls the specified CQ for a Work Completion.
+       A Work Completion indicates that a Work Request for a Work Queue
+       associated with the CQ is done.
 
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_common.h |  19 ++
- drivers/infiniband/hw/hns/hns_roce_device.h |  30 ++
- drivers/infiniband/hw/hns/hns_roce_eq.c     |   3 +-
- drivers/infiniband/hw/hns/hns_roce_icm.c    | 436 ++++++++++++++++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_icm.h    |  95 ++++++
- drivers/infiniband/hw/hns/hns_roce_main.c   |  84 ++++++
- 6 files changed, 665 insertions(+), 2 deletions(-)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.h
+ drivers/infiniband/hw/hns/hns_roce_cq.c     | 356 ++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_device.h |  34 ++-
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c  | 340 ++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h  | 117 +++++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   |  10 +
+ drivers/infiniband/hw/hns/hns_roce_user.h   |   4 +
+ 6 files changed, 860 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
-index 2d083c2..5e181de 100644
---- a/drivers/infiniband/hw/hns/hns_roce_common.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_common.h
-@@ -30,6 +30,22 @@
- #define roce_set_bit(origin, shift, val) \
- 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
- 
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S 0
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_M   \
-+	(((1UL << 19) - 1) << ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S)
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cq.c b/drivers/infiniband/hw/hns/hns_roce_cq.c
+index f7baf82..16eaa8d 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_cq.c
++++ b/drivers/infiniband/hw/hns/hns_roce_cq.c
+@@ -11,6 +11,362 @@
+ #include <linux/log2.h>
+ #include <linux/slab.h>
+ #include "hns_roce_device.h"
++#include "hns_roce_cmd.h"
++#include "hns_roce_icm.h"
++#include "hns_roce_user.h"
++#include "hns_roce_common.h"
 +
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_S 19
++static void hns_roce_ib_cq_comp(struct hns_roce_cq *hr_cq)
++{
++	struct ib_cq *ibcq = &hr_cq->ib_cq;
 +
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S 20
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M   \
-+	(((1UL << 2) - 1) << ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S)
++	ibcq->comp_handler(ibcq, ibcq->cq_context);
++}
 +
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S 22
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_M   \
-+	(((1UL << 5) - 1) << ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S)
++static void hns_roce_ib_cq_event(struct hns_roce_cq *hr_cq,
++				 enum hns_roce_event event_type)
++{
++	struct hns_roce_dev *hr_dev;
++	struct ib_event event;
++	struct ib_cq *ibcq;
 +
-+#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S 31
++	ibcq = &hr_cq->ib_cq;
++	hr_dev = to_hr_dev(ibcq->device);
 +
- #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S 0
- #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_M   \
- 	(((1UL << 2) - 1) << ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S)
-@@ -70,6 +86,8 @@
- #define ROCEE_SYS_IMAGE_GUID_L_REG		0xC
- #define ROCEE_SYS_IMAGE_GUID_H_REG		0x10
- 
-+#define ROCEE_BT_CMD_H_REG			0x204
++	if (event_type != HNS_ROCE_EVENT_TYPE_CQ_ID_INVALID &&
++	    event_type != HNS_ROCE_EVENT_TYPE_CQ_ACCESS_ERROR &&
++	    event_type != HNS_ROCE_EVENT_TYPE_CQ_OVERFLOW) {
++		dev_err(&hr_dev->pdev->dev,
++			"hns_roce_ib: Unexpected event type 0x%x on CQ %06x\n",
++			event_type, hr_cq->cqn);
++		return;
++	}
 +
- #define ROCEE_CAEP_AEQE_CONS_IDX_REG		0x3AC
- #define ROCEE_CAEP_CEQC_CONS_IDX_0_REG		0x3BC
++	if (ibcq->event_handler) {
++		event.device = ibcq->device;
++		event.event = IB_EVENT_CQ_ERR;
++		event.element.cq = ibcq;
++		ibcq->event_handler(&event, ibcq->cq_context);
++	}
++}
++
++static int hns_roce_sw2hw_cq(struct hns_roce_dev *dev,
++			     struct hns_roce_cmd_mailbox *mailbox, int cq_num)
++{
++	return hns_roce_cmd(dev, mailbox->dma, cq_num, 0,
++			    HNS_ROCE_CMD_SW2HW_CQ, HNS_ROCE_CMD_TIME_CLASS_A);
++}
++
++static int hns_roce_cq_alloc(struct hns_roce_dev *hr_dev, int nent,
++			     struct hns_roce_mtt *hr_mtt,
++			     struct hns_roce_uar *hr_uar,
++			     struct hns_roce_cq *hr_cq, int vector,
++			     int collapsed)
++{
++	struct hns_roce_cmd_mailbox *mailbox = NULL;
++	struct hns_roce_cq_table *cq_table = NULL;
++	struct device *dev = &hr_dev->pdev->dev;
++	dma_addr_t dma_handle;
++	u64 *mtts = NULL;
++	int ret = 0;
++
++	cq_table = &hr_dev->cq_table;
++
++	/* Get the physical address of cq buf */
++	mtts = hns_roce_table_find(&hr_dev->mr_table.mtt_table,
++				   hr_mtt->first_seg, &dma_handle);
++	if (!mtts) {
++		dev_err(dev, "CQ alloc.Failed to find cq buf addr.\n");
++		return -EINVAL;
++	}
++
++	if (vector >= hr_dev->caps.num_comp_vectors) {
++		dev_err(dev, "CQ alloc.Invalid vector.\n");
++		return -EINVAL;
++	}
++	hr_cq->vector = vector;
++
++	ret = hns_roce_bitmap_alloc(&cq_table->bitmap, &hr_cq->cqn);
++	if (ret == -1) {
++		dev_err(dev, "CQ alloc.Failed to alloc index.\n");
++		return -ENOMEM;
++	}
++
++	/* Get CQC memory icm table */
++	ret = hns_roce_table_get(hr_dev, &cq_table->table, hr_cq->cqn);
++	if (ret) {
++		dev_err(dev, "CQ alloc.Failed to get context mem.\n");
++		goto err_out;
++	}
++
++	/* The cq insert radix tree */
++	spin_lock_irq(&cq_table->lock);
++	/* Radix_tree: The associated pointer and long integer key value like */
++	ret = radix_tree_insert(&cq_table->tree, hr_cq->cqn, hr_cq);
++	spin_unlock_irq(&cq_table->lock);
++	if (ret) {
++		dev_err(dev, "CQ alloc.Failed to radix_tree_insert.\n");
++		goto err_put;
++	}
++
++	/* Applicate mailbox memory */
++	mailbox = hns_roce_alloc_cmd_mailbox(hr_dev);
++	if (IS_ERR(mailbox)) {
++		dev_err(dev, "CQ alloc.Failed to alloc mailbox.\n");
++		ret = PTR_ERR(mailbox);
++		goto err_radix;
++	}
++
++	hr_dev->hw->write_cqc(hr_dev, hr_cq, mailbox->buf, mtts, dma_handle,
++			      nent, vector);
++
++	/* CQ instructions which sw send to hw be transimited via mailbox */
++	ret = hns_roce_sw2hw_cq(hr_dev, mailbox, hr_cq->cqn);
++	hns_roce_free_cmd_mailbox(hr_dev, mailbox);
++	if (ret) {
++		dev_err(dev, "CQ alloc.Failed to cmd mailbox.\n");
++		goto err_radix;
++	}
++
++	hr_cq->cons_index = 0;
++	hr_cq->uar = hr_uar;
++
++	return 0;
++
++err_radix:
++	spin_lock_irq(&cq_table->lock);
++	radix_tree_delete(&cq_table->tree, hr_cq->cqn);
++	spin_unlock_irq(&cq_table->lock);
++
++err_put:
++	hns_roce_table_put(hr_dev, &cq_table->table, hr_cq->cqn);
++
++err_out:
++	hns_roce_bitmap_free(&cq_table->bitmap, hr_cq->cqn);
++	return ret;
++}
++
++static int hns_roce_hw2sw_cq(struct hns_roce_dev *dev,
++			     struct hns_roce_cmd_mailbox *mailbox, int cq_num)
++{
++	return hns_roce_cmd_box(dev, 0, mailbox ? mailbox->dma : 0, cq_num,
++				mailbox ? 0 : 1, HNS_ROCE_CMD_HW2SW_CQ,
++				HNS_ROCE_CMD_TIME_CLASS_A);
++}
++
++void hns_roce_free_cq(struct hns_roce_dev *hr_dev, struct hns_roce_cq *hr_cq)
++{
++	struct hns_roce_cq_table *cq_table = &hr_dev->cq_table;
++	struct device *dev = &hr_dev->pdev->dev;
++	int ret;
++
++	ret = hns_roce_hw2sw_cq(hr_dev, NULL, hr_cq->cqn);
++	if (ret)
++		dev_err(dev, "HW2SW_CQ failed (%d) for CQN %06x\n", ret,
++			hr_cq->cqn);
++
++	/* Waiting interrupt process procedure carried out */
++	synchronize_irq(hr_dev->eq_table.eq[hr_cq->vector].irq);
++
++	spin_lock_irq(&cq_table->lock);
++	radix_tree_delete(&cq_table->tree, hr_cq->cqn);
++	spin_unlock_irq(&cq_table->lock);
++
++	hns_roce_table_put(hr_dev, &cq_table->table, hr_cq->cqn);
++	hns_roce_bitmap_free(&cq_table->bitmap, hr_cq->cqn);
++}
++
++static int hns_roce_ib_get_cq_umem(struct hns_roce_dev *hr_dev,
++				   struct ib_ucontext *context,
++				   struct hns_roce_cq_buf *buf,
++				   struct ib_umem **umem, u64 buf_addr, int cqe)
++{
++	int ret;
++
++	/* Get and mapping user space */
++	*umem = ib_umem_get(context, buf_addr, cqe * hr_dev->caps.cq_entry_sz,
++			    IB_ACCESS_LOCAL_WRITE, 1);
++	if (IS_ERR(*umem))
++		return PTR_ERR(*umem);
++
++	ret = hns_roce_mtt_init(hr_dev, ib_umem_page_count(*umem),
++				ilog2((unsigned int)(*umem)->page_size),
++				&buf->hr_mtt);
++	if (ret)
++		goto err_buf;
++
++	ret = hns_roce_ib_umem_write_mtt(hr_dev, &buf->hr_mtt, *umem);
++	if (ret)
++		goto err_mtt;
++
++	return 0;
++
++err_mtt:
++	hns_roce_mtt_cleanup(hr_dev, &buf->hr_mtt);
++
++err_buf:
++	ib_umem_release(*umem);
++	return ret;
++}
++
++static int hns_roce_ib_alloc_cq_buf(struct hns_roce_dev *hr_dev,
++				    struct hns_roce_cq_buf *buf, u32 nent)
++{
++	int ret;
++
++	ret = hns_roce_buf_alloc(hr_dev, nent * hr_dev->caps.cq_entry_sz,
++				 PAGE_SIZE * 2, &buf->hr_buf);
++	if (ret)
++		goto out;
++
++	ret = hns_roce_mtt_init(hr_dev, buf->hr_buf.npages,
++				buf->hr_buf.page_shift, &buf->hr_mtt);
++	if (ret)
++		goto err_buf;
++
++	ret = hns_roce_buf_write_mtt(hr_dev, &buf->hr_mtt, &buf->hr_buf);
++	if (ret)
++		goto err_mtt;
++
++	return 0;
++
++err_mtt:
++	hns_roce_mtt_cleanup(hr_dev, &buf->hr_mtt);
++
++err_buf:
++	hns_roce_buf_free(hr_dev, nent * hr_dev->caps.cq_entry_sz,
++			  &buf->hr_buf);
++out:
++	return ret;
++}
++
++static void hns_roce_ib_free_cq_buf(struct hns_roce_dev *hr_dev,
++				    struct hns_roce_cq_buf *buf, int cqe)
++{
++	hns_roce_buf_free(hr_dev, (cqe + 1) * hr_dev->caps.cq_entry_sz,
++			  &buf->hr_buf);
++}
++
++struct ib_cq *hns_roce_ib_create_cq(struct ib_device *ib_dev,
++				    const struct ib_cq_init_attr *attr,
++				    struct ib_ucontext *context,
++				    struct ib_udata *udata)
++{
++	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
++	struct device *dev = &hr_dev->pdev->dev;
++	struct hns_roce_ib_create_cq ucmd;
++	struct hns_roce_cq *hr_cq = NULL;
++	struct hns_roce_uar *uar = NULL;
++	int vector = attr->comp_vector;
++	int cq_entries = attr->cqe;
++	int ret = 0;
++
++	if (cq_entries < 1 || cq_entries > hr_dev->caps.max_cqes) {
++		dev_err(dev, "Creat CQ failed. entries=%d, max=%d\n",
++			cq_entries, hr_dev->caps.max_cqes);
++		return ERR_PTR(-EINVAL);
++	}
++
++	hr_cq = kmalloc(sizeof(*hr_cq), GFP_KERNEL);
++	if (!hr_cq)
++		return ERR_PTR(-ENOMEM);
++
++	/* In v1 engine, parameter verification */
++	if (cq_entries < HNS_ROCE_MIN_CQE_NUM)
++		cq_entries = HNS_ROCE_MIN_CQE_NUM;
++
++	cq_entries = roundup_pow_of_two((unsigned int)cq_entries);
++	hr_cq->ib_cq.cqe = cq_entries - 1;
++	mutex_init(&hr_cq->resize_mutex);
++	spin_lock_init(&hr_cq->lock);
++	hr_cq->hr_resize_buf = NULL;
++	hr_cq->resize_umem = NULL;
++
++	if (context) {
++		if (ib_copy_from_udata(&ucmd, udata, sizeof(ucmd))) {
++			dev_err(dev, "Failed to copy_from_udata.\n");
++			ret = -EFAULT;
++			goto err_cq;
++		}
++
++		/* Get user space address, write it into mtt table */
++		ret = hns_roce_ib_get_cq_umem(hr_dev, context, &hr_cq->hr_buf,
++					      &hr_cq->umem, ucmd.buf_addr,
++					      cq_entries);
++		if (ret) {
++			dev_err(dev, "Failed to get_cq_umem.\n");
++			goto err_cq;
++		}
++
++		/* Get user space parameters */
++		uar = &to_hr_ucontext(context)->uar;
++	} else {
++		/* Init mmt table and write buff address to mtt table */
++		ret = hns_roce_ib_alloc_cq_buf(hr_dev, &hr_cq->hr_buf,
++					       cq_entries);
++		if (ret) {
++			dev_err(dev, "Failed to alloc_cq_buf.\n");
++			goto err_cq;
++		}
++
++		uar = &hr_dev->priv_uar;
++		hr_cq->cq_db_l = hr_dev->reg_base + ROCEE_DB_OTHERS_L_0_REG +
++				 0x1000 * uar->index;
++	}
++
++	/* Allocate cq index, fill cq_context */
++	ret = hns_roce_cq_alloc(hr_dev, cq_entries, &hr_cq->hr_buf.hr_mtt,
++				uar, hr_cq, vector, 0);
++	if (ret) {
++		dev_err(dev, "Creat CQ .Failed to cq_alloc.\n");
++		goto err_mtt;
++	}
++
++	/* Get created cq handler and carry out event */
++	hr_cq->comp = hns_roce_ib_cq_comp;
++	hr_cq->event = hns_roce_ib_cq_event;
++	hr_cq->cq_depth = cq_entries;
++
++	if (context) {
++		if (ib_copy_to_udata(udata, &(hr_cq->cqn), sizeof(__u32))) {
++			ret = -EFAULT;
++			goto err_mtt;
++		}
++	}
++
++	return &hr_cq->ib_cq;
++
++err_mtt:
++	hns_roce_mtt_cleanup(hr_dev, &hr_cq->hr_buf.hr_mtt);
++	if (context)
++		ib_umem_release(hr_cq->umem);
++	else
++		hns_roce_ib_free_cq_buf(hr_dev, &hr_cq->hr_buf,
++					hr_cq->ib_cq.cqe);
++
++err_cq:
++	kfree(hr_cq);
++	return ERR_PTR(ret);
++}
++
++int hns_roce_ib_destroy_cq(struct ib_cq *ib_cq)
++{
++	struct hns_roce_dev *hr_dev = to_hr_dev(ib_cq->device);
++	struct hns_roce_cq *hr_cq = to_hr_cq(ib_cq);
++
++	hns_roce_free_cq(hr_dev, hr_cq);
++	hns_roce_mtt_cleanup(hr_dev, &hr_cq->hr_buf.hr_mtt);
++
++	if (ib_cq->uobject)
++		ib_umem_release(hr_cq->umem);
++	else
++		/* Free the buff of stored cq */
++		hns_roce_ib_free_cq_buf(hr_dev, &hr_cq->hr_buf, ib_cq->cqe);
++
++	kfree(hr_cq);
++
++	return 0;
++}
  
-@@ -82,6 +100,7 @@
- 
- #define ROCEE_CAEP_CE_INTERVAL_CFG_REG		0x190
- #define ROCEE_CAEP_CE_BURST_NUM_CFG_REG		0x194
-+#define ROCEE_BT_CMD_L_REG			0x200
- 
- #define ROCEE_MB1_REG				0x210
- 
+ void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn)
+ {
 diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 6835223..decd4fe 100644
+index e204a7f..21698c5 100644
 --- a/drivers/infiniband/hw/hns/hns_roce_device.h
 +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -91,6 +91,26 @@ enum {
+@@ -31,6 +31,7 @@
+ #define HNS_ROCE_BA_SIZE			(32 * 4096)
+ 
+ /* Hardware specification only for v1 engine */
++#define HNS_ROCE_MIN_CQE_NUM			0x40
+ #define HNS_ROCE_MIN_WQE_NUM			0x20
+ 
+ #define HNS_ROCE_MAX_IRQ_NUM			34
+@@ -124,6 +125,12 @@ enum {
  	HNS_ROCE_CMD_SUCCESS			= 1,
  };
  
-+struct hns_roce_icm_table {
-+	/* ICM type: 0 = qpc 1 = mtt 2 = cqc 3 = srq 4 = other */
-+	u32            type;
-+	/* ICM array elment num */
-+	int            num_icm;
-+	/* ICM entry record obj total num */
-+	int            num_obj;
-+	/*Single obj size */
-+	int            obj_size;
-+	int            lowmem;
-+	int            coherent;
-+	struct mutex   mutex;
-+	struct hns_roce_icm **icm;
++enum {
++	/* RQ&SRQ related operations */
++	HNS_ROCE_OPCODE_SEND_DATA_RECEIVE	= 0x06,
++	HNS_ROCE_OPCODE_RDMA_WITH_IMM_RECEIVE	= 0x07,
 +};
 +
-+struct hns_roce_mr_table {
-+	struct hns_roce_icm_table	mtt_table;
-+	struct hns_roce_icm_table	mtpt_table;
+ #define HNS_ROCE_PORT_DOWN		0
+ #define HNS_ROCE_PORT_UP		1
+ 
+@@ -229,20 +236,33 @@ struct hns_roce_buf {
+ 
+ struct hns_roce_cq_buf {
+ 	struct hns_roce_buf hr_buf;
++	struct hns_roce_mtt hr_mtt;
 +};
 +
- struct hns_roce_buf_list {
- 	void		*buf;
- 	dma_addr_t	map;
-@@ -106,11 +126,14 @@ struct hns_roce_cq {
- 
- struct hns_roce_qp_table {
- 	spinlock_t			lock;
-+	struct hns_roce_icm_table	qp_table;
-+	struct hns_roce_icm_table	irrl_table;
++struct hns_roce_cq_resize {
++	struct hns_roce_cq_buf	hr_buf;
++	int			cqe;
  };
  
- struct hns_roce_cq_table {
+ struct hns_roce_cq {
+ 	struct ib_cq			ib_cq;
+ 	struct hns_roce_cq_buf		hr_buf;
+ 	/* pointer to store information after resize*/
++	struct hns_roce_cq_resize	*hr_resize_buf;
  	spinlock_t			lock;
- 	struct radix_tree_root		tree;
-+	struct hns_roce_icm_table	table;
++	struct mutex			resize_mutex;
++	struct ib_umem			*umem;
++	struct ib_umem			*resize_umem;
+ 	void (*comp)(struct hns_roce_cq *);
+ 	void (*event)(struct hns_roce_cq *, enum hns_roce_event);
+ 
++	struct hns_roce_uar		*uar;
+ 	u32				cq_depth;
+ 	u32				cons_index;
+ 	void __iomem			*cq_db_l;
++	void __iomem			*tptr_addr;
+ 	u32				cqn;
++	u32				vector;
+ 	atomic_t			refcount;
+ 	struct completion		free;
+ };
+@@ -451,6 +471,9 @@ struct hns_roce_hw {
+ 	void (*set_mac)(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr);
+ 	void (*set_mtu)(struct hns_roce_dev *hr_dev, u8 phy_port,
+ 			enum ib_mtu mtu);
++	void (*write_cqc)(struct hns_roce_dev *hr_dev,
++			  struct hns_roce_cq *hr_cq, void *mb_buf, u64 *mtts,
++			  dma_addr_t dma_handle, int nent, u32 vector);
+ 	int (*query_qp)(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+ 			int qp_attr_mask, struct ib_qp_init_attr *qp_init_attr);
+ 	int (*modify_qp)(struct ib_qp *ibqp, const struct ib_qp_attr *attr,
+@@ -461,7 +484,8 @@ struct hns_roce_hw {
+ 			 struct ib_send_wr **bad_wr);
+ 	int (*post_recv)(struct ib_qp *qp, struct ib_recv_wr *recv_wr,
+ 			 struct ib_recv_wr **bad_recv_wr);
+-
++	int (*req_notify_cq)(struct ib_cq *ibcq, enum ib_cq_notify_flags flags);
++	int (*poll_cq)(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc);
+ 	void	*priv;
  };
  
- struct hns_roce_cmd_context {
-@@ -239,6 +262,7 @@ struct hns_roce_hw {
- struct hns_roce_dev {
- 	struct ib_device	ib_dev;
- 	struct platform_device  *pdev;
-+	spinlock_t		bt_cmd_lock;
- 	struct hns_roce_ib_iboe iboe;
- 
- 	int			irq[HNS_ROCE_MAX_IRQ_NUM];
-@@ -253,6 +277,7 @@ struct hns_roce_dev {
+@@ -485,6 +509,7 @@ struct hns_roce_dev {
+ 	u32                     vendor_id;
+ 	u32                     vendor_part_id;
  	u32                     hw_rev;
++	void __iomem            *priv_addr;
  
  	struct hns_roce_cmdq      cmd;
-+	struct hns_roce_mr_table  mr_table;
- 	struct hns_roce_cq_table  cq_table;
- 	struct hns_roce_qp_table  qp_table;
- 	struct hns_roce_eq_table  eq_table;
-@@ -262,6 +287,11 @@ struct hns_roce_dev {
- 	struct hns_roce_hw	*hw;
- };
+ 	struct hns_roce_bitmap    pd_bitmap;
+@@ -645,6 +670,13 @@ void hns_roce_release_range_qp(struct hns_roce_dev *hr_dev, int base_qpn,
+ __be32 send_ieth(struct ib_send_wr *wr);
+ int to_hr_qp_type(int qp_type);
  
-+static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
-+{
-+	__raw_writeq(*(u64 *) val, dest);
-+}
-+
- static inline struct hns_roce_qp
- 	*__hns_roce_qp_lookup(struct hns_roce_dev *hr_dev, u32 qpn)
- {
-diff --git a/drivers/infiniband/hw/hns/hns_roce_eq.c b/drivers/infiniband/hw/hns/hns_roce_eq.c
-index d8ca66f..7d848a0 100644
---- a/drivers/infiniband/hw/hns/hns_roce_eq.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_eq.c
-@@ -589,8 +589,7 @@ void hns_roce_int_mask_en(struct hns_roce_dev *hr_dev)
- 	int masken = 0;
- 
- 	/* AEQ INT */
--	reg_caepaemsk = (void *)((char *)hr_dev->reg_base +
--				  ROCEE_CAEP_AE_MASK_REG);
-+	reg_caepaemsk = (void *)(hr_dev->reg_base + ROCEE_CAEP_AE_MASK_REG);
- 	aemask_val = roce_readl(reg_caepaemsk);
- 	roce_set_bit(aemask_val, ROCEE_CAEP_AE_MASK_CAEP_AEQ_ALM_OVF_MASK_S,
- 		     masken);
-diff --git a/drivers/infiniband/hw/hns/hns_roce_icm.c b/drivers/infiniband/hw/hns/hns_roce_icm.c
-new file mode 100644
-index 0000000..d0f276d
---- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_icm.c
-@@ -0,0 +1,436 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/errno.h>
-+#include <linux/init.h>
-+#include <linux/mm.h>
-+#include <linux/platform_device.h>
-+#include <linux/slab.h>
-+#include <linux/scatterlist.h>
-+#include "hns_roce_device.h"
-+#include "hns_roce_icm.h"
-+#include "hns_roce_common.h"
-+
-+#define HW_SYNC_TIMEOUT_MSECS		500
-+
-+#define HNS_ROCE_ICM_ALLOC_SIZE		(1 << 17)
-+#define HNS_ROCE_TABLE_CHUNK_SIZE	(1 << 17)
-+
-+#define DMA_ADDR_T_SHIFT		12
-+#define BT_CMD_SYNC_SHIFT		31
-+#define BT_BA_SHIFT			32
-+
-+static int hns_roce_alloc_icm_pages(struct scatterlist *mem, int order,
-+				    gfp_t gfp_mask)
-+{
-+	struct page *page;
-+
-+	page = alloc_pages(gfp_mask, order);
-+	if (!page)
-+		return -ENOMEM;
-+
-+	sg_set_page(mem, page, PAGE_SIZE << order, 0);
-+
-+	return 0;
-+}
-+
-+static int hns_roce_alloc_icm_coherent(struct device *dev,
-+				       struct scatterlist *mem, int order,
-+				       gfp_t gfp_mask)
-+{
-+	void *buf = dma_alloc_coherent(dev, PAGE_SIZE << order,
-+				       &sg_dma_address(mem), gfp_mask);
-+	if (!buf) {
-+		dev_err(dev, "alloc coherent icm pages failed.\n");
-+		return -ENOMEM;
-+	}
-+
-+	sg_set_buf(mem, buf, PAGE_SIZE << order);
-+	WARN_ON(mem->offset);
-+	sg_dma_len(mem) = PAGE_SIZE << order;
-+	return 0;
-+}
-+
-+struct hns_roce_icm *hns_roce_alloc_icm(struct hns_roce_dev *hr_dev, int npages,
-+					gfp_t gfp_mask, int coherent)
-+{
-+	struct hns_roce_icm_chunk *chunk = NULL;
-+	struct hns_roce_icm *icm;
-+	int cur_order;
-+	int ret;
-+
-+	WARN_ON(coherent && (gfp_mask & __GFP_HIGHMEM));
-+
-+	icm = kmalloc(sizeof(*icm),
-+		      gfp_mask & ~(__GFP_HIGHMEM | __GFP_NOWARN));
-+	if (!icm)
-+		return NULL;
-+
-+	icm->refcount = 0;
-+	INIT_LIST_HEAD(&icm->chunk_list);
-+
-+	cur_order = get_order(HNS_ROCE_ICM_ALLOC_SIZE);
-+
-+	while (npages > 0) {
-+		if (!chunk) {
-+			chunk = kmalloc(sizeof(*chunk),
-+				gfp_mask & ~(__GFP_HIGHMEM | __GFP_NOWARN));
-+			if (!chunk)
-+				goto fail;
-+
-+			sg_init_table(chunk->mem, HNS_ROCE_ICM_CHUNK_LEN);
-+			chunk->npages = 0;
-+			chunk->nsg = 0;
-+			list_add_tail(&chunk->list, &icm->chunk_list);
-+		}
-+
-+		while (1 << cur_order > npages)
-+			--cur_order;
-+
-+		if (coherent)
-+			ret = hns_roce_alloc_icm_coherent(&hr_dev->pdev->dev,
-+						&chunk->mem[chunk->npages],
-+						cur_order, gfp_mask);
-+		else
-+			ret = hns_roce_alloc_icm_pages(
-+						&chunk->mem[chunk->npages],
-+						cur_order, gfp_mask);
-+		if (!ret) {
-+			++chunk->npages;
-+			if (coherent) {
-+				++chunk->nsg;
-+			} else if (chunk->npages == HNS_ROCE_ICM_CHUNK_LEN) {
-+				chunk->nsg = dma_map_sg(&hr_dev->pdev->dev,
-+						      chunk->mem, chunk->npages,
-+						      DMA_BIDIRECTIONAL);
-+				if (chunk->nsg <= 0)
-+					goto fail;
-+
-+				chunk = NULL;
-+			}
-+			npages -= 1 << cur_order;
-+		} else {
-+			/*
-+			* If failed on alloc 128k memory one time,
-+			* no alloc small block memory,
-+			* directly return fail
-+			*/
-+			dev_err(&hr_dev->pdev->dev, "**alloc 128K phy mem failed**\n");
-+			goto fail;
-+		}
-+	}
-+
-+	if (!coherent && chunk) {
-+		chunk->nsg = dma_map_sg(&hr_dev->pdev->dev, chunk->mem,
-+					chunk->npages, DMA_BIDIRECTIONAL);
-+		if (chunk->nsg <= 0)
-+			goto fail;
-+	}
-+
-+	return icm;
-+
-+fail:
-+	hns_roce_free_icm(hr_dev, icm, coherent);
-+	return NULL;
-+}
-+
-+static void hns_roce_free_icm_pages(struct hns_roce_dev *hr_dev,
-+				    struct hns_roce_icm_chunk *chunk)
-+{
-+	int i;
-+
-+	if (chunk->nsg > 0)
-+		dma_unmap_sg(&hr_dev->pdev->dev, chunk->mem, chunk->npages,
-+			     DMA_BIDIRECTIONAL);
-+
-+	for (i = 0; i < chunk->npages; ++i)
-+		__free_pages(sg_page(&chunk->mem[i]),
-+			     get_order(chunk->mem[i].length));
-+}
-+
-+static void hns_roce_free_icm_coherent(struct hns_roce_dev *hr_dev,
-+				       struct hns_roce_icm_chunk *chunk)
-+{
-+	int i;
-+
-+	for (i = 0; i < chunk->npages; ++i)
-+		dma_free_coherent(&hr_dev->pdev->dev, chunk->mem[i].length,
-+				  lowmem_page_address(sg_page(&chunk->mem[i])),
-+				  sg_dma_address(&chunk->mem[i]));
-+}
-+
-+void hns_roce_free_icm(struct hns_roce_dev *hr_dev, struct hns_roce_icm *icm,
-+		       int coherent)
-+{
-+	struct hns_roce_icm_chunk *chunk, *tmp;
-+
-+	if (!icm)
-+		return;
-+
-+	list_for_each_entry_safe(chunk, tmp, &icm->chunk_list, list) {
-+		if (coherent)
-+			hns_roce_free_icm_coherent(hr_dev, chunk);
-+		else
-+			hns_roce_free_icm_pages(hr_dev, chunk);
-+
-+		kfree(chunk);
-+	}
-+
-+	kfree(icm);
-+}
-+
-+int hns_roce_map_icm(struct hns_roce_dev *hr_dev,
-+		     struct hns_roce_icm_table *table, int obj)
-+{
-+	struct device *dev = &hr_dev->pdev->dev;
-+	spinlock_t *lock = &hr_dev->bt_cmd_lock;
-+	unsigned long end = 0, flags = 0;
-+	struct hns_roce_icm_iter iter;
-+	void __iomem *bt_cmd = NULL;
-+	u32 bt_cmd_h_val = 0;
-+	u32 bt_cmd_val[2];
-+	u32 bt_cmd_l = 0;
-+	u64 bt_ba = 0;
-+	int ret = 0;
-+
-+	/* Find the icm entry */
-+	int i = (obj & (table->num_obj - 1)) / (HNS_ROCE_TABLE_CHUNK_SIZE /
-+		table->obj_size);
-+
-+	switch (table->type) {
-+	case ICM_TYPE_QPC:
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_QPC);
-+		break;
-+	case ICM_TYPE_MTPT:
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
-+			       ICM_TYPE_MTPT);
-+		break;
-+	case ICM_TYPE_CQC:
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_CQC);
-+		break;
-+	case ICM_TYPE_SRQC:
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
-+			       ICM_TYPE_SRQC);
-+		break;
-+	default:
-+		return ret;
-+	}
-+	roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_M,
-+		       ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S, obj);
-+	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_S, 0);
-+	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S, 1);
-+
-+	/* Currently iter only a chunk */
-+	for (hns_roce_icm_first(table->icm[i], &iter);
-+	     !hns_roce_icm_last(&iter); hns_roce_icm_next(&iter)) {
-+		bt_ba = hns_roce_icm_addr(&iter) >> DMA_ADDR_T_SHIFT;
-+
-+		spin_lock_irqsave(lock, flags);
-+
-+		bt_cmd = hr_dev->reg_base + ROCEE_BT_CMD_H_REG;
-+
-+		end = msecs_to_jiffies(HW_SYNC_TIMEOUT_MSECS) + jiffies;
-+		while (1) {
-+			if (roce_readl(bt_cmd) >> BT_CMD_SYNC_SHIFT) {
-+				if (!(time_before(jiffies, end))) {
-+					dev_err(dev, "Write bt_cmd err,hw_sync is not zero.\n");
-+					spin_unlock_irqrestore(lock, flags);
-+					ret = -EBUSY;
-+					return ret;
-+				}
-+			} else {
-+				break;
-+			}
-+		}
-+
-+		bt_cmd_l = (u32)bt_ba;
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S,
-+			       bt_ba >> BT_BA_SHIFT);
-+
-+		bt_cmd_val[0] = bt_cmd_l;
-+		bt_cmd_val[1] = bt_cmd_h_val;
-+		hns_roce_write64_k(bt_cmd_val,
-+				   hr_dev->reg_base + ROCEE_BT_CMD_L_REG);
-+		spin_unlock_irqrestore(lock, flags);
-+	}
-+
-+	return ret;
-+}
-+
-+int hns_roce_unmap_icm(struct hns_roce_dev *hr_dev,
-+		       struct hns_roce_icm_table *table, int obj)
-+{
-+	struct device *dev = &hr_dev->pdev->dev;
-+	unsigned long end = 0;
-+	unsigned long flag;
-+	void __iomem *bt_cmd;
-+	uint32_t bt_cmd_val[2];
-+	u32 bt_cmd_h_val = 0;
-+	int ret = 0;
-+
-+	switch (table->type) {
-+	case ICM_TYPE_QPC:
-+		dev_dbg(dev, "UNMAP QPC BT  :\n");
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_QPC);
-+		break;
-+	case ICM_TYPE_MTPT:
-+		dev_dbg(dev, "UNMAP MTPT BT :\n");
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
-+			       ICM_TYPE_MTPT);
-+		break;
-+	case ICM_TYPE_CQC:
-+		dev_dbg(dev, "UNMAP CQC BT  :\n");
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_CQC);
-+		break;
-+	case ICM_TYPE_SRQC:
-+		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
-+			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
-+			       ICM_TYPE_SRQC);
-+		break;
-+	default:
-+		return ret;
-+	}
-+	roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_M,
-+		       ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S, obj);
-+	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_S, 1);
-+	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S, 1);
-+	roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_M,
-+		       ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S, 0);
-+
-+	spin_lock_irqsave(&hr_dev->bt_cmd_lock, flags);
-+
-+	bt_cmd = hr_dev->reg_base + ROCEE_BT_CMD_H_REG;
-+
-+	end = msecs_to_jiffies(HW_SYNC_TIMEOUT_MSECS) + jiffies;
-+	while (1) {
-+		msleep(20);
-+		if (roce_readl(bt_cmd) >> BT_CMD_SYNC_SHIFT) {
-+			if (!(time_before(jiffies, end))) {
-+				dev_err(dev, "Write bt_cmd err,hw_sync is not zero.\n");
-+				spin_unlock_irqrestore(&hr_dev->bt_cmd_lock,
-+						       flags);
-+				return -EBUSY;
-+			}
-+		} else {
-+			break;
-+		}
-+	}
-+
-+	bt_cmd_val[0] = 0;
-+	bt_cmd_val[1] = bt_cmd_h_val;
-+	hns_roce_write64_k(bt_cmd_val, hr_dev->reg_base + ROCEE_BT_CMD_L_REG);
-+	spin_unlock_irqrestore(&hr_dev->bt_cmd_lock, flags);
-+
-+	return ret;
-+}
-+
-+int hns_roce_init_icm_table(struct hns_roce_dev *hr_dev,
-+			    struct hns_roce_icm_table *table, u32 type,
-+			    int obj_size, int nobj, int reserved,
-+			    int use_lowmem, int use_coherent)
-+{
-+	struct device *dev = &hr_dev->pdev->dev;
-+	u32 chunk_size;
-+	int obj_per_chunk;
-+	int num_icm;
-+	int i;
-+
-+	obj_per_chunk = HNS_ROCE_TABLE_CHUNK_SIZE / obj_size;
-+	num_icm = (nobj + obj_per_chunk - 1) / obj_per_chunk;
-+
-+	table->icm = kcalloc(num_icm, sizeof(*table->icm), GFP_KERNEL);
-+	if (!table->icm)
-+		return -ENOMEM;
-+
-+	table->type = type;
-+	table->num_icm = num_icm;
-+	table->num_obj = nobj;
-+	table->obj_size = obj_size;
-+	table->lowmem = use_lowmem;
-+	table->coherent = use_coherent;
-+	mutex_init(&table->mutex);
-+
-+	for (i = 0;
-+	i * HNS_ROCE_TABLE_CHUNK_SIZE < reserved * obj_size; ++i) {
-+		chunk_size = HNS_ROCE_TABLE_CHUNK_SIZE;
-+		if ((i + 1) * HNS_ROCE_TABLE_CHUNK_SIZE > nobj * obj_size)
-+			chunk_size = PAGE_ALIGN(nobj * obj_size -
-+						i * HNS_ROCE_TABLE_CHUNK_SIZE);
-+
-+		table->icm[i] = hns_roce_alloc_icm(hr_dev,
-+				chunk_size >> PAGE_SHIFT, (use_lowmem ?
-+				GFP_KERNEL : GFP_HIGHUSER) | __GFP_NOWARN,
-+				use_coherent);
-+		if (!table->icm[i])
-+			goto _error_failed_alloc_icm;
-+
-+		if (hns_roce_map_icm(hr_dev, table,
-+			i * HNS_ROCE_TABLE_CHUNK_SIZE / obj_size)) {
-+			dev_err(dev, "map icm table failed.\n");
-+			goto _error_failed_map_icm;
-+		}
-+
-+		/*
-+		 * Add a reference to this ICM chunk so that it never
-+		 * Gets freed (since it contains reserved firmware objects).
-+		 */
-+		++table->icm[i]->refcount;
-+	}
-+
-+	return 0;
-+
-+_error_failed_map_icm:
-+_error_failed_alloc_icm:
-+	for (i = 0; i < num_icm; ++i)
-+		if (table->icm[i]) {
-+			if (hns_roce_unmap_icm(hr_dev, table,
-+				i * HNS_ROCE_TABLE_CHUNK_SIZE / obj_size))
-+				dev_err(dev, "unmap icm table failed.\n");
-+
-+			hns_roce_free_icm(hr_dev, table->icm[i], use_coherent);
-+		}
-+
-+	return -ENOMEM;
-+}
-+
-+void hns_roce_cleanup_icm_table(struct hns_roce_dev *hr_dev,
-+				struct hns_roce_icm_table *table)
-+{
-+	struct device *dev = &hr_dev->pdev->dev;
-+	int i;
-+
-+	for (i = 0; i < table->num_icm; ++i)
-+		if (table->icm[i]) {
-+			if (hns_roce_unmap_icm(hr_dev, table,
-+			    i * HNS_ROCE_TABLE_CHUNK_SIZE / table->obj_size))
-+				dev_err(dev, "unmap icm table failed.\n");
-+
-+			hns_roce_free_icm(hr_dev, table->icm[i],
-+					  table->coherent);
-+		}
-+
-+	kfree(table->icm);
-+}
-+
-+void hns_roce_cleanup_icm(struct hns_roce_dev *hr_dev)
-+{
-+	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->cq_table.table);
-+	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->qp_table.irrl_table);
-+	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->qp_table.qp_table);
-+	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->mr_table.mtpt_table);
-+	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->mr_table.mtt_table);
-+}
-diff --git a/drivers/infiniband/hw/hns/hns_roce_icm.h b/drivers/infiniband/hw/hns/hns_roce_icm.h
-new file mode 100644
-index 0000000..ce96d89
---- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_icm.h
-@@ -0,0 +1,95 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _HNS_ROCE_ICM_H
-+#define _HNS_ROCE_ICM_H
-+
-+#include <linux/list.h>
-+#include <linux/mutex.h>
-+#include <linux/pci.h>
-+
-+enum {
-+	/* MAP ICM */
-+	ICM_TYPE_QPC = 0,
-+	ICM_TYPE_MTPT,
-+	ICM_TYPE_CQC,
-+	ICM_TYPE_SRQC,
-+
-+	 /* UNMAP ICM */
-+	ICM_TYPE_MTT,
-+	ICM_TYPE_IRRL,
-+};
-+
-+#define HNS_ROCE_ICM_CHUNK_LEN	\
-+	 ((256 - sizeof(struct list_head) - 2 * sizeof(int)) /	 \
-+	 (sizeof(struct scatterlist)))
-+
-+struct hns_roce_icm_chunk {
-+	struct list_head	 list;
-+	int			 npages;
-+	int			 nsg;
-+	struct scatterlist	 mem[HNS_ROCE_ICM_CHUNK_LEN];
-+};
-+
-+struct hns_roce_icm {
-+	struct list_head	 chunk_list;
-+	int			 refcount;
-+};
-+
-+struct hns_roce_icm_iter {
-+	struct hns_roce_icm		 *icm;
-+	struct hns_roce_icm_chunk	 *chunk;
-+	int				 page_idx;
-+};
-+
-+void hns_roce_free_icm(struct hns_roce_dev *hr_dev,
-+		       struct hns_roce_icm *icm, int coherent);
-+int hns_roce_init_icm_table(struct hns_roce_dev *hr_dev,
-+			    struct hns_roce_icm_table *table, u32 type,
-+			    int obj_size, int nobj, int reserved,
-+			    int use_lowmem, int use_coherent);
-+void hns_roce_cleanup_icm_table(struct hns_roce_dev *hr_dev,
-+				struct hns_roce_icm_table *table);
-+void hns_roce_cleanup_icm(struct hns_roce_dev *hr_dev);
-+
-+static inline void hns_roce_icm_first(struct hns_roce_icm *icm,
-+				      struct hns_roce_icm_iter *iter)
-+{
-+	iter->icm = icm;
-+	iter->chunk = list_empty(&icm->chunk_list) ? NULL :
-+				 list_entry(icm->chunk_list.next,
-+					    struct hns_roce_icm_chunk, list);
-+	 iter->page_idx = 0;
-+}
-+
-+static inline int hns_roce_icm_last(struct hns_roce_icm_iter *iter)
-+{
-+	return !iter->chunk;
-+}
-+
-+static inline void hns_roce_icm_next(struct hns_roce_icm_iter *iter)
-+{
-+	if (++iter->page_idx >= iter->chunk->nsg) {
-+		if (iter->chunk->list.next == &iter->icm->chunk_list) {
-+			iter->chunk = NULL;
-+			return;
-+		}
-+
-+		iter->chunk = list_entry(iter->chunk->list.next,
-+					 struct hns_roce_icm_chunk, list);
-+		iter->page_idx = 0;
-+	}
-+}
-+
-+static inline dma_addr_t hns_roce_icm_addr(struct hns_roce_icm_iter *iter)
-+{
-+	return sg_dma_address(&iter->chunk->mem[iter->page_idx]);
-+}
-+
-+#endif /*_HNS_ROCE_ICM_H*/
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index ea10fb5..3da0c03 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -41,6 +41,7 @@
- #include <rdma/ib_verbs.h>
- #include "hns_roce_common.h"
- #include "hns_roce_device.h"
-+#include "hns_roce_icm.h"
- 
- int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
- {
-@@ -111,6 +112,77 @@ void hns_roce_profile_init(struct hns_roce_dev *hr_dev)
- 	hr_dev->hw->hw_profile(hr_dev);
++struct ib_cq *hns_roce_ib_create_cq(struct ib_device *ib_dev,
++				    const struct ib_cq_init_attr *attr,
++				    struct ib_ucontext *context,
++				    struct ib_udata *udata);
++
++int hns_roce_ib_destroy_cq(struct ib_cq *ib_cq);
++
+ void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
+ void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
+ void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type);
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+index 3bbf570..2006bfd 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -1043,6 +1043,11 @@ static void *get_sw_cqe(struct hns_roce_cq *hr_cq, int n)
+ 		!!(n & (hr_cq->ib_cq.cqe + 1))) ? hr_cqe : NULL;
  }
  
-+int hns_roce_init_icm(struct hns_roce_dev *hr_dev)
++static struct hns_roce_cqe *next_cqe_sw(struct hns_roce_cq *hr_cq)
 +{
-+	int ret;
-+	struct device *dev = &hr_dev->pdev->dev;
++	return get_sw_cqe(hr_cq, hr_cq->cons_index);
++}
 +
-+	ret = hns_roce_init_icm_table(hr_dev,
-+				      (void *)&hr_dev->mr_table.mtt_table,
-+				      ICM_TYPE_MTT, hr_dev->caps.mtt_entry_sz,
-+				      hr_dev->caps.num_mtt_segs, 0, 1, 0);
-+	if (ret) {
-+		dev_err(dev, "Failed to map MTT context memory, aborting.\n");
-+		return ret;
-+	}
+ void hns_roce_v1_cq_set_ci(struct hns_roce_cq *hr_cq, u32 cons_index,
+ 			   spinlock_t *doorbell_lock)
+ 
+@@ -1118,6 +1123,338 @@ static void hns_roce_v1_cq_clean(struct hns_roce_cq *hr_cq, u32 qpn,
+ 	spin_unlock_irq(&hr_cq->lock);
+ }
+ 
++void hns_roce_v1_write_cqc(struct hns_roce_dev *hr_dev,
++			   struct hns_roce_cq *hr_cq, void *mb_buf, u64 *mtts,
++			   dma_addr_t dma_handle, int nent, u32 vector)
++{
++	struct hns_roce_cq_context *cq_context = NULL;
++	void __iomem *tptr_addr;
 +
-+	ret = hns_roce_init_icm_table(hr_dev,
-+				      (void *)&hr_dev->mr_table.mtpt_table,
-+				      ICM_TYPE_MTPT, hr_dev->caps.mtpt_entry_sz,
-+				      hr_dev->caps.num_mtpts, 0, 1, 1);
-+	if (ret) {
-+		dev_err(dev, "Failed to map dMPT context memory, aborting.\n");
-+		goto err_unmap_mtt;
-+	}
++	cq_context = mb_buf;
++	memset(cq_context, 0, sizeof(*cq_context));
 +
-+	ret = hns_roce_init_icm_table(hr_dev,
-+				      (void *)&hr_dev->qp_table.qp_table,
-+				      ICM_TYPE_QPC, hr_dev->caps.qpc_entry_sz,
-+				      hr_dev->caps.num_qps, 0, 1, 0);
-+	if (ret) {
-+		dev_err(dev, "Failed to map QP context memory, aborting.\n");
-+		goto err_unmap_dmpt;
-+	}
++	tptr_addr = 0;
++	hr_dev->priv_addr = tptr_addr;
++	hr_cq->tptr_addr = tptr_addr;
 +
-+	ret = hns_roce_init_icm_table(hr_dev,
-+				      (void *)&hr_dev->qp_table.irrl_table,
-+				      ICM_TYPE_IRRL,
-+				      hr_dev->caps.irrl_entry_sz *
-+				      hr_dev->caps.max_qp_init_rdma,
-+				      hr_dev->caps.num_qps, 0, 1, 0);
-+	if (ret) {
-+		dev_err(dev, "Failed to map irrl_table memory, aborting.\n");
-+		goto err_unmap_qp;
-+	}
++	/* Register cq_context members */
++	roce_set_field(cq_context->cqc_byte_4,
++		       CQ_CONTEXT_CQC_BYTE_4_CQC_STATE_M,
++		       CQ_CONTEXT_CQC_BYTE_4_CQC_STATE_S, CQ_STATE_VALID);
++	roce_set_field(cq_context->cqc_byte_4, CQ_CONTEXT_CQC_BYTE_4_CQN_M,
++		       CQ_CONTEXT_CQC_BYTE_4_CQN_S, hr_cq->cqn);
++	cq_context->cqc_byte_4 = cpu_to_le32(cq_context->cqc_byte_4);
 +
-+	ret = hns_roce_init_icm_table(hr_dev,
-+				      (void *)&hr_dev->cq_table.table,
-+				      ICM_TYPE_CQC, hr_dev->caps.cqc_entry_sz,
-+				      hr_dev->caps.num_cqs, 0, 1, 0);
-+	if (ret) {
-+		dev_err(dev, "Failed to map CQ context memory, aborting.\n");
-+		goto err_unmap_irrl;
-+	}
++	cq_context->cq_bt_l = (u32)dma_handle;
++	cq_context->cq_bt_l = cpu_to_le32(cq_context->cq_bt_l);
 +
-+	return 0;
++	roce_set_field(cq_context->cqc_byte_12,
++		       CQ_CONTEXT_CQC_BYTE_12_CQ_BT_H_M,
++		       CQ_CONTEXT_CQC_BYTE_12_CQ_BT_H_S,
++		       ((u64)dma_handle >> ADDR_SHIFT_32));
++	roce_set_field(cq_context->cqc_byte_12,
++		       CQ_CONTEXT_CQC_BYTE_12_CQ_CQE_SHIFT_M,
++		       CQ_CONTEXT_CQC_BYTE_12_CQ_CQE_SHIFT_S,
++		       ilog2((unsigned int)nent));
++	roce_set_field(cq_context->cqc_byte_12, CQ_CONTEXT_CQC_BYTE_12_CEQN_M,
++		       CQ_CONTEXT_CQC_BYTE_12_CEQN_S, vector);
++	cq_context->cqc_byte_12 = cpu_to_le32(cq_context->cqc_byte_12);
 +
-+err_unmap_irrl:
-+	hns_roce_cleanup_icm_table(hr_dev,
-+				   (void *)&hr_dev->qp_table.irrl_table);
++	cq_context->cur_cqe_ba0_l = (u32)(mtts[0]);
++	cq_context->cur_cqe_ba0_l = cpu_to_le32(cq_context->cur_cqe_ba0_l);
 +
-+err_unmap_qp:
-+	hns_roce_cleanup_icm_table(hr_dev, (void *)&hr_dev->qp_table.qp_table);
++	roce_set_field(cq_context->cqc_byte_20,
++		       CQ_CONTEXT_CQC_BYTE_20_CUR_CQE_BA0_H_M,
++		       CQ_CONTEXT_CQC_BYTE_20_CUR_CQE_BA0_H_S,
++		       cpu_to_le32((mtts[0]) >> ADDR_SHIFT_32));
++	/* Dedicated hardware, directly set 0 */
++	roce_set_field(cq_context->cqc_byte_20,
++		       CQ_CONTEXT_CQC_BYTE_20_CQ_CUR_INDEX_M,
++		       CQ_CONTEXT_CQC_BYTE_20_CQ_CUR_INDEX_S, 0);
++	roce_set_field(cq_context->cqc_byte_20,
++		       CQ_CONTEXT_CQC_BYTE_20_CQE_TPTR_ADDR_H_M,
++		       CQ_CONTEXT_CQC_BYTE_20_CQE_TPTR_ADDR_H_S,
++		       (u64)tptr_addr >> ADDR_SHIFT_44);
++	cq_context->cqc_byte_20 = cpu_to_le32(cq_context->cqc_byte_20);
 +
-+err_unmap_dmpt:
-+	hns_roce_cleanup_icm_table(hr_dev,
-+				   (void *)&hr_dev->mr_table.mtpt_table);
++	cq_context->cqe_tptr_addr_l = (u32)((u64)tptr_addr >> ADDR_SHIFT_12);
 +
-+err_unmap_mtt:
-+	hns_roce_cleanup_icm_table(hr_dev, (void *)&hr_dev->mr_table.mtt_table);
++	roce_set_field(cq_context->cqc_byte_32,
++		       CQ_CONTEXT_CQC_BYTE_32_CUR_CQE_BA1_H_M,
++		       CQ_CONTEXT_CQC_BYTE_32_CUR_CQE_BA1_H_S, 0);
++	roce_set_bit(cq_context->cqc_byte_32,
++		     CQ_CONTEXT_CQC_BYTE_32_SE_FLAG_S, 0);
++	roce_set_bit(cq_context->cqc_byte_32,
++		     CQ_CONTEXT_CQC_BYTE_32_CE_FLAG_S, 0);
++	roce_set_bit(cq_context->cqc_byte_32,
++		     CQ_CONTEXT_CQC_BYTE_32_NOTIFICATION_FLAG_S, 0);
++	roce_set_bit(cq_context->cqc_byte_32,
++		     CQ_CQNTEXT_CQC_BYTE_32_TYPE_OF_COMPLETION_NOTIFICATION_S,
++		     0);
++	/*The initial value of cq's ci is 0 */
++	roce_set_field(cq_context->cqc_byte_32,
++		       CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_M,
++		       CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_S, 0);
++	cq_context->cqc_byte_32 = cpu_to_le32(cq_context->cqc_byte_32);
++}
++
++int hns_roce_v1_req_notify_cq(struct ib_cq *ibcq, enum ib_cq_notify_flags flags)
++{
++	struct hns_roce_cq *hr_cq = to_hr_cq(ibcq);
++	u32 notification_flag;
++	u32 doorbell[2];
++	int ret = 0;
++
++	notification_flag = (flags & IB_CQ_SOLICITED_MASK) ==
++			    IB_CQ_SOLICITED ? CQ_DB_REQ_NOT : CQ_DB_REQ_NOT_SOL;
++	/*
++	* flags = 0; Notification Flag = 1, next
++	* flags = 1; Notification Flag = 0, solocited
++	*/
++	doorbell[0] = hr_cq->cons_index & ((hr_cq->cq_depth << 1) - 1);
++	roce_set_bit(doorbell[1], ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_HW_SYNS_S, 1);
++	roce_set_field(doorbell[1], ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_CMD_M,
++		       ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_CMD_S, 3);
++	roce_set_field(doorbell[1], ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_CMD_MDF_M,
++		       ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_CMD_MDF_S, 1);
++	roce_set_field(doorbell[1], ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_INP_H_M,
++		       ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_INP_H_S,
++		       hr_cq->cqn | notification_flag);
++
++	hns_roce_write64_k(doorbell, hr_cq->cq_db_l);
 +
 +	return ret;
 +}
 +
- /**
- * hns_roce_probe - RoCE driver entrance
- * @pdev: pointer to platform device
-@@ -178,6 +250,16 @@ static int hns_roce_probe(struct platform_device *pdev)
- 		}
- 	}
- 
-+	ret = hns_roce_init_icm(hr_dev);
-+	if (ret) {
-+		dev_err(dev, "init icm fail!\n");
-+		goto error_failed_init_icm;
++static int hns_roce_v1_poll_one(struct hns_roce_cq *hr_cq,
++				struct hns_roce_qp **cur_qp, struct ib_wc *wc)
++{
++	int qpn;
++	int is_send;
++	u16 wqe_ctr;
++	u32 status;
++	u32 opcode;
++	struct hns_roce_cqe *cqe;
++	struct hns_roce_qp *hr_qp;
++	struct hns_roce_wq *wq;
++	struct hns_roce_wqe_ctrl_seg *sq_wqe;
++	struct hns_roce_dev *hr_dev = to_hr_dev(hr_cq->ib_cq.device);
++	struct device *dev = &hr_dev->pdev->dev;
++
++	/* Find cqe according consumer index */
++	cqe = next_cqe_sw(hr_cq);
++	if (!cqe)
++		return -EAGAIN;
++
++	++hr_cq->cons_index;
++	/* Memory barrier */
++	rmb();
++	/* 0->SQ, 1->RQ */
++	is_send  = !(roce_get_bit(cqe->cqe_byte_4, CQE_BYTE_4_SQ_RQ_FLAG_S));
++
++	/* Local_qpn in UD cqe is always 1, so it needs to compute new qpn */
++	if (roce_get_field(cqe->cqe_byte_16, CQE_BYTE_16_LOCAL_QPN_M,
++			   CQE_BYTE_16_LOCAL_QPN_S) <= 1) {
++		qpn = roce_get_field(cqe->cqe_byte_20, CQE_BYTE_20_PORT_NUM_M,
++				     CQE_BYTE_20_PORT_NUM_S) +
++		      roce_get_field(cqe->cqe_byte_16, CQE_BYTE_16_LOCAL_QPN_M,
++				     CQE_BYTE_16_LOCAL_QPN_S) *
++				     HNS_ROCE_MAX_PORTS;
++	} else {
++		qpn = roce_get_field(cqe->cqe_byte_16, CQE_BYTE_16_LOCAL_QPN_M,
++				     CQE_BYTE_16_LOCAL_QPN_S);
 +	}
 +
-+error_failed_init_icm:
-+	if (hr_dev->cmd_mod)
-+		hns_roce_cmd_use_polling(hr_dev);
++	if (!*cur_qp || (qpn & HNS_ROCE_CQE_QPN_MASK) != (*cur_qp)->qpn) {
++		hr_qp = __hns_roce_qp_lookup(hr_dev, qpn);
++		if (unlikely(!hr_qp)) {
++			dev_err(dev, "CQ %06x with entry for unknown QPN %06x\n",
++				hr_cq->cqn, (qpn & HNS_ROCE_CQE_QPN_MASK));
++			return -EINVAL;
++		}
 +
- error_failed_use_event:
- 	hns_roce_cleanup_eq_table(hr_dev);
- 
-@@ -204,6 +286,8 @@ static int hns_roce_remove(struct platform_device *pdev)
- 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
- 	int ret = 0;
- 
-+	hns_roce_cleanup_icm(hr_dev);
++		*cur_qp = hr_qp;
++	}
 +
- 	if (hr_dev->cmd_mod)
- 		hns_roce_cmd_use_polling(hr_dev);
++	wc->qp = &(*cur_qp)->ibqp;
++	wc->vendor_err = 0;
++
++	status = roce_get_field(cqe->cqe_byte_4,
++				CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
++				CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) &
++				HNS_ROCE_CQE_STATUS_MASK;
++	switch (status) {
++	case HNS_ROCE_CQE_SUCCESS:
++		wc->status = IB_WC_SUCCESS;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_LOCAL_LENGTH_ERR:
++		wc->status = IB_WC_LOC_LEN_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_LOCAL_QP_OP_ERR:
++		wc->status = IB_WC_LOC_QP_OP_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_LOCAL_PROT_ERR:
++		wc->status = IB_WC_LOC_PROT_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_WR_FLUSH_ERR:
++		wc->status = IB_WC_WR_FLUSH_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_MEM_MANAGE_OPERATE_ERR:
++		wc->status = IB_WC_MW_BIND_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_BAD_RESP_ERR:
++		wc->status = IB_WC_BAD_RESP_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_LOCAL_ACCESS_ERR:
++		wc->status = IB_WC_LOC_ACCESS_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR:
++		wc->status = IB_WC_REM_INV_REQ_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_REMOTE_ACCESS_ERR:
++		wc->status = IB_WC_REM_ACCESS_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_REMOTE_OP_ERR:
++		wc->status = IB_WC_REM_OP_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR:
++		wc->status = IB_WC_RETRY_EXC_ERR;
++		break;
++	case HNS_ROCE_CQE_SYNDROME_RNR_RETRY_EXC_ERR:
++		wc->status = IB_WC_RNR_RETRY_EXC_ERR;
++		break;
++	default:
++		wc->status = IB_WC_GENERAL_ERR;
++		break;
++	}
++
++	/* CQE status error, directly return */
++	if (wc->status != IB_WC_SUCCESS)
++		return 0;
++
++	if (is_send) {
++		/* SQ conrespond to CQE */
++		sq_wqe = get_send_wqe(*cur_qp, roce_get_field(cqe->cqe_byte_4,
++						CQE_BYTE_4_WQE_INDEX_M,
++						CQE_BYTE_4_WQE_INDEX_S));
++		switch (sq_wqe->flag & HNS_ROCE_WQE_OPCODE_MASK) {
++		case HNS_ROCE_WQE_OPCODE_SEND:
++			wc->opcode = IB_WC_SEND;
++			break;
++		case HNS_ROCE_WQE_OPCODE_RDMA_READ:
++			wc->opcode = IB_WC_RDMA_READ;
++			wc->byte_len = le32_to_cpu(cqe->byte_cnt);
++			break;
++		case HNS_ROCE_WQE_OPCODE_RDMA_WRITE:
++			wc->opcode = IB_WC_RDMA_WRITE;
++			break;
++		case HNS_ROCE_WQE_OPCODE_LOCAL_INV:
++			wc->opcode = IB_WC_LOCAL_INV;
++			break;
++		case HNS_ROCE_WQE_OPCODE_UD_SEND:
++			wc->opcode = IB_WC_SEND;
++			break;
++		default:
++			wc->status = IB_WC_GENERAL_ERR;
++			break;
++		}
++		wc->wc_flags = (sq_wqe->flag & HNS_ROCE_WQE_IMM ?
++				IB_WC_WITH_IMM : 0);
++
++		wq = &(*cur_qp)->sq;
++		if ((*cur_qp)->sq_signal_bits) {
++			/*
++			* If sg_signal_bit is 1,
++			* firstly tail pointer updated to wqe
++			* which current cqe correspond to
++			*/
++			wqe_ctr = (u16)roce_get_field(cqe->cqe_byte_4,
++						      CQE_BYTE_4_WQE_INDEX_M,
++						      CQE_BYTE_4_WQE_INDEX_S);
++			wq->tail += (wqe_ctr - (u16)wq->tail) &
++				    (wq->wqe_cnt - 1);
++		}
++		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
++		++wq->tail;
++		} else {
++		/* RQ conrespond to CQE */
++		wc->byte_len = le32_to_cpu(cqe->byte_cnt);
++		opcode = roce_get_field(cqe->cqe_byte_4,
++					CQE_BYTE_4_OPERATION_TYPE_M,
++					CQE_BYTE_4_OPERATION_TYPE_S) &
++					HNS_ROCE_CQE_OPCODE_MASK;
++		switch (opcode) {
++		case HNS_ROCE_OPCODE_RDMA_WITH_IMM_RECEIVE:
++			wc->opcode = IB_WC_RECV_RDMA_WITH_IMM;
++			wc->wc_flags = IB_WC_WITH_IMM;
++			wc->ex.imm_data = le32_to_cpu(cqe->immediate_data);
++			break;
++		case HNS_ROCE_OPCODE_SEND_DATA_RECEIVE:
++			if (roce_get_bit(cqe->cqe_byte_4,
++					 CQE_BYTE_4_IMM_INDICATOR_S)) {
++				wc->opcode = IB_WC_RECV;
++				wc->wc_flags = IB_WC_WITH_IMM;
++				wc->ex.imm_data = le32_to_cpu(
++						  cqe->immediate_data);
++			} else {
++				wc->opcode = IB_WC_RECV;
++				wc->wc_flags = 0;
++			}
++			break;
++		default:
++			wc->status = IB_WC_GENERAL_ERR;
++			break;
++		}
++
++		/* Update tail pointer, record wr_id */
++		wq = &(*cur_qp)->rq;
++		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
++		++wq->tail;
++		wc->sl = (u8)roce_get_field(cqe->cqe_byte_20, CQE_BYTE_20_SL_M,
++					    CQE_BYTE_20_SL_S);
++		wc->src_qp = (u8)roce_get_field(cqe->cqe_byte_20,
++						CQE_BYTE_20_REMOTE_QPN_M,
++						CQE_BYTE_20_REMOTE_QPN_S);
++		wc->wc_flags |= (roce_get_bit(cqe->cqe_byte_20,
++					      CQE_BYTE_20_GRH_PRESENT_S) ?
++					      IB_WC_GRH : 0);
++		wc->pkey_index = (u16)roce_get_field(cqe->cqe_byte_28,
++						     CQE_BYTE_28_P_KEY_IDX_M,
++						     CQE_BYTE_28_P_KEY_IDX_S);
++	}
++
++	return 0;
++}
++
++int hns_roce_v1_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)
++{
++	struct hns_roce_cq *hr_cq = to_hr_cq(ibcq);
++	struct hns_roce_qp *cur_qp = NULL;
++	unsigned long flags;
++	int npolled;
++	int ret = 0;
++
++	spin_lock_irqsave(&hr_cq->lock, flags);
++
++	for (npolled = 0; npolled < num_entries; ++npolled) {
++		ret = hns_roce_v1_poll_one(hr_cq, &cur_qp, wc + npolled);
++		if (ret)
++			break;
++	}
++
++	if (npolled) {
++		hns_roce_v1_cq_set_ci(hr_cq, hr_cq->cons_index,
++				      &to_hr_dev(ibcq->device)->cq_db_lock);
++	}
++
++	spin_unlock_irqrestore(&hr_cq->lock, flags);
++
++	if (ret == 0 || ret == -EAGAIN)
++		return npolled;
++	else
++		return ret;
++}
++
+ static int hns_roce_v1_qp_modify(struct hns_roce_dev *hr_dev,
+ 				 struct hns_roce_mtt *mtt,
+ 				 enum hns_roce_qp_state cur_state,
+@@ -2307,9 +2644,12 @@ struct hns_roce_hw hns_roce_hw_v1 = {
+ 	.set_gid = hns_roce_v1_set_gid,
+ 	.set_mac = hns_roce_v1_set_mac,
+ 	.set_mtu = hns_roce_v1_set_mtu,
++	.write_cqc = hns_roce_v1_write_cqc,
+ 	.modify_qp = hns_roce_v1_modify_qp,
+ 	.query_qp = hns_roce_v1_query_qp,
+ 	.destroy_qp = hns_roce_v1_destroy_qp,
+ 	.post_send = hns_roce_v1_post_send,
+ 	.post_recv = hns_roce_v1_post_recv,
++	.req_notify_cq = hns_roce_v1_req_notify_cq,
++	.poll_cq = hns_roce_v1_poll_cq,
+ };
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+index 917985c..ba81540 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+@@ -10,6 +10,8 @@
+ #ifndef _HNS_ROCE_HW_V1_H
+ #define _HNS_ROCE_HW_V1_H
  
++#define CQ_STATE_VALID      2
++
+ #define HNS_ROCE_V1_MAX_PD_NUM			0x8000
+ #define HNS_ROCE_V1_MAX_CQ_NUM			0x10000
+ #define HNS_ROCE_V1_MAX_CQE_NUM			0x8000
+@@ -85,6 +87,22 @@
+ #define HNS_ROCE_ODB_EXTEND_MODE	1
+ 
+ #define HNS_ROCE_CQE_QPN_MASK		0x3ffff
++#define HNS_ROCE_CQE_STATUS_MASK	0x1f
++#define HNS_ROCE_CQE_OPCODE_MASK	0xf
++
++#define HNS_ROCE_CQE_SUCCESS				0x00
++#define HNS_ROCE_CQE_SYNDROME_LOCAL_LENGTH_ERR		0x01
++#define HNS_ROCE_CQE_SYNDROME_LOCAL_QP_OP_ERR		0x02
++#define HNS_ROCE_CQE_SYNDROME_LOCAL_PROT_ERR		0x03
++#define HNS_ROCE_CQE_SYNDROME_WR_FLUSH_ERR		0x04
++#define HNS_ROCE_CQE_SYNDROME_MEM_MANAGE_OPERATE_ERR	0x05
++#define HNS_ROCE_CQE_SYNDROME_BAD_RESP_ERR		0x06
++#define HNS_ROCE_CQE_SYNDROME_LOCAL_ACCESS_ERR		0x07
++#define HNS_ROCE_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR	0x08
++#define HNS_ROCE_CQE_SYNDROME_REMOTE_ACCESS_ERR		0x09
++#define HNS_ROCE_CQE_SYNDROME_REMOTE_OP_ERR		0x0a
++#define HNS_ROCE_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR	0x0b
++#define HNS_ROCE_CQE_SYNDROME_RNR_RETRY_EXC_ERR		0x0c
+ 
+ #define QP1C_CFGN_OFFSET		0x28
+ #define PHY_PORT_OFFSET			0x8
+@@ -95,17 +113,114 @@
+ #define QKEY_VAL			0x80010000
+ #define SDB_INV_CNT_OFFSET		8
+ 
++struct hns_roce_cq_context {
++	u32 cqc_byte_4;
++	u32 cq_bt_l;
++	u32 cqc_byte_12;
++	u32 cur_cqe_ba0_l;
++	u32 cqc_byte_20;
++	u32 cqe_tptr_addr_l;
++	u32 cur_cqe_ba1_l;
++	u32 cqc_byte_32;
++};
++
++#define CQ_CONTEXT_CQC_BYTE_4_CQC_STATE_S 0
++#define CQ_CONTEXT_CQC_BYTE_4_CQC_STATE_M   \
++	(((1UL << 2) - 1) << CQ_CONTEXT_CQC_BYTE_4_CQC_STATE_S)
++
++#define CQ_CONTEXT_CQC_BYTE_4_CQN_S 16
++#define CQ_CONTEXT_CQC_BYTE_4_CQN_M   \
++	(((1UL << 16) - 1) << CQ_CONTEXT_CQC_BYTE_4_CQN_S)
++
++#define CQ_CONTEXT_CQC_BYTE_12_CQ_BT_H_S 0
++#define CQ_CONTEXT_CQC_BYTE_12_CQ_BT_H_M   \
++	(((1UL << 17) - 1) << CQ_CONTEXT_CQC_BYTE_12_CQ_BT_H_S)
++
++#define CQ_CONTEXT_CQC_BYTE_12_CQ_CQE_SHIFT_S 20
++#define CQ_CONTEXT_CQC_BYTE_12_CQ_CQE_SHIFT_M   \
++	(((1UL << 4) - 1) << CQ_CONTEXT_CQC_BYTE_12_CQ_CQE_SHIFT_S)
++
++#define CQ_CONTEXT_CQC_BYTE_12_CEQN_S 24
++#define CQ_CONTEXT_CQC_BYTE_12_CEQN_M   \
++	(((1UL << 5) - 1) << CQ_CONTEXT_CQC_BYTE_12_CEQN_S)
++
++#define CQ_CONTEXT_CQC_BYTE_20_CUR_CQE_BA0_H_S 0
++#define CQ_CONTEXT_CQC_BYTE_20_CUR_CQE_BA0_H_M   \
++	(((1UL << 5) - 1) << CQ_CONTEXT_CQC_BYTE_20_CUR_CQE_BA0_H_S)
++
++#define CQ_CONTEXT_CQC_BYTE_20_CQ_CUR_INDEX_S 16
++#define CQ_CONTEXT_CQC_BYTE_20_CQ_CUR_INDEX_M   \
++	(((1UL << 16) - 1) << CQ_CONTEXT_CQC_BYTE_20_CQ_CUR_INDEX_S)
++
++#define CQ_CONTEXT_CQC_BYTE_20_CQE_TPTR_ADDR_H_S 8
++#define CQ_CONTEXT_CQC_BYTE_20_CQE_TPTR_ADDR_H_M   \
++	(((1UL << 5) - 1) << CQ_CONTEXT_CQC_BYTE_20_CQE_TPTR_ADDR_H_S)
++
++#define CQ_CONTEXT_CQC_BYTE_32_CUR_CQE_BA1_H_S 0
++#define CQ_CONTEXT_CQC_BYTE_32_CUR_CQE_BA1_H_M   \
++	(((1UL << 5) - 1) << CQ_CONTEXT_CQC_BYTE_32_CUR_CQE_BA1_H_S)
++
++#define CQ_CONTEXT_CQC_BYTE_32_SE_FLAG_S 9
++
++#define CQ_CONTEXT_CQC_BYTE_32_CE_FLAG_S 8
++#define CQ_CONTEXT_CQC_BYTE_32_NOTIFICATION_FLAG_S 14
++#define CQ_CQNTEXT_CQC_BYTE_32_TYPE_OF_COMPLETION_NOTIFICATION_S 15
++
++#define CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_S 16
++#define CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_M   \
++	(((1UL << 16) - 1) << CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_S)
++
+ struct hns_roce_cqe {
+ 	u32 cqe_byte_4;
++	union {
++		u32 r_key;
++		u32 immediate_data;
++	};
++	u32 byte_cnt;
+ 	u32 cqe_byte_16;
++	u32 cqe_byte_20;
++	u32 s_mac_l;
++	u32 cqe_byte_28;
++	u32 reserved;
+ };
+ 
+ #define CQE_BYTE_4_OWNER_S 7
+ #define CQE_BYTE_4_SQ_RQ_FLAG_S 14
+ 
++#define CQE_BYTE_4_STATUS_OF_THE_OPERATION_S 8
++#define CQE_BYTE_4_STATUS_OF_THE_OPERATION_M   \
++	(((1UL << 5) - 1) << CQE_BYTE_4_STATUS_OF_THE_OPERATION_S)
++
++#define CQE_BYTE_4_WQE_INDEX_S 16
++#define CQE_BYTE_4_WQE_INDEX_M	(((1UL << 14) - 1) << CQE_BYTE_4_WQE_INDEX_S)
++
++#define CQE_BYTE_4_OPERATION_TYPE_S 0
++#define CQE_BYTE_4_OPERATION_TYPE_M   \
++	(((1UL << 4) - 1) << CQE_BYTE_4_OPERATION_TYPE_S)
++
++#define CQE_BYTE_4_IMM_INDICATOR_S 15
++
+ #define CQE_BYTE_16_LOCAL_QPN_S 0
+ #define CQE_BYTE_16_LOCAL_QPN_M	(((1UL << 24) - 1) << CQE_BYTE_16_LOCAL_QPN_S)
+ 
++#define CQE_BYTE_20_PORT_NUM_S 26
++#define CQE_BYTE_20_PORT_NUM_M	(((1UL << 3) - 1) << CQE_BYTE_20_PORT_NUM_S)
++
++#define CQE_BYTE_20_SL_S 24
++#define CQE_BYTE_20_SL_M	(((1UL << 2) - 1) << CQE_BYTE_20_SL_S)
++
++#define CQE_BYTE_20_REMOTE_QPN_S 0
++#define CQE_BYTE_20_REMOTE_QPN_M   \
++	(((1UL << 24) - 1) << CQE_BYTE_20_REMOTE_QPN_S)
++
++#define CQE_BYTE_20_GRH_PRESENT_S 29
++
++#define CQE_BYTE_28_P_KEY_IDX_S 16
++#define CQE_BYTE_28_P_KEY_IDX_M	(((1UL << 16) - 1) << CQE_BYTE_28_P_KEY_IDX_S)
++
++#define CQ_DB_REQ_NOT_SOL	0
++#define CQ_DB_REQ_NOT		(1 << 16)
++
+ struct hns_roce_wqe_ctrl_seg {
+ 	__be32 sgl_pa_h;
+ 	__be32 flag;
+@@ -314,6 +429,8 @@ struct hns_roce_sqp_context {
+ #define HNS_ROCE_WQE_OPCODE_SEND	(0<<16)
+ #define HNS_ROCE_WQE_OPCODE_RDMA_READ	(1<<16)
+ #define HNS_ROCE_WQE_OPCODE_RDMA_WRITE	(2<<16)
++#define HNS_ROCE_WQE_OPCODE_LOCAL_INV	(4<<16)
++#define HNS_ROCE_WQE_OPCODE_UD_SEND	(7<<16)
+ #define HNS_ROCE_WQE_OPCODE_MASK	(15<<16)
+ 
+ struct hns_roce_qp_context {
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index d2f8da5..ad838cf 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -588,6 +588,9 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
+ 		(1ULL << IB_USER_VERBS_CMD_QUERY_PORT) |
+ 		(1ULL << IB_USER_VERBS_CMD_ALLOC_PD) |
+ 		(1ULL << IB_USER_VERBS_CMD_DEALLOC_PD) |
++		(1ULL << IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL) |
++		(1ULL << IB_USER_VERBS_CMD_CREATE_CQ) |
++		(1ULL << IB_USER_VERBS_CMD_DESTROY_CQ) |
+ 		(1ULL << IB_USER_VERBS_CMD_CREATE_QP) |
+ 		(1ULL << IB_USER_VERBS_CMD_MODIFY_QP) |
+ 		(1ULL << IB_USER_VERBS_CMD_QUERY_QP) |
+@@ -622,6 +625,12 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
+ 	ib_dev->post_send		= hr_dev->hw->post_send;
+ 	ib_dev->post_recv		= hr_dev->hw->post_recv;
+ 
++	/* CQ */
++	ib_dev->create_cq		= hns_roce_ib_create_cq;
++	ib_dev->destroy_cq		= hns_roce_ib_destroy_cq;
++	ib_dev->req_notify_cq		= hr_dev->hw->req_notify_cq;
++	ib_dev->poll_cq			= hr_dev->hw->poll_cq;
++
+ 	ret = ib_register_device(ib_dev, NULL);
+ 	if (ret) {
+ 		dev_err(dev, "ib_register_device failed!\n");
+@@ -914,6 +923,7 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 		ret = -EIO;
+ 		goto error_failed_get_cfg;
+ 	}
++
+ 	ret = hns_roce_get_cfg(hr_dev);
+ 	if (ret) {
+ 		dev_err(dev, "Get Configuration failed!\n");
+diff --git a/drivers/infiniband/hw/hns/hns_roce_user.h b/drivers/infiniband/hw/hns/hns_roce_user.h
+index 73c3f0c..8222b93 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_user.h
++++ b/drivers/infiniband/hw/hns/hns_roce_user.h
+@@ -10,6 +10,10 @@
+ #ifndef _HNS_ROCE_USER_H
+ #define _HNS_ROCE_USER_H
+ 
++struct hns_roce_ib_create_cq {
++	__u64   buf_addr;
++};
++
+ struct hns_roce_ib_create_qp {
+ 	__u64	buf_addr;
+ 	__u8    log_sq_bb_count;
 -- 
 1.9.1
