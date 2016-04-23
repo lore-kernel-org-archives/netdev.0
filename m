@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v5 01/21] net: hns: Add reset function support for RoCE driver
-Date: Sat, 23 Apr 2016 18:26:39 +0800
-Message-ID: <1461407219-72027-2-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Sat, 23 Apr 2016 18:26:47 +0800
+Message-ID: <1461407219-72027-10-git-send-email-oulijun@huawei.com>
 References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,328 +15,855 @@ To: <dledford@redhat.com>, <sean.hefty@intel.com>,
 	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
 	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
 	<ogerlitz@mellanox.com>, <linuxarm@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:29558 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907AbcDWKSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 06:18:14 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It added reset function for RoCE driver. RoCE is a feature of hns.
-In hip06 SoC, in RoCE reset process, it's needed to configure dsaf
-channel reset, port and sl map info. Reset function of RoCE is
-located in dsaf module, we only call it in RoCE driver when needed.
+This patch mainly setup hca for RoCE. it will do a series of
+initial works as follows:
+      1. init uar table, allocate uar resource
+      2. init pd table
+      3. init cq table
+      4. init mr table
+      5. init qp table
 
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
-Signed-off-by: Lisheng <lisheng011@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 89 +++++++++++++++++++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 30 ++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 62 ++++++++++++---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 16 +++-
- 4 files changed, 183 insertions(+), 14 deletions(-)
+ drivers/infiniband/hw/hns/hns_roce_alloc.c  | 104 ++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_cq.c     |  25 ++++
+ drivers/infiniband/hw/hns/hns_roce_device.h |  69 ++++++++++
+ drivers/infiniband/hw/hns/hns_roce_eq.c     |   1 -
+ drivers/infiniband/hw/hns/hns_roce_icm.c    |  88 +++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_icm.h    |   9 ++
+ drivers/infiniband/hw/hns/hns_roce_main.c   |  79 ++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_mr.c     | 187 ++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_pd.c     |  65 ++++++++++
+ drivers/infiniband/hw/hns/hns_roce_qp.c     |  30 +++++
+ 10 files changed, 656 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 5978a5c..593162b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -12,6 +12,7 @@
- #include <linux/init.h>
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
-+#include <linux/of_platform.h>
- #include <linux/platform_device.h>
- #include <linux/of.h>
- #include <linux/of_address.h>
-@@ -748,9 +749,8 @@ static void hns_dsaf_tbl_stat_en(struct dsaf_device *dsaf_dev)
-  */
- static void hns_dsaf_rocee_bp_en(struct dsaf_device *dsaf_dev)
- {
--	if (AE_IS_VER1(dsaf_dev->dsaf_ver))
--		dsaf_set_dev_bit(dsaf_dev, DSAF_XGE_CTRL_SIG_CFG_0_REG,
--				 DSAF_FC_XGE_TX_PAUSE_S, 1);
-+	dsaf_set_dev_bit(dsaf_dev, DSAF_XGE_CTRL_SIG_CFG_0_REG,
-+			 DSAF_FC_XGE_TX_PAUSE_S, 1);
- }
- 
- /* set msk for dsaf exception irq*/
-@@ -2594,6 +2594,89 @@ static struct platform_driver g_dsaf_driver = {
- 
- module_platform_driver(g_dsaf_driver);
- 
-+/**
-+ * hns_dsaf_roce_reset - reset dsaf and roce
-+ * @dsaf_fwnode: Pointer to framework node for the dasf
-+ * @val: 0 - request reset , 1 - drop reset
-+ * retuen 0 - success , negative -fail
+diff --git a/drivers/infiniband/hw/hns/hns_roce_alloc.c b/drivers/infiniband/hw/hns/hns_roce_alloc.c
+new file mode 100644
+index 0000000..0c76f1b
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_alloc.c
+@@ -0,0 +1,104 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + */
-+int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val)
++
++#include <linux/bitmap.h>
++#include <linux/dma-mapping.h>
++#include <linux/errno.h>
++#include <linux/mm.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++#include "hns_roce_device.h"
++
++int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj)
 +{
-+	struct dsaf_device *dsaf_dev;
-+	struct platform_device *pdev;
-+	unsigned int mp;
-+	unsigned int sl;
-+	unsigned int credit;
-+	int i;
-+	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE_NUM] = {
-+		{DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_4, DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_4, DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_5, DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_5, DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1},
-+	};
-+	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE_NUM] = {
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_0},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_1, DSAF_ROCE_SL_1},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_2},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_0},
-+		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_1},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_2},
-+		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
-+	};
++	int ret = 0;
 +
-+	if (!is_of_node(dsaf_fwnode)) {
-+		pr_err("hisi_dsaf: Only support DT node!\n");
-+		return -EINVAL;
-+	}
-+	pdev = of_find_device_by_node(to_of_node(dsaf_fwnode));
-+	dsaf_dev = dev_get_drvdata(&pdev->dev);
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		dev_err(dsaf_dev->dev, "%s v1 chip do not support roce!\n",
-+			dsaf_dev->ae_dev.name);
-+		return -ENODEV;
++	spin_lock(&bitmap->lock);
++	*obj = find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
++	if (*obj >= bitmap->max) {
++		bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
++			       & bitmap->mask;
++		*obj = find_first_zero_bit(bitmap->table, bitmap->max);
 +	}
 +
-+	if (!val) {
-+		/* Reset rocee-channels in dsaf and rocee */
-+		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, 0);
-+		hns_dsaf_roce_srst(dsaf_dev, 0);
++	if (*obj < bitmap->max) {
++		set_bit(*obj, bitmap->table);
++		bitmap->last = (*obj + 1);
++		if (bitmap->last == bitmap->max)
++			bitmap->last = 0;
++		*obj |= bitmap->top;
 +	} else {
-+		/* Configure dsaf tx roce correspond to port map and sl map */
-+		mp = dsaf_read_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG);
-+		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
-+			dsaf_set_field(mp, 7 << i * 3, i * 3,
-+				       port_map[i][DSAF_ROCE_6PORT_MODE]);
-+		dsaf_set_field(mp, 3 << i * 3, i * 3, 0);
-+		dsaf_write_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG, mp);
-+
-+		sl = dsaf_read_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG);
-+		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
-+			dsaf_set_field(sl, 3 << i * 2, i * 2,
-+				       sl_map[i][DSAF_ROCE_6PORT_MODE]);
-+		dsaf_write_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG, sl);
-+
-+		/* De-reset rocee-channels in dsaf and rocee */
-+		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, 1);
-+		msleep(20);
-+		hns_dsaf_roce_srst(dsaf_dev, 1);
-+
-+		/* Eanble dsaf channel rocee credit */
-+		credit = dsaf_read_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG);
-+		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 0);
-+		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
-+
-+		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 1);
-+		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
++		ret = -1;
 +	}
++
++	spin_unlock(&bitmap->lock);
++
++	return ret;
++}
++
++void hns_roce_bitmap_free(struct hns_roce_bitmap *bitmap, u32 obj)
++{
++	hns_roce_bitmap_free_range(bitmap, obj, 1);
++}
++
++void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap, u32 obj,
++				int cnt)
++{
++	int i;
++
++	obj &= bitmap->max + bitmap->reserved_top - 1;
++
++	spin_lock(&bitmap->lock);
++	for (i = 0; i < cnt; i++)
++		clear_bit(obj + i, bitmap->table);
++
++	bitmap->last = min(bitmap->last, obj);
++	bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
++		       & bitmap->mask;
++	spin_unlock(&bitmap->lock);
++}
++
++int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
++			 u32 reserved_bot, u32 reserved_top)
++{
++	u32 i;
++
++	if (num != roundup_pow_of_two(num))
++		return -EINVAL;
++
++	bitmap->last = 0;
++	bitmap->top = 0;
++	bitmap->max = num - reserved_top;
++	bitmap->mask = mask;
++	bitmap->reserved_top = reserved_top;
++	spin_lock_init(&bitmap->lock);
++	bitmap->table = kcalloc(BITS_TO_LONGS(bitmap->max), sizeof(long),
++				GFP_KERNEL);
++	if (!bitmap->table)
++		return -ENOMEM;
++
++	for (i = 0; i < reserved_bot; ++i)
++		set_bit(i, bitmap->table);
++
 +	return 0;
 +}
-+EXPORT_SYMBOL(hns_dsaf_roce_reset);
 +
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
- MODULE_DESCRIPTION("HNS DSAF driver");
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index 5fea226..cc992f1 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -40,6 +40,32 @@ struct hns_mac_cb;
- #define DSAF_DUMP_REGS_NUM 504
- #define DSAF_STATIC_NUM 28
- 
-+#define DSAF_ROCE_CREDIT_CHN 8
-+#define DSAF_ROCE_CHAN_MODE 3
-+
-+enum dsaf_roce_port_mode {
-+	DSAF_ROCE_6PORT_MODE,
-+	DSAF_ROCE_4PORT_MODE,
-+	DSAF_ROCE_2PORT_MODE,
-+	DSAF_ROCE_CHAN_MODE_NUM,
-+};
-+
-+enum dsaf_roce_port_num {
-+	DSAF_ROCE_PORT_0 = 0,
-+	DSAF_ROCE_PORT_1 = 1,
-+	DSAF_ROCE_PORT_2 = 2,
-+	DSAF_ROCE_PORT_3 = 3,
-+	DSAF_ROCE_PORT_4 = 4,
-+	DSAF_ROCE_PORT_5 = 5,
-+};
-+
-+enum dsaf_roce_qos_sl {
-+	DSAF_ROCE_SL_0 = 0,
-+	DSAF_ROCE_SL_1 = 1,
-+	DSAF_ROCE_SL_2 = 2,
-+	DSAF_ROCE_SL_3 = 3,
-+};
-+
- #define DSAF_STATS_READ(p, offset) (*((u64 *)((u8 *)(p) + (offset))))
- 
- enum hal_dsaf_mode {
-@@ -400,6 +426,10 @@ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val);
- 
- void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
- 
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, u32 val);
-+
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, u32 val);
-+
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
- void hns_dsaf_ae_uninit(struct dsaf_device *dsaf_dev);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index e69b022..eab01f7 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -87,18 +87,22 @@ void hns_dsaf_rst(struct dsaf_device *dsaf_dev, u32 val)
- 	u32 xbar_reg_addr;
- 	u32 nt_reg_addr;
- 
--	if (!val) {
--		xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_REQ_REG;
--		nt_reg_addr = DSAF_SUB_SC_NT_RESET_REQ_REG;
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		if (!val) {
-+			xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_REQ_REG;
-+			nt_reg_addr = DSAF_SUB_SC_NT_RESET_REQ_REG;
-+		} else {
-+			xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_DREQ_REG;
-+			nt_reg_addr = DSAF_SUB_SC_NT_RESET_DREQ_REG;
-+		}
-+
-+		dsaf_write_reg(dsaf_dev->sc_base, xbar_reg_addr,
-+			       RESET_REQ_OR_DREQ);
-+		dsaf_write_reg(dsaf_dev->sc_base, nt_reg_addr,
-+			       RESET_REQ_OR_DREQ);
- 	} else {
--		xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_DREQ_REG;
--		nt_reg_addr = DSAF_SUB_SC_NT_RESET_DREQ_REG;
-+		hns_dsaf_srst_chns(dsaf_dev, 0xfffff, val);
- 	}
--
--	dsaf_write_reg(dsaf_dev->sc_base, xbar_reg_addr,
--		       RESET_REQ_OR_DREQ);
--	dsaf_write_reg(dsaf_dev->sc_base, nt_reg_addr,
--		       RESET_REQ_OR_DREQ);
- }
- 
- void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
-@@ -139,6 +143,44 @@ void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, reg_val);
- }
- 
-+/**
-+ * hns_dsaf_srst_chns - reset dsaf channels
-+ * @dsaf_dev: dsaf device struct pointer
-+ * @msk: xbar channels mask value:
-+ * bit0-5 for xge0-5
-+ * bit6-11 for ppe0-5
-+ * bit12-17 for roce0-5
-+ * bit18-19 for com/dfx
-+ * @val: 0 - request reset , 1 - drop reset
-+ */
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, u32 val)
++void hns_roce_bitmap_cleanup(struct hns_roce_bitmap *bitmap)
 +{
-+	u32 reg_addr;
-+
-+	if (val == 0)
-+		reg_addr = DSAF_SUB_SC_DSAF_RESET_REQ_REG;
-+	else
-+		reg_addr = DSAF_SUB_SC_DSAF_RESET_DREQ_REG;
-+
-+	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, msk);
++	kfree(bitmap->table);
 +}
 +
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, u32 val)
++void hns_roce_cleanup_bitmap(struct hns_roce_dev *hr_dev)
 +{
-+	if (val == 0) {
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_RESET_REQ_REG, 1);
-+	} else {
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_CLK_DIS_REG, 1);
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_RESET_DREQ_REG, 1);
-+		msleep(20);
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_CLK_EN_REG, 1);
++	hns_roce_cleanup_qp_table(hr_dev);
++	hns_roce_cleanup_cq_table(hr_dev);
++	hns_roce_cleanup_mr_table(hr_dev);
++	hns_roce_cleanup_pd_table(hr_dev);
++	hns_roce_cleanup_uar_table(hr_dev);
++}
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cq.c b/drivers/infiniband/hw/hns/hns_roce_cq.c
+index 1dc8635..f7baf82 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_cq.c
++++ b/drivers/infiniband/hw/hns/hns_roce_cq.c
+@@ -52,3 +52,28 @@ void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type)
+ 	if (atomic_dec_and_test(&cq->refcount))
+ 		complete(&cq->free);
+ }
++
++int hns_roce_init_cq_table(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_cq_table *cq_table = &hr_dev->cq_table;
++	struct device *dev = &hr_dev->pdev->dev;
++	int ret;
++
++	spin_lock_init(&cq_table->lock);
++	INIT_RADIX_TREE(&cq_table->tree, GFP_ATOMIC);
++
++	ret = hns_roce_bitmap_init(&cq_table->bitmap, hr_dev->caps.num_cqs,
++				   hr_dev->caps.num_cqs - 1,
++				   hr_dev->caps.reserved_cqs, 0);
++	if (ret) {
++		dev_err(dev, "init_cq_table.Failed to bitmap_init.\n");
++		return ret;
 +	}
++
++	return 0;
 +}
 +
- void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- {
- 	u32 reg_val_1;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 7d7204f..8f1b18e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -37,6 +37,7 @@
- #define DSAFV2_SBM_NUM		8
- #define DSAFV2_SBM_XGE_CHN    6
- #define DSAFV2_SBM_PPE_CHN    1
-+#define DSAFV2_SBM_ROCE_CHN   1
- #define DASFV2_ROCEE_CRD_NUM  8
++void hns_roce_cleanup_cq_table(struct hns_roce_dev *hr_dev)
++{
++	hns_roce_bitmap_cleanup(&hr_dev->cq_table.bitmap);
++}
+diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+index decd4fe..569ec42 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
++++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+@@ -91,6 +91,38 @@ enum {
+ 	HNS_ROCE_CMD_SUCCESS			= 1,
+ };
  
- #define DSAF_VOQ_NUM		DSAF_NODE_NUM
-@@ -82,6 +83,12 @@
- #define DSAF_SUB_SC_PPE_RESET_DREQ_REG			0xA4C
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_REQ_REG		0xA88
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_DREQ_REG		0xA8C
-+#define DSAF_SUB_SC_DSAF_RESET_REQ_REG			0xAA8
-+#define DSAF_SUB_SC_ROCEE_RESET_REQ_REG			0xA50
-+#define DSAF_SUB_SC_DSAF_RESET_DREQ_REG			0xAAC
-+#define DSAF_SUB_SC_ROCEE_CLK_DIS_REG			0x32C
-+#define DSAF_SUB_SC_ROCEE_RESET_DREQ_REG		0xA54
-+#define DSAF_SUB_SC_ROCEE_CLK_EN_REG			0x328
- #define DSAF_SUB_SC_LIGHT_MODULE_DETECT_EN_REG		0x2060
- #define DSAF_SUB_SC_TCAM_MBIST_EN_REG			0x2300
- #define DSAF_SUB_SC_DSAF_CLK_ST_REG			0x5300
-@@ -137,6 +144,9 @@
- #define DSAF_PPE_INT_STS_0_REG		0x1E0
- #define DSAF_ROCEE_INT_STS_0_REG	0x200
- #define DSAFV2_SERDES_LBK_0_REG         0x220
-+#define DSAF_PAUSE_CFG_REG		0x240
-+#define DSAF_ROCE_PORT_MAP_REG		0x2A0
-+#define DSAF_ROCE_SL_MAP_REG            0x2A4
- #define DSAF_PPE_QID_CFG_0_REG		0x300
- #define DSAF_SW_PORT_TYPE_0_REG		0x320
- #define DSAF_STP_PORT_TYPE_0_REG	0x340
-@@ -178,7 +188,8 @@
- #define DSAF_SBM_BP_CFG_2_XGE_REG_0_REG		0x200C
- #define DSAF_SBM_BP_CFG_2_PPE_REG_0_REG		0x230C
- #define DSAF_SBM_BP_CFG_2_ROCEE_REG_0_REG	0x260C
--#define DSAFV2_SBM_BP_CFG_2_ROCEE_REG_0_REG		 0x238C
-+#define DSAF_SBM_ROCEE_CFG_REG_REG		0x2380
-+#define DSAFV2_SBM_BP_CFG_2_ROCEE_REG_0_REG	0x238C
- #define DSAF_SBM_FREE_CNT_0_0_REG		0x2010
- #define DSAF_SBM_FREE_CNT_1_0_REG		0x2014
- #define DSAF_SBM_BP_CNT_0_0_REG			0x2018
-@@ -790,6 +801,9 @@
- #define DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S 9
- #define DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_M (((1ULL << 9) - 1) << 9)
- 
-+#define DSAF_CHNS_MASK 0x3f000
-+#define DSAF_SBM_ROCEE_CFG_CRD_EN_B 2
++struct hns_roce_uar {
++	u64 pfn;
++	u32 index;
++};
 +
- #define DSAF_TBL_TCAM_ADDR_S 0
- #define DSAF_TBL_TCAM_ADDR_M ((1ULL << 9) - 1)
++struct hns_roce_bitmap {
++	/* Bitmap Traversal last a bit which is 1 */
++	u32            last;
++	u32            top;
++	u32            max;
++	u32            reserved_top;
++	u32            mask;
++	spinlock_t     lock;
++	unsigned long *table;
++};
++
++/* Order bitmap length -- bit num compute formula: 1 << (max_order - order) */
++/* Order = 0: bitmap is biggest, order = max bitmap is least (only a bit) */
++/* Every bit repesent to a partner free/used status in bitmap */
++/*
++* Initial, bits of other bitmap are all 0 except that a bit of max_order is 1
++* Bit = 1 represent to idle and available; bit = 0: not available
++*/
++struct hns_roce_buddy {
++	/* Members point to every order level bitmap */
++	unsigned long **bits;
++	/* Represent to avail bits of the order level bitmap */
++	u32            *num_free;
++	int             max_order;
++	spinlock_t      lock;
++};
++
+ struct hns_roce_icm_table {
+ 	/* ICM type: 0 = qpc 1 = mtt 2 = cqc 3 = srq 4 = other */
+ 	u32            type;
+@@ -107,6 +139,8 @@ struct hns_roce_icm_table {
+ };
  
+ struct hns_roce_mr_table {
++	struct hns_roce_bitmap		mtpt_bitmap;
++	struct hns_roce_buddy		mtt_buddy;
+ 	struct hns_roce_icm_table	mtt_table;
+ 	struct hns_roce_icm_table	mtpt_table;
+ };
+@@ -124,13 +158,19 @@ struct hns_roce_cq {
+ 	struct completion		free;
+ };
+ 
++struct hns_roce_uar_table {
++	struct hns_roce_bitmap bitmap;
++};
++
+ struct hns_roce_qp_table {
++	struct hns_roce_bitmap		bitmap;
+ 	spinlock_t			lock;
+ 	struct hns_roce_icm_table	qp_table;
+ 	struct hns_roce_icm_table	irrl_table;
+ };
+ 
+ struct hns_roce_cq_table {
++	struct hns_roce_bitmap		bitmap;
+ 	spinlock_t			lock;
+ 	struct radix_tree_root		tree;
+ 	struct hns_roce_icm_table	table;
+@@ -262,6 +302,9 @@ struct hns_roce_hw {
+ struct hns_roce_dev {
+ 	struct ib_device	ib_dev;
+ 	struct platform_device  *pdev;
++	struct hns_roce_uar     priv_uar;
++	spinlock_t		sm_lock;
++	spinlock_t		cq_db_lock;
+ 	spinlock_t		bt_cmd_lock;
+ 	struct hns_roce_ib_iboe iboe;
+ 
+@@ -277,6 +320,8 @@ struct hns_roce_dev {
+ 	u32                     hw_rev;
+ 
+ 	struct hns_roce_cmdq      cmd;
++	struct hns_roce_bitmap    pd_bitmap;
++	struct hns_roce_uar_table uar_table;
+ 	struct hns_roce_mr_table  mr_table;
+ 	struct hns_roce_cq_table  cq_table;
+ 	struct hns_roce_qp_table  qp_table;
+@@ -299,6 +344,11 @@ static inline struct hns_roce_qp
+ 				 qpn & (hr_dev->caps.num_qps - 1));
+ }
+ 
++int hns_roce_init_uar_table(struct hns_roce_dev *dev);
++int hns_roce_uar_alloc(struct hns_roce_dev *dev, struct hns_roce_uar *uar);
++void hns_roce_uar_free(struct hns_roce_dev *dev, struct hns_roce_uar *uar);
++void hns_roce_cleanup_uar_table(struct hns_roce_dev *dev);
++
+ int hns_roce_cmd_init(struct hns_roce_dev *hr_dev);
+ void hns_roce_cmd_cleanup(struct hns_roce_dev *hr_dev);
+ void hns_roce_cmd_event(struct hns_roce_dev *hr_dev, u16 token, u8 status,
+@@ -306,9 +356,28 @@ void hns_roce_cmd_event(struct hns_roce_dev *hr_dev, u16 token, u8 status,
+ int hns_roce_cmd_use_events(struct hns_roce_dev *hr_dev);
+ void hns_roce_cmd_use_polling(struct hns_roce_dev *hr_dev);
+ 
++int hns_roce_init_pd_table(struct hns_roce_dev *hr_dev);
++int hns_roce_init_mr_table(struct hns_roce_dev *hr_dev);
+ int hns_roce_init_eq_table(struct hns_roce_dev *hr_dev);
++int hns_roce_init_cq_table(struct hns_roce_dev *hr_dev);
++int hns_roce_init_qp_table(struct hns_roce_dev *hr_dev);
+ 
++void hns_roce_cleanup_pd_table(struct hns_roce_dev *hr_dev);
++void hns_roce_cleanup_mr_table(struct hns_roce_dev *hr_dev);
+ void hns_roce_cleanup_eq_table(struct hns_roce_dev *hr_dev);
++void hns_roce_cleanup_cq_table(struct hns_roce_dev *hr_dev);
++void hns_roce_cleanup_qp_table(struct hns_roce_dev *hr_dev);
++
++int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj);
++void hns_roce_bitmap_free(struct hns_roce_bitmap *bitmap, u32 obj);
++int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
++			 u32 reserved_bot, u32 resetrved_top);
++void hns_roce_bitmap_cleanup(struct hns_roce_bitmap *bitmap);
++void hns_roce_cleanup_bitmap(struct hns_roce_dev *hr_dev);
++int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
++				int align, u32 *obj);
++void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap, u32 obj,
++				int cnt);
+ 
+ void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
+ void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
+diff --git a/drivers/infiniband/hw/hns/hns_roce_eq.c b/drivers/infiniband/hw/hns/hns_roce_eq.c
+index 7d848a0..67eda84 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_eq.c
++++ b/drivers/infiniband/hw/hns/hns_roce_eq.c
+@@ -579,7 +579,6 @@ static void hns_roce_free_eq(struct hns_roce_dev *hr_dev,
+ 	kfree(eq->buf_list);
+ }
+ 
+-
+ void hns_roce_int_mask_en(struct hns_roce_dev *hr_dev)
+ {
+ 	void __iomem *reg_caepceirqmsk;
+diff --git a/drivers/infiniband/hw/hns/hns_roce_icm.c b/drivers/infiniband/hw/hns/hns_roce_icm.c
+index d0f276d..cae6ec8 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_icm.c
++++ b/drivers/infiniband/hw/hns/hns_roce_icm.c
+@@ -338,6 +338,94 @@ int hns_roce_unmap_icm(struct hns_roce_dev *hr_dev,
+ 	return ret;
+ }
+ 
++int hns_roce_table_get(struct hns_roce_dev *hr_dev,
++		       struct hns_roce_icm_table *table, int obj)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++	int ret = 0;
++	int i;
++
++	i = (obj & (table->num_obj - 1)) / (HNS_ROCE_TABLE_CHUNK_SIZE /
++	     table->obj_size);
++
++	mutex_lock(&table->mutex);
++
++	if (table->icm[i]) {
++		++table->icm[i]->refcount;
++		goto out;
++	}
++
++	table->icm[i] = hns_roce_alloc_icm(hr_dev,
++				  HNS_ROCE_TABLE_CHUNK_SIZE >> PAGE_SHIFT,
++				  (table->lowmem ? GFP_KERNEL :
++						   GFP_HIGHUSER) | __GFP_NOWARN,
++				  table->coherent);
++	if (!table->icm[i]) {
++		ret = -ENOMEM;
++		dev_err(dev, "hns_roce_alloc_icm failed\n");
++		goto out;
++	}
++
++	/* Inform icm entry mem pa(128K/page, pa starting address)for hw */
++	if (hns_roce_map_icm(hr_dev, table, obj)) {
++		ret = -ENODEV;
++		dev_err(dev, "map icm table failed.\n");
++		goto out;
++	}
++
++	++table->icm[i]->refcount;
++out:
++	mutex_unlock(&table->mutex);
++	return ret;
++}
++
++void hns_roce_table_put(struct hns_roce_dev *hr_dev,
++			struct hns_roce_icm_table *table, int obj)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++	int i;
++
++	i = (obj & (table->num_obj - 1)) /
++	    (HNS_ROCE_TABLE_CHUNK_SIZE / table->obj_size);
++
++	mutex_lock(&table->mutex);
++
++	if (--table->icm[i]->refcount == 0) {
++		/* Clear base address table */
++		if (hns_roce_unmap_icm(hr_dev, table, obj))
++			dev_warn(dev, "unmap icm table failed.\n");
++
++		hns_roce_free_icm(hr_dev, table->icm[i], table->coherent);
++		table->icm[i] = NULL;
++	}
++
++	mutex_unlock(&table->mutex);
++}
++
++int hns_roce_table_get_range(struct hns_roce_dev *hr_dev,
++			     struct hns_roce_icm_table *table, int start,
++			     int end)
++{
++	int inc = HNS_ROCE_TABLE_CHUNK_SIZE / table->obj_size;
++	int i = 0, ret = 0;
++
++	/* Allocate MTT entry memory according to chunk(128K) */
++	for (i = start; i <= end; i += inc) {
++		ret = hns_roce_table_get(hr_dev, table, i);
++		if (ret)
++			goto fail;
++	}
++
++	return 0;
++
++fail:
++	while (i > start) {
++		i -= inc;
++		hns_roce_table_put(hr_dev, table, i);
++	}
++	return ret;
++}
++
+ int hns_roce_init_icm_table(struct hns_roce_dev *hr_dev,
+ 			    struct hns_roce_icm_table *table, u32 type,
+ 			    int obj_size, int nobj, int reserved,
+diff --git a/drivers/infiniband/hw/hns/hns_roce_icm.h b/drivers/infiniband/hw/hns/hns_roce_icm.h
+index ce96d89..78f8e90 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_icm.h
++++ b/drivers/infiniband/hw/hns/hns_roce_icm.h
+@@ -50,6 +50,15 @@ struct hns_roce_icm_iter {
+ 
+ void hns_roce_free_icm(struct hns_roce_dev *hr_dev,
+ 		       struct hns_roce_icm *icm, int coherent);
++int hns_roce_table_get(struct hns_roce_dev *hr_dev,
++		       struct hns_roce_icm_table *table, int obj);
++void hns_roce_table_put(struct hns_roce_dev *hr_dev,
++			struct hns_roce_icm_table *table, int obj);
++
++int hns_roce_table_get_range(struct hns_roce_dev *hr_dev,
++			     struct hns_roce_icm_table *table, int start,
++			     int end);
++
+ int hns_roce_init_icm_table(struct hns_roce_dev *hr_dev,
+ 			    struct hns_roce_icm_table *table, u32 type,
+ 			    int obj_size, int nobj, int reserved,
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index 3da0c03..e478fc6 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -184,6 +184,75 @@ err_unmap_mtt:
+ }
+ 
+ /**
++* hns_roce_setup_hca - setup host channel adapter
++* @hr_dev: pointer to hns roce device
++* Return : int
++*/
++int hns_roce_setup_hca(struct hns_roce_dev *hr_dev)
++{
++	int ret;
++	struct device *dev = &hr_dev->pdev->dev;
++
++	spin_lock_init(&hr_dev->sm_lock);
++	spin_lock_init(&hr_dev->cq_db_lock);
++	spin_lock_init(&hr_dev->bt_cmd_lock);
++
++	ret = hns_roce_init_uar_table(hr_dev);
++	if (ret) {
++		dev_err(dev, "Failed to initialize uar table. aborting\n");
++		return ret;
++	}
++
++	ret = hns_roce_uar_alloc(hr_dev, &hr_dev->priv_uar);
++	if (ret) {
++		dev_err(dev, "Failed to allocate priv_uar.\n");
++		goto err_uar_table_free;
++	}
++
++	ret = hns_roce_init_pd_table(hr_dev);
++	if (ret) {
++		dev_err(dev, "Failed to init protected domain table.\n");
++		goto err_uar_alloc_free;
++	}
++
++	ret = hns_roce_init_mr_table(hr_dev);
++	if (ret) {
++		dev_err(dev, "Failed to init memory region table.\n");
++		goto err_pd_table_free;
++	}
++
++	ret = hns_roce_init_cq_table(hr_dev);
++	if (ret) {
++		dev_err(dev, "Failed to init completion queue table.\n");
++		goto err_mr_table_free;
++	}
++
++	ret = hns_roce_init_qp_table(hr_dev);
++	if (ret) {
++		dev_err(dev, "Failed to init queue pair table.\n");
++		goto err_cq_table_free;
++	}
++
++	return 0;
++
++err_cq_table_free:
++	hns_roce_cleanup_cq_table(hr_dev);
++
++err_mr_table_free:
++	hns_roce_cleanup_mr_table(hr_dev);
++
++err_pd_table_free:
++	hns_roce_cleanup_pd_table(hr_dev);
++
++err_uar_alloc_free:
++	hns_roce_uar_free(hr_dev, &hr_dev->priv_uar);
++
++err_uar_table_free:
++	hns_roce_cleanup_uar_table(hr_dev);
++	return ret;
++}
++
++/**
+ * hns_roce_probe - RoCE driver entrance
+ * @pdev: pointer to platform device
+ * Return : int
+@@ -256,6 +325,15 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 		goto error_failed_init_icm;
+ 	}
+ 
++	ret = hns_roce_setup_hca(hr_dev);
++	if (ret) {
++		dev_err(dev, "setup hca fail!\n");
++		goto error_failed_setup_hca;
++	}
++
++error_failed_setup_hca:
++	hns_roce_cleanup_icm(hr_dev);
++
+ error_failed_init_icm:
+ 	if (hr_dev->cmd_mod)
+ 		hns_roce_cmd_use_polling(hr_dev);
+@@ -286,6 +364,7 @@ static int hns_roce_remove(struct platform_device *pdev)
+ 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
+ 	int ret = 0;
+ 
++	hns_roce_cleanup_bitmap(hr_dev);
+ 	hns_roce_cleanup_icm(hr_dev);
+ 
+ 	if (hr_dev->cmd_mod)
+diff --git a/drivers/infiniband/hw/hns/hns_roce_mr.c b/drivers/infiniband/hw/hns/hns_roce_mr.c
+new file mode 100644
+index 0000000..1adcdda
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_mr.c
+@@ -0,0 +1,187 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/init.h>
++#include <linux/errno.h>
++#include <linux/slab.h>
++#include <linux/platform_device.h>
++#include "hns_roce_device.h"
++
++static int hns_roce_buddy_alloc(struct hns_roce_buddy *buddy, int order,
++				u32 *seg)
++{
++	int o;
++	u32 m;
++
++	spin_lock(&buddy->lock);
++
++	for (o = order; o <= buddy->max_order; ++o) {
++		if (buddy->num_free[o]) {
++			m = 1 << (buddy->max_order - o);
++			*seg = find_first_bit(buddy->bits[o], m);
++			if (*seg < m)
++				goto found;
++		}
++	}
++	spin_unlock(&buddy->lock);
++	return -1;
++
++ found:
++	clear_bit(*seg, buddy->bits[o]);
++	--buddy->num_free[o];
++
++	while (o > order) {
++		--o;
++		*seg <<= 1;
++		set_bit(*seg ^ 1, buddy->bits[o]);
++		++buddy->num_free[o];
++	}
++
++	spin_unlock(&buddy->lock);
++
++	*seg <<= order;
++	return 0;
++}
++
++static void hns_roce_buddy_free(struct hns_roce_buddy *buddy, u32 seg,
++				int order)
++{
++	seg >>= order;
++
++	spin_lock(&buddy->lock);
++
++	while (test_bit(seg ^ 1, buddy->bits[order])) {
++		clear_bit(seg ^ 1, buddy->bits[order]);
++		--buddy->num_free[order];
++		seg >>= 1;
++		++order;
++	}
++
++	set_bit(seg, buddy->bits[order]);
++	++buddy->num_free[order];
++
++	spin_unlock(&buddy->lock);
++}
++
++static int hns_roce_buddy_init(struct hns_roce_buddy *buddy, int max_order)
++{
++	int i, s;
++
++	buddy->max_order = max_order;
++	spin_lock_init(&buddy->lock);
++
++	buddy->bits = kzalloc((buddy->max_order + 1) * sizeof(long *),
++			       GFP_KERNEL);
++	buddy->num_free = kzalloc((buddy->max_order + 1) * sizeof(int *),
++				   GFP_KERNEL);
++	if (!buddy->bits || !buddy->num_free)
++		goto err_out;
++
++	for (i = 0; i <= buddy->max_order; ++i) {
++		s = BITS_TO_LONGS(1 << (buddy->max_order - i));
++		buddy->bits[i] = kmalloc_array(s, sizeof(long), GFP_KERNEL);
++		if (!buddy->bits[i])
++			goto err_out_free;
++
++		bitmap_zero(buddy->bits[i], 1 << (buddy->max_order - i));
++	}
++
++	set_bit(0, buddy->bits[buddy->max_order]);
++	buddy->num_free[buddy->max_order] = 1;
++
++	return 0;
++
++err_out_free:
++	for (i = 0; i <= buddy->max_order; ++i)
++		kfree(buddy->bits[i]);
++
++err_out:
++	kfree(buddy->bits);
++	kfree(buddy->num_free);
++	return -ENOMEM;
++}
++
++static void hns_roce_buddy_cleanup(struct hns_roce_buddy *buddy)
++{
++	int i;
++
++	for (i = 0; i <= buddy->max_order; ++i)
++		kfree(buddy->bits[i]);
++
++	kfree(buddy->bits);
++	kfree(buddy->num_free);
++}
++
++static int hns_roce_alloc_mtt_range(struct hns_roce_dev *hr_dev, int order,
++				    u32 *seg)
++{
++	struct hns_roce_mr_table *mr_table = &hr_dev->mr_table;
++	int ret = 0;
++
++	ret = hns_roce_buddy_alloc(&mr_table->mtt_buddy, order, seg);
++	if (ret == -1)
++		return -1;
++
++	if (hns_roce_table_get_range(hr_dev, &mr_table->mtt_table, *seg,
++				     *seg + (1 << order) - 1)) {
++		hns_roce_buddy_free(&mr_table->mtt_buddy, *seg, order);
++		return -1;
++	}
++
++	return 0;
++}
++
++int hns_roce_init_mr_table(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_mr_table *mr_table = &hr_dev->mr_table;
++	struct device *dev = &hr_dev->pdev->dev;
++	u32 first_seg;
++	int ret = 0;
++
++	ret = hns_roce_bitmap_init(&mr_table->mtpt_bitmap,
++				   hr_dev->caps.num_mtpts,
++				   hr_dev->caps.num_mtpts - 1,
++				   hr_dev->caps.reserved_mrws, 0);
++	if (ret)
++		return ret;
++
++	ret = hns_roce_buddy_init(&mr_table->mtt_buddy,
++				  ilog2(hr_dev->caps.num_mtt_segs));
++	if (ret)
++		goto err_buddy;
++
++	if (hr_dev->caps.reserved_mtts) {
++		if (hns_roce_alloc_mtt_range(hr_dev,
++			fls(hr_dev->caps.reserved_mtts - 1),
++			&first_seg) == -1) {
++			dev_err(dev, "MTT table of order %d is too small.\n",
++				mr_table->mtt_buddy.max_order);
++			ret = -ENOMEM;
++			goto err_reserve_mtts;
++		}
++	}
++
++	return 0;
++
++err_reserve_mtts:
++	hns_roce_buddy_cleanup(&mr_table->mtt_buddy);
++
++err_buddy:
++	hns_roce_bitmap_cleanup(&mr_table->mtpt_bitmap);
++	return ret;
++}
++
++void hns_roce_cleanup_mr_table(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_mr_table *mr_table = &hr_dev->mr_table;
++
++	hns_roce_buddy_cleanup(&mr_table->mtt_buddy);
++	hns_roce_bitmap_cleanup(&mr_table->mtpt_bitmap);
++}
++
+diff --git a/drivers/infiniband/hw/hns/hns_roce_pd.c b/drivers/infiniband/hw/hns/hns_roce_pd.c
+new file mode 100644
+index 0000000..fb0f7c65
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_pd.c
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <asm/page.h>
++#include <linux/init.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_user_verbs.h>
++#include "hns_roce_common.h"
++#include "hns_roce_device.h"
++
++int hns_roce_init_pd_table(struct hns_roce_dev *hr_dev)
++{
++	return hns_roce_bitmap_init(&hr_dev->pd_bitmap, hr_dev->caps.num_pds,
++				    hr_dev->caps.num_pds - 1,
++				    hr_dev->caps.reserved_pds, 0);
++}
++
++void hns_roce_cleanup_pd_table(struct hns_roce_dev *hr_dev)
++{
++	hns_roce_bitmap_cleanup(&hr_dev->pd_bitmap);
++}
++
++int hns_roce_uar_alloc(struct hns_roce_dev *hr_dev, struct hns_roce_uar *uar)
++{
++	struct resource *res;
++	int ret = 0;
++	/* Using bitmap to manager UAR index */
++	ret = hns_roce_bitmap_alloc(&hr_dev->uar_table.bitmap, &uar->index);
++	if (ret == -1)
++		return -ENOMEM;
++
++	uar->index = (uar->index - 1) % hr_dev->caps.phy_num_uars + 1;
++
++	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
++	uar->pfn = (res->start) >> PAGE_SHIFT + uar->index;
++
++	return 0;
++}
++
++void hns_roce_uar_free(struct hns_roce_dev *hr_dev, struct hns_roce_uar *uar)
++{
++	hns_roce_bitmap_free(&hr_dev->uar_table.bitmap, uar->index);
++}
++
++int hns_roce_init_uar_table(struct hns_roce_dev *hr_dev)
++{
++	return hns_roce_bitmap_init(&hr_dev->uar_table.bitmap,
++				    hr_dev->caps.num_uars,
++				    hr_dev->caps.num_uars - 1,
++				    hr_dev->caps.reserved_uars, 0);
++}
++
++void hns_roce_cleanup_uar_table(struct hns_roce_dev *hr_dev)
++{
++	hns_roce_bitmap_cleanup(&hr_dev->uar_table.bitmap);
++}
+diff --git a/drivers/infiniband/hw/hns/hns_roce_qp.c b/drivers/infiniband/hw/hns/hns_roce_qp.c
+index e0e41ca..e8d396b 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_qp.c
++++ b/drivers/infiniband/hw/hns/hns_roce_qp.c
+@@ -13,6 +13,8 @@
+ #include <rdma/ib_pack.h>
+ #include "hns_roce_device.h"
+ 
++#define SQP_NUM				12
++
+ void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type)
+ {
+ 	struct hns_roce_qp_table *qp_table = &hr_dev->qp_table;
+@@ -37,3 +39,31 @@ void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type)
+ 	if (atomic_dec_and_test(&qp->refcount))
+ 		complete(&qp->free);
+ }
++
++int hns_roce_init_qp_table(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_qp_table *qp_table = &hr_dev->qp_table;
++	int reserved_from_top = 0;
++	int ret;
++
++	spin_lock_init(&qp_table->lock);
++	INIT_RADIX_TREE(&hr_dev->qp_table_tree, GFP_ATOMIC);
++
++	/* A port include two SQP, six port total 12 */
++	ret = hns_roce_bitmap_init(&qp_table->bitmap, hr_dev->caps.num_qps,
++				   hr_dev->caps.num_qps - 1,
++				   hr_dev->caps.sqp_start + SQP_NUM,
++				   reserved_from_top);
++	if (ret) {
++		dev_err(&hr_dev->pdev->dev, "qp bitmap init failed!error=%d\n",
++			ret);
++		return ret;
++	}
++
++	return 0;
++}
++
++void hns_roce_cleanup_qp_table(struct hns_roce_dev *hr_dev)
++{
++	hns_roce_bitmap_cleanup(&hr_dev->qp_table.bitmap);
++}
 -- 
 1.9.1
