@@ -1,1080 +1,470 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 07/13] net: hns: separate debug dsaf device from service dsaf device
-Date: Sat, 23 Apr 2016 17:05:11 +0800
-Message-ID: <1461402317-136499-8-git-send-email-Yisen.Zhuang@huawei.com>
+From: Yisen Zhuang <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v2 net-next 01/13] net: hns: add a new dsaf mode for debug port
+Date: Sat, 23 Apr 2016 17:05:05 +0800
+Message-ID: <1461402317-136499-2-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<davem@davemloft.net>, <will.deacon@arm.com>,
-	<catalin.marinas@arm.com>, <yankejian@huawei.com>,
-	<huangdaode@hisilicon.com>, <salil.mehta@huawei.com>,
-	<lipeng321@huawei.com>, <liguozhu@huawei.com>,
-	<xieqianqian@huawei.com>, <xuwei5@hisilicon.com>,
-	<linuxarm@huawei.com>
-To: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:47146 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751681AbcDWIsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 04:48:50 -0400
-In-Reply-To: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	<catalin.marinas-5wv7dgnIgG8@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <liguozhu-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xieqianqian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461402317-136499-1-git-send-email-Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There are two kinds of dsaf device in hns, one is for service ports,
-contains crossbar in it, can work under different mode. Another is for
-debug port, only can work under "single-port" mode. The current code only
-declared a dsaf device for both service ports and debug ports. This patch
-separate it to three platform devices.
+This patch adds a new dsaf mode named "single-port" mode for debug port.
+This mode only contains one debug port. This patch also changes the
+method of distinguishing the port type.
 
-Here is the diagram of all port in one platform device(old):
-                                        CPU
-                                         |
-                                         |        DSAF(one platform device)
-    --------------------------------------------------------------      /
-    |                           |                  |      |      |     /
-    |                          PPE                PPE    PPE     |    /
-    |                           |                  |      |      |   /
-    |                           |                  |      |      |  /
-    |                        crossbar              |      |      | /
-    |                           |                  |      |      |/
-    |    -----------------------------------       |      |      |
-    |    |      |      |      |      |      |      |      |      |
-    |    |      |      |      |      |      |      |      |      |
-    |   MAC    MAC    MAC    MAC    MAC    MAC    MAC    MAC     |
-    |    |      |      |      |      |      |      |      |      |
-    --------------------------------------------------------------
-         |      |      |      |      |      |      |      |
-        PHY    PHY    PHY    PHY    PHY    PHY    PHY    PHY
-
-Here is the diagram of separate all ports to three platform(new):
-                                                         CPU
-                                                          |
-                                    -----------------------------------
-                                    |                     |           |
-    ----------------------------------------------    ---------   ---------
-    |                         |                  |    |       |   |   |   |
-    |                        PPE                 |    |  PPE  |   |  PPE  |
-    |                         |                  |    |   |   |   |   |   |
-    |                         |                  |    |   |   |   |   |   |
-    |                      crossbar              |    |   |   |   |   |   |
-    |                         |                  |    |   |   |   |   |   |
-    |   ----------------------------------       |    |   |   |   |   |   |
-    |   |     |     |      |      |      |       |    |   |   |   |   |   |
-    |   |     |     |      |      |      |       |    |   |   |   |   |   |
-    |  MAC   MAC   MAC    MAC    MAC    MAC      |    |  MAC  |   |  MAC  |
-    |   |     |     |      |      |      |       |    |   |   |   |   |   |
-    ----------------------------------------------    ---------   ---------
-        |     |     |      |      |      |    \        /  |        /  |
-       PHY   PHY   PHY    PHY    PHY    PHY    \      /  PHY      /  PHY
-                                                \    /           /
-                                                 \  /           /
-                                             DSAF(three platform device)
-
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Signed-off-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 ---
-change log:
- PATCH v2:
-  - put DT bindings in separate patches.
-
- PATCH v1:
-  - first submit
----
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  40 ++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 152 +++++++++++++++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |   7 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  93 ++++++++-----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  12 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  72 ++++++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  57 ++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |   1 -
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |  53 ++-----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  15 +-
- 10 files changed, 261 insertions(+), 241 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |   2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |   8 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  16 +--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   2 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   4 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |   6 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  | 132 ++++++++++-----------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |   2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   1 -
+ 9 files changed, 84 insertions(+), 89 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index 1c86336..58341da 100644
+index 1591422..1e8bf22 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -37,50 +37,35 @@ static struct dsaf_device *hns_ae_get_dsaf_dev(struct hnae_ae_dev *dev)
- static struct hns_ppe_cb *hns_get_ppe_cb(struct hnae_handle *handle)
- {
- 	int ppe_index;
--	int ppe_common_index;
- 	struct ppe_common_cb *ppe_comm;
- 	struct  hnae_vf_cb *vf_cb = hns_ae_get_vf_cb(handle);
- 
--	if (vf_cb->port_index < DSAF_SERVICE_PORT_NUM_PER_DSAF) {
--		ppe_index = vf_cb->port_index;
--		ppe_common_index = 0;
--	} else {
--		ppe_index = 0;
--		ppe_common_index =
--			vf_cb->port_index - DSAF_SERVICE_PORT_NUM_PER_DSAF + 1;
--	}
--	ppe_comm = vf_cb->dsaf_dev->ppe_common[ppe_common_index];
-+	ppe_comm = vf_cb->dsaf_dev->ppe_common[0];
-+	ppe_index = vf_cb->port_index;
-+
- 	return &ppe_comm->ppe_cb[ppe_index];
- }
- 
- static int hns_ae_get_q_num_per_vf(
- 	struct dsaf_device *dsaf_dev, int port)
- {
--	int common_idx = hns_dsaf_get_comm_idx_by_port(port);
--
--	return dsaf_dev->rcb_common[common_idx]->max_q_per_vf;
-+	return dsaf_dev->rcb_common[0]->max_q_per_vf;
- }
- 
- static int hns_ae_get_vf_num_per_port(
- 	struct dsaf_device *dsaf_dev, int port)
- {
--	int common_idx = hns_dsaf_get_comm_idx_by_port(port);
--
--	return dsaf_dev->rcb_common[common_idx]->max_vfn;
-+	return dsaf_dev->rcb_common[0]->max_vfn;
- }
- 
- static struct ring_pair_cb *hns_ae_get_base_ring_pair(
- 	struct dsaf_device *dsaf_dev, int port)
- {
--	int common_idx = hns_dsaf_get_comm_idx_by_port(port);
--	struct rcb_common_cb *rcb_comm = dsaf_dev->rcb_common[common_idx];
-+	struct rcb_common_cb *rcb_comm = dsaf_dev->rcb_common[0];
+@@ -96,7 +96,7 @@ static struct ring_pair_cb *hns_ae_get_base_ring_pair(
  	int q_num = rcb_comm->max_q_per_vf;
  	int vf_num = rcb_comm->max_vfn;
  
--	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
--		return &rcb_comm->ring_pair_cb[port * q_num * vf_num];
--	else
--		return &rcb_comm->ring_pair_cb[0];
-+	return &rcb_comm->ring_pair_cb[port * q_num * vf_num];
- }
- 
- static struct ring_pair_cb *hns_ae_get_ring_pair(struct hnae_queue *q)
-@@ -143,7 +128,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
- 
- 	vf_cb->dsaf_dev = dsaf_dev;
- 	vf_cb->port_index = port_id;
--	vf_cb->mac_cb = &dsaf_dev->mac_cb[port_id];
-+	vf_cb->mac_cb = dsaf_dev->mac_cb[port_id];
- 
- 	ae_handle->phy_if = vf_cb->mac_cb->phy_if;
- 	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
-@@ -299,11 +284,8 @@ static void hns_ae_reset(struct hnae_handle *handle)
- 	struct hnae_vf_cb *vf_cb = hns_ae_get_vf_cb(handle);
- 
- 	if (vf_cb->mac_cb->mac_type == HNAE_PORT_DEBUG) {
--		u8 ppe_common_index =
--			vf_cb->port_index - DSAF_SERVICE_PORT_NUM_PER_DSAF + 1;
--
- 		hns_mac_reset(vf_cb->mac_cb);
--		hns_ppe_reset_common(vf_cb->dsaf_dev, ppe_common_index);
-+		hns_ppe_reset_common(vf_cb->dsaf_dev, 0);
- 	}
- }
- 
-@@ -702,7 +684,6 @@ int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
- void hns_ae_get_regs(struct hnae_handle *handle, void *data)
- {
- 	u32 *p = data;
--	u32 rcb_com_idx;
- 	int i;
- 	struct hnae_vf_cb *vf_cb = hns_ae_get_vf_cb(handle);
- 	struct hns_ppe_cb *ppe_cb = hns_get_ppe_cb(handle);
-@@ -710,8 +691,7 @@ void hns_ae_get_regs(struct hnae_handle *handle, void *data)
- 	hns_ppe_get_regs(ppe_cb, p);
- 	p += hns_ppe_get_regs_count();
- 
--	rcb_com_idx = hns_dsaf_get_comm_idx_by_port(vf_cb->port_index);
--	hns_rcb_get_common_regs(vf_cb->dsaf_dev->rcb_common[rcb_com_idx], p);
-+	hns_rcb_get_common_regs(vf_cb->dsaf_dev->rcb_common[0], p);
- 	p += hns_rcb_get_common_regs_count();
- 
- 	for (i = 0; i < handle->q_num; i++) {
+-	if (common_idx == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
+ 		return &rcb_comm->ring_pair_cb[port * q_num * vf_num];
+ 	else
+ 		return &rcb_comm->ring_pair_cb[0];
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 3730385..a731777 100644
+index 10c367d..353b9e7 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -10,6 +10,7 @@
- #include <linux/init.h>
- #include <linux/interrupt.h>
- #include <linux/kernel.h>
-+#include <linux/mfd/syscon.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/of.h>
-@@ -168,10 +169,9 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
- 				      u8 vmid, u8 *port_num)
- {
- 	u8 tmp_port;
--	u32 comm_idx;
+@@ -249,7 +249,7 @@ int hns_mac_change_vf_addr(struct hns_mac_cb *mac_cb,
+ 	struct mac_entry_idx *old_entry;
  
- 	if (mac_cb->dsaf_dev->dsaf_mode <= DSAF_MODE_ENABLE) {
--		if (mac_cb->mac_id != DSAF_MAX_PORT_NUM_PER_CHIP) {
-+		if (mac_cb->mac_id != DSAF_MAX_PORT_NUM) {
- 			dev_err(mac_cb->dev,
- 				"input invalid,%s mac%d vmid%d !\n",
- 				mac_cb->dsaf_dev->ae_dev.name,
-@@ -179,7 +179,7 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
- 			return -EINVAL;
- 		}
- 	} else if (mac_cb->dsaf_dev->dsaf_mode < DSAF_MODE_MAX) {
--		if (mac_cb->mac_id >= DSAF_MAX_PORT_NUM_PER_CHIP) {
-+		if (mac_cb->mac_id >= DSAF_MAX_PORT_NUM) {
- 			dev_err(mac_cb->dev,
- 				"input invalid,%s mac%d vmid%d!\n",
- 				mac_cb->dsaf_dev->ae_dev.name,
-@@ -192,9 +192,7 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
- 		return -EINVAL;
- 	}
+ 	old_entry = &mac_cb->addr_entry_idx[vmid];
+-	if (dsaf_dev) {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		memcpy(mac_entry.addr, addr, sizeof(mac_entry.addr));
+ 		mac_entry.in_vlan_id = old_entry->vlan_id;
+ 		mac_entry.in_port_num = mac_cb->mac_id;
+@@ -289,7 +289,7 @@ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
+ 	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
+ 	struct dsaf_drv_mac_single_dest_entry mac_entry;
  
--	comm_idx = hns_dsaf_get_comm_idx_by_port(mac_cb->mac_id);
--
--	if (vmid >= mac_cb->dsaf_dev->rcb_common[comm_idx]->max_vfn) {
-+	if (vmid >= mac_cb->dsaf_dev->rcb_common[0]->max_vfn) {
- 		dev_err(mac_cb->dev, "input invalid,%s mac%d vmid%d !\n",
- 			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id, vmid);
- 		return -EINVAL;
-@@ -234,7 +232,7 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
- }
+-	if (dsaf_dev && addr) {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev) && addr) {
+ 		memcpy(mac_entry.addr, addr, sizeof(mac_entry.addr));
+ 		mac_entry.in_vlan_id = 0;/*vlan_id;*/
+ 		mac_entry.in_port_num = mac_cb->mac_id;
+@@ -380,7 +380,7 @@ static int hns_mac_port_config_bc_en(struct hns_mac_cb *mac_cb,
+ 	if (mac_cb->mac_type == HNAE_PORT_DEBUG)
+ 		return 0;
  
- /**
-- *hns_mac_get_inner_port_num - change vf mac address
-+ *hns_mac_change_vf_addr - change vf mac address
-  *@mac_cb: mac device
-  *@vmid: vmid
-  *@addr:mac address
-@@ -651,14 +649,15 @@ free_mac_drv:
- }
+-	if (dsaf_dev) {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		memcpy(mac_entry.addr, addr, sizeof(mac_entry.addr));
+ 		mac_entry.in_vlan_id = vlan_id;
+ 		mac_entry.in_port_num = mac_cb->mac_id;
+@@ -418,7 +418,7 @@ int hns_mac_vm_config_bc_en(struct hns_mac_cb *mac_cb, u32 vmid, bool enable)
  
- /**
-- *mac_free_dev  - get mac information from device node
-+ *hns_mac_get_info  - get mac information from device node
-  *@mac_cb: mac device
-  *@np:device node
-- *@mac_mode_idx:mac mode index
-+ * return: 0 --success, negative --fail
-  */
--static void hns_mac_get_info(struct hns_mac_cb *mac_cb,
--			     struct device_node *np, u32 mac_mode_idx)
-+static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
- {
-+	struct device_node *np = mac_cb->dev->of_node;
-+	struct regmap *syscon;
- 	mac_cb->link = false;
- 	mac_cb->half_duplex = false;
- 	mac_cb->speed = mac_phy_to_speed[mac_cb->phy_if];
-@@ -675,11 +674,34 @@ static void hns_mac_get_info(struct hns_mac_cb *mac_cb,
- 	mac_cb->max_frm = MAC_DEFAULT_MTU;
- 	mac_cb->tx_pause_frm_time = MAC_DEFAULT_PAUSE_TIME;
+ 	uc_mac_entry = &mac_cb->addr_entry_idx[vmid];
  
--	/* Get the rest of the PHY information */
--	mac_cb->phy_node = of_parse_phandle(np, "phy-handle", mac_cb->mac_id);
-+	/* if the dsaf node doesn't contain a port subnode, get phy-handle
-+	 * from dsaf node
-+	 */
-+	if (!mac_cb->fw_port) {
-+		mac_cb->phy_node = of_parse_phandle(np, "phy-handle",
-+						    mac_cb->mac_id);
-+		if (mac_cb->phy_node)
-+			dev_dbg(mac_cb->dev, "mac%d phy_node: %s\n",
-+				mac_cb->mac_id, mac_cb->phy_node->name);
-+		return 0;
-+	}
-+	if (!is_of_node(mac_cb->fw_port))
-+		return -EINVAL;
-+	/* parse property from port subnode in dsaf */
-+	mac_cb->phy_node = of_parse_phandle(to_of_node(mac_cb->fw_port),
-+					    "phy-handle", 0);
- 	if (mac_cb->phy_node)
- 		dev_dbg(mac_cb->dev, "mac%d phy_node: %s\n",
- 			mac_cb->mac_id, mac_cb->phy_node->name);
-+	syscon = syscon_node_to_regmap(
-+			of_parse_phandle(to_of_node(mac_cb->fw_port),
-+					 "serdes-syscon", 0));
-+	if (IS_ERR_OR_NULL(syscon)) {
-+		dev_err(mac_cb->dev, "serdes-syscon is needed!\n");
-+		return -EINVAL;
-+	}
-+	mac_cb->serdes_ctrl = syscon;
-+	return 0;
- }
- 
- /**
-@@ -709,31 +731,27 @@ u8 __iomem *hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
- 		return base + 0x40000 + mac_id * 0x4000 -
- 				mac_mode_idx * 0x20000;
- 	else
--		return mac_cb->serdes_vaddr + 0x1000
--			+ (mac_id - DSAF_SERVICE_PORT_NUM_PER_DSAF) * 0x100000;
-+		return dsaf_dev->ppe_base + 0x1000;
- }
- 
- /**
-  * hns_mac_get_cfg - get mac cfg from dtb or acpi table
-  * @dsaf_dev: dsa fabric device struct pointer
-- * @mac_idx: mac index
-- * retuen 0 - success , negative --fail
-+ * @mac_cb: mac control block
-+ * return 0 - success , negative --fail
-  */
--int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, int mac_idx)
-+int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
- {
- 	int ret;
- 	u32 mac_mode_idx;
--	struct hns_mac_cb *mac_cb = &dsaf_dev->mac_cb[mac_idx];
- 
- 	mac_cb->dsaf_dev = dsaf_dev;
- 	mac_cb->dev = dsaf_dev->dev;
--	mac_cb->mac_id = mac_idx;
- 
- 	mac_cb->sys_ctl_vaddr =	dsaf_dev->sc_base;
- 	mac_cb->serdes_vaddr = dsaf_dev->sds_base;
- 
--	if (dsaf_dev->cpld_base &&
--	    mac_idx < DSAF_SERVICE_PORT_NUM_PER_DSAF) {
-+	if (dsaf_dev->cpld_base && !HNS_DSAF_IS_DEBUG(dsaf_dev)) {
- 		mac_cb->cpld_vaddr = dsaf_dev->cpld_base +
- 			mac_cb->mac_id * CPLD_ADDR_PORT_OFFSET;
- 		cpld_led_reset(mac_cb);
-@@ -742,7 +760,7 @@ int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, int mac_idx)
- 	mac_cb->txpkt_for_led = 0;
- 	mac_cb->rxpkt_for_led = 0;
- 
--	if (mac_idx < DSAF_SERVICE_PORT_NUM_PER_DSAF)
-+	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
- 		mac_cb->mac_type = HNAE_PORT_SERVICE;
- 	else
- 		mac_cb->mac_type = HNAE_PORT_DEBUG;
-@@ -758,53 +776,99 @@ int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, int mac_idx)
- 	}
- 	mac_mode_idx = (u32)ret;
- 
--	hns_mac_get_info(mac_cb, mac_cb->dev->of_node, mac_mode_idx);
-+	ret  = hns_mac_get_info(mac_cb);
-+	if (ret)
-+		return ret;
- 
- 	mac_cb->vaddr = hns_mac_get_vaddr(dsaf_dev, mac_cb, mac_mode_idx);
- 
- 	return 0;
- }
- 
-+static int hns_mac_get_max_port_num(struct dsaf_device *dsaf_dev)
-+{
-+	if (HNS_DSAF_IS_DEBUG(dsaf_dev))
-+		return 1;
-+	else
-+		return  DSAF_MAX_PORT_NUM;
-+}
-+
- /**
-  * hns_mac_init - init mac
-  * @dsaf_dev: dsa fabric device struct pointer
-- * retuen 0 - success , negative --fail
-+ * return 0 - success , negative --fail
-  */
- int hns_mac_init(struct dsaf_device *dsaf_dev)
- {
--	int i;
-+	bool found = false;
- 	int ret;
--	size_t size;
-+	u32 port_id;
-+	int max_port_num = hns_mac_get_max_port_num(dsaf_dev);
- 	struct hns_mac_cb *mac_cb;
-+	struct fwnode_handle *child;
- 
--	size = sizeof(struct hns_mac_cb) * DSAF_MAX_PORT_NUM_PER_CHIP;
--	dsaf_dev->mac_cb = devm_kzalloc(dsaf_dev->dev, size, GFP_KERNEL);
--	if (!dsaf_dev->mac_cb)
--		return -ENOMEM;
-+	device_for_each_child_node(dsaf_dev->dev, child) {
-+		ret = fwnode_property_read_u32(child, "port-id", &port_id);
-+		if (ret) {
-+			dev_err(dsaf_dev->dev,
-+				"get port-id fail, ret=%d!\n", ret);
-+			return ret;
-+		}
-+		if (port_id >= max_port_num) {
-+			dev_err(dsaf_dev->dev,
-+				"port-id(%u) out of range!\n", port_id);
-+			return -EINVAL;
-+		}
-+		mac_cb = devm_kzalloc(dsaf_dev->dev, sizeof(*mac_cb),
-+				      GFP_KERNEL);
-+		if (!mac_cb)
-+			return -ENOMEM;
-+		mac_cb->fw_port = child;
-+		mac_cb->mac_id = (u8)port_id;
-+		dsaf_dev->mac_cb[port_id] = mac_cb;
-+		found = true;
-+	}
- 
--	for (i = 0; i < DSAF_MAX_PORT_NUM_PER_CHIP; i++) {
--		ret = hns_mac_get_cfg(dsaf_dev, i);
--		if (ret)
--			goto free_mac_cb;
-+	/* if don't get any port subnode from dsaf node
-+	 * will init all port then, this is compatible with the old dts
-+	 */
-+	if (!found) {
-+		for (port_id = 0; port_id < max_port_num; port_id++) {
-+			mac_cb = devm_kzalloc(dsaf_dev->dev, sizeof(*mac_cb),
-+					      GFP_KERNEL);
-+			if (!mac_cb)
-+				return -ENOMEM;
-+
-+			mac_cb->mac_id = port_id;
-+			dsaf_dev->mac_cb[port_id] = mac_cb;
-+		}
-+	}
-+	/* init mac_cb for all port */
-+	for (port_id = 0; port_id < max_port_num; port_id++) {
-+		mac_cb = dsaf_dev->mac_cb[port_id];
-+		if (!mac_cb)
-+			continue;
- 
--		mac_cb = &dsaf_dev->mac_cb[i];
-+		ret = hns_mac_get_cfg(dsaf_dev, mac_cb);
-+		if (ret)
-+			return ret;
- 		ret = hns_mac_init_ex(mac_cb);
- 		if (ret)
--			goto free_mac_cb;
-+			return ret;
- 	}
- 
- 	return 0;
--
--free_mac_cb:
--	dsaf_dev->mac_cb = NULL;
--
--	return ret;
- }
- 
- void hns_mac_uninit(struct dsaf_device *dsaf_dev)
- {
--	cpld_led_reset(dsaf_dev->mac_cb);
--	dsaf_dev->mac_cb = NULL;
-+	int i;
-+	int max_port_num = hns_mac_get_max_port_num(dsaf_dev);
-+
-+	for (i = 0; i < max_port_num; i++) {
-+		cpld_led_reset(dsaf_dev->mac_cb[i]);
-+		dsaf_dev->mac_cb[i] = NULL;
-+	}
- }
- 
- int hns_mac_config_mac_loopback(struct hns_mac_cb *mac_cb,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 823b6e7..45c5f16 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -10,9 +10,10 @@
- #ifndef _HNS_DSAF_MAC_H
- #define _HNS_DSAF_MAC_H
- 
--#include <linux/phy.h>
--#include <linux/kernel.h>
- #include <linux/if_vlan.h>
-+#include <linux/kernel.h>
-+#include <linux/phy.h>
-+#include <linux/regmap.h>
- #include "hns_dsaf_main.h"
- 
- struct dsaf_device;
-@@ -310,10 +311,12 @@ struct hns_mac_cb {
- 	struct device *dev;
- 	struct dsaf_device *dsaf_dev;
- 	struct mac_priv priv;
-+	struct fwnode_handle *fw_port;
- 	u8 __iomem *vaddr;
- 	u8 __iomem *cpld_vaddr;
- 	u8 __iomem *sys_ctl_vaddr;
- 	u8 __iomem *serdes_vaddr;
-+	struct regmap *serdes_ctrl;
- 	struct mac_entry_idx addr_entry_idx[DSAF_MAX_VM_NUM];
- 	u8 sfp_prsnt;
- 	u8 cpld_led_value;
+-	if (dsaf_dev)  {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))  {
+ 		memcpy(mac_entry.addr, addr, sizeof(mac_entry.addr));
+ 		mac_entry.in_vlan_id = uc_mac_entry->vlan_id;
+ 		mac_entry.in_port_num = mac_cb->mac_id;
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 98e0e83..33cdb21 100644
+index 8439f6d..7692853 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -13,6 +13,7 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
-+#include <linux/mfd/syscon.h>
- #include <linux/of.h>
- #include <linux/of_address.h>
- #include <linux/of_irq.h>
-@@ -37,8 +38,12 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	u32 desc_num;
- 	u32 buf_size;
- 	u32 reset_offset = 0;
-+	u32 res_idx = 0;
- 	const char *mode_str;
-+	struct regmap *syscon;
-+	struct resource *res;
- 	struct device_node *np = dsaf_dev->dev->of_node;
-+	struct platform_device *pdev = to_platform_device(dsaf_dev->dev);
+@@ -28,6 +28,7 @@ const char *g_dsaf_mode_match[DSAF_MODE_MAX] = {
+ 	[DSAF_MODE_DISABLE_2PORT_64VM] = "2port-64vf",
+ 	[DSAF_MODE_DISABLE_6PORT_0VM] = "6port-16rss",
+ 	[DSAF_MODE_DISABLE_6PORT_16VM] = "6port-16vf",
++	[DSAF_MODE_DISABLE_SP] = "single-port",
+ };
  
- 	if (of_device_is_compatible(np, "hisilicon,hns-dsaf-v1"))
- 		dsaf_dev->dsaf_ver = AE_VERSION_1;
-@@ -75,42 +80,68 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	else
- 		dsaf_dev->dsaf_tc_mode = HRD_DSAF_4TC_MODE;
- 
--	dsaf_dev->sc_base = of_iomap(np, 0);
--	if (!dsaf_dev->sc_base) {
--		dev_err(dsaf_dev->dev,
--			"%s of_iomap 0 fail!\n", dsaf_dev->ae_dev.name);
--		ret = -ENOMEM;
--		goto unmap_base_addr;
--	}
-+	syscon = syscon_node_to_regmap(
-+			of_parse_phandle(np, "subctrl-syscon", 0));
-+	if (IS_ERR_OR_NULL(syscon)) {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
-+		if (!res) {
-+			dev_err(dsaf_dev->dev, "subctrl info is needed!\n");
-+			return -ENOMEM;
-+		}
-+		dsaf_dev->sc_base = devm_ioremap_resource(&pdev->dev, res);
-+		if (!dsaf_dev->sc_base) {
-+			dev_err(dsaf_dev->dev, "subctrl can not map!\n");
-+			return -ENOMEM;
-+		}
- 
--	dsaf_dev->sds_base = of_iomap(np, 1);
--	if (!dsaf_dev->sds_base) {
--		dev_err(dsaf_dev->dev,
--			"%s of_iomap 1 fail!\n", dsaf_dev->ae_dev.name);
--		ret = -ENOMEM;
--		goto unmap_base_addr;
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
-+		if (!res) {
-+			dev_err(dsaf_dev->dev, "serdes-ctrl info is needed!\n");
-+			return -ENOMEM;
-+		}
-+		dsaf_dev->sds_base = devm_ioremap_resource(&pdev->dev, res);
-+		if (!dsaf_dev->sds_base) {
-+			dev_err(dsaf_dev->dev, "serdes-ctrl can not map!\n");
-+			return -ENOMEM;
-+		}
-+	} else {
-+		dsaf_dev->sub_ctrl = syscon;
- 	}
- 
--	dsaf_dev->ppe_base = of_iomap(np, 2);
--	if (!dsaf_dev->ppe_base) {
--		dev_err(dsaf_dev->dev,
--			"%s of_iomap 2 fail!\n", dsaf_dev->ae_dev.name);
--		ret = -ENOMEM;
--		goto unmap_base_addr;
-+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ppe-base");
-+	if (!res) {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
-+		if (!res) {
-+			dev_err(dsaf_dev->dev, "ppe-base info is needed!\n");
-+			return -ENOMEM;
-+		}
- 	}
--
--	dsaf_dev->io_base = of_iomap(np, 3);
--	if (!dsaf_dev->io_base) {
--		dev_err(dsaf_dev->dev,
--			"%s of_iomap 3 fail!\n", dsaf_dev->ae_dev.name);
--		ret = -ENOMEM;
--		goto unmap_base_addr;
-+	dsaf_dev->ppe_base = devm_ioremap_resource(&pdev->dev, res);
-+	if (!dsaf_dev->ppe_base) {
-+		dev_err(dsaf_dev->dev, "ppe-base resource can not map!\n");
-+		return -ENOMEM;
-+	}
-+	dsaf_dev->ppe_paddr = res->start;
-+
-+	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
-+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-+						   "dsaf-base");
-+		if (!res) {
-+			res = platform_get_resource(pdev, IORESOURCE_MEM,
-+						    res_idx);
-+			if (!res) {
-+				dev_err(dsaf_dev->dev,
-+					"dsaf-base info is needed!\n");
-+				return -ENOMEM;
-+			}
-+		}
-+		dsaf_dev->io_base = devm_ioremap_resource(&pdev->dev, res);
-+		if (!dsaf_dev->io_base) {
-+			dev_err(dsaf_dev->dev, "dsaf-base resource can not map!\n");
-+			return -ENOMEM;
-+		}
- 	}
- 
--	dsaf_dev->cpld_base = of_iomap(np, 4);
--	if (!dsaf_dev->cpld_base)
--		dev_dbg(dsaf_dev->dev, "NO CPLD ADDR");
--
- 	ret = of_property_read_u32(np, "desc-num", &desc_num);
- 	if (ret < 0 || desc_num < HNS_DSAF_MIN_DESC_CNT ||
- 	    desc_num > HNS_DSAF_MAX_DESC_CNT) {
-@@ -725,7 +756,7 @@ void hns_dsaf_set_promisc_mode(struct dsaf_device *dsaf_dev, u32 en)
- void hns_dsaf_set_inner_lb(struct dsaf_device *dsaf_dev, u32 mac_id, u32 en)
- {
- 	if (AE_IS_VER1(dsaf_dev->dsaf_ver) ||
--	    dsaf_dev->mac_cb[mac_id].mac_type == HNAE_PORT_DEBUG)
-+	    dsaf_dev->mac_cb[mac_id]->mac_type == HNAE_PORT_DEBUG)
- 		return;
- 
- 	dsaf_set_dev_bit(dsaf_dev, DSAFV2_SERDES_LBK_0_REG + 4 * mac_id,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index 47e768b..a48ef26 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -278,6 +278,8 @@ struct dsaf_device {
- 	u8 __iomem *ppe_base;
- 	u8 __iomem *io_base;
- 	u8 __iomem *cpld_base;
-+	struct regmap *sub_ctrl;
-+	phys_addr_t ppe_paddr;
- 
- 	u32 desc_num; /*  desc num per queue*/
- 	u32 buf_size; /*  ring buffer size */
-@@ -290,7 +292,7 @@ struct dsaf_device {
- 
- 	struct ppe_common_cb *ppe_common[DSAF_COMM_DEV_NUM];
- 	struct rcb_common_cb *rcb_common[DSAF_COMM_DEV_NUM];
--	struct hns_mac_cb *mac_cb;
-+	struct hns_mac_cb *mac_cb[DSAF_MAX_PORT_NUM];
- 
- 	struct dsaf_hw_stats hw_stats[DSAF_NODE_NUM];
- 	struct dsaf_int_stat int_stat;
-@@ -362,14 +364,6 @@ static inline void hns_dsaf_tbl_line_addr_cfg(struct dsaf_device *dsaf_dev,
- 			   tab_line_addr);
- }
- 
--static inline int hns_dsaf_get_comm_idx_by_port(int port)
--{
--	if ((port < DSAF_COMM_CHN) || (port == DSAF_MAX_PORT_NUM_PER_CHIP))
--		return 0;
--	else
--		return (port - DSAF_COMM_CHN + 1);
--}
--
- static inline struct hnae_vf_cb *hns_ae_get_vf_cb(
- 	struct hnae_handle *handle)
- {
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 67c8b9e..972eab0 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -12,6 +12,26 @@
- #include "hns_dsaf_ppe.h"
- #include "hns_dsaf_reg.h"
- 
-+static void dsaf_write_sub(struct dsaf_device *dsaf_dev, u32 reg, u32 val)
-+{
-+	if (dsaf_dev->sub_ctrl)
-+		dsaf_write_syscon(dsaf_dev->sub_ctrl, reg, val);
-+	else
-+		dsaf_write_reg(dsaf_dev->sc_base, reg, val);
-+}
-+
-+static u32 dsaf_read_sub(struct dsaf_device *dsaf_dev, u32 reg)
-+{
-+	u32 ret;
-+
-+	if (dsaf_dev->sub_ctrl)
-+		ret = dsaf_read_syscon(dsaf_dev->sub_ctrl, reg);
-+	else
-+		ret = dsaf_read_reg(dsaf_dev->sc_base, reg);
-+
-+	return ret;
-+}
-+
- void hns_cpld_set_led(struct hns_mac_cb *mac_cb, int link_status,
- 		      u16 speed, int data)
- {
-@@ -95,10 +115,8 @@ void hns_dsaf_rst(struct dsaf_device *dsaf_dev, u32 val)
- 		nt_reg_addr = DSAF_SUB_SC_NT_RESET_DREQ_REG;
- 	}
- 
--	dsaf_write_reg(dsaf_dev->sc_base, xbar_reg_addr,
--		       RESET_REQ_OR_DREQ);
--	dsaf_write_reg(dsaf_dev->sc_base, nt_reg_addr,
--		       RESET_REQ_OR_DREQ);
-+	dsaf_write_sub(dsaf_dev, xbar_reg_addr, RESET_REQ_OR_DREQ);
-+	dsaf_write_sub(dsaf_dev, nt_reg_addr, RESET_REQ_OR_DREQ);
- }
- 
- void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
-@@ -121,7 +139,7 @@ void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 	else
- 		reg_addr = DSAF_SUB_SC_XGE_RESET_DREQ_REG;
- 
--	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, reg_val);
-+	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
- void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
-@@ -144,7 +162,7 @@ void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 	else
- 		reg_addr = DSAF_SUB_SC_XGE_RESET_DREQ_REG;
- 
--	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, reg_val);
-+	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
- void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
-@@ -164,20 +182,16 @@ void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 			reg_val_2  = 0x2082082 << port;
- 
- 		if (val == 0) {
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_GE_RESET_REQ1_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
- 				       reg_val_1);
- 
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_GE_RESET_REQ0_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ0_REG,
- 				       reg_val_2);
- 		} else {
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_GE_RESET_DREQ0_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_DREQ0_REG,
- 				       reg_val_2);
- 
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_GE_RESET_DREQ1_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_DREQ1_REG,
- 				       reg_val_1);
- 		}
- 	} else {
-@@ -185,20 +199,16 @@ void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 		reg_val_2 = 0x100 << dsaf_dev->reset_offset;
- 
- 		if (val == 0) {
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_GE_RESET_REQ1_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
- 				       reg_val_1);
- 
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_PPE_RESET_REQ_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_PPE_RESET_REQ_REG,
- 				       reg_val_2);
- 		} else {
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_GE_RESET_DREQ1_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_DREQ1_REG,
- 				       reg_val_1);
- 
--			dsaf_write_reg(dsaf_dev->sc_base,
--				       DSAF_SUB_SC_PPE_RESET_DREQ_REG,
-+			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_PPE_RESET_DREQ_REG,
- 				       reg_val_2);
- 		}
- 	}
-@@ -220,7 +230,7 @@ void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 	else
- 		reg_addr = DSAF_SUB_SC_PPE_RESET_DREQ_REG;
- 
--	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, reg_val);
-+	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
- void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
-@@ -245,7 +255,7 @@ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
- 			reg_addr = DSAF_SUB_SC_PPE_RESET_DREQ_REG;
- 	}
- 
--	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, reg_val);
-+	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
- /**
-@@ -260,7 +270,6 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
- 	u32 shift;
- 	u32 phy_offset;
- 	bool is_ver1 = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver);
--	void __iomem *sys_ctl_vaddr = mac_cb->sys_ctl_vaddr;
- 	int mac_id = mac_cb->mac_id;
- 	phy_interface_t phy_if = PHY_INTERFACE_MODE_NA;
- 
-@@ -269,7 +278,7 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
- 	} else if (mac_id >= 0 && mac_id <= 3 &&
- 		   !HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
- 		reg = is_ver1 ? HNS_MAC_HILINK4_REG : HNS_MAC_HILINK4V2_REG;
--		mode = dsaf_read_reg(sys_ctl_vaddr, reg);
-+		mode = dsaf_read_sub(mac_cb->dsaf_dev, reg);
- 		/* mac_id 0, 1, 2, 3 ---> hilink4 lane 0, 1, 2, 3 */
- 		shift = is_ver1 ? 0 : mac_id;
- 		if (dsaf_get_bit(mode, shift))
-@@ -278,7 +287,7 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
- 			phy_if = PHY_INTERFACE_MODE_SGMII;
- 	} else {
- 		reg = is_ver1 ? HNS_MAC_HILINK3_REG : HNS_MAC_HILINK3V2_REG;
--		mode = dsaf_read_reg(sys_ctl_vaddr, reg);
-+		mode = dsaf_read_sub(mac_cb->dsaf_dev, reg);
- 		/* mac_id 4, 5,---> hilink3 lane 2, 3
- 		 * debug port 0(6), 1(7) ---> hilink3 lane 0, 1
- 		 */
-@@ -328,7 +337,14 @@ int hns_mac_config_sds_loopback(struct hns_mac_cb *mac_cb, u8 en)
- 				pr_info("no sfp in this eth\n");
- 	}
- 
--	dsaf_set_reg_field(base_addr, reg_offset, 1ull << 10, 10, !!en);
-+	if (mac_cb->serdes_ctrl) {
-+		u32 origin = dsaf_read_syscon(mac_cb->serdes_ctrl, reg_offset);
-+
-+		dsaf_set_field(origin, 1ull << 10, 10, !!en);
-+		dsaf_write_syscon(mac_cb->serdes_ctrl, reg_offset, origin);
-+	} else {
-+		dsaf_set_reg_field(base_addr, reg_offset, 1ull << 10, 10, !!en);
-+	}
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 3f59a8a..8cd151a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -61,22 +61,10 @@ void hns_ppe_set_indir_table(struct hns_ppe_cb *ppe_cb,
- 	}
- }
- 
--static void __iomem *hns_ppe_common_get_ioaddr(
--	struct ppe_common_cb *ppe_common)
-+static void __iomem *
-+hns_ppe_common_get_ioaddr(struct ppe_common_cb *ppe_common)
- {
--	void __iomem *base_addr;
--
--	int idx = ppe_common->comm_index;
--
--	if (!HNS_DSAF_IS_DEBUG(ppe_common->dsaf_dev))
--		base_addr = ppe_common->dsaf_dev->ppe_base
--			+ PPE_COMMON_REG_OFFSET;
--	else
--		base_addr = ppe_common->dsaf_dev->sds_base
--			+ (idx - 1) * HNS_DSAF_DEBUG_NW_REG_OFFSET
--			+ PPE_COMMON_REG_OFFSET;
--
--	return base_addr;
-+	return ppe_common->dsaf_dev->ppe_base + PPE_COMMON_REG_OFFSET;
- }
- 
- /**
-@@ -124,32 +112,8 @@ void hns_ppe_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index)
- static void __iomem *hns_ppe_get_iobase(struct ppe_common_cb *ppe_common,
- 					int ppe_idx)
- {
--	void __iomem *base_addr;
--	int common_idx = ppe_common->comm_index;
--
--	if (ppe_common->ppe_mode == PPE_COMMON_MODE_SERVICE) {
--		base_addr = ppe_common->dsaf_dev->ppe_base +
--			ppe_idx * PPE_REG_OFFSET;
--
--	} else {
--		base_addr = ppe_common->dsaf_dev->sds_base +
--			(common_idx - 1) * HNS_DSAF_DEBUG_NW_REG_OFFSET;
--	}
- 
--	return base_addr;
--}
--
--static int hns_ppe_get_port(struct ppe_common_cb *ppe_common, int idx)
--{
--	int port;
--
--	if (ppe_common->ppe_mode == PPE_COMMON_MODE_SERVICE)
--		port = idx;
--	else
--		port = HNS_PPE_SERVICE_NW_ENGINE_NUM
--			+ ppe_common->comm_index - 1;
--
--	return port;
-+	return ppe_common->dsaf_dev->ppe_base + ppe_idx * PPE_REG_OFFSET;
- }
- 
- static void hns_ppe_get_cfg(struct ppe_common_cb *ppe_common)
-@@ -164,7 +128,6 @@ static void hns_ppe_get_cfg(struct ppe_common_cb *ppe_common)
- 		ppe_cb->next = NULL;
- 		ppe_cb->ppe_common_cb = ppe_common;
- 		ppe_cb->index = i;
--		ppe_cb->port = hns_ppe_get_port(ppe_common, i);
- 		ppe_cb->io_base = hns_ppe_get_iobase(ppe_common, i);
- 		ppe_cb->virq = 0;
- 	}
-@@ -318,7 +281,7 @@ static void hns_ppe_exc_irq_en(struct hns_ppe_cb *ppe_cb, int en)
- static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)
- {
- 	struct ppe_common_cb *ppe_common_cb = ppe_cb->ppe_common_cb;
--	u32 port = ppe_cb->port;
-+	u32 port = ppe_cb->index;
- 	struct dsaf_device *dsaf_dev = ppe_common_cb->dsaf_dev;
- 	int i;
- 
-@@ -377,7 +340,8 @@ void hns_ppe_uninit_ex(struct ppe_common_cb *ppe_common)
+ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+@@ -217,9 +218,7 @@ static void hns_dsaf_mix_def_qid_cfg(struct dsaf_device *dsaf_dev)
+ 	u32 q_id, q_num_per_port;
  	u32 i;
  
- 	for (i = 0; i < ppe_common->ppe_num; i++) {
--		hns_ppe_uninit_hw(&ppe_common->ppe_cb[i]);
-+		if (ppe_common->dsaf_dev->mac_cb[i])
-+			hns_ppe_uninit_hw(&ppe_common->ppe_cb[i]);
- 		memset(&ppe_common->ppe_cb[i], 0, sizeof(struct hns_ppe_cb));
- 	}
- }
-@@ -410,8 +374,11 @@ void hns_ppe_reset_common(struct dsaf_device *dsaf_dev, u8 ppe_common_index)
- 	if (ret)
+-	hns_rcb_get_queue_mode(dsaf_dev->dsaf_mode,
+-			       HNS_DSAF_COMM_SERVICE_NW_IDX,
+-			       &max_vfn, &max_q_per_vf);
++	hns_rcb_get_queue_mode(dsaf_dev->dsaf_mode, &max_vfn, &max_q_per_vf);
+ 	q_num_per_port = max_vfn * max_q_per_vf;
+ 
+ 	for (i = 0, q_id = 0; i < DSAF_SERVICE_NW_NUM; i++) {
+@@ -239,9 +238,7 @@ static void hns_dsaf_inner_qid_cfg(struct dsaf_device *dsaf_dev)
+ 	if (AE_IS_VER1(dsaf_dev->dsaf_ver))
  		return;
  
--	for (i = 0; i < ppe_common->ppe_num; i++)
--		hns_ppe_init_hw(&ppe_common->ppe_cb[i]);
-+	for (i = 0; i < ppe_common->ppe_num; i++) {
-+		/* We only need to initiate ppe when the port exists */
-+		if (dsaf_dev->mac_cb[i])
-+			hns_ppe_init_hw(&ppe_common->ppe_cb[i]);
-+	}
+-	hns_rcb_get_queue_mode(dsaf_dev->dsaf_mode,
+-			       HNS_DSAF_COMM_SERVICE_NW_IDX,
+-			       &max_vfn, &max_q_per_vf);
++	hns_rcb_get_queue_mode(dsaf_dev->dsaf_mode, &max_vfn, &max_q_per_vf);
+ 	q_num_per_port = max_vfn * max_q_per_vf;
  
- 	ret = hns_rcb_common_init_hw(dsaf_dev->rcb_common[ppe_common_index]);
+ 	for (mac_id = 0, q_id = 0; mac_id < DSAF_SERVICE_NW_NUM; mac_id++) {
+@@ -712,7 +709,9 @@ static void hns_dsaf_tbl_tcam_data_ucast_pul(
+ 
+ void hns_dsaf_set_promisc_mode(struct dsaf_device *dsaf_dev, u32 en)
+ {
+-	dsaf_set_dev_bit(dsaf_dev, DSAF_CFG_0_REG, DSAF_CFG_MIX_MODE_S, !!en);
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
++		dsaf_set_dev_bit(dsaf_dev, DSAF_CFG_0_REG,
++				 DSAF_CFG_MIX_MODE_S, !!en);
+ }
+ 
+ void hns_dsaf_set_inner_lb(struct dsaf_device *dsaf_dev, u32 mac_id, u32 en)
+@@ -1307,6 +1306,9 @@ static int hns_dsaf_init(struct dsaf_device *dsaf_dev)
+ 	u32 i;
+ 	int ret;
+ 
++	if (HNS_DSAF_IS_DEBUG(dsaf_dev))
++		return 0;
++
+ 	ret = hns_dsaf_init_hw(dsaf_dev);
  	if (ret)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-index e9c0ec2..9d8e643 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-@@ -80,7 +80,6 @@ struct hns_ppe_cb {
- 	struct hns_ppe_hw_stats hw_stats;
+ 		return ret;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index e8eedc5..a783019 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -41,6 +41,7 @@ struct hns_mac_cb;
+ #define DSAF_STATIC_NUM 28
  
- 	u8 index;	/* index in a ppe common device */
--	u8 port;			 /* port id in dsaf  */
- 	void __iomem *io_base;
- 	int virq;
- 	u32 rss_indir_table[HNS_PPEV2_RSS_IND_TBL_SIZE]; /*shadow indir tab */
+ #define DSAF_STATS_READ(p, offset) (*((u64 *)((u8 *)(p) + (offset))))
++#define HNS_DSAF_IS_DEBUG(dev) (dev->dsaf_mode == DSAF_MODE_DISABLE_SP)
+ 
+ enum hal_dsaf_mode {
+ 	HRD_DSAF_NO_DSAF_MODE	= 0x0,
+@@ -117,6 +118,7 @@ enum dsaf_mode {
+ 	DSAF_MODE_ENABLE_32VM,	/**< en DSAF-mode, support 32 VM */
+ 	DSAF_MODE_ENABLE_128VM,	/**< en DSAF-mode, support 128 VM */
+ 	DSAF_MODE_ENABLE,		/**< before is enable DSAF mode*/
++	DSAF_MODE_DISABLE_SP,	/* <non-dsaf, single port mode */
+ 	DSAF_MODE_DISABLE_FIX,	/**< non-dasf, fixed to queue*/
+ 	DSAF_MODE_DISABLE_2PORT_8VM,	/**< non-dasf, 2port 8VM */
+ 	DSAF_MODE_DISABLE_2PORT_16VM,	/**< non-dasf, 2port 16VM */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index e69b022..8cb13d9 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -147,7 +147,7 @@ void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
+ 	if (port >= DSAF_GE_NUM)
+ 		return;
+ 
+-	if (port < DSAF_SERVICE_NW_NUM) {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		reg_val_1  = 0x1 << port;
+ 		/* there is difference between V1 and V2 in register.*/
+ 		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
+@@ -218,7 +218,7 @@ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
+ 	u32 reg_val;
+ 	u32 reg_addr;
+ 
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX) {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		reg_val = RESET_REQ_OR_DREQ;
+ 		if (val == 0)
+ 			reg_addr = DSAF_SUB_SC_RCB_PPE_COM_RESET_REQ_REG;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index ab27b3b..3f59a8a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -68,7 +68,7 @@ static void __iomem *hns_ppe_common_get_ioaddr(
+ 
+ 	int idx = ppe_common->comm_index;
+ 
+-	if (idx == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(ppe_common->dsaf_dev))
+ 		base_addr = ppe_common->dsaf_dev->ppe_base
+ 			+ PPE_COMMON_REG_OFFSET;
+ 	else
+@@ -90,7 +90,7 @@ int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
+ 	struct ppe_common_cb *ppe_common;
+ 	int ppe_num;
+ 
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
+ 		ppe_num = HNS_PPE_SERVICE_NW_ENGINE_NUM;
+ 	else
+ 		ppe_num = HNS_PPE_DEBUG_NW_ENGINE_NUM;
+@@ -103,7 +103,7 @@ int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
+ 	ppe_common->ppe_num = ppe_num;
+ 	ppe_common->dsaf_dev = dsaf_dev;
+ 	ppe_common->comm_index = comm_index;
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
+ 		ppe_common->ppe_mode = PPE_COMMON_MODE_SERVICE;
+ 	else
+ 		ppe_common->ppe_mode = PPE_COMMON_MODE_DEBUG;
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index 054f391..4ef6d23 100644
+index 28ee26e..121ba4e 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -430,17 +430,8 @@ static void hns_rcb_ring_pair_get_cfg(struct ring_pair_cb *ring_pair_cb)
+@@ -270,7 +270,7 @@ static void hns_rcb_set_port_timeout(
+ 
+ static int hns_rcb_common_get_port_num(struct rcb_common_cb *rcb_common)
+ {
+-	if (rcb_common->comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev))
+ 		return HNS_RCB_SERVICE_NW_ENGINE_NUM;
+ 	else
+ 		return HNS_RCB_DEBUG_NW_ENGINE_NUM;
+@@ -430,11 +430,10 @@ static void hns_rcb_ring_pair_get_cfg(struct ring_pair_cb *ring_pair_cb)
  static int hns_rcb_get_port_in_comm(
  	struct rcb_common_cb *rcb_common, int ring_idx)
  {
--	int port;
--	int q_num;
+-	int comm_index = rcb_common->comm_index;
+ 	int port;
+ 	int q_num;
  
--	if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev)) {
--		q_num = (int)rcb_common->max_q_per_vf * rcb_common->max_vfn;
--		port = ring_idx / q_num;
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX) {
++	if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev)) {
+ 		q_num = (int)rcb_common->max_q_per_vf * rcb_common->max_vfn;
+ 		port = ring_idx / q_num;
+ 	} else {
+@@ -455,7 +454,7 @@ static int hns_rcb_get_base_irq_idx(struct rcb_common_cb *rcb_common)
+ 	int comm_index = rcb_common->comm_index;
+ 	bool is_ver1 = AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver);
+ 
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev))
+ 		return SERVICE_RING_IRQ_IDX(is_ver1);
+ 	else
+ 		return  DEBUG_RING_IRQ_IDX(is_ver1) +
+@@ -549,7 +548,7 @@ int hns_rcb_set_coalesce_usecs(
+ 		return 0;
+ 
+ 	if (AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver)) {
+-		if (rcb_common->comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX) {
++		if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev)) {
+ 			dev_err(rcb_common->dsaf_dev->dev,
+ 				"error: not support coalesce_usecs setting!\n");
+ 			return -EINVAL;
+@@ -601,74 +600,67 @@ int hns_rcb_set_coalesced_frames(
+  *@max_vfn : max vfn number
+  *@max_q_per_vf:max ring number per vm
+  */
+-void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode, int comm_index,
+-			    u16 *max_vfn, u16 *max_q_per_vf)
++void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode, u16 *max_vfn,
++			    u16 *max_q_per_vf)
+ {
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX) {
+-		switch (dsaf_mode) {
+-		case DSAF_MODE_DISABLE_6PORT_0VM:
+-			*max_vfn = 1;
+-			*max_q_per_vf = 16;
+-			break;
+-		case DSAF_MODE_DISABLE_FIX:
+-			*max_vfn = 1;
+-			*max_q_per_vf = 1;
+-			break;
+-		case DSAF_MODE_DISABLE_2PORT_64VM:
+-			*max_vfn = 64;
+-			*max_q_per_vf = 1;
+-			break;
+-		case DSAF_MODE_DISABLE_6PORT_16VM:
+-			*max_vfn = 16;
+-			*max_q_per_vf = 1;
+-			break;
+-		default:
+-			*max_vfn = 1;
+-			*max_q_per_vf = 16;
+-			break;
+-		}
 -	} else {
--		port = 0; /* config debug-ports port_id_in_comm to 0*/
--	}
--
--	return port;
-+	return ring_idx / (rcb_common->max_q_per_vf * rcb_common->max_vfn);
- }
- 
- #define SERVICE_RING_IRQ_IDX(v1) \
-@@ -658,42 +649,18 @@ int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
++	switch (dsaf_mode) {
++	case DSAF_MODE_DISABLE_6PORT_0VM:
++		*max_vfn = 1;
++		*max_q_per_vf = 16;
++		break;
++	case DSAF_MODE_DISABLE_FIX:
++	case DSAF_MODE_DISABLE_SP:
+ 		*max_vfn = 1;
+ 		*max_q_per_vf = 1;
++		break;
++	case DSAF_MODE_DISABLE_2PORT_64VM:
++		*max_vfn = 64;
++		*max_q_per_vf = 1;
++		break;
++	case DSAF_MODE_DISABLE_6PORT_16VM:
++		*max_vfn = 16;
++		*max_q_per_vf = 1;
++		break;
++	default:
++		*max_vfn = 1;
++		*max_q_per_vf = 16;
++		break;
  	}
  }
  
--void __iomem *hns_rcb_common_get_vaddr(struct dsaf_device *dsaf_dev,
--				       int comm_index)
-+void __iomem *hns_rcb_common_get_vaddr(struct rcb_common_cb *rcb_common)
+-int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev, int comm_index)
++int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
  {
--	void __iomem *base_addr;
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX) {
+-		switch (dsaf_dev->dsaf_mode) {
+-		case DSAF_MODE_ENABLE_FIX:
+-			return 1;
 -
--	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
--		base_addr = dsaf_dev->ppe_base + RCB_COMMON_REG_OFFSET;
--	else
--		base_addr = dsaf_dev->sds_base
--			+ (comm_index - 1) * HNS_DSAF_DEBUG_NW_REG_OFFSET
--			+ RCB_COMMON_REG_OFFSET;
-+	struct dsaf_device *dsaf_dev = rcb_common->dsaf_dev;
- 
--	return base_addr;
-+	return dsaf_dev->ppe_base + RCB_COMMON_REG_OFFSET;
- }
- 
--static phys_addr_t hns_rcb_common_get_paddr(struct dsaf_device *dsaf_dev,
--					    int comm_index)
-+static phys_addr_t hns_rcb_common_get_paddr(struct rcb_common_cb *rcb_common)
- {
--	struct device_node *np = dsaf_dev->dev->of_node;
--	phys_addr_t phy_addr;
--	const __be32 *tmp_addr;
--	u64 addr_offset = 0;
--	u64 size = 0;
--	int index = 0;
+-		case DSAF_MODE_DISABLE_FIX:
+-			return 6;
 -
--	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
--		index    = 2;
--		addr_offset = RCB_COMMON_REG_OFFSET;
+-		case DSAF_MODE_ENABLE_0VM:
+-			return 32;
+-
+-		case DSAF_MODE_DISABLE_6PORT_0VM:
+-		case DSAF_MODE_ENABLE_16VM:
+-		case DSAF_MODE_DISABLE_6PORT_2VM:
+-		case DSAF_MODE_DISABLE_6PORT_16VM:
+-		case DSAF_MODE_DISABLE_6PORT_4VM:
+-		case DSAF_MODE_ENABLE_8VM:
+-			return 96;
+-
+-		case DSAF_MODE_DISABLE_2PORT_16VM:
+-		case DSAF_MODE_DISABLE_2PORT_8VM:
+-		case DSAF_MODE_ENABLE_32VM:
+-		case DSAF_MODE_DISABLE_2PORT_64VM:
+-		case DSAF_MODE_ENABLE_128VM:
+-			return 128;
+-
+-		default:
+-			dev_warn(dsaf_dev->dev,
+-				 "get ring num fail,use default!dsaf_mode=%d\n",
+-				 dsaf_dev->dsaf_mode);
+-			return 128;
+-		}
 -	} else {
--		index    = 1;
--		addr_offset = (comm_index - 1) * HNS_DSAF_DEBUG_NW_REG_OFFSET +
--				RCB_COMMON_REG_OFFSET;
--	}
--	tmp_addr  = of_get_address(np, index, &size, NULL);
--	phy_addr  = of_translate_address(np, tmp_addr);
--	return phy_addr + addr_offset;
-+	struct dsaf_device *dsaf_dev = rcb_common->dsaf_dev;
++	switch (dsaf_dev->dsaf_mode) {
++	case DSAF_MODE_ENABLE_FIX:
++	case DSAF_MODE_DISABLE_SP:
+ 		return 1;
 +
-+	return dsaf_dev->ppe_paddr + RCB_COMMON_REG_OFFSET;
++	case DSAF_MODE_DISABLE_FIX:
++		return 6;
++
++	case DSAF_MODE_ENABLE_0VM:
++		return 32;
++
++	case DSAF_MODE_DISABLE_6PORT_0VM:
++	case DSAF_MODE_ENABLE_16VM:
++	case DSAF_MODE_DISABLE_6PORT_2VM:
++	case DSAF_MODE_DISABLE_6PORT_16VM:
++	case DSAF_MODE_DISABLE_6PORT_4VM:
++	case DSAF_MODE_ENABLE_8VM:
++		return 96;
++
++	case DSAF_MODE_DISABLE_2PORT_16VM:
++	case DSAF_MODE_DISABLE_2PORT_8VM:
++	case DSAF_MODE_ENABLE_32VM:
++	case DSAF_MODE_DISABLE_2PORT_64VM:
++	case DSAF_MODE_ENABLE_128VM:
++		return 128;
++
++	default:
++		dev_warn(dsaf_dev->dev,
++			 "get ring num fail,use default!dsaf_mode=%d\n",
++			 dsaf_dev->dsaf_mode);
++		return 128;
+ 	}
  }
  
- int hns_rcb_common_get_cfg(struct dsaf_device *dsaf_dev,
-@@ -722,8 +689,8 @@ int hns_rcb_common_get_cfg(struct dsaf_device *dsaf_dev,
+@@ -677,7 +669,7 @@ void __iomem *hns_rcb_common_get_vaddr(struct dsaf_device *dsaf_dev,
+ {
+ 	void __iomem *base_addr;
+ 
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX)
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
+ 		base_addr = dsaf_dev->ppe_base + RCB_COMMON_REG_OFFSET;
+ 	else
+ 		base_addr = dsaf_dev->sds_base
+@@ -697,7 +689,7 @@ static phys_addr_t hns_rcb_common_get_paddr(struct dsaf_device *dsaf_dev,
+ 	u64 size = 0;
+ 	int index = 0;
+ 
+-	if (comm_index == HNS_DSAF_COMM_SERVICE_NW_IDX) {
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		index    = 2;
+ 		addr_offset = RCB_COMMON_REG_OFFSET;
+ 	} else {
+@@ -717,7 +709,7 @@ int hns_rcb_common_get_cfg(struct dsaf_device *dsaf_dev,
+ 	enum dsaf_mode dsaf_mode = dsaf_dev->dsaf_mode;
+ 	u16 max_vfn;
+ 	u16 max_q_per_vf;
+-	int ring_num = hns_rcb_get_ring_num(dsaf_dev, comm_index);
++	int ring_num = hns_rcb_get_ring_num(dsaf_dev);
+ 
+ 	rcb_common =
+ 		devm_kzalloc(dsaf_dev->dev, sizeof(*rcb_common) +
+@@ -732,7 +724,7 @@ int hns_rcb_common_get_cfg(struct dsaf_device *dsaf_dev,
+ 
+ 	rcb_common->desc_num = dsaf_dev->desc_num;
+ 
+-	hns_rcb_get_queue_mode(dsaf_mode, comm_index, &max_vfn, &max_q_per_vf);
++	hns_rcb_get_queue_mode(dsaf_mode, &max_vfn, &max_q_per_vf);
  	rcb_common->max_vfn = max_vfn;
  	rcb_common->max_q_per_vf = max_q_per_vf;
  
--	rcb_common->io_base = hns_rcb_common_get_vaddr(dsaf_dev, comm_index);
--	rcb_common->phy_base = hns_rcb_common_get_paddr(dsaf_dev, comm_index);
-+	rcb_common->io_base = hns_rcb_common_get_vaddr(rcb_common);
-+	rcb_common->phy_base = hns_rcb_common_get_paddr(rcb_common);
+@@ -932,7 +924,7 @@ void hns_rcb_get_common_regs(struct rcb_common_cb *rcb_com, void *data)
+ {
+ 	u32 *regs = data;
+ 	bool is_ver1 = AE_IS_VER1(rcb_com->dsaf_dev->dsaf_ver);
+-	bool is_dbg = (rcb_com->comm_index != HNS_DSAF_COMM_SERVICE_NW_IDX);
++	bool is_dbg = HNS_DSAF_IS_DEBUG(rcb_com->dsaf_dev);
+ 	u32 reg_tmp;
+ 	u32 reg_num_tmp;
+ 	u32 i = 0;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
+index eb61014..bd54dac 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h
+@@ -111,7 +111,7 @@ void hns_rcb_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index);
+ int hns_rcb_common_init_hw(struct rcb_common_cb *rcb_common);
+ void hns_rcb_start(struct hnae_queue *q, u32 val);
+ void hns_rcb_get_cfg(struct rcb_common_cb *rcb_common);
+-void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode, int comm_index,
++void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode,
+ 			    u16 *max_vfn, u16 *max_q_per_vf);
  
- 	dsaf_dev->rcb_common[comm_index] = rcb_common;
- 	return 0;
+ void hns_rcb_common_init_commit_hw(struct rcb_common_cb *rcb_common);
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 6a03c94..7c3b510 100644
+index 7ff195e..cffd244 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -11,16 +11,15 @@
- #define _DSAF_REG_H_
+@@ -23,7 +23,6 @@
  
- #include <linux/regmap.h>
--#define HNS_DEBUG_RING_IRQ_IDX 0
--#define HNS_SERVICE_RING_IRQ_IDX 59
--#define HNSV2_SERVICE_RING_IRQ_IDX 25
-+#define HNS_DEBUG_RING_IRQ_IDX		0
-+#define HNS_SERVICE_RING_IRQ_IDX	59
-+#define HNSV2_SERVICE_RING_IRQ_IDX	25
- 
--#define DSAF_MAX_PORT_NUM_PER_CHIP 8
--#define DSAF_SERVICE_PORT_NUM_PER_DSAF 6
--#define DSAF_MAX_VM_NUM 128
-+#define DSAF_MAX_PORT_NUM	6
-+#define DSAF_MAX_VM_NUM		128
- 
--#define DSAF_COMM_DEV_NUM 3
--#define DSAF_PPE_INODE_BASE 6
-+#define DSAF_COMM_DEV_NUM	1
-+#define DSAF_PPE_INODE_BASE	6
+ #define DSAF_COMM_DEV_NUM 3
+ #define DSAF_PPE_INODE_BASE 6
+-#define HNS_DSAF_COMM_SERVICE_NW_IDX 0
  #define DSAF_DEBUG_NW_NUM	2
  #define DSAF_SERVICE_NW_NUM	6
  #define DSAF_COMM_CHN		DSAF_SERVICE_NW_NUM
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
