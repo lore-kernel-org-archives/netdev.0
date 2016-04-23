@@ -1,39 +1,42 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v2 net-next 0/2] pskb_extract() helper function.
-Date: Fri, 22 Apr 2016 18:36:34 -0700
-Message-ID: <cover.1461368732.git.sowmini.varadhan@oracle.com>
-Cc: sowmini.varadhan@oracle.com, eric.dumazet@gmail.com,
-	marcelo.leitner@gmail.com
-To: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	santosh.shilimkar@oracle.com, davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net 1/3] gre: do not assign header_ops in collect
+ metadata mode
+Date: Sat, 23 Apr 2016 03:41:43 +0200
+Message-ID: <20160423014143.GC32327@pox.localdomain>
+References: <cover.1461346798.git.jbenc@redhat.com>
+ <7c34e7243a146fc5ccdf6349892355746741ff26.1461346798.git.jbenc@redhat.com>
+ <CAOrHB_Dffj93ED0u+RQ89SneRn5YRGFB9piYYiTDFJ43ZGDpNQ@mail.gmail.com>
+ <20160422232054.3f6b47da@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: pravin shelar <pshelar@ovn.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Simon Horman <simon.horman@netronome.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45119 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719AbcDWBhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 21:37:11 -0400
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:33494 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718AbcDWBlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 21:41:47 -0400
+Received: by mail-wm0-f48.google.com with SMTP id 127so12748723wmz.0
+        for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 18:41:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160422232054.3f6b47da@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset follows up on the discussion in
- https://www.mail-archive.com/netdev@vger.kernel.org/msg105090.html
+On 04/22/16 at 11:20pm, Jiri Benc wrote:
+> On Fri, 22 Apr 2016 14:04:48 -0700, pravin shelar wrote:
+> > I think we should we return error in case of such configuration rather
+> > than silently ignoring it.
+> 
+> I thought about it and I'm not sure. We're not returning an error
+> currently, starting returning it now might be perceived as uAPI
+> breakage.
+> 
+> But given it doesn't work at all currently, there are apparently no
+> users yet. I'll wait for more feedback.
 
-For RDS-TCP, we have to deal with the full gamut of
-nonlinear sk_buffs, including all the frag_list variants.
-Also, the parent skb has to remain unchanged, while the clone
-is queued for Rx on the PF_RDS socket. 
-
-Patch 1 of this patchset adds a pskb_extract() function that 
-does all this without the redundant memcpy's in pskb_expand_head() 
-and __pskb_pull_tail().
-
-v2: Marcelo Leitner review comments
-
-
-Sowmini Varadhan (2):
-  Add pskb_extract() helper function
-  Call pskb_extract() helper function
-
- include/linux/skbuff.h |    2 +
- net/core/skbuff.c      |  242 ++++++++++++++++++++++++++++++++++++++++++++++++
- net/rds/tcp_recv.c     |   14 +--
- 3 files changed, 247 insertions(+), 11 deletions(-)
+As a user, I would probably favour receiving an error for a configuration
+that can't possibly work and was not working before.
