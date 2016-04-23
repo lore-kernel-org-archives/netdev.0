@@ -1,56 +1,314 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Subject: Re: [PATCH v3] prism54: isl_38xx: Replace 'struct timeval'
-Date: Sat, 23 Apr 2016 02:30:58 +0100
-Message-ID: <CAB=NE6X35iUW2RQvayREEBvu8ULdTBqKALm6AEQNhh570_XbPA@mail.gmail.com>
-References: <20160413060916.GA21184@localhost> <5521267.mr5HLCdTY6@wuerfel>
- <1460896953.15362.2.camel@sipsolutions.net>
- <4679823.7bDEQhE9qO@wuerfel>
- <1461056272.2766.8.camel@sipsolutions.net>
- <87inz9y0qg.fsf@purkki.adurom.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
- netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- linux-kernel@vger.kernel.org, Tina Ruchandani <ruchandani.tina@gmail.com>,
- Johannes Berg <johannes@sipsolutions.net>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <87inz9y0qg.fsf@purkki.adurom.net>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 net-next 1/2] skbuff: Add pskb_extract() helper function
+Date: Fri, 22 Apr 2016 18:36:35 -0700
+Message-ID: <3960ca81281718b3ab4507bee3094aa3b8ef2da2.1461368732.git.sowmini.varadhan@oracle.com>
+References: <cover.1461368732.git.sowmini.varadhan@oracle.com>
+Cc: sowmini.varadhan@oracle.com, eric.dumazet@gmail.com,
+	marcelo.leitner@gmail.com
+To: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	santosh.shilimkar@oracle.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:45118 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751633AbcDWBhL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 21:37:11 -0400
+In-Reply-To: <cover.1461368732.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1461368732.git.sowmini.varadhan@oracle.com>
+References: <cover.1461368732.git.sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gQXByIDIyLCAyMDE2IDg6MDkgUE0sICJLYWxsZSBWYWxvIiA8a3ZhbG9AY29kZWF1cm9yYS5v
-cmc+IHdyb3RlOgo+Cj4gSm9oYW5uZXMgQmVyZyA8am9oYW5uZXNAc2lwc29sdXRpb25zLm5ldD4g
-d3JpdGVzOgo+Cj4gPiBPbiBNb24sIDIwMTYtMDQtMTggYXQgMDA6MTAgKzAyMDAsIEFybmQgQmVy
-Z21hbm4gd3JvdGU6Cj4gPj4gT24gU3VuZGF5IDE3IEFwcmlsIDIwMTYgMTQ6NDI6MzMgSm9oYW5u
-ZXMgQmVyZyB3cm90ZToKPiA+PiA+Cj4gPj4gPiBJIHdhcyB0aGlua2luZyBtb3JlIHJlc3RyaWN0
-aXZlbHkgb2YganVzdCB0aGUgc3R1ZmYgdGhhdCBjYW4ndCBldmVuCj4gPj4gPiBiZSBidWlsdCB3
-aXRob3V0IG1vZGlmeWluZyB0aGUgc291cmNlcyAtIGxpa2UgdGhlICIjaWYgVkVSQk9TRSIKPiA+
-PiA+IHRoaW5nLgo+ID4+Cj4gPj4gQWxsIHRoZSBERUJVRygpIHN0YXRlbWVudHMgYXJlIGluc2lk
-ZSBvZiB0aGlzIGtpbmQgb2YgY2hlY2ssIHNvIGlmIHdlCj4gPj4gcmVtb3ZlIHRoZSAjaWZkZWZz
-LCBpdCB3b3VsZCBiZSBsb2dpY2FsIHRvIHJlbW92ZSB0aGUgcmVzdCBvZiB0aGUKPiA+PiBkZWJ1
-Z2dpbmcgaW5mcmFzdHJ1Y3R1cmUgKERFQlVHKCkgbWFjcm9zLCBTSE9XXyosIHBjX2RlYnVnLCBt
-YXliZQo+ID4+IG1vcmUpIGFzIHdlbGwuCj4gPgo+ID4gU2VlbXMgcmVhc29uYWJsZS4KPiA+Cj4g
-PiBNYXliZSB3ZSBzaG91bGQgQ2MgdGhlIG1haW50YWluZXIsIGJ1dCBJIHN1c3BlY3QgdGhhdCBz
-aW5jZSB0aGUgZHJpdmVyCj4gPiBpcyBtYXJrZWQgT2Jzb2xldGUgYW55d2F5IEx1aXMgd29uJ3Qg
-Y2FyZSBlaXRoZXIgOikKPgo+IEknbSBwbGFubmluZyB0byBhcHBseSB0aGlzIHBhdGNoIGFueXdh
-eSwgdGhlIGRlYnVnZ2luZyBpbmZyYXN0cnVjdHVyZQo+IHJlbW92YWwgY2FuIGJlIGEgZm9sbG93
-dXAgcGF0Y2guIEJ1dCBwbGVhc2UgbGV0IG1lIGtub3cgaWYgSSBzaG91bGQgZHJvcAo+IHRoaXMg
-aW5zdGVhZC4KCkknZCBzYXkgbGV0J3MgYnVyeSB0aGUgZHJpdmVyIG5vdy4gV2UgaGF2ZSBhIHBy
-b2Nlc3MgdG8gc3RhZ2UgbGFyZ2UgY2h1bmtzCm9mIHBvbyBub3cgdGhyb3VnaCBzdGFnaW5nLCBs
-ZXQncyB1c2UgdGhhdCB0byBzaGFmdCBwcmlzbTU0IHRoZXJlIG5vdyBhbmQKZ2l2ZSBpdCBhIGZl
-dyBjeWNsZXMgdG8gbGV0IHBlb3BsZSBjYWxsIGJsb29keSBtdXJkZXIgYmVmb3JlIGZpbmFsbHkK
-cmVtb3ZpbmcuIFdlIG5lZWQgdG8gZG8gYmV0dGVyIGF0IGRlbGV0aW5nIGFuY2llbnQgbGVnYWN5
-IHNoaXQuIEknbGwgc3RhbmQKYmVoaW5kIHRoaXMgb25lLiBTdWUgbWUgaWYgbmVlZGVkLgoKICBM
-dWlzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4
-IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJv
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
+A pattern of skb usage seen in modules such as RDS-TCP is to
+extract `to_copy' bytes from the received TCP segment, starting
+at some offset `off' into a new skb `clone'. This is done in
+the ->data_ready callback, where the clone skb is queued up for rx on
+the PF_RDS socket, while the parent TCP segment is returned unchanged
+back to the TCP engine.
+
+The existing code uses the sequence
+	clone = skb_clone(..);
+	pskb_pull(clone, off, ..);
+	pskb_trim(clone, to_copy, ..);
+with the intention of discarding the first `off' bytes. However,
+skb_clone() + pskb_pull() implies pksb_expand_head(), which ends
+up doing a redundant memcpy of bytes that will then get discarded
+in __pskb_pull_tail().
+
+To avoid this inefficiency, this commit adds pskb_extract() that
+creates the clone, and memcpy's only the relevant header/frag/frag_list
+to the start of `clone'. pskb_trim() is then invoked to trim clone
+down to the requested to_copy bytes.
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2: Marcelo Leitner review comments
+
+ include/linux/skbuff.h |    2 +
+ net/core/skbuff.c      |  242 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 244 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index da0ace3..a1ce639 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2986,6 +2986,8 @@ struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
+ int skb_ensure_writable(struct sk_buff *skb, int write_len);
+ int skb_vlan_pop(struct sk_buff *skb);
+ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
++struct sk_buff *pskb_extract(struct sk_buff *skb, int off, int to_copy,
++			     gfp_t gfp);
+ 
+ static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
+ {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4cc594c..7b287a8 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4619,3 +4619,245 @@ struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
+ 	return NULL;
+ }
+ EXPORT_SYMBOL(alloc_skb_with_frags);
++
++/* carve out the first off bytes from skb when off < headlen */
++static int pskb_carve_inside_header(struct sk_buff *skb, const u32 off,
++				    const int headlen, gfp_t gfp_mask)
++{
++	int i;
++	int size = skb_end_offset(skb);
++	int new_hlen = headlen - off;
++	u8 *data;
++	int doff = 0;
++
++	size = SKB_DATA_ALIGN(size);
++
++	if (skb_pfmemalloc(skb))
++		gfp_mask |= __GFP_MEMALLOC;
++	data = kmalloc_reserve(size +
++			       SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
++			       gfp_mask, NUMA_NO_NODE, NULL);
++	if (!data)
++		return -ENOMEM;
++
++	size = SKB_WITH_OVERHEAD(ksize(data));
++
++	/* Copy real data, and all frags */
++	skb_copy_from_linear_data_offset(skb, off, data, new_hlen);
++	skb->len -= off;
++
++	memcpy((struct skb_shared_info *)(data + size),
++	       skb_shinfo(skb),
++	       offsetof(struct skb_shared_info,
++			frags[skb_shinfo(skb)->nr_frags]));
++	if (skb_cloned(skb)) {
++		/* drop the old head gracefully */
++		if (skb_orphan_frags(skb, gfp_mask)) {
++			kfree(data);
++			return -ENOMEM;
++		}
++		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
++			skb_frag_ref(skb, i);
++		if (skb_has_frag_list(skb))
++			skb_clone_fraglist(skb);
++		skb_release_data(skb);
++	} else {
++		/* we can reuse existing recount- all we did was
++		 * relocate values
++		 */
++		skb_free_head(skb);
++	}
++
++	doff = (data - skb->head);
++	skb->head = data;
++	skb->data = data;
++	skb->head_frag = 0;
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++	skb->end = size;
++	doff = 0;
++#else
++	skb->end = skb->head + size;
++#endif
++	skb_set_tail_pointer(skb, skb_headlen(skb));
++	skb_headers_offset_update(skb, 0);
++	skb->cloned = 0;
++	skb->hdr_len = 0;
++	skb->nohdr = 0;
++	atomic_set(&skb_shinfo(skb)->dataref, 1);
++
++	return 0;
++}
++
++static int pskb_carve(struct sk_buff *skb, const u32 off, gfp_t gfp);
++
++/* carve out the first eat bytes from skb's frag_list. May recurse into
++ * pskb_carve()
++ */
++static int pskb_carve_frag_list(struct sk_buff *skb,
++				struct skb_shared_info *shinfo, int eat,
++				gfp_t gfp_mask)
++{
++	struct sk_buff *list = shinfo->frag_list;
++	struct sk_buff *clone = NULL;
++	struct sk_buff *insp = NULL;
++
++	do {
++		if (!list) {
++			pr_err("Not enough bytes to eat. Want %d\n", eat);
++			return -EFAULT;
++		}
++		if (list->len <= eat) {
++			/* Eaten as whole. */
++			eat -= list->len;
++			list = list->next;
++			insp = list;
++		} else {
++			/* Eaten partially. */
++			if (skb_shared(list)) {
++				clone = skb_clone(list, gfp_mask);
++				if (!clone)
++					return -ENOMEM;
++				insp = list->next;
++				list = clone;
++			} else {
++				/* This may be pulled without problems. */
++				insp = list;
++			}
++			if (pskb_carve(list, eat, gfp_mask) < 0) {
++				kfree_skb(clone);
++				return -ENOMEM;
++			}
++			break;
++		}
++	} while (eat);
++
++	/* Free pulled out fragments. */
++	while ((list = shinfo->frag_list) != insp) {
++		shinfo->frag_list = list->next;
++		kfree_skb(list);
++	}
++	/* And insert new clone at head. */
++	if (clone) {
++		clone->next = list;
++		shinfo->frag_list = clone;
++	}
++	return 0;
++}
++
++/* carve off first len bytes from skb. Split line (off) is in the
++ * non-linear part of skb
++ */
++static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
++				       int pos, gfp_t gfp_mask)
++{
++	int i, k = 0;
++	int size = skb_end_offset(skb);
++	u8 *data;
++	const int nfrags = skb_shinfo(skb)->nr_frags;
++	struct skb_shared_info *shinfo;
++	int doff = 0;
++
++	size = SKB_DATA_ALIGN(size);
++
++	if (skb_pfmemalloc(skb))
++		gfp_mask |= __GFP_MEMALLOC;
++	data = kmalloc_reserve(size +
++			       SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
++			       gfp_mask, NUMA_NO_NODE, NULL);
++	if (!data)
++		return -ENOMEM;
++
++	size = SKB_WITH_OVERHEAD(ksize(data));
++
++	memcpy((struct skb_shared_info *)(data + size),
++	       skb_shinfo(skb), offsetof(struct skb_shared_info,
++					 frags[skb_shinfo(skb)->nr_frags]));
++	if (skb_orphan_frags(skb, gfp_mask)) {
++		kfree(data);
++		return -ENOMEM;
++	}
++	shinfo = (struct skb_shared_info *)(data + size);
++	for (i = 0; i < nfrags; i++) {
++		int fsize = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++
++		if (pos + fsize > off) {
++			shinfo->frags[k] = skb_shinfo(skb)->frags[i];
++
++			if (pos < off) {
++				/* Split frag.
++				 * We have two variants in this case:
++				 * 1. Move all the frag to the second
++				 *    part, if it is possible. F.e.
++				 *    this approach is mandatory for TUX,
++				 *    where splitting is expensive.
++				 * 2. Split is accurately. We make this.
++				 */
++				shinfo->frags[0].page_offset += off - pos;
++				skb_frag_size_sub(&shinfo->frags[0], off - pos);
++			}
++			skb_frag_ref(skb, i);
++			k++;
++		}
++		pos += fsize;
++	}
++	shinfo->nr_frags = k;
++	if (skb_has_frag_list(skb))
++		skb_clone_fraglist(skb);
++
++	if (k == 0) {
++		/* split line is in frag list */
++		pskb_carve_frag_list(skb, shinfo, off - pos, gfp_mask);
++	}
++	skb_release_data(skb);
++
++	doff = (data - skb->head);
++	skb->head = data;
++	skb->head_frag = 0;
++	skb->data = data;
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++	skb->end = size;
++	doff = 0;
++#else
++	skb->end = skb->head + size;
++#endif
++	skb_reset_tail_pointer(skb);
++	skb_headers_offset_update(skb, 0);
++	skb->cloned   = 0;
++	skb->hdr_len  = 0;
++	skb->nohdr    = 0;
++	skb->len -= off;
++	skb->data_len = skb->len;
++	atomic_set(&skb_shinfo(skb)->dataref, 1);
++	return 0;
++}
++
++/* remove len bytes from the beginning of the skb */
++static int pskb_carve(struct sk_buff *skb, const u32 len, gfp_t gfp)
++{
++	int headlen = skb_headlen(skb);
++
++	if (len < headlen)
++		return pskb_carve_inside_header(skb, len, headlen, gfp);
++	else
++		return pskb_carve_inside_nonlinear(skb, len, headlen, gfp);
++}
++
++/* Extract to_copy bytes starting at off from skb, and return this in
++ * a new skb
++ */
++struct sk_buff *pskb_extract(struct sk_buff *skb, int off,
++			     int to_copy, gfp_t gfp)
++{
++	struct sk_buff  *clone = skb_clone(skb, gfp);
++
++	if (!clone)
++		return NULL;
++
++	if (pskb_carve(clone, off, gfp) < 0 ||
++	    pskb_trim(clone, to_copy)) {
++		kfree_skb(clone);
++		return NULL;
++	}
++	return clone;
++}
++EXPORT_SYMBOL(pskb_extract);
+-- 
+1.7.1
