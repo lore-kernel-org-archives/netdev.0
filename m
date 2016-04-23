@@ -1,37 +1,58 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: Re: [PATCH net-next 2/9] libnl: nla_put_le64(): align on a 64-bit
- area
-Date: Sat, 23 Apr 2016 19:28:28 +0200
-Message-ID: <9d534571-916d-b368-a398-7f03a1f512ec@pengutronix.de>
-References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461339084-3849-3-git-send-email-nicolas.dichtel@6wind.com>
- <1461343880.7627.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <60b94d1a-23a2-ec18-7f2b-2ba21946af03@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net/mlx4_en: fix spurious timestamping callbacks
+Date: Sat, 23 Apr 2016 11:35:46 -0700
+Message-ID: <1461436546.7627.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
-	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, netfilter-devel@vger.kernel.org,
-	dev@openvswitch.org, steffen.klassert@secunet.com,
-	herbert@gondor.apana.org.au, bsingharora@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <60b94d1a-23a2-ec18-7f2b-2ba21946af03@pengutronix.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:38112 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbcDWSfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 14:35:50 -0400
+Received: by mail-ig0-f174.google.com with SMTP id m9so37420009ige.1
+        for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 11:35:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-Hi,
+When multiple skb are TX-completed in a row, we might incorrectly keep
+a timestamp of a prior skb and cause extra work.
 
-On 04/23/2016 07:05 PM, Alexander Aring wrote:
-...
-> 
-> if this is really needed, then nla_put_u64/be64/etc need to be changed also,
+Fixes: ec693d47010e8 ("net/mlx4_en: Add HW timestamping (TS) support")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Willem de Bruijn <willemb@google.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Okay, I found PATCH 3/9 do it for be64, but what's about u64?
-
-- Alex
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index c0d7b7296236..a386f047c1af 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -405,7 +405,6 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
+ 	u32 packets = 0;
+ 	u32 bytes = 0;
+ 	int factor = priv->cqe_factor;
+-	u64 timestamp = 0;
+ 	int done = 0;
+ 	int budget = priv->tx_work_limit;
+ 	u32 last_nr_txbb;
+@@ -445,9 +444,12 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
+ 		new_index = be16_to_cpu(cqe->wqe_index) & size_mask;
+ 
+ 		do {
++			u64 timestamp = 0;
++
+ 			txbbs_skipped += last_nr_txbb;
+ 			ring_index = (ring_index + last_nr_txbb) & size_mask;
+-			if (ring->tx_info[ring_index].ts_requested)
++
++			if (unlikely(ring->tx_info[ring_index].ts_requested))
+ 				timestamp = mlx4_en_get_cqe_ts(cqe);
+ 
+ 			/* free next descriptor */
