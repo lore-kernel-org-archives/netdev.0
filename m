@@ -1,78 +1,64 @@
-From: Francesco Ruggeri <fruggeri@arista.com>
-Subject: [PATCH net-next] macvlan: fix failure during registration v3
-Date: Sat, 23 Apr 2016 15:03:32 -0700
-Message-ID: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
-Cc: Francesco Ruggeri <fruggeri@arista.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 2/2] net: ethernet: enc28j60: add device tree support
+Date: Sun, 24 Apr 2016 00:20:24 +0200
+Message-ID: <31567588.rB9VrggOb6@wuerfel>
+References: <1461447800-11381-1-git-send-email-mhei@heimpold.de> <1461447800-11381-3-git-send-email-mhei@heimpold.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jonathan Cameron <jic23@kernel.org>,
+	"Andrew F . Davis" <afd@ti.com>, Mark Brown <broonie@kernel.org>,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Claudio Lanconelli <lanconelli.claudio@eptar.com>
+To: Michael Heimpold <mhei@heimpold.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:42866 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752113AbcDWWEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 18:04:00 -0400
+Received: from mout.kundenserver.de ([212.227.126.187]:60189 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752113AbcDWWUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 18:20:46 -0400
+In-Reply-To: <1461447800-11381-3-git-send-email-mhei@heimpold.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If macvlan_common_newlink fails in register_netdevice after macvlan_init
-then it decrements port->count twice, first in macvlan_uninit (from
-register_netdevice or rollback_registered) and then again in
-macvlan_common_newlink.
-A similar problem may exist in the ipvlan driver.
-This patch consolidates modifications to port->count into macvlan_init
-and macvlan_uninit (thanks to Eric Biederman for suggesting this approach).
+On Saturday 23 April 2016 23:43:20 Michael Heimpold wrote:
+> diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
+> index b723622..49635d7 100644
+> --- a/drivers/net/ethernet/microchip/enc28j60.c
+> +++ b/drivers/net/ethernet/microchip/enc28j60.c
+> @@ -1634,9 +1634,20 @@ static int enc28j60_remove(struct spi_device *spi)
+>         return 0;
+>  }
+>  
+> +#ifdef CONFIG_OF
+> +static const struct of_device_id enc28j60_dt_ids[] = {
+> +       { .compatible = "microchip,enc28j60" },
+> +       { /* sentinel */ }
+> +};
+> +MODULE_DEVICE_TABLE(of, enc28j60_dt_ids);
+> +#else
+> +#define enc28j60_dt_ids NULL
+> +#endif
+> +
+>  static struct spi_driver enc28j60_driver = {
+>         .driver = {
+> -                  .name = DRV_NAME,
+> +               .name = DRV_NAME,
+> +               .of_match_table = enc28j60_dt_ids,
+>          },
+>         .probe = enc28j60_probe,
+>         .remove = enc28j60_remove,
+> -- 
+> 
 
-v3: remove macvtap specific bits.
+You probably also want to add support for calling of_get_mac_address()
+here, to allow giving the device a fixed address from the boot loader.
 
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
----
- drivers/net/macvlan.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+I think you can drop the #ifdef and just define the device table
+unconditionally.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 2bcf1f3..cb01023 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -795,6 +795,7 @@ static int macvlan_init(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	const struct net_device *lowerdev = vlan->lowerdev;
-+	struct macvlan_port *port = vlan->port;
- 
- 	dev->state		= (dev->state & ~MACVLAN_STATE_MASK) |
- 				  (lowerdev->state & MACVLAN_STATE_MASK);
-@@ -812,6 +813,8 @@ static int macvlan_init(struct net_device *dev)
- 	if (!vlan->pcpu_stats)
- 		return -ENOMEM;
- 
-+	port->count += 1;
-+
- 	return 0;
- }
- 
-@@ -1312,10 +1315,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 			return err;
- 	}
- 
--	port->count += 1;
- 	err = register_netdevice(dev);
- 	if (err < 0)
--		goto destroy_port;
-+		return err;
- 
- 	dev->priv_flags |= IFF_MACVLAN;
- 	err = netdev_upper_dev_link(lowerdev, dev);
-@@ -1330,10 +1332,6 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 
- unregister_netdev:
- 	unregister_netdevice(dev);
--destroy_port:
--	port->count -= 1;
--	if (!port->count)
--		macvlan_port_destroy(lowerdev);
- 
- 	return err;
- }
--- 
-1.8.1.4
+	Arnd
