@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v5 21/21] MAINTAINERS: Add maintainers for HiSilicon RoCE driver
-Date: Sat, 23 Apr 2016 18:26:59 +0800
-Message-ID: <1461407219-72027-22-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v5 20/21] IB/hns: Kconfig and Makefile for RoCE module
+Date: Sat, 23 Apr 2016 18:26:58 +0800
+Message-ID: <1461407219-72027-21-git-send-email-oulijun@huawei.com>
 References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,41 +15,75 @@ To: <dledford@redhat.com>, <sean.hefty@intel.com>,
 	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
 	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
 	<ogerlitz@mellanox.com>, <linuxarm@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:29920 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752106AbcDWKSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 06:18:47 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch added maintainers for RoCE driver.
+This patch add Kconfig and Makefile for building RoCE module.
 
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
 ---
- MAINTAINERS | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/infiniband/Kconfig         |  1 +
+ drivers/infiniband/hw/Makefile     |  1 +
+ drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
+ drivers/infiniband/hw/hns/Makefile |  9 +++++++++
+ 4 files changed, 21 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/Kconfig
+ create mode 100644 drivers/infiniband/hw/hns/Makefile
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 61a323a..cb45b6f 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -10012,6 +10012,14 @@ W:	http://www.emulex.com
- S:	Supported
- F:	drivers/infiniband/hw/ocrdma/
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index 6425c0e..726a4ca 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+ source "drivers/infiniband/hw/nes/Kconfig"
+ source "drivers/infiniband/hw/ocrdma/Kconfig"
+ source "drivers/infiniband/hw/usnic/Kconfig"
++source "drivers/infiniband/hw/hns/Kconfig"
  
-+HISILICON ROCE DRIVER
-+M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
-+M:	Lijun Ou <oulijun@huawei.com>
-+L:	linux-rdma@vger.kernel.org
-+S:	Maintained
-+F:	drivers/infiniband/hw/hns/
-+F:	Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+ source "drivers/infiniband/ulp/ipoib/Kconfig"
+ 
+diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
+index c7ad0a4..223eb78 100644
+--- a/drivers/infiniband/hw/Makefile
++++ b/drivers/infiniband/hw/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_MLX5_INFINIBAND)		+= mlx5/
+ obj-$(CONFIG_INFINIBAND_NES)		+= nes/
+ obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
+ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+= hns/
+diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hns/Kconfig
+new file mode 100644
+index 0000000..c47c168
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Kconfig
+@@ -0,0 +1,10 @@
++config INFINIBAND_HISILICON_HNS
++	tristate "Hisilicon Hns ROCE Driver"
++	depends on NET_VENDOR_HISILICON
++	depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
++	---help---
++	  This is a ROCE/RDMA driver for the Hisilicon RoCE engine. The engine
++	  is used in Hisilicon Hi1610 and more further ICT SoC.
 +
- SFC NETWORK DRIVER
- M:	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
- M:	Shradha Shah <sshah@solarflare.com>
++	  To compile this driver as a module, choose M here: the module
++	  will be called hns-roce.
+diff --git a/drivers/infiniband/hw/hns/Makefile b/drivers/infiniband/hw/hns/Makefile
+new file mode 100644
+index 0000000..404a700
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Makefile
+@@ -0,0 +1,9 @@
++#
++# Makefile for the HISILICON RoCE drivers.
++#
++
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) += hns-roce.o
++hns-roce-objs := hns_roce_main.o hns_roce_cmd.o hns_roce_eq.o hns_roce_pd.o \
++	hns_roce_ah.o hns_roce_icm.o hns_roce_mr.o hns_roce_qp.o \
++	hns_roce_cq.o hns_roce_alloc.o hns_roce_hw_v1.o
++
 -- 
 1.9.1
