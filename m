@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 net-next 05/13] net: hns: add syscon operation for dsaf
-Date: Sat, 23 Apr 2016 17:05:09 +0800
-Message-ID: <1461402317-136499-6-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 12/13] Documentation: Bindings: add port-idx-in-ae for enet node
+Date: Sat, 23 Apr 2016 17:05:16 +0800
+Message-ID: <1461402317-136499-13-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,47 +20,60 @@ In-Reply-To: <1461402317-136499-1-git-send-email-Yisen.Zhuang-hv44wF8Li93QT0dZR+
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch provides the read/write function for dsaf to
-access the registers through syscon methods.
+This patch adds description for port-idx-in-ae attribute.
 
-Signed-off-by: Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
 Signed-off-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ .../devicetree/bindings/net/hisilicon-hns-nic.txt  | 30 +++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index ed0043a..6a03c94 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -10,6 +10,7 @@
- #ifndef _DSAF_REG_H_
- #define _DSAF_REG_H_
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+index e6a9d1c..b9ff4ba 100644
+--- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
++++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+@@ -36,6 +36,34 @@ Required properties:
+                        | | | | | |
+                       external port
  
-+#include <linux/regmap.h>
- #define HNS_DEBUG_RING_IRQ_IDX 0
- #define HNS_SERVICE_RING_IRQ_IDX 59
- #define HNSV2_SERVICE_RING_IRQ_IDX 25
-@@ -989,6 +990,19 @@ static inline u32 dsaf_read_reg(u8 __iomem *base, u32 reg)
- 	return readl(reg_addr + reg);
- }
++  This attribute is remained for compatible purpose. It is not recommended to
++  use it in new code.
++
++- port-idx-in-ae: is the index of port provided by AE.
++  In NIC mode of DSAF, all 6 PHYs of service DSAF are taken as ethernet ports
++  to the CPU. The port-idx-in-ae can be 0 to 5. Here is the diagram:
++            +-----+---------------+
++            |            CPU      |
++            +-+-+-+---+-+-+-+-+-+-+
++              |    |   | | | | | |
++           debug debug   service
++           port  port     port
++           (0)   (0)     (0-5)
++
++  In Switch mode of DSAF, all 6 PHYs of service DSAF are taken as physical
++  ports connected to a LAN Switch while the CPU side assume itself have one
++  single NIC connected to this switch. In this case, the port-idx-in-ae
++  will be 0 only.
++            +-----+-----+------+------+
++            |                CPU      |
++            +-+-+-+-+-+-+-+-+-+-+-+-+-+
++              |    |     service| port(0)
++            debug debug  +------------+
++            port  port   |   switch   |
++            (0)   (0)    +-+-+-+-+-+-++
++                          | | | | | |
++                         external port
++
+ - local-mac-address: mac addr of the ethernet interface
  
-+static inline void dsaf_write_syscon(struct regmap *base, u32 reg, u32 value)
-+{
-+	regmap_write(base, reg, value);
-+}
-+
-+static inline u32 dsaf_read_syscon(struct regmap *base, u32 reg)
-+{
-+	unsigned int val;
-+
-+	regmap_read(base, reg, &val);
-+	return val;
-+}
-+
- #define dsaf_read_dev(a, reg) \
- 	dsaf_read_reg((a)->io_base, (reg))
- 
+ Example:
+@@ -43,6 +71,6 @@ Example:
+ 	ethernet@0{
+ 		compatible = "hisilicon,hns-nic-v1";
+ 		ae-handle = <&dsaf0>;
+-		port-id = <0>;
++		port-idx-in-ae = <0>;
+ 		local-mac-address = [a2 14 e4 4b 56 76];
+ 	};
 -- 
 1.9.1
 
