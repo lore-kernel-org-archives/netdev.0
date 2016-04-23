@@ -1,71 +1,46 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net] net/mlx4_en: fix spurious timestamping callbacks
-Date: Sat, 23 Apr 2016 23:23:07 +0300
-Message-ID: <CAJ3xEMg3HwbZG6qh5=ydaUesQX_goRSD6H_LowsEuW46TVDnbA@mail.gmail.com>
-References: <1461436546.7627.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next 12/12] net/mlx5e: Disable link up on INIT HCA command
+Date: Sat, 23 Apr 2016 23:28:11 +0300
+Message-ID: <CAJ3xEMg_KFKRvCt5kBZzF_gmkLwg=2dZ=-FCjdbmgkX2-E0s3Q@mail.gmail.com>
+References: <1461351647-27412-1-git-send-email-saeedm@mellanox.com>
+	<1461351647-27412-13-git-send-email-saeedm@mellanox.com>
+	<20160423160023.GA15013@colbert.Home>
+	<CALzJLG-AWFHnba=ysCAQLqCjFHo3L-sQTeW+NbpMg-X6PRtRPQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
+Cc: Ido Schimmel <idosch@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
 	Eugenia Emantayev <eugenia@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+	Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:34002 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751835AbcDWUXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 16:23:08 -0400
-Received: by mail-ig0-f178.google.com with SMTP id a10so6956363igx.1
-        for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 13:23:08 -0700 (PDT)
-In-Reply-To: <1461436546.7627.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:33878 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752000AbcDWU2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 16:28:12 -0400
+Received: by mail-io0-f182.google.com with SMTP id 2so150394141ioy.1
+        for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 13:28:12 -0700 (PDT)
+In-Reply-To: <CALzJLG-AWFHnba=ysCAQLqCjFHo3L-sQTeW+NbpMg-X6PRtRPQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 23, 2016 at 9:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> When multiple skb are TX-completed in a row, we might incorrectly keep
-> a timestamp of a prior skb and cause extra work.
->
-> Fixes: ec693d47010e8 ("net/mlx4_en: Add HW timestamping (TS) support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Willem de Bruijn <willemb@google.com>
+On Sat, Apr 23, 2016 at 11:21 PM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+> On Sat, Apr 23, 2016 at 7:00 PM, Ido Schimmel <idosch@mellanox.com> wrote:
 
-Eric, was that supposed to be Reported-by: or Signed-off-by: ...
+>> Also, why is this directed at net-next?
 
-FWIW, Dave, I wanted to use the opportunity and comment that this week
-many of us gonna be on Passover vacation, so response rate should be
-lower than usual
+> it is kind of new behavior, and not a bug fix.
 
+Saeed,
 
->  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index c0d7b7296236..a386f047c1af 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -405,7 +405,6 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
->         u32 packets = 0;
->         u32 bytes = 0;
->         int factor = priv->cqe_factor;
-> -       u64 timestamp = 0;
->         int done = 0;
->         int budget = priv->tx_work_limit;
->         u32 last_nr_txbb;
-> @@ -445,9 +444,12 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
->                 new_index = be16_to_cpu(cqe->wqe_index) & size_mask;
->
->                 do {
-> +                       u64 timestamp = 0;
-> +
->                         txbbs_skipped += last_nr_txbb;
->                         ring_index = (ring_index + last_nr_txbb) & size_mask;
-> -                       if (ring->tx_info[ring_index].ts_requested)
-> +
-> +                       if (unlikely(ring->tx_info[ring_index].ts_requested))
->                                 timestamp = mlx4_en_get_cqe_ts(cqe);
->
->                         /* free next descriptor */
->
->
+We should be aiming to patch the driver around this issue with
+something that goes all the way back through -stable to the very 1st
+upstream kernel supporting mlx5 EN --- the operational link doesn't go
+down when instructed by the admin and this is an entry level
+requirement from Ethernet of things (such as NIC and Switch ports).
