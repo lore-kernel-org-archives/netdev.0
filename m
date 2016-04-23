@@ -1,87 +1,72 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] macvlan: fix failure during registration v2
-Date: Fri, 22 Apr 2016 21:52:38 -0500
-Message-ID: <8737qd3ukp.fsf@x220.int.ebiederm.org>
-References: <1461188301-4466-1-git-send-email-fruggeri@arista.com>
-	<8737qe6en1.fsf@x220.int.ebiederm.org>
-	<CA+HUmGhxBuCYcRcyDMctTxcw-p+Z3-kdx72aaWNLi-WjpEk2sQ@mail.gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net 3/3] gre: receive also TEB packets for lwtunnels
+Date: Fri, 22 Apr 2016 20:40:13 -0700
+Message-ID: <CAOrHB_DXzE8XNBmMc_VLzz+hkJCUmMVT2uMhWORCgq+g7ym9HA@mail.gmail.com>
+References: <cover.1461346798.git.jbenc@redhat.com>
+	<017d8f2b1c00e8fdbdb92a5898b1b5f365b58d6d.1461346798.git.jbenc@redhat.com>
+	<CAOrHB_DrFXg=nQAdscOgX8nbUoOC4fMsWiN6R4n907zB5rtD=g@mail.gmail.com>
+	<20160422232732.7dfd0ec3@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Francesco Ruggeri <fruggeri@arista.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Simon Horman <simon.horman@netronome.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:36954 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751084AbcDWDDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 23:03:08 -0400
-In-Reply-To: <CA+HUmGhxBuCYcRcyDMctTxcw-p+Z3-kdx72aaWNLi-WjpEk2sQ@mail.gmail.com>
-	(Francesco Ruggeri's message of "Thu, 21 Apr 2016 11:39:45 -0700")
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:54199 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbcDWDkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 23:40:18 -0400
+Received: from mfilter26-d.gandi.net (mfilter26-d.gandi.net [217.70.178.154])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 9E91641C086
+	for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 05:40:16 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter26-d.gandi.net (mfilter26-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id vMwtRU89sim6 for <netdev@vger.kernel.org>;
+	Sat, 23 Apr 2016 05:40:15 +0200 (CEST)
+Received: from mail-io0-f178.google.com (mail-io0-f178.google.com [209.85.223.178])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 1D6D241C074
+	for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 05:40:14 +0200 (CEST)
+Received: by mail-io0-f178.google.com with SMTP id u185so137511196iod.3
+        for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 20:40:14 -0700 (PDT)
+In-Reply-To: <20160422232732.7dfd0ec3@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francesco Ruggeri <fruggeri@arista.com> writes:
-
-> On Thu, Apr 21, 2016 at 10:44 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
-> <
->>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->>> index 95394ed..e770221 100644
->>> --- a/drivers/net/macvtap.c
->>> +++ b/drivers/net/macvtap.c
->>> @@ -1303,6 +1303,8 @@ static int macvtap_device_event(struct notifier_block *unused,
->>>               }
->>>               break;
->>>       case NETDEV_UNREGISTER:
->>> +             if (vlan->minor == 0)
->>> +                     break;
->>
->> I don't understand this bit.  A minor of 0 is never assigned.  That is
->> clear from the code.  On what code path can you get here without
->> assigning a minor?
->>
+On Fri, Apr 22, 2016 at 2:27 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Fri, 22 Apr 2016 14:07:01 -0700, pravin shelar wrote:
+>> On Fri, Apr 22, 2016 at 10:44 AM, Jiri Benc <jbenc@redhat.com> wrote:
+>> > For ipgre interfaces in collect metadata mode, receive also traffic with
+>> > encapsulated Ethernet headers. The lwtunnel users are supposed to sort this
+>> > out correctly. This allows to have mixed Ethernet + L3-only traffic on the
+>> > same lwtunnel interface.
+>> >
+>> How user is suppose to sort out the type of packet? whether it is L2 or L3.
 >
-> You can have vlan->minor == 0 if macvtap_device_event(NETDEV_REGISTER)
-> failed.
+> By skb->protocol, of course. Will be ETH_P_TEB if the inner packet was
+> Ethernet. There's no problem with this, for lwtunnels used with encap
+> routes, such packets are just discarded (which is the expected
+> behavior), as there's no protocol handler for ETH_P_TEB. More clever
+> lwtunnel users (such as openvswitch) can process the packets. This is
+> important in order to have a single tunnel interface for everything.
 >
-> macvtap_device_event is invoked in the context of macvtap_newlink and
-> it can fail if for example a macvtap interface using the same ifindex
-> already exists in a different namespace. That is how we originally ran
-> into the port->count issue.
-> In that case the sequence is
+
+But skb->protocol is not set to ETH_P_TEB anywhere in ip-gre module.
+Am I missing something?
+
+
+>> Is it fine to receive L2 packet over L3 device?
+>> At least ip_tunnel_rcv() is not ready to handle such packet.
 >
-> macvtap_newlink
->   macvlan_common_newlink
->     register_netdevice
->       call_netdevice_notifiers(NETDEV_REGISTER, dev)
->         macvtap_device_event(NETDEV_REGISTER)
->           <fail here, vlan->minor = 0>
->       rollback_registered(dev);
->         rollback_registered_many
->           call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
->             macvtap_device_event(NETDEV_UNREGISTER)
->               <nothing to do here>
+> I don't see why. Could you please elaborate? Seems safe to me. The
+> desired result is skb->protocol == htons(ETH_P_TEB), network header(!)
+> pointing to the start of the Ethernet frame (because we're tunneling
+> Ethernet via ARPHRD_IPGRE interface, there's no L2 header to have), mac
+> header not being set.
 >
-> Should this bit go into a separate patch?
-> Would a comment like this help:
->
-> /* We can have vlan->minor == 0 if NETDEV_REGISTER above failed */
->
-> Marc Angel posted https://marc.info/?l=linux-netdev&m=146116146925511&w=2
-> about conflicts if one tries to create macvtap interfaces with the same
-> ifindex in different namespaces.
 
-Just for clarity I would recommend splitting the two changes.
-
-One change that fixes macvlan_init to do the right thing.
-
-Another change that includes your backtrace above, adds the comment
-and fixes macvlan to ignore that case.  Arguably we should be fixing
-register_netdevice to call call_netdeivce_notifiers(NETDEV_UNREIGSTER)
-if call_netdevice_notifiers(NETDEV_REGISTER) failed.  Having a separate
-patch will at least allow us to look at this second issue all by itself.
-
-Thank you for your patience in all of this.
-
-Eric
+ip_tunnel_rcv() checks device type (tunnel->dev->type) to perform
+ethernet specific processing on packet. I think that should be changed
+to check packet type.
