@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v5 03/21] IB/hns: Add initial main frame driver and get cfg info
-Date: Sat, 23 Apr 2016 18:26:41 +0800
-Message-ID: <1461407219-72027-4-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v5 04/21] IB/hns: Add RoCE engine reset function
+Date: Sat, 23 Apr 2016 18:26:42 +0800
+Message-ID: <1461407219-72027-5-git-send-email-oulijun@huawei.com>
 References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,79 +20,51 @@ In-Reply-To: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch mainly added the initial bare main driver. it
-could get the relative configure information of net node.
+This patch mainly added RoCE engine reset process in RoCE driver.
+it is necessary when RoCE was loaded and removed.
 
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_device.h |  49 ++++++++
- drivers/infiniband/hw/hns/hns_roce_main.c   | 182 ++++++++++++++++++++++++++++
- 2 files changed, 231 insertions(+)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
+ drivers/infiniband/hw/hns/hns_roce_device.h |  7 ++++
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c  | 54 +++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h  | 17 +++++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   | 18 ++++++++--
+ 4 files changed, 94 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.h
 
 diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-new file mode 100644
-index 0000000..b48f518
---- /dev/null
+index b48f518..24ac1a8 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
 +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -0,0 +1,49 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _HNS_ROCE_DEVICE_H
-+#define _HNS_ROCE_DEVICE_H
-+
-+#include <linux/platform_device.h>
-+#include <linux/radix-tree.h>
-+#include <linux/semaphore.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_verbs.h>
-+
-+#define DRV_NAME "hns_roce"
-+
-+#define HNS_ROCE_MAX_IRQ_NUM			34
-+#define HNS_ROCE_MAX_PORTS			6
-+
-+struct hns_roce_ib_iboe {
-+	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
-+	u8			phy_port[HNS_ROCE_MAX_PORTS];
+@@ -33,6 +33,10 @@ struct hns_roce_caps {
+ 	u8			num_ports;
+ };
+ 
++struct hns_roce_hw {
++	int (*reset)(struct hns_roce_dev *hr_dev, u32 val);
 +};
 +
-+struct hns_roce_caps {
-+	u8			num_ports;
-+};
+ struct hns_roce_dev {
+ 	struct ib_device	ib_dev;
+ 	struct platform_device  *pdev;
+@@ -44,6 +48,9 @@ struct hns_roce_dev {
+ 
+ 	int			cmd_mod;
+ 	int			loop_idc;
++	struct hns_roce_hw	*hw;
+ };
+ 
++extern struct hns_roce_hw hns_roce_hw_v1;
 +
-+struct hns_roce_dev {
-+	struct ib_device	ib_dev;
-+	struct platform_device  *pdev;
-+	struct hns_roce_ib_iboe iboe;
-+
-+	int			irq[HNS_ROCE_MAX_IRQ_NUM];
-+	u8 __iomem		*reg_base;
-+	struct hns_roce_caps	caps;
-+
-+	int			cmd_mod;
-+	int			loop_idc;
-+};
-+
-+#endif /* _HNS_ROCE_DEVICE_H */
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+ #endif /* _HNS_ROCE_DEVICE_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
 new file mode 100644
-index 0000000..5bd84f2
+index 0000000..ea39e56
 --- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -0,0 +1,182 @@
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -0,0 +1,54 @@
 +/*
 + * Copyright (c) 2016 Hisilicon Limited.
 + *
@@ -107,173 +79,124 @@ index 0000000..5bd84f2
 + *
 + */
 +
-+#include <linux/cdev.h>
-+#include <linux/delay.h>
-+#include <linux/device.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/ethtool.h>
-+#include <linux/etherdevice.h>
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/interrupt.h>
-+#include <linux/kernel.h>
-+#include <linux/list.h>
 +#include <linux/module.h>
-+#include <linux/netdevice.h>
 +#include <linux/of.h>
 +#include <linux/of_address.h>
-+#include <linux/of_net.h>
 +#include <linux/of_platform.h>
 +#include <linux/platform_device.h>
-+#include <linux/slab.h>
-+#include <linux/netdevice.h>
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_verbs.h>
 +#include "hns_roce_device.h"
++#include "hns_roce_hw_v1.h"
 +
-+int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
++/**
++ * hns_roce_v1_reset - reset roce
++ * @hr_dev: roce device struct pointer
++ * @val: 1 -- drop reset, 0 -- reset
++ * return 0 - success , negative --fail
++ */
++int hns_roce_v1_reset(struct hns_roce_dev *hr_dev, u32 val)
 +{
-+	int i;
-+	u8 phy_port;
-+	int port_cnt = 0;
++	struct device_node *dsaf_node;
 +	struct device *dev = &hr_dev->pdev->dev;
 +	struct device_node *np = dev->of_node;
-+	struct device_node *net_node;
-+	struct net_device *netdev = NULL;
-+	struct platform_device *pdev = NULL;
-+	struct resource *res;
-+
-+	if (!of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
-+		dev_err(dev, "device no compatible!\n");
-+		return -EINVAL;
-+	}
-+
-+	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
-+	hr_dev->reg_base = devm_ioremap_resource(dev, res);
-+	if (!hr_dev->reg_base) {
-+		dev_err(dev, "devm_ioremap_resource failed!\n");
-+		return -ENOMEM;
-+	}
-+
-+	for (i = 0; i < HNS_ROCE_MAX_PORTS; i++) {
-+		net_node = of_parse_phandle(np, "eth-handle", i);
-+		if (net_node) {
-+			pdev = of_find_device_by_node(net_node);
-+			netdev = platform_get_drvdata(pdev);
-+			phy_port = (u8)i;
-+			if (netdev) {
-+				hr_dev->iboe.netdevs[port_cnt] = netdev;
-+				hr_dev->iboe.phy_port[port_cnt] = phy_port;
-+			} else {
-+				return -ENODEV;
-+			}
-+			port_cnt++;
-+		}
-+	}
-+
-+	hr_dev->caps.num_ports = port_cnt;
-+
-+	/* Cmd issue mode: 0 is poll, 1 is event */
-+	hr_dev->cmd_mod = 1;
-+	hr_dev->loop_idc = 0;
-+
-+	for (i = 0; i < HNS_ROCE_MAX_IRQ_NUM; i++) {
-+		hr_dev->irq[i] = platform_get_irq(hr_dev->pdev, i);
-+		if (hr_dev->irq[i] <= 0) {
-+			dev_err(dev, "Get No.%d irq resource failed!\n", i);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+* hns_roce_probe - RoCE driver entrance
-+* @pdev: pointer to platform device
-+* Return : int
-+*
-+*/
-+static int hns_roce_probe(struct platform_device *pdev)
-+{
 +	int ret;
-+	struct hns_roce_dev *hr_dev;
-+	struct device *dev = &pdev->dev;
 +
-+	hr_dev = (struct hns_roce_dev *)ib_alloc_device(sizeof(*hr_dev));
-+	if (!hr_dev) {
-+		dev_err(dev, "Device struct alloc failed, aborting.\n");
-+		return -ENOMEM;
++	dsaf_node = of_parse_phandle(np, "dsaf-handle", 0);
++
++	if (!val) {
++		ret = hns_dsaf_roce_reset(&dsaf_node->fwnode, 0);
++	} else {
++		ret = hns_dsaf_roce_reset(&dsaf_node->fwnode, 0);
++		if (ret)
++			return ret;
++
++		msleep(SLEEP_TIME_INTERVAL);
++		ret = hns_dsaf_roce_reset(&dsaf_node->fwnode, 1);
 +	}
 +
-+	memset((u8 *)hr_dev + sizeof(struct ib_device), 0,
-+		sizeof(struct hns_roce_dev) - sizeof(struct ib_device));
-+
-+	hr_dev->pdev = pdev;
-+	platform_set_drvdata(pdev, hr_dev);
-+
-+	if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64ULL)))
-+		dev_info(dev, "set mask to 64bit\n");
-+	else if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32ULL)))
-+		dev_info(dev, "set mask to 32bit\n");
-+	else {
-+		dev_err(dev, "No usable DMA addressing mode\n");
-+		ret = -EIO;
-+		goto error_failed_get_cfg;
-+	}
-+
-+	ret = hns_roce_get_cfg(hr_dev);
-+	if (ret) {
-+		dev_err(dev, "Get Configuration failed!\n");
-+		goto error_failed_get_cfg;
-+	}
-+
-+error_failed_get_cfg:
-+	ib_dealloc_device(&hr_dev->ib_dev);
-+	return ret;
++		return ret;
 +}
 +
-+/**
-+* hns_roce_remove - remove roce device
-+* @pdev: pointer to platform device
-+*/
-+static int hns_roce_remove(struct platform_device *pdev)
++struct hns_roce_hw hns_roce_hw_v1 = {
++	.reset = hns_roce_v1_reset,
++};
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+new file mode 100644
+index 0000000..164041d
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+@@ -0,0 +1,17 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _HNS_ROCE_HW_V1_H
++#define _HNS_ROCE_HW_V1_H
++
++#define SLEEP_TIME_INTERVAL		20
++
++extern int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val);
++
++#endif
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index 5bd84f2..df3116f 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -53,7 +53,9 @@ int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+ 	struct platform_device *pdev = NULL;
+ 	struct resource *res;
+ 
+-	if (!of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
++	if (of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
++		hr_dev->hw = &hns_roce_hw_v1;
++	} else {
+ 		dev_err(dev, "device no compatible!\n");
+ 		return -EINVAL;
+ 	}
+@@ -98,6 +100,10 @@ int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+ 	return 0;
+ }
+ 
++int hns_roce_engine_reset(struct hns_roce_dev *hr_dev, u32 val)
 +{
-+	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
-+	int ret = 0;
-+
-+	ib_dealloc_device(&hr_dev->ib_dev);
-+
-+	return ret;
++	return hr_dev->hw->reset(hr_dev, val);
 +}
+ /**
+ * hns_roce_probe - RoCE driver entrance
+ * @pdev: pointer to platform device
+@@ -131,13 +137,18 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 		ret = -EIO;
+ 		goto error_failed_get_cfg;
+ 	}
+-
+ 	ret = hns_roce_get_cfg(hr_dev);
+ 	if (ret) {
+ 		dev_err(dev, "Get Configuration failed!\n");
+ 		goto error_failed_get_cfg;
+ 	}
+ 
++	ret = hns_roce_engine_reset(hr_dev, 1);
++	if (ret) {
++		dev_err(dev, "Reset roce engine failed!\n");
++		goto error_failed_get_cfg;
++	}
 +
-+static const struct of_device_id hns_roce_of_match[] = {
-+	{ .compatible = "hisilicon,hns-roce-v1",},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, hns_roce_of_match);
-+
-+static struct platform_driver hns_roce_driver = {
-+	.probe = hns_roce_probe,
-+	.remove = hns_roce_remove,
-+	.driver = {
-+		.name = DRV_NAME,
-+		.of_match_table = hns_roce_of_match,
-+	},
-+};
-+
-+module_platform_driver(hns_roce_driver);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Wei Hu <xavier.huwei@huawei.com>");
-+MODULE_AUTHOR("Znlong <zhaonenglong@hisilicon.com>");
-+MODULE_AUTHOR("oulijun <oulijun@huawei.com>");
-+MODULE_DESCRIPTION("HISILICON RoCE driver");
-+MODULE_ALIAS("platform:" DRV_NAME);
+ error_failed_get_cfg:
+ 	ib_dealloc_device(&hr_dev->ib_dev);
+ 	return ret;
+@@ -152,6 +163,9 @@ static int hns_roce_remove(struct platform_device *pdev)
+ 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
+ 	int ret = 0;
+ 
++	ret = hns_roce_engine_reset(hr_dev, 0);
++	if (ret)
++		return ret;
+ 	ib_dealloc_device(&hr_dev->ib_dev);
+ 
+ 	return ret;
 -- 
 1.9.1
