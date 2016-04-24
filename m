@@ -1,147 +1,142 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 4/6] drivers: net: use NETDEV_TX_OK instead of NETDEV_TX_LOCKED
-Date: Sun, 24 Apr 2016 21:38:12 +0200
-Message-ID: <1461526694-11367-5-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next 5/6] drivers: net: remove NETDEV_TX_LOCKED
+Date: Sun, 24 Apr 2016 21:38:13 +0200
+Message-ID: <1461526694-11367-6-git-send-email-fw@strlen.de>
 References: <1461526694-11367-1-git-send-email-fw@strlen.de>
 Cc: linux-kernel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	linux-parisc@vger.kernel.org, linux-hams@vger.kernel.org,
-	Thomas Sailer <t.sailer@alumni.ethz.ch>
+	Jon Mason <jdmason@kudzu.us>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59120 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753342AbcDXTik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 15:38:40 -0400
 In-Reply-To: <1461526694-11367-1-git-send-email-fw@strlen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These drivers already call netif_stop_queue() so we should not be called
-unless tx space is available.  Just free the skb and return TX_OK.
+replace the trylock by a full spin_lock and remove TX_LOCKED return value.
+Followup patch will remove TX_LOCKED from the kernel.
 
-Followup patch will remove NETDEV_TX_LOCKED from the kernel.
-
-Cc: linux-parisc@vger.kernel.org
-Cc: linux-hams@vger.kernel.org
-Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
+Cc: Jon Mason <jdmason@kudzu.us>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- checkpatch chokes on this one, tulip uses spaces, not tabs...
+ drivers/net/ethernet/chelsio/cxgb/sge.c              | 3 +--
+ drivers/net/ethernet/neterion/s2io.c                 | 9 +--------
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 6 ++----
+ drivers/net/ethernet/tehuti/tehuti.c                 | 8 +-------
+ drivers/net/rionet.c                                 | 6 +-----
+ 5 files changed, 6 insertions(+), 26 deletions(-)
 
- drivers/net/ethernet/amd/7990.c        | 8 +++++---
- drivers/net/ethernet/amd/a2065.c       | 7 +++----
- drivers/net/ethernet/dec/tulip/de4x5.c | 7 +++++--
- drivers/net/hamradio/baycom_epp.c      | 6 ++++--
- drivers/net/hamradio/hdlcdrv.c         | 6 ++++--
- 5 files changed, 21 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/7990.c b/drivers/net/ethernet/amd/7990.c
-index 66d0b73c..8e75755 100644
---- a/drivers/net/ethernet/amd/7990.c
-+++ b/drivers/net/ethernet/amd/7990.c
-@@ -543,11 +543,13 @@ int lance_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	static int outs;
+diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
+index 526ea74..86f467a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
+@@ -1664,8 +1664,7 @@ static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
+ 	struct cmdQ *q = &sge->cmdQ[qid];
+ 	unsigned int credits, pidx, genbit, count, use_sched_skb = 0;
+ 
+-	if (!spin_trylock(&q->lock))
+-		return NETDEV_TX_LOCKED;
++	spin_lock(&q->lock);
+ 
+ 	reclaim_completed_tx(sge, q);
+ 
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 9ba9758..2874dff 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -4021,7 +4021,6 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned long flags = 0;
+ 	u16 vlan_tag = 0;
+ 	struct fifo_info *fifo = NULL;
+-	int do_spin_lock = 1;
+ 	int offload_type;
+ 	int enable_per_list_interrupt = 0;
+ 	struct config_param *config = &sp->config;
+@@ -4074,7 +4073,6 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+ 					queue += sp->udp_fifo_idx;
+ 					if (skb->len > 1024)
+ 						enable_per_list_interrupt = 1;
+-					do_spin_lock = 0;
+ 				}
+ 			}
+ 		}
+@@ -4084,12 +4082,7 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			[skb->priority & (MAX_TX_FIFOS - 1)];
+ 	fifo = &mac_control->fifos[queue];
+ 
+-	if (do_spin_lock)
+-		spin_lock_irqsave(&fifo->tx_lock, flags);
+-	else {
+-		if (unlikely(!spin_trylock_irqsave(&fifo->tx_lock, flags)))
+-			return NETDEV_TX_LOCKED;
+-	}
++	spin_lock_irqsave(&fifo->tx_lock, flags);
+ 
+ 	if (sp->config.multiq) {
+ 		if (__netif_subqueue_stopped(dev, fifo->fifo_no)) {
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 3b98b263b..4475dcc 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -2137,10 +2137,8 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
  	unsigned long flags;
  
--	if (!TX_BUFFS_AVAIL)
+-	if (!spin_trylock_irqsave(&tx_ring->tx_lock, flags)) {
+-		/* Collision - tell upper layer to requeue */
 -		return NETDEV_TX_LOCKED;
--
- 	netif_stop_queue(dev);
- 
-+	if (!TX_BUFFS_AVAIL) {
-+		dev_consume_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
+-	}
++	spin_trylock_irqsave(&tx_ring->tx_lock, flags);
 +
- 	skblen = skb->len;
+ 	if (unlikely(!PCH_GBE_DESC_UNUSED(tx_ring))) {
+ 		netif_stop_queue(netdev);
+ 		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index 14c9d1b..2524a69 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -1610,7 +1610,6 @@ static inline int bdx_tx_space(struct bdx_priv *priv)
+  * o NETDEV_TX_BUSY Cannot transmit packet, try later
+  *   Usually a bug, means queue start/stop flow control is broken in
+  *   the driver. Note: the driver must NOT put the skb in its DMA ring.
+- * o NETDEV_TX_LOCKED Locking failed, please retry quickly.
+  */
+ static netdev_tx_t bdx_tx_transmit(struct sk_buff *skb,
+ 				   struct net_device *ndev)
+@@ -1630,12 +1629,7 @@ static netdev_tx_t bdx_tx_transmit(struct sk_buff *skb,
  
- #ifdef DEBUG_DRIVER
-diff --git a/drivers/net/ethernet/amd/a2065.c b/drivers/net/ethernet/amd/a2065.c
-index 5613918..2a18d34 100644
---- a/drivers/net/ethernet/amd/a2065.c
-+++ b/drivers/net/ethernet/amd/a2065.c
-@@ -547,10 +547,8 @@ static netdev_tx_t lance_start_xmit(struct sk_buff *skb,
- 
+ 	ENTER;
  	local_irq_save(flags);
+-	if (!spin_trylock(&priv->tx_lock)) {
+-		local_irq_restore(flags);
+-		DBG("%s[%s]: TX locked, returning NETDEV_TX_LOCKED\n",
+-		    BDX_DRV_NAME, ndev->name);
+-		return NETDEV_TX_LOCKED;
+-	}
++	spin_lock(&priv->tx_lock);
  
--	if (!lance_tx_buffs_avail(lp)) {
+ 	/* build tx descriptor */
+ 	BDX_ASSERT(f->m.wptr >= f->m.memsz);	/* started with valid wptr */
+diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+index 9cfe6ae..a31f461 100644
+--- a/drivers/net/rionet.c
++++ b/drivers/net/rionet.c
+@@ -179,11 +179,7 @@ static int rionet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	unsigned long flags;
+ 	int add_num = 1;
+ 
+-	local_irq_save(flags);
+-	if (!spin_trylock(&rnet->tx_lock)) {
 -		local_irq_restore(flags);
 -		return NETDEV_TX_LOCKED;
 -	}
-+	if (!lance_tx_buffs_avail(lp))
-+		goto out_free;
++	spin_lock_irqsave(&rnet->tx_lock, flags);
  
- #ifdef DEBUG
- 	/* dump the packet */
-@@ -573,6 +571,7 @@ static netdev_tx_t lance_start_xmit(struct sk_buff *skb,
- 
- 	/* Kick the lance: transmit now */
- 	ll->rdp = LE_C0_INEA | LE_C0_TDMD;
-+ out_free:
- 	dev_kfree_skb(skb);
- 
- 	local_irq_restore(flags);
-diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-index 3acde3b..d88fbab 100644
---- a/drivers/net/ethernet/dec/tulip/de4x5.c
-+++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-@@ -1465,7 +1465,7 @@ de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
- 
-     netif_stop_queue(dev);
-     if (!lp->tx_enable)                   /* Cannot send for now */
--	return NETDEV_TX_LOCKED;
-+		goto tx_err;
- 
-     /*
-     ** Clean out the TX ring asynchronously to interrupts - sometimes the
-@@ -1478,7 +1478,7 @@ de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
- 
-     /* Test if cache is already locked - requeue skb if so */
-     if (test_and_set_bit(0, (void *)&lp->cache.lock) && !lp->interrupt)
--	return NETDEV_TX_LOCKED;
-+		goto tx_err;
- 
-     /* Transmit descriptor ring full or stale skb */
-     if (netif_queue_stopped(dev) || (u_long) lp->tx_skb[lp->tx_new] > 1) {
-@@ -1519,6 +1519,9 @@ de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
-     lp->cache.lock = 0;
- 
-     return NETDEV_TX_OK;
-+tx_err:
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
- }
- 
- /*
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 72c9f1f..eb66638 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -780,8 +780,10 @@ static int baycom_send_packet(struct sk_buff *skb, struct net_device *dev)
- 		dev_kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 	}
--	if (bc->skb)
--		return NETDEV_TX_LOCKED;
-+	if (bc->skb) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
- 	/* strip KISS byte */
- 	if (skb->len >= HDLCDRV_MAXFLEN+1 || skb->len < 3) {
- 		dev_kfree_skb(skb);
-diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
-index 49fe59b..4bad0b8 100644
---- a/drivers/net/hamradio/hdlcdrv.c
-+++ b/drivers/net/hamradio/hdlcdrv.c
-@@ -412,8 +412,10 @@ static netdev_tx_t hdlcdrv_send_packet(struct sk_buff *skb,
- 		dev_kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 	}
--	if (sm->skb)
--		return NETDEV_TX_LOCKED;
-+	if (sm->skb) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
- 	netif_stop_queue(dev);
- 	sm->skb = skb;
- 	return NETDEV_TX_OK;
+ 	if (is_multicast_ether_addr(eth->h_dest))
+ 		add_num = nets[rnet->mport->id].nact;
 -- 
 2.7.3
