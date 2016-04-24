@@ -1,70 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: rename ARSTR register bit
-Date: Sun, 24 Apr 2016 23:46:15 +0300
-Message-ID: <11425579.ULGl4KSfTY@wasted.cogentembedded.com>
-References: <16246598.T4zYgEztZA@wasted.cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-next: zillions of lockdep whinges in
+ include/net/sock.h:1408
+Date: Sun, 24 Apr 2016 14:00:17 -0700
+Message-ID: <1461531617.5535.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <43037.1461229555@turing-police.cc.vt.edu>
+	 <1461245496.7627.17.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <5718DA71.7050902@stressinduktion.org>
+	 <20160424.143833.2292980084570149367.davem@davemloft.net>
+	 <571D14F8.6070306@stressinduktion.org>
+	 <1461527202.5535.1.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <176911.1461527778@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <16246598.T4zYgEztZA@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33257 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751170AbcDXVAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 17:00:19 -0400
+In-Reply-To: <176911.1461527778@turing-police.cc.vt.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Renesas RZ/A1H manual names the software reset bit in the software reset
-register (ARSTR) ARST which makes a bit more sense than the ARSTR_ARSTR name
-used now  by the driver -- rename the latter to ARSTR_ARST.
+On Sun, 2016-04-24 at 15:56 -0400, Valdis.Kletnieks@vt.edu wrote:
+> On Sun, 24 Apr 2016 12:46:42 -0700, Eric Dumazet said:
+> 
+> > >>> +	return !debug_locks ||
+> > >>> +	       lockdep_is_held(&sk->sk_lock) ||
+> 
+> > Issue here is that once lockdep detected a problem (not necessarily in
+> > net/ tree btw), your helper always 'detect' a problem, since lockdep
+> > automatically disables itself.
+> 
+> "D'Oh!" -- H. Simpson
+> 
+> I thought this patch looked suspect, but couldn't put my finger on it. The
+> reason why I got like 41,000 of them is because I built a kernel that has
+> lockdep enabled, but I have an out-of-tree module that doesn't init something,
+> so I get this:
+> 
+> [   48.898156] INFO: trying to register non-static key.
+> [   48.898157] the code is fine but needs lockdep annotation.
+> [   48.898157] turning off the locking correctness validator.
+> 
+> After which point, even with this patch, every time through it's still going to
+> explode.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
- drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
- drivers/net/ethernet/renesas/sh_eth.h |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -482,7 +482,7 @@ static void sh_eth_chip_reset(struct net
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
- 	/* reset device */
--	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
-+	sh_eth_tsu_write(mdp, ARSTR_ARST, ARSTR);
- 	mdelay(1);
- }
- 
-@@ -540,7 +540,7 @@ static void sh_eth_chip_reset_r8a7740(st
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
- 	/* reset device */
--	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
-+	sh_eth_tsu_write(mdp, ARSTR_ARST, ARSTR);
- 	mdelay(1);
- 
- 	sh_eth_select_mii(ndev);
-@@ -735,7 +735,7 @@ static void sh_eth_chip_reset_giga(struc
- 	}
- 
- 	/* reset device */
--	iowrite32(ARSTR_ARSTR, (void *)(SH_GIGA_ETH_BASE + 0x1800));
-+	iowrite32(ARSTR_ARST, (void *)(SH_GIGA_ETH_BASE + 0x1800));
- 	mdelay(1);
- 
- 	/* restore MAHR and MALR */
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.h
-@@ -394,7 +394,7 @@ enum RPADIR_BIT {
- #define DEFAULT_FDR_INIT	0x00000707
- 
- /* ARSTR */
--enum ARSTR_BIT { ARSTR_ARSTR = 0x00000001, };
-+enum ARSTR_BIT { ARSTR_ARST = 0x00000001, };
- 
- /* TSU_FWEN0 */
- enum TSU_FWEN0_BIT {
+Which patch are you talking about ?
