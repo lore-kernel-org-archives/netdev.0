@@ -1,42 +1,44 @@
-From: Ran Shalit <ranshalit@gmail.com>
-Subject: smc911 vs smsc911
-Date: Sun, 24 Apr 2016 08:25:15 +0300
-Message-ID: <CAJ2oMhKar146axry-1WstORmV2y1Ok+1SEJ1Y=v4jXPK_UEYyg@mail.gmail.com>
+From: "Elluru, Krishna Mohan" <elluru.kri.mohan@hpe.com>
+Subject: VRF_DEVICE integration plan
+Date: Sun, 24 Apr 2016 04:07:38 +0000
+Message-ID: <AT5PR84MB00652788CA3C3F63146F9C08CA610@AT5PR84MB0065.NAMPRD84.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:33946 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368AbcDXFZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 01:25:16 -0400
-Received: by mail-io0-f171.google.com with SMTP id 2so155766672ioy.1
-        for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 22:25:16 -0700 (PDT)
+Received: from mail-by2on0123.outbound.protection.outlook.com ([207.46.100.123]:17920
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751368AbcDXFkm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 01:40:42 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+HI Netdev team,
 
-Does anyone can say what's the difference between smc911 and smsc911 ?
+ 	Greetings. We have been monitoring the vrf device approach for l3 isolation from cumulus networks and we are currently interested in validating it. We have following questions on them and hoping to get answers from you/concerned team.
 
-On reading the first comments in each file it seems that there is
-overlapping between them:
+1. As per the linux documentation, there are known limits on if_index lookup, as the incoming if_index is changed to vrf_device index and thus an application receiving this packet will perceive this as a vrf_device packet, than right if_index. I saw you mentioned about a special flag to identify the origin, but didn't see the same in the latest linux 4.4.2 version code. Is there a patch expected for it?
 
-smc911x.c
-========
- * This is a driver for SMSC's LAN911{5,6,7,8} single-chip Ethernet devices.
+2. What are the future additions planned for this approach? Are there any ipv4 and ipv6 known bugs with vrf_device model? 
 
+3. It has been said in the documentation that, with addition of cgroup functionality for vrf device, with net_admin capabilities, we should be able to add an interface to vrf_device, currently it is not so. Any timelines on these?
 
-smsc911x.c
-===========
- * Supported devices:
- *   LAN9115, LAN9116, LAN9117, LAN9118
- *   LAN9215, LAN9216, LAN9217, LAN9218
- *   LAN9210, LAN9211
- *   LAN9220, LAN9221
- *   LAN89218
- *
-  */
+4. Currently the changes are available and portable from 4.3.x onwards. Is there a plan to port them to previous kernel versions? 
 
-Regards,
-Ran
+5. Is there a possibility of enabling secondary level lookup, to give a leak functionality to parent route table from device local route table? I tested with veth pair, configured one as default gateway, it is possible to forward traffic b/w the interfaces, looking for cleaner method.
+
+6. With "VRF Device" in place,  please confirm if there are any plans to add VRF support for applications like 
+
+	1.	Ping
+	2.	Traceroute
+	3.	DNS-Client [glibc]
+
+	In case of DNS-Client, most of the name resolution APIs will have to consider the VRF to do the lookup in  and the way the domain-name/name-server configuration is stored.
+
+Please revert back, if you need more clarification on the questions.
+
+Thanks in Advance
+Krishna Mohan
