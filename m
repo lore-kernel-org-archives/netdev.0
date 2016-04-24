@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/23] Netfilter updates for net-next
-Date: Sun, 24 Apr 2016 00:26:31 -0400 (EDT)
-Message-ID: <20160424.002631.157477606000577793.davem@davemloft.net>
-References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
+From: Ran Shalit <ranshalit@gmail.com>
+Subject: smc911 vs smsc911
+Date: Sun, 24 Apr 2016 08:25:15 +0300
+Message-ID: <CAJ2oMhKar146axry-1WstORmV2y1Ok+1SEJ1Y=v4jXPK_UEYyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47052 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbcDXE0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 00:26:38 -0400
-In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:33946 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751368AbcDXFZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 01:25:16 -0400
+Received: by mail-io0-f171.google.com with SMTP id 2so155766672ioy.1
+        for <netdev@vger.kernel.org>; Sat, 23 Apr 2016 22:25:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 22 Apr 2016 15:39:31 +0200
+Hello,
 
-> The following patchset contains Netfilter updates for your net-next
-> tree, mostly from Florian Westphal to sort out the lack of sufficient
-> validation in x_tables and connlabel preparation patches to add
-> nf_tables support. They are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+Does anyone can say what's the difference between smc911 and smsc911 ?
 
-Pulled, thanks a lot Pablo!
+On reading the first comments in each file it seems that there is
+overlapping between them:
+
+smc911x.c
+========
+ * This is a driver for SMSC's LAN911{5,6,7,8} single-chip Ethernet devices.
+
+
+smsc911x.c
+===========
+ * Supported devices:
+ *   LAN9115, LAN9116, LAN9117, LAN9118
+ *   LAN9215, LAN9216, LAN9217, LAN9218
+ *   LAN9210, LAN9211
+ *   LAN9220, LAN9221
+ *   LAN89218
+ *
+  */
+
+Regards,
+Ran
