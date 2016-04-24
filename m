@@ -1,118 +1,70 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 05/11] net/mlx5e: Add link down events counter
-Date: Sun, 24 Apr 2016 22:51:50 +0300
-Message-ID: <1461527516-29290-6-git-send-email-saeedm@mellanox.com>
-References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53259 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752608AbcDXTyi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Apr 2016 15:54:38 -0400
-In-Reply-To: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: linux-next: zillions of lockdep whinges in include/net/sock.h:1408
+Date: Sun, 24 Apr 2016 15:56:18 -0400
+Message-ID: <176911.1461527778@turing-police.cc.vt.edu>
+References: <43037.1461229555@turing-police.cc.vt.edu> <1461245496.7627.17.camel@edumazet-glaptop3.roam.corp.google.com> <5718DA71.7050902@stressinduktion.org> <20160424.143833.2292980084570149367.davem@davemloft.net> <571D14F8.6070306@stressinduktion.org>
+ <1461527202.5535.1.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1461527778_3325P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461527202.5535.1.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gal Pressman <galp@mellanox.com>
+--==_Exmh_1461527778_3325P
+Content-Type: text/plain; charset=us-ascii
 
-Expose link_down_events counter through ethtool -S.
-This counter is read from PPort statistics, then proccessed and stored as
-a special handling software counter.
-This counter is stored along software counters since it is the only PPort
-counter that it's size is not 64 bits.
+On Sun, 24 Apr 2016 12:46:42 -0700, Eric Dumazet said:
 
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   10 +++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |    5 +++++
- include/linux/mlx5/device.h                        |    1 +
- 3 files changed, 15 insertions(+), 1 deletions(-)
+> >>> +	return !debug_locks ||
+> >>> +	       lockdep_is_held(&sk->sk_lock) ||
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index ef66ba6..61e261c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -135,6 +135,10 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
- 	s->tx_csum_offload = s->tx_packets - tx_offload_none - s->tx_csum_inner;
- 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
- 			     s->rx_csum_sw;
-+
-+	s->link_down_events = MLX5_GET(ppcnt_reg,
-+				priv->stats.pport.phy_counters,
-+				counter_set.phys_layer_cntrs.link_down_events);
- }
- 
- static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
-@@ -183,6 +187,10 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
- 	MLX5_SET(ppcnt_reg, in, grp, MLX5_RFC_2819_COUNTERS_GROUP);
- 	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_PPCNT, 0, 0);
- 
-+	out = pstats->phy_counters;
-+	MLX5_SET(ppcnt_reg, in, grp, MLX5_PHYSICAL_LAYER_COUNTERS_GROUP);
-+	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_PPCNT, 0, 0);
-+
- 	MLX5_SET(ppcnt_reg, in, grp, MLX5_PER_PRIORITY_COUNTERS_GROUP);
- 	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
- 		out = pstats->per_prio_counters[prio];
-@@ -208,10 +216,10 @@ static void mlx5e_update_q_counter(struct mlx5e_priv *priv)
- 
- void mlx5e_update_stats(struct mlx5e_priv *priv)
- {
--	mlx5e_update_sw_counters(priv);
- 	mlx5e_update_q_counter(priv);
- 	mlx5e_update_vport_counters(priv);
- 	mlx5e_update_pport_counters(priv);
-+	mlx5e_update_sw_counters(priv);
- }
- 
- static void mlx5e_update_stats_work(struct work_struct *work)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index de27eea..7cd8cb4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -71,6 +71,9 @@ struct mlx5e_sw_stats {
- 	u64 rx_mpwqe_filler;
- 	u64 rx_mpwqe_frag;
- 	u64 rx_buff_alloc_err;
-+
-+	/* Special handling counters */
-+	u64 link_down_events;
- };
- 
- static const struct counter_desc sw_stats_desc[] = {
-@@ -96,6 +99,7 @@ static const struct counter_desc sw_stats_desc[] = {
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_mpwqe_filler) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_mpwqe_frag) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_buff_alloc_err) },
-+	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, link_down_events) },
- };
- 
- struct mlx5e_qcounter_stats {
-@@ -178,6 +182,7 @@ struct mlx5e_pport_stats {
- 	__be64 RFC_2863_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
- 	__be64 RFC_2819_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
- 	__be64 per_prio_counters[NUM_PPORT_PRIO][MLX5_ST_SZ_QW(ppcnt_reg)];
-+	__be64 phy_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
- };
- 
- static const struct counter_desc pport_802_3_stats_desc[] = {
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 8be44ca..942bcca 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1369,6 +1369,7 @@ enum {
- 	MLX5_ETHERNET_EXTENDED_COUNTERS_GROUP = 0x5,
- 	MLX5_PER_PRIORITY_COUNTERS_GROUP      = 0x10,
- 	MLX5_PER_TRAFFIC_CLASS_COUNTERS_GROUP = 0x11,
-+	MLX5_PHYSICAL_LAYER_COUNTERS_GROUP    = 0x12,
- 	MLX5_INFINIBAND_PORT_COUNTERS_GROUP   = 0x20,
- };
- 
--- 
-1.7.1
+> Issue here is that once lockdep detected a problem (not necessarily in
+> net/ tree btw), your helper always 'detect' a problem, since lockdep
+> automatically disables itself.
+
+"D'Oh!" -- H. Simpson
+
+I thought this patch looked suspect, but couldn't put my finger on it. The
+reason why I got like 41,000 of them is because I built a kernel that has
+lockdep enabled, but I have an out-of-tree module that doesn't init something,
+so I get this:
+
+[   48.898156] INFO: trying to register non-static key.
+[   48.898157] the code is fine but needs lockdep annotation.
+[   48.898157] turning off the locking correctness validator.
+
+After which point, even with this patch, every time through it's still going to
+explode.
+
+
+
+--==_Exmh_1461527778_3325P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVx0k4QdmEQWDXROgAQLvPRAAk9iMCiM/gh3WKOq8QW4PL8R+aA+3H6GW
+l7lDxrQMQFEBJlxWspr5qPWJu2RsT8iQNjs6hAF1FTZRWpM3BDhupKVvAGpmWutT
+iIFXpTH+yaafl9OCvPh2emFb3rul4gUs5fwdubStM2eA6SweWSlli8xvzNHswqwx
+bk3aWNHiTbjK/A9YbIOtnBNDngWsYtA5CgtuGEP7RJsaOYyQPVdx6L8mNzyInfGJ
+CiPHRsoeqc21nNBWjd8ul2wz6SuVpv6BoCvKluSXXGpYfzMSXYjDsP3gGgJNV8Da
+TX5xODCEORgHQ8XKU0WLgdj38aQCkrTWYg0Ivsne+3KF5wdQOokLNnax3knCn2rH
+TY+3vQK7VNanoVfmb9JTwhUtGP2SVtpT7q/OKWY1Ng1xojz1QyKm+Zu5g+ok0Bb3
+OwzgT+FflMZE9mrqCyOmDrkIg6+RclrT3fGz1yFA2zlYdhBAfnc8JdXDjSqQqCim
+Xrgtn6Y/SszHemxkHUYoUcnE3FLoMIkWXxdTccA1OmuoSEfL4+0mVKZpNo+0vYGf
+gadbL4oyXNkebMzMnxvRVVdud9HNWpAuQhXqwfAJa1I7eeOy8XCNk7HpyXRXY+xq
+hhOBT0oTsD5xt1Cx7y4Ar4TF1EXoTUHI2ghmvi/TTrS3HF0gismHWe98Vwnsw/jr
+7NZR3KAH21g=
+=RnCQ
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1461527778_3325P--
