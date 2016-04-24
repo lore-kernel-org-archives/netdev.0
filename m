@@ -1,99 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: get rid of the 2nd parameter to sh_eth_dev_init()
-Date: Sun, 24 Apr 2016 19:11:07 +0300
-Message-ID: <1615196.r6Bb3HFTJZ@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH net-next] ravb: Remove rx buffer ALIGN
+Date: Mon, 25 Apr 2016 01:16:07 +0900
+Message-ID: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sh_eth_dev_init()  is now always called with  'true' as the  2nd argument,
-so that there's no more sense in having 2 parameters to this function...
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Aligning the reception data size is not required.
 
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 ---
-The patch is against DaveM's 'net-next.git' repo.
 
- drivers/net/ethernet/renesas/sh_eth.c |   23 +++++++++--------------
- 1 file changed, 9 insertions(+), 14 deletions(-)
+This patch is based on the master branch of David Miller's next networking
+tree.
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1229,7 +1229,7 @@ ring_free:
- 	return -ENOMEM;
- }
+ drivers/net/ethernet/renesas/ravb_main.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 238b56f..66ed80c 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -246,10 +246,10 @@ static void ravb_ring_format(struct net_device *ndev, int q)
+ 	for (i = 0; i < priv->num_rx_ring[q]; i++) {
+ 		/* RX descriptor */
+ 		rx_desc = &priv->rx_ring[q][i];
+-		/* The size of the buffer should be on 16-byte boundary. */
+-		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
+-		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
+-					  ALIGN(PKT_BUF_SZ, 16),
++		rx_desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
++		dma_addr = dma_map_single(ndev->dev.parent,
++					  priv->rx_skb[q][i]->data,
++					  PKT_BUF_SZ,
+ 					  DMA_FROM_DEVICE);
+ 		/* We just set the data size to 0 for a failed mapping which
+ 		 * should prevent DMA from happening...
+@@ -557,8 +557,9 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
  
--static int sh_eth_dev_init(struct net_device *ndev, bool start)
-+static int sh_eth_dev_init(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	int ret;
-@@ -1279,10 +1279,8 @@ static int sh_eth_dev_init(struct net_de
- 		     RFLR);
+ 			skb = priv->rx_skb[q][entry];
+ 			priv->rx_skb[q][entry] = NULL;
+-			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+-					 ALIGN(PKT_BUF_SZ, 16),
++			dma_unmap_single(ndev->dev.parent,
++					 le32_to_cpu(desc->dptr),
++					 PKT_BUF_SZ,
+ 					 DMA_FROM_DEVICE);
+ 			get_ts &= (q == RAVB_NC) ?
+ 					RAVB_RXTSTAMP_TYPE_V2_L2_EVENT :
+@@ -588,8 +589,7 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
+ 	for (; priv->cur_rx[q] - priv->dirty_rx[q] > 0; priv->dirty_rx[q]++) {
+ 		entry = priv->dirty_rx[q] % priv->num_rx_ring[q];
+ 		desc = &priv->rx_ring[q][entry];
+-		/* The size of the buffer should be on 16-byte boundary. */
+-		desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
++		desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
  
- 	sh_eth_modify(ndev, EESR, 0, 0);
--	if (start) {
--		mdp->irq_enabled = true;
--		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
--	}
-+	mdp->irq_enabled = true;
-+	sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
- 
- 	/* PAUSE Prohibition */
- 	sh_eth_write(ndev, ECMR_ZPF | (mdp->duplex ? ECMR_DM : 0) |
-@@ -1295,8 +1293,7 @@ static int sh_eth_dev_init(struct net_de
- 	sh_eth_write(ndev, mdp->cd->ecsr_value, ECSR);
- 
- 	/* E-MAC Interrupt Enable register */
--	if (start)
--		sh_eth_write(ndev, mdp->cd->ecsipr_value, ECSIPR);
-+	sh_eth_write(ndev, mdp->cd->ecsipr_value, ECSIPR);
- 
- 	/* Set MAC address */
- 	update_mac_address(ndev);
-@@ -1309,10 +1306,8 @@ static int sh_eth_dev_init(struct net_de
- 	if (mdp->cd->tpauser)
- 		sh_eth_write(ndev, TPAUSER_UNLIMITED, TPAUSER);
- 
--	if (start) {
--		/* Setting the Rx mode will start the Rx process. */
--		sh_eth_write(ndev, EDRRR_R, EDRRR);
--	}
-+	/* Setting the Rx mode will start the Rx process. */
-+	sh_eth_write(ndev, EDRRR_R, EDRRR);
- 
- 	return ret;
- }
-@@ -2194,7 +2189,7 @@ static int sh_eth_set_ringparam(struct n
- 				   __func__);
- 			return ret;
- 		}
--		ret = sh_eth_dev_init(ndev, true);
-+		ret = sh_eth_dev_init(ndev);
- 		if (ret < 0) {
- 			netdev_err(ndev, "%s: sh_eth_dev_init failed.\n",
- 				   __func__);
-@@ -2246,7 +2241,7 @@ static int sh_eth_open(struct net_device
- 		goto out_free_irq;
- 
- 	/* device init */
--	ret = sh_eth_dev_init(ndev, true);
-+	ret = sh_eth_dev_init(ndev);
- 	if (ret)
- 		goto out_free_irq;
- 
-@@ -2299,7 +2294,7 @@ static void sh_eth_tx_timeout(struct net
- 	}
- 
- 	/* device init */
--	sh_eth_dev_init(ndev, true);
-+	sh_eth_dev_init(ndev);
- 
- 	netif_start_queue(ndev);
- }
+ 		if (!priv->rx_skb[q][entry]) {
+ 			skb = netdev_alloc_skb(ndev,
+-- 
+1.9.1
