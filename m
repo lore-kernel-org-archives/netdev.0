@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 1/2] sh_eth: use EDMR_SRST_GETHER in sh_eth_check_reset()
-Date: Sun, 24 Apr 2016 23:45:23 +0300
-Message-ID: <10299839.69pLJTKjhc@wasted.cogentembedded.com>
+Subject: [PATCH 2/2] sh_eth: rename ARSTR register bit
+Date: Sun, 24 Apr 2016 23:46:15 +0300
+Message-ID: <11425579.ULGl4KSfTY@wasted.cogentembedded.com>
 References: <16246598.T4zYgEztZA@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -13,27 +13,58 @@ In-Reply-To: <16246598.T4zYgEztZA@wasted.cogentembedded.com>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sh_eth_check_reset() uses a bare number where EDMR_SRST_GETHER would fit,
-i.e. the receive/trasmit software reset bits that comprise EDMR_SRST_GETHER
-read as 1  while the corresponding reset is in progress and thus, when both
-are 0, the reset is complete.
+The Renesas RZ/A1H manual names the software reset bit in the software reset
+register (ARSTR) ARST which makes a bit more sense than the ARSTR_ARSTR name
+used now  by the driver -- rename the latter to ARSTR_ARST.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
+ drivers/net/ethernet/renesas/sh_eth.h |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
 --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
 +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -899,7 +899,7 @@ static int sh_eth_check_reset(struct net
- 	int cnt = 100;
+@@ -482,7 +482,7 @@ static void sh_eth_chip_reset(struct net
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
  
- 	while (cnt > 0) {
--		if (!(sh_eth_read(ndev, EDMR) & 0x3))
-+		if (!(sh_eth_read(ndev, EDMR) & EDMR_SRST_GETHER))
- 			break;
- 		mdelay(1);
- 		cnt--;
+ 	/* reset device */
+-	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
++	sh_eth_tsu_write(mdp, ARSTR_ARST, ARSTR);
+ 	mdelay(1);
+ }
+ 
+@@ -540,7 +540,7 @@ static void sh_eth_chip_reset_r8a7740(st
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 
+ 	/* reset device */
+-	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
++	sh_eth_tsu_write(mdp, ARSTR_ARST, ARSTR);
+ 	mdelay(1);
+ 
+ 	sh_eth_select_mii(ndev);
+@@ -735,7 +735,7 @@ static void sh_eth_chip_reset_giga(struc
+ 	}
+ 
+ 	/* reset device */
+-	iowrite32(ARSTR_ARSTR, (void *)(SH_GIGA_ETH_BASE + 0x1800));
++	iowrite32(ARSTR_ARST, (void *)(SH_GIGA_ETH_BASE + 0x1800));
+ 	mdelay(1);
+ 
+ 	/* restore MAHR and MALR */
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -394,7 +394,7 @@ enum RPADIR_BIT {
+ #define DEFAULT_FDR_INIT	0x00000707
+ 
+ /* ARSTR */
+-enum ARSTR_BIT { ARSTR_ARSTR = 0x00000001, };
++enum ARSTR_BIT { ARSTR_ARST = 0x00000001, };
+ 
+ /* TSU_FWEN0 */
+ enum TSU_FWEN0_BIT {
