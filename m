@@ -1,20 +1,20 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/5] xgene: get_phy_device() doesn't return NULL anymore
-Date: Sun, 24 Apr 2016 20:27:49 +0300
-Message-ID: <73083313.ix2iJdrut5@wasted.cogentembedded.com>
+Subject: [PATCH 3/5] fixed_phy: get_phy_device() doesn't return NULL anymore
+Date: Sun, 24 Apr 2016 20:29:23 +0300
+Message-ID: <7242612.WszImdz4eS@wasted.cogentembedded.com>
 References: <56219623.1S7UfcqQqc@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de
-To: f.fainelli@gmail.com, isubramanian@apm.com, kchudgar@apm.com
+Cc: arnd@arndb.de
+To: f.fainelli@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:35533 "EHLO
-	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740AbcDXR1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 13:27:52 -0400
-Received: by mail-lf0-f44.google.com with SMTP id c126so104618699lfb.2
-        for <netdev@vger.kernel.org>; Sun, 24 Apr 2016 10:27:52 -0700 (PDT)
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:33248 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752740AbcDXR30 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 13:29:26 -0400
+Received: by mail-lb0-f176.google.com with SMTP id jj5so17441337lbc.0
+        for <netdev@vger.kernel.org>; Sun, 24 Apr 2016 10:29:26 -0700 (PDT)
 In-Reply-To: <56219623.1S7UfcqQqc@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,19 +25,19 @@ to check for it...
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c |    2 +-
+ drivers/net/phy/fixed_phy.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: net-next/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+Index: net-next/drivers/net/phy/fixed_phy.c
 ===================================================================
---- net-next.orig/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ net-next/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -824,7 +824,7 @@ static int xgene_mdiobus_register(struct
- 		return -EINVAL;
+--- net-next.orig/drivers/net/phy/fixed_phy.c
++++ net-next/drivers/net/phy/fixed_phy.c
+@@ -328,7 +328,7 @@ struct phy_device *fixed_phy_register(un
+ 		return ERR_PTR(ret);
  
- 	phy = get_phy_device(mdio, phy_id, false);
--	if (!phy || IS_ERR(phy))
-+	if (IS_ERR(phy))
- 		return -EIO;
- 
- 	ret = phy_device_register(phy);
+ 	phy = get_phy_device(fmb->mii_bus, phy_addr, false);
+-	if (!phy || IS_ERR(phy)) {
++	if (IS_ERR(phy)) {
+ 		fixed_phy_del(phy_addr);
+ 		return ERR_PTR(-EINVAL);
+ 	}
