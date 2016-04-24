@@ -1,43 +1,50 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net v2 0/3] gre: fix lwtunnel support
-Date: Sun, 24 Apr 2016 13:00:19 +0200
-Message-ID: <cover.1461495411.git.jbenc@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v2 1/3] gre: do not assign header_ops in collect
+ metadata mode
+Date: Sun, 24 Apr 2016 16:45:04 +0300
+Message-ID: <571CCDE0.9060902@cogentembedded.com>
+References: <cover.1461495411.git.jbenc@redhat.com>
+ <bd50f4691e9edc28c5a9ec861863f7f6cf316077.1461495411.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Pravin B Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>,
 	Simon Horman <simon.horman@netronome.com>
-To: netdev@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45623 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751770AbcDXLAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Apr 2016 07:00:42 -0400
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:36472 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752637AbcDXNpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 09:45:06 -0400
+Received: by mail-lb0-f174.google.com with SMTP id ys16so65650328lbb.3
+        for <netdev@vger.kernel.org>; Sun, 24 Apr 2016 06:45:05 -0700 (PDT)
+In-Reply-To: <bd50f4691e9edc28c5a9ec861863f7f6cf316077.1461495411.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset fixes a few bugs in gre metadata mode implementation, mainly
-with ipgre.
+Hello.
 
-As an example, in this setup:
+On 4/24/2016 2:00 PM, Jiri Benc wrote:
 
-ip a a 192.168.1.1/24 dev eth0
-ip l a gre1 type gre external
-ip l s gre1 up
-ip a a 192.168.99.1/24 dev gre1
-ip r a 192.168.99.2/32 encap ip dst 192.168.1.2 ttl 10 dev gre1
-ping 192.168.99.2
+> In ipgre mode (i.e. not gretap) with collect metadata flag set, the tunnel
+> is incorrectly assumed to be mGRE in NBMA mode (see commit 6a5f44d7a048c).
 
-the traffic does not go through before this patchset and does as expected
-with it applied.
+    Didn't checkpatch.pl complain about the commit citing style?
 
-v2: Rejecting invalid configuration, added patch 3, dropped patch for
-    ETH_P_TEB (will target net-next).
+> This is not the case, we're controlling the encapsulation addresses by
+> lwtunnel metadata. And anyway, assigning dev->header_ops in collect metadata
+> mode does not make sense.
+>
+> Similarly, when a multicast remote IP address is set together with the
+> collect metadata flag, the processing described above would happen, too. As
+> there's not much sense in specifying remote/local IP address for lwtunnels,
+> reject such configuration.
+>
+> v2: Reject configuration specifying both remote/local address and collect
+>      metadata flag.
+>
+> Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+[...]
 
-Jiri Benc (3):
-  gre: do not assign header_ops in collect metadata mode
-  gre: build header correctly for collect metadata tunnels
-  gre: allow creation of gretap interfaces in metadata mode
-
- net/ipv4/ip_gre.c | 23 +++++++++++++++++------
- 1 file changed, 17 insertions(+), 6 deletions(-)
-
--- 
-1.8.3.1
+MBR, Sergei
