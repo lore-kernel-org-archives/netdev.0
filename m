@@ -1,34 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-next: zillions of lockdep whinges in
- include/net/sock.h:1408
-Date: Sun, 24 Apr 2016 12:55:18 -0700
-Message-ID: <1461527718.5535.2.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5718DA71.7050902@stressinduktion.org>
-	 <20160424.143833.2292980084570149367.davem@davemloft.net>
-	 <571D14F8.6070306@stressinduktion.org>
-	 <20160424.145421.128023840849290353.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, Valdis.Kletnieks@vt.edu,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160424.145421.128023840849290353.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V1 03/11] net/mlx5e: Rename VPort counters
+Date: Sun, 24 Apr 2016 22:51:48 +0300
+Message-ID: <1461527516-29290-4-git-send-email-saeedm@mellanox.com>
+References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:53267 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752927AbcDXTyi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Apr 2016 15:54:38 -0400
+In-Reply-To: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-04-24 at 14:54 -0400, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Sun, 24 Apr 2016 20:48:24 +0200
-> 
-> > Eric's patch is worth to apply anyway, but I am not sure if it solves
-> > the (fundamental) problem. I couldn't reproduce it with the exact next-
-> > tag provided in the initial mail. All other reports also only happend
-> > with linux-next and not net-next.
-> 
-> Ok, Eric please submit it formally.
-> 
-> Thanks!
+From: Gal Pressman <galp@mellanox.com>
 
-Yes, I will first test it, and will take Hannes suggestion as well.
+VPort and software counters names are confusing and may be unclear, all
+VPort counters now have a prefix of rx/tx_vport_*.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   35 +++++++++++---------
+ 1 files changed, 19 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index 116320d..4f3a08d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -115,32 +115,35 @@ struct mlx5e_vport_stats {
+ };
+ 
+ static const struct counter_desc vport_stats_desc[] = {
+-	{ "rx_error_packets", VPORT_COUNTER_OFF(received_errors.packets) },
+-	{ "rx_error_bytes", VPORT_COUNTER_OFF(received_errors.octets) },
+-	{ "tx_error_packets", VPORT_COUNTER_OFF(transmit_errors.packets) },
+-	{ "tx_error_bytes", VPORT_COUNTER_OFF(transmit_errors.octets) },
+-	{ "rx_unicast_packets",
++	{ "rx_vport_error_packets",
++		VPORT_COUNTER_OFF(received_errors.packets) },
++	{ "rx_vport_error_bytes", VPORT_COUNTER_OFF(received_errors.octets) },
++	{ "tx_vport_error_packets",
++		VPORT_COUNTER_OFF(transmit_errors.packets) },
++	{ "tx_vport_error_bytes", VPORT_COUNTER_OFF(transmit_errors.octets) },
++	{ "rx_vport_unicast_packets",
+ 		VPORT_COUNTER_OFF(received_eth_unicast.packets) },
+-	{ "rx_unicast_bytes", VPORT_COUNTER_OFF(received_eth_unicast.octets) },
+-	{ "tx_unicast_packets",
++	{ "rx_vport_unicast_bytes",
++		VPORT_COUNTER_OFF(received_eth_unicast.octets) },
++	{ "tx_vport_unicast_packets",
+ 		VPORT_COUNTER_OFF(transmitted_eth_unicast.packets) },
+-	{ "tx_unicast_bytes",
++	{ "tx_vport_unicast_bytes",
+ 		VPORT_COUNTER_OFF(transmitted_eth_unicast.octets) },
+-	{ "rx_multicast_packets",
++	{ "rx_vport_multicast_packets",
+ 		VPORT_COUNTER_OFF(received_eth_multicast.packets) },
+-	{ "rx_multicast_bytes",
++	{ "rx_vport_multicast_bytes",
+ 		VPORT_COUNTER_OFF(received_eth_multicast.octets) },
+-	{ "tx_multicast_packets",
++	{ "tx_vport_multicast_packets",
+ 		VPORT_COUNTER_OFF(transmitted_eth_multicast.packets) },
+-	{ "tx_multicast_bytes",
++	{ "tx_vport_multicast_bytes",
+ 		VPORT_COUNTER_OFF(transmitted_eth_multicast.octets) },
+-	{ "rx_broadcast_packets",
++	{ "rx_vport_broadcast_packets",
+ 		VPORT_COUNTER_OFF(received_eth_broadcast.packets) },
+-	{ "rx_broadcast_bytes",
++	{ "rx_vport_broadcast_bytes",
+ 		VPORT_COUNTER_OFF(received_eth_broadcast.octets) },
+-	{ "tx_broadcast_packets",
++	{ "tx_vport_broadcast_packets",
+ 		VPORT_COUNTER_OFF(transmitted_eth_broadcast.packets) },
+-	{ "tx_broadcast_bytes",
++	{ "tx_vport_broadcast_bytes",
+ 		VPORT_COUNTER_OFF(transmitted_eth_broadcast.octets) },
+ };
+ 
+-- 
+1.7.1
