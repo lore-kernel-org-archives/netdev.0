@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/3] bridge: mdb: Couple of fixes
-Date: Sun, 24 Apr 2016 14:23:59 -0400 (EDT)
-Message-ID: <20160424.142359.2144390135732997955.davem@davemloft.net>
-References: <1461235965-3930-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net v2 0/9] macsec: a few fixes
+Date: Sun, 24 Apr 2016 14:32:23 -0400 (EDT)
+Message-ID: <20160424.143223.1895184978590998205.davem@davemloft.net>
+References: <cover.1461315621.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	stephen@networkplumber.org, nikolay@cumulusnetworks.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, lrichard@redhat.com,
+	hannes@stressinduktion.org, johannes@sipsolutions.net,
+	dan.carpenter@oracle.com
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52508 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52539 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752010AbcDXSYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:24:04 -0400
-In-Reply-To: <1461235965-3930-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1751735AbcDXSca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:32:30 -0400
+In-Reply-To: <cover.1461315621.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 21 Apr 2016 12:52:42 +0200
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Fri, 22 Apr 2016 11:28:00 +0200
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> Some small fixes for the macsec driver:
+>  - possible NULL pointer dereferences
+>  - netlink dumps fixes: RTNL locking, consistent dumps
+>  - a reference counting bug
+>  - wrong name for uapi constant
+>  - a few memory leaks
 > 
-> Elad says:
-> 
-> This patchset fixes two problems reported by Nikolay Aleksandrov. The first
-> problem is that the MDB offload flag might be accesed without helding the
-> multicast_lock.
-> The second problem is that the switchdev mdb offload is deferred and
-> the offload bit was marked regardless if the operation succeeded or not.
+> Patches 1 to 5 are the same as in v1, patches 6 to 9 are new.
+> Patch 6 fixes the memleak that Lance spotted in v1.
 
-Series applied, thanks.
+Series applied, thanks Sabrina.
