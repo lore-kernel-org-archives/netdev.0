@@ -1,71 +1,32 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH net-next] ravb: Remove rx buffer ALIGN
-Date: Mon, 25 Apr 2016 01:16:07 +0900
-Message-ID: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 0/5] Don't return NULL from get_phy_device() anymore
+Date: Sun, 24 Apr 2016 20:23:03 +0300
+Message-ID: <56219623.1S7UfcqQqc@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: arnd@arndb.de
+To: f.fainelli@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33533 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752583AbcDXRXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 13:23:08 -0400
+Received: by mail-lf0-f48.google.com with SMTP id y84so8047363lfc.0
+        for <netdev@vger.kernel.org>; Sun, 24 Apr 2016 10:23:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Hello.
 
-Aligning the reception data size is not required.
+   Here's the set of 5 patches against DaveM's 'net-next.git' repo. The first
+patch makes get_phy_device() return only error values on error, the rest of
+the patches clean up the callers of that function...
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+[1/5] phylib-don-t-return-NULL-from-get_phy_device.patch
+[2/5] xgene-get_phy_device-doesn-t-return-NULL-anymore.patch
+[3/5] fixed_phy-get_phy_device-doesn-t-return-NULL-anymore.patch
+[4/5] mdio_bus-get_phy_device-doesn-t-return-NULL-anymore.patch
+[5/5] of_mdio-get_phy_device-doesn-t-return-NULL-anymore.patch
 
-This patch is based on the master branch of David Miller's next networking
-tree.
-
- drivers/net/ethernet/renesas/ravb_main.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 238b56f..66ed80c 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -246,10 +246,10 @@ static void ravb_ring_format(struct net_device *ndev, int q)
- 	for (i = 0; i < priv->num_rx_ring[q]; i++) {
- 		/* RX descriptor */
- 		rx_desc = &priv->rx_ring[q][i];
--		/* The size of the buffer should be on 16-byte boundary. */
--		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
--		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
--					  ALIGN(PKT_BUF_SZ, 16),
-+		rx_desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
-+		dma_addr = dma_map_single(ndev->dev.parent,
-+					  priv->rx_skb[q][i]->data,
-+					  PKT_BUF_SZ,
- 					  DMA_FROM_DEVICE);
- 		/* We just set the data size to 0 for a failed mapping which
- 		 * should prevent DMA from happening...
-@@ -557,8 +557,9 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
- 
- 			skb = priv->rx_skb[q][entry];
- 			priv->rx_skb[q][entry] = NULL;
--			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
--					 ALIGN(PKT_BUF_SZ, 16),
-+			dma_unmap_single(ndev->dev.parent,
-+					 le32_to_cpu(desc->dptr),
-+					 PKT_BUF_SZ,
- 					 DMA_FROM_DEVICE);
- 			get_ts &= (q == RAVB_NC) ?
- 					RAVB_RXTSTAMP_TYPE_V2_L2_EVENT :
-@@ -588,8 +589,7 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
- 	for (; priv->cur_rx[q] - priv->dirty_rx[q] > 0; priv->dirty_rx[q]++) {
- 		entry = priv->dirty_rx[q] % priv->num_rx_ring[q];
- 		desc = &priv->rx_ring[q][entry];
--		/* The size of the buffer should be on 16-byte boundary. */
--		desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
-+		desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
- 
- 		if (!priv->rx_skb[q][entry]) {
- 			skb = netdev_alloc_skb(ndev,
--- 
-1.9.1
+MBR, Sergei
