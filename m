@@ -1,142 +1,205 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 08/11] net/mlx5e: Add ethtool support for interface identify (LED blinking)
-Date: Sun, 24 Apr 2016 22:51:53 +0300
-Message-ID: <1461527516-29290-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 10/11] net/mlx5e: Add ethtool support for rxvlan-offload (vlan stripping)
+Date: Sun, 24 Apr 2016 22:51:55 +0300
+Message-ID: <1461527516-29290-11-git-send-email-saeedm@mellanox.com>
 References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Gal Pressman <galp@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53344 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53351 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752017AbcDXTzG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Apr 2016 15:55:06 -0400
+	id S1753089AbcDXTzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Apr 2016 15:55:08 -0400
 In-Reply-To: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Add the needed hardware command and mlx5_ifc structs for managing LED
-control.
-Add set_phys_id ethtool callback to support ethtool -p flag.
+Use ethtool -K <interface> rxvlan <on/off> to enable/disable
+C-TAG vlan stripping by hardware.
 
 Signed-off-by: Gal Pressman <galp@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   25 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |   13 ++++++++++
- include/linux/mlx5/driver.h                        |    1 +
- include/linux/mlx5/port.h                          |    6 ++++
- 4 files changed, 45 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    3 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   74 ++++++++++++++++++++-
+ include/linux/mlx5/driver.h                       |    4 +
+ 3 files changed, 78 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 522d584..a2c444e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1135,6 +1135,30 @@ static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	return mlx5_set_port_wol(mdev, mlx5_wol_mode);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index e903eff..8abc289 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -166,6 +166,7 @@ struct mlx5e_params {
+ 	u8  rss_hfunc;
+ 	u8  toeplitz_hash_key[40];
+ 	u32 indirection_rqt[MLX5E_INDIR_RQT_SIZE];
++	bool vlan_strip_disable;
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	struct ieee_ets ets;
+ #endif
+@@ -575,6 +576,8 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
+ void mlx5e_enable_vlan_filter(struct mlx5e_priv *priv);
+ void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
+ 
++int mlx5e_modify_rqs_vsd(struct mlx5e_priv *priv, bool vsd);
++
+ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, enum mlx5e_rqt_ix rqt_ix);
+ void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index ad0cb4a..6c9c10c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -388,6 +388,7 @@ static int mlx5e_enable_rq(struct mlx5e_rq *rq, struct mlx5e_rq_param *param)
+ 	MLX5_SET(rqc,  rqc, cqn,		rq->cq.mcq.cqn);
+ 	MLX5_SET(rqc,  rqc, state,		MLX5_RQC_STATE_RST);
+ 	MLX5_SET(rqc,  rqc, flush_in_error_en,	1);
++	MLX5_SET(rqc,  rqc, vsd, priv->params.vlan_strip_disable);
+ 	MLX5_SET(wq,   wq,  log_wq_pg_sz,	rq->wq_ctrl.buf.page_shift -
+ 						MLX5_ADAPTER_PAGE_SHIFT);
+ 	MLX5_SET64(wq, wq,  dbr_addr,		rq->wq_ctrl.db.dma);
+@@ -402,7 +403,8 @@ static int mlx5e_enable_rq(struct mlx5e_rq *rq, struct mlx5e_rq_param *param)
+ 	return err;
  }
  
-+static int mlx5e_set_phys_id(struct net_device *dev,
-+			     enum ethtool_phys_id_state state)
+-static int mlx5e_modify_rq(struct mlx5e_rq *rq, int curr_state, int next_state)
++static int mlx5e_modify_rq_state(struct mlx5e_rq *rq, int curr_state,
++				 int next_state)
+ {
+ 	struct mlx5e_channel *c = rq->channel;
+ 	struct mlx5e_priv *priv = c->priv;
+@@ -430,6 +432,36 @@ static int mlx5e_modify_rq(struct mlx5e_rq *rq, int curr_state, int next_state)
+ 	return err;
+ }
+ 
++static int mlx5e_modify_rq_vsd(struct mlx5e_rq *rq, bool vsd)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5e_channel *c = rq->channel;
++	struct mlx5e_priv *priv = c->priv;
 +	struct mlx5_core_dev *mdev = priv->mdev;
-+	u16 beacon_duration;
 +
-+	if (!MLX5_CAP_GEN(mdev, beacon_led))
-+		return -EOPNOTSUPP;
++	void *in;
++	void *rqc;
++	int inlen;
++	int err;
 +
-+	switch (state) {
-+	case ETHTOOL_ID_ACTIVE:
-+		beacon_duration = MLX5_BEACON_DURATION_INF;
-+		break;
-+	case ETHTOOL_ID_INACTIVE:
-+		beacon_duration = MLX5_BEACON_DURATION_OFF;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
++	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return -ENOMEM;
++
++	rqc = MLX5_ADDR_OF(modify_rq_in, in, ctx);
++
++	MLX5_SET(modify_rq_in, in, rq_state, MLX5_RQC_STATE_RDY);
++	MLX5_SET64(modify_rq_in, in, modify_bitmask, MLX5_RQ_BITMASK_VSD);
++	MLX5_SET(rqc, rqc, vsd, vsd);
++	MLX5_SET(rqc, rqc, state, MLX5_RQC_STATE_RDY);
++
++	err = mlx5_core_modify_rq(mdev, rq->rqn, in, inlen);
++
++	kvfree(in);
++
++	return err;
++}
++
+ static void mlx5e_disable_rq(struct mlx5e_rq *rq)
+ {
+ 	mlx5_core_destroy_rq(rq->priv->mdev, rq->rqn);
+@@ -468,7 +500,7 @@ static int mlx5e_open_rq(struct mlx5e_channel *c,
+ 	if (err)
+ 		goto err_destroy_rq;
+ 
+-	err = mlx5e_modify_rq(rq, MLX5_RQC_STATE_RST, MLX5_RQC_STATE_RDY);
++	err = mlx5e_modify_rq_state(rq, MLX5_RQC_STATE_RST, MLX5_RQC_STATE_RDY);
+ 	if (err)
+ 		goto err_disable_rq;
+ 
+@@ -493,7 +525,7 @@ static void mlx5e_close_rq(struct mlx5e_rq *rq)
+ 	clear_bit(MLX5E_RQ_STATE_POST_WQES_ENABLE, &rq->state);
+ 	napi_synchronize(&rq->channel->napi); /* prevent mlx5e_post_rx_wqes */
+ 
+-	mlx5e_modify_rq(rq, MLX5_RQC_STATE_RDY, MLX5_RQC_STATE_ERR);
++	mlx5e_modify_rq_state(rq, MLX5_RQC_STATE_RDY, MLX5_RQC_STATE_ERR);
+ 	while (!mlx5_wq_ll_is_empty(&rq->wq))
+ 		msleep(20);
+ 
+@@ -1963,6 +1995,23 @@ static void mlx5e_destroy_tirs(struct mlx5e_priv *priv)
+ 		mlx5e_destroy_tir(priv, i);
+ }
+ 
++int mlx5e_modify_rqs_vsd(struct mlx5e_priv *priv, bool vsd)
++{
++	int err = 0;
++	int i;
++
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
++		return 0;
++
++	for (i = 0; i < priv->params.num_channels; i++) {
++		err = mlx5e_modify_rq_vsd(&priv->channel[i]->rq, vsd);
++		if (err)
++			return err;
 +	}
 +
-+	return mlx5_set_port_beacon(mdev, beacon_duration);
++	return 0;
 +}
 +
- const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_drvinfo       = mlx5e_get_drvinfo,
- 	.get_link          = ethtool_op_get_link,
-@@ -1159,6 +1183,7 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_pauseparam    = mlx5e_get_pauseparam,
- 	.set_pauseparam    = mlx5e_set_pauseparam,
- 	.get_ts_info       = mlx5e_get_ts_info,
-+	.set_phys_id       = mlx5e_set_phys_id,
- 	.get_wol	   = mlx5e_get_wol,
- 	.set_wol	   = mlx5e_set_wol,
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index c37740f..446549f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -115,6 +115,19 @@ int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_ptys);
- 
-+int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration)
-+{
-+	u32 out[MLX5_ST_SZ_DW(mlcr_reg)];
-+	u32 in[MLX5_ST_SZ_DW(mlcr_reg)];
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(mlcr_reg, in, local_port, 1);
-+	MLX5_SET(mlcr_reg, in, beacon_duration, beacon_duration);
-+
-+	return mlx5_core_access_reg(dev, in, sizeof(in), out,
-+				    sizeof(out), MLX5_REG_MLCR, 0, 1);
-+}
-+
- int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
- 			      u32 *proto_cap, int proto_mask)
+ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
  {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+@@ -2147,6 +2196,23 @@ static int set_feature_rx_all(struct net_device *netdev, bool enable)
+ 	return mlx5_set_port_fcs(mdev, !enable);
+ }
+ 
++static int set_feature_rx_vlan(struct net_device *netdev, bool enable)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	int err;
++
++	mutex_lock(&priv->state_lock);
++
++	priv->params.vlan_strip_disable = !enable;
++	err = mlx5e_modify_rqs_vsd(priv, !enable);
++	if (err)
++		priv->params.vlan_strip_disable = enable;
++
++	mutex_unlock(&priv->state_lock);
++
++	return err;
++}
++
+ static int mlx5e_handle_feature(struct net_device *netdev,
+ 				netdev_features_t wanted_features,
+ 				netdev_features_t feature,
+@@ -2184,6 +2250,8 @@ static int mlx5e_set_features(struct net_device *netdev,
+ 				    set_feature_tc_num_filters);
+ 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_RXALL,
+ 				    set_feature_rx_all);
++	err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_VLAN_CTAG_RX,
++				    set_feature_rx_vlan);
+ 
+ 	return err ? -EINVAL : 0;
+ }
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 497a4db..2e8758d 100644
+index 1a17067..2cc5e9f 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -116,6 +116,7 @@ enum {
- 	MLX5_REG_PMLP		 = 0, /* TBD */
- 	MLX5_REG_NODE_DESC	 = 0x6001,
- 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
-+	MLX5_REG_MLCR		 = 0x902b,
- };
+@@ -46,6 +46,10 @@
+ #include <linux/mlx5/doorbell.h>
  
  enum {
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 577e953..a364ab1 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -35,6 +35,11 @@
- 
- #include <linux/mlx5/driver.h>
- 
-+enum mlx5_beacon_duration {
-+	MLX5_BEACON_DURATION_OFF = 0x0,
-+	MLX5_BEACON_DURATION_INF = 0xffff,
++	MLX5_RQ_BITMASK_VSD = 1 << 1,
 +};
 +
- int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
- int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
- 			 int ptys_size, int proto_mask, u8 local_port);
-@@ -53,6 +58,7 @@ int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
- 			       enum mlx5_port_status status);
- int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
- 				 enum mlx5_port_status *status);
-+int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration);
- 
- int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu, u8 port);
- void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu, u8 port);
++enum {
+ 	MLX5_BOARD_ID_LEN = 64,
+ 	MLX5_MAX_NAME_LEN = 16,
+ };
 -- 
 1.7.1
