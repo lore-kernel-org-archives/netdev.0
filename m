@@ -1,50 +1,73 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 1/1] tipc: fix stale links
- after re-enabling bearer
-Date: Sun, 24 Apr 2016 14:36:23 -0400 (EDT)
-Message-ID: <20160424.143623.2154778158483252241.davem@davemloft.net>
-References: <1461246673-6127-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: Re: linux-next: zillions of lockdep whinges in
+ include/net/sock.h:1408
+Date: Sun, 24 Apr 2016 14:38:33 -0400 (EDT)
+Message-ID: <20160424.143833.2292980084570149367.davem@davemloft.net>
+References: <43037.1461229555@turing-police.cc.vt.edu>
+	<1461245496.7627.17.camel@edumazet-glaptop3.roam.corp.google.com>
+	<5718DA71.7050902@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: parthasarathy.bhuvaragan@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1461246673-6127-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: eric.dumazet@gmail.com, Valdis.Kletnieks@vt.edu,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5718DA71.7050902@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Date: Thu, 21 Apr 2016 15:51:13 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 21 Apr 2016 15:49:37 +0200
 
-> Commit 42b18f605fea ("tipc: refactor function tipc_link_timeout()"),
-> introduced a bug which prevents sending of probe messages during
-> link synchronization phase. This leads to hanging links, if the
-> bearer is disabled/enabled after links are up.
+> On 21.04.2016 15:31, Eric Dumazet wrote:
+>> On Thu, 2016-04-21 at 05:05 -0400, Valdis.Kletnieks@vt.edu wrote:
+>>> On Thu, 21 Apr 2016 09:42:12 +0200, Hannes Frederic Sowa said:
+>>>> Hi,
+>>>>
+>>>> On Thu, Apr 21, 2016, at 02:30, Valdis Kletnieks wrote:
+>>>>> linux-next 20160420 is whining at an incredible rate - in 20 minutes of
+>>>>> uptime, I piled up some 41,000 hits from all over the place (cleaned up
+>>>>> to skip the CPU and PID so the list isn't quite so long):
+>>>>
+>>>> Thanks for the report. Can you give me some more details:
+>>>>
+>>>> Is this an nfs socket? Do you by accident know if this socket went
+>>>> through xs_reclassify_socket at any point? We do hold the appropriate
+>>>> locks at that point but I fear that the lockdep reinitialization
+>>>> confused lockdep.
+>>>
+>>> It wasn't an NFS socket, as NFS wasn't even active at the time.  I'm reasonably
+>>> sure that multiple sockets were in play, given that tcp_v6_rcv and
+>>> udpv6_queue_rcv_skb were both implicated.  I strongly suspect that pretty much
+>>> any IPv6 traffic could do it - the frequency dropped off quite a bit when I
+>>> closed firefox, which is usually a heavy network hitter on my laptop.
+>> 
+>> 
+>> Looks like the following patch is needed, can you try it please ?
+>> 
+>> Thanks !
+>> 
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index d997ec13a643..db8301c76d50 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>> @@ -1350,7 +1350,8 @@ static inline bool lockdep_sock_is_held(const struct sock *csk)
+>>  {
+>>  	struct sock *sk = (struct sock *)csk;
+>>  
+>> -	return lockdep_is_held(&sk->sk_lock) ||
+>> +	return !debug_locks ||
+>> +	       lockdep_is_held(&sk->sk_lock) ||
+>>  	       lockdep_is_held(&sk->sk_lock.slock);
+>>  }
+>>  #endif
 > 
-> In this commit, we send the probe messages correctly.
-> Fixes: 42b18f605fea ("tipc: refactor function tipc_link_timeout()")
-> 
-> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> I would prefer to add debug_locks at the WARN_ON level, like
+> WARN_ON(debug_locks && !lockdep_sock_is_held(sk)), but I am not sure if
+> this fixes the initial splat.
 
-Please always group a "Fixes: " tag with the other tags.  It is just
-another tag like Signed-off-by: and Acked-by: and therefore should be
-grouped together with them.
+Can we finish this conversation out and come up with a final patch
+for this soon?
 
-Applied, thanks.
-
-------------------------------------------------------------------------------
-Find and fix application performance issues faster with Applications Manager
-Applications Manager provides deep performance insights into multiple tiers of
-your business applications. It resolves application problems quickly and
-reduces your MTTR. Get your free trial!
-https://ad.doubleclick.net/ddm/clk/302982198;130105516;z
+Thanks.
