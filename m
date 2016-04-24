@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 07/11] net/mlx5e: Add support for RXALL netdev feature
-Date: Sun, 24 Apr 2016 22:51:52 +0300
-Message-ID: <1461527516-29290-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 04/11] net/mlx5e: Add per priority group to PPort counters
+Date: Sun, 24 Apr 2016 22:51:49 +0300
+Message-ID: <1461527516-29290-5-git-send-email-saeedm@mellanox.com>
 References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,171 +10,241 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53284 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53311 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751170AbcDXTyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Apr 2016 15:54:39 -0400
+	id S1751170AbcDXTym (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Apr 2016 15:54:42 -0400
 In-Reply-To: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Introduce new access register named Ports Check Mask Register (PCMR) to
-control all HW checks on port. With this register, the driver can
-enable/disable Hardware FCS validation.
+Expose counters providing information for each priority level (PCP) through
+ethtool -S option and DCBNL.
+This includes rx/tx bytes, frames, and pause counters.
 
-When RXALL is enabled/disabled using ndo_set_features, enable/disable
-fcs check at HW.
-User can change HW configuration using rx-all flag at ethtool.
-
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   20 ++++++++
- drivers/net/ethernet/mellanox/mlx5/core/port.c    |   49 +++++++++++++++++++++
- include/linux/mlx5/driver.h                       |    1 +
- include/linux/mlx5/port.h                         |    4 ++
- 4 files changed, 74 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |    6 ++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   51 ++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |    9 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   31 ++++++++++++-
+ 4 files changed, 93 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+index 3036f27..b2db180 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+@@ -174,8 +174,14 @@ static int mlx5e_dcbnl_ieee_getpfc(struct net_device *dev,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
++	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
++	int i;
+ 
+ 	pfc->pfc_cap = mlx5_max_tc(mdev) + 1;
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		pfc->requests[i]    = PPORT_PER_PRIO_GET(pstats, i, tx_pause);
++		pfc->indications[i] = PPORT_PER_PRIO_GET(pstats, i, rx_pause);
++	}
+ 
+ 	return mlx5_query_port_pfc(mdev, &pfc->pfc_en, NULL);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index f1649d5..522d584 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -165,6 +165,18 @@ static const struct {
+ 	},
+ };
+ 
++static unsigned long mlx5e_query_pfc_combined(struct mlx5e_priv *priv)
++{
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u8 pfc_en_tx;
++	u8 pfc_en_rx;
++	int err;
++
++	err = mlx5_query_port_pfc(mdev, &pfc_en_tx, &pfc_en_rx);
++
++	return err ? 0 : pfc_en_tx | pfc_en_rx;
++}
++
+ #define MLX5E_NUM_Q_CNTRS(priv) (NUM_Q_COUNTERS * (!!priv->q_counter))
+ #define MLX5E_NUM_RQ_STATS(priv) \
+ 	(NUM_RQ_STATS * priv->params.num_channels * \
+@@ -172,6 +184,7 @@ static const struct {
+ #define MLX5E_NUM_SQ_STATS(priv) \
+ 	(NUM_SQ_STATS * priv->params.num_channels * priv->params.num_tc * \
+ 	 test_bit(MLX5E_STATE_OPENED, &priv->state))
++#define MLX5E_NUM_PFC_COUNTERS(priv) hweight8(mlx5e_query_pfc_combined(priv))
+ 
+ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ {
+@@ -183,7 +196,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 		       MLX5E_NUM_Q_CNTRS(priv) +
+ 		       NUM_VPORT_COUNTERS + NUM_PPORT_COUNTERS +
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+-		       MLX5E_NUM_SQ_STATS(priv);
++		       MLX5E_NUM_SQ_STATS(priv) +
++		       MLX5E_NUM_PFC_COUNTERS(priv);
+ 	/* fallthrough */
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -192,7 +206,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 
+ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ {
+-	int i, j, tc, idx = 0;
++	int i, j, tc, prio, idx = 0;
++	unsigned long pfc_combined;
+ 
+ 	/* SW counters */
+ 	for (i = 0; i < NUM_SW_COUNTERS; i++)
+@@ -220,6 +235,21 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ 		strcpy(data + (idx++) * ETH_GSTRING_LEN,
+ 		       pport_2819_stats_desc[i].name);
+ 
++	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
++		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
++			sprintf(data + (idx++) * ETH_GSTRING_LEN, "prio%d_%s",
++				prio,
++				pport_per_prio_traffic_stats_desc[i].name);
++	}
++
++	pfc_combined = mlx5e_query_pfc_combined(priv);
++	for_each_set_bit(prio, &pfc_combined, NUM_PPORT_PRIO) {
++		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
++			sprintf(data + (idx++) * ETH_GSTRING_LEN, "prio%d_%s",
++				prio, pport_per_prio_pfc_stats_desc[i].name);
++		}
++	}
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
+@@ -260,7 +290,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+-	int i, j, tc, idx = 0;
++	int i, j, tc, prio, idx = 0;
++	unsigned long pfc_combined;
+ 
+ 	if (!data)
+ 		return;
+@@ -294,6 +325,20 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 		data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.RFC_2819_counters,
+ 						  pport_2819_stats_desc, i);
+ 
++	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
++		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
++			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[prio],
++						 pport_per_prio_traffic_stats_desc, i);
++	}
++
++	pfc_combined = mlx5e_query_pfc_combined(priv);
++	for_each_set_bit(prio, &pfc_combined, NUM_PPORT_PRIO) {
++		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
++			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[prio],
++							  pport_per_prio_pfc_stats_desc, i);
++		}
++	}
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index d82bc6b..ad0cb4a 100644
+index 0c53236..ef66ba6 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2139,6 +2139,14 @@ static int set_feature_tc_num_filters(struct net_device *netdev, bool enable)
- 	return 0;
- }
- 
-+static int set_feature_rx_all(struct net_device *netdev, bool enable)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+
-+	return mlx5_set_port_fcs(mdev, !enable);
-+}
-+
- static int mlx5e_handle_feature(struct net_device *netdev,
- 				netdev_features_t wanted_features,
- 				netdev_features_t feature,
-@@ -2174,6 +2182,8 @@ static int mlx5e_set_features(struct net_device *netdev,
- 				    set_feature_vlan_filter);
- 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_TC,
- 				    set_feature_tc_num_filters);
-+	err |= mlx5e_handle_feature(netdev, features, NETIF_F_RXALL,
-+				    set_feature_rx_all);
- 
- 	return err ? -EINVAL : 0;
- }
-@@ -2564,6 +2574,8 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
+@@ -161,6 +161,7 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
+ 	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
  	struct mlx5_core_dev *mdev = priv->mdev;
-+	bool fcs_supported;
-+	bool fcs_enabled;
+ 	int sz = MLX5_ST_SZ_BYTES(ppcnt_reg);
++	int prio;
+ 	void *out;
+ 	u32 *in;
  
- 	SET_NETDEV_DEV(netdev, &mdev->pdev->dev);
+@@ -182,6 +183,14 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
+ 	MLX5_SET(ppcnt_reg, in, grp, MLX5_RFC_2819_COUNTERS_GROUP);
+ 	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_PPCNT, 0, 0);
  
-@@ -2607,10 +2619,18 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
- 	}
- 
-+	mlx5_query_port_fcs(mdev, &fcs_supported, &fcs_enabled);
++	MLX5_SET(ppcnt_reg, in, grp, MLX5_PER_PRIORITY_COUNTERS_GROUP);
++	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
++		out = pstats->per_prio_counters[prio];
++		MLX5_SET(ppcnt_reg, in, prio_tc, prio);
++		mlx5_core_access_reg(mdev, in, sz, out, sz,
++				     MLX5_REG_PPCNT, 0, 0);
++	}
 +
-+	if (fcs_supported)
-+		netdev->hw_features |= NETIF_F_RXALL;
-+
- 	netdev->features          = netdev->hw_features;
- 	if (!priv->params.lro_en)
- 		netdev->features  &= ~NETIF_F_LRO;
- 
-+	if (fcs_enabled)
-+		netdev->features  &= ~NETIF_F_RXALL;
-+
- #define FT_CAP(f) MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_receive.f)
- 	if (FT_CAP(flow_modify_en) &&
- 	    FT_CAP(modify_root) &&
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index ae378c5..c37740f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -607,3 +607,52 @@ int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode)
- 	return err;
+ free_out:
+ 	kvfree(in);
  }
- EXPORT_SYMBOL_GPL(mlx5_query_port_wol);
-+
-+static int mlx5_query_ports_check(struct mlx5_core_dev *mdev, u32 *out,
-+				  int outlen)
-+{
-+	u32 in[MLX5_ST_SZ_DW(pcmr_reg)];
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(pcmr_reg, in, local_port, 1);
-+
-+	return mlx5_core_access_reg(mdev, in, sizeof(in), out,
-+				    outlen, MLX5_REG_PCMR, 0, 0);
-+}
-+
-+static int mlx5_set_ports_check(struct mlx5_core_dev *mdev, u32 *in, int inlen)
-+{
-+	u32 out[MLX5_ST_SZ_DW(pcmr_reg)];
-+
-+	return mlx5_core_access_reg(mdev, in, inlen, out,
-+				    sizeof(out), MLX5_REG_PCMR, 0, 1);
-+}
-+
-+int mlx5_set_port_fcs(struct mlx5_core_dev *mdev, u8 enable)
-+{
-+	u32 in[MLX5_ST_SZ_DW(pcmr_reg)];
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(pcmr_reg, in, local_port, 1);
-+	MLX5_SET(pcmr_reg, in, fcs_chk, enable);
-+
-+	return mlx5_set_ports_check(mdev, in, sizeof(in));
-+}
-+
-+void mlx5_query_port_fcs(struct mlx5_core_dev *mdev, bool *supported,
-+			 bool *enabled)
-+{
-+	u32 out[MLX5_ST_SZ_DW(pcmr_reg)];
-+	/* Default values for FW which do not support MLX5_REG_PCMR */
-+	*supported = false;
-+	*enabled = true;
-+
-+	if (!MLX5_CAP_GEN(mdev, ports_check))
-+		return;
-+
-+	if (mlx5_query_ports_check(mdev, out, sizeof(out)))
-+		return;
-+
-+	*supported = !!(MLX5_GET(pcmr_reg, out, fcs_cap));
-+	*enabled = !!(MLX5_GET(pcmr_reg, out, fcs_chk));
-+}
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index dcd5ac8..497a4db 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -112,6 +112,7 @@ enum {
- 	MLX5_REG_PMPE		 = 0x5010,
- 	MLX5_REG_PELC		 = 0x500e,
- 	MLX5_REG_PVLC		 = 0x500f,
-+	MLX5_REG_PCMR		 = 0x5041,
- 	MLX5_REG_PMLP		 = 0, /* TBD */
- 	MLX5_REG_NODE_DESC	 = 0x6001,
- 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index a1d145a..577e953 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -84,4 +84,8 @@ int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode);
- int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index 4f3a08d..de27eea 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -165,11 +165,19 @@ static const struct counter_desc vport_stats_desc[] = {
+ #define PPORT_2819_GET(pstats, c) \
+ 	MLX5_GET64(ppcnt_reg, pstats->RFC_2819_counters, \
+ 		   counter_set.eth_2819_cntrs_grp_data_layout.c##_high)
++#define PPORT_PER_PRIO_OFF(c) \
++	MLX5_BYTE_OFF(ppcnt_reg, \
++		      counter_set.eth_per_prio_grp_data_layout.c##_high)
++#define PPORT_PER_PRIO_GET(pstats, prio, c) \
++	MLX5_GET64(ppcnt_reg, pstats->per_prio_counters[prio], \
++		   counter_set.eth_per_prio_grp_data_layout.c##_high)
++#define NUM_PPORT_PRIO				8
  
-+int mlx5_set_port_fcs(struct mlx5_core_dev *mdev, u8 enable);
-+void mlx5_query_port_fcs(struct mlx5_core_dev *mdev, bool *supported,
-+			 bool *enabled);
+ struct mlx5e_pport_stats {
+ 	__be64 IEEE_802_3_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
+ 	__be64 RFC_2863_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
+ 	__be64 RFC_2819_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
++	__be64 per_prio_counters[NUM_PPORT_PRIO][MLX5_ST_SZ_QW(ppcnt_reg)];
+ };
+ 
+ static const struct counter_desc pport_802_3_stats_desc[] = {
+@@ -241,6 +249,21 @@ static const struct counter_desc pport_2819_stats_desc[] = {
+ 		PPORT_2819_OFF(ether_stats_pkts8192to10239octets) },
+ };
+ 
++static const struct counter_desc pport_per_prio_traffic_stats_desc[] = {
++	{ "rx_octets", PPORT_PER_PRIO_OFF(rx_octets) },
++	{ "rx_frames", PPORT_PER_PRIO_OFF(rx_frames) },
++	{ "tx_octets", PPORT_PER_PRIO_OFF(tx_octets) },
++	{ "tx_frames", PPORT_PER_PRIO_OFF(tx_frames) },
++};
 +
- #endif /* __MLX5_PORT_H__ */
++static const struct counter_desc pport_per_prio_pfc_stats_desc[] = {
++	{ "rx_pause", PPORT_PER_PRIO_OFF(rx_pause) },
++	{ "rx_pause_duration", PPORT_PER_PRIO_OFF(rx_pause_duration) },
++	{ "tx_pause", PPORT_PER_PRIO_OFF(tx_pause) },
++	{ "tx_pause_duration", PPORT_PER_PRIO_OFF(tx_pause_duration) },
++	{ "rx_pause_transition", PPORT_PER_PRIO_OFF(rx_pause_transition) },
++};
++
+ struct mlx5e_rq_stats {
+ 	u64 packets;
+ 	u64 bytes;
+@@ -305,9 +328,15 @@ static const struct counter_desc sq_stats_desc[] = {
+ #define NUM_PPORT_802_3_COUNTERS	ARRAY_SIZE(pport_802_3_stats_desc)
+ #define NUM_PPORT_2863_COUNTERS		ARRAY_SIZE(pport_2863_stats_desc)
+ #define NUM_PPORT_2819_COUNTERS		ARRAY_SIZE(pport_2819_stats_desc)
++#define NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS \
++	ARRAY_SIZE(pport_per_prio_traffic_stats_desc)
++#define NUM_PPORT_PER_PRIO_PFC_COUNTERS \
++	ARRAY_SIZE(pport_per_prio_pfc_stats_desc)
+ #define NUM_PPORT_COUNTERS		(NUM_PPORT_802_3_COUNTERS + \
+ 					 NUM_PPORT_2863_COUNTERS  + \
+-					 NUM_PPORT_2819_COUNTERS)
++					 NUM_PPORT_2819_COUNTERS  + \
++					 NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS * \
++					 NUM_PPORT_PRIO)
+ #define NUM_RQ_STATS			ARRAY_SIZE(rq_stats_desc)
+ #define NUM_SQ_STATS			ARRAY_SIZE(sq_stats_desc)
+ 
 -- 
 1.7.1
