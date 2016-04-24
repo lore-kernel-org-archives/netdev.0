@@ -1,56 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] net: stmmac: socfpga: Remove re-registration of
- reset controller
-Date: Sun, 24 Apr 2016 14:40:57 -0400 (EDT)
-Message-ID: <20160424.144057.513556416511185194.davem@davemloft.net>
-References: <1461240710-5381-1-git-send-email-marex@denx.de>
+Subject: Re: [PATCH v2 net-next] tcp-tso: do not split TSO packets at
+ retransmit time
+Date: Sun, 24 Apr 2016 14:44:20 -0400 (EDT)
+Message-ID: <20160424.144420.594314082130628842.davem@davemloft.net>
+References: <1461261323-14355-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	alexandre.torgue@st.com, mgerlach@opensource.altera.com,
-	dinguyen@opensource.altera.com
-To: marex@denx.de
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52586 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52623 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbcDXSlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:41:02 -0400
-In-Reply-To: <1461240710-5381-1-git-send-email-marex@denx.de>
+	with ESMTP id S1752009AbcDXSoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:44:25 -0400
+In-Reply-To: <1461261323-14355-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Vasut <marex@denx.de>
-Date: Thu, 21 Apr 2016 14:11:50 +0200
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 21 Apr 2016 10:55:23 -0700
 
-> Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
-> in stmmac_main.c functions call devm_reset_control_get() to register an
-> reset controller for the stmmac. This results in an attempt to register
-> two reset controllers for the same non-shared reset line.
+> Linux TCP stack painfully segments all TSO/GSO packets before retransmits.
 > 
-> The first attempt to register the reset controller works fine. The second
-> attempt fails with warning from the reset controller core, see below.
-> The warning is produced because the reset line is non-shared and thus
-> it is allowed to have only up-to one reset controller associated with
-> that reset line, not two or more.
+> This was fine back in the days when TSO/GSO were emerging, with their
+> bugs, but we believe the dark age is over.
 > 
-> The solution has multiple parts. First, the original socfpga_dwmac_init()
-> is tweaked to use reset controller pointer from the stmmac_priv (private
-> data of the stmmac core) instead of the local instance, which was used
-> before. The local re-registration of the reset controller is removed.
+> Keeping big packets in write queues, but also in stack traversal
+> has a lot of benefits.
+>  - Less memory overhead, because write queues have less skbs
+>  - Less cpu overhead at ACK processing.
+>  - Better SACK processing, as lot of studies mentioned how
+>    awful linux was at this ;)
+>  - Less cpu overhead to send the rtx packets
+>    (IP stack traversal, netfilter traversal, drivers...)
+>  - Better latencies in presence of losses.
+>  - Smaller spikes in fq like packet schedulers, as retransmits
+>    are not constrained by TCP Small Queues.
 > 
-> Next, the socfpga_dwmac_init() is moved after stmmac_dvr_probe() in the
-> probe function. This order is legal according to Altera and it makes the
-> code much easier, since there is no need to temporarily register and
-> unregister the reset controller ; the reset controller is already registered
-> by the stmmac_dvr_probe().
+> 1 % packet losses are common today, and at 100Gbit speeds, this
+> translates to ~80,000 losses per second.
+> Losses are often correlated, and we see many retransmit events
+> leading to 1-MSS train of packets, at the time hosts are already
+> under stress.
 > 
-> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
-> since the functionality is already performed by the stmmac core.
- ...
-> Signed-off-by: Marek Vasut <marex@denx.de>
-> Cc: Matthew Gerlach <mgerlach@opensource.altera.com>
-> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
-> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
