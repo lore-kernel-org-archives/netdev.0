@@ -1,84 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: linux-next: zillions of lockdep whinges in
- include/net/sock.h:1408
-Date: Sun, 24 Apr 2016 20:48:24 +0200
-Message-ID: <571D14F8.6070306@stressinduktion.org>
-References: <43037.1461229555@turing-police.cc.vt.edu>
- <1461245496.7627.17.camel@edumazet-glaptop3.roam.corp.google.com>
- <5718DA71.7050902@stressinduktion.org>
- <20160424.143833.2292980084570149367.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V1 0/8] mlx5 driver updates and fixes
+Date: Sun, 24 Apr 2016 14:53:12 -0400 (EDT)
+Message-ID: <20160424.145312.1338728573480668034.davem@davemloft.net>
+References: <1461274387-10653-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, Valdis.Kletnieks@vt.edu,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160424.143833.2292980084570149367.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
+	eranbe@mellanox.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52661 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbcDXSxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:53:22 -0400
+In-Reply-To: <1461274387-10653-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24.04.2016 20:38, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Thu, 21 Apr 2016 15:49:37 +0200
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Fri, 22 Apr 2016 00:32:59 +0300
+
+> Changes from V0:
+> 	- Dropped: ("net/mlx5e: Reset link modes upon setting speed to zero") 
+> 	- Fixed compilation issue introduced to mlx5_ib driver.
+> 	- Rebased to df637193906a ('Revert "Prevent NUll pointer dereference with two PHYs on cpsw"')
 > 
->> On 21.04.2016 15:31, Eric Dumazet wrote:
->>> On Thu, 2016-04-21 at 05:05 -0400, Valdis.Kletnieks@vt.edu wrote:
->>>> On Thu, 21 Apr 2016 09:42:12 +0200, Hannes Frederic Sowa said:
->>>>> Hi,
->>>>>
->>>>> On Thu, Apr 21, 2016, at 02:30, Valdis Kletnieks wrote:
->>>>>> linux-next 20160420 is whining at an incredible rate - in 20 minutes of
->>>>>> uptime, I piled up some 41,000 hits from all over the place (cleaned up
->>>>>> to skip the CPU and PID so the list isn't quite so long):
->>>>>
->>>>> Thanks for the report. Can you give me some more details:
->>>>>
->>>>> Is this an nfs socket? Do you by accident know if this socket went
->>>>> through xs_reclassify_socket at any point? We do hold the appropriate
->>>>> locks at that point but I fear that the lockdep reinitialization
->>>>> confused lockdep.
->>>>
->>>> It wasn't an NFS socket, as NFS wasn't even active at the time.  I'm reasonably
->>>> sure that multiple sockets were in play, given that tcp_v6_rcv and
->>>> udpv6_queue_rcv_skb were both implicated.  I strongly suspect that pretty much
->>>> any IPv6 traffic could do it - the frequency dropped off quite a bit when I
->>>> closed firefox, which is usually a heavy network hitter on my laptop.
->>>
->>>
->>> Looks like the following patch is needed, can you try it please ?
->>>
->>> Thanks !
->>>
->>> diff --git a/include/net/sock.h b/include/net/sock.h
->>> index d997ec13a643..db8301c76d50 100644
->>> --- a/include/net/sock.h
->>> +++ b/include/net/sock.h
->>> @@ -1350,7 +1350,8 @@ static inline bool lockdep_sock_is_held(const struct sock *csk)
->>>  {
->>>  	struct sock *sk = (struct sock *)csk;
->>>  
->>> -	return lockdep_is_held(&sk->sk_lock) ||
->>> +	return !debug_locks ||
->>> +	       lockdep_is_held(&sk->sk_lock) ||
->>>  	       lockdep_is_held(&sk->sk_lock.slock);
->>>  }
->>>  #endif
->>
->> I would prefer to add debug_locks at the WARN_ON level, like
->> WARN_ON(debug_locks && !lockdep_sock_is_held(sk)), but I am not sure if
->> this fixes the initial splat.
+> This series has few bug fixes for mlx5 core and ethernet driver.
 > 
-> Can we finish this conversation out and come up with a final patch
-> for this soon?
+> Eli fixed a wrong static local variable declaration in flow steering API.
+> Majd added the support of ConnectX-5 PF and VF and added the support
+> for kernel shutdown pci callback for more robust reboot procedures.
+> Maor fixed a soft lockup in flow steering.
+> Rana fixed a wrog speed define in mlx5 EN driver.
+> I also had the chance to introduce some bug fixes in mlx5 EN mtu 
+> reporting and handling.
 
-Eric's patch is worth to apply anyway, but I am not sure if it solves
-the (fundamental) problem. I couldn't reproduce it with the exact next-
-tag provided in the initial mail. All other reports also only happend
-with linux-next and not net-next.
+Series applied and...
 
-I hope I Valdis provides his config soon and I will continue my analysis
-on this then.
+> For -stable:
+> 	net/mlx5_core: Fix soft lockup in steering error flow
+> 	net/mlx5e: Device's mtu field is u16 and not int
+> 	net/mlx5e: Fix minimum MTU
+> 	net/mlx5e: Use vport MTU rather than physical port MTU
 
-Thanks,
-Hannes
+queued up for -stable.
+
+Thanks.
