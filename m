@@ -1,47 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
-Date: Sun, 24 Apr 2016 14:18:06 -0400 (EDT)
-Message-ID: <20160424.141806.786009616301278103.davem@davemloft.net>
-References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
-	<1461230323-27891-2-git-send-email-pramod.kumar@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] MAINTAINERS: net: add entry for TI Ethernet Switch
+ drivers
+Date: Sun, 24 Apr 2016 14:20:17 -0400 (EDT)
+Message-ID: <20160424.142017.1836758709649656249.davem@davemloft.net>
+References: <1461233636-18667-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, suzuki.poulose-5wv7dgnIgG8@public.gmane.org,
-	punit.agrawal-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, anup.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461230323-27891-2-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nsekhar@ti.com, linux-omap@vger.kernel.org, tony@atomide.com,
+	mugunthanvnm@ti.com, richardcochran@gmail.com
+To: grygorii.strashko@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52490 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752547AbcDXSU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:20:28 -0400
+In-Reply-To: <1461233636-18667-1-git-send-email-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Date: Thu, 21 Apr 2016 14:48:38 +0530
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Date: Thu, 21 Apr 2016 13:13:56 +0300
 
-> +struct shared_mdio_master *shared_mdio_alloc_master(struct device *parent,
-> +						    struct device_node *node)
-> +{
-> +	int ret = 0;
-> +	struct shared_mdio_master *master;
+> Add record for TI Ethernet Switch Driver CPSW/CPDMA/MDIO HW
+> (am33/am43/am57/dr7/davinci) to ensure that related patches
+> will go through dedicated linux-omap list.
+> 
+> Also add Mugunthan as maintainer and myself as the reviewer.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Tony Lindgren <tony@atomide.com>
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> Cc: Richard Cochran <richardcochran@gmail.com>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> ---
+> Changes in v2:
+>  - added netdev@vger.kernel.org list
 
-Always order local variable declarations in reverse christmas tree
-(longest to shortest line) order.
-
-> +static int shared_mdio_driver_probe(struct device *dev)
-> +{
-> +	int rc;
-> +	struct shared_mdio_master *master = to_shared_mdio_master(dev);
-> +	struct shared_mdio_driver *drv = to_shared_mdio_driver(dev->driver);
-
-Likewise.
-
-Please audit your entire submission for this issue.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
