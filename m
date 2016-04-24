@@ -1,159 +1,64 @@
-From: Michael Heimpold <mhei@heimpold.de>
-Subject: [PATCH v2 net-next] net: ethernet: enc28j60: add device tree support
-Date: Sun, 24 Apr 2016 23:28:03 +0200
-Message-ID: <1461533283-24852-1-git-send-email-mhei@heimpold.de>
-References: <31567588.rB9VrggOb6@wuerfel>
-Cc: Michael Heimpold <mhei@heimpold.de>
-To: Jonathan Cameron <jic23@kernel.org>,
-	"Andrew F . Davis" <afd@ti.com>, Mark Brown <broonie@kernel.org>,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.219]:39594 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753124AbcDXV2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 17:28:36 -0400
-In-Reply-To: <31567588.rB9VrggOb6@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Sun, 24 Apr 2016 23:59:38 +0100
+Message-ID: <20160424225938.GJ3217@sirena.org.uk>
+References: <20160413175028.5d3a4cf2@canb.auug.org.au>
+ <20160413.111513.295841881765244758.davem@davemloft.net>
+ <20160422092017.GY3217@sirena.org.uk>
+ <1461367243.3018.42.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="pqRbAPYjtlk7lrMB"
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mark.d.rustad@intel.com,
+	andrewx.bowers@intel.com, kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1461367243.3018.42.camel@intel.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The following patch adds the required match table for device tree support
-(and while at, fix the indent). It's also possible to specify the
-MAC address in the DT blob.
 
-Also add the corresponding binding documentation file.
+--pqRbAPYjtlk7lrMB
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Michael Heimpold <mhei@heimpold.de>
----
+On Fri, Apr 22, 2016 at 04:20:43PM -0700, Jeff Kirsher wrote:
+> On Fri, 2016-04-22 at 10:20 +0100, Mark Brown wrote:
 
-v2: * took care of Arnd Bergmann's review comments
-      - allow to specify MAC address via DT
-      - unconditionally define DT id table
-    * increased the driver version minor number
-    * driver author's email address bounces, removed from address list
+> > > Jeff, please have your folks look into this.=A0 Probably just a
+> > simple
+> > > conversion to mdelay().
 
- .../devicetree/bindings/net/microchip-enc28j60.txt | 50 ++++++++++++++++++++++
- drivers/net/ethernet/microchip/enc28j60.c          | 20 +++++++--
- 2 files changed, 67 insertions(+), 3 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/microchip-enc28j60.txt
+> > This is still present, it's been breaking ARM allmodconfig builds for
+> > about two weeks now.
 
-diff --git a/Documentation/devicetree/bindings/net/microchip-enc28j60.txt b/Documentation/devicetree/bindings/net/microchip-enc28j60.txt
-new file mode 100644
-index 0000000..847a97b
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/microchip-enc28j60.txt
-@@ -0,0 +1,50 @@
-+* Microchip ENC28J60
-+
-+This is a standalone 10 MBit ethernet controller with SPI interface.
-+
-+For each device connected to a SPI bus, define a child node within
-+the SPI master node.
-+
-+Required properties:
-+- compatible: Should be "microchip,enc28j60"
-+- reg: Specify the SPI chip select the ENC28J60 is wired to
-+- interrupts: Specify the interrupt and interrupt type (usually falling edge)
-+
-+Optional properties:
-+- interrupt-parent: Specify the pHandle of the source interrupt
-+- spi-max-frequency: Maximum frequency of the SPI bus when accessing the ENC28J60.
-+  According to the ENC28J80 datasheet, the chip allows a maximum of 20 MHz, however,
-+  board designs may need to limit this value.
-+- local-mac-address: See ethernet.txt in the same directory.
-+
-+
-+Example (for NXP i.MX28 with pin control stuff for GPIO irq):
-+
-+        ssp2: ssp@80014000 {
-+                compatible = "fsl,imx28-spi";
-+                pinctrl-names = "default";
-+                pinctrl-0 = <&spi2_pins_b &spi2_sck_cfg>;
-+                status = "okay";
-+
-+                enc28j60: ethernet@0 {
-+                        compatible = "microchip,enc28j60";
-+                        pinctrl-names = "default";
-+                        pinctrl-0 = <&enc28j60_pins>;
-+                        reg = <0>;
-+                        interrupt-parent = <&gpio3>;
-+                        interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
-+                        spi-max-frequency = <12000000>;
-+                };
-+        };
-+
-+        pinctrl@80018000 {
-+                enc28j60_pins: enc28j60_pins@0 {
-+                        reg = <0>;
-+                        fsl,pinmux-ids = <
-+                                MX28_PAD_AUART0_RTS__GPIO_3_3    /* Interrupt */
-+                        >;
-+                        fsl,drive-strength = <MXS_DRIVE_4mA>;
-+                        fsl,voltage = <MXS_VOLTAGE_HIGH>;
-+                        fsl,pull-up = <MXS_PULL_DISABLE>;
-+                };
-+        };
-diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
-index b723622..7066954 100644
---- a/drivers/net/ethernet/microchip/enc28j60.c
-+++ b/drivers/net/ethernet/microchip/enc28j60.c
-@@ -28,11 +28,12 @@
- #include <linux/skbuff.h>
- #include <linux/delay.h>
- #include <linux/spi/spi.h>
-+#include <linux/of_net.h>
- 
- #include "enc28j60_hw.h"
- 
- #define DRV_NAME	"enc28j60"
--#define DRV_VERSION	"1.01"
-+#define DRV_VERSION	"1.02"
- 
- #define SPI_OPLEN	1
- 
-@@ -1548,6 +1549,7 @@ static int enc28j60_probe(struct spi_device *spi)
- {
- 	struct net_device *dev;
- 	struct enc28j60_net *priv;
-+	const void *macaddr;
- 	int ret = 0;
- 
- 	if (netif_msg_drv(&debug))
-@@ -1579,7 +1581,12 @@ static int enc28j60_probe(struct spi_device *spi)
- 		ret = -EIO;
- 		goto error_irq;
- 	}
--	eth_hw_addr_random(dev);
-+
-+	macaddr = of_get_mac_address(spi->dev.of_node);
-+	if (macaddr)
-+		ether_addr_copy(dev->dev_addr, macaddr);
-+	else
-+		eth_hw_addr_random(dev);
- 	enc28j60_set_hw_macaddr(dev);
- 
- 	/* Board setup must set the relevant edge trigger type;
-@@ -1634,9 +1641,16 @@ static int enc28j60_remove(struct spi_device *spi)
- 	return 0;
- }
- 
-+static const struct of_device_id enc28j60_dt_ids[] = {
-+	{ .compatible = "microchip,enc28j60" },
-+	{ /* sentinel */ }
-+};
-+MODULE_DEVICE_TABLE(of, enc28j60_dt_ids);
-+
- static struct spi_driver enc28j60_driver = {
- 	.driver = {
--		   .name = DRV_NAME,
-+		.name = DRV_NAME,
-+		.of_match_table = enc28j60_dt_ids,
- 	 },
- 	.probe = enc28j60_probe,
- 	.remove = enc28j60_remove,
--- 
-2.5.0
+> Interesting that no one spoke up until just a week ago. =A0I have a fix
+> and I ready to push it to David Miller.
+
+Like Stephen said it had been there for a couple of days already at the
+time it was reported; I happened to be busy at the time it came up so
+wasn't looking at the build reports myself.  If you've got a fix please
+get it submitted ASAP, having common test configurations broken for any
+length of time does get disruptive.
+
+--pqRbAPYjtlk7lrMB
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJXHU/ZAAoJECTWi3JdVIfQfewH/3uIlJ0iJUahHVBtiLkBRJZy
+9bbXqvLOdaO6jyy7bRfTLm8pAWbJv8qILGZoUNHhmXfjHsEFgQqJM4Y/ckPul5OX
+IbL2vcW8Ja8r6GtDvTMUE8wK43UUSKdgxDv8JLTYbJHl822WJ3uvmEQW8TCCLOvK
+XYAccWam7eLYuSRASjh4vh3CSLOeq30ltwpXewW8eKJmpBR0hVGnc2MW8r9twMsd
+i9GYJCbDW9X9J3JTE+ZeoVypKEoF2DgE5wfKdbu+4aHpfK5jjax8ToDblmhul5iw
+L4yAiZBSdL+tc8sUQ0/jSJrAdGNl0g4g7R8fSS2XII7OJ9uDh7ZypF/vVycIM4Y=
+=QF0H
+-----END PGP SIGNATURE-----
+
+--pqRbAPYjtlk7lrMB--
