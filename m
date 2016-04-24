@@ -1,90 +1,121 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: [PATCH v2 03/21] io-mapping: Specify mapping size for
- io_mapping_map_wc()
-Date: Sun, 24 Apr 2016 08:31:23 +0100
-Message-ID: <1461483101-10618-3-git-send-email-chris@chris-wilson.co.uk>
-References: <1461483101-10618-1-git-send-email-chris@chris-wilson.co.uk>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Sun, 24 Apr 2016 10:54:24 +0300
+Message-ID: <20160424075424.GE7974@leon.nu>
+References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
+ <1461407219-72027-10-git-send-email-oulijun@huawei.com>
+Reply-To: leon@kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>, netdev@vger.kernel.org,
- Yishai Hadas <yishaih@mellanox.com>, linux-kernel@vger.kernel.org,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
- "Luis R . Rodriguez" <mcgrof@kernel.org>, dri-devel@lists.freedesktop.org,
- linux-rdma@vger.kernel.org, Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Ingo Molnar <mingo@kernel.org>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: intel-gfx@lists.freedesktop.org
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1461483101-10618-1-git-send-email-chris@chris-wilson.co.uk>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Uwl7UQhJk99r8jnw"
+Cc: dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
+	ogerlitz@mellanox.com, linuxarm@huawei.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, gongyangming@huawei.com,
+	xiaokun@huawei.com, tangchaofei@huawei.com, haifeng.wei@huawei.com,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	lisheng011@huawei.com, charles.chenxin@huawei.com
+To: Lijun Ou <oulijun@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1461407219-72027-10-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIGlvcmVtYXAoKSBoaWRkZW4gYmVoaW5kIHRoZSBpb19tYXBwaW5nX21hcF93YygpIGNvbnZl
-bmllbmNlIGhlbHBlcgpjYW4gYmUgdXNlZCBmb3IgcmVtYXBwaW5nIG11bHRpcGxlIHBhZ2VzLiBF
-eHRlbmQgdGhlIGhlbHBlciBzbyB0aGF0CmZ1dHVyZSBjYWxsZXJzIGNhbiB1c2UgaXQgZm9yIGxh
-cmdlciByYW5nZXMuCgpTaWduZWQtb2ZmLWJ5OiBDaHJpcyBXaWxzb24gPGNocmlzQGNocmlzLXdp
-bHNvbi5jby51az4KQ2M6IFR2cnRrbyBVcnN1bGluIDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+
-CkNjOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGludGVsLmNvbT4KQ2M6IEphbmkgTmlr
-dWxhIDxqYW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb20+CkNjOiBEYXZpZCBBaXJsaWUgPGFpcmxp
-ZWRAbGludXguaWU+CkNjOiBZaXNoYWkgSGFkYXMgPHlpc2hhaWhAbWVsbGFub3guY29tPgpDYzog
-RGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0BpbnRlbC5jb20+CkNjOiBJbmdvIE1vbG5hciA8
-bWluZ29Aa2VybmVsLm9yZz4KQ2M6ICJQZXRlciBaaWpsc3RyYSAoSW50ZWwpIiA8cGV0ZXJ6QGlu
-ZnJhZGVhZC5vcmc+CkNjOiBEYXZpZCBIaWxkZW5icmFuZCA8ZGFoaUBsaW51eC52bmV0LmlibS5j
-b20+CkNjOiBMdWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGtlcm5lbC5vcmc+CkNjOiBpbnRlbC1n
-ZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Au
-b3JnCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCkNjOiBsaW51eC1yZG1hQHZnZXIua2VybmVs
-Lm9yZwpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZwpSZXZpZXdlZC1ieTogTHVpcyBS
-LiBSb2RyaWd1ZXogPG1jZ3JvZkBrZXJuZWwub3JnPgotLS0KIGRyaXZlcnMvZ3B1L2RybS9pOTE1
-L2ludGVsX292ZXJsYXkuYyAgICB8ICAzICsrLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFu
-b3gvbWx4NC9wZC5jIHwgIDQgKysrLQogaW5jbHVkZS9saW51eC9pby1tYXBwaW5nLmggICAgICAg
-ICAgICAgIHwgMTAgKysrKysrKy0tLQogMyBmaWxlcyBjaGFuZ2VkLCAxMiBpbnNlcnRpb25zKCsp
-LCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVs
-X292ZXJsYXkuYyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYwppbmRleCA5
-NzQ2Yjk4NDFjMTMuLjBkNWEzNzY4NzhkMyAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL2k5
-MTUvaW50ZWxfb3ZlcmxheS5jCisrKyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJs
-YXkuYwpAQCAtMTk4LDcgKzE5OCw4IEBAIGludGVsX292ZXJsYXlfbWFwX3JlZ3Moc3RydWN0IGlu
-dGVsX292ZXJsYXkgKm92ZXJsYXkpCiAJCXJlZ3MgPSAoc3RydWN0IG92ZXJsYXlfcmVnaXN0ZXJz
-IF9faW9tZW0gKilvdmVybGF5LT5yZWdfYm8tPnBoeXNfaGFuZGxlLT52YWRkcjsKIAllbHNlCiAJ
-CXJlZ3MgPSBpb19tYXBwaW5nX21hcF93YyhnZ3R0LT5tYXBwYWJsZSwKLQkJCQkJIG92ZXJsYXkt
-PmZsaXBfYWRkcik7CisJCQkJCSBvdmVybGF5LT5mbGlwX2FkZHIsCisJCQkJCSBQQUdFX1NJWkUp
-OwogCiAJcmV0dXJuIHJlZ3M7CiB9CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9t
-ZWxsYW5veC9tbHg0L3BkLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L3Bk
-LmMKaW5kZXggYjNjYzNhYjYzNzk5Li42ZmMxNTZhMzkxOGQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcGQuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9tZWxsYW5veC9tbHg0L3BkLmMKQEAgLTIwNSw3ICsyMDUsOSBAQCBpbnQgbWx4NF9iZl9hbGxv
-YyhzdHJ1Y3QgbWx4NF9kZXYgKmRldiwgc3RydWN0IG1seDRfYmYgKmJmLCBpbnQgbm9kZSkKIAkJ
-CWdvdG8gZnJlZV91YXI7CiAJCX0KIAotCQl1YXItPmJmX21hcCA9IGlvX21hcHBpbmdfbWFwX3dj
-KHByaXYtPmJmX21hcHBpbmcsIHVhci0+aW5kZXggPDwgUEFHRV9TSElGVCk7CisJCXVhci0+YmZf
-bWFwID0gaW9fbWFwcGluZ19tYXBfd2MocHJpdi0+YmZfbWFwcGluZywKKwkJCQkJCXVhci0+aW5k
-ZXggPDwgUEFHRV9TSElGVCwKKwkJCQkJCVBBR0VfU0laRSk7CiAJCWlmICghdWFyLT5iZl9tYXAp
-IHsKIAkJCWVyciA9IC1FTk9NRU07CiAJCQlnb3RvIHVuYW1wX3VhcjsKZGlmZiAtLWdpdCBhL2lu
-Y2x1ZGUvbGludXgvaW8tbWFwcGluZy5oIGIvaW5jbHVkZS9saW51eC9pby1tYXBwaW5nLmgKaW5k
-ZXggZTM5OTAyOWI2OGM1Li42NDVhZDA2YjVkNTIgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgv
-aW8tbWFwcGluZy5oCisrKyBiL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oCkBAIC0xMDAsMTQg
-KzEwMCwxNiBAQCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQog
-fQogCiBzdGF0aWMgaW5saW5lIHZvaWQgX19pb21lbSAqCi1pb19tYXBwaW5nX21hcF93YyhzdHJ1
-Y3QgaW9fbWFwcGluZyAqbWFwcGluZywgdW5zaWduZWQgbG9uZyBvZmZzZXQpCitpb19tYXBwaW5n
-X21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywKKwkJICB1bnNpZ25lZCBsb25nIG9m
-ZnNldCwKKwkJICB1bnNpZ25lZCBsb25nIHNpemUpCiB7CiAJcmVzb3VyY2Vfc2l6ZV90IHBoeXNf
-YWRkcjsKIAogCUJVR19PTihvZmZzZXQgPj0gbWFwcGluZy0+c2l6ZSk7CiAJcGh5c19hZGRyID0g
-bWFwcGluZy0+YmFzZSArIG9mZnNldDsKIAotCXJldHVybiBpb3JlbWFwX3djKHBoeXNfYWRkciwg
-UEFHRV9TSVpFKTsKKwlyZXR1cm4gaW9yZW1hcF93YyhwaHlzX2FkZHIsIHNpemUpOwogfQogCiBz
-dGF0aWMgaW5saW5lIHZvaWQKQEAgLTE1NSw3ICsxNTcsOSBAQCBpb19tYXBwaW5nX3VubWFwX2F0
-b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQogCiAvKiBOb24tYXRvbWljIG1hcC91bm1hcCAqLwog
-c3RhdGljIGlubGluZSB2b2lkIF9faW9tZW0gKgotaW9fbWFwcGluZ19tYXBfd2Moc3RydWN0IGlv
-X21hcHBpbmcgKm1hcHBpbmcsIHVuc2lnbmVkIGxvbmcgb2Zmc2V0KQoraW9fbWFwcGluZ19tYXBf
-d2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsCisJCSAgdW5zaWduZWQgbG9uZyBvZmZzZXQs
-CisJCSAgdW5zaWduZWQgbG9uZyBzaXplKQogewogCXJldHVybiAoKGNoYXIgX19mb3JjZSBfX2lv
-bWVtICopIG1hcHBpbmcpICsgb2Zmc2V0OwogfQotLSAKMi44LjEKCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJp
-LWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
+
+--Uwl7UQhJk99r8jnw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, Apr 23, 2016 at 06:26:47PM +0800, Lijun Ou wrote:
+> This patch mainly setup hca for RoCE. it will do a series of
+> initial works as follows:
+>       1. init uar table, allocate uar resource
+>       2. init pd table
+>       3. init cq table
+>       4. init mr table
+>       5. init qp table
+>=20
+> Signed-off-by: Lijun Ou <oulijun@huawei.com>
+> Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
+> ---
+>  drivers/infiniband/hw/hns/hns_roce_alloc.c  | 104 ++++++++++++++++
+>  drivers/infiniband/hw/hns/hns_roce_cq.c     |  25 ++++
+>  drivers/infiniband/hw/hns/hns_roce_device.h |  69 ++++++++++
+>  drivers/infiniband/hw/hns/hns_roce_eq.c     |   1 -
+>  drivers/infiniband/hw/hns/hns_roce_icm.c    |  88 +++++++++++++
+>  drivers/infiniband/hw/hns/hns_roce_icm.h    |   9 ++
+>  drivers/infiniband/hw/hns/hns_roce_main.c   |  79 ++++++++++++
+>  drivers/infiniband/hw/hns/hns_roce_mr.c     | 187 ++++++++++++++++++++++=
+++++++
+>  drivers/infiniband/hw/hns/hns_roce_pd.c     |  65 ++++++++++
+>  drivers/infiniband/hw/hns/hns_roce_qp.c     |  30 +++++
+>  10 files changed, 656 insertions(+), 1 deletion(-)
+>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
+>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
+>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
+>=20
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_alloc.c b/drivers/infinib=
+and/hw/hns/hns_roce_alloc.c
+> new file mode 100644
+> index 0000000..0c76f1b
+> --- /dev/null
+> +++ b/drivers/infiniband/hw/hns/hns_roce_alloc.c
+> @@ -0,0 +1,104 @@
+> +/*
+> + * Copyright (c) 2016 Hisilicon Limited.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#include <linux/bitmap.h>
+> +#include <linux/dma-mapping.h>
+> +#include <linux/errno.h>
+> +#include <linux/mm.h>
+> +#include <linux/slab.h>
+> +#include <linux/vmalloc.h>
+> +#include "hns_roce_device.h"
+> +
+> +int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj)
+> +{
+> +	int ret =3D 0;
+> +
+> +	spin_lock(&bitmap->lock);
+> +	*obj =3D find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
+> +	if (*obj >=3D bitmap->max) {
+> +		bitmap->top =3D (bitmap->top + bitmap->max + bitmap->reserved_top)
+> +			       & bitmap->mask;
+> +		*obj =3D find_first_zero_bit(bitmap->table, bitmap->max);
+
+find_first_zero_bit function returns "unsigned long" which may or may
+not be equal to u32 on some architectures.
+
+--Uwl7UQhJk99r8jnw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXHHuwAAoJEORje4g2clinWiMP/3ZBTrlz1Ozt3UxcT4Dq5G6W
+QgoKo6ulmyOqQnFlkwCrfdf7dzHDEEwcJ9rPU3RPsPOyoCtauCIu2uXAShS8yP0d
+HyNfi+QZ6f8uWFX94yUZC5a/oha4LYSdbF7/Ic730wWCoS/ZpnzBC/FkL6yvum/q
+XIV5f5x5o2duOiUyN9E/Ne++sc4jgnxxX1QTMUvrvSIjPYK86WH3kRd/sRnuuI4/
+8QGXpfzPoxOvcWvD//iTXnTqQ59sSaun4iJCkbNUX7w4dAg35wlv9QZSiRw+HM7O
+5Su/lSMrTwijg604RmqB31RF1dW12731aBt0cfHvv0UtgQRlMT7XNVIg6q4C0EcY
+lkral02hALB6JzJBKuz4Z6MPcudF4OX/zpe9P4fhfawYgaMylGHk8bNG8g07H0SO
+Hggbwi/ySyrzWRacHrCSzOxMpSbXWBGHW6lJIiGZBGoNnUPzkpuVKj/WmG+Vn8kA
+GpiJempS/Pkfq7nqGZGlbkxteYehovkYroz5ItipxiT2Q3ZlMjksy90YzsAnoovX
+4O6LmJbg7vUjMLo0zS7SwZwY1eZLBq4skVG3PuljY0q2s4R4WeYWoL8yogRXGn7K
+40+Irtt7TWOQ+H9gORr0QpbED2IgH14rOU+nxMKpWQ18BDoIggCzRTReecl0IjpE
+dvv1J02hhyX+iERyQh80
+=vphx
+-----END PGP SIGNATURE-----
+
+--Uwl7UQhJk99r8jnw--
