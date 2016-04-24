@@ -1,142 +1,108 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 5/6] drivers: net: remove NETDEV_TX_LOCKED
-Date: Sun, 24 Apr 2016 21:38:13 +0200
-Message-ID: <1461526694-11367-6-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next 2/6] atl1c: remove private tx lock
+Date: Sun, 24 Apr 2016 21:38:10 +0200
+Message-ID: <1461526694-11367-3-git-send-email-fw@strlen.de>
 References: <1461526694-11367-1-git-send-email-fw@strlen.de>
 Cc: linux-kernel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Jon Mason <jdmason@kudzu.us>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59120 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753342AbcDXTik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 15:38:40 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461526694-11367-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-replace the trylock by a full spin_lock and remove TX_LOCKED return value.
-Followup patch will remove TX_LOCKED from the kernel.
+AFAICS this is safe: the lock is only used in the .ndo_start_xmit
+function and this driver does not set LLTX.
 
-Cc: Jon Mason <jdmason@kudzu.us>
-Cc: Andy Gospodarek <andy@greyhouse.net>
+Gets rid of TX_LOCKED return value, followup patches will remove it.
+
+Cc: Jay Cliburn <jcliburn@gmail.com>
+Cc: Chris Snook <chris.snook@gmail.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/chelsio/cxgb/sge.c              | 3 +--
- drivers/net/ethernet/neterion/s2io.c                 | 9 +--------
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 6 ++----
- drivers/net/ethernet/tehuti/tehuti.c                 | 8 +-------
- drivers/net/rionet.c                                 | 6 +-----
- 5 files changed, 6 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |  3 +--
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 11 -----------
+ 2 files changed, 1 insertion(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
-index 526ea74..86f467a 100644
---- a/drivers/net/ethernet/chelsio/cxgb/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
-@@ -1664,8 +1664,7 @@ static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
- 	struct cmdQ *q = &sge->cmdQ[qid];
- 	unsigned int credits, pidx, genbit, count, use_sched_skb = 0;
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+index b9203d9..c46b489 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+@@ -488,7 +488,7 @@ struct atl1c_tpd_ring {
+ 	dma_addr_t dma;		/* descriptor ring physical address */
+ 	u16 size;		/* descriptor ring length in bytes */
+ 	u16 count;		/* number of descriptors in the ring */
+-	u16 next_to_use; 	/* this is protectd by adapter->tx_lock */
++	u16 next_to_use;
+ 	atomic_t next_to_clean;
+ 	struct atl1c_buffer *buffer_info;
+ };
+@@ -542,7 +542,6 @@ struct atl1c_adapter {
+ 	u16 link_duplex;
  
--	if (!spin_trylock(&q->lock))
--		return NETDEV_TX_LOCKED;
-+	spin_lock(&q->lock);
+ 	spinlock_t mdio_lock;
+-	spinlock_t tx_lock;
+ 	atomic_t irq_sem;
  
- 	reclaim_completed_tx(sge, q);
+ 	struct work_struct common_task;
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index d0084d4..a3200ea 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -821,7 +821,6 @@ static int atl1c_sw_init(struct atl1c_adapter *adapter)
+ 	atl1c_set_rxbufsize(adapter, adapter->netdev);
+ 	atomic_set(&adapter->irq_sem, 1);
+ 	spin_lock_init(&adapter->mdio_lock);
+-	spin_lock_init(&adapter->tx_lock);
+ 	set_bit(__AT_DOWN, &adapter->flags);
  
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index 9ba9758..2874dff 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -4021,7 +4021,6 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned long flags = 0;
- 	u16 vlan_tag = 0;
- 	struct fifo_info *fifo = NULL;
--	int do_spin_lock = 1;
- 	int offload_type;
- 	int enable_per_list_interrupt = 0;
- 	struct config_param *config = &sp->config;
-@@ -4074,7 +4073,6 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
- 					queue += sp->udp_fifo_idx;
- 					if (skb->len > 1024)
- 						enable_per_list_interrupt = 1;
--					do_spin_lock = 0;
- 				}
- 			}
- 		}
-@@ -4084,12 +4082,7 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
- 			[skb->priority & (MAX_TX_FIFOS - 1)];
- 	fifo = &mac_control->fifos[queue];
+ 	return 0;
+@@ -2206,7 +2205,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+ 					  struct net_device *netdev)
+ {
+ 	struct atl1c_adapter *adapter = netdev_priv(netdev);
+-	unsigned long flags;
+ 	u16 tpd_req = 1;
+ 	struct atl1c_tpd_desc *tpd;
+ 	enum atl1c_trans_queue type = atl1c_trans_normal;
+@@ -2217,16 +2215,10 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+ 	}
  
--	if (do_spin_lock)
--		spin_lock_irqsave(&fifo->tx_lock, flags);
--	else {
--		if (unlikely(!spin_trylock_irqsave(&fifo->tx_lock, flags)))
--			return NETDEV_TX_LOCKED;
--	}
-+	spin_lock_irqsave(&fifo->tx_lock, flags);
- 
- 	if (sp->config.multiq) {
- 		if (__netif_subqueue_stopped(dev, fifo->fifo_no)) {
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 3b98b263b..4475dcc 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -2137,10 +2137,8 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
- 	unsigned long flags;
- 
--	if (!spin_trylock_irqsave(&tx_ring->tx_lock, flags)) {
--		/* Collision - tell upper layer to requeue */
+ 	tpd_req = atl1c_cal_tpd_req(skb);
+-	if (!spin_trylock_irqsave(&adapter->tx_lock, flags)) {
+-		if (netif_msg_pktdata(adapter))
+-			dev_info(&adapter->pdev->dev, "tx locked\n");
 -		return NETDEV_TX_LOCKED;
 -	}
-+	spin_trylock_irqsave(&tx_ring->tx_lock, flags);
-+
- 	if (unlikely(!PCH_GBE_DESC_UNUSED(tx_ring))) {
+ 
+ 	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
+ 		/* no enough descriptor, just stop queue */
  		netif_stop_queue(netdev);
- 		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index 14c9d1b..2524a69 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -1610,7 +1610,6 @@ static inline int bdx_tx_space(struct bdx_priv *priv)
-  * o NETDEV_TX_BUSY Cannot transmit packet, try later
-  *   Usually a bug, means queue start/stop flow control is broken in
-  *   the driver. Note: the driver must NOT put the skb in its DMA ring.
-- * o NETDEV_TX_LOCKED Locking failed, please retry quickly.
-  */
- static netdev_tx_t bdx_tx_transmit(struct sk_buff *skb,
- 				   struct net_device *ndev)
-@@ -1630,12 +1629,7 @@ static netdev_tx_t bdx_tx_transmit(struct sk_buff *skb,
+-		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
  
- 	ENTER;
- 	local_irq_save(flags);
--	if (!spin_trylock(&priv->tx_lock)) {
--		local_irq_restore(flags);
--		DBG("%s[%s]: TX locked, returning NETDEV_TX_LOCKED\n",
--		    BDX_DRV_NAME, ndev->name);
--		return NETDEV_TX_LOCKED;
--	}
-+	spin_lock(&priv->tx_lock);
+@@ -2234,7 +2226,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
  
- 	/* build tx descriptor */
- 	BDX_ASSERT(f->m.wptr >= f->m.memsz);	/* started with valid wptr */
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index 9cfe6ae..a31f461 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -179,11 +179,7 @@ static int rionet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	unsigned long flags;
- 	int add_num = 1;
+ 	/* do TSO and check sum */
+ 	if (atl1c_tso_csum(adapter, skb, &tpd, type) != 0) {
+-		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 		dev_kfree_skb_any(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+@@ -2257,12 +2248,10 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+ 			   "tx-skb droppted due to dma error\n");
+ 		/* roll back tpd/buffer */
+ 		atl1c_tx_rollback(adapter, tpd, type);
+-		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 		dev_kfree_skb_any(skb);
+ 	} else {
+ 		netdev_sent_queue(adapter->netdev, skb->len);
+ 		atl1c_tx_queue(adapter, skb, tpd, type);
+-		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 	}
  
--	local_irq_save(flags);
--	if (!spin_trylock(&rnet->tx_lock)) {
--		local_irq_restore(flags);
--		return NETDEV_TX_LOCKED;
--	}
-+	spin_lock_irqsave(&rnet->tx_lock, flags);
- 
- 	if (is_multicast_ether_addr(eth->h_dest))
- 		add_num = nets[rnet->mport->id].nact;
+ 	return NETDEV_TX_OK;
 -- 
 2.7.3
