@@ -1,64 +1,79 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Sun, 24 Apr 2016 23:59:38 +0100
-Message-ID: <20160424225938.GJ3217@sirena.org.uk>
-References: <20160413175028.5d3a4cf2@canb.auug.org.au>
- <20160413.111513.295841881765244758.davem@davemloft.net>
- <20160422092017.GY3217@sirena.org.uk>
- <1461367243.3018.42.camel@intel.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: VRF_DEVICE integration plan
+Date: Sun, 24 Apr 2016 17:30:40 -0600
+Message-ID: <571D5720.7000908@cumulusnetworks.com>
+References: <AT5PR84MB00652788CA3C3F63146F9C08CA610@AT5PR84MB0065.NAMPRD84.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="pqRbAPYjtlk7lrMB"
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mark.d.rustad@intel.com,
-	andrewx.bowers@intel.com, kernel-build-reports@lists.linaro.org,
-	linaro-kernel@lists.linaro.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1461367243.3018.42.camel@intel.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "Elluru, Krishna Mohan" <elluru.kri.mohan@hpe.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:35910 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752106AbcDXXao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 19:30:44 -0400
+Received: by mail-ig0-f178.google.com with SMTP id f1so61638228igr.1
+        for <netdev@vger.kernel.org>; Sun, 24 Apr 2016 16:30:43 -0700 (PDT)
+In-Reply-To: <AT5PR84MB00652788CA3C3F63146F9C08CA610@AT5PR84MB0065.NAMPRD84.PROD.OUTLOOK.COM>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 4/23/16 10:07 PM, Elluru, Krishna Mohan wrote:
+> HI Netdev team,
+>
+>   	Greetings. We have been monitoring the vrf device approach for l3 isolation from cumulus networks and we are currently interested in validating it. We have following questions on them and hoping to get answers from you/concerned team.
+>
+> 1. As per the linux documentation, there are known limits on if_index lookup, as the incoming if_index is changed to vrf_device index and thus an application receiving this packet will perceive this as a vrf_device packet, than right if_index. I saw you mentioned about a special flag to identify the origin, but didn't see the same in the latest linux 4.4.2 version code. Is there a patch expected for it?
 
---pqRbAPYjtlk7lrMB
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+you are referring to IP{6}_PKTINFO? I have patches from our 4.1 kernel 
+tree that I have rebased to top of tree. I hope to send those out in the 
+next few weeks.
 
-On Fri, Apr 22, 2016 at 04:20:43PM -0700, Jeff Kirsher wrote:
-> On Fri, 2016-04-22 at 10:20 +0100, Mark Brown wrote:
+>
+> 2. What are the future additions planned for this approach? Are there any ipv4 and ipv6 known bugs with vrf_device model?
 
-> > > Jeff, please have your folks look into this.=A0 Probably just a
-> > simple
-> > > conversion to mdelay().
+We have about 20 patches in our tree that I have not sent upstream yet. 
+Those patches fix PKTINFO, allow local traffic (e.g, ping in a VRF to a 
+local address in a VRF), allow IPv6 multicast and linklocal traffic, and 
+the cgroup implementation which has been sent as an RFC.
 
-> > This is still present, it's been breaking ARM allmodconfig builds for
-> > about two weeks now.
+I posted a few bug fix patches a week or two ago. Not sure what the 
+status is with respect to 4.3 - 4.5 trees.
 
-> Interesting that no one spoke up until just a week ago. =A0I have a fix
-> and I ready to push it to David Miller.
+>
+> 3. It has been said in the documentation that, with addition of cgroup functionality for vrf device, with net_admin capabilities, we should be able to add an interface to vrf_device, currently it is not so. Any timelines on these?
 
-Like Stephen said it had been there for a couple of days already at the
-time it was reported; I happened to be busy at the time it came up so
-wasn't looking at the build reports myself.  If you've got a fix please
-get it submitted ASAP, having common test configurations broken for any
-length of time does get disruptive.
+I don't understand that question. The current implementation allows 
+adding interfaces (netdev's) to a VRF. The cgroup allows running a 
+process in a VRF context such that AF_INET{6} sockets are automatically 
+bound to the VRF device.
 
---pqRbAPYjtlk7lrMB
-Content-Type: application/pgp-signature; name="signature.asc"
+>
+> 4. Currently the changes are available and portable from 4.3.x onwards. Is there a plan to port them to previous kernel versions?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+no. Anyone wanting to use the vrf patches on other kernel versions will 
+need to port them.
 
-iQEcBAEBCAAGBQJXHU/ZAAoJECTWi3JdVIfQfewH/3uIlJ0iJUahHVBtiLkBRJZy
-9bbXqvLOdaO6jyy7bRfTLm8pAWbJv8qILGZoUNHhmXfjHsEFgQqJM4Y/ckPul5OX
-IbL2vcW8Ja8r6GtDvTMUE8wK43UUSKdgxDv8JLTYbJHl822WJ3uvmEQW8TCCLOvK
-XYAccWam7eLYuSRASjh4vh3CSLOeq30ltwpXewW8eKJmpBR0hVGnc2MW8r9twMsd
-i9GYJCbDW9X9J3JTE+ZeoVypKEoF2DgE5wfKdbu+4aHpfK5jjax8ToDblmhul5iw
-L4yAiZBSdL+tc8sUQ0/jSJrAdGNl0g4g7R8fSS2XII7OJ9uDh7ZypF/vVycIM4Y=
-=QF0H
------END PGP SIGNATURE-----
+>
+> 5. Is there a possibility of enabling secondary level lookup, to give a leak functionality to parent route table from device local route table? I tested with veth pair, configured one as default gateway, it is possible to forward traffic b/w the interfaces, looking for cleaner method.
 
---pqRbAPYjtlk7lrMB--
+Are you referring to inter-vrf routing? See slide 27
+http://www.netdevconf.org/1.1/proceedings/slides/ahern-vrf-tutorial.pdf
+
+>
+> 6. With "VRF Device" in place,  please confirm if there are any plans to add VRF support for applications like
+>
+> 	1.	Ping
+
+no need. ping{6} -I <vrf device> ...
+
+> 	2.	Traceroute
+
+no need. traceroute{6} -i <vrf device> ...
+
+> 	3.	DNS-Client [glibc]
+>
+> 	In case of DNS-Client, most of the name resolution APIs will have to consider the VRF to do the lookup in  and the way the domain-name/name-server configuration is stored.
+
+I have looked into it but no patches worth distributing at the moment.
