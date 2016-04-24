@@ -1,29 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvtap: add namespace support to the sysfs
- device class
-Date: Sun, 24 Apr 2016 14:14:34 -0400 (EDT)
-Message-ID: <20160424.141434.235855672965106874.davem@davemloft.net>
-References: <1461161491-22867-1-git-send-email-marc@arista.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
+Date: Sun, 24 Apr 2016 14:18:06 -0400 (EDT)
+Message-ID: <20160424.141806.786009616301278103.davem@davemloft.net>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+	<1461230323-27891-2-git-send-email-pramod.kumar@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: marc@arista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52445 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704AbcDXSOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:14:38 -0400
-In-Reply-To: <1461161491-22867-1-git-send-email-marc@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, suzuki.poulose-5wv7dgnIgG8@public.gmane.org,
+	punit.agrawal-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, anup.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461230323-27891-2-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Marc Angel <marc@arista.com>
-Date: Wed, 20 Apr 2016 16:11:31 +0200
+From: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Date: Thu, 21 Apr 2016 14:48:38 +0530
 
-> However, doing this has the side effect of changing
-> /sys/devices/virtual/net/macvtapX/tapNN  into
-> /sys/devices/virtual/net/macvtapX/macvtap/tapNN
+> +struct shared_mdio_master *shared_mdio_alloc_master(struct device *parent,
+> +						    struct device_node *node)
+> +{
+> +	int ret = 0;
+> +	struct shared_mdio_master *master;
 
-I'm really not comfortable at all with having this sysfs
-device name change.
+Always order local variable declarations in reverse christmas tree
+(longest to shortest line) order.
+
+> +static int shared_mdio_driver_probe(struct device *dev)
+> +{
+> +	int rc;
+> +	struct shared_mdio_master *master = to_shared_mdio_master(dev);
+> +	struct shared_mdio_driver *drv = to_shared_mdio_driver(dev->driver);
+
+Likewise.
+
+Please audit your entire submission for this issue.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
