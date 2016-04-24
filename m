@@ -1,65 +1,50 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net v2 3/3] gre: allow creation of gretap interfaces in
- metadata mode
-Date: Mon, 25 Apr 2016 11:00:35 -0700
-Message-ID: <CAOrHB_BZkZhSOWqgsHXDM_3o+zkgCwRYwOL2hr33_p02if9Fxw@mail.gmail.com>
-References: <cover.1461495411.git.jbenc@redhat.com>
-	<4917335385a75586c1f13b6a6d570d4cc5b0b132.1461495411.git.jbenc@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 2/6] atl1c: remove private tx lock
+Date: Mon, 25 Apr 2016 00:05:29 +0200
+Message-ID: <20160424220529.GA29377@electric-eye.fr.zoreil.com>
+References: <1461526694-11367-1-git-send-email-fw@strlen.de>
+ <1461526694-11367-3-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Simon Horman <simon.horman@netronome.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:38495 "EHLO
-	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751933AbcDYSGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 14:06:05 -0400
-Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
-	by slow1-d.mail.gandi.net (Postfix) with ESMTP id CFDCC47EBF9
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 20:00:39 +0200 (CEST)
-Received: from mfilter38-d.gandi.net (mfilter38-d.gandi.net [217.70.178.169])
-	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 3EC6EC5A46
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 20:00:38 +0200 (CEST)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-	by mfilter38-d.gandi.net (mfilter38-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id Fs5jZ2sSV6w8 for <netdev@vger.kernel.org>;
-	Mon, 25 Apr 2016 20:00:36 +0200 (CEST)
-Received: from mail-ig0-f177.google.com (mail-ig0-f177.google.com [209.85.213.177])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 8C224C5A6A
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 20:00:36 +0200 (CEST)
-Received: by mail-ig0-f177.google.com with SMTP id u10so18581548igr.1
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 11:00:36 -0700 (PDT)
-In-Reply-To: <4917335385a75586c1f13b6a6d570d4cc5b0b132.1461495411.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1461526694-11367-3-git-send-email-fw@strlen.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 24, 2016 at 4:00 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> The IFLA_GRE_REMOTE attribute does not make sense together with collect
-> metadata and is ignored in such case. However, iproute2 always sets it; it
-> will be zero if there's no remote address specified on the command line.
+Florian Westphal <fw@strlen.de> :
+[...]
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index d0084d4..a3200ea 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+[...]
+> @@ -2217,16 +2215,10 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+>  	}
+>  
+>  	tpd_req = atl1c_cal_tpd_req(skb);
+> -	if (!spin_trylock_irqsave(&adapter->tx_lock, flags)) {
+> -		if (netif_msg_pktdata(adapter))
+> -			dev_info(&adapter->pdev->dev, "tx locked\n");
+> -		return NETDEV_TX_LOCKED;
+> -	}
+>  
+>  	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
+>  		/* no enough descriptor, just stop queue */
+>  		netif_stop_queue(netdev);
+> -		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+>  		return NETDEV_TX_BUSY;
+>  	}
 >
-> Remove the check for non-zero IFLA_GRE_REMOTE when collect medata flag is
-> set.
->
-Rather than cover up in ip_gre kernel module, why not just fix
-iproute2 to set the attribute correctly?
 
+Play it safe and keep the implicit local_irq_{save / restore} call ?
 
-> Before the patch, this command returns failure, after the patch, it works as
-> expected:
->
-> ip link add gre1 type gretap external
->
-> Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> New in v2.
-> ---
+It may not be needed but it will help avoiding any unexpected regression
+report pointing at the NETDEV_TX_LOCKED removal change.
 
->  net/ipv4/ip_gre.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
+-- 
+Ueimor
