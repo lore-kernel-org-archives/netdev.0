@@ -1,105 +1,181 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 3/6] atle1: remove LLTX support and TX_UNLOCKED
-Date: Sun, 24 Apr 2016 21:38:11 +0200
-Message-ID: <1461526694-11367-4-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next 6/6] net: remove NETDEV_TX_LOCKED support
+Date: Sun, 24 Apr 2016 21:38:14 +0200
+Message-ID: <1461526694-11367-7-git-send-email-fw@strlen.de>
 References: <1461526694-11367-1-git-send-email-fw@strlen.de>
-Cc: linux-kernel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461526694-11367-1-git-send-email-fw@strlen.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-similar to atl1c: lock is only used in ndo_start_xmit, but we also
-advertised LLTX, so remove that as well and let core stack handle
-tx locking.
+No more users in the tree, remove NETDEV_TX_LOCKED support.
+Adds another hole in softnet_stats struct, but better than keeping
+the unused collision counter around.
 
-Allows to remove the TX_LOCKED return value from the driver.
-
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/atheros/atl1e/atl1e.h      |  1 -
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 12 +-----------
- 2 files changed, 1 insertion(+), 12 deletions(-)
+ Documentation/networking/netdev-features.txt | 10 ++++-----
+ Documentation/networking/netdevices.txt      |  9 +++-----
+ include/linux/netdevice.h                    |  3 ---
+ net/core/net-procfs.c                        |  3 ++-
+ net/core/pktgen.c                            |  1 -
+ net/sched/sch_generic.c                      | 32 ----------------------------
+ 6 files changed, 9 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
-index 0212dac..632bb84 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e.h
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e.h
-@@ -442,7 +442,6 @@ struct atl1e_adapter {
- 	u16 link_duplex;
+diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+index f310ede..7413eb0 100644
+--- a/Documentation/networking/netdev-features.txt
++++ b/Documentation/networking/netdev-features.txt
+@@ -131,13 +131,11 @@ stack. Driver should not change behaviour based on them.
  
- 	spinlock_t mdio_lock;
--	spinlock_t tx_lock;
- 	atomic_t irq_sem;
+  * LLTX driver (deprecated for hardware drivers)
  
- 	struct work_struct reset_task;
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-index 59a03a1..974713b 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-@@ -648,7 +648,6 @@ static int atl1e_sw_init(struct atl1e_adapter *adapter)
+-NETIF_F_LLTX should be set in drivers that implement their own locking in
+-transmit path or don't need locking at all (e.g. software tunnels).
+-In ndo_start_xmit, it is recommended to use a try_lock and return
+-NETDEV_TX_LOCKED when the spin lock fails.  The locking should also properly
+-protect against other callbacks (the rules you need to find out).
++NETIF_F_LLTX is meant to be used by drivers that don't need locking at all,
++e.g. software tunnels.
  
- 	atomic_set(&adapter->irq_sem, 1);
- 	spin_lock_init(&adapter->mdio_lock);
--	spin_lock_init(&adapter->tx_lock);
+-Don't use it for new drivers.
++This is also used in a few legacy drivers that implement their
++own locking, don't use it for new (hardware) drivers.
  
- 	set_bit(__AT_DOWN, &adapter->flags);
+  * netns-local device
  
-@@ -1866,7 +1865,6 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
- 					  struct net_device *netdev)
- {
- 	struct atl1e_adapter *adapter = netdev_priv(netdev);
--	unsigned long flags;
- 	u16 tpd_req = 1;
- 	struct atl1e_tpd_desc *tpd;
+diff --git a/Documentation/networking/netdevices.txt b/Documentation/networking/netdevices.txt
+index 0b1cf6b..7fec206 100644
+--- a/Documentation/networking/netdevices.txt
++++ b/Documentation/networking/netdevices.txt
+@@ -69,10 +69,9 @@ ndo_start_xmit:
  
-@@ -1880,13 +1878,10 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
- 	}
- 	tpd_req = atl1e_cal_tdp_req(skb);
--	if (!spin_trylock_irqsave(&adapter->tx_lock, flags))
--		return NETDEV_TX_LOCKED;
+ 	When the driver sets NETIF_F_LLTX in dev->features this will be
+ 	called without holding netif_tx_lock. In this case the driver
+-	has to lock by itself when needed. It is recommended to use a try lock
+-	for this and return NETDEV_TX_LOCKED when the spin lock fails.
+-	The locking there should also properly protect against 
+-	set_rx_mode. Note that the use of NETIF_F_LLTX is deprecated.
++	has to lock by itself when needed.
++	The locking there should also properly protect against
++	set_rx_mode. WARNING: use of NETIF_F_LLTX is deprecated.
+ 	Don't use it for new drivers.
  
- 	if (atl1e_tpd_avail(adapter) < tpd_req) {
- 		/* no enough descriptor, just stop queue */
- 		netif_stop_queue(netdev);
--		spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
+ 	Context: Process with BHs disabled or BH (timer),
+@@ -83,8 +82,6 @@ ndo_start_xmit:
+ 	o NETDEV_TX_BUSY Cannot transmit packet, try later 
+ 	  Usually a bug, means queue start/stop flow control is broken in
+ 	  the driver. Note: the driver must NOT put the skb in its DMA ring.
+-	o NETDEV_TX_LOCKED Locking failed, please retry quickly.
+-	  Only valid when NETIF_F_LLTX is set.
  
-@@ -1910,7 +1905,6 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
+ ndo_tx_timeout:
+ 	Synchronization: netif_tx_lock spinlock; all TX queues frozen.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1f6d5db..18d8394 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -106,7 +106,6 @@ enum netdev_tx {
+ 	__NETDEV_TX_MIN	 = INT_MIN,	/* make sure enum is signed */
+ 	NETDEV_TX_OK	 = 0x00,	/* driver took care of packet */
+ 	NETDEV_TX_BUSY	 = 0x10,	/* driver tx path was busy*/
+-	NETDEV_TX_LOCKED = 0x20,	/* driver tx lock was already taken */
+ };
+ typedef enum netdev_tx netdev_tx_t;
  
- 	/* do TSO and check sum */
- 	if (atl1e_tso_csum(adapter, skb, tpd) != 0) {
--		spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
- 	}
-@@ -1921,10 +1915,7 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
- 	}
- 
- 	atl1e_tx_queue(adapter, tpd_req, tpd);
--
--	netdev->trans_start = jiffies; /* NETIF_F_LLTX driver :( */
- out:
--	spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 	return NETDEV_TX_OK;
+@@ -831,7 +830,6 @@ struct tc_to_netdev {
+  *	the queue before that can happen; it's for obsolete devices and weird
+  *	corner cases, but the stack really does a non-trivial amount
+  *	of useless work if you return NETDEV_TX_BUSY.
+- *        (can also return NETDEV_TX_LOCKED iff NETIF_F_LLTX)
+  *	Required; cannot be NULL.
+  *
+  * netdev_features_t (*ndo_fix_features)(struct net_device *dev,
+@@ -2737,7 +2735,6 @@ struct softnet_data {
+ 	/* stats */
+ 	unsigned int		processed;
+ 	unsigned int		time_squeeze;
+-	unsigned int		cpu_collision;
+ 	unsigned int		received_rps;
+ #ifdef CONFIG_RPS
+ 	struct softnet_data	*rps_ipi_list;
+diff --git a/net/core/net-procfs.c b/net/core/net-procfs.c
+index 2bf8329..14d0934 100644
+--- a/net/core/net-procfs.c
++++ b/net/core/net-procfs.c
+@@ -162,7 +162,8 @@ static int softnet_seq_show(struct seq_file *seq, void *v)
+ 		   "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+ 		   sd->processed, sd->dropped, sd->time_squeeze, 0,
+ 		   0, 0, 0, 0, /* was fastroute */
+-		   sd->cpu_collision, sd->received_rps, flow_limit_count);
++		   0,	/* was cpu_collision */
++		   sd->received_rps, flow_limit_count);
+ 	return 0;
  }
  
-@@ -2285,8 +2276,7 @@ static int atl1e_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 20999aa..8604ae2 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3472,7 +3472,6 @@ xmit_more:
+ 				     pkt_dev->odevname, ret);
+ 		pkt_dev->errors++;
+ 		/* fallthru */
+-	case NETDEV_TX_LOCKED:
+ 	case NETDEV_TX_BUSY:
+ 		/* Retry it next time */
+ 		atomic_dec(&(pkt_dev->skb->users));
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 80742ed..9c77562 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -108,35 +108,6 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
+ 	return skb;
+ }
  
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_TSO |
- 			      NETIF_F_HW_VLAN_CTAG_RX;
--	netdev->features = netdev->hw_features | NETIF_F_LLTX |
--			   NETIF_F_HW_VLAN_CTAG_TX;
-+	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_CTAG_TX;
- 	/* not enabled by default */
- 	netdev->hw_features |= NETIF_F_RXALL | NETIF_F_RXFCS;
- 	return 0;
+-static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+-					   struct netdev_queue *dev_queue,
+-					   struct Qdisc *q)
+-{
+-	int ret;
+-
+-	if (unlikely(dev_queue->xmit_lock_owner == smp_processor_id())) {
+-		/*
+-		 * Same CPU holding the lock. It may be a transient
+-		 * configuration error, when hard_start_xmit() recurses. We
+-		 * detect it by checking xmit owner and drop the packet when
+-		 * deadloop is detected. Return OK to try the next skb.
+-		 */
+-		kfree_skb_list(skb);
+-		net_warn_ratelimited("Dead loop on netdevice %s, fix it urgently!\n",
+-				     dev_queue->dev->name);
+-		ret = qdisc_qlen(q);
+-	} else {
+-		/*
+-		 * Another cpu is holding lock, requeue & delay xmits for
+-		 * some time.
+-		 */
+-		__this_cpu_inc(softnet_data.cpu_collision);
+-		ret = dev_requeue_skb(skb, q);
+-	}
+-
+-	return ret;
+-}
+-
+ /*
+  * Transmit possibly several skbs, and handle the return status as
+  * required. Holding the __QDISC___STATE_RUNNING bit guarantees that
+@@ -174,9 +145,6 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+ 	if (dev_xmit_complete(ret)) {
+ 		/* Driver sent out skb successfully or skb was consumed */
+ 		ret = qdisc_qlen(q);
+-	} else if (ret == NETDEV_TX_LOCKED) {
+-		/* Driver try lock failed */
+-		ret = handle_dev_cpu_collision(skb, txq, q);
+ 	} else {
+ 		/* Driver returned NETDEV_TX_BUSY - requeue skb */
+ 		if (unlikely(ret != NETDEV_TX_BUSY))
 -- 
 2.7.3
