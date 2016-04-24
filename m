@@ -1,30 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] tcp: Handle txstamp_ack when
- fragmenting/coalescing skbs
-Date: Sun, 24 Apr 2016 14:07:36 -0400 (EDT)
-Message-ID: <20160424.140736.103102038829975762.davem@davemloft.net>
-References: <1461131448-1460418-1-git-send-email-kafai@fb.com>
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Subject: [PATCH v3 03/21] io-mapping: Specify mapping size for
+ io_mapping_map_wc()
+Date: Sun, 24 Apr 2016 19:10:01 +0100
+Message-ID: <1461521419-18086-3-git-send-email-chris@chris-wilson.co.uk>
+References: <1461521419-18086-1-git-send-email-chris@chris-wilson.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
-	soheil@google.com, willemb@google.com, ycheng@google.com,
-	kernel-team@fb.com
-To: kafai@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752614AbcDXSHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:07:45 -0400
-In-Reply-To: <1461131448-1460418-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>, netdev@vger.kernel.org,
+ Yishai Hadas <yishaih@mellanox.com>, linux-kernel@vger.kernel.org,
+ "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
+ "Luis R . Rodriguez" <mcgrof@kernel.org>, dri-devel@lists.freedesktop.org,
+ linux-rdma@vger.kernel.org, Daniel Vetter <daniel.vetter@intel.com>,
+ Dan Williams <dan.j.williams@intel.com>, Ingo Molnar <mingo@kernel.org>,
+ David Hildenbrand <dahi@linux.vnet.ibm.com>
+To: intel-gfx@lists.freedesktop.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <1461521419-18086-1-git-send-email-chris@chris-wilson.co.uk>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Tue, 19 Apr 2016 22:50:46 -0700
-
-> This patchset is to handle the txstamp-ack bit when
-> fragmenting/coalescing skbs.
- ...
-
-Series applied, thanks.
+VGhlIGlvcmVtYXAoKSBoaWRkZW4gYmVoaW5kIHRoZSBpb19tYXBwaW5nX21hcF93YygpIGNvbnZl
+bmllbmNlIGhlbHBlcgpjYW4gYmUgdXNlZCBmb3IgcmVtYXBwaW5nIG11bHRpcGxlIHBhZ2VzLiBF
+eHRlbmQgdGhlIGhlbHBlciBzbyB0aGF0CmZ1dHVyZSBjYWxsZXJzIGNhbiB1c2UgaXQgZm9yIGxh
+cmdlciByYW5nZXMuCgpTaWduZWQtb2ZmLWJ5OiBDaHJpcyBXaWxzb24gPGNocmlzQGNocmlzLXdp
+bHNvbi5jby51az4KQ2M6IFR2cnRrbyBVcnN1bGluIDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+
+CkNjOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGludGVsLmNvbT4KQ2M6IEphbmkgTmlr
+dWxhIDxqYW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb20+CkNjOiBEYXZpZCBBaXJsaWUgPGFpcmxp
+ZWRAbGludXguaWU+CkNjOiBZaXNoYWkgSGFkYXMgPHlpc2hhaWhAbWVsbGFub3guY29tPgpDYzog
+RGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0BpbnRlbC5jb20+CkNjOiBJbmdvIE1vbG5hciA8
+bWluZ29Aa2VybmVsLm9yZz4KQ2M6ICJQZXRlciBaaWpsc3RyYSAoSW50ZWwpIiA8cGV0ZXJ6QGlu
+ZnJhZGVhZC5vcmc+CkNjOiBEYXZpZCBIaWxkZW5icmFuZCA8ZGFoaUBsaW51eC52bmV0LmlibS5j
+b20+CkNjOiBMdWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGtlcm5lbC5vcmc+CkNjOiBpbnRlbC1n
+ZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Au
+b3JnCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCkNjOiBsaW51eC1yZG1hQHZnZXIua2VybmVs
+Lm9yZwpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZwpSZXZpZXdlZC1ieTogTHVpcyBS
+LiBSb2RyaWd1ZXogPG1jZ3JvZkBrZXJuZWwub3JnPgotLS0KIGRyaXZlcnMvZ3B1L2RybS9pOTE1
+L2ludGVsX292ZXJsYXkuYyAgICB8ICAzICsrLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFu
+b3gvbWx4NC9wZC5jIHwgIDQgKysrLQogaW5jbHVkZS9saW51eC9pby1tYXBwaW5nLmggICAgICAg
+ICAgICAgIHwgMTAgKysrKysrKy0tLQogMyBmaWxlcyBjaGFuZ2VkLCAxMiBpbnNlcnRpb25zKCsp
+LCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVs
+X292ZXJsYXkuYyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYwppbmRleCA5
+NzQ2Yjk4NDFjMTMuLjBkNWEzNzY4NzhkMyAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL2k5
+MTUvaW50ZWxfb3ZlcmxheS5jCisrKyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJs
+YXkuYwpAQCAtMTk4LDcgKzE5OCw4IEBAIGludGVsX292ZXJsYXlfbWFwX3JlZ3Moc3RydWN0IGlu
+dGVsX292ZXJsYXkgKm92ZXJsYXkpCiAJCXJlZ3MgPSAoc3RydWN0IG92ZXJsYXlfcmVnaXN0ZXJz
+IF9faW9tZW0gKilvdmVybGF5LT5yZWdfYm8tPnBoeXNfaGFuZGxlLT52YWRkcjsKIAllbHNlCiAJ
+CXJlZ3MgPSBpb19tYXBwaW5nX21hcF93YyhnZ3R0LT5tYXBwYWJsZSwKLQkJCQkJIG92ZXJsYXkt
+PmZsaXBfYWRkcik7CisJCQkJCSBvdmVybGF5LT5mbGlwX2FkZHIsCisJCQkJCSBQQUdFX1NJWkUp
+OwogCiAJcmV0dXJuIHJlZ3M7CiB9CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9t
+ZWxsYW5veC9tbHg0L3BkLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L3Bk
+LmMKaW5kZXggYjNjYzNhYjYzNzk5Li42ZmMxNTZhMzkxOGQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcGQuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9tZWxsYW5veC9tbHg0L3BkLmMKQEAgLTIwNSw3ICsyMDUsOSBAQCBpbnQgbWx4NF9iZl9hbGxv
+YyhzdHJ1Y3QgbWx4NF9kZXYgKmRldiwgc3RydWN0IG1seDRfYmYgKmJmLCBpbnQgbm9kZSkKIAkJ
+CWdvdG8gZnJlZV91YXI7CiAJCX0KIAotCQl1YXItPmJmX21hcCA9IGlvX21hcHBpbmdfbWFwX3dj
+KHByaXYtPmJmX21hcHBpbmcsIHVhci0+aW5kZXggPDwgUEFHRV9TSElGVCk7CisJCXVhci0+YmZf
+bWFwID0gaW9fbWFwcGluZ19tYXBfd2MocHJpdi0+YmZfbWFwcGluZywKKwkJCQkJCXVhci0+aW5k
+ZXggPDwgUEFHRV9TSElGVCwKKwkJCQkJCVBBR0VfU0laRSk7CiAJCWlmICghdWFyLT5iZl9tYXAp
+IHsKIAkJCWVyciA9IC1FTk9NRU07CiAJCQlnb3RvIHVuYW1wX3VhcjsKZGlmZiAtLWdpdCBhL2lu
+Y2x1ZGUvbGludXgvaW8tbWFwcGluZy5oIGIvaW5jbHVkZS9saW51eC9pby1tYXBwaW5nLmgKaW5k
+ZXggZTM5OTAyOWI2OGM1Li42NDVhZDA2YjVkNTIgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgv
+aW8tbWFwcGluZy5oCisrKyBiL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oCkBAIC0xMDAsMTQg
+KzEwMCwxNiBAQCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQog
+fQogCiBzdGF0aWMgaW5saW5lIHZvaWQgX19pb21lbSAqCi1pb19tYXBwaW5nX21hcF93YyhzdHJ1
+Y3QgaW9fbWFwcGluZyAqbWFwcGluZywgdW5zaWduZWQgbG9uZyBvZmZzZXQpCitpb19tYXBwaW5n
+X21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywKKwkJICB1bnNpZ25lZCBsb25nIG9m
+ZnNldCwKKwkJICB1bnNpZ25lZCBsb25nIHNpemUpCiB7CiAJcmVzb3VyY2Vfc2l6ZV90IHBoeXNf
+YWRkcjsKIAogCUJVR19PTihvZmZzZXQgPj0gbWFwcGluZy0+c2l6ZSk7CiAJcGh5c19hZGRyID0g
+bWFwcGluZy0+YmFzZSArIG9mZnNldDsKIAotCXJldHVybiBpb3JlbWFwX3djKHBoeXNfYWRkciwg
+UEFHRV9TSVpFKTsKKwlyZXR1cm4gaW9yZW1hcF93YyhwaHlzX2FkZHIsIHNpemUpOwogfQogCiBz
+dGF0aWMgaW5saW5lIHZvaWQKQEAgLTE1NSw3ICsxNTcsOSBAQCBpb19tYXBwaW5nX3VubWFwX2F0
+b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQogCiAvKiBOb24tYXRvbWljIG1hcC91bm1hcCAqLwog
+c3RhdGljIGlubGluZSB2b2lkIF9faW9tZW0gKgotaW9fbWFwcGluZ19tYXBfd2Moc3RydWN0IGlv
+X21hcHBpbmcgKm1hcHBpbmcsIHVuc2lnbmVkIGxvbmcgb2Zmc2V0KQoraW9fbWFwcGluZ19tYXBf
+d2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsCisJCSAgdW5zaWduZWQgbG9uZyBvZmZzZXQs
+CisJCSAgdW5zaWduZWQgbG9uZyBzaXplKQogewogCXJldHVybiAoKGNoYXIgX19mb3JjZSBfX2lv
+bWVtICopIG1hcHBpbmcpICsgb2Zmc2V0OwogfQotLSAKMi44LjEKCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJp
+LWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
