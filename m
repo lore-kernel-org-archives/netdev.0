@@ -1,49 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V1 0/8] mlx5 driver updates and fixes
-Date: Sun, 24 Apr 2016 14:53:12 -0400 (EDT)
-Message-ID: <20160424.145312.1338728573480668034.davem@davemloft.net>
-References: <1461274387-10653-1-git-send-email-saeedm@mellanox.com>
+Subject: Re: linux-next: zillions of lockdep whinges in
+ include/net/sock.h:1408
+Date: Sun, 24 Apr 2016 14:54:21 -0400 (EDT)
+Message-ID: <20160424.145421.128023840849290353.davem@davemloft.net>
+References: <5718DA71.7050902@stressinduktion.org>
+	<20160424.143833.2292980084570149367.davem@davemloft.net>
+	<571D14F8.6070306@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
-	eranbe@mellanox.com
-To: saeedm@mellanox.com
+Cc: eric.dumazet@gmail.com, Valdis.Kletnieks@vt.edu,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52661 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440AbcDXSxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:53:22 -0400
-In-Reply-To: <1461274387-10653-1-git-send-email-saeedm@mellanox.com>
+	with ESMTP id S1751814AbcDXSyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2016 14:54:25 -0400
+In-Reply-To: <571D14F8.6070306@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Fri, 22 Apr 2016 00:32:59 +0300
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sun, 24 Apr 2016 20:48:24 +0200
 
-> Changes from V0:
-> 	- Dropped: ("net/mlx5e: Reset link modes upon setting speed to zero") 
-> 	- Fixed compilation issue introduced to mlx5_ib driver.
-> 	- Rebased to df637193906a ('Revert "Prevent NUll pointer dereference with two PHYs on cpsw"')
-> 
-> This series has few bug fixes for mlx5 core and ethernet driver.
-> 
-> Eli fixed a wrong static local variable declaration in flow steering API.
-> Majd added the support of ConnectX-5 PF and VF and added the support
-> for kernel shutdown pci callback for more robust reboot procedures.
-> Maor fixed a soft lockup in flow steering.
-> Rana fixed a wrog speed define in mlx5 EN driver.
-> I also had the chance to introduce some bug fixes in mlx5 EN mtu 
-> reporting and handling.
+> Eric's patch is worth to apply anyway, but I am not sure if it solves
+> the (fundamental) problem. I couldn't reproduce it with the exact next-
+> tag provided in the initial mail. All other reports also only happend
+> with linux-next and not net-next.
 
-Series applied and...
+Ok, Eric please submit it formally.
 
-> For -stable:
-> 	net/mlx5_core: Fix soft lockup in steering error flow
-> 	net/mlx5e: Device's mtu field is u16 and not int
-> 	net/mlx5e: Fix minimum MTU
-> 	net/mlx5e: Use vport MTU rather than physical port MTU
-
-queued up for -stable.
-
-Thanks.
+Thanks!
