@@ -1,43 +1,78 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC net-next] net: dsa: Provide CPU port statistics to
- master netdev
-Date: Mon, 25 Apr 2016 23:43:42 +0200
-Message-ID: <20160425214342.GB5538@lunn.ch>
-References: <1461175101-13506-1-git-send-email-f.fainelli@gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH v4 net-next 0/3] tcp: Make use of MSG_EOR in tcp_sendmsg
+Date: Mon, 25 Apr 2016 14:44:47 -0700
+Message-ID: <1461620690-1081063-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45795 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965237AbcDYVnq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 17:43:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1461175101-13506-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:25575 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965004AbcDYVpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 17:45:08 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3PLhTcW030259
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:07 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 22g4qb0hhb-2
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:07 -0700
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ f804974a0b2e11e6a27b24be0593f280-349f1c50 for <netdev@vger.kernel.org>;	Mon,
+ 25 Apr 2016 14:45:04 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2016 at 10:58:21AM -0700, Florian Fainelli wrote:
-> This patch overloads the DSA master netdev, aka CPU Ethernet MAC to also
-> include switch-side statistics, which is useful for debugging purposes,
-> when the switch is not properly connected to the Ethernet MAC (duplex
-> mismatch, (RG)MII electrical issues etc.).
-> 
-> We accomplish this by retaining the original copy of the master netdev's
-> ethtool_ops, and just overload the 3 operations we care about:
-> get_sset_count, get_strings and get_ethtool_stats so as to intercept
-> these calls and call into the original master_netdev ethtool_ops, plus
-> our own.
+v4:
+~ Do not set eor bit in do_tcp_sendpages() since there is
+  no way to pass MSG_EOR from the userland now.
+~ Avoid rmw by testing MSG_EOR first in tcp_sendmsg().
+~ Move TCP_SKB_CB(skb)->eor test to a new helper
+  tcp_skb_can_collapse_to() (suggested by Soheil).
+~ Add some packetdrill tests.
 
-Hi Florian
+v3:
+~ Separate EOR marking from the SKBTX_ANY_TSTAMP logic.
+~ Move the eor bit test back to the loop in tcp_sendmsg and
+  tcp_sendpage because there could be >1 threads doing
+  sendmsg.
+~ Thanks to Eric Dumazet's suggestions on v2.
+~ The TCP timestamp bug fixes are separated into other threads.
 
-Interesting concept. My one concern is that by concatenating the two
-sets of statistics, we get a name clash. I'm not sure the Marvell
-switch statistics counters have different names to the Marvell
-Ethernet driver statistics counters. ethtool does not care, but maybe
-an SNMP agent using these statistics might not be too happy seeing the
-same name twice?
+v2:
+~ Rework based on the recent work
+  "add TX timestamping via cmsg" by
+  Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+~ This version takes the MSG_EOR bit as a signal of
+  end-of-response-message and leave the selective
+  timestamping job to the cmsg
+~ Changes based on the v1 feedback (like avoid
+  unlikely check in a loop and adding tcp_sendpage
+  support)
+~ The first 3 patches are bug fixes.  The fixes in this
+  series depend on the newly introduced txstamp_ack in
+  net-next.  I will make relevant patches against net after
+  getting some feedback.
+~ The test results are based on the recently posted net fix:
+  "tcp: Fix SOF_TIMESTAMPING_TX_ACK when handling dup acks"
 
-     Andrew
+One potential use case is to use MSG_EOR with
+SOF_TIMESTAMPING_TX_ACK to get a more accurate
+TCP ack timestamping on application protocol with
+multiple outgoing response messages (e.g. HTTP2).
+
+One of our use case is at the webserver.  The webserver tracks
+the HTTP2 response latency by measuring when the webserver sends
+the first byte to the socket till the TCP ACK of the last byte
+is received.  In the cases where we don't have client side
+measurement, measuring from the server side is the only option.
+In the cases we have the client side measurement, the server side
+data can also be used to justify/cross-check-with the client
+side data.
