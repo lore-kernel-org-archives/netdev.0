@@ -1,55 +1,56 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 0/6] Add Shared MDIO framework for iProc based SoCs
-Date: Mon, 25 Apr 2016 17:20:38 +0200
-Message-ID: <20160425152038.GJ6575@lunn.ch>
-References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: off-by-one in DecodeQ931
+Date: Mon, 25 Apr 2016 17:29:05 +0200
+Message-ID: <20160425152905.GA8621@strlen.de>
+References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
-	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: Toby DiPasquale <toby@cbcg.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1461230323-27891-1-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 21, 2016 at 02:48:37PM +0530, Pramod Kumar wrote:
-> Broadcom iProc based SoCs uses MDIO bus for programming PHYs belonging to
-> different I/O subsystem like USB, SATA, PCIe, ETHERNET etc. Every subsystem
-> is referred as "Master" When a master is selected, all PHYs belonging to
-> this subsystem get active on the MDIO bus and responds to MDIO transaction.
-> In this way one MDIO controller is shared among all masters hence named as
-> "Shared MDIO controller".
+Toby DiPasquale <toby@cbcg.net> wrote:
+> I was reviewing the H.323 conntrack helper in the kernel when I came
+> across what appears to be an off-by-one error in the DecodeQ931
+> function. The MessageType field of the Q931 record is assigned and p
+> is incremented, but the corresponding decrement to sz is missing,
+> leading the sz variable to be one more than it should be. This patch
+> decrements sz so it is the proper value going into the parsing of the
+> information elements.
 > 
-> We have two important entities in "Shared MDIO Bus" framework:
-> 1) shared_mdio_master and
-> 2) shared_mdio_driver.
-> 
-> The shared MDIO controller driver is registered as platform driver and it
-> creates shared_mdio_master instances and adds them to "Shared MDIO Bus"
-> framework.
+> Signed-off-by: Toby DiPasquale <toby@cbcg.net>
 
-Hi Pramod
+Looks correct, BUT
 
-What i'm missing is an explanation why the existing MDIO bus framework
-cannot be used. I recently made it more generic so that you can hang
-any type of device off it, not just PHYs.
+> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c
+> b/net/netfilter/nf_conntrack_h323_asn1.c
+> index bcd5ed6..68b1557 100644
+> --- a/net/netfilter/nf_conntrack_h323_asn1.c
+> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
+> @@ -849,6 +849,7 @@ int DecodeQ931(unsigned char *buf, size_t sz, Q931 *q931)
+>         if (sz < 1)
+>                 return H323_ERROR_BOUND;
 
-    Thanks
-	Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+sz can be 1
+
+>         q931->MessageType = *p++;
+> +       sz--;
+
+sz is now 0
+
+>         PRINT("MessageType = %02X\n", q931->MessageType);
+>         if (*p & 0x80) {
+>                 p++;
+>                 sz--;
+
+-> sz (size_t) will underflow here
+
+I'd suggest to change the if (sz < 1) to if (sz < 2) to
+resolve this, the while loop below has to be taken anyway.
