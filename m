@@ -1,37 +1,47 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] devlink: export header
-Date: Mon, 25 Apr 2016 16:03:37 -0700
-Message-ID: <20160425160337.576a3b92@xeon-e3>
-References: <20160422095517.545fe658@xeon-e3>
-	<20160425.164928.589496341257465225.davem@davemloft.net>
+Subject: Re: [PATCH net-next] tc_act: export all user headers
+Date: Mon, 25 Apr 2016 16:05:08 -0700
+Message-ID: <20160425160508.2990079d@xeon-e3>
+References: <20160422100638.4f4280bf@xeon-e3>
+	<20160425.164939.2072274531689250224.davem@davemloft.net>
+	<20160425.165244.795853255564768080.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, netdev@vger.kernel.org
+Cc: hadi@mojatatu.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35128 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860AbcDYXDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 19:03:25 -0400
-Received: by mail-pa0-f43.google.com with SMTP id iv1so20962270pac.2
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 16:03:25 -0700 (PDT)
-In-Reply-To: <20160425.164928.589496341257465225.davem@davemloft.net>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36229 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbcDYXEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 19:04:55 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bt5so16594589pac.3
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 16:04:55 -0700 (PDT)
+In-Reply-To: <20160425.165244.795853255564768080.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Apr 2016 16:49:28 -0400 (EDT)
+On Mon, 25 Apr 2016 16:52:44 -0400 (EDT)
 David Miller <davem@davemloft.net> wrote:
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Fri, 22 Apr 2016 09:55:17 -0700
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 25 Apr 2016 16:49:39 -0400 (EDT)
 > 
-> > Export devlink.h when doing make headers install.
-> > I am going to investigate just doing all headers in the directory,
-> > but lets add missing piece for now.
+> > From: Stephen Hemminger <stephen@networkplumber.org>
+> > Date: Fri, 22 Apr 2016 10:06:38 -0700
 > > 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> >> The file tc_ife.h was missing from the export list.
+> >> Rather than continue to cherry-pick, just export all headers in the directory.
+> >> 
+> >> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> > 
+> > Applied.
 > 
-> This is already exported in the 'net' tree.
+> Please compile test, pretty please??!?!?
+> 
+> ./usr/include/linux/tc_act/*.h: No such file or directory
+> 
+> It looks like you can't expect shell expansions like that to work in
+> Kbuild files.
 
-ok, thanks
+It worked for me but was testing the export function, not the build.
