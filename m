@@ -1,73 +1,40 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next] soreuseport: Resolve merge conflict for v4/v6 ordering fix
-Date: Mon, 25 Apr 2016 10:42:12 -0400
-Message-ID: <1461595332-16994-1-git-send-email-kraigatgoog@gmail.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33307 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbcDYOmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 10:42:15 -0400
-Received: by mail-qg0-f44.google.com with SMTP id f92so30760985qgf.0
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 07:42:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "J.D. Schroeder" <Linux.HWI@garmin.com>
+Subject: [PATCH] net: davinci_mdio: Set of_node in the mdio bus
+Date: Mon, 25 Apr 2016 09:46:11 -0500
+Message-ID: <1461595571-11438-1-git-send-email-Linux.HWI@garmin.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "J.D. Schroeder" <jay.schroeder@garmin.com>,
+	Ben McCauley <ben.mccauley@garmin.com>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <Grygorii.Strashko@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Craig Gallek <kraig@google.com>
+From: "J.D. Schroeder" <jay.schroeder@garmin.com>
 
-d894ba18d4e4 ("soreuseport: fix ordering for mixed v4/v6 sockets")
-was merged as a bug fix to the net tree.  Two conflicting changes
-were committed to net-next before the above fix was merged back to
-net-next:
-ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
-3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under synflood")
+Assigns the of_node from the platform device to the of_node of the
+mdio bus so that it can be used in the mdio driver to properly match
+a bus in the DT with a phandle in of_mdio_find_bus().
 
-These changes switched the datastructure used for TCP and UDP sockets
-from hlist_nulls to hlist.  This patch applies the necessary parts
-of the net tree fix to net-next which were not automatic as part of the
-merge.
-
-Fixes: 1602f49b58ab ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
-Signed-off-by: Craig Gallek <kraig@google.com>
+Signed-off-by: J.D. Schroeder <jay.schroeder@garmin.com>
+Signed-off-by: Ben McCauley <ben.mccauley@garmin.com>
 ---
- include/net/sock.h         | 6 +++++-
- net/ipv4/inet_hashtables.c | 6 +++++-
- 2 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 52448baf19d7..d6f26b3119aa 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -630,7 +630,11 @@ static inline void sk_add_node(struct sock *sk, struct hlist_head *list)
- static inline void sk_add_node_rcu(struct sock *sk, struct hlist_head *list)
- {
- 	sock_hold(sk);
--	hlist_add_head_rcu(&sk->sk_node, list);
-+	if (IS_ENABLED(CONFIG_IPV6) && sk->sk_reuseport &&
-+	    sk->sk_family == AF_INET6)
-+		hlist_add_tail_rcu(&sk->sk_node, list);
-+	else
-+		hlist_add_head_rcu(&sk->sk_node, list);
- }
- 
- static inline void __sk_nulls_add_node_rcu(struct sock *sk, struct hlist_nulls_head *list)
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index fcadb670f50b..b76b0d7e59c1 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -479,7 +479,11 @@ int __inet_hash(struct sock *sk, struct sock *osk,
- 		if (err)
- 			goto unlock;
- 	}
--	hlist_add_head_rcu(&sk->sk_node, &ilb->head);
-+	if (IS_ENABLED(CONFIG_IPV6) && sk->sk_reuseport &&
-+		sk->sk_family == AF_INET6)
-+		hlist_add_tail_rcu(&sk->sk_node, &ilb->head);
-+	else
-+		hlist_add_head_rcu(&sk->sk_node, &ilb->head);
- 	sock_set_flag(sk, SOCK_RCU_FREE);
- 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
- unlock:
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 4e7c9b9..b5e5f37 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -343,6 +343,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 		if (davinci_mdio_probe_dt(&data->pdata, pdev))
+ 			data->pdata = default_pdata;
+ 		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
++		data->bus->dev.of_node = dev->of_node;
+ 	} else {
+ 		data->pdata = pdata ? (*pdata) : default_pdata;
+ 		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s-%x",
 -- 
-2.8.0.rc3.226.g39d4020
+1.9.1
