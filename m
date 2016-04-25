@@ -1,56 +1,77 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: off-by-one in DecodeQ931
-Date: Mon, 25 Apr 2016 17:29:05 +0200
-Message-ID: <20160425152905.GA8621@strlen.de>
-References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 2/6] Documentation: DT binding doc for iProc Shared MDIO
+ Controller.
+Date: Mon, 25 Apr 2016 17:33:36 +0200
+Message-ID: <20160425153336.GK6575@lunn.ch>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+ <1461230323-27891-3-git-send-email-pramod.kumar@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Toby DiPasquale <toby@cbcg.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
+	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1461230323-27891-3-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Toby DiPasquale <toby@cbcg.net> wrote:
-> I was reviewing the H.323 conntrack helper in the kernel when I came
-> across what appears to be an off-by-one error in the DecodeQ931
-> function. The MessageType field of the Q931 record is assigned and p
-> is incremented, but the corresponding decrement to sz is missing,
-> leading the sz variable to be one more than it should be. This patch
-> decrements sz so it is the proper value going into the parsing of the
-> information elements.
-> 
-> Signed-off-by: Toby DiPasquale <toby@cbcg.net>
+> +Example:
+> +iproc_mdio: iproc_mdio@663f0000 {
+> +	compatible = "brcm,iproc-shared-mdio";
+> +	reg = <0x6602023c 0x14>;
+> +	reg-names = "mdio";
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +
+> +	sata-master@6 {
+> +		compatible = "brcm,iproc-ns2-sata-phy";
+> +		reg = <0x6>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		brcm,phy-internal;
+> +
+> +		sata_phy0: sata-phy@1 {
+> +			reg = <0x1>;
+> +			#phy-cells = <0>;
+> +		};
+> +
+> +		sata_phy1: sata-phy@2 {
+> +			reg = <0x2>;
+> +			#phy-cells = <0>;
+> +		};
+> +	};
+> +
+> +	eth-master@0 {
+> +		compatible = "brcm,iproc-mdio-master-eth";
+> +		reg = <0x0>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		gphy0: eth-phy@10 {
+> +			reg = <0x10>;
+> +			phy-mode = "mii";
+> +		};
+> +	};
+> +};
 
-Looks correct, BUT
+So looking at this, you have an MDIO bus, an MDIO mux on top of that,
+and then some MDIO devices on the muxed busses. You don't need a whole
+new framework for this. You need a new mdio-mux driver, but the
+existing MDIO framework should do what you need.
 
-> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c
-> b/net/netfilter/nf_conntrack_h323_asn1.c
-> index bcd5ed6..68b1557 100644
-> --- a/net/netfilter/nf_conntrack_h323_asn1.c
-> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
-> @@ -849,6 +849,7 @@ int DecodeQ931(unsigned char *buf, size_t sz, Q931 *q931)
->         if (sz < 1)
->                 return H323_ERROR_BOUND;
-
-sz can be 1
-
->         q931->MessageType = *p++;
-> +       sz--;
-
-sz is now 0
-
->         PRINT("MessageType = %02X\n", q931->MessageType);
->         if (*p & 0x80) {
->                 p++;
->                 sz--;
-
--> sz (size_t) will underflow here
-
-I'd suggest to change the if (sz < 1) to if (sz < 2) to
-resolve this, the while loop below has to be taken anyway.
+	 Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
