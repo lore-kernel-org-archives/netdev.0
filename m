@@ -1,60 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 2/6] atl1c: remove private tx lock
-Date: Mon, 25 Apr 2016 00:03:53 +0200
-Message-ID: <201604250731.u3P7ViLN019808@violet.fr.zoreil.com>
-References: <1461526694-11367-1-git-send-email-fw@strlen.de>
- <1461526694-11367-3-git-send-email-fw@strlen.de>
+From: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
+Subject: [PATCH RFC] b43: stop hardcoding LED behavior
+Date: Mon, 25 Apr 2016 09:40:51 +0200
+Message-ID: <1461570051-3950-1-git-send-email-dev@lynxeye.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:54520 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753663AbcDYHbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 03:31:46 -0400
-Received: from violet.fr.zoreil.com (localhost [127.0.0.1])
-	by violet.fr.zoreil.com (8.14.9/8.14.5) with ESMTP id u3P7VilW019809
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 09:31:44 +0200
-Received: (from romieu@localhost)
-	by violet.fr.zoreil.com (8.14.9/8.14.5/Submit) id u3P7ViLN019808
-	for netdev@vger.kernel.org; Mon, 25 Apr 2016 09:31:44 +0200
-Content-Disposition: inline
-In-Reply-To: <1461526694-11367-3-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
+List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Florian Westphal <fw@strlen.de> :
-[...]
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index d0084d4..a3200ea 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-[...]
-> @@ -2217,16 +2215,10 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
->  	}
->  
->  	tpd_req = atl1c_cal_tpd_req(skb);
-> -	if (!spin_trylock_irqsave(&adapter->tx_lock, flags)) {
-> -		if (netif_msg_pktdata(adapter))
-> -			dev_info(&adapter->pdev->dev, "tx locked\n");
-> -		return NETDEV_TX_LOCKED;
-> -	}
->  
->  	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
->  		/* no enough descriptor, just stop queue */
->  		netif_stop_queue(netdev);
-> -		spin_unlock_irqrestore(&adapter->tx_lock, flags);
->  		return NETDEV_TX_BUSY;
->  	}
->
+The code to hardcode the LED behavior is basically unchanged from when it
+was first merged in 2007. It is likely wrong for many modern systems using
+the b43 driver.
 
-Play it safe and keep the implicit local_irq_{save / restore} call ?
+On my system the SPROM correctly defines the only wired LED (radio) but
+skips all others, leading to the hardcode to register LEDs with RX and TX
+triggers. These triggers cause many uneccesary CPU wakeups to drive LEDs
+that aren't even present in the system, reducing battery runtime.
 
-It may not be needed but it will help avoiding any unexpected regression
-report pointing at the NETDEV_TX_LOCKED removal change.
+Remove the hardcode to stop it from doing any harm. If this code is useful
+for others it should probably be reworked as a quirk table triggering only
+for individual systems that need it.
 
+Signed-off-by: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
+---
+ drivers/net/wireless/broadcom/b43/leds.c | 26 ++------------------------
+ 1 file changed, 2 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/b43/leds.c b/drivers/net/wireless/broadcom/b43/leds.c
+index d79ab2a..77d2dad 100644
+--- a/drivers/net/wireless/broadcom/b43/leds.c
++++ b/drivers/net/wireless/broadcom/b43/leds.c
+@@ -224,31 +224,9 @@ static void b43_led_get_sprominfo(struct b43_wldev *dev,
+ 
+ 	if (sprom[led_index] == 0xFF) {
+ 		/* There is no LED information in the SPROM
+-		 * for this LED. Hardcode it here. */
++		 * for this LED. Keep it disabled. */
+ 		*activelow = false;
+-		switch (led_index) {
+-		case 0:
+-			*behaviour = B43_LED_ACTIVITY;
+-			*activelow = true;
+-			if (dev->dev->board_vendor == PCI_VENDOR_ID_COMPAQ)
+-				*behaviour = B43_LED_RADIO_ALL;
+-			break;
+-		case 1:
+-			*behaviour = B43_LED_RADIO_B;
+-			if (dev->dev->board_vendor == PCI_VENDOR_ID_ASUSTEK)
+-				*behaviour = B43_LED_ASSOC;
+-			break;
+-		case 2:
+-			*behaviour = B43_LED_RADIO_A;
+-			break;
+-		case 3:
+-			*behaviour = B43_LED_OFF;
+-			break;
+-		default:
+-			*behaviour = B43_LED_OFF;
+-			B43_WARN_ON(1);
+-			return;
+-		}
++		*behaviour = B43_LED_OFF;
+ 	} else {
+ 		*behaviour = sprom[led_index] & B43_LED_BEHAVIOUR;
+ 		*activelow = !!(sprom[led_index] & B43_LED_ACTIVELOW);
 -- 
-Ueimor
+2.5.5
