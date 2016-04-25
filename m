@@ -1,131 +1,164 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 3/3] bnxt_en: Divide a page into 32K buffers for the aggregation ring if necessary.
-Date: Mon, 25 Apr 2016 02:30:51 -0400
-Message-ID: <1461565851-32524-4-git-send-email-michael.chan@broadcom.com>
-References: <1461565851-32524-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:2753 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522AbcDYGax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 02:30:53 -0400
-In-Reply-To: <1461565851-32524-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Engestrom <eric@engestrom.ch>
+Subject: [PATCH 30/41] Documentation: networking: fix spelling mistakes
+Date: Mon, 25 Apr 2016 07:36:56 +0100
+Message-ID: <1461566229-4717-4-git-send-email-eric@engestrom.ch>
+References: <1461543878-3639-1-git-send-email-eric@engestrom.ch>
+ <1461566229-4717-1-git-send-email-eric@engestrom.ch>
+Cc: Eric Engestrom <eric@engestrom.ch>,
+	Jonathan Corbet <corbet@lwn.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	linux-doc@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461566229-4717-1-git-send-email-eric@engestrom.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If PAGE_SIZE is bigger than BNXT_RX_PAGE_SIZE, that means the native CPU
-page is bigger than the maximum length of the RX BD.  Divide the page
-into multiple 32K buffers for the aggregation ring.
-
-Add an offset field in the bnxt_sw_rx_agg_bd struct to keep track of the
-page offset of each buffer.  Since each page can be referenced by multiple
-buffer entries, call get_page() as needed to get the proper reference
-count.
-
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: Eric Engestrom <eric@engestrom.ch>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 35 ++++++++++++++++++++++++++-----
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  4 ++++
- 2 files changed, 34 insertions(+), 5 deletions(-)
+ Documentation/networking/altera_tse.txt | 6 +++---
+ Documentation/networking/ipvlan.txt     | 6 +++---
+ Documentation/networking/pktgen.txt     | 6 +++---
+ Documentation/networking/vrf.txt        | 2 +-
+ Documentation/networking/xfrm_sync.txt  | 6 +++---
+ 5 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 28480f6..72eb29e 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -581,12 +581,30 @@ static inline int bnxt_alloc_rx_page(struct bnxt *bp,
- 	struct page *page;
- 	dma_addr_t mapping;
- 	u16 sw_prod = rxr->rx_sw_agg_prod;
-+	unsigned int offset = 0;
+diff --git a/Documentation/networking/altera_tse.txt b/Documentation/networking/altera_tse.txt
+index 3f24df8..50b8589 100644
+--- a/Documentation/networking/altera_tse.txt
++++ b/Documentation/networking/altera_tse.txt
+@@ -6,7 +6,7 @@ This is the driver for the Altera Triple-Speed Ethernet (TSE) controllers
+ using the SGDMA and MSGDMA soft DMA IP components. The driver uses the
+ platform bus to obtain component resources. The designs used to test this
+ driver were built for a Cyclone(R) V SOC FPGA board, a Cyclone(R) V FPGA board,
+-and tested with ARM and NIOS processor hosts seperately. The anticipated use
++and tested with ARM and NIOS processor hosts separately. The anticipated use
+ cases are simple communications between an embedded system and an external peer
+ for status and simple configuration of the embedded system.
  
--	page = alloc_page(gfp);
--	if (!page)
--		return -ENOMEM;
-+	if (PAGE_SIZE > BNXT_RX_PAGE_SIZE) {
-+		page = rxr->rx_page;
-+		if (!page) {
-+			page = alloc_page(gfp);
-+			if (!page)
-+				return -ENOMEM;
-+			rxr->rx_page = page;
-+			rxr->rx_page_offset = 0;
-+		}
-+		offset = rxr->rx_page_offset;
-+		rxr->rx_page_offset += BNXT_RX_PAGE_SIZE;
-+		if (rxr->rx_page_offset == PAGE_SIZE)
-+			rxr->rx_page = NULL;
-+		else
-+			get_page(page);
-+	} else {
-+		page = alloc_page(gfp);
-+		if (!page)
-+			return -ENOMEM;
-+	}
+@@ -65,14 +65,14 @@ Driver parameters can be also passed in command line by using:
+ 4.1) Transmit process
+ When the driver's transmit routine is called by the kernel, it sets up a
+ transmit descriptor by calling the underlying DMA transmit routine (SGDMA or
+-MSGDMA), and initites a transmit operation. Once the transmit is complete, an
++MSGDMA), and initiates a transmit operation. Once the transmit is complete, an
+ interrupt is driven by the transmit DMA logic. The driver handles the transmit
+ completion in the context of the interrupt handling chain by recycling
+ resource required to send and track the requested transmit operation.
  
--	mapping = dma_map_page(&pdev->dev, page, 0, BNXT_RX_PAGE_SIZE,
-+	mapping = dma_map_page(&pdev->dev, page, offset, BNXT_RX_PAGE_SIZE,
- 			       PCI_DMA_FROMDEVICE);
- 	if (dma_mapping_error(&pdev->dev, mapping)) {
- 		__free_page(page);
-@@ -601,6 +619,7 @@ static inline int bnxt_alloc_rx_page(struct bnxt *bp,
- 	rxr->rx_sw_agg_prod = NEXT_RX_AGG(sw_prod);
+ 4.2) Receive process
+ The driver will post receive buffers to the receive DMA logic during driver
+-intialization. Receive buffers may or may not be queued depending upon the
++initialization. Receive buffers may or may not be queued depending upon the
+ underlying DMA logic (MSGDMA is able queue receive buffers, SGDMA is not able
+ to queue receive buffers to the SGDMA receive logic). When a packet is
+ received, the DMA logic generates an interrupt. The driver handles a receive
+diff --git a/Documentation/networking/ipvlan.txt b/Documentation/networking/ipvlan.txt
+index cf99639..14422f8 100644
+--- a/Documentation/networking/ipvlan.txt
++++ b/Documentation/networking/ipvlan.txt
+@@ -8,7 +8,7 @@ Initial Release:
+ 	This is conceptually very similar to the macvlan driver with one major
+ exception of using L3 for mux-ing /demux-ing among slaves. This property makes
+ the master device share the L2 with it's slave devices. I have developed this
+-driver in conjuntion with network namespaces and not sure if there is use case
++driver in conjunction with network namespaces and not sure if there is use case
+ outside of it.
  
- 	rx_agg_buf->page = page;
-+	rx_agg_buf->offset = offset;
- 	rx_agg_buf->mapping = mapping;
- 	rxbd->rx_bd_haddr = cpu_to_le64(mapping);
- 	rxbd->rx_bd_opaque = sw_prod;
-@@ -642,6 +661,7 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
- 		page = cons_rx_buf->page;
- 		cons_rx_buf->page = NULL;
- 		prod_rx_buf->page = page;
-+		prod_rx_buf->offset = cons_rx_buf->offset;
  
- 		prod_rx_buf->mapping = cons_rx_buf->mapping;
+@@ -42,7 +42,7 @@ out. In this mode the slaves will RX/TX multicast and broadcast (if applicable)
+ as well.
  
-@@ -709,7 +729,8 @@ static struct sk_buff *bnxt_rx_pages(struct bnxt *bp, struct bnxt_napi *bnapi,
- 			    RX_AGG_CMP_LEN) >> RX_AGG_CMP_LEN_SHIFT;
+ 4.2 L3 mode:
+-	In this mode TX processing upto L3 happens on the stack instance attached
++	In this mode TX processing up to L3 happens on the stack instance attached
+ to the slave device and packets are switched to the stack instance of the
+ master device for the L2 processing and routing from that instance will be
+ used before packets are queued on the outbound device. In this mode the slaves
+@@ -56,7 +56,7 @@ situations defines your use case then you can choose to use ipvlan -
+ 	(a) The Linux host that is connected to the external switch / router has
+ policy configured that allows only one mac per port.
+ 	(b) No of virtual devices created on a master exceed the mac capacity and
+-puts the NIC in promiscous mode and degraded performance is a concern.
++puts the NIC in promiscuous mode and degraded performance is a concern.
+ 	(c) If the slave device is to be put into the hostile / untrusted network
+ namespace where L2 on the slave could be changed / misused.
  
- 		cons_rx_buf = &rxr->rx_agg_ring[cons];
--		skb_fill_page_desc(skb, i, cons_rx_buf->page, 0, frag_len);
-+		skb_fill_page_desc(skb, i, cons_rx_buf->page,
-+				   cons_rx_buf->offset, frag_len);
- 		__clear_bit(cons, rxr->rx_agg_bmap);
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index f4be85e..2c4e335 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -67,12 +67,12 @@ The two basic thread commands are:
+  * add_device DEVICE@NAME -- adds a single device
+  * rem_device_all         -- remove all associated devices
  
- 		/* It is possible for bnxt_alloc_rx_page() to allocate
-@@ -1591,6 +1612,10 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+-When adding a device to a thread, a corrosponding procfile is created
++When adding a device to a thread, a corresponding procfile is created
+ which is used for configuring this device. Thus, device names need to
+ be unique.
  
- 			__free_page(page);
- 		}
-+		if (rxr->rx_page) {
-+			__free_page(rxr->rx_page);
-+			rxr->rx_page = NULL;
-+		}
- 	}
- }
+ To support adding the same device to multiple threads, which is useful
+-with multi queue NICs, a the device naming scheme is extended with "@":
++with multi queue NICs, the device naming scheme is extended with "@":
+  device@something
  
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 0cf1e2a..8b823ff 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -515,6 +515,7 @@ struct bnxt_sw_rx_bd {
+ The part after "@" can be anything, but it is custom to use the thread
+@@ -221,7 +221,7 @@ Sample scripts
  
- struct bnxt_sw_rx_agg_bd {
- 	struct page		*page;
-+	unsigned int		offset;
- 	dma_addr_t		mapping;
- };
+ A collection of tutorial scripts and helpers for pktgen is in the
+ samples/pktgen directory. The helper parameters.sh file support easy
+-and consistant parameter parsing across the sample scripts.
++and consistent parameter parsing across the sample scripts.
  
-@@ -595,6 +596,9 @@ struct bnxt_rx_ring_info {
- 	unsigned long		*rx_agg_bmap;
- 	u16			rx_agg_bmap_size;
+ Usage example and help:
+  ./pktgen_sample01_simple.sh -i eth4 -m 00:1B:21:3C:9D:F8 -d 192.168.8.2
+diff --git a/Documentation/networking/vrf.txt b/Documentation/networking/vrf.txt
+index d52aa10..5da679c 100644
+--- a/Documentation/networking/vrf.txt
++++ b/Documentation/networking/vrf.txt
+@@ -41,7 +41,7 @@ using an rx_handler which gives the impression that packets flow through
+ the VRF device. Similarly on egress routing rules are used to send packets
+ to the VRF device driver before getting sent out the actual interface. This
+ allows tcpdump on a VRF device to capture all packets into and out of the
+-VRF as a whole.[1] Similiarly, netfilter [2] and tc rules can be applied
++VRF as a whole.[1] Similarly, netfilter [2] and tc rules can be applied
+ using the VRF device to specify rules that apply to the VRF domain as a whole.
  
-+	struct page		*rx_page;
-+	unsigned int		rx_page_offset;
-+
- 	dma_addr_t		rx_desc_mapping[MAX_RX_PAGES];
- 	dma_addr_t		rx_agg_desc_mapping[MAX_RX_AGG_PAGES];
+ [1] Packets in the forwarded state do not flow through the device, so those
+diff --git a/Documentation/networking/xfrm_sync.txt b/Documentation/networking/xfrm_sync.txt
+index d7aac9d..8d88e0f 100644
+--- a/Documentation/networking/xfrm_sync.txt
++++ b/Documentation/networking/xfrm_sync.txt
+@@ -4,7 +4,7 @@ Krisztian <hidden@balabit.hu> and others and additional patches
+ from Jamal <hadi@cyberus.ca>.
  
+ The end goal for syncing is to be able to insert attributes + generate
+-events so that the an SA can be safely moved from one machine to another
++events so that the SA can be safely moved from one machine to another
+ for HA purposes.
+ The idea is to synchronize the SA so that the takeover machine can do
+ the processing of the SA as accurate as possible if it has access to it.
+@@ -13,7 +13,7 @@ We already have the ability to generate SA add/del/upd events.
+ These patches add ability to sync and have accurate lifetime byte (to
+ ensure proper decay of SAs) and replay counters to avoid replay attacks
+ with as minimal loss at failover time.
+-This way a backup stays as closely uptodate as an active member.
++This way a backup stays as closely up-to-date as an active member.
+ 
+ Because the above items change for every packet the SA receives,
+ it is possible for a lot of the events to be generated.
+@@ -163,7 +163,7 @@ If you have an SA that is getting hit by traffic in bursts such that
+ there is a period where the timer threshold expires with no packets
+ seen, then an odd behavior is seen as follows:
+ The first packet arrival after a timer expiry will trigger a timeout
+-aevent; i.e we dont wait for a timeout period or a packet threshold
++event; i.e we don't wait for a timeout period or a packet threshold
+ to be reached. This is done for simplicity and efficiency reasons.
+ 
+ -JHS
 -- 
-1.8.3.1
+2.8.0
