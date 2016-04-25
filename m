@@ -1,140 +1,208 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v2 net-next] net: ipv6: Use passed in table for nexthop lookups
-Date: Sun, 24 Apr 2016 21:26:04 -0700
-Message-ID: <1461558364-17970-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36434 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927AbcDYE0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 00:26:13 -0400
-Received: by mail-pf0-f178.google.com with SMTP id c189so16856615pfb.3
-        for <netdev@vger.kernel.org>; Sun, 24 Apr 2016 21:26:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH 2/6] Documentation: DT binding doc for iProc Shared MDIO Controller.
+Date: Mon, 25 Apr 2016 09:57:32 +0530
+Message-ID: <c943aae3b7a5d9600cd329520a19eb0f@mail.gmail.com>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+ <1461230323-27891-3-git-send-email-pramod.kumar@broadcom.com> <20160422201045.GA32303@rob-hp-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160422201045.GA32303@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Similar to 3bfd847203c6 ("net: Use passed in table for nexthop lookups")
-for IPv4, if the route spec contains a table id use that to lookup the
-next hop first and fall back to a full lookup if it fails (per the fix
-4c9bcd117918b ("net: Fix nexthop lookups")).
+Hi Rob,
 
-Example:
+Thanks for reviewing and providing your valuable comments.
 
-    root@kenny:~# ip -6 ro ls table red
-    local 2100:1::1 dev lo  proto none  metric 0  pref medium
-    2100:1::/120 dev eth1  proto kernel  metric 256  pref medium
-    local 2100:2::1 dev lo  proto none  metric 0  pref medium
-    2100:2::/120 dev eth2  proto kernel  metric 256  pref medium
-    local fe80::e0:f9ff:fe09:3cac dev lo  proto none  metric 0  pref medium
-    local fe80::e0:f9ff:fe1c:b974 dev lo  proto none  metric 0  pref medium
-    fe80::/64 dev eth1  proto kernel  metric 256  pref medium
-    fe80::/64 dev eth2  proto kernel  metric 256  pref medium
-    ff00::/8 dev red  metric 256  pref medium
-    ff00::/8 dev eth1  metric 256  pref medium
-    ff00::/8 dev eth2  metric 256  pref medium
-    unreachable default dev lo  metric 240  error -113 pref medium
+> -----Original Message-----
+> From: Rob Herring [mailto:robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org]
+> Sent: 23 April 2016 01:41
+> To: Pramod Kumar
+> Cc: Catalin Marinas; Will Deacon; Masahiro Yamada; Chen-Yu Tsai; Mark
+> Rutland; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Pawel Moll; Arnd Bergmann; Suzuki K
+> Poulose; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Punit Agrawal;
+linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> BCM Kernel Feedback; linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Subject: Re: [PATCH 2/6] Documentation: DT binding doc for iProc Shared
+MDIO
+> Controller.
+>
+> On Thu, Apr 21, 2016 at 02:48:39PM +0530, Pramod Kumar wrote:
+> > Add DT binding doc for iProc Shared MDIO Controller which populate all
+> > masters to Shared MDIO framework.
+> >
+> > Signed-off-by: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> > Reviewed-by: Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> > Reviewed-by: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> > ---
+> >  .../bindings/bus/brcm,iproc-shared-mdio.txt        | 76
+> ++++++++++++++++++++++
+> >  1 file changed, 76 insertions(+)
+> >  create mode 100644
+> > Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+> >
+> > diff --git
+> > a/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+> > b/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+> > new file mode 100644
+> > index 0000000..f455f3d
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+> > @@ -0,0 +1,76 @@
+> > +Broadcom iProc Shared MDIO Controller
+> > +
+> > +Required properties:
+> > +- compatible:
+> > +    "brcm,iproc-shared-mdio" for shared MDIO controller.
+> > +- reg: specifies the base physical address and size of the registers
+> > +- reg-names: should be "mdio"
+> > +- #address-cells: must be 1.
+> > +- #size-cells: must be 0.
+> > +
+> > +optional:
+> > +child nodes: Masters are represented as a child node of shared MDIO
+> > +controller and all the PHYs handled by this master are represented as
+its child
+> node.
+>
+> Seems kind of useless if child nodes are optional.
+>
 
-    root@kenny:~# ip -6 ro add table red 2100:3::/64 via 2100:1::64
-    RTNETLINK answers: No route to host
+I agree. I'll put it under required properties.
 
-Route add fails even though 2100:1::64 is a reachable next hop:
-    root@kenny:~# ping6 -I red  2100:1::64
-    ping6: Warning: source address might be selected on device other than red.
-    PING 2100:1::64(2100:1::64) from 2100:1::1 red: 56 data bytes
-    64 bytes from 2100:1::64: icmp_seq=1 ttl=64 time=1.33 ms
+> > +
+> > +Master nodes properties are defined as-
+> > +
+> > +Required properties:
+> > +- compatible: Used to match driver of this PHY.
+> > +- reg: MDIO master ID.
+> > +- #address-cells: must be 1.
+> > +- #size-cells: must be 0.
+> > +
+> > +optional:
+> > +-brcm,phy-internal: if presents, PHYs are internal. Absence shows phy
+> > +is external.
+> > +-brcm,is-c45: if presents, Controller uses Clause-45 to issue MDIO
+> transaction.
+> > +else Controller uses Clause-22 for transactions.
+>
+> Isn't this a property of the phy? IIRC, there is a standard property or
+compatible
+> string for this.
+>
 
-With this patch:
-    root@kenny:~# ip -6 ro add table red 2100:3::/64 via 2100:1::64
-    root@kenny:~# ip -6 ro ls table red
-    local 2100:1::1 dev lo  proto none  metric 0  pref medium
-    2100:1::/120 dev eth1  proto kernel  metric 256  pref medium
-    local 2100:2::1 dev lo  proto none  metric 0  pref medium
-    2100:2::/120 dev eth2  proto kernel  metric 256  pref medium
-    2100:3::/64 via 2100:1::64 dev eth1  metric 1024  pref medium
-    local fe80::e0:f9ff:fe09:3cac dev lo  proto none  metric 0  pref medium
-    local fe80::e0:f9ff:fe1c:b974 dev lo  proto none  metric 0  pref medium
-    fe80::/64 dev eth1  proto kernel  metric 256  pref medium
-    fe80::/64 dev eth2  proto kernel  metric 256  pref medium
-    ff00::/8 dev red  metric 256  pref medium
-    ff00::/8 dev eth1  metric 256  pref medium
-    ff00::/8 dev eth2  metric 256  pref medium
-    unreachable default dev lo  metric 240  error -113 pref medium
+Shared MDIO controller's master holds all above property to ensure the
+proper MDIO transaction over its bus.  Hence tried to pinned here.
+These properties are standard one for the Ethernet PHY but Broadcom SoCs
+MDIO is shared even with other I/O subsystem. Other subsystem does not
+defines this property hence has been defined here.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v2
-- addressed DaveM's comment that table lookup failure falls back to full
-  lookup to be consistent with ipv4
-- moved new code to a helper for better readability
+> > +
+> > +PHY nodes are represented as the child node of Master. Child nodes
+> > +properties are defined as-
+> > +
+> > +Required properties:
+> > +-reg: phy id of attached PHY.
+> > +
+> > +optional:
+> > +There could be additional properties required to configure the
+> > +specific phy like phy-mode in case of gpphy node below. These should
+> > +be defined here and used by respective drivers.
+> > +
+> > +Example:
+> > +iproc_mdio: iproc_mdio@663f0000 {
+> > +	compatible = "brcm,iproc-shared-mdio";
+> > +	reg = <0x6602023c 0x14>;
+> > +	reg-names = "mdio";
+> > +	#address-cells = <1>;
+> > +	#size-cells = <0>;
+> > +
+> > +	sata-master@6 {
+>
+> mdio@6
 
- net/ipv6/route.c | 40 ++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 38 insertions(+), 2 deletions(-)
+Do you advise us to rename the node name as mdio@6? If yes, I don't have
+any personal preferences here and would do it. I'd thought to give proper
+name so that consumer could get what this node is representing.
+Please suggest us.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index d916d6ab9ad2..af46e19205f5 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1769,6 +1769,37 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
- 	return -EINVAL;
- }
- 
-+static struct rt6_info *ip6_nh_lookup_table(struct net *net,
-+					    struct fib6_config *cfg,
-+					    const struct in6_addr *gw_addr)
-+{
-+	struct flowi6 fl6 = {
-+		.flowi6_oif = cfg->fc_ifindex,
-+		.daddr = *gw_addr,
-+		.saddr = cfg->fc_prefsrc,
-+	};
-+	struct fib6_table *table;
-+	struct rt6_info *rt;
-+	int flags = 0;
-+
-+	table = fib6_get_table(net, cfg->fc_table);
-+	if (!table)
-+		return NULL;
-+
-+	if (!ipv6_addr_any(&cfg->fc_prefsrc))
-+		flags |= RT6_LOOKUP_F_HAS_SADDR;
-+
-+	rt = ip6_pol_route(net, table, cfg->fc_ifindex, &fl6, flags);
-+
-+	/* if table lookup failed, fall back to full lookup */
-+	if (rt == net->ipv6.ip6_null_entry) {
-+		ip6_rt_put(rt);
-+		rt = NULL;
-+	}
-+
-+	return rt;
-+}
-+
- static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- {
- 	struct net *net = cfg->fc_nlinfo.nl_net;
-@@ -1940,7 +1971,7 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- 		rt->rt6i_gateway = *gw_addr;
- 
- 		if (gwa_type != (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST)) {
--			struct rt6_info *grt;
-+			struct rt6_info *grt = NULL;
- 
- 			/* IPv6 strictly inhibits using not link-local
- 			   addresses as nexthop address.
-@@ -1952,7 +1983,12 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- 			if (!(gwa_type & IPV6_ADDR_UNICAST))
- 				goto out;
- 
--			grt = rt6_lookup(net, gw_addr, NULL, cfg->fc_ifindex, 1);
-+			if (cfg->fc_table)
-+				grt = ip6_nh_lookup_table(net, cfg, gw_addr);
-+
-+			if (!grt)
-+				grt = rt6_lookup(net, gw_addr, NULL,
-+						 cfg->fc_ifindex, 1);
- 
- 			err = -EHOSTUNREACH;
- 			if (!grt)
--- 
-2.1.4
+>
+> > +		compatible = "brcm,iproc-ns2-sata-phy";
+> > +		reg = <0x6>;
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +		brcm,phy-internal;
+> > +
+> > +		sata_phy0: sata-phy@1 {
+>
+> phy@1
+>
+
+Same as above.
+
+> > +			reg = <0x1>;
+> > +			#phy-cells = <0>;
+> > +		};
+> > +
+> > +		sata_phy1: sata-phy@2 {
+>
+> phy@2
+>
+
+Same as above.
+
+> > +			reg = <0x2>;
+> > +			#phy-cells = <0>;
+> > +		};
+> > +	};
+> > +
+> > +	eth-master@0 {
+>
+> mdio@0
+
+Same as above.
+>
+> > +		compatible = "brcm,iproc-mdio-master-eth";
+> > +		reg = <0x0>;
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +		gphy0: eth-phy@10 {
+>
+> phy@10
+>
+
+Same as above.
+> > +			reg = <0x10>;
+> > +			phy-mode = "mii";
+> > +		};
+> > +	};
+> > +};
+> > --
+> > 1.9.1
+> >
+> >
+> > _______________________________________________
+> > linux-arm-kernel mailing list
+> > linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+Regards,
+Pramod
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
