@@ -1,55 +1,47 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] [RFC] net: dsa: mv88e6xxx: Pre-initialize err in mv88e6xxx_port_bridge_join()
-Date: Mon, 25 Apr 2016 18:34:57 +0200
-Message-ID: <CAMuHMdVzeR9iMAJPwZj3HV56XwYcc_+eAhx+YiCN33Do3tsJSg@mail.gmail.com>
-References: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
-	<87r3dtybm8.fsf@ketchup.mtl.sfl>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH net] MAINTAINERS: net: update sfc maintainers
+Date: Mon, 25 Apr 2016 17:42:12 +0100
+Message-ID: <571E48E4.4050106@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87r3dtybm8.fsf@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Edward Cree <ecree@solarflare.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:4029 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752389AbcDYQm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 12:42:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien,
+Add myself and Edward Cree as maintainers.
+Remove Shradha Shah, who is on extended leave.
 
-On Mon, Apr 25, 2016 at 5:03 PM, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
-> Geert Uytterhoeven <geert@linux-m68k.org> writes:
->> drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_port_bri=
-dge_join=E2=80=99:
->> drivers/net/dsa/mv88e6xxx.c:2184: warning: =E2=80=98err=E2=80=99 may=
- be used uninitialized in this function
->
-> Interesting, I don't have those warnings on 207afda1b5036009...
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Edward Cree <ecree@solarflare.com>
+Cc: Shradha Shah <sshah@solarflare.com>
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+---
+ MAINTAINERS | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-It depends on the compiler version (still using 4.1.2) and options.
-
->> If netdev_notifier_changeupper_info.upper_dev is ever NULL, the brid=
-ge
->> parameter will be NULL too, and the function will return an
->> uninitialized value.
->>
->> Pre-initialize err to zero to fix this.
->>
->> Fixes: 207afda1b5036009 ("net: dsa: mv88e6xxx: share the same defaul=
-t FDB")
->> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
->> ---
->> Can this actually happen?
->
-> bridge cannot be NULL here. Also ps->ports[port].bridge_dev is assign=
-ed
-> to it before entering the for loop, so _mv88e6xxx_port_based_vlan_map
-> will be called at least for this port.
-
-But there's no way the compiler can know that...
-
-Gr{oetje,eeting}s,
-
-                        Geert
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 8491336..17ad615 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -10014,7 +10014,8 @@ F:	drivers/infiniband/hw/ocrdma/
+ 
+ SFC NETWORK DRIVER
+ M:	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+-M:	Shradha Shah <sshah@solarflare.com>
++M:	Edward Cree <ecree@solarflare.com>
++M:	Bert Kenward <bkenward@solarflare.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/sfc/
+-- 
+2.5.5
