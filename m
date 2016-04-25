@@ -1,48 +1,134 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Delete host routes on an ifdown
-Date: Mon, 25 Apr 2016 15:30:34 -0700
-Message-ID: <571E9A8A.50808@cumulusnetworks.com>
-References: <1461297372-18796-1-git-send-email-dsa@cumulusnetworks.com> <20160425.152611.583503438886577374.davem@davemloft.net> <571E72AA.4030100@cumulusnetworks.com> <20160425.164227.1599148827995063295.davem@davemloft.net>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH V3] net: stmmac: socfpga: Remove re-registration of reset
+ controller
+Date: Tue, 26 Apr 2016 00:55:27 +0200
+Message-ID: <571EA05F.3070200@denx.de>
+References: <1461240710-5381-1-git-send-email-marex@denx.de> <CAGhQ9VzpZcP23DC0LZ95YggtsBDsUCe-NHEtna7hY9Yvdr=ZGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-	mmanning@brocade.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	"peppe.cavallaro" <peppe.cavallaro@st.com>,
+	alexandre.torgue@st.com,
+	Matthew Gerlach <mgerlach@opensource.altera.com>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34798 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbcDYWag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 18:30:36 -0400
-Received: by mail-pa0-f48.google.com with SMTP id r5so63794111pag.1
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 15:30:36 -0700 (PDT)
-In-Reply-To: <20160425.164227.1599148827995063295.davem@davemloft.net>
+Received: from mail-out.m-online.net ([212.18.0.10]:52569 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbcDYWz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 18:55:59 -0400
+In-Reply-To: <CAGhQ9VzpZcP23DC0LZ95YggtsBDsUCe-NHEtna7hY9Yvdr=ZGg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/25/16, 1:42 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Mon, 25 Apr 2016 13:40:26 -0600
->
->> It's unfortunate you want to take that action. Last week I came across
->> a prior attempt by Stephen to do this same thing -- keep IPv6
->> addresses. That prior attempt was reverted by commit
->> 73a8bd74e261. Cumulus, Brocade, and others clearly want this
->> capability.
-> But nobody has implemented it correctly, it doesn't matter who wants
-> the feature.  That's why it keeps getting reverted.
->
-> Also, this testing you are talking about should have happened long
-> before you submitted that first patch that introduced all of these
-> regressions.  My observations tell me that the bulk of the testing
-> happened afterwards and that's why all the regressions are popping up
-> now.
-sorry if it seems that way. But we have been testing several versions of this patch
-internally. davidA has been throwing it at all of our internal tests just to make sure
-it gets all the testing it needs before 4.6 goes out. This last fix was something
-that I think got introduced in one of the later versions during re-implementing
-bits of it based on feedback. And one of our new recent tests under stress
-caught it and we rushed the fix out.
+On 04/25/2016 08:11 PM, Joachim Eastwood wrote:
+> Hi Marek,
 
-thanks,
-Roopa
+Hi!
+
+> On 21 April 2016 at 14:11, Marek Vasut <marex@denx.de> wrote:
+>> Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
+>> in stmmac_main.c functions call devm_reset_control_get() to register an
+>> reset controller for the stmmac. This results in an attempt to register
+>> two reset controllers for the same non-shared reset line.
+>>
+>> The first attempt to register the reset controller works fine. The second
+>> attempt fails with warning from the reset controller core, see below.
+>> The warning is produced because the reset line is non-shared and thus
+>> it is allowed to have only up-to one reset controller associated with
+>> that reset line, not two or more.
+>>
+>> The solution has multiple parts. First, the original socfpga_dwmac_init()
+>> is tweaked to use reset controller pointer from the stmmac_priv (private
+>> data of the stmmac core) instead of the local instance, which was used
+>> before. The local re-registration of the reset controller is removed.
+>>
+>> Next, the socfpga_dwmac_init() is moved after stmmac_dvr_probe() in the
+>> probe function. This order is legal according to Altera and it makes the
+>> code much easier, since there is no need to temporarily register and
+>> unregister the reset controller ; the reset controller is already registered
+>> by the stmmac_dvr_probe().
+>>
+>> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
+>> since the functionality is already performed by the stmmac core.
+> 
+> I am trying to rebase my changes on top of your two patches and
+> noticed a couple of things.
+> 
+>>  static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+>>  {
+>> -       struct socfpga_dwmac    *dwmac = priv;
+>> +       struct socfpga_dwmac *dwmac = priv;
+>>         struct net_device *ndev = platform_get_drvdata(pdev);
+>>         struct stmmac_priv *stpriv = NULL;
+>>         int ret = 0;
+>>
+>> -       if (ndev)
+>> -               stpriv = netdev_priv(ndev);
+>> +       if (!ndev)
+>> +               return -EINVAL;
+> 
+> ndev can never be NULL here. socfpga_dwmac_init() is only called if
+> stmmac_dvr_probe() succeeds or we are running the resume callback. So
+> I don't see how this could ever be NULL.
+
+That's a good point, this check can indeed be removed. While you're at
+the patching, can you remove this one ?
+
+>> +
+>> +       stpriv = netdev_priv(ndev);
+> 
+> It's not really nice to access 'stmmac_priv' as it should be private
+> to the core driver, but I don't see any other good solution right now.
+
+I guess some stmmac_reset_assert() wrapper would be nicer, yes. What do
+you think ?
+
+>> +       if (!stpriv)
+>> +               return -EINVAL;
+>>
+>>         /* Assert reset to the enet controller before changing the phy mode */
+>> -       if (dwmac->stmmac_rst)
+>> -               reset_control_assert(dwmac->stmmac_rst);
+>> +       if (stpriv->stmmac_rst)
+>> +               reset_control_assert(stpriv->stmmac_rst);
+>>
+>>         /* Setup the phy mode in the system manager registers according to
+>>          * devicetree configuration
+>> @@ -227,8 +210,8 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+>>         /* Deassert reset for the phy configuration to be sampled by
+>>          * the enet controller, and operation to start in requested mode
+>>          */
+>> -       if (dwmac->stmmac_rst)
+>> -               reset_control_deassert(dwmac->stmmac_rst);
+>> +       if (stpriv->stmmac_rst)
+>> +               reset_control_deassert(stpriv->stmmac_rst);
+>>
+>>         /* Before the enet controller is suspended, the phy is suspended.
+>>          * This causes the phy clock to be gated. The enet controller is
+>> @@ -245,7 +228,7 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+>>          * control register 0, and can be modified by the phy driver
+>>          * framework.
+>>          */
+>> -       if (stpriv && stpriv->phydev)
+>> +       if (stpriv->phydev)
+>>                 phy_resume(stpriv->phydev);
+> 
+> Before this change phy_resume() was only called during driver resume
+> when , but your patches cause phy_resume() to called at probe time as
+> well. Is this okey?
+
+I _hope_ it's OK. The cryptic comment above is not very helpful in this
+aspect. Dinh ? :)
+
+> regards,
+> Joachim Eastwood
+> 
+
+btw I wish you reviewed my patch a bit earlier to catch these bits.
+
+-- 
+Best regards,
+Marek Vasut
