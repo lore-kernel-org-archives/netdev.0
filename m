@@ -1,56 +1,65 @@
-From: "Andrew F. Davis" <afd-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v2 net-next] net: ethernet: enc28j60: add device tree
- support
-Date: Mon, 25 Apr 2016 13:04:56 -0500
-Message-ID: <571E5C48.6030001@ti.com>
-References: <31567588.rB9VrggOb6@wuerfel>
- <1461533283-24852-1-git-send-email-mhei@heimpold.de>
- <571E3A3D.5080602@ti.com> <7030050.tME0DkDS0E@kerker>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net v2 3/3] gre: allow creation of gretap interfaces in
+ metadata mode
+Date: Mon, 25 Apr 2016 11:00:35 -0700
+Message-ID: <CAOrHB_BZkZhSOWqgsHXDM_3o+zkgCwRYwOL2hr33_p02if9Fxw@mail.gmail.com>
+References: <cover.1461495411.git.jbenc@redhat.com>
+	<4917335385a75586c1f13b6a6d570d4cc5b0b132.1461495411.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Michael Heimpold <mhei-Z/Lg1yOAjpkb1SvskN2V4Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <7030050.tME0DkDS0E@kerker>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Simon Horman <simon.horman@netronome.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:38495 "EHLO
+	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbcDYSGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 14:06:05 -0400
+Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
+	by slow1-d.mail.gandi.net (Postfix) with ESMTP id CFDCC47EBF9
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 20:00:39 +0200 (CEST)
+Received: from mfilter38-d.gandi.net (mfilter38-d.gandi.net [217.70.178.169])
+	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 3EC6EC5A46
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 20:00:38 +0200 (CEST)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+	by mfilter38-d.gandi.net (mfilter38-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id Fs5jZ2sSV6w8 for <netdev@vger.kernel.org>;
+	Mon, 25 Apr 2016 20:00:36 +0200 (CEST)
+Received: from mail-ig0-f177.google.com (mail-ig0-f177.google.com [209.85.213.177])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 8C224C5A6A
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 20:00:36 +0200 (CEST)
+Received: by mail-ig0-f177.google.com with SMTP id u10so18581548igr.1
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 11:00:36 -0700 (PDT)
+In-Reply-To: <4917335385a75586c1f13b6a6d570d4cc5b0b132.1461495411.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2016 12:46 PM, Michael Heimpold wrote:
-> Hi,
-> 
-> Am Monday 25 April 2016, 10:39:41 schrieben Sie:
->> On 04/24/2016 04:28 PM, Michael Heimpold wrote:
->>> -	eth_hw_addr_random(dev);
->>> +
->>> +	macaddr = of_get_mac_address(spi->dev.of_node);
->>> +	if (macaddr)
->>
->> You should also check if it is a valid MAC for Ethernet, recommend:
->>
->> if (macaddr && is_valid_ether_addr(macaddr))
->>
-> 
-> But of_get_mac_address already takes care of this, see
-> http://lxr.free-electrons.com/source/drivers/of/of_net.c#L45
-> Also it already checks whether spi->dev.of_node is populated at all.
-> It returns NULL in both error cases.
-> So I prefered to omit both test here.
-> 
+On Sun, Apr 24, 2016 at 4:00 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> The IFLA_GRE_REMOTE attribute does not make sense together with collect
+> metadata and is ignored in such case. However, iproute2 always sets it; it
+> will be zero if there's no remote address specified on the command line.
+>
+> Remove the check for non-zero IFLA_GRE_REMOTE when collect medata flag is
+> set.
+>
+Rather than cover up in ip_gre kernel module, why not just fix
+iproute2 to set the attribute correctly?
 
-Ah, missed that, no problem here then.
 
-Hmm, I wonder how many other drivers then do this check needlessly..
-Time to fire-up Coccinelle :)
+> Before the patch, this command returns failure, after the patch, it works as
+> expected:
+>
+> ip link add gre1 type gretap external
+>
+> Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+> New in v2.
+> ---
 
-Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  net/ipv4/ip_gre.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
