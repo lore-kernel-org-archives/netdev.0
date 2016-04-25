@@ -1,80 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 3/9] ipv6: use nla_put_u64_64bit()
-Date: Mon, 25 Apr 2016 10:25:16 +0200
-Message-ID: <1461572722-6029-4-git-send-email-nicolas.dichtel@6wind.com>
-References: <1461572722-6029-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, jhs@mojatatu.com, stephen@networkplumber.org,
-	pshelar@nicira.com, aar@pengutronix.de, linux-wpan@vger.kernel.org,
-	wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
-	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: myri10ge: fix sleeping with bh disabled
+Date: Mon, 25 Apr 2016 10:59:19 +0200
+Message-ID: <20160425085918.GB2608@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Hyong-Youb Kim <hykim@myri.com>
 To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1461572722-6029-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37052 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753483AbcDYJBj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 05:01:39 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+napi_disable() can not be called with bh disabled, move locking just
+around myri10ge_ss_lock_napi() .
+
+Patches fixes following bug:
+
+[  114.278378] BUG: sleeping function called from invalid context at net/core/dev.c:4383 
+<snip>
+[  114.313712] Call Trace: 
+[  114.314943]  [<ffffffff817010ce>] dump_stack+0x19/0x1b 
+[  114.317673]  [<ffffffff810ce7f3>] __might_sleep+0x173/0x230 
+[  114.320566]  [<ffffffff815b3117>] napi_disable+0x27/0x90 
+[  114.323254]  [<ffffffffa01e437f>] myri10ge_close+0xbf/0x3f0 [myri10ge] 
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 ---
- include/uapi/linux/ila.h |  1 +
- net/ipv6/ila/ila_lwt.c   |  3 ++-
- net/ipv6/ila/ila_xlat.c  | 15 +++++++++------
- 3 files changed, 12 insertions(+), 7 deletions(-)
-
-diff --git a/include/uapi/linux/ila.h b/include/uapi/linux/ila.h
-index abde7bbd6f3b..cd97951680bf 100644
---- a/include/uapi/linux/ila.h
-+++ b/include/uapi/linux/ila.h
-@@ -14,6 +14,7 @@ enum {
- 	ILA_ATTR_LOCATOR_MATCH,			/* u64 */
- 	ILA_ATTR_IFINDEX,			/* s32 */
- 	ILA_ATTR_DIR,				/* u32 */
-+	ILA_ATTR_PAD,
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 270c9ee..6d1a956 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -2668,9 +2668,9 @@ static int myri10ge_close(struct net_device *dev)
  
- 	__ILA_ATTR_MAX,
- };
-diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
-index 2ae3c4fd8aab..9db3621b2126 100644
---- a/net/ipv6/ila/ila_lwt.c
-+++ b/net/ipv6/ila/ila_lwt.c
-@@ -109,7 +109,8 @@ static int ila_fill_encap_info(struct sk_buff *skb,
- {
- 	struct ila_params *p = ila_params_lwtunnel(lwtstate);
+ 	del_timer_sync(&mgp->watchdog_timer);
+ 	mgp->running = MYRI10GE_ETH_STOPPING;
+-	local_bh_disable(); /* myri10ge_ss_lock_napi needs bh disabled */
+ 	for (i = 0; i < mgp->num_slices; i++) {
+ 		napi_disable(&mgp->ss[i].napi);
++		local_bh_disable(); /* myri10ge_ss_lock_napi needs this */
+ 		/* Lock the slice to prevent the busy_poll handler from
+ 		 * accessing it.  Later when we bring the NIC up, myri10ge_open
+ 		 * resets the slice including this lock.
+@@ -2679,8 +2679,8 @@ static int myri10ge_close(struct net_device *dev)
+ 			pr_info("Slice %d locked\n", i);
+ 			mdelay(1);
+ 		}
++		local_bh_enable();
+ 	}
+-	local_bh_enable();
+ 	netif_carrier_off(dev);
  
--	if (nla_put_u64(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator))
-+	if (nla_put_u64_64bit(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator,
-+			      ILA_ATTR_PAD))
- 		goto nla_put_failure;
- 
- 	return 0;
-diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
-index 0b03533453e4..0e9e579410da 100644
---- a/net/ipv6/ila/ila_xlat.c
-+++ b/net/ipv6/ila/ila_xlat.c
-@@ -418,12 +418,15 @@ static int ila_nl_cmd_del_mapping(struct sk_buff *skb, struct genl_info *info)
- 
- static int ila_fill_info(struct ila_map *ila, struct sk_buff *msg)
- {
--	if (nla_put_u64(msg, ILA_ATTR_IDENTIFIER,
--			(__force u64)ila->p.identifier) ||
--	    nla_put_u64(msg, ILA_ATTR_LOCATOR,
--			(__force u64)ila->p.ip.locator) ||
--	    nla_put_u64(msg, ILA_ATTR_LOCATOR_MATCH,
--			(__force u64)ila->p.ip.locator_match) ||
-+	if (nla_put_u64_64bit(msg, ILA_ATTR_IDENTIFIER,
-+			      (__force u64)ila->p.identifier,
-+			      ILA_ATTR_PAD) ||
-+	    nla_put_u64_64bit(msg, ILA_ATTR_LOCATOR,
-+			      (__force u64)ila->p.ip.locator,
-+			      ILA_ATTR_PAD) ||
-+	    nla_put_u64_64bit(msg, ILA_ATTR_LOCATOR_MATCH,
-+			      (__force u64)ila->p.ip.locator_match,
-+			      ILA_ATTR_PAD) ||
- 	    nla_put_s32(msg, ILA_ATTR_IFINDEX, ila->p.ifindex) ||
- 	    nla_put_u32(msg, ILA_ATTR_DIR, ila->p.dir))
- 		return -1;
--- 
-2.8.1
-
+ 	netif_tx_stop_all_queues(dev);
