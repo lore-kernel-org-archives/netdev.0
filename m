@@ -1,443 +1,232 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] ixgbe/ixgbevf: Add support for GSO partial
-Date: Mon, 25 Apr 2016 05:44:27 -0700
-Message-ID: <1461588269-128728-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] ixgbevf: add support for per-queue ethtool stats
+Date: Mon, 25 Apr 2016 05:44:21 -0700
+Message-ID: <1461588269-128728-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:48454 "EHLO mga14.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23530 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754623AbcDYMoe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 08:44:34 -0400
+	id S1754636AbcDYMof (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 08:44:35 -0400
 In-Reply-To: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch adds support for partial GSO segmentation in the case of
-tunnels.  Specifically with this change the driver an perform segmentation
-as long as the frame either has IPv6 inner headers, or we are allowed to
-mangle the IP IDs on the inner header.  This is needed because we will not
-be modifying any fields from the start of the start of the outer transport
-header to the start of the inner transport header as we are treating them
-like they are just a block of IP options.
+Implement per-queue statistics for packets, bytes and busy poll
+specific counters.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 133 ++++++++++++++--------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 129 +++++++++++++++------
- 2 files changed, 180 insertions(+), 82 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c | 127 +++++++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  10 ---
+ 2 files changed, 91 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 60592cf..0ef4a15 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7256,9 +7256,18 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
- 		     struct ixgbe_tx_buffer *first,
- 		     u8 *hdr_len)
- {
-+	u32 vlan_macip_lens, type_tucmd, mss_l4len_idx;
- 	struct sk_buff *skb = first->skb;
--	u32 vlan_macip_lens, type_tucmd;
--	u32 mss_l4len_idx, l4len;
-+	union {
-+		struct iphdr *v4;
-+		struct ipv6hdr *v6;
-+		unsigned char *hdr;
-+	} ip;
-+	union {
-+		struct tcphdr *tcp;
-+		unsigned char *hdr;
-+	} l4;
-+	u32 paylen, l4_offset;
- 	int err;
- 
- 	if (skb->ip_summed != CHECKSUM_PARTIAL)
-@@ -7271,46 +7280,52 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
- 	if (err < 0)
- 		return err;
- 
-+	ip.hdr = skb_network_header(skb);
-+	l4.hdr = skb_checksum_start(skb);
-+
- 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
- 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
- 
--	if (first->protocol == htons(ETH_P_IP)) {
--		struct iphdr *iph = ip_hdr(skb);
--		iph->tot_len = 0;
--		iph->check = 0;
--		tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
--							 iph->daddr, 0,
--							 IPPROTO_TCP,
--							 0);
-+	/* initialize outer IP header fields */
-+	if (ip.v4->version == 4) {
-+		/* IP header will have to cancel out any data that
-+		 * is not a part of the outer IP header
-+		 */
-+		ip.v4->check = csum_fold(csum_add(lco_csum(skb),
-+						  csum_unfold(l4.tcp->check)));
- 		type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
-+
-+		ip.v4->tot_len = 0;
- 		first->tx_flags |= IXGBE_TX_FLAGS_TSO |
- 				   IXGBE_TX_FLAGS_CSUM |
- 				   IXGBE_TX_FLAGS_IPV4;
--	} else if (skb_is_gso_v6(skb)) {
--		ipv6_hdr(skb)->payload_len = 0;
--		tcp_hdr(skb)->check =
--		    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
--				     &ipv6_hdr(skb)->daddr,
--				     0, IPPROTO_TCP, 0);
-+	} else {
-+		ip.v6->payload_len = 0;
- 		first->tx_flags |= IXGBE_TX_FLAGS_TSO |
- 				   IXGBE_TX_FLAGS_CSUM;
- 	}
- 
--	/* compute header lengths */
--	l4len = tcp_hdrlen(skb);
--	*hdr_len = skb_transport_offset(skb) + l4len;
-+	/* determine offset of inner transport header */
-+	l4_offset = l4.hdr - skb->data;
-+
-+	/* compute length of segmentation header */
-+	*hdr_len = (l4.tcp->doff * 4) + l4_offset;
-+
-+	/* remove payload length from inner checksum */
-+	paylen = skb->len - l4_offset;
-+	csum_replace_by_diff(&l4.tcp->check, htonl(paylen));
- 
- 	/* update gso size and bytecount with header size */
- 	first->gso_segs = skb_shinfo(skb)->gso_segs;
- 	first->bytecount += (first->gso_segs - 1) * *hdr_len;
- 
- 	/* mss_l4len_id: use 0 as index for TSO */
--	mss_l4len_idx = l4len << IXGBE_ADVTXD_L4LEN_SHIFT;
-+	mss_l4len_idx = (*hdr_len - l4_offset) << IXGBE_ADVTXD_L4LEN_SHIFT;
- 	mss_l4len_idx |= skb_shinfo(skb)->gso_size << IXGBE_ADVTXD_MSS_SHIFT;
- 
- 	/* vlan_macip_lens: HEADLEN, MACLEN, VLAN tag */
--	vlan_macip_lens = skb_network_header_len(skb);
--	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
-+	vlan_macip_lens = l4.hdr - ip.hdr;
-+	vlan_macip_lens |= (ip.hdr - skb->data) << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
- 
- 	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0, type_tucmd,
-@@ -8898,17 +8913,36 @@ static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
- 	kfree(fwd_adapter);
- }
- 
--#define IXGBE_MAX_TUNNEL_HDR_LEN 80
-+#define IXGBE_MAX_MAC_HDR_LEN		127
-+#define IXGBE_MAX_NETWORK_HDR_LEN	511
-+
- static netdev_features_t
- ixgbe_features_check(struct sk_buff *skb, struct net_device *dev,
- 		     netdev_features_t features)
- {
--	if (!skb->encapsulation)
--		return features;
--
--	if (unlikely(skb_inner_mac_header(skb) - skb_transport_header(skb) >
--		     IXGBE_MAX_TUNNEL_HDR_LEN))
--		return features & ~NETIF_F_CSUM_MASK;
-+	unsigned int network_hdr_len, mac_hdr_len;
-+
-+	/* Make certain the headers can be described by a context descriptor */
-+	mac_hdr_len = skb_network_header(skb) - skb->data;
-+	if (unlikely(mac_hdr_len > IXGBE_MAX_MAC_HDR_LEN))
-+		return features & ~(NETIF_F_HW_CSUM |
-+				    NETIF_F_SCTP_CRC |
-+				    NETIF_F_HW_VLAN_CTAG_TX |
-+				    NETIF_F_TSO |
-+				    NETIF_F_TSO6);
-+
-+	network_hdr_len = skb_checksum_start(skb) - skb_network_header(skb);
-+	if (unlikely(network_hdr_len >  IXGBE_MAX_NETWORK_HDR_LEN))
-+		return features & ~(NETIF_F_HW_CSUM |
-+				    NETIF_F_SCTP_CRC |
-+				    NETIF_F_TSO |
-+				    NETIF_F_TSO6);
-+
-+	/* We can only support IPV4 TSO in tunnels if we can mangle the
-+	 * inner IP ID field, so strip TSO if MANGLEID is not supported.
-+	 */
-+	if (skb->encapsulation && !(features & NETIF_F_TSO_MANGLEID))
-+		features &= ~NETIF_F_TSO;
- 
- 	return features;
- }
-@@ -9275,31 +9309,44 @@ skip_sriov:
- 			   NETIF_F_TSO6 |
- 			   NETIF_F_RXHASH |
- 			   NETIF_F_RXCSUM |
--			   NETIF_F_HW_CSUM |
--			   NETIF_F_HW_VLAN_CTAG_TX |
--			   NETIF_F_HW_VLAN_CTAG_RX |
--			   NETIF_F_HW_VLAN_CTAG_FILTER;
-+			   NETIF_F_HW_CSUM;
-+
-+#define IXGBE_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
-+				    NETIF_F_GSO_GRE_CSUM | \
-+				    NETIF_F_GSO_IPIP | \
-+				    NETIF_F_GSO_SIT | \
-+				    NETIF_F_GSO_UDP_TUNNEL | \
-+				    NETIF_F_GSO_UDP_TUNNEL_CSUM)
-+
-+	netdev->gso_partial_features = IXGBE_GSO_PARTIAL_FEATURES;
-+	netdev->features |= NETIF_F_GSO_PARTIAL |
-+			    IXGBE_GSO_PARTIAL_FEATURES;
- 
- 	if (hw->mac.type >= ixgbe_mac_82599EB)
- 		netdev->features |= NETIF_F_SCTP_CRC;
- 
- 	/* copy netdev features into list of user selectable features */
--	netdev->hw_features |= netdev->features;
--	netdev->hw_features |= NETIF_F_RXALL |
-+	netdev->hw_features |= netdev->features |
-+			       NETIF_F_HW_VLAN_CTAG_RX |
-+			       NETIF_F_HW_VLAN_CTAG_TX |
-+			       NETIF_F_RXALL |
- 			       NETIF_F_HW_L2FW_DOFFLOAD;
- 
- 	if (hw->mac.type >= ixgbe_mac_82599EB)
- 		netdev->hw_features |= NETIF_F_NTUPLE |
- 				       NETIF_F_HW_TC;
- 
--	netdev->vlan_features |= NETIF_F_SG |
--				 NETIF_F_TSO |
--				 NETIF_F_TSO6 |
--				 NETIF_F_HW_CSUM |
--				 NETIF_F_SCTP_CRC;
-+	if (pci_using_dac)
-+		netdev->features |= NETIF_F_HIGHDMA;
-+
-+	/* set this bit last since it cannot be part of vlan_features */
-+	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
-+			    NETIF_F_HW_VLAN_CTAG_RX |
-+			    NETIF_F_HW_VLAN_CTAG_TX;
- 
-+	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
-+	netdev->hw_enc_features |= netdev->vlan_features;
- 	netdev->mpls_features |= NETIF_F_HW_CSUM;
--	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
- 
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
-@@ -9330,10 +9377,6 @@ skip_sriov:
- 					 NETIF_F_FCOE_MTU;
- 	}
- #endif /* IXGBE_FCOE */
--	if (pci_using_dac) {
--		netdev->features |= NETIF_F_HIGHDMA;
--		netdev->vlan_features |= NETIF_F_HIGHDMA;
--	}
- 
- 	if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)
- 		netdev->hw_features |= NETIF_F_LRO;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index e4e6060..eb91922 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3272,9 +3272,18 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
- 		       struct ixgbevf_tx_buffer *first,
- 		       u8 *hdr_len)
- {
-+	u32 vlan_macip_lens, type_tucmd, mss_l4len_idx;
- 	struct sk_buff *skb = first->skb;
--	u32 vlan_macip_lens, type_tucmd;
--	u32 mss_l4len_idx, l4len;
-+	union {
-+		struct iphdr *v4;
-+		struct ipv6hdr *v6;
-+		unsigned char *hdr;
-+	} ip;
-+	union {
-+		struct tcphdr *tcp;
-+		unsigned char *hdr;
-+	} l4;
-+	u32 paylen, l4_offset;
- 	int err;
- 
- 	if (skb->ip_summed != CHECKSUM_PARTIAL)
-@@ -3287,49 +3296,53 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
- 	if (err < 0)
- 		return err;
- 
-+	ip.hdr = skb_network_header(skb);
-+	l4.hdr = skb_checksum_start(skb);
-+
- 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
- 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
- 
--	if (first->protocol == htons(ETH_P_IP)) {
--		struct iphdr *iph = ip_hdr(skb);
--
--		iph->tot_len = 0;
--		iph->check = 0;
--		tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
--							 iph->daddr, 0,
--							 IPPROTO_TCP,
--							 0);
-+	/* initialize outer IP header fields */
-+	if (ip.v4->version == 4) {
-+		/* IP header will have to cancel out any data that
-+		 * is not a part of the outer IP header
-+		 */
-+		ip.v4->check = csum_fold(csum_add(lco_csum(skb),
-+						  csum_unfold(l4.tcp->check)));
- 		type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
-+
-+		ip.v4->tot_len = 0;
- 		first->tx_flags |= IXGBE_TX_FLAGS_TSO |
- 				   IXGBE_TX_FLAGS_CSUM |
- 				   IXGBE_TX_FLAGS_IPV4;
--	} else if (skb_is_gso_v6(skb)) {
--		ipv6_hdr(skb)->payload_len = 0;
--		tcp_hdr(skb)->check =
--		    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
--				     &ipv6_hdr(skb)->daddr,
--				     0, IPPROTO_TCP, 0);
-+	} else {
-+		ip.v6->payload_len = 0;
- 		first->tx_flags |= IXGBE_TX_FLAGS_TSO |
- 				   IXGBE_TX_FLAGS_CSUM;
- 	}
- 
--	/* compute header lengths */
--	l4len = tcp_hdrlen(skb);
--	*hdr_len += l4len;
--	*hdr_len = skb_transport_offset(skb) + l4len;
-+	/* determine offset of inner transport header */
-+	l4_offset = l4.hdr - skb->data;
-+
-+	/* compute length of segmentation header */
-+	*hdr_len = (l4.tcp->doff * 4) + l4_offset;
- 
--	/* update GSO size and bytecount with header size */
-+	/* remove payload length from inner checksum */
-+	paylen = skb->len - l4_offset;
-+	csum_replace_by_diff(&l4.tcp->check, htonl(paylen));
-+
-+	/* update gso size and bytecount with header size */
- 	first->gso_segs = skb_shinfo(skb)->gso_segs;
- 	first->bytecount += (first->gso_segs - 1) * *hdr_len;
- 
- 	/* mss_l4len_id: use 1 as index for TSO */
--	mss_l4len_idx = l4len << IXGBE_ADVTXD_L4LEN_SHIFT;
-+	mss_l4len_idx = (*hdr_len - l4_offset) << IXGBE_ADVTXD_L4LEN_SHIFT;
- 	mss_l4len_idx |= skb_shinfo(skb)->gso_size << IXGBE_ADVTXD_MSS_SHIFT;
- 	mss_l4len_idx |= (1u << IXGBE_ADVTXD_IDX_SHIFT);
- 
- 	/* vlan_macip_lens: HEADLEN, MACLEN, VLAN tag */
--	vlan_macip_lens = skb_network_header_len(skb);
--	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
-+	vlan_macip_lens = l4.hdr - ip.hdr;
-+	vlan_macip_lens |= (ip.hdr - skb->data) << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
- 
- 	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens,
-@@ -3870,6 +3883,40 @@ static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *netdev,
- 	return stats;
- }
- 
-+#define IXGBEVF_MAX_MAC_HDR_LEN		127
-+#define IXGBEVF_MAX_NETWORK_HDR_LEN	511
-+
-+static netdev_features_t
-+ixgbevf_features_check(struct sk_buff *skb, struct net_device *dev,
-+		       netdev_features_t features)
-+{
-+	unsigned int network_hdr_len, mac_hdr_len;
-+
-+	/* Make certain the headers can be described by a context descriptor */
-+	mac_hdr_len = skb_network_header(skb) - skb->data;
-+	if (unlikely(mac_hdr_len > IXGBEVF_MAX_MAC_HDR_LEN))
-+		return features & ~(NETIF_F_HW_CSUM |
-+				    NETIF_F_SCTP_CRC |
-+				    NETIF_F_HW_VLAN_CTAG_TX |
-+				    NETIF_F_TSO |
-+				    NETIF_F_TSO6);
-+
-+	network_hdr_len = skb_checksum_start(skb) - skb_network_header(skb);
-+	if (unlikely(network_hdr_len >  IXGBEVF_MAX_NETWORK_HDR_LEN))
-+		return features & ~(NETIF_F_HW_CSUM |
-+				    NETIF_F_SCTP_CRC |
-+				    NETIF_F_TSO |
-+				    NETIF_F_TSO6);
-+
-+	/* We can only support IPV4 TSO in tunnels if we can mangle the
-+	 * inner IP ID field, so strip TSO if MANGLEID is not supported.
-+	 */
-+	if (skb->encapsulation && !(features & NETIF_F_TSO_MANGLEID))
-+		features &= ~NETIF_F_TSO;
-+
-+	return features;
-+}
-+
- static const struct net_device_ops ixgbevf_netdev_ops = {
- 	.ndo_open		= ixgbevf_open,
- 	.ndo_stop		= ixgbevf_close,
-@@ -3888,7 +3935,7 @@ static const struct net_device_ops ixgbevf_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ixgbevf_netpoll,
- #endif
--	.ndo_features_check	= passthru_features_check,
-+	.ndo_features_check	= ixgbevf_features_check,
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index cd4d311..64d5c6e 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -75,14 +75,6 @@ static struct ixgbe_stats ixgbevf_gstrings_stats[] = {
+ 	IXGBEVF_STAT("tx_timeout_count", tx_timeout_count),
+ 	IXGBEVF_NETDEV_STAT(multicast),
+ 	IXGBEVF_STAT("rx_csum_offload_errors", hw_csum_rx_error),
+-#ifdef BP_EXTENDED_STATS
+-	IXGBEVF_STAT("rx_bp_poll_yield", bp_rx_yields),
+-	IXGBEVF_STAT("rx_bp_cleaned", bp_rx_cleaned),
+-	IXGBEVF_STAT("rx_bp_misses", bp_rx_missed),
+-	IXGBEVF_STAT("tx_bp_napi_yield", bp_tx_yields),
+-	IXGBEVF_STAT("tx_bp_cleaned", bp_tx_cleaned),
+-	IXGBEVF_STAT("tx_bp_misses", bp_tx_missed),
+-#endif
  };
  
- static void ixgbevf_assign_netdev_ops(struct net_device *dev)
-@@ -3999,23 +4046,31 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			      NETIF_F_HW_CSUM |
- 			      NETIF_F_SCTP_CRC;
+ #define IXGBEVF_QUEUE_STATS_LEN ( \
+@@ -389,13 +381,13 @@ clear_reset:
+ 	return err;
+ }
  
--	netdev->features = netdev->hw_features |
--			   NETIF_F_HW_VLAN_CTAG_TX |
--			   NETIF_F_HW_VLAN_CTAG_RX |
--			   NETIF_F_HW_VLAN_CTAG_FILTER;
-+#define IXGBEVF_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
-+				      NETIF_F_GSO_GRE_CSUM | \
-+				      NETIF_F_GSO_IPIP | \
-+				      NETIF_F_GSO_SIT | \
-+				      NETIF_F_GSO_UDP_TUNNEL | \
-+				      NETIF_F_GSO_UDP_TUNNEL_CSUM)
+-static int ixgbevf_get_sset_count(struct net_device *dev, int stringset)
++static int ixgbevf_get_sset_count(struct net_device *netdev, int stringset)
+ {
+ 	switch (stringset) {
+ 	case ETH_SS_TEST:
+ 		return IXGBEVF_TEST_LEN;
+ 	case ETH_SS_STATS:
+-		return IXGBEVF_GLOBAL_STATS_LEN;
++		return IXGBEVF_STATS_LEN;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -407,34 +399,11 @@ static void ixgbevf_get_ethtool_stats(struct net_device *netdev,
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	struct rtnl_link_stats64 temp;
+ 	const struct rtnl_link_stats64 *net_stats;
+-	int i;
++	unsigned int start;
++	struct ixgbevf_ring *ring;
++	int i, j;
+ 	char *p;
  
--	netdev->vlan_features |= NETIF_F_SG |
--				 NETIF_F_TSO |
--				 NETIF_F_TSO6 |
--				 NETIF_F_HW_CSUM |
--				 NETIF_F_SCTP_CRC;
-+	netdev->gso_partial_features = IXGBEVF_GSO_PARTIAL_FEATURES;
-+	netdev->hw_features |= NETIF_F_GSO_PARTIAL |
-+			       IXGBEVF_GSO_PARTIAL_FEATURES;
- 
--	netdev->mpls_features |= NETIF_F_HW_CSUM;
--	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
-+	netdev->features = netdev->hw_features;
- 
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
-+	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+	netdev->hw_enc_features |= netdev->vlan_features;
+-#ifdef BP_EXTENDED_STATS
+-	u64 rx_yields = 0, rx_cleaned = 0, rx_missed = 0,
+-	    tx_yields = 0, tx_cleaned = 0, tx_missed = 0;
+-
+-	for (i = 0; i < adapter->num_rx_queues; i++) {
+-		rx_yields += adapter->rx_ring[i]->stats.yields;
+-		rx_cleaned += adapter->rx_ring[i]->stats.cleaned;
+-		rx_yields += adapter->rx_ring[i]->stats.yields;
+-	}
+-
+-	for (i = 0; i < adapter->num_tx_queues; i++) {
+-		tx_yields += adapter->tx_ring[i]->stats.yields;
+-		tx_cleaned += adapter->tx_ring[i]->stats.cleaned;
+-		tx_yields += adapter->tx_ring[i]->stats.yields;
+-	}
+-
+-	adapter->bp_rx_yields = rx_yields;
+-	adapter->bp_rx_cleaned = rx_cleaned;
+-	adapter->bp_rx_missed = rx_missed;
+-
+-	adapter->bp_tx_yields = tx_yields;
+-	adapter->bp_tx_cleaned = tx_cleaned;
+-	adapter->bp_tx_missed = tx_missed;
+-#endif
+-
+ 	ixgbevf_update_stats(adapter);
+ 	net_stats = dev_get_stats(netdev, &temp);
+ 	for (i = 0; i < IXGBEVF_GLOBAL_STATS_LEN; i++) {
+@@ -455,11 +424,68 @@ static void ixgbevf_get_ethtool_stats(struct net_device *netdev,
+ 		data[i] = (ixgbevf_gstrings_stats[i].sizeof_stat ==
+ 			   sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+ 	}
 +
-+	/* set this bit last since it cannot be part of vlan_features */
-+	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
-+			    NETIF_F_HW_VLAN_CTAG_RX |
-+			    NETIF_F_HW_VLAN_CTAG_TX;
++	/* populate Tx queue data */
++	for (j = 0; j < adapter->num_tx_queues; j++) {
++		ring = adapter->tx_ring[j];
++		if (!ring) {
++			data[i++] = 0;
++			data[i++] = 0;
++#ifdef BP_EXTENDED_STATS
++			data[i++] = 0;
++			data[i++] = 0;
++			data[i++] = 0;
++#endif
++			continue;
++		}
 +
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
++		do {
++			start = u64_stats_fetch_begin_irq(&ring->syncp);
++			data[i]   = ring->stats.packets;
++			data[i + 1] = ring->stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
++		i += 2;
++#ifdef BP_EXTENDED_STATS
++		data[i] = ring->stats.yields;
++		data[i + 1] = ring->stats.misses;
++		data[i + 2] = ring->stats.cleaned;
++		i += 3;
++#endif
++	}
++
++	/* populate Rx queue data */
++	for (j = 0; j < adapter->num_rx_queues; j++) {
++		ring = adapter->rx_ring[j];
++		if (!ring) {
++			data[i++] = 0;
++			data[i++] = 0;
++#ifdef BP_EXTENDED_STATS
++			data[i++] = 0;
++			data[i++] = 0;
++			data[i++] = 0;
++#endif
++			continue;
++		}
++
++		do {
++			start = u64_stats_fetch_begin_irq(&ring->syncp);
++			data[i]   = ring->stats.packets;
++			data[i + 1] = ring->stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
++		i += 2;
++#ifdef BP_EXTENDED_STATS
++		data[i] = ring->stats.yields;
++		data[i + 1] = ring->stats.misses;
++		data[i + 2] = ring->stats.cleaned;
++		i += 3;
++#endif
++	}
+ }
  
- 	if (IXGBE_REMOVED(hw->hw_addr)) {
+ static void ixgbevf_get_strings(struct net_device *netdev, u32 stringset,
+ 				u8 *data)
+ {
++	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	char *p = (char *)data;
+ 	int i;
+ 
+@@ -474,6 +500,35 @@ static void ixgbevf_get_strings(struct net_device *netdev, u32 stringset,
+ 			       ETH_GSTRING_LEN);
+ 			p += ETH_GSTRING_LEN;
+ 		}
++
++		for (i = 0; i < adapter->num_tx_queues; i++) {
++			sprintf(p, "tx_queue_%u_packets", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_queue_%u_bytes", i);
++			p += ETH_GSTRING_LEN;
++#ifdef BP_EXTENDED_STATS
++			sprintf(p, "tx_queue_%u_bp_napi_yield", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_queue_%u_bp_misses", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_queue_%u_bp_cleaned", i);
++			p += ETH_GSTRING_LEN;
++#endif /* BP_EXTENDED_STATS */
++		}
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			sprintf(p, "rx_queue_%u_packets", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_bytes", i);
++			p += ETH_GSTRING_LEN;
++#ifdef BP_EXTENDED_STATS
++			sprintf(p, "rx_queue_%u_bp_poll_yield", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_bp_misses", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_bp_cleaned", i);
++			p += ETH_GSTRING_LEN;
++#endif /* BP_EXTENDED_STATS */
++		}
+ 		break;
+ 	}
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 5ac60ee..5ca3794 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -422,16 +422,6 @@ struct ixgbevf_adapter {
+ 	unsigned int tx_ring_count;
+ 	unsigned int rx_ring_count;
+ 
+-#ifdef BP_EXTENDED_STATS
+-	u64 bp_rx_yields;
+-	u64 bp_rx_cleaned;
+-	u64 bp_rx_missed;
+-
+-	u64 bp_tx_yields;
+-	u64 bp_tx_cleaned;
+-	u64 bp_tx_missed;
+-#endif
+-
+ 	u8 __iomem *io_addr; /* Mainly for iounmap use */
+ 	u32 link_speed;
+ 	bool link_up;
 -- 
 2.5.5
