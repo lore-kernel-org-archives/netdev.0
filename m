@@ -1,203 +1,68 @@
-From: Michael Heimpold <mhei@heimpold.de>
-Subject: Re: [PATCH v2 net-next] net: ethernet: enc28j60: add device tree support
-Date: Mon, 25 Apr 2016 19:46:53 +0200
-Message-ID: <7030050.tME0DkDS0E@kerker>
-References: <31567588.rB9VrggOb6@wuerfel> <1461533283-24852-1-git-send-email-mhei@heimpold.de> <571E3A3D.5080602@ti.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] [RFC] net: dsa: mv88e6xxx: Pre-initialize err in mv88e6xxx_port_bridge_join()
+Date: Mon, 25 Apr 2016 19:53:39 +0200
+Message-ID: <CAMuHMdVfYTx3CCa0GnqmcWHBQPYZZUYZQz1hOOaUjgXFmhVP3w@mail.gmail.com>
+References: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
+	<87r3dtybm8.fsf@ketchup.mtl.sfl>
+	<CAMuHMdVzeR9iMAJPwZj3HV56XwYcc_+eAhx+YiCN33Do3tsJSg@mail.gmail.com>
+	<87vb35a942.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jonathan Cameron <jic23@kernel.org>,
-	Mark Brown <broonie@kernel.org>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>
-To: "Andrew F. Davis" <afd@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:25098 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933183AbcDYRrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 13:47:02 -0400
-In-Reply-To: <571E3A3D.5080602@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87vb35a942.fsf@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Vivien,
 
-Am Monday 25 April 2016, 10:39:41 schrieben Sie:
-> On 04/24/2016 04:28 PM, Michael Heimpold wrote:
-> > The following patch adds the required match table for device tree support
-> > (and while at, fix the indent). It's also possible to specify the
-> > MAC address in the DT blob.
-> > 
-> > Also add the corresponding binding documentation file.
-> > 
-> > Signed-off-by: Michael Heimpold <mhei@heimpold.de>
-> > ---
-> > 
-> > v2: * took care of Arnd Bergmann's review comments
-> > 
-> >       - allow to specify MAC address via DT
-> >       - unconditionally define DT id table
-> >     
-> >     * increased the driver version minor number
-> >     * driver author's email address bounces, removed from address list
-> >  
-> >  .../devicetree/bindings/net/microchip-enc28j60.txt | 50
-> >  ++++++++++++++++++++++ drivers/net/ethernet/microchip/enc28j60.c        
-> >   | 20 +++++++--
-> >  2 files changed, 67 insertions(+), 3 deletions(-)
-> >  create mode 100644
-> >  Documentation/devicetree/bindings/net/microchip-enc28j60.txt> 
-> > diff --git a/Documentation/devicetree/bindings/net/microchip-enc28j60.txt
-> > b/Documentation/devicetree/bindings/net/microchip-enc28j60.txt new file
-> > mode 100644
-> > index 0000000..847a97b
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/microchip-enc28j60.txt
-> > @@ -0,0 +1,50 @@
-> > +* Microchip ENC28J60
-> > +
-> > +This is a standalone 10 MBit ethernet controller with SPI interface.
-> > +
-> > +For each device connected to a SPI bus, define a child node within
-> > +the SPI master node.
-> > +
-> > +Required properties:
-> > +- compatible: Should be "microchip,enc28j60"
-> > +- reg: Specify the SPI chip select the ENC28J60 is wired to
-> > +- interrupts: Specify the interrupt and interrupt type (usually falling
-> > edge) +
-> > +Optional properties:
-> > +- interrupt-parent: Specify the pHandle of the source interrupt
-> > +- spi-max-frequency: Maximum frequency of the SPI bus when accessing the
-> > ENC28J60. +  According to the ENC28J80 datasheet, the chip allows a
-> > maximum of 20 MHz, however, +  board designs may need to limit this
-> > value.
-> > +- local-mac-address: See ethernet.txt in the same directory.
-> > +
-> > +
-> > +Example (for NXP i.MX28 with pin control stuff for GPIO irq):
-> > +
-> > +        ssp2: ssp@80014000 {
-> > +                compatible = "fsl,imx28-spi";
-> > +                pinctrl-names = "default";
-> > +                pinctrl-0 = <&spi2_pins_b &spi2_sck_cfg>;
-> > +                status = "okay";
-> > +
-> > +                enc28j60: ethernet@0 {
-> > +                        compatible = "microchip,enc28j60";
-> > +                        pinctrl-names = "default";
-> > +                        pinctrl-0 = <&enc28j60_pins>;
-> > +                        reg = <0>;
-> > +                        interrupt-parent = <&gpio3>;
-> > +                        interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
-> > +                        spi-max-frequency = <12000000>;
-> > +                };
-> > +        };
-> > +
-> > +        pinctrl@80018000 {
-> > +                enc28j60_pins: enc28j60_pins@0 {
-> > +                        reg = <0>;
-> > +                        fsl,pinmux-ids = <
-> > +                                MX28_PAD_AUART0_RTS__GPIO_3_3    /*
-> > Interrupt */ +                        >;
-> > +                        fsl,drive-strength = <MXS_DRIVE_4mA>;
-> > +                        fsl,voltage = <MXS_VOLTAGE_HIGH>;
-> > +                        fsl,pull-up = <MXS_PULL_DISABLE>;
-> > +                };
-> > +        };
-> > diff --git a/drivers/net/ethernet/microchip/enc28j60.c
-> > b/drivers/net/ethernet/microchip/enc28j60.c index b723622..7066954 100644
-> > --- a/drivers/net/ethernet/microchip/enc28j60.c
-> > +++ b/drivers/net/ethernet/microchip/enc28j60.c
-> > @@ -28,11 +28,12 @@
-> > 
-> >  #include <linux/skbuff.h>
-> >  #include <linux/delay.h>
-> >  #include <linux/spi/spi.h>
-> > 
-> > +#include <linux/of_net.h>
-> > 
-> >  #include "enc28j60_hw.h"
-> >  
-> >  #define DRV_NAME	"enc28j60"
-> > 
-> > -#define DRV_VERSION	"1.01"
-> > +#define DRV_VERSION	"1.02"
-> > 
-> >  #define SPI_OPLEN	1
-> > 
-> > @@ -1548,6 +1549,7 @@ static int enc28j60_probe(struct spi_device *spi)
-> > 
-> >  {
-> >  
-> >  	struct net_device *dev;
-> >  	struct enc28j60_net *priv;
-> > 
-> > +	const void *macaddr;
-> > 
-> >  	int ret = 0;
-> >  	
-> >  	if (netif_msg_drv(&debug))
-> > 
-> > @@ -1579,7 +1581,12 @@ static int enc28j60_probe(struct spi_device *spi)
-> > 
-> >  		ret = -EIO;
-> >  		goto error_irq;
-> >  	
-> >  	}
-> > 
-> > -	eth_hw_addr_random(dev);
-> > +
-> > +	macaddr = of_get_mac_address(spi->dev.of_node);
-> > +	if (macaddr)
-> 
-> You should also check if it is a valid MAC for Ethernet, recommend:
-> 
-> if (macaddr && is_valid_ether_addr(macaddr))
-> 
+On Mon, Apr 25, 2016 at 7:31 PM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
+> Geert Uytterhoeven <geert@linux-m68k.org> writes:
+>> On Mon, Apr 25, 2016 at 5:03 PM, Vivien Didelot
+>> <vivien.didelot@savoirfairelinux.com> wrote:
+>>> Geert Uytterhoeven <geert@linux-m68k.org> writes:
+>>>> drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_port_b=
+ridge_join=E2=80=99:
+>>>> drivers/net/dsa/mv88e6xxx.c:2184: warning: =E2=80=98err=E2=80=99 m=
+ay be used uninitialized in this function
+>>>
+>>> Interesting, I don't have those warnings on 207afda1b5036009...
+>>
+>> It depends on the compiler version (still using 4.1.2) and options.
+>>
+>>>> If netdev_notifier_changeupper_info.upper_dev is ever NULL, the br=
+idge
+>>>> parameter will be NULL too, and the function will return an
+>>>> uninitialized value.
+>>>>
+>>>> Pre-initialize err to zero to fix this.
+>>>>
+>>>> Fixes: 207afda1b5036009 ("net: dsa: mv88e6xxx: share the same defa=
+ult FDB")
+>>>> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>>>> ---
+>>>> Can this actually happen?
+>>>
+>>> bridge cannot be NULL here. Also ps->ports[port].bridge_dev is assi=
+gned
+>>> to it before entering the for loop, so _mv88e6xxx_port_based_vlan_m=
+ap
+>>> will be called at least for this port.
+>>
+>> But there's no way the compiler can know that...
+>
+> Or maybe it can in new configurations. Anyway, this fix doesn't hurt,
+> with a relevant commit message, I'd ack it.
 
-But of_get_mac_address already takes care of this, see
-http://lxr.free-electrons.com/source/drivers/of/of_net.c#L45
-Also it already checks whether spi->dev.of_node is populated at all.
-It returns NULL in both error cases.
-So I prefered to omit both test here.
+What would you consider a relevant commit message?
 
-Regards,
-Michael
+Thanks!
 
-> > +		ether_addr_copy(dev->dev_addr, macaddr);
-> > +	else
-> > +		eth_hw_addr_random(dev);
-> > 
-> >  	enc28j60_set_hw_macaddr(dev);
-> >  	
-> >  	/* Board setup must set the relevant edge trigger type;
-> > 
-> > @@ -1634,9 +1641,16 @@ static int enc28j60_remove(struct spi_device *spi)
-> > 
-> >  	return 0;
-> >  
-> >  }
-> > 
-> > +static const struct of_device_id enc28j60_dt_ids[] = {
-> > +	{ .compatible = "microchip,enc28j60" },
-> > +	{ /* sentinel */ }
-> > +};
-> > +MODULE_DEVICE_TABLE(of, enc28j60_dt_ids);
-> > +
-> > 
-> >  static struct spi_driver enc28j60_driver = {
-> >  
-> >  	.driver = {
-> > 
-> > -		   .name = DRV_NAME,
-> > +		.name = DRV_NAME,
-> > +		.of_match_table = enc28j60_dt_ids,
-> > 
-> >  	 },
-> >  	
-> >  	.probe = enc28j60_probe,
-> >  	.remove = enc28j60_remove,
+Gr{oetje,eeting}s,
+
+                        Geert
