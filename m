@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] devlink: export header
-Date: Mon, 25 Apr 2016 16:49:28 -0400 (EDT)
-Message-ID: <20160425.164928.589496341257465225.davem@davemloft.net>
-References: <20160422095517.545fe658@xeon-e3>
+Subject: Re: [PATCH net-next] tc_act: export all user headers
+Date: Mon, 25 Apr 2016 16:49:39 -0400 (EDT)
+Message-ID: <20160425.164939.2072274531689250224.davem@davemloft.net>
+References: <20160422100638.4f4280bf@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, netdev@vger.kernel.org
+Cc: hadi@mojatatu.com, netdev@vger.kernel.org
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33210 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33216 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964874AbcDYUtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 16:49:33 -0400
-In-Reply-To: <20160422095517.545fe658@xeon-e3>
+	with ESMTP id S964874AbcDYUtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 16:49:41 -0400
+In-Reply-To: <20160422100638.4f4280bf@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 22 Apr 2016 09:55:17 -0700
+Date: Fri, 22 Apr 2016 10:06:38 -0700
 
-> Export devlink.h when doing make headers install.
-> I am going to investigate just doing all headers in the directory,
-> but lets add missing piece for now.
+> The file tc_ife.h was missing from the export list.
+> Rather than continue to cherry-pick, just export all headers in the directory.
 > 
 > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-This is already exported in the 'net' tree.
+Applied.
