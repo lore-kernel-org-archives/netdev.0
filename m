@@ -1,48 +1,55 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] [RFC] net: dsa: mv88e6xxx: Pre-initialize err in mv88e6xxx_port_bridge_join()
-Date: Mon, 25 Apr 2016 11:03:11 -0400
-Message-ID: <87r3dtybm8.fsf@ketchup.mtl.sfl>
-References: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 0/6] Add Shared MDIO framework for iProc based SoCs
+Date: Mon, 25 Apr 2016 17:20:38 +0200
+Message-ID: <20160425152038.GJ6575@lunn.ch>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
+	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1461230323-27891-1-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Geert,
+On Thu, Apr 21, 2016 at 02:48:37PM +0530, Pramod Kumar wrote:
+> Broadcom iProc based SoCs uses MDIO bus for programming PHYs belonging to
+> different I/O subsystem like USB, SATA, PCIe, ETHERNET etc. Every subsystem
+> is referred as "Master" When a master is selected, all PHYs belonging to
+> this subsystem get active on the MDIO bus and responds to MDIO transaction.
+> In this way one MDIO controller is shared among all masters hence named as
+> "Shared MDIO controller".
+> 
+> We have two important entities in "Shared MDIO Bus" framework:
+> 1) shared_mdio_master and
+> 2) shared_mdio_driver.
+> 
+> The shared MDIO controller driver is registered as platform driver and it
+> creates shared_mdio_master instances and adds them to "Shared MDIO Bus"
+> framework.
 
-Geert Uytterhoeven <geert@linux-m68k.org> writes:
+Hi Pramod
 
-> drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_port_brid=
-ge_join=E2=80=99:
-> drivers/net/dsa/mv88e6xxx.c:2184: warning: =E2=80=98err=E2=80=99 may =
-be used uninitialized in this function
+What i'm missing is an explanation why the existing MDIO bus framework
+cannot be used. I recently made it more generic so that you can hang
+any type of device off it, not just PHYs.
 
-Interesting, I don't have those warnings on 207afda1b5036009...
-
-> If netdev_notifier_changeupper_info.upper_dev is ever NULL, the bridg=
-e
-> parameter will be NULL too, and the function will return an
-> uninitialized value.
->
-> Pre-initialize err to zero to fix this.
->
-> Fixes: 207afda1b5036009 ("net: dsa: mv88e6xxx: share the same default=
- FDB")
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> ---
-> Can this actually happen?
-
-bridge cannot be NULL here. Also ps->ports[port].bridge_dev is assigned
-to it before entering the for loop, so _mv88e6xxx_port_based_vlan_map
-will be called at least for this port.
-
-Thanks,
-
-        Vivien
+    Thanks
+	Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
