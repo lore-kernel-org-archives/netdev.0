@@ -1,131 +1,255 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v4 net-next 2/3] tcp: Handle eor bit when coalescing skb
-Date: Mon, 25 Apr 2016 14:44:49 -0700
-Message-ID: <1461620690-1081063-3-git-send-email-kafai@fb.com>
-References: <1461620690-1081063-1-git-send-email-kafai@fb.com>
+From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Subject: Re: [PATCH net v2 2/3] drivers: net: cpsw: fix error messages when
+ using phy-handle DT property
+Date: Mon, 25 Apr 2016 17:55:42 -0400
+Message-ID: <20160425175542.3654cc33.drivshin.allworx@gmail.com>
+References: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
+	<1461263172-10428-1-git-send-email-drivshin.allworx@gmail.com>
+	<571A2126.2060708@ti.com>
+	<20160422114545.57b477ad.drivshin.allworx@gmail.com>
+	<571E6C14.8060007@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:6381 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965004AbcDYVpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 17:45:12 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3PLiW55015174
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:11 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 22gukm8u49-3
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:11 -0700
-Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.103.99.99) with ESMTP	id
- f7b137c60b2e11e69e850002c9dfb610-d5dfcc50 for <netdev@vger.kernel.org>;	Mon,
- 25 Apr 2016 14:45:03 -0700
-In-Reply-To: <1461620690-1081063-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh+dt@kernel.org>, <netdev@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
+	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
+	Nicolas Chauvet <kwizart@gmail.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <571E6C14.8060007@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch:
-1. Prevent next_skb from coalescing to the prev_skb if
-   TCP_SKB_CB(prev_skb)->eor is set
-2. Update the TCP_SKB_CB(prev_skb)->eor if coalescing is
-   allowed
+On Mon, 25 Apr 2016 22:12:20 +0300
+Grygorii Strashko <grygorii.strashko@ti.com> wrote:
 
-Packetdrill script for testing:
-~~~~~~
-+0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
-+0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
-+0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-+0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-+0 bind(3, ..., ...) = 0
-+0 listen(3, 1) = 0
+> On 04/22/2016 06:45 PM, David Rivshin (Allworx) wrote:
+> > On Fri, 22 Apr 2016 16:03:34 +0300
+> > Grygorii Strashko <grygorii.strashko@ti.com> wrote:
+> >   
+> >> On 04/21/2016 09:26 PM, David Rivshin (Allworx) wrote:  
+> >>> From: David Rivshin <drivshin@allworx.com>
+> >>>
+> >>> The phy-handle, phy_id, and fixed-link properties are mutually exclusive,
+> >>> and only one need be specified. However if phy-handle was specified, an
+> >>> error message would complain about the lack of phy_id or fixed-link.  
+> 
+> I think, commit message need to be updated.
+> You not only fix log messages - you also fix the issue with 
+> of_get_phy_mode(slave_node); which will not be called if phy-handle is used.
 
-0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
-0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
-0.200 < . 1:1(0) ack 1 win 257
-0.200 accept(3, ..., ...) = 4
-+0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+You are correct, and that is probably the more important fix compared
+to the error messages.
 
-0.200 sendto(4, ..., 730, MSG_EOR, ..., ...) = 730
-0.200 sendto(4, ..., 730, MSG_EOR, ..., ...) = 730
-0.200 write(4, ..., 11680) = 11680
+Because the content is becoming less coherent, what I may do is split 
+this patch into 3 small patches:
+A) devicetree binding documentation changes
+B) cpsw_probe_dt changes, with the fixes for of_get_phy_mode() and
+   related error message
+C) cpsw_slave_open changes, with the fixes for crash if of_phy_connect
+   returns NULL, and related error message 
 
-0.200 > P. 1:731(730) ack 1
-0.200 > P. 731:1461(730) ack 1
-0.200 > . 1461:8761(7300) ack 1
-0.200 > P. 8761:13141(4380) ack 1
+Does that sound reasonable?
 
-0.300 < . 1:1(0) ack 1 win 257 <sack 1461:13141,nop,nop>
-0.300 > P. 1:731(730) ack 1
-0.300 > P. 731:1461(730) ack 1
-0.400 < . 1:1(0) ack 13141 win 257
+>  
+> 
+> slave_data->phy_if = of_get_phy_mode(slave_node); 
+> ^ see below
+> >>>
+> >>> Also, if phy-handle was specified and the subsequent of_phy_connect()
+> >>> failed, the error message still referenced slaved->data->phy_id, which
+> >>> would be empty. Instead, use the name of the device_node as a useful
+> >>> identifier.
+> >>>
+> >>> Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
+> >>> Signed-off-by: David Rivshin <drivshin@allworx.com>
+> >>> Acked-by: Rob Herring <robh@kernel.org>
+> >>> Tested-by: Nicolas Chauvet <kwizart@gmail.com>
+> >>> ---
+> >>> If would like this for -stable it should apply cleanly as far back
+> >>> as 4.5. It failes on 4.4 due to some context differences, but can be
+> >>> applied with 'git am -C2'. Or, I can produce a separate patch against
+> >>> linux-4.4.y if preferred.
+> >>>
+> >>> Changes since v1 [1]:
+> >>> - Rebased (no conflicts)
+> >>> - Added Tested-by from Nicolas Chauvet
+> >>> - Added Acked-by from Rob Herring for the binding change
+> >>>
+> >>> [1] https://patchwork.ozlabs.org/patch/560324/
+> >>>
+> >>>    Documentation/devicetree/bindings/net/cpsw.txt |  4 ++--
+> >>>    drivers/net/ethernet/ti/cpsw.c                 | 17 +++++++++++++----
+> >>>    2 files changed, 15 insertions(+), 6 deletions(-)
+> >>>
+> >>> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+> >>> index 28a4781..3033c0f 100644
+> >>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+> >>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+> >>> @@ -46,16 +46,16 @@ Optional properties:
+> >>>    - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
+> >>>    - mac-address		: See ethernet.txt file in the same directory
+> >>>    - phy_id		: Specifies slave phy id  
+> >>
+> >> May be the "phy_id" can be marked as deprecated? (while here)
+> >> The recommended property now is "phy-handle".  
+> > 
+> > I can certainly do that. Perhaps something like this?
+> >   - phy_id		: Specifies slave phy id (deprecated, use phy-handle)
+> > 
+> > Rob, would you have any issues with bundling that?
+> >   
+> >>  
+> >>>    - phy-handle		: See ethernet.txt file in the same directory
+> >>>    
+> >>>    Slave sub-nodes:
+> >>>    - fixed-link		: See fixed-link.txt file in the same directory
+> >>> -			  Either the property phy_id, or the sub-node
+> >>> -			  fixed-link can be specified
+> >>> +
+> >>> +Note: Exactly one of phy_id, phy-handle, or fixed-link must be specified.
+> >>>    
+> >>>    Note: "ti,hwmods" field is used to fetch the base address and irq
+> >>>    resources from TI, omap hwmod data base during device registration.
+> >>>    Future plan is to migrate hwmod data base contents into device tree
+> >>>    blob so that, all the required data will be used from device tree dts
+> >>>    file.
+> >>>    
+> >>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> >>> index d69cb3f..3c81413 100644
+> >>> --- a/drivers/net/ethernet/ti/cpsw.c
+> >>> +++ b/drivers/net/ethernet/ti/cpsw.c
+> >>> @@ -1150,16 +1150,19 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+> >>>    	if (slave->data->phy_node)
+> >>>    		slave->phy = of_phy_connect(priv->ndev, slave->data->phy_node,
+> >>>    				 &cpsw_adjust_link, 0, slave->data->phy_if);
+> >>>    	else
+> >>>    		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
+> >>>    				 &cpsw_adjust_link, slave->data->phy_if);
+> >>>    	if (IS_ERR(slave->phy)) {
+> >>> -		dev_err(priv->dev, "phy %s not found on slave %d\n",
+> >>> -			slave->data->phy_id, slave->slave_num);
+> >>> +		dev_err(priv->dev, "phy \"%s\" not found on slave %d\n",
+> >>> +			slave->data->phy_node ?
+> >>> +				slave->data->phy_node->full_name :
+> >>> +				slave->data->phy_id,
+> >>> +			slave->slave_num);  
+> >>
+> >> Unfortunately,  there are some inconsistency between legacy and FDT API :(
+> >> of_phy_connect() will return valid phy_device or NULL, but phy_connect()
+> >> can return valid phy_device or ERR_PTR().  
+> > 
+> > Good catch, I hadn't noticed that. It looks like that's actually a more
+> > serious (pre-existing) bug: if of_phy_connect() returns NULL, we'd end
+> > up dereferencing it and pagefaulting.
+> > 
+> > How about moving the IS_ERR() check into the phy_connect() case like this:
+> > 	if (slave->data->phy_node) {
+> > 		slave->phy = of_phy_connect(priv->ndev, slave->data->phy_node,
+> > 				 &cpsw_adjust_link, 0, slave->data->phy_if);  
+> 
+> [1]
+> 
+> > 	} else {
+> > 		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
+> > 				 &cpsw_adjust_link, slave->data->phy_if);
+> > 		if (IS_ERR(slave->phy))
+> > 			slave->phy = NULL;  
+> [2]
+> > 	}
+> > 	if (!slave->phy) {
+> > 		dev_err(priv->dev, "phy \"%s\" not found on slave %d\n",
+> > 			slave->data->phy_node ?
+> > 				slave->data->phy_node->full_name :
+> > 				slave->data->phy_id,
+> > 			slave->slave_num);
+> > 	} else {
+> > 
+> > Since you say the phy_id case is deprecated anyways, I'm not too concerned
+> > about not printing the error code returned by phy_connect() in that case
+> > (especially since it never did so in the past). That lets us still avoid
+> > duplicating the dev_err() itself.  
+> 
+> I'm not worry too much about duplicating dev_err() - it's always good to know
+> the reason of failure.
+> 
+> So, may be for of_phy_connect() [1]:
+>  dev_err(priv->dev, "phy \"%s\" not found on slave %d\n",
+> 	slave->data->phy_node->full_name,
+>  	slave->slave_num);
+> 
+> and for phy_connect() [2]:
+>   dev_err(priv->dev, "phy %s not found on slave %d, err %d\n",
+>   	slave->data->phy_id, slave->slave_num, PTR_ERR(slave->phy));
+> 
+> Mugunthan, any comments?
 
-0.400 close(4) = 0
-0.400 > F. 13141:13141(0) ack 1
-0.500 < F. 1:1(0) ack 13142 win 257
-0.500 > . 13142:13142(0) ack 2
+If that's the preference, then I can incorporate that into V3.
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Soheil Hassas Yeganeh <soheil@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c  | 4 ++++
- net/ipv4/tcp_output.c | 4 ++++
- 2 files changed, 8 insertions(+)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index dcad8f9..65fb708 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1303,6 +1303,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
- 	}
- 
- 	TCP_SKB_CB(prev)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags;
-+	TCP_SKB_CB(prev)->eor = TCP_SKB_CB(skb)->eor;
- 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 		TCP_SKB_CB(prev)->end_seq++;
- 
-@@ -1368,6 +1369,9 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
- 	if ((TCP_SKB_CB(prev)->sacked & TCPCB_TAGBITS) != TCPCB_SACKED_ACKED)
- 		goto fallback;
- 
-+	if (!tcp_skb_can_collapse_to(prev))
-+		goto fallback;
-+
- 	in_sack = !after(start_seq, TCP_SKB_CB(skb)->seq) &&
- 		  !before(end_seq, TCP_SKB_CB(skb)->end_seq);
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 9d3b4b3..fa4d17f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2494,6 +2494,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
- 	 * packet counting does not break.
- 	 */
- 	TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked & TCPCB_EVER_RETRANS;
-+	TCP_SKB_CB(skb)->eor = TCP_SKB_CB(next_skb)->eor;
- 
- 	/* changed transmit queue under us so clear hints */
- 	tcp_clear_retrans_hints_partial(tp);
-@@ -2545,6 +2546,9 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
- 		if (!tcp_can_collapse(sk, skb))
- 			break;
- 
-+		if (!tcp_skb_can_collapse_to(to))
-+			break;
-+
- 		space -= skb->len;
- 
- 		if (first) {
--- 
-2.5.1
+> 
+> > 
+> >   
+> >>
+> >>
+> >>  
+> >>>    		slave->phy = NULL;
+> >>>    	} else {
+> >>>    		phy_attached_info(slave->phy);
+> >>>    
+> >>>    		phy_start(slave->phy);
+> >>>    
+> >>>    		/* Configure GMII_SEL register */
+> >>> @@ -2030,15 +2033,19 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+> >>>    		/* This is no slave child node, continue */
+> >>>    		if (strcmp(slave_node->name, "slave"))
+> >>>    			continue;
+> >>>    
+> >>>    		slave_data->phy_node = of_parse_phandle(slave_node,
+> >>>    							"phy-handle", 0);
+> >>>    		parp = of_get_property(slave_node, "phy_id", &lenp);
+> >>> -		if (of_phy_is_fixed_link(slave_node)) {
+> >>> +		if (slave_data->phy_node) {
+> >>> +			dev_dbg(&pdev->dev,
+> >>> +				"slave[%d] using phy-handle=\"%s\"\n",
+> >>> +				i, slave_data->phy_node->full_name);
+> >>> +		} else if (of_phy_is_fixed_link(slave_node)) {
+> >>>    			struct device_node *phy_node;
+> >>>    			struct phy_device *phy_dev;
+> >>>    
+> >>>    			/* In the case of a fixed PHY, the DT node associated
+> >>>    			 * to the PHY is the Ethernet MAC DT node.
+> >>>    			 */
+> >>>    			ret = of_phy_register_fixed_link(slave_node);
+> >>> @@ -2067,15 +2074,17 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+> >>>    			if (!mdio) {
+> >>>    				dev_err(&pdev->dev, "Missing mdio platform device\n");
+> >>>    				return -EINVAL;
+> >>>    			}
+> >>>    			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
+> >>>    				 PHY_ID_FMT, mdio->name, phyid);
+> >>>    		} else {
+> >>> -			dev_err(&pdev->dev, "No slave[%d] phy_id or fixed-link property\n", i);
+> >>> +			dev_err(&pdev->dev,
+> >>> +				"No slave[%d] phy_id, phy-handle, or fixed-link property\n",
+> >>> +				i);
+> >>>    			goto no_phy_slave;
+> >>>    		}
+> >>>    		slave_data->phy_if = of_get_phy_mode(slave_node);  
+> 
+> Your change will allow the code to reach this point in case of phy-handle.
+> 
+> >>>    		if (slave_data->phy_if < 0) {
+> >>>    			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
+> >>>    				i);
+> >>>    			return slave_data->phy_if;
+> >>>      
+> >>
+> >>  
+> 
+> 
