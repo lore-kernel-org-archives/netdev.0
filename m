@@ -1,44 +1,59 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH] net: ethernet: davinci_emac: Fix devioctl while in fixed link
-Date: Mon, 25 Apr 2016 19:41:38 +0200
-Message-ID: <1461606098-20057-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>,
-	Brian Hutchinson <b.hutchman@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Tom Lendacky <thomas.lendacky@amd.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 2/2] net: SOCKWQ_ASYNC_WAITDATA optimizations
+Date: Mon, 25 Apr 2016 10:39:34 -0700
+Message-ID: <1461605974-4242-4-git-send-email-edumazet@google.com>
+References: <1461605974-4242-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35328 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754456AbcDYRmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 13:42:40 -0400
+Received: by mail-pa0-f54.google.com with SMTP id iv1so18000995pac.2
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 10:42:39 -0700 (PDT)
+In-Reply-To: <1461605974-4242-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When configured in fixed link, the DaVinci emac driver sets the
-priv->phydev to NULL and further ioctl calls to the phy_mii_ioctl()
-causes the kernel to crash.
+SOCKWQ_ASYNC_WAITDATA is set/cleared in sk_wait_data()
+and equivalent functions, so that sock_wake_async() can send
+a SIGIO only when necessary.
 
-Cc: Brian Hutchinson <b.hutchman@gmail.com>
-Fixes: 1bb6aa56bb38 ("net: davinci_emac: Add support for fixed-link PHY")
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+Since these atomic operations are really not needed unless
+socket expressed interest in FASYNC, we can omit them in most
+cases.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ include/net/sock.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 58d58f0..f56d66e 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1512,7 +1512,10 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 0f48aad9f8e8..3df778ccaa82 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1940,7 +1940,8 @@ static inline unsigned long sock_wspace(struct sock *sk)
+  */
+ static inline void sk_set_bit(int nr, struct sock *sk)
+ {
+-	if (nr == SOCKWQ_ASYNC_NOSPACE && !sock_flag(sk, SOCK_FASYNC))
++	if ((nr == SOCKWQ_ASYNC_NOSPACE || nr == SOCKWQ_ASYNC_WAITDATA) &&
++	    !sock_flag(sk, SOCK_FASYNC))
+ 		return;
  
- 	/* TODO: Add phy read and write and private statistics get feature */
+ 	set_bit(nr, &sk->sk_wq_raw->flags);
+@@ -1948,7 +1949,8 @@ static inline void sk_set_bit(int nr, struct sock *sk)
  
--	return phy_mii_ioctl(priv->phydev, ifrq, cmd);
-+	if (priv->phydev)
-+		return phy_mii_ioctl(priv->phydev, ifrq, cmd);
-+	else
-+		return -EOPNOTSUPP;
- }
+ static inline void sk_clear_bit(int nr, struct sock *sk)
+ {
+-	if (nr == SOCKWQ_ASYNC_NOSPACE && !sock_flag(sk, SOCK_FASYNC))
++	if ((nr == SOCKWQ_ASYNC_NOSPACE || nr == SOCKWQ_ASYNC_WAITDATA) &&
++	    !sock_flag(sk, SOCK_FASYNC))
+ 		return;
  
- static int match_first_device(struct device *dev, void *data)
+ 	clear_bit(nr, &sk->sk_wq_raw->flags);
 -- 
-1.9.1
+2.8.0.rc3.226.g39d4020
