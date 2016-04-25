@@ -1,59 +1,78 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: mlx5e throwing RTNL_ASSERT error on vxlan_get_rx_port
-Date: Mon, 25 Apr 2016 11:07:12 +0200
-Message-ID: <0088d4e8-5303-4714-f46b-b783534725f5@redhat.com>
-References: <CAKgT0Ud2yc3ZgMpSwdWAvaJ6b2-Q5QO=SEOb709y1BHepU_rQw@mail.gmail.com>
- <CALzJLG9JG19GhqWoMZonwxaubUeiw-wvZfKXCv6uxYEq3GLRNA@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 02/12] net/mlx5e: Statistics handling
+ refactoring
+Date: Mon, 25 Apr 2016 10:58:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4A9357@AcuExch.aculab.com>
+References: <1461351647-27412-1-git-send-email-saeedm@mellanox.com>
+ <1461351647-27412-3-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Matthew Finlay <matt@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Arnd Bergmann <arnd@arndb.de>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>
+To: 'Saeed Mahameed' <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41881 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752086AbcDYJHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 05:07:16 -0400
-In-Reply-To: <CALzJLG9JG19GhqWoMZonwxaubUeiw-wvZfKXCv6uxYEq3GLRNA@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.187]:59640 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754519AbcDYK7c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 06:59:32 -0400
+In-Reply-To: <1461351647-27412-3-git-send-email-saeedm@mellanox.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On 22.04.2016 22:02, Saeed Mahameed wrote:
-> On Fri, Apr 22, 2016 at 10:30 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> From what I can tell it looks like the recent commit that changed the
->> behavior for vxlan_get_rx_port has broken the mlx5 driver as it was
->> calling vxlan_get_rx_port in mlx5e_create_netdev which didn't hold the
->> rtnl lock.  As a result it is throwing RTNL_ASSERT errors.
->>
+From: Saeed Mahameed
+> Sent: 22 April 2016 20:01
+> Redesign the statistics in the driver:
+> 1. Move counters to a separate file (en_stats.h).
+> 2. Remove unnecessary dependencies between stats and strings.
+> 3. Use counter descriptors which hold a name and offset for each counter,
+>    and will be used to decide which counters will be exposed.
 > 
-> Nice catch Alex.
-> 
->> I'm not sure if anyone has already seen this or not but I thought I
->> would bring it to your attention.  Odds are this probably something
->> that needs to be fixed in the mlx5e driver and if I have time I might
->> get to it sometime in the next several days if nobody else ends up
->> addressing it.
->>
-> 
-> Matt will handle it, he is already preparing two fixes in mlx5 vxlan
-> area, one is to address the kconfig issue Arnd reported and the other
-> is to address the scheduling while atomic in mlx5e_vxlan_add ndo
-> implementation which can sleep, from vxlan module it is called under
-> rcu_read_lock.
+> For example when adding a new software counter to ethtool, instead of:
+> 1. Add to stats struct.
+> 2. Add to strings struct in the same order.
+> 3. Change macro defining number of software counters.
+> The only thing needed is to link the new counter to a counter descriptor.
+...
 
-Hm, I probably overlooked something during review or this change in
-vxlan_get_rx_port or something came in during the time I was pushing
-those changes at the same time. I just had a look and the fix shouldn't
-be that hard.
+This looks like a place for some pre-processor magic to define two (or more)
+items from the same line of C source.
 
-Thanks,
-Hannes
+Taking one definition. Instead of:
+
+> +static const struct counter_desc vport_stats_desc[] = {
+> +	{ "rx_error_packets", VPORT_COUNTER_OFF(received_errors.packets) },
+> +	{ "rx_error_bytes", VPORT_COUNTER_OFF(received_errors.octets) },
+> +	{ "tx_error_packets", VPORT_COUNTER_OFF(transmit_errors.packets) },
+> +	{ "tx_error_bytes", VPORT_COUNTER_OFF(transmit_errors.octets) },
+
+Use the following #define to generate both the array of names and the structure.
+#define VPORT_STATS_DEFN(RX, TX) \
+	RX( "rx_error_packets", packets) \
+	RX( "rx_error_bytes", octets) \
+	TX( "tx_error_packets", packets) \
+	TX( "tx_error_bytes", octets) \
+	...
+
+You can then expand it two (or more) ways:
+
+#define STATS_NAMES(name, field) name,
+static const char *const vport_stats_names[] = { VPORT_STATS_DEFN(STATS_NAMES, STATS_NAMES) };
+
+#define STAT_FIELD(name, field) uint64_t field;
+#define STAT_NONE(name, field)
+struct received_errors {
+	VPORT_STATS_DEFN(STAT_FIELD, STAT_NONE)
+};
+struct transmit_errors errors {
+	VPORT_STATS_DEFN(STAT_NONE, STAT_FIELD)
+};
+
+Adding an extra stat then just requires you add an extra line to VPORT_STATS_DEFN().
+
+	David
