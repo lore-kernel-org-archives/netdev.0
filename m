@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v4 net-next 3/3] tcp: Handle eor bit when fragmenting a skb
-Date: Mon, 25 Apr 2016 14:44:50 -0700
-Message-ID: <1461620690-1081063-4-git-send-email-kafai@fb.com>
+Subject: [PATCH v4 net-next 1/3] tcp: Make use of MSG_EOR in tcp_sendmsg
+Date: Mon, 25 Apr 2016 14:44:48 -0700
+Message-ID: <1461620690-1081063-2-git-send-email-kafai@fb.com>
 References: <1461620690-1081063-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,28 +13,40 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Kernel Team <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:20605 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965004AbcDYVpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 17:45:05 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3PLfToB001987
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:04 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:29345 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965002AbcDYVpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 17:45:14 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3PLiW59015174
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:13 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22htg7rcpq-2
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:04 -0700
+	by mx0b-00082601.pphosted.com with ESMTP id 22gukm8u49-6
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 14:45:13 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- f7bd66e00b2e11e6822f0002c99293a0-407fcc50 for <netdev@vger.kernel.org>;	Mon,
- 25 Apr 2016 14:45:03 -0700
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ f80aa70c0b2e11e6bdce24be05956610-cfad86d0 for <netdev@vger.kernel.org>;	Mon,
+ 25 Apr 2016 14:45:04 -0700
 In-Reply-To: <1461620690-1081063-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When fragmenting a skb, the next_skb should carry
-the eor from prev_skb.  The eor of prev_skb should
-also be reset.
+This patch adds an eor bit to the TCP_SKB_CB.  When MSG_EOR
+is passed to tcp_sendmsg, the eor bit will be set at the skb
+containing the last byte of the userland's msg.  The eor bit
+will prevent data from appending to that skb in the future.
+
+The change in do_tcp_sendpages is to honor the eor set
+during the previous tcp_sendmsg(MSG_EOR) call.
+
+This patch handles the tcp_sendmsg case.  The followup patches
+will handle other skb coalescing and fragment cases.
+
+One potential use case is to use MSG_EOR with
+SOF_TIMESTAMPING_TX_ACK to get a more accurate
+TCP ack timestamping on application protocol with
+multiple outgoing response messages (e.g. HTTP2).
 
 Packetdrill script for testing:
 ~~~~~~
@@ -51,11 +63,12 @@ Packetdrill script for testing:
 0.200 accept(3, ..., ...) = 4
 +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
 
-0.200 sendto(4, ..., 15330, MSG_EOR, ..., ...) = 15330
-0.200 sendto(4, ..., 730, 0, ..., ...) = 730
+0.200 write(4, ..., 14600) = 14600
+0.200 sendto(4, ..., 730, MSG_EOR, ..., ...) = 730
+0.200 sendto(4, ..., 730, MSG_EOR, ..., ...) = 730
 
 0.200 > .  1:7301(7300) ack 1
-0.200 > . 7301:14601(7300) ack 1
+0.200 > P. 7301:14601(7300) ack 1
 
 0.300 < . 1:1(0) ack 14601 win 257
 0.300 > P. 14601:15331(730) ack 1
@@ -73,43 +86,69 @@ Cc: Neal Cardwell <ncardwell@google.com>
 Cc: Soheil Hassas Yeganeh <soheil@google.com>
 Cc: Willem de Bruijn <willemb@google.com>
 Cc: Yuchung Cheng <ycheng@google.com>
+Suggested-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_output.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ include/net/tcp.h | 8 +++++++-
+ net/ipv4/tcp.c    | 7 +++++--
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index fa4d17f..55a926b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1128,6 +1128,12 @@ static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
- 	}
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 7f2553d..ce08038 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -762,7 +762,8 @@ struct tcp_skb_cb {
+ 
+ 	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
+ 	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
+-			unused:7;
++			eor:1,		/* Is skb MSG_EOR marked? */
++			unused:6;
+ 	__u32		ack_seq;	/* Sequence number ACK'd	*/
+ 	union {
+ 		struct inet_skb_parm	h4;
+@@ -809,6 +810,11 @@ static inline int tcp_skb_mss(const struct sk_buff *skb)
+ 	return TCP_SKB_CB(skb)->tcp_gso_size;
  }
  
-+static void tcp_skb_fragment_eor(struct sk_buff *skb, struct sk_buff *skb2)
++static inline bool tcp_skb_can_collapse_to(const struct sk_buff *skb)
 +{
-+	TCP_SKB_CB(skb2)->eor = TCP_SKB_CB(skb)->eor;
-+	TCP_SKB_CB(skb)->eor = 0;
++	return likely(!TCP_SKB_CB(skb)->eor);
 +}
 +
- /* Function to create two new TCP segments.  Shrinks the given segment
-  * to the specified size and appends a new segment with the rest of the
-  * packet to the list.  This won't be called frequently, I hope.
-@@ -1173,6 +1179,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
- 	TCP_SKB_CB(skb)->tcp_flags = flags & ~(TCPHDR_FIN | TCPHDR_PSH);
- 	TCP_SKB_CB(buff)->tcp_flags = flags;
- 	TCP_SKB_CB(buff)->sacked = TCP_SKB_CB(skb)->sacked;
-+	tcp_skb_fragment_eor(skb, buff);
+ /* Events passed to congestion control interface */
+ enum tcp_ca_event {
+ 	CA_EVENT_TX_START,	/* first transmit when no packets in flight */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4d73858..ea5364b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -908,7 +908,8 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+ 		int copy, i;
+ 		bool can_coalesce;
  
- 	if (!skb_shinfo(skb)->nr_frags && skb->ip_summed != CHECKSUM_PARTIAL) {
- 		/* Copy and checksum data tail into the new buffer. */
-@@ -1733,6 +1740,8 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
- 	/* This packet was never sent out yet, so no SACK bits. */
- 	TCP_SKB_CB(buff)->sacked = 0;
+-		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
++		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0 ||
++		    !tcp_skb_can_collapse_to(skb)) {
+ new_segment:
+ 			if (!sk_stream_memory_free(sk))
+ 				goto wait_for_sndbuf;
+@@ -1156,7 +1157,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 			copy = max - skb->len;
+ 		}
  
-+	tcp_skb_fragment_eor(skb, buff);
-+
- 	buff->ip_summed = skb->ip_summed = CHECKSUM_PARTIAL;
- 	skb_split(skb, buff, len);
- 	tcp_fragment_tstamp(skb, buff);
+-		if (copy <= 0) {
++		if (copy <= 0 || !tcp_skb_can_collapse_to(skb)) {
+ new_segment:
+ 			/* Allocate new segment. If the interface is SG,
+ 			 * allocate skb fitting to single page.
+@@ -1250,6 +1251,8 @@ new_segment:
+ 		copied += copy;
+ 		if (!msg_data_left(msg)) {
+ 			tcp_tx_timestamp(sk, sockc.tsflags, skb);
++			if (unlikely(flags & MSG_EOR))
++				TCP_SKB_CB(skb)->eor = 1;
+ 			goto out;
+ 		}
+ 
 -- 
 2.5.1
