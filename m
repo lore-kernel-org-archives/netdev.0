@@ -1,51 +1,101 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] [RFC] net: dsa: mv88e6xxx: Pre-initialize err in mv88e6xxx_port_bridge_join()
-Date: Mon, 25 Apr 2016 09:52:41 +0200
-Message-ID: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 1/9] rtnl: use nla_put_u64_64bit()
+Date: Mon, 25 Apr 2016 10:25:14 +0200
+Message-ID: <1461572722-6029-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1461572722-6029-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, jhs@mojatatu.com, stephen@networkplumber.org,
+	pshelar@nicira.com, aar@pengutronix.de, linux-wpan@vger.kernel.org,
+	wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:54413 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796AbcDYIZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 04:25:45 -0400
+In-Reply-To: <1461572722-6029-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_port_bridge=
-_join=E2=80=99:
-drivers/net/dsa/mv88e6xxx.c:2184: warning: =E2=80=98err=E2=80=99 may be=
- used uninitialized in this function
-
-If netdev_notifier_changeupper_info.upper_dev is ever NULL, the bridge
-parameter will be NULL too, and the function will return an
-uninitialized value.
-
-Pre-initialize err to zero to fix this.
-
-=46ixes: 207afda1b5036009 ("net: dsa: mv88e6xxx: share the same default=
- FDB")
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
-Can this actually happen?
----
- drivers/net/dsa/mv88e6xxx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 36 ++++++++++++++++++------------------
+ 2 files changed, 19 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index a2904029cccc2949..5e572b3510b9483a 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2181,7 +2181,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch =
-*ds, int port,
- 			       struct net_device *bridge)
- {
- 	struct mv88e6xxx_priv_state *ps =3D ds_to_priv(ds);
--	int i, err;
-+	int i, err =3D 0;
-=20
- 	mutex_lock(&ps->smi_mutex);
-=20
---=20
-1.9.1
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index ba69d4447249..5fdd3a42e377 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -666,6 +666,7 @@ enum {
+ 	IFLA_VF_STATS_TX_BYTES,
+ 	IFLA_VF_STATS_BROADCAST,
+ 	IFLA_VF_STATS_MULTICAST,
++	IFLA_VF_STATS_PAD,
+ 	__IFLA_VF_STATS_MAX,
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5ec059d52823..9efc1f34ef3b 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -825,17 +825,17 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+ 			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)) +
+ 			 /* IFLA_VF_STATS_RX_PACKETS */
+-			 nla_total_size(sizeof(__u64)) +
++			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 /* IFLA_VF_STATS_TX_PACKETS */
+-			 nla_total_size(sizeof(__u64)) +
++			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 /* IFLA_VF_STATS_RX_BYTES */
+-			 nla_total_size(sizeof(__u64)) +
++			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 /* IFLA_VF_STATS_TX_BYTES */
+-			 nla_total_size(sizeof(__u64)) +
++			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 /* IFLA_VF_STATS_BROADCAST */
+-			 nla_total_size(sizeof(__u64)) +
++			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 /* IFLA_VF_STATS_MULTICAST */
+-			 nla_total_size(sizeof(__u64)) +
++			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_trust)));
+ 		return size;
+ 	} else
+@@ -1153,18 +1153,18 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
+ 		nla_nest_cancel(skb, vfinfo);
+ 		return -EMSGSIZE;
+ 	}
+-	if (nla_put_u64(skb, IFLA_VF_STATS_RX_PACKETS,
+-			vf_stats.rx_packets) ||
+-	    nla_put_u64(skb, IFLA_VF_STATS_TX_PACKETS,
+-			vf_stats.tx_packets) ||
+-	    nla_put_u64(skb, IFLA_VF_STATS_RX_BYTES,
+-			vf_stats.rx_bytes) ||
+-	    nla_put_u64(skb, IFLA_VF_STATS_TX_BYTES,
+-			vf_stats.tx_bytes) ||
+-	    nla_put_u64(skb, IFLA_VF_STATS_BROADCAST,
+-			vf_stats.broadcast) ||
+-	    nla_put_u64(skb, IFLA_VF_STATS_MULTICAST,
+-			vf_stats.multicast))
++	if (nla_put_u64_64bit(skb, IFLA_VF_STATS_RX_PACKETS,
++			      vf_stats.rx_packets, IFLA_VF_STATS_PAD) ||
++	    nla_put_u64_64bit(skb, IFLA_VF_STATS_TX_PACKETS,
++			      vf_stats.tx_packets, IFLA_VF_STATS_PAD) ||
++	    nla_put_u64_64bit(skb, IFLA_VF_STATS_RX_BYTES,
++			      vf_stats.rx_bytes, IFLA_VF_STATS_PAD) ||
++	    nla_put_u64_64bit(skb, IFLA_VF_STATS_TX_BYTES,
++			      vf_stats.tx_bytes, IFLA_VF_STATS_PAD) ||
++	    nla_put_u64_64bit(skb, IFLA_VF_STATS_BROADCAST,
++			      vf_stats.broadcast, IFLA_VF_STATS_PAD) ||
++	    nla_put_u64_64bit(skb, IFLA_VF_STATS_MULTICAST,
++			      vf_stats.multicast, IFLA_VF_STATS_PAD))
+ 		return -EMSGSIZE;
+ 	nla_nest_end(skb, vfstats);
+ 	nla_nest_end(skb, vf);
+-- 
+2.8.1
