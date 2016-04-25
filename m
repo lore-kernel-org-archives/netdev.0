@@ -1,131 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] ixgbe: set VLAN spoof checking unconditionally
-Date: Mon, 25 Apr 2016 05:44:16 -0700
-Message-ID: <1461588269-128728-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/15][pull request] 10GbE Intel Wired LAN Driver Updates 2016-04-25
+Date: Mon, 25 Apr 2016 05:44:14 -0700
+Message-ID: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10855 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:40700 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932299AbcDYMoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 08:44:32 -0400
-In-Reply-To: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S932139AbcDYMob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 08:44:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+This series contains updates to ixgbe and ixgbevf.
 
-Previously the PF driver would only set VLAN spoof checking if
-the VF had created VLANs. This was done by setting and checking
-a counter (vlan_count) whenever a VLAN was created by the VF.
-However it is possible for the vlan_count to be !=0 while there are
-no VLANs assigned to the VF due to the count incrementing every
-time a VLAN 0 is added on ifdown/up, which resulted in VLAN spoofing
-always being set for those VFs.
+Emil provides several patches, starting with the consolidation of the
+logic behind configuring spoof checking.  Fixed an issue which was
+causing link issues for backplane devices because x550em_a/x devices
+did not have a default value for mac->ops.setup_link.  Refactored the
+ethtool stats to bring the logic closer to how ixgbe handles stats and
+sets up per-queue stats for ixgbevf.
 
-This patch cleans up the logic by unconditionally setting VLAN based on
-how the VF is configured (via ip link set ethX vf Y spoofchk on/off).
-This change also resolves an issue where the VLAN spoofing can remain
-set even after being disabled by the user due to the driver enabling
-VLAN spoof checking every time a VLAN is added to the VF, but would
-only allow changes in the setting if vlan_count != 0.
+Mark adds a new register to wait for previous register writes to complete
+before issuing a register read, which is needed when slower links are
+in use.  Fixed the flow control setup for x550em_a, the incorrect
+fc_setup function was being used.
 
-Also default_vf_vlan_id and vlans_enabled were removed from the
-vf_data_storage structure since they are not being used in the driver.
+Don added a workaround for empty SFP+ cage crosstalk, since on some
+systems the crosstalk could lead to link flap on empty SFP+ cages.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  3 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 25 ++-----------------------
- 2 files changed, 2 insertions(+), 26 deletions(-)
+Jake converts ixgbe and ixgbevf to use the BIT() macro.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index d10ed62..61d8110 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -143,14 +143,11 @@ struct vf_data_storage {
- 	unsigned char vf_mac_addresses[ETH_ALEN];
- 	u16 vf_mc_hashes[IXGBE_MAX_VF_MC_ENTRIES];
- 	u16 num_vf_mc_hashes;
--	u16 default_vf_vlan_id;
--	u16 vlans_enabled;
- 	bool clear_to_send;
- 	bool pf_set_mac;
- 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
- 	u16 pf_qos;
- 	u16 tx_rate;
--	u16 vlan_count;
- 	u8 spoofchk_enabled;
- 	bool rss_query_enabled;
- 	u8 trusted;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index cc635ce..e9f2558 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -908,8 +908,6 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	u32 add = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >> IXGBE_VT_MSGINFO_SHIFT;
- 	u32 vid = (msgbuf[1] & IXGBE_VLVF_VLANID_MASK);
- 	u8 tcs = netdev_get_num_tc(adapter->netdev);
--	struct ixgbe_hw *hw = &adapter->hw;
--	int err;
- 
- 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
- 		e_warn(drv,
-@@ -923,19 +921,7 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 	if (!vid && !add)
- 		return 0;
- 
--	err = ixgbe_set_vf_vlan(adapter, add, vid, vf);
--	if (err)
--		return err;
--
--	if (adapter->vfinfo[vf].spoofchk_enabled)
--		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
--
--	if (add)
--		adapter->vfinfo[vf].vlan_count++;
--	else if (adapter->vfinfo[vf].vlan_count)
--		adapter->vfinfo[vf].vlan_count--;
--
--	return 0;
-+	return ixgbe_set_vf_vlan(adapter, add, vid, vf);
- }
- 
- static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
-@@ -1324,9 +1310,6 @@ static int ixgbe_enable_port_vlan(struct ixgbe_adapter *adapter, int vf,
- 
- 	ixgbe_set_vmvir(adapter, vlan, qos, vf);
- 	ixgbe_set_vmolr(hw, vf, false);
--	if (adapter->vfinfo[vf].spoofchk_enabled)
--		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
--	adapter->vfinfo[vf].vlan_count++;
- 
- 	/* enable hide vlan on X550 */
- 	if (hw->mac.type >= ixgbe_mac_X550)
-@@ -1359,9 +1342,6 @@ static int ixgbe_disable_port_vlan(struct ixgbe_adapter *adapter, int vf)
- 	ixgbe_set_vf_vlan(adapter, true, 0, vf);
- 	ixgbe_clear_vmvir(adapter, vf);
- 	ixgbe_set_vmolr(hw, vf, true);
--	hw->mac.ops.set_vlan_anti_spoofing(hw, false, vf);
--	if (adapter->vfinfo[vf].vlan_count)
--		adapter->vfinfo[vf].vlan_count--;
- 
- 	/* disable hide VLAN on X550 */
- 	if (hw->mac.type >= ixgbe_mac_X550)
-@@ -1539,8 +1519,7 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
- 	hw->mac.ops.set_mac_anti_spoofing(hw, setting, vf);
- 
- 	/* configure VLAN spoofing */
--	if (adapter->vfinfo[vf].vlan_count)
--		hw->mac.ops.set_vlan_anti_spoofing(hw, setting, vf);
-+	hw->mac.ops.set_vlan_anti_spoofing(hw, setting, vf);
- 
- 	/* Ensure LLDP and FC is set for Ethertype Antispoofing if we will be
- 	 * calling set_ethertype_anti_spoofing for each VF in loop below
+Alex Duyck adds support for partial GSO segmentation in the case of
+tunnels for ixgbe and ixgbevf.  Then preps for HyperV by moving the API
+negotiation into mac_ops.
+
+Arnd Bergmann provides a fix for the ARM compile warnings in linux-next
+by converting the use of a udelay() to msleep().
+
+The following are changes since commit 10d3be569243def8d92ac3722395ef5a59c504e6:
+  tcp-tso: do not split TSO packets at retransmit time
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Alexander Duyck (2):
+  ixgbe/ixgbevf: Add support for GSO partial
+  ixgbevf: Move API negotiation function into mac_ops
+
+Arnd Bergmann (1):
+  ixgbe: use msleep for long delays
+
+Don Skidmore (1):
+  ixgbe: Add work around for empty SFP+ cage crosstalk
+
+Emil Tantilov (5):
+  ixgbe: consolidate the configuration of spoof checking
+  ixgbe: set VLAN spoof checking unconditionally
+  ixgbe: fix default mac->ops.setup_link for X550EM
+  ixgbevf: refactor ethtool stats handling
+  ixgbevf: add support for per-queue ethtool stats
+
+Jacob Keller (3):
+  ixgbe: use BIT() macro
+  ixgbe: resolve shift of negative value warning
+  ixgbevf: make use of BIT() macro to avoid shift of signed values
+
+Mark Rustad (2):
+  ixgbe: Add register wait for slow links
+  ixgbe: Use correct FC setup function for x550em_a
+
+Sridhar Samudrala (1):
+  ixgbe: make 'action' field in struct ixgbe_fdir_filter a u64 value
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |  75 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     |  16 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  70 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  14 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 259 ++++++++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  86 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      | 168 ++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c      |  14 +-
+ drivers/net/ethernet/intel/ixgbevf/defines.h       |  24 +-
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c       | 230 +++++++++++-------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |  18 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 149 ++++++++----
+ drivers/net/ethernet/intel/ixgbevf/vf.c            |   5 +-
+ drivers/net/ethernet/intel/ixgbevf/vf.h            |   2 +-
+ 24 files changed, 661 insertions(+), 505 deletions(-)
+
 -- 
 2.5.5
