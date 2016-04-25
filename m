@@ -1,43 +1,51 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 2/9] libnl: nla_put_le64(): align on
- a 64-bit area
-Date: Mon, 25 Apr 2016 09:41:51 +0200
-Message-ID: <571DCA3F.3040403@6wind.com>
-References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461339084-3849-3-git-send-email-nicolas.dichtel@6wind.com>
- <1461343880.7627.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <60b94d1a-23a2-ec18-7f2b-2ba21946af03@pengutronix.de>
- <9d534571-916d-b368-a398-7f03a1f512ec@pengutronix.de>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] [RFC] net: dsa: mv88e6xxx: Pre-initialize err in mv88e6xxx_port_bridge_join()
+Date: Mon, 25 Apr 2016 09:52:41 +0200
+Message-ID: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
- herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
- kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <9d534571-916d-b368-a398-7f03a1f512ec-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgMjMvMDQvMjAxNiAxOToyOCwgQWxleGFuZGVyIEFyaW5nIGEgw6ljcml0IDoKPgo+IEhpLAo+
-Cj4gT24gMDQvMjMvMjAxNiAwNzowNSBQTSwgQWxleGFuZGVyIEFyaW5nIHdyb3RlOgo+IC4uLgo+
-Pgo+PiBpZiB0aGlzIGlzIHJlYWxseSBuZWVkZWQsIHRoZW4gbmxhX3B1dF91NjQvYmU2NC9ldGMg
-bmVlZCB0byBiZSBjaGFuZ2VkIGFsc28sCj4KPiBPa2F5LCBJIGZvdW5kIFBBVENIIDMvOSBkbyBp
-dCBmb3IgYmU2NCwgYnV0IHdoYXQncyBhYm91dCB1NjQ/Ckl0J3MgYWxzbyBwbGFubmVkLiBJIHdp
-bGwgc2VuZCBzZXZlcmFsICJzbWFsbCIgc2VyaWVzIHRvIGVhc2UgaW50ZWdyYXRpb24uCgoKUmVn
-YXJkcywKTmljb2xhcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
-dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_port_bridge=
+_join=E2=80=99:
+drivers/net/dsa/mv88e6xxx.c:2184: warning: =E2=80=98err=E2=80=99 may be=
+ used uninitialized in this function
+
+If netdev_notifier_changeupper_info.upper_dev is ever NULL, the bridge
+parameter will be NULL too, and the function will return an
+uninitialized value.
+
+Pre-initialize err to zero to fix this.
+
+=46ixes: 207afda1b5036009 ("net: dsa: mv88e6xxx: share the same default=
+ FDB")
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+Can this actually happen?
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index a2904029cccc2949..5e572b3510b9483a 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2181,7 +2181,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch =
+*ds, int port,
+ 			       struct net_device *bridge)
+ {
+ 	struct mv88e6xxx_priv_state *ps =3D ds_to_priv(ds);
+-	int i, err;
++	int i, err =3D 0;
+=20
+ 	mutex_lock(&ps->smi_mutex);
+=20
+--=20
+1.9.1
