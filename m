@@ -1,130 +1,226 @@
-From: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: RE: [PATCH 5/6] Documentation: Binding doc for ethernet master in NS2
-Date: Mon, 25 Apr 2016 10:13:16 +0530
-Message-ID: <9d799bfef311ca7ec5d4c3953f615140@mail.gmail.com>
-References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
- <1461230323-27891-6-git-send-email-pramod.kumar@broadcom.com> <20160422201351.GA3048@rob-hp-laptop>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+Date: Mon, 25 Apr 2016 06:28:29 +0000
+Message-ID: <HE1PR0401MB1849A7E7FD5BAA1F27ED9606FF620@HE1PR0401MB1849.eurprd04.prod.outlook.com>
+References: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
+ <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+ <571A4D36.2000506@boundarydevices.com>
+ <HE1PR0401MB1849C9460B0FCC6A0FB2CDBEFF620@HE1PR0401MB1849.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
-	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160422201351.GA3048@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
+ "stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+ "arnd@arndb.de" <arnd@arndb.de>,
+ "sergei.shtylyov@cogentembedded.com" <sergei.shtylyov@cogentembedded.com>,
+ "gerg@uclinux.org" <gerg@uclinux.org>, Fabio Estevam <fabio.estevam@nxp.com>,
+ "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+ "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+ "holgerschurig@gmail.com" <holgerschurig@gmail.com>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ "tremyfr@gmail.com" <tremyfr@gmail.com>
+To: Fugang Duan <fugang.duan@nxp.com>, Troy Kisky
+ <troy.kisky@boundarydevices.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "davem@davemloft.net" <davem@davemloft.net>,
+ "lznuaa@gmail.com" <lznuaa@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <HE1PR0401MB1849C9460B0FCC6A0FB2CDBEFF620@HE1PR0401MB1849.eurprd04.prod.outlook.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rob,
-
-Thanks for review and providing your valuable comments.
-
-> -----Original Message-----
-> From: Rob Herring [mailto:robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org]
-> Sent: 23 April 2016 01:44
-> To: Pramod Kumar
-> Cc: Catalin Marinas; Will Deacon; Masahiro Yamada; Chen-Yu Tsai; BCM
-Kernel
-> Feedback; Pawel Moll; Mark Rutland; Arnd Bergmann; Suzuki K Poulose;
-Punit
-> Agrawal; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org;
-> linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Subject: Re: [PATCH 5/6] Documentation: Binding doc for ethernet master
-in
-> NS2
->
-> On Thu, Apr 21, 2016 at 02:48:42PM +0530, Pramod Kumar wrote:
-> > Adding binding doc for ethernet master present in shared MDIO
-> > controller.
+From: Fugang Duan <fugang.duan@nxp.com>  Sent: Monday, April 25, 2016 9:58 AM
+> To: Troy Kisky <troy.kisky@boundarydevices.com>; netdev@vger.kernel.org;
+> davem@davemloft.net; lznuaa@gmail.com
+> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
+> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
+> kernel@lists.infradead.org; johannes@sipsolutions.net;
+> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
+> arnd@arndb.de; holgerschurig@gmail.com
+> Subject: RE: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+> 
+> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Saturday, April 23,
+> 2016 12:12 AM
+> > To: Fugang Duan <fugang.duan@nxp.com>; netdev@vger.kernel.org;
+> > davem@davemloft.net; lznuaa@gmail.com
+> > Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
+> > andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
+> > kernel@lists.infradead.org; johannes@sipsolutions.net;
+> > stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
+> > arnd@arndb.de; holgerschurig@gmail.com
+> > Subject: Re: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
 > >
-> > Signed-off-by: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> > Reviewed-by: Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> > Reviewed-by: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> > ---
-> >  .../bindings/net/brcm,iproc-mdio-shared.txt        | 32
-> ++++++++++++++++++++++
-> >  1 file changed, 32 insertions(+)
-> >  create mode 100644
-> > Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
+> > On 4/21/2016 10:59 PM, Fugang Duan wrote:
+> > > From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Friday,
+> > > April 22, 2016 10:01 AM
+> > >> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
+> > >> <fugang.duan@nxp.com>; lznuaa@gmail.com
+> > >> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
+> > >> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
+> > >> kernel@lists.infradead.org; johannes@sipsolutions.net;
+> > >> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
+> > >> arnd@arndb.de; holgerschurig@gmail.com; Troy Kisky
+> > >> <troy.kisky@boundarydevices.com>
+> > >> Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+> > >>
+> > >> If dirty_tx isn't updated, then dma_unmap_single will be called twice.
+> > >>
+> > >> This fixes a
+> > >> [   58.420980] ------------[ cut here ]------------
+> > >> [   58.425667] WARNING: CPU: 0 PID: 377 at
+> /home/schurig/d/mkarm/linux-
+> > >> 4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
+> > >> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free
+> > DMA
+> > >> memory it has not allocated [device address=0x0000000000000000]
+> > >> [size=66 bytes]
+> > >>
+> > >> encountered by Holger
+> > >>
+> > >> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> > >> Tested-by: <holgerschurig@gmail.com>
+> > >> ---
+> > >>  drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
+> > >>  1 file changed, 3 insertions(+), 5 deletions(-)
+> > >>
+> > >> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> > >> b/drivers/net/ethernet/freescale/fec_main.c
+> > >> index 08243c2..b71654c 100644
+> > >> --- a/drivers/net/ethernet/freescale/fec_main.c
+> > >> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > >> @@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev,
+> > u16
+> > >> queue_id)
+> > >>  					 fec16_to_cpu(bdp->cbd_datlen),
+> > >>  					 DMA_TO_DEVICE);
+> > >>  		bdp->cbd_bufaddr = cpu_to_fec32(0);
+> > >> -		if (!skb) {
+> > >> -			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+> > >> -			continue;
+> > >> -		}
+> > >> +		if (!skb)
+> > >> +			goto skb_done;
+> > >>
+> > >>  		/* Check for errors. */
+> > >>  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC | @@ -1239,7
+> > >> +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+> > >>
+> > >>  		/* Free the sk buffer associated with this last transmit */
+> > >>  		dev_kfree_skb_any(skb);
+> > >> -
+> > >> +skb_done:
+> > >>  		/* Make sure the update to bdp and tx_skbuff are performed
+> > >>  		 * before dirty_tx
+> > >>  		 */
+> > >> --
+> > >> 2.5.0
+> > >
+> > > The patch is fine for me.
+> > > Can you review below patch that also fix the issue. It can take much
+> > > effort due to less rmb() and READ_ONCE() operation that is very
+> > > sensitive for duplex Gbps test for i.MX6SX/i.MX7d SOC. (i.MX6SX can
+> > > reach at 1.4Gbps, i.MX7D can reach at 1.8Gbps.)
 > >
-> > diff --git
-> > a/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
-> > b/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
-> > new file mode 100644
-> > index 0000000..1ffdd4b
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
-> > @@ -0,0 +1,32 @@
-> > +Broadcom Ethernet master for shared mdio controller
-> > +
-> > +Required properties:
-> > +- compatible: must be "brcm,iproc-mdio-master-eth"
-> > +- reg: master id of Ethernet block
-> > +- address-cells: should be 1
-> > +- size-cells: should be 0
-> > +
-> > +Sub-nodes:
-> > +  Each port's PHY should be represented as a sub-node.
-> > +
-> > +Sub-nodes required properties:
-> > +- reg: the PHY number
-> > +- phy-mode: media type connecting the PHY and MAC.
-> > +
-> > +
-> > +Example:
-> > +	eth-master@0 {
->
-> Is this a child of something?
->
-
-This is an Shared MDIO master node as described in cover letter and is the
-child node of iProc_shared_mdio plarform driver.
-
-
-> Why is this not just an mdio bus underneath the ethernet controller? How
-is this
-> accessed?
-
-This is the part for Shared MDIO controller which is shared among other
-subsystem as well hence defined here. This works as glue layer between
-This controller and legacy MDIO framework and register the MDIO bus to
-legacy framework.
-When any read/write request is issue from Legacy MDIO controller framework
-it gets propagated to Shared controller platform driver via this driver
-and finally platform driver issue MDIO transaction over bus.
-
->
-> > +		compatible = "brcm,iproc-mdio-master-eth";
-> > +		reg = <0x0>;
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +		gphy0: eth-phy@10 {
-> > +			reg = <0x10>;
-> > +			phy-mode = "mii";
-> > +		};
-> > +		status = "ok"
-> > +	};
-> > +
-> > +For more info on ethernet phy binding, please,refer to:
-> > +Documentation/devicetree/bindings/net/phy.txt
-> > +Documentation/devicetree/bindings/net/ethernet.txt
-> > --
-> > 1.9.1
 > >
+> >
+> > If  "READ_ONCE(bdp->cbd_sc)" is really that expensive, then you should
+> > skip the 1st read as well and only do it after skb presence is
+> > verified. But some numbers would really help sell the patch.
+> > Also, I comment as to why the code is reorganized would be warranted
+> >
+> I will do the performance test on i.MX7d to compare the data for the two
+> patches.
+> Wait my result...
+> 
+> Thanks.
+> 
+I did simple test for tcp bidirectional test on i.MX7d platform:
+With my patch:
+[  3]  0.0-20.0 sec  1.79 GBytes   770 Mbits/sec
+[  5]  0.0-20.0 sec  1.93 GBytes   828 Mbits/sec
 
-Regards,
-Pramod
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+With your patch on this thread:
+[  3]  0.0-20.0 sec  1.75 GBytes   750 Mbits/sec
+[  5]  0.0-20.0 sec  1.78 GBytes   762 Mbits/sec
+And then turn of tso feature (ethtool -K eth0 tso off):
+[  3]  0.0-20.0 sec  1.57 GBytes   673 Mbits/sec
+[  5]  0.0-20.0 sec  1.58 GBytes   677 Mbits/sec
+Then turn off sg (ethtool -K eth0 sg off):
+[  3]  0.0-20.0 sec  1.09 GBytes   469 Mbits/sec
+[  5]  0.0-20.0 sec  1.09 GBytes   468 Mbits/sec
+
+It seems there have more tcp segments during iperf testing. I think rmb() is expensive, to reduce rmb() in one tcp frame can increase little performance.
+
+> >
+> > >
+> > > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > > @@ -1160,12 +1160,13 @@ static void
+> > >  fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)  {
+> > >         struct  fec_enet_private *fep;
+> > > -       struct bufdesc *bdp;
+> > > +       struct bufdesc *bdp, *bdp_t;
+> > >         unsigned short status;
+> > >         struct  sk_buff *skb;
+> > >         struct fec_enet_priv_tx_q *txq;
+> > >         struct netdev_queue *nq;
+> > >         int     index = 0;
+> > > +       int     i, bdnum;
+> > >         int     entries_free;
+> > >
+> > >         fep = netdev_priv(ndev);
+> > > @@ -1187,20 +1188,28 @@ fec_enet_tx_queue(struct net_device *ndev,
+> > u16 queue_id)
+> > >                 if (status & BD_ENET_TX_READY)
+> > >                         break;
+> > >
+> > > -               index = fec_enet_get_bd_index(bdp, &txq->bd);
+> > > -
+> > > +               bdp_t = bdp;
+> > > +               bdnum = 1;
+> > > +               index = fec_enet_get_bd_index(txq->tx_bd_base,
+> > > + bdp_t, fep);
+> > >                 skb = txq->tx_skbuff[index];
+> > > -               txq->tx_skbuff[index] = NULL;
+> > > -               if (!IS_TSO_HEADER(txq, fec32_to_cpu(bdp->cbd_bufaddr)))
+> > > -                       dma_unmap_single(&fep->pdev->dev,
+> > > -                                        fec32_to_cpu(bdp->cbd_bufaddr),
+> > > -                                        fec16_to_cpu(bdp->cbd_datlen),
+> > > -                                        DMA_TO_DEVICE);
+> > > -               bdp->cbd_bufaddr = cpu_to_fec32(0);
+> > > -               if (!skb) {
+> > > -                       bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+> > > -                       continue;
+> > > +               while (!skb) {
+> > > +                       bdp_t = fec_enet_get_nextdesc(bdp_t, &txq->bd);
+> > > +                       index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
+> > > +                       skb = txq->tx_skbuff[index];
+> > > +                       bdnum++;
+> > > +               }
+> > > +               status = fec16_to_cpu(READ_ONCE(bdp->cbd_sc));
+> > > +               if (status & BD_ENET_TX_READY)
+> > > +                       break;
+> > > +
+> > > +               for (i = 0; i < bdnum; i++) {
+> > > +                       if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
+> > > +                               dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
+> > > +                                                bdp->cbd_datlen, DMA_TO_DEVICE);
+> > > +                       bdp->cbd_bufaddr = 0;
+> > > +                       if (i < bdnum - 1)
+> > > +                               bdp = fec_enet_get_nextdesc(bdp,
+> > > + &txq->bd);
+> > >                 }
+> > > +               txq->tx_skbuff[index] = NULL;
+> > >
+> > >
+> > > Regards,
+> > > Andy
+> > >
