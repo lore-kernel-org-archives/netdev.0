@@ -1,69 +1,104 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
- driver
-Date: Mon, 25 Apr 2016 15:16:40 +0200
-Message-ID: <20160425131640.GD6575@lunn.ch>
-References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
- <570EC541.6080603@gmail.com>
- <570FFB6B.5060305@codeaurora.org>
- <57100962.40404@gmail.com>
- <571915F5.5070504@codeaurora.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 net-next] net: ethernet: enc28j60: add device tree
+ support
+Date: Mon, 25 Apr 2016 08:23:26 -0500
+Message-ID: <20160425132326.GA17445@rob-hp-laptop>
+References: <31567588.rB9VrggOb6@wuerfel>
+ <1461533283-24852-1-git-send-email-mhei@heimpold.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	Shanker Donthineni <shankerd@codeaurora.org>,
-	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org,
-	Rob Herring <robh+dt@kernel.org>, bjorn.andersson@linaro.org,
-	Mark Langsdorf <mlangsdo@redhat.com>,
-	Jon Masters <jcm@redhat.com>,
-	Andy Gross <agross@codeaurora.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Cc: Jonathan Cameron <jic23@kernel.org>,
+	"Andrew F . Davis" <afd@ti.com>, Mark Brown <broonie@kernel.org>,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>
+To: Michael Heimpold <mhei@heimpold.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:53566 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932174AbcDYNXb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 09:23:31 -0400
 Content-Disposition: inline
-In-Reply-To: <571915F5.5070504@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1461533283-24852-1-git-send-email-mhei@heimpold.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Does the compatible property of the phy node (for the external phy)
-> need to list the actual external phy?  That is, should it look like
-> this:
+On Sun, Apr 24, 2016 at 11:28:03PM +0200, Michael Heimpold wrote:
+> The following patch adds the required match table for device tree support
+> (and while at, fix the indent). It's also possible to specify the
+> MAC address in the DT blob.
 > 
-> 	phy0: ethernet-phy@0 {
-> 		compatible = "qcom,fsm9900-emac-phy";
-> 		reg = <0>;
-> 	}
+> Also add the corresponding binding documentation file.
 > 
-> or this:
+> Signed-off-by: Michael Heimpold <mhei@heimpold.de>
+> ---
 > 
-> 	phy0: ethernet-phy@0 {
-> 		compatible = "athr,whatever-phy";
-> 		reg = <0>;
-> 	}
+> v2: * took care of Arnd Bergmann's review comments
+>       - allow to specify MAC address via DT
+>       - unconditionally define DT id table
+>     * increased the driver version minor number
+>     * driver author's email address bounces, removed from address list
 > 
+>  .../devicetree/bindings/net/microchip-enc28j60.txt | 50 ++++++++++++++++++++++
 
-Documentation/devicetree/bindings/net/phy.txt says:
+Matching the compatible string is preferred here: microchip,enc28j60.txt
 
-Optional Properties:
+>  drivers/net/ethernet/microchip/enc28j60.c          | 20 +++++++--
+>  2 files changed, 67 insertions(+), 3 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/microchip-enc28j60.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/microchip-enc28j60.txt b/Documentation/devicetree/bindings/net/microchip-enc28j60.txt
+> new file mode 100644
+> index 0000000..847a97b
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/microchip-enc28j60.txt
+> @@ -0,0 +1,50 @@
+> +* Microchip ENC28J60
+> +
+> +This is a standalone 10 MBit ethernet controller with SPI interface.
+> +
+> +For each device connected to a SPI bus, define a child node within
+> +the SPI master node.
+> +
+> +Required properties:
+> +- compatible: Should be "microchip,enc28j60"
+> +- reg: Specify the SPI chip select the ENC28J60 is wired to
+> +- interrupts: Specify the interrupt and interrupt type (usually falling edge)
+> +
+> +Optional properties:
+> +- interrupt-parent: Specify the pHandle of the source interrupt
 
-- compatible: Compatible list, may contain
-  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
-  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
-  specifications. If neither of these are specified, the default is to
-  assume clause 22.
+This is required in the sense that either the node or a parent node must 
+define it. In this case, since the SPI controller likely has a different 
+parent, you will pretty much always need it defined in this node.
 
-  If the phy's identifier is known then the list may contain an entry
-  of the form: "ethernet-phy-idAAAA.BBBB" where
-     AAAA - The value of the 16 bit Phy Identifier 1 register as
-            4 hex digits. This is the chip vendor OUI bits 3:18
-     BBBB - The value of the 16 bit Phy Identifier 2 register as
-            4 hex digits. This is the chip vendor OUI bits 19:24,
-            followed by 10 bits of a vendor specific ID.
+> +- spi-max-frequency: Maximum frequency of the SPI bus when accessing the ENC28J60.
+> +  According to the ENC28J80 datasheet, the chip allows a maximum of 20 MHz, however,
+> +  board designs may need to limit this value.
+> +- local-mac-address: See ethernet.txt in the same directory.
+> +
+> +
+> +Example (for NXP i.MX28 with pin control stuff for GPIO irq):
+> +
+> +        ssp2: ssp@80014000 {
+> +                compatible = "fsl,imx28-spi";
+> +                pinctrl-names = "default";
+> +                pinctrl-0 = <&spi2_pins_b &spi2_sck_cfg>;
+> +                status = "okay";
+> +
+> +                enc28j60: ethernet@0 {
+> +                        compatible = "microchip,enc28j60";
+> +                        pinctrl-names = "default";
+> +                        pinctrl-0 = <&enc28j60_pins>;
 
-  The compatible list should not contain other values than those
-  listed here.
+Need to document using the pinctrl binding.
 
-  Andrew
+> +                        reg = <0>;
+> +                        interrupt-parent = <&gpio3>;
+> +                        interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+> +                        spi-max-frequency = <12000000>;
+> +                };
+> +        };
+> +
