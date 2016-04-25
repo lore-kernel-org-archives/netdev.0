@@ -1,63 +1,43 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
-Date: Mon, 25 Apr 2016 22:56:50 +0200
-Message-ID: <20160425205650.GA31129@lunn.ch>
-References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
- <1461230323-27891-2-git-send-email-pramod.kumar@broadcom.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC net-next] net: dsa: Provide CPU port statistics to
+ master netdev
+Date: Mon, 25 Apr 2016 23:43:42 +0200
+Message-ID: <20160425214342.GB5538@lunn.ch>
+References: <1461175101-13506-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Anup Patel <anup.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45795 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965237AbcDYVnq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 17:43:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1461230323-27891-2-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1461175101-13506-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pramod
+On Wed, Apr 20, 2016 at 10:58:21AM -0700, Florian Fainelli wrote:
+> This patch overloads the DSA master netdev, aka CPU Ethernet MAC to also
+> include switch-side statistics, which is useful for debugging purposes,
+> when the switch is not properly connected to the Ethernet MAC (duplex
+> mismatch, (RG)MII electrical issues etc.).
+> 
+> We accomplish this by retaining the original copy of the master netdev's
+> ethtool_ops, and just overload the 3 operations we care about:
+> get_sset_count, get_strings and get_ethtool_stats so as to intercept
+> these calls and call into the original master_netdev ethtool_ops, plus
+> our own.
 
-I took a closer look. I don't see why the current MDIO code should not
-be used, rather than adding a new framework.
+Hi Florian
 
-What you need for your Non Ethernet PHYs is that they are somehow
-probed. The current MDIO code will do that, based on the compatible
-string. An mdio device gets passed a struct mdio_device * to its probe
-function, giving you the bus and address on the bus for the
-device. Your PHY driver can then register itself using
-devm_of_phy_provider_register(). The user of the PHY then needs to use
-devm_phy_get() to get a handle on the phy, and can then use
-phy_power_on()/phy_power_off().
-
-There is a very simple example here for an MDIO device driver:
-
-http://thread.gmane.org/gmane.linux.network/393532
-
-The muxing of the MDIO busses looks a little tricky. At the moment you have:
-
-    writel(cmd, base + MDIO_PARAM_OFFSET);
-
-which mixes together the muxing parameters and the write value. Can
-this register be accessed as two 16 bit registers? If it can be, you
-can cleanly separate out the muxing.
-
-Take a look at mdio-mux-gpio.c and mdio-mux-mmioreg.c for examples of
-MDIO muxes.
+Interesting concept. My one concern is that by concatenating the two
+sets of statistics, we get a name clash. I'm not sure the Marvell
+switch statistics counters have different names to the Marvell
+Ethernet driver statistics counters. ethtool does not care, but maybe
+an SNMP agent using these statistics might not be too happy seeing the
+same name twice?
 
      Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
