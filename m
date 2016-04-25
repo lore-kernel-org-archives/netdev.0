@@ -1,103 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/mlx5e: avoid stack overflow in mlx5e_open_channels
-Date: Mon, 25 Apr 2016 15:15:23 +0200
-Message-ID: <1461590139-1396745-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>,
-	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Mon, 25 Apr 2016 15:16:40 +0200
+Message-ID: <20160425131640.GD6575@lunn.ch>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com>
+ <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com>
+ <571915F5.5070504@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, bjorn.andersson@linaro.org,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <571915F5.5070504@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-struct mlx5e_channel_param is a large structure that is allocated
-on the stack of mlx5e_open_channels, and with a recent change
-it has grown beyond the warning size for the maximum stack
-that a single function should use:
+> Does the compatible property of the phy node (for the external phy)
+> need to list the actual external phy?  That is, should it look like
+> this:
+> 
+> 	phy0: ethernet-phy@0 {
+> 		compatible = "qcom,fsm9900-emac-phy";
+> 		reg = <0>;
+> 	}
+> 
+> or this:
+> 
+> 	phy0: ethernet-phy@0 {
+> 		compatible = "athr,whatever-phy";
+> 		reg = <0>;
+> 	}
+> 
 
-mellanox/mlx5/core/en_main.c: In function 'mlx5e_open_channels':
-mellanox/mlx5/core/en_main.c:1325:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
+Documentation/devicetree/bindings/net/phy.txt says:
 
-The function is already using dynamic allocation and is not in
-a fast path, so the easiest workaround is to use another kzalloc
-for allocating the channel parameters.
+Optional Properties:
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: d3c9bc2743dc ("net/mlx5e: Added ICO SQs")
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
+- compatible: Compatible list, may contain
+  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
+  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
+  specifications. If neither of these are specified, the default is to
+  assume clause 22.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 22742e1fbcb9..2ec547a80886 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1266,12 +1266,14 @@ static void mlx5e_build_icosq_param(struct mlx5e_priv *priv,
- 	param->icosq = true;
- }
- 
--static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
--				      struct mlx5e_channel_param *cparam)
-+static struct mlx5e_channel_param *mlx5e_build_channel_param(struct mlx5e_priv *priv)
- {
-+	struct mlx5e_channel_param *cparam;
- 	u8 icosq_log_wq_sz = MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE;
- 
--	memset(cparam, 0, sizeof(*cparam));
-+	cparam = kzalloc(sizeof(struct mlx5e_channel_param), GFP_KERNEL);
-+	if (!cparam)
-+		return NULL;
- 
- 	mlx5e_build_rq_param(priv, &cparam->rq);
- 	mlx5e_build_sq_param(priv, &cparam->sq);
-@@ -1279,11 +1281,13 @@ static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
- 	mlx5e_build_rx_cq_param(priv, &cparam->rx_cq);
- 	mlx5e_build_tx_cq_param(priv, &cparam->tx_cq);
- 	mlx5e_build_ico_cq_param(priv, &cparam->icosq_cq, icosq_log_wq_sz);
-+
-+	return cparam;
- }
- 
- static int mlx5e_open_channels(struct mlx5e_priv *priv)
- {
--	struct mlx5e_channel_param cparam;
-+	struct mlx5e_channel_param *cparam;
- 	int nch = priv->params.num_channels;
- 	int err = -ENOMEM;
- 	int i;
-@@ -1298,9 +1302,12 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
- 	if (!priv->channel || !priv->txq_to_sq_map)
- 		goto err_free_txq_to_sq_map;
- 
--	mlx5e_build_channel_param(priv, &cparam);
-+	cparam = mlx5e_build_channel_param(priv);
-+	if (!cparam)
-+		goto err_free_txq_to_sq_map;
-+
- 	for (i = 0; i < nch; i++) {
--		err = mlx5e_open_channel(priv, i, &cparam, &priv->channel[i]);
-+		err = mlx5e_open_channel(priv, i, cparam, &priv->channel[i]);
- 		if (err)
- 			goto err_close_channels;
- 	}
-@@ -1311,11 +1318,13 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
- 			goto err_close_channels;
- 	}
- 
-+	kfree(cparam);
- 	return 0;
- 
- err_close_channels:
- 	for (i--; i >= 0; i--)
- 		mlx5e_close_channel(priv->channel[i]);
-+	kfree(cparam);
- 
- err_free_txq_to_sq_map:
- 	kfree(priv->txq_to_sq_map);
--- 
-2.7.0
+  If the phy's identifier is known then the list may contain an entry
+  of the form: "ethernet-phy-idAAAA.BBBB" where
+     AAAA - The value of the 16 bit Phy Identifier 1 register as
+            4 hex digits. This is the chip vendor OUI bits 3:18
+     BBBB - The value of the 16 bit Phy Identifier 2 register as
+            4 hex digits. This is the chip vendor OUI bits 19:24,
+            followed by 10 bits of a vendor specific ID.
+
+  The compatible list should not contain other values than those
+  listed here.
+
+  Andrew
