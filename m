@@ -1,59 +1,43 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Delete host routes on an ifdown
-Date: Mon, 25 Apr 2016 16:03:40 -0600
-Message-ID: <571E943C.9010504@cumulusnetworks.com>
-References: <1461297372-18796-1-git-send-email-dsa@cumulusnetworks.com>
- <20160425.152611.583503438886577374.davem@davemloft.net>
- <571E72AA.4030100@cumulusnetworks.com>
- <20160425.164227.1599148827995063295.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mmanning@brocade.com
-To: David Miller <davem@davemloft.net>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net: dsa: mv88e6xxx: fix uninitialized error return
+Date: Mon, 25 Apr 2016 23:11:22 +0100
+Message-ID: <1461622282-30463-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:38035 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965020AbcDYWDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 18:03:48 -0400
-Received: by mail-ig0-f169.google.com with SMTP id m9so75507244ige.1
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 15:03:47 -0700 (PDT)
-In-Reply-To: <20160425.164227.1599148827995063295.davem@davemloft.net>
+Received: from youngberry.canonical.com ([91.189.89.112]:45397 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965020AbcDYWL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 18:11:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/25/16 2:42 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Mon, 25 Apr 2016 13:40:26 -0600
->
->> It's unfortunate you want to take that action. Last week I came across
->> a prior attempt by Stephen to do this same thing -- keep IPv6
->> addresses. That prior attempt was reverted by commit
->> 73a8bd74e261. Cumulus, Brocade, and others clearly want this
->> capability.
->
-> But nobody has implemented it correctly, it doesn't matter who wants
-> the feature.  That's why it keeps getting reverted.
->
-> Also, this testing you are talking about should have happened long
-> before you submitted that first patch that introduced all of these
-> regressions.  My observations tell me that the bulk of the testing
-> happened afterwards and that's why all the regressions are popping up
-> now.
->
+From: Colin Ian King <colin.king@canonical.com>
 
-My testing when submitting the patch was host level: Add an address, 
-while(1) (link up, link down), delete an address, etc.
+The error return err is not initialized and there is a possibility
+that err is not assigned causing mv88e6xxx_port_bridge_join to
+return a garbage error return status. Fix this by initializing err
+to 0.
 
-Once it was committed to our kernel it started getting hit with a range 
-of L3 deployment scenarios with many nodes and networking config files 
-are uploaded and jumped between on real switch hardware - no reboot but 
-'networking reload' on the fly. Jumping between different deployments 
-with different sets addresses, routes, vrf devices, bridges, bonds, etc.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Your objection seems to be 'all these regressions' but beyond the ref 
-count from Andrey all of the bug reports have come from me with 1 from 
-Mike, another invested party wanting this to happen. I am the one who 
-spent the hours dealing with the kernel panics. My patch, my bug, my 
-time wasted coming up with the delta patch. Rather than focusing on my 
-mistakes, why not see the commitment on following through with this change?
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 028f92f..98d3cfb 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2207,7 +2207,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 			       struct net_device *bridge)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int i, err;
++	int i, err = 0;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-- 
+2.7.4
