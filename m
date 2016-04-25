@@ -1,51 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 2/6] atl1c: remove private tx lock
-Date: Tue, 26 Apr 2016 01:16:42 +0200
-Message-ID: <20160425231642.GA20830@electric-eye.fr.zoreil.com>
-References: <1461526694-11367-1-git-send-email-fw@strlen.de>
- <1461526694-11367-3-git-send-email-fw@strlen.de>
- <20160424220529.GA29377@electric-eye.fr.zoreil.com>
- <20160425154339.GA17538@breakpoint.cc>
+From: "Al Waleed Co." <nuruddinvezir@gmail.com>
+Subject: Quote Request
+Date: Mon, 25 Apr 2016 15:09:48 -0500
+Message-ID: <201604252009.u3PK9mLF020824@srv1.rdyec.net>
+Reply-To: nuruddinvezir@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:58430 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860AbcDYXQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 19:16:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20160425154339.GA17538@breakpoint.cc>
+Received: from srv1.rdyec.net ([64.76.194.11]:49219 "EHLO srv1.rdyec.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751095AbcDZAFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 20:05:00 -0400
+Received: from srv1.rdyec.net (localhost.localdomain [127.0.0.1])
+	by srv1.rdyec.net (8.13.8/8.13.8) with ESMTP id u3PK9mGK020825
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 15:09:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Westphal <fw@strlen.de> :
-> Francois Romieu <romieu@fr.zoreil.com> wrote:
-[...]
-> > Play it safe and keep the implicit local_irq_{save / restore} call ?
-> > 
-> > It may not be needed but it will help avoiding any unexpected regression
-> > report pointing at the NETDEV_TX_LOCKED removal change.
-> 
-> I thought about that but it doesn't prevent the irq handler from
-> running on another CPU, so leaving it around seemed like cargo culting
-> to me...
+Hi,
 
-I don't mind removing it in a different patch at all. I'd rather see
-the commit history underline that it's unrelated to whatever
-NETDEV_TX_LOCKED / LLTX change.
+My name is Al Waleed From Al Waleed trading company Dubai we got you recommendation from one of your customer, so we decided to order a product from you.
 
-> I don't have an atl1c, but the atl1e in my laptop seems to work fine
-> with the (similar) change.
-> 
-> If you disagree I can respin with local_irq_save of course, but, if
-> 'playing it safe' is main goal then its simpler to convert
-> spin_trylock_irqsave to spin_lock_irqsave.
+Kindly get back to us if you can ship to us in Dubai so that we can get back to you with our products needed from you and other requirement Looking forward hearing back from you
 
-Your call, really.
+Thank you,
 
--- 
-Ueimor
+Al Waleed trading company
+Customer Service
