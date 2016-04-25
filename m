@@ -1,57 +1,59 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: myri10ge: fix sleeping with bh disabled
-Date: Mon, 25 Apr 2016 10:59:19 +0200
-Message-ID: <20160425085918.GB2608@redhat.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: mlx5e throwing RTNL_ASSERT error on vxlan_get_rx_port
+Date: Mon, 25 Apr 2016 11:07:12 +0200
+Message-ID: <0088d4e8-5303-4714-f46b-b783534725f5@redhat.com>
+References: <CAKgT0Ud2yc3ZgMpSwdWAvaJ6b2-Q5QO=SEOb709y1BHepU_rQw@mail.gmail.com>
+ <CALzJLG9JG19GhqWoMZonwxaubUeiw-wvZfKXCv6uxYEq3GLRNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hyong-Youb Kim <hykim@myri.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Matthew Finlay <matt@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37052 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41881 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753483AbcDYJBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 05:01:39 -0400
-Content-Disposition: inline
+	id S1752086AbcDYJHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 05:07:16 -0400
+In-Reply-To: <CALzJLG9JG19GhqWoMZonwxaubUeiw-wvZfKXCv6uxYEq3GLRNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-napi_disable() can not be called with bh disabled, move locking just
-around myri10ge_ss_lock_napi() .
+Hello,
 
-Patches fixes following bug:
+On 22.04.2016 22:02, Saeed Mahameed wrote:
+> On Fri, Apr 22, 2016 at 10:30 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> From what I can tell it looks like the recent commit that changed the
+>> behavior for vxlan_get_rx_port has broken the mlx5 driver as it was
+>> calling vxlan_get_rx_port in mlx5e_create_netdev which didn't hold the
+>> rtnl lock.  As a result it is throwing RTNL_ASSERT errors.
+>>
+> 
+> Nice catch Alex.
+> 
+>> I'm not sure if anyone has already seen this or not but I thought I
+>> would bring it to your attention.  Odds are this probably something
+>> that needs to be fixed in the mlx5e driver and if I have time I might
+>> get to it sometime in the next several days if nobody else ends up
+>> addressing it.
+>>
+> 
+> Matt will handle it, he is already preparing two fixes in mlx5 vxlan
+> area, one is to address the kconfig issue Arnd reported and the other
+> is to address the scheduling while atomic in mlx5e_vxlan_add ndo
+> implementation which can sleep, from vxlan module it is called under
+> rcu_read_lock.
 
-[  114.278378] BUG: sleeping function called from invalid context at net/core/dev.c:4383 
-<snip>
-[  114.313712] Call Trace: 
-[  114.314943]  [<ffffffff817010ce>] dump_stack+0x19/0x1b 
-[  114.317673]  [<ffffffff810ce7f3>] __might_sleep+0x173/0x230 
-[  114.320566]  [<ffffffff815b3117>] napi_disable+0x27/0x90 
-[  114.323254]  [<ffffffffa01e437f>] myri10ge_close+0xbf/0x3f0 [myri10ge] 
+Hm, I probably overlooked something during review or this change in
+vxlan_get_rx_port or something came in during the time I was pushing
+those changes at the same time. I just had a look and the fix shouldn't
+be that hard.
 
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 270c9ee..6d1a956 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -2668,9 +2668,9 @@ static int myri10ge_close(struct net_device *dev)
- 
- 	del_timer_sync(&mgp->watchdog_timer);
- 	mgp->running = MYRI10GE_ETH_STOPPING;
--	local_bh_disable(); /* myri10ge_ss_lock_napi needs bh disabled */
- 	for (i = 0; i < mgp->num_slices; i++) {
- 		napi_disable(&mgp->ss[i].napi);
-+		local_bh_disable(); /* myri10ge_ss_lock_napi needs this */
- 		/* Lock the slice to prevent the busy_poll handler from
- 		 * accessing it.  Later when we bring the NIC up, myri10ge_open
- 		 * resets the slice including this lock.
-@@ -2679,8 +2679,8 @@ static int myri10ge_close(struct net_device *dev)
- 			pr_info("Slice %d locked\n", i);
- 			mdelay(1);
- 		}
-+		local_bh_enable();
- 	}
--	local_bh_enable();
- 	netif_carrier_off(dev);
- 
- 	netif_tx_stop_all_queues(dev);
+Thanks,
+Hannes
