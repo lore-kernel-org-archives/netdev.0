@@ -1,245 +1,44 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next] tcp-tso: do not split TSO packets at retransmit time
-Date: Mon, 25 Apr 2016 10:39:33 -0700
-Message-ID: <1461605974-4242-3-git-send-email-edumazet@google.com>
-References: <1461605974-4242-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33200 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932791AbcDYRjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 13:39:46 -0400
-Received: by mail-pa0-f51.google.com with SMTP id zm5so67708651pac.0
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 10:39:46 -0700 (PDT)
-In-Reply-To: <1461605974-4242-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [PATCH] net: ethernet: davinci_emac: Fix devioctl while in fixed link
+Date: Mon, 25 Apr 2016 19:41:38 +0200
+Message-ID: <1461606098-20057-1-git-send-email-narmstrong@baylibre.com>
+Cc: Neil Armstrong <narmstrong@baylibre.com>,
+	Brian Hutchinson <b.hutchman@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Tom Lendacky <thomas.lendacky@amd.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Linux TCP stack painfully segments all TSO/GSO packets before retransmits.
+When configured in fixed link, the DaVinci emac driver sets the
+priv->phydev to NULL and further ioctl calls to the phy_mii_ioctl()
+causes the kernel to crash.
 
-This was fine back in the days when TSO/GSO were emerging, with their
-bugs, but we believe the dark age is over.
-
-Keeping big packets in write queues, but also in stack traversal
-has a lot of benefits.
- - Less memory overhead, because write queues have less skbs
- - Less cpu overhead at ACK processing.
- - Better SACK processing, as lot of studies mentioned how
-   awful linux was at this ;)
- - Less cpu overhead to send the rtx packets
-   (IP stack traversal, netfilter traversal, drivers...)
- - Better latencies in presence of losses.
- - Smaller spikes in fq like packet schedulers, as retransmits
-   are not constrained by TCP Small Queues.
-
-1 % packet losses are common today, and at 100Gbit speeds, this
-translates to ~80,000 losses per second.
-Losses are often correlated, and we see many retransmit events
-leading to 1-MSS train of packets, at the time hosts are already
-under stress.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+Cc: Brian Hutchinson <b.hutchman@gmail.com>
+Fixes: 1bb6aa56bb38 ("net: davinci_emac: Add support for fixed-link PHY")
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- include/net/tcp.h     |  4 ++--
- net/ipv4/tcp_input.c  |  2 +-
- net/ipv4/tcp_output.c | 64 +++++++++++++++++++++++----------------------------
- net/ipv4/tcp_timer.c  |  4 ++--
- 4 files changed, 34 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/ti/davinci_emac.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index fd40f8c64d5f..0dc272dcd772 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -538,8 +538,8 @@ __u32 cookie_v6_init_sequence(const struct sk_buff *skb, __u16 *mss);
- void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
- 			       int nonagle);
- bool tcp_may_send_now(struct sock *sk);
--int __tcp_retransmit_skb(struct sock *, struct sk_buff *);
--int tcp_retransmit_skb(struct sock *, struct sk_buff *);
-+int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs);
-+int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs);
- void tcp_retransmit_timer(struct sock *sk);
- void tcp_xmit_retransmit_queue(struct sock *);
- void tcp_simple_retransmit(struct sock *);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 90e0d9256b74..729e489b5608 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5543,7 +5543,7 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
- 	if (data) { /* Retransmit unacked data in SYN */
- 		tcp_for_write_queue_from(data, sk) {
- 			if (data == tcp_send_head(sk) ||
--			    __tcp_retransmit_skb(sk, data))
-+			    __tcp_retransmit_skb(sk, data, 1))
- 				break;
- 		}
- 		tcp_rearm_rto(sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 6451b83d81e9..4876b256a70a 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2266,7 +2266,7 @@ void tcp_send_loss_probe(struct sock *sk)
- 	if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
- 		goto rearm_timer;
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 58d58f0..f56d66e 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1512,7 +1512,10 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
  
--	if (__tcp_retransmit_skb(sk, skb))
-+	if (__tcp_retransmit_skb(sk, skb, 1))
- 		goto rearm_timer;
+ 	/* TODO: Add phy read and write and private statistics get feature */
  
- 	/* Record snd_nxt for loss detection. */
-@@ -2551,17 +2551,17 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
-  * state updates are done by the caller.  Returns non-zero if an
-  * error occurred which prevented the send.
-  */
--int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
-+int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	unsigned int cur_mss;
--	int err;
-+	int diff, len, err;
-+
- 
--	/* Inconslusive MTU probe */
--	if (icsk->icsk_mtup.probe_size) {
-+	/* Inconclusive MTU probe */
-+	if (icsk->icsk_mtup.probe_size)
- 		icsk->icsk_mtup.probe_size = 0;
--	}
- 
- 	/* Do not sent more than we queued. 1/4 is reserved for possible
- 	 * copying overhead: fragmentation, tunneling, mangling etc.
-@@ -2594,30 +2594,27 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	    TCP_SKB_CB(skb)->seq != tp->snd_una)
- 		return -EAGAIN;
- 
--	if (skb->len > cur_mss) {
--		if (tcp_fragment(sk, skb, cur_mss, cur_mss, GFP_ATOMIC))
-+	len = cur_mss * segs;
-+	if (skb->len > len) {
-+		if (tcp_fragment(sk, skb, len, cur_mss, GFP_ATOMIC))
- 			return -ENOMEM; /* We'll try again later. */
- 	} else {
--		int oldpcount = tcp_skb_pcount(skb);
-+		if (skb_unclone(skb, GFP_ATOMIC))
-+			return -ENOMEM;
- 
--		if (unlikely(oldpcount > 1)) {
--			if (skb_unclone(skb, GFP_ATOMIC))
--				return -ENOMEM;
--			tcp_init_tso_segs(skb, cur_mss);
--			tcp_adjust_pcount(sk, skb, oldpcount - tcp_skb_pcount(skb));
--		}
-+		diff = tcp_skb_pcount(skb);
-+		tcp_set_skb_tso_segs(skb, cur_mss);
-+		diff -= tcp_skb_pcount(skb);
-+		if (diff)
-+			tcp_adjust_pcount(sk, skb, diff);
-+		if (skb->len < cur_mss)
-+			tcp_retrans_try_collapse(sk, skb, cur_mss);
- 	}
- 
- 	/* RFC3168, section 6.1.1.1. ECN fallback */
- 	if ((TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN_ECN) == TCPHDR_SYN_ECN)
- 		tcp_ecn_clear_syn(sk, skb);
- 
--	tcp_retrans_try_collapse(sk, skb, cur_mss);
--
--	/* Make a copy, if the first transmission SKB clone we made
--	 * is still in somebody's hands, else make a clone.
--	 */
--
- 	/* make sure skb->data is aligned on arches that require it
- 	 * and check if ack-trimming & collapsing extended the headroom
- 	 * beyond what csum_start can cover.
-@@ -2633,20 +2630,22 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	}
- 
- 	if (likely(!err)) {
-+		segs = tcp_skb_pcount(skb);
-+
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_EVER_RETRANS;
- 		/* Update global TCP statistics. */
--		TCP_INC_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS);
-+		TCP_ADD_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS, segs);
- 		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
- 			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
--		tp->total_retrans++;
-+		tp->total_retrans += segs;
- 	}
- 	return err;
+-	return phy_mii_ioctl(priv->phydev, ifrq, cmd);
++	if (priv->phydev)
++		return phy_mii_ioctl(priv->phydev, ifrq, cmd);
++	else
++		return -EOPNOTSUPP;
  }
  
--int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
-+int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	int err = __tcp_retransmit_skb(sk, skb);
-+	int err = __tcp_retransmit_skb(sk, skb, segs);
- 
- 	if (err == 0) {
- #if FASTRETRANS_DEBUG > 0
-@@ -2737,6 +2736,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 
- 	tcp_for_write_queue_from(skb, sk) {
- 		__u8 sacked = TCP_SKB_CB(skb)->sacked;
-+		int segs;
- 
- 		if (skb == tcp_send_head(sk))
- 			break;
-@@ -2744,14 +2744,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 		if (!hole)
- 			tp->retransmit_skb_hint = skb;
- 
--		/* Assume this retransmit will generate
--		 * only one packet for congestion window
--		 * calculation purposes.  This works because
--		 * tcp_retransmit_skb() will chop up the
--		 * packet to be MSS sized and all the
--		 * packet counting works out.
--		 */
--		if (tcp_packets_in_flight(tp) >= tp->snd_cwnd)
-+		segs = tp->snd_cwnd - tcp_packets_in_flight(tp);
-+		if (segs <= 0)
- 			return;
- 
- 		if (fwd_rexmitting) {
-@@ -2788,7 +2782,7 @@ begin_fwd:
- 		if (sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))
- 			continue;
- 
--		if (tcp_retransmit_skb(sk, skb))
-+		if (tcp_retransmit_skb(sk, skb, segs))
- 			return;
- 
- 		NET_INC_STATS_BH(sock_net(sk), mib_idx);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 49bc474f8e35..373b03e78aaa 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -404,7 +404,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 			goto out;
- 		}
- 		tcp_enter_loss(sk);
--		tcp_retransmit_skb(sk, tcp_write_queue_head(sk));
-+		tcp_retransmit_skb(sk, tcp_write_queue_head(sk), 1);
- 		__sk_dst_reset(sk);
- 		goto out_reset_timer;
- 	}
-@@ -436,7 +436,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 
- 	tcp_enter_loss(sk);
- 
--	if (tcp_retransmit_skb(sk, tcp_write_queue_head(sk)) > 0) {
-+	if (tcp_retransmit_skb(sk, tcp_write_queue_head(sk), 1) > 0) {
- 		/* Retransmission failed because of local congestion,
- 		 * do not backoff.
- 		 */
+ static int match_first_device(struct device *dev, void *data)
 -- 
-2.8.0.rc3.226.g39d4020
+1.9.1
