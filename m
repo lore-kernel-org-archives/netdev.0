@@ -1,76 +1,224 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] ixgbe: make 'action' field in struct ixgbe_fdir_filter a u64 value
-Date: Mon, 25 Apr 2016 05:44:18 -0700
-Message-ID: <1461588269-128728-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] ixgbe: consolidate the configuration of spoof checking
+Date: Mon, 25 Apr 2016 05:44:15 -0700
+Message-ID: <1461588269-128728-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10855 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:40700 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932382AbcDYMoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 08:44:32 -0400
+	id S932231AbcDYMob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 08:44:31 -0400
 In-Reply-To: <1461588269-128728-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This field is used to record the RX queue index for a redirect action
-passed via ring_cookie field in struct ethtool_rx_flow_spec which is
-a u64 value.
+Consolidate the logic behind configuring spoof checking:
 
-For ex: after adding a filter rule to redirect to a VF using ethtool
-  # echo 4 > /sys/class/net/p4p1/device/sriov_numvfs
-  # ethtool -N p4p1 flow-type ip4 src-ip 192.168.0.1 action 0x100000000
+Move the setting of the MAC, VLAN and Ethertype spoof checking into
+ixgbe_ndo_set_vf_spoofchk().
 
-querying for the rule shows the Action as 'Direct to queue 0'
+Change ixgbe_set_mac_anti_spoofing() to set MAC spoofing per VF similar
+to the VLAN and Ethertype functions - this allows us to call the helper
+functions in ixgbe_ndo_set_vf_spoofchk() for all spoof check types and
+only disable MAC spoof checking when creating MACVLAN.
 
-  # ethtool -n p4p1
-  4 RX rings available
-  Total 1 rules
-
-  Filter: 2045
- 	Rule Type: Raw IPv4
-	Src IP addr: 192.168.0.1 mask: 0.0.0.0
-	Dest IP addr: 0.0.0.0 mask: 255.255.255.255
-	TOS: 0x0 mask: 0xff
-	Protocol: 0 mask: 0xff
-	L4 bytes: 0x0 mask: 0xffffffff
-	VLAN EtherType: 0x0 mask: 0xffff
-	VLAN: 0x0 mask: 0xffff
-	User-defined: 0x0 mask: 0xffffffffffffffff
-	Action: Direct to queue 0
-
-With this fix, ethtool will report the right queue index even for VFs.
-	Action: Direct to queue 4294967296
-
-Here 4294967296 corresponds to 0x100000000.
-We need to update 'ethtool' to report the queue index as a Hex value so
-that it is more  user friendly and matches with the 'action' value that
-is passed when adding the rule.
-
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 40 +++++++----------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 30 ++---------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c  | 43 ++++++++++++++++---------
+ 4 files changed, 42 insertions(+), 73 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 61d8110..94e39c1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -825,7 +825,7 @@ struct ixgbe_fdir_filter {
- 	struct hlist_node fdir_node;
- 	union ixgbe_atr_input filter;
- 	u16 sw_idx;
--	u16 action;
-+	u64 action;
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 737443a..c9dffa6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3310,43 +3310,25 @@ wwn_prefix_err:
+ /**
+  *  ixgbe_set_mac_anti_spoofing - Enable/Disable MAC anti-spoofing
+  *  @hw: pointer to hardware structure
+- *  @enable: enable or disable switch for anti-spoofing
+- *  @pf: Physical Function pool - do not enable anti-spoofing for the PF
++ *  @enable: enable or disable switch for MAC anti-spoofing
++ *  @vf: Virtual Function pool - VF Pool to set for MAC anti-spoofing
+  *
+  **/
+-void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int pf)
++void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf)
+ {
+-	int j;
+-	int pf_target_reg = pf >> 3;
+-	int pf_target_shift = pf % 8;
+-	u32 pfvfspoof = 0;
++	int vf_target_reg = vf >> 3;
++	int vf_target_shift = vf % 8;
++	u32 pfvfspoof;
  
- enum ixgbe_state_t {
+ 	if (hw->mac.type == ixgbe_mac_82598EB)
+ 		return;
+ 
++	pfvfspoof = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
+ 	if (enable)
+-		pfvfspoof = IXGBE_SPOOF_MACAS_MASK;
+-
+-	/*
+-	 * PFVFSPOOF register array is size 8 with 8 bits assigned to
+-	 * MAC anti-spoof enables in each register array element.
+-	 */
+-	for (j = 0; j < pf_target_reg; j++)
+-		IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(j), pfvfspoof);
+-
+-	/*
+-	 * The PF should be allowed to spoof so that it can support
+-	 * emulation mode NICs.  Do not set the bits assigned to the PF
+-	 */
+-	pfvfspoof &= (1 << pf_target_shift) - 1;
+-	IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(j), pfvfspoof);
+-
+-	/*
+-	 * Remaining pools belong to the PF so they do not need to have
+-	 * anti-spoofing enabled.
+-	 */
+-	for (j++; j < IXGBE_PFVFSPOOF_REG_COUNT; j++)
+-		IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(j), 0);
++		pfvfspoof |= BIT(vf_target_shift);
++	else
++		pfvfspoof &= ~BIT(vf_target_shift);
++	IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg), pfvfspoof);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 6f8e6a5..6d4c260 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -106,7 +106,7 @@ s32 prot_autoc_write_generic(struct ixgbe_hw *hw, u32 reg_val, bool locked);
+ 
+ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index);
+ s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index);
+-void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int pf);
++void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
+ void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
+ s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
+ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index b2f2cf4..657e999 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3776,34 +3776,10 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
+ 
+-
+-	/* Enable MAC Anti-Spoofing */
+-	hw->mac.ops.set_mac_anti_spoofing(hw, (adapter->num_vfs != 0),
+-					  adapter->num_vfs);
+-
+-	/* Ensure LLDP and FC is set for Ethertype Antispoofing if we will be
+-	 * calling set_ethertype_anti_spoofing for each VF in loop below
+-	 */
+-	if (hw->mac.ops.set_ethertype_anti_spoofing) {
+-		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_LLDP),
+-				(IXGBE_ETQF_FILTER_EN    |
+-				 IXGBE_ETQF_TX_ANTISPOOF |
+-				 IXGBE_ETH_P_LLDP));
+-
+-		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FC),
+-				(IXGBE_ETQF_FILTER_EN |
+-				 IXGBE_ETQF_TX_ANTISPOOF |
+-				 ETH_P_PAUSE));
+-	}
+-
+-	/* For VFs that have spoof checking turned off */
+ 	for (i = 0; i < adapter->num_vfs; i++) {
+-		if (!adapter->vfinfo[i].spoofchk_enabled)
+-			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, i, false);
+-
+-		/* enable ethertype anti spoofing if hw supports it */
+-		if (hw->mac.ops.set_ethertype_anti_spoofing)
+-			hw->mac.ops.set_ethertype_anti_spoofing(hw, true, i);
++		/* configure spoof checking */
++		ixgbe_ndo_set_vf_spoofchk(adapter->netdev, i,
++					  adapter->vfinfo[i].spoofchk_enabled);
+ 
+ 		/* Enable/Disable RSS query feature  */
+ 		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index adcf000..cc635ce 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -964,8 +964,11 @@ static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
+ 		 * If the VF is allowed to set MAC filters then turn off
+ 		 * anti-spoofing to avoid false positives.
+ 		 */
+-		if (adapter->vfinfo[vf].spoofchk_enabled)
+-			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, vf, false);
++		if (adapter->vfinfo[vf].spoofchk_enabled) {
++			struct ixgbe_hw *hw = &adapter->hw;
++
++			hw->mac.ops.set_mac_anti_spoofing(hw, false, vf);
++		}
+ 	}
+ 
+ 	err = ixgbe_set_vf_macvlan(adapter, vf, index, new_mac);
+@@ -1525,27 +1528,35 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	int vf_target_reg = vf >> 3;
+-	int vf_target_shift = vf % 8;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 regval;
+ 
+ 	if (vf >= adapter->num_vfs)
+ 		return -EINVAL;
+ 
+ 	adapter->vfinfo[vf].spoofchk_enabled = setting;
+ 
+-	regval = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
+-	regval &= ~(1 << vf_target_shift);
+-	regval |= (setting << vf_target_shift);
+-	IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg), regval);
+-
+-	if (adapter->vfinfo[vf].vlan_count) {
+-		vf_target_shift += IXGBE_SPOOF_VLANAS_SHIFT;
+-		regval = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
+-		regval &= ~(1 << vf_target_shift);
+-		regval |= (setting << vf_target_shift);
+-		IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg), regval);
++	/* configure MAC spoofing */
++	hw->mac.ops.set_mac_anti_spoofing(hw, setting, vf);
++
++	/* configure VLAN spoofing */
++	if (adapter->vfinfo[vf].vlan_count)
++		hw->mac.ops.set_vlan_anti_spoofing(hw, setting, vf);
++
++	/* Ensure LLDP and FC is set for Ethertype Antispoofing if we will be
++	 * calling set_ethertype_anti_spoofing for each VF in loop below
++	 */
++	if (hw->mac.ops.set_ethertype_anti_spoofing) {
++		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_LLDP),
++				(IXGBE_ETQF_FILTER_EN    |
++				 IXGBE_ETQF_TX_ANTISPOOF |
++				 IXGBE_ETH_P_LLDP));
++
++		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FC),
++				(IXGBE_ETQF_FILTER_EN |
++				 IXGBE_ETQF_TX_ANTISPOOF |
++				 ETH_P_PAUSE));
++
++		hw->mac.ops.set_ethertype_anti_spoofing(hw, setting, vf);
+ 	}
+ 
+ 	return 0;
 -- 
 2.5.5
