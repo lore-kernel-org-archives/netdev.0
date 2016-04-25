@@ -1,68 +1,66 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] [RFC] net: dsa: mv88e6xxx: Pre-initialize err in mv88e6xxx_port_bridge_join()
-Date: Mon, 25 Apr 2016 19:53:39 +0200
-Message-ID: <CAMuHMdVfYTx3CCa0GnqmcWHBQPYZZUYZQz1hOOaUjgXFmhVP3w@mail.gmail.com>
-References: <1461570761-12187-1-git-send-email-geert@linux-m68k.org>
-	<87r3dtybm8.fsf@ketchup.mtl.sfl>
-	<CAMuHMdVzeR9iMAJPwZj3HV56XwYcc_+eAhx+YiCN33Do3tsJSg@mail.gmail.com>
-	<87vb35a942.fsf@ketchup.mtl.sfl>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v3 00/18] wcn36xx fixes
+Date: Mon, 25 Apr 2016 20:56:40 +0300
+Message-ID: <87oa8x1siv.fsf@kamboji.qca.qualcomm.com>
+References: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Pontus Fuchs <pontus.fuchs@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87vb35a942.fsf@ketchup.mtl.sfl>
+In-Reply-To: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
+	(Bjorn Andersson's message of "Mon, 18 Apr 2016 22:00:38 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Vivien,
+Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 
-On Mon, Apr 25, 2016 at 7:31 PM, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
-> Geert Uytterhoeven <geert@linux-m68k.org> writes:
->> On Mon, Apr 25, 2016 at 5:03 PM, Vivien Didelot
->> <vivien.didelot@savoirfairelinux.com> wrote:
->>> Geert Uytterhoeven <geert@linux-m68k.org> writes:
->>>> drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_port_b=
-ridge_join=E2=80=99:
->>>> drivers/net/dsa/mv88e6xxx.c:2184: warning: =E2=80=98err=E2=80=99 m=
-ay be used uninitialized in this function
->>>
->>> Interesting, I don't have those warnings on 207afda1b5036009...
->>
->> It depends on the compiler version (still using 4.1.2) and options.
->>
->>>> If netdev_notifier_changeupper_info.upper_dev is ever NULL, the br=
-idge
->>>> parameter will be NULL too, and the function will return an
->>>> uninitialized value.
->>>>
->>>> Pre-initialize err to zero to fix this.
->>>>
->>>> Fixes: 207afda1b5036009 ("net: dsa: mv88e6xxx: share the same defa=
-ult FDB")
->>>> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
->>>> ---
->>>> Can this actually happen?
->>>
->>> bridge cannot be NULL here. Also ps->ports[port].bridge_dev is assi=
-gned
->>> to it before entering the for loop, so _mv88e6xxx_port_based_vlan_m=
-ap
->>> will be called at least for this port.
->>
->> But there's no way the compiler can know that...
+> The bulk of the following patches have been sitting in Eugene's Github tree for
+> quite some time. They fix various issues existing in the mainline drivers, so
+> they should be merged there too.
 >
-> Or maybe it can in new configurations. Anyway, this fix doesn't hurt,
-> with a relevant commit message, I'd ack it.
+> Also included are two new fixes, of my own; the important one being the
+> reordering of deletion of the bss, as this crashes the firmware on the
+> Dragonbaord 410c (apq8016 with pronto & wcn3620).
+>
+> Lastly is a patch that adds a bunch of new capabilities found in the downstream
+> driver.
+>
+> Changes since v2:
+> - Restore BEACON_TEMPLATE_SIZE to not break UPDATE_PROBE_RSP_TEMPLATE_REQ
+> - Added patch to correct WCN36XX_HAL_RMV_BSSKEY_RSP decoder
+> - Added patch with missing capabilities from downstream
+>
+> Changes since v1:
+> - Reorder patch 6 and 7 to not break the build temporarily
+> - Inline fix from Jason Mobarak in the TIM PVM padding
+>
+> Bjorn Andersson (3):
+>   wcn36xx: Delete BSS before idling link
+>   wcn36xx: Correct remove bss key response encoding
+>   wcn36xx: Fill in capability list
+>
+> Pontus Fuchs (15):
+>   wcn36xx: Clean up wcn36xx_smd_send_beacon
+>   wcn36xx: Pad TIM PVM if needed
+>   wcn36xx: Add helper macros to cast vif to private vif and vice versa
+>   wcn36xx: Use consistent name for private vif
+>   wcn36xx: Use define for invalid index and fix typo
+>   wcn36xx: Add helper macros to cast sta to priv
+>   wcn36xx: Fetch private sta data from sta entry instead of from vif
+>   wcn36xx: Remove sta pointer in private vif struct
+>   wcn36xx: Parse trigger_ba response properly
+>   wcn36xx: Copy all members in config_sta v1 conversion
+>   wcn36xx: Use allocated self sta index instead of hard coded
+>   wcn36xx: Clear encrypt_type when deleting bss key
+>   wcn36xx: Track association state
+>   wcn36xx: Implement multicast filtering
+>   wcn36xx: Use correct command struct for EXIT_BMPS_REQ
 
-What would you consider a relevant commit message?
+All applied, thanks.
 
-Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
+-- 
+Kalle Valo
