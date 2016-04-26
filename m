@@ -1,9 +1,9 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH 1/4] samples/bpf: add back functionality to redefine
- LLC command
-Date: Tue, 26 Apr 2016 13:36:59 +0200
-Message-ID: <571F52DB.7050904@iogearbox.net>
-References: <20160426110828.20716.13392.stgit@firesoul> <20160426110917.20716.43051.stgit@firesoul>
+Subject: Re: [net-next PATCH 3/4] samples/bpf: add a README file to get users
+ started
+Date: Tue, 26 Apr 2016 13:44:06 +0200
+Message-ID: <571F5486.7090902@iogearbox.net>
+References: <20160426110828.20716.13392.stgit@firesoul> <20160426110927.20716.89620.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,52 +11,107 @@ Cc: bblanco@plumgrid.com, borkmann@iogearbox.net,
 	alexei.starovoitov@gmail.com, linux-kbuild@vger.kernel.org
 To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <20160426110917.20716.43051.stgit@firesoul>
+In-Reply-To: <20160426110927.20716.89620.stgit@firesoul>
 Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 04/26/2016 01:09 PM, Jesper Dangaard Brouer wrote:
-> It is practical to be-able-to redefine the location of the LLVM
-> command 'llc', because not all distros have a LLVM version with bpf
-> target support.  Thus, it is sometimes required to compile LLVM from
-> source, and sometimes it is not desired to overwrite the distros
-> default LLVM version.
+> Getting started with using examples in samples/bpf/ is not
+> straightforward.  There are several dependencies, and specific
+> versions of these dependencies.
 >
-> This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
-> PATH, rather than a hardcoded value").
+> Just compiling the example tool is also slightly obscure, e.g. one
+> need to call make like:
 >
-> Add this features back. Note that it is possible to redefine the LLC
-> on the make command like:
+>   make samples/bpf/
 >
->   make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+> Do notice the "/" slash after the directory name.
 >
-> Fixes: 128d1514be35 ("samples/bpf: Use llc in PATH, rather than a hardcoded value")
 > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > ---
->   samples/bpf/Makefile |    6 +++++-
->   1 file changed, 5 insertions(+), 1 deletion(-)
+>   samples/bpf/README.rst |   67 ++++++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 67 insertions(+)
+>   create mode 100644 samples/bpf/README.rst
 >
-> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-> index 744dd7a16144..5bae9536f100 100644
-> --- a/samples/bpf/Makefile
-> +++ b/samples/bpf/Makefile
-> @@ -81,10 +81,14 @@ HOSTLOADLIBES_spintest += -lelf
->   HOSTLOADLIBES_map_perf_test += -lelf -lrt
->   HOSTLOADLIBES_test_overhead += -lelf -lrt
->
-> +# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
-> +#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
-> +LLC ?= llc
+> diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
+> new file mode 100644
+> index 000000000000..3e1ac05d8e7c
+> --- /dev/null
+> +++ b/samples/bpf/README.rst
+> @@ -0,0 +1,67 @@
+> +eBPF sample programs
+> +====================
 > +
->   # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
->   # But, there is no easy way to fix it, so just exclude it since it is
->   # useless for BPF samples.
->   $(obj)/%.o: $(src)/%.c
->   	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
->   		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-> -		-O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
-> +		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+> +This kernel samples/bpf directory contains a mini eBPF library, test
+> +stubs, verifier test-suite and examples for using eBPF.
+> +
+> +Build dependencies
+> +==================
+> +
+> +Compiling requires having installed:
+> + * clang
+> + * llvm >= version 3.7.0
+> +
+> +Note that LLVM's tool 'llc' must support target 'bpf', list with command::
+> +
+> + $ llc --version
+> + LLVM (http://llvm.org/):
+> +  LLVM version 3.x.y
+> +  [...]
+> +  Host CPU: xxx
+> +
+> +  Registered Targets:
+> +    [...]
+> +    bpf        - BPF (host endian)
+> +    bpfeb      - BPF (big endian)
+> +    bpfel      - BPF (little endian)
+> +    [...]
+> +
+> +Kernel headers
+> +--------------
+> +
+> +There are usually dependencies to header files of the current kernel.
+> +To avoid installing devel kernel headers system wide, as a normal
+> +user, simply call::
+> +
+> + make headers_install
+> +
+> +This will creates a local "usr/include" directory in the git/build top
+> +level directory, that the make system automatically pickup first.
+> +
+> +Compiling
+> +=========
+> +
+> +For compiling goto kernel top level build directory and run make like::
+> +
+> + make samples/bpf/
+> +
+> +Do notice the "/" slash after the directory name.
+> +
+> +Manually compiling LLVM with 'bpf' support
+> +------------------------------------------
+> +
+> +In some LLVM versions the BPF target were marked experimental.  To
+> +compile LLVM manually and enable BPF target run (build dependencies
+> +are cmake and gcc-c++)::
+> +
+> + $ git clone http://llvm.org/git/llvm.git
+> + $ cd llvm
+> + $ mkdir build; cd build
+> + $ cmake .. -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=BPF
+> + $ make
 
-Why not doing the same for clang? True that we're not using 'clang -target bpf'
-here, but when someone builds llvm from git, it's very likely that clang is cloned
-and built along with it.
+That's perhaps a bit misleading in the sense that when you clone the
+tree from git, you'd nowadays invoke cmake normally with LLVM_TARGETS_TO_BUILD
+instead of LLVM_EXPERIMENTAL_TARGETS_TO_BUILD for BPF, as BPF is not an
+experimental target anymore. It's probably also recommended to clone
+clang into tools/ dir as well under your llvm/ repo when you compile
+from scratch anyways.
+
+> +It is also possible to point make to the newly compile 'llc' command
+> +via redefining LLC on the make command line::
+> +
+> + make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+> +
+>
+
