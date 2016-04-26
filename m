@@ -1,10 +1,8 @@
 From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH] net/mlx5e: avoid stack overflow in mlx5e_open_channels
-Date: Tue, 26 Apr 2016 21:50:53 +0300
-Message-ID: <CALzJLG_BZ_UiWkUgz_tLznRv7Y_V7cK8cDz_FruPupEqoT7--g@mail.gmail.com>
-References: <1461590139-1396745-1-git-send-email-arnd@arndb.de>
- <5940636.9Nic57IXcZ@wuerfel> <CALzJLG-d1mTs9SdubELzQtczsiVY0cgzBc3BC6wJoBgx4Wg_+Q@mail.gmail.com>
- <23978128.X7F5UHGaYZ@wuerfel>
+Subject: Re: [PATCH v2] net/mlx5e: avoid stack overflow in mlx5e_open_channels
+Date: Tue, 26 Apr 2016 21:52:58 +0300
+Message-ID: <CALzJLG_9bq_23xdg46d-tnus0Ohk95QQrRT1EbYJE-jv03A2WA@mail.gmail.com>
+References: <1461685993-1049370-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -18,30 +16,27 @@ Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <23978128.X7F5UHGaYZ@wuerfel>
+In-Reply-To: <1461685993-1049370-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 26, 2016 at 6:49 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> On Tuesday 26 April 2016 17:41:45 Saeed Mahameed wrote:
->> On Tue, Apr 26, 2016 at 4:53 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
->> >
->> > Sure, do you want to just edit this when you forward the patch, or
->> > do you need me to do it?
->> >
->>
->> Well, I won't say no if you want to do it
->>
+On Tue, Apr 26, 2016 at 6:52 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> struct mlx5e_channel_param is a large structure that is allocated
+> on the stack of mlx5e_open_channels, and with a recent change
+> it has grown beyond the warning size for the maximum stack
+> that a single function should use:
 >
-> All I want is to get rid of the patch in my queue. I guess it's
-> worth the 10 minute of work ;-)
+> mellanox/mlx5/core/en_main.c: In function 'mlx5e_open_channels':
+> mellanox/mlx5/core/en_main.c:1325:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
 >
-> v2 coming
+> The function is already using dynamic allocation and is not in
+> a fast path, so the easiest workaround is to use another kzalloc
+> for allocating the channel parameters.
 >
->         Arnd
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Fixes: d3c9bc2743dc ("net/mlx5e: Added ICO SQs")
 
-Thank you Arnd, Appreciated.
-Saeed.
+Acked-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
