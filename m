@@ -1,96 +1,86 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
-Date: Tue, 26 Apr 2016 16:25:17 +0200
-Message-ID: <20160426142517.GA1937@nanopsycho.orion>
-References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
- <1461407219-72027-10-git-send-email-oulijun@huawei.com>
- <20160424075424.GE7974@leon.nu>
- <571F0C04.2010005@huawei.com>
- <20160426141821.GJ7974@leon.nu>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH 3/4] samples/bpf: add a README file to get users
+ started
+Date: Tue, 26 Apr 2016 07:34:12 -0700
+Message-ID: <20160426143410.GA39797@ast-mbp.thefacebook.com>
+References: <20160426110828.20716.13392.stgit@firesoul>
+ <20160426110927.20716.89620.stgit@firesoul>
+ <571F5486.7090902@iogearbox.net>
+ <20160426135647.7faf9a87@redhat.com>
+ <571F61D6.50101@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: oulijun <oulijun@huawei.com>, dledford@redhat.com,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	jiri@mellanox.com, ogerlitz@mellanox.com, linuxarm@huawei.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, gongyangming@huawei.com,
-	xiaokun@huawei.com, tangchaofei@huawei.com, haifeng.wei@huawei.com,
-	yisen.zhuang@huawei.com, yankejian@huawei.com,
-	lisheng011@huawei.com, charles.chenxin@huawei.com
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34909 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbcDZOZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 10:25:20 -0400
-Received: by mail-wm0-f65.google.com with SMTP id e201so4870705wme.2
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 07:25:19 -0700 (PDT)
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	bblanco@plumgrid.com, borkmann@iogearbox.net,
+	linux-kbuild@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160426141821.GJ7974@leon.nu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <571F61D6.50101@iogearbox.net>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Apr 26, 2016 at 04:18:21PM CEST, leon@kernel.org wrote:
->On Tue, Apr 26, 2016 at 02:34:44PM +0800, oulijun wrote:
->> On 2016/4/24 15:54, Leon Romanovsky wrote:
+On Tue, Apr 26, 2016 at 02:40:54PM +0200, Daniel Borkmann wrote:
+> On 04/26/2016 01:56 PM, Jesper Dangaard Brouer wrote:
+> >>>+Compiling requires having installed:
+> >>>+ * clang
+> >>>+ * llvm >= version 3.7.0
 
-<snip>
+please change it to 3.7.1, since 3.7.0 had several bugs.
+They're rare, but better to avoid the issue.
 
->> >> +int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj)
->> >> +{
->> >> +	int ret = 0;
->> >> +
->> >> +	spin_lock(&bitmap->lock);
->> >> +	*obj = find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
->> >> +	if (*obj >= bitmap->max) {
->> >> +		bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
->> >> +			       & bitmap->mask;
->> >> +		*obj = find_first_zero_bit(bitmap->table, bitmap->max);
->> > 
->> > find_first_zero_bit function returns "unsigned long" which may or may
->> > not be equal to u32 on some architectures.
->> > 
->> Hi Leon,
->>     I appreciate your keen eye. this code is meant for ARM64bit therefore should run corretly for 64-bit AARCH64.
+> >>>+
+> >>>+Note that LLVM's tool 'llc' must support target 'bpf', list with command::
+> >>>+
+> >>>+ $ llc --version
+> >>>+ LLVM (http://llvm.org/):
+> >>>+  LLVM version 3.x.y
+> >>>+  [...]
+> >>>+  Host CPU: xxx
+> >>>+
+> >>>+  Registered Targets:
+> >>>+    [...]
+> >>>+    bpf        - BPF (host endian)
+> >>>+    bpfeb      - BPF (big endian)
+> >>>+    bpfel      - BPF (little endian)
 
-The driver should run correctly on any arch.
+there always be 3 targets for bpf, since some folks need to cross-compile.
 
+> >>>+Manually compiling LLVM with 'bpf' support
+> >>>+------------------------------------------
+> >>>+
+> >>>+In some LLVM versions the BPF target were marked experimental.  To
+> >>>+compile LLVM manually and enable BPF target run (build dependencies
+> >>>+are cmake and gcc-c++)::
+> >>>+
+> >>>+ $ git clone http://llvm.org/git/llvm.git
+> >>>+ $ cd llvm
+> >>>+ $ mkdir build; cd build
+> >>>+ $ cmake .. -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=BPF
+> >>>+ $ make
+> >>
+> >>That's perhaps a bit misleading in the sense that when you clone the
+> >>tree from git, you'd nowadays invoke cmake normally with LLVM_TARGETS_TO_BUILD
+> >>instead of LLVM_EXPERIMENTAL_TARGETS_TO_BUILD for BPF, as BPF is not an
+> >>experimental target anymore. It's probably also recommended to clone
+> >>clang into tools/ dir as well under your llvm/ repo when you compile
+> >>from scratch anyways.
 
->> I will consider changing it as part of good partice and better portability "
->> I will give a primary plan to modified it.
->> for example:
->>     *obj = (u32)find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
->> Beause the max size of bitmap->table is u32 in current version.
->> 
->> int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
->> 			 u32 reserved_bot, u32 reserved_top)
->> {
->> 	u32 i;
->> 
->> 	if (num != roundup_pow_of_two(num))
->> 		return -EINVAL;
->> 
->> 	bitmap->last = 0;
->> 	bitmap->top = 0;
->> 	bitmap->max = num - reserved_top;
->> 	bitmap->mask = mask;
->> 	bitmap->reserved_top = reserved_top;
->> 	spin_lock_init(&bitmap->lock);
->> 	bitmap->table = kcalloc(BITS_TO_LONGS(bitmap->max), sizeof(long),
->> 				GFP_KERNEL);
->> 
->> Is this plan ok?
->
->No,
->You are submitting new driver, please do it properly (without casting)
->from the beginning.
->
->> 
->> Thanks
->> Lijun Ou
->> 
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+yes. LLVM_EXPERIMENTAL_TARGETS_TO_BUILD is the thing of the past
+when bpf was just merged into llvm < 3.7
+By default llvm will build all non-experimental backends including bpf.
+If you need to make llc binary smaller you can use:
+-DLLVM_TARGETS_TO_BUILD="BPF;X86"
+
+Also fedora and ubuntu ship with llvm that has bpf support.
+
+> >Can you come up with a formulation/desc I can use instead then?
+> 
+> You mean how to build with clang? There are various docs/snippets out
+> there, for example, see the 'Build LLVM and Clang development libs'
+> part of [1], that you can tweak for your README with.
+> 
+>   [1] https://gist.github.com/brendangregg/cfa482acb71aa577789c
+
+yep. +1 for the link.
+
