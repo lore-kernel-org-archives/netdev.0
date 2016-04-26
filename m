@@ -1,43 +1,64 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net v2 3/3] gre: allow creation of gretap interfaces in
- metadata mode
-Date: Tue, 26 Apr 2016 10:47:43 +0200
-Message-ID: <20160426104743.36d19b5c@griffin>
-References: <cover.1461495411.git.jbenc@redhat.com>
-	<4917335385a75586c1f13b6a6d570d4cc5b0b132.1461495411.git.jbenc@redhat.com>
-	<CAOrHB_BZkZhSOWqgsHXDM_3o+zkgCwRYwOL2hr33_p02if9Fxw@mail.gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 1/5] ti: Convert wl1271_<level> logging macros to dev_<level> or pr_<level>
+Date: Tue, 26 Apr 2016 12:06:09 +0300
+Message-ID: <87d1pczqm6.fsf@kamboji.qca.qualcomm.com>
+References: <cover.1457395071.git.joe@perches.com>
+	<760b583e96a9a88f06e97150617f791c3726a302.1457395071.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Simon Horman <simon.horman@netronome.com>
-To: pravin shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43121 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752377AbcDZIrs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 04:47:48 -0400
-In-Reply-To: <CAOrHB_BZkZhSOWqgsHXDM_3o+zkgCwRYwOL2hr33_p02if9Fxw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <760b583e96a9a88f06e97150617f791c3726a302.1457395071.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+	(Joe Perches's message of "Mon, 7 Mar 2016 16:19:33 -0800")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Apr 2016 11:00:35 -0700, pravin shelar wrote:
-> On Sun, Apr 24, 2016 at 4:00 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> > The IFLA_GRE_REMOTE attribute does not make sense together with collect
-> > metadata and is ignored in such case. However, iproute2 always sets it; it
-> > will be zero if there's no remote address specified on the command line.
-> >
-> > Remove the check for non-zero IFLA_GRE_REMOTE when collect medata flag is
-> > set.
-> >
-> Rather than cover up in ip_gre kernel module, why not just fix
-> iproute2 to set the attribute correctly?
+Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
 
-Well, who defines "correctly"? :-)
+> Use the more common logging mechanism passing wl->dev where
+> appropriate.  Remove the macros.  Add argument struct wl1271 *wl to
+> some functions to make these logging mechanisms work.
+>
+> Miscellanea:
+>
+> o Coalesce formats, add required trailing \n to formats
+>   Some formats already had previously incorrect \n uses
+> o Realign arguments
+> o Correct a couple typos and grammar defects
+> o Split a multiple line error message to multiple calls of dev_err
+> o Add #define pr_fmt when pr_<level> is used
+> o Remove unnecessary/duplicate pr_fmt use from wl1271_debug macro
+>
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-I can do that, it really doesn't matter. One way or the other, the
-result will be the same. I'll move this to iproute2 in v3.
+Doesn't apply anymore:
 
- Jiri
+Applying: ti: Convert wl1271_<level> logging macros to dev_<level> or pr_<level>
+Using index info to reconstruct a base tree...
+Falling back to patching base and 3-way merge...
+Auto-merging drivers/net/wireless/ti/wlcore/wlcore_i.h
+Auto-merging drivers/net/wireless/ti/wlcore/tx.c
+Auto-merging drivers/net/wireless/ti/wlcore/scan.c
+Auto-merging drivers/net/wireless/ti/wlcore/rx.c
+Auto-merging drivers/net/wireless/ti/wlcore/ps.c
+Auto-merging drivers/net/wireless/ti/wlcore/main.c
+Auto-merging drivers/net/wireless/ti/wlcore/cmd.c
+CONFLICT (content): Merge conflict in drivers/net/wireless/ti/wlcore/cmd.c
+Auto-merging drivers/net/wireless/ti/wl18xx/tx.c
+Auto-merging drivers/net/wireless/ti/wl18xx/scan.c
+Auto-merging drivers/net/wireless/ti/wl18xx/main.c
+Auto-merging drivers/net/wireless/ti/wl18xx/event.c
+Auto-merging drivers/net/wireless/ti/wl18xx/debugfs.c
+Auto-merging drivers/net/wireless/ti/wl18xx/cmd.c
+Auto-merging drivers/net/wireless/ti/wl12xx/scan.c
+Auto-merging drivers/net/wireless/ti/wl12xx/main.c
+Failed to merge in the changes.
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
