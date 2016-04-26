@@ -1,74 +1,82 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: Re: [PATCH 2/2] vhost: lockless enqueuing
-Date: Tue, 26 Apr 2016 03:57:10 -0400 (EDT)
-Message-ID: <19697601.46250110.1461657430875.JavaMail.zimbra@redhat.com>
-References: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
-	<1461636873-45335-2-git-send-email-jasowang@redhat.com>
-	<2033086948.46236145.1461651858100.JavaMail.zimbra@redhat.com>
-	<571F1330.7030504@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 0/8] netlink: align attributes when
+	needed (patchset #3)
+Date: Tue, 26 Apr 2016 10:06:10 +0200
+Message-ID: <1461657978-13360-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <571F1330.7030504@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, sd-y1jBWg8GRStKuXlAQpz2QA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org,
+ jack-IBi9RG/b67k@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-
-> 
-> 
-> 
-> On 04/26/2016 02:24 PM, Pankaj Gupta wrote:
-> > Hi Jason,
-> >
-> > Overall patches look good. Just one doubt I have is below:
-> >> We use spinlock to synchronize the work list now which may cause
-> >> unnecessary contentions. So this patch switch to use llist to remove
-> >> this contention. Pktgen tests shows about 5% improvement:
-> >>
-> >> Before:
-> >> ~1300000 pps
-> >> After:
-> >> ~1370000 pps
-> >>
-> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >> ---
-> >>  drivers/vhost/vhost.c | 52
-> >>  +++++++++++++++++++++++++--------------------------
-> >>  drivers/vhost/vhost.h |  7 ++++---
-> >>  2 files changed, 29 insertions(+), 30 deletions(-)
-> 
-> [...]
-> 
-> >> -		if (work) {
-> >> +		node = llist_del_all(&dev->work_list);
-> >> +		if (!node)
-> >> +			schedule();
-> >> +
-> >> +		node = llist_reverse_order(node);
-> > Can we avoid llist reverse here?
-> >
-> 
-> Probably not, this is because:
-> 
-> - we should process the work exactly the same order as they were queued,
-> otherwise flush won't work
-> - llist can only add a node to the head of list.
-
-Got it.
-
-Thanks,
-> 
-> Thanks
-> 
+ClRoaXMgaXMgdGhlIGNvbnRpbnVhdGlvbiAoc2VyaWVzICMzKSBvZiB0aGUgd29yayBkb25lIHRv
+IGFsaWduIG5ldGxpbmsKYXR0cmlidXRlcyB3aGVuIHRoZXNlIGF0dHJpYnV0ZXMgY29udGFpbiBz
+b21lIDY0LWJpdCBmaWVsZHMuCgpJdCdzIHRoZSBsYXN0IHBhdGNoc2V0IGZyb20gd2hhdCBJJ3Zl
+IHNlZW4uCgpUaGUgbGFzdCB1c2VyIG9mIG5sYV9wdXRfdTY0KCkgaXMgYmxvY2svZHJiZC4gVGhp
+cyBtb2R1bGUgZG9lcyBub3QgdXNlCnN0YW5kYXJkIG5ldGxpbmsgQVBJIChzZWUgYWxsIHRoZSBz
+dHVmZiBpbiBpbmNsdWRlL2xpbnV4L2dlbmxfbWFnaWNfc3RydWN0LmgKYW5kIGluY2x1ZGUvbGlu
+dXgvZ2VubF9tYWdpY19mdW5jLmgpLiBJIGRpZG4ndCBtb2RpZnkgaXQgYmVjYXVzZSBpdCdzIHNl
+ZW1zCmhhcmQgdG8gZG8gaXQgd2hpdGhvdXQgdGVzdGluZyBhbmQgZnVsbHkgdW5kZXJzdGFuZGlu
+ZyB0aGUgY29udGV4dCAoZm9yCmV4YW1wbGUsIHdoeSBpbmNsdWRlL2xpbnV4L2RyYmRfZ2VubC5o
+IGlzIG5vdCBwYXJ0IG9mIHVhcGk/KS4KQW55IHRob3VnaHRzPwoKIERvY3VtZW50YXRpb24vbmV0
+d29ya2luZy9nZW5fc3RhdHMudHh0ICB8ICAgNiArLQogZHJpdmVycy9uZXQvbWFjc2VjLmMgICAg
+ICAgICAgICAgICAgICAgIHwgMTIxICsrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tCiBk
+cml2ZXJzL25ldC93aXJlbGVzcy9tYWM4MDIxMV9od3NpbS5jICAgfCAgIDIgKy0KIGRyaXZlcnMv
+bmV0L3dpcmVsZXNzL21hYzgwMjExX2h3c2ltLmggICB8ICAgMSArCiBmcy9xdW90YS9uZXRsaW5r
+LmMgICAgICAgICAgICAgICAgICAgICAgfCAgMTIgKystLQogaW5jbHVkZS9uZXQvZ2VuX3N0YXRz
+LmggICAgICAgICAgICAgICAgIHwgICA2ICstCiBpbmNsdWRlL3VhcGkvbGludXgvZ2VuX3N0YXRz
+LmggICAgICAgICAgfCAgIDEgKwogaW5jbHVkZS91YXBpL2xpbnV4L2lmX2xpbmsuaCAgICAgICAg
+ICAgIHwgICAxICsKIGluY2x1ZGUvdWFwaS9saW51eC9pZl9tYWNzZWMuaCAgICAgICAgICB8ICAg
+NiArKwogaW5jbHVkZS91YXBpL2xpbnV4L2luZXRfZGlhZy5oICAgICAgICAgIHwgICA0ICstCiBp
+bmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCAgICAgICAgfCAgIDIgKwogaW5jbHVkZS91
+YXBpL2xpbnV4L3BrdF9jbHMuaCAgICAgICAgICAgIHwgICAyICsKIGluY2x1ZGUvdWFwaS9saW51
+eC9xdW90YS5oICAgICAgICAgICAgICB8ICAgMSArCiBpbmNsdWRlL3VhcGkvbGludXgvcnRuZXRs
+aW5rLmggICAgICAgICAgfCAgIDEgKwogaW5jbHVkZS91YXBpL2xpbnV4L3RjX2FjdC90Y19icGYu
+aCAgICAgIHwgICAxICsKIGluY2x1ZGUvdWFwaS9saW51eC90Y19hY3QvdGNfY29ubm1hcmsuaCB8
+ICAgMSArCiBpbmNsdWRlL3VhcGkvbGludXgvdGNfYWN0L3RjX2NzdW0uaCAgICAgfCAgIDEgKwog
+aW5jbHVkZS91YXBpL2xpbnV4L3RjX2FjdC90Y19kZWZhY3QuaCAgIHwgICAxICsKIGluY2x1ZGUv
+dWFwaS9saW51eC90Y19hY3QvdGNfZ2FjdC5oICAgICB8ICAgMSArCiBpbmNsdWRlL3VhcGkvbGlu
+dXgvdGNfYWN0L3RjX2lmZS5oICAgICAgfCAgIDEgKwogaW5jbHVkZS91YXBpL2xpbnV4L3RjX2Fj
+dC90Y19pcHQuaCAgICAgIHwgICAxICsKIGluY2x1ZGUvdWFwaS9saW51eC90Y19hY3QvdGNfbWly
+cmVkLmggICB8ICAgMSArCiBpbmNsdWRlL3VhcGkvbGludXgvdGNfYWN0L3RjX25hdC5oICAgICAg
+fCAgIDEgKwogaW5jbHVkZS91YXBpL2xpbnV4L3RjX2FjdC90Y19wZWRpdC5oICAgIHwgICAxICsK
+IGluY2x1ZGUvdWFwaS9saW51eC90Y19hY3QvdGNfc2tiZWRpdC5oICB8ICAgMSArCiBpbmNsdWRl
+L3VhcGkvbGludXgvdGNfYWN0L3RjX3ZsYW4uaCAgICAgfCAgIDEgKwogbmV0L2NvcmUvZ2VuX3N0
+YXRzLmMgICAgICAgICAgICAgICAgICAgIHwgIDM1ICsrKysrLS0tLQogbmV0L2NvcmUvbmVpZ2hi
+b3VyLmMgICAgICAgICAgICAgICAgICAgIHwgICAzICstCiBuZXQvY29yZS9ydG5ldGxpbmsuYyAg
+ICAgICAgICAgICAgICAgICAgfCAgIDQgKy0KIG5ldC9jb3JlL3NvY2tfZGlhZy5jICAgICAgICAg
+ICAgICAgICAgICB8ICAgMiArLQogbmV0L2lwdjQvaW5ldF9kaWFnLmMgICAgICAgICAgICAgICAg
+ICAgIHwgICA5ICsrLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgICAgICAgICAgIHwg
+IDI3ICsrKy0tLS0KIG5ldC9zY2hlZC9hY3RfYXBpLmMgICAgICAgICAgICAgICAgICAgICB8ICAg
+NyArLQogbmV0L3NjaGVkL2FjdF9icGYuYyAgICAgICAgICAgICAgICAgICAgIHwgICAzICstCiBu
+ZXQvc2NoZWQvYWN0X2Nvbm5tYXJrLmMgICAgICAgICAgICAgICAgfCAgIDMgKy0KIG5ldC9zY2hl
+ZC9hY3RfY3N1bS5jICAgICAgICAgICAgICAgICAgICB8ICAgMiArLQogbmV0L3NjaGVkL2FjdF9n
+YWN0LmMgICAgICAgICAgICAgICAgICAgIHwgICAyICstCiBuZXQvc2NoZWQvYWN0X2lmZS5jICAg
+ICAgICAgICAgICAgICAgICAgfCAgIDIgKy0KIG5ldC9zY2hlZC9hY3RfaXB0LmMgICAgICAgICAg
+ICAgICAgICAgICB8ICAgMiArLQogbmV0L3NjaGVkL2FjdF9taXJyZWQuYyAgICAgICAgICAgICAg
+ICAgIHwgICAyICstCiBuZXQvc2NoZWQvYWN0X25hdC5jICAgICAgICAgICAgICAgICAgICAgfCAg
+IDIgKy0KIG5ldC9zY2hlZC9hY3RfcGVkaXQuYyAgICAgICAgICAgICAgICAgICB8ICAgMiArLQog
+bmV0L3NjaGVkL2FjdF9zaW1wbGUuYyAgICAgICAgICAgICAgICAgIHwgICAyICstCiBuZXQvc2No
+ZWQvYWN0X3NrYmVkaXQuYyAgICAgICAgICAgICAgICAgfCAgIDIgKy0KIG5ldC9zY2hlZC9hY3Rf
+dmxhbi5jICAgICAgICAgICAgICAgICAgICB8ICAgMiArLQogbmV0L3NjaGVkL2Nsc191MzIuYyAg
+ICAgICAgICAgICAgICAgICAgIHwgICA3ICstCiBuZXQvc2NoZWQvc2NoX2FwaS5jICAgICAgICAg
+ICAgICAgICAgICAgfCAgIDYgKy0KIG5ldC9zY3RwL3NjdHBfZGlhZy5jICAgICAgICAgICAgICAg
+ICAgICB8ICAgNSArLQogNDggZmlsZXMgY2hhbmdlZCwgMjExIGluc2VydGlvbnMoKyksIDk4IGRl
+bGV0aW9ucygtKQoKQ29tbWVudHMgYXJlIHdlbGNvbWVkLApSZWdhcmRzLApOaWNvbGFzCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBs
+aXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL2Rldgo=
