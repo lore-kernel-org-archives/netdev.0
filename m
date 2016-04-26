@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: fix double-fdput in replace_map_fd_with_map_ptr()
-Date: Tue, 26 Apr 2016 17:38:03 -0400 (EDT)
-Message-ID: <20160426.173803.2282010417115434583.davem@davemloft.net>
-References: <1461702386-17490-1-git-send-email-jannh@google.com>
+Subject: Re: [PATCH net-next V1 00/11] Mellanox 100G extending mlx5 ethtool
+ support
+Date: Tue, 26 Apr 2016 17:41:50 -0400 (EDT)
+Message-ID: <20160426.174150.2239494413467110.davem@davemloft.net>
+References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
+	<20160426.160301.938979848864279754.davem@davemloft.net>
+	<CALzJLG-BJvB7h2wAOqy8ibDdkw7Croaiy7+QU9izrcivuS1yOg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jannh@google.com
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	talal@mellanox.com, eranbe@mellanox.com
+To: saeedm@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42566 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752231AbcDZViI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:38:08 -0400
-In-Reply-To: <1461702386-17490-1-git-send-email-jannh@google.com>
+	with ESMTP id S1751881AbcDZVlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:41:53 -0400
+In-Reply-To: <CALzJLG-BJvB7h2wAOqy8ibDdkw7Croaiy7+QU9izrcivuS1yOg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jann Horn <jannh@google.com>
-Date: Tue, 26 Apr 2016 22:26:26 +0200
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Date: Tue, 26 Apr 2016 23:55:03 +0300
 
-> When bpf(BPF_PROG_LOAD, ...) was invoked with a BPF program whose bytecode
-> references a non-map file descriptor as a map file descriptor, the error
-> handling code called fdput() twice instead of once (in __bpf_map_get() and
-> in replace_map_fd_with_map_ptr()). If the file descriptor table of the
-> current task is shared, this causes f_count to be decremented too much,
-> allowing the struct file to be freed while it is still in use
-> (use-after-free). This can be exploited to gain root privileges by an
-> unprivileged user.
-> 
-> This bug was introduced in
-> commit 0246e64d9a5f ("bpf: handle pseudo BPF_LD_IMM64 insn"), but is only
-> exploitable since
-> commit 1be7f75d1668 ("bpf: enable non-root eBPF programs") because
-> previously, CAP_SYS_ADMIN was required to reach the vulnerable code.
-> 
-> (posted publicly according to request by maintainer)
-> 
-> Signed-off-by: Jann Horn <jannh@google.com>
-> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+> It will be a nightmare to rollback in such case.  What if the rollback failed ?
 
-Applied and queued up for -stable, thanks Jann.
+It is absolutely essential to handle this properly.
+
+Which means you must have a prepare/commit model, wherein the prepare
+phase makes sure to pre-allocate all necessary resources, and only if
+all the prepare phase preparations succeed will the commit phase run.
+
+The commit phase cannot error, because all of the resources have been
+allocated successfully already.
+
+This way there are no issues of "rolling back" because you never
+actually move the state forward until you can guarantee that you can
+do everything.
