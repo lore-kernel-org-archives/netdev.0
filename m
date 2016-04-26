@@ -1,103 +1,68 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/1] pch_gbe: replace private tx ring lock with
- common netif_tx_lock
-Date: Wed, 27 Apr 2016 00:49:21 +0200
-Message-ID: <20160426224921.GA29558@electric-eye.fr.zoreil.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] net-rfs: fix false sharing accessing sd->input_queue_head
+Date: Tue, 26 Apr 2016 15:55:27 -0700
+Message-ID: <CALx6S34-mbnBJcMvdZd869-dvgygkygMAZ6dNCKgGCt7atGbJA@mail.gmail.com>
+References: <1461709807.5535.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:34909 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752281AbcDZWt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 18:49:27 -0400
-Content-Disposition: inline
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:36554 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752210AbcDZWz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 18:55:28 -0400
+Received: by mail-ig0-f180.google.com with SMTP id u10so56822615igr.1
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 15:55:28 -0700 (PDT)
+In-Reply-To: <1461709807.5535.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pch_gbe_tx_ring.tx_lock is only used in the hard_xmit handler and
-in the transmit completion reaper called from NAPI context.
+On Tue, Apr 26, 2016 at 3:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> sd->input_queue_head is incremented for each processed packet
+> in process_backlog(), and read from other cpus performing
+> Out Of Order avoidance in get_rps_cpu()
+>
+> Moving this field in a separate cache line keeps it mostly
+> hot for the cpu in process_backlog(), as other cpus will
+> only read it.
+>
+> In a stress test, process_backlog() was consuming 6.80 % of cpu cycles,
+> and the patch reduced the cost to 0.65 %
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- CONFIG_COMPILE_TESTed
+Very nice!
 
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h      |  2 --
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 10 ++--------
- 2 files changed, 2 insertions(+), 10 deletions(-)
+Acked-by: Tom Herbert <tom@herbertland.com>
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-index 2a55d6d..8d710a3 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-@@ -481,7 +481,6 @@ struct pch_gbe_buffer {
- 
- /**
-  * struct pch_gbe_tx_ring - tx ring information
-- * @tx_lock:	spinlock structs
-  * @desc:	pointer to the descriptor ring memory
-  * @dma:	physical address of the descriptor ring
-  * @size:	length of descriptor ring in bytes
-@@ -491,7 +490,6 @@ struct pch_gbe_buffer {
-  * @buffer_info:	array of buffer information structs
-  */
- struct pch_gbe_tx_ring {
--	spinlock_t tx_lock;
- 	struct pch_gbe_tx_desc *desc;
- 	dma_addr_t dma;
- 	unsigned int size;
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index ca4add7..5c8e2f1 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -1640,7 +1640,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 		   cleaned_count);
- 	if (cleaned_count > 0)  { /*skip this if nothing cleaned*/
- 		/* Recover from running out of Tx resources in xmit_frame */
--		spin_lock(&tx_ring->tx_lock);
-+		netif_tx_lock(adapter->netdev);
- 		if (unlikely(cleaned && (netif_queue_stopped(adapter->netdev))))
- 		{
- 			netif_wake_queue(adapter->netdev);
-@@ -1652,7 +1652,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 
- 		netdev_dbg(adapter->netdev, "next_to_clean : %d\n",
- 			   tx_ring->next_to_clean);
--		spin_unlock(&tx_ring->tx_lock);
-+		netif_tx_lock(adapter->netdev);
- 	}
- 	return cleaned;
- }
-@@ -1805,7 +1805,6 @@ int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
- 
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
--	spin_lock_init(&tx_ring->tx_lock);
- 
- 	for (desNo = 0; desNo < tx_ring->count; desNo++) {
- 		tx_desc = PCH_GBE_TX_DESC(*tx_ring, desNo);
-@@ -2135,13 +2134,9 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
- 	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
--	unsigned long flags;
--
--	spin_lock_irqsave(&tx_ring->tx_lock, flags);
- 
- 	if (unlikely(!PCH_GBE_DESC_UNUSED(tx_ring))) {
- 		netif_stop_queue(netdev);
--		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
- 		netdev_dbg(netdev,
- 			   "Return : BUSY  next_to use : 0x%08x  next_to clean : 0x%08x\n",
- 			   tx_ring->next_to_use, tx_ring->next_to_clean);
-@@ -2150,7 +2145,6 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	/* CRC,ITAG no support */
- 	pch_gbe_tx_queue(adapter, tx_ring, skb);
--	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
- 	return NETDEV_TX_OK;
- }
- 
--- 
-2.5.5
+> ---
+>  include/linux/netdevice.h |    8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 18d8394f2e5d..934ca866562d 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2747,11 +2747,15 @@ struct softnet_data {
+>         struct sk_buff          *completion_queue;
+>
+>  #ifdef CONFIG_RPS
+> -       /* Elements below can be accessed between CPUs for RPS */
+> +       /* input_queue_head should be written by cpu owning this struct,
+> +        * and only read by other cpus. Worth using a cache line.
+> +        */
+> +       unsigned int            input_queue_head ____cacheline_aligned_in_smp;
+> +
+> +       /* Elements below can be accessed between CPUs for RPS/RFS */
+>         struct call_single_data csd ____cacheline_aligned_in_smp;
+>         struct softnet_data     *rps_ipi_next;
+>         unsigned int            cpu;
+> -       unsigned int            input_queue_head;
+>         unsigned int            input_queue_tail;
+>  #endif
+>         unsigned int            dropped;
+>
+>
