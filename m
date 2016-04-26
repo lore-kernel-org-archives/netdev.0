@@ -1,115 +1,244 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2016-04-26
-Date: Tue, 26 Apr 2016 13:55:33 -0700
-Message-ID: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next 14/15] i40e: Add VF promiscuous mode driver support
+Date: Tue, 26 Apr 2016 13:55:47 -0700
+Message-ID: <1461704148-114349-15-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Greg Rose <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:24352 "EHLO mga04.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:64065 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752428AbcDZUzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 16:55:51 -0400
+	id S1752865AbcDZUzz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 16:55:55 -0400
+In-Reply-To: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Alex Duyck cleans up the feature flags since they are becoming pretty
-"massive", the primary change being that we now build our features list
-around hw_encap_features.  Added support for IPIP and SIT offloads,
-which should improvement in throughput for IPIP and SIT tunnels with
-the offload enabled.
+Add infrastructure for Network Function Virtualization VLAN tagged
+packet steering feature.
 
-Mitch adds support for configuring RSS on behalf of the VFs, which removes
-the burden of dealing with different hardware interfaces from the VF
-drivers and improves future compatibility.  Fix to ensure that we do not
-panic by checking that the vsi_res pointer is valid before dereferencing
-it, after which we can drink beer and eat peanuts.
-
-Shannon does come housekeeping in i40e_add_fdir_ethtool() in preparation
-for more cloud filter work.  Added flexibility to the nvmupdate
-facility by adding the ability to specify an AQ event opcode to wait on
-after Exec_AQ request.
-
-Kiran implements the feature to allow users to change input set mask for
-flow director using side-band channel.
-
-Michal adds device capability which defines if an update is available and
-if a security check is needed during the update process.
-
-Kamil just adds a device id to support X722 QSFP+ device.
-
-Greg fixes an issue where a mirror rule ID may be zero, so do not return
-invalid parameter when the user passes in a zero for a rule ID.  Adds
-support to steer packets to VSIs by VLAN tag alone while being in
-promiscuous mode for multicast and unicast MAC addresses.
-
-Jesse fixes the driver from offloading the VLAN tag into the skb any
-time there was a VLAN tag and the hardware stripping was enabled, to
-making sure it is enabled before put_tag.
-
-The following are changes since commit fab7b629a82da1b59620470d13152aff975239f6:
-  Merge branch 'ila-csum-neutral'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alexander Duyck (2):
-  i40e/i40evf: Clean up feature flags
-  i40e/i40evf: Add support for IPIP and SIT offloads
-
-Anjali Singhai Jain (2):
-  i40e: Add VF promiscuous mode driver support
-  i40evf: Add driver support for promiscuous mode
-
-Greg Rose (2):
-  i40e: Remove zero check
-  i40e: Add promiscuous on VLAN support
-
-Jesse Brandeburg (1):
-  i40e/i40evf: Only offload VLAN tag if enabled
-
-Kamil Krawczyk (1):
-  i40e: Add DeviceID for X722 QSFP+
-
-Kiran Patil (1):
-  i40e: Allow user to change input set mask for flow director
-
-Michal Kosiarz (1):
-  i40e: Add device capability which defines if update is available
-
-Mitch Williams (3):
-  i40e: Add support for configuring VF RSS
-  i40evf: Don't Panic
-  i40evf: Allow PF driver to configure RSS
-
-Shannon Nelson (2):
-  i40e: Code cleanup in i40e_add_fdir_ethtool
-  i40e: Specify AQ event opcode to wait for
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   7 +
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   1 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  82 ++++-
- drivers/net/ethernet/intel/i40e/i40e_devids.h      |   1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 128 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  98 ++---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  49 ++-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   8 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  29 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   6 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 346 +++++++++++++++++-
+Change-Id: I9b873d8fcc253858e6baba65ac68ec5b9363944e
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 153 ++++++++++++++++++++-
  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_devids.h    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  27 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   6 +
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  39 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 121 +++----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 395 ++++++++-------------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 130 +++++++
- 21 files changed, 1070 insertions(+), 408 deletions(-)
+ 2 files changed, 149 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index c364588..f47b0e8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1427,6 +1427,25 @@ static void i40e_vc_reset_vf_msg(struct i40e_vf *vf)
+ }
+ 
+ /**
++ * i40e_getnum_vf_vsi_vlan_filters
++ * @vsi: pointer to the vsi
++ *
++ * called to get the number of VLANs offloaded on this VF
++ **/
++static inline int i40e_getnum_vf_vsi_vlan_filters(struct i40e_vsi *vsi)
++{
++	struct i40e_mac_filter *f;
++	int num_vlans = 0;
++
++	list_for_each_entry(f, &vsi->mac_filter_list, list) {
++		if (f->vlan >= 0 && f->vlan <= I40E_MAX_VLANID)
++			num_vlans++;
++	}
++
++	return num_vlans;
++}
++
++/**
+  * i40e_vc_config_promiscuous_mode_msg
+  * @vf: pointer to the VF info
+  * @msg: pointer to the msg buffer
+@@ -1442,22 +1461,122 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
+ 	    (struct i40e_virtchnl_promisc_info *)msg;
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_hw *hw = &pf->hw;
+-	struct i40e_vsi *vsi;
++	struct i40e_mac_filter *f;
++	i40e_status aq_ret = 0;
+ 	bool allmulti = false;
+-	i40e_status aq_ret;
++	struct i40e_vsi *vsi;
++	bool alluni = false;
++	int aq_err = 0;
+ 
+ 	vsi = i40e_find_vsi_from_id(pf, info->vsi_id);
+ 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
+ 	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
+-	    !i40e_vc_isvalid_vsi_id(vf, info->vsi_id) ||
+-	    (vsi->type != I40E_VSI_FCOE)) {
++	    !i40e_vc_isvalid_vsi_id(vf, info->vsi_id)) {
++		dev_err(&pf->pdev->dev,
++			"VF %d doesn't meet requirements to enter promiscuous mode\n",
++			vf->vf_id);
+ 		aq_ret = I40E_ERR_PARAM;
+ 		goto error_param;
+ 	}
++	/* Multicast promiscuous handling*/
+ 	if (info->flags & I40E_FLAG_VF_MULTICAST_PROMISC)
+ 		allmulti = true;
+-	aq_ret = i40e_aq_set_vsi_multicast_promiscuous(hw, vsi->seid,
+-						       allmulti, NULL);
++
++	if (vf->port_vlan_id) {
++		aq_ret = i40e_aq_set_vsi_mc_promisc_on_vlan(hw, vsi->seid,
++							    allmulti,
++							    vf->port_vlan_id,
++							    NULL);
++	} else if (i40e_getnum_vf_vsi_vlan_filters(vsi)) {
++		list_for_each_entry(f, &vsi->mac_filter_list, list) {
++			if (f->vlan >= 0 && f->vlan <= I40E_MAX_VLANID)
++				aq_ret = i40e_aq_set_vsi_mc_promisc_on_vlan
++								   (hw,
++								   vsi->seid,
++								   allmulti,
++								   f->vlan,
++								   NULL);
++			aq_err = pf->hw.aq.asq_last_status;
++			if (aq_ret) {
++				dev_err(&pf->pdev->dev,
++					"Could not add VLAN %d to multicast promiscuous domain err %s aq_err %s\n",
++					f->vlan,
++					i40e_stat_str(&pf->hw, aq_ret),
++					i40e_aq_str(&pf->hw, aq_err));
++				break;
++			}
++		}
++	} else {
++		aq_ret = i40e_aq_set_vsi_multicast_promiscuous(hw, vsi->seid,
++							       allmulti, NULL);
++		aq_err = pf->hw.aq.asq_last_status;
++		if (aq_ret) {
++			dev_err(&pf->pdev->dev,
++				"VF %d failed to set multicast promiscuous mode err %s aq_err %s\n",
++				vf->vf_id,
++				i40e_stat_str(&pf->hw, aq_ret),
++				i40e_aq_str(&pf->hw, aq_err));
++			goto error_param_int;
++		}
++	}
++
++	if (!aq_ret) {
++		dev_info(&pf->pdev->dev,
++			 "VF %d successfully set multicast promiscuous mode\n",
++			 vf->vf_id);
++		if (allmulti)
++			set_bit(I40E_VF_STAT_MC_PROMISC, &vf->vf_states);
++		else
++			clear_bit(I40E_VF_STAT_MC_PROMISC, &vf->vf_states);
++	}
++
++	if (info->flags & I40E_FLAG_VF_UNICAST_PROMISC)
++		alluni = true;
++	if (vf->port_vlan_id) {
++		aq_ret = i40e_aq_set_vsi_uc_promisc_on_vlan(hw, vsi->seid,
++							    alluni,
++							    vf->port_vlan_id,
++							    NULL);
++	} else if (i40e_getnum_vf_vsi_vlan_filters(vsi)) {
++		list_for_each_entry(f, &vsi->mac_filter_list, list) {
++			aq_ret = 0;
++			if (f->vlan >= 0 && f->vlan <= I40E_MAX_VLANID)
++				aq_ret =
++				i40e_aq_set_vsi_uc_promisc_on_vlan(hw,
++								   vsi->seid,
++								   alluni,
++								   f->vlan,
++								   NULL);
++				aq_err = pf->hw.aq.asq_last_status;
++			if (aq_ret)
++				dev_err(&pf->pdev->dev,
++					"Could not add VLAN %d to Unicast promiscuous domain err %s aq_err %s\n",
++					f->vlan,
++					i40e_stat_str(&pf->hw, aq_ret),
++					i40e_aq_str(&pf->hw, aq_err));
++		}
++	} else {
++		aq_ret = i40e_aq_set_vsi_unicast_promiscuous(hw, vsi->seid,
++							     allmulti, NULL);
++		aq_err = pf->hw.aq.asq_last_status;
++		if (aq_ret)
++			dev_err(&pf->pdev->dev,
++				"VF %d failed to set unicast promiscuous mode %8.8x err %s aq_err %s\n",
++				vf->vf_id, info->flags,
++				i40e_stat_str(&pf->hw, aq_ret),
++				i40e_aq_str(&pf->hw, aq_err));
++	}
++
++error_param_int:
++	if (!aq_ret) {
++		dev_info(&pf->pdev->dev,
++			 "VF %d successfully set unicast promiscuous mode\n",
++			 vf->vf_id);
++		if (alluni)
++			set_bit(I40E_VF_STAT_UC_PROMISC, &vf->vf_states);
++		else
++			clear_bit(I40E_VF_STAT_UC_PROMISC, &vf->vf_states);
++	}
+ 
+ error_param:
+ 	/* send the response to the VF */
+@@ -1919,6 +2038,17 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 		/* add new VLAN filter */
+ 		int ret = i40e_vsi_add_vlan(vsi, vfl->vlan_id[i]);
+ 
++		if (test_bit(I40E_VF_STAT_UC_PROMISC, &vf->vf_states))
++			i40e_aq_set_vsi_uc_promisc_on_vlan(&pf->hw, vsi->seid,
++							   true,
++							   vfl->vlan_id[i],
++							   NULL);
++		if (test_bit(I40E_VF_STAT_MC_PROMISC, &vf->vf_states))
++			i40e_aq_set_vsi_mc_promisc_on_vlan(&pf->hw, vsi->seid,
++							   true,
++							   vfl->vlan_id[i],
++							   NULL);
++
+ 		if (ret)
+ 			dev_err(&pf->pdev->dev,
+ 				"Unable to add VLAN filter %d for VF %d, error %d\n",
+@@ -1971,6 +2101,17 @@ static int i40e_vc_remove_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	for (i = 0; i < vfl->num_elements; i++) {
+ 		int ret = i40e_vsi_kill_vlan(vsi, vfl->vlan_id[i]);
+ 
++		if (test_bit(I40E_VF_STAT_UC_PROMISC, &vf->vf_states))
++			i40e_aq_set_vsi_uc_promisc_on_vlan(&pf->hw, vsi->seid,
++							   false,
++							   vfl->vlan_id[i],
++							   NULL);
++		if (test_bit(I40E_VF_STAT_MC_PROMISC, &vf->vf_states))
++			i40e_aq_set_vsi_mc_promisc_on_vlan(&pf->hw, vsi->seid,
++							   false,
++							   vfl->vlan_id[i],
++							   NULL);
++
+ 		if (ret)
+ 			dev_err(&pf->pdev->dev,
+ 				"Unable to delete VLAN filter %d for VF %d, error %d\n",
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 838cbd2..8cbf579 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -61,6 +61,8 @@ enum i40e_vf_states {
+ 	I40E_VF_STAT_IWARPENA,
+ 	I40E_VF_STAT_FCOEENA,
+ 	I40E_VF_STAT_DISABLED,
++	I40E_VF_STAT_MC_PROMISC,
++	I40E_VF_STAT_UC_PROMISC,
+ };
+ 
+ /* VF capabilities */
 -- 
 2.5.5
