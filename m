@@ -1,8 +1,8 @@
 From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH v4 net-next 2/3] tcp: Handle eor bit when coalescing skb
-Date: Mon, 25 Apr 2016 20:49:19 -0400
-Message-ID: <CACSApvZpRaCx=c7GeZsNZn1YryAki8=NbERN4s2k+Oy+eMQoxg@mail.gmail.com>
-References: <1461620690-1081063-1-git-send-email-kafai@fb.com> <1461620690-1081063-3-git-send-email-kafai@fb.com>
+Subject: Re: [PATCH v4 net-next 3/3] tcp: Handle eor bit when fragmenting a skb
+Date: Mon, 25 Apr 2016 20:49:36 -0400
+Message-ID: <CACSApvYmKNdvnxh1KUA8kRDxXf=79Hbwq1T9E+g8ZJjnBqK0LQ@mail.gmail.com>
+References: <1461620690-1081063-1-git-send-email-kafai@fb.com> <1461620690-1081063-4-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -13,22 +13,20 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Kernel Team <kernel-team@fb.com>
 To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:34200 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750817AbcDZAt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 20:49:59 -0400
-Received: by mail-ob0-f174.google.com with SMTP id bg3so90068603obb.1
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 17:49:59 -0700 (PDT)
-In-Reply-To: <1461620690-1081063-3-git-send-email-kafai@fb.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:34991 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbcDZAuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2016 20:50:17 -0400
+Received: by mail-oi0-f41.google.com with SMTP id x19so60935446oix.2
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 17:50:16 -0700 (PDT)
+In-Reply-To: <1461620690-1081063-4-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Apr 25, 2016 at 5:44 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> This patch:
-> 1. Prevent next_skb from coalescing to the prev_skb if
->    TCP_SKB_CB(prev_skb)->eor is set
-> 2. Update the TCP_SKB_CB(prev_skb)->eor if coalescing is
->    allowed
+> When fragmenting a skb, the next_skb should carry
+> the eor from prev_skb.  The eor of prev_skb should
+> also be reset.
 >
 > Packetdrill script for testing:
 > ~~~~~~
@@ -45,24 +43,21 @@ On Mon, Apr 25, 2016 at 5:44 PM, Martin KaFai Lau <kafai@fb.com> wrote:
 > 0.200 accept(3, ..., ...) = 4
 > +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
 >
-> 0.200 sendto(4, ..., 730, MSG_EOR, ..., ...) = 730
-> 0.200 sendto(4, ..., 730, MSG_EOR, ..., ...) = 730
-> 0.200 write(4, ..., 11680) = 11680
+> 0.200 sendto(4, ..., 15330, MSG_EOR, ..., ...) = 15330
+> 0.200 sendto(4, ..., 730, 0, ..., ...) = 730
 >
-> 0.200 > P. 1:731(730) ack 1
-> 0.200 > P. 731:1461(730) ack 1
-> 0.200 > . 1461:8761(7300) ack 1
-> 0.200 > P. 8761:13141(4380) ack 1
+> 0.200 > .  1:7301(7300) ack 1
+> 0.200 > . 7301:14601(7300) ack 1
 >
-> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:13141,nop,nop>
-> 0.300 > P. 1:731(730) ack 1
-> 0.300 > P. 731:1461(730) ack 1
-> 0.400 < . 1:1(0) ack 13141 win 257
+> 0.300 < . 1:1(0) ack 14601 win 257
+> 0.300 > P. 14601:15331(730) ack 1
+> 0.300 > P. 15331:16061(730) ack 1
 >
+> 0.400 < . 1:1(0) ack 16061 win 257
 > 0.400 close(4) = 0
-> 0.400 > F. 13141:13141(0) ack 1
-> 0.500 < F. 1:1(0) ack 13142 win 257
-> 0.500 > . 13142:13142(0) ack 2
+> 0.400 > F. 16061:16061(0) ack 1
+> 0.400 < F. 1:1(0) ack 16062 win 257
+> 0.400 > . 16062:16062(0) ack 2
 >
 > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 > Cc: Eric Dumazet <edumazet@google.com>
@@ -74,54 +69,43 @@ On Mon, Apr 25, 2016 at 5:44 PM, Martin KaFai Lau <kafai@fb.com> wrote:
 Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
 > ---
->  net/ipv4/tcp_input.c  | 4 ++++
->  net/ipv4/tcp_output.c | 4 ++++
->  2 files changed, 8 insertions(+)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index dcad8f9..65fb708 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1303,6 +1303,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
->         }
->
->         TCP_SKB_CB(prev)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags;
-> +       TCP_SKB_CB(prev)->eor = TCP_SKB_CB(skb)->eor;
->         if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
->                 TCP_SKB_CB(prev)->end_seq++;
->
-> @@ -1368,6 +1369,9 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
->         if ((TCP_SKB_CB(prev)->sacked & TCPCB_TAGBITS) != TCPCB_SACKED_ACKED)
->                 goto fallback;
->
-> +       if (!tcp_skb_can_collapse_to(prev))
-> +               goto fallback;
-> +
->         in_sack = !after(start_seq, TCP_SKB_CB(skb)->seq) &&
->                   !before(end_seq, TCP_SKB_CB(skb)->end_seq);
+>  net/ipv4/tcp_output.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
 >
 > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 9d3b4b3..fa4d17f 100644
+> index fa4d17f..55a926b 100644
 > --- a/net/ipv4/tcp_output.c
 > +++ b/net/ipv4/tcp_output.c
-> @@ -2494,6 +2494,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->          * packet counting does not break.
->          */
->         TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked & TCPCB_EVER_RETRANS;
-> +       TCP_SKB_CB(skb)->eor = TCP_SKB_CB(next_skb)->eor;
+> @@ -1128,6 +1128,12 @@ static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
+>         }
+>  }
 >
->         /* changed transmit queue under us so clear hints */
->         tcp_clear_retrans_hints_partial(tp);
-> @@ -2545,6 +2546,9 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
->                 if (!tcp_can_collapse(sk, skb))
->                         break;
->
-> +               if (!tcp_skb_can_collapse_to(to))
-> +                       break;
+> +static void tcp_skb_fragment_eor(struct sk_buff *skb, struct sk_buff *skb2)
+> +{
+> +       TCP_SKB_CB(skb2)->eor = TCP_SKB_CB(skb)->eor;
+> +       TCP_SKB_CB(skb)->eor = 0;
+> +}
 > +
->                 space -= skb->len;
+>  /* Function to create two new TCP segments.  Shrinks the given segment
+>   * to the specified size and appends a new segment with the rest of the
+>   * packet to the list.  This won't be called frequently, I hope.
+> @@ -1173,6 +1179,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+>         TCP_SKB_CB(skb)->tcp_flags = flags & ~(TCPHDR_FIN | TCPHDR_PSH);
+>         TCP_SKB_CB(buff)->tcp_flags = flags;
+>         TCP_SKB_CB(buff)->sacked = TCP_SKB_CB(skb)->sacked;
+> +       tcp_skb_fragment_eor(skb, buff);
 >
->                 if (first) {
+>         if (!skb_shinfo(skb)->nr_frags && skb->ip_summed != CHECKSUM_PARTIAL) {
+>                 /* Copy and checksum data tail into the new buffer. */
+> @@ -1733,6 +1740,8 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+>         /* This packet was never sent out yet, so no SACK bits. */
+>         TCP_SKB_CB(buff)->sacked = 0;
+>
+> +       tcp_skb_fragment_eor(skb, buff);
+> +
+>         buff->ip_summed = skb->ip_summed = CHECKSUM_PARTIAL;
+>         skb_split(skb, buff, len);
+>         tcp_fragment_tstamp(skb, buff);
 > --
 > 2.5.1
 >
