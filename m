@@ -1,68 +1,102 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2] tuntap: calculate rps hash only when needed
-Date: Mon, 25 Apr 2016 23:13:42 -0400
-Message-ID: <1461640422-20779-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: davem@davemloft.ne, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <a@unstable.cc>
+Subject: pull request [net]: batman-adv-0160426
+Date: Tue, 26 Apr 2016 11:27:14 +0800
+Message-ID: <1461641239-7097-1-git-send-email-a@unstable.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s2.neomailbox.net ([5.148.176.60]:42236 "EHLO s2.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751060AbcDZD1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 23:27:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's no need to calculate rps hash if it was not enabled. So this
-patch export rps_needed and check it before trying to get rps
-hash. Tests (using pktgen to inject packets to guest) shows this can
-improve pps about 13% (when rps is disabled).
+Hi David,
 
-Before:
-~1150000 pps
-After:
-~1300000 pps
+this is a batch intended for net. Changes are quite small, therefore I
+hope it is not a big deal to include them at this point of the release =
+cycle.
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
-----
-Changes from V1:
-- Fix build when CONFIG_RPS is not set
----
- drivers/net/tun.c | 4 +++-
- net/core/dev.c    | 1 +
- 2 files changed, 4 insertions(+), 1 deletion(-)
+In this patchset you can find the following fixes:
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index afdf950..8df9e23 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -819,7 +819,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (txq >= numqueues)
- 		goto drop;
- 
--	if (numqueues == 1) {
-+#ifdef CONFIG_RPS
-+	if (numqueues == 1 && static_key_false(&rps_needed)) {
- 		/* Select queue was not called for the skbuff, so we extract the
- 		 * RPS hash and save it into the flow_table here.
- 		 */
-@@ -834,6 +835,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 				tun_flow_save_rps_rxhash(e, rxhash);
- 		}
- 	}
-+#endif
- 
- 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b9bcbe7..d4ba936 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3428,6 +3428,7 @@ u32 rps_cpu_mask __read_mostly;
- EXPORT_SYMBOL(rps_cpu_mask);
- 
- struct static_key rps_needed __read_mostly;
-+EXPORT_SYMBOL(rps_needed);
- 
- static struct rps_dev_flow *
- set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
--- 
-1.8.3.1
+1) check skb size to avoid reading beyond its border when delivering
+   payloads, by Sven Eckelmann
+2) initialize last_seen time in neigh_node object to prevent cleanup
+   routine from accidentally purge it, by Marek Lindner
+3) release "recently added" slave interfaces upon virtual/batman
+   interface shutdown, by Sven Eckelmann
+4) properly decrease router object reference counter upon routing table
+   update, by Sven Eckelmann
+5) release queue slots when purging OGM packets of deactivating slave
+   interface, by Linus L=C3=BCssing
+
+Patch 2 and 3 have no "Fixes:" tag because the offending commits date
+back to when batman-adv was not yet officially in the net tree.
+
+Note that all these changes are fixing very old commits and therefore
+it would be nice if you could queue them for *stable*.
+
+Please pull or let me know of any issue!
+
+Thanks a lot,
+	Antonio
+
+
+
+
+The following changes since commit 5f44abd041c5f3be76d57579ab254d78e601=
+315b:
+
+  Merge tag 'rtc-4.6-3' of git://git.kernel.org/pub/scm/linux/kernel/gi=
+t/abelloni/linux (2016-04-21 15:41:13 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to c4fdb6cff2aa0ae740c5f19b6f745cbbe786d42f=
+:
+
+  batman-adv: Fix broadcast/ogm queue limit on a removed interface (201=
+6-04-24 15:41:56 +0800)
+
+----------------------------------------------------------------
+In this patchset you can find the following fixes:
+
+1) check skb size to avoid reading beyond its border when delivering
+   payloads, by Sven Eckelmann
+2) initialize last_seen time in neigh_node object to prevent cleanup
+   routine from accidentally purge it, by Marek Lindner
+3) release "recently added" slave interfaces upon virtual/batman
+   interface shutdown, by Sven Eckelmann
+4) properly decrease router object reference counter upon routing table
+   update, by Sven Eckelmann
+5) release queue slots when purging OGM packets of deactivating slave
+   interface, by Linus L=C3=BCssing
+
+Patch 2 and 3 have no "Fixes:" tag because the offending commits date
+back to when batman-adv was not yet officially in the net tree.
+
+----------------------------------------------------------------
+Linus L=C3=BCssing (1):
+      batman-adv: Fix broadcast/ogm queue limit on a removed interface
+
+Marek Lindner (1):
+      batman-adv: init neigh node last seen field
+
+Sven Eckelmann (3):
+      batman-adv: Check skb size before using encapsulated ETH+VLAN hea=
+der
+      batman-adv: Deactivate TO_BE_ACTIVATED hardif on shutdown
+      batman-adv: Reduce refcnt of removed router when updating route
+
+ net/batman-adv/hard-interface.c | 3 +--
+ net/batman-adv/originator.c     | 1 +
+ net/batman-adv/routing.c        | 9 +++++++++
+ net/batman-adv/send.c           | 6 ++++++
+ net/batman-adv/soft-interface.c | 8 ++++++--
+ 5 files changed, 23 insertions(+), 4 deletions(-)
