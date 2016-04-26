@@ -1,209 +1,106 @@
-From: Alex Duyck <aduyck@mirantis.com>
-Subject: Re: [net-next PATCH 6/8] mlx4: Add support for inner IPv6 checksum
- offloads and TSO
-Date: Tue, 26 Apr 2016 08:50:01 -0700
-Message-ID: <CAMt9YRqrk51Rx28FiBiR2RM-fern-UuUq7_A+FeZV+mfm_q+zg@mail.gmail.com>
-References: <20160425182442.11331.88349.stgit@ahduyck-xeon-server>
-	<20160425183133.11331.54774.stgit@ahduyck-xeon-server>
-	<571F7D14.7090504@dev.mellanox.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: talal@mellanox.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, galp@mellanox.com,
-	ogerlitz@mellanox.com, Eran Ben Elisha <eranbe@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH v2] net/mlx5e: avoid stack overflow in mlx5e_open_channels
+Date: Tue, 26 Apr 2016 17:52:33 +0200
+Message-ID: <1461685993-1049370-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>,
+	Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f43.google.com ([209.85.213.43]:35073 "EHLO
-	mail-vk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbcDZPuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 11:50:03 -0400
-Received: by mail-vk0-f43.google.com with SMTP id u23so21643518vkb.2
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 08:50:02 -0700 (PDT)
-In-Reply-To: <571F7D14.7090504@dev.mellanox.co.il>
+Received: from mout.kundenserver.de ([212.227.126.131]:52087 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbcDZPxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 11:53:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 26, 2016 at 7:37 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
->
->
-> On 4/25/2016 9:31 PM, Alexander Duyck wrote:
->>
->> >From what I can tell the ConnectX-3 will support an inner IPv6 checksum
->> and
->> segmentation offload, however it cannot support outer IPv6 headers.  For
->> this reason I am adding the feature to the hw_enc_features and adding an
->> extra check to the features_check call that will disable GSO and checksum
->> offload in the case that the encapsulated frame has an outer IP version of
->> that is not 4.
->
->
-> Hi Alex,
->
-> Can you share the testing commands of running vxlan over IPv6 and what
-> exactly didn't work for you ?
-> we would like to test this in house and understand what went wrong,
-> theoretically there shouldn't be a difference between IPv6/IPv4 outer
-> checksum offloading in ConnectX-3.
+struct mlx5e_channel_param is a large structure that is allocated
+on the stack of mlx5e_open_channels, and with a recent change
+it has grown beyond the warning size for the maximum stack
+that a single function should use:
 
-The setup is pretty straight forward.  Basically I left the first port
-in the default namespace and moved the second int a secondary
-namespace referred to below as $netns.  I then assigned the IPv6
-addresses fec0::10:1 and fec0::10:2. After that I ran the following:
+mellanox/mlx5/core/en_main.c: In function 'mlx5e_open_channels':
+mellanox/mlx5/core/en_main.c:1325:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
 
-        VXLAN=vx$net
-        echo $VXLAN ${test_options[$i]}
-        ip link add $VXLAN type vxlan id $net \
-                local fec0::10:1 remote $addr6 dev $PF0 \
-                ${test_options[$i]} dstport `expr 8800 + $net`
-        ip netns exec $netns ip link add $VXLAN type vxlan id $net \
-                                  local $addr6 remote fec0::10:1 dev $port \
-                                  ${test_options[$i]} dstport `expr 8800 + $net`
-        ifconfig $VXLAN 192.168.${net}.1/24
-        ip netns exec $netns ifconfig $VXLAN 192.168.${net}.2/24
+The function is already using dynamic allocation and is not in
+a fast path, so the easiest workaround is to use another kzalloc
+for allocating the channel parameters.
 
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: d3c9bc2743dc ("net/mlx5e: Added ICO SQs")
+---
+v2: move allocation back into caller, as suggested by Saeed Mahameed
 
-> Anyway, I suspect it might be related to a driver bug most likely in
-> get_real_size function @en_tx.c
-> specifically in : *lso_header_size = (skb_inner_transport_header(skb) -
-> skb->data) + inner_tcp_hdrlen(skb);
->
-> will check this and get back to you.
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-I'm not entirely convinced.  What I was seeing is t hat the hardware
-itself was performing Rx checksum offload only on tunnels with an
-outer IPv4 header and ignoring tunnels with an outer IPv6 header.
-
-> for the mlx5 patches I will also go through them later today.
-
-Thanks.
-
->
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   25
->> +++++++++++++++++++-----
->>   drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   15 ++++++++++++--
->>   2 files changed, 33 insertions(+), 7 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> index bce37cbfde24..6f28ac58251c 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> @@ -2357,8 +2357,10 @@ out:
->>         }
->>         /* set offloads */
->> -       priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
->> -                                     NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL
->> |
->> +       priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
->> |
->> +                                     NETIF_F_RXCSUM |
->> +                                     NETIF_F_TSO | NETIF_F_TSO6 |
->> +                                     NETIF_F_GSO_UDP_TUNNEL |
->>                                       NETIF_F_GSO_UDP_TUNNEL_CSUM |
->>                                       NETIF_F_GSO_PARTIAL;
->>   }
->> @@ -2369,8 +2371,10 @@ static void mlx4_en_del_vxlan_offloads(struct
->> work_struct *work)
->>         struct mlx4_en_priv *priv = container_of(work, struct
->> mlx4_en_priv,
->>                                                  vxlan_del_task);
->>         /* unset offloads */
->> -       priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
->> -                                       NETIF_F_TSO |
->> NETIF_F_GSO_UDP_TUNNEL |
->> +       priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM |
->> NETIF_F_IPV6_CSUM |
->> +                                       NETIF_F_RXCSUM |
->> +                                       NETIF_F_TSO | NETIF_F_TSO6 |
->> +                                       NETIF_F_GSO_UDP_TUNNEL |
->>                                         NETIF_F_GSO_UDP_TUNNEL_CSUM |
->>                                         NETIF_F_GSO_PARTIAL);
->>   @@ -2431,7 +2435,18 @@ static netdev_features_t
->> mlx4_en_features_check(struct sk_buff *skb,
->>                                                 netdev_features_t
->> features)
->>   {
->>         features = vlan_features_check(skb, features);
->> -       return vxlan_features_check(skb, features);
->> +       features = vxlan_features_check(skb, features);
->> +
->> +       /* The ConnectX-3 doesn't support outer IPv6 checksums but it does
->> +        * support inner IPv6 checksums and segmentation so  we need to
->> +        * strip that feature if this is an IPv6 encapsulated frame.
->> +        */
->> +       if (skb->encapsulation &&
->> +           (skb->ip_summed == CHECKSUM_PARTIAL) &&
->> +           (ip_hdr(skb)->version != 4))
->> +               features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
->
-> Dejavu, didn't you fix this already in harmonize_features, in
-> i.e, it is enough to do here:
->
-> if (skb->encapsulation && (skb->ip_summed == CHECKSUM_PARTIAL))
->             features &= ~NETIF_F_IPV6_CSUM;
->
-
-So what this patch is doing is enabling an inner IPv6 header offloads.
-Up above we set the NETIF_F_IPV6_CSUM bit and we want it to stay set
-unless we have an outer IPv6 header because the inner headers may
-still need that bit set.  If I did what you suggest it strips IPv6
-checksum support for inner headers and if we have to use GSO partial I
-ended up encountering some of the other bugs that I have fixed for GSO
-partial where either sg or csum are not defined.
-
->
->> +
->> +       return features;
->>   }
->>   #endif
->>   diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> index c0d7b7296236..c9f5388ea22a 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> @@ -41,6 +41,7 @@
->>   #include <linux/vmalloc.h>
->>   #include <linux/tcp.h>
->>   #include <linux/ip.h>
->> +#include <linux/ipv6.h>
->>   #include <linux/moduleparam.h>
->>     #include "mlx4_en.h"
->> @@ -918,8 +919,18 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct
->> net_device *dev)
->>                                  tx_ind, fragptr);
->>         if (skb->encapsulation) {
->> -               struct iphdr *ipv4 = (struct iphdr
->> *)skb_inner_network_header(skb);
->> -               if (ipv4->protocol == IPPROTO_TCP || ipv4->protocol ==
->> IPPROTO_UDP)
->> +               union {
->> +                       struct iphdr *v4;
->> +                       struct ipv6hdr *v6;
->> +                       unsigned char *hdr;
->> +               } ip;
->> +               u8 proto;
->> +
->> +               ip.hdr = skb_inner_network_header(skb);
->> +               proto = (ip.v4->version == 4) ? ip.v4->protocol :
->> +                                               ip.v6->nexthdr;
->> +
->> +               if (proto == IPPROTO_TCP || proto == IPPROTO_UDP)
->>                         op_own |= cpu_to_be32(MLX4_WQE_CTRL_IIP |
->> MLX4_WQE_CTRL_ILP);
->>                 else
->>                         op_own |= cpu_to_be32(MLX4_WQE_CTRL_IIP);
->
->
-> basically this is a bug fix, I don't know why the original author assumed it
-> will be ipv4 !
-
-Because the feature flags didn't allow it any other way.  I am adding
-the NETIF_F_TSO6 and NETIF_F_IPV6_CSUM flags in hw_enc_features and so
-situations such as this couldn't be encountered until you start adding
-those flags.
-
-- Alex
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index af8c54d2e99c..7106006c792b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1266,13 +1266,10 @@ static void mlx5e_build_icosq_param(struct mlx5e_priv *priv,
+ 	param->icosq = true;
+ }
+ 
+-static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
+-				      struct mlx5e_channel_param *cparam)
++static void mlx5e_build_channel_param(struct mlx5e_priv *priv, struct mlx5e_channel_param *cparam)
+ {
+ 	u8 icosq_log_wq_sz = MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE;
+ 
+-	memset(cparam, 0, sizeof(*cparam));
+-
+ 	mlx5e_build_rq_param(priv, &cparam->rq);
+ 	mlx5e_build_sq_param(priv, &cparam->sq);
+ 	mlx5e_build_icosq_param(priv, &cparam->icosq, icosq_log_wq_sz);
+@@ -1283,7 +1280,7 @@ static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
+ 
+ static int mlx5e_open_channels(struct mlx5e_priv *priv)
+ {
+-	struct mlx5e_channel_param cparam;
++	struct mlx5e_channel_param *cparam;
+ 	int nch = priv->params.num_channels;
+ 	int err = -ENOMEM;
+ 	int i;
+@@ -1295,12 +1292,15 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
+ 	priv->txq_to_sq_map = kcalloc(nch * priv->params.num_tc,
+ 				      sizeof(struct mlx5e_sq *), GFP_KERNEL);
+ 
+-	if (!priv->channel || !priv->txq_to_sq_map)
++	cparam = kzalloc(sizeof(struct mlx5e_channel_param), GFP_KERNEL);
++
++	if (!priv->channel || !priv->txq_to_sq_map || !cparam)
+ 		goto err_free_txq_to_sq_map;
+ 
+-	mlx5e_build_channel_param(priv, &cparam);
++	mlx5e_build_channel_param(priv, cparam);
++
+ 	for (i = 0; i < nch; i++) {
+-		err = mlx5e_open_channel(priv, i, &cparam, &priv->channel[i]);
++		err = mlx5e_open_channel(priv, i, cparam, &priv->channel[i]);
+ 		if (err)
+ 			goto err_close_channels;
+ 	}
+@@ -1311,6 +1311,7 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
+ 			goto err_close_channels;
+ 	}
+ 
++	kfree(cparam);
+ 	return 0;
+ 
+ err_close_channels:
+@@ -1320,6 +1321,7 @@ err_close_channels:
+ err_free_txq_to_sq_map:
+ 	kfree(priv->txq_to_sq_map);
+ 	kfree(priv->channel);
++	kfree(cparam);
+ 
+ 	return err;
+ }
+-- 
+2.7.0
