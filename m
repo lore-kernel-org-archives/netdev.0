@@ -1,9 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 1/4] samples/bpf: add back functionality to
- redefine LLC command
-Date: Tue, 26 Apr 2016 13:09:17 +0200
-Message-ID: <20160426110917.20716.43051.stgit@firesoul>
-References: <20160426110828.20716.13392.stgit@firesoul>
+Subject: [net-next PATCH 0/4] samples/bpf: Improve user experience
+Date: Tue, 26 Apr 2016 13:09:12 +0200
+Message-ID: <20160426110828.20716.13392.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,51 +10,32 @@ Cc: bblanco@plumgrid.com, borkmann@iogearbox.net,
 	Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48258 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53954 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752382AbcDZLJT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 07:09:19 -0400
-In-Reply-To: <20160426110828.20716.13392.stgit@firesoul>
+	id S1752382AbcDZLJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 07:09:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is practical to be-able-to redefine the location of the LLVM
-command 'llc', because not all distros have a LLVM version with bpf
-target support.  Thus, it is sometimes required to compile LLVM from
-source, and sometimes it is not desired to overwrite the distros
-default LLVM version.
+It is a steep learning curve getting started with using the eBPF
+examples in samples/bpf/.  There are several dependencies, and
+specific versions of these dependencies.  Invoking make in the correct
+manor is also slightly obscure.
 
-This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
-PATH, rather than a hardcoded value").
+This patchset cleanup, document and hopefully improves the first time
+user experience with the eBPF samples directory by auto-detecting
+certain scenarios.
 
-Add this features back. Note that it is possible to redefine the LLC
-on the make command like:
-
- make samples/bpf/ LLC=~/git/llvm/build/bin/llc
-
-Fixes: 128d1514be35 ("samples/bpf: Use llc in PATH, rather than a hardcoded value")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- samples/bpf/Makefile |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 744dd7a16144..5bae9536f100 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -81,10 +81,14 @@ HOSTLOADLIBES_spintest += -lelf
- HOSTLOADLIBES_map_perf_test += -lelf -lrt
- HOSTLOADLIBES_test_overhead += -lelf -lrt
- 
-+# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
-+#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
-+LLC ?= llc
-+
- # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
- # But, there is no easy way to fix it, so just exclude it since it is
- # useless for BPF samples.
- $(obj)/%.o: $(src)/%.c
- 	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
- 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
--		-O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
-+		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+Jesper Dangaard Brouer (4):
+      samples/bpf: add back functionality to redefine LLC command
+      samples/bpf: Makefile verify LLVM compiler avail and bpf target is supported
+      samples/bpf: add a README file to get users started
+      samples/bpf: allow make to be run from samples/bpf/ directory
+
+
+ samples/bpf/Makefile   |   32 +++++++++++++++++++++-
+ samples/bpf/README.rst |   70 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 101 insertions(+), 1 deletion(-)
+ create mode 100644 samples/bpf/README.rst
