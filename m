@@ -1,134 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: Add promiscuous on VLAN support
-Date: Tue, 26 Apr 2016 13:55:46 -0700
-Message-ID: <1461704148-114349-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e/i40evf: Only offload VLAN tag if enabled
+Date: Tue, 26 Apr 2016 13:55:45 -0700
+Message-ID: <1461704148-114349-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64065 "EHLO mga11.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:24352 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752428AbcDZUzy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 16:55:54 -0400
+	id S1752949AbcDZUz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 16:55:56 -0400
 In-Reply-To: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-NFV use cases require the ability to steer packets to VSIs by VLAN tag
-alone while being in promiscuous mode for multicast and unicast MAC
-addresses.  These two new functions support that ability.
+The driver was offloading the VLAN tag into the skb
+any time there was a VLAN tag and the hardware stripping was
+enabled.  Just check to make sure it's enabled before put_tag.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-Id: Ife95290c06edd9a616393b38679923938b382241
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 70 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  8 +++
- 2 files changed, 78 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 3 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 25872f2..0e8552b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2039,6 +2039,76 @@ i40e_status i40e_aq_set_vsi_multicast_promiscuous(struct i40e_hw *hw,
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 57af5f6..be51a28 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1370,7 +1370,8 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+ {
+ 	struct i40e_q_vector *q_vector = rx_ring->q_vector;
  
- /**
-+ * i40e_aq_set_vsi_mc_promisc_on_vlan
-+ * @hw: pointer to the hw struct
-+ * @seid: vsi number
-+ * @enable: set MAC L2 layer unicast promiscuous enable/disable for a given VLAN
-+ * @vid: The VLAN tag filter - capture any multicast packet with this VLAN tag
-+ * @cmd_details: pointer to command details structure or NULL
-+ **/
-+enum i40e_status_code i40e_aq_set_vsi_mc_promisc_on_vlan(struct i40e_hw *hw,
-+							 u16 seid, bool enable,
-+							 u16 vid,
-+				struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_set_vsi_promiscuous_modes *cmd =
-+		(struct i40e_aqc_set_vsi_promiscuous_modes *)&desc.params.raw;
-+	enum i40e_status_code status;
-+	u16 flags = 0;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_set_vsi_promiscuous_modes);
-+
-+	if (enable)
-+		flags |= I40E_AQC_SET_VSI_PROMISC_MULTICAST;
-+
-+	cmd->promiscuous_flags = cpu_to_le16(flags);
-+	cmd->valid_flags = cpu_to_le16(I40E_AQC_SET_VSI_PROMISC_MULTICAST);
-+	cmd->seid = cpu_to_le16(seid);
-+	cmd->vlan_tag = cpu_to_le16(vid | I40E_AQC_SET_VSI_VLAN_VALID);
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-+ * i40e_aq_set_vsi_uc_promisc_on_vlan
-+ * @hw: pointer to the hw struct
-+ * @seid: vsi number
-+ * @enable: set MAC L2 layer unicast promiscuous enable/disable for a given VLAN
-+ * @vid: The VLAN tag filter - capture any unicast packet with this VLAN tag
-+ * @cmd_details: pointer to command details structure or NULL
-+ **/
-+enum i40e_status_code i40e_aq_set_vsi_uc_promisc_on_vlan(struct i40e_hw *hw,
-+							 u16 seid, bool enable,
-+							 u16 vid,
-+				struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_set_vsi_promiscuous_modes *cmd =
-+		(struct i40e_aqc_set_vsi_promiscuous_modes *)&desc.params.raw;
-+	enum i40e_status_code status;
-+	u16 flags = 0;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_set_vsi_promiscuous_modes);
-+
-+	if (enable)
-+		flags |= I40E_AQC_SET_VSI_PROMISC_UNICAST;
-+
-+	cmd->promiscuous_flags = cpu_to_le16(flags);
-+	cmd->valid_flags = cpu_to_le16(I40E_AQC_SET_VSI_PROMISC_UNICAST);
-+	cmd->seid = cpu_to_le16(seid);
-+	cmd->vlan_tag = cpu_to_le16(vid | I40E_AQC_SET_VSI_VLAN_VALID);
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_set_vsi_broadcast
-  * @hw: pointer to the hw struct
-  * @seid: vsi number
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 134035f..8afb237 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -133,6 +133,14 @@ i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
- 		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_vsi_multicast_promiscuous(struct i40e_hw *hw,
- 		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
-+enum i40e_status_code i40e_aq_set_vsi_mc_promisc_on_vlan(struct i40e_hw *hw,
-+							 u16 seid, bool enable,
-+							 u16 vid,
-+				struct i40e_asq_cmd_details *cmd_details);
-+enum i40e_status_code i40e_aq_set_vsi_uc_promisc_on_vlan(struct i40e_hw *hw,
-+							 u16 seid, bool enable,
-+							 u16 vid,
-+				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_vsi_vlan_promisc(struct i40e_hw *hw,
- 				u16 seid, bool enable,
- 				struct i40e_asq_cmd_details *cmd_details);
+-	if (vlan_tag & VLAN_VID_MASK)
++	if ((rx_ring->netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
++	    (vlan_tag & VLAN_VID_MASK))
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+ 
+ 	napi_gro_receive(&q_vector->napi, skb);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index f101895..4633235 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -842,7 +842,8 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+ {
+ 	struct i40e_q_vector *q_vector = rx_ring->q_vector;
+ 
+-	if (vlan_tag & VLAN_VID_MASK)
++	if ((rx_ring->netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
++	    (vlan_tag & VLAN_VID_MASK))
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+ 
+ 	napi_gro_receive(&q_vector->napi, skb);
 -- 
 2.5.5
