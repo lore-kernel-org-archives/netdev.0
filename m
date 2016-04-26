@@ -1,66 +1,110 @@
-From: Hyong-Youb Kim <hykim@myri.com>
-Subject: Re: myri10ge: fix sleeping with bh disabled
-Date: Tue, 26 Apr 2016 11:22:35 +0900
-Message-ID: <20160426022235.GA1945@gtest01.arcus>
-References: <20160425085918.GB2608@redhat.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [v8, 1/7] Documentation: DT: update Freescale DCFG compatible
+Date: Tue, 26 Apr 2016 02:43:10 +0000
+Message-ID: <HE1PR04MB0889A68C6D275D3102382D8BF8630@HE1PR04MB0889.eurprd04.prod.outlook.com>
+References: <1461306464-19521-1-git-send-email-yangbo.lu@nxp.com>
+	<1461306464-19521-2-git-send-email-yangbo.lu@nxp.com>
+	<20160422131151.GJ10606@leverpostej>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0128.outbound.protection.outlook.com ([157.56.112.128]:2048
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750843AbcDZCjM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 22:39:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20160425085918.GB2608@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Russell
+	King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, Scott Wood <scott.wood-3arQi8VN3Tc@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEmw@public.gmane.org
+To: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20160422131151.GJ10606@leverpostej>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 25, 2016 at 10:59:19AM +0200, Stanislaw Gruszka wrote:
-> napi_disable() can not be called with bh disabled, move locking just
-> around myri10ge_ss_lock_napi() .
+Hi Mark,
 
-Acked-by: Hyong-Youb Kim <hykim@myri.com>
 
-Thanks.
+> -----Original Message-----
+> From: Mark Rutland [mailto:mark.rutland-5wv7dgnIgG8@public.gmane.org]
+> Sent: Friday, April 22, 2016 9:12 PM
+> To: Yangbo Lu
+> Cc: linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org;
+> devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linux-
+> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org;
+> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; Scott Wood; Rob Herring;
+> Russell King; Jochen Friedrich; Joerg Roedel; Claudiu Manoil; Bhupesh
+> Sharma; Zhao Qiang; Kumar Gala; Santosh Shilimkar; Yang-Leo Li; Xiaobo
+> Xie
+> Subject: Re: [v8, 1/7] Documentation: DT: update Freescale DCFG
+> compatible
+> 
+> On Fri, Apr 22, 2016 at 02:27:38PM +0800, Yangbo Lu wrote:
+> > Update Freescale DCFG compatible with 'fsl,<chip>-dcfg' instead of
+> > 'fsl,ls1021a-dcfg' to include more chips.
+> >
+> > Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+> > ---
+> > Changes for v8:
+> > 	- Added this patch
+> > ---
+> >  Documentation/devicetree/bindings/arm/fsl.txt | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> > diff --git a/Documentation/devicetree/bindings/arm/fsl.txt
+> > b/Documentation/devicetree/bindings/arm/fsl.txt
+> > index 752a685..1d5f512 100644
+> > --- a/Documentation/devicetree/bindings/arm/fsl.txt
+> > +++ b/Documentation/devicetree/bindings/arm/fsl.txt
+> > @@ -119,7 +119,7 @@ Freescale DCFG
+> >  configuration and status for the device. Such as setting the
+> > secondary  core start address and release the secondary core from
+> holdoff and startup.
+> >    Required properties:
+> > -  - compatible: should be "fsl,ls1021a-dcfg"
+> > +  - compatible: should be "fsl,<chip>-dcfg"
+> 
+> Please list specific values expected for <chip>, while jusy saying <chip>
+> may be more generic, it makes it practically impossible to search for the
+> correct binding given a compatible string, and it's vague as to exaclty
+> what <chip> should be.
+
+[Lu Yangbo-B47093] Thanks for your comment. I will list the possible chips.
 
 > 
-> Patches fixes following bug:
+> Thanks,
+> Mark.
 > 
-> [  114.278378] BUG: sleeping function called from invalid context at net/core/dev.c:4383 
-> <snip>
-> [  114.313712] Call Trace: 
-> [  114.314943]  [<ffffffff817010ce>] dump_stack+0x19/0x1b 
-> [  114.317673]  [<ffffffff810ce7f3>] __might_sleep+0x173/0x230 
-> [  114.320566]  [<ffffffff815b3117>] napi_disable+0x27/0x90 
-> [  114.323254]  [<ffffffffa01e437f>] myri10ge_close+0xbf/0x3f0 [myri10ge] 
 > 
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
-> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> index 270c9ee..6d1a956 100644
-> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> @@ -2668,9 +2668,9 @@ static int myri10ge_close(struct net_device *dev)
->  
->  	del_timer_sync(&mgp->watchdog_timer);
->  	mgp->running = MYRI10GE_ETH_STOPPING;
-> -	local_bh_disable(); /* myri10ge_ss_lock_napi needs bh disabled */
->  	for (i = 0; i < mgp->num_slices; i++) {
->  		napi_disable(&mgp->ss[i].napi);
-> +		local_bh_disable(); /* myri10ge_ss_lock_napi needs this */
->  		/* Lock the slice to prevent the busy_poll handler from
->  		 * accessing it.  Later when we bring the NIC up, myri10ge_open
->  		 * resets the slice including this lock.
-> @@ -2679,8 +2679,8 @@ static int myri10ge_close(struct net_device *dev)
->  			pr_info("Slice %d locked\n", i);
->  			mdelay(1);
->  		}
-> +		local_bh_enable();
->  	}
-> -	local_bh_enable();
->  	netif_carrier_off(dev);
->  
->  	netif_tx_stop_all_queues(dev);
+> 
+> >    - reg : should contain base address and length of DCFG
+> > memory-mapped registers
+> >
+> >  Example:
+> > --
+> > 2.1.0.27.g96db324
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe devicetree"
+> > in the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org More majordomo
+> > info at  http://vger.kernel.org/majordomo-info.html
+> >
