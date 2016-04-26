@@ -1,64 +1,39 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 1/5] ti: Convert wl1271_<level> logging macros to dev_<level> or pr_<level>
-Date: Tue, 26 Apr 2016 12:06:09 +0300
-Message-ID: <87d1pczqm6.fsf@kamboji.qca.qualcomm.com>
-References: <cover.1457395071.git.joe@perches.com>
-	<760b583e96a9a88f06e97150617f791c3726a302.1457395071.git.joe@perches.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v3] prism54: isl_38xx: Replace 'struct timeval'
+Date: Tue, 26 Apr 2016 09:10:14 +0000 (UTC)
+Message-ID: <20160426091014.8F8A6600E2@smtp.codeaurora.org>
+References: <20160413060916.GA21184@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <760b583e96a9a88f06e97150617f791c3726a302.1457395071.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-	(Joe Perches's message of "Mon, 7 Mar 2016 16:19:33 -0800")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Arnd Bergmann <arnd@arndb.de>
+To: Tina Ruchandani <ruchandani.tina@gmail.com>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <20160413060916.GA21184@localhost>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
-
-> Use the more common logging mechanism passing wl->dev where
-> appropriate.  Remove the macros.  Add argument struct wl1271 *wl to
-> some functions to make these logging mechanisms work.
->
-> Miscellanea:
->
-> o Coalesce formats, add required trailing \n to formats
->   Some formats already had previously incorrect \n uses
-> o Realign arguments
-> o Correct a couple typos and grammar defects
-> o Split a multiple line error message to multiple calls of dev_err
-> o Add #define pr_fmt when pr_<level> is used
-> o Remove unnecessary/duplicate pr_fmt use from wl1271_debug macro
->
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-
-Doesn't apply anymore:
-
-Applying: ti: Convert wl1271_<level> logging macros to dev_<level> or pr_<level>
-Using index info to reconstruct a base tree...
-Falling back to patching base and 3-way merge...
-Auto-merging drivers/net/wireless/ti/wlcore/wlcore_i.h
-Auto-merging drivers/net/wireless/ti/wlcore/tx.c
-Auto-merging drivers/net/wireless/ti/wlcore/scan.c
-Auto-merging drivers/net/wireless/ti/wlcore/rx.c
-Auto-merging drivers/net/wireless/ti/wlcore/ps.c
-Auto-merging drivers/net/wireless/ti/wlcore/main.c
-Auto-merging drivers/net/wireless/ti/wlcore/cmd.c
-CONFLICT (content): Merge conflict in drivers/net/wireless/ti/wlcore/cmd.c
-Auto-merging drivers/net/wireless/ti/wl18xx/tx.c
-Auto-merging drivers/net/wireless/ti/wl18xx/scan.c
-Auto-merging drivers/net/wireless/ti/wl18xx/main.c
-Auto-merging drivers/net/wireless/ti/wl18xx/event.c
-Auto-merging drivers/net/wireless/ti/wl18xx/debugfs.c
-Auto-merging drivers/net/wireless/ti/wl18xx/cmd.c
-Auto-merging drivers/net/wireless/ti/wl12xx/scan.c
-Auto-merging drivers/net/wireless/ti/wl12xx/main.c
-Failed to merge in the changes.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cj4gJ3N0cnVjdCB0aW1ldmFsJyB1c2VzIGEgMzItYml0IHNlY29uZHMgZmllbGQgd2hpY2ggd2ls
+bCBvdmVyZmxvdyBpbgo+IHllYXIgMjAzOCBhbmQgYmV5b25kLiBUaGlzIHBhdGNoIGlzIHBhcnQg
+b2YgYSBsYXJnZXIgZWZmb3J0IHRvIHJlbW92ZQo+IGFsbCBpbnN0YW5jZXMgb2YgJ3N0cnVjdCB0
+aW1ldmFsJyBmcm9tIHRoZSBrZXJuZWwgYW5kIHJlcGxhY2UgdGhlbQo+IHdpdGggNjQtYml0IHRp
+bWVrZWVwaW5nIHZhcmlhYmxlcy4KPiBUaGUgcGF0Y2ggYWxzbyBmaXhlcyB0aGUgZGVidWcgcHJp
+bnRmIHNwZWNpZmllciB0byBhdm9pZCB0aGUKPiBzZWNvbmRzIHZhbHVlIGJlaW5nIHRydW5jYXRl
+ZC4KPiBUaGUgcGF0Y2ggd2FzIGJ1aWxkLXRlc3RlZCAvIGRlYnVnZ2VkIGJ5IHJlbW92aW5nIHRo
+ZQo+ICJpZiBWRVJCT1NFID4gU0hPV19FUlJPUl9NRVNTQUdFUyIgZ3VhcmRzLgo+IAo+IFNpZ25l
+ZC1vZmYtYnk6IFRpbmEgUnVjaGFuZGFuaSA8cnVjaGFuZGFuaS50aW5hQGdtYWlsLmNvbT4KPiBT
+dWdnZXN0ZWQtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+CgpUaGFua3MsIGFwcGxp
+ZWQgdG8gd2lyZWxlc3MtZHJpdmVycy1uZXh0LmdpdC4KCkthbGxlIFZhbG8KX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBsaXN0Clky
+MDM4QGxpc3RzLmxpbmFyby5vcmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxtYW4vbGlz
+dGluZm8veTIwMzgK
