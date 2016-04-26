@@ -1,223 +1,162 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/8] cxgb4: add new routine to get adapter info
-Date: Tue, 26 Apr 2016 20:10:22 +0530
-Message-ID: <1461681629-28275-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/8] cxgb4: Refactor t4_port_init function
+Date: Tue, 26 Apr 2016 20:10:26 +0530
+Message-ID: <1461681629-28275-6-git-send-email-hariprasad@chelsio.com>
 References: <1461681629-28275-1-git-send-email-hariprasad@chelsio.com>
 Cc: netdev@vger.kernel.org, leedom@chelsio.com,
 	swise@opengridcomputing.com, nirranjan@chelsio.com,
 	santosh@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:15232 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:3027 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751919AbcDZOgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 10:36:21 -0400
+	by vger.kernel.org with ESMTP id S1751845AbcDZOgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 10:36:39 -0400
 In-Reply-To: <1461681629-28275-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new routine to print out general adapter information (various version
-numbers, adapter name, part number, serial number, etc.) and remove
-redundant information dumped in the Port Information.
+Refactor t4_port_init() so that the core functionality is done by
+t4_init_portinfo() for a particular port. Also rename variables to
+sensible ones.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  4 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 78 ++++++++++++++++++++++---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 14 +++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      |  7 +++
- 4 files changed, 95 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 93 +++++++++++++++++-------------
+ 2 files changed, 55 insertions(+), 40 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 326d4009525e..459775884cad 100644
+index 459775884cad..f69119bc5990 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -324,7 +324,9 @@ struct adapter_params {
- 	unsigned int sf_fw_start;         /* start of FW image in flash */
- 
- 	unsigned int fw_vers;
-+	unsigned int bs_vers;		/* bootstrap version */
- 	unsigned int tp_vers;
-+	unsigned int er_vers;		/* expansion ROM version */
- 	u8 api_vers[7];
- 
- 	unsigned short mtus[NMTUS];
-@@ -731,6 +733,7 @@ struct adapter {
- 	u32 t4_bar0;
- 	struct pci_dev *pdev;
- 	struct device *pdev_dev;
-+	const char *name;
- 	unsigned int mbox;
- 	unsigned int pf;
- 	unsigned int flags;
-@@ -1306,6 +1309,7 @@ int t4_fl_pkt_align(struct adapter *adap);
- unsigned int t4_flash_cfg_addr(struct adapter *adapter);
- int t4_check_fw_version(struct adapter *adap);
- int t4_get_fw_version(struct adapter *adapter, u32 *vers);
-+int t4_get_bs_version(struct adapter *adapter, u32 *vers);
- int t4_get_tp_version(struct adapter *adapter, u32 *vers);
- int t4_get_exprom_version(struct adapter *adapter, u32 *vers);
- int t4_prep_fw(struct adapter *adap, struct fw_info *fw_info,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index a1e329ec24cd..b8dc7921b258 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3738,7 +3738,10 @@ static int adap_init0(struct adapter *adap)
- 	 * is excessively mismatched relative to the driver.)
- 	 */
- 	t4_get_fw_version(adap, &adap->params.fw_vers);
-+	t4_get_bs_version(adap, &adap->params.bs_vers);
- 	t4_get_tp_version(adap, &adap->params.tp_vers);
-+	t4_get_exprom_version(adap, &adap->params.er_vers);
-+
- 	ret = t4_check_fw_version(adap);
- 	/* If firmware is too old (not supported by driver) force an update. */
- 	if (ret)
-@@ -4652,6 +4655,68 @@ static void cxgb4_check_pcie_caps(struct adapter *adap)
- 			 "suggested for optimal performance.\n");
- }
- 
-+/* Dump basic information about the adapter */
-+static void print_adapter_info(struct adapter *adapter)
-+{
-+	/* Device information */
-+	dev_info(adapter->pdev_dev, "Chelsio %s rev %d\n",
-+		 adapter->params.vpd.id,
-+		 CHELSIO_CHIP_RELEASE(adapter->params.chip));
-+	dev_info(adapter->pdev_dev, "S/N: %s, P/N: %s\n",
-+		 adapter->params.vpd.sn, adapter->params.vpd.pn);
-+
-+	/* Firmware Version */
-+	if (!adapter->params.fw_vers)
-+		dev_warn(adapter->pdev_dev, "No firmware loaded\n");
-+	else
-+		dev_info(adapter->pdev_dev, "Firmware version: %u.%u.%u.%u\n",
-+			 FW_HDR_FW_VER_MAJOR_G(adapter->params.fw_vers),
-+			 FW_HDR_FW_VER_MINOR_G(adapter->params.fw_vers),
-+			 FW_HDR_FW_VER_MICRO_G(adapter->params.fw_vers),
-+			 FW_HDR_FW_VER_BUILD_G(adapter->params.fw_vers));
-+
-+	/* Bootstrap Firmware Version. (Some adapters don't have Bootstrap
-+	 * Firmware, so dev_info() is more appropriate here.)
-+	 */
-+	if (!adapter->params.bs_vers)
-+		dev_info(adapter->pdev_dev, "No bootstrap loaded\n");
-+	else
-+		dev_info(adapter->pdev_dev, "Bootstrap version: %u.%u.%u.%u\n",
-+			 FW_HDR_FW_VER_MAJOR_G(adapter->params.bs_vers),
-+			 FW_HDR_FW_VER_MINOR_G(adapter->params.bs_vers),
-+			 FW_HDR_FW_VER_MICRO_G(adapter->params.bs_vers),
-+			 FW_HDR_FW_VER_BUILD_G(adapter->params.bs_vers));
-+
-+	/* TP Microcode Version */
-+	if (!adapter->params.tp_vers)
-+		dev_warn(adapter->pdev_dev, "No TP Microcode loaded\n");
-+	else
-+		dev_info(adapter->pdev_dev,
-+			 "TP Microcode version: %u.%u.%u.%u\n",
-+			 FW_HDR_FW_VER_MAJOR_G(adapter->params.tp_vers),
-+			 FW_HDR_FW_VER_MINOR_G(adapter->params.tp_vers),
-+			 FW_HDR_FW_VER_MICRO_G(adapter->params.tp_vers),
-+			 FW_HDR_FW_VER_BUILD_G(adapter->params.tp_vers));
-+
-+	/* Expansion ROM version */
-+	if (!adapter->params.er_vers)
-+		dev_info(adapter->pdev_dev, "No Expansion ROM loaded\n");
-+	else
-+		dev_info(adapter->pdev_dev,
-+			 "Expansion ROM version: %u.%u.%u.%u\n",
-+			 FW_HDR_FW_VER_MAJOR_G(adapter->params.er_vers),
-+			 FW_HDR_FW_VER_MINOR_G(adapter->params.er_vers),
-+			 FW_HDR_FW_VER_MICRO_G(adapter->params.er_vers),
-+			 FW_HDR_FW_VER_BUILD_G(adapter->params.er_vers));
-+
-+	/* Software/Hardware configuration */
-+	dev_info(adapter->pdev_dev, "Configuration: %sNIC %s, %s capable\n",
-+		 is_offload(adapter) ? "R" : "",
-+		 ((adapter->flags & USING_MSIX) ? "MSI-X" :
-+		  (adapter->flags & USING_MSI) ? "MSI" : ""),
-+		 is_offload(adapter) ? "Offload" : "non-Offload");
-+}
-+
- static void print_port_info(const struct net_device *dev)
- {
- 	char buf[80];
-@@ -4679,14 +4744,8 @@ static void print_port_info(const struct net_device *dev)
- 		--bufp;
- 	sprintf(bufp, "BASE-%s", t4_get_port_type_description(pi->port_type));
- 
--	netdev_info(dev, "Chelsio %s rev %d %s %sNIC %s\n",
--		    adap->params.vpd.id,
--		    CHELSIO_CHIP_RELEASE(adap->params.chip), buf,
--		    is_offload(adap) ? "R" : "",
--		    (adap->flags & USING_MSIX) ? " MSI-X" :
--		    (adap->flags & USING_MSI) ? " MSI" : "");
--	netdev_info(dev, "S/N: %s, P/N: %s\n",
--		    adap->params.vpd.sn, adap->params.vpd.pn);
-+	netdev_info(dev, "%s: Chelsio %s (%s) %s\n",
-+		    dev->name, adap->params.vpd.id, adap->name, buf);
- }
- 
- static void enable_pcie_relaxed_ordering(struct pci_dev *dev)
-@@ -4844,6 +4903,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->regs = regs;
- 	adapter->pdev = pdev;
- 	adapter->pdev_dev = &pdev->dev;
-+	adapter->name = pci_name(pdev);
- 	adapter->mbox = func;
- 	adapter->pf = func;
- 	adapter->msg_enable = dflt_msg_enable;
-@@ -5074,6 +5134,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (is_offload(adapter))
- 		attach_ulds(adapter);
- 
-+	print_adapter_info(adapter);
-+
- sriov:
- #ifdef CONFIG_PCI_IOV
- 	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
+@@ -1333,6 +1333,8 @@ int t4_init_sge_params(struct adapter *adapter);
+ int t4_init_tp_params(struct adapter *adap);
+ int t4_filter_field_shift(const struct adapter *adap, int filter_sel);
+ int t4_init_rss_mode(struct adapter *adap, int mbox);
++int t4_init_portinfo(struct port_info *pi, int mbox,
++		     int port, int pf, int vf, u8 mac[]);
+ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf);
+ void t4_fatal_err(struct adapter *adapter);
+ int t4_config_rss_range(struct adapter *adapter, int mbox, unsigned int viid,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 71586a3e0f61..2ced24fc569d 100644
+index 2ced24fc569d..1ebbbb9323e3 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2937,6 +2937,20 @@ int t4_get_fw_version(struct adapter *adapter, u32 *vers)
+@@ -7668,61 +7668,74 @@ int t4_init_rss_mode(struct adapter *adap, int mbox)
+ 	return 0;
  }
  
- /**
-+ *	t4_get_bs_version - read the firmware bootstrap version
-+ *	@adapter: the adapter
-+ *	@vers: where to place the version
+-int t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
++/**
++ *	t4_init_portinfo - allocate a virtual interface amd initialize port_info
++ *	@pi: the port_info
++ *	@mbox: mailbox to use for the FW command
++ *	@port: physical port associated with the VI
++ *	@pf: the PF owning the VI
++ *	@vf: the VF owning the VI
++ *	@mac: the MAC address of the VI
 + *
-+ *	Reads the FW Bootstrap version from flash.
++ *	Allocates a virtual interface for the given physical port.  If @mac is
++ *	not %NULL it contains the MAC address of the VI as assigned by FW.
++ *	@mac should be large enough to hold an Ethernet address.
++ *	Returns < 0 on error.
 + */
-+int t4_get_bs_version(struct adapter *adapter, u32 *vers)
-+{
-+	return t4_read_flash(adapter, FLASH_FWBOOTSTRAP_START +
-+			     offsetof(struct fw_hdr, fw_ver), 1,
-+			     vers, 0);
++int t4_init_portinfo(struct port_info *pi, int mbox,
++		     int port, int pf, int vf, u8 mac[])
+ {
+-	u8 addr[6];
+-	int ret, i, j = 0;
++	int ret;
+ 	struct fw_port_cmd c;
+-	struct fw_rss_vi_config_cmd rvc;
++	unsigned int rss_size;
+ 
+ 	memset(&c, 0, sizeof(c));
+-	memset(&rvc, 0, sizeof(rvc));
++	c.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
++				     FW_CMD_REQUEST_F | FW_CMD_READ_F |
++				     FW_PORT_CMD_PORTID_V(port));
++	c.action_to_len16 = cpu_to_be32(
++		FW_PORT_CMD_ACTION_V(FW_PORT_ACTION_GET_PORT_INFO) |
++		FW_LEN16(c));
++	ret = t4_wr_mbox(pi->adapter, mbox, &c, sizeof(c), &c);
++	if (ret)
++		return ret;
++
++	ret = t4_alloc_vi(pi->adapter, mbox, port, pf, vf, 1, mac, &rss_size);
++	if (ret < 0)
++		return ret;
++
++	pi->viid = ret;
++	pi->tx_chan = port;
++	pi->lport = port;
++	pi->rss_size = rss_size;
++
++	ret = be32_to_cpu(c.u.info.lstatus_to_modtype);
++	pi->mdio_addr = (ret & FW_PORT_CMD_MDIOCAP_F) ?
++		FW_PORT_CMD_MDIOADDR_G(ret) : -1;
++	pi->port_type = FW_PORT_CMD_PTYPE_G(ret);
++	pi->mod_type = FW_PORT_MOD_TYPE_NA;
++
++	init_link_config(&pi->link_cfg, be16_to_cpu(c.u.info.pcap));
++	return 0;
 +}
 +
-+/**
-  *	t4_get_tp_version - read the TP microcode version
-  *	@adapter: the adapter
-  *	@vers: where to place the version
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-index 2fc60e83a7a1..7f59ca458431 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-@@ -220,6 +220,13 @@ enum {
- 	FLASH_FW_START = FLASH_START(FLASH_FW_START_SEC),
- 	FLASH_FW_MAX_SIZE = FLASH_MAX_SIZE(FLASH_FW_NSECS),
++int t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
++{
++	u8 addr[6];
++	int ret, i, j = 0;
  
-+	/* Location of bootstrap firmware image in FLASH.
-+	 */
-+	FLASH_FWBOOTSTRAP_START_SEC = 27,
-+	FLASH_FWBOOTSTRAP_NSECS = 1,
-+	FLASH_FWBOOTSTRAP_START = FLASH_START(FLASH_FWBOOTSTRAP_START_SEC),
-+	FLASH_FWBOOTSTRAP_MAX_SIZE = FLASH_MAX_SIZE(FLASH_FWBOOTSTRAP_NSECS),
-+
- 	/*
- 	 * iSCSI persistent/crash information.
- 	 */
+ 	for_each_port(adap, i) {
+-		unsigned int rss_size;
+-		struct port_info *p = adap2pinfo(adap, i);
++		struct port_info *pi = adap2pinfo(adap, i);
+ 
+ 		while ((adap->params.portvec & (1 << j)) == 0)
+ 			j++;
+ 
+-		c.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
+-					     FW_CMD_REQUEST_F | FW_CMD_READ_F |
+-					     FW_PORT_CMD_PORTID_V(j));
+-		c.action_to_len16 = cpu_to_be32(
+-			FW_PORT_CMD_ACTION_V(FW_PORT_ACTION_GET_PORT_INFO) |
+-			FW_LEN16(c));
+-		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
++		ret = t4_init_portinfo(pi, mbox, j, pf, vf, addr);
+ 		if (ret)
+ 			return ret;
+ 
+-		ret = t4_alloc_vi(adap, mbox, j, pf, vf, 1, addr, &rss_size);
+-		if (ret < 0)
+-			return ret;
+-
+-		p->viid = ret;
+-		p->tx_chan = j;
+-		p->lport = j;
+-		p->rss_size = rss_size;
+ 		memcpy(adap->port[i]->dev_addr, addr, ETH_ALEN);
+ 		adap->port[i]->dev_port = j;
+-
+-		ret = be32_to_cpu(c.u.info.lstatus_to_modtype);
+-		p->mdio_addr = (ret & FW_PORT_CMD_MDIOCAP_F) ?
+-			FW_PORT_CMD_MDIOADDR_G(ret) : -1;
+-		p->port_type = FW_PORT_CMD_PTYPE_G(ret);
+-		p->mod_type = FW_PORT_MOD_TYPE_NA;
+-
+-		rvc.op_to_viid =
+-			cpu_to_be32(FW_CMD_OP_V(FW_RSS_VI_CONFIG_CMD) |
+-				    FW_CMD_REQUEST_F | FW_CMD_READ_F |
+-				    FW_RSS_VI_CONFIG_CMD_VIID(p->viid));
+-		rvc.retval_len16 = cpu_to_be32(FW_LEN16(rvc));
+-		ret = t4_wr_mbox(adap, mbox, &rvc, sizeof(rvc), &rvc);
+-		if (ret)
+-			return ret;
+-		p->rss_mode = be32_to_cpu(rvc.u.basicvirtual.defaultq_to_udpen);
+-
+-		init_link_config(&p->link_cfg, be16_to_cpu(c.u.info.pcap));
+ 		j++;
+ 	}
+ 	return 0;
 -- 
 2.3.4
