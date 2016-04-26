@@ -1,112 +1,129 @@
-From: Florian Vallee <fvallee@eukrea.fr>
-Subject: [PATCH] can: m_can: fix bitrate setup on latest silicon
-Date: Tue, 26 Apr 2016 15:46:19 +0200
-Message-ID: <1461678379-28257-1-git-send-email-fvallee@eukrea.fr>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebenard@eukrea.com,
-	Florian Vallee <fvallee@eukrea.fr>
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH] net/mlx5e: avoid stack overflow in mlx5e_open_channels
+Date: Tue, 26 Apr 2016 16:48:33 +0300
+Message-ID: <CALzJLG98swFRKAZUcoXMWMyzX3z_h-HhTNZD_unh43VHByZY0A@mail.gmail.com>
+References: <1461590139-1396745-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Achiad Shochat <achiad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Amir Vadai <amir-IB5XiEnQfqI@public.gmane.org>,
+	Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461590139-1396745-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-According to the m_can user manual changelog the BTP register layout was
-updated with core revision 3.1.0
+On Mon, Apr 25, 2016 at 4:15 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> struct mlx5e_channel_param is a large structure that is allocated
+> on the stack of mlx5e_open_channels, and with a recent change
+> it has grown beyond the warning size for the maximum stack
+> that a single function should use:
+>
+> mellanox/mlx5/core/en_main.c: In function 'mlx5e_open_channels':
+> mellanox/mlx5/core/en_main.c:1325:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
+>
+> The function is already using dynamic allocation and is not in
+> a fast path, so the easiest workaround is to use another kzalloc
+> for allocating the channel parameters.
+>
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Fixes: d3c9bc2743dc ("net/mlx5e: Added ICO SQs")
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 21 +++++++++++++++------
+>  1 file changed, 15 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index 22742e1fbcb9..2ec547a80886 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -1266,12 +1266,14 @@ static void mlx5e_build_icosq_param(struct mlx5e_priv *priv,
+>         param->icosq = true;
+>  }
+>
+> -static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
+> -                                     struct mlx5e_channel_param *cparam)
+> +static struct mlx5e_channel_param *mlx5e_build_channel_param(struct mlx5e_priv *priv)
 
-This change is not backward-compatible and using the current driver along
-with a recent IP results in an incorrect bitrate on the wire.
+I prefer to keep the function prototype as before and move the dynamic
+allocation to mlx5e_open_channels,
+to keep alloc/free symmetric in mlx5e_open_channels.
 
-Tested with a SAMA5D2 SoC (CREL = 0x31040730)
+>  {
+> +       struct mlx5e_channel_param *cparam;
+>         u8 icosq_log_wq_sz = MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE;
+>
+> -       memset(cparam, 0, sizeof(*cparam));
+> +       cparam = kzalloc(sizeof(struct mlx5e_channel_param), GFP_KERNEL);
+> +       if (!cparam)
+> +               return NULL;
+>
+>         mlx5e_build_rq_param(priv, &cparam->rq);
+>         mlx5e_build_sq_param(priv, &cparam->sq);
+> @@ -1279,11 +1281,13 @@ static void mlx5e_build_channel_param(struct mlx5e_priv *priv,
+>         mlx5e_build_rx_cq_param(priv, &cparam->rx_cq);
+>         mlx5e_build_tx_cq_param(priv, &cparam->tx_cq);
+>         mlx5e_build_ico_cq_param(priv, &cparam->icosq_cq, icosq_log_wq_sz);
+> +
+> +       return cparam;
+>  }
+>
+>  static int mlx5e_open_channels(struct mlx5e_priv *priv)
+>  {
+> -       struct mlx5e_channel_param cparam;
+> +       struct mlx5e_channel_param *cparam;
+>         int nch = priv->params.num_channels;
+>         int err = -ENOMEM;
+>         int i;
+> @@ -1298,9 +1302,12 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
 
-Signed-off-by: Florian Vallee <fvallee@eukrea.fr>
----
- drivers/net/can/m_can/m_can.c | 38 +++++++++++++++++++++++++++++++++++---
- 1 file changed, 35 insertions(+), 3 deletions(-)
+You can do the allocation here,  then you can benefit from the next
+allocation check to test the 3 allocations altogether.
+i.e:
+if (!cparam || !priv->channel || !priv->txq_to_sq_map)
+           goto err_free_txq_to_sq_map;
 
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index ef65517..d12b8f2 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -105,6 +105,10 @@ enum m_can_mram_cfg {
- 	MRAM_CFG_NUM,
- };
- 
-+/* Core Release Register (CREL) */
-+#define CRR_REL_MASK		0xfff
-+#define CRR_REL_SHIFT		20
-+
- /* Fast Bit Timing & Prescaler Register (FBTP) */
- #define FBTR_FBRP_MASK		0x1f
- #define FBTR_FBRP_SHIFT		16
-@@ -136,7 +140,7 @@ enum m_can_mram_cfg {
- #define CCCR_INIT		BIT(0)
- #define CCCR_CANFD		0x10
- 
--/* Bit Timing & Prescaler Register (BTP) */
-+/* Bit Timing & Prescaler Register (BTP) (M_CAN IP < 3.1.0) */
- #define BTR_BRP_MASK		0x3ff
- #define BTR_BRP_SHIFT		16
- #define BTR_TSEG1_SHIFT		8
-@@ -146,6 +150,16 @@ enum m_can_mram_cfg {
- #define BTR_SJW_SHIFT		0
- #define BTR_SJW_MASK		0xf
- 
-+/* Nominal Bit Timing & Prescaler Register (NBTP) (M_CAN IP >= 3.1.0) */
-+#define NBTR_SJW_SHIFT		25
-+#define NBTR_SJW_MASK		(0x7f << NBTR_SJW_SHIFT)
-+#define NBTR_BRP_SHIFT		16
-+#define NBTR_BRP_MASK		(0x3ff << NBTR_BRP_SHIFT)
-+#define NBTR_TSEG1_SHIFT	8
-+#define NBTR_TSEG1_MASK		(0xff << NBTR_TSEG1_SHIFT)
-+#define NBTR_TSEG2_SHIFT	0
-+#define NBTR_TSEG2_MASK		(0x7f << NBTR_TSEG2_SHIFT)
-+
- /* Error Counter Register(ECR) */
- #define ECR_RP			BIT(15)
- #define ECR_REC_SHIFT		8
-@@ -200,6 +214,9 @@ enum m_can_mram_cfg {
- 			 IR_RF1L | IR_RF0L)
- #define IR_ERR_ALL	(IR_ERR_STATE | IR_ERR_BUS)
- 
-+/* Core Version */
-+#define M_CAN_COREREL_3_1_0	0x310
-+
- /* Interrupt Line Select (ILS) */
- #define ILS_ALL_INT0	0x0
- #define ILS_ALL_INT1	0xFFFFFFFF
-@@ -357,6 +374,13 @@ static inline void m_can_disable_all_interrupts(const struct m_can_priv *priv)
- 	m_can_write(priv, M_CAN_ILE, 0x0);
- }
- 
-+static inline int m_can_read_core_rev(const struct m_can_priv *priv)
-+{
-+	u32 reg = m_can_read(priv, M_CAN_CREL);
-+
-+	return ((reg >> CRR_REL_SHIFT) & CRR_REL_MASK);
-+}
-+
- static void m_can_read_fifo(struct net_device *dev, u32 rxfs)
- {
- 	struct net_device_stats *stats = &dev->stats;
-@@ -814,8 +838,16 @@ static int m_can_set_bittiming(struct net_device *dev)
- 	sjw = bt->sjw - 1;
- 	tseg1 = bt->prop_seg + bt->phase_seg1 - 1;
- 	tseg2 = bt->phase_seg2 - 1;
--	reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
--			(tseg1 << BTR_TSEG1_SHIFT) | (tseg2 << BTR_TSEG2_SHIFT);
-+
-+	if (m_can_read_core_rev(priv) < M_CAN_COREREL_3_1_0)
-+		reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
-+				(tseg1 << BTR_TSEG1_SHIFT) |
-+				(tseg2 << BTR_TSEG2_SHIFT);
-+	else
-+		reg_btp = (brp << NBTR_BRP_SHIFT) | (sjw << NBTR_SJW_SHIFT) |
-+				(tseg1 << NBTR_TSEG1_SHIFT) |
-+				(tseg2 << NBTR_TSEG2_SHIFT);
-+
- 	m_can_write(priv, M_CAN_BTP, reg_btp);
- 
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
--- 
-2.7.4
+>         if (!priv->channel || !priv->txq_to_sq_map)
+>                 goto err_free_txq_to_sq_map;
+>
+> -       mlx5e_build_channel_param(priv, &cparam);
+> +       cparam = mlx5e_build_channel_param(priv);
+> +       if (!cparam)
+> +               goto err_free_txq_to_sq_map;
+> +
+>         for (i = 0; i < nch; i++) {
+> -               err = mlx5e_open_channel(priv, i, &cparam, &priv->channel[i]);
+> +               err = mlx5e_open_channel(priv, i, cparam, &priv->channel[i]);
+>                 if (err)
+>                         goto err_close_channels;
+>         }
+> @@ -1311,11 +1318,13 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
+>                         goto err_close_channels;
+>         }
+>
+> +       kfree(cparam);
+>         return 0;
+>
+>  err_close_channels:
+>         for (i--; i >= 0; i--)
+>                 mlx5e_close_channel(priv->channel[i]);
+> +       kfree(cparam);
+>
+>  err_free_txq_to_sq_map:
+>         kfree(priv->txq_to_sq_map);
+> --
+> 2.7.0
+>
+
+
+Saeed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
