@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvtap: check minor when unregistering
-Date: Tue, 26 Apr 2016 15:19:19 -0400 (EDT)
-Message-ID: <20160426.151919.1718268588062036257.davem@davemloft.net>
-References: <1461449071-7499-1-git-send-email-fruggeri@arista.com>
+Subject: Re: [PATCH net-next] sctp: sctp_diag should fill RMEM_ALLOC with
+ asoc->rmem_alloc when rcvbuf_policy is set
+Date: Tue, 26 Apr 2016 15:19:33 -0400 (EDT)
+Message-ID: <20160426.151933.1727797620994322847.davem@davemloft.net>
+References: <f21861d502b04cf3752dce4cde8cd3f5f1806571.1461511282.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: fruggeri@arista.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net, eric.dumazet@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41370 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41373 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752039AbcDZTT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 15:19:26 -0400
-In-Reply-To: <1461449071-7499-1-git-send-email-fruggeri@arista.com>
+	with ESMTP id S1752607AbcDZTTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 15:19:35 -0400
+In-Reply-To: <f21861d502b04cf3752dce4cde8cd3f5f1806571.1461511282.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francesco Ruggeri <fruggeri@arista.com>
-Date: Sat, 23 Apr 2016 15:04:31 -0700
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun, 24 Apr 2016 23:21:22 +0800
 
-> macvtap_device_event(NETDEV_UNREGISTER) should check vlan->minor to
-> determine if it is being invoked in the context of a macvtap_newlink
-> that failed, for example in this code sequence:
+> For sctp assoc, when rcvbuf_policy is set, it will has it's own
+> rmem_alloc, when we dump asoc info in sctp_diag, we should use that
+> value on RMEM_ALLOC as well, just like WMEM_ALLOC.
 > 
-> macvtap_newlink
->   macvlan_common_newlink
->     register_netdevice
->       call_netdevice_notifiers(NETDEV_REGISTER, dev)
->         macvtap_device_event(NETDEV_REGISTER)
->           <fail here, vlan->minor = 0>
->       rollback_registered(dev);
->         rollback_registered_many
->           call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
->             macvtap_device_event(NETDEV_UNREGISTER)
->               <nothing to clean up here>
-> 
-> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Applied.
