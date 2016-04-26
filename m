@@ -1,80 +1,62 @@
-From: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH net-next 3/8] fs/quota: use nla_put_u64_64bit()
-Date: Tue, 26 Apr 2016 13:08:48 +0200
-Message-ID: <20160426110848.GD27612@quack2.suse.cz>
-References: <1461657978-13360-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461657978-13360-4-git-send-email-nicolas.dichtel@6wind.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 1/4] samples/bpf: add back functionality to
+ redefine LLC command
+Date: Tue, 26 Apr 2016 13:09:17 +0200
+Message-ID: <20160426110917.20716.43051.stgit@firesoul>
+References: <20160426110828.20716.13392.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, sd-y1jBWg8GRStKuXlAQpz2QA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org, jack-IBi9RG/b67k@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
- philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
- drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1461657978-13360-4-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: bblanco@plumgrid.com, borkmann@iogearbox.net,
+	alexei.starovoitov@gmail.com, linux-kbuild@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48258 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752382AbcDZLJT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 07:09:19 -0400
+In-Reply-To: <20160426110828.20716.13392.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlIDI2LTA0LTE2IDEwOjA2OjEzLCBOaWNvbGFzIERpY2h0ZWwgd3JvdGU6Cj4gU2lnbmVk
-LW9mZi1ieTogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPgoKT0ss
-IHNvIEkgc29tZXdoYXQgbWlzcyBhIGRlc2NyaXB0aW9uIG9mIHdoYXQgd2lsbCB0aGlzIGRvIHRv
-IHRoZSBuZXRsaW5rCm1lc3NhZ2Ugc28gdGhhdCBJIGNhbiBqdWRnZSB3aGV0aGVyIHRoZSBjaGFu
-Z2UgaXMgZmluZSBmb3IgdGhlIHVzZXJzcGFjZQpjb3VudGVycGFydCBwYXJzaW5nIHRoZXNlIG1l
-c3NhZ2VzLiBBRkFJVSB0aGlzIGNoYW5nZXMgdGhlIG1lc3NhZ2UgZm9ybWF0CmJ5IGFkZGluZyBh
-IFFVT1RBX05MX0FfUEFEIGZpZWxkIGJlZm9yZSBlYWNoIDY0LWJpdCBmaWVsZCB3aGljaCBuZWVk
-cyBhbgphbGlnbm1lbnQsIGFtIEkgZ3Vlc3NpbmcgcmlnaHQ/IFRodXMgd2hlbiB0aGUgdXNlcnNw
-YWNlIGNvdW50ZXJwYXJ0IHVzZXMKZ2VubG1zZ19wYXJzZSgpIGl0IHNob3VsZCBqdXN0IHNpbGVu
-dGx5IGlnbm9yZSB0aGVzZSBhdHRyaWJ1dGVzIGlmIEkgcmVhZAp0aGUgZG9jdW1lbnRhdGlvbiBy
-aWdodC4gRGlkIEkgdW5kZXJzdGFuZCB0aGlzIGNvcnJlY3RseT8KCgkJCQkJCQkJSG9uemEKCj4g
-LS0tCj4gIGZzL3F1b3RhL25ldGxpbmsuYyAgICAgICAgIHwgMTIgKysrKysrKy0tLS0tCj4gIGlu
-Y2x1ZGUvdWFwaS9saW51eC9xdW90YS5oIHwgIDEgKwo+ICAyIGZpbGVzIGNoYW5nZWQsIDggaW5z
-ZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKPiAKPiBkaWZmIC0tZ2l0IGEvZnMvcXVvdGEvbmV0
-bGluay5jIGIvZnMvcXVvdGEvbmV0bGluay5jCj4gaW5kZXggZDA3YTJmOTFkODU4Li44YjI1MjY3
-M2Q0NTQgMTAwNjQ0Cj4gLS0tIGEvZnMvcXVvdGEvbmV0bGluay5jCj4gKysrIGIvZnMvcXVvdGEv
-bmV0bGluay5jCj4gQEAgLTQ3LDcgKzQ3LDcgQEAgdm9pZCBxdW90YV9zZW5kX3dhcm5pbmcoc3Ry
-dWN0IGtxaWQgcWlkLCBkZXZfdCBkZXYsCj4gIAl2b2lkICptc2dfaGVhZDsKPiAgCWludCByZXQ7
-Cj4gIAlpbnQgbXNnX3NpemUgPSA0ICogbmxhX3RvdGFsX3NpemUoc2l6ZW9mKHUzMikpICsKPiAt
-CQkgICAgICAgMiAqIG5sYV90b3RhbF9zaXplKHNpemVvZih1NjQpKTsKPiArCQkgICAgICAgMiAq
-IG5sYV90b3RhbF9zaXplXzY0Yml0KHNpemVvZih1NjQpKTsKPiAgCj4gIAkvKiBXZSBoYXZlIHRv
-IGFsbG9jYXRlIHVzaW5nIEdGUF9OT0ZTIGFzIHdlIGFyZSBjYWxsZWQgZnJvbSBhCj4gIAkgKiBm
-aWxlc3lzdGVtIHBlcmZvcm1pbmcgd3JpdGUgYW5kIHRodXMgZnVydGhlciByZWN1cnNpb24gaW50
-bwo+IEBAIC02OCw4ICs2OCw5IEBAIHZvaWQgcXVvdGFfc2VuZF93YXJuaW5nKHN0cnVjdCBrcWlk
-IHFpZCwgZGV2X3QgZGV2LAo+ICAJcmV0ID0gbmxhX3B1dF91MzIoc2tiLCBRVU9UQV9OTF9BX1FU
-WVBFLCBxaWQudHlwZSk7Cj4gIAlpZiAocmV0KQo+ICAJCWdvdG8gYXR0cl9lcnJfb3V0Owo+IC0J
-cmV0ID0gbmxhX3B1dF91NjQoc2tiLCBRVU9UQV9OTF9BX0VYQ0VTU19JRCwKPiAtCQkJICBmcm9t
-X2txaWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMsIHFpZCkpOwo+ICsJcmV0ID0gbmxhX3B1dF91NjRf
-NjRiaXQoc2tiLCBRVU9UQV9OTF9BX0VYQ0VTU19JRCwKPiArCQkJCWZyb21fa3FpZF9tdW5nZWQo
-JmluaXRfdXNlcl9ucywgcWlkKSwKPiArCQkJCVFVT1RBX05MX0FfUEFEKTsKPiAgCWlmIChyZXQp
-Cj4gIAkJZ290byBhdHRyX2Vycl9vdXQ7Cj4gIAlyZXQgPSBubGFfcHV0X3UzMihza2IsIFFVT1RB
-X05MX0FfV0FSTklORywgd2FybnR5cGUpOwo+IEBAIC04MSw4ICs4Miw5IEBAIHZvaWQgcXVvdGFf
-c2VuZF93YXJuaW5nKHN0cnVjdCBrcWlkIHFpZCwgZGV2X3QgZGV2LAo+ICAJcmV0ID0gbmxhX3B1
-dF91MzIoc2tiLCBRVU9UQV9OTF9BX0RFVl9NSU5PUiwgTUlOT1IoZGV2KSk7Cj4gIAlpZiAocmV0
-KQo+ICAJCWdvdG8gYXR0cl9lcnJfb3V0Owo+IC0JcmV0ID0gbmxhX3B1dF91NjQoc2tiLCBRVU9U
-QV9OTF9BX0NBVVNFRF9JRCwKPiAtCQkJICBmcm9tX2t1aWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMs
-IGN1cnJlbnRfdWlkKCkpKTsKPiArCXJldCA9IG5sYV9wdXRfdTY0XzY0Yml0KHNrYiwgUVVPVEFf
-TkxfQV9DQVVTRURfSUQsCj4gKwkJCQlmcm9tX2t1aWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMsIGN1
-cnJlbnRfdWlkKCkpLAo+ICsJCQkJUVVPVEFfTkxfQV9QQUQpOwo+ICAJaWYgKHJldCkKPiAgCQln
-b3RvIGF0dHJfZXJyX291dDsKPiAgCWdlbmxtc2dfZW5kKHNrYiwgbXNnX2hlYWQpOwo+IGRpZmYg
-LS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvcXVvdGEuaCBiL2luY2x1ZGUvdWFwaS9saW51eC9x
-dW90YS5oCj4gaW5kZXggMzhiYWRkYjgwN2Y1Li40ZDI0ODllZjZmMTAgMTAwNjQ0Cj4gLS0tIGEv
-aW5jbHVkZS91YXBpL2xpbnV4L3F1b3RhLmgKPiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgvcXVv
-dGEuaAo+IEBAIC0xOTEsNiArMTkxLDcgQEAgZW51bSB7Cj4gIAlRVU9UQV9OTF9BX0RFVl9NQUpP
-UiwKPiAgCVFVT1RBX05MX0FfREVWX01JTk9SLAo+ICAJUVVPVEFfTkxfQV9DQVVTRURfSUQsCj4g
-KwlRVU9UQV9OTF9BX1BBRCwKPiAgCV9fUVVPVEFfTkxfQV9NQVgsCj4gIH07Cj4gICNkZWZpbmUg
-UVVPVEFfTkxfQV9NQVggKF9fUVVPVEFfTkxfQV9NQVggLSAxKQo+IC0tIAo+IDIuOC4xCj4gCj4g
-Ci0tIApKYW4gS2FyYSA8amFja0BzdXNlLmNvbT4KU1VTRSBMYWJzLCBDUgpfX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
-cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
-dgo=
+It is practical to be-able-to redefine the location of the LLVM
+command 'llc', because not all distros have a LLVM version with bpf
+target support.  Thus, it is sometimes required to compile LLVM from
+source, and sometimes it is not desired to overwrite the distros
+default LLVM version.
+
+This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
+PATH, rather than a hardcoded value").
+
+Add this features back. Note that it is possible to redefine the LLC
+on the make command like:
+
+ make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+
+Fixes: 128d1514be35 ("samples/bpf: Use llc in PATH, rather than a hardcoded value")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ samples/bpf/Makefile |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 744dd7a16144..5bae9536f100 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -81,10 +81,14 @@ HOSTLOADLIBES_spintest += -lelf
+ HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ HOSTLOADLIBES_test_overhead += -lelf -lrt
+ 
++# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
++#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
++LLC ?= llc
++
+ # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
+ # But, there is no easy way to fix it, so just exclude it since it is
+ # useless for BPF samples.
+ $(obj)/%.o: $(src)/%.c
+ 	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+ 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+-		-O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
++		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
