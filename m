@@ -1,45 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC net-next] net: dsa: Provide CPU port statistics to
- master netdev
-Date: Tue, 26 Apr 2016 22:13:37 +0200
-Message-ID: <20160426201337.GG30107@lunn.ch>
-References: <1461175101-13506-1-git-send-email-f.fainelli@gmail.com>
- <20160425214342.GB5538@lunn.ch>
- <571FC532.4060402@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netem: Segment GSO packets on enqueue.
+Date: Tue, 26 Apr 2016 13:19:15 -0700
+Message-ID: <1461701955.5535.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
+	 <1461696598.5535.35.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160426190026.GB12788@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netem@lists.linux-foundation.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46731 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751999AbcDZUNk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 16:13:40 -0400
-Content-Disposition: inline
-In-Reply-To: <571FC532.4060402@gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:32931 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbcDZUTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 16:19:17 -0400
+Received: by mail-pa0-f45.google.com with SMTP id zm5so11732913pac.0
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 13:19:17 -0700 (PDT)
+In-Reply-To: <20160426190026.GB12788@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Hi Florian
-> > 
-> > Interesting concept. My one concern is that by concatenating the two
-> > sets of statistics, we get a name clash. I'm not sure the Marvell
-> > switch statistics counters have different names to the Marvell
-> > Ethernet driver statistics counters. ethtool does not care, but maybe
-> > an SNMP agent using these statistics might not be too happy seeing the
-> > same name twice?
+On Tue, 2016-04-26 at 15:00 -0400, Neil Horman wrote:
+> I can understand that, but that raises two questions in my mind:
 > 
-> That's a very good point, would you agree if we were prefixing the DSA
-> CPU port statistics with some kind of name, e.g: cpu_port_<name> or
-> something more compact?
+> 1)  Doesn't that make all the statistical manipulation for netem wrong?  That is
+> to say, if netem drops 5% of packets, and it happens to drop a GSO packet, its
+> actually dropping several, instead of the single one required.
 
-Yes, that would be O.K.
 
-It cannot be too long a prefix. The maximum length of the name is
-32. The header file is unclear if there must be a NULL at the end. It
-looks like the longest switch statistic we have is
-RxPkts1024toMaxPktsOctets, i.e. 25 characters. So we only have 6 or 7
-characters for the prefix.
+Please take a look at tbf_segment(), where you can find a proper way to
+handle this.
 
-	   Andrew
+Note that for the case q->corrupt is 0, we definitely do not want to
+segment TSO packets.
+
+> 2) How are you getting netem to work with GSO at all?  The warning is triggered
+> for me on every GSO packet, which I think would impact throughput :)
+
+I mostly use netem to add delays and drops.
+I never had this bug, since q->corrupt = 0
