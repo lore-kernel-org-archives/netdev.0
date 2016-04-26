@@ -1,78 +1,70 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] can: m_can: fix bitrate setup on latest silicon
-Date: Tue, 26 Apr 2016 21:11:26 +0200
-Message-ID: <571FBD5E.9040807@hartkopp.net>
-References: <1461678379-28257-1-git-send-email-fvallee@eukrea.fr>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] ravb: Remove rx buffer ALIGN
+Date: Tue, 26 Apr 2016 22:14:41 +0300
+Message-ID: <571FBE21.4050908@cogentembedded.com>
+References: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebenard@eukrea.com
-To: Florian Vallee <fvallee@eukrea.fr>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1461678379-28257-1-git-send-email-fvallee@eukrea.fr>
-Sender: linux-can-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/26/2016 03:46 PM, Florian Vallee wrote:
-> According to the m_can user manual changelog the BTP register layout was
-> updated with core revision 3.1.0
+Hello.
 
-Hello Florian,
+On 04/24/2016 07:16 PM, Yoshihiro Kaneko wrote:
 
-nice to see a real v3.1.0 user emerging on the mailing list :-)
+> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>
+> Aligning the reception data size is not required.
 
-I wonder whether this small change covers the updates made between
-v3.0.1 and v3.1.0.
+    OK, the gen 2/3 manuals indeed don't require this. I assume the patch has 
+been tested...
 
-IIRC
+> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 
-v3.0.1:
-NON_ISO operation / general CAN/CANFD and BRS switch in register CCCR
-v3.1.0:
-ISO operation / per frame CAN/CANFD switch (FDF/BRS bit in TX/RX buffer)
-v3.2.x:
-Ability to switch ISO/NON_ISO operation (NISO bit on register CCCR)
-updated range of NBTP.NTSEG2
+    I have a few comments though...
 
-The current v3.0.1 driver is fixed to tell to be a NON_ISO controller:
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index 238b56f..66ed80c 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -246,10 +246,10 @@ static void ravb_ring_format(struct net_device *ndev, int q)
+>   	for (i = 0; i < priv->num_rx_ring[q]; i++) {
+>   		/* RX descriptor */
+>   		rx_desc = &priv->rx_ring[q][i];
+> -		/* The size of the buffer should be on 16-byte boundary. */
+> -		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
+> -		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
+> -					  ALIGN(PKT_BUF_SZ, 16),
+> +		rx_desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
+> +		dma_addr = dma_map_single(ndev->dev.parent,
+> +					  priv->rx_skb[q][i]->data,
 
-https://git.kernel.org/cgit/linux/kernel/git/mkl/linux-can-next.git/diff/drivers/net/can/m_can/m_can.c?h=testing
+    Please don't reformat the lines above.
 
-The v3.1.0 is a fixed ISO controller and additional it does not make 
-sense anymore to configure the CCCR register each time, before sending a 
-frame:
+> +					  PKT_BUF_SZ,
+>   					  DMA_FROM_DEVICE);
+>   		/* We just set the data size to 0 for a failed mapping which
+>   		 * should prevent DMA from happening...
+> @@ -557,8 +557,9 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
+>
+>   			skb = priv->rx_skb[q][entry];
+>   			priv->rx_skb[q][entry] = NULL;
+> -			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+> -					 ALIGN(PKT_BUF_SZ, 16),
+> +			dma_unmap_single(ndev->dev.parent,
+> +					 le32_to_cpu(desc->dptr),
 
-https://git.kernel.org/cgit/linux/kernel/git/mkl/linux-can-next.git/tree/drivers/net/can/m_can/m_can.c?h=testing&id=885cc17abad6c3064f266099a6ded2d357012380#n1075
+   Same here.
 
-Just as the new TX/RX buffer layout contains a FDF and BRS bits for this 
-reason.
+[...]
 
-> +static inline int m_can_read_core_rev(const struct m_can_priv *priv)
-> +{
-> +	u32 reg = m_can_read(priv, M_CAN_CREL);
-> +
-> +	return ((reg >> CRR_REL_SHIFT) & CRR_REL_MASK);
-> +}
-> +
->   static void m_can_read_fifo(struct net_device *dev, u32 rxfs)
->   {
->   	struct net_device_stats *stats = &dev->stats;
-> @@ -814,8 +838,16 @@ static int m_can_set_bittiming(struct net_device *dev)
->   	sjw = bt->sjw - 1;
->   	tseg1 = bt->prop_seg + bt->phase_seg1 - 1;
->   	tseg2 = bt->phase_seg2 - 1;
-> -	reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
-> -			(tseg1 << BTR_TSEG1_SHIFT) | (tseg2 << BTR_TSEG2_SHIFT);
-> +
-> +	if (m_can_read_core_rev(priv) < M_CAN_COREREL_3_1_0)
-
-Your patch looks very good so far. I would appreciate if you could 
-update the other register changes too as I don't have a hardware to 
-test. I can provide the ISO/NON_ISO config for the netlink interface 
-updates then :-)
-
-Best regards,
-Oliver
+MBR, Sergei
