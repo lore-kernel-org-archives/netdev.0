@@ -1,60 +1,143 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] tuntap: calculate rps hash only when needed
-Date: Mon, 25 Apr 2016 21:55:41 -0400
-Message-ID: <1461635741-18857-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51407 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750821AbcDZBzq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 21:55:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 1/2] vhost: simplify work flushing
+Date: Mon, 25 Apr 2016 22:14:32 -0400
+Message-ID: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-There's no need to calculate rps hash if it was not enabled. So this
-patch export rps_needed and check it before trying to get rps
-hash. Tests (using pktgen to inject packets to guest) shows this can
-improve pps about 13% (when rps is disabled).
+We used to implement the work flushing through tracking queued seq,
+done seq, and the number of flushing. This patch simplify this by just
+implement work flushing through another kind of vhost work with
+completion. This will be used by lockless enqueuing patch.
 
-Before:
-~1150000 pps
-After:
-~1300000 pps
-
-Cc: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c | 2 +-
- net/core/dev.c    | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/vhost/vhost.c | 53 ++++++++++++++++++++-------------------------------
+ 1 file changed, 21 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index afdf950..746877f 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -819,7 +819,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (txq >= numqueues)
- 		goto drop;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 669fef1..73dd16d 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -131,6 +131,19 @@ static void vhost_reset_is_le(struct vhost_virtqueue *vq)
+ 	vq->is_le = virtio_legacy_is_little_endian();
+ }
  
--	if (numqueues == 1) {
-+	if (numqueues == 1 && static_key_false(&rps_needed)) {
- 		/* Select queue was not called for the skbuff, so we extract the
- 		 * RPS hash and save it into the flow_table here.
- 		 */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b9bcbe7..d4ba936 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3428,6 +3428,7 @@ u32 rps_cpu_mask __read_mostly;
- EXPORT_SYMBOL(rps_cpu_mask);
++struct vhost_flush_struct {
++	struct vhost_work work;
++	struct completion wait_event;
++};
++
++static void vhost_flush_work(struct vhost_work *work)
++{
++	struct vhost_flush_struct *s;
++
++	s = container_of(work, struct vhost_flush_struct, work);
++	complete(&s->wait_event);
++}
++
+ static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+ 			    poll_table *pt)
+ {
+@@ -158,8 +171,6 @@ void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
+ 	INIT_LIST_HEAD(&work->node);
+ 	work->fn = fn;
+ 	init_waitqueue_head(&work->done);
+-	work->flushing = 0;
+-	work->queue_seq = work->done_seq = 0;
+ }
+ EXPORT_SYMBOL_GPL(vhost_work_init);
  
- struct static_key rps_needed __read_mostly;
-+EXPORT_SYMBOL(rps_needed);
+@@ -211,31 +222,17 @@ void vhost_poll_stop(struct vhost_poll *poll)
+ }
+ EXPORT_SYMBOL_GPL(vhost_poll_stop);
  
- static struct rps_dev_flow *
- set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+-static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
+-				unsigned seq)
+-{
+-	int left;
+-
+-	spin_lock_irq(&dev->work_lock);
+-	left = seq - work->done_seq;
+-	spin_unlock_irq(&dev->work_lock);
+-	return left <= 0;
+-}
+-
+ void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
+ {
+-	unsigned seq;
+-	int flushing;
++	struct vhost_flush_struct flush;
++
++	if (dev->worker) {
++		init_completion(&flush.wait_event);
++		vhost_work_init(&flush.work, vhost_flush_work);
+ 
+-	spin_lock_irq(&dev->work_lock);
+-	seq = work->queue_seq;
+-	work->flushing++;
+-	spin_unlock_irq(&dev->work_lock);
+-	wait_event(work->done, vhost_work_seq_done(dev, work, seq));
+-	spin_lock_irq(&dev->work_lock);
+-	flushing = --work->flushing;
+-	spin_unlock_irq(&dev->work_lock);
+-	BUG_ON(flushing < 0);
++		vhost_work_queue(dev, &flush.work);
++		wait_for_completion(&flush.wait_event);
++	}
+ }
+ EXPORT_SYMBOL_GPL(vhost_work_flush);
+ 
+@@ -254,7 +251,6 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
+ 	spin_lock_irqsave(&dev->work_lock, flags);
+ 	if (list_empty(&work->node)) {
+ 		list_add_tail(&work->node, &dev->work_list);
+-		work->queue_seq++;
+ 		spin_unlock_irqrestore(&dev->work_lock, flags);
+ 		wake_up_process(dev->worker);
+ 	} else {
+@@ -310,7 +306,6 @@ static int vhost_worker(void *data)
+ {
+ 	struct vhost_dev *dev = data;
+ 	struct vhost_work *work = NULL;
+-	unsigned uninitialized_var(seq);
+ 	mm_segment_t oldfs = get_fs();
+ 
+ 	set_fs(USER_DS);
+@@ -321,11 +316,6 @@ static int vhost_worker(void *data)
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+ 		spin_lock_irq(&dev->work_lock);
+-		if (work) {
+-			work->done_seq = seq;
+-			if (work->flushing)
+-				wake_up_all(&work->done);
+-		}
+ 
+ 		if (kthread_should_stop()) {
+ 			spin_unlock_irq(&dev->work_lock);
+@@ -336,7 +326,6 @@ static int vhost_worker(void *data)
+ 			work = list_first_entry(&dev->work_list,
+ 						struct vhost_work, node);
+ 			list_del_init(&work->node);
+-			seq = work->queue_seq;
+ 		} else
+ 			work = NULL;
+ 		spin_unlock_irq(&dev->work_lock);
 -- 
 1.8.3.1
