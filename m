@@ -1,70 +1,35 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ravb: Remove rx buffer ALIGN
-Date: Tue, 26 Apr 2016 22:14:41 +0300
-Message-ID: <571FBE21.4050908@cogentembedded.com>
-References: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] macvlan: fix failure during registration v3
+Date: Tue, 26 Apr 2016 15:19:05 -0400 (EDT)
+Message-ID: <20160426.151905.237092605462953849.davem@davemloft.net>
+References: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, maheshb@google.com
+To: fruggeri@arista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41363 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752827AbcDZTTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 15:19:11 -0400
+In-Reply-To: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Francesco Ruggeri <fruggeri@arista.com>
+Date: Sat, 23 Apr 2016 15:03:32 -0700
 
-On 04/24/2016 07:16 PM, Yoshihiro Kaneko wrote:
+> If macvlan_common_newlink fails in register_netdevice after macvlan_init
+> then it decrements port->count twice, first in macvlan_uninit (from
+> register_netdevice or rollback_registered) and then again in
+> macvlan_common_newlink.
+> A similar problem may exist in the ipvlan driver.
+> This patch consolidates modifications to port->count into macvlan_init
+> and macvlan_uninit (thanks to Eric Biederman for suggesting this approach).
+> 
+> v3: remove macvtap specific bits.
+> 
+> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> Aligning the reception data size is not required.
-
-    OK, the gen 2/3 manuals indeed don't require this. I assume the patch has 
-been tested...
-
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-
-    I have a few comments though...
-
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 238b56f..66ed80c 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -246,10 +246,10 @@ static void ravb_ring_format(struct net_device *ndev, int q)
->   	for (i = 0; i < priv->num_rx_ring[q]; i++) {
->   		/* RX descriptor */
->   		rx_desc = &priv->rx_ring[q][i];
-> -		/* The size of the buffer should be on 16-byte boundary. */
-> -		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
-> -		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
-> -					  ALIGN(PKT_BUF_SZ, 16),
-> +		rx_desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
-> +		dma_addr = dma_map_single(ndev->dev.parent,
-> +					  priv->rx_skb[q][i]->data,
-
-    Please don't reformat the lines above.
-
-> +					  PKT_BUF_SZ,
->   					  DMA_FROM_DEVICE);
->   		/* We just set the data size to 0 for a failed mapping which
->   		 * should prevent DMA from happening...
-> @@ -557,8 +557,9 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
->
->   			skb = priv->rx_skb[q][entry];
->   			priv->rx_skb[q][entry] = NULL;
-> -			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
-> -					 ALIGN(PKT_BUF_SZ, 16),
-> +			dma_unmap_single(ndev->dev.parent,
-> +					 le32_to_cpu(desc->dptr),
-
-   Same here.
-
-[...]
-
-MBR, Sergei
+Applied.
