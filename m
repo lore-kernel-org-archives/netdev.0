@@ -1,19 +1,19 @@
 From: "Al Waleed Co." <liitzi.guerra@gmail.com>
 Subject: Quote Request
 Date: Tue, 26 Apr 2016 16:45:58 -0500
-Message-ID: <201604262145.u3QLjwED006679@srv1.rdyec.net>
+Message-ID: <201604262145.u3QLjwfe006678@srv1.rdyec.net>
 Reply-To: liitzi.guerra@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv1.rdyec.net ([64.76.194.11]:47639 "EHLO srv1.rdyec.net"
+Received: from srv1.rdyec.net ([64.76.194.11]:47641 "EHLO srv1.rdyec.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752226AbcDZVqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753339AbcDZVqA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Apr 2016 17:46:00 -0400
 Received: from srv1.rdyec.net (localhost.localdomain [127.0.0.1])
-	by srv1.rdyec.net (8.13.8/8.13.8) with ESMTP id u3QLjwcD006682
+	by srv1.rdyec.net (8.13.8/8.13.8) with ESMTP id u3QLjw3W006681
 	for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 16:45:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
