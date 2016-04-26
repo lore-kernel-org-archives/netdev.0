@@ -1,122 +1,54 @@
-From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: RE: [PATCH 1/6] bus: Add shared MDIO bus framework
-Date: Tue, 26 Apr 2016 14:03:27 +0530
-Message-ID: <666dffb41a922b0c8638f2f002a2de08@mail.gmail.com>
-References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
- <1461230323-27891-2-git-send-email-pramod.kumar@broadcom.com> <20160425205650.GA31129@lunn.ch>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net v2 1/3] gre: do not assign header_ops in collect
+ metadata mode
+Date: Tue, 26 Apr 2016 10:39:32 +0200
+Message-ID: <20160426103933.0c79a21b@griffin>
+References: <cover.1461495411.git.jbenc@redhat.com>
+	<bd50f4691e9edc28c5a9ec861863f7f6cf316077.1461495411.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rob Herring <robh+dt@kernel.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Masahiro Yamada <yamada.masahiro@socionext.com>,
-	Chen-Yu Tsai <wens@csie.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Suzuki K Poulose <suzuki.poulose@arm.com>,
-	netdev@vger.kernel.org, Punit Agrawal <punit.agrawal@arm.com>,
-	linux-kernel@vger.kernel.org,
-	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Anup Patel <anup.patel@broadcom.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160425205650.GA31129@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Pravin B Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>,
+	Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41838 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752507AbcDZIjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 04:39:37 -0400
+In-Reply-To: <bd50f4691e9edc28c5a9ec861863f7f6cf316077.1461495411.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Sun, 24 Apr 2016 13:00:20 +0200, Jiri Benc wrote:
+> In ipgre mode (i.e. not gretap) with collect metadata flag set, the tunnel
+> is incorrectly assumed to be mGRE in NBMA mode (see commit 6a5f44d7a048c).
+> This is not the case, we're controlling the encapsulation addresses by
+> lwtunnel metadata. And anyway, assigning dev->header_ops in collect metadata
+> mode does not make sense.
+> 
+> Similarly, when a multicast remote IP address is set together with the
+> collect metadata flag, the processing described above would happen, too. As
+> there's not much sense in specifying remote/local IP address for lwtunnels,
+> reject such configuration.
+> 
+> v2: Reject configuration specifying both remote/local address and collect
+>     metadata flag.
 
-Thanks for reviewing. I really appreciate your effort it.
+Thinking about this more, this *is* uAPI breakage and we can't do that.
+It affects also gretap and current users of gretap lwtunnels would be
+broken. This is even more likely as it's not possible to create gretap
+lwtunnel using iproute2 without specifying a fake remote address.
 
-I am already aware of MDIO mux framework but did not see it fit for our
-use case due to below limitations:
+In theory, we could wrap the current ipgre_tunnel_validate with a new
+function that would be set as ipgre_link_ops->validate but that would
+add unnecessary complexity and would make ipgre and gretap behavior
+different.
 
-1.  Current MDIO mux framework is Ethernet centric and it is only meant to
-mux multiple MII buses using same MDIO controller.  This means it is only
-meant for MII-compliant PHY devices (i.e. PHY devices having registers
-as-per MII specs). This is not the case with Broadcom SATA PHYs, PCIe
-PHYs, and USB PHYs even if we are sharing same MDIO controller for
-accessing these PHYs.
+I'm sorry, we have to live with what we have. This should have been
+taken into account when you implemented lwtunnels for GRE, we can't
+change this now, it's too late.
 
-2.  The MDIO mux framework registers each child bus as MII bus. The Linux
-Ethernet MDIO framework will scan for all attached PHY devices on given
-MII bus and try to read MII PHY_ID register which is not present in all
-Broadcom non-ethernet PHYs.
+I'll send v3 with this patch being restored to exactly what I had in v1.
 
-3. Let's say we ignore point1 and point2 above and go ahead and use MDIO
-mux framework then we will still have to emulated MII PHY_ID read for
-non-ethernet PHYs. Let's say we also emulate MII PHY_ID read in
-non-ethernet PHYs then next thing is non-ethernet PHYs don't follow MII
-state machine so all other MII PHY register read/write will not work.
-
-4. Apart from these, by using MDIO mux framework we are making our
-non-ethernet PHYs dependent on Linux network drivers which is not
-acceptable. What if some product line does not need network subsystem at
-all?
-
-As you can see from above points, trying to re-use Linux Ethernet MDIO mux
-framework for non-Ethernet PHYs is not the right way. The sole reason
-being Linux MDIO mux framework is not generic enough to be shared across
-IO subsystems. Due to this reason we had to come-up with "Shared MDIO
-framework" which is very simple, generic  and independent of I/O
-subsystems.
-
-I'll add PCIe PHYs driver based on Shared MDIO framework in next patch
-revision to get a feel of its need.
-
-Regards,
-Pramod
-
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: 26 April 2016 02:27
-> To: Pramod Kumar
-> Cc: Rob Herring; Catalin Marinas; Will Deacon; Masahiro Yamada; Chen-Yu
-Tsai;
-> Mark Rutland; devicetree@vger.kernel.org; Pawel Moll; Arnd Bergmann;
-Suzuki
-> K Poulose; netdev@vger.kernel.org; Punit Agrawal; linux-
-> kernel@vger.kernel.org; BCM Kernel Feedback; linux-arm-
-> kernel@lists.infradead.org; Anup Patel
-> Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
->
-> Hi Pramod
->
-> I took a closer look. I don't see why the current MDIO code should not
-be used,
-> rather than adding a new framework.
->
-> What you need for your Non Ethernet PHYs is that they are somehow
-probed.
-> The current MDIO code will do that, based on the compatible string. An
-mdio
-> device gets passed a struct mdio_device * to its probe function, giving
-you the
-> bus and address on the bus for the device. Your PHY driver can then
-register
-> itself using devm_of_phy_provider_register(). The user of the PHY then
-needs to
-> use
-> devm_phy_get() to get a handle on the phy, and can then use
-> phy_power_on()/phy_power_off().
->
-> There is a very simple example here for an MDIO device driver:
->
-> http://thread.gmane.org/gmane.linux.network/393532
->
-> The muxing of the MDIO busses looks a little tricky. At the moment you
-have:
->
->     writel(cmd, base + MDIO_PARAM_OFFSET);
->
-> which mixes together the muxing parameters and the write value. Can this
-> register be accessed as two 16 bit registers? If it can be, you can
-cleanly
-> separate out the muxing.
->
-> Take a look at mdio-mux-gpio.c and mdio-mux-mmioreg.c for examples of
-> MDIO muxes.
->
->      Andrew
+ Jiri
