@@ -1,128 +1,98 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 3/4] samples/bpf: add a README file to get
- users started
-Date: Tue, 26 Apr 2016 13:56:47 +0200
-Message-ID: <20160426135647.7faf9a87@redhat.com>
-References: <20160426110828.20716.13392.stgit@firesoul>
-	<20160426110927.20716.89620.stgit@firesoul>
-	<571F5486.7090902@iogearbox.net>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
+Date: Tue, 26 Apr 2016 14:13:35 +0200
+Message-ID: <20160426121335.GC11668@lunn.ch>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+ <1461230323-27891-2-git-send-email-pramod.kumar@broadcom.com>
+ <20160425205650.GA31129@lunn.ch>
+ <666dffb41a922b0c8638f2f002a2de08@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bblanco@plumgrid.com,
-	borkmann@iogearbox.net, alexei.starovoitov@gmail.com,
-	linux-kbuild@vger.kernel.org, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55875 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752046AbcDZL4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 07:56:52 -0400
-In-Reply-To: <571F5486.7090902@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Anup Patel <anup.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <666dffb41a922b0c8638f2f002a2de08-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Apr 2016 13:44:06 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
-
-> On 04/26/2016 01:09 PM, Jesper Dangaard Brouer wrote:
-> > Getting started with using examples in samples/bpf/ is not
-> > straightforward.  There are several dependencies, and specific
-> > versions of these dependencies.
-> >
-> > Just compiling the example tool is also slightly obscure, e.g. one
-> > need to call make like:
-> >
-> >   make samples/bpf/
-> >
-> > Do notice the "/" slash after the directory name.
-> >
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > ---
-> >   samples/bpf/README.rst |   67 ++++++++++++++++++++++++++++++++++++++++++++++++
-> >   1 file changed, 67 insertions(+)
-> >   create mode 100644 samples/bpf/README.rst
-> >
-> > diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
-> > new file mode 100644
-> > index 000000000000..3e1ac05d8e7c
-> > --- /dev/null
-> > +++ b/samples/bpf/README.rst
-> > @@ -0,0 +1,67 @@
-> > +eBPF sample programs
-> > +====================
-> > +
-> > +This kernel samples/bpf directory contains a mini eBPF library, test
-> > +stubs, verifier test-suite and examples for using eBPF.
-> > +
-> > +Build dependencies
-> > +==================
-> > +
-> > +Compiling requires having installed:
-> > + * clang
-> > + * llvm >= version 3.7.0
-> > +
-> > +Note that LLVM's tool 'llc' must support target 'bpf', list with command::
-> > +
-> > + $ llc --version
-> > + LLVM (http://llvm.org/):
-> > +  LLVM version 3.x.y
-> > +  [...]
-> > +  Host CPU: xxx
-> > +
-> > +  Registered Targets:
-> > +    [...]
-> > +    bpf        - BPF (host endian)
-> > +    bpfeb      - BPF (big endian)
-> > +    bpfel      - BPF (little endian)
-> > +    [...]
-> > +
-> > +Kernel headers
-> > +--------------
-> > +
-> > +There are usually dependencies to header files of the current kernel.
-> > +To avoid installing devel kernel headers system wide, as a normal
-> > +user, simply call::
-> > +
-> > + make headers_install
-> > +
-> > +This will creates a local "usr/include" directory in the git/build top
-> > +level directory, that the make system automatically pickup first.
-> > +
-> > +Compiling
-> > +=========
-> > +
-> > +For compiling goto kernel top level build directory and run make like::
-> > +
-> > + make samples/bpf/
-> > +
-> > +Do notice the "/" slash after the directory name.
-> > +
-> > +Manually compiling LLVM with 'bpf' support
-> > +------------------------------------------
-> > +
-> > +In some LLVM versions the BPF target were marked experimental.  To
-> > +compile LLVM manually and enable BPF target run (build dependencies
-> > +are cmake and gcc-c++)::
-> > +
-> > + $ git clone http://llvm.org/git/llvm.git
-> > + $ cd llvm
-> > + $ mkdir build; cd build
-> > + $ cmake .. -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=BPF
-> > + $ make  
+On Tue, Apr 26, 2016 at 02:03:27PM +0530, Pramod Kumar wrote:
+> Hi Andrew,
 > 
-> That's perhaps a bit misleading in the sense that when you clone the
-> tree from git, you'd nowadays invoke cmake normally with LLVM_TARGETS_TO_BUILD
-> instead of LLVM_EXPERIMENTAL_TARGETS_TO_BUILD for BPF, as BPF is not an
-> experimental target anymore. It's probably also recommended to clone
-> clang into tools/ dir as well under your llvm/ repo when you compile
-> from scratch anyways.
+> Thanks for reviewing. I really appreciate your effort it.
+> 
+> I am already aware of MDIO mux framework but did not see it fit for our
+> use case due to below limitations:
+> 
+> 1.  Current MDIO mux framework is Ethernet centric and it is only meant to
+> mux multiple MII buses using same MDIO controller.  This means it is only
+> meant for MII-compliant PHY devices (i.e. PHY devices having registers
+> as-per MII specs).
 
-Can you come up with a formulation/desc I can use instead then?
+Nope, this is wrong. You can have a mixture of PHYs and other MDIO
+devices on the MII bus. The framework does not care. A PHY is a
+special case of an MDIO device.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> 2.  The MDIO mux framework registers each child bus as MII bus. The Linux
+> Ethernet MDIO framework will scan for all attached PHY devices on given
+> MII bus and try to read MII PHY_ID register which is not present in all
+> Broadcom non-ethernet PHYs.
+
+It only performs a scan if you don't list the devices in the device
+tree. If you do list devices, and include the address on the bus, it
+never scans.
+
+A good example of this is Ethernet switches. They occupy multiple
+addresses on the MDIO bus, and also do not implement the PHY_ID
+register at each address. Yet the MDIO layer is happy with this.
+
+> 3. Let's say we ignore point1 and point2 above  and go ahead and use MDIO
+> mux framework then we will still have to emulated MII PHY_ID read for
+> non-ethernet PHYs.
+
+Nope. Not at all. You have an MDIO device on the bus, not an Ethernet
+PHY. Hence the device is not liked to the PHY state machine, etc.
+
+The key concept to get here is that there are MDIO devices, and a
+subset of MDIO devices are Ethernet PHYs.....
+
+> 4. Apart from these, by using MDIO mux framework we are making our
+> non-ethernet PHYs dependent on Linux network drivers which is not
+> acceptable. What if some product line does not need network subsystem at
+> all?
+
+This is your only valid point. However, does Broadcom have a product
+line which does not include networking? Is not Broadcom a network SoC
+vendor?
+
+> 
+> As you can see from above points, trying to re-use Linux Ethernet MDIO mux
+> framework for non-Ethernet PHYs is not the right way.
+
+And as i pointed out, all your arguments are wrong, bar one. And i
+doubt that one argument is sufficient to duplicate a lot of code which
+already exists and does 95% of what you need.
+
+> I'll add PCIe PHYs driver based on Shared MDIO framework in next patch
+> revision to get a feel of its need.
+
+Great. Lets then see what is needed to turn it into an MDIO device.
+
+       Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
