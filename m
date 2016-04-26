@@ -1,71 +1,43 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 5/5] batman-adv: Fix broadcast/ogm queue limit on a removed interface
-Date: Tue, 26 Apr 2016 11:27:19 +0800
-Message-ID: <1461641239-7097-6-git-send-email-a@unstable.cc>
-References: <1461641239-7097-1-git-send-email-a@unstable.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 00/13] net: hns: add support of debug dsaf
+ device
+Date: Tue, 26 Apr 2016 01:11:16 -0400 (EDT)
+Message-ID: <20160426.011116.1045874009330763236.davem@davemloft.net>
+References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <a@unstable.cc>
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	will.deacon@arm.com, catalin.marinas@arm.com, yankejian@huawei.com,
+	huangdaode@hisilicon.com, salil.mehta@huawei.com,
+	lipeng321@huawei.com, liguozhu@huawei.com, xieqianqian@huawei.com,
+	xuwei5@hisilicon.com, linuxarm@huawei.com
+To: Yisen.Zhuang@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:45079 "EHLO s2.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751101AbcDZD2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 23:28:16 -0400
-In-Reply-To: <1461641239-7097-1-git-send-email-a@unstable.cc>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35672 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043AbcDZFLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 01:11:23 -0400
+In-Reply-To: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Date: Sat, 23 Apr 2016 17:05:04 +0800
 
-When removing a single interface while a broadcast or ogm packet is
-still pending then we will free the forward packet without releasing th=
-e
-queue slots again.
+> There are two kinds of dsaf device in hns, one is for service ports,
+> contains crossbar in it, can work under different mode. Another is for
+> debug port, only can work under single port mode. The current code only
+> declares a dsaf device for both service ports and debug ports.It is not so
+> readability. This patch separates it to three platform devices to make the
+> code more simple and readability.
+ ...
+> We take the compatibility into consideration, and it works well by using the
+> old dts file(tested on d02 board).
+> 
+> For more details, please see individual patches.
 
-This patch is supposed to fix this issue.
-
-=46ixes: 6d5808d4ae1b ("batman-adv: Add missing hardif_free_ref in forw=
-_packet_free")
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-[sven@narfation.org: fix conflicts with current version]
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
----
- net/batman-adv/send.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index 3ce06e0a91b1..76417850d3fc 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -675,6 +675,9 @@ batadv_purge_outstanding_packets(struct batadv_priv=
- *bat_priv,
-=20
- 		if (pending) {
- 			hlist_del(&forw_packet->list);
-+			if (!forw_packet->own)
-+				atomic_inc(&bat_priv->bcast_queue_left);
-+
- 			batadv_forw_packet_free(forw_packet);
- 		}
- 	}
-@@ -702,6 +705,9 @@ batadv_purge_outstanding_packets(struct batadv_priv=
- *bat_priv,
-=20
- 		if (pending) {
- 			hlist_del(&forw_packet->list);
-+			if (!forw_packet->own)
-+				atomic_inc(&bat_priv->batman_queue_left);
-+
- 			batadv_forw_packet_free(forw_packet);
- 		}
- 	}
---=20
-2.8.1
+Series applied, thanks.
