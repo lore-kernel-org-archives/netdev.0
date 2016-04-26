@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] pch_gbe: fix bogus trylock conversion
-Date: Tue, 26 Apr 2016 17:42:50 -0400 (EDT)
-Message-ID: <20160426.174250.1298288123769064536.davem@davemloft.net>
-References: <1461705270-29849-1-git-send-email-fw@strlen.de>
+From: "Al Waleed Co." <liitzi.guerra@gmail.com>
+Subject: Quote Request
+Date: Tue, 26 Apr 2016 16:45:58 -0500
+Message-ID: <201604262145.u3QLjwX0006673@srv1.rdyec.net>
+Reply-To: liitzi.guerra@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42572 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751920AbcDZVmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:42:52 -0400
-In-Reply-To: <1461705270-29849-1-git-send-email-fw@strlen.de>
+Received: from srv1.rdyec.net ([64.76.194.11]:47635 "EHLO srv1.rdyec.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753340AbcDZVqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 17:46:00 -0400
+Received: from srv1.rdyec.net (localhost.localdomain [127.0.0.1])
+	by srv1.rdyec.net (8.13.8/8.13.8) with ESMTP id u3QLjwHw006680
+	for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 16:45:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue, 26 Apr 2016 23:14:30 +0200
+Hi,
 
-> Should have converted 'if (trylock)' to 'lock'.
-> 
-> Fixes: a6086a893718db ("drivers: net: remove NETDEV_TX_LOCKED")
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  I re-checked the series and this was the only place where I messed up.
+My name is Al Waleed From Al Waleed trading company Dubai we got you recommendation from one of your customer, so we decided to order a product from you.
 
-Applied.
+Kindly get back to us if you can ship to us in Dubai so that we can get back to you with our products needed from you and other requirement Looking forward hearing back from you
+
+Thank you,
+
+Al Waleed trading company
+Customer Service
