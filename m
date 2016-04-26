@@ -1,47 +1,43 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next] macvlan: fix failure during registration v3
-Date: Tue, 26 Apr 2016 14:36:37 -0700
-Message-ID: <CAF2d9jjVP+VGBosOdHSNvCc8YGzr76d202GVeUUH_f9C0nW8PQ@mail.gmail.com>
-References: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
- <CAF2d9jh98MGYorJ=btvx04==EsjP5_ivUEimf0TJ1NUPDzG4nw@mail.gmail.com> <CA+HUmGgYf8BkaPqYxvuDtuUY5JC90QC-6_mxEQ6DWRcaoeid2Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bpf: fix double-fdput in replace_map_fd_with_map_ptr()
+Date: Tue, 26 Apr 2016 17:38:03 -0400 (EDT)
+Message-ID: <20160426.173803.2282010417115434583.davem@davemloft.net>
+References: <1461702386-17490-1-git-send-email-jannh@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Francesco Ruggeri <fruggeri@arista.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jannh@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:33545 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbcDZVg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:36:58 -0400
-Received: by mail-yw0-f177.google.com with SMTP id t10so40281197ywa.0
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 14:36:57 -0700 (PDT)
-In-Reply-To: <CA+HUmGgYf8BkaPqYxvuDtuUY5JC90QC-6_mxEQ6DWRcaoeid2Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42534 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752231AbcDZViI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:38:08 -0400
+In-Reply-To: <1461702386-17490-1-git-send-email-jannh@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
->> > -destroy_port:
->> > -       port->count -= 1;
->> > -       if (!port->count)
->> > -               macvlan_port_destroy(lowerdev);
->> I think you still need this when it fails netdev_upper_dev_link(). The
->> only thing you should remove is the label.
->
-> I don't think so. I think the double decrement also occurred in this case.
-> unregister_netdevice invokes rollback_registered/macvlan_uninit
-> which does the decrement.
->
-I thought macvlan_port_destroy() does not get called but it is called
-from macvlan_uninit(). So it's all good. Thanks.
+From: Jann Horn <jannh@google.com>
+Date: Tue, 26 Apr 2016 22:26:26 +0200
 
-> Thanks,
-> Francesco
->
->> >
->> >         return err;
->> >  }
->> > --
->> > 1.8.1.4
->> >
+> When bpf(BPF_PROG_LOAD, ...) was invoked with a BPF program whose bytecode
+> references a non-map file descriptor as a map file descriptor, the error
+> handling code called fdput() twice instead of once (in __bpf_map_get() and
+> in replace_map_fd_with_map_ptr()). If the file descriptor table of the
+> current task is shared, this causes f_count to be decremented too much,
+> allowing the struct file to be freed while it is still in use
+> (use-after-free). This can be exploited to gain root privileges by an
+> unprivileged user.
+> 
+> This bug was introduced in
+> commit 0246e64d9a5f ("bpf: handle pseudo BPF_LD_IMM64 insn"), but is only
+> exploitable since
+> commit 1be7f75d1668 ("bpf: enable non-root eBPF programs") because
+> previously, CAP_SYS_ADMIN was required to reach the vulnerable code.
+> 
+> (posted publicly according to request by maintainer)
+> 
+> Signed-off-by: Jann Horn <jannh@google.com>
+> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+Applied and queued up for -stable, thanks Jann.
