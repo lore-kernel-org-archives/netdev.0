@@ -1,338 +1,210 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e: Add support for configuring VF RSS
-Date: Tue, 26 Apr 2016 13:55:36 -0700
-Message-ID: <1461704148-114349-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e/i40evf: Clean up feature flags
+Date: Tue, 26 Apr 2016 13:55:34 -0700
+Message-ID: <1461704148-114349-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:24352 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752428AbcDZUzw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 16:55:52 -0400
+	id S1752489AbcDZUzv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 16:55:51 -0400
 In-Reply-To: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Add support for configuring RSS on behalf of the VFs. This removes the
-burden of dealing with different hardware interfaces from the VF
-drivers, allowing for better future compatibility.
+The feature flags list for i40e and i40evf is beginning to become pretty
+massive.  I plan to add another 4 or so features to these drivers and
+duplicating the flags for each and every flags list is becoming a bit
+repetitive.
 
-Change-ID: Icea75d3f37241ee8e447be5779e5abb53ddf04c0
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+The primary change here is that we now build our features list around
+hw_encap_features.  After that we assign that to vlan_features,
+hw_features, and finally map that onto features.  In addition we end up
+throwing features onto hw_encap_features that end up having no effect such
+as the Rx offloads and SCTP_CRC.  However that should have no impact and
+makes things a bit easier for us as hw_encap_features is one of the less
+updated features maps available.
+
+For i40evf I went through and sanity checked a few features as well.
+Specifically RXCSUM was being set as a read-only feature which didn't make
+much sense.  I have updated things so we can clear the NETIF_F_RXCSUM flag
+since that is really a software feature and not a hardware one anyway so
+disabling it is just a matter of ignoring the result from the hardware.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  35 +++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 193 ++++++++++++++++++++-
- 3 files changed, 217 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 61 ++++++++++-------------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 66 ++++++++++++-------------
+ 2 files changed, 58 insertions(+), 69 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index d25b3be..e312adf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -202,6 +202,7 @@ struct i40e_lump_tracking {
- 
- #define I40E_HKEY_ARRAY_SIZE ((I40E_PFQF_HKEY_MAX_INDEX + 1) * 4)
- #define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
-+#define I40E_VF_HLUT_ARRAY_SIZE ((I40E_VFQF_HLUT1_MAX_INDEX + 1) * 4)
- 
- enum i40e_fd_stat_idx {
- 	I40E_FD_STAT_ATR,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ec94ad6c..39b3b56 100644
+index 0b071ce..f2e83fe 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8082,24 +8082,45 @@ static int i40e_config_rss_reg(struct i40e_vsi *vsi, const u8 *seed,
- {
- 	struct i40e_pf *pf = vsi->back;
- 	struct i40e_hw *hw = &pf->hw;
-+	u16 vf_id = vsi->vf_id;
- 	u8 i;
+@@ -9111,40 +9111,36 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	np = netdev_priv(netdev);
+ 	np->vsi = vsi;
  
- 	/* Fill out hash function seed */
- 	if (seed) {
- 		u32 *seed_dw = (u32 *)seed;
+-	netdev->hw_enc_features |= NETIF_F_IP_CSUM	       |
+-				   NETIF_F_IPV6_CSUM	       |
+-				   NETIF_F_TSO		       |
+-				   NETIF_F_TSO6		       |
+-				   NETIF_F_TSO_ECN	       |
+-				   NETIF_F_GSO_GRE	       |
+-				   NETIF_F_GSO_UDP_TUNNEL      |
+-				   NETIF_F_GSO_UDP_TUNNEL_CSUM |
++	netdev->hw_enc_features |= NETIF_F_SG			|
++				   NETIF_F_IP_CSUM		|
++				   NETIF_F_IPV6_CSUM		|
++				   NETIF_F_HIGHDMA		|
++				   NETIF_F_SOFT_FEATURES	|
++				   NETIF_F_TSO			|
++				   NETIF_F_TSO_ECN		|
++				   NETIF_F_TSO6			|
++				   NETIF_F_GSO_GRE		|
++				   NETIF_F_GSO_UDP_TUNNEL	|
++				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
++				   NETIF_F_SCTP_CRC		|
++				   NETIF_F_RXHASH		|
++				   NETIF_F_RXCSUM		|
+ 				   0;
  
--		for (i = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++)
--			i40e_write_rx_ctl(hw, I40E_PFQF_HKEY(i), seed_dw[i]);
-+		if (vsi->type == I40E_VSI_MAIN) {
-+			for (i = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++)
-+				i40e_write_rx_ctl(hw, I40E_PFQF_HKEY(i),
-+						  seed_dw[i]);
-+		} else if (vsi->type == I40E_VSI_SRIOV) {
-+			for (i = 0; i <= I40E_VFQF_HKEY1_MAX_INDEX; i++)
-+				i40e_write_rx_ctl(hw,
-+						  I40E_VFQF_HKEY1(i, vf_id),
-+						  seed_dw[i]);
-+		} else {
-+			dev_err(&pf->pdev->dev, "Cannot set RSS seed - invalid VSI type\n");
-+		}
+-	netdev->features = NETIF_F_SG		       |
+-			   NETIF_F_IP_CSUM	       |
+-			   NETIF_F_SCTP_CRC	       |
+-			   NETIF_F_HIGHDMA	       |
+-			   NETIF_F_GSO_UDP_TUNNEL      |
+-			   NETIF_F_GSO_GRE	       |
+-			   NETIF_F_HW_VLAN_CTAG_TX     |
+-			   NETIF_F_HW_VLAN_CTAG_RX     |
+-			   NETIF_F_HW_VLAN_CTAG_FILTER |
+-			   NETIF_F_IPV6_CSUM	       |
+-			   NETIF_F_TSO		       |
+-			   NETIF_F_TSO_ECN	       |
+-			   NETIF_F_TSO6		       |
+-			   NETIF_F_RXCSUM	       |
+-			   NETIF_F_RXHASH	       |
+-			   0;
++	if (!(pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE))
++		netdev->hw_enc_features ^= NETIF_F_GSO_UDP_TUNNEL_CSUM;
++
++	/* record features VLANs can make use of */
++	netdev->vlan_features |= netdev->hw_enc_features;
+ 
+ 	if (!(pf->flags & I40E_FLAG_MFP_ENABLED))
+-		netdev->features |= NETIF_F_NTUPLE;
+-	if (pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE)
+-		netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
++		netdev->hw_features |= NETIF_F_NTUPLE;
++
++	netdev->hw_features |= netdev->hw_enc_features	|
++			       NETIF_F_HW_VLAN_CTAG_TX	|
++			       NETIF_F_HW_VLAN_CTAG_RX;
+ 
+-	/* copy netdev features into list of user selectable features */
+-	netdev->hw_features |= netdev->features;
++	netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
+@@ -9183,12 +9179,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 
+ 	ether_addr_copy(netdev->dev_addr, mac_addr);
+ 	ether_addr_copy(netdev->perm_addr, mac_addr);
+-	/* vlan gets same features (except vlan offload)
+-	 * after any tweaks for specific VSI types
+-	 */
+-	netdev->vlan_features = netdev->features & ~(NETIF_F_HW_VLAN_CTAG_TX |
+-						     NETIF_F_HW_VLAN_CTAG_RX |
+-						   NETIF_F_HW_VLAN_CTAG_FILTER);
++
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+ 	/* Setup netdev TC information */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 9110319..e3857d8 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2337,40 +2337,38 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 		return -ENODEV;
  	}
  
- 	if (lut) {
- 		u32 *lut_dw = (u32 *)lut;
- 
--		if (lut_size != I40E_HLUT_ARRAY_SIZE)
--			return -EINVAL;
+-	netdev->features |= NETIF_F_HIGHDMA |
+-			    NETIF_F_SG |
+-			    NETIF_F_IP_CSUM |
+-			    NETIF_F_SCTP_CRC |
+-			    NETIF_F_IPV6_CSUM |
+-			    NETIF_F_TSO |
+-			    NETIF_F_TSO6 |
+-			    NETIF_F_TSO_ECN |
+-			    NETIF_F_GSO_GRE |
+-			    NETIF_F_GSO_UDP_TUNNEL |
+-			    NETIF_F_RXCSUM |
+-			    NETIF_F_GRO;
 -
--		for (i = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++)
--			wr32(hw, I40E_PFQF_HLUT(i), lut_dw[i]);
-+		if (vsi->type == I40E_VSI_MAIN) {
-+			if (lut_size != I40E_HLUT_ARRAY_SIZE)
-+				return -EINVAL;
-+			for (i = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++)
-+				wr32(hw, I40E_PFQF_HLUT(i), lut_dw[i]);
-+		} else if (vsi->type == I40E_VSI_SRIOV) {
-+			if (lut_size != I40E_VF_HLUT_ARRAY_SIZE)
-+				return -EINVAL;
-+			for (i = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++)
-+				i40e_write_rx_ctl(hw,
-+						  I40E_VFQF_HLUT1(i, vf_id),
-+						  lut_dw[i]);
-+		} else {
-+			dev_err(&pf->pdev->dev, "Cannot set RSS LUT - invalid VSI type\n");
-+		}
- 	}
- 	i40e_flush(hw);
+-	netdev->hw_enc_features |= NETIF_F_IP_CSUM	       |
+-				   NETIF_F_IPV6_CSUM	       |
+-				   NETIF_F_TSO		       |
+-				   NETIF_F_TSO6		       |
+-				   NETIF_F_TSO_ECN	       |
+-				   NETIF_F_GSO_GRE	       |
+-				   NETIF_F_GSO_UDP_TUNNEL      |
+-				   NETIF_F_GSO_UDP_TUNNEL_CSUM;
+-
+-	if (adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE)
+-		netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+-
+-	/* always clear VLAN features because they can change at every reset */
+-	netdev->features &= ~(I40EVF_VLAN_FEATURES);
+-	/* copy netdev features into list of user selectable features */
+-	netdev->hw_features |= netdev->features;
+-
+-	if (vfres->vf_offload_flags & I40E_VIRTCHNL_VF_OFFLOAD_VLAN) {
+-		netdev->vlan_features = netdev->features;
+-		netdev->features |= I40EVF_VLAN_FEATURES;
+-	}
++	netdev->hw_enc_features |= NETIF_F_SG			|
++				   NETIF_F_IP_CSUM		|
++				   NETIF_F_IPV6_CSUM		|
++				   NETIF_F_HIGHDMA		|
++				   NETIF_F_SOFT_FEATURES	|
++				   NETIF_F_TSO			|
++				   NETIF_F_TSO_ECN		|
++				   NETIF_F_TSO6			|
++				   NETIF_F_GSO_GRE		|
++				   NETIF_F_GSO_UDP_TUNNEL	|
++				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
++				   NETIF_F_SCTP_CRC		|
++				   NETIF_F_RXHASH		|
++				   NETIF_F_RXCSUM		|
++				   0;
++
++	if (!(adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE))
++		netdev->hw_enc_features ^= NETIF_F_GSO_UDP_TUNNEL_CSUM;
++
++	/* record features VLANs can make use of */
++	netdev->vlan_features |= netdev->hw_enc_features;
++
++	/* Write features and hw_features separately to avoid polluting
++	 * with, or dropping, features that are set when we registgered.
++	 */
++	netdev->hw_features |= netdev->hw_enc_features;
++
++	netdev->features |= netdev->hw_enc_features | I40EVF_VLAN_FEATURES;
++
++	/* disable VLAN features if not supported */
++	if (!(vfres->vf_offload_flags & I40E_VIRTCHNL_VF_OFFLOAD_VLAN))
++		netdev->features ^= I40EVF_VLAN_FEATURES;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 30f8cbe..c364588 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1348,12 +1348,16 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 		set_bit(I40E_VF_STAT_IWARPENA, &vf->vf_states);
- 	}
+ 	adapter->vsi.id = adapter->vsi_res->vsi_id;
  
--	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE) {
--		if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ)
--			vfres->vf_offload_flags |=
--				I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ;
-+	if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF) {
-+		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF;
- 	} else {
--		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG;
-+		if ((pf->flags & I40E_FLAG_RSS_AQ_CAPABLE) &&
-+		    (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ))
-+			vfres->vf_offload_flags |=
-+					I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ;
-+		else
-+			vfres->vf_offload_flags |=
-+					I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG;
- 	}
- 
- 	if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
-@@ -1382,6 +1386,9 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 	vfres->num_vsis = num_vsis;
- 	vfres->num_queue_pairs = vf->num_queue_pairs;
- 	vfres->max_vectors = pf->hw.func_caps.num_msix_vectors_vf;
-+	vfres->rss_key_size = I40E_HKEY_ARRAY_SIZE;
-+	vfres->rss_lut_size = I40E_VF_HLUT_ARRAY_SIZE;
-+
- 	if (vf->lan_vsi_idx) {
- 		vfres->vsi_res[0].vsi_id = vf->lan_vsi_id;
- 		vfres->vsi_res[0].vsi_type = I40E_VSI_SRIOV;
-@@ -2042,6 +2049,139 @@ error_param:
- }
- 
- /**
-+ * i40e_vc_config_rss_key
-+ * @vf: pointer to the VF info
-+ * @msg: pointer to the msg buffer
-+ * @msglen: msg length
-+ *
-+ * Configure the VF's RSS key
-+ **/
-+static int i40e_vc_config_rss_key(struct i40e_vf *vf, u8 *msg, u16 msglen)
-+{
-+	struct i40e_virtchnl_rss_key *vrk =
-+		(struct i40e_virtchnl_rss_key *)msg;
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_vsi *vsi = NULL;
-+	u16 vsi_id = vrk->vsi_id;
-+	i40e_status aq_ret = 0;
-+
-+	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
-+	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
-+	    !i40e_vc_isvalid_vsi_id(vf, vsi_id) ||
-+	    (vrk->key_len != I40E_HKEY_ARRAY_SIZE)) {
-+		aq_ret = I40E_ERR_PARAM;
-+		goto err;
-+	}
-+
-+	vsi = pf->vsi[vf->lan_vsi_idx];
-+	aq_ret = i40e_config_rss(vsi, vrk->key, NULL, 0);
-+err:
-+	/* send the response to the VF */
-+	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_CONFIG_RSS_KEY,
-+				       aq_ret);
-+}
-+
-+/**
-+ * i40e_vc_config_rss_lut
-+ * @vf: pointer to the VF info
-+ * @msg: pointer to the msg buffer
-+ * @msglen: msg length
-+ *
-+ * Configure the VF's RSS LUT
-+ **/
-+static int i40e_vc_config_rss_lut(struct i40e_vf *vf, u8 *msg, u16 msglen)
-+{
-+	struct i40e_virtchnl_rss_lut *vrl =
-+		(struct i40e_virtchnl_rss_lut *)msg;
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_vsi *vsi = NULL;
-+	u16 vsi_id = vrl->vsi_id;
-+	i40e_status aq_ret = 0;
-+
-+	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
-+	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
-+	    !i40e_vc_isvalid_vsi_id(vf, vsi_id) ||
-+	    (vrl->lut_entries != I40E_VF_HLUT_ARRAY_SIZE)) {
-+		aq_ret = I40E_ERR_PARAM;
-+		goto err;
-+	}
-+
-+	vsi = pf->vsi[vf->lan_vsi_idx];
-+	aq_ret = i40e_config_rss(vsi, NULL, vrl->lut, I40E_VF_HLUT_ARRAY_SIZE);
-+	/* send the response to the VF */
-+err:
-+	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_CONFIG_RSS_LUT,
-+				       aq_ret);
-+}
-+
-+/**
-+ * i40e_vc_get_rss_hena
-+ * @vf: pointer to the VF info
-+ * @msg: pointer to the msg buffer
-+ * @msglen: msg length
-+ *
-+ * Return the RSS HENA bits allowed by the hardware
-+ **/
-+static int i40e_vc_get_rss_hena(struct i40e_vf *vf, u8 *msg, u16 msglen)
-+{
-+	struct i40e_virtchnl_rss_hena *vrh = NULL;
-+	struct i40e_pf *pf = vf->pf;
-+	i40e_status aq_ret = 0;
-+	int len = 0;
-+
-+	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
-+	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+		aq_ret = I40E_ERR_PARAM;
-+		goto err;
-+	}
-+	len = sizeof(struct i40e_virtchnl_rss_hena);
-+
-+	vrh = kzalloc(len, GFP_KERNEL);
-+	if (!vrh) {
-+		aq_ret = I40E_ERR_NO_MEMORY;
-+		len = 0;
-+		goto err;
-+	}
-+	vrh->hena = i40e_pf_get_default_rss_hena(pf);
-+err:
-+	/* send the response back to the VF */
-+	aq_ret = i40e_vc_send_msg_to_vf(vf, I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS,
-+					aq_ret, (u8 *)vrh, len);
-+	return aq_ret;
-+}
-+
-+/**
-+ * i40e_vc_set_rss_hena
-+ * @vf: pointer to the VF info
-+ * @msg: pointer to the msg buffer
-+ * @msglen: msg length
-+ *
-+ * Set the RSS HENA bits for the VF
-+ **/
-+static int i40e_vc_set_rss_hena(struct i40e_vf *vf, u8 *msg, u16 msglen)
-+{
-+	struct i40e_virtchnl_rss_hena *vrh =
-+		(struct i40e_virtchnl_rss_hena *)msg;
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_hw *hw = &pf->hw;
-+	i40e_status aq_ret = 0;
-+
-+	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
-+	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+		aq_ret = I40E_ERR_PARAM;
-+		goto err;
-+	}
-+	i40e_write_rx_ctl(hw, I40E_VFQF_HENA1(0, vf->vf_id), (u32)vrh->hena);
-+	i40e_write_rx_ctl(hw, I40E_VFQF_HENA1(1, vf->vf_id),
-+			  (u32)(vrh->hena >> 32));
-+
-+	/* send the response to the VF */
-+err:
-+	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_SET_RSS_HENA,
-+				       aq_ret);
-+}
-+
-+/**
-  * i40e_vc_validate_vf_msg
-  * @vf: pointer to the VF info
-  * @msg: pointer to the msg buffer
-@@ -2162,6 +2302,36 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
- 				sizeof(struct i40e_virtchnl_iwarp_qv_info));
- 		}
- 		break;
-+	case I40E_VIRTCHNL_OP_CONFIG_RSS_KEY:
-+		valid_len = sizeof(struct i40e_virtchnl_rss_key);
-+		if (msglen >= valid_len) {
-+			struct i40e_virtchnl_rss_key *vrk =
-+				(struct i40e_virtchnl_rss_key *)msg;
-+			if (vrk->key_len != I40E_HKEY_ARRAY_SIZE) {
-+				err_msg_format = true;
-+				break;
-+			}
-+			valid_len += vrk->key_len - 1;
-+		}
-+		break;
-+	case I40E_VIRTCHNL_OP_CONFIG_RSS_LUT:
-+		valid_len = sizeof(struct i40e_virtchnl_rss_lut);
-+		if (msglen >= valid_len) {
-+			struct i40e_virtchnl_rss_lut *vrl =
-+				(struct i40e_virtchnl_rss_lut *)msg;
-+			if (vrl->lut_entries != I40E_VF_HLUT_ARRAY_SIZE) {
-+				err_msg_format = true;
-+				break;
-+			}
-+			valid_len += vrl->lut_entries - 1;
-+		}
-+		break;
-+	case I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS:
-+		valid_len = 0;
-+		break;
-+	case I40E_VIRTCHNL_OP_SET_RSS_HENA:
-+		valid_len = sizeof(struct i40e_virtchnl_rss_hena);
-+		break;
- 	/* These are always errors coming from the VF. */
- 	case I40E_VIRTCHNL_OP_EVENT:
- 	case I40E_VIRTCHNL_OP_UNKNOWN:
-@@ -2260,6 +2430,19 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 	case I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP:
- 		ret = i40e_vc_iwarp_qvmap_msg(vf, msg, msglen, false);
- 		break;
-+	case I40E_VIRTCHNL_OP_CONFIG_RSS_KEY:
-+		ret = i40e_vc_config_rss_key(vf, msg, msglen);
-+		break;
-+	case I40E_VIRTCHNL_OP_CONFIG_RSS_LUT:
-+		ret = i40e_vc_config_rss_lut(vf, msg, msglen);
-+		break;
-+	case I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS:
-+		ret = i40e_vc_get_rss_hena(vf, msg, msglen);
-+		break;
-+	case I40E_VIRTCHNL_OP_SET_RSS_HENA:
-+		ret = i40e_vc_set_rss_hena(vf, msg, msglen);
-+		break;
-+
- 	case I40E_VIRTCHNL_OP_UNKNOWN:
- 	default:
- 		dev_err(&pf->pdev->dev, "Unsupported opcode %d from VF %d\n",
 -- 
 2.5.5
