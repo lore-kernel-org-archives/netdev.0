@@ -1,145 +1,103 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH V3] net: stmmac: socfpga: Remove re-registration of reset
- controller
-Date: Wed, 27 Apr 2016 00:33:39 +0200
-Message-ID: <571FECC3.8010004@denx.de>
-References: <1461240710-5381-1-git-send-email-marex@denx.de>	<CAGhQ9VzpZcP23DC0LZ95YggtsBDsUCe-NHEtna7hY9Yvdr=ZGg@mail.gmail.com>	<571EA05F.3070200@denx.de>	<CAGhQ9Vz568hdSk+HWGHXuSNn4DU7HZkUBfVbajQyRkq+rBYY7Q@mail.gmail.com>	<571F636C.9040503@denx.de> <CAGhQ9Vz2FSENtif66SfXsgZqaJaaKeiBsw4qCSevM_4XDnUPCg@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] pch_gbe: replace private tx ring lock with
+ common netif_tx_lock
+Date: Wed, 27 Apr 2016 00:49:21 +0200
+Message-ID: <20160426224921.GA29558@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"peppe.cavallaro" <peppe.cavallaro@st.com>,
-	alexandre.torgue@st.com,
-	Matthew Gerlach <mgerlach@opensource.altera.com>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	"David S . Miller" <davem@davemloft.net>
-To: Joachim Eastwood <manabian@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:33538 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890AbcDZWdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 18:33:44 -0400
-In-Reply-To: <CAGhQ9Vz2FSENtif66SfXsgZqaJaaKeiBsw4qCSevM_4XDnUPCg@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34909 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752281AbcDZWt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 18:49:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/26/2016 11:22 PM, Joachim Eastwood wrote:
-> On 26 April 2016 at 14:47, Marek Vasut <marex@denx.de> wrote:
->> On 04/26/2016 02:26 PM, Joachim Eastwood wrote:
->>> On 26 April 2016 at 00:55, Marek Vasut <marex@denx.de> wrote:
->>>> On 04/25/2016 08:11 PM, Joachim Eastwood wrote:
->>>>> On 21 April 2016 at 14:11, Marek Vasut <marex@denx.de> wrote:
->>>>>>
->>>>>> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
->>>>>> since the functionality is already performed by the stmmac core.
->>>>>
->>>>> I am trying to rebase my changes on top of your two patches and
->>>>> noticed a couple of things.
->>>>>
->>>>>>  static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
->>>>>>  {
->>>>>> -       struct socfpga_dwmac    *dwmac = priv;
->>>>>> +       struct socfpga_dwmac *dwmac = priv;
->>>>>>         struct net_device *ndev = platform_get_drvdata(pdev);
->>>>>>         struct stmmac_priv *stpriv = NULL;
->>>>>>         int ret = 0;
->>>>>>
->>>>>> -       if (ndev)
->>>>>> -               stpriv = netdev_priv(ndev);
->>>>>> +       if (!ndev)
->>>>>> +               return -EINVAL;
->>>>>
->>>>> ndev can never be NULL here. socfpga_dwmac_init() is only called if
->>>>> stmmac_dvr_probe() succeeds or we are running the resume callback. So
->>>>> I don't see how this could ever be NULL.
->>>>
->>>> That's a good point, this check can indeed be removed. While you're at
->>>> the patching, can you remove this one ?
->>>
->>> Yes, my patch will refactor the init() function so this will go away.
->>
->> Thanks!
->>
->>>>>> +
->>>>>> +       stpriv = netdev_priv(ndev);
->>>>>
->>>>> It's not really nice to access 'stmmac_priv' as it should be private
->>>>> to the core driver, but I don't see any other good solution right now.
->>>>
->>>> I guess some stmmac_reset_assert() wrapper would be nicer, yes. What do
->>>> you think ?
->>>>
->>>>>> +       if (!stpriv)
->>>>>> +               return -EINVAL;
->>>>>>
->>>>>>         /* Assert reset to the enet controller before changing the phy mode */
->>>>>> -       if (dwmac->stmmac_rst)
->>>>>> -               reset_control_assert(dwmac->stmmac_rst);
->>>>>> +       if (stpriv->stmmac_rst)
->>>>>> +               reset_control_assert(stpriv->stmmac_rst);
->>>>>>
->>>>>>         /* Setup the phy mode in the system manager registers according to
->>>>>>          * devicetree configuration
->>>>>> @@ -227,8 +210,8 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
->>>>>>         /* Deassert reset for the phy configuration to be sampled by
->>>>>>          * the enet controller, and operation to start in requested mode
->>>>>>          */
->>>>>> -       if (dwmac->stmmac_rst)
->>>>>> -               reset_control_deassert(dwmac->stmmac_rst);
->>>>>> +       if (stpriv->stmmac_rst)
->>>>>> +               reset_control_deassert(stpriv->stmmac_rst);
->>>>>>
->>>>>>         /* Before the enet controller is suspended, the phy is suspended.
->>>>>>          * This causes the phy clock to be gated. The enet controller is
->>>>>> @@ -245,7 +228,7 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
->>>>>>          * control register 0, and can be modified by the phy driver
->>>>>>          * framework.
->>>>>>          */
->>>>>> -       if (stpriv && stpriv->phydev)
->>>>>> +       if (stpriv->phydev)
->>>>>>                 phy_resume(stpriv->phydev);
->>>>>
->>>>> Before this change phy_resume() was only called during driver resume
->>>>> when , but your patches cause phy_resume() to called at probe time as
->>>>> well. Is this okey?
->>>>
->>>> I _hope_ it's OK. The cryptic comment above is not very helpful in this
->>>> aspect. Dinh ? :)
->>>
->>> My patches will move phy_resume() to the resume callback so it
->>> preserves the previous behavior. But if someone knows more about this
->>> that would be useful.
->>>
->>>
->>>> btw I wish you reviewed my patch a bit earlier to catch these bits.
->>>
->>> Sorry, about that. I have been really busy with other things lately.
->>
->> Oh I'm real happy someone is doing the refactoring :) I appreciate your
->> work, sorry if that was unclear.
->>
->>> My patches based on next from Friday can be found here now:
->>> https://github.com/manabian/linux-lpc/tree/net-socfpga-dwmac-on-next
->>>
->>> I had to add your latest patch as well since the next version I used
->>> didn't have it. I'll post the patches on netdev later today or
->>> tomorrow.
->>
->> Looks like next wasn't synced for a few days, yeah.
->>
->> You can add my:
->>
->> On SoCFPGA Cyclone V SoC (DENX MCVEVK):
->> Tested-by: Marek Vasut <marex@denx.de>
->>
->> to those patches
-> 
-> Excellent. Thanks Marek.
-> 
-> btw, did you also test suspend/resume?
+pch_gbe_tx_ring.tx_lock is only used in the hard_xmit handler and
+in the transmit completion reaper called from NAPI context.
 
-No, I believe that is unsupported on SoCFPGA Cyclone V in general.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ CONFIG_COMPILE_TESTed
 
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h      |  2 --
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 10 ++--------
+ 2 files changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+index 2a55d6d..8d710a3 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+@@ -481,7 +481,6 @@ struct pch_gbe_buffer {
+ 
+ /**
+  * struct pch_gbe_tx_ring - tx ring information
+- * @tx_lock:	spinlock structs
+  * @desc:	pointer to the descriptor ring memory
+  * @dma:	physical address of the descriptor ring
+  * @size:	length of descriptor ring in bytes
+@@ -491,7 +490,6 @@ struct pch_gbe_buffer {
+  * @buffer_info:	array of buffer information structs
+  */
+ struct pch_gbe_tx_ring {
+-	spinlock_t tx_lock;
+ 	struct pch_gbe_tx_desc *desc;
+ 	dma_addr_t dma;
+ 	unsigned int size;
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index ca4add7..5c8e2f1 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -1640,7 +1640,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 		   cleaned_count);
+ 	if (cleaned_count > 0)  { /*skip this if nothing cleaned*/
+ 		/* Recover from running out of Tx resources in xmit_frame */
+-		spin_lock(&tx_ring->tx_lock);
++		netif_tx_lock(adapter->netdev);
+ 		if (unlikely(cleaned && (netif_queue_stopped(adapter->netdev))))
+ 		{
+ 			netif_wake_queue(adapter->netdev);
+@@ -1652,7 +1652,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 
+ 		netdev_dbg(adapter->netdev, "next_to_clean : %d\n",
+ 			   tx_ring->next_to_clean);
+-		spin_unlock(&tx_ring->tx_lock);
++		netif_tx_lock(adapter->netdev);
+ 	}
+ 	return cleaned;
+ }
+@@ -1805,7 +1805,6 @@ int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
+ 
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
+-	spin_lock_init(&tx_ring->tx_lock);
+ 
+ 	for (desNo = 0; desNo < tx_ring->count; desNo++) {
+ 		tx_desc = PCH_GBE_TX_DESC(*tx_ring, desNo);
+@@ -2135,13 +2134,9 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+ 	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&tx_ring->tx_lock, flags);
+ 
+ 	if (unlikely(!PCH_GBE_DESC_UNUSED(tx_ring))) {
+ 		netif_stop_queue(netdev);
+-		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 		netdev_dbg(netdev,
+ 			   "Return : BUSY  next_to use : 0x%08x  next_to clean : 0x%08x\n",
+ 			   tx_ring->next_to_use, tx_ring->next_to_clean);
+@@ -2150,7 +2145,6 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	/* CRC,ITAG no support */
+ 	pch_gbe_tx_queue(adapter, tx_ring, skb);
+-	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 	return NETDEV_TX_OK;
+ }
+ 
 -- 
-Best regards,
-Marek Vasut
+2.5.5
