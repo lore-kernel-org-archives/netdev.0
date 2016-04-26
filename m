@@ -1,37 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tsi108: use NULL for pointer-typed argument
-Date: Tue, 26 Apr 2016 01:11:30 -0400 (EDT)
-Message-ID: <20160426.011130.579576502644948065.davem@davemloft.net>
-References: <1461402422-10879-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH] net: dummy: remove note about being Y by default
+Date: Tue, 26 Apr 2016 01:12:12 -0400 (EDT)
+Message-ID: <20160426.011212.1631510415246672920.davem@davemloft.net>
+References: <20160423125803.GA6583@cf>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1461402422-10879-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, trivial@kernel.org,
+	dsa@cumulusnetworks.com, linville@tuxdriver.com
+To: ivan@cloudflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35684 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165AbcDZFMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 01:12:14 -0400
+In-Reply-To: <20160423125803.GA6583@cf>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sat, 23 Apr 2016 11:07:02 +0200
+From: Ivan Babrou <ivan@cloudflare.com>
+Date: Sat, 23 Apr 2016 12:58:03 +0000
 
-> The first argument of pci_free_consistent has type struct pci_dev *, so use
-> NULL instead of 0.
-> 
-> The semantic patch that performs this transformation is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> @@
-> pci_free_consistent(
-> - 0
-> + NULL
->   , ...)
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Signed-off-by: Ivan Babrou <ivan@cloudflare.com>
 
 Applied.
