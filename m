@@ -1,43 +1,90 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH v2] net/mlx5e: avoid stack overflow in mlx5e_open_channels
-Date: Tue, 26 Apr 2016 21:52:58 +0300
-Message-ID: <CALzJLG_9bq_23xdg46d-tnus0Ohk95QQrRT1EbYJE-jv03A2WA@mail.gmail.com>
-References: <1461685993-1049370-1-git-send-email-arnd@arndb.de>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next] macvlan: fix failure during registration v3
+Date: Tue, 26 Apr 2016 11:54:08 -0700
+Message-ID: <CAF2d9jh98MGYorJ=btvx04==EsjP5_ivUEimf0TJ1NUPDzG4nw@mail.gmail.com>
+References: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Achiad Shochat <achiad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Amir Vadai <amir-IB5XiEnQfqI@public.gmane.org>,
-	Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461685993-1049370-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Francesco Ruggeri <fruggeri@arista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:33838 "EHLO
+	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752464AbcDZSy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 14:54:29 -0400
+Received: by mail-yw0-f180.google.com with SMTP id j74so27214976ywg.1
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 11:54:29 -0700 (PDT)
+In-Reply-To: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 26, 2016 at 6:52 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> struct mlx5e_channel_param is a large structure that is allocated
-> on the stack of mlx5e_open_channels, and with a recent change
-> it has grown beyond the warning size for the maximum stack
-> that a single function should use:
->
-> mellanox/mlx5/core/en_main.c: In function 'mlx5e_open_channels':
-> mellanox/mlx5/core/en_main.c:1325:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
->
-> The function is already using dynamic allocation and is not in
-> a fast path, so the easiest workaround is to use another kzalloc
-> for allocating the channel parameters.
->
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Fixes: d3c9bc2743dc ("net/mlx5e: Added ICO SQs")
+On Sat, Apr 23, 2016 at 3:03 PM, Francesco Ruggeri <fruggeri@arista.com> wrote:
+> If macvlan_common_newlink fails in register_netdevice after macvlan_init
+> then it decrements port->count twice, first in macvlan_uninit (from
+> register_netdevice or rollback_registered) and then again in
+> macvlan_common_newlink.
+> A similar problem may exist in the ipvlan driver.
+That is correct! The problem exists in ipvlan driver also. I'll cook a
+patch to fix this in ipvlan driver.
 
-Acked-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This patch consolidates modifications to port->count into macvlan_init
+> and macvlan_uninit (thanks to Eric Biederman for suggesting this approach).
+>
+> v3: remove macvtap specific bits.
+>
+> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+> ---
+>  drivers/net/macvlan.c | 10 ++++------
+>  1 file changed, 4 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 2bcf1f3..cb01023 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -795,6 +795,7 @@ static int macvlan_init(struct net_device *dev)
+>  {
+>         struct macvlan_dev *vlan = netdev_priv(dev);
+>         const struct net_device *lowerdev = vlan->lowerdev;
+> +       struct macvlan_port *port = vlan->port;
+>
+>         dev->state              = (dev->state & ~MACVLAN_STATE_MASK) |
+>                                   (lowerdev->state & MACVLAN_STATE_MASK);
+> @@ -812,6 +813,8 @@ static int macvlan_init(struct net_device *dev)
+>         if (!vlan->pcpu_stats)
+>                 return -ENOMEM;
+>
+> +       port->count += 1;
+> +
+>         return 0;
+>  }
+>
+> @@ -1312,10 +1315,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+>                         return err;
+>         }
+>
+> -       port->count += 1;
+>         err = register_netdevice(dev);
+>         if (err < 0)
+> -               goto destroy_port;
+> +               return err;
+>
+>         dev->priv_flags |= IFF_MACVLAN;
+>         err = netdev_upper_dev_link(lowerdev, dev);
+> @@ -1330,10 +1332,6 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+>
+>  unregister_netdev:
+>         unregister_netdevice(dev);
+> -destroy_port:
+> -       port->count -= 1;
+> -       if (!port->count)
+> -               macvlan_port_destroy(lowerdev);
+I think you still need this when it fails netdev_upper_dev_link(). The
+only thing you should remove is the label.
+>
+>         return err;
+>  }
+> --
+> 1.8.1.4
+>
