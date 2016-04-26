@@ -1,67 +1,80 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] ARM: dts: at91: VInCo: fix phy reset gpio flag
-Date: Tue, 26 Apr 2016 12:24:32 +0200
-Message-ID: <1461666272-10107-1-git-send-email-nicolas.ferre@atmel.com>
-References: <570BF481.9070903@cogentembedded.com>
+From: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH net-next 3/8] fs/quota: use nla_put_u64_64bit()
+Date: Tue, 26 Apr 2016 13:08:48 +0200
+Message-ID: <20160426110848.GD27612@quack2.suse.cz>
+References: <1461657978-13360-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1461657978-13360-4-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	<netdev@vger.kernel.org>, Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>
-To: <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570BF481.9070903@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, sd-y1jBWg8GRStKuXlAQpz2QA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+ lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org, jack-IBi9RG/b67k@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+ philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+ drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1461657978-13360-4-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Fix gpio active flag for the phy reset-gpios property. The line is
-active low instead of active high.
-Actually, this flags was never used by the macb driver.
-
-Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
-Hi,
-
-Thanks for having reported this bug to me.
-I hope that we will be able to move forward for changing the phy
-reset code in the macb driver.
-
-I plan to queue this patch through arm-soc for 4.7.
-
-Thanks, best regards,
-  Nicolas
-
- arch/arm/boot/dts/at91-vinco.dts | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/arch/arm/boot/dts/at91-vinco.dts b/arch/arm/boot/dts/at91-vinco.dts
-index 79aec55e1ebc..6a366ee952a8 100644
---- a/arch/arm/boot/dts/at91-vinco.dts
-+++ b/arch/arm/boot/dts/at91-vinco.dts
-@@ -118,7 +118,7 @@
- 
- 				ethernet-phy@1 {
- 					reg = <0x1>;
--					reset-gpios = <&pioE 8 GPIO_ACTIVE_HIGH>;
-+					reset-gpios = <&pioE 8 GPIO_ACTIVE_LOW>;
- 					interrupt-parent = <&pioB>;
- 					interrupts = <15 IRQ_TYPE_EDGE_FALLING>;
- 				};
-@@ -162,7 +162,7 @@
- 					reg = <0x1>;
- 					interrupt-parent = <&pioB>;
- 					interrupts = <31 IRQ_TYPE_EDGE_FALLING>;
--					reset-gpios = <&pioE 6 GPIO_ACTIVE_HIGH>;
-+					reset-gpios = <&pioE 6 GPIO_ACTIVE_LOW>;
- 				};
- 			};
- 
--- 
-2.1.3
+T24gVHVlIDI2LTA0LTE2IDEwOjA2OjEzLCBOaWNvbGFzIERpY2h0ZWwgd3JvdGU6Cj4gU2lnbmVk
+LW9mZi1ieTogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPgoKT0ss
+IHNvIEkgc29tZXdoYXQgbWlzcyBhIGRlc2NyaXB0aW9uIG9mIHdoYXQgd2lsbCB0aGlzIGRvIHRv
+IHRoZSBuZXRsaW5rCm1lc3NhZ2Ugc28gdGhhdCBJIGNhbiBqdWRnZSB3aGV0aGVyIHRoZSBjaGFu
+Z2UgaXMgZmluZSBmb3IgdGhlIHVzZXJzcGFjZQpjb3VudGVycGFydCBwYXJzaW5nIHRoZXNlIG1l
+c3NhZ2VzLiBBRkFJVSB0aGlzIGNoYW5nZXMgdGhlIG1lc3NhZ2UgZm9ybWF0CmJ5IGFkZGluZyBh
+IFFVT1RBX05MX0FfUEFEIGZpZWxkIGJlZm9yZSBlYWNoIDY0LWJpdCBmaWVsZCB3aGljaCBuZWVk
+cyBhbgphbGlnbm1lbnQsIGFtIEkgZ3Vlc3NpbmcgcmlnaHQ/IFRodXMgd2hlbiB0aGUgdXNlcnNw
+YWNlIGNvdW50ZXJwYXJ0IHVzZXMKZ2VubG1zZ19wYXJzZSgpIGl0IHNob3VsZCBqdXN0IHNpbGVu
+dGx5IGlnbm9yZSB0aGVzZSBhdHRyaWJ1dGVzIGlmIEkgcmVhZAp0aGUgZG9jdW1lbnRhdGlvbiBy
+aWdodC4gRGlkIEkgdW5kZXJzdGFuZCB0aGlzIGNvcnJlY3RseT8KCgkJCQkJCQkJSG9uemEKCj4g
+LS0tCj4gIGZzL3F1b3RhL25ldGxpbmsuYyAgICAgICAgIHwgMTIgKysrKysrKy0tLS0tCj4gIGlu
+Y2x1ZGUvdWFwaS9saW51eC9xdW90YS5oIHwgIDEgKwo+ICAyIGZpbGVzIGNoYW5nZWQsIDggaW5z
+ZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKPiAKPiBkaWZmIC0tZ2l0IGEvZnMvcXVvdGEvbmV0
+bGluay5jIGIvZnMvcXVvdGEvbmV0bGluay5jCj4gaW5kZXggZDA3YTJmOTFkODU4Li44YjI1MjY3
+M2Q0NTQgMTAwNjQ0Cj4gLS0tIGEvZnMvcXVvdGEvbmV0bGluay5jCj4gKysrIGIvZnMvcXVvdGEv
+bmV0bGluay5jCj4gQEAgLTQ3LDcgKzQ3LDcgQEAgdm9pZCBxdW90YV9zZW5kX3dhcm5pbmcoc3Ry
+dWN0IGtxaWQgcWlkLCBkZXZfdCBkZXYsCj4gIAl2b2lkICptc2dfaGVhZDsKPiAgCWludCByZXQ7
+Cj4gIAlpbnQgbXNnX3NpemUgPSA0ICogbmxhX3RvdGFsX3NpemUoc2l6ZW9mKHUzMikpICsKPiAt
+CQkgICAgICAgMiAqIG5sYV90b3RhbF9zaXplKHNpemVvZih1NjQpKTsKPiArCQkgICAgICAgMiAq
+IG5sYV90b3RhbF9zaXplXzY0Yml0KHNpemVvZih1NjQpKTsKPiAgCj4gIAkvKiBXZSBoYXZlIHRv
+IGFsbG9jYXRlIHVzaW5nIEdGUF9OT0ZTIGFzIHdlIGFyZSBjYWxsZWQgZnJvbSBhCj4gIAkgKiBm
+aWxlc3lzdGVtIHBlcmZvcm1pbmcgd3JpdGUgYW5kIHRodXMgZnVydGhlciByZWN1cnNpb24gaW50
+bwo+IEBAIC02OCw4ICs2OCw5IEBAIHZvaWQgcXVvdGFfc2VuZF93YXJuaW5nKHN0cnVjdCBrcWlk
+IHFpZCwgZGV2X3QgZGV2LAo+ICAJcmV0ID0gbmxhX3B1dF91MzIoc2tiLCBRVU9UQV9OTF9BX1FU
+WVBFLCBxaWQudHlwZSk7Cj4gIAlpZiAocmV0KQo+ICAJCWdvdG8gYXR0cl9lcnJfb3V0Owo+IC0J
+cmV0ID0gbmxhX3B1dF91NjQoc2tiLCBRVU9UQV9OTF9BX0VYQ0VTU19JRCwKPiAtCQkJICBmcm9t
+X2txaWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMsIHFpZCkpOwo+ICsJcmV0ID0gbmxhX3B1dF91NjRf
+NjRiaXQoc2tiLCBRVU9UQV9OTF9BX0VYQ0VTU19JRCwKPiArCQkJCWZyb21fa3FpZF9tdW5nZWQo
+JmluaXRfdXNlcl9ucywgcWlkKSwKPiArCQkJCVFVT1RBX05MX0FfUEFEKTsKPiAgCWlmIChyZXQp
+Cj4gIAkJZ290byBhdHRyX2Vycl9vdXQ7Cj4gIAlyZXQgPSBubGFfcHV0X3UzMihza2IsIFFVT1RB
+X05MX0FfV0FSTklORywgd2FybnR5cGUpOwo+IEBAIC04MSw4ICs4Miw5IEBAIHZvaWQgcXVvdGFf
+c2VuZF93YXJuaW5nKHN0cnVjdCBrcWlkIHFpZCwgZGV2X3QgZGV2LAo+ICAJcmV0ID0gbmxhX3B1
+dF91MzIoc2tiLCBRVU9UQV9OTF9BX0RFVl9NSU5PUiwgTUlOT1IoZGV2KSk7Cj4gIAlpZiAocmV0
+KQo+ICAJCWdvdG8gYXR0cl9lcnJfb3V0Owo+IC0JcmV0ID0gbmxhX3B1dF91NjQoc2tiLCBRVU9U
+QV9OTF9BX0NBVVNFRF9JRCwKPiAtCQkJICBmcm9tX2t1aWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMs
+IGN1cnJlbnRfdWlkKCkpKTsKPiArCXJldCA9IG5sYV9wdXRfdTY0XzY0Yml0KHNrYiwgUVVPVEFf
+TkxfQV9DQVVTRURfSUQsCj4gKwkJCQlmcm9tX2t1aWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMsIGN1
+cnJlbnRfdWlkKCkpLAo+ICsJCQkJUVVPVEFfTkxfQV9QQUQpOwo+ICAJaWYgKHJldCkKPiAgCQln
+b3RvIGF0dHJfZXJyX291dDsKPiAgCWdlbmxtc2dfZW5kKHNrYiwgbXNnX2hlYWQpOwo+IGRpZmYg
+LS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvcXVvdGEuaCBiL2luY2x1ZGUvdWFwaS9saW51eC9x
+dW90YS5oCj4gaW5kZXggMzhiYWRkYjgwN2Y1Li40ZDI0ODllZjZmMTAgMTAwNjQ0Cj4gLS0tIGEv
+aW5jbHVkZS91YXBpL2xpbnV4L3F1b3RhLmgKPiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgvcXVv
+dGEuaAo+IEBAIC0xOTEsNiArMTkxLDcgQEAgZW51bSB7Cj4gIAlRVU9UQV9OTF9BX0RFVl9NQUpP
+UiwKPiAgCVFVT1RBX05MX0FfREVWX01JTk9SLAo+ICAJUVVPVEFfTkxfQV9DQVVTRURfSUQsCj4g
+KwlRVU9UQV9OTF9BX1BBRCwKPiAgCV9fUVVPVEFfTkxfQV9NQVgsCj4gIH07Cj4gICNkZWZpbmUg
+UVVPVEFfTkxfQV9NQVggKF9fUVVPVEFfTkxfQV9NQVggLSAxKQo+IC0tIAo+IDIuOC4xCj4gCj4g
+Ci0tIApKYW4gS2FyYSA8amFja0BzdXNlLmNvbT4KU1VTRSBMYWJzLCBDUgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
+cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
+dgo=
