@@ -1,242 +1,176 @@
-From: Wang Shanker <shankerwangmiao@gmail.com>
-Subject: [PATCH] ip: add udp_csum, udp6_csum_tx, udp6_csum_rx control flags to  ip l2tp add tunnel
-Date: Tue, 26 Apr 2016 22:15:31 +0800
-Message-ID: <797477FE-9982-44B1-9C45-A2459FDF44C9@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=gb2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35951 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbcDZOPe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 10:15:34 -0400
-Received: by mail-pa0-f43.google.com with SMTP id bt5so6943150pac.3
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 07:15:33 -0700 (PDT)
-Received: from ?IPv6:2402:f000:5:8301:a0d6:2a27:d94a:8091? ([2402:f000:5:8301:a0d6:2a27:d94a:8091])
-        by smtp.gmail.com with ESMTPSA id c190sm22642425pfb.33.2016.04.26.07.15.31
-        for <netdev@vger.kernel.org>
-        (version=TLSv1/SSLv3 cipher=OTHER);
-        Tue, 26 Apr 2016 07:15:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi, all
-
-It=A1=AFs my first time to contribute to such an important open source =
-project. Things began when I upgraded my server, called "Server A", for=
-m ubuntu 14.04 to 16.04, which is shipped with new kernel version, 4.4.=
- After upgrade, I soon found a l2tp tunnel between this server and anot=
-her linux server, called "Server B", via ipv6 broke down. Here is the n=
-etwork topology:
-
-  +----------+                    +----------+
-  | Server A | -- IPV6 Network -- | Server B |
-  +----------+                    +----------+
- =20
-The l2tp tunnel was encapsulated in udp datagrams. All the configuratio=
-n was normal and could work after I reverted the kernel on Server A to =
-original version.
-
-Here is what i did to create the tunnel:
-
-```
-on Server A:
-
-ip l2tp add tunnel tunnel_id 86 peer_tunnel_id 86 remote 2001:db8::aaaa=
- local 2001:db8::bbbb udp_sport 1086 udp_dport 1086
-ip l2tp add session name l2tpeth0 tunnel_id 86 session_id 86 peer_sessi=
-on_id 86
-ip l s l2tpeth0 up
-
-on Server B:
-
-ip l2tp add tunnel tunnel_id 86 peer_tunnel_id 86 local 2001:db8::aaaa =
-remote 2001:db8::bbbb udp_sport 1086 udp_dport 1086
-ip l2tp add session name l2tpeth0 tunnel_id 86 session_id 86 peer_sessi=
-on_id 86
-ip l s l2tpeth0 up
-
-```
-
-When I used tcpdump to diagnose the problem, I got such result:
-
-```
-on Server A:
-
-arping -i l2tpeth0 -0 1.2.3.4
-
-on Server B:
-
-tcpdump -i eth0 -n port 1086  -v
-
-21:35:57.818810 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17) p=
-ayload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [bad udp =
-cksum 0x0000 -> 0x1140!] UDP, length 54
-21:35:58.820572 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17) p=
-ayload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [bad udp =
-cksum 0x0000 -> 0x1140!] UDP, length 54
-21:35:59.822216 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17) p=
-ayload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [bad udp =
-cksum 0x0000 -> 0x1140!] UDP, length 54
-
-```
-
-After looking into kernel source, I found out that in this commit a new=
- feature to set udp6 checksum to zero in commit 6b649fe, which added `L=
-2TP_ATTR_UDP_ZERO_CSUM6_TX` and `L2TP_ATTR_UDP_ZERO_CSUM6_TX`.
-
-As a result, I added `udp_csum`, `udp6_csum_tx`, `udp6_csum_rx` control=
- flags to `ip l2tp add tunnel` to control those attributes about checks=
-um.=20
-
-Using this to create the tunnel instead on Server A:
-
-```
-ip l2tp add tunnel tunnel_id 86 peer_tunnel_id 86 remote 2001:db8::aaaa=
- local 2001:db8::bbbb udp_sport 1086 udp_dport 1086 udp6_csum_tx on udp=
-6_csum_rx on
-```
-
-I finally got:
-
-```
-on Server A:
-
-arping -i l2tpeth0 -0 1.2.3.4
-
-on Server B:
-
-tcpdump -i eth0 -n port 1086  -v
-
-22:07:03.844297 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17) p=
-ayload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [udp sum =
-ok] UDP, length 54
-22:07:04.845717 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17) p=
-ayload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [udp sum =
-ok] UDP, length 54
-22:07:05.847965 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17) p=
-ayload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [udp sum =
-ok] UDP, length 54
-
-tcpdump -i l2tpeth0 -v
-
-22:10:35.691326 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 1.=
-2.3.4 tell 0.0.0.0, length 28
-22:10:36.693627 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 1.=
-2.3.4 tell 0.0.0.0, length 28
-22:10:37.695010 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 1.=
-2.3.4 tell 0.0.0.0, length 28
-22:10:38.697121 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 1.=
-2.3.4 tell 0.0.0.0, length 28
-
-```
-
-It seems to work. However, is it the real point that should be fixed an=
-d does my patch fix it well? I need your suggestion.
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Tue, 26 Apr 2016 17:18:21 +0300
+Message-ID: <20160426141821.GJ7974@leon.nu>
+References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
+ <1461407219-72027-10-git-send-email-oulijun@huawei.com>
+ <20160424075424.GE7974@leon.nu>
+ <571F0C04.2010005@huawei.com>
+Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ed/6oDxOLijJh8b0"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <571F0C04.2010005-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
----
- ip/ipl2tp.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 45 insertions(+)
+--ed/6oDxOLijJh8b0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index 3c8ee93..67a6482 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -56,6 +56,8 @@ struct l2tp_parm {
-=20
- 	uint16_t pw_type;
- 	uint16_t mtu;
-+	int udp6_csum_tx:1;
-+	int udp6_csum_rx:1;
- 	int udp_csum:1;
- 	int recv_seq:1;
- 	int send_seq:1;
-@@ -117,6 +119,9 @@ static int create_tunnel(struct l2tp_parm *p)
- 	if (p->encap =3D=3D L2TP_ENCAPTYPE_UDP) {
- 		addattr16(&req.n, 1024, L2TP_ATTR_UDP_SPORT, p->local_udp_port);
- 		addattr16(&req.n, 1024, L2TP_ATTR_UDP_DPORT, p->peer_udp_port);
-+		addattr8 (&req.n, 1024, L2TP_ATTR_UDP_CSUM, p->udp_csum);
-+		addattr8 (&req.n, 1024, L2TP_ATTR_UDP_ZERO_CSUM6_TX, p->udp6_csum_tx=
+On Tue, Apr 26, 2016 at 02:34:44PM +0800, oulijun wrote:
+> On 2016/4/24 15:54, Leon Romanovsky wrote:
+> > On Sat, Apr 23, 2016 at 06:26:47PM +0800, Lijun Ou wrote:
+> >> This patch mainly setup hca for RoCE. it will do a series of
+> >> initial works as follows:
+> >>       1. init uar table, allocate uar resource
+> >>       2. init pd table
+> >>       3. init cq table
+> >>       4. init mr table
+> >>       5. init qp table
+> >>
+> >> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >> ---
+> >>  drivers/infiniband/hw/hns/hns_roce_alloc.c  | 104 ++++++++++++++++
+> >>  drivers/infiniband/hw/hns/hns_roce_cq.c     |  25 ++++
+> >>  drivers/infiniband/hw/hns/hns_roce_device.h |  69 ++++++++++
+> >>  drivers/infiniband/hw/hns/hns_roce_eq.c     |   1 -
+> >>  drivers/infiniband/hw/hns/hns_roce_icm.c    |  88 +++++++++++++
+> >>  drivers/infiniband/hw/hns/hns_roce_icm.h    |   9 ++
+> >>  drivers/infiniband/hw/hns/hns_roce_main.c   |  79 ++++++++++++
+> >>  drivers/infiniband/hw/hns/hns_roce_mr.c     | 187 +++++++++++++++++++=
++++++++++
+> >>  drivers/infiniband/hw/hns/hns_roce_pd.c     |  65 ++++++++++
+> >>  drivers/infiniband/hw/hns/hns_roce_qp.c     |  30 +++++
+> >>  10 files changed, 656 insertions(+), 1 deletion(-)
+> >>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
+> >>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
+> >>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
+> >>
+> >> diff --git a/drivers/infiniband/hw/hns/hns_roce_alloc.c b/drivers/infi=
+niband/hw/hns/hns_roce_alloc.c
+> >> new file mode 100644
+> >> index 0000000..0c76f1b
+> >> --- /dev/null
+> >> +++ b/drivers/infiniband/hw/hns/hns_roce_alloc.c
+> >> @@ -0,0 +1,104 @@
+> >> +/*
+> >> + * Copyright (c) 2016 Hisilicon Limited.
+> >> + *
+> >> + * This program is free software; you can redistribute it and/or modi=
+fy
+> >> + * it under the terms of the GNU General Public License as published =
+by
+> >> + * the Free Software Foundation; either version 2 of the License, or
+> >> + * (at your option) any later version.
+> >> + */
+> >> +
+> >> +#include <linux/bitmap.h>
+> >> +#include <linux/dma-mapping.h>
+> >> +#include <linux/errno.h>
+> >> +#include <linux/mm.h>
+> >> +#include <linux/slab.h>
+> >> +#include <linux/vmalloc.h>
+> >> +#include "hns_roce_device.h"
+> >> +
+> >> +int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj)
+> >> +{
+> >> +	int ret =3D 0;
+> >> +
+> >> +	spin_lock(&bitmap->lock);
+> >> +	*obj =3D find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last=
 );
-+		addattr8 (&req.n, 1024, L2TP_ATTR_UDP_ZERO_CSUM6_RX, p->udp6_csum_rx=
-);
- 	}
-=20
- 	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
-@@ -282,6 +287,14 @@ static int get_response(struct nlmsghdr *n, void *=
-arg)
- 		p->l2spec_len =3D rta_getattr_u8(attrs[L2TP_ATTR_L2SPEC_LEN]);
-=20
- 	p->udp_csum =3D !!attrs[L2TP_ATTR_UDP_CSUM];
-+	if (attrs[L2TP_ATTR_UDP_ZERO_CSUM6_TX])
-+	  p->udp6_csum_tx =3D rta_getattr_u8(attrs[L2TP_ATTR_UDP_ZERO_CSUM6_T=
-X]);
-+	else
-+	  p->udp6_csum_tx =3D 1;
-+	if (attrs[L2TP_ATTR_UDP_ZERO_CSUM6_RX])
-+	  p->udp6_csum_rx =3D rta_getattr_u8(attrs[L2TP_ATTR_UDP_ZERO_CSUM6_R=
-X]);
-+	else
-+	  p->udp6_csum_rx =3D 1;
- 	if (attrs[L2TP_ATTR_COOKIE])
- 		memcpy(p->cookie, RTA_DATA(attrs[L2TP_ATTR_COOKIE]),
- 		       p->cookie_len =3D RTA_PAYLOAD(attrs[L2TP_ATTR_COOKIE]));
-@@ -470,6 +483,9 @@ static void usage(void)
- 	fprintf(stderr, "          tunnel_id ID peer_tunnel_id ID\n");
- 	fprintf(stderr, "          [ encap { ip | udp } ]\n");
- 	fprintf(stderr, "          [ udp_sport PORT ] [ udp_dport PORT ]\n");
-+	fprintf(stderr, "          [ udp_csum { on | off } ]\n");
-+	fprintf(stderr, "          [ udp6_csum_tx { on | off } ]\n");
-+	fprintf(stderr, "          [ udp6_csum_rx { on | off } ]\n");
- 	fprintf(stderr, "Usage: ip l2tp add session [ name NAME ]\n");
- 	fprintf(stderr, "          tunnel_id ID\n");
- 	fprintf(stderr, "          session_id ID peer_session_id ID\n");
-@@ -500,6 +516,8 @@ static int parse_args(int argc, char **argv, int cm=
-d, struct l2tp_parm *p)
- 	/* Defaults */
- 	p->l2spec_type =3D L2TP_L2SPECTYPE_DEFAULT;
- 	p->l2spec_len =3D 4;
-+	p->udp6_csum_rx =3D 1;
-+	p->udp6_csum_tx =3D 1;
-=20
- 	while (argc > 0) {
- 		if (strcmp(*argv, "encap") =3D=3D 0) {
-@@ -569,6 +587,33 @@ static int parse_args(int argc, char **argv, int c=
-md, struct l2tp_parm *p)
- 			if (get_u16(&uval, *argv, 0))
- 				invarg("invalid port\n", *argv);
- 			p->peer_udp_port =3D uval;
-+		} else if (strcmp(*argv, "udp_csum") =3D=3D 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") =3D=3D 0) {
-+				p->udp_csum =3D 1;
-+			} else if (strcmp(*argv, "off") =3D=3D 0) {
-+				p->udp_csum =3D 0;
-+			} else {
-+				invarg("invalid option for udp_csum\n", *argv);
-+			}
-+		} else if (strcmp(*argv, "udp6_csum_rx") =3D=3D 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") =3D=3D 0) {
-+				p->udp6_csum_rx =3D 1;
-+			} else if (strcmp(*argv, "off") =3D=3D 0) {
-+				p->udp6_csum_rx =3D 0;
-+			} else {
-+				invarg("invalid option for udp6_csum_rx\n", *argv);
-+			}
-+		} else if (strcmp(*argv, "udp6_csum_tx") =3D=3D 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") =3D=3D 0) {
-+				p->udp6_csum_tx =3D 1;
-+			} else if (strcmp(*argv, "off") =3D=3D 0) {
-+				p->udp6_csum_tx =3D 0;
-+			} else {
-+				invarg("invalid option for udp6_csum_tx\n", *argv);
-+			}
- 		} else if (strcmp(*argv, "offset") =3D=3D 0) {
- 			__u8 uval;
-=20
---=20
-2.5.2
+> >> +	if (*obj >=3D bitmap->max) {
+> >> +		bitmap->top =3D (bitmap->top + bitmap->max + bitmap->reserved_top)
+> >> +			       & bitmap->mask;
+> >> +		*obj =3D find_first_zero_bit(bitmap->table, bitmap->max);
+> >=20
+> > find_first_zero_bit function returns "unsigned long" which may or may
+> > not be equal to u32 on some architectures.
+> >=20
+> Hi Leon,
+>     I appreciate your keen eye. this code is meant for ARM64bit therefore=
+ should run corretly for 64-bit AARCH64.
+> I will consider changing it as part of good partice and better portabilit=
+y "
+> I will give a primary plan to modified it.
+> for example:
+>     *obj =3D (u32)find_next_zero_bit(bitmap->table, bitmap->max, bitmap->=
+last);
+> Beause the max size of bitmap->table is u32 in current version.
+>=20
+> int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mas=
+k,
+> 			 u32 reserved_bot, u32 reserved_top)
+> {
+> 	u32 i;
+>=20
+> 	if (num !=3D roundup_pow_of_two(num))
+> 		return -EINVAL;
+>=20
+> 	bitmap->last =3D 0;
+> 	bitmap->top =3D 0;
+> 	bitmap->max =3D num - reserved_top;
+> 	bitmap->mask =3D mask;
+> 	bitmap->reserved_top =3D reserved_top;
+> 	spin_lock_init(&bitmap->lock);
+> 	bitmap->table =3D kcalloc(BITS_TO_LONGS(bitmap->max), sizeof(long),
+> 				GFP_KERNEL);
+>=20
+> Is this plan ok?
+
+No,
+You are submitting new driver, please do it properly (without casting)
+=66rom the beginning.
+
+>=20
+> Thanks
+> Lijun Ou
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--ed/6oDxOLijJh8b0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXH3itAAoJEORje4g2clinG74P/RSxrTBm2wV9PHCL0UMr3zvE
+Th1cpMS6ToT9KzWsySFk7Chl2FFA79ooMHuTOiPIUZ7zVK+pizMGJUeiZk4SKLMc
+dk3Vad3rXQ5NmEZNzOubFkxPET3tXv27BEdID/9Cq1ZhatYtKtaYl5254y6/HTSR
+zRAeQqkSyhU7JJrnPLlO0IRYm/JvTmyPc9rqToUuVgxWfLjw5Fk28Xbvt/VlAAjT
+TaV1XzH29ArWuDaPMoicn9Gbvj9KqBfxE8F+WG3QxxKw5aBG1Y0Yst5E5qrgCdsD
+DzTXD5/QSIbOCg45kejl7Jwn2sQAmJZB0Vb3NN88+x9EZFN1pr1HFxpIuhpjTjDG
+Pehd82tsMV2Hy0I2aYSTCo6Zd+vHZEBqULUfpXyNKYvHvL01CjbbTqlc2FX8926+
+M3w2NBLOT+CgLRNYSsAqgfRxM5ucfiwBB5qFDjbIoketCoX+ipxWqVlSzGRWIMIc
+G4qCTanFIciZQaD5WHvFNkskO5RWepid0qRzCPX/Wz0LD0D/bEdixqQWpC2w+ae4
+DRW/lryrxK+R/WpLype0npB1cHd1KP4nNxsoie7U0JrnVH4RhnhMb8HGMCmI4+by
+FGo27Wy6BZcUu3GcOKGlf7lGZW42kdSCpWNSYKdlSMQndEfcmB/giDaT8UH6yxau
+E+HAVIP3V7ysMbuRkFY9
+=b4ib
+-----END PGP SIGNATURE-----
+
+--ed/6oDxOLijJh8b0--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
