@@ -1,87 +1,97 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH V2 5/5] samples/bpf: like LLC also verify and
- allow redefining CLANG command
-Date: Tue, 26 Apr 2016 10:36:10 -0700
-Message-ID: <20160426173608.GF42777@ast-mbp.thefacebook.com>
-References: <20160426162650.22962.20516.stgit@firesoul>
- <20160426162732.22962.73140.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	bblanco@plumgrid.com, naveen.n.rao@linux.vnet.ibm.com,
-	borkmann@iogearbox.net
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] net: phy: at803x: only the AT8030 needs a hardware reset on link change
+Date: Tue, 26 Apr 2016 12:44:18 -0500
+Message-ID: <1461692658-1742-1-git-send-email-timur@codeaurora.org>
+To: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+	davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
+	zonque@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35353 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463AbcDZRgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 13:36:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20160426162732.22962.73140.stgit@firesoul>
+Received: from smtp.codeaurora.org ([198.145.29.96]:59344 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752205AbcDZRoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 13:44:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 26, 2016 at 06:27:32PM +0200, Jesper Dangaard Brouer wrote:
-> Users are likely to manually compile both LLVM 'llc' and 'clang'
-> tools.  Thus, also allow redefining CLANG and verify command exist.
-> 
-> Makefile implementation wise, the target that verify the command have
-> been generalized.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
->  samples/bpf/Makefile   |   23 +++++++++++++----------
->  samples/bpf/README.rst |    6 +++---
->  2 files changed, 16 insertions(+), 13 deletions(-)
-> 
-> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-> index dd63521832d8..c02ea9d2a248 100644
-> --- a/samples/bpf/Makefile
-> +++ b/samples/bpf/Makefile
-> @@ -81,9 +81,10 @@ HOSTLOADLIBES_spintest += -lelf
->  HOSTLOADLIBES_map_perf_test += -lelf -lrt
->  HOSTLOADLIBES_test_overhead += -lelf -lrt
->  
-> -# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
-> -#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
-> +# Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
-> +#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
->  LLC ?= llc
-> +CLANG ?= clang
->  
->  # Trick to allow make to be run from this directory
->  all:
-> @@ -94,15 +95,17 @@ clean:
->  	@rm -f *~
->  
->  # Verify LLVM compiler is available and bpf target is supported
-> -.PHONY: verify_cmd_llc verify_target_bpf
-> +.PHONY: verify_cmd_llc verify_target_bpf $(CLANG) $(LLC)
->  
-> -verify_cmd_llc:
-> -	@if ! (which "${LLC}" > /dev/null 2>&1); then \
-> -		echo "*** ERROR: Cannot find LLVM tool 'llc' (${LLC})" ;\
-> -		exit 1; \
-> -	else true; fi
-> +verify_cmds: $(CLANG) $(LLC)
-> +	@for TOOL in $^ ; do \
-> +		if ! (which "$${TOOL}" > /dev/null 2>&1); then \
-> +			echo "*** ERROR: Cannot find LLVM tool $${TOOL}" ;\
-> +			exit 1; \
-> +		else true; fi; \
-> +	done
->  
-> -verify_target_bpf: verify_cmd_llc
-> +verify_target_bpf: verify_cmds
->  	@if ! (${LLC} -march=bpf -mattr=help > /dev/null 2>&1); then \
->  		echo "*** ERROR: LLVM (${LLC}) does not support 'bpf' target" ;\
->  		echo "   NOTICE: LLVM version >= 3.7.1 required" ;\
+Commit 13a56b44 ("at803x: Add support for hardware reset") added a
+work-around for a hardware bug on the AT8030.  However, the work-around
+was being called for all 803x PHYs, even those that don't need it.
+Function at803x_link_change_notify() checks to make sure that it only
+resets the PHY on the 8030, but it makes more sense to not call that
+function at all if it isn't needed.
 
-If I read the patch correctly, it only checks that any version
-of clang is available and llc supports -march=bpf.
-That's correct.
-There is no need to build the latest clang most of the time.
-clang 3.4 and 3.5 are fine to compile samples/bpf/
-since llvm ir is mostly compatible with llc from 3.7 or 3.8
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/phy/at803x.c | 40 ++++++++++++++++++----------------------
+ 1 file changed, 18 insertions(+), 22 deletions(-)
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index b3ffaee..f279a89 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -359,27 +359,25 @@ static void at803x_link_change_notify(struct phy_device *phydev)
+ 	 * in the FIFO. In such cases, the FIFO enters an error mode it
+ 	 * cannot recover from by software.
+ 	 */
+-	if (phydev->drv->phy_id == ATH8030_PHY_ID) {
+-		if (phydev->state == PHY_NOLINK) {
+-			if (priv->gpiod_reset && !priv->phy_reset) {
+-				struct at803x_context context;
+-
+-				at803x_context_save(phydev, &context);
+-
+-				gpiod_set_value(priv->gpiod_reset, 1);
+-				msleep(1);
+-				gpiod_set_value(priv->gpiod_reset, 0);
+-				msleep(1);
+-
+-				at803x_context_restore(phydev, &context);
+-
+-				phydev_dbg(phydev, "%s(): phy was reset\n",
+-					   __func__);
+-				priv->phy_reset = true;
+-			}
+-		} else {
+-			priv->phy_reset = false;
++	if (phydev->state == PHY_NOLINK) {
++		if (priv->gpiod_reset && !priv->phy_reset) {
++			struct at803x_context context;
++
++			at803x_context_save(phydev, &context);
++
++			gpiod_set_value(priv->gpiod_reset, 1);
++			msleep(1);
++			gpiod_set_value(priv->gpiod_reset, 0);
++			msleep(1);
++
++			at803x_context_restore(phydev, &context);
++
++			phydev_dbg(phydev, "%s(): phy was reset\n",
++				   __func__);
++			priv->phy_reset = true;
+ 		}
++	} else {
++		priv->phy_reset = false;
+ 	}
+ }
+ 
+@@ -391,7 +389,6 @@ static struct phy_driver at803x_driver[] = {
+ 	.phy_id_mask		= 0xffffffef,
+ 	.probe			= at803x_probe,
+ 	.config_init		= at803x_config_init,
+-	.link_change_notify	= at803x_link_change_notify,
+ 	.set_wol		= at803x_set_wol,
+ 	.get_wol		= at803x_get_wol,
+ 	.suspend		= at803x_suspend,
+@@ -427,7 +424,6 @@ static struct phy_driver at803x_driver[] = {
+ 	.phy_id_mask		= 0xffffffef,
+ 	.probe			= at803x_probe,
+ 	.config_init		= at803x_config_init,
+-	.link_change_notify	= at803x_link_change_notify,
+ 	.set_wol		= at803x_set_wol,
+ 	.get_wol		= at803x_get_wol,
+ 	.suspend		= at803x_suspend,
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project.
