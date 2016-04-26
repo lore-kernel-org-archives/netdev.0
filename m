@@ -1,59 +1,41 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 2/2] vhost: lockless enqueuing
-Date: Tue, 26 Apr 2016 15:05:20 +0800
-Message-ID: <571F1330.7030504@redhat.com>
-References: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
- <1461636873-45335-2-git-send-email-jasowang@redhat.com>
- <2033086948.46236145.1461651858100.JavaMail.zimbra@redhat.com>
+From: Quentin Monnet <quentin.monnet@6wind.com>
+Subject: iproute2: bash completion function for tc
+Date: Tue, 26 Apr 2016 09:28:17 +0200
+Message-ID: <571F1891.1030004@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Pankaj Gupta <pagupta@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2033086948.46236145.1461651858100.JavaMail.zimbra@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vincent Jardin <vincent.jardin@6wind.com>, netdev@vger.kernel.org
+To: Jamal Hadi Salim <hadi@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:38135 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305AbcDZH2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 03:28:31 -0400
+Received: by mail-wm0-f47.google.com with SMTP id u206so19356300wme.1
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 00:28:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Jamal, Stephen,
 
+I searched for a function providing auto-completion for `tc` utility in
+bash, but I found none. So I have created one, and I would like share it
+with the community. It is available here:
+https://github.com/6WIND/tc_bash-completion/blob/master/tc
+I would like to make it easily available to tc users, so here is a
+twofold request:
 
-On 04/26/2016 02:24 PM, Pankaj Gupta wrote:
-> Hi Jason,
->
-> Overall patches look good. Just one doubt I have is below:
->> We use spinlock to synchronize the work list now which may cause
->> unnecessary contentions. So this patch switch to use llist to remove
->> this contention. Pktgen tests shows about 5% improvement:
->>
->> Before:
->> ~1300000 pps
->> After:
->> ~1370000 pps
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/vhost/vhost.c | 52
->>  +++++++++++++++++++++++++--------------------------
->>  drivers/vhost/vhost.h |  7 ++++---
->>  2 files changed, 29 insertions(+), 30 deletions(-)
+* I do not know where to submit the code. Should I submit here on netdev
+for inclusion in iproute2 package, or rather to the bash-completion
+repository on GitHub? I feel like it would receive better feedback and
+updates if pushed to iproute2. Could you please provide some advice here?
+* The completion for `tc` seems to work well; I have tested it with many
+commands, but I am no tc expert, and there are probably some cases where
+the completion fails to propose the correct choices. I would be really
+interested in any feedback/bug reports that you, or anyone on this list
+who uses tc, could provide.
 
-[...]
-
->> -		if (work) {
->> +		node = llist_del_all(&dev->work_list);
->> +		if (!node)
->> +			schedule();
->> +
->> +		node = llist_reverse_order(node);
-> Can we avoid llist reverse here?
->
-
-Probably not, this is because:
-
-- we should process the work exactly the same order as they were queued,
-otherwise flush won't work
-- llist can only add a node to the head of list.
-
-Thanks
+Best regards,
+Quentin
