@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 1/5] batman-adv: Check skb size before using encapsulated ETH+VLAN header
-Date: Tue, 26 Apr 2016 11:27:15 +0800
-Message-ID: <1461641239-7097-2-git-send-email-a@unstable.cc>
+Subject: [PATCH 3/5] batman-adv: Deactivate TO_BE_ACTIVATED hardif on shutdown
+Date: Tue, 26 Apr 2016 11:27:17 +0800
+Message-ID: <1461641239-7097-4-git-send-email-a@unstable.cc>
 References: <1461641239-7097-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,58 +9,54 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:48163 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:35125 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751060AbcDZD16 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 23:27:58 -0400
+	id S1751101AbcDZD2H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 23:28:07 -0400
 In-Reply-To: <1461641239-7097-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sven Eckelmann <sven@narfation.org>
 
-The encapsulated ethernet and VLAN header may be outside the received
-ethernet frame. Thus the skb buffer size has to be checked before it can be
-parsed to find out if it encapsulates another batman-adv packet.
+The shutdown of an batman-adv interface can happen with one of its slave
+interfaces still being in the BATADV_IF_TO_BE_ACTIVATED state. A possible
+reason for it is that the routing algorithm BATMAN_V was selected and
+batadv_schedule_bat_ogm was not yet called for this interface. This slave
+interface still has to be set to BATADV_IF_INACTIVE or the batman-adv
+interface will never reduce its usage counter and thus never gets shutdown.
 
-Fixes: 420193573f11 ("batman-adv: softif bridge loop avoidance")
+This problem can be simulated via:
+
+    $ modprobe dummy
+    $ modprobe batman-adv routing_algo=BATMAN_V
+    $ ip link add bat0 type batadv
+    $ ip link set dummy0 master bat0
+    $ ip link set dummy0 up
+    $ ip link del bat0
+    unregister_netdevice: waiting for bat0 to become free. Usage count = 3
+
+Reported-by: Matthias Schiffer <mschiffer@universe-factory.net>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/soft-interface.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/batman-adv/hard-interface.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 0710379491bf..8a136b6a1ff0 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -408,11 +408,17 @@ void batadv_interface_rx(struct net_device *soft_iface,
- 	 */
- 	nf_reset(skb);
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index b22b2775a0a5..c61d5b0b24d2 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -572,8 +572,7 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
+ 	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+ 	struct batadv_hard_iface *primary_if = NULL;
  
-+	if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
-+		goto dropped;
-+
- 	vid = batadv_get_vid(skb, 0);
- 	ethhdr = eth_hdr(skb);
+-	if (hard_iface->if_status == BATADV_IF_ACTIVE)
+-		batadv_hardif_deactivate_interface(hard_iface);
++	batadv_hardif_deactivate_interface(hard_iface);
  
- 	switch (ntohs(ethhdr->h_proto)) {
- 	case ETH_P_8021Q:
-+		if (!pskb_may_pull(skb, VLAN_ETH_HLEN))
-+			goto dropped;
-+
- 		vhdr = (struct vlan_ethhdr *)skb->data;
- 
- 		if (vhdr->h_vlan_encapsulated_proto != ethertype)
-@@ -424,8 +430,6 @@ void batadv_interface_rx(struct net_device *soft_iface,
- 	}
- 
- 	/* skb->dev & skb->pkt_type are set here */
--	if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
--		goto dropped;
- 	skb->protocol = eth_type_trans(skb, soft_iface);
- 
- 	/* should not be necessary anymore as we use skb_pull_rcsum()
+ 	if (hard_iface->if_status != BATADV_IF_INACTIVE)
+ 		goto out;
 -- 
 2.8.1
