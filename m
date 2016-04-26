@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] qed: Bandwidth configuration support
-Date: Tue, 26 Apr 2016 13:56:45 -0400 (EDT)
-Message-ID: <20160426.135645.142819000198473420.davem@davemloft.net>
-References: <1461682570-745-1-git-send-email-manish.chopra@qlogic.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
+Date: Tue, 26 Apr 2016 20:23:35 +0200
+Message-ID: <20160426182335.GE30107@lunn.ch>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+ <20160426121335.GC11668@lunn.ch>
+ <571FA3F6.7000903@gmail.com>
+ <5167289.0a4LBoWhyX@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40708 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751920AbcDZR4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 13:56:49 -0400
-In-Reply-To: <1461682570-745-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Pramod Kumar <pramod.kumar@broadcom.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Masahiro Yamada <yamada.masahiro@socionext.com>,
+	Chen-Yu Tsai <wens@csie.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	devicetree@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>,
+	Suzuki K Poulose <suzuki.poulose@arm.com>,
+	netdev@vger.kernel.org, Punit Agrawal <punit.agrawal@arm.com>,
+	linux-kernel@vger.kernel.org,
+	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Anup Patel <anup.patel@broadcom.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5167289.0a4LBoWhyX@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Tue, 26 Apr 2016 10:56:07 -0400
+> A more complex problem would be having a PHY driver for a device
+> that can be either an ethernet phy or some other phy.
 
-> This series adds support in driver for min/max bandwidth configuration
-> for the PF on the link change notification or on explicit request of
-> bandwidth update from the MFW [management firmware].
-> 
-> The same infrastructure would later be used by user based flows
-> [for example, rate shaping for the VFs]
-> 
-> Please consider applying this series to "net-next"
+I doubt that ever happens. You can have up to 32 different devices on
+an MDIO bus. Since an Ethernet PHY and a "some other sort of PHY" are
+completely different things, why would a hardware engineer place them
+on the same address? It is like saying your ATA controller and VGA
+controller share the same slot on the PCI bus...
 
-Series applied, thanks.
+   Andrew
