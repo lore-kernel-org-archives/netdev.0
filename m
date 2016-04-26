@@ -1,146 +1,75 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH V3] net: stmmac: socfpga: Remove re-registration of reset controller
-Date: Tue, 26 Apr 2016 23:22:18 +0200
-Message-ID: <CAGhQ9Vz2FSENtif66SfXsgZqaJaaKeiBsw4qCSevM_4XDnUPCg@mail.gmail.com>
-References: <1461240710-5381-1-git-send-email-marex@denx.de>
-	<CAGhQ9VzpZcP23DC0LZ95YggtsBDsUCe-NHEtna7hY9Yvdr=ZGg@mail.gmail.com>
-	<571EA05F.3070200@denx.de>
-	<CAGhQ9Vz568hdSk+HWGHXuSNn4DU7HZkUBfVbajQyRkq+rBYY7Q@mail.gmail.com>
-	<571F636C.9040503@denx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"peppe.cavallaro" <peppe.cavallaro@st.com>,
-	alexandre.torgue@st.com,
-	Matthew Gerlach <mgerlach@opensource.altera.com>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	"David S . Miller" <davem@davemloft.net>
-To: Marek Vasut <marex@denx.de>
+Subject: [PATCH net-next 0/5] stmmac: dwmac-socfpga refactor+cleanup
+Date: Tue, 26 Apr 2016 23:24:54 +0200
+Message-ID: <1461705899-17015-1-git-send-email-manabian@gmail.com>
+Cc: Joachim Eastwood <manabian@gmail.com>, marex@denx.de,
+	dinguyen@opensource.altera.com, peppe.cavallaro@st.com,
+	alexandre.torgue@st.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f194.google.com ([209.85.213.194]:33026 "EHLO
-	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515AbcDZVWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:22:19 -0400
-Received: by mail-ig0-f194.google.com with SMTP id g8so4007533igr.0
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 14:22:18 -0700 (PDT)
-In-Reply-To: <571F636C.9040503@denx.de>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35923 "EHLO
+	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752477AbcDZVZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:25:26 -0400
+Received: by mail-lf0-f67.google.com with SMTP id y84so4293385lfc.3
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 14:25:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26 April 2016 at 14:47, Marek Vasut <marex@denx.de> wrote:
-> On 04/26/2016 02:26 PM, Joachim Eastwood wrote:
->> On 26 April 2016 at 00:55, Marek Vasut <marex@denx.de> wrote:
->>> On 04/25/2016 08:11 PM, Joachim Eastwood wrote:
->>>> On 21 April 2016 at 14:11, Marek Vasut <marex@denx.de> wrote:
->>>>>
->>>>> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
->>>>> since the functionality is already performed by the stmmac core.
->>>>
->>>> I am trying to rebase my changes on top of your two patches and
->>>> noticed a couple of things.
->>>>
->>>>>  static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
->>>>>  {
->>>>> -       struct socfpga_dwmac    *dwmac = priv;
->>>>> +       struct socfpga_dwmac *dwmac = priv;
->>>>>         struct net_device *ndev = platform_get_drvdata(pdev);
->>>>>         struct stmmac_priv *stpriv = NULL;
->>>>>         int ret = 0;
->>>>>
->>>>> -       if (ndev)
->>>>> -               stpriv = netdev_priv(ndev);
->>>>> +       if (!ndev)
->>>>> +               return -EINVAL;
->>>>
->>>> ndev can never be NULL here. socfpga_dwmac_init() is only called if
->>>> stmmac_dvr_probe() succeeds or we are running the resume callback. So
->>>> I don't see how this could ever be NULL.
->>>
->>> That's a good point, this check can indeed be removed. While you're at
->>> the patching, can you remove this one ?
->>
->> Yes, my patch will refactor the init() function so this will go away.
->
-> Thanks!
->
->>>>> +
->>>>> +       stpriv = netdev_priv(ndev);
->>>>
->>>> It's not really nice to access 'stmmac_priv' as it should be private
->>>> to the core driver, but I don't see any other good solution right now.
->>>
->>> I guess some stmmac_reset_assert() wrapper would be nicer, yes. What do
->>> you think ?
->>>
->>>>> +       if (!stpriv)
->>>>> +               return -EINVAL;
->>>>>
->>>>>         /* Assert reset to the enet controller before changing the phy mode */
->>>>> -       if (dwmac->stmmac_rst)
->>>>> -               reset_control_assert(dwmac->stmmac_rst);
->>>>> +       if (stpriv->stmmac_rst)
->>>>> +               reset_control_assert(stpriv->stmmac_rst);
->>>>>
->>>>>         /* Setup the phy mode in the system manager registers according to
->>>>>          * devicetree configuration
->>>>> @@ -227,8 +210,8 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
->>>>>         /* Deassert reset for the phy configuration to be sampled by
->>>>>          * the enet controller, and operation to start in requested mode
->>>>>          */
->>>>> -       if (dwmac->stmmac_rst)
->>>>> -               reset_control_deassert(dwmac->stmmac_rst);
->>>>> +       if (stpriv->stmmac_rst)
->>>>> +               reset_control_deassert(stpriv->stmmac_rst);
->>>>>
->>>>>         /* Before the enet controller is suspended, the phy is suspended.
->>>>>          * This causes the phy clock to be gated. The enet controller is
->>>>> @@ -245,7 +228,7 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
->>>>>          * control register 0, and can be modified by the phy driver
->>>>>          * framework.
->>>>>          */
->>>>> -       if (stpriv && stpriv->phydev)
->>>>> +       if (stpriv->phydev)
->>>>>                 phy_resume(stpriv->phydev);
->>>>
->>>> Before this change phy_resume() was only called during driver resume
->>>> when , but your patches cause phy_resume() to called at probe time as
->>>> well. Is this okey?
->>>
->>> I _hope_ it's OK. The cryptic comment above is not very helpful in this
->>> aspect. Dinh ? :)
->>
->> My patches will move phy_resume() to the resume callback so it
->> preserves the previous behavior. But if someone knows more about this
->> that would be useful.
->>
->>
->>> btw I wish you reviewed my patch a bit earlier to catch these bits.
->>
->> Sorry, about that. I have been really busy with other things lately.
->
-> Oh I'm real happy someone is doing the refactoring :) I appreciate your
-> work, sorry if that was unclear.
->
->> My patches based on next from Friday can be found here now:
->> https://github.com/manabian/linux-lpc/tree/net-socfpga-dwmac-on-next
->>
->> I had to add your latest patch as well since the next version I used
->> didn't have it. I'll post the patches on netdev later today or
->> tomorrow.
->
-> Looks like next wasn't synced for a few days, yeah.
->
-> You can add my:
->
-> On SoCFPGA Cyclone V SoC (DENX MCVEVK):
-> Tested-by: Marek Vasut <marex@denx.de>
->
-> to those patches
+This patch aims to remove the init/exit callbacks from the dwmac-
+socfpga driver and instead use standard PM callbacks. Doing this
+will also allow us to cleanup the driver.
 
-Excellent. Thanks Marek.
+Eventually the init/exit callbacks will be deprecated and removed
+from all drivers dwmac-* except for dwmac-generic. Drivers will be
+refactored to use standard PM and remove callbacks.
 
-btw, did you also test suspend/resume?
+This patch set should not change the behavior of the driver itself,
+it only moves code around. The only exception to this is patch
+number 4 which restores the resume callback behavior which was
+changed in the "net: stmmac: socfpga: Remove re-registration of
+reset controller" patch. I belive calling phy_resume() only
+from the resume callback and not probe is the right thing to do.
 
 
-regards,
-Joachim Eastwood
+Couple of heads-up here:
+ 1. This patch set depend on Marek's "Remove re-registration of
+    reset controller" patch [1] which is not in net-next yet.
+    Without that patch this set will not apply!
+
+ 2. The first patch changes the prototype of a couple of
+    functions used in Alexandre's "add Ethernet glue logic for
+    stm32 chip" patch [2] and will cause build failures for
+    dwmac-stm32.c if not fixed up!
+    If Alexandre's patch set is applied first I will gladly
+    rebase my patch set to account for his driver as well.
+
+So at the moment there are issues here :/
+
+I guess one way of handing this would just be wait for all
+the bits to come together in net-next and resend.
+
+Dave: Please let me know if you have any preferred way of
+      handling this.
+
+
+[1] https://patchwork.ozlabs.org/patch/613085/
+[2] https://patchwork.ozlabs.org/patch/614405/
+
+
+Joachim Eastwood (5):
+  stmmac: let remove/resume/suspend functions take device pointer
+  stmmac: dwmac-socfpga: add PM ops and resume function
+  stmmac: dwmac-socfpga: keep a copy of stmmac_rst in driver priv data
+  stmmac: dwmac-socfpga: call phy_resume() only in resume callback
+  stmmac: dwmac-socfpga: kill init() and rename setup() to set_phy_mode()
+
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 106 +++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  15 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  24 +----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   6 +-
+ 5 files changed, 71 insertions(+), 86 deletions(-)
+
+-- 
+2.8.0
