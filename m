@@ -1,183 +1,693 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 2/2] vhost: lockless enqueuing
-Date: Mon, 25 Apr 2016 22:14:33 -0400
-Message-ID: <1461636873-45335-2-git-send-email-jasowang@redhat.com>
-References: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46704 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752021AbcDZCOk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 22:14:40 -0400
-In-Reply-To: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 26 Apr 2016 12:18:27 +1000
+Message-ID: <20160426121827.11f88fb1@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We use spinlock to synchronize the work list now which may cause
-unnecessary contentions. So this patch switch to use llist to remove
-this contention. Pktgen tests shows about 5% improvement:
+Hi all,
 
-Before:
-~1300000 pps
-After:
-~1370000 pps
+Today's linux-next merge of the net-next tree got conflicts in:
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/vhost.c | 52 +++++++++++++++++++++++++--------------------------
- drivers/vhost/vhost.h |  7 ++++---
- 2 files changed, 29 insertions(+), 30 deletions(-)
+  include/linux/ipv6.h
+  net/ipv6/addrconf.c
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 73dd16d..0061a7b 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -168,7 +168,7 @@ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
- 
- void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
- {
--	INIT_LIST_HEAD(&work->node);
-+	clear_bit(VHOST_WORK_QUEUED, &work->flags);
- 	work->fn = fn;
- 	init_waitqueue_head(&work->done);
- }
-@@ -246,15 +246,16 @@ EXPORT_SYMBOL_GPL(vhost_poll_flush);
- 
- void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
- {
--	unsigned long flags;
-+	if (!dev->worker)
-+		return;
- 
--	spin_lock_irqsave(&dev->work_lock, flags);
--	if (list_empty(&work->node)) {
--		list_add_tail(&work->node, &dev->work_list);
--		spin_unlock_irqrestore(&dev->work_lock, flags);
-+	if (!test_and_set_bit(VHOST_WORK_QUEUED, &work->flags)) {
-+		/* We can only add the work to the list after we're
-+		 * sure it was not in the list.
-+		 */
-+		smp_mb();
-+		llist_add(&work->node, &dev->work_list);
- 		wake_up_process(dev->worker);
--	} else {
--		spin_unlock_irqrestore(&dev->work_lock, flags);
- 	}
- }
- EXPORT_SYMBOL_GPL(vhost_work_queue);
-@@ -262,7 +263,7 @@ EXPORT_SYMBOL_GPL(vhost_work_queue);
- /* A lockless hint for busy polling code to exit the loop */
- bool vhost_has_work(struct vhost_dev *dev)
- {
--	return !list_empty(&dev->work_list);
-+	return !llist_empty(&dev->work_list);
- }
- EXPORT_SYMBOL_GPL(vhost_has_work);
- 
-@@ -305,7 +306,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- static int vhost_worker(void *data)
- {
- 	struct vhost_dev *dev = data;
--	struct vhost_work *work = NULL;
-+	struct vhost_work *work, *work_next;
-+	struct llist_node *node;
- 	mm_segment_t oldfs = get_fs();
- 
- 	set_fs(USER_DS);
-@@ -315,29 +317,25 @@ static int vhost_worker(void *data)
- 		/* mb paired w/ kthread_stop */
- 		set_current_state(TASK_INTERRUPTIBLE);
- 
--		spin_lock_irq(&dev->work_lock);
--
- 		if (kthread_should_stop()) {
--			spin_unlock_irq(&dev->work_lock);
- 			__set_current_state(TASK_RUNNING);
- 			break;
- 		}
--		if (!list_empty(&dev->work_list)) {
--			work = list_first_entry(&dev->work_list,
--						struct vhost_work, node);
--			list_del_init(&work->node);
--		} else
--			work = NULL;
--		spin_unlock_irq(&dev->work_lock);
- 
--		if (work) {
-+		node = llist_del_all(&dev->work_list);
-+		if (!node)
-+			schedule();
-+
-+		node = llist_reverse_order(node);
-+		/* make sure flag is seen after deletion */
-+		smp_wmb();
-+		llist_for_each_entry_safe(work, work_next, node, node) {
-+			clear_bit(VHOST_WORK_QUEUED, &work->flags);
- 			__set_current_state(TASK_RUNNING);
- 			work->fn(work);
- 			if (need_resched())
- 				schedule();
--		} else
--			schedule();
--
-+		}
- 	}
- 	unuse_mm(dev->mm);
- 	set_fs(oldfs);
-@@ -398,9 +396,9 @@ void vhost_dev_init(struct vhost_dev *dev,
- 	dev->log_file = NULL;
- 	dev->memory = NULL;
- 	dev->mm = NULL;
--	spin_lock_init(&dev->work_lock);
--	INIT_LIST_HEAD(&dev->work_list);
- 	dev->worker = NULL;
-+	init_llist_head(&dev->work_list);
-+
- 
- 	for (i = 0; i < dev->nvqs; ++i) {
- 		vq = dev->vqs[i];
-@@ -566,7 +564,7 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
- 	/* No one will access memory at this point */
- 	kvfree(dev->memory);
- 	dev->memory = NULL;
--	WARN_ON(!list_empty(&dev->work_list));
-+	WARN_ON(!llist_empty(&dev->work_list));
- 	if (dev->worker) {
- 		kthread_stop(dev->worker);
- 		dev->worker = NULL;
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index d36d8be..6690e64 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -15,13 +15,15 @@
- struct vhost_work;
- typedef void (*vhost_work_fn_t)(struct vhost_work *work);
- 
-+#define VHOST_WORK_QUEUED 1
- struct vhost_work {
--	struct list_head	  node;
-+	struct llist_node	  node;
- 	vhost_work_fn_t		  fn;
- 	wait_queue_head_t	  done;
- 	int			  flushing;
- 	unsigned		  queue_seq;
- 	unsigned		  done_seq;
-+	unsigned long		  flags;
- };
- 
- /* Poll a file (eventfd or socket) */
-@@ -126,8 +128,7 @@ struct vhost_dev {
- 	int nvqs;
- 	struct file *log_file;
- 	struct eventfd_ctx *log_ctx;
--	spinlock_t work_lock;
--	struct list_head work_list;
-+	struct llist_head work_list;
- 	struct task_struct *worker;
- };
- 
+between commit:
+
+  841645b5f2df ("ipv6: Revert optional address flusing on ifdown.")
+
+from the net tree and commits:
+
+  607ea7cda631 ("net/ipv6/addrconf: simplify sysctl registration")
+  5df1f77f65e1 ("net/ipv6/addrconf: fix sysctl table indentation")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-1.8.3.1
+Cheers,
+Stephen Rothwell
+
+diff --cc include/linux/ipv6.h
+index 4b2267e1b7c3,58d6e158755f..000000000000
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@@ -62,7 -62,9 +62,8 @@@ struct ipv6_devconf 
+  		struct in6_addr secret;
+  	} stable_secret;
+  	__s32		use_oif_addrs_only;
+- 	void		*sysctl;
+ -	__s32		keep_addr_on_down;
++ 
++ 	struct ctl_table_header *sysctl_header;
+  };
+  
+  struct ipv6_params {
+diff --cc net/ipv6/addrconf.c
+index d77ba395d593,f5a77a9dd34e..000000000000
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@@ -5506,323 -5637,322 +5507,314 @@@ int addrconf_sysctl_ignore_routes_with_
+  	return ret;
+  }
+  
+- static struct addrconf_sysctl_table
+- {
+- 	struct ctl_table_header *sysctl_header;
+- 	struct ctl_table addrconf_vars[DEVCONF_MAX+1];
+- } addrconf_sysctl __read_mostly = {
+- 	.sysctl_header = NULL,
+- 	.addrconf_vars = {
+- 		{
+- 			.procname	= "forwarding",
+- 			.data		= &ipv6_devconf.forwarding,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= addrconf_sysctl_forward,
+- 		},
+- 		{
+- 			.procname	= "hop_limit",
+- 			.data		= &ipv6_devconf.hop_limit,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= addrconf_sysctl_hop_limit,
+- 		},
+- 		{
+- 			.procname	= "mtu",
+- 			.data		= &ipv6_devconf.mtu6,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= addrconf_sysctl_mtu,
+- 		},
+- 		{
+- 			.procname	= "accept_ra",
+- 			.data		= &ipv6_devconf.accept_ra,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "accept_redirects",
+- 			.data		= &ipv6_devconf.accept_redirects,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "autoconf",
+- 			.data		= &ipv6_devconf.autoconf,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "dad_transmits",
+- 			.data		= &ipv6_devconf.dad_transmits,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "router_solicitations",
+- 			.data		= &ipv6_devconf.rtr_solicits,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "router_solicitation_interval",
+- 			.data		= &ipv6_devconf.rtr_solicit_interval,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec_jiffies,
+- 		},
+- 		{
+- 			.procname	= "router_solicitation_delay",
+- 			.data		= &ipv6_devconf.rtr_solicit_delay,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec_jiffies,
+- 		},
+- 		{
+- 			.procname	= "force_mld_version",
+- 			.data		= &ipv6_devconf.force_mld_version,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "mldv1_unsolicited_report_interval",
+- 			.data		=
+- 				&ipv6_devconf.mldv1_unsolicited_report_interval,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec_ms_jiffies,
+- 		},
+- 		{
+- 			.procname	= "mldv2_unsolicited_report_interval",
+- 			.data		=
+- 				&ipv6_devconf.mldv2_unsolicited_report_interval,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec_ms_jiffies,
+- 		},
+- 		{
+- 			.procname	= "use_tempaddr",
+- 			.data		= &ipv6_devconf.use_tempaddr,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "temp_valid_lft",
+- 			.data		= &ipv6_devconf.temp_valid_lft,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "temp_prefered_lft",
+- 			.data		= &ipv6_devconf.temp_prefered_lft,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "regen_max_retry",
+- 			.data		= &ipv6_devconf.regen_max_retry,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "max_desync_factor",
+- 			.data		= &ipv6_devconf.max_desync_factor,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "max_addresses",
+- 			.data		= &ipv6_devconf.max_addresses,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "accept_ra_defrtr",
+- 			.data		= &ipv6_devconf.accept_ra_defrtr,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "accept_ra_min_hop_limit",
+- 			.data		= &ipv6_devconf.accept_ra_min_hop_limit,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "accept_ra_pinfo",
+- 			.data		= &ipv6_devconf.accept_ra_pinfo,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
++ static const struct ctl_table addrconf_sysctl[] = {
++ 	{
++ 		.procname	= "forwarding",
++ 		.data		= &ipv6_devconf.forwarding,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= addrconf_sysctl_forward,
++ 	},
++ 	{
++ 		.procname	= "hop_limit",
++ 		.data		= &ipv6_devconf.hop_limit,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= addrconf_sysctl_hop_limit,
++ 	},
++ 	{
++ 		.procname	= "mtu",
++ 		.data		= &ipv6_devconf.mtu6,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= addrconf_sysctl_mtu,
++ 	},
++ 	{
++ 		.procname	= "accept_ra",
++ 		.data		= &ipv6_devconf.accept_ra,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "accept_redirects",
++ 		.data		= &ipv6_devconf.accept_redirects,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "autoconf",
++ 		.data		= &ipv6_devconf.autoconf,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "dad_transmits",
++ 		.data		= &ipv6_devconf.dad_transmits,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "router_solicitations",
++ 		.data		= &ipv6_devconf.rtr_solicits,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "router_solicitation_interval",
++ 		.data		= &ipv6_devconf.rtr_solicit_interval,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec_jiffies,
++ 	},
++ 	{
++ 		.procname	= "router_solicitation_delay",
++ 		.data		= &ipv6_devconf.rtr_solicit_delay,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec_jiffies,
++ 	},
++ 	{
++ 		.procname	= "force_mld_version",
++ 		.data		= &ipv6_devconf.force_mld_version,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "mldv1_unsolicited_report_interval",
++ 		.data		=
++ 			&ipv6_devconf.mldv1_unsolicited_report_interval,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec_ms_jiffies,
++ 	},
++ 	{
++ 		.procname	= "mldv2_unsolicited_report_interval",
++ 		.data		=
++ 			&ipv6_devconf.mldv2_unsolicited_report_interval,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec_ms_jiffies,
++ 	},
++ 	{
++ 		.procname	= "use_tempaddr",
++ 		.data		= &ipv6_devconf.use_tempaddr,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "temp_valid_lft",
++ 		.data		= &ipv6_devconf.temp_valid_lft,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "temp_prefered_lft",
++ 		.data		= &ipv6_devconf.temp_prefered_lft,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "regen_max_retry",
++ 		.data		= &ipv6_devconf.regen_max_retry,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "max_desync_factor",
++ 		.data		= &ipv6_devconf.max_desync_factor,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "max_addresses",
++ 		.data		= &ipv6_devconf.max_addresses,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "accept_ra_defrtr",
++ 		.data		= &ipv6_devconf.accept_ra_defrtr,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "accept_ra_min_hop_limit",
++ 		.data		= &ipv6_devconf.accept_ra_min_hop_limit,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "accept_ra_pinfo",
++ 		.data		= &ipv6_devconf.accept_ra_pinfo,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
+  #ifdef CONFIG_IPV6_ROUTER_PREF
+- 		{
+- 			.procname	= "accept_ra_rtr_pref",
+- 			.data		= &ipv6_devconf.accept_ra_rtr_pref,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "router_probe_interval",
+- 			.data		= &ipv6_devconf.rtr_probe_interval,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec_jiffies,
+- 		},
++ 	{
++ 		.procname	= "accept_ra_rtr_pref",
++ 		.data		= &ipv6_devconf.accept_ra_rtr_pref,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "router_probe_interval",
++ 		.data		= &ipv6_devconf.rtr_probe_interval,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec_jiffies,
++ 	},
+  #ifdef CONFIG_IPV6_ROUTE_INFO
+- 		{
+- 			.procname	= "accept_ra_rt_info_max_plen",
+- 			.data		= &ipv6_devconf.accept_ra_rt_info_max_plen,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
++ 	{
++ 		.procname	= "accept_ra_rt_info_max_plen",
++ 		.data		= &ipv6_devconf.accept_ra_rt_info_max_plen,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
+  #endif
+  #endif
+- 		{
+- 			.procname	= "proxy_ndp",
+- 			.data		= &ipv6_devconf.proxy_ndp,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= addrconf_sysctl_proxy_ndp,
+- 		},
+- 		{
+- 			.procname	= "accept_source_route",
+- 			.data		= &ipv6_devconf.accept_source_route,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
++ 	{
++ 		.procname	= "proxy_ndp",
++ 		.data		= &ipv6_devconf.proxy_ndp,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= addrconf_sysctl_proxy_ndp,
++ 	},
++ 	{
++ 		.procname	= "accept_source_route",
++ 		.data		= &ipv6_devconf.accept_source_route,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
+  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+- 		{
+- 			.procname       = "optimistic_dad",
+- 			.data           = &ipv6_devconf.optimistic_dad,
+- 			.maxlen         = sizeof(int),
+- 			.mode           = 0644,
+- 			.proc_handler   = proc_dointvec,
+- 
+- 		},
+- 		{
+- 			.procname       = "use_optimistic",
+- 			.data           = &ipv6_devconf.use_optimistic,
+- 			.maxlen         = sizeof(int),
+- 			.mode           = 0644,
+- 			.proc_handler   = proc_dointvec,
+- 
+- 		},
++ 	{
++ 		.procname	= "optimistic_dad",
++ 		.data		= &ipv6_devconf.optimistic_dad,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler   = proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "use_optimistic",
++ 		.data		= &ipv6_devconf.use_optimistic,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
+  #endif
+  #ifdef CONFIG_IPV6_MROUTE
+- 		{
+- 			.procname	= "mc_forwarding",
+- 			.data		= &ipv6_devconf.mc_forwarding,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0444,
+- 			.proc_handler	= proc_dointvec,
+- 		},
++ 	{
++ 		.procname	= "mc_forwarding",
++ 		.data		= &ipv6_devconf.mc_forwarding,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0444,
++ 		.proc_handler	= proc_dointvec,
++ 	},
+  #endif
+- 		{
+- 			.procname	= "disable_ipv6",
+- 			.data		= &ipv6_devconf.disable_ipv6,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= addrconf_sysctl_disable,
+- 		},
+- 		{
+- 			.procname	= "accept_dad",
+- 			.data		= &ipv6_devconf.accept_dad,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname       = "force_tllao",
+- 			.data           = &ipv6_devconf.force_tllao,
+- 			.maxlen         = sizeof(int),
+- 			.mode           = 0644,
+- 			.proc_handler   = proc_dointvec
+- 		},
+- 		{
+- 			.procname       = "ndisc_notify",
+- 			.data           = &ipv6_devconf.ndisc_notify,
+- 			.maxlen         = sizeof(int),
+- 			.mode           = 0644,
+- 			.proc_handler   = proc_dointvec
+- 		},
+- 		{
+- 			.procname	= "suppress_frag_ndisc",
+- 			.data		= &ipv6_devconf.suppress_frag_ndisc,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec
+- 		},
+- 		{
+- 			.procname	= "accept_ra_from_local",
+- 			.data		= &ipv6_devconf.accept_ra_from_local,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "accept_ra_mtu",
+- 			.data		= &ipv6_devconf.accept_ra_mtu,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "stable_secret",
+- 			.data		= &ipv6_devconf.stable_secret,
+- 			.maxlen		= IPV6_MAX_STRLEN,
+- 			.mode		= 0600,
+- 			.proc_handler	= addrconf_sysctl_stable_secret,
+- 		},
+- 		{
+- 			.procname       = "use_oif_addrs_only",
+- 			.data           = &ipv6_devconf.use_oif_addrs_only,
+- 			.maxlen         = sizeof(int),
+- 			.mode           = 0644,
+- 			.proc_handler   = proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "ignore_routes_with_linkdown",
+- 			.data		= &ipv6_devconf.ignore_routes_with_linkdown,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= addrconf_sysctl_ignore_routes_with_linkdown,
+- 		},
+- 		{
+- 			.procname	= "drop_unicast_in_l2_multicast",
+- 			.data		= &ipv6_devconf.drop_unicast_in_l2_multicast,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			.procname	= "drop_unsolicited_na",
+- 			.data		= &ipv6_devconf.drop_unsolicited_na,
+- 			.maxlen		= sizeof(int),
+- 			.mode		= 0644,
+- 			.proc_handler	= proc_dointvec,
+- 		},
+- 		{
+- 			/* sentinel */
+- 		}
++ 	{
++ 		.procname	= "disable_ipv6",
++ 		.data		= &ipv6_devconf.disable_ipv6,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= addrconf_sysctl_disable,
++ 	},
++ 	{
++ 		.procname	= "accept_dad",
++ 		.data		= &ipv6_devconf.accept_dad,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "force_tllao",
++ 		.data		= &ipv6_devconf.force_tllao,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec
+  	},
++ 	{
++ 		.procname	= "ndisc_notify",
++ 		.data		= &ipv6_devconf.ndisc_notify,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec
++ 	},
++ 	{
++ 		.procname	= "suppress_frag_ndisc",
++ 		.data		= &ipv6_devconf.suppress_frag_ndisc,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec
++ 	},
++ 	{
++ 		.procname	= "accept_ra_from_local",
++ 		.data		= &ipv6_devconf.accept_ra_from_local,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "accept_ra_mtu",
++ 		.data		= &ipv6_devconf.accept_ra_mtu,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "stable_secret",
++ 		.data		= &ipv6_devconf.stable_secret,
++ 		.maxlen		= IPV6_MAX_STRLEN,
++ 		.mode		= 0600,
++ 		.proc_handler	= addrconf_sysctl_stable_secret,
++ 	},
++ 	{
++ 		.procname	= "use_oif_addrs_only",
++ 		.data		= &ipv6_devconf.use_oif_addrs_only,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "ignore_routes_with_linkdown",
++ 		.data		= &ipv6_devconf.ignore_routes_with_linkdown,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= addrconf_sysctl_ignore_routes_with_linkdown,
++ 	},
++ 	{
++ 		.procname	= "drop_unicast_in_l2_multicast",
++ 		.data		= &ipv6_devconf.drop_unicast_in_l2_multicast,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
++ 		.procname	= "drop_unsolicited_na",
++ 		.data		= &ipv6_devconf.drop_unsolicited_na,
++ 		.maxlen		= sizeof(int),
++ 		.mode		= 0644,
++ 		.proc_handler	= proc_dointvec,
++ 	},
++ 	{
+ -		.procname	= "keep_addr_on_down",
+ -		.data		= &ipv6_devconf.keep_addr_on_down,
+ -		.maxlen		= sizeof(int),
+ -		.mode		= 0644,
+ -		.proc_handler	= proc_dointvec,
+ -
+ -	},
+ -	{
++ 		/* sentinel */
++ 	}
+  };
+  
+  static int __addrconf_sysctl_register(struct net *net, char *dev_name,
