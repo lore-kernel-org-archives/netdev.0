@@ -1,68 +1,106 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net-rfs: fix false sharing accessing sd->input_queue_head
-Date: Tue, 26 Apr 2016 15:55:27 -0700
-Message-ID: <CALx6S34-mbnBJcMvdZd869-dvgygkygMAZ6dNCKgGCt7atGbJA@mail.gmail.com>
-References: <1461709807.5535.55.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 3.2 085/115] =?UTF-8?q?veth:=20don=E2=80=99t=20modify=20ip=5Fsum?=
+  =?UTF-8?q?med;=20doing=20so=20treats=20packets=20with=20bad=20checksums?=
+  =?UTF-8?q?=20as=20good.?=
+Date: Wed, 27 Apr 2016 01:02:24 +0200
+Message-ID: <lsq.1461711744.699003961@decadent.org.uk>
+References: <lsq.1461711744.351546278@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:36554 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752210AbcDZWz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 18:55:28 -0400
-Received: by mail-ig0-f180.google.com with SMTP id u10so56822615igr.1
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 15:55:28 -0700 (PDT)
-In-Reply-To: <1461709807.5535.55.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	"Vijay Pandurangan" <vijayp@vijayp.ca>,
+	"Cong Wang" <cwang@twopensource.com>, netdev@vger.kernel.org,
+	"Evan Jones" <ej@evanjones.ca>,
+	"Nicolas Dichtel" <nicolas.dichtel@6wind.com>,
+	"Phil Sutter" <phil@nwl.cc>,
+	"Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <lsq.1461711744.351546278@decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 26, 2016 at 3:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> sd->input_queue_head is incremented for each processed packet
-> in process_backlog(), and read from other cpus performing
-> Out Of Order avoidance in get_rps_cpu()
->
-> Moving this field in a separate cache line keeps it mostly
-> hot for the cpu in process_backlog(), as other cpus will
-> only read it.
->
-> In a stress test, process_backlog() was consuming 6.80 % of cpu cycles,
-> and the patch reduced the cost to 0.65 %
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+3.2.80-rc1 review patch.  If anyone has any objections, please let me k=
+now.
 
-Very nice!
+------------------
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+=46rom: Vijay Pandurangan <vijayp@vijayp.ca>
 
-> ---
->  include/linux/netdevice.h |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 18d8394f2e5d..934ca866562d 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2747,11 +2747,15 @@ struct softnet_data {
->         struct sk_buff          *completion_queue;
->
->  #ifdef CONFIG_RPS
-> -       /* Elements below can be accessed between CPUs for RPS */
-> +       /* input_queue_head should be written by cpu owning this struct,
-> +        * and only read by other cpus. Worth using a cache line.
-> +        */
-> +       unsigned int            input_queue_head ____cacheline_aligned_in_smp;
-> +
-> +       /* Elements below can be accessed between CPUs for RPS/RFS */
->         struct call_single_data csd ____cacheline_aligned_in_smp;
->         struct softnet_data     *rps_ipi_next;
->         unsigned int            cpu;
-> -       unsigned int            input_queue_head;
->         unsigned int            input_queue_tail;
->  #endif
->         unsigned int            dropped;
->
->
+[ Upstream commit ce8c839b74e3017996fad4e1b7ba2e2625ede82f ]
+
+Packets that arrive from real hardware devices have ip_summed =3D=3D
+CHECKSUM_UNNECESSARY if the hardware verified the checksums, or
+CHECKSUM_NONE if the packet is bad or it was unable to verify it. The
+current version of veth will replace CHECKSUM_NONE with
+CHECKSUM_UNNECESSARY, which causes corrupt packets routed from hardware=
+ to
+a veth device to be delivered to the application. This caused applicati=
+ons
+at Twitter to receive corrupt data when network hardware was corrupting
+packets.
+
+We believe this was added as an optimization to skip computing and
+verifying checksums for communication between containers. However, loca=
+lly
+generated packets have ip_summed =3D=3D CHECKSUM_PARTIAL, so the code a=
+s
+written does nothing for them. As far as we can tell, after removing th=
+is
+code, these packets are transmitted from one stack to another unmodifie=
+d
+(tcpdump shows invalid checksums on both sides, as expected), and they =
+are
+delivered correctly to applications. We didn=E2=80=99t test every possi=
+ble network
+configuration, but we tried a few common ones such as bridging containe=
+rs,
+using NAT between the host and a container, and routing from hardware
+devices to containers. We have effectively deployed this in production =
+at
+Twitter (by disabling RX checksum offloading on veth devices).
+
+This code dates back to the first version of the driver, commit
+<e314dbdc1c0dc6a548ecf> ("[NET]: Virtual ethernet device driver"), so I
+suspect this bug occurred mostly because the driver API has evolved
+significantly since then. Commit <0b7967503dc97864f283a> ("net/veth: Fi=
+x
+packet checksumming") (in December 2010) fixed this for packets that ge=
+t
+created locally and sent to hardware devices, by not changing
+CHECKSUM_PARTIAL. However, the same issue still occurs for packets comi=
+ng
+in from hardware devices.
+
+Co-authored-by: Evan Jones <ej@evanjones.ca>
+Signed-off-by: Evan Jones <ej@evanjones.ca>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Phil Sutter <phil@nwl.cc>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Vijay Pandurangan <vijayp@vijayp.ca>
+Acked-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[bwh: Backported to 3.2: adjust context]
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/veth.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -126,11 +126,6 @@ static netdev_tx_t veth_xmit(struct sk_b
+ 	stats =3D this_cpu_ptr(priv->stats);
+ 	rcv_stats =3D this_cpu_ptr(rcv_priv->stats);
+=20
+-	/* don't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
+-	   will cause bad checksum on forwarded packets */
+-	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
+-	    rcv->features & NETIF_F_RXCSUM)
+-		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+=20
+ 	length =3D skb->len;
+ 	if (dev_forward_skb(rcv, skb) !=3D NET_RX_SUCCESS)
