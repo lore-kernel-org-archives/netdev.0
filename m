@@ -1,122 +1,65 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 5/8] ovs: align nlattr properly when needed
-Date: Tue, 26 Apr 2016 10:06:15 +0200
-Message-ID: <1461657978-13360-6-git-send-email-nicolas.dichtel@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 3/8] fs/quota: use nla_put_u64_64bit()
+Date: Tue, 26 Apr 2016 10:06:13 +0200
+Message-ID: <1461657978-13360-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <1461657978-13360-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, sd@queasysnail.net, johannes@sipsolutions.net,
-	kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-	jack@suse.com, linux-kernel@vger.kernel.org, pshelar@nicira.com,
-	dev@openvswitch.org, jhs@mojatatu.com, philipp.reisner@linbit.com,
-	lars.ellenberg@linbit.com, drbd-dev@lists.linbit.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:55819 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752226AbcDZIGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 04:06:48 -0400
-In-Reply-To: <1461657978-13360-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
+ sd-y1jBWg8GRStKuXlAQpz2QA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org,
+ jack-IBi9RG/b67k@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1461657978-13360-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-I also fix commit 8b32ab9e6ef1: use nla_total_size_64bit() for
-OVS_FLOW_ATTR_USED in ovs_flow_cmd_msg_size().
-
-Fixes: 8b32ab9e6ef1 ("ovs: use nla_put_u64_64bit()")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/openvswitch.h |  2 ++
- net/openvswitch/datapath.c       | 27 +++++++++++++++------------
- 2 files changed, 17 insertions(+), 12 deletions(-)
-
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index d6be1fb778a5..bb0d515b7654 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -84,6 +84,7 @@ enum ovs_datapath_attr {
- 	OVS_DP_ATTR_STATS,		/* struct ovs_dp_stats */
- 	OVS_DP_ATTR_MEGAFLOW_STATS,	/* struct ovs_dp_megaflow_stats */
- 	OVS_DP_ATTR_USER_FEATURES,	/* OVS_DP_F_*  */
-+	OVS_DP_ATTR_PAD,
- 	__OVS_DP_ATTR_MAX
- };
- 
-@@ -253,6 +254,7 @@ enum ovs_vport_attr {
- 	OVS_VPORT_ATTR_UPCALL_PID, /* array of u32 Netlink socket PIDs for */
- 				/* receiving upcalls */
- 	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
-+	OVS_VPORT_ATTR_PAD,
- 	__OVS_VPORT_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 22d9a5316304..856bd8dba676 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -738,9 +738,9 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts,
- 		len += nla_total_size(acts->orig_len);
- 
- 	return len
--		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
-+		+ nla_total_size_64bit(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
- 		+ nla_total_size(1) /* OVS_FLOW_ATTR_TCP_FLAGS */
--		+ nla_total_size(8); /* OVS_FLOW_ATTR_USED */
-+		+ nla_total_size_64bit(8); /* OVS_FLOW_ATTR_USED */
- }
- 
- /* Called with ovs_mutex or RCU read lock. */
-@@ -759,7 +759,9 @@ static int ovs_flow_cmd_fill_stats(const struct sw_flow *flow,
- 		return -EMSGSIZE;
- 
- 	if (stats.n_packets &&
--	    nla_put(skb, OVS_FLOW_ATTR_STATS, sizeof(struct ovs_flow_stats), &stats))
-+	    nla_put_64bit(skb, OVS_FLOW_ATTR_STATS,
-+			  sizeof(struct ovs_flow_stats), &stats,
-+			  OVS_FLOW_ATTR_PAD))
- 		return -EMSGSIZE;
- 
- 	if ((u8)ntohs(tcp_flags) &&
-@@ -1435,8 +1437,8 @@ static size_t ovs_dp_cmd_msg_size(void)
- 	size_t msgsize = NLMSG_ALIGN(sizeof(struct ovs_header));
- 
- 	msgsize += nla_total_size(IFNAMSIZ);
--	msgsize += nla_total_size(sizeof(struct ovs_dp_stats));
--	msgsize += nla_total_size(sizeof(struct ovs_dp_megaflow_stats));
-+	msgsize += nla_total_size_64bit(sizeof(struct ovs_dp_stats));
-+	msgsize += nla_total_size_64bit(sizeof(struct ovs_dp_megaflow_stats));
- 	msgsize += nla_total_size(sizeof(u32)); /* OVS_DP_ATTR_USER_FEATURES */
- 
- 	return msgsize;
-@@ -1463,13 +1465,13 @@ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
- 		goto nla_put_failure;
- 
- 	get_dp_stats(dp, &dp_stats, &dp_megaflow_stats);
--	if (nla_put(skb, OVS_DP_ATTR_STATS, sizeof(struct ovs_dp_stats),
--			&dp_stats))
-+	if (nla_put_64bit(skb, OVS_DP_ATTR_STATS, sizeof(struct ovs_dp_stats),
-+			  &dp_stats, OVS_DP_ATTR_PAD))
- 		goto nla_put_failure;
- 
--	if (nla_put(skb, OVS_DP_ATTR_MEGAFLOW_STATS,
--			sizeof(struct ovs_dp_megaflow_stats),
--			&dp_megaflow_stats))
-+	if (nla_put_64bit(skb, OVS_DP_ATTR_MEGAFLOW_STATS,
-+			  sizeof(struct ovs_dp_megaflow_stats),
-+			  &dp_megaflow_stats, OVS_DP_ATTR_PAD))
- 		goto nla_put_failure;
- 
- 	if (nla_put_u32(skb, OVS_DP_ATTR_USER_FEATURES, dp->user_features))
-@@ -1838,8 +1840,9 @@ static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
- 		goto nla_put_failure;
- 
- 	ovs_vport_get_stats(vport, &vport_stats);
--	if (nla_put(skb, OVS_VPORT_ATTR_STATS, sizeof(struct ovs_vport_stats),
--		    &vport_stats))
-+	if (nla_put_64bit(skb, OVS_VPORT_ATTR_STATS,
-+			  sizeof(struct ovs_vport_stats), &vport_stats,
-+			  OVS_VPORT_ATTR_PAD))
- 		goto nla_put_failure;
- 
- 	if (ovs_vport_get_upcall_portids(vport, skb))
--- 
-2.8.1
+U2lnbmVkLW9mZi1ieTogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29t
+PgotLS0KIGZzL3F1b3RhL25ldGxpbmsuYyAgICAgICAgIHwgMTIgKysrKysrKy0tLS0tCiBpbmNs
+dWRlL3VhcGkvbGludXgvcXVvdGEuaCB8ICAxICsKIDIgZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRp
+b25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2ZzL3F1b3RhL25ldGxpbmsuYyBi
+L2ZzL3F1b3RhL25ldGxpbmsuYwppbmRleCBkMDdhMmY5MWQ4NTguLjhiMjUyNjczZDQ1NCAxMDA2
+NDQKLS0tIGEvZnMvcXVvdGEvbmV0bGluay5jCisrKyBiL2ZzL3F1b3RhL25ldGxpbmsuYwpAQCAt
+NDcsNyArNDcsNyBAQCB2b2lkIHF1b3RhX3NlbmRfd2FybmluZyhzdHJ1Y3Qga3FpZCBxaWQsIGRl
+dl90IGRldiwKIAl2b2lkICptc2dfaGVhZDsKIAlpbnQgcmV0OwogCWludCBtc2dfc2l6ZSA9IDQg
+KiBubGFfdG90YWxfc2l6ZShzaXplb2YodTMyKSkgKwotCQkgICAgICAgMiAqIG5sYV90b3RhbF9z
+aXplKHNpemVvZih1NjQpKTsKKwkJICAgICAgIDIgKiBubGFfdG90YWxfc2l6ZV82NGJpdChzaXpl
+b2YodTY0KSk7CiAKIAkvKiBXZSBoYXZlIHRvIGFsbG9jYXRlIHVzaW5nIEdGUF9OT0ZTIGFzIHdl
+IGFyZSBjYWxsZWQgZnJvbSBhCiAJICogZmlsZXN5c3RlbSBwZXJmb3JtaW5nIHdyaXRlIGFuZCB0
+aHVzIGZ1cnRoZXIgcmVjdXJzaW9uIGludG8KQEAgLTY4LDggKzY4LDkgQEAgdm9pZCBxdW90YV9z
+ZW5kX3dhcm5pbmcoc3RydWN0IGtxaWQgcWlkLCBkZXZfdCBkZXYsCiAJcmV0ID0gbmxhX3B1dF91
+MzIoc2tiLCBRVU9UQV9OTF9BX1FUWVBFLCBxaWQudHlwZSk7CiAJaWYgKHJldCkKIAkJZ290byBh
+dHRyX2Vycl9vdXQ7Ci0JcmV0ID0gbmxhX3B1dF91NjQoc2tiLCBRVU9UQV9OTF9BX0VYQ0VTU19J
+RCwKLQkJCSAgZnJvbV9rcWlkX211bmdlZCgmaW5pdF91c2VyX25zLCBxaWQpKTsKKwlyZXQgPSBu
+bGFfcHV0X3U2NF82NGJpdChza2IsIFFVT1RBX05MX0FfRVhDRVNTX0lELAorCQkJCWZyb21fa3Fp
+ZF9tdW5nZWQoJmluaXRfdXNlcl9ucywgcWlkKSwKKwkJCQlRVU9UQV9OTF9BX1BBRCk7CiAJaWYg
+KHJldCkKIAkJZ290byBhdHRyX2Vycl9vdXQ7CiAJcmV0ID0gbmxhX3B1dF91MzIoc2tiLCBRVU9U
+QV9OTF9BX1dBUk5JTkcsIHdhcm50eXBlKTsKQEAgLTgxLDggKzgyLDkgQEAgdm9pZCBxdW90YV9z
+ZW5kX3dhcm5pbmcoc3RydWN0IGtxaWQgcWlkLCBkZXZfdCBkZXYsCiAJcmV0ID0gbmxhX3B1dF91
+MzIoc2tiLCBRVU9UQV9OTF9BX0RFVl9NSU5PUiwgTUlOT1IoZGV2KSk7CiAJaWYgKHJldCkKIAkJ
+Z290byBhdHRyX2Vycl9vdXQ7Ci0JcmV0ID0gbmxhX3B1dF91NjQoc2tiLCBRVU9UQV9OTF9BX0NB
+VVNFRF9JRCwKLQkJCSAgZnJvbV9rdWlkX211bmdlZCgmaW5pdF91c2VyX25zLCBjdXJyZW50X3Vp
+ZCgpKSk7CisJcmV0ID0gbmxhX3B1dF91NjRfNjRiaXQoc2tiLCBRVU9UQV9OTF9BX0NBVVNFRF9J
+RCwKKwkJCQlmcm9tX2t1aWRfbXVuZ2VkKCZpbml0X3VzZXJfbnMsIGN1cnJlbnRfdWlkKCkpLAor
+CQkJCVFVT1RBX05MX0FfUEFEKTsKIAlpZiAocmV0KQogCQlnb3RvIGF0dHJfZXJyX291dDsKIAln
+ZW5sbXNnX2VuZChza2IsIG1zZ19oZWFkKTsKZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51
+eC9xdW90YS5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L3F1b3RhLmgKaW5kZXggMzhiYWRkYjgwN2Y1
+Li40ZDI0ODllZjZmMTAgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvdWFwaS9saW51eC9xdW90YS5oCisr
+KyBiL2luY2x1ZGUvdWFwaS9saW51eC9xdW90YS5oCkBAIC0xOTEsNiArMTkxLDcgQEAgZW51bSB7
+CiAJUVVPVEFfTkxfQV9ERVZfTUFKT1IsCiAJUVVPVEFfTkxfQV9ERVZfTUlOT1IsCiAJUVVPVEFf
+TkxfQV9DQVVTRURfSUQsCisJUVVPVEFfTkxfQV9QQUQsCiAJX19RVU9UQV9OTF9BX01BWCwKIH07
+CiAjZGVmaW5lIFFVT1RBX05MX0FfTUFYIChfX1FVT1RBX05MX0FfTUFYIC0gMSkKLS0gCjIuOC4x
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFp
+bGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWls
+bWFuL2xpc3RpbmZvL2Rldgo=
