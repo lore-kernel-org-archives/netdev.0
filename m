@@ -1,43 +1,69 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: fix double-fdput in replace_map_fd_with_map_ptr()
-Date: Tue, 26 Apr 2016 22:48:07 +0200
-Message-ID: <571FD407.4010803@iogearbox.net>
-References: <1461702386-17490-1-git-send-email-jannh@google.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 00/11] Mellanox 100G extending mlx5 ethtool support
+Date: Tue, 26 Apr 2016 23:55:03 +0300
+Message-ID: <CALzJLG-BJvB7h2wAOqy8ibDdkw7Croaiy7+QU9izrcivuS1yOg@mail.gmail.com>
+References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com> <20160426.160301.938979848864279754.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com
-To: Jann Horn <jannh@google.com>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59028 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752815AbcDZUsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 16:48:10 -0400
-In-Reply-To: <1461702386-17490-1-git-send-email-jannh@google.com>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:32871 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752355AbcDZUzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 16:55:23 -0400
+Received: by mail-yw0-f196.google.com with SMTP id o63so4911776ywe.0
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 13:55:23 -0700 (PDT)
+In-Reply-To: <20160426.160301.938979848864279754.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/26/2016 10:26 PM, Jann Horn wrote:
-> When bpf(BPF_PROG_LOAD, ...) was invoked with a BPF program whose bytecode
-> references a non-map file descriptor as a map file descriptor, the error
-> handling code called fdput() twice instead of once (in __bpf_map_get() and
-> in replace_map_fd_with_map_ptr()). If the file descriptor table of the
-> current task is shared, this causes f_count to be decremented too much,
-> allowing the struct file to be freed while it is still in use
-> (use-after-free). This can be exploited to gain root privileges by an
-> unprivileged user.
+On Tue, Apr 26, 2016 at 11:03 PM, David Miller <davem@davemloft.net> wrote:
 >
-> This bug was introduced in
-> commit 0246e64d9a5f ("bpf: handle pseudo BPF_LD_IMM64 insn"), but is only
-> exploitable since
-> commit 1be7f75d1668 ("bpf: enable non-root eBPF programs") because
-> previously, CAP_SYS_ADMIN was required to reach the vulnerable code.
+> Series applied.
 >
-> (posted publicly according to request by maintainer)
->
-> Signed-off-by: Jann Horn <jannh@google.com>
-> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Be careful about what feature update semantics you implement.  If you get a request
+> to change multiple feature bits, and even one of them cannot be done, the entire
+> update operation should fail and the bits should revert to what they were before
+> the request.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+It will be a nightmare to rollback in such case.  What if the rollback failed ?
 
-Thanks!
+>
+> Is that how the code behaves now?
+>
+
+Not exactly.  If the set/clear of Bit(I) is performed successfully we
+set/clear that feature in dev->features ourselves,
+and if one fails we return a negative error code so
+__netdev_update_features will notify on the failure, but we will be
+left with the features that we did success to modify.
+
+__netdev_update_features@net/core/dev.c
+
+if (unlikely(err < 0)) {
+        netdev_err(dev,
+                        "set_features() failed (%d); wanted %pNF, left %pNF\n",
+                        err, &features, &dev->features);
+        /* return non-0 since some features might have changed and
+         * it's better to fire a spurious notification than miss it
+         */
+         return -1;
+}
+
+>From this I understand it is ok to update the dev->features inside the
+device's set_features NDO and return a negative value in case of
+failure,
+and a notification on changed features will be fired in anycase.
+
+Is this a correct assumption ?
+
+Anyhow if you think this behavior should be fixed, we will fix it.
+Failures at set_features should be rare and should be debugged rather
+than ignored.
+
+Saeed.
