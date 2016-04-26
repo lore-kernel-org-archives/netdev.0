@@ -1,143 +1,183 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 1/2] vhost: simplify work flushing
-Date: Mon, 25 Apr 2016 22:14:32 -0400
-Message-ID: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Subject: [PATCH 2/2] vhost: lockless enqueuing
+Date: Mon, 25 Apr 2016 22:14:33 -0400
+Message-ID: <1461636873-45335-2-git-send-email-jasowang@redhat.com>
+References: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>
 To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46704 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752021AbcDZCOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 22:14:40 -0400
+In-Reply-To: <1461636873-45335-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We used to implement the work flushing through tracking queued seq,
-done seq, and the number of flushing. This patch simplify this by just
-implement work flushing through another kind of vhost work with
-completion. This will be used by lockless enqueuing patch.
+We use spinlock to synchronize the work list now which may cause
+unnecessary contentions. So this patch switch to use llist to remove
+this contention. Pktgen tests shows about 5% improvement:
+
+Before:
+~1300000 pps
+After:
+~1370000 pps
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/vhost.c | 53 ++++++++++++++++++++-------------------------------
- 1 file changed, 21 insertions(+), 32 deletions(-)
+ drivers/vhost/vhost.c | 52 +++++++++++++++++++++++++--------------------------
+ drivers/vhost/vhost.h |  7 ++++---
+ 2 files changed, 29 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 669fef1..73dd16d 100644
+index 73dd16d..0061a7b 100644
 --- a/drivers/vhost/vhost.c
 +++ b/drivers/vhost/vhost.c
-@@ -131,6 +131,19 @@ static void vhost_reset_is_le(struct vhost_virtqueue *vq)
- 	vq->is_le = virtio_legacy_is_little_endian();
- }
+@@ -168,7 +168,7 @@ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
  
-+struct vhost_flush_struct {
-+	struct vhost_work work;
-+	struct completion wait_event;
-+};
-+
-+static void vhost_flush_work(struct vhost_work *work)
-+{
-+	struct vhost_flush_struct *s;
-+
-+	s = container_of(work, struct vhost_flush_struct, work);
-+	complete(&s->wait_event);
-+}
-+
- static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
- 			    poll_table *pt)
+ void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
  {
-@@ -158,8 +171,6 @@ void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
- 	INIT_LIST_HEAD(&work->node);
+-	INIT_LIST_HEAD(&work->node);
++	clear_bit(VHOST_WORK_QUEUED, &work->flags);
  	work->fn = fn;
  	init_waitqueue_head(&work->done);
--	work->flushing = 0;
--	work->queue_seq = work->done_seq = 0;
  }
- EXPORT_SYMBOL_GPL(vhost_work_init);
+@@ -246,15 +246,16 @@ EXPORT_SYMBOL_GPL(vhost_poll_flush);
  
-@@ -211,31 +222,17 @@ void vhost_poll_stop(struct vhost_poll *poll)
- }
- EXPORT_SYMBOL_GPL(vhost_poll_stop);
- 
--static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
--				unsigned seq)
--{
--	int left;
--
--	spin_lock_irq(&dev->work_lock);
--	left = seq - work->done_seq;
--	spin_unlock_irq(&dev->work_lock);
--	return left <= 0;
--}
--
- void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
+ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
  {
--	unsigned seq;
--	int flushing;
-+	struct vhost_flush_struct flush;
-+
-+	if (dev->worker) {
-+		init_completion(&flush.wait_event);
-+		vhost_work_init(&flush.work, vhost_flush_work);
+-	unsigned long flags;
++	if (!dev->worker)
++		return;
  
--	spin_lock_irq(&dev->work_lock);
--	seq = work->queue_seq;
--	work->flushing++;
--	spin_unlock_irq(&dev->work_lock);
--	wait_event(work->done, vhost_work_seq_done(dev, work, seq));
--	spin_lock_irq(&dev->work_lock);
--	flushing = --work->flushing;
--	spin_unlock_irq(&dev->work_lock);
--	BUG_ON(flushing < 0);
-+		vhost_work_queue(dev, &flush.work);
-+		wait_for_completion(&flush.wait_event);
-+	}
- }
- EXPORT_SYMBOL_GPL(vhost_work_flush);
- 
-@@ -254,7 +251,6 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
- 	spin_lock_irqsave(&dev->work_lock, flags);
- 	if (list_empty(&work->node)) {
- 		list_add_tail(&work->node, &dev->work_list);
--		work->queue_seq++;
- 		spin_unlock_irqrestore(&dev->work_lock, flags);
+-	spin_lock_irqsave(&dev->work_lock, flags);
+-	if (list_empty(&work->node)) {
+-		list_add_tail(&work->node, &dev->work_list);
+-		spin_unlock_irqrestore(&dev->work_lock, flags);
++	if (!test_and_set_bit(VHOST_WORK_QUEUED, &work->flags)) {
++		/* We can only add the work to the list after we're
++		 * sure it was not in the list.
++		 */
++		smp_mb();
++		llist_add(&work->node, &dev->work_list);
  		wake_up_process(dev->worker);
- 	} else {
-@@ -310,7 +306,6 @@ static int vhost_worker(void *data)
+-	} else {
+-		spin_unlock_irqrestore(&dev->work_lock, flags);
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(vhost_work_queue);
+@@ -262,7 +263,7 @@ EXPORT_SYMBOL_GPL(vhost_work_queue);
+ /* A lockless hint for busy polling code to exit the loop */
+ bool vhost_has_work(struct vhost_dev *dev)
+ {
+-	return !list_empty(&dev->work_list);
++	return !llist_empty(&dev->work_list);
+ }
+ EXPORT_SYMBOL_GPL(vhost_has_work);
+ 
+@@ -305,7 +306,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ static int vhost_worker(void *data)
  {
  	struct vhost_dev *dev = data;
- 	struct vhost_work *work = NULL;
--	unsigned uninitialized_var(seq);
+-	struct vhost_work *work = NULL;
++	struct vhost_work *work, *work_next;
++	struct llist_node *node;
  	mm_segment_t oldfs = get_fs();
  
  	set_fs(USER_DS);
-@@ -321,11 +316,6 @@ static int vhost_worker(void *data)
+@@ -315,29 +317,25 @@ static int vhost_worker(void *data)
+ 		/* mb paired w/ kthread_stop */
  		set_current_state(TASK_INTERRUPTIBLE);
  
- 		spin_lock_irq(&dev->work_lock);
--		if (work) {
--			work->done_seq = seq;
--			if (work->flushing)
--				wake_up_all(&work->done);
--		}
- 
+-		spin_lock_irq(&dev->work_lock);
+-
  		if (kthread_should_stop()) {
- 			spin_unlock_irq(&dev->work_lock);
-@@ -336,7 +326,6 @@ static int vhost_worker(void *data)
- 			work = list_first_entry(&dev->work_list,
- 						struct vhost_work, node);
- 			list_del_init(&work->node);
--			seq = work->queue_seq;
- 		} else
- 			work = NULL;
- 		spin_unlock_irq(&dev->work_lock);
+-			spin_unlock_irq(&dev->work_lock);
+ 			__set_current_state(TASK_RUNNING);
+ 			break;
+ 		}
+-		if (!list_empty(&dev->work_list)) {
+-			work = list_first_entry(&dev->work_list,
+-						struct vhost_work, node);
+-			list_del_init(&work->node);
+-		} else
+-			work = NULL;
+-		spin_unlock_irq(&dev->work_lock);
+ 
+-		if (work) {
++		node = llist_del_all(&dev->work_list);
++		if (!node)
++			schedule();
++
++		node = llist_reverse_order(node);
++		/* make sure flag is seen after deletion */
++		smp_wmb();
++		llist_for_each_entry_safe(work, work_next, node, node) {
++			clear_bit(VHOST_WORK_QUEUED, &work->flags);
+ 			__set_current_state(TASK_RUNNING);
+ 			work->fn(work);
+ 			if (need_resched())
+ 				schedule();
+-		} else
+-			schedule();
+-
++		}
+ 	}
+ 	unuse_mm(dev->mm);
+ 	set_fs(oldfs);
+@@ -398,9 +396,9 @@ void vhost_dev_init(struct vhost_dev *dev,
+ 	dev->log_file = NULL;
+ 	dev->memory = NULL;
+ 	dev->mm = NULL;
+-	spin_lock_init(&dev->work_lock);
+-	INIT_LIST_HEAD(&dev->work_list);
+ 	dev->worker = NULL;
++	init_llist_head(&dev->work_list);
++
+ 
+ 	for (i = 0; i < dev->nvqs; ++i) {
+ 		vq = dev->vqs[i];
+@@ -566,7 +564,7 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
+ 	/* No one will access memory at this point */
+ 	kvfree(dev->memory);
+ 	dev->memory = NULL;
+-	WARN_ON(!list_empty(&dev->work_list));
++	WARN_ON(!llist_empty(&dev->work_list));
+ 	if (dev->worker) {
+ 		kthread_stop(dev->worker);
+ 		dev->worker = NULL;
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index d36d8be..6690e64 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -15,13 +15,15 @@
+ struct vhost_work;
+ typedef void (*vhost_work_fn_t)(struct vhost_work *work);
+ 
++#define VHOST_WORK_QUEUED 1
+ struct vhost_work {
+-	struct list_head	  node;
++	struct llist_node	  node;
+ 	vhost_work_fn_t		  fn;
+ 	wait_queue_head_t	  done;
+ 	int			  flushing;
+ 	unsigned		  queue_seq;
+ 	unsigned		  done_seq;
++	unsigned long		  flags;
+ };
+ 
+ /* Poll a file (eventfd or socket) */
+@@ -126,8 +128,7 @@ struct vhost_dev {
+ 	int nvqs;
+ 	struct file *log_file;
+ 	struct eventfd_ctx *log_ctx;
+-	spinlock_t work_lock;
+-	struct list_head work_list;
++	struct llist_head work_list;
+ 	struct task_struct *worker;
+ };
+ 
 -- 
 1.8.3.1
