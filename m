@@ -1,102 +1,66 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: pull request [net]: batman-adv-0160426
-Date: Tue, 26 Apr 2016 11:27:14 +0800
-Message-ID: <1461641239-7097-1-git-send-email-a@unstable.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 1/5] batman-adv: Check skb size before using encapsulated ETH+VLAN header
+Date: Tue, 26 Apr 2016 11:27:15 +0800
+Message-ID: <1461641239-7097-2-git-send-email-a@unstable.cc>
+References: <1461641239-7097-1-git-send-email-a@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:42236 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:48163 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751060AbcDZD1y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2016 23:27:54 -0400
+	id S1751060AbcDZD16 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2016 23:27:58 -0400
+In-Reply-To: <1461641239-7097-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Sven Eckelmann <sven@narfation.org>
 
-this is a batch intended for net. Changes are quite small, therefore I
-hope it is not a big deal to include them at this point of the release =
-cycle.
+The encapsulated ethernet and VLAN header may be outside the received
+ethernet frame. Thus the skb buffer size has to be checked before it can be
+parsed to find out if it encapsulates another batman-adv packet.
 
-In this patchset you can find the following fixes:
-
-1) check skb size to avoid reading beyond its border when delivering
-   payloads, by Sven Eckelmann
-2) initialize last_seen time in neigh_node object to prevent cleanup
-   routine from accidentally purge it, by Marek Lindner
-3) release "recently added" slave interfaces upon virtual/batman
-   interface shutdown, by Sven Eckelmann
-4) properly decrease router object reference counter upon routing table
-   update, by Sven Eckelmann
-5) release queue slots when purging OGM packets of deactivating slave
-   interface, by Linus L=C3=BCssing
-
-Patch 2 and 3 have no "Fixes:" tag because the offending commits date
-back to when batman-adv was not yet officially in the net tree.
-
-Note that all these changes are fixing very old commits and therefore
-it would be nice if you could queue them for *stable*.
-
-Please pull or let me know of any issue!
-
-Thanks a lot,
-	Antonio
-
-
-
-
-The following changes since commit 5f44abd041c5f3be76d57579ab254d78e601=
-315b:
-
-  Merge tag 'rtc-4.6-3' of git://git.kernel.org/pub/scm/linux/kernel/gi=
-t/abelloni/linux (2016-04-21 15:41:13 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to c4fdb6cff2aa0ae740c5f19b6f745cbbe786d42f=
-:
-
-  batman-adv: Fix broadcast/ogm queue limit on a removed interface (201=
-6-04-24 15:41:56 +0800)
-
-----------------------------------------------------------------
-In this patchset you can find the following fixes:
-
-1) check skb size to avoid reading beyond its border when delivering
-   payloads, by Sven Eckelmann
-2) initialize last_seen time in neigh_node object to prevent cleanup
-   routine from accidentally purge it, by Marek Lindner
-3) release "recently added" slave interfaces upon virtual/batman
-   interface shutdown, by Sven Eckelmann
-4) properly decrease router object reference counter upon routing table
-   update, by Sven Eckelmann
-5) release queue slots when purging OGM packets of deactivating slave
-   interface, by Linus L=C3=BCssing
-
-Patch 2 and 3 have no "Fixes:" tag because the offending commits date
-back to when batman-adv was not yet officially in the net tree.
-
-----------------------------------------------------------------
-Linus L=C3=BCssing (1):
-      batman-adv: Fix broadcast/ogm queue limit on a removed interface
-
-Marek Lindner (1):
-      batman-adv: init neigh node last seen field
-
-Sven Eckelmann (3):
-      batman-adv: Check skb size before using encapsulated ETH+VLAN hea=
-der
-      batman-adv: Deactivate TO_BE_ACTIVATED hardif on shutdown
-      batman-adv: Reduce refcnt of removed router when updating route
-
- net/batman-adv/hard-interface.c | 3 +--
- net/batman-adv/originator.c     | 1 +
- net/batman-adv/routing.c        | 9 +++++++++
- net/batman-adv/send.c           | 6 ++++++
+Fixes: 420193573f11 ("batman-adv: softif bridge loop avoidance")
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
+---
  net/batman-adv/soft-interface.c | 8 ++++++--
- 5 files changed, 23 insertions(+), 4 deletions(-)
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 0710379491bf..8a136b6a1ff0 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -408,11 +408,17 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ 	 */
+ 	nf_reset(skb);
+ 
++	if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
++		goto dropped;
++
+ 	vid = batadv_get_vid(skb, 0);
+ 	ethhdr = eth_hdr(skb);
+ 
+ 	switch (ntohs(ethhdr->h_proto)) {
+ 	case ETH_P_8021Q:
++		if (!pskb_may_pull(skb, VLAN_ETH_HLEN))
++			goto dropped;
++
+ 		vhdr = (struct vlan_ethhdr *)skb->data;
+ 
+ 		if (vhdr->h_vlan_encapsulated_proto != ethertype)
+@@ -424,8 +430,6 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ 	}
+ 
+ 	/* skb->dev & skb->pkt_type are set here */
+-	if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
+-		goto dropped;
+ 	skb->protocol = eth_type_trans(skb, soft_iface);
+ 
+ 	/* should not be necessary anymore as we use skb_pull_rcsum()
+-- 
+2.8.1
