@@ -1,198 +1,40 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: Re: [PATCH 2/2] vhost: lockless enqueuing
-Date: Tue, 26 Apr 2016 02:24:18 -0400 (EDT)
-Message-ID: <2033086948.46236145.1461651858100.JavaMail.zimbra@redhat.com>
-References: <1461636873-45335-1-git-send-email-jasowang@redhat.com> <1461636873-45335-2-git-send-email-jasowang@redhat.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: codel: split into multiple files
+Date: Tue, 26 Apr 2016 08:30:18 +0200
+Message-ID: <CA+BoTQn2h8XQ5PwTm4Zy2-6JZs-muW2FmA0kVWf9OYCYgQ3T2g@mail.gmail.com>
+References: <CA+icZUWrRbBJM3q7SzRSc2znAXZHr1JdXHD2j2POKvDin4=CZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461636873-45335-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: sedat.dilek@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:37438 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751195AbcDZGaU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 02:30:20 -0400
+Received: by mail-wm0-f52.google.com with SMTP id n3so15859729wmn.0
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2016 23:30:19 -0700 (PDT)
+In-Reply-To: <CA+icZUWrRbBJM3q7SzRSc2znAXZHr1JdXHD2j2POKvDin4=CZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jason,
+On 26 April 2016 at 08:09, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+> Hi,
+>
+> I had a very quick view on net-next.git#master (up to commit
+> fab7b629a82da1b59620470d13152aff975239f6).
+>
+> Commit in [1] aka "codel: split into multiple files" removed codel.h
+> but [2] and [3] have relicts to it.
+> Forgot to remove?
 
-Overall patches look good. Just one doubt I have is below:
-> 
-> We use spinlock to synchronize the work list now which may cause
-> unnecessary contentions. So this patch switch to use llist to remove
-> this contention. Pktgen tests shows about 5% improvement:
-> 
-> Before:
-> ~1300000 pps
-> After:
-> ~1370000 pps
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/vhost.c | 52
->  +++++++++++++++++++++++++--------------------------
->  drivers/vhost/vhost.h |  7 ++++---
->  2 files changed, 29 insertions(+), 30 deletions(-)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 73dd16d..0061a7b 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -168,7 +168,7 @@ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned
-> mode, int sync,
->  
->  void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
->  {
-> -	INIT_LIST_HEAD(&work->node);
-> +	clear_bit(VHOST_WORK_QUEUED, &work->flags);
->  	work->fn = fn;
->  	init_waitqueue_head(&work->done);
->  }
-> @@ -246,15 +246,16 @@ EXPORT_SYMBOL_GPL(vhost_poll_flush);
->  
->  void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
->  {
-> -	unsigned long flags;
-> +	if (!dev->worker)
-> +		return;
->  
-> -	spin_lock_irqsave(&dev->work_lock, flags);
-> -	if (list_empty(&work->node)) {
-> -		list_add_tail(&work->node, &dev->work_list);
-> -		spin_unlock_irqrestore(&dev->work_lock, flags);
-> +	if (!test_and_set_bit(VHOST_WORK_QUEUED, &work->flags)) {
-> +		/* We can only add the work to the list after we're
-> +		 * sure it was not in the list.
-> +		 */
-> +		smp_mb();
-> +		llist_add(&work->node, &dev->work_list);
->  		wake_up_process(dev->worker);
-> -	} else {
-> -		spin_unlock_irqrestore(&dev->work_lock, flags);
->  	}
->  }
->  EXPORT_SYMBOL_GPL(vhost_work_queue);
-> @@ -262,7 +263,7 @@ EXPORT_SYMBOL_GPL(vhost_work_queue);
->  /* A lockless hint for busy polling code to exit the loop */
->  bool vhost_has_work(struct vhost_dev *dev)
->  {
-> -	return !list_empty(&dev->work_list);
-> +	return !llist_empty(&dev->work_list);
->  }
->  EXPORT_SYMBOL_GPL(vhost_has_work);
->  
-> @@ -305,7 +306,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
->  static int vhost_worker(void *data)
->  {
->  	struct vhost_dev *dev = data;
-> -	struct vhost_work *work = NULL;
-> +	struct vhost_work *work, *work_next;
-> +	struct llist_node *node;
->  	mm_segment_t oldfs = get_fs();
->  
->  	set_fs(USER_DS);
-> @@ -315,29 +317,25 @@ static int vhost_worker(void *data)
->  		/* mb paired w/ kthread_stop */
->  		set_current_state(TASK_INTERRUPTIBLE);
->  
-> -		spin_lock_irq(&dev->work_lock);
-> -
->  		if (kthread_should_stop()) {
-> -			spin_unlock_irq(&dev->work_lock);
->  			__set_current_state(TASK_RUNNING);
->  			break;
->  		}
-> -		if (!list_empty(&dev->work_list)) {
-> -			work = list_first_entry(&dev->work_list,
-> -						struct vhost_work, node);
-> -			list_del_init(&work->node);
-> -		} else
-> -			work = NULL;
-> -		spin_unlock_irq(&dev->work_lock);
->  
-> -		if (work) {
-> +		node = llist_del_all(&dev->work_list);
-> +		if (!node)
-> +			schedule();
-> +
-> +		node = llist_reverse_order(node);
+codel.h was not removed. diffstat for codel.h is all red which I
+presume is why you thought of it as removed, see:
 
-Can we avoid llist reverse here?
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree/inc=
+lude/net/codel.h?id=3Dd068ca2ae2e614b9a418fb3b5f1fd4cf996ff032
 
-> +		/* make sure flag is seen after deletion */
-> +		smp_wmb();
-> +		llist_for_each_entry_safe(work, work_next, node, node) {
-> +			clear_bit(VHOST_WORK_QUEUED, &work->flags);
->  			__set_current_state(TASK_RUNNING);
->  			work->fn(work);
->  			if (need_resched())
->  				schedule();
-> -		} else
-> -			schedule();
-> -
-> +		}
->  	}
->  	unuse_mm(dev->mm);
->  	set_fs(oldfs);
-> @@ -398,9 +396,9 @@ void vhost_dev_init(struct vhost_dev *dev,
->  	dev->log_file = NULL;
->  	dev->memory = NULL;
->  	dev->mm = NULL;
-> -	spin_lock_init(&dev->work_lock);
-> -	INIT_LIST_HEAD(&dev->work_list);
->  	dev->worker = NULL;
-> +	init_llist_head(&dev->work_list);
-> +
->  
->  	for (i = 0; i < dev->nvqs; ++i) {
->  		vq = dev->vqs[i];
-> @@ -566,7 +564,7 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool
-> locked)
->  	/* No one will access memory at this point */
->  	kvfree(dev->memory);
->  	dev->memory = NULL;
-> -	WARN_ON(!list_empty(&dev->work_list));
-> +	WARN_ON(!llist_empty(&dev->work_list));
->  	if (dev->worker) {
->  		kthread_stop(dev->worker);
->  		dev->worker = NULL;
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index d36d8be..6690e64 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -15,13 +15,15 @@
->  struct vhost_work;
->  typedef void (*vhost_work_fn_t)(struct vhost_work *work);
->  
-> +#define VHOST_WORK_QUEUED 1
->  struct vhost_work {
-> -	struct list_head	  node;
-> +	struct llist_node	  node;
->  	vhost_work_fn_t		  fn;
->  	wait_queue_head_t	  done;
->  	int			  flushing;
->  	unsigned		  queue_seq;
->  	unsigned		  done_seq;
-> +	unsigned long		  flags;
->  };
->  
->  /* Poll a file (eventfd or socket) */
-> @@ -126,8 +128,7 @@ struct vhost_dev {
->  	int nvqs;
->  	struct file *log_file;
->  	struct eventfd_ctx *log_ctx;
-> -	spinlock_t work_lock;
-> -	struct list_head work_list;
-> +	struct llist_head work_list;
->  	struct task_struct *worker;
->  };
->  
-> --
-> 1.8.3.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+Micha=C5=82
