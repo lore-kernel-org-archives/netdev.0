@@ -1,150 +1,76 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [net-next PATCH 6/8] mlx4: Add support for inner IPv6 checksum
- offloads and TSO
-Date: Tue, 26 Apr 2016 17:37:08 +0300
-Message-ID: <571F7D14.7090504@dev.mellanox.co.il>
-References: <20160425182442.11331.88349.stgit@ahduyck-xeon-server>
- <20160425183133.11331.54774.stgit@ahduyck-xeon-server>
+From: Jens Axboe <axboe@fb.com>
+Subject: Re: codel: split into multiple files
+Date: Tue, 26 Apr 2016 08:37:05 -0600
+Message-ID: <571F7D11.6070803@fb.com>
+References: <CA+icZUWrRbBJM3q7SzRSc2znAXZHr1JdXHD2j2POKvDin4=CZg@mail.gmail.com>
+ <CA+BoTQn2h8XQ5PwTm4Zy2-6JZs-muW2FmA0kVWf9OYCYgQ3T2g@mail.gmail.com>
+ <CA+icZUVinohrHUNpKti-QA52eeSztmRTH1sFHpK+YSm98yGrAA@mail.gmail.com>
+ <CA+BoTQmovjcYFA4JQBDNQwJHmu=MjZg_HnDn4+KbTi6vYcVV7A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <aduyck@mirantis.com>, talal@mellanox.com,
-	netdev@vger.kernel.org, davem@davemloft.net, galp@mellanox.com,
-	ogerlitz@mellanox.com, eranbe@mellanox.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michal Kazior <michal.kazior@tieto.com>, <sedat.dilek@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33699 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907AbcDZOhO (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:25176 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752511AbcDZOhO (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 10:37:14 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r12so4980807wme.0
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 07:37:13 -0700 (PDT)
-In-Reply-To: <20160425183133.11331.54774.stgit@ahduyck-xeon-server>
+In-Reply-To: <CA+BoTQmovjcYFA4JQBDNQwJHmu=MjZg_HnDn4+KbTi6vYcVV7A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 4/25/2016 9:31 PM, Alexander Duyck wrote:
-> >From what I can tell the ConnectX-3 will support an inner IPv6 checksum and
-> segmentation offload, however it cannot support outer IPv6 headers.  For
-> this reason I am adding the feature to the hw_enc_features and adding an
-> extra check to the features_check call that will disable GSO and checksum
-> offload in the case that the encapsulated frame has an outer IP version of
-> that is not 4.
-
-Hi Alex,
-
-Can you share the testing commands of running vxlan over IPv6 and what 
-exactly didn't work for you ?
-we would like to test this in house and understand what went wrong, 
-theoretically there shouldn't be a difference between IPv6/IPv4 outer
-checksum offloading in ConnectX-3.
-
-Anyway, I suspect it might be related to a driver bug most likely in 
-get_real_size function @en_tx.c
-specifically in : *lso_header_size = (skb_inner_transport_header(skb) - 
-skb->data) + inner_tcp_hdrlen(skb);
-
-will check this and get back to you.
-
-for the mlx5 patches I will also go through them later today.
-
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   25 +++++++++++++++++++-----
->   drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   15 ++++++++++++--
->   2 files changed, 33 insertions(+), 7 deletions(-)
+On 04/26/2016 06:36 AM, Michal Kazior wrote:
+> On 26 April 2016 at 08:43, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+>> On 4/26/16, Michal Kazior <michal.kazior@tieto.com> wrote:
+>>> On 26 April 2016 at 08:09, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+>>>> Hi,
+>>>>
+>>>> I had a very quick view on net-next.git#master (up to commit
+>>>> fab7b629a82da1b59620470d13152aff975239f6).
+>>>>
+>>>> Commit in [1] aka "codel: split into multiple files" removed codel.h
+>>>> but [2] and [3] have relicts to it.
+>>>> Forgot to remove?
+>>>
+>>> codel.h was not removed. diffstat for codel.h is all red which I
+>>> presume is why you thought of it as removed, see:
+>>>
+>>> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree/include/net/codel.h?id=d068ca2ae2e614b9a418fb3b5f1fd4cf996ff032
+>>>
+>>
+>> [ CC Jens ]
+>>
+>> OK.
+>> So what are the plans in the future?
+>> Keep a "generic" codel.h (compatibility reasons?) for net or is it your split?
 >
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index bce37cbfde24..6f28ac58251c 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2357,8 +2357,10 @@ out:
->   	}
->   
->   	/* set offloads */
-> -	priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
-> -				      NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL |
-> +	priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> +				      NETIF_F_RXCSUM |
-> +				      NETIF_F_TSO | NETIF_F_TSO6 |
-> +				      NETIF_F_GSO_UDP_TUNNEL |
->   				      NETIF_F_GSO_UDP_TUNNEL_CSUM |
->   				      NETIF_F_GSO_PARTIAL;
->   }
-> @@ -2369,8 +2371,10 @@ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
->   	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
->   						 vxlan_del_task);
->   	/* unset offloads */
-> -	priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
-> -					NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL |
-> +	priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> +					NETIF_F_RXCSUM |
-> +					NETIF_F_TSO | NETIF_F_TSO6 |
-> +					NETIF_F_GSO_UDP_TUNNEL |
->   					NETIF_F_GSO_UDP_TUNNEL_CSUM |
->   					NETIF_F_GSO_PARTIAL);
->   
-> @@ -2431,7 +2435,18 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
->   						netdev_features_t features)
->   {
->   	features = vlan_features_check(skb, features);
-> -	return vxlan_features_check(skb, features);
-> +	features = vxlan_features_check(skb, features);
-> +
-> +	/* The ConnectX-3 doesn't support outer IPv6 checksums but it does
-> +	 * support inner IPv6 checksums and segmentation so  we need to
-> +	 * strip that feature if this is an IPv6 encapsulated frame.
-> +	 */
-> +	if (skb->encapsulation &&
-> +	    (skb->ip_summed == CHECKSUM_PARTIAL) &&
-> +	    (ip_hdr(skb)->version != 4))
-> +		features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
-Dejavu, didn't you fix this already in harmonize_features, in
-i.e, it is enough to do here:
+> I'm interested in re-using codel in mac80211 for wireless. cfg80211
+> drivers may want to do that as well later. Even vendor drivers could
+> start to use it (I can dream :).
+>
+> I plan to re-spin my patches soonish re-based on the new codel.h/fq.h
+> approach. There's quite a few spins already[1].
+>
+>
+>> AFAICS I have seen a codel-implementation in block.git#wb-buf-throttle.
+>> Does it make sense to have a more "super-generic" codel.h for re-use
+>> (not only for net and block)?
+>> Just a thought.
+>
+> Oh, I'm not really familiar with block and problems around it but it
+> sounds reasonable and interesting. It doesn't look like it blatantly
+> copies codel though (I did that in my initial mac80211 patches with
+> some adjustments, you can check that in the link[1] which you can
+> lookup via my patchset's cover letter[2]; I've based off of codel5[3]
+> back then).
 
-if (skb->encapsulation && (skb->ip_summed == CHECKSUM_PARTIAL))
-             features &= ~NETIF_F_IPV6_CSUM;
+The block version is an adaptation, I guess you can say it pays homage 
+to CoDel. But there are a sufficient amount of differences between 
+networking and storage that I don't think a fully generic version is 
+really feasible. My favorite thing to bring up is the fact that we don't 
+have the luxury of dropping packets on the storage side...
 
-
-> +
-> +	return features;
->   }
->   #endif
->   
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index c0d7b7296236..c9f5388ea22a 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -41,6 +41,7 @@
->   #include <linux/vmalloc.h>
->   #include <linux/tcp.h>
->   #include <linux/ip.h>
-> +#include <linux/ipv6.h>
->   #include <linux/moduleparam.h>
->   
->   #include "mlx4_en.h"
-> @@ -918,8 +919,18 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
->   				 tx_ind, fragptr);
->   
->   	if (skb->encapsulation) {
-> -		struct iphdr *ipv4 = (struct iphdr *)skb_inner_network_header(skb);
-> -		if (ipv4->protocol == IPPROTO_TCP || ipv4->protocol == IPPROTO_UDP)
-> +		union {
-> +			struct iphdr *v4;
-> +			struct ipv6hdr *v6;
-> +			unsigned char *hdr;
-> +		} ip;
-> +		u8 proto;
-> +
-> +		ip.hdr = skb_inner_network_header(skb);
-> +		proto = (ip.v4->version == 4) ? ip.v4->protocol :
-> +						ip.v6->nexthdr;
-> +
-> +		if (proto == IPPROTO_TCP || proto == IPPROTO_UDP)
->   			op_own |= cpu_to_be32(MLX4_WQE_CTRL_IIP | MLX4_WQE_CTRL_ILP);
->   		else
->   			op_own |= cpu_to_be32(MLX4_WQE_CTRL_IIP);
-
-basically this is a bug fix, I don't know why the original author 
-assumed it will be ipv4 !
+-- 
+Jens Axboe
