@@ -1,56 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netem: Segment GSO packets on enqueue.
-Date: Tue, 26 Apr 2016 11:49:58 -0700
-Message-ID: <1461696598.5535.35.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netem@lists.linux-foundation.org
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Petko Manolov <petkan@mip-labs.com>
+Subject: [PATCH] Fixes buffer allocation size and the actual packet length;
+Date: Tue, 26 Apr 2016 21:50:24 +0300
+Message-ID: <1461696624-5373-2-git-send-email-petkan@mip-labs.com>
+References: <1461696624-5373-1-git-send-email-petkan@mip-labs.com>
+Cc: davem@davemloft.net, petkan@mip-labs.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34239 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbcDZSuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 14:50:02 -0400
-Received: by mail-pf0-f175.google.com with SMTP id y69so10217136pfb.1
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 11:50:01 -0700 (PDT)
-In-Reply-To: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
+Received: from lan.nucleusys.com ([92.247.61.126]:42250 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752395AbcDZSuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 14:50:40 -0400
+In-Reply-To: <1461696624-5373-1-git-send-email-petkan@mip-labs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-26 at 13:43 -0400, Neil Horman wrote:
-> This was recently reported to me, and reproduced on the latest net kernel, when
-> attempting to run netperf from a host that had a netem qdisc attached to the
-> egress interface:
+usb_fill_bulk_urb() receives buffer length parameter 8 bytes larger
+than what's allocated by alloc_skb(); This seems to be a problem with
+older (pegasus usb-1.1) devices, which may silently return more data
+than the maximal packet length.
 
-..
+Going through the chip's documentation i figured out the ethernet
+packet is appended with 4 bytes of status data.  That's why we now
+subtract 4 instead of 8 bytes from the reported packet length.
 
-> The problem occurs because netem is not prepared to handle GSO packets (as it
-> uses skb_checksum_help in its enqueue path, which cannot manipulate these
-> frames).
-> 
-> The solution I think is to simply segment the skb in a simmilar fashion to the
-> way we do in __dev_queue_xmit (via validate_xmit_skb), except here we always
-> segment, instead of only when the interface needs us to do it.  This allows
-> netem to properly drop/mangle/pass/etc the correct percentages of frames as per
-> its qdisc configuration, and avoid failing its checksum operations
-> 
-> tested successfully by myself on the latest net kernel, to whcih this applies
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Jamal Hadi Salim <jhs@mojatatu.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: netem@lists.linux-foundation.org
-> ---
->  net/sched/sch_netem.c | 34 +++++++++++++++++++++++++++++++++-
->  1 file changed, 33 insertions(+), 1 deletion(-)
+Reported-by: Lincoln Ramsay <a1291762@gmail.com>
+Signed-off-by: Petko Manolov <petkan@mip-labs.com>
+---
+ drivers/net/usb/pegasus.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-
-This is not correct.
-
-I want my TSO packets being still TSO after netem traversal.
-
-Some of us use netem at 40Gbit speed ;)
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index f840802..780c217 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -497,7 +497,7 @@ static void read_bulk_callback(struct urb *urb)
+ 		pkt_len = buf[count - 3] << 8;
+ 		pkt_len += buf[count - 4];
+ 		pkt_len &= 0xfff;
+-		pkt_len -= 8;
++		pkt_len -= 4;
+ 	}
+ 
+ 	/*
+@@ -528,7 +528,7 @@ static void read_bulk_callback(struct urb *urb)
+ goon:
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+-			  pegasus->rx_skb->data, PEGASUS_MTU + 8,
++			  pegasus->rx_skb->data, PEGASUS_MTU,
+ 			  read_bulk_callback, pegasus);
+ 	rx_status = usb_submit_urb(pegasus->rx_urb, GFP_ATOMIC);
+ 	if (rx_status == -ENODEV)
+@@ -569,7 +569,7 @@ static void rx_fixup(unsigned long data)
+ 	}
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+-			  pegasus->rx_skb->data, PEGASUS_MTU + 8,
++			  pegasus->rx_skb->data, PEGASUS_MTU,
+ 			  read_bulk_callback, pegasus);
+ try_again:
+ 	status = usb_submit_urb(pegasus->rx_urb, GFP_ATOMIC);
+@@ -823,7 +823,7 @@ static int pegasus_open(struct net_device *net)
+ 
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+-			  pegasus->rx_skb->data, PEGASUS_MTU + 8,
++			  pegasus->rx_skb->data, PEGASUS_MTU,
+ 			  read_bulk_callback, pegasus);
+ 	if ((res = usb_submit_urb(pegasus->rx_urb, GFP_KERNEL))) {
+ 		if (res == -ENODEV)
+-- 
+2.8.0.rc3
