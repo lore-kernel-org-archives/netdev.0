@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 00/11] Mellanox 100G extending mlx5 ethtool
- support
-Date: Tue, 26 Apr 2016 17:41:50 -0400 (EDT)
-Message-ID: <20160426.174150.2239494413467110.davem@davemloft.net>
-References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
-	<20160426.160301.938979848864279754.davem@davemloft.net>
-	<CALzJLG-BJvB7h2wAOqy8ibDdkw7Croaiy7+QU9izrcivuS1yOg@mail.gmail.com>
+Subject: Re: [PATCH -next] pch_gbe: fix bogus trylock conversion
+Date: Tue, 26 Apr 2016 17:42:50 -0400 (EDT)
+Message-ID: <20160426.174250.1298288123769064536.davem@davemloft.net>
+References: <1461705270-29849-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	talal@mellanox.com, eranbe@mellanox.com
-To: saeedm@dev.mellanox.co.il
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42566 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42572 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881AbcDZVlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:41:53 -0400
-In-Reply-To: <CALzJLG-BJvB7h2wAOqy8ibDdkw7Croaiy7+QU9izrcivuS1yOg@mail.gmail.com>
+	with ESMTP id S1751920AbcDZVmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:42:52 -0400
+In-Reply-To: <1461705270-29849-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Date: Tue, 26 Apr 2016 23:55:03 +0300
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 26 Apr 2016 23:14:30 +0200
 
-> It will be a nightmare to rollback in such case.  What if the rollback failed ?
+> Should have converted 'if (trylock)' to 'lock'.
+> 
+> Fixes: a6086a893718db ("drivers: net: remove NETDEV_TX_LOCKED")
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  I re-checked the series and this was the only place where I messed up.
 
-It is absolutely essential to handle this properly.
-
-Which means you must have a prepare/commit model, wherein the prepare
-phase makes sure to pre-allocate all necessary resources, and only if
-all the prepare phase preparations succeed will the commit phase run.
-
-The commit phase cannot error, because all of the resources have been
-allocated successfully already.
-
-This way there are no issues of "rolling back" because you never
-actually move the state forward until you can guarantee that you can
-do everything.
+Applied.
