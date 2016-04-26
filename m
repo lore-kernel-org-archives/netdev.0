@@ -1,7 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 0/4] samples/bpf: Improve user experience
-Date: Tue, 26 Apr 2016 13:09:12 +0200
-Message-ID: <20160426110828.20716.13392.stgit@firesoul>
+Subject: [net-next PATCH 4/4] samples/bpf: allow make to be run from
+ samples/bpf/ directory
+Date: Tue, 26 Apr 2016 13:09:32 +0200
+Message-ID: <20160426110932.20716.51360.stgit@firesoul>
+References: <20160426110828.20716.13392.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,33 +11,59 @@ Cc: bblanco@plumgrid.com, borkmann@iogearbox.net,
 	alexei.starovoitov@gmail.com, linux-kbuild@vger.kernel.org,
 	Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53954 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752382AbcDZLJP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 07:09:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20160426110828.20716.13392.stgit@firesoul>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is a steep learning curve getting started with using the eBPF
-examples in samples/bpf/.  There are several dependencies, and
-specific versions of these dependencies.  Invoking make in the correct
-manor is also slightly obscure.
+It is not intuitive that 'make' must be run from the top level
+directory with argument "samples/bpf/" to compile these eBPF samples.
 
-This patchset cleanup, document and hopefully improves the first time
-user experience with the eBPF samples directory by auto-detecting
-certain scenarios.
+Introduce a kbuild make file trick that allow make to be run from the
+"samples/bpf/" directory itself.  It basically change to the top level
+directory and call "make samples/bpf/" with the "/" slash after the
+directory name.
 
+Also add a clean target that only cleans this directory, by taking
+advantage of the kbuild external module setting M=$PWD.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
+ samples/bpf/Makefile   |    8 ++++++++
+ samples/bpf/README.rst |    3 +++
+ 2 files changed, 11 insertions(+)
 
-Jesper Dangaard Brouer (4):
-      samples/bpf: add back functionality to redefine LLC command
-      samples/bpf: Makefile verify LLVM compiler avail and bpf target is supported
-      samples/bpf: add a README file to get users started
-      samples/bpf: allow make to be run from samples/bpf/ directory
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 7ac66f5bbbf5..7370dfee482f 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -85,6 +85,14 @@ HOSTLOADLIBES_test_overhead += -lelf -lrt
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+ LLC ?= llc
+ 
++# Trick to allow make to be run from this directory
++all:
++	$(MAKE) -C ../../ $$PWD/
++
++clean:
++	$(MAKE) -C ../../ M=$$PWD clean
++	@rm -f *~
++
+ # Verify LLVM compiler is available and bpf target is supported
+ .PHONY: verify_cmd_llc verify_target_bpf
+ 
+diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
+index 3e1ac05d8e7c..3a9e6c4099aa 100644
+--- a/samples/bpf/README.rst
++++ b/samples/bpf/README.rst
+@@ -47,6 +47,9 @@ For compiling goto kernel top level build directory and run make like::
+ 
+ Do notice the "/" slash after the directory name.
+ 
++It is also possible to call make from this directory.  This will just
++hide the the invocation of make as above with the appended "/".
++
+ Manually compiling LLVM with 'bpf' support
+ ------------------------------------------
+ 
 
-
- samples/bpf/Makefile   |   32 +++++++++++++++++++++-
- samples/bpf/README.rst |   70 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 101 insertions(+), 1 deletion(-)
- create mode 100644 samples/bpf/README.rst
