@@ -1,25 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] sh_eth: couple of software reset bit cleanups
-Date: Tue, 26 Apr 2016 16:07:50 -0400 (EDT)
-Message-ID: <20160426.160750.287313568412301143.davem@davemloft.net>
-References: <16246598.T4zYgEztZA@wasted.cogentembedded.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC net-next] net: dsa: Provide CPU port statistics to
+ master netdev
+Date: Tue, 26 Apr 2016 22:13:37 +0200
+Message-ID: <20160426201337.GG30107@lunn.ch>
+References: <1461175101-13506-1-git-send-email-f.fainelli@gmail.com>
+ <20160425214342.GB5538@lunn.ch>
+ <571FC532.4060402@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <16246598.T4zYgEztZA@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:46731 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751999AbcDZUNk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2016 16:13:40 -0400
+Content-Disposition: inline
+In-Reply-To: <571FC532.4060402@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 24 Apr 2016 23:42:48 +0300
-
->    Here's a set of 2 patches against DaveM's 'net-next.git' repo. We clean up
-> the use of the software reset bits...
+> > Hi Florian
+> > 
+> > Interesting concept. My one concern is that by concatenating the two
+> > sets of statistics, we get a name clash. I'm not sure the Marvell
+> > switch statistics counters have different names to the Marvell
+> > Ethernet driver statistics counters. ethtool does not care, but maybe
+> > an SNMP agent using these statistics might not be too happy seeing the
+> > same name twice?
 > 
-> [1/2] sh_eth: use EDMR_SRST_GETHER in sh_eth_check_reset()
-> [2/2] sh_eth: rename ARSTR register bit
+> That's a very good point, would you agree if we were prefixing the DSA
+> CPU port statistics with some kind of name, e.g: cpu_port_<name> or
+> something more compact?
 
-Series applied, thanks.
+Yes, that would be O.K.
+
+It cannot be too long a prefix. The maximum length of the name is
+32. The header file is unclear if there must be a NULL at the end. It
+looks like the longest switch statistic we have is
+RxPkts1024toMaxPktsOctets, i.e. 25 characters. So we only have 6 or 7
+characters for the prefix.
+
+	   Andrew
