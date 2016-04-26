@@ -1,43 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/6] bus: Add shared MDIO bus framework
-Date: Tue, 26 Apr 2016 20:23:35 +0200
-Message-ID: <20160426182335.GE30107@lunn.ch>
-References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
- <20160426121335.GC11668@lunn.ch>
- <571FA3F6.7000903@gmail.com>
- <5167289.0a4LBoWhyX@wuerfel>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ARM: dts: at91: VInCo: fix phy reset gpio flag
+Date: Tue, 26 Apr 2016 21:25:13 +0300
+Message-ID: <571FB289.40807@cogentembedded.com>
+References: <570BF481.9070903@cogentembedded.com>
+ <1461666272-10107-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Pramod Kumar <pramod.kumar@broadcom.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Masahiro Yamada <yamada.masahiro@socionext.com>,
-	Chen-Yu Tsai <wens@csie.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>,
-	Suzuki K Poulose <suzuki.poulose@arm.com>,
-	netdev@vger.kernel.org, Punit Agrawal <punit.agrawal@arm.com>,
-	linux-kernel@vger.kernel.org,
-	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Anup Patel <anup.patel@broadcom.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5167289.0a4LBoWhyX@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+	David Miller <davem@davemloft.net>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:35762 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753497AbcDZSZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 14:25:17 -0400
+Received: by mail-lf0-f48.google.com with SMTP id c126so28825147lfb.2
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 11:25:16 -0700 (PDT)
+In-Reply-To: <1461666272-10107-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> A more complex problem would be having a PHY driver for a device
-> that can be either an ethernet phy or some other phy.
+Hello.
 
-I doubt that ever happens. You can have up to 32 different devices on
-an MDIO bus. Since an Ethernet PHY and a "some other sort of PHY" are
-completely different things, why would a hardware engineer place them
-on the same address? It is like saying your ATA controller and VGA
-controller share the same slot on the PCI bus...
+On 04/26/2016 01:24 PM, Nicolas Ferre wrote:
 
-   Andrew
+> Fix gpio active flag for the phy reset-gpios property. The line is
+> active low instead of active high.
+> Actually, this flags was never used by the macb driver.
+>
+> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> ---
+> Hi,
+>
+> Thanks for having reported this bug to me.
+
+    And thank you for beating me to it and doing the patch. I'm still busy 
+with other stuff. :-(
+
+> I hope that we will be able to move forward for changing the phy
+> reset code in the macb driver.
+
+    I meant to delete it entirely.
+
+> I plan to queue this patch through arm-soc for 4.7.
+
+    Hm, that way we get that board broken if my phylib/macb patches get merged 
+before your patch. Perhaps it would be better to merge this patch thru DaveM's 
+tree (before my patches) to keep the kernel bisectable?
+
+> Thanks, best regards,
+>    Nicolas
+
+MBR, Sergei
