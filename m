@@ -1,97 +1,130 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] net: phy: at803x: only the AT8030 needs a hardware reset on link change
-Date: Tue, 26 Apr 2016 12:44:18 -0500
-Message-ID: <1461692658-1742-1-git-send-email-timur@codeaurora.org>
-To: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-	davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
-	zonque@gmail.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] netem: Segment GSO packets on enqueue.
+Date: Tue, 26 Apr 2016 13:43:38 -0400
+Message-ID: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netem@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:59344 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752205AbcDZRoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 13:44:25 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60379 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890AbcDZRoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 13:44:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 13a56b44 ("at803x: Add support for hardware reset") added a
-work-around for a hardware bug on the AT8030.  However, the work-around
-was being called for all 803x PHYs, even those that don't need it.
-Function at803x_link_change_notify() checks to make sure that it only
-resets the PHY on the 8030, but it makes more sense to not call that
-function at all if it isn't needed.
+This was recently reported to me, and reproduced on the latest net kernel, when
+attempting to run netperf from a host that had a netem qdisc attached to the
+egress interface:
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
+[  788.073771] ------------[ cut here ]------------
+[  788.096716] WARNING: at net/core/dev.c:2253 skb_warn_bad_offload+0xcd/0xda()
+[  788.129521] bnx2: caps=(0x00000001801949b3, 0x0000000000000000) len=2962
+data_len=0 gso_size=1448 gso_type=1 ip_summed=3
+[  788.182150] Modules linked in: sch_netem kvm_amd kvm crc32_pclmul ipmi_ssif
+ghash_clmulni_intel sp5100_tco amd64_edac_mod aesni_intel lrw gf128mul
+glue_helper ablk_helper edac_mce_amd cryptd pcspkr sg edac_core hpilo ipmi_si
+i2c_piix4 k10temp fam15h_power hpwdt ipmi_msghandler shpchp acpi_power_meter
+pcc_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c
+sd_mod crc_t10dif crct10dif_generic mgag200 syscopyarea sysfillrect sysimgblt
+i2c_algo_bit drm_kms_helper ahci ata_generic pata_acpi ttm libahci
+crct10dif_pclmul pata_atiixp tg3 libata crct10dif_common drm crc32c_intel ptp
+serio_raw bnx2 r8169 hpsa pps_core i2c_core mii dm_mirror dm_region_hash dm_log
+dm_mod
+[  788.465294] CPU: 16 PID: 0 Comm: swapper/16 Tainted: G        W
+------------   3.10.0-327.el7.x86_64 #1
+[  788.511521] Hardware name: HP ProLiant DL385p Gen8, BIOS A28 12/17/2012
+[  788.542260]  ffff880437c036b8 f7afc56532a53db9 ffff880437c03670
+ffffffff816351f1
+[  788.576332]  ffff880437c036a8 ffffffff8107b200 ffff880633e74200
+ffff880231674000
+[  788.611943]  0000000000000001 0000000000000003 0000000000000000
+ffff880437c03710
+[  788.647241] Call Trace:
+[  788.658817]  <IRQ>  [<ffffffff816351f1>] dump_stack+0x19/0x1b
+[  788.686193]  [<ffffffff8107b200>] warn_slowpath_common+0x70/0xb0
+[  788.713803]  [<ffffffff8107b29c>] warn_slowpath_fmt+0x5c/0x80
+[  788.741314]  [<ffffffff812f92f3>] ? ___ratelimit+0x93/0x100
+[  788.767018]  [<ffffffff81637f49>] skb_warn_bad_offload+0xcd/0xda
+[  788.796117]  [<ffffffff8152950c>] skb_checksum_help+0x17c/0x190
+[  788.823392]  [<ffffffffa01463a1>] netem_enqueue+0x741/0x7c0 [sch_netem]
+[  788.854487]  [<ffffffff8152cb58>] dev_queue_xmit+0x2a8/0x570
+[  788.880870]  [<ffffffff8156ae1d>] ip_finish_output+0x53d/0x7d0
+...
+
+The problem occurs because netem is not prepared to handle GSO packets (as it
+uses skb_checksum_help in its enqueue path, which cannot manipulate these
+frames).
+
+The solution I think is to simply segment the skb in a simmilar fashion to the
+way we do in __dev_queue_xmit (via validate_xmit_skb), except here we always
+segment, instead of only when the interface needs us to do it.  This allows
+netem to properly drop/mangle/pass/etc the correct percentages of frames as per
+its qdisc configuration, and avoid failing its checksum operations
+
+tested successfully by myself on the latest net kernel, to whcih this applies
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Jamal Hadi Salim <jhs@mojatatu.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: netem@lists.linux-foundation.org
 ---
- drivers/net/phy/at803x.c | 40 ++++++++++++++++++----------------------
- 1 file changed, 18 insertions(+), 22 deletions(-)
+ net/sched/sch_netem.c | 34 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index b3ffaee..f279a89 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -359,27 +359,25 @@ static void at803x_link_change_notify(struct phy_device *phydev)
- 	 * in the FIFO. In such cases, the FIFO enters an error mode it
- 	 * cannot recover from by software.
- 	 */
--	if (phydev->drv->phy_id == ATH8030_PHY_ID) {
--		if (phydev->state == PHY_NOLINK) {
--			if (priv->gpiod_reset && !priv->phy_reset) {
--				struct at803x_context context;
--
--				at803x_context_save(phydev, &context);
--
--				gpiod_set_value(priv->gpiod_reset, 1);
--				msleep(1);
--				gpiod_set_value(priv->gpiod_reset, 0);
--				msleep(1);
--
--				at803x_context_restore(phydev, &context);
--
--				phydev_dbg(phydev, "%s(): phy was reset\n",
--					   __func__);
--				priv->phy_reset = true;
--			}
--		} else {
--			priv->phy_reset = false;
-+	if (phydev->state == PHY_NOLINK) {
-+		if (priv->gpiod_reset && !priv->phy_reset) {
-+			struct at803x_context context;
-+
-+			at803x_context_save(phydev, &context);
-+
-+			gpiod_set_value(priv->gpiod_reset, 1);
-+			msleep(1);
-+			gpiod_set_value(priv->gpiod_reset, 0);
-+			msleep(1);
-+
-+			at803x_context_restore(phydev, &context);
-+
-+			phydev_dbg(phydev, "%s(): phy was reset\n",
-+				   __func__);
-+			priv->phy_reset = true;
- 		}
-+	} else {
-+		priv->phy_reset = false;
- 	}
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 9640bb3..c9feecb 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -401,7 +401,7 @@ static void tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
+  * 	NET_XMIT_DROP: queue length didn't change.
+  *      NET_XMIT_SUCCESS: one skb was queued.
+  */
+-static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++static int __netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	/* We don't fill cb now as skb_unshare() may invalidate it */
+@@ -519,6 +519,38 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	return NET_XMIT_SUCCESS;
  }
  
-@@ -391,7 +389,6 @@ static struct phy_driver at803x_driver[] = {
- 	.phy_id_mask		= 0xffffffef,
- 	.probe			= at803x_probe,
- 	.config_init		= at803x_config_init,
--	.link_change_notify	= at803x_link_change_notify,
- 	.set_wol		= at803x_set_wol,
- 	.get_wol		= at803x_get_wol,
- 	.suspend		= at803x_suspend,
-@@ -427,7 +424,6 @@ static struct phy_driver at803x_driver[] = {
- 	.phy_id_mask		= 0xffffffef,
- 	.probe			= at803x_probe,
- 	.config_init		= at803x_config_init,
--	.link_change_notify	= at803x_link_change_notify,
- 	.set_wol		= at803x_set_wol,
- 	.get_wol		= at803x_get_wol,
- 	.suspend		= at803x_suspend,
++static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++{
++	struct sk_buff *segs;
++	struct sk_buff *next;
++	int rc = NET_XMIT_SUCCESS;
++
++	if (skb_is_gso(skb)) {
++		segs = skb_gso_segment(skb, 0);
++		kfree_skb(skb);
++		if (IS_ERR(segs)) {
++			qdisc_qstats_drop(sch);
++			return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
++		}
++		skb = segs;
++	}
++
++	while (skb) {
++		next = skb->next;
++		skb->next = NULL;
++		if (rc == NET_XMIT_SUCCESS)
++			rc = __netem_enqueue(skb, sch);
++		else {
++			qdisc_qstats_drop(sch);
++			kfree_skb(skb);
++		}
++
++		skb = next;
++	}
++
++	return rc;
++}
++
+ static unsigned int netem_drop(struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project.
+2.5.5
