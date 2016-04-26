@@ -1,60 +1,62 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 2/4] samples/bpf: Makefile verify LLVM compiler
- avail and bpf target is supported
-Date: Tue, 26 Apr 2016 13:09:22 +0200
-Message-ID: <20160426110922.20716.11333.stgit@firesoul>
-References: <20160426110828.20716.13392.stgit@firesoul>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 1/4] samples/bpf: add back functionality to redefine
+ LLC command
+Date: Tue, 26 Apr 2016 13:36:59 +0200
+Message-ID: <571F52DB.7050904@iogearbox.net>
+References: <20160426110828.20716.13392.stgit@firesoul> <20160426110917.20716.43051.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: bblanco@plumgrid.com, borkmann@iogearbox.net,
-	alexei.starovoitov@gmail.com, linux-kbuild@vger.kernel.org,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49122 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752579AbcDZLJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2016 07:09:25 -0400
-In-Reply-To: <20160426110828.20716.13392.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	alexei.starovoitov@gmail.com, linux-kbuild@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20160426110917.20716.43051.stgit@firesoul>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make compiling samples/bpf more user friendly, by detecting if LLVM
-compiler tool 'llc' is available, and also detect if the 'bpf' target
-is available in this version of LLVM.
+On 04/26/2016 01:09 PM, Jesper Dangaard Brouer wrote:
+> It is practical to be-able-to redefine the location of the LLVM
+> command 'llc', because not all distros have a LLVM version with bpf
+> target support.  Thus, it is sometimes required to compile LLVM from
+> source, and sometimes it is not desired to overwrite the distros
+> default LLVM version.
+>
+> This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
+> PATH, rather than a hardcoded value").
+>
+> Add this features back. Note that it is possible to redefine the LLC
+> on the make command like:
+>
+>   make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+>
+> Fixes: 128d1514be35 ("samples/bpf: Use llc in PATH, rather than a hardcoded value")
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+>   samples/bpf/Makefile |    6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
+>
+> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+> index 744dd7a16144..5bae9536f100 100644
+> --- a/samples/bpf/Makefile
+> +++ b/samples/bpf/Makefile
+> @@ -81,10 +81,14 @@ HOSTLOADLIBES_spintest += -lelf
+>   HOSTLOADLIBES_map_perf_test += -lelf -lrt
+>   HOSTLOADLIBES_test_overhead += -lelf -lrt
+>
+> +# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
+> +#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+> +LLC ?= llc
+> +
+>   # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
+>   # But, there is no easy way to fix it, so just exclude it since it is
+>   # useless for BPF samples.
+>   $(obj)/%.o: $(src)/%.c
+>   	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+>   		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+> -		-O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
+> +		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- samples/bpf/Makefile |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
-
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 5bae9536f100..7ac66f5bbbf5 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -85,6 +85,24 @@ HOSTLOADLIBES_test_overhead += -lelf -lrt
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
- LLC ?= llc
- 
-+# Verify LLVM compiler is available and bpf target is supported
-+.PHONY: verify_cmd_llc verify_target_bpf
-+
-+verify_cmd_llc:
-+	@if ! (which "${LLC}" > /dev/null 2>&1); then \
-+		echo "*** ERROR: Cannot find LLVM tool 'llc' (${LLC})" ;\
-+		exit 1; \
-+	else true; fi
-+
-+verify_target_bpf: verify_cmd_llc
-+	@if ! (${LLC} -march=bpf -mattr=help > /dev/null 2>&1); then \
-+		echo "*** ERROR: LLVM (${LLC}) does not support 'bpf' target" ;\
-+		echo "   NOTICE: LLVM version >= 3.7.0 required" ;\
-+		exit 2; \
-+	else true; fi
-+
-+$(src)/*.c: verify_target_bpf
-+
- # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
- # But, there is no easy way to fix it, so just exclude it since it is
- # useless for BPF samples.
+Why not doing the same for clang? True that we're not using 'clang -target bpf'
+here, but when someone builds llvm from git, it's very likely that clang is cloned
+and built along with it.
