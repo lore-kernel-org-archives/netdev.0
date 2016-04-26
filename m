@@ -1,103 +1,47 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH net-next 4/5] stmmac: dwmac-socfpga: call phy_resume() only in resume callback
-Date: Tue, 26 Apr 2016 23:24:58 +0200
-Message-ID: <1461705899-17015-5-git-send-email-manabian@gmail.com>
-References: <1461705899-17015-1-git-send-email-manabian@gmail.com>
-Cc: Joachim Eastwood <manabian@gmail.com>, marex@denx.de,
-	dinguyen@opensource.altera.com, peppe.cavallaro@st.com,
-	alexandre.torgue@st.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next] macvlan: fix failure during registration v3
+Date: Tue, 26 Apr 2016 14:36:37 -0700
+Message-ID: <CAF2d9jjVP+VGBosOdHSNvCc8YGzr76d202GVeUUH_f9C0nW8PQ@mail.gmail.com>
+References: <1461449012-7401-1-git-send-email-fruggeri@arista.com>
+ <CAF2d9jh98MGYorJ=btvx04==EsjP5_ivUEimf0TJ1NUPDzG4nw@mail.gmail.com> <CA+HUmGgYf8BkaPqYxvuDtuUY5JC90QC-6_mxEQ6DWRcaoeid2Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Francesco Ruggeri <fruggeri@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:35948 "EHLO
-	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752477AbcDZVZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:25:33 -0400
-Received: by mail-lf0-f65.google.com with SMTP id y84so4293639lfc.3
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 14:25:32 -0700 (PDT)
-In-Reply-To: <1461705899-17015-1-git-send-email-manabian@gmail.com>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:33545 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201AbcDZVg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 17:36:58 -0400
+Received: by mail-yw0-f177.google.com with SMTP id t10so40281197ywa.0
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 14:36:57 -0700 (PDT)
+In-Reply-To: <CA+HUmGgYf8BkaPqYxvuDtuUY5JC90QC-6_mxEQ6DWRcaoeid2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Calling phy_resume() should only be need during driver resume to
-workaround a hardware errata.
+[...]
+>> > -destroy_port:
+>> > -       port->count -= 1;
+>> > -       if (!port->count)
+>> > -               macvlan_port_destroy(lowerdev);
+>> I think you still need this when it fails netdev_upper_dev_link(). The
+>> only thing you should remove is the label.
+>
+> I don't think so. I think the double decrement also occurred in this case.
+> unregister_netdevice invokes rollback_registered/macvlan_uninit
+> which does the decrement.
+>
+I thought macvlan_port_destroy() does not get called but it is called
+from macvlan_uninit(). So it's all good. Thanks.
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
-Tested-by: Marek Vasut <marex@denx.de>
----
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 50 ++++++++--------------
- 1 file changed, 19 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index ba0b793..ba49d8c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -198,41 +198,11 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- {
- 	struct socfpga_dwmac *dwmac = priv;
--	struct net_device *ndev = platform_get_drvdata(pdev);
--	struct stmmac_priv *stpriv = NULL;
--	int ret = 0;
--
--	if (!ndev)
--		return -EINVAL;
--
--	stpriv = netdev_priv(ndev);
--	if (!stpriv)
--		return -EINVAL;
- 
- 	/* Setup the phy mode in the system manager registers according to
- 	 * devicetree configuration
- 	 */
--	ret = socfpga_dwmac_setup(dwmac);
--
--	/* Before the enet controller is suspended, the phy is suspended.
--	 * This causes the phy clock to be gated. The enet controller is
--	 * resumed before the phy, so the clock is still gated "off" when
--	 * the enet controller is resumed. This code makes sure the phy
--	 * is "resumed" before reinitializing the enet controller since
--	 * the enet controller depends on an active phy clock to complete
--	 * a DMA reset. A DMA reset will "time out" if executed
--	 * with no phy clock input on the Synopsys enet controller.
--	 * Verified through Synopsys Case #8000711656.
--	 *
--	 * Note that the phy clock is also gated when the phy is isolated.
--	 * Phy "suspend" and "isolate" controls are located in phy basic
--	 * control register 0, and can be modified by the phy driver
--	 * framework.
--	 */
--	if (stpriv->phydev)
--		phy_resume(stpriv->phydev);
--
--	return ret;
-+	return socfpga_dwmac_setup(dwmac);
- }
- 
- static int socfpga_dwmac_probe(struct platform_device *pdev)
-@@ -290,6 +260,24 @@ static int socfpga_dwmac_resume(struct device *dev)
- 
- 	socfpga_dwmac_init(pdev, priv->plat->bsp_priv);
- 
-+	/* Before the enet controller is suspended, the phy is suspended.
-+	 * This causes the phy clock to be gated. The enet controller is
-+	 * resumed before the phy, so the clock is still gated "off" when
-+	 * the enet controller is resumed. This code makes sure the phy
-+	 * is "resumed" before reinitializing the enet controller since
-+	 * the enet controller depends on an active phy clock to complete
-+	 * a DMA reset. A DMA reset will "time out" if executed
-+	 * with no phy clock input on the Synopsys enet controller.
-+	 * Verified through Synopsys Case #8000711656.
-+	 *
-+	 * Note that the phy clock is also gated when the phy is isolated.
-+	 * Phy "suspend" and "isolate" controls are located in phy basic
-+	 * control register 0, and can be modified by the phy driver
-+	 * framework.
-+	 */
-+	if (priv->phydev)
-+		phy_resume(priv->phydev);
-+
- 	return stmmac_resume(dev);
- }
- #endif /* CONFIG_PM_SLEEP */
--- 
-2.8.0
+> Thanks,
+> Francesco
+>
+>> >
+>> >         return err;
+>> >  }
+>> > --
+>> > 1.8.1.4
+>> >
