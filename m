@@ -1,131 +1,70 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 27 Apr 2016 16:13:39 +0300
-Message-ID: <CALzJLG832pxsRd0zcDHGxpfFPswf2wSCySz1ymdiS5nCH1c3pg@mail.gmail.com>
-References: <20160427120109.37449920@canb.auug.org.au>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next PATCH 4/4] samples/bpf: allow make to be run from
+ samples/bpf/ directory
+Date: Wed, 27 Apr 2016 13:15:42 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4AB7FE@AcuExch.aculab.com>
+References: <20160426110828.20716.13392.stgit@firesoul>
+ <20160426110932.20716.51360.stgit@firesoul>
+ <20160426143524.GB39797@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160427120109.37449920@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bblanco@plumgrid.com" <bblanco@plumgrid.com>,
+	"borkmann@iogearbox.net" <borkmann@iogearbox.net>,
+	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>
+To: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
+	"Jesper Dangaard Brouer" <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.192]:51788 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752274AbcD0NRX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 09:17:23 -0400
+In-Reply-To: <20160426143524.GB39797@ast-mbp.thefacebook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 27, 2016 at 5:01 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in:
->
->   drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->
-> between commit:
->
->   d8edd2469ace ("et/mlx5e: Fix minimum MTU")
->
-> from the net tree and commit:
->
->   0e405443e803 ("net/mlx5e: Improve set features ndo resiliency")
->
-> from the net-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
->
-> --
-> Cheers,
-> Stephen Rothwell
->
-> diff --cc drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index 67d548b70e14,5bad17d37d7b..000000000000
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@@ -2025,9 -2214,49 +2240,52 @@@ static int set_feature_rx_vlan(struct n
->         return err;
->   }
->
-> + static int mlx5e_handle_feature(struct net_device *netdev,
-> +                               netdev_features_t wanted_features,
-> +                               netdev_features_t feature,
-> +                               mlx5e_feature_handler feature_handler)
-> + {
-> +       netdev_features_t changes = wanted_features ^ netdev->features;
-> +       bool enable = !!(wanted_features & feature);
-> +       int err;
-> +
-> +       if (!(changes & feature))
-> +               return 0;
-> +
-> +       err = feature_handler(netdev, enable);
-> +       if (err) {
-> +               netdev_err(netdev, "%s feature 0x%llx failed err %d\n",
-> +                          enable ? "Enable" : "Disable", feature, err);
-> +               return err;
-> +       }
-> +
-> +       MLX5E_SET_FEATURE(netdev, feature, enable);
-> +       return 0;
-> + }
-> +
-> + static int mlx5e_set_features(struct net_device *netdev,
-> +                             netdev_features_t features)
-> + {
-> +       int err;
-> +
-> +       err  = mlx5e_handle_feature(netdev, features, NETIF_F_LRO,
-> +                                   set_feature_lro);
-> +       err |= mlx5e_handle_feature(netdev, features,
-> +                                   NETIF_F_HW_VLAN_CTAG_FILTER,
-> +                                   set_feature_vlan_filter);
-> +       err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_TC,
-> +                                   set_feature_tc_num_filters);
-> +       err |= mlx5e_handle_feature(netdev, features, NETIF_F_RXALL,
-> +                                   set_feature_rx_all);
-> +       err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_VLAN_CTAG_RX,
-> +                                   set_feature_rx_vlan);
-> +
-> +       return err ? -EINVAL : 0;
-> + }
-> +
->  +#define MXL5_HW_MIN_MTU 64
->  +#define MXL5E_MIN_MTU (MXL5_HW_MIN_MTU + ETH_FCS_LEN)
->  +
->   static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
->   {
->         struct mlx5e_priv *priv = netdev_priv(netdev);
-> @@@ -2633,18 -2966,10 +2997,19 @@@ static void mlx5e_destroy_netdev(struc
->         schedule_work(&priv->set_rx_mode_work);
->         mlx5e_disable_async_events(priv);
->         flush_scheduled_work();
->  -      unregister_netdev(netdev);
->  +      if (test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state)) {
->  +              netif_device_detach(netdev);
->  +              mutex_lock(&priv->state_lock);
->  +              if (test_bit(MLX5E_STATE_OPENED, &priv->state))
->  +                      mlx5e_close_locked(netdev);
->  +              mutex_unlock(&priv->state_lock);
->  +      } else {
->  +              unregister_netdev(netdev);
->  +      }
->  +
->         mlx5e_tc_cleanup(priv);
->         mlx5e_vxlan_cleanup(priv);
-> +       mlx5e_destroy_q_counter(priv);
->         mlx5e_destroy_flow_tables(priv);
->         mlx5e_destroy_tirs(priv);
->         mlx5e_destroy_rqt(priv, MLX5E_SINGLE_RQ_RQT);
+From: Alexei Starovoitov
+> Sent: 26 April 2016 15:35
+> On Tue, Apr 26, 2016 at 01:09:32PM +0200, Jesper Dangaard Brouer wrote:
+> > It is not intuitive that 'make' must be run from the top level
+> > directory with argument "samples/bpf/" to compile these eBPF samples.
+> >
+> > Introduce a kbuild make file trick that allow make to be run from the
+> > "samples/bpf/" directory itself.  It basically change to the top level
+> > directory and call "make samples/bpf/" with the "/" slash after the
+> > directory name.
+> >
+> > Also add a clean target that only cleans this directory, by taking
+> > advantage of the kbuild external module setting M=$PWD.
+> >
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > ---
+> >  samples/bpf/Makefile   |    8 ++++++++
+> >  samples/bpf/README.rst |    3 +++
+> >  2 files changed, 11 insertions(+)
+> >
+> > diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+> > index 7ac66f5bbbf5..7370dfee482f 100644
+> > --- a/samples/bpf/Makefile
+> > +++ b/samples/bpf/Makefile
+> > @@ -85,6 +85,14 @@ HOSTLOADLIBES_test_overhead += -lelf -lrt
+> >  #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+> >  LLC ?= llc
+> >
+> > +# Trick to allow make to be run from this directory
+> > +all:
+> > +	$(MAKE) -C ../../ $$PWD/
+> > +
+> > +clean:
+> > +	$(MAKE) -C ../../ M=$$PWD clean
+> > +	@rm -f *~
+> > +
+> 
+> nice trick!
 
-Looks good, and it is pretty straightforward.
-Dave will have to take all hunks from both patches, same as you did.
+Another nice 'trick' is to write a GNUmakefie containing the local rules.
+GNU make will read it in preference to Makefile and makefile.
 
-Thank you Stephen.
-
-Saeed.
+	David
