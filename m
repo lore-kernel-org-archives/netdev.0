@@ -1,78 +1,113 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/5] phylib: don't return NULL from get_phy_device()
-Date: Wed, 27 Apr 2016 13:11:09 -0700
-Message-ID: <57211CDD.5000903@gmail.com>
-References: <56219623.1S7UfcqQqc@wasted.cogentembedded.com>
- <16806435.OmqP10ba8M@wasted.cogentembedded.com>
- <874mamzw5q.fsf@ketchup.mtl.sfl> <57211D29.2050704@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, Andrew Lunn <andrew@lunn.ch>,
-	netdev@vger.kernel.org, kernel@savoirfairelinux.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/14][pull request] 40GbE Intel Wired LAN Driver Updates 2016-04-27
+Date: Wed, 27 Apr 2016 13:15:39 -0700
+Message-ID: <1461788153-12869-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35028 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752526AbcD0UN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 16:13:28 -0400
-Received: by mail-pa0-f43.google.com with SMTP id iv1so23438163pac.2
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 13:13:28 -0700 (PDT)
-In-Reply-To: <57211D29.2050704@cogentembedded.com>
+Received: from mga01.intel.com ([192.55.52.88]:63244 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753126AbcD0UQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 16:16:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/04/16 13:12, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 04/27/2016 10:30 PM, Vivien Didelot wrote:
-> 
->>> Arnd Bergmann asked that get_phy_device() returns either NULL or the
->>> error
->>> value,  not both on error.  Do as he said, return ERR_PTR(-ENODEV)
->>> instead
->>> of NULL when the PHY ID registers read as  all ones.
->>>
->>> Suggested-by: Arnd Bergmann <arnd@arndb.de>
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>
->>> ---
->>>   drivers/net/phy/phy_device.c |    2 +-
->>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> Index: net-next/drivers/net/phy/phy_device.c
->>> ===================================================================
->>> --- net-next.orig/drivers/net/phy/phy_device.c
->>> +++ net-next/drivers/net/phy/phy_device.c
->>> @@ -529,7 +529,7 @@ struct phy_device *get_phy_device(struct
->>>
->>>       /* If the phy_id is mostly Fs, there is no device there */
->>>       if ((phy_id & 0x1fffffff) == 0x1fffffff)
->>> -        return NULL;
->>> +        return ERR_PTR(-ENODEV);
->>>
->>>       return phy_device_create(bus, addr, phy_id, is_c45, &c45_ids);
->>>   }
->>
->> This particular commit, merged as:
->>
->>      b74766a0a0fe ("phylib: don't return NULL from get_phy_device()")
->>
->> breaks my 3-switch DSA setup with the following error:
->>
->>      fec: probe of 400d1000.ethernet failed with error -22
->>
->> Reverting c971c0e580a6 ("Merge branch 'get_phy_device-retval'") restores
->> a working setup.
-> 
->    I think I was able to follow this to the get_phy_device() call in
-> fixed_phy_register() but I'm unable to see why it fails now and didn't
-> before. Are you using fixed_phy.c at all?
+This series contains updates to i40e and i40evf.
 
-I am using fixed_phy.c and yes, this fails for me too, sorry for not
-catching that when you posted the patches :/
+Alex Duyck cleans up the feature flags since they are becoming pretty
+"massive", the primary change being that we now build our features list
+around hw_encap_features.  Added support for IPIP and SIT offloads,
+which should improvement in throughput for IPIP and SIT tunnels with
+the offload enabled.
+
+Mitch adds support for configuring RSS on behalf of the VFs, which removes
+the burden of dealing with different hardware interfaces from the VF
+drivers and improves future compatibility.  Fix to ensure that we do not
+panic by checking that the vsi_res pointer is valid before dereferencing
+it, after which we can drink beer and eat peanuts.
+
+Shannon does come housekeeping in i40e_add_fdir_ethtool() in preparation
+for more cloud filter work.  Added flexibility to the nvmupdate
+facility by adding the ability to specify an AQ event opcode to wait on
+after Exec_AQ request.
+
+Michal adds device capability which defines if an update is available and
+if a security check is needed during the update process.
+
+Kamil just adds a device id to support X722 QSFP+ device.
+
+Greg fixes an issue where a mirror rule ID may be zero, so do not return
+invalid parameter when the user passes in a zero for a rule ID.  Adds
+support to steer packets to VSIs by VLAN tag alone while being in
+promiscuous mode for multicast and unicast MAC addresses.
+
+Jesse fixes the driver from offloading the VLAN tag into the skb any
+time there was a VLAN tag and the hardware stripping was enabled, to
+making sure it is enabled before put_tag.
+
+v2: Dropped patch 8 ("i40e: Allow user to change input set mask for flow
+    director") while Kiran reworks a more generalized solution based
+    on feedback from David Miller.
+
+The following are changes since commit fab7b629a82da1b59620470d13152aff975239f6:
+  Merge branch 'ila-csum-neutral'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Alexander Duyck (2):
+  i40e/i40evf: Clean up feature flags
+  i40e/i40evf: Add support for IPIP and SIT offloads
+
+Anjali Singhai Jain (2):
+  i40e: Add VF promiscuous mode driver support
+  i40evf: Add driver support for promiscuous mode
+
+Greg Rose (2):
+  i40e: Remove zero check
+  i40e: Add promiscuous on VLAN support
+
+Jesse Brandeburg (1):
+  i40e/i40evf: Only offload VLAN tag if enabled
+
+Kamil Krawczyk (1):
+  i40e: Add DeviceID for X722 QSFP+
+
+Michal Kosiarz (1):
+  i40e: Add device capability which defines if update is available
+
+Mitch Williams (3):
+  i40e: Add support for configuring VF RSS
+  i40evf: Don't Panic
+  i40evf: Allow PF driver to configure RSS
+
+Shannon Nelson (2):
+  i40e: Code cleanup in i40e_add_fdir_ethtool
+  i40e: Specify AQ event opcode to wait for
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  82 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_devids.h      |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  12 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  98 ++---
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  49 ++-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   8 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  27 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   6 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 346 +++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   1 +
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |   1 +
+ drivers/net/ethernet/intel/i40evf/i40e_devids.h    |   1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  27 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   6 +
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  39 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 121 +++----
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 395 ++++++++-------------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 130 +++++++
+ 21 files changed, 947 insertions(+), 407 deletions(-)
 
 -- 
-Florian
+2.5.5
