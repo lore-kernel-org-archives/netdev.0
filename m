@@ -1,74 +1,62 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 3.2 085/115] veth: =?UTF-8?Q?don=E2=80=99t?= modify
- ip_summed; doing so treats packets with bad checksums as good.
-Date: Wed, 27 Apr 2016 20:07:49 +0200
-Message-ID: <1461780469.5102.0.camel@decadent.org.uk>
-References: <lsq.1461711744.699003961@decadent.org.uk>
-	 <5720E1F0.9010203@candelatech.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next 2/2] tcp: remove a redundant check for
+ SKBTX_ACK_TSTAMP
+Date: Wed, 27 Apr 2016 11:19:38 -0700
+Message-ID: <20160427181938.GA54673@kafai-mba.local>
+References: <1461617473-11349-1-git-send-email-soheil.kdev@gmail.com>
+ <1461617473-11349-2-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-yJJVXtP3DtRwt84qu0z5"
-Cc: akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Vijay Pandurangan <vijayp@vijayp.ca>,
-	Cong Wang <cwang@twopensource.com>, netdev@vger.kernel.org,
-	Evan Jones <ej@evanjones.ca>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Phil Sutter <phil@nwl.cc>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5720E1F0.9010203@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<willemb@google.com>, <edumazet@google.com>, <ycheng@google.com>,
+	<ncardwell@google.com>, Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:65319 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751534AbcD0STq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 14:19:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1461617473-11349-2-git-send-email-soheil.kdev@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 25, 2016 at 04:51:13PM -0400, Soheil Hassas Yeganeh wrote:
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+>
+> txstamp_ack in tcp_skb_cb is set iff the SKBTX_ACK_TSTAMP
+> flag is set for an skb. Thus, it is not required to check
+> shinfo->tx_flags if the txstamp_ack bit is checked.
+>
+> Remove the check on shinfo->tx_flags & SKBTX_ACK_TSTAMP, since
+> it has already been checked using the txstamp_ack bit.
+>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> ---
+>  net/ipv4/tcp_input.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 967520d..2f3fd92 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3087,8 +3087,7 @@ static void tcp_ack_tstamp(struct sock *sk, struct sk_buff *skb,
+>  		return;
+>
+>  	shinfo = skb_shinfo(skb);
+> -	if ((shinfo->tx_flags & SKBTX_ACK_TSTAMP) &&
+> -	    !before(shinfo->tskey, prior_snd_una) &&
+> +	if (!before(shinfo->tskey, prior_snd_una) &&
+>  	    before(shinfo->tskey, tcp_sk(sk)->snd_una))
+>  		__skb_tstamp_tx(skb, NULL, sk, SCM_TSTAMP_ACK);
+>  }
+> --
+> 2.8.0.rc3.226.g39d4020
+>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
 
---=-yJJVXtP3DtRwt84qu0z5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Can it be one step further and completely remove SKBTX_ACK_TSTAMP?
+like what Willem has also suggested here:
+http://www.spinics.net/lists/netdev/msg374231.html
 
-On Wed, 2016-04-27 at 08:59 -0700, Ben Greear wrote:
-> On 04/26/2016 04:02 PM, Ben Hutchings wrote:
-> >=20
-> > 3.2.80-rc1 review patch.=C2=A0=C2=A0If anyone has any objections, pleas=
-e let me know.
-> I would be careful about this.=C2=A0=C2=A0It causes regressions when send=
-ing
-> PACKET_SOCKET buffers from user-space to veth devices.
->=20
-> There was a proposed upstream fix for the regression, but it has not gone
-> into the tree as far as I know.
->=20
-> http://www.spinics.net/lists/netdev/msg370436.html
-[...]
-
-OK, I'll drop this for now.
-
-Ben.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
---=-yJJVXtP3DtRwt84qu0z5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXIP/1AAoJEOe/yOyVhhEJUDsQAJ15FuYzbF9Po4XuBxMDT2QJ
-BebRpA0KpCrtiV+ByAUYUYD0FnFz0pWAnG5RzpD2MasmUns8kN1Pk/F8tinzAeUz
-P/t75bTh62Gh12UfmBc6AJgy+7e3Q4i6ymOf1cS7yBrg/Wq8QwUlOifdZdehIqQy
-cLBqbIoIR8N7Vp1e4cB3DcoGb4RYQc49QP50SqfBIU++ugS9dxX5aQw165nigb1G
-Z+5cGsUGYDuXT9lSsCMlg758IAxd4TJYx1/2n9VfD9xF/bRuORHWvPref3sX3hqX
-JSYpnOAptIpF5mw5H50NAaDIuZQ/LA8blL6mN1jlLaoiwXE8eyZoN1BSvkAUkmyk
-vjGIw0/gSMEZv/sjCZJZ6mU7+37pk4LvNQNRdpiod3Jy3iGv+otKogCOomK4G8GN
-po7Xx5hDj1crkAxbf5YTxHc/0YO2RsFY4OEetntXLTL1/ZemIrDaawQdOF13IkOf
-pKwKzbwyBeEj/vgkzcFjjT3P0y4VpCAI0uEeoEMa9VrECttiRNY/z7jDRCmhscJx
-0UCJfyl7pvm6P/IBxfcxXbrGzVlRyVp5Fr+b8GOXRRHibEkAttVccBfOP45LfE8a
-rEnE75U5H9HglG9A3rZplDRX0DmDQuqlKxBydia9Ncl1O+5HOOYLwRyCJbu2GkdJ
-QgGKvhqb/tp3AdcM7DA2
-=L7lx
------END PGP SIGNATURE-----
-
---=-yJJVXtP3DtRwt84qu0z5--
+It seems no one else is using the SKBTX_ACK_TSTAMP except TCP.
