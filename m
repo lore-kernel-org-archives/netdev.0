@@ -1,40 +1,120 @@
-From: Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 9/9] taskstats: use the libnl API to
- align nlattr on 64-bit
-Date: Wed, 27 Apr 2016 11:14:47 +1000
-Message-ID: <57201287.80002@gmail.com>
-References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461339084-3849-10-git-send-email-nicolas.dichtel@6wind.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 27 Apr 2016 12:01:09 +1000
+Message-ID: <20160427120109.37449920@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
- herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1461339084-3849-10-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMy8wNC8xNiAwMTozMSwgTmljb2xhcyBEaWNodGVsIHdyb3RlOgo+IEdvYWwgb2YgdGhp
-cyBwYXRjaCBpcyB0byB1c2UgdGhlIG5ldyBsaWJubCBBUEkgdG8gYWxpZ24gbmV0bGluayBhdHRy
-aWJ1dGUKPiB3aGVuIG5lZWRlZC4KPiBUaGUgbGF5b3V0IG9mIHRoZSBuZXRsaW5rIG1lc3NhZ2Ug
-d2lsbCBiZSBhIGJpdCBkaWZmZXJlbnQgYWZ0ZXIgdGhlIHBhdGNoLAo+IGJlY2F1c2UgdGhlIHBh
-ZGF0dHIgKFRBU0tTVEFUU19UWVBFX1NUQVRTKSB3aWxsIGJlIGluc2lkZSB0aGUgbmVzdGVkCj4g
-YXR0cmlidXRlIGluc3RlYWQgb2YgYmVmb3JlIGl0Lgo+IAo+IFNpZ25lZC1vZmYtYnk6IE5pY29s
-YXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4KClRoZSBsYXlvdXQgd2lsbCBj
-aGFuZ2UvYnJlYWsgdXNlciBzcGFjZSAtLSBJJ3ZlIG5vdCB0ZXN0ZWQgdGhlIHBhdGNoIHRob3Vn
-aC4uCgpCYWxiaXIgU2luZ2guCiAKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
-cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+
+between commit:
+
+  d8edd2469ace ("et/mlx5e: Fix minimum MTU")
+
+from the net tree and commit:
+
+  0e405443e803 ("net/mlx5e: Improve set features ndo resiliency")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 67d548b70e14,5bad17d37d7b..000000000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@@ -2025,9 -2214,49 +2240,52 @@@ static int set_feature_rx_vlan(struct n
+  	return err;
+  }
+  
++ static int mlx5e_handle_feature(struct net_device *netdev,
++ 				netdev_features_t wanted_features,
++ 				netdev_features_t feature,
++ 				mlx5e_feature_handler feature_handler)
++ {
++ 	netdev_features_t changes = wanted_features ^ netdev->features;
++ 	bool enable = !!(wanted_features & feature);
++ 	int err;
++ 
++ 	if (!(changes & feature))
++ 		return 0;
++ 
++ 	err = feature_handler(netdev, enable);
++ 	if (err) {
++ 		netdev_err(netdev, "%s feature 0x%llx failed err %d\n",
++ 			   enable ? "Enable" : "Disable", feature, err);
++ 		return err;
++ 	}
++ 
++ 	MLX5E_SET_FEATURE(netdev, feature, enable);
++ 	return 0;
++ }
++ 
++ static int mlx5e_set_features(struct net_device *netdev,
++ 			      netdev_features_t features)
++ {
++ 	int err;
++ 
++ 	err  = mlx5e_handle_feature(netdev, features, NETIF_F_LRO,
++ 				    set_feature_lro);
++ 	err |= mlx5e_handle_feature(netdev, features,
++ 				    NETIF_F_HW_VLAN_CTAG_FILTER,
++ 				    set_feature_vlan_filter);
++ 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_TC,
++ 				    set_feature_tc_num_filters);
++ 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_RXALL,
++ 				    set_feature_rx_all);
++ 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_VLAN_CTAG_RX,
++ 				    set_feature_rx_vlan);
++ 
++ 	return err ? -EINVAL : 0;
++ }
++ 
+ +#define MXL5_HW_MIN_MTU 64
+ +#define MXL5E_MIN_MTU (MXL5_HW_MIN_MTU + ETH_FCS_LEN)
+ +
+  static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
+  {
+  	struct mlx5e_priv *priv = netdev_priv(netdev);
+@@@ -2633,18 -2966,10 +2997,19 @@@ static void mlx5e_destroy_netdev(struc
+  	schedule_work(&priv->set_rx_mode_work);
+  	mlx5e_disable_async_events(priv);
+  	flush_scheduled_work();
+ -	unregister_netdev(netdev);
+ +	if (test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state)) {
+ +		netif_device_detach(netdev);
+ +		mutex_lock(&priv->state_lock);
+ +		if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ +			mlx5e_close_locked(netdev);
+ +		mutex_unlock(&priv->state_lock);
+ +	} else {
+ +		unregister_netdev(netdev);
+ +	}
+ +
+  	mlx5e_tc_cleanup(priv);
+  	mlx5e_vxlan_cleanup(priv);
++ 	mlx5e_destroy_q_counter(priv);
+  	mlx5e_destroy_flow_tables(priv);
+  	mlx5e_destroy_tirs(priv);
+  	mlx5e_destroy_rqt(priv, MLX5E_SINGLE_RQ_RQT);
