@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 17/20] net: dsa: mv88e6xxx: factorize port bridge change
-Date: Wed, 27 Apr 2016 18:30:14 -0400
-Message-ID: <1461796217-18893-18-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 06/20] net: dsa: move bridge device in dsa_port
+Date: Wed, 27 Apr 2016 18:30:03 -0400
+Message-ID: <1461796217-18893-7-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,118 +14,95 @@ In-Reply-To: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement a mv88e6xxx_port_bridge_change function to factorize the
-configuration needed when a port joins or leaves a bridge group.
+Move the pointer to the bridge device in the DSA port structure instead
+of cluttering the dsa_slave_priv structure.
 
-This will simplify the implementation of cross-chip bridging.
+This can later be used by drivers to help them configuring their bridge
+group ports membership.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 67 +++++++++++++++++++++++++++------------------
- 1 file changed, 40 insertions(+), 27 deletions(-)
+ include/net/dsa.h  |  2 ++
+ net/dsa/dsa_priv.h |  1 -
+ net/dsa/slave.c    | 16 +++++-----------
+ 3 files changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 8004d00..25852ee 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1150,6 +1150,24 @@ static int _mv88e6xxx_port_map_vlantable(struct dsa_switch *ds,
- 	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_BASE_VLAN, reg);
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 08a9536..69e467c 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -125,6 +125,8 @@ struct dsa_switch_tree {
+ struct dsa_port {
+ 	struct dsa_switch	*ds;
+ 	int			port;
++
++	struct net_device	*br;
+ };
+ 
+ struct dsa_switch {
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index c7d5df0..c5afddd 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -35,7 +35,6 @@ struct dsa_slave_priv {
+ 	int			old_pause;
+ 	int			old_duplex;
+ 
+-	struct net_device	*bridge_dev;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	struct netpoll		*netpoll;
+ #endif
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index d6b6019..b90caf8 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -64,18 +64,12 @@ static int dsa_slave_get_iflink(const struct net_device *dev)
+ 	return p->dp->ds->dst->master_netdev->ifindex;
  }
  
-+static int _mv88e6xxx_remap_vlantable(struct dsa_switch *ds,
-+				      struct net_device *bridge)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct dsa_port *intp;
-+	int err;
-+
-+	dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
-+		if (intp->br == bridge) {
-+			err = _mv88e6xxx_port_map_vlantable(ds, intp);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
+-static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
+-{
+-	return !!p->bridge_dev;
+-}
+-
+ static int dsa_slave_open(struct net_device *dev)
  {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -2229,51 +2247,46 @@ unlock:
- 	return err;
- }
- 
--int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
--			       struct net_device *bridge)
-+int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
-+				 struct net_device *bridge)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct dsa_port *intp;
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->dp->ds;
+ 	struct net_device *master = ds->dst->master_netdev;
+-	u8 stp_state = dsa_port_is_bridged(p) ?
+-			BR_STATE_BLOCKING : BR_STATE_FORWARDING;
++	u8 stp_state = p->dp->br ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
  	int err;
  
--	if (dsa_port_is_external(dp, ds))
--		return -EOPNOTSUPP;
--
- 	mutex_lock(&ps->smi_mutex);
+ 	if (!(master->flags & IFF_UP))
+@@ -438,13 +432,13 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
+ 	struct dsa_switch *ds = p->dp->ds;
+ 	int ret = -EOPNOTSUPP;
  
--	/* Remap each port's VLANTable */
--	dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
--		if (intp->br == bridge) {
--			err = _mv88e6xxx_port_map_vlantable(ds, intp);
-+	if (dsa_port_is_external(dp, ds)) {
-+		err = -EOPNOTSUPP;
-+	} else {
-+		/* Remap VLANTable of concerned in-chip ports */
-+		if (!dp->br) {
-+			err = _mv88e6xxx_port_map_vlantable(ds, dp);
- 			if (err)
--				break;
-+				goto unlock;
- 		}
-+
-+		err = _mv88e6xxx_remap_vlantable(ds, bridge);
-+		if (err)
-+			goto unlock;
+-	p->bridge_dev = br;
++	p->dp->br = br;
+ 
+ 	if (ds->drv->port_bridge_join)
+ 		ret = ds->drv->port_bridge_join(ds, p->dp, br);
+ 
+ 	if (ret && ret != -EOPNOTSUPP) {
+-		p->bridge_dev = NULL;
++		p->dp->br = NULL;
+ 		return ret;
  	}
  
-+unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
- 	return err;
- }
- 
-+int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
-+			       struct net_device *bridge)
-+{
-+	return mv88e6xxx_port_bridge_change(ds, dp, bridge);
-+}
-+
- void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
- 				 struct net_device *bridge)
+@@ -455,9 +449,9 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
  {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	struct dsa_port *intp;
--
--	if (dsa_port_is_external(dp, ds))
--		return;
--
--	mutex_lock(&ps->smi_mutex);
--
--	/* Remap each port's VLANTable */
--	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
--		if (intp == dp || intp->br == bridge)
--			if (_mv88e6xxx_port_map_vlantable(ds, intp))
--				netdev_warn(ds->ports[intp->port],
--					    "failed to remap\n");
--
--	mutex_unlock(&ps->smi_mutex);
-+	if (mv88e6xxx_port_bridge_change(ds, dp, bridge))
-+		netdev_err(ds->ports[dp->port], "failed to unbridge\n");
- }
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->dp->ds;
+-	struct net_device *br = p->bridge_dev;
++	struct net_device *br = p->dp->br;
  
- static void mv88e6xxx_bridge_work(struct work_struct *work)
+-	p->bridge_dev = NULL;
++	p->dp->br = NULL;
+ 
+ 	if (ds->drv->port_bridge_leave)
+ 		ds->drv->port_bridge_leave(ds, p->dp, br);
 -- 
 2.8.0
