@@ -1,48 +1,45 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] taskstats: fix nl parsing in accounting/getdelays.c
-Date: Wed, 27 Apr 2016 17:47:57 +0200
-Message-ID: <1461772077-3216-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] taskstats: fix nl parsing in
+ accounting/getdelays.c
+Date: Wed, 27 Apr 2016 17:49:53 +0200
+Message-ID: <5720DFA1.3080503@6wind.com>
 References: <5720DED8.4090706@6wind.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
-	aar@pengutronix.de, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, pshelar@nicira.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	netfilter-devel@vger.kernel.org, dev@openvswitch.org,
-	steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: bsingharora@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5720DED8.4090706@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
+ <1461772077-3216-1-git-send-email-nicolas.dichtel@6wind.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+ herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
+ kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
+To: bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1461772077-3216-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The type TASKSTATS_TYPE_NULL should always be ignored.
-
-When jumping to the next attribute, only the length of the current
-attribute should be added, not the length of all nested attributes.
-This last bug was not visible before commit 80df554275c2, because the
-kernel didn't put more than two nested attributes.
-
-Fixes: a3baf649ca9c ("[PATCH] per-task-delay-accounting: documentation")
-Fixes: 80df554275c2 ("taskstats: use the libnl API to align nlattr on 64-bit")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- Documentation/accounting/getdelays.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/Documentation/accounting/getdelays.c b/Documentation/accounting/getdelays.c
-index 7785fb5eb93f..d3caa6748a46 100644
---- a/Documentation/accounting/getdelays.c
-+++ b/Documentation/accounting/getdelays.c
-@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
- 						break;
- 					}
- 					len2 += NLA_ALIGN(na->nla_len);
--					na = (struct nlattr *) ((char *) na + len2);
-+					na = (struct nlattr *) ((char *) na + NLA_ALIGN(na->nla_len));
- 				}
- 				break;
- 
--- 
-2.8.1
+TGUgMjcvMDQvMjAxNiAxNzo0NywgTmljb2xhcyBEaWNodGVsIGEgw6ljcml0IDoKPiBUaGUgdHlw
+ZSBUQVNLU1RBVFNfVFlQRV9OVUxMIHNob3VsZCBhbHdheXMgYmUgaWdub3JlZC4KPiAKPiBXaGVu
+IGp1bXBpbmcgdG8gdGhlIG5leHQgYXR0cmlidXRlLCBvbmx5IHRoZSBsZW5ndGggb2YgdGhlIGN1
+cnJlbnQKPiBhdHRyaWJ1dGUgc2hvdWxkIGJlIGFkZGVkLCBub3QgdGhlIGxlbmd0aCBvZiBhbGwg
+bmVzdGVkIGF0dHJpYnV0ZXMuCj4gVGhpcyBsYXN0IGJ1ZyB3YXMgbm90IHZpc2libGUgYmVmb3Jl
+IGNvbW1pdCA4MGRmNTU0Mjc1YzIsIGJlY2F1c2UgdGhlCj4ga2VybmVsIGRpZG4ndCBwdXQgbW9y
+ZSB0aGFuIHR3byBuZXN0ZWQgYXR0cmlidXRlcy4KPiAKPiBGaXhlczogYTNiYWY2NDljYTljICgi
+W1BBVENIXSBwZXItdGFzay1kZWxheS1hY2NvdW50aW5nOiBkb2N1bWVudGF0aW9uIikKPiBGaXhl
+czogODBkZjU1NDI3NWMyICgidGFza3N0YXRzOiB1c2UgdGhlIGxpYm5sIEFQSSB0byBhbGlnbiBu
+bGF0dHIgb24gNjQtYml0IikKPiBTaWduZWQtb2ZmLWJ5OiBOaWNvbGFzIERpY2h0ZWwgPG5pY29s
+YXMuZGljaHRlbEA2d2luZC5jb20+ClBsZWFzZSwgZHJvcCB0aGlzIHZlcnNpb24uIEkgZmF0Zmlu
+Z2VyZWQgbXkgcmViYXNlLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
+c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
