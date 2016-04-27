@@ -1,75 +1,117 @@
-From: Elad Kanfi <eladkan@mellanox.com>
-Subject: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
-Date: Wed, 27 Apr 2016 16:18:29 +0300
-Message-ID: <1461763110-15263-2-git-send-email-eladkan@mellanox.com>
-References: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
+From: Sebastian Frias <sf84@laposte.net>
+Subject: Re: [PATCH] net: phy: at803x: Register 'link_change_notify' only
+ for AT8030
+Date: Wed, 27 Apr 2016 15:50:53 +0200
+Message-ID: <5720C3BD.8000004@laposte.net>
+References: <5720A3C1.2040401@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
-	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
-	<talz@mellanox.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	timur@codeaurora.org, Florian Fainelli <f.fainelli@gmail.com>
+To: Daniel Mack <daniel@zonque.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
+In-Reply-To: <5720A3C1.2040401@laposte.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Elad Kanfi <eladkan@mellanox.com>
+Hi,
 
-Below is a description of a possible problematic
-sequence. CPU-A is sending a frame and CPU-B handles
-the interrupt that indicates the frame was sent. CPU-B
-reads an invalid value of tx_packet_sent.
+Sergei pointed out that the same patch was submitted yesterday by Timur (what are the chances?! :-) ) https://patchwork.ozlabs.org/patch/615019/
 
-	CPU-A				CPU-B
-	-----				-----
-	nps_enet_send_frame
-	.
-	.
-	tx_packet_sent = true
-	order HW to start tx
-	.
-	.
-	HW complete tx
-			    ------> 	get tx complete interrupt
-					.
-					.
-					if(tx_packet_sent == true)
+Regards,
 
-	end memory transaction
-	(tx_packet_sent actually
-	 written)
+Sebastian
 
-Problem solution:
-
-Add a memory barrier after setting tx_packet_sent,
-in order to make sure that it is written before
-the packet is sent.
-
-Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
-
-Acked-by: Noam Camus <noamca@mellanox.com>
----
- drivers/net/ethernet/ezchip/nps_enet.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 1f23845..1373236 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.c
-+++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -389,6 +389,13 @@ static void nps_enet_send_frame(struct net_device *ndev,
- 
- 	/* Indicate SW is done */
- 	priv->tx_packet_sent = true;
-+
-+	/* before the frame is sent we have to make
-+	 * sure that priv->tx_packet_sent will be valid
-+	 * for the CPU'S that handles the ISR and NAPI poll
-+	 */
-+	smp_wmb();
-+
- 	tx_ctrl_value |= NPS_ENET_ENABLE << TX_CTL_CT_SHIFT;
- 	/* Send Frame */
- 	nps_enet_reg_set(priv, NPS_ENET_REG_TX_CTL, tx_ctrl_value);
--- 
-1.7.1
+On 04/27/2016 01:34 PM, Sebastian Frias wrote:
+> There is no need to register the callback introduced by
+> commit 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
+> for non faulty PHYs.
+> 
+> The check on the PHY ID is not necessary anymore and thus has been
+> removed from the callback implementation as well.
+> 
+> Fixes: 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
+> 
+> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+> ---
+>  drivers/net/phy/at803x.c | 43 ++++++++++++++++++++-----------------------
+>  1 file changed, 20 insertions(+), 23 deletions(-)
+> 
+> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+> index b3ffaee..7fdc676 100644
+> --- a/drivers/net/phy/at803x.c
+> +++ b/drivers/net/phy/at803x.c
+> @@ -353,33 +353,32 @@ static void at803x_link_change_notify(struct phy_device *phydev)
+>  	struct at803x_priv *priv = phydev->priv;
+>  
+>  	/*
+> -	 * Conduct a hardware reset for AT8030 every time a link loss is
+> +	 * Conduct a hardware reset for AT8030 (this callback is only
+> +	 * registered for AT8030 at the moment) every time a link loss is
+>  	 * signalled. This is necessary to circumvent a hardware bug that
+>  	 * occurs when the cable is unplugged while TX packets are pending
+>  	 * in the FIFO. In such cases, the FIFO enters an error mode it
+>  	 * cannot recover from by software.
+>  	 */
+> -	if (phydev->drv->phy_id == ATH8030_PHY_ID) {
+> -		if (phydev->state == PHY_NOLINK) {
+> -			if (priv->gpiod_reset && !priv->phy_reset) {
+> -				struct at803x_context context;
+> -
+> -				at803x_context_save(phydev, &context);
+> -
+> -				gpiod_set_value(priv->gpiod_reset, 1);
+> -				msleep(1);
+> -				gpiod_set_value(priv->gpiod_reset, 0);
+> -				msleep(1);
+> -
+> -				at803x_context_restore(phydev, &context);
+> -
+> -				phydev_dbg(phydev, "%s(): phy was reset\n",
+> -					   __func__);
+> -				priv->phy_reset = true;
+> -			}
+> -		} else {
+> -			priv->phy_reset = false;
+> +	if (phydev->state == PHY_NOLINK) {
+> +		if (priv->gpiod_reset && !priv->phy_reset) {
+> +			struct at803x_context context;
+> +
+> +			at803x_context_save(phydev, &context);
+> +
+> +			gpiod_set_value(priv->gpiod_reset, 1);
+> +			msleep(1);
+> +			gpiod_set_value(priv->gpiod_reset, 0);
+> +			msleep(1);
+> +
+> +			at803x_context_restore(phydev, &context);
+> +
+> +			phydev_dbg(phydev, "%s(): phy was reset\n",
+> +				   __func__);
+> +			priv->phy_reset = true;
+>  		}
+> +	} else {
+> +		priv->phy_reset = false;
+>  	}
+>  }
+>  
+> @@ -391,7 +390,6 @@ static struct phy_driver at803x_driver[] = {
+>  	.phy_id_mask		= 0xffffffef,
+>  	.probe			= at803x_probe,
+>  	.config_init		= at803x_config_init,
+> -	.link_change_notify	= at803x_link_change_notify,
+>  	.set_wol		= at803x_set_wol,
+>  	.get_wol		= at803x_get_wol,
+>  	.suspend		= at803x_suspend,
+> @@ -427,7 +425,6 @@ static struct phy_driver at803x_driver[] = {
+>  	.phy_id_mask		= 0xffffffef,
+>  	.probe			= at803x_probe,
+>  	.config_init		= at803x_config_init,
+> -	.link_change_notify	= at803x_link_change_notify,
+>  	.set_wol		= at803x_set_wol,
+>  	.get_wol		= at803x_get_wol,
+>  	.suspend		= at803x_suspend,
+> 
