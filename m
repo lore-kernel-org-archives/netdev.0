@@ -1,35 +1,38 @@
-From: Andreas Larsson <andreas@gaisler.com>
-Subject: [PATCH] MAINTAINERS: net: Change maintainer for GRETH 10/100/1G Ethernet MAC device driver
-Date: Wed, 27 Apr 2016 16:46:10 +0200
-Message-ID: <1461768370-3011-1-git-send-email-andreas@gaisler.com>
-Cc: linux-kernel@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>,
-	software@gaisler.com
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] drivers/net: add 6WIND SHULTI support
+Date: Wed, 27 Apr 2016 17:14:04 +0200
+Message-ID: <20160427151336.GB1962@nanopsycho.orion>
+References: <1461749838-4613-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20160427095615.GA27071@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsp-unauthed02.binero.net ([195.74.38.227]:48085 "EHLO
-	bin-vsp-out-03.atm.binero.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752194AbcD0OyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 10:54:13 -0400
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:35106 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753198AbcD0POI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 11:14:08 -0400
+Received: by mail-wm0-f52.google.com with SMTP id e201so43607962wme.0
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 08:14:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160427095615.GA27071@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Andreas Larsson <andreas@gaisler.com>
----
- MAINTAINERS |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Wed, Apr 27, 2016 at 11:56:15AM CEST, fw@strlen.de wrote:
+>Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>> This patch adds the support of the 6WIND SHULTI switch. It is a software
+>> switch doing L2 forwarding.
+>> 
+>> This first version implements the minimum needed to get the device working.
+>> It also implements, via switchdev and rtnetlink, bridge forwarding offload,
+>> including FDB static entries, FDB learning and FDB ageing.
+>
+>How is this different from net/bridge?
+>How is this different from openvswitch?
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1d5b4be..08ffebd 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4903,7 +4903,7 @@ F:	net/ipv4/gre_offload.c
- F:	include/net/gre.h
- 
- GRETH 10/100/1G Ethernet MAC device driver
--M:	Kristoffer Glembo <kristoffer@gaisler.com>
-+M:	Andreas Larsson <andreas@gaisler.com>
- L:	netdev@vger.kernel.org
- S:	Maintained
- F:	drivers/net/ethernet/aeroflex/
--- 
-1.7.10.4
+The difference is that it this tries to allow userspace crap to mirror
+setting user does for bridge/ovs. Basically this looks to me like an
+attempt to enable userspace SDKs and such.
