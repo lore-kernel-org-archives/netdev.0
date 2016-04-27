@@ -1,49 +1,53 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [RFC PATCH 4/5] bnxt: Add support for segmentation of tunnels
- with outer checksums
-Date: Tue, 26 Apr 2016 22:55:04 -0700
-Message-ID: <CACKFLi=2mHfOS1Rz5RbSdyhepdjBqM+dj7Nh=CzARcYSwUTcSw@mail.gmail.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
-	<20160419190615.11723.53966.stgit@ahduyck-xeon-server>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V2 3/5] samples/bpf: add a README file to get
+ users started
+Date: Wed, 27 Apr 2016 08:30:25 +0200
+Message-ID: <20160427083025.66187b6b@redhat.com>
+References: <20160426162650.22962.20516.stgit@firesoul>
+	<20160426162721.22962.25054.stgit@firesoul>
+	<20160426173105.GD42777@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: eugenia@mellanox.com, bruce.w.allan@intel.com, saeedm@mellanox.com,
-	netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	ariel.elior@qlogic.com, Michael Chan <mchan@broadcom.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org,
+	linux-kbuild@vger.kernel.org, bblanco@plumgrid.com,
+	naveen.n.rao@linux.vnet.ibm.com, borkmann@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:33765 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815AbcD0FzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 01:55:06 -0400
-Received: by mail-ob0-f181.google.com with SMTP id x1so105663obt.0
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 22:55:05 -0700 (PDT)
-In-Reply-To: <20160419190615.11723.53966.stgit@ahduyck-xeon-server>
+Received: from mx1.redhat.com ([209.132.183.28]:54915 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752505AbcD0Gab (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 02:30:31 -0400
+In-Reply-To: <20160426173105.GD42777@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 19, 2016 at 12:06 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch assumes that the bnxt hardware will ignore existing IPv4/v6
-> header fields for length and checksum as well as the length and checksum
-> fields for outer UDP and GRE headers.
->
-> I have no means of testing this as I do not have any bnx2x hardware but
-> thought I would submit it as an RFC to see if anyone out there wants to
-> test this and see if this does in fact enable this functionality allowing
-> us to to segment tunneled frames that have an outer checksum.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+On Tue, 26 Apr 2016 10:31:06 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-Hi Alex, I just did a very quick test of this patch on our bnxt
-hardware and it seemed to work.
+> On Tue, Apr 26, 2016 at 06:27:22PM +0200, Jesper Dangaard Brouer wrote:
+> > +
+> > +Manually compiling LLVM with 'bpf' support
+> > +------------------------------------------
+> > +
+> > +In some LLVM versions the BPF target were marked experimental. They
+> > +needed the 'cmake .. -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=BPF'.  Since
+> > +version 3.7.1, LLVM adds a proper LLVM backend target for the BPF
+> > +bytecode architecture.  
+> 
+> it's actually non-experimental since 3.7.0.
+> It was experimental after 3.6 was released during development of 3.7.
+> I doubt you can find this anywhere, so I suggest to just drop this paragraph.
 
-I created a vxlan endpoint with udpcsum enabled and I saw TSO packets
-getting through.  I've verified that our hardware can be programmed to
-either ignore outer UDP checksum or to calculate it.  Current default
-is to ignore ipv4 UDP checksum and calculate ipv6 UDP checksum.
-Thanks.
+Okay lets drop this paragraph, given the LLVM period was so short, it
+does not make sense to mention here.
 
-> ---
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c |    9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
->
+I will send a V3 patch series, as DaveM usually likes a full resubmit
+(I'll add your acks to the other patches, but you need to ack this one).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
