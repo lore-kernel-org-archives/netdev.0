@@ -1,26 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] bnxt_en: Bug fixes for net.
-Date: Wed, 27 Apr 2016 16:19:04 -0400 (EDT)
-Message-ID: <20160427.161904.192374133904523476.davem@davemloft.net>
-References: <1461565851-32524-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [PATCH 1/5] phylib: don't return NULL from get_phy_device()
+Date: Wed, 27 Apr 2016 16:23:09 -0400 (EDT)
+Message-ID: <20160427.162309.63254917338216507.davem@davemloft.net>
+References: <874mamzw5q.fsf@ketchup.mtl.sfl>
+	<20160427194932.GF29024@lunn.ch>
+	<57211C81.4000903@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+	f.fainelli@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
+	kernel@savoirfairelinux.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53947 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53965 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbcD0UTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 16:19:06 -0400
-In-Reply-To: <1461565851-32524-1-git-send-email-michael.chan@broadcom.com>
+	with ESMTP id S1752615AbcD0UXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 16:23:11 -0400
+In-Reply-To: <57211C81.4000903@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Mon, 25 Apr 2016 02:30:48 -0400
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 27 Apr 2016 23:09:37 +0300
 
-> Only use MSIX on VF, and fix rx page buffers on architectures with
-> PAGE_SIZE >= 64K.
+> On 04/27/2016 10:49 PM, Andrew Lunn wrote:
+> 
+>> Please revert this, or fix all the callsites such that ENODEV is not a
+>> fatal error.
+> 
+>    OK, I'll do what DaveM decides.
 
-Series applied, thanks Michael.
+If you feel confident getting all the ENODEV checks right, please just do
+that.
+
+Thanks.
