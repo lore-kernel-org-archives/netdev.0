@@ -1,51 +1,29 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH v2] net: Add Qualcomm IPC router
-Date: Wed, 27 Apr 2016 10:14:45 -0700
-Message-ID: <20160427171445.GO3202@tuxbot>
-References: <1461736085-24862-1-git-send-email-bjorn.andersson@linaro.org>
- <20160427.122242.1614940676503935894.davem@davemloft.net>
+From: "Feevey, Carol L." <carol.feevey@sru.edu>
+Subject: Please Forward this email to Mr.Nobuyuki Hirano
+Date: Wed, 27 Apr 2016 17:25:57 +0000
+Message-ID: <1461810326107.20553@sru.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, courtney.cavin@sonymobile.com,
-	bjorn.andersson@sonymobile.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160427.122242.1614940676503935894.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sruedge03.sru.edu ([205.149.70.140]:10743 "EHLO
+	SSFEXCHEDGE03.srunet.sruad.edu" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752356AbcD0Rb1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 13:31:27 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 27 Apr 09:22 PDT 2016, David Miller wrote:
+I am Mr. Hirano Nobuyuki , from Japan, I will like to seek your partnership and mutual understanding regarding a beneficial transaction.
 
-> From: Bjorn Andersson <bjorn.andersson@linaro.org>
-> Date: Tue, 26 Apr 2016 22:48:05 -0700
-> 
-> > +	rc = qcom_smd_send(qdev->channel, skb->data, skb->len);
-> 
-> I truly dislike adding networking protocols that depend upon some
-> piece of infrastructure that only some platforms can enable, it's even
-> worse when that set of platforms doesn't intersect with x86-64.
-> 
-> When you do things like this, it's quite hard to make protocol wide
-> changes to APIs because build testing becomes an issue.
-> 
+Reply Immediately to my email below for Details .
 
-That's a very valid concern.
+( hiranonobuyuki108@outlook.com )
 
-> This code can now only be build tested on ARCH_QCOM architectures, and
-> that's a serious negative downside.
-
-For normal usage the QRTR_SMD doesn't make much sense to be selectable
-unless QCOM_SMD is compiled in, but I can fix up the QCOM_SMD exports
-and slap a COMPILE_TEST on it.
-
-
-Looking at it again, we already have the conditional for QRTR and the OF
-code in the driver went away a while back, so we're down to something
-like:
-
-	depends on QCOM_SMD || COMPILE_TEST
-
-Regards,
-Bjorn
+Regards For Hirano
+Sincerely,
+Mr.Nobuyuki Hirano
+Email:  hiranonobuyuki108@outlook.com
+Bank Of Tokyo-Mitsubishi UFJ????????????????
