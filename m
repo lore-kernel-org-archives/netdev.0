@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Add Qualcomm IPC router
-Date: Wed, 27 Apr 2016 14:55:33 -0400 (EDT)
-Message-ID: <20160427.145533.281908074397879897.davem@davemloft.net>
-References: <1461736085-24862-1-git-send-email-bjorn.andersson@linaro.org>
-	<20160427.122242.1614940676503935894.davem@davemloft.net>
-	<20160427171445.GO3202@tuxbot>
+Subject: Re: [PATCH next] ipvlan: Fix failure path in dev registration
+ during link creation
+Date: Wed, 27 Apr 2016 14:57:42 -0400 (EDT)
+Message-ID: <20160427.145742.1732984000881376610.davem@davemloft.net>
+References: <1461782259-10806-1-git-send-email-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, courtney.cavin@sonymobile.com,
-	bjorn.andersson@sonymobile.com
-To: bjorn.andersson@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160427171445.GO3202@tuxbot>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
+	ebiederm@xmission.com
+To: mahesh@bandewar.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53182 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913AbcD0S5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 14:57:44 -0400
+In-Reply-To: <1461782259-10806-1-git-send-email-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Wed, 27 Apr 2016 10:14:45 -0700
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Wed, 27 Apr 2016 11:37:39 -0700
 
-> On Wed 27 Apr 09:22 PDT 2016, David Miller wrote:
-> 
->> This code can now only be build tested on ARCH_QCOM architectures, and
->> that's a serious negative downside.
-> 
-> For normal usage the QRTR_SMD doesn't make much sense to be selectable
-> unless QCOM_SMD is compiled in, but I can fix up the QCOM_SMD exports
-> and slap a COMPILE_TEST on it.
-> 
-> 
-> Looking at it again, we already have the conditional for QRTR and the OF
-> code in the driver went away a while back, so we're down to something
-> like:
-> 
-> 	depends on QCOM_SMD || COMPILE_TEST
+> While fixing this issue I noticed another issue of missing unregister
+> in case of failure, so adding it to the fix which is similar to the
+> macvlan fix by Francesco in SHA1:308379607548524b8d86dbf20134681024935e0b
 
-If that's enough to make it work, feel free to spin as a series a patch that
-does the Kconfig bits and then the patch that adds the IPC protocol.
+This is not the correct way to refer to commits.
+
+You should specify, exactly, 12 digits of the SHA1 value, followed by
+a space, followed by the header line text of that commit contained in
+parenthesis and double quotes, like how Fixes: tags specify commits.
