@@ -1,78 +1,39 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 27 Apr 2016 12:01:13 +1000
-Message-ID: <20160427120113.2ce0ab69@canb.auug.org.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: only the AT8030 needs a hardware reset
+ on link change
+Date: Tue, 26 Apr 2016 19:46:09 -0700
+Message-ID: <572027F1.9000009@gmail.com>
+References: <1461692658-1742-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+	davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
+	zonque@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:33688 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752546AbcD0CqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2016 22:46:13 -0400
+Received: by mail-oi0-f47.google.com with SMTP id v145so2523290oie.0
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2016 19:46:13 -0700 (PDT)
+In-Reply-To: <1461692658-1742-1-git-send-email-timur@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Le 26/04/2016 10:44, Timur Tabi a =C3=A9crit :
+> Commit 13a56b44 ("at803x: Add support for hardware reset") added a
+> work-around for a hardware bug on the AT8030.  However, the work-arou=
+nd
+> was being called for all 803x PHYs, even those that don't need it.
+> Function at803x_link_change_notify() checks to make sure that it only
+> resets the PHY on the 8030, but it makes more sense to not call that
+> function at all if it isn't needed.
+>=20
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-  drivers/net/macsec.c
-
-between commit:
-
-  748164802c1b ("macsec: add missing macsec prefix in uapi")
-
-from the net tree and commit:
-
-  f60d94c00968 ("macsec: use nla_put_u64_64bit()")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/macsec.c
-index c6385617bfb2,a172a1ffa151..000000000000
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@@ -2231,9 -2271,11 +2276,11 @@@ static int nla_put_secy(struct macsec_s
-  	if (!secy_nest)
-  		return 1;
-  
-- 	if (nla_put_sci(skb, MACSEC_SECY_ATTR_SCI, secy->sci) ||
-- 	    nla_put_u64(skb, MACSEC_SECY_ATTR_CIPHER_SUITE,
-- 			MACSEC_DEFAULT_CIPHER_ID) ||
-+ 	if (nla_put_sci(skb, MACSEC_SECY_ATTR_SCI, secy->sci,
-+ 			MACSEC_SECY_ATTR_PAD) ||
-+ 	    nla_put_u64_64bit(skb, MACSEC_SECY_ATTR_CIPHER_SUITE,
- -			      DEFAULT_CIPHER_ID,
-++			      MACSEC_DEFAULT_CIPHER_ID,
-+ 			      MACSEC_SECY_ATTR_PAD) ||
-  	    nla_put_u8(skb, MACSEC_SECY_ATTR_ICV_LEN, secy->icv_len) ||
-  	    nla_put_u8(skb, MACSEC_SECY_ATTR_OPER, secy->operational) ||
-  	    nla_put_u8(skb, MACSEC_SECY_ATTR_PROTECT, secy->protect_frames) ||
-@@@ -3184,10 -3219,11 +3236,11 @@@ static int macsec_fill_info(struct sk_b
-  	struct macsec_secy *secy = &macsec_priv(dev)->secy;
-  	struct macsec_tx_sc *tx_sc = &secy->tx_sc;
-  
-- 	if (nla_put_sci(skb, IFLA_MACSEC_SCI, secy->sci) ||
-+ 	if (nla_put_sci(skb, IFLA_MACSEC_SCI, secy->sci,
-+ 			IFLA_MACSEC_PAD) ||
-  	    nla_put_u8(skb, IFLA_MACSEC_ICV_LEN, secy->icv_len) ||
-- 	    nla_put_u64(skb, IFLA_MACSEC_CIPHER_SUITE,
-- 			MACSEC_DEFAULT_CIPHER_ID) ||
-+ 	    nla_put_u64_64bit(skb, IFLA_MACSEC_CIPHER_SUITE,
- -			      DEFAULT_CIPHER_ID, IFLA_MACSEC_PAD) ||
-++			      MACSEC_DEFAULT_CIPHER_ID, IFLA_MACSEC_PAD) ||
-  	    nla_put_u8(skb, IFLA_MACSEC_ENCODING_SA, tx_sc->encoding_sa) ||
-  	    nla_put_u8(skb, IFLA_MACSEC_ENCRYPT, tx_sc->encrypt) ||
-  	    nla_put_u8(skb, IFLA_MACSEC_PROTECT, secy->protect_frames) ||
+This looks nicer indeed!
+--=20
+=46lorian
