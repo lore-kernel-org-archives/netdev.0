@@ -1,115 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 1/1] pch_gbe: replace private tx ring lock with
- common netif_tx_lock
-Date: Wed, 27 Apr 2016 23:29:44 +0200
-Message-ID: <20160427212944.GB10269@electric-eye.fr.zoreil.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: Provide CPU port statistics to master
+ netdev
+Date: Wed, 27 Apr 2016 14:43:02 -0700
+Message-ID: <57213266.8020004@gmail.com>
+References: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
+ <20160427190308.GE29024@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Darren Hart <dvhart@infradead.org>,
-	Andy Cress <andy.cress@us.kontron.com>, bryan@fossetcon.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39903 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753751AbcD0Vao (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 17:30:44 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34847 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752288AbcD0VpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 17:45:20 -0400
+Received: by mail-pa0-f43.google.com with SMTP id iv1so24247795pac.2
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 14:45:19 -0700 (PDT)
+In-Reply-To: <20160427190308.GE29024@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pch_gbe_tx_ring.tx_lock is only used in the hard_xmit handler and
-in the transmit completion reaper called from NAPI context.
+On 27/04/16 12:03, Andrew Lunn wrote:
+>> +	if (stringset == ETH_SS_STATS && ds->drv->get_strings) {
+>> +		ndata = data + mcount * len;
+>> +		/* This function copies ETH_GSTRINGS_LEN bytes, we will mangle
+>> +		 * the output after to prepend our CPU port prefix we
+>> +		 * constructed earlier
+>> +		 */
+>> +		ds->drv->get_strings(ds, cpu_port, ndata);
+>> +		count = ds->drv->get_sset_count(ds);
+>> +		for (i = 0; i < count; i++) {
+>> +			memmove(ndata + (i * len + sizeof(pfx)),
+>> +				ndata + i * len, len - sizeof(pfx));
+>> +			memcpy(ndata + i * len, pfx, sizeof(pfx));
+> 
+> Hi Florian
+> 
+> Did you check what happens if this causes the NULL terminator to be
+> discarded? Does ethtool handle that? As i said before, it is unclear
+> if one is required.
 
-Compile-tested only. Potential victims Cced.
+I just did yes. So ethtool has a do_gstringset() function which
+NULL-terminates every strings set except the statistics kind
+(ETH_SS_STATS or ETH_SS_PHY_STATS) but this is not much of a problem
+because it limits the output to ETH_GSTRING_LEN anyway.
 
-Someone more knowledgeable may check if pch_gbe_tx_queue could
-have some use for a mmiowb.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Darren Hart <dvhart@infradead.org>
-Cc: Andy Cress <andy.cress@us.kontron.com>
-Cc: bryan@fossetcon.org
-
----
- Includes Nikolay's fix.
-
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h      |  2 --
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 10 ++--------
- 2 files changed, 2 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-index 2a55d6d..8d710a3 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-@@ -481,7 +481,6 @@ struct pch_gbe_buffer {
- 
- /**
-  * struct pch_gbe_tx_ring - tx ring information
-- * @tx_lock:	spinlock structs
-  * @desc:	pointer to the descriptor ring memory
-  * @dma:	physical address of the descriptor ring
-  * @size:	length of descriptor ring in bytes
-@@ -491,7 +490,6 @@ struct pch_gbe_buffer {
-  * @buffer_info:	array of buffer information structs
-  */
- struct pch_gbe_tx_ring {
--	spinlock_t tx_lock;
- 	struct pch_gbe_tx_desc *desc;
- 	dma_addr_t dma;
- 	unsigned int size;
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index ca4add7..3cd87a4 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -1640,7 +1640,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 		   cleaned_count);
- 	if (cleaned_count > 0)  { /*skip this if nothing cleaned*/
- 		/* Recover from running out of Tx resources in xmit_frame */
--		spin_lock(&tx_ring->tx_lock);
-+		netif_tx_lock(adapter->netdev);
- 		if (unlikely(cleaned && (netif_queue_stopped(adapter->netdev))))
- 		{
- 			netif_wake_queue(adapter->netdev);
-@@ -1652,7 +1652,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 
- 		netdev_dbg(adapter->netdev, "next_to_clean : %d\n",
- 			   tx_ring->next_to_clean);
--		spin_unlock(&tx_ring->tx_lock);
-+		netif_tx_unlock(adapter->netdev);
- 	}
- 	return cleaned;
- }
-@@ -1805,7 +1805,6 @@ int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
- 
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
--	spin_lock_init(&tx_ring->tx_lock);
- 
- 	for (desNo = 0; desNo < tx_ring->count; desNo++) {
- 		tx_desc = PCH_GBE_TX_DESC(*tx_ring, desNo);
-@@ -2135,13 +2134,9 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
- 	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
--	unsigned long flags;
--
--	spin_lock_irqsave(&tx_ring->tx_lock, flags);
- 
- 	if (unlikely(!PCH_GBE_DESC_UNUSED(tx_ring))) {
- 		netif_stop_queue(netdev);
--		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
- 		netdev_dbg(netdev,
- 			   "Return : BUSY  next_to use : 0x%08x  next_to clean : 0x%08x\n",
- 			   tx_ring->next_to_use, tx_ring->next_to_clean);
-@@ -2150,7 +2145,6 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	/* CRC,ITAG no support */
- 	pch_gbe_tx_queue(adapter, tx_ring, skb);
--	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
- 	return NETDEV_TX_OK;
- }
- 
+After injecting a bit of error in net/dsa/slave.c to have a much bigger
+prefix making us push the stats names, the stats are correcty truncated
+by ethtool. So we seem to be good to go with the current code in kernel
+and user space.
 -- 
-2.5.5
+Florian
