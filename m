@@ -1,39 +1,46 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] tipc: remove an unnecessary NULL check
-Date: Wed, 27 Apr 2016 11:05:28 +0300
-Message-ID: <20160427080528.GA22469@mwanda>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [net-next PATCH V3 1/5] samples/bpf: add back functionality to
+ redefine LLC command
+Date: Wed, 27 Apr 2016 13:36:33 +0530
+Message-ID: <20160427080609.GB14936@naverao1-tp.in.ibm.com>
+References: <20160427072855.29959.70252.stgit@firesoul>
+ <20160427073013.29959.86846.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ying Xue <ying.xue@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net,
-	kernel-janitors@vger.kernel.org
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:44487 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753376AbcD0IGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 04:06:32 -0400
+Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	bblanco@plumgrid.com, borkmann@iogearbox.net,
+	alexei.starovoitov@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160427073013.29959.86846.stgit@firesoul>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is never called with a NULL "buf" and anyway, we dereference 's' on
-the lines before so it would Oops before we reach the check.
+On 2016/04/27 09:30AM, Jesper Dangaard Brouer wrote:
+> It is practical to be-able-to redefine the location of the LLVM
+> command 'llc', because not all distros have a LLVM version with bpf
+> target support.  Thus, it is sometimes required to compile LLVM from
+> source, and sometimes it is not desired to overwrite the distros
+> default LLVM version.
+> 
+> This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
+> PATH, rather than a hardcoded value").
+> 
+> Add this features back. Note that it is possible to redefine the LLC
+> on the make command like:
+> 
+>  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Why not do:
+  PATH=~/git/llvm/build/bin:$PATH make samples/bpf/
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 79de588..0dd0224 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -326,8 +326,7 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
- 		return tipc_subscrp_cancel(s, subscriber);
- 	}
+..if you wish to override clang/llc only for building bpf samples?
+Or, just export the updated $PATH:
+  export PATH=~/git/llvm/build/bin:$PATH
+  make samples/bpf
+
+
+- Naveen
  
--	if (s)
--		tipc_subscrp_subscribe(net, s, subscriber, swap);
-+	tipc_subscrp_subscribe(net, s, subscriber, swap);
- }
- 
- /* Handle one request to establish a new subscriber */
+
