@@ -1,55 +1,107 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Wed, 27 Apr 2016 03:02:23 +0000
-Message-ID: <BN3PR03MB1416861E1ADFCE7B11D1C0B8BF640@BN3PR03MB1416.namprd03.prod.outlook.com>
-References: <1460079411-31982-1-git-send-email-decui@microsoft.com>
- <571F94F9.6020204@redhat.com>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Wed, 27 Apr 2016 11:34:31 +0800
+Message-ID: <57203347.4000107@huawei.com>
+References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
+ <1461407219-72027-10-git-send-email-oulijun@huawei.com>
+ <20160424075424.GE7974@leon.nu> <571F0C04.2010005@huawei.com>
+ <20160426141821.GJ7974@leon.nu> <20160426142517.GA1937@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-To: Cathy Avery <cavery@redhat.com>, "gregkh@linuxfoundation.org"
- <gregkh@linuxfoundation.org>, "davem@davemloft.net" <davem@davemloft.net>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "olaf@aepfle.de" <olaf@aepfle.de>, Jason Wang <jasowang@redhat.com>, "KY
- Srinivasan" <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>,
- "vkuznets@redhat.com" <vkuznets@redhat.com>, "joe@perches.com"
- <joe@perches.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <571F94F9.6020204@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160426142517.GA1937-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> From: Cathy Avery [mailto:cavery@redhat.com]
-> Sent: Wednesday, April 27, 2016 0:19
-> To: Dexuan Cui <decui@microsoft.com>; gregkh@linuxfoundation.org;
-> davem@davemloft.net; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; Jason Wang
-> <jasowang@redhat.com>; KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>; vkuznets@redhat.com; joe@perches.com
-> Subject: Re: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+On 2016/4/26 22:25, Jiri Pirko wrote:
+> Tue, Apr 26, 2016 at 04:18:21PM CEST, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org wrote:
+>> On Tue, Apr 26, 2016 at 02:34:44PM +0800, oulijun wrote:
+>>> On 2016/4/24 15:54, Leon Romanovsky wrote:
 > 
-> Hi,
+> <snip>
 > 
-> I will be working with Dexuan to possibly port this functionality into RHEL.
+>>>>> +int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj)
+>>>>> +{
+>>>>> +	int ret = 0;
+>>>>> +
+>>>>> +	spin_lock(&bitmap->lock);
+>>>>> +	*obj = find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
+>>>>> +	if (*obj >= bitmap->max) {
+>>>>> +		bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
+>>>>> +			       & bitmap->mask;
+>>>>> +		*obj = find_first_zero_bit(bitmap->table, bitmap->max);
+>>>>
+>>>> find_first_zero_bit function returns "unsigned long" which may or may
+>>>> not be equal to u32 on some architectures.
+>>>>
+>>> Hi Leon,
+>>>     I appreciate your keen eye. this code is meant for ARM64bit therefore should run corretly for 64-bit AARCH64.
 > 
-> Here are my initial comments. Mostly stylistic. They are prefaced by CAA.
+> The driver should run correctly on any arch.
 > 
-> Cathy Avery
+ Hi Jiri Pirko,
+    Our driver run in ARM64 platform by depending on Kconfig. It will be configure in Kconfig file.
 
-Thank you very much, Cathy!
+Thanks
+Lijun Ou
+> 
+>>> I will consider changing it as part of good partice and better portability "
+>>> I will give a primary plan to modified it.
+>>> for example:
+>>>     *obj = (u32)find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
+>>> Beause the max size of bitmap->table is u32 in current version.
+>>>
+>>> int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
+>>> 			 u32 reserved_bot, u32 reserved_top)
+>>> {
+>>> 	u32 i;
+>>>
+>>> 	if (num != roundup_pow_of_two(num))
+>>> 		return -EINVAL;
+>>>
+>>> 	bitmap->last = 0;
+>>> 	bitmap->top = 0;
+>>> 	bitmap->max = num - reserved_top;
+>>> 	bitmap->mask = mask;
+>>> 	bitmap->reserved_top = reserved_top;
+>>> 	spin_lock_init(&bitmap->lock);
+>>> 	bitmap->table = kcalloc(BITS_TO_LONGS(bitmap->max), sizeof(long),
+>>> 				GFP_KERNEL);
+>>>
+>>> Is this plan ok?
+>>
+>> No,
+>> You are submitting new driver, please do it properly (without casting)
+>>from the beginning.
+>>
+>>>
+>>> Thanks
+>>> Lijun Ou
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> 
+> .
+> 
 
-I'll take your pretty good suggestions and post a new version.
 
-Thanks,
--- Dexuan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
