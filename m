@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 12/20] net: dsa: rename dst->ds to dst->switches
-Date: Wed, 27 Apr 2016 18:30:09 -0400
-Message-ID: <1461796217-18893-13-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 11/20] net: dsa: mv88e6xxx: use bridge from dsa_port
+Date: Wed, 27 Apr 2016 18:30:08 -0400
+Message-ID: <1461796217-18893-12-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,126 +14,127 @@ In-Reply-To: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dsa_switch stores the net_device pointers in a "ports" member. Be
-consistent and store the dsa_switch pointer in a "switches" member of
-the dsa_switch_tree structure.
-
-This free us the "ds" member for a future dsa_switch list.
+Change the _mv88e6xxx_port_based_vlan_map function for a
+_mv88e6xxx_port_map_vlantable which takes a dsa_port structure as
+parameter. This allows us to iterate on dsa_port's bridge device pointer
+and thus get rid of the private bridge_dev structure.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h     | 2 +-
- net/dsa/dsa.c         | 8 ++++----
- net/dsa/tag_brcm.c    | 2 +-
- net/dsa/tag_dsa.c     | 2 +-
- net/dsa/tag_edsa.c    | 2 +-
- net/dsa/tag_trailer.c | 2 +-
- 6 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 48 ++++++++++++++++++++++-----------------------
+ drivers/net/dsa/mv88e6xxx.h |  1 -
+ 2 files changed, 24 insertions(+), 25 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 5f2e7df..389227d 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -124,7 +124,7 @@ struct dsa_switch_tree {
- 	/*
- 	 * Data for the individual switch chips.
- 	 */
--	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
-+	struct dsa_switch	*switches[DSA_MAX_SWITCHES];
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 0687894..89d0206 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1111,27 +1111,29 @@ static int _mv88e6xxx_port_state(struct dsa_switch *ds, int port, u8 state)
+ 	return ret;
+ }
+ 
+-static int _mv88e6xxx_port_based_vlan_map(struct dsa_switch *ds, int port)
++static int _mv88e6xxx_port_map_vlantable(struct dsa_switch *ds,
++					 struct dsa_port *dp)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	struct net_device *bridge = ps->ports[port].bridge_dev;
+ 	const u16 mask = (1 << ps->info->num_ports) - 1;
+ 	u16 output_ports = 0;
++	int port = dp->port;
++	struct dsa_port *intp;
+ 	int reg;
+-	int i;
+ 
+ 	/* allow CPU port or DSA link(s) to send frames to every port */
+ 	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
+ 		output_ports = mask;
+ 	} else {
+-		for (i = 0; i < ps->info->num_ports; ++i) {
++		dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
+ 			/* allow sending frames to every group member */
+-			if (bridge && ps->ports[i].bridge_dev == bridge)
+-				output_ports |= BIT(i);
++			if (intp->br && intp->br == dp->br)
++				output_ports |= BIT(intp->port);
+ 
+ 			/* allow sending frames to CPU port and DSA link(s) */
+-			if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+-				output_ports |= BIT(i);
++			if (dsa_is_cpu_port(ds, intp->port) ||
++			    dsa_is_dsa_port(ds, intp->port))
++				output_ports |= BIT(intp->port);
+ 		}
+ 	}
+ 
+@@ -2207,16 +2209,15 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
+ 			       struct net_device *bridge)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int i, err;
++	struct dsa_port *intp;
++	int err;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	/* Assign the bridge and remap each port's VLANTable */
+-	ps->ports[dp->port].bridge_dev = bridge;
+-
+-	for (i = 0; i < ps->info->num_ports; ++i) {
+-		if (ps->ports[i].bridge_dev == bridge) {
+-			err = _mv88e6xxx_port_based_vlan_map(ds, i);
++	/* Remap each port's VLANTable */
++	dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
++		if (intp->br == bridge) {
++			err = _mv88e6xxx_port_map_vlantable(ds, intp);
+ 			if (err)
+ 				break;
+ 		}
+@@ -2231,17 +2232,16 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
+ 				 struct net_device *bridge)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int i;
++	struct dsa_port *intp;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	/* Unassign the bridge and remap each port's VLANTable */
+-	ps->ports[dp->port].bridge_dev = NULL;
+-
+-	for (i = 0; i < ps->info->num_ports; ++i)
+-		if (i == dp->port || ps->ports[i].bridge_dev == bridge)
+-			if (_mv88e6xxx_port_based_vlan_map(ds, i))
+-				netdev_warn(ds->ports[i], "failed to remap\n");
++	/* Remap each port's VLANTable */
++	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
++		if (intp == dp || intp->br == bridge)
++			if (_mv88e6xxx_port_map_vlantable(ds, intp))
++				netdev_warn(ds->ports[intp->port],
++					    "failed to remap\n");
+ 
+ 	mutex_unlock(&ps->smi_mutex);
+ }
+@@ -2573,7 +2573,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, struct dsa_port *dp)
+ 	if (ret)
+ 		goto abort;
+ 
+-	ret = _mv88e6xxx_port_based_vlan_map(ds, dp->port);
++	ret = _mv88e6xxx_port_map_vlantable(ds, dp);
+ 	if (ret)
+ 		goto abort;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index c49a514..56e3347 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -378,7 +378,6 @@ struct mv88e6xxx_vtu_stu_entry {
  };
  
- struct dsa_port {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 3daffb6..aa4a61a 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -857,7 +857,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 			continue;
- 		}
+ struct mv88e6xxx_priv_port {
+-	struct net_device *bridge_dev;
+ 	u8 state;
+ };
  
--		dst->ds[i] = ds;
-+		dst->switches[i] = ds;
- 
- 		++configured;
- 	}
-@@ -953,7 +953,7 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- 	wmb();
- 
- 	for (i = 0; i < dst->pd->nr_chips; i++) {
--		struct dsa_switch *ds = dst->ds[i];
-+		struct dsa_switch *ds = dst->switches[i];
- 
- 		if (ds)
- 			dsa_switch_destroy(ds);
-@@ -1006,7 +1006,7 @@ static int dsa_suspend(struct device *d)
- 	int i, ret = 0;
- 
- 	for (i = 0; i < dst->pd->nr_chips; i++) {
--		struct dsa_switch *ds = dst->ds[i];
-+		struct dsa_switch *ds = dst->switches[i];
- 
- 		if (ds != NULL)
- 			ret = dsa_switch_suspend(ds);
-@@ -1022,7 +1022,7 @@ static int dsa_resume(struct device *d)
- 	int i, ret = 0;
- 
- 	for (i = 0; i < dst->pd->nr_chips; i++) {
--		struct dsa_switch *ds = dst->ds[i];
-+		struct dsa_switch *ds = dst->switches[i];
- 
- 		if (ds != NULL)
- 			ret = dsa_switch_resume(ds);
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index 3d5aabc..35fc75b 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -102,7 +102,7 @@ static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (unlikely(dst == NULL))
- 		goto out_drop;
- 
--	ds = dst->ds[0];
-+	ds = dst->switches[0];
- 
- 	skb = skb_unshare(skb, GFP_ATOMIC);
- 	if (skb == NULL)
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index c870cfa..bf3eebf8 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -109,7 +109,7 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
- 	 */
- 	if (source_device >= dst->pd->nr_chips)
- 		goto out_drop;
--	ds = dst->ds[source_device];
-+	ds = dst->switches[source_device];
- 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
- 		goto out_drop;
- 
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 898f949d..4ddbb85 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -122,7 +122,7 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
- 	 */
- 	if (source_device >= dst->pd->nr_chips)
- 		goto out_drop;
--	ds = dst->ds[source_device];
-+	ds = dst->switches[source_device];
- 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
- 		goto out_drop;
- 
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index eaa3440..ade0bbf 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -67,7 +67,7 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (unlikely(dst == NULL))
- 		goto out_drop;
--	ds = dst->ds[0];
-+	ds = dst->switches[0];
- 
- 	skb = skb_unshare(skb, GFP_ATOMIC);
- 	if (skb == NULL)
 -- 
 2.8.0
