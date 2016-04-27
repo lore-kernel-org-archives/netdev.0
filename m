@@ -1,37 +1,39 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2 0/2] pegasus: correct buffer sizes
-Date: Wed, 27 Apr 2016 09:46:15 +0200
-Message-ID: <1461743175.3723.1.camel@sipsolutions.net>
-References: <1461742525-2748-1-git-send-email-petkan@mip-labs.com>
-	 (sfid-20160427_093549_878302_3DDEE29D)
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] tipc: remove an unnecessary NULL check
+Date: Wed, 27 Apr 2016 11:05:28 +0300
+Message-ID: <20160427080528.GA22469@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, a1291762@gmail.com
-To: Petko Manolov <petkan@mip-labs.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net,
+	kernel-janitors@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49744 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884AbcD0HqV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2016 03:46:21 -0400
-In-Reply-To: <1461742525-2748-1-git-send-email-petkan@mip-labs.com> (sfid-20160427_093549_878302_3DDEE29D)
+Received: from userp1040.oracle.com ([156.151.31.81]:44487 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753376AbcD0IGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 04:06:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-04-27 at 10:35 +0300, Petko Manolov wrote:
->=C2=A0
-> Nearly all Pegasus devices may append the RX status to the end of the
-> received =C2=A0packet.=C2=A0=C2=A0It is the default setup for the dri=
-ver.=C2=A0=C2=A0The
-> actual ethernet packet is =C2=A04 bytes shorter.=C2=A0=C2=A0Why and w=
-hen 'pkt_len -=3D
-> 4' became 'pkt_len -=3D 8' is again hidden in the mists of time.=C2=A0=
-=C2=A0There
-> might have been a good reason to do so, but multiple reads of the
-> datasheet did not point me to any.
->=20
+This is never called with a NULL "buf" and anyway, we dereference 's' on
+the lines before so it would Oops before we reach the check.
 
-Wild guess: (some) devices pass the FCS, perhaps depending on the
-configuration?
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-johannes
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 79de588..0dd0224 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -326,8 +326,7 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
+ 		return tipc_subscrp_cancel(s, subscriber);
+ 	}
+ 
+-	if (s)
+-		tipc_subscrp_subscribe(net, s, subscriber, swap);
++	tipc_subscrp_subscribe(net, s, subscriber, swap);
+ }
+ 
+ /* Handle one request to establish a new subscriber */
