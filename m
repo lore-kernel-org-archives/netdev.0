@@ -1,163 +1,311 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 net-next 11/13] Documentation: Bindings: Update DT
- binding for separating dsaf dev support
-Date: Wed, 27 Apr 2016 10:25:56 -0500
-Message-ID: <CAL_JsqLHrHWtiikSt7F39LoExoL2aep5Pqax5cGWWBw-yhz79g@mail.gmail.com>
-References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1461402317-136499-12-git-send-email-Yisen.Zhuang@huawei.com>
- <20160426124847.GA26682@rob-hp-laptop> <57203309.1090501@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: Wang Shanker <shankerwangmiao@gmail.com>
+Subject: Re: [PATCH] ip: add udp_csum, udp6_csum_tx, udp6_csum_rx control flags to ip l2tp add tunnel
+Date: Wed, 27 Apr 2016 23:33:15 +0800
+Message-ID: <FD67CA88-0731-4DD7-AC78-5A4B922810D6@gmail.com>
+References: <CAEwTi7SkMrgxpPi-EuC2UDiwv7L0-vdRAhtdAYLgnbnw5H-Eig@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=gb2312
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Will Deacon <will.deacon@arm.com>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	yankejian <yankejian@huawei.com>,
-	huangdaode <huangdaode@hisilicon.com>, salil.mehta@huawei.com,
-	lipeng321@huawei.com, liguozhu@huawei.com, xieqianqian@huawei.com,
-	Wei Xu <xuwei5@hisilicon.com>, Linuxarm <linuxarm@huawei.com>
-To: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:53336 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752977AbcD0P0V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 11:26:21 -0400
-In-Reply-To: <57203309.1090501@huawei.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33253 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753181AbcD0PdR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 11:33:17 -0400
+Received: by mail-pf0-f195.google.com with SMTP id e190so6101746pfe.0
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 08:33:16 -0700 (PDT)
+In-Reply-To: <CAEwTi7SkMrgxpPi-EuC2UDiwv7L0-vdRAhtdAYLgnbnw5H-Eig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 26, 2016 at 10:33 PM, Yisen Zhuang <Yisen.zhuang@huawei.com=
-> wrote:
-> Hi Rob and David,
->
-> Please see my comments inline.
->
-> David have merged this series to net-next, but we need to modify some=
- codes according
-> to Rob's comments. I am not sure if i need to send V3 for this series=
-, or separate
-> patches of documentation to independent series and generate a new pat=
-ch for hns base
-> on current net-next?
-
-That's David's call. I'm guessing he wants follow-up patches on top of =
-these.
-
-> =E5=9C=A8 2016/4/26 20:48, Rob Herring =E5=86=99=E9=81=93:
->> On Sat, Apr 23, 2016 at 05:05:15PM +0800, Yisen Zhuang wrote:
->>> Because debug dsaf port was separated from service dsaf port, this =
-patch
->>> updates the related information of DT binding.
->>
->> Separated when? New version of the h/w? If so, where's the new
->> compatible string? This is quite a big binding change.
->
-> There isn't any change of h/w. I separated debug dsaf port from sevic=
-e dsaf
-> port to make the code more simple and readability.
-
-Okay.
-
-[...]
-
->>> +  serdes-syscon rather than this address.
->>>    The third region is the PPE register base and size.
->>> -  The fourth region is dsa fabric base register and size.
->>> -  The fifth region is cpld base register and size, it is not requi=
-red if do not use cpld.
->>> -- phy-handle: phy handle of physicl port, 0 if not any phy device.=
- see ethernet.txt [1].
->>> +  The fourth region is dsa fabric base register and size. It is no=
-t required for
->>> +  single-port mode.
->>> +- reg-names: may be ppe-base and(or) dsaf-base. It is used to find=
- the
->>> +  corresponding reg's index.
->>
->> But you have up to 5 regions.
->>
->> The variable nature of what regions you have tells me you need more
->> specific compatible strings for each chip.
->
-> we didn't add support of new h/w. We added these regions to make code=
- simple and readability.
-> If we need to add support of next h/w version next time, we don't nee=
-d to add many branches
-> for these attributes. So we didn't add a new compatible here.
-
-Not sure what you mean by branches. It's fine to put properties for
-things that vary among h/w versions, but new compatible strings will
-be needed for any new versions.
 
 
->>> +- port: subnodes of dsaf. A dsaf node may contain several port nod=
-es(Depending
->>> +  on mode of dsaf). Port node contain some attributes listed below=
-:
->>> +- port-id: is physical port index in one dsaf.
->>
->> Indexes should generally be avoided. What does the number correspond
->> to in h/w (if anything)?
->
-> port-id is index for a port in dsaf, it is correspond to index of PHY=
- showed below.
+> =D4=DA 2016=C4=EA4=D4=C227=C8=D5=A3=AC20:21=A3=ACJames Chapman <jchap=
+man@katalix.com> =D0=B4=B5=C0=A3=BA
+>=20
+> On 26 April 2016 at 15:15, Wang Shanker <shankerwangmiao@gmail.com> w=
+rote:
+>> Hi, all
+>>=20
+>> It=A1=AFs my first time to contribute to such an important open sour=
+ce project. Things began when I upgraded my server, called "Server A", =
+form ubuntu 14.04 to 16.04, which is shipped with new kernel version, 4=
+=2E4. After upgrade, I soon found a l2tp tunnel between this server and=
+ another linux server, called "Server B", via ipv6 broke down. Here is =
+the network topology:
+>>=20
+>>  +----------+                    +----------+
+>>  | Server A | -- IPV6 Network -- | Server B |
+>>  +----------+                    +----------+
+>>=20
+>> The l2tp tunnel was encapsulated in udp datagrams. All the configura=
+tion was normal and could work after I reverted the kernel on Server A =
+to original version.
+>>=20
+>> Here is what i did to create the tunnel:
+>>=20
+>> ```
+>> on Server A:
+>>=20
+>> ip l2tp add tunnel tunnel_id 86 peer_tunnel_id 86 remote 2001:db8::a=
+aaa local 2001:db8::bbbb udp_sport 1086 udp_dport 1086
+>> ip l2tp add session name l2tpeth0 tunnel_id 86 session_id 86 peer_se=
+ssion_id 86
+>> ip l s l2tpeth0 up
+>>=20
+>> on Server B:
+>>=20
+>> ip l2tp add tunnel tunnel_id 86 peer_tunnel_id 86 local 2001:db8::aa=
+aa remote 2001:db8::bbbb udp_sport 1086 udp_dport 1086
+>> ip l2tp add session name l2tpeth0 tunnel_id 86 session_id 86 peer_se=
+ssion_id 86
+>> ip l s l2tpeth0 up
+>>=20
+>> ```
+>>=20
+>> When I used tcpdump to diagnose the problem, I got such result:
+>>=20
+>> ```
+>> on Server A:
+>>=20
+>> arping -i l2tpeth0 -0 1.2.3.4
+>>=20
+>> on Server B:
+>>=20
+>> tcpdump -i eth0 -n port 1086  -v
+>>=20
+>> 21:35:57.818810 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17=
+) payload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [bad u=
+dp cksum 0x0000 -> 0x1140!] UDP, length 54
+>> 21:35:58.820572 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17=
+) payload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [bad u=
+dp cksum 0x0000 -> 0x1140!] UDP, length 54
+>> 21:35:59.822216 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17=
+) payload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [bad u=
+dp cksum 0x0000 -> 0x1140!] UDP, length 54
+>>=20
+>> ```
+>>=20
+>> After looking into kernel source, I found out that in this commit a =
+new feature to set udp6 checksum to zero in commit 6b649fe, which added=
+ `L2TP_ATTR_UDP_ZERO_CSUM6_TX` and `L2TP_ATTR_UDP_ZERO_CSUM6_TX`.
+>>=20
+>> As a result, I added `udp_csum`, `udp6_csum_tx`, `udp6_csum_rx` cont=
+rol flags to `ip l2tp add tunnel` to control those attributes about che=
+cksum.
+>>=20
+>> Using this to create the tunnel instead on Server A:
+>>=20
+>> ```
+>> ip l2tp add tunnel tunnel_id 86 peer_tunnel_id 86 remote 2001:db8::a=
+aaa local 2001:db8::bbbb udp_sport 1086 udp_dport 1086 udp6_csum_tx on =
+udp6_csum_rx on
+>> ```
+>>=20
+>> I finally got:
+>>=20
+>> ```
+>> on Server A:
+>>=20
+>> arping -i l2tpeth0 -0 1.2.3.4
+>>=20
+>> on Server B:
+>>=20
+>> tcpdump -i eth0 -n port 1086  -v
+>>=20
+>> 22:07:03.844297 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17=
+) payload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [udp s=
+um ok] UDP, length 54
+>> 22:07:04.845717 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17=
+) payload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [udp s=
+um ok] UDP, length 54
+>> 22:07:05.847965 IP6 (flowlabel 0x8f028, hlim 64, next-header UDP (17=
+) payload length: 62) 2001:db8::aaaa.1086 > 2001:db8::bbbb.1086: [udp s=
+um ok] UDP, length 54
+>>=20
+>> tcpdump -i l2tpeth0 -v
+>>=20
+>> 22:10:35.691326 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has=
+ 1.2.3.4 tell 0.0.0.0, length 28
+>> 22:10:36.693627 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has=
+ 1.2.3.4 tell 0.0.0.0, length 28
+>> 22:10:37.695010 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has=
+ 1.2.3.4 tell 0.0.0.0, length 28
+>> 22:10:38.697121 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has=
+ 1.2.3.4 tell 0.0.0.0, length 28
+>>=20
+>> ```
+>>=20
+>> It seems to work. However, is it the real point that should be fixed=
+ and does my patch fix it well? I need your suggestion.
+>=20
+> This seems reasonable to me. It is good to provide user control of
+> L2TP checksum options.
+>=20
+> However, there is a problem with your patch. The netlink attributes
+> you are accessing to control checksums are flags, not u8 values.
 
-Okay, you should use reg property here instead.
+I=A1=AFm not so familiar with kernel code. However, in `<linux/l2tp.h>`=
+ :=20
 
->
->                                                          CPU
->                                                           |
->                                     ---------------------------------=
---
->                                     |                     |          =
- |
->     ----------------------------------------------    ---------   ---=
-------
->     |                         |                  |    |       |   |  =
- |   |
->     |                        PPE                 |    |  PPE  |   |  =
-PPE  |
->     |                         |                  |    |   |   |   |  =
- |   |
->     |                         |                  |    |   |   |   |  =
- |   |
->     |                      crossbar              |    |   |   |   |  =
- |   |
->     |                         |                  |    |   |   |   |  =
- |   |
->     |   ----------------------------------       |    |   |   |   |  =
- |   |
->     |   |     |     |      |      |      |       |    |   |   |   |  =
- |   |
->     |   |     |     |      |      |      |       |    |   |   |   |  =
- |   |
->     |  MAC   MAC   MAC    MAC    MAC    MAC      |    |  MAC  |   |  =
-MAC  |
->     |   |     |     |      |      |      |       |    |   |   |   |  =
- |   |
->     ----------------------------------------------    ---------   ---=
-------
->         |     |     |      |      |      |    \        /  |        / =
- |
->        PHY   PHY   PHY    PHY    PHY    PHY    \      /  PHY      /  =
-PHY
->                                                 \    /           /
->                                                  \  /           /
->                                              DSAF(three platform devi=
-ce)
->
->>
->>> +- phy-handle: phy handle of physicl port. It is not required if th=
-ere isn't
+```
 
-Another typo here.
+/*
+ * ATTR types defined for L2TP
+ */
+enum {
+	L2TP_ATTR_NONE,			/* no data */
+// ...
+	L2TP_ATTR_IP6_DADDR,		/* struct in6_addr */
+	L2TP_ATTR_UDP_ZERO_CSUM6_TX,	/* u8 */
+	L2TP_ATTR_UDP_ZERO_CSUM6_RX,	/* u8 */
+// ...
 
-Rob
+}
+```
+
+isn=A1=AFt L2TP_ATTR_UDP_ZERO_CSUM6_TX a u8 value? Or should I use `add=
+attr` instead of `addattr8`?=20
+
+>=20
+> Maybe the default checksum setting for such l2tp tunnels should be
+> changed in the l2tp kernel code to match the previous behaviour where
+> IPv6 checksums were disabled?
+
+I think so. However, I=A1=AFm confused with those code.
+
+=46rom the name of the attrs `L2TP_ATTR_UDP_ZERO_CSUM6_TX` and `L2TP_AT=
+TR_UDP_ZERO_CSUM6_RX`, I=20
+can tell that when those flags are set, the checksum will be zero. Also=
+, according to the=20
+comment of commit 6b649fe in kernel source, =A1=B0Added new L2TP config=
+uration options to allow=20
+TX and RX of zero checksums in IPv6. Default is not to use them.=A1=B1,=
+ checksums shouldn't have
+been zero by default. However, in fact, they are. I think there may be =
+some bugs in kernel
+source.=20
+
+>=20
+>>=20
+>>=20
+>> ---
+>> ip/ipl2tp.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
+>> 1 file changed, 45 insertions(+)
+>>=20
+>> diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
+>> index 3c8ee93..67a6482 100644
+>> --- a/ip/ipl2tp.c
+>> +++ b/ip/ipl2tp.c
+>> @@ -56,6 +56,8 @@ struct l2tp_parm {
+>>=20
+>>        uint16_t pw_type;
+>>        uint16_t mtu;
+>> +       int udp6_csum_tx:1;
+>> +       int udp6_csum_rx:1;
+>>        int udp_csum:1;
+>>        int recv_seq:1;
+>>        int send_seq:1;
+>> @@ -117,6 +119,9 @@ static int create_tunnel(struct l2tp_parm *p)
+>>        if (p->encap =3D=3D L2TP_ENCAPTYPE_UDP) {
+>>                addattr16(&req.n, 1024, L2TP_ATTR_UDP_SPORT, p->local=
+_udp_port);
+>>                addattr16(&req.n, 1024, L2TP_ATTR_UDP_DPORT, p->peer_=
+udp_port);
+>> +               addattr8 (&req.n, 1024, L2TP_ATTR_UDP_CSUM, p->udp_c=
+sum);
+>> +               addattr8 (&req.n, 1024, L2TP_ATTR_UDP_ZERO_CSUM6_TX,=
+ p->udp6_csum_tx);
+>> +               addattr8 (&req.n, 1024, L2TP_ATTR_UDP_ZERO_CSUM6_RX,=
+ p->udp6_csum_rx);
+>>        }
+>>=20
+>>        if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
+>> @@ -282,6 +287,14 @@ static int get_response(struct nlmsghdr *n, voi=
+d *arg)
+>>                p->l2spec_len =3D rta_getattr_u8(attrs[L2TP_ATTR_L2SP=
+EC_LEN]);
+>>=20
+>>        p->udp_csum =3D !!attrs[L2TP_ATTR_UDP_CSUM];
+>> +       if (attrs[L2TP_ATTR_UDP_ZERO_CSUM6_TX])
+>> +         p->udp6_csum_tx =3D rta_getattr_u8(attrs[L2TP_ATTR_UDP_ZER=
+O_CSUM6_TX]);
+>> +       else
+>> +         p->udp6_csum_tx =3D 1;
+>> +       if (attrs[L2TP_ATTR_UDP_ZERO_CSUM6_RX])
+>> +         p->udp6_csum_rx =3D rta_getattr_u8(attrs[L2TP_ATTR_UDP_ZER=
+O_CSUM6_RX]);
+>> +       else
+>> +         p->udp6_csum_rx =3D 1;
+>>        if (attrs[L2TP_ATTR_COOKIE])
+>>                memcpy(p->cookie, RTA_DATA(attrs[L2TP_ATTR_COOKIE]),
+>>                       p->cookie_len =3D RTA_PAYLOAD(attrs[L2TP_ATTR_=
+COOKIE]));
+>> @@ -470,6 +483,9 @@ static void usage(void)
+>>        fprintf(stderr, "          tunnel_id ID peer_tunnel_id ID\n")=
+;
+>>        fprintf(stderr, "          [ encap { ip | udp } ]\n");
+>>        fprintf(stderr, "          [ udp_sport PORT ] [ udp_dport POR=
+T ]\n");
+>> +       fprintf(stderr, "          [ udp_csum { on | off } ]\n");
+>> +       fprintf(stderr, "          [ udp6_csum_tx { on | off } ]\n")=
+;
+>> +       fprintf(stderr, "          [ udp6_csum_rx { on | off } ]\n")=
+;
+>>        fprintf(stderr, "Usage: ip l2tp add session [ name NAME ]\n")=
+;
+>>        fprintf(stderr, "          tunnel_id ID\n");
+>>        fprintf(stderr, "          session_id ID peer_session_id ID\n=
+");
+>> @@ -500,6 +516,8 @@ static int parse_args(int argc, char **argv, int=
+ cmd, struct l2tp_parm *p)
+>>        /* Defaults */
+>>        p->l2spec_type =3D L2TP_L2SPECTYPE_DEFAULT;
+>>        p->l2spec_len =3D 4;
+>> +       p->udp6_csum_rx =3D 1;
+>> +       p->udp6_csum_tx =3D 1;
+>>=20
+>>        while (argc > 0) {
+>>                if (strcmp(*argv, "encap") =3D=3D 0) {
+>> @@ -569,6 +587,33 @@ static int parse_args(int argc, char **argv, in=
+t cmd, struct l2tp_parm *p)
+>>                        if (get_u16(&uval, *argv, 0))
+>>                                invarg("invalid port\n", *argv);
+>>                        p->peer_udp_port =3D uval;
+>> +               } else if (strcmp(*argv, "udp_csum") =3D=3D 0) {
+>> +                       NEXT_ARG();
+>> +                       if (strcmp(*argv, "on") =3D=3D 0) {
+>> +                               p->udp_csum =3D 1;
+>> +                       } else if (strcmp(*argv, "off") =3D=3D 0) {
+>> +                               p->udp_csum =3D 0;
+>> +                       } else {
+>> +                               invarg("invalid option for udp_csum\=
+n", *argv);
+>> +                       }
+>> +               } else if (strcmp(*argv, "udp6_csum_rx") =3D=3D 0) {
+>> +                       NEXT_ARG();
+>> +                       if (strcmp(*argv, "on") =3D=3D 0) {
+>> +                               p->udp6_csum_rx =3D 1;
+>> +                       } else if (strcmp(*argv, "off") =3D=3D 0) {
+>> +                               p->udp6_csum_rx =3D 0;
+>> +                       } else {
+>> +                               invarg("invalid option for udp6_csum=
+_rx\n", *argv);
+>> +                       }
+>> +               } else if (strcmp(*argv, "udp6_csum_tx") =3D=3D 0) {
+>> +                       NEXT_ARG();
+>> +                       if (strcmp(*argv, "on") =3D=3D 0) {
+>> +                               p->udp6_csum_tx =3D 1;
+>> +                       } else if (strcmp(*argv, "off") =3D=3D 0) {
+>> +                               p->udp6_csum_tx =3D 0;
+>> +                       } else {
+>> +                               invarg("invalid option for udp6_csum=
+_tx\n", *argv);
+>> +                       }
+>>                } else if (strcmp(*argv, "offset") =3D=3D 0) {
+>>                        __u8 uval;
+>>=20
+>> --
+>> 2.5.2
+>>=20
