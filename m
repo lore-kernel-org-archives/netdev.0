@@ -1,63 +1,71 @@
-From: Lino Sanfilippo <lsanfil@marvell.com>
-Subject: Re: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
-Date: Wed, 27 Apr 2016 15:56:04 +0200
-Message-ID: <5720C4F4.3050700@marvell.com>
-References: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
- <1461763110-15263-2-git-send-email-eladkan@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
-	<abrodkin@synopsys.com>, <talz@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: Elad Kanfi <eladkan@mellanox.com>, <davem@davemloft.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH iproute2 2/2] ip link gre: print only relevant info in external mode
+Date: Wed, 27 Apr 2016 16:11:14 +0200
+Message-ID: <837a7439aacf528066dfb2a873112e4f2fc00ea6.1461766016.git.jbenc@redhat.com>
+References: <cover.1461766016.git.jbenc@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Paolo Abeni <pabeni@redhat.com>,
+	Pravin Shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:45845 "EHLO
-	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751967AbcD0N4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 09:56:14 -0400
-In-Reply-To: <1461763110-15263-2-git-send-email-eladkan@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40289 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752171AbcD0OLi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 10:11:38 -0400
+In-Reply-To: <cover.1461766016.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Display only attributes that are relevant when a GRE interface is in
+'external' mode instead of the default values (which are ignored by the
+kernel even if passed back).
 
-On 27.04.2016 15:18, Elad Kanfi wrote:
-> From: Elad Kanfi <eladkan@mellanox.com>
->
-> Below is a description of a possible problematic
-> sequence. CPU-A is sending a frame and CPU-B handles
-> the interrupt that indicates the frame was sent. CPU-B
-> reads an invalid value of tx_packet_sent.
->
-> 	CPU-A				CPU-B
-> 	-----				-----
-> 	nps_enet_send_frame
-> 	.
-> 	.
-> 	tx_packet_sent = true
-> 	order HW to start tx
-> 	.
-> 	.
-> 	HW complete tx
-> 			    ------> 	get tx complete interrupt
-> 					.
-> 					.
-> 					if(tx_packet_sent == true)
->
-> 	end memory transaction
-> 	(tx_packet_sent actually
-> 	 written)
->
-> Problem solution:
->
-> Add a memory barrier after setting tx_packet_sent,
-> in order to make sure that it is written before
-> the packet is sent.
+Fixes: 926b39e1feffd ("gre: add support for collect metadata flag")
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ ip/link_gre.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-Should not those SMP memory barriers be paired? AFAIK you do not only have to make sure
-that the value written by CPU-A actually is written to memory but also that CPU-B
-reads that value from memory. At least this is what I have understood from memory-barriers.txt...
-
-Regards,
-Lino
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 36ce1252675b..492c22053b89 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -339,7 +339,7 @@ get_failed:
+ 	return 0;
+ }
+ 
+-static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++static void gre_print_direct_opt(FILE *f, struct rtattr *tb[])
+ {
+ 	char s2[64];
+ 	const char *local = "any";
+@@ -347,9 +347,6 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	unsigned int iflags = 0;
+ 	unsigned int oflags = 0;
+ 
+-	if (!tb)
+-		return;
+-
+ 	if (tb[IFLA_GRE_REMOTE]) {
+ 		unsigned int addr = rta_getattr_u32(tb[IFLA_GRE_REMOTE]);
+ 
+@@ -421,8 +418,16 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 		fputs("icsum ", f);
+ 	if (oflags & GRE_CSUM)
+ 		fputs("ocsum ", f);
++}
+ 
+-	if (tb[IFLA_GRE_COLLECT_METADATA])
++static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++{
++	if (!tb)
++		return;
++
++	if (!tb[IFLA_GRE_COLLECT_METADATA])
++		gre_print_direct_opt(f, tb);
++	else
+ 		fputs("external ", f);
+ 
+ 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
+-- 
+1.8.3.1
