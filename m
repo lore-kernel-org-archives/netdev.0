@@ -1,89 +1,188 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next v2 0/7] net: unify dst caching for tunnel
- devices
-Date: Thu, 28 Apr 2016 09:18:58 +0200
-Message-ID: <1461827938.4802.2.camel@redhat.com>
-References: <cover.1455287867.git.pabeni@redhat.com>
-	 <20160216.202221.489011866131335381.davem@davemloft.net>
-	 <1461799875.5535.87.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	tgraf@suug.ch, pshelar@nicira.com, jbenc@redhat.com,
-	hannes@stressinduktion.org, therbert@google.com,
-	sergei.shtylyov@cogentembedded.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33456 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750787AbcD1HTD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 03:19:03 -0400
-In-Reply-To: <1461799875.5535.87.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH nf-next] netfilter: allow logging from non-init namespaces
+Date: Wed, 27 Apr 2016 14:48:02 +0200
+Message-ID: <20160428074838.0BBB5A0C94@unicorn.suse.cz>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jonathan Corbet <corbet@lwn.net>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-04-27 at 16:31 -0700, Eric Dumazet wrote:
-> On Tue, 2016-02-16 at 20:22 -0500, David Miller wrote:
-> > From: Paolo Abeni <pabeni@redhat.com>
-> > Date: Fri, 12 Feb 2016 15:43:52 +0100
-> > 
-> > > This patch series try to unify the dst cache implementations currently
-> > > present in the kernel, namely in ip_tunnel.c and ip6_tunnel.c, introducing a
-> > > new generic implementation, replacing the existing ones, and then using
-> > > the new implementation in other tunnel devices which currently lack it.
-> > > 
-> > > The new dst implementation is compiled, as built-in, only if any device using
-> > > it is enabled.
-> > > 
-> > > Caching the dst for the tunnel remote address gives small, but measurable,
-> > > performance improvement when tunneling over ipv4 (in the 2%-4% range) and
-> > > significant ones when tunneling over ipv6 (roughly 60% when no
-> > > fragmentation/segmentation take place and the tunnel local address
-> > > is not specified).
-> > > 
-> > > v2:
-> > > - move the vxlan dst_cache usage inside the device lookup functions
-> > > - fix usage after free for lwt tunnel moving the dst cache storage inside
-> > >   the dst_metadata,
-> > > - sparse codying style cleanup
-> > 
-> > Series applied, thanks for doing this work as it is a major improvement.
-> 
-> Paolo, please check following warning :
-> 
-> This might be caused by e09acddf873bf775b208b452a4c3a3fd26fa9427
-> ("ip_tunnel: replace dst_cache with generic implementation")
-> 
-> 
-> [   73.982267] BUG: using smp_processor_id() in preemptible [00000000] code: ip/10604
-> [   73.990978] caller is debug_smp_processor_id+0x17/0x20
-> [   73.990981] CPU: 26 PID: 10604 Comm: ip Not tainted 4.6.0-dbx-DEV #1075
-> [   73.990982] Hardware name: ...
-> [   73.990983]  0000000000000000 ffff881fc11d3b98 ffffffff8140a51f 000000000000001a
-> [   73.990987]  ffffffff81a585c5 ffff881fc11d3bc8 ffffffff8142700f 000060bfa000e0c0
-> [   73.990989]  ffff881fcb6b0f00 000000009807f60a ffff881fcb6b0f00 ffff881fc11d3bd8
-> [   73.990992] Call Trace:
-> [   73.990996]  [<ffffffff8140a51f>] dump_stack+0x67/0x98
-> [   73.990998]  [<ffffffff8142700f>] check_preemption_disabled+0xef/0x100
-> [   73.991000]  [<ffffffff81427057>] debug_smp_processor_id+0x17/0x20
-> [   73.991003]  [<ffffffff816bc2cc>] dst_cache_set_ip4+0x2c/0x70
-> [   73.991006]  [<ffffffff8174fed1>] ip_tunnel_bind_dev+0x101/0x170
-> [   73.991008]  [<ffffffff81750750>] ip_tunnel_ioctl+0x330/0x430
-> [   73.991010]  [<ffffffff81750425>] ? ip_tunnel_ioctl+0x5/0x430
-> [   73.991012]  [<ffffffff81754b2b>] ipgre_tunnel_ioctl+0xdb/0x160
-> [   73.991015]  [<ffffffff816a66f7>] ? rtnl_lock+0x17/0x20
-> [   73.991017]  [<ffffffff816b03e5>] dev_ifsioc+0x325/0x370
-> [   73.991018]  [<ffffffff816b0662>] dev_ioctl+0xd2/0x630
-> [   73.991022]  [<ffffffff8166fc23>] sock_ioctl+0xd3/0x270
-> [   73.991025]  [<ffffffff81283643>] do_vfs_ioctl+0x93/0x6f0
-> [   73.991026]  [<ffffffff8166ff01>] ? sock_alloc_file+0x91/0x120
-> [   73.991029]  [<ffffffff8128fa3c>] ? __fget_light+0x6c/0x90
-> [   73.991031]  [<ffffffff81283d2b>] SyS_ioctl+0x8b/0xa0
-> [   73.991042]  [<ffffffff817ef2a5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+Commit 69b34fb996b2 ("netfilter: xt_LOG: add net namespace support for
+xt_LOG") disabled logging packets using the LOG target from non-init
+namespaces. The motivation was to prevent containers from flooding
+kernel log of the host. The plan was to keep it that way until syslog
+namespace implementation allows containers to log in a safe way.
 
-I'm on it right now.
+However, the work on syslog namespace seems to have hit a dead end
+somewhere in 2013 and there are users who want to use xt_LOG in all
+network namespaces. This patch allows to do so by setting
 
-Thank you for the head up.
+  /proc/sys/net/netfilter/nf_log_all_netns
 
-Paolo	
+to a nonzero value. This sysctl is only accessible from init_net so that
+one cannot switch the behaviour from inside a container.
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ Documentation/networking/netfilter-sysctl.txt | 10 ++++++++++
+ include/net/netfilter/nf_log.h                |  3 +++
+ net/bridge/netfilter/ebt_log.c                |  2 +-
+ net/ipv4/netfilter/nf_log_arp.c               |  2 +-
+ net/ipv4/netfilter/nf_log_ipv4.c              |  2 +-
+ net/ipv6/netfilter/nf_log_ipv6.c              |  2 +-
+ net/netfilter/nf_log.c                        | 22 ++++++++++++++++++++++
+ 7 files changed, 39 insertions(+), 4 deletions(-)
+ create mode 100644 Documentation/networking/netfilter-sysctl.txt
+
+diff --git a/Documentation/networking/netfilter-sysctl.txt b/Documentation/networking/netfilter-sysctl.txt
+new file mode 100644
+index 000000000000..55791e50e169
+--- /dev/null
++++ b/Documentation/networking/netfilter-sysctl.txt
+@@ -0,0 +1,10 @@
++/proc/sys/net/netfilter/* Variables:
++
++nf_log_all_netns - BOOLEAN
++	0 - disabled (default)
++	not 0 - enabled
++
++	By default, only init_net namespace can log packets into kernel log
++	with LOG target; this aims to prevent containers from flooding host
++	kernel log. If enabled, this target also works in other network
++	namespaces. This variable is only accessible from init_net.
+diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
+index 57639fca223a..8c4b018eef72 100644
+--- a/include/net/netfilter/nf_log.h
++++ b/include/net/netfilter/nf_log.h
+@@ -49,6 +49,9 @@ struct nf_logger {
+ 	struct module		*me;
+ };
+ 
++/* sysctl_nf_log_all_netns - allow LOG target in all network namespaces */
++extern int sysctl_nf_log_all_netns;
++
+ /* Function to register/unregister log function. */
+ int nf_log_register(u_int8_t pf, struct nf_logger *logger);
+ void nf_log_unregister(struct nf_logger *logger);
+diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+index 152300d164ac..735230ec0e49 100644
+--- a/net/bridge/netfilter/ebt_log.c
++++ b/net/bridge/netfilter/ebt_log.c
+@@ -78,7 +78,7 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 	unsigned int bitmask;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	spin_lock_bh(&ebt_log_lock);
+diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
+index e7ad950cf9ef..39e1348dfe45 100644
+--- a/net/ipv4/netfilter/nf_log_arp.c
++++ b/net/ipv4/netfilter/nf_log_arp.c
+@@ -87,7 +87,7 @@ static void nf_log_arp_packet(struct net *net, u_int8_t pf,
+ 	struct nf_log_buf *m;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	m = nf_log_buf_open();
+diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
+index 076aadda0473..2b0083112ed8 100644
+--- a/net/ipv4/netfilter/nf_log_ipv4.c
++++ b/net/ipv4/netfilter/nf_log_ipv4.c
+@@ -319,7 +319,7 @@ static void nf_log_ip_packet(struct net *net, u_int8_t pf,
+ 	struct nf_log_buf *m;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	m = nf_log_buf_open();
+diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
+index 8dd869642f45..04960486d0e2 100644
+--- a/net/ipv6/netfilter/nf_log_ipv6.c
++++ b/net/ipv6/netfilter/nf_log_ipv6.c
+@@ -351,7 +351,7 @@ static void nf_log_ip6_packet(struct net *net, u_int8_t pf,
+ 	struct nf_log_buf *m;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	m = nf_log_buf_open();
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index a5d41dfa9f05..a5f4c57b14c5 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -16,6 +16,9 @@
+ #define NF_LOG_PREFIXLEN		128
+ #define NFLOGGER_NAME_LEN		64
+ 
++int sysctl_nf_log_all_netns __read_mostly;
++EXPORT_SYMBOL(sysctl_nf_log_all_netns);
++
+ static struct nf_logger __rcu *loggers[NFPROTO_NUMPROTO][NF_LOG_TYPE_MAX] __read_mostly;
+ static DEFINE_MUTEX(nf_log_mutex);
+ 
+@@ -392,6 +395,18 @@ static const struct file_operations nflog_file_ops = {
+ #ifdef CONFIG_SYSCTL
+ static char nf_log_sysctl_fnames[NFPROTO_NUMPROTO-NFPROTO_UNSPEC][3];
+ static struct ctl_table nf_log_sysctl_table[NFPROTO_NUMPROTO+1];
++static struct ctl_table_header *nf_log_sysctl_fhdr;
++
++static struct ctl_table nf_log_sysctl_ftable[] = {
++	{
++		.procname	= "nf_log_all_netns",
++		.data		= &sysctl_nf_log_all_netns,
++		.maxlen		= sizeof(sysctl_nf_log_all_netns),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{ }
++};
+ 
+ static int nf_log_proc_dostring(struct ctl_table *table, int write,
+ 			 void __user *buffer, size_t *lenp, loff_t *ppos)
+@@ -461,6 +476,10 @@ static int netfilter_log_sysctl_init(struct net *net)
+ 			nf_log_sysctl_table[i].extra1 =
+ 				(void *)(unsigned long) i;
+ 		}
++		nf_log_sysctl_fhdr = register_net_sysctl(net, "net/netfilter",
++							 nf_log_sysctl_ftable);
++		if (!nf_log_sysctl_fhdr)
++			goto err_freg;
+ 	}
+ 
+ 	net->nf.nf_log_dir_header = register_net_sysctl(net,
+@@ -474,6 +493,7 @@ static int netfilter_log_sysctl_init(struct net *net)
+ err_reg:
+ 	if (!net_eq(net, &init_net))
+ 		kfree(table);
++err_freg:
+ err_alloc:
+ 	return -ENOMEM;
+ }
+@@ -486,6 +506,8 @@ static void netfilter_log_sysctl_exit(struct net *net)
+ 	unregister_net_sysctl_table(net->nf.nf_log_dir_header);
+ 	if (!net_eq(net, &init_net))
+ 		kfree(table);
++	else
++		unregister_net_sysctl_table(nf_log_sysctl_fhdr);
+ }
+ #else
+ static int netfilter_log_sysctl_init(struct net *net)
+-- 
+2.8.1
+
