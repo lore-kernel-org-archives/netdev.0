@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 06/20] net: dsa: move bridge device in dsa_port
-Date: Wed, 27 Apr 2016 18:30:03 -0400
-Message-ID: <1461796217-18893-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 09/20] net: dsa: mv88e6xxx: check HW vlan with dsa_port
+Date: Wed, 27 Apr 2016 18:30:06 -0400
+Message-ID: <1461796217-18893-10-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,95 +14,75 @@ In-Reply-To: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the pointer to the bridge device in the DSA port structure instead
-of cluttering the dsa_slave_priv structure.
-
-This can later be used by drivers to help them configuring their bridge
-group ports membership.
+Change the mv88e6xxx_port_check_hw_vlan function for a
+mv88e6xxx_port_check_vtu which takes a dsa_port structure as parameter.
+This will help us get rid of the bridge_dev pointer.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h  |  2 ++
- net/dsa/dsa_priv.h |  1 -
- net/dsa/slave.c    | 16 +++++-----------
- 3 files changed, 7 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 25 ++++++++++++-------------
+ 1 file changed, 12 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 08a9536..69e467c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -125,6 +125,8 @@ struct dsa_switch_tree {
- struct dsa_port {
- 	struct dsa_switch	*ds;
- 	int			port;
-+
-+	struct net_device	*br;
- };
- 
- struct dsa_switch {
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index c7d5df0..c5afddd 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -35,7 +35,6 @@ struct dsa_slave_priv {
- 	int			old_pause;
- 	int			old_duplex;
- 
--	struct net_device	*bridge_dev;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll		*netpoll;
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index d6b6019..b90caf8 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -64,18 +64,12 @@ static int dsa_slave_get_iflink(const struct net_device *dev)
- 	return p->dp->ds->dst->master_netdev->ifindex;
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 7e03f4c..00a0b92 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1729,12 +1729,13 @@ static int _mv88e6xxx_vtu_get(struct dsa_switch *ds, u16 vid,
+ 	return err;
  }
  
--static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
--{
--	return !!p->bridge_dev;
--}
--
- static int dsa_slave_open(struct net_device *dev)
+-static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+-					u16 vid_begin, u16 vid_end)
++static int mv88e6xxx_port_check_vtu(struct dsa_switch *ds, struct dsa_port *dp,
++				    u16 vid_begin, u16 vid_end)
  {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->dp->ds;
- 	struct net_device *master = ds->dst->master_netdev;
--	u8 stp_state = dsa_port_is_bridged(p) ?
--			BR_STATE_BLOCKING : BR_STATE_FORWARDING;
-+	u8 stp_state = p->dp->br ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
- 	int err;
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	struct mv88e6xxx_vtu_stu_entry vlan;
+-	int i, err;
++	struct dsa_port *intp;
++	int err;
  
- 	if (!(master->flags & IFF_UP))
-@@ -438,13 +432,13 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
- 	struct dsa_switch *ds = p->dp->ds;
- 	int ret = -EOPNOTSUPP;
+ 	if (!vid_begin)
+ 		return -EOPNOTSUPP;
+@@ -1756,22 +1757,21 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+ 		if (vlan.vid > vid_end)
+ 			break;
  
--	p->bridge_dev = br;
-+	p->dp->br = br;
+-		for (i = 0; i < ps->info->num_ports; ++i) {
+-			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
++		dsa_switch_for_each_port(ds, intp, ps->info->num_ports) {
++			if (dsa_is_dsa_port(ds, intp->port) ||
++			    dsa_is_cpu_port(ds, intp->port))
+ 				continue;
  
- 	if (ds->drv->port_bridge_join)
- 		ret = ds->drv->port_bridge_join(ds, p->dp, br);
+-			if (vlan.data[i] ==
++			if (vlan.data[intp->port] ==
+ 			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+ 				continue;
  
- 	if (ret && ret != -EOPNOTSUPP) {
--		p->bridge_dev = NULL;
-+		p->dp->br = NULL;
- 		return ret;
- 	}
+-			if (ps->ports[i].bridge_dev ==
+-			    ps->ports[port].bridge_dev)
++			if (intp->br == dp->br)
+ 				break; /* same bridge, check next VLAN */
  
-@@ -455,9 +449,9 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->dp->ds;
--	struct net_device *br = p->bridge_dev;
-+	struct net_device *br = p->dp->br;
+-			netdev_warn(ds->ports[port],
++			netdev_warn(ds->ports[dp->port],
+ 				    "hardware VLAN %d already used by %s\n",
+-				    vlan.vid,
+-				    netdev_name(ps->ports[i].bridge_dev));
++				    vlan.vid, netdev_name(intp->br));
+ 			err = -EOPNOTSUPP;
+ 			goto unlock;
+ 		}
+@@ -1836,8 +1836,7 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, struct dsa_port *dp,
+ 	/* If the requested port doesn't belong to the same bridge as the VLAN
+ 	 * members, do not support it (yet) and fallback to software VLAN.
+ 	 */
+-	err = mv88e6xxx_port_check_hw_vlan(ds, dp->port, vlan->vid_begin,
+-					   vlan->vid_end);
++	err = mv88e6xxx_port_check_vtu(ds, dp, vlan->vid_begin, vlan->vid_end);
+ 	if (err)
+ 		return err;
  
--	p->bridge_dev = NULL;
-+	p->dp->br = NULL;
- 
- 	if (ds->drv->port_bridge_leave)
- 		ds->drv->port_bridge_leave(ds, p->dp, br);
 -- 
 2.8.0
