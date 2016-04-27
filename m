@@ -1,59 +1,90 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netem: Segment GSO packets on enqueue.
-Date: Wed, 27 Apr 2016 07:27:48 -0400
-Message-ID: <20160427112748.GA23299@hmsreliant.think-freely.org>
-References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
- <1461696598.5535.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160426190026.GB12788@hmsreliant.think-freely.org>
- <1461701955.5535.38.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost_net: stop polling socket during rx processing
+Date: Wed, 27 Apr 2016 14:28:38 +0300
+Message-ID: <20160427141317-mutt-send-email-mst@redhat.com>
+References: <1461656153-24074-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netem@lists.linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47220 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273AbcD0L2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 07:28:02 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1461701955.5535.38.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1461656153-24074-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 26, 2016 at 01:19:15PM -0700, Eric Dumazet wrote:
-> On Tue, 2016-04-26 at 15:00 -0400, Neil Horman wrote:
-> > I can understand that, but that raises two questions in my mind:
-> > 
-> > 1)  Doesn't that make all the statistical manipulation for netem wrong?  That is
-> > to say, if netem drops 5% of packets, and it happens to drop a GSO packet, its
-> > actually dropping several, instead of the single one required.
+On Tue, Apr 26, 2016 at 03:35:53AM -0400, Jason Wang wrote:
+> We don't stop polling socket during rx processing, this will lead
+> unnecessary wakeups from under layer net devices (E.g
+> sock_def_readable() form tun). Rx will be slowed down in this
+> way. This patch avoids this by stop polling socket during rx
+> processing. A small drawback is that this introduces some overheads in
+> light load case because of the extra start/stop polling, but single
+> netperf TCP_RR does not notice any change. In a super heavy load case,
+> e.g using pktgen to inject packet to guest, we get about ~17%
+> improvement on pps:
 > 
+> before: ~1370000 pkt/s
+> after:  ~1500000 pkt/s
 > 
-> Please take a look at tbf_segment(), where you can find a proper way to
-> handle this.
-> 
-> Note that for the case q->corrupt is 0, we definitely do not want to
-> segment TSO packets.
-> 
-> > 2) How are you getting netem to work with GSO at all?  The warning is triggered
-> > for me on every GSO packet, which I think would impact throughput :)
-> 
-> I mostly use netem to add delays and drops.
-> I never had this bug, since q->corrupt = 0
-> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-I see what you're saying now, I should only be segmenting the packet if the
-qdisc needs to compute the checksum on each packet.  Other packets that aren't
-selected to be mangled can pass through un-segmented (assuming they meet any
-other queue constraints).
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Ok, thanks.  Self-nak.  I'll respin/test and post a new version
+There is one other possible enhancement: we actually have the wait queue
+lock taken in _wake_up, but we give it up only to take it again in the
+handler.
 
-Best
-Neil
+It would be nicer to just remove the entry when we wake
+the vhost thread. Re-add it if required.
+I think that something like the below would give you the necessary API.
+Pls feel free to use it if you are going to implement a patch on top
+doing this - that's not a reason not to include this simple patch
+though.
 
-> 
-> 
-> 
+--->
+
+wait: add API to drop a wait_queue_t entry from wake up handler
+
+A wake up handler might want to remove its own wait queue entry to avoid
+future wakeups.  In particular, vhost has such a need.  As wait queue
+lock is already taken, all we need is an API to remove the entry without
+wait_queue_head_t which isn't currently accessible to wake up handlers.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+---
+
+diff --git a/include/linux/wait.h b/include/linux/wait.h
+index 27d7a0a..9c6604b 100644
+--- a/include/linux/wait.h
++++ b/include/linux/wait.h
+@@ -191,11 +191,17 @@ __add_wait_queue_tail_exclusive(wait_queue_head_t *q, wait_queue_t *wait)
+ }
+ 
+ static inline void
+-__remove_wait_queue(wait_queue_head_t *head, wait_queue_t *old)
++__remove_wait_queue_entry(wait_queue_t *old)
+ {
+ 	list_del(&old->task_list);
+ }
+ 
++static inline void
++__remove_wait_queue(wait_queue_head_t *head, wait_queue_t *old)
++{
++	__remove_wait_queue_entry(old);
++}
++
+ typedef int wait_bit_action_f(struct wait_bit_key *, int mode);
+ void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr, void *key);
+ void __wake_up_locked_key(wait_queue_head_t *q, unsigned int mode, void *key);
