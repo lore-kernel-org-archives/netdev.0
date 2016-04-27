@@ -1,33 +1,57 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] veth: Fix potential memory leak in veth_newlink
-Date: Wed, 27 Apr 2016 18:42:19 +0800
-Message-ID: <1461753739-4803-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Xue, Ying" <Ying.Xue@windriver.com>
+Subject: Re: [patch] tipc: remove an unnecessary NULL check
+Date: Wed, 27 Apr 2016 10:51:13 +0000
+Message-ID: <25A14D9CFAB7B34FB9440F90AFD35233DD19B29C@ALA-MBA.corp.ad.wrs.com>
+References: <20160427080528.GA22469@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Dan Carpenter <dan.carpenter@oracle.com>, Jon Maloy
+	<jon.maloy@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20160427080528.GA22469@mwanda>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Free peer netdev when failed to configure peer link or register dev.
-
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- drivers/net/veth.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index f37a6e6..8bb9fb8 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -472,7 +472,6 @@ err_register_dev:
- 	/* nothing to do */
- err_configure_peer:
- 	unregister_netdevice(peer);
--	return err;
- 
- err_register_peer:
- 	free_netdev(peer);
--- 
-1.8.3.1
+PiBGcm9tOiBEYW4gQ2FycGVudGVyIFttYWlsdG86ZGFuLmNhcnBlbnRlckBvcmFjbGUuY29tXQ0K
+PiBTZW50OiAyMDE2xOo01MIyN8jVIDE2OjA1DQo+IFRvOiBKb24gTWFsb3kNCj4gQ2M6IFh1ZSwg
+WWluZzsgRGF2aWQgUy4gTWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyB0aXBjLQ0KPiBk
+aXNjdXNzaW9uQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsga2VybmVsLWphbml0b3JzQHZnZXIua2Vy
+bmVsLm9yZw0KPiBTdWJqZWN0OiBbcGF0Y2hdIHRpcGM6IHJlbW92ZSBhbiB1bm5lY2Vzc2FyeSBO
+VUxMIGNoZWNrDQo+IA0KPiBUaGlzIGlzIG5ldmVyIGNhbGxlZCB3aXRoIGEgTlVMTCAiYnVmIiBh
+bmQgYW55d2F5LCB3ZSBkZXJlZmVyZW5jZSAncycgb24gdGhlDQo+IGxpbmVzIGJlZm9yZSBzbyBp
+dCB3b3VsZCBPb3BzIGJlZm9yZSB3ZSByZWFjaCB0aGUgY2hlY2suDQo+IA0KPiBTaWduZWQtb2Zm
+LWJ5OiBEYW4gQ2FycGVudGVyIDxkYW4uY2FycGVudGVyQG9yYWNsZS5jb20+DQoNCkFja2VkLWJ5
+OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT4NCg0KPiANCj4gZGlmZiAtLWdpdCBh
+L25ldC90aXBjL3N1YnNjci5jIGIvbmV0L3RpcGMvc3Vic2NyLmMgaW5kZXggNzlkZTU4OC4uMGRk
+MDIyNA0KPiAxMDA2NDQNCj4gLS0tIGEvbmV0L3RpcGMvc3Vic2NyLmMNCj4gKysrIGIvbmV0L3Rp
+cGMvc3Vic2NyLmMNCj4gQEAgLTMyNiw4ICszMjYsNyBAQCBzdGF0aWMgdm9pZCB0aXBjX3N1YnNj
+cmJfcmN2X2NiKHN0cnVjdCBuZXQgKm5ldCwgaW50DQo+IGNvbmlkLA0KPiAgCQlyZXR1cm4gdGlw
+Y19zdWJzY3JwX2NhbmNlbChzLCBzdWJzY3JpYmVyKTsNCj4gIAl9DQo+IA0KPiAtCWlmIChzKQ0K
+PiAtCQl0aXBjX3N1YnNjcnBfc3Vic2NyaWJlKG5ldCwgcywgc3Vic2NyaWJlciwgc3dhcCk7DQo+
+ICsJdGlwY19zdWJzY3JwX3N1YnNjcmliZShuZXQsIHMsIHN1YnNjcmliZXIsIHN3YXApOw0KPiAg
+fQ0KPiANCj4gIC8qIEhhbmRsZSBvbmUgcmVxdWVzdCB0byBlc3RhYmxpc2ggYSBuZXcgc3Vic2Ny
+aWJlciAqLw0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkZpbmQgYW5kIGZpeCBhcHBsaWNhdGlvbiBw
+ZXJmb3JtYW5jZSBpc3N1ZXMgZmFzdGVyIHdpdGggQXBwbGljYXRpb25zIE1hbmFnZXIKQXBwbGlj
+YXRpb25zIE1hbmFnZXIgcHJvdmlkZXMgZGVlcCBwZXJmb3JtYW5jZSBpbnNpZ2h0cyBpbnRvIG11
+bHRpcGxlIHRpZXJzIG9mCnlvdXIgYnVzaW5lc3MgYXBwbGljYXRpb25zLiBJdCByZXNvbHZlcyBh
+cHBsaWNhdGlvbiBwcm9ibGVtcyBxdWlja2x5IGFuZApyZWR1Y2VzIHlvdXIgTVRUUi4gR2V0IHlv
+dXIgZnJlZSB0cmlhbCEKaHR0cHM6Ly9hZC5kb3VibGVjbGljay5uZXQvZGRtL2Nsay8zMDI5ODIx
+OTg7MTMwMTA1NTE2O3oKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1c3Npb25AbGlzdHMu
+c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
+bmZvL3RpcGMtZGlzY3Vzc2lvbgo=
