@@ -1,179 +1,61 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [net-next PATCH V3 3/5] samples/bpf: add a README file to get
- users started
-Date: Wed, 27 Apr 2016 16:30:05 +0530
-Message-ID: <20160427110005.GC15073@naverao1-tp.in.ibm.com>
-References: <20160427072855.29959.70252.stgit@firesoul>
- <20160427073023.29959.17816.stgit@firesoul>
- <20160427083522.GA15073@naverao1-tp.in.ibm.com>
- <20160427111634.38305214@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	bblanco@plumgrid.com, borkmann@iogearbox.net,
-	alexei.starovoitov@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160427111634.38305214@redhat.com>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petko Manolov <petkan@mip-labs.com>
+Subject: [PATCH v3 1/2] pegasus: fixes URB buffer allocation size;
+Date: Wed, 27 Apr 2016 14:24:49 +0300
+Message-ID: <1461756290-27421-2-git-send-email-petkan@mip-labs.com>
+References: <1461756290-27421-1-git-send-email-petkan@mip-labs.com>
+Cc: davem@davemloft.net, a1291762@gmail.com, johannes@sipsolutions.net,
+	Petko Manolov <petkan@mip-labs.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lan.nucleusys.com ([92.247.61.126]:42498 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751019AbcD0LY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 07:24:59 -0400
+In-Reply-To: <1461756290-27421-1-git-send-email-petkan@mip-labs.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/04/27 11:16AM, Jesper Dangaard Brouer wrote:
-> On Wed, 27 Apr 2016 14:05:22 +0530
-> "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com> wrote:
-> 
-> > On 2016/04/27 09:30AM, Jesper Dangaard Brouer wrote:
-> > > Getting started with using examples in samples/bpf/ is not
-> > > straightforward.  There are several dependencies, and specific
-> > > versions of these dependencies.
-> > > 
-> > > Just compiling the example tool is also slightly obscure, e.g. one
-> > > need to call make like:
-> > > 
-> > >  make samples/bpf/
-> > > 
-> > > Do notice the "/" slash after the directory name.
-> > > 
-> > > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > > ---
-> > >  samples/bpf/README.rst |   75 ++++++++++++++++++++++++++++++++++++++++++++++++
-> > >  1 file changed, 75 insertions(+)
-> > >  create mode 100644 samples/bpf/README.rst  
-> > 
-> > Thanks for adding this! A few nits...
-> 
-> I would prefer if we could apply this patchset and you could followup
-> with a patch with your nits...
+usb_fill_bulk_urb() receives buffer length parameter 8 bytes larger
+than what's allocated by alloc_skb(); This seems to be a problem with
+older (pegasus usb-1.1) devices, which may silently return more data
+than the maximal packet length.
 
-... and have another patch just for that?
-Regardless, I thought the reason we review is so the patch that goes in 
-is already in a good shape.
+Reported-by: Lincoln Ramsay <a1291762@gmail.com>
+Signed-off-by: Petko Manolov <petkan@mip-labs.com>
+---
+ drivers/net/usb/pegasus.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> 
-> > > 
-> > > diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
-> > > new file mode 100644
-> > > index 000000000000..1fa157db905b
-> > > --- /dev/null
-> > > +++ b/samples/bpf/README.rst
-> > > @@ -0,0 +1,75 @@
-> > > +eBPF sample programs
-> > > +====================
-> > > +
-> > > +This kernel samples/bpf directory contains a mini eBPF library, test  
-> > 	^^^^^^^^^^^^^^^^^^
-> > 'This directory contains' should suffice.
-> 
-> The reason I formulated it like this, was that people will often hit
-> this kind of documentation when searching google.
-
-That doesn't make sense - shouldn't they be looking at a README file in 
-the local samples/bpf directory first before going to google?
-
-> 
-> 
-> > > +stubs, verifier test-suite and examples for using eBPF.
-> > > +
-> > > +Build dependencies
-> > > +==================
-> > > +
-> > > +Compiling requires having installed:
-> > > + * clang >= version 3.4.0
-> > > + * llvm >= version 3.7.1
-> > > +
-> > > +Note that LLVM's tool 'llc' must support target 'bpf', list with command::
-> > > +
-> > > + $ llc --version  
-> > 
-> > 'llc --version | grep bpf' is probably simpler?
-> 
-> I wanted to give people the impression of how the output looks like.
-
-But, that won't help someone trying to check if their installed llc has 
-bpf support or not.
-> 
-> > > + LLVM (http://llvm.org/):
-> > > +  LLVM version 3.x.y
-> > > +  [...]
-> > > +  Host CPU: xxx
-
-For instance, is the above output something the user needs to see to 
-ensure BPF support for llc?
-
-> > > +
-> > > +  Registered Targets:
-> > > +    [...]
-> > > +    bpf        - BPF (host endian)
-> > > +    bpfeb      - BPF (big endian)
-> > > +    bpfel      - BPF (little endian)
-
-The above is what really matters. Adding 'grep bpf' makes it explicit on 
-what the user needs to look for.
-
-> > > +    [...]
-> > > +
-> > > +Kernel headers
-> > > +--------------
-> > > +
-> > > +There are usually dependencies to header files of the current kernel.
-> > > +To avoid installing devel kernel headers system wide, as a normal
-> > > +user, simply call::
-> > > +
-> > > + make headers_install
-> > > +
-> > > +This will creates a local "usr/include" directory in the git/build top
-> > > +level directory, that the make system automatically pickup first.
-> > > +
-> > > +Compiling
-> > > +=========
-> > > +
-> > > +For compiling goto kernel top level build directory and run make like::  
-> > 
-> > For building the BPF samples, issue the below command from the kernel 
-> > root directory:
-> 
-> I like your formulation better, but it it worth a respin of the entire
-> patchset? 
-> 
-> Notice you need the extra "::" ending of the paragraph, to make this
-> document format nicely with RST (ReStructuredText).
-> 
-> The a README with a .rst suffix will be picked up by github and
-> displayed as the doc for the directory. Thus I also made sure it
-> "compiles" with the rst tools. E.g see how samples/pktgen gets auto
-> documented and nicely formatted via github (scroll down):
->  https://github.com/torvalds/linux/tree/master/samples/pktgen
-
-Looks nice, though I wasn't aware we had any text in the kernel tree 
-adhering to this formatting.
-
-> 
-> > > +
-> > > + make samples/bpf/
-> > > +
-> > > +Do notice the "/" slash after the directory name.
-> > > +
-> > > +Manually compiling LLVM with 'bpf' support
-> > > +------------------------------------------
-> > > +
-> > > +Since version 3.7.0, LLVM adds a proper LLVM backend target for the
-> > > +BPF bytecode architecture.
-> > > +
-> > > +By default llvm will build all non-experimental backends including bpf.
-> > > +To generate a smaller llc binary one can use::
-> > > +
-> > > + -DLLVM_TARGETS_TO_BUILD="BPF;X86"  
-> > 
-> > Is the X86 target really needed?
-> 
-> I'm not sure, but if you want to use clang/llc for something else it is
-> useful, and the example usage of the ";" separator syntax makes it
-> worth including as an example.
-
-Ok. The reason I asked is if users need to include the appropriate arch 
-target depending on where they build this. It doesn't look like X86 or 
-other architecture targets are necessary though.
-
-- Naveen
-
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index f840802..f919e20 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -528,7 +528,7 @@ static void read_bulk_callback(struct urb *urb)
+ goon:
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+-			  pegasus->rx_skb->data, PEGASUS_MTU + 8,
++			  pegasus->rx_skb->data, PEGASUS_MTU,
+ 			  read_bulk_callback, pegasus);
+ 	rx_status = usb_submit_urb(pegasus->rx_urb, GFP_ATOMIC);
+ 	if (rx_status == -ENODEV)
+@@ -569,7 +569,7 @@ static void rx_fixup(unsigned long data)
+ 	}
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+-			  pegasus->rx_skb->data, PEGASUS_MTU + 8,
++			  pegasus->rx_skb->data, PEGASUS_MTU,
+ 			  read_bulk_callback, pegasus);
+ try_again:
+ 	status = usb_submit_urb(pegasus->rx_urb, GFP_ATOMIC);
+@@ -823,7 +823,7 @@ static int pegasus_open(struct net_device *net)
+ 
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+-			  pegasus->rx_skb->data, PEGASUS_MTU + 8,
++			  pegasus->rx_skb->data, PEGASUS_MTU,
+ 			  read_bulk_callback, pegasus);
+ 	if ((res = usb_submit_urb(pegasus->rx_urb, GFP_KERNEL))) {
+ 		if (res == -ENODEV)
+-- 
+2.8.0.rc3
