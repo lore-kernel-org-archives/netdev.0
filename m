@@ -1,124 +1,94 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/5] phylib: don't return NULL from get_phy_device()
-Date: Wed, 27 Apr 2016 14:47:29 -0700
-Message-ID: <57213371.1020905@gmail.com>
-References: <56219623.1S7UfcqQqc@wasted.cogentembedded.com>
- <16806435.OmqP10ba8M@wasted.cogentembedded.com>
- <874mamzw5q.fsf@ketchup.mtl.sfl> <20160427194932.GF29024@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	arnd@arndb.de, netdev@vger.kernel.org, kernel@savoirfairelinux.com
-To: Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next v2] ipvlan: Fix failure path in dev registration during link creation
+Date: Wed, 27 Apr 2016 14:59:27 -0700
+Message-ID: <1461794367-39825-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Eric W . Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35285 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752626AbcD0Vtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 17:49:47 -0400
-Received: by mail-pf0-f170.google.com with SMTP id n1so28154601pfn.2
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 14:49:47 -0700 (PDT)
-In-Reply-To: <20160427194932.GF29024@lunn.ch>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33660 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752288AbcD0V7f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 17:59:35 -0400
+Received: by mail-pa0-f66.google.com with SMTP id vv3so7141056pab.0
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 14:59:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/04/16 12:49, Andrew Lunn wrote:
-> On Wed, Apr 27, 2016 at 03:30:57PM -0400, Vivien Didelot wrote:
->> Hi David, All,
->>
->> Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
->>
->>> Arnd Bergmann asked that get_phy_device() returns either NULL or the error
->>> value,  not both on error.  Do as he said, return ERR_PTR(-ENODEV) instead
->>> of NULL when the PHY ID registers read as  all ones.
->>>
->>> Suggested-by: Arnd Bergmann <arnd@arndb.de>
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>
->>> ---
->>>  drivers/net/phy/phy_device.c |    2 +-
->>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> Index: net-next/drivers/net/phy/phy_device.c
->>> ===================================================================
->>> --- net-next.orig/drivers/net/phy/phy_device.c
->>> +++ net-next/drivers/net/phy/phy_device.c
->>> @@ -529,7 +529,7 @@ struct phy_device *get_phy_device(struct
->>>  
->>>  	/* If the phy_id is mostly Fs, there is no device there */
->>>  	if ((phy_id & 0x1fffffff) == 0x1fffffff)
->>> -		return NULL;
->>> +		return ERR_PTR(-ENODEV);
->>>  
->>>  	return phy_device_create(bus, addr, phy_id, is_c45, &c45_ids);
->>>  }
-> 
-> This change is wrong, it needs reverting, or the call sights need
-> fixing to expect ENODEV.
-> 
-> The point is, the device not being there is not an error, with respect
-> to the code calling this function.
-> 
-> It gets called by mdiobus_scan()
-> 
-> struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
-> {
->         struct phy_device *phydev;
->         int err;
-> 
->         phydev = get_phy_device(bus, addr, false);
->         if (IS_ERR(phydev) || phydev == NULL)
->                 return phydev;
-> 
-> So before, we return NULL, if the device was not there. Now we return
-> ERR_PTR(-ENODEV).
-> 
-> This is being called by:
-> 
-> int __mdiobus_register(struct mii_bus *bus, struct module *owner)
-> {
->         struct mdio_device *mdiodev;
-> ...
->         for (i = 0; i < PHY_MAX_ADDR; i++) {
->                 if ((bus->phy_mask & (1 << i)) == 0) {
->                         struct phy_device *phydev;
-> 
->                         phydev = mdiobus_scan(bus, i);
->                         if (IS_ERR(phydev)) {
->                                 err = PTR_ERR(phydev);
->                                 goto error;
->                         }
->                 }
->         }
-> 
-> This is treating ERR_PTR(-ENODEV) as a fatal error, where as before
-> IS_ERR(NULL) would be false and it would continue scanning other
-> addresses on the bus.
-> 
-> Please revert this, or fix all the callsites such that ENODEV is not a
-> fatal error.
+From: Mahesh Bandewar <maheshb@google.com>
 
-So the one you pointed out in __mdiobus_register() is definitively
-needed, though I did get a different issue than Vivien's (-EBUSY vs.
--EINVAL). The get_phy_device() in drivers/of/of_mdio.c probably needs
-something similar too, here is what I locally have for the moment:
+When newlink creation fails at device-registration, the port->count
+is decremented twice. Francesco Ruggeri (fruggeri@arista.com) found
+this issue in Macvlan and the same exists in IPvlan driver too.
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 499003ee8055..94a27b028dd8 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, struct
-module *owner)
-                        struct phy_device *phydev;
+While fixing this issue I noticed another issue of missing unregister
+in case of failure, so adding it to the fix which is similar to the
+macvlan fix by Francesco in commit 308379607548 ("macvlan: fix failure
+during registration v3")
 
-                        phydev = mdiobus_scan(bus, i);
--                       if (IS_ERR(phydev)) {
-+                       if (IS_ERR(phydev) && PTR_ERR(phydev) != -ENODEV) {
-                                err = PTR_ERR(phydev);
-                                goto error;
-                        }
+Reported-by: Francesco Ruggeri <fruggeri@arista.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 57941d3f4227..1c4d395fbd49 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -113,6 +113,7 @@ static int ipvlan_init(struct net_device *dev)
+ {
+ 	struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 	const struct net_device *phy_dev = ipvlan->phy_dev;
++	struct ipvl_port *port = ipvlan->port;
+ 
+ 	dev->state = (dev->state & ~IPVLAN_STATE_MASK) |
+ 		     (phy_dev->state & IPVLAN_STATE_MASK);
+@@ -128,6 +129,8 @@ static int ipvlan_init(struct net_device *dev)
+ 	if (!ipvlan->pcpu_stats)
+ 		return -ENOMEM;
+ 
++	port->count += 1;
++
+ 	return 0;
+ }
+ 
+@@ -481,27 +484,21 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 
+ 	dev->priv_flags |= IFF_IPVLAN_SLAVE;
+ 
+-	port->count += 1;
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto ipvlan_destroy_port;
++		return err;
+ 
+ 	err = netdev_upper_dev_link(phy_dev, dev);
+-	if (err)
+-		goto ipvlan_destroy_port;
++	if (err) {
++		unregister_netdevice(dev);
++		return err;
++	}
+ 
+ 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
+ 	ipvlan_set_port_mode(port, mode);
+ 
+ 	netif_stacked_transfer_operstate(phy_dev, dev);
+ 	return 0;
+-
+-ipvlan_destroy_port:
+-	port->count -= 1;
+-	if (!port->count)
+-		ipvlan_port_destroy(phy_dev);
+-
+-	return err;
+ }
+ 
+ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
 -- 
-Florian
+2.8.0.rc3.226.g39d4020
