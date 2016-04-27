@@ -1,106 +1,54 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: [PATCH] net: phy: at803x: Register 'link_change_notify' only for
- AT8030
-Date: Wed, 27 Apr 2016 13:34:25 +0200
-Message-ID: <5720A3C1.2040401@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net] gre: reject GUE and FOU in collect metadata mode
+Date: Wed, 27 Apr 2016 14:08:01 +0200
+Message-ID: <7280f5aa7ec83653cdf7f0484fb9e696bc8c89e8.1461758705.git.jbenc@redhat.com>
+Cc: Pravin Shelar <pshelar@ovn.org>, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35714 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752316AbcD0MIk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 08:08:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is no need to register the callback introduced by
-commit 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
-for non faulty PHYs.
+The collect metadata mode does not support GUE nor FOU. This might be
+implemented later; until then, we should reject such config.
 
-The check on the PHY ID is not necessary anymore and thus has been
-removed from the callback implementation as well.
+I think this is okay to be changed. It's unlikely anyone has such
+configuration (as it doesn't work anyway) and we may need a way to
+distinguish whether it's supported or not by the kernel later.
 
-Fixes: 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
+For backwards compatibility with iproute2, it's not possible to just check
+the attribute presence (iproute2 always includes the attribute), the actual
+value has to be checked, too.
 
-Signed-off-by: Sebastian Frias <sf84@laposte.net>
+Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/phy/at803x.c | 43 ++++++++++++++++++++-----------------------
- 1 file changed, 20 insertions(+), 23 deletions(-)
+Discovered this only after I already sent v3 of the previous gre set.
+Submitting this patch on its own, it's an indepent fix anyway (though fixing
+the same commit).
+---
+ net/ipv4/ip_gre.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index b3ffaee..7fdc676 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -353,33 +353,32 @@ static void at803x_link_change_notify(struct phy_device *phydev)
- 	struct at803x_priv *priv = phydev->priv;
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index f973e0a58993..f502d34bcb40 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -948,6 +948,11 @@ static int ipgre_tunnel_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	if (flags & (GRE_VERSION|GRE_ROUTING))
+ 		return -EINVAL;
  
- 	/*
--	 * Conduct a hardware reset for AT8030 every time a link loss is
-+	 * Conduct a hardware reset for AT8030 (this callback is only
-+	 * registered for AT8030 at the moment) every time a link loss is
- 	 * signalled. This is necessary to circumvent a hardware bug that
- 	 * occurs when the cable is unplugged while TX packets are pending
- 	 * in the FIFO. In such cases, the FIFO enters an error mode it
- 	 * cannot recover from by software.
- 	 */
--	if (phydev->drv->phy_id == ATH8030_PHY_ID) {
--		if (phydev->state == PHY_NOLINK) {
--			if (priv->gpiod_reset && !priv->phy_reset) {
--				struct at803x_context context;
--
--				at803x_context_save(phydev, &context);
--
--				gpiod_set_value(priv->gpiod_reset, 1);
--				msleep(1);
--				gpiod_set_value(priv->gpiod_reset, 0);
--				msleep(1);
--
--				at803x_context_restore(phydev, &context);
--
--				phydev_dbg(phydev, "%s(): phy was reset\n",
--					   __func__);
--				priv->phy_reset = true;
--			}
--		} else {
--			priv->phy_reset = false;
-+	if (phydev->state == PHY_NOLINK) {
-+		if (priv->gpiod_reset && !priv->phy_reset) {
-+			struct at803x_context context;
++	if (data[IFLA_GRE_COLLECT_METADATA] &&
++	    data[IFLA_GRE_ENCAP_TYPE] &&
++	    nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE)
++		return -EINVAL;
 +
-+			at803x_context_save(phydev, &context);
-+
-+			gpiod_set_value(priv->gpiod_reset, 1);
-+			msleep(1);
-+			gpiod_set_value(priv->gpiod_reset, 0);
-+			msleep(1);
-+
-+			at803x_context_restore(phydev, &context);
-+
-+			phydev_dbg(phydev, "%s(): phy was reset\n",
-+				   __func__);
-+			priv->phy_reset = true;
- 		}
-+	} else {
-+		priv->phy_reset = false;
- 	}
+ 	return 0;
  }
  
-@@ -391,7 +390,6 @@ static struct phy_driver at803x_driver[] = {
- 	.phy_id_mask		= 0xffffffef,
- 	.probe			= at803x_probe,
- 	.config_init		= at803x_config_init,
--	.link_change_notify	= at803x_link_change_notify,
- 	.set_wol		= at803x_set_wol,
- 	.get_wol		= at803x_get_wol,
- 	.suspend		= at803x_suspend,
-@@ -427,7 +425,6 @@ static struct phy_driver at803x_driver[] = {
- 	.phy_id_mask		= 0xffffffef,
- 	.probe			= at803x_probe,
- 	.config_init		= at803x_config_init,
--	.link_change_notify	= at803x_link_change_notify,
- 	.set_wol		= at803x_set_wol,
- 	.get_wol		= at803x_get_wol,
- 	.suspend		= at803x_suspend,
 -- 
-2.1.4
+1.8.3.1
