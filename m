@@ -1,113 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/14][pull request] 40GbE Intel Wired LAN Driver Updates 2016-04-27
-Date: Wed, 27 Apr 2016 13:15:39 -0700
-Message-ID: <1461788153-12869-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next v2 10/14] i40e: Remove zero check
+Date: Wed, 27 Apr 2016 13:15:49 -0700
+Message-ID: <1461788153-12869-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1461788153-12869-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:63244 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753126AbcD0UQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2016 16:16:27 -0400
+	id S1753126AbcD0UQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 16:16:31 -0400
+In-Reply-To: <1461788153-12869-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Alex Duyck cleans up the feature flags since they are becoming pretty
-"massive", the primary change being that we now build our features list
-around hw_encap_features.  Added support for IPIP and SIT offloads,
-which should improvement in throughput for IPIP and SIT tunnels with
-the offload enabled.
+A mirror rule ID may be zero so do not return invalid parameter when the
+user passes in a zero value for a rule ID.
 
-Mitch adds support for configuring RSS on behalf of the VFs, which removes
-the burden of dealing with different hardware interfaces from the VF
-drivers and improves future compatibility.  Fix to ensure that we do not
-panic by checking that the vsi_res pointer is valid before dereferencing
-it, after which we can drink beer and eat peanuts.
+Change-ID: I261b8c24725ce2c6ed32f859da81093dfcbe2970
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Shannon does come housekeeping in i40e_add_fdir_ethtool() in preparation
-for more cloud filter work.  Added flexibility to the nvmupdate
-facility by adding the ability to specify an AQ event opcode to wait on
-after Exec_AQ request.
-
-Michal adds device capability which defines if an update is available and
-if a security check is needed during the update process.
-
-Kamil just adds a device id to support X722 QSFP+ device.
-
-Greg fixes an issue where a mirror rule ID may be zero, so do not return
-invalid parameter when the user passes in a zero for a rule ID.  Adds
-support to steer packets to VSIs by VLAN tag alone while being in
-promiscuous mode for multicast and unicast MAC addresses.
-
-Jesse fixes the driver from offloading the VLAN tag into the skb any
-time there was a VLAN tag and the hardware stripping was enabled, to
-making sure it is enabled before put_tag.
-
-v2: Dropped patch 8 ("i40e: Allow user to change input set mask for flow
-    director") while Kiran reworks a more generalized solution based
-    on feedback from David Miller.
-
-The following are changes since commit fab7b629a82da1b59620470d13152aff975239f6:
-  Merge branch 'ila-csum-neutral'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alexander Duyck (2):
-  i40e/i40evf: Clean up feature flags
-  i40e/i40evf: Add support for IPIP and SIT offloads
-
-Anjali Singhai Jain (2):
-  i40e: Add VF promiscuous mode driver support
-  i40evf: Add driver support for promiscuous mode
-
-Greg Rose (2):
-  i40e: Remove zero check
-  i40e: Add promiscuous on VLAN support
-
-Jesse Brandeburg (1):
-  i40e/i40evf: Only offload VLAN tag if enabled
-
-Kamil Krawczyk (1):
-  i40e: Add DeviceID for X722 QSFP+
-
-Michal Kosiarz (1):
-  i40e: Add device capability which defines if update is available
-
-Mitch Williams (3):
-  i40e: Add support for configuring VF RSS
-  i40evf: Don't Panic
-  i40evf: Allow PF driver to configure RSS
-
-Shannon Nelson (2):
-  i40e: Code cleanup in i40e_add_fdir_ethtool
-  i40e: Specify AQ event opcode to wait for
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   1 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  82 ++++-
- drivers/net/ethernet/intel/i40e/i40e_devids.h      |   1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  12 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  98 ++---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  49 ++-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   8 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  27 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   6 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 346 +++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_devids.h    |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  27 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   6 +
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  39 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 121 +++----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 395 ++++++++-------------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 130 +++++++
- 21 files changed, 947 insertions(+), 407 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 1db4790..25872f2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -2668,10 +2668,7 @@ i40e_status i40e_aq_delete_mirrorrule(struct i40e_hw *hw, u16 sw_seid,
+ 			u16 *rules_used, u16 *rules_free)
+ {
+ 	/* Rule ID has to be valid except rule_type: INGRESS VLAN mirroring */
+-	if (rule_type != I40E_AQC_MIRROR_RULE_TYPE_VLAN) {
+-		if (!rule_id)
+-			return I40E_ERR_PARAM;
+-	} else {
++	if (rule_type == I40E_AQC_MIRROR_RULE_TYPE_VLAN) {
+ 		/* count and mr_list shall be valid for rule_type INGRESS VLAN
+ 		 * mirroring. For other rule_type, count and rule_type should
+ 		 * not matter.
 -- 
 2.5.5
