@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 15/20] net: dsa: add tree-wide FDB ops
-Date: Wed, 27 Apr 2016 18:30:12 -0400
-Message-ID: <1461796217-18893-16-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 20/20] net: dsa: mv88e6xxx: setup PVT on cross-chip ops
+Date: Wed, 27 Apr 2016 18:30:17 -0400
+Message-ID: <1461796217-18893-21-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,325 +14,159 @@ In-Reply-To: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to support cross-chip operations, we need to inform each switch
-driver when a port operation occurs in a DSA tree.
+Switches with a Cross-chip Port VLAN Table are currently configured to
+allow cross-chip frames to egress any internal ports. This means that
+unbridged cross-chip ports can actually talk to each other, and this is
+not what we want.
 
-Implement tree-wide FDB operations.
+In order to restrict that, we need to setup the PVT entry for an
+external port when it joins or leave a bridge group crossing the switch.
+
+Also initialize the PVT to forbid egressing of cross-chip frames to
+internal user ports by default.
+
+Note that a PVT-less switch cannot forbid such frames to egress its
+internal ports, unless the kernel supports VLAN filtering. In such
+systems, a bridge group is also implemented as a 802.1Q VLAN and thus a
+global VTU-based logic can be used to correctly implement cross-chip
+hardware bridging. Warn the user if the setup doesn't respect this.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/bcm_sf2.c   | 12 ++++++++
- drivers/net/dsa/mv88e6xxx.c | 12 ++++++++
- net/dsa/dsa_priv.h          |  9 ++++++
- net/dsa/slave.c             | 68 ++++++++++-----------------------------------
- net/dsa/tree.c              | 61 ++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 109 insertions(+), 53 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 98 +++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 95 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 0a91ea9..6e634e5 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -733,6 +733,9 @@ static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, struct dsa_port *dp,
- 				  const struct switchdev_obj_port_fdb *fdb,
- 				  struct switchdev_trans *trans)
- {
-+	if (dsa_port_is_external(dp, ds))
-+		return -EOPNOTSUPP;
-+
- 	/* We do not need to do anything specific here yet */
- 	return 0;
- }
-@@ -743,6 +746,9 @@ static void bcm_sf2_sw_fdb_add(struct dsa_switch *ds, struct dsa_port *dp,
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 
-+	if (dsa_port_is_external(dp, ds))
-+		return;
-+
- 	if (bcm_sf2_arl_op(priv, 0, dp->port, fdb->addr, fdb->vid, true))
- 		pr_err("%s: failed to add MAC address\n", __func__);
- }
-@@ -752,6 +758,9 @@ static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, struct dsa_port *dp,
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 
-+	if (dsa_port_is_external(dp, ds))
-+		return -EOPNOTSUPP;
-+
- 	return bcm_sf2_arl_op(priv, 0, dp->port, fdb->addr, fdb->vid, false);
- }
- 
-@@ -813,6 +822,9 @@ static int bcm_sf2_sw_fdb_dump(struct dsa_switch *ds, struct dsa_port *dp,
- 	unsigned int count = 0;
- 	int ret;
- 
-+	if (dsa_port_is_external(dp, ds))
-+		return -EOPNOTSUPP;
-+
- 	dev = ds->ports[dp->port];
- 
- 	/* Start search operation */
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 6fef29b..7d29de3 100644
+index 4341ffd..e0f9e93 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2037,6 +2037,9 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, struct dsa_port *dp,
- 			       const struct switchdev_obj_port_fdb *fdb,
- 			       struct switchdev_trans *trans)
- {
-+	if (dsa_port_is_external(dp, ds))
-+		return -EOPNOTSUPP;
-+
- 	/* We don't need any dynamic resource from the kernel (yet),
- 	 * so skip the prepare phase.
- 	 */
-@@ -2052,6 +2055,9 @@ void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, struct dsa_port *dp,
- 		GLOBAL_ATU_DATA_STATE_UC_STATIC;
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
-+	if (dsa_port_is_external(dp, ds))
-+		return;
-+
- 	mutex_lock(&ps->smi_mutex);
- 	if (_mv88e6xxx_port_fdb_load(ds, dp->port, fdb->addr, fdb->vid, state))
- 		netdev_err(ds->ports[dp->port], "failed to load MAC address\n");
-@@ -2064,6 +2070,9 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, struct dsa_port *dp,
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
-+	if (dsa_port_is_external(dp, ds))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 	ret = _mv88e6xxx_port_fdb_load(ds, dp->port, fdb->addr, fdb->vid,
- 				       GLOBAL_ATU_DATA_STATE_UNUSED);
-@@ -2169,6 +2178,9 @@ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, struct dsa_port *dp,
- 	u16 fid;
- 	int err;
- 
-+	if (dsa_port_is_external(dp, ds))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	/* Dump port's default Filtering Information Database (VLAN ID 0) */
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 6e08b3d..e8765c3 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -14,6 +14,7 @@
- #include <linux/phy.h>
- #include <linux/netdevice.h>
- #include <linux/netpoll.h>
-+#include <net/switchdev.h>
- 
- struct dsa_device_ops {
- 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
-@@ -51,6 +52,14 @@ int dsa_tree_bridge_port_join(struct dsa_switch_tree *dst, struct dsa_port *dp,
- 			      struct net_device *br);
- void dsa_tree_bridge_port_leave(struct dsa_switch_tree *dst,
- 				struct dsa_port *dp, struct net_device *br);
-+int dsa_tree_port_fdb_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
-+			  const struct switchdev_obj_port_fdb *fdb,
-+			  struct switchdev_trans *trans);
-+int dsa_tree_port_fdb_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
-+			  const struct switchdev_obj_port_fdb *fdb);
-+int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
-+			   struct switchdev_obj_port_fdb *fdb,
-+			   switchdev_obj_dump_cb_t *cb);
- 
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 7123ae2..90bcf8a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -239,51 +239,6 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
- 	return -EOPNOTSUPP;
+@@ -2272,8 +2272,29 @@ static int _mv88e6xxx_pvt_cmd(struct dsa_switch *ds, int src_dev, int src_port,
+ 	return _mv88e6xxx_pvt_wait(ds);
  }
  
--static int dsa_slave_port_fdb_add(struct net_device *dev,
--				  const struct switchdev_obj_port_fdb *fdb,
--				  struct switchdev_trans *trans)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
--
--	if (switchdev_trans_ph_prepare(trans)) {
--		if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
--			return -EOPNOTSUPP;
--
--		return ds->drv->port_fdb_prepare(ds, p->dp, fdb, trans);
--	}
--
--	ds->drv->port_fdb_add(ds, p->dp, fdb, trans);
--
--	return 0;
--}
--
--static int dsa_slave_port_fdb_del(struct net_device *dev,
--				  const struct switchdev_obj_port_fdb *fdb)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
--	int ret = -EOPNOTSUPP;
--
--	if (ds->drv->port_fdb_del)
--		ret = ds->drv->port_fdb_del(ds, p->dp, fdb);
--
--	return ret;
--}
--
--static int dsa_slave_port_fdb_dump(struct net_device *dev,
--				   struct switchdev_obj_port_fdb *fdb,
--				   switchdev_obj_dump_cb_t *cb)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->dp->ds;
--
--	if (ds->drv->port_fdb_dump)
--		return ds->drv->port_fdb_dump(ds, p->dp, fdb, cb);
--
--	return -EOPNOTSUPP;
--}
--
- static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -352,6 +307,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 				  const struct switchdev_obj *obj,
- 				  struct switchdev_trans *trans)
- {
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_port *dp = p->dp;
-+	struct dsa_switch_tree *dst = dp->ds->dst;
- 	int err;
- 
- 	/* For the prepare phase, ensure the full set of changes is feasable in
-@@ -361,9 +319,8 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 
- 	switch (obj->id) {
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = dsa_slave_port_fdb_add(dev,
--					     SWITCHDEV_OBJ_PORT_FDB(obj),
--					     trans);
-+		err = dsa_tree_port_fdb_add(dst, dp,
-+					    SWITCHDEV_OBJ_PORT_FDB(obj), trans);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
- 		err = dsa_slave_port_vlan_add(dev,
-@@ -381,12 +338,15 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- static int dsa_slave_port_obj_del(struct net_device *dev,
- 				  const struct switchdev_obj *obj)
- {
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_port *dp = p->dp;
-+	struct dsa_switch_tree *dst = dp->ds->dst;
- 	int err;
- 
- 	switch (obj->id) {
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = dsa_slave_port_fdb_del(dev,
--					     SWITCHDEV_OBJ_PORT_FDB(obj));
-+		err = dsa_tree_port_fdb_del(dst, dp,
-+					    SWITCHDEV_OBJ_PORT_FDB(obj));
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
- 		err = dsa_slave_port_vlan_del(dev,
-@@ -404,13 +364,15 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
- 				   struct switchdev_obj *obj,
- 				   switchdev_obj_dump_cb_t *cb)
- {
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_port *dp = p->dp;
-+	struct dsa_switch_tree *dst = dp->ds->dst;
- 	int err;
- 
- 	switch (obj->id) {
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = dsa_slave_port_fdb_dump(dev,
--					      SWITCHDEV_OBJ_PORT_FDB(obj),
--					      cb);
-+		err = dsa_tree_port_fdb_dump(dst, dp,
-+					     SWITCHDEV_OBJ_PORT_FDB(obj), cb);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
- 		err = dsa_slave_port_vlan_dump(dev,
-diff --git a/net/dsa/tree.c b/net/dsa/tree.c
-index d3f5aea..8394019 100644
---- a/net/dsa/tree.c
-+++ b/net/dsa/tree.c
-@@ -11,6 +11,7 @@
- #include <linux/if_bridge.h>
- #include <linux/list.h>
- #include <linux/netdevice.h>
-+#include <net/switchdev.h>
- 
- #include "dsa_priv.h"
- 
-@@ -64,3 +65,63 @@ void dsa_tree_bridge_port_leave(struct dsa_switch_tree *dst,
- 						    BR_STATE_FORWARDING);
- 	}
- }
-+
-+int dsa_tree_port_fdb_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
-+			  const struct switchdev_obj_port_fdb *fdb,
-+			  struct switchdev_trans *trans)
++static int _mv88e6xxx_pvt_write(struct dsa_switch *ds, int src_dev,
++				int src_port, u16 data)
 +{
-+	struct dsa_switch *ds;
 +	int err;
 +
-+	dsa_tree_for_each_switch(dst, ds) {
-+		if (switchdev_trans_ph_prepare(trans)) {
-+			if (!ds->drv->port_fdb_prepare ||
-+			    !ds->drv->port_fdb_add)
-+				return -EOPNOTSUPP;
++	err = _mv88e6xxx_pvt_wait(ds);
++	if (err)
++		return err;
 +
-+			err = ds->drv->port_fdb_prepare(ds, dp, fdb, trans);
++	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PVT_DATA, data);
++	if (err)
++		return err;
++
++        return _mv88e6xxx_pvt_cmd(ds, src_dev, src_port,
++				  GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN);
++}
++
+ static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct dsa_port *intp;
++	int src_dev, src_port;
++	u16 pv = 0;
+ 	int err;
+ 
+ 	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
+@@ -2284,8 +2305,60 @@ static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
+ 	if (err)
+ 		return err;
+ 
+-	/* Allow any cross-chip frames to egress any internal ports */
+-	return _mv88e6xxx_pvt_cmd(ds, 0, 0, GLOBAL2_PVT_ADDR_OP_INIT_ONES);
++	/* Forbid cross-chip frames to egress internal ports */
++	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
++		if (dsa_is_cpu_port(ds, intp->port) ||
++		    dsa_is_dsa_port(ds, intp->port))
++			pv |= BIT(intp->port);
++
++	for (src_dev = 0; src_dev < 32; ++src_dev) {
++		for (src_port = 0; src_port < 16; ++src_port) {
++			err = _mv88e6xxx_pvt_write(ds, src_dev, src_port, pv);
 +			if (err)
 +				return err;
++		}
++	}
++
++	return 0;
++}
++
++static int _mv88e6xxx_port_map_pvt(struct dsa_switch *ds, struct dsa_port *dp)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct dsa_port *intp;
++	u16 pvlan = 0;
++
++	/* Cross-chip frames can egress CPU and DSA ports, and bridge members */
++	dsa_switch_for_each_port(ds, intp, ps->info->num_ports)
++		if (dsa_is_cpu_port(ds, intp->port) ||
++		    dsa_is_dsa_port(ds, intp->port) ||
++		    (intp->br && intp->br == dp->br))
++			pvlan |= BIT(intp->port);
++
++	return _mv88e6xxx_pvt_write(ds, dp->ds->index, dp->port, pvlan);
++}
++
++static int _mv88e6xxx_remap_pvt(struct dsa_switch *ds,
++				struct net_device *bridge)
++{
++	struct dsa_switch *dsa_sw;
++	struct dsa_port *dsa_p;
++	int err;
++
++	dsa_tree_for_each_switch(ds->dst, dsa_sw) {
++		if (dsa_sw == ds)
++			continue;
++
++		dsa_switch_for_each_port(dsa_sw, dsa_p, DSA_MAX_PORTS) {
++			if (dsa_p->br == bridge) {
++				err = _mv88e6xxx_port_map_pvt(ds, dsa_p);
++				if (err)
++					return err;
++			}
++		}
++	}
++
++	return 0;
+ }
+ 
+ int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
+@@ -2297,7 +2370,19 @@ int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	if (dsa_port_is_external(dp, ds)) {
+-		err = -EOPNOTSUPP;
++		/* Forbidding hardware bridging of cross-chip frames requires a
++		 * Cross-chip Port VLAN Table (PVT), unless VLAN filtering is
++		 * enabled, in which case a global VTU-based logic works.
++		 */
++		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PVT)) {
++			err = _mv88e6xxx_port_map_pvt(ds, dp);
++		} else if (IS_ENABLED(CONFIG_BRIDGE_VLAN_FILTERING)) {
++			err = 0;
 +		} else {
-+			ds->drv->port_fdb_add(ds, dp, fdb, trans);
++			pr_warn("%s: cannot prevent cross-chip frames without CONFIG_BRIDGE_VLAN_FILTERING\n",
++				ps->info->name);
++			err = -EOPNOTSUPP;
 +		}
-+	}
+ 	} else {
+ 		/* Remap VLANTable of concerned in-chip ports */
+ 		if (!dp->br) {
+@@ -2309,6 +2394,13 @@ int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
+ 		err = _mv88e6xxx_remap_vlantable(ds, bridge);
+ 		if (err)
+ 			goto unlock;
 +
-+	return 0;
-+}
-+
-+int dsa_tree_port_fdb_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
-+			  const struct switchdev_obj_port_fdb *fdb)
-+{
-+	struct dsa_switch *ds;
-+	int err;
-+
-+	dsa_tree_for_each_switch(dst, ds) {
-+		if (!ds->drv->port_fdb_del)
-+			return -EOPNOTSUPP;
-+
-+		err = ds->drv->port_fdb_del(ds, dp, fdb);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
-+			   struct switchdev_obj_port_fdb *fdb,
-+			   switchdev_obj_dump_cb_t *cb)
-+{
-+	struct dsa_switch *ds;
-+	int err;
-+
-+	dsa_tree_for_each_switch(dst, ds) {
-+		if (ds->drv->port_fdb_dump) {
-+			err = ds->drv->port_fdb_dump(ds, dp, fdb, cb);
-+			if (err && err != -EOPNOTSUPP)
-+				return err;
++		/* Remap PVT entries of concerned cross-chip ports */
++		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PVT)) {
++			err = _mv88e6xxx_remap_pvt(ds, bridge);
++			if (err)
++				goto unlock;
 +		}
-+	}
-+
-+	return 0;
-+}
+ 	}
+ 
+ unlock:
 -- 
 2.8.0
