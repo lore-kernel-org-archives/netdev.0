@@ -1,41 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: Provide CPU port statistics to master
- netdev
-Date: Wed, 27 Apr 2016 21:03:08 +0200
-Message-ID: <20160427190308.GE29024@lunn.ch>
-References: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50892 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbcD0TDL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2016 15:03:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v3 1/2] soc: qcom: smd: Introduce compile stubs
+Date: Wed, 27 Apr 2016 12:13:02 -0700
+Message-ID: <1461784383-2978-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Andy Gross <andy.gross@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +	if (stringset == ETH_SS_STATS && ds->drv->get_strings) {
-> +		ndata = data + mcount * len;
-> +		/* This function copies ETH_GSTRINGS_LEN bytes, we will mangle
-> +		 * the output after to prepend our CPU port prefix we
-> +		 * constructed earlier
-> +		 */
-> +		ds->drv->get_strings(ds, cpu_port, ndata);
-> +		count = ds->drv->get_sset_count(ds);
-> +		for (i = 0; i < count; i++) {
-> +			memmove(ndata + (i * len + sizeof(pfx)),
-> +				ndata + i * len, len - sizeof(pfx));
-> +			memcpy(ndata + i * len, pfx, sizeof(pfx));
+Introduce compile stubs for the SMD API, allowing consumers to be
+compile tested.
 
-Hi Florian
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
 
-Did you check what happens if this causes the NULL terminator to be
-discarded? Does ethtool handle that? As i said before, it is unclear
-if one is required.
+Changes since v2:
+- Introduce this patch, to allow compile testing of QRTR_SMD
 
-	   Andrew
+ include/linux/soc/qcom/smd.h | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/soc/qcom/smd.h b/include/linux/soc/qcom/smd.h
+index d0cb6d189a0a..46a984f5e3a3 100644
+--- a/include/linux/soc/qcom/smd.h
++++ b/include/linux/soc/qcom/smd.h
+@@ -45,13 +45,39 @@ struct qcom_smd_driver {
+ 	int (*callback)(struct qcom_smd_device *, const void *, size_t);
+ };
+ 
++#if IS_ENABLED(CONFIG_QCOM_SMD)
++
+ int qcom_smd_driver_register(struct qcom_smd_driver *drv);
+ void qcom_smd_driver_unregister(struct qcom_smd_driver *drv);
+ 
++int qcom_smd_send(struct qcom_smd_channel *channel, const void *data, int len);
++
++#else
++
++static inline int qcom_smd_driver_register(struct qcom_smd_driver *drv)
++{
++	return -ENXIO;
++}
++
++static inline void qcom_smd_driver_unregister(struct qcom_smd_driver *drv)
++{
++	/* This shouldn't be possible */
++	WARN_ON(1);
++}
++
++static inline int qcom_smd_send(struct qcom_smd_channel *channel,
++				const void *data, int len)
++{
++	/* This shouldn't be possible */
++	WARN_ON(1);
++	return -ENXIO;
++}
++
++#endif
++
+ #define module_qcom_smd_driver(__smd_driver) \
+ 	module_driver(__smd_driver, qcom_smd_driver_register, \
+ 		      qcom_smd_driver_unregister)
+ 
+-int qcom_smd_send(struct qcom_smd_channel *channel, const void *data, int len);
+ 
+ #endif
+-- 
+2.5.0
