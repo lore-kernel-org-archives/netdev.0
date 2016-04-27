@@ -1,55 +1,64 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2] taskstats: fix nl parsing in
-	accounting/getdelays.c
-Date: Wed, 27 Apr 2016 17:53:08 +0200
-Message-ID: <1461772388-3763-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <5720DFA1.3080503@6wind.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] drivers/net: add 6WIND SHULTI support
+Date: Wed, 27 Apr 2016 17:54:46 +0200
+Message-ID: <20160427155446.GD1962@nanopsycho.orion>
+References: <1461749838-4613-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20160427095615.GA27071@breakpoint.cc>
+ <20160427151336.GB1962@nanopsycho.orion>
+ <5720DCE1.8060803@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
- herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <5720DFA1.3080503-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Westphal <fw@strlen.de>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:33902 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752468AbcD0Pyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 11:54:49 -0400
+Received: by mail-wm0-f47.google.com with SMTP id v200so28941005wmv.1
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 08:54:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5720DCE1.8060803@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIHR5cGUgVEFTS1NUQVRTX1RZUEVfTlVMTCBzaG91bGQgYWx3YXlzIGJlIGlnbm9yZWQuCgpX
-aGVuIGp1bXBpbmcgdG8gdGhlIG5leHQgYXR0cmlidXRlLCBvbmx5IHRoZSBsZW5ndGggb2YgdGhl
-IGN1cnJlbnQKYXR0cmlidXRlIHNob3VsZCBiZSBhZGRlZCwgbm90IHRoZSBsZW5ndGggb2YgYWxs
-IG5lc3RlZCBhdHRyaWJ1dGVzLgpUaGlzIGxhc3QgYnVnIHdhcyBub3QgdmlzaWJsZSBiZWZvcmUg
-Y29tbWl0IDgwZGY1NTQyNzVjMiwgYmVjYXVzZSB0aGUKa2VybmVsIGRpZG4ndCBwdXQgbW9yZSB0
-aGFuIHR3byBuZXN0ZWQgYXR0cmlidXRlcy4KCkZpeGVzOiBhM2JhZjY0OWNhOWMgKCJbUEFUQ0hd
-IHBlci10YXNrLWRlbGF5LWFjY291bnRpbmc6IGRvY3VtZW50YXRpb24iKQpGaXhlczogODBkZjU1
-NDI3NWMyICgidGFza3N0YXRzOiB1c2UgdGhlIGxpYm5sIEFQSSB0byBhbGlnbiBubGF0dHIgb24g
-NjQtYml0IikKU2lnbmVkLW9mZi1ieTogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxA
-NndpbmQuY29tPgotLS0KIERvY3VtZW50YXRpb24vYWNjb3VudGluZy9nZXRkZWxheXMuYyB8IDUg
-KysrKy0KIDEgZmlsZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKCmRp
-ZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2FjY291bnRpbmcvZ2V0ZGVsYXlzLmMgYi9Eb2N1bWVu
-dGF0aW9uL2FjY291bnRpbmcvZ2V0ZGVsYXlzLmMKaW5kZXggNzc4NWZiNWViOTNmLi5iNWNhNTM2
-ZTU2YTggMTAwNjQ0Ci0tLSBhL0RvY3VtZW50YXRpb24vYWNjb3VudGluZy9nZXRkZWxheXMuYwor
-KysgYi9Eb2N1bWVudGF0aW9uL2FjY291bnRpbmcvZ2V0ZGVsYXlzLmMKQEAgLTUwNSw2ICs1MDUs
-OCBAQCBpbnQgbWFpbihpbnQgYXJnYywgY2hhciAqYXJndltdKQogCQkJCQkJaWYgKCFsb29wKQog
-CQkJCQkJCWdvdG8gZG9uZTsKIAkJCQkJCWJyZWFrOworCQkJCQljYXNlIFRBU0tTVEFUU19UWVBF
-X05VTEw6CisJCQkJCQlicmVhazsKIAkJCQkJZGVmYXVsdDoKIAkJCQkJCWZwcmludGYoc3RkZXJy
-LCAiVW5rbm93biBuZXN0ZWQiCiAJCQkJCQkJIiBubGFfdHlwZSAlZFxuIiwKQEAgLTUxMiw3ICs1
-MTQsOCBAQCBpbnQgbWFpbihpbnQgYXJnYywgY2hhciAqYXJndltdKQogCQkJCQkJYnJlYWs7CiAJ
-CQkJCX0KIAkJCQkJbGVuMiArPSBOTEFfQUxJR04obmEtPm5sYV9sZW4pOwotCQkJCQluYSA9IChz
-dHJ1Y3QgbmxhdHRyICopICgoY2hhciAqKSBuYSArIGxlbjIpOworCQkJCQluYSA9IChzdHJ1Y3Qg
-bmxhdHRyICopKChjaGFyICopbmEgKworCQkJCQkJCSAgICAgICBOTEFfQUxJR04obmEtPm5sYV9s
-ZW4pKTsKIAkJCQl9CiAJCQkJYnJlYWs7CiAKLS0gCjIuOC4xCgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
-aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Wed, Apr 27, 2016 at 05:38:09PM CEST, nicolas.dichtel@6wind.com wrote:
+>Le 27/04/2016 17:14, Jiri Pirko a =E9crit :
+>> Wed, Apr 27, 2016 at 11:56:15AM CEST, fw@strlen.de wrote:
+>>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>>>> This patch adds the support of the 6WIND SHULTI switch. It is a so=
+ftware
+>>>> switch doing L2 forwarding.
+>>>>
+>>>> This first version implements the minimum needed to get the device=
+ working.
+>>>> It also implements, via switchdev and rtnetlink, bridge forwarding=
+ offload,
+>>>> including FDB static entries, FDB learning and FDB ageing.
+>>>
+>>> How is this different from net/bridge?
+>>> How is this different from openvswitch?
+>>=20
+>> The difference is that it this tries to allow userspace crap to mirr=
+or
+>> setting user does for bridge/ovs. Basically this looks to me like an
+>> attempt to enable userspace SDKs and such.
+>>=20
+>It is software switch, allowed by the switchdev model (see
+>Documentation/networking/switchdev.txt), same design as mellanox spect=
+rum.
+
+Switchdev purpose is to offload stuff down to HW.
+You say your switch is software, so integrate it properly into kernel.
+Easy.
+
+
+>
+>What's wrong with that?
+
+What's wrong is that your driver allows many userspace proprietary SDKs
+to work on out-of-box kernel. This is called "trampoline model". You
+basically enable userspace drivers for switches and stuff like that.
+This was discussed many many times.
