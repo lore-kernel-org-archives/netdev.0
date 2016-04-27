@@ -1,105 +1,99 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: (unknown)
-Date: Wed, 27 Apr 2016 09:38:25 +0300
-Message-ID: <20160427063825.GN7974@leon.nu>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V2 5/5] samples/bpf: like LLC also verify and
+ allow redefining CLANG command
+Date: Wed, 27 Apr 2016 08:45:44 +0200
+Message-ID: <20160427084544.0ae46b74@redhat.com>
+References: <20160426162650.22962.20516.stgit@firesoul>
+	<20160426162732.22962.73140.stgit@firesoul>
+	<20160426173608.GF42777@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="BjavXC7V3ilNTWHC"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	FaisalLatif-2ukJVAZIZ/Y@public.gmane.org
-To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org,
+	linux-kbuild@vger.kernel.org, bblanco@plumgrid.com,
+	naveen.n.rao@linux.vnet.ibm.com, borkmann@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20160426173608.GF42777@ast-mbp.thefacebook.com>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 26 Apr 2016 10:36:10 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
---BjavXC7V3ilNTWHC
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Tue, Apr 26, 2016 at 06:27:32PM +0200, Jesper Dangaard Brouer wrote:
+> > Users are likely to manually compile both LLVM 'llc' and 'clang'
+> > tools.  Thus, also allow redefining CLANG and verify command exist.
+> > 
+> > Makefile implementation wise, the target that verify the command have
+> > been generalized.
+> > 
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > ---
+> >  samples/bpf/Makefile   |   23 +++++++++++++----------
+> >  samples/bpf/README.rst |    6 +++---
+> >  2 files changed, 16 insertions(+), 13 deletions(-)
+> > 
+> > diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+> > index dd63521832d8..c02ea9d2a248 100644
+> > --- a/samples/bpf/Makefile
+> > +++ b/samples/bpf/Makefile
+> > @@ -81,9 +81,10 @@ HOSTLOADLIBES_spintest += -lelf
+> >  HOSTLOADLIBES_map_perf_test += -lelf -lrt
+> >  HOSTLOADLIBES_test_overhead += -lelf -lrt
+> >  
+> > -# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
+> > -#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+> > +# Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+> > +#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+> >  LLC ?= llc
+> > +CLANG ?= clang
+> >  
+> >  # Trick to allow make to be run from this directory
+> >  all:
+> > @@ -94,15 +95,17 @@ clean:
+> >  	@rm -f *~
+> >  
+> >  # Verify LLVM compiler is available and bpf target is supported
+> > -.PHONY: verify_cmd_llc verify_target_bpf
+> > +.PHONY: verify_cmd_llc verify_target_bpf $(CLANG) $(LLC)
+> >  
+> > -verify_cmd_llc:
+> > -	@if ! (which "${LLC}" > /dev/null 2>&1); then \
+> > -		echo "*** ERROR: Cannot find LLVM tool 'llc' (${LLC})" ;\
+> > -		exit 1; \
+> > -	else true; fi
+> > +verify_cmds: $(CLANG) $(LLC)
+> > +	@for TOOL in $^ ; do \
+> > +		if ! (which "$${TOOL}" > /dev/null 2>&1); then \
+> > +			echo "*** ERROR: Cannot find LLVM tool $${TOOL}" ;\
+> > +			exit 1; \
+> > +		else true; fi; \
+> > +	done
+> >  
+> > -verify_target_bpf: verify_cmd_llc
+> > +verify_target_bpf: verify_cmds
+> >  	@if ! (${LLC} -march=bpf -mattr=help > /dev/null 2>&1); then \
+> >  		echo "*** ERROR: LLVM (${LLC}) does not support 'bpf' target" ;\
+> >  		echo "   NOTICE: LLVM version >= 3.7.1 required" ;\  
+> 
+> If I read the patch correctly, it only checks that any version
+> of clang is available and llc supports -march=bpf.
+> That's correct.
 
-<faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Bcc:=20
-Subject: Re: [PATCH net] RDMA/nes: don't leak skb if carrier down
-Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-In-Reply-To: <1461529139-28582-1-git-send-email-fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+Yes, you read the patch correctly :-)
 
-On Sun, Apr 24, 2016 at 10:18:59PM +0200, Florian Westphal wrote:
-> Alternatively one could free the skb, OTOH I don't think this test is
-> useful so just remove it.
->=20
-> Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+> There is no need to build the latest clang most of the time.
+> clang 3.4 and 3.5 are fine to compile samples/bpf/
+> since llvm ir is mostly compatible with llc from 3.7 or 3.8
 
-I don't know why did you decide to send it to netdev and not to relevant
-maintainers, but the relevant mailing list is linux-rdma and Faisal
-needs to Review/Acknowledge it.
+Good to get confirmation. I was testing with clang 3.5.0, and llc 3.9-git.
 
-=E2=9E=9C  linux-rdma git:(master) ./scripts/get_maintainer.pl -f
-drivers/infiniband/hw/nes/nes_nic.c
-Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> (supporter:NETEFFECT IWARP RNIC
-DRIVER (IW_NES))
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (supporter:INFINIBAND SUBSYSTEM)
-Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> (supporter:INFINIBAND SUBSYSTEM)
-Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (supporter:INFINIBAND
-SUBSYSTEM)
-linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETEFFECT IWARP RNIC DRIVER
-(IW_NES))
-linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-
-> ---
->  Noticed this while working on the TX_LOCKED removal.
->=20
-> diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/=
-nes/nes_nic.c
-> index 3ea9e05..9291453 100644
-> --- a/drivers/infiniband/hw/nes/nes_nic.c
-> +++ b/drivers/infiniband/hw/nes/nes_nic.c
-> @@ -500,9 +500,6 @@ static int nes_netdev_start_xmit(struct sk_buff *skb,=
- struct net_device *netdev)
->  	 *		skb_shinfo(skb)->nr_frags, skb_is_gso(skb));
->  	 */
-> =20
-> -	if (!netif_carrier_ok(netdev))
-> -		return NETDEV_TX_OK;
-> -
->  	if (netif_queue_stopped(netdev))
->  		return NETDEV_TX_BUSY;
-> =20
-> --=20
-> 2.7.3
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---BjavXC7V3ilNTWHC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXIF5hAAoJEORje4g2clinPQoP/05Bkmp/1ypwB69FlXDnXEio
-hDY65BdlFOtCN9dIU+ZmuLGiz9sdWCouBjhjfIMCAlCJgkEQBFRW3OJSRxrm2vSn
-u84Umsy5G4tx00oEqYSEgVnsAJBHepZC2dOgKkk+b63maYiGd7ensijIZUkR8Xjl
-8+uA9cUAJZZzP7Ey3CSh9ZtkbGoaMbQIXqAGu2XCekctDf3cjEXXUcwAUs/V7PEa
-FOUtOeS14T0tZ4SCuNQdi3UemIHzvl355sTup+t3gKdgu1ynnPvflKGJFApY+MRN
-9u5VAmrg51W4vegfn4lnCA7NV+8IInsYrYyO5t2ScKfkklhDOL+zzqoHpCJJvtxw
-70QFOJP3QGp93WKbypuQ83wI5lzUowV2UPM48QSRdM8DwI5IM6yJHZ2hNvmkW8pO
-TrrFD1JCpEOeqyX/Tzuof1e34NXN8Dww/YfRfbA2Ey2q65rYMOhmFbNzx598ld/H
-v+MvU0UTQNu7X15egMhm0LrGVSWO3+lURBSGQM+b6Gep+yF1eTgk/60qdV0yonF3
-yxiTX7VH5lf4geErH4gDD0NMbW2MEHyizz5oEA6kbda5lbbMkPlZQTYkWYFNmNKC
-9RvnfO1Vc9UPvzD3FiLNXeBn18QSjV/MrLeCNfKcw5MnHoX0b7fa9WUen1gaVE+E
-0GpiSnUajxsWM2/Jsv6y
-=Y5bJ
------END PGP SIGNATURE-----
-
---BjavXC7V3ilNTWHC--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
