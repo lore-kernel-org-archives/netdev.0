@@ -1,33 +1,31 @@
-From: Andy Gross <andy.gross@linaro.org>
-Subject: Re: [PATCH v3 1/2] soc: qcom: smd: Introduce compile stubs
-Date: Wed, 27 Apr 2016 14:32:05 -0500
-Message-ID: <CAPBZ5QfztsoDpTX=KdEvrHLZmAopR8JooEL0p+MAc6YiwBKS3w@mail.gmail.com>
-References: <1461784383-2978-1-git-send-email-bjorn.andersson@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: ipv6: Use passed in table for nexthop
+ lookups
+Date: Wed, 27 Apr 2016 15:37:15 -0400 (EDT)
+Message-ID: <20160427.153715.705392661538526385.davem@davemloft.net>
+References: <1461558364-17970-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-msm <linux-arm-msm@vger.kernel.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <1461784383-2978-1-git-send-email-bjorn.andersson@linaro.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53495 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752388AbcD0ThR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 15:37:17 -0400
+In-Reply-To: <1461558364-17970-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27 April 2016 at 14:13, Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
-> Introduce compile stubs for the SMD API, allowing consumers to be
-> compile tested.
->
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> ---
->
-> Changes since v2:
-> - Introduce this patch, to allow compile testing of QRTR_SMD
->
->  include/linux/soc/qcom/smd.h | 28 +++++++++++++++++++++++++++-
->  1 file changed, 27 insertions(+), 1 deletion(-)
->
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Sun, 24 Apr 2016 21:26:04 -0700
 
-Looks ok.
+> Similar to 3bfd847203c6 ("net: Use passed in table for nexthop lookups")
+> for IPv4, if the route spec contains a table id use that to lookup the
+> next hop first and fall back to a full lookup if it fails (per the fix
+> 4c9bcd117918b ("net: Fix nexthop lookups")).
+ ...
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Acked-by: Andy Gross <andy.gross@linaro.org>
+Applied, thanks David.
