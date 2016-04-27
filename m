@@ -1,85 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: give prequeue mode some care
-Date: Wed, 27 Apr 2016 10:12:25 -0700
-Message-ID: <1461777145.5535.77.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/7] bridge: per-vlan stats
+Date: Wed, 27 Apr 2016 19:13:03 +0200
+Message-ID: <5720F31F.2040709@cumulusnetworks.com>
+References: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20160427100601.6bbf9d28@samsung9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	davem@davemloft.net, jhs@mojatatu.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:32820 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653AbcD0RM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 13:12:28 -0400
-Received: by mail-pf0-f175.google.com with SMTP id 206so22713213pfu.0
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 10:12:27 -0700 (PDT)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37752 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325AbcD0RNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 13:13:07 -0400
+Received: by mail-wm0-f46.google.com with SMTP id a17so25080960wme.0
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 10:13:06 -0700 (PDT)
+In-Reply-To: <20160427100601.6bbf9d28@samsung9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 04/27/2016 07:06 PM, Stephen Hemminger wrote:
+> On Wed, 27 Apr 2016 18:18:15 +0200
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+> 
+>> Hi,
+>> This set adds support for bridge per-vlan statistics.
+>> In order to be able to dump statistics we need a way to continue
+>> dumping after reaching maximum size, thus patches 01-03 extend the new
+>> stats API with a per-device extended link stats attribute and callback
+>> which can save its local state and continue where it left off afterwards.
+>> I considered using the already existing "fill_xstats" callback but it gets
+>> confusing since we need to separate the linkinfo dump from the new stats
+>> api dump and adding a flag/argument to do that just looks messy. I don't
+>> think the rtnl_link_ops size is an issue, so adding these seemed like the
+>> cleaner approach.
+>>
+>> Patch 05 converts the pvid to a pointer so we can consolidate the vlan
+>> stats accounting paths later, also allows to simplify the pvid code.
+>> Patches 06 and 07 add the stats support and netlink dump support
+>> respectively.
+>> I've tested this set with both old and modified iproute2, kmemleak on and
+>> some traffic stress tests while adding/removing vlans and ports.
+>>
+>> Thank you,
+>>  Nik
+>>
+>> Note: Jamal I haven't forgotten about the per-port per-vlan stats, I've got
+>> a follow-up patch that adds it. You can easily see that the infrastructure
+>> for private port/vlan stats is in place after this set. Though the stats
+>> api will need some more changes to support that.
+>>
+>>
+>> Nikolay Aleksandrov (7):
+>>   net: rtnetlink: allow rtnl_fill_statsinfo to save private state
+>>     counter
+>>   net: rtnetlink: allow only one idx saving stats attribute
+>>   net: rtnetlink: add linkxstats callbacks and attribute
+>>   net: constify is_skb_forwardable's arguments
+>>   bridge: vlan: RCUify pvid
+>>   bridge: vlan: learn to count
+>>   bridge: netlink: export per-vlan stats
+>>
+>>  include/linux/netdevice.h      |   3 +-
+>>  include/net/rtnetlink.h        |  10 +++
+>>  include/uapi/linux/if_bridge.h |   8 +++
+>>  include/uapi/linux/if_link.h   |   9 +++
+>>  net/bridge/br_netlink.c        |  80 ++++++++++++++++++++----
+>>  net/bridge/br_private.h        |  32 +++++-----
+>>  net/bridge/br_vlan.c           | 134 +++++++++++++++++++++++++++++------------
+>>  net/core/dev.c                 |   2 +-
+>>  net/core/rtnetlink.c           |  64 +++++++++++++++++---
+>>  9 files changed, 266 insertions(+), 76 deletions(-)
+>>
+> 
+> I am concerned this adds unnecessary complexity (more bugs)
+IMO the whole point in moving to a per-vlan structure from a bitmap was to
+have per-vlan context and flexibility to implement functions like this.
+The fast path code that is added is minimal (fetch & stats adds).
+In any case I'm sure there're more per-vlan options coming, and not only from
+me or Cumulus. If we won't make use of the per-vlan context, then I'd suggest
+we revert to bitmaps as that's faster and more compact.
 
-TCP prequeue goal is to defer processing of incoming packets
-to user space thread currently blocked in a recvmsg() system call.
+> and overhead (slower performance). Statistics are not free, and having
+> them in a convenient place maybe unnecessary duplication.
+> 
+The performance impact is minimal as we're using per-cpu counters. If you're
+concerned that even that is too much I can make this conditional on a per-vlan
+flag that can be requested by the user to enable the stats, but that is overkill
+for something as basic as stats in my opinion.
 
-Intent is to spend less time processing these packets on behalf
-of softirq handler, as softirq handler is unfair to normal process
-scheduler decisions, as it might interrupt threads that do not
-even use networking.
-
-Current prequeue implementation has following issues :
-
-1) It only checks size of the prequeue against sk_rcvbuf
-
-   It was fine 15 years ago when sk_rcvbuf was in the 64KB vicinity.
-   But we now have ~8MB values to cope with modern networking needs.
-   We have to add sk_rmem_alloc in the equation, since out of order
-   packets can definitely use up to sk_rcvbuf memory themselves.
-
-2) Even with a fixed memory truesize check, prequeue can be filled
-   by thousands of packets. When prequeue needs to be flushed, either
-   from sofirq context (in tcp_prequeue() or timer code), or process
-   context (in tcp_prequeue_process()), this adds a latency spike
-   which is often not desirable.
-   I added a fixed limit of 32 packets, as this translated to a max
-   flush time of 60 us on my test hosts.
-
-   Also note that all packets in prequeue are not accounted for tcp_mem,
-   since they are not charged against sk_forward_alloc at this point.
-   This is probably not a big deal.
-
-Note that this might increase LINUX_MIB_TCPPREQUEUEDROPPED counts,
-which is misnamed, as packets are not dropped at all, but rather pushed
-to the stack (where they can be either consumed or dropped)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_ipv4.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d2a5763e5abc..58bcf5e001e7 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1506,16 +1506,16 @@ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
- 
- 	__skb_queue_tail(&tp->ucopy.prequeue, skb);
- 	tp->ucopy.memory += skb->truesize;
--	if (tp->ucopy.memory > sk->sk_rcvbuf) {
-+	if (skb_queue_len(&tp->ucopy.prequeue) >= 32 ||
-+	    tp->ucopy.memory + atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf) {
- 		struct sk_buff *skb1;
- 
- 		BUG_ON(sock_owned_by_user(sk));
-+		NET_ADD_STATS_BH(sock_net(sk), LINUX_MIB_TCPPREQUEUEDROPPED,
-+				 skb_queue_len(&tp->ucopy.prequeue));
- 
--		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
-+		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
- 			sk_backlog_rcv(sk, skb1);
--			NET_INC_STATS_BH(sock_net(sk),
--					 LINUX_MIB_TCPPREQUEUEDROPPED);
--		}
- 
- 		tp->ucopy.memory = 0;
- 	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
+Thanks,
+ Nik
