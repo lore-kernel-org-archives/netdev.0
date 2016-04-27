@@ -1,82 +1,104 @@
 From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net] net/mlx4: Avoid wrong virtual mappings
-Date: Wed, 27 Apr 2016 09:32:54 +0300
-Message-ID: <20160427063254.GM7974@leon.nu>
-References: <1461591287-11595-1-git-send-email-hagaya@mellanox.com>
-Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Subject: (unknown)
+Date: Wed, 27 Apr 2016 09:38:25 +0300
+Message-ID: <20160427063825.GN7974@leon.nu>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="pFpMklMRdxwSC3Yi"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Abramovsky <hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+	protocol="application/pgp-signature"; boundary="BjavXC7V3ilNTWHC"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	FaisalLatif-2ukJVAZIZ/Y@public.gmane.org
+To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1461591287-11595-1-git-send-email-hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---pFpMklMRdxwSC3Yi
-Content-Type: text/plain; charset=us-ascii
+--BjavXC7V3ilNTWHC
+Content-Type: text/plain; charset=utf-8
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Apr 25, 2016 at 04:34:47PM +0300, Haggai Abramovsky wrote:
-> -int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
-> -		   struct mlx4_buf *buf, gfp_t gfp)
-> +static int mlx4_buf_direct_alloc(struct mlx4_dev *dev, int size,
-> +				 struct mlx4_buf *buf, gfp_t gfp)
->  {
-> -	dma_addr_t t;
-> +		dma_addr_t t;
+<faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Bcc:=20
+Subject: Re: [PATCH net] RDMA/nes: don't leak skb if carrier down
+Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+In-Reply-To: <1461529139-28582-1-git-send-email-fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+
+On Sun, Apr 24, 2016 at 10:18:59PM +0200, Florian Westphal wrote:
+> Alternatively one could free the skb, OTOH I don't think this test is
+> useful so just remove it.
+>=20
+> Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+
+I don't know why did you decide to send it to netdev and not to relevant
+maintainers, but the relevant mailing list is linux-rdma and Faisal
+needs to Review/Acknowledge it.
+
+=E2=9E=9C  linux-rdma git:(master) ./scripts/get_maintainer.pl -f
+drivers/infiniband/hw/nes/nes_nic.c
+Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> (supporter:NETEFFECT IWARP RNIC
+DRIVER (IW_NES))
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (supporter:INFINIBAND SUBSYSTEM)
+Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> (supporter:INFINIBAND SUBSYSTEM)
+Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (supporter:INFINIBAND
+SUBSYSTEM)
+linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETEFFECT IWARP RNIC DRIVER
+(IW_NES))
+linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+
+
+> ---
+>  Noticed this while working on the TX_LOCKED removal.
+>=20
+> diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/=
+nes/nes_nic.c
+> index 3ea9e05..9291453 100644
+> --- a/drivers/infiniband/hw/nes/nes_nic.c
+> +++ b/drivers/infiniband/hw/nes/nes_nic.c
+> @@ -500,9 +500,6 @@ static int nes_netdev_start_xmit(struct sk_buff *skb,=
+ struct net_device *netdev)
+>  	 *		skb_shinfo(skb)->nr_frags, skb_is_gso(skb));
+>  	 */
 > =20
+> -	if (!netif_carrier_ok(netdev))
+> -		return NETDEV_TX_OK;
+> -
+>  	if (netif_queue_stopped(netdev))
+>  		return NETDEV_TX_BUSY;
+> =20
+> --=20
+> 2.7.3
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-You have wrong indentation in whole this function.
-
-> -	if (size <=3D max_direct) {
->  		buf->nbufs        =3D 1;
->  		buf->npages       =3D 1;
->  		buf->page_shift   =3D get_order(size) + PAGE_SHIFT;
-> -		buf->direct.buf   =3D dma_alloc_coherent(&dev->persist->pdev->dev,
-> -						       size, &t, gfp);
-> +		buf->direct.buf   =3D
-> +			dma_zalloc_coherent(&dev->persist->pdev->dev,
-> +					    size, &t, gfp);
->  		if (!buf->direct.buf)
->  			return -ENOMEM;
-
---pFpMklMRdxwSC3Yi
+--BjavXC7V3ilNTWHC
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJXIF0WAAoJEORje4g2clin+okP/1wyIFHDr4yRXXUkKtWFQL3u
-JPxORFJy4cSGUKusMRfhraqqNGgqB3Nv5zepQ00NLp0JCXGkR5slfGbYaYSrphzV
-KcVBkk3XNN1MJdc72hTV214yWRpAZrXa8FZMn2XDUYTmVOn4f+yDGnyYros4dJQH
-ObPLOK/7bwo2YbYVqi5obDB8A8apj6DkOvPnriE+1f19XmXlwV7QjaPli+hojaS+
-aB802g/slusX+o52Mbn4DWYXQrUoHEme0ev1vd+UBfhNTWtHZAXS+MipWEfWbtKY
-JhKuni5O2+f/Ew2T+ANML6xuvFrSdwGOdyBy4Y16CrqkB/LlVSGY6WphW0TorPSF
-0Fn2k017ARu9QmDD53Fda1FeWAC/+xq7IR5sm8TZFObMH59+tQT/3Te2nRWf/Ztz
-F5b7MngmzrTSwwv9LUg7QLUmqtEcR/CBQYbKnDK7PykhVVNY9qj5O0Q/mF198r3R
-a4Ps4NpRLyDKYcp+01txjSI3Iha3PsfxG1UzpRlrEkA5/Cywjz29m/RM6vSkCtfX
-SBfVjvXIOnF3gOzrXVSkrFP+rd6GVpZx5y64lzTRz/993C2IB3NSBAOCECvrYLvz
-WVB0GJsjkbfWj5fZKgtLyZij/2y+XHpamFu+1ac35vCIzzFnvVYDAHaPQY16ehrN
-M4wsURk2w9kHQcdeAsq9
-=5EPD
+iQIcBAEBAgAGBQJXIF5hAAoJEORje4g2clinPQoP/05Bkmp/1ypwB69FlXDnXEio
+hDY65BdlFOtCN9dIU+ZmuLGiz9sdWCouBjhjfIMCAlCJgkEQBFRW3OJSRxrm2vSn
+u84Umsy5G4tx00oEqYSEgVnsAJBHepZC2dOgKkk+b63maYiGd7ensijIZUkR8Xjl
+8+uA9cUAJZZzP7Ey3CSh9ZtkbGoaMbQIXqAGu2XCekctDf3cjEXXUcwAUs/V7PEa
+FOUtOeS14T0tZ4SCuNQdi3UemIHzvl355sTup+t3gKdgu1ynnPvflKGJFApY+MRN
+9u5VAmrg51W4vegfn4lnCA7NV+8IInsYrYyO5t2ScKfkklhDOL+zzqoHpCJJvtxw
+70QFOJP3QGp93WKbypuQ83wI5lzUowV2UPM48QSRdM8DwI5IM6yJHZ2hNvmkW8pO
+TrrFD1JCpEOeqyX/Tzuof1e34NXN8Dww/YfRfbA2Ey2q65rYMOhmFbNzx598ld/H
+v+MvU0UTQNu7X15egMhm0LrGVSWO3+lURBSGQM+b6Gep+yF1eTgk/60qdV0yonF3
+yxiTX7VH5lf4geErH4gDD0NMbW2MEHyizz5oEA6kbda5lbbMkPlZQTYkWYFNmNKC
+9RvnfO1Vc9UPvzD3FiLNXeBn18QSjV/MrLeCNfKcw5MnHoX0b7fa9WUen1gaVE+E
+0GpiSnUajxsWM2/Jsv6y
+=Y5bJ
 -----END PGP SIGNATURE-----
 
---pFpMklMRdxwSC3Yi--
+--BjavXC7V3ilNTWHC--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
