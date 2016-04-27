@@ -1,36 +1,37 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next] ipvlan: Fix failure path in dev registration during
- link creation
-Date: Wed, 27 Apr 2016 13:39:23 -0700
-Message-ID: <CAF2d9jhFg1dTOFe6HsmsP0kOmkpMf6OK3ciUUxqS2=zn8DOzcg@mail.gmail.com>
-References: <1461782259-10806-1-git-send-email-mahesh@bandewar.net> <20160427.145742.1732984000881376610.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 1/1] pch_gbe: replace private tx ring lock with
+ common netif_tx_lock
+Date: Wed, 27 Apr 2016 23:28:48 +0200
+Message-ID: <20160427212848.GA10269@electric-eye.fr.zoreil.com>
+References: <20160426224921.GA29558@electric-eye.fr.zoreil.com>
+ <57207E8A.8030004@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mahesh@bandewar.net, Eric Dumazet <edumazet@google.com>,
-	linux-netdev <netdev@vger.kernel.org>, ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.161.175]:33828 "EHLO
-	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758AbcD0Ujo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 16:39:44 -0400
-Received: by mail-yw0-f175.google.com with SMTP id j74so88755219ywg.1
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 13:39:44 -0700 (PDT)
-In-Reply-To: <20160427.145742.1732984000881376610.davem@davemloft.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39890 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752826AbcD0V2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 17:28:53 -0400
+Content-Disposition: inline
+In-Reply-To: <57207E8A.8030004@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 27, 2016 at 11:57 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mahesh Bandewar <mahesh@bandewar.net>
-> Date: Wed, 27 Apr 2016 11:37:39 -0700
->
->> While fixing this issue I noticed another issue of missing unregister
->> in case of failure, so adding it to the fix which is similar to the
->> macvlan fix by Francesco in SHA1:308379607548524b8d86dbf20134681024935e0b
->
-> This is not the correct way to refer to commits.
->
-> You should specify, exactly, 12 digits of the SHA1 value, followed by
-> a space, followed by the header line text of that commit contained in
-> parenthesis and double quotes, like how Fixes: tags specify commits.
-Ok, will fix that soon.
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> :
+> On 04/27/2016 12:49 AM, Francois Romieu wrote:
+[...]
+> > @@ -1652,7 +1652,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+> >  
+> >  		netdev_dbg(adapter->netdev, "next_to_clean : %d\n",
+> >  			   tx_ring->next_to_clean);
+> > -		spin_unlock(&tx_ring->tx_lock);
+> > +		netif_tx_lock(adapter->netdev);
+> 
+> Shouldn't this be netif_tx_unlock ?
+
+It should. Thanks for reviewing.
+
+-- 
+Ueimor
