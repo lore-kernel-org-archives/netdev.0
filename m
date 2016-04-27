@@ -1,97 +1,69 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 2/7] net: rtnetlink: allow only one idx saving stats attribute
-Date: Wed, 27 Apr 2016 18:18:17 +0200
-Message-ID: <1461773902-13528-3-git-send-email-nikolay@cumulusnetworks.com>
-References: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next 0/7] bridge: per-vlan stats
+Date: Wed, 27 Apr 2016 18:18:15 +0200
+Message-ID: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	stephen@networkplumber.org, jhs@mojatatu.com,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38524 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507AbcD0QSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 12:18:32 -0400
-Received: by mail-wm0-f43.google.com with SMTP id u206so57102158wme.1
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 09:18:31 -0700 (PDT)
-In-Reply-To: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37511 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752210AbcD0QS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 12:18:29 -0400
+Received: by mail-wm0-f42.google.com with SMTP id a17so22919626wme.0
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 09:18:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can't allow more than one stats attribute which uses the local idx
-since the result will be a mess. This is a simple check to make sure
-only one is being used at a time. Later when the filter_mask's 32 bits
-are over we can switch to a bitmap.
+Hi,
+This set adds support for bridge per-vlan statistics.
+In order to be able to dump statistics we need a way to continue
+dumping after reaching maximum size, thus patches 01-03 extend the new
+stats API with a per-device extended link stats attribute and callback
+which can save its local state and continue where it left off afterwards.
+I considered using the already existing "fill_xstats" callback but it gets
+confusing since we need to separate the linkinfo dump from the new stats
+api dump and adding a flag/argument to do that just looks messy. I don't
+think the rtnl_link_ops size is an issue, so adding these seemed like the
+cleaner approach.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- include/net/rtnetlink.h |  6 ++++++
- net/core/rtnetlink.c    | 17 +++++++++++++++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
+Patch 05 converts the pvid to a pointer so we can consolidate the vlan
+stats accounting paths later, also allows to simplify the pvid code.
+Patches 06 and 07 add the stats support and netlink dump support
+respectively.
+I've tested this set with both old and modified iproute2, kmemleak on and
+some traffic stress tests while adding/removing vlans and ports.
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 2f87c1ba13de..3f3b0b1b8722 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -150,4 +150,10 @@ int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len);
- 
- #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
- 
-+/* at most one attribute which can save a local idx is allowed to be set
-+ * IFLA_STATS_IDX_ATTR_MASK has all the idx saving attributes set and is
-+ * used to check if more than one is being requested
-+ */
-+#define IFLA_STATS_IDX_ATTR_MASK 0
-+
- #endif
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index aeb2fa9b1cda..ea03b6cd3d3c 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3512,7 +3512,7 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	struct if_stats_msg *ifsm;
- 	struct net_device *dev = NULL;
- 	struct sk_buff *nskb;
--	u32 filter_mask;
-+	u32 filter_mask, lidx_filter;
- 	int lidx = 0;
- 	int err;
- 
-@@ -3529,6 +3529,14 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (!filter_mask)
- 		return -EINVAL;
- 
-+	/* only one attribute which can save a local idx is allowed at a time
-+	 * even though rtnl_stats_get doesn't save the lidx, we need to be
-+	 * consistent with the dump side and error out
-+	 */
-+	lidx_filter = filter_mask & IFLA_STATS_IDX_ATTR_MASK;
-+	if (lidx_filter && !is_power_of_2(lidx_filter))
-+		return -EINVAL;
-+
- 	nskb = nlmsg_new(if_nlmsg_stats_size(dev, filter_mask), GFP_KERNEL);
- 	if (!nskb)
- 		return -ENOBUFS;
-@@ -3556,7 +3564,7 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct net_device *dev;
- 	struct hlist_head *head;
- 	unsigned int flags = NLM_F_MULTI;
--	u32 filter_mask = 0;
-+	u32 filter_mask = 0, lidx_filter;
- 	int err;
- 
- 	s_h = cb->args[0];
-@@ -3570,6 +3578,11 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (!filter_mask)
- 		return -EINVAL;
- 
-+	/* only one attribute which can save a local idx is allowed at a time */
-+	lidx_filter = filter_mask & IFLA_STATS_IDX_ATTR_MASK;
-+	if (lidx_filter && !is_power_of_2(lidx_filter))
-+		return -EINVAL;
-+
- 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
- 		idx = 0;
- 		head = &net->dev_index_head[h];
+Thank you,
+ Nik
+
+Note: Jamal I haven't forgotten about the per-port per-vlan stats, I've got
+a follow-up patch that adds it. You can easily see that the infrastructure
+for private port/vlan stats is in place after this set. Though the stats
+api will need some more changes to support that.
+
+
+Nikolay Aleksandrov (7):
+  net: rtnetlink: allow rtnl_fill_statsinfo to save private state
+    counter
+  net: rtnetlink: allow only one idx saving stats attribute
+  net: rtnetlink: add linkxstats callbacks and attribute
+  net: constify is_skb_forwardable's arguments
+  bridge: vlan: RCUify pvid
+  bridge: vlan: learn to count
+  bridge: netlink: export per-vlan stats
+
+ include/linux/netdevice.h      |   3 +-
+ include/net/rtnetlink.h        |  10 +++
+ include/uapi/linux/if_bridge.h |   8 +++
+ include/uapi/linux/if_link.h   |   9 +++
+ net/bridge/br_netlink.c        |  80 ++++++++++++++++++++----
+ net/bridge/br_private.h        |  32 +++++-----
+ net/bridge/br_vlan.c           | 134 +++++++++++++++++++++++++++++------------
+ net/core/dev.c                 |   2 +-
+ net/core/rtnetlink.c           |  64 +++++++++++++++++---
+ 9 files changed, 266 insertions(+), 76 deletions(-)
+
 -- 
 2.4.11
