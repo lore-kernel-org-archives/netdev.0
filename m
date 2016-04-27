@@ -1,117 +1,47 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: Re: [PATCH] net: phy: at803x: Register 'link_change_notify' only
- for AT8030
-Date: Wed, 27 Apr 2016 15:50:53 +0200
-Message-ID: <5720C3BD.8000004@laposte.net>
-References: <5720A3C1.2040401@laposte.net>
+From: Elad Kanfi <eladkan@mellanox.com>
+Subject: [PATCH v2 0/2] Net driver bugs fix
+Date: Wed, 27 Apr 2016 16:18:28 +0300
+Message-ID: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	timur@codeaurora.org, Florian Fainelli <f.fainelli@gmail.com>
-To: Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5720A3C1.2040401@laposte.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
+	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
+	<talz@mellanox.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0067.outbound.protection.outlook.com ([157.55.234.67]:22944
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751798AbcD0NxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2016 09:53:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Elad Kanfi <eladkan@mellanox.com>
 
-Sergei pointed out that the same patch was submitted yesterday by Timur (what are the chances?! :-) ) https://patchwork.ozlabs.org/patch/615019/
+v2:
+Remove code style commit for now.
+Code style commit will be added after the bugs fix will be approved.
 
-Regards,
+Summary:
+ 1. Bug description: TX done interrupts that arrives while interrupts
+    are masked, during NAPI poll, will not trigger an interrupt handling.
+    Since TX interrupt is of level edge we will lose the TX done interrupt.
+    As a result all pending tx frames will get no service.
 
-Sebastian
+    Solution: Check if there is a pending tx request after unmasking the
+    interrupt and if answer is yes then re-add ourselves to
+    the NAPI poll list.
 
-On 04/27/2016 01:34 PM, Sebastian Frias wrote:
-> There is no need to register the callback introduced by
-> commit 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
-> for non faulty PHYs.
-> 
-> The check on the PHY ID is not necessary anymore and thus has been
-> removed from the callback implementation as well.
-> 
-> Fixes: 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
-> 
-> Signed-off-by: Sebastian Frias <sf84@laposte.net>
-> ---
->  drivers/net/phy/at803x.c | 43 ++++++++++++++++++++-----------------------
->  1 file changed, 20 insertions(+), 23 deletions(-)
-> 
-> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-> index b3ffaee..7fdc676 100644
-> --- a/drivers/net/phy/at803x.c
-> +++ b/drivers/net/phy/at803x.c
-> @@ -353,33 +353,32 @@ static void at803x_link_change_notify(struct phy_device *phydev)
->  	struct at803x_priv *priv = phydev->priv;
->  
->  	/*
-> -	 * Conduct a hardware reset for AT8030 every time a link loss is
-> +	 * Conduct a hardware reset for AT8030 (this callback is only
-> +	 * registered for AT8030 at the moment) every time a link loss is
->  	 * signalled. This is necessary to circumvent a hardware bug that
->  	 * occurs when the cable is unplugged while TX packets are pending
->  	 * in the FIFO. In such cases, the FIFO enters an error mode it
->  	 * cannot recover from by software.
->  	 */
-> -	if (phydev->drv->phy_id == ATH8030_PHY_ID) {
-> -		if (phydev->state == PHY_NOLINK) {
-> -			if (priv->gpiod_reset && !priv->phy_reset) {
-> -				struct at803x_context context;
-> -
-> -				at803x_context_save(phydev, &context);
-> -
-> -				gpiod_set_value(priv->gpiod_reset, 1);
-> -				msleep(1);
-> -				gpiod_set_value(priv->gpiod_reset, 0);
-> -				msleep(1);
-> -
-> -				at803x_context_restore(phydev, &context);
-> -
-> -				phydev_dbg(phydev, "%s(): phy was reset\n",
-> -					   __func__);
-> -				priv->phy_reset = true;
-> -			}
-> -		} else {
-> -			priv->phy_reset = false;
-> +	if (phydev->state == PHY_NOLINK) {
-> +		if (priv->gpiod_reset && !priv->phy_reset) {
-> +			struct at803x_context context;
-> +
-> +			at803x_context_save(phydev, &context);
-> +
-> +			gpiod_set_value(priv->gpiod_reset, 1);
-> +			msleep(1);
-> +			gpiod_set_value(priv->gpiod_reset, 0);
-> +			msleep(1);
-> +
-> +			at803x_context_restore(phydev, &context);
-> +
-> +			phydev_dbg(phydev, "%s(): phy was reset\n",
-> +				   __func__);
-> +			priv->phy_reset = true;
->  		}
-> +	} else {
-> +		priv->phy_reset = false;
->  	}
->  }
->  
-> @@ -391,7 +390,6 @@ static struct phy_driver at803x_driver[] = {
->  	.phy_id_mask		= 0xffffffef,
->  	.probe			= at803x_probe,
->  	.config_init		= at803x_config_init,
-> -	.link_change_notify	= at803x_link_change_notify,
->  	.set_wol		= at803x_set_wol,
->  	.get_wol		= at803x_get_wol,
->  	.suspend		= at803x_suspend,
-> @@ -427,7 +425,6 @@ static struct phy_driver at803x_driver[] = {
->  	.phy_id_mask		= 0xffffffef,
->  	.probe			= at803x_probe,
->  	.config_init		= at803x_config_init,
-> -	.link_change_notify	= at803x_link_change_notify,
->  	.set_wol		= at803x_set_wol,
->  	.get_wol		= at803x_get_wol,
->  	.suspend		= at803x_suspend,
-> 
+ 2. Bug description: CPU-A before sending a frame will set a variable
+    to true. CPU-B that executes the tx done interrupt service routine
+    might read a non valid value of that variable.
+
+    Solution: Add a memory barrier at the tx sending function.
+
+Elad Kanfi (2):
+  net: nps_enet: Sync access to packet sent flag
+  net: nps_enet: bug fix - handle lost tx interrupts
+
+ drivers/net/ethernet/ezchip/nps_enet.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
