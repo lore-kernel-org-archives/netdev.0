@@ -1,175 +1,143 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH v2 net-next 11/13] Documentation: Bindings: Update DT
- binding for separating dsaf dev support
-Date: Wed, 27 Apr 2016 11:33:29 +0800
-Message-ID: <57203309.1090501@huawei.com>
-References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1461402317-136499-12-git-send-email-Yisen.Zhuang@huawei.com>
- <20160426124847.GA26682@rob-hp-laptop>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Wed, 27 Apr 2016 11:37:01 +0800
+Message-ID: <572033DD.9050501@huawei.com>
+References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
+ <1461407219-72027-10-git-send-email-oulijun@huawei.com>
+ <20160424075424.GE7974@leon.nu> <571F0C04.2010005@huawei.com>
+ <20160426141821.GJ7974@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, salil.mehta@huawei.com,
- catalin.marinas@arm.com, xieqianqian@huawei.com, pawel.moll@arm.com,
- ijc+devicetree@hellion.org.uk, netdev@vger.kernel.org, lipeng321@huawei.com,
- will.deacon@arm.com, linuxarm@huawei.com, xuwei5@hisilicon.com,
- huangdaode@hisilicon.com, galak@codeaurora.org, yankejian@huawei.com,
- linux-arm-kernel@lists.infradead.org, liguozhu@huawei.com
-To: Rob Herring <robh@kernel.org>, <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160426124847.GA26682@rob-hp-laptop>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160426141821.GJ7974-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SGkgUm9iIGFuZCBEYXZpZCwKClBsZWFzZSBzZWUgbXkgY29tbWVudHMgaW5saW5lLgoKRGF2aWQg
-aGF2ZSBtZXJnZWQgdGhpcyBzZXJpZXMgdG8gbmV0LW5leHQsIGJ1dCB3ZSBuZWVkIHRvIG1vZGlm
-eSBzb21lIGNvZGVzIGFjY29yZGluZwp0byBSb2IncyBjb21tZW50cy4gSSBhbSBub3Qgc3VyZSBp
-ZiBpIG5lZWQgdG8gc2VuZCBWMyBmb3IgdGhpcyBzZXJpZXMsIG9yIHNlcGFyYXRlCnBhdGNoZXMg
-b2YgZG9jdW1lbnRhdGlvbiB0byBpbmRlcGVuZGVudCBzZXJpZXMgYW5kIGdlbmVyYXRlIGEgbmV3
-IHBhdGNoIGZvciBobnMgYmFzZQpvbiBjdXJyZW50IG5ldC1uZXh0PwoKVGhhbmtzLAoKWWlzZW4K
-CuWcqCAyMDE2LzQvMjYgMjA6NDgsIFJvYiBIZXJyaW5nIOWGmemBkzoKPiBPbiBTYXQsIEFwciAy
-MywgMjAxNiBhdCAwNTowNToxNVBNICswODAwLCBZaXNlbiBaaHVhbmcgd3JvdGU6Cj4+IEJlY2F1
-c2UgZGVidWcgZHNhZiBwb3J0IHdhcyBzZXBhcmF0ZWQgZnJvbSBzZXJ2aWNlIGRzYWYgcG9ydCwg
-dGhpcyBwYXRjaAo+PiB1cGRhdGVzIHRoZSByZWxhdGVkIGluZm9ybWF0aW9uIG9mIERUIGJpbmRp
-bmcuCj4gCj4gU2VwYXJhdGVkIHdoZW4/IE5ldyB2ZXJzaW9uIG9mIHRoZSBoL3c/IElmIHNvLCB3
-aGVyZSdzIHRoZSBuZXcgCj4gY29tcGF0aWJsZSBzdHJpbmc/IFRoaXMgaXMgcXVpdGUgYSBiaWcg
-YmluZGluZyBjaGFuZ2UuIAoKVGhlcmUgaXNuJ3QgYW55IGNoYW5nZSBvZiBoL3cuIEkgc2VwYXJh
-dGVkIGRlYnVnIGRzYWYgcG9ydCBmcm9tIHNldmljZSBkc2FmCnBvcnQgdG8gbWFrZSB0aGUgY29k
-ZSBtb3JlIHNpbXBsZSBhbmQgcmVhZGFiaWxpdHkuCgo+IAo+PiBTaWduZWQtb2ZmLWJ5OiBZaXNl
-biBaaHVhbmcgPHlpc2VuLnpodWFuZ0BodWF3ZWkuY29tPgo+Pgo+PiAtLS0KPj4gIC4uLi9kZXZp
-Y2V0cmVlL2JpbmRpbmdzL25ldC9oaXNpbGljb24taG5zLWRzYWYudHh0IHwgNTkgKysrKysrKysr
-KysrKysrKysrLS0tLQo+PiAgMSBmaWxlIGNoYW5nZWQsIDQ5IGluc2VydGlvbnMoKyksIDEwIGRl
-bGV0aW9ucygtKQo+Pgo+PiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2Jp
-bmRpbmdzL25ldC9oaXNpbGljb24taG5zLWRzYWYudHh0IGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0
-cmVlL2JpbmRpbmdzL25ldC9oaXNpbGljb24taG5zLWRzYWYudHh0Cj4+IGluZGV4IGVjYWNmYTQu
-LjVjY2Q0ZjAgMTAwNjQ0Cj4+IC0tLSBhL0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5n
-cy9uZXQvaGlzaWxpY29uLWhucy1kc2FmLnR4dAo+PiArKysgYi9Eb2N1bWVudGF0aW9uL2Rldmlj
-ZXRyZWUvYmluZGluZ3MvbmV0L2hpc2lsaWNvbi1obnMtZHNhZi50eHQKPj4gQEAgLTcsMTkgKzcs
-NDcgQEAgUmVxdWlyZWQgcHJvcGVydGllczoKPj4gIC0gbW9kZTogZHNhIGZhYnJpYyBtb2RlIHN0
-cmluZy4gb25seSBzdXBwb3J0IG9uZSBvZiBkc2FmIG1vZGVzIGxpa2UgdGhlc2U6Cj4+ICAJCSIy
-cG9ydC02NHZmIiwKPj4gIAkJIjZwb3J0LTE2cnNzIiwKPj4gLQkJIjZwb3J0LTE2dmYiLgo+PiAr
-CQkiNnBvcnQtMTZ2ZiIsCj4+ICsJCSJzaW5nbGUtcG9ydCIuCj4+ICAtIGludGVycnVwdC1wYXJl
-bnQ6IHRoZSBpbnRlcnJ1cHQgcGFyZW50IG9mIHRoaXMgZGV2aWNlLgo+PiAgLSBpbnRlcnJ1cHRz
-OiBzaG91bGQgY29udGFpbiB0aGUgRFNBIEZhYnJpYyBhbmQgcmNiIGludGVycnVwdC4KPj4gIC0g
-cmVnOiBzcGVjaWZpZXMgYmFzZSBwaHlzaWNhbCBhZGRyZXNzKGVzKSBhbmQgc2l6ZSBvZiB0aGUg
-ZGV2aWNlIHJlZ2lzdGVycy4KPj4gLSAgVGhlIGZpcnN0IHJlZ2lvbiBpcyBleHRlcm5hbCBpbnRl
-cmZhY2UgY29udHJvbCByZWdpc3RlciBiYXNlIGFuZCBzaXplLgo+PiAtICBUaGUgc2Vjb25kIHJl
-Z2lvbiBpcyBTZXJEZXMgYmFzZSByZWdpc3RlciBhbmQgc2l6ZS4KPj4gKyAgVGhlIGZpcnN0IHJl
-Z2lvbiBpcyBleHRlcm5hbCBpbnRlcmZhY2UgY29udHJvbCByZWdpc3RlciBiYXNlIGFuZCBzaXpl
-KG9wdGlvbmFsLAo+PiArICBvbmx5IGJlIHVzZWQgd2hlbiBzdWJjdHJsLXN5c2NvbiBpcyBub3Qg
-ZXhpc3RzKS4gSXQgaXMgcmVjb21tZW5kZWQgdXNpbmcKPiAKPiBvbmx5IHVzZWQgd2hlbiBzdWJj
-dHJsLXN5c2NvbiBkb2VzIG5vdCBleGlzdAoKQWdyZWUsIHRoYW5rcy4KCj4gCj4+ICsgIHN1YmN0
-cmwtc3lzY29uIHJhdGhlciB0aGFuIHRoaXMgYWRkcmVzcy4KPj4gKyAgVGhlIHNlY29uZCByZWdp
-b24gaXMgU2VyRGVzIGJhc2UgcmVnaXN0ZXIgYW5kIHNpemUob3B0aW9uYWwsIG9ubHkgYmUgdXNl
-ZCB3aGVuCj4+ICsgIHNlcmRlcy1zeXNjb24gaW4gcG9ydCBub2RlIGlzIG5vdCBleGlzdHMuIEl0
-IGlzIHJlY29tbWVuZGVkIHVzaW5nCj4gCj4gc2ltaWxhciByZXdvcmRpbmcgbmVlZGVkIGhlcmUu
-CgpBZ3JlZSwgdGhhbmtzLgoKPiAKPj4gKyAgc2VyZGVzLXN5c2NvbiByYXRoZXIgdGhhbiB0aGlz
-IGFkZHJlc3MuCj4+ICAgIFRoZSB0aGlyZCByZWdpb24gaXMgdGhlIFBQRSByZWdpc3RlciBiYXNl
-IGFuZCBzaXplLgo+PiAtICBUaGUgZm91cnRoIHJlZ2lvbiBpcyBkc2EgZmFicmljIGJhc2UgcmVn
-aXN0ZXIgYW5kIHNpemUuCj4+IC0gIFRoZSBmaWZ0aCByZWdpb24gaXMgY3BsZCBiYXNlIHJlZ2lz
-dGVyIGFuZCBzaXplLCBpdCBpcyBub3QgcmVxdWlyZWQgaWYgZG8gbm90IHVzZSBjcGxkLgo+PiAt
-LSBwaHktaGFuZGxlOiBwaHkgaGFuZGxlIG9mIHBoeXNpY2wgcG9ydCwgMCBpZiBub3QgYW55IHBo
-eSBkZXZpY2UuIHNlZSBldGhlcm5ldC50eHQgWzFdLgo+PiArICBUaGUgZm91cnRoIHJlZ2lvbiBp
-cyBkc2EgZmFicmljIGJhc2UgcmVnaXN0ZXIgYW5kIHNpemUuIEl0IGlzIG5vdCByZXF1aXJlZCBm
-b3IKPj4gKyAgc2luZ2xlLXBvcnQgbW9kZS4KPj4gKy0gcmVnLW5hbWVzOiBtYXkgYmUgcHBlLWJh
-c2UgYW5kKG9yKSBkc2FmLWJhc2UuIEl0IGlzIHVzZWQgdG8gZmluZCB0aGUKPj4gKyAgY29ycmVz
-cG9uZGluZyByZWcncyBpbmRleC4KPiAKPiBCdXQgeW91IGhhdmUgdXAgdG8gNSByZWdpb25zLgo+
-IAo+IFRoZSB2YXJpYWJsZSBuYXR1cmUgb2Ygd2hhdCByZWdpb25zIHlvdSBoYXZlIHRlbGxzIG1l
-IHlvdSBuZWVkIG1vcmUgCj4gc3BlY2lmaWMgY29tcGF0aWJsZSBzdHJpbmdzIGZvciBlYWNoIGNo
-aXAuCgp3ZSBkaWRuJ3QgYWRkIHN1cHBvcnQgb2YgbmV3IGgvdy4gV2UgYWRkZWQgdGhlc2UgcmVn
-aW9ucyB0byBtYWtlIGNvZGUgc2ltcGxlIGFuZCByZWFkYWJpbGl0eS4KSWYgd2UgbmVlZCB0byBh
-ZGQgc3VwcG9ydCBvZiBuZXh0IGgvdyB2ZXJzaW9uIG5leHQgdGltZSwgd2UgZG9uJ3QgbmVlZCB0
-byBhZGQgbWFueSBicmFuY2hlcwpmb3IgdGhlc2UgYXR0cmlidXRlcy4gU28gd2UgZGlkbid0IGFk
-ZCBhIG5ldyBjb21wYXRpYmxlIGhlcmUuCgo+IAo+PiArCj4+ICstIHBoeS1oYW5kbGU6IHBoeSBo
-YW5kbGUgb2YgcGh5c2ljbCBwb3J0LCAwIGlmIG5vdCBhbnkgcGh5IGRldmljZS4gSXQgaXMgb3B0
-aW9uYWwKPiAKPiBzL3BoeXNpY2wvcGh5c2ljYWwvCgpBZ3JlZSwgdGhhbmtzLgoKPiAKPj4gKyAg
-YXR0cmlidXRlLiBJZiBwb3J0IG5vZGUgaXMgZXhpc3RzLCBwaHktaGFuZGxlIGluIGVhY2ggcG9y
-dCBub2RlIHdpbGwgYmUgdXNlZC4KPj4gKyAgc2VlIGV0aGVybmV0LnR4dCBbMV0uCj4+ICstIHN1
-YmN0cmwtc3lzY29uOiBpcyBzeXNjb24gaGFuZGxlIGZvciBleHRlcm5hbCBpbnRlcmZhY2UgY29u
-dHJvbCByZWdpc3Rlci4KPj4gKy0gcmVzZXQtZmllbGQtb2Zmc2V0OiBpcyBvZmZzZXQgb2YgcmVz
-ZXQgZmllbGQuIEl0cyB2YWx1ZSBkZXBlbmRzIG9uIHRoZSBoYXJkd2FyZQo+PiArICB1c2VyIG1h
-bnVhbC4KPj4gIC0gYnVmLXNpemU6IHJ4IGJ1ZmZlciBzaXplLCBzaG91bGQgYmUgMTYtMTAyNC4K
-Pj4gIC0gZGVzYy1udW06IG51bWJlciBvZiBkZXNjcmlwdGlvbiBpbiBUWCBhbmQgUlggcXVldWUs
-IHNob3VsZCBiZSA1MTIsIDEwMjQsIDIwNDggb3IgNDA5Ni4KPj4gIAo+PiArLSBwb3J0OiBzdWJu
-b2RlcyBvZiBkc2FmLiBBIGRzYWYgbm9kZSBtYXkgY29udGFpbiBzZXZlcmFsIHBvcnQgbm9kZXMo
-RGVwZW5kaW5nCj4+ICsgIG9uIG1vZGUgb2YgZHNhZikuIFBvcnQgbm9kZSBjb250YWluIHNvbWUg
-YXR0cmlidXRlcyBsaXN0ZWQgYmVsb3c6Cj4+ICstIHBvcnQtaWQ6IGlzIHBoeXNpY2FsIHBvcnQg
-aW5kZXggaW4gb25lIGRzYWYuCj4gCj4gSW5kZXhlcyBzaG91bGQgZ2VuZXJhbGx5IGJlIGF2b2lk
-ZWQuIFdoYXQgZG9lcyB0aGUgbnVtYmVyIGNvcnJlc3BvbmQgCj4gdG8gaW4gaC93IChpZiBhbnl0
-aGluZyk/Cgpwb3J0LWlkIGlzIGluZGV4IGZvciBhIHBvcnQgaW4gZHNhZiwgaXQgaXMgY29ycmVz
-cG9uZCB0byBpbmRleCBvZiBQSFkgc2hvd2VkIGJlbG93LgoKICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgQ1BVCiAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8CiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAgICAgICAg
-ICB8ICAgICAgICAgICB8CiAgICAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tICAgIC0tLS0tLS0tLSAgIC0tLS0tLS0tLQogICAgfCAgICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAgICAgICAgICAgICAgICAgfCAgICB8ICAgICAgIHwgICB8ICAgfCAgIHwKICAg
-IHwgICAgICAgICAgICAgICAgICAgICAgICBQUEUgICAgICAgICAgICAgICAgIHwgICAgfCAgUFBF
-ICB8ICAgfCAgUFBFICB8CiAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAg
-ICAgICAgICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAogICAgfCAgICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAgICAgICAgICAgICAgICAgfCAgICB8ICAgfCAgIHwgICB8ICAgfCAgIHwKICAg
-IHwgICAgICAgICAgICAgICAgICAgICAgY3Jvc3NiYXIgICAgICAgICAgICAgIHwgICAgfCAgIHwg
-ICB8ICAgfCAgIHwgICB8CiAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAg
-ICAgICAgICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAogICAgfCAgIC0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0gICAgICAgfCAgICB8ICAgfCAgIHwgICB8ICAgfCAgIHwKICAg
-IHwgICB8ICAgICB8ICAgICB8ICAgICAgfCAgICAgIHwgICAgICB8ICAgICAgIHwgICAgfCAgIHwg
-ICB8ICAgfCAgIHwgICB8CiAgICB8ICAgfCAgICAgfCAgICAgfCAgICAgIHwgICAgICB8ICAgICAg
-fCAgICAgICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAogICAgfCAgTUFDICAgTUFDICAgTUFD
-ICAgIE1BQyAgICBNQUMgICAgTUFDICAgICAgfCAgICB8ICBNQUMgIHwgICB8ICBNQUMgIHwKICAg
-IHwgICB8ICAgICB8ICAgICB8ICAgICAgfCAgICAgIHwgICAgICB8ICAgICAgIHwgICAgfCAgIHwg
-ICB8ICAgfCAgIHwgICB8CiAgICAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tICAgIC0tLS0tLS0tLSAgIC0tLS0tLS0tLQogICAgICAgIHwgICAgIHwgICAgIHwg
-ICAgICB8ICAgICAgfCAgICAgIHwgICAgXCAgICAgICAgLyAgfCAgICAgICAgLyAgfAogICAgICAg
-UEhZICAgUEhZICAgUEhZICAgIFBIWSAgICBQSFkgICAgUEhZICAgIFwgICAgICAvICBQSFkgICAg
-ICAvICBQSFkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-XCAgICAvICAgICAgICAgICAvCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBcICAvICAgICAgICAgICAvCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIERTQUYodGhyZWUgcGxhdGZvcm0gZGV2aWNlKQoKPiAKPj4gKy0gcGh5
-LWhhbmRsZTogcGh5IGhhbmRsZSBvZiBwaHlzaWNsIHBvcnQuIEl0IGlzIG5vdCByZXF1aXJlZCBp
-ZiB0aGVyZSBpc24ndAo+PiArICBwaHkgZGV2aWNlLiBzZWUgZXRoZXJuZXQudHh0IFsxXS4KPj4g
-Ky0gc2VyZGVzLXN5c2NvbjogaXMgc3lzY29uIGhhbmRsZSBmb3IgU2VyRGVzIHJlZ2lzdGVyLgo+
-PiArLSBjcGxkLXN5c2NvbjogaXMgc3lzY29uIGhhbmRsZSBmb3IgY3BsZCByZWdpc3Rlci4gSXQg
-aXMgbm90IHJlcXVpcmVkIGlmIHRoZXJlCj4+ICsgIGlzbid0IGNwbGQgZGV2aWNlLgo+PiArLSBj
-cGxkLWN0cmwtcmVnOiBpcyBjcGxkIHJlZ2lzdGVyIG9mZnNldC4gSXQgaXMgbm90IHJlcXVpcmVk
-IGlmIHRoZXJlIGlzbid0Cj4+ICsgIGNwbGQtc3lzY29uLgo+IAo+IFRoaXMgd291bGQgdXN1YWxs
-eSBiZSBhIGNlbGwgaW4gdGhlIGNwbGQtc3lzY29uIHByb3BlcnR5LgoKQWdyZWUsIHRoYW5rcy4K
-Cj4gCj4+ICstIHBvcnQtcnN0LW9mZnNldDogaXMgb2Zmc2V0IG9mIHJlc2V0IGZpZWxkIGZvciBl
-YWNoIHBvcnQgaW4gZHNhZi4gSXRzIHZhbHVlCj4+ICsgIGRlcGVuZHMgb24gdGhlIGhhcmR3YXJl
-IHVzZXIgbWFudWFsLgo+PiArLSBwb3J0LW1vZGUtb2Zmc2V0OiBpcyBvZmZzZXQgb2YgcG9ydCBt
-b2RlIGZpZWxkIGZvciBlYWNoIHBvcnQgaW4gZHNhZi4gSXRzCj4+ICsgIHZhbHVlIGRlcGVuZHMg
-b24gdGhlIGhhcmR3YXJlIHVzZXIgbWFudWFsLgo+IAo+IEFnYWluLCBzb3VuZHMgbGlrZSB5b3Ug
-bmVlZCBtb3JlIHNwZWNpZmljIGNvbXBhdGlibGUgc3RyaW5ncyB0aGF0IGltcGx5IAo+IHRoaXMg
-aW5mb3JtYXRpb24uCj4gCj4+ICsKPj4gIFsxXSBEb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmlu
-ZGluZ3MvbmV0L3BoeS50eHQKPj4gIAo+PiAgRXhhbXBsZToKPj4gQEAgLTI4LDExICs1NiwxMSBA
-QCBkc2FmMDogZHNhQGM3MDAwMDAwIHsKPj4gIAljb21wYXRpYmxlID0gImhpc2lsaWNvbixobnMt
-ZHNhZi12MSI7Cj4+ICAJbW9kZSA9ICI2cG9ydC0xNnJzcyI7Cj4+ICAJaW50ZXJydXB0LXBhcmVu
-dCA9IDwmbWJpZ2VuX2RzYT47Cj4+IC0JcmVnID0gPDB4MCAweEMwMDAwMDAwIDB4MCAweDQyMDAw
-MAo+PiAtCSAgICAgICAweDAgMHhDMjAwMDAwMCAweDAgMHgzMDAwMDAKPj4gLQkgICAgICAgMHgw
-IDB4YzUwMDAwMDAgMHgwIDB4ODkwMDAwCj4+ICsJcmVnID0gPDB4MCAweGM1MDAwMDAwIDB4MCAw
-eDg5MDAwMAo+PiAgCSAgICAgICAweDAgMHhjNzAwMDAwMCAweDAgMHg2MDAwMD47Cj4+IC0JcGh5
-LWhhbmRsZSA9IDwwIDAgMCAwICZzb2MwX3BoeTQgJnNvYzBfcGh5NSAwIDA+Owo+PiArCXJlZy1u
-YW1lcyA9ICJwcGUtYmFzZSIsICJkc2FmLWJhc2UiOwo+PiArCXN1YmN0cmwtc3lzY29uID0gPCZz
-dWJjdHJsPjsKPj4gKwlyZXNldC1maWVsZC1vZmZzZXQgPSAwOwo+PiAgCWludGVycnVwdHMgPSA8
-MTMxIDQ+LDwxMzIgND4sIDwxMzMgND4sPDEzNCA0PiwKPj4gIAkJICAgICA8MTM1IDQ+LDwxMzYg
-ND4sIDwxMzcgND4sPDEzOCA0PiwKPj4gIAkJICAgICA8MTM5IDQ+LDwxNDAgND4sIDwxNDEgND4s
-PDE0MiA0PiwKPj4gQEAgLTQzLDQgKzcxLDE1IEBAIGRzYWYwOiBkc2FAYzcwMDAwMDAgewo+PiAg
-CWJ1Zi1zaXplID0gPDQwOTY+Owo+PiAgCWRlc2MtbnVtID0gPDEwMjQ+Owo+PiAgCWRtYS1jb2hl
-cmVudDsKPj4gKwo+PiArCXByb3RAMCB7Cj4gCj4gcG9ydD8KCkFncmVlLCBpIGFtIHNvcnJ5IGZv
-ciBteSBjYXJlbGVzc25lc3MgYW5kIHdpbGwgcGF5IG1vcmUgYXR0ZW50aW9uIHRvIGl0IG5leHQg
-dGltZS4KdGhhbmsgeW91IHZlcnkgbXVjaC4KCj4gCj4+ICsJCXBvcnQtaWQgPSAwOwo+PiArCQlw
-aHktaGFuZGxlID0gPCZwaHkwPjsKPj4gKwkJc2VyZGVzLXN5c2NvbiA9IDwmc2VyZGVzPjsKPj4g
-Kwl9Owo+PiArCj4+ICsJcHJvdEAxIHsKPj4gKyAgICAgICAgICAgICAgICBwb3J0LWlkID0gMTsK
-Pj4gKyAgICAgICAgICAgICAgICBzZXJkZXMtc3lzY29uID0gPCZzZXJkZXM+Owo+PiArICAgICAg
-ICB9Owo+PiAgfTsKPj4gLS0gCj4+IDEuOS4xCj4+Cj4gCj4gLgo+IAoKCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGlu
-ZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMu
-aW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+On 2016/4/26 22:18, Leon Romanovsky wrote:
+> On Tue, Apr 26, 2016 at 02:34:44PM +0800, oulijun wrote:
+>> On 2016/4/24 15:54, Leon Romanovsky wrote:
+>>> On Sat, Apr 23, 2016 at 06:26:47PM +0800, Lijun Ou wrote:
+>>>> This patch mainly setup hca for RoCE. it will do a series of
+>>>> initial works as follows:
+>>>>       1. init uar table, allocate uar resource
+>>>>       2. init pd table
+>>>>       3. init cq table
+>>>>       4. init mr table
+>>>>       5. init qp table
+>>>>
+>>>> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>>> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>>> ---
+>>>>  drivers/infiniband/hw/hns/hns_roce_alloc.c  | 104 ++++++++++++++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_cq.c     |  25 ++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_device.h |  69 ++++++++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_eq.c     |   1 -
+>>>>  drivers/infiniband/hw/hns/hns_roce_icm.c    |  88 +++++++++++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_icm.h    |   9 ++
+>>>>  drivers/infiniband/hw/hns/hns_roce_main.c   |  79 ++++++++++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_mr.c     | 187 ++++++++++++++++++++++++++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_pd.c     |  65 ++++++++++
+>>>>  drivers/infiniband/hw/hns/hns_roce_qp.c     |  30 +++++
+>>>>  10 files changed, 656 insertions(+), 1 deletion(-)
+>>>>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
+>>>>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
+>>>>  create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
+>>>>
+>>>> diff --git a/drivers/infiniband/hw/hns/hns_roce_alloc.c b/drivers/infiniband/hw/hns/hns_roce_alloc.c
+>>>> new file mode 100644
+>>>> index 0000000..0c76f1b
+>>>> --- /dev/null
+>>>> +++ b/drivers/infiniband/hw/hns/hns_roce_alloc.c
+>>>> @@ -0,0 +1,104 @@
+>>>> +/*
+>>>> + * Copyright (c) 2016 Hisilicon Limited.
+>>>> + *
+>>>> + * This program is free software; you can redistribute it and/or modify
+>>>> + * it under the terms of the GNU General Public License as published by
+>>>> + * the Free Software Foundation; either version 2 of the License, or
+>>>> + * (at your option) any later version.
+>>>> + */
+>>>> +
+>>>> +#include <linux/bitmap.h>
+>>>> +#include <linux/dma-mapping.h>
+>>>> +#include <linux/errno.h>
+>>>> +#include <linux/mm.h>
+>>>> +#include <linux/slab.h>
+>>>> +#include <linux/vmalloc.h>
+>>>> +#include "hns_roce_device.h"
+>>>> +
+>>>> +int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, u32 *obj)
+>>>> +{
+>>>> +	int ret = 0;
+>>>> +
+>>>> +	spin_lock(&bitmap->lock);
+>>>> +	*obj = find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
+>>>> +	if (*obj >= bitmap->max) {
+>>>> +		bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
+>>>> +			       & bitmap->mask;
+>>>> +		*obj = find_first_zero_bit(bitmap->table, bitmap->max);
+>>>
+>>> find_first_zero_bit function returns "unsigned long" which may or may
+>>> not be equal to u32 on some architectures.
+>>>
+>> Hi Leon,
+>>     I appreciate your keen eye. this code is meant for ARM64bit therefore should run corretly for 64-bit AARCH64.
+>> I will consider changing it as part of good partice and better portability "
+>> I will give a primary plan to modified it.
+>> for example:
+>>     *obj = (u32)find_next_zero_bit(bitmap->table, bitmap->max, bitmap->last);
+>> Beause the max size of bitmap->table is u32 in current version.
+>>
+>> int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
+>> 			 u32 reserved_bot, u32 reserved_top)
+>> {
+>> 	u32 i;
+>>
+>> 	if (num != roundup_pow_of_two(num))
+>> 		return -EINVAL;
+>>
+>> 	bitmap->last = 0;
+>> 	bitmap->top = 0;
+>> 	bitmap->max = num - reserved_top;
+>> 	bitmap->mask = mask;
+>> 	bitmap->reserved_top = reserved_top;
+>> 	spin_lock_init(&bitmap->lock);
+>> 	bitmap->table = kcalloc(BITS_TO_LONGS(bitmap->max), sizeof(long),
+>> 				GFP_KERNEL);
+>>
+>> Is this plan ok?
+> 
+> No,
+> You are submitting new driver, please do it properly (without casting)
+> from the beginning.
+> 
+oh, i see. I will give a better plan to modify it.
+
+Thanks
+Lijun Ou
+>>
+>> Thanks
+>> Lijun Ou
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
