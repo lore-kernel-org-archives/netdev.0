@@ -1,64 +1,50 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V3 1/5] samples/bpf: add back functionality to
- redefine LLC command
-Date: Wed, 27 Apr 2016 09:30:13 +0200
-Message-ID: <20160427073013.29959.86846.stgit@firesoul>
-References: <20160427072855.29959.70252.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kbuild@vger.kernel.org, bblanco@plumgrid.com,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	naveen.n.rao@linux.vnet.ibm.com, borkmann@iogearbox.net,
-	alexei.starovoitov@gmail.com
+From: Petko Manolov <petkan@mip-labs.com>
+Subject: [PATCH v2 0/2] pegasus: correct buffer sizes
+Date: Wed, 27 Apr 2016 10:35:23 +0300
+Message-ID: <1461742525-2748-1-git-send-email-petkan@mip-labs.com>
+Cc: davem@davemloft.net, a1291762@gmail.com,
+	Petko Manolov <petkan@mip-labs.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43455 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753263AbcD0HaP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2016 03:30:15 -0400
-In-Reply-To: <20160427072855.29959.70252.stgit@firesoul>
+Received: from lan.nucleusys.com ([92.247.61.126]:42416 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752621AbcD0Hff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 03:35:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is practical to be-able-to redefine the location of the LLVM
-command 'llc', because not all distros have a LLVM version with bpf
-target support.  Thus, it is sometimes required to compile LLVM from
-source, and sometimes it is not desired to overwrite the distros
-default LLVM version.
+As noticed by Lincoln Ramsay <a1291762@gmail.com> some old (usb 1.1) Pegasus 
+based devices may actually return more bytes than the specified in the datasheet 
+amount.  That would not be a problem if the allocated space for the SKB was 
+equal to the parameter passed to usb_fill_bulk_urb().  Some poor bugger (i 
+really hope it was not me, but 'git blame' is useless in this case, so anyway) 
+decided to add '+ 8' to the buffer length parameter.  Sometimes the usb transfer 
+overflows and corrupts the socket structure, leading to kernel panic.
 
-This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
-PATH, rather than a hardcoded value").
+The above doesn't seem to happen for newer (Pegasus2 based) devices which did 
+help this bug to hide for so long.
 
-Add this features back. Note that it is possible to redefine the LLC
-on the make command like:
+Nearly all Pegasus devices may append the RX status to the end of the received 
+packet.  It is the default setup for the driver.  The actual ethernet packet is 
+4 bytes shorter.  Why and when 'pkt_len -= 4' became 'pkt_len -= 8' is again 
+hidden in the mists of time.  There might have been a good reason to do so, but 
+multiple reads of the datasheet did not point me to any.
 
- make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+The patch is against v4.6-rc5 and was tested on ADM8515 device by transferring 
+multiple gigabytes of data over a couple of days without any complaints from the 
+kernel.
 
-Fixes: 128d1514be35 ("samples/bpf: Use llc in PATH, rather than a hardcoded value")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- samples/bpf/Makefile |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Changes since v1:
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 744dd7a16144..5bae9536f100 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -81,10 +81,14 @@ HOSTLOADLIBES_spintest += -lelf
- HOSTLOADLIBES_map_perf_test += -lelf -lrt
- HOSTLOADLIBES_test_overhead += -lelf -lrt
- 
-+# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
-+#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
-+LLC ?= llc
-+
- # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
- # But, there is no easy way to fix it, so just exclude it since it is
- # useless for BPF samples.
- $(obj)/%.o: $(src)/%.c
- 	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
- 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
--		-O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
-+		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+ - split the patch in two parts;
+ - corrected the subject lines;
+
+Petko Manolov (2):
+  pegasus: fixes URB buffer allocation size;
+  pegasus: fixes reported packet length
+
+ drivers/net/usb/pegasus.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+-- 
+2.8.0.rc3
