@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 05/20] net: dsa: pass dsa_port down to drivers VLAN ops
-Date: Wed, 27 Apr 2016 18:30:02 -0400
-Message-ID: <1461796217-18893-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 03/20] net: dsa: pass dsa_port down to drivers bridge ops
+Date: Wed, 27 Apr 2016 18:30:00 -0400
+Message-ID: <1461796217-18893-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,262 +15,196 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Now that DSA as proper structure for DSA ports, pass it down to the
-port_vlan_{filtering,prepare,add,del,dump} driver functions.
+port_bridge_join and port_bridge_leave driver functions.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 41 +++++++++++++++++++++--------------------
- drivers/net/dsa/mv88e6xxx.h | 10 +++++-----
- include/net/dsa.h           | 11 ++++++-----
- net/dsa/slave.c             | 10 +++++-----
- 4 files changed, 37 insertions(+), 35 deletions(-)
+ drivers/net/dsa/bcm_sf2.c   | 28 ++++++++++++++--------------
+ drivers/net/dsa/mv88e6xxx.c | 10 +++++-----
+ drivers/net/dsa/mv88e6xxx.h |  4 ++--
+ include/net/dsa.h           |  4 ++--
+ net/dsa/slave.c             |  4 ++--
+ 5 files changed, 25 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index c1ff763..7e03f4c 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1367,7 +1367,7 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index f394ea9..2d7b297 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -491,15 +491,15 @@ static int bcm_sf2_sw_fast_age_port(struct dsa_switch  *ds, int port)
  	return 0;
  }
  
--int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, struct dsa_port *dp,
- 			     struct switchdev_obj_port_vlan *vlan,
- 			     int (*cb)(struct switchdev_obj *obj))
+-static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
++static int bcm_sf2_sw_br_join(struct dsa_switch *ds, struct dsa_port *dp,
+ 			      struct net_device *bridge)
  {
-@@ -1378,7 +1378,7 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+ 	unsigned int i;
+ 	u32 reg, p_ctl;
  
- 	mutex_lock(&ps->smi_mutex);
+-	priv->port_sts[port].bridge_dev = bridge;
+-	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
++	priv->port_sts[dp->port].bridge_dev = bridge;
++	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
  
--	err = _mv88e6xxx_port_pvid_get(ds, port, &pvid);
-+	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
- 	if (err)
- 		goto unlock;
+ 	for (i = 0; i < priv->hw_params.num_ports; i++) {
+ 		if (priv->port_sts[i].bridge_dev != bridge)
+@@ -509,7 +509,7 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
+ 		 * membership and update the remote port bitmask
+ 		 */
+ 		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
+-		reg |= 1 << port;
++		reg |= 1 << dp->port;
+ 		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
+ 		priv->port_sts[i].vlan_ctl_mask = reg;
  
-@@ -1394,14 +1394,15 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 		if (!next.valid)
- 			break;
+@@ -519,20 +519,20 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
+ 	/* Configure the local port VLAN control membership to include
+ 	 * remote ports and update the local port bitmask
+ 	 */
+-	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
+-	priv->port_sts[port].vlan_ctl_mask = p_ctl;
++	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(dp->port));
++	priv->port_sts[dp->port].vlan_ctl_mask = p_ctl;
  
--		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
-+		if (next.data[dp->port] ==
-+		    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+ 	return 0;
+ }
+ 
+-static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
++static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, struct dsa_port *dp,
+ 				struct net_device *bridge)
+ {
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+ 	unsigned int i;
+ 	u32 reg, p_ctl;
+ 
+-	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
++	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
+ 
+ 	for (i = 0; i < priv->hw_params.num_ports; i++) {
+ 		/* Don't touch the remaining ports */
+@@ -540,18 +540,18 @@ static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
  			continue;
  
- 		/* reinit and dump this VLAN obj */
- 		vlan->vid_begin = vlan->vid_end = next.vid;
- 		vlan->flags = 0;
+ 		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
+-		reg &= ~(1 << port);
++		reg &= ~(1 << dp->port);
+ 		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
+-		priv->port_sts[port].vlan_ctl_mask = reg;
++		priv->port_sts[dp->port].vlan_ctl_mask = reg;
  
--		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
-+		if (next.data[dp->port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
- 			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
- 
- 		if (next.vid == pvid)
-@@ -1789,7 +1790,7 @@ static const char * const mv88e6xxx_port_8021q_mode_names[] = {
- 	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
- };
- 
--int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, struct dsa_port *dp,
- 				  bool vlan_filtering)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -1799,7 +1800,7 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
- 
- 	mutex_lock(&ps->smi_mutex);
- 
--	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL_2);
-+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(dp->port), PORT_CONTROL_2);
- 	if (ret < 0)
- 		goto unlock;
- 
-@@ -1809,12 +1810,12 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
- 		ret &= ~PORT_CONTROL_2_8021Q_MASK;
- 		ret |= new & PORT_CONTROL_2_8021Q_MASK;
- 
--		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2,
--					   ret);
-+		ret = _mv88e6xxx_reg_write(ds, REG_PORT(dp->port),
-+					   PORT_CONTROL_2, ret);
- 		if (ret < 0)
- 			goto unlock;
- 
--		netdev_dbg(ds->ports[port], "802.1Q Mode %s (was %s)\n",
-+		netdev_dbg(ds->ports[dp->port], "802.1Q Mode %s (was %s)\n",
- 			   mv88e6xxx_port_8021q_mode_names[new],
- 			   mv88e6xxx_port_8021q_mode_names[old]);
+ 		/* Prevent self removal to preserve isolation */
+-		if (port != i)
++		if (dp->port != i)
+ 			p_ctl &= ~(1 << i);
  	}
-@@ -1826,7 +1827,7 @@ unlock:
- 	return ret;
+ 
+-	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
+-	priv->port_sts[port].vlan_ctl_mask = p_ctl;
+-	priv->port_sts[port].bridge_dev = NULL;
++	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(dp->port));
++	priv->port_sts[dp->port].vlan_ctl_mask = p_ctl;
++	priv->port_sts[dp->port].bridge_dev = NULL;
  }
  
--int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, struct dsa_port *dp,
- 				const struct switchdev_obj_port_vlan *vlan,
- 				struct switchdev_trans *trans)
- {
-@@ -1835,7 +1836,7 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 	/* If the requested port doesn't belong to the same bridge as the VLAN
- 	 * members, do not support it (yet) and fallback to software VLAN.
- 	 */
--	err = mv88e6xxx_port_check_hw_vlan(ds, port, vlan->vid_begin,
-+	err = mv88e6xxx_port_check_hw_vlan(ds, dp->port, vlan->vid_begin,
- 					   vlan->vid_end);
- 	if (err)
- 		return err;
-@@ -1863,7 +1864,7 @@ static int _mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
- 	return _mv88e6xxx_vtu_loadpurge(ds, &vlan);
+ static void bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 86f8f2f..3f78c73 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2203,7 +2203,7 @@ unlock:
+ 	return err;
  }
  
--void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
-+void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, struct dsa_port *dp,
- 			     const struct switchdev_obj_port_vlan *vlan,
- 			     struct switchdev_trans *trans)
- {
-@@ -1875,12 +1876,12 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 	mutex_lock(&ps->smi_mutex);
- 
- 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
--		if (_mv88e6xxx_port_vlan_add(ds, port, vid, untagged))
--			netdev_err(ds->ports[port], "failed to add VLAN %d%c\n",
-+		if (_mv88e6xxx_port_vlan_add(ds, dp->port, vid, untagged))
-+			netdev_err(ds->ports[dp->port], "failed to add VLAN %d%c\n",
- 				   vid, untagged ? 'u' : 't');
- 
--	if (pvid && _mv88e6xxx_port_pvid_set(ds, port, vlan->vid_end))
--		netdev_err(ds->ports[port], "failed to set PVID %d\n",
-+	if (pvid && _mv88e6xxx_port_pvid_set(ds, dp->port, vlan->vid_end))
-+		netdev_err(ds->ports[dp->port], "failed to set PVID %d\n",
- 			   vlan->vid_end);
- 
- 	mutex_unlock(&ps->smi_mutex);
-@@ -1921,7 +1922,7 @@ static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
- 	return _mv88e6xxx_atu_remove(ds, vlan.fid, port, false);
- }
- 
--int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, struct dsa_port *dp,
- 			    const struct switchdev_obj_port_vlan *vlan)
+-int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
++int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
+ 			       struct net_device *bridge)
  {
  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -1930,17 +1931,17 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 
+@@ -2212,7 +2212,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
  	mutex_lock(&ps->smi_mutex);
  
--	err = _mv88e6xxx_port_pvid_get(ds, port, &pvid);
-+	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
- 	if (err)
- 		goto unlock;
+ 	/* Assign the bridge and remap each port's VLANTable */
+-	ps->ports[port].bridge_dev = bridge;
++	ps->ports[dp->port].bridge_dev = bridge;
  
- 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
--		err = _mv88e6xxx_port_vlan_del(ds, port, vid);
-+		err = _mv88e6xxx_port_vlan_del(ds, dp->port, vid);
- 		if (err)
- 			goto unlock;
+ 	for (i = 0; i < ps->info->num_ports; ++i) {
+ 		if (ps->ports[i].bridge_dev == bridge) {
+@@ -2227,7 +2227,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 	return err;
+ }
  
- 		if (vid == pvid) {
--			err = _mv88e6xxx_port_pvid_set(ds, port, 0);
-+			err = _mv88e6xxx_port_pvid_set(ds, dp->port, 0);
- 			if (err)
- 				goto unlock;
- 		}
+-void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
++void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
+ 				 struct net_device *bridge)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -2236,10 +2236,10 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	/* Unassign the bridge and remap each port's VLANTable */
+-	ps->ports[port].bridge_dev = NULL;
++	ps->ports[dp->port].bridge_dev = NULL;
+ 
+ 	for (i = 0; i < ps->info->num_ports; ++i)
+-		if (i == port || ps->ports[i].bridge_dev == bridge)
++		if (i == dp->port || ps->ports[i].bridge_dev == bridge)
+ 			if (_mv88e6xxx_port_based_vlan_map(ds, i))
+ 				netdev_warn(ds->ports[i], "failed to remap\n");
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 0b6c37a..c49a514 100644
+index 2eb9a82..55b8eac 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -495,17 +495,17 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
- void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
+@@ -490,9 +490,9 @@ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
+ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
+ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 		      struct phy_device *phydev, struct ethtool_eee *e);
+-int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
++int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
+ 			       struct net_device *bridge);
+-void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
++void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
  				 struct net_device *bridge);
  void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state);
--int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, struct dsa_port *dp,
- 				  bool vlan_filtering);
--int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, struct dsa_port *dp,
- 				const struct switchdev_obj_port_vlan *vlan,
- 				struct switchdev_trans *trans);
--void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
-+void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, struct dsa_port *dp,
- 			     const struct switchdev_obj_port_vlan *vlan,
- 			     struct switchdev_trans *trans);
--int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, struct dsa_port *dp,
- 			    const struct switchdev_obj_port_vlan *vlan);
--int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, struct dsa_port *dp,
- 			     struct switchdev_obj_port_vlan *vlan,
- 			     int (*cb)(struct switchdev_obj *obj));
- int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, struct dsa_port *dp,
+ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 65bbf72..08a9536 100644
+index ed33500..fb626ae 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -313,17 +313,18 @@ struct dsa_switch_driver {
+@@ -303,9 +303,9 @@ struct dsa_switch_driver {
  	/*
- 	 * VLAN support
+ 	 * Bridge integration
  	 */
--	int	(*port_vlan_filtering)(struct dsa_switch *ds, int port,
-+	int	(*port_vlan_filtering)(struct dsa_switch *ds,
-+				       struct dsa_port *dp,
- 				       bool vlan_filtering);
--	int	(*port_vlan_prepare)(struct dsa_switch *ds, int port,
-+	int	(*port_vlan_prepare)(struct dsa_switch *ds, struct dsa_port *dp,
- 				     const struct switchdev_obj_port_vlan *vlan,
- 				     struct switchdev_trans *trans);
--	void	(*port_vlan_add)(struct dsa_switch *ds, int port,
-+	void	(*port_vlan_add)(struct dsa_switch *ds, struct dsa_port *dp,
- 				 const struct switchdev_obj_port_vlan *vlan,
- 				 struct switchdev_trans *trans);
--	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
-+	int	(*port_vlan_del)(struct dsa_switch *ds, struct dsa_port *dp,
- 				 const struct switchdev_obj_port_vlan *vlan);
--	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
-+	int	(*port_vlan_dump)(struct dsa_switch *ds, struct dsa_port *dp,
- 				  struct switchdev_obj_port_vlan *vlan,
- 				  int (*cb)(struct switchdev_obj *obj));
- 
+-	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
++	int	(*port_bridge_join)(struct dsa_switch *ds, struct dsa_port *dp,
+ 				    struct net_device *bridge);
+-	void	(*port_bridge_leave)(struct dsa_switch *ds, int port,
++	void	(*port_bridge_leave)(struct dsa_switch *ds, struct dsa_port *dp,
+ 				     struct net_device *bridge);
+ 	void	(*port_stp_state_set)(struct dsa_switch *ds, int port,
+ 				      u8 state);
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 1afcbc4..d6b6019 100644
+index f2ec13d..9a8ea9a 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -212,10 +212,10 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
- 		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
- 			return -EOPNOTSUPP;
+@@ -441,7 +441,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
+ 	p->bridge_dev = br;
  
--		return ds->drv->port_vlan_prepare(ds, p->dp->port, vlan, trans);
-+		return ds->drv->port_vlan_prepare(ds, p->dp, vlan, trans);
- 	}
+ 	if (ds->drv->port_bridge_join)
+-		ret = ds->drv->port_bridge_join(ds, p->dp->port, br);
++		ret = ds->drv->port_bridge_join(ds, p->dp, br);
  
--	ds->drv->port_vlan_add(ds, p->dp->port, vlan, trans);
-+	ds->drv->port_vlan_add(ds, p->dp, vlan, trans);
+ 	if (ret && ret != -EOPNOTSUPP) {
+ 		p->bridge_dev = NULL;
+@@ -460,7 +460,7 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
+ 	p->bridge_dev = NULL;
  
- 	return 0;
- }
-@@ -229,7 +229,7 @@ static int dsa_slave_port_vlan_del(struct net_device *dev,
- 	if (!ds->drv->port_vlan_del)
- 		return -EOPNOTSUPP;
+ 	if (ds->drv->port_bridge_leave)
+-		ds->drv->port_bridge_leave(ds, p->dp->port, br);
++		ds->drv->port_bridge_leave(ds, p->dp, br);
  
--	return ds->drv->port_vlan_del(ds, p->dp->port, vlan);
-+	return ds->drv->port_vlan_del(ds, p->dp, vlan);
- }
- 
- static int dsa_slave_port_vlan_dump(struct net_device *dev,
-@@ -240,7 +240,7 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
- 	struct dsa_switch *ds = p->dp->ds;
- 
- 	if (ds->drv->port_vlan_dump)
--		return ds->drv->port_vlan_dump(ds, p->dp->port, vlan, cb);
-+		return ds->drv->port_vlan_dump(ds, p->dp, vlan, cb);
- 
- 	return -EOPNOTSUPP;
- }
-@@ -327,7 +327,7 @@ static int dsa_slave_vlan_filtering(struct net_device *dev,
- 		return 0;
- 
- 	if (ds->drv->port_vlan_filtering)
--		return ds->drv->port_vlan_filtering(ds, p->dp->port,
-+		return ds->drv->port_vlan_filtering(ds, p->dp,
- 						    attr->u.vlan_filtering);
- 
- 	return 0;
+ 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
+ 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
 -- 
 2.8.0
