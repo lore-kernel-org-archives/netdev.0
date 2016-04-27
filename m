@@ -1,41 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 9/9] taskstats: use the libnl API to
- align nlattr on 64-bit
-Date: Wed, 27 Apr 2016 17:46:32 +0200
-Message-ID: <5720DED8.4090706@6wind.com>
-References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461339084-3849-10-git-send-email-nicolas.dichtel@6wind.com>
- <57201287.80002@gmail.com> <57206A47.2010906@6wind.com>
- <5720B0A2.1030405@gmail.com>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
- herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <5720B0A2.1030405-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] taskstats: fix nl parsing in accounting/getdelays.c
+Date: Wed, 27 Apr 2016 17:47:57 +0200
+Message-ID: <1461772077-3216-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <5720DED8.4090706@6wind.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
+	aar@pengutronix.de, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, pshelar@nicira.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netfilter-devel@vger.kernel.org, dev@openvswitch.org,
+	steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: bsingharora@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5720DED8.4090706@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgMjcvMDQvMjAxNiAxNDoyOSwgQmFsYmlyIFNpbmdoIGEgw6ljcml0IDoKW3NuaXBdCj4gUGxl
-YXNlIHRyeQo+IAo+IGh0dHBzOi8vd3d3Lmtlcm5lbC5vcmcvZG9jL0RvY3VtZW50YXRpb24vYWNj
-b3VudGluZy9nZXRkZWxheXMuYwpBIHBhdGNoIGZvbGxvd3MgdGhpcyBtYWlsIHRvIGZpeCB0aGF0
-LgoKPiAKPiBpb3RvcCB1c2VzIGl0IGFzIHdlbGwuIE15IGNvbmNlcm4gaXMgQUJJIGJyZWFrYWdl
-IG9mIHVzZXIgc3BhY2UuCk15IHRlc3QgaXMgb2sgaGVyZSwgSSBkaWRuJ3Qgc2VlIGEgcHJvYmxl
-bS4KQ29kZSByZXZpZXcgKGZyb20gaGVyZSBodHRwOi8vcmVwby5vci5jei93L2lvdG9wLmdpdCkg
-aXMgYWxzbyBvay4KCgpSZWdhcmRzLApOaWNvbGFzCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9y
-ZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+The type TASKSTATS_TYPE_NULL should always be ignored.
+
+When jumping to the next attribute, only the length of the current
+attribute should be added, not the length of all nested attributes.
+This last bug was not visible before commit 80df554275c2, because the
+kernel didn't put more than two nested attributes.
+
+Fixes: a3baf649ca9c ("[PATCH] per-task-delay-accounting: documentation")
+Fixes: 80df554275c2 ("taskstats: use the libnl API to align nlattr on 64-bit")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ Documentation/accounting/getdelays.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/accounting/getdelays.c b/Documentation/accounting/getdelays.c
+index 7785fb5eb93f..d3caa6748a46 100644
+--- a/Documentation/accounting/getdelays.c
++++ b/Documentation/accounting/getdelays.c
+@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
+ 						break;
+ 					}
+ 					len2 += NLA_ALIGN(na->nla_len);
+-					na = (struct nlattr *) ((char *) na + len2);
++					na = (struct nlattr *) ((char *) na + NLA_ALIGN(na->nla_len));
+ 				}
+ 				break;
+ 
+-- 
+2.8.1
