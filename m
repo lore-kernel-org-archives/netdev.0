@@ -1,41 +1,47 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH net] net/mlx4: Avoid wrong virtual mappings
-Date: Wed, 27 Apr 2016 00:19:20 -0700
-Message-ID: <20160427071920.GA26712@infradead.org>
-References: <1461591287-11595-1-git-send-email-hagaya@mellanox.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 9/9] taskstats: use the libnl API to
+ align nlattr on 64-bit
+Date: Wed, 27 Apr 2016 09:29:11 +0200
+Message-ID: <57206A47.2010906@6wind.com>
+References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1461339084-3849-10-git-send-email-nicolas.dichtel@6wind.com>
+ <57201287.80002@gmail.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Abramovsky <hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1461591287-11595-1-git-send-email-hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+ herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+ linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
+To: Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <57201287.80002-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Haggai,
-
-I've taken a very quick look because I'm a little too busy this week,
-but I failed to grasp the patch, as it seems to do a few too many
-things.  E.g. the whole wqe_shrink thing doesn't correspond to anything
-in the description.
-
-How about you split it into easily understanable chunks?
-
-Also now that you split the few places that actually split
-the allocation into chunks to be handled special I think the whole
-mlx4_buf abstraction should go away, as it just obsfucates
-how different the different use cases are.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+TGUgMjcvMDQvMjAxNiAwMzoxNCwgQmFsYmlyIFNpbmdoIGEgw6ljcml0IDoKPiAKPiAKPiBPbiAy
+My8wNC8xNiAwMTozMSwgTmljb2xhcyBEaWNodGVsIHdyb3RlOgo+PiBHb2FsIG9mIHRoaXMgcGF0
+Y2ggaXMgdG8gdXNlIHRoZSBuZXcgbGlibmwgQVBJIHRvIGFsaWduIG5ldGxpbmsgYXR0cmlidXRl
+Cj4+IHdoZW4gbmVlZGVkLgo+PiBUaGUgbGF5b3V0IG9mIHRoZSBuZXRsaW5rIG1lc3NhZ2Ugd2ls
+bCBiZSBhIGJpdCBkaWZmZXJlbnQgYWZ0ZXIgdGhlIHBhdGNoLAo+PiBiZWNhdXNlIHRoZSBwYWRh
+dHRyIChUQVNLU1RBVFNfVFlQRV9TVEFUUykgd2lsbCBiZSBpbnNpZGUgdGhlIG5lc3RlZAo+PiBh
+dHRyaWJ1dGUgaW5zdGVhZCBvZiBiZWZvcmUgaXQuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IE5pY29s
+YXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4KPiAKPiBUaGUgbGF5b3V0IHdp
+bGwgY2hhbmdlL2JyZWFrIHVzZXIgc3BhY2UgLS0gSSd2ZSBub3QgdGVzdGVkIHRoZSBwYXRjaCB0
+aG91Z2guLgpTaWdoLgoKSSBxdW90ZSBEYXZpZDoKIkFsbCB1c2Vyc3BhY2UgY29tcG9uZW50cyB1
+c2luZyBuZXRsaW5rIHNob3VsZCBhbHdheXMgaWdub3JlIGF0dHJpYnV0ZXMKdGhleSBkbyBub3Qg
+cmVjb2duaXplIGluIGR1bXBzLgoKVGhpcyBpcyBvbmUgb2YgdGhlIG1vc3QgYmFzaWMgcHJpbmNp
+cGxlcyBvZiBuZXRsaW5rIgoKRG8geW91IGhhdmUgc29tZSBwb2ludGVycyBzbyBJIGNhbiBtYWRl
+IHNvbWUgdGVzdHM/CgoKUmVnYXJkcywKTmljb2xhcwpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
+cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
