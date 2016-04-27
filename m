@@ -1,62 +1,93 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 2/2] tcp: remove a redundant check for
- SKBTX_ACK_TSTAMP
-Date: Wed, 27 Apr 2016 11:19:38 -0700
-Message-ID: <20160427181938.GA54673@kafai-mba.local>
-References: <1461617473-11349-1-git-send-email-soheil.kdev@gmail.com>
- <1461617473-11349-2-git-send-email-soheil.kdev@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<willemb@google.com>, <edumazet@google.com>, <ycheng@google.com>,
-	<ncardwell@google.com>, Soheil Hassas Yeganeh <soheil@google.com>
-To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next] ipvlan: Fix failure path in dev registration during link creation
+Date: Wed, 27 Apr 2016 11:37:39 -0700
+Message-ID: <1461782259-10806-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Eric W . Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:65319 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751534AbcD0STq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 14:19:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1461617473-11349-2-git-send-email-soheil.kdev@gmail.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34111 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085AbcD0Shq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 14:37:46 -0400
+Received: by mail-pa0-f66.google.com with SMTP id yl2so5738261pac.1
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 11:37:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 25, 2016 at 04:51:13PM -0400, Soheil Hassas Yeganeh wrote:
-> From: Soheil Hassas Yeganeh <soheil@google.com>
->
-> txstamp_ack in tcp_skb_cb is set iff the SKBTX_ACK_TSTAMP
-> flag is set for an skb. Thus, it is not required to check
-> shinfo->tx_flags if the txstamp_ack bit is checked.
->
-> Remove the check on shinfo->tx_flags & SKBTX_ACK_TSTAMP, since
-> it has already been checked using the txstamp_ack bit.
->
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> ---
->  net/ipv4/tcp_input.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 967520d..2f3fd92 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3087,8 +3087,7 @@ static void tcp_ack_tstamp(struct sock *sk, struct sk_buff *skb,
->  		return;
->
->  	shinfo = skb_shinfo(skb);
-> -	if ((shinfo->tx_flags & SKBTX_ACK_TSTAMP) &&
-> -	    !before(shinfo->tskey, prior_snd_una) &&
-> +	if (!before(shinfo->tskey, prior_snd_una) &&
->  	    before(shinfo->tskey, tcp_sk(sk)->snd_una))
->  		__skb_tstamp_tx(skb, NULL, sk, SCM_TSTAMP_ACK);
->  }
-> --
-> 2.8.0.rc3.226.g39d4020
->
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+From: Mahesh Bandewar <maheshb@google.com>
 
-Can it be one step further and completely remove SKBTX_ACK_TSTAMP?
-like what Willem has also suggested here:
-http://www.spinics.net/lists/netdev/msg374231.html
+When newlink creation fails at device-registration, the port->count
+is decremented twice. Francesco Ruggeri (fruggeri@arista.com) found
+this issue in Macvlan and the same exists in IPvlan driver too.
 
-It seems no one else is using the SKBTX_ACK_TSTAMP except TCP.
+While fixing this issue I noticed another issue of missing unregister
+in case of failure, so adding it to the fix which is similar to the
+macvlan fix by Francesco in SHA1:308379607548524b8d86dbf20134681024935e0b
+
+Reported-by: Francesco Ruggeri <fruggeri@arista.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 57941d3f4227..1c4d395fbd49 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -113,6 +113,7 @@ static int ipvlan_init(struct net_device *dev)
+ {
+ 	struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 	const struct net_device *phy_dev = ipvlan->phy_dev;
++	struct ipvl_port *port = ipvlan->port;
+ 
+ 	dev->state = (dev->state & ~IPVLAN_STATE_MASK) |
+ 		     (phy_dev->state & IPVLAN_STATE_MASK);
+@@ -128,6 +129,8 @@ static int ipvlan_init(struct net_device *dev)
+ 	if (!ipvlan->pcpu_stats)
+ 		return -ENOMEM;
+ 
++	port->count += 1;
++
+ 	return 0;
+ }
+ 
+@@ -481,27 +484,21 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 
+ 	dev->priv_flags |= IFF_IPVLAN_SLAVE;
+ 
+-	port->count += 1;
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto ipvlan_destroy_port;
++		return err;
+ 
+ 	err = netdev_upper_dev_link(phy_dev, dev);
+-	if (err)
+-		goto ipvlan_destroy_port;
++	if (err) {
++		unregister_netdevice(dev);
++		return err;
++	}
+ 
+ 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
+ 	ipvlan_set_port_mode(port, mode);
+ 
+ 	netif_stacked_transfer_operstate(phy_dev, dev);
+ 	return 0;
+-
+-ipvlan_destroy_port:
+-	port->count -= 1;
+-	if (!port->count)
+-		ipvlan_port_destroy(phy_dev);
+-
+-	return err;
+ }
+ 
+ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+-- 
+2.8.0.rc3.226.g39d4020
