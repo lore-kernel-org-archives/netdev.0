@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 19/20] net: dsa: mv88e6xxx: conditionally init PVT
-Date: Wed, 27 Apr 2016 18:30:16 -0400
-Message-ID: <1461796217-18893-20-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 16/20] net: dsa: add tree-wide VLAN ops
+Date: Wed, 27 Apr 2016 18:30:13 -0400
+Message-ID: <1461796217-18893-17-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,140 +9,249 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:39244 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753940AbcD0WbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 18:31:04 -0400
 In-Reply-To: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current code initialize the Cross-chip Port VLAN Table to all ones,
-even tough the switch model doesn't have one.
+In order to support cross-chip operations, we need to inform each switch
+driver when a port operation occurs in a DSA tree.
 
-It also assumes that the switch is configured to support up to
-32-switch/16-port cross-chip devices.
-
-Implement the access to the PVT and initialize it only if the switch has
-such feature. Support only 88E6352 for the moment.
-
-This commit brings no functional change for devices with a PVT.
+Implement tree-wide VLAN operations.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6352.c |  1 +
- drivers/net/dsa/mv88e6xxx.c | 54 +++++++++++++++++++++++++++++++++++++++------
- drivers/net/dsa/mv88e6xxx.h |  6 +++++
- 3 files changed, 54 insertions(+), 7 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 12 +++++++++
+ net/dsa/dsa_priv.h          |  8 ++++++
+ net/dsa/slave.c             | 59 ++++++--------------------------------------
+ net/dsa/tree.c              | 60 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 87 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 4afc24d..29d9fd76 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -59,6 +59,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6352",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = BIT(MV88E6XXX_FLAG_PVT),
- 	}
- };
- 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 25852ee..4341ffd 100644
+index 7d29de3..8004d00 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2247,6 +2247,47 @@ unlock:
- 	return err;
+@@ -1378,6 +1378,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, struct dsa_port *dp,
+ 	u16 pvid;
+ 	int err;
+ 
++	if (dsa_port_is_external(dp, ds))
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
+@@ -1835,6 +1838,9 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, struct dsa_port *dp,
+ {
+ 	int err;
+ 
++	if (dsa_port_is_external(dp, ds))
++		return -EOPNOTSUPP;
++
+ 	/* If the requested port doesn't belong to the same bridge as the VLAN
+ 	 * members, do not support it (yet) and fallback to software VLAN.
+ 	 */
+@@ -1874,6 +1880,9 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, struct dsa_port *dp,
+ 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
+ 	u16 vid;
+ 
++	if (dsa_port_is_external(dp, ds))
++		return;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
+@@ -1930,6 +1939,9 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, struct dsa_port *dp,
+ 	u16 pvid, vid;
+ 	int err = 0;
+ 
++	if (dsa_port_is_external(dp, ds))
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	err = _mv88e6xxx_port_pvid_get(ds, dp->port, &pvid);
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index e8765c3..d743d6a 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -60,6 +60,14 @@ int dsa_tree_port_fdb_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
+ int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
+ 			   struct switchdev_obj_port_fdb *fdb,
+ 			   switchdev_obj_dump_cb_t *cb);
++int dsa_tree_port_vlan_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
++			   const struct switchdev_obj_port_vlan *vlan,
++			   struct switchdev_trans *trans);
++int dsa_tree_port_vlan_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
++			   const struct switchdev_obj_port_vlan *vlan);
++int dsa_tree_port_vlan_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
++			    struct switchdev_obj_port_vlan *vlan,
++			    switchdev_obj_dump_cb_t *cb);
+ 
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 90bcf8a..19469dc 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -195,50 +195,6 @@ out:
+ 	return 0;
  }
  
-+static int _mv88e6xxx_pvt_wait(struct dsa_switch *ds)
-+{
-+	return _mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_PVT_ADDR,
-+			       GLOBAL2_PVT_ADDR_BUSY);
-+}
-+
-+static int _mv88e6xxx_pvt_cmd(struct dsa_switch *ds, int src_dev, int src_port,
-+			      u16 op)
-+{
-+	u16 reg = op;
-+	int err;
-+
-+	/* 9-bit Cross-chip PVT pointer: with GLOBAL2_MISC_5_BIT_PORT cleared,
-+	 * source device is 5-bit, source port is 4-bit.
-+	 */
-+	reg |= (src_dev & 0x1f) << 4;
-+	reg |= (src_port & 0xf);
-+
-+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PVT_ADDR, reg);
-+	if (err)
-+		return err;
-+
-+	return _mv88e6xxx_pvt_wait(ds);
-+}
-+
-+static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
-+{
-+	int err;
-+
-+	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
-+	 * use 4 bits for the Src_Port/Src_Trunk and 5 bits for the Src_Dev.
-+	 */
-+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_MISC,
-+				   0 & ~GLOBAL2_MISC_5_BIT_PORT);
-+	if (err)
-+		return err;
-+
-+	/* Allow any cross-chip frames to egress any internal ports */
-+	return _mv88e6xxx_pvt_cmd(ds, 0, 0, GLOBAL2_PVT_ADDR_OP_INIT_ONES);
-+}
-+
- int mv88e6xxx_port_bridge_change(struct dsa_switch *ds, struct dsa_port *dp,
- 				 struct net_device *bridge)
+-static int dsa_slave_port_vlan_add(struct net_device *dev,
+-				   const struct switchdev_obj_port_vlan *vlan,
+-				   struct switchdev_trans *trans)
+-{
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->dp->ds;
+-
+-	if (switchdev_trans_ph_prepare(trans)) {
+-		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
+-			return -EOPNOTSUPP;
+-
+-		return ds->drv->port_vlan_prepare(ds, p->dp, vlan, trans);
+-	}
+-
+-	ds->drv->port_vlan_add(ds, p->dp, vlan, trans);
+-
+-	return 0;
+-}
+-
+-static int dsa_slave_port_vlan_del(struct net_device *dev,
+-				   const struct switchdev_obj_port_vlan *vlan)
+-{
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->dp->ds;
+-
+-	if (!ds->drv->port_vlan_del)
+-		return -EOPNOTSUPP;
+-
+-	return ds->drv->port_vlan_del(ds, p->dp, vlan);
+-}
+-
+-static int dsa_slave_port_vlan_dump(struct net_device *dev,
+-				    struct switchdev_obj_port_vlan *vlan,
+-				    switchdev_obj_dump_cb_t *cb)
+-{
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->dp->ds;
+-
+-	if (ds->drv->port_vlan_dump)
+-		return ds->drv->port_vlan_dump(ds, p->dp, vlan, cb);
+-
+-	return -EOPNOTSUPP;
+-}
+-
+ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  {
-@@ -2770,13 +2811,12 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 		if (err)
- 			goto unlock;
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -323,9 +279,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+ 					    SWITCHDEV_OBJ_PORT_FDB(obj), trans);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_slave_port_vlan_add(dev,
+-					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+-					      trans);
++		err = dsa_tree_port_vlan_add(dst, dp,
++					     SWITCHDEV_OBJ_PORT_VLAN(obj),
++					     trans);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -349,8 +305,8 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
+ 					    SWITCHDEV_OBJ_PORT_FDB(obj));
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_slave_port_vlan_del(dev,
+-					      SWITCHDEV_OBJ_PORT_VLAN(obj));
++		err = dsa_tree_port_vlan_del(dst, dp,
++					     SWITCHDEV_OBJ_PORT_VLAN(obj));
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+@@ -375,9 +331,8 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 					     SWITCHDEV_OBJ_PORT_FDB(obj), cb);
+ 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_slave_port_vlan_dump(dev,
+-					       SWITCHDEV_OBJ_PORT_VLAN(obj),
+-					       cb);
++		err = dsa_tree_port_vlan_dump(dst, dp,
++					      SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
+ 		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+diff --git a/net/dsa/tree.c b/net/dsa/tree.c
+index 8394019..0ef103e 100644
+--- a/net/dsa/tree.c
++++ b/net/dsa/tree.c
+@@ -125,3 +125,63 @@ int dsa_tree_port_fdb_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
  
--		/* Initialise cross-chip port VLAN table to reset
--		 * defaults.
--		 */
--		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2,
--					   GLOBAL2_PVT_ADDR, 0x9000);
--		if (err)
--			goto unlock;
-+		/* Initialize Cross-chip Port VLAN Table (PVT) */
-+		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PVT)) {
-+			err = _mv88e6xxx_pvt_init(ds);
+ 	return 0;
+ }
++
++int dsa_tree_port_vlan_add(struct dsa_switch_tree *dst, struct dsa_port *dp,
++			    const struct switchdev_obj_port_vlan *vlan,
++			    struct switchdev_trans *trans)
++{
++	struct dsa_switch *ds;
++	int err;
++
++	dsa_tree_for_each_switch(dst, ds) {
++		if (switchdev_trans_ph_prepare(trans)) {
++			if (!ds->drv->port_vlan_prepare ||
++			    !ds->drv->port_vlan_add)
++				return -EOPNOTSUPP;
++
++			err = ds->drv->port_vlan_prepare(ds, dp, vlan, trans);
 +			if (err)
-+				goto unlock;
++				return err;
++		} else {
++			ds->drv->port_vlan_add(ds, dp, vlan, trans);
 +		}
- 
- 		/* Clear the priority override table. */
- 		for (i = 0; i < 16; i++) {
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 325caf8..fbde8b4 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -298,6 +298,10 @@
- #define GLOBAL2_INGRESS_OP	0x09
- #define GLOBAL2_INGRESS_DATA	0x0a
- #define GLOBAL2_PVT_ADDR	0x0b
-+#define GLOBAL2_PVT_ADDR_BUSY	BIT(15)
-+#define GLOBAL2_PVT_ADDR_OP_INIT_ONES	((0x01 << 12) | GLOBAL2_PVT_ADDR_BUSY)
-+#define GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN	((0x03 << 12) | GLOBAL2_PVT_ADDR_BUSY)
-+#define GLOBAL2_PVT_ADDR_OP_READ	((0x04 << 12) | GLOBAL2_PVT_ADDR_BUSY)
- #define GLOBAL2_PVT_DATA	0x0c
- #define GLOBAL2_SWITCH_MAC	0x0d
- #define GLOBAL2_SWITCH_MAC_BUSY BIT(15)
-@@ -335,10 +339,12 @@
- #define GLOBAL2_WDOG_CONTROL	0x1b
- #define GLOBAL2_QOS_WEIGHT	0x1c
- #define GLOBAL2_MISC		0x1d
-+#define GLOBAL2_MISC_5_BIT_PORT	BIT(14)
- 
- #define MV88E6XXX_N_FID		4096
- 
- enum mv88e6xxx_flag {
-+	MV88E6XXX_FLAG_PVT,
- 	MV88E6XXX_NUM_FLAGS,
- };
- 
++	}
++
++	return 0;
++}
++
++int dsa_tree_port_vlan_del(struct dsa_switch_tree *dst, struct dsa_port *dp,
++			    const struct switchdev_obj_port_vlan *vlan)
++{
++	struct dsa_switch *ds;
++	int err;
++
++	dsa_tree_for_each_switch(dst, ds) {
++		if (!ds->drv->port_vlan_del)
++			return -EOPNOTSUPP;
++
++		err = ds->drv->port_vlan_del(ds, dp, vlan);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
++int dsa_tree_port_vlan_dump(struct dsa_switch_tree *dst, struct dsa_port *dp,
++			     struct switchdev_obj_port_vlan *vlan,
++			     switchdev_obj_dump_cb_t *cb)
++{
++	struct dsa_switch *ds;
++	int err;
++
++	dsa_tree_for_each_switch(dst, ds) {
++		if (ds->drv->port_vlan_dump) {
++			err = ds->drv->port_vlan_dump(ds, dp, vlan, cb);
++			if (err && err != -EOPNOTSUPP)
++				return err;
++		}
++	}
++
++	return 0;
++}
 -- 
 2.8.0
