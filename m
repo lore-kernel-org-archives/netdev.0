@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 03/20] net: dsa: pass dsa_port down to drivers bridge ops
-Date: Wed, 27 Apr 2016 18:30:00 -0400
-Message-ID: <1461796217-18893-4-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 00/20] net: dsa: dsa_port structure and tree-wide ops
+Date: Wed, 27 Apr 2016 18:29:57 -0400
+Message-ID: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,201 +9,106 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that DSA as proper structure for DSA ports, pass it down to the
-port_bridge_join and port_bridge_leave driver functions.
+In a previous RFC [1], I introduced the need to implement cross-chip operations
+in the DSA layer.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/bcm_sf2.c   | 28 ++++++++++++++--------------
- drivers/net/dsa/mv88e6xxx.c | 10 +++++-----
- drivers/net/dsa/mv88e6xxx.h |  4 ++--
- include/net/dsa.h           |  4 ++--
- net/dsa/slave.c             |  4 ++--
- 5 files changed, 25 insertions(+), 25 deletions(-)
+Here's a summary. In a multiple switches setup such as the following, every
+switch of the tree must be aware of its configuration in order to configure a
+correct data path between chips.
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index f394ea9..2d7b297 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -491,15 +491,15 @@ static int bcm_sf2_sw_fast_age_port(struct dsa_switch  *ds, int port)
- 	return 0;
- }
- 
--static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
-+static int bcm_sf2_sw_br_join(struct dsa_switch *ds, struct dsa_port *dp,
- 			      struct net_device *bridge)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 	unsigned int i;
- 	u32 reg, p_ctl;
- 
--	priv->port_sts[port].bridge_dev = bridge;
--	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
-+	priv->port_sts[dp->port].bridge_dev = bridge;
-+	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
- 
- 	for (i = 0; i < priv->hw_params.num_ports; i++) {
- 		if (priv->port_sts[i].bridge_dev != bridge)
-@@ -509,7 +509,7 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
- 		 * membership and update the remote port bitmask
- 		 */
- 		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
--		reg |= 1 << port;
-+		reg |= 1 << dp->port;
- 		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
- 		priv->port_sts[i].vlan_ctl_mask = reg;
- 
-@@ -519,20 +519,20 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
- 	/* Configure the local port VLAN control membership to include
- 	 * remote ports and update the local port bitmask
- 	 */
--	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
--	priv->port_sts[port].vlan_ctl_mask = p_ctl;
-+	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(dp->port));
-+	priv->port_sts[dp->port].vlan_ctl_mask = p_ctl;
- 
- 	return 0;
- }
- 
--static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
-+static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, struct dsa_port *dp,
- 				struct net_device *bridge)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 	unsigned int i;
- 	u32 reg, p_ctl;
- 
--	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
-+	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(dp->port));
- 
- 	for (i = 0; i < priv->hw_params.num_ports; i++) {
- 		/* Don't touch the remaining ports */
-@@ -540,18 +540,18 @@ static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
- 			continue;
- 
- 		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
--		reg &= ~(1 << port);
-+		reg &= ~(1 << dp->port);
- 		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
--		priv->port_sts[port].vlan_ctl_mask = reg;
-+		priv->port_sts[dp->port].vlan_ctl_mask = reg;
- 
- 		/* Prevent self removal to preserve isolation */
--		if (port != i)
-+		if (dp->port != i)
- 			p_ctl &= ~(1 << i);
- 	}
- 
--	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
--	priv->port_sts[port].vlan_ctl_mask = p_ctl;
--	priv->port_sts[port].bridge_dev = NULL;
-+	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(dp->port));
-+	priv->port_sts[dp->port].vlan_ctl_mask = p_ctl;
-+	priv->port_sts[dp->port].bridge_dev = NULL;
- }
- 
- static void bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 86f8f2f..3f78c73 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2203,7 +2203,7 @@ unlock:
- 	return err;
- }
- 
--int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
- 			       struct net_device *bridge)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -2212,7 +2212,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 	mutex_lock(&ps->smi_mutex);
- 
- 	/* Assign the bridge and remap each port's VLANTable */
--	ps->ports[port].bridge_dev = bridge;
-+	ps->ports[dp->port].bridge_dev = bridge;
- 
- 	for (i = 0; i < ps->info->num_ports; ++i) {
- 		if (ps->ports[i].bridge_dev == bridge) {
-@@ -2227,7 +2227,7 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 	return err;
- }
- 
--void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
-+void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
- 				 struct net_device *bridge)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -2236,10 +2236,10 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
- 	mutex_lock(&ps->smi_mutex);
- 
- 	/* Unassign the bridge and remap each port's VLANTable */
--	ps->ports[port].bridge_dev = NULL;
-+	ps->ports[dp->port].bridge_dev = NULL;
- 
- 	for (i = 0; i < ps->info->num_ports; ++i)
--		if (i == port || ps->ports[i].bridge_dev == bridge)
-+		if (i == dp->port || ps->ports[i].bridge_dev == bridge)
- 			if (_mv88e6xxx_port_based_vlan_map(ds, i))
- 				netdev_warn(ds->ports[i], "failed to remap\n");
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 2eb9a82..55b8eac 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -490,9 +490,9 @@ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
- int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
- int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 		      struct phy_device *phydev, struct ethtool_eee *e);
--int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
-+int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, struct dsa_port *dp,
- 			       struct net_device *bridge);
--void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port,
-+void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, struct dsa_port *dp,
- 				 struct net_device *bridge);
- void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state);
- int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index ed33500..fb626ae 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -303,9 +303,9 @@ struct dsa_switch_driver {
- 	/*
- 	 * Bridge integration
- 	 */
--	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
-+	int	(*port_bridge_join)(struct dsa_switch *ds, struct dsa_port *dp,
- 				    struct net_device *bridge);
--	void	(*port_bridge_leave)(struct dsa_switch *ds, int port,
-+	void	(*port_bridge_leave)(struct dsa_switch *ds, struct dsa_port *dp,
- 				     struct net_device *bridge);
- 	void	(*port_stp_state_set)(struct dsa_switch *ds, int port,
- 				      u8 state);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index f2ec13d..9a8ea9a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -441,7 +441,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
- 	p->bridge_dev = br;
- 
- 	if (ds->drv->port_bridge_join)
--		ret = ds->drv->port_bridge_join(ds, p->dp->port, br);
-+		ret = ds->drv->port_bridge_join(ds, p->dp, br);
- 
- 	if (ret && ret != -EOPNOTSUPP) {
- 		p->bridge_dev = NULL;
-@@ -460,7 +460,7 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
- 	p->bridge_dev = NULL;
- 
- 	if (ds->drv->port_bridge_leave)
--		ds->drv->port_bridge_leave(ds, p->dp->port, br);
-+		ds->drv->port_bridge_leave(ds, p->dp, br);
- 
- 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
- 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
+          sw0             sw1             sw2                                                             
+    [ 0 1 2 3 4 5 ] [ 0 1 2 3 4 5 ] [ 0 1 2 3 4 5 ]                                                       
+      |   '     ^     ^         ^     ^     '                                                             
+      v   '     |     |         |     |     '                                                             
+     CPU  '     `-DSA-'         `-DSA-'     '                                                             
+          '                                 '                                                             
+          + - - - - - - - br0 - - - - - - - +  
+
+For instance, bridging sw0p2 and sw2p3 together in a VLAN 42 requires both
+chips to allow frames from the external port to egress its internal port, all
+DSA ports between them must learn their address, and sw1 must also be aware of
+the VLAN 42 in order to allow tagged packets to cross the chip.
+
+To implement all that nicely, we need a way to progagate such notification to
+every switch of a DSA tree.
+
+The patchset introduces a dsa_port structure to bundle port-centric info such
+as its switch index, port number, bridge device, and change the DSA driver
+functions to take such structure as parameter instead of a internal port
+number.
+
+The DSA layer then introduces tree-wide operations, which calls every switch
+driver when a port operation occurs. This is the responsibility of a switch
+driver to check if the related port is internal or external to its chip, and
+behave in consequence.
+
+See the patchset as different logical groups (that may be split later):
+
+  * patches 1 to 5: introduce the dsa_port structure to DSA drivers
+
+  * patches 6 to 11: put the bridge device in the dsa_port structure and allow
+    the DSA drivers to get rid of their private bridge_dev pointer
+
+  * patches 12 to 16: introduce tree-wide operations. Driver are now aware of
+    cross-chip port operations
+
+  * patches 17 to 20: implement cross-chip hardware bridging in mv88e6xxx
+
+A branch is available here [2] and a debugfs patch is maintained here [3] in
+order to inspect the Marvell switch's internal structures, such as the PVT.
+
+Many things remains to do after this, such as using dsa_port_is_{cpu,dsa}
+helpers, getting rid of dst->switches and ds->ports in favor of their related
+switch and port lists, and introduce dynamic number of switches and ports.
+
+[1] https://lkml.org/lkml/2016/4/20/733
+[2] https://github.com/vivien/linux/tree/dsa/dev
+[3] https://github.com/vivien/linux/commit/da33b1a698fef3a66515a05e2b9f31d0279a89d4.patch
+
+Cheers,
+
+Vivien Didelot (20):
+  net: dsa: introduce a dsa_port structure
+  net: dsa: be consistent with NETDEV_CHANGEUPPER
+  net: dsa: pass dsa_port down to drivers bridge ops
+  net: dsa: pass dsa_port down to drivers FDB ops
+  net: dsa: pass dsa_port down to drivers VLAN ops
+  net: dsa: move bridge device in dsa_port
+  net: dsa: list ports in switch
+  net: dsa: bcm_sf2: use bridge device from dsa_port
+  net: dsa: mv88e6xxx: check HW vlan with dsa_port
+  net: dsa: mv88e6xxx: setup a dsa_port
+  net: dsa: mv88e6xxx: use bridge from dsa_port
+  net: dsa: rename dst->ds to dst->switches
+  net: dsa: list switches in tree
+  net: dsa: add tree-wide bridge ops
+  net: dsa: add tree-wide FDB ops
+  net: dsa: add tree-wide VLAN ops
+  net: dsa: mv88e6xxx: factorize port bridge change
+  net: dsa: mv88e6xxx: add flags to info
+  net: dsa: mv88e6xxx: conditionally init PVT
+  net: dsa: mv88e6xxx: setup PVT on cross-chip ops
+
+ drivers/net/dsa/bcm_sf2.c   |  92 +++++-----
+ drivers/net/dsa/bcm_sf2.h   |   2 -
+ drivers/net/dsa/mv88e6352.c |   1 +
+ drivers/net/dsa/mv88e6xxx.c | 397 ++++++++++++++++++++++++++++++++------------
+ drivers/net/dsa/mv88e6xxx.h |  41 +++--
+ include/net/dsa.h           |  57 +++++--
+ net/dsa/Makefile            |   2 +-
+ net/dsa/dsa.c               |  25 ++-
+ net/dsa/dsa_priv.h          |  37 +++--
+ net/dsa/slave.c             | 283 +++++++++----------------------
+ net/dsa/tag_brcm.c          |   6 +-
+ net/dsa/tag_dsa.c           |  10 +-
+ net/dsa/tag_edsa.c          |  10 +-
+ net/dsa/tag_trailer.c       |   4 +-
+ net/dsa/tree.c              | 187 +++++++++++++++++++++
+ 15 files changed, 751 insertions(+), 403 deletions(-)
+ create mode 100644 net/dsa/tree.c
+
 -- 
 2.8.0
