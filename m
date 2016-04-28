@@ -1,60 +1,60 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH v3 net] soreuseport: Fix TCP listener hash collision
-Date: Thu, 28 Apr 2016 19:24:32 -0400
-Message-ID: <1461885872-27358-1-git-send-email-kraigatgoog@gmail.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:35617 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752639AbcD1XYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 19:24:36 -0400
-Received: by mail-ig0-f173.google.com with SMTP id bi2so7129575igb.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 16:24:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v2] of: of_mdio: Check if MDIO bus controller is available
+Date: Thu, 28 Apr 2016 16:24:12 -0700
+Message-ID: <1461885853-28846-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, nathan.sullivan-acOepvfBmUk@public.gmane.org,
+	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:OPEN FIRMWARE AND FLATTENED
+	DEVICE TREE), linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Craig Gallek <kraig@google.com>
+Add a check whether the 'struct device_node' pointer passed to
+of_mdiobus_register() is an available (aka enabled) node in the Device
+Tree.
 
-I forgot to include a check for listener port equality when deciding
-if two sockets should belong to the same reuseport group.  This was
-not caught previously because it's only necessary when two listening
-sockets for the same user happen to hash to the same listener bucket.
-The same error does not exist in the UDP path.
+Rationale for doing this are cases where an Ethernet MAC provides a MDIO
+bus controller and node, and an additional Ethernet MAC might be
+connecting its PHY/switches to that first MDIO bus controller, while
+still embedding one internally which is therefore marked as "disabled".
 
-Fixes: c125e80b8868("soreuseport: fast reuseport TCP socket selection")
-Signed-off-by: Craig Gallek <kraig@google.com>
+Instead of sprinkling checks like these in callers of
+of_mdiobus_register(), do this in a central location.
+
+Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
-v3 Changes
-  - Eric pointed out that the net namespace check isn't necessary when
-    comparing bucket pointers.  They can not be equal across namespaces.
-v2 Changes
-  - Suggestions from Eric Dumazet to include network namespace equality
-    check and to avoid a dreference by simply checking inet_bind_bucket
-    pointer equality.
----
- net/ipv4/inet_hashtables.c | 2 ++
- 1 file changed, 2 insertions(+)
+Changes in v2:
+- utilize -ENODEV instead of -EINVAL
+- added Andrew's reviewed-by tag
 
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index bc68eced0105..0d9e9d7bb029 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -470,6 +470,7 @@ static int inet_reuseport_add_sock(struct sock *sk,
- 						     const struct sock *sk2,
- 						     bool match_wildcard))
- {
-+	struct inet_bind_bucket *tb = inet_csk(sk)->icsk_bind_hash;
- 	struct sock *sk2;
- 	struct hlist_nulls_node *node;
- 	kuid_t uid = sock_i_uid(sk);
-@@ -479,6 +480,7 @@ static int inet_reuseport_add_sock(struct sock *sk,
- 		    sk2->sk_family == sk->sk_family &&
- 		    ipv6_only_sock(sk2) == ipv6_only_sock(sk) &&
- 		    sk2->sk_bound_dev_if == sk->sk_bound_dev_if &&
-+		    inet_csk(sk2)->icsk_bind_hash == tb &&
- 		    sk2->sk_reuseport && uid_eq(uid, sock_i_uid(sk2)) &&
- 		    saddr_same(sk, sk2, false))
- 			return reuseport_add_sock(sk, sk2);
+ drivers/of/of_mdio.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index b622b33dbf93..e051e1b57609 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -209,6 +209,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 	bool scanphys = false;
+ 	int addr, rc;
+ 
++	/* Do not continue if the node is disabled */
++	if (!of_device_is_available(np))
++		return -ENODEV;
++
+ 	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
+ 	 * the device tree are populated after the bus has been registered */
+ 	mdio->phy_mask = ~0;
 -- 
-2.8.0.rc3.226.g39d4020
+2.1.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
