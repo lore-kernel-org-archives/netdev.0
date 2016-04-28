@@ -1,87 +1,63 @@
-From: Josh Cartwright <joshc@ni.com>
-Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Thu, 28 Apr 2016 16:03:57 -0500
-Message-ID: <20160428210357.GB30217@jcartwri.amer.corp.natinst.com>
-References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
- <57222FCE.8050407@atmel.com>
- <20160428155556.GA8333@nathan3500-linux-VM>
- <20160428163207.GP29024@lunn.ch>
- <20160428175619.GA8791@nathan3500-linux-VM>
- <20160428184303.GR29024@lunn.ch>
- <20160428185527.GA8851@nathan3500-linux-VM>
- <20160428185932.GU29024@lunn.ch>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="LpQ9ahxlCli8rRTG"
-Cc: Nathan Sullivan <nathan.sullivan@ni.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160428185932.GU29024@lunn.ch>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH v2 net] soreuseport: Fix TCP listener hash collision
+Date: Thu, 28 Apr 2016 17:07:41 -0400
+Message-ID: <1461877661-21282-1-git-send-email-kraigatgoog@gmail.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38727 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070AbcD1VHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:07:45 -0400
+Received: by mail-ig0-f179.google.com with SMTP id m9so3744598ige.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 14:07:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Craig Gallek <kraig@google.com>
 
---LpQ9ahxlCli8rRTG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I forgot to include a check for listener port equality when deciding
+if two sockets should belong to the same reuseport group.  This was
+not caught previously because it's only necessary when two listening
+sockets for the same user happen to hash to the same listener bucket.
+This change also includes a check for network namespace equality.
+The same error does not exist in the UDP path.
 
-On Thu, Apr 28, 2016 at 08:59:32PM +0200, Andrew Lunn wrote:
-> On Thu, Apr 28, 2016 at 01:55:27PM -0500, Nathan Sullivan wrote:
-> > On Thu, Apr 28, 2016 at 08:43:03PM +0200, Andrew Lunn wrote:
-> > > > I agree that is a valid fix for AT91, however it won't solve our pr=
-oblem, since
-> > > > we have no children on the second ethernet MAC in our devices' devi=
-ce trees. I'm
-> > > > starting to feel like our second MAC shouldn't even really register=
- the MDIO bus
-> > > > since it isn't being used - maybe adding a DT property to not have =
-a bus is a
-> > > > better option?
-> > >=20
-> > > status =3D "disabled"
-> > >=20
-> > > would be the unusual way.
-> > >=20
-> > >       Andrew
-> >=20
-> > Oh, sorry, I meant we use both MACs on Zynq, however the PHYs are on th=
-e MDIO
-> > bus of the first MAC.  So, the second MAC is used for ethernet but not =
-for MDIO,
-> > and so it does not have any PHYs under its DT node.  It would be nice i=
-f there
-> > were a way to tell macb not to bother with MDIO for the second MAC, sin=
-ce that's
-> > handled by the first MAC.
->=20
-> Yes, exactly, add support for status =3D "disabled" in the mdio node.
+Fixes: c125e80b8868("soreuseport: fast reuseport TCP socket selection")
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+v2 Changes
+  - Suggestions from Eric Dumazet to include network namespace equality
+    check and to avoid a dreference by simply checking inet_bind_bucket
+    pointer equality.
+---
+ net/ipv4/inet_hashtables.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Unfortunately, the 'macb' doesn't have a "mdio node", or alternatively:
-the node representing the mdio bus is the same node which represents the
-macb instance itself.  Setting 'status =3D "disabled"' on this node will
-just prevent the probing of the macb instance.
-
-  Josh
-
---LpQ9ahxlCli8rRTG
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABCAAGBQJXInq6AAoJEKp7ZBKwQFArjRgH/3bdmePZ1ycKMI0QBPRATrPq
-pjF5MugHtpDh7HkryT2zZUW08cnJb4ZEboDXIQcenJzIe2dsTn1bcOS6XTBLKKMt
-aGlltOPfWvG6bcEWDome1MzpSfYxQTObKAkrgq1pzE4Ljgwe0Y2qalTG8NlIJfhG
-es4a4T+RFgPCOOqEUh1U+nR6KIEF8WIniMxBjWt6b+SHR1ZNvDpKHYcjDQh3MWfn
-YlAnUcZ4za6nPHGMhBIjVMNQ6S4yEetIhn3NFPFOpl2drq0tTBs7jq6ySPeuRzGJ
-NqaSwxQhzssCovyL2WCbjYrrizCIClcB5pF6YxnEPLufZjwbI3eYP19dxfDxZYk=
-=X+Oa
------END PGP SIGNATURE-----
-
---LpQ9ahxlCli8rRTG--
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index bc68eced0105..5c5658268d5e 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -470,15 +470,19 @@ static int inet_reuseport_add_sock(struct sock *sk,
+ 						     const struct sock *sk2,
+ 						     bool match_wildcard))
+ {
++	struct inet_bind_bucket *tb = inet_csk(sk)->icsk_bind_hash;
++	struct net *net = sock_net(sk);
+ 	struct sock *sk2;
+ 	struct hlist_nulls_node *node;
+ 	kuid_t uid = sock_i_uid(sk);
+ 
+ 	sk_nulls_for_each_rcu(sk2, node, &ilb->head) {
+-		if (sk2 != sk &&
++		if (net_eq(sock_net(sk2), net) &&
++		    sk2 != sk &&
+ 		    sk2->sk_family == sk->sk_family &&
+ 		    ipv6_only_sock(sk2) == ipv6_only_sock(sk) &&
+ 		    sk2->sk_bound_dev_if == sk->sk_bound_dev_if &&
++		    inet_csk(sk2)->icsk_bind_hash == tb &&
+ 		    sk2->sk_reuseport && uid_eq(uid, sock_i_uid(sk2)) &&
+ 		    saddr_same(sk, sk2, false))
+ 			return reuseport_add_sock(sk, sk2);
+-- 
+2.8.0.rc3.226.g39d4020
