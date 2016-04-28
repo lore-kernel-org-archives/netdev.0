@@ -1,42 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gre: reject GUE and FOU in collect metadata mode
-Date: Thu, 28 Apr 2016 17:10:00 -0400 (EDT)
-Message-ID: <20160428.171000.1223589001547447013.davem@davemloft.net>
-References: <7280f5aa7ec83653cdf7f0484fb9e696bc8c89e8.1461758705.git.jbenc@redhat.com>
+Subject: Re: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
+Date: Thu, 28 Apr 2016 17:11:20 -0400 (EDT)
+Message-ID: <20160428.171120.2028974436439452264.davem@davemloft.net>
+References: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
+	<1461763110-15263-2-git-send-email-eladkan@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@ovn.org, tgraf@suug.ch,
-	tom@herbertland.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42409 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbcD1VKB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:10:01 -0400
-In-Reply-To: <7280f5aa7ec83653cdf7f0484fb9e696bc8c89e8.1461758705.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: noamca@mellanox.com, linux-kernel@vger.kernel.org,
+	abrodkin@synopsys.com, talz@mellanox.com, netdev@vger.kernel.org
+To: eladkan@mellanox.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461763110-15263-2-git-send-email-eladkan@mellanox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 27 Apr 2016 14:08:01 +0200
+From: Elad Kanfi <eladkan@mellanox.com>
+Date: Wed, 27 Apr 2016 16:18:29 +0300
 
-> The collect metadata mode does not support GUE nor FOU. This might be
-> implemented later; until then, we should reject such config.
+> From: Elad Kanfi <eladkan@mellanox.com>
 > 
-> I think this is okay to be changed. It's unlikely anyone has such
-> configuration (as it doesn't work anyway) and we may need a way to
-> distinguish whether it's supported or not by the kernel later.
+> Below is a description of a possible problematic
+> sequence. CPU-A is sending a frame and CPU-B handles
+> the interrupt that indicates the frame was sent. CPU-B
+> reads an invalid value of tx_packet_sent.
 > 
-> For backwards compatibility with iproute2, it's not possible to just check
-> the attribute presence (iproute2 always includes the attribute), the actual
-> value has to be checked, too.
+> 	CPU-A				CPU-B
+> 	-----				-----
+> 	nps_enet_send_frame
+> 	.
+> 	.
+> 	tx_packet_sent = true
+> 	order HW to start tx
+> 	.
+> 	.
+> 	HW complete tx
+> 			    ------> 	get tx complete interrupt
+> 					.
+> 					.
+> 					if(tx_packet_sent == true)
 > 
-> Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> Discovered this only after I already sent v3 of the previous gre set.
-> Submitting this patch on its own, it's an indepent fix anyway (though fixing
-> the same commit).
+> 	end memory transaction
+> 	(tx_packet_sent actually
+> 	 written)
+> 
+> Problem solution:
+> 
+> Add a memory barrier after setting tx_packet_sent,
+> in order to make sure that it is written before
+> the packet is sent.
+> 
+> Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
+> 
+> Acked-by: Noam Camus <noamca@mellanox.com>
 
-Applied, thank you.
+Please address the feedback about memory barrier pairing.
+
+Also, for both patches, do not put empty lines between the various
+tags at the end of the commit message.  They should all be together
+in one continuous group.
