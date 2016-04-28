@@ -1,47 +1,178 @@
-From: Michael Heimpold <mhei@heimpold.de>
-Subject: [PATCH v3 net-next 0/2] net: ethernet: enc28j60: small improvements
-Date: Thu, 28 Apr 2016 22:06:13 +0200
-Message-ID: <1461873975-6368-1-git-send-email-mhei@heimpold.de>
-Cc: Michael Heimpold <mhei@heimpold.de>
-To: Jonathan Cameron <jic23@kernel.org>,
-	"Andrew F . Davis" <afd@ti.com>, Mark Brown <broonie@kernel.org>,
-	netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCHv2] netem: Segment GSO packets on enqueue.
+Date: Thu, 28 Apr 2016 16:09:08 -0400
+Message-ID: <1461874148-14937-1-git-send-email-nhorman@tuxdriver.com>
+References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netem@lists.linux-foundation.org, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:26417 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753021AbcD1UGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:06:34 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44478 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751865AbcD1UJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:09:36 -0400
+In-Reply-To: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of two patches adds the following improvements to the driver:
+This was recently reported to me, and reproduced on the latest net kernel, when
+attempting to run netperf from a host that had a netem qdisc attached to the
+egress interface:
 
-1) Rework the central SPI read function so that it is compatible with
-   SPI masters which only support half duplex transfers.
+[  788.073771] ------------[ cut here ]------------
+[  788.096716] WARNING: at net/core/dev.c:2253 skb_warn_bad_offload+0xcd/0xda()
+[  788.129521] bnx2: caps=(0x00000001801949b3, 0x0000000000000000) len=2962
+data_len=0 gso_size=1448 gso_type=1 ip_summed=3
+[  788.182150] Modules linked in: sch_netem kvm_amd kvm crc32_pclmul ipmi_ssif
+ghash_clmulni_intel sp5100_tco amd64_edac_mod aesni_intel lrw gf128mul
+glue_helper ablk_helper edac_mce_amd cryptd pcspkr sg edac_core hpilo ipmi_si
+i2c_piix4 k10temp fam15h_power hpwdt ipmi_msghandler shpchp acpi_power_meter
+pcc_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c
+sd_mod crc_t10dif crct10dif_generic mgag200 syscopyarea sysfillrect sysimgblt
+i2c_algo_bit drm_kms_helper ahci ata_generic pata_acpi ttm libahci
+crct10dif_pclmul pata_atiixp tg3 libata crct10dif_common drm crc32c_intel ptp
+serio_raw bnx2 r8169 hpsa pps_core i2c_core mii dm_mirror dm_region_hash dm_log
+dm_mod
+[  788.465294] CPU: 16 PID: 0 Comm: swapper/16 Tainted: G        W
+------------   3.10.0-327.el7.x86_64 #1
+[  788.511521] Hardware name: HP ProLiant DL385p Gen8, BIOS A28 12/17/2012
+[  788.542260]  ffff880437c036b8 f7afc56532a53db9 ffff880437c03670
+ffffffff816351f1
+[  788.576332]  ffff880437c036a8 ffffffff8107b200 ffff880633e74200
+ffff880231674000
+[  788.611943]  0000000000000001 0000000000000003 0000000000000000
+ffff880437c03710
+[  788.647241] Call Trace:
+[  788.658817]  <IRQ>  [<ffffffff816351f1>] dump_stack+0x19/0x1b
+[  788.686193]  [<ffffffff8107b200>] warn_slowpath_common+0x70/0xb0
+[  788.713803]  [<ffffffff8107b29c>] warn_slowpath_fmt+0x5c/0x80
+[  788.741314]  [<ffffffff812f92f3>] ? ___ratelimit+0x93/0x100
+[  788.767018]  [<ffffffff81637f49>] skb_warn_bad_offload+0xcd/0xda
+[  788.796117]  [<ffffffff8152950c>] skb_checksum_help+0x17c/0x190
+[  788.823392]  [<ffffffffa01463a1>] netem_enqueue+0x741/0x7c0 [sch_netem]
+[  788.854487]  [<ffffffff8152cb58>] dev_queue_xmit+0x2a8/0x570
+[  788.880870]  [<ffffffff8156ae1d>] ip_finish_output+0x53d/0x7d0
+...
 
-2) Add a device tree binding for the driver.
+The problem occurs because netem is not prepared to handle GSO packets (as it
+uses skb_checksum_help in its enqueue path, which cannot manipulate these
+frames).
 
-Changelog:
+The solution I think is to simply segment the skb in a simmilar fashion to the
+way we do in __dev_queue_xmit (via validate_xmit_skb), except here we always
+segment, instead of only when the interface needs us to do it.  This allows
+netem to properly drop/mangle/pass/etc the correct percentages of frames as per
+its qdisc configuration, and avoid failing its checksum operations
 
-v3: * renamed and improved binding documentation as
-      suggested by Rob Herring
+tested successfully by myself on the latest net kernel, to whcih this applies
 
-v2: * took care of Arnd Bergmann's review comments
-      - allow to specify MAC address via DT
-      - unconditionally define DT id table
-    * increased the driver version minor number
-    * driver author's email address bounces, removed from address list
+---
+Change Notes:
+V2) As per request from Eric Dumazet, I rewrote this to limit the need to
+segment the skb. Instead of doing so unilaterally, we no only do so now when the
+netem qdisc requires determines that a packet must be corrupted, thus avoiding
+the failure in skb_checksum_help.  This still leaves open concerns with
+statistical measurements made on GSO packets being dropped or reordered (i.e.
+they are counted as a single packet rather than multiple packets), but I'd
+rather fix the immediate problem before we go rewriting everything to fix that
+larger issue.
 
-v1: * Initial submission
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Jamal Hadi Salim <jhs@mojatatu.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: netem@lists.linux-foundation.org
+CC: eric.dumazet@gmail.com
+---
+ net/sched/sch_netem.c | 51 ++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 48 insertions(+), 3 deletions(-)
 
-Michael Heimpold (2):
-  net: ethernet: enc28j60: support half-duplex SPI controllers
-  net: ethernet: enc28j60: add device tree support
-
- .../devicetree/bindings/net/microchip,enc28j60.txt | 59 ++++++++++++++++++++++
- drivers/net/ethernet/microchip/enc28j60.c          | 34 ++++++++++---
- 2 files changed, 85 insertions(+), 8 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/microchip,enc28j60.txt
-
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 9640bb3..7cde5d3 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -395,6 +395,25 @@ static void tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
+ 	sch->q.qlen++;
+ }
+ 
++/* netem can't properly corrupt a megapacket (like we get from GSO), so instead
++ * when we statistically choose to corrupt one, we instead segment it, returning
++ * the first packet to be corrupted, and re-enqueue the remaining frames
++ */
++static struct sk_buff* netem_segment(struct sk_buff *skb, struct Qdisc *sch)
++{
++	struct sk_buff *segs;
++	netdev_features_t features = netif_skb_features(skb);
++
++	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
++
++	if (IS_ERR_OR_NULL(segs)) {
++		qdisc_reshape_fail(skb, sch);
++		return NULL;
++	}
++	consume_skb(skb);
++	return segs;
++}
++
+ /*
+  * Insert one skb into qdisc.
+  * Note: parent depends on return value to account for queue length.
+@@ -407,7 +426,9 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	/* We don't fill cb now as skb_unshare() may invalidate it */
+ 	struct netem_skb_cb *cb;
+ 	struct sk_buff *skb2;
++	struct sk_buff *segs = NULL;
+ 	int count = 1;
++	int rc = NET_XMIT_SUCCESS;
+ 
+ 	/* Random duplication */
+ 	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor))
+@@ -453,10 +474,22 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	 * do it now in software before we mangle it.
+ 	 */
+ 	if (q->corrupt && q->corrupt >= get_crandom(&q->corrupt_cor)) {
++		if (skb_is_gso(skb)) {
++			segs = netem_segment(skb, sch);
++			if (!segs)
++				return NET_XMIT_DROP;
++		} else
++			segs = skb;
++
++		skb = segs;
++		segs = segs->next;
++
+ 		if (!(skb = skb_unshare(skb, GFP_ATOMIC)) ||
+ 		    (skb->ip_summed == CHECKSUM_PARTIAL &&
+-		     skb_checksum_help(skb)))
+-			return qdisc_drop(skb, sch);
++		     skb_checksum_help(skb))) {
++			rc = qdisc_drop(skb, sch);
++			goto finish_segs;
++		}
+ 
+ 		skb->data[prandom_u32() % skb_headlen(skb)] ^=
+ 			1<<(prandom_u32() % 8);
+@@ -516,7 +549,19 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		sch->qstats.requeues++;
+ 	}
+ 
+-	return NET_XMIT_SUCCESS;
++finish_segs:
++	while (segs) {
++		skb2 = segs->next;
++		segs->next = NULL;
++		qdisc_skb_cb(segs)->pkt_len = segs->len;
++		rc = qdisc_enqueue(segs, sch);
++		if (rc != NET_XMIT_SUCCESS) {
++			if (net_xmit_drop_count(rc))
++				qdisc_qstats_drop(sch);
++		}
++		segs = skb2;
++	}
++	return rc;
+ }
+ 
+ static unsigned int netem_drop(struct Qdisc *sch)
 -- 
-2.5.0
+2.5.5
