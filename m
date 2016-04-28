@@ -1,47 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/6] net: make TCP preemptible
-Date: Thu, 28 Apr 2016 11:04:12 -0700
-Message-ID: <1461866652.5535.115.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461821152-23200-1-git-send-email-edumazet@google.com>
-	 <20160428172320.GA83199@ast-mbp.thefacebook.com>
-	 <1461865270.5535.109.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160428175154.GA83737@ast-mbp.thefacebook.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC 07/20] net: dsa: list ports in switch\\
+Date: Thu, 28 Apr 2016 14:18:53 -0400
+Message-ID: <871t5pr3zm.fsf@ketchup.mtl.sfl>
+References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1461796217-18893-8-git-send-email-vivien.didelot@savoirfairelinux.com> <20160427231537.GJ29024@lunn.ch> <572241BB.1070304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33131 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837AbcD1SEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 14:04:15 -0400
-Received: by mail-pa0-f54.google.com with SMTP id zm5so38786558pac.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 11:04:14 -0700 (PDT)
-In-Reply-To: <20160428175154.GA83737@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <572241BB.1070304@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-28 at 10:51 -0700, Alexei Starovoitov wrote:
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-> got it. It applies to both v4 and v6, right?
+> On 27/04/16 16:15, Andrew Lunn wrote:
+>> On Wed, Apr 27, 2016 at 06:30:04PM -0400, Vivien Didelot wrote:
+>>> List DSA port structures in their switch structure, so that drivers can
+>>> iterate on them to retrieve information such as their ports membership.
+>> 
+>> And this would be so much easier using a plan array.
+>
+> Agreed, I do not see much value in doing this at the moment. Even if you
+> have unused ports in a switch, allocating an array is a small price to
+> pay compared to directly indexing by port number.
+>
+> NAK from me unless there is a compelling reason for doing so.
 
-You mean IPv6 ?
+The point of having a list is 1) get rid of the DSA_MAX_PORTS and have
+variable number of ports 2) lists make iteration easier with variable
+number of switchs/ports, e.g.:
 
-Well, you know, I decided to skip IPv6 and go to IPv8 anyway ;) 
+    dsa_tree_for_each_switch(dst, ds)
+        dsa_switch_for_each_port(ds, dp)
+            /* do something with the port */;
 
-Yes, these changes apply for both IPv4 and IPv6 in the meantime.
+Anyway, I'm writing a proposal for a new design of DSA, in order to
+support the D in DSA. That way, we'll avoid reviewing details of the
+implementation and have a big picture of the necessary API changes.
 
+Thanks,
 
-> that would be awesome. I think map/reduce type jobs typically
-> do large sendmsg, so it should help p99 latency.
-
-Note that it should even help to send faster, since the ACK packets or
-TCP Small Queue handlers are blocked until the sendmsg() was complete.
-
-ACK packets usually open the window for more sends.
-
-Many applications are using a loop and multiple sendmsg( ) with ~64KB
-chunks to work around these latency issues.
+        Vivien
