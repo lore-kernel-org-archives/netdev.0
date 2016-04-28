@@ -1,71 +1,112 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: snmp: fix 64bit stats on 32bit arches
-Date: Thu, 28 Apr 2016 06:33:24 -0700
-Message-ID: <1461850404.5535.103.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461800683-25034-1-git-send-email-edumazet@google.com>
-	 <5721E05B.1030603@6wind.com>
-	 <1461844854.5535.93.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <5721FFFC.9010808@6wind.com>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [net-next PATCH V4 3/5] samples/bpf: add a README file to get
+ users started
+Date: Thu, 28 Apr 2016 19:07:45 +0530
+Message-ID: <20160428133740.GC7880@naverao1-tp.in.ibm.com>
+References: <20160428121949.16807.84828.stgit@firesoul>
+ <20160428122103.16807.41837.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:35538 "EHLO
-	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752793AbcD1Nd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 09:33:27 -0400
-Received: by mail-qk0-f169.google.com with SMTP id q76so28245686qke.2
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 06:33:27 -0700 (PDT)
-In-Reply-To: <5721FFFC.9010808@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	bblanco@plumgrid.com, borkmann@iogearbox.net,
+	alexei.starovoitov@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160428122103.16807.41837.stgit@firesoul>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 2016/04/28 02:21PM, Jesper Dangaard Brouer wrote:
+> Getting started with using examples in samples/bpf/ is not
+> straightforward.  There are several dependencies, and specific
+> versions of these dependencies.
+> 
+> Just compiling the example tool is also slightly obscure, e.g. one
+> need to call make like:
+> 
+>  make samples/bpf/
+> 
+> Do notice the "/" slash after the directory name.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-I accidentally replaced BH disabling by preemption disabling
-in SNMP_ADD_STATS64() and SNMP_UPD_PO_STATS64() on 32bit builds.
+Acked-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 
-For 64bit stats on 32bit arch, we really need to disable BH,
-since the "struct u64_stats_sync syncp" might be manipulated
-both from process and BH contexts.
+> ---
+>  samples/bpf/README.rst |   64 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 64 insertions(+)
+>  create mode 100644 samples/bpf/README.rst
+> 
+> diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
+> new file mode 100644
+> index 000000000000..993d280184fa
+> --- /dev/null
+> +++ b/samples/bpf/README.rst
+> @@ -0,0 +1,64 @@
+> +eBPF sample programs
+> +====================
+> +
+> +This directory contains a mini eBPF library, test stubs, verifier
+> +test-suite and examples for using eBPF.
+> +
+> +Build dependencies
+> +==================
+> +
+> +Compiling requires having installed:
+> + * clang >= version 3.4.0
+> + * llvm >= version 3.7.1
+> +
+> +Note that LLVM's tool 'llc' must support target 'bpf', list version
+> +and supported targets with command: ``llc --version``
+> +
+> +Kernel headers
+> +--------------
+> +
+> +There are usually dependencies to header files of the current kernel.
+> +To avoid installing devel kernel headers system wide, as a normal
+> +user, simply call::
+> +
+> + make headers_install
+> +
+> +This will creates a local "usr/include" directory in the git/build top
+> +level directory, that the make system automatically pickup first.
+> +
+> +Compiling
+> +=========
+> +
+> +For building the BPF samples, issue the below command from the kernel
+> +top level directory::
+> +
+> + make samples/bpf/
+> +
+> +Do notice the "/" slash after the directory name.
+> +
+> +Manually compiling LLVM with 'bpf' support
+> +------------------------------------------
+> +
+> +Since version 3.7.0, LLVM adds a proper LLVM backend target for the
+> +BPF bytecode architecture.
+> +
+> +By default llvm will build all non-experimental backends including bpf.
+> +To generate a smaller llc binary one can use::
+> +
+> + -DLLVM_TARGETS_TO_BUILD="BPF"
+> +
+> +Quick sniplet for manually compiling LLVM and clang
+> +(build dependencies are cmake and gcc-c++)::
+> +
+> + $ git clone http://llvm.org/git/llvm.git
+> + $ cd llvm/tools
+> + $ git clone --depth 1 http://llvm.org/git/clang.git
+> + $ cd ..; mkdir build; cd build
+> + $ cmake .. -DLLVM_TARGETS_TO_BUILD="BPF;X86"
+> + $ make -j $(getconf _NPROCESSORS_ONLN)
+> +
+> +It is also possible to point make to the newly compiled 'llc' command
+> +via redefining LLC on the make command line::
+> +
+> + make samples/bpf/ LLC=~/git/llvm/build/bin/llc
+> +
+> 
 
-Fixes: 6aef70a851ac ("net: snmp: kill various STATS_USER() helpers")
-Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/snmp.h |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/snmp.h b/include/net/snmp.h
-index 6bdd255b2250..c9228ad7ee91 100644
---- a/include/net/snmp.h
-+++ b/include/net/snmp.h
-@@ -166,9 +166,9 @@ struct linux_xfrm_mib {
- 
- #define SNMP_ADD_STATS64(mib, field, addend) 				\
- 	do {								\
--		preempt_disable();					\
-+		local_bh_disable();					\
- 		__SNMP_ADD_STATS64(mib, field, addend);			\
--		preempt_enable();					\
-+		local_bh_enable();				\
- 	} while (0)
- 
- #define __SNMP_INC_STATS64(mib, field) SNMP_ADD_STATS64(mib, field, 1)
-@@ -184,9 +184,9 @@ struct linux_xfrm_mib {
- 	} while (0)
- #define SNMP_UPD_PO_STATS64(mib, basefield, addend)			\
- 	do {								\
--		preempt_disable();					\
-+		local_bh_disable();					\
- 		__SNMP_UPD_PO_STATS64(mib, basefield, addend);		\
--		preempt_enable();					\
-+		local_bh_enable();				\
- 	} while (0)
- #else
- #define __SNMP_INC_STATS64(mib, field)		__SNMP_INC_STATS(mib, field)
