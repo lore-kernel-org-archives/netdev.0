@@ -1,26 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 30/41] Documentation: networking: fix spelling mistakes
-Date: Thu, 28 Apr 2016 14:21:22 -0400 (EDT)
-Message-ID: <20160428.142122.120683880587946479.davem@davemloft.net>
-References: <1461543878-3639-1-git-send-email-eric@engestrom.ch>
-	<1461566229-4717-1-git-send-email-eric@engestrom.ch>
-	<1461566229-4717-4-git-send-email-eric@engestrom.ch>
+Subject: Re: myri10ge: fix sleeping with bh disabled
+Date: Thu, 28 Apr 2016 14:21:42 -0400 (EDT)
+Message-ID: <20160428.142142.1324480837935590925.davem@davemloft.net>
+References: <20160425085918.GB2608@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, corbet@lwn.net,
-	dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-	brouer@redhat.com, ast@plumgrid.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric@engestrom.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461566229-4717-4-git-send-email-eric@engestrom.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hykim@myri.com
+To: sgruszka@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40580 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752634AbcD1SVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 14:21:49 -0400
+In-Reply-To: <20160425085918.GB2608@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Engestrom <eric@engestrom.ch>
-Date: Mon, 25 Apr 2016 07:36:56 +0100
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Mon, 25 Apr 2016 10:59:19 +0200
 
-> Signed-off-by: Eric Engestrom <eric@engestrom.ch>
+> napi_disable() can not be called with bh disabled, move locking just
+> around myri10ge_ss_lock_napi() .
+> 
+> Patches fixes following bug:
+> 
+> [  114.278378] BUG: sleeping function called from invalid context at net/core/dev.c:4383 
+> <snip>
+> [  114.313712] Call Trace: 
+> [  114.314943]  [<ffffffff817010ce>] dump_stack+0x19/0x1b 
+> [  114.317673]  [<ffffffff810ce7f3>] __might_sleep+0x173/0x230 
+> [  114.320566]  [<ffffffff815b3117>] napi_disable+0x27/0x90 
+> [  114.323254]  [<ffffffffa01e437f>] myri10ge_close+0xbf/0x3f0 [myri10ge] 
+> 
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 
 Applied.
