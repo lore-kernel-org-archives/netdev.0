@@ -1,47 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2] netem: Segment GSO packets on enqueue.
-Date: Thu, 28 Apr 2016 13:58:53 -0700
-Message-ID: <1461877133.5535.119.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
-	 <1461874148-14937-1-git-send-email-nhorman@tuxdriver.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v6 2/6] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Thu, 28 Apr 2016 15:59:52 -0500
+Message-ID: <20160428205952.GA11405@rob-hp-laptop>
+References: <1461585242-32401-1-git-send-email-alexandre.torgue@gmail.com>
+ <1461585242-32401-3-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netem@lists.linux-foundation.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34455 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162AbcD1U64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:58:56 -0400
-Received: by mail-pa0-f47.google.com with SMTP id r5so37156316pag.1
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 13:58:55 -0700 (PDT)
-In-Reply-To: <1461874148-14937-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org
+To: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1461585242-32401-3-git-send-email-alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-28 at 16:09 -0400, Neil Horman wrote:
-> This was recently reported to me, and reproduced on the latest net kernel, when
-> attempting to run netperf from a host that had a netem qdisc attached to the
-> egress interface:
+On Mon, Apr 25, 2016 at 01:53:58PM +0200, Alexandre TORGUE wrote:
+> Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
->  
-> -	return NET_XMIT_SUCCESS;
-> +finish_segs:
-> +	while (segs) {
-> +		skb2 = segs->next;
-> +		segs->next = NULL;
-> +		qdisc_skb_cb(segs)->pkt_len = segs->len;
-> +		rc = qdisc_enqueue(segs, sch);
-> +		if (rc != NET_XMIT_SUCCESS) {
-> +			if (net_xmit_drop_count(rc))
-> +				qdisc_qstats_drop(sch);
-> +		}
-> +		segs = skb2;
-> +	}
-> +	return rc;
->  }
-
-It seems you missed the qdisc_tree_reduce_backlog() call ?
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
