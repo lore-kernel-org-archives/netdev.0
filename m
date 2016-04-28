@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 12/12] net/mlx5e: Enabling aRFS mechanism
-Date: Fri, 29 Apr 2016 01:36:42 +0300
-Message-ID: <1461883002-8912-13-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 11/12] net/mlx5e: Add accelerated RFS support
+Date: Fri, 29 Apr 2016 01:36:41 +0300
+Message-ID: <1461883002-8912-12-git-send-email-saeedm@mellanox.com>
 References: <1461883002-8912-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,248 +10,535 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:33210 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:33217 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752750AbcD1Wis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 18:38:48 -0400
+	id S1752582AbcD1Wit (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 18:38:49 -0400
 In-Reply-To: <1461883002-8912-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Accelerated RFS requires that ntuple filtering is enabled via
-ethtool and driver supports ndo_rx_flow_steer.
-When the ntuple filtering is enabled, we modify the l3_l4 ttc
-rules to point on the aRFS flow tables and when the filtering
-is disabled, we modify the l3_l4 ttc rules to point on the RSS
-TIRs.
+Implement ndo_rx_flow_steer ndo.
+A new flow steering rule will be composed from the
+skb 4-tuple and added to the hardware aRFS flow table.
+
+Each rule is stored in an internal hash table, if such
+skb 4-tuple rule already exists we update the corresponding
+hardware steering rule with the new destination.
+
+For garbage collection rps_may_expire_flow will be
+invoked for a limited amount of old rules upon any
+ndo_rx_flow_steer invocation.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   12 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |   77 +++++++++++++++++++-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   15 ++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   25 +++++++
- 4 files changed, 127 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   10 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c |  427 ++++++++++++++++++++-
+ 2 files changed, 436 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 21c3841..34523c4 100644
+index 999e058..21c3841 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -690,9 +690,21 @@ static inline int mlx5e_arfs_create_tables(struct mlx5e_priv *priv)
- }
+@@ -448,9 +448,12 @@ struct mlx5e_ttc_table {
+ 	struct mlx5_flow_rule	 *rules[MLX5E_NUM_TT];
+ };
  
- static inline void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv) {}
-+
-+static inline int mlx5e_arfs_enable(struct mlx5e_priv *priv)
-+{
-+	return -ENOTSUPP;
-+}
-+
-+static inline int mlx5e_arfs_disable(struct mlx5e_priv *priv)
-+{
-+	return -ENOTSUPP;
-+}
++#define ARFS_HASH_SHIFT BITS_PER_BYTE
++#define ARFS_HASH_SIZE BIT(BITS_PER_BYTE)
+ struct arfs_table {
+ 	struct mlx5e_flow_table  ft;
+ 	struct mlx5_flow_rule    *default_rule;
++	struct hlist_head	 rules_hash[ARFS_HASH_SIZE];
+ };
+ 
+ enum  arfs_type {
+@@ -463,6 +466,11 @@ enum  arfs_type {
+ 
+ struct mlx5e_arfs_tables {
+ 	struct arfs_table arfs_tables[ARFS_NUM_TYPES];
++	/* Protect aRFS rules list */
++	spinlock_t                     arfs_lock;
++	struct list_head               rules;
++	int                            last_filter_id;
++	struct workqueue_struct        *wq;
+ };
+ 
+ /* NIC prio FTS */
+@@ -685,6 +693,8 @@ static inline void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv) {}
  #else
  int mlx5e_arfs_create_tables(struct mlx5e_priv *priv);
  void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv);
-+int mlx5e_arfs_enable(struct mlx5e_priv *priv);
-+int mlx5e_arfs_disable(struct mlx5e_priv *priv);
- int mlx5e_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 			u16 rxq_index, u32 flow_id);
++int mlx5e_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
++			u16 rxq_index, u32 flow_id);
  #endif
+ 
+ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-index e54fbc1..b4ae0fe 100644
+index cd50419..e54fbc1 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-@@ -72,14 +72,87 @@ struct arfs_rule {
- 	for (j = 0; j < ARFS_HASH_SIZE; j++) \
- 		hlist_for_each_entry_safe(hn, tmp, &hash[j], hlist)
+@@ -30,8 +30,47 @@
+  * SOFTWARE.
+  */
  
-+static enum mlx5e_traffic_types arfs_get_tt(enum arfs_type type)
-+{
-+	switch (type) {
-+	case ARFS_IPV4_TCP:
-+		return MLX5E_TT_IPV4_TCP;
-+	case ARFS_IPV4_UDP:
-+		return MLX5E_TT_IPV4_UDP;
-+	case ARFS_IPV6_TCP:
-+		return MLX5E_TT_IPV6_TCP;
-+	case ARFS_IPV6_UDP:
-+		return MLX5E_TT_IPV6_UDP;
-+	default:
-+		return -EINVAL;
-+	}
-+}
+-#include "en.h"
++#include <linux/hash.h>
+ #include <linux/mlx5/fs.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include "en.h"
 +
-+static int arfs_disable(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_flow_destination dest;
-+	u32 *tirn = priv->indir_tirn;
-+	int err = 0;
-+	int tt;
-+	int i;
++struct arfs_tuple {
++	__be16 etype;
++	u8     ip_proto;
++	union {
++		__be32 src_ipv4;
++		struct in6_addr src_ipv6;
++	};
++	union {
++		__be32 dst_ipv4;
++		struct in6_addr dst_ipv6;
++	};
++	__be16 src_port;
++	__be16 dst_port;
++};
 +
-+	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
-+	for (i = 0; i < ARFS_NUM_TYPES; i++) {
-+		dest.tir_num = tirn[i];
-+		tt = arfs_get_tt(i);
-+		/* Modify ttc rules destination to bypass the aRFS tables*/
-+		err = mlx5_modify_rule_destination(priv->fs.ttc.rules[tt],
-+						   &dest);
-+		if (err) {
-+			netdev_err(priv->netdev,
-+				   "%s: modify ttc destination failed\n",
-+				   __func__);
-+			return err;
-+		}
-+	}
-+	return 0;
-+}
++struct arfs_rule {
++	struct mlx5e_priv	*priv;
++	struct work_struct      arfs_work;
++	struct mlx5_flow_rule   *rule;
++	struct hlist_node	hlist;
++	int			rxq;
++	/* Flow ID passed to ndo_rx_flow_steer */
++	int			flow_id;
++	/* Filter ID returned by ndo_rx_flow_steer */
++	int			filter_id;
++	struct arfs_tuple	tuple;
++};
 +
-+static void arfs_del_rules(struct mlx5e_priv *priv);
++#define mlx5e_for_each_arfs_rule(hn, tmp, arfs_tables, i, j) \
++	for (i = 0; i < ARFS_NUM_TYPES; i++) \
++		mlx5e_for_each_hash_arfs_rule(hn, tmp, arfs_tables[i].rules_hash, j)
 +
-+int mlx5e_arfs_disable(struct mlx5e_priv *priv)
-+{
-+	arfs_del_rules(priv);
-+
-+	return arfs_disable(priv);
-+}
-+
-+int mlx5e_arfs_enable(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_flow_destination dest;
-+	int err = 0;
-+	int tt;
-+	int i;
-+
-+	dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
-+	for (i = 0; i < ARFS_NUM_TYPES; i++) {
-+		dest.ft = priv->fs.arfs.arfs_tables[i].ft.t;
-+		tt = arfs_get_tt(i);
-+		/* Modify ttc rules destination to point on the aRFS FTs */
-+		err = mlx5_modify_rule_destination(priv->fs.ttc.rules[tt],
-+						   &dest);
-+		if (err) {
-+			netdev_err(priv->netdev,
-+				   "%s: modify ttc destination failed err=%d\n",
-+				   __func__, err);
-+			arfs_disable(priv);
-+			return err;
-+		}
-+	}
-+	return 0;
-+}
-+
++#define mlx5e_for_each_hash_arfs_rule(hn, tmp, hash, j) \
++	for (j = 0; j < ARFS_HASH_SIZE; j++) \
++		hlist_for_each_entry_safe(hn, tmp, &hash[j], hlist)
+ 
  static void arfs_destroy_table(struct arfs_table *arfs_t)
  {
- 	mlx5_del_flow_rule(arfs_t->default_rule);
+@@ -39,12 +78,17 @@ static void arfs_destroy_table(struct arfs_table *arfs_t)
  	mlx5e_destroy_flow_table(&arfs_t->ft);
  }
  
--static void arfs_del_rules(struct mlx5e_priv *priv);
--
++static void arfs_del_rules(struct mlx5e_priv *priv);
++
  void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv)
  {
  	int i;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 498d407..534d99e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -456,6 +456,7 @@ static int mlx5e_set_channels(struct net_device *dev,
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	int ncv = mlx5e_get_max_num_channels(priv->mdev);
- 	unsigned int count = ch->combined_count;
-+	bool arfs_enabled;
- 	bool was_opened;
- 	int err = 0;
  
-@@ -484,13 +485,27 @@ static int mlx5e_set_channels(struct net_device *dev,
- 	if (was_opened)
- 		mlx5e_close_locked(dev);
- 
-+	arfs_enabled = dev->features & NETIF_F_NTUPLE;
-+	if (arfs_enabled)
-+		mlx5e_arfs_disable(priv);
+ 	if (!(priv->netdev->hw_features & NETIF_F_NTUPLE))
+ 		return;
 +
- 	priv->params.num_channels = count;
- 	mlx5e_build_default_indir_rqt(priv->mdev, priv->params.indirection_rqt,
- 				      MLX5E_INDIR_RQT_SIZE, count);
++	arfs_del_rules(priv);
++	destroy_workqueue(priv->fs.arfs.wq);
+ 	for (i = 0; i < ARFS_NUM_TYPES; i++) {
+ 		if (!IS_ERR_OR_NULL(priv->fs.arfs.arfs_tables[i].ft.t))
+ 			arfs_destroy_table(&priv->fs.arfs.arfs_tables[i]);
+@@ -239,6 +283,12 @@ int mlx5e_arfs_create_tables(struct mlx5e_priv *priv)
+ 	if (!(priv->netdev->hw_features & NETIF_F_NTUPLE))
+ 		return 0;
  
- 	if (was_opened)
- 		err = mlx5e_open_locked(dev);
-+	if (err)
++	spin_lock_init(&priv->fs.arfs.arfs_lock);
++	INIT_LIST_HEAD(&priv->fs.arfs.rules);
++	priv->fs.arfs.wq = create_singlethread_workqueue("mlx5e_arfs");
++	if (!priv->fs.arfs.wq)
++		return -ENOMEM;
++
+ 	for (i = 0; i < ARFS_NUM_TYPES; i++) {
+ 		err = arfs_create_table(priv, i);
+ 		if (err)
+@@ -249,3 +299,378 @@ err:
+ 	mlx5e_arfs_destroy_tables(priv);
+ 	return err;
+ }
++
++#define MLX5E_ARFS_EXPIRY_QUOTA 60
++
++static void arfs_may_expire_flow(struct mlx5e_priv *priv)
++{
++	struct arfs_rule *arfs_rule;
++	struct hlist_node *htmp;
++	int quota = 0;
++	int i;
++	int j;
++
++	HLIST_HEAD(del_list);
++	spin_lock_bh(&priv->fs.arfs.arfs_lock);
++	mlx5e_for_each_arfs_rule(arfs_rule, htmp, priv->fs.arfs.arfs_tables, i, j) {
++		if (quota++ > MLX5E_ARFS_EXPIRY_QUOTA)
++			break;
++		if (!work_pending(&arfs_rule->arfs_work) &&
++		    rps_may_expire_flow(priv->netdev,
++					arfs_rule->rxq, arfs_rule->flow_id,
++					arfs_rule->filter_id)) {
++			hlist_del_init(&arfs_rule->hlist);
++			hlist_add_head(&arfs_rule->hlist, &del_list);
++		}
++	}
++	spin_unlock_bh(&priv->fs.arfs.arfs_lock);
++	hlist_for_each_entry_safe(arfs_rule, htmp, &del_list, hlist) {
++		if (arfs_rule->rule)
++			mlx5_del_flow_rule(arfs_rule->rule);
++		hlist_del(&arfs_rule->hlist);
++		kfree(arfs_rule);
++	}
++}
++
++static void arfs_del_rules(struct mlx5e_priv *priv)
++{
++	struct hlist_node *htmp;
++	struct arfs_rule *rule;
++	int i;
++	int j;
++
++	HLIST_HEAD(del_list);
++	spin_lock_bh(&priv->fs.arfs.arfs_lock);
++	mlx5e_for_each_arfs_rule(rule, htmp, priv->fs.arfs.arfs_tables, i, j) {
++		hlist_del_init(&rule->hlist);
++		hlist_add_head(&rule->hlist, &del_list);
++	}
++	spin_unlock_bh(&priv->fs.arfs.arfs_lock);
++
++	hlist_for_each_entry_safe(rule, htmp, &del_list, hlist) {
++		cancel_work_sync(&rule->arfs_work);
++		if (rule->rule)
++			mlx5_del_flow_rule(rule->rule);
++		hlist_del(&rule->hlist);
++		kfree(rule);
++	}
++}
++
++static struct hlist_head *
++arfs_hash_bucket(struct arfs_table *arfs_t, __be16 src_port,
++		 __be16 dst_port)
++{
++	unsigned long l;
++	int bucket_idx;
++
++	l = (__force unsigned long)src_port |
++	    ((__force unsigned long)dst_port << 2);
++
++	bucket_idx = hash_long(l, ARFS_HASH_SHIFT);
++
++	return &arfs_t->rules_hash[bucket_idx];
++}
++
++static u8 arfs_get_ip_proto(const struct sk_buff *skb)
++{
++	return (skb->protocol == htons(ETH_P_IP)) ?
++		ip_hdr(skb)->protocol : ipv6_hdr(skb)->nexthdr;
++}
++
++static struct arfs_table *arfs_get_table(struct mlx5e_arfs_tables *arfs,
++					 u8 ip_proto, __be16 etype)
++{
++	if (etype == htons(ETH_P_IP) && ip_proto == IPPROTO_TCP)
++		return &arfs->arfs_tables[ARFS_IPV4_TCP];
++	if (etype == htons(ETH_P_IP) && ip_proto == IPPROTO_UDP)
++		return &arfs->arfs_tables[ARFS_IPV4_UDP];
++	if (etype == htons(ETH_P_IPV6) && ip_proto == IPPROTO_TCP)
++		return &arfs->arfs_tables[ARFS_IPV6_TCP];
++	if (etype == htons(ETH_P_IPV6) && ip_proto == IPPROTO_UDP)
++		return &arfs->arfs_tables[ARFS_IPV6_UDP];
++
++	return NULL;
++}
++
++static struct mlx5_flow_rule *arfs_add_rule(struct mlx5e_priv *priv,
++					    struct arfs_rule *arfs_rule)
++{
++	struct mlx5e_arfs_tables *arfs = &priv->fs.arfs;
++	struct arfs_tuple *tuple = &arfs_rule->tuple;
++	struct mlx5_flow_rule *rule = NULL;
++	struct mlx5_flow_destination dest;
++	struct arfs_table *arfs_table;
++	u8 match_criteria_enable = 0;
++	struct mlx5_flow_table *ft;
++	u32 *match_criteria;
++	u32 *match_value;
++	int err = 0;
++
++	match_value	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
++	match_criteria	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
++	if (!match_value || !match_criteria) {
++		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
++		err = -ENOMEM;
 +		goto out;
- 
-+	if (arfs_enabled) {
-+		err = mlx5e_arfs_enable(priv);
-+		if (err)
-+			netdev_err(dev, "%s: mlx5e_arfs_enable failed: %d\n",
-+				   __func__, err);
++	}
++	match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++	MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++			 outer_headers.ethertype);
++	MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
++		 ntohs(tuple->etype));
++	arfs_table = arfs_get_table(arfs, tuple->ip_proto, tuple->etype);
++	if (!arfs_table) {
++		err = -EINVAL;
++		goto out;
++	}
++
++	ft = arfs_table->ft.t;
++	if (tuple->ip_proto == IPPROTO_TCP) {
++		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++				 outer_headers.tcp_dport);
++		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++				 outer_headers.tcp_sport);
++		MLX5_SET(fte_match_param, match_value, outer_headers.tcp_dport,
++			 ntohs(tuple->dst_port));
++		MLX5_SET(fte_match_param, match_value, outer_headers.tcp_sport,
++			 ntohs(tuple->src_port));
++	} else {
++		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++				 outer_headers.udp_dport);
++		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++				 outer_headers.udp_sport);
++		MLX5_SET(fte_match_param, match_value, outer_headers.udp_dport,
++			 ntohs(tuple->dst_port));
++		MLX5_SET(fte_match_param, match_value, outer_headers.udp_sport,
++			 ntohs(tuple->src_port));
++	}
++	if (tuple->etype == htons(ETH_P_IP)) {
++		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++				    outer_headers.src_ipv4_src_ipv6.ipv4_layout.ipv4),
++		       &tuple->src_ipv4,
++		       4);
++		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++				    outer_headers.dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
++		       &tuple->dst_ipv4,
++		       4);
++		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++				 outer_headers.src_ipv4_src_ipv6.ipv4_layout.ipv4);
++		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++				 outer_headers.dst_ipv4_dst_ipv6.ipv4_layout.ipv4);
++	} else {
++		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++				    outer_headers.src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       &tuple->src_ipv6,
++		       16);
++		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++				    outer_headers.dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       &tuple->dst_ipv6,
++		       16);
++		memset(MLX5_ADDR_OF(fte_match_param, match_criteria,
++				    outer_headers.src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       0xff,
++		       16);
++		memset(MLX5_ADDR_OF(fte_match_param, match_criteria,
++				    outer_headers.dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       0xff,
++		       16);
++	}
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	dest.tir_num = priv->direct_tir[arfs_rule->rxq].tirn;
++	rule = mlx5_add_flow_rule(ft, match_criteria_enable, match_criteria,
++				  match_value, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++				  MLX5_FS_DEFAULT_FLOW_TAG,
++				  &dest);
++	if (IS_ERR(rule)) {
++		err = PTR_ERR(rule);
++		netdev_err(priv->netdev, "%s: add rule(filter id=%d, rq idx=%d) failed, err=%d\n",
++			   __func__, arfs_rule->filter_id, arfs_rule->rxq, err);
 +	}
 +
 +out:
- 	mutex_unlock(&priv->state_lock);
- 
- 	return err;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 5d64534..b40949a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2306,6 +2306,21 @@ static int set_feature_rx_vlan(struct net_device *netdev, bool enable)
- 	return err;
- }
- 
-+#ifdef CONFIG_RFS_ACCEL
-+static int set_feature_arfs(struct net_device *netdev, bool enable)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	int err;
-+
-+	if (enable)
-+		err = mlx5e_arfs_enable(priv);
-+	else
-+		err = mlx5e_arfs_disable(priv);
-+
-+	return err;
++	kvfree(match_criteria);
++	kvfree(match_value);
++	return err ? ERR_PTR(err) : rule;
 +}
-+#endif
 +
- static int mlx5e_handle_feature(struct net_device *netdev,
- 				netdev_features_t wanted_features,
- 				netdev_features_t feature,
-@@ -2345,6 +2360,10 @@ static int mlx5e_set_features(struct net_device *netdev,
- 				    set_feature_rx_all);
- 	err |= mlx5e_handle_feature(netdev, features, NETIF_F_HW_VLAN_CTAG_RX,
- 				    set_feature_rx_vlan);
-+#ifdef CONFIG_RFS_ACCEL
-+	err |= mlx5e_handle_feature(netdev, features, NETIF_F_NTUPLE,
-+				    set_feature_arfs);
-+#endif
- 
- 	return err ? -EINVAL : 0;
- }
-@@ -2560,6 +2579,9 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
- 	.ndo_set_features        = mlx5e_set_features,
- 	.ndo_change_mtu          = mlx5e_change_mtu,
- 	.ndo_do_ioctl            = mlx5e_ioctl,
-+#ifdef CONFIG_RFS_ACCEL
-+	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
-+#endif
- };
- 
- static const struct net_device_ops mlx5e_netdev_ops_sriov = {
-@@ -2579,6 +2601,9 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
- 	.ndo_add_vxlan_port      = mlx5e_add_vxlan_port,
- 	.ndo_del_vxlan_port      = mlx5e_del_vxlan_port,
- 	.ndo_features_check      = mlx5e_features_check,
-+#ifdef CONFIG_RFS_ACCEL
-+	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
-+#endif
- 	.ndo_set_vf_mac          = mlx5e_set_vf_mac,
- 	.ndo_set_vf_vlan         = mlx5e_set_vf_vlan,
- 	.ndo_get_vf_config       = mlx5e_get_vf_config,
++static void arfs_modify_rule_rq(struct mlx5e_priv *priv,
++				struct mlx5_flow_rule *rule, u16 rxq)
++{
++	struct mlx5_flow_destination dst;
++	int err = 0;
++
++	dst.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	dst.tir_num = priv->direct_tir[rxq].tirn;
++	err =  mlx5_modify_rule_destination(rule, &dst);
++	if (err)
++		netdev_warn(priv->netdev,
++			    "Failed to modfiy aRFS rule destination to rq=%d\n", rxq);
++}
++
++static void arfs_handle_work(struct work_struct *work)
++{
++	struct arfs_rule *arfs_rule = container_of(work,
++						   struct arfs_rule,
++						   arfs_work);
++	struct mlx5e_priv *priv = arfs_rule->priv;
++	struct mlx5_flow_rule *rule;
++
++	mutex_lock(&priv->state_lock);
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++		spin_lock_bh(&priv->fs.arfs.arfs_lock);
++		hlist_del(&arfs_rule->hlist);
++		spin_unlock_bh(&priv->fs.arfs.arfs_lock);
++
++		mutex_unlock(&priv->state_lock);
++		kfree(arfs_rule);
++		goto out;
++	}
++	mutex_unlock(&priv->state_lock);
++
++	if (!arfs_rule->rule) {
++		rule = arfs_add_rule(priv, arfs_rule);
++		if (IS_ERR(rule))
++			goto out;
++		arfs_rule->rule = rule;
++	} else {
++		arfs_modify_rule_rq(priv, arfs_rule->rule,
++				    arfs_rule->rxq);
++	}
++out:
++	arfs_may_expire_flow(priv);
++}
++
++/* return L4 destination port from ip4/6 packets */
++static __be16 arfs_get_dst_port(const struct sk_buff *skb)
++{
++	char *transport_header;
++
++	transport_header = skb_transport_header(skb);
++	if (arfs_get_ip_proto(skb) == IPPROTO_TCP)
++		return ((struct tcphdr *)transport_header)->dest;
++	return ((struct udphdr *)transport_header)->dest;
++}
++
++/* return L4 source port from ip4/6 packets */
++static __be16 arfs_get_src_port(const struct sk_buff *skb)
++{
++	char *transport_header;
++
++	transport_header = skb_transport_header(skb);
++	if (arfs_get_ip_proto(skb) == IPPROTO_TCP)
++		return ((struct tcphdr *)transport_header)->source;
++	return ((struct udphdr *)transport_header)->source;
++}
++
++static struct arfs_rule *arfs_alloc_rule(struct mlx5e_priv *priv,
++					 struct arfs_table *arfs_t,
++					 const struct sk_buff *skb,
++					 u16 rxq, u32 flow_id)
++{
++	struct arfs_rule *rule;
++	struct arfs_tuple *tuple;
++
++	rule = kzalloc(sizeof(*rule), GFP_ATOMIC);
++	if (!rule)
++		return NULL;
++
++	rule->priv = priv;
++	rule->rxq = rxq;
++	INIT_WORK(&rule->arfs_work, arfs_handle_work);
++
++	tuple = &rule->tuple;
++	tuple->etype = skb->protocol;
++	if (tuple->etype == htons(ETH_P_IP)) {
++		tuple->src_ipv4 = ip_hdr(skb)->saddr;
++		tuple->dst_ipv4 = ip_hdr(skb)->daddr;
++	} else {
++		memcpy(&tuple->src_ipv6, &ipv6_hdr(skb)->saddr,
++		       sizeof(struct in6_addr));
++		memcpy(&tuple->dst_ipv6, &ipv6_hdr(skb)->daddr,
++		       sizeof(struct in6_addr));
++	}
++	tuple->ip_proto = arfs_get_ip_proto(skb);
++	tuple->src_port = arfs_get_src_port(skb);
++	tuple->dst_port = arfs_get_dst_port(skb);
++
++	rule->flow_id = flow_id;
++	rule->filter_id = priv->fs.arfs.last_filter_id++ % RPS_NO_FILTER;
++
++	hlist_add_head(&rule->hlist,
++		       arfs_hash_bucket(arfs_t, tuple->src_port,
++					tuple->dst_port));
++	return rule;
++}
++
++static bool arfs_cmp_ips(struct arfs_tuple *tuple,
++			 const struct sk_buff *skb)
++{
++	if (tuple->etype == htons(ETH_P_IP) &&
++	    tuple->src_ipv4 == ip_hdr(skb)->saddr &&
++	    tuple->dst_ipv4 == ip_hdr(skb)->daddr)
++		return true;
++	if (tuple->etype == htons(ETH_P_IPV6) &&
++	    (!memcmp(&tuple->src_ipv6, &ipv6_hdr(skb)->saddr,
++		     sizeof(struct in6_addr))) &&
++	    (!memcmp(&tuple->dst_ipv6, &ipv6_hdr(skb)->daddr,
++		     sizeof(struct in6_addr))))
++		return true;
++	return false;
++}
++
++static struct arfs_rule *arfs_find_rule(struct arfs_table *arfs_t,
++					const struct sk_buff *skb)
++{
++	struct arfs_rule *arfs_rule;
++	struct hlist_head *head;
++	__be16 src_port = arfs_get_src_port(skb);
++	__be16 dst_port = arfs_get_dst_port(skb);
++
++	head = arfs_hash_bucket(arfs_t, src_port, dst_port);
++	hlist_for_each_entry(arfs_rule, head, hlist) {
++		if (arfs_rule->tuple.src_port == src_port &&
++		    arfs_rule->tuple.dst_port == dst_port &&
++		    arfs_cmp_ips(&arfs_rule->tuple, skb)) {
++			return arfs_rule;
++		}
++	}
++
++	return NULL;
++}
++
++int mlx5e_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
++			u16 rxq_index, u32 flow_id)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5e_arfs_tables *arfs = &priv->fs.arfs;
++	struct arfs_table *arfs_t;
++	struct arfs_rule *arfs_rule;
++
++	if (skb->protocol != htons(ETH_P_IP) &&
++	    skb->protocol != htons(ETH_P_IPV6))
++		return -EPROTONOSUPPORT;
++
++	arfs_t = arfs_get_table(arfs, arfs_get_ip_proto(skb), skb->protocol);
++	if (!arfs_t)
++		return -EPROTONOSUPPORT;
++
++	spin_lock_bh(&arfs->arfs_lock);
++	arfs_rule = arfs_find_rule(arfs_t, skb);
++	if (arfs_rule) {
++		if (arfs_rule->rxq == rxq_index) {
++			spin_unlock_bh(&arfs->arfs_lock);
++			return arfs_rule->filter_id;
++		}
++		arfs_rule->rxq = rxq_index;
++	} else {
++		arfs_rule = arfs_alloc_rule(priv, arfs_t, skb,
++					    rxq_index, flow_id);
++		if (!arfs_rule) {
++			spin_unlock_bh(&arfs->arfs_lock);
++			return -ENOMEM;
++		}
++	}
++	queue_work(priv->fs.arfs.wq, &arfs_rule->arfs_work);
++	spin_unlock_bh(&arfs->arfs_lock);
++	return arfs_rule->filter_id;
++}
 -- 
 1.7.1
