@@ -1,217 +1,71 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [net-next PATCH 6/8] mlx4: Add support for inner IPv6 checksum
- offloads and TSO
-Date: Thu, 28 Apr 2016 16:26:02 +0300
-Message-ID: <3182842f-7b27-9b4e-2e31-a5bd2eae8d9b@gmail.com>
-References: <20160425182442.11331.88349.stgit@ahduyck-xeon-server>
- <20160425183133.11331.54774.stgit@ahduyck-xeon-server>
- <571F7D14.7090504@dev.mellanox.co.il>
- <CAMt9YRqrk51Rx28FiBiR2RM-fern-UuUq7_A+FeZV+mfm_q+zg@mail.gmail.com>
- <CALzJLG87ABt8O8MpT7GycdREfkYTv3eabRCWuBsJOBDf7+LhGg@mail.gmail.com>
- <CAKgT0UfWUOFs8NvjWFQTtL_3Ure8MWbe5tJhEWFYnowb1kz1Dw@mail.gmail.com>
- <8ed986cd-10f4-bcf4-1433-45e6594849a8@gmail.com> <5720FF84.9020404@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: snmp: fix 64bit stats on 32bit arches
+Date: Thu, 28 Apr 2016 06:33:24 -0700
+Message-ID: <1461850404.5535.103.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461800683-25034-1-git-send-email-edumazet@google.com>
+	 <5721E05B.1030603@6wind.com>
+	 <1461844854.5535.93.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <5721FFFC.9010808@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alex Duyck <aduyck@mirantis.com>, Tal Alon <talal@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Gal Pressman <galp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36249 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140AbcD1N0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 09:26:07 -0400
-Received: by mail-wm0-f67.google.com with SMTP id w143so23399532wmw.3
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 06:26:06 -0700 (PDT)
-In-Reply-To: <5720FF84.9020404@gmail.com>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:35538 "EHLO
+	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752793AbcD1Nd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 09:33:27 -0400
+Received: by mail-qk0-f169.google.com with SMTP id q76so28245686qke.2
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 06:33:27 -0700 (PDT)
+In-Reply-To: <5721FFFC.9010808@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+I accidentally replaced BH disabling by preemption disabling
+in SNMP_ADD_STATS64() and SNMP_UPD_PO_STATS64() on 32bit builds.
 
-On 27/04/2016 9:05 PM, Alexander Duyck wrote:
-> On 04/27/2016 08:39 AM, Tariq Toukan wrote:
->>
->>
->> On 27/04/2016 12:01 AM, Alexander Duyck wrote:
->>> On Tue, Apr 26, 2016 at 1:23 PM, Saeed Mahameed
->>> <saeedm@dev.mellanox.co.il> wrote:
->>>> On Tue, Apr 26, 2016 at 6:50 PM, Alex Duyck <aduyck@mirantis.com> 
->>>> wrote:
->>>>> The setup is pretty straight forward.  Basically I left the first 
->>>>> port
->>>>> in the default namespace and moved the second int a secondary
->>>>> namespace referred to below as $netns.  I then assigned the IPv6
->>>>> addresses fec0::10:1 and fec0::10:2. After that I ran the following:
->>>>>
->>>>>          VXLAN=vx$net
->>>>>          echo $VXLAN ${test_options[$i]}
->>>>>          ip link add $VXLAN type vxlan id $net \
->>>>>                  local fec0::10:1 remote $addr6 dev $PF0 \
->>>>>                  ${test_options[$i]} dstport `expr 8800 + $net`
->>>>>          ip netns exec $netns ip link add $VXLAN type vxlan id $net \
->>>>>                                    local $addr6 remote fec0::10:1
->>>>> dev $port \
->>>>>                                    ${test_options[$i]} dstport `expr
->>>>> 8800 + $net`
->>>>>          ifconfig $VXLAN 192.168.${net}.1/24
->>>>>          ip netns exec $netns ifconfig $VXLAN 192.168.${net}.2/24
->>>>>
->>>> Thanks, indeed i see that GSO is not working with vxlan over IPv6 over
->>>> mlx5 device.
->>>> We will test out those patches on both mlx4 and mlx5, and debug mlx4
->>>> IPv6 issue you see.
->>>>
->>>>>> Anyway, I suspect it might be related to a driver bug most likely in
->>>>>> get_real_size function @en_tx.c
->>>>>> specifically in : *lso_header_size =
->>>>>> (skb_inner_transport_header(skb) -
->>>>>> skb->data) + inner_tcp_hdrlen(skb);
->>>>>>
->>>>>> will check this and get back to you.
->>>>> I'm not entirely convinced.  What I was seeing is t hat the hardware
->>>>> itself was performing Rx checksum offload only on tunnels with an
->>>>> outer IPv4 header and ignoring tunnels with an outer IPv6 header.
->>>> I don't get it, are you trying to say that the issue is in the RX 
->>>> side ?
->>>> what do you mean by ignoring ? Dropping ? or just not validating
->>>> checksum ?
->>>> if so why would you disable GSO and IPv6 checksumming on TX ?
->>> I'm suspecting that whatever parsing logic exists in either the
->>> hardware or firmware may not be configured to parse tunnels with outer
->>> IPv6 headers.  The tell-tale sign is what occurs with an IPv6 based
->>> tunnel with no outer checksum.  The hardware is not performing a
->>> checksum on the inner headers so it reports it as a UDP frame with no
->>> checksum to the stack which ends up preventing us from doing GRO.
->>> That tells me that the hardware is not parsing IPv6 based tunnels on
->>> Rx.  I am assuming that if the Rx side doesn't work then there is a
->>> good chance that the Tx won't.
->>>
->>>>>>>    @@ -2431,7 +2435,18 @@ static netdev_features_t
->>>>>>> mlx4_en_features_check(struct sk_buff *skb,
->>>>>>> netdev_features_t
->>>>>>> features)
->>>>>>>    {
->>>>>>>          features = vlan_features_check(skb, features);
->>>>>>> -       return vxlan_features_check(skb, features);
->>>>>>> +       features = vxlan_features_check(skb, features);
->>>>>>> +
->>>>>>> +       /* The ConnectX-3 doesn't support outer IPv6 checksums but
->>>>>>> it does
->>>>>>> +        * support inner IPv6 checksums and segmentation so  we
->>>>>>> need to
->>>>>>> +        * strip that feature if this is an IPv6 encapsulated 
->>>>>>> frame.
->>>>>>> +        */
->>>>>>> +       if (skb->encapsulation &&
->>>>>>> +           (skb->ip_summed == CHECKSUM_PARTIAL) &&
->>>>>>> +           (ip_hdr(skb)->version != 4))
->>>>>>> +               features &= ~(NETIF_F_CSUM_MASK | 
->>>>>>> NETIF_F_GSO_MASK);
->>>>>> Dejavu, didn't you fix this already in harmonize_features, in
->>>>>> i.e, it is enough to do here:
->>>>>>
->>>>>> if (skb->encapsulation && (skb->ip_summed == CHECKSUM_PARTIAL))
->>>>>>              features &= ~NETIF_F_IPV6_CSUM;
->>>>>>
->>>>> So what this patch is doing is enabling an inner IPv6 header 
->>>>> offloads.
->>>>> Up above we set the NETIF_F_IPV6_CSUM bit and we want it to stay set
->>>>> unless we have an outer IPv6 header because the inner headers may
->>>>> still need that bit set.  If I did what you suggest it strips IPv6
->>>>> checksum support for inner headers and if we have to use GSO 
->>>>> partial I
->>>>> ended up encountering some of the other bugs that I have fixed for 
->>>>> GSO
->>>>> partial where either sg or csum are not defined.
->>>>>
->>>> I see, you mean that you want to disable checksumming and GSO only for
->>>> packets with Outer(IPv6):Inner(X) and keep it in case for
->>>> Outer(IPv4):Inner(IPv6)
->>>> but i think it is weird that the driver decides to disable features it
->>>> didn't declare in first place (NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK)
->>>>
->>>> Retry:
->>>>
->>>> if (skb->encapsulation && (skb->ip_summed == CHECKSUM_PARTIAL) &&
->>>>      (ip_hdr(skb)->version != 4))
->>>>              features &= ~NETIF_F_IPV6_CSUM;
->>>>
->>>> will this work ?
->>> Sort of.  All that would happen is that you would fall through to
->>> harmonize_features where NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK gets
->>> cleared.  I just figured I would short-cut things since we cannot
->>> support inner checksum or any GSO offloads if the tunnel has an outer
->>> IPv6 header.  In addition this happens to effectively be the same code
->>> I am using in vxlan_features_check to disable things if we cannot
->>> checksum a protocol so it should help to keep the code size smaller
->>> for the function if the compiler is smart enough to coalesce similar
->>> code.
->>>
->>>> Anyway i prefer to debug the mlx4 issue first before we discuss the
->>>> best approach to disable checksumming & GSO for outer IPv6 in mlx4.
->>> The current code as-is already has it disabled.  All I am doing is
->>> enabling IPv6 checksums for inner headers as it seems like it doesn't
->>> work for outer headers.
->>
->> Hi Alex,
->> I will be working on the mlx4 issue next week after the holidays.
->> I will check this offline in-house, without blocking the series.
->>
->> Regards,
->> Tariq
->>
->
-> If it helps below are the kind of results I am seeing with the patch 
-> series applied versus what is currently there.  The big problem areas 
-> are IPv6 over IPv4 tunnels, and IPv4 over IPv6 tunnels without checksums.
->
-> The breakdown below is bare-ip-version without tunnel, outer-inner 
-> with tunnel, or outer-csum-inner if a checksum is present on the outer 
-> UDP header.
->
-> After the series is applied you can see the v6 over v4 issues are 
-> addressed, and GSO partial has improved the performance for traffic 
-> over v4 tunnels with outer UDP checksums.
->
-> Throughput Throughput  Local Local   Result
->            Units       CPU   Service Tag
->                        Util  Demand
->                        %
-> mlx4 - Before
-> -------------------------------------------------
-> 26616.45   10^6bits/s  3.62  0.357   "v4"
-> 26101.18   10^6bits/s  6.72  0.675   "v6"
-> 22289.41   10^6bits/s  6.49  0.764   "v4-v4"
-> N/A - could not connect              "v4-v6"
-> 12743.91   10^6bits/s  4.25  0.874   "v4-csum-v4"
-> N/A - could not connect              "v4-csum-v6"
-> 0.69       10^6bits/s  0.66  2519.1  "v6-v4"
-> 5924.47    10^6bits/s  4.23  1.871   "v6-v6"
-> 10369.95   10^6bits/s  4.33  1.096   "v6-csum-v4"
-> 10648.51   10^6bits/s  4.10  1.010   "v6-csum-v6"
->
-> mlx4 - After
-> -------------------------------------------------
-> 26585.36   10^6bits/s  3.60  0.355   "v4"
-> 26342.86   10^6bits/s  6.67  0.664   "v6"
-> 22295.93   10^6bits/s  6.34  0.746   "v4-v4"
-> 19977.24   10^6bits/s  6.04  0.793   "v4-v6"
-> 22164.71   10^6bits/s  6.46  0.763   "v4-csum-v4"
-> 19685.22   10^6bits/s  6.12  0.815   "v4-csum-v6"
-> 6126.80    10^6bits/s  4.29  1.835   "v6-v4"
-> 5793.53    10^6bits/s  4.24  1.917   "v6-v6"
-> 10278.52   10^6bits/s  4.07  1.039   "v6-csum-v4"
-> 10526.68   10^6bits/s  4.11  1.024   "v6-csum-v6"
+For 64bit stats on 32bit arch, we really need to disable BH,
+since the "struct u64_stats_sync syncp" might be manipulated
+both from process and BH contexts.
 
-Yeah that can help in comparing our results and getting aligned to 
-address the issues.
-Thanks for sharing.
+Fixes: 6aef70a851ac ("net: snmp: kill various STATS_USER() helpers")
+Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/snmp.h |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Regards,
-Tariq
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index 6bdd255b2250..c9228ad7ee91 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -166,9 +166,9 @@ struct linux_xfrm_mib {
+ 
+ #define SNMP_ADD_STATS64(mib, field, addend) 				\
+ 	do {								\
+-		preempt_disable();					\
++		local_bh_disable();					\
+ 		__SNMP_ADD_STATS64(mib, field, addend);			\
+-		preempt_enable();					\
++		local_bh_enable();				\
+ 	} while (0)
+ 
+ #define __SNMP_INC_STATS64(mib, field) SNMP_ADD_STATS64(mib, field, 1)
+@@ -184,9 +184,9 @@ struct linux_xfrm_mib {
+ 	} while (0)
+ #define SNMP_UPD_PO_STATS64(mib, basefield, addend)			\
+ 	do {								\
+-		preempt_disable();					\
++		local_bh_disable();					\
+ 		__SNMP_UPD_PO_STATS64(mib, basefield, addend);		\
+-		preempt_enable();					\
++		local_bh_enable();				\
+ 	} while (0)
+ #else
+ #define __SNMP_INC_STATS64(mib, field)		__SNMP_INC_STATS(mib, field)
