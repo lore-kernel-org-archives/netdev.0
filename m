@@ -1,178 +1,78 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCHv2] netem: Segment GSO packets on enqueue.
-Date: Thu, 28 Apr 2016 16:09:08 -0400
-Message-ID: <1461874148-14937-1-git-send-email-nhorman@tuxdriver.com>
-References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netem@lists.linux-foundation.org, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 22:10:50 +0200
+Message-ID: <20160428201050.GC13547@lunn.ch>
+References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
+ <57222FCE.8050407@atmel.com>
+ <20160428155556.GA8333@nathan3500-linux-VM>
+ <20160428163207.GP29024@lunn.ch>
+ <20160428175619.GA8791@nathan3500-linux-VM>
+ <20160428184303.GR29024@lunn.ch>
+ <20160428185527.GA8851@nathan3500-linux-VM>
+ <20160428185932.GU29024@lunn.ch>
+ <57226C83.8040509@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nathan Sullivan <nathan.sullivan@ni.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44478 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751865AbcD1UJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:09:36 -0400
-In-Reply-To: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:52338 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752804AbcD1UK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 16:10:56 -0400
+Content-Disposition: inline
+In-Reply-To: <57226C83.8040509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was recently reported to me, and reproduced on the latest net kernel, when
-attempting to run netperf from a host that had a netem qdisc attached to the
-egress interface:
+On Thu, Apr 28, 2016 at 01:03:15PM -0700, Florian Fainelli wrote:
+> On 28/04/16 11:59, Andrew Lunn wrote:
+> > On Thu, Apr 28, 2016 at 01:55:27PM -0500, Nathan Sullivan wrote:
+> >> On Thu, Apr 28, 2016 at 08:43:03PM +0200, Andrew Lunn wrote:
+> >>>> I agree that is a valid fix for AT91, however it won't solve our problem, since
+> >>>> we have no children on the second ethernet MAC in our devices' device trees. I'm
+> >>>> starting to feel like our second MAC shouldn't even really register the MDIO bus
+> >>>> since it isn't being used - maybe adding a DT property to not have a bus is a
+> >>>> better option?
+> >>>
+> >>> status = "disabled"
+> >>>
+> >>> would be the unusual way.
+> >>>
+> >>>       Andrew
+> >>
+> >> Oh, sorry, I meant we use both MACs on Zynq, however the PHYs are on the MDIO
+> >> bus of the first MAC.  So, the second MAC is used for ethernet but not for MDIO,
+> >> and so it does not have any PHYs under its DT node.  It would be nice if there
+> >> were a way to tell macb not to bother with MDIO for the second MAC, since that's
+> >> handled by the first MAC.
+> > 
+> > Yes, exactly, add support for status = "disabled" in the mdio node.
+> 
+> Something like that, just so we do not have to sprinkle tests all other
+> the place:
+> 
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index b622b33dbf93..2f497790be1b 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -209,6 +209,10 @@ int of_mdiobus_register(struct mii_bus *mdio,
+> struct device_node *np)
+>         bool scanphys = false;
+>         int addr, rc;
+> 
+> +       /* Do not continue if the node is disabled */
+> +       if (!of_device_is_available(np))
+> +               return -EINVAL;
+> +
+>         /* Mask out all PHYs from auto probing.  Instead the PHYs listed in
+>          * the device tree are populated after the bus has been
+> registered */
+>         mdio->phy_mask = ~0;
 
-[  788.073771] ------------[ cut here ]------------
-[  788.096716] WARNING: at net/core/dev.c:2253 skb_warn_bad_offload+0xcd/0xda()
-[  788.129521] bnx2: caps=(0x00000001801949b3, 0x0000000000000000) len=2962
-data_len=0 gso_size=1448 gso_type=1 ip_summed=3
-[  788.182150] Modules linked in: sch_netem kvm_amd kvm crc32_pclmul ipmi_ssif
-ghash_clmulni_intel sp5100_tco amd64_edac_mod aesni_intel lrw gf128mul
-glue_helper ablk_helper edac_mce_amd cryptd pcspkr sg edac_core hpilo ipmi_si
-i2c_piix4 k10temp fam15h_power hpwdt ipmi_msghandler shpchp acpi_power_meter
-pcc_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c
-sd_mod crc_t10dif crct10dif_generic mgag200 syscopyarea sysfillrect sysimgblt
-i2c_algo_bit drm_kms_helper ahci ata_generic pata_acpi ttm libahci
-crct10dif_pclmul pata_atiixp tg3 libata crct10dif_common drm crc32c_intel ptp
-serio_raw bnx2 r8169 hpsa pps_core i2c_core mii dm_mirror dm_region_hash dm_log
-dm_mod
-[  788.465294] CPU: 16 PID: 0 Comm: swapper/16 Tainted: G        W
-------------   3.10.0-327.el7.x86_64 #1
-[  788.511521] Hardware name: HP ProLiant DL385p Gen8, BIOS A28 12/17/2012
-[  788.542260]  ffff880437c036b8 f7afc56532a53db9 ffff880437c03670
-ffffffff816351f1
-[  788.576332]  ffff880437c036a8 ffffffff8107b200 ffff880633e74200
-ffff880231674000
-[  788.611943]  0000000000000001 0000000000000003 0000000000000000
-ffff880437c03710
-[  788.647241] Call Trace:
-[  788.658817]  <IRQ>  [<ffffffff816351f1>] dump_stack+0x19/0x1b
-[  788.686193]  [<ffffffff8107b200>] warn_slowpath_common+0x70/0xb0
-[  788.713803]  [<ffffffff8107b29c>] warn_slowpath_fmt+0x5c/0x80
-[  788.741314]  [<ffffffff812f92f3>] ? ___ratelimit+0x93/0x100
-[  788.767018]  [<ffffffff81637f49>] skb_warn_bad_offload+0xcd/0xda
-[  788.796117]  [<ffffffff8152950c>] skb_checksum_help+0x17c/0x190
-[  788.823392]  [<ffffffffa01463a1>] netem_enqueue+0x741/0x7c0 [sch_netem]
-[  788.854487]  [<ffffffff8152cb58>] dev_queue_xmit+0x2a8/0x570
-[  788.880870]  [<ffffffff8156ae1d>] ip_finish_output+0x53d/0x7d0
-...
+Yes, that looks good.
 
-The problem occurs because netem is not prepared to handle GSO packets (as it
-uses skb_checksum_help in its enqueue path, which cannot manipulate these
-frames).
-
-The solution I think is to simply segment the skb in a simmilar fashion to the
-way we do in __dev_queue_xmit (via validate_xmit_skb), except here we always
-segment, instead of only when the interface needs us to do it.  This allows
-netem to properly drop/mangle/pass/etc the correct percentages of frames as per
-its qdisc configuration, and avoid failing its checksum operations
-
-tested successfully by myself on the latest net kernel, to whcih this applies
-
----
-Change Notes:
-V2) As per request from Eric Dumazet, I rewrote this to limit the need to
-segment the skb. Instead of doing so unilaterally, we no only do so now when the
-netem qdisc requires determines that a packet must be corrupted, thus avoiding
-the failure in skb_checksum_help.  This still leaves open concerns with
-statistical measurements made on GSO packets being dropped or reordered (i.e.
-they are counted as a single packet rather than multiple packets), but I'd
-rather fix the immediate problem before we go rewriting everything to fix that
-larger issue.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Jamal Hadi Salim <jhs@mojatatu.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: netem@lists.linux-foundation.org
-CC: eric.dumazet@gmail.com
----
- net/sched/sch_netem.c | 51 ++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 48 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 9640bb3..7cde5d3 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -395,6 +395,25 @@ static void tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
- 	sch->q.qlen++;
- }
- 
-+/* netem can't properly corrupt a megapacket (like we get from GSO), so instead
-+ * when we statistically choose to corrupt one, we instead segment it, returning
-+ * the first packet to be corrupted, and re-enqueue the remaining frames
-+ */
-+static struct sk_buff* netem_segment(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct sk_buff *segs;
-+	netdev_features_t features = netif_skb_features(skb);
-+
-+	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
-+
-+	if (IS_ERR_OR_NULL(segs)) {
-+		qdisc_reshape_fail(skb, sch);
-+		return NULL;
-+	}
-+	consume_skb(skb);
-+	return segs;
-+}
-+
- /*
-  * Insert one skb into qdisc.
-  * Note: parent depends on return value to account for queue length.
-@@ -407,7 +426,9 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	/* We don't fill cb now as skb_unshare() may invalidate it */
- 	struct netem_skb_cb *cb;
- 	struct sk_buff *skb2;
-+	struct sk_buff *segs = NULL;
- 	int count = 1;
-+	int rc = NET_XMIT_SUCCESS;
- 
- 	/* Random duplication */
- 	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor))
-@@ -453,10 +474,22 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	 * do it now in software before we mangle it.
- 	 */
- 	if (q->corrupt && q->corrupt >= get_crandom(&q->corrupt_cor)) {
-+		if (skb_is_gso(skb)) {
-+			segs = netem_segment(skb, sch);
-+			if (!segs)
-+				return NET_XMIT_DROP;
-+		} else
-+			segs = skb;
-+
-+		skb = segs;
-+		segs = segs->next;
-+
- 		if (!(skb = skb_unshare(skb, GFP_ATOMIC)) ||
- 		    (skb->ip_summed == CHECKSUM_PARTIAL &&
--		     skb_checksum_help(skb)))
--			return qdisc_drop(skb, sch);
-+		     skb_checksum_help(skb))) {
-+			rc = qdisc_drop(skb, sch);
-+			goto finish_segs;
-+		}
- 
- 		skb->data[prandom_u32() % skb_headlen(skb)] ^=
- 			1<<(prandom_u32() % 8);
-@@ -516,7 +549,19 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		sch->qstats.requeues++;
- 	}
- 
--	return NET_XMIT_SUCCESS;
-+finish_segs:
-+	while (segs) {
-+		skb2 = segs->next;
-+		segs->next = NULL;
-+		qdisc_skb_cb(segs)->pkt_len = segs->len;
-+		rc = qdisc_enqueue(segs, sch);
-+		if (rc != NET_XMIT_SUCCESS) {
-+			if (net_xmit_drop_count(rc))
-+				qdisc_qstats_drop(sch);
-+		}
-+		segs = skb2;
-+	}
-+	return rc;
- }
- 
- static unsigned int netem_drop(struct Qdisc *sch)
--- 
-2.5.5
+     Andrew
