@@ -1,55 +1,69 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: [PATCH] net: macb: do not scan PHYs manually
-Date: Thu, 28 Apr 2016 09:19:47 -0500
-Message-ID: <1461853187-31715-1-git-send-email-nathan.sullivan@ni.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nathan Sullivan <nathan.sullivan@ni.com>
-To: nicolas.ferre@atmel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod3.natinst.com ([130.164.80.24]:37415 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752270AbcD1OUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 10:20:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH net v3 0/5] drivers: net: cpsw: phy-handle fixes
+Date: Thu, 28 Apr 2016 07:28:32 -0700
+Message-ID: <20160428142832.GD5995@atomide.com>
+References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
+	devicetree@vger.kernel.org,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Nicolas Chauvet <kwizart@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
+	David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since of_mdiobus_register and mdiobus_register will scan automatically,
-do not manually scan for PHY devices in the macb ethernet driver. Doing
-so will result in many nonexistent PHYs on the MDIO bus if the MDIO
-lines are floating or grounded, such as when they are not used.
+* David Rivshin (Allworx) <drivshin.allworx@gmail.com> [160427 18:13]:
+> From: David Rivshin <drivshin@allworx.com>
+> 
+> This series fixes a number of related issues around using phy-handle
+> properties in cpsw emac nodes.
+> 
+> Patch 1 fixes a bug if more than one slave is used, and either
+> slave uses the phy-handle property in the devicetree.
+> 
+> Patch 2 fixes a NULL pointer dereference which can occur if a
+> phy-handle property is used and of_phy_connect() return NULL,
+> such as with a bad devicetree.
+> 
+> Patch 3 fixes an issue where the phy-mode property would be ignored
+> if a phy-handle property was used. This also fixes a bogus error
+> message that would be emitted.
+> 
+> Patch 4 fixes makes the binding documentation more explicit that
+> exactly one PHY property should be used, and also marks phy_id as
+> deprecated.
+> 
+> Patch 5 cleans up the fixed-link case to work like the now-fixed
+> phy-handle case.
+> 
+> I have tested on the following hardware configurations:
+>  - (EVMSK) dual emac, phy_id property in both slaves
+>  - (EVMSK) dual emac, phy-handle property in both slaves
+>  - (EVMSK) a bad phy-handle property pointing to &mmc1
+>  - (EVMSK) phy_id property with incorrect PHY address
+>  - (BeagleBoneBlack) single emac, phy_id property
+>  - (custom) single emac, fixed-link subnode
+> 
+> Andrew Goodbody reported testing v2 on a board that doesn't use
+> dual_emac mode, but with 2 PHYs using phy-handle properties [1].
+> 
+> Nicolas Chauvet reported testing v2 on an HP t410 (dm8148).
+> 
+> Markus Brunner reported testing v1 on the following [2]:
+>  - emac0 with phy_id and emac1 with fixed phy
+>  - emac0 with phy-handle and emac1 with fixed phy
+>  - emac0 with fixed phy and emac1 with fixed phy
 
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
----
- drivers/net/ethernet/cadence/macb.c |   17 -----------------
- 1 file changed, 17 deletions(-)
+Quickly boot tested these against next on dra62x-j5eco EVM:
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 48a7d7d..e80e487 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -450,23 +450,6 @@ static int macb_mii_init(struct macb *bp)
- 	if (np) {
- 		/* try dt phy registration */
- 		err = of_mdiobus_register(bp->mii_bus, np);
--
--		/* fallback to standard phy registration if no phy were
--		   found during dt phy registration */
--		if (!err && !phy_find_first(bp->mii_bus)) {
--			for (i = 0; i < PHY_MAX_ADDR; i++) {
--				struct phy_device *phydev;
--
--				phydev = mdiobus_scan(bp->mii_bus, i);
--				if (IS_ERR(phydev)) {
--					err = PTR_ERR(phydev);
--					break;
--				}
--			}
--
--			if (err)
--				goto err_out_unregister_bus;
--		}
- 	} else {
- 		if (pdata)
- 			bp->mii_bus->phy_mask = pdata->phy_mask;
--- 
-1.7.10.4
+Tested-by: Tony Lindgren <tony@atomide.com>
