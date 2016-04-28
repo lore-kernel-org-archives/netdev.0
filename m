@@ -1,112 +1,97 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [net-next PATCH V4 3/5] samples/bpf: add a README file to get
- users started
-Date: Thu, 28 Apr 2016 19:07:45 +0530
-Message-ID: <20160428133740.GC7880@naverao1-tp.in.ibm.com>
-References: <20160428121949.16807.84828.stgit@firesoul>
- <20160428122103.16807.41837.stgit@firesoul>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 3.2 085/115] veth: =?UTF-8?B?ZG9u4oCZdCBtb2RpZnkgaXBf?=
+ =?UTF-8?B?c3VtbWVkOyBkb2luZyBzbyB0cmVhdHMgcGFja2V0cyB3aXRoIGJhZCBjaGVja3M=?=
+ =?UTF-8?B?dW1zIGFzIGdvb2Qu?=
+Date: Thu, 28 Apr 2016 06:45:50 -0700
+Message-ID: <5722140E.80702@candelatech.com>
+References: <lsq.1461711744.699003961@decadent.org.uk> <5720E1F0.9010203@candelatech.com> <1461780469.5102.0.camel@decadent.org.uk> <1461801603.3971874.591751457.2DB91B98@webmail.messagingengine.com> <572155F4.10405@candelatech.com> <20160428102953.GA7656@bistromath.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	bblanco@plumgrid.com, borkmann@iogearbox.net,
-	alexei.starovoitov@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160428122103.16807.41837.stgit@firesoul>
-Sender: linux-kbuild-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	Vijay Pandurangan <vijayp@vijayp.ca>,
+	Cong Wang <cwang@twopensource.com>, netdev@vger.kernel.org,
+	Evan Jones <ej@evanjones.ca>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	xiyou.wangcong@gmail.com
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20160428102953.GA7656@bistromath.localdomain>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/04/28 02:21PM, Jesper Dangaard Brouer wrote:
-> Getting started with using examples in samples/bpf/ is not
-> straightforward.  There are several dependencies, and specific
-> versions of these dependencies.
-> 
-> Just compiling the example tool is also slightly obscure, e.g. one
-> need to call make like:
-> 
->  make samples/bpf/
-> 
-> Do notice the "/" slash after the directory name.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Acked-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 
-> ---
->  samples/bpf/README.rst |   64 ++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 64 insertions(+)
->  create mode 100644 samples/bpf/README.rst
-> 
-> diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
-> new file mode 100644
-> index 000000000000..993d280184fa
-> --- /dev/null
-> +++ b/samples/bpf/README.rst
-> @@ -0,0 +1,64 @@
-> +eBPF sample programs
-> +====================
-> +
-> +This directory contains a mini eBPF library, test stubs, verifier
-> +test-suite and examples for using eBPF.
-> +
-> +Build dependencies
-> +==================
-> +
-> +Compiling requires having installed:
-> + * clang >= version 3.4.0
-> + * llvm >= version 3.7.1
-> +
-> +Note that LLVM's tool 'llc' must support target 'bpf', list version
-> +and supported targets with command: ``llc --version``
-> +
-> +Kernel headers
-> +--------------
-> +
-> +There are usually dependencies to header files of the current kernel.
-> +To avoid installing devel kernel headers system wide, as a normal
-> +user, simply call::
-> +
-> + make headers_install
-> +
-> +This will creates a local "usr/include" directory in the git/build top
-> +level directory, that the make system automatically pickup first.
-> +
-> +Compiling
-> +=========
-> +
-> +For building the BPF samples, issue the below command from the kernel
-> +top level directory::
-> +
-> + make samples/bpf/
-> +
-> +Do notice the "/" slash after the directory name.
-> +
-> +Manually compiling LLVM with 'bpf' support
-> +------------------------------------------
-> +
-> +Since version 3.7.0, LLVM adds a proper LLVM backend target for the
-> +BPF bytecode architecture.
-> +
-> +By default llvm will build all non-experimental backends including bpf.
-> +To generate a smaller llc binary one can use::
-> +
-> + -DLLVM_TARGETS_TO_BUILD="BPF"
-> +
-> +Quick sniplet for manually compiling LLVM and clang
-> +(build dependencies are cmake and gcc-c++)::
-> +
-> + $ git clone http://llvm.org/git/llvm.git
-> + $ cd llvm/tools
-> + $ git clone --depth 1 http://llvm.org/git/clang.git
-> + $ cd ..; mkdir build; cd build
-> + $ cmake .. -DLLVM_TARGETS_TO_BUILD="BPF;X86"
-> + $ make -j $(getconf _NPROCESSORS_ONLN)
-> +
-> +It is also possible to point make to the newly compiled 'llc' command
-> +via redefining LLC on the make command line::
-> +
-> + make samples/bpf/ LLC=~/git/llvm/build/bin/llc
-> +
-> 
+On 04/28/2016 03:29 AM, Sabrina Dubroca wrote:
+> Hello,
+>
+> 2016-04-27, 17:14:44 -0700, Ben Greear wrote:
+>> On 04/27/2016 05:00 PM, Hannes Frederic Sowa wrote:
+>>> Hi Ben,
+>>>
+>>> On Wed, Apr 27, 2016, at 20:07, Ben Hutchings wrote:
+>>>> On Wed, 2016-04-27 at 08:59 -0700, Ben Greear wrote:
+>>>>> On 04/26/2016 04:02 PM, Ben Hutchings wrote:
+>>>>>>
+>>>>>> 3.2.80-rc1 review patch.  If anyone has any objections, please let me know.
+>>>>> I would be careful about this.  It causes regressions when sending
+>>>>> PACKET_SOCKET buffers from user-space to veth devices.
+>>>>>
+>>>>> There was a proposed upstream fix for the regression, but it has not gone
+>>>>> into the tree as far as I know.
+>>>>>
+>>>>> http://www.spinics.net/lists/netdev/msg370436.html
+>>>> [...]
+>>>>
+>>>> OK, I'll drop this for now.
+>>>
+>>> The fall out from not having this patch is in my opinion a bigger
+>>> fallout than not having this patch. This patch fixes silent data
+>>> corruption vs. the problem Ben Greear is talking about, which might not
+>>> be that a common usage.
+>>>
+>>> What do others think?
+>>>
+>>> Bye,
+>>> Hannes
+>>>
+>>
+>> This patch from Cong Wang seems to fix the regression for me, I think it should be added and
+>> tested in the main tree, and then apply them to stable as a pair.
+>>
+>> http://dmz2.candelatech.com/?p=linux-4.4.dev.y/.git;a=commitdiff;h=8153e983c0e5eba1aafe1fc296248ed2a553f1ac;hp=454b07405d694dad52e7f41af5816eed0190da8a
+>
+> Actually, no, this is not really a regression.
+>
+> If you capture packets on a device with checksum offloading enabled,
+> the TCP/UDP checksum isn't filled.  veth also behaves that way.  What
+> the "veth: don't modify ip_summed" patch does is enable proper
+> checksum validation on veth.  This really was a bug in veth.
+>
+> Cong's patch would also break cases where we choose to inject packets
+> with invalid checksums, and they would now be accepted as correct.
+>
+> Your use case is invalid, it just happened to work because of a
+> bug.  If you want the stack to fill checksums so that you want capture
+> and reinject packets, you have to disable checksum offloading (or
+> compute the checksum yourself in userspace).
 
+Disabling checksum offloading or computing in user-space (and then
+recomputing in veth to verify the checksum?) is a huge performance loss.
+
+Maybe we could add a socket option to enable Cong's patch on a per-socket
+basis?  That way my use-case can still work and you can have this new
+behaviour by default?
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
