@@ -1,64 +1,47 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Thu, 28 Apr 2016 12:56:19 -0500
-Message-ID: <20160428175619.GA8791@nathan3500-linux-VM>
-References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
- <57222FCE.8050407@atmel.com>
- <20160428155556.GA8333@nathan3500-linux-VM>
- <20160428163207.GP29024@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/6] net: make TCP preemptible
+Date: Thu, 28 Apr 2016 11:04:12 -0700
+Message-ID: <1461866652.5535.115.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461821152-23200-1-git-send-email-edumazet@google.com>
+	 <20160428172320.GA83199@ast-mbp.thefacebook.com>
+	 <1461865270.5535.109.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160428175154.GA83737@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160428163207.GP29024@lunn.ch>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33131 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837AbcD1SEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 14:04:15 -0400
+Received: by mail-pa0-f54.google.com with SMTP id zm5so38786558pac.0
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 11:04:14 -0700 (PDT)
+In-Reply-To: <20160428175154.GA83737@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2016 at 06:32:07PM +0200, Andrew Lunn wrote:
-> > Hmm, are AT91 platforms special in this regard? As far as I can tell, this
-> > driver (macb) and Marvell PXA are the only ethernet drivers that call
-> > mdiobus_scan directly, and PXA does it on a known address. I do see that there
-> > are trees that use macb and don't have a phy listed, which is unfortunate.
-> 
-> How it is supposed to work is that you do one of two things:
-> 
-> 1) Your device tree does not have an mdio node. In this case, you call
-> mdiobus_register() and it will perform a scan of the bus, and find the
-> phys.
-> 
-> 2) Your device tree does have an MDIO node, and you list your PHYs.
-> 
-> Having an MDIO node and not listing the PHYs is broken...
-> 
-> There are however, a few broken device trees around, and a few drivers
-> have workarounds. e.g. davinci_mdio.c
-> 
->        /* register the mii bus
->          * Create PHYs from DT only in case if PHY child nodes are explicitly
->          * defined to support backward compatibility with DTs which assume that
->          * Davinci MDIO will always scan the bus for PHYs detection.
->          */
->         if (dev->of_node && of_get_child_count(dev->of_node)) {
->                 data->skip_scan = true;
->                 ret = of_mdiobus_register(data->bus, dev->of_node);
->         } else {
->                 ret = mdiobus_register(data->bus);
->         }
-> 
-> You probably need to do the same for AT91, count the number of
-> children, and it if it zero, fall back to the non-DT way. It would
-> also be good to print a warning to get people to fix their device
-> tree.
-> 
->     Andrew
+On Thu, 2016-04-28 at 10:51 -0700, Alexei Starovoitov wrote:
 
-I agree that is a valid fix for AT91, however it won't solve our problem, since
-we have no children on the second ethernet MAC in our devices' device trees. I'm
-starting to feel like our second MAC shouldn't even really register the MDIO bus
-since it isn't being used - maybe adding a DT property to not have a bus is a
-better option?
+> got it. It applies to both v4 and v6, right?
+
+You mean IPv6 ?
+
+Well, you know, I decided to skip IPv6 and go to IPv8 anyway ;) 
+
+Yes, these changes apply for both IPv4 and IPv6 in the meantime.
+
+
+> that would be awesome. I think map/reduce type jobs typically
+> do large sendmsg, so it should help p99 latency.
+
+Note that it should even help to send faster, since the ACK packets or
+TCP Small Queue handlers are blocked until the sendmsg() was complete.
+
+ACK packets usually open the window for more sends.
+
+Many applications are using a loop and multiple sendmsg( ) with ~64KB
+chunks to work around these latency issues.
