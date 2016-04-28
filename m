@@ -1,59 +1,204 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 2/4] net: hns: change port-id property to reg property in dsaf port node
-Date: Thu, 28 Apr 2016 15:09:02 +0800
-Message-ID: <1461827344-52230-3-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1461827344-52230-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 04/10] net: hns: add attribute reset-field-offset for
+ dsaf node
+Date: Thu, 28 Apr 2016 15:01:36 +0800
+Message-ID: <1461826902-51368-5-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1461826902-51368-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<davem@davemloft.net>, <will.deacon@arm.com>,
-	<catalin.marinas@arm.com>, <yankejian@huawei.com>,
-	<huangdaode@hisilicon.com>, <salil.mehta@huawei.com>,
-	<lipeng321@huawei.com>, <liguozhu@huawei.com>,
-	<xieqianqian@huawei.com>, <xuwei5@hisilicon.com>,
-	<linuxarm@huawei.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mark.rutland@arm.com, salil.mehta@huawei.com, yankejian@huawei.com,
+ xieqianqian@huawei.com, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk,
+ catalin.marinas@arm.com, lipeng321@huawei.com, will.deacon@arm.com,
+ linuxarm@huawei.com, xuwei5@hisilicon.com, robh+dt@kernel.org,
+ huangdaode@hisilicon.com, galak@codeaurora.org, liguozhu@huawei.com,
+ davem@davemloft.net
 To: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:5399 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684AbcD1Gwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 02:52:30 -0400
-In-Reply-To: <1461827344-52230-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1461826902-51368-1-git-send-email-Yisen.Zhuang@huawei.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Indexes should generally be avoided. So we use reg rather than port-id to
-index ports.
+Add the subctrl reset offset for dsaf, this property is used to reset
+xge/ge ports for different dsaf. If this attribute is not present,
+default value 0 will be use.
 
-Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: Yuzeng Zhuang <yisen.zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ .../devicetree/bindings/net/hisilicon-hns-dsaf.txt |  2 ++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  8 +++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 40 +++++++++++++++-------
+ 4 files changed, 39 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 210ba89..611581f 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -834,15 +834,15 @@ int hns_mac_init(struct dsaf_device *dsaf_dev)
- 	struct fwnode_handle *child;
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+index ecacfa4..291b3d8 100644
+--- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
++++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
+@@ -17,6 +17,8 @@ Required properties:
+   The fourth region is dsa fabric base register and size.
+   The fifth region is cpld base register and size, it is not required if do not use cpld.
+ - phy-handle: phy handle of physicl port, 0 if not any phy device. see ethernet.txt [1].
++- reset-field-offset: is offset of reset field. Its value depends on the hardware
++  user manual.
+ - buf-size: rx buffer size, should be 16-1024.
+ - desc-num: number of description in TX and RX queue, should be 512, 1024, 2048 or 4096.
  
- 	device_for_each_child_node(dsaf_dev->dev, child) {
--		ret = fwnode_property_read_u32(child, "port-id", &port_id);
-+		ret = fwnode_property_read_u32(child, "reg", &port_id);
- 		if (ret) {
- 			dev_err(dsaf_dev->dev,
--				"get port-id fail, ret=%d!\n", ret);
-+				"get reg fail, ret=%d!\n", ret);
- 			return ret;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 7692853..b418d42 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -36,6 +36,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	int ret, i;
+ 	u32 desc_num;
+ 	u32 buf_size;
++	u32 reset_offset = 0;
+ 	const char *mode_str;
+ 	struct device_node *np = dsaf_dev->dev->of_node;
+ 
+@@ -119,6 +120,13 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	}
+ 	dsaf_dev->desc_num = desc_num;
+ 
++	ret = of_property_read_u32(np, "reset-field-offset", &reset_offset);
++	if (ret < 0) {
++		dev_dbg(dsaf_dev->dev,
++			"get reset-field-offset fail, ret=%d!\r\n", ret);
++	}
++	dsaf_dev->reset_offset = reset_offset;
++
+ 	ret = of_property_read_u32(np, "buf-size", &buf_size);
+ 	if (ret < 0) {
+ 		dev_err(dsaf_dev->dev,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index a783019..47e768b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -281,6 +281,7 @@ struct dsaf_device {
+ 
+ 	u32 desc_num; /*  desc num per queue*/
+ 	u32 buf_size; /*  ring buffer size */
++	u32 reset_offset; /* reset field offset in sub sysctrl */
+ 	int buf_size_type; /* ring buffer size-type */
+ 	enum dsaf_mode dsaf_mode;	 /* dsaf mode  */
+ 	enum hal_dsaf_mode dsaf_en;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index 8cb13d9..91e0382 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -110,7 +110,11 @@ void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
+ 		return;
+ 
+ 	reg_val |= RESET_REQ_OR_DREQ;
+-	reg_val |= 0x2082082 << port;
++
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
++		reg_val |= 0x2082082 << port;
++	else
++		reg_val |= 0x2082082 << (dsaf_dev->reset_offset + 6);
+ 
+ 	if (val == 0)
+ 		reg_addr = DSAF_SUB_SC_XGE_RESET_REQ_REG;
+@@ -129,7 +133,11 @@ void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
+ 	if (port >= DSAF_XGE_NUM)
+ 		return;
+ 
+-	reg_val |= XGMAC_TRX_CORE_SRST_M << port;
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
++		reg_val |= XGMAC_TRX_CORE_SRST_M << port;
++	else
++		reg_val |= XGMAC_TRX_CORE_SRST_M <<
++			(dsaf_dev->reset_offset + 6);
+ 
+ 	if (val == 0)
+ 		reg_addr = DSAF_SUB_SC_XGE_RESET_REQ_REG;
+@@ -173,8 +181,8 @@ void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
+ 				       reg_val_1);
  		}
- 		if (port_id >= max_port_num) {
- 			dev_err(dsaf_dev->dev,
--				"port-id(%u) out of range!\n", port_id);
-+				"reg(%u) out of range!\n", port_id);
- 			return -EINVAL;
- 		}
- 		mac_cb = devm_kzalloc(dsaf_dev->dev, sizeof(*mac_cb),
+ 	} else {
+-		reg_val_1 = 0x15540 << (port - 6);
+-		reg_val_2 = 0x100 << (port - 6);
++		reg_val_1 = 0x15540 << dsaf_dev->reset_offset;
++		reg_val_2 = 0x100 << dsaf_dev->reset_offset;
+ 
+ 		if (val == 0) {
+ 			dsaf_write_reg(dsaf_dev->sc_base,
+@@ -201,7 +209,11 @@ void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
+ 	u32 reg_val = 0;
+ 	u32 reg_addr;
+ 
+-	reg_val |= RESET_REQ_OR_DREQ << port;
++	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
++		reg_val |= RESET_REQ_OR_DREQ << port;
++	else
++		reg_val |= RESET_REQ_OR_DREQ <<
++			(dsaf_dev->reset_offset + 6);
+ 
+ 	if (val == 0)
+ 		reg_addr = DSAF_SUB_SC_PPE_RESET_REQ_REG;
+@@ -213,7 +225,6 @@ void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
+ 
+ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
+ {
+-	int comm_index = ppe_common->comm_index;
+ 	struct dsaf_device *dsaf_dev = ppe_common->dsaf_dev;
+ 	u32 reg_val;
+ 	u32 reg_addr;
+@@ -226,7 +237,7 @@ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
+ 			reg_addr = DSAF_SUB_SC_RCB_PPE_COM_RESET_DREQ_REG;
+ 
+ 	} else {
+-		reg_val = 0x100 << (comm_index - 1);
++		reg_val = 0x100 << dsaf_dev->reset_offset;
+ 
+ 		if (val == 0)
+ 			reg_addr = DSAF_SUB_SC_PPE_RESET_REQ_REG;
+@@ -247,14 +258,16 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
+ 	u32 mode;
+ 	u32 reg;
+ 	u32 shift;
++	u32 phy_offset;
+ 	bool is_ver1 = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver);
+ 	void __iomem *sys_ctl_vaddr = mac_cb->sys_ctl_vaddr;
+ 	int mac_id = mac_cb->mac_id;
+ 	phy_interface_t phy_if = PHY_INTERFACE_MODE_NA;
+ 
+-	if (is_ver1 && (mac_id >= 6 && mac_id <= 7)) {
++	if (is_ver1 && HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
+ 		phy_if = PHY_INTERFACE_MODE_SGMII;
+-	} else if (mac_id >= 0 && mac_id <= 3) {
++	} else if (mac_id >= 0 && mac_id <= 3 &&
++		   !HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
+ 		reg = is_ver1 ? HNS_MAC_HILINK4_REG : HNS_MAC_HILINK4V2_REG;
+ 		mode = dsaf_read_reg(sys_ctl_vaddr, reg);
+ 		/* mac_id 0, 1, 2, 3 ---> hilink4 lane 0, 1, 2, 3 */
+@@ -263,11 +276,14 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
+ 			phy_if = PHY_INTERFACE_MODE_XGMII;
+ 		else
+ 			phy_if = PHY_INTERFACE_MODE_SGMII;
+-	} else if (mac_id >= 4 && mac_id <= 7) {
++	} else {
+ 		reg = is_ver1 ? HNS_MAC_HILINK3_REG : HNS_MAC_HILINK3V2_REG;
+ 		mode = dsaf_read_reg(sys_ctl_vaddr, reg);
+-		/* mac_id 4, 5, 6, 7 ---> hilink3 lane 2, 3, 0, 1 */
+-		shift = is_ver1 ? 0 : mac_id <= 5 ? mac_id - 2 : mac_id - 6;
++		/* mac_id 4, 5,---> hilink3 lane 2, 3
++		 * debug port 0(6), 1(7) ---> hilink3 lane 0, 1
++		 */
++		phy_offset = mac_cb->dsaf_dev->reset_offset - 1;
++		shift = is_ver1 ? 0 : mac_id >= 4 ? mac_id - 2 : phy_offset;
+ 		if (dsaf_get_bit(mode, shift))
+ 			phy_if = PHY_INTERFACE_MODE_XGMII;
+ 		else
 -- 
 1.9.1
