@@ -1,64 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: davinci_mdio: Set of_node in the mdio bus
-Date: Thu, 28 Apr 2016 17:48:23 -0400 (EDT)
-Message-ID: <20160428.174823.1730461951458323563.davem@davemloft.net>
-References: <1461595571-11438-1-git-send-email-Linux.HWI@garmin.com>
-	<20160428.154410.1087934312951322476.davem@davemloft.net>
-	<57228318.90600@garmin.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Grygorii.Strashko@linaro.org, jay.schroeder@garmin.com,
-	ben.mccauley@garmin.com
-To: Linux.HWI@garmin.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42772 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358AbcD1VsZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:48:25 -0400
-In-Reply-To: <57228318.90600@garmin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next] of: of_mdio: Check if MDIO bus controller is available
+Date: Thu, 28 Apr 2016 14:55:10 -0700
+Message-ID: <1461880510-27132-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, nathan.sullivan-acOepvfBmUk@public.gmane.org,
+	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:OPEN FIRMWARE AND FLATTENED
+	DEVICE TREE), linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "J.D. Schroeder" <Linux.HWI@garmin.com>
-Date: Thu, 28 Apr 2016 16:39:36 -0500
+Add a check whether the 'struct device_node' pointer passed to
+of_mdiobus_register() is an available (aka enabled) node in the Device
+Tree.
 
-> On 04/28/2016 02:44 PM, David Miller wrote:
->>> --- a/drivers/net/ethernet/ti/davinci_mdio.c
->>> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
->>> @@ -343,6 +343,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
->>>  		if (davinci_mdio_probe_dt(&data->pdata, pdev))
->>>  			data->pdata = default_pdata;
->>>  		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
->>> +		data->bus->dev.of_node = dev->of_node;
->>>  	} else {
->>>  		data->pdata = pdata ? (*pdata) : default_pdata;
->>>  		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s-%x",
->> 
->> You can't do this.
->> 
->> First of all, of_node objects are reference counted.  So even if this was a
->> legal thing to do you would have to drop the reference to the existing of_node
->> pointer and gain a reference to dev->of_node.
->> 
->> But even more importantly, it is the job of the bus driver to set that
->> bus->dev.of_node correctly, you should never override it in a driver like
->> this.
-> 
-> David, thanks for your review. I understand your point about the reference count.
-> 
-> One thing to note is that it is always null for the davinci mdio bus when
-> going through this path. I'm not trying to override it. I'm trying to make
-> sure it has a way to find the davinci mdio bus. Do you see the problem I'm
-> trying to solve?
-> 
-> Is there another way to be able to make the of_mdio_find_bus() call be able to
-> find the davinci mdio bus?
+Rationale for doing this are cases where an Ethernet MAC provides a MDIO
+bus controller and node, and an additional Ethernet MAC might be
+connecting its PHY/switches to that first MDIO bus controller, while
+still embedding one internally which is therefore marked as "disabled".
 
-You should reference the device which actually has an OF node attached with it,
-rather than pretending that the MDIO bus does.
+Instead of sprinkling checks like these in callers of
+of_mdiobus_register(), do this in a central location.
 
-Don't fake this stuff, reference the proper device to get the OF node.
+Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/of/of_mdio.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Thanks.
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index b622b33dbf93..2f497790be1b 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -209,6 +209,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 	bool scanphys = false;
+ 	int addr, rc;
+ 
++	/* Do not continue if the node is disabled */
++	if (!of_device_is_available(np))
++		return -EINVAL;
++
+ 	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
+ 	 * the device tree are populated after the bus has been registered */
+ 	mdio->phy_mask = ~0;
+-- 
+2.1.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
