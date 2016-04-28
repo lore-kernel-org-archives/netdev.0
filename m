@@ -1,60 +1,49 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2] of: of_mdio: Check if MDIO bus controller is available
-Date: Thu, 28 Apr 2016 16:24:12 -0700
-Message-ID: <1461885853-28846-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, nathan.sullivan-acOepvfBmUk@public.gmane.org,
-	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:OPEN FIRMWARE AND FLATTENED
-	DEVICE TREE), linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next] ravb: Remove rx buffer ALIGN
+Date: Fri, 29 Apr 2016 09:34:57 +1000
+Message-ID: <20160428233456.GC18128@verge.net.au>
+References: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
+ <571FBE21.4050908@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <571FBE21.4050908@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a check whether the 'struct device_node' pointer passed to
-of_mdiobus_register() is an available (aka enabled) node in the Device
-Tree.
+Hi Sergei, Hi Kaneko-san,
 
-Rationale for doing this are cases where an Ethernet MAC provides a MDIO
-bus controller and node, and an additional Ethernet MAC might be
-connecting its PHY/switches to that first MDIO bus controller, while
-still embedding one internally which is therefore marked as "disabled".
+On Tue, Apr 26, 2016 at 10:14:41PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 04/24/2016 07:16 PM, Yoshihiro Kaneko wrote:
+> 
+> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >
+> >Aligning the reception data size is not required.
+> 
+>    OK, the gen 2/3 manuals indeed don't require this. I assume the patch has
+> been tested...
 
-Instead of sprinkling checks like these in callers of
-of_mdiobus_register(), do this in a central location.
+This morning I tested this patch applied on net-next using the
+r8a7795/salvator-x  (Gen-3). My test was to boot to a user-space prompt
+using NFS root which was successful. I can run further tests on this setup
+if it would be useful.
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-Changes in v2:
-- utilize -ENODEV instead of -EINVAL
-- added Andrew's reviewed-by tag
+Unfortunately I do not have access to hardware to allow me to test this
+on Gen-2.
 
- drivers/of/of_mdio.c | 4 ++++
- 1 file changed, 4 insertions(+)
+> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index b622b33dbf93..e051e1b57609 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -209,6 +209,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 	bool scanphys = false;
- 	int addr, rc;
- 
-+	/* Do not continue if the node is disabled */
-+	if (!of_device_is_available(np))
-+		return -ENODEV;
-+
- 	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
- 	 * the device tree are populated after the bus has been registered */
- 	mdio->phy_mask = ~0;
--- 
-2.1.0
+Tested-by: Simon Horman <horms+renesas@verge.net.au>
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>    I have a few comments though...
+
+[...]
