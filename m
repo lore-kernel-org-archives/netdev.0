@@ -1,49 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next] ravb: Remove rx buffer ALIGN
-Date: Fri, 29 Apr 2016 09:34:57 +1000
-Message-ID: <20160428233456.GC18128@verge.net.au>
-References: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
- <571FBE21.4050908@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net] soreuseport: Fix TCP listener hash collision
+Date: Thu, 28 Apr 2016 16:46:38 -0700
+Message-ID: <1461887198.5535.123.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461885872-27358-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <571FBE21.4050908@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36472 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752346AbcD1Xql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 19:46:41 -0400
+Received: by mail-pf0-f171.google.com with SMTP id c189so40591912pfb.3
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 16:46:40 -0700 (PDT)
+In-Reply-To: <1461885872-27358-1-git-send-email-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei, Hi Kaneko-san,
-
-On Tue, Apr 26, 2016 at 10:14:41PM +0300, Sergei Shtylyov wrote:
-> Hello.
+On Thu, 2016-04-28 at 19:24 -0400, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
 > 
-> On 04/24/2016 07:16 PM, Yoshihiro Kaneko wrote:
+> I forgot to include a check for listener port equality when deciding
+> if two sockets should belong to the same reuseport group.  This was
+> not caught previously because it's only necessary when two listening
+> sockets for the same user happen to hash to the same listener bucket.
+> The same error does not exist in the UDP path.
 > 
-> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> >Aligning the reception data size is not required.
-> 
->    OK, the gen 2/3 manuals indeed don't require this. I assume the patch has
-> been tested...
+> Fixes: c125e80b8868("soreuseport: fast reuseport TCP socket selection")
+> Signed-off-by: Craig Gallek <kraig@google.com>
+> ---
 
-This morning I tested this patch applied on net-next using the
-r8a7795/salvator-x  (Gen-3). My test was to boot to a user-space prompt
-using NFS root which was successful. I can run further tests on this setup
-if it would be useful.
+Thanks Craig
 
-Unfortunately I do not have access to hardware to allow me to test this
-on Gen-2.
-
-> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-
-Tested-by: Simon Horman <horms+renesas@verge.net.au>
-
->    I have a few comments though...
-
-[...]
+Acked-by: Eric Dumazet <edumazet@google.com>
