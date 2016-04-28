@@ -1,43 +1,37 @@
-From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH net v3 4/5] dt: cpsw: phy-handle, phy_id, and fixed-link
- are mutually exclusive
-Date: Thu, 28 Apr 2016 15:43:28 +0530
-Message-ID: <5721E248.6040106@ti.com>
-References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
- <1461807767-4563-1-git-send-email-drivshin.allworx@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] vxlan: fix ethernet address initialization
+Date: Thu, 28 Apr 2016 12:28:19 +0200
+Message-ID: <20160428122819.032da3fb@griffin>
+References: <1461837856-4316-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
-	Andrew Goodbody <andrew.goodbody-nYQdZkeIoGZN8Ch2cx6nig@public.gmane.org>,
-	Markus Brunner <systemprogrammierung.brunner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Nicolas Chauvet <kwizart-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "David Rivshin (Allworx)" <drivshin.allworx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461807767-4563-1-git-send-email-drivshin.allworx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59504 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750867AbcD1K2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 06:28:24 -0400
+In-Reply-To: <1461837856-4316-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 28 April 2016 07:12 AM, David Rivshin (Allworx) wrote:
-> From: David Rivshin <drivshin-5fOYsn7Fw8lBDgjK7y7TUQ@public.gmane.org>
+On Thu, 28 Apr 2016 12:04:16 +0200, Nicolas Dichtel wrote:
+> Since commit 0c867c9bf84c, when the user specifies an ethernet address with
+> IFLA_ADDRESS, it's overridden by vxlan_ether_setup() (rtnl_link_ops->setup
+> is called in rtnetlink.c before handling IFLA_ADDRESS).
 > 
-> The phy-handle, phy_id, and fixed-link properties are mutually exclusive,
-> and only one need be specified. Make this clear in the binding doc.
-> 
-> Also mark the phy_id property as deprecated, as phy-handle should be
-> used instead.
-> 
-> Signed-off-by: David Rivshin <drivshin-5fOYsn7Fw8lBDgjK7y7TUQ@public.gmane.org>
+> To test it:
+> ip link add name vxlan1 address de:ad:de:4c:0f:c2 type vxlan id 1 group 239.0.0.10 dev eth0
 
-Reviewed-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Good catch, Nicholas. I wrote a lnst recipe to test tons of
+combinations of vxlan settings but did not think about including also
+link parameters :-(
 
-Regards
-Mugunthan V N
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This affects not only IFLA_ADDRESS but also IFLA_MTU, IFLA_BROADCAST
+and IFLA_TXQLEN. I'll try to solve all of these.
+
+Thanks for catching this.
+
+ Jiri
