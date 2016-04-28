@@ -1,50 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net] ipv6/ila: fix nlsize calculation for lwtunnel
-Date: Thu, 28 Apr 2016 12:16:39 -0400 (EDT)
-Message-ID: <20160428.121639.1149681033434022894.davem@davemloft.net>
-References: <1461340682-31568-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20160427.152053.2243888701043810040.davem@davemloft.net>
-	<CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 18:32:07 +0200
+Message-ID: <20160428163207.GP29024@lunn.ch>
+References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
+ <57222FCE.8050407@atmel.com>
+ <20160428155556.GA8333@nathan3500-linux-VM>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: tom@herbertland.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Nathan Sullivan <nathan.sullivan@ni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39174 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752366AbcD1QQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 12:16:43 -0400
-In-Reply-To: <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:51787 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752346AbcD1QcN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 12:32:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20160428155556.GA8333@nathan3500-linux-VM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 28 Apr 2016 09:07:25 -0700
+> Hmm, are AT91 platforms special in this regard? As far as I can tell, this
+> driver (macb) and Marvell PXA are the only ethernet drivers that call
+> mdiobus_scan directly, and PXA does it on a known address. I do see that there
+> are trees that use macb and don't have a phy listed, which is unfortunate.
 
-> On Wed, Apr 27, 2016 at 12:20 PM, David Miller <davem@davemloft.net> wrote:
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> Date: Fri, 22 Apr 2016 17:58:02 +0200
->>
->>> The handler 'ila_fill_encap_info' adds one attribute: ILA_ATTR_LOCATOR.
->>>
->>> Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
->>> CC: Tom Herbert <tom@herbertland.com>
->>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>> ---
->>>
->>> Tom, when I read the comment, I feel I'm misssing something, but what?
->>
->> Tom, seriously, please look at this.
->>
-> Yes, it is an issue. Need to do add size for ILA_ATTR_LOCATOR and
-> ILA_ATTR_CSUM_MODE. Also not we made ILA_ATTR_CSUM_MODE u64 in fill
-> encap info. I will send a path shortly.
-> 
->> And with recent changes in net-next the csum attribute size needs to
->> be specified as well, plus the locator needs to use the 64-bit
->> alignment sizing helper.
-> 
-> Something other than nla_put_u64_64bit?
+How it is supposed to work is that you do one of two things:
 
-That's what it should use, yes.
+1) Your device tree does not have an mdio node. In this case, you call
+mdiobus_register() and it will perform a scan of the bus, and find the
+phys.
+
+2) Your device tree does have an MDIO node, and you list your PHYs.
+
+Having an MDIO node and not listing the PHYs is broken...
+
+There are however, a few broken device trees around, and a few drivers
+have workarounds. e.g. davinci_mdio.c
+
+       /* register the mii bus
+         * Create PHYs from DT only in case if PHY child nodes are explicitly
+         * defined to support backward compatibility with DTs which assume that
+         * Davinci MDIO will always scan the bus for PHYs detection.
+         */
+        if (dev->of_node && of_get_child_count(dev->of_node)) {
+                data->skip_scan = true;
+                ret = of_mdiobus_register(data->bus, dev->of_node);
+        } else {
+                ret = mdiobus_register(data->bus);
+        }
+
+You probably need to do the same for AT91, count the number of
+children, and it if it zero, fall back to the non-DT way. It would
+also be good to print a warning to get people to fix their device
+tree.
+
+    Andrew
