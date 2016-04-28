@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 0/2] gre: fix lwtunnel support
-Date: Thu, 28 Apr 2016 17:03:03 -0400 (EDT)
-Message-ID: <20160428.170303.1948944948892219094.davem@davemloft.net>
-References: <cover.1461747398.git.jbenc@redhat.com>
+Subject: Re: [PATCH] fq: split out backlog update logic
+Date: Thu, 28 Apr 2016 17:04:05 -0400 (EDT)
+Message-ID: <20160428.170405.777126222000837373.davem@davemloft.net>
+References: <1461754753-18051-1-git-send-email-michal.kazior@tieto.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, tgraf@suug.ch,
-	simon.horman@netronome.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
+To: michal.kazior@tieto.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42288 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42326 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752388AbcD1VDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:03:05 -0400
-In-Reply-To: <cover.1461747398.git.jbenc@redhat.com>
+	with ESMTP id S1752388AbcD1VEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:04:07 -0400
+In-Reply-To: <1461754753-18051-1-git-send-email-michal.kazior@tieto.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 27 Apr 2016 11:29:05 +0200
+From: Michal Kazior <michal.kazior@tieto.com>
+Date: Wed, 27 Apr 2016 12:59:13 +0200
 
-> This patchset fixes a few bugs in ipgre metadata mode implementation.
+> mac80211 (which will be the first user of the
+> fq.h) recently started to support software A-MSDU
+> aggregation. It glues skbuffs together into a
+> single one so the backlog accounting needs to be
+> more fine-grained.
 > 
-> As an example, in this setup:
+> To avoid backlog sorting logic duplication split
+> it up for re-use.
 > 
-> ip a a 192.168.1.1/24 dev eth0
-> ip l a gre1 type gre external
-> ip l s gre1 up
-> ip a a 192.168.99.1/24 dev gre1
-> ip r a 192.168.99.2/32 encap ip dst 192.168.1.2 ttl 10 dev gre1
-> ping 192.168.99.2
-> 
-> the traffic does not go through before this patchset and does as expected
-> with it applied.
-> 
-> v3: Back to v1 in order not to break existing users. Dropped patch 3, will
->     be fixed in iproute2 instead.
-> v2: Rejecting invalid configuration, added patch 3, dropped patch for
->     ETH_P_TEB (will target net-next).
+> Signed-off-by: Michal Kazior <michal.kazior@tieto.com>
 
-Series applied, thanks Jiri.
+Applied, thanks.
