@@ -1,7 +1,7 @@
 From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: [PATCH net v3 2/5] drivers: net: cpsw: fix segfault in case of bad phy-handle
-Date: Wed, 27 Apr 2016 21:32:31 -0400
-Message-ID: <1461807151-4416-1-git-send-email-drivshin.allworx@gmail.com>
+Subject: [PATCH net v3 3/5] drivers: net: cpsw: don't ignore phy-mode if phy-handle is used
+Date: Wed, 27 Apr 2016 21:38:26 -0400
+Message-ID: <1461807506-4498-1-git-send-email-drivshin.allworx@gmail.com>
 References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
 Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
@@ -11,38 +11,35 @@ Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
 	Nicolas Chauvet <kwizart@gmail.com>
 To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34469 "EHLO
-	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267AbcD1Bcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:32:43 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Rivshin <drivshin@allworx.com>
 
-If an emac node has a phy-handle property that points to something
-which is not a phy, then a segmentation fault will occur when the
-interface is brought up. This is because while phy_connect() will
-return ERR_PTR() on failure, of_phy_connect() will return NULL.
-The common error check uses IS_ERR(), and so missed when
-of_phy_connect() fails. The NULL pointer is then dereferenced.
-
-Also, the common error message referenced slave->data->phy_id,
-which would be empty in the case of phy-handle. Instead, use the
-name of the device_node as a useful identifier. And in the phy_id
-case add the error code for completeness.
+The phy-mode emac property was only being processed in the phy_id
+or fixed-link cases. However if phy-handle was specified instead,
+an error message would complain about the lack of phy_id or
+fixed-link, and then jump past the of_get_phy_mode(). This would
+result in the PHY mode defaulting to MII, regardless of what the
+devicetree specified.
 
 Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
 Signed-off-by: David Rivshin <drivshin@allworx.com>
+Tested-by: Nicolas Chauvet <kwizart@gmail.com>
+Tested-by: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
 I would suggest this for -stable. It should apply cleanly as far back
-as 4.5, although there is a trivial conflict in 4.4. I can produce a
-separate patch against linux-4.4.y if preferred.
+as 4.4.
 
-Changes since v2:
-- new patch, although fixing part of previous patch 2 [1]
+Changes since v2 [1]:
+- split from previous patch 2
+- Added Tested-by from Andrew Goodbody [3]
+- Added Reviewed-by from Mugunthan V N [4]
+- rewrote commit log to focus on the functional bug fixed, rather
+  than the bogus error message
 
 Changes since v1 [2]:
 - Rebased (no conflicts)
@@ -51,71 +48,56 @@ Changes since v1 [2]:
 
 [1] http://patchwork.ozlabs.org/patch/613260/
 [2] http://patchwork.ozlabs.org/patch/560324/
+[3] https://lkml.org/lkml/2016/4/22/537
+[4] https://lkml.org/lkml/2016/4/22/63
 
 
- drivers/net/ethernet/ti/cpsw.c | 37 +++++++++++++++++++++++--------------
- 1 file changed, 23 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index ce0b0ca..5903448 100644
+index 5903448..712bc6d 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1143,33 +1143,42 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+@@ -2039,15 +2039,19 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		/* This is no slave child node, continue */
+ 		if (strcmp(slave_node->name, "slave"))
+ 			continue;
  
- 	if (priv->data.dual_emac)
- 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
- 	else
- 		cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
- 				   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
+ 		slave_data->phy_node = of_parse_phandle(slave_node,
+ 							"phy-handle", 0);
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+-		if (of_phy_is_fixed_link(slave_node)) {
++		if (slave_data->phy_node) {
++			dev_dbg(&pdev->dev,
++				"slave[%d] using phy-handle=\"%s\"\n",
++				i, slave_data->phy_node->full_name);
++		} else if (of_phy_is_fixed_link(slave_node)) {
+ 			struct device_node *phy_node;
+ 			struct phy_device *phy_dev;
  
--	if (slave->data->phy_node)
-+	if (slave->data->phy_node) {
- 		slave->phy = of_phy_connect(priv->ndev, slave->data->phy_node,
- 				 &cpsw_adjust_link, 0, slave->data->phy_if);
--	else
-+		if (!slave->phy) {
-+			dev_err(priv->dev, "phy \"%s\" not found on slave %d\n",
-+				slave->data->phy_node->full_name,
-+				slave->slave_num);
-+			return;
-+		}
-+	} else {
- 		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
- 				 &cpsw_adjust_link, slave->data->phy_if);
--	if (IS_ERR(slave->phy)) {
--		dev_err(priv->dev, "phy %s not found on slave %d\n",
--			slave->data->phy_id, slave->slave_num);
--		slave->phy = NULL;
--	} else {
--		phy_attached_info(slave->phy);
--
--		phy_start(slave->phy);
--
--		/* Configure GMII_SEL register */
--		cpsw_phy_sel(&priv->pdev->dev, slave->phy->interface,
--			     slave->slave_num);
-+		if (IS_ERR(slave->phy)) {
-+			dev_err(priv->dev,
-+				"phy \"%s\" not found on slave %d, err %ld\n",
-+				slave->data->phy_id, slave->slave_num,
-+				PTR_ERR(slave->phy));
-+			slave->phy = NULL;
-+			return;
-+		}
- 	}
-+
-+	phy_attached_info(slave->phy);
-+
-+	phy_start(slave->phy);
-+
-+	/* Configure GMII_SEL register */
-+	cpsw_phy_sel(&priv->pdev->dev, slave->phy->interface, slave->slave_num);
- }
- 
- static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
- {
- 	const int vlan = priv->data.default_vlan;
- 	const int port = priv->host_port;
- 	u32 reg;
+ 			/* In the case of a fixed PHY, the DT node associated
+ 			 * to the PHY is the Ethernet MAC DT node.
+ 			 */
+ 			ret = of_phy_register_fixed_link(slave_node);
+@@ -2076,15 +2080,17 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			if (!mdio) {
+ 				dev_err(&pdev->dev, "Missing mdio platform device\n");
+ 				return -EINVAL;
+ 			}
+ 			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
+ 				 PHY_ID_FMT, mdio->name, phyid);
+ 		} else {
+-			dev_err(&pdev->dev, "No slave[%d] phy_id or fixed-link property\n", i);
++			dev_err(&pdev->dev,
++				"No slave[%d] phy_id, phy-handle, or fixed-link property\n",
++				i);
+ 			goto no_phy_slave;
+ 		}
+ 		slave_data->phy_if = of_get_phy_mode(slave_node);
+ 		if (slave_data->phy_if < 0) {
+ 			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
+ 				i);
+ 			return slave_data->phy_if;
 -- 
 2.5.5
