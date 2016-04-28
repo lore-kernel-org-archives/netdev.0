@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v6 01/21] net: hns: Add reset function support for RoCE driver
-Date: Thu, 28 Apr 2016 20:09:36 +0800
-Message-ID: <1461845396-61306-2-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v6 20/21] IB/hns: Kconfig and Makefile for RoCE module
+Date: Thu, 28 Apr 2016 20:09:55 +0800
+Message-ID: <1461845396-61306-21-git-send-email-oulijun@huawei.com>
 References: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,307 +20,71 @@ In-Reply-To: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It added reset function for RoCE driver. RoCE is a feature of hns.
-In hip06 SoC, in RoCE reset process, it's needed to configure dsaf
-channel reset, port and sl map info. Reset function of RoCE is
-located in dsaf module, we only call it in RoCE driver when needed.
+This patch added Kconfig and Makefile for building RoCE module.
 
 Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
 Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 84 ++++++++++++++++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 30 ++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 62 +++++++++++++---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 16 ++++-
- 4 files changed, 181 insertions(+), 11 deletions(-)
+ drivers/infiniband/Kconfig         |  1 +
+ drivers/infiniband/hw/Makefile     |  1 +
+ drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
+ drivers/infiniband/hw/hns/Makefile |  9 +++++++++
+ 4 files changed, 21 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/Kconfig
+ create mode 100644 drivers/infiniband/hw/hns/Makefile
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 5978a5c..a735f5f 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -12,6 +12,7 @@
- #include <linux/init.h>
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
-+#include <linux/of_platform.h>
- #include <linux/platform_device.h>
- #include <linux/of.h>
- #include <linux/of_address.h>
-@@ -2594,6 +2595,89 @@ static struct platform_driver g_dsaf_driver = {
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index 6425c0e..726a4ca 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+ source "drivers/infiniband/hw/nes/Kconfig"
+ source "drivers/infiniband/hw/ocrdma/Kconfig"
+ source "drivers/infiniband/hw/usnic/Kconfig"
++source "drivers/infiniband/hw/hns/Kconfig"
  
- module_platform_driver(g_dsaf_driver);
+ source "drivers/infiniband/ulp/ipoib/Kconfig"
  
-+/**
-+ * hns_dsaf_roce_reset - reset dsaf and roce
-+ * @dsaf_fwnode: Pointer to framework node for the dasf
-+ * @val: 0 - request reset , 1 - drop reset
-+ * retuen 0 - success , negative -fail
-+ */
-+int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val)
-+{
-+	struct dsaf_device *dsaf_dev;
-+	struct platform_device *pdev;
-+	unsigned int mp;
-+	unsigned int sl;
-+	unsigned int credit;
-+	int i;
-+	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE_NUM] = {
-+		{DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_4, DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_4, DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_5, DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_5, DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1},
-+	};
-+	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE_NUM] = {
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_0},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_1, DSAF_ROCE_SL_1},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_2},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_0},
-+		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_1},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_2},
-+		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
-+	};
+diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
+index c7ad0a4..223eb78 100644
+--- a/drivers/infiniband/hw/Makefile
++++ b/drivers/infiniband/hw/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_MLX5_INFINIBAND)		+= mlx5/
+ obj-$(CONFIG_INFINIBAND_NES)		+= nes/
+ obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
+ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+= hns/
+diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hns/Kconfig
+new file mode 100644
+index 0000000..c47c168
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Kconfig
+@@ -0,0 +1,10 @@
++config INFINIBAND_HISILICON_HNS
++	tristate "Hisilicon Hns ROCE Driver"
++	depends on NET_VENDOR_HISILICON
++	depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
++	---help---
++	  This is a ROCE/RDMA driver for the Hisilicon RoCE engine. The engine
++	  is used in Hisilicon Hi1610 and more further ICT SoC.
 +
-+	if (!is_of_node(dsaf_fwnode)) {
-+		pr_err("hisi_dsaf: Only support DT node!\n");
-+		return -EINVAL;
-+	}
-+	pdev = of_find_device_by_node(to_of_node(dsaf_fwnode));
-+	dsaf_dev = dev_get_drvdata(&pdev->dev);
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		dev_err(dsaf_dev->dev, "%s v1 chip do not support roce!\n",
-+			dsaf_dev->ae_dev.name);
-+		return -ENODEV;
-+	}
++	  To compile this driver as a module, choose M here: the module
++	  will be called hns-roce.
+diff --git a/drivers/infiniband/hw/hns/Makefile b/drivers/infiniband/hw/hns/Makefile
+new file mode 100644
+index 0000000..404a700
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Makefile
+@@ -0,0 +1,9 @@
++#
++# Makefile for the HISILICON RoCE drivers.
++#
 +
-+	if (!val) {
-+		/* Reset rocee-channels in dsaf and rocee */
-+		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, 0);
-+		hns_dsaf_roce_srst(dsaf_dev, 0);
-+	} else {
-+		/* Configure dsaf tx roce correspond to port map and sl map */
-+		mp = dsaf_read_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG);
-+		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
-+			dsaf_set_field(mp, 7 << i * 3, i * 3,
-+				       port_map[i][DSAF_ROCE_6PORT_MODE]);
-+		dsaf_set_field(mp, 3 << i * 3, i * 3, 0);
-+		dsaf_write_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG, mp);
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) += hns-roce.o
++hns-roce-objs := hns_roce_main.o hns_roce_cmd.o hns_roce_eq.o hns_roce_pd.o \
++	hns_roce_ah.o hns_roce_icm.o hns_roce_mr.o hns_roce_qp.o \
++	hns_roce_cq.o hns_roce_alloc.o hns_roce_hw_v1.o
 +
-+		sl = dsaf_read_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG);
-+		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
-+			dsaf_set_field(sl, 3 << i * 2, i * 2,
-+				       sl_map[i][DSAF_ROCE_6PORT_MODE]);
-+		dsaf_write_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG, sl);
-+
-+		/* De-reset rocee-channels in dsaf and rocee */
-+		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, 1);
-+		msleep(20);
-+		hns_dsaf_roce_srst(dsaf_dev, 1);
-+
-+		/* Eanble dsaf channel rocee credit */
-+		credit = dsaf_read_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG);
-+		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 0);
-+		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
-+
-+		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 1);
-+		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(hns_dsaf_roce_reset);
-+
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
- MODULE_DESCRIPTION("HNS DSAF driver");
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index 5fea226..cc992f1 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -40,6 +40,32 @@ struct hns_mac_cb;
- #define DSAF_DUMP_REGS_NUM 504
- #define DSAF_STATIC_NUM 28
- 
-+#define DSAF_ROCE_CREDIT_CHN 8
-+#define DSAF_ROCE_CHAN_MODE 3
-+
-+enum dsaf_roce_port_mode {
-+	DSAF_ROCE_6PORT_MODE,
-+	DSAF_ROCE_4PORT_MODE,
-+	DSAF_ROCE_2PORT_MODE,
-+	DSAF_ROCE_CHAN_MODE_NUM,
-+};
-+
-+enum dsaf_roce_port_num {
-+	DSAF_ROCE_PORT_0 = 0,
-+	DSAF_ROCE_PORT_1 = 1,
-+	DSAF_ROCE_PORT_2 = 2,
-+	DSAF_ROCE_PORT_3 = 3,
-+	DSAF_ROCE_PORT_4 = 4,
-+	DSAF_ROCE_PORT_5 = 5,
-+};
-+
-+enum dsaf_roce_qos_sl {
-+	DSAF_ROCE_SL_0 = 0,
-+	DSAF_ROCE_SL_1 = 1,
-+	DSAF_ROCE_SL_2 = 2,
-+	DSAF_ROCE_SL_3 = 3,
-+};
-+
- #define DSAF_STATS_READ(p, offset) (*((u64 *)((u8 *)(p) + (offset))))
- 
- enum hal_dsaf_mode {
-@@ -400,6 +426,10 @@ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val);
- 
- void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
- 
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, u32 val);
-+
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, u32 val);
-+
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
- void hns_dsaf_ae_uninit(struct dsaf_device *dsaf_dev);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index e69b022..eab01f7 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -87,18 +87,22 @@ void hns_dsaf_rst(struct dsaf_device *dsaf_dev, u32 val)
- 	u32 xbar_reg_addr;
- 	u32 nt_reg_addr;
- 
--	if (!val) {
--		xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_REQ_REG;
--		nt_reg_addr = DSAF_SUB_SC_NT_RESET_REQ_REG;
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		if (!val) {
-+			xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_REQ_REG;
-+			nt_reg_addr = DSAF_SUB_SC_NT_RESET_REQ_REG;
-+		} else {
-+			xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_DREQ_REG;
-+			nt_reg_addr = DSAF_SUB_SC_NT_RESET_DREQ_REG;
-+		}
-+
-+		dsaf_write_reg(dsaf_dev->sc_base, xbar_reg_addr,
-+			       RESET_REQ_OR_DREQ);
-+		dsaf_write_reg(dsaf_dev->sc_base, nt_reg_addr,
-+			       RESET_REQ_OR_DREQ);
- 	} else {
--		xbar_reg_addr = DSAF_SUB_SC_XBAR_RESET_DREQ_REG;
--		nt_reg_addr = DSAF_SUB_SC_NT_RESET_DREQ_REG;
-+		hns_dsaf_srst_chns(dsaf_dev, 0xfffff, val);
- 	}
--
--	dsaf_write_reg(dsaf_dev->sc_base, xbar_reg_addr,
--		       RESET_REQ_OR_DREQ);
--	dsaf_write_reg(dsaf_dev->sc_base, nt_reg_addr,
--		       RESET_REQ_OR_DREQ);
- }
- 
- void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
-@@ -139,6 +143,44 @@ void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, reg_val);
- }
- 
-+/**
-+ * hns_dsaf_srst_chns - reset dsaf channels
-+ * @dsaf_dev: dsaf device struct pointer
-+ * @msk: xbar channels mask value:
-+ * bit0-5 for xge0-5
-+ * bit6-11 for ppe0-5
-+ * bit12-17 for roce0-5
-+ * bit18-19 for com/dfx
-+ * @val: 0 - request reset , 1 - drop reset
-+ */
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, u32 val)
-+{
-+	u32 reg_addr;
-+
-+	if (val == 0)
-+		reg_addr = DSAF_SUB_SC_DSAF_RESET_REQ_REG;
-+	else
-+		reg_addr = DSAF_SUB_SC_DSAF_RESET_DREQ_REG;
-+
-+	dsaf_write_reg(dsaf_dev->sc_base, reg_addr, msk);
-+}
-+
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, u32 val)
-+{
-+	if (val == 0) {
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_RESET_REQ_REG, 1);
-+	} else {
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_CLK_DIS_REG, 1);
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_RESET_DREQ_REG, 1);
-+		msleep(20);
-+		dsaf_write_reg(dsaf_dev->sc_base,
-+			       DSAF_SUB_SC_ROCEE_CLK_EN_REG, 1);
-+	}
-+}
-+
- void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- {
- 	u32 reg_val_1;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 7d7204f..8f1b18e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -37,6 +37,7 @@
- #define DSAFV2_SBM_NUM		8
- #define DSAFV2_SBM_XGE_CHN    6
- #define DSAFV2_SBM_PPE_CHN    1
-+#define DSAFV2_SBM_ROCE_CHN   1
- #define DASFV2_ROCEE_CRD_NUM  8
- 
- #define DSAF_VOQ_NUM		DSAF_NODE_NUM
-@@ -82,6 +83,12 @@
- #define DSAF_SUB_SC_PPE_RESET_DREQ_REG			0xA4C
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_REQ_REG		0xA88
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_DREQ_REG		0xA8C
-+#define DSAF_SUB_SC_DSAF_RESET_REQ_REG			0xAA8
-+#define DSAF_SUB_SC_ROCEE_RESET_REQ_REG			0xA50
-+#define DSAF_SUB_SC_DSAF_RESET_DREQ_REG			0xAAC
-+#define DSAF_SUB_SC_ROCEE_CLK_DIS_REG			0x32C
-+#define DSAF_SUB_SC_ROCEE_RESET_DREQ_REG		0xA54
-+#define DSAF_SUB_SC_ROCEE_CLK_EN_REG			0x328
- #define DSAF_SUB_SC_LIGHT_MODULE_DETECT_EN_REG		0x2060
- #define DSAF_SUB_SC_TCAM_MBIST_EN_REG			0x2300
- #define DSAF_SUB_SC_DSAF_CLK_ST_REG			0x5300
-@@ -137,6 +144,9 @@
- #define DSAF_PPE_INT_STS_0_REG		0x1E0
- #define DSAF_ROCEE_INT_STS_0_REG	0x200
- #define DSAFV2_SERDES_LBK_0_REG         0x220
-+#define DSAF_PAUSE_CFG_REG		0x240
-+#define DSAF_ROCE_PORT_MAP_REG		0x2A0
-+#define DSAF_ROCE_SL_MAP_REG            0x2A4
- #define DSAF_PPE_QID_CFG_0_REG		0x300
- #define DSAF_SW_PORT_TYPE_0_REG		0x320
- #define DSAF_STP_PORT_TYPE_0_REG	0x340
-@@ -178,7 +188,8 @@
- #define DSAF_SBM_BP_CFG_2_XGE_REG_0_REG		0x200C
- #define DSAF_SBM_BP_CFG_2_PPE_REG_0_REG		0x230C
- #define DSAF_SBM_BP_CFG_2_ROCEE_REG_0_REG	0x260C
--#define DSAFV2_SBM_BP_CFG_2_ROCEE_REG_0_REG		 0x238C
-+#define DSAF_SBM_ROCEE_CFG_REG_REG		0x2380
-+#define DSAFV2_SBM_BP_CFG_2_ROCEE_REG_0_REG	0x238C
- #define DSAF_SBM_FREE_CNT_0_0_REG		0x2010
- #define DSAF_SBM_FREE_CNT_1_0_REG		0x2014
- #define DSAF_SBM_BP_CNT_0_0_REG			0x2018
-@@ -790,6 +801,9 @@
- #define DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S 9
- #define DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_M (((1ULL << 9) - 1) << 9)
- 
-+#define DSAF_CHNS_MASK 0x3f000
-+#define DSAF_SBM_ROCEE_CFG_CRD_EN_B 2
-+
- #define DSAF_TBL_TCAM_ADDR_S 0
- #define DSAF_TBL_TCAM_ADDR_M ((1ULL << 9) - 1)
- 
 -- 
 1.9.1
