@@ -1,173 +1,144 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 6/9] netfilter: conntrack: check netns when comparing conntrack objects
-Date: Thu, 28 Apr 2016 19:13:45 +0200
-Message-ID: <1461863628-23350-7-git-send-email-fw@strlen.de>
+Subject: [PATCH nf-next 7/9] netfilter: conntrack: make netns address part of hash
+Date: Thu, 28 Apr 2016 19:13:46 +0200
+Message-ID: <1461863628-23350-8-git-send-email-fw@strlen.de>
 References: <1461863628-23350-1-git-send-email-fw@strlen.de>
 Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
 To: <netfilter-devel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41577 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753185AbcD1RNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 13:13:50 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1461863628-23350-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Once we place all conntracks in the same hash table we must also compare
-the netns pointer to skip conntracks that belong to a different namespace.
+Once we place all conntracks into a global hash table we want them to be
+spread across entire hash table, even if namespaces have overlapping ip
+addresses.
+
+We add nf_conntrack_netns_hash helper to later re-use it for nat bysrc
+and expectation hash handling.  The helper also allows us to avoid the
+(then) pointless hashing of init_net if kernel is built without netns
+support.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |  8 ++++++--
- net/netfilter/nf_conntrack_core.c                  | 23 ++++++++++++----------
- net/netfilter/nf_conntrack_netlink.c               |  3 +++
- 3 files changed, 22 insertions(+), 12 deletions(-)
+ include/net/netfilter/nf_conntrack_core.h | 10 +++++++++
+ net/netfilter/nf_conntrack_core.c         | 34 +++++++++++++++----------------
+ 2 files changed, 27 insertions(+), 17 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-index 483cf79..171aba1 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -115,6 +115,7 @@ static inline void ct_show_secctx(struct seq_file *s, const struct nf_conn *ct)
- #endif
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index 62e17d1..389e6da 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -12,6 +12,7 @@
+ #ifndef _NF_CONNTRACK_CORE_H
+ #define _NF_CONNTRACK_CORE_H
  
- static bool ct_seq_should_skip(const struct nf_conn *ct,
-+			       const struct net *net,
- 			       const struct nf_conntrack_tuple_hash *hash)
- {
- 	/* we only want to print DIR_ORIGINAL */
-@@ -124,6 +125,9 @@ static bool ct_seq_should_skip(const struct nf_conn *ct,
- 	if (nf_ct_l3num(ct) != AF_INET)
- 		return true;
++#include <linux/hash.h>
+ #include <linux/netfilter.h>
+ #include <net/netfilter/nf_conntrack_l3proto.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+@@ -86,4 +87,13 @@ void nf_conntrack_lock(spinlock_t *lock);
  
-+	if (!net_eq(nf_ct_net(ct), net))
-+		return true;
+ extern spinlock_t nf_conntrack_expect_lock;
+ 
++static inline u32 nf_conntrack_netns_hash(const struct net *net)
++{
++#ifdef CONFIG_NET_NS
++	return hash_ptr(net, 32);
++#else
++	return 0;
++#endif
++}
 +
- 	return false;
- }
- 
-@@ -136,7 +140,7 @@ static int ct_seq_show(struct seq_file *s, void *v)
- 	int ret = 0;
- 
- 	NF_CT_ASSERT(ct);
--	if (ct_seq_should_skip(ct, hash))
-+	if (ct_seq_should_skip(ct, seq_file_net(s), hash))
- 		return 0;
- 
- 	if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
-@@ -144,7 +148,7 @@ static int ct_seq_show(struct seq_file *s, void *v)
- 
- 	/* check if we raced w. object reuse */
- 	if (!nf_ct_is_confirmed(ct) ||
--	    ct_seq_should_skip(ct, hash))
-+	    ct_seq_should_skip(ct, seq_file_net(s), hash))
- 		goto release;
- 
- 	l3proto = __nf_ct_l3proto_find(nf_ct_l3num(ct));
+ #endif /* _NF_CONNTRACK_CORE_H */
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 3b9c302..10ae2ee 100644
+index 10ae2ee..c29b929 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -447,7 +447,8 @@ static void death_by_timeout(unsigned long ul_conntrack)
- static inline bool
- nf_ct_key_equal(struct nf_conntrack_tuple_hash *h,
- 		const struct nf_conntrack_tuple *tuple,
--		const struct nf_conntrack_zone *zone)
-+		const struct nf_conntrack_zone *zone,
-+		const struct net *net)
- {
- 	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
+@@ -144,9 +144,11 @@ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
  
-@@ -456,7 +457,8 @@ nf_ct_key_equal(struct nf_conntrack_tuple_hash *h,
+ static unsigned int nf_conntrack_hash_rnd __read_mostly;
+ 
+-static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple)
++static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple,
++			      const struct net *net)
+ {
+ 	unsigned int n;
++	u32 seed;
+ 
+ 	get_random_once(&nf_conntrack_hash_rnd, sizeof(nf_conntrack_hash_rnd));
+ 
+@@ -154,32 +156,29 @@ static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple)
+ 	 * destination ports (which is a multiple of 4) and treat the last
+ 	 * three bytes manually.
  	 */
- 	return nf_ct_tuple_equal(tuple, &h->tuple) &&
- 	       nf_ct_zone_equal(ct, zone, NF_CT_DIRECTION(h)) &&
--	       nf_ct_is_confirmed(ct);
-+	       nf_ct_is_confirmed(ct) &&
-+	       net_eq(net, nf_ct_net(ct));
++	seed = nf_conntrack_hash_rnd ^ nf_conntrack_netns_hash(net);
+ 	n = (sizeof(tuple->src) + sizeof(tuple->dst.u3)) / sizeof(u32);
+-	return jhash2((u32 *)tuple, n, nf_conntrack_hash_rnd ^
++	return jhash2((u32 *)tuple, n, seed ^
+ 		      (((__force __u16)tuple->dst.u.all << 16) |
+ 		      tuple->dst.protonum));
  }
  
- /*
-@@ -481,7 +483,7 @@ begin:
- 	} while (read_seqcount_retry(&nf_conntrack_generation, sequence));
+-static u32 __hash_bucket(u32 hash, unsigned int size)
+-{
+-	return reciprocal_scale(hash, size);
+-}
+-
+ static u32 hash_bucket(u32 hash, const struct net *net)
+ {
+-	return __hash_bucket(hash, net->ct.htable_size);
++	return reciprocal_scale(hash, net->ct.htable_size);
+ }
  
- 	hlist_nulls_for_each_entry_rcu(h, n, &ct_hash[bucket], hnnode) {
--		if (nf_ct_key_equal(h, tuple, zone)) {
-+		if (nf_ct_key_equal(h, tuple, zone, net)) {
- 			NF_CT_STAT_INC_ATOMIC(net, found);
- 			return h;
- 		}
-@@ -517,7 +519,7 @@ begin:
- 			     !atomic_inc_not_zero(&ct->ct_general.use)))
- 			h = NULL;
- 		else {
--			if (unlikely(!nf_ct_key_equal(h, tuple, zone))) {
-+			if (unlikely(!nf_ct_key_equal(h, tuple, zone, net))) {
- 				nf_ct_put(ct);
- 				goto begin;
- 			}
-@@ -573,12 +575,12 @@ nf_conntrack_hash_check_insert(struct nf_conn *ct)
- 	/* See if there's one in the list already, including reverse */
- 	hlist_nulls_for_each_entry(h, n, &net->ct.hash[hash], hnnode)
- 		if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
--				    zone))
-+				    zone, net))
- 			goto out;
+-static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+-				  unsigned int size)
++static u32 __hash_conntrack(const struct net *net,
++			    const struct nf_conntrack_tuple *tuple,
++			    unsigned int size)
+ {
+-	return __hash_bucket(hash_conntrack_raw(tuple), size);
++	return reciprocal_scale(hash_conntrack_raw(tuple, net), size);
+ }
  
- 	hlist_nulls_for_each_entry(h, n, &net->ct.hash[reply_hash], hnnode)
- 		if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_REPLY].tuple,
--				    zone))
-+				    zone, net))
- 			goto out;
+-static inline u_int32_t hash_conntrack(const struct net *net,
+-				       const struct nf_conntrack_tuple *tuple)
++static u32 hash_conntrack(const struct net *net,
++			  const struct nf_conntrack_tuple *tuple)
+ {
+-	return __hash_conntrack(tuple, net->ct.htable_size);
++	return __hash_conntrack(net, tuple, net->ct.htable_size);
+ }
  
- 	add_timer(&ct->timeout);
-@@ -663,12 +665,12 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	   not in the hash.  If there is, we lost race. */
- 	hlist_nulls_for_each_entry(h, n, &net->ct.hash[hash], hnnode)
- 		if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
--				    zone))
-+				    zone, net))
- 			goto out;
+ bool
+@@ -535,7 +534,7 @@ nf_conntrack_find_get(struct net *net, const struct nf_conntrack_zone *zone,
+ 		      const struct nf_conntrack_tuple *tuple)
+ {
+ 	return __nf_conntrack_find_get(net, zone, tuple,
+-				       hash_conntrack_raw(tuple));
++				       hash_conntrack_raw(tuple, net));
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_find_get);
  
- 	hlist_nulls_for_each_entry(h, n, &net->ct.hash[reply_hash], hnnode)
- 		if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_REPLY].tuple,
--				    zone))
-+				    zone, net))
- 			goto out;
+@@ -1041,7 +1040,7 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
  
- 	/* Timer relative to confirmation time, not original
-@@ -740,7 +742,7 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
- 	hlist_nulls_for_each_entry_rcu(h, n, &ct_hash[hash], hnnode) {
- 		ct = nf_ct_tuplehash_to_ctrack(h);
- 		if (ct != ignored_conntrack &&
--		    nf_ct_key_equal(h, tuple, zone)) {
-+		    nf_ct_key_equal(h, tuple, zone, net)) {
- 			NF_CT_STAT_INC_ATOMIC(net, found);
- 			rcu_read_unlock();
- 			return 1;
-@@ -1383,7 +1385,8 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 				if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
- 					continue;
- 				ct = nf_ct_tuplehash_to_ctrack(h);
--				if (iter(ct, data))
-+				if (net_eq(nf_ct_net(ct), net) &&
-+				    iter(ct, data))
- 					goto found;
- 			}
- 		}
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 294a8e2..f6bbcb2 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -837,6 +837,9 @@ restart:
- 			if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
- 				continue;
+ 	/* look for tuple match */
+ 	zone = nf_ct_zone_tmpl(tmpl, skb, &tmp);
+-	hash = hash_conntrack_raw(&tuple);
++	hash = hash_conntrack_raw(&tuple, net);
+ 	h = __nf_conntrack_find_get(net, zone, &tuple, hash);
+ 	if (!h) {
+ 		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
+@@ -1605,7 +1604,8 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ 					struct nf_conntrack_tuple_hash, hnnode);
  			ct = nf_ct_tuplehash_to_ctrack(h);
-+			if (!net_eq(net, nf_ct_net(ct)))
-+				continue;
-+
- 			/* Dump entries of a given L3 protocol number.
- 			 * If it is not specified, ie. l3proto == 0,
- 			 * then dump everything. */
+ 			hlist_nulls_del_rcu(&h->hnnode);
+-			bucket = __hash_conntrack(&h->tuple, hashsize);
++			bucket = __hash_conntrack(nf_ct_net(ct),
++						  &h->tuple, hashsize);
+ 			hlist_nulls_add_head_rcu(&h->hnnode, &hash[bucket]);
+ 		}
+ 	}
 -- 
 2.7.3
+
