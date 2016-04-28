@@ -1,39 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next v2] ipvlan: Fix failure path in dev registration
- during link creation
-Date: Thu, 28 Apr 2016 17:23:24 -0400 (EDT)
-Message-ID: <20160428.172324.972705903601258798.davem@davemloft.net>
-References: <1461794367-39825-1-git-send-email-mahesh@bandewar.net>
+Subject: Re: [PATCH net v3 0/5] drivers: net: cpsw: phy-handle fixes
+Date: Thu, 28 Apr 2016 17:27:46 -0400 (EDT)
+Message-ID: <20160428.172746.2157727902791049608.davem@davemloft.net>
+References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
-	ebiederm@xmission.com
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42549 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884AbcD1VXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:23:32 -0400
-In-Reply-To: <1461794367-39825-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mugunthanvnm@ti.com,
+	grygorii.strashko@ti.com, andrew.goodbody@cambrionix.com,
+	systemprogrammierung.brunner@gmail.com, kwizart@gmail.com
+To: drivshin.allworx@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Wed, 27 Apr 2016 14:59:27 -0700
+From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Date: Wed, 27 Apr 2016 21:10:03 -0400
 
-> From: Mahesh Bandewar <maheshb@google.com>
-> 
-> When newlink creation fails at device-registration, the port->count
-> is decremented twice. Francesco Ruggeri (fruggeri@arista.com) found
-> this issue in Macvlan and the same exists in IPvlan driver too.
-> 
-> While fixing this issue I noticed another issue of missing unregister
-> in case of failure, so adding it to the fix which is similar to the
-> macvlan fix by Francesco in commit 308379607548 ("macvlan: fix failure
-> during registration v3")
-> 
-> Reported-by: Francesco Ruggeri <fruggeri@arista.com>
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> This series fixes a number of related issues around using phy-handle
+> properties in cpsw emac nodes.
 
-Applied, thanks.
+Series applied, thanks.
