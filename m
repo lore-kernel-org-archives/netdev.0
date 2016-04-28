@@ -1,91 +1,58 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH net v3 0/5] drivers: net: cpsw: phy-handle fixes
-Date: Thu, 28 Apr 2016 18:55:34 +0300
-Message-ID: <57223276.8070603@ti.com>
-References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 10:55:56 -0500
+Message-ID: <20160428155556.GA8333@nathan3500-linux-VM>
+References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
+ <57222FCE.8050407@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
-	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	Nicolas Chauvet <kwizart@gmail.com>
-To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:41388 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753103AbcD1P4G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 11:56:06 -0400
-In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57222FCE.8050407@atmel.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/28/2016 04:10 AM, David Rivshin (Allworx) wrote:
-> From: David Rivshin <drivshin@allworx.com>
->
-> This series fixes a number of related issues around using phy-handle
-> properties in cpsw emac nodes.
->
-> Patch 1 fixes a bug if more than one slave is used, and either
-> slave uses the phy-handle property in the devicetree.
->
-> Patch 2 fixes a NULL pointer dereference which can occur if a
-> phy-handle property is used and of_phy_connect() return NULL,
-> such as with a bad devicetree.
->
-> Patch 3 fixes an issue where the phy-mode property would be ignored
-> if a phy-handle property was used. This also fixes a bogus error
-> message that would be emitted.
->
-> Patch 4 fixes makes the binding documentation more explicit that
-> exactly one PHY property should be used, and also marks phy_id as
-> deprecated.
->
-> Patch 5 cleans up the fixed-link case to work like the now-fixed
-> phy-handle case.
->
-> I have tested on the following hardware configurations:
->   - (EVMSK) dual emac, phy_id property in both slaves
->   - (EVMSK) dual emac, phy-handle property in both slaves
->   - (EVMSK) a bad phy-handle property pointing to &mmc1
->   - (EVMSK) phy_id property with incorrect PHY address
->   - (BeagleBoneBlack) single emac, phy_id property
->   - (custom) single emac, fixed-link subnode
->
-> Andrew Goodbody reported testing v2 on a board that doesn't use
-> dual_emac mode, but with 2 PHYs using phy-handle properties [1].
->
-> Nicolas Chauvet reported testing v2 on an HP t410 (dm8148).
->
-> Markus Brunner reported testing v1 on the following [2]:
->   - emac0 with phy_id and emac1 with fixed phy
->   - emac0 with phy-handle and emac1 with fixed phy
->   - emac0 with fixed phy and emac1 with fixed phy
->
-> [1] https://lkml.org/lkml/2016/4/22/537
-> [2] http://www.spinics.net/lists/netdev/msg357890.html
->
-> David Rivshin (5):
->    drivers: net: cpsw: fix parsing of phy-handle DT property in dual_emac
->      config
->    drivers: net: cpsw: fix segfault in case of bad phy-handle
->    drivers: net: cpsw: don't ignore phy-mode if phy-handle is used
->    dt: cpsw: phy-handle, phy_id, and fixed-link are mutually exclusive
->    drivers: net: cpsw: use of_phy_connect() in fixed-link case
->
->   Documentation/devicetree/bindings/net/cpsw.txt |  6 +--
->   drivers/net/ethernet/ti/cpsw.c                 | 69 ++++++++++++++------------
->   drivers/net/ethernet/ti/cpsw.h                 |  1 +
->   3 files changed, 41 insertions(+), 35 deletions(-)
->
+On Thu, Apr 28, 2016 at 05:44:14PM +0200, Nicolas Ferre wrote:
+> Le 28/04/2016 16:46, Nathan Sullivan a =E9crit :
+> > Since of_mdiobus_register and mdiobus_register will scan automatica=
+lly,
+> > do not manually scan for PHY devices in the macb ethernet driver. D=
+oing
+> > so will result in many nonexistent PHYs on the MDIO bus if the MDIO
+> > lines are floating or grounded, such as when they are not used.
+> >=20
+> > Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+>=20
+> Well, as explained in the commit message that added this feature and =
+in
+> the comment, if no phy is specified in the DT we end up without phy..=
+=2E
+>=20
+> There are AT91 platforms which lack specification for the phy node in
+> the DT. So, I don't know if there is a better way to deal with this c=
+ase
+> but I see this removal as risky.
+>=20
+> Bye,
+>=20
+> Nicolas Ferre
 
-Thanks a lot.
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Hmm, are AT91 platforms special in this regard? As far as I can tell, t=
+his
+driver (macb) and Marvell PXA are the only ethernet drivers that call
+mdiobus_scan directly, and PXA does it on a known address. I do see tha=
+t there
+are trees that use macb and don't have a phy listed, which is unfortuna=
+te.
 
--- 
-regards,
--grygorii
+Another way to fix our issue would be to consider all 0x0s a bad ID in
+mdiobus_scan, so grounded MDIO lines do not get PHYs scanned.  Or we co=
+uld add a
+DT property to disable the manual scan.  I'm not sure what the correct =
+solution
+is, do you have a preference?
