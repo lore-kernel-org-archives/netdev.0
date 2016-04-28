@@ -1,109 +1,51 @@
-From: Matthew Finlay <Matt@Mellanox.com>
-Subject: Re: [RFC PATCH 2/5] mlx5: Add support for UDP tunnel segmentation
- with outer checksum offload
-Date: Thu, 28 Apr 2016 21:43:04 +0000
-Message-ID: <800B6BE4-251F-4AA5-92FC-3A9393E7981E@mellanox.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
- <20160419190603.11723.31623.stgit@ahduyck-xeon-server>
- <CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
- <CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	"Saeed Mahameed" <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 01/12] net/mlx5e: Call vxlan_get_rx_port() with rtnl lock
+Date: Fri, 29 Apr 2016 01:36:31 +0300
+Message-ID: <1461883002-8912-2-git-send-email-saeedm@mellanox.com>
+References: <1461883002-8912-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0078.outbound.protection.outlook.com ([157.56.112.78]:17968
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752321AbcD1WRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 18:17:03 -0400
-In-Reply-To: <CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <223BDC52A12AAE40A12BA051FCAC499F@eurprd05.prod.outlook.com>
+Received: from [193.47.165.129] ([193.47.165.129]:33126 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750847AbcD1WiS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 18:38:18 -0400
+In-Reply-To: <1461883002-8912-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCg0KDQoNCk9uIDQvMjAvMTYsIDExOjA2IEFNLCAiQWxleGFuZGVyIER1eWNrIiA8YWxleGFu
-ZGVyLmR1eWNrQGdtYWlsLmNvbT4gd3JvdGU6DQoNCj5PbiBXZWQsIEFwciAyMCwgMjAxNiBhdCAx
-MDo0MCBBTSwgU2FlZWQgTWFoYW1lZWQNCj48c2FlZWRtQGRldi5tZWxsYW5veC5jby5pbD4gd3Jv
-dGU6DQo+PiBPbiBUdWUsIEFwciAxOSwgMjAxNiBhdCAxMDowNiBQTSwgQWxleGFuZGVyIER1eWNr
-IDxhZHV5Y2tAbWlyYW50aXMuY29tPiB3cm90ZToNCj4+PiBUaGlzIHBhdGNoIGFzc3VtZXMgdGhh
-dCB0aGUgbWx4NSBoYXJkd2FyZSB3aWxsIGlnbm9yZSBleGlzdGluZyBJUHY0L3Y2DQo+Pj4gaGVh
-ZGVyIGZpZWxkcyBmb3IgbGVuZ3RoIGFuZCBjaGVja3N1bSBhcyB3ZWxsIGFzIHRoZSBsZW5ndGgg
-YW5kIGNoZWNrc3VtDQo+Pj4gZmllbGRzIGZvciBvdXRlciBVRFAgaGVhZGVycy4NCj4+Pg0KPj4+
-IEkgaGF2ZSBubyBtZWFucyBvZiB0ZXN0aW5nIHRoaXMgYXMgSSBkbyBub3QgaGF2ZSBhbnkgbWx4
-NSBoYXJkd2FyZSBidXQNCj4+PiB0aG91Z2h0IEkgd291bGQgc3VibWl0IGl0IGFzIGFuIFJGQyB0
-byBzZWUgaWYgYW55b25lIG91dCB0aGVyZSB3YW50cyB0bw0KPj4+IHRlc3QgdGhpcyBhbmQgc2Vl
-IGlmIHRoaXMgZG9lcyBpbiBmYWN0IGVuYWJsZSB0aGlzIGZ1bmN0aW9uYWxpdHkgYWxsb3dpbmcN
-Cj4+PiB1cyB0byB0byBzZWdtZW50IFVEUCB0dW5uZWxlZCBmcmFtZXMgdGhhdCBoYXZlIGFuIG91
-dGVyIGNoZWNrc3VtLg0KPj4+DQo+Pj4gU2lnbmVkLW9mZi1ieTogQWxleGFuZGVyIER1eWNrIDxh
-ZHV5Y2tAbWlyYW50aXMuY29tPg0KPj4+IC0tLQ0KPj4+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9t
-ZWxsYW5veC9tbHg1L2NvcmUvZW5fbWFpbi5jIHwgICAgNyArKysrKystDQo+Pj4gIDEgZmlsZSBj
-aGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4+Pg0KPj4+IGRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fbWFpbi5jIGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VuX21haW4uYw0KPj4+IGlu
-ZGV4IGUwYWRiNjA0ZjQ2MS4uNTdkOGRhNzk2ZDUwIDEwMDY0NA0KPj4+IC0tLSBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9lbl9tYWluLmMNCj4+PiArKysgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fbWFpbi5jDQo+Pj4gQEAgLTIz
-OTAsMTMgKzIzOTAsMTggQEAgc3RhdGljIHZvaWQgbWx4NWVfYnVpbGRfbmV0ZGV2KHN0cnVjdCBu
-ZXRfZGV2aWNlICpuZXRkZXYpDQo+Pj4gICAgICAgICBuZXRkZXYtPmh3X2ZlYXR1cmVzICAgICAg
-fD0gTkVUSUZfRl9IV19WTEFOX0NUQUdfRklMVEVSOw0KPj4+DQo+Pj4gICAgICAgICBpZiAobWx4
-NWVfdnhsYW5fYWxsb3dlZChtZGV2KSkgew0KPj4+IC0gICAgICAgICAgICAgICBuZXRkZXYtPmh3
-X2ZlYXR1cmVzICAgICB8PSBORVRJRl9GX0dTT19VRFBfVFVOTkVMOw0KPj4+ICsgICAgICAgICAg
-ICAgICBuZXRkZXYtPmh3X2ZlYXR1cmVzICAgICB8PSBORVRJRl9GX0dTT19VRFBfVFVOTkVMIHwN
-Cj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTkVUSUZfRl9H
-U09fVURQX1RVTk5FTF9DU1VNIHwNCj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgTkVUSUZfRl9HU09fUEFSVElBTDsNCj4+PiAgICAgICAgICAgICAgICAgbmV0
-ZGV2LT5od19lbmNfZmVhdHVyZXMgfD0gTkVUSUZfRl9JUF9DU1VNOw0KPj4+ICAgICAgICAgICAg
-ICAgICBuZXRkZXYtPmh3X2VuY19mZWF0dXJlcyB8PSBORVRJRl9GX1JYQ1NVTTsNCj4+PiAgICAg
-ICAgICAgICAgICAgbmV0ZGV2LT5od19lbmNfZmVhdHVyZXMgfD0gTkVUSUZfRl9UU087DQo+Pj4g
-ICAgICAgICAgICAgICAgIG5ldGRldi0+aHdfZW5jX2ZlYXR1cmVzIHw9IE5FVElGX0ZfVFNPNjsN
-Cj4+PiAgICAgICAgICAgICAgICAgbmV0ZGV2LT5od19lbmNfZmVhdHVyZXMgfD0gTkVUSUZfRl9S
-WEhBU0g7DQo+Pj4gICAgICAgICAgICAgICAgIG5ldGRldi0+aHdfZW5jX2ZlYXR1cmVzIHw9IE5F
-VElGX0ZfR1NPX1VEUF9UVU5ORUw7DQo+Pj4gKyAgICAgICAgICAgICAgIG5ldGRldi0+aHdfZW5j
-X2ZlYXR1cmVzIHw9IE5FVElGX0ZfR1NPX1VEUF9UVU5ORUxfQ1NVTSB8DQo+Pj4gKyAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIE5FVElGX0ZfR1NPX1BBUlRJQUw7DQo+
-Pj4gKyAgICAgICAgICAgICAgIG5ldGRldi0+Z3NvX3BhcnRpYWxfZmVhdHVyZXMgPSBORVRJRl9G
-X0dTT19VRFBfVFVOTkVMX0NTVU07DQo+Pj4gICAgICAgICB9DQo+Pj4NCj4+PiAgICAgICAgIG5l
-dGRldi0+ZmVhdHVyZXMgICAgICAgICAgPSBuZXRkZXYtPmh3X2ZlYXR1cmVzOw0KPj4+DQo+Pg0K
-Pj4gSGkgQWxleCwNCj4+DQo+PiBBZGRpbmcgTWF0dCwgVnhMQU4gZmVhdHVyZSBvd25lciBmcm9t
-IE1lbGxhbm94LA0KPj4gTWF0dCBwbGVhc2UgY29ycmVjdCBtZSBpZiBhbSB3cm9uZywgYnV0IFdl
-IGFscmVhZHkgdGVzdGVkIEdTTyBWeExBTg0KPj4gYW5kIHdlIHNhdyB0aGUgVENQL0lQIGNoZWNr
-c3VtIG9mZmxvYWRzIGZvciBib3RoIGlubmVyIGFuZCBvdXRlcg0KPj4gaGVhZGVycyBoYW5kbGVk
-IGJ5IHRoZSBoYXJkd2FyZS4NCj4+DQo+PiBBbmQgbG9va2luZyBhdCBtbHg1ZV9zcV94bWl0Og0K
-Pj4NCj4+IGlmIChsaWtlbHkoc2tiLT5pcF9zdW1tZWQgPT0gQ0hFQ0tTVU1fUEFSVElBTCkpIHsN
-Cj4+ICAgICAgICAgZXNlZy0+Y3NfZmxhZ3MgPSBNTFg1X0VUSF9XUUVfTDNfQ1NVTTsNCj4+IGlm
-IChza2ItPmVuY2Fwc3VsYXRpb24pIHsNCj4+ICAgICAgICAgZXNlZy0+Y3NfZmxhZ3MgfD0gTUxY
-NV9FVEhfV1FFX0wzX0lOTkVSX0NTVU0gfA0KPj4gTUxYNV9FVEhfV1FFX0w0X0lOTkVSX0NTVU07
-DQo+PiAgICAgICAgIHNxLT5zdGF0cy5jc3VtX29mZmxvYWRfaW5uZXIrKzsNCj4+IH0gZWxzZSB7
-DQo+PiAgICAgICAgIGVzZWctPmNzX2ZsYWdzIHw9IE1MWDVfRVRIX1dRRV9MNF9DU1VNOw0KPj4g
-fQ0KPj4NCj4+IFdlIGVuYWJsZSBpbm5lci9vdXRlciBoYXJkd2FyZSBjaGVja3N1bW1pbmcgdW5j
-b25kaXRpb25hbGx5IHdpdGhvdXQNCj4+IGxvb2tpbmcgYXQgdGhlIGZlYXR1cmVzIEFsZXggaXMg
-c3VnZ2VzdGluZyBpbiB0aGlzIHBhdGNoLA0KPj4gQWxleCwgY2FuIHlvdSBlbGFib3JhdGUgbW9y
-ZSBvbiB0aGUgbWVhbmluZyBvZiB0aG9zZSBmZWF0dXJlcyA/IGFuZA0KPj4gd2h5IHdvdWxkIGl0
-IHdvcmsgZm9yIHVzIHdpdGhvdXQgZGVjbGFyaW5nIHRoZW0gPw0KPg0KPldlbGwgcmlnaHQgbm93
-IHRoZSBmZWF0dXJlIGxpc3QgZXhwb3NlZCBieSB0aGUgZGV2aWNlIGluZGljYXRlcyB0aGF0DQo+
-VFNPIGlzIG5vdCB1c2VkIGlmIGEgVnhMQU4gdHVubmVsIGhhcyBhIGNoZWNrc3VtIGluIGFuIG91
-dGVyIGhlYWRlci4NCj5TaW5jZSB0aGF0IGlzIG5vdCBleHBvc2VkIGN1cnJlbnRseSB0aGF0IGlz
-IGNvbXBsZXRlbHkgb2ZmbG9hZGVkIGluDQo+c29mdHdhcmUgdmlhIEdTTy4NCg0KVGhlIG1seDUg
-aGFyZHdhcmUgcmVxdWlyZXMgdGhlIG91dGVyIFVEUCBjaGVja3N1bSBpcyBub3Qgc2V0IHdoZW4g
-b2ZmbG9hZGluZyBlbmNhcHN1bGF0ZWQgcGFja2V0cy4gDQoNCj4NCj5XaGF0IHRoZSBHU08gcGFy
-dGlhbCBkb2VzIGlzIGFsbG93IHVzIHRvIHRyZWF0IEdTTyBmb3IgdHVubmVscyB3aXRoDQo+Y2hl
-Y2tzdW0gbGlrZSBpdCBpcyBHU08gZm9yIHR1bm5lbHMgd2l0aG91dCBjaGVja3N1bSBieSBwcmVj
-b21wdXRpbmcNCj50aGUgVURQIGNoZWNrc3VtIGFzIHRob3VnaCB0aGUgZnJhbWUgaGFkIGFscmVh
-ZHkgYmVlbiBzZWdtZW50ZWQgYW5kDQo+cmVzdHJpY3RzIHVzIHRvIGFuIGV2ZW4gbXVsdGlwbGUg
-b2YgTVNTIGJ5dGVzIHRoYXQgYXJlIHRvIGJlIHNlZ21lbnRlZA0KPmJldHdlZW4gYWxsIHRoZSBm
-cmFtZXMuICBPbmUgc2lkZSBlZmZlY3QgdGhvdWdoIGlzIHRoYXQgYWxsIG9mIHRoZSBJUA0KPmFu
-ZCBVRFAgaGVhZGVyIGZpZWxkcyBhcmUgYWxzbyBwcmVjb21wdXRlZCwgYnV0IGZyb20gd2hhdCBJ
-IGNhbiB0ZWxsDQo+aXQgbG9va3MgbGlrZSB0aGUgdmFsdWVzIHRoYXQgd291bGQgYmUgY2hhbmdl
-ZCBieSBhIGNoYW5nZSBpbiBsZW5ndGgNCj5hcmUgaWdub3JlZCBvciBvdmVyd3JpdHRlbiBieSB0
-aGUgaGFyZHdhcmUgYW5kIGRyaXZlciBhbnl3YXkuDQo+DQo+LSBBbGV4DQo=
+From: Matthew Finlay <matt@mellanox.com>
+
+Hold the rtnl lock when calling vxlan_get_rx_port().
+
+Fixes: b7aade15485a ("vxlan: break dependency with netdev drivers")
+Signed-off-by: Matthew Finlay <matt@mellanox.com>
+Reported-by: Alexander Duyck <alexander.duyck@gmail.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 8484ac4..8ffaf5c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2936,8 +2936,11 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 		goto err_tc_cleanup;
+ 	}
+ 
+-	if (mlx5e_vxlan_allowed(mdev))
++	if (mlx5e_vxlan_allowed(mdev)) {
++		rtnl_lock();
+ 		vxlan_get_rx_port(netdev);
++		rtnl_unlock();
++	}
+ 
+ 	mlx5e_enable_async_events(priv);
+ 	schedule_work(&priv->set_rx_mode_work);
+-- 
+1.7.1
