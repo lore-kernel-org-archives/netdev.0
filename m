@@ -1,54 +1,55 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] ip_tunnel: fix preempt warning in ip tunnel
- creation/updating
-Date: Thu, 28 Apr 2016 16:11:16 +0200
-Message-ID: <1461852676.4802.31.camel@redhat.com>
-References: <b21056e2495c485a2084d058d03e1f95480b3510.1461834203.git.pabeni@redhat.com>
-	 <1461845394.5535.96.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, tgraf@suug.ch,
-	pshelar@nicira.com, jbenc@redhat.com, hannes@stressinduktion.org,
-	sergei.shtylyov@cogentembedded.com,
-	Tom Herbert <tom@herbertland.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: [PATCH] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 09:19:47 -0500
+Message-ID: <1461853187-31715-1-git-send-email-nathan.sullivan@ni.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nathan Sullivan <nathan.sullivan@ni.com>
+To: nicolas.ferre@atmel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37949 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752194AbcD1OLV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 10:11:21 -0400
-In-Reply-To: <1461845394.5535.96.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from skprod3.natinst.com ([130.164.80.24]:37415 "EHLO ni.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752270AbcD1OUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 10:20:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-04-28 at 05:09 -0700, Eric Dumazet wrote:
-> On Thu, 2016-04-28 at 11:04 +0200, Paolo Abeni wrote:
-> > After the commit e09acddf873b ("ip_tunnel: replace dst_cache with generic
-> > implementation"), a preemption debug warning is triggered on ip4
-> > tunnels updating; the dst cache helper needs to be invoked in unpreemptible
-> > context.
-> > 
-> > We don't need to load the cache on tunnel update, so this commit fixes
-> > the warning replacing the load with a dst cache reset, which is
-> > preempt safe.
-> > 
-> > Fixes: e09acddf873b ("ip_tunnel: replace dst_cache with generic
-> > implementation")
-> > 
-> > Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> 
-> Seems good to me, thanks.
-> 
-> Note that the Fixes: tag should not be followed by a blank line.
-> (And presumably no line wrap is necessary)
-> It really is part of the standard set of tags.
-> They should be grouped together.
+Since of_mdiobus_register and mdiobus_register will scan automatically,
+do not manually scan for PHY devices in the macb ethernet driver. Doing
+so will result in many nonexistent PHYs on the MDIO bus if the MDIO
+lines are floating or grounded, such as when they are not used.
 
-Oops, I missed that points and checkpatch.pl did not help. 
-Thank you for the advice.
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+---
+ drivers/net/ethernet/cadence/macb.c |   17 -----------------
+ 1 file changed, 17 deletions(-)
 
-Paolo
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 48a7d7d..e80e487 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -450,23 +450,6 @@ static int macb_mii_init(struct macb *bp)
+ 	if (np) {
+ 		/* try dt phy registration */
+ 		err = of_mdiobus_register(bp->mii_bus, np);
+-
+-		/* fallback to standard phy registration if no phy were
+-		   found during dt phy registration */
+-		if (!err && !phy_find_first(bp->mii_bus)) {
+-			for (i = 0; i < PHY_MAX_ADDR; i++) {
+-				struct phy_device *phydev;
+-
+-				phydev = mdiobus_scan(bp->mii_bus, i);
+-				if (IS_ERR(phydev)) {
+-					err = PTR_ERR(phydev);
+-					break;
+-				}
+-			}
+-
+-			if (err)
+-				goto err_out_unregister_bus;
+-		}
+ 	} else {
+ 		if (pdata)
+ 			bp->mii_bus->phy_mask = pdata->phy_mask;
+-- 
+1.7.10.4
