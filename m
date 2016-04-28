@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 09/12] net/mlx5: Initializing CPU reverse mapping
-Date: Fri, 29 Apr 2016 01:36:39 +0300
-Message-ID: <1461883002-8912-10-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 10/12] net/mlx5e: Create aRFS flow tables
+Date: Fri, 29 Apr 2016 01:36:40 +0300
+Message-ID: <1461883002-8912-11-git-send-email-saeedm@mellanox.com>
 References: <1461883002-8912-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,105 +10,482 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:33184 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:33159 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752517AbcD1Wi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 18:38:26 -0400
+	id S1750847AbcD1WiU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 18:38:20 -0400
 In-Reply-To: <1461883002-8912-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Allocating CPU rmap and add entry for each IRQ.
-CPU rmap is used in aRFS to get the RX queue number
-of the RX completion interrupts.
+Create the following four flow tables for aRFS usage:
+1. IPv4 TCP - filtering 4-tuple of IPv4 TCP packets.
+2. IPv6 TCP - filtering 4-tuple of IPv6 TCP packets.
+3. IPv4 UDP - filtering 4-tuple of IPv4 UDP packets.
+4. IPv6 UDP - filtering 4-tuple of IPv6 UDP packets.
+
+Each flow table has two flow groups: one for the 4-tuple
+filtering (full match)  and the other contains * rule for miss rule.
+
+Full match rule means a hit for aRFS and packet will be forwarded
+to the dedicated RQ/Core, miss rule packets will be forwarded to
+default RSS hashing.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    3 +++
- drivers/net/ethernet/mellanox/mlx5/core/main.c    |   18 ++++++++++++++++++
- include/linux/mlx5/driver.h                       |    3 +++
- 3 files changed, 24 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile  |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   41 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c |  251 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   |   23 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    8 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |    3 +-
+ 6 files changed, 313 insertions(+), 14 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 07c596d..a2b3297 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1689,6 +1689,9 @@ int mlx5e_open_locked(struct net_device *netdev)
- 	mlx5e_redirect_rqts(priv);
- 	mlx5e_update_carrier(priv);
- 	mlx5e_timestamp_init(priv);
-+#ifdef CONFIG_RFS_ACCEL
-+	priv->netdev->rx_cpu_rmap = priv->mdev->rmap;
-+#endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 4fc45ee..679e18f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -9,3 +9,4 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
+ 		en_txrx.o en_clock.o vxlan.o en_tc.o
  
- 	schedule_delayed_work(&priv->update_stats_work, 0);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 6892746..6feef7f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -48,6 +48,9 @@
- #include <linux/kmod.h>
- #include <linux/delay.h>
- #include <linux/mlx5/mlx5_ifc.h>
-+#ifdef CONFIG_RFS_ACCEL
-+#include <linux/cpu_rmap.h>
-+#endif
+ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
++mlx5_core-$(CONFIG_RFS_ACCEL) +=  en_arfs.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 2c9879c..999e058 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -48,6 +48,8 @@
  #include "mlx5_core.h"
- #include "fs_core.h"
- #ifdef CONFIG_MLX5_CORE_EN
-@@ -665,6 +668,12 @@ static void free_comp_eqs(struct mlx5_core_dev *dev)
- 	struct mlx5_eq_table *table = &dev->priv.eq_table;
- 	struct mlx5_eq *eq, *n;
+ #include "en_stats.h"
  
-+#ifdef CONFIG_RFS_ACCEL
-+	if (dev->rmap) {
-+		free_irq_cpu_rmap(dev->rmap);
-+		dev->rmap = NULL;
-+	}
-+#endif
- 	spin_lock(&table->lock);
- 	list_for_each_entry_safe(eq, n, &table->comp_eqs_list, list) {
- 		list_del(&eq->list);
-@@ -691,6 +700,11 @@ static int alloc_comp_eqs(struct mlx5_core_dev *dev)
- 	INIT_LIST_HEAD(&table->comp_eqs_list);
- 	ncomp_vec = table->num_comp_vectors;
- 	nent = MLX5_COMP_EQ_SIZE;
-+#ifdef CONFIG_RFS_ACCEL
-+	dev->rmap = alloc_irq_cpu_rmap(ncomp_vec);
-+	if (!dev->rmap)
-+		return -ENOMEM;
-+#endif
- 	for (i = 0; i < ncomp_vec; i++) {
- 		eq = kzalloc(sizeof(*eq), GFP_KERNEL);
- 		if (!eq) {
-@@ -698,6 +712,10 @@ static int alloc_comp_eqs(struct mlx5_core_dev *dev)
- 			goto clean;
- 		}
++#define MLX5_SET_CFG(p, f, v) MLX5_SET(create_flow_group_in, p, f, v)
++
+ #define MLX5E_MAX_NUM_TC	8
  
-+#ifdef CONFIG_RFS_ACCEL
-+		irq_cpu_rmap_add(dev->rmap,
-+				 dev->priv.msix_arr[i + MLX5_EQ_VEC_COMP_BASE].vector);
-+#endif
- 		snprintf(name, MLX5_MAX_IRQ_NAME, "mlx5_comp%d", i);
- 		err = mlx5_create_map_eq(dev, eq,
- 					 i + MLX5_EQ_VEC_COMP_BASE, nent, 0,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 96a428d..d552944 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -560,6 +560,9 @@ struct mlx5_core_dev {
- 	struct mlx5_profile	*profile;
- 	atomic_t		num_qps;
- 	u32			issi;
-+#ifdef CONFIG_RFS_ACCEL
-+	struct cpu_rmap         *rmap;
-+#endif
+ #define MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE                0x6
+@@ -446,12 +448,38 @@ struct mlx5e_ttc_table {
+ 	struct mlx5_flow_rule	 *rules[MLX5E_NUM_TT];
  };
  
- struct mlx5_db {
++struct arfs_table {
++	struct mlx5e_flow_table  ft;
++	struct mlx5_flow_rule    *default_rule;
++};
++
++enum  arfs_type {
++	ARFS_IPV4_TCP,
++	ARFS_IPV6_TCP,
++	ARFS_IPV4_UDP,
++	ARFS_IPV6_UDP,
++	ARFS_NUM_TYPES,
++};
++
++struct mlx5e_arfs_tables {
++	struct arfs_table arfs_tables[ARFS_NUM_TYPES];
++};
++
++/* NIC prio FTS */
++enum {
++	MLX5E_VLAN_FT_LEVEL = 0,
++	MLX5E_L2_FT_LEVEL,
++	MLX5E_TTC_FT_LEVEL,
++	MLX5E_ARFS_FT_LEVEL
++};
++
+ struct mlx5e_flow_steering {
+ 	struct mlx5_flow_namespace      *ns;
+ 	struct mlx5e_tc_table           tc;
+ 	struct mlx5e_vlan_table         vlan;
+ 	struct mlx5e_l2_table           l2;
+ 	struct mlx5e_ttc_table          ttc;
++	struct mlx5e_arfs_tables        arfs;
+ };
+ 
+ struct mlx5e_direct_tir {
+@@ -570,6 +598,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv);
+ int mlx5e_create_flow_steering(struct mlx5e_priv *priv);
+ void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv);
+ void mlx5e_init_l2_addr(struct mlx5e_priv *priv);
++void mlx5e_destroy_flow_table(struct mlx5e_flow_table *ft);
+ void mlx5e_set_rx_mode_work(struct work_struct *work);
+ 
+ void mlx5e_fill_hwstamp(struct mlx5e_tstamp *clock, u64 timestamp,
+@@ -646,6 +675,18 @@ extern const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops;
+ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets);
+ #endif
+ 
++#ifndef CONFIG_RFS_ACCEL
++static inline int mlx5e_arfs_create_tables(struct mlx5e_priv *priv)
++{
++	return 0;
++}
++
++static inline void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv) {}
++#else
++int mlx5e_arfs_create_tables(struct mlx5e_priv *priv);
++void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv);
++#endif
++
+ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
+ 
+ #endif /* __MLX5_EN_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+new file mode 100644
+index 0000000..cd50419
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+@@ -0,0 +1,251 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "en.h"
++#include <linux/mlx5/fs.h>
++
++static void arfs_destroy_table(struct arfs_table *arfs_t)
++{
++	mlx5_del_flow_rule(arfs_t->default_rule);
++	mlx5e_destroy_flow_table(&arfs_t->ft);
++}
++
++void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv)
++{
++	int i;
++
++	if (!(priv->netdev->hw_features & NETIF_F_NTUPLE))
++		return;
++	for (i = 0; i < ARFS_NUM_TYPES; i++) {
++		if (!IS_ERR_OR_NULL(priv->fs.arfs.arfs_tables[i].ft.t))
++			arfs_destroy_table(&priv->fs.arfs.arfs_tables[i]);
++	}
++}
++
++static int arfs_add_default_rule(struct mlx5e_priv *priv,
++				 enum arfs_type type)
++{
++	struct arfs_table *arfs_t = &priv->fs.arfs.arfs_tables[type];
++	struct mlx5_flow_destination dest;
++	u8 match_criteria_enable = 0;
++	u32 *tirn = priv->indir_tirn;
++	u32 *match_criteria;
++	u32 *match_value;
++	int err = 0;
++
++	match_value	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
++	match_criteria	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
++	if (!match_value || !match_criteria) {
++		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
++		err = -ENOMEM;
++		goto out;
++	}
++
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	switch (type) {
++	case ARFS_IPV4_TCP:
++		dest.tir_num = tirn[MLX5E_TT_IPV4_TCP];
++		break;
++	case ARFS_IPV4_UDP:
++		dest.tir_num = tirn[MLX5E_TT_IPV4_UDP];
++		break;
++	case ARFS_IPV6_TCP:
++		dest.tir_num = tirn[MLX5E_TT_IPV6_TCP];
++		break;
++	case ARFS_IPV6_UDP:
++		dest.tir_num = tirn[MLX5E_TT_IPV6_UDP];
++		break;
++	default:
++		err = -EINVAL;
++		goto out;
++	}
++
++	arfs_t->default_rule = mlx5_add_flow_rule(arfs_t->ft.t, match_criteria_enable,
++						  match_criteria, match_value,
++						  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++						  MLX5_FS_DEFAULT_FLOW_TAG,
++						  &dest);
++	if (IS_ERR(arfs_t->default_rule)) {
++		err = PTR_ERR(arfs_t->default_rule);
++		arfs_t->default_rule = NULL;
++		netdev_err(priv->netdev, "%s: add rule failed, arfs type=%d\n",
++			   __func__, type);
++	}
++out:
++	kvfree(match_criteria);
++	kvfree(match_value);
++	return err;
++}
++
++#define MLX5E_ARFS_NUM_GROUPS	2
++#define MLX5E_ARFS_GROUP1_SIZE	BIT(12)
++#define MLX5E_ARFS_GROUP2_SIZE	BIT(0)
++#define MLX5E_ARFS_TABLE_SIZE	(MLX5E_ARFS_GROUP1_SIZE +\
++				 MLX5E_ARFS_GROUP2_SIZE)
++static int arfs_create_groups(struct mlx5e_flow_table *ft,
++			      enum  arfs_type type)
++{
++	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	void *outer_headers_c;
++	int ix = 0;
++	u32 *in;
++	int err;
++	u8 *mc;
++
++	ft->g = kcalloc(MLX5E_ARFS_NUM_GROUPS,
++			sizeof(*ft->g), GFP_KERNEL);
++	in = mlx5_vzalloc(inlen);
++	if  (!in || !ft->g) {
++		kvfree(ft->g);
++		kvfree(in);
++		return -ENOMEM;
++	}
++
++	mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
++	outer_headers_c = MLX5_ADDR_OF(fte_match_param, mc,
++				       outer_headers);
++	MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c, ethertype);
++	switch (type) {
++	case ARFS_IPV4_TCP:
++	case ARFS_IPV6_TCP:
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c, tcp_dport);
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c, tcp_sport);
++		break;
++	case ARFS_IPV4_UDP:
++	case ARFS_IPV6_UDP:
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c, udp_dport);
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c, udp_sport);
++		break;
++	default:
++		err = -EINVAL;
++		goto out;
++	}
++
++	switch (type) {
++	case ARFS_IPV4_TCP:
++	case ARFS_IPV4_UDP:
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c,
++				 src_ipv4_src_ipv6.ipv4_layout.ipv4);
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, outer_headers_c,
++				 dst_ipv4_dst_ipv6.ipv4_layout.ipv4);
++		break;
++	case ARFS_IPV6_TCP:
++	case ARFS_IPV6_UDP:
++		memset(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
++				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       0xff, 16);
++		memset(MLX5_ADDR_OF(fte_match_set_lyr_2_4, outer_headers_c,
++				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       0xff, 16);
++		break;
++	default:
++		err = -EINVAL;
++		goto out;
++	}
++
++	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_OUTER_HEADERS);
++	MLX5_SET_CFG(in, start_flow_index, ix);
++	ix += MLX5E_ARFS_GROUP1_SIZE;
++	MLX5_SET_CFG(in, end_flow_index, ix - 1);
++	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
++	if (IS_ERR(ft->g[ft->num_groups]))
++		goto err;
++	ft->num_groups++;
++
++	memset(in, 0, inlen);
++	MLX5_SET_CFG(in, start_flow_index, ix);
++	ix += MLX5E_ARFS_GROUP2_SIZE;
++	MLX5_SET_CFG(in, end_flow_index, ix - 1);
++	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
++	if (IS_ERR(ft->g[ft->num_groups]))
++		goto err;
++	ft->num_groups++;
++
++	kvfree(in);
++	return 0;
++
++err:
++	err = PTR_ERR(ft->g[ft->num_groups]);
++	ft->g[ft->num_groups] = NULL;
++out:
++	kvfree(in);
++
++	return err;
++}
++
++static int arfs_create_table(struct mlx5e_priv *priv,
++			     enum arfs_type type)
++{
++	struct mlx5e_arfs_tables *arfs = &priv->fs.arfs;
++	struct mlx5e_flow_table *ft = &arfs->arfs_tables[type].ft;
++	int err;
++
++	ft->t = mlx5_create_flow_table(priv->fs.ns, MLX5E_NIC_PRIO,
++				       MLX5E_ARFS_TABLE_SIZE, MLX5E_ARFS_FT_LEVEL);
++	if (IS_ERR(ft->t)) {
++		err = PTR_ERR(ft->t);
++		ft->t = NULL;
++		return err;
++	}
++
++	err = arfs_create_groups(ft, type);
++	if (err)
++		goto err;
++
++	err = arfs_add_default_rule(priv, type);
++	if (err)
++		goto err;
++
++	return 0;
++err:
++	mlx5e_destroy_flow_table(ft);
++	return err;
++}
++
++int mlx5e_arfs_create_tables(struct mlx5e_priv *priv)
++{
++	int err = 0;
++	int i;
++
++	if (!(priv->netdev->hw_features & NETIF_F_NTUPLE))
++		return 0;
++
++	for (i = 0; i < ARFS_NUM_TYPES; i++) {
++		err = arfs_create_table(priv, i);
++		if (err)
++			goto err;
++	}
++	return 0;
++err:
++	mlx5e_arfs_destroy_tables(priv);
++	return err;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index 6e353b3..b327400 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -42,15 +42,6 @@ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
+ static void mlx5e_del_l2_flow_rule(struct mlx5e_priv *priv,
+ 				   struct mlx5e_l2_rule *ai);
+ 
+-/* NIC prio FTS */
+-enum {
+-	MLX5E_VLAN_FT_LEVEL = 0,
+-	MLX5E_L2_FT_LEVEL,
+-	MLX5E_TTC_FT_LEVEL
+-};
+-
+-#define MLX5_SET_CFG(p, f, v) MLX5_SET(create_flow_group_in, p, f, v)
+-
+ enum {
+ 	MLX5E_FULLMATCH = 0,
+ 	MLX5E_ALLMULTI  = 1,
+@@ -530,7 +521,7 @@ void mlx5e_init_l2_addr(struct mlx5e_priv *priv)
+ 	ether_addr_copy(priv->fs.l2.broadcast.addr, priv->netdev->broadcast);
+ }
+ 
+-static void mlx5e_destroy_flow_table(struct mlx5e_flow_table *ft)
++void mlx5e_destroy_flow_table(struct mlx5e_flow_table *ft)
+ {
+ 	mlx5e_destroy_groups(ft);
+ 	kfree(ft->g);
+@@ -1083,11 +1074,18 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv)
+ 	if (!priv->fs.ns)
+ 		return -EINVAL;
+ 
++	err = mlx5e_arfs_create_tables(priv);
++	if (err) {
++		netdev_err(priv->netdev, "Failed to create arfs tables, err=%d\n",
++			   err);
++		priv->netdev->hw_features &= ~NETIF_F_NTUPLE;
++	}
++
+ 	err = mlx5e_create_ttc_table(priv);
+ 	if (err) {
+ 		netdev_err(priv->netdev, "Failed to create ttc table, err=%d\n",
+ 			   err);
+-		return err;
++		goto err_destroy_arfs_tables;
+ 	}
+ 
+ 	err = mlx5e_create_l2_table(priv);
+@@ -1110,6 +1108,8 @@ err_destroy_l2_table:
+ 	mlx5e_destroy_l2_table(priv);
+ err_destroy_ttc_table:
+ 	mlx5e_destroy_ttc_table(priv);
++err_destroy_arfs_tables:
++	mlx5e_arfs_destroy_tables(priv);
+ 
+ 	return err;
+ }
+@@ -1120,4 +1120,5 @@ void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv)
+ 	mlx5e_destroy_vlan_table(priv);
+ 	mlx5e_destroy_l2_table(priv);
+ 	mlx5e_destroy_ttc_table(priv);
++	mlx5e_arfs_destroy_tables(priv);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index a2b3297..5d64534 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2801,8 +2801,12 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+ 	if (FT_CAP(flow_modify_en) &&
+ 	    FT_CAP(modify_root) &&
+ 	    FT_CAP(identified_miss_table_mode) &&
+-	    FT_CAP(flow_table_modify))
+-		priv->netdev->hw_features      |= NETIF_F_HW_TC;
++	    FT_CAP(flow_table_modify)) {
++		netdev->hw_features      |= NETIF_F_HW_TC;
++#ifdef CONFIG_RFS_ACCEL
++		netdev->hw_features	 |= NETIF_F_NTUPLE;
++#endif
++	}
+ 
+ 	netdev->features         |= NETIF_F_HIGHDMA;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 83fe864..4d78d5a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -74,7 +74,8 @@
+ #define BY_PASS_MIN_LEVEL (KERNEL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
+ 			   LEFTOVERS_NUM_PRIOS)
+ 
+-#define KERNEL_NIC_PRIO_NUM_LEVELS 3
++/* Vlan, mac, ttc, aRFS */
++#define KERNEL_NIC_PRIO_NUM_LEVELS 4
+ #define KERNEL_NIC_NUM_PRIOS 1
+ /* One more level for tc */
+ #define KERNEL_MIN_LEVEL (KERNEL_NIC_PRIO_NUM_LEVELS + 1)
 -- 
 1.7.1
