@@ -1,28 +1,43 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v6 2/6] Documentation: Bindings: Add STM32 DWMAC glue
-Date: Thu, 28 Apr 2016 15:59:52 -0500
-Message-ID: <20160428205952.GA11405@rob-hp-laptop>
-References: <1461585242-32401-1-git-send-email-alexandre.torgue@gmail.com>
- <1461585242-32401-3-git-send-email-alexandre.torgue@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3 0/2] gre: fix lwtunnel support
+Date: Thu, 28 Apr 2016 17:03:03 -0400 (EDT)
+Message-ID: <20160428.170303.1948944948892219094.davem@davemloft.net>
+References: <cover.1461747398.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org
-To: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1461585242-32401-3-git-send-email-alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, tgraf@suug.ch,
+	simon.horman@netronome.com
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42288 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752388AbcD1VDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:03:05 -0400
+In-Reply-To: <cover.1461747398.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 25, 2016 at 01:53:58PM +0200, Alexandre TORGUE wrote:
-> Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 27 Apr 2016 11:29:05 +0200
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This patchset fixes a few bugs in ipgre metadata mode implementation.
+> 
+> As an example, in this setup:
+> 
+> ip a a 192.168.1.1/24 dev eth0
+> ip l a gre1 type gre external
+> ip l s gre1 up
+> ip a a 192.168.99.1/24 dev gre1
+> ip r a 192.168.99.2/32 encap ip dst 192.168.1.2 ttl 10 dev gre1
+> ping 192.168.99.2
+> 
+> the traffic does not go through before this patchset and does as expected
+> with it applied.
+> 
+> v3: Back to v1 in order not to break existing users. Dropped patch 3, will
+>     be fixed in iproute2 instead.
+> v2: Rejecting invalid configuration, added patch 3, dropped patch for
+>     ETH_P_TEB (will target net-next).
+
+Series applied, thanks Jiri.
