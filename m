@@ -1,35 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC 07/20] net: dsa: list ports in switch\\
-Date: Thu, 28 Apr 2016 10:00:43 -0700
-Message-ID: <572241BB.1070304@gmail.com>
-References: <1461796217-18893-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1461796217-18893-8-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20160427231537.GJ29024@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160427231537.GJ29024@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH nf-next 0/9] netfilter: remove per-netns conntrack tables, part 1
+Date: Thu, 28 Apr 2016 19:13:39 +0200
+Message-ID: <1461863628-23350-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org
+To: <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 27/04/16 16:15, Andrew Lunn wrote:
-> On Wed, Apr 27, 2016 at 06:30:04PM -0400, Vivien Didelot wrote:
->> List DSA port structures in their switch structure, so that drivers can
->> iterate on them to retrieve information such as their ports membership.
-> 
-> And this would be so much easier using a plan array.
+[ CCing netdev so netns folks can have a look too ]
 
-Agreed, I do not see much value in doing this at the moment. Even if you
-have unused ports in a switch, allocating an array is a small price to
-pay compared to directly indexing by port number.
+This patch series removes the per-netns connection tracking tables.
+All conntrack objects are then stored in one global global table.
 
-NAK from me unless there is a compelling reason for doing so.
--- 
-Florian
+This avoids the infamous 'vmalloc' when lots of namespaces are used:
+We no longer allocate a new conntrack table for each namespace (with 64k
+size this saves 512kb of memory per netns).
+
+- net namespace address is made part of conntrack hash, to spread
+  conntracks over entire table even if netns has overlapping ip addresses.
+- lookup and iterators net_eq() to skip conntracks living in a different
+  namespace.
+
+Only the main conntrack table is converted here:
+NAT bysrc and expectation hashes are still per namespace (will be unified
+in a followup series).  Also, this retains the per-namespace kmem cache
+for the conntrack objects.  This will also be resolved in a followup series.
+
+Comments welcome.
+
+ include/net/netfilter/nf_conntrack_core.h             |   11 
+ include/net/netns/conntrack.h                         |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c        |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   38 ++
+ net/netfilter/nf_conntrack_core.c                     |  233 +++++++++---------
+ net/netfilter/nf_conntrack_helper.c                   |    6 
+ net/netfilter/nf_conntrack_netlink.c                  |   11 
+ net/netfilter/nf_conntrack_standalone.c               |   13 -
+ net/netfilter/nf_nat_core.c                           |    2 
+ net/netfilter/nfnetlink_cttimeout.c                   |    6 
+ 10 files changed, 179 insertions(+), 145 deletions(-)
+
