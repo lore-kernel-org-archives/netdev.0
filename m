@@ -1,7 +1,7 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 3/9] netfilter: conntrack: don't attempt to iterate over empty table
-Date: Thu, 28 Apr 2016 19:13:42 +0200
-Message-ID: <1461863628-23350-4-git-send-email-fw@strlen.de>
+Subject: [PATCH nf-next 5/9] netfilter: conntrack: small refactoring of conntrack seq_printf
+Date: Thu, 28 Apr 2016 19:13:44 +0200
+Message-ID: <1461863628-23350-6-git-send-email-fw@strlen.de>
 References: <1461863628-23350-1-git-send-email-fw@strlen.de>
 Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
 To: <netfilter-devel@vger.kernel.org>
@@ -10,31 +10,68 @@ In-Reply-To: <1461863628-23350-1-git-send-email-fw@strlen.de>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Once we place all conntracks into same table iteration becomes more
-costly because the table contains conntracks that we are not interested
-in (belonging to other netns).
+The iteration process is lockless, so we test if the conntrack object is
+eligible for printing (e.g. is AF_INET) after obtaining the reference
+count.
 
-So don't bother scanning if the current namespace has no entries.
+Once we put all conntracks into same hash table we might see more
+entries that need to be skipped.
+
+So add a helper and first perform the test in a lockless fashion
+for fast skip.
+
+Once we obtain the reference count, just repeat the check.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/netfilter/nf_conntrack_core.c | 3 +++
- 1 file changed, 3 insertions(+)
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   | 24 +++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 29fa08b..f2e75a5 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1428,6 +1428,9 @@ void nf_ct_iterate_cleanup(struct net *net,
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index f0dfe92..483cf79 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -114,6 +114,19 @@ static inline void ct_show_secctx(struct seq_file *s, const struct nf_conn *ct)
+ }
+ #endif
  
- 	might_sleep();
- 
-+	if (atomic_read(&net->ct.count) == 0)
-+		return;
++static bool ct_seq_should_skip(const struct nf_conn *ct,
++			       const struct nf_conntrack_tuple_hash *hash)
++{
++	/* we only want to print DIR_ORIGINAL */
++	if (NF_CT_DIRECTION(hash))
++		return true;
 +
- 	while ((ct = get_next_corpse(net, iter, data, &bucket)) != NULL) {
- 		/* Time to push up daises... */
- 		if (del_timer(&ct->timeout))
++	if (nf_ct_l3num(ct) != AF_INET)
++		return true;
++
++	return false;
++}
++
+ static int ct_seq_show(struct seq_file *s, void *v)
+ {
+ 	struct nf_conntrack_tuple_hash *hash = v;
+@@ -123,14 +136,15 @@ static int ct_seq_show(struct seq_file *s, void *v)
+ 	int ret = 0;
+ 
+ 	NF_CT_ASSERT(ct);
+-	if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
++	if (ct_seq_should_skip(ct, hash))
+ 		return 0;
+ 
++	if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
++		return 0;
+ 
+-	/* we only want to print DIR_ORIGINAL */
+-	if (NF_CT_DIRECTION(hash))
+-		goto release;
+-	if (nf_ct_l3num(ct) != AF_INET)
++	/* check if we raced w. object reuse */
++	if (!nf_ct_is_confirmed(ct) ||
++	    ct_seq_should_skip(ct, hash))
+ 		goto release;
+ 
+ 	l3proto = __nf_ct_l3proto_find(nf_ct_l3num(ct));
 -- 
 2.7.3
 
