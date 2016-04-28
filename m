@@ -1,79 +1,109 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH RFT v2 2/2] macb: kill PHY reset code
-Date: Fri, 29 Apr 2016 01:15:24 +0300
-Message-ID: <2024144.Eda96jDyaz@wasted.cogentembedded.com>
-References: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
+From: Matthew Finlay <Matt@Mellanox.com>
+Subject: Re: [RFC PATCH 2/5] mlx5: Add support for UDP tunnel segmentation
+ with outer checksum offload
+Date: Thu, 28 Apr 2016 21:43:04 +0000
+Message-ID: <800B6BE4-251F-4AA5-92FC-3A9393E7981E@mellanox.com>
+References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
+ <20160419190603.11723.31623.stgit@ahduyck-xeon-server>
+ <CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
+ <CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	"Saeed Mahameed" <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0078.outbound.protection.outlook.com ([157.56.112.78]:17968
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752321AbcD1WRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 18:17:03 -0400
+In-Reply-To: <CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <223BDC52A12AAE40A12BA051FCAC499F@eurprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With  the 'phylib' now  being aware of  the "reset-gpios" PHY node property,
-there should be no need to frob the PHY reset in this  driver anymore...
-
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
- drivers/net/ethernet/cadence/macb.c |   17 -----------------
- drivers/net/ethernet/cadence/macb.h |    1 -
- 2 files changed, 18 deletions(-)
-
-Index: net-next/drivers/net/ethernet/cadence/macb.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/cadence/macb.c
-+++ net-next/drivers/net/ethernet/cadence/macb.c
-@@ -2884,7 +2884,6 @@ static int macb_probe(struct platform_de
- 					      = macb_clk_init;
- 	int (*init)(struct platform_device *) = macb_init;
- 	struct device_node *np = pdev->dev.of_node;
--	struct device_node *phy_node;
- 	const struct macb_config *macb_config = NULL;
- 	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
- 	unsigned int queue_mask, num_queues;
-@@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
- 	else
- 		macb_get_hwaddr(bp);
- 
--	/* Power up the PHY if there is a GPIO reset */
--	phy_node =  of_get_next_available_child(np, NULL);
--	if (phy_node) {
--		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
--
--		if (gpio_is_valid(gpio)) {
--			bp->reset_gpio = gpio_to_desc(gpio);
--			gpiod_direction_output(bp->reset_gpio, 1);
--		}
--	}
--	of_node_put(phy_node);
--
- 	err = of_get_phy_mode(np);
- 	if (err < 0) {
- 		pdata = dev_get_platdata(&pdev->dev);
-@@ -3054,10 +3041,6 @@ static int macb_remove(struct platform_d
- 		mdiobus_unregister(bp->mii_bus);
- 		mdiobus_free(bp->mii_bus);
- 
--		/* Shutdown the PHY if there is a GPIO reset */
--		if (bp->reset_gpio)
--			gpiod_set_value(bp->reset_gpio, 0);
--
- 		unregister_netdev(dev);
- 		clk_disable_unprepare(bp->tx_clk);
- 		clk_disable_unprepare(bp->hclk);
-Index: net-next/drivers/net/ethernet/cadence/macb.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/cadence/macb.h
-+++ net-next/drivers/net/ethernet/cadence/macb.h
-@@ -832,7 +832,6 @@ struct macb {
- 	unsigned int		dma_burst_length;
- 
- 	phy_interface_t		phy_interface;
--	struct gpio_desc	*reset_gpio;
- 
- 	/* AT91RM9200 transmit */
- 	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
+DQoNCg0KDQoNCk9uIDQvMjAvMTYsIDExOjA2IEFNLCAiQWxleGFuZGVyIER1eWNrIiA8YWxleGFu
+ZGVyLmR1eWNrQGdtYWlsLmNvbT4gd3JvdGU6DQoNCj5PbiBXZWQsIEFwciAyMCwgMjAxNiBhdCAx
+MDo0MCBBTSwgU2FlZWQgTWFoYW1lZWQNCj48c2FlZWRtQGRldi5tZWxsYW5veC5jby5pbD4gd3Jv
+dGU6DQo+PiBPbiBUdWUsIEFwciAxOSwgMjAxNiBhdCAxMDowNiBQTSwgQWxleGFuZGVyIER1eWNr
+IDxhZHV5Y2tAbWlyYW50aXMuY29tPiB3cm90ZToNCj4+PiBUaGlzIHBhdGNoIGFzc3VtZXMgdGhh
+dCB0aGUgbWx4NSBoYXJkd2FyZSB3aWxsIGlnbm9yZSBleGlzdGluZyBJUHY0L3Y2DQo+Pj4gaGVh
+ZGVyIGZpZWxkcyBmb3IgbGVuZ3RoIGFuZCBjaGVja3N1bSBhcyB3ZWxsIGFzIHRoZSBsZW5ndGgg
+YW5kIGNoZWNrc3VtDQo+Pj4gZmllbGRzIGZvciBvdXRlciBVRFAgaGVhZGVycy4NCj4+Pg0KPj4+
+IEkgaGF2ZSBubyBtZWFucyBvZiB0ZXN0aW5nIHRoaXMgYXMgSSBkbyBub3QgaGF2ZSBhbnkgbWx4
+NSBoYXJkd2FyZSBidXQNCj4+PiB0aG91Z2h0IEkgd291bGQgc3VibWl0IGl0IGFzIGFuIFJGQyB0
+byBzZWUgaWYgYW55b25lIG91dCB0aGVyZSB3YW50cyB0bw0KPj4+IHRlc3QgdGhpcyBhbmQgc2Vl
+IGlmIHRoaXMgZG9lcyBpbiBmYWN0IGVuYWJsZSB0aGlzIGZ1bmN0aW9uYWxpdHkgYWxsb3dpbmcN
+Cj4+PiB1cyB0byB0byBzZWdtZW50IFVEUCB0dW5uZWxlZCBmcmFtZXMgdGhhdCBoYXZlIGFuIG91
+dGVyIGNoZWNrc3VtLg0KPj4+DQo+Pj4gU2lnbmVkLW9mZi1ieTogQWxleGFuZGVyIER1eWNrIDxh
+ZHV5Y2tAbWlyYW50aXMuY29tPg0KPj4+IC0tLQ0KPj4+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9t
+ZWxsYW5veC9tbHg1L2NvcmUvZW5fbWFpbi5jIHwgICAgNyArKysrKystDQo+Pj4gIDEgZmlsZSBj
+aGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4+Pg0KPj4+IGRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fbWFpbi5jIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VuX21haW4uYw0KPj4+IGlu
+ZGV4IGUwYWRiNjA0ZjQ2MS4uNTdkOGRhNzk2ZDUwIDEwMDY0NA0KPj4+IC0tLSBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9lbl9tYWluLmMNCj4+PiArKysgYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fbWFpbi5jDQo+Pj4gQEAgLTIz
+OTAsMTMgKzIzOTAsMTggQEAgc3RhdGljIHZvaWQgbWx4NWVfYnVpbGRfbmV0ZGV2KHN0cnVjdCBu
+ZXRfZGV2aWNlICpuZXRkZXYpDQo+Pj4gICAgICAgICBuZXRkZXYtPmh3X2ZlYXR1cmVzICAgICAg
+fD0gTkVUSUZfRl9IV19WTEFOX0NUQUdfRklMVEVSOw0KPj4+DQo+Pj4gICAgICAgICBpZiAobWx4
+NWVfdnhsYW5fYWxsb3dlZChtZGV2KSkgew0KPj4+IC0gICAgICAgICAgICAgICBuZXRkZXYtPmh3
+X2ZlYXR1cmVzICAgICB8PSBORVRJRl9GX0dTT19VRFBfVFVOTkVMOw0KPj4+ICsgICAgICAgICAg
+ICAgICBuZXRkZXYtPmh3X2ZlYXR1cmVzICAgICB8PSBORVRJRl9GX0dTT19VRFBfVFVOTkVMIHwN
+Cj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTkVUSUZfRl9H
+U09fVURQX1RVTk5FTF9DU1VNIHwNCj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgTkVUSUZfRl9HU09fUEFSVElBTDsNCj4+PiAgICAgICAgICAgICAgICAgbmV0
+ZGV2LT5od19lbmNfZmVhdHVyZXMgfD0gTkVUSUZfRl9JUF9DU1VNOw0KPj4+ICAgICAgICAgICAg
+ICAgICBuZXRkZXYtPmh3X2VuY19mZWF0dXJlcyB8PSBORVRJRl9GX1JYQ1NVTTsNCj4+PiAgICAg
+ICAgICAgICAgICAgbmV0ZGV2LT5od19lbmNfZmVhdHVyZXMgfD0gTkVUSUZfRl9UU087DQo+Pj4g
+ICAgICAgICAgICAgICAgIG5ldGRldi0+aHdfZW5jX2ZlYXR1cmVzIHw9IE5FVElGX0ZfVFNPNjsN
+Cj4+PiAgICAgICAgICAgICAgICAgbmV0ZGV2LT5od19lbmNfZmVhdHVyZXMgfD0gTkVUSUZfRl9S
+WEhBU0g7DQo+Pj4gICAgICAgICAgICAgICAgIG5ldGRldi0+aHdfZW5jX2ZlYXR1cmVzIHw9IE5F
+VElGX0ZfR1NPX1VEUF9UVU5ORUw7DQo+Pj4gKyAgICAgICAgICAgICAgIG5ldGRldi0+aHdfZW5j
+X2ZlYXR1cmVzIHw9IE5FVElGX0ZfR1NPX1VEUF9UVU5ORUxfQ1NVTSB8DQo+Pj4gKyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIE5FVElGX0ZfR1NPX1BBUlRJQUw7DQo+
+Pj4gKyAgICAgICAgICAgICAgIG5ldGRldi0+Z3NvX3BhcnRpYWxfZmVhdHVyZXMgPSBORVRJRl9G
+X0dTT19VRFBfVFVOTkVMX0NTVU07DQo+Pj4gICAgICAgICB9DQo+Pj4NCj4+PiAgICAgICAgIG5l
+dGRldi0+ZmVhdHVyZXMgICAgICAgICAgPSBuZXRkZXYtPmh3X2ZlYXR1cmVzOw0KPj4+DQo+Pg0K
+Pj4gSGkgQWxleCwNCj4+DQo+PiBBZGRpbmcgTWF0dCwgVnhMQU4gZmVhdHVyZSBvd25lciBmcm9t
+IE1lbGxhbm94LA0KPj4gTWF0dCBwbGVhc2UgY29ycmVjdCBtZSBpZiBhbSB3cm9uZywgYnV0IFdl
+IGFscmVhZHkgdGVzdGVkIEdTTyBWeExBTg0KPj4gYW5kIHdlIHNhdyB0aGUgVENQL0lQIGNoZWNr
+c3VtIG9mZmxvYWRzIGZvciBib3RoIGlubmVyIGFuZCBvdXRlcg0KPj4gaGVhZGVycyBoYW5kbGVk
+IGJ5IHRoZSBoYXJkd2FyZS4NCj4+DQo+PiBBbmQgbG9va2luZyBhdCBtbHg1ZV9zcV94bWl0Og0K
+Pj4NCj4+IGlmIChsaWtlbHkoc2tiLT5pcF9zdW1tZWQgPT0gQ0hFQ0tTVU1fUEFSVElBTCkpIHsN
+Cj4+ICAgICAgICAgZXNlZy0+Y3NfZmxhZ3MgPSBNTFg1X0VUSF9XUUVfTDNfQ1NVTTsNCj4+IGlm
+IChza2ItPmVuY2Fwc3VsYXRpb24pIHsNCj4+ICAgICAgICAgZXNlZy0+Y3NfZmxhZ3MgfD0gTUxY
+NV9FVEhfV1FFX0wzX0lOTkVSX0NTVU0gfA0KPj4gTUxYNV9FVEhfV1FFX0w0X0lOTkVSX0NTVU07
+DQo+PiAgICAgICAgIHNxLT5zdGF0cy5jc3VtX29mZmxvYWRfaW5uZXIrKzsNCj4+IH0gZWxzZSB7
+DQo+PiAgICAgICAgIGVzZWctPmNzX2ZsYWdzIHw9IE1MWDVfRVRIX1dRRV9MNF9DU1VNOw0KPj4g
+fQ0KPj4NCj4+IFdlIGVuYWJsZSBpbm5lci9vdXRlciBoYXJkd2FyZSBjaGVja3N1bW1pbmcgdW5j
+b25kaXRpb25hbGx5IHdpdGhvdXQNCj4+IGxvb2tpbmcgYXQgdGhlIGZlYXR1cmVzIEFsZXggaXMg
+c3VnZ2VzdGluZyBpbiB0aGlzIHBhdGNoLA0KPj4gQWxleCwgY2FuIHlvdSBlbGFib3JhdGUgbW9y
+ZSBvbiB0aGUgbWVhbmluZyBvZiB0aG9zZSBmZWF0dXJlcyA/IGFuZA0KPj4gd2h5IHdvdWxkIGl0
+IHdvcmsgZm9yIHVzIHdpdGhvdXQgZGVjbGFyaW5nIHRoZW0gPw0KPg0KPldlbGwgcmlnaHQgbm93
+IHRoZSBmZWF0dXJlIGxpc3QgZXhwb3NlZCBieSB0aGUgZGV2aWNlIGluZGljYXRlcyB0aGF0DQo+
+VFNPIGlzIG5vdCB1c2VkIGlmIGEgVnhMQU4gdHVubmVsIGhhcyBhIGNoZWNrc3VtIGluIGFuIG91
+dGVyIGhlYWRlci4NCj5TaW5jZSB0aGF0IGlzIG5vdCBleHBvc2VkIGN1cnJlbnRseSB0aGF0IGlz
+IGNvbXBsZXRlbHkgb2ZmbG9hZGVkIGluDQo+c29mdHdhcmUgdmlhIEdTTy4NCg0KVGhlIG1seDUg
+aGFyZHdhcmUgcmVxdWlyZXMgdGhlIG91dGVyIFVEUCBjaGVja3N1bSBpcyBub3Qgc2V0IHdoZW4g
+b2ZmbG9hZGluZyBlbmNhcHN1bGF0ZWQgcGFja2V0cy4gDQoNCj4NCj5XaGF0IHRoZSBHU08gcGFy
+dGlhbCBkb2VzIGlzIGFsbG93IHVzIHRvIHRyZWF0IEdTTyBmb3IgdHVubmVscyB3aXRoDQo+Y2hl
+Y2tzdW0gbGlrZSBpdCBpcyBHU08gZm9yIHR1bm5lbHMgd2l0aG91dCBjaGVja3N1bSBieSBwcmVj
+b21wdXRpbmcNCj50aGUgVURQIGNoZWNrc3VtIGFzIHRob3VnaCB0aGUgZnJhbWUgaGFkIGFscmVh
+ZHkgYmVlbiBzZWdtZW50ZWQgYW5kDQo+cmVzdHJpY3RzIHVzIHRvIGFuIGV2ZW4gbXVsdGlwbGUg
+b2YgTVNTIGJ5dGVzIHRoYXQgYXJlIHRvIGJlIHNlZ21lbnRlZA0KPmJldHdlZW4gYWxsIHRoZSBm
+cmFtZXMuICBPbmUgc2lkZSBlZmZlY3QgdGhvdWdoIGlzIHRoYXQgYWxsIG9mIHRoZSBJUA0KPmFu
+ZCBVRFAgaGVhZGVyIGZpZWxkcyBhcmUgYWxzbyBwcmVjb21wdXRlZCwgYnV0IGZyb20gd2hhdCBJ
+IGNhbiB0ZWxsDQo+aXQgbG9va3MgbGlrZSB0aGUgdmFsdWVzIHRoYXQgd291bGQgYmUgY2hhbmdl
+ZCBieSBhIGNoYW5nZSBpbiBsZW5ndGgNCj5hcmUgaWdub3JlZCBvciBvdmVyd3JpdHRlbiBieSB0
+aGUgaGFyZHdhcmUgYW5kIGRyaXZlciBhbnl3YXkuDQo+DQo+LSBBbGV4DQo=
