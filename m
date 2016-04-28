@@ -1,188 +1,46 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH nf-next] netfilter: allow logging from non-init namespaces
-Date: Wed, 27 Apr 2016 14:48:02 +0200
-Message-ID: <20160428074838.0BBB5A0C94@unicorn.suse.cz>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jonathan Corbet <corbet@lwn.net>, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/2] cxgb4/cxgb4vf: add support for mbox cmd logging
+Date: Thu, 28 Apr 2016 13:23:17 +0530
+Message-ID: <1461829999-20270-1-git-send-email-hariprasad@chelsio.com>
+Cc: netdev@vger.kernel.org, leedom@chelsio.com,
+	swise@opengridcomputing.com, nirranjan@chelsio.com,
+	santosh@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:57479 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752352AbcD1HtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 03:49:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 69b34fb996b2 ("netfilter: xt_LOG: add net namespace support for
-xt_LOG") disabled logging packets using the LOG target from non-init
-namespaces. The motivation was to prevent containers from flooding
-kernel log of the host. The plan was to keep it that way until syslog
-namespace implementation allows containers to log in a safe way.
+Hi
 
-However, the work on syslog namespace seems to have hit a dead end
-somewhere in 2013 and there are users who want to use xt_LOG in all
-network namespaces. This patch allows to do so by setting
+This patch series adds support for logging mailbox commands and replies
+for debugging purpose for both PF and VF driver.
 
-  /proc/sys/net/netfilter/nf_log_all_netns
+This patch series has been created against net-next tree and includes
+patches on cxgb4  and cxgb4vf driver.
 
-to a nonzero value. This sysctl is only accessible from init_net so that
-one cannot switch the behaviour from inside a container.
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- Documentation/networking/netfilter-sysctl.txt | 10 ++++++++++
- include/net/netfilter/nf_log.h                |  3 +++
- net/bridge/netfilter/ebt_log.c                |  2 +-
- net/ipv4/netfilter/nf_log_arp.c               |  2 +-
- net/ipv4/netfilter/nf_log_ipv4.c              |  2 +-
- net/ipv6/netfilter/nf_log_ipv6.c              |  2 +-
- net/netfilter/nf_log.c                        | 22 ++++++++++++++++++++++
- 7 files changed, 39 insertions(+), 4 deletions(-)
- create mode 100644 Documentation/networking/netfilter-sysctl.txt
+Thanks
 
-diff --git a/Documentation/networking/netfilter-sysctl.txt b/Documentation/networking/netfilter-sysctl.txt
-new file mode 100644
-index 000000000000..55791e50e169
---- /dev/null
-+++ b/Documentation/networking/netfilter-sysctl.txt
-@@ -0,0 +1,10 @@
-+/proc/sys/net/netfilter/* Variables:
-+
-+nf_log_all_netns - BOOLEAN
-+	0 - disabled (default)
-+	not 0 - enabled
-+
-+	By default, only init_net namespace can log packets into kernel log
-+	with LOG target; this aims to prevent containers from flooding host
-+	kernel log. If enabled, this target also works in other network
-+	namespaces. This variable is only accessible from init_net.
-diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index 57639fca223a..8c4b018eef72 100644
---- a/include/net/netfilter/nf_log.h
-+++ b/include/net/netfilter/nf_log.h
-@@ -49,6 +49,9 @@ struct nf_logger {
- 	struct module		*me;
- };
- 
-+/* sysctl_nf_log_all_netns - allow LOG target in all network namespaces */
-+extern int sysctl_nf_log_all_netns;
-+
- /* Function to register/unregister log function. */
- int nf_log_register(u_int8_t pf, struct nf_logger *logger);
- void nf_log_unregister(struct nf_logger *logger);
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index 152300d164ac..735230ec0e49 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -78,7 +78,7 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
- 	unsigned int bitmask;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	spin_lock_bh(&ebt_log_lock);
-diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
-index e7ad950cf9ef..39e1348dfe45 100644
---- a/net/ipv4/netfilter/nf_log_arp.c
-+++ b/net/ipv4/netfilter/nf_log_arp.c
-@@ -87,7 +87,7 @@ static void nf_log_arp_packet(struct net *net, u_int8_t pf,
- 	struct nf_log_buf *m;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	m = nf_log_buf_open();
-diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
-index 076aadda0473..2b0083112ed8 100644
---- a/net/ipv4/netfilter/nf_log_ipv4.c
-+++ b/net/ipv4/netfilter/nf_log_ipv4.c
-@@ -319,7 +319,7 @@ static void nf_log_ip_packet(struct net *net, u_int8_t pf,
- 	struct nf_log_buf *m;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	m = nf_log_buf_open();
-diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
-index 8dd869642f45..04960486d0e2 100644
---- a/net/ipv6/netfilter/nf_log_ipv6.c
-+++ b/net/ipv6/netfilter/nf_log_ipv6.c
-@@ -351,7 +351,7 @@ static void nf_log_ip6_packet(struct net *net, u_int8_t pf,
- 	struct nf_log_buf *m;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	m = nf_log_buf_open();
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index a5d41dfa9f05..a5f4c57b14c5 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -16,6 +16,9 @@
- #define NF_LOG_PREFIXLEN		128
- #define NFLOGGER_NAME_LEN		64
- 
-+int sysctl_nf_log_all_netns __read_mostly;
-+EXPORT_SYMBOL(sysctl_nf_log_all_netns);
-+
- static struct nf_logger __rcu *loggers[NFPROTO_NUMPROTO][NF_LOG_TYPE_MAX] __read_mostly;
- static DEFINE_MUTEX(nf_log_mutex);
- 
-@@ -392,6 +395,18 @@ static const struct file_operations nflog_file_ops = {
- #ifdef CONFIG_SYSCTL
- static char nf_log_sysctl_fnames[NFPROTO_NUMPROTO-NFPROTO_UNSPEC][3];
- static struct ctl_table nf_log_sysctl_table[NFPROTO_NUMPROTO+1];
-+static struct ctl_table_header *nf_log_sysctl_fhdr;
-+
-+static struct ctl_table nf_log_sysctl_ftable[] = {
-+	{
-+		.procname	= "nf_log_all_netns",
-+		.data		= &sysctl_nf_log_all_netns,
-+		.maxlen		= sizeof(sysctl_nf_log_all_netns),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{ }
-+};
- 
- static int nf_log_proc_dostring(struct ctl_table *table, int write,
- 			 void __user *buffer, size_t *lenp, loff_t *ppos)
-@@ -461,6 +476,10 @@ static int netfilter_log_sysctl_init(struct net *net)
- 			nf_log_sysctl_table[i].extra1 =
- 				(void *)(unsigned long) i;
- 		}
-+		nf_log_sysctl_fhdr = register_net_sysctl(net, "net/netfilter",
-+							 nf_log_sysctl_ftable);
-+		if (!nf_log_sysctl_fhdr)
-+			goto err_freg;
- 	}
- 
- 	net->nf.nf_log_dir_header = register_net_sysctl(net,
-@@ -474,6 +493,7 @@ static int netfilter_log_sysctl_init(struct net *net)
- err_reg:
- 	if (!net_eq(net, &init_net))
- 		kfree(table);
-+err_freg:
- err_alloc:
- 	return -ENOMEM;
- }
-@@ -486,6 +506,8 @@ static void netfilter_log_sysctl_exit(struct net *net)
- 	unregister_net_sysctl_table(net->nf.nf_log_dir_header);
- 	if (!net_eq(net, &init_net))
- 		kfree(table);
-+	else
-+		unregister_net_sysctl_table(nf_log_sysctl_fhdr);
- }
- #else
- static int netfilter_log_sysctl_init(struct net *net)
+Hariprasad Shenai (2):
+  cxgb4: Add support to enable logging of firmware mailbox commands
+  cxgb4vf: Add support to enable logging of firmware mailbox commands
+    for VF
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  32 ++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  99 ++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  12 +++
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  69 +++++++++----
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |   4 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    | 112 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |  29 ++++++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |  72 ++++++++-----
+ 8 files changed, 384 insertions(+), 45 deletions(-)
+
 -- 
-2.8.1
-
+2.3.4
