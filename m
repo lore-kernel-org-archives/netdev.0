@@ -1,31 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] RDMA/nes: don't leak skb if carrier down
-Date: Thu, 28 Apr 2016 14:20:00 -0400 (EDT)
-Message-ID: <20160428.142000.1837221734695213663.davem@davemloft.net>
-References: <1461529139-28582-1-git-send-email-fw@strlen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 30/41] Documentation: networking: fix spelling mistakes
+Date: Thu, 28 Apr 2016 14:21:22 -0400 (EDT)
+Message-ID: <20160428.142122.120683880587946479.davem@davemloft.net>
+References: <1461543878-3639-1-git-send-email-eric@engestrom.ch>
+	<1461566229-4717-1-git-send-email-eric@engestrom.ch>
+	<1461566229-4717-4-git-send-email-eric@engestrom.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461529139-28582-1-git-send-email-fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, corbet@lwn.net,
+	dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+	brouer@redhat.com, ast@plumgrid.com, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric@engestrom.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461566229-4717-4-git-send-email-eric@engestrom.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Date: Sun, 24 Apr 2016 22:18:59 +0200
+From: Eric Engestrom <eric@engestrom.ch>
+Date: Mon, 25 Apr 2016 07:36:56 +0100
 
-> Alternatively one could free the skb, OTOH I don't think this test is
-> useful so just remove it.
-> 
-> Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-> ---
->  Noticed this while working on the TX_LOCKED removal.
+> Signed-off-by: Eric Engestrom <eric@engestrom.ch>
 
-Assuming Doug will take this.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
