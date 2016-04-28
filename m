@@ -1,125 +1,47 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH v2 net-next 11/13] Documentation: Bindings: Update DT
- binding for separating dsaf dev support
-Date: Thu, 28 Apr 2016 09:45:31 +0800
-Message-ID: <57216B3B.8000306@huawei.com>
-References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1461402317-136499-12-git-send-email-Yisen.Zhuang@huawei.com>
- <20160426124847.GA26682@rob-hp-laptop> <57203309.1090501@huawei.com>
- <CAL_JsqLHrHWtiikSt7F39LoExoL2aep5Pqax5cGWWBw-yhz79g@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net 0/3] bpf: fix several bugs
+Date: Wed, 27 Apr 2016 18:56:19 -0700
+Message-ID: <1461808582-1452466-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- salil.mehta@huawei.com, Catalin Marinas <catalin.marinas@arm.com>,
- xieqianqian@huawei.com, Pawel Moll <pawel.moll@arm.com>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>, netdev <netdev@vger.kernel.org>,
- lipeng321@huawei.com, Will Deacon <will.deacon@arm.com>,
- Linuxarm <linuxarm@huawei.com>, Wei Xu <xuwei5@hisilicon.com>,
- huangdaode <huangdaode@hisilicon.com>, Kumar Gala <galak@codeaurora.org>,
- yankejian <yankejian@huawei.com>, David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- liguozhu@huawei.com
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAL_JsqLHrHWtiikSt7F39LoExoL2aep5Pqax5cGWWBw-yhz79g@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Jann Horn <jannh@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	<netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:12951 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752041AbcD1B40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:56:26 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3S1qiEx002209
+	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:25 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 22k36dhqrs-2
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:25 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ 68cfc9ac0ce411e687f724be05956610-82dfcc50 for <netdev@vger.kernel.org>;	Wed,
+ 27 Apr 2016 18:56:23 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgUm9iLAoKVGhhbmtzIGZvciB5b3UgY29tbWVudHMuCgrlnKggMjAxNi80LzI3IDIzOjI1LCBS
-b2IgSGVycmluZyDlhpnpgZM6Cj4gT24gVHVlLCBBcHIgMjYsIDIwMTYgYXQgMTA6MzMgUE0sIFlp
-c2VuIFpodWFuZyA8WWlzZW4uemh1YW5nQGh1YXdlaS5jb20+IHdyb3RlOgo+PiBIaSBSb2IgYW5k
-IERhdmlkLAo+Pgo+PiBQbGVhc2Ugc2VlIG15IGNvbW1lbnRzIGlubGluZS4KPj4KPj4gRGF2aWQg
-aGF2ZSBtZXJnZWQgdGhpcyBzZXJpZXMgdG8gbmV0LW5leHQsIGJ1dCB3ZSBuZWVkIHRvIG1vZGlm
-eSBzb21lIGNvZGVzIGFjY29yZGluZwo+PiB0byBSb2IncyBjb21tZW50cy4gSSBhbSBub3Qgc3Vy
-ZSBpZiBpIG5lZWQgdG8gc2VuZCBWMyBmb3IgdGhpcyBzZXJpZXMsIG9yIHNlcGFyYXRlCj4+IHBh
-dGNoZXMgb2YgZG9jdW1lbnRhdGlvbiB0byBpbmRlcGVuZGVudCBzZXJpZXMgYW5kIGdlbmVyYXRl
-IGEgbmV3IHBhdGNoIGZvciBobnMgYmFzZQo+PiBvbiBjdXJyZW50IG5ldC1uZXh0Pwo+IAo+IFRo
-YXQncyBEYXZpZCdzIGNhbGwuIEknbSBndWVzc2luZyBoZSB3YW50cyBmb2xsb3ctdXAgcGF0Y2hl
-cyBvbiB0b3Agb2YgdGhlc2UuCgpPa2F5LCBJIHdpbGwgc2VuZCBhIG5ldyBzZXJpZXMgYmFzZSBv
-biBjdXJyZW50IG5ldC1uZXh0LgoKPiAKPj4g5ZyoIDIwMTYvNC8yNiAyMDo0OCwgUm9iIEhlcnJp
-bmcg5YaZ6YGTOgo+Pj4gT24gU2F0LCBBcHIgMjMsIDIwMTYgYXQgMDU6MDU6MTVQTSArMDgwMCwg
-WWlzZW4gWmh1YW5nIHdyb3RlOgo+Pj4+IEJlY2F1c2UgZGVidWcgZHNhZiBwb3J0IHdhcyBzZXBh
-cmF0ZWQgZnJvbSBzZXJ2aWNlIGRzYWYgcG9ydCwgdGhpcyBwYXRjaAo+Pj4+IHVwZGF0ZXMgdGhl
-IHJlbGF0ZWQgaW5mb3JtYXRpb24gb2YgRFQgYmluZGluZy4KPj4+Cj4+PiBTZXBhcmF0ZWQgd2hl
-bj8gTmV3IHZlcnNpb24gb2YgdGhlIGgvdz8gSWYgc28sIHdoZXJlJ3MgdGhlIG5ldwo+Pj4gY29t
-cGF0aWJsZSBzdHJpbmc/IFRoaXMgaXMgcXVpdGUgYSBiaWcgYmluZGluZyBjaGFuZ2UuCj4+Cj4+
-IFRoZXJlIGlzbid0IGFueSBjaGFuZ2Ugb2YgaC93LiBJIHNlcGFyYXRlZCBkZWJ1ZyBkc2FmIHBv
-cnQgZnJvbSBzZXZpY2UgZHNhZgo+PiBwb3J0IHRvIG1ha2UgdGhlIGNvZGUgbW9yZSBzaW1wbGUg
-YW5kIHJlYWRhYmlsaXR5Lgo+IAo+IE9rYXkuCj4gCj4gWy4uLl0KPiAKPj4+PiArICBzZXJkZXMt
-c3lzY29uIHJhdGhlciB0aGFuIHRoaXMgYWRkcmVzcy4KPj4+PiAgICBUaGUgdGhpcmQgcmVnaW9u
-IGlzIHRoZSBQUEUgcmVnaXN0ZXIgYmFzZSBhbmQgc2l6ZS4KPj4+PiAtICBUaGUgZm91cnRoIHJl
-Z2lvbiBpcyBkc2EgZmFicmljIGJhc2UgcmVnaXN0ZXIgYW5kIHNpemUuCj4+Pj4gLSAgVGhlIGZp
-ZnRoIHJlZ2lvbiBpcyBjcGxkIGJhc2UgcmVnaXN0ZXIgYW5kIHNpemUsIGl0IGlzIG5vdCByZXF1
-aXJlZCBpZiBkbyBub3QgdXNlIGNwbGQuCj4+Pj4gLS0gcGh5LWhhbmRsZTogcGh5IGhhbmRsZSBv
-ZiBwaHlzaWNsIHBvcnQsIDAgaWYgbm90IGFueSBwaHkgZGV2aWNlLiBzZWUgZXRoZXJuZXQudHh0
-IFsxXS4KPj4+PiArICBUaGUgZm91cnRoIHJlZ2lvbiBpcyBkc2EgZmFicmljIGJhc2UgcmVnaXN0
-ZXIgYW5kIHNpemUuIEl0IGlzIG5vdCByZXF1aXJlZCBmb3IKPj4+PiArICBzaW5nbGUtcG9ydCBt
-b2RlLgo+Pj4+ICstIHJlZy1uYW1lczogbWF5IGJlIHBwZS1iYXNlIGFuZChvcikgZHNhZi1iYXNl
-LiBJdCBpcyB1c2VkIHRvIGZpbmQgdGhlCj4+Pj4gKyAgY29ycmVzcG9uZGluZyByZWcncyBpbmRl
-eC4KPj4+Cj4+PiBCdXQgeW91IGhhdmUgdXAgdG8gNSByZWdpb25zLgo+Pj4KPj4+IFRoZSB2YXJp
-YWJsZSBuYXR1cmUgb2Ygd2hhdCByZWdpb25zIHlvdSBoYXZlIHRlbGxzIG1lIHlvdSBuZWVkIG1v
-cmUKPj4+IHNwZWNpZmljIGNvbXBhdGlibGUgc3RyaW5ncyBmb3IgZWFjaCBjaGlwLgo+Pgo+PiB3
-ZSBkaWRuJ3QgYWRkIHN1cHBvcnQgb2YgbmV3IGgvdy4gV2UgYWRkZWQgdGhlc2UgcmVnaW9ucyB0
-byBtYWtlIGNvZGUgc2ltcGxlIGFuZCByZWFkYWJpbGl0eS4KPj4gSWYgd2UgbmVlZCB0byBhZGQg
-c3VwcG9ydCBvZiBuZXh0IGgvdyB2ZXJzaW9uIG5leHQgdGltZSwgd2UgZG9uJ3QgbmVlZCB0byBh
-ZGQgbWFueSBicmFuY2hlcwo+PiBmb3IgdGhlc2UgYXR0cmlidXRlcy4gU28gd2UgZGlkbid0IGFk
-ZCBhIG5ldyBjb21wYXRpYmxlIGhlcmUuCj4gCj4gTm90IHN1cmUgd2hhdCB5b3UgbWVhbiBieSBi
-cmFuY2hlcy4gSXQncyBmaW5lIHRvIHB1dCBwcm9wZXJ0aWVzIGZvcgo+IHRoaW5ncyB0aGF0IHZh
-cnkgYW1vbmcgaC93IHZlcnNpb25zLCBidXQgbmV3IGNvbXBhdGlibGUgc3RyaW5ncyB3aWxsCj4g
-YmUgbmVlZGVkIGZvciBhbnkgbmV3IHZlcnNpb25zLgoKSSBtZWFuIHRoYW4gd2UgcHV0IHByb3Bl
-cnRpZXMgZm9yIHRoaW5ncyB0aGF0IHZhcnkgYW1vbmcgaC93IHZlcnNpb25zLiBJZiB3ZSBhZGQg
-c3VwcG9ydCBmb3IKbmV3IGgvdyB2ZXJzaW9ucyBuZXh0IHRpbWUsIHdlIHdpbGwgYWRkIG5ldyBj
-b21wYXRpYmxlIHN0cmluZ3MuCgo+IAo+IAo+Pj4+ICstIHBvcnQ6IHN1Ym5vZGVzIG9mIGRzYWYu
-IEEgZHNhZiBub2RlIG1heSBjb250YWluIHNldmVyYWwgcG9ydCBub2RlcyhEZXBlbmRpbmcKPj4+
-PiArICBvbiBtb2RlIG9mIGRzYWYpLiBQb3J0IG5vZGUgY29udGFpbiBzb21lIGF0dHJpYnV0ZXMg
-bGlzdGVkIGJlbG93Ogo+Pj4+ICstIHBvcnQtaWQ6IGlzIHBoeXNpY2FsIHBvcnQgaW5kZXggaW4g
-b25lIGRzYWYuCj4+Pgo+Pj4gSW5kZXhlcyBzaG91bGQgZ2VuZXJhbGx5IGJlIGF2b2lkZWQuIFdo
-YXQgZG9lcyB0aGUgbnVtYmVyIGNvcnJlc3BvbmQKPj4+IHRvIGluIGgvdyAoaWYgYW55dGhpbmcp
-Pwo+Pgo+PiBwb3J0LWlkIGlzIGluZGV4IGZvciBhIHBvcnQgaW4gZHNhZiwgaXQgaXMgY29ycmVz
-cG9uZCB0byBpbmRleCBvZiBQSFkgc2hvd2VkIGJlbG93Lgo+IAo+IE9rYXksIHlvdSBzaG91bGQg
-dXNlIHJlZyBwcm9wZXJ0eSBoZXJlIGluc3RlYWQuCgpBZ3JlZSwgdGhhbmtzLgoKPiAKPj4KPj4g
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-Q1BVCj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB8Cj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgICAgICAgICAgICAgICAgICAgICB8ICAgICAgICAgICB8Cj4+ICAgICAtLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgIC0tLS0tLS0tLSAg
-IC0tLS0tLS0tLQo+PiAgICAgfCAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgICAgICAgICAg
-ICAgICAgfCAgICB8ICAgICAgIHwgICB8ICAgfCAgIHwKPj4gICAgIHwgICAgICAgICAgICAgICAg
-ICAgICAgICBQUEUgICAgICAgICAgICAgICAgIHwgICAgfCAgUFBFICB8ICAgfCAgUFBFICB8Cj4+
-ICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAgICAgICB8ICAgIHwg
-ICB8ICAgfCAgIHwgICB8ICAgfAo+PiAgICAgfCAgICAgICAgICAgICAgICAgICAgICAgICB8ICAg
-ICAgICAgICAgICAgICAgfCAgICB8ICAgfCAgIHwgICB8ICAgfCAgIHwKPj4gICAgIHwgICAgICAg
-ICAgICAgICAgICAgICAgY3Jvc3NiYXIgICAgICAgICAgICAgIHwgICAgfCAgIHwgICB8ICAgfCAg
-IHwgICB8Cj4+ICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAgICAg
-ICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAo+PiAgICAgfCAgIC0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0gICAgICAgfCAgICB8ICAgfCAgIHwgICB8ICAgfCAgIHwKPj4gICAg
-IHwgICB8ICAgICB8ICAgICB8ICAgICAgfCAgICAgIHwgICAgICB8ICAgICAgIHwgICAgfCAgIHwg
-ICB8ICAgfCAgIHwgICB8Cj4+ICAgICB8ICAgfCAgICAgfCAgICAgfCAgICAgIHwgICAgICB8ICAg
-ICAgfCAgICAgICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAo+PiAgICAgfCAgTUFDICAgTUFD
-ICAgTUFDICAgIE1BQyAgICBNQUMgICAgTUFDICAgICAgfCAgICB8ICBNQUMgIHwgICB8ICBNQUMg
-IHwKPj4gICAgIHwgICB8ICAgICB8ICAgICB8ICAgICAgfCAgICAgIHwgICAgICB8ICAgICAgIHwg
-ICAgfCAgIHwgICB8ICAgfCAgIHwgICB8Cj4+ICAgICAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgIC0tLS0tLS0tLSAgIC0tLS0tLS0tLQo+PiAgICAgICAg
-IHwgICAgIHwgICAgIHwgICAgICB8ICAgICAgfCAgICAgIHwgICAgXCAgICAgICAgLyAgfCAgICAg
-ICAgLyAgfAo+PiAgICAgICAgUEhZICAgUEhZICAgUEhZICAgIFBIWSAgICBQSFkgICAgUEhZICAg
-IFwgICAgICAvICBQSFkgICAgICAvICBQSFkKPj4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgXCAgICAvICAgICAgICAgICAvCj4+ICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcICAvICAgICAgICAgICAvCj4+ICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIERTQUYodGhyZWUgcGxh
-dGZvcm0gZGV2aWNlKQo+Pgo+Pj4KPj4+PiArLSBwaHktaGFuZGxlOiBwaHkgaGFuZGxlIG9mIHBo
-eXNpY2wgcG9ydC4gSXQgaXMgbm90IHJlcXVpcmVkIGlmIHRoZXJlIGlzbid0Cj4gCj4gQW5vdGhl
-ciB0eXBvIGhlcmUuCgpBZ3JlZSwgdGhhbmtzLgoKPiAKPiBSb2IKPiAKPiAuCj4gCgoKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5l
-bCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6
-Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
+First two patches address bugs found by Jann Horn.
+Last patch is a minor samples fix spotted during the testing.
+
+Alexei Starovoitov (3):
+  bpf: fix refcnt overflow
+  bpf: fix check_map_func_compatibility logic
+  samples/bpf: fix trace_output example
+
+ include/linux/bpf.h             |  3 +-
+ kernel/bpf/inode.c              |  7 ++--
+ kernel/bpf/syscall.c            | 24 ++++++++++---
+ kernel/bpf/verifier.c           | 76 +++++++++++++++++++++++++----------------
+ samples/bpf/trace_output_kern.c |  1 -
+ 5 files changed, 73 insertions(+), 38 deletions(-)
+
+-- 
+2.8.0
