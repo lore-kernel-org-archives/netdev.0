@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: davinci_emac: Fix devioctl while in
- fixed link
-Date: Thu, 28 Apr 2016 15:52:07 -0400 (EDT)
-Message-ID: <20160428.155207.1419062437411480208.davem@davemloft.net>
-References: <1461606098-20057-1-git-send-email-narmstrong@baylibre.com>
+Subject: Re: [PATCH] net: fix net_gso_ok for new GSO types.
+Date: Thu, 28 Apr 2016 15:53:36 -0400 (EDT)
+Message-ID: <20160428.155336.1692865162354830955.davem@davemloft.net>
+References: <3d1dadb911fa4ebacf1ca5ad298a5c696ed261a6.1461607119.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, thomas.lendacky@amd.com, mugunthanvnm@ti.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	b.hutchman@gmail.com
-To: narmstrong@baylibre.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461606098-20057-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41461 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752630AbcD1Txi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 15:53:38 -0400
+In-Reply-To: <3d1dadb911fa4ebacf1ca5ad298a5c696ed261a6.1461607119.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Armstrong <narmstrong@baylibre.com>
-Date: Mon, 25 Apr 2016 19:41:38 +0200
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Mon, 25 Apr 2016 15:13:17 -0300
 
-> When configured in fixed link, the DaVinci emac driver sets the
-> priv->phydev to NULL and further ioctl calls to the phy_mii_ioctl()
-> causes the kernel to crash.
+> Fix casting in net_gso_ok. Otherwise the shift on
+> gso_type << NETIF_F_GSO_SHIFT may hit the 32th bit and make it look like
+> a INT_MIN, which is then promoted from signed to uint64 which is
+> 0xffffffff80000000, resulting in wrong behavior when it is and'ed with
+> the feature itself, as in:
+ ...
+> So that this:
+>    return (features & feature) == feature;
+> Actually works on more bits than expected and invalid ones.
 > 
-> Cc: Brian Hutchinson <b.hutchman@gmail.com>
-> Fixes: 1bb6aa56bb38 ("net: davinci_emac: Add support for fixed-link PHY")
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> Fix is to promote it earlier.
+> 
+> Issue noted while rebasing SCTP GSO patch but posting separetely as
+> someone else may experience this meanwhile.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Applied, thanks Neil.
+Great catch, applied, thanks Marcelo.
