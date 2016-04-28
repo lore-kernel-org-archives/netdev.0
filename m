@@ -1,58 +1,81 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] ip_tunnel: fix preempt warning in ip tunnel creation/updating
-Date: Thu, 28 Apr 2016 11:04:51 +0200
-Message-ID: <b21056e2495c485a2084d058d03e1f95480b3510.1461834203.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, tgraf@suug.ch,
-	pshelar@nicira.com, jbenc@redhat.com, hannes@stressinduktion.org,
-	sergei.shtylyov@cogentembedded.com,
-	Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+From: Jann Horn <jannh@google.com>
+Subject: Re: [PATCH net 2/3] bpf: fix check_map_func_compatibility logic
+Date: Thu, 28 Apr 2016 11:31:31 +0200
+Message-ID: <CAG48ez2auDRZxN5o0q+x0RTG0bKhZWOuGee9f-80Rd8bKpCEVw@mail.gmail.com>
+References: <1461808582-1452466-1-git-send-email-ast@fb.com> <1461808582-1452466-3-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33332 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752907AbcD1JFf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 05:05:35 -0400
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:38388 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733AbcD1Jbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 05:31:52 -0400
+Received: by mail-ig0-f180.google.com with SMTP id m9so61811457ige.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 02:31:52 -0700 (PDT)
+In-Reply-To: <1461808582-1452466-3-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the commit e09acddf873b ("ip_tunnel: replace dst_cache with generic
-implementation"), a preemption debug warning is triggered on ip4
-tunnels updating; the dst cache helper needs to be invoked in unpreemptible
-context.
+On Thu, Apr 28, 2016 at 3:56 AM, Alexei Starovoitov <ast@fb.com> wrote:
+> The commit 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+> introduced clever way to check bpf_helper<->map_type compatibility.
+> Later on commit a43eec304259 ("bpf: introduce bpf_perf_event_output() helper") adjusted
+> the logic and inadvertently broke it.
+> Get rid of the clever bool compare and go back to two-way check
+> from map and from helper perspective.
+>
+> Fixes: a43eec304259 ("bpf: introduce bpf_perf_event_output() helper")
+> Reported-by: Jann Horn <jannh@google.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  kernel/bpf/verifier.c | 65 +++++++++++++++++++++++++++++++--------------------
+>  1 file changed, 40 insertions(+), 25 deletions(-)
+>
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 89bcaa0966da..c5c17a62f509 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+[...]
+> +       case BPF_MAP_TYPE_PROG_ARRAY:
+> +               if (func_id != BPF_FUNC_tail_call)
+> +                       goto error;
+> +               break;
+> +       case BPF_MAP_TYPE_PERF_EVENT_ARRAY:
+> +               if (func_id != BPF_FUNC_perf_event_read &&
+> +                   func_id != BPF_FUNC_perf_event_output)
+> +                       goto error;
+> +               break;
+> +       case BPF_MAP_TYPE_STACK_TRACE:
+> +               if (func_id != BPF_FUNC_get_stackid)
+> +                       goto error;
+> +               break;
+> +       default:
+> +               break;
+> +       }
+> +
+> +       /* ... and second from the function itself. */
+> +       switch (func_id) {
+> +       case BPF_FUNC_tail_call:
+> +               if (map->map_type != BPF_MAP_TYPE_PROG_ARRAY)
+> +                       goto error;
+> +               break;
+> +       case BPF_FUNC_perf_event_read:
+> +       case BPF_FUNC_perf_event_output:
+> +               if (map->map_type != BPF_MAP_TYPE_PERF_EVENT_ARRAY)
+> +                       goto error;
+> +               break;
+> +       case BPF_FUNC_get_stackid:
+> +               if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
+> +                       goto error;
+> +               break;
+> +       default:
+> +               break;
+>         }
 
-We don't need to load the cache on tunnel update, so this commit fixes
-the warning replacing the load with a dst cache reset, which is
-preempt safe.
-
-Fixes: e09acddf873b ("ip_tunnel: replace dst_cache with generic
-implementation")
-
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/ip_tunnel.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 6aad019..a69ed94 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -326,12 +326,12 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
- 
- 		if (!IS_ERR(rt)) {
- 			tdev = rt->dst.dev;
--			dst_cache_set_ip4(&tunnel->dst_cache, &rt->dst,
--					  fl4.saddr);
- 			ip_rt_put(rt);
- 		}
- 		if (dev->type != ARPHRD_ETHER)
- 			dev->flags |= IFF_POINTOPOINT;
-+
-+		dst_cache_reset(&tunnel->dst_cache);
- 	}
- 
- 	if (!tdev && tunnel->parms.link)
--- 
-1.8.3.1
+Looks good to me.
