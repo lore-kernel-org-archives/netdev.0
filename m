@@ -1,43 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] stmmac: dwmac-socfpga refactor+cleanup
-Date: Thu, 28 Apr 2016 16:53:07 -0400 (EDT)
-Message-ID: <20160428.165307.1616888254325852103.davem@davemloft.net>
-References: <1461705899-17015-1-git-send-email-manabian@gmail.com>
+Subject: Re: [patch] tipc: remove an unnecessary NULL check
+Date: Thu, 28 Apr 2016 16:54:54 -0400 (EDT)
+Message-ID: <20160428.165454.1105669734912206052.davem@davemloft.net>
+References: <20160427080528.GA22469@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marex@denx.de, dinguyen@opensource.altera.com,
-	peppe.cavallaro@st.com, alexandre.torgue@st.com,
-	netdev@vger.kernel.org
-To: manabian@gmail.com
+Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42150 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42204 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753066AbcD1UxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:53:09 -0400
-In-Reply-To: <1461705899-17015-1-git-send-email-manabian@gmail.com>
+	with ESMTP id S1752685AbcD1Uy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:54:57 -0400
+In-Reply-To: <20160427080528.GA22469@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Tue, 26 Apr 2016 23:24:54 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 27 Apr 2016 11:05:28 +0300
 
-> Couple of heads-up here:
->  1. This patch set depend on Marek's "Remove re-registration of
->     reset controller" patch [1] which is not in net-next yet.
->     Without that patch this set will not apply!
+> This is never called with a NULL "buf" and anyway, we dereference 's' on
+> the lines before so it would Oops before we reach the check.
 > 
->  2. The first patch changes the prototype of a couple of
->     functions used in Alexandre's "add Ethernet glue logic for
->     stm32 chip" patch [2] and will cause build failures for
->     dwmac-stm32.c if not fixed up!
->     If Alexandre's patch set is applied first I will gladly
->     rebase my patch set to account for his driver as well.
- ...
-> Dave: Please let me know if you have any preferred way of
->       handling this.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-You could cherry pick the patch in #1 and add it to this patch set,
-in fact please respin this series that way.
-
-For #2 it'll get sorted based upon who gets applied first.
+Applied to net-next, thanks.
