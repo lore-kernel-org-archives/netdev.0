@@ -1,7 +1,7 @@
 From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: [PATCH net v3 4/5] dt: cpsw: phy-handle, phy_id, and fixed-link are mutually exclusive
-Date: Wed, 27 Apr 2016 21:42:47 -0400
-Message-ID: <1461807767-4563-1-git-send-email-drivshin.allworx@gmail.com>
+Subject: [PATCH net v3 5/5] drivers: net: cpsw: use of_phy_connect() in fixed-link case
+Date: Wed, 27 Apr 2016 21:45:45 -0400
+Message-ID: <1461807945-4665-1-git-send-email-drivshin.allworx@gmail.com>
 References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
 Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
@@ -11,72 +11,80 @@ Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
 	Nicolas Chauvet <kwizart@gmail.com>
 To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:33294 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbcD1BnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:43:00 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Rivshin <drivshin@allworx.com>
 
-The phy-handle, phy_id, and fixed-link properties are mutually exclusive,
-and only one need be specified. Make this clear in the binding doc.
-
-Also mark the phy_id property as deprecated, as phy-handle should be
-used instead.
+If a fixed-link DT subnode is used, the phy_device was looked up so
+that a PHY ID string could be constructed and passed to phy_connect().
+This is not necessary, as the device_node can be passed directly to
+of_phy_connect() instead. This reuses the same codepath as if the
+phy-handle DT property was used.
 
 Signed-off-by: David Rivshin <drivshin@allworx.com>
+Tested-by: Nicolas Chauvet <kwizart@gmail.com>
+Tested-by: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
 
 Changes since v2 [1]:
-- split from previous patch 2
-- marked the phy_id property as deprecated [3]
-- removed Rob Herring's Acked-by due to above change
+- Added Tested-by from Andrew Goodbody [3]
+- Added Reviewed-by from Mugunthan V N [4]
+- Added Reviewed-by from Grygorii Strashko [5]
 
 Changes since v1 [2]:
-- Rebased (no conflicts)
+- Rebased (trivial conflict, e5a03bfd modified the deleted snprintf)
 - Added Tested-by from Nicolas Chauvet
-- Added Acked-by from Rob Herring for the binding change
 
-[1] http://patchwork.ozlabs.org/patch/613260/
-[2] http://patchwork.ozlabs.org/patch/560324/
-[3] https://lkml.org/lkml/2016/4/22/494
+[1] http://patchwork.ozlabs.org/patch/613276/
+[2] http://patchwork.ozlabs.org/patch/560327/
+[3] https://lkml.org/lkml/2016/4/22/537
+[4] https://lkml.org/lkml/2016/4/22/63
+[5] https://lkml.org/lkml/2016/4/22/529
 
 
- Documentation/devicetree/bindings/net/cpsw.txt | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 28a4781..0ae0649 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -41,21 +41,21 @@ Optional properties:
- Slave Properties:
- Required properties:
- - phy-mode		: See ethernet.txt file in the same directory
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 712bc6d..e2fcdf1 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2044,30 +2044,21 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 							"phy-handle", 0);
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+ 		if (slave_data->phy_node) {
+ 			dev_dbg(&pdev->dev,
+ 				"slave[%d] using phy-handle=\"%s\"\n",
+ 				i, slave_data->phy_node->full_name);
+ 		} else if (of_phy_is_fixed_link(slave_node)) {
+-			struct device_node *phy_node;
+-			struct phy_device *phy_dev;
+-
+ 			/* In the case of a fixed PHY, the DT node associated
+ 			 * to the PHY is the Ethernet MAC DT node.
+ 			 */
+ 			ret = of_phy_register_fixed_link(slave_node);
+ 			if (ret)
+ 				return ret;
+-			phy_node = of_node_get(slave_node);
+-			phy_dev = of_phy_find_device(phy_node);
+-			if (!phy_dev)
+-				return -ENODEV;
+-			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
+-				 PHY_ID_FMT, phy_dev->mdio.bus->id,
+-				 phy_dev->mdio.addr);
++			slave_data->phy_node = of_node_get(slave_node);
+ 		} else if (parp) {
+ 			u32 phyid;
+ 			struct device_node *mdio_node;
+ 			struct platform_device *mdio;
  
- Optional properties:
- - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
- - mac-address		: See ethernet.txt file in the same directory
--- phy_id		: Specifies slave phy id
-+- phy_id		: Specifies slave phy id (deprecated, use phy-handle)
- - phy-handle		: See ethernet.txt file in the same directory
- 
- Slave sub-nodes:
- - fixed-link		: See fixed-link.txt file in the same directory
--			  Either the property phy_id, or the sub-node
--			  fixed-link can be specified
-+
-+Note: Exactly one of phy_id, phy-handle, or fixed-link must be specified.
- 
- Note: "ti,hwmods" field is used to fetch the base address and irq
- resources from TI, omap hwmod data base during device registration.
- Future plan is to migrate hwmod data base contents into device tree
- blob so that, all the required data will be used from device tree dts
- file.
- 
+ 			if (lenp != (sizeof(__be32) * 2)) {
+ 				dev_err(&pdev->dev, "Invalid slave[%d] phy_id property\n", i);
 -- 
 2.5.5
