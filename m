@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net 3/3] samples/bpf: fix trace_output example
-Date: Wed, 27 Apr 2016 18:56:22 -0700
-Message-ID: <1461808582-1452466-4-git-send-email-ast@fb.com>
+Subject: [PATCH net 1/3] bpf: fix refcnt overflow
+Date: Wed, 27 Apr 2016 18:56:20 -0700
+Message-ID: <1461808582-1452466-2-git-send-email-ast@fb.com>
 References: <1461808582-1452466-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,46 +11,173 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<netdev@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:19811 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752385AbcD1B42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:56:28 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3S1tkmq014372
-	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:27 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:2663 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752022AbcD1B40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:56:26 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3S1q41K026483
+	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:25 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 22k7x5rb79-2
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:27 -0700
+	by mx0a-00082601.pphosted.com with ESMTP id 22k38g1nym-1
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:25 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 68f39a300ce411e6ad640002c95209d8-7addc50 for <netdev@vger.kernel.org>;	Wed,
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ 68d9dc620ce411e6a3fc24be0593f280-359f3c50 for <netdev@vger.kernel.org>;	Wed,
  27 Apr 2016 18:56:23 -0700
 In-Reply-To: <1461808582-1452466-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-llvm cannot always recognize memset as builtin function and optimize
-it away, so just delete it. It was a leftover from testing
-of bpf_perf_event_output() with large data structures.
+On a system with >32Gbyte of phyiscal memory and infinite RLIMIT_MEMLOCK,
+the malicious application may overflow 32-bit bpf program refcnt.
+It's also possible to overflow map refcnt on 1Tb system.
+Impose 32k hard limit which means that the same bpf program or
+map cannot be shared by more than 32k processes.
 
-Fixes: 39111695b1b8 ("samples: bpf: add bpf_perf_event_output example")
+Fixes: 1be7f75d1668 ("bpf: enable non-root eBPF programs")
+Reported-by: Jann Horn <jannh@google.com>
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/trace_output_kern.c | 1 -
- 1 file changed, 1 deletion(-)
+ include/linux/bpf.h   |  3 ++-
+ kernel/bpf/inode.c    |  7 ++++---
+ kernel/bpf/syscall.c  | 24 ++++++++++++++++++++----
+ kernel/bpf/verifier.c | 11 +++++++----
+ 4 files changed, 33 insertions(+), 12 deletions(-)
 
-diff --git a/samples/bpf/trace_output_kern.c b/samples/bpf/trace_output_kern.c
-index 8d8d1ec429eb..9b96f4fb8cea 100644
---- a/samples/bpf/trace_output_kern.c
-+++ b/samples/bpf/trace_output_kern.c
-@@ -18,7 +18,6 @@ int bpf_prog1(struct pt_regs *ctx)
- 		u64 cookie;
- 	} data;
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 21ee41b92e8a..f1d5c5acc8dd 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -171,12 +171,13 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl);
+ void bpf_register_map_type(struct bpf_map_type_list *tl);
  
--	memset(&data, 0, sizeof(data));
- 	data.pid = bpf_get_current_pid_tgid();
- 	data.cookie = 0x12345678;
+ struct bpf_prog *bpf_prog_get(u32 ufd);
++struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
+ void bpf_prog_put(struct bpf_prog *prog);
+ void bpf_prog_put_rcu(struct bpf_prog *prog);
  
+ struct bpf_map *bpf_map_get_with_uref(u32 ufd);
+ struct bpf_map *__bpf_map_get(struct fd f);
+-void bpf_map_inc(struct bpf_map *map, bool uref);
++struct bpf_map *bpf_map_inc(struct bpf_map *map, bool uref);
+ void bpf_map_put_with_uref(struct bpf_map *map);
+ void bpf_map_put(struct bpf_map *map);
+ int bpf_map_precharge_memlock(u32 pages);
+diff --git a/kernel/bpf/inode.c b/kernel/bpf/inode.c
+index f2ece3c174a5..8f94ca1860cf 100644
+--- a/kernel/bpf/inode.c
++++ b/kernel/bpf/inode.c
+@@ -31,10 +31,10 @@ static void *bpf_any_get(void *raw, enum bpf_type type)
+ {
+ 	switch (type) {
+ 	case BPF_TYPE_PROG:
+-		atomic_inc(&((struct bpf_prog *)raw)->aux->refcnt);
++		raw = bpf_prog_inc(raw);
+ 		break;
+ 	case BPF_TYPE_MAP:
+-		bpf_map_inc(raw, true);
++		raw = bpf_map_inc(raw, true);
+ 		break;
+ 	default:
+ 		WARN_ON_ONCE(1);
+@@ -297,7 +297,8 @@ static void *bpf_obj_do_get(const struct filename *pathname,
+ 		goto out;
+ 
+ 	raw = bpf_any_get(inode->i_private, *type);
+-	touch_atime(&path);
++	if (!IS_ERR(raw))
++		touch_atime(&path);
+ 
+ 	path_put(&path);
+ 	return raw;
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index adc5e4bd74f8..cf5e9f7ad13a 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -218,11 +218,18 @@ struct bpf_map *__bpf_map_get(struct fd f)
+ 	return f.file->private_data;
+ }
+ 
+-void bpf_map_inc(struct bpf_map *map, bool uref)
++/* prog's and map's refcnt limit */
++#define BPF_MAX_REFCNT 32768
++
++struct bpf_map *bpf_map_inc(struct bpf_map *map, bool uref)
+ {
+-	atomic_inc(&map->refcnt);
++	if (atomic_inc_return(&map->refcnt) > BPF_MAX_REFCNT) {
++		atomic_dec(&map->refcnt);
++		return ERR_PTR(-EBUSY);
++	}
+ 	if (uref)
+ 		atomic_inc(&map->usercnt);
++	return map;
+ }
+ 
+ struct bpf_map *bpf_map_get_with_uref(u32 ufd)
+@@ -234,7 +241,7 @@ struct bpf_map *bpf_map_get_with_uref(u32 ufd)
+ 	if (IS_ERR(map))
+ 		return map;
+ 
+-	bpf_map_inc(map, true);
++	map = bpf_map_inc(map, true);
+ 	fdput(f);
+ 
+ 	return map;
+@@ -658,6 +665,15 @@ static struct bpf_prog *__bpf_prog_get(struct fd f)
+ 	return f.file->private_data;
+ }
+ 
++struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
++{
++	if (atomic_inc_return(&prog->aux->refcnt) > BPF_MAX_REFCNT) {
++		atomic_dec(&prog->aux->refcnt);
++		return ERR_PTR(-EBUSY);
++	}
++	return prog;
++}
++
+ /* called by sockets/tracing/seccomp before attaching program to an event
+  * pairs with bpf_prog_put()
+  */
+@@ -670,7 +686,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
+ 	if (IS_ERR(prog))
+ 		return prog;
+ 
+-	atomic_inc(&prog->aux->refcnt);
++	prog = bpf_prog_inc(prog);
+ 	fdput(f);
+ 
+ 	return prog;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index db2574e7b8b0..89bcaa0966da 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2049,15 +2049,18 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
+ 				return -E2BIG;
+ 			}
+ 
+-			/* remember this map */
+-			env->used_maps[env->used_map_cnt++] = map;
+-
+ 			/* hold the map. If the program is rejected by verifier,
+ 			 * the map will be released by release_maps() or it
+ 			 * will be used by the valid program until it's unloaded
+ 			 * and all maps are released in free_bpf_prog_info()
+ 			 */
+-			bpf_map_inc(map, false);
++			map = bpf_map_inc(map, false);
++			if (IS_ERR(map)) {
++				fdput(f);
++				return PTR_ERR(map);
++			}
++			env->used_maps[env->used_map_cnt++] = map;
++
+ 			fdput(f);
+ next_insn:
+ 			insn++;
 -- 
 2.8.0
