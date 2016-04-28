@@ -1,101 +1,67 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/7] net: rtnetlink: allow only one idx saving
- stats attribute
-Date: Wed, 27 Apr 2016 22:18:33 -0700
-Message-ID: <57219D29.2080307@cumulusnetworks.com>
-References: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com> <1461773902-13528-3-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, jhs@mojatatu.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/6] net: make TCP preemptible
+Date: Wed, 27 Apr 2016 22:25:46 -0700
+Message-ID: <1461821152-23200-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36599 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750753AbcD1FSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 01:18:36 -0400
-Received: by mail-pf0-f174.google.com with SMTP id c189so29290122pfb.3
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 22:18:36 -0700 (PDT)
-In-Reply-To: <1461773902-13528-3-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34583 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbcD1FZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 01:25:57 -0400
+Received: by mail-pa0-f43.google.com with SMTP id r5so28200984pag.1
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 22:25:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/27/16, 9:18 AM, Nikolay Aleksandrov wrote:
-> We can't allow more than one stats attribute which uses the local idx
-> since the result will be a mess. This is a simple check to make sure
-> only one is being used at a time. Later when the filter_mask's 32 bits
-> are over we can switch to a bitmap.
->
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
->  include/net/rtnetlink.h |  6 ++++++
->  net/core/rtnetlink.c    | 17 +++++++++++++++--
->  2 files changed, 21 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-> index 2f87c1ba13de..3f3b0b1b8722 100644
-> --- a/include/net/rtnetlink.h
-> +++ b/include/net/rtnetlink.h
-> @@ -150,4 +150,10 @@ int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len);
->  
->  #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
->  
-> +/* at most one attribute which can save a local idx is allowed to be set
-> + * IFLA_STATS_IDX_ATTR_MASK has all the idx saving attributes set and is
-> + * used to check if more than one is being requested
-> + */
-> +#define IFLA_STATS_IDX_ATTR_MASK 0
-> +
->  #endif
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index aeb2fa9b1cda..ea03b6cd3d3c 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -3512,7 +3512,7 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
->  	struct if_stats_msg *ifsm;
->  	struct net_device *dev = NULL;
->  	struct sk_buff *nskb;
-> -	u32 filter_mask;
-> +	u32 filter_mask, lidx_filter;
->  	int lidx = 0;
->  	int err;
->  
-> @@ -3529,6 +3529,14 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
->  	if (!filter_mask)
->  		return -EINVAL;
->  
-> +	/* only one attribute which can save a local idx is allowed at a time
-> +	 * even though rtnl_stats_get doesn't save the lidx, we need to be
-> +	 * consistent with the dump side and error out
-> +	 */
-> +	lidx_filter = filter_mask & IFLA_STATS_IDX_ATTR_MASK;
-> +	if (lidx_filter && !is_power_of_2(lidx_filter))
-> +		return -EINVAL;
-> +
->  	nskb = nlmsg_new(if_nlmsg_stats_size(dev, filter_mask), GFP_KERNEL);
->  	if (!nskb)
->  		return -ENOBUFS;
-> @@ -3556,7 +3564,7 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  	struct net_device *dev;
->  	struct hlist_head *head;
->  	unsigned int flags = NLM_F_MULTI;
-> -	u32 filter_mask = 0;
-> +	u32 filter_mask = 0, lidx_filter;
->  	int err;
->  
->  	s_h = cb->args[0];
-> @@ -3570,6 +3578,11 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  	if (!filter_mask)
->  		return -EINVAL;
->  
-> +	/* only one attribute which can save a local idx is allowed at a time */
-> +	lidx_filter = filter_mask & IFLA_STATS_IDX_ATTR_MASK;
-> +	if (lidx_filter && !is_power_of_2(lidx_filter))
-> +		return -EINVAL;
-> +
->  	
-instead of introducing the restriction at this level, is it possible to use two args for this
-like below and avoid the restriction ?
-cb->args[2] = current filter being processed
-cb->args[3] = private filter idx (your lidx)
+Most of TCP stack assumed it was running from BH handler.
+
+This is great for most things, as TCP behavior is very sensitive
+to scheduling artifacts.
+
+However, the prequeue and backlog processing are problematic,
+as they need to be flushed with BH being blocked.
+
+To cope with modern needs, TCP sockets have big sk_rcvbuf values,
+in the order of 16 MB.
+This means that backlog can hold thousands of packets, and things
+like TCP coalescing or collapsing on this amount of packets can
+lead to insane latency spikes, since BH are blocked for too long.
+
+It is time to make UDP/TCP stacks preemptible.
+
+Note that fast path still runs from BH handler.
+
+Eric Dumazet (6):
+  tcp: do not assume TCP code is non preemptible
+  tcp: do not block bh during prequeue processing
+  dccp: do not assume DCCP code is non preemptible
+  udp: prepare for non BH masking at backlog processing
+  sctp: prepare for socket backlog behavior change
+  net: do not block BH while processing socket backlog
+
+ net/core/sock.c          |  22 +++------
+ net/dccp/input.c         |   2 +-
+ net/dccp/ipv4.c          |   4 +-
+ net/dccp/ipv6.c          |   4 +-
+ net/dccp/options.c       |   2 +-
+ net/ipv4/tcp.c           |   6 +--
+ net/ipv4/tcp_cdg.c       |  20 ++++----
+ net/ipv4/tcp_cubic.c     |  20 ++++----
+ net/ipv4/tcp_fastopen.c  |  12 ++---
+ net/ipv4/tcp_input.c     | 126 +++++++++++++++++++----------------------------
+ net/ipv4/tcp_ipv4.c      |  14 ++++--
+ net/ipv4/tcp_minisocks.c |   2 +-
+ net/ipv4/tcp_output.c    |   7 ++-
+ net/ipv4/tcp_recovery.c  |   4 +-
+ net/ipv4/tcp_timer.c     |  10 ++--
+ net/ipv4/udp.c           |   4 +-
+ net/ipv6/tcp_ipv6.c      |  12 ++---
+ net/ipv6/udp.c           |   4 +-
+ net/sctp/inqueue.c       |   2 +
+ 19 files changed, 124 insertions(+), 153 deletions(-)
+
+-- 
+2.8.0.rc3.226.g39d4020
