@@ -1,7 +1,8 @@
 From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: [PATCH net v3 0/5] drivers: net: cpsw: phy-handle fixes
-Date: Wed, 27 Apr 2016 21:10:03 -0400
-Message-ID: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
+Subject: [PATCH net v3 1/5] drivers: net: cpsw: fix parsing of phy-handle DT property in dual_emac config
+Date: Wed, 27 Apr 2016 21:25:25 -0400
+Message-ID: <1461806725-4345-1-git-send-email-drivshin.allworx@gmail.com>
+References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
 Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Mugunthan V N <mugunthanvnm@ti.com>,
@@ -11,65 +12,166 @@ Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	Nicolas Chauvet <kwizart@gmail.com>
 To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: David Rivshin <drivshin@allworx.com>
 
-This series fixes a number of related issues around using phy-handle
-properties in cpsw emac nodes.
+Commit 9e42f715264ff158478fa30eaed847f6e131366b ("drivers: net: cpsw: add
+phy-handle parsing") saved the "phy-handle" phandle into a new cpsw_priv
+field. However, phy connections are per-slave, so the phy_node field should
+be in cpsw_slave_data rather than cpsw_priv.
 
-Patch 1 fixes a bug if more than one slave is used, and either
-slave uses the phy-handle property in the devicetree.
+This would go unnoticed in a single emac configuration. But in dual_emac
+mode, the last "phy-handle" property parsed for either slave would be used
+by both of them, causing them both to refer to the same phy_device.
 
-Patch 2 fixes a NULL pointer dereference which can occur if a
-phy-handle property is used and of_phy_connect() return NULL,
-such as with a bad devicetree.
+Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
+Signed-off-by: David Rivshin <drivshin@allworx.com>
+Tested-by: Nicolas Chauvet <kwizart@gmail.com>
+Tested-by: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+I would suggest this for -stable. It should apply cleanly as far back
+as 4.4.
 
-Patch 3 fixes an issue where the phy-mode property would be ignored
-if a phy-handle property was used. This also fixes a bogus error
-message that would be emitted.
+Changes since v2 [1]:
+- Added Tested-by from Andrew Goodbody [3]
+- Added Reviewed-by from Mugunthan V N [4]
+- Added Reviewed-by from Grygorii Strashko [5]
 
-Patch 4 fixes makes the binding documentation more explicit that
-exactly one PHY property should be used, and also marks phy_id as
-deprecated.
+Changes since v1 [2]:
+- Rebased (no conflicts)
+- Added Tested-by from Nicolas Chauvet
 
-Patch 5 cleans up the fixed-link case to work like the now-fixed
-phy-handle case.
+[1] http://patchwork.ozlabs.org/patch/613237/
+[2] http://patchwork.ozlabs.org/patch/560326/
+[3] https://lkml.org/lkml/2016/4/22/537
+[4] https://lkml.org/lkml/2016/4/22/63
+[5] https://lkml.org/lkml/2016/4/22/496
 
-I have tested on the following hardware configurations:
- - (EVMSK) dual emac, phy_id property in both slaves
- - (EVMSK) dual emac, phy-handle property in both slaves
- - (EVMSK) a bad phy-handle property pointing to &mmc1
- - (EVMSK) phy_id property with incorrect PHY address
- - (BeagleBoneBlack) single emac, phy_id property
- - (custom) single emac, fixed-link subnode
 
-Andrew Goodbody reported testing v2 on a board that doesn't use
-dual_emac mode, but with 2 PHYs using phy-handle properties [1].
+ drivers/net/ethernet/ti/cpsw.c | 13 ++++++-------
+ drivers/net/ethernet/ti/cpsw.h |  1 +
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-Nicolas Chauvet reported testing v2 on an HP t410 (dm8148).
-
-Markus Brunner reported testing v1 on the following [2]:
- - emac0 with phy_id and emac1 with fixed phy
- - emac0 with phy-handle and emac1 with fixed phy
- - emac0 with fixed phy and emac1 with fixed phy
-
-[1] https://lkml.org/lkml/2016/4/22/537
-[2] http://www.spinics.net/lists/netdev/msg357890.html
-
-David Rivshin (5):
-  drivers: net: cpsw: fix parsing of phy-handle DT property in dual_emac
-    config
-  drivers: net: cpsw: fix segfault in case of bad phy-handle
-  drivers: net: cpsw: don't ignore phy-mode if phy-handle is used
-  dt: cpsw: phy-handle, phy_id, and fixed-link are mutually exclusive
-  drivers: net: cpsw: use of_phy_connect() in fixed-link case
-
- Documentation/devicetree/bindings/net/cpsw.txt |  6 +--
- drivers/net/ethernet/ti/cpsw.c                 | 69 ++++++++++++++------------
- drivers/net/ethernet/ti/cpsw.h                 |  1 +
- 3 files changed, 41 insertions(+), 35 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index bbb77cd..ce0b0ca 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -363,15 +363,14 @@ static inline void slave_write(struct cpsw_slave *slave, u32 val, u32 offset)
+ 	__raw_writel(val, slave->regs + offset);
+ }
+ 
+ struct cpsw_priv {
+ 	spinlock_t			lock;
+ 	struct platform_device		*pdev;
+ 	struct net_device		*ndev;
+-	struct device_node		*phy_node;
+ 	struct napi_struct		napi_rx;
+ 	struct napi_struct		napi_tx;
+ 	struct device			*dev;
+ 	struct cpsw_platform_data	data;
+ 	struct cpsw_ss_regs __iomem	*regs;
+ 	struct cpsw_wr_regs __iomem	*wr_regs;
+ 	u8 __iomem			*hw_stats;
+@@ -1144,16 +1143,16 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 
+ 	if (priv->data.dual_emac)
+ 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
+ 	else
+ 		cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+ 				   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
+ 
+-	if (priv->phy_node)
+-		slave->phy = of_phy_connect(priv->ndev, priv->phy_node,
++	if (slave->data->phy_node)
++		slave->phy = of_phy_connect(priv->ndev, slave->data->phy_node,
+ 				 &cpsw_adjust_link, 0, slave->data->phy_if);
+ 	else
+ 		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
+ 				 &cpsw_adjust_link, slave->data->phy_if);
+ 	if (IS_ERR(slave->phy)) {
+ 		dev_err(priv->dev, "phy %s not found on slave %d\n",
+ 			slave->data->phy_id, slave->slave_num);
+@@ -1936,20 +1935,19 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+ 
+ 	slave->data	= data;
+ 	slave->regs	= regs + slave_reg_ofs;
+ 	slave->sliver	= regs + sliver_reg_ofs;
+ 	slave->port_vlan = data->dual_emac_res_vlan;
+ }
+ 
+-static int cpsw_probe_dt(struct cpsw_priv *priv,
++static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			 struct platform_device *pdev)
+ {
+ 	struct device_node *node = pdev->dev.of_node;
+ 	struct device_node *slave_node;
+-	struct cpsw_platform_data *data = &priv->data;
+ 	int i = 0, ret;
+ 	u32 prop;
+ 
+ 	if (!node)
+ 		return -EINVAL;
+ 
+ 	if (of_property_read_u32(node, "slaves", &prop)) {
+@@ -2029,15 +2027,16 @@ static int cpsw_probe_dt(struct cpsw_priv *priv,
+ 		int lenp;
+ 		const __be32 *parp;
+ 
+ 		/* This is no slave child node, continue */
+ 		if (strcmp(slave_node->name, "slave"))
+ 			continue;
+ 
+-		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
++		slave_data->phy_node = of_parse_phandle(slave_node,
++							"phy-handle", 0);
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+ 		if (of_phy_is_fixed_link(slave_node)) {
+ 			struct device_node *phy_node;
+ 			struct phy_device *phy_dev;
+ 
+ 			/* In the case of a fixed PHY, the DT node associated
+ 			 * to the PHY is the Ethernet MAC DT node.
+@@ -2271,15 +2270,15 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	 * This may be required here for child devices.
+ 	 */
+ 	pm_runtime_enable(&pdev->dev);
+ 
+ 	/* Select default pin state */
+ 	pinctrl_pm_select_default_state(&pdev->dev);
+ 
+-	if (cpsw_probe_dt(priv, pdev)) {
++	if (cpsw_probe_dt(&priv->data, pdev)) {
+ 		dev_err(&pdev->dev, "cpsw: platform data missing\n");
+ 		ret = -ENODEV;
+ 		goto clean_runtime_disable_ret;
+ 	}
+ 	data = &priv->data;
+ 
+ 	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
+diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
+index 442a703..e50afd1 100644
+--- a/drivers/net/ethernet/ti/cpsw.h
++++ b/drivers/net/ethernet/ti/cpsw.h
+@@ -14,14 +14,15 @@
+ #ifndef __CPSW_H__
+ #define __CPSW_H__
+ 
+ #include <linux/if_ether.h>
+ #include <linux/phy.h>
+ 
+ struct cpsw_slave_data {
++	struct device_node *phy_node;
+ 	char		phy_id[MII_BUS_ID_SIZE];
+ 	int		phy_if;
+ 	u8		mac_addr[ETH_ALEN];
+ 	u16		dual_emac_res_vlan;	/* Reserved VLAN for DualEMAC */
+ };
+ 
+ struct cpsw_platform_data {
 -- 
 2.5.5
