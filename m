@@ -1,40 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix net_gso_ok for new GSO types.
-Date: Thu, 28 Apr 2016 15:53:36 -0400 (EDT)
-Message-ID: <20160428.155336.1692865162354830955.davem@davemloft.net>
-References: <3d1dadb911fa4ebacf1ca5ad298a5c696ed261a6.1461607119.git.marcelo.leitner@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 13:03:15 -0700
+Message-ID: <57226C83.8040509@gmail.com>
+References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
+ <57222FCE.8050407@atmel.com> <20160428155556.GA8333@nathan3500-linux-VM>
+ <20160428163207.GP29024@lunn.ch> <20160428175619.GA8791@nathan3500-linux-VM>
+ <20160428184303.GR29024@lunn.ch> <20160428185527.GA8851@nathan3500-linux-VM>
+ <20160428185932.GU29024@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41461 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752630AbcD1Txi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 15:53:38 -0400
-In-Reply-To: <3d1dadb911fa4ebacf1ca5ad298a5c696ed261a6.1461607119.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Nathan Sullivan <nathan.sullivan@ni.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160428185932.GU29024@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Mon, 25 Apr 2016 15:13:17 -0300
+On 28/04/16 11:59, Andrew Lunn wrote:
+> On Thu, Apr 28, 2016 at 01:55:27PM -0500, Nathan Sullivan wrote:
+>> On Thu, Apr 28, 2016 at 08:43:03PM +0200, Andrew Lunn wrote:
+>>>> I agree that is a valid fix for AT91, however it won't solve our problem, since
+>>>> we have no children on the second ethernet MAC in our devices' device trees. I'm
+>>>> starting to feel like our second MAC shouldn't even really register the MDIO bus
+>>>> since it isn't being used - maybe adding a DT property to not have a bus is a
+>>>> better option?
+>>>
+>>> status = "disabled"
+>>>
+>>> would be the unusual way.
+>>>
+>>>       Andrew
+>>
+>> Oh, sorry, I meant we use both MACs on Zynq, however the PHYs are on the MDIO
+>> bus of the first MAC.  So, the second MAC is used for ethernet but not for MDIO,
+>> and so it does not have any PHYs under its DT node.  It would be nice if there
+>> were a way to tell macb not to bother with MDIO for the second MAC, since that's
+>> handled by the first MAC.
+> 
+> Yes, exactly, add support for status = "disabled" in the mdio node.
 
-> Fix casting in net_gso_ok. Otherwise the shift on
-> gso_type << NETIF_F_GSO_SHIFT may hit the 32th bit and make it look like
-> a INT_MIN, which is then promoted from signed to uint64 which is
-> 0xffffffff80000000, resulting in wrong behavior when it is and'ed with
-> the feature itself, as in:
- ...
-> So that this:
->    return (features & feature) == feature;
-> Actually works on more bits than expected and invalid ones.
-> 
-> Fix is to promote it earlier.
-> 
-> Issue noted while rebasing SCTP GSO patch but posting separetely as
-> someone else may experience this meanwhile.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Something like that, just so we do not have to sprinkle tests all other
+the place:
 
-Great catch, applied, thanks Marcelo.
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index b622b33dbf93..2f497790be1b 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -209,6 +209,10 @@ int of_mdiobus_register(struct mii_bus *mdio,
+struct device_node *np)
+        bool scanphys = false;
+        int addr, rc;
+
++       /* Do not continue if the node is disabled */
++       if (!of_device_is_available(np))
++               return -EINVAL;
++
+        /* Mask out all PHYs from auto probing.  Instead the PHYs listed in
+         * the device tree are populated after the bus has been
+registered */
+        mdio->phy_mask = ~0;
+
+
+> 
+>> I guess a good longer-term solution to all these problems would be to treat the
+>> MAC and MDIO as seperate devices, like davinci seems to be doing.
+> 
+> A few others do this as well, e.g. most Marvell devices.
+
+Sometimes the MDIO registers are intertwinned with the Ethernet MAC
+register space, which is something you can solve by handing just the
+relevant portion of the MDIO register space to a separate driver (though
+you need to watch out for two drivers calling request_mem_region on the
+same register space).
+-- 
+Florian
