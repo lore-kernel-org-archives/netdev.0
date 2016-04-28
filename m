@@ -1,77 +1,176 @@
 From: Michael Heimpold <mhei@heimpold.de>
-Subject: [PATCH v3 net-next 1/2] net: ethernet: enc28j60: support half-duplex SPI controllers
-Date: Thu, 28 Apr 2016 22:06:14 +0200
-Message-ID: <1461873975-6368-2-git-send-email-mhei@heimpold.de>
+Subject: [PATCH v3 net-next 2/2] net: ethernet: enc28j60: add device tree support
+Date: Thu, 28 Apr 2016 22:06:15 +0200
+Message-ID: <1461873975-6368-3-git-send-email-mhei@heimpold.de>
 References: <1461873975-6368-1-git-send-email-mhei@heimpold.de>
 Cc: Michael Heimpold <mhei@heimpold.de>
 To: Jonathan Cameron <jic23@kernel.org>,
 	"Andrew F . Davis" <afd@ti.com>, Mark Brown <broonie@kernel.org>,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.217]:64476 "EHLO
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.217]:54353 "EHLO
 	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753299AbcD1UGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:06:35 -0400
+	with ESMTP id S1753166AbcD1UGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:06:38 -0400
 In-Reply-To: <1461873975-6368-1-git-send-email-mhei@heimpold.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current spi_read_buf function fails on SPI host masters which
-are only half-duplex capable. Splitting the Tx and Rx part solves
-this issue.
+The following patch adds the required match table for device tree support
+(and while at, fix the indent). It's also possible to specify the
+MAC address in the DT blob.
 
-Tested on Raspberry Pi (full duplex) and I2SE Duckbill (half duplex).
+Also add the corresponding binding documentation file.
 
 Signed-off-by: Michael Heimpold <mhei@heimpold.de>
 ---
 
 Changelog:
 
-v3: - no changes
+v3: * renamed and improved binding documentation as
+      suggested by Rob Herring
 
-v2: - no changes
+v2: * took care of Arnd Bergmann's review comments
+      - allow to specify MAC address via DT
+      - unconditionally define DT id table
+    * increased the driver version minor number
+    * driver author's email address bounces, removed from address list
 
 v1: * Initial submission
 
 
- drivers/net/ethernet/microchip/enc28j60.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ .../devicetree/bindings/net/microchip,enc28j60.txt | 59 ++++++++++++++++++++++
+ drivers/net/ethernet/microchip/enc28j60.c          | 20 ++++++--
+ 2 files changed, 76 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/microchip,enc28j60.txt
 
+diff --git a/Documentation/devicetree/bindings/net/microchip,enc28j60.txt b/Documentation/devicetree/bindings/net/microchip,enc28j60.txt
+new file mode 100644
+index 0000000..1dc3bc7
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/microchip,enc28j60.txt
+@@ -0,0 +1,59 @@
++* Microchip ENC28J60
++
++This is a standalone 10 MBit ethernet controller with SPI interface.
++
++For each device connected to a SPI bus, define a child node within
++the SPI master node.
++
++Required properties:
++- compatible: Should be "microchip,enc28j60"
++- reg: Specify the SPI chip select the ENC28J60 is wired to
++- interrupt-parent: Specify the phandle of the source interrupt, see interrupt
++                    binding documentation for details. Usually this is the GPIO bank
++                    the interrupt line is wired to.
++- interrupts: Specify the interrupt index within the interrupt controller (referred
++              to above in interrupt-parent) and interrupt type. The ENC28J60 natively
++              generates falling edge interrupts, however, additional board logic
++              might invert the signal.
++- pinctrl-names: List of assigned state names, see pinctrl binding documentation.
++- pinctrl-0: List of phandles to configure the GPIO pin used as interrupt line,
++             see also generic and your platform specific pinctrl binding
++             documentation.
++
++Optional properties:
++- spi-max-frequency: Maximum frequency of the SPI bus when accessing the ENC28J60.
++  According to the ENC28J80 datasheet, the chip allows a maximum of 20 MHz, however,
++  board designs may need to limit this value.
++- local-mac-address: See ethernet.txt in the same directory.
++
++
++Example (for NXP i.MX28 with pin control stuff for GPIO irq):
++
++        ssp2: ssp@80014000 {
++                compatible = "fsl,imx28-spi";
++                pinctrl-names = "default";
++                pinctrl-0 = <&spi2_pins_b &spi2_sck_cfg>;
++                status = "okay";
++
++                enc28j60: ethernet@0 {
++                        compatible = "microchip,enc28j60";
++                        pinctrl-names = "default";
++                        pinctrl-0 = <&enc28j60_pins>;
++                        reg = <0>;
++                        interrupt-parent = <&gpio3>;
++                        interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
++                        spi-max-frequency = <12000000>;
++                };
++        };
++
++        pinctrl@80018000 {
++                enc28j60_pins: enc28j60_pins@0 {
++                        reg = <0>;
++                        fsl,pinmux-ids = <
++                                MX28_PAD_AUART0_RTS__GPIO_3_3    /* Interrupt */
++                        >;
++                        fsl,drive-strength = <MXS_DRIVE_4mA>;
++                        fsl,voltage = <MXS_VOLTAGE_HIGH>;
++                        fsl,pull-up = <MXS_PULL_DISABLE>;
++                };
++        };
 diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
-index 86ea17e..b723622 100644
+index b723622..7066954 100644
 --- a/drivers/net/ethernet/microchip/enc28j60.c
 +++ b/drivers/net/ethernet/microchip/enc28j60.c
-@@ -89,22 +89,26 @@ spi_read_buf(struct enc28j60_net *priv, int len, u8 *data)
+@@ -28,11 +28,12 @@
+ #include <linux/skbuff.h>
+ #include <linux/delay.h>
+ #include <linux/spi/spi.h>
++#include <linux/of_net.h>
+ 
+ #include "enc28j60_hw.h"
+ 
+ #define DRV_NAME	"enc28j60"
+-#define DRV_VERSION	"1.01"
++#define DRV_VERSION	"1.02"
+ 
+ #define SPI_OPLEN	1
+ 
+@@ -1548,6 +1549,7 @@ static int enc28j60_probe(struct spi_device *spi)
  {
- 	u8 *rx_buf = priv->spi_transfer_buf + 4;
- 	u8 *tx_buf = priv->spi_transfer_buf;
--	struct spi_transfer t = {
-+	struct spi_transfer tx = {
- 		.tx_buf = tx_buf,
-+		.len = SPI_OPLEN,
-+	};
-+	struct spi_transfer rx = {
- 		.rx_buf = rx_buf,
--		.len = SPI_OPLEN + len,
-+		.len = len,
- 	};
- 	struct spi_message msg;
- 	int ret;
+ 	struct net_device *dev;
+ 	struct enc28j60_net *priv;
++	const void *macaddr;
+ 	int ret = 0;
  
- 	tx_buf[0] = ENC28J60_READ_BUF_MEM;
--	tx_buf[1] = tx_buf[2] = tx_buf[3] = 0;	/* don't care */
- 
- 	spi_message_init(&msg);
--	spi_message_add_tail(&t, &msg);
-+	spi_message_add_tail(&tx, &msg);
-+	spi_message_add_tail(&rx, &msg);
-+
- 	ret = spi_sync(priv->spi, &msg);
- 	if (ret == 0) {
--		memcpy(data, &rx_buf[SPI_OPLEN], len);
-+		memcpy(data, rx_buf, len);
- 		ret = msg.status;
+ 	if (netif_msg_drv(&debug))
+@@ -1579,7 +1581,12 @@ static int enc28j60_probe(struct spi_device *spi)
+ 		ret = -EIO;
+ 		goto error_irq;
  	}
- 	if (ret && netif_msg_drv(priv))
+-	eth_hw_addr_random(dev);
++
++	macaddr = of_get_mac_address(spi->dev.of_node);
++	if (macaddr)
++		ether_addr_copy(dev->dev_addr, macaddr);
++	else
++		eth_hw_addr_random(dev);
+ 	enc28j60_set_hw_macaddr(dev);
+ 
+ 	/* Board setup must set the relevant edge trigger type;
+@@ -1634,9 +1641,16 @@ static int enc28j60_remove(struct spi_device *spi)
+ 	return 0;
+ }
+ 
++static const struct of_device_id enc28j60_dt_ids[] = {
++	{ .compatible = "microchip,enc28j60" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, enc28j60_dt_ids);
++
+ static struct spi_driver enc28j60_driver = {
+ 	.driver = {
+-		   .name = DRV_NAME,
++		.name = DRV_NAME,
++		.of_match_table = enc28j60_dt_ids,
+ 	 },
+ 	.probe = enc28j60_probe,
+ 	.remove = enc28j60_remove,
 -- 
 2.5.0
