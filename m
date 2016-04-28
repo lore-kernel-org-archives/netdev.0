@@ -1,64 +1,51 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Thu, 28 Apr 2016 09:46:42 -0500
-Message-ID: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nathan Sullivan <nathan.sullivan@ni.com>
-To: nicolas.ferre@atmel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod2.natinst.com ([130.164.80.23]:59911 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752463AbcD1OrY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 10:47:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [net-next PATCH V4 1/5] samples/bpf: add back functionality to
+ redefine LLC command
+Date: Thu, 28 Apr 2016 20:20:03 +0530
+Message-ID: <20160428144949.GG7880@naverao1-tp.in.ibm.com>
+References: <20160428121949.16807.84828.stgit@firesoul>
+ <20160428122053.16807.93143.stgit@firesoul>
+ <20160428132132.GB7880@naverao1-tp.in.ibm.com>
+ <20160428164046.0998f03d@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	bblanco@plumgrid.com, borkmann@iogearbox.net,
+	alexei.starovoitov@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160428164046.0998f03d@redhat.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since of_mdiobus_register and mdiobus_register will scan automatically,
-do not manually scan for PHY devices in the macb ethernet driver. Doing
-so will result in many nonexistent PHYs on the MDIO bus if the MDIO
-lines are floating or grounded, such as when they are not used.
+On 2016/04/28 04:40PM, Jesper Dangaard Brouer wrote:
+> On Thu, 28 Apr 2016 18:51:33 +0530
+> "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com> wrote:
+> 
+> > > Add this features back. Note that it is possible to redefine the LLC
+> > > on the make command like:
+> > > 
+> > >  make samples/bpf/ LLC=~/git/llvm/build/bin/llc  
+> > 
+> > I don't have an objection to this patch, but you didn't explain why/how 
+> > this approach is better than just doing:
+> >   PATH=~/git/llvm/build/bin make samples/bpf/
+> 
+> It is almost the same. There is always another way to do the same.
+> 
+> I explicitly use this to test different combinations of LLC and CLANG,
+> in-order to validate Alexei's claim that older versions of CLANG could
+> still work with a newer version of LLC.  Thus, one use-case you
+> approach cannot cover ;-)
+> 
+> And clang seems to install a clang-3.9, which my solution also covers
+> by explicitly specifying CLANG=clang-3.9, if several avail clang's are
+> in the PATH.
 
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
----
- drivers/net/ethernet/cadence/macb.c |   19 +------------------
- 1 file changed, 1 insertion(+), 18 deletions(-)
+Ah, so a very niche use-case.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 48a7d7d..6506b4e 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -424,7 +424,7 @@ static int macb_mii_init(struct macb *bp)
- {
- 	struct macb_platform_data *pdata;
- 	struct device_node *np;
--	int err = -ENXIO, i;
-+	int err = -ENXIO;
- 
- 	/* Enable management port */
- 	macb_writel(bp, NCR, MACB_BIT(MPE));
-@@ -450,23 +450,6 @@ static int macb_mii_init(struct macb *bp)
- 	if (np) {
- 		/* try dt phy registration */
- 		err = of_mdiobus_register(bp->mii_bus, np);
--
--		/* fallback to standard phy registration if no phy were
--		   found during dt phy registration */
--		if (!err && !phy_find_first(bp->mii_bus)) {
--			for (i = 0; i < PHY_MAX_ADDR; i++) {
--				struct phy_device *phydev;
--
--				phydev = mdiobus_scan(bp->mii_bus, i);
--				if (IS_ERR(phydev)) {
--					err = PTR_ERR(phydev);
--					break;
--				}
--			}
--
--			if (err)
--				goto err_out_unregister_bus;
--		}
- 	} else {
- 		if (pdata)
- 			bp->mii_bus->phy_mask = pdata->phy_mask;
--- 
-1.7.10.4
+Acked-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+
+- Naveen
+
