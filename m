@@ -1,70 +1,39 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [RFC PATCH 4/5] bnxt: Add support for segmentation of tunnels
- with outer checksums
-Date: Wed, 27 Apr 2016 21:32:38 -0700
-Message-ID: <CACKFLi=0ug=E++9prBjC7NsD67+DtLKXXwFtF-E0+trVNtMgbA@mail.gmail.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
-	<20160419190615.11723.53966.stgit@ahduyck-xeon-server>
-	<CACKFLi=2mHfOS1Rz5RbSdyhepdjBqM+dj7Nh=CzARcYSwUTcSw@mail.gmail.com>
-	<CAKgT0UffVkQWWqgwYZy-AXEq=kofKiRx2D9pnu5nBQD+uSLS+g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/2] tcp: remove an unnecessary check in
+ tcp_tx_timestamp
+Date: Wed, 27 Apr 2016 21:35:05 -0700
+Message-ID: <1461818105.5535.88.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461814741-848-1-git-send-email-soheil.kdev@gmail.com>
+	 <1461814741-848-2-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>, eugenia@mellanox.com,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kafai@fb.com,
+	willemb@google.com, edumazet@google.com, ycheng@google.com,
+	ncardwell@google.com, Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34570 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbcD1Eck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 00:32:40 -0400
-Received: by mail-oi0-f46.google.com with SMTP id k142so71734222oib.1
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 21:32:39 -0700 (PDT)
-In-Reply-To: <CAKgT0UffVkQWWqgwYZy-AXEq=kofKiRx2D9pnu5nBQD+uSLS+g@mail.gmail.com>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:32936 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbcD1EfK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 00:35:10 -0400
+Received: by mail-qk0-f172.google.com with SMTP id n63so27565659qkf.0
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 21:35:09 -0700 (PDT)
+In-Reply-To: <1461814741-848-2-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 27, 2016 at 8:21 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Tue, Apr 26, 2016 at 10:55 PM, Michael Chan
-> <michael.chan@broadcom.com> wrote:
->> On Tue, Apr 19, 2016 at 12:06 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>> This patch assumes that the bnxt hardware will ignore existing IPv4/v6
->>> header fields for length and checksum as well as the length and checksum
->>> fields for outer UDP and GRE headers.
->>>
->>> I have no means of testing this as I do not have any bnx2x hardware but
->>> thought I would submit it as an RFC to see if anyone out there wants to
->>> test this and see if this does in fact enable this functionality allowing
->>> us to to segment tunneled frames that have an outer checksum.
->>>
->>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->>
->> Hi Alex, I just did a very quick test of this patch on our bnxt
->> hardware and it seemed to work.
->>
->> I created a vxlan endpoint with udpcsum enabled and I saw TSO packets
->> getting through.  I've verified that our hardware can be programmed to
->> either ignore outer UDP checksum or to calculate it.  Current default
->> is to ignore ipv4 UDP checksum and calculate ipv6 UDP checksum.
->> Thanks.
->
-> Are you saying you can natively support UDP tunnel with outer checksum
-> offload then?
+On Wed, 2016-04-27 at 23:39 -0400, Soheil Hassas Yeganeh wrote:
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> Remove the redundant check for sk->sk_tsflags in tcp_tx_timestamp.
+> 
+> tcp_tx_timestamp() receives the tsflags as a parameter. As a
+> result the "sk->sk_tsflags || tsflags" is redundant, since
+> tsflags already includes sk->sk_tsflags plus overrides from
+> control messages.
+> 
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> ---
 
-Yes.  Calculate or ignore the outer UDP checksum.
-
->
-> I'm just trying to sort out if you actually need to have the partial
-> segmentation offload support or if we can handle it in hardware.  Also
-> is there any documentation you could point me to that might help to
-> clarify what the hardware does/doesn't support so that I could improve
-> upon this patch in order to make sure we are getting the most bang for
-> the buck in terms of the features that can be offloaded by hardware?
-
-No public documentation yet.  I think the plan is to publish the
-programmer's reference on our website at some point in the future.
+Acked-by: Eric Dumazet <edumazet@google.com>
