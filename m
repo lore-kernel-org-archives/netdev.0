@@ -1,90 +1,125 @@
-From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: [PATCH net v3 5/5] drivers: net: cpsw: use of_phy_connect() in fixed-link case
-Date: Wed, 27 Apr 2016 21:45:45 -0400
-Message-ID: <1461807945-4665-1-git-send-email-drivshin.allworx@gmail.com>
-References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
-	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	Nicolas Chauvet <kwizart@gmail.com>
-To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH v2 net-next 11/13] Documentation: Bindings: Update DT
+ binding for separating dsaf dev support
+Date: Thu, 28 Apr 2016 09:45:31 +0800
+Message-ID: <57216B3B.8000306@huawei.com>
+References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <1461402317-136499-12-git-send-email-Yisen.Zhuang@huawei.com>
+ <20160426124847.GA26682@rob-hp-laptop> <57203309.1090501@huawei.com>
+ <CAL_JsqLHrHWtiikSt7F39LoExoL2aep5Pqax5cGWWBw-yhz79g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ salil.mehta@huawei.com, Catalin Marinas <catalin.marinas@arm.com>,
+ xieqianqian@huawei.com, Pawel Moll <pawel.moll@arm.com>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>, netdev <netdev@vger.kernel.org>,
+ lipeng321@huawei.com, Will Deacon <will.deacon@arm.com>,
+ Linuxarm <linuxarm@huawei.com>, Wei Xu <xuwei5@hisilicon.com>,
+ huangdaode <huangdaode@hisilicon.com>, Kumar Gala <galak@codeaurora.org>,
+ yankejian <yankejian@huawei.com>, David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ liguozhu@huawei.com
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAL_JsqLHrHWtiikSt7F39LoExoL2aep5Pqax5cGWWBw-yhz79g@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: David Rivshin <drivshin@allworx.com>
-
-If a fixed-link DT subnode is used, the phy_device was looked up so
-that a PHY ID string could be constructed and passed to phy_connect().
-This is not necessary, as the device_node can be passed directly to
-of_phy_connect() instead. This reuses the same codepath as if the
-phy-handle DT property was used.
-
-Signed-off-by: David Rivshin <drivshin@allworx.com>
-Tested-by: Nicolas Chauvet <kwizart@gmail.com>
-Tested-by: Andrew Goodbody <andrew.goodbody@cambrionix.com>
-Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
-
-Changes since v2 [1]:
-- Added Tested-by from Andrew Goodbody [3]
-- Added Reviewed-by from Mugunthan V N [4]
-- Added Reviewed-by from Grygorii Strashko [5]
-
-Changes since v1 [2]:
-- Rebased (trivial conflict, e5a03bfd modified the deleted snprintf)
-- Added Tested-by from Nicolas Chauvet
-
-[1] http://patchwork.ozlabs.org/patch/613276/
-[2] http://patchwork.ozlabs.org/patch/560327/
-[3] https://lkml.org/lkml/2016/4/22/537
-[4] https://lkml.org/lkml/2016/4/22/63
-[5] https://lkml.org/lkml/2016/4/22/529
-
-
- drivers/net/ethernet/ti/cpsw.c | 11 +----------
- 1 file changed, 1 insertion(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 712bc6d..e2fcdf1 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2044,30 +2044,21 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 							"phy-handle", 0);
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if (slave_data->phy_node) {
- 			dev_dbg(&pdev->dev,
- 				"slave[%d] using phy-handle=\"%s\"\n",
- 				i, slave_data->phy_node->full_name);
- 		} else if (of_phy_is_fixed_link(slave_node)) {
--			struct device_node *phy_node;
--			struct phy_device *phy_dev;
--
- 			/* In the case of a fixed PHY, the DT node associated
- 			 * to the PHY is the Ethernet MAC DT node.
- 			 */
- 			ret = of_phy_register_fixed_link(slave_node);
- 			if (ret)
- 				return ret;
--			phy_node = of_node_get(slave_node);
--			phy_dev = of_phy_find_device(phy_node);
--			if (!phy_dev)
--				return -ENODEV;
--			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
--				 PHY_ID_FMT, phy_dev->mdio.bus->id,
--				 phy_dev->mdio.addr);
-+			slave_data->phy_node = of_node_get(slave_node);
- 		} else if (parp) {
- 			u32 phyid;
- 			struct device_node *mdio_node;
- 			struct platform_device *mdio;
- 
- 			if (lenp != (sizeof(__be32) * 2)) {
- 				dev_err(&pdev->dev, "Invalid slave[%d] phy_id property\n", i);
--- 
-2.5.5
+SGkgUm9iLAoKVGhhbmtzIGZvciB5b3UgY29tbWVudHMuCgrlnKggMjAxNi80LzI3IDIzOjI1LCBS
+b2IgSGVycmluZyDlhpnpgZM6Cj4gT24gVHVlLCBBcHIgMjYsIDIwMTYgYXQgMTA6MzMgUE0sIFlp
+c2VuIFpodWFuZyA8WWlzZW4uemh1YW5nQGh1YXdlaS5jb20+IHdyb3RlOgo+PiBIaSBSb2IgYW5k
+IERhdmlkLAo+Pgo+PiBQbGVhc2Ugc2VlIG15IGNvbW1lbnRzIGlubGluZS4KPj4KPj4gRGF2aWQg
+aGF2ZSBtZXJnZWQgdGhpcyBzZXJpZXMgdG8gbmV0LW5leHQsIGJ1dCB3ZSBuZWVkIHRvIG1vZGlm
+eSBzb21lIGNvZGVzIGFjY29yZGluZwo+PiB0byBSb2IncyBjb21tZW50cy4gSSBhbSBub3Qgc3Vy
+ZSBpZiBpIG5lZWQgdG8gc2VuZCBWMyBmb3IgdGhpcyBzZXJpZXMsIG9yIHNlcGFyYXRlCj4+IHBh
+dGNoZXMgb2YgZG9jdW1lbnRhdGlvbiB0byBpbmRlcGVuZGVudCBzZXJpZXMgYW5kIGdlbmVyYXRl
+IGEgbmV3IHBhdGNoIGZvciBobnMgYmFzZQo+PiBvbiBjdXJyZW50IG5ldC1uZXh0Pwo+IAo+IFRo
+YXQncyBEYXZpZCdzIGNhbGwuIEknbSBndWVzc2luZyBoZSB3YW50cyBmb2xsb3ctdXAgcGF0Y2hl
+cyBvbiB0b3Agb2YgdGhlc2UuCgpPa2F5LCBJIHdpbGwgc2VuZCBhIG5ldyBzZXJpZXMgYmFzZSBv
+biBjdXJyZW50IG5ldC1uZXh0LgoKPiAKPj4g5ZyoIDIwMTYvNC8yNiAyMDo0OCwgUm9iIEhlcnJp
+bmcg5YaZ6YGTOgo+Pj4gT24gU2F0LCBBcHIgMjMsIDIwMTYgYXQgMDU6MDU6MTVQTSArMDgwMCwg
+WWlzZW4gWmh1YW5nIHdyb3RlOgo+Pj4+IEJlY2F1c2UgZGVidWcgZHNhZiBwb3J0IHdhcyBzZXBh
+cmF0ZWQgZnJvbSBzZXJ2aWNlIGRzYWYgcG9ydCwgdGhpcyBwYXRjaAo+Pj4+IHVwZGF0ZXMgdGhl
+IHJlbGF0ZWQgaW5mb3JtYXRpb24gb2YgRFQgYmluZGluZy4KPj4+Cj4+PiBTZXBhcmF0ZWQgd2hl
+bj8gTmV3IHZlcnNpb24gb2YgdGhlIGgvdz8gSWYgc28sIHdoZXJlJ3MgdGhlIG5ldwo+Pj4gY29t
+cGF0aWJsZSBzdHJpbmc/IFRoaXMgaXMgcXVpdGUgYSBiaWcgYmluZGluZyBjaGFuZ2UuCj4+Cj4+
+IFRoZXJlIGlzbid0IGFueSBjaGFuZ2Ugb2YgaC93LiBJIHNlcGFyYXRlZCBkZWJ1ZyBkc2FmIHBv
+cnQgZnJvbSBzZXZpY2UgZHNhZgo+PiBwb3J0IHRvIG1ha2UgdGhlIGNvZGUgbW9yZSBzaW1wbGUg
+YW5kIHJlYWRhYmlsaXR5Lgo+IAo+IE9rYXkuCj4gCj4gWy4uLl0KPiAKPj4+PiArICBzZXJkZXMt
+c3lzY29uIHJhdGhlciB0aGFuIHRoaXMgYWRkcmVzcy4KPj4+PiAgICBUaGUgdGhpcmQgcmVnaW9u
+IGlzIHRoZSBQUEUgcmVnaXN0ZXIgYmFzZSBhbmQgc2l6ZS4KPj4+PiAtICBUaGUgZm91cnRoIHJl
+Z2lvbiBpcyBkc2EgZmFicmljIGJhc2UgcmVnaXN0ZXIgYW5kIHNpemUuCj4+Pj4gLSAgVGhlIGZp
+ZnRoIHJlZ2lvbiBpcyBjcGxkIGJhc2UgcmVnaXN0ZXIgYW5kIHNpemUsIGl0IGlzIG5vdCByZXF1
+aXJlZCBpZiBkbyBub3QgdXNlIGNwbGQuCj4+Pj4gLS0gcGh5LWhhbmRsZTogcGh5IGhhbmRsZSBv
+ZiBwaHlzaWNsIHBvcnQsIDAgaWYgbm90IGFueSBwaHkgZGV2aWNlLiBzZWUgZXRoZXJuZXQudHh0
+IFsxXS4KPj4+PiArICBUaGUgZm91cnRoIHJlZ2lvbiBpcyBkc2EgZmFicmljIGJhc2UgcmVnaXN0
+ZXIgYW5kIHNpemUuIEl0IGlzIG5vdCByZXF1aXJlZCBmb3IKPj4+PiArICBzaW5nbGUtcG9ydCBt
+b2RlLgo+Pj4+ICstIHJlZy1uYW1lczogbWF5IGJlIHBwZS1iYXNlIGFuZChvcikgZHNhZi1iYXNl
+LiBJdCBpcyB1c2VkIHRvIGZpbmQgdGhlCj4+Pj4gKyAgY29ycmVzcG9uZGluZyByZWcncyBpbmRl
+eC4KPj4+Cj4+PiBCdXQgeW91IGhhdmUgdXAgdG8gNSByZWdpb25zLgo+Pj4KPj4+IFRoZSB2YXJp
+YWJsZSBuYXR1cmUgb2Ygd2hhdCByZWdpb25zIHlvdSBoYXZlIHRlbGxzIG1lIHlvdSBuZWVkIG1v
+cmUKPj4+IHNwZWNpZmljIGNvbXBhdGlibGUgc3RyaW5ncyBmb3IgZWFjaCBjaGlwLgo+Pgo+PiB3
+ZSBkaWRuJ3QgYWRkIHN1cHBvcnQgb2YgbmV3IGgvdy4gV2UgYWRkZWQgdGhlc2UgcmVnaW9ucyB0
+byBtYWtlIGNvZGUgc2ltcGxlIGFuZCByZWFkYWJpbGl0eS4KPj4gSWYgd2UgbmVlZCB0byBhZGQg
+c3VwcG9ydCBvZiBuZXh0IGgvdyB2ZXJzaW9uIG5leHQgdGltZSwgd2UgZG9uJ3QgbmVlZCB0byBh
+ZGQgbWFueSBicmFuY2hlcwo+PiBmb3IgdGhlc2UgYXR0cmlidXRlcy4gU28gd2UgZGlkbid0IGFk
+ZCBhIG5ldyBjb21wYXRpYmxlIGhlcmUuCj4gCj4gTm90IHN1cmUgd2hhdCB5b3UgbWVhbiBieSBi
+cmFuY2hlcy4gSXQncyBmaW5lIHRvIHB1dCBwcm9wZXJ0aWVzIGZvcgo+IHRoaW5ncyB0aGF0IHZh
+cnkgYW1vbmcgaC93IHZlcnNpb25zLCBidXQgbmV3IGNvbXBhdGlibGUgc3RyaW5ncyB3aWxsCj4g
+YmUgbmVlZGVkIGZvciBhbnkgbmV3IHZlcnNpb25zLgoKSSBtZWFuIHRoYW4gd2UgcHV0IHByb3Bl
+cnRpZXMgZm9yIHRoaW5ncyB0aGF0IHZhcnkgYW1vbmcgaC93IHZlcnNpb25zLiBJZiB3ZSBhZGQg
+c3VwcG9ydCBmb3IKbmV3IGgvdyB2ZXJzaW9ucyBuZXh0IHRpbWUsIHdlIHdpbGwgYWRkIG5ldyBj
+b21wYXRpYmxlIHN0cmluZ3MuCgo+IAo+IAo+Pj4+ICstIHBvcnQ6IHN1Ym5vZGVzIG9mIGRzYWYu
+IEEgZHNhZiBub2RlIG1heSBjb250YWluIHNldmVyYWwgcG9ydCBub2RlcyhEZXBlbmRpbmcKPj4+
+PiArICBvbiBtb2RlIG9mIGRzYWYpLiBQb3J0IG5vZGUgY29udGFpbiBzb21lIGF0dHJpYnV0ZXMg
+bGlzdGVkIGJlbG93Ogo+Pj4+ICstIHBvcnQtaWQ6IGlzIHBoeXNpY2FsIHBvcnQgaW5kZXggaW4g
+b25lIGRzYWYuCj4+Pgo+Pj4gSW5kZXhlcyBzaG91bGQgZ2VuZXJhbGx5IGJlIGF2b2lkZWQuIFdo
+YXQgZG9lcyB0aGUgbnVtYmVyIGNvcnJlc3BvbmQKPj4+IHRvIGluIGgvdyAoaWYgYW55dGhpbmcp
+Pwo+Pgo+PiBwb3J0LWlkIGlzIGluZGV4IGZvciBhIHBvcnQgaW4gZHNhZiwgaXQgaXMgY29ycmVz
+cG9uZCB0byBpbmRleCBvZiBQSFkgc2hvd2VkIGJlbG93Lgo+IAo+IE9rYXksIHlvdSBzaG91bGQg
+dXNlIHJlZyBwcm9wZXJ0eSBoZXJlIGluc3RlYWQuCgpBZ3JlZSwgdGhhbmtzLgoKPiAKPj4KPj4g
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+Q1BVCj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICB8Cj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHwgICAgICAgICAgICAgICAgICAgICB8ICAgICAgICAgICB8Cj4+ICAgICAtLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgIC0tLS0tLS0tLSAg
+IC0tLS0tLS0tLQo+PiAgICAgfCAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgICAgICAgICAg
+ICAgICAgfCAgICB8ICAgICAgIHwgICB8ICAgfCAgIHwKPj4gICAgIHwgICAgICAgICAgICAgICAg
+ICAgICAgICBQUEUgICAgICAgICAgICAgICAgIHwgICAgfCAgUFBFICB8ICAgfCAgUFBFICB8Cj4+
+ICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAgICAgICB8ICAgIHwg
+ICB8ICAgfCAgIHwgICB8ICAgfAo+PiAgICAgfCAgICAgICAgICAgICAgICAgICAgICAgICB8ICAg
+ICAgICAgICAgICAgICAgfCAgICB8ICAgfCAgIHwgICB8ICAgfCAgIHwKPj4gICAgIHwgICAgICAg
+ICAgICAgICAgICAgICAgY3Jvc3NiYXIgICAgICAgICAgICAgIHwgICAgfCAgIHwgICB8ICAgfCAg
+IHwgICB8Cj4+ICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAgICAg
+ICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAo+PiAgICAgfCAgIC0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0gICAgICAgfCAgICB8ICAgfCAgIHwgICB8ICAgfCAgIHwKPj4gICAg
+IHwgICB8ICAgICB8ICAgICB8ICAgICAgfCAgICAgIHwgICAgICB8ICAgICAgIHwgICAgfCAgIHwg
+ICB8ICAgfCAgIHwgICB8Cj4+ICAgICB8ICAgfCAgICAgfCAgICAgfCAgICAgIHwgICAgICB8ICAg
+ICAgfCAgICAgICB8ICAgIHwgICB8ICAgfCAgIHwgICB8ICAgfAo+PiAgICAgfCAgTUFDICAgTUFD
+ICAgTUFDICAgIE1BQyAgICBNQUMgICAgTUFDICAgICAgfCAgICB8ICBNQUMgIHwgICB8ICBNQUMg
+IHwKPj4gICAgIHwgICB8ICAgICB8ICAgICB8ICAgICAgfCAgICAgIHwgICAgICB8ICAgICAgIHwg
+ICAgfCAgIHwgICB8ICAgfCAgIHwgICB8Cj4+ICAgICAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgIC0tLS0tLS0tLSAgIC0tLS0tLS0tLQo+PiAgICAgICAg
+IHwgICAgIHwgICAgIHwgICAgICB8ICAgICAgfCAgICAgIHwgICAgXCAgICAgICAgLyAgfCAgICAg
+ICAgLyAgfAo+PiAgICAgICAgUEhZICAgUEhZICAgUEhZICAgIFBIWSAgICBQSFkgICAgUEhZICAg
+IFwgICAgICAvICBQSFkgICAgICAvICBQSFkKPj4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgXCAgICAvICAgICAgICAgICAvCj4+ICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcICAvICAgICAgICAgICAvCj4+ICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIERTQUYodGhyZWUgcGxh
+dGZvcm0gZGV2aWNlKQo+Pgo+Pj4KPj4+PiArLSBwaHktaGFuZGxlOiBwaHkgaGFuZGxlIG9mIHBo
+eXNpY2wgcG9ydC4gSXQgaXMgbm90IHJlcXVpcmVkIGlmIHRoZXJlIGlzbid0Cj4gCj4gQW5vdGhl
+ciB0eXBvIGhlcmUuCgpBZ3JlZSwgdGhhbmtzLgoKPiAKPiBSb2IKPiAKPiAuCj4gCgoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5l
+bCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6
+Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
