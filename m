@@ -1,59 +1,58 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/7] bridge: per-vlan stats
-Date: Thu, 28 Apr 2016 10:43:07 +0200
-Message-ID: <5721CD1B.7000101@cumulusnetworks.com>
-References: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
-	stephen@networkplumber.org, jhs@mojatatu.com
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ip_tunnel: fix preempt warning in ip tunnel creation/updating
+Date: Thu, 28 Apr 2016 11:04:51 +0200
+Message-ID: <b21056e2495c485a2084d058d03e1f95480b3510.1461834203.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, tgraf@suug.ch,
+	pshelar@nicira.com, jbenc@redhat.com, hannes@stressinduktion.org,
+	sergei.shtylyov@cogentembedded.com,
+	Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37514 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751523AbcD1InL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 04:43:11 -0400
-Received: by mail-wm0-f53.google.com with SMTP id a17so52793273wme.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 01:43:11 -0700 (PDT)
-In-Reply-To: <1461773902-13528-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33332 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752907AbcD1JFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 05:05:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2016 06:18 PM, Nikolay Aleksandrov wrote:
-> Hi,
-> This set adds support for bridge per-vlan statistics.
-> In order to be able to dump statistics we need a way to continue
-> dumping after reaching maximum size, thus patches 01-03 extend the new
-> stats API with a per-device extended link stats attribute and callback
-> which can save its local state and continue where it left off afterwards.
-> I considered using the already existing "fill_xstats" callback but it gets
-> confusing since we need to separate the linkinfo dump from the new stats
-> api dump and adding a flag/argument to do that just looks messy. I don't
-> think the rtnl_link_ops size is an issue, so adding these seemed like the
-> cleaner approach.
-> 
-> Patch 05 converts the pvid to a pointer so we can consolidate the vlan
-> stats accounting paths later, also allows to simplify the pvid code.
-> Patches 06 and 07 add the stats support and netlink dump support
-> respectively.
-> I've tested this set with both old and modified iproute2, kmemleak on and
-> some traffic stress tests while adding/removing vlans and ports.
-> 
-> Thank you,
->  Nik
-> 
-> Note: Jamal I haven't forgotten about the per-port per-vlan stats, I've got
-> a follow-up patch that adds it. You can easily see that the infrastructure
-> for private port/vlan stats is in place after this set. Though the stats
-> api will need some more changes to support that.
-> 
-> 
-[snip]
+After the commit e09acddf873b ("ip_tunnel: replace dst_cache with generic
+implementation"), a preemption debug warning is triggered on ip4
+tunnels updating; the dst cache helper needs to be invoked in unpreemptible
+context.
 
-Self-NAK
-I'll post a v2 after a couple of days, I'd like to make some minor changes and also
-address the feedback in the process.
+We don't need to load the cache on tunnel update, so this commit fixes
+the warning replacing the load with a dst cache reset, which is
+preempt safe.
 
-Thanks,
- Nik
+Fixes: e09acddf873b ("ip_tunnel: replace dst_cache with generic
+implementation")
+
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/ip_tunnel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 6aad019..a69ed94 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -326,12 +326,12 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
+ 
+ 		if (!IS_ERR(rt)) {
+ 			tdev = rt->dst.dev;
+-			dst_cache_set_ip4(&tunnel->dst_cache, &rt->dst,
+-					  fl4.saddr);
+ 			ip_rt_put(rt);
+ 		}
+ 		if (dev->type != ARPHRD_ETHER)
+ 			dev->flags |= IFF_POINTOPOINT;
++
++		dst_cache_reset(&tunnel->dst_cache);
+ 	}
+ 
+ 	if (!tdev && tunnel->parms.link)
+-- 
+1.8.3.1
