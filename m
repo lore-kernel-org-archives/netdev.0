@@ -1,48 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: Provide CPU port statistics to
- master netdev
-Date: Thu, 28 Apr 2016 17:16:36 -0400 (EDT)
-Message-ID: <20160428.171636.1239468738278228965.davem@davemloft.net>
-References: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 0/6] net: make TCP preemptible
+Date: Thu, 28 Apr 2016 18:18:39 -0300
+Message-ID: <20160428211839.GB2276@localhost.localdomain>
+References: <1461821152-23200-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42470 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751513AbcD1VQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:16:38 -0400
-In-Reply-To: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55780 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753653AbcD1VSm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 17:18:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1461821152-23200-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 27 Apr 2016 11:45:14 -0700
+On Wed, Apr 27, 2016 at 10:25:46PM -0700, Eric Dumazet wrote:
+> Most of TCP stack assumed it was running from BH handler.
+> 
+> This is great for most things, as TCP behavior is very sensitive
+> to scheduling artifacts.
+> 
+> However, the prequeue and backlog processing are problematic,
+> as they need to be flushed with BH being blocked.
+> 
+> To cope with modern needs, TCP sockets have big sk_rcvbuf values,
+> in the order of 16 MB.
+> This means that backlog can hold thousands of packets, and things
+> like TCP coalescing or collapsing on this amount of packets can
+> lead to insane latency spikes, since BH are blocked for too long.
 
-> This patch overloads the DSA master netdev, aka CPU Ethernet MAC to also
-> include switch-side statistics, which is useful for debugging purposes,
-> when the switch is not properly connected to the Ethernet MAC (duplex
-> mismatch, (RG)MII electrical issues etc.).
-> 
-> We accomplish this by retaining the original copy of the master netdev's
-> ethtool_ops, and just overload the 3 operations we care about:
-> get_sset_count, get_strings and get_ethtool_stats so as to intercept
-> these calls and call into the original master_netdev ethtool_ops, plus
-> our own.
-> 
-> We take this approach as opposed to providing a set of DSA helper
-> functions that would retrive the CPU port's statistics, because the
-> entire purpose of DSA is to allow unmodified Ethernet MAC drivers to be
-> used as CPU conduit interfaces, therefore, statistics overlay in such
-> drivers would simply not scale.
-> 
-> The new ethtool -S <iface> output would therefore look like this now:
-> <iface> statistics
-> p<2 digits cpu port number>_<switch MIB counter names>
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+And due to that, it may potentially lead to packet drops on NIC ring
+buffers.  Great, thanks Eric.
 
-Applied, thanks Florian.
+> It is time to make UDP/TCP stacks preemptible.
+> 
+> Note that fast path still runs from BH handler.
+> 
+> Eric Dumazet (6):
+>   tcp: do not assume TCP code is non preemptible
+>   tcp: do not block bh during prequeue processing
+>   dccp: do not assume DCCP code is non preemptible
+>   udp: prepare for non BH masking at backlog processing
+>   sctp: prepare for socket backlog behavior change
+>   net: do not block BH while processing socket backlog
+> 
+>  net/core/sock.c          |  22 +++------
+>  net/dccp/input.c         |   2 +-
+>  net/dccp/ipv4.c          |   4 +-
+>  net/dccp/ipv6.c          |   4 +-
+>  net/dccp/options.c       |   2 +-
+>  net/ipv4/tcp.c           |   6 +--
+>  net/ipv4/tcp_cdg.c       |  20 ++++----
+>  net/ipv4/tcp_cubic.c     |  20 ++++----
+>  net/ipv4/tcp_fastopen.c  |  12 ++---
+>  net/ipv4/tcp_input.c     | 126 +++++++++++++++++++----------------------------
+>  net/ipv4/tcp_ipv4.c      |  14 ++++--
+>  net/ipv4/tcp_minisocks.c |   2 +-
+>  net/ipv4/tcp_output.c    |   7 ++-
+>  net/ipv4/tcp_recovery.c  |   4 +-
+>  net/ipv4/tcp_timer.c     |  10 ++--
+>  net/ipv4/udp.c           |   4 +-
+>  net/ipv6/tcp_ipv6.c      |  12 ++---
+>  net/ipv6/udp.c           |   4 +-
+>  net/sctp/inqueue.c       |   2 +
+>  19 files changed, 124 insertions(+), 153 deletions(-)
+> 
+> -- 
+> 2.8.0.rc3.226.g39d4020
+> 
