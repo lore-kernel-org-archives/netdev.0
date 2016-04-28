@@ -1,51 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] pegasus: correct buffer & packet sizes
-Date: Thu, 28 Apr 2016 17:09:49 -0400 (EDT)
-Message-ID: <20160428.170949.107159620249010813.davem@davemloft.net>
-References: <1461756290-27421-1-git-send-email-petkan@mip-labs.com>
+Subject: Re: [PATCH net] gre: reject GUE and FOU in collect metadata mode
+Date: Thu, 28 Apr 2016 17:10:00 -0400 (EDT)
+Message-ID: <20160428.171000.1223589001547447013.davem@davemloft.net>
+References: <7280f5aa7ec83653cdf7f0484fb9e696bc8c89e8.1461758705.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, a1291762@gmail.com,
-	johannes@sipsolutions.net
-To: petkan@mip-labs.com
+Cc: netdev@vger.kernel.org, pshelar@ovn.org, tgraf@suug.ch,
+	tom@herbertland.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42405 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42409 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbcD1VJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:09:51 -0400
-In-Reply-To: <1461756290-27421-1-git-send-email-petkan@mip-labs.com>
+	with ESMTP id S1753230AbcD1VKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:10:01 -0400
+In-Reply-To: <7280f5aa7ec83653cdf7f0484fb9e696bc8c89e8.1461758705.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petko Manolov <petkan@mip-labs.com>
-Date: Wed, 27 Apr 2016 14:24:48 +0300
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 27 Apr 2016 14:08:01 +0200
 
-> As noticed by Lincoln Ramsay <a1291762@gmail.com> some old (usb 1.1) Pegasus
-> based devices may actually return more bytes than the specified in the datasheet
-> amount.  That would not be a problem if the allocated space for the SKB was
-> equal to the parameter passed to usb_fill_bulk_urb().  Some poor bugger (i
-> really hope it was not me, but 'git blame' is useless in this case, so anyway)
-> decided to add '+ 8' to the buffer length parameter.  Sometimes the usb transfer
-> overflows and corrupts the socket structure, leading to kernel panic.
+> The collect metadata mode does not support GUE nor FOU. This might be
+> implemented later; until then, we should reject such config.
 > 
-> The above doesn't seem to happen for newer (Pegasus2 based) devices which did
-> help this bug to hide for so long.
+> I think this is okay to be changed. It's unlikely anyone has such
+> configuration (as it doesn't work anyway) and we may need a way to
+> distinguish whether it's supported or not by the kernel later.
 > 
-> The new default is to not include the CRC at the end of each received package.  
-> So far CRC has been ignored which makes no sense to do it in a first place.
+> For backwards compatibility with iproute2, it's not possible to just check
+> the attribute presence (iproute2 always includes the attribute), the actual
+> value has to be checked, too.
 > 
-> The patch is against v4.6-rc5 and was tested on ADM8515 device by transferring
-> multiple gigabytes of data over a couple of days without any complaints from the
-> kernel.  Please apply it to whatever net tree you deem fit.
-> 
-> Changes since v1:
-> 
->  - split the patch in two parts;
->  - corrected the subject lines;
-> 
-> Changes since v2:
-> 
->  - do not append CRC by default (based on a discussion with Johannes Berg);
+> Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+> Discovered this only after I already sent v3 of the previous gre set.
+> Submitting this patch on its own, it's an indepent fix anyway (though fixing
+> the same commit).
 
-Series applied, thanks.
+Applied, thank you.
