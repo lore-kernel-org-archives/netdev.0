@@ -1,51 +1,54 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next] drivers/net: add 6WIND SHULTI support
-Date: Thu, 28 Apr 2016 17:05:47 +0300
-Message-ID: <CAJ3xEMgA8zx7nsZ0w5y4HwzrMwhXOnp1kJ_YjqTU6P5fPD+10A@mail.gmail.com>
-References: <1461749838-4613-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20160427095615.GA27071@breakpoint.cc>
-	<20160427151336.GB1962@nanopsycho.orion>
-	<20160427.125506.1088576804354580011.davem@davemloft.net>
-	<5721FB26.6070305@6wind.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] ip_tunnel: fix preempt warning in ip tunnel
+ creation/updating
+Date: Thu, 28 Apr 2016 16:11:16 +0200
+Message-ID: <1461852676.4802.31.camel@redhat.com>
+References: <b21056e2495c485a2084d058d03e1f95480b3510.1461834203.git.pabeni@redhat.com>
+	 <1461845394.5535.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, tgraf@suug.ch,
+	pshelar@nicira.com, jbenc@redhat.com, hannes@stressinduktion.org,
+	sergei.shtylyov@cogentembedded.com,
+	Tom Herbert <tom@herbertland.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:35221 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752147AbcD1OFt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 10:05:49 -0400
-Received: by mail-io0-f179.google.com with SMTP id d62so77889973iof.2
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 07:05:48 -0700 (PDT)
-In-Reply-To: <5721FB26.6070305@6wind.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37949 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752194AbcD1OLV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 10:11:21 -0400
+In-Reply-To: <1461845394.5535.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2016, Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote=
-:
-> Le 27/04/2016 18:55, David Miller a =C3=A9crit :
->> From: Jiri Pirko <jiri@resnulli.us>
+On Thu, 2016-04-28 at 05:09 -0700, Eric Dumazet wrote:
+> On Thu, 2016-04-28 at 11:04 +0200, Paolo Abeni wrote:
+> > After the commit e09acddf873b ("ip_tunnel: replace dst_cache with generic
+> > implementation"), a preemption debug warning is triggered on ip4
+> > tunnels updating; the dst cache helper needs to be invoked in unpreemptible
+> > context.
+> > 
+> > We don't need to load the cache on tunnel update, so this commit fixes
+> > the warning replacing the load with a dst cache reset, which is
+> > preempt safe.
+> > 
+> > Fixes: e09acddf873b ("ip_tunnel: replace dst_cache with generic
+> > implementation")
+> > 
+> > Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> 
+> Seems good to me, thanks.
+> 
+> Note that the Fixes: tag should not be followed by a blank line.
+> (And presumably no line wrap is necessary)
+> It really is part of the standard set of tags.
+> They should be grouped together.
 
->>> The difference is that it this tries to allow userspace crap to mir=
-ror
->>> setting user does for bridge/ovs. Basically this looks to me like a=
-n
->>> attempt to enable userspace SDKs and such.
+Oops, I missed that points and checkpatch.pl did not help. 
+Thank you for the advice.
 
->> +1
-
-> I don't think so because a userspace can receive all the bridge/ovs s=
-ettings by
-> mean of netlink mirror, without the need for this driver at all.
-
-yep, Jiri, can you explain what's the difference in **that** aspect
-(sans adding new netlinks) between the case here to the already
-existing bridge/bonding (wasn't aware to the ovs ones) reflections to
-user-space?
-
-Or.
+Paolo
