@@ -1,8 +1,7 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH v4 net-next 1/2] ppp: define reusable device creation
- functions
-Date: Thu, 28 Apr 2016 17:55:28 +0200
-Message-ID: <20160428155528.GA24349@alphalink.fr>
+Subject: [PATCH v4 net-next 2/2] ppp: add rtnetlink device creation support
+Date: Thu, 28 Apr 2016 17:55:30 +0200
+Message-ID: <20160428155530.GA24359@alphalink.fr>
 References: <cover.1461854990.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,291 +10,267 @@ Cc: linux-ppp@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	walter harms <wharms@bfs.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42836 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752885AbcD1Pzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 11:55:40 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1461854990.git.g.nault@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move PPP device initialisation and registration out of
-ppp_create_interface().
-This prepares code for device registration with rtnetlink.
+Define PPP device handler for use with rtnetlink.
+The only PPP specific attribute is IFLA_PPP_DEV_FD. It is mandatory and
+contains the file descriptor of the associated /dev/ppp instance (the
+file descriptor which would have been used for ioctl(PPPIOCNEWUNIT) in
+the ioctl-based API). The PPP device is removed when this file
+descriptor is released (same behaviour as with ioctl based PPP
+devices).
 
-While there, simplify the prototype of ppp_create_interface():
+PPP devices created with the rtnetlink API behave like the ones created
+with ioctl(PPPIOCNEWUNIT). In particular existing ioctls work the same
+way, no matter how the PPP device was created.
+The rtnl callbacks are also assigned to ioctl based PPP devices. This
+way, rtnl messages have the same effect on any PPP devices.
+The immediate effect is that all PPP devices, even ioctl-based
+ones, can now be removed with "ip link del".
 
-  * Since ppp_dev_configure() takes care of setting file->private_data,
-    there's no need to return a ppp structure to ppp_unattached_ioctl()
-    anymore.
-
-  * The unit parameter is made read/write so that ppp_create_interface()
-    can tell which unit number has been assigned.
+A minor difference still exists between ioctl and rtnl based PPP
+interfaces: in the device name, the number following the "ppp" prefix
+corresponds to the PPP unit number for ioctl based devices, while it is
+just an unrelated incrementing index for rtnl ones.
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- drivers/net/ppp/ppp_generic.c | 206 ++++++++++++++++++++++++------------------
- 1 file changed, 118 insertions(+), 88 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 115 ++++++++++++++++++++++++++++++++++++++++--
+ include/uapi/linux/if_link.h  |   8 +++
+ 2 files changed, 120 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index f572b31..59077c8 100644
+index 59077c8..8dedafa 100644
 --- a/drivers/net/ppp/ppp_generic.c
 +++ b/drivers/net/ppp/ppp_generic.c
-@@ -183,6 +183,11 @@ struct channel {
- #endif /* CONFIG_PPP_MULTILINK */
+@@ -46,6 +46,7 @@
+ #include <linux/device.h>
+ #include <linux/mutex.h>
+ #include <linux/slab.h>
++#include <linux/file.h>
+ #include <asm/unaligned.h>
+ #include <net/slhc_vj.h>
+ #include <linux/atomic.h>
+@@ -186,6 +187,7 @@ struct channel {
+ struct ppp_config {
+ 	struct file *file;
+ 	s32 unit;
++	bool ifname_is_set;
  };
  
-+struct ppp_config {
-+	struct file *file;
-+	s32 unit;
-+};
-+
  /*
-  * SMP locking issues:
-  * Both the ppp.rlock and ppp.wlock locks protect the ppp.channels
-@@ -269,8 +274,7 @@ static void ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound);
- static void ppp_ccp_closed(struct ppp *ppp);
- static struct compressor *find_compressor(int type);
- static void ppp_get_stats(struct ppp *ppp, struct ppp_stats *st);
--static struct ppp *ppp_create_interface(struct net *net, int unit,
--					struct file *file, int *retp);
-+static int ppp_create_interface(struct net *net, struct file *file, int *unit);
- static void init_ppp_file(struct ppp_file *pf, int kind);
- static void ppp_destroy_interface(struct ppp *ppp);
- static struct ppp *ppp_find_unit(struct ppp_net *pn, int unit);
-@@ -853,12 +857,12 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
- 		/* Create a new ppp unit */
- 		if (get_user(unit, p))
- 			break;
--		ppp = ppp_create_interface(net, unit, file, &err);
--		if (!ppp)
-+		err = ppp_create_interface(net, file, &unit);
-+		if (err < 0)
- 			break;
--		file->private_data = &ppp->file;
-+
- 		err = -EFAULT;
--		if (put_user(ppp->file.index, p))
-+		if (put_user(unit, p))
- 			break;
- 		err = 0;
- 		break;
-@@ -960,6 +964,94 @@ static struct pernet_operations ppp_net_ops = {
+@@ -286,6 +288,7 @@ static int unit_get(struct idr *p, void *ptr);
+ static int unit_set(struct idr *p, void *ptr, int n);
+ static void unit_put(struct idr *p, int n);
+ static void *unit_find(struct idr *p, int n);
++static void ppp_setup(struct net_device *dev);
+ 
+ static const struct net_device_ops ppp_netdev_ops;
+ 
+@@ -964,7 +967,7 @@ static struct pernet_operations ppp_net_ops = {
  	.size = sizeof(struct ppp_net),
  };
  
-+static int ppp_unit_register(struct ppp *ppp, int unit)
+-static int ppp_unit_register(struct ppp *ppp, int unit)
++static int ppp_unit_register(struct ppp *ppp, int unit, bool ifname_is_set)
+ {
+ 	struct ppp_net *pn = ppp_pernet(ppp->ppp_net);
+ 	int ret;
+@@ -994,7 +997,8 @@ static int ppp_unit_register(struct ppp *ppp, int unit)
+ 	}
+ 	ppp->file.index = ret;
+ 
+-	snprintf(ppp->dev->name, IFNAMSIZ, "ppp%i", ppp->file.index);
++	if (!ifname_is_set)
++		snprintf(ppp->dev->name, IFNAMSIZ, "ppp%i", ppp->file.index);
+ 
+ 	ret = register_netdevice(ppp->dev);
+ 	if (ret < 0)
+@@ -1043,7 +1047,7 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
+ 	ppp->active_filter = NULL;
+ #endif /* CONFIG_PPP_FILTER */
+ 
+-	err = ppp_unit_register(ppp, conf->unit);
++	err = ppp_unit_register(ppp, conf->unit, conf->ifname_is_set);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -1052,6 +1056,99 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
+ 	return 0;
+ }
+ 
++static const struct nla_policy ppp_nl_policy[IFLA_PPP_MAX + 1] = {
++	[IFLA_PPP_DEV_FD]	= { .type = NLA_S32 },
++};
++
++static int ppp_nl_validate(struct nlattr *tb[], struct nlattr *data[])
 +{
-+	struct ppp_net *pn = ppp_pernet(ppp->ppp_net);
-+	int ret;
++	if (!data)
++		return -EINVAL;
 +
-+	mutex_lock(&pn->all_ppp_mutex);
-+
-+	if (unit < 0) {
-+		ret = unit_get(&pn->units_idr, ppp);
-+		if (ret < 0)
-+			goto err;
-+	} else {
-+		/* Caller asked for a specific unit number. Fail with -EEXIST
-+		 * if unavailable. For backward compatibility, return -EEXIST
-+		 * too if idr allocation fails; this makes pppd retry without
-+		 * requesting a specific unit number.
-+		 */
-+		if (unit_find(&pn->units_idr, unit)) {
-+			ret = -EEXIST;
-+			goto err;
-+		}
-+		ret = unit_set(&pn->units_idr, ppp, unit);
-+		if (ret < 0) {
-+			/* Rewrite error for backward compatibility */
-+			ret = -EEXIST;
-+			goto err;
-+		}
-+	}
-+	ppp->file.index = ret;
-+
-+	snprintf(ppp->dev->name, IFNAMSIZ, "ppp%i", ppp->file.index);
-+
-+	ret = register_netdevice(ppp->dev);
-+	if (ret < 0)
-+		goto err_unit;
-+
-+	atomic_inc(&ppp_unit_count);
-+
-+	mutex_unlock(&pn->all_ppp_mutex);
++	if (!data[IFLA_PPP_DEV_FD])
++		return -EINVAL;
++	if (nla_get_s32(data[IFLA_PPP_DEV_FD]) < 0)
++		return -EBADF;
 +
 +	return 0;
-+
-+err_unit:
-+	unit_put(&pn->units_idr, ppp->file.index);
-+err:
-+	mutex_unlock(&pn->all_ppp_mutex);
-+
-+	return ret;
 +}
 +
-+static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
-+			     const struct ppp_config *conf)
++static int ppp_nl_newlink(struct net *src_net, struct net_device *dev,
++			  struct nlattr *tb[], struct nlattr *data[])
 +{
-+	struct ppp *ppp = netdev_priv(dev);
-+	int indx;
++	struct ppp_config conf = {
++		.unit = -1,
++		.ifname_is_set = true,
++	};
++	struct file *file;
 +	int err;
 +
-+	ppp->dev = dev;
-+	ppp->ppp_net = src_net;
-+	ppp->mru = PPP_MRU;
-+	ppp->owner = conf->file;
++	file = fget(nla_get_s32(data[IFLA_PPP_DEV_FD]));
++	if (!file)
++		return -EBADF;
 +
-+	init_ppp_file(&ppp->file, INTERFACE);
-+	ppp->file.hdrlen = PPP_HDRLEN - 2; /* don't count proto bytes */
++	/* rtnl_lock is already held here, but ppp_create_interface() locks
++	 * ppp_mutex before holding rtnl_lock. Using mutex_trylock() avoids
++	 * possible deadlock due to lock order inversion, at the cost of
++	 * pushing the problem back to userspace.
++	 */
++	if (!mutex_trylock(&ppp_mutex)) {
++		err = -EBUSY;
++		goto out;
++	}
 +
-+	for (indx = 0; indx < NUM_NP; ++indx)
-+		ppp->npmode[indx] = NPMODE_PASS;
-+	INIT_LIST_HEAD(&ppp->channels);
-+	spin_lock_init(&ppp->rlock);
-+	spin_lock_init(&ppp->wlock);
-+#ifdef CONFIG_PPP_MULTILINK
-+	ppp->minseq = -1;
-+	skb_queue_head_init(&ppp->mrq);
-+#endif /* CONFIG_PPP_MULTILINK */
-+#ifdef CONFIG_PPP_FILTER
-+	ppp->pass_filter = NULL;
-+	ppp->active_filter = NULL;
-+#endif /* CONFIG_PPP_FILTER */
++	if (file->f_op != &ppp_device_fops || file->private_data) {
++		err = -EBADF;
++		goto out_unlock;
++	}
 +
-+	err = ppp_unit_register(ppp, conf->unit);
-+	if (err < 0)
-+		return err;
++	conf.file = file;
++	err = ppp_dev_configure(src_net, dev, &conf);
 +
-+	conf->file->private_data = &ppp->file;
++out_unlock:
++	mutex_unlock(&ppp_mutex);
++out:
++	fput(file);
 +
++	return err;
++}
++
++static void ppp_nl_dellink(struct net_device *dev, struct list_head *head)
++{
++	unregister_netdevice_queue(dev, head);
++}
++
++static size_t ppp_nl_get_size(const struct net_device *dev)
++{
 +	return 0;
 +}
++
++static int ppp_nl_fill_info(struct sk_buff *skb, const struct net_device *dev)
++{
++	return 0;
++}
++
++static struct net *ppp_nl_get_link_net(const struct net_device *dev)
++{
++	struct ppp *ppp = netdev_priv(dev);
++
++	return ppp->ppp_net;
++}
++
++static struct rtnl_link_ops ppp_link_ops __read_mostly = {
++	.kind		= "ppp",
++	.maxtype	= IFLA_PPP_MAX,
++	.policy		= ppp_nl_policy,
++	.priv_size	= sizeof(struct ppp),
++	.setup		= ppp_setup,
++	.validate	= ppp_nl_validate,
++	.newlink	= ppp_nl_newlink,
++	.dellink	= ppp_nl_dellink,
++	.get_size	= ppp_nl_get_size,
++	.fill_info	= ppp_nl_fill_info,
++	.get_link_net	= ppp_nl_get_link_net,
++};
 +
  #define PPP_MAJOR	108
  
  /* Called at boot time if ppp is compiled into the kernel,
-@@ -2732,102 +2824,40 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
-  * or if there is already a unit with the requested number.
-  * unit == -1 means allocate a new number.
-  */
--static struct ppp *ppp_create_interface(struct net *net, int unit,
--					struct file *file, int *retp)
-+static int ppp_create_interface(struct net *net, struct file *file, int *unit)
- {
-+	struct ppp_config conf = {
-+		.file = file,
-+		.unit = *unit,
-+	};
-+	struct net_device *dev;
- 	struct ppp *ppp;
--	struct ppp_net *pn;
--	struct net_device *dev = NULL;
--	int ret = -ENOMEM;
--	int i;
-+	int err;
+@@ -1080,11 +1177,19 @@ static int __init ppp_init(void)
+ 		goto out_chrdev;
+ 	}
  
- 	dev = alloc_netdev(sizeof(struct ppp), "", NET_NAME_ENUM, ppp_setup);
--	if (!dev)
--		goto out1;
--
--	pn = ppp_pernet(net);
--
--	ppp = netdev_priv(dev);
--	ppp->dev = dev;
--	ppp->mru = PPP_MRU;
--	init_ppp_file(&ppp->file, INTERFACE);
--	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
--	ppp->owner = file;
--	for (i = 0; i < NUM_NP; ++i)
--		ppp->npmode[i] = NPMODE_PASS;
--	INIT_LIST_HEAD(&ppp->channels);
--	spin_lock_init(&ppp->rlock);
--	spin_lock_init(&ppp->wlock);
--#ifdef CONFIG_PPP_MULTILINK
--	ppp->minseq = -1;
--	skb_queue_head_init(&ppp->mrq);
--#endif /* CONFIG_PPP_MULTILINK */
--#ifdef CONFIG_PPP_FILTER
--	ppp->pass_filter = NULL;
--	ppp->active_filter = NULL;
--#endif /* CONFIG_PPP_FILTER */
--
--	/*
--	 * drum roll: don't forget to set
--	 * the net device is belong to
--	 */
-+	if (!dev) {
-+		err = -ENOMEM;
-+		goto err;
++	err = rtnl_link_register(&ppp_link_ops);
++	if (err) {
++		pr_err("failed to register rtnetlink PPP handler\n");
++		goto out_class;
 +	}
++
+ 	/* not a big deal if we fail here :-) */
+ 	device_create(ppp_class, NULL, MKDEV(PPP_MAJOR, 0), NULL, "ppp");
+ 
+ 	return 0;
+ 
++out_class:
++	class_destroy(ppp_class);
+ out_chrdev:
+ 	unregister_chrdev(PPP_MAJOR, "ppp");
+ out_net:
+@@ -2829,6 +2934,7 @@ static int ppp_create_interface(struct net *net, struct file *file, int *unit)
+ 	struct ppp_config conf = {
+ 		.file = file,
+ 		.unit = *unit,
++		.ifname_is_set = false,
+ 	};
+ 	struct net_device *dev;
+ 	struct ppp *ppp;
+@@ -2840,6 +2946,7 @@ static int ppp_create_interface(struct net *net, struct file *file, int *unit)
+ 		goto err;
+ 	}
  	dev_net_set(dev, net);
++	dev->rtnl_link_ops = &ppp_link_ops;
  
  	rtnl_lock();
--	mutex_lock(&pn->all_ppp_mutex);
--
--	if (unit < 0) {
--		unit = unit_get(&pn->units_idr, ppp);
--		if (unit < 0) {
--			ret = unit;
--			goto out2;
--		}
--	} else {
--		ret = -EEXIST;
--		if (unit_find(&pn->units_idr, unit))
--			goto out2; /* unit already exists */
--		/*
--		 * if caller need a specified unit number
--		 * lets try to satisfy him, otherwise --
--		 * he should better ask us for new unit number
--		 *
--		 * NOTE: yes I know that returning EEXIST it's not
--		 * fair but at least pppd will ask us to allocate
--		 * new unit in this case so user is happy :)
--		 */
--		unit = unit_set(&pn->units_idr, ppp, unit);
--		if (unit < 0)
--			goto out2;
--	}
--
--	/* Initialize the new ppp unit */
--	ppp->file.index = unit;
--	sprintf(dev->name, "ppp%d", unit);
  
--	ret = register_netdevice(dev);
--	if (ret != 0) {
--		unit_put(&pn->units_idr, unit);
--		netdev_err(ppp->dev, "PPP: couldn't register device %s (%d)\n",
--			   dev->name, ret);
--		goto out2;
--	}
--
--	ppp->ppp_net = net;
-+	err = ppp_dev_configure(net, dev, &conf);
-+	if (err < 0)
-+		goto err_dev;
-+	ppp = netdev_priv(dev);
-+	*unit = ppp->file.index;
+@@ -3046,6 +3153,7 @@ static void __exit ppp_cleanup(void)
+ 	/* should never happen */
+ 	if (atomic_read(&ppp_unit_count) || atomic_read(&channel_count))
+ 		pr_err("PPP: removing module but units remain!\n");
++	rtnl_link_unregister(&ppp_link_ops);
+ 	unregister_chrdev(PPP_MAJOR, "ppp");
+ 	device_destroy(ppp_class, MKDEV(PPP_MAJOR, 0));
+ 	class_destroy(ppp_class);
+@@ -3104,4 +3212,5 @@ EXPORT_SYMBOL(ppp_register_compressor);
+ EXPORT_SYMBOL(ppp_unregister_compressor);
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_CHARDEV(PPP_MAJOR, 0);
++MODULE_ALIAS_RTNL_LINK("ppp");
+ MODULE_ALIAS("devname:ppp");
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index d82de33..3e80974 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -520,6 +520,14 @@ enum {
+ };
+ #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
  
--	atomic_inc(&ppp_unit_count);
--	mutex_unlock(&pn->all_ppp_mutex);
- 	rtnl_unlock();
++/* PPP section */
++enum {
++	IFLA_PPP_UNSPEC,
++	IFLA_PPP_DEV_FD,
++	__IFLA_PPP_MAX
++};
++#define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
++
+ /* Bonding section */
  
--	*retp = 0;
--	return ppp;
-+	return 0;
- 
--out2:
--	mutex_unlock(&pn->all_ppp_mutex);
-+err_dev:
- 	rtnl_unlock();
- 	free_netdev(dev);
--out1:
--	*retp = ret;
--	return NULL;
-+err:
-+	return err;
- }
- 
- /*
+ enum {
 -- 
 2.8.1
-
