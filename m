@@ -1,63 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: give prequeue mode some care
-Date: Thu, 28 Apr 2016 17:15:14 -0400 (EDT)
-Message-ID: <20160428.171514.1303373912379094235.davem@davemloft.net>
-References: <1461777145.5535.77.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: dsa: Provide CPU port statistics to
+ master netdev
+Date: Thu, 28 Apr 2016 17:16:36 -0400 (EDT)
+Message-ID: <20160428.171636.1239468738278228965.davem@davemloft.net>
+References: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42461 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42470 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752597AbcD1VPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:15:16 -0400
-In-Reply-To: <1461777145.5535.77.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1751513AbcD1VQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 17:16:38 -0400
+In-Reply-To: <1461782714-13471-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 27 Apr 2016 10:12:25 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 27 Apr 2016 11:45:14 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patch overloads the DSA master netdev, aka CPU Ethernet MAC to also
+> include switch-side statistics, which is useful for debugging purposes,
+> when the switch is not properly connected to the Ethernet MAC (duplex
+> mismatch, (RG)MII electrical issues etc.).
 > 
-> TCP prequeue goal is to defer processing of incoming packets
-> to user space thread currently blocked in a recvmsg() system call.
+> We accomplish this by retaining the original copy of the master netdev's
+> ethtool_ops, and just overload the 3 operations we care about:
+> get_sset_count, get_strings and get_ethtool_stats so as to intercept
+> these calls and call into the original master_netdev ethtool_ops, plus
+> our own.
 > 
-> Intent is to spend less time processing these packets on behalf
-> of softirq handler, as softirq handler is unfair to normal process
-> scheduler decisions, as it might interrupt threads that do not
-> even use networking.
+> We take this approach as opposed to providing a set of DSA helper
+> functions that would retrive the CPU port's statistics, because the
+> entire purpose of DSA is to allow unmodified Ethernet MAC drivers to be
+> used as CPU conduit interfaces, therefore, statistics overlay in such
+> drivers would simply not scale.
 > 
-> Current prequeue implementation has following issues :
+> The new ethtool -S <iface> output would therefore look like this now:
+> <iface> statistics
+> p<2 digits cpu port number>_<switch MIB counter names>
 > 
-> 1) It only checks size of the prequeue against sk_rcvbuf
-> 
->    It was fine 15 years ago when sk_rcvbuf was in the 64KB vicinity.
->    But we now have ~8MB values to cope with modern networking needs.
->    We have to add sk_rmem_alloc in the equation, since out of order
->    packets can definitely use up to sk_rcvbuf memory themselves.
-> 
-> 2) Even with a fixed memory truesize check, prequeue can be filled
->    by thousands of packets. When prequeue needs to be flushed, either
->    from sofirq context (in tcp_prequeue() or timer code), or process
->    context (in tcp_prequeue_process()), this adds a latency spike
->    which is often not desirable.
->    I added a fixed limit of 32 packets, as this translated to a max
->    flush time of 60 us on my test hosts.
-> 
->    Also note that all packets in prequeue are not accounted for tcp_mem,
->    since they are not charged against sk_forward_alloc at this point.
->    This is probably not a big deal.
-> 
-> Note that this might increase LINUX_MIB_TCPPREQUEUEDROPPED counts,
-> which is misnamed, as packets are not dropped at all, but rather pushed
-> to the stack (where they can be either consumed or dropped)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-There was a conflict due to the stats macro renaming, but that was trivial
-to resolve so I did it.
-
-Applied, thanks Eric.
+Applied, thanks Florian.
