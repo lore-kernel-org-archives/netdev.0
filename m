@@ -1,85 +1,168 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Thu, 28 Apr 2016 17:44:14 +0200
-Message-ID: <57222FCE.8050407@atmel.com>
-References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Nathan Sullivan <nathan.sullivan@ni.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v2 1/5] net: rtnetlink: allow rtnl_fill_statsinfo to save private state counter
+Date: Thu, 28 Apr 2016 17:52:47 +0200
+Message-ID: <1461858771-4732-2-git-send-email-nikolay@cumulusnetworks.com>
+References: <1461858771-4732-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, jhs@mojatatu.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:38604 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245AbcD1PxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 11:53:03 -0400
+Received: by mail-wm0-f47.google.com with SMTP id g17so48906706wme.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 08:53:01 -0700 (PDT)
+In-Reply-To: <1461858771-4732-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 28/04/2016 16:46, Nathan Sullivan a =E9crit :
-> Since of_mdiobus_register and mdiobus_register will scan automaticall=
-y,
-> do not manually scan for PHY devices in the macb ethernet driver. Doi=
-ng
-> so will result in many nonexistent PHYs on the MDIO bus if the MDIO
-> lines are floating or grounded, such as when they are not used.
->=20
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+The new prividx argument allows the current dumping device to save a
+private state counter which would enable it to continue dumping from
+where it left off. And the idxattr is used to save the current idx user
+so multiple prividx using attributes can be requested at the same time
+as suggested by Roopa Prabhu.
 
-Well, as explained in the commit message that added this feature and in
-the comment, if no phy is specified in the DT we end up without phy...
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v2: improve the error check in rtnl_fill_statsinfo, rename lidx to
+prividx, squash patch 2 into this one and save the current idx user
+instead of restricting only one
 
-There are AT91 platforms which lack specification for the phy node in
-the DT. So, I don't know if there is a better way to deal with this cas=
-e
-but I see this removal as risky.
+ net/core/rtnetlink.c | 44 +++++++++++++++++++++++++++++++-------------
+ 1 file changed, 31 insertions(+), 13 deletions(-)
 
-Bye,
-
-
-> ---
->  drivers/net/ethernet/cadence/macb.c |   19 +------------------
->  1 file changed, 1 insertion(+), 18 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-> index 48a7d7d..6506b4e 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -424,7 +424,7 @@ static int macb_mii_init(struct macb *bp)
->  {
->  	struct macb_platform_data *pdata;
->  	struct device_node *np;
-> -	int err =3D -ENXIO, i;
-> +	int err =3D -ENXIO;
-> =20
->  	/* Enable management port */
->  	macb_writel(bp, NCR, MACB_BIT(MPE));
-> @@ -450,23 +450,6 @@ static int macb_mii_init(struct macb *bp)
->  	if (np) {
->  		/* try dt phy registration */
->  		err =3D of_mdiobus_register(bp->mii_bus, np);
-> -
-> -		/* fallback to standard phy registration if no phy were
-> -		   found during dt phy registration */
-> -		if (!err && !phy_find_first(bp->mii_bus)) {
-> -			for (i =3D 0; i < PHY_MAX_ADDR; i++) {
-> -				struct phy_device *phydev;
-> -
-> -				phydev =3D mdiobus_scan(bp->mii_bus, i);
-> -				if (IS_ERR(phydev)) {
-> -					err =3D PTR_ERR(phydev);
-> -					break;
-> -				}
-> -			}
-> -
-> -			if (err)
-> -				goto err_out_unregister_bus;
-> -		}
->  	} else {
->  		if (pdata)
->  			bp->mii_bus->phy_mask =3D pdata->phy_mask;
->=20
-
-
---=20
-Nicolas Ferre
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5503dfe6a050..de529a20cd18 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3444,13 +3444,21 @@ out:
+ 	return err;
+ }
+ 
++static bool stats_attr_valid(unsigned int mask, int attrid, int idxattr)
++{
++	return (mask & IFLA_STATS_FILTER_BIT(attrid)) &&
++	       (!idxattr || idxattr == attrid);
++}
++
+ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 			       int type, u32 pid, u32 seq, u32 change,
+-			       unsigned int flags, unsigned int filter_mask)
++			       unsigned int flags, unsigned int filter_mask,
++			       int *idxattr, int *prividx)
+ {
+ 	struct if_stats_msg *ifsm;
+ 	struct nlmsghdr *nlh;
+ 	struct nlattr *attr;
++	int s_prividx = *prividx;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -3462,7 +3470,7 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	ifsm->ifindex = dev->ifindex;
+ 	ifsm->filter_mask = filter_mask;
+ 
+-	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64)) {
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, *idxattr)) {
+ 		struct rtnl_link_stats64 *sp;
+ 
+ 		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_64,
+@@ -3480,7 +3488,11 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	return 0;
+ 
+ nla_put_failure:
+-	nlmsg_cancel(skb, nlh);
++	/* not a multi message or no progress mean a real error */
++	if (!(flags & NLM_F_MULTI) || s_prividx == *prividx)
++		nlmsg_cancel(skb, nlh);
++	else
++		nlmsg_end(skb, nlh);
+ 
+ 	return -EMSGSIZE;
+ }
+@@ -3494,7 +3506,7 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ {
+ 	size_t size = 0;
+ 
+-	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64))
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
+ 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
+ 
+ 	return size;
+@@ -3503,8 +3515,9 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	struct if_stats_msg *ifsm;
+ 	struct net_device *dev = NULL;
++	int idxattr = 0, prividx = 0;
++	struct if_stats_msg *ifsm;
+ 	struct sk_buff *nskb;
+ 	u32 filter_mask;
+ 	int err;
+@@ -3528,7 +3541,7 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 	err = rtnl_fill_statsinfo(nskb, dev, RTM_NEWSTATS,
+ 				  NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
+-				  0, filter_mask);
++				  0, filter_mask, &idxattr, &prividx);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_stats_size */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -3542,18 +3555,19 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	int h, s_h, err, s_idx, s_idxattr, s_prividx;
+ 	struct net *net = sock_net(skb->sk);
++	unsigned int flags = NLM_F_MULTI;
+ 	struct if_stats_msg *ifsm;
+-	int h, s_h;
+-	int idx = 0, s_idx;
+-	struct net_device *dev;
+ 	struct hlist_head *head;
+-	unsigned int flags = NLM_F_MULTI;
++	struct net_device *dev;
+ 	u32 filter_mask = 0;
+-	int err;
++	int idx = 0;
+ 
+ 	s_h = cb->args[0];
+ 	s_idx = cb->args[1];
++	s_idxattr = cb->args[2];
++	s_prividx = cb->args[3];
+ 
+ 	cb->seq = net->dev_base_seq;
+ 
+@@ -3571,7 +3585,8 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 			err = rtnl_fill_statsinfo(skb, dev, RTM_NEWSTATS,
+ 						  NETLINK_CB(cb->skb).portid,
+ 						  cb->nlh->nlmsg_seq, 0,
+-						  flags, filter_mask);
++						  flags, filter_mask,
++						  &s_idxattr, &s_prividx);
+ 			/* If we ran out of room on the first message,
+ 			 * we're in trouble
+ 			 */
+@@ -3579,13 +3594,16 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 			if (err < 0)
+ 				goto out;
+-
++			s_prividx = 0;
++			s_idxattr = 0;
+ 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+ cont:
+ 			idx++;
+ 		}
+ 	}
+ out:
++	cb->args[3] = s_prividx;
++	cb->args[2] = s_idxattr;
+ 	cb->args[1] = idx;
+ 	cb->args[0] = h;
+ 
+-- 
+2.4.11
