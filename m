@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net] lan78xx: workaround of forced 100 Full/Half
- duplex mode error
-Date: Thu, 28 Apr 2016 16:36:38 -0400 (EDT)
-Message-ID: <20160428.163638.492232995397566923.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D408987FF@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH] ps3_gelic: fix memcpy parameter
+Date: Thu, 28 Apr 2016 16:38:15 -0400 (EDT)
+Message-ID: <20160428.163815.1737125177217196446.davem@davemloft.net>
+References: <1461638023-2986-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41989 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41998 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753164AbcD1Ugj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:36:39 -0400
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D408987FF@CHN-SV-EXMX02.mchp-main.com>
+	with ESMTP id S1753132AbcD1UiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:38:17 -0400
+In-Reply-To: <1461638023-2986-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Woojung.Huh@microchip.com>
-Date: Mon, 25 Apr 2016 22:22:36 +0000
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Tue, 26 Apr 2016 04:33:43 +0200
 
-> From: Woojung Huh <woojung.huh@microchip.com>
+> The size allocated for target->hwinfo and the number of bytes copied in it
+> should be consistent.
 > 
-> At forced 100 Full & Half duplex mode, chip may fail to set mode correctly
-> when cable is switched between long(~50+m) and short one.
-> As workaround, set to 10 before setting to 100 at forced 100 F/H mode.
-> 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Applied.
+Applied, thanks.
