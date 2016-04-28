@@ -1,47 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/2] tcp: remove SKBTX_ACK_TSTAMP since it
- is redundant
-Date: Wed, 27 Apr 2016 21:37:35 -0700
-Message-ID: <1461818255.5535.89.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461814741-848-1-git-send-email-soheil.kdev@gmail.com>
-	 <1461814741-848-3-git-send-email-soheil.kdev@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: iproute2: bash completion function for tc
+Date: Wed, 27 Apr 2016 22:13:46 -0700
+Message-ID: <20160427221346.32ec7bcb@samsung9>
+References: <571F1891.1030004@6wind.com>
+	<20160428031923.GA76700@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kafai@fb.com,
-	willemb@google.com, edumazet@google.com, ycheng@google.com,
-	ncardwell@google.com, Soheil Hassas Yeganeh <soheil@google.com>
-To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Cc: Quentin Monnet <quentin.monnet@6wind.com>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	Vincent Jardin <vincent.jardin@6wind.com>,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:35464 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750792AbcD1Ehj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 00:37:39 -0400
-Received: by mail-qg0-f49.google.com with SMTP id f74so25697287qge.2
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 21:37:38 -0700 (PDT)
-In-Reply-To: <1461814741-848-3-git-send-email-soheil.kdev@gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36129 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923AbcD1FNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 01:13:50 -0400
+Received: by mail-pa0-f46.google.com with SMTP id bt5so27742947pac.3
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 22:13:50 -0700 (PDT)
+In-Reply-To: <20160428031923.GA76700@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-04-27 at 23:39 -0400, Soheil Hassas Yeganeh wrote:
-> From: Soheil Hassas Yeganeh <soheil@google.com>
-> 
-> The SKBTX_ACK_TSTAMP flag is set in skb_shinfo->tx_flags when
-> the timestamp of the TCP acknowledgement should be reported on
-> error queue. Since accessing skb_shinfo is likely to incur a
-> cache-line miss at the time of receiving the ack, the
-> txstamp_ack bit was added in tcp_skb_cb, which is set iff
-> the SKBTX_ACK_TSTAMP flag is set for an skb. This makes
-> SKBTX_ACK_TSTAMP flag redundant.
-> 
-> Remove the SKBTX_ACK_TSTAMP and instead use the txstamp_ack bit
-> everywhere.
-> 
-> Note that this frees one bit in shinfo->tx_flags.
-> 
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Acked-by: Martin KaFai Lau <kafai@fb.com>
-> Suggested-by: Willem de Bruijn <willemb@google.com>
-> ---
+On Wed, 27 Apr 2016 20:19:26 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> On Tue, Apr 26, 2016 at 09:28:17AM +0200, Quentin Monnet wrote:
+> > Hi Jamal, Stephen,
+> > 
+> > I searched for a function providing auto-completion for `tc` utility in
+> > bash, but I found none. So I have created one, and I would like share it
+> > with the community. It is available here:
+> > https://github.com/6WIND/tc_bash-completion/blob/master/tc
+> > I would like to make it easily available to tc users, so here is a
+> > twofold request:
+> > 
+> > * I do not know where to submit the code. Should I submit here on netdev
+> > for inclusion in iproute2 package, or rather to the bash-completion
+> > repository on GitHub? I feel like it would receive better feedback and
+> > updates if pushed to iproute2. Could you please provide some advice here?
+> > * The completion for `tc` seems to work well; I have tested it with many
+> > commands, but I am no tc expert, and there are probably some cases where
+> > the completion fails to propose the correct choices. I would be really
+> > interested in any feedback/bug reports that you, or anyone on this list
+> > who uses tc, could provide.
+> 
+> that looks very interesting.
+> I think making it a part of iproute2 is a good thing.
+> How about installing it into /etc/iproute2/ ?
+> Stephen, any comments?
+> 
+
+I am ok with keeping it in the repository.
+But it would need to be installed in the standard bash directory,
+is that distro dependent?
