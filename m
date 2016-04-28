@@ -1,112 +1,99 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 9/9] netfilter: conntrack: consider ct netns in early_drop logic
-Date: Thu, 28 Apr 2016 19:13:48 +0200
-Message-ID: <1461863628-23350-10-git-send-email-fw@strlen.de>
-References: <1461863628-23350-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1461863628-23350-1-git-send-email-fw@strlen.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Elluru, Krishna Mohan" <elluru.kri.mohan@hpe.com>
+Subject: RE: VRF_DEVICE integration plan
+Date: Thu, 28 Apr 2016 17:16:40 +0000
+Message-ID: <CS1PR84MB0072AC62E9EBCC5A42E33952CA650@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
+References: <AT5PR84MB00652788CA3C3F63146F9C08CA610@AT5PR84MB0065.NAMPRD84.PROD.OUTLOOK.COM>
+ <571D5720.7000908@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kumara, Shantha (HP Networking)" <shantha.kumara@hpe.com>,
+	"Govindan Nair, Anoop" <anoop.g@hpe.com>
+To: David Ahern <dsa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0133.outbound.protection.outlook.com ([65.55.169.133]:4953
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751734AbcD1RQo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 13:16:44 -0400
+In-Reply-To: <571D5720.7000908@cumulusnetworks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When iterating, skip conntrack entries living in a different netns.
-
-We could ignore netns and kill some other non-assured one, but it
-has two problems:
-
-- a netns can kill non-assured conntracks in other namespace
-- we would start to 'over-subscribe' the affected/overlimit netns.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/netfilter/nf_conntrack_core.c | 43 +++++++++++++++++++++++----------------
- 1 file changed, 25 insertions(+), 18 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index d58b597..418e4bc 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -763,18 +763,20 @@ static noinline int early_drop(struct net *net, unsigned int _hash)
- {
- 	/* Use oldest entry, which is roughly LRU */
- 	struct nf_conntrack_tuple_hash *h;
--	struct nf_conn *ct = NULL, *tmp;
-+	struct nf_conn *tmp;
- 	struct hlist_nulls_node *n;
--	unsigned int i = 0, cnt = 0;
--	int dropped = 0;
--	unsigned int hash, sequence;
-+	unsigned int i, hash, sequence;
-+	struct nf_conn *ct = NULL;
- 	spinlock_t *lockp;
-+	bool ret = false;
-+
-+	i = 0;
- 
- 	local_bh_disable();
- restart:
- 	sequence = read_seqcount_begin(&nf_conntrack_generation);
--	hash = scale_hash(_hash);
--	for (; i < nf_conntrack_htable_size; i++) {
-+	for (; i < NF_CT_EVICTION_RANGE; i++) {
-+		hash = scale_hash(_hash++);
- 		lockp = &nf_conntrack_locks[hash % CONNTRACK_LOCKS];
- 		nf_conntrack_lock(lockp);
- 		if (read_seqcount_retry(&nf_conntrack_generation, sequence)) {
-@@ -784,35 +786,40 @@ restart:
- 		hlist_nulls_for_each_entry_rcu(h, n, &nf_conntrack_hash[hash],
- 					       hnnode) {
- 			tmp = nf_ct_tuplehash_to_ctrack(h);
--			if (!test_bit(IPS_ASSURED_BIT, &tmp->status) &&
--			    !nf_ct_is_dying(tmp) &&
--			    atomic_inc_not_zero(&tmp->ct_general.use)) {
-+
-+			if (test_bit(IPS_ASSURED_BIT, &tmp->status) ||
-+			    !net_eq(nf_ct_net(tmp), net) ||
-+			    nf_ct_is_dying(tmp))
-+				continue;
-+
-+			if (atomic_inc_not_zero(&tmp->ct_general.use)) {
- 				ct = tmp;
- 				break;
- 			}
--			cnt++;
- 		}
- 
--		hash = (hash + 1) % nf_conntrack_htable_size;
- 		spin_unlock(lockp);
--
--		if (ct || cnt >= NF_CT_EVICTION_RANGE)
-+		if (ct)
- 			break;
--
- 	}
-+
- 	local_bh_enable();
- 
- 	if (!ct)
--		return dropped;
-+		return false;
- 
--	if (del_timer(&ct->timeout)) {
-+	/* kill only if in same netns -- might have moved due to
-+	 * SLAB_DESTROY_BY_RCU rules
-+	 */
-+	if (net_eq(nf_ct_net(ct), net) && del_timer(&ct->timeout)) {
- 		if (nf_ct_delete(ct, 0, 0)) {
--			dropped = 1;
- 			NF_CT_STAT_INC_ATOMIC(net, early_drop);
-+			ret = true;
- 		}
- 	}
-+
- 	nf_ct_put(ct);
--	return dropped;
-+	return ret;
- }
- 
- static struct nf_conn *
--- 
-2.7.3
-
+SEkgRGF2aWQsDQoJVGhhbmtzIGEgbG90IGZvciB5b3VyIHJlc3BvbnNlLiBJdCBjbGFyaWZpZXMg
+ZmV3IG9mIG15IHF1ZXN0aW9ucy4gUGxlYXNlIHNlZSBpbmxpbmUgZm9yIHdpdGggdGFnIE1PSEFO
+PiBmb3IgbXkgcmVzcG9uc2UuDQoNClRoYW5rcw0KS3Jpc2huYSBNb2hhbi4NCi0tLS0tT3JpZ2lu
+YWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBEYXZpZCBBaGVybiBbbWFpbHRvOmRzYUBjdW11bHVzbmV0
+d29ya3MuY29tXSANClNlbnQ6IE1vbmRheSwgQXByaWwgMjUsIDIwMTYgNTowMSBBTQ0KVG86IEVs
+bHVydSwgS3Jpc2huYSBNb2hhbiA8ZWxsdXJ1LmtyaS5tb2hhbkBocGUuY29tPjsgbmV0ZGV2QHZn
+ZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFZSRl9ERVZJQ0UgaW50ZWdyYXRpb24gcGxhbg0K
+DQpPbiA0LzIzLzE2IDEwOjA3IFBNLCBFbGx1cnUsIEtyaXNobmEgTW9oYW4gd3JvdGU6DQo+IEhJ
+IE5ldGRldiB0ZWFtLA0KPg0KPiAgIAlHcmVldGluZ3MuIFdlIGhhdmUgYmVlbiBtb25pdG9yaW5n
+IHRoZSB2cmYgZGV2aWNlIGFwcHJvYWNoIGZvciBsMyBpc29sYXRpb24gZnJvbSBjdW11bHVzIG5l
+dHdvcmtzIGFuZCB3ZSBhcmUgY3VycmVudGx5IGludGVyZXN0ZWQgaW4gdmFsaWRhdGluZyBpdC4g
+V2UgaGF2ZSBmb2xsb3dpbmcgcXVlc3Rpb25zIG9uIHRoZW0gYW5kIGhvcGluZyB0byBnZXQgYW5z
+d2VycyBmcm9tIHlvdS9jb25jZXJuZWQgdGVhbS4NCj4NCj4gMS4gQXMgcGVyIHRoZSBsaW51eCBk
+b2N1bWVudGF0aW9uLCB0aGVyZSBhcmUga25vd24gbGltaXRzIG9uIGlmX2luZGV4IGxvb2t1cCwg
+YXMgdGhlIGluY29taW5nIGlmX2luZGV4IGlzIGNoYW5nZWQgdG8gdnJmX2RldmljZSBpbmRleCBh
+bmQgdGh1cyBhbiBhcHBsaWNhdGlvbiByZWNlaXZpbmcgdGhpcyBwYWNrZXQgd2lsbCBwZXJjZWl2
+ZSB0aGlzIGFzIGEgdnJmX2RldmljZSBwYWNrZXQsIHRoYW4gcmlnaHQgaWZfaW5kZXguIEkgc2F3
+IHlvdSBtZW50aW9uZWQgYWJvdXQgYSBzcGVjaWFsIGZsYWcgdG8gaWRlbnRpZnkgdGhlIG9yaWdp
+biwgYnV0IGRpZG4ndCBzZWUgdGhlIHNhbWUgaW4gdGhlIGxhdGVzdCBsaW51eCA0LjQuMiB2ZXJz
+aW9uIGNvZGUuIElzIHRoZXJlIGEgcGF0Y2ggZXhwZWN0ZWQgZm9yIGl0Pw0KDQp5b3UgYXJlIHJl
+ZmVycmluZyB0byBJUHs2fV9QS1RJTkZPPyBJIGhhdmUgcGF0Y2hlcyBmcm9tIG91ciA0LjEga2Vy
+bmVsIHRyZWUgdGhhdCBJIGhhdmUgcmViYXNlZCB0byB0b3Agb2YgdHJlZS4gSSBob3BlIHRvIHNl
+bmQgdGhvc2Ugb3V0IGluIHRoZSBuZXh0IGZldyB3ZWVrcy4NCk1PSEFOPiBZZXMuIFN1cmUuIFRo
+YW5rcy4NCg0KPg0KPiAyLiBXaGF0IGFyZSB0aGUgZnV0dXJlIGFkZGl0aW9ucyBwbGFubmVkIGZv
+ciB0aGlzIGFwcHJvYWNoPyBBcmUgdGhlcmUgYW55IGlwdjQgYW5kIGlwdjYga25vd24gYnVncyB3
+aXRoIHZyZl9kZXZpY2UgbW9kZWw/DQoNCldlIGhhdmUgYWJvdXQgMjAgcGF0Y2hlcyBpbiBvdXIg
+dHJlZSB0aGF0IEkgaGF2ZSBub3Qgc2VudCB1cHN0cmVhbSB5ZXQuIA0KVGhvc2UgcGF0Y2hlcyBm
+aXggUEtUSU5GTywgYWxsb3cgbG9jYWwgdHJhZmZpYyAoZS5nLCBwaW5nIGluIGEgVlJGIHRvIGEg
+DQpsb2NhbCBhZGRyZXNzIGluIGEgVlJGKSwgYWxsb3cgSVB2NiBtdWx0aWNhc3QgYW5kIGxpbmts
+b2NhbCB0cmFmZmljLCBhbmQgDQp0aGUgY2dyb3VwIGltcGxlbWVudGF0aW9uIHdoaWNoIGhhcyBi
+ZWVuIHNlbnQgYXMgYW4gUkZDLg0KDQpJIHBvc3RlZCBhIGZldyBidWcgZml4IHBhdGNoZXMgYSB3
+ZWVrIG9yIHR3byBhZ28uIE5vdCBzdXJlIHdoYXQgdGhlIA0Kc3RhdHVzIGlzIHdpdGggcmVzcGVj
+dCB0byA0LjMgLSA0LjUgdHJlZXMuDQoNCk1PSEFOPiBTdXJlLiBBcmUgdGhvc2UgcGF0Y2hlcyBz
+ZW50IG92ZXIgbmV0ZGV2IG1haWxlciBsaXN0Pw0KDQo+DQo+IDMuIEl0IGhhcyBiZWVuIHNhaWQg
+aW4gdGhlIGRvY3VtZW50YXRpb24gdGhhdCwgd2l0aCBhZGRpdGlvbiBvZiBjZ3JvdXAgZnVuY3Rp
+b25hbGl0eSBmb3IgdnJmIGRldmljZSwgd2l0aCBuZXRfYWRtaW4gY2FwYWJpbGl0aWVzLCB3ZSBz
+aG91bGQgYmUgYWJsZSB0byBhZGQgYW4gaW50ZXJmYWNlIHRvIHZyZl9kZXZpY2UsIGN1cnJlbnRs
+eSBpdCBpcyBub3Qgc28uIEFueSB0aW1lbGluZXMgb24gdGhlc2U/DQoNCkkgZG9uJ3QgdW5kZXJz
+dGFuZCB0aGF0IHF1ZXN0aW9uLiBUaGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiBhbGxvd3MgDQph
+ZGRpbmcgaW50ZXJmYWNlcyAobmV0ZGV2J3MpIHRvIGEgVlJGLiBUaGUgY2dyb3VwIGFsbG93cyBy
+dW5uaW5nIGEgDQpwcm9jZXNzIGluIGEgVlJGIGNvbnRleHQgc3VjaCB0aGF0IEFGX0lORVR7Nn0g
+c29ja2V0cyBhcmUgYXV0b21hdGljYWxseSANCmJvdW5kIHRvIHRoZSBWUkYgZGV2aWNlLg0KDQpN
+T0hBTj4gc29ycnkgZm9yIG5vdCBiZWluZyBjbGVhci4gTXkgYXNrIHdhcywgdG8gY3JlYXRlIGEg
+bmFtZXNwYWNlIHdlIG5lZWQgY2FwX2FkbWluIHByaXZpbGVnZXMgY3VycmVudGx5LCBidXQgeW91
+ciBlYXJsaWVyIG1haWxzIHN1Z2dlc3RlZCB0aGF0IHdlIHNob3VsZCBiZSBhYmxlIHRvIGNvbmZp
+Z3VyZS9jcmVhdGUgdnJmIGRldmljZSB3aXRoIG5ldF9hZG1pbiBjYXBhYmlsaXRpZXMuIElzIHRo
+aXMgc3VwcG9ydCBwcmVzZW50IC9leHBlY3RlZCB0byBiZSBhZGRlZCBzb29uPw0KDQo+DQo+IDQu
+IEN1cnJlbnRseSB0aGUgY2hhbmdlcyBhcmUgYXZhaWxhYmxlIGFuZCBwb3J0YWJsZSBmcm9tIDQu
+My54IG9ud2FyZHMuIElzIHRoZXJlIGEgcGxhbiB0byBwb3J0IHRoZW0gdG8gcHJldmlvdXMga2Vy
+bmVsIHZlcnNpb25zPw0KDQpuby4gQW55b25lIHdhbnRpbmcgdG8gdXNlIHRoZSB2cmYgcGF0Y2hl
+cyBvbiBvdGhlciBrZXJuZWwgdmVyc2lvbnMgd2lsbCANCm5lZWQgdG8gcG9ydCB0aGVtLg0KTU9I
+QU4+IFN1cmUuDQo+DQo+IDUuIElzIHRoZXJlIGEgcG9zc2liaWxpdHkgb2YgZW5hYmxpbmcgc2Vj
+b25kYXJ5IGxldmVsIGxvb2t1cCwgdG8gZ2l2ZSBhIGxlYWsgZnVuY3Rpb25hbGl0eSB0byBwYXJl
+bnQgcm91dGUgdGFibGUgZnJvbSBkZXZpY2UgbG9jYWwgcm91dGUgdGFibGU/IEkgdGVzdGVkIHdp
+dGggdmV0aCBwYWlyLCBjb25maWd1cmVkIG9uZSBhcyBkZWZhdWx0IGdhdGV3YXksIGl0IGlzIHBv
+c3NpYmxlIHRvIGZvcndhcmQgdHJhZmZpYyBiL3cgdGhlIGludGVyZmFjZXMsIGxvb2tpbmcgZm9y
+IGNsZWFuZXIgbWV0aG9kLg0KDQpBcmUgeW91IHJlZmVycmluZyB0byBpbnRlci12cmYgcm91dGlu
+Zz8gU2VlIHNsaWRlIDI3DQpodHRwOi8vd3d3Lm5ldGRldmNvbmYub3JnLzEuMS9wcm9jZWVkaW5n
+cy9zbGlkZXMvYWhlcm4tdnJmLXR1dG9yaWFsLnBkZg0KRnVsbCBsb29rdXAgaW4gVlJGIHRhYmxl
+DQrilqogaXAgcm91dGUgYWRkIHRhYmxlIHZyZi1yZWQgMS4xLjEuMC8yNCBkZXYgdnJmLWdyZWVu
+DQpNT0hBTj4gSW4gc2xpZGUgMjcgYWJvdmUgc2hvd3MgaW50ZXIgdnJmIHJvdXRpbmcsIHJlcXVp
+cmVtZW50IGlzIHRvIHVzZSBjdXJyZW50IG5hbWVzcGFjZSBnbG9iYWwgcm91dGUgdGFibGUgaWYg
+dGhlIGlwIGxvb2t1cCBmYWlscyBpbiB2cmYtZGV2aWNlIHJvdXRpbmcgdGFibGUuIA0KUmVmZXJl
+bmNlOiBodHRwczovL3d3dy5qdW5pcGVyLm5ldC90ZWNocHVicy9lbl9VUy9qdW5vc2UxNi4xL3Rv
+cGljcy90YXNrL2NvbmZpZ3VyYXRpb24vbWJncC1zZWNvbmRhcnktcm91dGluZy10YWJsZS1zZWFy
+Y2guaHRtbA0KDQo+DQo+IDYuIFdpdGggIlZSRiBEZXZpY2UiIGluIHBsYWNlLCAgcGxlYXNlIGNv
+bmZpcm0gaWYgdGhlcmUgYXJlIGFueSBwbGFucyB0byBhZGQgVlJGIHN1cHBvcnQgZm9yIGFwcGxp
+Y2F0aW9ucyBsaWtlDQo+DQo+IAkxLglQaW5nDQoNCm5vIG5lZWQuIHBpbmd7Nn0gLUkgPHZyZiBk
+ZXZpY2U+IC4uLg0KDQo+IAkyLglUcmFjZXJvdXRlDQoNCm5vIG5lZWQuIHRyYWNlcm91dGV7Nn0g
+LWkgPHZyZiBkZXZpY2U+IC4uLg0KDQo+IAkzLglETlMtQ2xpZW50IFtnbGliY10NCj4NCj4gCUlu
+IGNhc2Ugb2YgRE5TLUNsaWVudCwgbW9zdCBvZiB0aGUgbmFtZSByZXNvbHV0aW9uIEFQSXMgd2ls
+bCBoYXZlIHRvIGNvbnNpZGVyIHRoZSBWUkYgdG8gZG8gdGhlIGxvb2t1cCBpbiAgYW5kIHRoZSB3
+YXkgdGhlIGRvbWFpbi1uYW1lL25hbWUtc2VydmVyIGNvbmZpZ3VyYXRpb24gaXMgc3RvcmVkLg0K
+DQpJIGhhdmUgbG9va2VkIGludG8gaXQgYnV0IG5vIHBhdGNoZXMgd29ydGggZGlzdHJpYnV0aW5n
+IGF0IHRoZSBtb21lbnQuDQoNCk1PSEFOPiBPa2F5LCB0aGFua3MgZm9yIHRoZSBpbnB1dHMuDQo=
