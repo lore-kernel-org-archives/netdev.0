@@ -1,69 +1,69 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH net v3 0/5] drivers: net: cpsw: phy-handle fixes
-Date: Thu, 28 Apr 2016 07:28:32 -0700
-Message-ID: <20160428142832.GD5995@atomide.com>
-References: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	devicetree@vger.kernel.org,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Nicolas Chauvet <kwizart@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
-	David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1461805808-4102-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next] vxlan: fix initialization with custom link parameters
+Date: Thu, 28 Apr 2016 16:36:30 +0200
+Message-ID: <7c19200582d6f4272cee914934f428775e405e89.1461854177.git.jbenc@redhat.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46055 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752195AbcD1Ogm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2016 10:36:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* David Rivshin (Allworx) <drivshin.allworx@gmail.com> [160427 18:13]:
-> From: David Rivshin <drivshin@allworx.com>
-> 
-> This series fixes a number of related issues around using phy-handle
-> properties in cpsw emac nodes.
-> 
-> Patch 1 fixes a bug if more than one slave is used, and either
-> slave uses the phy-handle property in the devicetree.
-> 
-> Patch 2 fixes a NULL pointer dereference which can occur if a
-> phy-handle property is used and of_phy_connect() return NULL,
-> such as with a bad devicetree.
-> 
-> Patch 3 fixes an issue where the phy-mode property would be ignored
-> if a phy-handle property was used. This also fixes a bogus error
-> message that would be emitted.
-> 
-> Patch 4 fixes makes the binding documentation more explicit that
-> exactly one PHY property should be used, and also marks phy_id as
-> deprecated.
-> 
-> Patch 5 cleans up the fixed-link case to work like the now-fixed
-> phy-handle case.
-> 
-> I have tested on the following hardware configurations:
->  - (EVMSK) dual emac, phy_id property in both slaves
->  - (EVMSK) dual emac, phy-handle property in both slaves
->  - (EVMSK) a bad phy-handle property pointing to &mmc1
->  - (EVMSK) phy_id property with incorrect PHY address
->  - (BeagleBoneBlack) single emac, phy_id property
->  - (custom) single emac, fixed-link subnode
-> 
-> Andrew Goodbody reported testing v2 on a board that doesn't use
-> dual_emac mode, but with 2 PHYs using phy-handle properties [1].
-> 
-> Nicolas Chauvet reported testing v2 on an HP t410 (dm8148).
-> 
-> Markus Brunner reported testing v1 on the following [2]:
->  - emac0 with phy_id and emac1 with fixed phy
->  - emac0 with phy-handle and emac1 with fixed phy
->  - emac0 with fixed phy and emac1 with fixed phy
+Commit 0c867c9bf84c ("vxlan: move Ethernet initialization to a separate
+function") changed initialization order and as an unintended result, when the
+user specifies additional link parameters (such as IFLA_ADDRESS) while
+creating vxlan interface, those are overwritten by vxlan_ether_setup later.
 
-Quickly boot tested these against next on dra62x-j5eco EVM:
+It's necessary to call ether_setup from withing the ->setup callback. That
+way, the correct parameters are set by rtnl_create_link later. This is done
+also for VXLAN-GPE, as we don't know the interface type yet at that point,
+and changed to the correct interface type later.
 
-Tested-by: Tony Lindgren <tony@atomide.com>
+Fixes: 0c867c9bf84c ("vxlan: move Ethernet initialization to a separate function")
+Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ drivers/net/vxlan.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 6fb93b57a724..2668e528dee4 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2557,6 +2557,9 @@ static void vxlan_setup(struct net_device *dev)
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	unsigned int h;
+ 
++	eth_hw_addr_random(dev);
++	ether_setup(dev);
++
+ 	dev->destructor = free_netdev;
+ 	SET_NETDEV_DEVTYPE(dev, &vxlan_type);
+ 
+@@ -2592,8 +2595,6 @@ static void vxlan_setup(struct net_device *dev)
+ 
+ static void vxlan_ether_setup(struct net_device *dev)
+ {
+-	eth_hw_addr_random(dev);
+-	ether_setup(dev);
+ 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	dev->netdev_ops = &vxlan_netdev_ether_ops;
+@@ -2601,11 +2602,10 @@ static void vxlan_ether_setup(struct net_device *dev)
+ 
+ static void vxlan_raw_setup(struct net_device *dev)
+ {
++	dev->header_ops = NULL;
+ 	dev->type = ARPHRD_NONE;
+ 	dev->hard_header_len = 0;
+ 	dev->addr_len = 0;
+-	dev->mtu = ETH_DATA_LEN;
+-	dev->tx_queue_len = 1000;
+ 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+ 	dev->netdev_ops = &vxlan_netdev_raw_ops;
+ }
+-- 
+1.8.3.1
