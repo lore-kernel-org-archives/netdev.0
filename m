@@ -1,60 +1,80 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Thu, 28 Apr 2016 18:32:07 +0200
-Message-ID: <20160428163207.GP29024@lunn.ch>
-References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
- <57222FCE.8050407@atmel.com>
- <20160428155556.GA8333@nathan3500-linux-VM>
+From: Marc Angel <marc@arista.com>
+Subject: Re: [PATCH net-next] macvtap: add namespace support to the sysfs
+ device class
+Date: Thu, 28 Apr 2016 17:35:33 +0100
+Message-ID: <CAPSAET_u3CYvhYgyxXdomi7n5Z6c1DTCpSMv=K544U=TjmM=cw@mail.gmail.com>
+References: <1461161491-22867-1-git-send-email-marc@arista.com> <8737q933kv.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Nathan Sullivan <nathan.sullivan@ni.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:51787 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752346AbcD1QcN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 12:32:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20160428155556.GA8333@nathan3500-linux-VM>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:34981 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752346AbcD1Qfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 12:35:54 -0400
+Received: by mail-ob0-f175.google.com with SMTP id n10so36714993obb.2
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 09:35:53 -0700 (PDT)
+In-Reply-To: <8737q933kv.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hmm, are AT91 platforms special in this regard? As far as I can tell, this
-> driver (macb) and Marvell PXA are the only ethernet drivers that call
-> mdiobus_scan directly, and PXA does it on a known address. I do see that there
-> are trees that use macb and don't have a phy listed, which is unfortunate.
+On Mon, Apr 25, 2016 at 8:12 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>> The 'net' device class is isolated between network namespaces so each
+>> one has its own hierarchy of net devices.
+>> This isn't the case for the 'macvtap' device class.
+>> The problem occurs half-way through the netdev registration, when
+>> `macvtap_device_event` is called-back to create the 'tapNN' macvtap
+>> class device under the 'macvtapX' net class device.
+>>
+>> This patch adds namespace support the the 'macvtap' device class so
+>> that /sys/class/macvtap is no longer shared between net namespaces.
+>>
+>> However, doing this has the side effect of changing
+>> /sys/devices/virtual/net/macvtapX/tapNN  into
+>> /sys/devices/virtual/net/macvtapX/macvtap/tapNN
+>
+> I forget the details of how this interface works, but
+> /sys/devices/virtual/net is definitely allows different overlapping
+> content per network namespace, so we should not need to add an extra
+> directory to make this work.
 
-How it is supposed to work is that you do one of two things:
+It really seems like we do, unfortunately.
 
-1) Your device tree does not have an mdio node. In this case, you call
-mdiobus_register() and it will perform a scan of the bus, and find the
-phys.
+For a kernfs_node to have the KERNFS_NS flag enabled, sysfs_enable_ns
+has to be called on it. This is only done in the create_dir function of
+lib/kobject.c, and only when the parent of that kobject has a ktype with
+the child_ns_type field set to something.
 
-2) Your device tree does have an MDIO node, and you list your PHYs.
+This is the case for class_dir_ktype which is the type used for the
+"glue" dirs (the extra macvtap/ that is created under macvtapX).
+This, however, is not the case for device_ktype, which is the type
+used for every device directory.
+When we create tapN directly under macvtapX, tapN doesn't get the
+KERNFS_NS flag enabled -- unlike when created under the "glue" dir.
 
-Having an MDIO node and not listing the PHYs is broken...
+This is problematic when creating the following symlink:
+/sys/class/macvtap/tapN -> /sys/devices/virtual/net/macvtapX/tapN.
+The tapN in /sys/class/macvtap inherits the namespace tag from
+/sys/devices/virtual/net/macvtapX/tapN, which doesn't have one anymore
+and kernfs_add_one fails because it expects it to.
 
-There are however, a few broken device trees around, and a few drivers
-have workarounds. e.g. davinci_mdio.c
+Adding a child_ns_type field to device_ktype is probably not a good idea
+and seems to cause other problems.
 
-       /* register the mii bus
-         * Create PHYs from DT only in case if PHY child nodes are explicitly
-         * defined to support backward compatibility with DTs which assume that
-         * Davinci MDIO will always scan the bus for PHYs detection.
-         */
-        if (dev->of_node && of_get_child_count(dev->of_node)) {
-                data->skip_scan = true;
-                ret = of_mdiobus_register(data->bus, dev->of_node);
-        } else {
-                ret = mdiobus_register(data->bus);
-        }
+The best workaround is probably to just create a symlink inside the
+macvtapX device directory (tapN -> macvtap/tapN).
 
-You probably need to do the same for AT91, count the number of
-children, and it if it zero, fall back to the non-DT way. It would
-also be good to print a warning to get people to fix their device
-tree.
+I'll update my patch accordingly if you don't have a better idea.
 
-    Andrew
+>> Should it even be possible to add a device of a class that doesn't
+>> support namespaces under one that does?
+>> This could lead to dead symlinks in the new device class directory or
+>> duplicate warnings because a device of the same name already exists in
+>> another namespace.
+>
+> This definitely looks like something that bears digging into, and fixing
+> properly.
+>
+> Eric
