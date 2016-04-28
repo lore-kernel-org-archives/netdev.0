@@ -1,81 +1,46 @@
-From: Jann Horn <jannh@google.com>
-Subject: Re: [PATCH net 2/3] bpf: fix check_map_func_compatibility logic
-Date: Thu, 28 Apr 2016 11:31:31 +0200
-Message-ID: <CAG48ez2auDRZxN5o0q+x0RTG0bKhZWOuGee9f-80Rd8bKpCEVw@mail.gmail.com>
-References: <1461808582-1452466-1-git-send-email-ast@fb.com> <1461808582-1452466-3-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] vxlan: fix ethernet address initialization
+Date: Thu, 28 Apr 2016 12:04:16 +0200
+Message-ID: <1461837856-4316-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Benc <jbenc@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38388 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753733AbcD1Jbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 05:31:52 -0400
-Received: by mail-ig0-f180.google.com with SMTP id m9so61811457ige.1
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 02:31:52 -0700 (PDT)
-In-Reply-To: <1461808582-1452466-3-git-send-email-ast@fb.com>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:58553 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753500AbcD1KEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 06:04:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2016 at 3:56 AM, Alexei Starovoitov <ast@fb.com> wrote:
-> The commit 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
-> introduced clever way to check bpf_helper<->map_type compatibility.
-> Later on commit a43eec304259 ("bpf: introduce bpf_perf_event_output() helper") adjusted
-> the logic and inadvertently broke it.
-> Get rid of the clever bool compare and go back to two-way check
-> from map and from helper perspective.
->
-> Fixes: a43eec304259 ("bpf: introduce bpf_perf_event_output() helper")
-> Reported-by: Jann Horn <jannh@google.com>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  kernel/bpf/verifier.c | 65 +++++++++++++++++++++++++++++++--------------------
->  1 file changed, 40 insertions(+), 25 deletions(-)
->
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 89bcaa0966da..c5c17a62f509 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-[...]
-> +       case BPF_MAP_TYPE_PROG_ARRAY:
-> +               if (func_id != BPF_FUNC_tail_call)
-> +                       goto error;
-> +               break;
-> +       case BPF_MAP_TYPE_PERF_EVENT_ARRAY:
-> +               if (func_id != BPF_FUNC_perf_event_read &&
-> +                   func_id != BPF_FUNC_perf_event_output)
-> +                       goto error;
-> +               break;
-> +       case BPF_MAP_TYPE_STACK_TRACE:
-> +               if (func_id != BPF_FUNC_get_stackid)
-> +                       goto error;
-> +               break;
-> +       default:
-> +               break;
-> +       }
-> +
-> +       /* ... and second from the function itself. */
-> +       switch (func_id) {
-> +       case BPF_FUNC_tail_call:
-> +               if (map->map_type != BPF_MAP_TYPE_PROG_ARRAY)
-> +                       goto error;
-> +               break;
-> +       case BPF_FUNC_perf_event_read:
-> +       case BPF_FUNC_perf_event_output:
-> +               if (map->map_type != BPF_MAP_TYPE_PERF_EVENT_ARRAY)
-> +                       goto error;
-> +               break;
-> +       case BPF_FUNC_get_stackid:
-> +               if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
-> +                       goto error;
-> +               break;
-> +       default:
-> +               break;
->         }
+Since commit 0c867c9bf84c, when the user specifies an ethernet address with
+IFLA_ADDRESS, it's overridden by vxlan_ether_setup() (rtnl_link_ops->setup
+is called in rtnetlink.c before handling IFLA_ADDRESS).
 
-Looks good to me.
+To test it:
+ip link add name vxlan1 address de:ad:de:4c:0f:c2 type vxlan id 1 group 239.0.0.10 dev eth0
+
+CC: Jiri Benc <jbenc@redhat.com>
+Fixes: 0c867c9bf84c ("vxlan: move Ethernet initialization to a separate function")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ drivers/net/vxlan.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 6fb93b57a724..d454c7e7d16e 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2592,7 +2592,8 @@ static void vxlan_setup(struct net_device *dev)
+ 
+ static void vxlan_ether_setup(struct net_device *dev)
+ {
+-	eth_hw_addr_random(dev);
++	if (!is_valid_ether_addr(dev->dev_addr))
++		eth_hw_addr_random(dev);
+ 	ether_setup(dev);
+ 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+-- 
+2.4.2
