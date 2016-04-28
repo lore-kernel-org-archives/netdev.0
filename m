@@ -1,45 +1,77 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] vxlan: fix initialization with custom link
- parameters
-Date: Thu, 28 Apr 2016 17:06:21 +0200
-Message-ID: <572226ED.6000903@6wind.com>
-References: <7c19200582d6f4272cee914934f428775e405e89.1461854177.git.jbenc@redhat.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Josh Cartwright <joshc@ni.com>
+Subject: Re: [PATCH] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 10:07:05 -0500
+Message-ID: <20160428150705.GA30217@jcartwri.amer.corp.natinst.com>
+References: <1461853187-31715-1-git-send-email-nathan.sullivan@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35058 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751731AbcD1PGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 11:06:36 -0400
-Received: by mail-wm0-f51.google.com with SMTP id e201so80453672wme.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 08:06:35 -0700 (PDT)
-In-Reply-To: <7c19200582d6f4272cee914934f428775e405e89.1461854177.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="2oS5YaxWCcQjTEyO"
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nathan Sullivan <nathan.sullivan@ni.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461853187-31715-1-git-send-email-nathan.sullivan@ni.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 28/04/2016 16:36, Jiri Benc a =C3=A9crit :
-> Commit 0c867c9bf84c ("vxlan: move Ethernet initialization to a separa=
-te
-> function") changed initialization order and as an unintended result, =
-when the
-> user specifies additional link parameters (such as IFLA_ADDRESS) whil=
-e
-> creating vxlan interface, those are overwritten by vxlan_ether_setup =
-later.
->=20
-> It's necessary to call ether_setup from withing the ->setup callback.=
- That
-> way, the correct parameters are set by rtnl_create_link later. This i=
-s done
-> also for VXLAN-GPE, as we don't know the interface type yet at that p=
-oint,
-> and changed to the correct interface type later.
->=20
-> Fixes: 0c867c9bf84c ("vxlan: move Ethernet initialization to a separa=
-te function")
-> Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Apr 28, 2016 at 09:19:47AM -0500, Nathan Sullivan wrote:
+> Since of_mdiobus_register and mdiobus_register will scan automatically,
+
+This is only partially true.  of_mdiobus_register() only scans for PHYs
+with device tree presence (starting with nodes which specify an address,
+then continuing for nodes without an address specifier).
+
+So, this patch will regress any platform currently relying on a PHY
+being found/probed even though it has no representation as a device tree
+node.  I don't have enough history with this driver to make a judgement
+as to whether or not there are any users of this functionality.
+
+> do not manually scan for PHY devices in the macb ethernet driver. Doing
+> so will result in many nonexistent PHYs on the MDIO bus if the MDIO
+> lines are floating or grounded, such as when they are not used.
+
+Just a restatement/elaboration of the problem in an attempt to provide
+more context:
+
+The assumption being made is that the phy associated with a given macb
+instance exists on that instance's controlled mdio bus.  This assumption
+doesn't hold true on some dual-ethernet Zynq 7000-series based designs
+where both phys exist on the same MDIO bus (for pinning reasons, or
+whatever).
+
+             MDIO
+    macb0 ----+----- phy0, addrX
+              |
+              +----- phy1, addrY
+
+    macb1 ----- {MDIO lines NC, not pinmuxed}
+
+(In this case, the phy associated with macb1 is phy1, which exists on
+the MDIO bus controlled by the macb0 instance).
+
+HTH,
+
+  Josh
+
+--2oS5YaxWCcQjTEyO
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJXIicVAAoJEKp7ZBKwQFAro4MIAIcyS936SG1oqmG5wOxrbjFs
+SOG5n1b+nFpCT5Kp/QYUOz2T+K5PwOOZu+lP9LoZdaiEF/ZcxNfIOw56j8fbZfJC
+Twswy/pZJN2euhSuaqHWVH6GxVjj6OFN62tfs028BTSbNKSjuKobnvVr3sTtI8BN
+BxebfC/03zNv//T8CX9czIyZZHnE4Osr8XRX+FZmGYa4EvcfpAX3f6SWn1OrG6GA
+gPr6w86XAW2VmvtOqUf6PFnFfh+sTJnTIa6N7G4RCTogZyC/qSHRRlr0yoAERmj6
+avi6AbU04T1wYB11iUCjxyBFNDMsrto23Ut8pTr9wNDAphHrdbBQgBBnTJsN6Bs=
+=DQzV
+-----END PGP SIGNATURE-----
+
+--2oS5YaxWCcQjTEyO--
