@@ -1,84 +1,64 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 0/6] net: make TCP preemptible
-Date: Thu, 28 Apr 2016 10:51:56 -0700
-Message-ID: <20160428175154.GA83737@ast-mbp.thefacebook.com>
-References: <1461821152-23200-1-git-send-email-edumazet@google.com>
- <20160428172320.GA83199@ast-mbp.thefacebook.com>
- <1461865270.5535.109.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 12:56:19 -0500
+Message-ID: <20160428175619.GA8791@nathan3500-linux-VM>
+References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
+ <57222FCE.8050407@atmel.com>
+ <20160428155556.GA8333@nathan3500-linux-VM>
+ <20160428163207.GP29024@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35609 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149AbcD1RwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 13:52:02 -0400
-Received: by mail-pf0-f173.google.com with SMTP id 77so3958469pfv.2
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 10:52:01 -0700 (PDT)
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160428163207.GP29024@lunn.ch>
 Content-Disposition: inline
-In-Reply-To: <1461865270.5535.109.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2016 at 10:41:10AM -0700, Eric Dumazet wrote:
-> On Thu, 2016-04-28 at 10:23 -0700, Alexei Starovoitov wrote:
-> > On Wed, Apr 27, 2016 at 10:25:46PM -0700, Eric Dumazet wrote:
-> > > Most of TCP stack assumed it was running from BH handler.
-> > > 
-> > > This is great for most things, as TCP behavior is very sensitive
-> > > to scheduling artifacts.
-> > > 
-> > > However, the prequeue and backlog processing are problematic,
-> > > as they need to be flushed with BH being blocked.
-> > > 
-> > > To cope with modern needs, TCP sockets have big sk_rcvbuf values,
-> > > in the order of 16 MB.
-> > > This means that backlog can hold thousands of packets, and things
-> > > like TCP coalescing or collapsing on this amount of packets can
-> > > lead to insane latency spikes, since BH are blocked for too long.
-> > > 
-> > > It is time to make UDP/TCP stacks preemptible.
-> > > 
-> > > Note that fast path still runs from BH handler.
-> > 
-> > this looks pretty awesome.
+On Thu, Apr 28, 2016 at 06:32:07PM +0200, Andrew Lunn wrote:
+> > Hmm, are AT91 platforms special in this regard? As far as I can tell, this
+> > driver (macb) and Marvell PXA are the only ethernet drivers that call
+> > mdiobus_scan directly, and PXA does it on a known address. I do see that there
+> > are trees that use macb and don't have a phy listed, which is unfortunate.
 > 
-> Yes, I am pretty excited ;)
+> How it is supposed to work is that you do one of two things:
 > 
-> > the change will make the backlog run in bh enabled, so that one
-> > large flow reciever will not penalize the rest of the system, right?
+> 1) Your device tree does not have an mdio node. In this case, you call
+> mdiobus_register() and it will perform a scan of the bus, and find the
+> phys.
 > 
-> Not only large flows, but flows with losses/reorders.
-> Typically many flows are in this case when a congestion collapse
-> happens.
+> 2) Your device tree does have an MDIO node, and you list your PHYs.
 > 
+> Having an MDIO node and not listing the PHYs is broken...
 > 
+> There are however, a few broken device trees around, and a few drivers
+> have workarounds. e.g. davinci_mdio.c
 > 
-> > but you're saying that prequeue is also expensive, but not touched
-> > by this patchset? was it addressed by your eariler patch?
-> > Or more work still tbd?
+>        /* register the mii bus
+>          * Create PHYs from DT only in case if PHY child nodes are explicitly
+>          * defined to support backward compatibility with DTs which assume that
+>          * Davinci MDIO will always scan the bus for PHYs detection.
+>          */
+>         if (dev->of_node && of_get_child_count(dev->of_node)) {
+>                 data->skip_scan = true;
+>                 ret = of_mdiobus_register(data->bus, dev->of_node);
+>         } else {
+>                 ret = mdiobus_register(data->bus);
+>         }
 > 
-> prequeue is handled by "[2/6] tcp: do not block bh during prequeue
-> processing"
+> You probably need to do the same for AT91, count the number of
+> children, and it if it zero, fall back to the non-DT way. It would
+> also be good to print a warning to get people to fix their device
+> tree.
+> 
+>     Andrew
 
-got it. It applies to both v4 and v6, right?
-
-> Note that I also sent a patch earlier (("tcp: give prequeue mode some
-> care")) to control max size of prequeue to 32 packets.
-> 
-> > I'm just trying to understand more about tcp stack.
-> > 
-> Sure ;)
-> 
-> I also have a patch to add scheduling point in sendmsg() (ie : draining
-> the backlog if not empty) for each new skb added to the write queue.
-> 
-> Since each skb is about 64KB (with GSO/TSO), it means an application no
-> longer will hold the socket lock too long, even when doing a
-> write()/sendmsg() of say 8 MB at once ;)
-
-that would be awesome. I think map/reduce type jobs typically
-do large sendmsg, so it should help p99 latency.
+I agree that is a valid fix for AT91, however it won't solve our problem, since
+we have no children on the second ethernet MAC in our devices' device trees. I'm
+starting to feel like our second MAC shouldn't even really register the MDIO bus
+since it isn't being used - maybe adding a DT property to not have a bus is a
+better option?
