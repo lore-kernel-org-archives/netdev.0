@@ -1,7 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V4 0/5] samples/bpf: Improve user experience
-Date: Thu, 28 Apr 2016 14:20:48 +0200
-Message-ID: <20160428121949.16807.84828.stgit@firesoul>
+Subject: [net-next PATCH V4 1/5] samples/bpf: add back functionality to
+ redefine LLC command
+Date: Thu, 28 Apr 2016 14:20:53 +0200
+Message-ID: <20160428122053.16807.93143.stgit@firesoul>
+References: <20160428121949.16807.84828.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,45 +13,49 @@ Cc: linux-kbuild@vger.kernel.org, bblanco@plumgrid.com,
 	alexei.starovoitov@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20160428121949.16807.84828.stgit@firesoul>
 Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is a steep learning curve getting started with using the eBPF
-examples in samples/bpf/.  There are several dependencies, and
-specific versions of these dependencies.  Invoking make in the correct
-manor is also slightly obscure.
+It is practical to be-able-to redefine the location of the LLVM
+command 'llc', because not all distros have a LLVM version with bpf
+target support.  Thus, it is sometimes required to compile LLVM from
+source, and sometimes it is not desired to overwrite the distros
+default LLVM version.
 
-This patchset cleanup, document and hopefully improves the first time
-user experience with the eBPF samples directory by auto-detecting
-certain scenarios.
+This feature was removed with 128d1514be35 ("samples/bpf: Use llc in
+PATH, rather than a hardcoded value").
 
-V4:
- - Address Naveen's nitpicks
- - Handle/fail if extra args are passed in LLC or CLANG (David Laight)
+Add this features back. Note that it is possible to redefine the LLC
+on the make command like:
 
-V3:
- - Add Alexei's ACKs
- - Remove README paragraph about LLVM experimental BPF target
-   as it only existed between LLVM version 3.6 to 3.7.
+ make samples/bpf/ LLC=~/git/llvm/build/bin/llc
 
-V2:
- - Adjusted recommend minimum versions to 3.7.1
- - Included clang build instructions
- - New patch adding CLANG variable and validation of command
-
+Fixes: 128d1514be35 ("samples/bpf: Use llc in PATH, rather than a hardcoded value")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
+ samples/bpf/Makefile |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Jesper Dangaard Brouer (5):
-      samples/bpf: add back functionality to redefine LLC command
-      samples/bpf: Makefile verify LLVM compiler avail and bpf target is supported
-      samples/bpf: add a README file to get users started
-      samples/bpf: allow make to be run from samples/bpf/ directory
-      samples/bpf: like LLC also verify and allow redefining CLANG command
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 744dd7a16144..5bae9536f100 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -81,10 +81,14 @@ HOSTLOADLIBES_spintest += -lelf
+ HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ HOSTLOADLIBES_test_overhead += -lelf -lrt
+ 
++# Allows pointing LLC to a LLVM backend with bpf support, redefine on cmdline:
++#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc
++LLC ?= llc
++
+ # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
+ # But, there is no easy way to fix it, so just exclude it since it is
+ # useless for BPF samples.
+ $(obj)/%.o: $(src)/%.c
+ 	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+ 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+-		-O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
++		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
 
-
- samples/bpf/Makefile   |   37 +++++++++++++++++++++++++--
- samples/bpf/README.rst |   67 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 102 insertions(+), 2 deletions(-)
- create mode 100644 samples/bpf/README.rst
-
---
