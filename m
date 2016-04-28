@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ps3_gelic: fix memcpy parameter
-Date: Thu, 28 Apr 2016 16:38:15 -0400 (EDT)
-Message-ID: <20160428.163815.1737125177217196446.davem@davemloft.net>
-References: <1461638023-2986-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH net-next V2] tuntap: calculate rps hash only when needed
+Date: Thu, 28 Apr 2016 16:39:08 -0400 (EDT)
+Message-ID: <20160428.163908.1659396336398436917.davem@davemloft.net>
+References: <1461640422-20779-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
+Cc: davem@davemloft.ne, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41998 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42030 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753132AbcD1UiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:38:17 -0400
-In-Reply-To: <1461638023-2986-1-git-send-email-christophe.jaillet@wanadoo.fr>
+	with ESMTP id S1752819AbcD1UjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 16:39:10 -0400
+In-Reply-To: <1461640422-20779-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Tue, 26 Apr 2016 04:33:43 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 25 Apr 2016 23:13:42 -0400
 
-> The size allocated for target->hwinfo and the number of bytes copied in it
-> should be consistent.
+> There's no need to calculate rps hash if it was not enabled. So this
+> patch export rps_needed and check it before trying to get rps
+> hash. Tests (using pktgen to inject packets to guest) shows this can
+> improve pps about 13% (when rps is disabled).
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Before:
+> ~1150000 pps
+> After:
+> ~1300000 pps
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied, thanks.
+Applied, thanks Jason.
