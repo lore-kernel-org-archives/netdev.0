@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v6 12/21] IB/hns: Set mtu and gid support
-Date: Thu, 28 Apr 2016 20:09:47 +0800
-Message-ID: <1461845396-61306-13-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v6 03/21] IB/hns: Add initial main frame driver and get cfg info
+Date: Thu, 28 Apr 2016 20:09:38 +0800
+Message-ID: <1461845396-61306-4-git-send-email-oulijun@huawei.com>
 References: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,347 +20,261 @@ In-Reply-To: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch mainly set mtu and gid resource. These resource
-will be used to set up network transmission in nodes.
+This patch mainly added the initial bare main driver. It
+could get the relative configure information of net node.
 
 Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
 Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_common.h |  16 ++++
- drivers/infiniband/hw/hns/hns_roce_device.h |  14 ++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |  64 +++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |   1 +
- drivers/infiniband/hw/hns/hns_roce_main.c   | 123 ++++++++++++++++++++++++++++
- 5 files changed, 218 insertions(+)
+ drivers/infiniband/hw/hns/hns_roce_device.h |  49 ++++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   | 182 ++++++++++++++++++++++++++++
+ 2 files changed, 231 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
-index d9c5fda..45b5804 100644
---- a/drivers/infiniband/hw/hns/hns_roce_common.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_common.h
-@@ -133,6 +133,14 @@
- 
- #define ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S 31
- 
-+#define ROCEE_SMAC_H_ROCEE_SMAC_H_S 0
-+#define ROCEE_SMAC_H_ROCEE_SMAC_H_M   \
-+	(((1UL << 16) - 1) << ROCEE_SMAC_H_ROCEE_SMAC_H_S)
-+
-+#define ROCEE_SMAC_H_ROCEE_PORT_MTU_S 16
-+#define ROCEE_SMAC_H_ROCEE_PORT_MTU_M   \
-+	(((1UL << 4) - 1) << ROCEE_SMAC_H_ROCEE_PORT_MTU_S)
-+
- #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S 0
- #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_M   \
- 	(((1UL << 2) - 1) << ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S)
-@@ -173,8 +181,16 @@
- #define ROCEE_SYS_IMAGE_GUID_L_REG		0xC
- #define ROCEE_SYS_IMAGE_GUID_H_REG		0x10
- 
-+#define ROCEE_PORT_GID_L_0_REG			0x50
-+#define ROCEE_PORT_GID_ML_0_REG			0x54
-+#define ROCEE_PORT_GID_MH_0_REG			0x58
-+#define ROCEE_PORT_GID_H_0_REG			0x5C
-+
- #define ROCEE_BT_CMD_H_REG			0x204
- 
-+#define ROCEE_SMAC_L_0_REG			0x240
-+#define ROCEE_SMAC_H_0_REG			0x244
-+
- #define ROCEE_CAEP_AEQE_CONS_IDX_REG		0x3AC
- #define ROCEE_CAEP_CEQC_CONS_IDX_0_REG		0x3BC
- 
 diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 79503bb..06ca4fe 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
+new file mode 100644
+index 0000000..b48f518
+--- /dev/null
 +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -21,6 +21,8 @@
- 
- #define DRV_NAME "hns_roce"
- 
-+#define MAC_ADDR_OCTET_NUM			6
-+
- #define HNS_ROCE_BA_SIZE			(32 * 4096)
- 
- #define HNS_ROCE_MAX_IRQ_NUM			34
-@@ -31,6 +33,9 @@
- #define HNS_ROCE_AEQE_VEC_NUM			1
- #define HNS_ROCE_AEQE_OF_VEC_NUM		1
- 
-+#define HNS_ROCE_MAX_PORTS			6
-+#define HNS_ROCE_MAX_GID_NUM			16
-+
- #define ADDR_SHIFT_12				12
- #define ADDR_SHIFT_32				32
- #define ADDR_SHIFT_44				44
-@@ -237,6 +242,8 @@ struct hns_roce_qp {
- 
- struct hns_roce_ib_iboe {
- 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
-+	/* 16 GID is shared by 6 port in v1 engine. */
-+	union ib_gid		gid_table[HNS_ROCE_MAX_GID_NUM];
- 	u8			phy_port[HNS_ROCE_MAX_PORTS];
- };
- 
-@@ -311,6 +318,11 @@ struct hns_roce_hw {
- 	void (*hw_profile)(struct hns_roce_dev *hr_dev);
- 	int (*hw_init)(struct hns_roce_dev *hr_dev);
- 	void (*hw_uninit)(struct hns_roce_dev *hr_dev);
-+	void (*set_gid)(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
-+			union ib_gid *gid);
-+	void (*set_mac)(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr);
-+	void (*set_mtu)(struct hns_roce_dev *hr_dev, u8 phy_port,
-+			enum ib_mtu mtu);
- 	void	*priv;
- };
- 
-@@ -328,6 +340,7 @@ struct hns_roce_dev {
- 	struct hns_roce_caps	caps;
- 	struct radix_tree_root  qp_table_tree;
- 
-+	unsigned char	dev_addr[HNS_ROCE_MAX_PORTS][MAC_ADDR_OCTET_NUM];
- 	u64                     fw_ver;
- 	u64			sys_image_guid;
- 	u32                     vendor_id;
-@@ -397,6 +410,7 @@ void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
- void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
- void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
- void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type);
-+int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index);
- 
- extern struct hns_roce_hw hns_roce_hw_v1;
- 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-index 0e5f816..7a5b211 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-@@ -601,9 +601,73 @@ void hns_roce_v1_uninit(struct hns_roce_dev *hr_dev)
- 	hns_roce_db_free(hr_dev);
- }
- 
-+void hns_roce_v1_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
-+			 union ib_gid *gid)
-+{
-+	u32 *p = NULL;
-+	u8 gid_idx = 0;
-+
-+	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
-+
-+	p = (u32 *)&gid->raw[0];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_L_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+
-+	p = (u32 *)&gid->raw[4];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_ML_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+
-+	p = (u32 *)&gid->raw[8];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_MH_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+
-+	p = (u32 *)&gid->raw[0xc];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_H_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+}
-+
-+void hns_roce_v1_set_mac(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr)
-+{
-+	u32 reg_smac_l;
-+	u16 reg_smac_h;
-+	u16 *p_h;
-+	u32 *p;
-+	u32 val;
-+
-+	p = (u32 *)(&addr[0]);
-+	reg_smac_l = *p;
-+	roce_raw_write(reg_smac_l, hr_dev->reg_base + ROCEE_SMAC_L_0_REG +
-+		       PHY_PORT_OFFSET * phy_port);
-+
-+	val = roce_readl(hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+			 phy_port * PHY_PORT_OFFSET);
-+	p_h = (u16 *)(&addr[4]);
-+	reg_smac_h  = *p_h;
-+	roce_set_field(val, ROCEE_SMAC_H_ROCEE_SMAC_H_M,
-+		       ROCEE_SMAC_H_ROCEE_SMAC_H_S, reg_smac_h);
-+	roce_writel(val, hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+		    phy_port * PHY_PORT_OFFSET);
-+}
-+
-+void hns_roce_v1_set_mtu(struct hns_roce_dev  *hr_dev, u8 phy_port,
-+			 enum ib_mtu mtu)
-+{
-+	u32 val;
-+
-+	val = roce_readl(hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+			 phy_port * PHY_PORT_OFFSET);
-+	roce_set_field(val, ROCEE_SMAC_H_ROCEE_PORT_MTU_M,
-+		       ROCEE_SMAC_H_ROCEE_PORT_MTU_S, mtu);
-+	roce_writel(val, hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+		    phy_port * PHY_PORT_OFFSET);
-+}
-+
- struct hns_roce_hw hns_roce_hw_v1 = {
- 	.reset = hns_roce_v1_reset,
- 	.hw_profile = hns_roce_v1_profile,
- 	.hw_init = hns_roce_v1_init,
- 	.hw_uninit = hns_roce_v1_uninit,
-+	.set_gid = hns_roce_v1_set_gid,
-+	.set_mac = hns_roce_v1_set_mac,
-+	.set_mtu = hns_roce_v1_set_mtu,
- };
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-index 768862b..143ef0b 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-@@ -84,6 +84,7 @@
- 
- #define HNS_ROCE_ODB_EXTEND_MODE	1
- 
-+#define PHY_PORT_OFFSET			0x8
- #define ALL_PORT_VAL_OPEN		0x3f
- #define POL_TIME_INTERVAL_VAL		0x80
- #define SLEEP_TIME_INTERVAL		20
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index b26509b..0485e02 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -43,6 +43,118 @@
- #include "hns_roce_device.h"
- #include "hns_roce_icm.h"
- 
-+/**
-+ * hns_get_gid_index - Get gid index.
-+ * @hr_dev: pointer to structure hns_roce_dev.
-+ * @port:  port, value range: 0 ~ MAX
-+ * @gid_index:  gid_index, value range: 0 ~ MAX
-+ * Description:
-+ *    N ports shared gids, allocation method as follow:
-+ *		GID[0][0], GID[1][0],.....GID[N - 1][0],
-+ *		GID[0][0], GID[1][0],.....GID[N - 1][0],
-+ *		And so on
+@@ -0,0 +1,49 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + */
-+int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index)
-+{
-+	return gid_index * hr_dev->caps.num_ports + port;
-+}
 +
-+int hns_roce_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
-+		     union ib_gid *gid)
++#ifndef _HNS_ROCE_DEVICE_H
++#define _HNS_ROCE_DEVICE_H
++
++#include <linux/platform_device.h>
++#include <linux/radix-tree.h>
++#include <linux/semaphore.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_verbs.h>
++
++#define DRV_NAME "hns_roce"
++
++#define HNS_ROCE_MAX_IRQ_NUM			34
++#define HNS_ROCE_MAX_PORTS			6
++
++struct hns_roce_ib_iboe {
++	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
++	u8			phy_port[HNS_ROCE_MAX_PORTS];
++};
++
++struct hns_roce_caps {
++	u8			num_ports;
++};
++
++struct hns_roce_dev {
++	struct ib_device	ib_dev;
++	struct platform_device  *pdev;
++	struct hns_roce_ib_iboe iboe;
++
++	int			irq[HNS_ROCE_MAX_IRQ_NUM];
++	u8 __iomem		*reg_base;
++	struct hns_roce_caps	caps;
++
++	int			cmd_mod;
++	int			loop_idc;
++};
++
++#endif /* _HNS_ROCE_DEVICE_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+new file mode 100644
+index 0000000..1616148
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -0,0 +1,182 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * Authors: Wei Hu <xavier.huwei@huawei.com>
++ * Authors: Nenglong Zhao <zhaonenglong@hisilicon.com>
++ * Authors: Lijun Ou <oulijun@huawei.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ */
++
++#include <linux/cdev.h>
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/dma-mapping.h>
++#include <linux/ethtool.h>
++#include <linux/etherdevice.h>
++#include <linux/fs.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/list.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/of_net.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/netdevice.h>
++#include <net/ipv6.h>
++#include <net/addrconf.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_verbs.h>
++#include "hns_roce_device.h"
++
++int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
 +{
++	int i;
++	u8 phy_port;
++	int port_cnt = 0;
 +	struct device *dev = &hr_dev->pdev->dev;
-+	u8 gid_idx = 0;
++	struct device_node *np = dev->of_node;
++	struct device_node *net_node;
++	struct net_device *netdev = NULL;
++	struct platform_device *pdev = NULL;
++	struct resource *res;
 +
-+	if (gid_index >= hr_dev->caps.gid_table_len[port]) {
-+		dev_err(dev, "gid_index %d illegal, port %d gid range: 0~%d\n",
-+			gid_index, port, hr_dev->caps.gid_table_len[port] - 1);
++	if (!of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
++		dev_err(dev, "device no compatible!\n");
 +		return -EINVAL;
 +	}
 +
-+	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
++	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
++	hr_dev->reg_base = devm_ioremap_resource(dev, res);
++	if (!hr_dev->reg_base) {
++		dev_err(dev, "devm_ioremap_resource failed!\n");
++		return -ENOMEM;
++	}
 +
-+	if (!memcmp(gid, &hr_dev->iboe.gid_table[gid_idx], sizeof(*gid)))
-+		return -EINVAL;
++	for (i = 0; i < HNS_ROCE_MAX_PORTS; i++) {
++		net_node = of_parse_phandle(np, "eth-handle", i);
++		if (net_node) {
++			pdev = of_find_device_by_node(net_node);
++			netdev = platform_get_drvdata(pdev);
++			phy_port = (u8)i;
++			if (netdev) {
++				hr_dev->iboe.netdevs[port_cnt] = netdev;
++				hr_dev->iboe.phy_port[port_cnt] = phy_port;
++			} else {
++				return -ENODEV;
++			}
++			port_cnt++;
++		}
++	}
 +
-+	memcpy(&hr_dev->iboe.gid_table[gid_idx], gid, sizeof(*gid));
++	hr_dev->caps.num_ports = port_cnt;
 +
-+	hr_dev->hw->set_gid(hr_dev, port, gid_index, gid);
++	/* Cmd issue mode: 0 is poll, 1 is event */
++	hr_dev->cmd_mod = 1;
++	hr_dev->loop_idc = 0;
++
++	for (i = 0; i < HNS_ROCE_MAX_IRQ_NUM; i++) {
++		hr_dev->irq[i] = platform_get_irq(hr_dev->pdev, i);
++		if (hr_dev->irq[i] <= 0) {
++			dev_err(dev, "Get No.%d irq resource failed!\n", i);
++			return -EINVAL;
++		}
++	}
 +
 +	return 0;
 +}
 +
-+void hns_roce_set_mac(struct hns_roce_dev *hr_dev, u8 port, u8 *addr)
++/**
++* hns_roce_probe - RoCE driver entrance
++* @pdev: pointer to platform device
++* Return : int
++*
++*/
++static int hns_roce_probe(struct platform_device *pdev)
 +{
-+	u8 phy_port;
-+	u32 i = 0;
++	int ret;
++	struct hns_roce_dev *hr_dev;
++	struct device *dev = &pdev->dev;
 +
-+	if (!memcmp(hr_dev->dev_addr[port], addr, MAC_ADDR_OCTET_NUM))
-+		return;
-+
-+	for (i = 0; i < MAC_ADDR_OCTET_NUM; i++)
-+		hr_dev->dev_addr[port][i] = addr[i];
-+
-+	phy_port = hr_dev->iboe.phy_port[port];
-+	hr_dev->hw->set_mac(hr_dev, phy_port, addr);
-+}
-+
-+void hns_roce_set_mtu(struct hns_roce_dev *hr_dev, u8 port, int mtu)
-+{
-+	u8 phy_port = hr_dev->iboe.phy_port[port];
-+	enum ib_mtu tmp;
-+
-+	tmp = iboe_get_mtu(mtu);
-+	if (!tmp)
-+		tmp = IB_MTU_256;
-+
-+	hr_dev->hw->set_mtu(hr_dev, phy_port, tmp);
-+}
-+
-+void hns_roce_update_gids(struct hns_roce_dev *hr_dev, int port)
-+{
-+	struct ib_event event;
-+
-+	/* Refresh gid in ib_cache */
-+	event.device = &hr_dev->ib_dev;
-+	event.element.port_num = port + 1;
-+	event.event = IB_EVENT_GID_CHANGE;
-+	ib_dispatch_event(&event);
-+}
-+
-+int hns_roce_setup_mtu_gids(struct hns_roce_dev  *hr_dev)
-+{
-+	struct in_ifaddr *ifa_list = NULL;
-+	union ib_gid gid = {{0} };
-+	u32 ipaddr = 0;
-+	int index = 0;
-+	int ret = 0;
-+	u8 i = 0;
-+
-+	for (i = 0; i < hr_dev->caps.num_ports; i++) {
-+		hns_roce_set_mtu(hr_dev, i,
-+				 ib_mtu_enum_to_int(hr_dev->caps.max_mtu));
-+		hns_roce_set_mac(hr_dev, i, hr_dev->iboe.netdevs[i]->dev_addr);
-+
-+		if (hr_dev->iboe.netdevs[i]->ip_ptr) {
-+			ifa_list = hr_dev->iboe.netdevs[i]->ip_ptr->ifa_list;
-+			index = 1;
-+			while (ifa_list) {
-+				ipaddr = ifa_list->ifa_address;
-+				ipv6_addr_set_v4mapped(ipaddr,
-+						       (struct in6_addr *)&gid);
-+				ret = hns_roce_set_gid(hr_dev, i, index, &gid);
-+				if (ret)
-+					break;
-+				index++;
-+				ifa_list = ifa_list->ifa_next;
-+			}
-+			hns_roce_update_gids(hr_dev, i);
-+		}
++	hr_dev = (struct hns_roce_dev *)ib_alloc_device(sizeof(*hr_dev));
++	if (!hr_dev) {
++		dev_err(dev, "Device struct alloc failed, aborting.\n");
++		return -ENOMEM;
 +	}
 +
-+	return ret;
-+}
++	memset((u8 *)hr_dev + sizeof(struct ib_device), 0,
++		sizeof(struct hns_roce_dev) - sizeof(struct ib_device));
 +
- void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
- {
- 	ib_unregister_device(&hr_dev->ib_dev);
-@@ -75,7 +187,18 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 		return ret;
- 	}
- 
-+	ret = hns_roce_setup_mtu_gids(hr_dev);
++	hr_dev->pdev = pdev;
++	platform_set_drvdata(pdev, hr_dev);
++
++	if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64ULL)))
++		dev_info(dev, "set mask to 64bit\n");
++	else if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32ULL)))
++		dev_info(dev, "set mask to 32bit\n");
++	else {
++		dev_err(dev, "No usable DMA addressing mode\n");
++		ret = -EIO;
++		goto error_failed_get_cfg;
++	}
++
++	ret = hns_roce_get_cfg(hr_dev);
 +	if (ret) {
-+		dev_err(dev, "roce_setup_mtu_gids failed!\n");
-+		goto _error_failed_setup_mtu_gids;
++		dev_err(dev, "Get Configuration failed!\n");
++		goto error_failed_get_cfg;
 +	}
 +
- 	return 0;
-+
-+_error_failed_setup_mtu_gids:
-+	ib_unregister_device(ib_dev);
++error_failed_get_cfg:
++	ib_dealloc_device(&hr_dev->ib_dev);
 +
 +	return ret;
- }
- 
- 
++}
++
++/**
++* hns_roce_remove - remove roce device
++* @pdev: pointer to platform device
++*/
++static int hns_roce_remove(struct platform_device *pdev)
++{
++	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
++
++	ib_dealloc_device(&hr_dev->ib_dev);
++
++	return 0;
++}
++
++static const struct of_device_id hns_roce_of_match[] = {
++	{ .compatible = "hisilicon,hns-roce-v1",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, hns_roce_of_match);
++
++static struct platform_driver hns_roce_driver = {
++	.probe = hns_roce_probe,
++	.remove = hns_roce_remove,
++	.driver = {
++		.name = DRV_NAME,
++		.of_match_table = hns_roce_of_match,
++	},
++};
++
++module_platform_driver(hns_roce_driver);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Wei Hu <xavier.huwei@huawei.com>");
++MODULE_AUTHOR("Nenglong Zhao <zhaonenglong@hisilicon.com>");
++MODULE_AUTHOR("Lijun Ou <oulijun@huawei.com>");
++MODULE_DESCRIPTION("HISILICON RoCE driver");
++MODULE_ALIAS("platform:" DRV_NAME);
 -- 
 1.9.1
