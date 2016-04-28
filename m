@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/17] net: snmp: update SNMP methods
-Date: Wed, 27 Apr 2016 22:48:46 -0400 (EDT)
-Message-ID: <20160427.224846.278682260216107809.davem@davemloft.net>
-References: <1461800683-25034-1-git-send-email-edumazet@google.com>
+Subject: Re: [net-next PATCH V3 0/5] samples/bpf: Improve user experience
+Date: Wed, 27 Apr 2016 22:55:54 -0400 (EDT)
+Message-ID: <20160427.225554.343063639979471594.davem@davemloft.net>
+References: <20160427072855.29959.70252.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57384 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbcD1Csu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 22:48:50 -0400
-In-Reply-To: <1461800683-25034-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	bblanco@plumgrid.com, naveen.n.rao@linux.vnet.ibm.com,
+	borkmann@iogearbox.net, alexei.starovoitov@gmail.com
+To: brouer@redhat.com
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20160427072855.29959.70252.stgit@firesoul>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Wed, 27 Apr 2016 16:44:26 -0700
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Wed, 27 Apr 2016 09:30:08 +0200
 
-> In the old days (before linux-3.0), SNMP counters were duplicated,
-> one set for user context, and anther one for BH context.
+> It is a steep learning curve getting started with using the eBPF
+> examples in samples/bpf/.  There are several dependencies, and
+> specific versions of these dependencies.  Invoking make in the correct
+> manor is also slightly obscure.
 > 
-> After commit 8f0ea0fe3a03 ("snmp: reduce percpu needs by 50%")
-> we have a single copy, and what really matters is preemption being
-> enabled or disabled, since we use this_cpu_inc() or __this_cpu_inc()
-> respectively.
+> This patchset cleanup, document and hopefully improves the first time
+> user experience with the eBPF samples directory by auto-detecting
+> certain scenarios.
 > 
-> This patch series kills the obsolete STATS_USER() helpers,
-> and rename all XXX_BH() helpers to __XXX() ones, to more
-> closely match conventions used to update per cpu variables.
+> V3:
+>  - Add Alexei's ACKs
+>  - Remove README paragraph about LLVM experimental BPF target
+>    as it only existed between LLVM version 3.6 to 3.7.
 > 
-> This is probably going to hurt maintainers job for a while,
-> since cherry-picks will not be clean, but this had to be
-> cleaned at one point. I am so sorry guys.
+> V2:
+>  - Adjusted recommend minimum versions to 3.7.1
+>  - Included clang build instructions
+>  - New patch adding CLANG variable and validation of command
 
-Looks good to me, series applied, thanks Eric.
+Please respin addressing Naveen's feedback, thanks.
