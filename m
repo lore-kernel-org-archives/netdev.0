@@ -1,7 +1,8 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net 0/3] bpf: fix several bugs
-Date: Wed, 27 Apr 2016 18:56:19 -0700
-Message-ID: <1461808582-1452466-1-git-send-email-ast@fb.com>
+Subject: [PATCH net 3/3] samples/bpf: fix trace_output example
+Date: Wed, 27 Apr 2016 18:56:22 -0700
+Message-ID: <1461808582-1452466-4-git-send-email-ast@fb.com>
+References: <1461808582-1452466-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Daniel Borkmann <daniel@iogearbox.net>,
@@ -10,38 +11,46 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<netdev@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:12951 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752041AbcD1B40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:56:26 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3S1qiEx002209
-	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:25 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:19811 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752385AbcD1B42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2016 21:56:28 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3S1tkmq014372
+	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:27 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22k36dhqrs-2
+	by m0089730.ppops.net with ESMTP id 22k7x5rb79-2
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:25 -0700
+	for <netdev@vger.kernel.org>; Wed, 27 Apr 2016 18:56:27 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- 68cfc9ac0ce411e687f724be05956610-82dfcc50 for <netdev@vger.kernel.org>;	Wed,
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 68f39a300ce411e6ad640002c95209d8-7addc50 for <netdev@vger.kernel.org>;	Wed,
  27 Apr 2016 18:56:23 -0700
+In-Reply-To: <1461808582-1452466-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First two patches address bugs found by Jann Horn.
-Last patch is a minor samples fix spotted during the testing.
+llvm cannot always recognize memset as builtin function and optimize
+it away, so just delete it. It was a leftover from testing
+of bpf_perf_event_output() with large data structures.
 
-Alexei Starovoitov (3):
-  bpf: fix refcnt overflow
-  bpf: fix check_map_func_compatibility logic
-  samples/bpf: fix trace_output example
+Fixes: 39111695b1b8 ("samples: bpf: add bpf_perf_event_output example")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+ samples/bpf/trace_output_kern.c | 1 -
+ 1 file changed, 1 deletion(-)
 
- include/linux/bpf.h             |  3 +-
- kernel/bpf/inode.c              |  7 ++--
- kernel/bpf/syscall.c            | 24 ++++++++++---
- kernel/bpf/verifier.c           | 76 +++++++++++++++++++++++++----------------
- samples/bpf/trace_output_kern.c |  1 -
- 5 files changed, 73 insertions(+), 38 deletions(-)
-
+diff --git a/samples/bpf/trace_output_kern.c b/samples/bpf/trace_output_kern.c
+index 8d8d1ec429eb..9b96f4fb8cea 100644
+--- a/samples/bpf/trace_output_kern.c
++++ b/samples/bpf/trace_output_kern.c
+@@ -18,7 +18,6 @@ int bpf_prog1(struct pt_regs *ctx)
+ 		u64 cookie;
+ 	} data;
+ 
+-	memset(&data, 0, sizeof(data));
+ 	data.pid = bpf_get_current_pid_tgid();
+ 	data.cookie = 0x12345678;
+ 
 -- 
 2.8.0
