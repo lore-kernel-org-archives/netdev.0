@@ -1,55 +1,37 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v6 21/21] MAINTAINERS: Add maintainers for HiSilicon RoCE driver
-Date: Thu, 28 Apr 2016 20:09:56 +0800
-Message-ID: <1461845396-61306-22-git-send-email-oulijun@huawei.com>
-References: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
+From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v6 6/6] ARM: dts: stm32f429: Update Ethernet node on Eval board
+Date: Thu, 28 Apr 2016 14:02:06 +0200
+Message-ID: <CALszF6DDsTG+FN8Dbmu3NjvJ4ui3q=CP0Fp75Nn96vXdTqsYnQ@mail.gmail.com>
+References: <1461585242-32401-1-git-send-email-alexandre.torgue@gmail.com>
+	<1461585242-32401-7-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:60821 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665AbcD1MB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 08:01:29 -0400
-In-Reply-To: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, wens-jdAy2FN1RRM@public.gmane.org
+To: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461585242-32401-7-git-send-email-alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch added maintainers for RoCE driver.
+2016-04-25 13:54 GMT+02:00 Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> Update new pinctrl phandle name and use new node name.
+>
+> Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+> diff --git a/arch/arm/boot/dts/stm32429i-eval.dts b/arch/arm/boot/dts/stm32429i-eval.dts
 
-Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
-Signed-off-by: Lijun Ou <oulijun@huawei.com>
----
- MAINTAINERS | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Acked-by: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1d5b4be..e7f5284 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -10012,6 +10012,14 @@ W:	http://www.emulex.com
- S:	Supported
- F:	drivers/infiniband/hw/ocrdma/
- 
-+HISILICON ROCE DRIVER
-+M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
-+M:	Lijun Ou <oulijun@huawei.com>
-+L:	linux-rdma@vger.kernel.org
-+S:	Maintained
-+F:	drivers/infiniband/hw/hns/
-+F:	Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
-+
- SFC NETWORK DRIVER
- M:	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
- M:	Shradha Shah <sshah@solarflare.com>
--- 
-1.9.1
+Thanks!
+Maxime
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
