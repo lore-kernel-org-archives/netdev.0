@@ -1,72 +1,55 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH v2 net-next 4/7] udp: prepare for non BH masking at
- backlog processing
-Date: Fri, 29 Apr 2016 09:23:03 -0400
-Message-ID: <CACSApvY8PZXsYXEFsqjGFihn608YE9s6VBOkSU0Mn9Z=gho9ew@mail.gmail.com>
-References: <1461899449-8096-1-git-send-email-edumazet@google.com> <1461899449-8096-5-git-send-email-edumazet@google.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH net] ipv6/ila: fix nlsize calculation for lwtunnel
+Date: Fri, 29 Apr 2016 15:35:33 +0200
+Message-ID: <57236325.2000304@6wind.com>
+References: <1461340682-31568-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20160427.152053.2243888701043810040.davem@davemloft.net>
+ <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:35693 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753369AbcD2NXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:23:44 -0400
-Received: by mail-oi0-f50.google.com with SMTP id x19so117852764oix.2
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 06:23:43 -0700 (PDT)
-In-Reply-To: <1461899449-8096-5-git-send-email-edumazet@google.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36995 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753398AbcD2Nfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:35:36 -0400
+Received: by mail-wm0-f45.google.com with SMTP id a17so36854028wme.0
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 06:35:36 -0700 (PDT)
+In-Reply-To: <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2016 at 11:10 PM, Eric Dumazet <edumazet@google.com> wrote:
-> UDP uses the generic socket backlog code, and this will soon
-> be changed to not disable BH when protocol is called back.
->
-> We need to use appropriate SNMP accessors.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
-> ---
->  net/ipv4/udp.c | 4 ++--
->  net/ipv6/udp.c | 4 ++--
->  2 files changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 093284c5c03b..f67f52ba4809 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1514,9 +1514,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->
->                 /* Note that an ENOMEM error is charged twice */
->                 if (rc == -ENOMEM)
-> -                       __UDP_INC_STATS(sock_net(sk), UDP_MIB_RCVBUFERRORS,
-> +                       UDP_INC_STATS(sock_net(sk), UDP_MIB_RCVBUFERRORS,
->                                         is_udplite);
-> -               __UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-> +               UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
->                 kfree_skb(skb);
->                 trace_udp_fail_queue_rcv_skb(rc, sk);
->                 return -1;
-> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> index 1ba5a74ac18f..f911c63f79e6 100644
-> --- a/net/ipv6/udp.c
-> +++ b/net/ipv6/udp.c
-> @@ -570,9 +570,9 @@ static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->
->                 /* Note that an ENOMEM error is charged twice */
->                 if (rc == -ENOMEM)
-> -                       __UDP6_INC_STATS(sock_net(sk),
-> +                       UDP6_INC_STATS(sock_net(sk),
->                                          UDP_MIB_RCVBUFERRORS, is_udplite);
-> -               __UDP6_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-> +               UDP6_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
->                 kfree_skb(skb);
->                 return -1;
->         }
-> --
-> 2.8.0.rc3.226.g39d4020
->
+Le 28/04/2016 18:07, Tom Herbert a =C3=A9crit :
+> On Wed, Apr 27, 2016 at 12:20 PM, David Miller <davem@davemloft.net> =
+wrote:
+>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> Date: Fri, 22 Apr 2016 17:58:02 +0200
+>>
+>>> The handler 'ila_fill_encap_info' adds one attribute: ILA_ATTR_LOCA=
+TOR.
+>>>
+>>> Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
+>>> CC: Tom Herbert <tom@herbertland.com>
+>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>> ---
+>>>
+>>> Tom, when I read the comment, I feel I'm misssing something, but wh=
+at?
+>>
+>> Tom, seriously, please look at this.
+>>
+> Yes, it is an issue. Need to do add size for ILA_ATTR_LOCATOR and
+> ILA_ATTR_CSUM_MODE. Also not we made ILA_ATTR_CSUM_MODE u64 in fill
+> encap info. I will send a path shortly.
+David, I saw that you didn't apply this patch. Note that Tom's patch is
+for net-next while this one is for net.
+I think that both patches are needed (and they will conflict after the =
+next merge).
+
+
+Regards,
+Nicolas
