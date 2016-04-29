@@ -1,65 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/6] tcp: do not assume TCP code is non
- preemptible
-Date: Thu, 28 Apr 2016 18:08:42 -0700
-Message-ID: <1461892122.5535.125.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461821152-23200-1-git-send-email-edumazet@google.com>
-	 <1461821152-23200-2-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>
+From: Marek Vasut <marex@denx.de>
+Subject: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
+Date: Fri, 29 Apr 2016 03:09:15 +0200
+Message-ID: <1461892155-10524-1-git-send-email-marex@denx.de>
+Cc: Marek Vasut <marex@denx.de>, Arnd Bergmann <arnd@arndb.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f181.google.com ([209.85.161.181]:32980 "EHLO
-	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752159AbcD2BIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 21:08:46 -0400
-Received: by mail-yw0-f181.google.com with SMTP id t10so156769817ywa.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 18:08:45 -0700 (PDT)
-In-Reply-To: <1461821152-23200-2-git-send-email-edumazet@google.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:50301 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159AbcD2BJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 21:09:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-04-27 at 22:25 -0700, Eric Dumazet wrote:
-> We want to to make TCP stack preemptible, as draining prequeue
-> and backlog queues can take lot of time.
-> 
-> Many SNMP updates were assuming that BH (and preemption) was disabled.
-> 
-> Need to convert some __NET_INC_STATS() calls to NET_INC_STATS()
-> and some __TCP_INC_STATS() to TCP_INC_STATS()
-> 
-> Before using this_cpu_ptr(net->ipv4.tcp_sk) in tcp_v4_send_reset()
-> and tcp_v4_send_ack(), we add an explicit preempt disabled section.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
+( phylib: don't return NULL from get_phy_device() ), phy_get_device()
+will return ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is
+all ones.
 
-I'll send a V2 including following changes I missed :
+This causes problem with stmmac driver and likely some other drivers
+which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEVK
+board with linux-next 20160427 and 20160428. In case of the stmmac, if
+there is no PHY node specified in the DT for the stmmac block, the stmmac
+driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
+stmmac_mdio_register() ) will call mdiobus_register() , which will
+register the MDIO bus and probe for the PHY.
 
-I'll also include the sendmsg() latency breaker.
+The mdiobus_register() resp. __mdiobus_register() iterates over all of
+the addresses on the MDIO bus and calls mdiobus_scan() for each of them,
+which invokes get_phy_device(). Before the aforementioned patch, the
+mdiobus_scan() would return NULL if no PHY was found on a given address
+and mdiobus_register() would continue and try the next PHY address. Now,
+mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
+'if (IS_ERR(phydev))' condition and the loop exits immediatelly if the
+PHY address does not contain PHY.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0509a685d90c..25d527922b18 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2698,7 +2698,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
-                        tp->retrans_stamp = tcp_skb_timestamp(skb);
+Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if this
+error comes around, continue with the next PHY address.
+
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+ drivers/net/phy/mdio_bus.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+NOTE: I don't quite like this explicit check , but I don't have better idea now.
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 499003ee..388f992 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 			struct phy_device *phydev;
  
-        } else if (err != -EBUSY) {
--               __NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
-+               NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
-        }
- 
-        if (tp->undo_retrans < 0)
-@@ -2822,7 +2822,7 @@ begin_fwd:
-                if (tcp_retransmit_skb(sk, skb, segs))
-                        return;
- 
--               __NET_INC_STATS(sock_net(sk), mib_idx);
-+               NET_INC_STATS(sock_net(sk), mib_idx);
- 
-                if (tcp_in_cwnd_reduction(sk))
-                        tp->prr_out += tcp_skb_pcount(skb);
+ 			phydev = mdiobus_scan(bus, i);
+-			if (IS_ERR(phydev)) {
++			if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV)) {
+ 				err = PTR_ERR(phydev);
+ 				goto error;
+ 			}
+-- 
+2.7.0
