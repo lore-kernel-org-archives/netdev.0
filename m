@@ -1,7 +1,8 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 0/7] net: make TCP preemptible
-Date: Thu, 28 Apr 2016 20:10:42 -0700
-Message-ID: <1461899449-8096-1-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 2/7] tcp: do not block bh during prequeue processing
+Date: Thu, 28 Apr 2016 20:10:44 -0700
+Message-ID: <1461899449-8096-3-git-send-email-edumazet@google.com>
+References: <1461899449-8096-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Soheil Hassas Yeganeh <soheil@google.com>,
@@ -10,67 +11,124 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33295 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932AbcD2DKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:10:54 -0400
-Received: by mail-pf0-f171.google.com with SMTP id 206so42237800pfu.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:10:53 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34066 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752788AbcD2DK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:10:59 -0400
+Received: by mail-pa0-f51.google.com with SMTP id r5so40568500pag.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:10:59 -0700 (PDT)
+In-Reply-To: <1461899449-8096-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most of TCP stack assumed it was running from BH handler.
+AFAIK, nothing in current TCP stack absolutely wants BH
+being disabled once socket is owned by a thread running in
+process context.
 
-This is great for most things, as TCP behavior is very sensitive
-to scheduling artifacts.
+As mentioned in my prior patch ("tcp: give prequeue mode some care"),
+processing a batch of packets might take time, better not block BH
+at all.
 
-However, the prequeue and backlog processing are problematic,
-as they need to be flushed with BH being blocked.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c       |  4 ----
+ net/ipv4/tcp_input.c | 30 ++----------------------------
+ 2 files changed, 2 insertions(+), 32 deletions(-)
 
-To cope with modern needs, TCP sockets have big sk_rcvbuf values,
-in the order of 16 MB, and soon 32 MB.
-This means that backlog can hold thousands of packets, and things
-like TCP coalescing or collapsing on this amount of packets can
-lead to insane latency spikes, since BH are blocked for too long.
-
-It is time to make UDP/TCP stacks preemptible.
-
-Note that fast path still runs from BH handler.
-
-v2:
-Added "tcp: make tcp_sendmsg() aware of socket backlog"
-to reduce latency problems of large sends.
-
-Eric Dumazet (7):
-  tcp: do not assume TCP code is non preemptible
-  tcp: do not block bh during prequeue processing
-  dccp: do not assume DCCP code is non preemptible
-  udp: prepare for non BH masking at backlog processing
-  sctp: prepare for socket backlog behavior change
-  net: do not block BH while processing socket backlog
-  tcp: make tcp_sendmsg() aware of socket backlog
-
- include/net/sock.h       |  11 +++++
- net/core/sock.c          |  29 +++++------
- net/dccp/input.c         |   2 +-
- net/dccp/ipv4.c          |   4 +-
- net/dccp/ipv6.c          |   4 +-
- net/dccp/options.c       |   2 +-
- net/ipv4/tcp.c           |  14 +++---
- net/ipv4/tcp_cdg.c       |  20 ++++----
- net/ipv4/tcp_cubic.c     |  20 ++++----
- net/ipv4/tcp_fastopen.c  |  12 ++---
- net/ipv4/tcp_input.c     | 126 +++++++++++++++++++----------------------------
- net/ipv4/tcp_ipv4.c      |  14 ++++--
- net/ipv4/tcp_minisocks.c |   2 +-
- net/ipv4/tcp_output.c    |  11 ++---
- net/ipv4/tcp_recovery.c  |   4 +-
- net/ipv4/tcp_timer.c     |  10 ++--
- net/ipv4/udp.c           |   4 +-
- net/ipv6/tcp_ipv6.c      |  12 ++---
- net/ipv6/udp.c           |   4 +-
- net/sctp/inqueue.c       |   2 +
- 20 files changed, 150 insertions(+), 157 deletions(-)
-
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b24c6ed4a04f..4787f86ae64c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1449,12 +1449,8 @@ static void tcp_prequeue_process(struct sock *sk)
+ 
+ 	NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPPREQUEUED);
+ 
+-	/* RX process wants to run with disabled BHs, though it is not
+-	 * necessary */
+-	local_bh_disable();
+ 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+ 		sk_backlog_rcv(sk, skb);
+-	local_bh_enable();
+ 
+ 	/* Clear memory counter. */
+ 	tp->ucopy.memory = 0;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ac85fb42a5a2..6171f92be090 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4611,14 +4611,12 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 
+ 			__set_current_state(TASK_RUNNING);
+ 
+-			local_bh_enable();
+ 			if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
+ 				tp->ucopy.len -= chunk;
+ 				tp->copied_seq += chunk;
+ 				eaten = (chunk == skb->len);
+ 				tcp_rcv_space_adjust(sk);
+ 			}
+-			local_bh_disable();
+ 		}
+ 
+ 		if (eaten <= 0) {
+@@ -5134,7 +5132,6 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
+ 	int chunk = skb->len - hlen;
+ 	int err;
+ 
+-	local_bh_enable();
+ 	if (skb_csum_unnecessary(skb))
+ 		err = skb_copy_datagram_msg(skb, hlen, tp->ucopy.msg, chunk);
+ 	else
+@@ -5146,32 +5143,9 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
+ 		tcp_rcv_space_adjust(sk);
+ 	}
+ 
+-	local_bh_disable();
+ 	return err;
+ }
+ 
+-static __sum16 __tcp_checksum_complete_user(struct sock *sk,
+-					    struct sk_buff *skb)
+-{
+-	__sum16 result;
+-
+-	if (sock_owned_by_user(sk)) {
+-		local_bh_enable();
+-		result = __tcp_checksum_complete(skb);
+-		local_bh_disable();
+-	} else {
+-		result = __tcp_checksum_complete(skb);
+-	}
+-	return result;
+-}
+-
+-static inline bool tcp_checksum_complete_user(struct sock *sk,
+-					     struct sk_buff *skb)
+-{
+-	return !skb_csum_unnecessary(skb) &&
+-	       __tcp_checksum_complete_user(sk, skb);
+-}
+-
+ /* Does PAWS and seqno based validation of an incoming segment, flags will
+  * play significant role here.
+  */
+@@ -5386,7 +5360,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 				}
+ 			}
+ 			if (!eaten) {
+-				if (tcp_checksum_complete_user(sk, skb))
++				if (tcp_checksum_complete(skb))
+ 					goto csum_error;
+ 
+ 				if ((int)skb->truesize > sk->sk_forward_alloc)
+@@ -5430,7 +5404,7 @@ no_ack:
+ 	}
+ 
+ slow_path:
+-	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
++	if (len < (th->doff << 2) || tcp_checksum_complete(skb))
+ 		goto csum_error;
+ 
+ 	if (!th->ack && !th->rst && !th->syn)
 -- 
 2.8.0.rc3.226.g39d4020
