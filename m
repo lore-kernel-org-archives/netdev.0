@@ -1,8 +1,8 @@
 From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH v2 net-next 2/7] tcp: do not block bh during prequeue processing
-Date: Fri, 29 Apr 2016 09:20:19 -0400
-Message-ID: <CACSApvY_StBa121b8o+QDR7F+aPVT2Xj+AFxdWZ-HvEzcKie7w@mail.gmail.com>
-References: <1461899449-8096-1-git-send-email-edumazet@google.com> <1461899449-8096-3-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 3/7] dccp: do not assume DCCP code is non preemptible
+Date: Fri, 29 Apr 2016 09:21:17 -0400
+Message-ID: <CACSApvZKpfC1DTvMUjfFVk9fi9Swxq0Dn7-jyYsgwcz76OMuWg@mail.gmail.com>
+References: <1461899449-8096-1-git-send-email-edumazet@google.com> <1461899449-8096-4-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S . Miller" <davem@davemloft.net>,
@@ -11,128 +11,85 @@ Cc: "David S . Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:34667 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753023AbcD2NVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:21:00 -0400
-Received: by mail-oi0-f51.google.com with SMTP id k142so117983304oib.1
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 06:21:00 -0700 (PDT)
-In-Reply-To: <1461899449-8096-3-git-send-email-edumazet@google.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:35655 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625AbcD2NV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:21:57 -0400
+Received: by mail-oi0-f41.google.com with SMTP id x19so117798825oix.2
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 06:21:56 -0700 (PDT)
+In-Reply-To: <1461899449-8096-4-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, Apr 28, 2016 at 11:10 PM, Eric Dumazet <edumazet@google.com> wrote:
-> AFAIK, nothing in current TCP stack absolutely wants BH
-> being disabled once socket is owned by a thread running in
-> process context.
->
-> As mentioned in my prior patch ("tcp: give prequeue mode some care"),
-> processing a batch of packets might take time, better not block BH
-> at all.
+> DCCP uses the generic backlog code, and this will soon
+> be changed to not disable BH when protocol is called back.
 >
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 > ---
->  net/ipv4/tcp.c       |  4 ----
->  net/ipv4/tcp_input.c | 30 ++----------------------------
->  2 files changed, 2 insertions(+), 32 deletions(-)
+>  net/dccp/input.c   | 2 +-
+>  net/dccp/ipv4.c    | 4 ++--
+>  net/dccp/ipv6.c    | 4 ++--
+>  net/dccp/options.c | 2 +-
+>  4 files changed, 6 insertions(+), 6 deletions(-)
 >
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index b24c6ed4a04f..4787f86ae64c 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1449,12 +1449,8 @@ static void tcp_prequeue_process(struct sock *sk)
->
->         NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPPREQUEUED);
->
-> -       /* RX process wants to run with disabled BHs, though it is not
-> -        * necessary */
-> -       local_bh_disable();
->         while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
->                 sk_backlog_rcv(sk, skb);
-> -       local_bh_enable();
->
->         /* Clear memory counter. */
->         tp->ucopy.memory = 0;
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index ac85fb42a5a2..6171f92be090 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4611,14 +4611,12 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
->
->                         __set_current_state(TASK_RUNNING);
->
-> -                       local_bh_enable();
->                         if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
->                                 tp->ucopy.len -= chunk;
->                                 tp->copied_seq += chunk;
->                                 eaten = (chunk == skb->len);
->                                 tcp_rcv_space_adjust(sk);
->                         }
-> -                       local_bh_disable();
->                 }
->
->                 if (eaten <= 0) {
-> @@ -5134,7 +5132,6 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
->         int chunk = skb->len - hlen;
->         int err;
->
-> -       local_bh_enable();
->         if (skb_csum_unnecessary(skb))
->                 err = skb_copy_datagram_msg(skb, hlen, tp->ucopy.msg, chunk);
->         else
-> @@ -5146,32 +5143,9 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
->                 tcp_rcv_space_adjust(sk);
+> diff --git a/net/dccp/input.c b/net/dccp/input.c
+> index 2437ecc13b82..ba347184bda9 100644
+> --- a/net/dccp/input.c
+> +++ b/net/dccp/input.c
+> @@ -359,7 +359,7 @@ send_sync:
+>                 goto discard;
 >         }
 >
-> -       local_bh_disable();
->         return err;
->  }
+> -       __DCCP_INC_STATS(DCCP_MIB_INERRS);
+> +       DCCP_INC_STATS(DCCP_MIB_INERRS);
+>  discard:
+>         __kfree_skb(skb);
+>         return 0;
+> diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+> index a8164272e0f4..5c7e413a3ae4 100644
+> --- a/net/dccp/ipv4.c
+> +++ b/net/dccp/ipv4.c
+> @@ -533,8 +533,8 @@ static void dccp_v4_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+>         bh_unlock_sock(ctl_sk);
 >
-> -static __sum16 __tcp_checksum_complete_user(struct sock *sk,
-> -                                           struct sk_buff *skb)
-> -{
-> -       __sum16 result;
-> -
-> -       if (sock_owned_by_user(sk)) {
-> -               local_bh_enable();
-> -               result = __tcp_checksum_complete(skb);
-> -               local_bh_disable();
-> -       } else {
-> -               result = __tcp_checksum_complete(skb);
-> -       }
-> -       return result;
-> -}
-> -
-> -static inline bool tcp_checksum_complete_user(struct sock *sk,
-> -                                            struct sk_buff *skb)
-> -{
-> -       return !skb_csum_unnecessary(skb) &&
-> -              __tcp_checksum_complete_user(sk, skb);
-> -}
-> -
->  /* Does PAWS and seqno based validation of an incoming segment, flags will
->   * play significant role here.
->   */
-> @@ -5386,7 +5360,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
->                                 }
->                         }
->                         if (!eaten) {
-> -                               if (tcp_checksum_complete_user(sk, skb))
-> +                               if (tcp_checksum_complete(skb))
->                                         goto csum_error;
->
->                                 if ((int)skb->truesize > sk->sk_forward_alloc)
-> @@ -5430,7 +5404,7 @@ no_ack:
+>         if (net_xmit_eval(err) == 0) {
+> -               __DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+> -               __DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+> +               DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+> +               DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+>         }
+>  out:
+>          dst_release(dst);
+> diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+> index 0f4eb4ea57a5..d176f4e66369 100644
+> --- a/net/dccp/ipv6.c
+> +++ b/net/dccp/ipv6.c
+> @@ -277,8 +277,8 @@ static void dccp_v6_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+>         if (!IS_ERR(dst)) {
+>                 skb_dst_set(skb, dst);
+>                 ip6_xmit(ctl_sk, skb, &fl6, NULL, 0);
+> -               __DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+> -               __DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+> +               DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+> +               DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+>                 return;
 >         }
 >
->  slow_path:
-> -       if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
-> +       if (len < (th->doff << 2) || tcp_checksum_complete(skb))
->                 goto csum_error;
+> diff --git a/net/dccp/options.c b/net/dccp/options.c
+> index b82b7ee9a1d2..74d29c56c367 100644
+> --- a/net/dccp/options.c
+> +++ b/net/dccp/options.c
+> @@ -253,7 +253,7 @@ out_nonsensical_length:
+>         return 0;
 >
->         if (!th->ack && !th->rst && !th->syn)
+>  out_invalid_option:
+> -       __DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
+> +       DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
+>         rc = DCCP_RESET_CODE_OPTION_ERROR;
+>  out_featneg_failed:
+>         DCCP_WARN("DCCP(%p): Option %d (len=%d) error=%u\n", sk, opt, len, rc);
 > --
 > 2.8.0.rc3.226.g39d4020
 >
-Very nice!
