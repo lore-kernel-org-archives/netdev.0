@@ -1,102 +1,48 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH V2 2/2] vhost: device IOTLB API
-Date: Fri, 29 Apr 2016 12:44:07 +0800
-Message-ID: <5722E697.1060600@redhat.com>
-References: <1458873274-13961-1-git-send-email-jasowang@redhat.com>
-	<1458873274-13961-3-git-send-email-jasowang@redhat.com>
-	<20160427143057-mutt-send-email-mst@redhat.com>
-	<5721AF9C.9030209@redhat.com>
-	<20160428173543-mutt-send-email-mst@redhat.com>
-	<5722B511.6060401@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 7/7] tcp: make tcp_sendmsg() aware of socket
+ backlog
+Date: Thu, 28 Apr 2016 22:05:55 -0700
+Message-ID: <1461906355.5535.141.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461899449-8096-1-git-send-email-edumazet@google.com>
+	 <1461899449-8096-8-git-send-email-edumazet@google.com>
+	 <5722E663.8080304@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, qemu-devel@nongnu.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, peterx@redhat.com,
-	virtualization@lists.linux-foundation.org, pbonzini@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5722B511.6060401@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:34537 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbcD2FF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 01:05:59 -0400
+Received: by mail-yw0-f181.google.com with SMTP id j74so144456176ywg.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 22:05:59 -0700 (PDT)
+In-Reply-To: <5722E663.8080304@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2016-04-28 at 21:43 -0700, Alexei Starovoitov wrote:
 
+> 
+> I don't understand the logic completely, but isn't it
+> safer to do 'goto wait_for_memory;' here if we happened
+> to hit this in the middle of the loop?
 
-On 04/29/2016 09:12 AM, Jason Wang wrote:
-> On 04/28/2016 10:43 PM, Michael S. Tsirkin wrote:
->> > On Thu, Apr 28, 2016 at 02:37:16PM +0800, Jason Wang wrote:
->>> >>
->>> >> On 04/27/2016 07:45 PM, Michael S. Tsirkin wrote:
->>>> >>> On Fri, Mar 25, 2016 at 10:34:34AM +0800, Jason Wang wrote:
->>>>> >>>> This patch tries to implement an device IOTLB for vhost. This could be
->>>>> >>>> used with for co-operation with userspace(qemu) implementation of DMA
->>>>> >>>> remapping.
->>>>> >>>>
->>>>> >>>> The idea is simple. When vhost meets an IOTLB miss, it will request
->>>>> >>>> the assistance of userspace to do the translation, this is done
->>>>> >>>> through:
->>>>> >>>>
->>>>> >>>> - Fill the translation request in a preset userspace address (This
->>>>> >>>>   address is set through ioctl VHOST_SET_IOTLB_REQUEST_ENTRY).
->>>>> >>>> - Notify userspace through eventfd (This eventfd was set through ioctl
->>>>> >>>>   VHOST_SET_IOTLB_FD).
->>>> >>> Why use an eventfd for this?
->>> >> The aim is to implement the API all through ioctls.
->>> >>
->>>> >>>  We use them for interrupts because
->>>> >>> that happens to be what kvm wants, but here - why don't we
->>>> >>> just add a generic support for reading out events
->>>> >>> on the vhost fd itself?
->>> >> I've considered this approach, but what's the advantages of this? I mean
->>> >> looks like all other ioctls could be done through vhost fd
->>> >> reading/writing too.
->> > read/write have a non-blocking flag.
->> >
->> > It's not useful for other ioctls but it's useful here.
->> >
-> Ok, this looks better.
->
->>>>> >>>> - device IOTLB were started and stopped through VHOST_RUN_IOTLB ioctl
->>>>> >>>>
->>>>> >>>> When userspace finishes the translation, it will update the vhost
->>>>> >>>> IOTLB through VHOST_UPDATE_IOTLB ioctl. Userspace is also in charge of
->>>>> >>>> snooping the IOTLB invalidation of IOMMU IOTLB and use
->>>>> >>>> VHOST_UPDATE_IOTLB to invalidate the possible entry in vhost.
->>>> >>> There's one problem here, and that is that VQs still do not undergo
->>>> >>> translation.  In theory VQ could be mapped in such a way
->>>> >>> that it's not contigious in userspace memory.
->>> >> I'm not sure I get the issue, current vhost API support setting
->>> >> desc_user_addr, used_user_addr and avail_user_addr independently. So
->>> >> looks ok? If not, looks not a problem to device IOTLB API itself.
->> > The problem is that addresses are all HVA.
->> >
->> > Without an iommu, we ask for them to be contigious and
->> > since bus address == GPA, this means contigious GPA =>
->> > contigious HVA. With an IOMMU you can map contigious
->> > bus address but non contigious GPA and non contigious HVA.
-> Yes, so the issue is we should not reuse VHOST_SET_VRING_ADDR and invent
-> a new ioctl to set bus addr (guest iova). The access the VQ through
-> device IOTLB too.
+Well, the wait_for_memory pushes data, and could early return to user
+space with short writes (non blocking IO). This would break things...
 
-Note that userspace has checked for this and fallback to userspace if it
-detects non contiguous GPA. Consider this happens rare, I'm not sure we
-should handle this.
+After processing backlog, tcp_send_mss() needs to be called again,
+and we also need to check sk_err and sk_shutdown. A goto looks fine to
+me.
 
->
->> >
->> > Another concern: what if guest changes the GPA while keeping bus address
->> > constant? Normal devices will work because they only use
->> > bus addresses, but virtio will break.
-> If we access VQ through device IOTLB too, this could be solved.
->
+> Also does it make sense to rename __release_sock to
+> something like _ _ _sk_flush_backlog, since that's
+> what it's doing and not doing any 'release' ?
 
-I don't see a reason why guest want change GPA during DMA. Even if it
-can, it needs lots of other synchronization.
+Well, I guess it could be renamed, but this has been named like that for
+decades ? Why changing now, while this patch does not touch it ?
