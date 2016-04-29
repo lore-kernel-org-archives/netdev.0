@@ -1,67 +1,35 @@
-From: Tim Bingham <tbingham@akamai.com>
-Subject: [PATCH] net: Implement net_dbg_ratelimited() for CONFIG_DYNAMIC_DEBUG case
-Date: Fri, 29 Apr 2016 13:30:23 -0400
-Message-ID: <1461951023-14311-1-git-send-email-tbingham@akamai.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	Tim Bingham <tbingham@akamai.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] cxgb4/cxgb4vf: add support for mbox cmd
+ logging
+Date: Fri, 29 Apr 2016 13:42:04 -0400 (EDT)
+Message-ID: <20160429.134204.1253554729800180316.davem@davemloft.net>
+References: <1461829999-20270-1-git-send-email-hariprasad@chelsio.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com,
+	swise@opengridcomputing.com, nirranjan@chelsio.com,
+	santosh@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:21429 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752463AbcD2RkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 13:40:03 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:54064 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331AbcD2RmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 13:42:07 -0400
+In-Reply-To: <1461829999-20270-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to commit d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op
-when !DEBUG") the implementation of net_dbg_ratelimited() was buggy
-for both the DEBUG and CONFIG_DYNAMIC_DEBUG cases.
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 28 Apr 2016 13:23:17 +0530
 
-The bug was that net_ratelimit() was being called and, despite
-returning true, nothing was being printed to the console. This
-resulted in messages like the following -
+> This patch series adds support for logging mailbox commands and replies
+> for debugging purpose for both PF and VF driver.
+> 
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4  and cxgb4vf driver.
+> 
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
 
-"net_ratelimit: %d callbacks suppressed"
-
-with no other output nearby.
-
-After commit d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op when
-!DEBUG") the bug is fixed for the DEBUG case. However, there's no
-output at all for CONFIG_DYNAMIC_DEBUG case.
-
-This patch restores debug output (if enabled) for the
-CONFIG_DYNAMIC_DEBUG case.
-
-Add a definition of net_dbg_ratelimited() for the CONFIG_DYNAMIC_DEBUG
-case. The implementation takes care to check that dynamic debugging is
-enabled before calling net_ratelimit().
-
-Fixes: d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op when !DEBUG")
-Signed-off-by: Tim Bingham <tbingham@akamai.com>
----
- include/linux/net.h | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 49175e4..f840d77 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -246,7 +246,15 @@ do {								\
- 	net_ratelimited_function(pr_warn, fmt, ##__VA_ARGS__)
- #define net_info_ratelimited(fmt, ...)				\
- 	net_ratelimited_function(pr_info, fmt, ##__VA_ARGS__)
--#if defined(DEBUG)
-+#if defined(CONFIG_DYNAMIC_DEBUG)
-+#define net_dbg_ratelimited(fmt, ...)					\
-+do {									\
-+	DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, fmt);			\
-+	if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT) &&	\
-+	    net_ratelimit())						\
-+		__dynamic_pr_debug(&descriptor, fmt, ##__VA_ARGS__);	\
-+} while (0)
-+#elif defined(DEBUG)
- #define net_dbg_ratelimited(fmt, ...)				\
- 	net_ratelimited_function(pr_debug, fmt, ##__VA_ARGS__)
- #else
--- 
-1.9.1
+Series applied, thanks.
