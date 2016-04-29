@@ -1,59 +1,114 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: set 'active' state
-	correctly for first established link
-Date: Thu, 28 Apr 2016 20:16:08 -0400
-Message-ID: <1461888968-26879-1-git-send-email-jon.maloy@ericsson.com>
+From: Josh Cartwright <joshc@ni.com>
+Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
+Date: Thu, 28 Apr 2016 19:34:59 -0500
+Message-ID: <20160429003459.GC30217@jcartwri.amer.corp.natinst.com>
+References: <1461854802-8142-1-git-send-email-nathan.sullivan@ni.com>
+ <57222FCE.8050407@atmel.com>
+ <20160428155556.GA8333@nathan3500-linux-VM>
+ <20160428163207.GP29024@lunn.ch>
+ <20160428175619.GA8791@nathan3500-linux-VM>
+ <20160428184303.GR29024@lunn.ch>
+ <20160428185527.GA8851@nathan3500-linux-VM>
+ <20160428185932.GU29024@lunn.ch>
+ <20160428210357.GB30217@jcartwri.amer.corp.natinst.com>
+ <20160428212315.GC12753@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Nathan Sullivan <nathan.sullivan@ni.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160428212315.GC12753@lunn.ch>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When we are displaying statistics for the first link established between
-two peers, it will always be presented as STANDBY although it in reality
-is ACTIVE.
+On Thu, Apr 28, 2016 at 11:23:15PM +0200, Andrew Lunn wrote:
+> On Thu, Apr 28, 2016 at 04:03:57PM -0500, Josh Cartwright wrote:
+> > On Thu, Apr 28, 2016 at 08:59:32PM +0200, Andrew Lunn wrote:
+> > > On Thu, Apr 28, 2016 at 01:55:27PM -0500, Nathan Sullivan wrote:
+> > > > On Thu, Apr 28, 2016 at 08:43:03PM +0200, Andrew Lunn wrote:
+> > > > > > I agree that is a valid fix for AT91, however it won't solve our problem, since
+> > > > > > we have no children on the second ethernet MAC in our devices' device trees. I'm
+> > > > > > starting to feel like our second MAC shouldn't even really register the MDIO bus
+> > > > > > since it isn't being used - maybe adding a DT property to not have a bus is a
+> > > > > > better option?
+> > > > > 
+> > > > > status = "disabled"
+> > > > > 
+> > > > > would be the unusual way.
+> > > > > 
+> > > > >       Andrew
+> > > > 
+> > > > Oh, sorry, I meant we use both MACs on Zynq, however the PHYs are on the MDIO
+> > > > bus of the first MAC.  So, the second MAC is used for ethernet but not for MDIO,
+> > > > and so it does not have any PHYs under its DT node.  It would be nice if there
+> > > > were a way to tell macb not to bother with MDIO for the second MAC, since that's
+> > > > handled by the first MAC.
+> > > 
+> > > Yes, exactly, add support for status = "disabled" in the mdio node.
+> > 
+> > Unfortunately, the 'macb' doesn't have a "mdio node", or alternatively:
+> > the node representing the mdio bus is the same node which represents the
+> > macb instance itself.  Setting 'status = "disabled"' on this node will
+> > just prevent the probing of the macb instance.
+> 
+> :-(
+> 
+> It is very common to have an mdio node within the MAC node, for example imx6sx-sdb.dtsi
 
-This happens because we forget to set the 'active' flag in the link
-instance at the moment it is established. Although this is a bug, it only
-has impact on the presentation view of the link, not on its actual
-functionality.
+Okay, I think that makes sense.  I think, then, perhaps the solution to
+our problem is to:
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c | 1 +
- 1 file changed, 1 insertion(+)
+  1. Modify the macb driver to support an 'mdio' node. (And adjust the
+     binding document accordingly).  If the node is found, it's used for
+     of_mdiobus_register() w/o any of the manual scan madness.
+  2. For backwards compatibility, in the case where an 'mdio' node does
+     not exist, leave the existing behavior the way it is now
+     (of_mdiobus_register() followed by manual scan) [perhaps warn of
+     deprecation as well?]
+  3. Update binding docs to reflect the above.
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 68d9f7b..c299156 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -554,6 +554,7 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
- 		*slot1 = bearer_id;
- 		tipc_node_fsm_evt(n, SELF_ESTABL_CONTACT_EVT);
- 		n->action_flags |= TIPC_NOTIFY_NODE_UP;
-+		tipc_link_set_active(nl, true);
- 		tipc_bcast_add_peer(n->net, nl, xmitq);
- 		return;
- 	}
--- 
-1.9.1
+In this way, for our usecase, the 'status = "disabled"' in the newly
+created 'mdio' node isn't necessary.  It's sufficient for the node to
+exist and be empty.
 
+> &fec1 {
+>         pinctrl-names = "default";
+>         pinctrl-0 = <&pinctrl_enet1>;
+>         phy-supply = <&reg_enet_3v3>;
+>         phy-mode = "rgmii";
+>         phy-handle = <&ethphy1>;
+>         status = "okay";
+> 
+>         mdio {
+>                 #address-cells = <1>;
+>                 #size-cells = <0>;
+> 
+>                 ethphy1: ethernet-phy@1 {
+>                         reg = <1>;
+>                 };
+> 
+>                 ethphy2: ethernet-phy@2 {
+>                         reg = <2>;
+>                 };
+>         };
+> };
+> 
+> &fec2 {
+>         pinctrl-names = "default";
+>         pinctrl-0 = <&pinctrl_enet2>;
+>         phy-mode = "rgmii";
+>         phy-handle = <&ethphy2>;
+>         status = "okay";
+> };
+> 
+> This even has the two phys on one bus, as you described...
 
-------------------------------------------------------------------------------
-Find and fix application performance issues faster with Applications Manager
-Applications Manager provides deep performance insights into multiple tiers of
-your business applications. It resolves application problems quickly and
-reduces your MTTR. Get your free trial!
-https://ad.doubleclick.net/ddm/clk/302982198;130105516;z
+Yep...looks nearly exactly the same case.
+
+Thanks,
+  Josh
