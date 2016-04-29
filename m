@@ -1,108 +1,78 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [PATCH net 1/3] udp_tunnel: Remove redundant udp_tunnel_gro_complete().
-Date: Fri, 29 Apr 2016 15:33:48 -0700
-Message-ID: <175616E2-FC50-4961-AB5F-43DF5820A833@ovn.org>
-References: <1461968887-4993-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@kernel.org>
-To: netdev <netdev@vger.kernel.org>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v2 0/9] Fix Tunnel features and enable GSO partial
+ for several drivers
+Date: Fri, 29 Apr 2016 15:43:02 -0700
+Message-ID: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: talal@mellanox.com, netdev@vger.kernel.org,
+	michael.chan@broadcom.com, davem@davemloft.net, galp@mellanox.com,
+	ogerlitz@mellanox.com, eranbe@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34566 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339AbcD2Wdw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 18:33:52 -0400
-Received: by mail-pf0-f196.google.com with SMTP id 145so13832578pfz.1
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 15:33:52 -0700 (PDT)
-In-Reply-To: <1461968887-4993-1-git-send-email-jarno@ovn.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36287 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbcD2WnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 18:43:05 -0400
+Received: by mail-pf0-f179.google.com with SMTP id c189so54617738pfb.3
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 15:43:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a two patch series.. I had a third patch which fixed a bug that=
- was already fixed, so I dropped it but failed to generate messages aga=
-in, hence the =E2=80=9C[12]/3=E2=80=9D. Sorry for the noise,
+This patch series is meant to allow us to get the best performance possible
+for Mellanox ConnectX-3/4 and Broadcom NetXtreme-C/E adapters in terms of
+VXLAN and GRE tunnels.
 
-  Jarno
+The first few patches address issues I found when just trying to collect
+performance numbers.  Specifically I was unable to get rates of any more
+than 1 or 2 Mb/s if I was using a tunnel that ran over IPv6.  In addition I
+found a few other items related to GSO_PARTIAL and the TSO_MANGLEID that
+needed to be addressed.
 
-> On Apr 29, 2016, at 3:28 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
->=20
-> The setting of the UDP tunnel GSO type is already performed by
-> udp[46]_gro_complete().
->=20
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
-> drivers/net/geneve.c     | 2 --
-> drivers/net/vxlan.c      | 2 --
-> include/net/udp_tunnel.h | 9 ---------
-> net/ipv4/fou.c           | 2 --
-> 4 files changed, 15 deletions(-)
->=20
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index bc16889..98f1224 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -504,8 +504,6 @@ static int geneve_gro_complete(struct sk_buff *sk=
-b, int nhoff,
-> 	int gh_len;
-> 	int err =3D -ENOSYS;
->=20
-> -	udp_tunnel_gro_complete(skb, nhoff);
-> -
-> 	gh =3D (struct genevehdr *)(skb->data + nhoff);
-> 	gh_len =3D geneve_hlen(gh);
-> 	type =3D gh->proto_type;
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 1c0fa36..dd2d032 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -616,8 +616,6 @@ out:
-> static int vxlan_gro_complete(struct sk_buff *skb, int nhoff,
-> 			      struct udp_offload *uoff)
-> {
-> -	udp_tunnel_gro_complete(skb, nhoff);
-> -
-> 	return eth_gro_complete(skb, nhoff + sizeof(struct vxlanhdr));
-> }
->=20
-> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-> index b831140..a114024 100644
-> --- a/include/net/udp_tunnel.h
-> +++ b/include/net/udp_tunnel.h
-> @@ -106,15 +106,6 @@ static inline struct sk_buff *udp_tunnel_handle_=
-offloads(struct sk_buff *skb,
-> 	return iptunnel_handle_offloads(skb, type);
-> }
->=20
-> -static inline void udp_tunnel_gro_complete(struct sk_buff *skb, int =
-nhoff)
-> -{
-> -	struct udphdr *uh;
-> -
-> -	uh =3D (struct udphdr *)(skb->data + nhoff - sizeof(struct udphdr))=
-;
-> -	skb_shinfo(skb)->gso_type |=3D uh->check ?
-> -				SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-> -}
-> -
-> static inline void udp_tunnel_encap_enable(struct socket *sock)
-> {
-> #if IS_ENABLED(CONFIG_IPV6)
-> diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-> index a39068b..305d9ac 100644
-> --- a/net/ipv4/fou.c
-> +++ b/net/ipv4/fou.c
-> @@ -228,8 +228,6 @@ static int fou_gro_complete(struct sk_buff *skb, =
-int nhoff,
-> 	int err =3D -ENOSYS;
-> 	const struct net_offload **offloads;
->=20
-> -	udp_tunnel_gro_complete(skb, nhoff);
-> -
-> 	rcu_read_lock();
-> 	offloads =3D NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offlo=
-ads;
-> 	ops =3D rcu_dereference(offloads[proto]);
-> --=20
-> 2.7.4
->=20
+The next 4 patches go through and enable GSO_PARTIAL for VXLAN tunnels that
+have an outer checksum enabled, and then enable IPv6 support where I can.
+One outstanding issue is that I wasn't able to get offloads working with
+outer IPv6 headers on mlx4.  However that wasn't a feature that was enabled
+before so it isn't technically a regression, however I believe Engineers
+from Mellanox said they would look into it since they thought it should be
+supported.
+
+The last patch enables GSO_PARTIAL for VXLAN and GRE tunnels on the bnxt
+driver.  One piece of feedback I received on the patch was that the
+hardware has globally set IPv6 UDP tunnels to always have the checksum
+field computed.  I plan to work with Broadcom to get that addressed so that
+we only populate the checksum field if it was requested by the network
+stack.
+
+v2: Rebased patches off of latest changes to the mlx4/mlx5 drivers.
+    Added bnxt driver patch as I received feedback on the RFC.
+
+    There are outstanding issues that need to be addressed, however they
+    were present before these patches so it isn't as if they introduce a
+    regression.  In addition gains can be easily seen so there should be no
+    issue with applying the driver patches while the IPv6 mlx4 and bnxt
+    issues are being researched.
+
+---
+
+Alexander Duyck (9):
+      net: Disable segmentation if checksumming is not supported
+      gso: Only allow GSO_PARTIAL if we can checksum the inner protocol
+      net: Fix netdev_fix_features so that TSO_MANGLEID is only available with TSO
+      vxlan: Add checksum check to the features check function
+      mlx4: Add support for UDP tunnel segmentation with outer checksum offload
+      mlx4: Add support for inner IPv6 checksum offloads and TSO
+      mlx5e: Add support for UDP tunnel segmentation with outer checksum offload
+      mlx5e: Fix IPv6 tunnel checksum offload
+      bnxt: Add support for segmentation of tunnels with outer checksums
+
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |    9 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   38 +++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   15 +++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   10 ++++--
+ include/linux/if_ether.h                          |    5 +++
+ include/net/vxlan.h                               |    4 ++
+ net/core/dev.c                                    |    6 +++
+ net/core/skbuff.c                                 |    6 ++-
+ 8 files changed, 74 insertions(+), 19 deletions(-)
