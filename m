@@ -1,75 +1,93 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 4/5] bnxt: Add support for segmentation of tunnels
- with outer checksums
-Date: Fri, 29 Apr 2016 14:17:06 -0700
-Message-ID: <CAKgT0UeOPX22XipaSUsCgZ9oPsw1Q6KWGoEA+rpjANp6RQ+gnA@mail.gmail.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
-	<20160419190615.11723.53966.stgit@ahduyck-xeon-server>
-	<CACKFLi=2mHfOS1Rz5RbSdyhepdjBqM+dj7Nh=CzARcYSwUTcSw@mail.gmail.com>
-	<CAKgT0UffVkQWWqgwYZy-AXEq=kofKiRx2D9pnu5nBQD+uSLS+g@mail.gmail.com>
-	<CACKFLi=0ug=E++9prBjC7NsD67+DtLKXXwFtF-E0+trVNtMgbA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Michael Chan <michael.chan@broadcom.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v3 net-next 3/7] dccp: do not assume DCCP code is non preemptible
+Date: Fri, 29 Apr 2016 14:16:49 -0700
+Message-ID: <1461964613-4872-4-git-send-email-edumazet@google.com>
+References: <1461964613-4872-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	Alexei Starovoitov <ast@fb.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:36455 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752770AbcD2VRH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 17:17:07 -0400
-Received: by mail-io0-f170.google.com with SMTP id u185so139074214iod.3
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 14:17:07 -0700 (PDT)
-In-Reply-To: <CACKFLi=0ug=E++9prBjC7NsD67+DtLKXXwFtF-E0+trVNtMgbA@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35528 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752791AbcD2VRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 17:17:09 -0400
+Received: by mail-pa0-f41.google.com with SMTP id iv1so50197581pac.2
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 14:17:04 -0700 (PDT)
+In-Reply-To: <1461964613-4872-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 27, 2016 at 9:32 PM, Michael Chan <michael.chan@broadcom.com> wrote:
-> On Wed, Apr 27, 2016 at 8:21 AM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Tue, Apr 26, 2016 at 10:55 PM, Michael Chan
->> <michael.chan@broadcom.com> wrote:
->>> On Tue, Apr 19, 2016 at 12:06 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>>> This patch assumes that the bnxt hardware will ignore existing IPv4/v6
->>>> header fields for length and checksum as well as the length and checksum
->>>> fields for outer UDP and GRE headers.
->>>>
->>>> I have no means of testing this as I do not have any bnx2x hardware but
->>>> thought I would submit it as an RFC to see if anyone out there wants to
->>>> test this and see if this does in fact enable this functionality allowing
->>>> us to to segment tunneled frames that have an outer checksum.
->>>>
->>>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->>>
->>> Hi Alex, I just did a very quick test of this patch on our bnxt
->>> hardware and it seemed to work.
->>>
->>> I created a vxlan endpoint with udpcsum enabled and I saw TSO packets
->>> getting through.  I've verified that our hardware can be programmed to
->>> either ignore outer UDP checksum or to calculate it.  Current default
->>> is to ignore ipv4 UDP checksum and calculate ipv6 UDP checksum.
->>> Thanks.
->>
->> Are you saying you can natively support UDP tunnel with outer checksum
->> offload then?
->
-> Yes.  Calculate or ignore the outer UDP checksum.
+DCCP uses the generic backlog code, and this will soon
+be changed to not disable BH when protocol is called back.
 
-I was just thinking about this.  When you say you compute the IPv6
-checksum how is it you are specifying to the hardware that you want to
-do that?  Is it something you can configure per packet or is it
-something that is configured for the VXLAN flow?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+---
+ net/dccp/input.c   | 2 +-
+ net/dccp/ipv4.c    | 4 ++--
+ net/dccp/ipv6.c    | 4 ++--
+ net/dccp/options.c | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-I just want to make sure you aren't adding checksums to IPv6 tunnels
-that specify that they don't want a checksum, or stripping them from
-v4 tunnels that do want a checksum.
-
-Thanks.
-
-- Alex
+diff --git a/net/dccp/input.c b/net/dccp/input.c
+index 2437ecc13b82..ba347184bda9 100644
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -359,7 +359,7 @@ send_sync:
+ 		goto discard;
+ 	}
+ 
+-	__DCCP_INC_STATS(DCCP_MIB_INERRS);
++	DCCP_INC_STATS(DCCP_MIB_INERRS);
+ discard:
+ 	__kfree_skb(skb);
+ 	return 0;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index a8164272e0f4..5c7e413a3ae4 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -533,8 +533,8 @@ static void dccp_v4_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+ 	bh_unlock_sock(ctl_sk);
+ 
+ 	if (net_xmit_eval(err) == 0) {
+-		__DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+-		__DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
++		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
++		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+ 	}
+ out:
+ 	 dst_release(dst);
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 0f4eb4ea57a5..d176f4e66369 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -277,8 +277,8 @@ static void dccp_v6_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+ 	if (!IS_ERR(dst)) {
+ 		skb_dst_set(skb, dst);
+ 		ip6_xmit(ctl_sk, skb, &fl6, NULL, 0);
+-		__DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+-		__DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
++		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
++		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+ 		return;
+ 	}
+ 
+diff --git a/net/dccp/options.c b/net/dccp/options.c
+index b82b7ee9a1d2..74d29c56c367 100644
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -253,7 +253,7 @@ out_nonsensical_length:
+ 	return 0;
+ 
+ out_invalid_option:
+-	__DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
++	DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
+ 	rc = DCCP_RESET_CODE_OPTION_ERROR;
+ out_featneg_failed:
+ 	DCCP_WARN("DCCP(%p): Option %d (len=%d) error=%u\n", sk, opt, len, rc);
+-- 
+2.8.0.rc3.226.g39d4020
