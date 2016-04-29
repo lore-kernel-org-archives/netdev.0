@@ -1,63 +1,69 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: Re: pull request [net]: batman-adv-0160426
-Date: Fri, 29 Apr 2016 07:58:10 +0800
-Message-ID: <20160428235810.GN11201__18669.7778445252$1461887937$gmane$org@prodigo.lan>
-References: <1461641239-7097-1-git-send-email-a@unstable.cc>
- <20160428.164351.907536352207317310.davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next] ila: ipv6/ila: fix nlsize calculation for lwtunnel
+Date: Thu, 28 Apr 2016 17:12:29 -0700
+Message-ID: <1461888749-4105343-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="rPgHZmYkQ+bUEpVC"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <nicolas.dichtel@6wind.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:1447 "EHLO s2.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751801AbcD1X6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 19:58:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20160428.164351.907536352207317310.davem@davemloft.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:10011 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752324AbcD2AMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 20:12:55 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3T08qd5030856
+	for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 17:12:54 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 22ktt2gnhh-2
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 17:12:54 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ 14559aee0d9f11e6863b24be0593f280-425fec50 for <netdev@vger.kernel.org>;	Thu,
+ 28 Apr 2016 17:12:37 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The handler 'ila_fill_encap_info' adds two attributes: ILA_ATTR_LOCATOR
+and ILA_ATTR_CSUM_MODE.
 
---rPgHZmYkQ+bUEpVC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Also, do nla_put_u8 instead of nla_put_u64 for ILA_ATTR_CSUM_MODE.
 
-On Thu, Apr 28, 2016 at 04:43:51PM -0400, David Miller wrote:
-> > Patch 2 and 3 have no "Fixes:" tag because the offending commits date
-> > back to when batman-adv was not yet officially in the net tree.
->=20
-> This is not correct.  Instead, in the future, you should provide a
-> Fixes: tag that indicates the commit that merged batman-adv into the
-> upstream tree initially.
+Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
+Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ net/ipv6/ila/ila_lwt.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-makes sense. Thanks for the suggestion!
-
---=20
-Antonio Quartulli
-
---rPgHZmYkQ+bUEpVC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJXIqOSAAoJEJ4aZjxxc6bKrEIQAK+ZmZ2bAhChgX5Z9lVauCxl
-qiaGNTlA4h+i6CDFVljYz7R3nxJh8JK4Qw7uUWdlmir/2BOE4w8TeWUsqFS3JIaR
-DHYjCwk2nyrCeqYTe8PsbQOQIB1qCE+Bn+TqpCdtplX9mmDJhTI58AhgTc4VzgkX
-UsRIzwNXfZ9nN0KAsNrrCgn3ZzFdWvEHL9k7/lFO1rzjEM+6M7kUlnrZ+zESi0DD
-W1/j4qbs1M95u7goJEhD/u643AC1V+3HWFPDNVBaNlVLlOyvL6/gNURXt5v7OTHW
-M8N3U32iohzZ/lbXvhZZMNCHynOLntB3NLTpx9qPnnf0l0JLXn0VQrEVOhFhhovH
-gaj0zc6k4fJwjtEbQa8K8iIznhQ+XNOoYfInbX91BlSoE+47/zvscskDY9dJOxRQ
-rzlnUi3xJ5KaABhxzRvPidU6R+tcH34g4dQiMToTlAI2C+oGhxee4/byCaOSOKXi
-g2udQSaeOEhTf+XadtoA47D1UEzw4dTnooO7o9rvkn7Xf4nvgBUZFXR42Nn4JPLW
-VJYXmdikx2xpO8HBY5bOBvZlCJbKzgN75+8v5ULkzTEGM0xCqWd1iMhQ6gGysJch
-VRYsV7GyLKPPVN0BclVru1rMNtmj29jRMJ1zWqFt/qbvk4Ohe6UXtsV55AZmyhER
-ADAWPaXbuKPiR7/uY97X
-=yBPo
------END PGP SIGNATURE-----
-
---rPgHZmYkQ+bUEpVC--
+diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+index 4985e1a..7788090 100644
+--- a/net/ipv6/ila/ila_lwt.c
++++ b/net/ipv6/ila/ila_lwt.c
+@@ -133,7 +133,7 @@ static int ila_fill_encap_info(struct sk_buff *skb,
+ 	if (nla_put_u64_64bit(skb, ILA_ATTR_LOCATOR, (__force u64)p->locator.v64,
+ 			      ILA_ATTR_PAD))
+ 		goto nla_put_failure;
+-	if (nla_put_u64(skb, ILA_ATTR_CSUM_MODE, (__force u8)p->csum_mode))
++	if (nla_put_u8(skb, ILA_ATTR_CSUM_MODE, (__force u8)p->csum_mode))
+ 		goto nla_put_failure;
+ 
+ 	return 0;
+@@ -144,8 +144,12 @@ nla_put_failure:
+ 
+ static int ila_encap_nlsize(struct lwtunnel_state *lwtstate)
+ {
+-	/* No encapsulation overhead */
+-	return 0;
++	return
++		/* ILA_ATTR_LOCATOR */
++		nla_total_size(sizeof(u64)) +
++		/* ILA_ATTR_CSUM_MODE */
++		nla_total_size(sizeof(u8)) +
++		0;
+ }
+ 
+ static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
+-- 
+2.8.0.rc2
