@@ -1,42 +1,42 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH v2 net-next 1/7] tcp: do not assume TCP code is non preemptible
-Date: Fri, 29 Apr 2016 10:41:17 -0400
-Message-ID: <CACSApvaPGBq40gwrrJTvOnLwtada-u8rHdRjWEG6V1WWzYeJQA@mail.gmail.com>
-References: <1461899449-8096-1-git-send-email-edumazet@google.com>
- <1461899449-8096-2-git-send-email-edumazet@google.com> <CACSApvYruzhRVLWbHowsPpfnN0f1vhqRywt-2j1vCOFxmmV9+A@mail.gmail.com>
- <1461940645.5535.144.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: replace ds with ps where possible
+Date: Fri, 29 Apr 2016 10:55:26 -0400
+Message-ID: <877ffgmplt.fsf@ketchup.mtl.sfl>
+References: <1461893046-28200-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20160429130645.GG4053@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:34437 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819AbcD2Ol5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 10:41:57 -0400
-Received: by mail-oi0-f42.google.com with SMTP id k142so120662186oib.1
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 07:41:57 -0700 (PDT)
-In-Reply-To: <1461940645.5535.144.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160429130645.GG4053@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 29, 2016 at 10:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2016-04-29 at 09:18 -0400, Soheil Hassas Yeganeh wrote:
->> On Thu, Apr 28, 2016 at 11:10 PM, Eric Dumazet <edumazet@google.com> wrote:
->
->> > +                               NET_ADD_STATS(sock_net(sk),
->> > +                                             LINUX_MIB_TCPHYSTARTTRAINCWND,
->> > +                                             pp>>sn__cwdd);
->> nit: shouldn't this be tp->snd_cwnd?
->
-> Interesting... my git tree has the proper thing, but the file on my SSD
-> after git format-patch got mangled somehow...
->
-> Thanks for noticing !
+Hi Andrew,
 
-Thanks for the patches!
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+> On Thu, Apr 28, 2016 at 09:24:06PM -0400, Vivien Didelot wrote:
+>> From: Andrew Lunn <andrew@lunn.ch>
+>> 
+>> The dsa_switch structure ds is actually needed in very few places,
+>> mostly during setup of the switch. The private structure ps is however
+>> needed nearly everywhere. Pass ps, not ds internally.
+>> 
+>> [vd: rebased Andrew's patch.]
+>
+> Hi Vivien
+>
+> Thanks for picking up this patch and rebasing it.
+>
+> I would generally put comments like that bellow the ---. They don't
+> need to be in the commit log.
+
+I've seen that '[<initials-or-firstname>: <message>]' is often used to
+inject notes in the message, but that might not be a standard.
+
+Thanks for the note,
+
+       Vivien
