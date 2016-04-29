@@ -1,140 +1,162 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
-Date: Fri, 29 Apr 2016 18:46:34 +0300
-Message-ID: <572381DA.5030607@cogentembedded.com>
-References: <1461892155-10524-1-git-send-email-marex@denx.de>
- <86212055-7d15-ab11-4998-72c04af2426d@cogentembedded.com>
- <5723493C.1040801@denx.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
+ possible
+Date: Fri, 29 Apr 2016 12:10:31 -0400
+Message-ID: <20160429161031.GB31121@hmsreliant.think-freely.org>
+References: <20160413.230532.676746231426161126.davem@davemloft.net>
+ <20160414130324.GA6806@hmsreliant.think-freely.org>
+ <570FCCC1.6090504@gmail.com>
+ <20160414.145916.2286519059284215039.davem@davemloft.net>
+ <20160414200351.GA4632@hmsreliant.think-freely.org>
+ <20160414201900.GK15005@localhost.localdomain>
+ <20160428204659.GA2276@localhost.localdomain>
+ <20160429133637.GA31121@hmsreliant.think-freely.org>
+ <20160429134725.GB5676@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S . Miller" <davem@davemloft.net>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Marek Vasut <marex@denx.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	David.Laight@ACULAB.COM, jkbs@redhat.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:34467 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753676AbcD2Pqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 11:46:39 -0400
-Received: by mail-lf0-f47.google.com with SMTP id j11so139420495lfb.1
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 08:46:38 -0700 (PDT)
-In-Reply-To: <5723493C.1040801@denx.de>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57465 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752964AbcD2QKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 12:10:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20160429134725.GB5676@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, Apr 29, 2016 at 10:47:25AM -0300, marcelo.leitner@gmail.com wrote:
+> On Fri, Apr 29, 2016 at 09:36:37AM -0400, Neil Horman wrote:
+> > On Thu, Apr 28, 2016 at 05:46:59PM -0300, marcelo.leitner@gmail.com wrote:
+> > > On Thu, Apr 14, 2016 at 05:19:00PM -0300, marcelo.leitner@gmail.com wrote:
+> > > > On Thu, Apr 14, 2016 at 04:03:51PM -0400, Neil Horman wrote:
+> > > > > On Thu, Apr 14, 2016 at 02:59:16PM -0400, David Miller wrote:
+> > > > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > > > Date: Thu, 14 Apr 2016 14:00:49 -0300
+> > > > > > 
+> > > > > > > Em 14-04-2016 10:03, Neil Horman escreveu:
+> > > > > > >> On Wed, Apr 13, 2016 at 11:05:32PM -0400, David Miller wrote:
+> > > > > > >>> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > > > >>> Date: Fri,  8 Apr 2016 16:41:26 -0300
+> > > > > > >>>
+> > > > > > >>>> 1st patch is a preparation for the 2nd. The idea is to not call
+> > > > > > >>>> ->sk_data_ready() for every data chunk processed while processing
+> > > > > > >>>> packets but only once before releasing the socket.
+> > > > > > >>>>
+> > > > > > >>>> v2: patchset re-checked, small changelog fixes
+> > > > > > >>>> v3: on patch 2, make use of local vars to make it more readable
+> > > > > > >>>
+> > > > > > >>> Applied to net-next, but isn't this reduced overhead coming at the
+> > > > > > >>> expense of latency?  What if that lower latency is important to the
+> > > > > > >>> application and/or consumer?
+> > > > > > >> Thats a fair point, but I'd make the counter argument that, as it
+> > > > > > >> currently
+> > > > > > >> stands, any latency introduced (or removed), is an artifact of our
+> > > > > > >> implementation rather than a designed feature of it.  That is to say,
+> > > > > > >> we make no
+> > > > > > >> guarantees at the application level regarding how long it takes to
+> > > > > > >> signal data
+> > > > > > >> readines from the time we get data off the wire, so I would rather see
+> > > > > > >> our
+> > > > > > >> throughput raised if we can, as thats been sctp's more pressing
+> > > > > > >> achilles heel.
+> > > > > > >>
+> > > > > > >>
+> > > > > > >> Thats not to say I'd like to enable lower latency, but I'd rather have
+> > > > > > >> this now,
+> > > > > > >> and start pondering how to design that in.  Perhaps we can convert the
+> > > > > > >> pending
+> > > > > > >> flag to a counter to count the number of events we enqueue, and call
+> > > > > > >> sk_data_ready every  time we reach a sysctl defined threshold.
+> > > > > > > 
+> > > > > > > That and also that there is no chance of the application reading the
+> > > > > > > first chunks before all current ToDo's are performed by either the bh
+> > > > > > > or backlog handlers for that packet. Socket lock won't be cycled in
+> > > > > > > between chunks so the application is going to wait all the processing
+> > > > > > > one way or another.
+> > > > > > 
+> > > > > > But it takes time to signal the wakeup to the remote cpu the process
+> > > > > > was running on, schedule out the current process on that cpu (if it
+> > > > > > has in fact lost it's timeslice), and then finally look at the socket
+> > > > > > queue.
+> > > > > > 
+> > > > > > Of course this is all assuming the process was sleeping in the first
+> > > > > > place, either in recv or more likely poll.
+> > > > > > 
+> > > > > > I really think signalling early helps performance.
+> > > > > > 
+> > > > > 
+> > > > > Early, yes, often, not so much :).  Perhaps what would be adventageous would be
+> > > > > to signal at the start of a set of enqueues, rather than at the end.  That would
+> > > > > be equivalent in terms of not signaling more than needed, but would eliminate
+> > > > > the signaling on every chunk.   Perhaps what you could do Marcelo would be to
+> > > > > change the sense of the signal_ready flag to be a has_signaled flag.  e.g. call
+> > > > > sk_data_ready in ulp_event_tail like we used to, but only if the has_signaled
+> > > > > flag isn't set, then set the flag, and clear it at the end of the command
+> > > > > interpreter.
+> > > > > 
+> > > > > That would be a best of both worlds solution, as long as theres no chance of
+> > > > > race with user space reading from the socket before we were done enqueuing (i.e.
+> > > > > you have to guarantee that the socket lock stays held, which I think we do).
+> > > > 
+> > > > That is my feeling too. Will work on it. Thanks :-)
+> > > 
+> > > I did the change and tested it on real machines set all for performance.
+> > > I couldn't spot any difference between both implementations.
+> > > 
+> > > Set RSS and queue irq affinity for a cpu and taskset netperf and another
+> > > app I wrote to run on another cpu. It hits socket backlog quite often
+> > > but still do direct processing every now and then.
+> > > 
+> > > With current state, netperf, scenario above. Results of perf sched
+> > > record for the CPUs in use, reported by perf sched latency:
+> > > 
+> > >   Task                  |   Runtime ms  | Switches | Average delay ms |
+> > >   Maximum delay ms | Maximum delay at       |
+> > >   netserver:3205        |   9999.490 ms |       10 | avg:    0.003 ms |
+> > >   max:    0.004 ms | max at:  69087.753356 s
+> > > 
+> > > another run
+> > >   netserver:3483        |   9999.412 ms |       15 | avg:    0.003 ms |
+> > >   max:    0.004 ms | max at:  69194.749814 s
+> > > 
+> > > With the patch below, same test:
+> > >   netserver:2643        |  10000.110 ms |       14 | avg:    0.003 ms |
+> > >   max:    0.004 ms | max at:    172.006315 s
+> > > 
+> > > another run:
+> > >   netserver:2698        |  10000.049 ms |       15 | avg:    0.003 ms |
+> > >   max:    0.004 ms | max at:    368.061672 s
+> > > 
+> > > I'll be happy to do more tests if you have any suggestions on how/what
+> > > to test.
+> > > 
+> > > ---8<---
+> > >  
+> > I think this looks reasonable, but can you post it properly please, as a patch
+> > against the head of teh net-next tree, rather than a diff from your previous
+> > work (which wasn't comitted)
+> 
+> The idea was to not officially post it yet, more just as a reference,
+> because I can't see any gains from it. I'm reluctant just due to that,
+> no strong opinion here on one way or another.
+> 
+> If you think it's better anyway to signal it early, I'll properly repost
+> it.
+> 
+Yeah, your results seem to me to indicate that for your test at least, signaling
+early vs. late doesn't make alot of difference, but Dave I think made a point in
+principle in that allowing processes to wake up when we start enqueuing can be
+better in some situations.  So all other things being equal, I'd say go with the
+method that you have here.
 
-On 04/29/2016 02:45 PM, Marek Vasut wrote:
+Best
+Neil
 
->>     First of all, thank you for the patch!
->>     You beat me to it (and not only me). :-)
->
-> Heh, hacking at night has it's perks :)
-
-    I know, I'm just supposed to work on different things. :-)
-
->> On 4/29/2016 4:09 AM, Marek Vasut wrote:
->>
->>> Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
->>> ( phylib: don't return NULL from get_phy_device() ), phy_get_device()
->>
->>     scripts/checkpatch.pl now enforces certain commit citing style, yours
->> doesn't quite match it.
->
-> Ha, I didn't know that checkpatch can now warn about this too, nice. Is
-> that in next already ? I just tried checkpatch and it doesn't warn about it.
-
-    It's been merged long ago. Actually, I've just run this script from the 
-current Linus' tree on your patch, here's the results:
-
-ERROR: Please use git commit description style 'commit <12+ chars of sha1> 
-("<title line>")' - ie: 'commit fatal: bad o ("cc5d109451c0d5b17")'
-#4:
-Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
-
-WARNING: 'immediatelly' may be misspelled - perhaps 'immediately'?
-#23:
-'if (IS_ERR(phydev))' condition and the loop exits immediatelly if the
-
-total: 1 errors, 1 warnings, 0 checks, 8 lines checked
-
-> Anyway, regarding this format, do you want V2 ? Originally, I had the
-> full commit info in the message, but that was just taking space and
-> it is not the commit which is important in the message, so I trimmed
-> it down.
-
-    I'll let DaveM decide.
-
->>> will return ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is
->>> all ones.
->>>
->>> This causes problem with stmmac driver and likely some other drivers
->>> which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEVK
->>> board with linux-next 20160427 and 20160428. In case of the stmmac, if
->>> there is no PHY node specified in the DT for the stmmac block, the stmmac
->>> driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
->>> stmmac_mdio_register() ) will call mdiobus_register() , which will
->>> register the MDIO bus and probe for the PHY.
->>>
->>> The mdiobus_register() resp. __mdiobus_register() iterates over all of
->>> the addresses on the MDIO bus and calls mdiobus_scan() for each of them,
->>> which invokes get_phy_device(). Before the aforementioned patch, the
->>> mdiobus_scan() would return NULL if no PHY was found on a given address
->>> and mdiobus_register() would continue and try the next PHY address. Now,
->>> mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
->>> 'if (IS_ERR(phydev))' condition and the loop exits immediatelly if the
->>> PHY address does not contain PHY.
->>>
->>> Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if this
->>> error comes around, continue with the next PHY address.
->>>
->>> Signed-off-by: Marek Vasut <marex@denx.de>
->>> Cc: Arnd Bergmann <arnd@arndb.de>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
->>> Cc: Florian Fainelli <f.fainelli@gmail.com>
->>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->>> ---
->>>   drivers/net/phy/mdio_bus.c | 2 +-
->>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> NOTE: I don't quite like this explicit check , but I don't have better
->>> idea now.
->>
->>     It's fine. I was going to do just the same :-)
->
-> OK, I'm glad I'm not alone on this one :)
->
->>> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
->>> index 499003ee..388f992 100644
->>> --- a/drivers/net/phy/mdio_bus.c
->>> +++ b/drivers/net/phy/mdio_bus.c
->>> @@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, struct
->>> module *owner)
->>>               struct phy_device *phydev;
->>>
->>>               phydev = mdiobus_scan(bus, i);
->>> -            if (IS_ERR(phydev)) {
->>> +            if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV)) {
->>
->>     Parens around the second operand of && are not really needed though...
->
-> While I agree, I also prefer to make things obvious when reading the
-> code by adding the parenthesis. It's a matter of taste I think. Just let
-> me know if I should spin V2 without them :)
-
-    Again, let DaveM decide. But I don't think the code being patched uses 
-parens in such cases... I wouldn't, for sure.
-
-> Thanks for the review!
-
-    You've saved me some work (but I still need to analyze the other call paths).
-
->> [...]
-
-MBR, Sergei
+> Thanks,
+> Marcelo
+> 
+> 
