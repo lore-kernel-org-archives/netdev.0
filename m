@@ -1,76 +1,121 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH] tipc: Only process unicast on intended node
-Date: Fri, 29 Apr 2016 11:08:10 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D22473171@eusaamb103.ericsson.se>
-References: <1461893718-17404-1-git-send-email-hamish.martin@alliedtelesis.co.nz>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
+Date: Fri, 29 Apr 2016 13:45:00 +0200
+Message-ID: <5723493C.1040801@denx.de>
+References: <1461892155-10524-1-git-send-email-marex@denx.de> <86212055-7d15-ab11-4998-72c04af2426d@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Hamish Martin <hamish.martin@alliedtelesis.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usplmg21.ericsson.net ([198.24.6.65]:59248 "EHLO
-	usplmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752269AbcD2LXP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 07:23:15 -0400
-In-Reply-To: <1461893718-17404-1-git-send-email-hamish.martin@alliedtelesis.co.nz>
-Content-Language: en-US
+Received: from mail-out.m-online.net ([212.18.0.9]:41522 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752563AbcD2LpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 07:45:21 -0400
+In-Reply-To: <86212055-7d15-ab11-4998-72c04af2426d@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not acked. I will post an updated version of this later today to 'net'.
+On 04/29/2016 01:18 PM, Sergei Shtylyov wrote:
+> Hello.
 
-///jon
+Hi!
 
-> -----Original Message-----
-> From: Hamish Martin [mailto:hamish.martin@alliedtelesis.co.nz]
-> Sent: Thursday, 28 April, 2016 21:35
-> To: Jon Maloy; netdev@vger.kernel.org
-> Cc: Hamish Martin
-> Subject: [PATCH] tipc: Only process unicast on intended node
+>    First of all, thank you for the patch!
+>    You beat me to it (and not only me). :-)
+
+Heh, hacking at night has it's perks :)
+
+> On 4/29/2016 4:09 AM, Marek Vasut wrote:
 > 
-> We have observed complete lock up of broadcast-link transmission due to
-> unacknowledged packets never being removed from the 'transmq' queue. This
-> is traced to nodes having their ack field set beyond the sequence number
-> of packets that have actually been transmitted to them.
-> Consider an example where node 1 has sent 10 packets to node 2 on a
-> link and node 3 has sent 20 packets to node 2 on another link. We
-> see examples of an ack from node 2 destined for node 3 being treated as
-> an ack from node 2 at node 1. This leads to the ack on the node 1 to node
-> 2 link being increased to 20 even though we have only sent 10 packets.
-> When node 1 does get around to sending further packets, none of the
-> packets with sequence numbers less than 21 are actually removed from the
-> transmq.
-> To resolve this we reinstate some code lost in commit d999297c3dbb ("tipc:
-> reduce locking scope during packet reception") which ensures that only
-> messages destined for the receiving node are processed by that node. This
-> prevents the sequence numbers from getting out of sync and resolves the
-> packet leakage, thereby resolving the broadcast-link transmission
-> lock-ups we observed.
+>> Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
+>> ( phylib: don't return NULL from get_phy_device() ), phy_get_device()
 > 
-> Signed-off-by: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
-> Reviewed-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
-> Reviewed-by: John Thompson <john.thompson@alliedtelesis.co.nz>
-> ---
->  net/tipc/node.c | 5 +++++
->  1 file changed, 5 insertions(+)
+>    scripts/checkpatch.pl now enforces certain commit citing style, yours
+> doesn't quite match it.
+
+Ha, I didn't know that checkpatch can now warn about this too, nice. Is
+that in next already ? I just tried checkpatch and it doesn't warn about it.
+
+Anyway, regarding this format, do you want V2 ? Originally, I had the
+full commit info in the message, but that was just taking space and
+it is not the commit which is important in the message, so I trimmed
+it down.
+
+>> will return ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is
+>> all ones.
+>>
+>> This causes problem with stmmac driver and likely some other drivers
+>> which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEVK
+>> board with linux-next 20160427 and 20160428. In case of the stmmac, if
+>> there is no PHY node specified in the DT for the stmmac block, the stmmac
+>> driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
+>> stmmac_mdio_register() ) will call mdiobus_register() , which will
+>> register the MDIO bus and probe for the PHY.
+>>
+>> The mdiobus_register() resp. __mdiobus_register() iterates over all of
+>> the addresses on the MDIO bus and calls mdiobus_scan() for each of them,
+>> which invokes get_phy_device(). Before the aforementioned patch, the
+>> mdiobus_scan() would return NULL if no PHY was found on a given address
+>> and mdiobus_register() would continue and try the next PHY address. Now,
+>> mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
+>> 'if (IS_ERR(phydev))' condition and the loop exits immediatelly if the
+>> PHY address does not contain PHY.
+>>
+>> Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if this
+>> error comes around, continue with the next PHY address.
+>>
+>> Signed-off-by: Marek Vasut <marex@denx.de>
+>> Cc: Arnd Bergmann <arnd@arndb.de>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
+>> Cc: Florian Fainelli <f.fainelli@gmail.com>
+>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > 
-> diff --git a/net/tipc/node.c b/net/tipc/node.c
-> index ace178fd3850..e5dda495d4b6 100644
-> --- a/net/tipc/node.c
-> +++ b/net/tipc/node.c
-> @@ -1460,6 +1460,11 @@ void tipc_rcv(struct net *net, struct sk_buff *skb,
-> struct tipc_bearer *b)
->  			return tipc_node_bc_rcv(net, skb, bearer_id);
->  	}
+> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > 
-> +	/* Discard unicast link messages destined for another node */
-> +	if (unlikely(!msg_short(hdr) &&
-> +		     (msg_destnode(hdr) != tipc_own_addr(net))))
-> +		goto discard;
-> +
->  	/* Locate neighboring node that sent packet */
->  	n = tipc_node_find(net, msg_prevnode(hdr));
->  	if (unlikely(!n))
-> --
-> 2.8.1
+>> ---
+>>  drivers/net/phy/mdio_bus.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> NOTE: I don't quite like this explicit check , but I don't have better
+>> idea now.
+> 
+>    It's fine. I was going to do just the same :-)
+
+OK, I'm glad I'm not alone on this one :)
+
+>> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+>> index 499003ee..388f992 100644
+>> --- a/drivers/net/phy/mdio_bus.c
+>> +++ b/drivers/net/phy/mdio_bus.c
+>> @@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, struct
+>> module *owner)
+>>              struct phy_device *phydev;
+>>
+>>              phydev = mdiobus_scan(bus, i);
+>> -            if (IS_ERR(phydev)) {
+>> +            if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV)) {
+> 
+>    Parens around the second operand of && are not really needed though...
+
+While I agree, I also prefer to make things obvious when reading the
+code by adding the parenthesis. It's a matter of taste I think. Just let
+me know if I should spin V2 without them :)
+
+Thanks for the review!
+
+> [...]
+> 
+> MBR, Sergei
+> 
+
+
+-- 
+Best regards,
+Marek Vasut
