@@ -1,45 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 2/2] ppp: add rtnetlink device creation
- support
-Date: Fri, 29 Apr 2016 16:10:11 -0400 (EDT)
-Message-ID: <20160429.161011.1162718802493722811.davem@davemloft.net>
-References: <cover.1461854990.git.g.nault@alphalink.fr>
-	<20160428155530.GA24359@alphalink.fr>
+Subject: Re: [PATCH net-next v2 0/5] bridge: per-vlan stats
+Date: Fri, 29 Apr 2016 16:12:08 -0400 (EDT)
+Message-ID: <20160429.161208.1214717753456694357.davem@davemloft.net>
+References: <1461858771-4732-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20160429.153326.652947047579122837.davem@davemloft.net>
+	<5723BABD.4080005@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	paulus@samba.org, stephen@networkplumber.org, wharms@bfs.de
-To: g.nault@alphalink.fr
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20160428155530.GA24359@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, jhs@mojatatu.com
+To: nikolay@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55736 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752893AbcD2UMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 16:12:10 -0400
+In-Reply-To: <5723BABD.4080005@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 28 Apr 2016 17:55:30 +0200
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Fri, 29 Apr 2016 21:49:17 +0200
 
-> Define PPP device handler for use with rtnetlink.
-> The only PPP specific attribute is IFLA_PPP_DEV_FD. It is mandatory and
-> contains the file descriptor of the associated /dev/ppp instance (the
-> file descriptor which would have been used for ioctl(PPPIOCNEWUNIT) in
-> the ioctl-based API). The PPP device is removed when this file
-> descriptor is released (same behaviour as with ioctl based PPP
-> devices).
-> 
-> PPP devices created with the rtnetlink API behave like the ones created
-> with ioctl(PPPIOCNEWUNIT). In particular existing ioctls work the same
-> way, no matter how the PPP device was created.
-> The rtnl callbacks are also assigned to ioctl based PPP devices. This
-> way, rtnl messages have the same effect on any PPP devices.
-> The immediate effect is that all PPP devices, even ioctl-based
-> ones, can now be removed with "ip link del".
-> 
-> A minor difference still exists between ioctl and rtnl based PPP
-> interfaces: in the device name, the number following the "ppp" prefix
-> corresponds to the PPP unit number for ioctl based devices, while it is
-> just an unrelated incrementing index for rtnl ones.
-> 
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> Because that is not needed for the per-vlan stats to work, I did to
+> unify the paths and simplify the pvid code but I can easily drop it
+> and revert back to using the direct pvid id.  The only fetch will be
+> the stats per-cpu pointer then. Would that be acceptable ?
 
-Series applied, thanks for doing this work!
+It would be a step in the right direction, for sure.
