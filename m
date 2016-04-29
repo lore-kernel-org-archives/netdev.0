@@ -1,75 +1,62 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH next-next 0/7] net: Cleanup IPv6 ip tunnels
-Date: Fri, 29 Apr 2016 18:00:49 -0700
-Message-ID: <CAKgT0UfwyZW7kifpU18xtwT77=Zex3AzJp=xry=siW1NVCyX+A@mail.gmail.com>
-References: <1461975141-954269-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net 2/3] udp_offload: Set encapsulation before inner completes.
+Date: Fri, 29 Apr 2016 15:28:07 -0700
+Message-ID: <1461968887-4993-2-git-send-email-jarno@ovn.org>
+References: <1461968887-4993-1-git-send-email-jarno@ovn.org>
+Cc: jesse@kernel.org, jarno@ovn.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:33645 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbcD3BAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 21:00:50 -0400
-Received: by mail-io0-f179.google.com with SMTP id f89so123488214ioi.0
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 18:00:50 -0700 (PDT)
-In-Reply-To: <1461975141-954269-1-git-send-email-tom@herbertland.com>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:58436 "EHLO
+	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751679AbcD3Bei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 21:34:38 -0400
+Received: from relay6-d.mail.gandi.net (relay6-d.mail.gandi.net [217.70.183.198])
+	by slow1-d.mail.gandi.net (Postfix) with ESMTP id 66CE7496597
+	for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 00:28:55 +0200 (CEST)
+In-Reply-To: <1461968887-4993-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 29, 2016 at 5:12 PM, Tom Herbert <tom@herbertland.com> wrote:
-> The IPv6 tunnel code is very different from IPv4 code. There is a lot
-> of redundancy with the IPv4 code, particularly in the GRE tunneling.
->
-> This patch set cleans up the tunnel code to make the IPv6 code look
-> more like the IPv4 code and use common functions between the two
-> stacks where possible.
->
-> This work should make it easier to maintain and extend the IPv6 ip
-> tunnels.
->
-> Items in this patch set:
->   - Cleanup IPv6 tunnel receive path (ip6_tnl_rcv). Includes using
->     gro_cells and exporting ip6_tnl_rcv so the ip6_gre can call it
->   - Move GRE functions to common header file (tx functions) or
->     gre_demux.c (rx functions like gre_parse_header)
->   - Call common GRE functions from IPv6 GRE
->   - Create ip6_tnl_xmit (to be like ip_tunnel_xmit)
->
-> Tested:
->   Ran super_netperf tests for TCP_RR and TCP_STREAM for:
->     - IPv4 over gre, gretap, gre6, gre6tap
->     - IPv6 over gre, gretap, gre6, gre6tap
->     - ipip
->     - ip6ip6
->     - ipip/gue
->     - IPv6 over gre/gue
->     - IPv4 over gre/gue
+UDP tunnel segmentation code relies on the inner offsets being set for
+an UDP tunnel GSO packet.  The inner *_complete() functions will set
+the inner offsets only if the encapsulation is set before calling
+them, but udp_gro_complete() set it only after the inner *_complete()
+functions were done.
 
-You should probably add 2 additional test cases.  One for IPv4 GRE/GUE
-w/ checksum on the GRE header, and same for IPv6.  It was broken
-previously in terms of offloads so we need to make sure we don't
-introduce a regression and break it again.
+Also, remove the setting of the inner_mac_header in udp_gro_complete()
+as it was wrongly set to the beginning of the UDP tunnel header rather
+than the inner MAC header.
 
-> Tom Herbert (7):
->   ipv6: Cleanup IPv6 tunnel receive path
->   gre: Move utility functions to common headers
->   gre6: Cleanup GREv6 receive path, call common GRE functions
->   ipv6: Create ip6_tnl_xmit
->   gre: Create common functions for transmit
->   ipv6: Generic tunnel cleanup
->   gre6: Cleanup GREv6 transmit path, call common GRE functions
->
->  include/net/gre.h        | 104 +++++++++++++
->  include/net/ip6_tunnel.h |  11 +-
->  net/ipv4/gre_demux.c     |  64 ++++++++
->  net/ipv4/ip_gre.c        | 199 +++---------------------
->  net/ipv6/ip6_gre.c       | 392 +++++++++--------------------------------------
->  net/ipv6/ip6_tunnel.c    | 266 +++++++++++++++++++++-----------
->  6 files changed, 452 insertions(+), 584 deletions(-)
->
-> --
-> 2.8.0.rc2
->
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/ipv4/udp_offload.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 0ed2daf..e330c0e 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -399,6 +399,11 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+ 
+ 	uh->len = newlen;
+ 
++	/* Set encapsulation before calling into inner gro_complete() functions
++	 * to make them set up the inner offsets.
++	 */
++	skb->encapsulation = 1;
++
+ 	rcu_read_lock();
+ 
+ 	uo_priv = rcu_dereference(udp_offload_base);
+@@ -421,9 +426,6 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+ 	if (skb->remcsum_offload)
+ 		skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
+ 
+-	skb->encapsulation = 1;
+-	skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
+-
+ 	return err;
+ }
+ 
+-- 
+2.7.4
