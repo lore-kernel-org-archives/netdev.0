@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V4 0/5] samples/bpf: Improve user experience
-Date: Fri, 29 Apr 2016 14:26:55 -0400 (EDT)
-Message-ID: <20160429.142655.123465258723452162.davem@davemloft.net>
-References: <20160428121949.16807.84828.stgit@firesoul>
+Subject: Re: [PATCH net-next] vxlan: fix initialization with custom link
+ parameters
+Date: Fri, 29 Apr 2016 15:09:40 -0400 (EDT)
+Message-ID: <20160429.150940.319238424947983936.davem@davemloft.net>
+References: <7c19200582d6f4272cee914934f428775e405e89.1461854177.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	bblanco@plumgrid.com, naveen.n.rao@linux.vnet.ibm.com,
-	borkmann@iogearbox.net, alexei.starovoitov@gmail.com
-To: brouer@redhat.com
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <20160428121949.16807.84828.stgit@firesoul>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55232 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875AbcD2TJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 15:09:44 -0400
+In-Reply-To: <7c19200582d6f4272cee914934f428775e405e89.1461854177.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Thu, 28 Apr 2016 14:20:48 +0200
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 28 Apr 2016 16:36:30 +0200
 
-> It is a steep learning curve getting started with using the eBPF
-> examples in samples/bpf/.  There are several dependencies, and
-> specific versions of these dependencies.  Invoking make in the correct
-> manor is also slightly obscure.
+> Commit 0c867c9bf84c ("vxlan: move Ethernet initialization to a separate
+> function") changed initialization order and as an unintended result, when the
+> user specifies additional link parameters (such as IFLA_ADDRESS) while
+> creating vxlan interface, those are overwritten by vxlan_ether_setup later.
 > 
-> This patchset cleanup, document and hopefully improves the first time
-> user experience with the eBPF samples directory by auto-detecting
-> certain scenarios.
+> It's necessary to call ether_setup from withing the ->setup callback. That
+> way, the correct parameters are set by rtnl_create_link later. This is done
+> also for VXLAN-GPE, as we don't know the interface type yet at that point,
+> and changed to the correct interface type later.
 > 
-> V4:
->  - Address Naveen's nitpicks
->  - Handle/fail if extra args are passed in LLC or CLANG (David Laight)
-> 
-> V3:
->  - Add Alexei's ACKs
->  - Remove README paragraph about LLVM experimental BPF target
->    as it only existed between LLVM version 3.6 to 3.7.
-> 
-> V2:
->  - Adjusted recommend minimum versions to 3.7.1
->  - Included clang build instructions
->  - New patch adding CLANG variable and validation of command
+> Fixes: 0c867c9bf84c ("vxlan: move Ethernet initialization to a separate function")
+> Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Series applied, thanks Jesper.
+Applied, thanks Jiri.
