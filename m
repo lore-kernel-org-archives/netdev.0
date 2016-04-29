@@ -1,160 +1,50 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
- possible
-Date: Fri, 29 Apr 2016 13:28:30 -0300
-Message-ID: <20160429162830.GZ21440@localhost.localdomain>
-References: <20160413.230532.676746231426161126.davem@davemloft.net>
- <20160414130324.GA6806@hmsreliant.think-freely.org>
- <570FCCC1.6090504@gmail.com>
- <20160414.145916.2286519059284215039.davem@davemloft.net>
- <20160414200351.GA4632@hmsreliant.think-freely.org>
- <20160414201900.GK15005@localhost.localdomain>
- <20160428204659.GA2276@localhost.localdomain>
- <20160429133637.GA31121@hmsreliant.think-freely.org>
- <20160429134725.GB5676@localhost.localdomain>
- <20160429161031.GB31121@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org,
-	David.Laight@ACULAB.COM, jkbs@redhat.com
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Subject: [PATCH 0/3] Use timespec64 for select like timeouts
+Date: Fri, 29 Apr 2016 09:39:46 -0700
+Message-ID: <1461947989-21926-1-git-send-email-deepa.kernel@gmail.com>
+Cc: arnd@arndb.de, y2038@lists.linaro.org,
+	linux-fsdevel@vger.kernel.org,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59025 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750752AbcD2Q2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Apr 2016 12:28:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20160429161031.GB31121@hmsreliant.think-freely.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33159 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954AbcD2Qkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 12:40:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 29, 2016 at 12:10:31PM -0400, Neil Horman wrote:
-> On Fri, Apr 29, 2016 at 10:47:25AM -0300, marcelo.leitner@gmail.com wrote:
-> > On Fri, Apr 29, 2016 at 09:36:37AM -0400, Neil Horman wrote:
-> > > On Thu, Apr 28, 2016 at 05:46:59PM -0300, marcelo.leitner@gmail.com wrote:
-> > > > On Thu, Apr 14, 2016 at 05:19:00PM -0300, marcelo.leitner@gmail.com wrote:
-> > > > > On Thu, Apr 14, 2016 at 04:03:51PM -0400, Neil Horman wrote:
-> > > > > > On Thu, Apr 14, 2016 at 02:59:16PM -0400, David Miller wrote:
-> > > > > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > > > > Date: Thu, 14 Apr 2016 14:00:49 -0300
-> > > > > > > 
-> > > > > > > > Em 14-04-2016 10:03, Neil Horman escreveu:
-> > > > > > > >> On Wed, Apr 13, 2016 at 11:05:32PM -0400, David Miller wrote:
-> > > > > > > >>> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > > > > >>> Date: Fri,  8 Apr 2016 16:41:26 -0300
-> > > > > > > >>>
-> > > > > > > >>>> 1st patch is a preparation for the 2nd. The idea is to not call
-> > > > > > > >>>> ->sk_data_ready() for every data chunk processed while processing
-> > > > > > > >>>> packets but only once before releasing the socket.
-> > > > > > > >>>>
-> > > > > > > >>>> v2: patchset re-checked, small changelog fixes
-> > > > > > > >>>> v3: on patch 2, make use of local vars to make it more readable
-> > > > > > > >>>
-> > > > > > > >>> Applied to net-next, but isn't this reduced overhead coming at the
-> > > > > > > >>> expense of latency?  What if that lower latency is important to the
-> > > > > > > >>> application and/or consumer?
-> > > > > > > >> Thats a fair point, but I'd make the counter argument that, as it
-> > > > > > > >> currently
-> > > > > > > >> stands, any latency introduced (or removed), is an artifact of our
-> > > > > > > >> implementation rather than a designed feature of it.  That is to say,
-> > > > > > > >> we make no
-> > > > > > > >> guarantees at the application level regarding how long it takes to
-> > > > > > > >> signal data
-> > > > > > > >> readines from the time we get data off the wire, so I would rather see
-> > > > > > > >> our
-> > > > > > > >> throughput raised if we can, as thats been sctp's more pressing
-> > > > > > > >> achilles heel.
-> > > > > > > >>
-> > > > > > > >>
-> > > > > > > >> Thats not to say I'd like to enable lower latency, but I'd rather have
-> > > > > > > >> this now,
-> > > > > > > >> and start pondering how to design that in.  Perhaps we can convert the
-> > > > > > > >> pending
-> > > > > > > >> flag to a counter to count the number of events we enqueue, and call
-> > > > > > > >> sk_data_ready every  time we reach a sysctl defined threshold.
-> > > > > > > > 
-> > > > > > > > That and also that there is no chance of the application reading the
-> > > > > > > > first chunks before all current ToDo's are performed by either the bh
-> > > > > > > > or backlog handlers for that packet. Socket lock won't be cycled in
-> > > > > > > > between chunks so the application is going to wait all the processing
-> > > > > > > > one way or another.
-> > > > > > > 
-> > > > > > > But it takes time to signal the wakeup to the remote cpu the process
-> > > > > > > was running on, schedule out the current process on that cpu (if it
-> > > > > > > has in fact lost it's timeslice), and then finally look at the socket
-> > > > > > > queue.
-> > > > > > > 
-> > > > > > > Of course this is all assuming the process was sleeping in the first
-> > > > > > > place, either in recv or more likely poll.
-> > > > > > > 
-> > > > > > > I really think signalling early helps performance.
-> > > > > > > 
-> > > > > > 
-> > > > > > Early, yes, often, not so much :).  Perhaps what would be adventageous would be
-> > > > > > to signal at the start of a set of enqueues, rather than at the end.  That would
-> > > > > > be equivalent in terms of not signaling more than needed, but would eliminate
-> > > > > > the signaling on every chunk.   Perhaps what you could do Marcelo would be to
-> > > > > > change the sense of the signal_ready flag to be a has_signaled flag.  e.g. call
-> > > > > > sk_data_ready in ulp_event_tail like we used to, but only if the has_signaled
-> > > > > > flag isn't set, then set the flag, and clear it at the end of the command
-> > > > > > interpreter.
-> > > > > > 
-> > > > > > That would be a best of both worlds solution, as long as theres no chance of
-> > > > > > race with user space reading from the socket before we were done enqueuing (i.e.
-> > > > > > you have to guarantee that the socket lock stays held, which I think we do).
-> > > > > 
-> > > > > That is my feeling too. Will work on it. Thanks :-)
-> > > > 
-> > > > I did the change and tested it on real machines set all for performance.
-> > > > I couldn't spot any difference between both implementations.
-> > > > 
-> > > > Set RSS and queue irq affinity for a cpu and taskset netperf and another
-> > > > app I wrote to run on another cpu. It hits socket backlog quite often
-> > > > but still do direct processing every now and then.
-> > > > 
-> > > > With current state, netperf, scenario above. Results of perf sched
-> > > > record for the CPUs in use, reported by perf sched latency:
-> > > > 
-> > > >   Task                  |   Runtime ms  | Switches | Average delay ms |
-> > > >   Maximum delay ms | Maximum delay at       |
-> > > >   netserver:3205        |   9999.490 ms |       10 | avg:    0.003 ms |
-> > > >   max:    0.004 ms | max at:  69087.753356 s
-> > > > 
-> > > > another run
-> > > >   netserver:3483        |   9999.412 ms |       15 | avg:    0.003 ms |
-> > > >   max:    0.004 ms | max at:  69194.749814 s
-> > > > 
-> > > > With the patch below, same test:
-> > > >   netserver:2643        |  10000.110 ms |       14 | avg:    0.003 ms |
-> > > >   max:    0.004 ms | max at:    172.006315 s
-> > > > 
-> > > > another run:
-> > > >   netserver:2698        |  10000.049 ms |       15 | avg:    0.003 ms |
-> > > >   max:    0.004 ms | max at:    368.061672 s
-> > > > 
-> > > > I'll be happy to do more tests if you have any suggestions on how/what
-> > > > to test.
-> > > > 
-> > > > ---8<---
-> > > >  
-> > > I think this looks reasonable, but can you post it properly please, as a patch
-> > > against the head of teh net-next tree, rather than a diff from your previous
-> > > work (which wasn't comitted)
-> > 
-> > The idea was to not officially post it yet, more just as a reference,
-> > because I can't see any gains from it. I'm reluctant just due to that,
-> > no strong opinion here on one way or another.
-> > 
-> > If you think it's better anyway to signal it early, I'll properly repost
-> > it.
-> > 
-> Yeah, your results seem to me to indicate that for your test at least, signaling
-> early vs. late doesn't make alot of difference, but Dave I think made a point in
-> principle in that allowing processes to wake up when we start enqueuing can be
-> better in some situations.  So all other things being equal, I'd say go with the
-> method that you have here.
+The series is part of y2038 changes.
 
-Okay, I'll rebase the patch and post it properly. Thanks Neil!
+This changes a few syscalls that have common functions to use
+struct timespec64 instead of struct timespec.
 
-  Marcelo
+This does not include changes to system call uapi interfaces.
+Those will be in a different series.
+
+Thanks to Arnd Bergmann for comments on the patches.
+
+Deepa Dinamani (3):
+  time: Add missing implementation for timespec64_add_safe()
+  fs: poll/select/recvmmsg: use timespec64 for timeout events
+  time: Remove timespec_add_safe()
+
+ fs/eventpoll.c         | 12 ++++-----
+ fs/select.c            | 67 ++++++++++++++++++++++++++++----------------------
+ include/linux/poll.h   | 11 +++++----
+ include/linux/time64.h | 17 ++++++-------
+ kernel/time/time.c     | 21 ++++++++++++++++
+ net/socket.c           |  8 +++---
+ 6 files changed, 82 insertions(+), 54 deletions(-)
+
+-- 
+1.9.1
+
+Cc: John Stultz <john.stultz@linaro.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
