@@ -1,80 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] gre: do not pull header in ICMP error processing
-Date: Fri, 29 Apr 2016 23:31:32 +0200
-Message-ID: <666d05a8cff4a89ce4fd77810902246aa3e7a13f.1461965458.git.jbenc@redhat.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH 0/2] sctp: Add GSO support
+Date: Fri, 29 Apr 2016 18:33:31 -0300
+Message-ID: <cover.1461965035.git.marcelo.leitner@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39912 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44279 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752838AbcD2VcT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Apr 2016 17:32:19 -0400
+	id S1751065AbcD2Vdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Apr 2016 17:33:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-iptunnel_pull_header expects that IP header was already pulled; with this
-expectation, it pulls the tunnel header. This is not true in gre_err.
-Furthermore, ipv4_update_pmtu and ipv4_redirect expect that skb->data points
-to the IP header.
+This patchset adds sctp GSO support.
 
-We cannot pull the tunnel header in this path. It's just a matter of not
-calling iptunnel_pull_header - we don't need any of its effects.
+Performance tests indicates that increases throughput by 10% if using
+bigger chunk sizes, specially if bigger than MTU. For small chunks, it
+doesn't help much if not using heavy firewall rules.
 
-Fixes: bda7bb463436 ("gre: Allow multiple protocol listener for gre protocol.")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- net/ipv4/ip_gre.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+For small chunks it will probably be of more use once we get something
+like MSG_MORE as David Laight had suggested.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index f502d34bcb40..205a2b8a5a84 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -179,6 +179,7 @@ static __be16 tnl_flags_to_gre_flags(__be16 tflags)
- 	return flags;
- }
- 
-+/* Fills in tpi and returns header length to be pulled. */
- static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 			    bool *csum_err)
- {
-@@ -238,7 +239,7 @@ static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 				return -EINVAL;
- 		}
- 	}
--	return iptunnel_pull_header(skb, hdr_len, tpi->proto, false);
-+	return hdr_len;
- }
- 
- static void ipgre_err(struct sk_buff *skb, u32 info,
-@@ -341,7 +342,7 @@ static void gre_err(struct sk_buff *skb, u32 info)
- 	struct tnl_ptk_info tpi;
- 	bool csum_err = false;
- 
--	if (parse_gre_header(skb, &tpi, &csum_err)) {
-+	if (parse_gre_header(skb, &tpi, &csum_err) < 0) {
- 		if (!csum_err)		/* ignore csum errors. */
- 			return;
- 	}
-@@ -419,6 +420,7 @@ static int gre_rcv(struct sk_buff *skb)
- {
- 	struct tnl_ptk_info tpi;
- 	bool csum_err = false;
-+	int hdr_len;
- 
- #ifdef CONFIG_NET_IPGRE_BROADCAST
- 	if (ipv4_is_multicast(ip_hdr(skb)->daddr)) {
-@@ -428,7 +430,10 @@ static int gre_rcv(struct sk_buff *skb)
- 	}
- #endif
- 
--	if (parse_gre_header(skb, &tpi, &csum_err) < 0)
-+	hdr_len = parse_gre_header(skb, &tpi, &csum_err);
-+	if (hdr_len < 0)
-+		goto drop;
-+	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false) < 0)
- 		goto drop;
- 
- 	if (ipgre_rcv(skb, &tpi) == PACKET_RCVD)
+I believe I could address all comments from the RFC attempt.
+
+Marcelo Ricardo Leitner (2):
+  skbuff: export skb_gro_receive
+  sctp: Add GSO support
+
+ include/linux/netdev_features.h |   7 +-
+ include/linux/netdevice.h       |   1 +
+ include/linux/skbuff.h          |   7 +
+ include/net/sctp/sctp.h         |   4 +
+ include/net/sctp/structs.h      |   2 +
+ net/core/skbuff.c               |  11 +-
+ net/ipv4/af_inet.c              |   1 +
+ net/sctp/Makefile               |   3 +-
+ net/sctp/offload.c              |  98 +++++++++++
+ net/sctp/output.c               | 348 +++++++++++++++++++++++++++-------------
+ net/sctp/protocol.c             |   3 +
+ net/sctp/socket.c               |   2 +
+ 12 files changed, 366 insertions(+), 121 deletions(-)
+ create mode 100644 net/sctp/offload.c
+
 -- 
-1.8.3.1
+2.5.0
