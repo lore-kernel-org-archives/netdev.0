@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v3 net-next 3/7] dccp: do not assume DCCP code is non preemptible
-Date: Fri, 29 Apr 2016 14:16:49 -0700
-Message-ID: <1461964613-4872-4-git-send-email-edumazet@google.com>
+Subject: [PATCH v3 net-next 7/7] tcp: make tcp_sendmsg() aware of socket backlog
+Date: Fri, 29 Apr 2016 14:16:53 -0700
+Message-ID: <1461964613-4872-8-git-send-email-edumazet@google.com>
 References: <1461964613-4872-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
@@ -11,83 +11,126 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35528 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791AbcD2VRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 17:17:09 -0400
-Received: by mail-pa0-f41.google.com with SMTP id iv1so50197581pac.2
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 14:17:04 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33751 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752652AbcD2VRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 17:17:13 -0400
+Received: by mail-pa0-f46.google.com with SMTP id zm5so55825211pac.0
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 14:17:13 -0700 (PDT)
 In-Reply-To: <1461964613-4872-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DCCP uses the generic backlog code, and this will soon
-be changed to not disable BH when protocol is called back.
+Large sendmsg()/write() hold socket lock for the duration of the call,
+unless sk->sk_sndbuf limit is hit. This is bad because incoming packets
+are parked into socket backlog for a long time.
+Critical decisions like fast retransmit might be delayed.
+Receivers have to maintain a big out of order queue with additional cpu
+overhead, and also possible stalls in TX once windows are full.
+
+Bidirectional flows are particularly hurt since the backlog can become
+quite big if the copy from user space triggers IO (page faults)
+
+Some applications learnt to use sendmsg() (or sendmmsg()) with small
+chunks to avoid this issue.
+
+Kernel should know better, right ?
+
+Add a generic sk_flush_backlog() helper and use it right
+before a new skb is allocated. Typically we put 64KB of payload
+per skb (unless MSG_EOR is requested) and checking socket backlog
+every 64KB gives good results.
+
+As a matter of fact, tests with TSO/GSO disabled give very nice
+results, as we manage to keep a small write queue and smaller
+perceived rtt.
+
+Note that sk_flush_backlog() maintains socket ownership,
+so is not equivalent to a {release_sock(sk); lock_sock(sk);},
+to ensure implicit atomicity rules that sendmsg() was
+giving to (possibly buggy) applications.
+
+In this simple implementation, I chose to not call tcp_release_cb(),
+but we might consider this later.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- net/dccp/input.c   | 2 +-
- net/dccp/ipv4.c    | 4 ++--
- net/dccp/ipv6.c    | 4 ++--
- net/dccp/options.c | 2 +-
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ include/net/sock.h | 11 +++++++++++
+ net/core/sock.c    |  7 +++++++
+ net/ipv4/tcp.c     |  8 ++++++--
+ 3 files changed, 24 insertions(+), 2 deletions(-)
 
-diff --git a/net/dccp/input.c b/net/dccp/input.c
-index 2437ecc13b82..ba347184bda9 100644
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -359,7 +359,7 @@ send_sync:
- 		goto discard;
- 	}
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 3df778ccaa82..1dbb1f9f7c1b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -926,6 +926,17 @@ void sk_stream_kill_queues(struct sock *sk);
+ void sk_set_memalloc(struct sock *sk);
+ void sk_clear_memalloc(struct sock *sk);
  
--	__DCCP_INC_STATS(DCCP_MIB_INERRS);
-+	DCCP_INC_STATS(DCCP_MIB_INERRS);
- discard:
- 	__kfree_skb(skb);
- 	return 0;
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index a8164272e0f4..5c7e413a3ae4 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -533,8 +533,8 @@ static void dccp_v4_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
- 	bh_unlock_sock(ctl_sk);
++void __sk_flush_backlog(struct sock *sk);
++
++static inline bool sk_flush_backlog(struct sock *sk)
++{
++	if (unlikely(READ_ONCE(sk->sk_backlog.tail))) {
++		__sk_flush_backlog(sk);
++		return true;
++	}
++	return false;
++}
++
+ int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb);
  
- 	if (net_xmit_eval(err) == 0) {
--		__DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
--		__DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
-+		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
-+		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
- 	}
- out:
- 	 dst_release(dst);
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 0f4eb4ea57a5..d176f4e66369 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -277,8 +277,8 @@ static void dccp_v6_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
- 	if (!IS_ERR(dst)) {
- 		skb_dst_set(skb, dst);
- 		ip6_xmit(ctl_sk, skb, &fl6, NULL, 0);
--		__DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
--		__DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
-+		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
-+		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
- 		return;
- 	}
+ struct request_sock_ops;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 70744dbb6c3f..f615e9391170 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2048,6 +2048,13 @@ static void __release_sock(struct sock *sk)
+ 	sk->sk_backlog.len = 0;
+ }
  
-diff --git a/net/dccp/options.c b/net/dccp/options.c
-index b82b7ee9a1d2..74d29c56c367 100644
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -253,7 +253,7 @@ out_nonsensical_length:
- 	return 0;
++void __sk_flush_backlog(struct sock *sk)
++{
++	spin_lock_bh(&sk->sk_lock.slock);
++	__release_sock(sk);
++	spin_unlock_bh(&sk->sk_lock.slock);
++}
++
+ /**
+  * sk_wait_data - wait for data to arrive at sk_receive_queue
+  * @sk:    sock to wait on
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4787f86ae64c..b945c2b046c5 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1136,11 +1136,12 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	/* This should be in poll */
+ 	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
  
- out_invalid_option:
--	__DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
-+	DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
- 	rc = DCCP_RESET_CODE_OPTION_ERROR;
- out_featneg_failed:
- 	DCCP_WARN("DCCP(%p): Option %d (len=%d) error=%u\n", sk, opt, len, rc);
+-	mss_now = tcp_send_mss(sk, &size_goal, flags);
+-
+ 	/* Ok commence sending. */
+ 	copied = 0;
+ 
++restart:
++	mss_now = tcp_send_mss(sk, &size_goal, flags);
++
+ 	err = -EPIPE;
+ 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
+ 		goto out_err;
+@@ -1166,6 +1167,9 @@ new_segment:
+ 			if (!sk_stream_memory_free(sk))
+ 				goto wait_for_sndbuf;
+ 
++			if (sk_flush_backlog(sk))
++				goto restart;
++
+ 			skb = sk_stream_alloc_skb(sk,
+ 						  select_size(sk, sg),
+ 						  sk->sk_allocation,
 -- 
 2.8.0.rc3.226.g39d4020
