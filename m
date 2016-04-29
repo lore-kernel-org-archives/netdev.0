@@ -1,471 +1,65 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Subject: [PATCH net-next 1/3] qed: add infrastructure for device self tests.
-Date: Thu, 28 Apr 2016 20:20:52 -0400
-Message-ID: <1461889254-10534-2-git-send-email-sudarsana.kalluru@qlogic.com>
-References: <1461889254-10534-1-git-send-email-sudarsana.kalluru@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/6] tcp: do not assume TCP code is non
+ preemptible
+Date: Thu, 28 Apr 2016 18:08:42 -0700
+Message-ID: <1461892122.5535.125.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461821152-23200-1-git-send-email-edumazet@google.com>
+	 <1461821152-23200-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
-	<Yuval.Mintz@qlogic.com>, <manish.chopra@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:59083 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752927AbcD2BDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 21:03:41 -0400
-In-Reply-To: <1461889254-10534-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:32980 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159AbcD2BIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 21:08:46 -0400
+Received: by mail-yw0-f181.google.com with SMTP id t10so156769817ywa.0
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 18:08:45 -0700 (PDT)
+In-Reply-To: <1461821152-23200-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the functionality and APIs needed for selftests.
-It adds the ability to configure the link-mode which is required for the
-implementation of loopback tests. It adds the APIs for clock test,
-register test, interrupt test and memory test.
+On Wed, 2016-04-27 at 22:25 -0700, Eric Dumazet wrote:
+> We want to to make TCP stack preemptible, as draining prequeue
+> and backlog queues can take lot of time.
+> 
+> Many SNMP updates were assuming that BH (and preemption) was disabled.
+> 
+> Need to convert some __NET_INC_STATS() calls to NET_INC_STATS()
+> and some __TCP_INC_STATS() to TCP_INC_STATS()
+> 
+> Before using this_cpu_ptr(net->ipv4.tcp_sk) in tcp_v4_send_reset()
+> and tcp_v4_send_ack(), we add an explicit preempt disabled section.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qed/Makefile          |  3 +-
- drivers/net/ethernet/qlogic/qed/qed_hsi.h         | 13 ++++
- drivers/net/ethernet/qlogic/qed/qed_main.c        | 28 +++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.c         | 42 +++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h         | 22 +++++++
- drivers/net/ethernet/qlogic/qed/qed_selftest.c    | 76 +++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_selftest.h    | 40 ++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_sp.h          | 10 +++
- drivers/net/ethernet/qlogic/qed/qed_sp_commands.c | 21 +++++++
- include/linux/qed/qed_if.h                        | 47 ++++++++++++++
- 10 files changed, 301 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_selftest.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_selftest.h
+I'll send a V2 including following changes I missed :
 
-diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
-index 5c2fd57..aafa669 100644
---- a/drivers/net/ethernet/qlogic/qed/Makefile
-+++ b/drivers/net/ethernet/qlogic/qed/Makefile
-@@ -1,4 +1,5 @@
- obj-$(CONFIG_QED) := qed.o
+I'll also include the sendmsg() latency breaker.
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 0509a685d90c..25d527922b18 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2698,7 +2698,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+                        tp->retrans_stamp = tcp_skb_timestamp(skb);
  
- qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
--	 qed_int.o qed_main.o qed_mcp.o qed_sp_commands.o qed_spq.o qed_l2.o
-+	 qed_int.o qed_main.o qed_mcp.o qed_sp_commands.o qed_spq.o qed_l2.o \
-+	 qed_selftest.o
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 5aa78a9..c4fae71 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -3857,6 +3857,7 @@ struct public_drv_mb {
- #define DRV_MSG_CODE_PHY_CORE_WRITE             0x000e0000
- #define DRV_MSG_CODE_SET_VERSION                0x000f0000
+        } else if (err != -EBUSY) {
+-               __NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
++               NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
+        }
  
-+#define DRV_MSG_CODE_BIST_TEST                  0x001e0000
- #define DRV_MSG_CODE_SET_LED_MODE               0x00200000
+        if (tp->undo_retrans < 0)
+@@ -2822,7 +2822,7 @@ begin_fwd:
+                if (tcp_retransmit_skb(sk, skb, segs))
+                        return;
  
- #define DRV_MSG_SEQ_NUMBER_MASK                 0x0000ffff
-@@ -3914,6 +3915,18 @@ struct public_drv_mb {
- #define DRV_MB_PARAM_SET_LED_MODE_ON            0x1
- #define DRV_MB_PARAM_SET_LED_MODE_OFF           0x2
+-               __NET_INC_STATS(sock_net(sk), mib_idx);
++               NET_INC_STATS(sock_net(sk), mib_idx);
  
-+#define DRV_MB_PARAM_BIST_UNKNOWN_TEST          0
-+#define DRV_MB_PARAM_BIST_REGISTER_TEST         1
-+#define DRV_MB_PARAM_BIST_CLOCK_TEST            2
-+
-+#define DRV_MB_PARAM_BIST_RC_UNKNOWN            0
-+#define DRV_MB_PARAM_BIST_RC_PASSED             1
-+#define DRV_MB_PARAM_BIST_RC_FAILED             2
-+#define DRV_MB_PARAM_BIST_RC_INVALID_PARAMETER          3
-+
-+#define DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT      0
-+#define DRV_MB_PARAM_BIST_TEST_INDEX_MASK       0x000000FF
-+
- 	u32 fw_mb_header;
- #define FW_MSG_CODE_MASK                        0xffff0000
- #define FW_MSG_CODE_DRV_LOAD_ENGINE             0x10100000
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 1918b83..1b758bd 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -28,6 +28,7 @@
- #include "qed_dev_api.h"
- #include "qed_mcp.h"
- #include "qed_hw.h"
-+#include "qed_selftest.h"
- 
- static char version[] =
- 	"QLogic FastLinQ 4xxxx Core Module qed " DRV_MODULE_VERSION "\n";
-@@ -976,6 +977,25 @@ static int qed_set_link(struct qed_dev *cdev,
- 		else
- 			link_params->pause.forced_tx = false;
- 	}
-+	if (params->override_flags & QED_LINK_OVERRIDE_LOOPBACK_MODE) {
-+		switch (params->loopback_mode) {
-+		case QED_LINK_LOOPBACK_INT_PHY:
-+			link_params->loopback_mode = PMM_LOOPBACK_INT_PHY;
-+			break;
-+		case QED_LINK_LOOPBACK_EXT_PHY:
-+			link_params->loopback_mode = PMM_LOOPBACK_EXT_PHY;
-+			break;
-+		case QED_LINK_LOOPBACK_EXT:
-+			link_params->loopback_mode = PMM_LOOPBACK_EXT;
-+			break;
-+		case QED_LINK_LOOPBACK_MAC:
-+			link_params->loopback_mode = PMM_LOOPBACK_MAC;
-+			break;
-+		default:
-+			link_params->loopback_mode = PMM_LOOPBACK_NONE;
-+			break;
-+		}
-+	}
- 
- 	rc = qed_mcp_set_link(hwfn, ptt, params->link_up);
- 
-@@ -1182,7 +1202,15 @@ static int qed_set_led(struct qed_dev *cdev, enum qed_led_mode mode)
- 	return status;
- }
- 
-+struct qed_selftest_ops qed_selftest_ops_pass = {
-+	.selftest_memory = &qed_selftest_memory,
-+	.selftest_interrupt = &qed_selftest_interrupt,
-+	.selftest_register = &qed_selftest_register,
-+	.selftest_clock = &qed_selftest_clock,
-+};
-+
- const struct qed_common_ops qed_common_ops_pass = {
-+	.selftest = &qed_selftest_ops_pass,
- 	.probe = &qed_probe,
- 	.remove = &qed_remove,
- 	.set_power_state = &qed_set_power_state,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index cb46dbd..2f8309d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -1017,3 +1017,45 @@ int qed_mcp_set_led(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 
- 	return rc;
- }
-+
-+int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 drv_mb_param = 0, rsp, param;
-+	int rc = 0;
-+
-+	drv_mb_param = (DRV_MB_PARAM_BIST_REGISTER_TEST <<
-+			DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT);
-+
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_BIST_TEST,
-+			 drv_mb_param, &rsp, &param);
-+
-+	if (rc)
-+		return rc;
-+
-+	if (((rsp & FW_MSG_CODE_MASK) != FW_MSG_CODE_OK) ||
-+	    (param != DRV_MB_PARAM_BIST_RC_PASSED))
-+		rc = -EAGAIN;
-+
-+	return rc;
-+}
-+
-+int qed_mcp_bist_clock_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 drv_mb_param, rsp, param;
-+	int rc = 0;
-+
-+	drv_mb_param = (DRV_MB_PARAM_BIST_CLOCK_TEST <<
-+			DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT);
-+
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_BIST_TEST,
-+			 drv_mb_param, &rsp, &param);
-+
-+	if (rc)
-+		return rc;
-+
-+	if (((rsp & FW_MSG_CODE_MASK) != FW_MSG_CODE_OK) ||
-+	    (param != DRV_MB_PARAM_BIST_RC_PASSED))
-+		rc = -EAGAIN;
-+
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index 608bcb2..5f218ee 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -245,6 +245,28 @@ int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
- 		    struct qed_ptt *p_ptt,
- 		    enum qed_led_mode mode);
- 
-+/**
-+ * @brief Bist register test
-+ *
-+ *  @param p_hwfn    - hw function
-+ *  @param p_ptt     - PTT required for register access
-+ *
-+ * @return int - 0 - operation was successful.
-+ */
-+int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn,
-+			       struct qed_ptt *p_ptt);
-+
-+/**
-+ * @brief Bist clock test
-+ *
-+ *  @param p_hwfn    - hw function
-+ *  @param p_ptt     - PTT required for register access
-+ *
-+ * @return int - 0 - operation was successful.
-+ */
-+int qed_mcp_bist_clock_test(struct qed_hwfn *p_hwfn,
-+			    struct qed_ptt *p_ptt);
-+
- /* Using hwfn number (and not pf_num) is required since in CMT mode,
-  * same pf_num may be used by two different hwfn
-  * TODO - this shouldn't really be in .h file, but until all fields
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.c b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-new file mode 100644
-index 0000000..a342bfe
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-@@ -0,0 +1,76 @@
-+#include "qed.h"
-+#include "qed_dev_api.h"
-+#include "qed_mcp.h"
-+#include "qed_sp.h"
-+
-+int qed_selftest_memory(struct qed_dev *cdev)
-+{
-+	int rc = 0, i;
-+
-+	for_each_hwfn(cdev, i) {
-+		rc = qed_sp_heartbeat_ramrod(&cdev->hwfns[i]);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	return rc;
-+}
-+
-+int qed_selftest_interrupt(struct qed_dev *cdev)
-+{
-+	int rc = 0, i;
-+
-+	for_each_hwfn(cdev, i) {
-+		rc = qed_sp_heartbeat_ramrod(&cdev->hwfns[i]);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	return rc;
-+}
-+
-+int qed_selftest_register(struct qed_dev *cdev)
-+{
-+	struct qed_hwfn *p_hwfn;
-+	struct qed_ptt *p_ptt;
-+	int rc = 0, i;
-+
-+	/* although performed by MCP, this test is per engine */
-+	for_each_hwfn(cdev, i) {
-+		p_hwfn = &cdev->hwfns[i];
-+		p_ptt = qed_ptt_acquire(p_hwfn);
-+		if (!p_ptt) {
-+			DP_ERR(p_hwfn, "failed to acquire ptt\n");
-+			return -EBUSY;
-+		}
-+		rc = qed_mcp_bist_register_test(p_hwfn, p_ptt);
-+		qed_ptt_release(p_hwfn, p_ptt);
-+		if (rc)
-+			break;
-+	}
-+
-+	return rc;
-+}
-+
-+int qed_selftest_clock(struct qed_dev *cdev)
-+{
-+	struct qed_hwfn *p_hwfn;
-+	struct qed_ptt *p_ptt;
-+	int rc = 0, i;
-+
-+	/* although performed by MCP, this test is per engine */
-+	for_each_hwfn(cdev, i) {
-+		p_hwfn = &cdev->hwfns[i];
-+		p_ptt = qed_ptt_acquire(p_hwfn);
-+		if (!p_ptt) {
-+			DP_ERR(p_hwfn, "failed to acquire ptt\n");
-+			return -EBUSY;
-+		}
-+		rc = qed_mcp_bist_clock_test(p_hwfn, p_ptt);
-+		qed_ptt_release(p_hwfn, p_ptt);
-+		if (rc)
-+			break;
-+	}
-+
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.h b/drivers/net/ethernet/qlogic/qed/qed_selftest.h
-new file mode 100644
-index 0000000..50eb0b49
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.h
-@@ -0,0 +1,40 @@
-+#ifndef _QED_SELFTEST_API_H
-+#define _QED_SELFTEST_API_H
-+#include <linux/types.h>
-+
-+/**
-+ * @brief qed_selftest_memory - Perform memory test
-+ *
-+ * @param cdev
-+ *
-+ * @return int
-+ */
-+int qed_selftest_memory(struct qed_dev *cdev);
-+
-+/**
-+ * @brief qed_selftest_interrupt - Perform interrupt test
-+ *
-+ * @param cdev
-+ *
-+ * @return int
-+ */
-+int qed_selftest_interrupt(struct qed_dev *cdev);
-+
-+/**
-+ * @brief qed_selftest_register - Perform register test
-+ *
-+ * @param cdev
-+ *
-+ * @return int
-+ */
-+int qed_selftest_register(struct qed_dev *cdev);
-+
-+/**
-+ * @brief qed_selftest_clock - Perform clock test
-+ *
-+ * @param cdev
-+ *
-+ * @return int
-+ */
-+int qed_selftest_clock(struct qed_dev *cdev);
-+#endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-index 4b91cb3..eec137f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-@@ -369,4 +369,14 @@ int qed_sp_pf_update_tunn_cfg(struct qed_hwfn *p_hwfn,
- 			      struct qed_tunn_update_params *p_tunn,
- 			      enum spq_mode comp_mode,
- 			      struct qed_spq_comp_cb *p_comp_data);
-+/**
-+ * @brief qed_sp_heartbeat_ramrod - Send empty Ramrod
-+ *
-+ * @param p_hwfn
-+ *
-+ * @return int
-+ */
-+
-+int qed_sp_heartbeat_ramrod(struct qed_hwfn *p_hwfn);
-+
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-index 7ccd96e..9f9bc10 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-@@ -428,3 +428,24 @@ int qed_sp_pf_stop(struct qed_hwfn *p_hwfn)
- 
- 	return qed_spq_post(p_hwfn, p_ent, NULL);
- }
-+
-+int qed_sp_heartbeat_ramrod(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_spq_entry *p_ent = NULL;
-+	struct qed_sp_init_data init_data;
-+	int rc;
-+
-+	/* Get SPQ entry */
-+	memset(&init_data, 0, sizeof(init_data));
-+	init_data.cid = qed_spq_get_cid(p_hwfn);
-+	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
-+	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
-+
-+	rc = qed_sp_init_request(p_hwfn, &p_ent,
-+				 COMMON_RAMROD_EMPTY, PROTOCOLID_COMMON,
-+				 &init_data);
-+	if (rc)
-+		return rc;
-+
-+	return qed_spq_post(p_hwfn, p_ent, NULL);
-+}
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index e5de42b..d72c832 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -110,6 +110,7 @@ struct qed_link_params {
- #define QED_LINK_OVERRIDE_SPEED_ADV_SPEEDS      BIT(1)
- #define QED_LINK_OVERRIDE_SPEED_FORCED_SPEED    BIT(2)
- #define QED_LINK_OVERRIDE_PAUSE_CONFIG          BIT(3)
-+#define QED_LINK_OVERRIDE_LOOPBACK_MODE         BIT(4)
- 	u32	override_flags;
- 	bool	autoneg;
- 	u32	adv_speeds;
-@@ -118,6 +119,12 @@ struct qed_link_params {
- #define QED_LINK_PAUSE_RX_ENABLE                BIT(1)
- #define QED_LINK_PAUSE_TX_ENABLE                BIT(2)
- 	u32	pause_config;
-+#define QED_LINK_LOOPBACK_NONE                  BIT(0)
-+#define QED_LINK_LOOPBACK_INT_PHY               BIT(1)
-+#define QED_LINK_LOOPBACK_EXT_PHY               BIT(2)
-+#define QED_LINK_LOOPBACK_EXT                   BIT(3)
-+#define QED_LINK_LOOPBACK_MAC                   BIT(4)
-+	u32	loopback_mode;
- };
- 
- struct qed_link_output {
-@@ -158,7 +165,47 @@ struct qed_common_cb_ops {
- 			       struct qed_link_output	*link);
- };
- 
-+struct qed_selftest_ops {
-+/**
-+ * @brief selftest_interrupt - Perform interrupt test
-+ *
-+ * @param cdev
-+ *
-+ * @return 0 on success, error otherwise.
-+ */
-+	int (*selftest_interrupt)(struct qed_dev *cdev);
-+
-+/**
-+ * @brief selftest_memory - Perform memory test
-+ *
-+ * @param cdev
-+ *
-+ * @return 0 on success, error otherwise.
-+ */
-+	int (*selftest_memory)(struct qed_dev *cdev);
-+
-+/**
-+ * @brief selftest_register - Perform register test
-+ *
-+ * @param cdev
-+ *
-+ * @return 0 on success, error otherwise.
-+ */
-+	int (*selftest_register)(struct qed_dev *cdev);
-+
-+/**
-+ * @brief selftest_clock - Perform clock test
-+ *
-+ * @param cdev
-+ *
-+ * @return 0 on success, error otherwise.
-+ */
-+	int (*selftest_clock)(struct qed_dev *cdev);
-+};
-+
- struct qed_common_ops {
-+	struct qed_selftest_ops *selftest;
-+
- 	struct qed_dev*	(*probe)(struct pci_dev *dev,
- 				 enum qed_protocol protocol,
- 				 u32 dp_module, u8 dp_level);
--- 
-1.8.3.1
+                if (tcp_in_cwnd_reduction(sk))
+                        tp->prr_out += tcp_skb_pcount(skb);
