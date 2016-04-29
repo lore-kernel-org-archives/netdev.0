@@ -1,55 +1,140 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net] ipv6/ila: fix nlsize calculation for lwtunnel
-Date: Fri, 29 Apr 2016 15:35:33 +0200
-Message-ID: <57236325.2000304@6wind.com>
-References: <1461340682-31568-1-git-send-email-nicolas.dichtel@6wind.com>
- <20160427.152053.2243888701043810040.davem@davemloft.net>
- <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
+ possible
+Date: Fri, 29 Apr 2016 09:36:37 -0400
+Message-ID: <20160429133637.GA31121@hmsreliant.think-freely.org>
+References: <20160413.230532.676746231426161126.davem@davemloft.net>
+ <20160414130324.GA6806@hmsreliant.think-freely.org>
+ <570FCCC1.6090504@gmail.com>
+ <20160414.145916.2286519059284215039.davem@davemloft.net>
+ <20160414200351.GA4632@hmsreliant.think-freely.org>
+ <20160414201900.GK15005@localhost.localdomain>
+ <20160428204659.GA2276@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	David.Laight@ACULAB.COM, jkbs@redhat.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36995 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753398AbcD2Nfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:35:36 -0400
-Received: by mail-wm0-f45.google.com with SMTP id a17so36854028wme.0
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 06:35:36 -0700 (PDT)
-In-Reply-To: <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54117 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753411AbcD2Ng6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:36:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20160428204659.GA2276@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 28/04/2016 18:07, Tom Herbert a =C3=A9crit :
-> On Wed, Apr 27, 2016 at 12:20 PM, David Miller <davem@davemloft.net> =
-wrote:
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> Date: Fri, 22 Apr 2016 17:58:02 +0200
->>
->>> The handler 'ila_fill_encap_info' adds one attribute: ILA_ATTR_LOCA=
-TOR.
->>>
->>> Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
->>> CC: Tom Herbert <tom@herbertland.com>
->>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>> ---
->>>
->>> Tom, when I read the comment, I feel I'm misssing something, but wh=
-at?
->>
->> Tom, seriously, please look at this.
->>
-> Yes, it is an issue. Need to do add size for ILA_ATTR_LOCATOR and
-> ILA_ATTR_CSUM_MODE. Also not we made ILA_ATTR_CSUM_MODE u64 in fill
-> encap info. I will send a path shortly.
-David, I saw that you didn't apply this patch. Note that Tom's patch is
-for net-next while this one is for net.
-I think that both patches are needed (and they will conflict after the =
-next merge).
+On Thu, Apr 28, 2016 at 05:46:59PM -0300, marcelo.leitner@gmail.com wrote:
+> On Thu, Apr 14, 2016 at 05:19:00PM -0300, marcelo.leitner@gmail.com wrote:
+> > On Thu, Apr 14, 2016 at 04:03:51PM -0400, Neil Horman wrote:
+> > > On Thu, Apr 14, 2016 at 02:59:16PM -0400, David Miller wrote:
+> > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > Date: Thu, 14 Apr 2016 14:00:49 -0300
+> > > > 
+> > > > > Em 14-04-2016 10:03, Neil Horman escreveu:
+> > > > >> On Wed, Apr 13, 2016 at 11:05:32PM -0400, David Miller wrote:
+> > > > >>> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > > > >>> Date: Fri,  8 Apr 2016 16:41:26 -0300
+> > > > >>>
+> > > > >>>> 1st patch is a preparation for the 2nd. The idea is to not call
+> > > > >>>> ->sk_data_ready() for every data chunk processed while processing
+> > > > >>>> packets but only once before releasing the socket.
+> > > > >>>>
+> > > > >>>> v2: patchset re-checked, small changelog fixes
+> > > > >>>> v3: on patch 2, make use of local vars to make it more readable
+> > > > >>>
+> > > > >>> Applied to net-next, but isn't this reduced overhead coming at the
+> > > > >>> expense of latency?  What if that lower latency is important to the
+> > > > >>> application and/or consumer?
+> > > > >> Thats a fair point, but I'd make the counter argument that, as it
+> > > > >> currently
+> > > > >> stands, any latency introduced (or removed), is an artifact of our
+> > > > >> implementation rather than a designed feature of it.  That is to say,
+> > > > >> we make no
+> > > > >> guarantees at the application level regarding how long it takes to
+> > > > >> signal data
+> > > > >> readines from the time we get data off the wire, so I would rather see
+> > > > >> our
+> > > > >> throughput raised if we can, as thats been sctp's more pressing
+> > > > >> achilles heel.
+> > > > >>
+> > > > >>
+> > > > >> Thats not to say I'd like to enable lower latency, but I'd rather have
+> > > > >> this now,
+> > > > >> and start pondering how to design that in.  Perhaps we can convert the
+> > > > >> pending
+> > > > >> flag to a counter to count the number of events we enqueue, and call
+> > > > >> sk_data_ready every  time we reach a sysctl defined threshold.
+> > > > > 
+> > > > > That and also that there is no chance of the application reading the
+> > > > > first chunks before all current ToDo's are performed by either the bh
+> > > > > or backlog handlers for that packet. Socket lock won't be cycled in
+> > > > > between chunks so the application is going to wait all the processing
+> > > > > one way or another.
+> > > > 
+> > > > But it takes time to signal the wakeup to the remote cpu the process
+> > > > was running on, schedule out the current process on that cpu (if it
+> > > > has in fact lost it's timeslice), and then finally look at the socket
+> > > > queue.
+> > > > 
+> > > > Of course this is all assuming the process was sleeping in the first
+> > > > place, either in recv or more likely poll.
+> > > > 
+> > > > I really think signalling early helps performance.
+> > > > 
+> > > 
+> > > Early, yes, often, not so much :).  Perhaps what would be adventageous would be
+> > > to signal at the start of a set of enqueues, rather than at the end.  That would
+> > > be equivalent in terms of not signaling more than needed, but would eliminate
+> > > the signaling on every chunk.   Perhaps what you could do Marcelo would be to
+> > > change the sense of the signal_ready flag to be a has_signaled flag.  e.g. call
+> > > sk_data_ready in ulp_event_tail like we used to, but only if the has_signaled
+> > > flag isn't set, then set the flag, and clear it at the end of the command
+> > > interpreter.
+> > > 
+> > > That would be a best of both worlds solution, as long as theres no chance of
+> > > race with user space reading from the socket before we were done enqueuing (i.e.
+> > > you have to guarantee that the socket lock stays held, which I think we do).
+> > 
+> > That is my feeling too. Will work on it. Thanks :-)
+> 
+> I did the change and tested it on real machines set all for performance.
+> I couldn't spot any difference between both implementations.
+> 
+> Set RSS and queue irq affinity for a cpu and taskset netperf and another
+> app I wrote to run on another cpu. It hits socket backlog quite often
+> but still do direct processing every now and then.
+> 
+> With current state, netperf, scenario above. Results of perf sched
+> record for the CPUs in use, reported by perf sched latency:
+> 
+>   Task                  |   Runtime ms  | Switches | Average delay ms |
+>   Maximum delay ms | Maximum delay at       |
+>   netserver:3205        |   9999.490 ms |       10 | avg:    0.003 ms |
+>   max:    0.004 ms | max at:  69087.753356 s
+> 
+> another run
+>   netserver:3483        |   9999.412 ms |       15 | avg:    0.003 ms |
+>   max:    0.004 ms | max at:  69194.749814 s
+> 
+> With the patch below, same test:
+>   netserver:2643        |  10000.110 ms |       14 | avg:    0.003 ms |
+>   max:    0.004 ms | max at:    172.006315 s
+> 
+> another run:
+>   netserver:2698        |  10000.049 ms |       15 | avg:    0.003 ms |
+>   max:    0.004 ms | max at:    368.061672 s
+> 
+> I'll be happy to do more tests if you have any suggestions on how/what
+> to test.
+> 
+> ---8<---
+>  
+I think this looks reasonable, but can you post it properly please, as a patch
+against the head of teh net-next tree, rather than a diff from your previous
+work (which wasn't comitted)
 
-
-Regards,
-Nicolas
+Thanks!
+Neil
