@@ -1,45 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/2] net: ethernet: enc28j60: small
- improvements
-Date: Fri, 29 Apr 2016 16:23:17 -0400 (EDT)
-Message-ID: <20160429.162317.643995306941650386.davem@davemloft.net>
-References: <1461873975-6368-1-git-send-email-mhei@heimpold.de>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 00/11] Mellanox 100G extending mlx5 ethtool support
+Date: Fri, 29 Apr 2016 23:27:06 +0300
+Message-ID: <CALzJLG_a4s54MwCzOHMeCp0i5F5pyb-PHY_AFA-ok2JT5S62wQ@mail.gmail.com>
+References: <1461527516-29290-1-git-send-email-saeedm@mellanox.com>
+ <20160426.160301.938979848864279754.davem@davemloft.net> <CALzJLG-BJvB7h2wAOqy8ibDdkw7Croaiy7+QU9izrcivuS1yOg@mail.gmail.com>
+ <20160426.174150.2239494413467110.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jic23@kernel.org, afd@ti.com, broonie@kernel.org,
-	netdev@vger.kernel.org
-To: mhei@heimpold.de
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55832 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463AbcD2UXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 16:23:19 -0400
-In-Reply-To: <1461873975-6368-1-git-send-email-mhei@heimpold.de>
+Received: from mail-yw0-f170.google.com ([209.85.161.170]:33301 "EHLO
+	mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752781AbcD2U10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 16:27:26 -0400
+Received: by mail-yw0-f170.google.com with SMTP id t10so209038010ywa.0
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 13:27:26 -0700 (PDT)
+In-Reply-To: <20160426.174150.2239494413467110.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Heimpold <mhei@heimpold.de>
-Date: Thu, 28 Apr 2016 22:06:13 +0200
+On Wed, Apr 27, 2016 at 12:41 AM, David Miller <davem@davemloft.net> wrote:
+> From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+> Date: Tue, 26 Apr 2016 23:55:03 +0300
+>
+>> It will be a nightmare to rollback in such case.  What if the rollback failed ?
+>
+> It is absolutely essential to handle this properly.
+>
+> Which means you must have a prepare/commit model, wherein the prepare
+> phase makes sure to pre-allocate all necessary resources, and only if
+> all the prepare phase preparations succeed will the commit phase run.
+>
+> The commit phase cannot error, because all of the resources have been
+> allocated successfully already.
+>
+> This way there are no issues of "rolling back" because you never
+> actually move the state forward until you can guarantee that you can
+> do everything.
 
-> This series of two patches adds the following improvements to the driver:
-> 
-> 1) Rework the central SPI read function so that it is compatible with
->    SPI masters which only support half duplex transfers.
-> 
-> 2) Add a device tree binding for the driver.
-> 
-> Changelog:
-> 
-> v3: * renamed and improved binding documentation as
->       suggested by Rob Herring
-> 
-> v2: * took care of Arnd Bergmann's review comments
->       - allow to specify MAC address via DT
->       - unconditionally define DT id table
->     * increased the driver version minor number
->     * driver author's email address bounces, removed from address list
-> 
-> v1: * Initial submission
+Right, for pure software/kernel resources this is the right way to go,
+Actually we already have a patch that is similar of what you described,
+we are aiming to push it towards 4.8.
 
-Series applied, thanks.
+but my concerns is when features A and B requires firmware commands A then B
+and firmware command B fails, there is no gurantee that roll back for
+firmware command A will work.
+
+this is why in case of B fails we keep the state (new A and prev B)
+rather than try to go back to (prev A and prev B).
