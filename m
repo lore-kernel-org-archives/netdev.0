@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 7/7] tcp: make tcp_sendmsg() aware of socket backlog
-Date: Thu, 28 Apr 2016 20:10:49 -0700
-Message-ID: <1461899449-8096-8-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 4/7] udp: prepare for non BH masking at backlog processing
+Date: Thu, 28 Apr 2016 20:10:46 -0700
+Message-ID: <1461899449-8096-5-git-send-email-edumazet@google.com>
 References: <1461899449-8096-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
@@ -11,126 +11,58 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35398 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819AbcD2DLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:11:11 -0400
-Received: by mail-pa0-f42.google.com with SMTP id iv1so40037300pac.2
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:11:11 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33092 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752817AbcD2DLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:11:04 -0400
+Received: by mail-pa0-f44.google.com with SMTP id zm5so44526628pac.0
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:11:03 -0700 (PDT)
 In-Reply-To: <1461899449-8096-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Large sendmsg()/write() hold socket lock for the duration of the call,
-unless sk->sk_sndbuf limit is hit. This is bad because incoming packets
-are parked into socket backlog for a long time.
-Critical decisions like fast retransmit might be delayed.
-Receivers have to maintain a big out of order queue with additional cpu
-overhead, and also possible stalls in TX once windows are full.
+UDP uses the generic socket backlog code, and this will soon
+be changed to not disable BH when protocol is called back.
 
-Bidirectional flows are particularly hurt since the backlog can become
-quite big if the copy from user space triggers IO (page faults)
-
-Some applications learnt to use sendmsg() (or sendmmsg()) with small
-chunks to avoid this issue.
-
-Kernel should know better, right ?
-
-Add a generic sk_flush_backlog() helper and use it right
-before a new skb is allocated. Typically we put 64KB of payload
-per skb (unless MSG_EOR is requested) and checking socket backlog
-every 64KB gives good results.
-
-As a matter of fact, tests with TSO/GSO disabled give very nice
-results, as we manage to keep a small write queue and smaller
-perceived rtt.
-
-Note that sk_flush_backlog() maintains socket ownership,
-so is not equivalent to a {release_sock(sk); lock_sock(sk);},
-to ensure implicit atomicity rules that sendmsg() was
-giving to (possibly buggy) applications.
-
-In this simple implementation, I chose to not call tcp_release_cb(),
-but we might consider this later.
+We need to use appropriate SNMP accessors.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Soheil Hassas Yeganeh <soheil@google.com>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- include/net/sock.h | 11 +++++++++++
- net/core/sock.c    |  7 +++++++
- net/ipv4/tcp.c     |  8 ++++++--
- 3 files changed, 24 insertions(+), 2 deletions(-)
+ net/ipv4/udp.c | 4 ++--
+ net/ipv6/udp.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3df778ccaa82..1dbb1f9f7c1b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -926,6 +926,17 @@ void sk_stream_kill_queues(struct sock *sk);
- void sk_set_memalloc(struct sock *sk);
- void sk_clear_memalloc(struct sock *sk);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 093284c5c03b..f67f52ba4809 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1514,9 +1514,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
  
-+void __sk_flush_backlog(struct sock *sk);
-+
-+static inline bool sk_flush_backlog(struct sock *sk)
-+{
-+	if (unlikely(READ_ONCE(sk->sk_backlog.tail))) {
-+		__sk_flush_backlog(sk);
-+		return true;
-+	}
-+	return false;
-+}
-+
- int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb);
+ 		/* Note that an ENOMEM error is charged twice */
+ 		if (rc == -ENOMEM)
+-			__UDP_INC_STATS(sock_net(sk), UDP_MIB_RCVBUFERRORS,
++			UDP_INC_STATS(sock_net(sk), UDP_MIB_RCVBUFERRORS,
+ 					is_udplite);
+-		__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
++		UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 		kfree_skb(skb);
+ 		trace_udp_fail_queue_rcv_skb(rc, sk);
+ 		return -1;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 1ba5a74ac18f..f911c63f79e6 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -570,9 +570,9 @@ static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
  
- struct request_sock_ops;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 70744dbb6c3f..f615e9391170 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2048,6 +2048,13 @@ static void __release_sock(struct sock *sk)
- 	sk->sk_backlog.len = 0;
- }
- 
-+void __sk_flush_backlog(struct sock *sk)
-+{
-+	spin_lock_bh(&sk->sk_lock.slock);
-+	__release_sock(sk);
-+	spin_unlock_bh(&sk->sk_lock.slock);
-+}
-+
- /**
-  * sk_wait_data - wait for data to arrive at sk_receive_queue
-  * @sk:    sock to wait on
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 4787f86ae64c..b945c2b046c5 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1136,11 +1136,12 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 	/* This should be in poll */
- 	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
- 
--	mss_now = tcp_send_mss(sk, &size_goal, flags);
--
- 	/* Ok commence sending. */
- 	copied = 0;
- 
-+restart:
-+	mss_now = tcp_send_mss(sk, &size_goal, flags);
-+
- 	err = -EPIPE;
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
- 		goto out_err;
-@@ -1166,6 +1167,9 @@ new_segment:
- 			if (!sk_stream_memory_free(sk))
- 				goto wait_for_sndbuf;
- 
-+			if (sk_flush_backlog(sk))
-+				goto restart;
-+
- 			skb = sk_stream_alloc_skb(sk,
- 						  select_size(sk, sg),
- 						  sk->sk_allocation,
+ 		/* Note that an ENOMEM error is charged twice */
+ 		if (rc == -ENOMEM)
+-			__UDP6_INC_STATS(sock_net(sk),
++			UDP6_INC_STATS(sock_net(sk),
+ 					 UDP_MIB_RCVBUFERRORS, is_udplite);
+-		__UDP6_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
++		UDP6_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 		kfree_skb(skb);
+ 		return -1;
+ 	}
 -- 
 2.8.0.rc3.226.g39d4020
