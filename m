@@ -1,54 +1,161 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 3/3] dtb: xgene: Add channel property
-Date: Fri, 29 Apr 2016 11:10:15 -0700
-Message-ID: <1461953415-9741-4-git-send-email-isubramanian@apm.com>
-References: <1461953415-9741-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
+Date: Fri, 29 Apr 2016 20:11:02 +0200
+Message-ID: <5723A3B6.3060004@denx.de>
+References: <1461892155-10524-1-git-send-email-marex@denx.de> <86212055-7d15-ab11-4998-72c04af2426d@cogentembedded.com> <5723493C.1040801@denx.de> <572381DA.5030607@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36385 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbcD2SJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 14:09:56 -0400
-Received: by mail-pa0-f54.google.com with SMTP id bt5so48189790pac.3
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 11:09:55 -0700 (PDT)
-In-Reply-To: <1461953415-9741-1-git-send-email-isubramanian@apm.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:57776 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbcD2SLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 14:11:10 -0400
+In-Reply-To: <572381DA.5030607@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added 'channel' property, describing ethernet to CPU channel number.
+On 04/29/2016 05:46 PM, Sergei Shtylyov wrote:
+> Hello.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- arch/arm64/boot/dts/apm/apm-shadowcat.dtsi | 1 +
- arch/arm64/boot/dts/apm/apm-storm.dtsi     | 1 +
- 2 files changed, 2 insertions(+)
+Hi!
 
-diff --git a/arch/arm64/boot/dts/apm/apm-shadowcat.dtsi b/arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
-index a055a5d..ba04877 100644
---- a/arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
-+++ b/arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
-@@ -653,6 +653,7 @@
- 				     <0 113 4>,
- 				     <0 114 4>,
- 				     <0 115 4>;
-+			channel = <12>;
- 			port-id = <1>;
- 			dma-coherent;
- 			clocks = <&xge1clk 0>;
-diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
-index ae4a173..5147d76 100644
---- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
-@@ -993,6 +993,7 @@
- 				     <0x0 0x65 0x4>,
- 				     <0x0 0x66 0x4>,
- 				     <0x0 0x67 0x4>;
-+			channel = <0>;
- 			dma-coherent;
- 			clocks = <&xge0clk 0>;
- 			/* mac address will be overwritten by the bootloader */
+> On 04/29/2016 02:45 PM, Marek Vasut wrote:
+> 
+>>>     First of all, thank you for the patch!
+>>>     You beat me to it (and not only me). :-)
+>>
+>> Heh, hacking at night has it's perks :)
+> 
+>    I know, I'm just supposed to work on different things. :-)
+> 
+>>> On 4/29/2016 4:09 AM, Marek Vasut wrote:
+>>>
+>>>> Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
+>>>> ( phylib: don't return NULL from get_phy_device() ), phy_get_device()
+>>>
+>>>     scripts/checkpatch.pl now enforces certain commit citing style,
+>>> yours
+>>> doesn't quite match it.
+>>
+>> Ha, I didn't know that checkpatch can now warn about this too, nice. Is
+>> that in next already ? I just tried checkpatch and it doesn't warn
+>> about it.
+> 
+>    It's been merged long ago. Actually, I've just run this script from
+> the current Linus' tree on your patch, here's the results:
+
+Oh, got it now.
+
+> ERROR: Please use git commit description style 'commit <12+ chars of
+> sha1> ("<title line>")' - ie: 'commit fatal: bad o ("cc5d109451c0d5b17")'
+> #4:
+> Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
+> 
+> WARNING: 'immediatelly' may be misspelled - perhaps 'immediately'?
+> #23:
+> 'if (IS_ERR(phydev))' condition and the loop exits immediatelly if the
+> 
+> total: 1 errors, 1 warnings, 0 checks, 8 lines checked
+
+Ha, this is embarrassing .
+
+>> Anyway, regarding this format, do you want V2 ? Originally, I had the
+>> full commit info in the message, but that was just taking space and
+>> it is not the commit which is important in the message, so I trimmed
+>> it down.
+> 
+>    I'll let DaveM decide.
+
+OK
+
+>>>> will return ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is
+>>>> all ones.
+>>>>
+>>>> This causes problem with stmmac driver and likely some other drivers
+>>>> which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEVK
+>>>> board with linux-next 20160427 and 20160428. In case of the stmmac, if
+>>>> there is no PHY node specified in the DT for the stmmac block, the
+>>>> stmmac
+>>>> driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
+>>>> stmmac_mdio_register() ) will call mdiobus_register() , which will
+>>>> register the MDIO bus and probe for the PHY.
+>>>>
+>>>> The mdiobus_register() resp. __mdiobus_register() iterates over all of
+>>>> the addresses on the MDIO bus and calls mdiobus_scan() for each of
+>>>> them,
+>>>> which invokes get_phy_device(). Before the aforementioned patch, the
+>>>> mdiobus_scan() would return NULL if no PHY was found on a given address
+>>>> and mdiobus_register() would continue and try the next PHY address.
+>>>> Now,
+>>>> mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
+>>>> 'if (IS_ERR(phydev))' condition and the loop exits immediatelly if the
+>>>> PHY address does not contain PHY.
+>>>>
+>>>> Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if this
+>>>> error comes around, continue with the next PHY address.
+>>>>
+>>>> Signed-off-by: Marek Vasut <marex@denx.de>
+>>>> Cc: Arnd Bergmann <arnd@arndb.de>
+>>>> Cc: David S. Miller <davem@davemloft.net>
+>>>> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
+>>>> Cc: Florian Fainelli <f.fainelli@gmail.com>
+>>>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>
+>>> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>
+>>>> ---
+>>>>   drivers/net/phy/mdio_bus.c | 2 +-
+>>>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>
+>>>> NOTE: I don't quite like this explicit check , but I don't have better
+>>>> idea now.
+>>>
+>>>     It's fine. I was going to do just the same :-)
+>>
+>> OK, I'm glad I'm not alone on this one :)
+>>
+>>>> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+>>>> index 499003ee..388f992 100644
+>>>> --- a/drivers/net/phy/mdio_bus.c
+>>>> +++ b/drivers/net/phy/mdio_bus.c
+>>>> @@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, struct
+>>>> module *owner)
+>>>>               struct phy_device *phydev;
+>>>>
+>>>>               phydev = mdiobus_scan(bus, i);
+>>>> -            if (IS_ERR(phydev)) {
+>>>> +            if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV)) {
+>>>
+>>>     Parens around the second operand of && are not really needed
+>>> though...
+>>
+>> While I agree, I also prefer to make things obvious when reading the
+>> code by adding the parenthesis. It's a matter of taste I think. Just let
+>> me know if I should spin V2 without them :)
+> 
+>    Again, let DaveM decide. But I don't think the code being patched
+> uses parens in such cases... I wouldn't, for sure.
+> 
+>> Thanks for the review!
+> 
+>    You've saved me some work (but I still need to analyze the other call
+> paths).
+
+If there is something you want to test on the stmmac, let me know.
+
+>>> [...]
+> 
+> MBR, Sergei
+> 
+
+
 -- 
-1.9.1
+Best regards,
+Marek Vasut
