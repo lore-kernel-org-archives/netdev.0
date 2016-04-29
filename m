@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 2/9] gso: Only allow GSO_PARTIAL if we can
- checksum the inner protocol
-Date: Fri, 29 Apr 2016 15:43:15 -0700
-Message-ID: <20160429224315.12418.18131.stgit@ahduyck-xeon-server>
+Subject: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Fri, 29 Apr 2016 15:43:33 -0700
+Message-ID: <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
 References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,54 +11,64 @@ To: talal@mellanox.com, netdev@vger.kernel.org,
 	michael.chan@broadcom.com, davem@davemloft.net, galp@mellanox.com,
 	ogerlitz@mellanox.com, eranbe@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35807 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbcD2WnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 18:43:17 -0400
-Received: by mail-pf0-f172.google.com with SMTP id 77so21111588pfv.2
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 15:43:16 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33544 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651AbcD2Wnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 18:43:35 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 206so53941489pfu.0
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 15:43:35 -0700 (PDT)
 In-Reply-To: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch addresses a possible issue that can occur if we get into any odd
-corner cases where we support TSO for a given protocol but not the checksum
-or scatter-gather offload.  There are few drivers floating around that
-setup their tunnels this way and by enforcing the checksum piece we can
-avoid mangling any frames.
+This patch assumes that the mlx4 hardware will ignore existing IPv4/v6
+header fields for length and checksum as well as the length and checksum
+fields for outer UDP headers.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- net/core/skbuff.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7a1d48983f81..954741873877 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3080,8 +3080,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 	unsigned int headroom;
- 	unsigned int len = head_skb->len;
- 	__be16 proto;
--	bool csum;
--	int sg = !!(features & NETIF_F_SG);
-+	bool csum, sg;
- 	int nfrags = skb_shinfo(head_skb)->nr_frags;
- 	int err = -ENOMEM;
- 	int i = 0;
-@@ -3093,13 +3092,14 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 	if (unlikely(!proto))
- 		return ERR_PTR(-EINVAL);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 8bd143dda95d..bce37cbfde24 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2358,7 +2358,9 @@ out:
  
-+	sg = !!(features & NETIF_F_SG);
- 	csum = !!can_checksum_protocol(features, proto);
+ 	/* set offloads */
+ 	priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+-				      NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL;
++				      NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL |
++				      NETIF_F_GSO_UDP_TUNNEL_CSUM |
++				      NETIF_F_GSO_PARTIAL;
+ }
  
- 	/* GSO partial only requires that we trim off any excess that
- 	 * doesn't fit into an MSS sized block, so take care of that
- 	 * now.
- 	 */
--	if (features & NETIF_F_GSO_PARTIAL) {
-+	if (sg && csum && (features & NETIF_F_GSO_PARTIAL)) {
- 		partial_segs = len / mss;
- 		mss *= partial_segs;
+ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+@@ -2368,7 +2370,9 @@ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+ 						 vxlan_del_task);
+ 	/* unset offloads */
+ 	priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+-				      NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL);
++					NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL |
++					NETIF_F_GSO_UDP_TUNNEL_CSUM |
++					NETIF_F_GSO_PARTIAL);
+ 
+ 	ret = mlx4_SET_PORT_VXLAN(priv->mdev->dev, priv->port,
+ 				  VXLAN_STEER_BY_OUTER_MAC, 0);
+@@ -2992,8 +2996,13 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
  	}
+ 
+ 	if (mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
+-		dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+-		dev->features    |= NETIF_F_GSO_UDP_TUNNEL;
++		dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL |
++				    NETIF_F_GSO_UDP_TUNNEL_CSUM |
++				    NETIF_F_GSO_PARTIAL;
++		dev->features    |= NETIF_F_GSO_UDP_TUNNEL |
++				    NETIF_F_GSO_UDP_TUNNEL_CSUM |
++				    NETIF_F_GSO_PARTIAL;
++		dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
+ 	}
+ 
+ 	mdev->pndev[port] = dev;
