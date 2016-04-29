@@ -1,73 +1,103 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 2/5] mlx5: Add support for UDP tunnel segmentation
- with outer checksum offload
-Date: Thu, 28 Apr 2016 18:59:47 -0700
-Message-ID: <CAKgT0UeGJY0kntN6KeXmqZEY3k=uND4RXY+RG94q0Da2Tt2rWg@mail.gmail.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
-	<20160419190603.11723.31623.stgit@ahduyck-xeon-server>
-	<CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
-	<CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
-	<800B6BE4-251F-4AA5-92FC-3A9393E7981E@mellanox.com>
-	<CAKgT0UfsB+CbsCjerxDYkWgdGN01vmf4=VJRLEarFO4_nf-pow@mail.gmail.com>
-	<49111DBA-CDD6-4D19-9D2D-D6E29675A28F@mellanox.com>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
+Date: Fri, 29 Apr 2016 04:10:49 +0200
+Message-ID: <5722C2A9.7090308@denx.de>
+References: <1461892155-10524-1-git-send-email-marex@denx.de> <5722BDBB.40606@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Matthew Finlay <Matt@mellanox.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:36153 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751657AbcD2B7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 21:59:48 -0400
-Received: by mail-ig0-f170.google.com with SMTP id u10so9635006igr.1
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 18:59:47 -0700 (PDT)
-In-Reply-To: <49111DBA-CDD6-4D19-9D2D-D6E29675A28F@mellanox.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:36325 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752244AbcD2CKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 22:10:52 -0400
+In-Reply-To: <5722BDBB.40606@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2016 at 6:18 PM, Matthew Finlay <Matt@mellanox.com> wrote:
->
->
->
->
->
->>>
->>> The mlx5 hardware requires the outer UDP checksum is not set when offloading encapsulated packets.
+On 04/29/2016 03:49 AM, Florian Fainelli wrote:
+> Le 28/04/2016 18:09, Marek Vasut a =C3=A9crit :
+>> Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
+>> ( phylib: don't return NULL from get_phy_device() ), phy_get_device(=
+)
+>> will return ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is
+>> all ones.
 >>
->>The Intel documentation said the same thing.  That was due to the fact
->>that the hardware didn't computer the outer UDP header checksum.  I
->>suspect the Mellanox hardware has the same issue.  Also I have tested
->>on a ConnectX-4 board with the latest firmware and what I am seeing is
->>that with my patches applied the outer checksum is being correctly
->>applied for segmentation offloads.
+>> This causes problem with stmmac driver and likely some other drivers
+>> which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEV=
+K
+>> board with linux-next 20160427 and 20160428. In case of the stmmac, =
+if
+>> there is no PHY node specified in the DT for the stmmac block, the s=
+tmmac
+>> driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
+>> stmmac_mdio_register() ) will call mdiobus_register() , which will
+>> register the MDIO bus and probe for the PHY.
 >>
->>My thought is that that the hardware appears to ignore the UDP
->>checksum so if it is non-zero you cannot guarantee the checksum would
->>be correct on the last frame if it is a different size than the rest
->>of the segments.  In the case of these patches that issue has been
->>resolved as I have precomputed the UDP checksum for the outer UDP
->>header and all of the segments will be the same length so there should
->>be no variation in the UDP checksum of the outer header.  Unless you
->>can tell my exactly the reason why we cannot provide the outer UDP
->>checksum I would assume that the reason is due to the fact that the
->>hardware doesn't compute it so you cannot handle a fragment on the end
->>which is resolved already via GSO_PARTIAL.
->
-> I will check internally and verify there are no unforeseen issues with setting the outer UDP checksum in this scenario.
+>> The mdiobus_register() resp. __mdiobus_register() iterates over all =
+of
+>> the addresses on the MDIO bus and calls mdiobus_scan() for each of t=
+hem,
+>> which invokes get_phy_device(). Before the aforementioned patch, the
+>> mdiobus_scan() would return NULL if no PHY was found on a given addr=
+ess
+>> and mdiobus_register() would continue and try the next PHY address. =
+Now,
+>> mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
+>> 'if (IS_ERR(phydev))' condition and the loop exits immediatelly if t=
+he
+>> PHY address does not contain PHY.
+>>
+>> Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if t=
+his
+>> error comes around, continue with the next PHY address.
+>>
+>> Signed-off-by: Marek Vasut <marex@denx.de>
+>> Cc: Arnd Bergmann <arnd@arndb.de>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
+>> Cc: Florian Fainelli <f.fainelli@gmail.com>
+>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>=20
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+>=20
+> I had an exact same patch posted yesterday but not formally like you
+> did, thanks!
 
-Thanks.  Any idea how long it should be.  I know I was getting a
-auto-reply about people being out until May 1st due to a holiday so I
-am just wondering if we should have Dave drop this patch set and I
-submit a v2 when you can get me the feedback next week, or if we run
-with the patches as-is for now and be prepared to revert if anything
-should come up.
+Ah, my google-fu must be weak tonight. Thanks!
 
-- Alex
+>> ---
+>>  drivers/net/phy/mdio_bus.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> NOTE: I don't quite like this explicit check , but I don't have bett=
+er idea now.
+>>
+>> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+>> index 499003ee..388f992 100644
+>> --- a/drivers/net/phy/mdio_bus.c
+>> +++ b/drivers/net/phy/mdio_bus.c
+>> @@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, stru=
+ct module *owner)
+>>  			struct phy_device *phydev;
+>> =20
+>>  			phydev =3D mdiobus_scan(bus, i);
+>> -			if (IS_ERR(phydev)) {
+>> +			if (IS_ERR(phydev) && (PTR_ERR(phydev) !=3D -ENODEV)) {
+>>  				err =3D PTR_ERR(phydev);
+>>  				goto error;
+>>  			}
+>>
+>=20
+>=20
+
+
+--=20
+Best regards,
+Marek Vasut
