@@ -1,61 +1,58 @@
-From: Matthew Finlay <Matt@Mellanox.com>
-Subject: Re: [RFC PATCH 2/5] mlx5: Add support for UDP tunnel segmentation
- with outer checksum offload
-Date: Fri, 29 Apr 2016 01:18:23 +0000
-Message-ID: <49111DBA-CDD6-4D19-9D2D-D6E29675A28F@mellanox.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
- <20160419190603.11723.31623.stgit@ahduyck-xeon-server>
- <CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
- <CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
- <800B6BE4-251F-4AA5-92FC-3A9393E7981E@mellanox.com>
- <CAKgT0UfsB+CbsCjerxDYkWgdGN01vmf4=VJRLEarFO4_nf-pow@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"Bruce W Allan" <bruce.w.allan@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+Subject: [PATCH] tipc: Only process unicast on intended node
+Date: Fri, 29 Apr 2016 13:35:18 +1200
+Message-ID: <1461893718-17404-1-git-send-email-hamish.martin@alliedtelesis.co.nz>
+Cc: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+To: jon.maloy@ericsson.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0071.outbound.protection.outlook.com ([157.56.112.71]:3563
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752352AbcD2B0a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2016 21:26:30 -0400
-In-Reply-To: <CAKgT0UfsB+CbsCjerxDYkWgdGN01vmf4=VJRLEarFO4_nf-pow@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <F1A9207A1B035C419D2932E4C637AB25@eurprd05.prod.outlook.com>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:42358 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751513AbcD2Bfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 21:35:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCg0KDQoNCj4+DQo+PiBUaGUgbWx4NSBoYXJkd2FyZSByZXF1aXJlcyB0aGUgb3V0ZXIgVURQ
-IGNoZWNrc3VtIGlzIG5vdCBzZXQgd2hlbiBvZmZsb2FkaW5nIGVuY2Fwc3VsYXRlZCBwYWNrZXRz
-Lg0KPg0KPlRoZSBJbnRlbCBkb2N1bWVudGF0aW9uIHNhaWQgdGhlIHNhbWUgdGhpbmcuICBUaGF0
-IHdhcyBkdWUgdG8gdGhlIGZhY3QNCj50aGF0IHRoZSBoYXJkd2FyZSBkaWRuJ3QgY29tcHV0ZXIg
-dGhlIG91dGVyIFVEUCBoZWFkZXIgY2hlY2tzdW0uICBJDQo+c3VzcGVjdCB0aGUgTWVsbGFub3gg
-aGFyZHdhcmUgaGFzIHRoZSBzYW1lIGlzc3VlLiAgQWxzbyBJIGhhdmUgdGVzdGVkDQo+b24gYSBD
-b25uZWN0WC00IGJvYXJkIHdpdGggdGhlIGxhdGVzdCBmaXJtd2FyZSBhbmQgd2hhdCBJIGFtIHNl
-ZWluZyBpcw0KPnRoYXQgd2l0aCBteSBwYXRjaGVzIGFwcGxpZWQgdGhlIG91dGVyIGNoZWNrc3Vt
-IGlzIGJlaW5nIGNvcnJlY3RseQ0KPmFwcGxpZWQgZm9yIHNlZ21lbnRhdGlvbiBvZmZsb2Fkcy4N
-Cj4NCj5NeSB0aG91Z2h0IGlzIHRoYXQgdGhhdCB0aGUgaGFyZHdhcmUgYXBwZWFycyB0byBpZ25v
-cmUgdGhlIFVEUA0KPmNoZWNrc3VtIHNvIGlmIGl0IGlzIG5vbi16ZXJvIHlvdSBjYW5ub3QgZ3Vh
-cmFudGVlIHRoZSBjaGVja3N1bSB3b3VsZA0KPmJlIGNvcnJlY3Qgb24gdGhlIGxhc3QgZnJhbWUg
-aWYgaXQgaXMgYSBkaWZmZXJlbnQgc2l6ZSB0aGFuIHRoZSByZXN0DQo+b2YgdGhlIHNlZ21lbnRz
-LiAgSW4gdGhlIGNhc2Ugb2YgdGhlc2UgcGF0Y2hlcyB0aGF0IGlzc3VlIGhhcyBiZWVuDQo+cmVz
-b2x2ZWQgYXMgSSBoYXZlIHByZWNvbXB1dGVkIHRoZSBVRFAgY2hlY2tzdW0gZm9yIHRoZSBvdXRl
-ciBVRFANCj5oZWFkZXIgYW5kIGFsbCBvZiB0aGUgc2VnbWVudHMgd2lsbCBiZSB0aGUgc2FtZSBs
-ZW5ndGggc28gdGhlcmUgc2hvdWxkDQo+YmUgbm8gdmFyaWF0aW9uIGluIHRoZSBVRFAgY2hlY2tz
-dW0gb2YgdGhlIG91dGVyIGhlYWRlci4gIFVubGVzcyB5b3UNCj5jYW4gdGVsbCBteSBleGFjdGx5
-IHRoZSByZWFzb24gd2h5IHdlIGNhbm5vdCBwcm92aWRlIHRoZSBvdXRlciBVRFANCj5jaGVja3N1
-bSBJIHdvdWxkIGFzc3VtZSB0aGF0IHRoZSByZWFzb24gaXMgZHVlIHRvIHRoZSBmYWN0IHRoYXQg
-dGhlDQo+aGFyZHdhcmUgZG9lc24ndCBjb21wdXRlIGl0IHNvIHlvdSBjYW5ub3QgaGFuZGxlIGEg
-ZnJhZ21lbnQgb24gdGhlIGVuZA0KPndoaWNoIGlzIHJlc29sdmVkIGFscmVhZHkgdmlhIEdTT19Q
-QVJUSUFMLg0KDQpJIHdpbGwgY2hlY2sgaW50ZXJuYWxseSBhbmQgdmVyaWZ5IHRoZXJlIGFyZSBu
-byB1bmZvcmVzZWVuIGlzc3VlcyB3aXRoIHNldHRpbmcgdGhlIG91dGVyIFVEUCBjaGVja3N1bSBp
-biB0aGlzIHNjZW5hcmlvLg0KDQo+DQo+LSBBbGV4DQo=
+We have observed complete lock up of broadcast-link transmission due to
+unacknowledged packets never being removed from the 'transmq' queue. This
+is traced to nodes having their ack field set beyond the sequence number
+of packets that have actually been transmitted to them.
+Consider an example where node 1 has sent 10 packets to node 2 on a
+link and node 3 has sent 20 packets to node 2 on another link. We
+see examples of an ack from node 2 destined for node 3 being treated as
+an ack from node 2 at node 1. This leads to the ack on the node 1 to node
+2 link being increased to 20 even though we have only sent 10 packets.
+When node 1 does get around to sending further packets, none of the
+packets with sequence numbers less than 21 are actually removed from the
+transmq.
+To resolve this we reinstate some code lost in commit d999297c3dbb ("tipc:
+reduce locking scope during packet reception") which ensures that only
+messages destined for the receiving node are processed by that node. This
+prevents the sequence numbers from getting out of sync and resolves the
+packet leakage, thereby resolving the broadcast-link transmission
+lock-ups we observed.
+
+Signed-off-by: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+Reviewed-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Reviewed-by: John Thompson <john.thompson@alliedtelesis.co.nz>
+---
+ net/tipc/node.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index ace178fd3850..e5dda495d4b6 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1460,6 +1460,11 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
+ 			return tipc_node_bc_rcv(net, skb, bearer_id);
+ 	}
+ 
++	/* Discard unicast link messages destined for another node */
++	if (unlikely(!msg_short(hdr) &&
++		     (msg_destnode(hdr) != tipc_own_addr(net))))
++		goto discard;
++
+ 	/* Locate neighboring node that sent packet */
+ 	n = tipc_node_find(net, msg_prevnode(hdr));
+ 	if (unlikely(!n))
+-- 
+2.8.1
