@@ -1,115 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv3] netem: Segment GSO packets on enqueue
-Date: Fri, 29 Apr 2016 11:09:26 -0700
-Message-ID: <1461953366.5535.152.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
-	 <1461951348-3920-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netem@lists.linux-foundation.org
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 1/3] drivers: net: xgene: Get channel number from device binding
+Date: Fri, 29 Apr 2016 11:10:13 -0700
+Message-ID: <1461953415-9741-2-git-send-email-isubramanian@apm.com>
+References: <1461953415-9741-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:33995 "EHLO
-	mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbcD2SJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 14:09:35 -0400
-Received: by mail-vk0-f51.google.com with SMTP id m188so1556001vka.1
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 11:09:30 -0700 (PDT)
-In-Reply-To: <1461951348-3920-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36378 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752554AbcD2SJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 14:09:54 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bt5so48189437pac.3
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 11:09:54 -0700 (PDT)
+In-Reply-To: <1461953415-9741-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-29 at 13:35 -0400, Neil Horman wrote:
-> This was recently reported to me, and reproduced on the latest net kernel, when
-> attempting to run netperf from a host that had a netem qdisc attached to the
-> egress interface:
-> 
+This patch gets ethernet to CPU channel (prefetch buffer number) from
+the newly added 'channel' property, thus decoupling Linux driver from
+resource management.
 
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
->  /*
->   * Insert one skb into qdisc.
->   * Note: parent depends on return value to account for queue length.
-> @@ -407,7 +426,11 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  	/* We don't fill cb now as skb_unshare() may invalidate it */
->  	struct netem_skb_cb *cb;
->  	struct sk_buff *skb2;
-> +	struct sk_buff *segs = NULL;
-> +	unsigned int len = 0, prev_len = qdisc_pkt_len(skb);
-> +	int nb = 0;
->  	int count = 1;
-> +	int rc = NET_XMIT_SUCCESS;
->  
->  	/* Random duplication */
->  	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor))
-> @@ -453,10 +476,22 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  	 * do it now in software before we mangle it.
->  	 */
->  	if (q->corrupt && q->corrupt >= get_crandom(&q->corrupt_cor)) {
-> +		if (skb_is_gso(skb)) {
-> +			segs = netem_segment(skb, sch);
-> +			if (!segs)
-> +				return NET_XMIT_DROP;
-> +		} else
-> +			segs = skb;
-> +
-> +		skb = segs;
-> +		segs = segs->next;
-> +
->  		if (!(skb = skb_unshare(skb, GFP_ATOMIC)) ||
->  		    (skb->ip_summed == CHECKSUM_PARTIAL &&
-> -		     skb_checksum_help(skb)))
-> -			return qdisc_drop(skb, sch);
-> +		     skb_checksum_help(skb))) {
-> +			rc = qdisc_drop(skb, sch);
-> +			goto finish_segs;
-> +		}
->  
->  		skb->data[prandom_u32() % skb_headlen(skb)] ^=
->  			1<<(prandom_u32() % 8);
-> @@ -516,7 +551,26 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		sch->qstats.requeues++;
->  	}
->  
-> -	return NET_XMIT_SUCCESS;
-> +finish_segs:
-> +	if (segs) {
-> +		while (segs) {
-> +			skb2 = segs->next;
-> +			segs->next = NULL;
-> +			qdisc_skb_cb(segs)->pkt_len = segs->len;
-> +			len += segs->len;
-
-Wrong operation if packet is dropped by qdisc_enqueue() ?
-
-I would use
- u32 last_len = segs->len;
-
-> +			rc = qdisc_enqueue(segs, sch);
-> +			if (rc != NET_XMIT_SUCCESS) {
-> +				if (net_xmit_drop_count(rc))
-> +					qdisc_qstats_drop(sch);
-> +			} else
-
-   } else {
-        nb++;
-        len += last_len;
-   }
-
-> +				nb++;
-> +			segs = skb2;
-> +		}
-> +		sch->q.qlen += nb;
-> +		if (nb > 1)
-> +			qdisc_tree_reduce_backlog(sch, 1 - nb, prev_len - len);
-> +	}
-> +	return rc;
-
-Seems you should return NET_XMIT_SUCCESS instead of status of last
-segment ?
-
->  }
-
-Thanks.
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 8d4c1ad..409152b 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -973,6 +973,17 @@ static enum xgene_ring_owner xgene_derive_ring_owner(struct xgene_enet_pdata *p)
+ 	return owner;
+ }
+ 
++static u8 xgene_start_cpu_bufnum(struct xgene_enet_pdata *pdata)
++{
++	struct device *dev = &pdata->pdev->dev;
++	u32 cpu_bufnum;
++	int ret;
++
++	ret = device_property_read_u32(dev, "channel", &cpu_bufnum);
++
++	return (!ret) ? cpu_bufnum : pdata->cpu_bufnum;
++}
++
+ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+@@ -981,13 +992,15 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ 	struct xgene_enet_desc_ring *buf_pool = NULL;
+ 	enum xgene_ring_owner owner;
+ 	dma_addr_t dma_exp_bufs;
+-	u8 cpu_bufnum = pdata->cpu_bufnum;
++	u8 cpu_bufnum;
+ 	u8 eth_bufnum = pdata->eth_bufnum;
+ 	u8 bp_bufnum = pdata->bp_bufnum;
+ 	u16 ring_num = pdata->ring_num;
+ 	u16 ring_id;
+ 	int i, ret, size;
+ 
++	cpu_bufnum = xgene_start_cpu_bufnum(pdata);
++
+ 	for (i = 0; i < pdata->rxq_cnt; i++) {
+ 		/* allocate rx descriptor ring */
+ 		owner = xgene_derive_ring_owner(pdata);
+-- 
+1.9.1
