@@ -1,142 +1,102 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 net-next 7/7] tcp: make tcp_sendmsg() aware of socket
- backlog
-Date: Thu, 28 Apr 2016 21:43:15 -0700
-Message-ID: <5722E663.8080304@fb.com>
-References: <1461899449-8096-1-git-send-email-edumazet@google.com>
- <1461899449-8096-8-git-send-email-edumazet@google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH V2 2/2] vhost: device IOTLB API
+Date: Fri, 29 Apr 2016 12:44:07 +0800
+Message-ID: <5722E697.1060600@redhat.com>
+References: <1458873274-13961-1-git-send-email-jasowang@redhat.com>
+	<1458873274-13961-3-git-send-email-jasowang@redhat.com>
+	<20160427143057-mutt-send-email-mst@redhat.com>
+	<5721AF9C.9030209@redhat.com>
+	<20160428173543-mutt-send-email-mst@redhat.com>
+	<5722B511.6060401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Soheil Hassas Yeganeh <soheil@google.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:30297 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750940AbcD2EnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 00:43:20 -0400
-In-Reply-To: <1461899449-8096-8-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, qemu-devel@nongnu.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, peterx@redhat.com,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <5722B511.6060401@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 4/28/16 8:10 PM, Eric Dumazet wrote:
-> Large sendmsg()/write() hold socket lock for the duration of the call,
-> unless sk->sk_sndbuf limit is hit. This is bad because incoming packets
-> are parked into socket backlog for a long time.
-> Critical decisions like fast retransmit might be delayed.
-> Receivers have to maintain a big out of order queue with additional cpu
-> overhead, and also possible stalls in TX once windows are full.
->
-> Bidirectional flows are particularly hurt since the backlog can become
-> quite big if the copy from user space triggers IO (page faults)
->
-> Some applications learnt to use sendmsg() (or sendmmsg()) with small
-> chunks to avoid this issue.
->
-> Kernel should know better, right ?
->
-> Add a generic sk_flush_backlog() helper and use it right
-> before a new skb is allocated. Typically we put 64KB of payload
-> per skb (unless MSG_EOR is requested) and checking socket backlog
-> every 64KB gives good results.
->
-> As a matter of fact, tests with TSO/GSO disabled give very nice
-> results, as we manage to keep a small write queue and smaller
-> perceived rtt.
->
-> Note that sk_flush_backlog() maintains socket ownership,
-> so is not equivalent to a {release_sock(sk); lock_sock(sk);},
-> to ensure implicit atomicity rules that sendmsg() was
-> giving to (possibly buggy) applications.
->
-> In this simple implementation, I chose to not call tcp_release_cb(),
-> but we might consider this later.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil@google.com>
-> Cc: Alexei Starovoitov <ast@fb.com>
-> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->   include/net/sock.h | 11 +++++++++++
->   net/core/sock.c    |  7 +++++++
->   net/ipv4/tcp.c     |  8 ++++++--
->   3 files changed, 24 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 3df778ccaa82..1dbb1f9f7c1b 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -926,6 +926,17 @@ void sk_stream_kill_queues(struct sock *sk);
->   void sk_set_memalloc(struct sock *sk);
->   void sk_clear_memalloc(struct sock *sk);
->
-> +void __sk_flush_backlog(struct sock *sk);
-> +
-> +static inline bool sk_flush_backlog(struct sock *sk)
-> +{
-> +	if (unlikely(READ_ONCE(sk->sk_backlog.tail))) {
-> +		__sk_flush_backlog(sk);
-> +		return true;
-> +	}
-> +	return false;
-> +}
-> +
->   int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb);
->
->   struct request_sock_ops;
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 70744dbb6c3f..f615e9391170 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -2048,6 +2048,13 @@ static void __release_sock(struct sock *sk)
->   	sk->sk_backlog.len = 0;
->   }
->
-> +void __sk_flush_backlog(struct sock *sk)
-> +{
-> +	spin_lock_bh(&sk->sk_lock.slock);
-> +	__release_sock(sk);
-> +	spin_unlock_bh(&sk->sk_lock.slock);
-> +}
-> +
->   /**
->    * sk_wait_data - wait for data to arrive at sk_receive_queue
->    * @sk:    sock to wait on
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 4787f86ae64c..b945c2b046c5 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1136,11 +1136,12 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
->   	/* This should be in poll */
->   	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
->
-> -	mss_now = tcp_send_mss(sk, &size_goal, flags);
-> -
->   	/* Ok commence sending. */
->   	copied = 0;
->
-> +restart:
-> +	mss_now = tcp_send_mss(sk, &size_goal, flags);
-> +
->   	err = -EPIPE;
->   	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
->   		goto out_err;
-> @@ -1166,6 +1167,9 @@ new_segment:
->   			if (!sk_stream_memory_free(sk))
->   				goto wait_for_sndbuf;
->
-> +			if (sk_flush_backlog(sk))
-> +				goto restart;
 
-I don't understand the logic completely, but isn't it
-safer to do 'goto wait_for_memory;' here if we happened
-to hit this in the middle of the loop?
-Also does it make sense to rename __release_sock to
-something like _ _ _sk_flush_backlog, since that's
-what it's doing and not doing any 'release' ?
 
-Ack for patches 2 and 6. Great improvement!
+On 04/29/2016 09:12 AM, Jason Wang wrote:
+> On 04/28/2016 10:43 PM, Michael S. Tsirkin wrote:
+>> > On Thu, Apr 28, 2016 at 02:37:16PM +0800, Jason Wang wrote:
+>>> >>
+>>> >> On 04/27/2016 07:45 PM, Michael S. Tsirkin wrote:
+>>>> >>> On Fri, Mar 25, 2016 at 10:34:34AM +0800, Jason Wang wrote:
+>>>>> >>>> This patch tries to implement an device IOTLB for vhost. This could be
+>>>>> >>>> used with for co-operation with userspace(qemu) implementation of DMA
+>>>>> >>>> remapping.
+>>>>> >>>>
+>>>>> >>>> The idea is simple. When vhost meets an IOTLB miss, it will request
+>>>>> >>>> the assistance of userspace to do the translation, this is done
+>>>>> >>>> through:
+>>>>> >>>>
+>>>>> >>>> - Fill the translation request in a preset userspace address (This
+>>>>> >>>>   address is set through ioctl VHOST_SET_IOTLB_REQUEST_ENTRY).
+>>>>> >>>> - Notify userspace through eventfd (This eventfd was set through ioctl
+>>>>> >>>>   VHOST_SET_IOTLB_FD).
+>>>> >>> Why use an eventfd for this?
+>>> >> The aim is to implement the API all through ioctls.
+>>> >>
+>>>> >>>  We use them for interrupts because
+>>>> >>> that happens to be what kvm wants, but here - why don't we
+>>>> >>> just add a generic support for reading out events
+>>>> >>> on the vhost fd itself?
+>>> >> I've considered this approach, but what's the advantages of this? I mean
+>>> >> looks like all other ioctls could be done through vhost fd
+>>> >> reading/writing too.
+>> > read/write have a non-blocking flag.
+>> >
+>> > It's not useful for other ioctls but it's useful here.
+>> >
+> Ok, this looks better.
+>
+>>>>> >>>> - device IOTLB were started and stopped through VHOST_RUN_IOTLB ioctl
+>>>>> >>>>
+>>>>> >>>> When userspace finishes the translation, it will update the vhost
+>>>>> >>>> IOTLB through VHOST_UPDATE_IOTLB ioctl. Userspace is also in charge of
+>>>>> >>>> snooping the IOTLB invalidation of IOMMU IOTLB and use
+>>>>> >>>> VHOST_UPDATE_IOTLB to invalidate the possible entry in vhost.
+>>>> >>> There's one problem here, and that is that VQs still do not undergo
+>>>> >>> translation.  In theory VQ could be mapped in such a way
+>>>> >>> that it's not contigious in userspace memory.
+>>> >> I'm not sure I get the issue, current vhost API support setting
+>>> >> desc_user_addr, used_user_addr and avail_user_addr independently. So
+>>> >> looks ok? If not, looks not a problem to device IOTLB API itself.
+>> > The problem is that addresses are all HVA.
+>> >
+>> > Without an iommu, we ask for them to be contigious and
+>> > since bus address == GPA, this means contigious GPA =>
+>> > contigious HVA. With an IOMMU you can map contigious
+>> > bus address but non contigious GPA and non contigious HVA.
+> Yes, so the issue is we should not reuse VHOST_SET_VRING_ADDR and invent
+> a new ioctl to set bus addr (guest iova). The access the VQ through
+> device IOTLB too.
+
+Note that userspace has checked for this and fallback to userspace if it
+detects non contiguous GPA. Consider this happens rare, I'm not sure we
+should handle this.
+
+>
+>> >
+>> > Another concern: what if guest changes the GPA while keeping bus address
+>> > constant? Normal devices will work because they only use
+>> > bus addresses, but virtio will break.
+> If we access VQ through device IOTLB too, this could be solved.
+>
+
+I don't see a reason why guest want change GPA during DMA. Even if it
+can, it needs lots of other synchronization.
