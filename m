@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 4/9] vxlan: Add checksum check to the features
- check function
-Date: Fri, 29 Apr 2016 15:43:27 -0700
-Message-ID: <20160429224327.12418.95639.stgit@ahduyck-xeon-server>
+Subject: [net-next PATCH v2 2/9] gso: Only allow GSO_PARTIAL if we can
+ checksum the inner protocol
+Date: Fri, 29 Apr 2016 15:43:15 -0700
+Message-ID: <20160429224315.12418.18131.stgit@ahduyck-xeon-server>
 References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,57 +11,54 @@ To: talal@mellanox.com, netdev@vger.kernel.org,
 	michael.chan@broadcom.com, davem@davemloft.net, galp@mellanox.com,
 	ogerlitz@mellanox.com, eranbe@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34772 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752231AbcD2Wn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 18:43:29 -0400
-Received: by mail-pa0-f53.google.com with SMTP id r5so51664524pag.1
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 15:43:29 -0700 (PDT)
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35807 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111AbcD2WnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 18:43:17 -0400
+Received: by mail-pf0-f172.google.com with SMTP id 77so21111588pfv.2
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 15:43:16 -0700 (PDT)
 In-Reply-To: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to perform an additional check on the inner headers to determine if
-we can offload the checksum for them.  Previously this check didn't occur
-so we would generate an invalid frame in the case of an IPv6 header
-encapsulated inside of an IPv4 tunnel.  To fix this I added a secondary
-check to vxlan_features_check so that we can verify that we can offload the
-inner checksum.
+This patch addresses a possible issue that can occur if we get into any odd
+corner cases where we support TSO for a given protocol but not the checksum
+or scatter-gather offload.  There are few drivers floating around that
+setup their tunnels this way and by enforcing the checksum piece we can
+avoid mangling any frames.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- include/linux/if_ether.h |    5 +++++
- include/net/vxlan.h      |    4 +++-
- 2 files changed, 8 insertions(+), 1 deletion(-)
+ net/core/skbuff.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index d5569734f672..548fd535fd02 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -28,6 +28,11 @@ static inline struct ethhdr *eth_hdr(const struct sk_buff *skb)
- 	return (struct ethhdr *)skb_mac_header(skb);
- }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7a1d48983f81..954741873877 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3080,8 +3080,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 	unsigned int headroom;
+ 	unsigned int len = head_skb->len;
+ 	__be16 proto;
+-	bool csum;
+-	int sg = !!(features & NETIF_F_SG);
++	bool csum, sg;
+ 	int nfrags = skb_shinfo(head_skb)->nr_frags;
+ 	int err = -ENOMEM;
+ 	int i = 0;
+@@ -3093,13 +3092,14 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 	if (unlikely(!proto))
+ 		return ERR_PTR(-EINVAL);
  
-+static inline struct ethhdr *inner_eth_hdr(const struct sk_buff *skb)
-+{
-+	return (struct ethhdr *)skb_inner_mac_header(skb);
-+}
-+
- int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
++	sg = !!(features & NETIF_F_SG);
+ 	csum = !!can_checksum_protocol(features, proto);
  
- extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 673e9f9e6da7..b8803165df91 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -317,7 +317,9 @@ static inline netdev_features_t vxlan_features_check(struct sk_buff *skb,
- 	    (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
- 	     skb->inner_protocol != htons(ETH_P_TEB) ||
- 	     (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
--	      sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
-+	      sizeof(struct udphdr) + sizeof(struct vxlanhdr)) ||
-+	     (skb->ip_summed != CHECKSUM_NONE &&
-+	      !can_checksum_protocol(features, inner_eth_hdr(skb)->h_proto))))
- 		return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
- 
- 	return features;
+ 	/* GSO partial only requires that we trim off any excess that
+ 	 * doesn't fit into an MSS sized block, so take care of that
+ 	 * now.
+ 	 */
+-	if (features & NETIF_F_GSO_PARTIAL) {
++	if (sg && csum && (features & NETIF_F_GSO_PARTIAL)) {
+ 		partial_segs = len / mss;
+ 		mss *= partial_segs;
+ 	}
