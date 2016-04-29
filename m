@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 6/7] net: do not block BH while processing socket backlog
-Date: Thu, 28 Apr 2016 20:10:48 -0700
-Message-ID: <1461899449-8096-7-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 3/7] dccp: do not assume DCCP code is non preemptible
+Date: Thu, 28 Apr 2016 20:10:45 -0700
+Message-ID: <1461899449-8096-4-git-send-email-edumazet@google.com>
 References: <1461899449-8096-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
@@ -11,77 +11,82 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33108 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792AbcD2DLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:11:08 -0400
-Received: by mail-pa0-f43.google.com with SMTP id zm5so44527478pac.0
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:11:08 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35229 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752792AbcD2DLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:11:03 -0400
+Received: by mail-pf0-f181.google.com with SMTP id 77so9519122pfv.2
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:11:01 -0700 (PDT)
 In-Reply-To: <1461899449-8096-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Socket backlog processing is a major latency source.
-
-With current TCP socket sk_rcvbuf limits, I have sampled __release_sock()
-holding cpu for more than 5 ms, and packets being dropped by the NIC
-once ring buffer is filled.
-
-All users are now ready to be called from process context,
-we can unblock BH and let interrupts be serviced faster.
-
-cond_resched_softirq() could be removed, as it has no more user.
+DCCP uses the generic backlog code, and this will soon
+be changed to not disable BH when protocol is called back.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/core/sock.c | 22 ++++++++--------------
- 1 file changed, 8 insertions(+), 14 deletions(-)
+ net/dccp/input.c   | 2 +-
+ net/dccp/ipv4.c    | 4 ++--
+ net/dccp/ipv6.c    | 4 ++--
+ net/dccp/options.c | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e16a5db853c6..70744dbb6c3f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2019,33 +2019,27 @@ static void __release_sock(struct sock *sk)
- 	__releases(&sk->sk_lock.slock)
- 	__acquires(&sk->sk_lock.slock)
- {
--	struct sk_buff *skb = sk->sk_backlog.head;
-+	struct sk_buff *skb, *next;
+diff --git a/net/dccp/input.c b/net/dccp/input.c
+index 2437ecc13b82..ba347184bda9 100644
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -359,7 +359,7 @@ send_sync:
+ 		goto discard;
+ 	}
  
--	do {
-+	while ((skb = sk->sk_backlog.head) != NULL) {
- 		sk->sk_backlog.head = sk->sk_backlog.tail = NULL;
--		bh_unlock_sock(sk);
+-	__DCCP_INC_STATS(DCCP_MIB_INERRS);
++	DCCP_INC_STATS(DCCP_MIB_INERRS);
+ discard:
+ 	__kfree_skb(skb);
+ 	return 0;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index a8164272e0f4..5c7e413a3ae4 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -533,8 +533,8 @@ static void dccp_v4_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+ 	bh_unlock_sock(ctl_sk);
  
--		do {
--			struct sk_buff *next = skb->next;
-+		spin_unlock_bh(&sk->sk_lock.slock);
+ 	if (net_xmit_eval(err) == 0) {
+-		__DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+-		__DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
++		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
++		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+ 	}
+ out:
+ 	 dst_release(dst);
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 0f4eb4ea57a5..d176f4e66369 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -277,8 +277,8 @@ static void dccp_v6_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+ 	if (!IS_ERR(dst)) {
+ 		skb_dst_set(skb, dst);
+ 		ip6_xmit(ctl_sk, skb, &fl6, NULL, 0);
+-		__DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+-		__DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
++		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
++		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+ 		return;
+ 	}
  
-+		do {
-+			next = skb->next;
- 			prefetch(next);
- 			WARN_ON_ONCE(skb_dst_is_noref(skb));
- 			skb->next = NULL;
- 			sk_backlog_rcv(sk, skb);
+diff --git a/net/dccp/options.c b/net/dccp/options.c
+index b82b7ee9a1d2..74d29c56c367 100644
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -253,7 +253,7 @@ out_nonsensical_length:
+ 	return 0;
  
--			/*
--			 * We are in process context here with softirqs
--			 * disabled, use cond_resched_softirq() to preempt.
--			 * This is safe to do because we've taken the backlog
--			 * queue private:
--			 */
--			cond_resched_softirq();
-+			cond_resched();
- 
- 			skb = next;
- 		} while (skb != NULL);
- 
--		bh_lock_sock(sk);
--	} while ((skb = sk->sk_backlog.head) != NULL);
-+		spin_lock_bh(&sk->sk_lock.slock);
-+	}
- 
- 	/*
- 	 * Doing the zeroing here guarantee we can not loop forever
+ out_invalid_option:
+-	__DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
++	DCCP_INC_STATS(DCCP_MIB_INVALIDOPT);
+ 	rc = DCCP_RESET_CODE_OPTION_ERROR;
+ out_featneg_failed:
+ 	DCCP_WARN("DCCP(%p): Option %d (len=%d) error=%u\n", sk, opt, len, rc);
 -- 
 2.8.0.rc3.226.g39d4020
