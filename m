@@ -1,140 +1,93 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
- possible
-Date: Fri, 29 Apr 2016 09:36:37 -0400
-Message-ID: <20160429133637.GA31121@hmsreliant.think-freely.org>
-References: <20160413.230532.676746231426161126.davem@davemloft.net>
- <20160414130324.GA6806@hmsreliant.think-freely.org>
- <570FCCC1.6090504@gmail.com>
- <20160414.145916.2286519059284215039.davem@davemloft.net>
- <20160414200351.GA4632@hmsreliant.think-freely.org>
- <20160414201900.GK15005@localhost.localdomain>
- <20160428204659.GA2276@localhost.localdomain>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH v2 net-next 6/7] net: do not block BH while processing
+ socket backlog
+Date: Fri, 29 Apr 2016 09:37:00 -0400
+Message-ID: <CACSApvbh0y9v2yHNDfajmdD5HN9rdR3hN5_BgHdjAihc+A8Nmg@mail.gmail.com>
+References: <1461899449-8096-1-git-send-email-edumazet@google.com> <1461899449-8096-7-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org,
-	David.Laight@ACULAB.COM, jkbs@redhat.com
-To: marcelo.leitner@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54117 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbcD2Ng6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:36:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20160428204659.GA2276@localhost.localdomain>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:36617 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753022AbcD2Nhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 09:37:40 -0400
+Received: by mail-oi0-f41.google.com with SMTP id x201so118486118oif.3
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 06:37:40 -0700 (PDT)
+In-Reply-To: <1461899449-8096-7-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2016 at 05:46:59PM -0300, marcelo.leitner@gmail.com wrote:
-> On Thu, Apr 14, 2016 at 05:19:00PM -0300, marcelo.leitner@gmail.com wrote:
-> > On Thu, Apr 14, 2016 at 04:03:51PM -0400, Neil Horman wrote:
-> > > On Thu, Apr 14, 2016 at 02:59:16PM -0400, David Miller wrote:
-> > > > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > Date: Thu, 14 Apr 2016 14:00:49 -0300
-> > > > 
-> > > > > Em 14-04-2016 10:03, Neil Horman escreveu:
-> > > > >> On Wed, Apr 13, 2016 at 11:05:32PM -0400, David Miller wrote:
-> > > > >>> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > > >>> Date: Fri,  8 Apr 2016 16:41:26 -0300
-> > > > >>>
-> > > > >>>> 1st patch is a preparation for the 2nd. The idea is to not call
-> > > > >>>> ->sk_data_ready() for every data chunk processed while processing
-> > > > >>>> packets but only once before releasing the socket.
-> > > > >>>>
-> > > > >>>> v2: patchset re-checked, small changelog fixes
-> > > > >>>> v3: on patch 2, make use of local vars to make it more readable
-> > > > >>>
-> > > > >>> Applied to net-next, but isn't this reduced overhead coming at the
-> > > > >>> expense of latency?  What if that lower latency is important to the
-> > > > >>> application and/or consumer?
-> > > > >> Thats a fair point, but I'd make the counter argument that, as it
-> > > > >> currently
-> > > > >> stands, any latency introduced (or removed), is an artifact of our
-> > > > >> implementation rather than a designed feature of it.  That is to say,
-> > > > >> we make no
-> > > > >> guarantees at the application level regarding how long it takes to
-> > > > >> signal data
-> > > > >> readines from the time we get data off the wire, so I would rather see
-> > > > >> our
-> > > > >> throughput raised if we can, as thats been sctp's more pressing
-> > > > >> achilles heel.
-> > > > >>
-> > > > >>
-> > > > >> Thats not to say I'd like to enable lower latency, but I'd rather have
-> > > > >> this now,
-> > > > >> and start pondering how to design that in.  Perhaps we can convert the
-> > > > >> pending
-> > > > >> flag to a counter to count the number of events we enqueue, and call
-> > > > >> sk_data_ready every  time we reach a sysctl defined threshold.
-> > > > > 
-> > > > > That and also that there is no chance of the application reading the
-> > > > > first chunks before all current ToDo's are performed by either the bh
-> > > > > or backlog handlers for that packet. Socket lock won't be cycled in
-> > > > > between chunks so the application is going to wait all the processing
-> > > > > one way or another.
-> > > > 
-> > > > But it takes time to signal the wakeup to the remote cpu the process
-> > > > was running on, schedule out the current process on that cpu (if it
-> > > > has in fact lost it's timeslice), and then finally look at the socket
-> > > > queue.
-> > > > 
-> > > > Of course this is all assuming the process was sleeping in the first
-> > > > place, either in recv or more likely poll.
-> > > > 
-> > > > I really think signalling early helps performance.
-> > > > 
-> > > 
-> > > Early, yes, often, not so much :).  Perhaps what would be adventageous would be
-> > > to signal at the start of a set of enqueues, rather than at the end.  That would
-> > > be equivalent in terms of not signaling more than needed, but would eliminate
-> > > the signaling on every chunk.   Perhaps what you could do Marcelo would be to
-> > > change the sense of the signal_ready flag to be a has_signaled flag.  e.g. call
-> > > sk_data_ready in ulp_event_tail like we used to, but only if the has_signaled
-> > > flag isn't set, then set the flag, and clear it at the end of the command
-> > > interpreter.
-> > > 
-> > > That would be a best of both worlds solution, as long as theres no chance of
-> > > race with user space reading from the socket before we were done enqueuing (i.e.
-> > > you have to guarantee that the socket lock stays held, which I think we do).
-> > 
-> > That is my feeling too. Will work on it. Thanks :-)
-> 
-> I did the change and tested it on real machines set all for performance.
-> I couldn't spot any difference between both implementations.
-> 
-> Set RSS and queue irq affinity for a cpu and taskset netperf and another
-> app I wrote to run on another cpu. It hits socket backlog quite often
-> but still do direct processing every now and then.
-> 
-> With current state, netperf, scenario above. Results of perf sched
-> record for the CPUs in use, reported by perf sched latency:
-> 
->   Task                  |   Runtime ms  | Switches | Average delay ms |
->   Maximum delay ms | Maximum delay at       |
->   netserver:3205        |   9999.490 ms |       10 | avg:    0.003 ms |
->   max:    0.004 ms | max at:  69087.753356 s
-> 
-> another run
->   netserver:3483        |   9999.412 ms |       15 | avg:    0.003 ms |
->   max:    0.004 ms | max at:  69194.749814 s
-> 
-> With the patch below, same test:
->   netserver:2643        |  10000.110 ms |       14 | avg:    0.003 ms |
->   max:    0.004 ms | max at:    172.006315 s
-> 
-> another run:
->   netserver:2698        |  10000.049 ms |       15 | avg:    0.003 ms |
->   max:    0.004 ms | max at:    368.061672 s
-> 
-> I'll be happy to do more tests if you have any suggestions on how/what
-> to test.
-> 
-> ---8<---
->  
-I think this looks reasonable, but can you post it properly please, as a patch
-against the head of teh net-next tree, rather than a diff from your previous
-work (which wasn't comitted)
+On Thu, Apr 28, 2016 at 11:10 PM, Eric Dumazet <edumazet@google.com> wrote:
+> Socket backlog processing is a major latency source.
+>
+> With current TCP socket sk_rcvbuf limits, I have sampled __release_sock()
+> holding cpu for more than 5 ms, and packets being dropped by the NIC
+> once ring buffer is filled.
+>
+> All users are now ready to be called from process context,
+> we can unblock BH and let interrupts be serviced faster.
+>
+> cond_resched_softirq() could be removed, as it has no more user.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+> ---
+>  net/core/sock.c | 22 ++++++++--------------
+>  1 file changed, 8 insertions(+), 14 deletions(-)
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index e16a5db853c6..70744dbb6c3f 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -2019,33 +2019,27 @@ static void __release_sock(struct sock *sk)
+>         __releases(&sk->sk_lock.slock)
+>         __acquires(&sk->sk_lock.slock)
+>  {
+> -       struct sk_buff *skb = sk->sk_backlog.head;
+> +       struct sk_buff *skb, *next;
+>
+> -       do {
+> +       while ((skb = sk->sk_backlog.head) != NULL) {
+>                 sk->sk_backlog.head = sk->sk_backlog.tail = NULL;
+> -               bh_unlock_sock(sk);
+>
+> -               do {
+> -                       struct sk_buff *next = skb->next;
+> +               spin_unlock_bh(&sk->sk_lock.slock);
+>
+> +               do {
+> +                       next = skb->next;
+>                         prefetch(next);
+>                         WARN_ON_ONCE(skb_dst_is_noref(skb));
+>                         skb->next = NULL;
+>                         sk_backlog_rcv(sk, skb);
+>
+> -                       /*
+> -                        * We are in process context here with softirqs
+> -                        * disabled, use cond_resched_softirq() to preempt.
+> -                        * This is safe to do because we've taken the backlog
+> -                        * queue private:
+> -                        */
+> -                       cond_resched_softirq();
+> +                       cond_resched();
+>
+>                         skb = next;
+>                 } while (skb != NULL);
+>
+> -               bh_lock_sock(sk);
+> -       } while ((skb = sk->sk_backlog.head) != NULL);
+> +               spin_lock_bh(&sk->sk_lock.slock);
+> +       }
+>
+>         /*
+>          * Doing the zeroing here guarantee we can not loop forever
+> --
+> 2.8.0.rc3.226.g39d4020
+>
 
-Thanks!
-Neil
+This is great! very nice patch.
