@@ -1,103 +1,76 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
-Date: Fri, 29 Apr 2016 04:10:49 +0200
-Message-ID: <5722C2A9.7090308@denx.de>
-References: <1461892155-10524-1-git-send-email-marex@denx.de> <5722BDBB.40606@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S . Miller" <davem@davemloft.net>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/7] net: make TCP preemptible
+Date: Thu, 28 Apr 2016 20:10:42 -0700
+Message-ID: <1461899449-8096-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	Alexei Starovoitov <ast@fb.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:36325 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752244AbcD2CKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 22:10:52 -0400
-In-Reply-To: <5722BDBB.40606@gmail.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33295 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932AbcD2DKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2016 23:10:54 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 206so42237800pfu.0
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2016 20:10:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2016 03:49 AM, Florian Fainelli wrote:
-> Le 28/04/2016 18:09, Marek Vasut a =C3=A9crit :
->> Since commit b74766a0a0feeef5c779709cc5d109451c0d5b17 in linux-next,
->> ( phylib: don't return NULL from get_phy_device() ), phy_get_device(=
-)
->> will return ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is
->> all ones.
->>
->> This causes problem with stmmac driver and likely some other drivers
->> which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEV=
-K
->> board with linux-next 20160427 and 20160428. In case of the stmmac, =
-if
->> there is no PHY node specified in the DT for the stmmac block, the s=
-tmmac
->> driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
->> stmmac_mdio_register() ) will call mdiobus_register() , which will
->> register the MDIO bus and probe for the PHY.
->>
->> The mdiobus_register() resp. __mdiobus_register() iterates over all =
-of
->> the addresses on the MDIO bus and calls mdiobus_scan() for each of t=
-hem,
->> which invokes get_phy_device(). Before the aforementioned patch, the
->> mdiobus_scan() would return NULL if no PHY was found on a given addr=
-ess
->> and mdiobus_register() would continue and try the next PHY address. =
-Now,
->> mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
->> 'if (IS_ERR(phydev))' condition and the loop exits immediatelly if t=
-he
->> PHY address does not contain PHY.
->>
->> Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if t=
-his
->> error comes around, continue with the next PHY address.
->>
->> Signed-off-by: Marek Vasut <marex@denx.de>
->> Cc: Arnd Bergmann <arnd@arndb.de>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
->> Cc: Florian Fainelli <f.fainelli@gmail.com>
->> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->=20
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
->=20
-> I had an exact same patch posted yesterday but not formally like you
-> did, thanks!
+Most of TCP stack assumed it was running from BH handler.
 
-Ah, my google-fu must be weak tonight. Thanks!
+This is great for most things, as TCP behavior is very sensitive
+to scheduling artifacts.
 
->> ---
->>  drivers/net/phy/mdio_bus.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> NOTE: I don't quite like this explicit check , but I don't have bett=
-er idea now.
->>
->> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
->> index 499003ee..388f992 100644
->> --- a/drivers/net/phy/mdio_bus.c
->> +++ b/drivers/net/phy/mdio_bus.c
->> @@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, stru=
-ct module *owner)
->>  			struct phy_device *phydev;
->> =20
->>  			phydev =3D mdiobus_scan(bus, i);
->> -			if (IS_ERR(phydev)) {
->> +			if (IS_ERR(phydev) && (PTR_ERR(phydev) !=3D -ENODEV)) {
->>  				err =3D PTR_ERR(phydev);
->>  				goto error;
->>  			}
->>
->=20
->=20
+However, the prequeue and backlog processing are problematic,
+as they need to be flushed with BH being blocked.
 
+To cope with modern needs, TCP sockets have big sk_rcvbuf values,
+in the order of 16 MB, and soon 32 MB.
+This means that backlog can hold thousands of packets, and things
+like TCP coalescing or collapsing on this amount of packets can
+lead to insane latency spikes, since BH are blocked for too long.
 
---=20
-Best regards,
-Marek Vasut
+It is time to make UDP/TCP stacks preemptible.
+
+Note that fast path still runs from BH handler.
+
+v2:
+Added "tcp: make tcp_sendmsg() aware of socket backlog"
+to reduce latency problems of large sends.
+
+Eric Dumazet (7):
+  tcp: do not assume TCP code is non preemptible
+  tcp: do not block bh during prequeue processing
+  dccp: do not assume DCCP code is non preemptible
+  udp: prepare for non BH masking at backlog processing
+  sctp: prepare for socket backlog behavior change
+  net: do not block BH while processing socket backlog
+  tcp: make tcp_sendmsg() aware of socket backlog
+
+ include/net/sock.h       |  11 +++++
+ net/core/sock.c          |  29 +++++------
+ net/dccp/input.c         |   2 +-
+ net/dccp/ipv4.c          |   4 +-
+ net/dccp/ipv6.c          |   4 +-
+ net/dccp/options.c       |   2 +-
+ net/ipv4/tcp.c           |  14 +++---
+ net/ipv4/tcp_cdg.c       |  20 ++++----
+ net/ipv4/tcp_cubic.c     |  20 ++++----
+ net/ipv4/tcp_fastopen.c  |  12 ++---
+ net/ipv4/tcp_input.c     | 126 +++++++++++++++++++----------------------------
+ net/ipv4/tcp_ipv4.c      |  14 ++++--
+ net/ipv4/tcp_minisocks.c |   2 +-
+ net/ipv4/tcp_output.c    |  11 ++---
+ net/ipv4/tcp_recovery.c  |   4 +-
+ net/ipv4/tcp_timer.c     |  10 ++--
+ net/ipv4/udp.c           |   4 +-
+ net/ipv6/tcp_ipv6.c      |  12 ++---
+ net/ipv6/udp.c           |   4 +-
+ net/sctp/inqueue.c       |   2 +
+ 20 files changed, 150 insertions(+), 157 deletions(-)
+
+-- 
+2.8.0.rc3.226.g39d4020
