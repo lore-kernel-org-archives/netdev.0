@@ -1,235 +1,169 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next v3 4/4] bridge: netlink: export per-vlan stats
-Date: Sat, 30 Apr 2016 10:25:29 +0200
-Message-ID: <1462004729-12185-5-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v3 1/4] net: rtnetlink: allow rtnl_fill_statsinfo to save private state counter
+Date: Sat, 30 Apr 2016 10:25:26 +0200
+Message-ID: <1462004729-12185-2-git-send-email-nikolay@cumulusnetworks.com>
 References: <1462004729-12185-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	stephen@networkplumber.org,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35479 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334AbcD3IZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 04:25:47 -0400
-Received: by mail-wm0-f46.google.com with SMTP id e201so52137440wme.0
-        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 01:25:47 -0700 (PDT)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37427 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752094AbcD3IZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 04:25:43 -0400
+Received: by mail-wm0-f47.google.com with SMTP id a17so69059079wme.0
+        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 01:25:42 -0700 (PDT)
 In-Reply-To: <1462004729-12185-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new LINK_XSTATS_TYPE_BRIDGE attribute and implement the
-RTM_GETSTATS callbacks for IFLA_STATS_LINK_XSTATS (fill_linkxstats and
-get_linkxstats_size) in order to export the per-vlan stats.
-The paddings were added because soon these fields will be needed for
-per-port per-vlan stats (or something else if someone beats me to it) so
-avoiding at least a few more netlink attributes.
+The new prividx argument allows the current dumping device to save a
+private state counter which would enable it to continue dumping from
+where it left off. And the idxattr is used to save the current idx user
+so multiple prividx using attributes can be requested at the same time
+as suggested by Roopa Prabhu.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
 v3: no change
-v2: remove unused pvid pointer, fix the case where bridge has 0 vlans
-but there're global contexts and move to rtnl link type private
-attributes nested into a LINK_XSTATS_TYPE_ attribute. The paddings were
-added because soon these fields will be needed for per-port per-vlan
-stats (or something else if someone beats me to it) so avoiding at least
-a few more netlink attributes.
+v2: improve the error check in rtnl_fill_statsinfo, rename lidx to
+prividx, squash patch 2 into this one and save the current idx user
+instead of restricting only one
 
- include/uapi/linux/if_bridge.h | 18 ++++++++++++
- include/uapi/linux/if_link.h   |  1 +
- net/bridge/br_netlink.c        | 65 ++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_private.h        |  7 +++++
- net/bridge/br_vlan.c           | 27 ++++++++++++++++++
- 5 files changed, 118 insertions(+)
+ net/core/rtnetlink.c | 44 +++++++++++++++++++++++++++++++-------------
+ 1 file changed, 31 insertions(+), 13 deletions(-)
 
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index 0536eefff9bf..397d503fdedb 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -134,6 +134,16 @@ struct bridge_vlan_info {
- 	__u16 vid;
- };
- 
-+struct bridge_vlan_xstats {
-+	__u64 rx_bytes;
-+	__u64 rx_packets;
-+	__u64 tx_bytes;
-+	__u64 tx_packets;
-+	__u16 vid;
-+	__u16 pad1;
-+	__u32 pad2;
-+};
-+
- /* Bridge multicast database attributes
-  * [MDBA_MDB] = {
-  *     [MDBA_MDB_ENTRY] = {
-@@ -233,4 +243,12 @@ enum {
- };
- #define MDBA_SET_ENTRY_MAX (__MDBA_SET_ENTRY_MAX - 1)
- 
-+/* Embedded inside LINK_XSTATS_TYPE_BRIDGE */
-+enum {
-+	BRIDGE_XSTATS_UNSPEC,
-+	BRIDGE_XSTATS_VLAN,
-+	__BRIDGE_XSTATS_MAX
-+};
-+#define BRIDGE_XSTATS_MAX (__BRIDGE_XSTATS_MAX - 1)
-+
- #endif /* _UAPI_LINUX_IF_BRIDGE_H */
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index cc50261baf59..ed59cbd6d129 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -818,6 +818,7 @@ enum {
-  */
- enum {
- 	LINK_XSTATS_TYPE_UNSPEC,
-+	LINK_XSTATS_TYPE_BRIDGE,
- 	__LINK_XSTATS_TYPE_MAX
- };
- #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 7fba1f018bc9..a5343c7232bf 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1234,6 +1234,69 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	return 0;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5503dfe6a050..de529a20cd18 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3444,13 +3444,21 @@ out:
+ 	return err;
  }
  
-+static size_t br_get_linkxstats_size(const struct net_device *dev)
++static bool stats_attr_valid(unsigned int mask, int attrid, int idxattr)
 +{
-+	struct net_bridge *br = netdev_priv(dev);
-+	struct net_bridge_vlan_group *vg;
-+	struct net_bridge_vlan *v;
-+	int numvls = 0;
-+
-+	vg = br_vlan_group(br);
-+	if (!vg)
-+		return 0;
-+
-+	/* we need to count all, even placeholder entries */
-+	list_for_each_entry(v, &vg->vlan_list, vlist)
-+		numvls++;
-+
-+	/* account for the vlans and the link xstats type nest attribute */
-+	return numvls * nla_total_size(sizeof(struct bridge_vlan_xstats)) +
-+	       nla_total_size(0);
++	return (mask & IFLA_STATS_FILTER_BIT(attrid)) &&
++	       (!idxattr || idxattr == attrid);
 +}
 +
-+static int br_fill_linkxstats(struct sk_buff *skb, const struct net_device *dev,
-+			      int *prividx)
-+{
-+	struct net_bridge *br = netdev_priv(dev);
-+	struct net_bridge_vlan_group *vg;
-+	struct net_bridge_vlan *v;
-+	struct nlattr *nest;
-+	int vl_idx = 0;
-+
-+	vg = br_vlan_group(br);
-+	if (!vg)
-+		goto out;
-+	nest = nla_nest_start(skb, LINK_XSTATS_TYPE_BRIDGE);
-+	if (!nest)
-+		return -EMSGSIZE;
-+	list_for_each_entry(v, &vg->vlan_list, vlist) {
-+		struct bridge_vlan_xstats vxi;
-+		struct br_vlan_stats stats;
-+
-+		if (vl_idx++ < *prividx)
-+			continue;
-+		memset(&vxi, 0, sizeof(vxi));
-+		vxi.vid = v->vid;
-+		br_vlan_get_stats(v, &stats);
-+		vxi.rx_bytes = stats.rx_bytes;
-+		vxi.rx_packets = stats.rx_packets;
-+		vxi.tx_bytes = stats.tx_bytes;
-+		vxi.tx_packets = stats.tx_packets;
-+
-+		if (nla_put(skb, BRIDGE_XSTATS_VLAN, sizeof(vxi), &vxi))
-+			goto nla_put_failure;
-+	}
-+	nla_nest_end(skb, nest);
-+	*prividx = 0;
-+out:
-+	return 0;
-+
-+nla_put_failure:
-+	nla_nest_end(skb, nest);
-+	*prividx = vl_idx;
-+
-+	return -EMSGSIZE;
-+}
- 
- static struct rtnl_af_ops br_af_ops __read_mostly = {
- 	.family			= AF_BRIDGE,
-@@ -1252,6 +1315,8 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
- 	.dellink		= br_dev_delete,
- 	.get_size		= br_get_size,
- 	.fill_info		= br_fill_info,
-+	.fill_linkxstats	= br_fill_linkxstats,
-+	.get_linkxstats_size	= br_get_linkxstats_size,
- 
- 	.slave_maxtype		= IFLA_BRPORT_MAX,
- 	.slave_policy		= br_port_policy,
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 8b644069a1a1..d71efe57f67d 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -711,6 +711,8 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- void nbp_vlan_flush(struct net_bridge_port *port);
- int nbp_vlan_init(struct net_bridge_port *port);
- int nbp_get_num_vlan_infos(struct net_bridge_port *p, u32 filter_mask);
-+void br_vlan_get_stats(const struct net_bridge_vlan *v,
-+		       struct br_vlan_stats *stats);
- 
- static inline struct net_bridge_vlan_group *br_vlan_group(
- 					const struct net_bridge *br)
-@@ -892,6 +894,11 @@ static inline struct net_bridge_vlan_group *nbp_vlan_group_rcu(
+ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 			       int type, u32 pid, u32 seq, u32 change,
+-			       unsigned int flags, unsigned int filter_mask)
++			       unsigned int flags, unsigned int filter_mask,
++			       int *idxattr, int *prividx)
  {
- 	return NULL;
- }
-+
-+static inline void br_vlan_get_stats(const struct net_bridge_vlan *v,
-+				     struct br_vlan_stats *stats)
-+{
-+}
- #endif
+ 	struct if_stats_msg *ifsm;
+ 	struct nlmsghdr *nlh;
+ 	struct nlattr *attr;
++	int s_prividx = *prividx;
  
- struct nf_br_ops {
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 065c35351356..b6de4f457161 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -1054,3 +1054,30 @@ void nbp_vlan_flush(struct net_bridge_port *port)
- 	synchronize_rcu();
- 	__vlan_group_free(vg);
+ 	ASSERT_RTNL();
+ 
+@@ -3462,7 +3470,7 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	ifsm->ifindex = dev->ifindex;
+ 	ifsm->filter_mask = filter_mask;
+ 
+-	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64)) {
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, *idxattr)) {
+ 		struct rtnl_link_stats64 *sp;
+ 
+ 		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_64,
+@@ -3480,7 +3488,11 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	return 0;
+ 
+ nla_put_failure:
+-	nlmsg_cancel(skb, nlh);
++	/* not a multi message or no progress mean a real error */
++	if (!(flags & NLM_F_MULTI) || s_prividx == *prividx)
++		nlmsg_cancel(skb, nlh);
++	else
++		nlmsg_end(skb, nlh);
+ 
+ 	return -EMSGSIZE;
  }
-+
-+void br_vlan_get_stats(const struct net_bridge_vlan *v,
-+		       struct br_vlan_stats *stats)
-+{
-+	int i;
-+
-+	memset(stats, 0, sizeof(*stats));
-+	for_each_possible_cpu(i) {
-+		u64 rxpackets, rxbytes, txpackets, txbytes;
-+		struct br_vlan_stats *cpu_stats;
-+		unsigned int start;
-+
-+		cpu_stats = per_cpu_ptr(v->stats, i);
-+		do {
-+			start = u64_stats_fetch_begin_irq(&cpu_stats->syncp);
-+			rxpackets = cpu_stats->rx_packets;
-+			rxbytes = cpu_stats->rx_bytes;
-+			txbytes = cpu_stats->tx_bytes;
-+			txpackets = cpu_stats->tx_packets;
-+		} while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, start));
-+
-+		stats->rx_packets += rxpackets;
-+		stats->rx_bytes += rxbytes;
-+		stats->tx_bytes += txbytes;
-+		stats->tx_packets += txpackets;
-+	}
-+}
+@@ -3494,7 +3506,7 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ {
+ 	size_t size = 0;
+ 
+-	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64))
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
+ 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
+ 
+ 	return size;
+@@ -3503,8 +3515,9 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	struct if_stats_msg *ifsm;
+ 	struct net_device *dev = NULL;
++	int idxattr = 0, prividx = 0;
++	struct if_stats_msg *ifsm;
+ 	struct sk_buff *nskb;
+ 	u32 filter_mask;
+ 	int err;
+@@ -3528,7 +3541,7 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 	err = rtnl_fill_statsinfo(nskb, dev, RTM_NEWSTATS,
+ 				  NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
+-				  0, filter_mask);
++				  0, filter_mask, &idxattr, &prividx);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_stats_size */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -3542,18 +3555,19 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	int h, s_h, err, s_idx, s_idxattr, s_prividx;
+ 	struct net *net = sock_net(skb->sk);
++	unsigned int flags = NLM_F_MULTI;
+ 	struct if_stats_msg *ifsm;
+-	int h, s_h;
+-	int idx = 0, s_idx;
+-	struct net_device *dev;
+ 	struct hlist_head *head;
+-	unsigned int flags = NLM_F_MULTI;
++	struct net_device *dev;
+ 	u32 filter_mask = 0;
+-	int err;
++	int idx = 0;
+ 
+ 	s_h = cb->args[0];
+ 	s_idx = cb->args[1];
++	s_idxattr = cb->args[2];
++	s_prividx = cb->args[3];
+ 
+ 	cb->seq = net->dev_base_seq;
+ 
+@@ -3571,7 +3585,8 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 			err = rtnl_fill_statsinfo(skb, dev, RTM_NEWSTATS,
+ 						  NETLINK_CB(cb->skb).portid,
+ 						  cb->nlh->nlmsg_seq, 0,
+-						  flags, filter_mask);
++						  flags, filter_mask,
++						  &s_idxattr, &s_prividx);
+ 			/* If we ran out of room on the first message,
+ 			 * we're in trouble
+ 			 */
+@@ -3579,13 +3594,16 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 			if (err < 0)
+ 				goto out;
+-
++			s_prividx = 0;
++			s_idxattr = 0;
+ 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+ cont:
+ 			idx++;
+ 		}
+ 	}
+ out:
++	cb->args[3] = s_prividx;
++	cb->args[2] = s_idxattr;
+ 	cb->args[1] = idx;
+ 	cb->args[0] = h;
+ 
 -- 
 2.4.11
