@@ -1,18 +1,13 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 3.2 085/115] veth: =?UTF-8?Q?don=E2=80=99t?= modify
- ip_summed; doing so treats packets with bad checksums as good.
-Date: Sat, 30 Apr 2016 21:18:04 +0200
-Message-ID: <1462043884.17662.7.camel@decadent.org.uk>
-References: <lsq.1461711744.699003961@decadent.org.uk>
-	 <5720E1F0.9010203@candelatech.com>
-	 <1461780469.5102.0.camel@decadent.org.uk>
-	 <1461801603.3971874.591751457.2DB91B98@webmail.messagingengine.com>
-	 <572155F4.10405@candelatech.com>
-	 <20160428102953.GA7656@bistromath.localdomain>
-	 <5722140E.80702@candelatech.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 3.2 085/115] veth: =?UTF-8?B?ZG9u4oCZdCBtb2RpZnkgaXBf?=
+ =?UTF-8?B?c3VtbWVkOyBkb2luZyBzbyB0cmVhdHMgcGFja2V0cyB3aXRoIGJhZCBjaGVja3M=?=
+ =?UTF-8?B?dW1zIGFzIGdvb2Qu?=
+Date: Sat, 30 Apr 2016 12:40:07 -0700
+Message-ID: <57250A17.5090804@candelatech.com>
+References: <lsq.1461711744.699003961@decadent.org.uk>	 <5720E1F0.9010203@candelatech.com>	 <1461780469.5102.0.camel@decadent.org.uk>	 <1461801603.3971874.591751457.2DB91B98@webmail.messagingengine.com>	 <572155F4.10405@candelatech.com>	 <20160428102953.GA7656@bistromath.localdomain> <1462041181.17662.3.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-llYl7b5xpvvmwis5NeY8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
 	akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
@@ -23,66 +18,42 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Phil Sutter <phil@nwl.cc>,
 	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	xiyou.wangcong@gmail.com
-To: Ben Greear <greearb@candelatech.com>,
+To: Ben Hutchings <ben@decadent.org.uk>,
 	Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5722140E.80702@candelatech.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:54628 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191AbcD3TkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 15:40:11 -0400
+In-Reply-To: <1462041181.17662.3.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-llYl7b5xpvvmwis5NeY8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2016-04-28 at 06:45 -0700, Ben Greear wrote:
->=20
-> On 04/28/2016 03:29 AM, Sabrina Dubroca wrote:
-[...]
-> > Your use case is invalid, it just happened to work because of a
-> > bug.=C2=A0=C2=A0If you want the stack to fill checksums so that you wan=
-t capture
-> > and reinject packets, you have to disable checksum offloading (or
-> > compute the checksum yourself in userspace).
-> Disabling checksum offloading or computing in user-space (and then
-> recomputing in veth to verify the checksum?) is a huge performance loss.
->=20
-> Maybe we could add a socket option to enable Cong's patch on a per-socket
-> basis?=C2=A0=C2=A0That way my use-case can still work and you can have th=
-is new
-> behaviour by default?
+On 04/30/2016 11:33 AM, Ben Hutchings wrote:
+> On Thu, 2016-04-28 at 12:29 +0200, Sabrina Dubroca wrote:
+>> Hello,
 
-It does sound like a useful option to have. =C2=A0If there are other
-applications that depend on veth's checksum-fixing behaviour and are
-being distributed in binary form, then a per-device option might be
-necessary so users can keep those applications working before they're
-updated.
+>>> http://dmz2.candelatech.com/?p=linux-4.4.dev.y/.git;a=commitdiff;h=8153e983c0e5eba1aafe1fc296248ed2a553f1ac;hp=454b07405d694dad52e7f41af5816eed0190da8a
+>> Actually, no, this is not really a regression.
+> [...]
+>
+> It really is.  Even though the old behaviour was a bug (raw packets
+> should not be changed), if there are real applications that depend on
+> that then we have to keep those applications working somehow.
 
-Ben.
+To be honest, I fail to see why the old behaviour is a bug when sending
+raw packets from user-space.  If raw packets should not be changed, then
+we need some way to specify what the checksum setting is to begin with,
+otherwise, user-space has not enough control.
 
---=20
-Ben Hutchings
-Tomorrow will be cancelled due to lack of interest.
---=-llYl7b5xpvvmwis5NeY8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+A socket option for new programs, and sysctl configurable defaults for raw sockets
+for old binary programs would be sufficient I think.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Thanks,
+Ben
 
-iQIcBAABCgAGBQJXJQTsAAoJEOe/yOyVhhEJdsIP/3erTuDrsRZy0r5zIaSReJGT
-hCXyg+G+YIpGfHcPA8/US8P3cAespJyplKzIsxAYIQq84rMVVefWqYuF05Ctr1Yx
-7vhLUvc5qWPLksVkNHMAfIUSl7nj2a1rZbFMfRg4+2El61Icvd8EHGfdqMH5PldA
-nHWV2mlM6M95reO7ilgbNu7OwgCKGmbcxRgn6tOABFNR7rnUGbk2Yq45oy7H3Ny5
-cX5NtFt+CvmTDpva5ENAg9T8d7qzBtaCtMy+wd7lmD2herw+smIZbyoPFcTe+mmU
-e8CEzYQMWAsbo/OpoOOadAt5ojOHjV0/WQ2onuYzqzHsFhL/x/tplnECvjrMsPrK
-UofsCKow9s+B6mUW08QIgD/gD9wBUZuMSALip5qisfbkWK26Mzyk62rnqbvxx8N2
-Pxq0EFVJ+kMMlXbUzMDajXPDRgo1Xsy3+V7tE8T/qgOQ5iOzA31xXOr9h9ViSit2
-v6p4aCgvH5pMoTdysW2r5cFJdW8P2dV5VmCgf9yF/WNSnJiQ5coHDpqGLsqiwFhL
-REr7CQN3YWRs9JOopLnrljg/5RG157GJb4mVXbsJlNs7eNFktm9KQVATuO+XsAeY
-uQQFL2SYLNJCUZUkqMawme4tME6Gq5M7chsPKJFxLk2iXmUwKcO46t572ZjDQKrR
-DKlCNNg11e9XpZ1DsGWs
-=msz9
------END PGP SIGNATURE-----
-
---=-llYl7b5xpvvmwis5NeY8--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
