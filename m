@@ -1,110 +1,188 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 1/4] batman-adv: fix DAT candidate selection (must use vid)
-Date: Sun,  1 May 2016 01:06:00 +0800
-Message-ID: <1462035963-28970-2-git-send-email-a@unstable.cc>
+Subject: [PATCH 3/4] batman-adv: Fix reference counting of vlan object for tt_local_entry
+Date: Sun,  1 May 2016 01:06:02 +0800
+Message-ID: <1462035963-28970-4-git-send-email-a@unstable.cc>
 References: <1462035963-28970-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <a@unstable.cc>,
 	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:34385 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:13990 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751910AbcD3RGj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Apr 2016 13:06:39 -0400
+	id S1751880AbcD3RGi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Apr 2016 13:06:38 -0400
 In-Reply-To: <1462035963-28970-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that DAT is VLAN aware, it must use the VID when
-computing the DHT address of the candidate nodes where
-an entry is going to be stored/retrieved.
+From: Sven Eckelmann <sven@narfation.org>
 
-Fixes: be1db4f6615b ("batman-adv: make the Distributed ARP Table vlan aware")
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
-[sven@narfation.org: fix conflicts with current version]
+The batadv_tt_local_entry was specific to a batadv_softif_vlan and held an
+implicit reference to it. But this reference was never stored in form of a
+pointer in the tt_local_entry itself. Instead batadv_tt_local_remove,
+batadv_tt_local_table_free and batadv_tt_local_purge_pending_clients depend
+on a consistent state of bat_priv->softif_vlan_list and that
+batadv_softif_vlan_get always returns the batadv_softif_vlan object which
+it has a reference for. But batadv_softif_vlan_get cannot guarantee that
+because it is working only with rcu_read_lock on this list. It can
+therefore happen that an vid is in this list twice or that
+batadv_softif_vlan_get cannot find the batadv_softif_vlan for an vid due to
+some other list operations taking place at the same time.
+
+Instead add a batadv_softif_vlan pointer directly in batadv_tt_local_entry
+which will be used for the reference counter decremented on release of
+batadv_tt_local_entry.
+
+Fixes: 35df3b298fc8 ("batman-adv: fix TT VLAN inconsistency on VLAN re-add")
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Acked-by: Antonio Quartulli <a@unstable.cc>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/distributed-arp-table.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+ net/batman-adv/translation-table.c | 42 ++++----------------------------------
+ net/batman-adv/types.h             |  2 ++
+ 2 files changed, 6 insertions(+), 38 deletions(-)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index e96d7c745b4a..3e6b2624f980 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -568,6 +568,7 @@ static void batadv_choose_next_candidate(struct batadv_priv *bat_priv,
-  * be sent to
-  * @bat_priv: the bat priv with all the soft interface information
-  * @ip_dst: ipv4 to look up in the DHT
-+ * @vid: VLAN identifier
-  *
-  * An originator O is selected if and only if its DHT_ID value is one of three
-  * closest values (from the LEFT, with wrap around if needed) then the hash
-@@ -576,7 +577,8 @@ static void batadv_choose_next_candidate(struct batadv_priv *bat_priv,
-  * Return: the candidate array of size BATADV_DAT_CANDIDATE_NUM.
-  */
- static struct batadv_dat_candidate *
--batadv_dat_select_candidates(struct batadv_priv *bat_priv, __be32 ip_dst)
-+batadv_dat_select_candidates(struct batadv_priv *bat_priv, __be32 ip_dst,
-+			     unsigned short vid)
- {
- 	int select;
- 	batadv_dat_addr_t last_max = BATADV_DAT_ADDR_MAX, ip_key;
-@@ -592,7 +594,7 @@ batadv_dat_select_candidates(struct batadv_priv *bat_priv, __be32 ip_dst)
- 		return NULL;
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 0b43e86328a5..9b4551a86535 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -215,6 +215,8 @@ static void batadv_tt_local_entry_release(struct kref *ref)
+ 	tt_local_entry = container_of(ref, struct batadv_tt_local_entry,
+ 				      common.refcount);
  
- 	dat.ip = ip_dst;
--	dat.vid = 0;
-+	dat.vid = vid;
- 	ip_key = (batadv_dat_addr_t)batadv_hash_dat(&dat,
- 						    BATADV_DAT_ADDR_MAX);
- 
-@@ -612,6 +614,7 @@ batadv_dat_select_candidates(struct batadv_priv *bat_priv, __be32 ip_dst)
-  * @bat_priv: the bat priv with all the soft interface information
-  * @skb: payload to send
-  * @ip: the DHT key
-+ * @vid: VLAN identifier
-  * @packet_subtype: unicast4addr packet subtype to use
-  *
-  * This function copies the skb with pskb_copy() and is sent as unicast packet
-@@ -622,7 +625,7 @@ batadv_dat_select_candidates(struct batadv_priv *bat_priv, __be32 ip_dst)
-  */
- static bool batadv_dat_send_data(struct batadv_priv *bat_priv,
- 				 struct sk_buff *skb, __be32 ip,
--				 int packet_subtype)
-+				 unsigned short vid, int packet_subtype)
- {
- 	int i;
- 	bool ret = false;
-@@ -631,7 +634,7 @@ static bool batadv_dat_send_data(struct batadv_priv *bat_priv,
- 	struct sk_buff *tmp_skb;
- 	struct batadv_dat_candidate *cand;
- 
--	cand = batadv_dat_select_candidates(bat_priv, ip);
-+	cand = batadv_dat_select_candidates(bat_priv, ip, vid);
- 	if (!cand)
- 		goto out;
- 
-@@ -1022,7 +1025,7 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
- 		ret = true;
- 	} else {
- 		/* Send the request to the DHT */
--		ret = batadv_dat_send_data(bat_priv, skb, ip_dst,
-+		ret = batadv_dat_send_data(bat_priv, skb, ip_dst, vid,
- 					   BATADV_P_DAT_DHT_GET);
- 	}
- out:
-@@ -1150,8 +1153,8 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
- 	/* Send the ARP reply to the candidates for both the IP addresses that
- 	 * the node obtained from the ARP reply
- 	 */
--	batadv_dat_send_data(bat_priv, skb, ip_src, BATADV_P_DAT_DHT_PUT);
--	batadv_dat_send_data(bat_priv, skb, ip_dst, BATADV_P_DAT_DHT_PUT);
-+	batadv_dat_send_data(bat_priv, skb, ip_src, vid, BATADV_P_DAT_DHT_PUT);
-+	batadv_dat_send_data(bat_priv, skb, ip_dst, vid, BATADV_P_DAT_DHT_PUT);
++	batadv_softif_vlan_put(tt_local_entry->vlan);
++
+ 	kfree_rcu(tt_local_entry, common.rcu);
  }
+ 
+@@ -673,6 +675,7 @@ bool batadv_tt_local_add(struct net_device *soft_iface, const u8 *addr,
+ 	kref_get(&tt_local->common.refcount);
+ 	tt_local->last_seen = jiffies;
+ 	tt_local->common.added_at = tt_local->last_seen;
++	tt_local->vlan = vlan;
+ 
+ 	/* the batman interface mac and multicast addresses should never be
+ 	 * purged
+@@ -991,7 +994,6 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct batadv_tt_common_entry *tt_common_entry;
+ 	struct batadv_tt_local_entry *tt_local;
+ 	struct batadv_hard_iface *primary_if;
+-	struct batadv_softif_vlan *vlan;
+ 	struct hlist_head *head;
+ 	unsigned short vid;
+ 	u32 i;
+@@ -1027,14 +1029,6 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ 			last_seen_msecs = last_seen_msecs % 1000;
+ 
+ 			no_purge = tt_common_entry->flags & np_flag;
+-
+-			vlan = batadv_softif_vlan_get(bat_priv, vid);
+-			if (!vlan) {
+-				seq_printf(seq, "Cannot retrieve VLAN %d\n",
+-					   BATADV_PRINT_VID(vid));
+-				continue;
+-			}
+-
+ 			seq_printf(seq,
+ 				   " * %pM %4i [%c%c%c%c%c%c] %3u.%03u   (%#.8x)\n",
+ 				   tt_common_entry->addr,
+@@ -1052,9 +1046,7 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ 				     BATADV_TT_CLIENT_ISOLA) ? 'I' : '.'),
+ 				   no_purge ? 0 : last_seen_secs,
+ 				   no_purge ? 0 : last_seen_msecs,
+-				   vlan->tt.crc);
+-
+-			batadv_softif_vlan_put(vlan);
++				   tt_local->vlan->tt.crc);
+ 		}
+ 		rcu_read_unlock();
+ 	}
+@@ -1099,7 +1091,6 @@ u16 batadv_tt_local_remove(struct batadv_priv *bat_priv, const u8 *addr,
+ {
+ 	struct batadv_tt_local_entry *tt_local_entry;
+ 	u16 flags, curr_flags = BATADV_NO_FLAGS;
+-	struct batadv_softif_vlan *vlan;
+ 	void *tt_entry_exists;
+ 
+ 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, addr, vid);
+@@ -1139,14 +1130,6 @@ u16 batadv_tt_local_remove(struct batadv_priv *bat_priv, const u8 *addr,
+ 	/* extra call to free the local tt entry */
+ 	batadv_tt_local_entry_put(tt_local_entry);
+ 
+-	/* decrease the reference held for this vlan */
+-	vlan = batadv_softif_vlan_get(bat_priv, vid);
+-	if (!vlan)
+-		goto out;
+-
+-	batadv_softif_vlan_put(vlan);
+-	batadv_softif_vlan_put(vlan);
+-
+ out:
+ 	if (tt_local_entry)
+ 		batadv_tt_local_entry_put(tt_local_entry);
+@@ -1219,7 +1202,6 @@ static void batadv_tt_local_table_free(struct batadv_priv *bat_priv)
+ 	spinlock_t *list_lock; /* protects write access to the hash lists */
+ 	struct batadv_tt_common_entry *tt_common_entry;
+ 	struct batadv_tt_local_entry *tt_local;
+-	struct batadv_softif_vlan *vlan;
+ 	struct hlist_node *node_tmp;
+ 	struct hlist_head *head;
+ 	u32 i;
+@@ -1241,14 +1223,6 @@ static void batadv_tt_local_table_free(struct batadv_priv *bat_priv)
+ 						struct batadv_tt_local_entry,
+ 						common);
+ 
+-			/* decrease the reference held for this vlan */
+-			vlan = batadv_softif_vlan_get(bat_priv,
+-						      tt_common_entry->vid);
+-			if (vlan) {
+-				batadv_softif_vlan_put(vlan);
+-				batadv_softif_vlan_put(vlan);
+-			}
+-
+ 			batadv_tt_local_entry_put(tt_local);
+ 		}
+ 		spin_unlock_bh(list_lock);
+@@ -3309,7 +3283,6 @@ static void batadv_tt_local_purge_pending_clients(struct batadv_priv *bat_priv)
+ 	struct batadv_hashtable *hash = bat_priv->tt.local_hash;
+ 	struct batadv_tt_common_entry *tt_common;
+ 	struct batadv_tt_local_entry *tt_local;
+-	struct batadv_softif_vlan *vlan;
+ 	struct hlist_node *node_tmp;
+ 	struct hlist_head *head;
+ 	spinlock_t *list_lock; /* protects write access to the hash lists */
+@@ -3339,13 +3312,6 @@ static void batadv_tt_local_purge_pending_clients(struct batadv_priv *bat_priv)
+ 						struct batadv_tt_local_entry,
+ 						common);
+ 
+-			/* decrease the reference held for this vlan */
+-			vlan = batadv_softif_vlan_get(bat_priv, tt_common->vid);
+-			if (vlan) {
+-				batadv_softif_vlan_put(vlan);
+-				batadv_softif_vlan_put(vlan);
+-			}
+-
+ 			batadv_tt_local_entry_put(tt_local);
+ 		}
+ 		spin_unlock_bh(list_lock);
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 443e9b84e07d..65afd090ab3e 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -1073,10 +1073,12 @@ struct batadv_tt_common_entry {
+  * struct batadv_tt_local_entry - translation table local entry data
+  * @common: general translation table data
+  * @last_seen: timestamp used for purging stale tt local entries
++ * @vlan: soft-interface vlan of the entry
+  */
+ struct batadv_tt_local_entry {
+ 	struct batadv_tt_common_entry common;
+ 	unsigned long last_seen;
++	struct batadv_softif_vlan *vlan;
+ };
  
  /**
 -- 
