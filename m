@@ -1,152 +1,55 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [iproute2 1/1] man: tc-ife.8: man page for ife action
-Date: Sat, 30 Apr 2016 06:58:04 -0400
-Message-ID: <1462013884-4971-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, phil@nwl.cc, lucasb@mojatatu.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: stephen@networkplumber.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute2 1/1] man: tc-ife.8: man page for ife action
+Date: Sat, 30 Apr 2016 13:35:07 +0200
+Message-ID: <20160430113507.GM28435@orbyte.nwl.cc>
+References: <1462013884-4971-1-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	lucasb@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:35926 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973AbcD3K6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 06:58:20 -0400
-Received: by mail-qg0-f54.google.com with SMTP id d90so52396676qgd.3
-        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 03:58:20 -0700 (PDT)
+Received: from orbyte.nwl.cc ([151.80.46.58]:36106 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751403AbcD3LfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Apr 2016 07:35:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1462013884-4971-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Bates <lucasb@mojatatu.com>
+On Sat, Apr 30, 2016 at 06:58:04AM -0400, Jamal Hadi Salim wrote:
+> From: Lucas Bates <lucasb@mojatatu.com>
+> 
+> Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- man/man8/tc-ife.8 | 118 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 118 insertions(+)
- create mode 100644 man/man8/tc-ife.8
+Acked-by: Phil Sutter <phil@nwl.cc>
 
-diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
-new file mode 100644
-index 0000000..7a912b0
---- /dev/null
-+++ b/man/man8/tc-ife.8
-@@ -0,0 +1,118 @@
-+.TH "IFE action in tc" 8 "22 Apr 2016" "iproute2" "Linux"
-+
-+.SH NAME
-+IFE - encapsulate/decapsulate metadata
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " ... " "action"
-+.B "ife"
-+.I DIRECTION ACTION
-+.RB "[ " dst
-+.IR DMAC " ] "
-+.RB "[ " src
-+.IR SMAC " ] "
-+.RB "[ " type
-+.IR TYPE " ] "
-+.R "[ " 
-+.IR CONTROL " ] "
-+.RB "[ " index
-+.IR INDEX " ] "
-+
-+.ti -8
-+.IR DIRECTION " := { "
-+.BR decode " | " encode " }"
-+
-+.ti -8
-+.IR ACTION " := { "
-+.BR allow " | " use " }"
-+
-+.ti -8
-+.IR CONTROL " := { "
-+.BR reclassify " | " use " | " pipe " | " drop " | " continue " | " ok " }"
-+.SH DESCRIPTION
-+The
-+.B ife
-+action allows for a sending side to encapsulate arbitrary metadata, which is
-+then decapsulated by the receiving end. The sender runs in encoding mode and
-+the receiver in decode mode. Both sender and receiver must specify the same
-+ethertype. In the future, a registered ethertype may be available as a default.
-+.SH OPTIONS
-+.TP
-+.B decode
-+For the receiving side; decode the metadata if the packet matches.
-+.TP
-+.B encode
-+For the sending side. Encode the specified metadata if the packet matches.
-+.TP
-+.B allow
-+Encode direction only. Allows encoding specified metadata.
-+.TP
-+.B use
-+Encode direction only. Enforce static encoding of specified metadata.
-+.TP
-+.BI dmac " DMAC"
-+.TQ
-+.BI smac " SMAC"
-+Optional six byte destination or source MAC address to encode.
-+.TP
-+.BI type " TYPE"
-+Optional 16-bit ethertype to encode.
-+.TP
-+.BI CONTROL
-+Action to take following an encode/decode.
-+.TP
-+.BI index " INDEX"
-+Assign a unique ID to this action instead of letting the kernel choose one
-+automatically.
-+.I INDEX
-+is a 32bit unsigned integer greater than zero.
-+.SH EXAMPLES
-+
-+On the receiving side, match packets with ethertype 0xdead and restart
-+classification so that it will match ICMP on the next rule, at prio 3:
-+.RS
-+.EX
-+# tc qdisc add dev eth0 handle ffff: ingress
-+# tc filter add dev eth0 parent ffff: prio 2 protocol 0xdead \\
-+	u32 match u32 0 0 flowid 1:1 \\
-+	action ife decode reclassify
-+# tc filter add dev eth0 parent ffff: priod 3 protocol ip \\
-+	u32 match ip protocol 0xff flowid 1:1 \\
-+	action continue
-+.EE
-+.RE
-+
-+Match with skb mark of 17:
-+
-+.RS
-+.EX
-+# tc filter add dev eth0 parent ffff: prio 4 protocol ip \\
-+	handle 0x11 fw flowid 1:1 \\
-+	action ok
-+.EE
-+.RE
-+
-+Configure the sending side to encode for the filters above. Use a destination
-+IP address of 192.168.122.237/24, then tag with skb mark of decimal 17. Encode
-+the packaet with ethertype 0xdead, add skb->mark to whitelist of metadatum to
-+send, and rewrite the destination MAC address to 02:15:15:15:15:15.
-+
-+.RS
-+.EX
-+# tc qdisc add dev eth0 root handle 1: prio
-+# tc filter add dev eth0 parent 1: protocol ip prio 10 u32 \\
-+	match ip dst 192.168.122.237/24 \\
-+	match ip protocol 1 0xff \\
-+	flowid 1:2 \\
-+	action skbedit mark 17 \\
-+	action ife encode \\
-+	type 0xDEAD \\
-+	allow mark \\
-+	dst 02:15:15:15:15:15
-+.EE
-+.RE
-+
-+.SH SEE ALSO
-+.BR tc (8),
-+.BR tc-u32 (8)
--- 
-1.9.1
+Nit-picking on two things below, but merely as a hint - I don't think
+they need to be fixed before applying this.
+
+[...]
+> +.SH NAME
+> +IFE - encapsulate/decapsulate metadata
+> +.SH SYNOPSIS
+> +.in +8
+> +.ti -8
+> +.BR tc " ... " "action"
+> +.B "ife"
+
+The quotes around 'action' and 'ife' are not necessary. Furthermore,
+the two lines can be combined:
+
+> +.I DIRECTION ACTION
+> +.RB "[ " dst
+> +.IR DMAC " ] "
+> +.RB "[ " src
+> +.IR SMAC " ] "
+> +.RB "[ " type
+> +.IR TYPE " ] "
+> +.R "[ " 
+
+This adds a trailing whitespace. Checkpatch.pl finds these things. ;)
+
+Thanks, Phil
