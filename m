@@ -1,146 +1,235 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next v3 2/4] net: rtnetlink: add linkxstats callbacks and attribute
-Date: Sat, 30 Apr 2016 10:25:27 +0200
-Message-ID: <1462004729-12185-3-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v3 4/4] bridge: netlink: export per-vlan stats
+Date: Sat, 30 Apr 2016 10:25:29 +0200
+Message-ID: <1462004729-12185-5-git-send-email-nikolay@cumulusnetworks.com>
 References: <1462004729-12185-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
 	stephen@networkplumber.org,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36508 "EHLO
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:35479 "EHLO
 	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101AbcD3IZo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 04:25:44 -0400
-Received: by mail-wm0-f46.google.com with SMTP id n129so52339543wmn.1
-        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 01:25:43 -0700 (PDT)
+	with ESMTP id S1752334AbcD3IZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 04:25:47 -0400
+Received: by mail-wm0-f46.google.com with SMTP id e201so52137440wme.0
+        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 01:25:47 -0700 (PDT)
 In-Reply-To: <1462004729-12185-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add callbacks to calculate the size and fill link extended statistics
-which can be split into multiple messages and are dumped via the new
-rtnl stats API (RTM_GETSTATS) with the IFLA_STATS_LINK_XSTATS attribute.
-Also add that attribute to the idx mask check since it is expected to
-be able to save state and resume dumping (e.g. future bridge per-vlan
-stats will be dumped via this attribute and callbacks).
-Each link type should nest its private attributes under the per-link type
-attribute. This allows to have any number of separated private attributes
-and to avoid one call to get the dev link type.
+Add a new LINK_XSTATS_TYPE_BRIDGE attribute and implement the
+RTM_GETSTATS callbacks for IFLA_STATS_LINK_XSTATS (fill_linkxstats and
+get_linkxstats_size) in order to export the per-vlan stats.
+The paddings were added because soon these fields will be needed for
+per-port per-vlan stats (or something else if someone beats me to it) so
+avoiding at least a few more netlink attributes.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
 v3: no change
-v2: add callback descriptions and make the size calculation more
-accurate, change the netlink xstats message structure with one more
-level for each rtnl link type which allows for private link type attributes
-and also allows us to avoid 1 call to get the dev link type.
+v2: remove unused pvid pointer, fix the case where bridge has 0 vlans
+but there're global contexts and move to rtnl link type private
+attributes nested into a LINK_XSTATS_TYPE_ attribute. The paddings were
+added because soon these fields will be needed for per-port per-vlan
+stats (or something else if someone beats me to it) so avoiding at least
+a few more netlink attributes.
 
- include/net/rtnetlink.h      |  7 +++++++
- include/uapi/linux/if_link.h | 12 ++++++++++++
- net/core/rtnetlink.c         | 30 ++++++++++++++++++++++++++++++
- 3 files changed, 49 insertions(+)
+ include/uapi/linux/if_bridge.h | 18 ++++++++++++
+ include/uapi/linux/if_link.h   |  1 +
+ net/bridge/br_netlink.c        | 65 ++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h        |  7 +++++
+ net/bridge/br_vlan.c           | 27 ++++++++++++++++++
+ 5 files changed, 118 insertions(+)
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 2f87c1ba13de..006a7b81d758 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -47,6 +47,9 @@ static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
-  *	@get_num_rx_queues: Function to determine number of receive queues
-  *			    to create when creating a new device.
-  *	@get_link_net: Function to get the i/o netns of the device
-+ *	@get_linkxstats_size: Function to calculate the required room for
-+ *			      dumping device-specific extended link stats
-+ *	@fill_linkxstats: Function to dump device-specific extended link stats
-  */
- struct rtnl_link_ops {
- 	struct list_head	list;
-@@ -95,6 +98,10 @@ struct rtnl_link_ops {
- 						   const struct net_device *dev,
- 						   const struct net_device *slave_dev);
- 	struct net		*(*get_link_net)(const struct net_device *dev);
-+	size_t			(*get_linkxstats_size)(const struct net_device *dev);
-+	int			(*fill_linkxstats)(struct sk_buff *skb,
-+						   const struct net_device *dev,
-+						   int *prividx);
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index 0536eefff9bf..397d503fdedb 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -134,6 +134,16 @@ struct bridge_vlan_info {
+ 	__u16 vid;
  };
  
- int __rtnl_link_register(struct rtnl_link_ops *ops);
++struct bridge_vlan_xstats {
++	__u64 rx_bytes;
++	__u64 rx_packets;
++	__u64 tx_bytes;
++	__u64 tx_packets;
++	__u16 vid;
++	__u16 pad1;
++	__u32 pad2;
++};
++
+ /* Bridge multicast database attributes
+  * [MDBA_MDB] = {
+  *     [MDBA_MDB_ENTRY] = {
+@@ -233,4 +243,12 @@ enum {
+ };
+ #define MDBA_SET_ENTRY_MAX (__MDBA_SET_ENTRY_MAX - 1)
+ 
++/* Embedded inside LINK_XSTATS_TYPE_BRIDGE */
++enum {
++	BRIDGE_XSTATS_UNSPEC,
++	BRIDGE_XSTATS_VLAN,
++	__BRIDGE_XSTATS_MAX
++};
++#define BRIDGE_XSTATS_MAX (__BRIDGE_XSTATS_MAX - 1)
++
+ #endif /* _UAPI_LINUX_IF_BRIDGE_H */
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index d82de331bb6b..8577c0e4116f 100644
+index cc50261baf59..ed59cbd6d129 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -802,6 +802,7 @@ struct if_stats_msg {
+@@ -818,6 +818,7 @@ enum {
+  */
  enum {
- 	IFLA_STATS_UNSPEC, /* also used as 64bit pad attribute */
- 	IFLA_STATS_LINK_64,
-+	IFLA_STATS_LINK_XSTATS,
- 	__IFLA_STATS_MAX,
+ 	LINK_XSTATS_TYPE_UNSPEC,
++	LINK_XSTATS_TYPE_BRIDGE,
+ 	__LINK_XSTATS_TYPE_MAX
  };
- 
-@@ -809,4 +810,15 @@ enum {
- 
- #define IFLA_STATS_FILTER_BIT(ATTR)	(1 << (ATTR - 1))
- 
-+/* These are embedded into IFLA_STATS_LINK_XSTATS:
-+ * [IFLA_STATS_LINK_XSTATS]
-+ * -> [LINK_XSTATS_TYPE_xxx]
-+ *    -> [rtnl link type specific attributes]
-+ */
-+enum {
-+	LINK_XSTATS_TYPE_UNSPEC,
-+	__LINK_XSTATS_TYPE_MAX
-+};
-+#define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
-+
- #endif /* _UAPI_LINUX_IF_LINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index de529a20cd18..d471f097c739 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3483,6 +3483,26 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		dev_get_stats(dev, sp);
- 	}
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, *idxattr)) {
-+		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
-+
-+		if (ops && ops->fill_linkxstats) {
-+			int err;
-+
-+			*idxattr = IFLA_STATS_LINK_XSTATS;
-+			attr = nla_nest_start(skb,
-+					      IFLA_STATS_LINK_XSTATS);
-+			if (!attr)
-+				goto nla_put_failure;
-+
-+			err = ops->fill_linkxstats(skb, dev, prividx);
-+			nla_nest_end(skb, attr);
-+			if (err)
-+				goto nla_put_failure;
-+			*idxattr = 0;
-+		}
-+	}
-+
- 	nlmsg_end(skb, nlh);
- 
+ #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 7fba1f018bc9..a5343c7232bf 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -1234,6 +1234,69 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
  	return 0;
-@@ -3509,6 +3529,16 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
- 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
- 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, 0)) {
-+		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
-+
-+		if (ops && ops->get_linkxstats_size) {
-+			size += nla_total_size(ops->get_linkxstats_size(dev));
-+			/* for IFLA_STATS_LINK_XSTATS */
-+			size += nla_total_size(0);
-+		}
-+	}
-+
- 	return size;
  }
  
++static size_t br_get_linkxstats_size(const struct net_device *dev)
++{
++	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_vlan_group *vg;
++	struct net_bridge_vlan *v;
++	int numvls = 0;
++
++	vg = br_vlan_group(br);
++	if (!vg)
++		return 0;
++
++	/* we need to count all, even placeholder entries */
++	list_for_each_entry(v, &vg->vlan_list, vlist)
++		numvls++;
++
++	/* account for the vlans and the link xstats type nest attribute */
++	return numvls * nla_total_size(sizeof(struct bridge_vlan_xstats)) +
++	       nla_total_size(0);
++}
++
++static int br_fill_linkxstats(struct sk_buff *skb, const struct net_device *dev,
++			      int *prividx)
++{
++	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_vlan_group *vg;
++	struct net_bridge_vlan *v;
++	struct nlattr *nest;
++	int vl_idx = 0;
++
++	vg = br_vlan_group(br);
++	if (!vg)
++		goto out;
++	nest = nla_nest_start(skb, LINK_XSTATS_TYPE_BRIDGE);
++	if (!nest)
++		return -EMSGSIZE;
++	list_for_each_entry(v, &vg->vlan_list, vlist) {
++		struct bridge_vlan_xstats vxi;
++		struct br_vlan_stats stats;
++
++		if (vl_idx++ < *prividx)
++			continue;
++		memset(&vxi, 0, sizeof(vxi));
++		vxi.vid = v->vid;
++		br_vlan_get_stats(v, &stats);
++		vxi.rx_bytes = stats.rx_bytes;
++		vxi.rx_packets = stats.rx_packets;
++		vxi.tx_bytes = stats.tx_bytes;
++		vxi.tx_packets = stats.tx_packets;
++
++		if (nla_put(skb, BRIDGE_XSTATS_VLAN, sizeof(vxi), &vxi))
++			goto nla_put_failure;
++	}
++	nla_nest_end(skb, nest);
++	*prividx = 0;
++out:
++	return 0;
++
++nla_put_failure:
++	nla_nest_end(skb, nest);
++	*prividx = vl_idx;
++
++	return -EMSGSIZE;
++}
+ 
+ static struct rtnl_af_ops br_af_ops __read_mostly = {
+ 	.family			= AF_BRIDGE,
+@@ -1252,6 +1315,8 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
+ 	.dellink		= br_dev_delete,
+ 	.get_size		= br_get_size,
+ 	.fill_info		= br_fill_info,
++	.fill_linkxstats	= br_fill_linkxstats,
++	.get_linkxstats_size	= br_get_linkxstats_size,
+ 
+ 	.slave_maxtype		= IFLA_BRPORT_MAX,
+ 	.slave_policy		= br_port_policy,
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 8b644069a1a1..d71efe57f67d 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -711,6 +711,8 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
+ void nbp_vlan_flush(struct net_bridge_port *port);
+ int nbp_vlan_init(struct net_bridge_port *port);
+ int nbp_get_num_vlan_infos(struct net_bridge_port *p, u32 filter_mask);
++void br_vlan_get_stats(const struct net_bridge_vlan *v,
++		       struct br_vlan_stats *stats);
+ 
+ static inline struct net_bridge_vlan_group *br_vlan_group(
+ 					const struct net_bridge *br)
+@@ -892,6 +894,11 @@ static inline struct net_bridge_vlan_group *nbp_vlan_group_rcu(
+ {
+ 	return NULL;
+ }
++
++static inline void br_vlan_get_stats(const struct net_bridge_vlan *v,
++				     struct br_vlan_stats *stats)
++{
++}
+ #endif
+ 
+ struct nf_br_ops {
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 065c35351356..b6de4f457161 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -1054,3 +1054,30 @@ void nbp_vlan_flush(struct net_bridge_port *port)
+ 	synchronize_rcu();
+ 	__vlan_group_free(vg);
+ }
++
++void br_vlan_get_stats(const struct net_bridge_vlan *v,
++		       struct br_vlan_stats *stats)
++{
++	int i;
++
++	memset(stats, 0, sizeof(*stats));
++	for_each_possible_cpu(i) {
++		u64 rxpackets, rxbytes, txpackets, txbytes;
++		struct br_vlan_stats *cpu_stats;
++		unsigned int start;
++
++		cpu_stats = per_cpu_ptr(v->stats, i);
++		do {
++			start = u64_stats_fetch_begin_irq(&cpu_stats->syncp);
++			rxpackets = cpu_stats->rx_packets;
++			rxbytes = cpu_stats->rx_bytes;
++			txbytes = cpu_stats->tx_bytes;
++			txpackets = cpu_stats->tx_packets;
++		} while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, start));
++
++		stats->rx_packets += rxpackets;
++		stats->rx_bytes += rxbytes;
++		stats->tx_bytes += txbytes;
++		stats->tx_packets += txpackets;
++	}
++}
 -- 
 2.4.11
