@@ -1,121 +1,36 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCHv3] netem: Segment GSO packets on enqueue
-Date: Sat, 30 Apr 2016 09:30:53 -0400
-Message-ID: <20160430133053.GA9031@neilslaptop.think-freely.org>
-References: <1461692618-21333-1-git-send-email-nhorman@tuxdriver.com>
- <1461951348-3920-1-git-send-email-nhorman@tuxdriver.com>
- <20160429111905.09b4b2e2@xeon-e3>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next] ifstat: move to new RTM_GETSTATS api
+Date: Sat, 30 Apr 2016 08:15:13 -0700
+Message-ID: <5724CC01.3030203@cumulusnetworks.com>
+References: <1461998511-24193-1-git-send-email-roopa@cumulusnetworks.com> <57248720.8060001@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netem@lists.linux-foundation.org, eric.dumazet@gmail.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com, nikolay@cumulusnetworks.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37531 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbcD3NbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 09:31:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20160429111905.09b4b2e2@xeon-e3>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33768 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbcD3PPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 11:15:16 -0400
+Received: by mail-pf0-f179.google.com with SMTP id 206so60779669pfu.0
+        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 08:15:16 -0700 (PDT)
+In-Reply-To: <57248720.8060001@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 29, 2016 at 11:19:05AM -0700, Stephen Hemminger wrote:
-> On Fri, 29 Apr 2016 13:35:48 -0400
-> Neil Horman <nhorman@tuxdriver.com> wrote:
-> 
-> > This was recently reported to me, and reproduced on the latest net kernel, when
-> > attempting to run netperf from a host that had a netem qdisc attached to the
-> > egress interface:
-> > 
-> > [  788.073771] ------------[ cut here ]------------
-> > [  788.096716] WARNING: at net/core/dev.c:2253 skb_warn_bad_offload+0xcd/0xda()
-> > [  788.129521] bnx2: caps=(0x00000001801949b3, 0x0000000000000000) len=2962
-> > data_len=0 gso_size=1448 gso_type=1 ip_summed=3
-> > [  788.182150] Modules linked in: sch_netem kvm_amd kvm crc32_pclmul ipmi_ssif
-> > ghash_clmulni_intel sp5100_tco amd64_edac_mod aesni_intel lrw gf128mul
-> > glue_helper ablk_helper edac_mce_amd cryptd pcspkr sg edac_core hpilo ipmi_si
-> > i2c_piix4 k10temp fam15h_power hpwdt ipmi_msghandler shpchp acpi_power_meter
-> > pcc_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c
-> > sd_mod crc_t10dif crct10dif_generic mgag200 syscopyarea sysfillrect sysimgblt
-> > i2c_algo_bit drm_kms_helper ahci ata_generic pata_acpi ttm libahci
-> > crct10dif_pclmul pata_atiixp tg3 libata crct10dif_common drm crc32c_intel ptp
-> > serio_raw bnx2 r8169 hpsa pps_core i2c_core mii dm_mirror dm_region_hash dm_log
-> > dm_mod
-> > [  788.465294] CPU: 16 PID: 0 Comm: swapper/16 Tainted: G        W
-> > ------------   3.10.0-327.el7.x86_64 #1
-> > [  788.511521] Hardware name: HP ProLiant DL385p Gen8, BIOS A28 12/17/2012
-> > [  788.542260]  ffff880437c036b8 f7afc56532a53db9 ffff880437c03670
-> > ffffffff816351f1
-> > [  788.576332]  ffff880437c036a8 ffffffff8107b200 ffff880633e74200
-> > ffff880231674000
-> > [  788.611943]  0000000000000001 0000000000000003 0000000000000000
-> > ffff880437c03710
-> > [  788.647241] Call Trace:
-> > [  788.658817]  <IRQ>  [<ffffffff816351f1>] dump_stack+0x19/0x1b
-> > [  788.686193]  [<ffffffff8107b200>] warn_slowpath_common+0x70/0xb0
-> > [  788.713803]  [<ffffffff8107b29c>] warn_slowpath_fmt+0x5c/0x80
-> > [  788.741314]  [<ffffffff812f92f3>] ? ___ratelimit+0x93/0x100
-> > [  788.767018]  [<ffffffff81637f49>] skb_warn_bad_offload+0xcd/0xda
-> > [  788.796117]  [<ffffffff8152950c>] skb_checksum_help+0x17c/0x190
-> > [  788.823392]  [<ffffffffa01463a1>] netem_enqueue+0x741/0x7c0 [sch_netem]
-> > [  788.854487]  [<ffffffff8152cb58>] dev_queue_xmit+0x2a8/0x570
-> > [  788.880870]  [<ffffffff8156ae1d>] ip_finish_output+0x53d/0x7d0
-> > ...
-> > 
-> > The problem occurs because netem is not prepared to handle GSO packets (as it
-> > uses skb_checksum_help in its enqueue path, which cannot manipulate these
-> > frames).
-> > 
-> > The solution I think is to simply segment the skb in a simmilar fashion to the
-> > way we do in __dev_queue_xmit (via validate_xmit_skb), with some minor changes.
-> > When we decide to corrupt an skb, if the frame is GSO, we segment it, corrupt
-> > the first segment, and enqueue the remaining ones.
-> > 
-> > tested successfully by myself on the latest net kernel, to whcih this applies
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > CC: Jamal Hadi Salim <jhs@mojatatu.com>
-> > CC: "David S. Miller" <davem@davemloft.net>
-> > CC: netem@lists.linux-foundation.org
-> > CC: eric.dumazet@gmail.com
-> > 
-> 
-> This looks like a good idea.
-> 
-> Please cleanup the formatting issues:
-> 
-> This was recently reported to me, and reproduced on the latest net kernel, when
-> 
-> WARNING: 'whcih' may be misspelled - perhaps 'which'?
-> #93: 
-> tested successfully by myself on the latest net kernel, to whcih this applies
-> 
-> ERROR: "foo* bar" should be "foo *bar"
-> #130: FILE: net/sched/sch_netem.c:402:
-> +static struct sk_buff* netem_segment(struct sk_buff *skb, struct Qdisc *sch)
-> 
-> 
-> CHECK: braces {} should be used on all arms of this statement
-> #164: FILE: net/sched/sch_netem.c:479:
-> +		if (skb_is_gso(skb)) {
-> [...]
-> +		} else
-> [...]
-> 
-> CHECK: braces {} should be used on all arms of this statement
-> #198: FILE: net/sched/sch_netem.c:562:
-> +			if (rc != NET_XMIT_SUCCESS) {
-> [...]
-> +			} else
-> [...]
-> 
-> 
-> 
-> 
-> 
-> 
-Will, do when I get back to the office monday
-Thanks!
-Neil
+On 4/30/16, 3:21 AM, Jamal Hadi Salim wrote:
+> On 16-04-30 02:41 AM, Roopa Prabhu wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch modifies ifstat to use the new RTM_GETSTATS api
+>> to query stats from the kernel. In the process this also
+>> moves ifstat to use 64 bit stats.
+>
+> Breaks old kernels? May need to keep backward compat of
+> RTM_NEWLINK and even new main struct for GETSTATS.
+yes, i was wondering about that. v2 coming. If GETSTATS fails, I will fallback to RTM_NEWLINK.
+
+thanks!
