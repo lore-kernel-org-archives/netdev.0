@@ -1,97 +1,74 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 6/7] ipv6: Generic tunnel cleanup
-Date: Fri, 29 Apr 2016 17:12:20 -0700
-Message-ID: <1461975141-954269-7-git-send-email-tom@herbertland.com>
-References: <1461975141-954269-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH next-next 0/7]  net: Cleanup IPv6 ip tunnels
+Date: Fri, 29 Apr 2016 17:12:14 -0700
+Message-ID: <1461975141-954269-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34714 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752650AbcD3AOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 20:14:49 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3U0CCOl024755
-	for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 17:14:48 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:17854 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750973AbcD3AOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 20:14:39 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3U0Aemc004700
+	for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 17:14:37 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22mggpg9ew-1
+	by m0089730.ppops.net with ESMTP id 22ktssq743-2
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 17:14:48 -0700
+	for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 17:14:37 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 8bd3b3ca0e6811e6b5d224be0595f910-d43f7c50 for <netdev@vger.kernel.org>;	Fri,
- 29 Apr 2016 17:14:46 -0700
-In-Reply-To: <1461975141-954269-1-git-send-email-tom@herbertland.com>
+ 852a3ed60e6811e6b5d224be0595f910-d43f7c50 for <netdev@vger.kernel.org>;	Fri,
+ 29 Apr 2016 17:14:35 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A few generic changes to generalize tunnels in IPv6:
-  - Export ip6_tnl_change_mtu so that it can be called by ip6_gre
-  - Add tun_hlen to ip6_tnl structure.
+The IPv6 tunnel code is very different from IPv4 code. There is a lot
+of redundancy with the IPv4 code, particularly in the GRE tunneling.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/net/ip6_tunnel.h | 5 ++++-
- net/ipv6/ip6_tunnel.c    | 7 +++++--
- 2 files changed, 9 insertions(+), 3 deletions(-)
+This patch set cleans up the tunnel code to make the IPv6 code look
+more like the IPv4 code and use common functions between the two
+stacks where possible.
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 835491b..fb9e015 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -50,8 +50,10 @@ struct ip6_tnl {
- 	/* These fields used only by GRE */
- 	__u32 i_seqno;	/* The last seen seqno	*/
- 	__u32 o_seqno;	/* The last output seqno */
--	int hlen;       /* Precalculated GRE header length */
-+	int hlen;       /* tun_hlen + encap_hlen */
-+	int tun_hlen;	/* Precalculated header length */
- 	int mlink;
-+
- };
- 
- /* Tunnel encapsulation limit destination sub-option */
-@@ -76,6 +78,7 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
- 			     const struct in6_addr *raddr);
- struct net *ip6_tnl_get_link_net(const struct net_device *dev);
- int ip6_tnl_get_iflink(const struct net_device *dev);
-+int ip6_tnl_change_mtu(struct net_device *dev, int new_mtu);
- 
- #ifdef CONFIG_INET
- static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index b1f31d2..ade55af 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1540,8 +1540,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-  *   %-EINVAL if mtu too small
-  **/
- 
--static int
--ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
-+int ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct ip6_tnl *tnl = netdev_priv(dev);
- 
-@@ -1557,6 +1556,7 @@ ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
- 	dev->mtu = new_mtu;
- 	return 0;
- }
-+EXPORT_SYMBOL(ip6_tnl_change_mtu);
- 
- int ip6_tnl_get_iflink(const struct net_device *dev)
- {
-@@ -1632,6 +1632,9 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
- 	if (ret)
- 		goto destroy_dst;
- 
-+	t->hlen = 0;
-+	t->tun_hlen = 0;
-+
- 	return 0;
- 
- destroy_dst:
+This work should make it easier to maintain and extend the IPv6 ip
+tunnels.
+
+Items in this patch set:
+  - Cleanup IPv6 tunnel receive path (ip6_tnl_rcv). Includes using
+    gro_cells and exporting ip6_tnl_rcv so the ip6_gre can call it
+  - Move GRE functions to common header file (tx functions) or
+    gre_demux.c (rx functions like gre_parse_header)
+  - Call common GRE functions from IPv6 GRE
+  - Create ip6_tnl_xmit (to be like ip_tunnel_xmit)
+
+Tested:
+  Ran super_netperf tests for TCP_RR and TCP_STREAM for:
+    - IPv4 over gre, gretap, gre6, gre6tap
+    - IPv6 over gre, gretap, gre6, gre6tap
+    - ipip
+    - ip6ip6
+    - ipip/gue
+    - IPv6 over gre/gue
+    - IPv4 over gre/gue
+
+Tom Herbert (7):
+  ipv6: Cleanup IPv6 tunnel receive path
+  gre: Move utility functions to common headers
+  gre6: Cleanup GREv6 receive path, call common GRE functions
+  ipv6: Create ip6_tnl_xmit
+  gre: Create common functions for transmit
+  ipv6: Generic tunnel cleanup
+  gre6: Cleanup GREv6 transmit path, call common GRE functions
+
+ include/net/gre.h        | 104 +++++++++++++
+ include/net/ip6_tunnel.h |  11 +-
+ net/ipv4/gre_demux.c     |  64 ++++++++
+ net/ipv4/ip_gre.c        | 199 +++---------------------
+ net/ipv6/ip6_gre.c       | 392 +++++++++--------------------------------------
+ net/ipv6/ip6_tunnel.c    | 266 +++++++++++++++++++++-----------
+ 6 files changed, 452 insertions(+), 584 deletions(-)
+
 -- 
 2.8.0.rc2
