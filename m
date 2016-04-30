@@ -1,24 +1,26 @@
-From: Vijay Pandurangan <vijayp@vijayp.ca>
+From: Tom Herbert <tom@herbertland.com>
 Subject: =?UTF-8?Q?Re=3A_=5BPATCH_3=2E2_085=2F115=5D_veth=3A_don=E2=80=99t_modify_ip=5Fsumm?=
 	=?UTF-8?Q?ed=3B_doing_so_treats_packets_with_bad_checksums_as_good=2E?=
-Date: Sat, 30 Apr 2016 18:01:29 -0400
-Message-ID: <CAKUBDd8S2=YcJ5wtM24D6-vw+bMud=Om9TBykMvSYcJ4X5tryw@mail.gmail.com>
-References: <lsq.1461711744.699003961@decadent.org.uk> <5720E1F0.9010203@candelatech.com>
- <1461780469.5102.0.camel@decadent.org.uk> <1461801603.3971874.591751457.2DB91B98@webmail.messagingengine.com>
- <572155F4.10405@candelatech.com> <20160428102953.GA7656@bistromath.localdomain>
- <1462041181.17662.3.camel@decadent.org.uk> <57250A17.5090804@candelatech.com>
- <CALx6S36cqecPH+Zd8pGVdFHRi7bmWgAwm2UgFVprt5JOuO47UA@mail.gmail.com>
- <57251CB3.1040504@candelatech.com> <CAKUBDd-_5RouHduHvjOqgOpyAArEBd80BEy4KBDPLRQoTtWb2Q@mail.gmail.com>
- <572523C4.4080307@candelatech.com> <CAKUBDd8fksttZOW3T5zdKD4rzbcZzZer-DCMMsA2zKF4A_hXQw@mail.gmail.com>
- <57252918.7070302@candelatech.com>
+Date: Sat, 30 Apr 2016 15:42:27 -0700
+Message-ID: <CALx6S34zs9dB8FZC9RgNkguVj6G6+y-jq=h84YS_R6Bz0KHV4w@mail.gmail.com>
+References: <lsq.1461711744.699003961@decadent.org.uk>
+	<5720E1F0.9010203@candelatech.com>
+	<1461780469.5102.0.camel@decadent.org.uk>
+	<1461801603.3971874.591751457.2DB91B98@webmail.messagingengine.com>
+	<572155F4.10405@candelatech.com>
+	<20160428102953.GA7656@bistromath.localdomain>
+	<1462041181.17662.3.camel@decadent.org.uk>
+	<57250A17.5090804@candelatech.com>
+	<CALx6S36cqecPH+Zd8pGVdFHRi7bmWgAwm2UgFVprt5JOuO47UA@mail.gmail.com>
+	<57251CB3.1040504@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
+Cc: Ben Hutchings <ben@decadent.org.uk>,
 	Sabrina Dubroca <sd@queasysnail.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
 	akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	Vijay Pandurangan <vijayp@vijayp.ca>,
 	Cong Wang <cwang@twopensource.com>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Evan Jones <ej@evanjones.ca>,
@@ -27,77 +29,117 @@ Cc: Tom Herbert <tom@herbertland.com>,
 	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Cong Wang <xiyou.wangcong@gmail.com>
 To: Ben Greear <greearb@candelatech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57252918.7070302@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <57251CB3.1040504@candelatech.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 30, 2016 at 5:52 PM, Ben Greear <greearb@candelatech.com> wrote:
+On Sat, Apr 30, 2016 at 1:59 PM, Ben Greear <greearb@candelatech.com> wrote:
+>
+> On 04/30/2016 12:54 PM, Tom Herbert wrote:
 >>
->> Good point, so if you had:
+>> We've put considerable effort into cleaning up the checksum interface
+>> to make it as unambiguous as possible, please be very careful to
+>> follow it. Broken checksum processing is really hard to detect and
+>> debug.
 >>
->> eth0 <-> raw <-> user space-bridge <-> raw <-> vethA <-> veth B <->
->> userspace-stub <->eth1
->>
->> and user-space hub enabled this elide flag, things would work, right?
->> Then, it seems like what we need is a way to tell the kernel
->> router/bridge logic to follow elide signals in packets coming from
->> veth. I'm not sure what the best way to do this is because I'm less
->> familiar with conventions in that part of the kernel, but assuming
->> there's a way to do this, would it be acceptable?
+>> CHECKSUM_UNNECESSARY means that some number of _specific_ checksums
+>> (indicated by csum_level) have been verified to be correct in a
+>> packet. Blindly promoting CHECKSUM_NONE to CHECKSUM_UNNECESSARY is
+>> never right. If CHECKSUM_UNNECESSARY is set in such a manner but the
+>> checksum it would refer to has not been verified and is incorrect this
+>> is a major bug.
 >
 >
-> You cannot receive on one veth without transmitting on the other, so
-> I think the elide csum logic can go on the raw-socket, and apply to packets
-> in the transmit-from-user-space direction.  Just allowing the socket to make
-> the veth behave like it used to before this patch in question should be good
-> enough, since that worked for us for years.  So, just an option to modify
-> the
-> ip_summed for pkts sent on a socket is probably sufficient.
-
-I don't think this is right. Consider:
-
-- App A  sends out corrupt packets 50% of the time and discards inbound data.
-- App B doesn't care about corrupt packets and is happy to receive
-them and has some way of dealing with them (special case)
-- App C is a regular app, say nc or something.
-
-In your world, where A decides what happens to data it transmits,
-then
-A<--veth-->B and A<---wire-->B will have the same behaviour
-
-but
-
-A<-- veth --> C and A<-- wire --> C will have _different_ behaviour: C
-will behave incorrectly if it's connected over veth but correctly if
-connected with a wire. That is a bug.
-
-Since A cannot know what the app it's talking to will desire, I argue
-that both sides of a message must be opted in to this optimization.
-
-
-
-
-
-
+> Suppose I know that the packet received on a packet-socket has
+> already been verified by a NIC that supports hardware checksumming.
 >
->>> There may be no sockets on the vethB port.  And reader/writer is not
->>> a good way to look at it since I am implementing a bi-directional bridge
->>> in
->>> user-space and each packet-socket is for both rx and tx.
->>
->>
->> Sure, but we could model a bidrectional connection as two
->> unidirectional sockets for our discussions here, right?
+> Then, I want to transmit it on a veth interface using a second
+> packet socket.  I do not want veth to recalculate the checksum on
+> transmit, nor to validate it on the peer veth on receive, because I do
+> not want to waste the CPU cycles.  I am assuming that my app is not
+> accidentally corrupting frames, so the checksum can never be bad.
 >
+> How should the checksumming be configured for the packets going into
+> the packet-socket from user-space?
 >
-> Best not to I think, you want to make sure that one socket can
-> correctly handle tx and rx.  As long as that works, then using
-> uni-directional sockets should work too.
+Checksum unnecessary conversion to checksum complete should be done
+and then the computed value can be sent to user space. If you want to
+take advantage of the value on transmit then we would to change the
+interface. But I'm not sure why recalculating the the checksum in the
+host is even a problem. With all the advances in checksum offload,
+LCO, RCO it seems like that shouldn't be a common case anyway.
+
+> Also, I might want to send raw frames that do have
+> broken checksums (lets assume a real NIC, not veth), and I want them
+> to hit the wire with those bad checksums.
+>
+> How do I configure the checksumming in this case?
+
+Just send raw packets with bad checksums (no checksum offload).
+
+Tom
+
 >
 >
 > Thanks,
 > Ben
+>
+>
+>
+>>
+>> Tom
+>>
+>> On Sat, Apr 30, 2016 at 12:40 PM, Ben Greear <greearb@candelatech.com>
+>> wrote:
+>>>
+>>>
+>>>
+>>> On 04/30/2016 11:33 AM, Ben Hutchings wrote:
+>>>>
+>>>>
+>>>> On Thu, 2016-04-28 at 12:29 +0200, Sabrina Dubroca wrote:
+>>>>>
+>>>>>
+>>>>> Hello,
+>>>
+>>>
+>>>
+>>>>>>
+>>>>>>
+>>>>>> http://dmz2.candelatech.com/?p=linux-4.4.dev.y/.git;a=commitdiff;h=8153e983c0e5eba1aafe1fc296248ed2a553f1ac;hp=454b07405d694dad52e7f41af5816eed0190da8a
+>>>>>
+>>>>>
+>>>>> Actually, no, this is not really a regression.
+>>>>
+>>>>
+>>>> [...]
+>>>>
+>>>> It really is.  Even though the old behaviour was a bug (raw packets
+>>>> should not be changed), if there are real applications that depend on
+>>>> that then we have to keep those applications working somehow.
+>>>
+>>>
+>>>
+>>> To be honest, I fail to see why the old behaviour is a bug when sending
+>>> raw packets from user-space.  If raw packets should not be changed, then
+>>> we need some way to specify what the checksum setting is to begin with,
+>>> otherwise, user-space has not enough control.
+>>>
+>>> A socket option for new programs, and sysctl configurable defaults for
+>>> raw
+>>> sockets
+>>> for old binary programs would be sufficient I think.
+>>>
+>>>
+>>> Thanks,
+>>> Ben
+>>>
+>>> --
+>>> Ben Greear <greearb@candelatech.com>
+>>> Candela Technologies Inc  http://www.candelatech.com
+>>
+>>
 >
 > --
 > Ben Greear <greearb@candelatech.com>
