@@ -1,80 +1,152 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH net] vlan: Propagate MAC address changes properly
-Date: Sat, 30 Apr 2016 11:32:37 +0100
-Message-ID: <572489C5.3020502@brocade.com>
-References: <5723D930.6040004@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [iproute2 1/1] man: tc-ife.8: man page for ife action
+Date: Sat, 30 Apr 2016 06:58:04 -0400
+Message-ID: <1462013884-4971-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, phil@nwl.cc, lucasb@mojatatu.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:9563 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751357AbcD3Kcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 06:32:53 -0400
-Received: from pps.filterd (m0048192.ppops.net [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3UAVKQ1008883
-	for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 03:32:52 -0700
-Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-	by mx0b-000f0801.pphosted.com with ESMTP id 22kps277ys-3
-	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 03:32:52 -0700
-In-Reply-To: <5723D930.6040004@brocade.com>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:35926 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750973AbcD3K6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 06:58:20 -0400
+Received: by mail-qg0-f54.google.com with SMTP id d90so52396676qgd.3
+        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 03:58:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MAC address of the physical interface is only copied to the VLAN
-when it is first created, resulting in an inconsistency after MAC
-address changes of only newly created VLANs having an up-to-date MAC.
+From: Lucas Bates <lucasb@mojatatu.com>
 
-Continuing to inherit the MAC address unless explicitly changed for
-the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
-and thus for DAD to behave as expected for the given MAC.
-
-Signed-off-by: Mike Manning <mmanning@brocade.com>
+Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/8021q/vlan.c |   17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+ man/man8/tc-ife.8 | 118 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 118 insertions(+)
+ create mode 100644 man/man8/tc-ife.8
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index d2cd9de..2f57cf2 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -293,15 +293,15 @@ static void vlan_sync_address(struct net_device *dev,
- 
- 	/* vlan address was different from the old address and is equal to
- 	 * the new address */
--	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
-+	if ((vlandev->flags & IFF_UP) &&
-+	    !ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
- 	    ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
- 		dev_uc_del(dev, vlandev->dev_addr);
- 
--	/* vlan address was equal to the old address and is different from
-+	/* vlan address was equal to the old address so now also inherit
- 	 * the new address */
--	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
--	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
--		dev_uc_add(dev, vlandev->dev_addr);
-+	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr))
-+		ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
- 
- 	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
- }
-@@ -389,13 +389,8 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 
- 	case NETDEV_CHANGEADDR:
- 		/* Adjust unicast filters on underlying device */
--		vlan_group_for_each_dev(grp, i, vlandev) {
--			flgs = vlandev->flags;
--			if (!(flgs & IFF_UP))
--				continue;
--
-+		vlan_group_for_each_dev(grp, i, vlandev)
- 			vlan_sync_address(dev, vlandev);
--		}
- 		break;
- 
- 	case NETDEV_CHANGEMTU:
+diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
+new file mode 100644
+index 0000000..7a912b0
+--- /dev/null
++++ b/man/man8/tc-ife.8
+@@ -0,0 +1,118 @@
++.TH "IFE action in tc" 8 "22 Apr 2016" "iproute2" "Linux"
++
++.SH NAME
++IFE - encapsulate/decapsulate metadata
++.SH SYNOPSIS
++.in +8
++.ti -8
++.BR tc " ... " "action"
++.B "ife"
++.I DIRECTION ACTION
++.RB "[ " dst
++.IR DMAC " ] "
++.RB "[ " src
++.IR SMAC " ] "
++.RB "[ " type
++.IR TYPE " ] "
++.R "[ " 
++.IR CONTROL " ] "
++.RB "[ " index
++.IR INDEX " ] "
++
++.ti -8
++.IR DIRECTION " := { "
++.BR decode " | " encode " }"
++
++.ti -8
++.IR ACTION " := { "
++.BR allow " | " use " }"
++
++.ti -8
++.IR CONTROL " := { "
++.BR reclassify " | " use " | " pipe " | " drop " | " continue " | " ok " }"
++.SH DESCRIPTION
++The
++.B ife
++action allows for a sending side to encapsulate arbitrary metadata, which is
++then decapsulated by the receiving end. The sender runs in encoding mode and
++the receiver in decode mode. Both sender and receiver must specify the same
++ethertype. In the future, a registered ethertype may be available as a default.
++.SH OPTIONS
++.TP
++.B decode
++For the receiving side; decode the metadata if the packet matches.
++.TP
++.B encode
++For the sending side. Encode the specified metadata if the packet matches.
++.TP
++.B allow
++Encode direction only. Allows encoding specified metadata.
++.TP
++.B use
++Encode direction only. Enforce static encoding of specified metadata.
++.TP
++.BI dmac " DMAC"
++.TQ
++.BI smac " SMAC"
++Optional six byte destination or source MAC address to encode.
++.TP
++.BI type " TYPE"
++Optional 16-bit ethertype to encode.
++.TP
++.BI CONTROL
++Action to take following an encode/decode.
++.TP
++.BI index " INDEX"
++Assign a unique ID to this action instead of letting the kernel choose one
++automatically.
++.I INDEX
++is a 32bit unsigned integer greater than zero.
++.SH EXAMPLES
++
++On the receiving side, match packets with ethertype 0xdead and restart
++classification so that it will match ICMP on the next rule, at prio 3:
++.RS
++.EX
++# tc qdisc add dev eth0 handle ffff: ingress
++# tc filter add dev eth0 parent ffff: prio 2 protocol 0xdead \\
++	u32 match u32 0 0 flowid 1:1 \\
++	action ife decode reclassify
++# tc filter add dev eth0 parent ffff: priod 3 protocol ip \\
++	u32 match ip protocol 0xff flowid 1:1 \\
++	action continue
++.EE
++.RE
++
++Match with skb mark of 17:
++
++.RS
++.EX
++# tc filter add dev eth0 parent ffff: prio 4 protocol ip \\
++	handle 0x11 fw flowid 1:1 \\
++	action ok
++.EE
++.RE
++
++Configure the sending side to encode for the filters above. Use a destination
++IP address of 192.168.122.237/24, then tag with skb mark of decimal 17. Encode
++the packaet with ethertype 0xdead, add skb->mark to whitelist of metadatum to
++send, and rewrite the destination MAC address to 02:15:15:15:15:15.
++
++.RS
++.EX
++# tc qdisc add dev eth0 root handle 1: prio
++# tc filter add dev eth0 parent 1: protocol ip prio 10 u32 \\
++	match ip dst 192.168.122.237/24 \\
++	match ip protocol 1 0xff \\
++	flowid 1:2 \\
++	action skbedit mark 17 \\
++	action ife encode \\
++	type 0xDEAD \\
++	allow mark \\
++	dst 02:15:15:15:15:15
++.EE
++.RE
++
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-u32 (8)
 -- 
-1.7.10.4
+1.9.1
