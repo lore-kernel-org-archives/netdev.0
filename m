@@ -1,86 +1,53 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net 2/3] udp_offload: Set encapsulation before inner completes.
-Date: Fri, 29 Apr 2016 20:46:14 -0700
-Message-ID: <CAKgT0UcGCgRt5dpG2Y0a6sBar1KF1DkHxdhMbCOYV6qj15D50A@mail.gmail.com>
-References: <1461968887-4993-1-git-send-email-jarno@ovn.org>
-	<1461968887-4993-2-git-send-email-jarno@ovn.org>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Sat, 30 Apr 2016 07:33:20 +0300
+Message-ID: <CAJ3xEMgvcRa=qFDs0wDv25Ue2yw0hQoK_E=01G7zikyr7kLKUw@mail.gmail.com>
+References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
+	<1461407219-72027-10-git-send-email-oulijun@huawei.com>
+	<20160424075424.GE7974@leon.nu>
+	<571F0C04.2010005@huawei.com>
+	<20160426141821.GJ7974@leon.nu>
+	<20160426142517.GA1937@nanopsycho.orion>
+	<57203347.4000107@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@kernel.org>
-To: Jarno Rajahalme <jarno@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:33586 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751725AbcD3DqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2016 23:46:15 -0400
-Received: by mail-io0-f180.google.com with SMTP id f89so125439724ioi.0
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2016 20:46:14 -0700 (PDT)
-In-Reply-To: <1461968887-4993-2-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57203347.4000107-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 29, 2016 at 3:28 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
-> UDP tunnel segmentation code relies on the inner offsets being set for
-> an UDP tunnel GSO packet.  The inner *_complete() functions will set
-> the inner offsets only if the encapsulation is set before calling
-> them, but udp_gro_complete() set it only after the inner *_complete()
-> functions were done.
->
-> Also, remove the setting of the inner_mac_header in udp_gro_complete()
-> as it was wrongly set to the beginning of the UDP tunnel header rather
-> than the inner MAC header.
->
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
->  net/ipv4/udp_offload.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 0ed2daf..e330c0e 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -399,6 +399,11 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
->
->         uh->len = newlen;
->
-> +       /* Set encapsulation before calling into inner gro_complete() functions
-> +        * to make them set up the inner offsets.
-> +        */
-> +       skb->encapsulation = 1;
-> +
->         rcu_read_lock();
->
->         uo_priv = rcu_dereference(udp_offload_base);
-> @@ -421,9 +426,6 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
->         if (skb->remcsum_offload)
->                 skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
->
-> -       skb->encapsulation = 1;
-> -       skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
-> -
->         return err;
->  }
->
-> --
-> 2.7.4
->
+On Wed, Apr 27, 2016 at 6:34 AM, oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
+> On 2016/4/26 22:25, Jiri Pirko wrote:
+>> Tue, Apr 26, 2016 at 04:18:21PM CEST, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org wrote:
 
-So looking over this I think this patch is just a band-aid and it
-isn't really fixing much of anything.  For example I cannot see where
-the inner transport offset is ever set.  From what I can tell it never
-is.
+>>>>     I appreciate your keen eye. this code is meant for ARM64bit therefore should run corretly for 64-bit AARCH64.
 
-What we probably need to do is the same thing we currently do in the
-transmit path itself.  We need to record all the headers on the way up
-so that we end up with the network and transport headers matching the
-inner headers, then when we complete the inner-most tunnel we set the
-inner headers and set skb->encapsulation.  Then on the way down we
-start overwriting the outer header offsets when skb->encapsulation is
-set.  That way we don't have to worry about screwing things up for
-headers like GRE/GUE because the GRE can write the inner header
-offsets, set skb->encapsulation, and then we only overwrite the outer
-headers all the way down because with skb->encapsulation set we know
-we are only dealing with outer headers because the inner header values
-have been written.
+>> The driver should run correctly on any arch.
 
-- Alex
+>  Hi Jiri Pirko,
+>     Our driver run in ARM64 platform by depending on Kconfig. It will be configure in Kconfig file.
+
+Can you elaborate what design aspects in the driver or anywhere else
+should impose that limitation?
+
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
