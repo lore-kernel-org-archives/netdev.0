@@ -1,211 +1,26 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] fq_codel: add batch ability to fq_codel_drop()
-Date: Sun, 01 May 2016 16:47:26 -0700
-Message-ID: <1462146446.5535.236.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
+Date: Sun, 01 May 2016 19:49:45 -0400 (EDT)
+Message-ID: <20160501.194945.1926401275113473949.davem@davemloft.net>
+References: <1461892155-10524-1-git-send-email-marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>,
-	Jonathan Morton <chromatix99@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, arnd@arndb.de,
+	dinguyen@opensource.altera.com, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com
+To: marex@denx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:34315 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbcEAXr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 19:47:29 -0400
-Received: by mail-qg0-f53.google.com with SMTP id 90so47681573qgz.1
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 16:47:29 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:53305 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752436AbcEAXts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 19:49:48 -0400
+In-Reply-To: <1461892155-10524-1-git-send-email-marex@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-In presence of inelastic flows and stress, we can call
-fq_codel_drop() for every packet entering fq_codel qdisc.
+Please respin this with the checkpatch errors fixed.
 
-fq_codel_drop() is quite expensive, as it does a linear scan
-of 4 KB of memory to find a fat flow.
-Once found, it drops the oldest packet of this flow.
-
-Instead of dropping a single packet, try to drop 50% of the backlog
-of this fat flow, with a configurable limit of 64 packets per round.
-
-TCA_FQ_CODEL_DROP_BATCH_SIZE is the new attribute to make this
-limit configurable.
-
-With this strategy the 4 KB search is amortized to a single cache line
-per drop [1], so fq_codel_drop() no longer appears at the top of kernel
-profile in presence of few inelastic flows.
-
-[1] Assuming a 64byte cache line, and 1024 buckets
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dave Taht <dave.taht@gmail.com>
-Cc: Jonathan Morton <chromatix99@gmail.com>
----
- include/uapi/linux/pkt_sched.h |    1 
- net/sched/sch_fq_codel.c       |   64 +++++++++++++++++++++----------
- 2 files changed, 46 insertions(+), 19 deletions(-)
-
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 1c78c7454c7c..a11afecd4482 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -718,6 +718,7 @@ enum {
- 	TCA_FQ_CODEL_FLOWS,
- 	TCA_FQ_CODEL_QUANTUM,
- 	TCA_FQ_CODEL_CE_THRESHOLD,
-+	TCA_FQ_CODEL_DROP_BATCH_SIZE,
- 	__TCA_FQ_CODEL_MAX
- };
- 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index a5e420b3d4ab..e7b42b0d5145 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -59,6 +59,7 @@ struct fq_codel_sched_data {
- 	u32		flows_cnt;	/* number of flows */
- 	u32		perturbation;	/* hash perturbation */
- 	u32		quantum;	/* psched_mtu(qdisc_dev(sch)); */
-+	u32		drop_batch_size;
- 	struct codel_params cparams;
- 	struct codel_stats cstats;
- 	u32		drop_overlimit;
-@@ -135,17 +136,20 @@ static inline void flow_queue_add(struct fq_codel_flow *flow,
- 	skb->next = NULL;
- }
- 
--static unsigned int fq_codel_drop(struct Qdisc *sch)
-+static unsigned int fq_codel_drop(struct Qdisc *sch, unsigned int max_packets)
- {
- 	struct fq_codel_sched_data *q = qdisc_priv(sch);
- 	struct sk_buff *skb;
- 	unsigned int maxbacklog = 0, idx = 0, i, len;
- 	struct fq_codel_flow *flow;
-+	unsigned int threshold;
- 
--	/* Queue is full! Find the fat flow and drop packet from it.
-+	/* Queue is full! Find the fat flow and drop packet(s) from it.
- 	 * This might sound expensive, but with 1024 flows, we scan
- 	 * 4KB of memory, and we dont need to handle a complex tree
- 	 * in fast path (packet queue/enqueue) with many cache misses.
-+	 * In stress mode, we'll try to drop 64 packets from the flow,
-+	 * amortizing this linear lookup to one cache line per drop.
- 	 */
- 	for (i = 0; i < q->flows_cnt; i++) {
- 		if (q->backlogs[i] > maxbacklog) {
-@@ -153,15 +157,24 @@ static unsigned int fq_codel_drop(struct Qdisc *sch)
- 			idx = i;
- 		}
- 	}
-+
-+	/* Our goal is to drop half of this fat flow backlog */
-+	threshold = maxbacklog >> 1;
-+
- 	flow = &q->flows[idx];
--	skb = dequeue_head(flow);
--	len = qdisc_pkt_len(skb);
-+	len = 0;
-+	i = 0;
-+	do {
-+		skb = dequeue_head(flow);
-+		len += qdisc_pkt_len(skb);
-+		kfree_skb(skb);
-+	} while (++i < max_packets && len < threshold);
-+
-+	flow->dropped += i;
- 	q->backlogs[idx] -= len;
--	sch->q.qlen--;
--	qdisc_qstats_drop(sch);
--	qdisc_qstats_backlog_dec(sch, skb);
--	kfree_skb(skb);
--	flow->dropped++;
-+	sch->qstats.drops += i;
-+	sch->qstats.backlog -= len;
-+	sch->q.qlen -= i;
- 	return idx;
- }
- 
-@@ -170,14 +183,14 @@ static unsigned int fq_codel_qdisc_drop(struct Qdisc *sch)
- 	unsigned int prev_backlog;
- 
- 	prev_backlog = sch->qstats.backlog;
--	fq_codel_drop(sch);
-+	fq_codel_drop(sch, 1U);
- 	return prev_backlog - sch->qstats.backlog;
- }
- 
- static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct fq_codel_sched_data *q = qdisc_priv(sch);
--	unsigned int idx, prev_backlog;
-+	unsigned int idx, prev_backlog, prev_qlen;
- 	struct fq_codel_flow *flow;
- 	int uninitialized_var(ret);
- 
-@@ -206,16 +219,22 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		return NET_XMIT_SUCCESS;
- 
- 	prev_backlog = sch->qstats.backlog;
--	q->drop_overlimit++;
--	/* Return Congestion Notification only if we dropped a packet
--	 * from this flow.
-+	prev_qlen = sch->q.qlen;
-+
-+	/* fq_codel_drop() is quite expensive, as it performs a linear search
-+	 * in q->backlogs[] to find a fat flow.
-+	 * So instead of dropping a single packet, drop half of its backlog
-+	 * with a 64 packets limit to not add a too big cpu spike here.
- 	 */
--	if (fq_codel_drop(sch) == idx)
--		return NET_XMIT_CN;
-+	ret = fq_codel_drop(sch, q->drop_batch_size);
-+
-+	q->drop_overlimit += prev_qlen - sch->q.qlen;
- 
--	/* As we dropped a packet, better let upper stack know this */
--	qdisc_tree_reduce_backlog(sch, 1, prev_backlog - sch->qstats.backlog);
--	return NET_XMIT_SUCCESS;
-+	/* As we dropped packet(s), better let upper stack know this */
-+	qdisc_tree_reduce_backlog(sch, prev_qlen - sch->q.qlen,
-+				  prev_backlog - sch->qstats.backlog);
-+
-+	return ret == idx ? NET_XMIT_CN : NET_XMIT_SUCCESS;
- }
- 
- /* This is the specific function called from codel_dequeue()
-@@ -335,6 +354,7 @@ static const struct nla_policy fq_codel_policy[TCA_FQ_CODEL_MAX + 1] = {
- 	[TCA_FQ_CODEL_FLOWS]	= { .type = NLA_U32 },
- 	[TCA_FQ_CODEL_QUANTUM]	= { .type = NLA_U32 },
- 	[TCA_FQ_CODEL_CE_THRESHOLD] = { .type = NLA_U32 },
-+	[TCA_FQ_CODEL_DROP_BATCH_SIZE] = { .type = NLA_U32 },
- };
- 
- static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
-@@ -386,6 +406,9 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (tb[TCA_FQ_CODEL_QUANTUM])
- 		q->quantum = max(256U, nla_get_u32(tb[TCA_FQ_CODEL_QUANTUM]));
- 
-+	if (tb[TCA_FQ_CODEL_DROP_BATCH_SIZE])
-+		q->drop_batch_size = min(1U, nla_get_u32(tb[TCA_FQ_CODEL_DROP_BATCH_SIZE]));
-+
- 	while (sch->q.qlen > sch->limit) {
- 		struct sk_buff *skb = fq_codel_dequeue(sch);
- 
-@@ -431,6 +454,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
- 
- 	sch->limit = 10*1024;
- 	q->flows_cnt = 1024;
-+	q->drop_batch_size = 64;
- 	q->quantum = psched_mtu(qdisc_dev(sch));
- 	q->perturbation = prandom_u32();
- 	INIT_LIST_HEAD(&q->new_flows);
-@@ -489,6 +513,8 @@ static int fq_codel_dump(struct Qdisc *sch, struct sk_buff *skb)
- 			q->cparams.ecn) ||
- 	    nla_put_u32(skb, TCA_FQ_CODEL_QUANTUM,
- 			q->quantum) ||
-+	    nla_put_u32(skb, TCA_FQ_CODEL_DROP_BATCH_SIZE,
-+			q->drop_batch_size) ||
- 	    nla_put_u32(skb, TCA_FQ_CODEL_FLOWS,
- 			q->flows_cnt))
- 		goto nla_put_failure;
+I don't have any opinion about the conditional parenthesis, so
+don't worry about that.
