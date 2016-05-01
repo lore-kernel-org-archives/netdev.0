@@ -1,58 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] pxa168_eth: fix mdiobus_scan() error check
-Date: Sun, 1 May 2016 09:05:42 -0700
-Message-ID: <57262956.3060206@gmail.com>
-References: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
- <6024241.YxM8l6DPJo@wasted.cogentembedded.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Q: How to disable vlan strip in Intel igb driver ?
+Date: Sun, 1 May 2016 10:08:29 -0700
+Message-ID: <CAKgT0UcZ310qcrxQGqSu9+WWwKMukPPgpqPa=HRO0-oO8Tx_4g@mail.gmail.com>
+References: <CAJ2oMhKyMbgLZiGSGQxRGVdbGARvMHeO3=vpgO0uOzOBqvf79Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: arnd@arndb.de
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ran Shalit <ranshalit@gmail.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33429 "EHLO
-	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbcEAQFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 12:05:44 -0400
-Received: by mail-oi0-f45.google.com with SMTP id v145so133930069oie.0
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 09:05:44 -0700 (PDT)
-In-Reply-To: <6024241.YxM8l6DPJo@wasted.cogentembedded.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:37843 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467AbcEARIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 13:08:30 -0400
+Received: by mail-ig0-f175.google.com with SMTP id s8so58061318ign.0
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 10:08:29 -0700 (PDT)
+In-Reply-To: <CAJ2oMhKyMbgLZiGSGQxRGVdbGARvMHeO3=vpgO0uOzOBqvf79Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 30/04/2016 13:35, Sergei Shtylyov a =C3=A9crit :
-> Since mdiobus_scan() returns either an error code or NULL on error, t=
-he
-> driver should check  for both,  not only for NULL, otherwise a crash =
-is
-> imminent...
->=20
-> Reported-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->=20
-> ---
-> The patch is against DaveM's 'net.git' repo.
->=20
->  drivers/net/ethernet/marvell/pxa168_eth.c |    2 ++
->  1 file changed, 2 insertions(+)
->=20
-> Index: net/drivers/net/ethernet/marvell/pxa168_eth.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- net.orig/drivers/net/ethernet/marvell/pxa168_eth.c
-> +++ net/drivers/net/ethernet/marvell/pxa168_eth.c
-> @@ -979,6 +979,8 @@ static int pxa168_init_phy(struct net_de
->  		return 0;
-> =20
->  	pep->phy =3D mdiobus_scan(pep->smi_bus, pep->phy_addr);
-> +	if (IS_ERR(pep->phy))
-> +		return PTR_ERR(pep->phy);
->  	if (!pep->phy)
->  		return -ENODEV;
+On Sun, May 1, 2016 at 6:13 AM, Ran Shalit <ranshalit@gmail.com> wrote:
+> Hello,
+>
+>
+> I am using intel igb driver in Linux.
+>
+> The driver strip the packet from vlan inofmation. But we need this
+> information in the packet.
+>
+> We tried to change build flag, or see if there is any feature with
+> ethtool that can disable this feature, but nothing helps.
+>
+>
+> Is there any way to achive this ?
+>
+> Regards,
+>
+> Ran
 
-Should not this check be removed too and converted to a
-PTR_ERR(pep->phy) !=3D -ENODEV?
---=20
-=46lorian
+You should be able to turn off the offload by setting
+"rx-vlan-offload" to "off" via "ethtool -K".
+
+- Alex
