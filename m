@@ -1,60 +1,41 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] drivers: net: xgene: constify xgene_cle_ops structure
-Date: Sun,  1 May 2016 14:36:28 +0200
-Message-ID: <1462106189-14277-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, Keyur Chudgar <kchudgar@apm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] VSOCK: constify vsock_transport structure
+Date: Sun,  1 May 2016 14:49:15 +0200
+Message-ID: <1462106955-22131-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, Ray Jui <rjui@broadcom.com>,
+	Scott Branden <sbranden@broadcom.com>,
+	Jon Mason <jonmason@broadcom.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	bcm-kernel-feedback-list@broadcom.com, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:52512
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752347AbcEANEf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 09:04:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The xgene_cle_ops structure is never modified, so declare it as const.
+The vsock_transport structure is never modified, so declare it as const.
 
 Done with the help of Coccinelle.
 
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.c  |    2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.h  |    2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ net/vmw_vsock/vmci_transport.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-index b2124886..6479288 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-@@ -729,6 +729,6 @@ static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
- 	return xgene_cle_setup_ptree(pdata, enet_cle);
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index 5621473..4120b7a 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -2051,7 +2051,7 @@ static u32 vmci_transport_get_local_cid(void)
+ 	return vmci_get_context_id();
  }
  
--struct xgene_cle_ops xgene_cle3in_ops = {
-+const struct xgene_cle_ops xgene_cle3in_ops = {
- 	.cle_init = xgene_enet_cle_init,
- };
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-index 29a17ab..13e829a 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-@@ -290,6 +290,6 @@ struct xgene_enet_cle {
- 	u32 jump_bytes;
- };
- 
--extern struct xgene_cle_ops xgene_cle3in_ops;
-+extern const struct xgene_cle_ops xgene_cle3in_ops;
- 
- #endif /* __XGENE_ENET_CLE_H__ */
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 175d188..0a2887b 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -191,7 +191,7 @@ struct xgene_enet_pdata {
- 	const struct xgene_mac_ops *mac_ops;
- 	const struct xgene_port_ops *port_ops;
- 	struct xgene_ring_ops *ring_ops;
--	struct xgene_cle_ops *cle_ops;
-+	const struct xgene_cle_ops *cle_ops;
- 	struct delayed_work link_work;
- 	u32 port_id;
- 	u8 cpu_bufnum;
+-static struct vsock_transport vmci_transport = {
++static const struct vsock_transport vmci_transport = {
+ 	.init = vmci_transport_socket_init,
+ 	.destruct = vmci_transport_destruct,
+ 	.release = vmci_transport_release,
