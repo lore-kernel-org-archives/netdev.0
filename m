@@ -1,84 +1,71 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/4] net: ethernet: ucc: move to new ethtool api {get|set}_link_ksettings
-Date: Sun,  1 May 2016 17:08:09 +0200
-Message-ID: <1462115291-11372-2-git-send-email-tremyfr@gmail.com>
-References: <1462115291-11372-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, Philippe Reynes <tremyfr@gmail.com>
-To: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	claudiu.manoil@freescale.com, leoli@freescale.com,
-	treding@nvidia.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462115291-11372-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH net-next v2] ravb: Remove rx buffer ALIGN
+Date: Mon,  2 May 2016 00:19:51 +0900
+Message-ID: <1462115991-27241-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move the ucc driver to new api {get|set}_link_ksettings.
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Aligning the reception data size is not required.
+
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Tested-by: Simon Horman <horms+renesas@verge.net.au>
 ---
- drivers/net/ethernet/freescale/ucc_geth_ethtool.c |   17 +++++++----------
- 1 files changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-index 89714f5..812a968 100644
---- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-@@ -105,23 +105,20 @@ static const char rx_fw_stat_gstrings[][ETH_GSTRING_LEN] = {
- #define UEC_RX_FW_STATS_LEN ARRAY_SIZE(rx_fw_stat_gstrings)
+This patch is based on the master branch of David Miller's next networking
+tree.
+
+v2 [Yoshihiro Kaneko]
+* As suggested by Sergei Shtylyov
+  remove re-formattings which is not related to the subject of this patch.
+
+ drivers/net/ethernet/renesas/ravb_main.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 238b56f..34066e0 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -246,10 +246,9 @@ static void ravb_ring_format(struct net_device *ndev, int q)
+ 	for (i = 0; i < priv->num_rx_ring[q]; i++) {
+ 		/* RX descriptor */
+ 		rx_desc = &priv->rx_ring[q][i];
+-		/* The size of the buffer should be on 16-byte boundary. */
+-		rx_desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
++		rx_desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
+ 		dma_addr = dma_map_single(ndev->dev.parent, priv->rx_skb[q][i]->data,
+-					  ALIGN(PKT_BUF_SZ, 16),
++					  PKT_BUF_SZ,
+ 					  DMA_FROM_DEVICE);
+ 		/* We just set the data size to 0 for a failed mapping which
+ 		 * should prevent DMA from happening...
+@@ -558,7 +557,7 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
+ 			skb = priv->rx_skb[q][entry];
+ 			priv->rx_skb[q][entry] = NULL;
+ 			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+-					 ALIGN(PKT_BUF_SZ, 16),
++					 PKT_BUF_SZ,
+ 					 DMA_FROM_DEVICE);
+ 			get_ts &= (q == RAVB_NC) ?
+ 					RAVB_RXTSTAMP_TYPE_V2_L2_EVENT :
+@@ -588,8 +587,7 @@ static bool ravb_rx(struct net_device *ndev, int *quota, int q)
+ 	for (; priv->cur_rx[q] - priv->dirty_rx[q] > 0; priv->dirty_rx[q]++) {
+ 		entry = priv->dirty_rx[q] % priv->num_rx_ring[q];
+ 		desc = &priv->rx_ring[q][entry];
+-		/* The size of the buffer should be on 16-byte boundary. */
+-		desc->ds_cc = cpu_to_le16(ALIGN(PKT_BUF_SZ, 16));
++		desc->ds_cc = cpu_to_le16(PKT_BUF_SZ);
  
- static int
--uec_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+uec_get_ksettings(struct net_device *netdev, struct ethtool_link_ksettings *cmd)
- {
- 	struct ucc_geth_private *ugeth = netdev_priv(netdev);
- 	struct phy_device *phydev = ugeth->phydev;
--	struct ucc_geth_info *ug_info = ugeth->ug_info;
- 
- 	if (!phydev)
- 		return -ENODEV;
- 
--	ecmd->maxtxpkt = 1;
--	ecmd->maxrxpkt = ug_info->interruptcoalescingmaxvalue[0];
--
--	return phy_ethtool_gset(phydev, ecmd);
-+	return phy_ethtool_ksettings_get(phydev, cmd);
- }
- 
- static int
--uec_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+uec_set_ksettings(struct net_device *netdev,
-+		  const struct ethtool_link_ksettings *cmd)
- {
- 	struct ucc_geth_private *ugeth = netdev_priv(netdev);
- 	struct phy_device *phydev = ugeth->phydev;
-@@ -129,7 +126,7 @@ uec_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_sset(phydev, ecmd);
-+	return phy_ethtool_ksettings_set(phydev, cmd);
- }
- 
- static void
-@@ -392,8 +389,6 @@ static int uec_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- #endif /* CONFIG_PM */
- 
- static const struct ethtool_ops uec_ethtool_ops = {
--	.get_settings           = uec_get_settings,
--	.set_settings           = uec_set_settings,
- 	.get_drvinfo            = uec_get_drvinfo,
- 	.get_regs_len           = uec_get_regs_len,
- 	.get_regs               = uec_get_regs,
-@@ -411,6 +406,8 @@ static const struct ethtool_ops uec_ethtool_ops = {
- 	.get_wol		= uec_get_wol,
- 	.set_wol		= uec_set_wol,
- 	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_link_ksettings	= uec_get_ksettings,
-+	.set_link_ksettings	= uec_set_ksettings,
- };
- 
- void uec_set_ethtool_ops(struct net_device *netdev)
+ 		if (!priv->rx_skb[q][entry]) {
+ 			skb = netdev_alloc_skb(ndev,
 -- 
-1.7.4.4
+1.9.1
