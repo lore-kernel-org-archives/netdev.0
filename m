@@ -1,38 +1,56 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [net-next PATCH v2 8/9] mlx5e: Fix IPv6 tunnel checksum offload
-Date: Sun, 1 May 2016 23:09:09 +0300
-Message-ID: <CALzJLG88Xk3F1O1ANdJ7nmLscYfCFbtJh47FkB456W4F+ay_Ng@mail.gmail.com>
-References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server> <20160429224352.12418.68373.stgit@ahduyck-xeon-server>
+From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH v1 net] net/mlx4: Avoid wrong virtual mappings
+Date: Sun, 1 May 2016 16:12:13 -0400
+Message-ID: <5726631D.608@codeaurora.org>
+References: <1461740820-15386-1-git-send-email-hagaya@mellanox.com>
+ <5726243A.9070109@codeaurora.org>
+ <20160501.160720.1356913722642000889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tal Alon <talal@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	michael.chan@broadcom.com, "David S. Miller" <davem@davemloft.net>,
-	Gal Pressman <galp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: Alexander Duyck <aduyck@mirantis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:34589 "EHLO
-	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942AbcEAUJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:09:30 -0400
-Received: by mail-yw0-f196.google.com with SMTP id i22so16790053ywc.1
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:09:30 -0700 (PDT)
-In-Reply-To: <20160429224352.12418.68373.stgit@ahduyck-xeon-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160501.160720.1356913722642000889.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> The mlx5 driver exposes support for TSO6 but not IPv6 csum for hardware
-> encapsulated tunnels.  This leads to issues as it triggers warnings in
-> skb_checksum_help as it ends up being called as we report supporting the
-> segmentation but not the checksumming for IPv6 frames.
->
-> This patch corrects that and drops 2 features that don't actually need to
-> be supported in hw_enc_features since they are Rx features and don't
-> actually impact anything by being present in hw_enc_features.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+On 5/1/2016 4:07 PM, David Miller wrote:
+> From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> Date: Sun, 1 May 2016 11:43:54 -0400
+> 
+>> Can we get this queued for 4.7? Mellanox with arm64 has been broken over 1.5 years.
+> 
+> Can you not quote an entire huge patch just to say something like
+> this?
+> 
+> I'm waiting for the people involved all to give feedback.
+> 
+> If it's been broken for more than a year, waiting for a few more
+> days to get the fix right is not going to be the end of the world.
+> 
 
-Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+Sure, I thought there is a common consensus. The original patch posted was from Christoph Hellwig.
+
+This patch does the same thing like Christoph Hellwig proposed + a fallback approach for the
+infiniband case where fragmented buffers are still supported.
+
+The patch is actually a copy/paste from the MLX5 driver into MLX4.
+
+I'm OK with waiitng for a few more days. I just wanted to make sure that this patch
+is moving in the right direction.
+
+If not, let's list the open issues. 
+
+-- 
+Sinan Kaya
+Qualcomm Technologies, Inc. on behalf of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
