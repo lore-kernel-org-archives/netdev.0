@@ -1,80 +1,43 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] rtlwifi: rtl818x: constify rtl_intf_ops structures
-Date: Sun,  1 May 2016 21:57:44 +0200
-Message-ID: <1462132664-1619-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [net-next PATCH v2 6/9] mlx4: Add support for inner IPv6 checksum
+ offloads and TSO
+Date: Sun, 1 May 2016 23:21:40 +0300
+Message-ID: <CALzJLG-Vkx4oAeFecdYmr8Wfc2tPtbC=wWN7_qd+e5n+9fNGXA@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server> <20160429224339.12418.53462.stgit@ahduyck-xeon-server>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Tal Alon <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	michael.chan@broadcom.com, "David S. Miller" <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: Alexander Duyck <aduyck@mirantis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:32865 "EHLO
+	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752386AbcEAUWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:22:00 -0400
+Received: by mail-yw0-f194.google.com with SMTP id y6so16679034ywe.0
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:22:00 -0700 (PDT)
+In-Reply-To: <20160429224339.12418.53462.stgit@ahduyck-xeon-server>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The rtl_intf_ops structures are never modified, so declare them as const.
+On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> >From what I can tell the ConnectX-3 will support an inner IPv6 checksum and
+> segmentation offload, however it cannot support outer IPv6 headers.  This
+> assumption is based on the fact that I could see the checksum being
+> offloaded for inner header on IPv4 tunnels, but not on IPv6 tunnels.
+>
+> For this reason I am adding the feature to the hw_enc_features and adding
+> an extra check to the features_check call that will disable GSO and
+> checksum offload in the case that the encapsulated frame has an outer IP
+> version of that is not 4.  The check in mlx4_en_features_check could be
+> removed if at some point in the future a fix is found that allows the
+> hardware to offload segmentation/checksum on tunnels with an outer IPv6
+> header.
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-Done with the help of Coccinelle.
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/wireless/realtek/rtlwifi/pci.c  |    2 +-
- drivers/net/wireless/realtek/rtlwifi/pci.h  |    2 +-
- drivers/net/wireless/realtek/rtlwifi/usb.c  |    2 +-
- drivers/net/wireless/realtek/rtlwifi/wifi.h |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
-index 1ac41b8..66030ea 100644
---- a/drivers/net/wireless/realtek/rtlwifi/pci.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
-@@ -2456,7 +2456,7 @@ int rtl_pci_resume(struct device *dev)
- EXPORT_SYMBOL(rtl_pci_resume);
- #endif /* CONFIG_PM_SLEEP */
- 
--struct rtl_intf_ops rtl_pci_ops = {
-+const struct rtl_intf_ops rtl_pci_ops = {
- 	.read_efuse_byte = read_efuse_byte,
- 	.adapter_start = rtl_pci_start,
- 	.adapter_stop = rtl_pci_stop,
-diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.h b/drivers/net/wireless/realtek/rtlwifi/pci.h
-index 5da6703..b951eba 100644
---- a/drivers/net/wireless/realtek/rtlwifi/pci.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/pci.h
-@@ -286,7 +286,7 @@ struct rtl_pci_priv {
- 
- int rtl_pci_reset_trx_ring(struct ieee80211_hw *hw);
- 
--extern struct rtl_intf_ops rtl_pci_ops;
-+extern const struct rtl_intf_ops rtl_pci_ops;
- 
- int rtl_pci_probe(struct pci_dev *pdev,
- 			    const struct pci_device_id *id);
-diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-index aac1ed3..41617b7 100644
---- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-@@ -1049,7 +1049,7 @@ static void rtl_fill_h2c_cmd_work_callback(struct work_struct *work)
- 	rtlpriv->cfg->ops->fill_h2c_cmd(hw, H2C_RA_MASK, 5, rtlpriv->rate_mask);
- }
- 
--static struct rtl_intf_ops rtl_usb_ops = {
-+static const struct rtl_intf_ops rtl_usb_ops = {
- 	.adapter_start = rtl_usb_start,
- 	.adapter_stop = rtl_usb_stop,
- 	.adapter_tx = rtl_usb_tx,
-diff --git a/drivers/net/wireless/realtek/rtlwifi/wifi.h b/drivers/net/wireless/realtek/rtlwifi/wifi.h
-index 11d9c23..4e0ab4d 100644
---- a/drivers/net/wireless/realtek/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/wifi.h
-@@ -2593,7 +2593,7 @@ struct rtl_priv {
- 	 *intf_ops : for diff interrface usb/pcie
- 	 */
- 	struct rtl_hal_cfg *cfg;
--	struct rtl_intf_ops *intf_ops;
-+	const struct rtl_intf_ops *intf_ops;
- 
- 	/*this var will be set by set_bit,
- 	   and was used to indicate status of
-
+Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
