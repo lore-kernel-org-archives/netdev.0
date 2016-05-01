@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 3/4] net/mlx5e: Implement a mlx5e workqueue
-Date: Sun,  1 May 2016 22:59:56 +0300
-Message-ID: <1462132797-22853-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 4/4] net/mlx5e: Use workqueue for vxlan ops
+Date: Sun,  1 May 2016 22:59:57 +0300
+Message-ID: <1462132797-22853-5-git-send-email-saeedm@mellanox.com>
 References: <1462132797-22853-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,147 +10,171 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:55766 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:55761 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752150AbcEAUCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 May 2016 16:02:08 -0400
+	id S1752075AbcEAUCH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 May 2016 16:02:07 -0400
 In-Reply-To: <1462132797-22853-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Finlay <matt@mellanox.com>
 
-Implement a mlx5e workqueue to handle all mlx5e specific tasks.  Move
-all tasks currently using the system workqueue to the new workqueue.
-This is in preparation for vxlan using the mlx5e workqueue in order to
-schedule port add/remove operations.
+The vxlan add/delete port NDOs are called under rcu lock.
+The current mlx5e implementation can potentially block in these
+calls, which is not allowed.  Move to using the mlx5e workqueue
+to handle these NDOs.
 
+Fixes: b3f63c3d5e2c ('net/mlx5e: Add netdev support for VXLAN tunneling')
 Signed-off-by: Matthew Finlay <matt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 30 ++++++++++++++---------
- 2 files changed, 20 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.c   | 50 +++++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.h   | 11 ++++-
+ 3 files changed, 49 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index e80ce94..3881dce 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -567,6 +567,7 @@ struct mlx5e_priv {
- 	struct mlx5e_vxlan_db      vxlan;
- 
- 	struct mlx5e_params        params;
-+	struct workqueue_struct    *wq;
- 	struct work_struct         update_carrier_work;
- 	struct work_struct         set_rx_mode_work;
- 	struct delayed_work        update_stats_work;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 67d548b..9ab0841 100644
+index 9ab0841..d4dfc5c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -262,9 +262,8 @@ static void mlx5e_update_stats_work(struct work_struct *work)
- 	mutex_lock(&priv->state_lock);
- 	if (test_bit(MLX5E_STATE_OPENED, &priv->state)) {
- 		mlx5e_update_stats(priv);
--		schedule_delayed_work(dwork,
--				      msecs_to_jiffies(
--					      MLX5E_UPDATE_STATS_INTERVAL));
-+		queue_delayed_work(priv->wq, dwork,
-+				   msecs_to_jiffies(MLX5E_UPDATE_STATS_INTERVAL));
- 	}
- 	mutex_unlock(&priv->state_lock);
+@@ -2157,7 +2157,7 @@ static void mlx5e_add_vxlan_port(struct net_device *netdev,
+ 	if (!mlx5e_vxlan_allowed(priv->mdev))
+ 		return;
+ 
+-	mlx5e_vxlan_add_port(priv, be16_to_cpu(port));
++	mlx5e_vxlan_queue_work(priv, sa_family, be16_to_cpu(port), 1);
  }
-@@ -280,7 +279,7 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
- 	switch (event) {
- 	case MLX5_DEV_EVENT_PORT_UP:
- 	case MLX5_DEV_EVENT_PORT_DOWN:
--		schedule_work(&priv->update_carrier_work);
-+		queue_work(priv->wq, &priv->update_carrier_work);
- 		break;
  
- 	default:
-@@ -1505,7 +1504,7 @@ int mlx5e_open_locked(struct net_device *netdev)
- 	mlx5e_update_carrier(priv);
- 	mlx5e_timestamp_init(priv);
+ static void mlx5e_del_vxlan_port(struct net_device *netdev,
+@@ -2168,7 +2168,7 @@ static void mlx5e_del_vxlan_port(struct net_device *netdev,
+ 	if (!mlx5e_vxlan_allowed(priv->mdev))
+ 		return;
  
--	schedule_delayed_work(&priv->update_stats_work, 0);
-+	queue_delayed_work(priv->wq, &priv->update_stats_work, 0);
+-	mlx5e_vxlan_del_port(priv, be16_to_cpu(port));
++	mlx5e_vxlan_queue_work(priv, sa_family, be16_to_cpu(port), 0);
+ }
  
- 	return 0;
+ static netdev_features_t mlx5e_vxlan_features_check(struct mlx5e_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
+index 9f10df2..f2fd1ef 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
+@@ -95,21 +95,22 @@ struct mlx5e_vxlan *mlx5e_vxlan_lookup_port(struct mlx5e_priv *priv, u16 port)
+ 	return vxlan;
+ }
  
-@@ -1961,7 +1960,7 @@ static void mlx5e_set_rx_mode(struct net_device *dev)
+-int mlx5e_vxlan_add_port(struct mlx5e_priv *priv, u16 port)
++static void mlx5e_vxlan_add_port(struct work_struct *work)
  {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5e_vxlan_work *vxlan_work =
++		container_of(work, struct mlx5e_vxlan_work, work);
++	struct mlx5e_priv *priv = vxlan_work->priv;
+ 	struct mlx5e_vxlan_db *vxlan_db = &priv->vxlan;
++	u16 port = vxlan_work->port;
+ 	struct mlx5e_vxlan *vxlan;
+ 	int err;
  
--	schedule_work(&priv->set_rx_mode_work);
-+	queue_work(priv->wq, &priv->set_rx_mode_work);
+-	err = mlx5e_vxlan_core_add_port_cmd(priv->mdev, port);
+-	if (err)
+-		return err;
++	if (mlx5e_vxlan_core_add_port_cmd(priv->mdev, port))
++		goto free_work;
+ 
+ 	vxlan = kzalloc(sizeof(*vxlan), GFP_KERNEL);
+-	if (!vxlan) {
+-		err = -ENOMEM;
++	if (!vxlan)
+ 		goto err_delete_port;
+-	}
+ 
+ 	vxlan->udp_port = port;
+ 
+@@ -119,13 +120,14 @@ int mlx5e_vxlan_add_port(struct mlx5e_priv *priv, u16 port)
+ 	if (err)
+ 		goto err_free;
+ 
+-	return 0;
++	goto free_work;
+ 
+ err_free:
+ 	kfree(vxlan);
+ err_delete_port:
+ 	mlx5e_vxlan_core_del_port_cmd(priv->mdev, port);
+-	return err;
++free_work:
++	kfree(vxlan_work);
  }
  
- static int mlx5e_set_mac(struct net_device *netdev, void *addr)
-@@ -1976,7 +1975,7 @@ static int mlx5e_set_mac(struct net_device *netdev, void *addr)
- 	ether_addr_copy(netdev->dev_addr, saddr->sa_data);
- 	netif_addr_unlock_bh(netdev);
- 
--	schedule_work(&priv->set_rx_mode_work);
-+	queue_work(priv->wq, &priv->set_rx_mode_work);
- 
- 	return 0;
+ static void __mlx5e_vxlan_core_del_port(struct mlx5e_priv *priv, u16 port)
+@@ -145,12 +147,36 @@ static void __mlx5e_vxlan_core_del_port(struct mlx5e_priv *priv, u16 port)
+ 	kfree(vxlan);
  }
-@@ -2498,10 +2497,14 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
  
- 	priv = netdev_priv(netdev);
+-void mlx5e_vxlan_del_port(struct mlx5e_priv *priv, u16 port)
++static void mlx5e_vxlan_del_port(struct work_struct *work)
+ {
+-	if (!mlx5e_vxlan_lookup_port(priv, port))
+-		return;
++	struct mlx5e_vxlan_work *vxlan_work =
++		container_of(work, struct mlx5e_vxlan_work, work);
++	struct mlx5e_priv *priv = vxlan_work->priv;
++	u16 port = vxlan_work->port;
  
-+	priv->wq = create_singlethread_workqueue("mlx5e");
-+	if (!priv->wq)
-+		goto err_free_netdev;
+ 	__mlx5e_vxlan_core_del_port(priv, port);
 +
- 	err = mlx5_alloc_map_uar(mdev, &priv->cq_uar, false);
- 	if (err) {
- 		mlx5_core_err(mdev, "alloc_map uar failed, %d\n", err);
--		goto err_free_netdev;
-+		goto err_destroy_wq;
- 	}
- 
- 	err = mlx5_core_alloc_pd(mdev, &priv->pdn);
-@@ -2580,7 +2583,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
- 		vxlan_get_rx_port(netdev);
- 
- 	mlx5e_enable_async_events(priv);
--	schedule_work(&priv->set_rx_mode_work);
-+	queue_work(priv->wq, &priv->set_rx_mode_work);
- 
- 	return priv;
- 
-@@ -2617,6 +2620,9 @@ err_dealloc_pd:
- err_unmap_free_uar:
- 	mlx5_unmap_free_uar(mdev, &priv->cq_uar);
- 
-+err_destroy_wq:
-+	destroy_workqueue(priv->wq);
++	kfree(vxlan_work);
++}
 +
- err_free_netdev:
- 	free_netdev(netdev);
++void mlx5e_vxlan_queue_work(struct mlx5e_priv *priv, sa_family_t sa_family,
++			    u16 port, int add)
++{
++	struct mlx5e_vxlan_work *vxlan_work;
++
++	vxlan_work = kmalloc(sizeof(*vxlan_work), GFP_ATOMIC);
++	if (!vxlan_work)
++		return;
++
++	if (add)
++		INIT_WORK(&vxlan_work->work, mlx5e_vxlan_add_port);
++	else
++		INIT_WORK(&vxlan_work->work, mlx5e_vxlan_del_port);
++
++	vxlan_work->priv = priv;
++	vxlan_work->port = port;
++	vxlan_work->sa_family = sa_family;
++	queue_work(priv->wq, &vxlan_work->work);
+ }
  
-@@ -2630,9 +2636,9 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
+ void mlx5e_vxlan_cleanup(struct mlx5e_priv *priv)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
+index a016850..129f352 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
+@@ -39,6 +39,13 @@ struct mlx5e_vxlan {
+ 	u16 udp_port;
+ };
  
- 	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
++struct mlx5e_vxlan_work {
++	struct work_struct	work;
++	struct mlx5e_priv	*priv;
++	sa_family_t		sa_family;
++	u16			port;
++};
++
+ static inline bool mlx5e_vxlan_allowed(struct mlx5_core_dev *mdev)
+ {
+ 	return (MLX5_CAP_ETH(mdev, tunnel_stateless_vxlan) &&
+@@ -46,8 +53,8 @@ static inline bool mlx5e_vxlan_allowed(struct mlx5_core_dev *mdev)
+ }
  
--	schedule_work(&priv->set_rx_mode_work);
-+	queue_work(priv->wq, &priv->set_rx_mode_work);
- 	mlx5e_disable_async_events(priv);
--	flush_scheduled_work();
-+	flush_workqueue(priv->wq);
- 	if (test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state)) {
- 		netif_device_detach(netdev);
- 		mutex_lock(&priv->state_lock);
-@@ -2655,6 +2661,8 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
- 	mlx5_core_dealloc_transport_domain(priv->mdev, priv->tdn);
- 	mlx5_core_dealloc_pd(priv->mdev, priv->pdn);
- 	mlx5_unmap_free_uar(priv->mdev, &priv->cq_uar);
-+	cancel_delayed_work_sync(&priv->update_stats_work);
-+	destroy_workqueue(priv->wq);
+ void mlx5e_vxlan_init(struct mlx5e_priv *priv);
+-int  mlx5e_vxlan_add_port(struct mlx5e_priv *priv, u16 port);
+-void mlx5e_vxlan_del_port(struct mlx5e_priv *priv, u16 port);
++void mlx5e_vxlan_queue_work(struct mlx5e_priv *priv, sa_family_t sa_family,
++			    u16 port, int add);
+ struct mlx5e_vxlan *mlx5e_vxlan_lookup_port(struct mlx5e_priv *priv, u16 port);
+ void mlx5e_vxlan_cleanup(struct mlx5e_priv *priv);
  
- 	if (!test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state))
- 		free_netdev(netdev);
 -- 
 2.8.0
