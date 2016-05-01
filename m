@@ -1,46 +1,46 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH v2 1/9] net: Disable segmentation if checksumming
- is not supported
-Date: Sun, 1 May 2016 23:30:38 +0300
-Message-ID: <CAJ3xEMhCHny00V0GAFH1a9NXj52q5M4B1Rmz+JMCT8YsK02vKQ@mail.gmail.com>
+Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Sun, 1 May 2016 23:35:04 +0300
+Message-ID: <CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
 References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
-	<20160429224308.12418.51424.stgit@ahduyck-xeon-server>
+	<20160429224333.12418.13862.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "talal@mellanox.com" <talal@mellanox.com>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	michael.chan@broadcom.com, David Miller <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
+	Eran Ben Elisha <eranbe@mellanox.com>
 To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:34002 "EHLO
+Received: from mail-io0-f171.google.com ([209.85.223.171]:36425 "EHLO
 	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752356AbcEAUaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:30:39 -0400
-Received: by mail-io0-f171.google.com with SMTP id 190so147043008iow.1
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:30:38 -0700 (PDT)
-In-Reply-To: <20160429224308.12418.51424.stgit@ahduyck-xeon-server>
+	with ESMTP id S1752249AbcEAUfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:35:05 -0400
+Received: by mail-io0-f171.google.com with SMTP id u185so178478180iod.3
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:35:05 -0700 (PDT)
+In-Reply-To: <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> In the case of the mlx4 and mlx5 driver they do not support IPv6 checksum
-> offload for tunnels.
+> This patch assumes that the mlx4 hardware will ignore existing IPv4/v6
+> header fields for length and checksum as well as the length and checksum
+> fields for outer UDP headers.
 
-Alex,
+Hi Alex,
 
-To clarify, when you say "not support IPv6 checksum for tunnels", you
-refer to the offloading of the outer or inner checksum?
+I see now the above text appearing in bunch of similar commit of
+yours, specifically to Intel drivers and mlx5... could you please
+elaborate a bit more what you mean here and what are the practical
+consequences of that characteristics?
 
-Still (me and I think also Tariq from our driver team) catching up on
-the series, the primitives and conventions you are introducing using
-and how this applies on mlx5. I saw that Saeed acked the the mlx5e
-patches (7 and 8).
-
-Specifically, the mlx4 patches are practically fixes so if they don't
-land in 4.7 via net-next we can get them there through net, lets give
-us the few more days needed to catch up from our side.
+I got that right NETIF_F_GSO_UDP_TUNNEL_CSUM means that the HW can do
+segmentation for TCP packets encapsulated by UDP tunnel e.g VXLAN
+where the outer checksum is not zero. AFAIK, any other outer checksum
+value can't correctly be a constant... are you assuming here  RCO or
+LCO?
 
 Or.
