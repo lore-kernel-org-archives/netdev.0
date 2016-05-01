@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: set 'active' state correctly for
- first established link
-Date: Sun, 01 May 2016 19:40:49 -0400 (EDT)
-Message-ID: <20160501.194049.1009552595420088885.davem@davemloft.net>
-References: <1461888968-26879-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next 0/3] qed/qede: ethtool selftests support.
+Date: Sun, 01 May 2016 19:43:58 -0400 (EDT)
+Message-ID: <20160501.194358.139685458712484423.davem@davemloft.net>
+References: <1461889254-10534-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com, manish.chopra@qlogic.com
+To: sudarsana.kalluru@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53184 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53235 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbcEAXkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 19:40:52 -0400
-In-Reply-To: <1461888968-26879-1-git-send-email-jon.maloy@ericsson.com>
+	with ESMTP id S1752468AbcEAXoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 19:44:01 -0400
+In-Reply-To: <1461889254-10534-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 28 Apr 2016 20:16:08 -0400
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Date: Thu, 28 Apr 2016 20:20:51 -0400
 
-> When we are displaying statistics for the first link established between
-> two peers, it will always be presented as STANDBY although it in reality
-> is ACTIVE.
+> This series adds the driver support for following selftests:
+> 1. Register test
+> 2. Memory test
+> 3. Clock test
+> 4. Interrupt test
+> 5. Internal loopback test
+> Patch (1) adds the qed driver infrastructure for selftests. Patches (2) and
+> (3) add qede driver support for ethtool selftests.
 > 
-> This happens because we forget to set the 'active' flag in the link
-> instance at the moment it is established. Although this is a bug, it only
-> has impact on the presentation view of the link, not on its actual
-> functionality.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Please consider applying this series to "net-next".
 
-Applied, thanks Jon.
+Series applied, thanks.
