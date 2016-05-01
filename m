@@ -1,77 +1,122 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH] drivers: net: xgene: constify xgene_cle_ops structure
-Date: Sun, 1 May 2016 16:10:36 -0700
-Message-ID: <CAKh23F=fpRhTp1Y+XvJHa6Q6Bp_BGKS_AYyr8Cryx8A+KGHM7Q@mail.gmail.com>
-References: <1462106189-14277-1-git-send-email-Julia.Lawall@lip6.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kernel-janitors@vger.kernel.org, Keyur Chudgar <kchudgar@apm.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Julia Lawall <Julia.Lawall@lip6.fr>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net 1/2] RDS:TCP: Synchronize rds_tcp_accept_one with rds_send_xmit when resetting t_sock
+Date: Sun,  1 May 2016 16:10:14 -0700
+Message-ID: <470ac585d014a6d8ea1600b8897bdc313e7c2431.1462127059.git.sowmini.varadhan@oracle.com>
+References: <cover.1462127059.git.sowmini.varadhan@oracle.com>
+Cc: santosh.shilimkar@oracle.com, davem@davemloft.net
+To: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
+	rds-devel@oss.oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:36390 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752453AbcEAXKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 19:10:38 -0400
-Received: by mail-oi0-f44.google.com with SMTP id x201so173159839oif.3
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 16:10:37 -0700 (PDT)
-In-Reply-To: <1462106189-14277-1-git-send-email-Julia.Lawall@lip6.fr>
+Received: from userp1040.oracle.com ([156.151.31.81]:23592 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752463AbcEAXKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 19:10:46 -0400
+In-Reply-To: <cover.1462127059.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1462127059.git.sowmini.varadhan@oracle.com>
+References: <cover.1462127059.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 1, 2016 at 5:36 AM, Julia Lawall <Julia.Lawall@lip6.fr> wrote:
-> The xgene_cle_ops structure is never modified, so declare it as const.
->
-> Done with the help of Coccinelle.
->
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->
-> ---
->  drivers/net/ethernet/apm/xgene/xgene_enet_cle.c  |    2 +-
->  drivers/net/ethernet/apm/xgene/xgene_enet_cle.h  |    2 +-
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.h |    2 +-
->  3 files changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-> index b2124886..6479288 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-> @@ -729,6 +729,6 @@ static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
->         return xgene_cle_setup_ptree(pdata, enet_cle);
->  }
->
-> -struct xgene_cle_ops xgene_cle3in_ops = {
-> +const struct xgene_cle_ops xgene_cle3in_ops = {
->         .cle_init = xgene_enet_cle_init,
->  };
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-> index 29a17ab..13e829a 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-> @@ -290,6 +290,6 @@ struct xgene_enet_cle {
->         u32 jump_bytes;
->  };
->
-> -extern struct xgene_cle_ops xgene_cle3in_ops;
-> +extern const struct xgene_cle_ops xgene_cle3in_ops;
->
->  #endif /* __XGENE_ENET_CLE_H__ */
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-> index 175d188..0a2887b 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-> @@ -191,7 +191,7 @@ struct xgene_enet_pdata {
->         const struct xgene_mac_ops *mac_ops;
->         const struct xgene_port_ops *port_ops;
->         struct xgene_ring_ops *ring_ops;
-> -       struct xgene_cle_ops *cle_ops;
-> +       const struct xgene_cle_ops *cle_ops;
->         struct delayed_work link_work;
->         u32 port_id;
->         u8 cpu_bufnum;
->
+There is a race condition between rds_send_xmit -> rds_tcp_xmit
+and the code that deals with resolution of duelling syns added
+by commit 241b271952eb ("RDS-TCP: Reset tcp callbacks if re-using an
+outgoing socket in rds_tcp_accept_one()").
 
-Thanks Julia.
+Specifically, we may end up derefencing a null pointer in rds_send_xmit
+if we have the interleaving sequencee:
+           rds_tcp_accept_one                  rds_send_xmit
 
-Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+                                             conn is RDS_CONN_UP, so
+    					 invoke rds_tcp_xmit
+
+                                             tc = conn->c_transport_data
+        rds_tcp_restore_callbacks
+            /* reset t_sock */
+    					 null ptr deref from tc->t_sock
+
+The race condition can be avoided without adding the overhead of
+additional locking in the xmit path: have rds_tcp_accept_one wait
+for rds_tcp_xmit threads to complete before resetting callbacks.
+The synchronization can be done in the same manner as rds_conn_shutdown().
+First set the rds_conn_state to something other than RDS_CONN_UP
+(so that new threads cannot get into rds_tcp_xmit()), then wait for
+RDS_IN_XMIT to be cleared in the conn->c_flags indicating that any
+threads in rds_tcp_xmit are done.
+
+Fixes: 241b271952eb ("RDS-TCP: Reset tcp callbacks if re-using an
+outgoing socket in rds_tcp_accept_one()")
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ net/rds/tcp.c        |    2 +-
+ net/rds/tcp_listen.c |   40 ++++++++++++++++++++++++----------------
+ 2 files changed, 25 insertions(+), 17 deletions(-)
+
+diff --git a/net/rds/tcp.c b/net/rds/tcp.c
+index 61ed2a8..9134544 100644
+--- a/net/rds/tcp.c
++++ b/net/rds/tcp.c
+@@ -127,7 +127,7 @@ void rds_tcp_restore_callbacks(struct socket *sock,
+ 
+ /*
+  * This is the only path that sets tc->t_sock.  Send and receive trust that
+- * it is set.  The RDS_CONN_CONNECTED bit protects those paths from being
++ * it is set.  The RDS_CONN_UP bit protects those paths from being
+  * called while it isn't set.
+  */
+ void rds_tcp_set_callbacks(struct socket *sock, struct rds_connection *conn)
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 0936a4a..0896187 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -115,24 +115,32 @@ int rds_tcp_accept_one(struct socket *sock)
+ 	 * rds_tcp_state_change() will do that cleanup
+ 	 */
+ 	rs_tcp = (struct rds_tcp_connection *)conn->c_transport_data;
+-	if (rs_tcp->t_sock &&
+-	    ntohl(inet->inet_saddr) < ntohl(inet->inet_daddr)) {
+-		struct sock *nsk = new_sock->sk;
+-
+-		nsk->sk_user_data = NULL;
+-		nsk->sk_prot->disconnect(nsk, 0);
+-		tcp_done(nsk);
+-		new_sock = NULL;
+-		ret = 0;
+-		goto out;
+-	} else if (rs_tcp->t_sock) {
+-		rds_tcp_restore_callbacks(rs_tcp->t_sock, rs_tcp);
+-		conn->c_outgoing = 0;
+-	}
+-
+ 	rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING);
++	if (rs_tcp->t_sock) {
++		/* Need to resolve a duelling SYN between peers.
++		 * We have an outstanding SYN to this peer, which may
++		 * potentially have transitioned to the RDS_CONN_UP state,
++		 * so we must quiesce any send threads before resetting
++		 * c_transport_data.
++		 */
++		wait_event(conn->c_waitq,
++			   !test_bit(RDS_IN_XMIT, &conn->c_flags));
++		if (ntohl(inet->inet_saddr) < ntohl(inet->inet_daddr)) {
++			struct sock *nsk = new_sock->sk;
++
++			nsk->sk_user_data = NULL;
++			nsk->sk_prot->disconnect(nsk, 0);
++			tcp_done(nsk);
++			new_sock = NULL;
++			ret = 0;
++			goto out;
++		} else if (rs_tcp->t_sock) {
++			rds_tcp_restore_callbacks(rs_tcp->t_sock, rs_tcp);
++			conn->c_outgoing = 0;
++		}
++	}
+ 	rds_tcp_set_callbacks(new_sock, conn);
+-	rds_connect_complete(conn);
++	rds_connect_complete(conn); /* marks RDS_CONN_UP */
+ 	new_sock = NULL;
+ 	ret = 0;
+ 
+-- 
+1.7.1
