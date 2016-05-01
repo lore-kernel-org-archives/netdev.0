@@ -1,176 +1,113 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [net-next PATCH v2 1/5] stmmac: let remove/resume/suspend functions take device pointer
-Date: Sun,  1 May 2016 22:58:19 +0200
-Message-ID: <1462136303-16825-2-git-send-email-manabian@gmail.com>
+Subject: [net-next PATCH v2 3/5] stmmac: dwmac-socfpga: keep a copy of stmmac_rst in driver priv data
+Date: Sun,  1 May 2016 22:58:21 +0200
+Message-ID: <1462136303-16825-4-git-send-email-manabian@gmail.com>
 References: <1462136303-16825-1-git-send-email-manabian@gmail.com>
 Cc: Joachim Eastwood <manabian@gmail.com>, marex@denx.de,
 	dinguyen@opensource.altera.com, peppe.cavallaro@st.com,
 	alexandre.torgue@st.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33475 "EHLO
-	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbcEAU7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:59:21 -0400
-Received: by mail-lf0-f65.google.com with SMTP id p64so25550883lfg.0
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:59:20 -0700 (PDT)
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:34197 "EHLO
+	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbcEAU7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:59:24 -0400
+Received: by mail-lf0-f66.google.com with SMTP id m101so23111036lfi.1
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:59:23 -0700 (PDT)
 In-Reply-To: <1462136303-16825-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change stmmac_remove/resume/suspend to take a device pointer so
-they can be used directly by drivers that doesn't need to perform
-anything device specific.
+The dwmac-socfpga driver needs to control the reset usually managed
+by the core driver to set the PHY mode. Take a copy of the reset
+handle from core priv data so it can be used by the driver later.
 
-This lets us remove the PCI pm functions and later simplifiy the
-platform drivers.
+This also allow us to move reset handling into socfpga_dwmac_setup()
+where the code that needs it is located.
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 Tested-by: Marek Vasut <marex@denx.de>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  6 +++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 15 ++++++++------
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   | 24 ++--------------------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  6 +++---
- 4 files changed, 17 insertions(+), 34 deletions(-)
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 33 ++++++++++++++--------
+ 1 file changed, 22 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index ff67506..59ae608 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -148,9 +148,9 @@ void stmmac_set_ethtool_ops(struct net_device *netdev);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 789013a..ba0b793 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -49,6 +49,7 @@ struct socfpga_dwmac {
+ 	u32	reg_shift;
+ 	struct	device *dev;
+ 	struct regmap *sys_mgr_base_addr;
++	struct reset_control *stmmac_rst;
+ 	void __iomem *splitter_base;
+ 	bool f2h_ptp_ref_clk;
+ };
+@@ -164,6 +165,10 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+ 	if (dwmac->splitter_base)
+ 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
  
- int stmmac_ptp_register(struct stmmac_priv *priv);
- void stmmac_ptp_unregister(struct stmmac_priv *priv);
--int stmmac_resume(struct net_device *ndev);
--int stmmac_suspend(struct net_device *ndev);
--int stmmac_dvr_remove(struct net_device *ndev);
-+int stmmac_resume(struct device *dev);
-+int stmmac_suspend(struct device *dev);
-+int stmmac_dvr_remove(struct device *dev);
- int stmmac_dvr_probe(struct device *device,
- 		     struct plat_stmmacenet_data *plat_dat,
- 		     struct stmmac_resources *res);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b87edb7..fd5ab7b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3350,12 +3350,13 @@ EXPORT_SYMBOL_GPL(stmmac_dvr_probe);
++	/* Assert reset to the enet controller before changing the phy mode */
++	if (dwmac->stmmac_rst)
++		reset_control_assert(dwmac->stmmac_rst);
++
+ 	regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
+ 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
+ 	ctrl |= val << reg_shift;
+@@ -181,6 +186,12 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
  
- /**
-  * stmmac_dvr_remove
-- * @ndev: net device pointer
-+ * @dev: device pointer
-  * Description: this function resets the TX/RX processes, disables the MAC RX/TX
-  * changes the link status, releases the DMA descriptor rings.
-  */
--int stmmac_dvr_remove(struct net_device *ndev)
-+int stmmac_dvr_remove(struct device *dev)
- {
-+	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
  
- 	pr_info("%s:\n\tremoving driver", __func__);
-@@ -3381,13 +3382,14 @@ EXPORT_SYMBOL_GPL(stmmac_dvr_remove);
- 
- /**
-  * stmmac_suspend - suspend callback
-- * @ndev: net device pointer
-+ * @dev: device pointer
-  * Description: this is the function to suspend the device and it is called
-  * by the platform driver to stop the network queue, release the resources,
-  * program the PMT register (for WoL), clean and release driver resources.
-  */
--int stmmac_suspend(struct net_device *ndev)
-+int stmmac_suspend(struct device *dev)
- {
-+	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	unsigned long flags;
- 
-@@ -3430,12 +3432,13 @@ EXPORT_SYMBOL_GPL(stmmac_suspend);
- 
- /**
-  * stmmac_resume - resume callback
-- * @ndev: net device pointer
-+ * @dev: device pointer
-  * Description: when resume this function is invoked to setup the DMA and CORE
-  * in a usable state.
-  */
--int stmmac_resume(struct net_device *ndev)
-+int stmmac_resume(struct device *dev)
- {
-+	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	unsigned long flags;
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index ae43887..56c8a23 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -231,30 +231,10 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
-  */
- static void stmmac_pci_remove(struct pci_dev *pdev)
- {
--	struct net_device *ndev = pci_get_drvdata(pdev);
--
--	stmmac_dvr_remove(ndev);
--}
--
--#ifdef CONFIG_PM_SLEEP
--static int stmmac_pci_suspend(struct device *dev)
--{
--	struct pci_dev *pdev = to_pci_dev(dev);
--	struct net_device *ndev = pci_get_drvdata(pdev);
--
--	return stmmac_suspend(ndev);
--}
--
--static int stmmac_pci_resume(struct device *dev)
--{
--	struct pci_dev *pdev = to_pci_dev(dev);
--	struct net_device *ndev = pci_get_drvdata(pdev);
--
--	return stmmac_resume(ndev);
-+	stmmac_dvr_remove(&pdev->dev);
++	/* Deassert reset for the phy configuration to be sampled by
++	 * the enet controller, and operation to start in requested mode
++	 */
++	if (dwmac->stmmac_rst)
++		reset_control_deassert(dwmac->stmmac_rst);
++
+ 	return 0;
  }
--#endif
  
--static SIMPLE_DEV_PM_OPS(stmmac_pm_ops, stmmac_pci_suspend, stmmac_pci_resume);
-+static SIMPLE_DEV_PM_OPS(stmmac_pm_ops, stmmac_suspend, stmmac_resume);
+@@ -198,21 +209,11 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+ 	if (!stpriv)
+ 		return -EINVAL;
  
- #define STMMAC_VENDOR_ID 0x700
- #define STMMAC_QUARK_ID  0x0937
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index effaa4f..409db91 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -386,7 +386,7 @@ int stmmac_pltfr_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct stmmac_priv *priv = netdev_priv(ndev);
--	int ret = stmmac_dvr_remove(ndev);
-+	int ret = stmmac_dvr_remove(&pdev->dev);
+-	/* Assert reset to the enet controller before changing the phy mode */
+-	if (stpriv->stmmac_rst)
+-		reset_control_assert(stpriv->stmmac_rst);
+-
+ 	/* Setup the phy mode in the system manager registers according to
+ 	 * devicetree configuration
+ 	 */
+ 	ret = socfpga_dwmac_setup(dwmac);
  
- 	if (priv->plat->exit)
- 		priv->plat->exit(pdev, priv->plat->bsp_priv);
-@@ -410,7 +410,7 @@ static int stmmac_pltfr_suspend(struct device *dev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct platform_device *pdev = to_platform_device(dev);
+-	/* Deassert reset for the phy configuration to be sampled by
+-	 * the enet controller, and operation to start in requested mode
+-	 */
+-	if (stpriv->stmmac_rst)
+-		reset_control_deassert(stpriv->stmmac_rst);
+-
+ 	/* Before the enet controller is suspended, the phy is suspended.
+ 	 * This causes the phy clock to be gated. The enet controller is
+ 	 * resumed before the phy, so the clock is still gated "off" when
+@@ -264,8 +265,18 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
+ 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
  
--	ret = stmmac_suspend(ndev);
-+	ret = stmmac_suspend(dev);
- 	if (priv->plat->exit)
- 		priv->plat->exit(pdev, priv->plat->bsp_priv);
+ 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+-	if (!ret)
++	if (!ret) {
++		struct net_device *ndev = platform_get_drvdata(pdev);
++		struct stmmac_priv *stpriv = netdev_priv(ndev);
++
++		/* The socfpga driver needs to control the stmmac reset to
++		 * set the phy mode. Create a copy of the core reset handel
++		 * so it can be used by the driver later.
++		 */
++		dwmac->stmmac_rst = stpriv->stmmac_rst;
++
+ 		ret = socfpga_dwmac_init(pdev, dwmac);
++	}
  
-@@ -433,7 +433,7 @@ static int stmmac_pltfr_resume(struct device *dev)
- 	if (priv->plat->init)
- 		priv->plat->init(pdev, priv->plat->bsp_priv);
- 
--	return stmmac_resume(ndev);
-+	return stmmac_resume(dev);
+ 	return ret;
  }
- #endif /* CONFIG_PM_SLEEP */
- 
 -- 
 2.8.0
