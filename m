@@ -1,46 +1,75 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
- segmentation with outer checksum offload
-Date: Sun, 1 May 2016 23:35:04 +0300
-Message-ID: <CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
-References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
-	<20160429224333.12418.13862.stgit@ahduyck-xeon-server>
+From: =?UTF-8?Q?Peter_Pal=c3=bach?= <Peter.Paluch@fri.uniza.sk>
+Subject: Re: Q: How to disable vlan strip in Intel igb driver ?
+Date: Sun, 1 May 2016 22:51:08 +0200
+Message-ID: <add3dc34-51fc-73e2-489a-e3230cc081f6@fri.uniza.sk>
+References: <CAJ2oMhKyMbgLZiGSGQxRGVdbGARvMHeO3=vpgO0uOzOBqvf79Q@mail.gmail.com>
+ <afa69dcb-0905-a556-0208-49a2363ae818@fri.uniza.sk>
+ <CAJ2oMhJp9M93QujnPYmp5CQkt-tx8P-uRCveiMEkDRLrcZmNhg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "talal@mellanox.com" <talal@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	michael.chan@broadcom.com, David Miller <davem@davemloft.net>,
-	Gal Pressman <galp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
+To: Ran Shalit <ranshalit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:36425 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbcEAUfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:35:05 -0400
-Received: by mail-io0-f171.google.com with SMTP id u185so178478180iod.3
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:35:05 -0700 (PDT)
-In-Reply-To: <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
+Received: from castor.kis.fri.uniza.sk ([158.193.152.2]:55423 "EHLO
+	mail.kis.fri.uniza.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbcEAUvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:51:13 -0400
+In-Reply-To: <CAJ2oMhJp9M93QujnPYmp5CQkt-tx8P-uRCveiMEkDRLrcZmNhg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch assumes that the mlx4 hardware will ignore existing IPv4/v6
-> header fields for length and checksum as well as the length and checksum
-> fields for outer UDP headers.
+Hi Ran,
 
-Hi Alex,
 
-I see now the above text appearing in bunch of similar commit of
-yours, specifically to Intel drivers and mlx5... could you please
-elaborate a bit more what you mean here and what are the practical
-consequences of that characteristics?
+> Alex,
+> I don't see rx-vlan-offload option in my ethtool. strange, maybe it is
+> not available in all ethtool versions ?
 
-I got that right NETIF_F_GSO_UDP_TUNNEL_CSUM means that the HW can do
-segmentation for TCP packets encapsulated by UDP tunnel e.g VXLAN
-where the outer checksum is not zero. AFAIK, any other outer checksum
-value can't correctly be a constant... are you assuming here  RCO or
-LCO?
+According to my manpage for ethtool v4.5, the relevant -K option is 
+"rxvlan".
 
-Or.
+> Hi Peter,
+> Yes, I'm using AF_PACKET (I can't validate it now for 100%, but I
+> quite sure about it).
+
+Okay - but I assume that you are writing a userspace application, not a 
+kernelspace driver or module, right?
+
+> I'm accessing the ethernet header, and it always gives me non extended
+> ethernet header (without vlan information).
+
+It seems that this behavior has been around for a long time, and is 
+intentional. See the following thread for more information:
+
+http://www.spinics.net/lists/netdev/msg244668.html
+
+The only legit way of accessing VLAN tag info on an AF_PACKET socket I 
+know about is by setting the PACKET_AUXDATA socket option, and reading 
+the auxiliary data as a struct tpacket_auxdata using recvmsg().
+
+In addition, however, there seems to be a bug in the kernel in that the 
+tp_vlan_tci member of the struct tpacket_auxdata is filled in only if 
+the AF_PACKET socket is bound to htons(ETH_P_ALL). If the socket is 
+bound to any other specific protocol, the tp_vlan_tci is set to 0. I 
+have raised this issue recently in the following thread(s) but have not 
+received a response yet:
+
+http://www.spinics.net/lists/netdev/msg372830.html
+http://www.spinics.net/lists/netdev/msg373112.html
+
+
+> I can see the vlan tag in vlan_tci field in sk_buff, but this is not
+> exactly what I need, I need the header AS-IS with the original
+> (extended) ethernet header.
+
+How are you accessing the vlan_tci field from your software?
+
+In any case, with AF_PACKET sockets, I am afraid you don't have much 
+choice. Even libpcap reconstructs VLAN-tagged frames by reading the VLAN 
+tag from an auxiliary structure and then re-inserting it into the frame, 
+because the frame delivered through an AF_PACKET socket does not have 
+the VLAN tag present anymore.
+
+Best regards,
+Peter
