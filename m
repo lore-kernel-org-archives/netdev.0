@@ -1,75 +1,176 @@
-From: =?UTF-8?Q?Peter_Pal=c3=bach?= <Peter.Paluch@fri.uniza.sk>
-Subject: Re: Q: How to disable vlan strip in Intel igb driver ?
-Date: Sun, 1 May 2016 22:51:08 +0200
-Message-ID: <add3dc34-51fc-73e2-489a-e3230cc081f6@fri.uniza.sk>
-References: <CAJ2oMhKyMbgLZiGSGQxRGVdbGARvMHeO3=vpgO0uOzOBqvf79Q@mail.gmail.com>
- <afa69dcb-0905-a556-0208-49a2363ae818@fri.uniza.sk>
- <CAJ2oMhJp9M93QujnPYmp5CQkt-tx8P-uRCveiMEkDRLrcZmNhg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
-To: Ran Shalit <ranshalit@gmail.com>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [net-next PATCH v2 1/5] stmmac: let remove/resume/suspend functions take device pointer
+Date: Sun,  1 May 2016 22:58:19 +0200
+Message-ID: <1462136303-16825-2-git-send-email-manabian@gmail.com>
+References: <1462136303-16825-1-git-send-email-manabian@gmail.com>
+Cc: Joachim Eastwood <manabian@gmail.com>, marex@denx.de,
+	dinguyen@opensource.altera.com, peppe.cavallaro@st.com,
+	alexandre.torgue@st.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castor.kis.fri.uniza.sk ([158.193.152.2]:55423 "EHLO
-	mail.kis.fri.uniza.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbcEAUvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:51:13 -0400
-In-Reply-To: <CAJ2oMhJp9M93QujnPYmp5CQkt-tx8P-uRCveiMEkDRLrcZmNhg@mail.gmail.com>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33475 "EHLO
+	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbcEAU7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:59:21 -0400
+Received: by mail-lf0-f65.google.com with SMTP id p64so25550883lfg.0
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:59:20 -0700 (PDT)
+In-Reply-To: <1462136303-16825-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ran,
+Change stmmac_remove/resume/suspend to take a device pointer so
+they can be used directly by drivers that doesn't need to perform
+anything device specific.
 
+This lets us remove the PCI pm functions and later simplifiy the
+platform drivers.
 
-> Alex,
-> I don't see rx-vlan-offload option in my ethtool. strange, maybe it is
-> not available in all ethtool versions ?
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+Tested-by: Marek Vasut <marex@denx.de>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  6 +++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 15 ++++++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   | 24 ++--------------------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  6 +++---
+ 4 files changed, 17 insertions(+), 34 deletions(-)
 
-According to my manpage for ethtool v4.5, the relevant -K option is 
-"rxvlan".
-
-> Hi Peter,
-> Yes, I'm using AF_PACKET (I can't validate it now for 100%, but I
-> quite sure about it).
-
-Okay - but I assume that you are writing a userspace application, not a 
-kernelspace driver or module, right?
-
-> I'm accessing the ethernet header, and it always gives me non extended
-> ethernet header (without vlan information).
-
-It seems that this behavior has been around for a long time, and is 
-intentional. See the following thread for more information:
-
-http://www.spinics.net/lists/netdev/msg244668.html
-
-The only legit way of accessing VLAN tag info on an AF_PACKET socket I 
-know about is by setting the PACKET_AUXDATA socket option, and reading 
-the auxiliary data as a struct tpacket_auxdata using recvmsg().
-
-In addition, however, there seems to be a bug in the kernel in that the 
-tp_vlan_tci member of the struct tpacket_auxdata is filled in only if 
-the AF_PACKET socket is bound to htons(ETH_P_ALL). If the socket is 
-bound to any other specific protocol, the tp_vlan_tci is set to 0. I 
-have raised this issue recently in the following thread(s) but have not 
-received a response yet:
-
-http://www.spinics.net/lists/netdev/msg372830.html
-http://www.spinics.net/lists/netdev/msg373112.html
-
-
-> I can see the vlan tag in vlan_tci field in sk_buff, but this is not
-> exactly what I need, I need the header AS-IS with the original
-> (extended) ethernet header.
-
-How are you accessing the vlan_tci field from your software?
-
-In any case, with AF_PACKET sockets, I am afraid you don't have much 
-choice. Even libpcap reconstructs VLAN-tagged frames by reading the VLAN 
-tag from an auxiliary structure and then re-inserting it into the frame, 
-because the frame delivered through an AF_PACKET socket does not have 
-the VLAN tag present anymore.
-
-Best regards,
-Peter
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index ff67506..59ae608 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -148,9 +148,9 @@ void stmmac_set_ethtool_ops(struct net_device *netdev);
+ 
+ int stmmac_ptp_register(struct stmmac_priv *priv);
+ void stmmac_ptp_unregister(struct stmmac_priv *priv);
+-int stmmac_resume(struct net_device *ndev);
+-int stmmac_suspend(struct net_device *ndev);
+-int stmmac_dvr_remove(struct net_device *ndev);
++int stmmac_resume(struct device *dev);
++int stmmac_suspend(struct device *dev);
++int stmmac_dvr_remove(struct device *dev);
+ int stmmac_dvr_probe(struct device *device,
+ 		     struct plat_stmmacenet_data *plat_dat,
+ 		     struct stmmac_resources *res);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index b87edb7..fd5ab7b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3350,12 +3350,13 @@ EXPORT_SYMBOL_GPL(stmmac_dvr_probe);
+ 
+ /**
+  * stmmac_dvr_remove
+- * @ndev: net device pointer
++ * @dev: device pointer
+  * Description: this function resets the TX/RX processes, disables the MAC RX/TX
+  * changes the link status, releases the DMA descriptor rings.
+  */
+-int stmmac_dvr_remove(struct net_device *ndev)
++int stmmac_dvr_remove(struct device *dev)
+ {
++	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 
+ 	pr_info("%s:\n\tremoving driver", __func__);
+@@ -3381,13 +3382,14 @@ EXPORT_SYMBOL_GPL(stmmac_dvr_remove);
+ 
+ /**
+  * stmmac_suspend - suspend callback
+- * @ndev: net device pointer
++ * @dev: device pointer
+  * Description: this is the function to suspend the device and it is called
+  * by the platform driver to stop the network queue, release the resources,
+  * program the PMT register (for WoL), clean and release driver resources.
+  */
+-int stmmac_suspend(struct net_device *ndev)
++int stmmac_suspend(struct device *dev)
+ {
++	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	unsigned long flags;
+ 
+@@ -3430,12 +3432,13 @@ EXPORT_SYMBOL_GPL(stmmac_suspend);
+ 
+ /**
+  * stmmac_resume - resume callback
+- * @ndev: net device pointer
++ * @dev: device pointer
+  * Description: when resume this function is invoked to setup the DMA and CORE
+  * in a usable state.
+  */
+-int stmmac_resume(struct net_device *ndev)
++int stmmac_resume(struct device *dev)
+ {
++	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	unsigned long flags;
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index ae43887..56c8a23 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -231,30 +231,10 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+  */
+ static void stmmac_pci_remove(struct pci_dev *pdev)
+ {
+-	struct net_device *ndev = pci_get_drvdata(pdev);
+-
+-	stmmac_dvr_remove(ndev);
+-}
+-
+-#ifdef CONFIG_PM_SLEEP
+-static int stmmac_pci_suspend(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	struct net_device *ndev = pci_get_drvdata(pdev);
+-
+-	return stmmac_suspend(ndev);
+-}
+-
+-static int stmmac_pci_resume(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	struct net_device *ndev = pci_get_drvdata(pdev);
+-
+-	return stmmac_resume(ndev);
++	stmmac_dvr_remove(&pdev->dev);
+ }
+-#endif
+ 
+-static SIMPLE_DEV_PM_OPS(stmmac_pm_ops, stmmac_pci_suspend, stmmac_pci_resume);
++static SIMPLE_DEV_PM_OPS(stmmac_pm_ops, stmmac_suspend, stmmac_resume);
+ 
+ #define STMMAC_VENDOR_ID 0x700
+ #define STMMAC_QUARK_ID  0x0937
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index effaa4f..409db91 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -386,7 +386,7 @@ int stmmac_pltfr_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+-	int ret = stmmac_dvr_remove(ndev);
++	int ret = stmmac_dvr_remove(&pdev->dev);
+ 
+ 	if (priv->plat->exit)
+ 		priv->plat->exit(pdev, priv->plat->bsp_priv);
+@@ -410,7 +410,7 @@ static int stmmac_pltfr_suspend(struct device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 
+-	ret = stmmac_suspend(ndev);
++	ret = stmmac_suspend(dev);
+ 	if (priv->plat->exit)
+ 		priv->plat->exit(pdev, priv->plat->bsp_priv);
+ 
+@@ -433,7 +433,7 @@ static int stmmac_pltfr_resume(struct device *dev)
+ 	if (priv->plat->init)
+ 		priv->plat->init(pdev, priv->plat->bsp_priv);
+ 
+-	return stmmac_resume(ndev);
++	return stmmac_resume(dev);
+ }
+ #endif /* CONFIG_PM_SLEEP */
+ 
+-- 
+2.8.0
