@@ -1,63 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] pxa168_eth: fix mdiobus_scan() error check
-Date: Sun, 1 May 2016 23:25:28 +0300
-Message-ID: <57266638.6030704@cogentembedded.com>
-References: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
- <6024241.YxM8l6DPJo@wasted.cogentembedded.com> <57262956.3060206@gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Sun, 1 May 2016 23:28:59 +0300
+Message-ID: <CALzJLG9+s+u54ELmUKHMLaa70vWPhXp=-4=Kj9uvooLpXUsvoQ@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server> <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tal Alon <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	michael.chan@broadcom.com, "David S. Miller" <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:33126 "EHLO
-	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbcEAUZc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:25:32 -0400
-Received: by mail-lf0-f50.google.com with SMTP id y84so169276814lfc.0
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:25:32 -0700 (PDT)
-In-Reply-To: <57262956.3060206@gmail.com>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:34071 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150AbcEAU3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:29:19 -0400
+Received: by mail-yw0-f195.google.com with SMTP id i22so16834621ywc.1
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:29:19 -0700 (PDT)
+In-Reply-To: <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 05/01/2016 07:05 PM, Florian Fainelli wrote:
-
->> Since mdiobus_scan() returns either an error code or NULL on error, the
->> driver should check  for both,  not only for NULL, otherwise a crash is
->> imminent...
->>
->> Reported-by: Arnd Bergmann <arnd@arndb.de>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> ---
->> The patch is against DaveM's 'net.git' repo.
->>
->>   drivers/net/ethernet/marvell/pxa168_eth.c |    2 ++
->>   1 file changed, 2 insertions(+)
->>
->> Index: net/drivers/net/ethernet/marvell/pxa168_eth.c
->> ===================================================================
->> --- net.orig/drivers/net/ethernet/marvell/pxa168_eth.c
->> +++ net/drivers/net/ethernet/marvell/pxa168_eth.c
->> @@ -979,6 +979,8 @@ static int pxa168_init_phy(struct net_de
->>   		return 0;
->>
->>   	pep->phy = mdiobus_scan(pep->smi_bus, pep->phy_addr);
->> +	if (IS_ERR(pep->phy))
->> +		return PTR_ERR(pep->phy);
->>   	if (!pep->phy)
->>   		return -ENODEV;
+On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch assumes that the mlx4 hardware will ignore existing IPv4/v6
+> header fields for length and checksum as well as the length and checksum
+> fields for outer UDP headers.
 >
-> Should not this check be removed too and
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   17 +++++++++++++----
+>  1 file changed, 13 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 8bd143dda95d..bce37cbfde24 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -2358,7 +2358,9 @@ out:
+>
+>         /* set offloads */
+>         priv->dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+> -                                     NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL;
+> +                                     NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL |
+> +                                     NETIF_F_GSO_UDP_TUNNEL_CSUM |
+> +                                     NETIF_F_GSO_PARTIAL;
+>  }
+>
+>  static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+> @@ -2368,7 +2370,9 @@ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+>                                                  vxlan_del_task);
+>         /* unset offloads */
+>         priv->dev->hw_enc_features &= ~(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+> -                                     NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL);
+> +                                       NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL |
+> +                                       NETIF_F_GSO_UDP_TUNNEL_CSUM |
+> +                                       NETIF_F_GSO_PARTIAL);
 
-    That's my next move -- for now I'm fixing the existing bug in this driver 
-only.
-
-> converted to a PTR_ERR(pep->phy) != -ENODEV?
-
-    I don't see what that would achieve, IMO it's enough to just drop this 
-*if* altogether.
-
-MBR, Sergei
+I know it is not related to your patch, but is it ok to dynamically
+modify priv->dev->hw_enc_features every vxlan add/del_port request ?
+especially on a deferred work !
+Shouldn't we at least notify the stack ?
