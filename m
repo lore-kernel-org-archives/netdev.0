@@ -1,57 +1,53 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] drivers/net: add 6WIND SHULTI support
-Date: Sun, 1 May 2016 21:53:57 +0200
-Message-ID: <20160501195356.GC1947@nanopsycho.orion>
-References: <20160427151336.GB1962@nanopsycho.orion>
- <20160427.125506.1088576804354580011.davem@davemloft.net>
- <5721FB26.6070305@6wind.com>
- <20160428.115419.1831238411921569629.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nicolas.dichtel@6wind.com, fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 0/4] Mellanox 100G mlx5 fixes for 4.6-rc
+Date: Sun,  1 May 2016 22:59:53 +0300
+Message-ID: <1462132797-22853-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36294 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752394AbcEATyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 15:54:00 -0400
-Received: by mail-wm0-f65.google.com with SMTP id w143so14340524wmw.3
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 12:53:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160428.115419.1831238411921569629.davem@davemloft.net>
+Received: from [193.47.165.129] ([193.47.165.129]:55759 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752080AbcEAUCH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 May 2016 16:02:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 28, 2016 at 05:54:19PM CEST, davem@davemloft.net wrote:
->From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->Date: Thu, 28 Apr 2016 13:59:34 +0200
->
->> Le 27/04/2016 18:55, David Miller a =E9crit :
->>> From: Jiri Pirko <jiri@resnulli.us>
->> [snip]
->>>> The difference is that it this tries to allow userspace crap to mi=
-rror
->>>> setting user does for bridge/ovs. Basically this looks to me like =
-an
->>>> attempt to enable userspace SDKs and such.
->>>=20
->>> +1
->> I don't think so because a userspace can receive all the bridge/ovs =
-settings by
->> mean of netlink mirror, without the need for this driver at all.
->
->You can say whatever you want, but the facilities you are adding to
->this driver enables proprietary userland SDK components.
->
->And this is precisely what we are trying to avoid by having a clean,
->fully featured switch device model in the kernel.
->
->It is against your interestes of upstreaming your driver to continue
->denying what your changes facilitate.
+Hi Dave,
 
-+1
+This small series provides some bug fixes for mlx5 driver.
+ 
+A small bug fix for iounmap of a null pointer, which dumps a warning on some archs.
 
-Nicolas, your driver is big a step back. Just do what you need to do,
-properly, in kernel. There's a lot of people to help you with that
-around.
+One patch to fix the VXLAN/MLX5_EN dependency issue reported by Arnd.
+
+Two patches to fix the scheduling while atomic issue for ndo_add/del_vxlan_port 
+NDOs.  The first will add an internal mlx5e workqueue and the second will 
+delegate vxlan ports add/del requests to that workqueue.
+
+Note: ('net/mlx5: Kconfig: Fix MLX5_EN/VXLAN build issue') is only needed for net 
+and not net-next as the issue was globally fixed for all device drivers by:
+b7aade15485a ('vxlan: break dependency with netdev drivers') in net-next.
+
+Applied on top: f27337e16f2d ('ip_tunnel: fix preempt warning in ip tunnel creation/updating')
+
+Gal Pressman (1):
+  net/mlx5: Unmap only the relevant IO memory mapping
+
+Matthew Finlay (3):
+  net/mlx5: Kconfig: Fix MLX5_EN/VXLAN build issue
+  net/mlx5e: Implement a mlx5e workqueue
+  net/mlx5e: Use workqueue for vxlan ops
+
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 34 +++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c     |  6 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.c   | 50 +++++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.h   | 11 ++++-
+ 6 files changed, 74 insertions(+), 29 deletions(-)
+
+-- 
+2.8.0
