@@ -1,44 +1,86 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: sfc: Please add rss_cpus=hyperthreads support
-Date: Sat, 30 Apr 2016 19:27:58 -0700
-Message-ID: <CALCETrUDCB0M8vYBwgjjOoheD6keeAwRn7RWYPQusMjkyGBZ1g@mail.gmail.com>
-References: <CALCETrWpJMT-SfKKhjRfeNRrXS6C6+SUuzOCuSYwMZbMCqB+tA@mail.gmail.com>
- <5548CA3D.7010408@solarflare.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 3.2 085/115] veth: don???t modify ip_summed; doing so
+ treats packets with bad checksums as good.
+Date: Sun, 1 May 2016 07:30:59 +0200
+Message-ID: <20160501053059.GA26097@1wt.eu>
+References: <1462041181.17662.3.camel@decadent.org.uk>
+ <57250A17.5090804@candelatech.com>
+ <CALx6S36cqecPH+Zd8pGVdFHRi7bmWgAwm2UgFVprt5JOuO47UA@mail.gmail.com>
+ <57251CB3.1040504@candelatech.com>
+ <CAKUBDd-_5RouHduHvjOqgOpyAArEBd80BEy4KBDPLRQoTtWb2Q@mail.gmail.com>
+ <572523C4.4080307@candelatech.com>
+ <CAKUBDd8fksttZOW3T5zdKD4rzbcZzZer-DCMMsA2zKF4A_hXQw@mail.gmail.com>
+ <57252918.7070302@candelatech.com>
+ <CAKUBDd8S2=YcJ5wtM24D6-vw+bMud=Om9TBykMvSYcJ4X5tryw@mail.gmail.com>
+ <57253527.7010009@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shradha Shah <sshah@solarflare.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: Robert Stonehouse <rstonehouse@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vijay Pandurangan <vijayp@vijayp.ca>,
+	Tom Herbert <tom@herbertland.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
+	akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Evan Jones <ej@evanjones.ca>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:35294 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbcEAC2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Apr 2016 22:28:18 -0400
-Received: by mail-ob0-f174.google.com with SMTP id n10so64662168obb.2
-        for <netdev@vger.kernel.org>; Sat, 30 Apr 2016 19:28:18 -0700 (PDT)
-In-Reply-To: <5548CA3D.7010408@solarflare.com>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:56214 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750743AbcEAFbz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 May 2016 01:31:55 -0400
+Content-Disposition: inline
+In-Reply-To: <57253527.7010009@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 5, 2015 at 6:48 AM, Robert Stonehouse
-<rstonehouse@solarflare.com> wrote:
-> On 02/05/15 01:03, Andy Lutomirski wrote:
->>
->> Can you please port the rss_cpus=hyperthreads feature from the
->> OpenOnload driver to the upstream driver?  The fact that sticking:
->>
->> options sfc rss_cpus=hyperthreads
->>
->> into modprobe.conf causes sfc to fail to load when OpenOnload isn't
->> installed is incredibly annoying, and the option is genuinely useful.
->
->
-> Sure; I will make sure that happens soon.
-> I can see how that would be annoying.
+On Sat, Apr 30, 2016 at 03:43:51PM -0700, Ben Greear wrote:
+> On 04/30/2016 03:01 PM, Vijay Pandurangan wrote:
+> > Consider:
+> > 
+> > - App A  sends out corrupt packets 50% of the time and discards inbound data.
+(...)
+> How can you make a generic app C know how to do this?  The path could be,
+> for instance:
+> 
+> eth0 <-> user-space-A <-> vethA <-> vethB <-> { kernel routing logic } <-> vethC <-> vethD <-> appC
+> 
+> There are no sockets on vethB, but it does need to have special behaviour to elide
+> csums.  Even if appC is hacked to know how to twiddle some thing on it's veth port,
+> mucking with vethD will have no effect on vethB.
+> 
+> With regard to your example above, why would A corrupt packets?  My guess:
+> 
+> 1)  It has bugs (so, fix the bugs, it could equally create incorrect data with proper checksums,
+>     so just enabling checksumming adds no useful protection.)
 
-Ping?
+I agree with Ben here, what he needs is the ability for userspace to be
+trusted when *forwarding* a packet. Ideally you'd only want to receive
+the csum status per packet on the packet socket and pass the same value
+on the vethA interface, with this status being kept when the packet
+reaches vethB.
 
-Thanks,
-Andy
+If A purposely corrupts packet, it's A's problem. It's similar to designing
+a NIC which intentionally corrupts packets and reports "checksum good".
+
+The real issue is that in order to do things right, the userspace bridge
+(here, "A") would really need to pass this status. In Ben's case as he
+says, bad checksum packets are dropped before reaching A, so that
+simplifies the process quite a bit and that might be what causes some
+confusion, but ideally we'd rather have recvmsg() and sendmsg() with
+these flags.
+
+I faced the exact same issue 3 years ago when playing with netmap, it was
+slow as hell because it would lose all checksum information when packets
+were passing through userland, resulting in GRO/GSO etc being disabled,
+and had to modify it to let userland preserve it. That's especially
+important when you have to deal with possibly corrupted packets not yet
+detected in the chain because the NIC did not validate their checksums.
+
+Willy
