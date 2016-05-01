@@ -1,61 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] pxa168_eth: fix mdiobus_scan() error check
-Date: Sun, 1 May 2016 23:30:06 +0300
-Message-ID: <5726674E.2030904@cogentembedded.com>
-References: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
- <6024241.YxM8l6DPJo@wasted.cogentembedded.com> <57262956.3060206@gmail.com>
- <57266638.6030704@cogentembedded.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH v2 1/9] net: Disable segmentation if checksumming
+ is not supported
+Date: Sun, 1 May 2016 23:30:38 +0300
+Message-ID: <CAJ3xEMhCHny00V0GAFH1a9NXj52q5M4B1Rmz+JMCT8YsK02vKQ@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
+	<20160429224308.12418.51424.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "talal@mellanox.com" <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	michael.chan@broadcom.com, David Miller <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:33193 "EHLO
-	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbcEAUaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:30:10 -0400
-Received: by mail-lf0-f49.google.com with SMTP id y84so169339165lfc.0
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:30:09 -0700 (PDT)
-In-Reply-To: <57266638.6030704@cogentembedded.com>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34002 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752356AbcEAUaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:30:39 -0400
+Received: by mail-io0-f171.google.com with SMTP id 190so147043008iow.1
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:30:38 -0700 (PDT)
+In-Reply-To: <20160429224308.12418.51424.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/01/2016 11:25 PM, Sergei Shtylyov wrote:
+On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> In the case of the mlx4 and mlx5 driver they do not support IPv6 checksum
+> offload for tunnels.
 
->>> Since mdiobus_scan() returns either an error code or NULL on error, the
->>> driver should check  for both,  not only for NULL, otherwise a crash is
->>> imminent...
->>>
->>> Reported-by: Arnd Bergmann <arnd@arndb.de>
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>
->>> ---
->>> The patch is against DaveM's 'net.git' repo.
->>>
->>>   drivers/net/ethernet/marvell/pxa168_eth.c |    2 ++
->>>   1 file changed, 2 insertions(+)
->>>
->>> Index: net/drivers/net/ethernet/marvell/pxa168_eth.c
->>> ===================================================================
->>> --- net.orig/drivers/net/ethernet/marvell/pxa168_eth.c
->>> +++ net/drivers/net/ethernet/marvell/pxa168_eth.c
->>> @@ -979,6 +979,8 @@ static int pxa168_init_phy(struct net_de
->>>           return 0;
->>>
->>>       pep->phy = mdiobus_scan(pep->smi_bus, pep->phy_addr);
->>> +    if (IS_ERR(pep->phy))
->>> +        return PTR_ERR(pep->phy);
->>>       if (!pep->phy)
->>>           return -ENODEV;
->>
->> Should not this check be removed too and
->
->     That's my next move -- for now I'm fixing the existing bug in this driver
-> only.
+Alex,
 
-    In fact, it can't be removed yet as mdiobus_scan() may return NULL on 
-other error path. There's certainly a space for improvements yet...
-[...]
+To clarify, when you say "not support IPv6 checksum for tunnels", you
+refer to the offloading of the outer or inner checksum?
 
-MBR, Sergei
+Still (me and I think also Tariq from our driver team) catching up on
+the series, the primitives and conventions you are introducing using
+and how this applies on mlx5. I saw that Saeed acked the the mlx5e
+patches (7 and 8).
+
+Specifically, the mlx4 patches are practically fixes so if they don't
+land in 4.7 via net-next we can get them there through net, lets give
+us the few more days needed to catch up from our side.
+
+Or.
