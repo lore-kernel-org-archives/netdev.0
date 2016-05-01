@@ -1,56 +1,80 @@
-From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH v1 net] net/mlx4: Avoid wrong virtual mappings
-Date: Sun, 1 May 2016 16:12:13 -0400
-Message-ID: <5726631D.608@codeaurora.org>
-References: <1461740820-15386-1-git-send-email-hagaya@mellanox.com>
- <5726243A.9070109@codeaurora.org>
- <20160501.160720.1356913722642000889.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160501.160720.1356913722642000889.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] rtlwifi: rtl818x: constify rtl_intf_ops structures
+Date: Sun,  1 May 2016 21:57:44 +0200
+Message-ID: <1462132664-1619-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/1/2016 4:07 PM, David Miller wrote:
-> From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> Date: Sun, 1 May 2016 11:43:54 -0400
-> 
->> Can we get this queued for 4.7? Mellanox with arm64 has been broken over 1.5 years.
-> 
-> Can you not quote an entire huge patch just to say something like
-> this?
-> 
-> I'm waiting for the people involved all to give feedback.
-> 
-> If it's been broken for more than a year, waiting for a few more
-> days to get the fix right is not going to be the end of the world.
-> 
+The rtl_intf_ops structures are never modified, so declare them as const.
 
-Sure, I thought there is a common consensus. The original patch posted was from Christoph Hellwig.
+Done with the help of Coccinelle.
 
-This patch does the same thing like Christoph Hellwig proposed + a fallback approach for the
-infiniband case where fragmented buffers are still supported.
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-The patch is actually a copy/paste from the MLX5 driver into MLX4.
+---
+ drivers/net/wireless/realtek/rtlwifi/pci.c  |    2 +-
+ drivers/net/wireless/realtek/rtlwifi/pci.h  |    2 +-
+ drivers/net/wireless/realtek/rtlwifi/usb.c  |    2 +-
+ drivers/net/wireless/realtek/rtlwifi/wifi.h |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-I'm OK with waiitng for a few more days. I just wanted to make sure that this patch
-is moving in the right direction.
+diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
+index 1ac41b8..66030ea 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/pci.c
++++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
+@@ -2456,7 +2456,7 @@ int rtl_pci_resume(struct device *dev)
+ EXPORT_SYMBOL(rtl_pci_resume);
+ #endif /* CONFIG_PM_SLEEP */
+ 
+-struct rtl_intf_ops rtl_pci_ops = {
++const struct rtl_intf_ops rtl_pci_ops = {
+ 	.read_efuse_byte = read_efuse_byte,
+ 	.adapter_start = rtl_pci_start,
+ 	.adapter_stop = rtl_pci_stop,
+diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.h b/drivers/net/wireless/realtek/rtlwifi/pci.h
+index 5da6703..b951eba 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/pci.h
++++ b/drivers/net/wireless/realtek/rtlwifi/pci.h
+@@ -286,7 +286,7 @@ struct rtl_pci_priv {
+ 
+ int rtl_pci_reset_trx_ring(struct ieee80211_hw *hw);
+ 
+-extern struct rtl_intf_ops rtl_pci_ops;
++extern const struct rtl_intf_ops rtl_pci_ops;
+ 
+ int rtl_pci_probe(struct pci_dev *pdev,
+ 			    const struct pci_device_id *id);
+diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
+index aac1ed3..41617b7 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/usb.c
++++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
+@@ -1049,7 +1049,7 @@ static void rtl_fill_h2c_cmd_work_callback(struct work_struct *work)
+ 	rtlpriv->cfg->ops->fill_h2c_cmd(hw, H2C_RA_MASK, 5, rtlpriv->rate_mask);
+ }
+ 
+-static struct rtl_intf_ops rtl_usb_ops = {
++static const struct rtl_intf_ops rtl_usb_ops = {
+ 	.adapter_start = rtl_usb_start,
+ 	.adapter_stop = rtl_usb_stop,
+ 	.adapter_tx = rtl_usb_tx,
+diff --git a/drivers/net/wireless/realtek/rtlwifi/wifi.h b/drivers/net/wireless/realtek/rtlwifi/wifi.h
+index 11d9c23..4e0ab4d 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/wifi.h
++++ b/drivers/net/wireless/realtek/rtlwifi/wifi.h
+@@ -2593,7 +2593,7 @@ struct rtl_priv {
+ 	 *intf_ops : for diff interrface usb/pcie
+ 	 */
+ 	struct rtl_hal_cfg *cfg;
+-	struct rtl_intf_ops *intf_ops;
++	const struct rtl_intf_ops *intf_ops;
+ 
+ 	/*this var will be set by set_bit,
+ 	   and was used to indicate status of
 
-If not, let's list the open issues. 
-
--- 
-Sinan Kaya
-Qualcomm Technologies, Inc. on behalf of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
