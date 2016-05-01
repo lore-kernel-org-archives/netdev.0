@@ -1,57 +1,87 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH net-next] ravb: Remove rx buffer ALIGN
-Date: Sun, 1 May 2016 23:34:26 +0900
-Message-ID: <CAH1o70JrqnBJfDvcrgpONnXpPPY1BtFW+tYVjAxcs8S-g_voNA@mail.gmail.com>
-References: <1461514567-23444-1-git-send-email-ykaneko0929@gmail.com>
-	<571FBE21.4050908@cogentembedded.com>
-	<20160428233456.GC18128@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20160428233456.GC18128@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/4] net: ethernet: gianfar: move to new ethtool api {get|set}_link_ksettings
+Date: Sun,  1 May 2016 17:08:08 +0200
+Message-ID: <1462115291-11372-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, Philippe Reynes <tremyfr@gmail.com>
+To: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	claudiu.manoil@freescale.com, leoli@freescale.com,
+	treding@nvidia.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon-san,
+The ethtool api {get|set}_settings is deprecated.
+We move the gianfar driver to new api {get|set}_link_ksettings.
 
-Thank you for testing this patch!
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |   25 +++++++---------------
+ 1 files changed, 8 insertions(+), 17 deletions(-)
 
-Thanks,
-kaneko
-
-2016-04-29 8:34 GMT+09:00 Simon Horman <horms@verge.net.au>:
-> Hi Sergei, Hi Kaneko-san,
->
-> On Tue, Apr 26, 2016 at 10:14:41PM +0300, Sergei Shtylyov wrote:
->> Hello.
->>
->> On 04/24/2016 07:16 PM, Yoshihiro Kaneko wrote:
->>
->> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->> >
->> >Aligning the reception data size is not required.
->>
->>    OK, the gen 2/3 manuals indeed don't require this. I assume the patch has
->> been tested...
->
-> This morning I tested this patch applied on net-next using the
-> r8a7795/salvator-x  (Gen-3). My test was to boot to a user-space prompt
-> using NFS root which was successful. I can run further tests on this setup
-> if it would be useful.
->
-> Unfortunately I do not have access to hardware to allow me to test this
-> on Gen-2.
->
->> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->> >Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->
-> Tested-by: Simon Horman <horms+renesas@verge.net.au>
->
->>    I have a few comments though...
->
-> [...]
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 4b0ee85..2c45c80 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -185,7 +185,8 @@ static void gfar_gdrvinfo(struct net_device *dev,
+ }
+ 
+ 
+-static int gfar_ssettings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int gfar_set_ksettings(struct net_device *dev,
++			      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct phy_device *phydev = priv->phydev;
+@@ -193,29 +194,19 @@ static int gfar_ssettings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	if (NULL == phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_sset(phydev, cmd);
++	return phy_ethtool_ksettings_set(phydev, cmd);
+ }
+ 
+-
+-/* Return the current settings in the ethtool_cmd structure */
+-static int gfar_gsettings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int gfar_get_ksettings(struct net_device *dev,
++			      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct phy_device *phydev = priv->phydev;
+-	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct gfar_priv_tx_q *tx_queue = NULL;
+ 
+ 	if (NULL == phydev)
+ 		return -ENODEV;
+-	tx_queue = priv->tx_queue[0];
+-	rx_queue = priv->rx_queue[0];
+-
+-	/* etsec-1.7 and older versions have only one txic
+-	 * and rxic regs although they support multiple queues */
+-	cmd->maxtxpkt = get_icft_value(tx_queue->txic);
+-	cmd->maxrxpkt = get_icft_value(rx_queue->rxic);
+ 
+-	return phy_ethtool_gset(phydev, cmd);
++	return phy_ethtool_ksettings_get(phydev, cmd);
+ }
+ 
+ /* Return the length of the register structure */
+@@ -1565,8 +1556,6 @@ static int gfar_get_ts_info(struct net_device *dev,
+ }
+ 
+ const struct ethtool_ops gfar_ethtool_ops = {
+-	.get_settings = gfar_gsettings,
+-	.set_settings = gfar_ssettings,
+ 	.get_drvinfo = gfar_gdrvinfo,
+ 	.get_regs_len = gfar_reglen,
+ 	.get_regs = gfar_get_regs,
+@@ -1589,4 +1578,6 @@ const struct ethtool_ops gfar_ethtool_ops = {
+ 	.set_rxnfc = gfar_set_nfc,
+ 	.get_rxnfc = gfar_get_nfc,
+ 	.get_ts_info = gfar_get_ts_info,
++	.get_link_ksettings = gfar_get_ksettings,
++	.set_link_ksettings = gfar_set_ksettings,
+ };
+-- 
+1.7.4.4
