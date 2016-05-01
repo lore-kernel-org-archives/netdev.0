@@ -1,36 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v1 net] net/mlx4: Avoid wrong virtual mappings
-Date: Sun, 01 May 2016 16:07:20 -0400 (EDT)
-Message-ID: <20160501.160720.1356913722642000889.davem@davemloft.net>
-References: <1461740820-15386-1-git-send-email-hagaya@mellanox.com>
-	<5726243A.9070109@codeaurora.org>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [net-next PATCH v2 7/9] mlx5e: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Sun, 1 May 2016 23:08:12 +0300
+Message-ID: <CALzJLG9dHq2Dd_noZrN10yxwM=ZJf9du5009O9=Cju25-pqWAg@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server> <20160429224345.12418.88876.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5726243A.9070109-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tal Alon <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	michael.chan@broadcom.com, "David S. Miller" <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: Alexander Duyck <aduyck@mirantis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:34317 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751942AbcEAUIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:08:32 -0400
+Received: by mail-yw0-f193.google.com with SMTP id i22so16787979ywc.1
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:08:32 -0700 (PDT)
+In-Reply-To: <20160429224345.12418.88876.stgit@ahduyck-xeon-server>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Sun, 1 May 2016 11:43:54 -0400
+On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch assumes that the mlx5 hardware will ignore existing IPv4/v6
+> header fields for length and checksum as well as the length and checksum
+> fields for outer UDP headers.
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-> Can we get this queued for 4.7? Mellanox with arm64 has been broken over 1.5 years.
-
-Can you not quote an entire huge patch just to say something like
-this?
-
-I'm waiting for the people involved all to give feedback.
-
-If it's been broken for more than a year, waiting for a few more
-days to get the fix right is not going to be the end of the world.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
