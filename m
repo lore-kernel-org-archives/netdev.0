@@ -1,113 +1,100 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [net-next PATCH v2 3/5] stmmac: dwmac-socfpga: keep a copy of stmmac_rst in driver priv data
-Date: Sun,  1 May 2016 22:58:21 +0200
-Message-ID: <1462136303-16825-4-git-send-email-manabian@gmail.com>
-References: <1462136303-16825-1-git-send-email-manabian@gmail.com>
+Subject: [net-next PATCH v2 0/5] stmmac: dwmac-socfpga refactor+cleanup
+Date: Sun,  1 May 2016 22:58:18 +0200
+Message-ID: <1462136303-16825-1-git-send-email-manabian@gmail.com>
 Cc: Joachim Eastwood <manabian@gmail.com>, marex@denx.de,
 	dinguyen@opensource.altera.com, peppe.cavallaro@st.com,
 	alexandre.torgue@st.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34197 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbcEAU7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:59:24 -0400
-Received: by mail-lf0-f66.google.com with SMTP id m101so23111036lfi.1
-        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:59:23 -0700 (PDT)
-In-Reply-To: <1462136303-16825-1-git-send-email-manabian@gmail.com>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33470 "EHLO
+	mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752008AbcEAU7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 16:59:19 -0400
+Received: by mail-lf0-f68.google.com with SMTP id p64so25550789lfg.0
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 13:59:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dwmac-socfpga driver needs to control the reset usually managed
-by the core driver to set the PHY mode. Take a copy of the reset
-handle from core priv data so it can be used by the driver later.
+This patch aims to remove the init/exit callbacks from the dwmac-
+socfpga driver and instead use standard PM callbacks. Doing this
+will also allow us to cleanup the driver.
 
-This also allow us to move reset handling into socfpga_dwmac_setup()
-where the code that needs it is located.
+Eventually the init/exit callbacks will be deprecated and removed
+from all drivers dwmac-* except for dwmac-generic. Drivers will be
+refactored to use standard PM and remove callbacks.
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
-Tested-by: Marek Vasut <marex@denx.de>
----
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 33 ++++++++++++++--------
- 1 file changed, 22 insertions(+), 11 deletions(-)
+This patch set should not change the behavior of the driver itself,
+it only moves code around. The only exception to this is patch
+number 4 which restores the resume callback behavior which was
+changed in the "net: stmmac: socfpga: Remove re-registration of
+reset controller" patch. I belive calling phy_resume() only
+from the resume callback and not probe is the right thing to do.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 789013a..ba0b793 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -49,6 +49,7 @@ struct socfpga_dwmac {
- 	u32	reg_shift;
- 	struct	device *dev;
- 	struct regmap *sys_mgr_base_addr;
-+	struct reset_control *stmmac_rst;
- 	void __iomem *splitter_base;
- 	bool f2h_ptp_ref_clk;
- };
-@@ -164,6 +165,10 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- 	if (dwmac->splitter_base)
- 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
+Changes from v1:
+ - Rebase on net-next
+
+One heads-up here:
+The first patch changes the prototype of a couple of
+functions used in Alexandre's "add Ethernet glue logic for
+stm32 chip" patch [1] and will cause build failures for
+dwmac-stm32.c if not fixed up!
+If Alexandre's patch set is applied first I will gladly
+rebase my patch set to account for his driver as well.
+
+[1] https://patchwork.ozlabs.org/patch/614405/
+
+Dave: To avoid the build failure mentioned above you can
+      apply the changes below to the stm32 driver or
+      Alexandre can use it if he creates a new version
+      of his patch set.
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+@@ -133,7 +133,7 @@ static int stm32_dwmac_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+-	int ret = stmmac_dvr_remove(ndev);
++	int ret = stmmac_dvr_remove(&pdev->dev);
  
-+	/* Assert reset to the enet controller before changing the phy mode */
-+	if (dwmac->stmmac_rst)
-+		reset_control_assert(dwmac->stmmac_rst);
-+
- 	regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
- 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
- 	ctrl |= val << reg_shift;
-@@ -181,6 +186,12 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+ 	stm32_dwmac_clk_disable(priv->plat->bsp_priv);
  
- 	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
+@@ -147,7 +147,7 @@ static int stm32_dwmac_suspend(struct device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	int ret;
  
-+	/* Deassert reset for the phy configuration to be sampled by
-+	 * the enet controller, and operation to start in requested mode
-+	 */
-+	if (dwmac->stmmac_rst)
-+		reset_control_deassert(dwmac->stmmac_rst);
-+
- 	return 0;
- }
+-	ret = stmmac_suspend(ndev);
++	ret = stmmac_suspend(dev);
+ 	stm32_dwmac_clk_disable(priv->plat->bsp_priv);
  
-@@ -198,21 +209,11 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- 	if (!stpriv)
- 		return -EINVAL;
+ 	return ret;
+@@ -163,7 +163,7 @@ static int stm32_dwmac_resume(struct device *dev)
+ 	if (ret)
+ 		return ret;
  
--	/* Assert reset to the enet controller before changing the phy mode */
--	if (stpriv->stmmac_rst)
--		reset_control_assert(stpriv->stmmac_rst);
--
- 	/* Setup the phy mode in the system manager registers according to
- 	 * devicetree configuration
- 	 */
- 	ret = socfpga_dwmac_setup(dwmac);
- 
--	/* Deassert reset for the phy configuration to be sampled by
--	 * the enet controller, and operation to start in requested mode
--	 */
--	if (stpriv->stmmac_rst)
--		reset_control_deassert(stpriv->stmmac_rst);
--
- 	/* Before the enet controller is suspended, the phy is suspended.
- 	 * This causes the phy clock to be gated. The enet controller is
- 	 * resumed before the phy, so the clock is still gated "off" when
-@@ -264,8 +265,18 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
- 
- 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
--	if (!ret)
-+	if (!ret) {
-+		struct net_device *ndev = platform_get_drvdata(pdev);
-+		struct stmmac_priv *stpriv = netdev_priv(ndev);
-+
-+		/* The socfpga driver needs to control the stmmac reset to
-+		 * set the phy mode. Create a copy of the core reset handel
-+		 * so it can be used by the driver later.
-+		 */
-+		dwmac->stmmac_rst = stpriv->stmmac_rst;
-+
- 		ret = socfpga_dwmac_init(pdev, dwmac);
-+	}
+-	ret = stmmac_resume(ndev);
++	ret = stmmac_resume(dev);
  
  	return ret;
  }
+
+
+
+Joachim Eastwood (5):
+  stmmac: let remove/resume/suspend functions take device pointer
+  stmmac: dwmac-socfpga: add PM ops and resume function
+  stmmac: dwmac-socfpga: keep a copy of stmmac_rst in driver priv data
+  stmmac: dwmac-socfpga: call phy_resume() only in resume callback
+  stmmac: dwmac-socfpga: kill init() and rename setup() to set_phy_mode()
+
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 106 +++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  15 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  24 +----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   6 +-
+ 5 files changed, 71 insertions(+), 86 deletions(-)
+
 -- 
 2.8.0
