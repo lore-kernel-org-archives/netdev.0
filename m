@@ -1,120 +1,109 @@
-From: Josh Cartwright <joshc@ni.com>
-Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Mon, 2 May 2016 13:36:26 -0500
-Message-ID: <20160502183626.GC31001@jcartwri.amer.corp.natinst.com>
-References: <20160428163207.GP29024@lunn.ch>
- <20160428175619.GA8791@nathan3500-linux-VM>
- <20160428184303.GR29024@lunn.ch>
- <20160428185527.GA8851@nathan3500-linux-VM>
- <20160428185932.GU29024@lunn.ch>
- <20160428210357.GB30217@jcartwri.amer.corp.natinst.com>
- <20160428212315.GC12753@lunn.ch>
- <20160429003459.GC30217@jcartwri.amer.corp.natinst.com>
- <20160429122501.GD30217@jcartwri.amer.corp.natinst.com>
- <57235655.3030104@atmel.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCHv2 bluetooth-next 01/10] 6lowpan: add private neighbour
+ data
+Date: Mon, 2 May 2016 20:59:13 +0200
+Message-ID: <c7717a50-7818-f409-1fb4-35e1ec5ebde0@stressinduktion.org>
+References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
+ <1461140382-4784-2-git-send-email-aar@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="ADZbWkCsHQ7r3kzd"
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Nathan Sullivan <nathan.sullivan@ni.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kernel@pengutronix.de, marcel@holtmann.org,
+	jukka.rissanen@linux.intel.com, stefan@osg.samsung.com,
+	mcr@sandelman.ca, werner@almesberger.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Alexander Aring <aar@pengutronix.de>, linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod3.natinst.com ([130.164.80.24]:40054 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755039AbcEBSvC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 May 2016 14:51:02 -0400
-In-Reply-To: <57235655.3030104@atmel.com>
-Content-Disposition: inline
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51283 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932113AbcEBS7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 14:59:18 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id C188920C62
+	for <netdev@vger.kernel.org>; Mon,  2 May 2016 14:59:17 -0400 (EDT)
+In-Reply-To: <1461140382-4784-2-git-send-email-aar@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---ADZbWkCsHQ7r3kzd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 20.04.2016 10:19, Alexander Aring wrote:
+> This patch will introduce a 6lowpan neighbour private data. Like the
+> interface private data we handle private data for generic 6lowpan and
+> for link-layer specific 6lowpan.
+> 
+> The current first use case if to save the short address for a 802.15.4
+> 6lowpan neighbour.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Alexander Aring <aar@pengutronix.de>
+> ---
+>  include/linux/netdevice.h     |  3 +--
+>  include/net/6lowpan.h         | 24 ++++++++++++++++++++++++
+>  net/bluetooth/6lowpan.c       |  2 ++
+>  net/ieee802154/6lowpan/core.c | 12 ++++++++++++
+>  4 files changed, 39 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 166402a..0052c42 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1487,8 +1487,7 @@ enum netdev_priv_flags {
+>   * 	@perm_addr:		Permanent hw address
+>   * 	@addr_assign_type:	Hw address assignment type
+>   * 	@addr_len:		Hardware address length
+> - * 	@neigh_priv_len;	Used in neigh_alloc(),
+> - * 				initialized only in atm/clip.c
+> + *	@neigh_priv_len;	Used in neigh_alloc()
+>   * 	@dev_id:		Used to differentiate devices that share
+>   * 				the same link layer address
+>   * 	@dev_port:		Used to differentiate devices that share
+> diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+> index da84cf9..61c6517 100644
+> --- a/include/net/6lowpan.h
+> +++ b/include/net/6lowpan.h
+> @@ -98,6 +98,9 @@ static inline bool lowpan_is_iphc(u8 dispatch)
+>  #define LOWPAN_PRIV_SIZE(llpriv_size)	\
+>  	(sizeof(struct lowpan_dev) + llpriv_size)
+>  
+> +#define LOWPAN_NEIGH_PRIV_SIZE(llneigh_priv_size)	\
+> +	(sizeof(struct lowpan_neigh) + llneigh_priv_size)
+> +
+>  enum lowpan_lltypes {
+>  	LOWPAN_LLTYPE_BTLE,
+>  	LOWPAN_LLTYPE_IEEE802154,
+> @@ -141,6 +144,27 @@ struct lowpan_dev {
+>  	u8 priv[0] __aligned(sizeof(void *));
+>  };
+>  
+> +struct lowpan_neigh {
+> +	/* 6LoWPAN neigh private data */
+> +	/* must be last */
+> +	u8 priv[0] __aligned(sizeof(void *));
 
-On Fri, Apr 29, 2016 at 02:40:53PM +0200, Nicolas Ferre wrote:
-[..]
-> >  static int macb_mii_init(struct macb *bp)
-> >  {
-> >  	struct macb_platform_data *pdata;
-> >  	struct device_node *np;
-> > -	int err =3D -ENXIO, i;
-> > +	int err =3D -ENXIO;
-> > =20
-> >  	/* Enable management port */
-> >  	macb_writel(bp, NCR, MACB_BIT(MPE));
-> > @@ -446,33 +497,10 @@ static int macb_mii_init(struct macb *bp)
-> >  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
-> > =20
-> >  	np =3D bp->pdev->dev.of_node;
-> > -	if (np) {
-> > -		/* try dt phy registration */
-> > -		err =3D of_mdiobus_register(bp->mii_bus, np);
-> > -
-> > -		/* fallback to standard phy registration if no phy were
-> > -		 * found during dt phy registration
-> > -		 */
-> > -		if (!err && !phy_find_first(bp->mii_bus)) {
-> > -			for (i =3D 0; i < PHY_MAX_ADDR; i++) {
-> > -				struct phy_device *phydev;
-> > -
-> > -				phydev =3D mdiobus_scan(bp->mii_bus, i);
-> > -				if (IS_ERR(phydev)) {
-> > -					err =3D PTR_ERR(phydev);
-> > -					break;
-> > -				}
-> > -			}
-> > -
-> > -			if (err)
-> > -				goto err_out_unregister_bus;
-> > -		}
-> > -	} else {
-> > -		if (pdata)
-> > -			bp->mii_bus->phy_mask =3D pdata->phy_mask;
-> > -
-> > -		err =3D mdiobus_register(bp->mii_bus);
-> > -	}
-> > +	if (np)
-> > +		err =3D macb_mii_of_init(bp, np);
-> > +	else
-> > +		err =3D macb_mii_pdata_init(bp, pdata);
-> > =20
-> >  	if (err)
-> >  		goto err_out_free_mdiobus;
->=20
-> I'm okay with this. Thanks for having taken the initiative to implement i=
-t.
+Are you sure this declaration is correct? You take its size above, which
+should result in zero. Looks a little bit strange. :)
 
-Unfortunately, I don't think it's going to be as straightforward
-as I originally thought.  Still doable, but more complicated.
+> +};
+> +
+> +struct lowpan_802154_neigh {
+> +	__le16 short_addr;
+> +};
+> +
+> +static inline struct lowpan_neigh *lowpan_neigh(void *neigh_priv)
+> +{
+> +	return neigh_priv;
+> +}
+> +
+> +static inline
+> +struct lowpan_802154_neigh *lowpan_802154_neigh(void *neigh_priv)
+> +{
+> +	return (struct lowpan_802154_neigh *)lowpan_neigh(neigh_priv)->priv;
+> +}
 
-In particular, the macb bindings allow for a user to specify a
-'reset-gpios' property _at the PHY_ level, which is consumed by the
-macb to adjust the PHY reset state on remove.
+Can't you remove lowpan_neigh completely and just use 802154_neigh at
+this point?
 
-My question is: why is the PHY reset GPIO management not the
-responsibility of the PHY driver/core itself?
-
-  Josh
-
---ADZbWkCsHQ7r3kzd
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABCAAGBQJXJ54nAAoJEKp7ZBKwQFArwxIH/iB3kt9+eWeNfP7/mncysTAe
-PPcV/57UgjpsCmWqyFCLa+jko9hQwZ8W/sdqJFbk1C/FXAnMX65i+OMOXe9Yv4AT
-OYSQGi7wHjNhD9WR2CZSeMESpu6HHFLwC99NI/1PLwKi45Nyq76kswrrdLOEnxk8
-LarUUqSOUBcxEiTQGXvn3h29BjeBvKPwYPstN5P2sTWfWStvMXA5Cyryym4lbC5j
-09l8Wg4CN9AzjgBIxvFK5e9tEJupoLCmP7W45Zfec97HxQNVX0nMYXQ+nvHWZOq2
-lUqiJ2BNaIwyX1EX3fTXCY/a/oPH52YrIxX1Wp0w5amaycWG+cRgqEuAh0CZMhk=
-=hrFB
------END PGP SIGNATURE-----
-
---ADZbWkCsHQ7r3kzd--
+Bye,
+Hannes
