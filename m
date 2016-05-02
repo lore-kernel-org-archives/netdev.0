@@ -1,75 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip: add udp_csum, udp6_csum_tx, udp6_csum_rx control
- flags to ip l2tp add tunnel
-Date: Mon, 2 May 2016 15:19:10 -0700
-Message-ID: <20160502151910.3a1f6f3d@xeon-e3>
-References: <CAEwTi7SkMrgxpPi-EuC2UDiwv7L0-vdRAhtdAYLgnbnw5H-Eig@mail.gmail.com>
-	<FD67CA88-0731-4DD7-AC78-5A4B922810D6@gmail.com>
-	<AFE6B2C1-93B5-4782-870D-2C6C81BF6F52@gmail.com>
-	<CAEwTi7SyKKh4de6TKYiuypWfOhzOCeD6k2uTLUfCmzQmvsNHWw@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Performance suggestions for bridging module?
+Date: Mon, 2 May 2016 15:50:36 -0700
+Message-ID: <5727D9BC.8040401@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wang Shanker <shankerwangmiao@gmail.com>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:33647 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755166AbcEBWTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 18:19:06 -0400
-Received: by mail-io0-f171.google.com with SMTP id f89so6093040ioi.0
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 15:19:05 -0700 (PDT)
-In-Reply-To: <CAEwTi7SyKKh4de6TKYiuypWfOhzOCeD6k2uTLUfCmzQmvsNHWw@mail.gmail.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:52647 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755173AbcEBWuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 18:50:37 -0400
+Received: from [192.168.100.149] (firewall.candelatech.com [50.251.239.81])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail2.candelatech.com (Postfix) with ESMTPSA id 703CA40A339
+	for <netdev@vger.kernel.org>; Mon,  2 May 2016 15:50:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Apr 2016 15:50:47 +0100
-James Chapman <jchapman@katalix.com> wrote:
+Hello!
 
-> Yes, that looks like the problem.
-> 
-> The comments in l2tp.h which indicate that the csum attributes are u8
-> values are wrong. Code in net/l2tp/l2tp_netlink.c accesses these
-> attributes using nla_get_flag().
-> 
-> Please submit a patch to fix l2tp_tunnel_sock_create(). Include good
-> change notes and your signed-off-by tag so that it gets reviewed. See
-> Documentation/SubmittingPatches if you haven't submitted a kernel
-> patch here before.
+I have a network emulator module that acts a lot like an ethernet bridge.
 
-Thank you for fixing this. James is is correct.
-Please format the patch according to the submission guidelines.
-For example, checkpatch complains about current patch.
+It is implemented roughly like this:
 
-ERROR: code indent should use tabs where possible
-#156: FILE: net/l2tp/l2tp_core.c:1379:
-+                         ! cfg->udp6_zero_tx_checksums;$
+Hook into the rx logic and steal packets in the rx-all logic, similar to how sniffers
+work.
 
-WARNING: please, no spaces at the start of a line
-#156: FILE: net/l2tp/l2tp_core.c:1379:
-+                         ! cfg->udp6_zero_tx_checksums;$
+Then, it puts the packet onto a queue for transmit.
 
-ERROR: space prohibited after that '!' (ctx:ExW)
-#156: FILE: net/l2tp/l2tp_core.c:1379:
-+                         ! cfg->udp6_zero_tx_checksums;
-                          ^
+A kernel thread services this queue transmitting frames on a different NIC.
 
-ERROR: code indent should use tabs where possible
-#159: FILE: net/l2tp/l2tp_core.c:1381:
-+                         ! cfg->udp6_zero_rx_checksums;$
+I am using spin-locks to protect this queue.
 
-WARNING: please, no spaces at the start of a line
-#159: FILE: net/l2tp/l2tp_core.c:1381:
-+                         ! cfg->udp6_zero_rx_checksums;$
+I am disabling LRO/GRO etc on the ixgbe NICs so that I don't have
+to deal with linearization when trying to do corruptions and such.  Re-enabling
+LRO/GRO makes the transmit logic use less CPU, but the RX logic is the bottleneck
+anyway it seems.
 
-ERROR: space prohibited after that '!' (ctx:ExW)
-#159: FILE: net/l2tp/l2tp_core.c:1381:
-+                         ! cfg->udp6_zero_rx_checksums;
-                          ^
+The code, which is GPL, is here, in case someone wants to take a look:
 
-ERROR: Missing Signed-off-by: line(s)
+http://www.candelatech.com/downloads/wanlink/
+
+What I see is that this is very sensitive to which CPU core does what.
+If I run the transmitter thread on cpu-0, performance is awful.  If I run
+it on 1, then it is good.  Sometimes, though hard to reproduce, I can run
+right at 10Gbps bi-directional throughput.  More often, it is stuck at
+around 7Gbps bi-directional throughput.
+
+I tried adding some prefetch logic, and that helped when emulating very long
+latency (like, 10 seconds worth), but not sure I am really doing that optimally
+either.
+
+My basic question is:  Any suggestion for an optimal CPU core configuration
+(most likely including binding a NIC's irqs to a particular core)??
+
+Any other suggestions for things to look for?
+
+Thanks,
+Ben
 
 
-I am sorry that maintainers may seem like picky teachers in school
-always putting redline around spelling errors, but this is how we work to teach
-others how to follow the process.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
