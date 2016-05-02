@@ -1,101 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net: macb: do not scan PHYs manually
-Date: Mon, 2 May 2016 12:08:50 -0700
-Message-ID: <5727A5C2.804@gmail.com>
-References: <20160428163207.GP29024@lunn.ch>
- <20160428175619.GA8791@nathan3500-linux-VM> <20160428184303.GR29024@lunn.ch>
- <20160428185527.GA8851@nathan3500-linux-VM> <20160428185932.GU29024@lunn.ch>
- <20160428210357.GB30217@jcartwri.amer.corp.natinst.com>
- <20160428212315.GC12753@lunn.ch>
- <20160429003459.GC30217@jcartwri.amer.corp.natinst.com>
- <20160429122501.GD30217@jcartwri.amer.corp.natinst.com>
- <57235655.3030104@atmel.com>
- <20160502183626.GC31001@jcartwri.amer.corp.natinst.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/2] net: SOCKWQ_ASYNC_NOSPACE optimizations
+Date: Mon, 2 May 2016 21:12:29 +0200
+Message-ID: <20160502191229.GA1946@nanopsycho.orion>
+References: <1461605974-4242-1-git-send-email-edumazet@google.com>
+ <1461605974-4242-2-git-send-email-edumazet@google.com>
+ <20160502161602.GA1984@nanopsycho.orion>
+ <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Nathan Sullivan <nathan.sullivan@ni.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Josh Cartwright <joshc@ni.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160502183626.GC31001@jcartwri.amer.corp.natinst.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, eladr@mellanox.com,
+	idosch@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32840 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754722AbcEBTMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 15:12:32 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r12so169685wme.0
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 12:12:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/05/16 11:36, Josh Cartwright wrote:
-> On Fri, Apr 29, 2016 at 02:40:53PM +0200, Nicolas Ferre wrote:
-> [..]
->>>  static int macb_mii_init(struct macb *bp)
->>>  {
->>>  	struct macb_platform_data *pdata;
->>>  	struct device_node *np;
->>> -	int err = -ENXIO, i;
->>> +	int err = -ENXIO;
->>>  
->>>  	/* Enable management port */
->>>  	macb_writel(bp, NCR, MACB_BIT(MPE));
->>> @@ -446,33 +497,10 @@ static int macb_mii_init(struct macb *bp)
->>>  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
->>>  
->>>  	np = bp->pdev->dev.of_node;
->>> -	if (np) {
->>> -		/* try dt phy registration */
->>> -		err = of_mdiobus_register(bp->mii_bus, np);
->>> -
->>> -		/* fallback to standard phy registration if no phy were
->>> -		 * found during dt phy registration
->>> -		 */
->>> -		if (!err && !phy_find_first(bp->mii_bus)) {
->>> -			for (i = 0; i < PHY_MAX_ADDR; i++) {
->>> -				struct phy_device *phydev;
->>> -
->>> -				phydev = mdiobus_scan(bp->mii_bus, i);
->>> -				if (IS_ERR(phydev)) {
->>> -					err = PTR_ERR(phydev);
->>> -					break;
->>> -				}
->>> -			}
->>> -
->>> -			if (err)
->>> -				goto err_out_unregister_bus;
->>> -		}
->>> -	} else {
->>> -		if (pdata)
->>> -			bp->mii_bus->phy_mask = pdata->phy_mask;
->>> -
->>> -		err = mdiobus_register(bp->mii_bus);
->>> -	}
->>> +	if (np)
->>> +		err = macb_mii_of_init(bp, np);
->>> +	else
->>> +		err = macb_mii_pdata_init(bp, pdata);
->>>  
->>>  	if (err)
->>>  		goto err_out_free_mdiobus;
->>
->> I'm okay with this. Thanks for having taken the initiative to implement it.
-> 
-> Unfortunately, I don't think it's going to be as straightforward
-> as I originally thought.  Still doable, but more complicated.
-> 
-> In particular, the macb bindings allow for a user to specify a
-> 'reset-gpios' property _at the PHY_ level, which is consumed by the
-> macb to adjust the PHY reset state on remove.
+Mon, May 02, 2016 at 06:22:18PM CEST, eric.dumazet@gmail.com wrote:
+>On Mon, 2016-05-02 at 18:16 +0200, Jiri Pirko wrote:
+>> Mon, Apr 25, 2016 at 07:39:32PM CEST, edumazet@google.com wrote:
+>> >SOCKWQ_ASYNC_NOSPACE is tested in sock_wake_async()
+>> >so that a SIGIO signal is sent when needed.
+>> >
+>> >tcp_sendmsg() clears the bit.
+>> >tcp_poll() sets the bit when stream is not writeable.
+>> >
+>> >We can avoid two atomic operations by first checking if socket
+>> >is actually interested in the FASYNC business (most sockets in
+>> >real applications do not use AIO, but select()/poll()/epoll())
+>> >
+>> >This also removes one cache line miss to access sk->sk_wq->flags
+>> >in tcp_sendmsg()
+>> >
+>> >Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> 
+>> I just bisected down to this. This is causing a regression for me when
+>> my nfs mount becomes stuck. I can easily reproduce this if you need to
+>> test the fix.
+>
+>What do you mean by 'when nfs mount becomes stuck' ?
+>
+>Is this patch making nfs not functional , or does it make recovery from
+>some nfs error bad ?
 
-In fact, not just on remove, anytime there is an opportunity to save
-power (interface down, closed) and putting the PHY into reset is usually
-guaranteed to be saving more power than e.g: a BMCR power down.
-
-> 
-> My question is: why is the PHY reset GPIO management not the
-> responsibility of the PHY driver/core itself?
-
-Well, this is actually being worked on at the moment by Sergei, since
-there is not necessarily a reason why PHYLIB can't deal with that:
-
-https://lkml.org/lkml/2016/4/28/831
--- 
-Florian
+I can mount nfs on the host. But when I do something (compile a kernel
+module in my case), it gets stuck. Then I cannot even ssh to the machine.
+No messages in dmesg. I didn't debug it any further. I just bisected and
+verified that this patch caused this behaviour.
