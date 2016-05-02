@@ -1,7 +1,8 @@
 From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [RESEND PATCH 0/3] RFKill airplane-mode indicator
-Date: Mon,  2 May 2016 10:39:05 -0400
-Message-ID: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
+Subject: [RESEND PATCH 3/3] rfkill: Notify userspace of airplane-mode state changes
+Date: Mon,  2 May 2016 10:39:08 -0400
+Message-ID: <1462199948-6424-4-git-send-email-jprvita@endlessm.com>
+References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,67 +12,86 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
 	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linux@endlessm.com,
-	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>
+	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>,
+	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@gmail.com>
 To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33907 "EHLO
-	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754024AbcEBOj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 10:39:27 -0400
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:33916 "EHLO
+	mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754029AbcEBOj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 10:39:29 -0400
+In-Reply-To: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series implements an airplane-mode indicator LED trigger, which ca=
-n be
-used by platform drivers. By default the trigger fires on RFKILL_OP_CHA=
-NGE_ALL,
-but this policy can be overwritten by userspace using the new operation=
-s
-_AIRPLANE_MODE_INDICATOR_ACQUIRE and _AIRPLANE_MODE_INDICATOR_CHANGE. W=
-hen the
-airplane-mode indicator state changes, userspace gets notifications thr=
-ough the
-RFKill control misc device (/dev/rfkill). I also have patches to the rf=
-kill
-userspace tool that makes use of this interface, so it can serve as API=
- usage
-example and to do quick checks on a running system, which I'll send in =
-a
-separate series.
+=46rom: Jo=C3=A3o Paulo Rechi Vita <jprvita@gmail.com>
 
-After some hiatus I found the time to get back to this, and this time I=
-'ve used
-Jouni's hwsim suite to test the patches on top of mac80211-next/master.=
- Lines
-containing rfkill are pasted bellow:
+Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@endlessm.com>
+---
+ Documentation/rfkill.txt    |  3 +++
+ include/uapi/linux/rfkill.h |  4 ++--
+ net/rfkill/core.c           | 13 +++++++++++++
+ 3 files changed, 18 insertions(+), 2 deletions(-)
 
-START wext_rfkill 14/1880
-PASS wext_rfkill 4.100002 2016-04-29 12:30:23.792682
-START rfkill_wpas 571/1880
-PASS rfkill_wpas 1.245307 2016-04-29 12:48:51.804344
-START rfkill_autogo 572/1880
-PASS rfkill_autogo 1.154174 2016-04-29 12:48:52.959605
-START rfkill_p2p_discovery 573/1880
-PASS rfkill_p2p_discovery 0.534903 2016-04-29 12:48:53.495547
-START rfkill_open 574/1880
-PASS rfkill_open 0.34073 2016-04-29 12:48:53.836963
-START rfkill_p2p_discovery_p2p_dev 575/1880
-PASS rfkill_p2p_discovery_p2p_dev 1.159446 2016-04-29 12:48:54.997555
-START rfkill_hostapd 576/1880
-PASS rfkill_hostapd 3.686868 2016-04-29 12:48:58.685162
-START rfkill_wpa2_psk 577/1880
-PASS rfkill_wpa2_psk 0.330014 2016-04-29 12:48:59.016711
-
-Jo=C3=A3o Paulo Rechi Vita (3):
-  rfkill: Create "rfkill-airplane-mode" LED trigger
-  rfkill: Userspace control for airplane mode
-  rfkill: Notify userspace of airplane-mode state changes
-
- Documentation/rfkill.txt    |  15 +++++++
- include/uapi/linux/rfkill.h |   6 +++
- net/rfkill/core.c           | 100 ++++++++++++++++++++++++++++++++++++=
-+++++++-
- 3 files changed, 119 insertions(+), 2 deletions(-)
-
+diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
+index 9dbe3fc..588b4bf 100644
+--- a/Documentation/rfkill.txt
++++ b/Documentation/rfkill.txt
+@@ -133,5 +133,8 @@ applications to take control. Changes to the airpla=
+ne-mode indicator state can
+ be made using RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE, passing the ne=
+w value
+ in the 'soft' field of 'struct rfkill_event'.
+=20
++This same API is also used to provide userspace with notifications of =
+changes
++to airplane-mode indicator state.
++
+=20
+ For further details consult Documentation/ABI/stable/sysfs-class-rfkil=
+l.
+diff --git a/include/uapi/linux/rfkill.h b/include/uapi/linux/rfkill.h
+index 36e0770..2ccb02f 100644
+--- a/include/uapi/linux/rfkill.h
++++ b/include/uapi/linux/rfkill.h
+@@ -63,8 +63,8 @@ enum rfkill_type {
+  *	are hot-plugged later.
+  * @RFKILL_OP_AIRPLANE_MODE_INDICATOR_ACQUIRE: userspace acquires cont=
+rol of
+  * 	the airplane-mode indicator.
+- * @RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE: userspace changes the
+- * 	airplane-mode indicator state.
++ * @RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE: the airplane-mode indica=
+tor state
++ * 	changed -- userspace changes the airplane-mode indicator state.
+  */
+ enum rfkill_operation {
+ 	RFKILL_OP_ADD =3D 0,
+diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+index 95824b3..c4bbd19 100644
+--- a/net/rfkill/core.c
++++ b/net/rfkill/core.c
+@@ -131,7 +131,20 @@ static struct led_trigger rfkill_apm_led_trigger;
+=20
+ static void rfkill_apm_led_trigger_event(bool state)
+ {
++	struct rfkill_data *data;
++	struct rfkill_int_event *ev;
++
+ 	led_trigger_event(&rfkill_apm_led_trigger, state ? LED_FULL : LED_OFF=
+);
++
++	list_for_each_entry(data, &rfkill_fds, list) {
++		ev =3D kzalloc(sizeof(*ev), GFP_KERNEL);
++		if (!ev)
++			continue;
++		ev->ev.op =3D RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE;
++		ev->ev.soft =3D state;
++		list_add_tail(&ev->list, &data->events);
++		wake_up_interruptible(&data->read_wait);
++	}
+ }
+=20
+ static void rfkill_apm_led_trigger_activate(struct led_classdev *led)
 --=20
 2.5.0
