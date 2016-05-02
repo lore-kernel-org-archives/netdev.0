@@ -1,204 +1,79 @@
-From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [RESEND PATCH 2/3] rfkill: Userspace control for airplane mode
-Date: Mon,  2 May 2016 10:39:07 -0400
-Message-ID: <1462199948-6424-3-git-send-email-jprvita@endlessm.com>
-References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi:rtl_watchdog_wq_callback: fix calling
+ rtl_lps_enter|rtl_lps_leave in opposite condition
+Date: Mon, 2 May 2016 10:40:34 -0500
+Message-ID: <572774F2.2050304@lwfinger.net>
+References: <20160502053754.GA30313@udknight>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Wang YanQing <udknight@gmail.com>, kvalo@codeaurora.org,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>,
-	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:35088 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623AbcEBPkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 11:40:37 -0400
+In-Reply-To: <20160502053754.GA30313@udknight>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jo=C3=A3o Paulo Rechi Vita <jprvita@gmail.com>
+On 05/02/2016 12:37 AM, Wang YanQing wrote:
+> Commit a269913c52ad37952a4d9953bb6d748f7299c304
+> ("rtlwifi: Rework rtl_lps_leave() and rtl_lps_enter() to use work queue")
+> make a mistake, change the meaning of num_tx|rx_inperiod comparison test.
+>
+> Commit fd09ff958777cf583d7541f180991c0fc50bd2f7
+> ("rtlwifi: Remove extra workqueue for enter/leave power state")
+> follow previous mistake, bring us to current code.
+>
+> This patch fix it.
+>
+> Signed-off-by: Wang YanQing <udknight@gmail.com>
+> ---
+>   I think this patch should be ported back to stable kernels, 3.10+.
+>   In my machine, I will lost wifi connection after minutes if I enable
+>   fwlps.
+>
+>   drivers/net/wireless/realtek/rtlwifi/base.c | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
+> index c74eb13..264466f 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/base.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/base.c
+> @@ -1660,9 +1660,9 @@ void rtl_watchdog_wq_callback(void *data)
+>   		if (((rtlpriv->link_info.num_rx_inperiod +
+>   		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
+>   		    (rtlpriv->link_info.num_rx_inperiod > 2))
+> -			rtl_lps_enter(hw);
+> -		else
+>   			rtl_lps_leave(hw);
+> +		else
+> +			rtl_lps_enter(hw);
+>   	}
+>
+>   	rtlpriv->link_info.num_rx_inperiod = 0;
+>
 
-Provide an interface for the airplane-mode indicator be controlled from
-userspace. User has to first acquire the control through
-RFKILL_OP_AIRPLANE_MODE_INDICATOR_ACQUIRE and keep the fd open for the
-whole time it wants to be in control of the indicator. Closing the fd
-restores the default policy.
+NACK
 
-To change state of the indicator, the
-RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE operation is used, passing the
-value on "struct rfkill_event.soft". If the caller has not acquired the
-airplane-mode control beforehand, the operation fails.
+This patch is correct. There is a logic error in entering/exiting power-save 
+mode. Thus the code part is OK; however, the subject and commit message need to 
+be improved. If I had prepared this patch, my subject would have been "rtlwifi: 
+Fix logic error in enter/exit power-save mode". For the commit message, I would 
+have used the following:
 
-Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@endlessm.com>
+In commit fd09ff958777 ("rtlwifi: Remove extra workqueue for enter/leave power 
+state"), the tests for enter/exit power-save mode were inverted. With this 
+change applied, the wifi connection becomes much more stable.
+
+Fixes: fd09ff958777 ("rtlwifi: Remove extra workqueue for enter/leave power state")
+Signed-off-by: Wang YanQing <udknight@gmail.com>
+CC: Stable <stable@vger.kernel.org> [3.10+]
 ---
- Documentation/rfkill.txt    | 10 ++++++++++
- include/uapi/linux/rfkill.h |  6 ++++++
- net/rfkill/core.c           | 40 +++++++++++++++++++++++++++++++++++++=
-+--
- 3 files changed, 54 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
-index b13025a..9dbe3fc 100644
---- a/Documentation/rfkill.txt
-+++ b/Documentation/rfkill.txt
-@@ -87,6 +87,7 @@ RFKill provides per-switch LED triggers, which can be=
- used to drive LEDs
- according to the switch state (LED_FULL when blocked, LED_OFF otherwis=
-e).
- An airplane-mode indicator LED trigger is also available, which trigge=
-rs
- LED_FULL when all radios known by RFKill are blocked, and LED_OFF othe=
-rwise.
-+The airplane-mode indicator LED trigger policy can be overridden by us=
-erspace.
-=20
-=20
- 5. Userspace support
-@@ -123,5 +124,14 @@ RFKILL_TYPE
- The contents of these variables corresponds to the "name", "state" and
- "type" sysfs files explained above.
-=20
-+Userspace can also override the default airplane-mode indicator policy=
- through
-+/dev/rfkill. Control of the airplane mode indicator has to be acquired=
- first,
-+using RFKILL_OP_AIRPLANE_MODE_INDICATOR_ACQUIRE, and is only available=
- for one
-+userspace application at a time. Closing the fd reverts the airplane-m=
-ode
-+indicator back to the default kernel policy and makes it available for=
- other
-+applications to take control. Changes to the airplane-mode indicator s=
-tate can
-+be made using RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE, passing the ne=
-w value
-+in the 'soft' field of 'struct rfkill_event'.
-+
-=20
- For further details consult Documentation/ABI/stable/sysfs-class-rfkil=
-l.
-diff --git a/include/uapi/linux/rfkill.h b/include/uapi/linux/rfkill.h
-index 2e00dce..36e0770 100644
---- a/include/uapi/linux/rfkill.h
-+++ b/include/uapi/linux/rfkill.h
-@@ -61,12 +61,18 @@ enum rfkill_type {
-  * @RFKILL_OP_CHANGE_ALL: userspace changes all devices (of a type, or=
- all)
-  *	into a state, also updating the default state used for devices that
-  *	are hot-plugged later.
-+ * @RFKILL_OP_AIRPLANE_MODE_INDICATOR_ACQUIRE: userspace acquires cont=
-rol of
-+ * 	the airplane-mode indicator.
-+ * @RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE: userspace changes the
-+ * 	airplane-mode indicator state.
-  */
- enum rfkill_operation {
- 	RFKILL_OP_ADD =3D 0,
- 	RFKILL_OP_DEL,
- 	RFKILL_OP_CHANGE,
- 	RFKILL_OP_CHANGE_ALL,
-+	RFKILL_OP_AIRPLANE_MODE_INDICATOR_ACQUIRE,
-+	RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE,
- };
-=20
- /**
-diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-index 9adf95e..95824b3 100644
---- a/net/rfkill/core.c
-+++ b/net/rfkill/core.c
-@@ -89,6 +89,7 @@ struct rfkill_data {
- 	struct mutex		mtx;
- 	wait_queue_head_t	read_wait;
- 	bool			input_handler;
-+	bool			is_apm_owner;
- };
-=20
-=20
-@@ -123,7 +124,7 @@ static struct {
- } rfkill_global_states[NUM_RFKILL_TYPES];
-=20
- static bool rfkill_epo_lock_active;
--
-+static bool rfkill_apm_owned;
-=20
- #ifdef CONFIG_RFKILL_LEDS
- static struct led_trigger rfkill_apm_led_trigger;
-@@ -350,7 +351,8 @@ static void rfkill_update_global_state(enum rfkill_=
-type type, bool blocked)
-=20
- 	for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
- 		rfkill_global_states[i].cur =3D blocked;
--	rfkill_apm_led_trigger_event(blocked);
-+	if (!rfkill_apm_owned)
-+		rfkill_apm_led_trigger_event(blocked);
- }
-=20
- #ifdef CONFIG_RFKILL_INPUT
-@@ -1174,9 +1176,23 @@ static ssize_t rfkill_fop_read(struct file *file=
-, char __user *buf,
- 	return ret;
- }
-=20
-+static int rfkill_airplane_mode_release(struct rfkill_data *data)
-+{
-+	bool state =3D rfkill_global_states[RFKILL_TYPE_ALL].cur;
-+
-+	if (rfkill_apm_owned && data->is_apm_owner) {
-+		rfkill_apm_owned =3D false;
-+		data->is_apm_owner =3D false;
-+		rfkill_apm_led_trigger_event(state);
-+		return 0;
-+	}
-+	return -EACCES;
-+}
-+
- static ssize_t rfkill_fop_write(struct file *file, const char __user *=
-buf,
- 				size_t count, loff_t *pos)
- {
-+	struct rfkill_data *data =3D file->private_data;
- 	struct rfkill *rfkill;
- 	struct rfkill_event ev;
- 	int ret;
-@@ -1216,6 +1232,25 @@ static ssize_t rfkill_fop_write(struct file *fil=
-e, const char __user *buf,
- 				rfkill_set_block(rfkill, ev.soft);
- 		ret =3D 0;
- 		break;
-+	case RFKILL_OP_AIRPLANE_MODE_INDICATOR_ACQUIRE:
-+		if (rfkill_apm_owned && !data->is_apm_owner) {
-+			ret =3D -EACCES;
-+			break;
-+		}
-+
-+		rfkill_apm_owned =3D true;
-+		data->is_apm_owner =3D true;
-+		ret =3D 0;
-+		break;
-+	case RFKILL_OP_AIRPLANE_MODE_INDICATOR_CHANGE:
-+		if (!rfkill_apm_owned || !data->is_apm_owner) {
-+			ret =3D -EACCES;
-+			break;
-+		}
-+
-+		rfkill_apm_led_trigger_event(ev.soft);
-+		ret =3D 0;
-+		break;
- 	default:
- 		ret =3D -EINVAL;
- 		break;
-@@ -1232,6 +1267,7 @@ static int rfkill_fop_release(struct inode *inode=
-, struct file *file)
- 	struct rfkill_int_event *ev, *tmp;
-=20
- 	mutex_lock(&rfkill_global_mutex);
-+	rfkill_airplane_mode_release(data);
- 	list_del(&data->list);
- 	mutex_unlock(&rfkill_global_mutex);
-=20
---=20
-2.5.0
+Thanks for finding this problem.
+
+Larry
