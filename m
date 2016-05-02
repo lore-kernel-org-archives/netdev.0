@@ -1,136 +1,98 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCHv2 bluetooth-next 00/10] 6lowpan: introduce basic
- 6lowpan-nd
-Date: Mon, 2 May 2016 21:52:09 +0200
-Message-ID: <870fdf5f-82ed-b621-a8d5-625bf9d81d0d@stressinduktion.org>
-References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
- <D212A5BF-A414-403B-A409-1F8C2D279883@holtmann.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: SOCKWQ_ASYNC_NOSPACE optimizations
+Date: Mon, 02 May 2016 13:23:27 -0700
+Message-ID: <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461605974-4242-1-git-send-email-edumazet@google.com>
+	 <1461605974-4242-2-git-send-email-edumazet@google.com>
+	 <20160502161602.GA1984@nanopsycho.orion>
+	 <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160502191229.GA1946@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
-	Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>,
-	Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <D212A5BF-A414-403B-A409-1F8C2D279883-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, eladr@mellanox.com,
+	idosch@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33000 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754740AbcEBUXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 16:23:30 -0400
+Received: by mail-pa0-f49.google.com with SMTP id xk12so7416191pac.0
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 13:23:30 -0700 (PDT)
+In-Reply-To: <20160502191229.GA1946@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02.05.2016 19:25, Marcel Holtmann wrote:
-> Hi Dave,
+On Mon, 2016-05-02 at 21:12 +0200, Jiri Pirko wrote:
+> Mon, May 02, 2016 at 06:22:18PM CEST, eric.dumazet@gmail.com wrote:
+> >On Mon, 2016-05-02 at 18:16 +0200, Jiri Pirko wrote:
+> >> Mon, Apr 25, 2016 at 07:39:32PM CEST, edumazet@google.com wrote:
+> >> >SOCKWQ_ASYNC_NOSPACE is tested in sock_wake_async()
+> >> >so that a SIGIO signal is sent when needed.
+> >> >
+> >> >tcp_sendmsg() clears the bit.
+> >> >tcp_poll() sets the bit when stream is not writeable.
+> >> >
+> >> >We can avoid two atomic operations by first checking if socket
+> >> >is actually interested in the FASYNC business (most sockets in
+> >> >real applications do not use AIO, but select()/poll()/epoll())
+> >> >
+> >> >This also removes one cache line miss to access sk->sk_wq->flags
+> >> >in tcp_sendmsg()
+> >> >
+> >> >Signed-off-by: Eric Dumazet <edumazet@google.com>
+> >> 
+> >> I just bisected down to this. This is causing a regression for me when
+> >> my nfs mount becomes stuck. I can easily reproduce this if you need to
+> >> test the fix.
+> >
+> >What do you mean by 'when nfs mount becomes stuck' ?
+> >
+> >Is this patch making nfs not functional , or does it make recovery from
+> >some nfs error bad ?
 > 
->> this patch series introduces a layer for IPv6 neighbour discovery. At first
->> it introduce the "ndisc_ops" to run a different handling for recv/send of
->> NA/NS messages. The use case for such ndisc operation is RFC 6775 [0].
->> Which describes a different neighbour discovery handling for 6LoWPAN networks.
->>
->> I didn't implement RFC 6775 in this patch series, but introduce callback
->> structure for replace different functions in ndisc implementation might be
->> the right direction.
->>
->> Another use case would be RFC 7400 [1] which describes a new option field to
->> getting capabilities of 6LoWPAN next header compression methods.
->>
->> What I implemented is a necessary functionality to handle short address for
->> 802.15.4 6LoWPAN networks. The L2-Layer "802.15.4" can have two different
->> link-layer addresses which can be used mixed at the same time inside 802.15.4
->> networks. To deal with such behaviour in ndisc, it is defined at RFC 4944 [2].
->> The bad news is, that I saw different handling of such handling. What Linux
->> will do is to add two source/target address information option fields, each
->> with different length, if short address is valid (can also not be given).
->> Example:
->>
->> - WPAN interface address settings
->> - extended addr (must always be there)
->> - short addr (0xfffe or 0xffff -> invalid)
->>
->> Will add an extended addr to source/target address information option field.
->> If short addr is in some valid range, then both address will be added to
->> the option fields. Indicated are these different address types by the length
->> field (extended -> length=2, short -> length=1), according to [1].
->>
->> The tested 6LoWPAN implementation (RIOT-OS) allows only one source/target
->> option field which is short XOR extended, otherwise it will be dropped.
->> There is some lack of information there [2] and I don't know how do deal with
->> it right, maybe we need to update the implementation there if it's really
->> wrong.
->>
->> To save such information for each neighbour we use the already implemented
->> neighbour private data which some casting strategy for 6LoWPAN and 6LoWPAN
->> link-layer specific data e.g. 802.15.4 short address handling.
->>
->> Additional I implemented to add 6CO to the is_useropt callback in case of
->> 6LoWPAN interface. The 6CO option will currently parsed in userspace which
->> are placed in RA-Messages.
->>
->> The ndisc_ops are not finished yet, of course we need handling for RS messages
->> to place the 802.15.4 short address there as well and then also processing
->> of RA messages for the 802.15.4 SLLAO option field.
->>
->> - Alex
->>
->> [0] https://tools.ietf.org/html/rfc6775
->> [1] https://tools.ietf.org/html/rfc7400#section-3.3
->> [2] https://tools.ietf.org/html/rfc4944#section-8
->>
->> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
->> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
->> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
->> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
->>
->> changes since v2:
->> - replace #ifdef CONFIG_IPV6 to #if IS_ENABLED(...)
->> - replace #ifdef CONFIG_IEEE802154... to #if IS_ENABLED(...)
->> - add more #if IS_ENABLED(CONFIG_IPV6) in ndisc.h
->>
->> Alexander Aring (10):
->>  6lowpan: add private neighbour data
->>  6lowpan: add 802.15.4 short addr slaac
->>  6lowpan: remove ipv6 module request
->>  ndisc: add addr_len parameter to ndisc_opt_addr_space
->>  ndisc: add addr_len parameter to ndisc_opt_addr_data
->>  ndisc: add addr_len parameter to ndisc_fill_addr_option
->>  ipv6: introduce neighbour discovery ops
->>  ipv6: export ndisc functions
->>  6lowpan: introduce 6lowpan-nd
->>  6lowpan: add support for 802.15.4 short addr handling
->>
->> include/linux/netdevice.h     |   6 +-
->> include/net/6lowpan.h         |  24 ++
->> include/net/addrconf.h        |   3 +
->> include/net/ndisc.h           | 124 ++++++++-
->> net/6lowpan/6lowpan_i.h       |   2 +
->> net/6lowpan/Makefile          |   2 +-
->> net/6lowpan/core.c            |  50 +++-
->> net/6lowpan/iphc.c            | 167 +++++++++--
->> net/6lowpan/ndisc.c           | 633 ++++++++++++++++++++++++++++++++++++++++++
->> net/bluetooth/6lowpan.c       |   2 +
->> net/ieee802154/6lowpan/core.c |  12 +
->> net/ieee802154/6lowpan/tx.c   | 107 ++++---
->> net/ipv6/addrconf.c           |   7 +-
->> net/ipv6/ndisc.c              | 132 +++++----
->> net/ipv6/route.c              |   4 +-
->> 15 files changed, 1117 insertions(+), 158 deletions(-)
->> create mode 100644 net/6lowpan/ndisc.c
-> 
-> is there a chance that we get input into this patch set? I wonder also if it would be acceptable to take this through bluetooth-next or should it better go straight into net-next?
+> I can mount nfs on the host. But when I do something (compile a kernel
+> module in my case), it gets stuck. Then I cannot even ssh to the machine.
+> No messages in dmesg. I didn't debug it any further. I just bisected and
+> verified that this patch caused this behaviour.
 
-My proposal would be that the IPv6 patches go via net-next to reduce
-merge conflicts with maybe upcoming changes. If they are split up, they
-seem very much self contained and easy to review. The rest seems to be
-also very much self contained and can go in via bluetooth-next, then.
-What do you think?
+Interesting.
 
-Bye,
-Hannes
+It looks like net/sunrpc/xprtsock.c should set SOCK_FASYNC
+even if it is not actually using fasync_list
+
+Could you try this quick hack to check if this is the right way ?
+
+Thanks !
+
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index a6c68dc086af83233ee315642638f4a1990ee622..b90c5397b5e137c6cc8accad6eebe2b876363d4e 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1950,6 +1950,7 @@ static int xs_local_finish_connecting(struct rpc_xprt *xprt,
+ 		sk->sk_user_data = xprt;
+ 		sk->sk_data_ready = xs_data_ready;
+ 		sk->sk_write_space = xs_udp_write_space;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		sk->sk_error_report = xs_error_report;
+ 		sk->sk_allocation = GFP_NOIO;
+ 
+@@ -2136,6 +2137,7 @@ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ 		sk->sk_user_data = xprt;
+ 		sk->sk_data_ready = xs_data_ready;
+ 		sk->sk_write_space = xs_udp_write_space;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		sk->sk_allocation = GFP_NOIO;
+ 
+ 		xprt_set_connected(xprt);
+@@ -2237,6 +2239,7 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ 		sk->sk_data_ready = xs_tcp_data_ready;
+ 		sk->sk_state_change = xs_tcp_state_change;
+ 		sk->sk_write_space = xs_tcp_write_space;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		sk->sk_error_report = xs_error_report;
+ 		sk->sk_allocation = GFP_NOIO;
+ 
