@@ -1,62 +1,65 @@
-From: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2] rtlwifi: Fix logic error in enter/exit power-save mode
-Date: Tue, 3 May 2016 00:38:36 +0800
-Message-ID: <20160502163835.GA10925@udknight>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v3 8/8] bnxt: Add support for segmentation of
+ tunnels with outer checksums
+Date: Mon, 02 May 2016 09:38:55 -0700
+Message-ID: <20160502163855.11809.43075.stgit@ahduyck-xeon-server>
+References: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: talal@mellanox.com, netdev@vger.kernel.org,
+	michael.chan@broadcom.com, alexander.duyck@gmail.com,
+	davem@davemloft.net, galp@mellanox.com, ogerlitz@mellanox.com,
+	eranbe@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34164 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754556AbcEBQi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:38:57 -0400
+Received: by mail-pf0-f179.google.com with SMTP id y69so80608873pfb.1
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 09:38:57 -0700 (PDT)
+In-Reply-To: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit a269913c52ad ("rtlwifi: Rework rtl_lps_leave() and
-rtl_lps_enter() to use work queue"), the tests for enter/exit
-power-save mode were inverted. With this change applied, the
-wifi connection becomes much more stable.
+This patch assumes that the bnxt hardware will ignore existing IPv4/v6
+header fields for length and checksum as well as the length and checksum
+fields for outer UDP and GRE headers.
 
-Fixes: a269913c52ad ("rtlwifi: Rework rtl_lps_leave() and rtl_lps_enter() to use work queue")
-Signed-off-by: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-CC: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> [3.10+]
+I have been told by Michael Chan that this is working.  Though this might
+be somewhat redundant for IPv6 as they are forcing the checksum to be
+computed for all IPv6 frames that are offloaded.  A follow-up patch may be
+necessary in order to fix this as it is essentially mangling the outer IPv6
+headers to add a checksum where none was requested.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- Hi, Larry!
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
- Because commit a269913c52ad is the first commit bring this problem, 
- so maybe use above commit message is ok, right? And stable kernels
- 3.10-3.18 don't have commit fd09ff958777, but have a269913c52ad.
-
- Thanks for suggestion concerning to good subject and commit message
- writing, it is harder than coding sometimes:)
-
- Changes:
- v1-v2:
- 1: Fix subject and commit message.
-
- drivers/net/wireless/realtek/rtlwifi/base.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
-index c74eb13..264466f 100644
---- a/drivers/net/wireless/realtek/rtlwifi/base.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/base.c
-@@ -1660,9 +1660,9 @@ void rtl_watchdog_wq_callback(void *data)
- 		if (((rtlpriv->link_info.num_rx_inperiod +
- 		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
- 		    (rtlpriv->link_info.num_rx_inperiod > 2))
--			rtl_lps_enter(hw);
--		else
- 			rtl_lps_leave(hw);
-+		else
-+			rtl_lps_enter(hw);
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 4645c44e7c15..ae668476fff0 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -6194,14 +6194,19 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			   NETIF_F_TSO | NETIF_F_TSO6 |
+ 			   NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
+ 			   NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
+-			   NETIF_F_RXHASH |
++			   NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
++			   NETIF_F_GSO_PARTIAL | NETIF_F_RXHASH |
+ 			   NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
  
- 	rtlpriv->link_info.num_rx_inperiod = 0;
--- 
-1.8.5.6.2.g3d8a54e.dirty
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	dev->hw_enc_features =
+ 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
+ 			NETIF_F_TSO | NETIF_F_TSO6 |
+ 			NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
+-			NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
++			NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
++			NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
++			NETIF_F_GSO_PARTIAL;
++	dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM |
++				    NETIF_F_GSO_GRE_CSUM;
+ 	dev->vlan_features = dev->hw_features | NETIF_F_HIGHDMA;
+ 	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX |
+ 			    NETIF_F_HW_VLAN_STAG_RX | NETIF_F_HW_VLAN_STAG_TX;
