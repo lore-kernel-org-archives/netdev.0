@@ -1,136 +1,119 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCHv2 bluetooth-next 00/10] 6lowpan: introduce basic 6lowpan-nd
-Date: Mon, 2 May 2016 16:17:41 -0700
-Message-ID: <58926844-0338-4D63-A5B6-DB0EBE903A0E@holtmann.org>
-References: <1461140382-4784-1-git-send-email-aar@pengutronix.de> <D212A5BF-A414-403B-A409-1F8C2D279883@holtmann.org> <870fdf5f-82ed-b621-a8d5-625bf9d81d0d@stressinduktion.org>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net 2/3] udp_offload: Set encapsulation before inner completes.
+Date: Mon, 2 May 2016 16:18:31 -0700
+Message-ID: <CALx6S35QFms9KUE1K4c5odN7QCuvpBaeeL=yjfMBFxqFfcTSWg@mail.gmail.com>
+References: <1461968887-4993-1-git-send-email-jarno@ovn.org>
+	<1461968887-4993-2-git-send-email-jarno@ovn.org>
+	<CAKgT0UcGCgRt5dpG2Y0a6sBar1KF1DkHxdhMbCOYV6qj15D50A@mail.gmail.com>
+	<DB78A60B-3899-4767-AD0B-DCDCC65C04E1@ovn.org>
+	<CAKgT0Uf-dvDj2KDnt4GZoMJONMC6LgLBtEUcsO0JJ1jqiFDfaw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-Cc: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
-	Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>,
-	Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <870fdf5f-82ed-b621-a8d5-625bf9d81d0d-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jarno Rajahalme <jarno@ovn.org>, Netdev <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:32943 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755305AbcEBXSc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 19:18:32 -0400
+Received: by mail-io0-f169.google.com with SMTP id f89so7174314ioi.0
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 16:18:32 -0700 (PDT)
+In-Reply-To: <CAKgT0Uf-dvDj2KDnt4GZoMJONMC6LgLBtEUcsO0JJ1jqiFDfaw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
+On Mon, May 2, 2016 at 3:54 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Mon, May 2, 2016 at 2:21 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
+>>
+>>> On Apr 29, 2016, at 8:46 PM, Alexander Duyck <alexander.duyck@gmail.com> wrote:
+>>>
+>>> On Fri, Apr 29, 2016 at 3:28 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
+>>>> UDP tunnel segmentation code relies on the inner offsets being set for
+>>>> an UDP tunnel GSO packet.  The inner *_complete() functions will set
+>>>> the inner offsets only if the encapsulation is set before calling
+>>>> them, but udp_gro_complete() set it only after the inner *_complete()
+>>>> functions were done.
+>>>>
+>>>> Also, remove the setting of the inner_mac_header in udp_gro_complete()
+>>>> as it was wrongly set to the beginning of the UDP tunnel header rather
+>>>> than the inner MAC header.
+>>>>
+>>>> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+>>>> ---
+>>>> net/ipv4/udp_offload.c | 8 +++++---
+>>>> 1 file changed, 5 insertions(+), 3 deletions(-)
+>>>>
+>>>> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+>>>> index 0ed2daf..e330c0e 100644
+>>>> --- a/net/ipv4/udp_offload.c
+>>>> +++ b/net/ipv4/udp_offload.c
+>>>> @@ -399,6 +399,11 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+>>>>
+>>>>        uh->len = newlen;
+>>>>
+>>>> +       /* Set encapsulation before calling into inner gro_complete() functions
+>>>> +        * to make them set up the inner offsets.
+>>>> +        */
+>>>> +       skb->encapsulation = 1;
+>>>> +
+>>>>        rcu_read_lock();
+>>>>
+>>>>        uo_priv = rcu_dereference(udp_offload_base);
+>>>> @@ -421,9 +426,6 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+>>>>        if (skb->remcsum_offload)
+>>>>                skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
+>>>>
+>>>> -       skb->encapsulation = 1;
+>>>> -       skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
+>>>> -
+>>>>        return err;
+>>>> }
+>>>>
+>>>> --
+>>>> 2.7.4
+>>>>
+>>>
+>>> So looking over this I think this patch is just a band-aid and it
+>>> isn't really fixing much of anything.  For example I cannot see where
+>>
+>> It fixes the immediate bug/problem that segmentation of GRO UDP tunnel packet fails due to incorrectly set inner MAC offset and/or missing inner network offset.
+>
+> The problem is I think this will introduce other issues as there are
+> now situations where the inner MAC offset never gets set.  For example
+> did you try testing with GUE carrying either an IPIP or SIT tunnel?
+>
+> From what I can tell it looks like you are trying to fix VXLAN and
+> similar offloads, and Tom is focused on GUE.  What you will probably
+> need to do is add some code to ipip_gro_complete and sit_gro_complete
+> so that if skb->encapsulation is set before you call the function it
+> will set the inner MAC offset to the same offset as the inner network
+> header.  Otherwise you run the risk of screwing up segmentation
+> because the UDP tunnel segment code will use the inner mac header
+> offset when computing the tunnel header length and get it completely
+> wrong.
+>
+>>> the inner transport offset is ever set.  From what I can tell it never
+>>> is.
+>>>
+>>
+>> inner transport offset is set in validate_xmit_skb(), but you are right, it is not set by the GRO complete code path. AFAIK no-one uses it before reaching validate_xmit_skb(), though. The documentation in (net-next) Documentation/networking/segmentation-offloads.txt could be fixed by removing the inner transport header from UDP/GRE tunnel case, as it is not used by either the GRE or UDP tunnel code.
+>
+> Actually that is an interesting point.  Right now we need to keep the
+> inner transport header around because that is getting set.  If we were
+> to enforce the use of csum_start as the inner transport header offset,
+> then we could assume that transport_header is always the outer-most
+> transport header.  We might be able to drop a bit of space from the
+> skbuff by getting rid of it.  If nothing else it means one less header
+> offset we would have to copy.
+>
+Or can we just eliminate the inner headers altogether? IIRC the only
+sticking point for GSO needing this was ipid, all the inner headers
+are just copied per packet assuming segment lengths are the same. Is
+this possible yet?
 
->>> this patch series introduces a layer for IPv6 neighbour discovery. At first
->>> it introduce the "ndisc_ops" to run a different handling for recv/send of
->>> NA/NS messages. The use case for such ndisc operation is RFC 6775 [0].
->>> Which describes a different neighbour discovery handling for 6LoWPAN networks.
->>> 
->>> I didn't implement RFC 6775 in this patch series, but introduce callback
->>> structure for replace different functions in ndisc implementation might be
->>> the right direction.
->>> 
->>> Another use case would be RFC 7400 [1] which describes a new option field to
->>> getting capabilities of 6LoWPAN next header compression methods.
->>> 
->>> What I implemented is a necessary functionality to handle short address for
->>> 802.15.4 6LoWPAN networks. The L2-Layer "802.15.4" can have two different
->>> link-layer addresses which can be used mixed at the same time inside 802.15.4
->>> networks. To deal with such behaviour in ndisc, it is defined at RFC 4944 [2].
->>> The bad news is, that I saw different handling of such handling. What Linux
->>> will do is to add two source/target address information option fields, each
->>> with different length, if short address is valid (can also not be given).
->>> Example:
->>> 
->>> - WPAN interface address settings
->>> - extended addr (must always be there)
->>> - short addr (0xfffe or 0xffff -> invalid)
->>> 
->>> Will add an extended addr to source/target address information option field.
->>> If short addr is in some valid range, then both address will be added to
->>> the option fields. Indicated are these different address types by the length
->>> field (extended -> length=2, short -> length=1), according to [1].
->>> 
->>> The tested 6LoWPAN implementation (RIOT-OS) allows only one source/target
->>> option field which is short XOR extended, otherwise it will be dropped.
->>> There is some lack of information there [2] and I don't know how do deal with
->>> it right, maybe we need to update the implementation there if it's really
->>> wrong.
->>> 
->>> To save such information for each neighbour we use the already implemented
->>> neighbour private data which some casting strategy for 6LoWPAN and 6LoWPAN
->>> link-layer specific data e.g. 802.15.4 short address handling.
->>> 
->>> Additional I implemented to add 6CO to the is_useropt callback in case of
->>> 6LoWPAN interface. The 6CO option will currently parsed in userspace which
->>> are placed in RA-Messages.
->>> 
->>> The ndisc_ops are not finished yet, of course we need handling for RS messages
->>> to place the 802.15.4 short address there as well and then also processing
->>> of RA messages for the 802.15.4 SLLAO option field.
->>> 
->>> - Alex
->>> 
->>> [0] https://tools.ietf.org/html/rfc6775
->>> [1] https://tools.ietf.org/html/rfc7400#section-3.3
->>> [2] https://tools.ietf.org/html/rfc4944#section-8
->>> 
->>> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->>> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
->>> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
->>> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
->>> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
->>> 
->>> changes since v2:
->>> - replace #ifdef CONFIG_IPV6 to #if IS_ENABLED(...)
->>> - replace #ifdef CONFIG_IEEE802154... to #if IS_ENABLED(...)
->>> - add more #if IS_ENABLED(CONFIG_IPV6) in ndisc.h
->>> 
->>> Alexander Aring (10):
->>> 6lowpan: add private neighbour data
->>> 6lowpan: add 802.15.4 short addr slaac
->>> 6lowpan: remove ipv6 module request
->>> ndisc: add addr_len parameter to ndisc_opt_addr_space
->>> ndisc: add addr_len parameter to ndisc_opt_addr_data
->>> ndisc: add addr_len parameter to ndisc_fill_addr_option
->>> ipv6: introduce neighbour discovery ops
->>> ipv6: export ndisc functions
->>> 6lowpan: introduce 6lowpan-nd
->>> 6lowpan: add support for 802.15.4 short addr handling
->>> 
->>> include/linux/netdevice.h     |   6 +-
->>> include/net/6lowpan.h         |  24 ++
->>> include/net/addrconf.h        |   3 +
->>> include/net/ndisc.h           | 124 ++++++++-
->>> net/6lowpan/6lowpan_i.h       |   2 +
->>> net/6lowpan/Makefile          |   2 +-
->>> net/6lowpan/core.c            |  50 +++-
->>> net/6lowpan/iphc.c            | 167 +++++++++--
->>> net/6lowpan/ndisc.c           | 633 ++++++++++++++++++++++++++++++++++++++++++
->>> net/bluetooth/6lowpan.c       |   2 +
->>> net/ieee802154/6lowpan/core.c |  12 +
->>> net/ieee802154/6lowpan/tx.c   | 107 ++++---
->>> net/ipv6/addrconf.c           |   7 +-
->>> net/ipv6/ndisc.c              | 132 +++++----
->>> net/ipv6/route.c              |   4 +-
->>> 15 files changed, 1117 insertions(+), 158 deletions(-)
->>> create mode 100644 net/6lowpan/ndisc.c
->> 
->> is there a chance that we get input into this patch set? I wonder also if it would be acceptable to take this through bluetooth-next or should it better go straight into net-next?
-> 
-> My proposal would be that the IPv6 patches go via net-next to reduce
-> merge conflicts with maybe upcoming changes. If they are split up, they
-> seem very much self contained and easy to review. The rest seems to be
-> also very much self contained and can go in via bluetooth-next, then.
-> What do you think?
+Tom
 
-I am actually fine with having this all go via net-next. We only have driver patches pending in bluetooth-next for the next merge window. Which means I can just pull net-next back into bluetooth-next at any time.
-
-Regards
-
-Marcel
+> - Alex
