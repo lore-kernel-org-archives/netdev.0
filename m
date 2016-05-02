@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 06/12] net/mlx5: E-Switch, Vport ingress/egress ACLs rules for VST mode
-Date: Mon,  2 May 2016 19:43:38 +0300
-Message-ID: <1462207424-4463-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 09/12] net/mlx5: E-Switch, Use vport event handler for vport cleanup
+Date: Mon,  2 May 2016 19:43:41 +0300
+Message-ID: <1462207424-4463-10-git-send-email-saeedm@mellanox.com>
 References: <1462207424-4463-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,348 +10,90 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:40192 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:40230 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752309AbcEBQot (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 May 2016 12:44:49 -0400
+	id S1754531AbcEBQow (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 May 2016 12:44:52 -0400
 In-Reply-To: <1462207424-4463-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Configure ingress and egress vport ACL rules according to
-vlan and qos admin parameters.
-
-Ingress ACL flow table rules:
-1) drop any tagged packet sent from the VF
-2) allow other traffic (default behavior)
-
-Egress ACL flow table rules:
-1) allow only tagged traffic with vlan_tag=vst_vid.
-2) drop other traffic.
+Remove the usage of explicit cleanup function and use existing vport
+change handler. Calling vport change handler while vport
+is disabled will cleanup the vport resources.
 
 Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 180 +++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  11 +-
- 2 files changed, 189 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 33 +++++++----------------
+ 1 file changed, 9 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index f1a0f18..1e075ed 100644
+index 48c8919..37b4be9 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -789,6 +789,19 @@ out:
- 		mlx5_destroy_flow_table(acl);
+@@ -643,6 +643,9 @@ static void esw_update_vport_addr_list(struct mlx5_eswitch *esw,
+ 		addr->action = MLX5_ACTION_DEL;
+ 	}
+ 
++	if (!vport->enabled)
++		goto out;
++
+ 	err = mlx5_query_nic_vport_mac_list(esw->dev, vport_num, list_type,
+ 					    mac_list, &size);
+ 	if (err)
+@@ -1188,27 +1191,6 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 	mutex_unlock(&esw->state_lock);
  }
  
-+static void esw_vport_cleanup_egress_rules(struct mlx5_eswitch *esw,
-+					   struct mlx5_vport *vport)
-+{
-+	if (!IS_ERR_OR_NULL(vport->egress.allowed_vlan))
-+		mlx5_del_flow_rule(vport->egress.allowed_vlan);
-+
-+	if (!IS_ERR_OR_NULL(vport->egress.drop_rule))
-+		mlx5_del_flow_rule(vport->egress.drop_rule);
-+
-+	vport->egress.allowed_vlan = NULL;
-+	vport->egress.drop_rule = NULL;
-+}
-+
- static void esw_vport_disable_egress_acl(struct mlx5_eswitch *esw,
- 					 struct mlx5_vport *vport)
- {
-@@ -797,6 +810,7 @@ static void esw_vport_disable_egress_acl(struct mlx5_eswitch *esw,
- 
- 	esw_debug(esw->dev, "Destroy vport[%d] E-Switch egress ACL\n", vport->vport);
- 
-+	esw_vport_cleanup_egress_rules(esw, vport);
- 	mlx5_destroy_flow_group(vport->egress.allowed_vlans_grp);
- 	mlx5_destroy_flow_group(vport->egress.drop_grp);
- 	mlx5_destroy_flow_table(vport->egress.acl);
-@@ -932,6 +946,14 @@ out:
- 	kfree(flow_group_in);
- }
- 
-+static void esw_vport_cleanup_ingress_rules(struct mlx5_eswitch *esw,
-+					    struct mlx5_vport *vport)
-+{
-+	if (!IS_ERR_OR_NULL(vport->ingress.drop_rule))
-+		mlx5_del_flow_rule(vport->ingress.drop_rule);
-+	vport->ingress.drop_rule = NULL;
-+}
-+
- static void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
- 					  struct mlx5_vport *vport)
- {
-@@ -940,6 +962,7 @@ static void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
- 
- 	esw_debug(esw->dev, "Destroy vport[%d] E-Switch ingress ACL\n", vport->vport);
- 
-+	esw_vport_cleanup_ingress_rules(esw, vport);
- 	mlx5_destroy_flow_group(vport->ingress.allow_spoofchk_only_grp);
- 	mlx5_destroy_flow_group(vport->ingress.allow_untagged_only_grp);
- 	mlx5_destroy_flow_group(vport->ingress.allow_untagged_spoofchk_grp);
-@@ -952,11 +975,139 @@ static void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
- 	vport->ingress.allow_untagged_spoofchk_grp = NULL;
- }
- 
-+static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
-+				    struct mlx5_vport *vport)
-+{
-+	u32 *match_v;
-+	u32 *match_c;
-+	int err = 0;
-+
-+	if (IS_ERR_OR_NULL(vport->ingress.acl)) {
-+		esw_warn(esw->dev,
-+			 "vport[%d] configure ingress rules failed, ingress acl is not initialized!\n",
-+			 vport->vport);
-+		return -EPERM;
-+	}
-+
-+	esw_vport_cleanup_ingress_rules(esw, vport);
-+
-+	if (!vport->vlan && !vport->qos)
-+		return 0;
-+
-+	esw_debug(esw->dev,
-+		  "vport[%d] configure ingress rules, vlan(%d) qos(%d)\n",
-+		  vport->vport, vport->vlan, vport->qos);
-+
-+	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	if (!match_v || !match_c) {
-+		err = -ENOMEM;
-+		esw_warn(esw->dev, "vport[%d] configure ingress rules failed, err(%d)\n",
-+			 vport->vport, err);
-+		goto out;
-+	}
-+	MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.vlan_tag);
-+	MLX5_SET_TO_ONES(fte_match_param, match_v, outer_headers.vlan_tag);
-+
-+	vport->ingress.drop_rule =
-+		mlx5_add_flow_rule(vport->ingress.acl,
-+				   MLX5_MATCH_OUTER_HEADERS,
-+				   match_c,
-+				   match_v,
-+				   MLX5_FLOW_CONTEXT_ACTION_DROP,
-+				   0, NULL);
-+	if (IS_ERR_OR_NULL(vport->ingress.drop_rule)) {
-+		err = PTR_ERR(vport->ingress.drop_rule);
-+		pr_warn("vport[%d] configure ingress rules, err(%d)\n",
-+			vport->vport, err);
-+		vport->ingress.drop_rule = NULL;
-+	}
-+out:
-+	kfree(match_v);
-+	kfree(match_c);
-+	return err;
-+}
-+
-+static int esw_vport_egress_config(struct mlx5_eswitch *esw,
-+				   struct mlx5_vport *vport)
-+{
-+	u32 *match_v;
-+	u32 *match_c;
-+	int err = 0;
-+
-+	if (IS_ERR_OR_NULL(vport->egress.acl)) {
-+		esw_warn(esw->dev, "vport[%d] configure rgress rules failed, egress acl is not initialized!\n",
-+			 vport->vport);
-+		return -EPERM;
-+	}
-+
-+	esw_vport_cleanup_egress_rules(esw, vport);
-+
-+	if (!vport->vlan && !vport->qos)
-+		return 0;
-+
-+	esw_debug(esw->dev,
-+		  "vport[%d] configure egress rules, vlan(%d) qos(%d)\n",
-+		  vport->vport, vport->vlan, vport->qos);
-+
-+	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	if (!match_v || !match_c) {
-+		err = -ENOMEM;
-+		esw_warn(esw->dev, "vport[%d] configure egress rules failed, err(%d)\n",
-+			 vport->vport, err);
-+		goto out;
-+	}
-+
-+	/* Allowed vlan rule */
-+	MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.vlan_tag);
-+	MLX5_SET_TO_ONES(fte_match_param, match_v, outer_headers.vlan_tag);
-+	MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.first_vid);
-+	MLX5_SET(fte_match_param, match_v, outer_headers.first_vid, vport->vlan);
-+
-+	vport->egress.allowed_vlan =
-+		mlx5_add_flow_rule(vport->egress.acl,
-+				   MLX5_MATCH_OUTER_HEADERS,
-+				   match_c,
-+				   match_v,
-+				   MLX5_FLOW_CONTEXT_ACTION_ALLOW,
-+				   0, NULL);
-+	if (IS_ERR_OR_NULL(vport->egress.allowed_vlan)) {
-+		err = PTR_ERR(vport->egress.allowed_vlan);
-+		pr_warn("vport[%d] configure egress allowed vlan rule failed, err(%d)\n",
-+			vport->vport, err);
-+		vport->egress.allowed_vlan = NULL;
-+		goto out;
-+	}
-+
-+	/* Drop others rule (star rule) */
-+	memset(match_c, 0, MLX5_ST_SZ_BYTES(fte_match_param));
-+	memset(match_v, 0, MLX5_ST_SZ_BYTES(fte_match_param));
-+	vport->egress.drop_rule =
-+		mlx5_add_flow_rule(vport->egress.acl,
-+				   0,
-+				   match_c,
-+				   match_v,
-+				   MLX5_FLOW_CONTEXT_ACTION_DROP,
-+				   0, NULL);
-+	if (IS_ERR_OR_NULL(vport->egress.drop_rule)) {
-+		err = PTR_ERR(vport->egress.drop_rule);
-+		pr_warn("vport[%d] configure egress drop rule failed, err(%d)\n",
-+			vport->vport, err);
-+		vport->egress.drop_rule = NULL;
-+	}
-+out:
-+	kfree(match_v);
-+	kfree(match_c);
-+	return err;
-+}
-+
- static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
- 			     int enable_events)
+-static void esw_cleanup_vport(struct mlx5_eswitch *esw, u16 vport_num)
+-{
+-	struct mlx5_vport *vport = &esw->vports[vport_num];
+-	struct l2addr_node *node;
+-	struct vport_addr *addr;
+-	struct hlist_node *tmp;
+-	int hi;
+-
+-	for_each_l2hash_node(node, tmp, vport->uc_list, hi) {
+-		addr = container_of(node, struct vport_addr, node);
+-		addr->action = MLX5_ACTION_DEL;
+-	}
+-	esw_apply_vport_addr_list(esw, vport_num, MLX5_NVPRT_LIST_TYPE_UC);
+-
+-	for_each_l2hash_node(node, tmp, vport->mc_list, hi) {
+-		addr = container_of(node, struct vport_addr, node);
+-		addr->action = MLX5_ACTION_DEL;
+-	}
+-	esw_apply_vport_addr_list(esw, vport_num, MLX5_NVPRT_LIST_TYPE_MC);
+-}
+-
+ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
  {
  	struct mlx5_vport *vport = &esw->vports[vport_num];
+@@ -1219,7 +1201,6 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ 	esw_debug(esw->dev, "Disabling vport(%d)\n", vport_num);
+ 	/* Mark this vport as disabled to discard new events */
+ 	vport->enabled = false;
+-	vport->enabled_events = 0;
  
-+	mutex_lock(&esw->state_lock);
- 	WARN_ON(vport->enabled);
+ 	synchronize_irq(mlx5_get_msix_vec(esw->dev, MLX5_EQ_VEC_ASYNC));
  
- 	esw_debug(esw->dev, "Enabling VPORT(%d)\n", vport_num);
-@@ -964,6 +1115,8 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
- 	if (vport_num) { /* Only VFs need ACLs for VST and spoofchk filtering */
- 		esw_vport_enable_ingress_acl(esw, vport);
- 		esw_vport_enable_egress_acl(esw, vport);
-+		esw_vport_ingress_config(esw, vport);
-+		esw_vport_egress_config(esw, vport);
- 	}
- 
- 	mlx5_modify_vport_admin_state(esw->dev,
-@@ -981,6 +1134,7 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
- 
- 	esw->enabled_vports++;
- 	esw_debug(esw->dev, "Enabled VPORT(%d)\n", vport_num);
-+	mutex_unlock(&esw->state_lock);
- }
- 
- static void esw_cleanup_vport(struct mlx5_eswitch *esw, u16 vport_num)
-@@ -1026,6 +1180,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
- 	flush_workqueue(esw->work_queue);
+@@ -1232,8 +1213,12 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
  	/* Disable events from this vport */
  	arm_vport_context_events_cmd(esw->dev, vport->vport, 0);
-+	mutex_lock(&esw->state_lock);
- 	/* We don't assume VFs will cleanup after themselves */
- 	esw_cleanup_vport(esw, vport_num);
- 	if (vport_num) {
-@@ -1033,6 +1188,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
- 		esw_vport_disable_ingress_acl(esw, vport);
- 	}
- 	esw->enabled_vports--;
-+	mutex_unlock(&esw->state_lock);
- }
- 
- /* Public E-Switch API */
-@@ -1142,6 +1298,8 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
- 		goto abort;
- 	}
- 
-+	mutex_init(&esw->state_lock);
-+
- 	for (vport_num = 0; vport_num < total_vports; vport_num++) {
- 		struct mlx5_vport *vport = &esw->vports[vport_num];
- 
-@@ -1268,6 +1426,8 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
- int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 				int vport, u16 vlan, u8 qos)
- {
-+	struct mlx5_vport *evport;
-+	int err = 0;
- 	int set = 0;
- 
- 	if (!ESW_ALLOWED(esw))
-@@ -1278,7 +1438,25 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
- 	if (vlan || qos)
- 		set = 1;
- 
--	return modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
-+	evport = &esw->vports[vport];
-+
-+	err = modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
-+	if (err)
-+		return err;
-+
-+	mutex_lock(&esw->state_lock);
-+	evport->vlan = vlan;
-+	evport->qos = qos;
-+	if (evport->enabled) {
-+		err = esw_vport_ingress_config(esw, evport);
-+		if (err)
-+			goto out;
-+		err = esw_vport_egress_config(esw, evport);
-+	}
-+
-+out:
-+	mutex_unlock(&esw->state_lock);
-+	return err;
- }
- 
- int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index e697207..30d55ac 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -94,13 +94,16 @@ struct vport_ingress {
- 	struct mlx5_flow_group *allow_spoofchk_only_grp;
- 	struct mlx5_flow_group *allow_untagged_only_grp;
- 	struct mlx5_flow_group *drop_grp;
--
-+	struct mlx5_flow_rule  *allow_rule;
-+	struct mlx5_flow_rule  *drop_rule;
- };
- 
- struct vport_egress {
- 	struct mlx5_flow_table *acl;
- 	struct mlx5_flow_group *allowed_vlans_grp;
- 	struct mlx5_flow_group *drop_grp;
-+	struct mlx5_flow_rule  *allowed_vlan;
-+	struct mlx5_flow_rule  *drop_rule;
- };
- 
- struct mlx5_vport {
-@@ -113,6 +116,8 @@ struct mlx5_vport {
- 	struct vport_ingress    ingress;
- 	struct vport_egress     egress;
- 
-+	u16                     vlan;
-+	u8                      qos;
- 	bool                    enabled;
- 	u16                     enabled_events;
- };
-@@ -137,6 +142,10 @@ struct mlx5_eswitch {
- 	struct mlx5_vport       *vports;
- 	int                     total_vports;
- 	int                     enabled_vports;
-+	/* Synchronize between vport change events
-+	 * and async SRIOV admin state changes
+ 	mutex_lock(&esw->state_lock);
+-	/* We don't assume VFs will cleanup after themselves */
+-	esw_cleanup_vport(esw, vport_num);
++	/* We don't assume VFs will cleanup after themselves.
++	 * Calling vport change handler while vport is disabled will cleanup
++	 * the vport resources.
 +	 */
-+	struct mutex            state_lock;
- };
- 
- /* E-Switch API */
++	esw_vport_change_handler(&vport->vport_change_handler);
++	vport->enabled_events = 0;
+ 	if (vport_num) {
+ 		esw_vport_disable_egress_acl(esw, vport);
+ 		esw_vport_disable_ingress_acl(esw, vport);
 -- 
 2.8.0
