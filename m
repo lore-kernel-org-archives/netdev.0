@@ -1,7 +1,7 @@
 From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: [PATCH 2/3] usbnet: correct speed testing
-Date: Mon,  2 May 2016 13:06:13 +0200
-Message-ID: <1462187174-17180-2-git-send-email-oneukum@suse.com>
+Subject: [PATCH 3/3] rtl8152: correct speed testing
+Date: Mon,  2 May 2016 13:06:14 +0200
+Message-ID: <1462187174-17180-3-git-send-email-oneukum@suse.com>
 References: <1462187174-17180-1-git-send-email-oneukum@suse.com>
 Cc: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>, Oliver Neukum <ONeukum-IBi9RG/b67k@public.gmane.org>
 To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -15,21 +15,30 @@ Allow for SS+ USB
 
 Signed-off-by: Oliver Neukum <ONeukum-IBi9RG/b67k@public.gmane.org>
 ---
- drivers/net/usb/usbnet.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/usb/r8152.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 4f08426..bc46ef9 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -355,6 +355,7 @@ void usbnet_update_max_qlen(struct usbnet *dev)
- 		dev->tx_qlen = MAX_QUEUE_MEMORY / dev->hard_mtu;
- 		break;
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index d1f78c2..3f9f6ed 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3366,7 +3366,7 @@ static void r8153_init(struct r8152 *tp)
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_LED_FEATURE, ocp_data);
+ 
+ 	ocp_data = FIFO_EMPTY_1FB | ROK_EXIT_LPM;
+-	if (tp->version == RTL_VER_04 && tp->udev->speed != USB_SPEED_SUPER)
++	if (tp->version == RTL_VER_04 && tp->udev->speed < USB_SPEED_SUPER)
+ 		ocp_data |= LPM_TIMER_500MS;
+ 	else
+ 		ocp_data |= LPM_TIMER_500US;
+@@ -4211,6 +4211,7 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 
+ 	switch (udev->speed) {
  	case USB_SPEED_SUPER:
 +	case USB_SPEED_SUPER_PLUS:
- 		/*
- 		 * Not take default 5ms qlen for super speed HC to
- 		 * save memory, and iperf tests show 2.5ms qlen can
+ 		tp->coalesce = COALESCE_SUPER;
+ 		break;
+ 	case USB_SPEED_HIGH:
 -- 
 2.1.4
 
