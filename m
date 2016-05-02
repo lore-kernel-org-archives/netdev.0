@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: signal sk_data_ready earlier on data chunks
- reception
-Date: Sun, 01 May 2016 21:06:28 -0400 (EDT)
-Message-ID: <20160501.210628.858260753518974978.davem@davemloft.net>
-References: <271eaec3c8fad125a48b5acce192dd1080c26528.1461949899.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH] net: Implement net_dbg_ratelimited() for
+ CONFIG_DYNAMIC_DEBUG case
+Date: Sun, 01 May 2016 21:49:34 -0400 (EDT)
+Message-ID: <20160501.214934.2250379996423526821.davem@davemloft.net>
+References: <1461951023-14311-1-git-send-email-tbingham@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: marcelo.leitner@gmail.com
+Cc: netdev@vger.kernel.org, Jason@zx2c4.com
+To: tbingham@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53894 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54191 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151AbcEBBGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 21:06:31 -0400
-In-Reply-To: <271eaec3c8fad125a48b5acce192dd1080c26528.1461949899.git.marcelo.leitner@gmail.com>
+	with ESMTP id S1751398AbcEBBtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 21:49:41 -0400
+In-Reply-To: <1461951023-14311-1-git-send-email-tbingham@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Fri, 29 Apr 2016 14:17:08 -0300
+From: Tim Bingham <tbingham@akamai.com>
+Date: Fri, 29 Apr 2016 13:30:23 -0400
 
-> Dave Miller pointed out that fb586f25300f ("sctp: delay calls to
-> sk_data_ready() as much as possible") may insert latency specially if
-> the receiving application is running on another CPU and that it would be
-> better if we signalled as early as possible.
+> Prior to commit d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op
+> when !DEBUG") the implementation of net_dbg_ratelimited() was buggy
+> for both the DEBUG and CONFIG_DYNAMIC_DEBUG cases.
 > 
-> This patch thus basically inverts the logic on fb586f25300f and signals
-> it as early as possible, similar to what we had before.
+> The bug was that net_ratelimit() was being called and, despite
+> returning true, nothing was being printed to the console. This
+> resulted in messages like the following -
 > 
-> Fixes: fb586f25300f ("sctp: delay calls to sk_data_ready() as much as possible")
-> Reported-by: Dave Miller <davem@davemloft.net>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> "net_ratelimit: %d callbacks suppressed"
+> 
+> with no other output nearby.
+> 
+> After commit d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op when
+> !DEBUG") the bug is fixed for the DEBUG case. However, there's no
+> output at all for CONFIG_DYNAMIC_DEBUG case.
+> 
+> This patch restores debug output (if enabled) for the
+> CONFIG_DYNAMIC_DEBUG case.
+> 
+> Add a definition of net_dbg_ratelimited() for the CONFIG_DYNAMIC_DEBUG
+> case. The implementation takes care to check that dynamic debugging is
+> enabled before calling net_ratelimit().
+> 
+> Fixes: d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op when !DEBUG")
+> Signed-off-by: Tim Bingham <tbingham@akamai.com>
 
-Applied, thanks Marcelo.
+Looks good, applied and queued up for -stable, thanks.
