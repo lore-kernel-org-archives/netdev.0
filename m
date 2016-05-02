@@ -1,64 +1,106 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net v2 2/2] udp_offload: Set encapsulation before inner completes.
-Date: Mon,  2 May 2016 13:39:50 -0700
-Message-ID: <1462221590-14309-2-git-send-email-jarno@ovn.org>
-References: <1462221590-14309-1-git-send-email-jarno@ovn.org>
-Cc: jesse@kernel.org, jarno@ovn.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462221590-14309-1-git-send-email-jarno@ovn.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/2] net: SOCKWQ_ASYNC_NOSPACE optimizations
+Date: Mon, 2 May 2016 22:45:44 +0200
+Message-ID: <20160502204544.GA2349@nanopsycho.orion>
+References: <1461605974-4242-1-git-send-email-edumazet@google.com>
+ <1461605974-4242-2-git-send-email-edumazet@google.com>
+ <20160502161602.GA1984@nanopsycho.orion>
+ <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160502191229.GA1946@nanopsycho.orion>
+ <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, eladr@mellanox.com,
+	idosch@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35708 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755143AbcEBUpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 16:45:47 -0400
+Received: by mail-wm0-f65.google.com with SMTP id e201so477110wme.2
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 13:45:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-UDP tunnel segmentation code relies on the inner offsets being set for
-an UDP tunnel GSO packet, but the inner *_complete() functions will
-set the inner offsets only if 'encapsulation' is set before calling
-them.  Currently, udp_gro_complete() sets 'encapsulation' only after
-the inner *_complete() functions are done.  This causes the inner
-offsets having invalid values after udp_gro_complete() returns, which
-in turn will make it impossible to properly segment the packet in case
-it needs to be forwarded, which would be visible to the user either as
-invalid packets being sent or as packet loss.
+Mon, May 02, 2016 at 10:23:27PM CEST, eric.dumazet@gmail.com wrote:
+>On Mon, 2016-05-02 at 21:12 +0200, Jiri Pirko wrote:
+>> Mon, May 02, 2016 at 06:22:18PM CEST, eric.dumazet@gmail.com wrote:
+>> >On Mon, 2016-05-02 at 18:16 +0200, Jiri Pirko wrote:
+>> >> Mon, Apr 25, 2016 at 07:39:32PM CEST, edumazet@google.com wrote:
+>> >> >SOCKWQ_ASYNC_NOSPACE is tested in sock_wake_async()
+>> >> >so that a SIGIO signal is sent when needed.
+>> >> >
+>> >> >tcp_sendmsg() clears the bit.
+>> >> >tcp_poll() sets the bit when stream is not writeable.
+>> >> >
+>> >> >We can avoid two atomic operations by first checking if socket
+>> >> >is actually interested in the FASYNC business (most sockets in
+>> >> >real applications do not use AIO, but select()/poll()/epoll())
+>> >> >
+>> >> >This also removes one cache line miss to access sk->sk_wq->flags
+>> >> >in tcp_sendmsg()
+>> >> >
+>> >> >Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> >> 
+>> >> I just bisected down to this. This is causing a regression for me when
+>> >> my nfs mount becomes stuck. I can easily reproduce this if you need to
+>> >> test the fix.
+>> >
+>> >What do you mean by 'when nfs mount becomes stuck' ?
+>> >
+>> >Is this patch making nfs not functional , or does it make recovery from
+>> >some nfs error bad ?
+>> 
+>> I can mount nfs on the host. But when I do something (compile a kernel
+>> module in my case), it gets stuck. Then I cannot even ssh to the machine.
+>> No messages in dmesg. I didn't debug it any further. I just bisected and
+>> verified that this patch caused this behaviour.
+>
+>Interesting.
+>
+>It looks like net/sunrpc/xprtsock.c should set SOCK_FASYNC
+>even if it is not actually using fasync_list
+>
+>Could you try this quick hack to check if this is the right way ?
 
-This patch fixes this by setting skb's 'encapsulation' before calling
-into the inner complete functions, and by removing the setting of the
-inner_mac_header in udp_gro_complete().  The inner complete now
-functions set the inner_mac_header, so it need not be done here.
-Furthermore, it was wrongly set to the beginning of the UDP tunnel
-header rather than the inner MAC header.
+Yep, works, I do not see the issue with this patch anymore. Thanks.
 
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/ipv4/udp_offload.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 0ed2daf..e330c0e 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -399,6 +399,11 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 
- 	uh->len = newlen;
- 
-+	/* Set encapsulation before calling into inner gro_complete() functions
-+	 * to make them set up the inner offsets.
-+	 */
-+	skb->encapsulation = 1;
-+
- 	rcu_read_lock();
- 
- 	uo_priv = rcu_dereference(udp_offload_base);
-@@ -421,9 +426,6 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 	if (skb->remcsum_offload)
- 		skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
- 
--	skb->encapsulation = 1;
--	skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
--
- 	return err;
- }
- 
--- 
-2.7.4
+>
+>Thanks !
+>
+>diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+>index a6c68dc086af83233ee315642638f4a1990ee622..b90c5397b5e137c6cc8accad6eebe2b876363d4e 100644
+>--- a/net/sunrpc/xprtsock.c
+>+++ b/net/sunrpc/xprtsock.c
+>@@ -1950,6 +1950,7 @@ static int xs_local_finish_connecting(struct rpc_xprt *xprt,
+> 		sk->sk_user_data = xprt;
+> 		sk->sk_data_ready = xs_data_ready;
+> 		sk->sk_write_space = xs_udp_write_space;
+>+		sock_set_flag(sk, SOCK_FASYNC);
+> 		sk->sk_error_report = xs_error_report;
+> 		sk->sk_allocation = GFP_NOIO;
+> 
+>@@ -2136,6 +2137,7 @@ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+> 		sk->sk_user_data = xprt;
+> 		sk->sk_data_ready = xs_data_ready;
+> 		sk->sk_write_space = xs_udp_write_space;
+>+		sock_set_flag(sk, SOCK_FASYNC);
+> 		sk->sk_allocation = GFP_NOIO;
+> 
+> 		xprt_set_connected(xprt);
+>@@ -2237,6 +2239,7 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+> 		sk->sk_data_ready = xs_tcp_data_ready;
+> 		sk->sk_state_change = xs_tcp_state_change;
+> 		sk->sk_write_space = xs_tcp_write_space;
+>+		sock_set_flag(sk, SOCK_FASYNC);
+> 		sk->sk_error_report = xs_error_report;
+> 		sk->sk_allocation = GFP_NOIO;
+> 
+>
+>
