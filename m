@@ -1,88 +1,64 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net v2 1/2] udp_tunnel: Remove redundant udp_tunnel_gro_complete().
-Date: Mon,  2 May 2016 13:39:49 -0700
-Message-ID: <1462221590-14309-1-git-send-email-jarno@ovn.org>
+Subject: [PATCH net v2 2/2] udp_offload: Set encapsulation before inner completes.
+Date: Mon,  2 May 2016 13:39:50 -0700
+Message-ID: <1462221590-14309-2-git-send-email-jarno@ovn.org>
+References: <1462221590-14309-1-git-send-email-jarno@ovn.org>
 Cc: jesse@kernel.org, jarno@ovn.org
 To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:52581 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754771AbcEBUkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 16:40:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462221590-14309-1-git-send-email-jarno@ovn.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The setting of the UDP tunnel GSO type is already performed by
-udp[46]_gro_complete().
+UDP tunnel segmentation code relies on the inner offsets being set for
+an UDP tunnel GSO packet, but the inner *_complete() functions will
+set the inner offsets only if 'encapsulation' is set before calling
+them.  Currently, udp_gro_complete() sets 'encapsulation' only after
+the inner *_complete() functions are done.  This causes the inner
+offsets having invalid values after udp_gro_complete() returns, which
+in turn will make it impossible to properly segment the packet in case
+it needs to be forwarded, which would be visible to the user either as
+invalid packets being sent or as packet loss.
+
+This patch fixes this by setting skb's 'encapsulation' before calling
+into the inner complete functions, and by removing the setting of the
+inner_mac_header in udp_gro_complete().  The inner complete now
+functions set the inner_mac_header, so it need not be done here.
+Furthermore, it was wrongly set to the beginning of the UDP tunnel
+header rather than the inner MAC header.
 
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- drivers/net/geneve.c     | 2 --
- drivers/net/vxlan.c      | 2 --
- include/net/udp_tunnel.h | 9 ---------
- net/ipv4/fou.c           | 2 --
- 4 files changed, 15 deletions(-)
+ net/ipv4/udp_offload.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index bc16889..98f1224 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -504,8 +504,6 @@ static int geneve_gro_complete(struct sk_buff *skb, int nhoff,
- 	int gh_len;
- 	int err = -ENOSYS;
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 0ed2daf..e330c0e 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -399,6 +399,11 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
  
--	udp_tunnel_gro_complete(skb, nhoff);
--
- 	gh = (struct genevehdr *)(skb->data + nhoff);
- 	gh_len = geneve_hlen(gh);
- 	type = gh->proto_type;
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1c0fa36..dd2d032 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -616,8 +616,6 @@ out:
- static int vxlan_gro_complete(struct sk_buff *skb, int nhoff,
- 			      struct udp_offload *uoff)
- {
--	udp_tunnel_gro_complete(skb, nhoff);
--
- 	return eth_gro_complete(skb, nhoff + sizeof(struct vxlanhdr));
- }
+ 	uh->len = newlen;
  
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index b831140..a114024 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -106,15 +106,6 @@ static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
- 	return iptunnel_handle_offloads(skb, type);
- }
- 
--static inline void udp_tunnel_gro_complete(struct sk_buff *skb, int nhoff)
--{
--	struct udphdr *uh;
--
--	uh = (struct udphdr *)(skb->data + nhoff - sizeof(struct udphdr));
--	skb_shinfo(skb)->gso_type |= uh->check ?
--				SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
--}
--
- static inline void udp_tunnel_encap_enable(struct socket *sock)
- {
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index a39068b..305d9ac 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -228,8 +228,6 @@ static int fou_gro_complete(struct sk_buff *skb, int nhoff,
- 	int err = -ENOSYS;
- 	const struct net_offload **offloads;
- 
--	udp_tunnel_gro_complete(skb, nhoff);
--
++	/* Set encapsulation before calling into inner gro_complete() functions
++	 * to make them set up the inner offsets.
++	 */
++	skb->encapsulation = 1;
++
  	rcu_read_lock();
- 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
- 	ops = rcu_dereference(offloads[proto]);
+ 
+ 	uo_priv = rcu_dereference(udp_offload_base);
+@@ -421,9 +426,6 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+ 	if (skb->remcsum_offload)
+ 		skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
+ 
+-	skb->encapsulation = 1;
+-	skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
+-
+ 	return err;
+ }
+ 
 -- 
 2.7.4
