@@ -1,53 +1,62 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v3 7/8] net/mlx5e: Fix IPv6 tunnel checksum offload
-Date: Mon, 02 May 2016 09:38:49 -0700
-Message-ID: <20160502163849.11809.9236.stgit@ahduyck-xeon-server>
-References: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
+From: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2] rtlwifi: Fix logic error in enter/exit power-save mode
+Date: Tue, 3 May 2016 00:38:36 +0800
+Message-ID: <20160502163835.GA10925@udknight>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: talal@mellanox.com, netdev@vger.kernel.org,
-	michael.chan@broadcom.com, alexander.duyck@gmail.com,
-	davem@davemloft.net, galp@mellanox.com, ogerlitz@mellanox.com,
-	eranbe@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33904 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754587AbcEBQiv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:38:51 -0400
-Received: by mail-pa0-f47.google.com with SMTP id r5so77769634pag.1
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 09:38:51 -0700 (PDT)
-In-Reply-To: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The mlx5 driver exposes support for TSO6 but not IPv6 csum for hardware
-encapsulated tunnels.  This leads to issues as it triggers warnings in
-skb_checksum_help as it ends up being called as we report supporting the
-segmentation but not the checksumming for IPv6 frames.
+In commit a269913c52ad ("rtlwifi: Rework rtl_lps_leave() and
+rtl_lps_enter() to use work queue"), the tests for enter/exit
+power-save mode were inverted. With this change applied, the
+wifi connection becomes much more stable.
 
-This patch corrects that and drops 2 features that don't actually need to
-be supported in hw_enc_features since they are Rx features and don't
-actually impact anything by being present in hw_enc_features.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Fixes: a269913c52ad ("rtlwifi: Rework rtl_lps_leave() and rtl_lps_enter() to use work queue")
+Signed-off-by: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+CC: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> [3.10+]
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ Hi, Larry!
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 2d6aaad77d62..409916c18b86 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2807,10 +2807,9 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 					   NETIF_F_GSO_UDP_TUNNEL_CSUM |
- 					   NETIF_F_GSO_PARTIAL;
- 		netdev->hw_enc_features |= NETIF_F_IP_CSUM;
--		netdev->hw_enc_features |= NETIF_F_RXCSUM;
-+		netdev->hw_enc_features |= NETIF_F_IPV6_CSUM;
- 		netdev->hw_enc_features |= NETIF_F_TSO;
- 		netdev->hw_enc_features |= NETIF_F_TSO6;
--		netdev->hw_enc_features |= NETIF_F_RXHASH;
- 		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
- 		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM |
- 					   NETIF_F_GSO_PARTIAL;
+ Because commit a269913c52ad is the first commit bring this problem, 
+ so maybe use above commit message is ok, right? And stable kernels
+ 3.10-3.18 don't have commit fd09ff958777, but have a269913c52ad.
+
+ Thanks for suggestion concerning to good subject and commit message
+ writing, it is harder than coding sometimes:)
+
+ Changes:
+ v1-v2:
+ 1: Fix subject and commit message.
+
+ drivers/net/wireless/realtek/rtlwifi/base.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
+index c74eb13..264466f 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/base.c
++++ b/drivers/net/wireless/realtek/rtlwifi/base.c
+@@ -1660,9 +1660,9 @@ void rtl_watchdog_wq_callback(void *data)
+ 		if (((rtlpriv->link_info.num_rx_inperiod +
+ 		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
+ 		    (rtlpriv->link_info.num_rx_inperiod > 2))
+-			rtl_lps_enter(hw);
+-		else
+ 			rtl_lps_leave(hw);
++		else
++			rtl_lps_enter(hw);
+ 	}
+ 
+ 	rtlpriv->link_info.num_rx_inperiod = 0;
+-- 
+1.8.5.6.2.g3d8a54e.dirty
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
