@@ -1,65 +1,45 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v3 8/8] bnxt: Add support for segmentation of
- tunnels with outer checksums
-Date: Mon, 02 May 2016 09:38:55 -0700
-Message-ID: <20160502163855.11809.43075.stgit@ahduyck-xeon-server>
-References: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net 2/2] RDS: TCP: Synchrnozize accept() and connect()
+ paths on t_conn_lock.
+Date: Mon, 2 May 2016 12:43:07 -0400
+Message-ID: <20160502164307.GE20517@oracle.com>
+References: <cover.1462127059.git.sowmini.varadhan@oracle.com>
+ <5fc507116182afdda4b824173008e09d5d464a33.1462127059.git.sowmini.varadhan@oracle.com>
+ <b5d93d46-5465-ce03-74b1-07136eac0cc9@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: talal@mellanox.com, netdev@vger.kernel.org,
-	michael.chan@broadcom.com, alexander.duyck@gmail.com,
-	davem@davemloft.net, galp@mellanox.com, ogerlitz@mellanox.com,
-	eranbe@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	davem@davemloft.net
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34164 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754556AbcEBQi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:38:57 -0400
-Received: by mail-pf0-f179.google.com with SMTP id y69so80608873pfb.1
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 09:38:57 -0700 (PDT)
-In-Reply-To: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
+Received: from userp1040.oracle.com ([156.151.31.81]:50888 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309AbcEBQnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:43:16 -0400
+Content-Disposition: inline
+In-Reply-To: <b5d93d46-5465-ce03-74b1-07136eac0cc9@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch assumes that the bnxt hardware will ignore existing IPv4/v6
-header fields for length and checksum as well as the length and checksum
-fields for outer UDP and GRE headers.
+On (05/02/16 09:33), Santosh Shilimkar wrote:
+> >+	mutex_unlock(&tc->t_conn_lock);
+> Just wondering whether the spin_lock() would better here considering
+> entry into rds_tcp_conn_connect() & rds_tcp_accept_one() might be
+> from softirq context. Ignore it if its not applicable.
 
-I have been told by Michael Chan that this is working.  Though this might
-be somewhat redundant for IPv6 as they are forcing the checksum to be
-computed for all IPv6 frames that are offloaded.  A follow-up patch may be
-necessary in order to fix this as it is essentially mangling the outer IPv6
-headers to add a checksum where none was requested.
+It's not from softirq context (both are workqs), but I used a mutex
+to follow c_cm_lock (which I considered reusing, given that it 
+is only IB specific?) But spin_lock vs mutex may not be a big
+differentiator here- this is really a one-time start up (corner-case)
+issue in the control path.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+> > 	rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING);
+> Like patch 1/2, probably we can leverage return value of above. 
+     :
+> You probably don't need the local 'conn_state' and below should work.
+> 	if (!rds_conn_connecting(conn) && !rds_conn_up(conn))
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 4645c44e7c15..ae668476fff0 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -6194,14 +6194,19 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			   NETIF_F_TSO | NETIF_F_TSO6 |
- 			   NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
- 			   NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
--			   NETIF_F_RXHASH |
-+			   NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
-+			   NETIF_F_GSO_PARTIAL | NETIF_F_RXHASH |
- 			   NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
- 
- 	dev->hw_enc_features =
- 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
- 			NETIF_F_TSO | NETIF_F_TSO6 |
- 			NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
--			NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
-+			NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
-+			NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
-+			NETIF_F_GSO_PARTIAL;
-+	dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+				    NETIF_F_GSO_GRE_CSUM;
- 	dev->vlan_features = dev->hw_features | NETIF_F_HIGHDMA;
- 	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX |
- 			    NETIF_F_HW_VLAN_STAG_RX | NETIF_F_HW_VLAN_STAG_TX;
+see explanation for comment to 1/2.
+
+
+--Sowmini
