@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/3] tipc: re-enable compensation
-	for socket receive buffer double counting
-Date: Mon,  2 May 2016 11:58:45 -0400
-Message-ID: <1462204727-9224-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/3] tipc: propagate peer node
+	capabilities to socket layer
+Date: Mon,  2 May 2016 11:58:46 -0400
+Message-ID: <1462204727-9224-3-git-send-email-jon.maloy@ericsson.com>
 References: <1462204727-9224-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,45 +23,101 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In the refactoring commit d570d86497ee ("tipc: enqueue arrived buffers
-in socket in separate function") we did by accident replace the test
+During neighbor discovery, nodes advertise their capabilities as a bit
+map in a dedicated 16-bit field in the discovery message header. This
+bit map has so far only be stored in the node structure on the peer
+nodes, but we now see the need to keep a copy even in the socket
+structure.
 
-if (sk->sk_backlog.len == 0)
-     atomic_set(&tsk->dupl_rcvcnt, 0);
-
-with
-
-if (sk->sk_backlog.len)
-     atomic_set(&tsk->dupl_rcvcnt, 0);
-
-This effectively disables the compensation we have for the double
-receive buffer accounting that occurs temporarily when buffers are
-moved from the backlog to the socket receive queue. Until now, this
-has gone unnoticed because of the large receive buffer limits we are
-applying, but becomes indispensable when we reduce this buffer limit
-later in this series.
-
-We now fix this by inverting the mentioned condition.
+This commit adds this functionality.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/socket.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/tipc/node.c   | 21 +++++++++++++++++++--
+ net/tipc/node.h   |  1 +
+ net/tipc/socket.c |  2 ++
+ 3 files changed, 22 insertions(+), 2 deletions(-)
 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index c299156..29cc853 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/node.c: TIPC node management routines
+  *
+- * Copyright (c) 2000-2006, 2012-2015, Ericsson AB
++ * Copyright (c) 2000-2006, 2012-2016, Ericsson AB
+  * Copyright (c) 2005-2006, 2010-2014, Wind River Systems
+  * All rights reserved.
+  *
+@@ -191,6 +191,20 @@ int tipc_node_get_mtu(struct net *net, u32 addr, u32 sel)
+ 	tipc_node_put(n);
+ 	return mtu;
+ }
++
++u16 tipc_node_get_capabilities(struct net *net, u32 addr)
++{
++	struct tipc_node *n;
++	u16 caps;
++
++	n = tipc_node_find(net, addr);
++	if (unlikely(!n))
++		return TIPC_NODE_CAPABILITIES;
++	caps = n->capabilities;
++	tipc_node_put(n);
++	return caps;
++}
++
+ /*
+  * A trivial power-of-two bitmask technique is used for speed, since this
+  * operation is done for every incoming TIPC packet. The number of hash table
+@@ -304,8 +318,11 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
+ 
+ 	spin_lock_bh(&tn->node_list_lock);
+ 	n = tipc_node_find(net, addr);
+-	if (n)
++	if (n) {
++		/* Same node may come back with new capabilities */
++		n->capabilities = capabilities;
+ 		goto exit;
++	}
+ 	n = kzalloc(sizeof(*n), GFP_ATOMIC);
+ 	if (!n) {
+ 		pr_warn("Node creation failed, no memory\n");
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index f39d9d0..1823768 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -70,6 +70,7 @@ void tipc_node_broadcast(struct net *net, struct sk_buff *skb);
+ int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port);
+ void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port);
+ int tipc_node_get_mtu(struct net *net, u32 addr, u32 sel);
++u16 tipc_node_get_capabilities(struct net *net, u32 addr);
+ int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_node_dump_link(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct genl_info *info);
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 3eeb50a..d37a940 100644
+index d37a940..94bd286 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1748,7 +1748,7 @@ static void tipc_sk_enqueue(struct sk_buff_head *inputq, struct sock *sk,
+@@ -98,6 +98,7 @@ struct tipc_sock {
+ 	bool link_cong;
+ 	uint sent_unacked;
+ 	uint rcv_unacked;
++	u16 peer_caps;
+ 	struct sockaddr_tipc remote;
+ 	struct rhash_head node;
+ 	struct rcu_head rcu;
+@@ -1118,6 +1119,7 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
+ 	sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
+ 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
+ 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
++	tsk->peer_caps = tipc_node_get_capabilities(net, peer_node);
+ }
  
- 		/* Try backlog, compensating for double-counted bytes */
- 		dcnt = &tipc_sk(sk)->dupl_rcvcnt;
--		if (sk->sk_backlog.len)
-+		if (!sk->sk_backlog.len)
- 			atomic_set(dcnt, 0);
- 		lim = rcvbuf_limit(sk, skb) + atomic_read(dcnt);
- 		if (likely(!sk_add_backlog(sk, skb, lim)))
+ /**
 -- 
 1.9.1
 
