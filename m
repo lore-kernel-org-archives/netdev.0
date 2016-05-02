@@ -1,79 +1,87 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi:rtl_watchdog_wq_callback: fix calling
- rtl_lps_enter|rtl_lps_leave in opposite condition
-Date: Mon, 2 May 2016 10:40:34 -0500
-Message-ID: <572774F2.2050304@lwfinger.net>
-References: <20160502053754.GA30313@udknight>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Mon, 2 May 2016 08:41:16 -0700
+Message-ID: <CAKgT0UdeuJA-K8zim5Eact9A2oFscXDC2a7ciKGTo74xptuw4w@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
+	<20160429224333.12418.13862.stgit@ahduyck-xeon-server>
+	<CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
+	<CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
+	<CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Wang YanQing <udknight@gmail.com>, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	"talal@mellanox.com" <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <michael.chan@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35088 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbcEBPkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 11:40:37 -0400
-In-Reply-To: <20160502053754.GA30313@udknight>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:35777 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222AbcEBPlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 11:41:17 -0400
+Received: by mail-io0-f176.google.com with SMTP id d62so171492140iof.2
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 08:41:16 -0700 (PDT)
+In-Reply-To: <CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/02/2016 12:37 AM, Wang YanQing wrote:
-> Commit a269913c52ad37952a4d9953bb6d748f7299c304
-> ("rtlwifi: Rework rtl_lps_leave() and rtl_lps_enter() to use work queue")
-> make a mistake, change the meaning of num_tx|rx_inperiod comparison test.
+On Mon, May 2, 2016 at 12:19 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Mon, May 2, 2016 at 5:25 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Sun, May 1, 2016 at 1:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>>>> This patch assumes that the mlx4 hardware will ignore existing IPv4/v6
+>>>> header fields for length and checksum as well as the length and checksum
+>>>> fields for outer UDP headers.
 >
-> Commit fd09ff958777cf583d7541f180991c0fc50bd2f7
-> ("rtlwifi: Remove extra workqueue for enter/leave power state")
-> follow previous mistake, bring us to current code.
+>>> I see now the above text appearing in bunch of similar commit of
+>>> yours, specifically to Intel drivers and mlx5... could you please
+>>> elaborate a bit more what you mean here and what are the practical
+>>> consequences of that characteristics?
 >
-> This patch fix it.
+>>> I got that right NETIF_F_GSO_UDP_TUNNEL_CSUM means that the HW can do
+>>> segmentation for TCP packets encapsulated by UDP tunnel e.g VXLAN
+>>> where the outer checksum is not zero. AFAIK, any other outer checksum
+>>> value can't correctly be a constant... are you assuming here  RCO or
+>>> LCO?
 >
-> Signed-off-by: Wang YanQing <udknight@gmail.com>
-> ---
->   I think this patch should be ported back to stable kernels, 3.10+.
->   In my machine, I will lost wifi connection after minutes if I enable
->   fwlps.
+>> Actually it is really easy for outer UDP checksum to be constant as
+>> long as we keep the length of all segments constant.  This all ties
+>> back into LCO.  As long as the fields between the start of the UDP
+>> header and the start of the TCP header are either constant, as in the
+>> case of IPv6, or have their own checksum as in the case of IPv4 we
+>> will end up with the checksum of the outer header being constant.
 >
->   drivers/net/wireless/realtek/rtlwifi/base.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
-> index c74eb13..264466f 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/base.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/base.c
-> @@ -1660,9 +1660,9 @@ void rtl_watchdog_wq_callback(void *data)
->   		if (((rtlpriv->link_info.num_rx_inperiod +
->   		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
->   		    (rtlpriv->link_info.num_rx_inperiod > 2))
-> -			rtl_lps_enter(hw);
-> -		else
->   			rtl_lps_leave(hw);
-> +		else
-> +			rtl_lps_enter(hw);
->   	}
->
->   	rtlpriv->link_info.num_rx_inperiod = 0;
->
+> cool. I would love seeing this documented somewhere, either in the
+> change log if you do a respin or on some kernel networking
+> documentation, is that part of the LCO documentation?
 
-NACK
+I have some documentation in
+Documentation/networking/segmentation-offloads.txt.  Feel free to
+review it and provide any additional feedback and/or patches you
+believe it needs.  To me it made sense but I already understood how
+all this stuff worked.
 
-This patch is correct. There is a logic error in entering/exiting power-save 
-mode. Thus the code part is OK; however, the subject and commit message need to 
-be improved. If I had prepared this patch, my subject would have been "rtlwifi: 
-Fix logic error in enter/exit power-save mode". For the commit message, I would 
-have used the following:
+>> So in effect as long as we can trust the hardware to segment every
+>> frame to the specified size and that it won't insert any extra data
+>> anywhere in that region that we aren't expecting we can guarantee that
+>> each frame will have the same checksum for the outer UDP header.
+>
+> Wow, that is really cool, thanks for taking the time and explaining it over.
+>
+> Just one more piece to clarify... in the general case (e.g inner
+> packet size 1.5k...64k), the last segment would not have the same
+> length as the other segments, what happens on that case?
 
-In commit fd09ff958777 ("rtlwifi: Remove extra workqueue for enter/leave power 
-state"), the tests for enter/exit power-save mode were inverted. With this 
-change applied, the wifi connection becomes much more stable.
+Actually in the case of GSO partial we have go through the software
+segmentation code and trim off any last bit that doesn't match the MSS
+of the rest of the frame.  That way you end up with one frame that has
+some number of MSS sized chunks, and then one remainder if there is a
+frame that would be a different size.
 
-Fixes: fd09ff958777 ("rtlwifi: Remove extra workqueue for enter/leave power state")
-Signed-off-by: Wang YanQing <udknight@gmail.com>
-CC: Stable <stable@vger.kernel.org> [3.10+]
----
-
-Thanks for finding this problem.
-
-Larry
+- Alex
