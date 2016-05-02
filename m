@@ -1,58 +1,87 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] net: SOCKWQ_ASYNC_NOSPACE optimizations
-Date: Mon, 2 May 2016 21:12:29 +0200
-Message-ID: <20160502191229.GA1946@nanopsycho.orion>
-References: <1461605974-4242-1-git-send-email-edumazet@google.com>
- <1461605974-4242-2-git-send-email-edumazet@google.com>
- <20160502161602.GA1984@nanopsycho.orion>
- <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH next-next 0/7] net: Cleanup IPv6 ip tunnels
+Date: Mon, 2 May 2016 12:32:43 -0700
+Message-ID: <CALx6S379KxUkLRaE70AtaPgM8NqEieavd1+hcX=Z4Jfdn=CFDw@mail.gmail.com>
+References: <1461975141-954269-1-git-send-email-tom@herbertland.com>
+	<CAKgT0UfwyZW7kifpU18xtwT77=Zex3AzJp=xry=siW1NVCyX+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, eladr@mellanox.com,
-	idosch@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32840 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754722AbcEBTMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 15:12:32 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r12so169685wme.0
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 12:12:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:36024 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754654AbcEBTcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 15:32:45 -0400
+Received: by mail-ig0-f176.google.com with SMTP id u10so94719474igr.1
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 12:32:45 -0700 (PDT)
+In-Reply-To: <CAKgT0UfwyZW7kifpU18xtwT77=Zex3AzJp=xry=siW1NVCyX+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, May 02, 2016 at 06:22:18PM CEST, eric.dumazet@gmail.com wrote:
->On Mon, 2016-05-02 at 18:16 +0200, Jiri Pirko wrote:
->> Mon, Apr 25, 2016 at 07:39:32PM CEST, edumazet@google.com wrote:
->> >SOCKWQ_ASYNC_NOSPACE is tested in sock_wake_async()
->> >so that a SIGIO signal is sent when needed.
->> >
->> >tcp_sendmsg() clears the bit.
->> >tcp_poll() sets the bit when stream is not writeable.
->> >
->> >We can avoid two atomic operations by first checking if socket
->> >is actually interested in the FASYNC business (most sockets in
->> >real applications do not use AIO, but select()/poll()/epoll())
->> >
->> >This also removes one cache line miss to access sk->sk_wq->flags
->> >in tcp_sendmsg()
->> >
->> >Signed-off-by: Eric Dumazet <edumazet@google.com>
->> 
->> I just bisected down to this. This is causing a regression for me when
->> my nfs mount becomes stuck. I can easily reproduce this if you need to
->> test the fix.
+On Fri, Apr 29, 2016 at 6:00 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Fri, Apr 29, 2016 at 5:12 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> The IPv6 tunnel code is very different from IPv4 code. There is a lot
+>> of redundancy with the IPv4 code, particularly in the GRE tunneling.
+>>
+>> This patch set cleans up the tunnel code to make the IPv6 code look
+>> more like the IPv4 code and use common functions between the two
+>> stacks where possible.
+>>
+>> This work should make it easier to maintain and extend the IPv6 ip
+>> tunnels.
+>>
+>> Items in this patch set:
+>>   - Cleanup IPv6 tunnel receive path (ip6_tnl_rcv). Includes using
+>>     gro_cells and exporting ip6_tnl_rcv so the ip6_gre can call it
+>>   - Move GRE functions to common header file (tx functions) or
+>>     gre_demux.c (rx functions like gre_parse_header)
+>>   - Call common GRE functions from IPv6 GRE
+>>   - Create ip6_tnl_xmit (to be like ip_tunnel_xmit)
+>>
+>> Tested:
+>>   Ran super_netperf tests for TCP_RR and TCP_STREAM for:
+>>     - IPv4 over gre, gretap, gre6, gre6tap
+>>     - IPv6 over gre, gretap, gre6, gre6tap
+>>     - ipip
+>>     - ip6ip6
+>>     - ipip/gue
+>>     - IPv6 over gre/gue
+>>     - IPv4 over gre/gue
 >
->What do you mean by 'when nfs mount becomes stuck' ?
+> You should probably add 2 additional test cases.  One for IPv4 GRE/GUE
+> w/ checksum on the GRE header, and same for IPv6.  It was broken
+> previously in terms of offloads so we need to make sure we don't
+> introduce a regression and break it again.
 >
->Is this patch making nfs not functional , or does it make recovery from
->some nfs error bad ?
+Hi Alexander,
 
-I can mount nfs on the host. But when I do something (compile a kernel
-module in my case), it gets stuck. Then I cannot even ssh to the machine.
-No messages in dmesg. I didn't debug it any further. I just bisected and
-verified that this patch caused this behaviour.
+I did test GRE/GUE with checksum and remcsum for IPv4, that works okay.
+
+Support for GUE with IPv6 is in the next patch set I am working on.
+
+Thanks,
+Tom
+
+>> Tom Herbert (7):
+>>   ipv6: Cleanup IPv6 tunnel receive path
+>>   gre: Move utility functions to common headers
+>>   gre6: Cleanup GREv6 receive path, call common GRE functions
+>>   ipv6: Create ip6_tnl_xmit
+>>   gre: Create common functions for transmit
+>>   ipv6: Generic tunnel cleanup
+>>   gre6: Cleanup GREv6 transmit path, call common GRE functions
+>>
+>>  include/net/gre.h        | 104 +++++++++++++
+>>  include/net/ip6_tunnel.h |  11 +-
+>>  net/ipv4/gre_demux.c     |  64 ++++++++
+>>  net/ipv4/ip_gre.c        | 199 +++---------------------
+>>  net/ipv6/ip6_gre.c       | 392 +++++++++--------------------------------------
+>>  net/ipv6/ip6_tunnel.c    | 266 +++++++++++++++++++++-----------
+>>  6 files changed, 452 insertions(+), 584 deletions(-)
+>>
+>> --
+>> 2.8.0.rc2
+>>
