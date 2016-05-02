@@ -1,64 +1,78 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] fq_codel: add batch ability to fq_codel_drop()
-Date: Mon, 2 May 2016 19:15:43 +0200
-Message-ID: <20160502191543.170fc046@redhat.com>
-References: <1462146446.5535.236.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160502094954.24cc9549@redhat.com>
-	<1462199668.5535.239.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160502180036.25bebdfe@redhat.com>
-	<1462205571.5535.253.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net PATCH 1/2] net: Disable segmentation if checksumming is not supported
+Date: Mon, 2 May 2016 10:20:13 -0700
+Message-ID: <CAKgT0UcdO_6D2YLCXRmPsd0U=1WacmxMoYi2SpJMnTKHJcHj1A@mail.gmail.com>
+References: <20160502161621.11701.9271.stgit@ahduyck-xeon-server>
+	<20160502162510.11701.82922.stgit@ahduyck-xeon-server>
+	<CALx6S36=dHesn65aWWiiC=rRjmOW3mZa3ymk0oq5JBncg6SEnA@mail.gmail.com>
+	<CAKgT0UdaaXNX=G052vjC+JVZG8MGyHKPMMxK-U5Zgn8FiENNPg@mail.gmail.com>
+	<CALx6S36Y8BD2wk-FOxExf50Bs1Lq8_m-9Pxrf7E+0FOaC+C+Ow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>,
-	Jonathan Morton <chromatix99@gmail.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43284 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753976AbcEBRPs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 May 2016 13:15:48 -0400
-In-Reply-To: <1462205571.5535.253.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:35451 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753818AbcEBRUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 13:20:14 -0400
+Received: by mail-io0-f173.google.com with SMTP id d62so174464238iof.2
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 10:20:14 -0700 (PDT)
+In-Reply-To: <CALx6S36Y8BD2wk-FOxExf50Bs1Lq8_m-9Pxrf7E+0FOaC+C+Ow@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 02 May 2016 09:12:51 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Mon, May 2, 2016 at 10:07 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Mon, May 2, 2016 at 9:48 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Mon, May 2, 2016 at 9:33 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Mon, May 2, 2016 at 9:25 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>>>> In the case of the mlx4 and mlx5 driver they do not support IPv6 checksum
+>>>> offload for tunnels.  With this being the case we should disable GSO in
+>>>> addition to the checksum offload features when we find that a device cannot
+>>>> perform a checksum on a given packet type.
+>>>>
+>>> I'm not sure I understand this. If device can't support checksum
+>>> offload for tunnels doesn't that mean we have to do the checksum on
+>>> host regardless of whether GSO is being done?
+>>
+>> The use of the term GSO here might be the confusing part.  Basically
+>> the issue is the hardware advertises it can do TSO for IPv4 on
+>> encapsulated frames, however it doesn't indicate it can do IPv6
+>> checksum offload.  So what ends up happening is that in the case of a
+>> v4 over v6 tunnel we were going through validate_xmit_skb which will
+>> check things in netif_skb_features and come out supporting the TSO but
+>> no checksums.  As a result we would fall through and hit
+>> skb_checksum_help and trigger the warn on in there because we had TSO
+>> requested even though we couldn't do the checksum.
+>>
+>> Basically I am just extending the kind of logic we have in
+>> netdev_fix_features so that if we cannot support checksumming the
+>> frame then we cannot support segmenting it.
+>>
+> Thanks for the explanation. We need to drive things so that all the
+> encapsulation combinations (v4/v4, v4/v6, v6/v4, v6/v6) are supported
+> by HW TSO if any of them are supported by a device. Maybe we should
+> still have some sort of warning message that HW is broken for some
+> combination (like it apparently it is for mlnx4)?
 
-> On Mon, 2016-05-02 at 18:00 +0200, Jesper Dangaard Brouer wrote:
-> 
-> > It is not that complicated, inside kfree_skb_list(), we just call
-> > skb_release_all(skb) on each SKB first, and then bulk free the SKB's
-> > themselves in the end.  Example see, _kfree_skb_defer().
-> > 
-> > The question is where to store the SKB array needed by kmem_cache_free_bulk.
-> > 
-> > The easy option is just to use the stack of kfree_skb_list(), but we
-> > have to be careful about the stack size, it might not be so good
-> > because skb_release_all() can be deep and via skb_release_data() invoke
-> > kfree_skb_list() a second time.
-> >   
-> 
-> It sounds you are reinventing the wheel ;)
-> 
-> If drivers use napi_consume_skb(), qdisc should be able to use it the
-> same, since BH are disabled in their ->enqueue()/->dequeue() handlers.
+The problem is the user could end up switching features on/off via
+ethtool to create the same kind of situation.  Generally the v4/v6 mix
+and match is going to be a more difficult case to deal with.  By
+adding the check to the VXLAN features check and updating the checksum
+check to disable GSO I think we should have most if not all cases
+covered.
 
-Oh, yes. That is true, we can just use napi_consume_skb().  Should we
-have a napi_kfree_skb(), to get the trace_kfree_skb() correct?
+Also as far as the mlx4 the Mellanox guys are looking into it because
+they were sure the part is supposed to be able to support an outer
+IPv6 header so we may see something int he future come out to address
+that.  Really what I would like to see us get away from is having
+hardware to do any tunnel parsing for Tx which is where I believe this
+issue lies since on the Rx side the mlx4 doesn't seem to recognize
+tunnels encapsulated in IPv6 since it doesn't perform an inner
+checksum offload.
 
-> This would be a separate patch of course.
-> 
-> This fq_codel fix might need to be backported.
-
-Agreed.  I ACK your patch.
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+- Alex
