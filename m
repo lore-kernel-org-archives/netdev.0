@@ -1,50 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] i40e: PTP - avoid aggregate return warnings
-Date: Sun,  1 May 2016 17:06:13 -0700
-Message-ID: <1462147581-135254-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: Drop extra copy of function
+Date: Sun,  1 May 2016 17:06:15 -0700
+Message-ID: <1462147581-135254-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63264 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:35057 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752468AbcEBAG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 May 2016 20:06:27 -0400
+	id S1752582AbcEBAG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 May 2016 20:06:29 -0400
 In-Reply-To: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Aggregate return warnings are when struct types are returned
-and must be copied to the lvalue with a struct copy by the compiler.
+i40e_release_rx_desc was in two files, but was only used
+and needed in txrx.c.  Get rid of the extra copy.
 
-This fixes warnings of type aggregate-return from gcc with W=2.
-
-Change-Id: I896b1bf514544bf0faeb458869d79914b9f1b168
+Change-Id: I86e18239aa03531fc198b6c052847475084a9200
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ptp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 565ca7c..a1b878a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -158,9 +158,10 @@ static int i40e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- static int i40e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- {
- 	struct i40e_pf *pf = container_of(ptp, struct i40e_pf, ptp_caps);
--	struct timespec64 now, then = ns_to_timespec64(delta);
-+	struct timespec64 now, then;
- 	unsigned long flags;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index a45748e..d6b1b98 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -397,24 +397,6 @@ static void i40e_tx_timeout(struct net_device *netdev)
+ }
  
-+	then = ns_to_timespec64(delta);
- 	spin_lock_irqsave(&pf->tmreg_lock, flags);
- 
- 	i40e_ptp_read(pf, &now);
+ /**
+- * i40e_release_rx_desc - Store the new tail and head values
+- * @rx_ring: ring to bump
+- * @val: new head index
+- **/
+-static inline void i40e_release_rx_desc(struct i40e_ring *rx_ring, u32 val)
+-{
+-	rx_ring->next_to_use = val;
+-
+-	/* Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
+-	 */
+-	wmb();
+-	writel(val, rx_ring->tail);
+-}
+-
+-/**
+  * i40e_get_vsi_stats_struct - Get System Network Statistics
+  * @vsi: the VSI we care about
+  *
 -- 
 2.5.5
