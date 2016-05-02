@@ -1,51 +1,85 @@
-From: Jan Stancek <jstancek@redhat.com>
-Subject: Re: [PATCH net] cxgb3: fix out of bounds read
-Date: Mon, 2 May 2016 06:30:42 -0400 (EDT)
-Message-ID: <1716157952.2031963.1462185042371.JavaMail.zimbra@redhat.com>
-References: <1461920810-15228-1-git-send-email-mschmidt@redhat.com> <20160501.210000.607575204509045130.davem@davemloft.net>
+From: Elad Kanfi <eladkan@mellanox.com>
+Subject: RE: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
+Date: Mon, 2 May 2016 10:21:19 +0000
+Message-ID: <HE1PR0501MB2026E62285B397A5C7CC9705CD790@HE1PR0501MB2026.eurprd05.prod.outlook.com>
+References: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
+	<1461763110-15263-2-git-send-email-eladkan@mellanox.com>
+ <20160428.171120.2028974436439452264.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, santosh@chelsio.com
-To: David Miller <davem@davemloft.net>, mschmidt@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:56512 "EHLO
-	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbcEBKap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 06:30:45 -0400
-In-Reply-To: <20160501.210000.607575204509045130.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Noam Camus <noamca@mellanox.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"abrodkin@synopsys.com" <abrodkin@synopsys.com>,
+	Tal Zilcer <talz@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Lino Sanfilippo <lsanfil@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160428.171120.2028974436439452264.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
------ Original Message -----
-> From: "David Miller" <davem@davemloft.net>
-> To: mschmidt@redhat.com
-> Cc: netdev@vger.kernel.org, santosh@chelsio.com, jstancek@redhat.com
-> Sent: Monday, 2 May, 2016 3:00:00 AM
-> Subject: Re: [PATCH net] cxgb3: fix out of bounds read
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Friday, April 29, 2016 12:11 AM
+To: Elad Kanfi
+Cc: Noam Camus; linux-kernel@vger.kernel.org; abrodkin@synopsys.com; Tal Zilcer; netdev@vger.kernel.org
+Subject: Re: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
+
+From: Elad Kanfi <eladkan@mellanox.com>
+Date: Wed, 27 Apr 2016 16:18:29 +0300
+
+> From: Elad Kanfi <eladkan@mellanox.com>
 > 
-> From: Michal Schmidt <mschmidt@redhat.com>
-> Date: Fri, 29 Apr 2016 11:06:50 +0200
+> Below is a description of a possible problematic sequence. CPU-A is 
+> sending a frame and CPU-B handles the interrupt that indicates the 
+> frame was sent. CPU-B reads an invalid value of tx_packet_sent.
 > 
-> > An out of bounds read of 2 bytes was discovered in cxgb3 with KASAN.
-> > 
-> > t3_config_rss() expects both arrays it gets as parameters to have
-> > terminators. setup_rss(), the caller, forgets to add a terminator to
-> > one of the arrays. Thankfully the iteration in t3_config_rss() stops
-> > anyway, but in the last iteration the check for the terminator
-> > is an out of bounds read.
-> > 
-> > Add the missing terminator to rspq_map[].
-> > 
-> > Reported-by: Jan Stancek <jstancek@redhat.com>
-> > Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 	CPU-A				CPU-B
+> 	-----				-----
+> 	nps_enet_send_frame
+> 	.
+> 	.
+> 	tx_packet_sent = true
+> 	order HW to start tx
+> 	.
+> 	.
+> 	HW complete tx
+> 			    ------> 	get tx complete interrupt
+> 					.
+> 					.
+> 					if(tx_packet_sent == true)
 > 
-> Applied.
+> 	end memory transaction
+> 	(tx_packet_sent actually
+> 	 written)
 > 
+> Problem solution:
+> 
+> Add a memory barrier after setting tx_packet_sent, in order to make 
+> sure that it is written before the packet is sent.
+> 
+> Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
+> 
+> Acked-by: Noam Camus <noamca@mellanox.com>
+>
+> Please address the feedback about memory barrier pairing.
+>
+> Also, for both patches, do not put empty lines between the various tags at the end of the commit message.  They should all be together in one continuous group.
 
-KASAN BUG message went away for me with this patch.
+Since this driver handles one frame at a time, I couldn't find a case that requires the paired barrier.
 
-Regards,
-Jan
+The order of reads is not critical once it is assured that the value is valid.
+
+If there is something I'm missing or for the sake of good order, I can add it. 
+
+Please let me know your opinion on this.
+
+I will remove the empty lines in the commit messages at the next patches version.
+
+Elad.
+ 
