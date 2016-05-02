@@ -1,56 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e/i40evf : Bump driver version from 1.5.5 to 1.5.10
-Date: Sun,  1 May 2016 17:06:17 -0700
-Message-ID: <1462147581-135254-12-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Marek Vasut <marex@denx.de>
+Subject: [PATCH V2] mdio_bus: Fix MDIO bus scanning in __mdiobus_register()
+Date: Mon,  2 May 2016 02:47:31 +0200
+Message-ID: <1462150051-6308-1-git-send-email-marex@denx.de>
+Cc: Marek Vasut <marex@denx.de>, Arnd Bergmann <arnd@arndb.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:1786 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752631AbcEBAGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 May 2016 20:06:33 -0400
-In-Reply-To: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:42773 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398AbcEBArk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 20:47:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+Since commit b74766a0a0fe ("phylib: don't return NULL
+from get_phy_device()") in linux-next, phy_get_device() will return
+ERR_PTR(-ENODEV) instead of NULL if the PHY device ID is all ones.
 
-Signed-off-by: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+This causes problem with stmmac driver and likely some other drivers
+which call mdiobus_register(). I triggered this bug on SoCFPGA MCVEVK
+board with linux-next 20160427 and 20160428. In case of the stmmac, if
+there is no PHY node specified in the DT for the stmmac block, the stmmac
+driver ( drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c function
+stmmac_mdio_register() ) will call mdiobus_register() , which will
+register the MDIO bus and probe for the PHY.
+
+The mdiobus_register() resp. __mdiobus_register() iterates over all of
+the addresses on the MDIO bus and calls mdiobus_scan() for each of them,
+which invokes get_phy_device(). Before the aforementioned patch, the
+mdiobus_scan() would return NULL if no PHY was found on a given address
+and mdiobus_register() would continue and try the next PHY address. Now,
+mdiobus_scan() returns ERR_PTR(-ENODEV), which is caught by the
+'if (IS_ERR(phydev))' condition and the loop exits immediately if the
+PHY address does not contain PHY.
+
+Repair this by explicitly checking for the ERR_PTR(-ENODEV) and if this
+error comes around, continue with the next PHY address.
+
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+V2: Fixed checkpatch warning in the commit message
+    Added Ack from Florian
+---
+ drivers/net/phy/mdio_bus.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index cab639b..19a2d30 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -46,7 +46,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 499003ee..388f992 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -333,7 +333,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 			struct phy_device *phydev;
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 5
--#define DRV_VERSION_BUILD 5
-+#define DRV_VERSION_BUILD 10
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index d1c4afd..b9b1dd8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -38,7 +38,7 @@ static const char i40evf_driver_string[] =
- 
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 5
--#define DRV_VERSION_BUILD 5
-+#define DRV_VERSION_BUILD 10
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD) \
+ 			phydev = mdiobus_scan(bus, i);
+-			if (IS_ERR(phydev)) {
++			if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV)) {
+ 				err = PTR_ERR(phydev);
+ 				goto error;
+ 			}
 -- 
-2.5.5
+2.7.0
