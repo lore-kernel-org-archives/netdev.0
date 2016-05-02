@@ -1,12 +1,8 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
- segmentation with outer checksum offload
-Date: Mon, 2 May 2016 10:19:57 +0300
-Message-ID: <CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
-References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
-	<20160429224333.12418.13862.stgit@ahduyck-xeon-server>
-	<CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
-	<CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
+Subject: Re: [net-next PATCH v2 1/9] net: Disable segmentation if checksumming
+ is not supported
+Date: Mon, 2 May 2016 10:28:41 +0300
+Message-ID: <CAJ3xEMjqA=QobVc4+gEXXW0FAACqGoqi3b8dwvif6CxXXh5TmQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Alexander Duyck <aduyck@mirantis.com>,
@@ -14,60 +10,73 @@ Cc: Alexander Duyck <aduyck@mirantis.com>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Michael Chan <michael.chan@broadcom.com>,
 	David Miller <davem@davemloft.net>,
-	Gal Pressman <galp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
 To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:34594 "EHLO
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36103 "EHLO
 	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890AbcEBHT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 03:19:58 -0400
-Received: by mail-io0-f177.google.com with SMTP id 190so155074183iow.1
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 00:19:57 -0700 (PDT)
-In-Reply-To: <CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
+	with ESMTP id S1752632AbcEBH2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 03:28:42 -0400
+Received: by mail-io0-f177.google.com with SMTP id u185so188012271iod.3
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 00:28:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 2, 2016 at 5:25 AM, Alexander Duyck
+On Mon, May 2, 2016 at 5:16 AM, Alexander Duyck
 <alexander.duyck@gmail.com> wrote:
-> On Sun, May 1, 2016 at 1:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Sun, May 1, 2016 at 1:30 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
 >> On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>> This patch assumes that the mlx4 hardware will ignore existing IPv4/v6
->>> header fields for length and checksum as well as the length and checksum
->>> fields for outer UDP headers.
+>>> In the case of the mlx4 and mlx5 driver they do not support IPv6 checksum
+>>> offload for tunnels.
+>>
+>> Alex,
+>>
+>> To clarify, when you say "not support IPv6 checksum for tunnels", you
+>> refer to the offloading of the outer or inner checksum?
+>
+> In the case of mlx4 it was an issue with both inner and outer due to
+> IPv6 checksum.  The issue was that the feature was not exposed and yet
+> the stack was attempting to make use of it in various ways.  The fixes
+> that resolved the issues are in patches 1 and 4.  If we wanted to we
+> could move those to net, but then it would be difficult to test the
+> existing patches on the mlx4 until the net tree containing those
+> patches was merged back in.
+>
+>> Still (me and I think also Tariq from our driver team) catching up on
+>> the series, the primitives and conventions you are introducing using
+>> and how this applies on mlx5. I saw that Saeed acked the the mlx5e
+>> patches (7 and 8).
+>
+> The concept for all this is pretty simple.  What I am doing is
+> restricting TSO so that we have a fixed size that is used for all
+> outgoing frames.
 
->> I see now the above text appearing in bunch of similar commit of
->> yours, specifically to Intel drivers and mlx5... could you please
->> elaborate a bit more what you mean here and what are the practical
->> consequences of that characteristics?
+excellent... how exactly this is done? I wasn't sure if this is
+existing facility in the kernel and which or somehow introduced now
+(where)? would appreciate if you can drop a note on that.
 
->> I got that right NETIF_F_GSO_UDP_TUNNEL_CSUM means that the HW can do
->> segmentation for TCP packets encapsulated by UDP tunnel e.g VXLAN
->> where the outer checksum is not zero. AFAIK, any other outer checksum
->> value can't correctly be a constant... are you assuming here  RCO or
->> LCO?
+> Then we precompute the outer headers and use those
+> values when performing GSO.  By doing this we can populate the UDP
+> checksum field instead of forcing it to 0 which allows us to perform
+> TSO for tunnels with outer checksums.
 
-> Actually it is really easy for outer UDP checksum to be constant as
-> long as we keep the length of all segments constant.  This all ties
-> back into LCO.  As long as the fields between the start of the UDP
-> header and the start of the TCP header are either constant, as in the
-> case of IPv6, or have their own checksum as in the case of IPv4 we
-> will end up with the checksum of the outer header being constant.
+now.. understood.
 
-cool. I would love seeing this documented somewhere, either in the
-change log if you do a respin or on some kernel networking
-documentation, is that part of the LCO documentation?
+>> Specifically, the mlx4 patches are practically fixes so if they don't
+>> land in 4.7 via net-next we can get them there through net, lets give
+>> us the few more days needed to catch up from our side.
 
-> So in effect as long as we can trust the hardware to segment every
-> frame to the specified size and that it won't insert any extra data
-> anywhere in that region that we aren't expecting we can guarantee that
-> each frame will have the same checksum for the outer UDP header.
+> Actually the mlx4 specific portion of these patches are not really
+> fixes, they are enabling features.  Specifically IPv6 checksum, TSOv6,
+> and TSO for VXLAN tunnels with outer checksums.  It is patches 1 and 4
+> that contain the fix and it likely applies to more than just the mlx4
+> driver as I believe there is a qlogic driver with a similar feature
+> flag layout.  If we want we could recommend those patches for stable
 
-Wow, that is really cool, thanks for taking the time and explaining it over.
-
-Just one more piece to clarify... in the general case (e.g inner
-packet size 1.5k...64k), the last segment would not have the same
-length as the other segments, what happens on that case?
+All makes sense, I will be able to ack the mlx4 patches tomorrow or
+the latest Wed so we are just fine for 4.7 - I don't see urgency to
+put them on 4.6
 
 Or.
