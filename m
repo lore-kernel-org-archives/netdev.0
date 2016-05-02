@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v3 6/8] net/mlx5e: Add support for UDP tunnel
- segmentation with outer checksum offload
-Date: Mon, 02 May 2016 09:38:43 -0700
-Message-ID: <20160502163843.11809.23302.stgit@ahduyck-xeon-server>
+Subject: [net-next PATCH v3 3/8] net: Fix netdev_fix_features so that
+ TSO_MANGLEID is only available with TSO
+Date: Mon, 02 May 2016 09:38:24 -0700
+Message-ID: <20160502163824.11809.64253.stgit@ahduyck-xeon-server>
 References: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,46 +12,37 @@ To: talal@mellanox.com, netdev@vger.kernel.org,
 	davem@davemloft.net, galp@mellanox.com, ogerlitz@mellanox.com,
 	eranbe@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33881 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552AbcEBQip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:38:45 -0400
-Received: by mail-pa0-f50.google.com with SMTP id r5so77768551pag.1
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 09:38:44 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35216 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537AbcEBQi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:38:26 -0400
+Received: by mail-pf0-f181.google.com with SMTP id 77so48212018pfv.2
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 09:38:26 -0700 (PDT)
 In-Reply-To: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch assumes that the mlx5 hardware will ignore existing IPv4/v6
-header fields for length and checksum as well as the length and checksum
-fields for outer UDP headers.
+This change makes it so that we will strip the TSO_MANGLEID bit if TSO is
+not present.  This way we will also handle ECN correctly of TSO is not
+present.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ net/core/dev.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 4ccfc1ac62c5..2d6aaad77d62 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2803,13 +2803,18 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	if (mlx5e_vxlan_allowed(mdev)) {
--		netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL;
-+		netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL |
-+					   NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+					   NETIF_F_GSO_PARTIAL;
- 		netdev->hw_enc_features |= NETIF_F_IP_CSUM;
- 		netdev->hw_enc_features |= NETIF_F_RXCSUM;
- 		netdev->hw_enc_features |= NETIF_F_TSO;
- 		netdev->hw_enc_features |= NETIF_F_TSO6;
- 		netdev->hw_enc_features |= NETIF_F_RXHASH;
- 		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
-+		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+					   NETIF_F_GSO_PARTIAL;
-+		netdev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 673d1f118bfb..e98ba63fe280 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6721,6 +6721,10 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
+ 		features &= ~NETIF_F_TSO6;
  	}
  
- 	mlx5_query_port_fcs(mdev, &fcs_supported, &fcs_enabled);
++	/* TSO with IPv4 ID mangling requires IPv4 TSO be enabled */
++	if ((features & NETIF_F_TSO_MANGLEID) && !(features & NETIF_F_TSO))
++		features &= ~NETIF_F_TSO_MANGLEID;
++
+ 	/* TSO ECN requires that TSO is present as well. */
+ 	if ((features & NETIF_F_ALL_TSO) == NETIF_F_TSO_ECN)
+ 		features &= ~NETIF_F_TSO_ECN;
