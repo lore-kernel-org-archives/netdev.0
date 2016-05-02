@@ -1,106 +1,37 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] net: SOCKWQ_ASYNC_NOSPACE optimizations
-Date: Mon, 2 May 2016 22:45:44 +0200
-Message-ID: <20160502204544.GA2349@nanopsycho.orion>
-References: <1461605974-4242-1-git-send-email-edumazet@google.com>
- <1461605974-4242-2-git-send-email-edumazet@google.com>
- <20160502161602.GA1984@nanopsycho.orion>
- <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160502191229.GA1946@nanopsycho.orion>
- <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] drivers: net: xgene: fix: Get channel number
+ from device binding
+Date: Mon, 02 May 2016 16:48:18 -0400 (EDT)
+Message-ID: <20160502.164818.1876590443775185144.davem@davemloft.net>
+References: <1461953415-9741-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, eladr@mellanox.com,
-	idosch@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, patches@apm.com
+To: isubramanian@apm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35708 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755143AbcEBUpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 16:45:47 -0400
-Received: by mail-wm0-f65.google.com with SMTP id e201so477110wme.2
-        for <netdev@vger.kernel.org>; Mon, 02 May 2016 13:45:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36302 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753488AbcEBUsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 16:48:23 -0400
+In-Reply-To: <1461953415-9741-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, May 02, 2016 at 10:23:27PM CEST, eric.dumazet@gmail.com wrote:
->On Mon, 2016-05-02 at 21:12 +0200, Jiri Pirko wrote:
->> Mon, May 02, 2016 at 06:22:18PM CEST, eric.dumazet@gmail.com wrote:
->> >On Mon, 2016-05-02 at 18:16 +0200, Jiri Pirko wrote:
->> >> Mon, Apr 25, 2016 at 07:39:32PM CEST, edumazet@google.com wrote:
->> >> >SOCKWQ_ASYNC_NOSPACE is tested in sock_wake_async()
->> >> >so that a SIGIO signal is sent when needed.
->> >> >
->> >> >tcp_sendmsg() clears the bit.
->> >> >tcp_poll() sets the bit when stream is not writeable.
->> >> >
->> >> >We can avoid two atomic operations by first checking if socket
->> >> >is actually interested in the FASYNC business (most sockets in
->> >> >real applications do not use AIO, but select()/poll()/epoll())
->> >> >
->> >> >This also removes one cache line miss to access sk->sk_wq->flags
->> >> >in tcp_sendmsg()
->> >> >
->> >> >Signed-off-by: Eric Dumazet <edumazet@google.com>
->> >> 
->> >> I just bisected down to this. This is causing a regression for me when
->> >> my nfs mount becomes stuck. I can easily reproduce this if you need to
->> >> test the fix.
->> >
->> >What do you mean by 'when nfs mount becomes stuck' ?
->> >
->> >Is this patch making nfs not functional , or does it make recovery from
->> >some nfs error bad ?
->> 
->> I can mount nfs on the host. But when I do something (compile a kernel
->> module in my case), it gets stuck. Then I cannot even ssh to the machine.
->> No messages in dmesg. I didn't debug it any further. I just bisected and
->> verified that this patch caused this behaviour.
->
->Interesting.
->
->It looks like net/sunrpc/xprtsock.c should set SOCK_FASYNC
->even if it is not actually using fasync_list
->
->Could you try this quick hack to check if this is the right way ?
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Fri, 29 Apr 2016 11:10:12 -0700
 
-Yep, works, I do not see the issue with this patch anymore. Thanks.
+> This patch set adds 'channel' property to get ethernet to CPU channel number,
+> thus decoupling the Linux driver from static resource selection.
+> 
+> v2: Address review comments from v1
+> - removed irq reference from Linux driver
+> - added 'channel' property to get ethernet to CPU channel number
+> 
+> v1:
+> - Initial version
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 
-
->
->Thanks !
->
->diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
->index a6c68dc086af83233ee315642638f4a1990ee622..b90c5397b5e137c6cc8accad6eebe2b876363d4e 100644
->--- a/net/sunrpc/xprtsock.c
->+++ b/net/sunrpc/xprtsock.c
->@@ -1950,6 +1950,7 @@ static int xs_local_finish_connecting(struct rpc_xprt *xprt,
-> 		sk->sk_user_data = xprt;
-> 		sk->sk_data_ready = xs_data_ready;
-> 		sk->sk_write_space = xs_udp_write_space;
->+		sock_set_flag(sk, SOCK_FASYNC);
-> 		sk->sk_error_report = xs_error_report;
-> 		sk->sk_allocation = GFP_NOIO;
-> 
->@@ -2136,6 +2137,7 @@ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
-> 		sk->sk_user_data = xprt;
-> 		sk->sk_data_ready = xs_data_ready;
-> 		sk->sk_write_space = xs_udp_write_space;
->+		sock_set_flag(sk, SOCK_FASYNC);
-> 		sk->sk_allocation = GFP_NOIO;
-> 
-> 		xprt_set_connected(xprt);
->@@ -2237,6 +2239,7 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
-> 		sk->sk_data_ready = xs_tcp_data_ready;
-> 		sk->sk_state_change = xs_tcp_state_change;
-> 		sk->sk_write_space = xs_tcp_write_space;
->+		sock_set_flag(sk, SOCK_FASYNC);
-> 		sk->sk_error_report = xs_error_report;
-> 		sk->sk_allocation = GFP_NOIO;
-> 
->
->
+Series applied, thanks.
