@@ -1,50 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Implement net_dbg_ratelimited() for
- CONFIG_DYNAMIC_DEBUG case
-Date: Sun, 01 May 2016 21:49:34 -0400 (EDT)
-Message-ID: <20160501.214934.2250379996423526821.davem@davemloft.net>
-References: <1461951023-14311-1-git-send-email-tbingham@akamai.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2 1/9] net: Disable segmentation if checksumming
+ is not supported
+Date: Sun, 1 May 2016 19:16:12 -0700
+Message-ID: <CAKgT0Uc2xx2Z6VMxBRR5_LiyEVzhg1CS1reM14pc_VFa=moWhA@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
+	<20160429224308.12418.51424.stgit@ahduyck-xeon-server>
+	<CAJ3xEMhCHny00V0GAFH1a9NXj52q5M4B1Rmz+JMCT8YsK02vKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jason@zx2c4.com
-To: tbingham@akamai.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	"talal@mellanox.com" <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <michael.chan@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54191 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbcEBBtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 21:49:41 -0400
-In-Reply-To: <1461951023-14311-1-git-send-email-tbingham@akamai.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:33568 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752151AbcEBCQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2016 22:16:13 -0400
+Received: by mail-io0-f174.google.com with SMTP id f89so156406454ioi.0
+        for <netdev@vger.kernel.org>; Sun, 01 May 2016 19:16:13 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhCHny00V0GAFH1a9NXj52q5M4B1Rmz+JMCT8YsK02vKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tim Bingham <tbingham@akamai.com>
-Date: Fri, 29 Apr 2016 13:30:23 -0400
+On Sun, May 1, 2016 at 1:30 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Sat, Apr 30, 2016 at 1:43 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>> In the case of the mlx4 and mlx5 driver they do not support IPv6 checksum
+>> offload for tunnels.
+>
+> Alex,
+>
+> To clarify, when you say "not support IPv6 checksum for tunnels", you
+> refer to the offloading of the outer or inner checksum?
 
-> Prior to commit d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op
-> when !DEBUG") the implementation of net_dbg_ratelimited() was buggy
-> for both the DEBUG and CONFIG_DYNAMIC_DEBUG cases.
-> 
-> The bug was that net_ratelimit() was being called and, despite
-> returning true, nothing was being printed to the console. This
-> resulted in messages like the following -
-> 
-> "net_ratelimit: %d callbacks suppressed"
-> 
-> with no other output nearby.
-> 
-> After commit d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op when
-> !DEBUG") the bug is fixed for the DEBUG case. However, there's no
-> output at all for CONFIG_DYNAMIC_DEBUG case.
-> 
-> This patch restores debug output (if enabled) for the
-> CONFIG_DYNAMIC_DEBUG case.
-> 
-> Add a definition of net_dbg_ratelimited() for the CONFIG_DYNAMIC_DEBUG
-> case. The implementation takes care to check that dynamic debugging is
-> enabled before calling net_ratelimit().
-> 
-> Fixes: d92cff89a0c8 ("net_dbg_ratelimited: turn into no-op when !DEBUG")
-> Signed-off-by: Tim Bingham <tbingham@akamai.com>
+In the case of mlx4 it was an issue with both inner and outer due to
+IPv6 checksum.  The issue was that the feature was not exposed and yet
+the stack was attempting to make use of it in various ways.  The fixes
+that resolved the issues are in patches 1 and 4.  If we wanted to we
+could move those to net, but then it would be difficult to test the
+existing patches on the mlx4 until the net tree containing those
+patches was merged back in.
 
-Looks good, applied and queued up for -stable, thanks.
+> Still (me and I think also Tariq from our driver team) catching up on
+> the series, the primitives and conventions you are introducing using
+> and how this applies on mlx5. I saw that Saeed acked the the mlx5e
+> patches (7 and 8).
+
+The concept for all this is pretty simple.  What I am doing is
+restricting TSO so that we have a fixed size that is used for all
+outgoing frames.  Then we precompute the outer headers and use those
+values when performing GSO.  By doing this we can populate the UDP
+checksum field instead of forcing it to 0 which allows us to perform
+TSO for tunnels with outer checksums.
+
+> Specifically, the mlx4 patches are practically fixes so if they don't
+> land in 4.7 via net-next we can get them there through net, lets give
+> us the few more days needed to catch up from our side.
+
+Actually the mlx4 specific portion of these patches are not really
+fixes, they are enabling features.  Specifically IPv6 checksum, TSOv6,
+and TSO for VXLAN tunnels with outer checksums.  It is patches 1 and 4
+that contain the fix and it likely applies to more than just the mlx4
+driver as I believe there is a qlogic driver with a similar feature
+flag layout.  If we want we could recommend those patches for stable
+and they could probably be back ported into 4.6 after it is released
+because I don't see the urgency to push a fix in for something that
+has obviously been broken for quite some time now that likely nobody
+is ever testing.
+
+- Alex
