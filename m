@@ -1,58 +1,75 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net 1/2] RDS:TCP: Synchronize rds_tcp_accept_one with
- rds_send_xmit when resetting t_sock
-Date: Mon, 2 May 2016 12:37:15 -0400
-Message-ID: <20160502163715.GD20517@oracle.com>
-References: <cover.1462127059.git.sowmini.varadhan@oracle.com>
- <470ac585d014a6d8ea1600b8897bdc313e7c2431.1462127059.git.sowmini.varadhan@oracle.com>
- <7fac68dc-0ff5-36a5-6a3d-df802d8db82d@oracle.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v3 0/8] Fix Tunnel features and enable GSO partial
+ for several drivers
+Date: Mon, 02 May 2016 09:38:06 -0700
+Message-ID: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	davem@davemloft.net
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: talal@mellanox.com, netdev@vger.kernel.org,
+	michael.chan@broadcom.com, alexander.duyck@gmail.com,
+	davem@davemloft.net, galp@mellanox.com, ogerlitz@mellanox.com,
+	eranbe@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:47487 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754108AbcEBQhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:37:21 -0400
-Content-Disposition: inline
-In-Reply-To: <7fac68dc-0ff5-36a5-6a3d-df802d8db82d@oracle.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35186 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752688AbcEBQiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 12:38:08 -0400
+Received: by mail-pa0-f53.google.com with SMTP id iv1so76115953pac.2
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 09:38:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (05/02/16 09:20), Santosh Shilimkar wrote:
-> > 	rds_conn_transition(conn, RDS_CONN_DOWN, RDS_CONN_CONNECTING);
-> >+	if (rs_tcp->t_sock) {
-> >+		/* Need to resolve a duelling SYN between peers.
-> >+		 * We have an outstanding SYN to this peer, which may
-> >+		 * potentially have transitioned to the RDS_CONN_UP state,
-> >+		 * so we must quiesce any send threads before resetting
-> >+		 * c_transport_data.
-> >+		 */
-> >+		wait_event(conn->c_waitq,
-> >+			   !test_bit(RDS_IN_XMIT, &conn->c_flags));
-> Would it be good to check the return value of rds_conn_transition()
-> since if CONN is already UP above will fail and then send message
-> might again race and we will let message through even though passive
-> hasn't finished its connection.
+This patch series is meant to allow us to get the best performance possible
+for Mellanox ConnectX-3/4 and Broadcom NetXtreme-C/E adapters in terms of
+VXLAN and GRE tunnels.
 
-no, that was the original issue that I was running into, which needed
-commit 241b2719 - prior to that commit, if the conn was already UP,
-we'd end up doing a rds_conn_drop on a good connection, and both sides
-would end up in a pair of infinite 3WH loops. Even if we dont do
-a rds_conn_drop on the UP connection, we've just (before
-rds_tcp_accept_one) sent out a syn-ack on the incoming syn, and now
-need to RST that syn-ac.  The other side is going to receive the rst,
-and get confused about what to clean up (since there's already an UP
-connection going on).
+The first 3 patches address issues I found in regards to GSO_PARTIAL and
+TSO_MANGLEID.
 
-In short, when there is a duel, it's cleanest to have a deterministic
-arbitration- both sides use the numeric value of saddr and faddr to 
-figure out which side is active, which side is passive. (Thus the
-basis on the BGP router-id based model for 241b2719)
+The next 4 patches go through and enable GSO_PARTIAL for VXLAN tunnels that
+have an outer checksum enabled, and then enable IPv6 support where I can.
+One outstanding issue is that I wasn't able to get offloads working with
+outer IPv6 headers on mlx4.  However that wasn't a feature that was enabled
+before so it isn't technically a regression, however I believe Engineers
+from Mellanox said they would look into it since they thought it should be
+supported.
 
-FWIW, much of this is actually a corner case-  in practice, its not
-frequent to have syns crossing each other at "almost the same time".
+The last patch enables GSO_PARTIAL for VXLAN and GRE tunnels on the bnxt
+driver.  One piece of feedback I received on the patch was that the
+hardware has globally set IPv6 UDP tunnels to always have the checksum
+field computed.  I plan to work with Broadcom to get that addressed so that
+we only populate the checksum field if it was requested by the network
+stack.
 
---Sowmini
+v2: Rebased patches off of latest changes to the mlx4/mlx5 drivers.
+    Added bnxt driver patch as I received feedback on the RFC.
+v3: Moved 2 patches into series for net as they were generic fixes.
+    Added patch to disable GSO partial if frame is less than 2x size of MSS
+
+    There are outstanding issues as called out above that need to be
+    addressed, however they were present before these patches so it isn't
+    as if they introduce a regression.  In addition gains can be easily
+    seen so there should be no issue with applying the driver patches while
+    the IPv6 mlx4_en and bnxt issues are being researched.
+
+---
+
+Alexander Duyck (8):
+      gso: Do not perform partial GSO if number of partial segments is 1 or less
+      gso: Only allow GSO_PARTIAL if we can checksum the inner protocol
+      net: Fix netdev_fix_features so that TSO_MANGLEID is only available with TSO
+      net/mlx4_en: Add support for UDP tunnel segmentation with outer checksum offload
+      net/mlx4_en: Add support for inner IPv6 checksum offloads and TSO
+      net/mlx5e: Add support for UDP tunnel segmentation with outer checksum offload
+      net/mlx5e: Fix IPv6 tunnel checksum offload
+      bnxt: Add support for segmentation of tunnels with outer checksums
+
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |    9 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   38 +++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   15 +++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   10 ++++--
+ net/core/dev.c                                    |    4 ++
+ net/core/skbuff.c                                 |   11 ++++--
+ 6 files changed, 69 insertions(+), 18 deletions(-)
