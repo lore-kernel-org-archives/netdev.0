@@ -1,70 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: Fix uninitialized variable
-Date: Sun,  1 May 2016 17:06:12 -0700
-Message-ID: <1462147581-135254-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40e: PTP - avoid aggregate return warnings
+Date: Sun,  1 May 2016 17:06:13 -0700
+Message-ID: <1462147581-135254-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35057 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:63264 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751362AbcEBAG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752468AbcEBAG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 1 May 2016 20:06:27 -0400
 In-Reply-To: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-We have an uninitialized variable warning for valid_len for one case in
-validate_vf_mesg. To fix this, just initialize it to 0 at the top of the
-function and remove all of the now redundant assignments to 0 in the
-individual cases.
+Aggregate return warnings are when struct types are returned
+and must be copied to the lvalue with a struct copy by the compiler.
 
-Change-Id: Iacbd97f4c521ed8d662eef803a598d8707708cfd
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+This fixes warnings of type aggregate-return from gcc with W=2.
+
+Change-Id: I896b1bf514544bf0faeb458869d79914b9f1b168
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index a8a65e0..a534fe6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2356,7 +2356,7 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
- 				   u32 v_retval, u8 *msg, u16 msglen)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 565ca7c..a1b878a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -158,9 +158,10 @@ static int i40e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+ static int i40e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  {
- 	bool err_msg_format = false;
--	int valid_len;
-+	int valid_len = 0;
+ 	struct i40e_pf *pf = container_of(ptp, struct i40e_pf, ptp_caps);
+-	struct timespec64 now, then = ns_to_timespec64(delta);
++	struct timespec64 now, then;
+ 	unsigned long flags;
  
- 	/* Check if VF is disabled. */
- 	if (test_bit(I40E_VF_STAT_DISABLED, &vf->vf_states))
-@@ -2368,13 +2368,10 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
- 		valid_len = sizeof(struct i40e_virtchnl_version_info);
- 		break;
- 	case I40E_VIRTCHNL_OP_RESET_VF:
--		valid_len = 0;
- 		break;
- 	case I40E_VIRTCHNL_OP_GET_VF_RESOURCES:
- 		if (VF_IS_V11(vf))
- 			valid_len = sizeof(u32);
--		else
--			valid_len = 0;
- 		break;
- 	case I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE:
- 		valid_len = sizeof(struct i40e_virtchnl_txq_info);
-@@ -2489,7 +2486,6 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
- 		}
- 		break;
- 	case I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS:
--		valid_len = 0;
- 		break;
- 	case I40E_VIRTCHNL_OP_SET_RSS_HENA:
- 		valid_len = sizeof(struct i40e_virtchnl_rss_hena);
++	then = ns_to_timespec64(delta);
+ 	spin_lock_irqsave(&pf->tmreg_lock, flags);
+ 
+ 	i40e_ptp_read(pf, &now);
 -- 
 2.5.5
