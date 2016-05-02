@@ -1,128 +1,75 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCHv2 bluetooth-next 00/10] 6lowpan: introduce basic 6lowpan-nd
-Date: Mon, 2 May 2016 10:25:00 -0700
-Message-ID: <D212A5BF-A414-403B-A409-1F8C2D279883@holtmann.org>
-References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
-	Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>,
-	Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461140382-4784-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: VRF_DEVICE integration plan
+Date: Mon, 2 May 2016 11:43:46 -0600
+Message-ID: <572791D2.9050701@cumulusnetworks.com>
+References: <AT5PR84MB00652788CA3C3F63146F9C08CA610@AT5PR84MB0065.NAMPRD84.PROD.OUTLOOK.COM>
+ <571D5720.7000908@cumulusnetworks.com>
+ <CS1PR84MB0072AC62E9EBCC5A42E33952CA650@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kumara, Shantha (HP Networking)" <shantha.kumara@hpe.com>,
+	"Govindan Nair, Anoop" <anoop.g@hpe.com>
+To: "Elluru, Krishna Mohan" <elluru.kri.mohan@hpe.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:34033 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754224AbcEBRnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 13:43:49 -0400
+Received: by mail-io0-f179.google.com with SMTP id 190so169643458iow.1
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 10:43:49 -0700 (PDT)
+In-Reply-To: <CS1PR84MB0072AC62E9EBCC5A42E33952CA650@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 4/28/16 11:16 AM, Elluru, Krishna Mohan wrote:
+>
+> I posted a few bug fix patches a week or two ago. Not sure what the
+> status is with respect to 4.3 - 4.5 trees.
+>
+> MOHAN> Sure. Are those patches sent over netdev mailer list?
 
-> this patch series introduces a layer for IPv6 neighbour discovery. At first
-> it introduce the "ndisc_ops" to run a different handling for recv/send of
-> NA/NS messages. The use case for such ndisc operation is RFC 6775 [0].
-> Which describes a different neighbour discovery handling for 6LoWPAN networks.
-> 
-> I didn't implement RFC 6775 in this patch series, but introduce callback
-> structure for replace different functions in ndisc implementation might be
-> the right direction.
-> 
-> Another use case would be RFC 7400 [1] which describes a new option field to
-> getting capabilities of 6LoWPAN next header compression methods.
-> 
-> What I implemented is a necessary functionality to handle short address for
-> 802.15.4 6LoWPAN networks. The L2-Layer "802.15.4" can have two different
-> link-layer addresses which can be used mixed at the same time inside 802.15.4
-> networks. To deal with such behaviour in ndisc, it is defined at RFC 4944 [2].
-> The bad news is, that I saw different handling of such handling. What Linux
-> will do is to add two source/target address information option fields, each
-> with different length, if short address is valid (can also not be given).
-> Example:
-> 
-> - WPAN interface address settings
-> - extended addr (must always be there)
-> - short addr (0xfffe or 0xffff -> invalid)
-> 
-> Will add an extended addr to source/target address information option field.
-> If short addr is in some valid range, then both address will be added to
-> the option fields. Indicated are these different address types by the length
-> field (extended -> length=2, short -> length=1), according to [1].
-> 
-> The tested 6LoWPAN implementation (RIOT-OS) allows only one source/target
-> option field which is short XOR extended, otherwise it will be dropped.
-> There is some lack of information there [2] and I don't know how do deal with
-> it right, maybe we need to update the implementation there if it's really
-> wrong.
-> 
-> To save such information for each neighbour we use the already implemented
-> neighbour private data which some casting strategy for 6LoWPAN and 6LoWPAN
-> link-layer specific data e.g. 802.15.4 short address handling.
-> 
-> Additional I implemented to add 6CO to the is_useropt callback in case of
-> 6LoWPAN interface. The 6CO option will currently parsed in userspace which
-> are placed in RA-Messages.
-> 
-> The ndisc_ops are not finished yet, of course we need handling for RS messages
-> to place the 802.15.4 short address there as well and then also processing
-> of RA messages for the 802.15.4 SLLAO option field.
-> 
-> - Alex
-> 
-> [0] https://tools.ietf.org/html/rfc6775
-> [1] https://tools.ietf.org/html/rfc7400#section-3.3
-> [2] https://tools.ietf.org/html/rfc4944#section-8
-> 
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> 
-> changes since v2:
-> - replace #ifdef CONFIG_IPV6 to #if IS_ENABLED(...)
-> - replace #ifdef CONFIG_IEEE802154... to #if IS_ENABLED(...)
-> - add more #if IS_ENABLED(CONFIG_IPV6) in ndisc.h
-> 
-> Alexander Aring (10):
->  6lowpan: add private neighbour data
->  6lowpan: add 802.15.4 short addr slaac
->  6lowpan: remove ipv6 module request
->  ndisc: add addr_len parameter to ndisc_opt_addr_space
->  ndisc: add addr_len parameter to ndisc_opt_addr_data
->  ndisc: add addr_len parameter to ndisc_fill_addr_option
->  ipv6: introduce neighbour discovery ops
->  ipv6: export ndisc functions
->  6lowpan: introduce 6lowpan-nd
->  6lowpan: add support for 802.15.4 short addr handling
-> 
-> include/linux/netdevice.h     |   6 +-
-> include/net/6lowpan.h         |  24 ++
-> include/net/addrconf.h        |   3 +
-> include/net/ndisc.h           | 124 ++++++++-
-> net/6lowpan/6lowpan_i.h       |   2 +
-> net/6lowpan/Makefile          |   2 +-
-> net/6lowpan/core.c            |  50 +++-
-> net/6lowpan/iphc.c            | 167 +++++++++--
-> net/6lowpan/ndisc.c           | 633 ++++++++++++++++++++++++++++++++++++++++++
-> net/bluetooth/6lowpan.c       |   2 +
-> net/ieee802154/6lowpan/core.c |  12 +
-> net/ieee802154/6lowpan/tx.c   | 107 ++++---
-> net/ipv6/addrconf.c           |   7 +-
-> net/ipv6/ndisc.c              | 132 +++++----
-> net/ipv6/route.c              |   4 +-
-> 15 files changed, 1117 insertions(+), 158 deletions(-)
-> create mode 100644 net/6lowpan/ndisc.c
+yes. All patches for VRF - kernel and iproute2 - are sent to netdev.
 
-is there a chance that we get input into this patch set? I wonder also if it would be acceptable to take this through bluetooth-next or should it better go straight into net-next?
 
-Regards
+> MOHAN> sorry for not being clear. My ask was, to create a namespace w=
+e need cap_admin privileges currently, but your earlier mails suggested=
+ that we should be able to configure/create vrf device with net_admin c=
+apabilities. Is this support present /expected to be added soon?
 
-Marcel
+VRF is implemented using a netdevice. As such the ability to create one=
+=20
+requires the same permissions as creating any other netdevice=20
+(CAP_NET_ADMIN).
+
+
+>> 5. Is there a possibility of enabling secondary level lookup, to giv=
+e a leak functionality to parent route table from device local route ta=
+ble? I tested with veth pair, configured one as default gateway, it is =
+possible to forward traffic b/w the interfaces, looking for cleaner met=
+hod.
+>
+> Are you referring to inter-vrf routing? See slide 27
+> http://www.netdevconf.org/1.1/proceedings/slides/ahern-vrf-tutorial.p=
+df
+> Full lookup in VRF table
+> =E2=96=AA ip route add table vrf-red 1.1.1.0/24 dev vrf-green
+> MOHAN> In slide 27 above shows inter vrf routing, requirement is to u=
+se current namespace global route table if the ip lookup fails in vrf-d=
+evice routing table.
+> Reference: https://www.juniper.net/techpubs/en_US/junose16.1/topics/t=
+ask/configuration/mbgp-secondary-routing-table-search.html
+
+One solution is to create a VRF device that is associated with the main=
+=20
+table and then use an inter-vrf route to jump to the main table.
+
+VRF tables do need a default route (e.g., unreachable with high metric=20
+value) else the FIB lookups will proceed to the next table which is mos=
+t=20
+likely not what you want.
+
+
+David
