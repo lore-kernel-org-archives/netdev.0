@@ -1,121 +1,269 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: Change the default for VFs to be not privileged
-Date: Sun,  1 May 2016 17:06:07 -0700
-Message-ID: <1462147581-135254-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40evf: RSS Hash Option parameters
+Date: Sun,  1 May 2016 17:06:11 -0700
+Message-ID: <1462147581-135254-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35057 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:1786 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752216AbcEBAG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752463AbcEBAG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 1 May 2016 20:06:26 -0400
 In-Reply-To: <1462147581-135254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Make sure a VF is not trusted/privileged until its explicitly
-set for trust through the new NDO op interface.
+This patch syncs the VF code for the changes made to the PF for the RSS
+hash tuple settings.  Since the VF still cannot change the RSS hash
+settings, change the code to make this clear to the user.  Previously,
+the default settings were returned in this function. However, the
+default can be changed by the PF so this does not make sense anymore.
 
-Change-Id: I476385c290d2b4901d8fceb29de43546accdc499
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I085eaf005fc7978b440d2a1bf2b2dd7cadaff39b
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 201 +--------------------
+ 1 file changed, 2 insertions(+), 199 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index c226c2d..4c365d7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -860,7 +860,11 @@ static int i40e_alloc_vf_res(struct i40e_vf *vf)
- 	if (ret)
- 		goto error_alloc;
- 	total_queue_pairs += pf->vsi[vf->lan_vsi_idx]->alloc_queue_pairs;
--	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
-+
-+	if (vf->trusted)
-+		set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
-+	else
-+		clear_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 9f7657c..5a48ee0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -378,59 +378,6 @@ static int i40evf_set_coalesce(struct net_device *netdev,
+ }
  
- 	/* store the total qps number for the runtime
- 	 * VF req validation
-@@ -1847,15 +1851,17 @@ static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
- 		dev_err(&pf->pdev->dev, "invalid VF MAC addr %pM\n", macaddr);
- 		ret = I40E_ERR_INVALID_MAC_ADDR;
- 	} else if (vf->pf_set_mac && !is_multicast_ether_addr(macaddr) &&
-+		   !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) &&
- 		   !ether_addr_equal(macaddr, vf->default_lan_addr.addr)) {
- 		/* If the host VMM administrator has set the VF MAC address
- 		 * administratively via the ndo_set_vf_mac command then deny
- 		 * permission to the VF to add or delete unicast MAC addresses.
-+		 * Unless the VF is privileged and then it can do whatever.
- 		 * The VF may request to set the MAC address filter already
- 		 * assigned to it so do not return an error in that case.
- 		 */
- 		dev_err(&pf->pdev->dev,
--			"VF attempting to override administratively set MAC address\nPlease reload the VF driver to resume normal operation\n");
-+			"VF attempting to override administratively set MAC address, reload the VF driver to resume normal operation\n");
- 		ret = -EPERM;
- 	}
+ /**
+- * i40e_get_rss_hash_opts - Get RSS hash Input Set for each flow type
+- * @adapter: board private structure
+- * @cmd: ethtool rxnfc command
+- *
+- * Returns Success if the flow is supported, else Invalid Input.
+- **/
+-static int i40evf_get_rss_hash_opts(struct i40evf_adapter *adapter,
+-				    struct ethtool_rxnfc *cmd)
+-{
+-	/* We always hash on IP src and dest addresses */
+-	cmd->data = RXH_IP_SRC | RXH_IP_DST;
+-
+-	switch (cmd->flow_type) {
+-	case TCP_V4_FLOW:
+-		if (adapter->hena & BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP))
+-			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+-		break;
+-	case UDP_V4_FLOW:
+-		if (adapter->hena & BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_UDP))
+-			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+-		break;
+-
+-	case SCTP_V4_FLOW:
+-	case AH_ESP_V4_FLOW:
+-	case AH_V4_FLOW:
+-	case ESP_V4_FLOW:
+-	case IPV4_FLOW:
+-		break;
+-
+-	case TCP_V6_FLOW:
+-		if (adapter->hena & BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP))
+-			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+-		break;
+-	case UDP_V6_FLOW:
+-		if (adapter->hena & BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_UDP))
+-			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+-		break;
+-
+-	case SCTP_V6_FLOW:
+-	case AH_ESP_V6_FLOW:
+-	case AH_V6_FLOW:
+-	case ESP_V6_FLOW:
+-	case IPV6_FLOW:
+-		break;
+-	default:
+-		cmd->data = 0;
+-		return -EINVAL;
+-	}
+-
+-	return 0;
+-}
+-
+-/**
+  * i40evf_get_rxnfc - command to get RX flow classification rules
+  * @netdev: network interface device structure
+  * @cmd: ethtool rxnfc command
+@@ -450,150 +397,8 @@ static int i40evf_get_rxnfc(struct net_device *netdev,
+ 		ret = 0;
+ 		break;
+ 	case ETHTOOL_GRXFH:
+-		ret = i40evf_get_rss_hash_opts(adapter, cmd);
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	return ret;
+-}
+-
+-/**
+- * i40evf_set_rss_hash_opt - Enable/Disable flow types for RSS hash
+- * @adapter: board private structure
+- * @cmd: ethtool rxnfc command
+- *
+- * Returns Success if the flow input set is supported.
+- **/
+-static int i40evf_set_rss_hash_opt(struct i40evf_adapter *adapter,
+-				   struct ethtool_rxnfc *nfc)
+-{
+-	struct i40e_hw *hw = &adapter->hw;
+-	u32 flags = adapter->vf_res->vf_offload_flags;
+-
+-	/* RSS does not support anything other than hashing
+-	 * to queues on src and dst IPs and ports
+-	 */
+-	if (nfc->data & ~(RXH_IP_SRC | RXH_IP_DST |
+-			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
+-		return -EINVAL;
+-
+-	/* We need at least the IP SRC and DEST fields for hashing */
+-	if (!(nfc->data & RXH_IP_SRC) ||
+-	    !(nfc->data & RXH_IP_DST))
+-		return -EINVAL;
+-
+-	switch (nfc->flow_type) {
+-	case TCP_V4_FLOW:
+-		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+-			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
+-				adapter->hena |=
+-			   BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK);
+-
+-			adapter->hena |=
+-		 BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP);
+-		} else {
+-			return -EINVAL;
+-		}
+-		break;
+-	case TCP_V6_FLOW:
+-		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+-			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
+-				adapter->hena |=
+-			   BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN_NO_ACK);
+-
+-			adapter->hena |=
+-		 BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP);
+-		} else {
+-			return -EINVAL;
+-		}
+-		break;
+-	case UDP_V4_FLOW:
+-		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+-			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
+-				adapter->hena |=
+-			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
+-			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP);
+-
+-			adapter->hena |=
+-				(BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
+-				 BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV4));
+-		} else {
+-			return -EINVAL;
+-		}
+-		break;
+-	case UDP_V6_FLOW:
+-		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+-			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
+-				adapter->hena |=
+-			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
+-			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP);
+-
+-			adapter->hena |=
+-				(BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
+-				 BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV6));
+-		} else {
+-			return -EINVAL;
+-		}
+-		break;
+-	case AH_ESP_V4_FLOW:
+-	case AH_V4_FLOW:
+-	case ESP_V4_FLOW:
+-	case SCTP_V4_FLOW:
+-		if ((nfc->data & RXH_L4_B_0_1) ||
+-		    (nfc->data & RXH_L4_B_2_3))
+-			return -EINVAL;
+-		adapter->hena |= BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_OTHER);
+-		break;
+-	case AH_ESP_V6_FLOW:
+-	case AH_V6_FLOW:
+-	case ESP_V6_FLOW:
+-	case SCTP_V6_FLOW:
+-		if ((nfc->data & RXH_L4_B_0_1) ||
+-		    (nfc->data & RXH_L4_B_2_3))
+-			return -EINVAL;
+-		adapter->hena |= BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_OTHER);
+-		break;
+-	case IPV4_FLOW:
+-		adapter->hena |= (BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
+-				  BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV4));
+-		break;
+-	case IPV6_FLOW:
+-		adapter->hena |= (BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
+-				  BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV6));
+-		break;
+-	default:
+-		return -EINVAL;
+-	}
+-
+-	if (RSS_PF(adapter)) {
+-		adapter->aq_required = I40EVF_FLAG_AQ_SET_HENA;
+-	} else {
+-		wr32(hw, I40E_VFQF_HENA(0), (u32)adapter->hena);
+-		wr32(hw, I40E_VFQF_HENA(1), (u32)(adapter->hena >> 32));
+-		i40e_flush(hw);
+-	}
+-
+-	return 0;
+-}
+-
+-/**
+- * i40evf_set_rxnfc - command to set RX flow classification rules
+- * @netdev: network interface device structure
+- * @cmd: ethtool rxnfc command
+- *
+- * Returns Success if the command is supported.
+- **/
+-static int i40evf_set_rxnfc(struct net_device *netdev,
+-			    struct ethtool_rxnfc *cmd)
+-{
+-	struct i40evf_adapter *adapter = netdev_priv(netdev);
+-	int ret = -EOPNOTSUPP;
+-
+-	switch (cmd->cmd) {
+-	case ETHTOOL_SRXFH:
+-		ret = i40evf_set_rss_hash_opt(adapter, cmd);
++		netdev_info(netdev,
++			    "RSS hash info is not available to vf, use pf.\n");
+ 		break;
+ 	default:
+ 		break;
+@@ -601,7 +406,6 @@ static int i40evf_set_rxnfc(struct net_device *netdev,
+ 
  	return ret;
-@@ -1880,7 +1886,6 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	int i;
- 
- 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
- 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
- 		ret = I40E_ERR_PARAM;
- 		goto error_param;
-@@ -1954,7 +1959,6 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	int i;
- 
- 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
- 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
- 		ret = I40E_ERR_PARAM;
- 		goto error_param;
-@@ -2207,7 +2211,6 @@ static int i40e_vc_config_rss_key(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	i40e_status aq_ret = 0;
- 
- 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
- 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id) ||
- 	    (vrk->key_len != I40E_HKEY_ARRAY_SIZE)) {
- 		aq_ret = I40E_ERR_PARAM;
-@@ -2240,7 +2243,6 @@ static int i40e_vc_config_rss_lut(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	i40e_status aq_ret = 0;
- 
- 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
- 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id) ||
- 	    (vrl->lut_entries != I40E_VF_HLUT_ARRAY_SIZE)) {
- 		aq_ret = I40E_ERR_PARAM;
-@@ -2270,8 +2272,7 @@ static int i40e_vc_get_rss_hena(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	i40e_status aq_ret = 0;
- 	int len = 0;
- 
--	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states)) {
- 		aq_ret = I40E_ERR_PARAM;
- 		goto err;
- 	}
-@@ -2307,8 +2308,7 @@ static int i40e_vc_set_rss_hena(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	struct i40e_hw *hw = &pf->hw;
- 	i40e_status aq_ret = 0;
- 
--	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states)) {
- 		aq_ret = I40E_ERR_PARAM;
- 		goto err;
- 	}
+ }
+-
+ /**
+  * i40evf_get_channels: get the number of channels supported by the device
+  * @netdev: network interface device structure
+@@ -775,7 +579,6 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
+ 	.get_coalesce		= i40evf_get_coalesce,
+ 	.set_coalesce		= i40evf_set_coalesce,
+ 	.get_rxnfc		= i40evf_get_rxnfc,
+-	.set_rxnfc		= i40evf_set_rxnfc,
+ 	.get_rxfh_indir_size	= i40evf_get_rxfh_indir_size,
+ 	.get_rxfh		= i40evf_get_rxfh,
+ 	.set_rxfh		= i40evf_set_rxfh,
 -- 
 2.5.5
