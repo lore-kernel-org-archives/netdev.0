@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 03/12] net/mlx5: E-Switch, Replace vport spin lock with synchronize_irq()
-Date: Tue,  3 May 2016 17:13:55 +0300
-Message-ID: <1462284844-16926-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 08/12] net/mlx5: E-Switch, Enable/disable ACL tables on demand
+Date: Tue,  3 May 2016 17:14:00 +0300
+Message-ID: <1462284844-16926-9-git-send-email-saeedm@mellanox.com>
 References: <1462284844-16926-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,106 +10,113 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:48720 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:48782 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755452AbcECOO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 10:14:59 -0400
+	id S1756002AbcECOPH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 10:15:07 -0400
 In-Reply-To: <1462284844-16926-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Vport spin lock can be replaced with synchronize_irq() in the right
-place, this will remove the need of locking inside irq context.
-Locking in esw_enable_vport is not required since vport events are yet
-to be enabled, and at esw_disable_vport it is sufficient to
-synchronize_irq() to guarantee no further vport events handlers will be
-scheduled.
+Enable ingress/egress ACL tables only when we need to configure ACL
+rules.
+Disable ingress/egress ACL tables once all ACL rules are removed.
+
+All VF outgoing/incoming traffic need to go through the ingress/egress ACL
+tables.
+Adding/Removing these tables on demand will save unnecessary hops in the
+flow steering when the ACL tables are empty.
 
 Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 11 ++---------
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  5 -----
- 2 files changed, 2 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 33 ++++++++++-------------
+ 1 file changed, 14 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index dd06619..f01903a 100644
+index 17d093c..48c8919 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -713,7 +713,6 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
- 			     int enable_events)
- {
- 	struct mlx5_vport *vport = &esw->vports[vport_num];
--	unsigned long flags;
+@@ -728,7 +728,8 @@ static void esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
+ 	int table_size = 2;
+ 	int err = 0;
  
- 	WARN_ON(vport->enabled);
- 
-@@ -727,9 +726,7 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
- 	vport->enabled_events = enable_events;
- 	esw_vport_change_handler(&vport->vport_change_handler);
- 
--	spin_lock_irqsave(&vport->lock, flags);
- 	vport->enabled = true;
--	spin_unlock_irqrestore(&vport->lock, flags);
- 
- 	arm_vport_context_events_cmd(esw->dev, vport_num, enable_events);
- 
-@@ -761,17 +758,16 @@ static void esw_cleanup_vport(struct mlx5_eswitch *esw, u16 vport_num)
- static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
- {
- 	struct mlx5_vport *vport = &esw->vports[vport_num];
--	unsigned long flags;
- 
- 	if (!vport->enabled)
+-	if (!MLX5_CAP_ESW_EGRESS_ACL(dev, ft_support))
++	if (!MLX5_CAP_ESW_EGRESS_ACL(dev, ft_support) ||
++	    !IS_ERR_OR_NULL(vport->egress.acl))
  		return;
  
- 	esw_debug(esw->dev, "Disabling vport(%d)\n", vport_num);
- 	/* Mark this vport as disabled to discard new events */
--	spin_lock_irqsave(&vport->lock, flags);
- 	vport->enabled = false;
- 	vport->enabled_events = 0;
--	spin_unlock_irqrestore(&vport->lock, flags);
+ 	esw_debug(dev, "Create vport[%d] egress ACL log_max_size(%d)\n",
+@@ -841,7 +842,8 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
+ 	int table_size = 4;
+ 	int err = 0;
+ 
+-	if (!MLX5_CAP_ESW_INGRESS_ACL(dev, ft_support))
++	if (!MLX5_CAP_ESW_INGRESS_ACL(dev, ft_support) ||
++	    !IS_ERR_OR_NULL(vport->ingress.acl))
+ 		return;
+ 
+ 	esw_debug(dev, "Create vport[%d] ingress ACL log_max_size(%d)\n",
+@@ -989,13 +991,6 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 	int err = 0;
+ 	u8 *smac_v;
+ 
+-	if (IS_ERR_OR_NULL(vport->ingress.acl)) {
+-		esw_warn(esw->dev,
+-			 "vport[%d] configure ingress rules failed, ingress acl is not initialized!\n",
+-			 vport->vport);
+-		return -EPERM;
+-	}
+-
+ 	if (vport->spoofchk) {
+ 		err = mlx5_query_nic_vport_mac_address(esw->dev, vport->vport, smac);
+ 		if (err) {
+@@ -1015,8 +1010,12 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 
+ 	esw_vport_cleanup_ingress_rules(esw, vport);
+ 
+-	if (!vport->vlan && !vport->qos && !vport->spoofchk)
++	if (!vport->vlan && !vport->qos && !vport->spoofchk) {
++		esw_vport_disable_ingress_acl(esw, vport);
+ 		return 0;
++	}
 +
-+	synchronize_irq(mlx5_get_msix_vec(esw->dev, MLX5_EQ_VEC_ASYNC));
++	esw_vport_enable_ingress_acl(esw, vport);
  
- 	mlx5_modify_vport_admin_state(esw->dev,
- 				      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
-@@ -894,7 +890,6 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
- 		vport->dev = dev;
- 		INIT_WORK(&vport->vport_change_handler,
- 			  esw_vport_change_handler);
--		spin_lock_init(&vport->lock);
+ 	esw_debug(esw->dev,
+ 		  "vport[%d] configure ingress rules, vlan(%d) qos(%d)\n",
+@@ -1091,16 +1090,14 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 	u32 *match_c;
+ 	int err = 0;
+ 
+-	if (IS_ERR_OR_NULL(vport->egress.acl)) {
+-		esw_warn(esw->dev, "vport[%d] configure rgress rules failed, egress acl is not initialized!\n",
+-			 vport->vport);
+-		return -EPERM;
+-	}
+-
+ 	esw_vport_cleanup_egress_rules(esw, vport);
+ 
+-	if (!vport->vlan && !vport->qos)
++	if (!vport->vlan && !vport->qos) {
++		esw_vport_disable_egress_acl(esw, vport);
+ 		return 0;
++	}
++
++	esw_vport_enable_egress_acl(esw, vport);
+ 
+ 	esw_debug(esw->dev,
+ 		  "vport[%d] configure egress rules, vlan(%d) qos(%d)\n",
+@@ -1169,8 +1166,6 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 	esw_debug(esw->dev, "Enabling VPORT(%d)\n", vport_num);
+ 
+ 	if (vport_num) { /* Only VFs need ACLs for VST and spoofchk filtering */
+-		esw_vport_enable_ingress_acl(esw, vport);
+-		esw_vport_enable_egress_acl(esw, vport);
+ 		esw_vport_ingress_config(esw, vport);
+ 		esw_vport_egress_config(esw, vport);
  	}
- 
- 	esw->total_vports = total_vports;
-@@ -942,10 +937,8 @@ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe)
- 	}
- 
- 	vport = &esw->vports[vport_num];
--	spin_lock(&vport->lock);
- 	if (vport->enabled)
- 		queue_work(esw->work_queue, &vport->vport_change_handler);
--	spin_unlock(&vport->lock);
- }
- 
- /* Vport Administration */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 3416a42..ba43451 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -95,11 +95,6 @@ struct mlx5_vport {
- 	struct hlist_head       mc_list[MLX5_L2_ADDR_HASH_SIZE];
- 	struct work_struct      vport_change_handler;
- 
--	/* This spinlock protects access to vport data, between
--	 * "esw_vport_disable" and ongoing interrupt "mlx5_eswitch_vport_event"
--	 * once vport marked as disabled new interrupts are discarded.
--	 */
--	spinlock_t              lock; /* vport events sync */
- 	bool                    enabled;
- 	u16                     enabled_events;
- };
 -- 
 2.8.0
