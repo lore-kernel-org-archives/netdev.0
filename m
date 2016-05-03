@@ -1,80 +1,69 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH] net: fec: only clear a queue's work bit if the queue
- was emptied
-Date: Tue, 03 May 2016 16:42:46 +0200
-Message-ID: <1462286566.17746.1.camel@pengutronix.de>
-References: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Antonio Quartulli <a@unstable.cc>
+Subject: Re: pull request [net]: batman-adv 20160430
+Date: Tue, 3 May 2016 22:42:29 +0800
+Message-ID: <20160503144229.GD11201@prodigo.lan>
+References: <1462035963-28970-1-git-send-email-a@unstable.cc>
+ <20160503.001813.1881857417530292443.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fugang Duan <fugang.duan@nxp.com>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="WG0/bXtUnGTsWt66"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:56483 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932545AbcECOmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 10:42:50 -0400
-In-Reply-To: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from s2.neomailbox.net ([5.148.176.60]:6112 "EHLO s2.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932269AbcECOnC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 10:43:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20160503.001813.1881857417530292443.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag, den 03.05.2016, 16:38 +0200 schrieb Uwe Kleine-K=C3=B6nig:
-> In the receive path a queue's work bit was cleared unconditionally ev=
-en
-> if fec_enet_rx_queue only read out a part of the available packets fr=
-om
-> the hardware. This resulted in not reading any packets in the next na=
-pi
-> turn and so packets were delayed or lost.
->=20
-> The obvious fix is to only clear a queue's bit when the queue was
-> emptied.
->=20
-> Fixes: 4d494cdc92b3 ("net: fec: change data structure to support mult=
-iqueue")
-> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
 
-Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
+--WG0/bXtUnGTsWt66
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> ---
-> Hello,
->=20
-> I created this patch against net/master. If you think it's to late to
-> get it into 4.6 and it doesn't fit on net-next/master, just tell me a=
-nd
-> I will rebase.
->=20
-> Best regards
-> Uwe
->=20
->=20
->  drivers/net/ethernet/freescale/fec_main.c | 10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
-ethernet/freescale/fec_main.c
-> index 08243c2ff4b4..2a03857cca18 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1521,9 +1521,15 @@ fec_enet_rx(struct net_device *ndev, int budge=
-t)
->  	struct fec_enet_private *fep =3D netdev_priv(ndev);
-> =20
->  	for_each_set_bit(queue_id, &fep->work_rx, FEC_ENET_MAX_RX_QS) {
-> -		clear_bit(queue_id, &fep->work_rx);
-> -		pkt_received +=3D fec_enet_rx_queue(ndev,
-> +		int ret;
-> +
-> +		ret =3D fec_enet_rx_queue(ndev,
->  					budget - pkt_received, queue_id);
-> +
-> +		if (ret < budget - pkt_received)
-> +			clear_bit(queue_id, &fep->work_rx);
-> +
-> +		pkt_received +=3D ret;
->  	}
->  	return pkt_received;
->  }
+On Tue, May 03, 2016 at 12:18:13AM -0400, David Miller wrote:
+> Pulled, thanks Antonio.
+
+Thanks a lot David.
+
+We now have some patches for net-next that somewhat depend on the fixes you
+have recently pulled.
+
+Do you have any plan on merging net into net-next in the following days ?
+
+I am asking because I'd prefer to avoid you the hassle of dealing with the
+conflicts.
+
+Cheers,
+
+
+--=20
+Antonio Quartulli
+
+--WG0/bXtUnGTsWt66
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXKLjVAAoJEJ4aZjxxc6bKmNkQAMYDpaTdI0gWA7wqfsK6lCBJ
+DmXSdTJ51G7dSA5H6fW4rT7SUptkswIsZEucCgUWPF6mIW8AOPX/uEmHmDbN+a7z
+TFcaZqaOpRoQbGFeP0H/riZgEDxcLpqtVM60QiyKxrHF90HDdf+vhEhFU3ovUzKW
+AVfYIVoPM4jTcJynX0W/QPZMnCpYFC6/aCrb+c7wRUYfdu1X4f+xZ7zN7qPe8k0u
+Jo4JFvK+NtJF9HrHAIS00RtjEsxwWIUKFPbrDDvQsyPTJFD6IXSYWptUm1KgWp6z
+qhe6PeKwTbQgJYTHlQLGLZM3fae9WfKyos9HF5R1sDcborf39YeOT4m0gf5eBmz9
+Sb94phS7OQl1hpHVTuaE57WvHqcrMAi5RoTdfpOVrHKbOQsU/FZnSm7K3r6la647
+drxpS8JdLc6NC4edxpTLhPjo539lfy4fz2xGdiRGImVeu+XEz8MUmA1NnCYVSFgE
+qlRSuPAxyqv0byo1IVRPS5VE3H9C+XR7386U8ArxvrkPiTe76TCz+Ej53qLaf2h4
+j01ywgA33z1O5xGFO2Vd700uw+zfP3v4ZJylRW93BzMrnZ7/tW8rS1bt/ccG4xaj
+8evfapLui31J8QJeP0sOvy5kl+0Di92aYcFxtxiWoLrP6/07OkgSEM+UmotDbT0H
+KCt4qwUEb+jaI0nXrG9+
+=7Gh1
+-----END PGP SIGNATURE-----
+
+--WG0/bXtUnGTsWt66--
