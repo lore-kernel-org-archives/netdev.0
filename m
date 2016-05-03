@@ -1,14 +1,16 @@
 From: Greg Kroah-Hartman <greg@kroah.com>
 Subject: Re: [PATCH] fix infoleak in wireless
-Date: Tue, 3 May 2016 14:34:01 -0700
-Message-ID: <20160503213401.GB23469@kroah.com>
+Date: Tue, 3 May 2016 14:46:12 -0700
+Message-ID: <20160503214612.GA13289@kroah.com>
 References: <1462308013-6032-1-git-send-email-kjlu@gatech.edu>
  <1462308044.10444.19.camel@sipsolutions.net>
  <CABEk9YxqyBxnqOseJ3-d-aKxnREZBFt1z89nOjHf=DvNQy_hTw@mail.gmail.com>
  <20160503210052.GA23109@kroah.com>
  <CABEk9YwiqpP+Ahxax3AC7tbPcmpUQnrB-Nwsb4rixhVjcL4Crw@mail.gmail.com>
+ <20160503213401.GB23469@kroah.com>
+ <CABEk9YwmQt9bQb_KXgYRj=irq9-edtdOeANs7+Z4qZp1zmqpxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Johannes Berg <johannes@sipsolutions.net>, davem@davemloft.net,
 	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,55 +18,40 @@ Cc: Johannes Berg <johannes@sipsolutions.net>, davem@davemloft.net,
 To: Kangjie Lu <kangjielu@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CABEk9YwiqpP+Ahxax3AC7tbPcmpUQnrB-Nwsb4rixhVjcL4Crw@mail.gmail.com>
+In-Reply-To: <CABEk9YwmQt9bQb_KXgYRj=irq9-edtdOeANs7+Z4qZp1zmqpxg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 03, 2016 at 05:11:07PM -0400, Kangjie Lu wrote:
-> Opps, I did not notice the patch is not attached.
->=20
-> From 34a82a734388d07eb10f91770f86938e38f7575a Mon Sep 17 00:00:00 200=
-1
-> From: Kangjie Lu <kjlu@gatech.edu>
-> Date: Tue, 3 May 2016 14:15:18 -0400
-> Subject: [PATCH] fix infoleak in wireless
-> MIME-Version: 1.0
-> Content-Type: text/plain; charset=3DUTF-8
-> Content-Transfer-Encoding: 8bit
->=20
-> The 6-bytes array =E2=80=9Cmac_addr=E2=80=9D is not initialized in th=
-e dump_station
-> implementations of =E2=80=9Cdrivers/staging/wilc1000/wilc_wfi_cfgoper=
-ations.c=E2=80=9D
-> and =E2=80=9Cdrivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c=E2=80=9D=
-, so all 6
-> bytes may be leaked.
->=20
-> Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
-> ---
-> =C2=A0net/wireless/nl80211.c | 1 +
-> =C2=A01 file changed, 1 insertion(+)
->=20
-> diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-> index 056a730..2e92d14 100644
-> --- a/net/wireless/nl80211.c
-> +++ b/net/wireless/nl80211.c
-> @@ -3905,6 +3905,7 @@ static int nl80211_dump_station(struct sk_buff =
-*skb,
-> =C2=A0
-> =C2=A0 while (1) {
-> =C2=A0 memset(&sinfo, 0, sizeof(sinfo));
-> + eth_zero_addr(mac_addr);
-> =C2=A0 err =3D rdev_dump_station(rdev, wdev->netdev, sta_idx,
-> =C2=A0 mac_addr, &sinfo);
-> =C2=A0 if (err =3D=3D -ENOENT)
 
-Patch is corrupted :(
+A: http://en.wikipedia.org/wiki/Top_post
+Q: Were do I find info about this thing called top-posting?
+A: Because it messes up the order in which people normally read text.
+Q: Why is top-posting such a bad thing?
+A: Top-posting.
+Q: What is the most annoying thing in e-mail?
 
-Why not fix up the staging drivers, they are the real problem here,
-which is what I think the networking maintainers were telling you to do=
-=2E
+A: No.
+Q: Should I include quotations after my reply?
+
+http://daringfireball.net/2007/07/on_top
+
+On Tue, May 03, 2016 at 05:41:46PM -0400, Kangjie Lu wrote:
+> You are right. But wouldn't it be more general/better if we initializ=
+e the
+> allocation at very beginning?
+> To avoid information leaks, I think we are supposed to initialize all
+> allocations properly if=A0
+> we are not sure how they are used.
+
+But the networking maintainers told you to fix the broken drivers
+instead.  So please do that and send those patches to the correct
+developers and mailing lists.
+
+The fact that only 2 staging drivers got this wrong means that everyone
+knows how to use this api properly, so I agree with the maintainers
+here.
 
 thanks,
+
 
 greg k-h
