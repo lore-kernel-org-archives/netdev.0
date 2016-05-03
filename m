@@ -1,74 +1,68 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 05/15] batman-adv: use list_for_each_entry_safe
-Date: Wed,  4 May 2016 06:23:40 +0800
-Message-ID: <1462314230-16257-6-git-send-email-a@unstable.cc>
+Subject: [PATCH 08/15] batman-adv: Fix checkpatch warning about 'unsigned' type
+Date: Wed,  4 May 2016 06:23:43 +0800
+Message-ID: <1462314230-16257-9-git-send-email-a@unstable.cc>
 References: <1462314230-16257-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Geliang Tang <geliangtang@163.com>,
+	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:11477 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:2733 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756754AbcECWYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 18:24:44 -0400
+	id S1756786AbcECWYt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 18:24:49 -0400
 In-Reply-To: <1462314230-16257-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geliang Tang <geliangtang@163.com>
+From: Sven Eckelmann <sven@narfation.org>
 
-Use list_for_each_entry_safe() instead of list_for_each_safe() to
-simplify the code.
+checkpatch.pl warns about the use of 'unsigned' as a short form for
+'unsigned int'.
 
-Signed-off-by: Geliang Tang <geliangtang@163.com>
-Acked-by: Antonio Quartulli <a@unstable.cc>
-Reviewed-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/icmp_socket.c | 22 +++++++++-------------
- 1 file changed, 9 insertions(+), 13 deletions(-)
+ net/batman-adv/fragmentation.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/batman-adv/icmp_socket.c b/net/batman-adv/icmp_socket.c
-index 14d0013b387e..8a5889d134bc 100644
---- a/net/batman-adv/icmp_socket.c
-+++ b/net/batman-adv/icmp_socket.c
-@@ -104,25 +104,21 @@ static int batadv_socket_open(struct inode *inode, struct file *file)
- 
- static int batadv_socket_release(struct inode *inode, struct file *file)
+diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
+index e6956d0746a2..65536db1bff7 100644
+--- a/net/batman-adv/fragmentation.c
++++ b/net/batman-adv/fragmentation.c
+@@ -407,8 +407,8 @@ static struct sk_buff *batadv_frag_create(struct sk_buff *skb,
+ 					  unsigned int mtu)
  {
--	struct batadv_socket_client *socket_client = file->private_data;
--	struct batadv_socket_packet *socket_packet;
--	struct list_head *list_pos, *list_pos_tmp;
-+	struct batadv_socket_client *client = file->private_data;
-+	struct batadv_socket_packet *packet, *tmp;
+ 	struct sk_buff *skb_fragment;
+-	unsigned header_size = sizeof(*frag_head);
+-	unsigned fragment_size = mtu - header_size;
++	unsigned int header_size = sizeof(*frag_head);
++	unsigned int fragment_size = mtu - header_size;
  
--	spin_lock_bh(&socket_client->lock);
-+	spin_lock_bh(&client->lock);
+ 	skb_fragment = netdev_alloc_skb(NULL, mtu + ETH_HLEN);
+ 	if (!skb_fragment)
+@@ -444,15 +444,15 @@ bool batadv_frag_send_packet(struct sk_buff *skb,
+ 	struct batadv_hard_iface *primary_if = NULL;
+ 	struct batadv_frag_packet frag_header;
+ 	struct sk_buff *skb_fragment;
+-	unsigned mtu = neigh_node->if_incoming->net_dev->mtu;
+-	unsigned header_size = sizeof(frag_header);
+-	unsigned max_fragment_size, max_packet_size;
++	unsigned int mtu = neigh_node->if_incoming->net_dev->mtu;
++	unsigned int header_size = sizeof(frag_header);
++	unsigned int max_fragment_size, max_packet_size;
+ 	bool ret = false;
  
- 	/* for all packets in the queue ... */
--	list_for_each_safe(list_pos, list_pos_tmp, &socket_client->queue_list) {
--		socket_packet = list_entry(list_pos,
--					   struct batadv_socket_packet, list);
--
--		list_del(list_pos);
--		kfree(socket_packet);
-+	list_for_each_entry_safe(packet, tmp, &client->queue_list, list) {
-+		list_del(&packet->list);
-+		kfree(packet);
- 	}
+ 	/* To avoid merge and refragmentation at next-hops we never send
+ 	 * fragments larger than BATADV_FRAG_MAX_FRAG_SIZE
+ 	 */
+-	mtu = min_t(unsigned, mtu, BATADV_FRAG_MAX_FRAG_SIZE);
++	mtu = min_t(unsigned int, mtu, BATADV_FRAG_MAX_FRAG_SIZE);
+ 	max_fragment_size = mtu - header_size;
+ 	max_packet_size = max_fragment_size * BATADV_FRAG_MAX_FRAGMENTS;
  
--	batadv_socket_client_hash[socket_client->index] = NULL;
--	spin_unlock_bh(&socket_client->lock);
-+	batadv_socket_client_hash[client->index] = NULL;
-+	spin_unlock_bh(&client->lock);
- 
--	kfree(socket_client);
-+	kfree(client);
- 	module_put(THIS_MODULE);
- 
- 	return 0;
 -- 
 2.8.2
