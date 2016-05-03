@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: xgene: constify xgene_cle_ops structure
-Date: Tue, 03 May 2016 13:03:16 -0400 (EDT)
-Message-ID: <20160503.130316.1835415809247008167.davem@davemloft.net>
-References: <1462106189-14277-1-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH 2/4] net: ethernet: ucc: move to new ethtool api
+ {get|set}_link_ksettings
+Date: Tue, 03 May 2016 13:04:09 -0400 (EDT)
+Message-ID: <20160503.130409.602030242618132160.davem@davemloft.net>
+References: <1462115291-11372-1-git-send-email-tremyfr@gmail.com>
+	<1462115291-11372-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kernel-janitors@vger.kernel.org,
-	kchudgar@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
+Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	claudiu.manoil@freescale.com, leoli@freescale.com,
+	treding@nvidia.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462106189-14277-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1462115291-11372-2-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun,  1 May 2016 14:36:28 +0200
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sun,  1 May 2016 17:08:09 +0200
 
-> The xgene_cle_ops structure is never modified, so declare it as const.
+> The ethtool api {get|set}_settings is deprecated.
+> We move the ucc driver to new api {get|set}_link_ksettings.
 > 
-> Done with the help of Coccinelle.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
 Applied.
