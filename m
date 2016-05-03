@@ -1,122 +1,89 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 08/12] net/mlx5: E-Switch, Enable/disable ACL tables on demand
-Date: Tue,  3 May 2016 17:14:00 +0300
-Message-ID: <1462284844-16926-9-git-send-email-saeedm@mellanox.com>
-References: <1462284844-16926-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Mohamad Haj Yahia <mohamad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Amr Bekhit <amrbekhit@gmail.com>
+Subject: Re: Davicom DM9162 PHY supported in the kernel?
+Date: Tue, 3 May 2016 15:38:17 +0100
+Message-ID: <CAOLz05pidfdJXR58a+xjvp02EyPhUJnz9odpM-VFtkCQ2bhtNQ@mail.gmail.com>
+References: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
+ <5717C45F.30205@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, andrew@lunn.ch
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:48782 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756002AbcECOPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 10:15:07 -0400
-In-Reply-To: <1462284844-16926-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:34127 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932269AbcECOii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 10:38:38 -0400
+Received: by mail-wm0-f54.google.com with SMTP id v200so28973335wmv.1
+        for <netdev@vger.kernel.org>; Tue, 03 May 2016 07:38:37 -0700 (PDT)
+In-Reply-To: <5717C45F.30205@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mohamad Haj Yahia <mohamad@mellanox.com>
+Hi Florian,
 
-Enable ingress/egress ACL tables only when we need to configure ACL
-rules.
-Disable ingress/egress ACL tables once all ACL rules are removed.
+Thanks for your response. I had look through the bootup messages on my
+Linux board and saw the following:
 
-All VF outgoing/incoming traffic need to go through the ingress/egress ACL
-tables.
-Adding/Removing these tables on demand will save unnecessary hops in the
-flow steering when the ACL tables are empty.
+[    5.398437] libphy: MACB_mii_bus: probed
+[    5.484375] macb f802c000.ethernet eth0: Cadence MACB rev
+0x0001010c at 0xf802c000 irq 39 (70:b3:d5:ba:b8:90)
+[    5.492187] macb f802c000.ethernet eth0: attached PHY driver
+[Davicom DM9161A] (mii_bus:phy_addr=f802c000.etherne:00, irq=-1)
 
-Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 33 ++++++++++-------------
- 1 file changed, 14 insertions(+), 19 deletions(-)
+So it appears that the DM9161A driver is already being loaded for the
+DM9162. I checked through the datasheet for the DM9162 and I confirmed
+that the OUI was indeed the same as the one for the DM9161A. I can
+only imagine that the company would do that because they are
+compatible with each other. They are pin to pin compatible as well. As
+you said, it's likely the existing PHY driver is compatible.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index 17d093c..48c8919 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -728,7 +728,8 @@ static void esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
- 	int table_size = 2;
- 	int err = 0;
- 
--	if (!MLX5_CAP_ESW_EGRESS_ACL(dev, ft_support))
-+	if (!MLX5_CAP_ESW_EGRESS_ACL(dev, ft_support) ||
-+	    !IS_ERR_OR_NULL(vport->egress.acl))
- 		return;
- 
- 	esw_debug(dev, "Create vport[%d] egress ACL log_max_size(%d)\n",
-@@ -841,7 +842,8 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
- 	int table_size = 4;
- 	int err = 0;
- 
--	if (!MLX5_CAP_ESW_INGRESS_ACL(dev, ft_support))
-+	if (!MLX5_CAP_ESW_INGRESS_ACL(dev, ft_support) ||
-+	    !IS_ERR_OR_NULL(vport->ingress.acl))
- 		return;
- 
- 	esw_debug(dev, "Create vport[%d] ingress ACL log_max_size(%d)\n",
-@@ -989,13 +991,6 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
- 	int err = 0;
- 	u8 *smac_v;
- 
--	if (IS_ERR_OR_NULL(vport->ingress.acl)) {
--		esw_warn(esw->dev,
--			 "vport[%d] configure ingress rules failed, ingress acl is not initialized!\n",
--			 vport->vport);
--		return -EPERM;
--	}
--
- 	if (vport->spoofchk) {
- 		err = mlx5_query_nic_vport_mac_address(esw->dev, vport->vport, smac);
- 		if (err) {
-@@ -1015,8 +1010,12 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
- 
- 	esw_vport_cleanup_ingress_rules(esw, vport);
- 
--	if (!vport->vlan && !vport->qos && !vport->spoofchk)
-+	if (!vport->vlan && !vport->qos && !vport->spoofchk) {
-+		esw_vport_disable_ingress_acl(esw, vport);
- 		return 0;
-+	}
-+
-+	esw_vport_enable_ingress_acl(esw, vport);
- 
- 	esw_debug(esw->dev,
- 		  "vport[%d] configure ingress rules, vlan(%d) qos(%d)\n",
-@@ -1091,16 +1090,14 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
- 	u32 *match_c;
- 	int err = 0;
- 
--	if (IS_ERR_OR_NULL(vport->egress.acl)) {
--		esw_warn(esw->dev, "vport[%d] configure rgress rules failed, egress acl is not initialized!\n",
--			 vport->vport);
--		return -EPERM;
--	}
--
- 	esw_vport_cleanup_egress_rules(esw, vport);
- 
--	if (!vport->vlan && !vport->qos)
-+	if (!vport->vlan && !vport->qos) {
-+		esw_vport_disable_egress_acl(esw, vport);
- 		return 0;
-+	}
-+
-+	esw_vport_enable_egress_acl(esw, vport);
- 
- 	esw_debug(esw->dev,
- 		  "vport[%d] configure egress rules, vlan(%d) qos(%d)\n",
-@@ -1169,8 +1166,6 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
- 	esw_debug(esw->dev, "Enabling VPORT(%d)\n", vport_num);
- 
- 	if (vport_num) { /* Only VFs need ACLs for VST and spoofchk filtering */
--		esw_vport_enable_ingress_acl(esw, vport);
--		esw_vport_enable_egress_acl(esw, vport);
- 		esw_vport_ingress_config(esw, vport);
- 		esw_vport_egress_config(esw, vport);
- 	}
--- 
-2.8.0
+The reason why I suspected the PHY is because I have an embedded
+system where I cannot seem to get any ethernet packets out from (see:
+http://www.linuxquestions.org/questions/linux-embedded-and-single-board-computer-78/no-response-to-dhcp-discover-packets-sent-on-eth0-4175577259/).
+One thing that was suggested to me was whether there was a problem
+with the link between the MAC and PHY, which is what lead me to look
+at the PHY drivers in Linux and hence this question.
+
+Any ideas as to why I can't get any packets out? Is there a way for me
+to test whether there is an issue between the MAC and PHY?
+
+Thanks,
+
+Amr
+
+
+On 20 April 2016 at 19:03, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> Hi,
+>
+> On 20/04/16 08:21, Amr Bekhit wrote:
+>> Hello,
+>>
+>> I'm using an embedded Linux board based on an AT91SAM9X25 that uses the
+>> Davicom DM9162IEP PHY chip. I'm struggling to get packets out on the
+>> wire and I'm suspecting that I might have an issue between the AT91 MAC
+>> and the PHY chip. I've looked through the kernel config options and the
+>> kernel already has compiled-in support for the Davicom PHYs, however I
+>> noticed that according to the help text, only the dm9161e and dm9131
+>> chips are supported, which may indicate why my ethernet isn't working. I
+>> was wondering whether the DM9162 is backwards compatible with the
+>> existing driver? I'm currently using the mainline kernel 4.3. (p.s. I
+>> know the hardware works fine since I have no problem transferring files
+>> using tftp via u-boot).
+>
+> Well, u-boot is a very simplistic networking stack, there could be tons
+> of issues that get under the radar because it cannot report them
+> properly, but let's assume it works so you have something to compare
+> against.
+>
+> The DM9162 should be very similar to the DM9161, so the first thing
+> might be trying to add the PHY ID (32-bits OUI) to the matching table in
+> drivers/net/phy/davicom.c, and make it configure the PHY through
+> dm9161_config_init() since that looks at the PHY interface (MII, RMII
+> etc.) and does a bit of configuration here.
+>
+> Right now, chances are that you are running with the Generic PHY driver
+> which has no clue about Davicom specific programming (if any). There
+> could also be board-level fixups required (adjusting trace lengths, if
+> you are using a RGMII interface for instance), etc.
+> --
+> Florian
