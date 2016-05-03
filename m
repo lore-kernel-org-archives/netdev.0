@@ -1,178 +1,152 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 2/5] drivers: replace dev->trans_start accesses with dev_trans_start
-Date: Tue,  3 May 2016 16:30:59 +0200
-Message-ID: <1462285862-30946-3-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next 1/5] dmfe: kill DEVICE define
+Date: Tue,  3 May 2016 16:30:58 +0200
+Message-ID: <1462285862-30946-2-git-send-email-fw@strlen.de>
 References: <1462285862-30946-1-git-send-email-fw@strlen.de>
 Cc: linux-kernel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	linux-rdma@vger.kernel.org
+	linux-parisc@vger.kernel.org
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1462285862-30946-1-git-send-email-fw@strlen.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-a trans_start struct member exists twice:
-- in struct net_device (legacy)
-- in struct netdev_queue
+use net_device directly. Compile tested, objdiff shows no changes.
 
-Instead of open-coding dev->trans_start usage to obtain the current
-trans_start value, use dev_trans_start() instead.
-
-This is not exactly the same, as dev_trans_start also considers
-the trans_start values of the netdev queues owned by the device
-and provides the most recent one.
-
-For legacy devices this doesn't matter as dev_trans_start can cope
-with netdev trans_start values of 0 (they are ignored).
-
-This is a prerequisite to eventual removal of dev->trans_start.
-
-Cc: linux-rdma@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- Checkpatch complains about Lines > 80 but I find line break more ugly.
+ drivers/net/ethernet/dec/tulip/dmfe.c | 39 ++++++++++++++++-------------------
+ 1 file changed, 18 insertions(+), 21 deletions(-)
 
- drivers/infiniband/ulp/ipoib/ipoib_main.c              | 2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c             | 2 +-
- drivers/net/ethernet/intel/igb/igb_main.c              | 2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c          | 2 +-
- drivers/net/ethernet/microchip/encx24j600.c            | 2 +-
- drivers/net/ethernet/qualcomm/qca_spi.c                | 2 +-
- drivers/net/fjes/fjes_main.c                           | 2 +-
- drivers/net/hamradio/mkiss.c                           | 2 +-
- drivers/staging/rtl8192e/rtllib_softmac.c              | 2 +-
- drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c | 2 +-
- 10 files changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 80807d6..b940ef1 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -1036,7 +1036,7 @@ static void ipoib_timeout(struct net_device *dev)
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
+index afd8e78..dd1c815 100644
+--- a/drivers/net/ethernet/dec/tulip/dmfe.c
++++ b/drivers/net/ethernet/dec/tulip/dmfe.c
+@@ -192,9 +192,6 @@
+ 	(__CHK_IO_SIZE(((pci_dev)->device << 16) | (pci_dev)->vendor, \
+ 	(pci_dev)->revision))
  
- 	ipoib_warn(priv, "transmit timeout: latency %d msecs\n",
--		   jiffies_to_msecs(jiffies - dev->trans_start));
-+		   jiffies_to_msecs(jiffies - dev_trans_start(dev)));
- 	ipoib_warn(priv, "queue stopped %d, tx_head %u, tx_tail %u\n",
- 		   netif_queue_stopped(dev),
- 		   priv->tx_head, priv->tx_tail);
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index a7f16c3..269087c 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -242,7 +242,7 @@ static void e1000e_dump(struct e1000_adapter *adapter)
- 		dev_info(&adapter->pdev->dev, "Net device Info\n");
- 		pr_info("Device Name     state            trans_start      last_rx\n");
- 		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
--			netdev->state, netdev->trans_start, netdev->last_rx);
-+			netdev->state, dev_trans_start(netdev), netdev->last_rx);
- 	}
+-/* Sten Check */
+-#define DEVICE net_device
+-
+ /* Structure/enum declaration ------------------------------- */
+ struct tx_desc {
+         __le32 tdes0, tdes1, tdes2, tdes3; /* Data for the card */
+@@ -313,10 +310,10 @@ static u8 SF_mode;		/* Special Function: 1:VLAN, 2:RX Flow Control
  
- 	/* Print Registers */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8e96c35..7460bdb 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -383,7 +383,7 @@ static void igb_dump(struct igb_adapter *adapter)
- 		dev_info(&adapter->pdev->dev, "Net device Info\n");
- 		pr_info("Device Name     state            trans_start      last_rx\n");
- 		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
--			netdev->state, netdev->trans_start, netdev->last_rx);
-+			netdev->state, dev_trans_start(netdev), netdev->last_rx);
- 	}
  
- 	/* Print Registers */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0ef4a15..18dcfc5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -608,7 +608,7 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
- 		pr_info("%-15s %016lX %016lX %016lX\n",
- 			netdev->name,
- 			netdev->state,
--			netdev->trans_start,
-+			dev_trans_start(netdev),
- 			netdev->last_rx);
- 	}
+ /* function declaration ------------------------------------- */
+-static int dmfe_open(struct DEVICE *);
+-static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
+-static int dmfe_stop(struct DEVICE *);
+-static void dmfe_set_filter_mode(struct DEVICE *);
++static int dmfe_open(struct net_device *);
++static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct net_device *);
++static int dmfe_stop(struct net_device *);
++static void dmfe_set_filter_mode(struct net_device *);
+ static const struct ethtool_ops netdev_ethtool_ops;
+ static u16 read_srom_word(void __iomem *, int);
+ static irqreturn_t dmfe_interrupt(int , void *);
+@@ -326,8 +323,8 @@ static void poll_dmfe (struct net_device *dev);
+ static void dmfe_descriptor_init(struct net_device *);
+ static void allocate_rx_buffer(struct net_device *);
+ static void update_cr6(u32, void __iomem *);
+-static void send_filter_frame(struct DEVICE *);
+-static void dm9132_id_table(struct DEVICE *);
++static void send_filter_frame(struct net_device *);
++static void dm9132_id_table(struct net_device *);
+ static u16 dmfe_phy_read(void __iomem *, u8, u8, u32);
+ static void dmfe_phy_write(void __iomem *, u8, u8, u16, u32);
+ static void dmfe_phy_write_1bit(void __iomem *, u32);
+@@ -336,12 +333,12 @@ static u8 dmfe_sense_speed(struct dmfe_board_info *);
+ static void dmfe_process_mode(struct dmfe_board_info *);
+ static void dmfe_timer(unsigned long);
+ static inline u32 cal_CRC(unsigned char *, unsigned int, u8);
+-static void dmfe_rx_packet(struct DEVICE *, struct dmfe_board_info *);
+-static void dmfe_free_tx_pkt(struct DEVICE *, struct dmfe_board_info *);
++static void dmfe_rx_packet(struct net_device *, struct dmfe_board_info *);
++static void dmfe_free_tx_pkt(struct net_device *, struct dmfe_board_info *);
+ static void dmfe_reuse_skb(struct dmfe_board_info *, struct sk_buff *);
+-static void dmfe_dynamic_reset(struct DEVICE *);
++static void dmfe_dynamic_reset(struct net_device *);
+ static void dmfe_free_rxbuffer(struct dmfe_board_info *);
+-static void dmfe_init_dm910x(struct DEVICE *);
++static void dmfe_init_dm910x(struct net_device *);
+ static void dmfe_parse_srom(struct dmfe_board_info *);
+ static void dmfe_program_DM9801(struct dmfe_board_info *, int);
+ static void dmfe_program_DM9802(struct dmfe_board_info *);
+@@ -558,7 +555,7 @@ static void dmfe_remove_one(struct pci_dev *pdev)
+  *	The interface is opened whenever "ifconfig" actives it.
+  */
  
-diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/ethernet/microchip/encx24j600.c
-index 7df3183..707283b 100644
---- a/drivers/net/ethernet/microchip/encx24j600.c
-+++ b/drivers/net/ethernet/microchip/encx24j600.c
-@@ -890,7 +890,7 @@ static void encx24j600_tx_timeout(struct net_device *dev)
- 	struct encx24j600_priv *priv = netdev_priv(dev);
+-static int dmfe_open(struct DEVICE *dev)
++static int dmfe_open(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	const int irq = db->pdev->irq;
+@@ -617,7 +614,7 @@ static int dmfe_open(struct DEVICE *dev)
+  *	Enable Tx/Rx machine
+  */
  
- 	netif_err(priv, tx_err, dev, "TX timeout at %ld, latency %ld\n",
--		  jiffies, jiffies - dev->trans_start);
-+		  jiffies, jiffies - dev_trans_start(dev));
+-static void dmfe_init_dm910x(struct DEVICE *dev)
++static void dmfe_init_dm910x(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -684,7 +681,7 @@ static void dmfe_init_dm910x(struct DEVICE *dev)
+  */
  
- 	dev->stats.tx_errors++;
- 	netif_wake_queue(dev);
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index 1ef0393..82f3c88 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -734,7 +734,7 @@ qcaspi_netdev_tx_timeout(struct net_device *dev)
- 	struct qcaspi *qca = netdev_priv(dev);
+ static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
+-					 struct DEVICE *dev)
++					 struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -754,7 +751,7 @@ static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
+  *	The interface is stopped when it is brought.
+  */
  
- 	netdev_info(qca->net_dev, "Transmit timeout at %ld, latency %ld\n",
--		    jiffies, jiffies - dev->trans_start);
-+		    jiffies, jiffies - dev_trans_start(dev));
- 	qca->net_dev->stats.tx_errors++;
- 	/* Trigger tx queue flush and QCA7000 reset */
- 	qca->sync = QCASPI_SYNC_UNKNOWN;
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index bb7e903..7ad3d04 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -471,7 +471,7 @@ static void fjes_tx_stall_task(struct work_struct *work)
- 	int i;
+-static int dmfe_stop(struct DEVICE *dev)
++static int dmfe_stop(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -798,7 +795,7 @@ static int dmfe_stop(struct DEVICE *dev)
  
- 	if (((long)jiffies -
--		(long)(netdev->trans_start)) > FJES_TX_TX_STALL_TIMEOUT) {
-+		dev_trans_start(netdev)) > FJES_TX_TX_STALL_TIMEOUT) {
- 		netif_wake_queue(netdev);
- 		return;
- 	}
-diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-index 85828f1..c685937 100644
---- a/drivers/net/hamradio/mkiss.c
-+++ b/drivers/net/hamradio/mkiss.c
-@@ -542,7 +542,7 @@ static netdev_tx_t ax_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 * May be we must check transmitter timeout here ?
- 		 *      14 Oct 1994 Dmitry Gorodchanin.
- 		 */
--		if (time_before(jiffies, dev->trans_start + 20 * HZ)) {
-+		if (time_before(jiffies, dev_trans_start(dev) + 20 * HZ)) {
- 			/* 20 sec timeout not reached */
- 			return NETDEV_TX_BUSY;
- 		}
-diff --git a/drivers/staging/rtl8192e/rtllib_softmac.c b/drivers/staging/rtl8192e/rtllib_softmac.c
-index cfab715..62154e3 100644
---- a/drivers/staging/rtl8192e/rtllib_softmac.c
-+++ b/drivers/staging/rtl8192e/rtllib_softmac.c
-@@ -1991,7 +1991,7 @@ static short rtllib_sta_ps_sleep(struct rtllib_device *ieee, u64 *time)
- 		return 2;
+ static irqreturn_t dmfe_interrupt(int irq, void *dev_id)
+ {
+-	struct DEVICE *dev = dev_id;
++	struct net_device *dev = dev_id;
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+ 	unsigned long flags;
+@@ -879,7 +876,7 @@ static void poll_dmfe (struct net_device *dev)
+  *	Free TX resource after TX complete
+  */
  
- 	if (!time_after(jiffies,
--			ieee->dev->trans_start + msecs_to_jiffies(timeout)))
-+			dev_trans_start(ieee->dev) + msecs_to_jiffies(timeout)))
- 		return 0;
- 	if (!time_after(jiffies,
- 			ieee->last_rx_ps_time + msecs_to_jiffies(timeout)))
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-index ae1274c..de71450 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-@@ -1737,7 +1737,7 @@ static short ieee80211_sta_ps_sleep(struct ieee80211_device *ieee, u32 *time_h,
- 		return 2;
+-static void dmfe_free_tx_pkt(struct DEVICE *dev, struct dmfe_board_info * db)
++static void dmfe_free_tx_pkt(struct net_device *dev, struct dmfe_board_info *db)
+ {
+ 	struct tx_desc *txptr;
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -961,7 +958,7 @@ static inline u32 cal_CRC(unsigned char * Data, unsigned int Len, u8 flag)
+  *	Receive the come packet and pass to upper layer
+  */
  
- 	if(!time_after(jiffies,
--		       ieee->dev->trans_start + msecs_to_jiffies(timeout)))
-+		       dev_trans_start(ieee->dev) + msecs_to_jiffies(timeout)))
- 		return 0;
+-static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
++static void dmfe_rx_packet(struct net_device *dev, struct dmfe_board_info *db)
+ {
+ 	struct rx_desc *rxptr;
+ 	struct sk_buff *skb, *newskb;
+@@ -1052,7 +1049,7 @@ static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
+  * Set DM910X multicast address
+  */
  
- 	if(!time_after(jiffies,
+-static void dmfe_set_filter_mode(struct DEVICE * dev)
++static void dmfe_set_filter_mode(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	unsigned long flags;
 -- 
 2.7.3
