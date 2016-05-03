@@ -1,57 +1,33 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH net-next 0/4] net: hns: update DT properties according to
- Rob's comments
-Date: Tue, 3 May 2016 08:54:11 +0800
-Message-ID: <5727F6B3.2080007@huawei.com>
-References: <1461827344-52230-1-git-send-email-Yisen.Zhuang@huawei.com>
- <20160429.133949.1719521222260369497.davem@davemloft.net>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: add batch ability to fq_codel_drop()
+Date: Mon, 2 May 2016 18:07:54 -0700
+Message-ID: <CAA93jw4AnPdNCZPbkCTLAm3jpDDO3OBx480o8MSKjPGRSEDEvw@mail.gmail.com>
+References: <1462146446.5535.236.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160502094954.24cc9549@redhat.com>
+	<1462199668.5535.239.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160502180036.25bebdfe@redhat.com>
+	<1462205571.5535.253.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160502191543.170fc046@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <robh+dt@kernel.org>,
-	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<will.deacon@arm.com>, <catalin.marinas@arm.com>,
-	<yankejian@huawei.com>, <huangdaode@hisilicon.com>,
-	<salil.mehta@huawei.com>, <lipeng321@huawei.com>,
-	<liguozhu@huawei.com>, <xieqianqian@huawei.com>,
-	<xuwei5@hisilicon.com>, <linuxarm@huawei.com>
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jonathan Morton <chromatix99@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:29294 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933642AbcECAy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 20:54:57 -0400
-In-Reply-To: <20160429.133949.1719521222260369497.davem@davemloft.net>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:34354 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932284AbcECBHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 21:07:55 -0400
+Received: by mail-oi0-f54.google.com with SMTP id k142so6986246oib.1
+        for <netdev@vger.kernel.org>; Mon, 02 May 2016 18:07:55 -0700 (PDT)
+In-Reply-To: <20160502191543.170fc046@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+I have duplicated the issue on my own hardware. I would like to
+explore also upping the codel count in this scenario at some point,
+but:
 
-Thanks for applying the patches.
-
-The series which i reposted is my misoperation. Please ignore them.
-
-Thanks,
-
-Yisen
-
-=E5=9C=A8 2016/4/30 1:39, David Miller =E5=86=99=E9=81=93:
-> From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-> Date: Thu, 28 Apr 2016 15:09:00 +0800
->=20
->> There are some inappropriate properties definition in hns DT. We upd=
-ate the definition
->> according to Rob's review comments and fix some typos in binding.
->>
->> For more details, please see individual patches.
->=20
-> Series applied, thanks.
->=20
-> BTW, you reposted your 10 part series for adding the dsaf-debug devic=
-e, but I
-> already applied the series you posted for that nearly a week ago.
->=20
-> .
->=20
+Acked-by: Dave Taht
