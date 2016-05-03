@@ -1,179 +1,157 @@
-From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: Re: [PATCHv2 bluetooth-next 07/10] ipv6: introduce neighbour
- discovery ops
-Date: Tue, 3 May 2016 20:17:35 +0200
-Message-ID: <5728EB3F.2060808@osg.samsung.com>
-References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
- <1461140382-4784-8-git-send-email-aar@pengutronix.de>
- <fbd4c25c-2673-2848-c636-a5d21a6890d7@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
-	werner-SEdMjqphH88wryQfseakQg@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <fbd4c25c-2673-2848-c636-a5d21a6890d7-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Marc Angel <marc@arista.com>
+Subject: [PATCH net-next v2] macvtap: add namespace support to the sysfs device class
+Date: Tue,  3 May 2016 20:30:54 +0200
+Message-ID: <1462300254-22273-1-git-send-email-marc@arista.com>
+References: <CAPSAET_u3CYvhYgyxXdomi7n5Z6c1DTCpSMv=K544U=TjmM=cw@mail.gmail.com>
+Cc: ebiederm@xmission.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:37521 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932756AbcECSaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 14:30:18 -0400
+Received: by mail-wm0-f50.google.com with SMTP id a17so54724448wme.0
+        for <netdev@vger.kernel.org>; Tue, 03 May 2016 11:30:17 -0700 (PDT)
+In-Reply-To: <CAPSAET_u3CYvhYgyxXdomi7n5Z6c1DTCpSMv=K544U=TjmM=cw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+When creating macvtaps that are expected to have the same ifindex
+in different network namespaces, only the first one will succeed.
+The others will fail with a sysfs_warn_dup warning due to them trying
+to create the following sysfs link (with 'NN' the ifindex of macvtapX):
 
-On 02/05/16 21:36, Hannes Frederic Sowa wrote:
-> On 20.04.2016 10:19, Alexander Aring wrote:
->> This patch introduces neighbour discovery ops callback structure. The
->> structure contains at first receive and transmit handling for NS/NA and
->> userspace option field functionality.
->>
->> These callback offers 6lowpan different handling, such as 802.15.4 short
->> address handling or RFC6775 (Neighbor Discovery Optimization for IPv6 over
->> 6LoWPANs).
->>
->> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> Cc: Alexey Kuznetsov<kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
->> Cc: James Morris<jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
->> Cc: Hideaki YOSHIFUJI<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
->> Cc: Patrick McHardy<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
->> Signed-off-by: Alexander Aring<aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->> ---
->>   include/linux/netdevice.h |  3 ++
->>   include/net/ndisc.h       | 96 +++++++++++++++++++++++++++++++++++++++++++----
->>   net/ipv6/addrconf.c       |  1 +
->>   net/ipv6/ndisc.c          | 71 ++++++++++++++++++++++++-----------
->>   net/ipv6/route.c          |  2 +-
->>   5 files changed, 144 insertions(+), 29 deletions(-)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 0052c42..bc60033 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -1677,6 +1677,9 @@ struct net_device {
->>   #ifdef CONFIG_NET_L3_MASTER_DEV
->>   	const struct l3mdev_ops	*l3mdev_ops;
->>   #endif
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +	const struct ndisc_ops *ndisc_ops;
->> +#endif
->>   
->>   	const struct header_ops *header_ops;
->>   
->> diff --git a/include/net/ndisc.h b/include/net/ndisc.h
->> index aac868e..14ed016 100644
->> --- a/include/net/ndisc.h
->> +++ b/include/net/ndisc.h
->> @@ -110,7 +110,8 @@ struct ndisc_options {
->>   
->>   #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
->>   
->> -struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
->> +struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
->> +					  u8 *opt, int opt_len,
->>   					  struct ndisc_options *ndopts);
->>   
->>   /*
->> @@ -173,6 +174,93 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
->>   	return n;
->>   }
->>   
->> +static inline int __ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
->> +{
->> +	return opt->nd_opt_type == ND_OPT_RDNSS ||
->> +		opt->nd_opt_type == ND_OPT_DNSSL;
->> +}
->> +
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +struct ndisc_ops {
->> +	int	(*is_useropt)(struct nd_opt_hdr *opt);
->> +	void	(*send_na)(struct net_device *dev,
->> +			   const struct in6_addr *daddr,
->> +			   const struct in6_addr *solicited_addr,
->> +			   bool router, bool solicited,
->> +			   bool override, bool inc_opt);
->> +	void	(*recv_na)(struct sk_buff *skb);
->> +	void	(*send_ns)(struct net_device *dev,
->> +			   const struct in6_addr *solicit,
->> +			   const struct in6_addr *daddr,
->> +			   const struct in6_addr *saddr);
->> +	void	(*recv_ns)(struct sk_buff *skb);
->> +};
->> +
->> +static inline int ndisc_is_useropt(const struct net_device *dev,
->> +				   struct nd_opt_hdr *opt)
->> +{
->> +	if (likely(dev->ndisc_ops->is_useropt))
->> +		return dev->ndisc_ops->is_useropt(opt);
->> +	else
->> +		return 0;
->> +}
->> +
->> +static inline void ndisc_send_na(struct net_device *dev,
->> +				 const struct in6_addr *daddr,
->> +				 const struct in6_addr *solicited_addr,
->> +				 bool router, bool solicited, bool override,
->> +				 bool inc_opt)
->> +{
->> +	if (likely(dev->ndisc_ops->send_na))
->> +		dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
->> +					solicited, override, inc_opt);
->> +}
->> +
->> +static inline void ndisc_recv_na(struct sk_buff *skb)
->> +{
->> +	if (likely(skb->dev->ndisc_ops->recv_na))
->> +		skb->dev->ndisc_ops->recv_na(skb);
->> +}
->> +
->> +static inline void ndisc_send_ns(struct net_device *dev,
->> +				 const struct in6_addr *solicit,
->> +				 const struct in6_addr *daddr,
->> +				 const struct in6_addr *saddr)
->> +{
->> +	if (likely(dev->ndisc_ops->send_ns))
->> +		dev->ndisc_ops->send_ns(dev, solicit, daddr, saddr);
->> +}
->> +
->> +static inline void ndisc_recv_ns(struct sk_buff *skb)
->> +{
->> +	if (likely(skb->dev->ndisc_ops->recv_ns))
->> +		skb->dev->ndisc_ops->recv_ns(skb);
->> +}
->> +#else
->> +static inline int ndisc_is_useropt(const struct net_device *dev,
->> +				   struct nd_opt_hdr *opt)
->> +{
->> +	return 0;
->> +}
->> +
->> +static inline void ndisc_send_na(struct net_device *dev,
->> +				 const struct in6_addr *daddr,
->> +				 const struct in6_addr *solicited_addr,
->> +				 bool router, bool solicited, bool override,
->> +				 bool inc_opt) { }
->> +
->> +static inline void ndisc_recv_na(struct sk_buff *skb) { }
->> +
->> +static inline void ndisc_send_ns(struct net_device *dev,
->> +				 const struct in6_addr *solicit,
->> +				 const struct in6_addr *daddr,
->> +				 const struct in6_addr *saddr) { }
->> +
->> +static inline void ndisc_recv_ns(struct sk_buff *skb) { }
->> +#endif
-> Do those empty functions actually make sense? I wonder a bit because
-> 6lowpan strictly depends on ipv6 and they should never be called without
-> IPv6, no?
+/sys/class/macvtap/tapNN -> /sys/devices/virtual/net/macvtapX/tapNN
 
-Agreed. 6LoWAPN is only an adaptation layer so we know that IPv6 must be 
-enabled here. I would also argue for removing this ifdef and the empty 
-functions.
+This is reproducible by running the following commands:
 
-regards
-Stefan Schmidt
+ip netns add ns1
+ip netns add ns2
+ip link add veth0 type veth peer name veth1
+ip link set veth0 netns ns1
+ip link set veth1 netns ns2
+ip netns exec ns1 ip l add link veth0 macvtap0 type macvtap
+ip netns exec ns2 ip l add link veth1 macvtap1 type macvtap
+
+The last command will fail with "RTNETLINK answers: File exists" (along
+with the kernel warning) but retrying it will work because the ifindex
+was incremented.
+
+The 'net' device class is isolated between network namespaces so each
+one has its own hierarchy of net devices.
+This isn't the case for the 'macvtap' device class.
+The problem occurs half-way through the netdev registration, when
+`macvtap_device_event` is called-back to create the 'tapNN' macvtap
+class device under the 'macvtapX' net class device.
+
+This patch adds namespace support to the 'macvtap' device class so
+that /sys/class/macvtap is no longer shared between net namespaces.
+
+However, making the macvtap sysfs class namespace-aware has the side
+effect of changing /sys/devices/virtual/net/macvtapX/tapNN  into
+/sys/devices/virtual/net/macvtapX/macvtap/tapNN.
+
+This is due to Commit 24b1442 ("Driver-core: Always create class
+directories for classses that support namespaces") and the fact that
+class devices supporting namespaces are really not supposed to be placed
+directly under other class devices.
+
+To avoid breaking userland, a tapNN symlink pointing to macvtap/tapNN is
+created inside the macvtapX directory.
+
+Signed-off-by: Marc Angel <marc@arista.com>
+---
+ drivers/net/macvtap.c | 35 +++++++++++++++++++++++++----------
+ 1 file changed, 25 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 95394ed..b7ebfcd 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -129,7 +129,18 @@ static DEFINE_MUTEX(minor_lock);
+ static DEFINE_IDR(minor_idr);
+ 
+ #define GOODCOPY_LEN 128
+-static struct class *macvtap_class;
++static const void *macvtap_net_namespace(struct device *d)
++{
++	struct net_device *dev = to_net_dev(d->parent);
++	return dev_net(dev);
++}
++
++static struct class macvtap_class = {
++	.name = "macvtap",
++	.owner = THIS_MODULE,
++	.ns_type = &net_ns_type_operations,
++	.namespace = macvtap_net_namespace,
++};
+ static struct cdev macvtap_cdev;
+ 
+ static const struct proto_ops macvtap_socket_ops;
+@@ -1274,6 +1285,7 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 				unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	const char *tap_name = kasprintf(GFP_KERNEL, "tap%d", dev->ifindex);
+ 	struct macvlan_dev *vlan;
+ 	struct device *classdev;
+ 	dev_t devt;
+@@ -1295,16 +1307,21 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 			return notifier_from_errno(err);
+ 
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+-		classdev = device_create(macvtap_class, &dev->dev, devt,
+-					 dev, "tap%d", dev->ifindex);
++		classdev = device_create(&macvtap_class, &dev->dev, devt,
++					 dev, tap_name);
+ 		if (IS_ERR(classdev)) {
+ 			macvtap_free_minor(vlan);
+ 			return notifier_from_errno(PTR_ERR(classdev));
+ 		}
++		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
++					dev_name(classdev));
++		if (err)
++			return notifier_from_errno(err);
+ 		break;
+ 	case NETDEV_UNREGISTER:
++		sysfs_remove_link(&dev->dev.kobj, tap_name);
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+-		device_destroy(macvtap_class, devt);
++		device_destroy(&macvtap_class, devt);
+ 		macvtap_free_minor(vlan);
+ 		break;
+ 	}
+@@ -1330,11 +1347,9 @@ static int macvtap_init(void)
+ 	if (err)
+ 		goto out2;
+ 
+-	macvtap_class = class_create(THIS_MODULE, "macvtap");
+-	if (IS_ERR(macvtap_class)) {
+-		err = PTR_ERR(macvtap_class);
++	err = class_register(&macvtap_class);
++	if (err)
+ 		goto out3;
+-	}
+ 
+ 	err = register_netdevice_notifier(&macvtap_notifier_block);
+ 	if (err)
+@@ -1349,7 +1364,7 @@ static int macvtap_init(void)
+ out5:
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+ out4:
+-	class_unregister(macvtap_class);
++	class_unregister(&macvtap_class);
+ out3:
+ 	cdev_del(&macvtap_cdev);
+ out2:
+@@ -1363,7 +1378,7 @@ static void macvtap_exit(void)
+ {
+ 	rtnl_link_unregister(&macvtap_link_ops);
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+-	class_unregister(macvtap_class);
++	class_unregister(&macvtap_class);
+ 	cdev_del(&macvtap_cdev);
+ 	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
+ 	idr_destroy(&minor_idr);
+-- 
+2.8.0
