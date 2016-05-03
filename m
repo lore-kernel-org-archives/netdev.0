@@ -1,37 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request [net]: batman-adv 20160430
-Date: Tue, 03 May 2016 00:18:13 -0400 (EDT)
-Message-ID: <20160503.001813.1881857417530292443.davem@davemloft.net>
-References: <1462035963-28970-1-git-send-email-a@unstable.cc>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: relax expensive skb_unclone() in
+ iptunnel_handle_offloads()
+Date: Tue, 03 May 2016 00:23:27 -0400 (EDT)
+Message-ID: <20160503.002327.1415458450222416618.davem@davemloft.net>
+References: <1462036769.5535.180.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: a@unstable.cc
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1462035963-28970-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39863 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbcECEX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 00:23:29 -0400
+In-Reply-To: <1462036769.5535.180.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Sun,  1 May 2016 01:05:59 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 30 Apr 2016 10:19:29 -0700
 
-> this is another pull request intended for net.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> I know that I sent another batch a few days ago, but after having gone
-> through my queue I thought that merging these last 4 patches would still
-> be worth it (there won't be any other pull request for linux-4.6 :)).
+> Locally generated TCP GSO packets having to go through a GRE/SIT/IPIP
+> tunnel have to go through an expensive skb_unclone()
 > 
-> The description of the changes follows below.
+> Reallocating skb->head is a lot of work.
+> 
+> Test should really check if a 'real clone' of the packet was done.
+> 
+> TCP does not care if the original gso_type is changed while the packet
+> travels in the stack.
+> 
+> This adds skb_header_unclone() which is a variant of skb_clone()
+> using skb_header_cloned() check instead of skb_cloned().
+> 
+> This variant can probably be used from other points.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Pulled, thanks Antonio.
+Nice observation, applied, thanks Eric.
