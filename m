@@ -1,49 +1,131 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
- segmentation with outer checksum offload
-Date: Tue, 3 May 2016 15:41:57 +0300
-Message-ID: <57289C95.8030401@mellanox.com>
-References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
- <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
- <CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
- <CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
- <CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
- <CAKgT0UdeuJA-K8zim5Eact9A2oFscXDC2a7ciKGTo74xptuw4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	"talal@mellanox.com" <talal@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Michael Chan <michael.chan@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	Gal Pressman <galp@mellanox.com>,
-	"Eran Ben Elisha" <eranbe@mellanox.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next] gre: change gre_parse_header to return the header length
+Date: Tue,  3 May 2016 15:00:21 +0200
+Message-ID: <3627136025fbd767d70e2ce563aa5e37373c880a.1462280197.git.jbenc@redhat.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0088.outbound.protection.outlook.com ([157.55.234.88]:7534
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932687AbcECMmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 08:42:07 -0400
-In-Reply-To: <CAKgT0UdeuJA-K8zim5Eact9A2oFscXDC2a7ciKGTo74xptuw4w@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47129 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932903AbcECNAm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 09:00:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/2/2016 6:41 PM, Alexander Duyck wrote:
->> >Just one more piece to clarify... in the general case (e.g inner
->> >packet size 1.5k...64k), the last segment would not have the same
->> >length as the other segments, what happens on that case?
-> Actually in the case of GSO partial we have go through the software
-> segmentation code and trim off any last bit that doesn't match the MSS
-> of the rest of the frame.  That way you end up with one frame that has
-> some number of MSS sized chunks, and then one remainder if there is a
-> frame that would be a different size.
+It's easier for gre_parse_header to return the header length instead of
+filing it into a parameter. That way, the callers that don't care about the
+header length can just check whether the returned value is lower than zero.
 
-OK, thanks for further clarifying this, will look on the docs you 
-pointed etc. From what you wrote here I understand it's indeed possible 
-for one frame to be of different size from the rest, but the LCO thing 
-still works somehow..
+In gre_err, the tunnel header must not be pulled. See commit b7f8fe251e46
+("gre: do not pull header in ICMP error processing") for details.
 
-Or.
+This patch reduces the conflict between the mentioned commit and commit
+95f5c64c3c13 ("gre: Move utility functions to common headers").
+
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+To resolve the conflict between net and net-next, please apply this patch to
+net-next and then pull net into net-next. At the conflicting places, take
+the hunks from net-next (including the large code removal at the beginning
+of ip_gre.c).
+
+The only exception is a call to gre_build_header/build_header in
+gre_fb_xmit; in there, also take the hunk from net-next but change
+"htons(ETH_P_TEB)" to "proto".
+
+Alternatively, this patch can be used during merge for the conflict
+resolution instead of committing it on its own.
+---
+ include/net/gre.h    | 2 +-
+ net/ipv4/gre_demux.c | 6 +++---
+ net/ipv4/ip_gre.c    | 9 +++------
+ net/ipv6/ip6_gre.c   | 3 ++-
+ 4 files changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/gre.h b/include/net/gre.h
+index 29e37322c06e..a14093c70eab 100644
+--- a/include/net/gre.h
++++ b/include/net/gre.h
+@@ -26,7 +26,7 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version);
+ struct net_device *gretap_fb_dev_create(struct net *net, const char *name,
+ 				       u8 name_assign_type);
+ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+-		     bool *csum_err, int *hdr_len);
++		     bool *csum_err);
+ 
+ static inline int gre_calc_hlen(__be16 o_flags)
+ {
+diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
+index 371674801e84..a41e73ab1369 100644
+--- a/net/ipv4/gre_demux.c
++++ b/net/ipv4/gre_demux.c
+@@ -60,8 +60,9 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
+ }
+ EXPORT_SYMBOL_GPL(gre_del_protocol);
+ 
++/* Fills in tpi and returns header length to be pulled. */
+ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+-		     bool *csum_err, int *ret_hdr_len)
++		     bool *csum_err)
+ {
+ 	const struct gre_base_hdr *greh;
+ 	__be32 *options;
+@@ -119,8 +120,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+ 				return -EINVAL;
+ 		}
+ 	}
+-	*ret_hdr_len = hdr_len;
+-	return 0;
++	return hdr_len;
+ }
+ EXPORT_SYMBOL(gre_parse_header);
+ 
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 2480d79b0e37..d4ee229880bf 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -221,16 +221,12 @@ static void gre_err(struct sk_buff *skb, u32 info)
+ 	const int code = icmp_hdr(skb)->code;
+ 	struct tnl_ptk_info tpi;
+ 	bool csum_err = false;
+-	int hdr_len;
+ 
+-	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len)) {
++	if (gre_parse_header(skb, &tpi, &csum_err) < 0) {
+ 		if (!csum_err)		/* ignore csum errors. */
+ 			return;
+ 	}
+ 
+-	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
+-		return;
+-
+ 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
+ 		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
+ 				 skb->dev->ifindex, 0, IPPROTO_GRE, 0);
+@@ -314,7 +310,8 @@ static int gre_rcv(struct sk_buff *skb)
+ 	}
+ #endif
+ 
+-	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0)
++	hdr_len = gre_parse_header(skb, &tpi, &csum_err);
++	if (hdr_len < 0)
+ 		goto drop;
+ 
+ 	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 10127741a60d..47b671a46dc4 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -468,7 +468,8 @@ static int gre_rcv(struct sk_buff *skb)
+ 	bool csum_err = false;
+ 	int hdr_len;
+ 
+-	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0)
++	hdr_len = gre_parse_header(skb, &tpi, &csum_err);
++	if (hdr_len < 0)
+ 		goto drop;
+ 
+ 	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
+-- 
+1.8.3.1
