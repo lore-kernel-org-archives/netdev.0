@@ -1,66 +1,79 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] vhost_net: stop polling socket during rx processing
-Date: Tue, 3 May 2016 10:52:44 +0800
-Message-ID: <5728127C.6040101@redhat.com>
-References: <1461656153-24074-1-git-send-email-jasowang@redhat.com>
-	<20160427141317-mutt-send-email-mst@redhat.com>
-	<5721AB7B.8070806@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Tue, 3 May 2016 13:15:24 +1000
+Message-ID: <20160503131524.5341da81@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5721AB7B.8070806@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Benc <jbenc@redhat.com>, Tom Herbert <tom@herbertland.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
+Today's linux-next merge of the net-next tree got a conflict in:
 
-On 04/28/2016 02:19 PM, Jason Wang wrote:
-> On 04/27/2016 07:28 PM, Michael S. Tsirkin wrote:
->> > On Tue, Apr 26, 2016 at 03:35:53AM -0400, Jason Wang wrote:
->>> >> We don't stop polling socket during rx processing, this will lead
->>> >> unnecessary wakeups from under layer net devices (E.g
->>> >> sock_def_readable() form tun). Rx will be slowed down in this
->>> >> way. This patch avoids this by stop polling socket during rx
->>> >> processing. A small drawback is that this introduces some overheads in
->>> >> light load case because of the extra start/stop polling, but single
->>> >> netperf TCP_RR does not notice any change. In a super heavy load case,
->>> >> e.g using pktgen to inject packet to guest, we get about ~17%
->>> >> improvement on pps:
->>> >>
->>> >> before: ~1370000 pkt/s
->>> >> after:  ~1500000 pkt/s
->>> >>
->>> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
->> >
->> > There is one other possible enhancement: we actually have the wait queue
->> > lock taken in _wake_up, but we give it up only to take it again in the
->> > handler.
->> >
->> > It would be nicer to just remove the entry when we wake
->> > the vhost thread. Re-add it if required.
->> > I think that something like the below would give you the necessary API.
->> > Pls feel free to use it if you are going to implement a patch on top
->> > doing this - that's not a reason not to include this simple patch
->> > though.
-> Thanks, this looks useful, will give it a try.
+  net/ipv4/ip_gre.c
 
-Want to try, but looks like this will result a strange API:
+between commits:
 
-- poll were removed automatically during wakeup, handler does not need
-to care about this
-- but handler still need to re-add the poll explicitly in the code
+  2090714e1d6e ("gre: build header correctly for collect metadata tunnels")
+  b7f8fe251e46 ("gre: do not pull header in ICMP error processing")
 
-?
+from Linus' tree and commit:
+
+  95f5c64c3c13 ("gre: Move utility functions to common headers")
+  182a352d2d5e ("gre: Create common functions for transmit")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc net/ipv4/ip_gre.c
+index 205a2b8a5a84,2480d79b0e37..000000000000
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@@ -341,8 -221,9 +221,9 @@@ static void gre_err(struct sk_buff *skb
+  	const int code = icmp_hdr(skb)->code;
+  	struct tnl_ptk_info tpi;
+  	bool csum_err = false;
++ 	int hdr_len;
+  
+- 	if (parse_gre_header(skb, &tpi, &csum_err) < 0) {
+ -	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len)) {
+++	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0) {
+  		if (!csum_err)		/* ignore csum errors. */
+  			return;
+  	}
+@@@ -574,15 -414,12 +415,12 @@@ static void gre_fb_xmit(struct sk_buff 
+  	}
+  
+  	/* Push Tunnel header. */
+- 	skb = gre_handle_offloads(skb, !!(tun_info->key.tun_flags & TUNNEL_CSUM));
+- 	if (IS_ERR(skb)) {
+- 		skb = NULL;
++ 	if (gre_handle_offloads(skb, !!(tun_info->key.tun_flags & TUNNEL_CSUM)))
+  		goto err_free_rt;
+- 	}
+  
+  	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
+- 	build_header(skb, tunnel_hlen, flags, proto,
+- 		     tunnel_id_to_key(tun_info->key.tun_id), 0);
+ -	gre_build_header(skb, tunnel_hlen, flags, htons(ETH_P_TEB),
+++	gre_build_header(skb, tunnel_hlen, flags, proto,
++ 			 tunnel_id_to_key(tun_info->key.tun_id), 0);
+  
+  	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
+  
