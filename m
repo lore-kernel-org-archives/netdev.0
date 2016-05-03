@@ -1,47 +1,69 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v1] ipv6/ila: fix nlsize calculation for lwtunnel
-Date: Tue,  3 May 2016 09:58:27 +0200
-Message-ID: <1462262307-27498-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Tom Herbert <tom@herbertland.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:34049 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbcECH6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 03:58:42 -0400
-In-Reply-To: <CALx6S36jkPqx5U+B9akRYZ+xiRhozk_AdOmKBEr4N9mhwTKQMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
+Date: Tue, 3 May 2016 11:14:08 +0300
+Message-ID: <CAJ3xEMj5KMcdEmpD5YYAMPJYmDW-X1J2nU0OjfJ1V93VKJ+A+A@mail.gmail.com>
+References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
+	<1461407219-72027-10-git-send-email-oulijun@huawei.com>
+	<20160424075424.GE7974@leon.nu>
+	<571F0C04.2010005@huawei.com>
+	<20160426141821.GJ7974@leon.nu>
+	<20160426142517.GA1937@nanopsycho.orion>
+	<57203347.4000107@huawei.com>
+	<CAJ3xEMgvcRa=qFDs0wDv25Ue2yw0hQoK_E=01G7zikyr7kLKUw@mail.gmail.com>
+	<57285A07.8090407@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: oulijun <oulijun@huawei.com>, Jiri Pirko <jiri@resnulli.us>,
+	Doug Ledford <dledford@redhat.com>,
+	"Hefty, Sean" <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, linuxarm@huawei.com,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	gongyangming@huawei.com, xiaokun@huawei.com,
+	tangchaofei@huawei.com, haifeng.wei@huawei.com,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	lisheng011@huawei.com, charles.chenxin@huawei.com
+To: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57285A07.8090407@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The handler 'ila_fill_encap_info' adds one attribute: ILA_ATTR_LOCATOR.
+On Tue, May 3, 2016 at 10:57 AM, Wei Hu (Xavier)
+<xavier.huwei@huawei.com> wrote:
+> On 2016/4/30 12:33, Or Gerlitz wrote:
 
-Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
-CC: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
 
-RFC -> v1:
-  - rebase on last net tree
+>> Can you elaborate what design aspects in the driver or anywhere else
+>> should impose that limitation?
 
- net/ipv6/ila/ila_lwt.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> 1.  Oulijun resolved the problem, and sent PATCH V6 on 2016-4-28. Thanks for
+> more comments.
 
-diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
-index 2ae3c4fd8aab..41f18de5dcc2 100644
---- a/net/ipv6/ila/ila_lwt.c
-+++ b/net/ipv6/ila/ila_lwt.c
-@@ -120,8 +120,7 @@ nla_put_failure:
- 
- static int ila_encap_nlsize(struct lwtunnel_state *lwtstate)
- {
--	/* No encapsulation overhead */
--	return 0;
-+	return nla_total_size(sizeof(u64)); /* ILA_ATTR_LOCATOR */
- }
- 
- static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
--- 
-2.8.1
+V6 still conditions things on ARM
+
+
+> 2.  This driver for Hisilicon RoCE Engine run in ARM SoCs.
+> The Hisilicon Network Subsystem is a long term evolution IP which is
+> supposed to be used in Hisilicon ICT SoCs. HNS(Hisilicon Network Subsystem)
+> has a hardware support of performing RDMA with RoCE engine.
+
+I understand that the HW is targeted just for ARM environments. Is
+this the reason
+why you want to impose this build limitation or there's something in
+the driver design
+or code that is not going to work in other environments?
+
+> This Kconfig related with this driver as below:
+>
+> config INFINIBAND_HISILICON_HNS
+>     tristate "Hisilicon Hns ROCE Driver"
+>     depends on NET_VENDOR_HISILICON
+>     depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
+
+this is understood, my question came to better understand the limitations
