@@ -1,133 +1,113 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net v3 2/2] udp_offload: Set encapsulation before inner completes.
-Date: Tue,  3 May 2016 16:10:21 -0700
-Message-ID: <1462317021-7236-2-git-send-email-jarno@ovn.org>
-References: <1462317021-7236-1-git-send-email-jarno@ovn.org>
-Cc: jesse@kernel.org, jarno@ovn.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: [PATCH] igb: adjust ptp timestamps for tx/rx latency
+Date: Tue, 3 May 2016 18:10:56 -0500
+Message-ID: <1462317056-28805-1-git-send-email-nathan.sullivan@ni.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Nathan Sullivan <nathan.sullivan@ni.com>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462317021-7236-1-git-send-email-jarno@ovn.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-UDP tunnel segmentation code relies on the inner offsets being set for
-an UDP tunnel GSO packet, but the inner *_complete() functions will
-set the inner offsets only if 'encapsulation' is set before calling
-them.  Currently, udp_gro_complete() sets 'encapsulation' only after
-the inner *_complete() functions are done.  This causes the inner
-offsets having invalid values after udp_gro_complete() returns, which
-in turn will make it impossible to properly segment the packet in case
-it needs to be forwarded, which would be visible to the user either as
-invalid packets being sent or as packet loss.
+Table 7-62 on page 338 of the i210 datasheet lists TX and RX latencies
+for the various speeds the chip supports.  To give better ptp timestamp
+accuracy, adjust the timestamps by the amounts Intel gives based on
+current link speed.
 
-This patch fixes this by setting skb's 'encapsulation' in
-udp_gro_complete() before calling into the inner complete functions,
-and by making each possible UDP tunnel gro_complete() callback set the
-inner_mac_header to the beginning of the tunnel payload.
-
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
 ---
-v3: Added setting inner_mac_header from all possible callbacks to cover
-    cases where there is no inner mac header.
+ drivers/net/ethernet/intel/igb/igb.h     |    8 +++++++
+ drivers/net/ethernet/intel/igb/igb_ptp.c |   36 ++++++++++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
 
- drivers/net/geneve.c      | 3 +++
- drivers/net/vxlan.c       | 3 +++
- include/linux/netdevice.h | 3 +++
- net/ipv4/fou.c            | 4 ++++
- net/ipv4/udp_offload.c    | 8 +++++---
- 5 files changed, 18 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 98f1224..7b0a644 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -514,6 +514,9 @@ static int geneve_gro_complete(struct sk_buff *skb, int nhoff,
- 		err = ptype->callbacks.gro_complete(skb, nhoff + gh_len);
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 9413fa6..7cee61f9 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -91,6 +91,14 @@ struct igb_adapter;
+ #define NVM_COMB_VER_OFF	0x0083
+ #define NVM_COMB_VER_PTR	0x003d
  
- 	rcu_read_unlock();
++/* Transmit and receive latency (for PTP timestamps) */
++#define IGB_I210_TX_LATENCY_10		9542
++#define IGB_I210_TX_LATENCY_100		1024
++#define IGB_I210_TX_LATENCY_1000	178
++#define IGB_I210_RX_LATENCY_10		20662
++#define IGB_I210_RX_LATENCY_100		2213
++#define IGB_I210_RX_LATENCY_1000	448
 +
-+	skb_set_inner_mac_header(skb, nhoff + gh_len);
+ struct vf_data_storage {
+ 	unsigned char vf_mac_addresses[ETH_ALEN];
+ 	u16 vf_mc_hashes[IGB_MAX_VF_MC_ENTRIES];
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index 22a8a29..76a896d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -722,11 +722,29 @@ static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct skb_shared_hwtstamps shhwtstamps;
+ 	u64 regval;
++	int adjust = 0;
+ 
+ 	regval = rd32(E1000_TXSTMPL);
+ 	regval |= (u64)rd32(E1000_TXSTMPH) << 32;
+ 
+ 	igb_ptp_systim_to_hwtstamp(adapter, &shhwtstamps, regval);
++	/* adjust timestamp for the TX latency based on link speed */
++	if (adapter->hw.mac.type == e1000_i210) {
++		switch (adapter->link_speed) {
++		case SPEED_10:
++			adjust = IGB_I210_TX_LATENCY_10;
++			break;
++		case SPEED_100:
++			adjust = IGB_I210_TX_LATENCY_100;
++			break;
++		case SPEED_1000:
++			adjust = IGB_I210_TX_LATENCY_1000;
++			break;
++		}
++	}
 +
- 	return err;
- }
- 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index dd2d032..8ac261a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -616,6 +616,9 @@ out:
- static int vxlan_gro_complete(struct sk_buff *skb, int nhoff,
- 			      struct udp_offload *uoff)
- {
-+	/* Sets 'skb->inner_mac_header' since we are always called with
-+	 * 'skb->encapsulation' set.
-+	 */
- 	return eth_gro_complete(skb, nhoff + sizeof(struct vxlanhdr));
- }
- 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b3c46b0..78181a8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2164,6 +2164,9 @@ struct packet_offload {
- 
- struct udp_offload;
- 
-+/* 'skb->encapsulation' is set before gro_complete() is called.  gro_complete()
-+ * must set 'skb->inner_mac_header' to the beginning of tunnel payload.
-+ */
- struct udp_offload_callbacks {
- 	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
- 						 struct sk_buff *skb,
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 305d9ac..a6962cc 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -236,6 +236,8 @@ static int fou_gro_complete(struct sk_buff *skb, int nhoff,
- 
- 	err = ops->callbacks.gro_complete(skb, nhoff);
- 
-+	skb_set_inner_mac_header(skb, nhoff);
++	shhwtstamps.hwtstamp = ktime_sub_ns(shhwtstamps.hwtstamp, adjust);
 +
- out_unlock:
- 	rcu_read_unlock();
+ 	skb_tstamp_tx(adapter->ptp_tx_skb, &shhwtstamps);
+ 	dev_kfree_skb_any(adapter->ptp_tx_skb);
+ 	adapter->ptp_tx_skb = NULL;
+@@ -771,6 +789,7 @@ void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
+ 	struct igb_adapter *adapter = q_vector->adapter;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u64 regval;
++	int adjust = 0;
  
-@@ -412,6 +414,8 @@ static int gue_gro_complete(struct sk_buff *skb, int nhoff,
+ 	/* If this bit is set, then the RX registers contain the time stamp. No
+ 	 * other packet will be time stamped until we read these registers, so
+@@ -790,6 +809,23 @@ void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
  
- 	err = ops->callbacks.gro_complete(skb, nhoff + guehlen);
+ 	igb_ptp_systim_to_hwtstamp(adapter, skb_hwtstamps(skb), regval);
  
-+	skb_set_inner_mac_header(skb, nhoff + guehlen);
++	/* adjust timestamp for the RX latency based on link speed */
++	if (adapter->hw.mac.type == e1000_i210) {
++		switch (adapter->link_speed) {
++		case SPEED_10:
++			adjust = IGB_I210_RX_LATENCY_10;
++			break;
++		case SPEED_100:
++			adjust = IGB_I210_RX_LATENCY_100;
++			break;
++		case SPEED_1000:
++			adjust = IGB_I210_RX_LATENCY_1000;
++			break;
++		}
++	}
++	skb_hwtstamps(skb)->hwtstamp =
++		ktime_add_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
 +
- out_unlock:
- 	rcu_read_unlock();
- 	return err;
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 0ed2daf..e330c0e 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -399,6 +399,11 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 
- 	uh->len = newlen;
- 
-+	/* Set encapsulation before calling into inner gro_complete() functions
-+	 * to make them set up the inner offsets.
-+	 */
-+	skb->encapsulation = 1;
-+
- 	rcu_read_lock();
- 
- 	uo_priv = rcu_dereference(udp_offload_base);
-@@ -421,9 +426,6 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 	if (skb->remcsum_offload)
- 		skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
- 
--	skb->encapsulation = 1;
--	skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
--
- 	return err;
- }
- 
+ 	/* Update the last_rx_timestamp timer in order to enable watchdog check
+ 	 * for error case of latched timestamp on a dropped packet.
+ 	 */
 -- 
-2.7.4
+1.7.10.4
