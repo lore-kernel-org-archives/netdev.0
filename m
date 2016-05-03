@@ -1,55 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Question] Should `CAP_NET_ADMIN` be needed when opening `/dev/ppp`?
-Date: Tue, 03 May 2016 13:23:34 +0200
-Message-ID: <1462274614.1336993.596603129.675ECADD@webmail.messagingengine.com>
-References: <2BEB0C68-EBC6-4A8F-A751-DE8F4A2C9D2C@gmail.com>
- <20160503101240.GA1304@alphalink.fr>
- <CAFLxGvyKMbJyfk5oiRZ6-67yHH=f+3mkY=gd3AsZC1G_o0Xhxg@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH next-next 2/7] gre: Move utility functions to common
+ headers
+Date: Tue, 3 May 2016 13:29:44 +0200
+Message-ID: <20160503132944.1951cefb@griffin>
+References: <1461975141-954269-1-git-send-email-tom@herbertland.com>
+	<1461975141-954269-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Wang Shanker <shankerwangmiao@gmail.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Richard Weinberger <richard.weinberger@gmail.com>,
-	Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFLxGvyKMbJyfk5oiRZ6-67yHH=f+3mkY=gd3AsZC1G_o0Xhxg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54619 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755774AbcECL3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 07:29:48 -0400
+In-Reply-To: <1461975141-954269-3-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 3, 2016, at 12:35, Richard Weinberger wrote:
-> On Tue, May 3, 2016 at 12:12 PM, Guillaume Nault <g.nault@alphalink.fr>
-> wrote:
-> > On Sun, May 01, 2016 at 09:38:57PM +0800, Wang Shanker wrote:
-> >> static int ppp_open(struct inode *inode, struct file *file)
-> >> {
-> >>       /*
-> >>        * This could (should?) be enforced by the permissions on /dev/ppp.
-> >>        */
-> >>       if (!capable(CAP_NET_ADMIN))
-> >>               return -EPERM;
-> >>       return 0;
-> >> }
-> >> ```
-> >>
-> >> I wonder why CAP_NET_ADMIN is needed here, rather than leaving it to the
-> >> permission of the device node. If there is no need, I suggest that the
-> >> CAP_NET_ADMIN check be removed.
-> >>
-> > If this test was removed here, then it'd have to be added again in the
-> > PPPIOCNEWUNIT ioctl, at the very least, because creating a netdevice
-> > should require CAP_NET_ADMIN. Therefore that wouldn't help for your
-> > case.
-> > I don't know why the test was placed in ppp_open() in the first place,
-> > but changing it now would have side effects on user space. So I'd
-> > rather leave the code as is.
-> 
-> I think the question is whether we really require having CAP_NET_ADMIN
-> in the initial namespace and not just in the current one.
-> Is ppp not network namespace aware?
+On Fri, 29 Apr 2016 17:12:16 -0700, Tom Herbert wrote:
+>   - iptunnel_pull_header is taken out of gre_parse_header. This is now
+>     done by caller. The header length is returned from gre_parse_header
+>     in an int* argument.
 
-I agree, ns_capable(net->user_ns, CAP_NET_ADMIN), would probably make
-more sense.
+Seems we conflicted here, I've done the same for net.git to fix ICMP
+path. I made parse_gre_header return the length instead of adding the
+parameter, as it's easier consumed that way (no need for an extra local
+variable in gre_err).
 
-Bye,
-Hannes
+How do we resolve the conflict between net and net-next? I'd prefer
+gre_parse_header to return the header length. I can submit a patch for
+net-next that does this; that would substantially ease the merge.
+
+ Jiri
