@@ -1,131 +1,66 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] gre: change gre_parse_header to return the header length
-Date: Tue,  3 May 2016 15:00:21 +0200
-Message-ID: <3627136025fbd767d70e2ce563aa5e37373c880a.1462280197.git.jbenc@redhat.com>
-Cc: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47129 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932903AbcECNAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 09:00:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?gb2312?B?zfXl4w==?= <shankerwangmiao@gmail.com>
+Subject: Re: [Question] Should `CAP_NET_ADMIN` be needed when opening `/dev/ppp`?
+Date: Tue, 3 May 2016 21:08:45 +0800
+Message-ID: <04054B5D-AD85-47ED-8666-21C7399BC121@gmail.com>
+References: <2BEB0C68-EBC6-4A8F-A751-DE8F4A2C9D2C@gmail.com> <20160503101240.GA1304@alphalink.fr> <CAFLxGvyKMbJyfk5oiRZ6-67yHH=f+3mkY=gd3AsZC1G_o0Xhxg@mail.gmail.com> <1462274614.1336993.596603129.675ECADD@webmail.messagingengine.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Richard Weinberger <richard.weinberger@gmail.com>,
+	Guillaume Nault <g.nault@alphalink.fr>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462274614.1336993.596603129.675ECADD@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It's easier for gre_parse_header to return the header length instead of
-filing it into a parameter. That way, the callers that don't care about the
-header length can just check whether the returned value is lower than zero.
 
-In gre_err, the tunnel header must not be pulled. See commit b7f8fe251e46
-("gre: do not pull header in ICMP error processing") for details.
-
-This patch reduces the conflict between the mentioned commit and commit
-95f5c64c3c13 ("gre: Move utility functions to common headers").
-
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
-To resolve the conflict between net and net-next, please apply this patch to
-net-next and then pull net into net-next. At the conflicting places, take
-the hunks from net-next (including the large code removal at the beginning
-of ip_gre.c).
-
-The only exception is a call to gre_build_header/build_header in
-gre_fb_xmit; in there, also take the hunk from net-next but change
-"htons(ETH_P_TEB)" to "proto".
-
-Alternatively, this patch can be used during merge for the conflict
-resolution instead of committing it on its own.
----
- include/net/gre.h    | 2 +-
- net/ipv4/gre_demux.c | 6 +++---
- net/ipv4/ip_gre.c    | 9 +++------
- net/ipv6/ip6_gre.c   | 3 ++-
- 4 files changed, 9 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/gre.h b/include/net/gre.h
-index 29e37322c06e..a14093c70eab 100644
---- a/include/net/gre.h
-+++ b/include/net/gre.h
-@@ -26,7 +26,7 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version);
- struct net_device *gretap_fb_dev_create(struct net *net, const char *name,
- 				       u8 name_assign_type);
- int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
--		     bool *csum_err, int *hdr_len);
-+		     bool *csum_err);
- 
- static inline int gre_calc_hlen(__be16 o_flags)
- {
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index 371674801e84..a41e73ab1369 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -60,8 +60,9 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
- }
- EXPORT_SYMBOL_GPL(gre_del_protocol);
- 
-+/* Fills in tpi and returns header length to be pulled. */
- int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
--		     bool *csum_err, int *ret_hdr_len)
-+		     bool *csum_err)
- {
- 	const struct gre_base_hdr *greh;
- 	__be32 *options;
-@@ -119,8 +120,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 				return -EINVAL;
- 		}
- 	}
--	*ret_hdr_len = hdr_len;
--	return 0;
-+	return hdr_len;
- }
- EXPORT_SYMBOL(gre_parse_header);
- 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 2480d79b0e37..d4ee229880bf 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -221,16 +221,12 @@ static void gre_err(struct sk_buff *skb, u32 info)
- 	const int code = icmp_hdr(skb)->code;
- 	struct tnl_ptk_info tpi;
- 	bool csum_err = false;
--	int hdr_len;
- 
--	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len)) {
-+	if (gre_parse_header(skb, &tpi, &csum_err) < 0) {
- 		if (!csum_err)		/* ignore csum errors. */
- 			return;
- 	}
- 
--	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
--		return;
--
- 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
- 		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
- 				 skb->dev->ifindex, 0, IPPROTO_GRE, 0);
-@@ -314,7 +310,8 @@ static int gre_rcv(struct sk_buff *skb)
- 	}
- #endif
- 
--	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0)
-+	hdr_len = gre_parse_header(skb, &tpi, &csum_err);
-+	if (hdr_len < 0)
- 		goto drop;
- 
- 	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 10127741a60d..47b671a46dc4 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -468,7 +468,8 @@ static int gre_rcv(struct sk_buff *skb)
- 	bool csum_err = false;
- 	int hdr_len;
- 
--	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0)
-+	hdr_len = gre_parse_header(skb, &tpi, &csum_err);
-+	if (hdr_len < 0)
- 		goto drop;
- 
- 	if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
--- 
-1.8.3.1
+> =D4=DA 2016=C4=EA5=D4=C23=C8=D5=A3=AC=CF=C2=CE=E77:23=A3=ACHannes Fre=
+deric Sowa <hannes@stressinduktion.org> =D0=B4=B5=C0=A3=BA
+>=20
+> On Tue, May 3, 2016, at 12:35, Richard Weinberger wrote:
+>> On Tue, May 3, 2016 at 12:12 PM, Guillaume Nault <g.nault@alphalink.=
+fr>
+>> wrote:
+>>> On Sun, May 01, 2016 at 09:38:57PM +0800, Wang Shanker wrote:
+>>>> static int ppp_open(struct inode *inode, struct file *file)
+>>>> {
+>>>>      /*
+>>>>       * This could (should?) be enforced by the permissions on /de=
+v/ppp.
+>>>>       */
+>>>>      if (!capable(CAP_NET_ADMIN))
+>>>>              return -EPERM;
+>>>>      return 0;
+>>>> }
+>>>> ```
+>>>>=20
+>>>> I wonder why CAP_NET_ADMIN is needed here, rather than leaving it =
+to the
+>>>> permission of the device node. If there is no need, I suggest that=
+ the
+>>>> CAP_NET_ADMIN check be removed.
+>>>>=20
+>>> If this test was removed here, then it'd have to be added again in =
+the
+>>> PPPIOCNEWUNIT ioctl, at the very least, because creating a netdevic=
+e
+>>> should require CAP_NET_ADMIN. Therefore that wouldn't help for your
+>>> case.
+>>> I don't know why the test was placed in ppp_open() in the first pla=
+ce,
+>>> but changing it now would have side effects on user space. So I'd
+>>> rather leave the code as is.
+>>=20
+>> I think the question is whether we really require having CAP_NET_ADM=
+IN
+>> in the initial namespace and not just in the current one.
+>> Is ppp not network namespace aware?
+>=20
+> I agree, ns_capable(net->user_ns, CAP_NET_ADMIN), would probably make
+> more sense.
+I agree with that.
+>=20
+> Bye,
+> Hannes
