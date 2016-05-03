@@ -1,714 +1,791 @@
-From: Martin Willi <martin@strongswan.org>
-Subject: [PATCH 1/2] nl80211: Allow privileged operations from user namespaces
-Date: Tue,  3 May 2016 08:53:17 +0200
-Message-ID: <1462258398-6749-2-git-send-email-martin@strongswan.org>
-References: <1462258398-6749-1-git-send-email-martin@strongswan.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Quentin Monnet <quentin.monnet@6wind.com>
+Subject: [PATCH iproute2 v2] tc: add bash-completion function
+Date: Tue,  3 May 2016 09:39:08 +0200
+Message-ID: <1462261148-5448-1-git-send-email-quentin.monnet@6wind.com>
+References: <20160502151414.0c9c3e3a@xeon-e3>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	Vincent Jardin <vincent.jardin@6wind.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sitav-80046.hsr.ch ([152.96.80.46]:47043 "EHLO
-	mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751090AbcECHAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 03:00:42 -0400
-In-Reply-To: <1462258398-6749-1-git-send-email-martin@strongswan.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36088 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846AbcECHj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 03:39:56 -0400
+Received: by mail-wm0-f47.google.com with SMTP id n129so134689791wmn.1
+        for <netdev@vger.kernel.org>; Tue, 03 May 2016 00:39:55 -0700 (PDT)
+In-Reply-To: <20160502151414.0c9c3e3a@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While a wiphy can be transferred to network namespaces, a process having
-CAP_NET_ADMIN in a non-initial user namespace can not administrate such
-devices due to the genetlink GENL_ADMIN_PERM restrictions.
+Add function for command completion for tc in bash, and update Makefile
+to install it under /usr/share/bash-completion/completions/.
 
-For openvswitch having the same issue, a new GENL_UNS_ADMIN_PERM flag has
-been introduced, commit 4a92602aa1cd ("openvswitch: allow management from
-inside user namespaces"). This patch changes all privileged operations
-operating on a wiphy, dev or wdev to allow their administration using the
-same mechanism. All operations use either NEED_WIPHY, NEED_WDEV or
-NEED_NETDEV, which implies a namespace aware lookup of the device. The only
-exception is NL80211_CMD_SET_WIPHY, which explicitly uses a namespace aware
-lookup.
+Inside iproute2 repository, the completion code is in a new
+`bash-completion` toplevel directory.
 
-Signed-off-by: Martin Willi <martin@strongswan.org>
+v2: Remove `if` statement in Makefile: do not try to install in
+    /etc/bash_completion.d/ if /usr/share/bash-completion/completions/
+    is not found; instead, the user can override the installation path
+    with the specific environment variable.
+
+Signed-off-by: Quentin Monnet <quentin.monnet@6wind.com>
 ---
- net/wireless/nl80211.c | 150 ++++++++++++++++++++++++-------------------------
- 1 file changed, 75 insertions(+), 75 deletions(-)
+ Makefile           |   3 +
+ bash-completion/tc | 723 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 726 insertions(+)
+ create mode 100644 bash-completion/tc
 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 9bc84a2..df4c897 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -10945,7 +10945,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_WIPHY,
- 		.doit = nl80211_set_wiphy,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_RTNL,
- 	},
- 	{
-@@ -10961,7 +10961,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_INTERFACE,
- 		.doit = nl80211_set_interface,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -10969,7 +10969,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_NEW_INTERFACE,
- 		.doit = nl80211_new_interface,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -10977,7 +10977,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEL_INTERFACE,
- 		.doit = nl80211_del_interface,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -10985,7 +10985,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_GET_KEY,
- 		.doit = nl80211_get_key,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -10993,7 +10993,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_KEY,
- 		.doit = nl80211_set_key,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL |
- 				  NL80211_FLAG_CLEAR_SKB,
-@@ -11002,7 +11002,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_NEW_KEY,
- 		.doit = nl80211_new_key,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL |
- 				  NL80211_FLAG_CLEAR_SKB,
-@@ -11011,14 +11011,14 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEL_KEY,
- 		.doit = nl80211_del_key,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
- 	{
- 		.cmd = NL80211_CMD_SET_BEACON,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.doit = nl80211_set_beacon,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
-@@ -11026,7 +11026,7 @@ static const struct genl_ops nl80211_ops[] = {
- 	{
- 		.cmd = NL80211_CMD_START_AP,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.doit = nl80211_start_ap,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
-@@ -11034,7 +11034,7 @@ static const struct genl_ops nl80211_ops[] = {
- 	{
- 		.cmd = NL80211_CMD_STOP_AP,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.doit = nl80211_stop_ap,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
-@@ -11051,7 +11051,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_STATION,
- 		.doit = nl80211_set_station,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11059,7 +11059,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_NEW_STATION,
- 		.doit = nl80211_new_station,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11067,7 +11067,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEL_STATION,
- 		.doit = nl80211_del_station,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11076,7 +11076,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.doit = nl80211_get_mpath,
- 		.dumpit = nl80211_dump_mpath,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11085,7 +11085,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.doit = nl80211_get_mpp,
- 		.dumpit = nl80211_dump_mpp,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11093,7 +11093,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_MPATH,
- 		.doit = nl80211_set_mpath,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11101,7 +11101,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_NEW_MPATH,
- 		.doit = nl80211_new_mpath,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11109,7 +11109,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEL_MPATH,
- 		.doit = nl80211_del_mpath,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11117,7 +11117,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_BSS,
- 		.doit = nl80211_set_bss,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11156,7 +11156,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_MESH_CONFIG,
- 		.doit = nl80211_update_mesh_config,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11164,7 +11164,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_TRIGGER_SCAN,
- 		.doit = nl80211_trigger_scan,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11185,7 +11185,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_START_SCHED_SCAN,
- 		.doit = nl80211_start_sched_scan,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11193,7 +11193,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_STOP_SCHED_SCAN,
- 		.doit = nl80211_stop_sched_scan,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11201,7 +11201,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_AUTHENTICATE,
- 		.doit = nl80211_authenticate,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL |
- 				  NL80211_FLAG_CLEAR_SKB,
-@@ -11210,7 +11210,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_ASSOCIATE,
- 		.doit = nl80211_associate,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11218,7 +11218,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEAUTHENTICATE,
- 		.doit = nl80211_deauthenticate,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11226,7 +11226,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DISASSOCIATE,
- 		.doit = nl80211_disassociate,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11234,7 +11234,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_JOIN_IBSS,
- 		.doit = nl80211_join_ibss,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11242,7 +11242,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_LEAVE_IBSS,
- 		.doit = nl80211_leave_ibss,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11252,7 +11252,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.doit = nl80211_testmode_do,
- 		.dumpit = nl80211_testmode_dump,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11261,7 +11261,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_CONNECT,
- 		.doit = nl80211_connect,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11269,7 +11269,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DISCONNECT,
- 		.doit = nl80211_disconnect,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11277,7 +11277,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_WIPHY_NETNS,
- 		.doit = nl80211_wiphy_netns,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11290,7 +11290,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_PMKSA,
- 		.doit = nl80211_setdel_pmksa,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11298,7 +11298,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEL_PMKSA,
- 		.doit = nl80211_setdel_pmksa,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11306,7 +11306,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_FLUSH_PMKSA,
- 		.doit = nl80211_flush_pmksa,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11314,7 +11314,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_REMAIN_ON_CHANNEL,
- 		.doit = nl80211_remain_on_channel,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11322,7 +11322,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_CANCEL_REMAIN_ON_CHANNEL,
- 		.doit = nl80211_cancel_remain_on_channel,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11330,7 +11330,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_TX_BITRATE_MASK,
- 		.doit = nl80211_set_tx_bitrate_mask,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11338,7 +11338,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_REGISTER_FRAME,
- 		.doit = nl80211_register_mgmt,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11346,7 +11346,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_FRAME,
- 		.doit = nl80211_tx_mgmt,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11354,7 +11354,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_FRAME_WAIT_CANCEL,
- 		.doit = nl80211_tx_mgmt_cancel_wait,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11362,7 +11362,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_POWER_SAVE,
- 		.doit = nl80211_set_power_save,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11378,7 +11378,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_CQM,
- 		.doit = nl80211_set_cqm,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11386,7 +11386,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_CHANNEL,
- 		.doit = nl80211_set_channel,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11394,7 +11394,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_WDS_PEER,
- 		.doit = nl80211_set_wds_peer,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11402,7 +11402,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_JOIN_MESH,
- 		.doit = nl80211_join_mesh,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11410,7 +11410,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_LEAVE_MESH,
- 		.doit = nl80211_leave_mesh,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11418,7 +11418,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_JOIN_OCB,
- 		.doit = nl80211_join_ocb,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11426,7 +11426,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_LEAVE_OCB,
- 		.doit = nl80211_leave_ocb,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11443,7 +11443,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_WOWLAN,
- 		.doit = nl80211_set_wowlan,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11452,7 +11452,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_REKEY_OFFLOAD,
- 		.doit = nl80211_set_rekey_data,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL |
- 				  NL80211_FLAG_CLEAR_SKB,
-@@ -11461,7 +11461,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_TDLS_MGMT,
- 		.doit = nl80211_tdls_mgmt,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11469,7 +11469,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_TDLS_OPER,
- 		.doit = nl80211_tdls_oper,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11477,7 +11477,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_UNEXPECTED_FRAME,
- 		.doit = nl80211_register_unexpected_frame,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11485,7 +11485,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_PROBE_CLIENT,
- 		.doit = nl80211_probe_client,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11493,7 +11493,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_REGISTER_BEACONS,
- 		.doit = nl80211_register_beacons,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11501,7 +11501,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_NOACK_MAP,
- 		.doit = nl80211_set_noack_map,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11509,7 +11509,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_START_P2P_DEVICE,
- 		.doit = nl80211_start_p2p_device,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11517,7 +11517,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_STOP_P2P_DEVICE,
- 		.doit = nl80211_stop_p2p_device,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11525,7 +11525,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_MCAST_RATE,
- 		.doit = nl80211_set_mcast_rate,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11533,7 +11533,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_MAC_ACL,
- 		.doit = nl80211_set_mac_acl,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11541,7 +11541,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_RADAR_DETECT,
- 		.doit = nl80211_start_radar_detection,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11554,7 +11554,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_UPDATE_FT_IES,
- 		.doit = nl80211_update_ft_ies,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11562,7 +11562,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_CRIT_PROTOCOL_START,
- 		.doit = nl80211_crit_protocol_start,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11570,7 +11570,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_CRIT_PROTOCOL_STOP,
- 		.doit = nl80211_crit_protocol_stop,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11585,7 +11585,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_COALESCE,
- 		.doit = nl80211_set_coalesce,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11593,7 +11593,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_CHANNEL_SWITCH,
- 		.doit = nl80211_channel_switch,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11602,7 +11602,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.doit = nl80211_vendor_cmd,
- 		.dumpit = nl80211_vendor_cmd_dump,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_WIPHY |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11610,7 +11610,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_SET_QOS_MAP,
- 		.doit = nl80211_set_qos_map,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11618,7 +11618,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_ADD_TX_TS,
- 		.doit = nl80211_add_tx_ts,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11626,7 +11626,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_DEL_TX_TS,
- 		.doit = nl80211_del_tx_ts,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11634,7 +11634,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_TDLS_CHANNEL_SWITCH,
- 		.doit = nl80211_tdls_channel_switch,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
-@@ -11642,7 +11642,7 @@ static const struct genl_ops nl80211_ops[] = {
- 		.cmd = NL80211_CMD_TDLS_CANCEL_CHANNEL_SWITCH,
- 		.doit = nl80211_tdls_cancel_channel_switch,
- 		.policy = nl80211_policy,
--		.flags = GENL_ADMIN_PERM,
-+		.flags = GENL_UNS_ADMIN_PERM,
- 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
+diff --git a/Makefile b/Makefile
+index 0190aa004a79..eb571a5accf8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -7,6 +7,7 @@ DOCDIR?=$(DATADIR)/doc/iproute2
+ MANDIR?=$(DATADIR)/man
+ ARPDDIR?=/var/lib/arpd
+ KERNEL_INCLUDE?=/usr/include
++BASH_COMPDIR?=$(DATADIR)/bash-completion/completions
+ 
+ # Path to db_185.h include
+ DBM_INCLUDE:=$(DESTDIR)/usr/include
+@@ -66,6 +67,8 @@ install: all
+ 		$(DESTDIR)$(DOCDIR)/examples/diffserv
+ 	@for i in $(SUBDIRS) doc; do $(MAKE) -C $$i install; done
+ 	install -m 0644 $(shell find etc/iproute2 -maxdepth 1 -type f) $(DESTDIR)$(CONFDIR)
++	install -m 0755 -d $(DESTDIR)$(BASH_COMPDIR)
++	install -m 0644 bash-completion/tc $(DESTDIR)$(BASH_COMPDIR)
+ 
+ snapshot:
+ 	echo "static const char SNAPSHOT[] = \""`date +%y%m%d`"\";" \
+diff --git a/bash-completion/tc b/bash-completion/tc
+new file mode 100644
+index 000000000000..79dd5fcc172c
+--- /dev/null
++++ b/bash-completion/tc
+@@ -0,0 +1,723 @@
++# tc(8) completion                                         -*- shell-script -*-
++# Copyright 2016 6WIND S.A.
++# Copyright 2016 Quentin Monnet <quentin.monnet@6wind.com>
++
++# Takes a list of words in argument; each one of them is added to COMPREPLY if
++# it is not already present on the command line. Returns no value.
++_tc_once_attr()
++{
++    local w subcword found
++    for w in $*; do
++        found=0
++        for (( subcword=3; subcword < ${#words[@]}-1; subcword++ )); do
++            if [[ $w == ${words[subcword]} ]]; then
++                found=1
++                break
++            fi
++        done
++        [[ $found -eq 0 ]] && \
++            COMPREPLY+=( $( compgen -W "$w" -- "$cur" ) )
++    done
++}
++
++# Takes a list of words in argument; adds them all to COMPREPLY if none of them
++# is already present on the command line. Returns no value.
++_tc_one_of_list()
++{
++    local w subcword
++    for w in $*; do
++        for (( subcword=3; subcword < ${#words[@]}-1; subcword++ )); do
++            [[ $w == ${words[subcword]} ]] && return 1
++        done
++    done
++    COMPREPLY+=( $( compgen -W "$*" -- "$cur" ) )
++}
++
++# Returns "$cur ${cur}arg1 ${cur}arg2 ..."
++_tc_expand_units()
++{
++    [[ $cur =~ ^[0-9]+ ]] || return 1
++    local value=${cur%%[^0-9]*}
++    [[ $cur == $value ]] && echo $cur
++    echo ${@/#/$value}
++}
++
++# Complete based on given word, usually $prev (or possibly the word before),
++# for when an argument or an option name has but a few possible arguments (so
++# tc does not take particular commands into account here).
++# Returns 0 is completion should stop after running this function, 1 otherwise.
++_tc_direct_complete()
++{
++    case $1 in
++        # Command options
++        dev)
++            _available_interfaces
++            return 0
++            ;;
++        classid)
++            return 0
++            ;;
++        estimator)
++            local list=$( _tc_expand_units 'secs' 'msecs' 'usecs' )
++            COMPREPLY+=( $( compgen -W "$list" -- "$cur" ) )
++            return 0
++            ;;
++        handle)
++            return 0
++            ;;
++        parent|flowid)
++            local i iface ids cmd
++            for (( i=3; i < ${#words[@]}-2; i++ )); do
++                [[ ${words[i]} == dev ]] && iface=${words[i+1]}
++                break
++            done
++            for cmd in qdisc class; do
++                if [[ -n $iface ]]; then
++                    ids+=$( tc $cmd show dev $iface 2>/dev/null | \
++                        cut -d\  -f 3 )" "
++                else
++                    ids+=$( tc $cmd show 2>/dev/null | cut -d\  -f 3 )
++                fi
++            done
++            [[ $ids != " " ]] && \
++                COMPREPLY+=( $( compgen -W "$ids" -- "$cur" ) )
++            return 0
++            ;;
++        protocol) # list comes from lib/ll_proto.c
++            COMPREPLY+=( $( compgen -W ' 802.1Q 802.1ad 802_2 802_3 LLDP aarp \
++                all aoe arp atalk atmfate atmmpoa ax25 bpq can control cust \
++                ddcmp dec diag dna_dl dna_rc dna_rt econet ieeepup ieeepupat \
++                ip ipv4 ipv6 ipx irda lat localtalk loop mobitex ppp_disc \
++                ppp_mp ppp_ses ppptalk pup pupat rarp sca snap tipc tr_802_2 \
++                wan_ppp x25' -- "$cur" ) )
++            return 0
++            ;;
++        prio)
++            return 0
++            ;;
++        stab)
++            COMPREPLY+=( $( compgen -W 'mtu tsize mpu overhead
++                linklayer' -- "$cur" ) )
++            ;;
++
++        # Qdiscs and classes options
++        alpha|bands|beta|buckets|corrupt|debug|decrement|default|\
++        default_index|depth|direct_qlen|divisor|duplicate|ewma|flow_limit|\
++        flows|hh_limit|increment|indices|linklayer|non_hh_weight|num_tc|\
++        penalty_burst|penalty_rate|prio|priomap|probability|queues|r2q|\
++        reorder|vq|vqs)
++            return 0
++            ;;
++        setup)
++            COMPREPLY+=( $( compgen -W 'vqs' -- "$cur" ) )
++            return 0
++            ;;
++        hw)
++            COMPREPLY+=( $( compgen -W '1 0' -- "$cur" ) )
++            return 0
++            ;;
++        distribution)
++            COMPREPLY+=( $( compgen -W 'uniform normal pareto
++                paretonormal' -- "$cur" ) )
++            return 0
++            ;;
++        loss)
++            COMPREPLY+=( $( compgen -W 'random state gmodel' -- "$cur" ) )
++            return 0
++            ;;
++
++        # Qdiscs and classes options options
++        gap|gmodel|state)
++            return 0
++            ;;
++
++        # Filters options
++        map)
++            COMPREPLY+=( $( compgen -W 'key' -- "$cur" ) )
++            return 0
++            ;;
++        hash)
++            COMPREPLY+=( $( compgen -W 'keys' -- "$cur" ) )
++            return 0
++            ;;
++        indev)
++            _available_interfaces
++            return 0
++            ;;
++        eth_type)
++            COMPREPLY+=( $( compgen -W 'ipv4 ipv6' -- "$cur" ) )
++            return 0
++            ;;
++        ip_proto)
++            COMPREPLY+=( $( compgen -W 'tcp udp' -- "$cur" ) )
++            return 0
++            ;;
++
++        # Filters options options
++        key|keys)
++            [[ ${words[@]} =~ graft ]] && return 1
++            COMPREPLY+=( $( compgen -W 'src dst proto proto-src proto-dst iif \
++                priority mark nfct nfct-src nfct-dst nfct-proto-src \
++                nfct-proto-dst rt-classid sk-uid sk-gid vlan-tag rxhash' -- \
++                "$cur" ) )
++            return 0
++            ;;
++
++        # BPF options - used for filters, actions, and exec
++        export|bytecode|bytecode-file|object-file)
++            _filedir
++            return 0
++            ;;
++        object-pinned|graft) # Pinned object is probably under /sys/fs/bpf/
++            [[ -n "$cur" ]] && _filedir && return 0
++            COMPREPLY=( $( compgen -G "/sys/fs/bpf/*" -- "$cur" ) ) || _filedir
++            compopt -o nospace
++            return 0
++            ;;
++        section)
++            if (type objdump > /dev/null 2>&1) ; then
++                local fword objfile section_list
++                for (( fword=3; fword < ${#words[@]}-3; fword++ )); do
++                    if [[ ${words[fword]} == object-file ]]; then
++                        objfile=${words[fword+1]}
++                        break
++                    fi
++                done
++                section_list=$( objdump -h $objfile 2>/dev/null | \
++                    sed -n 's/^ *[0-9]\+ \([^ ]*\) *.*/\1/p' )
++                COMPREPLY+=( $( compgen -W "$section_list" -- "$cur" ) )
++            fi
++            return 0
++            ;;
++        import|run)
++            _filedir
++            return 0
++            ;;
++        type)
++            COMPREPLY+=( $( compgen -W 'cls act' -- "$cur" ) )
++            return 0
++            ;;
++
++        # Actions options
++        random)
++            _tc_one_of_list 'netrand determ'
++            return 0
++            ;;
++
++        # Units for option arguments
++        bandwidth|maxrate|peakrate|rate)
++            local list=$( _tc_expand_units 'bit' \
++                'kbit' 'kibit' 'kbps' 'kibps' \
++                'mbit' 'mibit' 'mbps' 'mibps' \
++                'gbit' 'gibit' 'gbps' 'gibps' \
++                'tbit' 'tibit' 'tbps' 'tibps' )
++            COMPREPLY+=( $( compgen -W "$list" -- "$cur" ) )
++            ;;
++        admit_bytes|avpkt|burst|cell|initial_quantum|limit|max|min|mtu|mpu|\
++        overhead|quantum|redflowlist)
++            local list=$( _tc_expand_units \
++                'b' 'kbit' 'k' 'mbit' 'm' 'gbit' 'g' )
++            COMPREPLY+=( $( compgen -W "$list" -- "$cur" ) )
++            ;;
++        db|delay|evict_timeout|interval|latency|perturb|rehash|reset_timeout|\
++        target|tupdate)
++            local list=$( _tc_expand_units 'secs' 'msecs' 'usecs' )
++            COMPREPLY+=( $( compgen -W "$list" -- "$cur" ) )
++            ;;
++    esac
++    return 1
++}
++
++# Complete with options names for qdiscs. Each qdisc has its own set of options
++# and it seems we cannot really parse it from anywhere, so we add it manually
++# in this function.
++# Returns 0 is completion should stop after running this function, 1 otherwise.
++_tc_qdisc_options()
++{
++    case $1 in
++        choke)
++            _tc_once_attr 'limit bandwidth ecn min max burst'
++            return 0
++            ;;
++        codel)
++            _tc_once_attr 'limit target interval'
++            _tc_one_of_list 'ecn noecn'
++            return 0
++            ;;
++        bfifo|pfifo|pfifo_head_drop)
++            _tc_once_attr 'limit'
++            return 0
++            ;;
++        fq)
++            _tc_once_attr 'limit flow_limit quantum initial_quantum maxrate \
++                buckets'
++            _tc_one_of_list 'pacing nopacing'
++            return 0
++            ;;
++        fq_codel)
++            _tc_once_attr 'limit flows target interval quantum'
++            _tc_one_of_list 'ecn noecn'
++            return 0
++            ;;
++        gred)
++            _tc_once_attr 'setup vqs default grio vq prio limit min max avpkt \
++                burst probability bandwidth'
++            return 0
++            ;;
++        hhf)
++            _tc_once_attr 'limit quantum hh_limit reset_timeout admit_bytes \
++                evict_timeout non_hh_weight'
++            return 0
++            ;;
++        mqprio)
++            _tc_once_attr 'num_tc map queues hw'
++            return 0
++            ;;
++        netem)
++            _tc_once_attr 'delay distribution corrupt duplicate loss ecn \
++                reorder rate'
++            return 0
++            ;;
++        pie)
++            _tc_once_attr 'limit target tupdate alpha beta'
++            _tc_one_of_list 'bytemode nobytemode'
++            _tc_one_of_list 'ecn noecn'
++            return 0
++            ;;
++        red)
++            _tc_once_attr 'limit min max avpkt burst adaptive probability \
++                bandwidth ecn harddrop'
++            return 0
++            ;;
++        rr|prio)
++            _tc_once_attr 'bands priomap multiqueue'
++            return 0
++            ;;
++        sfb)
++            _tc_once_attr 'rehash db limit max target increment decrement \
++                penalty_rate penalty_burst'
++            return 0
++            ;;
++        sfq)
++            _tc_once_attr 'limit perturb quantum divisor flows depth headdrop \
++                redflowlimit min max avpkt burst probability ecn harddrop'
++            return 0
++            ;;
++        tbf)
++            _tc_once_attr 'limit burst rate mtu peakrate latency overhead \
++                linklayer'
++            return 0
++            ;;
++        cbq)
++            _tc_once_attr 'bandwidth avpkt mpu cell ewma'
++            return 0
++            ;;
++        dsmark)
++            _tc_once_attr 'indices default_index set_tc_index'
++            return 0
++            ;;
++        hfsc)
++            _tc_once_attr 'default'
++            return 0
++            ;;
++        htb)
++            _tc_once_attr 'default r2q direct_qlen debug'
++            return 0
++            ;;
++        multiq|pfifo_fast|atm|drr|qfq)
++            return 0
++            ;;
++    esac
++    return 1
++}
++
++# Complete with options names for BPF filters or actions.
++# Returns 0 is completion should stop after running this function, 1 otherwise.
++_tc_bpf_options()
++{
++    [[ ${words[${#words[@]}-3]} == object-file ]] && \
++        _tc_once_attr 'section export'
++    [[ ${words[${#words[@]}-5]} == object-file ]] && \
++        [[ ${words[${#words[@]}-3]} =~ (section|export) ]] && \
++        _tc_once_attr 'section export'
++    _tc_one_of_list 'bytecode bytecode-file object-file object-pinned'
++    _tc_once_attr 'verbose index direct-action action classid'
++    return 0
++}
++
++# Complete with options names for filters.
++# Returns 0 is completion should stop after running this function, 1 otherwise.
++_tc_filter_options()
++{
++    case $1 in
++        basic)
++            _tc_once_attr 'match action classid'
++            return 0
++            ;;
++        bpf)
++            _tc_bpf_options
++            return 0
++            ;;
++        cgroup)
++            _tc_once_attr 'match action'
++            return 0
++            ;;
++        flow)
++            local i
++            for (( i=5; i < ${#words[@]}-1; i++ )); do
++                if [[ ${words[i]} =~ ^keys?$ ]]; then
++                    _tc_direct_complete 'key'
++                    COMPREPLY+=( $( compgen -W 'or and xor rshift addend' -- \
++                        "$cur" ) )
++                    break
++                fi
++            done
++            _tc_once_attr 'map hash divisor baseclass match action'
++            return 0
++            ;;
++        flower)
++            _tc_once_attr 'action classid indev dst_mac src_mac eth_type \
++                ip_proto dst_ip src_ip dst_port src_port'
++            return 0
++            ;;
++        fw)
++            _tc_once_attr 'action classid'
++            return 0
++            ;;
++        route)
++            _tc_one_of_list 'from fromif'
++            _tc_once_attr 'to classid action'
++            return 0
++            ;;
++        rsvp)
++            _tc_once_attr 'ipproto session sender classid action tunnelid \
++                tunnel flowlabel spi/ah spi/esp u8 u16 u32'
++            [[ ${words[${#words[@]}-3]} == tunnel ]] && \
++                    COMPREPLY+=( $( compgen -W 'skip' -- "$cur" ) )
++            [[ ${words[${#words[@]}-3]} =~ u(8|16|32) ]] && \
++                    COMPREPLY+=( $( compgen -W 'mask' -- "$cur" ) )
++            [[ ${words[${#words[@]}-3]} == mask ]] && \
++                    COMPREPLY+=( $( compgen -W 'at' -- "$cur" ) )
++            return 0
++            ;;
++        tcindex)
++            _tc_once_attr 'hash mask shift classid action'
++            _tc_one_of_list 'pass_on fall_through'
++            return 0
++            ;;
++        u32)
++            _tc_once_attr 'match link classid action offset ht hashkey sample'
++            COMPREPLY+=( $( compgen -W 'ip ip6 udp tcp icmp u8 u16 u32 mark \
++                divisor' -- "$cur" ) )
++            return 0
++            ;;
++    esac
++    return 1
++}
++
++# Complete with options names for actions.
++# Returns 0 is completion should stop after running this function, 1 otherwise.
++_tc_action_options()
++{
++    case $1 in
++        bpf)
++            _tc_bpf_options
++            return 0
++            ;;
++        mirred)
++            _tc_one_of_list 'ingress egress'
++            _tc_one_of_list 'mirror redirect'
++            _tc_once_attr 'index dev'
++            return 0
++            ;;
++        gact)
++            _tc_one_of_list 'reclassify drop continue pass'
++            _tc_once_attr 'random'
++            return 0
++            ;;
++    esac
++    return 1
++}
++
++# Complete with options names for exec.
++# Returns 0 is completion should stop after running this function, 1 otherwise.
++_tc_exec_options()
++{
++    case $1 in
++        import)
++            [[ ${words[${#words[@]}-3]} == import ]] && \
++                _tc_once_attr 'run'
++            return 0
++            ;;
++        graft)
++            COMPREPLY+=( $( compgen -W 'key type' -- "$cur" ) )
++            [[ ${words[${#words[@]}-3]} == object-file ]] && \
++                _tc_once_attr 'type'
++            _tc_bpf_options
++            return 0
++            ;;
++    esac
++    return 1
++}
++
++# Main completion function
++# Logic is as follows:
++#   1. Check if previous word is a global option; if so, propose arguments.
++#   2. Check if current word is a global option; if so, propose completion.
++#   3. Check for the presence of a main command (qdisc|class|filter|...). If
++#      there is one, first call _tc_direct_complete to see if previous word is
++#      waiting for a particular completion. If so, propose completion and exit.
++#   4. Extract main command and -- if available -- its subcommand
++#      (add|delete|show|...).
++#   5. Propose completion based on main and sub- command in use. Additional
++#      functions may be called for qdiscs, classes or filter options.
++_tc()
++{
++    local cur prev words cword
++    _init_completion || return
++
++    case $prev in
++        -V|-Version)
++            return 0
++            ;;
++        -b|-batch|-cf|-conf)
++            _filedir
++            return 0
++            ;;
++        -force)
++            COMPREPLY=( $( compgen -W '-batch' -- "$cur" ) )
++            return 0
++            ;;
++        -nm|name)
++            [[ -r /etc/iproute2/tc_cls ]] || \
++                COMPREPLY=( $( compgen -W '-conf' -- "$cur" ) )
++            return 0
++            ;;
++        -n|-net|-netns)
++            local nslist=$( ip netns list 2>/dev/null )
++            COMPREPLY+=( $( compgen -W "$nslist" -- "$cur" ) )
++            return 0
++            ;;
++        -tshort)
++            _tc_once_attr '-statistics'
++            COMPREPLY+=( $( compgen -W 'monitor' -- "$cur" ) )
++            return 0
++            ;;
++        -timestamp)
++            _tc_once_attr '-statistics -tshort'
++            COMPREPLY+=( $( compgen -W 'monitor' -- "$cur" ) )
++            return 0
++            ;;
++    esac
++
++    # Search for main commands
++    local subcword cmd subcmd
++    for (( subcword=1; subcword < ${#words[@]}-1; subcword++ )); do
++        [[ ${words[subcword]} == -b?(atch) ]] && return 0
++        [[ -n $cmd ]] && subcmd=${words[subcword]} && break
++        [[ ${words[subcword]} != -* && \
++            ${words[subcword-1]} != -@(n?(et?(ns))|c?(on)f) ]] && \
++            cmd=${words[subcword]}
++    done
++
++    if [[ -z $cmd ]]; then
++        case $cur in
++            -*)
++                local c='-Version -statistics -details -raw -pretty \
++                    -iec -graphe -batch -name -netns -timestamp'
++                [[ $cword -eq 1 ]] && c+=' -force'
++                COMPREPLY=( $( compgen -W "$c" -- "$cur" ) )
++                return 0
++                ;;
++            *)
++                COMPREPLY=( $( compgen -W "help $( tc help 2>&1 | \
++                    command sed \
++                    -e '/OBJECT := /!d' \
++                    -e 's/.*{//' \
++                    -e 's/}.*//' \
++                    -e \ 's/|//g' )" -- "$cur" ) )
++                return 0
++                ;;
++        esac
++    fi
++
++    [[ $subcmd == help ]] && return 0
++
++    # For this set of commands we may create COMPREPLY just by analysing the
++    # previous word, if it expects for a specific list of options or values.
++    if [[ $cmd =~ (qdisc|class|filter|action|exec) ]]; then
++        _tc_direct_complete $prev && return 0
++        if [[ ${words[${#words[@]}-3]} == estimator ]]; then
++            local list=$( _tc_expand_units 'secs' 'msecs' 'usecs' )
++            COMPREPLY+=( $( compgen -W "$list" -- "$cur" ) ) && return 0
++        fi
++    fi
++
++    # Completion depends on main command and subcommand in use.
++    case $cmd in
++        qdisc)
++            case $subcmd in
++                add|change|replace|link|del|delete)
++                    if [[ $(($cword-$subcword)) -eq 1 ]]; then
++                        COMPREPLY=( $( compgen -W 'dev' -- "$cur" ) )
++                        return 0
++                    fi
++                    local qdisc qdwd QDISC_KIND=' choke codel bfifo pfifo \
++                        pfifo_head_drop fq fq_codel gred hhf mqprio multiq \
++                        netem pfifo_fast pie red rr sfb sfq tbf atm cbq drr \
++                        dsmark hfsc htb prio qfq '
++                    for ((qdwd=$subcword; qdwd < ${#words[@]}-1; qdwd++)); do
++                        if [[ $QDISC_KIND =~ ' '${words[qdwd]}' ' ]]; then
++                            qdisc=${words[qdwd]}
++                            _tc_qdisc_options $qdisc && return 0
++                        fi
++                    done
++                    _tc_one_of_list $QDISC_KIND
++                    _tc_one_of_list 'root ingress parent clsact'
++                    _tc_once_attr 'handle estimator stab'
++                    ;;
++                show)
++                    _tc_once_attr 'dev'
++                    _tc_one_of_list 'ingress clsact'
++                    _tc_once_attr '-statistics -details -raw -pretty -iec \
++                        -graph -name'
++                    ;;
++                help)
++                    return 0
++                    ;;
++                *)
++                    [[ $cword -eq $subcword ]] && \
++                        COMPREPLY=( $( compgen -W 'help add delete change \
++                            replace link show' -- "$cur" ) )
++                    ;;
++            esac
++            ;;
++
++        class)
++            case $subcmd in
++                add|change|replace|del|delete)
++                    if [[ $(($cword-$subcword)) -eq 1 ]]; then
++                        COMPREPLY=( $( compgen -W 'dev' -- "$cur" ) )
++                        return 0
++                    fi
++                    local qdisc qdwd QDISC_KIND=' choke codel bfifo pfifo \
++                        pfifo_head_drop fq fq_codel gred hhf mqprio multiq \
++                        netem pfifo_fast pie red rr sfb sfq tbf atm cbq drr \
++                        dsmark hfsc htb prio qfq '
++                    for ((qdwd=$subcword; qdwd < ${#words[@]}-1; qdwd++)); do
++                        if [[ $QDISC_KIND =~ ' '${words[qdwd]}' ' ]]; then
++                            qdisc=${words[qdwd]}
++                            _tc_qdisc_options $qdisc && return 0
++                        fi
++                    done
++                    _tc_one_of_list $QDISC_KIND
++                    _tc_one_of_list 'root parent'
++                    _tc_once_attr 'classid'
++                    ;;
++                show)
++                    _tc_once_attr 'dev'
++                    _tc_one_of_list 'root parent'
++                    _tc_once_attr '-statistics -details -raw -pretty -iec \
++                        -graph -name'
++                    ;;
++                help)
++                    return 0
++                    ;;
++                *)
++                    [[ $cword -eq $subcword ]] && \
++                        COMPREPLY=( $( compgen -W 'help add delete change \
++                            replace show' -- "$cur" ) )
++                    ;;
++            esac
++            ;;
++
++        filter)
++            case $subcmd in
++                add|change|replace|del|delete)
++                    if [[ $(($cword-$subcword)) -eq 1 ]]; then
++                        COMPREPLY=( $( compgen -W 'dev' -- "$cur" ) )
++                        return 0
++                    fi
++                    local filter fltwd FILTER_KIND=' basic bpf cgroup flow \
++                        flower fw route rsvp tcindex u32 '
++                    for ((fltwd=$subcword; fltwd < ${#words[@]}-1; fltwd++));
++                    do
++                        if [[ $FILTER_KIND =~ ' '${words[fltwd]}' ' ]]; then
++                            filter=${words[fltwd]}
++                            _tc_filter_options $filter && return 0
++                        fi
++                    done
++                    _tc_one_of_list $FILTER_KIND
++                    _tc_one_of_list 'root ingress egress parent'
++                    _tc_once_attr 'handle estimator pref protocol'
++                    ;;
++                show)
++                    _tc_once_attr 'dev'
++                    _tc_one_of_list 'root ingress egress parent'
++                    _tc_once_attr '-statistics -details -raw -pretty -iec \
++                        -graph -name'
++                    ;;
++                help)
++                    return 0
++                    ;;
++                *)
++                    [[ $cword -eq $subcword ]] && \
++                        COMPREPLY=( $( compgen -W 'help add delete change \
++                            replace show' -- "$cur" ) )
++                    ;;
++            esac
++            ;;
++
++        action)
++            case $subcmd in
++                add|change|replace)
++                    local action acwd ACTION_KIND=' gact mirred bpf '
++                    for ((acwd=$subcword; acwd < ${#words[@]}-1; acwd++)); do
++                        if [[ $ACTION_KIND =~ ' '${words[acwd]}' ' ]]; then
++                            action=${words[acwd]}
++                            _tc_action_options $action && return 0
++                        fi
++                    done
++                    _tc_one_of_list $ACTION_KIND
++                    ;;
++                get|del|delete)
++                    _tc_once_attr 'index'
++                    ;;
++                lst|list|flush|show)
++                    _tc_one_of_list $ACTION_KIND
++                    ;;
++                *)
++                    [[ $cword -eq $subcword ]] && \
++                        COMPREPLY=( $( compgen -W 'help add delete change \
++                            replace show list flush action' -- "$cur" ) )
++                    ;;
++            esac
++            ;;
++
++        monitor)
++            COMPREPLY=( $( compgen -W 'help' -- "$cur" ) )
++            ;;
++
++        exec)
++            case $subcmd in
++                bpf)
++                    local excmd exwd EXEC_KIND=' import debug graft '
++                    for ((exwd=$subcword; exwd < ${#words[@]}-1; exwd++)); do
++                        if [[ $EXEC_KIND =~ ' '${words[exwd]}' ' ]]; then
++                            excmd=${words[exwd]}
++                            _tc_exec_options $excmd && return 0
++                        fi
++                    done
++                    _tc_one_of_list $EXEC_KIND
++                    ;;
++                *)
++                    [[ $cword -eq $subcword ]] && \
++                        COMPREPLY=( $( compgen -W 'bpf' -- "$cur" ) )
++                    ;;
++            esac
++            ;;
++    esac
++} &&
++complete -F _tc tc
++
++# ex: ts=4 sw=4 et filetype=sh
 -- 
-2.7.4
+2.1.4
