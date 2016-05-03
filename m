@@ -1,40 +1,155 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] Mellanox 100G mlx5 fixes for 4.6-rc
-Date: Tue, 03 May 2016 13:37:47 -0400 (EDT)
-Message-ID: <20160503.133747.1459772515243143845.davem@davemloft.net>
-References: <1462132797-22853-1-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
-	eranbe@mellanox.com
-To: saeedm@mellanox.com
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 net-next] dmfe: kill DEVICE define
+Date: Tue,  3 May 2016 18:53:15 +0200
+Message-ID: <1462294395-20440-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50087 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934338AbcECRhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 13:37:52 -0400
-In-Reply-To: <1462132797-22853-1-git-send-email-saeedm@mellanox.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50292 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932756AbcECRkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 13:40:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Sun,  1 May 2016 22:59:53 +0300
+use net_device directly. Compile tested, objdiff shows no changes.
 
-> This small series provides some bug fixes for mlx5 driver.
->  
-> A small bug fix for iounmap of a null pointer, which dumps a warning on some archs.
-> 
-> One patch to fix the VXLAN/MLX5_EN dependency issue reported by Arnd.
-> 
-> Two patches to fix the scheduling while atomic issue for ndo_add/del_vxlan_port 
-> NDOs.  The first will add an internal mlx5e workqueue and the second will 
-> delegate vxlan ports add/del requests to that workqueue.
-> 
-> Note: ('net/mlx5: Kconfig: Fix MLX5_EN/VXLAN build issue') is only needed for net 
-> and not net-next as the issue was globally fixed for all device drivers by:
-> b7aade15485a ('vxlan: break dependency with netdev drivers') in net-next.
-> 
-> Applied on top: f27337e16f2d ('ip_tunnel: fix preempt warning in ip tunnel creation/updating')
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ resending this separately as it's not related to the
+ rest of the dev->trans_start removal series.
 
-Series applied, thanks.
+ drivers/net/ethernet/dec/tulip/dmfe.c | 39 ++++++++++++++++-------------------
+ 1 file changed, 18 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
+index afd8e78..42c759e 100644
+--- a/drivers/net/ethernet/dec/tulip/dmfe.c
++++ b/drivers/net/ethernet/dec/tulip/dmfe.c
+@@ -192,9 +192,6 @@
+ 	(__CHK_IO_SIZE(((pci_dev)->device << 16) | (pci_dev)->vendor, \
+ 	(pci_dev)->revision))
+ 
+-/* Sten Check */
+-#define DEVICE net_device
+-
+ /* Structure/enum declaration ------------------------------- */
+ struct tx_desc {
+         __le32 tdes0, tdes1, tdes2, tdes3; /* Data for the card */
+@@ -313,10 +310,10 @@ static u8 SF_mode;		/* Special Function: 1:VLAN, 2:RX Flow Control
+ 
+ 
+ /* function declaration ------------------------------------- */
+-static int dmfe_open(struct DEVICE *);
+-static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
+-static int dmfe_stop(struct DEVICE *);
+-static void dmfe_set_filter_mode(struct DEVICE *);
++static int dmfe_open(struct net_device *);
++static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct net_device *);
++static int dmfe_stop(struct net_device *);
++static void dmfe_set_filter_mode(struct net_device *);
+ static const struct ethtool_ops netdev_ethtool_ops;
+ static u16 read_srom_word(void __iomem *, int);
+ static irqreturn_t dmfe_interrupt(int , void *);
+@@ -326,8 +323,8 @@ static void poll_dmfe (struct net_device *dev);
+ static void dmfe_descriptor_init(struct net_device *);
+ static void allocate_rx_buffer(struct net_device *);
+ static void update_cr6(u32, void __iomem *);
+-static void send_filter_frame(struct DEVICE *);
+-static void dm9132_id_table(struct DEVICE *);
++static void send_filter_frame(struct net_device *);
++static void dm9132_id_table(struct net_device *);
+ static u16 dmfe_phy_read(void __iomem *, u8, u8, u32);
+ static void dmfe_phy_write(void __iomem *, u8, u8, u16, u32);
+ static void dmfe_phy_write_1bit(void __iomem *, u32);
+@@ -336,12 +333,12 @@ static u8 dmfe_sense_speed(struct dmfe_board_info *);
+ static void dmfe_process_mode(struct dmfe_board_info *);
+ static void dmfe_timer(unsigned long);
+ static inline u32 cal_CRC(unsigned char *, unsigned int, u8);
+-static void dmfe_rx_packet(struct DEVICE *, struct dmfe_board_info *);
+-static void dmfe_free_tx_pkt(struct DEVICE *, struct dmfe_board_info *);
++static void dmfe_rx_packet(struct net_device *, struct dmfe_board_info *);
++static void dmfe_free_tx_pkt(struct net_device *, struct dmfe_board_info *);
+ static void dmfe_reuse_skb(struct dmfe_board_info *, struct sk_buff *);
+-static void dmfe_dynamic_reset(struct DEVICE *);
++static void dmfe_dynamic_reset(struct net_device *);
+ static void dmfe_free_rxbuffer(struct dmfe_board_info *);
+-static void dmfe_init_dm910x(struct DEVICE *);
++static void dmfe_init_dm910x(struct net_device *);
+ static void dmfe_parse_srom(struct dmfe_board_info *);
+ static void dmfe_program_DM9801(struct dmfe_board_info *, int);
+ static void dmfe_program_DM9802(struct dmfe_board_info *);
+@@ -558,7 +555,7 @@ static void dmfe_remove_one(struct pci_dev *pdev)
+  *	The interface is opened whenever "ifconfig" actives it.
+  */
+ 
+-static int dmfe_open(struct DEVICE *dev)
++static int dmfe_open(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	const int irq = db->pdev->irq;
+@@ -617,7 +614,7 @@ static int dmfe_open(struct DEVICE *dev)
+  *	Enable Tx/Rx machine
+  */
+ 
+-static void dmfe_init_dm910x(struct DEVICE *dev)
++static void dmfe_init_dm910x(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -684,7 +681,7 @@ static void dmfe_init_dm910x(struct DEVICE *dev)
+  */
+ 
+ static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
+-					 struct DEVICE *dev)
++					 struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -754,7 +751,7 @@ static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
+  *	The interface is stopped when it is brought.
+  */
+ 
+-static int dmfe_stop(struct DEVICE *dev)
++static int dmfe_stop(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -798,7 +795,7 @@ static int dmfe_stop(struct DEVICE *dev)
+ 
+ static irqreturn_t dmfe_interrupt(int irq, void *dev_id)
+ {
+-	struct DEVICE *dev = dev_id;
++	struct net_device *dev = dev_id;
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	void __iomem *ioaddr = db->ioaddr;
+ 	unsigned long flags;
+@@ -879,7 +876,7 @@ static void poll_dmfe (struct net_device *dev)
+  *	Free TX resource after TX complete
+  */
+ 
+-static void dmfe_free_tx_pkt(struct DEVICE *dev, struct dmfe_board_info * db)
++static void dmfe_free_tx_pkt(struct net_device *dev, struct dmfe_board_info *db)
+ {
+ 	struct tx_desc *txptr;
+ 	void __iomem *ioaddr = db->ioaddr;
+@@ -961,7 +958,7 @@ static inline u32 cal_CRC(unsigned char * Data, unsigned int Len, u8 flag)
+  *	Receive the come packet and pass to upper layer
+  */
+ 
+-static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
++static void dmfe_rx_packet(struct net_device *dev, struct dmfe_board_info *db)
+ {
+ 	struct rx_desc *rxptr;
+ 	struct sk_buff *skb, *newskb;
+@@ -1052,7 +1049,7 @@ static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
+  * Set DM910X multicast address
+  */
+ 
+-static void dmfe_set_filter_mode(struct DEVICE * dev)
++static void dmfe_set_filter_mode(struct net_device *dev)
+ {
+ 	struct dmfe_board_info *db = netdev_priv(dev);
+ 	unsigned long flags;
+-- 
+2.7.3
