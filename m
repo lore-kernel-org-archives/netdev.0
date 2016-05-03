@@ -1,36 +1,36 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 00/12] Mellanox 100G ethernet SRIOV Upgrades
-Date: Tue, 3 May 2016 19:28:42 +0300
-Message-ID: <CALzJLG9U85eQbhJCL7NQoxmEG+8s7YX4gWiN7JvaZ5_dz9GYCw@mail.gmail.com>
-References: <1462284844-16926-1-git-send-email-saeedm@mellanox.com>
- <20160503.121254.1213266710265417601.davem@davemloft.net> <20160503.121845.38810507805302539.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request [net]: batman-adv 20160430
+Date: Tue, 03 May 2016 12:33:30 -0400 (EDT)
+Message-ID: <20160503.123330.1810855853724486551.davem@davemloft.net>
+References: <1462035963-28970-1-git-send-email-a@unstable.cc>
+ <20160503.001813.1881857417530292443.davem@davemloft.net>
+ <20160503144229.GD11201@prodigo.lan>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:34660 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933764AbcECQ3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 12:29:03 -0400
-Received: by mail-yw0-f177.google.com with SMTP id j74so24226493ywg.1
-        for <netdev@vger.kernel.org>; Tue, 03 May 2016 09:29:03 -0700 (PDT)
-In-Reply-To: <20160503.121845.38810507805302539.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: a@unstable.cc
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20160503144229.GD11201-bY/dlpGjfuDhXIiyNabO3w@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 3, 2016 at 7:18 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Miller <davem@davemloft.net>
->
-> The first posting is implicitly "V1" and any subsequent version is
-> therefore "v2", "v3", and so on.
->
+From: Antonio Quartulli <a@unstable.cc>
+Date: Tue, 3 May 2016 22:42:29 +0800
 
-Didn't know that, I am used to send V1 as an update of the first posting
-Will change that habit.
+> Do you have any plan on merging net into net-next in the following days ?
+> 
+> I am asking because I'd prefer to avoid you the hassle of dealing with the
+> conflicts.
 
-Thanks
+I'll try to do this in the next few days.
