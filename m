@@ -1,54 +1,52 @@
-From: maryjanesogrub <maryjanesogrub123@gmail.com>
-Subject: Listing from maryjanesogrub
-Date: Mon,  2 May 2016 22:13:03 -0700 (MST)
-Message-ID: <20160503051303.E00D738A25F@shared5.precisionpros.com>
-To: mrechberger@gmail.com, shdl@zakalwe.fi, heikki.orsila@iki.fi,
-	rjkm@metzlerbros.de, nagendra_tomar@adaptec.com, eparis@redhat.com,
-	eric.rannaud@gmail.com, netdev@vger.kernel.org,
-	bcollins@debian.org, linux1394-devel@lists.sourceforge.net
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/2] mac80211_hwsim: Allow managing radios from
+ non-initial namespaces
+Date: Tue, 03 May 2016 08:56:28 +0200
+Message-ID: <1462258588.2251.1.camel@sipsolutions.net>
+References: <1462258398-6749-1-git-send-email-martin@strongswan.org>
+	 <1462258398-6749-3-git-send-email-martin@strongswan.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Martin Willi <martin@strongswan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shared5.precisionpros.com ([67.59.131.61]:53458 "EHLO
-	shared5.precisionpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750974AbcECFUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 01:20:17 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:32970 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751090AbcECG4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 02:56:34 -0400
+In-Reply-To: <1462258398-6749-3-git-send-email-martin@strongswan.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your friend, maryjanesogrub, has sent along the following link:
-http://www.midwestrealty.net/listingview.php?listingID=1128
+On Tue, 2016-05-03 at 08:53 +0200, Martin Willi wrote:
+> While wiphys can be moved into network namespaces over nl80211, the
+> creation and removal of hwsim radios is currently limited to the
+> initial namespace. This patch allows management of namespaced radios
+> from the owning namespace by setting genetlink netnsok.
 
-Comment:
-JOB POSITION AVAILABLE - APPLY NOW!
-WE'RE HIRING: Data Entry Workers Earn $500 up to $1000 Daily 
-(No Experience Required)
+Interesting.
 
-Good Day,
+> To prevent two arbitrary namespaces from communicating over the
+> simulated
+> shared medium, radios are separated by netgroups. Each radio created
+> in
+> the same namespace lives in the same netgroup and hence can
+> communicate
+> with other radios in that group. When moving radios to other
+> namespaces,
+> the netgroup is preserved, so two radios having the same netgroup can
+> communicate even if not in the same namespace; This allows a
+> controlling
+> namespace to create radios and move them to other namespaces for
+> communication.
 
-You recently expressed an interest in obtaining a
-position you could do from the comfort of your own home.
-I am happy to let you know that I found a great company
-that will help you get started working online.
+Neat.
 
-Visit our website here:
+I'm curious what the use case is?
 
-http://link.limo/1jqz
+I'll need some time to review it, it'll likely have to wait until next
+week given our holiday here on Thursday (and I'm also off work
+tomorrow/Friday)
 
-The scope of the work is very simple.
-You can work as little or as much as you want
-depending on how much you want your paycheck to be
-
-No background experience is needed because you
-will be given a detailed step-by-step training in
-all the job fields along with all the resources you
-needed to help you get started immediately.
-
-Visit our website here:
-
-http://link.limo/1jqz
-
-If you're serious about this position, though,
-then I encourage you to take action immediately.
-We only have a few openings left, and we expect them
-to fill up fast. This really is a great opportunity!
-
-THANKS
+johannes
