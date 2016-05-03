@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add __sock_wfree() helper
-Date: Tue, 03 May 2016 16:02:55 -0400 (EDT)
-Message-ID: <20160503.160255.781749692228793045.davem@davemloft.net>
-References: <1462211787.5535.269.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net v2 0/2] RDS: TCP: sychronization during connection
+ startup
+Date: Tue, 03 May 2016 16:05:04 -0400 (EDT)
+Message-ID: <20160503.160504.1381876048546522908.davem@davemloft.net>
+References: <cover.1462212462.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	santosh.shilimkar@oracle.com
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52468 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52502 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756372AbcECUC4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 16:02:56 -0400
-In-Reply-To: <1462211787.5535.269.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1752195AbcECUFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 16:05:07 -0400
+In-Reply-To: <cover.1462212462.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 May 2016 10:56:27 -0700
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Mon,  2 May 2016 11:24:50 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patch series ensures that the passive (accept) side of the
+> TCP connection used for RDS-TCP is correctly synchronized with
+> any concurrent active (connect) attempts for a given pair of peers.
 > 
-> Hosts sending lot of ACK packets exhibit high sock_wfree() cost
-> because of cache line miss to test SOCK_USE_WRITE_QUEUE
+> Patch 1 in the series makes sure that the t_sock in struct 
+> rds_tcp_connection is only reset after any threads in rds_tcp_xmit
+> have completed (otherwise a null-ptr deref may be encountered). 
+> Patch 2 synchronizes rds_tcp_accept_one() with the rds_tcp*connect()
+> path.
 > 
-> We could move this flag close to sk_wmem_alloc but it is better
-> to perform the atomic_sub_and_test() on a clean cache line,
-> as it avoid one extra bus transaction.
-> 
-> skb_orphan_partial() can also have a fast track for packets that either
-> are TCP acks, or already went through another skb_orphan_partial()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> v2: review comments from Santosh Shilimkar, other spelling corrections
 
-Applied, thanks.
+Series applied, thanks.
