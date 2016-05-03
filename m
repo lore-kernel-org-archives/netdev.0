@@ -1,186 +1,88 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 14/15] batman-adv: Merge batadv_v_ogm_orig_update into batadv_v_ogm_route_update
-Date: Wed,  4 May 2016 06:23:49 +0800
-Message-ID: <1462314230-16257-15-git-send-email-a__37223.7981450327$1462315963$gmane$org@unstable.cc>
-References: <1462314230-16257-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon@open-mesh.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <a@unstable.cc>
-To: davem@davemloft.net
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net v3 1/2] udp_tunnel: Remove redundant udp_tunnel_gro_complete().
+Date: Tue,  3 May 2016 16:10:20 -0700
+Message-ID: <1462317021-7236-1-git-send-email-jarno@ovn.org>
+Cc: jesse@kernel.org, jarno@ovn.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:48163 "EHLO s2.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932265AbcECWw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 18:52:26 -0400
-In-Reply-To: <1462314230-16257-1-git-send-email-a@unstable.cc>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33456 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756537AbcECXLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 19:11:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon@open-mesh.com>
+The setting of the UDP tunnel GSO type is already performed by
+udp[46]_gro_complete().
 
-Since batadv_v_ogm_orig_update() was only called from one place and the
-calling function became very short, merge these two functions together.
-
-This should also reflect the protocol description of B.A.T.M.A.N. V
-better.
-
-Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- net/batman-adv/bat_v_ogm.c | 117 ++++++++++++++++++---------------------------
- 1 file changed, 46 insertions(+), 71 deletions(-)
+ drivers/net/geneve.c     | 2 --
+ drivers/net/vxlan.c      | 2 --
+ include/net/udp_tunnel.h | 9 ---------
+ net/ipv4/fou.c           | 2 --
+ 4 files changed, 15 deletions(-)
 
-diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
-index 07c999734fba..4155fa57cf6d 100644
---- a/net/batman-adv/bat_v_ogm.c
-+++ b/net/batman-adv/bat_v_ogm.c
-@@ -234,73 +234,6 @@ void batadv_v_ogm_primary_iface_set(struct batadv_hard_iface *primary_iface)
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index bc16889..98f1224 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -504,8 +504,6 @@ static int geneve_gro_complete(struct sk_buff *skb, int nhoff,
+ 	int gh_len;
+ 	int err = -ENOSYS;
+ 
+-	udp_tunnel_gro_complete(skb, nhoff);
+-
+ 	gh = (struct genevehdr *)(skb->data + nhoff);
+ 	gh_len = geneve_hlen(gh);
+ 	type = gh->proto_type;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1c0fa36..dd2d032 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -616,8 +616,6 @@ out:
+ static int vxlan_gro_complete(struct sk_buff *skb, int nhoff,
+ 			      struct udp_offload *uoff)
+ {
+-	udp_tunnel_gro_complete(skb, nhoff);
+-
+ 	return eth_gro_complete(skb, nhoff + sizeof(struct vxlanhdr));
  }
  
- /**
-- * batadv_v_ogm_orig_update - update the originator status based on the received
-- *  OGM
-- * @bat_priv: the bat priv with all the soft interface information
-- * @orig_node: the originator to update
-- * @neigh_node: the neighbour the OGM has been received from (to update)
-- * @ogm2: the received OGM
-- * @if_outgoing: the interface where this OGM is going to be forwarded through
-- */
--static void
--batadv_v_ogm_orig_update(struct batadv_priv *bat_priv,
--			 struct batadv_orig_node *orig_node,
--			 struct batadv_neigh_node *neigh_node,
--			 const struct batadv_ogm2_packet *ogm2,
--			 struct batadv_hard_iface *if_outgoing)
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index b831140..a114024 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -106,15 +106,6 @@ static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
+ 	return iptunnel_handle_offloads(skb, type);
+ }
+ 
+-static inline void udp_tunnel_gro_complete(struct sk_buff *skb, int nhoff)
 -{
--	struct batadv_neigh_ifinfo *router_ifinfo = NULL, *neigh_ifinfo = NULL;
--	struct batadv_neigh_node *router = NULL;
--	s32 neigh_seq_diff;
--	u32 neigh_last_seqno;
--	u32 router_last_seqno;
--	u32 router_throughput, neigh_throughput;
+-	struct udphdr *uh;
 -
--	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--		   "Searching and updating originator entry of received packet\n");
--
--	/* if this neighbor already is our next hop there is nothing
--	 * to change
--	 */
--	router = batadv_orig_router_get(orig_node, if_outgoing);
--	if (router == neigh_node)
--		goto out;
--
--	/* don't consider neighbours with worse throughput.
--	 * also switch route if this seqno is BATADV_V_MAX_ORIGDIFF newer than
--	 * the last received seqno from our best next hop.
--	 */
--	if (router) {
--		router_ifinfo = batadv_neigh_ifinfo_get(router, if_outgoing);
--		neigh_ifinfo = batadv_neigh_ifinfo_get(neigh_node, if_outgoing);
--
--		/* if these are not allocated, something is wrong. */
--		if (!router_ifinfo || !neigh_ifinfo)
--			goto out;
--
--		neigh_last_seqno = neigh_ifinfo->bat_v.last_seqno;
--		router_last_seqno = router_ifinfo->bat_v.last_seqno;
--		neigh_seq_diff = neigh_last_seqno - router_last_seqno;
--		router_throughput = router_ifinfo->bat_v.throughput;
--		neigh_throughput = neigh_ifinfo->bat_v.throughput;
--
--		if ((neigh_seq_diff < BATADV_OGM_MAX_ORIGDIFF) &&
--		    (router_throughput >= neigh_throughput))
--			goto out;
--	}
--
--	batadv_update_route(bat_priv, orig_node, if_outgoing, neigh_node);
--
--out:
--	if (router_ifinfo)
--		batadv_neigh_ifinfo_put(router_ifinfo);
--	if (neigh_ifinfo)
--		batadv_neigh_ifinfo_put(neigh_ifinfo);
--	if (router)
--		batadv_neigh_node_put(router);
+-	uh = (struct udphdr *)(skb->data + nhoff - sizeof(struct udphdr));
+-	skb_shinfo(skb)->gso_type |= uh->check ?
+-				SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
 -}
 -
--/**
-  * batadv_v_forward_penalty - apply a penalty to the throughput metric forwarded
-  *  with B.A.T.M.A.N. V OGMs
-  * @bat_priv: the bat priv with all the soft interface information
-@@ -546,6 +479,11 @@ static bool batadv_v_ogm_route_update(struct batadv_priv *bat_priv,
- 	struct batadv_neigh_node *router = NULL;
- 	struct batadv_orig_node *orig_neigh_node = NULL;
- 	struct batadv_neigh_node *orig_neigh_router = NULL;
-+	struct batadv_neigh_ifinfo *router_ifinfo = NULL, *neigh_ifinfo = NULL;
-+	u32 router_throughput, neigh_throughput;
-+	u32 router_last_seqno;
-+	u32 neigh_last_seqno;
-+	s32 neigh_seq_diff;
- 	bool forward = false;
+ static inline void udp_tunnel_encap_enable(struct socket *sock)
+ {
+ #if IS_ENABLED(CONFIG_IPV6)
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index a39068b..305d9ac 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -228,8 +228,6 @@ static int fou_gro_complete(struct sk_buff *skb, int nhoff,
+ 	int err = -ENOSYS;
+ 	const struct net_offload **offloads;
  
- 	orig_neigh_node = batadv_v_ogm_orig_get(bat_priv, ethhdr->h_source);
-@@ -565,11 +503,44 @@ static bool batadv_v_ogm_route_update(struct batadv_priv *bat_priv,
- 		goto out;
- 	}
- 
--	/* Update routes, and check if the OGM is from the best next hop */
--	batadv_v_ogm_orig_update(bat_priv, orig_node, neigh_node, ogm2,
--				 if_outgoing);
+-	udp_tunnel_gro_complete(skb, nhoff);
 -
-+	/* Mark the OGM to be considered for forwarding, and update routes
-+	 * if needed.
-+	 */
- 	forward = true;
-+
-+	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
-+		   "Searching and updating originator entry of received packet\n");
-+
-+	/* if this neighbor already is our next hop there is nothing
-+	 * to change
-+	 */
-+	if (router == neigh_node)
-+		goto out;
-+
-+	/* don't consider neighbours with worse throughput.
-+	 * also switch route if this seqno is BATADV_V_MAX_ORIGDIFF newer than
-+	 * the last received seqno from our best next hop.
-+	 */
-+	if (router) {
-+		router_ifinfo = batadv_neigh_ifinfo_get(router, if_outgoing);
-+		neigh_ifinfo = batadv_neigh_ifinfo_get(neigh_node, if_outgoing);
-+
-+		/* if these are not allocated, something is wrong. */
-+		if (!router_ifinfo || !neigh_ifinfo)
-+			goto out;
-+
-+		neigh_last_seqno = neigh_ifinfo->bat_v.last_seqno;
-+		router_last_seqno = router_ifinfo->bat_v.last_seqno;
-+		neigh_seq_diff = neigh_last_seqno - router_last_seqno;
-+		router_throughput = router_ifinfo->bat_v.throughput;
-+		neigh_throughput = neigh_ifinfo->bat_v.throughput;
-+
-+		if ((neigh_seq_diff < BATADV_OGM_MAX_ORIGDIFF) &&
-+		    (router_throughput >= neigh_throughput))
-+			goto out;
-+	}
-+
-+	batadv_update_route(bat_priv, orig_node, if_outgoing, neigh_node);
- out:
- 	if (router)
- 		batadv_neigh_node_put(router);
-@@ -577,6 +548,10 @@ out:
- 		batadv_neigh_node_put(orig_neigh_router);
- 	if (orig_neigh_node)
- 		batadv_orig_node_put(orig_neigh_node);
-+	if (router_ifinfo)
-+		batadv_neigh_ifinfo_put(router_ifinfo);
-+	if (neigh_ifinfo)
-+		batadv_neigh_ifinfo_put(neigh_ifinfo);
- 
- 	return forward;
- }
+ 	rcu_read_lock();
+ 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
+ 	ops = rcu_dereference(offloads[proto]);
 -- 
-2.8.2
+2.7.4
