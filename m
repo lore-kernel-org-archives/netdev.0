@@ -1,70 +1,40 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: [PATCH] drivers: net: emac: add Atheros AR8035 phy initialization code
-Date: Tue,  3 May 2016 14:08:30 +0200
-Message-ID: <1462277310-8949-1-git-send-email-chunkeey@googlemail.com>
-Cc: Christian Lamparter <chunkeey@googlemail.com>
-To: netdev@vger.kernel.org
+From: William Dauchy <wdauchy@gmail.com>
+Subject: Re: [Intel-wired-lan] NULL dereference on v4.1.x while enabling VF
+Date: Tue, 3 May 2016 14:32:37 +0200
+Message-ID: <CAJ75kXY_PMK0iTyM5bbhQoAS9je5AqpW67jyZpJEUoNw0BPcqw@mail.gmail.com>
+References: <CAJ75kXZV32hLzYY-dynYAj6NHm2xNoq89inmSSbqUyxPvUazEw@mail.gmail.com>
+ <F6FB0E698C9B3143BDF729DF2228664691EA68EC@ORSMSX116.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: NETDEV <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	Alex Duyck <aduyck@mirantis.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35433 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932634AbcECMIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 08:08:51 -0400
-Received: by mail-wm0-f67.google.com with SMTP id e201so3409842wme.2
-        for <netdev@vger.kernel.org>; Tue, 03 May 2016 05:08:51 -0700 (PDT)
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:36111 "EHLO
+	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932655AbcECMc6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 08:32:58 -0400
+Received: by mail-lf0-f53.google.com with SMTP id u64so19846133lff.3
+        for <netdev@vger.kernel.org>; Tue, 03 May 2016 05:32:57 -0700 (PDT)
+In-Reply-To: <F6FB0E698C9B3143BDF729DF2228664691EA68EC@ORSMSX116.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the phy initialization code for Qualcomm
-Atheros AR8035 phy. This configuration is found in the
-Cisco Meraki MR24.
+Hello Don,
 
-Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
----
- drivers/net/ethernet/ibm/emac/phy.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+Thank you for your reply.
 
-diff --git a/drivers/net/ethernet/ibm/emac/phy.c b/drivers/net/ethernet/ibm/emac/phy.c
-index d3b9d10..5b88cc6 100644
---- a/drivers/net/ethernet/ibm/emac/phy.c
-+++ b/drivers/net/ethernet/ibm/emac/phy.c
-@@ -470,12 +470,38 @@ static struct mii_phy_def m88e1112_phy_def = {
- 	.ops		= &m88e1112_phy_ops,
- };
- 
-+static int ar8035_init(struct mii_phy *phy)
-+{
-+	phy_write(phy, 0x1d, 0x5); /* Address debug register 5 */
-+	phy_write(phy, 0x1e, 0x2d47); /* Value copied from u-boot */
-+	phy_write(phy, 0x1d, 0xb);    /* Address hib ctrl */
-+	phy_write(phy, 0x1e, 0xbc20); /* Value copied from u-boot */
-+
-+	return 0;
-+}
-+
-+static struct mii_phy_ops ar8035_phy_ops = {
-+	.init		= ar8035_init,
-+	.setup_aneg	= genmii_setup_aneg,
-+	.setup_forced	= genmii_setup_forced,
-+	.poll_link	= genmii_poll_link,
-+	.read_link	= genmii_read_link,
-+};
-+
-+static struct mii_phy_def ar8035_phy_def = {
-+	.phy_id		= 0x004dd070,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Atheros 8035 Gigabit Ethernet",
-+	.ops		= &ar8035_phy_ops,
-+};
-+
- static struct mii_phy_def *mii_phy_table[] = {
- 	&et1011c_phy_def,
- 	&cis8201_phy_def,
- 	&bcm5248_phy_def,
- 	&m88e1111_phy_def,
- 	&m88e1112_phy_def,
-+	&ar8035_phy_def,
- 	&genmii_phy_def,
- 	NULL
- };
+On Mon, May 2, 2016 at 11:33 PM, Skidmore, Donald C
+<donald.c.skidmore@intel.com> wrote:
+> Thanks for reporting the dereference.  Could you provide a little more detail on how you created this issue?  Are you just running the two commands (ip, sriov_numvfs) in some rc script and if you put a few second sleep in front of it you don't see the failure?
+
+Your understanding is correct; a rc script is run with ip and echo in
+numvfs commands. I tried to reduce it to the minimum. If I put a sleep
+20 in front of it, it does not crash. I also forgot to add I did not
+had the issue in 3.14.x with the same script.
+
+Best,
 -- 
-2.8.1
+William
