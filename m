@@ -1,52 +1,58 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH 0/2] sctp: Add GSO support
-Date: Tue, 3 May 2016 08:49:18 -0300
-Message-ID: <20160503114918.GD5676@localhost.localdomain>
-References: <cover.1461965035.git.marcelo.leitner@gmail.com>
- <20160502.191614.608026435064266168.davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] block/drbd: use nla_put_u64_64bit()
+Date: Tue, 3 May 2016 14:07:04 +0200
+Message-ID: <57289468.5090401@6wind.com>
+References: <57286F49.8050107@6wind.com>
+ <1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20160503100644.GE16459@soda.linbit>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, David.Laight@ACULAB.COM,
-	alexander.duyck@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33982 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932613AbcECLtW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 07:49:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20160502.191614.608026435064266168.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	philipp.reisner@linbit.com, drbd-dev@lists.linbit.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160503100644.GE16459@soda.linbit>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 02, 2016 at 07:16:14PM -0400, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Fri, 29 Apr 2016 18:33:31 -0300
-> 
-> > This patchset adds sctp GSO support.
-> > 
-> > Performance tests indicates that increases throughput by 10% if using
-> > bigger chunk sizes, specially if bigger than MTU. For small chunks, it
-> > doesn't help much if not using heavy firewall rules.
-> > 
-> > For small chunks it will probably be of more use once we get something
-> > like MSG_MORE as David Laight had suggested.
-> > 
-> > I believe I could address all comments from the RFC attempt.
-> 
-> Are these packets idempotent?
-> 
-> Ie. if we GRO a bunch of SCTP frames on receive and that GRO frame is
-> forwarded rather than received locally, is the same exact packet
-> stream emitted on transmit?
+Le 03/05/2016 12:06, Lars Ellenberg a =E9crit :
+> On Tue, May 03, 2016 at 11:39:18AM +0200, Nicolas Dichtel wrote:
+>> Two new handlers have been defined in genl_magic_ headers:
+>>  - __field2: the corresponding nla_put() function (nla_put_flag()) t=
+akes
+>>              only two args
+>>  - __field4: the corresponding nla_put() function (nla_put_u64_64bit=
+())
+>>              takes four args
+>>
+>> __field2 allows us to define __unspec_field for padding attribute.
+>> __field4 allows us to update the definition of __u64_field: the pad
+>> attribute should now be specified.
+>=20
+> Please just NOT use an additional "field",
+> but always use 0 to pad.
+>=20
+> Patch is much shorter as well, see below.
+I don't think that the goal is to make the shortest patch...
+But frankly, I don't care. The goal was to use the new interface in a p=
+roper
+way, like every other subsystem.
 
-Forward path is not going to happen because we can't do GRO for SCTP,
-unfortunatelly. We would have to somehow maintain frame boundaries (as
-I did for GSO here) (so that AUTH chunks have a delimited scope, for
-example) and that's not feasible with the current way we do GRO. Well,
-at least I couldn't see how.
+>=20
+> Attribute type "0" is not used,
+> and will never be of semantic value,
+> but always be ignored in the DRBD netlink family.
+>=20
+> Whereas using some arbitrary value will be wrong,
+> and will needlessly break userland.
+An application should always ignore unknown attribute, this is a golden=
+ rule.
+Now if you know that this patch will break applications (which one exac=
+tly?), we
+can use your proposal.
 
-So this is just for pure tx path, no forwarding involved.
 
-  Marcelo
+Regards,
+Nicolas
