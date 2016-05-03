@@ -1,124 +1,74 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [patch added to 3.12-stable] cpuset: Fix potential deadlock w/ set_mems_allowed
-Date: Tue,  3 May 2016 17:47:48 +0200
-Message-ID: <1462290468-14130-16-git-send-email-jslaby@suse.cz>
-References: <1462290468-14130-1-git-send-email-jslaby@suse.cz>
-Cc: John Stultz <john.stultz@linaro.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.cz>
-To: stable@vger.kernel.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [Question] Should `CAP_NET_ADMIN` be needed when opening
+ `/dev/ppp`?
+Date: Tue, 3 May 2016 17:51:57 +0200
+Message-ID: <20160503155157.GB1304@alphalink.fr>
+References: <2BEB0C68-EBC6-4A8F-A751-DE8F4A2C9D2C@gmail.com>
+ <20160503101240.GA1304@alphalink.fr>
+ <CAFLxGvyKMbJyfk5oiRZ6-67yHH=f+3mkY=gd3AsZC1G_o0Xhxg@mail.gmail.com>
+ <1462274614.1336993.596603129.675ECADD@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Weinberger <richard.weinberger@gmail.com>,
+	Wang Shanker <shankerwangmiao@gmail.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:43886 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933601AbcECPr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 11:47:57 -0400
-In-Reply-To: <1462290468-14130-1-git-send-email-jslaby@suse.cz>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:49858 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756143AbcECPwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 11:52:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1462274614.1336993.596603129.675ECADD@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Stultz <john.stultz@linaro.org>
+On Tue, May 03, 2016 at 01:23:34PM +0200, Hannes Frederic Sowa wrote:
+> On Tue, May 3, 2016, at 12:35, Richard Weinberger wrote:
+> > On Tue, May 3, 2016 at 12:12 PM, Guillaume Nault <g.nault@alphalink.fr>
+> > wrote:
+> > > On Sun, May 01, 2016 at 09:38:57PM +0800, Wang Shanker wrote:
+> > >> static int ppp_open(struct inode *inode, struct file *file)
+> > >> {
+> > >>       /*
+> > >>        * This could (should?) be enforced by the permissions on /dev/ppp.
+> > >>        */
+> > >>       if (!capable(CAP_NET_ADMIN))
+> > >>               return -EPERM;
+> > >>       return 0;
+> > >> }
+> > >> ```
+> > >>
+> > >> I wonder why CAP_NET_ADMIN is needed here, rather than leaving it to the
+> > >> permission of the device node. If there is no need, I suggest that the
+> > >> CAP_NET_ADMIN check be removed.
+> > >>
+> > > If this test was removed here, then it'd have to be added again in the
+> > > PPPIOCNEWUNIT ioctl, at the very least, because creating a netdevice
+> > > should require CAP_NET_ADMIN. Therefore that wouldn't help for your
+> > > case.
+> > > I don't know why the test was placed in ppp_open() in the first place,
+> > > but changing it now would have side effects on user space. So I'd
+> > > rather leave the code as is.
+> > 
+> > I think the question is whether we really require having CAP_NET_ADMIN
+> > in the initial namespace and not just in the current one.
+> > Is ppp not network namespace aware?
+> 
+> I agree, ns_capable(net->user_ns, CAP_NET_ADMIN), would probably make
+> more sense.
+>
+I guess you assume net is set to current->nsproxy->net_ns here.
+Why about ns_capable(current_user_ns(), CAP_NET_ADMIN)?
 
-This patch has been added to the 3.12 stable tree. If you have any
-objections, please let us know.
+>From my understanding of the code (I currently have no practical
+experience with user namespaces), net->user_ns points to the userns in
+which the current netns was created, while current_user_ns() refers to
+the caller's userns. Shouldn't we check the later? Otherwise, any
+process running in the netns would have the same capabilities regarding
+PPP ioctls().
 
-===============
-
-commit db751fe3ea6880ff5ac5abe60cb7b80deb5a4140 upstream.
-
-After adding lockdep support to seqlock/seqcount structures,
-I started seeing the following warning:
-
-[    1.070907] ======================================================
-[    1.072015] [ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
-[    1.073181] 3.11.0+ #67 Not tainted
-[    1.073801] ------------------------------------------------------
-[    1.074882] kworker/u4:2/708 [HC0[0]:SC0[0]:HE0:SE1] is trying to acquire:
-[    1.076088]  (&p->mems_allowed_seq){+.+...}, at: [<ffffffff81187d7f>] new_slab+0x5f/0x280
-[    1.077572]
-[    1.077572] and this task is already holding:
-[    1.078593]  (&(&q->__queue_lock)->rlock){..-...}, at: [<ffffffff81339f03>] blk_execute_rq_nowait+0x53/0xf0
-[    1.080042] which would create a new lock dependency:
-[    1.080042]  (&(&q->__queue_lock)->rlock){..-...} -> (&p->mems_allowed_seq){+.+...}
-[    1.080042]
-[    1.080042] but this new dependency connects a SOFTIRQ-irq-safe lock:
-[    1.080042]  (&(&q->__queue_lock)->rlock){..-...}
-[    1.080042] ... which became SOFTIRQ-irq-safe at:
-[    1.080042]   [<ffffffff810ec179>] __lock_acquire+0x5b9/0x1db0
-[    1.080042]   [<ffffffff810edfe5>] lock_acquire+0x95/0x130
-[    1.080042]   [<ffffffff818968a1>] _raw_spin_lock+0x41/0x80
-[    1.080042]   [<ffffffff81560c9e>] scsi_device_unbusy+0x7e/0xd0
-[    1.080042]   [<ffffffff8155a612>] scsi_finish_command+0x32/0xf0
-[    1.080042]   [<ffffffff81560e91>] scsi_softirq_done+0xa1/0x130
-[    1.080042]   [<ffffffff8133b0f3>] blk_done_softirq+0x73/0x90
-[    1.080042]   [<ffffffff81095dc0>] __do_softirq+0x110/0x2f0
-[    1.080042]   [<ffffffff81095fcd>] run_ksoftirqd+0x2d/0x60
-[    1.080042]   [<ffffffff810bc506>] smpboot_thread_fn+0x156/0x1e0
-[    1.080042]   [<ffffffff810b3916>] kthread+0xd6/0xe0
-[    1.080042]   [<ffffffff818980ac>] ret_from_fork+0x7c/0xb0
-[    1.080042]
-[    1.080042] to a SOFTIRQ-irq-unsafe lock:
-[    1.080042]  (&p->mems_allowed_seq){+.+...}
-[    1.080042] ... which became SOFTIRQ-irq-unsafe at:
-[    1.080042] ...  [<ffffffff810ec1d3>] __lock_acquire+0x613/0x1db0
-[    1.080042]   [<ffffffff810edfe5>] lock_acquire+0x95/0x130
-[    1.080042]   [<ffffffff810b3df2>] kthreadd+0x82/0x180
-[    1.080042]   [<ffffffff818980ac>] ret_from_fork+0x7c/0xb0
-[    1.080042]
-[    1.080042] other info that might help us debug this:
-[    1.080042]
-[    1.080042]  Possible interrupt unsafe locking scenario:
-[    1.080042]
-[    1.080042]        CPU0                    CPU1
-[    1.080042]        ----                    ----
-[    1.080042]   lock(&p->mems_allowed_seq);
-[    1.080042]                                local_irq_disable();
-[    1.080042]                                lock(&(&q->__queue_lock)->rlock);
-[    1.080042]                                lock(&p->mems_allowed_seq);
-[    1.080042]   <Interrupt>
-[    1.080042]     lock(&(&q->__queue_lock)->rlock);
-[    1.080042]
-[    1.080042]  *** DEADLOCK ***
-
-The issue stems from the kthreadd() function calling set_mems_allowed
-with irqs enabled. While its possibly unlikely for the actual deadlock
-to trigger, a fix is fairly simple: disable irqs before taking the
-mems_allowed_seq lock.
-
-Signed-off-by: John Stultz <john.stultz@linaro.org>
-Signed-off-by: Peter Zijlstra <peterz@infradead.org>
-Acked-by: Li Zefan <lizefan@huawei.com>
-Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/1381186321-4906-4-git-send-email-john.stultz@linaro.org
-Signed-off-by: Ingo Molnar <mingo@kernel.org>
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
----
- include/linux/cpuset.h | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/include/linux/cpuset.h b/include/linux/cpuset.h
-index a7ebb89ae9fb..ade2390ffe92 100644
---- a/include/linux/cpuset.h
-+++ b/include/linux/cpuset.h
-@@ -132,10 +132,14 @@ static inline bool read_mems_allowed_retry(unsigned int seq)
- 
- static inline void set_mems_allowed(nodemask_t nodemask)
- {
-+	unsigned long flags;
-+
- 	task_lock(current);
-+	local_irq_save(flags);
- 	write_seqcount_begin(&current->mems_allowed_seq);
- 	current->mems_allowed = nodemask;
- 	write_seqcount_end(&current->mems_allowed_seq);
-+	local_irq_restore(flags);
- 	task_unlock(current);
- }
- 
--- 
-2.8.2
+But I'm certainly missing important points. Interactions between netns
+and userns are something I never investigated before, and using
+net->user_ns seems to be way more common than using current_user_ns()
+for checking capabilities in the networking stack.
