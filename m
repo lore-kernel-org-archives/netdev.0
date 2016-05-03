@@ -1,58 +1,86 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 3/9] netfilter: conntrack: don't attempt to
- iterate over empty table
-Date: Tue, 3 May 2016 19:55:59 +0200
-Message-ID: <20160503175559.GJ2395@breakpoint.cc>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next 5/9] netfilter: conntrack: small refactoring of
+ conntrack seq_printf
+Date: Tue, 3 May 2016 20:12:50 +0200
+Message-ID: <20160503181250.GA4508@salvia>
 References: <1461863628-23350-1-git-send-email-fw@strlen.de>
- <1461863628-23350-4-git-send-email-fw@strlen.de>
- <20160503170357.GA21641@salvia>
- <20160503171744.GG2395@breakpoint.cc>
- <20160503174144.GA3782@salvia>
+ <1461863628-23350-6-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50355 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933513AbcECR4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 13:56:04 -0400
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160503174144.GA3782@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1461863628-23350-6-git-send-email-fw@strlen.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > I was thinking of the cleanup we do in the netns exit path
-> > (in nf_conntrack_cleanup_net_list() ).
+On Thu, Apr 28, 2016 at 07:13:44PM +0200, Florian Westphal wrote:
+> The iteration process is lockless, so we test if the conntrack object is
+> eligible for printing (e.g. is AF_INET) after obtaining the reference
+> count.
 > 
-> Right, but in that path we still have entries in the table.
-
-Not necessarily, they might have already been removed
-(timeout, close).
-
-> > If you don't like this I can move the check here:
-> > 
-> > i_see_dead_people:
-> >     busy = 0;
-> >     list_for_each_entry(net, net_exit_list, exit_list) {
-> >     // here
-> >     if (atomic_read .. > 0)
-> >        nf_ct_iterate_cleanup(net, kill_all, ...
+> Once we put all conntracks into same hash table we might see more
+> entries that need to be skipped.
 > 
-> I don't mind about placing this or there, as I said, my question is
-> how often we will hit this optimization in a real scenario.
+> So add a helper and first perform the test in a lockless fashion
+> for fast skip.
 > 
-> If you think the answer is often, then this will help.
+> Once we obtain the reference count, just repeat the check.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   | 24 +++++++++++++++++-----
+>  1 file changed, 19 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> index f0dfe92..483cf79 100644
+> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> @@ -114,6 +114,19 @@ static inline void ct_show_secctx(struct seq_file *s, const struct nf_conn *ct)
+>  }
+>  #endif
+>  
+> +static bool ct_seq_should_skip(const struct nf_conn *ct,
+> +			       const struct nf_conntrack_tuple_hash *hash)
+> +{
+> +	/* we only want to print DIR_ORIGINAL */
+> +	if (NF_CT_DIRECTION(hash))
+> +		return true;
+> +
+> +	if (nf_ct_l3num(ct) != AF_INET)
+> +		return true;
+> +
+> +	return false;
+> +}
+> +
+>  static int ct_seq_show(struct seq_file *s, void *v)
+>  {
+>  	struct nf_conntrack_tuple_hash *hash = v;
+> @@ -123,14 +136,15 @@ static int ct_seq_show(struct seq_file *s, void *v)
+>  	int ret = 0;
+>  
+>  	NF_CT_ASSERT(ct);
+> -	if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+> +	if (ct_seq_should_skip(ct, hash))
+>  		return 0;
+>  
+> +	if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+> +		return 0;
+>  
+> -	/* we only want to print DIR_ORIGINAL */
+> -	if (NF_CT_DIRECTION(hash))
+> -		goto release;
+> -	if (nf_ct_l3num(ct) != AF_INET)
+> +	/* check if we raced w. object reuse */
+> +	if (!nf_ct_is_confirmed(ct) ||
 
-I think the extra atomic_read in this code does no harm and
-saves us the entire scan.  Also, in the exit path, when we hit the
-'i_see_dead_people' label we restart the entire loop, so if we
-have 200 netns on the list and the last one caused that restart,
-we re-iterate needlesly for 199 netns...
+This refactoring includes this new check, is this intentional?
 
-> Otherwise, every time we'll go container destruction path, we'll hit
-> slow path, ie.  scanning the full table.
-
-Yes, but I see no other choice.
+> +	    ct_seq_should_skip(ct, hash))
+>  		goto release;
+>  
+>  	l3proto = __nf_ct_l3proto_find(nf_ct_l3num(ct));
+> -- 
+> 2.7.3
+> 
