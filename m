@@ -1,79 +1,124 @@
-From: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
-Subject: Re: [PATCH v5 09/21] IB/hns: Add hca support
-Date: Tue, 3 May 2016 15:57:59 +0800
-Message-ID: <57285A07.8090407@huawei.com>
-References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
- <1461407219-72027-10-git-send-email-oulijun@huawei.com>
- <20160424075424.GE7974@leon.nu> <571F0C04.2010005@huawei.com>
- <20160426141821.GJ7974@leon.nu> <20160426142517.GA1937@nanopsycho.orion>
- <57203347.4000107@huawei.com>
- <CAJ3xEMgvcRa=qFDs0wDv25Ue2yw0hQoK_E=01G7zikyr7kLKUw@mail.gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net] net: macb: Probe MDIO bus before registering netdev
+Date: Tue, 3 May 2016 10:33:05 +0200
+Message-ID: <57286241.9050405@atmel.com>
+References: <1462239525-22723-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Leon Romanovsky <leon@kernel.org>,
-	"Doug Ledford" <dledford@redhat.com>,
-	"Hefty, Sean" <sean.hefty@intel.com>,
-	"Hal Rosenstock" <hal.rosenstock@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, <linuxarm@huawei.com>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	<gongyangming@huawei.com>, <xiaokun@huawei.com>,
-	<tangchaofei@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<lisheng011@huawei.com>, <charles.chenxin@huawei.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>, oulijun <oulijun@huawei.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:58665 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772AbcECIPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 04:15:31 -0400
-In-Reply-To: <CAJ3xEMgvcRa=qFDs0wDv25Ue2yw0hQoK_E=01G7zikyr7kLKUw@mail.gmail.com>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:28187 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbcECIcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 04:32:52 -0400
+In-Reply-To: <1462239525-22723-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 03/05/2016 03:38, Florian Fainelli a =E9crit :
+> The current sequence makes us register for a network device prior to
+> registering and probing the MDIO bus which could lead to some unwante=
+d
+> consequences, like a thread of execution calling into ndo_open before
+> register_netdev() returns, while the MDIO bus is not ready yet.
+>=20
+> Rework the sequence to register for the MDIO bus, and therefore attac=
+h
+> to a PHY prior to calling register_netdev(), which implies reworking =
+the
+> error path a bit.
+>=20
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Thanks a lot Florian for this follow-up and the advices you had given t=
+o
+Alexandre during the debug session when you spotted this problem.
+
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+> ---
+> Tracking down the exact commit which started doing that was a little
+> difficult, so I can't really provide a proper Fixes tag yet that does
+> not reference 4-5 commits
+
+Yes, indeed. Macb is moving quite a bit those days ;-)
 
 
-On 2016/4/30 12:33, Or Gerlitz wrote:
-> On Wed, Apr 27, 2016 at 6:34 AM, oulijun <oulijun@huawei.com> wrote:
->> On 2016/4/26 22:25, Jiri Pirko wrote:
->>> Tue, Apr 26, 2016 at 04:18:21PM CEST, leon@kernel.org wrote:
->>>>>      I appreciate your keen eye. this code is meant for ARM64bit therefore should run corretly for 64-bit AARCH64.
->>> The driver should run correctly on any arch.
->>   Hi Jiri Pirko,
->>      Our driver run in ARM64 platform by depending on Kconfig. It will be configure in Kconfig file.
-> Can you elaborate what design aspects in the driver or anywhere else
-> should impose that limitation?
->
-> Or.
-Hi, Or Gerlitz
+Bye,
 
-1.  Oulijun resloved the problem, and sent PATCH V6 on 2016-4-28. Thanks 
-for more comments.
 
-2.  This driver for Hisilicon RoCE Engine run in ARM SoCs.
+>  drivers/net/ethernet/cadence/macb.c | 31 +++++++++++++++++++--------=
+----
+>  1 file changed, 19 insertions(+), 12 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 48a7d7dee846..e9b470a5ddd0 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -441,7 +441,7 @@ static int macb_mii_init(struct macb *bp)
+>  	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+>  		bp->pdev->name, bp->pdev->id);
+>  	bp->mii_bus->priv =3D bp;
+> -	bp->mii_bus->parent =3D &bp->dev->dev;
+> +	bp->mii_bus->parent =3D &bp->pdev->dev;
+>  	pdata =3D dev_get_platdata(&bp->pdev->dev);
+> =20
+>  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+> @@ -3019,29 +3019,36 @@ static int macb_probe(struct platform_device =
+*pdev)
+>  	if (err)
+>  		goto err_out_free_netdev;
+> =20
+> +	err =3D macb_mii_init(bp);
+> +	if (err)
+> +		goto err_out_free_netdev;
+> +
+> +	phydev =3D bp->phy_dev;
+> +
+> +	netif_carrier_off(dev);
+> +
+>  	err =3D register_netdev(dev);
+>  	if (err) {
+>  		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
+> -		goto err_out_unregister_netdev;
+> +		goto err_out_unregister_mdio;
+>  	}
+> =20
+> -	err =3D macb_mii_init(bp);
+> -	if (err)
+> -		goto err_out_unregister_netdev;
+> -
+> -	netif_carrier_off(dev);
+> +	phy_attached_info(phydev);
+> =20
+>  	netdev_info(dev, "Cadence %s rev 0x%08x at 0x%08lx irq %d (%pM)\n",
+>  		    macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
+>  		    dev->base_addr, dev->irq, dev->dev_addr);
+> =20
+> -	phydev =3D bp->phy_dev;
+> -	phy_attached_info(phydev);
+> -
+>  	return 0;
+> =20
+> -err_out_unregister_netdev:
+> -	unregister_netdev(dev);
+> +err_out_unregister_mdio:
+> +	phy_disconnect(bp->phy_dev);
+> +	mdiobus_unregister(bp->mii_bus);
+> +	mdiobus_free(bp->mii_bus);
+> +
+> +	/* Shutdown the PHY if there is a GPIO reset */
+> +	if (bp->reset_gpio)
+> +		gpiod_set_value(bp->reset_gpio, 0);
+> =20
+>  err_out_free_netdev:
+>  	free_netdev(dev);
+>=20
 
-The Hisilicon Network Subsystem is a long term evolution IP which is
-supposed to be used in Hisilicon ICT SoCs. HNS(Hisilicon Network Subsystem)
-has a hardware support of performing RDMA with RoCE engine.
 
-This Kconfig related with this driver as below:
-
-config INFINIBAND_HISILICON_HNS
-     tristate "Hisilicon Hns ROCE Driver"
-     depends on NET_VENDOR_HISILICON
-     depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
-
-Regards
-Wei Hu
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> .
->
+--=20
+Nicolas Ferre
