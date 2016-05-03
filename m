@@ -1,32 +1,44 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 00/12] Mellanox 100G ethernet SRIOV Upgrades
-Date: Tue, 3 May 2016 19:20:07 +0300
-Message-ID: <CALzJLG_GMw5fNnQdshUZLKn7qZ3XQcJKqXEJ_RXj6EYenbv4CQ@mail.gmail.com>
-References: <1462284844-16926-1-git-send-email-saeedm@mellanox.com> <20160503.121254.1213266710265417601.davem@davemloft.net>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH net-next 0/4] net: hns: update DT properties according to
+ Rob's comments
+Date: Tue, 3 May 2016 11:24:44 -0500
+Message-ID: <20160503162444.GA4087@rob-hp-laptop>
+References: <1461827344-52230-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <20160429.133949.1719521222260369497.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yisen.Zhuang@huawei.com, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	will.deacon@arm.com, catalin.marinas@arm.com, yankejian@huawei.com,
+	huangdaode@hisilicon.com, salil.mehta@huawei.com,
+	lipeng321@huawei.com, liguozhu@huawei.com, xieqianqian@huawei.com,
+	xuwei5@hisilicon.com, linuxarm@huawei.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:33415 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933401AbcECQU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 12:20:27 -0400
-Received: by mail-yw0-f193.google.com with SMTP id y6so2071325ywe.0
-        for <netdev@vger.kernel.org>; Tue, 03 May 2016 09:20:27 -0700 (PDT)
-In-Reply-To: <20160503.121254.1213266710265417601.davem@davemloft.net>
+Received: from mail.kernel.org ([198.145.29.136]:40313 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932543AbcECQYv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 12:24:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20160429.133949.1719521222260369497.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 3, 2016 at 7:12 PM, David Miller <davem@davemloft.net> wrote:
->
-> Please don't have two patch series pending for the same driver (mlx5) and
-> the same tree (net-next).
->
+On Fri, Apr 29, 2016 at 01:39:49PM -0400, David Miller wrote:
+> From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+> Date: Thu, 28 Apr 2016 15:09:00 +0800
+> 
+> > There are some inappropriate properties definition in hns DT. We update the definition
+> > according to Rob's review comments and fix some typos in binding.
+> > 
+> > For more details, please see individual patches.
+> 
+> Series applied, thanks.
 
-This is V1 of the the only ongoing series I have for net-next
-what other series are you referring to ?
+It would be nice to review patches addressing my comments before they 
+get applied. Can you please give series with DT bindings a few more days 
+for review before applying.
+
+Rob
