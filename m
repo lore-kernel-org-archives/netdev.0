@@ -1,155 +1,96 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 net-next] dmfe: kill DEVICE define
-Date: Tue,  3 May 2016 18:53:15 +0200
-Message-ID: <1462294395-20440-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next 3/9] netfilter: conntrack: don't attempt to
+ iterate over empty table
+Date: Tue, 3 May 2016 19:41:44 +0200
+Message-ID: <20160503174144.GA3782@salvia>
+References: <1461863628-23350-1-git-send-email-fw@strlen.de>
+ <1461863628-23350-4-git-send-email-fw@strlen.de>
+ <20160503170357.GA21641@salvia>
+ <20160503171744.GG2395@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50292 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932756AbcECRkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 13:40:35 -0400
+Received: from mail.us.es ([193.147.175.20]:39764 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934181AbcECRlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 13:41:50 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 36B3B1BFA86
+	for <netdev@vger.kernel.org>; Tue,  3 May 2016 19:41:47 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 2511C33AA
+	for <netdev@vger.kernel.org>; Tue,  3 May 2016 19:41:47 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 10FE4AD6C
+	for <netdev@vger.kernel.org>; Tue,  3 May 2016 19:41:45 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20160503171744.GG2395@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-use net_device directly. Compile tested, objdiff shows no changes.
+On Tue, May 03, 2016 at 07:17:44PM +0200, Florian Westphal wrote:
+> Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > On Thu, Apr 28, 2016 at 07:13:42PM +0200, Florian Westphal wrote:
+> > > Once we place all conntracks into same table iteration becomes more
+> > > costly because the table contains conntracks that we are not interested
+> > > in (belonging to other netns).
+> > > 
+> > > So don't bother scanning if the current namespace has no entries.
+> > > 
+> > > Signed-off-by: Florian Westphal <fw@strlen.de>
+> > > ---
+> > >  net/netfilter/nf_conntrack_core.c | 3 +++
+> > >  1 file changed, 3 insertions(+)
+> > > 
+> > > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> > > index 29fa08b..f2e75a5 100644
+> > > --- a/net/netfilter/nf_conntrack_core.c
+> > > +++ b/net/netfilter/nf_conntrack_core.c
+> > > @@ -1428,6 +1428,9 @@ void nf_ct_iterate_cleanup(struct net *net,
+> > >  
+> > >  	might_sleep();
+> > >  
+> > > +	if (atomic_read(&net->ct.count) == 0)
+> > > +		return;
+> > 
+> > This optimization gets defeated with just one single conntrack (ie.
+> > net->ct.count == 1), so I wonder if this is practical thing.
+> 
+> I was thinking of the cleanup we do in the netns exit path
+> (in nf_conntrack_cleanup_net_list() ).
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- resending this separately as it's not related to the
- rest of the dev->trans_start removal series.
+Right, but in that path we still have entries in the table.
 
- drivers/net/ethernet/dec/tulip/dmfe.c | 39 ++++++++++++++++-------------------
- 1 file changed, 18 insertions(+), 21 deletions(-)
+> If you don't like this I can move the check here:
+> 
+> i_see_dead_people:
+>     busy = 0;
+>     list_for_each_entry(net, net_exit_list, exit_list) {
+>     // here
+>     if (atomic_read .. > 0)
+>        nf_ct_iterate_cleanup(net, kill_all, ...
 
-diff --git a/drivers/net/ethernet/dec/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
-index afd8e78..42c759e 100644
---- a/drivers/net/ethernet/dec/tulip/dmfe.c
-+++ b/drivers/net/ethernet/dec/tulip/dmfe.c
-@@ -192,9 +192,6 @@
- 	(__CHK_IO_SIZE(((pci_dev)->device << 16) | (pci_dev)->vendor, \
- 	(pci_dev)->revision))
- 
--/* Sten Check */
--#define DEVICE net_device
--
- /* Structure/enum declaration ------------------------------- */
- struct tx_desc {
-         __le32 tdes0, tdes1, tdes2, tdes3; /* Data for the card */
-@@ -313,10 +310,10 @@ static u8 SF_mode;		/* Special Function: 1:VLAN, 2:RX Flow Control
- 
- 
- /* function declaration ------------------------------------- */
--static int dmfe_open(struct DEVICE *);
--static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
--static int dmfe_stop(struct DEVICE *);
--static void dmfe_set_filter_mode(struct DEVICE *);
-+static int dmfe_open(struct net_device *);
-+static netdev_tx_t dmfe_start_xmit(struct sk_buff *, struct net_device *);
-+static int dmfe_stop(struct net_device *);
-+static void dmfe_set_filter_mode(struct net_device *);
- static const struct ethtool_ops netdev_ethtool_ops;
- static u16 read_srom_word(void __iomem *, int);
- static irqreturn_t dmfe_interrupt(int , void *);
-@@ -326,8 +323,8 @@ static void poll_dmfe (struct net_device *dev);
- static void dmfe_descriptor_init(struct net_device *);
- static void allocate_rx_buffer(struct net_device *);
- static void update_cr6(u32, void __iomem *);
--static void send_filter_frame(struct DEVICE *);
--static void dm9132_id_table(struct DEVICE *);
-+static void send_filter_frame(struct net_device *);
-+static void dm9132_id_table(struct net_device *);
- static u16 dmfe_phy_read(void __iomem *, u8, u8, u32);
- static void dmfe_phy_write(void __iomem *, u8, u8, u16, u32);
- static void dmfe_phy_write_1bit(void __iomem *, u32);
-@@ -336,12 +333,12 @@ static u8 dmfe_sense_speed(struct dmfe_board_info *);
- static void dmfe_process_mode(struct dmfe_board_info *);
- static void dmfe_timer(unsigned long);
- static inline u32 cal_CRC(unsigned char *, unsigned int, u8);
--static void dmfe_rx_packet(struct DEVICE *, struct dmfe_board_info *);
--static void dmfe_free_tx_pkt(struct DEVICE *, struct dmfe_board_info *);
-+static void dmfe_rx_packet(struct net_device *, struct dmfe_board_info *);
-+static void dmfe_free_tx_pkt(struct net_device *, struct dmfe_board_info *);
- static void dmfe_reuse_skb(struct dmfe_board_info *, struct sk_buff *);
--static void dmfe_dynamic_reset(struct DEVICE *);
-+static void dmfe_dynamic_reset(struct net_device *);
- static void dmfe_free_rxbuffer(struct dmfe_board_info *);
--static void dmfe_init_dm910x(struct DEVICE *);
-+static void dmfe_init_dm910x(struct net_device *);
- static void dmfe_parse_srom(struct dmfe_board_info *);
- static void dmfe_program_DM9801(struct dmfe_board_info *, int);
- static void dmfe_program_DM9802(struct dmfe_board_info *);
-@@ -558,7 +555,7 @@ static void dmfe_remove_one(struct pci_dev *pdev)
-  *	The interface is opened whenever "ifconfig" actives it.
-  */
- 
--static int dmfe_open(struct DEVICE *dev)
-+static int dmfe_open(struct net_device *dev)
- {
- 	struct dmfe_board_info *db = netdev_priv(dev);
- 	const int irq = db->pdev->irq;
-@@ -617,7 +614,7 @@ static int dmfe_open(struct DEVICE *dev)
-  *	Enable Tx/Rx machine
-  */
- 
--static void dmfe_init_dm910x(struct DEVICE *dev)
-+static void dmfe_init_dm910x(struct net_device *dev)
- {
- 	struct dmfe_board_info *db = netdev_priv(dev);
- 	void __iomem *ioaddr = db->ioaddr;
-@@ -684,7 +681,7 @@ static void dmfe_init_dm910x(struct DEVICE *dev)
-  */
- 
- static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
--					 struct DEVICE *dev)
-+					 struct net_device *dev)
- {
- 	struct dmfe_board_info *db = netdev_priv(dev);
- 	void __iomem *ioaddr = db->ioaddr;
-@@ -754,7 +751,7 @@ static netdev_tx_t dmfe_start_xmit(struct sk_buff *skb,
-  *	The interface is stopped when it is brought.
-  */
- 
--static int dmfe_stop(struct DEVICE *dev)
-+static int dmfe_stop(struct net_device *dev)
- {
- 	struct dmfe_board_info *db = netdev_priv(dev);
- 	void __iomem *ioaddr = db->ioaddr;
-@@ -798,7 +795,7 @@ static int dmfe_stop(struct DEVICE *dev)
- 
- static irqreturn_t dmfe_interrupt(int irq, void *dev_id)
- {
--	struct DEVICE *dev = dev_id;
-+	struct net_device *dev = dev_id;
- 	struct dmfe_board_info *db = netdev_priv(dev);
- 	void __iomem *ioaddr = db->ioaddr;
- 	unsigned long flags;
-@@ -879,7 +876,7 @@ static void poll_dmfe (struct net_device *dev)
-  *	Free TX resource after TX complete
-  */
- 
--static void dmfe_free_tx_pkt(struct DEVICE *dev, struct dmfe_board_info * db)
-+static void dmfe_free_tx_pkt(struct net_device *dev, struct dmfe_board_info *db)
- {
- 	struct tx_desc *txptr;
- 	void __iomem *ioaddr = db->ioaddr;
-@@ -961,7 +958,7 @@ static inline u32 cal_CRC(unsigned char * Data, unsigned int Len, u8 flag)
-  *	Receive the come packet and pass to upper layer
-  */
- 
--static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
-+static void dmfe_rx_packet(struct net_device *dev, struct dmfe_board_info *db)
- {
- 	struct rx_desc *rxptr;
- 	struct sk_buff *skb, *newskb;
-@@ -1052,7 +1049,7 @@ static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
-  * Set DM910X multicast address
-  */
- 
--static void dmfe_set_filter_mode(struct DEVICE * dev)
-+static void dmfe_set_filter_mode(struct net_device *dev)
- {
- 	struct dmfe_board_info *db = netdev_priv(dev);
- 	unsigned long flags;
--- 
-2.7.3
+I don't mind about placing this or there, as I said, my question is
+how often we will hit this optimization in a real scenario.
+
+If you think the answer is often, then this will help.
+
+Otherwise, every time we'll go container destruction path, we'll hit
+slow path, ie.  scanning the full table.
+
+> > At the cost of consuming more memory per conntrack, we may consider
+> > adding a per-net list so this iteration doesn't become a problem.
+> 
+> I don't think that will be needed.   We don't have any such iterations
+> in the fast path.
+>
+> For dumps via ctnetlink it shouldn't be a big deal either, if needed
+> we can optimize that to use rcu readlocks only and 'upgrade' to locked
+> path only when we want to dump the candidate ct.
+> for deferred pruning).
+> early_drop will go away soon (i'll rework it to do the early_drop from
+> work queue).
+
+OK.
