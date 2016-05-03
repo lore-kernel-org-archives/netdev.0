@@ -1,62 +1,61 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/2] cxgb4: Check for firmware errors in the mailbox command loop
-Date: Tue,  3 May 2016 18:58:02 +0530
-Message-ID: <1462282082-6894-3-git-send-email-hariprasad@chelsio.com>
-References: <1462282082-6894-1-git-send-email-hariprasad@chelsio.com>
-Cc: netdev@vger.kernel.org, leedom@chelsio.com,
-	swise@opengridcomputing.com, nirranjan@chelsio.com,
-	santosh@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
-To: davem@davemloft.net
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [Question] Should `CAP_NET_ADMIN` be needed when opening
+ `/dev/ppp`?
+Date: Tue, 3 May 2016 15:40:49 +0200
+Message-ID: <20160503134049.GA1289@alphalink.fr>
+References: <2BEB0C68-EBC6-4A8F-A751-DE8F4A2C9D2C@gmail.com>
+ <20160503101240.GA1304@alphalink.fr>
+ <CAFLxGvyKMbJyfk5oiRZ6-67yHH=f+3mkY=gd3AsZC1G_o0Xhxg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Wang Shanker <shankerwangmiao@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Richard Weinberger <richard.weinberger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:27721 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755785AbcECNXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 09:23:48 -0400
-In-Reply-To: <1462282082-6894-1-git-send-email-hariprasad@chelsio.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:37319 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755979AbcECNk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 09:40:59 -0400
+Content-Disposition: inline
+In-Reply-To: <CAFLxGvyKMbJyfk5oiRZ6-67yHH=f+3mkY=gd3AsZC1G_o0Xhxg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check for firmware errors in the mailbox command loop and report
-them differently rather than simply timing out when the firmware goes
-belly up.
+On Tue, May 03, 2016 at 12:35:12PM +0200, Richard Weinberger wrote:
+> On Tue, May 3, 2016 at 12:12 PM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> > On Sun, May 01, 2016 at 09:38:57PM +0800, Wang Shanker wrote:
+> >> static int ppp_open(struct inode *inode, struct file *file)
+> >> {
+> >>       /*
+> >>        * This could (should?) be enforced by the permissions on /dev/ppp.
+> >>        */
+> >>       if (!capable(CAP_NET_ADMIN))
+> >>               return -EPERM;
+> >>       return 0;
+> >> }
+> >> ```
+> >>
+> >> I wonder why CAP_NET_ADMIN is needed here, rather than leaving it to the
+> >> permission of the device node. If there is no need, I suggest that the
+> >> CAP_NET_ADMIN check be removed.
+> >>
+> > If this test was removed here, then it'd have to be added again in the
+> > PPPIOCNEWUNIT ioctl, at the very least, because creating a netdevice
+> > should require CAP_NET_ADMIN. Therefore that wouldn't help for your
+> > case.
+> > I don't know why the test was placed in ppp_open() in the first place,
+> > but changing it now would have side effects on user space. So I'd
+> > rather leave the code as is.
+> 
+> I think the question is whether we really require having CAP_NET_ADMIN
+> in the initial namespace and not just in the current one.
+> Is ppp not network namespace aware?
+> 
+Indeed, I overlooked the namespace aspect of the problem. PPP is netns
+aware, but ioctls performed on /dev/ppp file descriptors are all
+serialised with ppp_mutex. A user could therefore affect other PPP
+users by artificially creating contention on the ppp_mutex lock.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 59f5e0b40286..a63addb4e72c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -293,6 +293,7 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
- 	u32 data_reg = PF_REG(mbox, CIM_PF_MAILBOX_DATA_A);
- 	u32 ctl_reg = PF_REG(mbox, CIM_PF_MAILBOX_CTRL_A);
- 	__be64 cmd_rpl[MBOX_LEN / 8];
-+	u32 pcie_fw;
- 
- 	if ((size & 15) || size > MBOX_LEN)
- 		return -EINVAL;
-@@ -331,7 +332,10 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
- 	delay_idx = 0;
- 	ms = delay[0];
- 
--	for (i = 0; i < timeout; i += ms) {
-+	for (i = 0;
-+	     !((pcie_fw = t4_read_reg(adap, PCIE_FW_A)) & PCIE_FW_ERR_F) &&
-+	     i < timeout;
-+	     i += ms) {
- 		if (sleep_ok) {
- 			ms = delay[delay_idx];  /* last element may repeat */
- 			if (delay_idx < ARRAY_SIZE(delay) - 1)
-@@ -366,7 +370,7 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
- 		}
- 	}
- 
--	ret = -ETIMEDOUT;
-+	ret = (pcie_fw & PCIE_FW_ERR_F) ? -ENXIO : -ETIMEDOUT;
- 	t4_record_mbox(adap, cmd, MBOX_LEN, access, ret);
- 	dev_err(adap->pdev_dev, "command %#x in mailbox %d timed out\n",
- 		*(const u8 *)cmd, mbox);
--- 
-2.3.4
+Other than that, I agree it'd make sense to test for user capabilies in
+the current namespace rather than in the initial one.
