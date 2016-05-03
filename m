@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vlan: Propagate MAC address changes properly
-Date: Tue, 03 May 2016 00:16:51 -0400 (EDT)
-Message-ID: <20160503.001651.132843090236435270.davem@davemloft.net>
-References: <5723D930.6040004@brocade.com>
-	<572489C5.3020502@brocade.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request [net]: batman-adv 20160430
+Date: Tue, 03 May 2016 00:18:13 -0400 (EDT)
+Message-ID: <20160503.001813.1881857417530292443.davem@davemloft.net>
+References: <1462035963-28970-1-git-send-email-a@unstable.cc>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mmanning@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbcECEQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 00:16:55 -0400
-In-Reply-To: <572489C5.3020502@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: a@unstable.cc
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1462035963-28970-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Mike Manning <mmanning@brocade.com>
-Date: Sat, 30 Apr 2016 11:32:37 +0100
+From: Antonio Quartulli <a@unstable.cc>
+Date: Sun,  1 May 2016 01:05:59 +0800
 
-> The MAC address of the physical interface is only copied to the VLAN
-> when it is first created, resulting in an inconsistency after MAC
-> address changes of only newly created VLANs having an up-to-date MAC.
+> this is another pull request intended for net.
 > 
-> Continuing to inherit the MAC address unless explicitly changed for
-> the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
-> and thus for DAD to behave as expected for the given MAC.
+> I know that I sent another batch a few days ago, but after having gone
+> through my queue I thought that merging these last 4 patches would still
+> be worth it (there won't be any other pull request for linux-4.6 :)).
 > 
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
+> The description of the changes follows below.
 
-What is this code really trying to achieve?
-
-Is it "Propagate real device MAC changes to undelying vlan device,
-but not if the user set the vlan MAC explicitly."?
-
-If so, implement that instead of all of these confusing tests.
-
-If the vlan device's set_mac_address operation is ever called,
-set a boolean value in the vlan device private to true and test
-it here.
+Pulled, thanks Antonio.
