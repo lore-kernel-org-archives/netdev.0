@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next v2] block/drbd: use nla_put_u64_64bit()
-Date: Tue, 03 May 2016 12:05:56 -0400 (EDT)
-Message-ID: <20160503.120556.1317913903199470646.davem@davemloft.net>
+Date: Tue, 03 May 2016 12:06:52 -0400 (EDT)
+Message-ID: <20160503.120652.1961585632822010448.davem@davemloft.net>
 References: <57286F49.8050107@6wind.com>
 	<1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
 	<20160503100644.GE16459@soda.linbit>
@@ -20,10 +20,14 @@ List-Id: netdev.vger.kernel.org
 From: Lars Ellenberg <lars.ellenberg@linbit.com>
 Date: Tue, 3 May 2016 12:06:44 +0200
 
-> Please just NOT use an additional "field",
-> but always use 0 to pad.
+> Whereas using some arbitrary value will be wrong,
+> and will needlessly break userland.
 
-You can't, it doesn't work.
+It cannot break userland.
 
-We are adding a new field to every netlink protocol family that has this
-alignment problem.
+A fundamental property of netlink is that all code must silently
+ignore netlink attributes it does not understand.
+
+This is why netlink is easily extensible.
+
+If code isn't doing that, it is broken and must be fixed.
