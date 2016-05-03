@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] block/drbd: use nla_put_u64_64bit()
-Date: Tue, 03 May 2016 12:06:52 -0400 (EDT)
-Message-ID: <20160503.120652.1961585632822010448.davem@davemloft.net>
-References: <57286F49.8050107@6wind.com>
-	<1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20160503100644.GE16459@soda.linbit>
+Subject: Re: [PATCH 0/2] sctp: Add GSO support
+Date: Tue, 03 May 2016 12:09:15 -0400 (EDT)
+Message-ID: <20160503.120915.2184693151751282220.davem@davemloft.net>
+References: <cover.1461965035.git.marcelo.leitner@gmail.com>
+	<20160502.191614.608026435064266168.davem@davemloft.net>
+	<20160503114918.GD5676@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	philipp.reisner@linbit.com, drbd-dev@lists.linbit.com,
-	linux-kernel@vger.kernel.org
-To: lars.ellenberg@linbit.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160503100644.GE16459@soda.linbit>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, David.Laight@ACULAB.COM,
+	alexander.duyck@gmail.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47279 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755535AbcECQJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 12:09:19 -0400
+In-Reply-To: <20160503114918.GD5676@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lars Ellenberg <lars.ellenberg@linbit.com>
-Date: Tue, 3 May 2016 12:06:44 +0200
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Tue, 3 May 2016 08:49:18 -0300
 
-> Whereas using some arbitrary value will be wrong,
-> and will needlessly break userland.
+> So this is just for pure tx path, no forwarding involved.
 
-It cannot break userland.
+And if that GSO segment is looped back into the stack via the
+loopback interface, the packet classifier mirror action, or
+netfilter?
 
-A fundamental property of netlink is that all code must silently
-ignore netlink attributes it does not understand.
-
-This is why netlink is easily extensible.
-
-If code isn't doing that, it is broken and must be fixed.
+You cannot just GSO things and then not handle such packets
+properly on receive.
