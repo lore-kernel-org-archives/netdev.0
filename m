@@ -1,83 +1,53 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] mac80211_hwsim: Allow managing radios from
- non-initial namespaces
-Date: Tue, 03 May 2016 21:16:32 +0200
-Message-ID: <1462302992.10444.11.camel@sipsolutions.net>
-References: <1462258398-6749-1-git-send-email-martin@strongswan.org>
-	 <1462258398-6749-3-git-send-email-martin@strongswan.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 0/5] stmmac: dwmac-socfpga refactor+cleanup
+Date: Tue, 03 May 2016 15:22:57 -0400 (EDT)
+Message-ID: <20160503.152257.2028216665263623946.davem@davemloft.net>
+References: <1462136303-16825-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Martin Willi <martin-jzJueiEJWxp8fCCB1iTX4w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1462258398-6749-3-git-send-email-martin-jzJueiEJWxp8fCCB1iTX4w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: marex@denx.de, dinguyen@opensource.altera.com,
+	peppe.cavallaro@st.com, alexandre.torgue@st.com,
+	netdev@vger.kernel.org
+To: manabian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52016 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756172AbcECTXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 15:23:00 -0400
+In-Reply-To: <1462136303-16825-1-git-send-email-manabian@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-05-03 at 08:53 +0200, Martin Willi wrote:
->=C2=A0
-> +static __net_init int hwsim_init_net(struct net *net)
-> +{
-> +	struct mac80211_hwsim_data *data;
-> +	bool exists =3D true;
-> +	int netgroup =3D 0;
-> +
-> +	spin_lock_bh(&hwsim_radio_lock);
-> +	while (exists) {
-> +		exists =3D false;
-> +		list_for_each_entry(data, &hwsim_radios, list) {
-> +			if (netgroup =3D=3D data->netgroup) {
-> +				exists =3D true;
-> +				netgroup++;
-> +				break;
-> +			}
-> +		}
-> +	}
-> +	spin_unlock_bh(&hwsim_radio_lock);
-> +
-> +	*(int *)net_generic(net, hwsim_net_id) =3D netgroup;
+From: Joachim Eastwood <manabian@gmail.com>
+Date: Sun,  1 May 2016 22:58:18 +0200
 
+> This patch aims to remove the init/exit callbacks from the dwmac-
+> socfpga driver and instead use standard PM callbacks. Doing this
+> will also allow us to cleanup the driver.
+> 
+> Eventually the init/exit callbacks will be deprecated and removed
+> from all drivers dwmac-* except for dwmac-generic. Drivers will be
+> refactored to use standard PM and remove callbacks.
+> 
+> This patch set should not change the behavior of the driver itself,
+> it only moves code around. The only exception to this is patch
+> number 4 which restores the resume callback behavior which was
+> changed in the "net: stmmac: socfpga: Remove re-registration of
+> reset controller" patch. I belive calling phy_resume() only
+> from the resume callback and not probe is the right thing to do.
+> 
+> Changes from v1:
+>  - Rebase on net-next
+> 
+> One heads-up here:
+> The first patch changes the prototype of a couple of
+> functions used in Alexandre's "add Ethernet glue logic for
+> stm32 chip" patch [1] and will cause build failures for
+> dwmac-stm32.c if not fixed up!
+> If Alexandre's patch set is applied first I will gladly
+> rebase my patch set to account for his driver as well.
+> 
+> [1] https://patchwork.ozlabs.org/patch/614405/
 
-This seems somewhat awkward. Why not just take the maximum of all the
-netgroup IDs + 1? We'd run out of memory and radio IDs long before
-netgroup IDs even that way, and they're not actually visible anywhere
-so it doesn't matter.
-
-Actually though, *both* your approach and my suggestion don't seem
-safe: consider a new netns that doesn't have any hwsim radios yet. Now
-you create *another* one, but it would get the same netgroup.
-
-IOW, you should simply use a global counter. Surprising (net)
-namespaces don't have an index like that already, but I don't see one.
-
-> +static void __net_exit hwsim_exit_net(struct net *net)
-> +{
-> +	struct mac80211_hwsim_data *entry, *tmp;
-> +
-> +	spin_lock_bh(&hwsim_radio_lock);
-> +	list_for_each_entry_safe(entry, tmp, &hwsim_radios, list) {
-> +		if (net_eq(wiphy_net(entry->hw->wiphy), net)) {
-> +			list_del(&entry->list);
-> +			INIT_WORK(&entry->destroy_work,
-> destroy_radio);
-> +			schedule_work(&entry->destroy_work);
-> +		}
-> +	}
-> +	spin_unlock_bh(&hwsim_radio_lock);
-> +}
-
-This changes today's default behaviour of moving the wiphys to the
-default namespace. Did you intend to destroy them based on the
-netgroup, i.e. based on the namespace that created them? Actually,
-maybe they should move back to the namespace that created them, if the
-namespace they are in is destroyed? But that's difficult, I don't mind
-this behaviour, but I'm not sure it's what we want by default for
-radios created in the init_net.
-
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.  stm32 will need to be respun, therefore.
