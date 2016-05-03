@@ -1,45 +1,54 @@
-From: Toby DiPasquale <toby@cbcg.net>
-Subject: Re: off-by-one in DecodeQ931
-Date: Tue, 3 May 2016 01:12:06 -0400
-Message-ID: <CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
-References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
-	<20160425152905.GA8621@strlen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160425152905.GA8621@strlen.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: maryjanesogrub <maryjanesogrub123@gmail.com>
+Subject: Listing from maryjanesogrub
+Date: Mon,  2 May 2016 22:13:03 -0700 (MST)
+Message-ID: <20160503051303.E00D738A25F@shared5.precisionpros.com>
+To: mrechberger@gmail.com, shdl@zakalwe.fi, heikki.orsila@iki.fi,
+	rjkm@metzlerbros.de, nagendra_tomar@adaptec.com, eparis@redhat.com,
+	eric.rannaud@gmail.com, netdev@vger.kernel.org,
+	bcollins@debian.org, linux1394-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shared5.precisionpros.com ([67.59.131.61]:53458 "EHLO
+	shared5.precisionpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974AbcECFUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 01:20:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 25, 2016 at 11:29 AM, Florian Westphal <fw@strlen.de> wrote:
-> -> sz (size_t) will underflow here
->
-> I'd suggest to change the if (sz < 1) to if (sz < 2) to
-> resolve this, the while loop below has to be taken anyway.
+Your friend, maryjanesogrub, has sent along the following link:
+http://www.midwestrealty.net/listingview.php?listingID=1128
 
-Thanks, Florian! Updated patch below:
+Comment:
+JOB POSITION AVAILABLE - APPLY NOW!
+WE'RE HIRING: Data Entry Workers Earn $500 up to $1000 Daily 
+(No Experience Required)
 
-Signed-off-by: Toby DiPasquale <toby@cbcg.net>
+Good Day,
 
-diff --git a/net/netfilter/nf_conntrack_h323_asn1.c
-b/net/netfilter/nf_conntrack_h323_asn1.c
-index bcd5ed6..89b2e46 100644
---- a/net/netfilter/nf_conntrack_h323_asn1.c
-+++ b/net/netfilter/nf_conntrack_h323_asn1.c
-@@ -846,9 +846,10 @@ int DecodeQ931(unsigned char *buf, size_t sz, Q931 *q931)
-        sz -= len;
+You recently expressed an interest in obtaining a
+position you could do from the comfort of your own home.
+I am happy to let you know that I found a great company
+that will help you get started working online.
 
-        /* Message Type */
--       if (sz < 1)
-+       if (sz < 2)
-                return H323_ERROR_BOUND;
-        q931->MessageType = *p++;
-+       sz--;
-        PRINT("MessageType = %02X\n", q931->MessageType);
-        if (*p & 0x80) {
-                p++;
+Visit our website here:
+
+http://link.limo/1jqz
+
+The scope of the work is very simple.
+You can work as little or as much as you want
+depending on how much you want your paycheck to be
+
+No background experience is needed because you
+will be given a detailed step-by-step training in
+all the job fields along with all the resources you
+needed to help you get started immediately.
+
+Visit our website here:
+
+http://link.limo/1jqz
+
+If you're serious about this position, though,
+then I encourage you to take action immediately.
+We only have a few openings left, and we expect them
+to fill up fast. This really is a great opportunity!
+
+THANKS
