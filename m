@@ -1,47 +1,40 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/2] cxgb4: Don't sleep when mbox cmd is issued from interrupt context
-Date: Tue,  3 May 2016 18:58:01 +0530
-Message-ID: <1462282082-6894-2-git-send-email-hariprasad@chelsio.com>
-References: <1462282082-6894-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/2] cxgb4: mbox enhancements for cxgb4
+Date: Tue,  3 May 2016 18:58:00 +0530
+Message-ID: <1462282082-6894-1-git-send-email-hariprasad@chelsio.com>
 Cc: netdev@vger.kernel.org, leedom@chelsio.com,
 	swise@opengridcomputing.com, nirranjan@chelsio.com,
 	santosh@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:46771 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:10839 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755608AbcECNXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 09:23:45 -0400
-In-Reply-To: <1462282082-6894-1-git-send-email-hariprasad@chelsio.com>
+	by vger.kernel.org with ESMTP id S1755608AbcECNXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 09:23:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When link goes down, from the interrupt handler DCB priority for the
-Tx queues needs to be unset. We issue mbox command to unset the Tx queue
-priority with negative timeout. In t4_wr_mbox_meat_timeout() do not sleep
-when negative timeout is passed, since it is called from interrupt context.
+Hi
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+This patch series checks for firmware errors when we are waiting for
+mbox response in a loop and breaks out. When negative timeout is passed
+to mailbox code, don't sleep. Negative timeout is passed only from
+interrupt context.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 49bcbf16c9ca..59f5e0b40286 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -304,6 +304,12 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
- 	if (adap->pdev->error_state != pci_channel_io_normal)
- 		return -EIO;
- 
-+	/* If we have a negative timeout, that implies that we can't sleep. */
-+	if (timeout < 0) {
-+		sleep_ok = false;
-+		timeout = -timeout;
-+	}
-+
- 	v = MBOWNER_G(t4_read_reg(adap, ctl_reg));
- 	for (i = 0; v == MBOX_OWNER_NONE && i < 3; i++)
- 		v = MBOWNER_G(t4_read_reg(adap, ctl_reg));
+This patch series has been created against net-next tree and includes
+patches on cxgb4 driver.
+
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+Thanks
+
+Hariprasad Shenai (2):
+  cxgb4: Don't sleep when mbox cmd is issued from interrupt context
+  cxgb4: Check for firmware errors in the mailbox command loop
+
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
 -- 
 2.3.4
