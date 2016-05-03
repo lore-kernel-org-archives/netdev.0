@@ -1,28 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net: ethernet: gianfar: move to new ethtool api
- {get|set}_link_ksettings
-Date: Tue, 03 May 2016 13:04:03 -0400 (EDT)
-Message-ID: <20160503.130403.171567496840433345.davem@davemloft.net>
-References: <1462115291-11372-1-git-send-email-tremyfr@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next 3/9] netfilter: conntrack: don't attempt to
+ iterate over empty table
+Date: Tue, 3 May 2016 19:03:57 +0200
+Message-ID: <20160503170357.GA21641@salvia>
+References: <1461863628-23350-1-git-send-email-fw@strlen.de>
+ <1461863628-23350-4-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	claudiu.manoil@freescale.com, leoli@freescale.com,
-	treding@nvidia.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462115291-11372-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1461863628-23350-4-git-send-email-fw@strlen.de>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun,  1 May 2016 17:08:08 +0200
-
-> The ethtool api {get|set}_settings is deprecated.
-> We move the gianfar driver to new api {get|set}_link_ksettings.
+On Thu, Apr 28, 2016 at 07:13:42PM +0200, Florian Westphal wrote:
+> Once we place all conntracks into same table iteration becomes more
+> costly because the table contains conntracks that we are not interested
+> in (belonging to other netns).
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> So don't bother scanning if the current namespace has no entries.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  net/netfilter/nf_conntrack_core.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 29fa08b..f2e75a5 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1428,6 +1428,9 @@ void nf_ct_iterate_cleanup(struct net *net,
+>  
+>  	might_sleep();
+>  
+> +	if (atomic_read(&net->ct.count) == 0)
+> +		return;
 
-Applied.
+This optimization gets defeated with just one single conntrack (ie.
+net->ct.count == 1), so I wonder if this is practical thing.
+
+At the cost of consuming more memory per conntrack, we may consider
+adding a per-net list so this iteration doesn't become a problem.
+
+>  	while ((ct = get_next_corpse(net, iter, data, &bucket)) != NULL) {
+>  		/* Time to push up daises... */
+>  		if (del_timer(&ct->timeout))
+> -- 
+> 2.7.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
