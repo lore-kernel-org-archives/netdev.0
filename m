@@ -1,75 +1,204 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: [PATCH] tcp: ensure non-empty connection request queue
-Date: Tue,  3 May 2016 23:54:18 +0200
-Message-ID: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Antonio Quartulli <a@unstable.cc>
+Subject: [PATCH 15/15] batman-adv: Split batadv_iv_ogm_orig_del_if function
+Date: Wed,  4 May 2016 06:23:50 +0800
+Message-ID: <1462314230-16257-16-git-send-email-a@unstable.cc>
+References: <1462314230-16257-1-git-send-email-a@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <a@unstable.cc>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lekensteyn.nl ([178.21.112.251]:53933 "EHLO lekensteyn.nl"
+Received: from s2.neomailbox.net ([5.148.176.60]:5950 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756436AbcECWhX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 18:37:23 -0400
+	id S1756436AbcECWk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 18:40:56 -0400
+In-Reply-To: <1462314230-16257-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When applications use listen() with a backlog of 0, the kernel would
-set the maximum connection request queue to zero. This causes false
-reports of SYN flooding (if tcp_syncookies is enabled) or packet drops
-otherwise.
+From: Sven Eckelmann <sven@narfation.org>
 
-Prior kernels enforce a minimum size of 8, so do that now as well.
+batadv_iv_ogm_orig_del_if handles two different buffers bcast_own and
+bcast_own_sum which should be resized. The error handling two for
+allocating these buffers causes the complexity of this function. This can
+be avoided completely when the function is split into a main function
+handling the locking, freeing and call of the subfunctions.
 
-Fixes: ef547f2ac16b ("tcp: remove max_qlen_log")
-Signed-off-by: Peter Wu <peter@lekensteyn.nl>
+The subfunction can then independently handle the resize of the buffers.
+This also allows to easily reuse the old buffer (which always is larger) in
+case a smaller buffer could not be allocated without increasing the code
+complexity.
+
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
-Hi,
+ net/batman-adv/bat_iv_ogm.c | 131 ++++++++++++++++++++++++++++----------------
+ 1 file changed, 84 insertions(+), 47 deletions(-)
 
-This patch fixes a regression from Linux 4.4. Use of "qemu-arm -g 1234"
-would trigger the following warning in dmesg:
-
-    TCP: request_sock_TCP: Possible SYN flooding on port 1234. Sending cookies.  Check SNMP counters.
-
-For some users the "tcp: remove max_qlen_log" change already broke
-applications[1]. While listen(3p) says that a backlog argument of 0 sets
-the length to an "implementation-defined minimum value", I doubt that
-"0" should be considered a valid value (as demonstrated in the above two
-real-world applications that worked fine before). It is a hint anyway.
-
-This patch was tested on top of Linux v4.5 and removes the warning which
-would otherwise be present (due to the inet_csk_reqsk_queue_is_full()
-check in tcp_conn_request).
-
-I also looked at modifying the backlog value in inet_listen, but that
-might have other unintended effects:
-
- - If TFO is enabled and tcp_fastopen==0x400, listen(fd, 0) currently
-   disables TFO (also possible via setsockopt). Forcing a minimum breaks
-   this path (unlikely to be a problem though since TFO users likely set
-   a much higher backlog).
- - sk->sk_max_ack_backlog is also reported via tcp statistics and seems
-   really to be the hint rather than the actual interpreted value.
-
-Kind regards,
-Peter
-
- [1]: https://lkml.kernel.org/r/CANn89i+OKfw896-N5KsNDEikzUidR8yX1JC089hJnGGfDQ0mzw@mail.gmail.com
----
- include/net/inet_connection_sock.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 49dcad4..ca0fdbc 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -296,7 +296,7 @@ static inline int inet_csk_reqsk_queue_young(const struct sock *sk)
- 
- static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
- {
--	return inet_csk_reqsk_queue_len(sk) >= sk->sk_max_ack_backlog;
-+	return inet_csk_reqsk_queue_len(sk) >= max(8U, sk->sk_max_ack_backlog);
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 682fcaec56e6..8c1710bba803 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -32,6 +32,7 @@
+ #include <linux/jiffies.h>
+ #include <linux/list.h>
+ #include <linux/kref.h>
++#include <linux/lockdep.h>
+ #include <linux/netdevice.h>
+ #include <linux/pkt_sched.h>
+ #include <linux/printk.h>
+@@ -175,6 +176,79 @@ unlock:
  }
  
- void inet_csk_reqsk_queue_drop(struct sock *sk, struct request_sock *req);
+ /**
++ * batadv_iv_ogm_drop_bcast_own_entry - drop section of bcast_own
++ * @orig_node: the orig_node that has to be changed
++ * @max_if_num: the current amount of interfaces
++ * @del_if_num: the index of the interface being removed
++ */
++static void
++batadv_iv_ogm_drop_bcast_own_entry(struct batadv_orig_node *orig_node,
++				   int max_if_num, int del_if_num)
++{
++	size_t chunk_size;
++	size_t if_offset;
++	void *data_ptr;
++
++	lockdep_assert_held(&orig_node->bat_iv.ogm_cnt_lock);
++
++	chunk_size = sizeof(unsigned long) * BATADV_NUM_WORDS;
++	data_ptr = kmalloc_array(max_if_num, chunk_size, GFP_ATOMIC);
++	if (!data_ptr)
++		/* use old buffer when new one could not be allocated */
++		data_ptr = orig_node->bat_iv.bcast_own;
++
++	/* copy first part */
++	memmove(data_ptr, orig_node->bat_iv.bcast_own, del_if_num * chunk_size);
++
++	/* copy second part */
++	if_offset = (del_if_num + 1) * chunk_size;
++	memmove((char *)data_ptr + del_if_num * chunk_size,
++		(uint8_t *)orig_node->bat_iv.bcast_own + if_offset,
++		(max_if_num - del_if_num) * chunk_size);
++
++	/* bcast_own was shrunk down in new buffer; free old one */
++	if (orig_node->bat_iv.bcast_own != data_ptr) {
++		kfree(orig_node->bat_iv.bcast_own);
++		orig_node->bat_iv.bcast_own = data_ptr;
++	}
++}
++
++/**
++ * batadv_iv_ogm_drop_bcast_own_sum_entry - drop section of bcast_own_sum
++ * @orig_node: the orig_node that has to be changed
++ * @max_if_num: the current amount of interfaces
++ * @del_if_num: the index of the interface being removed
++ */
++static void
++batadv_iv_ogm_drop_bcast_own_sum_entry(struct batadv_orig_node *orig_node,
++				       int max_if_num, int del_if_num)
++{
++	size_t if_offset;
++	void *data_ptr;
++
++	lockdep_assert_held(&orig_node->bat_iv.ogm_cnt_lock);
++
++	data_ptr = kmalloc_array(max_if_num, sizeof(u8), GFP_ATOMIC);
++	if (!data_ptr)
++		/* use old buffer when new one could not be allocated */
++		data_ptr = orig_node->bat_iv.bcast_own_sum;
++
++	memmove(data_ptr, orig_node->bat_iv.bcast_own_sum,
++		del_if_num * sizeof(u8));
++
++	if_offset = (del_if_num + 1) * sizeof(u8);
++	memmove((char *)data_ptr + del_if_num * sizeof(u8),
++		orig_node->bat_iv.bcast_own_sum + if_offset,
++		(max_if_num - del_if_num) * sizeof(u8));
++
++	/* bcast_own_sum was shrunk down in new buffer; free old one */
++	if (orig_node->bat_iv.bcast_own_sum != data_ptr) {
++		kfree(orig_node->bat_iv.bcast_own_sum);
++		orig_node->bat_iv.bcast_own_sum = data_ptr;
++	}
++}
++
++/**
+  * batadv_iv_ogm_orig_del_if - change the private structures of the orig_node to
+  *  exclude the removed interface
+  * @orig_node: the orig_node that has to be changed
+@@ -186,60 +260,23 @@ unlock:
+ static int batadv_iv_ogm_orig_del_if(struct batadv_orig_node *orig_node,
+ 				     int max_if_num, int del_if_num)
+ {
+-	int ret = -ENOMEM;
+-	size_t chunk_size, if_offset;
+-	void *data_ptr = NULL;
+-
+ 	spin_lock_bh(&orig_node->bat_iv.ogm_cnt_lock);
+ 
+-	/* last interface was removed */
+-	if (max_if_num == 0)
+-		goto free_bcast_own;
+-
+-	chunk_size = sizeof(unsigned long) * BATADV_NUM_WORDS;
+-	data_ptr = kmalloc_array(max_if_num, chunk_size, GFP_ATOMIC);
+-	if (!data_ptr)
+-		goto unlock;
+-
+-	/* copy first part */
+-	memcpy(data_ptr, orig_node->bat_iv.bcast_own, del_if_num * chunk_size);
+-
+-	/* copy second part */
+-	if_offset = (del_if_num + 1) * chunk_size;
+-	memcpy((char *)data_ptr + del_if_num * chunk_size,
+-	       (uint8_t *)orig_node->bat_iv.bcast_own + if_offset,
+-	       (max_if_num - del_if_num) * chunk_size);
+-
+-free_bcast_own:
+-	kfree(orig_node->bat_iv.bcast_own);
+-	orig_node->bat_iv.bcast_own = data_ptr;
+-
+-	if (max_if_num == 0)
+-		goto free_own_sum;
+-
+-	data_ptr = kmalloc_array(max_if_num, sizeof(u8), GFP_ATOMIC);
+-	if (!data_ptr) {
++	if (max_if_num == 0) {
+ 		kfree(orig_node->bat_iv.bcast_own);
+-		goto unlock;
++		kfree(orig_node->bat_iv.bcast_own_sum);
++		orig_node->bat_iv.bcast_own = NULL;
++		orig_node->bat_iv.bcast_own_sum = NULL;
++	} else {
++		batadv_iv_ogm_drop_bcast_own_entry(orig_node, max_if_num,
++						   del_if_num);
++		batadv_iv_ogm_drop_bcast_own_sum_entry(orig_node, max_if_num,
++						       del_if_num);
+ 	}
+ 
+-	memcpy(data_ptr, orig_node->bat_iv.bcast_own_sum,
+-	       del_if_num * sizeof(u8));
+-
+-	if_offset = (del_if_num + 1) * sizeof(u8);
+-	memcpy((char *)data_ptr + del_if_num * sizeof(u8),
+-	       orig_node->bat_iv.bcast_own_sum + if_offset,
+-	       (max_if_num - del_if_num) * sizeof(u8));
+-
+-free_own_sum:
+-	kfree(orig_node->bat_iv.bcast_own_sum);
+-	orig_node->bat_iv.bcast_own_sum = data_ptr;
+-
+-	ret = 0;
+-unlock:
+ 	spin_unlock_bh(&orig_node->bat_iv.ogm_cnt_lock);
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ /**
 -- 
-1.9.1
+2.8.2
