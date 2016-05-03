@@ -1,44 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] mdio_bus: don't return NULL from mdiobus_scan()
-Date: Tue, 03 May 2016 23:14:41 +0300
-Message-ID: <4702228.vWmKBZLz6G@wasted.cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] ipv6: add new struct ipcm6_cookie
+Date: Tue, 03 May 2016 16:20:01 -0400 (EDT)
+Message-ID: <20160503.162001.2049403211410235502.davem@davemloft.net>
+References: <1462250407-19496-1-git-send-email-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: weiwan@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:32973 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756095AbcECUOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 16:14:45 -0400
-Received: by mail-lf0-f47.google.com with SMTP id y84so35974871lfc.0
-        for <netdev@vger.kernel.org>; Tue, 03 May 2016 13:14:45 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52629 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756181AbcECUUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 16:20:03 -0400
+In-Reply-To: <1462250407-19496-1-git-send-email-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've finally noticed that mdiobus_scan() also returns either NULL or error
-value on failure.  Return ERR_PTR(-ENODEV) instead of NULL since this is
-the  error value  already filtered out by the callers that want to ignore
-the  MDIO address scan failure...
+From: Wei Wang <weiwan@google.com>
+Date: Mon,  2 May 2016 21:40:07 -0700
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> From: Wei Wang <weiwan@google.com>
+> 
+> In the sendmsg function of UDP, raw, ICMP and l2tp sockets, we use local
+> variables like hlimits, tclass, opt and dontfrag and pass them to corresponding
+> functions like ip6_make_skb, ip6_append_data and xxx_push_pending_frames.
+> This is not a good practice and makes it hard to add new parameters.
+> This fix introduces a new struct ipcm6_cookie similar to ipcm_cookie in
+> ipv4 and include the above mentioned variables. And we only pass the
+> pointer to this structure to corresponding functions. This makes it easier
+> to add new parameters in the future and makes the function cleaner.
+> 
+> Signed-off-by: Wei Wang <weiwan@google.com>
 
----
-The patch is against DaveM's 'net-next.git' repo.
-
- drivers/net/phy/mdio_bus.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: net-next/drivers/net/phy/mdio_bus.c
-===================================================================
---- net-next.orig/drivers/net/phy/mdio_bus.c
-+++ net-next/drivers/net/phy/mdio_bus.c
-@@ -435,7 +435,7 @@ struct phy_device *mdiobus_scan(struct m
- 	err = phy_device_register(phydev);
- 	if (err) {
- 		phy_device_free(phydev);
--		return NULL;
-+		return ERR_PTR(-ENODEV);
- 	}
- 
- 	return phydev;
+Applied, thanks.
