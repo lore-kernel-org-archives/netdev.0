@@ -1,79 +1,43 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Tue, 3 May 2016 13:15:24 +1000
-Message-ID: <20160503131524.5341da81@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vlan: Propagate MAC address changes properly
+Date: Tue, 03 May 2016 00:16:51 -0400 (EDT)
+Message-ID: <20160503.001651.132843090236435270.davem@davemloft.net>
+References: <5723D930.6040004@brocade.com>
+	<572489C5.3020502@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Benc <jbenc@redhat.com>, Tom Herbert <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mmanning@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39813 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbcECEQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 00:16:55 -0400
+In-Reply-To: <572489C5.3020502@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Mike Manning <mmanning@brocade.com>
+Date: Sat, 30 Apr 2016 11:32:37 +0100
 
-Today's linux-next merge of the net-next tree got a conflict in:
+> The MAC address of the physical interface is only copied to the VLAN
+> when it is first created, resulting in an inconsistency after MAC
+> address changes of only newly created VLANs having an up-to-date MAC.
+> 
+> Continuing to inherit the MAC address unless explicitly changed for
+> the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
+> and thus for DAD to behave as expected for the given MAC.
+> 
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
 
-  net/ipv4/ip_gre.c
+What is this code really trying to achieve?
 
-between commits:
+Is it "Propagate real device MAC changes to undelying vlan device,
+but not if the user set the vlan MAC explicitly."?
 
-  2090714e1d6e ("gre: build header correctly for collect metadata tunnels")
-  b7f8fe251e46 ("gre: do not pull header in ICMP error processing")
+If so, implement that instead of all of these confusing tests.
 
-from Linus' tree and commit:
-
-  95f5c64c3c13 ("gre: Move utility functions to common headers")
-  182a352d2d5e ("gre: Create common functions for transmit")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/ipv4/ip_gre.c
-index 205a2b8a5a84,2480d79b0e37..000000000000
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@@ -341,8 -221,9 +221,9 @@@ static void gre_err(struct sk_buff *skb
-  	const int code = icmp_hdr(skb)->code;
-  	struct tnl_ptk_info tpi;
-  	bool csum_err = false;
-+ 	int hdr_len;
-  
-- 	if (parse_gre_header(skb, &tpi, &csum_err) < 0) {
- -	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len)) {
-++	if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0) {
-  		if (!csum_err)		/* ignore csum errors. */
-  			return;
-  	}
-@@@ -574,15 -414,12 +415,12 @@@ static void gre_fb_xmit(struct sk_buff 
-  	}
-  
-  	/* Push Tunnel header. */
-- 	skb = gre_handle_offloads(skb, !!(tun_info->key.tun_flags & TUNNEL_CSUM));
-- 	if (IS_ERR(skb)) {
-- 		skb = NULL;
-+ 	if (gre_handle_offloads(skb, !!(tun_info->key.tun_flags & TUNNEL_CSUM)))
-  		goto err_free_rt;
-- 	}
-  
-  	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
-- 	build_header(skb, tunnel_hlen, flags, proto,
-- 		     tunnel_id_to_key(tun_info->key.tun_id), 0);
- -	gre_build_header(skb, tunnel_hlen, flags, htons(ETH_P_TEB),
-++	gre_build_header(skb, tunnel_hlen, flags, proto,
-+ 			 tunnel_id_to_key(tun_info->key.tun_id), 0);
-  
-  	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
-  
+If the vlan device's set_mac_address operation is ever called,
+set a boolean value in the vlan device private to true and test
+it here.
