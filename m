@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/2] RDS: TCP: sychronization during connection
- startup
-Date: Tue, 03 May 2016 16:05:04 -0400 (EDT)
-Message-ID: <20160503.160504.1381876048546522908.davem@davemloft.net>
-References: <cover.1462212462.git.sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net] net: macb: Probe MDIO bus before registering netdev
+Date: Tue, 03 May 2016 16:06:39 -0400 (EDT)
+Message-ID: <20160503.160639.1068257904610872494.davem@davemloft.net>
+References: <1462239525-22723-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com
+Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52502 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52508 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752195AbcECUFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 16:05:07 -0400
-In-Reply-To: <cover.1462212462.git.sowmini.varadhan@oracle.com>
+	with ESMTP id S1756032AbcECUGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 16:06:41 -0400
+In-Reply-To: <1462239525-22723-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Mon,  2 May 2016 11:24:50 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon,  2 May 2016 18:38:45 -0700
 
-> This patch series ensures that the passive (accept) side of the
-> TCP connection used for RDS-TCP is correctly synchronized with
-> any concurrent active (connect) attempts for a given pair of peers.
+> The current sequence makes us register for a network device prior to
+> registering and probing the MDIO bus which could lead to some unwanted
+> consequences, like a thread of execution calling into ndo_open before
+> register_netdev() returns, while the MDIO bus is not ready yet.
 > 
-> Patch 1 in the series makes sure that the t_sock in struct 
-> rds_tcp_connection is only reset after any threads in rds_tcp_xmit
-> have completed (otherwise a null-ptr deref may be encountered). 
-> Patch 2 synchronizes rds_tcp_accept_one() with the rds_tcp*connect()
-> path.
+> Rework the sequence to register for the MDIO bus, and therefore attach
+> to a PHY prior to calling register_netdev(), which implies reworking the
+> error path a bit.
 > 
-> v2: review comments from Santosh Shilimkar, other spelling corrections
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thanks.
+Applied, thanks Florian.
