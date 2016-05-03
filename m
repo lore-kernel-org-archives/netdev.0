@@ -1,141 +1,53 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] gre: change gre_parse_header to return the
- header length
-Date: Tue, 3 May 2016 08:18:38 -0700
-Message-ID: <CALx6S35Du_8Eyau2+TrQ4z_+vngwwa6YGamxMJ=M0jqv5wpdbw@mail.gmail.com>
-References: <3627136025fbd767d70e2ce563aa5e37373c880a.1462280197.git.jbenc@redhat.com>
+From: Mike Manning <mmanning@brocade.com>
+Subject: Re: [PATCH net] vlan: Propagate MAC address changes properly
+Date: Tue, 3 May 2016 16:18:42 +0100
+Message-ID: <5728C152.7090007@brocade.com>
+References: <5723D930.6040004@brocade.com> <572489C5.3020502@brocade.com>
+ <20160503.001651.132843090236435270.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34170 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933686AbcECPSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 11:18:44 -0400
-Received: by mail-ig0-f170.google.com with SMTP id u5so21625165igk.1
-        for <netdev@vger.kernel.org>; Tue, 03 May 2016 08:18:39 -0700 (PDT)
-In-Reply-To: <3627136025fbd767d70e2ce563aa5e37373c880a.1462280197.git.jbenc@redhat.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:49521 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932884AbcECPS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 11:18:56 -0400
+In-Reply-To: <20160503.001651.132843090236435270.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 3, 2016 at 6:00 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> It's easier for gre_parse_header to return the header length instead of
-> filing it into a parameter. That way, the callers that don't care about the
-> header length can just check whether the returned value is lower than zero.
->
-> In gre_err, the tunnel header must not be pulled. See commit b7f8fe251e46
-> ("gre: do not pull header in ICMP error processing") for details.
->
-> This patch reduces the conflict between the mentioned commit and commit
-> 95f5c64c3c13 ("gre: Move utility functions to common headers").
->
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> To resolve the conflict between net and net-next, please apply this patch to
-> net-next and then pull net into net-next. At the conflicting places, take
-> the hunks from net-next (including the large code removal at the beginning
-> of ip_gre.c).
->
-> The only exception is a call to gre_build_header/build_header in
-> gre_fb_xmit; in there, also take the hunk from net-next but change
-> "htons(ETH_P_TEB)" to "proto".
->
-> Alternatively, this patch can be used during merge for the conflict
-> resolution instead of committing it on its own.
-> ---
->  include/net/gre.h    | 2 +-
->  net/ipv4/gre_demux.c | 6 +++---
->  net/ipv4/ip_gre.c    | 9 +++------
->  net/ipv6/ip6_gre.c   | 3 ++-
->  4 files changed, 9 insertions(+), 11 deletions(-)
->
-> diff --git a/include/net/gre.h b/include/net/gre.h
-> index 29e37322c06e..a14093c70eab 100644
-> --- a/include/net/gre.h
-> +++ b/include/net/gre.h
-> @@ -26,7 +26,7 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version);
->  struct net_device *gretap_fb_dev_create(struct net *net, const char *name,
->                                        u8 name_assign_type);
->  int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
-> -                    bool *csum_err, int *hdr_len);
-> +                    bool *csum_err);
->
->  static inline int gre_calc_hlen(__be16 o_flags)
->  {
-> diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-> index 371674801e84..a41e73ab1369 100644
-> --- a/net/ipv4/gre_demux.c
-> +++ b/net/ipv4/gre_demux.c
-> @@ -60,8 +60,9 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
->  }
->  EXPORT_SYMBOL_GPL(gre_del_protocol);
->
-> +/* Fills in tpi and returns header length to be pulled. */
->  int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
-> -                    bool *csum_err, int *ret_hdr_len)
-> +                    bool *csum_err)
->  {
->         const struct gre_base_hdr *greh;
->         __be32 *options;
-> @@ -119,8 +120,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
->                                 return -EINVAL;
->                 }
->         }
-> -       *ret_hdr_len = hdr_len;
-> -       return 0;
-> +       return hdr_len;
->  }
->  EXPORT_SYMBOL(gre_parse_header);
->
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 2480d79b0e37..d4ee229880bf 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -221,16 +221,12 @@ static void gre_err(struct sk_buff *skb, u32 info)
->         const int code = icmp_hdr(skb)->code;
->         struct tnl_ptk_info tpi;
->         bool csum_err = false;
-> -       int hdr_len;
->
-> -       if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len)) {
-> +       if (gre_parse_header(skb, &tpi, &csum_err) < 0) {
->                 if (!csum_err)          /* ignore csum errors. */
->                         return;
->         }
->
-> -       if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
-> -               return;
-> -
->         if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
->                 ipv4_update_pmtu(skb, dev_net(skb->dev), info,
->                                  skb->dev->ifindex, 0, IPPROTO_GRE, 0);
-> @@ -314,7 +310,8 @@ static int gre_rcv(struct sk_buff *skb)
->         }
->  #endif
->
-> -       if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0)
-> +       hdr_len = gre_parse_header(skb, &tpi, &csum_err);
-> +       if (hdr_len < 0)
->                 goto drop;
->
->         if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
-> diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-> index 10127741a60d..47b671a46dc4 100644
-> --- a/net/ipv6/ip6_gre.c
-> +++ b/net/ipv6/ip6_gre.c
-> @@ -468,7 +468,8 @@ static int gre_rcv(struct sk_buff *skb)
->         bool csum_err = false;
->         int hdr_len;
->
-> -       if (gre_parse_header(skb, &tpi, &csum_err, &hdr_len) < 0)
-> +       hdr_len = gre_parse_header(skb, &tpi, &csum_err);
-> +       if (hdr_len < 0)
->                 goto drop;
->
->         if (iptunnel_pull_header(skb, hdr_len, tpi.proto, false))
-> --
-> 1.8.3.1
->
-Acked-by: Tom Herbert <tom@herbertland.com>
+On 05/03/2016 05:16 AM, David Miller wrote:
+> From: Mike Manning <mmanning@brocade.com>
+> Date: Sat, 30 Apr 2016 11:32:37 +0100
+> 
+>> The MAC address of the physical interface is only copied to the VLAN
+>> when it is first created, resulting in an inconsistency after MAC
+>> address changes of only newly created VLANs having an up-to-date MAC.
+>>
+>> Continuing to inherit the MAC address unless explicitly changed for
+>> the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
+>> and thus for DAD to behave as expected for the given MAC.
+>>
+>> Signed-off-by: Mike Manning <mmanning@brocade.com>
+> 
+> What is this code really trying to achieve?
+> 
+> Is it "Propagate real device MAC changes to undelying vlan device,
+> but not if the user set the vlan MAC explicitly."?
+
+Right, I will update the subject header to make this clearer
+
+> 
+> If so, implement that instead of all of these confusing tests.
+> 
+> If the vlan device's set_mac_address operation is ever called,
+> set a boolean value in the vlan device private to true and test
+> it here.
+> 
+
+Given that this information is implicit in real_dev_addr, I am reluctant
+to add another member to the vlan_dev_priv data structure, especially given
+that there may be a large number of VLANs. Instead I have added a variable
+real_addr_in_use in vlan_sync_address() to make this clearer.
