@@ -1,45 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: add new struct ipcm6_cookie
-Date: Mon, 02 May 2016 22:46:05 -0400 (EDT)
-Message-ID: <20160502.224605.2041030786381936894.davem@davemloft.net>
-References: <1461976272-10738-1-git-send-email-tracywwnj@gmail.com>
-	<20160502.223945.1841569316439730448.davem@davemloft.net>
+Subject: Re: [PATCH next] netdevice: shrink size of struct netdev_queue
+Date: Mon, 02 May 2016 22:51:56 -0400 (EDT)
+Message-ID: <20160502.225156.2145114185490735551.davem@davemloft.net>
+References: <1462238949-3271-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: weiwan@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39152 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39191 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932239AbcECCqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 22:46:08 -0400
-In-Reply-To: <20160502.223945.1841569316439730448.davem@davemloft.net>
+	with ESMTP id S932239AbcECCv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2016 22:51:59 -0400
+In-Reply-To: <1462238949-3271-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMiBN
-YXkgMjAxNiAyMjozOTo0NSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFdlaSBXYW5nIDx3ZWl3YW5A
-Z29vZ2xlLmNvbT4NCj4gRGF0ZTogRnJpLCAyOSBBcHIgMjAxNiAxNzozMToxMiAtMDcwMA0KPiAN
-Cj4+IEZyb206IFdlaSBXYW5nIDx3ZWl3YW5AZ29vZ2xlLmNvbT4NCj4+IA0KPj4gSW4gdGhlIHNl
-bmRtc2cgZnVuY3Rpb24gb2YgVURQLCByYXcsIElDTVAgYW5kIGwydHAgc29ja2V0cywgd2UgdXNl
-IGxvY2FsDQo+PiB2YXJpYWJsZXMgbGlrZSBobGltaXRzLCB0Y2xhc3MsIG9wdCBhbmQgZG9udGZy
-YWcgYW5kIHBhc3MgdGhlbSB0byBjb3JyZXNwb25kaW5nDQo+PiBmdW5jdGlvbnMgbGlrZSBpcDZf
-bWFrZV9za2IsIGlwNl9hcHBlbmRfZGF0YSBhbmQgeHh4X3B1c2hfcGVuZGluZ19mcmFtZXMuDQo+
-PiBUaGlzIGlzIG5vdCBhIGdvb2QgcHJhY3RpY2UgYW5kIG1ha2VzIGl0IGhhcmQgdG8gYWRkIG5l
-dyBwYXJhbWV0ZXJzLg0KPj4gVGhpcyBmaXggaW50cm9kdWNlcyBhIG5ldyBzdHJ1Y3QgaXBjbTZf
-Y29va2llIHNpbWlsYXIgdG8gaXBjbV9jb29raWUgaW4NCj4+IGlwdjQgYW5kIGluY2x1ZGUgdGhl
-IGFib3ZlIG1lbnRpb25lZCB2YXJpYWJsZXMuIEFuZCB3ZSBvbmx5IHBhc3MgdGhlDQo+PiBwb2lu
-dGVyIHRvIHRoaXMgc3RydWN0dXJlIHRvIGNvcnJlc3BvbmRpbmcgZnVuY3Rpb25zLiBUaGlzIG1h
-a2VzIGl0IGVhc2llcg0KPj4gdG8gYWRkIG5ldyBwYXJhbWV0ZXJzIGluIHRoZSBmdXR1cmUgYW5k
-IG1ha2VzIHRoZSBmdW5jdGlvbiBjbGVhbmVyLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBXZWkg
-V2FuZyA8d2Vpd2FuQGdvb2dsZS5jb20+DQo+IA0KPiBMb29rcyBnb29kLCBhcHBsaWVkLCB0aGFu
-ayB5b3UuDQoNCkFjdHVhbGx5IEkgaGFkIHRvIHJldmVydCwgdGhpcyBicmVhayB0aGUgYnVpbGQu
-DQoNCm5ldC9sMnRwL2wydHBfaXA2LmM6IEluIGZ1bmN0aW9uIKFsMnRwX2lwNl9zZW5kbXNnojoN
-Cm5ldC9sMnRwL2wydHBfaXA2LmM6NjM0OjEwOiBlcnJvcjogaW52YWxpZCBvcGVyYW5kcyB0byBi
-aW5hcnkgJiAoaGF2ZSChc3RydWN0IGlwY202X2Nvb2tpZSAqoiBhbmQgoXN0cnVjdCBmbG93aTai
-KQ0KICAgICAgICAgICZmbDYsIChzdHJ1Y3QgcnQ2X2luZm8gKilkc3QsDQogICAgICAgICAgXg0K
-bmV0L2wydHAvbDJ0cF9pcDYuYzo2MzQ6MTY6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgNyBv
-ZiChaXA2X2FwcGVuZF9kYXRhoiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUNCiAgICAg
-ICAgICAmZmw2LCAoc3RydWN0IHJ0Nl9pbmZvICopZHN0LA0KICAgICAgICAgICAgICAgIF4NCg0K
-YW5kIHNvIG9uIGFuZCBzbyBmb3J0aC4uLg0K
+From: Florian Westphal <fw@strlen.de>
+Date: Tue,  3 May 2016 03:29:09 +0200
+
+> - trans_timeout is incremented when tx queue timed out (tx watchdog).
+> - tx_maxrate is set via sysfs
+> 
+> Moving tx_maxrate to read-mostly part shrinks the struct by 64 bytes.
+> While at it, also move trans_timeout (it is out-of-place in the
+> 'write-mostly' part).
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+
+Applied, thanks Florian.
