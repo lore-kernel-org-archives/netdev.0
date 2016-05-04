@@ -1,266 +1,141 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v9 net-next 6/7] openvswitch: extend layer 3 support to cover non-IP packets
-Date: Wed,  4 May 2016 16:36:32 +0900
-Message-ID: <1462347393-22354-7-git-send-email-simon.horman@netronome.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: [PATCH v9 net-next 5/7] openvswitch: add layer 3 support
+	to ovs_packet_cmd_execute()
+Date: Wed,  4 May 2016 16:36:31 +0900
+Message-ID: <1462347393-22354-6-git-send-email-simon.horman@netronome.com>
 References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
-Cc: Simon Horman <simon.horman@netronome.com>
-To: netdev@vger.kernel.org, dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34222 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757240AbcEDHhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 03:37:12 -0400
-Received: by mail-pa0-f53.google.com with SMTP id r5so21735872pag.1
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 00:37:11 -0700 (PDT)
-In-Reply-To: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1462347393-22354-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Extend support for layer 3 packets to cover non-IP packets.
-
-This removes the assumption that the first octet of a layer 3 packet
-indicates the IP protocol version - true for IP (v4 and v6), but not
-for necessarily for other protocols.
-
-The key motivation for this is to allow forwarding of MPLS packets which
-are technically layer 2.5 rather than 3 but the distinction seems unimportant
-here.
-
-This sets OVS_KEY_ATTR_PACKET_ETHERTYPE to the ethernet type corresponding
-to the protocol of layer 3 packets on a flow miss.
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
-v9
-* New patch
----
- net/openvswitch/flow_netlink.c | 121 ++++++++++++++++++++---------------------
- 1 file changed, 59 insertions(+), 62 deletions(-)
-
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 2bca1e5e9a18..1e1392c3c0ed 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -817,7 +817,7 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 				 u64 *attrs, const struct nlattr **a,
- 				 bool is_mask, bool log)
- {
--	bool is_layer3;
-+	bool is_layer3 = false;
- 
- 	if (*attrs & (1 << OVS_KEY_ATTR_DP_HASH)) {
- 		u32 hash_val = nla_get_u32(a[OVS_KEY_ATTR_DP_HASH]);
-@@ -906,48 +906,40 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_LABELS);
- 	}
- 
--	/* For full flow keys the layer is determined based on the presence of
--	 * OVS_KEY_ATTR_ETHERNET
--	 */
--	if (is_mask)
--		/* Always exact match is_layer3 */
--		is_layer3 = true;
--	else
--		is_layer3 =  !(*attrs & (1ULL << OVS_KEY_ATTR_ETHERNET));
--	/* Packets from user space for execution only have metadata key
--	 * attributes.  OVS_KEY_ATTR_PACKET_ETHERTYPE is then used to specify
--	 * the starting layer of the packet.  Packets with Ethernet headers
--	 * have this attribute set to 0
-+	/* For layer 3 packets the ethernet type is provided by by the
-+	 * metadata field OVS_KEY_ATTR_PACKET_ETHERTYPE which has a
-+	 * non-zero value. Otherwise the ethernet type is provided by the
-+	 * packet and reflected by OVS_KEY_ATTR_PACKET_ETHERTYPE.
- 	 */
- 	if (*attrs & (1ULL << OVS_KEY_ATTR_PACKET_ETHERTYPE)) {
-+		/* This is duplicate code from ovs_key_from_nlattrs*/
- 		__be16 eth_type;
- 
--		if (is_mask) {
-+		if (is_mask)
- 			/* Always exact match packet EtherType */
- 			eth_type = htons(0xffff);
--		} else {
-+		else
- 			eth_type = nla_get_be16(a[OVS_KEY_ATTR_PACKET_ETHERTYPE]);
--			is_layer3 = ((eth_type == htons(ETH_P_IP)) ||
--				     (eth_type == htons(ETH_P_IPV6)));
-+
-+		if (eth_type != htons(0)) {
-+			is_layer3 = true;
-+			SW_FLOW_KEY_PUT(match, eth.type, eth_type, is_mask);
- 		}
--		SW_FLOW_KEY_PUT(match, eth.type, eth_type, is_mask);
-+
-+		*attrs &= ~(1ULL << OVS_KEY_ATTR_PACKET_ETHERTYPE);
- 	}
- 
--	SW_FLOW_KEY_PUT(match, phy.is_layer3, is_layer3, is_mask);
--	return 0;
-+	/* Always exact match is_layer3 */
-+	SW_FLOW_KEY_PUT(match, phy.is_layer3, is_mask ? true : is_layer3,
-+			is_mask);
-+	return is_layer3;
- }
- 
--static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
--				u64 attrs, const struct nlattr **a,
--				bool is_mask, bool log)
-+static int l2_from_nlattrs(struct net *net, struct sw_flow_match *match,
-+			   u64 *attrs, const struct nlattr **a,
-+			   bool is_mask, bool log)
- {
--	int err;
--
--	err = metadata_from_nlattrs(net, match, &attrs, a, is_mask, log);
--	if (err)
--		return err;
--
--	if (attrs & (1 << OVS_KEY_ATTR_ETHERNET)) {
-+	if (*attrs & (1 << OVS_KEY_ATTR_ETHERNET)) {
- 		const struct ovs_key_ethernet *eth_key;
- 
- 		eth_key = nla_data(a[OVS_KEY_ATTR_ETHERNET]);
-@@ -955,10 +947,10 @@ static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 				eth_key->eth_src, ETH_ALEN, is_mask);
- 		SW_FLOW_KEY_MEMCPY(match, eth.dst,
- 				eth_key->eth_dst, ETH_ALEN, is_mask);
--		attrs &= ~(1 << OVS_KEY_ATTR_ETHERNET);
-+		*attrs &= ~(1 << OVS_KEY_ATTR_ETHERNET);
- 	}
- 
--	if (attrs & (1 << OVS_KEY_ATTR_VLAN)) {
-+	if (*attrs & (1 << OVS_KEY_ATTR_VLAN)) {
- 		__be16 tci;
- 
- 		tci = nla_get_be16(a[OVS_KEY_ATTR_VLAN]);
-@@ -972,10 +964,10 @@ static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 		}
- 
- 		SW_FLOW_KEY_PUT(match, eth.tci, tci, is_mask);
--		attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
-+		*attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
- 	}
- 
--	if (attrs & (1 << OVS_KEY_ATTR_ETHERTYPE)) {
-+	if (*attrs & (1 << OVS_KEY_ATTR_ETHERTYPE)) {
- 		__be16 eth_type;
- 
- 		eth_type = nla_get_be16(a[OVS_KEY_ATTR_ETHERTYPE]);
-@@ -989,24 +981,34 @@ static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 		}
- 
- 		SW_FLOW_KEY_PUT(match, eth.type, eth_type, is_mask);
--		attrs &= ~(1 << OVS_KEY_ATTR_ETHERTYPE);
-+		*attrs &= ~(1 << OVS_KEY_ATTR_ETHERTYPE);
- 	} else if (!is_mask) {
- 		SW_FLOW_KEY_PUT(match, eth.type, htons(ETH_P_802_2), is_mask);
- 	}
- 
--	if (attrs & (1 << OVS_KEY_ATTR_IPV4)) {
--		const struct ovs_key_ipv4 *ipv4_key;
-+	return 0;
-+}
- 
--		/* Add eth.type value for layer 3 flows */
--		if (!(attrs & (1ULL << OVS_KEY_ATTR_ETHERTYPE))) {
--			__be16 eth_type;
-+static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
-+				u64 attrs, const struct nlattr **a,
-+				bool is_mask, bool log)
-+{
-+	int err;
-+	bool is_layer3;
- 
--			if (is_mask)
--				eth_type = htons(0xffff);
--			else
--				eth_type = htons(ETH_P_IP);
--			SW_FLOW_KEY_PUT(match, eth.type, eth_type, is_mask);
--		}
-+	err = metadata_from_nlattrs(net, match, &attrs, a, is_mask, log);
-+	if (err < 0)
-+		return err;
-+	is_layer3 = err != 0;
-+
-+	if (!is_layer3) {
-+		err = l2_from_nlattrs(net, match, &attrs, a, is_mask, log);
-+		if (err < 0)
-+			return err;
-+	}
-+
-+	if (attrs & (1 << OVS_KEY_ATTR_IPV4)) {
-+		const struct ovs_key_ipv4 *ipv4_key;
- 
- 		ipv4_key = nla_data(a[OVS_KEY_ATTR_IPV4]);
- 		if (!is_mask && ipv4_key->ipv4_frag > OVS_FRAG_TYPE_MAX) {
-@@ -1032,17 +1034,6 @@ static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 	if (attrs & (1 << OVS_KEY_ATTR_IPV6)) {
- 		const struct ovs_key_ipv6 *ipv6_key;
- 
--		/* Add eth.type value for layer 3 flows */
--		if (!(attrs & (1ULL << OVS_KEY_ATTR_ETHERTYPE))) {
--			__be16 eth_type;
--
--			if (is_mask)
--				eth_type = htons(0xffff);
--			else
--				eth_type = htons(ETH_P_IPV6);
--			SW_FLOW_KEY_PUT(match, eth.type, eth_type, is_mask);
--		}
--
- 		ipv6_key = nla_data(a[OVS_KEY_ATTR_IPV6]);
- 		if (!is_mask && ipv6_key->ipv6_frag > OVS_FRAG_TYPE_MAX) {
- 			OVS_NLERR(log, "IPv6 frag type %d is out of range max %d",
-@@ -1465,7 +1456,11 @@ int ovs_nla_get_flow_metadata(struct net *net, const struct nlattr *attr,
- 	memset(&key->ct, 0, sizeof(key->ct));
- 	key->phy.in_port = DP_MAX_PORTS;
- 
--	return metadata_from_nlattrs(net, &match, &attrs, a, false, log);
-+	err = metadata_from_nlattrs(net, &match, &attrs, a, false, log);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
- }
- 
- static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
-@@ -1551,6 +1546,10 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
- 
- 		if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE, output->eth.type))
- 			goto nla_put_failure;
-+	} else {
-+		if (nla_put_be16(skb, OVS_KEY_ATTR_PACKET_ETHERTYPE,
-+				 output->eth.type))
-+			goto nla_put_failure;
- 	}
- 
- 	if (swkey->eth.type == htons(ETH_P_IP)) {
-@@ -2184,8 +2183,6 @@ static int validate_set(const struct nlattr *a,
- 		break;
- 
- 	case OVS_KEY_ATTR_MPLS:
--		if (is_layer3)
--			return -EINVAL;
- 		if (!eth_p_mpls(eth_type))
- 			return -EINVAL;
- 		break;
-@@ -2360,7 +2357,7 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
- 		case OVS_ACTION_ATTR_PUSH_MPLS: {
- 			const struct ovs_action_push_mpls *mpls = nla_data(a);
- 
--			if (is_layer3 || !eth_p_mpls(mpls->mpls_ethertype))
-+			if (!eth_p_mpls(mpls->mpls_ethertype))
- 				return -EINVAL;
- 			/* Prohibit push MPLS other than to a white list
- 			 * for packets that have a known tag order.
-@@ -2377,7 +2374,7 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
- 		}
- 
- 		case OVS_ACTION_ATTR_POP_MPLS:
--			if (is_layer3 || vlan_tci & htons(VLAN_TAG_PRESENT) ||
-+			if (vlan_tci & htons(VLAN_TAG_PRESENT) ||
- 			    !eth_p_mpls(eth_type))
- 				return -EINVAL;
- 
--- 
-2.7.0.rc3.207.g0ac5344
+RnJvbTogTG9yYW5kIEpha2FiIDxsb2pha2FiQGNpc2NvLmNvbT4KCldoZW4gdXNlciBzcGFjZSBo
+YW5kbGVzIGEgcGFja2V0IGJhY2sgdG8gdGhlIGtlcm5lbCBkYXRhcGF0aCBmb3IKZXhlY3V0aW9u
+LCBpdCBpcyBub3QgYWNjb21wYW5pZWQgYnkgdGhlIGZ1bGwgZmxvdyBrZXksIG9ubHkgcGFja2V0
+Cm1ldGFkYXRhLiAgVGhpcyBkb2Vzbid0IGFsbG93IGRldGVjdGlvbiBvZiBwYWNrZXQgdHlwZSAo
+TDIvTDMpLiAgQWRkIHRoZQpPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSBhdHRyaWJ1dGUg
+dG8gdGhlIHBhY2tldCBtZXRhZGF0YSwKY29udGFpbmluZyAwIGZvciBsYXllciAyIHBhY2tldHMg
+YW5kIHRoZSBFdGhlcnR5cGUgZm9yIGxheWVyIDMgcGFja2V0cy4KClNpZ25lZC1vZmYtYnk6IExv
+cmFuZCBKYWthYiA8bG9qYWthYkBjaXNjby5jb20+ClNpZ25lZC1vZmYtYnk6IFNpbW9uIEhvcm1h
+biA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+Ci0tLQp2OSBbU2ltb24gSG9ybWFuXQoqIFJl
+YmFzZQoKdjggW0xvcmFuZCBKYWthYl0KCnY3IFtMb3JhbmQgSmFrYWJdCiogTmV3IHBhdGNoCi0t
+LQogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgMiArKwogbmV0L29wZW52c3dp
+dGNoL2RhdGFwYXRoLmMgICAgICAgfCAxMyArLS0tLS0tLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gv
+Zmxvdy5jICAgICAgICAgICB8ICA1ICsrKystCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5r
+LmMgICB8IDM5ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLQogNCBmaWxl
+cyBjaGFuZ2VkLCAzOCBpbnNlcnRpb25zKCspLCAyMSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
+YS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCBiL2luY2x1ZGUvdWFwaS9saW51eC9v
+cGVudnN3aXRjaC5oCmluZGV4IDUzMTI5YzAzMjczYy4uMmJjMmMxMmNlZDc4IDEwMDY0NAotLS0g
+YS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaAorKysgYi9pbmNsdWRlL3VhcGkvbGlu
+dXgvb3BlbnZzd2l0Y2guaApAQCAtMzI5LDYgKzMyOSw4IEBAIGVudW0gb3ZzX2tleV9hdHRyIHsK
+IAlPVlNfS0VZX0FUVFJfQ1RfWk9ORSwJLyogdTE2IGNvbm5lY3Rpb24gdHJhY2tpbmcgem9uZS4g
+Ki8KIAlPVlNfS0VZX0FUVFJfQ1RfTUFSSywJLyogdTMyIGNvbm5lY3Rpb24gdHJhY2tpbmcgbWFy
+ayAqLwogCU9WU19LRVlfQVRUUl9DVF9MQUJFTFMsCS8qIDE2LW9jdGV0IGNvbm5lY3Rpb24gdHJh
+Y2tpbmcgbGFiZWwgKi8KKwlPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSwgIC8qIGJlMTYg
+RXRoZXJuZXQgdHlwZSBmb3IgcGFja2V0CisJCQkJCSAqIGV4ZWN1dGlvbiAqLwogCiAjaWZkZWYg
+X19LRVJORUxfXwogCU9WU19LRVlfQVRUUl9UVU5ORUxfSU5GTywgIC8qIHN0cnVjdCBpcF90dW5u
+ZWxfaW5mbyAqLwpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgYi9uZXQv
+b3BlbnZzd2l0Y2gvZGF0YXBhdGguYwppbmRleCA4NTZiZDhkYmE2NzYuLjc4MDk1N2U3OGQyYiAx
+MDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKKysrIGIvbmV0L29wZW52c3dp
+dGNoL2RhdGFwYXRoLmMKQEAgLTU0Niw3ICs1NDYsNiBAQCBzdGF0aWMgaW50IG92c19wYWNrZXRf
+Y21kX2V4ZWN1dGUoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykK
+IAlzdHJ1Y3Qgc3dfZmxvdyAqZmxvdzsKIAlzdHJ1Y3Qgc3dfZmxvd19hY3Rpb25zICpzZl9hY3Rz
+OwogCXN0cnVjdCBkYXRhcGF0aCAqZHA7Ci0Jc3RydWN0IGV0aGhkciAqZXRoOwogCXN0cnVjdCB2
+cG9ydCAqaW5wdXRfdnBvcnQ7CiAJdTE2IG1ydSA9IDA7CiAJaW50IGxlbjsKQEAgLTU2NywxNyAr
+NTY2LDYgQEAgc3RhdGljIGludCBvdnNfcGFja2V0X2NtZF9leGVjdXRlKHN0cnVjdCBza19idWZm
+ICpza2IsIHN0cnVjdCBnZW5sX2luZm8gKmluZm8pCiAKIAlubGFfbWVtY3B5KF9fc2tiX3B1dChw
+YWNrZXQsIGxlbiksIGFbT1ZTX1BBQ0tFVF9BVFRSX1BBQ0tFVF0sIGxlbik7CiAKLQlza2JfcmVz
+ZXRfbWFjX2hlYWRlcihwYWNrZXQpOwotCWV0aCA9IGV0aF9oZHIocGFja2V0KTsKLQotCS8qIE5v
+cm1hbGx5LCBzZXR0aW5nIHRoZSBza2IgJ3Byb3RvY29sJyBmaWVsZCB3b3VsZCBiZSBoYW5kbGVk
+IGJ5IGEKLQkgKiBjYWxsIHRvIGV0aF90eXBlX3RyYW5zKCksIGJ1dCBpdCBhc3N1bWVzIHRoZXJl
+J3MgYSBzZW5kaW5nCi0JICogZGV2aWNlLCB3aGljaCB3ZSBtYXkgbm90IGhhdmUuICovCi0JaWYg
+KGV0aF9wcm90b19pc184MDJfMyhldGgtPmhfcHJvdG8pKQotCQlwYWNrZXQtPnByb3RvY29sID0g
+ZXRoLT5oX3Byb3RvOwotCWVsc2UKLQkJcGFja2V0LT5wcm90b2NvbCA9IGh0b25zKEVUSF9QXzgw
+Ml8yKTsKLQogCS8qIFNldCBwYWNrZXQncyBtcnUgKi8KIAlpZiAoYVtPVlNfUEFDS0VUX0FUVFJf
+TVJVXSkgewogCQltcnUgPSBubGFfZ2V0X3UxNihhW09WU19QQUNLRVRfQVRUUl9NUlVdKTsKQEAg
+LTYwNCw2ICs1OTIsNyBAQCBzdGF0aWMgaW50IG92c19wYWNrZXRfY21kX2V4ZWN1dGUoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykKIAlyY3VfYXNzaWduX3BvaW50
+ZXIoZmxvdy0+c2ZfYWN0cywgYWN0cyk7CiAJcGFja2V0LT5wcmlvcml0eSA9IGZsb3ctPmtleS5w
+aHkucHJpb3JpdHk7CiAJcGFja2V0LT5tYXJrID0gZmxvdy0+a2V5LnBoeS5za2JfbWFyazsKKwlw
+YWNrZXQtPnByb3RvY29sID0gZmxvdy0+a2V5LmV0aC50eXBlOwogCiAJcmN1X3JlYWRfbG9jaygp
+OwogCWRwID0gZ2V0X2RwX3JjdShuZXQsIG92c19oZWFkZXItPmRwX2lmaW5kZXgpOwpkaWZmIC0t
+Z2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKaW5k
+ZXggNmUxNzRlYTVmMmJiLi5kMzIwYzI2NTc2MjcgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRj
+aC9mbG93LmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwpAQCAtNDcxLDcgKzQ3MSw2IEBA
+IHN0YXRpYyBpbnQga2V5X2V4dHJhY3Qoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zs
+b3dfa2V5ICprZXkpCiAJLyogTGluayBsYXllci4gKi8KIAlpZiAoa2V5LT5waHkuaXNfbGF5ZXIz
+KSB7CiAJCWtleS0+ZXRoLnRjaSA9IDA7Ci0JCWtleS0+ZXRoLnR5cGUgPSBza2ItPnByb3RvY29s
+OwogCX0gZWxzZSB7CiAJCWV0aCA9IGV0aF9oZHIoc2tiKTsKIAkJZXRoZXJfYWRkcl9jb3B5KGtl
+eS0+ZXRoLnNyYywgZXRoLT5oX3NvdXJjZSk7CkBAIC02OTMsNiArNjkyLDggQEAgc3RhdGljIGlu
+dCBrZXlfZXh0cmFjdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtl
+eSkKIAogaW50IG92c19mbG93X2tleV91cGRhdGUoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0
+IHN3X2Zsb3dfa2V5ICprZXkpCiB7CisJa2V5LT5ldGgudHlwZSA9IHNrYi0+cHJvdG9jb2w7CisK
+IAlyZXR1cm4ga2V5X2V4dHJhY3Qoc2tiLCBrZXkpOwogfQogCkBAIC03NDcsNiArNzQ4LDggQEAg
+aW50IG92c19mbG93X2tleV9leHRyYWN0KGNvbnN0IHN0cnVjdCBpcF90dW5uZWxfaW5mbyAqdHVu
+X2luZm8sCiAKIAlpZiAoaXNfdGViKQogCQlza2ItPnByb3RvY29sID0ga2V5LT5ldGgudHlwZTsK
+KwllbHNlIGlmIChpc19sYXllcjMpCisJCWtleS0+ZXRoLnR5cGUgPSBza2ItPnByb3RvY29sOwog
+CiAJcmV0dXJuIGVycjsKIH0KZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
+bmsuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwppbmRleCBkMGVmNGZhNjliZWEu
+LjJiY2ExZTVlOWExOCAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5j
+CisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwpAQCAtMjg2LDcgKzI4Niw3IEBA
+IHNpemVfdCBvdnNfa2V5X2F0dHJfc2l6ZSh2b2lkKQogCS8qIFdoZW5ldmVyIGFkZGluZyBuZXcg
+T1ZTX0tFWV8gRklFTERTLCB3ZSBzaG91bGQgY29uc2lkZXIKIAkgKiB1cGRhdGluZyB0aGlzIGZ1
+bmN0aW9uLgogCSAqLwotCUJVSUxEX0JVR19PTihPVlNfS0VZX0FUVFJfVFVOTkVMX0lORk8gIT0g
+MjYpOworCUJVSUxEX0JVR19PTihPVlNfS0VZX0FUVFJfVFVOTkVMX0lORk8gIT0gMjcpOwogCiAJ
+cmV0dXJuICAgIG5sYV90b3RhbF9zaXplKDQpICAgLyogT1ZTX0tFWV9BVFRSX1BSSU9SSVRZICov
+CiAJCSsgbmxhX3RvdGFsX3NpemUoMCkgICAvKiBPVlNfS0VZX0FUVFJfVFVOTkVMICovCkBAIC0z
+NTksNiArMzU5LDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBvdnNfbGVuX3RibCBvdnNfa2V5X2xl
+bnNbT1ZTX0tFWV9BVFRSX01BWCArIDFdID0gewogCVtPVlNfS0VZX0FUVFJfQ1RfWk9ORV0JID0g
+eyAubGVuID0gc2l6ZW9mKHUxNikgfSwKIAlbT1ZTX0tFWV9BVFRSX0NUX01BUktdCSA9IHsgLmxl
+biA9IHNpemVvZih1MzIpIH0sCiAJW09WU19LRVlfQVRUUl9DVF9MQUJFTFNdID0geyAubGVuID0g
+c2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVscykgfSwKKwlbT1ZTX0tFWV9BVFRSX1BBQ0tF
+VF9FVEhFUlRZUEVdID0geyAubGVuID0gc2l6ZW9mKF9fYmUxNikgfSwKIH07CiAKIHN0YXRpYyBi
+b29sIGNoZWNrX2F0dHJfbGVuKHVuc2lnbmVkIGludCBhdHRyX2xlbiwgdW5zaWduZWQgaW50IGV4
+cGVjdGVkX2xlbikKQEAgLTgxNiw2ICs4MTcsOCBAQCBzdGF0aWMgaW50IG1ldGFkYXRhX2Zyb21f
+bmxhdHRycyhzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93X21hdGNoICptYXRjaCwKIAkJ
+CQkgdTY0ICphdHRycywgY29uc3Qgc3RydWN0IG5sYXR0ciAqKmEsCiAJCQkJIGJvb2wgaXNfbWFz
+aywgYm9vbCBsb2cpCiB7CisJYm9vbCBpc19sYXllcjM7CisKIAlpZiAoKmF0dHJzICYgKDEgPDwg
+T1ZTX0tFWV9BVFRSX0RQX0hBU0gpKSB7CiAJCXUzMiBoYXNoX3ZhbCA9IG5sYV9nZXRfdTMyKGFb
+T1ZTX0tFWV9BVFRSX0RQX0hBU0hdKTsKIApAQCAtOTAyLDE1ICs5MDUsMzUgQEAgc3RhdGljIGlu
+dCBtZXRhZGF0YV9mcm9tX25sYXR0cnMoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19t
+YXRjaCAqbWF0Y2gsCiAJCQkJICAgc2l6ZW9mKCpjbCksIGlzX21hc2spOwogCQkqYXR0cnMgJj0g
+figxVUxMIDw8IE9WU19LRVlfQVRUUl9DVF9MQUJFTFMpOwogCX0KLQlpZiAoaXNfbWFzaykgewor
+CisJLyogRm9yIGZ1bGwgZmxvdyBrZXlzIHRoZSBsYXllciBpcyBkZXRlcm1pbmVkIGJhc2VkIG9u
+IHRoZSBwcmVzZW5jZSBvZgorCSAqIE9WU19LRVlfQVRUUl9FVEhFUk5FVAorCSAqLworCWlmIChp
+c19tYXNrKQogCQkvKiBBbHdheXMgZXhhY3QgbWF0Y2ggaXNfbGF5ZXIzICovCi0JCVNXX0ZMT1df
+S0VZX1BVVChtYXRjaCwgcGh5LmlzX2xheWVyMywgdHJ1ZSwgaXNfbWFzayk7Ci0JfSBlbHNlIHsK
+LQkJaWYgKCphdHRycyAmICgxVUxMIDw8IE9WU19LRVlfQVRUUl9FVEhFUk5FVCkpCi0JCQlTV19G
+TE9XX0tFWV9QVVQobWF0Y2gsIHBoeS5pc19sYXllcjMsIGZhbHNlLCBpc19tYXNrKTsKLQkJZWxz
+ZQotCQkJU1dfRkxPV19LRVlfUFVUKG1hdGNoLCBwaHkuaXNfbGF5ZXIzLCB0cnVlLCBpc19tYXNr
+KTsKKwkJaXNfbGF5ZXIzID0gdHJ1ZTsKKwllbHNlCisJCWlzX2xheWVyMyA9ICAhKCphdHRycyAm
+ICgxVUxMIDw8IE9WU19LRVlfQVRUUl9FVEhFUk5FVCkpOworCS8qIFBhY2tldHMgZnJvbSB1c2Vy
+IHNwYWNlIGZvciBleGVjdXRpb24gb25seSBoYXZlIG1ldGFkYXRhIGtleQorCSAqIGF0dHJpYnV0
+ZXMuICBPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSBpcyB0aGVuIHVzZWQgdG8gc3BlY2lm
+eQorCSAqIHRoZSBzdGFydGluZyBsYXllciBvZiB0aGUgcGFja2V0LiAgUGFja2V0cyB3aXRoIEV0
+aGVybmV0IGhlYWRlcnMKKwkgKiBoYXZlIHRoaXMgYXR0cmlidXRlIHNldCB0byAwCisJICovCisJ
+aWYgKCphdHRycyAmICgxVUxMIDw8IE9WU19LRVlfQVRUUl9QQUNLRVRfRVRIRVJUWVBFKSkgewor
+CQlfX2JlMTYgZXRoX3R5cGU7CisKKwkJaWYgKGlzX21hc2spIHsKKwkJCS8qIEFsd2F5cyBleGFj
+dCBtYXRjaCBwYWNrZXQgRXRoZXJUeXBlICovCisJCQlldGhfdHlwZSA9IGh0b25zKDB4ZmZmZik7
+CisJCX0gZWxzZSB7CisJCQlldGhfdHlwZSA9IG5sYV9nZXRfYmUxNihhW09WU19LRVlfQVRUUl9Q
+QUNLRVRfRVRIRVJUWVBFXSk7CisJCQlpc19sYXllcjMgPSAoKGV0aF90eXBlID09IGh0b25zKEVU
+SF9QX0lQKSkgfHwKKwkJCQkgICAgIChldGhfdHlwZSA9PSBodG9ucyhFVEhfUF9JUFY2KSkpOwor
+CQl9CisJCVNXX0ZMT1dfS0VZX1BVVChtYXRjaCwgZXRoLnR5cGUsIGV0aF90eXBlLCBpc19tYXNr
+KTsKIAl9CisKKwlTV19GTE9XX0tFWV9QVVQobWF0Y2gsIHBoeS5pc19sYXllcjMsIGlzX2xheWVy
+MywgaXNfbWFzayk7CiAJcmV0dXJuIDA7CiB9CiAKLS0gCjIuNy4wLnJjMy4yMDcuZzBhYzUzNDQK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
