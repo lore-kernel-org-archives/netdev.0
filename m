@@ -1,79 +1,47 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH 3/3] net/mlx5e: don't build RFS without ethernet
-Date: Wed, 4 May 2016 17:55:20 +0300
-Message-ID: <CALzJLG9NnqPmm1TpdKub3u=bPRWDDevJh0=oECz0m1O-caqAzw@mail.gmail.com>
-References: <1462364774-3792510-1-git-send-email-arnd@arndb.de>
- <1462365155-3861405-1-git-send-email-arnd@arndb.de> <CALzJLG9j6ZodwDToX8iuvNVKLoMoaM8V9w8cFR6jM-ktU0ynHg@mail.gmail.com>
- <6481938.m1ihicFdKr@wuerfel>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net] bridge: fix igmp / mld query parsing
+Date: Wed, 4 May 2016 16:59:11 +0200
+Message-ID: <20160504145911.GA2604@otheros>
+References: <1462306734-4183-1-git-send-email-linus.luessing@c0d3.blue>
+	<20160503132623.59cf54fb@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Matthew Finlay <matt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Abramonvsky <hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6481938.m1ihicFdKr@wuerfel>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Simon Wunderlich <sw@simonwunderlich.de>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	"David S . Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20160503132623.59cf54fb@xeon-e3>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 4, 2016 at 5:23 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> On Wednesday 04 May 2016 16:09:16 Saeed Mahameed wrote:
->> On Wed, May 4, 2016 at 3:32 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
->> > The RFS acceleration support in mlx5 is enabled whenever CONFIG_RFS_ACCEL
->> > is in use. However, this fails if a user turns off CONFIG_MLX5_CORE_EN,
->> > because the rfs code now calls into the ethernet portion of the
->> > driver:
->> >
->> > ERROR: "mlx5e_destroy_flow_table" [drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko] undefined!
->> >
->>
->> Hi Arnd,
->>
->> We already posted a fix for this, please see "[PATCH net-next V1
->> 01/12] net/mlx5e: Fix aRFS compilation dependency", and give us your
->> feedback.
->
-> That version looks fine as well. I think it's better to be a little
-> more explicit as I was, but either way seems fine.
->
+On Tue, May 03, 2016 at 01:26:23PM -0700, Stephen Hemminger wrote:
+> On Tue,  3 May 2016 22:18:54 +0200
+> Linus L=C3=BCssing <linus.luessing@c0d3.blue> wrote:
+>=20
+> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> > index 03661d9..7105cdf 100644
+> > --- a/net/bridge/br_multicast.c
+> > +++ b/net/bridge/br_multicast.c
+> > @@ -1271,6 +1271,7 @@ static int br_ip4_multicast_query(struct net_br=
+idge *br,
+> >  	unsigned long max_delay;
+> >  	unsigned long now =3D jiffies;
+> >  	__be32 group;
+> > +	int offset =3D skb_transport_offset(skb);
+> shouldn't this be unsigned?
 
-Simply we didn't want to add new Kconfig flag.
+Yes, should always be unsigned here.
 
->
-> You can also achieve the same thing in yet another way using Makefile
-> syntax instead of cpp or Kconfig:
->
-> ifdef CONFIG_MLX5_CORE_EN
-> mlx5_core-y += wq.o eswitch.o \
->                en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
->                en_txrx.o en_clock.o vxlan.o en_tc.o
->                en_txrx.o en_clock.o vxlan.o en_tc.o en_arfs.o
->
-> mlx5_core-$(CONFIG_RFS_ACCEL) += en_arfs.o
-> endif
->
->
-> If you prefer Maor's version, feel free to add
->
->
-> Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
->
-
-I do prefer this version, but the difference is small, so will keep Maor's.
-Thanks Arnd for the Ack and the suggestion.
-
-Saeed.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ok, I'm changing that (even though skb_transport_offset() is "static
+inline int").
