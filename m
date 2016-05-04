@@ -1,80 +1,54 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH net-next 4/5] treewide: replace dev->trans_start update
- with helper
-Date: Wed, 4 May 2016 17:03:01 +0530
-Message-ID: <5729DDED.6030106@ti.com>
-References: <1462285862-30946-1-git-send-email-fw@strlen.de>
- <1462285994-31983-1-git-send-email-fw@strlen.de>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v6 00/21] Add HiSilicon RoCE driver
+Date: Wed, 4 May 2016 19:31:31 +0800
+Message-ID: <5729DD93.3000500@huawei.com>
+References: <1461845396-61306-1-git-send-email-oulijun@huawei.com>
+ <20160503184834.GD29160@leon.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <user-mode-linux-devel@lists.sourceforge.net>,
-	<linux-xtensa@linux-xtensa.org>,
-	<linux1394-devel@lists.sourceforge.net>,
-	<linux-rdma@vger.kernel.org>, <MPT-FusionLinux.pdl@broadcom.com>,
-	<linux-scsi@vger.kernel.org>, <linux-can@vger.kernel.org>,
-	<linux-parisc@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<linux-hams@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<linux-wireless@vger.kernel.org>, <linux-s390@vger.kernel.org>,
-	<devel@driverdev.osuosl.org>, <b.a.t.m.a.n@lists.open-mesh.org>,
-	<linux-bluetooth@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>, <netdev@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1462285994-31983-1-git-send-email-fw@strlen.de>
-Sender: linux-can-owner@vger.kernel.org
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160503184834.GD29160-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 03 May 2016 08:03 PM, Florian Westphal wrote:
-> Replace all trans_start updates with netif_trans_update helper.
-> change was done via spatch:
+On 2016/5/4 2:48, Leon Romanovsky wrote:
+> On Thu, Apr 28, 2016 at 08:09:35PM +0800, Lijun Ou wrote:
+>> The HiSilicon Network Substem is a long term evolution IP which is
+>> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
+>> Sybsystem) also has a hardware support of performing RDMA with
+>> RoCEE.
+>> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
+>> will support mulitple versions of SOCs in future. This version of driver
+>> is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
+>> specifications).
 > 
-> struct net_device *d;
-> @@
-> - d->trans_start = jiffies
-> + netif_trans_update(d)
+> Please read Dave's comment [1], it is valuable for your code as
+> well.
 > 
-> Compile tested only.
+> * Please use 'bool' and "true/false"
 > 
-> Cc: user-mode-linux-devel@lists.sourceforge.net
-> Cc: linux-xtensa@linux-xtensa.org
-> Cc: linux1394-devel@lists.sourceforge.net
-> Cc: linux-rdma@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: MPT-FusionLinux.pdl@broadcom.com
-> Cc: linux-scsi@vger.kernel.org
-> Cc: linux-can@vger.kernel.org
-> Cc: linux-parisc@vger.kernel.org
-> Cc: linux-omap@vger.kernel.org
-> Cc: linux-hams@vger.kernel.org
-> Cc: linux-usb@vger.kernel.org
-> Cc: linux-wireless@vger.kernel.org
-> Cc: linux-s390@vger.kernel.org
-> Cc: devel@driverdev.osuosl.org
-> Cc: b.a.t.m.a.n@lists.open-mesh.org
-> Cc: linux-bluetooth@vger.kernel.org
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
+Yes, i see. thanks
 
-snip...
+Thanks
+Lijun Ou
+> [1] http://marc.info/?l=linux-rdma&m=146229367301442&w=2
+> 
+> Thanks
+> 
 
 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 0fa75a8..3d4662d 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -1381,7 +1381,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
->  	struct cpsw_priv *priv = netdev_priv(ndev);
->  	int ret;
->  
-> -	ndev->trans_start = jiffies;
-> +	netif_trans_update(ndev);
->  
->  	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
->  		cpsw_err(priv, tx_err, "packet pad failed\n");
-
-for cpsw
-
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
-
-Regards
-Mugunthan V N
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
