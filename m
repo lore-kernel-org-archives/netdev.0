@@ -1,37 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
-Date: Wed, 04 May 2016 10:34:26 -0700
-Message-ID: <1462383266.5535.350.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
-	 <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <572A3048.60802@hpe.com>
+From: Scott Wood <oss@buserror.net>
+Subject: Re: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
+Date: Wed, 04 May 2016 12:35:08 -0500
+Message-ID: <1462383308.16584.43.camel@buserror.net>
+References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
+	 <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Peter Wu <peter@lekensteyn.nl>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: Rick Jones <rick.jones2@hpe.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34724 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827AbcEDRe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 13:34:29 -0400
-Received: by mail-pf0-f177.google.com with SMTP id y69so27406274pfb.1
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 10:34:29 -0700 (PDT)
-In-Reply-To: <572A3048.60802@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ulf.hansson@linaro.org, Mark Rutland <mark.rutland@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Qiang Zhao <qiang.zhao@nxp.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
+	xiaobo.xie@nxp.com
+To: Yangbo Lu <yangbo.lu@nxp.com>, linux-mmc@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	linux-clk@vger.kernel.org, linux-i2c@vger.kernel.org,
+	iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+Sender: linux-mmc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-05-04 at 10:24 -0700, Rick Jones wrote:
+On Wed, 2016-05-04 at 11:24 +0800, Yangbo Lu wrote:
+> Add maintainer entry for Freescale SoC driver including
+> the QE library and the GUTS driver now. Also add maintainer
+> for QE library.
+> 
+> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+> ---
+> Changes for v8:
+> 	- Added this patch
+> Changes for v9:
+> 	- Added linux-arm mail list
+> 	- Removed GUTS driver entry
+> ---
+>  MAINTAINERS | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 42e65d1..ce91db7 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -4622,9 +4622,18 @@ F:	drivers/net/ethernet/freescale/fec_ptp.c
+>  F:	drivers/net/ethernet/freescale/fec.h
+>  F:	Documentation/devicetree/bindings/net/fsl-fec.txt
+>  
+> +FREESCALE SOC DRIVER
+> +M:	Scott Wood <oss@buserror.net>
+> +L:	linuxppc-dev@lists.ozlabs.org
+> +L:	linux-arm-kernel@lists.infradead.org
+> +S:	Maintained
+> +F:	drivers/soc/fsl/
+> +F:	include/linux/fsl/
+> +
+>  FREESCALE QUICC ENGINE LIBRARY
+> +M:	Qiang Zhao <qiang.zhao@nxp.com>
+>  L:	linuxppc-dev@lists.ozlabs.org
+> -S:	Orphan
+> +S:	Maintained
+>  F:	drivers/soc/fsl/qe/
+>  F:	include/soc/fsl/*qe*.h
+>  F:	include/soc/fsl/*ucc*.h
 
-> Dropping the connection attempt makes sense, but is entering/claiming 
-> synflood really indicated in the case of a zero-length accept queue?
+s/DRIVER/DRIVERS/
 
-This is a one time message.
+There's more than one.
 
-This is how people can learn about their user space bugs, or too small
-backlog ;)
+Otherwise:
+Acked-by: Scott Wood <oss@buserror.net>
 
-Being totally silent would be not so nice.
+-Scott
+
+> 
