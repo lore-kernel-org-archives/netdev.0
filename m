@@ -1,40 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
-Date: Wed, 04 May 2016 11:18:25 -0700
-Message-ID: <1462385905.5535.352.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
-	 <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <572A3048.60802@hpe.com>
-	 <1462383266.5535.350.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <572A39E6.1020001@hpe.com>
+From: Antonio Quartulli <a@unstable.cc>
+Subject: Re: pull request [net]: batman-adv 20160430
+Date: Thu, 5 May 2016 02:18:43 +0800
+Message-ID: <20160504181843.GI11201@prodigo.lan>
+References: <20160503.001813.1881857417530292443.davem@davemloft.net>
+ <20160503144229.GD11201@prodigo.lan>
+ <20160503.123330.1810855853724486551.davem@davemloft.net>
+ <20160504.141350.1935086155659300721.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Wu <peter@lekensteyn.nl>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: Rick Jones <rick.jones2@hpe.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="SfgfV7onya2wNU+g"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33149 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753596AbcEDSS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:18:28 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 206so28132312pfu.0
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 11:18:28 -0700 (PDT)
-In-Reply-To: <572A39E6.1020001@hpe.com>
+Received: from s2.neomailbox.net ([5.148.176.60]:44067 "EHLO s2.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752124AbcEDSTS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 14:19:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20160504.141350.1935086155659300721.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-04 at 11:05 -0700, Rick Jones wrote:
 
-> Assuming Peter's assertion about just drops when syncookies are not 
-> enabled is accurate, should there be some one-time message in that case too?
+--SfgfV7onya2wNU+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-We have plenty of drop points in the kernel without a message in syslog,
-but proper SNMP counter updates.
+On Wed, May 04, 2016 at 02:13:50PM -0400, David Miller wrote:
+>=20
+> Just FYI I did this last night.
 
-Look at my recent commit 
-9caad864151e525 ("tcp: increment sk_drops for listeners")
+Thanks a lot for letting me know David.
 
-"ss -tm state listening" will show you the drop count per listener.
+Cheers,
+
+--=20
+Antonio Quartulli
+
+--SfgfV7onya2wNU+g
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXKj0DAAoJEJ4aZjxxc6bKWUcP/ijyrLqOotVz5Eok+/kLXB3u
+i8gJbOf4G2jnwmBRatpbJIP5OFYGDtv7IeggI6N82da/vYFgN2hZgXmUJz7VQsRN
+Fx0izvDZmNHT6Nr6ciloJqec//ycPT6fBVwh4GsogORNNr99IcSRNl3JBjD2eE1Z
+XDVwt/Y23+KgvdGLL7ngFtu6tf6vAAbqU+ZcTa+LXB+JwqurApnQt1Cabljqtn+0
+oapo8iDEk6DWTEkV6FOG897dijljPDzSQARr0JeVq/XJEYcfPDIsP7I16ziyYcCt
+NFS3ndSbI+Ei1203EVY7iRwPSuk32rN3P4DQZJUWhMSPDhDhQH+VXz6NtnMwTwY7
+7zczw1qEeuEsAfmsTHJiM1Ee7VKckTrzXPqJ8XJsB03zY7ZCsiiDhmAUk/AKh2/w
+bG9R1gqSLlaJcAsWh6CVhEf7EKHH4h0SC4QcvxrScBBx0JvsARVCVnFHhWTLLzz2
+9lDM2xsUNhoOFnRdLU5ZG9hoQBLzvLm/CeGVDbZ0Xx0ybTeVFf72B5yLmp4/vyOB
+UeWEYQR0/cNywKtNwgRmK9RXoLSx83+Noh/NSAbs+MNmccmxVF10QwNoHg9AuwDm
+G26Ak2HXRsiKp3eC4Gf2BkcjhvUIVP7ez9DoJHj11A8TNJWryC208B28PrXzApLs
+fRT41n55sRXektk8zfQF
+=2HdI
+-----END PGP SIGNATURE-----
+
+--SfgfV7onya2wNU+g--
