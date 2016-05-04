@@ -1,98 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] ixgbe: Revise populating few registers and macro definitions
-Date: Wed,  4 May 2016 09:26:44 -0700
-Message-ID: <1462379208-3997-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] ixgbevf: Use mac_ops instead of trying to identify NIC type
+Date: Wed,  4 May 2016 09:26:46 -0700
+Message-ID: <1462379208-3997-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Preethi Banala <preethi.banala@intel.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:64255 "EHLO mga04.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:42556 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754536AbcEDQ04 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 12:26:56 -0400
+	id S1751596AbcEDQ1O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 12:27:14 -0400
 In-Reply-To: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Preethi Banala <preethi.banala@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Revise populating few registers in ixgbe_get_regs() and macro
-definitions.
-Before applying patch:
-$ du -k objs/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
-8572    objs/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
-After applying patch:
-$ du -k objs/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
-8568    objs/drivers/net/ethernet/intel/ixgbe/ixgbe.ko
+This change makes it so that we can just use function pointers instead of
+having to identify if a given VF is running on a Linux or Windows PF.  By
+doing this we can avoid having to pull too much information out of the
+lower layers and can instead just make use of the mac_ops pointers since
+they should differ between the two types of VFs anyway.
 
-Signed-off-by: Preethi Banala <preethi.banala@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 18 ++++++------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    | 10 ++--------
- 2 files changed, 8 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 -
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 15 +++------------
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 20 +++++++++-----------
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  4 +---
+ 4 files changed, 13 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index a696192..59b771b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -533,10 +533,8 @@ static void ixgbe_get_regs(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index f2bafa6..d5944c3 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -494,7 +494,6 @@ void ixgbevf_free_rx_resources(struct ixgbevf_ring *);
+ void ixgbevf_free_tx_resources(struct ixgbevf_ring *);
+ void ixgbevf_update_stats(struct ixgbevf_adapter *adapter);
+ int ethtool_ioctl(struct ifreq *ifr);
+-bool ixgbevf_on_hyperv(struct ixgbe_hw *hw);
  
- 	/* Flow Control */
- 	regs_buff[30] = IXGBE_READ_REG(hw, IXGBE_PFCTOP);
--	regs_buff[31] = IXGBE_READ_REG(hw, IXGBE_FCTTV(0));
--	regs_buff[32] = IXGBE_READ_REG(hw, IXGBE_FCTTV(1));
--	regs_buff[33] = IXGBE_READ_REG(hw, IXGBE_FCTTV(2));
--	regs_buff[34] = IXGBE_READ_REG(hw, IXGBE_FCTTV(3));
-+	for (i = 0; i < 4; i++)
-+		regs_buff[31 + i] = IXGBE_READ_REG(hw, IXGBE_FCTTV(i));
- 	for (i = 0; i < 8; i++) {
- 		switch (hw->mac.type) {
- 		case ixgbe_mac_82598EB:
-@@ -806,15 +804,11 @@ static void ixgbe_get_regs(struct net_device *netdev,
- 		regs_buff[1096 + i] = IXGBE_READ_REG(hw, IXGBE_TIC_DW(i));
- 	regs_buff[1100] = IXGBE_READ_REG(hw, IXGBE_TDPROBE);
- 	regs_buff[1101] = IXGBE_READ_REG(hw, IXGBE_TXBUFCTRL);
--	regs_buff[1102] = IXGBE_READ_REG(hw, IXGBE_TXBUFDATA0);
--	regs_buff[1103] = IXGBE_READ_REG(hw, IXGBE_TXBUFDATA1);
--	regs_buff[1104] = IXGBE_READ_REG(hw, IXGBE_TXBUFDATA2);
--	regs_buff[1105] = IXGBE_READ_REG(hw, IXGBE_TXBUFDATA3);
-+	for (i = 0; i < 4; i++)
-+		regs_buff[1102 + i] = IXGBE_READ_REG(hw, IXGBE_TXBUFDATA(i));
- 	regs_buff[1106] = IXGBE_READ_REG(hw, IXGBE_RXBUFCTRL);
--	regs_buff[1107] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA0);
--	regs_buff[1108] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA1);
--	regs_buff[1109] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA2);
--	regs_buff[1110] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA3);
-+	for (i = 0; i < 4; i++)
-+		regs_buff[1107 + i] = IXGBE_READ_REG(hw, IXGBE_RXBUFDATA(i));
- 	for (i = 0; i < 8; i++)
- 		regs_buff[1111 + i] = IXGBE_READ_REG(hw, IXGBE_PCIE_DIAG(i));
- 	regs_buff[1119] = IXGBE_READ_REG(hw, IXGBE_RFVAL);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 1912f7e..cd6c1dd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1060,15 +1060,9 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_TIC_DW2(_i) (0x082B0 + ((_i) * 4))
- #define IXGBE_TDPROBE     0x07F20
- #define IXGBE_TXBUFCTRL   0x0C600
--#define IXGBE_TXBUFDATA0  0x0C610
--#define IXGBE_TXBUFDATA1  0x0C614
--#define IXGBE_TXBUFDATA2  0x0C618
--#define IXGBE_TXBUFDATA3  0x0C61C
-+#define IXGBE_TXBUFDATA(_i) (0x0C610 + ((_i) * 4)) /* 4 of these (0-3) */
- #define IXGBE_RXBUFCTRL   0x03600
--#define IXGBE_RXBUFDATA0  0x03610
--#define IXGBE_RXBUFDATA1  0x03614
--#define IXGBE_RXBUFDATA2  0x03618
--#define IXGBE_RXBUFDATA3  0x0361C
-+#define IXGBE_RXBUFDATA(_i) (0x03610 + ((_i) * 4)) /* 4 of these (0-3) */
- #define IXGBE_PCIE_DIAG(_i)     (0x11090 + ((_i) * 4)) /* 8 of these */
- #define IXGBE_RFVAL     0x050A4
- #define IXGBE_MDFTC1    0x042B8
+ extern void ixgbevf_write_eitr(struct ixgbevf_q_vector *q_vector);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 14d4729..ba17a61 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1809,10 +1809,7 @@ static void ixgbevf_configure_rx(struct ixgbevf_adapter *adapter)
+ 		ixgbevf_setup_vfmrqc(adapter);
+ 
+ 	/* notify the PF of our intent to use this size of frame */
+-	if (!ixgbevf_on_hyperv(hw))
+-		ixgbevf_rlpml_set_vf(hw, netdev->mtu + ETH_HLEN + ETH_FCS_LEN);
+-	else
+-		ixgbevf_hv_rlpml_set_vf(hw, netdev->mtu + ETH_HLEN + ETH_FCS_LEN);
++	hw->mac.ops.set_rlpml(hw, netdev->mtu + ETH_HLEN + ETH_FCS_LEN);
+ 
+ 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
+ 	 * the Base and Length of the Rx Descriptor Ring
+@@ -2073,10 +2070,7 @@ static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
+ 	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	while (api[idx] != ixgbe_mbox_api_unknown) {
+-		if (!ixgbevf_on_hyperv(hw))
+-			err = hw->mac.ops.negotiate_api_version(hw, api[idx]);
+-		else
+-			err = ixgbevf_hv_negotiate_api_version(hw, api[idx]);
++		err = hw->mac.ops.negotiate_api_version(hw, api[idx]);
+ 		if (!err)
+ 			break;
+ 		idx++;
+@@ -3760,10 +3754,7 @@ static int ixgbevf_change_mtu(struct net_device *netdev, int new_mtu)
+ 	netdev->mtu = new_mtu;
+ 
+ 	/* notify the PF of our intent to use this size of frame */
+-	if (!ixgbevf_on_hyperv(hw))
+-		ixgbevf_rlpml_set_vf(hw, max_frame);
+-	else
+-		ixgbevf_hv_rlpml_set_vf(hw, max_frame);
++	hw->mac.ops.set_rlpml(hw, max_frame);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index 8a4eb08..f66055aa 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -797,11 +797,11 @@ out:
+ }
+ 
+ /**
+- *  ixgbevf_rlpml_set_vf - Set the maximum receive packet length
++ *  ixgbevf_set_rlpml_vf - Set the maximum receive packet length
+  *  @hw: pointer to the HW structure
+  *  @max_size: value to assign to max frame size
+  **/
+-void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size)
++static void ixgbevf_set_rlpml_vf(struct ixgbe_hw *hw, u16 max_size)
+ {
+ 	u32 msgbuf[2];
+ 
+@@ -811,12 +811,12 @@ void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size)
+ }
+ 
+ /**
+- * ixgbevf_hv_rlpml_set_vf - Set the maximum receive packet length
++ * ixgbevf_hv_set_rlpml_vf - Set the maximum receive packet length
+  * @hw: pointer to the HW structure
+  * @max_size: value to assign to max frame size
+  * Hyper-V variant.
+  **/
+-void ixgbevf_hv_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size)
++static void ixgbevf_hv_set_rlpml_vf(struct ixgbe_hw *hw, u16 max_size)
+ {
+ 	u32 reg;
+ 
+@@ -864,12 +864,12 @@ static int ixgbevf_negotiate_api_version_vf(struct ixgbe_hw *hw, int api)
+ }
+ 
+ /**
+- *  ixgbevf_hv_negotiate_api_version - Negotiate supported API version
++ *  ixgbevf_hv_negotiate_api_version_vf - Negotiate supported API version
+  *  @hw: pointer to the HW structure
+  *  @api: integer containing requested API version
+  *  Hyper-V version - only ixgbe_mbox_api_10 supported.
+  **/
+-int ixgbevf_hv_negotiate_api_version(struct ixgbe_hw *hw, int api)
++static int ixgbevf_hv_negotiate_api_version_vf(struct ixgbe_hw *hw, int api)
+ {
+ 	/* Hyper-V only supports api version ixgbe_mbox_api_10 */
+ 	if (api != ixgbe_mbox_api_10)
+@@ -950,6 +950,7 @@ static const struct ixgbe_mac_operations ixgbevf_mac_ops = {
+ 	.update_xcast_mode	= ixgbevf_update_xcast_mode,
+ 	.set_uc_addr		= ixgbevf_set_uc_addr_vf,
+ 	.set_vfta		= ixgbevf_set_vfta_vf,
++	.set_rlpml		= ixgbevf_set_rlpml_vf,
+ };
+ 
+ static const struct ixgbe_mac_operations ixgbevf_hv_mac_ops = {
+@@ -960,11 +961,13 @@ static const struct ixgbe_mac_operations ixgbevf_hv_mac_ops = {
+ 	.stop_adapter		= ixgbevf_stop_hw_vf,
+ 	.setup_link		= ixgbevf_setup_mac_link_vf,
+ 	.check_link		= ixgbevf_hv_check_mac_link_vf,
++	.negotiate_api_version	= ixgbevf_hv_negotiate_api_version_vf,
+ 	.set_rar		= ixgbevf_hv_set_rar_vf,
+ 	.update_mc_addr_list	= ixgbevf_hv_update_mc_addr_list_vf,
+ 	.update_xcast_mode	= ixgbevf_hv_update_xcast_mode,
+ 	.set_uc_addr		= ixgbevf_hv_set_uc_addr_vf,
+ 	.set_vfta		= ixgbevf_hv_set_vfta_vf,
++	.set_rlpml		= ixgbevf_hv_set_rlpml_vf,
+ };
+ 
+ const struct ixgbevf_info ixgbevf_82599_vf_info = {
+@@ -1006,8 +1009,3 @@ const struct ixgbevf_info ixgbevf_X550EM_x_vf_hv_info = {
+ 	.mac = ixgbe_mac_X550EM_x_vf,
+ 	.mac_ops = &ixgbevf_hv_mac_ops,
+ };
+-
+-bool ixgbevf_on_hyperv(struct ixgbe_hw *hw)
+-{
+-	return hw->mbx.ops.check_for_msg == NULL;
+-}
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index f7c0170..6770f10 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -69,6 +69,7 @@ struct ixgbe_mac_operations {
+ 	s32 (*disable_mc)(struct ixgbe_hw *);
+ 	s32 (*clear_vfta)(struct ixgbe_hw *);
+ 	s32 (*set_vfta)(struct ixgbe_hw *, u32, u32, bool);
++	void (*set_rlpml)(struct ixgbe_hw *, u16);
+ };
+ 
+ enum ixgbe_mac_type {
+@@ -208,9 +209,6 @@ static inline u32 ixgbe_read_reg_array(struct ixgbe_hw *hw, u32 reg,
+ 
+ #define IXGBE_READ_REG_ARRAY(h, r, o) ixgbe_read_reg_array(h, r, o)
+ 
+-void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size);
+-void ixgbevf_hv_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size);
+-int ixgbevf_hv_negotiate_api_version(struct ixgbe_hw *hw, int api);
+ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+ 		       unsigned int *default_tc);
+ int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *reta, int num_rx_queues);
 -- 
 2.5.5
