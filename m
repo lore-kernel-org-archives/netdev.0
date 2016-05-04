@@ -1,55 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/14] ixgbevf: Change the relaxed order settings in VF driver for sparc
-Date: Wed,  4 May 2016 09:26:45 -0700
-Message-ID: <1462379208-3997-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] ixgbevf: Add the device ID's presented while running on Hyper-V
+Date: Wed,  4 May 2016 09:26:38 -0700
+Message-ID: <1462379208-3997-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Babu Moger <babu.moger@oracle.com>, netdev@vger.kernel.org,
+Cc: KY Srinivasan <kys@microsoft.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42556 "EHLO mga02.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:64255 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753547AbcEDQ1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 12:27:15 -0400
+	id S1754377AbcEDQ0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 12:26:53 -0400
 In-Reply-To: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Babu Moger <babu.moger@oracle.com>
+From: KY Srinivasan <kys@microsoft.com>
 
-We noticed performance issues with VF interface on sparc compared
-to PF. Setting the RX to IXGBE_DCA_RXCTRL_DATA_WRO_EN brings it
-on far with PF. Also this matches to the default sparc setting in
-PF driver.
+Intel SR-IOV cards present different ID when running on Hyper-V.
+Add the device IDs presented while running on Hyper-V.
 
-Signed-off-by: Babu Moger <babu.moger@oracle.com>
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/defines.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index f39c8cb..14d4729 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1760,9 +1760,15 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(reg_idx),
- 			ring->count * sizeof(union ixgbe_adv_rx_desc));
+diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
+index 74901f7..ae09d60 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/defines.h
++++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
+@@ -33,6 +33,11 @@
+ #define IXGBE_DEV_ID_X550_VF		0x1565
+ #define IXGBE_DEV_ID_X550EM_X_VF	0x15A8
  
-+#ifndef CONFIG_SPARC
- 	/* enable relaxed ordering */
- 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
- 			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
-+#else
-+	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
-+			IXGBE_DCA_RXCTRL_DESC_RRO_EN |
-+			IXGBE_DCA_RXCTRL_DATA_WRO_EN);
-+#endif
- 
- 	/* reset head and tail pointers */
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRDH(reg_idx), 0);
++#define IXGBE_DEV_ID_82599_VF_HV	0x152E
++#define IXGBE_DEV_ID_X540_VF_HV		0x1530
++#define IXGBE_DEV_ID_X550_VF_HV		0x1564
++#define IXGBE_DEV_ID_X550EM_X_VF_HV	0x15A9
++
+ #define IXGBE_VF_IRQ_CLEAR_MASK		7
+ #define IXGBE_VF_MAX_TX_QUEUES		8
+ #define IXGBE_VF_MAX_RX_QUEUES		8
 -- 
 2.5.5
