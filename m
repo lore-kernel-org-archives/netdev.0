@@ -1,403 +1,81 @@
-From: Yangbo Lu <yangbo.lu@nxp.com>
-Subject: [v9, 3/7] soc: fsl: add GUTS driver for QorIQ platforms
-Date: Wed, 4 May 2016 11:24:30 +0800
-Message-ID: <1462332274-13744-4-git-send-email-yangbo.lu@nxp.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v9, 4/7] dt: move guts devicetree doc out of powerpc directory
+Date: Wed, 4 May 2016 11:24:31 +0800
+Message-ID: <1462332274-13744-5-git-send-email-yangbo.lu@nxp.com>
 References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ulf.hansson@linaro.org>, Scott Wood <oss@buserror.net>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"Bhupesh Sharma" <bhupesh.sharma@freescale.com>,
-	Qiang Zhao <qiang.zhao@nxp.com>,
-	"Kumar Gala" <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>, <leoyang.li@nxp.com>,
-	<xiaobo.xie@nxp.com>, Yangbo Lu <yangbo.lu@nxp.com>
-To: <linux-mmc@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<devicetree@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <linux-clk@vger.kernel.org>,
-	<linux-i2c@vger.kernel.org>, <iommu@lists.linux-foundation.org>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-mmc-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, Bhupesh
+	Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, xiaobo.xie-3arQi8VN3Tc@public.gmane.org,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1462332274-13744-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The global utilities block controls power management, I/O device
-enabling, power-onreset(POR) configuration monitoring, alternate
-function selection for multiplexed signals,and clock control.
+Move guts devicetree doc to Documentation/devicetree/bindings/soc/fsl/
+since it's used by not only PowerPC but also ARM. And add a specification
+for 'little-endian' property.
 
-This patch adds GUTS driver to manage and access global utilities
-block.
-
-Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
-Acked-by: Scott Wood <oss@buserror.net>
+Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
 Changes for v4:
 	- Added this patch
 Changes for v5:
-	- Modified copyright info
-	- Changed MODULE_LICENSE to GPL
-	- Changed EXPORT_SYMBOL_GPL to EXPORT_SYMBOL
-	- Made FSL_GUTS user-invisible
-	- Added a complete compatible list for GUTS
-	- Stored guts info in file-scope variable
-	- Added mfspr() getting SVR
-	- Redefined GUTS APIs
-	- Called fsl_guts_init rather than using platform driver
-	- Removed useless parentheses
-	- Removed useless 'extern' key words
+	- Modified the description for little-endian property
 Changes for v6:
-	- Made guts thread safe in fsl_guts_init
+	- None
 Changes for v7:
-	- Removed 'ifdef' for function declaration in guts.h
+	- None
 Changes for v8:
-	- Fixes lines longer than 80 characters checkpatch issue
 	- Added 'Acked-by: Scott Wood'
+	- Added 'Acked-by: Rob Herring'
 Changes for v9:
 	- None
 ---
- drivers/soc/Kconfig      |   2 +-
- drivers/soc/fsl/Kconfig  |   8 +++
- drivers/soc/fsl/Makefile |   1 +
- drivers/soc/fsl/guts.c   | 119 ++++++++++++++++++++++++++++++++++++++++++++
- include/linux/fsl/guts.h | 126 +++++++++++++++++++++++++++++------------------
- 5 files changed, 207 insertions(+), 49 deletions(-)
- create mode 100644 drivers/soc/fsl/Kconfig
- create mode 100644 drivers/soc/fsl/guts.c
+ Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt | 3 +++
+ 1 file changed, 3 insertions(+)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
 
-diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
-index cb58ef0..7106463 100644
---- a/drivers/soc/Kconfig
-+++ b/drivers/soc/Kconfig
-@@ -2,7 +2,7 @@ menu "SOC (System On Chip) specific Drivers"
+diff --git a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt b/Documentation/devicetree/bindings/soc/fsl/guts.txt
+similarity index 91%
+rename from Documentation/devicetree/bindings/powerpc/fsl/guts.txt
+rename to Documentation/devicetree/bindings/soc/fsl/guts.txt
+index b71b203..07adca9 100644
+--- a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt
++++ b/Documentation/devicetree/bindings/soc/fsl/guts.txt
+@@ -25,6 +25,9 @@ Recommended properties:
+  - fsl,liodn-bits : Indicates the number of defined bits in the LIODN
+    registers, for those SOCs that have a PAMU device.
  
- source "drivers/soc/bcm/Kconfig"
- source "drivers/soc/brcmstb/Kconfig"
--source "drivers/soc/fsl/qe/Kconfig"
-+source "drivers/soc/fsl/Kconfig"
- source "drivers/soc/mediatek/Kconfig"
- source "drivers/soc/qcom/Kconfig"
- source "drivers/soc/rockchip/Kconfig"
-diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
-new file mode 100644
-index 0000000..b313759
---- /dev/null
-+++ b/drivers/soc/fsl/Kconfig
-@@ -0,0 +1,8 @@
-+#
-+# Freescale SOC drivers
-+#
++ - little-endian : Indicates that the global utilities block is little
++   endian. The default is big endian.
 +
-+source "drivers/soc/fsl/qe/Kconfig"
-+
-+config FSL_GUTS
-+	bool
-diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
-index 203307f..02afb7f 100644
---- a/drivers/soc/fsl/Makefile
-+++ b/drivers/soc/fsl/Makefile
-@@ -4,3 +4,4 @@
- 
- obj-$(CONFIG_QUICC_ENGINE)		+= qe/
- obj-$(CONFIG_CPM)			+= qe/
-+obj-$(CONFIG_FSL_GUTS)			+= guts.o
-diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c
-new file mode 100644
-index 0000000..fa155e6
---- /dev/null
-+++ b/drivers/soc/fsl/guts.c
-@@ -0,0 +1,119 @@
-+/*
-+ * Freescale QorIQ Platforms GUTS Driver
-+ *
-+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/io.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <linux/mutex.h>
-+#include <linux/of_address.h>
-+#include <linux/of_platform.h>
-+#include <linux/fsl/guts.h>
-+
-+struct guts {
-+	struct ccsr_guts __iomem *regs;
-+	bool little_endian;
-+};
-+
-+static struct guts *guts;
-+static DEFINE_MUTEX(guts_lock);
-+
-+u32 fsl_guts_get_svr(void)
-+{
-+	u32 svr = 0;
-+
-+	if (!guts || !guts->regs) {
-+#ifdef CONFIG_PPC
-+		svr =  mfspr(SPRN_SVR);
-+#endif
-+		return svr;
-+	}
-+
-+	if (guts->little_endian)
-+		svr = ioread32(&guts->regs->svr);
-+	else
-+		svr = ioread32be(&guts->regs->svr);
-+
-+	return svr;
-+}
-+EXPORT_SYMBOL(fsl_guts_get_svr);
-+
-+/*
-+ * Table for matching compatible strings, for device tree
-+ * guts node, for Freescale QorIQ SOCs.
-+ */
-+static const struct of_device_id guts_of_match[] = {
-+	/* For T4 & B4 Series SOCs */
-+	{ .compatible = "fsl,qoriq-device-config-1.0", },
-+	/* For P Series SOCs */
-+	{ .compatible = "fsl,qoriq-device-config-2.0", },
-+	{ .compatible = "fsl,p1010-guts", },
-+	{ .compatible = "fsl,p1020-guts", },
-+	{ .compatible = "fsl,p1021-guts", },
-+	{ .compatible = "fsl,p1022-guts", },
-+	{ .compatible = "fsl,p1023-guts", },
-+	{ .compatible = "fsl,p2020-guts", },
-+	/* For BSC Series SOCs */
-+	{ .compatible = "fsl,bsc9131-guts", },
-+	{ .compatible = "fsl,bsc9132-guts", },
-+	/* For MPC85xx Series SOCs */
-+	{ .compatible = "fsl,mpc8536-guts", },
-+	{ .compatible = "fsl,mpc8544-guts", },
-+	{ .compatible = "fsl,mpc8548-guts", },
-+	{ .compatible = "fsl,mpc8568-guts", },
-+	{ .compatible = "fsl,mpc8569-guts", },
-+	{ .compatible = "fsl,mpc8572-guts", },
-+	/* For Layerscape Series SOCs */
-+	{ .compatible = "fsl,ls1021a-dcfg", },
-+	{ .compatible = "fsl,ls1043a-dcfg", },
-+	{ .compatible = "fsl,ls2080a-dcfg", },
-+	{}
-+};
-+
-+int fsl_guts_init(void)
-+{
-+	struct device_node *np;
-+	int ret;
-+
-+	mutex_lock(&guts_lock);
-+	/* Initialize guts only once */
-+	if (guts) {
-+		ret = guts->regs ? 0 : -ENOMEM;
-+		goto out;
-+	}
-+
-+	np = of_find_matching_node(NULL, guts_of_match);
-+	if (!np) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	guts = kzalloc(sizeof(*guts), GFP_KERNEL);
-+	if (!guts) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	guts->little_endian = of_property_read_bool(np, "little-endian");
-+
-+	guts->regs = of_iomap(np, 0);
-+	if (!guts->regs) {
-+		ret = -ENOMEM;
-+		kfree(guts);
-+		goto out;
-+	}
-+
-+	of_node_put(np);
-+	ret = 0;
-+out:
-+	mutex_unlock(&guts_lock);
-+	return ret;
-+}
-+EXPORT_SYMBOL(fsl_guts_init);
-diff --git a/include/linux/fsl/guts.h b/include/linux/fsl/guts.h
-index 649e917..7e1e22b 100644
---- a/include/linux/fsl/guts.h
-+++ b/include/linux/fsl/guts.h
-@@ -29,83 +29,113 @@
-  * #ifdefs.
-  */
- struct ccsr_guts {
--	__be32	porpllsr;	/* 0x.0000 - POR PLL Ratio Status Register */
--	__be32	porbmsr;	/* 0x.0004 - POR Boot Mode Status Register */
--	__be32	porimpscr;	/* 0x.0008 - POR I/O Impedance Status and Control Register */
--	__be32	pordevsr;	/* 0x.000c - POR I/O Device Status Register */
--	__be32	pordbgmsr;	/* 0x.0010 - POR Debug Mode Status Register */
--	__be32	pordevsr2;	/* 0x.0014 - POR device status register 2 */
-+	u32	porpllsr;	/* 0x.0000 - POR PLL Ratio Status Register */
-+	u32	porbmsr;	/* 0x.0004 - POR Boot Mode Status Register */
-+	u32	porimpscr;	/* 0x.0008 - POR I/O Impedance Status and
-+				 *           Control Register
-+				 */
-+	u32	pordevsr;	/* 0x.000c - POR I/O Device Status Register */
-+	u32	pordbgmsr;	/* 0x.0010 - POR Debug Mode Status Register */
-+	u32	pordevsr2;	/* 0x.0014 - POR device status register 2 */
- 	u8	res018[0x20 - 0x18];
--	__be32	porcir;		/* 0x.0020 - POR Configuration Information Register */
-+	u32	porcir;		/* 0x.0020 - POR Configuration Information
-+				 *           Register
-+				 */
- 	u8	res024[0x30 - 0x24];
--	__be32	gpiocr;		/* 0x.0030 - GPIO Control Register */
-+	u32	gpiocr;		/* 0x.0030 - GPIO Control Register */
- 	u8	res034[0x40 - 0x34];
--	__be32	gpoutdr;	/* 0x.0040 - General-Purpose Output Data Register */
-+	u32	gpoutdr;	/* 0x.0040 - General-Purpose Output Data
-+				 *           Register
-+				 */
- 	u8	res044[0x50 - 0x44];
--	__be32	gpindr;		/* 0x.0050 - General-Purpose Input Data Register */
-+	u32	gpindr;		/* 0x.0050 - General-Purpose Input Data
-+				 *           Register
-+				 */
- 	u8	res054[0x60 - 0x54];
--	__be32	pmuxcr;		/* 0x.0060 - Alternate Function Signal Multiplex Control */
--        __be32  pmuxcr2;	/* 0x.0064 - Alternate function signal multiplex control 2 */
--        __be32  dmuxcr;		/* 0x.0068 - DMA Mux Control Register */
-+	u32	pmuxcr;		/* 0x.0060 - Alternate Function Signal
-+				 *           Multiplex Control
-+				 */
-+	u32	pmuxcr2;	/* 0x.0064 - Alternate function signal
-+				 *           multiplex control 2
-+				 */
-+	u32	dmuxcr;		/* 0x.0068 - DMA Mux Control Register */
-         u8	res06c[0x70 - 0x6c];
--	__be32	devdisr;	/* 0x.0070 - Device Disable Control */
-+	u32	devdisr;	/* 0x.0070 - Device Disable Control */
- #define CCSR_GUTS_DEVDISR_TB1	0x00001000
- #define CCSR_GUTS_DEVDISR_TB0	0x00004000
--	__be32	devdisr2;	/* 0x.0074 - Device Disable Control 2 */
-+	u32	devdisr2;	/* 0x.0074 - Device Disable Control 2 */
- 	u8	res078[0x7c - 0x78];
--	__be32  pmjcr;		/* 0x.007c - 4 Power Management Jog Control Register */
--	__be32	powmgtcsr;	/* 0x.0080 - Power Management Status and Control Register */
--	__be32  pmrccr;		/* 0x.0084 - Power Management Reset Counter Configuration Register */
--	__be32  pmpdccr;	/* 0x.0088 - Power Management Power Down Counter Configuration Register */
--	__be32  pmcdr;		/* 0x.008c - 4Power management clock disable register */
--	__be32	mcpsumr;	/* 0x.0090 - Machine Check Summary Register */
--	__be32	rstrscr;	/* 0x.0094 - Reset Request Status and Control Register */
--	__be32  ectrstcr;	/* 0x.0098 - Exception reset control register */
--	__be32  autorstsr;	/* 0x.009c - Automatic reset status register */
--	__be32	pvr;		/* 0x.00a0 - Processor Version Register */
--	__be32	svr;		/* 0x.00a4 - System Version Register */
-+	u32	pmjcr;		/* 0x.007c - 4 Power Management Jog Control
-+				 *           Register
-+				 */
-+	u32	powmgtcsr;	/* 0x.0080 - Power Management Status and
-+				 *           Control Register
-+				 */
-+	u32	pmrccr;		/* 0x.0084 - Power Management Reset Counter
-+				 *           Configuration Register
-+				 */
-+	u32	pmpdccr;	/* 0x.0088 - Power Management Power Down Counter
-+				 *           Configuration Register
-+				 */
-+	u32	pmcdr;		/* 0x.008c - 4Power management clock disable
-+				 *           register
-+				 */
-+	u32	mcpsumr;	/* 0x.0090 - Machine Check Summary Register */
-+	u32	rstrscr;	/* 0x.0094 - Reset Request Status and
-+				 *           Control Register
-+				 */
-+	u32	ectrstcr;	/* 0x.0098 - Exception reset control register */
-+	u32	autorstsr;	/* 0x.009c - Automatic reset status register */
-+	u32	pvr;		/* 0x.00a0 - Processor Version Register */
-+	u32	svr;		/* 0x.00a4 - System Version Register */
- 	u8	res0a8[0xb0 - 0xa8];
--	__be32	rstcr;		/* 0x.00b0 - Reset Control Register */
-+	u32	rstcr;		/* 0x.00b0 - Reset Control Register */
- 	u8	res0b4[0xc0 - 0xb4];
--	__be32  iovselsr;	/* 0x.00c0 - I/O voltage select status register
-+	u32	iovselsr;	/* 0x.00c0 - I/O voltage select status register
- 					     Called 'elbcvselcr' on 86xx SOCs */
- 	u8	res0c4[0x100 - 0xc4];
--	__be32	rcwsr[16];	/* 0x.0100 - Reset Control Word Status registers
-+	u32	rcwsr[16];	/* 0x.0100 - Reset Control Word Status registers
- 					     There are 16 registers */
- 	u8	res140[0x224 - 0x140];
--	__be32  iodelay1;	/* 0x.0224 - IO delay control register 1 */
--	__be32  iodelay2;	/* 0x.0228 - IO delay control register 2 */
-+	u32	iodelay1;	/* 0x.0224 - IO delay control register 1 */
-+	u32	iodelay2;	/* 0x.0228 - IO delay control register 2 */
- 	u8	res22c[0x604 - 0x22c];
--	__be32	pamubypenr; 	/* 0x.604 - PAMU bypass enable register */
-+	u32	pamubypenr;	/* 0x.604 - PAMU bypass enable register */
- 	u8	res608[0x800 - 0x608];
--	__be32	clkdvdr;	/* 0x.0800 - Clock Divide Register */
-+	u32	clkdvdr;	/* 0x.0800 - Clock Divide Register */
- 	u8	res804[0x900 - 0x804];
--	__be32	ircr;		/* 0x.0900 - Infrared Control Register */
-+	u32	ircr;		/* 0x.0900 - Infrared Control Register */
- 	u8	res904[0x908 - 0x904];
--	__be32	dmacr;		/* 0x.0908 - DMA Control Register */
-+	u32	dmacr;		/* 0x.0908 - DMA Control Register */
- 	u8	res90c[0x914 - 0x90c];
--	__be32	elbccr;		/* 0x.0914 - eLBC Control Register */
-+	u32	elbccr;		/* 0x.0914 - eLBC Control Register */
- 	u8	res918[0xb20 - 0x918];
--	__be32	ddr1clkdr;	/* 0x.0b20 - DDR1 Clock Disable Register */
--	__be32	ddr2clkdr;	/* 0x.0b24 - DDR2 Clock Disable Register */
--	__be32	ddrclkdr;	/* 0x.0b28 - DDR Clock Disable Register */
-+	u32	ddr1clkdr;	/* 0x.0b20 - DDR1 Clock Disable Register */
-+	u32	ddr2clkdr;	/* 0x.0b24 - DDR2 Clock Disable Register */
-+	u32	ddrclkdr;	/* 0x.0b28 - DDR Clock Disable Register */
- 	u8	resb2c[0xe00 - 0xb2c];
--	__be32	clkocr;		/* 0x.0e00 - Clock Out Select Register */
-+	u32	clkocr;		/* 0x.0e00 - Clock Out Select Register */
- 	u8	rese04[0xe10 - 0xe04];
--	__be32	ddrdllcr;	/* 0x.0e10 - DDR DLL Control Register */
-+	u32	ddrdllcr;	/* 0x.0e10 - DDR DLL Control Register */
- 	u8	rese14[0xe20 - 0xe14];
--	__be32	lbcdllcr;	/* 0x.0e20 - LBC DLL Control Register */
--	__be32  cpfor;		/* 0x.0e24 - L2 charge pump fuse override register */
-+	u32	lbcdllcr;	/* 0x.0e20 - LBC DLL Control Register */
-+	u32	cpfor;		/* 0x.0e24 - L2 charge pump fuse override
-+				 *           register
-+				 */
- 	u8	rese28[0xf04 - 0xe28];
--	__be32	srds1cr0;	/* 0x.0f04 - SerDes1 Control Register 0 */
--	__be32	srds1cr1;	/* 0x.0f08 - SerDes1 Control Register 0 */
-+	u32	srds1cr0;	/* 0x.0f04 - SerDes1 Control Register 0 */
-+	u32	srds1cr1;	/* 0x.0f08 - SerDes1 Control Register 0 */
- 	u8	resf0c[0xf2c - 0xf0c];
--	__be32  itcr;		/* 0x.0f2c - Internal transaction control register */
-+	u32	itcr;		/* 0x.0f2c - Internal transaction control
-+				 *           register
-+				 */
- 	u8	resf30[0xf40 - 0xf30];
--	__be32	srds2cr0;	/* 0x.0f40 - SerDes2 Control Register 0 */
--	__be32	srds2cr1;	/* 0x.0f44 - SerDes2 Control Register 0 */
-+	u32	srds2cr0;	/* 0x.0f40 - SerDes2 Control Register 0 */
-+	u32	srds2cr1;	/* 0x.0f44 - SerDes2 Control Register 0 */
- } __attribute__ ((packed));
- 
-+u32 fsl_guts_get_svr(void);
-+int fsl_guts_init(void);
- 
- /* Alternate function signal multiplex control */
- #define MPC85xx_PMUXCR_QE(x) (0x8000 >> (x))
+ Examples:
+ 	global-utilities@e0000 {	/* global utilities block */
+ 		compatible = "fsl,mpc8548-guts";
 -- 
 2.1.0.27.g96db324
-
