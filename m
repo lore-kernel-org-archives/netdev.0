@@ -1,61 +1,104 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next 0/3] gre: receive also TEB packets for lwtunnels
-Date: Wed, 4 May 2016 16:52:53 +0900
-Message-ID: <20160504075250.GA25241@penelope.isobedori.kobe.vergenet.net>
-References: <cover.1462286214.git.jbenc@redhat.com>
+From: Dean Jenkins <Dean_Jenkins@mentor.com>
+Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow
+ transmissions
+Date: Wed, 4 May 2016 08:58:08 +0100
+Message-ID: <5729AB90.9010704@mentor.com>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+ <87ed4c76328ed9dc5591359ea0e98ab9@i4031.net> <57291539.6080405@mentor.com>
+ <e4efd48d3c16c27de68d464ad3170b02@i4031.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	pravin shelar <pshelar@ovn.org>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35099 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757295AbcEDHxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 03:53:01 -0400
-Received: by mail-pa0-f50.google.com with SMTP id iv1so21256773pac.2
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 00:53:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <cover.1462286214.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Stultz <john.stultz@linaro.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	Guodong Xu <guodong.xu@linaro.org>,
+	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Ivan Vecera <ivecera@redhat.com>
+To: "David B. Robins" <linux@davidrobins.net>,
+	Dean Jenkins <Dean_Jenkins@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e4efd48d3c16c27de68d464ad3170b02@i4031.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 03, 2016 at 05:10:05PM +0200, Jiri Benc wrote:
-> NOTE: this patchset needs net merged to net-next.
-> 
-> This allows lwtunnel users to get also packets with ETH_P_TEB protocol
-> specified in GRE header through an ipgre interface. There's really nothing
-> special about these packets in the case of lwtunnels - it's just an inner
-> protocol like any other. The only complications stem from keeping
-> compatibility with other uses of GRE.
-> 
-> This will be used by openvswitch to support eth_push and eth_pop actions.
-> I'd also like to see tc support for lwtunnels (this feature included) in the
-> future.
-> 
-> The first patch is not directly related and can be submitted standalone if
-> needed.
+On 04/05/16 01:28, David B. Robins wrote:
+>
+>>
+>> Here is the code snippet from the patch with my annotations between #
+>> #, I will try to explain my intentions. Feel free to point out any
+>> flaws:
+>>
+>>     if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
+>>         # Only runs when rx->remaining !=0 and the end of the Ethernet
+>> frame + next 32-bit header word is within the URB buffer. #
+>>         # Therefore, this code does not run when the end of an
+>> Ethernet frame has been reached in the previous URB #
+>>         # or when the end of the Ethernet frame + next 32-bit header
+>> word will be in a later URB buffer #
+>
+> It may well be. I don't have the setup with me now, but I can try 
+> tomorrow to reproduce an environment where I can add some more 
+> detailed logging.
+>
+> Since the URB length has to be >= than the remaining data plus a u32, 
+> the devices that John Stultz and I are using (AX88772B in my case) may 
+> be adding some additional data/padding after an Ethernet frame, 
+> expecting it to be discarded, and running into this check and its 
+> consequences. This may mean the device is badly behaved, if it is 
+> specified not to send anything extra; in any case, a well-intentioned 
+> error correction has gone badly, but I better understand the intent 
+> now. I am curious to know how often the device you are using benefits 
+> from this block of code.
 
-I have exercised this patch-set using Open vSwitch both with
-and without the patchset I posted earlier this afternoon to
-make use of this new feature:
+The issue is that the driver should be robust to cope with missing URBs. 
+Whilst testing with D-Link DUB-E100 C1 AX88772 USB to Ethernet adaptor 
+in our ARM embedded system which runs in hostile environments, it was 
+noticed that URBs could be lost (probably due to a bug elsewhere or low 
+memory issue). Without this patch, a missing URB causes bad Ethernet 
+frames to be passed up to the IP stack because rx->remaining spans 
+multiple URBs.
 
-"[PATCH v9 net-next 0/7] openvswitch: support for layer 3 encapsulated packets"
+In the good case of an Ethernet frame spanning 2 URBs, the 1st URB is 
+processed and copies the 1st part of the Ethernet frame into the netdev 
+buffer, for the 2nd URB the remaining part of the Ethernet frame is 
+copied into the same netdev buffer to complete the Ethernet frame. The 
+netdev buffer is then sent up to the IP stack.
 
-All three patches:
+In the case of a missing URB, a bad Ethernet frame is created as follows:
+The 1st URB is processed and copies the 1st part of the Ethernet frame 
+into the netdev buffer, the 2nd URB is lost (somehow),  the 3rd URB is 
+processed and blindly copies what it thinks is the remaining part of the 
+Ethernet frame in the same netdev buffer which corrupts the Ethernet 
+frame. The netdev buffer is then sent up to the IP stack. The 3rd URB 
+and subsequent URBs are processed but synchronisation has been lost so 
+can misread data as a 32-bit header word. It is likely that some good 
+Ethernet frames get discarded whilst trying to resynchronise.
 
-Tested-by: Simon Horman <simon.horman@netronome.com>
+A recovery strategy for regaining lock with the 32-bit header word is 
+necessary otherwise the driver will have difficulty in recovering from a 
+lost URB.
 
-> Jiri Benc (3):
->   gre: remove superfluous pskb_may_pull
->   gre: move iptunnel_pull_header down to ipgre_rcv
->   gre: receive also TEB packets for lwtunnels
-> 
->  include/net/ip_tunnels.h |  1 +
->  net/ipv4/gre_demux.c     |  5 +----
->  net/ipv4/ip_gre.c        | 48 +++++++++++++++++++++++++++++++++++-------------
->  3 files changed, 37 insertions(+), 17 deletions(-)
-> 
-> -- 
-> 1.8.3.1
-> 
+In the "olden days", the 32-bit header word was always at the start of 
+the URB buffer so previous URBs did not influence the current URB. So no 
+recovery strategy was needed at that time. But now we have to remember 
+what happened in the previous URB and a lost URB can cause a 
+discontinuity in the data stream because the data is not always aligned 
+to the start of the URB buffer.
+
+I agree that your environment may never suffer from lost URBs so removal 
+of the patch would work OK.
+
+I will try to find some time to setup a test environment.
+
+Regards,
+Dean
+
+-- 
+Dean Jenkins
+Embedded Software Engineer
+Linux Transportation Solutions
+Mentor Embedded Software Division
+Mentor Graphics (UK) Ltd.
