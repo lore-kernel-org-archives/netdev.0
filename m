@@ -1,56 +1,143 @@
-From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-Subject: [PATCH net] igmp: fix byte order in /proc/net/igmp output
-Date: Wed,  4 May 2016 14:11:24 +0200
-Message-ID: <1462363884-34968-1-git-send-email-Eugene.Crosser@ru.ibm.com>
-To: crosser@average.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:42763 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046AbcEDML5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 08:11:57 -0400
-Received: from localhost
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <Eugene.Crosser@ru.ibm.com>;
-	Wed, 4 May 2016 13:11:54 +0100
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 93BFC2190061
-	for <netdev@vger.kernel.org>; Wed,  4 May 2016 13:11:01 +0100 (BST)
-Received: from d06av05.portsmouth.uk.ibm.com (d06av05.portsmouth.uk.ibm.com [9.149.37.229])
-	by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u44CBPl53670446
-	for <netdev@vger.kernel.org>; Wed, 4 May 2016 12:11:25 GMT
-Received: from d06av05.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av05.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u44CBOeH001013
-	for <netdev@vger.kernel.org>; Wed, 4 May 2016 06:11:24 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [PATCH v7 00/21] Add HiSilicon RoCE driver
+Date: Wed, 4 May 2016 20:20:57 +0800
+Message-ID: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-/proc/net/igmp is a readonly attribute that shows multicast groups
-to which different network interfaces are subscribed. Among other
-things, it displays `multiaddr` which is a 32 bit network-byte-order
-field, in hexadecimal format. Prior to this patch, the field was
-displayed as an integer, resulting in reverse byte order on little
-endian architectures. This patch converts it with ntohl() for display
-the same way as this is done for the /proc/net/mcfilter attribute.
+The HiSilicon Network Substem is a long term evolution IP which is
+supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
+Sybsystem) also has a hardware support of performing RDMA with
+RoCEE.
+The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
+will support mulitple versions of SOCs in future. This version of driver
+is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
+specifications).
 
-The patch changes (corrects) user-visible behaviour.
+Changes v6 -> v7:
+1. modify some type of parameter, use bool replace the original type.
+2. add the Signed-off-by signatures in the first patch.
+3. delete the improper print sentence in hns_roce_create_eq.
 
-Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
----
- net/ipv4/igmp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Changes v5 -> v6:
+1. modify the type of obj for unsigned long according the reviews, and
+   modify the same questions in RoCE module.
+2. fix the spelling error.
+3. fix the Signed-off-by signatures.
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index b3086cf..f9d2139 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -2722,7 +2722,7 @@ static int igmp_mc_seq_show(struct seq_file *seq, void *v)
- 		delta = im->timer.expires - jiffies;
- 		seq_printf(seq,
- 			   "\t\t\t\t%08X %5d %d:%08lX\t\t%d\n",
--			   im->multiaddr, im->users,
-+			   ntohl(im->multiaddr), im->users,
- 			   im->tm_running,
- 			   im->tm_running ? jiffies_delta_to_clock_t(delta) : 0,
- 			   im->reporter);
+Changes v4 -> v5:
+1. redesign the patchset for RoCE modules in order to split the huge
+   patch into small patches.
+2. fix the directory path for RoCE module. Delete the hisilicon level.
+3. modify the name of roce_v1_hw into roce_hw_v1.
+
+Changes v3 -> v4:
+1. modify roce.o into hns-roce.o in Makefile and Kconfig file.
+
+Changes v2 -> v3:
+1. modify the formats of RoCE driver code base v2 by the experts 
+   reviewing. also, it used kmalloc_array instead of kmalloc, kcalloc
+   instead of kzalloc, when refer to memory allocation for array
+2. remove some functions without use and unconnected macros
+3. modify the binding document with RoCE DT base v2 which added
+   interrupt-names
+4. redesign the port_map and si_map in hns_dsaf_roce_reset
+5. add HiSilicon RoCE driver maintainers introduction in MAINTAINERS
+   document
+
+Changes v1 -> v2:
+1. modify the formats of roce driver code by the experts reviewing
+2. modify the bindings file with roce dts. add the attribute named 
+   interrput-names.
+3. modify the way of defining port mode in hns_dsaf_main.c
+4. move the Kconfig file into the hns directory and send it with roce
+
+Lijun Ou (21):
+  net: hns: Add reset function support for RoCE driver
+  devicetree: bindings: IB: Add binding document for HiSilicon RoCE
+  IB/hns: Add initial main frame driver and get cfg info
+  IB/hns: Add RoCE engine reset function
+  IB/hns: Add initial profile resource
+  IB/hns: Add initial cmd operation
+  IB/hns: Add event queue support
+  IB/hns: Add icm support
+  IB/hns: Add hca support
+  IB/hns: Add process flow to init RoCE engine
+  IB/hns: Add IB device registration
+  IB/hns: Set mtu and gid support
+  IB/hns: Add interface of the protocol stack registration
+  IB/hns: Add operations support for IB device and port
+  IB/hns: Add PD operations support
+  IB/hns: Add ah operations support
+  IB/hns: Add QP operations support
+  IB/hns: Add CQ operations support
+  IB/hns: Add memory region operations support
+  IB/hns: Kconfig and Makefile for RoCE module
+  MAINTAINERS: Add maintainers for HiSilicon RoCE driver
+
+ .../bindings/infiniband/hisilicon-hns-roce.txt     |  107 +
+ MAINTAINERS                                        |    8 +
+ drivers/infiniband/Kconfig                         |    1 +
+ drivers/infiniband/hw/Makefile                     |    1 +
+ drivers/infiniband/hw/hns/Kconfig                  |   10 +
+ drivers/infiniband/hw/hns/Makefile                 |    9 +
+ drivers/infiniband/hw/hns/hns_roce_ah.c            |  109 +
+ drivers/infiniband/hw/hns/hns_roce_alloc.c         |  238 ++
+ drivers/infiniband/hw/hns/hns_roce_cmd.c           |  324 +++
+ drivers/infiniband/hw/hns/hns_roce_cmd.h           |   80 +
+ drivers/infiniband/hw/hns/hns_roce_common.h        |  302 +++
+ drivers/infiniband/hw/hns/hns_roce_cq.c            |  437 +++
+ drivers/infiniband/hw/hns/hns_roce_device.h        |  732 +++++
+ drivers/infiniband/hw/hns/hns_roce_eq.c            |  755 ++++++
+ drivers/infiniband/hw/hns/hns_roce_eq.h            |  108 +
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c         | 2812 ++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h         |  966 +++++++
+ drivers/infiniband/hw/hns/hns_roce_icm.c           |  583 ++++
+ drivers/infiniband/hw/hns/hns_roce_icm.h           |  112 +
+ drivers/infiniband/hw/hns/hns_roce_main.c          | 1071 ++++++++
+ drivers/infiniband/hw/hns/hns_roce_mr.c            |  599 +++++
+ drivers/infiniband/hw/hns/hns_roce_pd.c            |  127 +
+ drivers/infiniband/hw/hns/hns_roce_qp.c            |  835 ++++++
+ drivers/infiniband/hw/hns/hns_roce_user.h          |   27 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   90 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   32 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   64 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   16 +-
+ 28 files changed, 10539 insertions(+), 16 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+ create mode 100644 drivers/infiniband/hw/hns/Kconfig
+ create mode 100644 drivers/infiniband/hw/hns/Makefile
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_ah.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_common.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cq.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_qp.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_user.h
+
 -- 
-2.6.6
+1.9.1
