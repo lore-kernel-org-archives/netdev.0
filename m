@@ -1,111 +1,62 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: [PATCHv2 net] bridge: fix igmp / mld query parsing
-Date: Wed,  4 May 2016 17:25:02 +0200
-Message-ID: <1462375502-8381-1-git-send-email-linus.luessing@c0d3.blue>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Wed, 4 May 2016 18:50:33 +0300
+Message-ID: <572A1A49.9020507@mellanox.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
+ <20160429224333.12418.13862.stgit@ahduyck-xeon-server>
+ <CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
+ <CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
+ <CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
+ <CAKgT0UdeuJA-K8zim5Eact9A2oFscXDC2a7ciKGTo74xptuw4w@mail.gmail.com>
+ <57289C95.8030401@mellanox.com>
+ <CAKgT0UeK2ss9AsxdvyDHArXXVZMZG7AL6f0iXQukSg135B64cQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Simon Wunderlich <sw@simonwunderlich.de>, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	"talal@mellanox.com" <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <michael.chan@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
+	"Eran Ben Elisha" <eranbe@mellanox.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0087.outbound.protection.outlook.com ([157.56.112.87]:16741
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751125AbcEDPuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 11:50:44 -0400
+In-Reply-To: <CAKgT0UeK2ss9AsxdvyDHArXXVZMZG7AL6f0iXQukSg135B64cQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With the newly introduced helper functions the skb pulling is hidden
-in the checksumming function - and undone before returning to the
-caller.
+On 5/3/2016 6:29 PM, Alexander Duyck wrote:
+> We split the one that would be a different size off via GSO.  So we
+> end up sending up 2 frames to the device if there is going to be one
+> piece that doesn't quite match.  We split that one piece off via GSO.
+> That is one of the reasons why I referred to it as partial GSO as all
+> we are using the software segmentation code for is to make sure we
+> have the GSO block consists of segments that are all the same size.
 
-The IGMP and MLD query parsing functions in the bridge still
-assumed that the skb is pointing to the beginning of the IGMP/MLD
-message while it is now kept at the beginning of the IPv4/6 header.
+I see, so if somehow it happens a lot that the TCP stack sends down 
+something which once segmented ends up with the last segment being of 
+different size from the other ones we would have to call the NIC xmit 
+function twice (BTW can we use xmit_more here?)  -- which could be 
+effecting performance, I guess.
 
-If there is a querier somewhere else, then this either causes
-the multicast snooping to stay disabled even though it could be
-enabled. Or, if we have the querier enabled too, then this can
-create unnecessary IGMP / MLD query messages on the link.
+GSO_UDP_TUNNEL_CSUM (commit  0f4f4ffa7 "net: Add GSO support for UDP 
+tunnels with checksum") came to mark "that a device is capable of 
+computing the UDP checksum in the encapsulating header of a UDP tunnel" 
+-- and the way we use it here is that we do advertize that bit towards 
+the stack for devices whose HW can **not** do that, and things work b/c 
+of LCO (this is my understanding).
 
-Fixing this by taking the offset between IP and IGMP/MLD header into
-account, too.
+I miss something in the bigger picture here, what does this buy us? e.g 
+vs just letting this (say) vxlan tunnel use zero checksum on the outer 
+UDP packet, is that has something to do with RCO?
 
-Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
-Reported-by: Simon Wunderlich <sw@simonwunderlich.de>
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
----
-v2: changed "int" to "unsigned int"
-
- net/bridge/br_multicast.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 03661d9..ea98937 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1270,6 +1270,7 @@ static int br_ip4_multicast_query(struct net_bridge=
- *br,
- 	struct br_ip saddr;
- 	unsigned long max_delay;
- 	unsigned long now =3D jiffies;
-+	unsigned int offset =3D skb_transport_offset(skb);
- 	__be32 group;
- 	int err =3D 0;
-=20
-@@ -1280,14 +1281,14 @@ static int br_ip4_multicast_query(struct net_brid=
-ge *br,
-=20
- 	group =3D ih->group;
-=20
--	if (skb->len =3D=3D sizeof(*ih)) {
-+	if (skb->len =3D=3D offset + sizeof(*ih)) {
- 		max_delay =3D ih->code * (HZ / IGMP_TIMER_SCALE);
-=20
- 		if (!max_delay) {
- 			max_delay =3D 10 * HZ;
- 			group =3D 0;
- 		}
--	} else if (skb->len >=3D sizeof(*ih3)) {
-+	} else if (skb->len >=3D offset + sizeof(*ih3)) {
- 		ih3 =3D igmpv3_query_hdr(skb);
- 		if (ih3->nsrcs)
- 			goto out;
-@@ -1348,6 +1349,7 @@ static int br_ip6_multicast_query(struct net_bridge=
- *br,
- 	struct br_ip saddr;
- 	unsigned long max_delay;
- 	unsigned long now =3D jiffies;
-+	unsigned int offset =3D skb_transport_offset(skb);
- 	const struct in6_addr *group =3D NULL;
- 	bool is_general_query;
- 	int err =3D 0;
-@@ -1357,8 +1359,8 @@ static int br_ip6_multicast_query(struct net_bridge=
- *br,
- 	    (port && port->state =3D=3D BR_STATE_DISABLED))
- 		goto out;
-=20
--	if (skb->len =3D=3D sizeof(*mld)) {
--		if (!pskb_may_pull(skb, sizeof(*mld))) {
-+	if (skb->len =3D=3D offset + sizeof(*mld)) {
-+		if (!pskb_may_pull(skb, offset + sizeof(*mld))) {
- 			err =3D -EINVAL;
- 			goto out;
- 		}
-@@ -1367,7 +1369,7 @@ static int br_ip6_multicast_query(struct net_bridge=
- *br,
- 		if (max_delay)
- 			group =3D &mld->mld_mca;
- 	} else {
--		if (!pskb_may_pull(skb, sizeof(*mld2q))) {
-+		if (!pskb_may_pull(skb, offset + sizeof(*mld2q))) {
- 			err =3D -EINVAL;
- 			goto out;
- 		}
---=20
-1.7.10.4
+Or.
