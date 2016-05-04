@@ -1,85 +1,61 @@
-From: Ulf Hansson <ulf.hansson@linaro.org>
-Subject: Re: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
-Date: Wed, 4 May 2016 09:43:38 +0200
-Message-ID: <CAPDyKFoh7mfmMYxVxjG6jrRr6CuGKkuxdeON4yxX3yXFEamikg@mail.gmail.com>
-References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
-	<1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 0/3] gre: receive also TEB packets for lwtunnels
+Date: Wed, 4 May 2016 16:52:53 +0900
+Message-ID: <20160504075250.GA25241@penelope.isobedori.kobe.vergenet.net>
+References: <cover.1462286214.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-mmc <linux-mmc@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-clk <linux-clk@vger.kernel.org>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Mark Rutland <mark.rutland@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	Yang-Leo Li <leoyang.li@nxp.com>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>
-To: Yangbo Lu <yangbo.lu@nxp.com>, Scott Wood <oss@buserror.net>,
-	Qiang Zhao <qiang.zhao@nxp.com>
-Return-path: <linux-i2c-owner@vger.kernel.org>
-In-Reply-To: <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-i2c-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+	pravin shelar <pshelar@ovn.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35099 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757295AbcEDHxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 03:53:01 -0400
+Received: by mail-pa0-f50.google.com with SMTP id iv1so21256773pac.2
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 00:53:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <cover.1462286214.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4 May 2016 at 05:24, Yangbo Lu <yangbo.lu@nxp.com> wrote:
-> Add maintainer entry for Freescale SoC driver including
-> the QE library and the GUTS driver now. Also add maintainer
-> for QE library.
->
-> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+On Tue, May 03, 2016 at 05:10:05PM +0200, Jiri Benc wrote:
+> NOTE: this patchset needs net merged to net-next.
+> 
+> This allows lwtunnel users to get also packets with ETH_P_TEB protocol
+> specified in GRE header through an ipgre interface. There's really nothing
+> special about these packets in the case of lwtunnels - it's just an inner
+> protocol like any other. The only complications stem from keeping
+> compatibility with other uses of GRE.
+> 
+> This will be used by openvswitch to support eth_push and eth_pop actions.
+> I'd also like to see tc support for lwtunnels (this feature included) in the
+> future.
+> 
+> The first patch is not directly related and can be submitted standalone if
+> needed.
 
-So I need an ack from Scott and Qiang for this one, then I intend to
-queue up the series.
+I have exercised this patch-set using Open vSwitch both with
+and without the patchset I posted earlier this afternoon to
+make use of this new feature:
 
-Kind regards
-Uffe
+"[PATCH v9 net-next 0/7] openvswitch: support for layer 3 encapsulated packets"
 
-> ---
-> Changes for v8:
->         - Added this patch
-> Changes for v9:
->         - Added linux-arm mail list
->         - Removed GUTS driver entry
-> ---
->  MAINTAINERS | 11 ++++++++++-
->  1 file changed, 10 insertions(+), 1 deletion(-)
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 42e65d1..ce91db7 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -4622,9 +4622,18 @@ F:       drivers/net/ethernet/freescale/fec_ptp.c
->  F:     drivers/net/ethernet/freescale/fec.h
->  F:     Documentation/devicetree/bindings/net/fsl-fec.txt
->
-> +FREESCALE SOC DRIVER
-> +M:     Scott Wood <oss@buserror.net>
-> +L:     linuxppc-dev@lists.ozlabs.org
-> +L:     linux-arm-kernel@lists.infradead.org
-> +S:     Maintained
-> +F:     drivers/soc/fsl/
-> +F:     include/linux/fsl/
-> +
->  FREESCALE QUICC ENGINE LIBRARY
-> +M:     Qiang Zhao <qiang.zhao@nxp.com>
->  L:     linuxppc-dev@lists.ozlabs.org
-> -S:     Orphan
-> +S:     Maintained
->  F:     drivers/soc/fsl/qe/
->  F:     include/soc/fsl/*qe*.h
->  F:     include/soc/fsl/*ucc*.h
-> --
-> 2.1.0.27.g96db324
->
+All three patches:
+
+Tested-by: Simon Horman <simon.horman@netronome.com>
+
+> Jiri Benc (3):
+>   gre: remove superfluous pskb_may_pull
+>   gre: move iptunnel_pull_header down to ipgre_rcv
+>   gre: receive also TEB packets for lwtunnels
+> 
+>  include/net/ip_tunnels.h |  1 +
+>  net/ipv4/gre_demux.c     |  5 +----
+>  net/ipv4/ip_gre.c        | 48 +++++++++++++++++++++++++++++++++++-------------
+>  3 files changed, 37 insertions(+), 17 deletions(-)
+> 
+> -- 
+> 1.8.3.1
+> 
