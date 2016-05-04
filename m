@@ -1,141 +1,85 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: [PATCH v9 net-next 5/7] openvswitch: add layer 3 support
-	to ovs_packet_cmd_execute()
-Date: Wed,  4 May 2016 16:36:31 +0900
-Message-ID: <1462347393-22354-6-git-send-email-simon.horman@netronome.com>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Subject: Re: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
+Date: Wed, 4 May 2016 09:43:38 +0200
+Message-ID: <CAPDyKFoh7mfmMYxVxjG6jrRr6CuGKkuxdeON4yxX3yXFEamikg@mail.gmail.com>
+References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
+	<1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1462347393-22354-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-mmc <linux-mmc@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-clk <linux-clk@vger.kernel.org>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Mark Rutland <mark.rutland@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>,
+	Yang-Leo Li <leoyang.li@nxp.com>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>
+To: Yangbo Lu <yangbo.lu@nxp.com>, Scott Wood <oss@buserror.net>,
+	Qiang Zhao <qiang.zhao@nxp.com>
+Return-path: <linux-i2c-owner@vger.kernel.org>
+In-Reply-To: <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+Sender: linux-i2c-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTG9yYW5kIEpha2FiIDxsb2pha2FiQGNpc2NvLmNvbT4KCldoZW4gdXNlciBzcGFjZSBo
-YW5kbGVzIGEgcGFja2V0IGJhY2sgdG8gdGhlIGtlcm5lbCBkYXRhcGF0aCBmb3IKZXhlY3V0aW9u
-LCBpdCBpcyBub3QgYWNjb21wYW5pZWQgYnkgdGhlIGZ1bGwgZmxvdyBrZXksIG9ubHkgcGFja2V0
-Cm1ldGFkYXRhLiAgVGhpcyBkb2Vzbid0IGFsbG93IGRldGVjdGlvbiBvZiBwYWNrZXQgdHlwZSAo
-TDIvTDMpLiAgQWRkIHRoZQpPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSBhdHRyaWJ1dGUg
-dG8gdGhlIHBhY2tldCBtZXRhZGF0YSwKY29udGFpbmluZyAwIGZvciBsYXllciAyIHBhY2tldHMg
-YW5kIHRoZSBFdGhlcnR5cGUgZm9yIGxheWVyIDMgcGFja2V0cy4KClNpZ25lZC1vZmYtYnk6IExv
-cmFuZCBKYWthYiA8bG9qYWthYkBjaXNjby5jb20+ClNpZ25lZC1vZmYtYnk6IFNpbW9uIEhvcm1h
-biA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+Ci0tLQp2OSBbU2ltb24gSG9ybWFuXQoqIFJl
-YmFzZQoKdjggW0xvcmFuZCBKYWthYl0KCnY3IFtMb3JhbmQgSmFrYWJdCiogTmV3IHBhdGNoCi0t
-LQogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgMiArKwogbmV0L29wZW52c3dp
-dGNoL2RhdGFwYXRoLmMgICAgICAgfCAxMyArLS0tLS0tLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gv
-Zmxvdy5jICAgICAgICAgICB8ICA1ICsrKystCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5r
-LmMgICB8IDM5ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLQogNCBmaWxl
-cyBjaGFuZ2VkLCAzOCBpbnNlcnRpb25zKCspLCAyMSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
-YS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCBiL2luY2x1ZGUvdWFwaS9saW51eC9v
-cGVudnN3aXRjaC5oCmluZGV4IDUzMTI5YzAzMjczYy4uMmJjMmMxMmNlZDc4IDEwMDY0NAotLS0g
-YS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaAorKysgYi9pbmNsdWRlL3VhcGkvbGlu
-dXgvb3BlbnZzd2l0Y2guaApAQCAtMzI5LDYgKzMyOSw4IEBAIGVudW0gb3ZzX2tleV9hdHRyIHsK
-IAlPVlNfS0VZX0FUVFJfQ1RfWk9ORSwJLyogdTE2IGNvbm5lY3Rpb24gdHJhY2tpbmcgem9uZS4g
-Ki8KIAlPVlNfS0VZX0FUVFJfQ1RfTUFSSywJLyogdTMyIGNvbm5lY3Rpb24gdHJhY2tpbmcgbWFy
-ayAqLwogCU9WU19LRVlfQVRUUl9DVF9MQUJFTFMsCS8qIDE2LW9jdGV0IGNvbm5lY3Rpb24gdHJh
-Y2tpbmcgbGFiZWwgKi8KKwlPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSwgIC8qIGJlMTYg
-RXRoZXJuZXQgdHlwZSBmb3IgcGFja2V0CisJCQkJCSAqIGV4ZWN1dGlvbiAqLwogCiAjaWZkZWYg
-X19LRVJORUxfXwogCU9WU19LRVlfQVRUUl9UVU5ORUxfSU5GTywgIC8qIHN0cnVjdCBpcF90dW5u
-ZWxfaW5mbyAqLwpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgYi9uZXQv
-b3BlbnZzd2l0Y2gvZGF0YXBhdGguYwppbmRleCA4NTZiZDhkYmE2NzYuLjc4MDk1N2U3OGQyYiAx
-MDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKKysrIGIvbmV0L29wZW52c3dp
-dGNoL2RhdGFwYXRoLmMKQEAgLTU0Niw3ICs1NDYsNiBAQCBzdGF0aWMgaW50IG92c19wYWNrZXRf
-Y21kX2V4ZWN1dGUoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykK
-IAlzdHJ1Y3Qgc3dfZmxvdyAqZmxvdzsKIAlzdHJ1Y3Qgc3dfZmxvd19hY3Rpb25zICpzZl9hY3Rz
-OwogCXN0cnVjdCBkYXRhcGF0aCAqZHA7Ci0Jc3RydWN0IGV0aGhkciAqZXRoOwogCXN0cnVjdCB2
-cG9ydCAqaW5wdXRfdnBvcnQ7CiAJdTE2IG1ydSA9IDA7CiAJaW50IGxlbjsKQEAgLTU2NywxNyAr
-NTY2LDYgQEAgc3RhdGljIGludCBvdnNfcGFja2V0X2NtZF9leGVjdXRlKHN0cnVjdCBza19idWZm
-ICpza2IsIHN0cnVjdCBnZW5sX2luZm8gKmluZm8pCiAKIAlubGFfbWVtY3B5KF9fc2tiX3B1dChw
-YWNrZXQsIGxlbiksIGFbT1ZTX1BBQ0tFVF9BVFRSX1BBQ0tFVF0sIGxlbik7CiAKLQlza2JfcmVz
-ZXRfbWFjX2hlYWRlcihwYWNrZXQpOwotCWV0aCA9IGV0aF9oZHIocGFja2V0KTsKLQotCS8qIE5v
-cm1hbGx5LCBzZXR0aW5nIHRoZSBza2IgJ3Byb3RvY29sJyBmaWVsZCB3b3VsZCBiZSBoYW5kbGVk
-IGJ5IGEKLQkgKiBjYWxsIHRvIGV0aF90eXBlX3RyYW5zKCksIGJ1dCBpdCBhc3N1bWVzIHRoZXJl
-J3MgYSBzZW5kaW5nCi0JICogZGV2aWNlLCB3aGljaCB3ZSBtYXkgbm90IGhhdmUuICovCi0JaWYg
-KGV0aF9wcm90b19pc184MDJfMyhldGgtPmhfcHJvdG8pKQotCQlwYWNrZXQtPnByb3RvY29sID0g
-ZXRoLT5oX3Byb3RvOwotCWVsc2UKLQkJcGFja2V0LT5wcm90b2NvbCA9IGh0b25zKEVUSF9QXzgw
-Ml8yKTsKLQogCS8qIFNldCBwYWNrZXQncyBtcnUgKi8KIAlpZiAoYVtPVlNfUEFDS0VUX0FUVFJf
-TVJVXSkgewogCQltcnUgPSBubGFfZ2V0X3UxNihhW09WU19QQUNLRVRfQVRUUl9NUlVdKTsKQEAg
-LTYwNCw2ICs1OTIsNyBAQCBzdGF0aWMgaW50IG92c19wYWNrZXRfY21kX2V4ZWN1dGUoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykKIAlyY3VfYXNzaWduX3BvaW50
-ZXIoZmxvdy0+c2ZfYWN0cywgYWN0cyk7CiAJcGFja2V0LT5wcmlvcml0eSA9IGZsb3ctPmtleS5w
-aHkucHJpb3JpdHk7CiAJcGFja2V0LT5tYXJrID0gZmxvdy0+a2V5LnBoeS5za2JfbWFyazsKKwlw
-YWNrZXQtPnByb3RvY29sID0gZmxvdy0+a2V5LmV0aC50eXBlOwogCiAJcmN1X3JlYWRfbG9jaygp
-OwogCWRwID0gZ2V0X2RwX3JjdShuZXQsIG92c19oZWFkZXItPmRwX2lmaW5kZXgpOwpkaWZmIC0t
-Z2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKaW5k
-ZXggNmUxNzRlYTVmMmJiLi5kMzIwYzI2NTc2MjcgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRj
-aC9mbG93LmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwpAQCAtNDcxLDcgKzQ3MSw2IEBA
-IHN0YXRpYyBpbnQga2V5X2V4dHJhY3Qoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zs
-b3dfa2V5ICprZXkpCiAJLyogTGluayBsYXllci4gKi8KIAlpZiAoa2V5LT5waHkuaXNfbGF5ZXIz
-KSB7CiAJCWtleS0+ZXRoLnRjaSA9IDA7Ci0JCWtleS0+ZXRoLnR5cGUgPSBza2ItPnByb3RvY29s
-OwogCX0gZWxzZSB7CiAJCWV0aCA9IGV0aF9oZHIoc2tiKTsKIAkJZXRoZXJfYWRkcl9jb3B5KGtl
-eS0+ZXRoLnNyYywgZXRoLT5oX3NvdXJjZSk7CkBAIC02OTMsNiArNjkyLDggQEAgc3RhdGljIGlu
-dCBrZXlfZXh0cmFjdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtl
-eSkKIAogaW50IG92c19mbG93X2tleV91cGRhdGUoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0
-IHN3X2Zsb3dfa2V5ICprZXkpCiB7CisJa2V5LT5ldGgudHlwZSA9IHNrYi0+cHJvdG9jb2w7CisK
-IAlyZXR1cm4ga2V5X2V4dHJhY3Qoc2tiLCBrZXkpOwogfQogCkBAIC03NDcsNiArNzQ4LDggQEAg
-aW50IG92c19mbG93X2tleV9leHRyYWN0KGNvbnN0IHN0cnVjdCBpcF90dW5uZWxfaW5mbyAqdHVu
-X2luZm8sCiAKIAlpZiAoaXNfdGViKQogCQlza2ItPnByb3RvY29sID0ga2V5LT5ldGgudHlwZTsK
-KwllbHNlIGlmIChpc19sYXllcjMpCisJCWtleS0+ZXRoLnR5cGUgPSBza2ItPnByb3RvY29sOwog
-CiAJcmV0dXJuIGVycjsKIH0KZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
-bmsuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwppbmRleCBkMGVmNGZhNjliZWEu
-LjJiY2ExZTVlOWExOCAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5j
-CisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwpAQCAtMjg2LDcgKzI4Niw3IEBA
-IHNpemVfdCBvdnNfa2V5X2F0dHJfc2l6ZSh2b2lkKQogCS8qIFdoZW5ldmVyIGFkZGluZyBuZXcg
-T1ZTX0tFWV8gRklFTERTLCB3ZSBzaG91bGQgY29uc2lkZXIKIAkgKiB1cGRhdGluZyB0aGlzIGZ1
-bmN0aW9uLgogCSAqLwotCUJVSUxEX0JVR19PTihPVlNfS0VZX0FUVFJfVFVOTkVMX0lORk8gIT0g
-MjYpOworCUJVSUxEX0JVR19PTihPVlNfS0VZX0FUVFJfVFVOTkVMX0lORk8gIT0gMjcpOwogCiAJ
-cmV0dXJuICAgIG5sYV90b3RhbF9zaXplKDQpICAgLyogT1ZTX0tFWV9BVFRSX1BSSU9SSVRZICov
-CiAJCSsgbmxhX3RvdGFsX3NpemUoMCkgICAvKiBPVlNfS0VZX0FUVFJfVFVOTkVMICovCkBAIC0z
-NTksNiArMzU5LDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBvdnNfbGVuX3RibCBvdnNfa2V5X2xl
-bnNbT1ZTX0tFWV9BVFRSX01BWCArIDFdID0gewogCVtPVlNfS0VZX0FUVFJfQ1RfWk9ORV0JID0g
-eyAubGVuID0gc2l6ZW9mKHUxNikgfSwKIAlbT1ZTX0tFWV9BVFRSX0NUX01BUktdCSA9IHsgLmxl
-biA9IHNpemVvZih1MzIpIH0sCiAJW09WU19LRVlfQVRUUl9DVF9MQUJFTFNdID0geyAubGVuID0g
-c2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVscykgfSwKKwlbT1ZTX0tFWV9BVFRSX1BBQ0tF
-VF9FVEhFUlRZUEVdID0geyAubGVuID0gc2l6ZW9mKF9fYmUxNikgfSwKIH07CiAKIHN0YXRpYyBi
-b29sIGNoZWNrX2F0dHJfbGVuKHVuc2lnbmVkIGludCBhdHRyX2xlbiwgdW5zaWduZWQgaW50IGV4
-cGVjdGVkX2xlbikKQEAgLTgxNiw2ICs4MTcsOCBAQCBzdGF0aWMgaW50IG1ldGFkYXRhX2Zyb21f
-bmxhdHRycyhzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93X21hdGNoICptYXRjaCwKIAkJ
-CQkgdTY0ICphdHRycywgY29uc3Qgc3RydWN0IG5sYXR0ciAqKmEsCiAJCQkJIGJvb2wgaXNfbWFz
-aywgYm9vbCBsb2cpCiB7CisJYm9vbCBpc19sYXllcjM7CisKIAlpZiAoKmF0dHJzICYgKDEgPDwg
-T1ZTX0tFWV9BVFRSX0RQX0hBU0gpKSB7CiAJCXUzMiBoYXNoX3ZhbCA9IG5sYV9nZXRfdTMyKGFb
-T1ZTX0tFWV9BVFRSX0RQX0hBU0hdKTsKIApAQCAtOTAyLDE1ICs5MDUsMzUgQEAgc3RhdGljIGlu
-dCBtZXRhZGF0YV9mcm9tX25sYXR0cnMoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19t
-YXRjaCAqbWF0Y2gsCiAJCQkJICAgc2l6ZW9mKCpjbCksIGlzX21hc2spOwogCQkqYXR0cnMgJj0g
-figxVUxMIDw8IE9WU19LRVlfQVRUUl9DVF9MQUJFTFMpOwogCX0KLQlpZiAoaXNfbWFzaykgewor
-CisJLyogRm9yIGZ1bGwgZmxvdyBrZXlzIHRoZSBsYXllciBpcyBkZXRlcm1pbmVkIGJhc2VkIG9u
-IHRoZSBwcmVzZW5jZSBvZgorCSAqIE9WU19LRVlfQVRUUl9FVEhFUk5FVAorCSAqLworCWlmIChp
-c19tYXNrKQogCQkvKiBBbHdheXMgZXhhY3QgbWF0Y2ggaXNfbGF5ZXIzICovCi0JCVNXX0ZMT1df
-S0VZX1BVVChtYXRjaCwgcGh5LmlzX2xheWVyMywgdHJ1ZSwgaXNfbWFzayk7Ci0JfSBlbHNlIHsK
-LQkJaWYgKCphdHRycyAmICgxVUxMIDw8IE9WU19LRVlfQVRUUl9FVEhFUk5FVCkpCi0JCQlTV19G
-TE9XX0tFWV9QVVQobWF0Y2gsIHBoeS5pc19sYXllcjMsIGZhbHNlLCBpc19tYXNrKTsKLQkJZWxz
-ZQotCQkJU1dfRkxPV19LRVlfUFVUKG1hdGNoLCBwaHkuaXNfbGF5ZXIzLCB0cnVlLCBpc19tYXNr
-KTsKKwkJaXNfbGF5ZXIzID0gdHJ1ZTsKKwllbHNlCisJCWlzX2xheWVyMyA9ICAhKCphdHRycyAm
-ICgxVUxMIDw8IE9WU19LRVlfQVRUUl9FVEhFUk5FVCkpOworCS8qIFBhY2tldHMgZnJvbSB1c2Vy
-IHNwYWNlIGZvciBleGVjdXRpb24gb25seSBoYXZlIG1ldGFkYXRhIGtleQorCSAqIGF0dHJpYnV0
-ZXMuICBPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSBpcyB0aGVuIHVzZWQgdG8gc3BlY2lm
-eQorCSAqIHRoZSBzdGFydGluZyBsYXllciBvZiB0aGUgcGFja2V0LiAgUGFja2V0cyB3aXRoIEV0
-aGVybmV0IGhlYWRlcnMKKwkgKiBoYXZlIHRoaXMgYXR0cmlidXRlIHNldCB0byAwCisJICovCisJ
-aWYgKCphdHRycyAmICgxVUxMIDw8IE9WU19LRVlfQVRUUl9QQUNLRVRfRVRIRVJUWVBFKSkgewor
-CQlfX2JlMTYgZXRoX3R5cGU7CisKKwkJaWYgKGlzX21hc2spIHsKKwkJCS8qIEFsd2F5cyBleGFj
-dCBtYXRjaCBwYWNrZXQgRXRoZXJUeXBlICovCisJCQlldGhfdHlwZSA9IGh0b25zKDB4ZmZmZik7
-CisJCX0gZWxzZSB7CisJCQlldGhfdHlwZSA9IG5sYV9nZXRfYmUxNihhW09WU19LRVlfQVRUUl9Q
-QUNLRVRfRVRIRVJUWVBFXSk7CisJCQlpc19sYXllcjMgPSAoKGV0aF90eXBlID09IGh0b25zKEVU
-SF9QX0lQKSkgfHwKKwkJCQkgICAgIChldGhfdHlwZSA9PSBodG9ucyhFVEhfUF9JUFY2KSkpOwor
-CQl9CisJCVNXX0ZMT1dfS0VZX1BVVChtYXRjaCwgZXRoLnR5cGUsIGV0aF90eXBlLCBpc19tYXNr
-KTsKIAl9CisKKwlTV19GTE9XX0tFWV9QVVQobWF0Y2gsIHBoeS5pc19sYXllcjMsIGlzX2xheWVy
-MywgaXNfbWFzayk7CiAJcmV0dXJuIDA7CiB9CiAKLS0gCjIuNy4wLnJjMy4yMDcuZzBhYzUzNDQK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
-aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
-YW4vbGlzdGluZm8vZGV2Cg==
+On 4 May 2016 at 05:24, Yangbo Lu <yangbo.lu@nxp.com> wrote:
+> Add maintainer entry for Freescale SoC driver including
+> the QE library and the GUTS driver now. Also add maintainer
+> for QE library.
+>
+> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+
+So I need an ack from Scott and Qiang for this one, then I intend to
+queue up the series.
+
+Kind regards
+Uffe
+
+> ---
+> Changes for v8:
+>         - Added this patch
+> Changes for v9:
+>         - Added linux-arm mail list
+>         - Removed GUTS driver entry
+> ---
+>  MAINTAINERS | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 42e65d1..ce91db7 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -4622,9 +4622,18 @@ F:       drivers/net/ethernet/freescale/fec_ptp.c
+>  F:     drivers/net/ethernet/freescale/fec.h
+>  F:     Documentation/devicetree/bindings/net/fsl-fec.txt
+>
+> +FREESCALE SOC DRIVER
+> +M:     Scott Wood <oss@buserror.net>
+> +L:     linuxppc-dev@lists.ozlabs.org
+> +L:     linux-arm-kernel@lists.infradead.org
+> +S:     Maintained
+> +F:     drivers/soc/fsl/
+> +F:     include/linux/fsl/
+> +
+>  FREESCALE QUICC ENGINE LIBRARY
+> +M:     Qiang Zhao <qiang.zhao@nxp.com>
+>  L:     linuxppc-dev@lists.ozlabs.org
+> -S:     Orphan
+> +S:     Maintained
+>  F:     drivers/soc/fsl/qe/
+>  F:     include/soc/fsl/*qe*.h
+>  F:     include/soc/fsl/*ucc*.h
+> --
+> 2.1.0.27.g96db324
+>
