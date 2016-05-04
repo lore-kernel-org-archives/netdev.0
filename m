@@ -1,62 +1,76 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: only clear a queue's work bit if the queue was
- emptied
-Date: Wed, 4 May 2016 02:12:23 +0000
-Message-ID: <VI1PR0401MB1855C25037E3E730B678B6EBFF7B0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v9, 0/7] Fix eSDHC host version register bug
+Date: Wed, 4 May 2016 11:24:27 +0800
+Message-ID: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?utf-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
-	<u.kleine-koenig@pengutronix.de>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0083.outbound.protection.outlook.com ([157.56.112.83]:43776
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756438AbcEDCM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2016 22:12:27 -0400
-In-Reply-To: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, Bhupesh
+	Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, xiaobo.xie-3arQi8VN3Tc@public.gmane.org,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVXdlIEtsZWluZS1Lw7ZuaWcgPHUua2xlaW5lLWtvZW5pZ0BwZW5ndXRyb25peC5kZT4g
-U2VudDogVHVlc2RheSwgTWF5IDAzLCAyMDE2IDEwOjM5IFBNDQo+IFRvOiBGdWdhbmcgRHVhbiA8
-ZnVnYW5nLmR1YW5AbnhwLmNvbT47IERhdmlkIFMgLiBNaWxsZXINCj4gPGRhdmVtQGRhdmVtbG9m
-dC5uZXQ+DQo+IENjOiBrZXJuZWxAcGVuZ3V0cm9uaXguZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gU3ViamVjdDogW1BBVENIXSBuZXQ6IGZlYzogb25seSBjbGVhciBhIHF1ZXVlJ3Mgd29y
-ayBiaXQgaWYgdGhlIHF1ZXVlIHdhcw0KPiBlbXB0aWVkDQo+IA0KPiBJbiB0aGUgcmVjZWl2ZSBw
-YXRoIGEgcXVldWUncyB3b3JrIGJpdCB3YXMgY2xlYXJlZCB1bmNvbmRpdGlvbmFsbHkgZXZlbiBp
-Zg0KPiBmZWNfZW5ldF9yeF9xdWV1ZSBvbmx5IHJlYWQgb3V0IGEgcGFydCBvZiB0aGUgYXZhaWxh
-YmxlIHBhY2tldHMgZnJvbSB0aGUNCj4gaGFyZHdhcmUuIFRoaXMgcmVzdWx0ZWQgaW4gbm90IHJl
-YWRpbmcgYW55IHBhY2tldHMgaW4gdGhlIG5leHQgbmFwaSB0dXJuIGFuZCBzbw0KPiBwYWNrZXRz
-IHdlcmUgZGVsYXllZCBvciBsb3N0Lg0KPiANCj4gVGhlIG9idmlvdXMgZml4IGlzIHRvIG9ubHkg
-Y2xlYXIgYSBxdWV1ZSdzIGJpdCB3aGVuIHRoZSBxdWV1ZSB3YXMgZW1wdGllZC4NCj4gDQo+IEZp
-eGVzOiA0ZDQ5NGNkYzkyYjMgKCJuZXQ6IGZlYzogY2hhbmdlIGRhdGEgc3RydWN0dXJlIHRvIHN1
-cHBvcnQgbXVsdGlxdWV1ZSIpDQo+IFNpZ25lZC1vZmYtYnk6IFV3ZSBLbGVpbmUtS8O2bmlnIDx1
-LmtsZWluZS1rb2VuaWdAcGVuZ3V0cm9uaXguZGU+DQo+IC0tLQ0KPiBIZWxsbywNCj4gDQo+IEkg
-Y3JlYXRlZCB0aGlzIHBhdGNoIGFnYWluc3QgbmV0L21hc3Rlci4gSWYgeW91IHRoaW5rIGl0J3Mg
-dG8gbGF0ZSB0byBnZXQgaXQgaW50byA0LjYNCj4gYW5kIGl0IGRvZXNuJ3QgZml0IG9uIG5ldC1u
-ZXh0L21hc3RlciwganVzdCB0ZWxsIG1lIGFuZCBJIHdpbGwgcmViYXNlLg0KPiANCj4gQmVzdCBy
-ZWdhcmRzDQo+IFV3ZQ0KPiANCj4gDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
-ZmVjX21haW4uYyB8IDEwICsrKysrKysrLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCA4IGluc2VydGlv
-bnMoKyksIDIgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
-c2NhbGUvZmVjX21haW4uYw0KPiBpbmRleCAwODI0M2MyZmY0YjQuLjJhMDM4NTdjY2ExOCAxMDA2
-NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4g
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gQEAgLTE1
-MjEsOSArMTUyMSwxNSBAQCBmZWNfZW5ldF9yeChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwgaW50
-IGJ1ZGdldCkNCj4gIAlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwID0gbmV0ZGV2X3ByaXYo
-bmRldik7DQo+IA0KPiAgCWZvcl9lYWNoX3NldF9iaXQocXVldWVfaWQsICZmZXAtPndvcmtfcngs
-IEZFQ19FTkVUX01BWF9SWF9RUykgew0KPiAtCQljbGVhcl9iaXQocXVldWVfaWQsICZmZXAtPndv
-cmtfcngpOw0KPiAtCQlwa3RfcmVjZWl2ZWQgKz0gZmVjX2VuZXRfcnhfcXVldWUobmRldiwNCj4g
-KwkJaW50IHJldDsNCj4gKw0KPiArCQlyZXQgPSBmZWNfZW5ldF9yeF9xdWV1ZShuZGV2LA0KPiAg
-CQkJCQlidWRnZXQgLSBwa3RfcmVjZWl2ZWQsIHF1ZXVlX2lkKTsNCj4gKw0KPiArCQlpZiAocmV0
-IDwgYnVkZ2V0IC0gcGt0X3JlY2VpdmVkKQ0KPiArCQkJY2xlYXJfYml0KHF1ZXVlX2lkLCAmZmVw
-LT53b3JrX3J4KTsNCj4gKw0KPiArCQlwa3RfcmVjZWl2ZWQgKz0gcmV0Ow0KPiAgCX0NCj4gIAly
-ZXR1cm4gcGt0X3JlY2VpdmVkOw0KPiAgfQ0KPiAtLQ0KPiAyLjguMC5yYzMNCg0KVGVzdGVkLWJ5
-OiBGdWdhbmcgRHVhbiA8ZnVnYW5nLmR1YW5AbnhwLmNvbT4NCkFja2VkLWJ5OiBGdWdhbmcgRHVh
-biA8ZnVnYW5nLmR1YW5AbnhwLmNvbT4NCg==
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To get the SoC version and revision, it's needed to add the
+GUTS driver to access the global utilities registers.
+
+So, the first four patches are to add the GUTS driver.
+The following patches except the updating MAINTAINERS patch are to enable
+GUTS driver support to get SVR in eSDHC driver and fix host version for T4240.
+
+Yangbo Lu (7):
+  Documentation: DT: update Freescale DCFG compatible
+  ARM64: dts: ls2080a: add device configuration node
+  soc: fsl: add GUTS driver for QorIQ platforms
+  dt: move guts devicetree doc out of powerpc directory
+  powerpc/fsl: move mpc85xx.h to include/linux/fsl
+  MAINTAINERS: add entry for Freescale SoC driver
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+
+ Documentation/devicetree/bindings/arm/fsl.txt      |   6 +-
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ MAINTAINERS                                        |  11 +-
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+ drivers/clk/clk-qoriq.c                            |   3 +-
+ drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+ drivers/iommu/fsl_pamu.c                           |   3 +-
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
+ drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+ drivers/soc/Kconfig                                |   2 +-
+ drivers/soc/fsl/Kconfig                            |   8 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++
+ include/linux/fsl/guts.h                           | 126 +++++++++++++--------
+ .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+ 17 files changed, 262 insertions(+), 60 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
+
+-- 
+2.1.0.27.g96db324
