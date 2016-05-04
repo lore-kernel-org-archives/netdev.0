@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] gre: receive also TEB packets for
- lwtunnels
-Date: Wed, 04 May 2016 14:11:50 -0400 (EDT)
-Message-ID: <20160504.141150.1172239925654406356.davem@davemloft.net>
-References: <cover.1462286214.git.jbenc@redhat.com>
+Subject: Re: [PATCH] gre6: add Kconfig dependency for NET_IPGRE_DEMUX
+Date: Wed, 04 May 2016 14:12:54 -0400 (EDT)
+Message-ID: <20160504.141254.2216695965556907500.davem@davemloft.net>
+References: <1462288817-721172-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, pshelar@ovn.org,
-	simon.horman@netronome.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41147 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755180AbcEDSLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:11:53 -0400
-In-Reply-To: <cover.1462286214.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, tom@herbertland.com, hakke_007@gmx.de,
+	pabeni@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462288817-721172-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue,  3 May 2016 17:10:05 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue,  3 May 2016 17:19:57 +0200
 
-> NOTE: this patchset needs net merged to net-next.
-
-Noted.
-
-> This allows lwtunnel users to get also packets with ETH_P_TEB protocol
-> specified in GRE header through an ipgre interface. There's really nothing
-> special about these packets in the case of lwtunnels - it's just an inner
-> protocol like any other. The only complications stem from keeping
-> compatibility with other uses of GRE.
+> The ipv6 gre implementation was cleaned up to share more code
+> with the ipv4 version, but it can be enabled even when NET_IPGRE_DEMUX
+> is disabled, resulting in a link error:
 > 
-> This will be used by openvswitch to support eth_push and eth_pop actions.
-> I'd also like to see tc support for lwtunnels (this feature included) in the
-> future.
+> net/built-in.o: In function `gre_rcv':
+> :(.text+0x17f5d0): undefined reference to `gre_parse_header'
+> ERROR: "gre_parse_header" [net/ipv6/ip6_gre.ko] undefined!
 > 
-> The first patch is not directly related and can be submitted standalone if
-> needed.
+> This adds a Kconfig dependency to prevent that now invalid
+> configuration.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 308edfdf1563 ("gre6: Cleanup GREv6 receive path, call common GRE functions")
 
-Series applied, thanks Jiri.
+Applied, thanks.
