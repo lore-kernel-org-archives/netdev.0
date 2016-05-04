@@ -1,67 +1,51 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: [PATCH v9 net-next 0/7] openvswitch: support for layer 3
-	encapsulated packets
-Date: Wed,  4 May 2016 16:36:26 +0900
-Message-ID: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH v9 net-next 2/7] openvswitch: set skb protocol when receiving on internal device
+Date: Wed,  4 May 2016 16:36:28 +0900
+Message-ID: <1462347393-22354-3-git-send-email-simon.horman@netronome.com>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+Cc: Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org, dev@openvswitch.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34185 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757240AbcEDHg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 03:36:56 -0400
+Received: by mail-pa0-f50.google.com with SMTP id r5so21734055pag.1
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 00:36:56 -0700 (PDT)
+In-Reply-To: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QXQgdGhlIGNvcmUgb2YgdGhpcyBwYXRjaCBzZXQgaXMgcmVtb3ZpbmcgdGhlIGFzc3VtcHRpb24g
-aW4gT3BlbiB2U3dpdGNoCmRhdGFwYXRoIHRoYXQgYWxsIHBhY2tldHMgaGF2ZSBFdGhlcm5ldCBo
-ZWFkZXIuICBTdXBwb3J0IGZvciBsYXllciAzIEdSRQp0dW5uZWxzIGlzIGFsc28gYWRkZWQgYnkg
-dGhpcyBwYXRjaHNldC4KClRoZSBpbXBsZW1lbnRhdGlvbiByZWxpZXMgb24gdGhlIHByZXNlbmNl
-IG9mIHBvcF9ldGggYW5kIHB1c2hfZXRoIGFjdGlvbnMKaW4gZGF0YXBhdGggZmxvd3MgdG8gZmFj
-aWxpdGF0ZSBhZGRpbmcgYW5kIHJlbW92aW5nIEV0aGVybmV0IGhlYWRlcnMgYXMKYXBwcm9wcmlh
-dGUuIFRoZSBjb25zdHJ1Y3Rpb24gb2Ygc3VjaCBmbG93cyBpcyBsZWZ0IHVwIHRvIHVzZXItc3Bh
-Y2UuCgpUaGlzIHNlcmllcyBpcyBiYXNlZCBvbiB3b3JrIGJ5IExvcmFuZCBKYWthYiwgVGhvbWFz
-IE1vcmluIGFuZCBvdGhlcnMuCgoKVGhpcyBwYXRjaCBzZXQgaXMgY29tcHJpc2VkIG9mIGtlcm5l
-bCBwYXRjaGVzIGFnYWluc3QgbmV0LW5leHQuCkl0IGRlcGVuZHMgb246CgogICAgIltQQVRDSCBu
-ZXQtbmV4dCAwLzNdIGdyZTogcmVjZWl2ZSBhbHNvIFRFQiBwYWNrZXRzIGZvciBsd3R1bm5lbHMi
-CgpUbyBhaWQgcmV2aWV3IGl0IGFuZCB0aGUgYWJvdmUgZGVwZW5kZW5jeSBpcyBhdmFpbGFibGUg
-YXQ6CgogICAgdHJlZTogaHR0cHM6Ly9naXRodWIuY29tL2hvcm1zL29wZW52c3dpdGNoCiAgICBi
-cmFuY2g6IG1lL2wzLXZwbgogICAgdGFnOiBsMy12cG4tdjkKClRoZXJlIGlzIGEgY29tcGFuaW9u
-IHBhdGNoIHNldCBmb3IgdGhlIE9wZW4gdlN3aXRjaCB1c2VyLXNwYWNlIGNvZGUKd2hpY2ggSSB3
-aWxsIHBvc3Qgc2VwYXJhdGVseSB0byB0aGUgZGV2QG9wZW52c3dpdGNoLm9yZyBtYWlsaW5nIGxp
-c3QgYXM6CgogICAgIltQQVRDSCB2MTAgMC81XSB1c2Vyc3BhY2U6IFN1cHBvcnQgZm9yIGxheWVy
-IDMgZW5jYXBzdWxhdGVkIHBhY2tldHMiCgoKCkxvcmFuZCBKYWthYiAoMSk6CiAgb3BlbnZzd2l0
-Y2g6IGFkZCBsYXllciAzIGZsb3cvcG9ydCBzdXBwb3J0CgpTaW1vbiBIb3JtYW4gKDYpOgogIG5l
-dDogYWRkIHNrYl92bGFuX2RlYWNjZWwgaGVscGVyCiAgb3BlbnZzd2l0Y2g6IHNldCBza2IgcHJv
-dG9jb2wgd2hlbiByZWNlaXZpbmcgb24gaW50ZXJuYWwgZGV2aWNlCiAgb3BlbnZzd2l0Y2g6IGFk
-ZCBzdXBwb3J0IHRvIHB1c2ggYW5kIHBvcCBtcGxzIGZvciBsYXllcjMgcGFja2V0cwogIG9wZW52
-c3dpdGNoOiBhZGQgbGF5ZXIgMyBzdXBwb3J0IHRvIG92c19wYWNrZXRfY21kX2V4ZWN1dGUoKQog
-IG9wZW52c3dpdGNoOiBleHRlbmQgbGF5ZXIgMyBzdXBwb3J0IHRvIGNvdmVyIG5vbi1JUCBwYWNr
-ZXRzCiAgb3BlbnZzd2l0Y2g6IHVzZSBpcGdyZSB0dW5uZWwgcmF0aGVyIHRoYW4gZ3JldGFwIHR1
-bm5lbAoKIGluY2x1ZGUvbGludXgvc2tidWZmLmggICAgICAgICAgICAgICB8ICAgMSArCiBpbmNs
-dWRlL25ldC9ncmUuaCAgICAgICAgICAgICAgICAgICAgfCAgIDQgKy0KIGluY2x1ZGUvdWFwaS9s
-aW51eC9vcGVudnN3aXRjaC5oICAgICB8ICAxNCArKysKIG5ldC9jb3JlL3NrYnVmZi5jICAgICAg
-ICAgICAgICAgICAgICB8ICA1MCArKysrKy0tLS0KIG5ldC9pcHY0L2lwX2dyZS5jICAgICAgICAg
-ICAgICAgICAgICB8ICAgOCArLQogbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYyAgICAgICAgICAg
-IHwgIDcwICsrKysrKysrKystLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgICAgICAg
-IHwgIDEzICstLQogbmV0L29wZW52c3dpdGNoL2Zsb3cuYyAgICAgICAgICAgICAgIHwgIDY2ICsr
-KysrKysrLS0tLQogbmV0L29wZW52c3dpdGNoL2Zsb3cuaCAgICAgICAgICAgICAgIHwgICA0ICst
-CiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgICAgICAgfCAyMDAgKysrKysrKysrKysr
-KysrKysrKysrKysrKy0tLS0tLS0tLS0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYyAg
-ICAgICB8ICAgMiArLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jICAgICAgICAgIHwgICA0
-ICstCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgfCAgIDggKysKIG5ldC9v
-cGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYyAgICAgICB8ICAzMSArKysrKy0KIG5ldC9vcGVudnN3
-aXRjaC92cG9ydC1uZXRkZXYuaCAgICAgICB8ICAgMyArCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQt
-dnhsYW4uYyAgICAgICAgfCAgIDIgKy0KIDE2IGZpbGVzIGNoYW5nZWQsIDM1MCBpbnNlcnRpb25z
-KCspLCAxMzAgZGVsZXRpb25zKC0pCgotLSAKMi43LjAucmMzLjIwNy5nMGFjNTM0NAoKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlz
-dApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0
-aW5mby9kZXYK
+Set skb protocol based on contents of packet. I have observed this is
+necessary to get actual protocol of a packet when it is injected into an
+internal device e.g. by libnet in which case skb protocol will be set to
+ETH_ALL.
+
+The motivation for this is that support for outputting to layer 3 (non-tap)
+GRE tunnels as implemented by a subsequent patch depends on protocol being
+set correctly in order to provide the protocol for the inner packet.
+
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+
+---
+v9
+* New patch
+---
+ net/openvswitch/vport-internal_dev.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 2ee48e447b72..4ce2ad8c3a5c 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -48,6 +48,8 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	int len, err;
+ 
++	skb->protocol = eth_type_trans(skb, netdev);
++	skb_push(skb, ETH_HLEN);
+ 	len = skb->len;
+ 	rcu_read_lock();
+ 	err = ovs_vport_receive(internal_dev_priv(netdev)->vport, skb, NULL);
+-- 
+2.7.0.rc3.207.g0ac5344
