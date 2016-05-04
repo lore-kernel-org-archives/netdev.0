@@ -1,40 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 20160504
-Date: Wed, 04 May 2016 16:30:24 -0400 (EDT)
-Message-ID: <20160504.163024.711677182894548163.davem@davemloft.net>
-References: <1462314230-16257-1-git-send-email-a@unstable.cc>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2016-05-04
+Date: Wed, 04 May 2016 16:48:28 -0400 (EDT)
+Message-ID: <20160504.164828.439672981604295842.davem@davemloft.net>
+References: <1462340454-27922-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: a@unstable.cc
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1462314230-16257-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43251 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753481AbcEDUsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 16:48:31 -0400
+In-Reply-To: <1462340454-27922-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Wed,  4 May 2016 06:23:35 +0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 4 May 2016 07:40:51 +0200
 
-> this is a pull request intended for net-next.
+> 1) The flowcache can hit an OOM condition if too
+>    many entries are in the gc_list. Fix this by
+>    counting the entries in the gc_list and refuse
+>    new allocations if the value is too high.
 > 
-> In this batch you don't have any patch that depends on our fixes,
-> therefore you can safely merge it even if the net tree has not been
-> merged yet.
+> 2) The inner headers are invalid after a xfrm transformation,
+>    so reset the skb encapsulation field to ensure nobody tries
+>    access the inner headers. Otherwise tunnel devices stacked
+>    on top of xfrm may build the outer headers based on wrong
+>    informations.
 > 
-> In this patchset you basically have some cleanup work, code refactoring,
-> style fixes and two updates for the MAINTAINERS file.
+> 3) Add pmtu handling to vti, we need it to report
+>    pmtu informations for local generated packets.
 > 
-> Please pull or let me know of any problem!
+> Please pull or let me know if there are problems.
 
-Pulled, thanks Antonio.
+Pulled, thanks Steffen.
+
+While build testing this I was worried that it might be possible
+to create a situation where IP_VTI=y yet IPV6=m and therefore have
+a unresolvable reference to icmpv6_send().
+
+However I was not able to create such a configuration, as hard as
+I tried. :-)
