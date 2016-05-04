@@ -1,100 +1,82 @@
-From: "Evgeny Cherkashin" <Eugene.Crosser@ru.ibm.com>
-Subject: Re: [PATCH net] igmp: fix byte order in /proc/net/igmp output
-Date: Wed, 4 May 2016 13:35:51 +0000
-Message-ID: <201605041336.u44DaCGZ029899@d06av12.portsmouth.uk.ibm.com>
-References: <1462367616.5535.340.camel@edumazet-glaptop3.roam.corp.google.com>,<1462363884-34968-1-git-send-email-Eugene.Crosser@ru.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: crosser@average.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] net: bridge: fix old ioctl unlocked net device walk
+Date: Wed,  4 May 2016 16:18:45 +0200
+Message-ID: <1462371525-26786-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp05.uk.ibm.com ([195.75.94.101]:37245 "EHLO
-	e06smtp05.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026AbcEDNg3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 09:36:29 -0400
-Received: from localhost
-	by e06smtp05.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
-	Wed, 4 May 2016 14:36:26 +0100
-Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
-	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 43F1E1B08074
-	for <netdev@vger.kernel.org>; Wed,  4 May 2016 14:37:06 +0100 (BST)
-Received: from d06av12.portsmouth.uk.ibm.com (d06av12.portsmouth.uk.ibm.com [9.149.37.247])
-	by b06cxnps4076.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u44DaFZf393568
-	for <netdev@vger.kernel.org>; Wed, 4 May 2016 13:36:15 GMT
-Received: from d06av12.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av12.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u44DaFcS029935
-	for <netdev@vger.kernel.org>; Wed, 4 May 2016 07:36:15 -0600
-Received: from d50lp32.co.us.ibm.com (d50lp32.boulder.ibm.com [9.17.249.36])
-	by d06av12.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id u44DaCGZ029899
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 4 May 2016 07:36:14 -0600
-Received: from localhost
-	by d50lp32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
-	Wed, 4 May 2016 07:36:12 -0600
-Received: from /spool/local
-	by smtp.notes.na.collabserv.com with smtp.notes.na.collabserv.com ESMTP
-	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
-	Wed, 4 May 2016 13:35:54 -0000
-In-Reply-To: <1462367616.5535.340.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37883 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbcEDOTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 10:19:00 -0400
+Received: by mail-wm0-f53.google.com with SMTP id a17so97152221wme.0
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 07:18:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------Eric Dumazet <eric.dumazet@gmail.com> wrote: -----
+get_bridge_ifindices() is used from the old "deviceless" bridge ioctl
+calls which aren't called with rtnl held. The comment above says that it is
+called with rtnl but that is not really the case.
+Here's a sample output from a test ASSERT_RTNL() which I put in
+get_bridge_ifindices and executed "brctl show":
+[  957.422726] RTNL: assertion failed at net/bridge//br_ioctl.c (30)
+[  957.422925] CPU: 0 PID: 1862 Comm: brctl Tainted: G        W  O
+4.6.0-rc4+ #157
+[  957.423009] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
+BIOS 1.8.1-20150318_183358- 04/01/2014
+[  957.423009]  0000000000000000 ffff880058adfdf0 ffffffff8138dec5
+0000000000000400
+[  957.423009]  ffffffff81ce8380 ffff880058adfe58 ffffffffa05ead32
+0000000000000001
+[  957.423009]  00007ffec1a444b0 0000000000000400 ffff880053c19130
+0000000000008940
+[  957.423009] Call Trace:
+[  957.423009]  [<ffffffff8138dec5>] dump_stack+0x85/0xc0
+[  957.423009]  [<ffffffffa05ead32>]
+br_ioctl_deviceless_stub+0x212/0x2e0 [bridge]
+[  957.423009]  [<ffffffff81515beb>] sock_ioctl+0x22b/0x290
+[  957.423009]  [<ffffffff8126ba75>] do_vfs_ioctl+0x95/0x700
+[  957.423009]  [<ffffffff8126c159>] SyS_ioctl+0x79/0x90
+[  957.423009]  [<ffffffff8163a4c0>] entry_SYSCALL_64_fastpath+0x23/0xc1
 
->To: Evgeny Cherkashin/Russia/IBM@IBMRU
->From: Eric Dumazet <eric.dumazet@gmail.com>
->Date: 2016-05-04 16:13
->Cc: crosser@average.org, netdev@vger.kernel.org
->Subject: Re: [PATCH net] igmp: fix byte order in /proc/net/igmp
->output
->
->On Wed, 2016-05-04 at 14:11 +0200, Eugene Crosser wrote:
->> /proc/net/igmp is a readonly attribute that shows multicast groups
->> to which different network interfaces are subscribed. Among other
->> things, it displays `multiaddr` which is a 32 bit
->network-byte-order
->> field, in hexadecimal format. Prior to this patch, the field was
->> displayed as an integer, resulting in reverse byte order on little
->> endian architectures. This patch converts it with ntohl() for
->display
->> the same way as this is done for the /proc/net/mcfilter attribute.
->> 
->> The patch changes (corrects) user-visible behaviour.
->> 
->> Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
->> ---
->>  net/ipv4/igmp.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
->> index b3086cf..f9d2139 100644
->> --- a/net/ipv4/igmp.c
->> +++ b/net/ipv4/igmp.c
->> @@ -2722,7 +2722,7 @@ static int igmp_mc_seq_show(struct seq_file
->*seq, void *v)
->>  		delta = im->timer.expires - jiffies;
->>  		seq_printf(seq,
->>  			   "\t\t\t\t%08X %5d %d:%08lX\t\t%d\n",
->> -			   im->multiaddr, im->users,
->> +			   ntohl(im->multiaddr), im->users,
->>  			   im->tm_running,
->>  			   im->tm_running ? jiffies_delta_to_clock_t(delta) : 0,
->>  			   im->reporter);
->
->
->I do not believe we can change this. This is unfortunately too late.
->
->/proc/net/tcp has the same 'issue' or if you prefer, well known
->behavior.
->
->Such change would break basically all /proc/net/igmp users.
+Since it only reads bridge ifindices, we can use rcu to safely walk the net
+device list. Also remove the wrong rtnl comment above.
 
-I understand that. It is unfortunate though that the byte order is not _just_ wrong, it's _different_ on BE and LE machines...
-Oh well.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+AFAICT this has been present since the beginning of git history thus no
+fixes tag.
 
-Thanks,
+ net/bridge/br_ioctl.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Eugene
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 263b4de4de57..60a3dbfca8a1 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -21,18 +21,19 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
+-/* called with RTNL */
+ static int get_bridge_ifindices(struct net *net, int *indices, int num)
+ {
+ 	struct net_device *dev;
+ 	int i = 0;
+ 
+-	for_each_netdev(net, dev) {
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev) {
+ 		if (i >= num)
+ 			break;
+ 		if (dev->priv_flags & IFF_EBRIDGE)
+ 			indices[i++] = dev->ifindex;
+ 	}
++	rcu_read_unlock();
+ 
+ 	return i;
+ }
+-- 
+2.4.11
