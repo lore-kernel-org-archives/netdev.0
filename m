@@ -1,63 +1,41 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: Re: pull request [net]: batman-adv 20160430
-Date: Thu, 5 May 2016 02:18:43 +0800
-Message-ID: <20160504181843.GI11201@prodigo.lan>
-References: <20160503.001813.1881857417530292443.davem@davemloft.net>
- <20160503144229.GD11201@prodigo.lan>
- <20160503.123330.1810855853724486551.davem@davemloft.net>
- <20160504.141350.1935086155659300721.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATC net-next] tcp: must block bh in __inet_twsk_hashdance()
+Date: Wed, 04 May 2016 11:22:11 -0700
+Message-ID: <1462386131.5535.353.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1462320650.5535.334.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160504.005450.32648328658519474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="SfgfV7onya2wNU+g"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:44067 "EHLO s2.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752124AbcEDSTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 14:19:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20160504.141350.1935086155659300721.davem@davemloft.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34814 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124AbcEDSWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:22:13 -0400
+Received: by mail-pf0-f182.google.com with SMTP id y69so27814600pfb.1
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 11:22:13 -0700 (PDT)
+In-Reply-To: <20160504.005450.32648328658519474.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2016-05-04 at 00:54 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 03 May 2016 17:10:50 -0700
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > __inet_twsk_hashdance() might be called from process context,
+> > better block BH before acquiring bind hash and established locks
+> > 
+> > Fixes: c10d9310edf5 ("tcp: do not assume TCP code is non preemptible")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Applied.
 
---SfgfV7onya2wNU+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+David, I do not see these two patches in net-next ?
 
-On Wed, May 04, 2016 at 02:13:50PM -0400, David Miller wrote:
->=20
-> Just FYI I did this last night.
+(This one, and the "tcp: fix lockdep splat in tcp_snd_una_update()" one)
 
-Thanks a lot for letting me know David.
-
-Cheers,
-
---=20
-Antonio Quartulli
-
---SfgfV7onya2wNU+g
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJXKj0DAAoJEJ4aZjxxc6bKWUcP/ijyrLqOotVz5Eok+/kLXB3u
-i8gJbOf4G2jnwmBRatpbJIP5OFYGDtv7IeggI6N82da/vYFgN2hZgXmUJz7VQsRN
-Fx0izvDZmNHT6Nr6ciloJqec//ycPT6fBVwh4GsogORNNr99IcSRNl3JBjD2eE1Z
-XDVwt/Y23+KgvdGLL7ngFtu6tf6vAAbqU+ZcTa+LXB+JwqurApnQt1Cabljqtn+0
-oapo8iDEk6DWTEkV6FOG897dijljPDzSQARr0JeVq/XJEYcfPDIsP7I16ziyYcCt
-NFS3ndSbI+Ei1203EVY7iRwPSuk32rN3P4DQZJUWhMSPDhDhQH+VXz6NtnMwTwY7
-7zczw1qEeuEsAfmsTHJiM1Ee7VKckTrzXPqJ8XJsB03zY7ZCsiiDhmAUk/AKh2/w
-bG9R1gqSLlaJcAsWh6CVhEf7EKHH4h0SC4QcvxrScBBx0JvsARVCVnFHhWTLLzz2
-9lDM2xsUNhoOFnRdLU5ZG9hoQBLzvLm/CeGVDbZ0Xx0ybTeVFf72B5yLmp4/vyOB
-UeWEYQR0/cNywKtNwgRmK9RXoLSx83+Noh/NSAbs+MNmccmxVF10QwNoHg9AuwDm
-G26Ak2HXRsiKp3eC4Gf2BkcjhvUIVP7ez9DoJHj11A8TNJWryC208B28PrXzApLs
-fRT41n55sRXektk8zfQF
-=2HdI
------END PGP SIGNATURE-----
-
---SfgfV7onya2wNU+g--
+Thanks
