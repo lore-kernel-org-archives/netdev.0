@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v7 15/21] IB/hns: Add PD operations support
-Date: Wed, 4 May 2016 20:21:12 +0800
-Message-ID: <1462364478-10808-16-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v7 20/21] IB/hns: Kconfig and Makefile for RoCE module
+Date: Wed, 4 May 2016 20:21:17 +0800
+Message-ID: <1462364478-10808-21-git-send-email-oulijun@huawei.com>
 References: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,165 +20,71 @@ In-Reply-To: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch added the verbs to operate PD. It mainly includes
-the functions of allocating PD and deallocating PD.
+This patch added Kconfig and Makefile for building RoCE module.
 
 Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
 Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_device.h | 17 ++++++++
- drivers/infiniband/hw/hns/hns_roce_main.c   |  8 +++-
- drivers/infiniband/hw/hns/hns_roce_pd.c     | 62 +++++++++++++++++++++++++++++
- 3 files changed, 86 insertions(+), 1 deletion(-)
+ drivers/infiniband/Kconfig         |  1 +
+ drivers/infiniband/hw/Makefile     |  1 +
+ drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
+ drivers/infiniband/hw/hns/Makefile |  9 +++++++++
+ 4 files changed, 21 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/Kconfig
+ create mode 100644 drivers/infiniband/hw/hns/Makefile
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index d135e7f..eff7339 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -116,6 +116,11 @@ struct hns_roce_ucontext {
- 	struct hns_roce_uar	uar;
- };
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index 6425c0e..726a4ca 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+ source "drivers/infiniband/hw/nes/Kconfig"
+ source "drivers/infiniband/hw/ocrdma/Kconfig"
+ source "drivers/infiniband/hw/usnic/Kconfig"
++source "drivers/infiniband/hw/hns/Kconfig"
  
-+struct hns_roce_pd {
-+	struct ib_pd		ibpd;
-+	unsigned long		pdn;
-+};
-+
- struct hns_roce_bitmap {
- 	/* Bitmap Traversal last a bit which is 1 */
- 	unsigned long		last;
-@@ -384,6 +389,11 @@ static inline struct hns_roce_ucontext
- 	return container_of(ibucontext, struct hns_roce_ucontext, ibucontext);
- }
+ source "drivers/infiniband/ulp/ipoib/Kconfig"
  
-+static inline struct hns_roce_pd *to_hr_pd(struct ib_pd *ibpd)
-+{
-+	return container_of(ibpd, struct hns_roce_pd, ibpd);
-+}
+diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
+index c7ad0a4..223eb78 100644
+--- a/drivers/infiniband/hw/Makefile
++++ b/drivers/infiniband/hw/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_MLX5_INFINIBAND)		+= mlx5/
+ obj-$(CONFIG_INFINIBAND_NES)		+= nes/
+ obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
+ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+= hns/
+diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hns/Kconfig
+new file mode 100644
+index 0000000..c47c168
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Kconfig
+@@ -0,0 +1,10 @@
++config INFINIBAND_HISILICON_HNS
++	tristate "Hisilicon Hns ROCE Driver"
++	depends on NET_VENDOR_HISILICON
++	depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
++	---help---
++	  This is a ROCE/RDMA driver for the Hisilicon RoCE engine. The engine
++	  is used in Hisilicon Hi1610 and more further ICT SoC.
 +
- static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
- {
- 	__raw_writeq(*(u64 *) val, dest);
-@@ -431,6 +441,13 @@ int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
- void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
- 				unsigned long obj, int cnt);
- 
-+struct ib_pd *hns_roce_alloc_pd(struct ib_device *ib_dev,
-+				struct ib_ucontext *context,
-+				struct ib_udata *udata);
-+int hns_roce_pd_alloc(struct hns_roce_dev *hr_dev, unsigned long *pdn);
-+void hns_roce_pd_free(struct hns_roce_dev *hr_dev, unsigned long pdn);
-+int hns_roce_dealloc_pd(struct ib_pd *pd);
++	  To compile this driver as a module, choose M here: the module
++	  will be called hns-roce.
+diff --git a/drivers/infiniband/hw/hns/Makefile b/drivers/infiniband/hw/hns/Makefile
+new file mode 100644
+index 0000000..404a700
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Makefile
+@@ -0,0 +1,9 @@
++#
++# Makefile for the HISILICON RoCE drivers.
++#
 +
- void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
- void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
- void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type);
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index 6a1fd38..edb2cfe 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -585,7 +585,9 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->uverbs_cmd_mask		=
- 		(1ULL << IB_USER_VERBS_CMD_GET_CONTEXT) |
- 		(1ULL << IB_USER_VERBS_CMD_QUERY_DEVICE) |
--		(1ULL << IB_USER_VERBS_CMD_QUERY_PORT);
-+		(1ULL << IB_USER_VERBS_CMD_QUERY_PORT) |
-+		(1ULL << IB_USER_VERBS_CMD_ALLOC_PD) |
-+		(1ULL << IB_USER_VERBS_CMD_DEALLOC_PD);
- 
- 	/* HCA||device||port */
- 	ib_dev->modify_device		= hns_roce_modify_device;
-@@ -599,6 +601,10 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->dealloc_ucontext	= hns_roce_dealloc_ucontext;
- 	ib_dev->mmap			= hns_roce_mmap;
- 
-+	/* PD */
-+	ib_dev->alloc_pd		= hns_roce_alloc_pd;
-+	ib_dev->dealloc_pd		= hns_roce_dealloc_pd;
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) += hns-roce.o
++hns-roce-objs := hns_roce_main.o hns_roce_cmd.o hns_roce_eq.o hns_roce_pd.o \
++	hns_roce_ah.o hns_roce_icm.o hns_roce_mr.o hns_roce_qp.o \
++	hns_roce_cq.o hns_roce_alloc.o hns_roce_hw_v1.o
 +
- 	ret = ib_register_device(ib_dev, NULL);
- 	if (ret) {
- 		dev_err(dev, "ib_register_device failed!\n");
-diff --git a/drivers/infiniband/hw/hns/hns_roce_pd.c b/drivers/infiniband/hw/hns/hns_roce_pd.c
-index 90b0f33..6485378 100644
---- a/drivers/infiniband/hw/hns/hns_roce_pd.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_pd.c
-@@ -17,6 +17,28 @@
- #include "hns_roce_common.h"
- #include "hns_roce_device.h"
- 
-+int hns_roce_pd_alloc(struct hns_roce_dev *hr_dev, unsigned long *pdn)
-+{
-+	struct device *dev = &hr_dev->pdev->dev;
-+	unsigned long pd_number;
-+	int ret = 0;
-+
-+	ret = hns_roce_bitmap_alloc(&hr_dev->pd_bitmap, &pd_number);
-+	if (ret == -1) {
-+		dev_err(dev, "alloc pdn from pdbitmap failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	*pdn = pd_number;
-+
-+	return 0;
-+}
-+
-+void hns_roce_pd_free(struct hns_roce_dev *hr_dev, unsigned long pdn)
-+{
-+	hns_roce_bitmap_free(&hr_dev->pd_bitmap, pdn);
-+}
-+
- int hns_roce_init_pd_table(struct hns_roce_dev *hr_dev)
- {
- 	return hns_roce_bitmap_init(&hr_dev->pd_bitmap, hr_dev->caps.num_pds,
-@@ -29,6 +51,46 @@ void hns_roce_cleanup_pd_table(struct hns_roce_dev *hr_dev)
- 	hns_roce_bitmap_cleanup(&hr_dev->pd_bitmap);
- }
- 
-+struct ib_pd *hns_roce_alloc_pd(struct ib_device *ib_dev,
-+				struct ib_ucontext *context,
-+				struct ib_udata *udata)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct hns_roce_pd *pd;
-+	int ret;
-+
-+	pd = kmalloc(sizeof(*pd), GFP_KERNEL);
-+	if (!pd)
-+		return ERR_PTR(-ENOMEM);
-+
-+	ret = hns_roce_pd_alloc(to_hr_dev(ib_dev), &pd->pdn);
-+	if (ret) {
-+		kfree(pd);
-+		dev_err(dev, "[alloc_pd]hns_roce_pd_alloc failed!\n");
-+		return ERR_PTR(ret);
-+	}
-+
-+	if (context) {
-+		if (ib_copy_to_udata(udata, &pd->pdn, sizeof(u64))) {
-+			hns_roce_pd_free(to_hr_dev(ib_dev), pd->pdn);
-+			dev_err(dev, "[alloc_pd]ib_copy_to_udata failed!\n");
-+			kfree(pd);
-+			return ERR_PTR(-EFAULT);
-+		}
-+	}
-+
-+	return &pd->ibpd;
-+}
-+
-+int hns_roce_dealloc_pd(struct ib_pd *pd)
-+{
-+	hns_roce_pd_free(to_hr_dev(pd->device), to_hr_pd(pd)->pdn);
-+	kfree(to_hr_pd(pd));
-+
-+	return 0;
-+}
-+
- int hns_roce_uar_alloc(struct hns_roce_dev *hr_dev, struct hns_roce_uar *uar)
- {
- 	struct resource *res;
 -- 
 1.9.1
