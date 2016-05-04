@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gre6: add Kconfig dependency for NET_IPGRE_DEMUX
-Date: Wed, 04 May 2016 14:12:54 -0400 (EDT)
-Message-ID: <20160504.141254.2216695965556907500.davem@davemloft.net>
-References: <1462288817-721172-1-git-send-email-arnd@arndb.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request [net]: batman-adv 20160430
+Date: Wed, 04 May 2016 14:13:50 -0400 (EDT)
+Message-ID: <20160504.141350.1935086155659300721.davem@davemloft.net>
+References: <20160503.001813.1881857417530292443.davem@davemloft.net>
+ <20160503144229.GD11201@prodigo.lan>
+ <20160503.123330.1810855853724486551.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, tom@herbertland.com, hakke_007@gmx.de,
-	pabeni@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462288817-721172-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: a@unstable.cc
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20160503.123330.1810855853724486551.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue,  3 May 2016 17:19:57 +0200
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Tue, 03 May 2016 12:33:30 -0400 (EDT)
 
-> The ipv6 gre implementation was cleaned up to share more code
-> with the ipv4 version, but it can be enabled even when NET_IPGRE_DEMUX
-> is disabled, resulting in a link error:
+> From: Antonio Quartulli <a@unstable.cc>
+> Date: Tue, 3 May 2016 22:42:29 +0800
 > 
-> net/built-in.o: In function `gre_rcv':
-> :(.text+0x17f5d0): undefined reference to `gre_parse_header'
-> ERROR: "gre_parse_header" [net/ipv6/ip6_gre.ko] undefined!
+>> Do you have any plan on merging net into net-next in the following days ?
+>> 
+>> I am asking because I'd prefer to avoid you the hassle of dealing with the
+>> conflicts.
 > 
-> This adds a Kconfig dependency to prevent that now invalid
-> configuration.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 308edfdf1563 ("gre6: Cleanup GREv6 receive path, call common GRE functions")
+> I'll try to do this in the next few days.
 
-Applied, thanks.
+Just FYI I did this last night.
