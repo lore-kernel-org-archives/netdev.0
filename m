@@ -1,78 +1,54 @@
-From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow transmissions
-Date: Wed, 4 May 2016 16:45:32 -0700
-Message-ID: <CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
-References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
-	<57286E15.2080900@mentor.com>
-	<CAFGCpxx0f7g7rXyZ-P0EF7QVX7Z0ziK+7VMPKK7pQteBowkw3Q@mail.gmail.com>
-	<5728837D.60702@mentor.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RESEND PATCH 2/3] fs: poll/select/recvmmsg: use
+ timespec64 for timeout events
+Date: Wed, 4 May 2016 16:51:15 -0700
+Message-ID: <20160504165115.e0247881921fdcd0af4a394c@linux-foundation.org>
+References: <1461947989-21926-3-git-send-email-deepa.kernel@gmail.com>
+ <1462389899-2480-1-git-send-email-deepa.kernel@gmail.com>
+ <CALAqxLVB8XiRrFKxK3GzBxw-CfEmC=Dh-CrTOEqT144ngZg-Dw@mail.gmail.com>
+ <4256673.7Gok2HNpOM@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Guodong Xu <guodong.xu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	YongQin Liu <yongqin.liu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ivan Vecera <ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David B. Robins" <linux-AegXhGwVzVhoAEGGzP886w@public.gmane.org>
-To: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5728837D.60702-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+ Eliezer Tamir <eliezer.tamir@linux.intel.com>, y2038@lists.linaro.org,
+ netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
+ Oleg Nesterov <oleg@redhat.com>, John Stultz <john.stultz@linaro.org>,
+ Deepa Dinamani <deepa.kernel@gmail.com>,
+ "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+ Thomas Gleixner <tglx@linutronix.de>,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ Alexander Viro <viro@zeniv.linux.org.uk>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <4256673.7Gok2HNpOM@wuerfel>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 3, 2016 at 3:54 AM, Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org> wrote:
-> On 03/05/16 11:04, Guodong Xu wrote:
->>
->> did you test on ARM 64-bit system or ARM 32-bit? I ask because HiKey
->> is an ARM 64-bit system. I suggest we should be careful on that. I saw
->> similar issues when transferring to a 64-bit system in other net
->> drivers.
->
-> We used 32-bit ARM and never tested on 64-bit ARM so I suggest that the
-> commits need to be reviewed with 64-bit OS in mind.
->>
->>
->> Do you have any suggestion on this regard?
->
-> Try testing on a Linux PC x86 32-bit OS which has has a kernel containing my
-> ASIX commits. This will help to confirm whether the failure is related to
-> 32-bit or 64-bit OS. Then try with Linux PC x86 64-bit OS, this should fail
-> otherwise it points to something specific in your ARM 64-bit platform.
-
-Just as a sample point, I have managed to reproduce exactly this issue
-on an x86_64 system by simply scp'ing a large file.
-
-[  417.819276] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
-synchronisation was lost, remaining 988
-[  417.823415] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0xef830347, offset 4
-[  417.827502] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x31e2b348, offset 4
-[  417.843779] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
-synchronisation was lost, remaining 988
-[  417.847921] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x8af91035, offset 4
-[  417.852004] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x8521fa03, offset 4
-[  418.273394] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
-synchronisation was lost, remaining 988
-[  418.277532] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x33cd9c7c, offset 4
-[  418.281683] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x3d850896, offset 4
-[  418.286227] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x86443357, offset 4
-[  418.290319] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0xee6c81d1, offset 4
-
-I don't have any 32bit x86 installs around so I'm not sure I can easly
-test there, but its clear its not arm64 specific.
-
-thanks
--john
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gV2VkLCAwNCBNYXkgMjAxNiAyMzowODoxMSArMDIwMCBBcm5kIEJlcmdtYW5uIDxhcm5kQGFy
+bmRiLmRlPiB3cm90ZToKCj4gPiBCdXQgSSdtIGxlc3MgY29tZm9ydGFibGUgbWFraW5nIHRoZSBj
+YWxsIG9uIHRoaXMgb25lLiBJdCBsb29rcwo+ID4gcmVsYXRpdmVseSBzdHJhaWdodCBmb3J3YXJk
+LCBidXQgaXQgd291bGQgYmUgZ29vZCB0byBoYXZlIG1haW50YWluZXIKPiA+IGFja3MgYmVmb3Jl
+IEkgYWRkIGl0IHRvIG15IHRyZWUuCj4gCj4gQWdyZWVkLiBGZWVsIGZyZWUgdG8gYWRkIG15Cj4g
+Cj4gUmV2aWV3ZWQtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+Cj4gCj4gYXQgbGVh
+c3QgKHdob2V2ZXIgcGlja3MgaXQgdXApLgoKSW4gcmVwbHkgdG8gWzEvM10gSm9obiBzYWlkCgo6
+IExvb2tzIG9rIGF0IHRoZSBmaXJzdCBnbGFuY2UuIEkndmUgcXVldWVkIHRoZXNlIHVwIGZvciB0
+ZXN0aW5nLAo6IGhvd2V2ZXIgSSBvbmx5IGdvdCAjMSBhbmQgIzMgb2YgdGhlIHNldC4gQXJlIHlv
+dSBob3BpbmcgdGhlc2UgdHdvCjogcGF0Y2hlcyB3aWxsIGdvIHRocm91Z2ggdGlwL3RpbWVycy9j
+b3JlIG9yIGFyZSB5b3UgbG9va2luZyBmb3IgYWNrcyBzbwo6IHRoZXkgY2FuIGdvIHZpYSBhbm90
+aGVyIHRyZWU/CgpIb3dldmVyIG5vbmUgb2YgdGhlIHBhdGNoZXMgYXJlIGluIGxpbnV4LW5leHQu
+CgpKb2huIGhhZCBxdWFsbXMgYWJvdXQgWzIvM10sIGJ1dCBpdCBsb29rcyBsaWtlIGEgc3RyYWln
+aHRmb3J3YXJkCnN1YnN0aXR1dGlvbiBpbiBhcmVhcyB3aGljaCB3aWxsIGdldCBwbGVudHkgb2Yg
+dGVzdGluZwoKSSdsbCBncmFiIHRoZSBwYXRjaGVzIGZvciBub3cgdG8gZ2V0IHRoZW0gc29tZSBl
+eHRlcm5hbCB0ZXN0aW5nLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczov
+L2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
