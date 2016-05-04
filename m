@@ -1,83 +1,96 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ravb: Add missing free_irq() calls to ravb_close()
-Date: Wed, 4 May 2016 16:30:09 +0300
-Message-ID: <5729F961.2050603@cogentembedded.com>
-References: <1462366987-18418-1-git-send-email-geert+renesas@glider.be>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: Regression: netlink fail (triggered by iw) removes extra wlan
+ (phy) interface
+Date: Wed, 4 May 2016 15:33:04 +0200
+Message-ID: <CACna6rzXwCaYgHTuVHr35NoBDkgT5WjFWE+Ys9YU42KidiZsGw@mail.gmail.com>
+References: <CACna6rzz4f-urvD7uvVKuvYMOWhW+JYWkVW8MK9mJTPw0OiWxA@mail.gmail.com>
+	<CAM_iQpW_63Di76BcnSF35h1+ezxv8G62NT0U=tWFFe6n9FaNig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:34666 "EHLO
-	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbcEDNaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 09:30:14 -0400
-Received: by mail-lf0-f46.google.com with SMTP id m64so59791790lfd.1
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 06:30:13 -0700 (PDT)
-In-Reply-To: <1462366987-18418-1-git-send-email-geert+renesas@glider.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tejun Heo <tj@kernel.org>, Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	kernel-team <kernel-team@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpW_63Di76BcnSF35h1+ezxv8G62NT0U=tWFFe6n9FaNig@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi again and sorry for the late reply.
 
-On 05/04/2016 04:03 PM, Geert Uytterhoeven wrote:
-
-> When reopening the network device on ra7795/salvator-x, e.g. after a
-> DHCP timeout:
+On 16 March 2016 at 17:00, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Thu, Feb 25, 2016 at 5:22 AM, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmai=
+l.com> wrote:
+>> After updating kernel in OpenWrt from 4.1.6 to 4.1.10 I noticed that
+>> if "iw" command fails (which happens very rarely) my wlan0-1 interfa=
+ce
+>> disappears. To trigger this problem easily I'm using this trivial
+>> script:
+>> while [ 1 ]
+>> do
+>>         iw phy phy0 interface add mon0 type monitor
+>>         ifconfig mon0 up
+>>         iw dev mon0 del
+>> done
+>>
+>> Whenever it goes wrong I see:
+>> Failed to connect to generic netlink.
+>> kern.info kernel: [ 1933.114338] br-lan: port 3(wlan0-1) entered dis=
+abled state
+>> kern.info kernel: [ 1933.335568] device wlan0-1 left promiscuous mod=
+e
+>> kern.info kernel: [ 1933.340385] br-lan: port 3(wlan0-1) entered dis=
+abled state
+>> daemon.notice netifd: Network device 'wlan0-1' link is down
+>> command failed: Too many open files in system (-23)
+>>
 >
->      IP-Config: Reopening network devices...
->      genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs. 00000000 (eth0:ch24:emac)
->      ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
->      IP-Config: Failed to open eth0
->      IP-Config: No network devices available
+> Note, for 4.1, the backport is known to be incorrect, and it is
+> fixed later by:
 >
-> The "mismatch" is due to requesting an IRQ that is already in use,
-> while IRQF_PROBE_SHARED wasn't set.
+> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/=
+commit/net/netlink/af_netlink.c?h=3Dlinux-4.1.y&id=3Da52ec6de6d1638e8c2=
+03d7188c55627f75371612
 >
-> However, the real cause is that ravb_close() doesn't release any of the
-> R-Car Gen3-specific secondary IRQs.
 >
-> Add the missing free_irq() calls to fix this.
+>> This regression is caused by commit:
+>> 4e27762 netlink: Fix autobind race condition that leads to zero port=
+ ID
+>> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git=
+/commit/?id=3D4e27762417669cb459971635be550eb7b5598286
+>> that is a backport of upstream:
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/comm=
+it/?id=3D1f770c0a09da855a2b51af6d19de97fb955eca85
+>>
+>> This still happens with kernel 4.4.
 >
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>
+> Looks like the goto is missing in 4.4 branch too. ;) Mind to send a p=
+atch
+> to GregKH?
 
-    This patch must be against net-next.git but you because the patch that 
-this one fixes is only there. You never indicated that. I'd also appreciate if 
-you specify the Fixed: tag.
+So I just tried kernel 4.1.23 and got that problem again while running
+my bash script:
 
-> ---
->   drivers/net/ethernet/renesas/ravb_main.c | 7 +++++++
->   1 file changed, 7 insertions(+)
->
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 34066e0649f5c673..867caf6e7a5a65ad 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -1667,6 +1667,13 @@ static int ravb_close(struct net_device *ndev)
->   		priv->phydev = NULL;
->   	}
->
-> +	if (priv->chip_id != RCAR_GEN2) {
-> +		free_irq(priv->tx_irqs[RAVB_NC], ndev);
-> +		free_irq(priv->rx_irqs[RAVB_NC], ndev);
-> +		free_irq(priv->tx_irqs[RAVB_BE], ndev);
-> +		free_irq(priv->rx_irqs[RAVB_BE], ndev);
+=46ailed to connect to generic netlink.
+ifconfig: SIOCGIFFLAGS: No such device
+command failed: No such device (-19)
+[ 2200.114464] br-lan: port 3(wlan0-1) entered disabled state
+[ 2200.125979] device wlan0-1 left promiscuous mode
+[ 2200.134529] br-lan: port 3(wlan0-1) entered disabled state
+=46ailed to connect to generic netlink.
+ifconfig: SIOCGIFFLAGS: No such device
+command failed: No such device (-19)
 
-    Shame on me for not noticing this. :-(
-
-> +		free_irq(priv->emac_irq, ndev);
-
-    However, net.git is also affected, it only calls free_irq() on 'ndev->irq'.
-Please submit 2 separate fixes against net.git and net-next.git.
-
-> +	}
->   	free_irq(ndev->irq, ndev);
->
->   	napi_disable(&priv->napi[RAVB_NC]);
->
-
-MBR, Sergei
+--=20
+Rafa=C5=82
