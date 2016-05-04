@@ -1,74 +1,59 @@
-From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v2] block/drbd: use
-	nla_put_u64_64bit()
-Date: Wed, 4 May 2016 11:05:30 +0200
-Message-ID: <20160504090529.GJ16459@soda.linbit>
-References: <57286F49.8050107@6wind.com>
-	<1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20160503100644.GE16459@soda.linbit>
-	<20160503.120556.1317913903199470646.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next 5/9] netfilter: conntrack: small refactoring of
+ conntrack seq_printf
+Date: Wed, 4 May 2016 11:19:46 +0200
+Message-ID: <20160504091946.GA1401@salvia>
+References: <1461863628-23350-1-git-send-email-fw@strlen.de>
+ <1461863628-23350-6-git-send-email-fw@strlen.de>
+ <20160503181250.GA4508@salvia>
+ <20160503222736.GK2395@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-	philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:38714 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750791AbcEDJT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 05:19:56 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 357324B104
+	for <netdev@vger.kernel.org>; Wed,  4 May 2016 11:19:54 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 26C50AD6E
+	for <netdev@vger.kernel.org>; Wed,  4 May 2016 11:19:54 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 024A86448C
+	for <netdev@vger.kernel.org>; Wed,  4 May 2016 11:19:47 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <20160503.120556.1317913903199470646.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://lists.linbit.com/mailman/options/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linbit.com/pipermail/drbd-dev>
-List-Post: <mailto:drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-List-Help: <mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.linbit.com/mailman/listinfo/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=subscribe>
-Sender: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-Errors-To: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160503222736.GK2395@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 03, 2016 at 12:05:56PM -0400, David Miller wrote:
-> From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 3 May 2016 12:06:44 +0200
+On Wed, May 04, 2016 at 12:27:36AM +0200, Florian Westphal wrote:
+> Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > > -	if (NF_CT_DIRECTION(hash))
+> > > -		goto release;
+> > > -	if (nf_ct_l3num(ct) != AF_INET)
+> > > +	/* check if we raced w. object reuse */
+> > > +	if (!nf_ct_is_confirmed(ct) ||
+> > 
+> > This refactoring includes this new check, is this intentional?
 > 
-> > Please just NOT use an additional "field",
-> > but always use 0 to pad.
+> Hmm, yes and no.
 > 
-> You can't, it doesn't work.
-
-I did, and it *did* work.
-At least, it appeared to.
-
-I'm not talking about every user of netlink out there.
-That I don't know. But specifically for DRBD netlink,
-from what my experiments tell me, it works just fine.
-
-> We are adding a new field to every netlink protocol family that has
-> this alignment problem.
-
-We don't have an "alignment problem" there, btw.
-Last time I checked, we did work fine without this alignment magic,
-we already take care of that, yes, even on affected architectures.
-
-On Tue, May 03, 2016 at 12:06:52PM -0400, David Miller wrote:
-> From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 3 May 2016 12:06:44 +0200
+> I should have put it in an extra commit :-/
 > 
-> > Whereas using some arbitrary value will be wrong,
-> > and will needlessly break userland.
+> Without this, we might erronously print a conntrack that is NEW
+> and which isn't confirmed yet.
 > 
-> It cannot break userland.
+> We won't crash since seq_print doesn't depend on extensions being
+> set up properly, but it seems better to only display those conntracks
+> that are part of the conntrack hash table (i.e., have the confirmed bit
+> set).
 
-It can, if those tags have been used already.
-There is DRBD out-of-tree as well,
-it usually is ahead of in-tree DRBD.
+I see, a conntrack that shouldn't be printed be sneak in the listing.
 
-But yes, I could obviously check and assign and reserve some
-not-yet-used tag to all of them.
+> Let me know if you want me to respin this as a separate fix, thanks!
 
-I don't see why, though, given that 0 (appearently) works fine.
-
-Can you elaborate why and how that does not work?
-
-	Lars
+I will just append a notice on the commit message before applying.
