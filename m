@@ -1,7 +1,7 @@
 From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [patch] usbnet/smsc75xx: silence uninitialized variable warning
-Date: Wed, 4 May 2016 09:21:02 +0300
-Message-ID: <20160504062102.GE22064@mwanda>
+Subject: [patch] usbnet: smsc95xx: silence an uninitialized variable warning
+Date: Wed, 4 May 2016 09:22:01 +0300
+Message-ID: <20160504062201.GF22064@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -11,16 +11,16 @@ Content-Disposition: inline
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-If the fn() calls fail then "buf" is uninitialized.  Just return early
-in that situation.
+If the call to fn() fails then "buf" is uninitialized.  Just return the
+error code in that case.
 
 Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-index c369db9..9af9799 100644
---- a/drivers/net/usb/smsc75xx.c
-+++ b/drivers/net/usb/smsc75xx.c
-@@ -99,9 +99,11 @@ static int __must_check __smsc75xx_read_reg(struct usbnet *dev, u32 index,
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 2edc2bc..d9d2806 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -92,9 +92,11 @@ static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
  	ret = fn(dev, USB_VENDOR_REQUEST_READ_REGISTER, USB_DIR_IN
  		 | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
  		 0, index, &buf, 4);
