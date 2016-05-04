@@ -1,41 +1,45 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 5/9] netfilter: conntrack: small refactoring of
- conntrack seq_printf
-Date: Wed, 4 May 2016 00:27:36 +0200
-Message-ID: <20160503222736.GK2395@breakpoint.cc>
-References: <1461863628-23350-1-git-send-email-fw@strlen.de>
- <1461863628-23350-6-git-send-email-fw@strlen.de>
- <20160503181250.GA4508@salvia>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED
+ trigger
+Date: Wed, 4 May 2016 09:29:36 +0200
+Message-ID: <20160504072936.GB17045@amd>
+References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
+ <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita@endlessm.com>
+To: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160503181250.GA4508@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > -	if (NF_CT_DIRECTION(hash))
-> > -		goto release;
-> > -	if (nf_ct_l3num(ct) != AF_INET)
-> > +	/* check if we raced w. object reuse */
-> > +	if (!nf_ct_is_confirmed(ct) ||
+Hi!
+
+> This creates a new LED trigger to be used by platform drivers as a
+> default trigger for airplane-mode indicator LEDs.
 > 
-> This refactoring includes this new check, is this intentional?
+> By default this trigger will fire when RFKILL_OP_CHANGE_ALL is called
+> for all types (RFKILL_TYPE_ALL), setting the LED brightness to LED_FULL
+> when the changing the state to blocked, and to LED_OFF when the changing
+> the state to unblocked. In the future there will be a mechanism for
+> userspace to override the default policy, so it can implement its
+> own.
 
-Hmm, yes and no.
-
-I should have put it in an extra commit :-/
-
-Without this, we might erronously print a conntrack that is NEW
-and which isn't confirmed yet.
-
-We won't crash since seq_print doesn't depend on extensions being
-set up properly, but it seems better to only display those conntracks
-that are part of the conntrack hash table (i.e., have the confirmed bit
-set).
-
-Let me know if you want me to respin this as a separate fix, thanks!
+If userspace wants to control the manually, it can do just that --
+control it manually. There should not be a need to "override the
+default policy".
+								Pavel
+								
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
