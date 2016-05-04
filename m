@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: only clear a queue's work bit if the queue
- was emptied
-Date: Wed, 04 May 2016 14:09:10 -0400 (EDT)
-Message-ID: <20160504.140910.2171362814117515274.davem@davemloft.net>
-References: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH net-next 0/3] gre: receive also TEB packets for
+ lwtunnels
+Date: Wed, 04 May 2016 14:11:50 -0400 (EDT)
+Message-ID: <20160504.141150.1172239925654406356.davem@davemloft.net>
+References: <cover.1462286214.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fugang.duan@nxp.com, kernel@pengutronix.de, netdev@vger.kernel.org
-To: u.kleine-koenig@pengutronix.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, pshelar@ovn.org,
+	simon.horman@netronome.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41117 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41147 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167AbcEDSJN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:09:13 -0400
-In-Reply-To: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	with ESMTP id S1755180AbcEDSLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:11:53 -0400
+In-Reply-To: <cover.1462286214.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Tue,  3 May 2016 16:38:53 +0200
+From: Jiri Benc <jbenc@redhat.com>
+Date: Tue,  3 May 2016 17:10:05 +0200
 
-> In the receive path a queue's work bit was cleared unconditionally ev=
-en
-> if fec_enet_rx_queue only read out a part of the available packets fr=
-om
-> the hardware. This resulted in not reading any packets in the next na=
-pi
-> turn and so packets were delayed or lost.
->=20
-> The obvious fix is to only clear a queue's bit when the queue was
-> emptied.
->=20
-> Fixes: 4d494cdc92b3 ("net: fec: change data structure to support mult=
-iqueue")
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> NOTE: this patchset needs net merged to net-next.
 
-Applied and queued up for -stable, thanks.
+Noted.
+
+> This allows lwtunnel users to get also packets with ETH_P_TEB protocol
+> specified in GRE header through an ipgre interface. There's really nothing
+> special about these packets in the case of lwtunnels - it's just an inner
+> protocol like any other. The only complications stem from keeping
+> compatibility with other uses of GRE.
+> 
+> This will be used by openvswitch to support eth_push and eth_pop actions.
+> I'd also like to see tc support for lwtunnels (this feature included) in the
+> future.
+> 
+> The first patch is not directly related and can be submitted standalone if
+> needed.
+
+Series applied, thanks Jiri.
