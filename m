@@ -1,104 +1,78 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Y2038] [RESEND PATCH 2/3] fs: poll/select/recvmmsg: use timespec64 for timeout events
-Date: Wed, 04 May 2016 23:08:11 +0200
-Message-ID: <4256673.7Gok2HNpOM@wuerfel>
-References: <1461947989-21926-3-git-send-email-deepa.kernel@gmail.com> <1462389899-2480-1-git-send-email-deepa.kernel@gmail.com> <CALAqxLVB8XiRrFKxK3GzBxw-CfEmC=Dh-CrTOEqT144ngZg-Dw@mail.gmail.com>
+From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow transmissions
+Date: Wed, 4 May 2016 16:45:32 -0700
+Message-ID: <CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+	<57286E15.2080900@mentor.com>
+	<CAFGCpxx0f7g7rXyZ-P0EF7QVX7Z0ziK+7VMPKK7pQteBowkw3Q@mail.gmail.com>
+	<5728837D.60702@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: John Stultz <john.stultz@linaro.org>,
-	Deepa Dinamani <deepa.kernel@gmail.com>,
-	netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Oleg Nesterov <oleg@redhat.com>
-To: y2038@lists.linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALAqxLVB8XiRrFKxK3GzBxw-CfEmC=Dh-CrTOEqT144ngZg-Dw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Guodong Xu <guodong.xu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Mark Craske <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	YongQin Liu <yongqin.liu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ivan Vecera <ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David B. Robins" <linux-AegXhGwVzVhoAEGGzP886w@public.gmane.org>
+To: Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5728837D.60702-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 04 May 2016 13:04:37 John Stultz wrote:
-> On Wed, May 4, 2016 at 12:24 PM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
-> > struct timespec is not y2038 safe.
-> > Even though timespec might be sufficient to represent
-> > timeouts, use struct timespec64 here as the plan is to
-> > get rid of all timespec reference in the kernel.
-> >
-> > The patch transitions the common functions:
-> > poll_select_set_timeout() and select_estimate_accuracy()
-> > to use timespec64. And, all the syscalls that use these
-> > functions are transitioned in the same patch.
-> >
-> > The restart block parameters for poll uses monotonic time.
-> > Use timespec64 here as well to assign timeout value. This
-> > parameter in the restart block need not change because
-> > this only holds the monotonic timestamp at which timeout
-> > should occur. And, unsigned long data type should be big
-> > enough for this timestamp.
-> >
-> > The system call interfaces will be handled in a separate
-> > series.
-> >
-> > Compat interfaces need not change as timespec64 is an
-> > alias to struct timespec on a 64 bit system.
-> >
-> > Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-> > Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> > Cc: "David S. Miller" <davem@davemloft.net>
-> > Cc: netdev@vger.kernel.org
-> > ---
-> > Resending to include John and Thomas on this patch as well.
-> > This is to include this patch also in John's tree.
-> > This will let all 3 patches in the series to merged through the same tree.
-> >
-> >  fs/eventpoll.c       | 12 +++++-----
-> >  fs/select.c          | 67 +++++++++++++++++++++++++++++-----------------------
-> >  include/linux/poll.h | 11 +++++----
-> >  net/socket.c         |  8 ++++---
-> >  4 files changed, 54 insertions(+), 44 deletions(-)
-> 
-> 
-> So with the other two patches, I'm more comfortable queueing and
-> sending through to Thomas.
+On Tue, May 3, 2016 at 3:54 AM, Dean Jenkins <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org> wrote:
+> On 03/05/16 11:04, Guodong Xu wrote:
+>>
+>> did you test on ARM 64-bit system or ARM 32-bit? I ask because HiKey
+>> is an ARM 64-bit system. I suggest we should be careful on that. I saw
+>> similar issues when transferring to a 64-bit system in other net
+>> drivers.
+>
+> We used 32-bit ARM and never tested on 64-bit ARM so I suggest that the
+> commits need to be reviewed with 64-bit OS in mind.
+>>
+>>
+>> Do you have any suggestion on this regard?
+>
+> Try testing on a Linux PC x86 32-bit OS which has has a kernel containing my
+> ASIX commits. This will help to confirm whether the failure is related to
+> 32-bit or 64-bit OS. Then try with Linux PC x86 64-bit OS, this should fail
+> otherwise it points to something specific in your ARM 64-bit platform.
 
-Note that of course patch 3 depends on patch 2, otherwise it would
-be a simple rename.
+Just as a sample point, I have managed to reproduce exactly this issue
+on an x86_64 system by simply scp'ing a large file.
 
-> But I'm less comfortable making the call on this one. It looks
-> relatively straight forward, but it would be good to have maintainer
-> acks before I add it to my tree.
+[  417.819276] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  417.823415] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xef830347, offset 4
+[  417.827502] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x31e2b348, offset 4
+[  417.843779] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  417.847921] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x8af91035, offset 4
+[  417.852004] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x8521fa03, offset 4
+[  418.273394] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  418.277532] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x33cd9c7c, offset 4
+[  418.281683] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x3d850896, offset 4
+[  418.286227] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x86443357, offset 4
+[  418.290319] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xee6c81d1, offset 4
 
-Agreed. Feel free to add my
+I don't have any 32bit x86 installs around so I'm not sure I can easly
+test there, but its clear its not arm64 specific.
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-
-at least (whoever picks it up). The file hasn't changed much in the past
-decade, these are all the people who did more than 1 patch for fs/select.c
-in git history:
-
-      7 Al Viro
-      6 Eliezer Tamir
-      6 Arjan van de Ven
-      4 Andrew Morton
-      3 Linus Torvalds
-      3 Heiko Carstens
-      2 Vadim Lobanov
-      2 Roland McGrath
-      2 Oleg Nesterov
-      2 Jiri Slaby
-      2 Guillaume Knispel
-      2 Eric Dumazet
-      2 Dipankar Sarma
-      2 Alexey Dobriyan
-
-adding a few more to Cc, maybe someone else finds the time to take a
-second look.
-
-	Arnd
+thanks
+-john
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
