@@ -1,59 +1,91 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next 5/9] netfilter: conntrack: small refactoring of
- conntrack seq_printf
-Date: Wed, 4 May 2016 11:19:46 +0200
-Message-ID: <20160504091946.GA1401@salvia>
-References: <1461863628-23350-1-git-send-email-fw@strlen.de>
- <1461863628-23350-6-git-send-email-fw@strlen.de>
- <20160503181250.GA4508@salvia>
- <20160503222736.GK2395@breakpoint.cc>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net v2] vlan: Propagate MAC address to VLANs unless
+ explicitly set
+Date: Wed, 4 May 2016 11:28:02 +0200
+Message-ID: <20160504092801.GC19967@unicorn.suse.cz>
+References: <5728BA0B.6050807@brocade.com>
+ <5728C1AC.3090708@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Cc: netdev@vger.kernel.org
+To: Mike Manning <mmanning@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38714 "EHLO mail.us.es"
+Received: from mx2.suse.de ([195.135.220.15]:33435 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750791AbcEDJT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 05:19:56 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 357324B104
-	for <netdev@vger.kernel.org>; Wed,  4 May 2016 11:19:54 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 26C50AD6E
-	for <netdev@vger.kernel.org>; Wed,  4 May 2016 11:19:54 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 024A86448C
-	for <netdev@vger.kernel.org>; Wed,  4 May 2016 11:19:47 +0200 (CEST)
+	id S1751396AbcEDJ2E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 05:28:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20160503222736.GK2395@breakpoint.cc>
+In-Reply-To: <5728C1AC.3090708@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 04, 2016 at 12:27:36AM +0200, Florian Westphal wrote:
-> Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > > -	if (NF_CT_DIRECTION(hash))
-> > > -		goto release;
-> > > -	if (nf_ct_l3num(ct) != AF_INET)
-> > > +	/* check if we raced w. object reuse */
-> > > +	if (!nf_ct_is_confirmed(ct) ||
-> > 
-> > This refactoring includes this new check, is this intentional?
+On Tue, May 03, 2016 at 04:20:12PM +0100, Mike Manning wrote:
+> The MAC address of the physical interface is only copied to the VLAN
+> when it is first created, resulting in an inconsistency after MAC
+> address changes of only newly created VLANs having an up-to-date MAC.
 > 
-> Hmm, yes and no.
+> Continuing to inherit the MAC address unless explicitly changed for
+> the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
+> and thus for DAD to behave as expected for the given MAC.
 > 
-> I should have put it in an extra commit :-/
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
+> ---
+>  net/8021q/vlan.c |   22 ++++++++++------------
+>  1 file changed, 10 insertions(+), 12 deletions(-)
 > 
-> Without this, we might erronously print a conntrack that is NEW
-> and which isn't confirmed yet.
-> 
-> We won't crash since seq_print doesn't depend on extensions being
-> set up properly, but it seems better to only display those conntracks
-> that are part of the conntrack hash table (i.e., have the confirmed bit
-> set).
+> --- a/net/8021q/vlan.c
+> +++ b/net/8021q/vlan.c
+> @@ -286,22 +286,25 @@ static void vlan_sync_address(struct net
+>  			      struct net_device *vlandev)
+>  {
+>  	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
+> +	bool real_addr_in_use;
+>  
+>  	/* May be called without an actual change */
+>  	if (ether_addr_equal(vlan->real_dev_addr, dev->dev_addr))
+>  		return;
+>  
+> -	/* vlan address was different from the old address and is equal to
+> +	real_addr_in_use =
+> +		ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr);
+> +
+> +	/* vlan address was different from the real address and is equal to
+>  	 * the new address */
+> -	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+> +	if ((vlandev->flags & IFF_UP) && !real_addr_in_use &&
+>  	    ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+>  		dev_uc_del(dev, vlandev->dev_addr);
+>  
+> -	/* vlan address was equal to the old address and is different from
+> +	/* vlan address was equal to the real address so now also inherit
+>  	 * the new address */
+> -	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+> -	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+> -		dev_uc_add(dev, vlandev->dev_addr);
+> +	if (real_addr_in_use)
+> +		ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
+>  
+>  	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
+>  }
+> @@ -389,13 +392,8 @@ static int vlan_device_event(struct noti
+>  
+>  	case NETDEV_CHANGEADDR:
+>  		/* Adjust unicast filters on underlying device */
+> -		vlan_group_for_each_dev(grp, i, vlandev) {
+> -			flgs = vlandev->flags;
+> -			if (!(flgs & IFF_UP))
+> -				continue;
+> -
+> +		vlan_group_for_each_dev(grp, i, vlandev)
+>  			vlan_sync_address(dev, vlandev);
+> -		}
+>  		break;
+>  
+>  	case NETDEV_CHANGEMTU:
 
-I see, a conntrack that shouldn't be printed be sneak in the listing.
+The commit message says "unless explicitly changed for the VLAN" but
+what you really check is "if it is the same as real device MAC address".
+This, in general, is not the same. (I believe this is what David tries
+to explain from the start.)
 
-> Let me know if you want me to respin this as a separate fix, thanks!
-
-I will just append a notice on the commit message before applying.
+                                                        Michal Kubecek
