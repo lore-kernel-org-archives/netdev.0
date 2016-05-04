@@ -1,31 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] block/drbd: use nla_put_u64_64bit()
-Date: Wed, 04 May 2016 12:50:57 -0400 (EDT)
-Message-ID: <20160504.125057.1606520320212390037.davem@davemloft.net>
-References: <20160504090529.GJ16459@soda.linbit>
-	<5729EFBC.7040002@6wind.com>
-	<1462372026.5535.344.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/2] sfc: RSS enhancements
+Date: Wed, 4 May 2016 17:56:15 +0100
+Message-ID: <572A29AF.1040607@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	philipp.reisner@linbit.com, drbd-dev@lists.linbit.com,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462372026.5535.344.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Pieczko <dpieczko@solarflare.com>
+To: <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:16700 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752148AbcEDQ4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 12:56:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 04 May 2016 07:27:06 -0700
+Daniel Pieczko (1):
+  sfc: allocate rx pages on the same node as the interrupt
 
-> kernel was fine, and most user land apps were fine as well.
+Edward Cree (1):
+  sfc: Support setting rss_cpus to 'cores', 'packages' or 'hyperthreads'
 
-Userland should really not have to deal with garbage like this.
-
-And because it quietly works just fine on x86-64, nothing makes
-sure that applications will universally get this right anyways.
-
-Better to align things properly and magically all of these issues
-simply disappear.
+ drivers/net/ethernet/sfc/efx.c        | 181 ++++++++++++++++++++++++++++------
+ drivers/net/ethernet/sfc/net_driver.h |   3 +
+ drivers/net/ethernet/sfc/rx.c         |  18 +++-
+ 3 files changed, 169 insertions(+), 33 deletions(-)
