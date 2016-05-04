@@ -1,79 +1,416 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] ixgbe: add WoL support for some 82599 subdevice IDs
-Date: Wed,  4 May 2016 09:26:40 -0700
-Message-ID: <1462379208-3997-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] ixgbe: Match on multiple headers for cls_u32 offloads
+Date: Wed,  4 May 2016 09:26:37 -0700
+Message-ID: <1462379208-3997-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:64255 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754505AbcEDQ0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 12:26:53 -0400
+	id S1754465AbcEDQ0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 12:26:51 -0400
 In-Reply-To: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
 
-We had some 82599 subdevice IDs missing from the list of parts that
-support WoL.
+Adds support to set filters with multiple header fields (L3,L4)to match on.
+This is achieved in the following order:
+1. Create a leaf hash table for the next header.
+2. Create a link to the leaf hash table from the base hash table with
+   matches on next header type and current header fields.
+3. Add filter in leaf hash table with match on next header fields and
+   action.
 
-Reported-by: Neil Horman <nhorman@redhat.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Verified with the following filters :
+
+Match TCP and DIP:
+        handle 1: u32 divisor 1
+        u32 ht 800: order 1 link 1: \
+        offset at 0 mask 0f00 shift 6 plus 0 eat \
+        match ip protocol 6 ff match ip dst 10.0.0.1/32
+        match tcp src 28 ffff action drop
+
+Delete the filter:
+
+Match on DIP, SIP, UDP (SPort, DPort):
+        handle 2: u32 divisor 1
+        u32 ht 800: order 2 link 2: \
+        offset at 0 mask 0f00 shift 6 plus 0 eat \
+        match ip dst 15.0.0.2/32 match ip protocol 17 ff \
+        match ip src 15.0.0.1/32
+        match udp src 30 ffff match udp dst 32 ffff action drop
+
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 6 +++++-
- 2 files changed, 11 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 216 +++++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |   6 +
+ 3 files changed, 156 insertions(+), 68 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 781c878..515c3dc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -792,7 +792,7 @@ struct ixgbe_adapter {
+ 	unsigned long fwd_bitmask; /* Bitmask indicating in use pools */
+ 
+ #define IXGBE_MAX_LINK_HANDLE 10
+-	struct ixgbe_mat_field *jump_tables[IXGBE_MAX_LINK_HANDLE];
++	struct ixgbe_jump_table *jump_tables[IXGBE_MAX_LINK_HANDLE];
+ 	unsigned long tables;
+ 
+ /* maximum number of RETA entries among all devices supported by ixgbe
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3d895b6..77c798f 100644
+index 5aa22ac..3d895b6 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9204,8 +9204,10 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- 	case IXGBE_DEV_ID_82599_SFP:
- 		/* Only these subdevices could supports WOL */
- 		switch (subdevice_id) {
--		case IXGBE_SUBDEV_ID_82599_SFP_WOL0:
- 		case IXGBE_SUBDEV_ID_82599_560FLR:
-+		case IXGBE_SUBDEV_ID_82599_LOM_SNAP6:
-+		case IXGBE_SUBDEV_ID_82599_SFP_WOL0:
-+		case IXGBE_SUBDEV_ID_82599_SFP_2OCP:
- 			/* only support first port */
- 			if (hw->bus.func != 0)
+@@ -5574,6 +5574,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	unsigned int rss, fdir;
+ 	u32 fwsm;
+ 	u16 device_caps;
++	int i;
+ #ifdef CONFIG_IXGBE_DCB
+ 	int j;
+ 	struct tc_configuration *tc;
+@@ -5609,7 +5610,14 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ #endif /* IXGBE_FCOE */
+ 
+ 	/* initialize static ixgbe jump table entries */
+-	adapter->jump_tables[0] = ixgbe_ipv4_fields;
++	adapter->jump_tables[0] = kzalloc(sizeof(*adapter->jump_tables[0]),
++					  GFP_KERNEL);
++	if (!adapter->jump_tables[0])
++		return -ENOMEM;
++	adapter->jump_tables[0]->mat = ixgbe_ipv4_fields;
++
++	for (i = 1; i < IXGBE_MAX_LINK_HANDLE; i++)
++		adapter->jump_tables[i] = NULL;
+ 
+ 	adapter->mac_table = kzalloc(sizeof(struct ixgbe_mac_addr) *
+ 				     hw->mac.num_rar_entries,
+@@ -8399,6 +8407,55 @@ static int parse_tc_actions(struct ixgbe_adapter *adapter,
+ }
+ #endif /* CONFIG_NET_CLS_ACT */
+ 
++static int ixgbe_clsu32_build_input(struct ixgbe_fdir_filter *input,
++				    union ixgbe_atr_input *mask,
++				    struct tc_cls_u32_offload *cls,
++				    struct ixgbe_mat_field *field_ptr,
++				    struct ixgbe_nexthdr *nexthdr)
++{
++	int i, j, off;
++	__be32 val, m;
++	bool found_entry = false, found_jump_field = false;
++
++	for (i = 0; i < cls->knode.sel->nkeys; i++) {
++		off = cls->knode.sel->keys[i].off;
++		val = cls->knode.sel->keys[i].val;
++		m = cls->knode.sel->keys[i].mask;
++
++		for (j = 0; field_ptr[j].val; j++) {
++			if (field_ptr[j].off == off) {
++				field_ptr[j].val(input, mask, val, m);
++				input->filter.formatted.flow_type |=
++					field_ptr[j].type;
++				found_entry = true;
++				break;
++			}
++		}
++		if (nexthdr) {
++			if (nexthdr->off == cls->knode.sel->keys[i].off &&
++			    nexthdr->val == cls->knode.sel->keys[i].val &&
++			    nexthdr->mask == cls->knode.sel->keys[i].mask)
++				found_jump_field = true;
++			else
++				continue;
++		}
++	}
++
++	if (nexthdr && !found_jump_field)
++		return -EINVAL;
++
++	if (!found_entry)
++		return 0;
++
++	mask->formatted.flow_type = IXGBE_ATR_L4TYPE_IPV6_MASK |
++				    IXGBE_ATR_L4TYPE_MASK;
++
++	if (input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
++		mask->formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
++
++	return 0;
++}
++
+ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 				  __be16 protocol,
+ 				  struct tc_cls_u32_offload *cls)
+@@ -8406,13 +8463,13 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	u32 loc = cls->knode.handle & 0xfffff;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct ixgbe_mat_field *field_ptr;
+-	struct ixgbe_fdir_filter *input;
+-	union ixgbe_atr_input mask;
+-	int i, err = 0;
++	struct ixgbe_fdir_filter *input = NULL;
++	union ixgbe_atr_input *mask = NULL;
++	struct ixgbe_jump_table *jump = NULL;
++	int i, err = -EINVAL;
+ 	u8 queue;
+ 	u32 uhtid, link_uhtid;
+ 
+-	memset(&mask, 0, sizeof(union ixgbe_atr_input));
+ 	uhtid = TC_U32_USERHTID(cls->knode.handle);
+ 	link_uhtid = TC_U32_USERHTID(cls->knode.link_handle);
+ 
+@@ -8424,39 +8481,11 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	 * headers when needed.
+ 	 */
+ 	if (protocol != htons(ETH_P_IP))
+-		return -EINVAL;
+-
+-	if (link_uhtid) {
+-		struct ixgbe_nexthdr *nexthdr = ixgbe_ipv4_jumps;
+-
+-		if (link_uhtid >= IXGBE_MAX_LINK_HANDLE)
+-			return -EINVAL;
+-
+-		if (!test_bit(link_uhtid - 1, &adapter->tables))
+-			return -EINVAL;
+-
+-		for (i = 0; nexthdr[i].jump; i++) {
+-			if (nexthdr[i].o != cls->knode.sel->offoff ||
+-			    nexthdr[i].s != cls->knode.sel->offshift ||
+-			    nexthdr[i].m != cls->knode.sel->offmask ||
+-			    /* do not support multiple key jumps its just mad */
+-			    cls->knode.sel->nkeys > 1)
+-				return -EINVAL;
+-
+-			if (nexthdr[i].off == cls->knode.sel->keys[0].off &&
+-			    nexthdr[i].val == cls->knode.sel->keys[0].val &&
+-			    nexthdr[i].mask == cls->knode.sel->keys[0].mask) {
+-				adapter->jump_tables[link_uhtid] =
+-								nexthdr[i].jump;
+-				break;
+-			}
+-		}
+-		return 0;
+-	}
++		return err;
+ 
+ 	if (loc >= ((1024 << adapter->fdir_pballoc) - 2)) {
+ 		e_err(drv, "Location out of range\n");
+-		return -EINVAL;
++		return err;
+ 	}
+ 
+ 	/* cls u32 is a graph starting at root node 0x800. The driver tracks
+@@ -8467,47 +8496,85 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	 * this function _should_ be generic try not to hardcode values here.
+ 	 */
+ 	if (uhtid == 0x800) {
+-		field_ptr = adapter->jump_tables[0];
++		field_ptr = (adapter->jump_tables[0])->mat;
+ 	} else {
+ 		if (uhtid >= IXGBE_MAX_LINK_HANDLE)
+-			return -EINVAL;
+-
+-		field_ptr = adapter->jump_tables[uhtid];
++			return err;
++		if (!adapter->jump_tables[uhtid])
++			return err;
++		field_ptr = (adapter->jump_tables[uhtid])->mat;
+ 	}
+ 
+ 	if (!field_ptr)
+-		return -EINVAL;
++		return err;
+ 
+-	input = kzalloc(sizeof(*input), GFP_KERNEL);
+-	if (!input)
+-		return -ENOMEM;
++	/* At this point we know the field_ptr is valid and need to either
++	 * build cls_u32 link or attach filter. Because adding a link to
++	 * a handle that does not exist is invalid and the same for adding
++	 * rules to handles that don't exist.
++	 */
+ 
+-	for (i = 0; i < cls->knode.sel->nkeys; i++) {
+-		int off = cls->knode.sel->keys[i].off;
+-		__be32 val = cls->knode.sel->keys[i].val;
+-		__be32 m = cls->knode.sel->keys[i].mask;
+-		bool found_entry = false;
+-		int j;
++	if (link_uhtid) {
++		struct ixgbe_nexthdr *nexthdr = ixgbe_ipv4_jumps;
+ 
+-		for (j = 0; field_ptr[j].val; j++) {
+-			if (field_ptr[j].off == off) {
+-				field_ptr[j].val(input, &mask, val, m);
+-				input->filter.formatted.flow_type |=
+-					field_ptr[j].type;
+-				found_entry = true;
++		if (link_uhtid >= IXGBE_MAX_LINK_HANDLE)
++			return err;
++
++		if (!test_bit(link_uhtid - 1, &adapter->tables))
++			return err;
++
++		for (i = 0; nexthdr[i].jump; i++) {
++			if (nexthdr[i].o != cls->knode.sel->offoff ||
++			    nexthdr[i].s != cls->knode.sel->offshift ||
++			    nexthdr[i].m != cls->knode.sel->offmask)
++				return err;
++
++			jump = kzalloc(sizeof(*jump), GFP_KERNEL);
++			if (!jump)
++				return -ENOMEM;
++			input = kzalloc(sizeof(*input), GFP_KERNEL);
++			if (!input) {
++				err = -ENOMEM;
++				goto free_jump;
++			}
++			mask = kzalloc(sizeof(*mask), GFP_KERNEL);
++			if (!mask) {
++				err = -ENOMEM;
++				goto free_input;
++			}
++			jump->input = input;
++			jump->mask = mask;
++			err = ixgbe_clsu32_build_input(input, mask, cls,
++						       field_ptr, &nexthdr[i]);
++			if (!err) {
++				jump->mat = nexthdr[i].jump;
++				adapter->jump_tables[link_uhtid] = jump;
  				break;
-@@ -9213,7 +9215,9 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- 		case IXGBE_SUBDEV_ID_82599_SFP:
- 		case IXGBE_SUBDEV_ID_82599_RNDC:
- 		case IXGBE_SUBDEV_ID_82599_ECNA_DP:
--		case IXGBE_SUBDEV_ID_82599_LOM_SFP:
-+		case IXGBE_SUBDEV_ID_82599_SFP_1OCP:
-+		case IXGBE_SUBDEV_ID_82599_SFP_LOM_OEM1:
-+		case IXGBE_SUBDEV_ID_82599_SFP_LOM_OEM2:
- 			is_wol_supported = 1;
- 			break;
+ 			}
  		}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 7af4514..71082be 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -59,8 +59,12 @@
- #define IXGBE_SUBDEV_ID_82599_RNDC       0x1F72
- #define IXGBE_SUBDEV_ID_82599_560FLR     0x17D0
- #define IXGBE_SUBDEV_ID_82599_SP_560FLR  0x211B
-+#define IXGBE_SUBDEV_ID_82599_LOM_SNAP6		0x2159
-+#define IXGBE_SUBDEV_ID_82599_SFP_1OCP		0x000D
-+#define IXGBE_SUBDEV_ID_82599_SFP_2OCP		0x0008
-+#define IXGBE_SUBDEV_ID_82599_SFP_LOM_OEM1	0x8976
-+#define IXGBE_SUBDEV_ID_82599_SFP_LOM_OEM2	0x06EE
- #define IXGBE_SUBDEV_ID_82599_ECNA_DP    0x0470
--#define IXGBE_SUBDEV_ID_82599_LOM_SFP    0x8976
- #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
- #define IXGBE_DEV_ID_82599_SFP_SF2       0x154D
- #define IXGBE_DEV_ID_82599EN_SFP         0x1557
+-
+-		if (!found_entry)
+-			goto err_out;
++		return 0;
+ 	}
+ 
+-	mask.formatted.flow_type = IXGBE_ATR_L4TYPE_IPV6_MASK |
+-				   IXGBE_ATR_L4TYPE_MASK;
++	input = kzalloc(sizeof(*input), GFP_KERNEL);
++	if (!input)
++		return -ENOMEM;
++	mask = kzalloc(sizeof(*mask), GFP_KERNEL);
++	if (!mask) {
++		err = -ENOMEM;
++		goto free_input;
++	}
+ 
+-	if (input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
+-		mask.formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
++	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid])) {
++		if ((adapter->jump_tables[uhtid])->input)
++			memcpy(input, (adapter->jump_tables[uhtid])->input,
++			       sizeof(*input));
++		if ((adapter->jump_tables[uhtid])->mask)
++			memcpy(mask, (adapter->jump_tables[uhtid])->mask,
++			       sizeof(*mask));
++	}
++	err = ixgbe_clsu32_build_input(input, mask, cls, field_ptr, NULL);
++	if (err)
++		goto err_out;
+ 
+ 	err = parse_tc_actions(adapter, cls->knode.exts, &input->action,
+ 			       &queue);
+@@ -8519,28 +8586,33 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	spin_lock(&adapter->fdir_perfect_lock);
+ 
+ 	if (hlist_empty(&adapter->fdir_filter_list)) {
+-		memcpy(&adapter->fdir_mask, &mask, sizeof(mask));
+-		err = ixgbe_fdir_set_input_mask_82599(hw, &mask);
++		memcpy(&adapter->fdir_mask, mask, sizeof(*mask));
++		err = ixgbe_fdir_set_input_mask_82599(hw, mask);
+ 		if (err)
+ 			goto err_out_w_lock;
+-	} else if (memcmp(&adapter->fdir_mask, &mask, sizeof(mask))) {
++	} else if (memcmp(&adapter->fdir_mask, mask, sizeof(*mask))) {
+ 		err = -EINVAL;
+ 		goto err_out_w_lock;
+ 	}
+ 
+-	ixgbe_atr_compute_perfect_hash_82599(&input->filter, &mask);
++	ixgbe_atr_compute_perfect_hash_82599(&input->filter, mask);
+ 	err = ixgbe_fdir_write_perfect_filter_82599(hw, &input->filter,
+ 						    input->sw_idx, queue);
+ 	if (!err)
+ 		ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
+ 	spin_unlock(&adapter->fdir_perfect_lock);
+ 
++	kfree(mask);
+ 	return err;
+ err_out_w_lock:
+ 	spin_unlock(&adapter->fdir_perfect_lock);
+ err_out:
++	kfree(mask);
++free_input:
+ 	kfree(input);
+-	return -EINVAL;
++free_jump:
++	kfree(jump);
++	return err;
+ }
+ 
+ static int __ixgbe_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+@@ -9612,6 +9684,7 @@ err_sw_init:
+ 	ixgbe_disable_sriov(adapter);
+ 	adapter->flags2 &= ~IXGBE_FLAG2_SEARCH_FOR_SFP;
+ 	iounmap(adapter->io_addr);
++	kfree(adapter->jump_tables[0]);
+ 	kfree(adapter->mac_table);
+ err_ioremap:
+ 	disable_dev = !test_and_set_bit(__IXGBE_DISABLED, &adapter->state);
+@@ -9640,6 +9713,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev;
+ 	bool disable_dev;
++	int i;
+ 
+ 	/* if !adapter then we already cleaned up in probe */
+ 	if (!adapter)
+@@ -9689,6 +9763,14 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 
+ 	e_dev_info("complete\n");
+ 
++	for (i = 0; i < IXGBE_MAX_LINK_HANDLE; i++) {
++		if (adapter->jump_tables[i]) {
++			kfree(adapter->jump_tables[i]->input);
++			kfree(adapter->jump_tables[i]->mask);
++		}
++		kfree(adapter->jump_tables[i]);
++	}
++
+ 	kfree(adapter->mac_table);
+ 	disable_dev = !test_and_set_bit(__IXGBE_DISABLED, &adapter->state);
+ 	free_netdev(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
+index 60adde5..a8bed3d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
+@@ -38,6 +38,12 @@ struct ixgbe_mat_field {
+ 	unsigned int type;
+ };
+ 
++struct ixgbe_jump_table {
++	struct ixgbe_mat_field *mat;
++	struct ixgbe_fdir_filter *input;
++	union ixgbe_atr_input *mask;
++};
++
+ static inline int ixgbe_mat_prgm_sip(struct ixgbe_fdir_filter *input,
+ 				     union ixgbe_atr_input *mask,
+ 				     u32 val, u32 m)
 -- 
 2.5.5
