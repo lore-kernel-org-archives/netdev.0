@@ -1,40 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] rtlwifi: rtl818x: silence uninitialized variable warning
-Date: Wed, 4 May 2016 09:16:39 +0300
-Message-ID: <20160504061639.GB22064@mwanda>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] usbnet/smsc75xx: silence uninitialized variable warning
+Date: Wed, 4 May 2016 09:21:02 +0300
+Message-ID: <20160504062102.GE22064@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-What about if "rtlphy->pwrgroup_cnt" is 2?  In that case we would use an
-uninitialized "chnlgroup" variable and probably crash.  Maybe that can't
-happen for some reason which is not obvious but in that case this patch
-is harmless.
+If the fn() calls fail then "buf" is uninitialized.  Just return early
+in that situation.
 
-Setting it to zero seems like a standard default in the surrounding code
-so it's probably fine here as well.
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/rf.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/rf.c
-index 78a81c1..9475aa2 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/rf.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/rf.c
-@@ -208,8 +208,7 @@ static void _rtl92s_get_txpower_writeval_byregulatory(struct ieee80211_hw *hw,
- 				 "Realtek regulatory, 40MHz, writeval = 0x%x\n",
- 				 writeval);
- 		} else {
--			if (rtlphy->pwrgroup_cnt == 1)
--				chnlgroup = 0;
-+			chnlgroup = 0;
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index c369db9..9af9799 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -99,9 +99,11 @@ static int __must_check __smsc75xx_read_reg(struct usbnet *dev, u32 index,
+ 	ret = fn(dev, USB_VENDOR_REQUEST_READ_REGISTER, USB_DIR_IN
+ 		 | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+ 		 0, index, &buf, 4);
+-	if (unlikely(ret < 0))
++	if (unlikely(ret < 0)) {
+ 		netdev_warn(dev->net, "Failed to read reg index 0x%08x: %d\n",
+ 			    index, ret);
++		return ret;
++	}
  
- 			if (rtlphy->pwrgroup_cnt >= 3) {
- 				if (chnl <= 3)
+ 	le32_to_cpus(&buf);
+ 	*data = buf;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
