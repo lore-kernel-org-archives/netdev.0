@@ -1,92 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
-Date: Tue, 03 May 2016 17:25:44 -0700
-Message-ID: <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
+From: "David B. Robins" <linux@davidrobins.net>
+Subject: Re: [REGRESSION] asix: Lots of =?UTF-8?Q?asix=5Frx=5Ffixup=28=29?=
+ =?UTF-8?Q?=20errors=20and=20slow=20transmissions?=
+Date: Tue, 03 May 2016 20:28:10 -0400
+Message-ID: <e4efd48d3c16c27de68d464ad3170b02@i4031.net>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+ <87ed4c76328ed9dc5591359ea0e98ab9@i4031.net> <57291539.6080405@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: Peter Wu <peter@lekensteyn.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:36315 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756826AbcEDAZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2016 20:25:51 -0400
-Received: by mail-pf0-f169.google.com with SMTP id c189so18227243pfb.3
-        for <netdev@vger.kernel.org>; Tue, 03 May 2016 17:25:50 -0700 (PDT)
-In-Reply-To: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: John Stultz <john.stultz@linaro.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	Guodong Xu <guodong.xu@linaro.org>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Ivan Vecera <ivecera@redhat.com>
+To: Dean Jenkins <Dean_Jenkins@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57291539.6080405@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-05-03 at 23:54 +0200, Peter Wu wrote:
-> When applications use listen() with a backlog of 0, the kernel would
-> set the maximum connection request queue to zero. This causes false
-> reports of SYN flooding (if tcp_syncookies is enabled) or packet drops
-> otherwise.
+On 2016-05-03 17:16, Dean Jenkins wrote:
+> On 03/05/16 15:42, David B. Robins wrote:
+>> 
+>> I don't think the first one is giving you problems (except as 
+>> triggered by the second) but I had concerns about the second myself 
+>> (and emailed the author off-list, but received no reply), and we did 
+>> not take that commit for our own product.
+>> 
+> Sorry, I might have missed your original E-mail.
 > 
-> Prior kernels enforce a minimum size of 8, so do that now as well.
+>> Specifically, the second change, 3f30... (original patch: 
+>> https://www.mail-archive.com/netdev@vger.kernel.org/msg80720.html) (1) 
+>> appears to do the exact opposite of what it claims, i.e., instead of 
+>> "resync if this looks like a header", it does "resync if this does NOT 
+>> look like a (packet) header", where "looks like a header" means "bits 
+>> 0-10 (size) are equal to the bitwise-NOT of bits 16-26", and (2) can 
+>> happen by coincidence for 1/2048 32-bit values starting a continuation 
+>> URB (easy to hit dealing with large volumes of video data as we were). 
+>> It appears to expect the header for every URB whereas the rest of the 
+>> code at least expects it only once per network packet (look at 
+>> following code that only reads it for remaining == 0).
 > 
-> Fixes: ef547f2ac16b ("tcp: remove max_qlen_log")
-> Signed-off-by: Peter Wu <peter@lekensteyn.nl>
-> ---
-> Hi,
+> David, I think that your interpretation is incorrect. Please see below.
 > 
-> This patch fixes a regression from Linux 4.4. Use of "qemu-arm -g 1234"
-> would trigger the following warning in dmesg:
+> Here is the code snippet from the patch with my annotations between #
+> #, I will try to explain my intentions. Feel free to point out any
+> flaws:
 > 
->     TCP: request_sock_TCP: Possible SYN flooding on port 1234. Sending cookies.  Check SNMP counters.
-> 
-> For some users the "tcp: remove max_qlen_log" change already broke
-> applications[1]. While listen(3p) says that a backlog argument of 0 sets
-> the length to an "implementation-defined minimum value", I doubt that
-> "0" should be considered a valid value (as demonstrated in the above two
-> real-world applications that worked fine before). It is a hint anyway.
-> 
-> This patch was tested on top of Linux v4.5 and removes the warning which
-> would otherwise be present (due to the inet_csk_reqsk_queue_is_full()
-> check in tcp_conn_request).
-> 
-> I also looked at modifying the backlog value in inet_listen, but that
-> might have other unintended effects:
-> 
->  - If TFO is enabled and tcp_fastopen==0x400, listen(fd, 0) currently
->    disables TFO (also possible via setsockopt). Forcing a minimum breaks
->    this path (unlikely to be a problem though since TFO users likely set
->    a much higher backlog).
->  - sk->sk_max_ack_backlog is also reported via tcp statistics and seems
->    really to be the hint rather than the actual interpreted value.
-> 
-> Kind regards,
-> Peter
-> 
->  [1]: https://lkml.kernel.org/r/CANn89i+OKfw896-N5KsNDEikzUidR8yX1JC089hJnGGfDQ0mzw@mail.gmail.com
-> ---
->  include/net/inet_connection_sock.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-> index 49dcad4..ca0fdbc 100644
-> --- a/include/net/inet_connection_sock.h
-> +++ b/include/net/inet_connection_sock.h
-> @@ -296,7 +296,7 @@ static inline int inet_csk_reqsk_queue_young(const struct sock *sk)
->  
->  static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
->  {
-> -	return inet_csk_reqsk_queue_len(sk) >= sk->sk_max_ack_backlog;
-> +	return inet_csk_reqsk_queue_len(sk) >= max(8U, sk->sk_max_ack_backlog);
->  }
->  
->  void inet_csk_reqsk_queue_drop(struct sock *sk, struct request_sock *req);
+>     if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
+>         # Only runs when rx->remaining !=0 and the end of the Ethernet
+> frame + next 32-bit header word is within the URB buffer. #
+>         # Therefore, this code does not run when the end of an
+> Ethernet frame has been reached in the previous URB #
+>         # or when the end of the Ethernet frame + next 32-bit header
+> word will be in a later URB buffer #
 
-Well, I believe I already gave my opinion on this.
+It may well be. I don't have the setup with me now, but I can try 
+tomorrow to reproduce an environment where I can add some more detailed 
+logging.
 
-listen backlog is not a hint. This is a limit.
+Since the URB length has to be >= than the remaining data plus a u32, 
+the devices that John Stultz and I are using (AX88772B in my case) may 
+be adding some additional data/padding after an Ethernet frame, 
+expecting it to be discarded, and running into this check and its 
+consequences. This may mean the device is badly behaved, if it is 
+specified not to send anything extra; in any case, a well-intentioned 
+error correction has gone badly, but I better understand the intent now. 
+I am curious to know how often the device you are using benefits from 
+this block of code.
 
-It is the limit of outstanding children in accept queue.
+> Regards,
+> Dean
 
-If backlog is 0, no child can be put in the accept queue.
-
-It is therefore Working As Intented.
+David
