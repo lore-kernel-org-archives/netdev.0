@@ -1,280 +1,56 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v7 03/21] IB/hns: Add initial main frame driver and get cfg info
-Date: Wed, 4 May 2016 20:21:00 +0800
-Message-ID: <1462364478-10808-4-git-send-email-oulijun@huawei.com>
-References: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Subject: [PATCH net] igmp: fix byte order in /proc/net/igmp output
+Date: Wed,  4 May 2016 14:11:24 +0200
+Message-ID: <1462363884-34968-1-git-send-email-Eugene.Crosser@ru.ibm.com>
+To: crosser@average.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:42763 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753046AbcEDML5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 08:11:57 -0400
+Received: from localhost
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <Eugene.Crosser@ru.ibm.com>;
+	Wed, 4 May 2016 13:11:54 +0100
+Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 93BFC2190061
+	for <netdev@vger.kernel.org>; Wed,  4 May 2016 13:11:01 +0100 (BST)
+Received: from d06av05.portsmouth.uk.ibm.com (d06av05.portsmouth.uk.ibm.com [9.149.37.229])
+	by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u44CBPl53670446
+	for <netdev@vger.kernel.org>; Wed, 4 May 2016 12:11:25 GMT
+Received: from d06av05.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av05.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u44CBOeH001013
+	for <netdev@vger.kernel.org>; Wed, 4 May 2016 06:11:24 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch mainly added the initial bare main driver. It
-could get the relative configure information of net node.
+/proc/net/igmp is a readonly attribute that shows multicast groups
+to which different network interfaces are subscribed. Among other
+things, it displays `multiaddr` which is a 32 bit network-byte-order
+field, in hexadecimal format. Prior to this patch, the field was
+displayed as an integer, resulting in reverse byte order on little
+endian architectures. This patch converts it with ntohl() for display
+the same way as this is done for the /proc/net/mcfilter attribute.
 
-Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
-Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
-Signed-off-by: Lijun Ou <oulijun@huawei.com>
+The patch changes (corrects) user-visible behaviour.
+
+Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_device.h |  49 ++++++++
- drivers/infiniband/hw/hns/hns_roce_main.c   | 182 ++++++++++++++++++++++++++++
- 2 files changed, 231 insertions(+)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
+ net/ipv4/igmp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-new file mode 100644
-index 0000000..b48f518
---- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -0,0 +1,49 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _HNS_ROCE_DEVICE_H
-+#define _HNS_ROCE_DEVICE_H
-+
-+#include <linux/platform_device.h>
-+#include <linux/radix-tree.h>
-+#include <linux/semaphore.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_verbs.h>
-+
-+#define DRV_NAME "hns_roce"
-+
-+#define HNS_ROCE_MAX_IRQ_NUM			34
-+#define HNS_ROCE_MAX_PORTS			6
-+
-+struct hns_roce_ib_iboe {
-+	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
-+	u8			phy_port[HNS_ROCE_MAX_PORTS];
-+};
-+
-+struct hns_roce_caps {
-+	u8			num_ports;
-+};
-+
-+struct hns_roce_dev {
-+	struct ib_device	ib_dev;
-+	struct platform_device  *pdev;
-+	struct hns_roce_ib_iboe iboe;
-+
-+	int			irq[HNS_ROCE_MAX_IRQ_NUM];
-+	u8 __iomem		*reg_base;
-+	struct hns_roce_caps	caps;
-+
-+	int			cmd_mod;
-+	int			loop_idc;
-+};
-+
-+#endif /* _HNS_ROCE_DEVICE_H */
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-new file mode 100644
-index 0000000..1616148
---- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -0,0 +1,182 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * Authors: Wei Hu <xavier.huwei@huawei.com>
-+ * Authors: Nenglong Zhao <zhaonenglong@hisilicon.com>
-+ * Authors: Lijun Ou <oulijun@huawei.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ */
-+
-+#include <linux/cdev.h>
-+#include <linux/delay.h>
-+#include <linux/device.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/ethtool.h>
-+#include <linux/etherdevice.h>
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/interrupt.h>
-+#include <linux/kernel.h>
-+#include <linux/list.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/of.h>
-+#include <linux/of_address.h>
-+#include <linux/of_net.h>
-+#include <linux/of_platform.h>
-+#include <linux/platform_device.h>
-+#include <linux/slab.h>
-+#include <linux/netdevice.h>
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_verbs.h>
-+#include "hns_roce_device.h"
-+
-+int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
-+{
-+	int i;
-+	u8 phy_port;
-+	int port_cnt = 0;
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct device_node *np = dev->of_node;
-+	struct device_node *net_node;
-+	struct net_device *netdev = NULL;
-+	struct platform_device *pdev = NULL;
-+	struct resource *res;
-+
-+	if (!of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
-+		dev_err(dev, "device no compatible!\n");
-+		return -EINVAL;
-+	}
-+
-+	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
-+	hr_dev->reg_base = devm_ioremap_resource(dev, res);
-+	if (!hr_dev->reg_base) {
-+		dev_err(dev, "devm_ioremap_resource failed!\n");
-+		return -ENOMEM;
-+	}
-+
-+	for (i = 0; i < HNS_ROCE_MAX_PORTS; i++) {
-+		net_node = of_parse_phandle(np, "eth-handle", i);
-+		if (net_node) {
-+			pdev = of_find_device_by_node(net_node);
-+			netdev = platform_get_drvdata(pdev);
-+			phy_port = (u8)i;
-+			if (netdev) {
-+				hr_dev->iboe.netdevs[port_cnt] = netdev;
-+				hr_dev->iboe.phy_port[port_cnt] = phy_port;
-+			} else {
-+				return -ENODEV;
-+			}
-+			port_cnt++;
-+		}
-+	}
-+
-+	hr_dev->caps.num_ports = port_cnt;
-+
-+	/* Cmd issue mode: 0 is poll, 1 is event */
-+	hr_dev->cmd_mod = 1;
-+	hr_dev->loop_idc = 0;
-+
-+	for (i = 0; i < HNS_ROCE_MAX_IRQ_NUM; i++) {
-+		hr_dev->irq[i] = platform_get_irq(hr_dev->pdev, i);
-+		if (hr_dev->irq[i] <= 0) {
-+			dev_err(dev, "Get No.%d irq resource failed!\n", i);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+* hns_roce_probe - RoCE driver entrance
-+* @pdev: pointer to platform device
-+* Return : int
-+*
-+*/
-+static int hns_roce_probe(struct platform_device *pdev)
-+{
-+	int ret;
-+	struct hns_roce_dev *hr_dev;
-+	struct device *dev = &pdev->dev;
-+
-+	hr_dev = (struct hns_roce_dev *)ib_alloc_device(sizeof(*hr_dev));
-+	if (!hr_dev) {
-+		dev_err(dev, "Device struct alloc failed, aborting.\n");
-+		return -ENOMEM;
-+	}
-+
-+	memset((u8 *)hr_dev + sizeof(struct ib_device), 0,
-+		sizeof(struct hns_roce_dev) - sizeof(struct ib_device));
-+
-+	hr_dev->pdev = pdev;
-+	platform_set_drvdata(pdev, hr_dev);
-+
-+	if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64ULL)))
-+		dev_info(dev, "set mask to 64bit\n");
-+	else if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32ULL)))
-+		dev_info(dev, "set mask to 32bit\n");
-+	else {
-+		dev_err(dev, "No usable DMA addressing mode\n");
-+		ret = -EIO;
-+		goto error_failed_get_cfg;
-+	}
-+
-+	ret = hns_roce_get_cfg(hr_dev);
-+	if (ret) {
-+		dev_err(dev, "Get Configuration failed!\n");
-+		goto error_failed_get_cfg;
-+	}
-+
-+error_failed_get_cfg:
-+	ib_dealloc_device(&hr_dev->ib_dev);
-+
-+	return ret;
-+}
-+
-+/**
-+* hns_roce_remove - remove roce device
-+* @pdev: pointer to platform device
-+*/
-+static int hns_roce_remove(struct platform_device *pdev)
-+{
-+	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
-+
-+	ib_dealloc_device(&hr_dev->ib_dev);
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id hns_roce_of_match[] = {
-+	{ .compatible = "hisilicon,hns-roce-v1",},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, hns_roce_of_match);
-+
-+static struct platform_driver hns_roce_driver = {
-+	.probe = hns_roce_probe,
-+	.remove = hns_roce_remove,
-+	.driver = {
-+		.name = DRV_NAME,
-+		.of_match_table = hns_roce_of_match,
-+	},
-+};
-+
-+module_platform_driver(hns_roce_driver);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Wei Hu <xavier.huwei@huawei.com>");
-+MODULE_AUTHOR("Nenglong Zhao <zhaonenglong@hisilicon.com>");
-+MODULE_AUTHOR("Lijun Ou <oulijun@huawei.com>");
-+MODULE_DESCRIPTION("HISILICON RoCE driver");
-+MODULE_ALIAS("platform:" DRV_NAME);
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index b3086cf..f9d2139 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2722,7 +2722,7 @@ static int igmp_mc_seq_show(struct seq_file *seq, void *v)
+ 		delta = im->timer.expires - jiffies;
+ 		seq_printf(seq,
+ 			   "\t\t\t\t%08X %5d %d:%08lX\t\t%d\n",
+-			   im->multiaddr, im->users,
++			   ntohl(im->multiaddr), im->users,
+ 			   im->tm_running,
+ 			   im->tm_running ? jiffies_delta_to_clock_t(delta) : 0,
+ 			   im->reporter);
 -- 
-1.9.1
+2.6.6
