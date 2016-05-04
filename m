@@ -1,55 +1,79 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next] vrf: add exit function and allow module unload
-Date: Wed, 4 May 2016 10:05:28 -0600
-Message-ID: <572A1DC8.8040204@cumulusnetworks.com>
-References: <1462357236-6297-1-git-send-email-jiri@resnulli.us>
- <1462357422.1666076.597731009.4C5E1305@webmail.messagingengine.com>
+From: Alex Duyck <aduyck@mirantis.com>
+Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
+ segmentation with outer checksum offload
+Date: Wed, 4 May 2016 09:06:19 -0700
+Message-ID: <CAMt9YRqCH8Ab5vefMoQj39gJ8b-gsg2w5nJanW1srqt13bUkSQ@mail.gmail.com>
+References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
+	<20160429224333.12418.13862.stgit@ahduyck-xeon-server>
+	<CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
+	<CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
+	<CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
+	<CAKgT0UdeuJA-K8zim5Eact9A2oFscXDC2a7ciKGTo74xptuw4w@mail.gmail.com>
+	<57289C95.8030401@mellanox.com>
+	<CAKgT0UeK2ss9AsxdvyDHArXXVZMZG7AL6f0iXQukSg135B64cQ@mail.gmail.com>
+	<572A1A49.9020507@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, shm@cumulusnetworks.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"talal@mellanox.com" <talal@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <michael.chan@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Gal Pressman <galp@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:36634 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbcEDQFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 12:05:31 -0400
-Received: by mail-ig0-f177.google.com with SMTP id u10so152304658igr.1
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 09:05:31 -0700 (PDT)
-In-Reply-To: <1462357422.1666076.597731009.4C5E1305@webmail.messagingengine.com>
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:32778 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbcEDQGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 12:06:20 -0400
+Received: by mail-yw0-f173.google.com with SMTP id t10so101704659ywa.0
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 09:06:20 -0700 (PDT)
+In-Reply-To: <572A1A49.9020507@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/4/16 4:23 AM, Hannes Frederic Sowa wrote:
-> Hello Jiri,
->
-> On Wed, May 4, 2016, at 12:20, Jiri Pirko wrote:
->>   drivers/net/vrf.c | 7 +++++++
->>   1 file changed, 7 insertions(+)
+On Wed, May 4, 2016 at 8:50 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> On 5/3/2016 6:29 PM, Alexander Duyck wrote:
 >>
->> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
->> index 8a8f1e5..b217c2d 100644
->> --- a/drivers/net/vrf.c
->> +++ b/drivers/net/vrf.c
->> @@ -839,7 +839,14 @@ error:
->>   	return rc;
->>   }
->>
->> +static void __exit vrf_exit_module(void)
->> +{
->> +       rtnl_link_unregister(&vrf_link_ops);
->> +       unregister_netdevice_notifier(&vrf_notifier_block);
->> +}
->> +
->>   module_init(vrf_init_module);
->> +module_exit(vrf_exit_module);
+>> We split the one that would be a different size off via GSO.  So we
+>> end up sending up 2 frames to the device if there is going to be one
+>> piece that doesn't quite match.  We split that one piece off via GSO.
+>> That is one of the reasons why I referred to it as partial GSO as all
+>> we are using the software segmentation code for is to make sure we
+>> have the GSO block consists of segments that are all the same size.
 >
-> The dst_entries created by vrf don't carry a reference to THIS_MODULE
-> but have a code dependency to the vrf module (e.g. via
-> vrf_output/vrf_output6) that gets published. This is exactly the same
-> why ipv6 cannot be unloaded.
+>
+> I see, so if somehow it happens a lot that the TCP stack sends down
+> something which once segmented ends up with the last segment being of
+> different size from the other ones we would have to call the NIC xmit
+> function twice (BTW can we use xmit_more here?)  -- which could be effecting
+> performance, I guess.
+>
+> GSO_UDP_TUNNEL_CSUM (commit  0f4f4ffa7 "net: Add GSO support for UDP tunnels
+> with checksum") came to mark "that a device is capable of computing the UDP
+> checksum in the encapsulating header of a UDP tunnel" -- and the way we use
+> it here is that we do advertize that bit towards the stack for devices whose
+> HW can **not** do that, and things work b/c of LCO (this is my
+> understanding).
+>
+> I miss something in the bigger picture here, what does this buy us? e.g vs
+> just letting this (say) vxlan tunnel use zero checksum on the outer UDP
+> packet, is that has something to do with RCO?
 
-exactly. The module exit was removed recently by 9ab179d83b4e ("net: 
-vrf: Fix dst reference counting")
+I think the piece you are missing is GSO_PARTIAL.  Basically
+GSO_PARTIAL indicates that we can perform GSO as long as all segments
+are the same size and also allows for ignoring one level of headers.
+So in the case of ixgbe for instance we can support tunnel offloads as
+long as we allow for the inner IPv4 ID to be a fixed value which is
+identified by enabling TSO_MANGLEID.  In the case of i40e, mlx4, and
+mlx5 the key bit is that we just have to have the frames the same size
+for all segments and then we can support tunnels with outer checksum
+because the checksum has been computed once and can be applied to all
+of the segmented frames.
+
+Hope that helps.
+
+- Alex
