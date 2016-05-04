@@ -1,42 +1,58 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH 3/3] net/mlx5e: don't build RFS without ethernet
-Date: Wed, 4 May 2016 16:09:16 +0300
-Message-ID: <CALzJLG9j6ZodwDToX8iuvNVKLoMoaM8V9w8cFR6jM-ktU0ynHg@mail.gmail.com>
-References: <1462364774-3792510-1-git-send-email-arnd@arndb.de> <1462365155-3861405-1-git-send-email-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] igmp: fix byte order in /proc/net/igmp output
+Date: Wed, 04 May 2016 06:13:36 -0700
+Message-ID: <1462367616.5535.340.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1462363884-34968-1-git-send-email-Eugene.Crosser@ru.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Matthew Finlay <matt@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Haggai Abramonvsky <hagaya@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462365155-3861405-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: crosser@average.org, netdev@vger.kernel.org
+To: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35549 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbcEDNNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 09:13:40 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 77so25185349pfv.2
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 06:13:40 -0700 (PDT)
+In-Reply-To: <1462363884-34968-1-git-send-email-Eugene.Crosser@ru.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 4, 2016 at 3:32 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> The RFS acceleration support in mlx5 is enabled whenever CONFIG_RFS_ACCEL
-> is in use. However, this fails if a user turns off CONFIG_MLX5_CORE_EN,
-> because the rfs code now calls into the ethernet portion of the
-> driver:
->
-> ERROR: "mlx5e_destroy_flow_table" [drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko] undefined!
->
+On Wed, 2016-05-04 at 14:11 +0200, Eugene Crosser wrote:
+> /proc/net/igmp is a readonly attribute that shows multicast groups
+> to which different network interfaces are subscribed. Among other
+> things, it displays `multiaddr` which is a 32 bit network-byte-order
+> field, in hexadecimal format. Prior to this patch, the field was
+> displayed as an integer, resulting in reverse byte order on little
+> endian architectures. This patch converts it with ntohl() for display
+> the same way as this is done for the /proc/net/mcfilter attribute.
+> 
+> The patch changes (corrects) user-visible behaviour.
+> 
+> Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+> ---
+>  net/ipv4/igmp.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+> index b3086cf..f9d2139 100644
+> --- a/net/ipv4/igmp.c
+> +++ b/net/ipv4/igmp.c
+> @@ -2722,7 +2722,7 @@ static int igmp_mc_seq_show(struct seq_file *seq, void *v)
+>  		delta = im->timer.expires - jiffies;
+>  		seq_printf(seq,
+>  			   "\t\t\t\t%08X %5d %d:%08lX\t\t%d\n",
+> -			   im->multiaddr, im->users,
+> +			   ntohl(im->multiaddr), im->users,
+>  			   im->tm_running,
+>  			   im->tm_running ? jiffies_delta_to_clock_t(delta) : 0,
+>  			   im->reporter);
 
-Hi Arnd,
 
-We already posted a fix for this, please see "[PATCH net-next V1
-01/12] net/mlx5e: Fix aRFS compilation dependency", and give us your
-feedback.
+I do not believe we can change this. This is unfortunately too late.
 
-Saeed.
+/proc/net/tcp has the same 'issue' or if you prefer, well known
+behavior.
+
+Such change would break basically all /proc/net/igmp users.
