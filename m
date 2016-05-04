@@ -1,45 +1,30 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
-Date: Wed, 4 May 2016 10:24:24 -0700
-Message-ID: <572A3048.60802@hpe.com>
-References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
- <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v3 0/8] Fix Tunnel features and enable GSO
+ partial for several drivers
+Date: Wed, 04 May 2016 13:32:54 -0400 (EDT)
+Message-ID: <20160504.133254.1371487366581805190.davem@davemloft.net>
+References: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Wu <peter@lekensteyn.nl>
+Cc: talal@mellanox.com, netdev@vger.kernel.org,
+	michael.chan@broadcom.com, alexander.duyck@gmail.com,
+	galp@mellanox.com, ogerlitz@mellanox.com, eranbe@mellanox.com
+To: aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:33045 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753145AbcEDRY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 13:24:28 -0400
-In-Reply-To: <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754440AbcEDRdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 13:33:02 -0400
+In-Reply-To: <20160502162828.11809.92444.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/03/2016 05:25 PM, Eric Dumazet wrote:
-> On Tue, 2016-05-03 at 23:54 +0200, Peter Wu wrote:
->> When applications use listen() with a backlog of 0, the kernel would
->> set the maximum connection request queue to zero. This causes false
->> reports of SYN flooding (if tcp_syncookies is enabled) or packet drops
->> otherwise.
->>
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Mon, 02 May 2016 09:38:06 -0700
 
-> Well, I believe I already gave my opinion on this.
->
-> listen backlog is not a hint. This is a limit.
->
-> It is the limit of outstanding children in accept queue.
->
-> If backlog is 0, no child can be put in the accept queue.
->
-> It is therefore Working As Intented.
+> This patch series is meant to allow us to get the best performance possible
+> for Mellanox ConnectX-3/4 and Broadcom NetXtreme-C/E adapters in terms of
+> VXLAN and GRE tunnels.
 
-Dropping the connection attempt makes sense, but is entering/claiming 
-synflood really indicated in the case of a zero-length accept queue?
-
-rick
+Series applied, thanks Alex.
