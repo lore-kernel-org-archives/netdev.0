@@ -1,67 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 3/3] net/mlx5e: don't build RFS without ethernet
-Date: Wed,  4 May 2016 14:32:24 +0200
-Message-ID: <1462365155-3861405-1-git-send-email-arnd@arndb.de>
-References: <1462364774-3792510-1-git-send-email-arnd@arndb.de>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, arnd@arndb.de, davem@davemloft.net,
-	Matthew Finlay <matt@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Haggai Abramonvsky <hagaya@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>
-To: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:59553 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752529AbcEDMcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 08:32:52 -0400
-In-Reply-To: <1462364774-3792510-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] block/drbd: use nla_put_u64_64bit()
+Date: Wed, 4 May 2016 14:49:00 +0200
+Message-ID: <5729EFBC.7040002@6wind.com>
+References: <57286F49.8050107@6wind.com>
+ <1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20160503100644.GE16459@soda.linbit>
+ <20160503.120556.1317913903199470646.davem@davemloft.net>
+ <20160504090529.GJ16459@soda.linbit>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	philipp.reisner@linbit.com, drbd-dev@lists.linbit.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160504090529.GJ16459@soda.linbit>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The RFS acceleration support in mlx5 is enabled whenever CONFIG_RFS_ACCEL
-is in use. However, this fails if a user turns off CONFIG_MLX5_CORE_EN,
-because the rfs code now calls into the ethernet portion of the
-driver:
-
-ERROR: "mlx5e_destroy_flow_table" [drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko] undefined!
-
-This patch adds another Kconfig symbol to control the compilation of
-the RFS code, to ensure it is only built if both the ethernet support
-and the core RFS support are enabled.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig  | 4 ++++
- drivers/net/ethernet/mellanox/mlx5/core/Makefile | 2 +-
- 2 files changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index f5c3b9465d8d..5efba14a1453 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -38,3 +38,7 @@ config MLX5_CORE_EN_VXLAN
- 	depends on MLX5_CORE_EN && VXLAN && !(MLX5_CORE=y && VXLAN=m)
- 	---help---
- 	  Say Y here if you want to use VXLAN offloads in the driver.
-+
-+config MLX5_CORE_EN_RFS
-+	def_bool y
-+	depends on MLX5_CORE_EN && RFS_ACCEL
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 6b8da0b36acd..29118c1debb7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -11,4 +11,4 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
- mlx5_core-$(CONFIG_MLX5_CORE_EN_VXLAN) += vxlan.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
--mlx5_core-$(CONFIG_RFS_ACCEL) +=  en_arfs.o
-+mlx5_core-$(CONFIG_MLX5_CORE_EN_RFS) +=  en_arfs.o
--- 
-2.7.0
+Le 04/05/2016 11:05, Lars Ellenberg a =E9crit :
+[snip]
+> We don't have an "alignment problem" there, btw.
+> Last time I checked, we did work fine without this alignment magic,
+> we already take care of that, yes, even on affected architectures.
+The code adds several consecutive u64 attributes. The nl attribute head=
+er is 4
+bytes, thus the full attribute length is 12 bytes. If the first u64 is =
+aligned
+on 8 (nla_data()), the next one is not aligned on 8: it starts 12 bytes=
+ (8 (u64)
++ 4 (nl attr hdr)) after the previous u64.
