@@ -1,50 +1,62 @@
-From: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] tcp: fix lockdep splat in tcp_snd_una_update()
-Date: Tue, 3 May 2016 22:26:50 -0300
-Message-ID: <CAOMZO5AL6Vd7jdFWdSb_TokSNWW7x19TSO__w22B6k7wr6VPxw@mail.gmail.com>
-References: <20160503223149.GA19739@electric-eye.fr.zoreil.com>
-	<1462314901.5535.316.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1462319763.5535.329.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH] net: fec: only clear a queue's work bit if the queue was
+ emptied
+Date: Wed, 4 May 2016 02:12:23 +0000
+Message-ID: <VI1PR0401MB1855C25037E3E730B678B6EBFF7B0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1462319763.5535.329.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kernel@pengutronix.de" <kernel@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?utf-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0083.outbound.protection.outlook.com ([157.56.112.83]:43776
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756438AbcEDCM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2016 22:12:27 -0400
+In-Reply-To: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 3, 2016 at 8:56 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->
-> tcp_snd_una_update() and tcp_rcv_nxt_update() call
-> u64_stats_update_begin() either from process context or BH handler.
->
-> This triggers a lockdep splat on 32bit & SMP builds.
->
-> We could add u64_stats_update_begin_bh() variant but this would
-> slow down 32bit builds with useless local_disable_bh() and
-> local_enable_bh() pairs, since we own the socket lock at this point.
->
-> I add sock_owned_by_me() helper to have proper lockdep support
-> even on 64bit builds, and new u64_stats_update_begin_raw()
-> and u64_stats_update_end_raw methods.
->
-> Fixes: c10d9310edf5 ("tcp: do not assume TCP code is non preemptible")
-> Reported-by: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Diagnosed-by: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-> Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-
-Thanks for the fix, Eric and Francois! This allows me to do NFS boot again:
-
-Tested-by: Fabio Estevam <fabio.estevam-3arQi8VN3Tc@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogVXdlIEtsZWluZS1Lw7ZuaWcgPHUua2xlaW5lLWtvZW5pZ0BwZW5ndXRyb25peC5kZT4g
+U2VudDogVHVlc2RheSwgTWF5IDAzLCAyMDE2IDEwOjM5IFBNDQo+IFRvOiBGdWdhbmcgRHVhbiA8
+ZnVnYW5nLmR1YW5AbnhwLmNvbT47IERhdmlkIFMgLiBNaWxsZXINCj4gPGRhdmVtQGRhdmVtbG9m
+dC5uZXQ+DQo+IENjOiBrZXJuZWxAcGVuZ3V0cm9uaXguZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gU3ViamVjdDogW1BBVENIXSBuZXQ6IGZlYzogb25seSBjbGVhciBhIHF1ZXVlJ3Mgd29y
+ayBiaXQgaWYgdGhlIHF1ZXVlIHdhcw0KPiBlbXB0aWVkDQo+IA0KPiBJbiB0aGUgcmVjZWl2ZSBw
+YXRoIGEgcXVldWUncyB3b3JrIGJpdCB3YXMgY2xlYXJlZCB1bmNvbmRpdGlvbmFsbHkgZXZlbiBp
+Zg0KPiBmZWNfZW5ldF9yeF9xdWV1ZSBvbmx5IHJlYWQgb3V0IGEgcGFydCBvZiB0aGUgYXZhaWxh
+YmxlIHBhY2tldHMgZnJvbSB0aGUNCj4gaGFyZHdhcmUuIFRoaXMgcmVzdWx0ZWQgaW4gbm90IHJl
+YWRpbmcgYW55IHBhY2tldHMgaW4gdGhlIG5leHQgbmFwaSB0dXJuIGFuZCBzbw0KPiBwYWNrZXRz
+IHdlcmUgZGVsYXllZCBvciBsb3N0Lg0KPiANCj4gVGhlIG9idmlvdXMgZml4IGlzIHRvIG9ubHkg
+Y2xlYXIgYSBxdWV1ZSdzIGJpdCB3aGVuIHRoZSBxdWV1ZSB3YXMgZW1wdGllZC4NCj4gDQo+IEZp
+eGVzOiA0ZDQ5NGNkYzkyYjMgKCJuZXQ6IGZlYzogY2hhbmdlIGRhdGEgc3RydWN0dXJlIHRvIHN1
+cHBvcnQgbXVsdGlxdWV1ZSIpDQo+IFNpZ25lZC1vZmYtYnk6IFV3ZSBLbGVpbmUtS8O2bmlnIDx1
+LmtsZWluZS1rb2VuaWdAcGVuZ3V0cm9uaXguZGU+DQo+IC0tLQ0KPiBIZWxsbywNCj4gDQo+IEkg
+Y3JlYXRlZCB0aGlzIHBhdGNoIGFnYWluc3QgbmV0L21hc3Rlci4gSWYgeW91IHRoaW5rIGl0J3Mg
+dG8gbGF0ZSB0byBnZXQgaXQgaW50byA0LjYNCj4gYW5kIGl0IGRvZXNuJ3QgZml0IG9uIG5ldC1u
+ZXh0L21hc3RlciwganVzdCB0ZWxsIG1lIGFuZCBJIHdpbGwgcmViYXNlLg0KPiANCj4gQmVzdCBy
+ZWdhcmRzDQo+IFV3ZQ0KPiANCj4gDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+ZmVjX21haW4uYyB8IDEwICsrKysrKysrLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCA4IGluc2VydGlv
+bnMoKyksIDIgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZmVjX21haW4uYw0KPiBpbmRleCAwODI0M2MyZmY0YjQuLjJhMDM4NTdjY2ExOCAxMDA2
+NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4g
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gQEAgLTE1
+MjEsOSArMTUyMSwxNSBAQCBmZWNfZW5ldF9yeChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwgaW50
+IGJ1ZGdldCkNCj4gIAlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwID0gbmV0ZGV2X3ByaXYo
+bmRldik7DQo+IA0KPiAgCWZvcl9lYWNoX3NldF9iaXQocXVldWVfaWQsICZmZXAtPndvcmtfcngs
+IEZFQ19FTkVUX01BWF9SWF9RUykgew0KPiAtCQljbGVhcl9iaXQocXVldWVfaWQsICZmZXAtPndv
+cmtfcngpOw0KPiAtCQlwa3RfcmVjZWl2ZWQgKz0gZmVjX2VuZXRfcnhfcXVldWUobmRldiwNCj4g
+KwkJaW50IHJldDsNCj4gKw0KPiArCQlyZXQgPSBmZWNfZW5ldF9yeF9xdWV1ZShuZGV2LA0KPiAg
+CQkJCQlidWRnZXQgLSBwa3RfcmVjZWl2ZWQsIHF1ZXVlX2lkKTsNCj4gKw0KPiArCQlpZiAocmV0
+IDwgYnVkZ2V0IC0gcGt0X3JlY2VpdmVkKQ0KPiArCQkJY2xlYXJfYml0KHF1ZXVlX2lkLCAmZmVw
+LT53b3JrX3J4KTsNCj4gKw0KPiArCQlwa3RfcmVjZWl2ZWQgKz0gcmV0Ow0KPiAgCX0NCj4gIAly
+ZXR1cm4gcGt0X3JlY2VpdmVkOw0KPiAgfQ0KPiAtLQ0KPiAyLjguMC5yYzMNCg0KVGVzdGVkLWJ5
+OiBGdWdhbmcgRHVhbiA8ZnVnYW5nLmR1YW5AbnhwLmNvbT4NCkFja2VkLWJ5OiBGdWdhbmcgRHVh
+biA8ZnVnYW5nLmR1YW5AbnhwLmNvbT4NCg==
