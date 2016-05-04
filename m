@@ -1,26 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: xgene: Fix error handling
-Date: Wed, 04 May 2016 14:02:37 -0400 (EDT)
-Message-ID: <20160504.140237.1301311847350900607.davem@davemloft.net>
-References: <1462284307-15401-1-git-send-email-mbrugger@suse.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
+Date: Wed, 4 May 2016 11:05:26 -0700
+Message-ID: <572A39E6.1020001@hpe.com>
+References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
+ <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
+ <572A3048.60802@hpe.com>
+ <1462383266.5535.350.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: mbrugger@suse.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462284307-15401-1-git-send-email-mbrugger@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Peter Wu <peter@lekensteyn.nl>,
+	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Kui Zhang <kuizhang@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3427.houston.hp.com ([15.201.208.55]:55059 "EHLO
+	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754985AbcEDSFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:05:30 -0400
+In-Reply-To: <1462383266.5535.350.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Brugger <mbrugger@suse.com>
-Date: Tue,  3 May 2016 16:05:07 +0200
+On 05/04/2016 10:34 AM, Eric Dumazet wrote:
+> On Wed, 2016-05-04 at 10:24 -0700, Rick Jones wrote:
+>
+>> Dropping the connection attempt makes sense, but is entering/claiming
+>> synflood really indicated in the case of a zero-length accept queue?
+>
+> This is a one time message.
+>
+> This is how people can learn about their user space bugs, or too small
+> backlog ;)
+>
+> Being totally silent would be not so nice.
+>
 
-> When probe bails out with an error, we try to unregister the
-> netdev before we have even registered it. Fix the goto statements
-> for that.
-> 
-> Signed-off-by: Matthias Brugger <mbrugger@suse.com>
+Assuming Peter's assertion about just drops when syncookies are not 
+enabled is accurate, should there be some one-time message in that case too?
 
-Applied.
+rick
