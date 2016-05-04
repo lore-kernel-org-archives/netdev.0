@@ -1,56 +1,30 @@
-From: David Russell <david@aprsworld.com>
-Subject: [PATCH] netdev: enc28j60 kernel panic fix.
-Date: Wed, 4 May 2016 12:51:35 -0500
-Message-ID: <CAEGHc+xdoSVa9J_uYm-Az7n4xc+mycy7Jf1p75pss3eVK3jUHA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers: net: emac: add Atheros AR8035 phy
+ initialization code
+Date: Wed, 04 May 2016 13:57:40 -0400 (EDT)
+Message-ID: <20160504.135740.460829387165022401.davem@davemloft.net>
+References: <1462277310-8949-1-git-send-email-chunkeey@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: chunkeey@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:36814 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251AbcEDRvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 13:51:38 -0400
-Received: by mail-io0-f179.google.com with SMTP id u185so70779491iod.3
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 10:51:36 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:40966 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754608AbcEDR5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 13:57:42 -0400
+In-Reply-To: <1462277310-8949-1-git-send-email-chunkeey@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When connected directly to another system (not via a switch)
-eventually a condition where a NULL pointer dereference occurs in
-enc28j60_hw_tx() and this patch simply checks for that condition and
-returns gracefully without causing a kernel panic.  I believe, but
-have not investigated this is caused by a packet collision and am not
-sure if the kernel tracks collisions or counts them as errors, so that
-should probably be added if this is what's happening.  I'm also not
-familiar with the linux kernel, so may have fixed this in a less than
-ideal way.
+From: Christian Lamparter <chunkeey@googlemail.com>
+Date: Tue,  3 May 2016 14:08:30 +0200
 
-Developer's Certificate of Origin 1.1
+> This patch adds the phy initialization code for Qualcomm
+> Atheros AR8035 phy. This configuration is found in the
+> Cisco Meraki MR24.
+> 
+> Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 
-        By making a contribution to this project, I certify that:
-
-        (d) I understand and agree that this project and the contribution
-            are public and that a record of the contribution (including all
-            personal information I submit with it, including my sign-off) is
-            maintained indefinitely and may be redistributed consistent with
-            this project or the open source license(s) involved.
-
-Signed-off-by: David Russell <david@aprsworld.com>
-
----
-diff --git a/drivers/net/ethernet/microchip/enc28j60.c
-b/drivers/net/ethernet/microchip/enc28j60.c
-index 86ea17e..36ac65f 100644
---- a/drivers/net/ethernet/microchip/enc28j60.c
-+++ b/drivers/net/ethernet/microchip/enc28j60.c
-@@ -1233,6 +1233,9 @@ static void enc28j60_irq_work_handler(struct
-work_struct *work)
-  */
- static void enc28j60_hw_tx(struct enc28j60_net *priv)
- {
-+       if (!priv->tx_skb)
-+               return;
-+
-        if (netif_msg_tx_queued(priv))
-                printk(KERN_DEBUG DRV_NAME
-                        ": Tx Packet Len:%d\n", priv->tx_skb->len);
+Applied to net-next, thanks.
