@@ -1,65 +1,34 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [RESEND PATCH 2/3] fs: poll/select/recvmmsg: use
- timespec64 for timeout events
-Date: Wed, 4 May 2016 13:04:37 -0700
-Message-ID: <CALAqxLVB8XiRrFKxK3GzBxw-CfEmC=Dh-CrTOEqT144ngZg-Dw@mail.gmail.com>
-References: <1461947989-21926-3-git-send-email-deepa.kernel@gmail.com>
- <1462389899-2480-1-git-send-email-deepa.kernel@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] macvtap: add namespace support to the
+ sysfs device class
+Date: Wed, 04 May 2016 16:04:45 -0400 (EDT)
+Message-ID: <20160504.160445.640444073175153113.davem@davemloft.net>
+References: <CAPSAET_u3CYvhYgyxXdomi7n5Z6c1DTCpSMv=K544U=TjmM=cw@mail.gmail.com>
+	<1462300254-22273-1-git-send-email-marc@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038 Mailman List <y2038@lists.linaro.org>,
- netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
- Alexander Viro <viro@zeniv.linux.org.uk>,
- "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
- Thomas Gleixner <tglx@linutronix.de>, "David S. Miller" <davem@davemloft.net>
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1462389899-2480-1-git-send-email-deepa.kernel@gmail.com>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: marc@arista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42721 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753399AbcEDUEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 16:04:50 -0400
+In-Reply-To: <1462300254-22273-1-git-send-email-marc@arista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBNYXkgNCwgMjAxNiBhdCAxMjoyNCBQTSwgRGVlcGEgRGluYW1hbmkgPGRlZXBhLmtl
-cm5lbEBnbWFpbC5jb20+IHdyb3RlOgo+IHN0cnVjdCB0aW1lc3BlYyBpcyBub3QgeTIwMzggc2Fm
-ZS4KPiBFdmVuIHRob3VnaCB0aW1lc3BlYyBtaWdodCBiZSBzdWZmaWNpZW50IHRvIHJlcHJlc2Vu
-dAo+IHRpbWVvdXRzLCB1c2Ugc3RydWN0IHRpbWVzcGVjNjQgaGVyZSBhcyB0aGUgcGxhbiBpcyB0
-bwo+IGdldCByaWQgb2YgYWxsIHRpbWVzcGVjIHJlZmVyZW5jZSBpbiB0aGUga2VybmVsLgo+Cj4g
-VGhlIHBhdGNoIHRyYW5zaXRpb25zIHRoZSBjb21tb24gZnVuY3Rpb25zOgo+IHBvbGxfc2VsZWN0
-X3NldF90aW1lb3V0KCkgYW5kIHNlbGVjdF9lc3RpbWF0ZV9hY2N1cmFjeSgpCj4gdG8gdXNlIHRp
-bWVzcGVjNjQuIEFuZCwgYWxsIHRoZSBzeXNjYWxscyB0aGF0IHVzZSB0aGVzZQo+IGZ1bmN0aW9u
-cyBhcmUgdHJhbnNpdGlvbmVkIGluIHRoZSBzYW1lIHBhdGNoLgo+Cj4gVGhlIHJlc3RhcnQgYmxv
-Y2sgcGFyYW1ldGVycyBmb3IgcG9sbCB1c2VzIG1vbm90b25pYyB0aW1lLgo+IFVzZSB0aW1lc3Bl
-YzY0IGhlcmUgYXMgd2VsbCB0byBhc3NpZ24gdGltZW91dCB2YWx1ZS4gVGhpcwo+IHBhcmFtZXRl
-ciBpbiB0aGUgcmVzdGFydCBibG9jayBuZWVkIG5vdCBjaGFuZ2UgYmVjYXVzZQo+IHRoaXMgb25s
-eSBob2xkcyB0aGUgbW9ub3RvbmljIHRpbWVzdGFtcCBhdCB3aGljaCB0aW1lb3V0Cj4gc2hvdWxk
-IG9jY3VyLiBBbmQsIHVuc2lnbmVkIGxvbmcgZGF0YSB0eXBlIHNob3VsZCBiZSBiaWcKPiBlbm91
-Z2ggZm9yIHRoaXMgdGltZXN0YW1wLgo+Cj4gVGhlIHN5c3RlbSBjYWxsIGludGVyZmFjZXMgd2ls
-bCBiZSBoYW5kbGVkIGluIGEgc2VwYXJhdGUKPiBzZXJpZXMuCj4KPiBDb21wYXQgaW50ZXJmYWNl
-cyBuZWVkIG5vdCBjaGFuZ2UgYXMgdGltZXNwZWM2NCBpcyBhbgo+IGFsaWFzIHRvIHN0cnVjdCB0
-aW1lc3BlYyBvbiBhIDY0IGJpdCBzeXN0ZW0uCj4KPiBTaWduZWQtb2ZmLWJ5OiBEZWVwYSBEaW5h
-bWFuaSA8ZGVlcGEua2VybmVsQGdtYWlsLmNvbT4KPiBDYzogQWxleGFuZGVyIFZpcm8gPHZpcm9A
-emVuaXYubGludXgub3JnLnVrPgo+IENjOiAiRGF2aWQgUy4gTWlsbGVyIiA8ZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldD4KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwo+IC0tLQo+IFJlc2VuZGluZyB0
-byBpbmNsdWRlIEpvaG4gYW5kIFRob21hcyBvbiB0aGlzIHBhdGNoIGFzIHdlbGwuCj4gVGhpcyBp
-cyB0byBpbmNsdWRlIHRoaXMgcGF0Y2ggYWxzbyBpbiBKb2huJ3MgdHJlZS4KPiBUaGlzIHdpbGwg
-bGV0IGFsbCAzIHBhdGNoZXMgaW4gdGhlIHNlcmllcyB0byBtZXJnZWQgdGhyb3VnaCB0aGUgc2Ft
-ZSB0cmVlLgo+Cj4gIGZzL2V2ZW50cG9sbC5jICAgICAgIHwgMTIgKysrKystLS0tLQo+ICBmcy9z
-ZWxlY3QuYyAgICAgICAgICB8IDY3ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0KPiAgaW5jbHVkZS9saW51eC9wb2xsLmggfCAxMSArKysrKy0tLS0K
-PiAgbmV0L3NvY2tldC5jICAgICAgICAgfCAgOCArKysrLS0tCj4gIDQgZmlsZXMgY2hhbmdlZCwg
-NTQgaW5zZXJ0aW9ucygrKSwgNDQgZGVsZXRpb25zKC0pCgoKU28gd2l0aCB0aGUgb3RoZXIgdHdv
-IHBhdGNoZXMsIEknbSBtb3JlIGNvbWZvcnRhYmxlIHF1ZXVlaW5nIGFuZApzZW5kaW5nIHRocm91
-Z2ggdG8gVGhvbWFzLgoKQnV0IEknbSBsZXNzIGNvbWZvcnRhYmxlIG1ha2luZyB0aGUgY2FsbCBv
-biB0aGlzIG9uZS4gSXQgbG9va3MKcmVsYXRpdmVseSBzdHJhaWdodCBmb3J3YXJkLCBidXQgaXQg
-d291bGQgYmUgZ29vZCB0byBoYXZlIG1haW50YWluZXIKYWNrcyBiZWZvcmUgSSBhZGQgaXQgdG8g
-bXkgdHJlZS4KCnRoYW5rcwotam9obgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpo
-dHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
+From: Marc Angel <marc@arista.com>
+Date: Tue,  3 May 2016 20:30:54 +0200
+
+> @@ -1274,6 +1285,7 @@ static int macvtap_device_event(struct notifier_block *unused,
+>  				unsigned long event, void *ptr)
+>  {
+>  	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+> +	const char *tap_name = kasprintf(GFP_KERNEL, "tap%d", dev->ifindex);
+>  	struct macvlan_dev *vlan;
+>  	struct device *classdev;
+>  	dev_t devt;
+
+This 'tap_name' buffer seems to be leaked in several code paths.
