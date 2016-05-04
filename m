@@ -1,47 +1,152 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net] bridge: fix igmp / mld query parsing
-Date: Wed, 4 May 2016 16:59:11 +0200
-Message-ID: <20160504145911.GA2604@otheros>
-References: <1462306734-4183-1-git-send-email-linus.luessing@c0d3.blue>
-	<20160503132623.59cf54fb@xeon-e3>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH v9 net-next 0/2] introduce Hyper-V VM Sockets(hv_sock)
+Date: Wed,  4 May 2016 09:56:37 -0700
+Message-ID: <1462380997-530-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Simon Wunderlich <sw@simonwunderlich.de>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	"David S . Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20160503132623.59cf54fb@xeon-e3>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com
+To: gregkh@linuxfoundation.org, davem@davemloft.net, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org, olaf@aepfle.de,
+ apw@canonical.com, jasowang@redhat.com, cavery@redhat.com,
+ kys@microsoft.com, haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 03, 2016 at 01:26:23PM -0700, Stephen Hemminger wrote:
-> On Tue,  3 May 2016 22:18:54 +0200
-> Linus L=C3=BCssing <linus.luessing@c0d3.blue> wrote:
->=20
-> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> > index 03661d9..7105cdf 100644
-> > --- a/net/bridge/br_multicast.c
-> > +++ b/net/bridge/br_multicast.c
-> > @@ -1271,6 +1271,7 @@ static int br_ip4_multicast_query(struct net_br=
-idge *br,
-> >  	unsigned long max_delay;
-> >  	unsigned long now =3D jiffies;
-> >  	__be32 group;
-> > +	int offset =3D skb_transport_offset(skb);
-> shouldn't this be unsigned?
+Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
+mechanism between the host and the guest. It's somewhat like TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
 
-Yes, should always be unsigned here.
+With Hyper-V Sockets, applications between the host and the guest can talk
+to each other directly by the traditional BSD-style socket APIs.
 
-Ok, I'm changing that (even though skb_transport_offset() is "static
-inline int").
+Hyper-V Sockets is only available on new Windows hosts, like Windows Server
+2016. More info is in this article "Make your own integration services":
+https://msdn.microsoft.com/en-us/virtualization/hyperv_on_windows/develop/make_mgmt_service
+
+The patch implements the necessary support in the guest side by
+introducing a new socket address family AF_HYPERV.
+
+You can also get the patch by:
+https://github.com/dcui/linux/commits/decui/hv_sock/net-next/20160502_v09
+
+Note: the VMBus driver side's supporting patches have been in the mainline
+tree.
+
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://marc.info/?l=linux-netdev&m=145952064004765&w=2
+
+However, though Hyper-V Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
+
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
+
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
+
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like .notify_recv_init
+.notify_recv_pre_block
+.notify_recv_pre_dequeue
+.notify_recv_post_dequeue
+.notify_send_init
+.notify_send_pre_block
+.notify_send_pre_enqueue
+.notify_send_post_enqueue
+etc.
+
+So I think we'd better introduce a new address family: AF_HYPERV.
+
+Please review the patch.
+
+Looking forward to your comments, especially comments from David. :-)
+
+Changes since v1:
+- updated "[PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature"
+- added __init and __exit for the module init/exit functions
+- net/hv_sock/Kconfig: "default m" -> "default m if HYPERV"
+- MODULE_LICENSE: "Dual MIT/GPL" -> "Dual BSD/GPL"
+
+Changes since v2:
+- fixed various coding issue pointed out by David Miller
+- fixed indentation issues
+- removed pr_debug in net/hv_sock/af_hvsock.c
+- used reverse-Chrismas-tree style for local variables.
+- EXPORT_SYMBOL -> EXPORT_SYMBOL_GPL
+
+Changes since v3:
+- fixed a few coding issue pointed by Vitaly Kuznetsov and Dan Carpenter
+- fixed the ret value in vmbus_recvpacket_hvsock on error
+- fixed the style of multi-line comment: vmbus_get_hvsock_rw_status()
+
+Changes since v4 (https://lkml.org/lkml/2015/7/28/404):
+- addressed all the comments about V4.
+- treat the hvsock offers/channels as special VMBus devices
+- add a mechanism to pass hvsock events to the hvsock driver
+- fixed some corner cases with proper locking when a connection is closed
+- rebased to the latest Greg's tree
+
+Changes since v5 (https://lkml.org/lkml/2015/12/24/103):
+- addressed the coding style issues (Vitaly Kuznetsov & David Miller, thanks!)
+- used a better coding for the per-channel rescind callback (Thank Vitaly!)
+- avoided the introduction of new VMBUS driver APIs vmbus_sendpacket_hvsock()
+and vmbus_recvpacket_hvsock() and used vmbus_sendpacket()/vmbus_recvpacket()
+in the higher level (i.e., the vmsock driver). Thank Vitaly!
+
+Changes since v6 (http://lkml.iu.edu/hypermail/linux/kernel/1601.3/01813.html)
+- only a few minor changes of coding style and comments
+
+Changes since v7
+- a few minor changes of coding style: thanks, Joe Perches!
+- added some lines of comments about GUID/UUID before the struct sockaddr_hv.
+
+Changes since v8
+- removed the unnecessary __packed for some definitions: thanks, David!
+- hvsock_open_connection:  use offer.u.pipe.user_def[0] to know the connection
+and reorganized the function
+direction 
+- reorganized the code according to suggestions from Cathy Avery: split big
+functions into small ones, set .setsockopt and getsockopt to
+sock_no_setsockopt/sock_no_getsockopt
+- inline'd some small list helper functions
+
+Dexuan Cui (2):
+  hv_sock: introduce Hyper-V Sockets
+  net: add the AF_HYPERV entries to family name tables
+
+ MAINTAINERS                 |    2 +
+ include/linux/hyperv.h      |   16 +
+ include/linux/socket.h      |    5 +-
+ include/net/af_hvsock.h     |   55 ++
+ include/uapi/linux/hyperv.h |   25 +
+ net/Kconfig                 |    1 +
+ net/Makefile                |    1 +
+ net/core/sock.c             |    6 +-
+ net/hv_sock/Kconfig         |   10 +
+ net/hv_sock/Makefile        |    3 +
+ net/hv_sock/af_hvsock.c     | 1434 +++++++++++++++++++++++++++++++++++++++++++
+ 11 files changed, 1553 insertions(+), 5 deletions(-)
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
+-- 
+2.1.0
