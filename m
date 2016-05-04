@@ -1,52 +1,56 @@
-From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v2] block/drbd: use
- nla_put_u64_64bit()
-Date: Wed, 4 May 2016 14:52:53 +0200
-Message-ID: <20160504125253.GP16459@soda.linbit>
-References: <57286F49.8050107@6wind.com>
-	<1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20160503100644.GE16459@soda.linbit>
-	<20160503.120556.1317913903199470646.davem@davemloft.net>
-	<20160504090529.GJ16459@soda.linbit> <5729EFBC.7040002@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5729EFBC.7040002-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.linbit.com/mailman/options/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linbit.com/pipermail/drbd-dev>
-List-Post: <mailto:drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-List-Help: <mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.linbit.com/mailman/listinfo/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=subscribe>
-Sender: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-Errors-To: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH] ravb: Add missing free_irq() calls to ravb_close()
+Date: Wed,  4 May 2016 15:03:07 +0200
+Message-ID: <1462366987-18418-1-git-send-email-geert+renesas@glider.be>
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Simon Horman <horms+renesas@verge.net.au>,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 04, 2016 at 02:49:00PM +0200, Nicolas Dichtel wrote:
-> Le 04/05/2016 11:05, Lars Ellenberg a =E9crit :
-> [snip]
-> > We don't have an "alignment problem" there, btw.
-> > Last time I checked, we did work fine without this alignment magic,
-> > we already take care of that, yes, even on affected architectures.
-> The code adds several consecutive u64 attributes. The nl attribute header=
- is 4
-> bytes, thus the full attribute length is 12 bytes. If the first u64 is al=
-igned
-> on 8 (nla_data()), the next one is not aligned on 8: it starts 12 bytes (=
-8 (u64)
-> + 4 (nl attr hdr)) after the previous u64.
+When reopening the network device on ra7795/salvator-x, e.g. after a
+DHCP timeout:
 
-Yes.  Which in our case is not a problem.
-But I don't object to the padding per se,
-if that is how things "should be".
+    IP-Config: Reopening network devices...
+    genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs. 00000000 (eth0:ch24:emac)
+    ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
+    IP-Config: Failed to open eth0
+    IP-Config: No network devices available
 
-I try to understand why you so much object to using 0 as pad.
+The "mismatch" is due to requesting an IRQ that is already in use,
+while IRQF_PROBE_SHARED wasn't set.
 
-    Lars
+However, the real cause is that ravb_close() doesn't release any of the
+R-Car Gen3-specific secondary IRQs.
+
+Add the missing free_irq() calls to fix this.
+
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 34066e0649f5c673..867caf6e7a5a65ad 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1667,6 +1667,13 @@ static int ravb_close(struct net_device *ndev)
+ 		priv->phydev = NULL;
+ 	}
+ 
++	if (priv->chip_id != RCAR_GEN2) {
++		free_irq(priv->tx_irqs[RAVB_NC], ndev);
++		free_irq(priv->rx_irqs[RAVB_NC], ndev);
++		free_irq(priv->tx_irqs[RAVB_BE], ndev);
++		free_irq(priv->rx_irqs[RAVB_BE], ndev);
++		free_irq(priv->emac_irq, ndev);
++	}
+ 	free_irq(ndev->irq, ndev);
+ 
+ 	napi_disable(&priv->napi[RAVB_NC]);
+-- 
+1.9.1
