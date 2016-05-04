@@ -1,104 +1,129 @@
-From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow
- transmissions
-Date: Wed, 4 May 2016 08:58:08 +0100
-Message-ID: <5729AB90.9010704@mentor.com>
-References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
- <87ed4c76328ed9dc5591359ea0e98ab9@i4031.net> <57291539.6080405@mentor.com>
- <e4efd48d3c16c27de68d464ad3170b02@i4031.net>
+From: Felipe Balbi <felipe.balbi@linux.intel.com>
+Subject: Re: [PATCH net-next 4/5] treewide: replace dev->trans_start update
+ with helper
+Date: Wed, 04 May 2016 11:14:45 +0300
+Message-ID: <87vb2udytm.fsf@intel.com>
+References: <1462285862-30946-1-git-send-email-fw@strlen.de>
+ <1462285994-31983-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Stultz <john.stultz@linaro.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Mark Craske <Mark_Craske@mentor.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	YongQin Liu <yongqin.liu@linaro.org>,
-	Guodong Xu <guodong.xu@linaro.org>,
-	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Ivan Vecera <ivecera@redhat.com>
-To: "David B. Robins" <linux@davidrobins.net>,
-	Dean Jenkins <Dean_Jenkins@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e4efd48d3c16c27de68d464ad3170b02@i4031.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============0612351183774410813=="
+Cc: devel@driverdev.osuosl.org, linux-xtensa@linux-xtensa.org,
+ linux-omap@vger.kernel.org, linux-scsi@vger.kernel.org,
+ user-mode-linux-devel@lists.sourceforge.net, linux-s390@vger.kernel.org,
+ linux-rdma@vger.kernel.org, linux-wireless@vger.kernel.org,
+ linux-usb@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+ linux-can@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+ linux-parisc@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+ linux-hams@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+ MPT-FusionLinux.pdl@broadcom.com
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1462285994-31983-1-git-send-email-fw@strlen.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On 04/05/16 01:28, David B. Robins wrote:
+--===============0612351183774410813==
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+
+--=-=-=
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+
+Hi,
+
+Florian Westphal <fw@strlen.de> writes:
+> Replace all trans_start updates with netif_trans_update helper.
+> change was done via spatch:
 >
->>
->> Here is the code snippet from the patch with my annotations between #
->> #, I will try to explain my intentions. Feel free to point out any
->> flaws:
->>
->>     if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
->>         # Only runs when rx->remaining !=0 and the end of the Ethernet
->> frame + next 32-bit header word is within the URB buffer. #
->>         # Therefore, this code does not run when the end of an
->> Ethernet frame has been reached in the previous URB #
->>         # or when the end of the Ethernet frame + next 32-bit header
->> word will be in a later URB buffer #
+> struct net_device *d;
+> @@
+> - d->trans_start =3D jiffies
+> + netif_trans_update(d)
 >
-> It may well be. I don't have the setup with me now, but I can try 
-> tomorrow to reproduce an environment where I can add some more 
-> detailed logging.
+> Compile tested only.
 >
-> Since the URB length has to be >= than the remaining data plus a u32, 
-> the devices that John Stultz and I are using (AX88772B in my case) may 
-> be adding some additional data/padding after an Ethernet frame, 
-> expecting it to be discarded, and running into this check and its 
-> consequences. This may mean the device is badly behaved, if it is 
-> specified not to send anything extra; in any case, a well-intentioned 
-> error correction has gone badly, but I better understand the intent 
-> now. I am curious to know how often the device you are using benefits 
-> from this block of code.
+> Cc: user-mode-linux-devel@lists.sourceforge.net
+> Cc: linux-xtensa@linux-xtensa.org
+> Cc: linux1394-devel@lists.sourceforge.net
+> Cc: linux-rdma@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: MPT-FusionLinux.pdl@broadcom.com
+> Cc: linux-scsi@vger.kernel.org
+> Cc: linux-can@vger.kernel.org
+> Cc: linux-parisc@vger.kernel.org
+> Cc: linux-omap@vger.kernel.org
+> Cc: linux-hams@vger.kernel.org
+> Cc: linux-usb@vger.kernel.org
+> Cc: linux-wireless@vger.kernel.org
+> Cc: linux-s390@vger.kernel.org
+> Cc: devel@driverdev.osuosl.org
+> Cc: b.a.t.m.a.n@lists.open-mesh.org
+> Cc: linux-bluetooth@vger.kernel.org
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
 
-The issue is that the driver should be robust to cope with missing URBs. 
-Whilst testing with D-Link DUB-E100 C1 AX88772 USB to Ethernet adaptor 
-in our ARM embedded system which runs in hostile environments, it was 
-noticed that URBs could be lost (probably due to a bug elsewhere or low 
-memory issue). Without this patch, a missing URB causes bad Ethernet 
-frames to be passed up to the IP stack because rx->remaining spans 
-multiple URBs.
+for u_ether.c:
 
-In the good case of an Ethernet frame spanning 2 URBs, the 1st URB is 
-processed and copies the 1st part of the Ethernet frame into the netdev 
-buffer, for the 2nd URB the remaining part of the Ethernet frame is 
-copied into the same netdev buffer to complete the Ethernet frame. The 
-netdev buffer is then sent up to the IP stack.
+Acked-by: Felipe Balbi <felipe.balbi@linux.intel.com>
 
-In the case of a missing URB, a bad Ethernet frame is created as follows:
-The 1st URB is processed and copies the 1st part of the Ethernet frame 
-into the netdev buffer, the 2nd URB is lost (somehow),  the 3rd URB is 
-processed and blindly copies what it thinks is the remaining part of the 
-Ethernet frame in the same netdev buffer which corrupts the Ethernet 
-frame. The netdev buffer is then sent up to the IP stack. The 3rd URB 
-and subsequent URBs are processed but synchronisation has been lost so 
-can misread data as a 32-bit header word. It is likely that some good 
-Ethernet frames get discarded whilst trying to resynchronise.
+> diff --git a/drivers/usb/gadget/function/u_ether.c b/drivers/usb/gadget/f=
+unction/u_ether.c
+> index 637809e..a3f7e7c 100644
+> --- a/drivers/usb/gadget/function/u_ether.c
+> +++ b/drivers/usb/gadget/function/u_ether.c
+> @@ -597,7 +597,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
+>  		DBG(dev, "tx queue err %d\n", retval);
+>  		break;
+>  	case 0:
+> -		net->trans_start =3D jiffies;
+> +		netif_trans_update(net);
+>  		atomic_inc(&dev->tx_qlen);
+>  	}
 
-A recovery strategy for regaining lock with the 32-bit header word is 
-necessary otherwise the driver will have difficulty in recovering from a 
-lost URB.
+=2D-=20
+balbi
 
-In the "olden days", the 32-bit header word was always at the start of 
-the URB buffer so previous URBs did not influence the current URB. So no 
-recovery strategy was needed at that time. But now we have to remember 
-what happened in the previous URB and a lost URB can cause a 
-discontinuity in the data stream because the data is not always aligned 
-to the start of the URB buffer.
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
 
-I agree that your environment may never suffer from lost URBs so removal 
-of the patch would work OK.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-I will try to find some time to setup a test environment.
+iQIcBAEBAgAGBQJXKa91AAoJEIaOsuA1yqREa0UP/35SFn4ZofIoB65PTj1xg8X/
+n7p9jjvrvEml10E4POQ/ZKeKzNBobiZfTvPVQ5fJ3DeaxYRMFNldcoNvv3XLHgb1
+J/A6NNdCBYPMo7cc/67RCJKC+NEMbplqQSrLyCL4N8KDaR0ToDvFOhDW5ENtYAFR
++hHewPpprXHex8FPax3PMuuNCRkV/hz3PxCXnF+1h5nKD3hsXZwzQQAVC4OkWkzo
+f9pAczgygfMWpsdOK4lBqAf82sK9P/bOJoE7ag/6zJ3E8EvmiB2oqtBzWzpdpWgL
+JAZ4O8g2q2eV+vXK8ZqMt/yUwdS+V0ouR+iReYAATahEXzu0XPRZSHwmL0qKbl/D
+RN4cVtSHl9cYltkxEMUSNUWZhGDaAyOiYbWWXwDQvus915p5Nq41v2VJailJBQD0
+w+K4gJAw+0igWKgvq1M/JwoJftk9cA75Dw18f+6T6j/e78k0ZCnj1F4WHjWAIAAm
+b54FVVjKATCK8/vIl73vtUpgdAzYeue3mwfd+PP5UfMXRpcEZU2icEyvHgyvbU5U
+ChlCb1NRYIJ01e+J5Ov/Xd6+Pln8EwV4W4imFjzcsLNjiVU0OumWVqFqPtlDd4tq
+5rKSXFa4XdaMA0CAM48AjdQmE3ta+xFFe+Q0GqVTMgyc4QOvSmZuWmsdfTmgyqC+
+DjWMdryqMVHstUt2mUPA
+=NJVp
+-----END PGP SIGNATURE-----
+--=-=-=--
 
-Regards,
-Dean
+--===============0612351183774410813==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
--- 
-Dean Jenkins
-Embedded Software Engineer
-Linux Transportation Solutions
-Mentor Embedded Software Division
-Mentor Graphics (UK) Ltd.
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+--===============0612351183774410813==--
