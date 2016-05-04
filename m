@@ -1,217 +1,101 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] ixgbe: Disable DCB and FCoE for X550EM_x and x550em_a
-Date: Wed,  4 May 2016 09:26:47 -0700
-Message-ID: <1462379208-3997-14-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Usha Ketineni <usha.k.ketineni@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/14][pull request] 10GbE Intel Wired LAN Driver Updates 2016-05-04
+Date: Wed,  4 May 2016 09:26:34 -0700
+Message-ID: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42556 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:38611 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751596AbcEDQ1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 12:27:15 -0400
-In-Reply-To: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751596AbcEDQ1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 12:27:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Usha Ketineni <usha.k.ketineni@intel.com>
+This series contains updates to ixgbe, ixgbevf and traffic class helpers.
 
-This patch adds IXGBE_FLAG_DCB_CAPABLE flag that is set
-for all MACs other than X550EM_x and x550em_a. DCB and
-FCoE is disabled for these MACS. DCB initialization
-code is moved to a separate function.
+Sridhar adds helper functions to the tc_mirred header to access tcf_mirred
+information and then implements them for ixgbe to enable redirection to
+a SRIOV VF or an offloaded MACVLAN device queue via tc 'mirred' action.
 
-Signed-off-by: Usha Ketineni <usha.k.ketineni@intel.com>
-Tested-by: Ronald Bynoe <ronald.j.bynoe@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 111 ++++++++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   1 +
- 3 files changed, 71 insertions(+), 42 deletions(-)
+Amritha adds support to set filters with multiple header fields (L3,L4)
+to match on.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index e216a3d..9f2db18 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -644,6 +644,7 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE	BIT(24)
- #define IXGBE_FLAG_RX_HWTSTAMP_ENABLED		BIT(25)
- #define IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER	BIT(26)
-+#define IXGBE_FLAG_DCB_CAPABLE			BIT(27)
- 
- 	u32 flags2;
- #define IXGBE_FLAG2_RSC_CAPABLE			BIT(0)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 403b3cc..2f69842 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5559,6 +5559,58 @@ static void ixgbe_tx_timeout(struct net_device *netdev)
- 	ixgbe_tx_timeout_reset(adapter);
- }
- 
-+#ifdef CONFIG_IXGBE_DCB
-+static void ixgbe_init_dcb(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct tc_configuration *tc;
-+	int j;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+	case ixgbe_mac_82599EB:
-+		adapter->dcb_cfg.num_tcs.pg_tcs = MAX_TRAFFIC_CLASS;
-+		adapter->dcb_cfg.num_tcs.pfc_tcs = MAX_TRAFFIC_CLASS;
-+		break;
-+	case ixgbe_mac_X540:
-+	case ixgbe_mac_X550:
-+		adapter->dcb_cfg.num_tcs.pg_tcs = X540_TRAFFIC_CLASS;
-+		adapter->dcb_cfg.num_tcs.pfc_tcs = X540_TRAFFIC_CLASS;
-+		break;
-+	case ixgbe_mac_X550EM_x:
-+	case ixgbe_mac_x550em_a:
-+	default:
-+		adapter->dcb_cfg.num_tcs.pg_tcs = DEF_TRAFFIC_CLASS;
-+		adapter->dcb_cfg.num_tcs.pfc_tcs = DEF_TRAFFIC_CLASS;
-+		break;
-+	}
-+
-+	/* Configure DCB traffic classes */
-+	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
-+		tc = &adapter->dcb_cfg.tc_config[j];
-+		tc->path[DCB_TX_CONFIG].bwg_id = 0;
-+		tc->path[DCB_TX_CONFIG].bwg_percent = 12 + (j & 1);
-+		tc->path[DCB_RX_CONFIG].bwg_id = 0;
-+		tc->path[DCB_RX_CONFIG].bwg_percent = 12 + (j & 1);
-+		tc->dcb_pfc = pfc_disabled;
-+	}
-+
-+	/* Initialize default user to priority mapping, UPx->TC0 */
-+	tc = &adapter->dcb_cfg.tc_config[0];
-+	tc->path[DCB_TX_CONFIG].up_to_tc_bitmap = 0xFF;
-+	tc->path[DCB_RX_CONFIG].up_to_tc_bitmap = 0xFF;
-+
-+	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
-+	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
-+	adapter->dcb_cfg.pfc_mode_enable = false;
-+	adapter->dcb_set_bitmap = 0x00;
-+	if (adapter->flags & IXGBE_FLAG_DCB_CAPABLE)
-+		adapter->dcbx_cap = DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_CEE;
-+	memcpy(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
-+	       sizeof(adapter->temp_dcb_cfg));
-+}
-+#endif
-+
- /**
-  * ixgbe_sw_init - Initialize general software structures (struct ixgbe_adapter)
-  * @adapter: board private structure to initialize
-@@ -5575,10 +5627,6 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	u32 fwsm;
- 	u16 device_caps;
- 	int i;
--#ifdef CONFIG_IXGBE_DCB
--	int j;
--	struct tc_configuration *tc;
--#endif
- 
- 	/* PCI config space info */
- 
-@@ -5600,6 +5648,10 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- #ifdef CONFIG_IXGBE_DCA
- 	adapter->flags |= IXGBE_FLAG_DCA_CAPABLE;
- #endif
-+#ifdef CONFIG_IXGBE_DCB
-+	adapter->flags |= IXGBE_FLAG_DCB_CAPABLE;
-+	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
-+#endif
- #ifdef IXGBE_FCOE
- 	adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
- 	adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
-@@ -5656,6 +5708,16 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		break;
- 	case ixgbe_mac_X550EM_x:
- 	case ixgbe_mac_x550em_a:
-+#ifdef CONFIG_IXGBE_DCB
-+		adapter->flags &= ~IXGBE_FLAG_DCB_CAPABLE;
-+#endif
-+#ifdef IXGBE_FCOE
-+		adapter->flags &= ~IXGBE_FLAG_FCOE_CAPABLE;
-+#ifdef CONFIG_IXGBE_DCB
-+		adapter->fcoe.up = 0;
-+#endif /* IXGBE_DCB */
-+#endif /* IXGBE_FCOE */
-+	/* Fall Through */
- 	case ixgbe_mac_X550:
- #ifdef CONFIG_IXGBE_DCA
- 		adapter->flags &= ~IXGBE_FLAG_DCA_CAPABLE;
-@@ -5677,43 +5739,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	spin_lock_init(&adapter->fdir_perfect_lock);
- 
- #ifdef CONFIG_IXGBE_DCB
--	switch (hw->mac.type) {
--	case ixgbe_mac_X540:
--	case ixgbe_mac_X550:
--	case ixgbe_mac_X550EM_x:
--	case ixgbe_mac_x550em_a:
--		adapter->dcb_cfg.num_tcs.pg_tcs = X540_TRAFFIC_CLASS;
--		adapter->dcb_cfg.num_tcs.pfc_tcs = X540_TRAFFIC_CLASS;
--		break;
--	default:
--		adapter->dcb_cfg.num_tcs.pg_tcs = MAX_TRAFFIC_CLASS;
--		adapter->dcb_cfg.num_tcs.pfc_tcs = MAX_TRAFFIC_CLASS;
--		break;
--	}
--
--	/* Configure DCB traffic classes */
--	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
--		tc = &adapter->dcb_cfg.tc_config[j];
--		tc->path[DCB_TX_CONFIG].bwg_id = 0;
--		tc->path[DCB_TX_CONFIG].bwg_percent = 12 + (j & 1);
--		tc->path[DCB_RX_CONFIG].bwg_id = 0;
--		tc->path[DCB_RX_CONFIG].bwg_percent = 12 + (j & 1);
--		tc->dcb_pfc = pfc_disabled;
--	}
--
--	/* Initialize default user to priority mapping, UPx->TC0 */
--	tc = &adapter->dcb_cfg.tc_config[0];
--	tc->path[DCB_TX_CONFIG].up_to_tc_bitmap = 0xFF;
--	tc->path[DCB_RX_CONFIG].up_to_tc_bitmap = 0xFF;
--
--	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
--	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
--	adapter->dcb_cfg.pfc_mode_enable = false;
--	adapter->dcb_set_bitmap = 0x00;
--	adapter->dcbx_cap = DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_CEE;
--	memcpy(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
--	       sizeof(adapter->temp_dcb_cfg));
--
-+	ixgbe_init_dcb(adapter);
- #endif
- 
- 	/* default flow control settings */
-@@ -9495,7 +9521,8 @@ skip_sriov:
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
- 
- #ifdef CONFIG_IXGBE_DCB
--	netdev->dcbnl_ops = &dcbnl_ops;
-+	if (adapter->flags & IXGBE_FLAG_DCB_CAPABLE)
-+		netdev->dcbnl_ops = &dcbnl_ops;
- #endif
- 
- #ifdef IXGBE_FCOE
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index cd6c1dd..da3d835 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -548,6 +548,7 @@ struct ixgbe_thermal_sensor_data {
- /* DCB registers */
- #define MAX_TRAFFIC_CLASS        8
- #define X540_TRAFFIC_CLASS       4
-+#define DEF_TRAFFIC_CLASS        1
- #define IXGBE_RMCS      0x03D00
- #define IXGBE_DPMCS     0x07F40
- #define IXGBE_PDPMCS    0x0CD00
+KY Srinivasan from Microsoft add Hyper-V support into ixgbevf.
+
+Emil adds 82599 sub-device IDs that were missing from the list of parts
+that support WoL.  Then simplified the logic we use to determine WoL
+support by reading the EEPROM bits for MACs X540 and newer.
+
+Preethi cleaned up duplicate and unused device IDs.  Fixed our ethtool
+stat reporting where we were ignoring higher 32 bits of stats registers,
+so fill out 64 bit stat values into two 32 bit words.
+
+Babu Moger from Oracle improves VF performance issues on SPARC.
+
+Alex Duyck cleans up some of the Hyper-V implementation from KY so that
+we can just use function pointers instead of having to identify if a
+given VF is running on a Linux or Windows PF.
+
+Usha makes sure that DCB and FCoE is disabled for X550EM_x/a MACs and
+cleans up the DCB initialization in the process.
+
+Tony cleans up the API for ixgbevf_update_xcast_mode() so we do not
+have to pass in the netdev parameter, since it was never used in the
+function. 
+
+The following are changes since commit 26879da58711aa604a1b866cbeedd7e0f78f90ad:
+  ipv6: add new struct ipcm6_cookie
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Alexander Duyck (1):
+  ixgbevf: Use mac_ops instead of trying to identify NIC type
+
+Amritha Nambiar (1):
+  ixgbe: Match on multiple headers for cls_u32 offloads
+
+Babu Moger (1):
+  ixgbevf: Change the relaxed order settings in VF driver for sparc
+
+Emil Tantilov (2):
+  ixgbe: add WoL support for some 82599 subdevice IDs
+  ixgbe: check EEPROM for WOL support for X540 and above
+
+KY Srinivasan (2):
+  ixgbevf: Add the device ID's presented while running on Hyper-V
+  ixgbevf: Support Windows hosts (Hyper-V)
+
+Preethi Banala (3):
+  ixgbe: Remove duplicate and unused device ID definitions
+  ixgbe: Return 64 bit stats values
+  ixgbe: Revise populating few registers and macro definitions
+
+Sridhar Samudrala (2):
+  net_sched: act_mirred: add helper inlines to access tcf_mirred info
+  ixgbe: Add support for redirect action to cls_u32 offloads
+
+Tony Nguyen (1):
+  ixgbevf: Remove unused parameter
+
+Usha Ketineni (1):
+  ixgbe: Disable DCB and FCoE for X550EM_x and x550em_a
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   7 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  27 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 480 +++++++++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_model.h    |   6 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  25 +-
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |   5 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  10 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  28 +-
+ drivers/net/ethernet/intel/ixgbevf/mbx.c          |  11 +
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 219 +++++++++-
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |   4 +-
+ include/net/tc_act/tc_mirred.h                    |  15 +
+ 12 files changed, 640 insertions(+), 197 deletions(-)
+
 -- 
 2.5.5
