@@ -1,45 +1,67 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED
- trigger
-Date: Wed, 4 May 2016 09:29:36 +0200
-Message-ID: <20160504072936.GB17045@amd>
-References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
- <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: [PATCH v9 net-next 0/7] openvswitch: support for layer 3
+	encapsulated packets
+Date: Wed,  4 May 2016 16:36:26 +0900
+Message-ID: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> This creates a new LED trigger to be used by platform drivers as a
-> default trigger for airplane-mode indicator LEDs.
-> 
-> By default this trigger will fire when RFKILL_OP_CHANGE_ALL is called
-> for all types (RFKILL_TYPE_ALL), setting the LED brightness to LED_FULL
-> when the changing the state to blocked, and to LED_OFF when the changing
-> the state to unblocked. In the future there will be a mechanism for
-> userspace to override the default policy, so it can implement its
-> own.
-
-If userspace wants to control the manually, it can do just that --
-control it manually. There should not be a need to "override the
-default policy".
-								Pavel
-								
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+QXQgdGhlIGNvcmUgb2YgdGhpcyBwYXRjaCBzZXQgaXMgcmVtb3ZpbmcgdGhlIGFzc3VtcHRpb24g
+aW4gT3BlbiB2U3dpdGNoCmRhdGFwYXRoIHRoYXQgYWxsIHBhY2tldHMgaGF2ZSBFdGhlcm5ldCBo
+ZWFkZXIuICBTdXBwb3J0IGZvciBsYXllciAzIEdSRQp0dW5uZWxzIGlzIGFsc28gYWRkZWQgYnkg
+dGhpcyBwYXRjaHNldC4KClRoZSBpbXBsZW1lbnRhdGlvbiByZWxpZXMgb24gdGhlIHByZXNlbmNl
+IG9mIHBvcF9ldGggYW5kIHB1c2hfZXRoIGFjdGlvbnMKaW4gZGF0YXBhdGggZmxvd3MgdG8gZmFj
+aWxpdGF0ZSBhZGRpbmcgYW5kIHJlbW92aW5nIEV0aGVybmV0IGhlYWRlcnMgYXMKYXBwcm9wcmlh
+dGUuIFRoZSBjb25zdHJ1Y3Rpb24gb2Ygc3VjaCBmbG93cyBpcyBsZWZ0IHVwIHRvIHVzZXItc3Bh
+Y2UuCgpUaGlzIHNlcmllcyBpcyBiYXNlZCBvbiB3b3JrIGJ5IExvcmFuZCBKYWthYiwgVGhvbWFz
+IE1vcmluIGFuZCBvdGhlcnMuCgoKVGhpcyBwYXRjaCBzZXQgaXMgY29tcHJpc2VkIG9mIGtlcm5l
+bCBwYXRjaGVzIGFnYWluc3QgbmV0LW5leHQuCkl0IGRlcGVuZHMgb246CgogICAgIltQQVRDSCBu
+ZXQtbmV4dCAwLzNdIGdyZTogcmVjZWl2ZSBhbHNvIFRFQiBwYWNrZXRzIGZvciBsd3R1bm5lbHMi
+CgpUbyBhaWQgcmV2aWV3IGl0IGFuZCB0aGUgYWJvdmUgZGVwZW5kZW5jeSBpcyBhdmFpbGFibGUg
+YXQ6CgogICAgdHJlZTogaHR0cHM6Ly9naXRodWIuY29tL2hvcm1zL29wZW52c3dpdGNoCiAgICBi
+cmFuY2g6IG1lL2wzLXZwbgogICAgdGFnOiBsMy12cG4tdjkKClRoZXJlIGlzIGEgY29tcGFuaW9u
+IHBhdGNoIHNldCBmb3IgdGhlIE9wZW4gdlN3aXRjaCB1c2VyLXNwYWNlIGNvZGUKd2hpY2ggSSB3
+aWxsIHBvc3Qgc2VwYXJhdGVseSB0byB0aGUgZGV2QG9wZW52c3dpdGNoLm9yZyBtYWlsaW5nIGxp
+c3QgYXM6CgogICAgIltQQVRDSCB2MTAgMC81XSB1c2Vyc3BhY2U6IFN1cHBvcnQgZm9yIGxheWVy
+IDMgZW5jYXBzdWxhdGVkIHBhY2tldHMiCgoKCkxvcmFuZCBKYWthYiAoMSk6CiAgb3BlbnZzd2l0
+Y2g6IGFkZCBsYXllciAzIGZsb3cvcG9ydCBzdXBwb3J0CgpTaW1vbiBIb3JtYW4gKDYpOgogIG5l
+dDogYWRkIHNrYl92bGFuX2RlYWNjZWwgaGVscGVyCiAgb3BlbnZzd2l0Y2g6IHNldCBza2IgcHJv
+dG9jb2wgd2hlbiByZWNlaXZpbmcgb24gaW50ZXJuYWwgZGV2aWNlCiAgb3BlbnZzd2l0Y2g6IGFk
+ZCBzdXBwb3J0IHRvIHB1c2ggYW5kIHBvcCBtcGxzIGZvciBsYXllcjMgcGFja2V0cwogIG9wZW52
+c3dpdGNoOiBhZGQgbGF5ZXIgMyBzdXBwb3J0IHRvIG92c19wYWNrZXRfY21kX2V4ZWN1dGUoKQog
+IG9wZW52c3dpdGNoOiBleHRlbmQgbGF5ZXIgMyBzdXBwb3J0IHRvIGNvdmVyIG5vbi1JUCBwYWNr
+ZXRzCiAgb3BlbnZzd2l0Y2g6IHVzZSBpcGdyZSB0dW5uZWwgcmF0aGVyIHRoYW4gZ3JldGFwIHR1
+bm5lbAoKIGluY2x1ZGUvbGludXgvc2tidWZmLmggICAgICAgICAgICAgICB8ICAgMSArCiBpbmNs
+dWRlL25ldC9ncmUuaCAgICAgICAgICAgICAgICAgICAgfCAgIDQgKy0KIGluY2x1ZGUvdWFwaS9s
+aW51eC9vcGVudnN3aXRjaC5oICAgICB8ICAxNCArKysKIG5ldC9jb3JlL3NrYnVmZi5jICAgICAg
+ICAgICAgICAgICAgICB8ICA1MCArKysrKy0tLS0KIG5ldC9pcHY0L2lwX2dyZS5jICAgICAgICAg
+ICAgICAgICAgICB8ICAgOCArLQogbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYyAgICAgICAgICAg
+IHwgIDcwICsrKysrKysrKystLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgICAgICAg
+IHwgIDEzICstLQogbmV0L29wZW52c3dpdGNoL2Zsb3cuYyAgICAgICAgICAgICAgIHwgIDY2ICsr
+KysrKysrLS0tLQogbmV0L29wZW52c3dpdGNoL2Zsb3cuaCAgICAgICAgICAgICAgIHwgICA0ICst
+CiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgICAgICAgfCAyMDAgKysrKysrKysrKysr
+KysrKysrKysrKysrKy0tLS0tLS0tLS0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYyAg
+ICAgICB8ICAgMiArLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jICAgICAgICAgIHwgICA0
+ICstCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgfCAgIDggKysKIG5ldC9v
+cGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYyAgICAgICB8ICAzMSArKysrKy0KIG5ldC9vcGVudnN3
+aXRjaC92cG9ydC1uZXRkZXYuaCAgICAgICB8ICAgMyArCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQt
+dnhsYW4uYyAgICAgICAgfCAgIDIgKy0KIDE2IGZpbGVzIGNoYW5nZWQsIDM1MCBpbnNlcnRpb25z
+KCspLCAxMzAgZGVsZXRpb25zKC0pCgotLSAKMi43LjAucmMzLjIwNy5nMGFjNTM0NAoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlz
+dApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0
+aW5mby9kZXYK
