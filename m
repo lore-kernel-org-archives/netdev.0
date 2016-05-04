@@ -1,111 +1,46 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
-Date: Wed, 4 May 2016 11:40:15 +0200
-Message-ID: <20160504094015.GA1346@al>
-References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
- <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] vrf: add exit function and allow module unload
+Date: Wed,  4 May 2016 12:20:36 +0200
+Message-ID: <1462357236-6297-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, dsa@cumulusnetworks.com,
+	shm@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lekensteyn.nl ([178.21.112.251]:33913 "EHLO lekensteyn.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752275AbcEDJlA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 05:41:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:35085 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751383AbcEDKUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 06:20:40 -0400
+Received: by mail-wm0-f49.google.com with SMTP id e201so181205230wme.0
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 03:20:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 03, 2016 at 05:25:44PM -0700, Eric Dumazet wrote:
-> On Tue, 2016-05-03 at 23:54 +0200, Peter Wu wrote:
-> > When applications use listen() with a backlog of 0, the kernel would
-> > set the maximum connection request queue to zero. This causes false
-> > reports of SYN flooding (if tcp_syncookies is enabled) or packet drops
-> > otherwise.
-> > 
-> > Prior kernels enforce a minimum size of 8, so do that now as well.
-> > 
-> > Fixes: ef547f2ac16b ("tcp: remove max_qlen_log")
-> > Signed-off-by: Peter Wu <peter@lekensteyn.nl>
-> > ---
-> > Hi,
-> > 
-> > This patch fixes a regression from Linux 4.4. Use of "qemu-arm -g 1234"
-> > would trigger the following warning in dmesg:
-> > 
-> >     TCP: request_sock_TCP: Possible SYN flooding on port 1234. Sending cookies.  Check SNMP counters.
-> > 
-> > For some users the "tcp: remove max_qlen_log" change already broke
-> > applications[1]. While listen(3p) says that a backlog argument of 0 sets
-> > the length to an "implementation-defined minimum value", I doubt that
-> > "0" should be considered a valid value (as demonstrated in the above two
-> > real-world applications that worked fine before). It is a hint anyway.
-> > 
-> > This patch was tested on top of Linux v4.5 and removes the warning which
-> > would otherwise be present (due to the inet_csk_reqsk_queue_is_full()
-> > check in tcp_conn_request).
-> > 
-> > I also looked at modifying the backlog value in inet_listen, but that
-> > might have other unintended effects:
-> > 
-> >  - If TFO is enabled and tcp_fastopen==0x400, listen(fd, 0) currently
-> >    disables TFO (also possible via setsockopt). Forcing a minimum breaks
-> >    this path (unlikely to be a problem though since TFO users likely set
-> >    a much higher backlog).
-> >  - sk->sk_max_ack_backlog is also reported via tcp statistics and seems
-> >    really to be the hint rather than the actual interpreted value.
-> > 
-> > Kind regards,
-> > Peter
-> > 
-> >  [1]: https://lkml.kernel.org/r/CANn89i+OKfw896-N5KsNDEikzUidR8yX1JC089hJnGGfDQ0mzw@mail.gmail.com
-> > ---
-> >  include/net/inet_connection_sock.h | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-> > index 49dcad4..ca0fdbc 100644
-> > --- a/include/net/inet_connection_sock.h
-> > +++ b/include/net/inet_connection_sock.h
-> > @@ -296,7 +296,7 @@ static inline int inet_csk_reqsk_queue_young(const struct sock *sk)
-> >  
-> >  static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
-> >  {
-> > -	return inet_csk_reqsk_queue_len(sk) >= sk->sk_max_ack_backlog;
-> > +	return inet_csk_reqsk_queue_len(sk) >= max(8U, sk->sk_max_ack_backlog);
-> >  }
-> >  
-> >  void inet_csk_reqsk_queue_drop(struct sock *sk, struct request_sock *req);
-> 
-> Well, I believe I already gave my opinion on this.
-> 
-> listen backlog is not a hint. This is a limit.
-> 
-> It is the limit of outstanding children in accept queue.
-> 
-> If backlog is 0, no child can be put in the accept queue.
-> 
-> It is therefore Working As Intented.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Alright, this is actually described in the Linux manual (listen(2)):
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/vrf.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-    Now it specifies the queue length for completely established sockets
-    waiting to be accepted, instead of the number of incomplete
-    connection requests.
-
-The POSIX manual (listen(3p)) says:
-
-    A backlog argument of 0 may allow the socket to accept connections,
-    in which case the length of the listen queue may be set to an
-    implementation-defined minimum value.
-
-Not accepting a connection is apparently valid due to the wording ("may
-allow"). Fair enough, please drop this patch. Applications will have to
-be fixed then.
-
-Kind regards,
-Peter
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 8a8f1e5..b217c2d 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -839,7 +839,14 @@ error:
+ 	return rc;
+ }
+ 
++static void __exit vrf_exit_module(void)
++{
++	rtnl_link_unregister(&vrf_link_ops);
++	unregister_netdevice_notifier(&vrf_notifier_block);
++}
++
+ module_init(vrf_init_module);
++module_exit(vrf_exit_module);
+ MODULE_AUTHOR("Shrijeet Mukherjee, David Ahern");
+ MODULE_DESCRIPTION("Device driver to instantiate VRF domains");
+ MODULE_LICENSE("GPL");
+-- 
+2.5.5
