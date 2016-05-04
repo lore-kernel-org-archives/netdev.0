@@ -1,48 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] block/drbd: use nla_put_u64_64bit()
-Date: Wed, 04 May 2016 07:27:06 -0700
-Message-ID: <1462372026.5535.344.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <57286F49.8050107@6wind.com>
-	 <1462268358-19044-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <20160503100644.GE16459@soda.linbit>
-	 <20160503.120556.1317913903199470646.davem@davemloft.net>
-	 <20160504090529.GJ16459@soda.linbit> <5729EFBC.7040002@6wind.com>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH 3/3] net/mlx5e: don't build RFS without ethernet
+Date: Wed, 4 May 2016 17:55:20 +0300
+Message-ID: <CALzJLG9NnqPmm1TpdKub3u=bPRWDDevJh0=oECz0m1O-caqAzw@mail.gmail.com>
+References: <1462364774-3792510-1-git-send-email-arnd@arndb.de>
+ <1462365155-3861405-1-git-send-email-arnd@arndb.de> <CALzJLG9j6ZodwDToX8iuvNVKLoMoaM8V9w8cFR6jM-ktU0ynHg@mail.gmail.com>
+ <6481938.m1ihicFdKr@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	philipp.reisner@linbit.com, drbd-dev@lists.linbit.com,
-	linux-kernel@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35732 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbcEDO1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 10:27:12 -0400
-In-Reply-To: <5729EFBC.7040002@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Matthew Finlay <matt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Haggai Abramonvsky <hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <6481938.m1ihicFdKr@wuerfel>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-05-04 at 14:49 +0200, Nicolas Dichtel wrote:
-> Le 04/05/2016 11:05, Lars Ellenberg a =C3=A9crit :
-> [snip]
-> > We don't have an "alignment problem" there, btw.
-> > Last time I checked, we did work fine without this alignment magic,
-> > we already take care of that, yes, even on affected architectures.
-> The code adds several consecutive u64 attributes. The nl attribute he=
-ader is 4
-> bytes, thus the full attribute length is 12 bytes. If the first u64 i=
-s aligned
-> on 8 (nla_data()), the next one is not aligned on 8: it starts 12 byt=
-es (8 (u64)
-> + 4 (nl attr hdr)) after the previous u64.
+On Wed, May 4, 2016 at 5:23 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> On Wednesday 04 May 2016 16:09:16 Saeed Mahameed wrote:
+>> On Wed, May 4, 2016 at 3:32 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+>> > The RFS acceleration support in mlx5 is enabled whenever CONFIG_RFS_ACCEL
+>> > is in use. However, this fails if a user turns off CONFIG_MLX5_CORE_EN,
+>> > because the rfs code now calls into the ethernet portion of the
+>> > driver:
+>> >
+>> > ERROR: "mlx5e_destroy_flow_table" [drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko] undefined!
+>> >
+>>
+>> Hi Arnd,
+>>
+>> We already posted a fix for this, please see "[PATCH net-next V1
+>> 01/12] net/mlx5e: Fix aRFS compilation dependency", and give us your
+>> feedback.
+>
+> That version looks fine as well. I think it's better to be a little
+> more explicit as I was, but either way seems fine.
+>
 
-As I mentioned earlier ( https://lkml.org/lkml/2016/4/22/706 ), if both
-kernel and user land do not blindly use *(u64 *)ptr to put/get these
-values, there was no issue.
+Simply we didn't want to add new Kconfig flag.
 
-kernel was fine, and most user land apps were fine as well.
+>
+> You can also achieve the same thing in yet another way using Makefile
+> syntax instead of cpp or Kconfig:
+>
+> ifdef CONFIG_MLX5_CORE_EN
+> mlx5_core-y += wq.o eswitch.o \
+>                en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
+>                en_txrx.o en_clock.o vxlan.o en_tc.o
+>                en_txrx.o en_clock.o vxlan.o en_tc.o en_arfs.o
+>
+> mlx5_core-$(CONFIG_RFS_ACCEL) += en_arfs.o
+> endif
+>
+>
+> If you prefer Maor's version, feel free to add
+>
+>
+> Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+>
 
-Only for compound struct  like tcp_info this was nice to get alignment
-for performance reason (it removed one memcpy(), or the use of
-put_unaligned() helpers)
+I do prefer this version, but the difference is small, so will keep Maor's.
+Thanks Arnd for the Ack and the suggestion.
+
+Saeed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
