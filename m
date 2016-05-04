@@ -1,101 +1,195 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] 10GbE Intel Wired LAN Driver Updates 2016-05-04
-Date: Wed,  4 May 2016 09:26:34 -0700
-Message-ID: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next 02/14] ixgbe: Add support for redirect action to cls_u32 offloads
+Date: Wed,  4 May 2016 09:26:36 -0700
+Message-ID: <1462379208-3997-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:38611 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751596AbcEDQ1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752499AbcEDQ1X (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 4 May 2016 12:27:23 -0400
+In-Reply-To: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe, ixgbevf and traffic class helpers.
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-Sridhar adds helper functions to the tc_mirred header to access tcf_mirred
-information and then implements them for ixgbe to enable redirection to
-a SRIOV VF or an offloaded MACVLAN device queue via tc 'mirred' action.
+This patch enables 'redirect' to a SRIOV VF or a offloaded macvlan
+device queue via tc 'mirred' action.
 
-Amritha adds support to set filters with multiple header fields (L3,L4)
-to match on.
+Verified with the following script that creates SRIOV VFs,  offloaded
+macvlan and adds tc u32 filters with redirect action to the associated
+netdevs.
 
-KY Srinivasan from Microsoft add Hyper-V support into ixgbevf.
+ # add ingress qdisc.
+ tc qdisc add dev p4p1 ingress
 
-Emil adds 82599 sub-device IDs that were missing from the list of parts
-that support WoL.  Then simplified the logic we use to determine WoL
-support by reading the EEPROM bits for MACs X540 and newer.
+ # enable hw tc offload.
+ ethtool -K p4p1 hw-tc-offload on
 
-Preethi cleaned up duplicate and unused device IDs.  Fixed our ethtool
-stat reporting where we were ignoring higher 32 bits of stats registers,
-so fill out 64 bit stat values into two 32 bit words.
+ # create 4 sriov VFs and bring up the first one.
+ echo 4 > /sys/class/net/p4p1/device/sriov_numvfs
+ sleep 1
+ ip link set p4p1 up
+ ip link set p4p1_0 up
 
-Babu Moger from Oracle improves VF performance issues on SPARC.
+ # create a offloaded macvlan device and bring it up.
+ ethtool -K p4p1 l2-fwd-offload on
+ ip link add link p4p1 name mvlan_1 type macvlan
+ ip link set mvlan_1 up
 
-Alex Duyck cleans up some of the Hyper-V implementation from KY so that
-we can just use function pointers instead of having to identify if a
-given VF is running on a Linux or Windows PF.
+ # add u32 filter with action to redirect to VF netdev
+ tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+    handle 800:0:1 u32 ht 800: \
+    match ip src 192.168.1.3/32 \
+    action mirred egress redirect dev p4p1_0
 
-Usha makes sure that DCB and FCoE is disabled for X550EM_x/a MACs and
-cleans up the DCB initialization in the process.
+ # add u32 filter with action to redirect to macvlan netdev
+ tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+    handle 800:0:2 u32 ht 800: \
+    match ip src 192.168.2.3/32 \
+    action mirred egress redirect dev mvlan_1
 
-Tony cleans up the API for ixgbevf_update_xcast_mode() so we do not
-have to pass in the netdev parameter, since it was never used in the
-function. 
+Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 96 +++++++++++++++++++++++----
+ 1 file changed, 83 insertions(+), 13 deletions(-)
 
-The following are changes since commit 26879da58711aa604a1b866cbeedd7e0f78f90ad:
-  ipv6: add new struct ipcm6_cookie
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Alexander Duyck (1):
-  ixgbevf: Use mac_ops instead of trying to identify NIC type
-
-Amritha Nambiar (1):
-  ixgbe: Match on multiple headers for cls_u32 offloads
-
-Babu Moger (1):
-  ixgbevf: Change the relaxed order settings in VF driver for sparc
-
-Emil Tantilov (2):
-  ixgbe: add WoL support for some 82599 subdevice IDs
-  ixgbe: check EEPROM for WOL support for X540 and above
-
-KY Srinivasan (2):
-  ixgbevf: Add the device ID's presented while running on Hyper-V
-  ixgbevf: Support Windows hosts (Hyper-V)
-
-Preethi Banala (3):
-  ixgbe: Remove duplicate and unused device ID definitions
-  ixgbe: Return 64 bit stats values
-  ixgbe: Revise populating few registers and macro definitions
-
-Sridhar Samudrala (2):
-  net_sched: act_mirred: add helper inlines to access tcf_mirred info
-  ixgbe: Add support for redirect action to cls_u32 offloads
-
-Tony Nguyen (1):
-  ixgbevf: Remove unused parameter
-
-Usha Ketineni (1):
-  ixgbe: Disable DCB and FCoE for X550EM_x and x550em_a
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  27 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 480 +++++++++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h    |   6 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  25 +-
- drivers/net/ethernet/intel/ixgbevf/defines.h      |   5 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  10 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  28 +-
- drivers/net/ethernet/intel/ixgbevf/mbx.c          |  11 +
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 219 +++++++++-
- drivers/net/ethernet/intel/ixgbevf/vf.h           |   4 +-
- include/net/tc_act/tc_mirred.h                    |  15 +
- 12 files changed, 640 insertions(+), 197 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 0ef4a15..5aa22ac 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -53,6 +53,7 @@
+ #include <net/vxlan.h>
+ #include <net/pkt_cls.h>
+ #include <net/tc_act/tc_gact.h>
++#include <net/tc_act/tc_mirred.h>
+ 
+ #include "ixgbe.h"
+ #include "ixgbe_common.h"
+@@ -8319,6 +8320,85 @@ static int ixgbe_configure_clsu32_del_hnode(struct ixgbe_adapter *adapter,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_CLS_ACT
++static int handle_redirect_action(struct ixgbe_adapter *adapter, int ifindex,
++				  u8 *queue, u64 *action)
++{
++	unsigned int num_vfs = adapter->num_vfs, vf;
++	struct net_device *upper;
++	struct list_head *iter;
++
++	/* redirect to a SRIOV VF */
++	for (vf = 0; vf < num_vfs; ++vf) {
++		upper = pci_get_drvdata(adapter->vfinfo[vf].vfdev);
++		if (upper->ifindex == ifindex) {
++			if (adapter->num_rx_pools > 1)
++				*queue = vf * 2;
++			else
++				*queue = vf * adapter->num_rx_queues_per_pool;
++
++			*action = vf + 1;
++			*action <<= ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF;
++			return 0;
++		}
++	}
++
++	/* redirect to a offloaded macvlan netdev */
++	netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
++		if (netif_is_macvlan(upper)) {
++			struct macvlan_dev *dfwd = netdev_priv(upper);
++			struct ixgbe_fwd_adapter *vadapter = dfwd->fwd_priv;
++
++			if (vadapter && vadapter->netdev->ifindex == ifindex) {
++				*queue = adapter->rx_ring[vadapter->rx_base_queue]->reg_idx;
++				*action = *queue;
++				return 0;
++			}
++		}
++	}
++
++	return -EINVAL;
++}
++
++static int parse_tc_actions(struct ixgbe_adapter *adapter,
++			    struct tcf_exts *exts, u64 *action, u8 *queue)
++{
++	const struct tc_action *a;
++	int err;
++
++	if (tc_no_actions(exts))
++		return -EINVAL;
++
++	tc_for_each_action(a, exts) {
++
++		/* Drop action */
++		if (is_tcf_gact_shot(a)) {
++			*action = IXGBE_FDIR_DROP_QUEUE;
++			*queue = IXGBE_FDIR_DROP_QUEUE;
++			return 0;
++		}
++
++		/* Redirect to a VF or a offloaded macvlan */
++		if (is_tcf_mirred_redirect(a)) {
++			int ifindex = tcf_mirred_ifindex(a);
++
++			err = handle_redirect_action(adapter, ifindex, queue,
++						     action);
++			if (err == 0)
++				return err;
++		}
++	}
++
++	return -EINVAL;
++}
++#else
++static int parse_tc_actions(struct ixgbe_adapter *adapter,
++			    struct tcf_exts *exts, u64 *action, u8 *queue)
++{
++	return -EINVAL;
++}
++#endif /* CONFIG_NET_CLS_ACT */
++
+ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 				  __be16 protocol,
+ 				  struct tc_cls_u32_offload *cls)
+@@ -8328,9 +8408,6 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	struct ixgbe_mat_field *field_ptr;
+ 	struct ixgbe_fdir_filter *input;
+ 	union ixgbe_atr_input mask;
+-#ifdef CONFIG_NET_CLS_ACT
+-	const struct tc_action *a;
+-#endif
+ 	int i, err = 0;
+ 	u8 queue;
+ 	u32 uhtid, link_uhtid;
+@@ -8432,18 +8509,11 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	if (input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
+ 		mask.formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
+ 
+-#ifdef CONFIG_NET_CLS_ACT
+-	if (list_empty(&cls->knode.exts->actions))
++	err = parse_tc_actions(adapter, cls->knode.exts, &input->action,
++			       &queue);
++	if (err < 0)
+ 		goto err_out;
+ 
+-	list_for_each_entry(a, &cls->knode.exts->actions, list) {
+-		if (!is_tcf_gact_shot(a))
+-			goto err_out;
+-	}
+-#endif
+-
+-	input->action = IXGBE_FDIR_DROP_QUEUE;
+-	queue = IXGBE_FDIR_DROP_QUEUE;
+ 	input->sw_idx = loc;
+ 
+ 	spin_lock(&adapter->fdir_perfect_lock);
 -- 
 2.5.5
