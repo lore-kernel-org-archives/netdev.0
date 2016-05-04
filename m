@@ -1,66 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: two more missing bh disable
-Date: Wed, 04 May 2016 15:27:29 -0700
-Message-ID: <1462400849.13075.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1462320650.5535.334.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160504.005450.32648328658519474.davem@davemloft.net>
-	 <1462386131.5535.353.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160504.170641.134283593327091145.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next] MAINTAINERS: Cleanup Intel Wired LAN maintainers list
+Date: Wed,  4 May 2016 15:49:39 -0700
+Message-ID: <1462402179-125720-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33010 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753409AbcEDW1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 18:27:31 -0400
-Received: by mail-pa0-f54.google.com with SMTP id xk12so28852247pac.0
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 15:27:30 -0700 (PDT)
-In-Reply-To: <20160504.170641.134283593327091145.davem@davemloft.net>
+Received: from mga09.intel.com ([134.134.136.24]:15870 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753670AbcEDWtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 18:49:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+With the recent "retirements" and other changes, make the maintainers
+list a lot less confusing and a bit more straight forward.
 
-percpu_counter only have protection against preemption.
-
-TCP stack uses them possibly from BH, so we need BH protection
-in contexts that could be run in process context
-
-Fixes: c10d9310edf5 ("tcp: do not assume TCP code is non preemptible")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Acked-by: Shannon Nelson <sln@onemain.com>
 ---
- net/ipv4/inet_connection_sock.c |    2 ++
- net/ipv4/tcp_ipv4.c             |    2 ++
- 2 files changed, 4 insertions(+)
+ MAINTAINERS | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 7ce112aa3a7b50c8c2c97b4e59e86128f90fd7f6..fa8c39804bdbae867dd5c08f1e308202c1aa1c52 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -706,7 +706,9 @@ void inet_csk_destroy_sock(struct sock *sk)
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2b74fde..e425912 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5748,13 +5748,6 @@ F:	drivers/char/hw_random/ixp4xx-rng.c
  
- 	sk_refcnt_debug_release(sk);
- 
-+	local_bh_disable();
- 	percpu_counter_dec(sk->sk_prot->orphan_count);
-+	local_bh_enable();
- 	sock_put(sk);
- }
- EXPORT_SYMBOL(inet_csk_destroy_sock);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 761bc492c5e3070212efe91c3940e4712d9d6ef6..a7ab9472d64560d86ea24ac1b6e1a7800f89989d 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1839,7 +1839,9 @@ void tcp_v4_destroy_sock(struct sock *sk)
- 	tcp_free_fastopen_req(tp);
- 	tcp_saved_syn_free(tp);
- 
-+	local_bh_disable();
- 	sk_sockets_allocated_dec(sk);
-+	local_bh_enable();
- 
- 	if (mem_cgroup_sockets_enabled && sk->sk_memcg)
- 		sock_release_memcg(sk);
+ INTEL ETHERNET DRIVERS
+ M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+-R:	Jesse Brandeburg <jesse.brandeburg@intel.com>
+-R:	Shannon Nelson <shannon.nelson@intel.com>
+-R:	Carolyn Wyborny <carolyn.wyborny@intel.com>
+-R:	Don Skidmore <donald.c.skidmore@intel.com>
+-R:	Bruce Allan <bruce.w.allan@intel.com>
+-R:	John Ronciak <john.ronciak@intel.com>
+-R:	Mitch Williams <mitch.a.williams@intel.com>
+ L:	intel-wired-lan@lists.osuosl.org (moderated for non-subscribers)
+ W:	http://www.intel.com/support/feedback.htm
+ W:	http://e1000.sourceforge.net/
+-- 
+2.5.5
