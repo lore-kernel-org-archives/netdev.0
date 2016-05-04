@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v7 16/21] IB/hns: Add ah operations support
-Date: Wed, 4 May 2016 20:21:13 +0800
-Message-ID: <1462364478-10808-17-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v7 08/21] IB/hns: Add icm support
+Date: Wed, 4 May 2016 20:21:05 +0800
+Message-ID: <1462364478-10808-9-git-send-email-oulijun@huawei.com>
 References: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,26 +20,148 @@ In-Reply-To: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch was for implementing of address handle operations.
-It includes three verbs that create ah, query ah and destroy
-ah. They is completed independently by RoCE driver.
+This patch mainly added icm support for RoCE. It initializes icm
+which managers the relative memory blocks for RoCE. The data
+structures of RoCE will be located in it. For example, CQ table,
+QP table and MTPT table so on.
 
 Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
 Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_ah.c     | 109 ++++++++++++++++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_device.h |  31 +++++++-
- drivers/infiniband/hw/hns/hns_roce_main.c   |   5 ++
- 3 files changed, 144 insertions(+), 1 deletion(-)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_ah.c
+ drivers/infiniband/hw/hns/hns_roce_common.h |  19 ++
+ drivers/infiniband/hw/hns/hns_roce_device.h |  30 ++
+ drivers/infiniband/hw/hns/hns_roce_icm.c    | 438 ++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_icm.h    |  95 ++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   |  84 ++++++
+ 5 files changed, 666 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.h
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_ah.c b/drivers/infiniband/hw/hns/hns_roce_ah.c
+diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
+index 257a7e5..fcac5c4 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_common.h
++++ b/drivers/infiniband/hw/hns/hns_roce_common.h
+@@ -30,6 +30,22 @@
+ #define roce_set_bit(origin, shift, val) \
+ 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
+ 
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S 0
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_M   \
++	(((1UL << 19) - 1) << ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S)
++
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_S 19
++
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S 20
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M   \
++	(((1UL << 2) - 1) << ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S)
++
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S 22
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_M   \
++	(((1UL << 5) - 1) << ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S)
++
++#define ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S 31
++
+ #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S 0
+ #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_M   \
+ 	(((1UL << 2) - 1) << ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S)
+@@ -70,6 +86,8 @@
+ #define ROCEE_SYS_IMAGE_GUID_L_REG		0xC
+ #define ROCEE_SYS_IMAGE_GUID_H_REG		0x10
+ 
++#define ROCEE_BT_CMD_H_REG			0x204
++
+ #define ROCEE_CAEP_AEQE_CONS_IDX_REG		0x3AC
+ #define ROCEE_CAEP_CEQC_CONS_IDX_0_REG		0x3BC
+ 
+@@ -82,6 +100,7 @@
+ 
+ #define ROCEE_CAEP_CE_INTERVAL_CFG_REG		0x190
+ #define ROCEE_CAEP_CE_BURST_NUM_CFG_REG		0x194
++#define ROCEE_BT_CMD_L_REG			0x200
+ 
+ #define ROCEE_MB1_REG				0x210
+ 
+diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+index a8258f3..13f3ae4 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
++++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+@@ -91,6 +91,26 @@ enum {
+ 	HNS_ROCE_CMD_SUCCESS			= 1,
+ };
+ 
++struct hns_roce_icm_table {
++	/* ICM type: 0 = qpc 1 = mtt 2 = cqc 3 = srq 4 = other */
++	u32		type;
++	/* ICM array elment num */
++	unsigned long	num_icm;
++	/* ICM entry record obj total num */
++	unsigned long	num_obj;
++	/*Single obj size */
++	unsigned long	obj_size;
++	int		lowmem;
++	int		coherent;
++	struct mutex	mutex;
++	struct hns_roce_icm **icm;
++};
++
++struct hns_roce_mr_table {
++	struct hns_roce_icm_table	mtt_table;
++	struct hns_roce_icm_table	mtpt_table;
++};
++
+ struct hns_roce_buf_list {
+ 	void		*buf;
+ 	dma_addr_t	map;
+@@ -106,11 +126,14 @@ struct hns_roce_cq {
+ 
+ struct hns_roce_qp_table {
+ 	spinlock_t			lock;
++	struct hns_roce_icm_table	qp_table;
++	struct hns_roce_icm_table	irrl_table;
+ };
+ 
+ struct hns_roce_cq_table {
+ 	spinlock_t			lock;
+ 	struct radix_tree_root		tree;
++	struct hns_roce_icm_table	table;
+ };
+ 
+ struct hns_roce_cmd_context {
+@@ -239,6 +262,7 @@ struct hns_roce_hw {
+ struct hns_roce_dev {
+ 	struct ib_device	ib_dev;
+ 	struct platform_device  *pdev;
++	spinlock_t		bt_cmd_lock;
+ 	struct hns_roce_ib_iboe iboe;
+ 
+ 	int			irq[HNS_ROCE_MAX_IRQ_NUM];
+@@ -253,6 +277,7 @@ struct hns_roce_dev {
+ 	u32                     hw_rev;
+ 
+ 	struct hns_roce_cmdq	cmd;
++	struct hns_roce_mr_table  mr_table;
+ 	struct hns_roce_cq_table  cq_table;
+ 	struct hns_roce_qp_table  qp_table;
+ 	struct hns_roce_eq_table  eq_table;
+@@ -262,6 +287,11 @@ struct hns_roce_dev {
+ 	struct hns_roce_hw	*hw;
+ };
+ 
++static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
++{
++	__raw_writeq(*(u64 *) val, dest);
++}
++
+ static inline struct hns_roce_qp
+ 	*__hns_roce_qp_lookup(struct hns_roce_dev *hr_dev, u32 qpn)
+ {
+diff --git a/drivers/infiniband/hw/hns/hns_roce_icm.c b/drivers/infiniband/hw/hns/hns_roce_icm.c
 new file mode 100644
-index 0000000..9d0eb61
+index 0000000..751e360
 --- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_ah.c
-@@ -0,0 +1,109 @@
++++ b/drivers/infiniband/hw/hns/hns_roce_icm.c
+@@ -0,0 +1,438 @@
 +/*
 + * Copyright (c) 2016 Hisilicon Limited.
 + *
@@ -49,191 +171,651 @@ index 0000000..9d0eb61
 + * (at your option) any later version.
 + */
 +
-+#include <linux/inet.h>
++#include <linux/errno.h>
 +#include <linux/init.h>
++#include <linux/mm.h>
 +#include <linux/platform_device.h>
 +#include <linux/slab.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_cache.h>
-+#include "hns_roce_common.h"
++#include <linux/scatterlist.h>
 +#include "hns_roce_device.h"
++#include "hns_roce_icm.h"
++#include "hns_roce_common.h"
 +
-+#define HNS_ROCE_PORT_NUM_SHIFT		24
-+#define HNS_ROCE_VLAN_SL_BIT_MASK	7
-+#define HNS_ROCE_VLAN_SL_SHIFT		13
++#define HW_SYNC_TIMEOUT_MSECS		500
 +
-+struct ib_ah *hns_roce_create_ah(struct ib_pd *ibpd, struct ib_ah_attr *ah_attr)
++#define HNS_ROCE_ICM_ALLOC_SIZE		(1 << 17)
++#define HNS_ROCE_TABLE_CHUNK_SIZE	(1 << 17)
++
++#define DMA_ADDR_T_SHIFT		12
++#define BT_CMD_SYNC_SHIFT		31
++#define BT_BA_SHIFT			32
++
++static int hns_roce_alloc_icm_pages(struct scatterlist *mem, int order,
++				    gfp_t gfp_mask)
 +{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ibpd->device);
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct ib_gid_attr gid_attr;
-+	struct hns_roce_ah *ah;
-+	u16 vlan_tag = 0xffff;
-+	struct in6_addr in6;
-+	union ib_gid sgid;
++	struct page *page;
++
++	page = alloc_pages(gfp_mask, order);
++	if (!page)
++		return -ENOMEM;
++
++	sg_set_page(mem, page, PAGE_SIZE << order, 0);
++
++	return 0;
++}
++
++static int hns_roce_alloc_icm_coherent(struct device *dev,
++				       struct scatterlist *mem, int order,
++				       gfp_t gfp_mask)
++{
++	void *buf = dma_alloc_coherent(dev, PAGE_SIZE << order,
++				       &sg_dma_address(mem), gfp_mask);
++	if (!buf) {
++		dev_err(dev, "alloc coherent icm pages failed.\n");
++		return -ENOMEM;
++	}
++
++	sg_set_buf(mem, buf, PAGE_SIZE << order);
++	WARN_ON(mem->offset);
++	sg_dma_len(mem) = PAGE_SIZE << order;
++	return 0;
++}
++
++struct hns_roce_icm *hns_roce_alloc_icm(struct hns_roce_dev *hr_dev, int npages,
++					gfp_t gfp_mask, int coherent)
++{
++	struct hns_roce_icm_chunk *chunk = NULL;
++	struct hns_roce_icm *icm;
++	int cur_order;
 +	int ret;
 +
-+	ah = kzalloc(sizeof(*ah), GFP_ATOMIC);
-+	if (!ah)
-+		return ERR_PTR(-ENOMEM);
++	WARN_ON(coherent && (gfp_mask & __GFP_HIGHMEM));
 +
-+	/* Get mac address */
-+	memcpy(&in6, ah_attr->grh.dgid.raw, sizeof(ah_attr->grh.dgid.raw));
-+	if (rdma_is_multicast_addr(&in6))
-+		rdma_get_mcast_mac(&in6, ah->av.mac);
-+	else
-+		memcpy(ah->av.mac, ah_attr->dmac, sizeof(ah_attr->dmac));
++	icm = kmalloc(sizeof(*icm),
++		      gfp_mask & ~(__GFP_HIGHMEM | __GFP_NOWARN));
++	if (!icm)
++		return NULL;
 +
-+	/* Get source gid */
-+	ret = ib_get_cached_gid(ibpd->device, ah_attr->port_num,
-+				ah_attr->grh.sgid_index, &sgid, &gid_attr);
-+	if (ret) {
-+		dev_err(dev, "get sgid failed! ret = %d\n", ret);
-+		kfree(ah);
-+		return ERR_PTR(ret);
++	icm->refcount = 0;
++	INIT_LIST_HEAD(&icm->chunk_list);
++
++	cur_order = get_order(HNS_ROCE_ICM_ALLOC_SIZE);
++
++	while (npages > 0) {
++		if (!chunk) {
++			chunk = kmalloc(sizeof(*chunk),
++				gfp_mask & ~(__GFP_HIGHMEM | __GFP_NOWARN));
++			if (!chunk)
++				goto fail;
++
++			sg_init_table(chunk->mem, HNS_ROCE_ICM_CHUNK_LEN);
++			chunk->npages = 0;
++			chunk->nsg = 0;
++			list_add_tail(&chunk->list, &icm->chunk_list);
++		}
++
++		while (1 << cur_order > npages)
++			--cur_order;
++
++		if (coherent)
++			ret = hns_roce_alloc_icm_coherent(&hr_dev->pdev->dev,
++						&chunk->mem[chunk->npages],
++						cur_order, gfp_mask);
++		else
++			ret = hns_roce_alloc_icm_pages(
++						&chunk->mem[chunk->npages],
++						cur_order, gfp_mask);
++		if (!ret) {
++			++chunk->npages;
++			if (coherent) {
++				++chunk->nsg;
++			} else if (chunk->npages == HNS_ROCE_ICM_CHUNK_LEN) {
++				chunk->nsg = dma_map_sg(&hr_dev->pdev->dev,
++						      chunk->mem, chunk->npages,
++						      DMA_BIDIRECTIONAL);
++				if (chunk->nsg <= 0)
++					goto fail;
++
++				chunk = NULL;
++			}
++			npages -= 1 << cur_order;
++		} else {
++			/*
++			* If failed on alloc 128k memory one time,
++			* no alloc small block memory,
++			* directly return fail
++			*/
++			dev_err(&hr_dev->pdev->dev, "**alloc 128K phy mem failed**\n");
++			goto fail;
++		}
 +	}
 +
-+	if (gid_attr.ndev) {
-+		if (is_vlan_dev(gid_attr.ndev))
-+			vlan_tag = vlan_dev_vlan_id(gid_attr.ndev);
-+		dev_put(gid_attr.ndev);
++	if (!coherent && chunk) {
++		chunk->nsg = dma_map_sg(&hr_dev->pdev->dev, chunk->mem,
++					chunk->npages, DMA_BIDIRECTIONAL);
++		if (chunk->nsg <= 0)
++			goto fail;
 +	}
 +
-+	if (vlan_tag < 0x1000)
-+		vlan_tag |= (ah_attr->sl & HNS_ROCE_VLAN_SL_BIT_MASK) <<
-+			     HNS_ROCE_VLAN_SL_SHIFT;
++	return icm;
 +
-+	ah->av.port_pd = cpu_to_be32(to_hr_pd(ibpd)->pdn | (ah_attr->port_num <<
-+				     HNS_ROCE_PORT_NUM_SHIFT));
-+	ah->av.gid_index = ah_attr->grh.sgid_index;
-+	ah->av.vlan = cpu_to_le16(vlan_tag);
-+	dev_dbg(dev, "gid_index = 0x%x,vlan = 0x%x\n", ah->av.gid_index,
-+		ah->av.vlan);
-+
-+	if (ah_attr->static_rate)
-+		ah->av.stat_rate = IB_RATE_10_GBPS;
-+
-+	memcpy(ah->av.dgid, ah_attr->grh.dgid.raw, HNS_ROCE_GID_SIZE);
-+	ah->av.sl_tclass_flowlabel = cpu_to_le32(ah_attr->sl <<
-+						 HNS_ROCE_SL_SHIFT);
-+
-+	return &ah->ibah;
++fail:
++	hns_roce_free_icm(hr_dev, icm, coherent);
++	return NULL;
 +}
 +
-+int hns_roce_query_ah(struct ib_ah *ibah, struct ib_ah_attr *ah_attr)
++static void hns_roce_free_icm_pages(struct hns_roce_dev *hr_dev,
++				    struct hns_roce_icm_chunk *chunk)
 +{
-+	struct hns_roce_ah *ah = to_hr_ah(ibah);
++	int i;
 +
-+	memset(ah_attr, 0, sizeof(*ah_attr));
++	if (chunk->nsg > 0)
++		dma_unmap_sg(&hr_dev->pdev->dev, chunk->mem, chunk->npages,
++			     DMA_BIDIRECTIONAL);
 +
-+	ah_attr->sl = le32_to_cpu(ah->av.sl_tclass_flowlabel) >>
-+				  HNS_ROCE_SL_SHIFT;
-+	ah_attr->port_num = le32_to_cpu(ah->av.port_pd) >>
-+					HNS_ROCE_PORT_NUM_SHIFT;
-+	ah_attr->static_rate = ah->av.stat_rate;
-+	ah_attr->ah_flags = IB_AH_GRH;
-+	ah_attr->grh.traffic_class = le32_to_cpu(ah->av.sl_tclass_flowlabel) >>
-+						 HNS_ROCE_TCLASS_SHIFT;
-+	ah_attr->grh.flow_label = le32_to_cpu(ah->av.sl_tclass_flowlabel) &
-+					      HNS_ROCE_FLOW_LABLE_MASK;
-+	ah_attr->grh.hop_limit = ah->av.hop_limit;
-+	ah_attr->grh.sgid_index = ah->av.gid_index;
-+	memcpy(ah_attr->grh.dgid.raw, ah->av.dgid, HNS_ROCE_GID_SIZE);
++	for (i = 0; i < chunk->npages; ++i)
++		__free_pages(sg_page(&chunk->mem[i]),
++			     get_order(chunk->mem[i].length));
++}
++
++static void hns_roce_free_icm_coherent(struct hns_roce_dev *hr_dev,
++				       struct hns_roce_icm_chunk *chunk)
++{
++	int i;
++
++	for (i = 0; i < chunk->npages; ++i)
++		dma_free_coherent(&hr_dev->pdev->dev, chunk->mem[i].length,
++				  lowmem_page_address(sg_page(&chunk->mem[i])),
++				  sg_dma_address(&chunk->mem[i]));
++}
++
++void hns_roce_free_icm(struct hns_roce_dev *hr_dev, struct hns_roce_icm *icm,
++		       int coherent)
++{
++	struct hns_roce_icm_chunk *chunk, *tmp;
++
++	if (!icm)
++		return;
++
++	list_for_each_entry_safe(chunk, tmp, &icm->chunk_list, list) {
++		if (coherent)
++			hns_roce_free_icm_coherent(hr_dev, chunk);
++		else
++			hns_roce_free_icm_pages(hr_dev, chunk);
++
++		kfree(chunk);
++	}
++
++	kfree(icm);
++}
++
++int hns_roce_map_icm(struct hns_roce_dev *hr_dev,
++		     struct hns_roce_icm_table *table, unsigned long obj)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++	spinlock_t *lock = &hr_dev->bt_cmd_lock;
++	unsigned long end = 0;
++	unsigned long flags;
++	struct hns_roce_icm_iter iter;
++	void __iomem *bt_cmd;
++	u32 bt_cmd_h_val = 0;
++	u32 bt_cmd_val[2];
++	u32 bt_cmd_l = 0;
++	u64 bt_ba = 0;
++	int ret = 0;
++
++	/* Find the icm entry */
++	unsigned long i = (obj & (table->num_obj - 1)) /
++			  (HNS_ROCE_TABLE_CHUNK_SIZE / table->obj_size);
++
++	switch (table->type) {
++	case ICM_TYPE_QPC:
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_QPC);
++		break;
++	case ICM_TYPE_MTPT:
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
++			       ICM_TYPE_MTPT);
++		break;
++	case ICM_TYPE_CQC:
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_CQC);
++		break;
++	case ICM_TYPE_SRQC:
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
++			       ICM_TYPE_SRQC);
++		break;
++	default:
++		return ret;
++	}
++	roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_M,
++		       ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S, obj);
++	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_S, 0);
++	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S, 1);
++
++	/* Currently iter only a chunk */
++	for (hns_roce_icm_first(table->icm[i], &iter);
++	     !hns_roce_icm_last(&iter); hns_roce_icm_next(&iter)) {
++		bt_ba = hns_roce_icm_addr(&iter) >> DMA_ADDR_T_SHIFT;
++
++		spin_lock_irqsave(lock, flags);
++
++		bt_cmd = hr_dev->reg_base + ROCEE_BT_CMD_H_REG;
++
++		end = msecs_to_jiffies(HW_SYNC_TIMEOUT_MSECS) + jiffies;
++		while (1) {
++			if (roce_readl(bt_cmd) >> BT_CMD_SYNC_SHIFT) {
++				if (!(time_before(jiffies, end))) {
++					dev_err(dev, "Write bt_cmd err,hw_sync is not zero.\n");
++					spin_unlock_irqrestore(lock, flags);
++					ret = -EBUSY;
++					return ret;
++				}
++			} else {
++				break;
++			}
++			msleep(20);
++		}
++
++		bt_cmd_l = (u32)bt_ba;
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S,
++			       bt_ba >> BT_BA_SHIFT);
++
++		bt_cmd_val[0] = bt_cmd_l;
++		bt_cmd_val[1] = bt_cmd_h_val;
++		hns_roce_write64_k(bt_cmd_val,
++				   hr_dev->reg_base + ROCEE_BT_CMD_L_REG);
++		spin_unlock_irqrestore(lock, flags);
++	}
++
++	return ret;
++}
++
++int hns_roce_unmap_icm(struct hns_roce_dev *hr_dev,
++		       struct hns_roce_icm_table *table, unsigned long obj)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++	unsigned long end = 0;
++	unsigned long flags;
++	void __iomem *bt_cmd;
++	uint32_t bt_cmd_val[2];
++	u32 bt_cmd_h_val = 0;
++	int ret = 0;
++
++	switch (table->type) {
++	case ICM_TYPE_QPC:
++		dev_dbg(dev, "UNMAP QPC BT  :\n");
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_QPC);
++		break;
++	case ICM_TYPE_MTPT:
++		dev_dbg(dev, "UNMAP MTPT BT :\n");
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
++			       ICM_TYPE_MTPT);
++		break;
++	case ICM_TYPE_CQC:
++		dev_dbg(dev, "UNMAP CQC BT  :\n");
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S, ICM_TYPE_CQC);
++		break;
++	case ICM_TYPE_SRQC:
++		roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_M,
++			       ROCEE_BT_CMD_H_ROCEE_BT_CMD_MDF_S,
++			       ICM_TYPE_SRQC);
++		break;
++	default:
++		return ret;
++	}
++	roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_M,
++		       ROCEE_BT_CMD_H_ROCEE_BT_CMD_IN_MDF_S, obj);
++	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_S, 1);
++	roce_set_bit(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S, 1);
++	roce_set_field(bt_cmd_h_val, ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_M,
++		       ROCEE_BT_CMD_H_ROCEE_BT_CMD_BA_H_S, 0);
++
++	spin_lock_irqsave(&hr_dev->bt_cmd_lock, flags);
++
++	bt_cmd = hr_dev->reg_base + ROCEE_BT_CMD_H_REG;
++
++	end = msecs_to_jiffies(HW_SYNC_TIMEOUT_MSECS) + jiffies;
++	while (1) {
++		if (roce_readl(bt_cmd) >> BT_CMD_SYNC_SHIFT) {
++			if (!(time_before(jiffies, end))) {
++				dev_err(dev, "Write bt_cmd err,hw_sync is not zero.\n");
++				spin_unlock_irqrestore(&hr_dev->bt_cmd_lock,
++						       flags);
++				return -EBUSY;
++			}
++		} else {
++			break;
++		}
++		msleep(20);
++	}
++
++	bt_cmd_val[0] = 0;
++	bt_cmd_val[1] = bt_cmd_h_val;
++	hns_roce_write64_k(bt_cmd_val, hr_dev->reg_base + ROCEE_BT_CMD_L_REG);
++	spin_unlock_irqrestore(&hr_dev->bt_cmd_lock, flags);
++
++	return ret;
++}
++
++int hns_roce_init_icm_table(struct hns_roce_dev *hr_dev,
++			    struct hns_roce_icm_table *table, u32 type,
++			    unsigned long obj_size, unsigned long nobj,
++			    int reserved, int use_lowmem, int use_coherent)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++	u32 chunk_size;
++	unsigned long obj_per_chunk;
++	unsigned long num_icm;
++	unsigned long i;
++
++	obj_per_chunk = HNS_ROCE_TABLE_CHUNK_SIZE / obj_size;
++	num_icm = (nobj + obj_per_chunk - 1) / obj_per_chunk;
++
++	table->icm = kcalloc(num_icm, sizeof(*table->icm), GFP_KERNEL);
++	if (!table->icm)
++		return -ENOMEM;
++
++	table->type = type;
++	table->num_icm = num_icm;
++	table->num_obj = nobj;
++	table->obj_size = obj_size;
++	table->lowmem = use_lowmem;
++	table->coherent = use_coherent;
++	mutex_init(&table->mutex);
++
++	for (i = 0;
++	i * HNS_ROCE_TABLE_CHUNK_SIZE < reserved * obj_size; ++i) {
++		chunk_size = HNS_ROCE_TABLE_CHUNK_SIZE;
++		if ((i + 1) * HNS_ROCE_TABLE_CHUNK_SIZE > nobj * obj_size)
++			chunk_size = PAGE_ALIGN(nobj * obj_size -
++						i * HNS_ROCE_TABLE_CHUNK_SIZE);
++
++		table->icm[i] = hns_roce_alloc_icm(hr_dev,
++				chunk_size >> PAGE_SHIFT, (use_lowmem ?
++				GFP_KERNEL : GFP_HIGHUSER) | __GFP_NOWARN,
++				use_coherent);
++		if (!table->icm[i])
++			goto _error_failed_alloc_icm;
++
++		if (hns_roce_map_icm(hr_dev, table,
++			i * HNS_ROCE_TABLE_CHUNK_SIZE / obj_size)) {
++			dev_err(dev, "map icm table failed.\n");
++			goto _error_failed_map_icm;
++		}
++
++		/*
++		 * Add a reference to this ICM chunk so that it never
++		 * Gets freed (since it contains reserved firmware objects).
++		 */
++		++table->icm[i]->refcount;
++	}
 +
 +	return 0;
++
++_error_failed_map_icm:
++_error_failed_alloc_icm:
++	for (i = 0; i < num_icm; ++i)
++		if (table->icm[i]) {
++			if (hns_roce_unmap_icm(hr_dev, table,
++				i * HNS_ROCE_TABLE_CHUNK_SIZE / obj_size))
++				dev_err(dev, "unmap icm table failed.\n");
++
++			hns_roce_free_icm(hr_dev, table->icm[i], use_coherent);
++		}
++
++	return -ENOMEM;
 +}
 +
-+int hns_roce_destroy_ah(struct ib_ah *ah)
++void hns_roce_cleanup_icm_table(struct hns_roce_dev *hr_dev,
++				struct hns_roce_icm_table *table)
 +{
-+	kfree(to_hr_ah(ah));
++	struct device *dev = &hr_dev->pdev->dev;
++	unsigned long i;
 +
-+	return 0;
++	for (i = 0; i < table->num_icm; ++i)
++		if (table->icm[i]) {
++			if (hns_roce_unmap_icm(hr_dev, table,
++			    i * HNS_ROCE_TABLE_CHUNK_SIZE / table->obj_size))
++				dev_err(dev, "unmap icm table failed.\n");
++
++			hns_roce_free_icm(hr_dev, table->icm[i],
++					  table->coherent);
++		}
++
++	kfree(table->icm);
 +}
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index eff7339..6b8447a 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -24,7 +24,6 @@
- #define MAC_ADDR_OCTET_NUM			6
- #define HNS_ROCE_MAX_MSG_LEN			0x80000000
- 
--
- #define HNS_ROCE_BA_SIZE			(32 * 4096)
- 
- #define HNS_ROCE_MAX_IRQ_NUM			34
-@@ -35,6 +34,11 @@
- #define HNS_ROCE_AEQE_VEC_NUM			1
- #define HNS_ROCE_AEQE_OF_VEC_NUM		1
- 
-+/* 4G/4K = 1M */
-+#define HNS_ROCE_SL_SHIFT			29
-+#define HNS_ROCE_TCLASS_SHIFT			20
-+#define HNS_ROCE_FLOW_LABLE_MASK		0xfffff
 +
- #define HNS_ROCE_MAX_PORTS			6
- #define HNS_ROCE_MAX_GID_NUM			16
- #define HNS_ROCE_GID_SIZE			16
-@@ -208,6 +212,22 @@ struct hns_roce_raq_table {
- 	struct hns_roce_buf_list	*e_raq_buf;
- };
- 
-+struct hns_roce_av {
-+	__le32      port_pd;
-+	u8          gid_index;
-+	u8          stat_rate;
-+	u8          hop_limit;
-+	__le32      sl_tclass_flowlabel;
-+	u8          dgid[HNS_ROCE_GID_SIZE];
-+	u8          mac[6];
-+	__le16      vlan;
++void hns_roce_cleanup_icm(struct hns_roce_dev *hr_dev)
++{
++	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->cq_table.table);
++	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->qp_table.irrl_table);
++	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->qp_table.qp_table);
++	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->mr_table.mtpt_table);
++	hns_roce_cleanup_icm_table(hr_dev, &hr_dev->mr_table.mtt_table);
++}
+diff --git a/drivers/infiniband/hw/hns/hns_roce_icm.h b/drivers/infiniband/hw/hns/hns_roce_icm.h
+new file mode 100644
+index 0000000..2acabe7
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_icm.h
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _HNS_ROCE_ICM_H
++#define _HNS_ROCE_ICM_H
++
++#include <linux/list.h>
++#include <linux/mutex.h>
++#include <linux/pci.h>
++
++enum {
++	/* MAP ICM */
++	ICM_TYPE_QPC = 0,
++	ICM_TYPE_MTPT,
++	ICM_TYPE_CQC,
++	ICM_TYPE_SRQC,
++
++	 /* UNMAP ICM */
++	ICM_TYPE_MTT,
++	ICM_TYPE_IRRL,
 +};
 +
-+struct hns_roce_ah {
-+	struct ib_ah		ibah;
-+	struct hns_roce_av	av;
++#define HNS_ROCE_ICM_CHUNK_LEN	\
++	 ((256 - sizeof(struct list_head) - 2 * sizeof(int)) /	 \
++	 (sizeof(struct scatterlist)))
++
++struct hns_roce_icm_chunk {
++	struct list_head	 list;
++	int			 npages;
++	int			 nsg;
++	struct scatterlist	 mem[HNS_ROCE_ICM_CHUNK_LEN];
 +};
 +
- struct hns_roce_cmd_context {
- 	struct completion	done;
- 	int			result;
-@@ -394,6 +414,11 @@ static inline struct hns_roce_pd *to_hr_pd(struct ib_pd *ibpd)
- 	return container_of(ibpd, struct hns_roce_pd, ibpd);
- }
- 
-+static inline struct hns_roce_ah *to_hr_ah(struct ib_ah *ibah)
++struct hns_roce_icm {
++	struct list_head	 chunk_list;
++	int			 refcount;
++};
++
++struct hns_roce_icm_iter {
++	struct hns_roce_icm		 *icm;
++	struct hns_roce_icm_chunk	 *chunk;
++	int				 page_idx;
++};
++
++void hns_roce_free_icm(struct hns_roce_dev *hr_dev,
++		       struct hns_roce_icm *icm, int coherent);
++int hns_roce_init_icm_table(struct hns_roce_dev *hr_dev,
++			    struct hns_roce_icm_table *table, u32 type,
++			    unsigned long obj_size, unsigned long nobj,
++			    int reserved, int use_lowmem, int use_coherent);
++void hns_roce_cleanup_icm_table(struct hns_roce_dev *hr_dev,
++				struct hns_roce_icm_table *table);
++void hns_roce_cleanup_icm(struct hns_roce_dev *hr_dev);
++
++static inline void hns_roce_icm_first(struct hns_roce_icm *icm,
++				      struct hns_roce_icm_iter *iter)
 +{
-+	return container_of(ibah, struct hns_roce_ah, ibah);
++	iter->icm = icm;
++	iter->chunk = list_empty(&icm->chunk_list) ? NULL :
++				 list_entry(icm->chunk_list.next,
++					    struct hns_roce_icm_chunk, list);
++	 iter->page_idx = 0;
 +}
 +
- static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
- {
- 	__raw_writeq(*(u64 *) val, dest);
-@@ -441,6 +466,10 @@ int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
- void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
- 				unsigned long obj, int cnt);
- 
-+struct ib_ah *hns_roce_create_ah(struct ib_pd *pd, struct ib_ah_attr *ah_attr);
-+int hns_roce_query_ah(struct ib_ah *ibah, struct ib_ah_attr *ah_attr);
-+int hns_roce_destroy_ah(struct ib_ah *ah);
++static inline int hns_roce_icm_last(struct hns_roce_icm_iter *iter)
++{
++	return !iter->chunk;
++}
 +
- struct ib_pd *hns_roce_alloc_pd(struct ib_device *ib_dev,
- 				struct ib_ucontext *context,
- 				struct ib_udata *udata);
++static inline void hns_roce_icm_next(struct hns_roce_icm_iter *iter)
++{
++	if (++iter->page_idx >= iter->chunk->nsg) {
++		if (iter->chunk->list.next == &iter->icm->chunk_list) {
++			iter->chunk = NULL;
++			return;
++		}
++
++		iter->chunk = list_entry(iter->chunk->list.next,
++					 struct hns_roce_icm_chunk, list);
++		iter->page_idx = 0;
++	}
++}
++
++static inline dma_addr_t hns_roce_icm_addr(struct hns_roce_icm_iter *iter)
++{
++	return sg_dma_address(&iter->chunk->mem[iter->page_idx]);
++}
++
++#endif /*_HNS_ROCE_ICM_H*/
 diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index edb2cfe..a7f8885 100644
+index fb2564d..5fd7914 100644
 --- a/drivers/infiniband/hw/hns/hns_roce_main.c
 +++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -605,6 +605,11 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->alloc_pd		= hns_roce_alloc_pd;
- 	ib_dev->dealloc_pd		= hns_roce_dealloc_pd;
+@@ -41,6 +41,7 @@
+ #include <rdma/ib_verbs.h>
+ #include "hns_roce_common.h"
+ #include "hns_roce_device.h"
++#include "hns_roce_icm.h"
  
-+	/* AH */
-+	ib_dev->create_ah		= hns_roce_create_ah;
-+	ib_dev->query_ah		= hns_roce_query_ah;
-+	ib_dev->destroy_ah		= hns_roce_destroy_ah;
+ int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+ {
+@@ -111,6 +112,77 @@ void hns_roce_profile_init(struct hns_roce_dev *hr_dev)
+ 	hr_dev->hw->hw_profile(hr_dev);
+ }
+ 
++int hns_roce_init_icm(struct hns_roce_dev *hr_dev)
++{
++	int ret;
++	struct device *dev = &hr_dev->pdev->dev;
 +
- 	ret = ib_register_device(ib_dev, NULL);
- 	if (ret) {
- 		dev_err(dev, "ib_register_device failed!\n");
++	ret = hns_roce_init_icm_table(hr_dev,
++				      (void *)&hr_dev->mr_table.mtt_table,
++				      ICM_TYPE_MTT, hr_dev->caps.mtt_entry_sz,
++				      hr_dev->caps.num_mtt_segs, 0, 1, 0);
++	if (ret) {
++		dev_err(dev, "Failed to map MTT context memory, aborting.\n");
++		return ret;
++	}
++
++	ret = hns_roce_init_icm_table(hr_dev,
++				      (void *)&hr_dev->mr_table.mtpt_table,
++				      ICM_TYPE_MTPT, hr_dev->caps.mtpt_entry_sz,
++				      hr_dev->caps.num_mtpts, 0, 1, 1);
++	if (ret) {
++		dev_err(dev, "Failed to map dMPT context memory, aborting.\n");
++		goto err_unmap_mtt;
++	}
++
++	ret = hns_roce_init_icm_table(hr_dev,
++				      (void *)&hr_dev->qp_table.qp_table,
++				      ICM_TYPE_QPC, hr_dev->caps.qpc_entry_sz,
++				      hr_dev->caps.num_qps, 0, 1, 0);
++	if (ret) {
++		dev_err(dev, "Failed to map QP context memory, aborting.\n");
++		goto err_unmap_dmpt;
++	}
++
++	ret = hns_roce_init_icm_table(hr_dev,
++				      (void *)&hr_dev->qp_table.irrl_table,
++				      ICM_TYPE_IRRL,
++				      hr_dev->caps.irrl_entry_sz *
++				      hr_dev->caps.max_qp_init_rdma,
++				      hr_dev->caps.num_qps, 0, 1, 0);
++	if (ret) {
++		dev_err(dev, "Failed to map irrl_table memory, aborting.\n");
++		goto err_unmap_qp;
++	}
++
++	ret = hns_roce_init_icm_table(hr_dev,
++				      (void *)&hr_dev->cq_table.table,
++				      ICM_TYPE_CQC, hr_dev->caps.cqc_entry_sz,
++				      hr_dev->caps.num_cqs, 0, 1, 0);
++	if (ret) {
++		dev_err(dev, "Failed to map CQ context memory, aborting.\n");
++		goto err_unmap_irrl;
++	}
++
++	return 0;
++
++err_unmap_irrl:
++	hns_roce_cleanup_icm_table(hr_dev,
++				   (void *)&hr_dev->qp_table.irrl_table);
++
++err_unmap_qp:
++	hns_roce_cleanup_icm_table(hr_dev, (void *)&hr_dev->qp_table.qp_table);
++
++err_unmap_dmpt:
++	hns_roce_cleanup_icm_table(hr_dev,
++				   (void *)&hr_dev->mr_table.mtpt_table);
++
++err_unmap_mtt:
++	hns_roce_cleanup_icm_table(hr_dev, (void *)&hr_dev->mr_table.mtt_table);
++
++	return ret;
++}
++
+ /**
+ * hns_roce_probe - RoCE driver entrance
+ * @pdev: pointer to platform device
+@@ -179,6 +251,16 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	ret = hns_roce_init_icm(hr_dev);
++	if (ret) {
++		dev_err(dev, "init icm fail!\n");
++		goto error_failed_init_icm;
++	}
++
++error_failed_init_icm:
++	if (hr_dev->cmd_mod)
++		hns_roce_cmd_use_polling(hr_dev);
++
+ error_failed_use_event:
+ 	hns_roce_cleanup_eq_table(hr_dev);
+ 
+@@ -204,6 +286,8 @@ static int hns_roce_remove(struct platform_device *pdev)
+ {
+ 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
+ 
++	hns_roce_cleanup_icm(hr_dev);
++
+ 	if (hr_dev->cmd_mod)
+ 		hns_roce_cmd_use_polling(hr_dev);
+ 
 -- 
 1.9.1
