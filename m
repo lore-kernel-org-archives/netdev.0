@@ -1,43 +1,39 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH] tcp: ensure non-empty connection request queue
-Date: Wed, 4 May 2016 11:05:26 -0700
-Message-ID: <572A39E6.1020001@hpe.com>
-References: <1462312458-2077-1-git-send-email-peter@lekensteyn.nl>
- <1462321544.5535.337.camel@edumazet-glaptop3.roam.corp.google.com>
- <572A3048.60802@hpe.com>
- <1462383266.5535.350.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fec: only clear a queue's work bit if the queue
+ was emptied
+Date: Wed, 04 May 2016 14:09:10 -0400 (EDT)
+Message-ID: <20160504.140910.2171362814117515274.davem@davemloft.net>
+References: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peter Wu <peter@lekensteyn.nl>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Kui Zhang <kuizhang@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fugang.duan@nxp.com, kernel@pengutronix.de, netdev@vger.kernel.org
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:55059 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754985AbcEDSFa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:05:30 -0400
-In-Reply-To: <1462383266.5535.350.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41117 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755167AbcEDSJN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 14:09:13 -0400
+In-Reply-To: <1462286333-23402-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2016 10:34 AM, Eric Dumazet wrote:
-> On Wed, 2016-05-04 at 10:24 -0700, Rick Jones wrote:
->
->> Dropping the connection attempt makes sense, but is entering/claiming
->> synflood really indicated in the case of a zero-length accept queue?
->
-> This is a one time message.
->
-> This is how people can learn about their user space bugs, or too small
-> backlog ;)
->
-> Being totally silent would be not so nice.
->
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Tue,  3 May 2016 16:38:53 +0200
 
-Assuming Peter's assertion about just drops when syncookies are not 
-enabled is accurate, should there be some one-time message in that case too?
+> In the receive path a queue's work bit was cleared unconditionally ev=
+en
+> if fec_enet_rx_queue only read out a part of the available packets fr=
+om
+> the hardware. This resulted in not reading any packets in the next na=
+pi
+> turn and so packets were delayed or lost.
+>=20
+> The obvious fix is to only clear a queue's bit when the queue was
+> emptied.
+>=20
+> Fixes: 4d494cdc92b3 ("net: fec: change data structure to support mult=
+iqueue")
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
-rick
+Applied and queued up for -stable, thanks.
