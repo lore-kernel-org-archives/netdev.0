@@ -1,81 +1,56 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
-Date: Wed, 04 May 2016 12:35:08 -0500
-Message-ID: <1462383308.16584.43.camel@buserror.net>
-References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
-	 <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+From: David Russell <david@aprsworld.com>
+Subject: [PATCH] netdev: enc28j60 kernel panic fix.
+Date: Wed, 4 May 2016 12:51:35 -0500
+Message-ID: <CAEGHc+xdoSVa9J_uYm-Az7n4xc+mycy7Jf1p75pss3eVK3jUHA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ulf.hansson@linaro.org, Mark Rutland <mark.rutland@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Qiang Zhao <qiang.zhao@nxp.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
-	xiaobo.xie@nxp.com
-To: Yangbo Lu <yangbo.lu@nxp.com>, linux-mmc@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	linux-clk@vger.kernel.org, linux-i2c@vger.kernel.org,
-	iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:36814 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753251AbcEDRvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 13:51:38 -0400
+Received: by mail-io0-f179.google.com with SMTP id u185so70779491iod.3
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 10:51:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-04 at 11:24 +0800, Yangbo Lu wrote:
-> Add maintainer entry for Freescale SoC driver including
-> the QE library and the GUTS driver now. Also add maintainer
-> for QE library.
-> 
-> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
-> ---
-> Changes for v8:
-> 	- Added this patch
-> Changes for v9:
-> 	- Added linux-arm mail list
-> 	- Removed GUTS driver entry
-> ---
->  MAINTAINERS | 11 ++++++++++-
->  1 file changed, 10 insertions(+), 1 deletion(-)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 42e65d1..ce91db7 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -4622,9 +4622,18 @@ F:	drivers/net/ethernet/freescale/fec_ptp.c
->  F:	drivers/net/ethernet/freescale/fec.h
->  F:	Documentation/devicetree/bindings/net/fsl-fec.txt
->  
-> +FREESCALE SOC DRIVER
-> +M:	Scott Wood <oss@buserror.net>
-> +L:	linuxppc-dev@lists.ozlabs.org
-> +L:	linux-arm-kernel@lists.infradead.org
-> +S:	Maintained
-> +F:	drivers/soc/fsl/
-> +F:	include/linux/fsl/
-> +
->  FREESCALE QUICC ENGINE LIBRARY
-> +M:	Qiang Zhao <qiang.zhao@nxp.com>
->  L:	linuxppc-dev@lists.ozlabs.org
-> -S:	Orphan
-> +S:	Maintained
->  F:	drivers/soc/fsl/qe/
->  F:	include/soc/fsl/*qe*.h
->  F:	include/soc/fsl/*ucc*.h
+When connected directly to another system (not via a switch)
+eventually a condition where a NULL pointer dereference occurs in
+enc28j60_hw_tx() and this patch simply checks for that condition and
+returns gracefully without causing a kernel panic.  I believe, but
+have not investigated this is caused by a packet collision and am not
+sure if the kernel tracks collisions or counts them as errors, so that
+should probably be added if this is what's happening.  I'm also not
+familiar with the linux kernel, so may have fixed this in a less than
+ideal way.
 
-s/DRIVER/DRIVERS/
+Developer's Certificate of Origin 1.1
 
-There's more than one.
+        By making a contribution to this project, I certify that:
 
-Otherwise:
-Acked-by: Scott Wood <oss@buserror.net>
+        (d) I understand and agree that this project and the contribution
+            are public and that a record of the contribution (including all
+            personal information I submit with it, including my sign-off) is
+            maintained indefinitely and may be redistributed consistent with
+            this project or the open source license(s) involved.
 
--Scott
+Signed-off-by: David Russell <david@aprsworld.com>
 
-> 
+---
+diff --git a/drivers/net/ethernet/microchip/enc28j60.c
+b/drivers/net/ethernet/microchip/enc28j60.c
+index 86ea17e..36ac65f 100644
+--- a/drivers/net/ethernet/microchip/enc28j60.c
++++ b/drivers/net/ethernet/microchip/enc28j60.c
+@@ -1233,6 +1233,9 @@ static void enc28j60_irq_work_handler(struct
+work_struct *work)
+  */
+ static void enc28j60_hw_tx(struct enc28j60_net *priv)
+ {
++       if (!priv->tx_skb)
++               return;
++
+        if (netif_msg_tx_queued(priv))
+                printk(KERN_DEBUG DRV_NAME
+                        ": Tx Packet Len:%d\n", priv->tx_skb->len);
