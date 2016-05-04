@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net): ipsec 2016-05-04
-Date: Wed, 4 May 2016 07:40:51 +0200
-Message-ID: <1462340454-27922-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/3] vti: Add pmtu handling to vti_xmit.
+Date: Wed, 4 May 2016 07:40:54 +0200
+Message-ID: <1462340454-27922-4-git-send-email-steffen.klassert@secunet.com>
+References: <1462340454-27922-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,51 +10,62 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:56696 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:56700 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751058AbcEDFlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 01:41:09 -0400
+	id S1751383AbcEDFlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 01:41:11 -0400
+In-Reply-To: <1462340454-27922-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) The flowcache can hit an OOM condition if too
-   many entries are in the gc_list. Fix this by
-   counting the entries in the gc_list and refuse
-   new allocations if the value is too high.
+We currently rely on the PMTU discovery of xfrm.
+However if a packet is locally sent, the PMTU mechanism
+of xfrm tries to do local socket notification what
+might not work for applications like ping that don't
+check for this. So add pmtu handling to vti_xmit to
+report MTU changes immediately.
 
-2) The inner headers are invalid after a xfrm transformation,
-   so reset the skb encapsulation field to ensure nobody tries
-   access the inner headers. Otherwise tunnel devices stacked
-   on top of xfrm may build the outer headers based on wrong
-   informations.
+Reported-by: Mark McKinstry <Mark.McKinstry@alliedtelesis.co.nz>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/ip_vti.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-3) Add pmtu handling to vti, we need it to report
-   pmtu informations for local generated packets.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit aac8d3c282e024c344c5b86dc1eab7af88bb9716:
-
-  qmi_wwan: add "4G LTE usb-modem U901" (2016-02-16 20:39:32 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-
-for you to fetch changes up to d6af1a31cc72fbd558c7eddbc36f61bf09d1cf6a:
-
-  vti: Add pmtu handling to vti_xmit. (2016-03-31 08:59:56 +0200)
-
-----------------------------------------------------------------
-Steffen Klassert (3):
-      flowcache: Avoid OOM condition under preasure
-      xfrm: Reset encapsulation field of the skb before transformation
-      vti: Add pmtu handling to vti_xmit.
-
- include/net/netns/xfrm.h |  1 +
- net/core/flow.c          | 14 +++++++++++++-
- net/ipv4/ip_vti.c        | 18 ++++++++++++++++++
- net/xfrm/xfrm_output.c   |  3 +++
- 4 files changed, 35 insertions(+), 1 deletion(-)
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 5cf10b7..a917903 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -156,6 +156,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *tdev;	/* Device to other host */
+ 	int err;
++	int mtu;
+ 
+ 	if (!dst) {
+ 		dev->stats.tx_carrier_errors++;
+@@ -192,6 +193,23 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			tunnel->err_count = 0;
+ 	}
+ 
++	mtu = dst_mtu(dst);
++	if (skb->len > mtu) {
++		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
++		if (skb->protocol == htons(ETH_P_IP)) {
++			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
++				  htonl(mtu));
++		} else {
++			if (mtu < IPV6_MIN_MTU)
++				mtu = IPV6_MIN_MTU;
++
++			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++		}
++
++		dst_release(dst);
++		goto tx_error;
++	}
++
+ 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(dev)));
+ 	skb_dst_set(skb, dst);
+ 	skb->dev = skb_dst(skb)->dev;
+-- 
+1.9.1
