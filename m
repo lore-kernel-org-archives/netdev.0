@@ -1,366 +1,402 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v7 12/21] IB/hns: Set mtu and gid support
-Date: Wed, 4 May 2016 20:21:09 +0800
-Message-ID: <1462364478-10808-13-git-send-email-oulijun@huawei.com>
-References: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
+From: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Subject: Re: [PATCHv2 bluetooth-next 07/10] ipv6: introduce neighbour
+ discovery ops
+Date: Wed, 4 May 2016 14:23:07 +0200
+Message-ID: <5729E9AB.5000301@osg.samsung.com>
+References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
+ <1461140382-4784-8-git-send-email-aar@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462364478-10808-1-git-send-email-oulijun@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461140382-4784-8-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch mainly set mtu and gid resource. These resource
-will be used to set up network transmission in nodes.
+Hello.
 
-Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
-Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
-Signed-off-by: Lijun Ou <oulijun@huawei.com>
----
- drivers/infiniband/hw/hns/hns_roce_common.h |  16 ++++
- drivers/infiniband/hw/hns/hns_roce_device.h |  14 ++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |  64 +++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |   1 +
- drivers/infiniband/hw/hns/hns_roce_main.c   | 123 ++++++++++++++++++++++++++++
- 5 files changed, 218 insertions(+)
+On 20/04/16 10:19, Alexander Aring wrote:
+> This patch introduces neighbour discovery ops callback structure. The
+> structure contains at first receive and transmit handling for NS/NA and
+> userspace option field functionality.
+>
+> These callback offers 6lowpan different handling, such as 802.15.4 short
+> address handling or RFC6775 (Neighbor Discovery Optimization for IPv6 over
+> 6LoWPANs).
+>
+> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Alexey Kuznetsov<kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
+> Cc: James Morris<jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
+> Cc: Hideaki YOSHIFUJI<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+> Cc: Patrick McHardy<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+> Signed-off-by: Alexander Aring<aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> ---
+>   include/linux/netdevice.h |  3 ++
+>   include/net/ndisc.h       | 96 +++++++++++++++++++++++++++++++++++++++++++----
+>   net/ipv6/addrconf.c       |  1 +
+>   net/ipv6/ndisc.c          | 71 ++++++++++++++++++++++++-----------
+>   net/ipv6/route.c          |  2 +-
+>   5 files changed, 144 insertions(+), 29 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 0052c42..bc60033 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1677,6 +1677,9 @@ struct net_device {
+>   #ifdef CONFIG_NET_L3_MASTER_DEV
+>   	const struct l3mdev_ops	*l3mdev_ops;
+>   #endif
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +	const struct ndisc_ops *ndisc_ops;
+> +#endif
+>   
+>   	const struct header_ops *header_ops;
+>   
+> diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+> index aac868e..14ed016 100644
+> --- a/include/net/ndisc.h
+> +++ b/include/net/ndisc.h
+> @@ -110,7 +110,8 @@ struct ndisc_options {
+>   
+>   #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
+>   
+> -struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
+> +struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
+> +					  u8 *opt, int opt_len,
+>   					  struct ndisc_options *ndopts);
+>   
+>   /*
+> @@ -173,6 +174,93 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
+>   	return n;
+>   }
+>   
+> +static inline int __ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
-index d9c5fda..45b5804 100644
---- a/drivers/infiniband/hw/hns/hns_roce_common.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_common.h
-@@ -133,6 +133,14 @@
- 
- #define ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S 31
- 
-+#define ROCEE_SMAC_H_ROCEE_SMAC_H_S 0
-+#define ROCEE_SMAC_H_ROCEE_SMAC_H_M   \
-+	(((1UL << 16) - 1) << ROCEE_SMAC_H_ROCEE_SMAC_H_S)
-+
-+#define ROCEE_SMAC_H_ROCEE_PORT_MTU_S 16
-+#define ROCEE_SMAC_H_ROCEE_PORT_MTU_M   \
-+	(((1UL << 4) - 1) << ROCEE_SMAC_H_ROCEE_PORT_MTU_S)
-+
- #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S 0
- #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_M   \
- 	(((1UL << 2) - 1) << ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S)
-@@ -173,8 +181,16 @@
- #define ROCEE_SYS_IMAGE_GUID_L_REG		0xC
- #define ROCEE_SYS_IMAGE_GUID_H_REG		0x10
- 
-+#define ROCEE_PORT_GID_L_0_REG			0x50
-+#define ROCEE_PORT_GID_ML_0_REG			0x54
-+#define ROCEE_PORT_GID_MH_0_REG			0x58
-+#define ROCEE_PORT_GID_H_0_REG			0x5C
-+
- #define ROCEE_BT_CMD_H_REG			0x204
- 
-+#define ROCEE_SMAC_L_0_REG			0x240
-+#define ROCEE_SMAC_H_0_REG			0x244
-+
- #define ROCEE_CAEP_AEQE_CONS_IDX_REG		0x3AC
- #define ROCEE_CAEP_CEQC_CONS_IDX_0_REG		0x3BC
- 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 9844cd0..722870d 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -21,6 +21,8 @@
- 
- #define DRV_NAME "hns_roce"
- 
-+#define MAC_ADDR_OCTET_NUM			6
-+
- #define HNS_ROCE_BA_SIZE			(32 * 4096)
- 
- #define HNS_ROCE_MAX_IRQ_NUM			34
-@@ -31,6 +33,9 @@
- #define HNS_ROCE_AEQE_VEC_NUM			1
- #define HNS_ROCE_AEQE_OF_VEC_NUM		1
- 
-+#define HNS_ROCE_MAX_PORTS			6
-+#define HNS_ROCE_MAX_GID_NUM			16
-+
- #define ADDR_SHIFT_12				12
- #define ADDR_SHIFT_32				32
- #define ADDR_SHIFT_44				44
-@@ -237,6 +242,8 @@ struct hns_roce_qp {
- 
- struct hns_roce_ib_iboe {
- 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
-+	/* 16 GID is shared by 6 port in v1 engine. */
-+	union ib_gid		gid_table[HNS_ROCE_MAX_GID_NUM];
- 	u8			phy_port[HNS_ROCE_MAX_PORTS];
- };
- 
-@@ -311,6 +318,11 @@ struct hns_roce_hw {
- 	void (*hw_profile)(struct hns_roce_dev *hr_dev);
- 	int (*hw_init)(struct hns_roce_dev *hr_dev);
- 	void (*hw_uninit)(struct hns_roce_dev *hr_dev);
-+	void (*set_gid)(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
-+			union ib_gid *gid);
-+	void (*set_mac)(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr);
-+	void (*set_mtu)(struct hns_roce_dev *hr_dev, u8 phy_port,
-+			enum ib_mtu mtu);
- 	void	*priv;
- };
- 
-@@ -328,6 +340,7 @@ struct hns_roce_dev {
- 	struct hns_roce_caps	caps;
- 	struct radix_tree_root  qp_table_tree;
- 
-+	unsigned char	dev_addr[HNS_ROCE_MAX_PORTS][MAC_ADDR_OCTET_NUM];
- 	u64                     fw_ver;
- 	u64			sys_image_guid;
- 	u32                     vendor_id;
-@@ -397,6 +410,7 @@ void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
- void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
- void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
- void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type);
-+int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index);
- 
- extern struct hns_roce_hw hns_roce_hw_v1;
- 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-index 491b5cb..6f0f463 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-@@ -601,9 +601,73 @@ void hns_roce_v1_uninit(struct hns_roce_dev *hr_dev)
- 	hns_roce_db_free(hr_dev);
- }
- 
-+void hns_roce_v1_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
-+			 union ib_gid *gid)
-+{
-+	u32 *p = NULL;
-+	u8 gid_idx = 0;
-+
-+	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
-+
-+	p = (u32 *)&gid->raw[0];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_L_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+
-+	p = (u32 *)&gid->raw[4];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_ML_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+
-+	p = (u32 *)&gid->raw[8];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_MH_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+
-+	p = (u32 *)&gid->raw[0xc];
-+	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_H_0_REG +
-+		       (HNS_ROCE_V1_GID_NUM * gid_idx));
-+}
-+
-+void hns_roce_v1_set_mac(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr)
-+{
-+	u32 reg_smac_l;
-+	u16 reg_smac_h;
-+	u16 *p_h;
-+	u32 *p;
-+	u32 val;
-+
-+	p = (u32 *)(&addr[0]);
-+	reg_smac_l = *p;
-+	roce_raw_write(reg_smac_l, hr_dev->reg_base + ROCEE_SMAC_L_0_REG +
-+		       PHY_PORT_OFFSET * phy_port);
-+
-+	val = roce_readl(hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+			 phy_port * PHY_PORT_OFFSET);
-+	p_h = (u16 *)(&addr[4]);
-+	reg_smac_h  = *p_h;
-+	roce_set_field(val, ROCEE_SMAC_H_ROCEE_SMAC_H_M,
-+		       ROCEE_SMAC_H_ROCEE_SMAC_H_S, reg_smac_h);
-+	roce_writel(val, hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+		    phy_port * PHY_PORT_OFFSET);
-+}
-+
-+void hns_roce_v1_set_mtu(struct hns_roce_dev  *hr_dev, u8 phy_port,
-+			 enum ib_mtu mtu)
-+{
-+	u32 val;
-+
-+	val = roce_readl(hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+			 phy_port * PHY_PORT_OFFSET);
-+	roce_set_field(val, ROCEE_SMAC_H_ROCEE_PORT_MTU_M,
-+		       ROCEE_SMAC_H_ROCEE_PORT_MTU_S, mtu);
-+	roce_writel(val, hr_dev->reg_base + ROCEE_SMAC_H_0_REG +
-+		    phy_port * PHY_PORT_OFFSET);
-+}
-+
- struct hns_roce_hw hns_roce_hw_v1 = {
- 	.reset = hns_roce_v1_reset,
- 	.hw_profile = hns_roce_v1_profile,
- 	.hw_init = hns_roce_v1_init,
- 	.hw_uninit = hns_roce_v1_uninit,
-+	.set_gid = hns_roce_v1_set_gid,
-+	.set_mac = hns_roce_v1_set_mac,
-+	.set_mtu = hns_roce_v1_set_mtu,
- };
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-index 7188381..8ffcf4a 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-@@ -84,6 +84,7 @@
- 
- #define HNS_ROCE_ODB_EXTEND_MODE	1
- 
-+#define PHY_PORT_OFFSET			0x8
- #define ALL_PORT_VAL_OPEN		0x3f
- #define POL_TIME_INTERVAL_VAL		0x80
- #define SLEEP_TIME_INTERVAL		20
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index e2576c4..6c43771 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -43,6 +43,118 @@
- #include "hns_roce_device.h"
- #include "hns_roce_icm.h"
- 
-+/**
-+ * hns_get_gid_index - Get gid index.
-+ * @hr_dev: pointer to structure hns_roce_dev.
-+ * @port:  port, value range: 0 ~ MAX
-+ * @gid_index:  gid_index, value range: 0 ~ MAX
-+ * Description:
-+ *    N ports shared gids, allocation method as follow:
-+ *		GID[0][0], GID[1][0],.....GID[N - 1][0],
-+ *		GID[0][0], GID[1][0],.....GID[N - 1][0],
-+ *		And so on
-+ */
-+int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index)
-+{
-+	return gid_index * hr_dev->caps.num_ports + port;
-+}
-+
-+int hns_roce_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
-+		     union ib_gid *gid)
-+{
-+	struct device *dev = &hr_dev->pdev->dev;
-+	u8 gid_idx = 0;
-+
-+	if (gid_index >= hr_dev->caps.gid_table_len[port]) {
-+		dev_err(dev, "gid_index %d illegal, port %d gid range: 0~%d\n",
-+			gid_index, port, hr_dev->caps.gid_table_len[port] - 1);
-+		return -EINVAL;
-+	}
-+
-+	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
-+
-+	if (!memcmp(gid, &hr_dev->iboe.gid_table[gid_idx], sizeof(*gid)))
-+		return -EINVAL;
-+
-+	memcpy(&hr_dev->iboe.gid_table[gid_idx], gid, sizeof(*gid));
-+
-+	hr_dev->hw->set_gid(hr_dev, port, gid_index, gid);
-+
-+	return 0;
-+}
-+
-+void hns_roce_set_mac(struct hns_roce_dev *hr_dev, u8 port, u8 *addr)
-+{
-+	u8 phy_port;
-+	u32 i = 0;
-+
-+	if (!memcmp(hr_dev->dev_addr[port], addr, MAC_ADDR_OCTET_NUM))
-+		return;
-+
-+	for (i = 0; i < MAC_ADDR_OCTET_NUM; i++)
-+		hr_dev->dev_addr[port][i] = addr[i];
-+
-+	phy_port = hr_dev->iboe.phy_port[port];
-+	hr_dev->hw->set_mac(hr_dev, phy_port, addr);
-+}
-+
-+void hns_roce_set_mtu(struct hns_roce_dev *hr_dev, u8 port, int mtu)
-+{
-+	u8 phy_port = hr_dev->iboe.phy_port[port];
-+	enum ib_mtu tmp;
-+
-+	tmp = iboe_get_mtu(mtu);
-+	if (!tmp)
-+		tmp = IB_MTU_256;
-+
-+	hr_dev->hw->set_mtu(hr_dev, phy_port, tmp);
-+}
-+
-+void hns_roce_update_gids(struct hns_roce_dev *hr_dev, int port)
-+{
-+	struct ib_event event;
-+
-+	/* Refresh gid in ib_cache */
-+	event.device = &hr_dev->ib_dev;
-+	event.element.port_num = port + 1;
-+	event.event = IB_EVENT_GID_CHANGE;
-+	ib_dispatch_event(&event);
-+}
-+
-+int hns_roce_setup_mtu_gids(struct hns_roce_dev  *hr_dev)
-+{
-+	struct in_ifaddr *ifa_list = NULL;
-+	union ib_gid gid = {{0} };
-+	u32 ipaddr = 0;
-+	int index = 0;
-+	int ret = 0;
-+	u8 i = 0;
-+
-+	for (i = 0; i < hr_dev->caps.num_ports; i++) {
-+		hns_roce_set_mtu(hr_dev, i,
-+				 ib_mtu_enum_to_int(hr_dev->caps.max_mtu));
-+		hns_roce_set_mac(hr_dev, i, hr_dev->iboe.netdevs[i]->dev_addr);
-+
-+		if (hr_dev->iboe.netdevs[i]->ip_ptr) {
-+			ifa_list = hr_dev->iboe.netdevs[i]->ip_ptr->ifa_list;
-+			index = 1;
-+			while (ifa_list) {
-+				ipaddr = ifa_list->ifa_address;
-+				ipv6_addr_set_v4mapped(ipaddr,
-+						       (struct in6_addr *)&gid);
-+				ret = hns_roce_set_gid(hr_dev, i, index, &gid);
-+				if (ret)
-+					break;
-+				index++;
-+				ifa_list = ifa_list->ifa_next;
-+			}
-+			hns_roce_update_gids(hr_dev, i);
-+		}
-+	}
-+
-+	return ret;
-+}
-+
- void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
- {
- 	ib_unregister_device(&hr_dev->ib_dev);
-@@ -75,7 +187,18 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 		return ret;
- 	}
- 
-+	ret = hns_roce_setup_mtu_gids(hr_dev);
-+	if (ret) {
-+		dev_err(dev, "roce_setup_mtu_gids failed!\n");
-+		goto _error_failed_setup_mtu_gids;
-+	}
-+
- 	return 0;
-+
-+_error_failed_setup_mtu_gids:
-+	ib_unregister_device(ib_dev);
-+
-+	return ret;
- }
- 
- 
--- 
-1.9.1
+Name it __ipv6... instead of __ip6...?
+> +{
+> +	return opt->nd_opt_type == ND_OPT_RDNSS ||
+> +		opt->nd_opt_type == ND_OPT_DNSSL;
+> +}
+> +
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +struct ndisc_ops {
+> +	int	(*is_useropt)(struct nd_opt_hdr *opt);
+> +	void	(*send_na)(struct net_device *dev,
+> +			   const struct in6_addr *daddr,
+> +			   const struct in6_addr *solicited_addr,
+> +			   bool router, bool solicited,
+> +			   bool override, bool inc_opt);
+> +	void	(*recv_na)(struct sk_buff *skb);
+> +	void	(*send_ns)(struct net_device *dev,
+> +			   const struct in6_addr *solicit,
+> +			   const struct in6_addr *daddr,
+> +			   const struct in6_addr *saddr);
+> +	void	(*recv_ns)(struct sk_buff *skb);
+> +};
+> +
+> +static inline int ndisc_is_useropt(const struct net_device *dev,
+> +				   struct nd_opt_hdr *opt)
+> +{
+> +	if (likely(dev->ndisc_ops->is_useropt))
+> +		return dev->ndisc_ops->is_useropt(opt);
+> +	else
+> +		return 0;
+> +}
+> +
+> +static inline void ndisc_send_na(struct net_device *dev,
+> +				 const struct in6_addr *daddr,
+> +				 const struct in6_addr *solicited_addr,
+> +				 bool router, bool solicited, bool override,
+> +				 bool inc_opt)
+> +{
+> +	if (likely(dev->ndisc_ops->send_na))
+> +		dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
+> +					solicited, override, inc_opt);
+> +}
+> +
+> +static inline void ndisc_recv_na(struct sk_buff *skb)
+> +{
+> +	if (likely(skb->dev->ndisc_ops->recv_na))
+> +		skb->dev->ndisc_ops->recv_na(skb);
+> +}
+> +
+> +static inline void ndisc_send_ns(struct net_device *dev,
+> +				 const struct in6_addr *solicit,
+> +				 const struct in6_addr *daddr,
+> +				 const struct in6_addr *saddr)
+> +{
+> +	if (likely(dev->ndisc_ops->send_ns))
+> +		dev->ndisc_ops->send_ns(dev, solicit, daddr, saddr);
+> +}
+> +
+> +static inline void ndisc_recv_ns(struct sk_buff *skb)
+> +{
+> +	if (likely(skb->dev->ndisc_ops->recv_ns))
+> +		skb->dev->ndisc_ops->recv_ns(skb);
+> +}
+> +#else
+> +static inline int ndisc_is_useropt(const struct net_device *dev,
+> +				   struct nd_opt_hdr *opt)
+> +{
+> +	return 0;
+> +}
+> +
+> +static inline void ndisc_send_na(struct net_device *dev,
+> +				 const struct in6_addr *daddr,
+> +				 const struct in6_addr *solicited_addr,
+> +				 bool router, bool solicited, bool override,
+> +				 bool inc_opt) { }
+> +
+> +static inline void ndisc_recv_na(struct sk_buff *skb) { }
+> +
+> +static inline void ndisc_send_ns(struct net_device *dev,
+> +				 const struct in6_addr *solicit,
+> +				 const struct in6_addr *daddr,
+> +				 const struct in6_addr *saddr) { }
+> +
+> +static inline void ndisc_recv_ns(struct sk_buff *skb) { }
+> +#endif
+> +
+> +void ip6_register_ndisc_ops(struct net_device *dev);
+> +
+>   int ndisc_init(void);
+>   int ndisc_late_init(void);
+>   
+> @@ -181,14 +269,8 @@ void ndisc_cleanup(void);
+>   
+>   int ndisc_rcv(struct sk_buff *skb);
+>   
+> -void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+> -		   const struct in6_addr *daddr, const struct in6_addr *saddr);
+> -
+>   void ndisc_send_rs(struct net_device *dev,
+>   		   const struct in6_addr *saddr, const struct in6_addr *daddr);
+> -void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
+> -		   const struct in6_addr *solicited_addr,
+> -		   bool router, bool solicited, bool override, bool inc_opt);
+>   
+>   void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target);
+>   
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 54e18c2..a2ef04b 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3266,6 +3266,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+>   			idev = ipv6_add_dev(dev);
+>   			if (IS_ERR(idev))
+>   				return notifier_from_errno(PTR_ERR(idev));
+> +			ip6_register_ndisc_ops(dev);
+>   		}
+>   		break;
+>   
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 176c7c4..297080a 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -185,24 +185,25 @@ static struct nd_opt_hdr *ndisc_next_option(struct nd_opt_hdr *cur,
+>   	return cur <= end && cur->nd_opt_type == type ? cur : NULL;
+>   }
+>   
+> -static inline int ndisc_is_useropt(struct nd_opt_hdr *opt)
+> +static inline int ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
+>   {
+> -	return opt->nd_opt_type == ND_OPT_RDNSS ||
+> -		opt->nd_opt_type == ND_OPT_DNSSL;
+> +	return __ip6_ndisc_is_useropt(opt);
+
+Why putting this check into a different function? It looks like a not 
+needed redirection.
+>   }
+>   
+> -static struct nd_opt_hdr *ndisc_next_useropt(struct nd_opt_hdr *cur,
+> +static struct nd_opt_hdr *ndisc_next_useropt(const struct net_device *dev,
+> +					     struct nd_opt_hdr *cur,
+>   					     struct nd_opt_hdr *end)
+>   {
+>   	if (!cur || !end || cur >= end)
+>   		return NULL;
+>   	do {
+>   		cur = ((void *)cur) + (cur->nd_opt_len << 3);
+> -	} while (cur < end && !ndisc_is_useropt(cur));
+> -	return cur <= end && ndisc_is_useropt(cur) ? cur : NULL;
+> +	} while (cur < end && !ndisc_is_useropt(dev, cur));
+> +	return cur <= end && ndisc_is_useropt(dev, cur) ? cur : NULL;
+>   }
+>   
+> -struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
+> +struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
+> +					  u8 *opt, int opt_len,
+>   					  struct ndisc_options *ndopts)
+>   {
+>   	struct nd_opt_hdr *nd_opt = (struct nd_opt_hdr *)opt;
+> @@ -243,7 +244,7 @@ struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
+>   			break;
+>   #endif
+>   		default:
+> -			if (ndisc_is_useropt(nd_opt)) {
+> +			if (ndisc_is_useropt(dev, nd_opt)) {
+>   				ndopts->nd_useropts_end = nd_opt;
+>   				if (!ndopts->nd_useropts)
+>   					ndopts->nd_useropts = nd_opt;
+> @@ -479,9 +480,11 @@ static void ndisc_send_skb(struct sk_buff *skb,
+>   	rcu_read_unlock();
+>   }
+>   
+> -void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
+> -		   const struct in6_addr *solicited_addr,
+> -		   bool router, bool solicited, bool override, bool inc_opt)
+> +static void ip6_ndisc_send_na(struct net_device *dev,
+> +			      const struct in6_addr *daddr,
+> +			      const struct in6_addr *solicited_addr,
+> +			      bool router, bool solicited, bool override,
+> +			      bool inc_opt)
+>   {
+>   	struct sk_buff *skb;
+>   	struct in6_addr tmpaddr;
+> @@ -555,8 +558,10 @@ static void ndisc_send_unsol_na(struct net_device *dev)
+>   	in6_dev_put(idev);
+>   }
+>   
+> -void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+> -		   const struct in6_addr *daddr, const struct in6_addr *saddr)
+> +static void ip6_ndisc_send_ns(struct net_device *dev,
+> +			      const struct in6_addr *solicit,
+> +			      const struct in6_addr *daddr,
+> +			      const struct in6_addr *saddr)
+>   {
+>   	struct sk_buff *skb;
+>   	struct in6_addr addr_buf;
+> @@ -702,7 +707,7 @@ static int pndisc_is_router(const void *pkey,
+>   	return ret;
+>   }
+>   
+> -static void ndisc_recv_ns(struct sk_buff *skb)
+> +static void ip6_ndisc_recv_ns(struct sk_buff *skb)
+>   {
+>   	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
+>   	const struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
+> @@ -738,7 +743,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+>   		return;
+>   	}
+>   
+> -	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
+> +	if (!ndisc_parse_options(dev, msg->opt, ndoptlen, &ndopts)) {
+>   		ND_PRINTK(2, warn, "NS: invalid ND options\n");
+>   		return;
+>   	}
+> @@ -874,7 +879,7 @@ out:
+>   		in6_dev_put(idev);
+>   }
+>   
+> -static void ndisc_recv_na(struct sk_buff *skb)
+> +static void ip6_ndisc_recv_na(struct sk_buff *skb)
+>   {
+>   	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
+>   	struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
+> @@ -912,7 +917,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
+>   	    idev->cnf.drop_unsolicited_na)
+>   		return;
+>   
+> -	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
+> +	if (!ndisc_parse_options(dev, msg->opt, ndoptlen, &ndopts)) {
+>   		ND_PRINTK(2, warn, "NS: invalid ND option\n");
+>   		return;
+>   	}
+> @@ -1019,7 +1024,7 @@ static void ndisc_recv_rs(struct sk_buff *skb)
+>   		goto out;
+>   
+>   	/* Parse ND options */
+> -	if (!ndisc_parse_options(rs_msg->opt, ndoptlen, &ndopts)) {
+> +	if (!ndisc_parse_options(skb->dev, rs_msg->opt, ndoptlen, &ndopts)) {
+>   		ND_PRINTK(2, notice, "NS: invalid ND option, ignored\n");
+>   		goto out;
+>   	}
+> @@ -1137,7 +1142,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+>   		return;
+>   	}
+>   
+> -	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
+> +	if (!ndisc_parse_options(skb->dev, opt, optlen, &ndopts)) {
+>   		ND_PRINTK(2, warn, "RA: invalid ND options\n");
+>   		return;
+>   	}
+> @@ -1424,7 +1429,8 @@ skip_routeinfo:
+>   		struct nd_opt_hdr *p;
+>   		for (p = ndopts.nd_useropts;
+>   		     p;
+> -		     p = ndisc_next_useropt(p, ndopts.nd_useropts_end)) {
+> +		     p = ndisc_next_useropt(skb->dev, p,
+> +					    ndopts.nd_useropts_end)) {
+>   			ndisc_ra_useropt(skb, p);
+>   		}
+>   	}
+> @@ -1462,7 +1468,7 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+>   		return;
+>   	}
+>   
+> -	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
+> +	if (!ndisc_parse_options(skb->dev, msg->opt, ndoptlen, &ndopts))
+>   		return;
+>   
+>   	if (!ndopts.nd_opts_rh) {
+> @@ -1783,6 +1789,29 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, void __user *bu
+>   
+>   #endif
+>   
+> +static const struct ndisc_ops ip6_ndisc_ops = {
+> +	.is_useropt = ip6_ndisc_is_useropt,
+> +	.send_na = ip6_ndisc_send_na,
+> +	.recv_na = ip6_ndisc_recv_na,
+> +	.send_ns = ip6_ndisc_send_ns,
+> +	.recv_ns = ip6_ndisc_recv_ns,
+
+Here I would also think ipv6 as prefix would be nicer.
+
+> +};
+> +
+> +void ip6_register_ndisc_ops(struct net_device *dev)
+> +{
+> +	switch (dev->type) {
+> +	default:
+> +		if (dev->ndisc_ops) {
+> +			ND_PRINTK(2, warn,
+> +				  "%s: ndisc_ops already defined for interface type=%d\n",
+> +				  __func__, dev->type);
+> +		} else {
+> +			dev->ndisc_ops = &ip6_ndisc_ops;
+> +		}
+> +		break;
+> +	}
+> +}
+> +
+>   static int __net_init ndisc_net_init(struct net *net)
+>   {
+>   	struct ipv6_pinfo *np;
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index cc180b3..5fa276d 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -2149,7 +2149,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+>   	 *	first-hop router for the specified ICMP Destination Address.
+>   	 */
+>   
+> -	if (!ndisc_parse_options(msg->opt, optlen, &ndopts)) {
+> +	if (!ndisc_parse_options(skb->dev, msg->opt, optlen, &ndopts)) {
+>   		net_dbg_ratelimited("rt6_redirect: invalid ND options\n");
+>   		return;
+>   	}
+
+Reviewed-by: Stefan Schmidt<stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+
+regards
+Stefan Schmidt
