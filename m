@@ -1,90 +1,217 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] ixgbevf: Remove unused parameter
-Date: Wed,  4 May 2016 09:26:48 -0700
-Message-ID: <1462379208-3997-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] ixgbe: Disable DCB and FCoE for X550EM_x and x550em_a
+Date: Wed,  4 May 2016 09:26:47 -0700
+Message-ID: <1462379208-3997-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+Cc: Usha Ketineni <usha.k.ketineni@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:42556 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753248AbcEDQ1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2016 12:27:16 -0400
+	id S1751596AbcEDQ1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2016 12:27:15 -0400
 In-Reply-To: <1462379208-3997-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Nguyen <anthony.l.nguyen@intel.com>
+From: Usha Ketineni <usha.k.ketineni@intel.com>
 
-ixgbevf_update_xcast_mode() is not using the netdev parameter;
-removing it since it's unnecessary.
+This patch adds IXGBE_FLAG_DCB_CAPABLE flag that is set
+for all MACs other than X550EM_x and x550em_a. DCB and
+FCoE is disabled for these MACS. DCB initialization
+code is moved to a separate function.
 
-Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Usha Ketineni <usha.k.ketineni@intel.com>
+Tested-by: Ronald Bynoe <ronald.j.bynoe@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 +-
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 8 ++------
- drivers/net/ethernet/intel/ixgbevf/vf.h           | 2 +-
- 3 files changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 111 ++++++++++++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   1 +
+ 3 files changed, 71 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index ba17a61..5e348b1 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1922,7 +1922,7 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index e216a3d..9f2db18 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -644,6 +644,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE	BIT(24)
+ #define IXGBE_FLAG_RX_HWTSTAMP_ENABLED		BIT(25)
+ #define IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER	BIT(26)
++#define IXGBE_FLAG_DCB_CAPABLE			BIT(27)
  
- 	spin_lock_bh(&adapter->mbx_lock);
- 
--	hw->mac.ops.update_xcast_mode(hw, netdev, xcast_mode);
-+	hw->mac.ops.update_xcast_mode(hw, xcast_mode);
- 
- 	/* reprogram multicast list */
- 	hw->mac.ops.update_mc_addr_list(hw, netdev);
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index f66055aa..e670d3b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -536,13 +536,11 @@ static s32 ixgbevf_hv_update_mc_addr_list_vf(struct ixgbe_hw *hw,
- /**
-  *  ixgbevf_update_xcast_mode - Update Multicast mode
-  *  @hw: pointer to the HW structure
-- *  @netdev: pointer to net device structure
-  *  @xcast_mode: new multicast mode
-  *
-  *  Updates the Multicast Mode of VF.
-  **/
--static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw,
--				     struct net_device *netdev, int xcast_mode)
-+static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw, int xcast_mode)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[2];
-@@ -576,9 +574,7 @@ static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw,
- /**
-  * Hyper-V variant - just a stub.
-  */
--static s32 ixgbevf_hv_update_xcast_mode(struct ixgbe_hw *hw,
--					struct net_device *netdev,
--					int xcast_mode)
-+static s32 ixgbevf_hv_update_xcast_mode(struct ixgbe_hw *hw, int xcast_mode)
- {
- 	return -EOPNOTSUPP;
+ 	u32 flags2;
+ #define IXGBE_FLAG2_RSC_CAPABLE			BIT(0)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 403b3cc..2f69842 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5559,6 +5559,58 @@ static void ixgbe_tx_timeout(struct net_device *netdev)
+ 	ixgbe_tx_timeout_reset(adapter);
  }
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index 6770f10..2cac610 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -64,7 +64,7 @@ struct ixgbe_mac_operations {
- 	s32 (*set_uc_addr)(struct ixgbe_hw *, u32, u8 *);
- 	s32 (*init_rx_addrs)(struct ixgbe_hw *);
- 	s32 (*update_mc_addr_list)(struct ixgbe_hw *, struct net_device *);
--	s32 (*update_xcast_mode)(struct ixgbe_hw *, struct net_device *, int);
-+	s32 (*update_xcast_mode)(struct ixgbe_hw *, int);
- 	s32 (*enable_mc)(struct ixgbe_hw *);
- 	s32 (*disable_mc)(struct ixgbe_hw *);
- 	s32 (*clear_vfta)(struct ixgbe_hw *);
+ 
++#ifdef CONFIG_IXGBE_DCB
++static void ixgbe_init_dcb(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct tc_configuration *tc;
++	int j;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++	case ixgbe_mac_82599EB:
++		adapter->dcb_cfg.num_tcs.pg_tcs = MAX_TRAFFIC_CLASS;
++		adapter->dcb_cfg.num_tcs.pfc_tcs = MAX_TRAFFIC_CLASS;
++		break;
++	case ixgbe_mac_X540:
++	case ixgbe_mac_X550:
++		adapter->dcb_cfg.num_tcs.pg_tcs = X540_TRAFFIC_CLASS;
++		adapter->dcb_cfg.num_tcs.pfc_tcs = X540_TRAFFIC_CLASS;
++		break;
++	case ixgbe_mac_X550EM_x:
++	case ixgbe_mac_x550em_a:
++	default:
++		adapter->dcb_cfg.num_tcs.pg_tcs = DEF_TRAFFIC_CLASS;
++		adapter->dcb_cfg.num_tcs.pfc_tcs = DEF_TRAFFIC_CLASS;
++		break;
++	}
++
++	/* Configure DCB traffic classes */
++	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
++		tc = &adapter->dcb_cfg.tc_config[j];
++		tc->path[DCB_TX_CONFIG].bwg_id = 0;
++		tc->path[DCB_TX_CONFIG].bwg_percent = 12 + (j & 1);
++		tc->path[DCB_RX_CONFIG].bwg_id = 0;
++		tc->path[DCB_RX_CONFIG].bwg_percent = 12 + (j & 1);
++		tc->dcb_pfc = pfc_disabled;
++	}
++
++	/* Initialize default user to priority mapping, UPx->TC0 */
++	tc = &adapter->dcb_cfg.tc_config[0];
++	tc->path[DCB_TX_CONFIG].up_to_tc_bitmap = 0xFF;
++	tc->path[DCB_RX_CONFIG].up_to_tc_bitmap = 0xFF;
++
++	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
++	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
++	adapter->dcb_cfg.pfc_mode_enable = false;
++	adapter->dcb_set_bitmap = 0x00;
++	if (adapter->flags & IXGBE_FLAG_DCB_CAPABLE)
++		adapter->dcbx_cap = DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_CEE;
++	memcpy(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
++	       sizeof(adapter->temp_dcb_cfg));
++}
++#endif
++
+ /**
+  * ixgbe_sw_init - Initialize general software structures (struct ixgbe_adapter)
+  * @adapter: board private structure to initialize
+@@ -5575,10 +5627,6 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	u32 fwsm;
+ 	u16 device_caps;
+ 	int i;
+-#ifdef CONFIG_IXGBE_DCB
+-	int j;
+-	struct tc_configuration *tc;
+-#endif
+ 
+ 	/* PCI config space info */
+ 
+@@ -5600,6 +5648,10 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ #ifdef CONFIG_IXGBE_DCA
+ 	adapter->flags |= IXGBE_FLAG_DCA_CAPABLE;
+ #endif
++#ifdef CONFIG_IXGBE_DCB
++	adapter->flags |= IXGBE_FLAG_DCB_CAPABLE;
++	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
++#endif
+ #ifdef IXGBE_FCOE
+ 	adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
+ 	adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+@@ -5656,6 +5708,16 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		break;
+ 	case ixgbe_mac_X550EM_x:
+ 	case ixgbe_mac_x550em_a:
++#ifdef CONFIG_IXGBE_DCB
++		adapter->flags &= ~IXGBE_FLAG_DCB_CAPABLE;
++#endif
++#ifdef IXGBE_FCOE
++		adapter->flags &= ~IXGBE_FLAG_FCOE_CAPABLE;
++#ifdef CONFIG_IXGBE_DCB
++		adapter->fcoe.up = 0;
++#endif /* IXGBE_DCB */
++#endif /* IXGBE_FCOE */
++	/* Fall Through */
+ 	case ixgbe_mac_X550:
+ #ifdef CONFIG_IXGBE_DCA
+ 		adapter->flags &= ~IXGBE_FLAG_DCA_CAPABLE;
+@@ -5677,43 +5739,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	spin_lock_init(&adapter->fdir_perfect_lock);
+ 
+ #ifdef CONFIG_IXGBE_DCB
+-	switch (hw->mac.type) {
+-	case ixgbe_mac_X540:
+-	case ixgbe_mac_X550:
+-	case ixgbe_mac_X550EM_x:
+-	case ixgbe_mac_x550em_a:
+-		adapter->dcb_cfg.num_tcs.pg_tcs = X540_TRAFFIC_CLASS;
+-		adapter->dcb_cfg.num_tcs.pfc_tcs = X540_TRAFFIC_CLASS;
+-		break;
+-	default:
+-		adapter->dcb_cfg.num_tcs.pg_tcs = MAX_TRAFFIC_CLASS;
+-		adapter->dcb_cfg.num_tcs.pfc_tcs = MAX_TRAFFIC_CLASS;
+-		break;
+-	}
+-
+-	/* Configure DCB traffic classes */
+-	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
+-		tc = &adapter->dcb_cfg.tc_config[j];
+-		tc->path[DCB_TX_CONFIG].bwg_id = 0;
+-		tc->path[DCB_TX_CONFIG].bwg_percent = 12 + (j & 1);
+-		tc->path[DCB_RX_CONFIG].bwg_id = 0;
+-		tc->path[DCB_RX_CONFIG].bwg_percent = 12 + (j & 1);
+-		tc->dcb_pfc = pfc_disabled;
+-	}
+-
+-	/* Initialize default user to priority mapping, UPx->TC0 */
+-	tc = &adapter->dcb_cfg.tc_config[0];
+-	tc->path[DCB_TX_CONFIG].up_to_tc_bitmap = 0xFF;
+-	tc->path[DCB_RX_CONFIG].up_to_tc_bitmap = 0xFF;
+-
+-	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
+-	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
+-	adapter->dcb_cfg.pfc_mode_enable = false;
+-	adapter->dcb_set_bitmap = 0x00;
+-	adapter->dcbx_cap = DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_CEE;
+-	memcpy(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
+-	       sizeof(adapter->temp_dcb_cfg));
+-
++	ixgbe_init_dcb(adapter);
+ #endif
+ 
+ 	/* default flow control settings */
+@@ -9495,7 +9521,8 @@ skip_sriov:
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+ 
+ #ifdef CONFIG_IXGBE_DCB
+-	netdev->dcbnl_ops = &dcbnl_ops;
++	if (adapter->flags & IXGBE_FLAG_DCB_CAPABLE)
++		netdev->dcbnl_ops = &dcbnl_ops;
+ #endif
+ 
+ #ifdef IXGBE_FCOE
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index cd6c1dd..da3d835 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -548,6 +548,7 @@ struct ixgbe_thermal_sensor_data {
+ /* DCB registers */
+ #define MAX_TRAFFIC_CLASS        8
+ #define X540_TRAFFIC_CLASS       4
++#define DEF_TRAFFIC_CLASS        1
+ #define IXGBE_RMCS      0x03D00
+ #define IXGBE_DPMCS     0x07F40
+ #define IXGBE_PDPMCS    0x0CD00
 -- 
 2.5.5
