@@ -1,56 +1,42 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH] ravb: Add missing free_irq() calls to ravb_close()
-Date: Wed,  4 May 2016 15:03:07 +0200
-Message-ID: <1462366987-18418-1-git-send-email-geert+renesas@glider.be>
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH 3/3] net/mlx5e: don't build RFS without ethernet
+Date: Wed, 4 May 2016 16:09:16 +0300
+Message-ID: <CALzJLG9j6ZodwDToX8iuvNVKLoMoaM8V9w8cFR6jM-ktU0ynHg@mail.gmail.com>
+References: <1462364774-3792510-1-git-send-email-arnd@arndb.de> <1462365155-3861405-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Matthew Finlay <matt@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Haggai Abramonvsky <hagaya@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462365155-3861405-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When reopening the network device on ra7795/salvator-x, e.g. after a
-DHCP timeout:
+On Wed, May 4, 2016 at 3:32 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> The RFS acceleration support in mlx5 is enabled whenever CONFIG_RFS_ACCEL
+> is in use. However, this fails if a user turns off CONFIG_MLX5_CORE_EN,
+> because the rfs code now calls into the ethernet portion of the
+> driver:
+>
+> ERROR: "mlx5e_destroy_flow_table" [drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.ko] undefined!
+>
 
-    IP-Config: Reopening network devices...
-    genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs. 00000000 (eth0:ch24:emac)
-    ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
-    IP-Config: Failed to open eth0
-    IP-Config: No network devices available
+Hi Arnd,
 
-The "mismatch" is due to requesting an IRQ that is already in use,
-while IRQF_PROBE_SHARED wasn't set.
+We already posted a fix for this, please see "[PATCH net-next V1
+01/12] net/mlx5e: Fix aRFS compilation dependency", and give us your
+feedback.
 
-However, the real cause is that ravb_close() doesn't release any of the
-R-Car Gen3-specific secondary IRQs.
-
-Add the missing free_irq() calls to fix this.
-
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
- drivers/net/ethernet/renesas/ravb_main.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 34066e0649f5c673..867caf6e7a5a65ad 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1667,6 +1667,13 @@ static int ravb_close(struct net_device *ndev)
- 		priv->phydev = NULL;
- 	}
- 
-+	if (priv->chip_id != RCAR_GEN2) {
-+		free_irq(priv->tx_irqs[RAVB_NC], ndev);
-+		free_irq(priv->rx_irqs[RAVB_NC], ndev);
-+		free_irq(priv->tx_irqs[RAVB_BE], ndev);
-+		free_irq(priv->rx_irqs[RAVB_BE], ndev);
-+		free_irq(priv->emac_irq, ndev);
-+	}
- 	free_irq(ndev->irq, ndev);
- 
- 	napi_disable(&priv->napi[RAVB_NC]);
--- 
-1.9.1
+Saeed.
