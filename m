@@ -1,233 +1,84 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 01/14] gso: Remove arbitrary checks for
- unsupported GSO
-Date: Wed, 4 May 2016 19:59:20 -0700
-Message-ID: <CAKgT0UeZWv7pnHNC8b5zjPe=SxZBz9EBUGkxnnjnqkmhDe34xg@mail.gmail.com>
-References: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
-	<1462410164-1953217-2-git-send-email-tom@herbertland.com>
+From: Yangbo Lu <yangbo.lu@nxp.com>
+Subject: RE: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
+Date: Thu, 5 May 2016 03:21:04 +0000
+Message-ID: <HE1PR04MB0889AA66ABC718111D7EF41FF87C0@HE1PR04MB0889.eurprd04.prod.outlook.com>
+References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
+	 <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+ <1462383308.16584.43.camel@buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:35078 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755709AbcEEC7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 22:59:22 -0400
-Received: by mail-ig0-f175.google.com with SMTP id bi2so4197171igb.0
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 19:59:21 -0700 (PDT)
-In-Reply-To: <1462410164-1953217-2-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "ulf.hansson@linaro.org" <ulf.hansson@linaro.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	"Bhupesh Sharma" <bhupesh.sharma@freescale.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>,
+	Yang-Leo Li <leoyang.li@nxp.com>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>
+To: Scott Wood <oss@buserror.net>, Qiang Zhao <qiang.zhao@nxp.com>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-clk-owner@vger.kernel.org>
+In-Reply-To: <1462383308.16584.43.camel@buserror.net>
+Content-Language: en-US
+Sender: linux-clk-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 4, 2016 at 6:02 PM, Tom Herbert <tom@herbertland.com> wrote:
-> In several gso_segment functions there are checks of gso_type against
-> a seemingly abitrary list of SKB_GSO_* flags. This seems like an
-> attempt to identify unsupported GSO types, but since the stack is
-> the one that set these GSO types in the first place this seems
-> unnecessary to do. If a combination isn't valid in the first
-> place that stack should not allow setting it.
-
-You would think that was the case.  The problem is I have already seen
-one issue with GUE allowing an unsupported combination of GRE_CSUM and
-UDP tunnels.
-
-> This is a code simplication especially for add new GSO types.
-
-I'd say you might be better off going through and just putting in
-place a few specific restrictions with a WARN_ONCE or something like
-that.
-
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  net/ipv4/af_inet.c     | 18 ------------------
->  net/ipv4/gre_offload.c | 14 --------------
->  net/ipv4/tcp_offload.c | 19 -------------------
->  net/ipv4/udp_offload.c | 10 ----------
->  net/ipv6/ip6_offload.c | 18 ------------------
->  net/ipv6/udp_offload.c | 13 -------------
->  6 files changed, 92 deletions(-)
->
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 2e6e65f..7f08d45 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1205,24 +1205,6 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->         int ihl;
->         int id;
->
-> -       if (unlikely(skb_shinfo(skb)->gso_type &
-> -                    ~(SKB_GSO_TCPV4 |
-> -                      SKB_GSO_UDP |
-> -                      SKB_GSO_DODGY |
-> -                      SKB_GSO_TCP_ECN |
-> -                      SKB_GSO_GRE |
-> -                      SKB_GSO_GRE_CSUM |
-> -                      SKB_GSO_IPIP |
-> -                      SKB_GSO_SIT |
-> -                      SKB_GSO_TCPV6 |
-> -                      SKB_GSO_UDP_TUNNEL |
-> -                      SKB_GSO_UDP_TUNNEL_CSUM |
-> -                      SKB_GSO_TCP_FIXEDID |
-> -                      SKB_GSO_TUNNEL_REMCSUM |
-> -                      SKB_GSO_PARTIAL |
-> -                      0)))
-> -               goto out;
-> -
-
-This can go.  It basically just reads like a feature list for GSO.
-
->         skb_reset_network_header(skb);
->         nhoff = skb_network_header(skb) - skb_mac_header(skb);
->         if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
-> diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-> index e88190a..ecd1e09 100644
-> --- a/net/ipv4/gre_offload.c
-> +++ b/net/ipv4/gre_offload.c
-> @@ -26,20 +26,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->         int gre_offset, outer_hlen;
->         bool need_csum, ufo;
->
-> -       if (unlikely(skb_shinfo(skb)->gso_type &
-> -                               ~(SKB_GSO_TCPV4 |
-> -                                 SKB_GSO_TCPV6 |
-> -                                 SKB_GSO_UDP |
-> -                                 SKB_GSO_DODGY |
-> -                                 SKB_GSO_TCP_ECN |
-> -                                 SKB_GSO_TCP_FIXEDID |
-> -                                 SKB_GSO_GRE |
-> -                                 SKB_GSO_GRE_CSUM |
-> -                                 SKB_GSO_IPIP |
-> -                                 SKB_GSO_SIT |
-> -                                 SKB_GSO_PARTIAL)))
-> -               goto out;
-> -
-
-This is trying to catch that specific case I mentioned where GRE and
-UDP are being applied to the same tunnel.  We should have a mutual
-exclusion on them, but UDP is getting around it by skipping over the
-GRE header in its offload.  If GRE contains a UDP tunnel we definitely
-should throw something like a WARN_ONCE.  I'd say just test for the
-UDP_TUNNEL and UDP_TUNNEL_CSUM bits though until GRE and UDP_TUNNEL
-can find a way to deal with sharing the inner_mac_header.
-
->         if (!skb->encapsulation)
->                 goto out;
->
-> diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-> index 02737b6..5c59649 100644
-> --- a/net/ipv4/tcp_offload.c
-> +++ b/net/ipv4/tcp_offload.c
-> @@ -83,25 +83,6 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
->
->         if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
->                 /* Packet is from an untrusted source, reset gso_segs. */
-> -               int type = skb_shinfo(skb)->gso_type;
-> -
-> -               if (unlikely(type &
-> -                            ~(SKB_GSO_TCPV4 |
-> -                              SKB_GSO_DODGY |
-> -                              SKB_GSO_TCP_ECN |
-> -                              SKB_GSO_TCP_FIXEDID |
-> -                              SKB_GSO_TCPV6 |
-> -                              SKB_GSO_GRE |
-> -                              SKB_GSO_GRE_CSUM |
-> -                              SKB_GSO_IPIP |
-> -                              SKB_GSO_SIT |
-> -                              SKB_GSO_UDP_TUNNEL |
-> -                              SKB_GSO_UDP_TUNNEL_CSUM |
-> -                              SKB_GSO_TUNNEL_REMCSUM |
-> -                              0) ||
-> -                            !(type & (SKB_GSO_TCPV4 |
-> -                                      SKB_GSO_TCPV6))))
-> -                       goto out;
-
-This could probably be reduced to a check for SKB_GSO_UDP.
-
->                 skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
->
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 097060de..b556ef6 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -209,16 +209,6 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
->
->         if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
->                 /* Packet is from an untrusted source, reset gso_segs. */
-> -               int type = skb_shinfo(skb)->gso_type;
-> -
-> -               if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
-> -                                     SKB_GSO_UDP_TUNNEL |
-> -                                     SKB_GSO_UDP_TUNNEL_CSUM |
-> -                                     SKB_GSO_TUNNEL_REMCSUM |
-> -                                     SKB_GSO_IPIP |
-> -                                     SKB_GSO_GRE | SKB_GSO_GRE_CSUM) ||
-> -                            !(type & (SKB_GSO_UDP))))
-> -                       goto out;
-
-This could be reduced to a check for the GSO types specific to TCP.
-
->                 skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
->
-> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> index f5eb184..9ad743b 100644
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-> @@ -69,24 +69,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
->         bool encap, udpfrag;
->         int nhoff;
->
-> -       if (unlikely(skb_shinfo(skb)->gso_type &
-> -                    ~(SKB_GSO_TCPV4 |
-> -                      SKB_GSO_UDP |
-> -                      SKB_GSO_DODGY |
-> -                      SKB_GSO_TCP_ECN |
-> -                      SKB_GSO_TCP_FIXEDID |
-> -                      SKB_GSO_TCPV6 |
-> -                      SKB_GSO_GRE |
-> -                      SKB_GSO_GRE_CSUM |
-> -                      SKB_GSO_IPIP |
-> -                      SKB_GSO_SIT |
-> -                      SKB_GSO_UDP_TUNNEL |
-> -                      SKB_GSO_UDP_TUNNEL_CSUM |
-> -                      SKB_GSO_TUNNEL_REMCSUM |
-> -                      SKB_GSO_PARTIAL |
-> -                      0)))
-> -               goto out;
-> -
-
-You could drop this one.
-
->         skb_reset_network_header(skb);
->         nhoff = skb_network_header(skb) - skb_mac_header(skb);
->         if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
-> diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-> index 5429f6b..ac858c4 100644
-> --- a/net/ipv6/udp_offload.c
-> +++ b/net/ipv6/udp_offload.c
-> @@ -36,19 +36,6 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
->
->         if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
->                 /* Packet is from an untrusted source, reset gso_segs. */
-> -               int type = skb_shinfo(skb)->gso_type;
-> -
-> -               if (unlikely(type & ~(SKB_GSO_UDP |
-> -                                     SKB_GSO_DODGY |
-> -                                     SKB_GSO_UDP_TUNNEL |
-> -                                     SKB_GSO_UDP_TUNNEL_CSUM |
-> -                                     SKB_GSO_TUNNEL_REMCSUM |
-> -                                     SKB_GSO_GRE |
-> -                                     SKB_GSO_GRE_CSUM |
-> -                                     SKB_GSO_IPIP |
-> -                                     SKB_GSO_SIT) ||
-> -                            !(type & (SKB_GSO_UDP))))
-> -                       goto out;
-
-This is another one where all that is being checked for is TCP.
-
->                 skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
->
-> --
-> 2.8.0.rc2
->
+VGhhbmtzIGEgbG90LCBTY290dCBhbmQgUWlhbmcuDQpXaWxsIGNoYW5nZSAnRFJJVkVSJyB0byAn
+RFJJVkVSUycgYW5kIHVwZGF0ZSB0aGUgcGF0Y2hzZXQgd2l0aCB5b3VyIGFjdHMuDQoNCg0KQmVz
+dCByZWdhcmRzLA0KWWFuZ2JvIEx1DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
+RnJvbTogbGludXgtbW1jLW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4LW1tYy0N
+Cj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgU2NvdHQgV29vZA0KPiBTZW50
+OiBUaHVyc2RheSwgTWF5IDA1LCAyMDE2IDE6MzUgQU0NCj4gVG86IFlhbmdibyBMdTsgbGludXgt
+bW1jQHZnZXIua2VybmVsLm9yZzsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7DQo+IGRl
+dmljZXRyZWVAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVh
+ZC5vcmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC1jbGtAdmdlci5r
+ZXJuZWwub3JnOyBsaW51eC0NCj4gaTJjQHZnZXIua2VybmVsLm9yZzsgaW9tbXVAbGlzdHMubGlu
+dXgtZm91bmRhdGlvbi5vcmc7DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IHVsZi5o
+YW5zc29uQGxpbmFyby5vcmc7IE1hcmsgUnV0bGFuZDsgUm9iIEhlcnJpbmc7IFJ1c3NlbGwgS2lu
+ZzsNCj4gSm9jaGVuIEZyaWVkcmljaDsgSm9lcmcgUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgQmh1
+cGVzaCBTaGFybWE7IFFpYW5nDQo+IFpoYW87IEt1bWFyIEdhbGE7IFNhbnRvc2ggU2hpbGlta2Fy
+OyBZYW5nLUxlbyBMaTsgWGlhb2JvIFhpZQ0KPiBTdWJqZWN0OiBSZTogW3Y5LCA2LzddIE1BSU5U
+QUlORVJTOiBhZGQgZW50cnkgZm9yIEZyZWVzY2FsZSBTb0MgZHJpdmVyDQo+IA0KPiBPbiBXZWQs
+IDIwMTYtMDUtMDQgYXQgMTE6MjQgKzA4MDAsIFlhbmdibyBMdSB3cm90ZToNCj4gPiBBZGQgbWFp
+bnRhaW5lciBlbnRyeSBmb3IgRnJlZXNjYWxlIFNvQyBkcml2ZXIgaW5jbHVkaW5nIHRoZSBRRSBs
+aWJyYXJ5DQo+ID4gYW5kIHRoZSBHVVRTIGRyaXZlciBub3cuIEFsc28gYWRkIG1haW50YWluZXIg
+Zm9yIFFFIGxpYnJhcnkuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBZYW5nYm8gTHUgPHlhbmdi
+by5sdUBueHAuY29tPg0KPiA+IC0tLQ0KPiA+IENoYW5nZXMgZm9yIHY4Og0KPiA+IAktIEFkZGVk
+IHRoaXMgcGF0Y2gNCj4gPiBDaGFuZ2VzIGZvciB2OToNCj4gPiAJLSBBZGRlZCBsaW51eC1hcm0g
+bWFpbCBsaXN0DQo+ID4gCS0gUmVtb3ZlZCBHVVRTIGRyaXZlciBlbnRyeQ0KPiA+IC0tLQ0KPiA+
+ICBNQUlOVEFJTkVSUyB8IDExICsrKysrKysrKystDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxMCBp
+bnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvTUFJTlRB
+SU5FUlMgYi9NQUlOVEFJTkVSUyBpbmRleCA0MmU2NWQxLi5jZTkxZGI3IDEwMDY0NA0KPiA+IC0t
+LSBhL01BSU5UQUlORVJTDQo+ID4gKysrIGIvTUFJTlRBSU5FUlMNCj4gPiBAQCAtNDYyMiw5ICs0
+NjIyLDE4IEBAIEY6CWRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfcHRwLmMNCj4g
+PiAgRjoJZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oDQo+ID4gIEY6CURvY3Vt
+ZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvZnNsLWZlYy50eHQNCj4gPg0KPiA+ICtG
+UkVFU0NBTEUgU09DIERSSVZFUg0KPiA+ICtNOglTY290dCBXb29kIDxvc3NAYnVzZXJyb3IubmV0
+Pg0KPiA+ICtMOglsaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZw0KPiA+ICtMOglsaW51eC1h
+cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcNCj4gPiArUzoJTWFpbnRhaW5lZA0KPiA+ICtG
+Oglkcml2ZXJzL3NvYy9mc2wvDQo+ID4gK0Y6CWluY2x1ZGUvbGludXgvZnNsLw0KPiA+ICsNCj4g
+PiAgRlJFRVNDQUxFIFFVSUNDIEVOR0lORSBMSUJSQVJZDQo+ID4gK006CVFpYW5nIFpoYW8gPHFp
+YW5nLnpoYW9AbnhwLmNvbT4NCj4gPiAgTDoJbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcN
+Cj4gPiAtUzoJT3JwaGFuDQo+ID4gK1M6CU1haW50YWluZWQNCj4gPiAgRjoJZHJpdmVycy9zb2Mv
+ZnNsL3FlLw0KPiA+ICBGOglpbmNsdWRlL3NvYy9mc2wvKnFlKi5oDQo+ID4gIEY6CWluY2x1ZGUv
+c29jL2ZzbC8qdWNjKi5oDQo+IA0KPiBzL0RSSVZFUi9EUklWRVJTLw0KPiANCj4gVGhlcmUncyBt
+b3JlIHRoYW4gb25lLg0KPiANCj4gT3RoZXJ3aXNlOg0KPiBBY2tlZC1ieTogU2NvdHQgV29vZCA8
+b3NzQGJ1c2Vycm9yLm5ldD4NCj4gDQo+IC1TY290dA0KPiANCj4gPg0KPiAtLQ0KPiBUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
+bW1jIiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVs
+Lm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIGF0DQo+IGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFq
+b3Jkb21vLWluZm8uaHRtbA0K
