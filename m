@@ -1,40 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vrf: Create FIB tables on link create
-Date: Thu, 05 May 2016 00:24:48 -0400 (EDT)
-Message-ID: <20160505.002448.1005276153595006235.davem@davemloft.net>
-References: <1462421887-10712-1-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: ipv6: tcp reset, icmp need to consider L3 domain
+Date: Wed,  4 May 2016 21:26:08 -0700
+Message-ID: <1462422368-10822-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48389 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbcEEE0G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 00:26:06 -0400
-In-Reply-To: <1462421887-10712-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35546 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964AbcEEE0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 00:26:19 -0400
+Received: by mail-pa0-f53.google.com with SMTP id iv1so31467531pac.2
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 21:26:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed,  4 May 2016 21:18:07 -0700
+Responses for packets to unused ports are getting lost with L3 domains.
 
-> @@ -372,9 +372,13 @@ static int vrf_rt6_create(struct net_device *dev)
->  	if (!rt6)
->  		goto out;
->  
-> -	rt6->dst.output	= vrf_output6;
-> -	rt6->rt6i_table = fib6_get_table(net, vrf->tb_id);
->  	dst_hold(&rt6->dst);
-> +
-> +	rt6->rt6i_table = fib6_new_table(net, vrf->tb_id);
-> +	if (!rt6->rt6i_table)
-> +		goto out;
-> +
-> +	rt6->dst.output	= vrf_output6;
->  	vrf->rt6 = rt6;
->  	rc = 0;
->  out:
+IPv4 has ip_send_unicast_reply for sending TCP responses which accounts
+for L3 domains; update the IPv6 counterpart tcp_v6_send_response.
+For icmp the L3 master check needs to be moved up in icmp6_send
+to properly respond to UDP packets to a port with no listener.
 
-This leaks rt6.
+Fixes: ca254490c8df ("net: Add VRF support to IPv6 stack")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv6/icmp.c     | 5 ++---
+ net/ipv6/tcp_ipv6.c | 7 ++++++-
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 9554b99a8508..4527285fcaa2 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -446,6 +446,8 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 
+ 	if (__ipv6_addr_needs_scope_id(addr_type))
+ 		iif = skb->dev->ifindex;
++	else
++		iif = l3mdev_master_ifindex(skb->dev);
+ 
+ 	/*
+ 	 *	Must not send error if the source does not uniquely
+@@ -500,9 +502,6 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	else if (!fl6.flowi6_oif)
+ 		fl6.flowi6_oif = np->ucast_oif;
+ 
+-	if (!fl6.flowi6_oif)
+-		fl6.flowi6_oif = l3mdev_master_ifindex(skb->dev);
+-
+ 	dst = icmpv6_route_lookup(net, skb, sk, &fl6);
+ 	if (IS_ERR(dst))
+ 		goto out;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 7bdc9c9c231b..c4efaa97280c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -810,8 +810,13 @@ static void tcp_v6_send_response(const struct sock *sk, struct sk_buff *skb, u32
+ 	fl6.flowi6_proto = IPPROTO_TCP;
+ 	if (rt6_need_strict(&fl6.daddr) && !oif)
+ 		fl6.flowi6_oif = tcp_v6_iif(skb);
+-	else
++	else {
++		if (!oif && netif_index_is_l3_master(net, skb->skb_iif))
++			oif = skb->skb_iif;
++
+ 		fl6.flowi6_oif = oif;
++	}
++
+ 	fl6.flowi6_mark = IP6_REPLY_MARK(net, skb->mark);
+ 	fl6.fl6_dport = t1->dest;
+ 	fl6.fl6_sport = t1->source;
+-- 
+2.1.4
