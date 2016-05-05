@@ -1,39 +1,73 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: A couple of questions about the SKB fragments
-Date: Thu, 5 May 2016 12:13:50 +0100
-Message-ID: <572B2AEE.1020802@solarflare.com>
-References: <CAKh5naYrZtf5y_Qw93G+GbxRVucsk4nbuiaguHcghtKEL=yQBw@mail.gmail.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next 4/4] xen-netback: use hash value from the frontend
+Date: Thu, 5 May 2016 12:19:30 +0100
+Message-ID: <1462447170-1815-5-git-send-email-paul.durrant@citrix.com>
+References: <1462447170-1815-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <Aleksey.Baulin@gmail.com>
-To: <matvejchikov@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:13652 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752597AbcEELOn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 07:14:43 -0400
-In-Reply-To: <CAKh5naYrZtf5y_Qw93G+GbxRVucsk4nbuiaguHcghtKEL=yQBw@mail.gmail.com>
+Received: from smtp.citrix.com ([66.165.176.89]:50536 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751203AbcEELdB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2016 07:33:01 -0400
+In-Reply-To: <1462447170-1815-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/05/16 08:40, Ilya Matveychikov wrote:
-> Hello folks,
->
-> While working with fragmented SKBs we've got stuck with the following:
-> - is it possible for an SKB fragment in skb_shinfo(skb)->frag_list to
-> be fragmented too (i.e. to have SKBs in frag_list)?
-> - do skb->len and skb->data_len contain the whole SKB length,
-> including the length of all fragments (not only the paged parts)?
->
-> Is there any docs except the kernel sources itself to refer to?
-davem has some docs up at http://vger.kernel.org/~davem/skb.html and
-http://vger.kernel.org/~davem/skb_data.html
-In particular note the following:
-"The frag_list is used to maintain a chain of SKBs organized for
- fragmentation purposes, it is _not_ used for maintaining paged data."
-So my reading would suggest there is no way to multiple-layer-fragment
-an SKB; the frags are page pointers and offsets, not entire sk_buff
-structs in their own right.
+My recent patch to include/xen/interface/io/netif.h defines a new extra
+info type that can be used to pass hash values between backend and guest
+frontend.
 
--Ed
+This patch adds code to xen-netback to use the value in a hash extra
+info fragment passed from the guest frontend in a transmit-side
+(i.e. netback receive side) packet to set the skb hash accordingly.
+
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+---
+ drivers/net/xen-netback/netback.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 7c72510..a5b5aad 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1509,6 +1509,33 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 			}
+ 		}
+ 
++		if (extras[XEN_NETIF_EXTRA_TYPE_HASH - 1].type) {
++			struct xen_netif_extra_info *extra;
++			enum pkt_hash_types type = PKT_HASH_TYPE_NONE;
++
++			extra = &extras[XEN_NETIF_EXTRA_TYPE_HASH - 1];
++
++			switch (extra->u.hash.type) {
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV4:
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV6:
++				type = PKT_HASH_TYPE_L3;
++				break;
++
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP:
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP:
++				type = PKT_HASH_TYPE_L4;
++				break;
++
++			default:
++				break;
++			}
++
++			if (type != PKT_HASH_TYPE_NONE)
++				skb_set_hash(skb,
++					     *(u32 *)extra->u.hash.value,
++					     type);
++		}
++
+ 		XENVIF_TX_CB(skb)->pending_idx = pending_idx;
+ 
+ 		__skb_put(skb, data_len);
+-- 
+2.1.4
