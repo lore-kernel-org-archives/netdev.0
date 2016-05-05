@@ -1,88 +1,77 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 08/14] ipv6: Change "final" protocol processing for encapsulation
-Date: Wed, 4 May 2016 18:02:38 -0700
-Message-ID: <1462410164-1953217-9-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 07/14] ipv6: Fix nexthdr for reinjection
+Date: Wed, 4 May 2016 18:02:37 -0700
+Message-ID: <1462410164-1953217-8-git-send-email-tom@herbertland.com>
 References: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16082 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16847 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755516AbcEEBDA (ORCPT
+	by vger.kernel.org with ESMTP id S1755496AbcEEBDA (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 21:03:00 -0400
 Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u450xUOX027334
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u450xWBC027375
 	for <netdev@vger.kernel.org>; Wed, 4 May 2016 18:02:59 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 22qh8mkqxd-3
+	by mx0b-00082601.pphosted.com with ESMTP id 22qh8mkqwt-4
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
 	for <netdev@vger.kernel.org>; Wed, 04 May 2016 18:02:59 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.103.99.99) with ESMTP	id
- 1b8f3104125d11e6b1ad0002c9dfb610-b2eeac50 for <netdev@vger.kernel.org>;	Wed,
- 04 May 2016 18:02:58 -0700
+ 1acf33c2125d11e6b1ad0002c9dfb610-b2eeac50 for <netdev@vger.kernel.org>;	Wed,
+ 04 May 2016 18:02:57 -0700
 In-Reply-To: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When performing foo-over-UDP, UDP are receveived processed by the
-encapsulation header which returns another protocol to process.
-This may result in processing two (or more) protocols in the
-loop that are marked as INET6_PROTO_FINAL. The actions taken
-for hitting a final protocol, in particular the skb_postpull_rcsum
-can only be performed.
-
-This patch set adds a check of a final protocol has been seen. The
-rules are:
-  - If the final protocol has not been seen any protocol is processed
-    (final and non-final). In the case of a final protocol, the final
-    actions are taken (like the skb_postpull_rcsum)
-  - If a final protocol has been seen (e.g. an encapsulating UDP
-    header) then no further non-final protocols are allowed
-    (e.g. extension headers). For more final protocols the
-    final actions are not taken (e.g. skb_postpull_rcsum).
+In ip6_input_finish the protocol handle returns a value greater than
+zero the packet needs to be resubmitted using the returned protocol.
+The returned protocol is being ignored and each time through resubmit
+nexthdr is taken from an offest in the packet. This patch fixes that
+so that nexthdr is taken from return value of the protocol handler.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_input.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ net/ipv6/ip6_input.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 2a0258a..7d98d01 100644
+index 6ed5601..2a0258a 100644
 --- a/net/ipv6/ip6_input.c
 +++ b/net/ipv6/ip6_input.c
-@@ -216,6 +216,7 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
- 	unsigned int nhoff;
- 	int nexthdr;
- 	bool raw;
-+	bool have_final = false;
+@@ -222,13 +222,14 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
+ 	 */
  
- 	/*
- 	 *	Parse extension headers
-@@ -235,9 +236,21 @@ resubmit:
- 	if (ipprot) {
- 		int ret;
- 
--		if (ipprot->flags & INET6_PROTO_FINAL) {
-+		if (have_final) {
-+			if (!(ipprot->flags & INET6_PROTO_FINAL)) {
-+				/* Once we've seen a final protocol don't
-+				 * allow encapsulation on any non-final
-+				 * ones. This allows foo in UDP encapsulation
-+				 * to work.
-+				 */
-+				goto discard;
-+			}
-+		} else if (ipprot->flags & INET6_PROTO_FINAL) {
- 			const struct ipv6hdr *hdr;
- 
-+			/* Only do this once for first final protocol */
-+			have_final = true;
+ 	rcu_read_lock();
+-resubmit:
 +
- 			/* Free reference early: we don't need it any more,
- 			   and it may hold ip_conntrack module loaded
- 			   indefinitely. */
+ 	idev = ip6_dst_idev(skb_dst(skb));
+ 	if (!pskb_pull(skb, skb_transport_offset(skb)))
+ 		goto discard;
+ 	nhoff = IP6CB(skb)->nhoff;
+ 	nexthdr = skb_network_header(skb)[nhoff];
+ 
++resubmit:
+ 	raw = raw6_local_deliver(skb, nexthdr);
+ 	ipprot = rcu_dereference(inet6_protos[nexthdr]);
+ 	if (ipprot) {
+@@ -256,10 +257,12 @@ resubmit:
+ 			goto discard;
+ 
+ 		ret = ipprot->handler(skb);
+-		if (ret > 0)
++		if (ret > 0) {
++			nexthdr = ret;
+ 			goto resubmit;
+-		else if (ret == 0)
++		} else if (ret == 0) {
+ 			__IP6_INC_STATS(net, idev, IPSTATS_MIB_INDELIVERS);
++		}
+ 	} else {
+ 		if (!raw) {
+ 			if (xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
 -- 
 2.8.0.rc2
