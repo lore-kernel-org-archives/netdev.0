@@ -1,108 +1,64 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/2] net: l3mdev: Allow send on enslaved interface
-Date: Wed,  4 May 2016 21:54:10 -0700
-Message-ID: <1462424050-16084-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1462424050-16084-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH net 1/1] qede: prevent chip hang when increasing channels
+Date: Thu, 5 May 2016 00:35:16 -0400
+Message-ID: <1462422916-25584-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33264 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbcEEEy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 00:54:28 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 206so33448083pfu.0
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 21:54:28 -0700 (PDT)
-In-Reply-To: <1462424050-16084-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:56624 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756224AbcEEFRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 01:17:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow udp and raw sockets to send by oif that is an enslaved interface
-versus the l3mdev/VRF device. For example, this allows BFD to use ifindex
-from IP_PKTINFO on a receive to send a response without the need to
-convert to the VRF index. It also allows ping and ping6 to work when
-specifying an enslaved interface (e.g., ping -I swp1 <ip>) which is
-a natural use case.
+qede requires qed to provide enough resources to accommodate 16 combined
+channels, but that upper-bound isn't actually being enforced by it.
+Instead, qed inform back to qede how many channels can be opened based on
+available resources - but that calculation doesn't really take into account
+the resources requested by qede; Instead it considers other FW/HW available
+resources.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+As a result, if a user would increase the number of channels to more than
+16 [e.g., using ethtool] the chip would hang.
+
+This change increments the resources requested by qede to 64 combined
+channels instead of 16; This value is an upper bound on the possible
+available channels [due to other FW/HW resources].
+
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/vrf.c   |  2 ++
- net/ipv4/route.c    |  4 ++++
- net/l3mdev/l3mdev.c | 20 +++++++++++++++-----
- 3 files changed, 21 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 4b2461ae5d3b..c8db55aa8280 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -648,6 +648,8 @@ static int vrf_get_saddr(struct net_device *dev, struct flowi4 *fl4)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 7869465..8d5248c 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -1938,8 +1938,6 @@ static struct qede_dev *qede_alloc_etherdev(struct qed_dev *cdev,
+ 	edev->q_num_rx_buffers = NUM_RX_BDS_DEF;
+ 	edev->q_num_tx_buffers = NUM_TX_BDS_DEF;
  
- 	fl4->flowi4_flags |= FLOWI_FLAG_SKIP_NH_OIF;
- 	fl4->flowi4_iif = LOOPBACK_IFINDEX;
-+	/* make sure oif is set to VRF device for lookup */
-+	fl4->flowi4_oif = dev->ifindex;
- 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
- 			     RT_SCOPE_LINK : RT_SCOPE_UNIVERSE);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8c8c655bb2c4..a1f2830d8110 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2146,6 +2146,7 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
- 	unsigned int flags = 0;
- 	struct fib_result res;
- 	struct rtable *rth;
-+	int master_idx;
- 	int orig_oif;
- 	int err = -ENETUNREACH;
+-	DP_INFO(edev, "Allocated netdev with 64 tx queues and 64 rx queues\n");
+-
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
  
-@@ -2155,6 +2156,9 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+ 	memset(&edev->stats, 0, sizeof(edev->stats));
+@@ -2090,9 +2088,9 @@ static void qede_update_pf_params(struct qed_dev *cdev)
+ {
+ 	struct qed_pf_params pf_params;
  
- 	orig_oif = fl4->flowi4_oif;
+-	/* 16 rx + 16 tx */
++	/* 64 rx + 64 tx */
+ 	memset(&pf_params, 0, sizeof(struct qed_pf_params));
+-	pf_params.eth_pf_params.num_cons = 32;
++	pf_params.eth_pf_params.num_cons = 128;
+ 	qed_ops->common->update_pf_params(cdev, &pf_params);
+ }
  
-+	master_idx = l3mdev_master_ifindex_by_index(net, fl4->flowi4_oif);
-+	if (master_idx)
-+		fl4->flowi4_oif = master_idx;
- 	fl4->flowi4_iif = LOOPBACK_IFINDEX;
- 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
-diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
-index 0fe4211e646f..0fd8cc1417cd 100644
---- a/net/l3mdev/l3mdev.c
-+++ b/net/l3mdev/l3mdev.c
-@@ -112,12 +112,19 @@ struct dst_entry *l3mdev_get_rt6_dst(struct net *net,
- 	struct dst_entry *dst = NULL;
- 	struct net_device *dev;
- 
--	dev = dev_get_by_index(net, fl6->flowi6_oif);
--	if (dev) {
--		if (netif_is_l3_master(dev) &&
--		    dev->l3mdev_ops->l3mdev_get_rt6_dst)
-+	if (fl6->flowi6_oif) {
-+		rcu_read_lock();
-+
-+		dev = dev_get_by_index_rcu(net, fl6->flowi6_oif);
-+		if (dev && netif_is_l3_slave(dev))
-+			dev = netdev_master_upper_dev_get_rcu(dev);
-+
-+		if (dev && netif_is_l3_master(dev) &&
-+		    dev->l3mdev_ops->l3mdev_get_rt6_dst) {
- 			dst = dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
--		dev_put(dev);
-+		}
-+
-+		rcu_read_unlock();
- 	}
- 
- 	return dst;
-@@ -141,6 +148,9 @@ int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4)
- 		rcu_read_lock();
- 
- 		dev = dev_get_by_index_rcu(net, ifindex);
-+		if (dev && netif_is_l3_slave(dev))
-+			dev = netdev_master_upper_dev_get_rcu(dev);
-+
- 		if (dev && netif_is_l3_master(dev) &&
- 		    dev->l3mdev_ops->l3mdev_get_saddr) {
- 			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
 -- 
-2.1.4
+1.8.3.1
