@@ -1,12 +1,11 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 04/12] net-next: mediatek: invalid buffer lookup in
- mtk_tx_map()
-Date: Thu,  5 May 2016 11:26:17 +0200
-Message-ID: <1462440385-51939-5-git-send-email-john@phrozen.org>
+Subject: [PATCH 08/12] net-next: mediatek: fix threshold value
+Date: Thu,  5 May 2016 11:26:21 +0200
+Message-ID: <1462440385-51939-9-git-send-email-john@phrozen.org>
 References: <1462440385-51939-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
  linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
@@ -23,27 +22,26 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The lookup of the tx_buffer in the error path inside mtk_tx_map() uses the
-wrong descriptor pointer. This looks like a copy & paste error. Change the
-code to use the correct pointer.
-
-Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index e415986..7fdd1a3 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -671,7 +671,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 
- err_dma:
- 	do {
--		tx_buf = mtk_desc_to_tx_buf(ring, txd);
-+		tx_buf = mtk_desc_to_tx_buf(ring, itxd);
- 
- 		/* unmap dma */
- 		mtk_tx_unmap(&dev->dev, tx_buf);
--- 
-1.7.10.4
+VGhlIGxvZ2ljIHRvIGNhbGN1bGF0ZSB0aGUgdGhyZXNob2xkIHZhbHVlIGZvciBzdG9wcGluZyB0
+aGUgVFggcXVldWUgaXMKYmFkLiBDdXJyZW50bHkgaXQgd2lsbCBhbHdheXMgdXNlIDEvMiBvZiB0
+aGUgcmluZ3Mgc2l6ZSwgd2hpY2ggaXMgd2F5IHRvbwptdWNoLiBTZXQgdGhlIHRocmVzaG9sZCB0
+byBNQVhfU0tCX0ZSQUdTLiBUaGlzIG1ha2VzIHN1cmUgdGhhdCB0aGUgcXVldWUKaXMgc3RvcHBl
+ZCB3aGVuIHRoZXJlIGlzIG5vdCBlbm91Z2ggcm9vbSB0byBhY2NlcHQgYW4gYWRkaXRpb25hbCBz
+ZWdtZW50LsKgCgpTaWduZWQtb2ZmLWJ5OiBKb2huIENyaXNwaW4gPGpvaG5AcGhyb3plbi5vcmc+
+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0aF9zb2MuYyB8ICAgIDMg
+Ky0tCiAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDIgZGVsZXRpb25zKC0pCgpkaWZm
+IC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0aF9zb2MuYyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L21lZGlhdGVrL210a19ldGhfc29jLmMKaW5kZXggMDhmM2RmNC4u
+NDQzOTk5MSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0
+aF9zb2MuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWRpYXRlay9tdGtfZXRoX3NvYy5j
+CkBAIC0xMDI4LDggKzEwMjgsNyBAQCBzdGF0aWMgaW50IG10a190eF9hbGxvYyhzdHJ1Y3QgbXRr
+X2V0aCAqZXRoKQogCWF0b21pY19zZXQoJnJpbmctPmZyZWVfY291bnQsIE1US19ETUFfU0laRSAt
+IDIpOwogCXJpbmctPm5leHRfZnJlZSA9ICZyaW5nLT5kbWFbMF07CiAJcmluZy0+bGFzdF9mcmVl
+ID0gJnJpbmctPmRtYVtNVEtfRE1BX1NJWkUgLSAyXTsKLQlyaW5nLT50aHJlc2ggPSBtYXgoKHVu
+c2lnbmVkIGxvbmcpTVRLX0RNQV9TSVpFID4+IDIsCi0JCQkgICAgICBNQVhfU0tCX0ZSQUdTKTsK
+KwlyaW5nLT50aHJlc2ggPSBNQVhfU0tCX0ZSQUdTOwogCiAJLyogbWFrZSBzdXJlIHRoYXQgYWxs
+IGNoYW5nZXMgdG8gdGhlIGRtYSByaW5nIGFyZSBmbHVzaGVkIGJlZm9yZSB3ZQogCSAqIGNvbnRp
+bnVlCi0tIAoxLjcuMTAuNAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCkxpbnV4LW1lZGlhdGVrIG1haWxpbmcgbGlzdApMaW51eC1tZWRpYXRla0BsaXN0
+cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGlu
+Zm8vbGludXgtbWVkaWF0ZWsK
