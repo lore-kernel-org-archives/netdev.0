@@ -1,64 +1,93 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Subject: [PATCH net 1/1] qede: prevent chip hang when increasing channels
-Date: Thu, 5 May 2016 00:35:16 -0400
-Message-ID: <1462422916-25584-1-git-send-email-sudarsana.kalluru@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-	<sudarsana.kalluru@qlogic.com>
-To: <davem@davemloft.net>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Reset dcb state machine and tx queue prio only if dcb is enabled
+Date: Thu,  5 May 2016 11:05:39 +0530
+Message-ID: <1462426539-5729-1-git-send-email-hariprasad@chelsio.com>
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:56624 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756224AbcEEFRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 01:17:42 -0400
+Received: from stargate.chelsio.com ([12.32.117.8]:39722 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750980AbcEEFbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 01:31:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-qede requires qed to provide enough resources to accommodate 16 combined
-channels, but that upper-bound isn't actually being enforced by it.
-Instead, qed inform back to qede how many channels can be opened based on
-available resources - but that calculation doesn't really take into account
-the resources requested by qede; Instead it considers other FW/HW available
-resources.
+When cxgb4 is enabled with CONFIG_CHELSIO_T4_DCB set, VI enable command
+gets called with DCB enabled. But when we have a back to back setup with
+DCB enabled on one side and non-DCB on the Peer side. Firmware doesn't
+send any DCB_L2_CFG, and DCB priority is never set for Tx queue.
+But driver resets the queue priority and state machine whenever there
+is a link down, this patch fixes it by adding a check to reset only if
+cxgb4_dcb_enabled() returns true.
 
-As a result, if a user would increase the number of channels to more than
-16 [e.g., using ethtool] the chip would hang.
-
-This change increments the resources requested by qede to 64 combined
-channels instead of 16; This value is an upper bound on the possible
-available channels [due to other FW/HW resources].
-
-Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_main.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 38 +++++++++++++------------
+ 1 file changed, 20 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 7869465..8d5248c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1938,8 +1938,6 @@ static struct qede_dev *qede_alloc_etherdev(struct qed_dev *cdev,
- 	edev->q_num_rx_buffers = NUM_RX_BDS_DEF;
- 	edev->q_num_tx_buffers = NUM_TX_BDS_DEF;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d7f40436f319..477db477b133 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -304,6 +304,22 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
+ }
+ #endif /* CONFIG_CHELSIO_T4_DCB */
  
--	DP_INFO(edev, "Allocated netdev with 64 tx queues and 64 rx queues\n");
--
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
- 
- 	memset(&edev->stats, 0, sizeof(edev->stats));
-@@ -2090,9 +2088,9 @@ static void qede_update_pf_params(struct qed_dev *cdev)
++int cxgb4_dcb_enabled(const struct net_device *dev)
++{
++#ifdef CONFIG_CHELSIO_T4_DCB
++	struct port_info *pi = netdev_priv(dev);
++
++	if (!pi->dcb.enabled)
++		return 0;
++
++	return ((pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED) ||
++		(pi->dcb.state == CXGB4_DCB_STATE_HOST));
++#else
++	return 0;
++#endif
++}
++EXPORT_SYMBOL(cxgb4_dcb_enabled);
++
+ void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
  {
- 	struct qed_pf_params pf_params;
- 
--	/* 16 rx + 16 tx */
-+	/* 64 rx + 64 tx */
- 	memset(&pf_params, 0, sizeof(struct qed_pf_params));
--	pf_params.eth_pf_params.num_cons = 32;
-+	pf_params.eth_pf_params.num_cons = 128;
- 	qed_ops->common->update_pf_params(cdev, &pf_params);
+ 	struct net_device *dev = adapter->port[port_id];
+@@ -314,8 +330,10 @@ void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
+ 			netif_carrier_on(dev);
+ 		else {
+ #ifdef CONFIG_CHELSIO_T4_DCB
+-			cxgb4_dcb_state_init(dev);
+-			dcb_tx_queue_prio_enable(dev, false);
++			if (cxgb4_dcb_enabled(dev)) {
++				cxgb4_dcb_state_init(dev);
++				dcb_tx_queue_prio_enable(dev, false);
++			}
+ #endif /* CONFIG_CHELSIO_T4_DCB */
+ 			netif_carrier_off(dev);
+ 		}
+@@ -494,22 +512,6 @@ static int link_start(struct net_device *dev)
+ 	return ret;
  }
  
+-int cxgb4_dcb_enabled(const struct net_device *dev)
+-{
+-#ifdef CONFIG_CHELSIO_T4_DCB
+-	struct port_info *pi = netdev_priv(dev);
+-
+-	if (!pi->dcb.enabled)
+-		return 0;
+-
+-	return ((pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED) ||
+-		(pi->dcb.state == CXGB4_DCB_STATE_HOST));
+-#else
+-	return 0;
+-#endif
+-}
+-EXPORT_SYMBOL(cxgb4_dcb_enabled);
+-
+ #ifdef CONFIG_CHELSIO_T4_DCB
+ /* Handle a Data Center Bridging update message from the firmware. */
+ static void dcb_rpl(struct adapter *adap, const struct fw_port_cmd *pcmd)
 -- 
-1.8.3.1
+2.3.4
