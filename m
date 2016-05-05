@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 10/20] net: dsa: mv88e6xxx: factorize ATU access
-Date: Thu,  5 May 2016 18:40:54 -0400
-Message-ID: <1462488064-1841-11-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC PATCH net-next 11/20] net: dsa: mv88e6xxx: factorize switch reset
+Date: Thu,  5 May 2016 18:40:55 -0400
+Message-ID: <1462488064-1841-12-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,255 +14,355 @@ In-Reply-To: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a MV88E6XXX_FLAG_ATU flag to identify switch models with an Address
-Translation Unit.
+Add a MV88E6XXX_FLAG_PPU_ACTIVE flag to describe how to reset the
+switch, and merge the reset call to the common setup code.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  4 ++++
- drivers/net/dsa/mv88e6131.c | 12 ++++++++----
- drivers/net/dsa/mv88e6171.c | 12 ++++++++----
- drivers/net/dsa/mv88e6352.c | 18 ++++++++++++------
- drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  6 ++++++
- 6 files changed, 52 insertions(+), 14 deletions(-)
+ drivers/net/dsa/mv88e6123.c |   4 --
+ drivers/net/dsa/mv88e6131.c |   4 --
+ drivers/net/dsa/mv88e6171.c |   8 +--
+ drivers/net/dsa/mv88e6352.c |  10 ++--
+ drivers/net/dsa/mv88e6xxx.c | 137 +++++++++++++++++++++++---------------------
+ drivers/net/dsa/mv88e6xxx.h |   3 +-
+ 6 files changed, 83 insertions(+), 83 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 3992f4f..c562c4a 100644
+index c562c4a..f542fbf 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -144,6 +144,10 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
- 	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
-+	.port_fdb_prepare       = mv88e6xxx_port_fdb_prepare,
-+	.port_fdb_add           = mv88e6xxx_port_fdb_add,
-+	.port_fdb_del           = mv88e6xxx_port_fdb_del,
-+	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
- };
+@@ -102,10 +102,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
  
- MODULE_ALIAS("platform:mv88e6123");
+-	ret = mv88e6xxx_switch_reset(ps, false);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6123_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index d99ebad..655781f 100644
+index 655781f..5b33d39 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -24,7 +24,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.name = "Marvell 88E6095/88E6095F",
- 		.num_databases = 256,
- 		.num_ports = 11,
--		.flags = MV88E6XXX_FLAG_PPU |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PPU |
- 			MV88E6XXX_FLAG_VLANTABLE |
- 			MV88E6XXX_FLAG_VTU,
- 	}, {
-@@ -33,7 +34,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.name = "Marvell 88E6085",
- 		.num_databases = 4096,
- 		.num_ports = 10,
--		.flags = MV88E6XXX_FLAG_PPU |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PPU |
- 			MV88E6XXX_FLAG_VLANTABLE |
- 			MV88E6XXX_FLAG_VTU,
- 	}, {
-@@ -42,7 +44,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.name = "Marvell 88E6131",
- 		.num_databases = 256,
- 		.num_ports = 8,
--		.flags = MV88E6XXX_FLAG_PPU |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PPU |
- 			MV88E6XXX_FLAG_VLANTABLE |
- 			MV88E6XXX_FLAG_VTU,
- 	}, {
-@@ -51,7 +54,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.name = "Marvell 88E6185",
- 		.num_databases = 256,
- 		.num_ports = 10,
--		.flags = MV88E6XXX_FLAG_PPU |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PPU |
- 			MV88E6XXX_FLAG_VLANTABLE |
- 			MV88E6XXX_FLAG_VTU,
- 	}
+@@ -144,10 +144,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, false);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6131_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index bbea365..66e581f 100644
+index 66e581f..9724a25 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -24,7 +24,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.name = "Marvell 88E6171",
- 		.num_databases = 4096,
+@@ -26,6 +26,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
  		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_PORTSTATE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PORTSTATE |
+ 		.flags = MV88E6XXX_FLAG_ATU |
+ 			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
  			MV88E6XXX_FLAG_SWITCH_MAC |
  			MV88E6XXX_FLAG_TEMP |
-@@ -36,7 +37,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.name = "Marvell 88E6175",
- 		.num_databases = 4096,
+@@ -39,6 +40,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
  		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_PORTSTATE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PORTSTATE |
+ 		.flags = MV88E6XXX_FLAG_ATU |
+ 			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
  			MV88E6XXX_FLAG_SWITCH_MAC |
  			MV88E6XXX_FLAG_TEMP |
-@@ -48,7 +50,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.name = "Marvell 88E6350",
- 		.num_databases = 4096,
+@@ -52,6 +54,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
  		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_PORTSTATE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PORTSTATE |
+ 		.flags = MV88E6XXX_FLAG_ATU |
+ 			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
  			MV88E6XXX_FLAG_SWITCH_MAC |
  			MV88E6XXX_FLAG_TEMP |
-@@ -60,7 +63,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.name = "Marvell 88E6351",
- 		.num_databases = 4096,
+@@ -65,6 +68,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
  		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_PORTSTATE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_PORTSTATE |
+ 		.flags = MV88E6XXX_FLAG_ATU |
+ 			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
  			MV88E6XXX_FLAG_SWITCH_MAC |
  			MV88E6XXX_FLAG_TEMP |
+@@ -132,10 +136,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, true);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6171_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 0ed4172..f10aaee 100644
+index f10aaee..a9d4d47a 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -29,7 +29,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6320",
- 		.num_databases = 4096,
- 		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_EEE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_EEE |
+@@ -33,6 +33,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 			MV88E6XXX_FLAG_EEE |
  			MV88E6XXX_FLAG_EEPROM |
  			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
-@@ -44,7 +45,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6321",
- 		.num_databases = 4096,
- 		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_EEE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_EEE |
+ 			MV88E6XXX_FLAG_SWITCH_MAC |
+ 			MV88E6XXX_FLAG_TEMP |
+@@ -49,6 +50,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 			MV88E6XXX_FLAG_EEE |
  			MV88E6XXX_FLAG_EEPROM |
  			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
-@@ -59,7 +61,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6172",
- 		.num_databases = 4096,
- 		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_EEE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_EEE |
+ 			MV88E6XXX_FLAG_SWITCH_MAC |
+ 			MV88E6XXX_FLAG_TEMP |
+@@ -65,6 +67,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 			MV88E6XXX_FLAG_EEE |
  			MV88E6XXX_FLAG_EEPROM |
  			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
-@@ -74,7 +77,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6176",
- 		.num_databases = 4096,
- 		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_EEE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_EEE |
+ 			MV88E6XXX_FLAG_SWITCH_MAC |
+ 			MV88E6XXX_FLAG_TEMP |
+@@ -81,6 +84,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 			MV88E6XXX_FLAG_EEE |
  			MV88E6XXX_FLAG_EEPROM |
  			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
-@@ -89,7 +93,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6240",
- 		.num_databases = 4096,
- 		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_EEE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_EEE |
+ 			MV88E6XXX_FLAG_SWITCH_MAC |
+ 			MV88E6XXX_FLAG_TEMP |
+@@ -97,6 +101,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 			MV88E6XXX_FLAG_EEE |
  			MV88E6XXX_FLAG_EEPROM |
  			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
-@@ -104,7 +109,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6352",
- 		.num_databases = 4096,
- 		.num_ports = 7,
--		.flags = MV88E6XXX_FLAG_EEE |
-+		.flags = MV88E6XXX_FLAG_ATU |
-+			MV88E6XXX_FLAG_EEE |
+ 			MV88E6XXX_FLAG_SWITCH_MAC |
+ 			MV88E6XXX_FLAG_TEMP |
+@@ -113,6 +118,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 			MV88E6XXX_FLAG_EEE |
  			MV88E6XXX_FLAG_EEPROM |
  			MV88E6XXX_FLAG_PORTSTATE |
++			MV88E6XXX_FLAG_PPU_ACTIVE |
  			MV88E6XXX_FLAG_SMI_PHY |
+ 			MV88E6XXX_FLAG_SWITCH_MAC |
+ 			MV88E6XXX_FLAG_TEMP |
+@@ -179,10 +185,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, true);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6352_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 805bd0f..810226d 100644
+index 810226d..b52e3d0 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2265,6 +2265,11 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 			       const struct switchdev_obj_port_fdb *fdb,
- 			       struct switchdev_trans *trans)
+@@ -2549,6 +2549,68 @@ restore_page_0:
+ 	return ret;
+ }
+ 
++static int _mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps)
++{
++	bool ppu_active = mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU_ACTIVE);
++	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
++	struct gpio_desc *gpiod = ps->ds->pd->reset;
++	unsigned long timeout;
++	int ret;
++	int i;
++
++	/* Set all ports to the disabled state. */
++	for (i = 0; i < ps->info->num_ports; i++) {
++		ret = _mv88e6xxx_reg_read(ps, REG_PORT(i), PORT_CONTROL);
++		if (ret < 0)
++			return ret;
++
++		ret = _mv88e6xxx_reg_write(ps, REG_PORT(i), PORT_CONTROL,
++					   ret & 0xfffc);
++		if (ret)
++			return ret;
++	}
++
++	/* Wait for transmit queues to drain. */
++	usleep_range(2000, 4000);
++
++	/* If there is a gpio connected to the reset pin, toggle it */
++	if (gpiod) {
++		gpiod_set_value_cansleep(gpiod, 1);
++		usleep_range(10000, 20000);
++		gpiod_set_value_cansleep(gpiod, 0);
++		usleep_range(10000, 20000);
++	}
++
++	/* Reset the switch. Keep the PPU active if requested. The PPU
++	 * needs to be active to support indirect phy register access
++	 * through global registers 0x18 and 0x19.
++	 */
++	if (ppu_active)
++		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc000);
++	else
++		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc400);
++	if (ret)
++		return ret;
++
++	/* Wait up to one second for reset to complete. */
++	timeout = jiffies + 1 * HZ;
++	while (time_before(jiffies, timeout)) {
++		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, 0x00);
++		if (ret < 0)
++			return ret;
++
++		if ((ret & is_reset) == is_reset)
++			break;
++		usleep_range(1000, 2000);
++	}
++	if (time_after(jiffies, timeout))
++		ret = -ETIMEDOUT;
++	else
++		ret = 0;
++
++	return ret;
++}
++
+ static int mv88e6xxx_power_on_serdes(struct mv88e6xxx_priv_state *ps)
  {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_ATU))
-+		return -EOPNOTSUPP;
-+
- 	/* We don't need any dynamic resource from the kernel (yet),
- 	 * so skip the prepare phase.
- 	 */
-@@ -2280,6 +2285,9 @@ void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 		GLOBAL_ATU_DATA_STATE_UC_STATIC;
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_ATU))
-+		return;
-+
- 	mutex_lock(&ps->smi_mutex);
- 	if (_mv88e6xxx_port_fdb_load(ps, port, fdb->addr, fdb->vid, state))
- 		netdev_err(ds->ports[port], "failed to load MAC address\n");
-@@ -2292,6 +2300,9 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
  	int ret;
+@@ -2850,6 +2912,8 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
  
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_ATU))
-+		return -EOPNOTSUPP;
+ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ {
++	int err;
 +
- 	mutex_lock(&ps->smi_mutex);
- 	ret = _mv88e6xxx_port_fdb_load(ps, port, fdb->addr, fdb->vid,
- 				       GLOBAL_ATU_DATA_STATE_UNUSED);
-@@ -2397,6 +2408,9 @@ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 	u16 fid;
- 	int err;
+ 	mutex_init(&ps->smi_mutex);
  
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_ATU))
-+		return -EOPNOTSUPP;
+ 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+@@ -2860,7 +2924,13 @@ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+ 		mv88e6xxx_ppu_state_init(ps);
+ 
+-	return 0;
++	mutex_lock(&ps->smi_mutex);
 +
- 	mutex_lock(&ps->smi_mutex);
++	err = _mv88e6xxx_switch_reset(ps);
++
++	mutex_unlock(&ps->smi_mutex);
++
++	return err;
+ }
  
- 	/* Dump port's default Filtering Information Database (VLAN ID 0) */
+ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+@@ -3036,71 +3106,6 @@ unlock:
+ 	return err;
+ }
+ 
+-int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps, bool ppu_active)
+-{
+-	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
+-	struct gpio_desc *gpiod = ps->ds->pd->reset;
+-	unsigned long timeout;
+-	int ret;
+-	int i;
+-
+-	mutex_lock(&ps->smi_mutex);
+-
+-	/* Set all ports to the disabled state. */
+-	for (i = 0; i < ps->info->num_ports; i++) {
+-		ret = _mv88e6xxx_reg_read(ps, REG_PORT(i), PORT_CONTROL);
+-		if (ret < 0)
+-			goto unlock;
+-
+-		ret = _mv88e6xxx_reg_write(ps, REG_PORT(i), PORT_CONTROL,
+-					   ret & 0xfffc);
+-		if (ret)
+-			goto unlock;
+-	}
+-
+-	/* Wait for transmit queues to drain. */
+-	usleep_range(2000, 4000);
+-
+-	/* If there is a gpio connected to the reset pin, toggle it */
+-	if (gpiod) {
+-		gpiod_set_value_cansleep(gpiod, 1);
+-		usleep_range(10000, 20000);
+-		gpiod_set_value_cansleep(gpiod, 0);
+-		usleep_range(10000, 20000);
+-	}
+-
+-	/* Reset the switch. Keep the PPU active if requested. The PPU
+-	 * needs to be active to support indirect phy register access
+-	 * through global registers 0x18 and 0x19.
+-	 */
+-	if (ppu_active)
+-		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc000);
+-	else
+-		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc400);
+-	if (ret)
+-		goto unlock;
+-
+-	/* Wait up to one second for reset to complete. */
+-	timeout = jiffies + 1 * HZ;
+-	while (time_before(jiffies, timeout)) {
+-		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, 0x00);
+-		if (ret < 0)
+-			goto unlock;
+-
+-		if ((ret & is_reset) == is_reset)
+-			break;
+-		usleep_range(1000, 2000);
+-	}
+-	if (time_after(jiffies, timeout))
+-		ret = -ETIMEDOUT;
+-	else
+-		ret = 0;
+-unlock:
+-	mutex_unlock(&ps->smi_mutex);
+-
+-	return ret;
+-}
+-
+ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 9de6ae9..e639de7 100644
+index e639de7..7ca7230 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -351,6 +351,11 @@ enum mv88e6xxx_family {
- };
- 
- enum mv88e6xxx_cap {
-+	/* Address Translation Unit.
-+	 * The ATU is used to lookup and learn MAC addresses. See GLOBAL_ATU_OP.
-+	 */
-+	MV88E6XXX_CAP_ATU,
-+
- 	/* Energy Efficient Ethernet.
+@@ -374,6 +374,7 @@ enum mv88e6xxx_cap {
+ 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
  	 */
- 	MV88E6XXX_CAP_EEE,
-@@ -402,6 +407,7 @@ enum mv88e6xxx_cap {
- };
+ 	MV88E6XXX_CAP_PPU,
++	MV88E6XXX_CAP_PPU_ACTIVE,
  
- /* Bitmask of capabilities */
-+#define MV88E6XXX_FLAG_ATU		BIT(MV88E6XXX_CAP_ATU)
- #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
+ 	/* SMI PHY Command and Data registers.
+ 	 * This requires an indirect access to PHY registers through
+@@ -412,6 +413,7 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
  #define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
++#define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
+ #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
+ #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+@@ -523,7 +525,6 @@ static inline bool mv88e6xxx_has(struct mv88e6xxx_priv_state *ps,
+ 	return (ps->info->flags & flags) == flags;
+ }
+ 
+-int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps, bool ppu_active);
+ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+ 				int sw_addr, void **priv,
+ 				const struct mv88e6xxx_info *table,
 -- 
 2.8.2
