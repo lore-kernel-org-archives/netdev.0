@@ -1,56 +1,49 @@
-From: Brian Haley <brian.haley@hpe.com>
-Subject: Re: [PATCH nf-next 0/9] netfilter: remove per-netns conntrack tables,
- part 1
-Date: Thu, 5 May 2016 18:22:29 -0400
-Message-ID: <572BC7A5.1060503@hpe.com>
-References: <1461863628-23350-1-git-send-email-fw@strlen.de>
- <572BACA3.6070303@hpe.com> <20160505205418.GA21687@breakpoint.cc>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [v10, 1/7] Documentation: DT: update Freescale DCFG compatible
+Date: Thu, 5 May 2016 17:25:21 -0500
+Message-ID: <20160505222521.GA18377@rob-hp-laptop>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+ <1462417950-46796-2-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hp.com ([15.240.0.71]:55941 "EHLO
-	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752284AbcEEWWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 18:22:39 -0400
-In-Reply-To: <20160505205418.GA21687@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mmc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, linux-clk@vger.kernel.org,
+	linux-i2c@vger.kernel.org, iommu@lists.linux-foundation.org,
+	netdev@vger.kernel.org, ulf.hansson@linaro.org,
+	Scott Wood <oss@buserror.net>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Qiang Zhao <qiang.zhao@nxp.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
+	xiaobo.xie@nxp.com
+To: Yangbo Lu <yangbo.lu@nxp.com>
+Return-path: <linux-i2c-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1462417950-46796-2-git-send-email-yangbo.lu@nxp.com>
+Sender: linux-i2c-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/05/2016 04:54 PM, Florian Westphal wrote:
-> Brian Haley <brian.haley@hpe.com> wrote:
->> Openstack networking creates virtual routers using namespaces for isolation
->> between users.  VETH pairs are used to connect the interfaces on these
->> routers to different networks, whether they are internal (private) or
->> external (public).  In most cases NAT is done inside the namespace as
->> packets move between the networks.
->>
->> I've seen cases where certain users are attacked, where the CT table is
->> filled such that we start seeing "nf_conntrack: table full, dropping packet"
->> messages (as expected).  But other users continue to function normally,
->> unaffected.  Is this still the case - each netns has some limit it can't
->> exceed?
->
-> The limit is global, the accounting per namespace.
+On Thu, May 05, 2016 at 11:12:24AM +0800, Yangbo Lu wrote:
+> Update Freescale DCFG compatible with 'fsl,<chip>-dcfg' instead
+> of 'fsl,ls1021a-dcfg' to include more chips such as ls1021a,
+> ls1043a, and ls2080a.
+> 
+> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+> ---
+> Changes for v8:
+> 	- Added this patch
+> Changes for v9:
+> 	- Added a list for the possible compatibles
+> Changes for v10:
+> 	- None
+> ---
+>  Documentation/devicetree/bindings/arm/fsl.txt | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
 
-So this is a change from existing.
-
-> If the bucket count (net.netfilter.nf_conntrack_buckets) is high enough
-> to accomodate the expected load and noone can create arbitrary number of
-> net namespaces things are fine.
-
-In my case we can't control the number of namespaces, each user will get one as 
-a virtual router is created.  We could change how we size things, but that 
-doesn't stop one user from consuming larger than their 1/N share of entries. 
-Typically we just increase the number of systems hosting these "routers" when we 
-hit a limit, which decreases the netns count per node.
-
-> I haven't changed the way this works yet because I did not have a better
-> idea so far.
-
-Creating a per-netns maximum seems doable, but maybe not practical from the 
-accounting side of things.  Can't think of anything else at the moment.
-
--Brian
+Acked-by: Rob Herring <robh@kernel.org>
