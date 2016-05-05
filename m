@@ -1,105 +1,66 @@
-From: Qiang Zhao <qiang.zhao@nxp.com>
-Subject: RE: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
-Date: Thu, 5 May 2016 02:31:27 +0000
-Message-ID: <AM3PR04MB1185B5352C395FE8951CA5A5917C0@AM3PR04MB1185.eurprd04.prod.outlook.com>
-References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
- <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 03/14] udp: Don't set skb->encapsulation with RCO
+Date: Wed, 4 May 2016 19:42:31 -0700
+Message-ID: <CAKgT0UeUTpuENPxOr7APFZ1YrVkCha=10qk=hh67eNb1u3Pexg@mail.gmail.com>
+References: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
+	<1462410164-1953217-4-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "ulf.hansson@linaro.org" <ulf.hansson@linaro.org>,
- Russell King <linux@arm.linux.org.uk>, Yangbo Lu <yangbo.lu@nxp.com>,
- Bhupesh Sharma <bhupesh.sharma@freescale.com>, Joerg Roedel <joro@8bytes.org>,
- Santosh
- Shilimkar <ssantosh@kernel.org>, Jochen Friedrich <jochen@scram.de>,
- Yang-Leo Li <leoyang.li@nxp.com>, Scott Wood <oss@buserror.net>,
- Rob Herring <robh+dt@kernel.org>,
- Claudiu Manoil <claudiu.manoil@freescale.com>,
- Kumar Gala <galak@codeaurora.org>, Xiaobo Xie <xiaobo.xie@nxp.com>
-To: Yangbo Lu <yangbo.lu@nxp.com>, "linux-mmc@vger.kernel.org"
- <linux-mmc@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org"
- <linuxppc-dev@lists.ozlabs.org>, "devicetree@vger.kernel.org"
- <devicetree@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org"
- <linux-arm-kernel@lists.infradead.org>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>, "linux-clk@vger.kernel.org"
- <linux-clk@vger.kernel.org>, "linux-i2c@vger.kernel.org"
- <linux-i2c@vger.kernel.org>, "iommu@lists.linux-foundation.org"
- <iommu@lists.linux-foundation.org>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:35094 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755736AbcEECmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 22:42:36 -0400
+Received: by mail-io0-f171.google.com with SMTP id d62so72969008iof.2
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 19:42:31 -0700 (PDT)
+In-Reply-To: <1462410164-1953217-4-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-04 at 11:24 +0800, Yangbo Lu wrote:
-> -----Original Message-----
-> From: Yangbo Lu [mailto:yangbo.lu@nxp.com]
-> Sent: Wednesday, May 04, 2016 11:25 AM
-> To: linux-mmc@vger.kernel.org; linuxppc-dev@lists.ozlabs.org;
-> devicetree@vger.kernel.org; linux-arm-kernel@lists.infradead.org; linux-
-> kernel@vger.kernel.org; linux-clk@vger.kernel.org; linux-i2c@vger.kernel.org;
-> iommu@lists.linux-foundation.org; netdev@vger.kernel.org
-> Cc: ulf.hansson@linaro.org; Scott Wood <oss@buserror.net>; Mark Rutland
-> <mark.rutland@arm.com>; Rob Herring <robh+dt@kernel.org>; Russell King
-> <linux@arm.linux.org.uk>; Jochen Friedrich <jochen@scram.de>; Joerg Roedel
-> <joro@8bytes.org>; Claudiu Manoil <claudiu.manoil@freescale.com>; Bhupesh
-> Sharma <bhupesh.sharma@freescale.com>; Qiang Zhao
-> <qiang.zhao@nxp.com>; Kumar Gala <galak@codeaurora.org>; Santosh
-> Shilimkar <ssantosh@kernel.org>; Yang-Leo Li <leoyang.li@nxp.com>; Xiaobo
-> Xie <xiaobo.xie@nxp.com>; Yangbo Lu <yangbo.lu@nxp.com>
-> Subject: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
-> 
-> Add maintainer entry for Freescale SoC driver including the QE library and the
-> GUTS driver now. Also add maintainer for QE library.
-> 
-> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+On Wed, May 4, 2016 at 6:02 PM, Tom Herbert <tom@herbertland.com> wrote:
+> When RCO is in effect we want to ensure that the outer checksum is
+> properly offloaded. Don't set skb->encapsulation in this case to
+> ensure that checksum offload is later considered for hw_features
+> instead of hw_enc_features.
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 > ---
-> Changes for v8:
-> 	- Added this patch
-> Changes for v9:
-> 	- Added linux-arm mail list
-> 	- Removed GUTS driver entry
-> ---
->  MAINTAINERS | 11 ++++++++++-
->  1 file changed, 10 insertions(+), 1 deletion(-)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 42e65d1..ce91db7 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -4622,9 +4622,18 @@ F:	drivers/net/ethernet/freescale/fec_ptp.c
->  F:	drivers/net/ethernet/freescale/fec.h
->  F:	Documentation/devicetree/bindings/net/fsl-fec.txt
-> 
-> +FREESCALE SOC DRIVER
-> +M:	Scott Wood <oss@buserror.net>
-> +L:	linuxppc-dev@lists.ozlabs.org
-> +L:	linux-arm-kernel@lists.infradead.org
-> +S:	Maintained
-> +F:	drivers/soc/fsl/
-> +F:	include/linux/fsl/
-> +
->  FREESCALE QUICC ENGINE LIBRARY
-> +M:	Qiang Zhao <qiang.zhao@nxp.com>
->  L:	linuxppc-dev@lists.ozlabs.org
-> -S:	Orphan
-> +S:	Maintained
->  F:	drivers/soc/fsl/qe/
->  F:	include/soc/fsl/*qe*.h
->  F:	include/soc/fsl/*ucc*.h
-> --
-> 2.1.0.27.g96db324
+>  net/ipv4/udp_offload.c | 10 ++++++----
+>  1 file changed, 6 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index b556ef6..4eedec6 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -94,11 +94,13 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>         do {
+>                 unsigned int len;
+>
+> -               if (remcsum)
+> +               if (remcsum) {
+>                         skb->ip_summed = CHECKSUM_NONE;
+> -
+> -               /* Set up inner headers if we are offloading inner checksum */
+> -               if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +                       skb->encapsulation = 0;
+> +               } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +                       /* Set up inner headers if we are offloading inner
+> +                        * checksum
+> +                        */
+>                         skb_reset_inner_headers(skb);
+>                         skb->encapsulation = 1;
+>                 }
 
-I am ok!
 
--Zhao Qiang
+Why are you wasting cycles clearing a value that should have already
+been cleared?
+
+We set skb->encapsulation to 0 for the incoming skb before we segment
+it.  As such all of the segments we get should also not have it set.
+It seems like you are just wasting cycles writing it again even though
+it isn't written.
+
+- Alex
