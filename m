@@ -1,94 +1,55 @@
-From: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] rtlwifi: pci: use dev_kfree_skb_irq instead of kfree_skb in
- rtl_pci_reset_trx_ring
-Date: Fri, 6 May 2016 01:19:04 +0800
-Message-ID: <20160505171904.GA16619@udknight>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 3/7] openvswitch: add support to
+ push and pop mpls for layer3 packets
+Date: Thu, 5 May 2016 10:35:52 -0700
+Message-ID: <CAOrHB_A__kJiHOTRNd3Vj4sF2dcEw5w33_PpJLR_hosvbKG52A@mail.gmail.com>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-4-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1462347393-22354-4-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-We can't use kfree_skb in irq disable context, because spin_lock_irqsave
-make sure we are always in irq disable context, use dev_kfree_skb_irq
-instead of kfree_skb is better than dev_kfree_skb_any.
-
-This patch fix below kernel warning:
-[ 7612.095528] ------------[ cut here ]------------
-[ 7612.095546] WARNING: CPU: 3 PID: 4460 at kernel/softirq.c:150 __local_bh_enable_ip+0x58/0x80()
-[ 7612.095550] Modules linked in: rtl8723be x86_pkg_temp_thermal btcoexist rtl_pci rtlwifi rtl8723_common
-[ 7612.095567] CPU: 3 PID: 4460 Comm: ifconfig Tainted: G        W       4.4.0+ #4
-[ 7612.095570] Hardware name: LENOVO 20DFA04FCD/20DFA04FCD, BIOS J5ET48WW (1.19 ) 08/27/2015
-[ 7612.095574]  00000000 00000000 da37fc70 c12ce7c5 00000000 da37fca0 c104cc59 c19d4454
-[ 7612.095584]  00000003 0000116c c19d4784 00000096 c10508a8 c10508a8 00000200 c1b42400
-[ 7612.095594]  f29be780 da37fcb0 c104ccad 00000009 00000000 da37fcbc c10508a8 f21f08b8
-[ 7612.095604] Call Trace:
-[ 7612.095614]  [<c12ce7c5>] dump_stack+0x41/0x5c
-[ 7612.095620]  [<c104cc59>] warn_slowpath_common+0x89/0xc0
-[ 7612.095628]  [<c10508a8>] ? __local_bh_enable_ip+0x58/0x80
-[ 7612.095634]  [<c10508a8>] ? __local_bh_enable_ip+0x58/0x80
-[ 7612.095640]  [<c104ccad>] warn_slowpath_null+0x1d/0x20
-[ 7612.095646]  [<c10508a8>] __local_bh_enable_ip+0x58/0x80
-[ 7612.095653]  [<c16b7d34>] destroy_conntrack+0x64/0xa0
-[ 7612.095660]  [<c16b300f>] nf_conntrack_destroy+0xf/0x20
-[ 7612.095665]  [<c1677565>] skb_release_head_state+0x55/0xa0
-[ 7612.095670]  [<c16775bb>] skb_release_all+0xb/0x20
-[ 7612.095674]  [<c167760b>] __kfree_skb+0xb/0x60
-[ 7612.095679]  [<c16776f0>] kfree_skb+0x30/0x70
-[ 7612.095686]  [<f81b869d>] ? rtl_pci_reset_trx_ring+0x22d/0x370 [rtl_pci]
-[ 7612.095692]  [<f81b869d>] rtl_pci_reset_trx_ring+0x22d/0x370 [rtl_pci]
-[ 7612.095698]  [<f81b87f9>] rtl_pci_start+0x19/0x190 [rtl_pci]
-[ 7612.095705]  [<f81970e6>] rtl_op_start+0x56/0x90 [rtlwifi]
-[ 7612.095712]  [<c17e3f16>] drv_start+0x36/0xc0
-[ 7612.095717]  [<c17f5ab3>] ieee80211_do_open+0x2d3/0x890
-[ 7612.095725]  [<c16820fe>] ? call_netdevice_notifiers_info+0x2e/0x60
-[ 7612.095730]  [<c17f60bd>] ieee80211_open+0x4d/0x50
-[ 7612.095736]  [<c16891b3>] __dev_open+0xa3/0x130
-[ 7612.095742]  [<c183fa53>] ? _raw_spin_unlock_bh+0x13/0x20
-[ 7612.095748]  [<c1689499>] __dev_change_flags+0x89/0x140
-[ 7612.095753]  [<c127c70d>] ? selinux_capable+0xd/0x10
-[ 7612.095759]  [<c1689589>] dev_change_flags+0x29/0x60
-[ 7612.095765]  [<c1700b93>] devinet_ioctl+0x553/0x670
-[ 7612.095772]  [<c12db758>] ? _copy_to_user+0x28/0x40
-[ 7612.095777]  [<c17018b5>] inet_ioctl+0x85/0xb0
-[ 7612.095783]  [<c166e647>] sock_ioctl+0x67/0x260
-[ 7612.095788]  [<c166e5e0>] ? sock_fasync+0x80/0x80
-[ 7612.095795]  [<c115c99b>] do_vfs_ioctl+0x6b/0x550
-[ 7612.095800]  [<c127c812>] ? selinux_file_ioctl+0x102/0x1e0
-[ 7612.095807]  [<c10a8914>] ? timekeeping_suspend+0x294/0x320
-[ 7612.095813]  [<c10a256a>] ? __hrtimer_run_queues+0x14a/0x210
-[ 7612.095820]  [<c1276e24>] ? security_file_ioctl+0x34/0x50
-[ 7612.095827]  [<c115cef0>] SyS_ioctl+0x70/0x80
-[ 7612.095832]  [<c1001804>] do_fast_syscall_32+0x84/0x120
-[ 7612.095839]  [<c183ff91>] sysenter_past_esp+0x36/0x55
-[ 7612.095844] ---[ end trace 97e9c637a20e8348 ]---
-
-Signed-off-by: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/realtek/rtlwifi/pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
-index 1ac41b8..99a3a03 100644
---- a/drivers/net/wireless/realtek/rtlwifi/pci.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
-@@ -1572,7 +1572,7 @@ int rtl_pci_reset_trx_ring(struct ieee80211_hw *hw)
- 							 true,
- 							 HW_DESC_TXBUFF_ADDR),
- 						 skb->len, PCI_DMA_TODEVICE);
--				kfree_skb(skb);
-+				dev_kfree_skb_irq(skb);
- 				ring->idx = (ring->idx + 1) % ring->entries;
- 			}
- 			ring->idx = 0;
--- 
-1.8.5.6.2.g3d8a54e.dirty
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gV2VkLCBNYXkgNCwgMjAxNiBhdCAxMjozNiBBTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gQWxsb3cgcHVzaCBhbmQgcG9wIG1wbHMgYWN0aW9u
+cyB0byBhY3Qgb24gbGF5ZXIgMyBwYWNrZXRzIGJ5IHRlYWNoaW5nCj4gdGhlbSBub3QgdG8gYWNj
+ZXNzIG5vbi1leGlzdGVudCBMMiBoZWFkZXJzIG9mIHN1Y2ggcGFja2V0cy4KPgo+IFNpZ25lZC1v
+ZmYtYnk6IFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+Cj4gLS0tCj4g
+djkKPiAqIE5ldyBQYXRjaAo+IC0tLQo+ICBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jIHwgMjIg
+KysrKysrKysrKysrKystLS0tLS0tLQo+ICAxIGZpbGUgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygr
+KSwgOCBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9u
+cy5jIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+IGluZGV4IDg3OTE4NWZlMTgzZi4uZmU4
+ODVhODlmNTAxIDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiArKysg
+Yi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCj4gQEAgLTE2MCw4ICsxNjAsMTAgQEAgc3RhdGlj
+IGludCBwdXNoX21wbHMoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICpr
+ZXksCj4KPiAgICAgICAgIHNrYl9wb3N0cHVzaF9yY3N1bShza2IsIG5ld19tcGxzX2xzZSwgTVBM
+U19ITEVOKTsKPgo+IC0gICAgICAgaGRyID0gZXRoX2hkcihza2IpOwo+IC0gICAgICAgaGRyLT5o
+X3Byb3RvID0gbXBscy0+bXBsc19ldGhlcnR5cGU7Cj4gKyAgICAgICBpZiAoc2tiLT5tYWNfbGVu
+KSB7CmNhbiB5b3UgbW92ZSBoZHIgZGVmaW5pdGlvbiB0byB0aGlzIGJsb2NrPwoKPiArICAgICAg
+ICAgICAgICAgaGRyID0gZXRoX2hkcihza2IpOwo+ICsgICAgICAgICAgICAgICBoZHItPmhfcHJv
+dG8gPSBtcGxzLT5tcGxzX2V0aGVydHlwZTsKPiArICAgICAgIH0KPgpXZSBuZWVkIHRvIHVwZGF0
+ZSBza2IgY2hlY2tzdW0gaGVyZS4gIFRoaXMgYnVnIGlzIG5vdCByZWxhdGVkIHRvIHlvdXIKcGF0
+Y2guIHNpbmNlIHlvdSBhcmUgY2hhbmdpbmcgdGhpcyBjb2RlIGNhbiB5b3UgYWxzbyBmaXggdGhp
+cz8KCj4gICAgICAgICBpZiAoIXNrYi0+aW5uZXJfcHJvdG9jb2wpCj4gICAgICAgICAgICAgICAg
+IHNrYl9zZXRfaW5uZXJfcHJvdG9jb2woc2tiLCBza2ItPnByb3RvY29sKTsKPiBAQCAtMTc0LDcg
+KzE3Niw2IEBAIHN0YXRpYyBpbnQgcHVzaF9tcGxzKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
+dCBzd19mbG93X2tleSAqa2V5LAo+ICBzdGF0aWMgaW50IHBvcF9tcGxzKHN0cnVjdCBza19idWZm
+ICpza2IsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5LAo+ICAgICAgICAgICAgICAgICAgICAgY29u
+c3QgX19iZTE2IGV0aGVydHlwZSkKPiAgewo+IC0gICAgICAgc3RydWN0IGV0aGhkciAqaGRyOwo+
+ICAgICAgICAgaW50IGVycjsKPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
