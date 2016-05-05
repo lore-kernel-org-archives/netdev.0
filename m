@@ -1,63 +1,87 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [v10,
-	7/7] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
-Date: Thu, 05 May 2016 10:31:36 +0200
-Message-ID: <4448030.Zs8fVnr3nm@wuerfel>
-References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
-	<1462417950-46796-8-git-send-email-yangbo.lu@nxp.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 06/13] net: original ingress device index in
+ PKTINFO
+Date: Thu, 5 May 2016 11:41:27 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1605051040320.2118@ja.home.ssi.bg>
+References: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com> <1462419210-10463-7-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	xiaobo.xie-3arQi8VN3Tc@public.gmane.org, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	leoyang.li-3arQi8VN3Tc@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1462417950-46796-8-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:52933 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756159AbcEEIlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2016 04:41:36 -0400
+In-Reply-To: <1462419210-10463-7-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 05 May 2016 11:12:30 Yangbo Lu wrote:
+
+	Hello,
+
+On Wed, 4 May 2016, David Ahern wrote:
+
+> Applications such as OSPF and BFD need the original ingress device not
+> the VRF device; the latter can be derived from the former. To that end
+> add the skb_iif to inet_skb_parm and set it in ipv4 code after clearing
+> the skb control buffer similar to IPv6. From there the pktinfo can just
+> pull it from cb with the PKTINFO_SKB_CB cast.
 > 
-> +       fsl_guts_init();
-> +       svr = fsl_guts_get_svr();
-> +       if (svr) {
-> +               esdhc->soc_ver = SVR_SOC_VER(svr);
-> +               esdhc->soc_rev = SVR_REV(svr);
-> +       } else {
-> +               dev_err(&pdev->dev, "Failed to get SVR value!\n");
-> +       }
-> +
+> The previous patch moving the skb->dev change to L3 means nothing else
+> is needed for IPv6; it just works.
 > 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  include/net/ip.h       | 1 +
+>  net/ipv4/ip_input.c    | 1 +
+>  net/ipv4/ip_sockglue.c | 9 +++++++--
+>  3 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index 247ac82e9cf2..37165fba3741 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -36,6 +36,7 @@
+>  struct sock;
+>  
+>  struct inet_skb_parm {
+> +	int			iif;
+>  	struct ip_options	opt;		/* Compiled IP options		*/
+>  	unsigned char		flags;
+>  
+> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+> index 37375eedeef9..4b351af3e67b 100644
+> --- a/net/ipv4/ip_input.c
+> +++ b/net/ipv4/ip_input.c
+> @@ -478,6 +478,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+>  
+>  	/* Remove any debris in the socket control block */
+>  	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+> +	IPCB(skb)->iif = skb->skb_iif;
 
+	For loopback traffic (including looped back multicast)
+this is now a zero :( Can inet_iif be moved to ip_rcv_finish
+instead? Still, we spend cycles in fast path in case nobody
+listens for such info.
 
-Sorry for jumping in again after not participating in the discussion for the
-past few versions.
+>  	/* Must drop socket now because of tproxy. */
+>  	skb_orphan(skb);
+> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> index bdb222c0c6a2..dbcd027c38e7 100644
+> --- a/net/ipv4/ip_sockglue.c
+> +++ b/net/ipv4/ip_sockglue.c
+> @@ -476,9 +476,9 @@ static bool ipv4_datagram_support_cmsg(const struct sock *sk,
+>  	    (!skb->dev))
+>  		return false;
+>  
+> +	/* see comment in ipv4_pktinfo_prepare about CB re-use */
+>  	info = PKTINFO_SKB_CB(skb);
+>  	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+> -	info->ipi_ifindex = skb->dev->ifindex;
 
-What happened to my suggestion of making this a platform-independent interface
-to avoid the link time dependency?
+	This code is only for SOF_TIMESTAMPING_OPT_CMSG.
+I'm not sure skb passes ip_rcv in all cases. So, we can not
+easily remove it.
 
-Specifically, why not add an exported function to drivers/base/soc.c that
-uses glob_match() for comparing a string in the device driver to the ID
-of the SoC that is set by whatever SoC identifying driver the platform
-has?
-
-	Arnd
+Regards
