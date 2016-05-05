@@ -1,8 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 1/3] net-next: mediatek: fix gigabit and flow control
- advertisement
-Date: Thu,  5 May 2016 11:17:34 +0200
-Message-ID: <1462439856-51788-2-git-send-email-john@phrozen.org>
+Subject: [PATCH 3/3] net-next: mediatek: add RX delay support
+Date: Thu,  5 May 2016 11:17:36 +0200
+Message-ID: <1462439856-51788-4-git-send-email-john@phrozen.org>
 References: <1462439856-51788-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,55 +22,26 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The current code will not setup the PHYs advertisement features correctly.
-Fix this and properly advertise Gigabit features and properly handle
-asymmetric pause frames.
+If an external Gigabit PHY is connected to either of the MACs we need to
+tell the to use a RX delay. Not doing so will result in heavy packet loss
+and/or data corruption of RX traffic.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c984462..093073c 100644
+index d397bec..41cdc0d 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -133,6 +133,8 @@ static int mtk_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg)
- static void mtk_phy_link_adjust(struct net_device *dev)
- {
- 	struct mtk_mac *mac = netdev_priv(dev);
-+	u16 lcl_adv, rmt_adv = 0;
-+	u8 flowctrl;
- 	u32 mcr = MAC_MCR_MAX_RX_1536 | MAC_MCR_IPG_CFG |
- 		  MAC_MCR_FORCE_MODE | MAC_MCR_TX_EN |
- 		  MAC_MCR_RX_EN | MAC_MCR_BACKOFF_EN |
-@@ -154,7 +156,16 @@ static void mtk_phy_link_adjust(struct net_device *dev)
- 		mcr |= MAC_MCR_FORCE_DPX;
+@@ -226,6 +226,7 @@ static int mtk_phy_connect(struct mtk_mac *mac)
+ 		return -ENODEV;
  
- 	if (mac->phy_dev->pause)
--		mcr |= MAC_MCR_FORCE_RX_FC | MAC_MCR_FORCE_TX_FC;
-+		rmt_adv = LPA_PAUSE_CAP;
-+	if (mac->phy_dev->asym_pause)
-+		rmt_adv |= LPA_PAUSE_ASYM;
-+
-+	lcl_adv = mii_advertise_flowctrl(FLOW_CTRL_RX | FLOW_CTRL_TX);
-+	flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+	if (flowctrl & FLOW_CTRL_TX)
-+		mcr |= MAC_MCR_FORCE_TX_FC;
-+	if (flowctrl & FLOW_CTRL_RX)
-+		mcr |= MAC_MCR_FORCE_RX_FC;
- 
- 	mtk_w32(mac->hw, mcr, MTK_MAC_MCR(mac->id));
- 
-@@ -236,7 +247,8 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 	mac->phy_dev->autoneg = AUTONEG_ENABLE;
- 	mac->phy_dev->speed = 0;
- 	mac->phy_dev->duplex = 0;
--	mac->phy_dev->supported &= PHY_BASIC_FEATURES;
-+	mac->phy_dev->supported &= PHY_GBIT_FEATURES | SUPPORTED_Pause |
-+				   ~SUPPORTED_Asym_Pause;
- 	mac->phy_dev->advertising = mac->phy_dev->supported |
- 				    ADVERTISED_Autoneg;
- 	phy_start_aneg(mac->phy_dev);
+ 	switch (of_get_phy_mode(np)) {
++	case PHY_INTERFACE_MODE_RGMII_RXID:
+ 	case PHY_INTERFACE_MODE_RGMII:
+ 		ge_mode = 0;
+ 		break;
 -- 
 1.7.10.4
