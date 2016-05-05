@@ -1,99 +1,46 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
-	flow/port support
-Date: Thu, 5 May 2016 10:37:08 -0700
-Message-ID: <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH 3/3] net-next: mediatek: add RX delay support
+Date: Thu, 5 May 2016 19:37:35 +0200
+Message-ID: <d35c9a8c-0988-094f-a12c-6d91f95b1b46@phrozen.org>
+References: <1462439856-51788-1-git-send-email-john@phrozen.org>
+ <1462439856-51788-4-git-send-email-john@phrozen.org>
+ <20160505121353.GE7972@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1462347393-22354-5-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, nbd@nbd.name
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160505121353.GE7972@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBNYXkgNCwgMjAxNiBhdCAxMjozNiBBTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gRnJvbTogTG9yYW5kIEpha2FiIDxsb2pha2FiQGNp
-c2NvLmNvbT4KPgo+IEltcGxlbWVudGF0aW9uIG9mIHRoZSBwb3BfZXRoIGFuZCBwdXNoX2V0aCBh
-Y3Rpb25zIGluIHRoZSBrZXJuZWwsIGFuZAo+IGxheWVyIDMgZmxvdyBzdXBwb3J0Lgo+Cj4gVGhp
-cyBkb2Vzbid0IGFjdHVhbGx5IGRvIGFueXRoaW5nIHlldCBhcyBubyBsYXllciAyIHR1bm5lbCBw
-b3J0cyBhcmUKPiBzdXBwb3J0ZWQgeWV0LiBUaGUgb3JpZ2luYWwgcGF0Y2ggYnkgTG9yYW5kIHdh
-cyBhZ2FpbnN0IHRoZSBPcGVuIHZTd3RpY2gKPiB0cmVlIHdoaWNoIGhhcyBMMiBMSVNQIHR1bm5l
-bHMgYnV0IHRoYXQgaXMgbm90IHN1cHBvcnRlZCBpbiBtYWlubGluZSBMaW51eC4KPiBJIChTaW1v
-bikgcGxhbiB0byBmb2xsb3cgdXAgd2l0aCBzdXBwb3J0IGZvciBub24tVEVCIEdSRSBwb3J0cyBi
-YXNlZCBvbgo+IHdvcmsgYnkgVGhvbWFzIE1vcmluLgo+Cj4gQ2M6IFRob21hcyBNb3JpbiA8dGhv
-bWFzLm1vcmluQG9yYW5nZS5jb20+Cj4gU2lnbmVkLW9mZi1ieTogTG9yYW5kIEpha2FiIDxsb2ph
-a2FiQGNpc2NvLmNvbT4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1h
-bkBuZXRyb25vbWUuY29tPgo+Cj4gLS0tCgouLi4KCj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3
-aXRjaC9mbG93LmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCj4gaW5kZXggMGVhMTI4ZWVlYWIy
-Li42ZTE3NGVhNWYyYmIgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+ICsr
-KyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKPiBAQCAtNDY4LDI4ICs0NjgsMzEgQEAgc3RhdGlj
-IGludCBrZXlfZXh0cmFjdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkg
-KmtleSkKPgo+ICAgICAgICAgc2tiX3Jlc2V0X21hY19oZWFkZXIoc2tiKTsKPgo+IC0gICAgICAg
-LyogTGluayBsYXllci4gIFdlIGFyZSBndWFyYW50ZWVkIHRvIGhhdmUgYXQgbGVhc3QgdGhlIDE0
-IGJ5dGUgRXRoZXJuZXQKPiAtICAgICAgICAqIGhlYWRlciBpbiB0aGUgbGluZWFyIGRhdGEgYXJl
-YS4KPiAtICAgICAgICAqLwo+IC0gICAgICAgZXRoID0gZXRoX2hkcihza2IpOwo+IC0gICAgICAg
-ZXRoZXJfYWRkcl9jb3B5KGtleS0+ZXRoLnNyYywgZXRoLT5oX3NvdXJjZSk7Cj4gLSAgICAgICBl
-dGhlcl9hZGRyX2NvcHkoa2V5LT5ldGguZHN0LCBldGgtPmhfZGVzdCk7Cj4gKyAgICAgICAvKiBM
-aW5rIGxheWVyLiAqLwo+ICsgICAgICAgaWYgKGtleS0+cGh5LmlzX2xheWVyMykgewo+ICsgICAg
-ICAgICAgICAgICBrZXktPmV0aC50Y2kgPSAwOwo+ICsgICAgICAgICAgICAgICBrZXktPmV0aC50
-eXBlID0gc2tiLT5wcm90b2NvbDsKPiArICAgICAgIH0gZWxzZSB7Cj4gKyAgICAgICAgICAgICAg
-IGV0aCA9IGV0aF9oZHIoc2tiKTsKPiArICAgICAgICAgICAgICAgZXRoZXJfYWRkcl9jb3B5KGtl
-eS0+ZXRoLnNyYywgZXRoLT5oX3NvdXJjZSk7Cj4gKyAgICAgICAgICAgICAgIGV0aGVyX2FkZHJf
-Y29weShrZXktPmV0aC5kc3QsIGV0aC0+aF9kZXN0KTsKPgo+IC0gICAgICAgX19za2JfcHVsbChz
-a2IsIDIgKiBFVEhfQUxFTik7Cj4gLSAgICAgICAvKiBXZSBhcmUgZ29pbmcgdG8gcHVzaCBhbGwg
-aGVhZGVycyB0aGF0IHdlIHB1bGwsIHNvIG5vIG5lZWQgdG8KPiAtICAgICAgICAqIHVwZGF0ZSBz
-a2ItPmNzdW0gaGVyZS4KPiAtICAgICAgICAqLwo+ICsgICAgICAgICAgICAgICBfX3NrYl9wdWxs
-KHNrYiwgMiAqIEVUSF9BTEVOKTsKPiArICAgICAgICAgICAgICAgLyogV2UgYXJlIGdvaW5nIHRv
-IHB1c2ggYWxsIGhlYWRlcnMgdGhhdCB3ZSBwdWxsLCBzbyBubyBuZWVkIHRvCj4gKyAgICAgICAg
-ICAgICAgICAqIHVwZGF0ZSBza2ItPmNzdW0gaGVyZS4KPiArICAgICAgICAgICAgICAgICovCj4K
-PiAtICAgICAgIGtleS0+ZXRoLnRjaSA9IDA7Cj4gLSAgICAgICBpZiAoc2tiX3ZsYW5fdGFnX3By
-ZXNlbnQoc2tiKSkKPiAtICAgICAgICAgICAgICAga2V5LT5ldGgudGNpID0gaHRvbnMoc2tiLT52
-bGFuX3RjaSk7Cj4gLSAgICAgICBlbHNlIGlmIChldGgtPmhfcHJvdG8gPT0gaHRvbnMoRVRIX1Bf
-ODAyMVEpKQo+IC0gICAgICAgICAgICAgICBpZiAodW5saWtlbHkocGFyc2Vfdmxhbihza2IsIGtl
-eSkpKQo+IC0gICAgICAgICAgICAgICAgICAgICAgIHJldHVybiAtRU5PTUVNOwo+ICsgICAgICAg
-ICAgICAgICBrZXktPmV0aC50Y2kgPSAwOwo+ICsgICAgICAgICAgICAgICBpZiAoc2tiX3ZsYW5f
-dGFnX3ByZXNlbnQoc2tiKSkKPiArICAgICAgICAgICAgICAgICAgICAgICBrZXktPmV0aC50Y2kg
-PSBodG9ucyhza2ItPnZsYW5fdGNpKTsKPiArICAgICAgICAgICAgICAgZWxzZSBpZiAoZXRoLT5o
-X3Byb3RvID09IGh0b25zKEVUSF9QXzgwMjFRKSkKPiArICAgICAgICAgICAgICAgICAgICAgICBp
-ZiAodW5saWtlbHkocGFyc2Vfdmxhbihza2IsIGtleSkpKQo+ICsgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgcmV0dXJuIC1FTk9NRU07Cj4KPiAtICAgICAgIGtleS0+ZXRoLnR5cGUgPSBw
-YXJzZV9ldGhlcnR5cGUoc2tiKTsKPiAtICAgICAgIGlmICh1bmxpa2VseShrZXktPmV0aC50eXBl
-ID09IGh0b25zKDApKSkKPiAtICAgICAgICAgICAgICAgcmV0dXJuIC1FTk9NRU07Cj4gKyAgICAg
-ICAgICAgICAgIGtleS0+ZXRoLnR5cGUgPSBwYXJzZV9ldGhlcnR5cGUoc2tiKTsKPiArICAgICAg
-ICAgICAgICAgaWYgKHVubGlrZWx5KGtleS0+ZXRoLnR5cGUgPT0gaHRvbnMoMCkpKQo+ICsgICAg
-ICAgICAgICAgICAgICAgICAgIHJldHVybiAtRU5PTUVNOwo+ICsgICAgICAgfQo+Cj4gICAgICAg
-ICBza2JfcmVzZXRfbmV0d29ya19oZWFkZXIoc2tiKTsKPiAgICAgICAgIHNrYl9yZXNldF9tYWNf
-bGVuKHNrYik7Cj4gQEAgLTY5NiwxMSArNjk5LDIzIEBAIGludCBvdnNfZmxvd19rZXlfdXBkYXRl
-KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5KQo+ICBpbnQgb3Zz
-X2Zsb3dfa2V5X2V4dHJhY3QoY29uc3Qgc3RydWN0IGlwX3R1bm5lbF9pbmZvICp0dW5faW5mbywK
-PiAgICAgICAgICAgICAgICAgICAgICAgICAgc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3
-X2Zsb3dfa2V5ICprZXkpCj4gIHsKPiArICAgICAgIGJvb2wgaXNfbGF5ZXIzID0gZmFsc2U7Cj4g
-KyAgICAgICBib29sIGlzX3RlYiA9IGZhbHNlOwppc19sYXllcjMgYW5kIGlzX3RlYiBhcmUgbXV0
-dWFsbHkgZXhjbHVzaXZlLCBzbyBjYW4ndCB3ZSB1c2Ugc2luZ2xlCmJvb2xlYW4gaGVyZT8KCgo+
-ICsgICAgICAgaW50IGVycjsKPiArCj4gICAgICAgICAvKiBFeHRyYWN0IG1ldGFkYXRhIGZyb20g
-cGFja2V0LiAqLwo+ICAgICAgICAgaWYgKHR1bl9pbmZvKSB7Cj4gICAgICAgICAgICAgICAgIGtl
-eS0+dHVuX3Byb3RvID0gaXBfdHVubmVsX2luZm9fYWYodHVuX2luZm8pOwo+ICAgICAgICAgICAg
-ICAgICBtZW1jcHkoJmtleS0+dHVuX2tleSwgJnR1bl9pbmZvLT5rZXksIHNpemVvZihrZXktPnR1
-bl9rZXkpKTsKPgo+ICsgICAgICAgICAgICAgICBpZiAoT1ZTX0NCKHNrYiktPmlucHV0X3Zwb3J0
-LT5kZXYtPnR5cGUgIT0gQVJQSFJEX0VUSEVSKSB7Cj4gKyAgICAgICAgICAgICAgICAgICAgICAg
-aWYgKHNrYi0+cHJvdG9jb2wgPT0gaHRvbnMoRVRIX1BfVEVCKSkKPiArICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIGlzX3RlYiA9IHRydWU7Cj4gKyAgICAgICAgICAgICAgICAgICAgICAg
-ZWxzZQo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaXNfbGF5ZXIzID0gdHJ1ZTsK
-PiArICAgICAgICAgICAgICAgfQo+ICsKT24gdHJhbnNtaXQgc2lkZSB5b3UgYXJlIHVzaW5nIG1h
-Y19sZW4gdG8gZGV0ZWN0IGwzIHBhY2tldCwgd2h5IG5vdCBkbwpzYW1lIHdoaWxlIGV4dHJhY3Rp
-bmcgdGhlIGtleT8KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
-aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+
+
+On 05/05/2016 14:13, Andrew Lunn wrote:
+> On Thu, May 05, 2016 at 11:17:36AM +0200, John Crispin wrote:
+>> If an external Gigabit PHY is connected to either of the MACs we need to
+>> tell the to use a RX delay. Not doing so will result in heavy packet loss
+>> and/or data corruption of RX traffic.
+> 
+> Hi John
+> 
+> Is this comment correct? Reading the code, all this switch statement
+> does is select between RGMII, MII and RMII. It has nothing to do with
+> delay. I suspect the PHY is doing the delay, not the MAC, since you
+> pass the phy mode to of_phy_connect().
+> 
+> If my interpretation of the code is correct, you might also want to
+> handle PHY_INTERFACE_MODE_RGMII_TXID and PHY_INTERFACE_MODE_RGMII_ID
+> which are also RGMII modes.
+> 
+>       Andrew
+
+Hi Andrew,
+
+the comment is indeed incorrect and the PHY needs to handle the delay. i
+will send a V2 and also add _TXID and _ID
+
+	John
