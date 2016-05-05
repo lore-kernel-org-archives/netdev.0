@@ -1,84 +1,76 @@
-From: Yangbo Lu <yangbo.lu@nxp.com>
-Subject: RE: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
-Date: Thu, 5 May 2016 03:21:04 +0000
-Message-ID: <HE1PR04MB0889AA66ABC718111D7EF41FF87C0@HE1PR04MB0889.eurprd04.prod.outlook.com>
-References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
-	 <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
- <1462383308.16584.43.camel@buserror.net>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v10, 0/7] Fix eSDHC host version register bug
+Date: Thu, 5 May 2016 11:12:23 +0800
+Message-ID: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "ulf.hansson@linaro.org" <ulf.hansson@linaro.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"Bhupesh Sharma" <bhupesh.sharma@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	Yang-Leo Li <leoyang.li@nxp.com>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>
-To: Scott Wood <oss@buserror.net>, Qiang Zhao <qiang.zhao@nxp.com>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-clk-owner@vger.kernel.org>
-In-Reply-To: <1462383308.16584.43.camel@buserror.net>
-Content-Language: en-US
-Sender: linux-clk-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, Bhupesh
+	Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, xiaobo.xie-3arQi8VN3Tc@public.gmane.org,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGEgbG90LCBTY290dCBhbmQgUWlhbmcuDQpXaWxsIGNoYW5nZSAnRFJJVkVSJyB0byAn
-RFJJVkVSUycgYW5kIHVwZGF0ZSB0aGUgcGF0Y2hzZXQgd2l0aCB5b3VyIGFjdHMuDQoNCg0KQmVz
-dCByZWdhcmRzLA0KWWFuZ2JvIEx1DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
-RnJvbTogbGludXgtbW1jLW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4LW1tYy0N
-Cj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgU2NvdHQgV29vZA0KPiBTZW50
-OiBUaHVyc2RheSwgTWF5IDA1LCAyMDE2IDE6MzUgQU0NCj4gVG86IFlhbmdibyBMdTsgbGludXgt
-bW1jQHZnZXIua2VybmVsLm9yZzsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7DQo+IGRl
-dmljZXRyZWVAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVh
-ZC5vcmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC1jbGtAdmdlci5r
-ZXJuZWwub3JnOyBsaW51eC0NCj4gaTJjQHZnZXIua2VybmVsLm9yZzsgaW9tbXVAbGlzdHMubGlu
-dXgtZm91bmRhdGlvbi5vcmc7DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IHVsZi5o
-YW5zc29uQGxpbmFyby5vcmc7IE1hcmsgUnV0bGFuZDsgUm9iIEhlcnJpbmc7IFJ1c3NlbGwgS2lu
-ZzsNCj4gSm9jaGVuIEZyaWVkcmljaDsgSm9lcmcgUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgQmh1
-cGVzaCBTaGFybWE7IFFpYW5nDQo+IFpoYW87IEt1bWFyIEdhbGE7IFNhbnRvc2ggU2hpbGlta2Fy
-OyBZYW5nLUxlbyBMaTsgWGlhb2JvIFhpZQ0KPiBTdWJqZWN0OiBSZTogW3Y5LCA2LzddIE1BSU5U
-QUlORVJTOiBhZGQgZW50cnkgZm9yIEZyZWVzY2FsZSBTb0MgZHJpdmVyDQo+IA0KPiBPbiBXZWQs
-IDIwMTYtMDUtMDQgYXQgMTE6MjQgKzA4MDAsIFlhbmdibyBMdSB3cm90ZToNCj4gPiBBZGQgbWFp
-bnRhaW5lciBlbnRyeSBmb3IgRnJlZXNjYWxlIFNvQyBkcml2ZXIgaW5jbHVkaW5nIHRoZSBRRSBs
-aWJyYXJ5DQo+ID4gYW5kIHRoZSBHVVRTIGRyaXZlciBub3cuIEFsc28gYWRkIG1haW50YWluZXIg
-Zm9yIFFFIGxpYnJhcnkuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBZYW5nYm8gTHUgPHlhbmdi
-by5sdUBueHAuY29tPg0KPiA+IC0tLQ0KPiA+IENoYW5nZXMgZm9yIHY4Og0KPiA+IAktIEFkZGVk
-IHRoaXMgcGF0Y2gNCj4gPiBDaGFuZ2VzIGZvciB2OToNCj4gPiAJLSBBZGRlZCBsaW51eC1hcm0g
-bWFpbCBsaXN0DQo+ID4gCS0gUmVtb3ZlZCBHVVRTIGRyaXZlciBlbnRyeQ0KPiA+IC0tLQ0KPiA+
-ICBNQUlOVEFJTkVSUyB8IDExICsrKysrKysrKystDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxMCBp
-bnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvTUFJTlRB
-SU5FUlMgYi9NQUlOVEFJTkVSUyBpbmRleCA0MmU2NWQxLi5jZTkxZGI3IDEwMDY0NA0KPiA+IC0t
-LSBhL01BSU5UQUlORVJTDQo+ID4gKysrIGIvTUFJTlRBSU5FUlMNCj4gPiBAQCAtNDYyMiw5ICs0
-NjIyLDE4IEBAIEY6CWRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfcHRwLmMNCj4g
-PiAgRjoJZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oDQo+ID4gIEY6CURvY3Vt
-ZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvZnNsLWZlYy50eHQNCj4gPg0KPiA+ICtG
-UkVFU0NBTEUgU09DIERSSVZFUg0KPiA+ICtNOglTY290dCBXb29kIDxvc3NAYnVzZXJyb3IubmV0
-Pg0KPiA+ICtMOglsaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZw0KPiA+ICtMOglsaW51eC1h
-cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcNCj4gPiArUzoJTWFpbnRhaW5lZA0KPiA+ICtG
-Oglkcml2ZXJzL3NvYy9mc2wvDQo+ID4gK0Y6CWluY2x1ZGUvbGludXgvZnNsLw0KPiA+ICsNCj4g
-PiAgRlJFRVNDQUxFIFFVSUNDIEVOR0lORSBMSUJSQVJZDQo+ID4gK006CVFpYW5nIFpoYW8gPHFp
-YW5nLnpoYW9AbnhwLmNvbT4NCj4gPiAgTDoJbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcN
-Cj4gPiAtUzoJT3JwaGFuDQo+ID4gK1M6CU1haW50YWluZWQNCj4gPiAgRjoJZHJpdmVycy9zb2Mv
-ZnNsL3FlLw0KPiA+ICBGOglpbmNsdWRlL3NvYy9mc2wvKnFlKi5oDQo+ID4gIEY6CWluY2x1ZGUv
-c29jL2ZzbC8qdWNjKi5oDQo+IA0KPiBzL0RSSVZFUi9EUklWRVJTLw0KPiANCj4gVGhlcmUncyBt
-b3JlIHRoYW4gb25lLg0KPiANCj4gT3RoZXJ3aXNlOg0KPiBBY2tlZC1ieTogU2NvdHQgV29vZCA8
-b3NzQGJ1c2Vycm9yLm5ldD4NCj4gDQo+IC1TY290dA0KPiANCj4gPg0KPiAtLQ0KPiBUbyB1bnN1
-YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
-bW1jIiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVs
-Lm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIGF0DQo+IGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFq
-b3Jkb21vLWluZm8uaHRtbA0K
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To get the SoC version and revision, it's needed to add the
+GUTS driver to access the global utilities registers.
+
+So, the first four patches are to add the GUTS driver.
+The following patches except the updating MAINTAINERS patch are to enable
+GUTS driver support to get SVR in eSDHC driver and fix host version for T4240.
+
+Yangbo Lu (7):
+  Documentation: DT: update Freescale DCFG compatible
+  ARM64: dts: ls2080a: add device configuration node
+  soc: fsl: add GUTS driver for QorIQ platforms
+  dt: move guts devicetree doc out of powerpc directory
+  powerpc/fsl: move mpc85xx.h to include/linux/fsl
+  MAINTAINERS: add entry for Freescale SoC drivers
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+
+ Documentation/devicetree/bindings/arm/fsl.txt      |   6 +-
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ MAINTAINERS                                        |  11 +-
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+ drivers/clk/clk-qoriq.c                            |   3 +-
+ drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+ drivers/iommu/fsl_pamu.c                           |   3 +-
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
+ drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+ drivers/soc/Kconfig                                |   2 +-
+ drivers/soc/fsl/Kconfig                            |   8 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++
+ include/linux/fsl/guts.h                           | 126 +++++++++++++--------
+ .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+ 17 files changed, 262 insertions(+), 60 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
+
+-- 
+2.1.0.27.g96db324
