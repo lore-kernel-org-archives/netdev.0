@@ -1,52 +1,165 @@
 From: Marc Angel <marc@arista.com>
-Subject: Re: [PATCH net-next v2] macvtap: add namespace support to the sysfs
- device class
-Date: Thu, 5 May 2016 11:12:34 +0100
-Message-ID: <CAPSAET_U+zMqtDDCPJG3Bp8kcS_VTf3eCQ_1v88jG0tPjVgYBQ@mail.gmail.com>
-References: <1462300254-22273-1-git-send-email-marc@arista.com>
- <20160504.160445.640444073175153113.davem@davemloft.net> <CAPSAET_zPYBvMdTQ5m1O9xO178Jk0b93rC1cy0CNY2yinUbnXw@mail.gmail.com>
- <20160504.235308.1088954708869507214.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next v4] macvtap: add namespace support to the sysfs device class
+Date: Thu,  5 May 2016 12:14:26 +0200
+Message-ID: <1462443266-3166-1-git-send-email-marc@arista.com>
+References: <20160504.235308.1088954708869507214.davem@davemloft.net>
+Cc: ebiederm@xmission.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:35602 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756283AbcEEKMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 06:12:55 -0400
-Received: by mail-oi0-f52.google.com with SMTP id x19so96971937oix.2
-        for <netdev@vger.kernel.org>; Thu, 05 May 2016 03:12:55 -0700 (PDT)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:34977 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756283AbcEEKNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 06:13:55 -0400
+Received: by mail-wm0-f46.google.com with SMTP id e201so14303326wme.0
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 03:13:54 -0700 (PDT)
 In-Reply-To: <20160504.235308.1088954708869507214.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 5, 2016 at 4:53 AM, David Miller <davem@davemloft.net> wrote:
-> From: Marc Angel <marc@arista.com>
-> Date: Thu, 5 May 2016 01:33:09 +0100
->
->> On Wed, May 4, 2016 at 9:04 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Marc Angel <marc@arista.com>
->>> Date: Tue,  3 May 2016 20:30:54 +0200
->>>
->>>> @@ -1274,6 +1285,7 @@ static int macvtap_device_event(struct notifier_block *unused,
->>>>                               unsigned long event, void *ptr)
->>>>  {
->>>>       struct net_device *dev = netdev_notifier_info_to_dev(ptr);
->>>> +     const char *tap_name = kasprintf(GFP_KERNEL, "tap%d", dev->ifindex);
->>>>       struct macvlan_dev *vlan;
->>>>       struct device *classdev;
->>>>       dev_t devt;
->>>
->>> This 'tap_name' buffer seems to be leaked in several code paths.
->>
->> Sorry about that... V3 should be better.
->
-> V3 doesn't apply cleanly to net-next, please respin your patch against
-> the current tree.
->
-> Thanks.
+When creating macvtaps that are expected to have the same ifindex
+in different network namespaces, only the first one will succeed.
+The others will fail with a sysfs_warn_dup warning due to them trying
+to create the following sysfs link (with 'NN' the ifindex of macvtapX):
 
-I wasn't up-to-date, sorry again about that...
+/sys/class/macvtap/tapNN -> /sys/devices/virtual/net/macvtapX/tapNN
 
-Thanks for being so patient.
+This is reproducible by running the following commands:
+
+ip netns add ns1
+ip netns add ns2
+ip link add veth0 type veth peer name veth1
+ip link set veth0 netns ns1
+ip link set veth1 netns ns2
+ip netns exec ns1 ip l add link veth0 macvtap0 type macvtap
+ip netns exec ns2 ip l add link veth1 macvtap1 type macvtap
+
+The last command will fail with "RTNETLINK answers: File exists" (along
+with the kernel warning) but retrying it will work because the ifindex
+was incremented.
+
+The 'net' device class is isolated between network namespaces so each
+one has its own hierarchy of net devices.
+This isn't the case for the 'macvtap' device class.
+The problem occurs half-way through the netdev registration, when
+`macvtap_device_event` is called-back to create the 'tapNN' macvtap
+class device under the 'macvtapX' net class device.
+
+This patch adds namespace support to the 'macvtap' device class so
+that /sys/class/macvtap is no longer shared between net namespaces.
+
+However, making the macvtap sysfs class namespace-aware has the side
+effect of changing /sys/devices/virtual/net/macvtapX/tapNN  into
+/sys/devices/virtual/net/macvtapX/macvtap/tapNN.
+
+This is due to Commit 24b1442 ("Driver-core: Always create class
+directories for classses that support namespaces") and the fact that
+class devices supporting namespaces are really not supposed to be placed
+directly under other class devices.
+
+To avoid breaking userland, a tapNN symlink pointing to macvtap/tapNN is
+created inside the macvtapX directory.
+
+Signed-off-by: Marc Angel <marc@arista.com>
+---
+ drivers/net/macvtap.c | 36 ++++++++++++++++++++++++++----------
+ 1 file changed, 26 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 74cb15a..22b85b0 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -129,7 +129,18 @@ static DEFINE_MUTEX(minor_lock);
+ static DEFINE_IDR(minor_idr);
+ 
+ #define GOODCOPY_LEN 128
+-static struct class *macvtap_class;
++static const void *macvtap_net_namespace(struct device *d)
++{
++	struct net_device *dev = to_net_dev(d->parent);
++	return dev_net(dev);
++}
++
++static struct class macvtap_class = {
++	.name = "macvtap",
++	.owner = THIS_MODULE,
++	.ns_type = &net_ns_type_operations,
++	.namespace = macvtap_net_namespace,
++};
+ static struct cdev macvtap_cdev;
+ 
+ static const struct proto_ops macvtap_socket_ops;
+@@ -1278,10 +1289,12 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 	struct device *classdev;
+ 	dev_t devt;
+ 	int err;
++	char tap_name[IFNAMSIZ];
+ 
+ 	if (dev->rtnl_link_ops != &macvtap_link_ops)
+ 		return NOTIFY_DONE;
+ 
++	snprintf(tap_name, IFNAMSIZ, "tap%d", dev->ifindex);
+ 	vlan = netdev_priv(dev);
+ 
+ 	switch (event) {
+@@ -1295,19 +1308,24 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 			return notifier_from_errno(err);
+ 
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+-		classdev = device_create(macvtap_class, &dev->dev, devt,
+-					 dev, "tap%d", dev->ifindex);
++		classdev = device_create(&macvtap_class, &dev->dev, devt,
++					 dev, tap_name);
+ 		if (IS_ERR(classdev)) {
+ 			macvtap_free_minor(vlan);
+ 			return notifier_from_errno(PTR_ERR(classdev));
+ 		}
++		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
++					tap_name);
++		if (err)
++			return notifier_from_errno(err);
+ 		break;
+ 	case NETDEV_UNREGISTER:
+ 		/* vlan->minor == 0 if NETDEV_REGISTER above failed */
+ 		if (vlan->minor == 0)
+ 			break;
++		sysfs_remove_link(&dev->dev.kobj, tap_name);
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+-		device_destroy(macvtap_class, devt);
++		device_destroy(&macvtap_class, devt);
+ 		macvtap_free_minor(vlan);
+ 		break;
+ 	}
+@@ -1333,11 +1351,9 @@ static int macvtap_init(void)
+ 	if (err)
+ 		goto out2;
+ 
+-	macvtap_class = class_create(THIS_MODULE, "macvtap");
+-	if (IS_ERR(macvtap_class)) {
+-		err = PTR_ERR(macvtap_class);
++	err = class_register(&macvtap_class);
++	if (err)
+ 		goto out3;
+-	}
+ 
+ 	err = register_netdevice_notifier(&macvtap_notifier_block);
+ 	if (err)
+@@ -1352,7 +1368,7 @@ static int macvtap_init(void)
+ out5:
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+ out4:
+-	class_unregister(macvtap_class);
++	class_unregister(&macvtap_class);
+ out3:
+ 	cdev_del(&macvtap_cdev);
+ out2:
+@@ -1366,7 +1382,7 @@ static void macvtap_exit(void)
+ {
+ 	rtnl_link_unregister(&macvtap_link_ops);
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+-	class_unregister(macvtap_class);
++	class_unregister(&macvtap_class);
+ 	cdev_del(&macvtap_cdev);
+ 	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
+ 	idr_destroy(&minor_idr);
+-- 
+2.8.0
