@@ -1,8 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 05/12] net-next: mediatek: dropped rx packets are not being
- counted properly
-Date: Thu,  5 May 2016 11:26:18 +0200
-Message-ID: <1462440385-51939-6-git-send-email-john@phrozen.org>
+Subject: [PATCH 02/12] net-next: mediatek: add missing return code check
+Date: Thu,  5 May 2016 11:26:15 +0200
+Message-ID: <1462440385-51939-3-git-send-email-john@phrozen.org>
 References: <1462440385-51939-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,34 +22,27 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There are 2 places inside mtk_poll_rx where rx_dropped is not being
-incremented properly. Fix this by adding the missing code to increment
-the counter.
+The code fails to check if the scratch memory was properly allocated. Add
+this check and return with an error if the allocation failed.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 7fdd1a3..2e79af9 100644
+index 07674e5..0ed49a4 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -826,6 +826,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 					  DMA_FROM_DEVICE);
- 		if (unlikely(dma_mapping_error(&netdev->dev, dma_addr))) {
- 			skb_free_frag(new_data);
-+			netdev->stats.rx_dropped++;
- 			goto release_desc;
- 		}
+@@ -483,6 +483,9 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
  
-@@ -833,6 +834,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 		skb = build_skb(data, ring->frag_size);
- 		if (unlikely(!skb)) {
- 			put_page(virt_to_head_page(new_data));
-+			netdev->stats.rx_dropped++;
- 			goto release_desc;
- 		}
- 		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+ 	eth->scratch_head = kcalloc(cnt, MTK_QDMA_PAGE_SIZE,
+ 				    GFP_KERNEL);
++	if (unlikely(!eth->scratch_head))
++		return -ENOMEM;
++
+ 	dma_addr = dma_map_single(eth->dev,
+ 				  eth->scratch_head, cnt * MTK_QDMA_PAGE_SIZE,
+ 				  DMA_FROM_DEVICE);
 -- 
 1.7.10.4
