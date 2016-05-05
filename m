@@ -1,97 +1,99 @@
-From: "Patil, Kiran" <kiran.patil@intel.com>
-Subject: Re: [net-next 08/15] i40e: Allow user to change input set mask for
- flow director
-Date: Thu, 5 May 2016 08:00:21 -0700
-Message-ID: <572B6005.9060408@intel.com>
-References: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1461704148-114349-9-git-send-email-jeffrey.t.kirsher@intel.com>
- <20160426.234814.31916479145118247.davem@davemloft.net>
- <572AB43E.2020007@intel.com> <572ABC76.2080600@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 06/13] net: original ingress device index in
+ PKTINFO
+Date: Thu, 5 May 2016 09:00:34 -0600
+Message-ID: <572B6012.60806@cumulusnetworks.com>
+References: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
+ <1462419210-10463-7-git-send-email-dsa@cumulusnetworks.com>
+ <alpine.LFD.2.11.1605051040320.2118@ja.home.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>,
-	David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31987 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753503AbcEEPAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 11:00:24 -0400
-In-Reply-To: <572ABC76.2080600@gmail.com>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:36941 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756507AbcEEPAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 11:00:39 -0400
+Received: by mail-ig0-f171.google.com with SMTP id s8so16067274ign.0
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 08:00:38 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1605051040320.2118@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/4/2016 8:22 PM, John Fastabend wrote:
-> On 16-05-04 07:47 PM, Patil, Kiran wrote:
->> On 4/26/2016 8:48 PM, David Miller wrote:
->>> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> Date: Tue, 26 Apr 2016 13:55:41 -0700
->>>
->>>> From: Kiran Patil <kiran.patil@intel.com>
->>>>
->>>> This patch implements feature, which allows user to change
->>>> input set mask for flow director using side-band channel.
->>>> This patch adds definition of FLOW_TYPE_MASK into the header file.
->>>> With this patch, user can now specify less than 4 tuple(src ip, dsp ip,
->>>> src port, dst port) for flow type TCP4/UDP4.
->>>>
->>>> Change-Id: I90052508f8c172c0da5a4b78b949704b4a59ea78
->>>> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
->>>> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
->>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>>
->>> If you want to do this, you have to define the semantics generically
->>> in include/uapi/linux/ethtool.h so that other drivers can implement
->>> this too.
->>>
->>> Please don't ever implement private, driver specific, interpretations
->>> of the generic ethtool facilitites.
->>>
->>> The semantics and interpretations of the values must absolutely be
->>> consistent across all drivers in the tree.
->>>
->>> Otherwise the user experience is terrible.
->>>
->>> Thanks.
->>>
->> This is not new feature implemented in i40e driver. This is the original
->> feature of ethtool which allows user to specify subset of tuple for
->> setting up flow director.
->>
->> i40e driver using it same way as ixgbe.
->>
->> Please let us know if I misinterpreted your response.
->>
->> Would you recommend that we re-submit patch with better patch
->> description (indicating that it is not new feature but just enabling
->> feature).
->>
->> Thanks,
->> -- Kiran P.
+On 5/5/16 2:41 AM, Julian Anastasov wrote:
 >
-> At least define FLOW_TYPE_MASK in ethtool.h then its not
-> sort of hobbled together in the driver and others can use it
-> instead of the normal ~FLOW_EXT which I see other drivers used.
-> Another benefit if its near the definition of the flow types
-> you have a chance of someone seeing it if they add a flag
-> past 0xff.
+> 	Hello,
 >
-> And maybe do it as a separate patch. So you aren't adding normal
-> driver ethtool implementation and a new #define for all drivers
-> in the same patch.
+> On Wed, 4 May 2016, David Ahern wrote:
 >
-> .John
+>> Applications such as OSPF and BFD need the original ingress device not
+>> the VRF device; the latter can be derived from the former. To that end
+>> add the skb_iif to inet_skb_parm and set it in ipv4 code after clearing
+>> the skb control buffer similar to IPv6. From there the pktinfo can just
+>> pull it from cb with the PKTINFO_SKB_CB cast.
+>>
+>> The previous patch moving the skb->dev change to L3 means nothing else
+>> is needed for IPv6; it just works.
+>>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> ---
+>>   include/net/ip.h       | 1 +
+>>   net/ipv4/ip_input.c    | 1 +
+>>   net/ipv4/ip_sockglue.c | 9 +++++++--
+>>   3 files changed, 9 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/include/net/ip.h b/include/net/ip.h
+>> index 247ac82e9cf2..37165fba3741 100644
+>> --- a/include/net/ip.h
+>> +++ b/include/net/ip.h
+>> @@ -36,6 +36,7 @@
+>>   struct sock;
+>>
+>>   struct inet_skb_parm {
+>> +	int			iif;
+>>   	struct ip_options	opt;		/* Compiled IP options		*/
+>>   	unsigned char		flags;
+>>
+>> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+>> index 37375eedeef9..4b351af3e67b 100644
+>> --- a/net/ipv4/ip_input.c
+>> +++ b/net/ipv4/ip_input.c
+>> @@ -478,6 +478,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+>>
+>>   	/* Remove any debris in the socket control block */
+>>   	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+>> +	IPCB(skb)->iif = skb->skb_iif;
 >
-Now I see what the problem is (FLOW_TYPE_MASK). Unfortunately it was 
-never meant to be part of this patch since it was introduced by other 
-patch (Cloud filter support) and was suggested to move into this header 
-file. As suggested, we can create another patch just for this 
-FLOW_TYPE_MASK in ethtool.h and re-work original patch to not have 
-define for FLOW_TYPE_MASK.
+> 	For loopback traffic (including looped back multicast)
+> this is now a zero :( Can inet_iif be moved to ip_rcv_finish
+> instead? Still, we spend cycles in fast path in case nobody
+> listens for such info.
 
-May be we can go back and think, it this define absolutely needed or not.
+Why is that? skb_iif is set to skb->dev->index in 
+__netif_receive_skb_core and ip_rcv is called it. Is there another path 
+to it?
 
-Thanks,
--- Kiran P.
+
+>
+>>   	/* Must drop socket now because of tproxy. */
+>>   	skb_orphan(skb);
+>> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+>> index bdb222c0c6a2..dbcd027c38e7 100644
+>> --- a/net/ipv4/ip_sockglue.c
+>> +++ b/net/ipv4/ip_sockglue.c
+>> @@ -476,9 +476,9 @@ static bool ipv4_datagram_support_cmsg(const struct sock *sk,
+>>   	    (!skb->dev))
+>>   		return false;
+>>
+>> +	/* see comment in ipv4_pktinfo_prepare about CB re-use */
+>>   	info = PKTINFO_SKB_CB(skb);
+>>   	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+>> -	info->ipi_ifindex = skb->dev->ifindex;
+>
+> 	This code is only for SOF_TIMESTAMPING_OPT_CMSG.
+> I'm not sure skb passes ip_rcv in all cases. So, we can not
+> easily remove it.
+
+ok.
