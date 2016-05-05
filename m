@@ -1,66 +1,89 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH 2/3] net/mlx5e: make VXLAN support conditional
-Date: Thu, 5 May 2016 19:44:36 +0300
-Message-ID: <CALzJLG885q-Nm4xD3FobvY4A9RhLAV3jLwfAWdJwyDOid+tJ6g@mail.gmail.com>
-References: <1462364774-3792510-1-git-send-email-arnd@arndb.de> <1462365116-3856622-1-git-send-email-arnd@arndb.de>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 14/14] ip4ip6: Support for GSO/GRO
+Date: Thu, 5 May 2016 09:48:14 -0700
+Message-ID: <CALx6S37w8526zZNLbguatYkDv63iJaGyht2BYCfym=-XoPTxEw@mail.gmail.com>
+References: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
+	<1462410164-1953217-15-git-send-email-tom@herbertland.com>
+	<1462411229.13075.13.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAKgT0UciiUQMfPodReb3MyX-Y+X9do9vGmz5kwcttQtsLJVRRA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Matthew Finlay <matt@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Haggai Abramonvsky <hagaya@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462365116-3856622-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37093 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757371AbcEEQsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 12:48:15 -0400
+Received: by mail-ig0-f176.google.com with SMTP id s8so18959932ign.0
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 09:48:15 -0700 (PDT)
+In-Reply-To: <CAKgT0UciiUQMfPodReb3MyX-Y+X9do9vGmz5kwcttQtsLJVRRA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 4, 2016 at 3:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> VXLAN can be disabled at compile-time or it can be a loadable
-> module while mlx5 is built-in, which leads to a link error:
+On Wed, May 4, 2016 at 8:26 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Wed, May 4, 2016 at 6:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2016-05-04 at 18:02 -0700, Tom Herbert wrote:
+>>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>>> ---
+>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>>> index 928b456..6a811fa 100644
+>>> --- a/include/linux/skbuff.h
+>>> +++ b/include/linux/skbuff.h
+>>> @@ -484,6 +484,8 @@ enum {
+>>>       SKB_GSO_TUNNEL_REMCSUM = 1 << 14,
+>>>
+>>>       SKB_GSO_IP6IP6 = 1 << 15,
+>>> +
+>>> +     SKB_GSO_IP4IP6 = 1 << 16,
+>>>  };
+>>>
+>>
+>> Houston, we have a problem.
+>>
+>> gso_type is 16bit (unsigned short), or maybe I missed something ?
+>>
+>> struct skb_shared_info {
+>>         unsigned char   nr_frags;
+>>         __u8            tx_flags;
+>>         unsigned short  gso_size;
+>>         unsigned short  gso_segs;
+>>         unsigned short  gso_type; <<-->>
 >
-> drivers/net/built-in.o: In function `mlx5e_create_netdev':
-> ntb_netdev.c:(.text+0x106de4): undefined reference to `vxlan_get_rx_port'
+> No, I am pretty sure you have it right.  We are out of bits.
 >
-> This avoids the link error and makes the vxlan code optional,
-> like the other ethernet drivers do as well.
+> Also it seems like we are generating a number of duplicate entries.
+> What is the difference between IP6IP6 and SIT over IPv6?  I'm not
+> really seeing the difference.
 >
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Link: https://patchwork.ozlabs.org/patch/589296/
-> Fixes: b3f63c3d5e2c ("net/mlx5e: Add netdev support for VXLAN tunneling")
-> ---
-> I sent it originally on Feb 26 2016, but misread Saeed Mahameed's
-> reply as saying that he'd fix it up himself. The new version
-> should address the original comment.
-> ---
+> I'm wondering if maybe we shouldn't look at the possibly using the
+> IPIP and SIT bits to instead indicate that the frame is encapsulated
+> in an outer IPv4 or outer IPv6 header since we already have TCPV4 and
+> TCPV6 to indicate if the inner network type is a V4 or V6.  Then there
+> is no need for this patch set to introduce any new tunnel types to be
+> segmented since all cases should be covered.  As far as I can tell
+> SKB_GSO_IPIP/SIT were never really being tested against anyway so we
+> might want to go the IPIPV4 IPIPV6 route instead as that is probably
+> closer to what most device limitations would be.
+>
+My worry is that the current public interface means IPIP is IPv4 over
+IPv4, and SIT means IPv6 over IPv4. There are some drivers advertising
+offload support for these so I don't think we safely redefine
+SKB_GSO_IPIP/SIT.
 
-Hi Arnd,
+For finding more bits in gso_type there are some SKB_GOS_* that are
+not really types at all but more flags. I'm going try to turn
+SKB_GSO_DODGY into a skbuff for the purposes here. We'll still have
+the problem of running out bits next time a new type is added (maybe
+SKB_GSO_SCTP?) but can probably make room for one or two more. Longer
+term I think the the solution is too eliminate gso_type altogether as
+we are once again running into the problem of trying to indicate a
+combinatorial set of constraints and complex layering in a just few
+flag bits.
 
-I didn't post a fix up since it is not needed anymore, see
-b7aade15485a ('vxlan: break dependency with netdev drivers') in
-net-next.
+Tom
 
-The new issue is introduced due to : "net/mlx5: Kconfig: Fix
-MLX5_EN/VXLAN build issue" which was merged from net tree.
-
-Dave shouldn't have merged it into net-next, I explicitly asked him
-that in the cover letter.  Maybe he missed it.
-
-I just checked and It is sufficient to only take the revert patch:
-[PATCH 1/3] Revert "net/mlx5: Kconfig: Fix MLX5_EN/VXLAN build issue"
-to net-next.
-
-Can you please confirm that with only the revert patch, you don't see
-the issue ?
+> - Alex
