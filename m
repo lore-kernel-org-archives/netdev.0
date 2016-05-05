@@ -1,68 +1,105 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: task_diag: add a new interface to get information about
- processes
-Date: Wed, 4 May 2016 19:14:36 -0700
-Message-ID: <20160504191436.7dfa3a55@xeon-e3>
-References: <20160504132245.1d04c131@xeon-e3>
- <CANaxB-w2RZ8WZ0ACP-3M9OJ0vgWRM0d74S2WAVwRRY=gXoR5Zg@mail.gmail.com>
+From: Qiang Zhao <qiang.zhao@nxp.com>
+Subject: RE: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
+Date: Thu, 5 May 2016 02:31:27 +0000
+Message-ID: <AM3PR04MB1185B5352C395FE8951CA5A5917C0@AM3PR04MB1185.eurprd04.prod.outlook.com>
+References: <1462332274-13744-1-git-send-email-yangbo.lu@nxp.com>
+ <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biedermanm" <ebiederm@xmission.com>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36273 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754654AbcEECOY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 22:14:24 -0400
-Received: by mail-pf0-f181.google.com with SMTP id c189so32973729pfb.3
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 19:14:24 -0700 (PDT)
-In-Reply-To: <CANaxB-w2RZ8WZ0ACP-3M9OJ0vgWRM0d74S2WAVwRRY=gXoR5Zg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ "ulf.hansson@linaro.org" <ulf.hansson@linaro.org>,
+ Russell King <linux@arm.linux.org.uk>, Yangbo Lu <yangbo.lu@nxp.com>,
+ Bhupesh Sharma <bhupesh.sharma@freescale.com>, Joerg Roedel <joro@8bytes.org>,
+ Santosh
+ Shilimkar <ssantosh@kernel.org>, Jochen Friedrich <jochen@scram.de>,
+ Yang-Leo Li <leoyang.li@nxp.com>, Scott Wood <oss@buserror.net>,
+ Rob Herring <robh+dt@kernel.org>,
+ Claudiu Manoil <claudiu.manoil@freescale.com>,
+ Kumar Gala <galak@codeaurora.org>, Xiaobo Xie <xiaobo.xie@nxp.com>
+To: Yangbo Lu <yangbo.lu@nxp.com>, "linux-mmc@vger.kernel.org"
+ <linux-mmc@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org"
+ <linuxppc-dev@lists.ozlabs.org>, "devicetree@vger.kernel.org"
+ <devicetree@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org"
+ <linux-arm-kernel@lists.infradead.org>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "linux-clk@vger.kernel.org"
+ <linux-clk@vger.kernel.org>, "linux-i2c@vger.kernel.org"
+ <linux-i2c@vger.kernel.org>, "iommu@lists.linux-foundation.org"
+ <iommu@lists.linux-foundation.org>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1462332274-13744-7-git-send-email-yangbo.lu@nxp.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 4 May 2016 15:34:21 -0700
-Andrey Vagin <avagin@openvz.org> wrote:
+On Wed, 2016-05-04 at 11:24 +0800, Yangbo Lu wrote:
+> -----Original Message-----
+> From: Yangbo Lu [mailto:yangbo.lu@nxp.com]
+> Sent: Wednesday, May 04, 2016 11:25 AM
+> To: linux-mmc@vger.kernel.org; linuxppc-dev@lists.ozlabs.org;
+> devicetree@vger.kernel.org; linux-arm-kernel@lists.infradead.org; linux-
+> kernel@vger.kernel.org; linux-clk@vger.kernel.org; linux-i2c@vger.kernel.org;
+> iommu@lists.linux-foundation.org; netdev@vger.kernel.org
+> Cc: ulf.hansson@linaro.org; Scott Wood <oss@buserror.net>; Mark Rutland
+> <mark.rutland@arm.com>; Rob Herring <robh+dt@kernel.org>; Russell King
+> <linux@arm.linux.org.uk>; Jochen Friedrich <jochen@scram.de>; Joerg Roedel
+> <joro@8bytes.org>; Claudiu Manoil <claudiu.manoil@freescale.com>; Bhupesh
+> Sharma <bhupesh.sharma@freescale.com>; Qiang Zhao
+> <qiang.zhao@nxp.com>; Kumar Gala <galak@codeaurora.org>; Santosh
+> Shilimkar <ssantosh@kernel.org>; Yang-Leo Li <leoyang.li@nxp.com>; Xiaobo
+> Xie <xiaobo.xie@nxp.com>; Yangbo Lu <yangbo.lu@nxp.com>
+> Subject: [v9, 6/7] MAINTAINERS: add entry for Freescale SoC driver
+> 
+> Add maintainer entry for Freescale SoC driver including the QE library and the
+> GUTS driver now. Also add maintainer for QE library.
+> 
+> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+> ---
+> Changes for v8:
+> 	- Added this patch
+> Changes for v9:
+> 	- Added linux-arm mail list
+> 	- Removed GUTS driver entry
+> ---
+>  MAINTAINERS | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 42e65d1..ce91db7 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -4622,9 +4622,18 @@ F:	drivers/net/ethernet/freescale/fec_ptp.c
+>  F:	drivers/net/ethernet/freescale/fec.h
+>  F:	Documentation/devicetree/bindings/net/fsl-fec.txt
+> 
+> +FREESCALE SOC DRIVER
+> +M:	Scott Wood <oss@buserror.net>
+> +L:	linuxppc-dev@lists.ozlabs.org
+> +L:	linux-arm-kernel@lists.infradead.org
+> +S:	Maintained
+> +F:	drivers/soc/fsl/
+> +F:	include/linux/fsl/
+> +
+>  FREESCALE QUICC ENGINE LIBRARY
+> +M:	Qiang Zhao <qiang.zhao@nxp.com>
+>  L:	linuxppc-dev@lists.ozlabs.org
+> -S:	Orphan
+> +S:	Maintained
+>  F:	drivers/soc/fsl/qe/
+>  F:	include/soc/fsl/*qe*.h
+>  F:	include/soc/fsl/*ucc*.h
+> --
+> 2.1.0.27.g96db324
 
-> Hi Stephen,
->=20
-> On Wed, May 4, 2016 at 1:22 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > I understand how reading /proc or /sys can be a bottleneck, but thi=
-s
-> > proposed method using a system call is the wrong way to do this.
-> >
-> > Why not use netlink like other systems do which allows a message
-> > based response which allows for future changes (no fixed datastruct=
-ures),
-> > and is message based.
-> >
-> > Generic netlink has already been used by several other subsystems.
->=20
-> I used netlink in two first versions of task_diag, but then Andy
-> convinced me that netlink interfaces are not ideal for this case. I
-> added him into C=D1=81.
->=20
-> Here is a thread with our discussion about using netlink for
-> task_diag: https://lkml.org/lkml/2015/12/15/520
-> Can I ask you to read it and give your comments? It would be nice to
-> find a way how to use netlink sockets instead of creating a new
-> interface.
->=20
-> Thanks,
-> Andrew
+I am ok!
 
-LKML is too busy, no one reads it anymore :-)
-Since this is netlink related you need to discuss it on netdev.
-
-The objection seems to be time or creation versus time of use and permi=
-ssions.
-Netlink internally is not really message based all responses are genera=
-ted
-in the context of the send().  You need credentials to create
-the socket, but the actual response will occur in the context of the ca=
-lling
-process. I don't see how that is substantially different than a system =
-call.
+-Zhao Qiang
