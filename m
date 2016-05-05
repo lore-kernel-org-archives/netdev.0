@@ -1,194 +1,113 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/3] net/mlx5e: make VXLAN support conditional
-Date: Thu, 05 May 2016 20:09:19 +0200
-Message-ID: <4306900.EI0LQtX7kx@wuerfel>
-References: <1462364774-3792510-1-git-send-email-arnd@arndb.de> <1462365116-3856622-1-git-send-email-arnd@arndb.de> <CALzJLG885q-Nm4xD3FobvY4A9RhLAV3jLwfAWdJwyDOid+tJ6g@mail.gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] VSOCK: do not disconnect socket when peer has shutdown
+ SEND only
+Date: Thu, 5 May 2016 19:23:45 +0100
+Message-ID: <20160505182345.GA13284@stefanha-x1.localdomain>
+References: <1462368113-5493-1-git-send-email-ian.campbell@docker.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Matthew Finlay <matt@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Haggai Abramonvsky <hagaya@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="EeQfGwPcQSOJBaQU"
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	Adit Ranadive <aditr@vmware.com>
+To: Ian Campbell <ian.campbell@docker.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:59030 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865AbcEESJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 14:09:33 -0400
-In-Reply-To: <CALzJLG885q-Nm4xD3FobvY4A9RhLAV3jLwfAWdJwyDOid+tJ6g@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41006 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752284AbcEESXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2016 14:23:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1462368113-5493-1-git-send-email-ian.campbell@docker.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 05 May 2016 19:44:36 Saeed Mahameed wrote:
-> On Wed, May 4, 2016 at 3:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> > VXLAN can be disabled at compile-time or it can be a loadable
-> > module while mlx5 is built-in, which leads to a link error:
-> >
-> > drivers/net/built-in.o: In function `mlx5e_create_netdev':
-> > ntb_netdev.c:(.text+0x106de4): undefined reference to `vxlan_get_rx_port'
-> >
-> > This avoids the link error and makes the vxlan code optional,
-> > like the other ethernet drivers do as well.
-> >
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Link: https://patchwork.ozlabs.org/patch/589296/
-> > Fixes: b3f63c3d5e2c ("net/mlx5e: Add netdev support for VXLAN tunneling")
-> > ---
-> > I sent it originally on Feb 26 2016, but misread Saeed Mahameed's
-> > reply as saying that he'd fix it up himself. The new version
-> > should address the original comment.
-> > ---
-> 
-> Hi Arnd,
-> 
-> I didn't post a fix up since it is not needed anymore, see
-> b7aade15485a ('vxlan: break dependency with netdev drivers') in
-> net-next.
-> 
-> The new issue is introduced due to : "net/mlx5: Kconfig: Fix
-> MLX5_EN/VXLAN build issue" which was merged from net tree.
-> 
-> Dave shouldn't have merged it into net-next, I explicitly asked him
-> that in the cover letter.  Maybe he missed it.
-> 
-> I just checked and It is sufficient to only take the revert patch:
-> [PATCH 1/3] Revert "net/mlx5: Kconfig: Fix MLX5_EN/VXLAN build issue"
-> to net-next.
-> 
-> Can you please confirm that with only the revert patch, you don't see
-> the issue ?
 
-Yes, it works, but not it is different from all the other drivers
-(MLX4, BENET, IXGBE, I40E, FM10K, QLCNIC, and QEDE). If the 'select
-VXLAN' is not the preferred way to handle this, we should change
-the other ones the same way, right?
+--EeQfGwPcQSOJBaQU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-For reference, I've tried it out on the MLX4 driver, and it does
-seem nicer that way, see below.
+On Wed, May 04, 2016 at 02:21:53PM +0100, Ian Campbell wrote:
+> The peer may be expecting a reply having sent a request and then done a
+> shutdown(SHUT_WR), so tearing down the whole socket at this point seems
+> wrong and breaks for me with a client which does a SHUT_WR.
+>=20
+> Looking at other socket family's stream_recvmsg callbacks doing a shutdown
+> here does not seem to be the norm and removing it does not seem to have
+> had any adverse effects that I can see.
 
-	Arnd
----
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-in case someone wants to pick up that patch and do the other
-ones as well.
+Seems fine to me.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-index 9ca3734ebb6b..88fff4484200 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-@@ -6,6 +6,7 @@ config MLX4_EN
- 	tristate "Mellanox Technologies 1/10/40Gbit Ethernet support"
- 	depends on MAY_USE_DEVLINK
- 	depends on PCI
-+	select VXLAN
- 	select MLX4_CORE
- 	select PTP_1588_CLOCK
- 	---help---
-@@ -24,13 +25,6 @@ config MLX4_EN_DCB
- 
- 	  If unsure, set to Y
- 
--config MLX4_EN_VXLAN
--	bool "VXLAN offloads Support"
--	default y
--	depends on MLX4_EN && VXLAN && !(MLX4_EN=y && VXLAN=m)
--	---help---
--	  Say Y here if you want to use VXLAN offloads in the driver.
--
- config MLX4_CORE
- 	tristate
- 	depends on PCI
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 6f28ac58251c..ad887c425f2d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1691,10 +1691,8 @@ int mlx4_en_start_port(struct net_device *dev)
- 	/* Schedule multicast task to populate multicast list */
- 	queue_work(mdev->workqueue, &priv->rx_mode_task);
- 
--#ifdef CONFIG_MLX4_EN_VXLAN
- 	if (priv->mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
- 		vxlan_get_rx_port(dev);
--#endif
- 	priv->port_up = true;
- 	netif_tx_start_all_queues(dev);
- 	netif_device_attach(dev);
-@@ -2337,7 +2335,6 @@ static int mlx4_en_get_phys_port_id(struct net_device *dev,
- 	return 0;
- }
- 
--#ifdef CONFIG_MLX4_EN_VXLAN
- static void mlx4_en_add_vxlan_offloads(struct work_struct *work)
- {
- 	int ret;
-@@ -2448,7 +2445,6 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
- 
- 	return features;
- }
--#endif
- 
- static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
- {
-@@ -2501,11 +2497,9 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
- 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
--#ifdef CONFIG_MLX4_EN_VXLAN
- 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
- 	.ndo_features_check	= mlx4_en_features_check,
--#endif
- 	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
- };
- 
-@@ -2539,11 +2533,9 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
- 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
--#ifdef CONFIG_MLX4_EN_VXLAN
- 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
- 	.ndo_features_check	= mlx4_en_features_check,
--#endif
- 	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
- };
- 
-@@ -2834,10 +2826,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
- 	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
- 	INIT_DELAYED_WORK(&priv->service_task, mlx4_en_service_task);
--#ifdef CONFIG_MLX4_EN_VXLAN
- 	INIT_WORK(&priv->vxlan_add_task, mlx4_en_add_vxlan_offloads);
- 	INIT_WORK(&priv->vxlan_del_task, mlx4_en_del_vxlan_offloads);
--#endif
- #ifdef CONFIG_RFS_ACCEL
- 	INIT_LIST_HEAD(&priv->filters);
- 	spin_lock_init(&priv->filters_lock);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 63b1aeae2c03..cbab8741d60f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -546,10 +546,8 @@ struct mlx4_en_priv {
- 	struct work_struct linkstate_task;
- 	struct delayed_work stats_task;
- 	struct delayed_work service_task;
--#ifdef CONFIG_MLX4_EN_VXLAN
- 	struct work_struct vxlan_add_task;
- 	struct work_struct vxlan_del_task;
--#endif
- 	struct mlx4_en_perf_stats pstats;
- 	struct mlx4_en_pkt_stats pkstats;
- 	struct mlx4_en_counter_stats pf_stats;
+> I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
+> on the vmci transport.
+>=20
+> Signed-off-by: Ian Campbell <ian.campbell@docker.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Stefan Hajnoczi <stefanha@redhat.com>
+> Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+> Cc: Andy King <acking@vmware.com>
+> Cc: Dmitry Torokhov <dtor@vmware.com>
+> Cc: Jorgen Hansen <jhansen@vmware.com>
+> Cc: Adit Ranadive <aditr@vmware.com>
+> Cc: netdev@vger.kernel.org
+> ---
+>  net/vmw_vsock/af_vsock.c | 21 +--------------------
+>  1 file changed, 1 insertion(+), 20 deletions(-)
+>=20
+> diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+> index 1e5f5ed..7a25150 100644
+> --- a/net/vmw_vsock/af_vsock.c
+> +++ b/net/vmw_vsock/af_vsock.c
+> @@ -1789,27 +1789,8 @@ vsock_stream_recvmsg(struct socket *sock, struct m=
+sghdr *msg, size_t len,
+>  	else if (sk->sk_shutdown & RCV_SHUTDOWN)
+>  		err =3D 0;
+> =20
+> -	if (copied > 0) {
+> -		/* We only do these additional bookkeeping/notification steps
+> -		 * if we actually copied something out of the queue pair
+> -		 * instead of just peeking ahead.
+> -		 */
+> -
+> -		if (!(flags & MSG_PEEK)) {
+> -			/* If the other side has shutdown for sending and there
+> -			 * is nothing more to read, then modify the socket
+> -			 * state.
+> -			 */
+> -			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
+> -				if (vsock_stream_has_data(vsk) <=3D 0) {
+> -					sk->sk_state =3D SS_UNCONNECTED;
+> -					sock_set_flag(sk, SOCK_DONE);
+> -					sk->sk_state_change(sk);
+> -				}
+> -			}
+> -		}
+> +	if (copied > 0)
+>  		err =3D copied;
+> -	}
+> =20
+>  out:
+>  	release_sock(sk);
+> --=20
+> 2.8.1
+>=20
+
+--EeQfGwPcQSOJBaQU
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXK4+xAAoJEJykq7OBq3PIx+gH/iZXHzvTdqwTreLCLQYhXzeY
+E+TdMiEHcqobNCzzKTsGEQO6yzVaVbNq3blYSslutUcr5ZtvZwKQ2TWswtnS85yx
+SIdHZO7+mqaHKKkSrKMFZBNbmdJrMPVKhH+gTbIkrAUJ8dCHOobku6R983j6oUYa
+hE7ZsRY+m3H/7qclt+5WLDZLUQWlKufwl5hiQzMwc9dg6VbiN9F9yIqnGrmBKIWm
+vIm2NF6ZOb/Iqn0+0pmvIoOacc/58sJJlaNXYjSB/ef18jn9OmD6+/Nuw3F4WlzY
+lYM1bTmULcgJXABFbpQjRM0gohTGRlk7Zv4mE5q4lJUUMWS+IUu+Bwd59H6cqFg=
+=UbNd
+-----END PGP SIGNATURE-----
+
+--EeQfGwPcQSOJBaQU--
