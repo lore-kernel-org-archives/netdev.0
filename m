@@ -1,34 +1,46 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] vxlan: if_arp: introduce ARPHRD_VXLANGPE
-Date: Thu, 5 May 2016 21:31:41 +0200
-Message-ID: <20160505213141.7ad29ebd@griffin>
-References: <1462466204-3534-1-git-send-email-cascardo@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/2] net: vrf: Fixup PKTINFO to return enslaved device index
+Date: Thu,  5 May 2016 12:37:41 -0700
+Message-ID: <1462477063-21699-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60250 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755702AbcEETbp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 15:31:45 -0400
-In-Reply-To: <1462466204-3534-1-git-send-email-cascardo@redhat.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33107 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755794AbcEEThz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 15:37:55 -0400
+Received: by mail-pa0-f48.google.com with SMTP id xk12so39367309pac.0
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 12:37:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  5 May 2016 13:36:44 -0300, Thadeu Lima de Souza Cascardo wrote:
-> Use ARPHRD_VXLANGPE to identify VxLAN GPE interfaces. This is going to be used
-> to allow GPE interfaces to be added as openvswitch ports.
+Applications such as OSPF and BFD need the original ingress device not
+the VRF device; the latter can be derived from the former. To that end
+move the packet intercept from an rx handler that is invoked by 
+__netif_receive_skb_core to the ipv4 and ipv6 receive processing. 
 
-What's wrong with ARPHRD_NONE? I don't think we need a separate type
-for VXLAN-GPE. Just use ARPHRD_NONE in ovs and things should work, for
-all ARPHRD_NONE interfaces as a bonus.
+IPv6 already saves the skb_iif to the control buffer in ipv6_rcv. Since
+the skb->dev has not been switched the cb has the enslaved device. Make
+the same happen for IPv4 by adding the skb_iif to inet_skb_parm and set
+it in ipv4 code after clearing the skb control buffer similar to IPv6.
+>From there the pktinfo can just pull it from cb with the PKTINFO_SKB_CB
+cast.
 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-> Cc: Jiri Benc <jbenc@redhat.com>
-> Cc: Simon Horman <simon.horman@netronome.com>
+David Ahern (2):
+  net: l3mdev: Add hook in ip and ipv6
+  net: original ingress device index in PKTINFO
 
-You did not CC me nor Simon :-)
+ drivers/net/vrf.c         | 186 ++++++++++++++++++++++------------------------
+ include/linux/ipv6.h      |   3 +-
+ include/linux/netdevice.h |   2 +
+ include/net/ip.h          |   1 +
+ include/net/l3mdev.h      |  43 +++++++++++
+ include/net/tcp.h         |   3 +-
+ net/core/dev.c            |   3 +-
+ net/ipv4/ip_input.c       |   8 ++
+ net/ipv4/ip_sockglue.c    |   7 +-
+ net/ipv6/ip6_input.c      |   7 ++
+ 10 files changed, 161 insertions(+), 102 deletions(-)
 
- Jiri
+-- 
+2.1.4
