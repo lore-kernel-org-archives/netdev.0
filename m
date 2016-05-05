@@ -1,149 +1,444 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH v2 5/9] mlx4: Add support for UDP tunnel
- segmentation with outer checksum offload
-Date: Thu, 5 May 2016 15:00:14 -0700
-Message-ID: <CAKgT0Uf_=3=1TqSWCLsiRYRxM5yATs1b5sdMgTn+nfm6-_jiEA@mail.gmail.com>
-References: <20160429222735.12418.61229.stgit@ahduyck-xeon-server>
-	<20160429224333.12418.13862.stgit@ahduyck-xeon-server>
-	<CAJ3xEMiog9zEwg_S=jG5LjM6FpvtyffvPcYX_G4j-ubBE_wLDw@mail.gmail.com>
-	<CAKgT0UdV2ruuRsYLmOjnqbXW0_i4QqMfo+VhuCSBqJjWrKhRdQ@mail.gmail.com>
-	<CAJ3xEMj_Vez_pP0ZTVATR=AMNDF1fneZ3dVrfWT7NP1mj4APRQ@mail.gmail.com>
-	<CAKgT0UdeuJA-K8zim5Eact9A2oFscXDC2a7ciKGTo74xptuw4w@mail.gmail.com>
-	<57289C95.8030401@mellanox.com>
-	<CAKgT0UeK2ss9AsxdvyDHArXXVZMZG7AL6f0iXQukSg135B64cQ@mail.gmail.com>
-	<572A1A49.9020507@mellanox.com>
-	<CAMt9YRqCH8Ab5vefMoQj39gJ8b-gsg2w5nJanW1srqt13bUkSQ@mail.gmail.com>
-	<CAJ3xEMj8z617kmoc2bLMBXf7B7KSBLzqr5tLTuuXYSOA--MYMw@mail.gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [RFC PATCH] gso: Replace SKB_GSO_IPIP and SKB_GSO_SIT with outer L3
+ types
+Date: Thu, 05 May 2016 15:12:43 -0700
+Message-ID: <20160505221243.11909.29048.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alex Duyck <aduyck@mirantis.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tom Herbert <tom@herbertland.com>,
-	"talal@mellanox.com" <talal@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Michael Chan <michael.chan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	Gal Pressman <galp@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, michael.chan@broadcom.com,
+	alexander.duyck@gmail.com, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36785 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756390AbcEEWAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 18:00:15 -0400
-Received: by mail-io0-f175.google.com with SMTP id u185so112917945iod.3
-        for <netdev@vger.kernel.org>; Thu, 05 May 2016 15:00:14 -0700 (PDT)
-In-Reply-To: <CAJ3xEMj8z617kmoc2bLMBXf7B7KSBLzqr5tLTuuXYSOA--MYMw@mail.gmail.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32891 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755496AbcEEWMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 18:12:45 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 206so42328585pfu.0
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 15:12:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 5, 2016 at 2:39 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Wed, May 4, 2016 at 7:06 PM, Alex Duyck <aduyck@mirantis.com> wrote:
->> On Wed, May 4, 2016 at 8:50 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->>> On 5/3/2016 6:29 PM, Alexander Duyck wrote:
->>>>
->>>> We split the one that would be a different size off via GSO.  So we
->>>> end up sending up 2 frames to the device if there is going to be one
->>>> piece that doesn't quite match.  We split that one piece off via GSO.
->>>> That is one of the reasons why I referred to it as partial GSO as all
->>>> we are using the software segmentation code for is to make sure we
->>>> have the GSO block consists of segments that are all the same size.
->>>
->>>
->>> I see, so if somehow it happens a lot that the TCP stack sends down
->>> something which once segmented ends up with the last segment being of
->>> different size from the other ones we would have to call the NIC xmit
->>> function twice (BTW can we use xmit_more here?)  -- which could be effecting
->>> performance, I guess.
->>>
->>> GSO_UDP_TUNNEL_CSUM (commit  0f4f4ffa7 "net: Add GSO support for UDP tunnels
->>> with checksum") came to mark "that a device is capable of computing the UDP
->>> checksum in the encapsulating header of a UDP tunnel" -- and the way we use
->>> it here is that we do advertize that bit towards the stack for devices whose
->>> HW can **not** do that, and things work b/c of LCO (this is my
->>> understanding).
->>>
->>> I miss something in the bigger picture here, what does this buy us? e.g vs
->>> just letting this (say) vxlan tunnel use zero checksum on the outer UDP
->>> packet, is that has something to do with RCO?
->>
->> I think the piece you are missing is GSO_PARTIAL.  Basically
->> GSO_PARTIAL indicates that we can perform GSO as long as all segments
->> are the same size and also allows for ignoring one level of headers.
->> So in the case of ixgbe for instance we can support tunnel offloads as
->> long as we allow for the inner IPv4 ID to be a fixed value which is
->> identified by enabling TSO_MANGLEID.  In the case of i40e, mlx4, and
->> mlx5 the key bit is that we just have to have the frames the same size
->> for all segments and then we can support tunnels with outer checksum
->> because the checksum has been computed once and can be applied to all
->> of the segmented frames.
->
-> Yep, I think to basically follow on the PARTIAL thing, which once
-> advertised by i40e, mlx4 and mlx5 allow them support udp (and GRE in
-> i40e case) tunnels with outer checksum.
->
-> My question was what this buy us for the UDP case vs. using zero
-> checksum for the tunnel (outer packet), I tried to figure out if it
-> has something to do with the remote side, e.g for RCO or alike.
-> Basically, under PARTIAL, on the worst case we could have ending up
-> with 2x packet xmitted to the NIC - e.g if each TCP message which is
-> to be encapsulated by the stack and later segmented by the NIC HW is
-> broken to two b/c otherwise the last segmented packet will not be of
-> equal size as of the all the preceding ones.
+This patch removes SKB_GSO_IPIP and SKB_GSO_SIT and instead replaces them
+with SKB_GSO_IPIPV4 and SKB_GSO_IPIPV6.  The idea here is that SKB_GSO_IPIP
+and SKB_GSO_SIT are actually redundant as TCPV4 and TCPV6 were already
+representing the inner network header type.  By reporting what the outer
+network header type is we should be able to represent all applicable cases
+as SKB_GSO_IPIPV4 can be combined with SKB_GSO_TCPV4 or SKB_GSO_TCPV6 and
+it should then be possible to describe all possible IP in IP tunnel
+combinations for inner and outer v4/v6.
 
-There ends up being a few pieces to this.  In the case of i40e the Tx
-gain seen is mostly for just transmitting the tunnel types with
-checksums.  This is because without that we have to use software
-segmentation and that is expensive because it requires 40+ frames to
-transmit a single 64K block of TCP data.  In the case of GSO_PARTIAL
-this data is usually all sent in a single packet because the TCP stack
-tries to send MSS aligned blocks.
+I played it safe with the Broadcom drivers and just merged GSO_IPIP and
+GSO_SIT into GSO_IPIPV4, if the drivers do support outer IPv6 tunnels I can
+either update this patch to add them in, or can add a patch to enable that
+later.
 
-On the Rx side a gain can be seen if we exceed the number of ports
-that can be used to support tunnels on the device.  This is because
-the hardware can still offload the outer UDP checksum and as a result
-it can still go GRO on the frame thanks to the code Tom Herbert added
-that converts validated outer UDP checksums to checksum complete.
-Without the outer UDP checksum present we wouldn't be able to do GRO
-and throughput drops to the 6 - 9Gb/s range.
+In the case of the Intel drivers I know they should be able to handle IPv6
+outer headers so I went ahead and enabled GSO_IPIPV6 for them.
 
-> Or being a bit more positive... is there an expected performance  gain
-> when you use MANGLEID and/or PARTIAL to enable supporting UDP tunnel
-> segmentation checksum offload towards the stack? what is the reason
-> for that gain?
+This patch is meant to be applied after "gso: Remove arbitrary checks for
+unsupported GSO" which can be found at:
+https://patchwork.ozlabs.org/patch/618757/
 
-The TSO_MANGLEID bit is only really needed for igb and ixgbe.  Those
-drivers don't support tunnel offloads directly.  Instead they can
-support checksum offloads or a segmentation offload with an arbitrary
-IP header size up to 511 bytes.  So in order to do segmentation for
-tunnels what we are doing is repeating everything from the outer
-transport header through the inner network header for each frame.  As
-such we can only perform segmentation offloads for IPv4 in any type of
-tunnel if we can repeat the IP ID for the inner header.  If we are
-allowed to do that then we can move packets between functions on the
-same device at 15Gb/s which is the upper limits of non-encapsulated
-traffic for VF to VF.  Without that we are at 12Gb/s with outer
-checksums and software segmentation, and only 6Gb/s with software
-segmentation and outer checksum forced to 0.
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    5 ++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |    4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c       |    4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c       |    4 ++--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |    4 ++--
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   |    4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c         |    4 ++--
+ drivers/net/ethernet/intel/igbvf/netdev.c         |    4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |    4 ++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    4 ++--
+ include/linux/netdev_features.h                   |   12 ++++++------
+ include/linux/netdevice.h                         |    4 ++--
+ include/linux/skbuff.h                            |    4 ++--
+ net/core/ethtool.c                                |    4 ++--
+ net/ipv4/af_inet.c                                |   16 +++++++++++-----
+ net/ipv4/ipip.c                                   |    2 +-
+ net/ipv6/ip6_offload.c                            |    7 +++++--
+ net/ipv6/sit.c                                    |    4 ++--
+ net/netfilter/ipvs/ip_vs_xmit.c                   |   14 +++-----------
+ 19 files changed, 54 insertions(+), 54 deletions(-)
 
-> As for GRE tunnel segmentation checksum offload, I saw in your i40e
-> patch that it made your testbed to go from 12Gbs to 20Gbs, is this b/c
-> the stack can not actually let the HW do the segmentation w.o checksum
-> offload? if not, can you help understand the source of the gain?
-
-The device didn't advertise NETIF_F_GRE_CSUM so if there was a
-checksum in the GRE header the packet had to be segmented in software.
-By using the GSO_PARTIAL approach the speed is improved and comes up
-to about 20Gb/s which is what the hardware does for standard GRE
-tunnels.  Basically the best software segmentation can do is 12Gb/s
-for most NICs on a single flow.  With hardware segment or GSO partial
-we can push somewhere around 20Gb/s or more depending on the
-configuration.
-
->> Hope that helps.
->
-> yes, your notes are very helpful, thanks for sparing the time..
-
-No problem.
-
-- Alex
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index d465bd721146..fbc713094611 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13259,12 +13259,11 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 		NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
+ 	if (!chip_is_e1x) {
+ 		dev->hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
+-				    NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
++				    NETIF_F_GSO_IPIPV4;
+ 		dev->hw_enc_features =
+ 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
+ 			NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
+-			NETIF_F_GSO_IPIP |
+-			NETIF_F_GSO_SIT |
++			NETIF_F_GSO_IPIPV4 |
+ 			NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index fd85b6dd4a6e..b3821fbf8e1b 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -6218,7 +6218,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
+ 			   NETIF_F_TSO | NETIF_F_TSO6 |
+ 			   NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
+-			   NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
++			   NETIF_F_GSO_IPIPV4 |
+ 			   NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
+ 			   NETIF_F_GSO_PARTIAL | NETIF_F_RXHASH |
+ 			   NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
+@@ -6228,7 +6228,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			NETIF_F_TSO | NETIF_F_TSO6 |
+ 			NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
+ 			NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
+-			NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
++			NETIF_F_GSO_IPIPV4 |
+ 			NETIF_F_GSO_PARTIAL;
+ 	dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM |
+ 				    NETIF_F_GSO_GRE_CSUM;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1cd0ebf7520a..bf1d31c4e310 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9083,8 +9083,8 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 				   NETIF_F_TSO6			|
+ 				   NETIF_F_GSO_GRE		|
+ 				   NETIF_F_GSO_GRE_CSUM		|
+-				   NETIF_F_GSO_IPIP		|
+-				   NETIF_F_GSO_SIT		|
++				   NETIF_F_GSO_IPIPV4		|
++				   NETIF_F_GSO_IPIPV6		|
+ 				   NETIF_F_GSO_UDP_TUNNEL	|
+ 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
+ 				   NETIF_F_GSO_PARTIAL		|
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 36a34f7191e3..180d4a889c69 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2302,8 +2302,8 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 
+ 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
+ 					 SKB_GSO_GRE_CSUM |
+-					 SKB_GSO_IPIP |
+-					 SKB_GSO_SIT |
++					 SKB_GSO_IPIPV4 |
++					 SKB_GSO_IPIPV6 |
+ 					 SKB_GSO_UDP_TUNNEL |
+ 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
+ 		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index fd7dae46c5d8..e2630c663cfb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1559,8 +1559,8 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 
+ 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
+ 					 SKB_GSO_GRE_CSUM |
+-					 SKB_GSO_IPIP |
+-					 SKB_GSO_SIT |
++					 SKB_GSO_IPIPV4 |
++					 SKB_GSO_IPIPV6 |
+ 					 SKB_GSO_UDP_TUNNEL |
+ 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
+ 		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 642bb45ed906..3a72568d8175 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2230,8 +2230,8 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 				   NETIF_F_TSO6			|
+ 				   NETIF_F_GSO_GRE		|
+ 				   NETIF_F_GSO_GRE_CSUM		|
+-				   NETIF_F_GSO_IPIP		|
+-				   NETIF_F_GSO_SIT		|
++				   NETIF_F_GSO_IPIPV4		|
++				   NETIF_F_GSO_IPIPV6		|
+ 				   NETIF_F_GSO_UDP_TUNNEL	|
+ 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
+ 				   NETIF_F_GSO_PARTIAL		|
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 21727692bef6..1ba2213ce5d5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2418,8 +2418,8 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ #define IGB_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
+ 				  NETIF_F_GSO_GRE_CSUM | \
+-				  NETIF_F_GSO_IPIP | \
+-				  NETIF_F_GSO_SIT | \
++				  NETIF_F_GSO_IPIPV4 | \
++				  NETIF_F_GSO_IPIPV6 | \
+ 				  NETIF_F_GSO_UDP_TUNNEL | \
+ 				  NETIF_F_GSO_UDP_TUNNEL_CSUM)
+ 
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 322a2d7828a5..de1827983096 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -2763,8 +2763,8 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ #define IGBVF_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
+ 				    NETIF_F_GSO_GRE_CSUM | \
+-				    NETIF_F_GSO_IPIP | \
+-				    NETIF_F_GSO_SIT | \
++				    NETIF_F_GSO_IPIPV4 | \
++				    NETIF_F_GSO_IPIPV6 | \
+ 				    NETIF_F_GSO_UDP_TUNNEL | \
+ 				    NETIF_F_GSO_UDP_TUNNEL_CSUM)
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d08fbcfb9417..9180361a909c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9482,8 +9482,8 @@ skip_sriov:
+ 
+ #define IXGBE_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
+ 				    NETIF_F_GSO_GRE_CSUM | \
+-				    NETIF_F_GSO_IPIP | \
+-				    NETIF_F_GSO_SIT | \
++				    NETIF_F_GSO_IPIPV4 | \
++				    NETIF_F_GSO_IPIPV6 | \
+ 				    NETIF_F_GSO_UDP_TUNNEL | \
+ 				    NETIF_F_GSO_UDP_TUNNEL_CSUM)
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 5e348b125090..622f456ec41e 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -4062,8 +4062,8 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ #define IXGBEVF_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
+ 				      NETIF_F_GSO_GRE_CSUM | \
+-				      NETIF_F_GSO_IPIP | \
+-				      NETIF_F_GSO_SIT | \
++				      NETIF_F_GSO_IPIPV4 | \
++				      NETIF_F_GSO_IPIPV6 | \
+ 				      NETIF_F_GSO_UDP_TUNNEL | \
+ 				      NETIF_F_GSO_UDP_TUNNEL_CSUM)
+ 
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index bc8736266749..f10248df9705 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -44,8 +44,8 @@ enum {
+ 	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
+ 	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
+ 	NETIF_F_GSO_GRE_CSUM_BIT,	/* ... GRE with csum with TSO */
+-	NETIF_F_GSO_IPIP_BIT,		/* ... IPIP tunnel with TSO */
+-	NETIF_F_GSO_SIT_BIT,		/* ... SIT tunnel with TSO */
++	NETIF_F_GSO_IPIPV4_BIT,		/* ... IP in IPv4 tunnel with TSO */
++	NETIF_F_GSO_IPIPV6_BIT,		/* ... IP in IPv6 tunnel with TSO */
+ 	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
+ 	NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
+ 	NETIF_F_GSO_PARTIAL_BIT,	/* ... Only segment inner-most L4
+@@ -121,8 +121,8 @@ enum {
+ #define NETIF_F_RXALL		__NETIF_F(RXALL)
+ #define NETIF_F_GSO_GRE		__NETIF_F(GSO_GRE)
+ #define NETIF_F_GSO_GRE_CSUM	__NETIF_F(GSO_GRE_CSUM)
+-#define NETIF_F_GSO_IPIP	__NETIF_F(GSO_IPIP)
+-#define NETIF_F_GSO_SIT		__NETIF_F(GSO_SIT)
++#define NETIF_F_GSO_IPIPV4	__NETIF_F(GSO_IPIPV4)
++#define NETIF_F_GSO_IPIPV6	__NETIF_F(GSO_IPIPV6)
+ #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
+ #define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
+ #define NETIF_F_TSO_MANGLEID	__NETIF_F(TSO_MANGLEID)
+@@ -200,8 +200,8 @@ enum {
+ 
+ #define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
+ 				 NETIF_F_GSO_GRE_CSUM |			\
+-				 NETIF_F_GSO_IPIP |			\
+-				 NETIF_F_GSO_SIT |			\
++				 NETIF_F_GSO_IPIPV4 |			\
++				 NETIF_F_GSO_IPIPV6 |			\
+ 				 NETIF_F_GSO_UDP_TUNNEL |		\
+ 				 NETIF_F_GSO_UDP_TUNNEL_CSUM)
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 63580e6d0df4..d9d05d6b5849 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4005,8 +4005,8 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
+ 	BUILD_BUG_ON(SKB_GSO_FCOE    != (NETIF_F_FSO >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_GRE     != (NETIF_F_GSO_GRE >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_GRE_CSUM != (NETIF_F_GSO_GRE_CSUM >> NETIF_F_GSO_SHIFT));
+-	BUILD_BUG_ON(SKB_GSO_IPIP    != (NETIF_F_GSO_IPIP >> NETIF_F_GSO_SHIFT));
+-	BUILD_BUG_ON(SKB_GSO_SIT     != (NETIF_F_GSO_SIT >> NETIF_F_GSO_SHIFT));
++	BUILD_BUG_ON(SKB_GSO_IPIPV4  != (NETIF_F_GSO_IPIPV4 >> NETIF_F_GSO_SHIFT));
++	BUILD_BUG_ON(SKB_GSO_IPIPV6  != (NETIF_F_GSO_IPIPV6 >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL != (NETIF_F_GSO_UDP_TUNNEL >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL_CSUM != (NETIF_F_GSO_UDP_TUNNEL_CSUM >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_PARTIAL != (NETIF_F_GSO_PARTIAL >> NETIF_F_GSO_SHIFT));
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c413c588a24f..6186a6446d1c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -471,9 +471,9 @@ enum {
+ 
+ 	SKB_GSO_GRE_CSUM = 1 << 8,
+ 
+-	SKB_GSO_IPIP = 1 << 9,
++	SKB_GSO_IPIPV4 = 1 << 9,
+ 
+-	SKB_GSO_SIT = 1 << 10,
++	SKB_GSO_IPIPV6 = 1 << 10,
+ 
+ 	SKB_GSO_UDP_TUNNEL = 1 << 11,
+ 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index bdb4013581b1..8771dafe93ec 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -84,8 +84,8 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
+ 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
+ 	[NETIF_F_GSO_GRE_CSUM_BIT] =	 "tx-gre-csum-segmentation",
+-	[NETIF_F_GSO_IPIP_BIT] =	 "tx-ipip-segmentation",
+-	[NETIF_F_GSO_SIT_BIT] =		 "tx-sit-segmentation",
++	[NETIF_F_GSO_IPIPV4_BIT] =	 "tx-ipip4-segmentation",
++	[NETIF_F_GSO_IPIPV6_BIT] =	 "tx-ipip6-segmentation",
+ 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
+ 	[NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
+ 	[NETIF_F_GSO_PARTIAL_BIT] =	 "tx-gso-partial",
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 7f08d4525981..c62230f1b16b 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1459,20 +1459,25 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
+ 
+ 	if (skb->encapsulation)
+ 		skb_set_inner_network_header(skb, nhoff);
++	else
++		skb_set_network_header(skb, nhoff);
+ 
+ 	csum_replace2(&iph->check, iph->tot_len, newlen);
+ 	iph->tot_len = newlen;
+ 
+ 	rcu_read_lock();
+-	ops = rcu_dereference(inet_offloads[proto]);
+-	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
+-		goto out_unlock;
+ 
+ 	/* Only need to add sizeof(*iph) to get to the next hdr below
+ 	 * because any hdr with option will have been flushed in
+ 	 * inet_gro_receive().
+ 	 */
+-	err = ops->callbacks.gro_complete(skb, nhoff + sizeof(*iph));
++	nhoff += sizeof(*iph);
++
++	ops = rcu_dereference(inet_offloads[proto]);
++	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
++		goto out_unlock;
++
++	err = ops->callbacks.gro_complete(skb, nhoff);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+@@ -1483,7 +1488,8 @@ out_unlock:
+ static int ipip_gro_complete(struct sk_buff *skb, int nhoff)
+ {
+ 	skb->encapsulation = 1;
+-	skb_shinfo(skb)->gso_type |= SKB_GSO_IPIP;
++	skb_shinfo(skb)->gso_type = (ip_hdr(skb)->version == 4) ?
++				    SKB_GSO_IPIPV4 : SKB_GSO_IPIPV6;
+ 	return inet_gro_complete(skb, nhoff);
+ }
+ 
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 92827483ee3d..16aa07688955 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -219,7 +219,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (unlikely(skb->protocol != htons(ETH_P_IP)))
+ 		goto tx_error;
+ 
+-	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIP))
++	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIPV4))
+ 		goto tx_error;
+ 
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 9ad743b2c624..b68a8a88f498 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -86,7 +86,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	proto = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
+ 
+ 	if (skb->encapsulation &&
+-	    skb_shinfo(skb)->gso_type & (SKB_GSO_SIT|SKB_GSO_IPIP))
++	    (skb_shinfo(skb)->gso_type & (SKB_GSO_IPIPV4 | SKB_GSO_IPIPV6)))
+ 		udpfrag = proto == IPPROTO_UDP && encap;
+ 	else
+ 		udpfrag = proto == IPPROTO_UDP && !skb->encapsulation;
+@@ -274,6 +274,8 @@ static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
+ 
+ 	if (skb->encapsulation)
+ 		skb_set_inner_network_header(skb, nhoff);
++	else
++		skb_set_network_header(skb, nhoff);
+ 
+ 	iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
+ 
+@@ -294,7 +296,8 @@ out_unlock:
+ static int sit_gro_complete(struct sk_buff *skb, int nhoff)
+ {
+ 	skb->encapsulation = 1;
+-	skb_shinfo(skb)->gso_type |= SKB_GSO_SIT;
++	skb_shinfo(skb)->gso_type = (ipv6_hdr(skb)->version == 6) ?
++				    SKB_GSO_IPIPV6 : SKB_GSO_IPIPV4;
+ 	return ipv6_gro_complete(skb, nhoff);
+ }
+ 
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index a13d8c114ccb..3945df11efaf 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -913,7 +913,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 		goto tx_error;
+ 	}
+ 
+-	if (iptunnel_handle_offloads(skb, SKB_GSO_SIT)) {
++	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIPV4)) {
+ 		ip_rt_put(rt);
+ 		goto tx_error;
+ 	}
+@@ -1000,7 +1000,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	const struct iphdr  *tiph = &tunnel->parms.iph;
+ 
+-	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIP))
++	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIPV4))
+ 		goto tx_error;
+ 
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 6d19d2eeaa60..c2c8732ed652 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -932,17 +932,9 @@ error:
+ 
+ static inline int __tun_gso_type_mask(int encaps_af, int orig_af)
+ {
+-	if (encaps_af == AF_INET) {
+-		if (orig_af == AF_INET)
+-			return SKB_GSO_IPIP;
+-
+-		return SKB_GSO_SIT;
+-	}
+-
+-	/* GSO: we need to provide proper SKB_GSO_ value for IPv6:
+-	 * SKB_GSO_SIT/IPV6
+-	 */
+-	return 0;
++	if (encaps_af == AF_INET)
++		return SKB_GSO_IPIPV4;
++	return SKB_GSO_IPIPV6;
+ }
+ 
+ /*
