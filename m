@@ -1,7 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 02/12] net-next: mediatek: add missing return code check
-Date: Thu,  5 May 2016 11:26:15 +0200
-Message-ID: <1462440385-51939-3-git-send-email-john@phrozen.org>
+Subject: [PATCH 07/12] net-next: mediatek: disable all interrupts during probe
+Date: Thu,  5 May 2016 11:26:20 +0200
+Message-ID: <1462440385-51939-8-git-send-email-john@phrozen.org>
 References: <1462440385-51939-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,27 +22,27 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The code fails to check if the scratch memory was properly allocated. Add
-this check and return with an error if the allocation failed.
+The current code only disables those IRQs that we will later use. To
+ensure that we have a predefined state, we really want to disable all IRQs.
+Change the code to disable all IRQs to achieve this.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 07674e5..0ed49a4 100644
+index 60095be..08f3df4 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -483,6 +483,9 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
+@@ -1391,7 +1391,7 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
  
- 	eth->scratch_head = kcalloc(cnt, MTK_QDMA_PAGE_SIZE,
- 				    GFP_KERNEL);
-+	if (unlikely(!eth->scratch_head))
-+		return -ENOMEM;
-+
- 	dma_addr = dma_map_single(eth->dev,
- 				  eth->scratch_head, cnt * MTK_QDMA_PAGE_SIZE,
- 				  DMA_FROM_DEVICE);
+ 	/* disable delay and normal interrupt */
+ 	mtk_w32(eth, 0, MTK_QDMA_DELAY_INT);
+-	mtk_irq_disable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
++	mtk_irq_disable(eth, ~0);
+ 	mtk_w32(eth, RST_GL_PSE, MTK_RST_GL);
+ 	mtk_w32(eth, 0, MTK_RST_GL);
+ 
 -- 
 1.7.10.4
