@@ -1,39 +1,56 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH 09/12] net-next: mediatek: increase watchdog_timeo
-Date: Thu,  5 May 2016 11:26:22 +0200
-Message-ID: <1462440385-51939-10-git-send-email-john@phrozen.org>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH 05/12] net-next: mediatek: dropped rx packets are not being
+ counted properly
+Date: Thu,  5 May 2016 11:26:18 +0200
+Message-ID: <1462440385-51939-6-git-send-email-john@phrozen.org>
 References: <1462440385-51939-1-git-send-email-john@phrozen.org>
-Cc: nbd@nbd.name, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462440385-51939-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1462440385-51939-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-During stress testing, after reducing the threshold value, we have seen
-TX timeouts that were caused by the watchdog_timeo value being too low.
-Increase the value to 5 * HZ which is a value commonly used by many other
-drivers.
+There are 2 places inside mtk_poll_rx where rx_dropped is not being
+incremented properly. Fix this by adding the missing code to increment
+the counter.
 
-Signed-off-by: John Crispin <john@phrozen.org>
+Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 4439991..12e9f1a 100644
+index 7fdd1a3..2e79af9 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1704,7 +1704,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
- 	mac->hw_stats->reg_offset = id * MTK_STAT_OFFSET;
+@@ -826,6 +826,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 					  DMA_FROM_DEVICE);
+ 		if (unlikely(dma_mapping_error(&netdev->dev, dma_addr))) {
+ 			skb_free_frag(new_data);
++			netdev->stats.rx_dropped++;
+ 			goto release_desc;
+ 		}
  
- 	SET_NETDEV_DEV(eth->netdev[id], eth->dev);
--	eth->netdev[id]->watchdog_timeo = HZ;
-+	eth->netdev[id]->watchdog_timeo = 5 * HZ;
- 	eth->netdev[id]->netdev_ops = &mtk_netdev_ops;
- 	eth->netdev[id]->base_addr = (unsigned long)eth->base;
- 	eth->netdev[id]->vlan_features = MTK_HW_FEATURES &
+@@ -833,6 +834,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 		skb = build_skb(data, ring->frag_size);
+ 		if (unlikely(!skb)) {
+ 			put_page(virt_to_head_page(new_data));
++			netdev->stats.rx_dropped++;
+ 			goto release_desc;
+ 		}
+ 		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
 -- 
 1.7.10.4
