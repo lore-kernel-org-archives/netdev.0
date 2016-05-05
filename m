@@ -1,109 +1,38 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH 01/12] net-next: mediatek: fix DQL support
-Date: Thu,  5 May 2016 11:26:14 +0200
-Message-ID: <1462440385-51939-2-git-send-email-john@phrozen.org>
-References: <1462440385-51939-1-git-send-email-john@phrozen.org>
+Subject: [PATCH 00/12] net-next: mediatek: bug fixes and tx stall fixes
+Date: Thu,  5 May 2016 11:26:13 +0200
+Message-ID: <1462440385-51939-1-git-send-email-john@phrozen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: nbd@nbd.name, netdev@vger.kernel.org,
 	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
 	John Crispin <john@phrozen.org>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:38831 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756505AbcEEJ0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 05:26:38 -0400
-In-Reply-To: <1462440385-51939-1-git-send-email-john@phrozen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The MTK ethernet core has 2 MACs both sitting on the same DMA ring. The
-current code will assign the TX traffic of each MAC to its own DQL. This
-results in the amount of data, that DQL says is in the queue incorrect. As
-the data from multiple devices is infact enqueued. This makes any decision
-based on these value non deterministic. Fix this by tracking all TX
-traffic, regardless of the MAC it belongs to in the DQL of all devices
-using the DMA.
+This series is a collection of fixes for bugs that we stumble across while
+doing more performance testing and code level review.
 
-Signed-off-by: John Crispin <john@phrozen.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   33 ++++++++++++++++-----------
- 1 file changed, 20 insertions(+), 13 deletions(-)
+John Crispin (12):
+  net-next: mediatek: fix DQL support
+  net-next: mediatek: add missing return code check
+  net-next: mediatek: fix missing free of scratch memory
+  net-next: mediatek: invalid buffer lookup in mtk_tx_map()
+  net-next: mediatek: dropped rx packets are not being counted properly
+  net-next: mediatek: add next data pointer coherency protection
+  net-next: mediatek: disable all interrupts during probe
+  net-next: mediatek: fix threshold value
+  net-next: mediatek: increase watchdog_timeo
+  net-next: mediatek: fix off by one in the TX ring allocation
+  net-next: mediatek: only wake the queue if it is stopped
+  net-next: mediatek: remove superfluous queue wake up call
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 41cdc0d..07674e5 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -641,7 +641,16 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
- 				(!nr_frags * TX_DMA_LS0)));
- 
--	netdev_sent_queue(dev, skb->len);
-+	/* we have a single DMA ring so BQL needs to be updated for all devices
-+	 * sitting on this ring
-+	 */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+
-+		netdev_sent_queue(eth->netdev[i], skb->len);
-+	}
-+
- 	skb_tx_timestamp(skb);
- 
- 	ring->next_free = mtk_qdma_phys_to_virt(ring, txd->txd2);
-@@ -869,21 +878,18 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 	struct mtk_tx_dma *desc;
- 	struct sk_buff *skb;
- 	struct mtk_tx_buf *tx_buf;
--	int total = 0, done[MTK_MAX_DEVS];
--	unsigned int bytes[MTK_MAX_DEVS];
-+	int total = 0, done = 0;
-+	unsigned int bytes = 0;
- 	u32 cpu, dma;
- 	static int condition;
- 	int i;
- 
--	memset(done, 0, sizeof(done));
--	memset(bytes, 0, sizeof(bytes));
--
- 	cpu = mtk_r32(eth, MTK_QTX_CRX_PTR);
- 	dma = mtk_r32(eth, MTK_QTX_DRX_PTR);
- 
- 	desc = mtk_qdma_phys_to_virt(ring, cpu);
- 
--	while ((cpu != dma) && budget) {
-+	while ((cpu != dma) && done < budget) {
- 		u32 next_cpu = desc->txd2;
- 		int mac;
- 
-@@ -903,9 +909,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 		}
- 
- 		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
--			bytes[mac] += skb->len;
--			done[mac]++;
--			budget--;
-+			bytes += skb->len;
-+			done++;
- 		}
- 		mtk_tx_unmap(eth->dev, tx_buf);
- 
-@@ -918,11 +923,13 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 
- 	mtk_w32(eth, cpu, MTK_QTX_CRX_PTR);
- 
-+	/* we have a single DMA ring so BQL needs to be updated for all devices
-+	 * sitting on this ring
-+	 */
- 	for (i = 0; i < MTK_MAC_COUNT; i++) {
--		if (!eth->netdev[i] || !done[i])
-+		if (!eth->netdev[i])
- 			continue;
--		netdev_completed_queue(eth->netdev[i], done[i], bytes[i]);
--		total += done[i];
-+		netdev_completed_queue(eth->netdev[i], done, bytes);
- 	}
- 
- 	/* read hw index again make sure no new tx packet */
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   94 ++++++++++++++++++---------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |    3 +
+ 2 files changed, 65 insertions(+), 32 deletions(-)
+
 -- 
 1.7.10.4
