@@ -1,42 +1,36 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 0/9] netfilter: remove per-netns conntrack
- tables, part 1
-Date: Fri, 6 May 2016 00:36:32 +0200
-Message-ID: <20160505223632.GB21687@breakpoint.cc>
-References: <1461863628-23350-1-git-send-email-fw@strlen.de>
- <572BACA3.6070303@hpe.com>
- <20160505205418.GA21687@breakpoint.cc>
- <572BC7A5.1060503@hpe.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hpe.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <572BC7A5.1060503@hpe.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] tools: bpf_jit_disasm: check for klogctl failure
+Date: Thu,  5 May 2016 23:39:33 +0100
+Message-ID: <1462487973-21712-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian Haley <brian.haley@hpe.com> wrote:
-> >>I've seen cases where certain users are attacked, where the CT table is
-> >>filled such that we start seeing "nf_conntrack: table full, dropping packet"
-> >>messages (as expected).  But other users continue to function normally,
-> >>unaffected.  Is this still the case - each netns has some limit it can't
-> >>exceed?
-> >
-> >The limit is global, the accounting per namespace.
-> 
-> So this is a change from existing.
+From: Colin Ian King <colin.king@canonical.com>
 
-No, see __nf_conntrack_alloc():
+klogctl can fail and return -ve len, so check for this and
+return NULL to avoid passing a (size_t)-1 to malloc.
 
-        if (nf_conntrack_max &&
-            unlikely(atomic_read(&net->ct.count) > nf_conntrack_max)) {
-		...
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ tools/net/bpf_jit_disasm.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-ct.count is whatever number of entries the namespace has allocated,
-so max number of possible conntracks is always infinite if number
-of net namespaces is unlimited (barring memory constraints, of course).
-
-I did not change this.
+diff --git a/tools/net/bpf_jit_disasm.c b/tools/net/bpf_jit_disasm.c
+index 5b32413..544b05a 100644
+--- a/tools/net/bpf_jit_disasm.c
++++ b/tools/net/bpf_jit_disasm.c
+@@ -98,6 +98,9 @@ static char *get_klog_buff(unsigned int *klen)
+ 	char *buff;
+ 
+ 	len = klogctl(CMD_ACTION_SIZE_BUFFER, NULL, 0);
++	if (len < 0)
++		return NULL;
++
+ 	buff = malloc(len);
+ 	if (!buff)
+ 		return NULL;
+-- 
+2.8.1
