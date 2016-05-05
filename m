@@ -1,35 +1,33 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] netxen: netxen_rom_fast_read() doesn't return -1
-Date: Thu, 5 May 2016 16:20:20 +0300
-Message-ID: <20160505132019.GD3038@mwanda>
+Subject: [patch] qede: uninitialized variable in qede_start_xmit()
+Date: Thu, 5 May 2016 16:21:30 +0300
+Message-ID: <20160505132130.GE3038@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>, everest-linux-l2@qlogic.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Manish Chopra <manish.chopra@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The error handling is broken here.  netxen_rom_fast_read() returns zero
-on success and -EIO on error.  It never returns -1.
+"data_split" was never set to false.  It's just uninitialized.
 
+Fixes: 2950219d87b0 ('qede: Add basic network device support')
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index fd362b6..9c6eed9 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -852,7 +852,8 @@ netxen_check_options(struct netxen_adapter *adapter)
- 	ptr32 = (__le32 *)&serial_num;
- 	offset = NX_FW_SERIAL_NUM_OFFSET;
- 	for (i = 0; i < 8; i++) {
--		if (netxen_rom_fast_read(adapter, offset, &val) == -1) {
-+		err = netxen_rom_fast_read(adapter, offset, &val);
-+		if (err) {
- 			dev_err(&pdev->dev, "error reading board info\n");
- 			adapter->driver_mismatch = 1;
- 			return;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 60a61c3..d98f35e 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -429,7 +429,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 	u8 xmit_type;
+ 	u16 idx;
+ 	u16 hlen;
+-	bool data_split;
++	bool data_split = false;
+ 
+ 	/* Get tx-queue context and netdev index */
+ 	txq_index = skb_get_queue_mapping(skb);
