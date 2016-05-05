@@ -1,33 +1,22 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] qede: uninitialized variable in qede_start_xmit()
-Date: Thu, 5 May 2016 16:21:30 +0300
-Message-ID: <20160505132130.GE3038@mwanda>
+From: Paul Machado <PaMachado@mcoe.org>
+Subject: Your mailbox is almost full
+Date: Thu, 5 May 2016 13:28:28 +0000
+Message-ID: <ECA805829C8B4349A397778E971422D0019C0CDF1D@MCOEE2K10-N3.mercedcoe.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>, everest-linux-l2@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "info@ServiceDesk.org" <info@ServiceDesk.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mcoe.org ([206.78.129.4]:33597 "EHLO mail.mcoe.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756819AbcEENeF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 09:34:05 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"data_split" was never set to false.  It's just uninitialized.
+Self
 
-Fixes: 2950219d87b0 ('qede: Add basic network device support')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+This e-mail address is now blocked from sending e-mail to other emails To keep your email active Click Here<https://www.powr.io/plugins/form-builder/view?id=4448384&mode=page>
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 60a61c3..d98f35e 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -429,7 +429,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 	u8 xmit_type;
- 	u16 idx;
- 	u16 hlen;
--	bool data_split;
-+	bool data_split = false;
- 
- 	/* Get tx-queue context and netdev index */
- 	txq_index = skb_get_queue_mapping(skb);
+Service Desk
