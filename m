@@ -1,51 +1,52 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH 10/12] net-next: mediatek: fix off by one in the TX ring allocation
-Date: Thu,  5 May 2016 11:26:23 +0200
-Message-ID: <1462440385-51939-11-git-send-email-john@phrozen.org>
-References: <1462440385-51939-1-git-send-email-john@phrozen.org>
-Cc: nbd@nbd.name, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Marc Angel <marc@arista.com>
+Subject: Re: [PATCH net-next v2] macvtap: add namespace support to the sysfs
+ device class
+Date: Thu, 5 May 2016 11:12:34 +0100
+Message-ID: <CAPSAET_U+zMqtDDCPJG3Bp8kcS_VTf3eCQ_1v88jG0tPjVgYBQ@mail.gmail.com>
+References: <1462300254-22273-1-git-send-email-marc@arista.com>
+ <20160504.160445.640444073175153113.davem@davemloft.net> <CAPSAET_zPYBvMdTQ5m1O9xO178Jk0b93rC1cy0CNY2yinUbnXw@mail.gmail.com>
+ <20160504.235308.1088954708869507214.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:42857 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932146AbcEEJzw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 05:55:52 -0400
-In-Reply-To: <1462440385-51939-1-git-send-email-john@phrozen.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:35602 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756283AbcEEKMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 06:12:55 -0400
+Received: by mail-oi0-f52.google.com with SMTP id x19so96971937oix.2
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 03:12:55 -0700 (PDT)
+In-Reply-To: <20160504.235308.1088954708869507214.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TX ring setup has an off by one error causing it to not utilise all
-descriptors. This has the side effect that we need to reset the next
-pointer at runtime to make it work. Fix the off by one and remove the
-code fixing the ring at runtime.
+On Thu, May 5, 2016 at 4:53 AM, David Miller <davem@davemloft.net> wrote:
+> From: Marc Angel <marc@arista.com>
+> Date: Thu, 5 May 2016 01:33:09 +0100
+>
+>> On Wed, May 4, 2016 at 9:04 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Marc Angel <marc@arista.com>
+>>> Date: Tue,  3 May 2016 20:30:54 +0200
+>>>
+>>>> @@ -1274,6 +1285,7 @@ static int macvtap_device_event(struct notifier_block *unused,
+>>>>                               unsigned long event, void *ptr)
+>>>>  {
+>>>>       struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+>>>> +     const char *tap_name = kasprintf(GFP_KERNEL, "tap%d", dev->ifindex);
+>>>>       struct macvlan_dev *vlan;
+>>>>       struct device *classdev;
+>>>>       dev_t devt;
+>>>
+>>> This 'tap_name' buffer seems to be leaked in several code paths.
+>>
+>> Sorry about that... V3 should be better.
+>
+> V3 doesn't apply cleanly to net-next, please respin your patch against
+> the current tree.
+>
+> Thanks.
 
-Signed-off-by: John Crispin <john@phrozen.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+I wasn't up-to-date, sorry again about that...
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 12e9f1a..81155a1 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -919,7 +919,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 		}
- 		mtk_tx_unmap(eth->dev, tx_buf);
- 
--		ring->last_free->txd2 = next_cpu;
- 		ring->last_free = desc;
- 		atomic_inc(&ring->free_count);
- 
-@@ -1027,7 +1026,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
- 
- 	atomic_set(&ring->free_count, MTK_DMA_SIZE - 2);
- 	ring->next_free = &ring->dma[0];
--	ring->last_free = &ring->dma[MTK_DMA_SIZE - 2];
-+	ring->last_free = &ring->dma[MTK_DMA_SIZE - 1];
- 	ring->thresh = MAX_SKB_FRAGS;
- 
- 	/* make sure that all changes to the dma ring are flushed before we
--- 
-1.7.10.4
+Thanks for being so patient.
