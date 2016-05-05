@@ -1,155 +1,263 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: mlx5 core/en oops in 4.6-rc6+
-Date: Thu, 5 May 2016 12:00:42 -0400
-Message-ID: <56df9c0a-39dd-6e07-9466-23195dc60860@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] cfg80211/nl80211: add wifi tx power mode switching
+ support
+Date: Thu, 05 May 2016 11:07:58 -0500
+Message-ID: <1462464478.23962.12.camel@redhat.com>
+References: <1462430663-9448-1-git-send-email-wnhuang@chromium.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="c8nxeBQQwK4rxmHnRgBiO6SDHvaM6SOer"
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Sameer Nanda <snanda@chromium.org>,
+	Todd Broch <tbroch@chromium.org>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Wei-Ning Huang <wnhuang@chromium.org>,
+	Linux-Wireless <linux-wireless@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58485 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46786 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754642AbcEEQAt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 12:00:49 -0400
-Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by mx1.redhat.com (Postfix) with ESMTPS id ECA87AA0AC
-	for <netdev@vger.kernel.org>; Thu,  5 May 2016 16:00:43 +0000 (UTC)
-Received: from linux-ws.xsintricity.com (ovpn-116-18.rdu2.redhat.com [10.10.116.18])
-	by int-mx14.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u45G0hNS004109
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 5 May 2016 12:00:43 -0400
+	id S1752937AbcEEQIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2016 12:08:02 -0400
+In-Reply-To: <1462430663-9448-1-git-send-email-wnhuang@chromium.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---c8nxeBQQwK4rxmHnRgBiO6SDHvaM6SOer
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2016-05-05 at 14:44 +0800, Wei-Ning Huang wrote:
+> Recent new hardware has the ability to switch between tablet mode and
+> clamshell mode. To optimize WiFi performance, we want to be able to
+> use
+> different power table between modes. This patch adds a new netlink
+> message type and cfg80211_ops function to allow userspace to trigger
+> a
+> power mode switch for a given wireless interface.
+>=20
+> Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
+> ---
+> =C2=A0include/net/cfg80211.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+| 11 +++++++++++
+> =C2=A0include/uapi/linux/nl80211.h | 21 +++++++++++++++++++++
+> =C2=A0net/wireless/nl80211.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+| 16 ++++++++++++++++
+> =C2=A0net/wireless/rdev-ops.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0| 22=
+ ++++++++++++++++++++++
+> =C2=A0net/wireless/trace.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0| 20 ++++++++++++++++++++
+> =C2=A05 files changed, 90 insertions(+)
+>=20
+> diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+> index 9e1b24c..aa77fa0 100644
+> --- a/include/net/cfg80211.h
+> +++ b/include/net/cfg80211.h
+> @@ -2370,6 +2370,12 @@ struct cfg80211_qos_map {
+> =C2=A0 * @get_tx_power: store the current TX power into the dbm varia=
+ble;
+> =C2=A0 *	return 0 if successful
+> =C2=A0 *
+> + * @set_tx_power_mode: set the transmit power mode. Some device have
+> the ability
+> + *	to transform between different mode such as clamshell and
+> tablet mode.
+> + *	set_tx_power_mode allows setting of different TX power
+> mode at runtime.
+> + * @get_tx_power_mode: store the current TX power mode into the mode
+> variable;
+> + *	return 0 if successful
+> + *
+> =C2=A0 * @set_wds_peer: set the WDS peer for a WDS interface
+> =C2=A0 *
+> =C2=A0 * @rfkill_poll: polls the hw rfkill line, use cfg80211 reporti=
+ng
+> @@ -2631,6 +2637,11 @@ struct cfg80211_ops {
+> =C2=A0	int	(*get_tx_power)(struct wiphy *wiphy, struct
+> wireless_dev *wdev,
+> =C2=A0				int *dbm);
+> =C2=A0
+> +	int	(*set_tx_power_mode)(struct wiphy *wiphy,
+> +				=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0enum nl80211_tx_power_mode
+> mode);
+> +	int	(*get_tx_power_mode)(struct wiphy *wiphy,
+> +				=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0enum nl80211_tx_power_mode
+> *mode);
+> +
+> =C2=A0	int	(*set_wds_peer)(struct wiphy *wiphy, struct
+> net_device *dev,
+> =C2=A0				const u8 *addr);
+> =C2=A0
+> diff --git a/include/uapi/linux/nl80211.h
+> b/include/uapi/linux/nl80211.h
+> index 5a30a75..9b1888a 100644
+> --- a/include/uapi/linux/nl80211.h
+> +++ b/include/uapi/linux/nl80211.h
+> @@ -1796,6 +1796,9 @@ enum nl80211_commands {
+> =C2=A0 *	connecting to a PCP, and in %NL80211_CMD_START_AP to start
+> =C2=A0 *	a PCP instead of AP. Relevant for DMG networks only.
+> =C2=A0 *
+> + * @NL80211_ATTR_WIPHY_TX_POWER_MODE: Transmit power mode. See
+> + *=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0&enum nl80211_tx_power_mode fo=
+r possible values.
+> + *
+> =C2=A0 * @NUM_NL80211_ATTR: total number of nl80211_attrs available
+> =C2=A0 * @NL80211_ATTR_MAX: highest attribute number currently define=
+d
+> =C2=A0 * @__NL80211_ATTR_AFTER_LAST: internal use
+> @@ -2172,6 +2175,8 @@ enum nl80211_attrs {
+> =C2=A0
+> =C2=A0	NL80211_ATTR_PBSS,
+> =C2=A0
+> +	NL80211_ATTR_WIPHY_TX_POWER_MODE,
+> +
+> =C2=A0	/* add attributes here, update the policy in nl80211.c */
+> =C2=A0
+> =C2=A0	__NL80211_ATTR_AFTER_LAST,
+> @@ -3703,6 +3708,22 @@ enum nl80211_tx_power_setting {
+> =C2=A0};
+> =C2=A0
+> =C2=A0/**
+> + * enum nl80211_tx_power_mode - TX power mode setting
+> + * @NL80211_TX_POWER_LOW: general low TX power mode
+> + * @NL80211_TX_POWER_MEDIUM: general medium TX power mode
+> + * @NL80211_TX_POWER_HIGH: general high TX power mode
+> + * @NL80211_TX_POWER_CLAMSHELL: clamshell mode TX power mode
+> + * @NL80211_TX_POWER_TABLET: tablet mode TX power mode
+> + */
+> +enum nl80211_tx_power_mode {
+> +	NL80211_TX_POWER_LOW,
+> +	NL80211_TX_POWER_MEDIUM,
+> +	NL80211_TX_POWER_HIGH,
+> +	NL80211_TX_POWER_CLAMSHELL,
+> +	NL80211_TX_POWER_TABLET,
 
-Just had this pop up during testing, happened very soon after bootup:
+"clamshell" and "tablet" probably mean many different things to many
+different people with respect to whether or not they should do anything
+with power saving or wifi. =C2=A0I feel like a more generic interface i=
+s
+needed here.
 
-[   47.235925] BUG: unable to handle kernel NULL pointer dereference at
-00000000000001e8
-[   47.245057] IP: [<ffffffffc0328b9c>] mlx5e_sq_xmit+0x1c/0xd80 [mlx5_co=
-re]
-[   47.252822] PGD 0
-[   47.255218] Oops: 0000 [#1] SMP
-[   47.259070] Modules linked in: sch_mqprio bridge 8021q garp mrp stp
-llc ib_iser libiscsi scsi_transport_iscsi ib_srp scsi_transport_srp
-ib_ipoib rdma_ucm ib_ucm ib_uverbs ib_umad rdma_cm ib_cm iw_cm ib_sa
-ib_mad x86_pkg_temp_thermal coretd
-[   47.352984] CPU: 18 PID: 1358 Comm: NetworkManager Not tainted
-4.6.0-rc6-00004-g7199787 #102
-[   47.362460] Hardware name: Dell Inc. PowerEdge R430/03XKDV, BIOS
-1.6.2 01/08/2016
-[   47.370869] task: ffff88103369d000 ti: ffff88103751c000 task.ti:
-ffff88103751c000
-[   47.379263] RIP: 0010:[<ffffffffc0328b9c>]  [<ffffffffc0328b9c>]
-mlx5e_sq_xmit+0x1c/0xd80 [mlx5_core]
-[   47.389627] RSP: 0018:ffff88103751f7d0  EFLAGS: 00010282
-[   47.395574] RAX: ffff880fe6f51d00 RBX: 0000000000000000 RCX:
-0000000000000081
-[   47.403571] RDX: ffff880ff1dc3000 RSI: ffff880fe6f51d00 RDI:
-0000000000000000
-[   47.411561] RBP: ffff88103751f828 R08: 0000000000020c80 R09:
-ffffffff81871e04
-[   47.419563] R10: ffffea003f9bd400 R11: ffff88100116de00 R12:
-000000000000003e
-[   47.427566] R13: ffff880fe6f51d00 R14: ffff8810240d0090 R15:
-ffff8810240d0068
-[   47.435557] FS:  00007fd79b882dc0(0000) GS:ffff88103ee40000(0000)
-knlGS:0000000000000000
-[   47.444625] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   47.451062] CR2: 00000000000001e8 CR3: 0000001cf86c5000 CR4:
-00000000001406e0
-[   47.459053] Stack:
-[   47.461306]  ffffffff81875480 ffff880fe6f50c00 ffff881d02f9b800
-ffff88103751f838
-[   47.469647]  ffffffff81a08415 ffff88103751f818 ffff880fe6f51d00
-000000000000003e
-[   47.477964]  ffff881d02f9bd00 ffff8810240d0090 ffff8810240d0068
-ffff88103751f838
-[   47.486279] Call Trace:
-[   47.489019]  [<ffffffff81875480>] ? consume_skb+0x80/0x150
-[   47.495178]  [<ffffffff81a08415>] ? packet_rcv+0x65/0x6d0
-[   47.501244]  [<ffffffffc03299ae>] mlx5e_xmit+0x2e/0x40 [mlx5_core]
-[   47.508169]  [<ffffffff818959d4>] dev_hard_start_xmit+0x384/0x650
-[   47.515007]  [<ffffffff818951bb>] ? validate_xmit_skb.isra.80+0x4b/0x4=
-e0
-[   47.522516]  [<ffffffff818d036f>] sch_direct_xmit+0x19f/0x360
-[   47.528963]  [<ffffffff81896565>] __dev_queue_xmit+0x6e5/0xaa0
-[   47.535502]  [<ffffffff81875480>] ? consume_skb+0x80/0x150
-[   47.542723]  [<ffffffff81896958>] dev_queue_xmit+0x18/0x30
-[   47.549856]  [<ffffffffc08d1d54>]
-vlan_dev_hard_start_xmit+0x104/0x210 [8021q]
-[   47.558933]  [<ffffffff818959d4>] dev_hard_start_xmit+0x384/0x650
-[   47.566738]  [<ffffffff8189675a>] __dev_queue_xmit+0x8da/0xaa0
-[   47.574246]  [<ffffffff81896958>] dev_queue_xmit+0x18/0x30
-[   47.581349]  [<ffffffff818a2d07>] neigh_connected_output+0x107/0x170
-[   47.589433]  [<ffffffff819a3e9f>] ip6_finish_output2+0x23f/0x720
-[   47.597128]  [<ffffffff81430f32>] ? selinux_ipv6_postroute+0x22/0x30
-[   47.605207]  [<ffffffff819a666b>] ip6_finish_output+0x13b/0x1e0
-[   47.612809]  [<ffffffff819a6777>] ip6_output+0x67/0x1c0
-[   47.619619]  [<ffffffff819a6530>] ? ip6_fragment+0xd80/0xd80
-[   47.626903]  [<ffffffff819fb80d>] ip6_local_out+0x4d/0x60
-[   47.633884]  [<ffffffff819a703b>] ip6_send_skb+0x2b/0xb0
-[   47.640773]  [<ffffffff819a713d>] ip6_push_pending_frames+0x7d/0x90
-[   47.648710]  [<ffffffff819d533d>] rawv6_sendmsg+0xd2d/0x1210
-[   47.655938]  [<ffffffff8128f70a>] ? do_wp_page+0x3ba/0x910
-[   47.662944]  [<ffffffff8142a970>] ? sock_has_perm+0x80/0xb0
-[   47.670020]  [<ffffffff8194f2c7>] inet_sendmsg+0x97/0xf0
-[   47.676778]  [<ffffffff818673f8>] sock_sendmsg+0x58/0x90
-[   47.683505]  [<ffffffff81868148>] SYSC_sendto+0x138/0x1b0
-[   47.690302]  [<ffffffff8109d5a8>] ? __do_page_fault+0x338/0x9d0
-[   47.697656]  [<ffffffff8116b131>] ? ktime_get_with_offset+0x71/0x130
-[   47.705481]  [<ffffffff81163ee7>] ? posix_get_boottime+0x37/0x60
-[   47.712904]  [<ffffffff81868b36>] SyS_sendto+0x16/0x20
-[   47.719346]  [<ffffffff81a336b2>] entry_SYSCALL_64_fastpath+0x1a/0xa4
-[   47.727230] Code: 05 a9 9f 03 00 01 66 31 47 48 5d c3 0f 1f 00 0f 1f
-44 00 00 55 48 89 e5 41 57 41 56 41 55 49 89 f5 41 54 53 48 89 fb 48 83
-ec 30 <0f> b7 87 e8 01 00 00 0f b6 8f ea 01 00 00 45 8b 95 80 00 00 00
-[   47.750336] RIP  [<ffffffffc0328b9c>] mlx5e_sq_xmit+0x1c/0xd80
-[mlx5_core]
-[   47.758755]  RSP <ffff88103751f7d0>
-[   47.763368] CR2: 00000000000001e8
-[   47.767779] ---[ end trace 35565b04ca44e521 ]---
+Could this be already done by:
+@NL80211_ATTR_WIPHY_TX_POWER_SETTING =3D=C2=A0NL80211_TX_POWER_LIMITED
+@NL80211_ATTR_WIPHY_TX_POWER_LEVEL =3D <limit for clamshell/tablet mode=
+>
 
-It appears to be intermittent as this machine has booted this kernel
-multiple times without hitting this.  Network setup includes both vlan
-and non-vlan interfaces.  If you need more info from me, please include
-me on the Cc: as I don't follow netdev@
+and then the device would be able to change its TX power as it saw fit
+up to that limit set by your application which figures out whether it's
+in clamshell or tablet mode?
 
---=20
-Doug Ledford <dledford@redhat.com>
-              GPG KeyID: 0E572FDD
+Dan
 
-
-
---c8nxeBQQwK4rxmHnRgBiO6SDHvaM6SOer
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJXK24qAAoJELgmozMOVy/d8SUQALm56vslxG7aCYjI8FxBV0t5
-9mEWtQ6+UzDH2HeD1hXpn8aOEg6t5cigr03mnf95V/+lV0JjtQ6IG3F7B5YDSx2z
-Z4HeGd2oqXfLfLhUZig3JNJ1mDX1Eu4Y9mprGJ/1OBv/j8c4qpJc1BE1UGeUmkOO
-ECpt6TqesZNxrCX3J18QlI85fxXdzPGrUwA2mXSql0HBUXx2RoTdg9t1GcwCPBa0
-y4nHyVOrAlZWm6mVILjUUGJV8u4FN+arrE7Lxi0mmYNEYWLkOr+G96P21xXjQ2U0
-yoj4qM++aBi95ljkOsJhqQxUXkZUFG098aX7yNlaMXkg2R+4N+Amk7pcxHf4aqcM
-50ApXo9ic4pVVaTNuJ3gudWsRF5xjU5wZgKleLtUuqBEC83/zpWY6mciyKVzRzmO
-kqYxuBI3/YCW2ufcZ3Vara0BwqrR/2ouo8m0vKhOMRvD7VrLsIBVnj6YM14K1k0W
-QTG1qe93phXwMM7cagTKg5+adJ6/kdOY+hQrHzFBarO2ZewffaiHznC9UpGGy5yU
-xHAUp7qOJiE7JDFopYcl9ZUdSnhcXDkK8QXuKqJDLHvNF+Zmp8fjrRixdjph5Rl2
-ojwXC5/YEfi86sEuJbuTQyt9hE5uKEXGYCe29fDGeB23yTIU6Emp0udKRuat9w9Q
-jOdeHEL9m5NTh77Nipbi
-=20AX
------END PGP SIGNATURE-----
-
---c8nxeBQQwK4rxmHnRgBiO6SDHvaM6SOer--
+> +};
+> +
+> +/**
+> =C2=A0 * enum nl80211_packet_pattern_attr - packet pattern attribute
+> =C2=A0 * @__NL80211_PKTPAT_INVALID: invalid number for nested attribu=
+te
+> =C2=A0 * @NL80211_PKTPAT_PATTERN: the pattern, values where the mask =
+has
+> diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+> index 056a730..61b474d 100644
+> --- a/net/wireless/nl80211.c
+> +++ b/net/wireless/nl80211.c
+> @@ -402,6 +402,7 @@ static const struct nla_policy
+> nl80211_policy[NUM_NL80211_ATTR] =3D {
+> =C2=A0	[NL80211_ATTR_SCHED_SCAN_DELAY] =3D { .type =3D NLA_U32 },
+> =C2=A0	[NL80211_ATTR_REG_INDOOR] =3D { .type =3D NLA_FLAG },
+> =C2=A0	[NL80211_ATTR_PBSS] =3D { .type =3D NLA_FLAG },
+> +	[NL80211_ATTR_WIPHY_TX_POWER_MODE] =3D { .type =3D NLA_U32 },
+> =C2=A0};
+> =C2=A0
+> =C2=A0/* policy for the key attributes */
+> @@ -2218,6 +2219,21 @@ static int nl80211_set_wiphy(struct sk_buff
+> *skb, struct genl_info *info)
+> =C2=A0			return result;
+> =C2=A0	}
+> =C2=A0
+> +	if (info->attrs[NL80211_ATTR_WIPHY_TX_POWER_MODE]) {
+> +		enum nl80211_tx_power_mode mode;
+> +		int idx =3D 0;
+> +
+> +		if (!rdev->ops->set_tx_power_mode)
+> +			return -EOPNOTSUPP;
+> +
+> +		idx =3D NL80211_ATTR_WIPHY_TX_POWER_MODE;
+> +		mode =3D nla_get_u32(info->attrs[idx]);
+> +
+> +		result =3D rdev_set_tx_power_mode(rdev, mode);
+> +		if (result)
+> +			return result;
+> +	}
+> +
+> =C2=A0	if (info->attrs[NL80211_ATTR_WIPHY_ANTENNA_TX] &&
+> =C2=A0	=C2=A0=C2=A0=C2=A0=C2=A0info->attrs[NL80211_ATTR_WIPHY_ANTENNA=
+_RX]) {
+> =C2=A0		u32 tx_ant, rx_ant;
+> diff --git a/net/wireless/rdev-ops.h b/net/wireless/rdev-ops.h
+> index 8ae0c04..c3a1035 100644
+> --- a/net/wireless/rdev-ops.h
+> +++ b/net/wireless/rdev-ops.h
+> @@ -552,6 +552,28 @@ static inline int rdev_get_tx_power(struct
+> cfg80211_registered_device *rdev,
+> =C2=A0	return ret;
+> =C2=A0}
+> =C2=A0
+> +static inline int
+> +rdev_set_tx_power_mode(struct cfg80211_registered_device *rdev,
+> +		=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0enum nl80211_tx_power_mo=
+de mode)
+> +{
+> +	int ret;
+> +	trace_rdev_set_tx_power_mode(&rdev->wiphy, mode);
+> +	ret =3D rdev->ops->set_tx_power_mode(&rdev->wiphy, mode);
+> +	trace_rdev_return_int(&rdev->wiphy, ret);
+> +	return ret;
+> +}
+> +
+> +static inline int
+> +rdev_get_tx_power_mode(struct cfg80211_registered_device *rdev,
+> +		=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0enum nl80211_tx_power_mo=
+de *mode)
+> +{
+> +	int ret;
+> +	trace_rdev_get_tx_power_mode(&rdev->wiphy);
+> +	ret =3D rdev->ops->get_tx_power_mode(&rdev->wiphy, mode);
+> +	trace_rdev_return_int_int(&rdev->wiphy, ret, *mode);
+> +	return ret;
+> +}
+> +
+> =C2=A0static inline int rdev_set_wds_peer(struct
+> cfg80211_registered_device *rdev,
+> =C2=A0				=C2=A0=C2=A0=C2=A0=C2=A0struct net_device *dev, const u8
+> *addr)
+> =C2=A0{
+> diff --git a/net/wireless/trace.h b/net/wireless/trace.h
+> index 09b242b..132c8c2 100644
+> --- a/net/wireless/trace.h
+> +++ b/net/wireless/trace.h
+> @@ -1420,6 +1420,26 @@ TRACE_EVENT(rdev_set_tx_power,
+> =C2=A0		=C2=A0=C2=A0WIPHY_PR_ARG, WDEV_PR_ARG,__entry->type, __entry-
+> >mbm)
+> =C2=A0);
+> =C2=A0
+> +DEFINE_EVENT(wiphy_only_evt, rdev_get_tx_power_mode,
+> +	TP_PROTO(struct wiphy *wiphy),
+> +	TP_ARGS(wiphy)
+> +);
+> +
+> +TRACE_EVENT(rdev_set_tx_power_mode,
+> +	TP_PROTO(struct wiphy *wiphy, enum nl80211_tx_power_mode
+> mode),
+> +	TP_ARGS(wiphy, mode),
+> +	TP_STRUCT__entry(
+> +		WIPHY_ENTRY
+> +		__field(enum nl80211_tx_power_mode, mode)
+> +	),
+> +	TP_fast_assign(
+> +		WIPHY_ASSIGN;
+> +		__entry->mode =3D mode;
+> +	),
+> +	TP_printk(WIPHY_PR_FMT ", mode: %d",
+> +		=C2=A0=C2=A0WIPHY_PR_ARG, __entry->mode)
+> +);
+> +
+> =C2=A0TRACE_EVENT(rdev_return_int_int,
+> =C2=A0	TP_PROTO(struct wiphy *wiphy, int func_ret, int func_fill),
+> =C2=A0	TP_ARGS(wiphy, func_ret, func_fill),
