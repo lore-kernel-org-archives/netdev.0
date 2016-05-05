@@ -1,7 +1,8 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 03/12] net-next: mediatek: fix missing free of scratch memory
-Date: Thu,  5 May 2016 11:26:16 +0200
-Message-ID: <1462440385-51939-4-git-send-email-john@phrozen.org>
+Subject: [PATCH 06/12] net-next: mediatek: add next data pointer coherency
+ protection
+Date: Thu,  5 May 2016 11:26:19 +0200
+Message-ID: <1462440385-51939-7-git-send-email-john@phrozen.org>
 References: <1462440385-51939-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,95 +23,41 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Scratch memory gets allocated in mtk_init_fq_dma() but the corresponding
-code to free it is missing inside mtk_dma_free() causing a memory leak.
-With this patch applied, we can run ifconfig/up/down several thousand
-times without any problems.
+The QDMA engine can fail to update the register pointing to the next TX
+descriptor if this bit does not get set in the QDMA configuration register.
+Not setting this bit can result in invalid values inside the TX rings
+registers which will causes TX stalls.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   18 +++++++++++++-----
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |    2 ++
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |    1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 0ed49a4..e415986 100644
+index 2e79af9..60095be 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -469,14 +469,14 @@ static inline void mtk_rx_get_desc(struct mtk_rx_dma *rxd,
- /* the qdma core needs scratch memory to be setup */
- static int mtk_init_fq_dma(struct mtk_eth *eth)
- {
--	dma_addr_t phy_ring_head, phy_ring_tail;
-+	dma_addr_t phy_ring_tail;
- 	int cnt = MTK_DMA_SIZE;
- 	dma_addr_t dma_addr;
- 	int i;
+@@ -1277,7 +1277,7 @@ static int mtk_start_dma(struct mtk_eth *eth)
+ 	mtk_w32(eth,
+ 		MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN |
+ 		MTK_RX_2B_OFFSET | MTK_DMA_SIZE_16DWORDS |
+-		MTK_RX_BT_32DWORDS,
++		MTK_RX_BT_32DWORDS | MTK_NDP_CO_PRO,
+ 		MTK_QDMA_GLO_CFG);
  
- 	eth->scratch_ring = dma_alloc_coherent(eth->dev,
- 					       cnt * sizeof(struct mtk_tx_dma),
--					       &phy_ring_head,
-+					       &eth->phy_scratch_ring,
- 					       GFP_ATOMIC | __GFP_ZERO);
- 	if (unlikely(!eth->scratch_ring))
- 		return -ENOMEM;
-@@ -493,19 +493,19 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
- 		return -ENOMEM;
- 
- 	memset(eth->scratch_ring, 0x0, sizeof(struct mtk_tx_dma) * cnt);
--	phy_ring_tail = phy_ring_head +
-+	phy_ring_tail = eth->phy_scratch_ring +
- 			(sizeof(struct mtk_tx_dma) * (cnt - 1));
- 
- 	for (i = 0; i < cnt; i++) {
- 		eth->scratch_ring[i].txd1 =
- 					(dma_addr + (i * MTK_QDMA_PAGE_SIZE));
- 		if (i < cnt - 1)
--			eth->scratch_ring[i].txd2 = (phy_ring_head +
-+			eth->scratch_ring[i].txd2 = (eth->phy_scratch_ring +
- 				((i + 1) * sizeof(struct mtk_tx_dma)));
- 		eth->scratch_ring[i].txd3 = TX_DMA_SDL(MTK_QDMA_PAGE_SIZE);
- 	}
- 
--	mtk_w32(eth, phy_ring_head, MTK_QDMA_FQ_HEAD);
-+	mtk_w32(eth, eth->phy_scratch_ring, MTK_QDMA_FQ_HEAD);
- 	mtk_w32(eth, phy_ring_tail, MTK_QDMA_FQ_TAIL);
- 	mtk_w32(eth, (cnt << 16) | cnt, MTK_QDMA_FQ_CNT);
- 	mtk_w32(eth, MTK_QDMA_PAGE_SIZE << 16, MTK_QDMA_FQ_BLEN);
-@@ -1205,6 +1205,14 @@ static void mtk_dma_free(struct mtk_eth *eth)
- 	for (i = 0; i < MTK_MAC_COUNT; i++)
- 		if (eth->netdev[i])
- 			netdev_reset_queue(eth->netdev[i]);
-+	if (eth->scratch_ring) {
-+		dma_free_coherent(eth->dev,
-+				  MTK_DMA_SIZE * sizeof(struct mtk_tx_dma),
-+				  eth->scratch_ring,
-+				  eth->phy_scratch_ring);
-+		eth->scratch_ring = NULL;
-+		eth->phy_scratch_ring = 0;
-+	}
- 	mtk_tx_clean(eth);
- 	mtk_rx_clean(eth);
- 	kfree(eth->scratch_head);
+ 	return 0;
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index eed626d..57f7e8a 100644
+index 57f7e8a..a5eb7c6 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -357,6 +357,7 @@ struct mtk_rx_ring {
-  * @rx_ring:		Pointer to the memore holding info about the RX ring
-  * @rx_napi:		The NAPI struct
-  * @scratch_ring:	Newer SoCs need memory for a second HW managed TX ring
-+ * @phy_scratch_ring:	physical address of scratch_ring
-  * @scratch_head:	The scratch memory that scratch_ring points to.
-  * @clk_ethif:		The ethif clock
-  * @clk_esw:		The switch clock
-@@ -384,6 +385,7 @@ struct mtk_eth {
- 	struct mtk_rx_ring		rx_ring;
- 	struct napi_struct		rx_napi;
- 	struct mtk_tx_dma		*scratch_ring;
-+	dma_addr_t			phy_scratch_ring;
- 	void				*scratch_head;
- 	struct clk			*clk_ethif;
- 	struct clk			*clk_esw;
+@@ -91,6 +91,7 @@
+ #define MTK_QDMA_GLO_CFG	0x1A04
+ #define MTK_RX_2B_OFFSET	BIT(31)
+ #define MTK_RX_BT_32DWORDS	(3 << 11)
++#define MTK_NDP_CO_PRO		BIT(10)
+ #define MTK_TX_WB_DDONE		BIT(6)
+ #define MTK_DMA_SIZE_16DWORDS	(2 << 4)
+ #define MTK_RX_DMA_BUSY		BIT(3)
 -- 
 1.7.10.4
