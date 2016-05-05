@@ -1,186 +1,86 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 02/13] net: l3mdev: Move get_saddr and rt6_dst
-Date: Wed,  4 May 2016 20:33:19 -0700
-Message-ID: <1462419210-10463-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 00/13] net: Various VRF patches
+Date: Wed,  4 May 2016 20:33:17 -0700
+Message-ID: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36165 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755817AbcEEDeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 23:34:10 -0400
-Received: by mail-pf0-f178.google.com with SMTP id c189so33687391pfb.3
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 20:34:09 -0700 (PDT)
-In-Reply-To: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36786 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755284AbcEEDeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 23:34:07 -0400
+Received: by mail-pa0-f46.google.com with SMTP id bt5so30788087pac.3
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 20:34:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move l3mdev_rt6_dst_by_oif and l3mdev_get_saddr to l3mdev.c. Collapse
-l3mdev_get_rt6_dst into l3mdev_rt6_dst_by_oif since it is the only
-user and keep the l3mdev_get_rt6_dst name for consistency with other
-hooks.
+Various fixes and features for VRF over the past few months.
 
-A follow-on patch adds more code to these functions making them long
-for inlined functions.
+Patch 1 creates the FIB tables when VRF device is created.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/l3mdev.h | 56 +++-------------------------------------------------
- net/ipv6/route.c     |  2 +-
- net/l3mdev/l3mdev.c  | 55 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 59 insertions(+), 54 deletions(-)
+Patch 2 is a prep for 3 which allow sends via cmsg/IP-PKTINFO on interfaces
+enslaved to a VRF device.
 
-diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
-index c43a9c73de5e..78872bd1dc2c 100644
---- a/include/net/l3mdev.h
-+++ b/include/net/l3mdev.h
-@@ -130,52 +130,9 @@ static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
- 	return rc;
- }
- 
--static inline int l3mdev_get_saddr(struct net *net, int ifindex,
--				   struct flowi4 *fl4)
--{
--	struct net_device *dev;
--	int rc = 0;
--
--	if (ifindex) {
--
--		rcu_read_lock();
--
--		dev = dev_get_by_index_rcu(net, ifindex);
--		if (dev && netif_is_l3_master(dev) &&
--		    dev->l3mdev_ops->l3mdev_get_saddr) {
--			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
--		}
--
--		rcu_read_unlock();
--	}
--
--	return rc;
--}
-+int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4);
- 
--static inline struct dst_entry *l3mdev_get_rt6_dst(const struct net_device *dev,
--						   const struct flowi6 *fl6)
--{
--	if (netif_is_l3_master(dev) && dev->l3mdev_ops->l3mdev_get_rt6_dst)
--		return dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
--
--	return NULL;
--}
--
--static inline
--struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
--					const struct flowi6 *fl6)
--{
--	struct dst_entry *dst = NULL;
--	struct net_device *dev;
--
--	dev = dev_get_by_index(net, fl6->flowi6_oif);
--	if (dev) {
--		dst = l3mdev_get_rt6_dst(dev, fl6);
--		dev_put(dev);
--	}
--
--	return dst;
--}
-+struct dst_entry *l3mdev_get_rt6_dst(struct net *net, const struct flowi6 *fl6);
- 
- #else
- 
-@@ -233,14 +190,7 @@ static inline int l3mdev_get_saddr(struct net *net, int ifindex,
- }
- 
- static inline
--struct dst_entry *l3mdev_get_rt6_dst(const struct net_device *dev,
--				     const struct flowi6 *fl6)
--{
--	return NULL;
--}
--static inline
--struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
--					const struct flowi6 *fl6)
-+struct dst_entry *l3mdev_get_rt6_dst(struct net *net, const struct flowi6 *fl6)
- {
- 	return NULL;
- }
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index af46e19205f5..c42fa1deb152 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1190,7 +1190,7 @@ struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
- 	struct dst_entry *dst;
- 	bool any_src;
- 
--	dst = l3mdev_rt6_dst_by_oif(net, fl6);
-+	dst = l3mdev_get_rt6_dst(net, fl6);
- 	if (dst)
- 		return dst;
- 
-diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
-index e925037fa0df..0fe4211e646f 100644
---- a/net/l3mdev/l3mdev.c
-+++ b/net/l3mdev/l3mdev.c
-@@ -97,3 +97,58 @@ u32 l3mdev_fib_table_by_index(struct net *net, int ifindex)
- 	return tb_id;
- }
- EXPORT_SYMBOL_GPL(l3mdev_fib_table_by_index);
-+
-+/**
-+ *	l3mdev_get_rt6_dst - IPv6 route lookup based on flow. Returns
-+ *			     cached route for L3 master device if relevant
-+ *			     to flow
-+ *	@net: network namespace for device index lookup
-+ *	@fl6: IPv6 flow struct for lookup
-+ */
-+
-+struct dst_entry *l3mdev_get_rt6_dst(struct net *net,
-+				     const struct flowi6 *fl6)
-+{
-+	struct dst_entry *dst = NULL;
-+	struct net_device *dev;
-+
-+	dev = dev_get_by_index(net, fl6->flowi6_oif);
-+	if (dev) {
-+		if (netif_is_l3_master(dev) &&
-+		    dev->l3mdev_ops->l3mdev_get_rt6_dst)
-+			dst = dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
-+		dev_put(dev);
-+	}
-+
-+	return dst;
-+}
-+EXPORT_SYMBOL_GPL(l3mdev_get_rt6_dst);
-+
-+/**
-+ *	l3mdev_get_saddr - get source address for a flow based on an interface
-+ *			   enslaved to an L3 master device
-+ *	@net: network namespace for device index lookup
-+ *	@ifindex: Interface index
-+ *	@fl4: IPv4 flow struct
-+ */
-+
-+int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4)
-+{
-+	struct net_device *dev;
-+	int rc = 0;
-+
-+	if (ifindex) {
-+		rcu_read_lock();
-+
-+		dev = dev_get_by_index_rcu(net, ifindex);
-+		if (dev && netif_is_l3_master(dev) &&
-+		    dev->l3mdev_ops->l3mdev_get_saddr) {
-+			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
-+		}
-+
-+		rcu_read_unlock();
-+	}
-+
-+	return rc;
-+}
-+EXPORT_SYMBOL_GPL(l3mdev_get_saddr);
+Patch 4 fixes missing TCP reset / ECONNREFUSED packets in response to
+packets to unused ports.
+
+Patch 5 moves the packet hook to L3. It simplifies the overhead of VRFs,
+removing a lot of packet path code from VRF driver and is the foundation
+for the patches after it.
+
+Patch 6 fixes IP{6}_PKTINFO to returned the index of the enslaved
+interface rather than the VRF device. A required feature for proper
+VRF support.
+
+Patches 7 and 8 provide support for locally originated traffic to local
+addresses.
+
+Patch 9 accommdates a change to the IP6 route lookups - passing flags
+to l3mdev/vrf route lookups.
+
+Patch 10 provides support for IPv6 multicast and link local addresses.
+
+Patch 11 protects access to the cached vrf dst entries which can be
+deleted on 1 cpu while processing packets on another cpu.
+
+Patches 12 and 13 fix up IPv6 source address selections.
+
+David Ahern (13):
+  net: vrf: Create FIB tables on link create
+  net: l3mdev: Move get_saddr and rt6_dst
+  net: l3mdev: Allow send on enslaved interface
+  net: ipv6: tcp reset, icmp need to consider L3 domain
+  net: l3mdev: Add hook in ip and ipv6
+  net: original ingress device index in PKTINFO
+  net: vrf: ipv4 support for local traffic to local addresses
+  net: vrf: ipv6 support for local traffic to local addresses
+  net: l3mdev: Propagate route lookup flags for IPv6
+  net: vrf: Handle ipv6 multicast and link-local addresses
+  net: vrf: rcu protect changes to private data
+  net: vrf: Implement get_saddr for IPv6
+  net: ipv6: address selection should only consider devices in L3 domain
+
+ drivers/net/vrf.c         | 632 ++++++++++++++++++++++++++++++++++------------
+ include/linux/ipv6.h      |   2 +-
+ include/linux/netdevice.h |   2 +
+ include/net/ip.h          |   1 +
+ include/net/ip6_route.h   |  24 +-
+ include/net/l3mdev.h      |  85 ++++---
+ include/net/tcp.h         |   2 +-
+ net/core/dev.c            |   3 +-
+ net/ipv4/fib_frontend.c   |   1 +
+ net/ipv4/ip_input.c       |   8 +
+ net/ipv4/ip_sockglue.c    |   9 +-
+ net/ipv4/route.c          |   4 +
+ net/ipv6/addrconf.c       |   9 +-
+ net/ipv6/icmp.c           |   7 +-
+ net/ipv6/ip6_fib.c        |   1 +
+ net/ipv6/ip6_input.c      |   8 +
+ net/ipv6/ip6_output.c     |  12 +-
+ net/ipv6/route.c          |  24 +-
+ net/ipv6/tcp_ipv6.c       |   7 +-
+ net/l3mdev/l3mdev.c       |  92 +++++++
+ 20 files changed, 701 insertions(+), 232 deletions(-)
+
 -- 
 2.1.4
