@@ -1,113 +1,107 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH] VSOCK: do not disconnect socket when peer has shutdown
- SEND only
-Date: Thu, 5 May 2016 19:23:45 +0100
-Message-ID: <20160505182345.GA13284@stefanha-x1.localdomain>
-References: <1462368113-5493-1-git-send-email-ian.campbell@docker.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: pci: use dev_kfree_skb_irq instead of kfree_skb
+ in rtl_pci_reset_trx_ring
+Date: Thu, 5 May 2016 14:25:39 -0500
+Message-ID: <572B9E33.2040702@lwfinger.net>
+References: <20160505171904.GA16619@udknight>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="EeQfGwPcQSOJBaQU"
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	Andy King <acking@vmware.com>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Jorgen Hansen <jhansen@vmware.com>,
-	Adit Ranadive <aditr@vmware.com>
-To: Ian Campbell <ian.campbell@docker.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41006 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752284AbcEESXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 14:23:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1462368113-5493-1-git-send-email-ian.campbell@docker.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
+	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160505171904.GA16619@udknight>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
---EeQfGwPcQSOJBaQU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, May 04, 2016 at 02:21:53PM +0100, Ian Campbell wrote:
-> The peer may be expecting a reply having sent a request and then done a
-> shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-> wrong and breaks for me with a client which does a SHUT_WR.
->=20
-> Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-> here does not seem to be the norm and removing it does not seem to have
-> had any adverse effects that I can see.
-
-Seems fine to me.
-
-> I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-> on the vmci transport.
->=20
-> Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Stefan Hajnoczi <stefanha@redhat.com>
-> Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-> Cc: Andy King <acking@vmware.com>
-> Cc: Dmitry Torokhov <dtor@vmware.com>
-> Cc: Jorgen Hansen <jhansen@vmware.com>
-> Cc: Adit Ranadive <aditr@vmware.com>
-> Cc: netdev@vger.kernel.org
+On 05/05/2016 12:19 PM, Wang YanQing wrote:
+> We can't use kfree_skb in irq disable context, because spin_lock_irqsave
+> make sure we are always in irq disable context, use dev_kfree_skb_irq
+> instead of kfree_skb is better than dev_kfree_skb_any.
+>
+> This patch fix below kernel warning:
+> [ 7612.095528] ------------[ cut here ]------------
+> [ 7612.095546] WARNING: CPU: 3 PID: 4460 at kernel/softirq.c:150 __local_bh_enable_ip+0x58/0x80()
+> [ 7612.095550] Modules linked in: rtl8723be x86_pkg_temp_thermal btcoexist rtl_pci rtlwifi rtl8723_common
+> [ 7612.095567] CPU: 3 PID: 4460 Comm: ifconfig Tainted: G        W       4.4.0+ #4
+> [ 7612.095570] Hardware name: LENOVO 20DFA04FCD/20DFA04FCD, BIOS J5ET48WW (1.19 ) 08/27/2015
+> [ 7612.095574]  00000000 00000000 da37fc70 c12ce7c5 00000000 da37fca0 c104cc59 c19d4454
+> [ 7612.095584]  00000003 0000116c c19d4784 00000096 c10508a8 c10508a8 00000200 c1b42400
+> [ 7612.095594]  f29be780 da37fcb0 c104ccad 00000009 00000000 da37fcbc c10508a8 f21f08b8
+> [ 7612.095604] Call Trace:
+> [ 7612.095614]  [<c12ce7c5>] dump_stack+0x41/0x5c
+> [ 7612.095620]  [<c104cc59>] warn_slowpath_common+0x89/0xc0
+> [ 7612.095628]  [<c10508a8>] ? __local_bh_enable_ip+0x58/0x80
+> [ 7612.095634]  [<c10508a8>] ? __local_bh_enable_ip+0x58/0x80
+> [ 7612.095640]  [<c104ccad>] warn_slowpath_null+0x1d/0x20
+> [ 7612.095646]  [<c10508a8>] __local_bh_enable_ip+0x58/0x80
+> [ 7612.095653]  [<c16b7d34>] destroy_conntrack+0x64/0xa0
+> [ 7612.095660]  [<c16b300f>] nf_conntrack_destroy+0xf/0x20
+> [ 7612.095665]  [<c1677565>] skb_release_head_state+0x55/0xa0
+> [ 7612.095670]  [<c16775bb>] skb_release_all+0xb/0x20
+> [ 7612.095674]  [<c167760b>] __kfree_skb+0xb/0x60
+> [ 7612.095679]  [<c16776f0>] kfree_skb+0x30/0x70
+> [ 7612.095686]  [<f81b869d>] ? rtl_pci_reset_trx_ring+0x22d/0x370 [rtl_pci]
+> [ 7612.095692]  [<f81b869d>] rtl_pci_reset_trx_ring+0x22d/0x370 [rtl_pci]
+> [ 7612.095698]  [<f81b87f9>] rtl_pci_start+0x19/0x190 [rtl_pci]
+> [ 7612.095705]  [<f81970e6>] rtl_op_start+0x56/0x90 [rtlwifi]
+> [ 7612.095712]  [<c17e3f16>] drv_start+0x36/0xc0
+> [ 7612.095717]  [<c17f5ab3>] ieee80211_do_open+0x2d3/0x890
+> [ 7612.095725]  [<c16820fe>] ? call_netdevice_notifiers_info+0x2e/0x60
+> [ 7612.095730]  [<c17f60bd>] ieee80211_open+0x4d/0x50
+> [ 7612.095736]  [<c16891b3>] __dev_open+0xa3/0x130
+> [ 7612.095742]  [<c183fa53>] ? _raw_spin_unlock_bh+0x13/0x20
+> [ 7612.095748]  [<c1689499>] __dev_change_flags+0x89/0x140
+> [ 7612.095753]  [<c127c70d>] ? selinux_capable+0xd/0x10
+> [ 7612.095759]  [<c1689589>] dev_change_flags+0x29/0x60
+> [ 7612.095765]  [<c1700b93>] devinet_ioctl+0x553/0x670
+> [ 7612.095772]  [<c12db758>] ? _copy_to_user+0x28/0x40
+> [ 7612.095777]  [<c17018b5>] inet_ioctl+0x85/0xb0
+> [ 7612.095783]  [<c166e647>] sock_ioctl+0x67/0x260
+> [ 7612.095788]  [<c166e5e0>] ? sock_fasync+0x80/0x80
+> [ 7612.095795]  [<c115c99b>] do_vfs_ioctl+0x6b/0x550
+> [ 7612.095800]  [<c127c812>] ? selinux_file_ioctl+0x102/0x1e0
+> [ 7612.095807]  [<c10a8914>] ? timekeeping_suspend+0x294/0x320
+> [ 7612.095813]  [<c10a256a>] ? __hrtimer_run_queues+0x14a/0x210
+> [ 7612.095820]  [<c1276e24>] ? security_file_ioctl+0x34/0x50
+> [ 7612.095827]  [<c115cef0>] SyS_ioctl+0x70/0x80
+> [ 7612.095832]  [<c1001804>] do_fast_syscall_32+0x84/0x120
+> [ 7612.095839]  [<c183ff91>] sysenter_past_esp+0x36/0x55
+> [ 7612.095844] ---[ end trace 97e9c637a20e8348 ]---
+>
+> Signed-off-by: Wang YanQing <udknight-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  net/vmw_vsock/af_vsock.c | 21 +--------------------
->  1 file changed, 1 insertion(+), 20 deletions(-)
->=20
-> diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-> index 1e5f5ed..7a25150 100644
-> --- a/net/vmw_vsock/af_vsock.c
-> +++ b/net/vmw_vsock/af_vsock.c
-> @@ -1789,27 +1789,8 @@ vsock_stream_recvmsg(struct socket *sock, struct m=
-sghdr *msg, size_t len,
->  	else if (sk->sk_shutdown & RCV_SHUTDOWN)
->  		err =3D 0;
-> =20
-> -	if (copied > 0) {
-> -		/* We only do these additional bookkeeping/notification steps
-> -		 * if we actually copied something out of the queue pair
-> -		 * instead of just peeking ahead.
-> -		 */
-> -
-> -		if (!(flags & MSG_PEEK)) {
-> -			/* If the other side has shutdown for sending and there
-> -			 * is nothing more to read, then modify the socket
-> -			 * state.
-> -			 */
-> -			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
-> -				if (vsock_stream_has_data(vsk) <=3D 0) {
-> -					sk->sk_state =3D SS_UNCONNECTED;
-> -					sock_set_flag(sk, SOCK_DONE);
-> -					sk->sk_state_change(sk);
-> -				}
-> -			}
-> -		}
-> +	if (copied > 0)
->  		err =3D copied;
-> -	}
-> =20
->  out:
->  	release_sock(sk);
-> --=20
-> 2.8.1
->=20
+>   drivers/net/wireless/realtek/rtlwifi/pci.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
+> index 1ac41b8..99a3a03 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/pci.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
+> @@ -1572,7 +1572,7 @@ int rtl_pci_reset_trx_ring(struct ieee80211_hw *hw)
+>   							 true,
+>   							 HW_DESC_TXBUFF_ADDR),
+>   						 skb->len, PCI_DMA_TODEVICE);
+> -				kfree_skb(skb);
+> +				dev_kfree_skb_irq(skb);
+>   				ring->idx = (ring->idx + 1) % ring->entries;
+>   			}
+>   			ring->idx = 0;
+>
 
---EeQfGwPcQSOJBaQU
-Content-Type: application/pgp-signature; name="signature.asc"
+I am currently testing this patch. It looks OK, but during my first test, I got 
+a system crash that was not captured. As I was testing some other things, your 
+patch may not have been at fault and I am now testing with only that one change.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+By the way, I have never seen the warning that you posted. I always use 64-bit 
+Linux, and that may be the difference.
 
-iQEcBAEBAgAGBQJXK4+xAAoJEJykq7OBq3PIx+gH/iZXHzvTdqwTreLCLQYhXzeY
-E+TdMiEHcqobNCzzKTsGEQO6yzVaVbNq3blYSslutUcr5ZtvZwKQ2TWswtnS85yx
-SIdHZO7+mqaHKKkSrKMFZBNbmdJrMPVKhH+gTbIkrAUJ8dCHOobku6R983j6oUYa
-hE7ZsRY+m3H/7qclt+5WLDZLUQWlKufwl5hiQzMwc9dg6VbiN9F9yIqnGrmBKIWm
-vIm2NF6ZOb/Iqn0+0pmvIoOacc/58sJJlaNXYjSB/ef18jn9OmD6+/Nuw3F4WlzY
-lYM1bTmULcgJXABFbpQjRM0gohTGRlk7Zv4mE5q4lJUUMWS+IUu+Bwd59H6cqFg=
-=UbNd
------END PGP SIGNATURE-----
+Once I finish my testing, I will ack or nack.
 
---EeQfGwPcQSOJBaQU--
+Larry
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
