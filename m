@@ -1,86 +1,89 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 00/13] net: Various VRF patches
-Date: Wed,  4 May 2016 20:33:17 -0700
-Message-ID: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 06/13] net: original ingress device index in PKTINFO
+Date: Wed,  4 May 2016 20:33:23 -0700
+Message-ID: <1462419210-10463-7-git-send-email-dsa@cumulusnetworks.com>
+References: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36786 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755284AbcEEDeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 23:34:07 -0400
-Received: by mail-pa0-f46.google.com with SMTP id bt5so30788087pac.3
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 20:34:07 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33463 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755817AbcEEDeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 23:34:15 -0400
+Received: by mail-pa0-f45.google.com with SMTP id xk12so31293061pac.0
+        for <netdev@vger.kernel.org>; Wed, 04 May 2016 20:34:15 -0700 (PDT)
+In-Reply-To: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Various fixes and features for VRF over the past few months.
+Applications such as OSPF and BFD need the original ingress device not
+the VRF device; the latter can be derived from the former. To that end
+add the skb_iif to inet_skb_parm and set it in ipv4 code after clearing
+the skb control buffer similar to IPv6. From there the pktinfo can just
+pull it from cb with the PKTINFO_SKB_CB cast.
 
-Patch 1 creates the FIB tables when VRF device is created.
+The previous patch moving the skb->dev change to L3 means nothing else
+is needed for IPv6; it just works.
 
-Patch 2 is a prep for 3 which allow sends via cmsg/IP-PKTINFO on interfaces
-enslaved to a VRF device.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/net/ip.h       | 1 +
+ net/ipv4/ip_input.c    | 1 +
+ net/ipv4/ip_sockglue.c | 9 +++++++--
+ 3 files changed, 9 insertions(+), 2 deletions(-)
 
-Patch 4 fixes missing TCP reset / ECONNREFUSED packets in response to
-packets to unused ports.
-
-Patch 5 moves the packet hook to L3. It simplifies the overhead of VRFs,
-removing a lot of packet path code from VRF driver and is the foundation
-for the patches after it.
-
-Patch 6 fixes IP{6}_PKTINFO to returned the index of the enslaved
-interface rather than the VRF device. A required feature for proper
-VRF support.
-
-Patches 7 and 8 provide support for locally originated traffic to local
-addresses.
-
-Patch 9 accommdates a change to the IP6 route lookups - passing flags
-to l3mdev/vrf route lookups.
-
-Patch 10 provides support for IPv6 multicast and link local addresses.
-
-Patch 11 protects access to the cached vrf dst entries which can be
-deleted on 1 cpu while processing packets on another cpu.
-
-Patches 12 and 13 fix up IPv6 source address selections.
-
-David Ahern (13):
-  net: vrf: Create FIB tables on link create
-  net: l3mdev: Move get_saddr and rt6_dst
-  net: l3mdev: Allow send on enslaved interface
-  net: ipv6: tcp reset, icmp need to consider L3 domain
-  net: l3mdev: Add hook in ip and ipv6
-  net: original ingress device index in PKTINFO
-  net: vrf: ipv4 support for local traffic to local addresses
-  net: vrf: ipv6 support for local traffic to local addresses
-  net: l3mdev: Propagate route lookup flags for IPv6
-  net: vrf: Handle ipv6 multicast and link-local addresses
-  net: vrf: rcu protect changes to private data
-  net: vrf: Implement get_saddr for IPv6
-  net: ipv6: address selection should only consider devices in L3 domain
-
- drivers/net/vrf.c         | 632 ++++++++++++++++++++++++++++++++++------------
- include/linux/ipv6.h      |   2 +-
- include/linux/netdevice.h |   2 +
- include/net/ip.h          |   1 +
- include/net/ip6_route.h   |  24 +-
- include/net/l3mdev.h      |  85 ++++---
- include/net/tcp.h         |   2 +-
- net/core/dev.c            |   3 +-
- net/ipv4/fib_frontend.c   |   1 +
- net/ipv4/ip_input.c       |   8 +
- net/ipv4/ip_sockglue.c    |   9 +-
- net/ipv4/route.c          |   4 +
- net/ipv6/addrconf.c       |   9 +-
- net/ipv6/icmp.c           |   7 +-
- net/ipv6/ip6_fib.c        |   1 +
- net/ipv6/ip6_input.c      |   8 +
- net/ipv6/ip6_output.c     |  12 +-
- net/ipv6/route.c          |  24 +-
- net/ipv6/tcp_ipv6.c       |   7 +-
- net/l3mdev/l3mdev.c       |  92 +++++++
- 20 files changed, 701 insertions(+), 232 deletions(-)
-
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 247ac82e9cf2..37165fba3741 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -36,6 +36,7 @@
+ struct sock;
+ 
+ struct inet_skb_parm {
++	int			iif;
+ 	struct ip_options	opt;		/* Compiled IP options		*/
+ 	unsigned char		flags;
+ 
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 37375eedeef9..4b351af3e67b 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -478,6 +478,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 
+ 	/* Remove any debris in the socket control block */
+ 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
++	IPCB(skb)->iif = skb->skb_iif;
+ 
+ 	/* Must drop socket now because of tproxy. */
+ 	skb_orphan(skb);
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index bdb222c0c6a2..dbcd027c38e7 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -476,9 +476,9 @@ static bool ipv4_datagram_support_cmsg(const struct sock *sk,
+ 	    (!skb->dev))
+ 		return false;
+ 
++	/* see comment in ipv4_pktinfo_prepare about CB re-use */
+ 	info = PKTINFO_SKB_CB(skb);
+ 	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+-	info->ipi_ifindex = skb->dev->ifindex;
+ 	return true;
+ }
+ 
+@@ -1193,7 +1193,12 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+ 		       ipv6_sk_rxinfo(sk);
+ 
+ 	if (prepare && skb_rtable(skb)) {
+-		pktinfo->ipi_ifindex = inet_iif(skb);
++		/* skb->cb is overloaded: prior to this point it is IP{6}CB
++		 * which has interface index (iif) as the first member of the
++		 * underlying inet{6}_skb_parm struct. This code then overlays
++		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
++		 * element so the iif is picked up from the prior IPCB
++		 */
+ 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+ 	} else {
+ 		pktinfo->ipi_ifindex = 0;
 -- 
 2.1.4
