@@ -1,71 +1,121 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 03/13] net: l3mdev: Allow send on enslaved
- interface
-Date: Thu, 5 May 2016 10:40:24 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1605051026380.2118@ja.home.ssi.bg>
-References: <1462419210-10463-1-git-send-email-dsa@cumulusnetworks.com> <1462419210-10463-4-git-send-email-dsa@cumulusnetworks.com>
+From: Dean Jenkins <Dean_Jenkins@mentor.com>
+Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow
+ transmissions
+Date: Thu, 5 May 2016 09:11:15 +0100
+Message-ID: <572B0023.9060505@mentor.com>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+ <57286E15.2080900@mentor.com>
+ <CAFGCpxx0f7g7rXyZ-P0EF7QVX7Z0ziK+7VMPKK7pQteBowkw3Q@mail.gmail.com>
+ <5728837D.60702@mentor.com>
+ <CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:52923 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756152AbcEEHkb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2016 03:40:31 -0400
-In-Reply-To: <1462419210-10463-4-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Guodong Xu <guodong.xu@linaro.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Ivan Vecera <ivecera@redhat.com>,
+	"David B. Robins" <linux@davidrobins.net>
+To: John Stultz <john.stultz@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On 05/05/16 00:45, John Stultz wrote:
+> On Tue, May 3, 2016 at 3:54 AM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
+>> On 03/05/16 11:04, Guodong Xu wrote:
+>>> did you test on ARM 64-bit system or ARM 32-bit? I ask because HiKey
+>>> is an ARM 64-bit system. I suggest we should be careful on that. I saw
+>>> similar issues when transferring to a 64-bit system in other net
+>>> drivers.
+>> We used 32-bit ARM and never tested on 64-bit ARM so I suggest that the
+>> commits need to be reviewed with 64-bit OS in mind.
+>>>
+>>> Do you have any suggestion on this regard?
+>> Try testing on a Linux PC x86 32-bit OS which has has a kernel containing my
+>> ASIX commits. This will help to confirm whether the failure is related to
+>> 32-bit or 64-bit OS. Then try with Linux PC x86 64-bit OS, this should fail
+>> otherwise it points to something specific in your ARM 64-bit platform.
+> Just as a sample point, I have managed to reproduce exactly this issue
+> on an x86_64 system by simply scp'ing a large file.
+Please tell us the x86_64 kernel version number that you used and which 
+Linux Distribution it was ? This allows other people a chance to 
+reproduce your observations.
+
+>
+> [  417.819276] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+> synchronisation was lost, remaining 988
+It is interesting that the reported "remaining" value is 988. Is 988 
+always shown ? I mean that do you see any other "remaining" values for 
+the "Data Header synchronisation was lost" error message ?
+
+> [  417.823415] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0xef830347, offset 4
+The gap in the timestamps shows 417.823415 - 417.819276 = 0.004139 = 4ms 
+which is a large gap in terms of USB 2.0 high speed communications. This 
+gap is expected to be in the 100us range for consecutive URBs. So 4ms is 
+strange.
+
+The expectation is that the "Data Header synchronisation was lost" error 
+message resets the 32-bit header word synchronisation to the start of 
+the next URB buffer. The "Bad Header Length, offset 4" is the expected 
+outcome for the next URB because it is unlikely the 32-bit header word 
+is at the start of URB buffer due to Ethernet frames spanning across URBs.
+> [  417.827502] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0x31e2b348, offset 4
+Timestamps show the gap to be 4ms which is strange for USB 2.0 high 
+speed, are you sure high speed mode is being used ?
+> [  417.843779] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+> synchronisation was lost, remaining 988
+> [  417.847921] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0x8af91035, offset 4
+> [  417.852004] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0x8521fa03, offset 4
+> [  418.273394] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+> synchronisation was lost, remaining 988
+> [  418.277532] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0x33cd9c7c, offset 4
+> [  418.281683] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0x3d850896, offset 4
+> [  418.286227] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0x86443357, offset 4
+> [  418.290319] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+> 0xee6c81d1, offset 4
+>
+> I don't have any 32bit x86 installs around so I'm not sure I can easly
+> test there, but its clear its not arm64 specific.
+I agree the issue is not specific to your ARM 64 bit platform.
+
+Please can you supply the output of ifconfig for the USB to Ethernet 
+adaptor, your example above shows eth1 as the device.
+
+Please show the output of ifconfig eth1 before and after the issue is 
+seen. This will show us whether the kernel logs any network errors and 
+how many bytes have been transferred.
+
+After the issue is seen, please can you show us the output of "dmesg | 
+grep asix" so that we can see status messages from the ASIX driver that 
+the USB to Ethernet adaptor is using. In particular we need to check 
+that USB high speed operation (480Mbps) is being used and not full speed 
+operation (12Mbps).
+
+Thanks,
+
+Regards,
+Dean
+
+>
+> thanks
+> -john
 
 
-	Hello,
-
-On Wed, 4 May 2016, David Ahern wrote:
-
-> Allow udp and raw sockets to send by oif that is an enslaved interface
-> versus the l3mdev/VRF device. For example, this allows BFD to use ifindex
-> from IP_PKTINFO on a receive to send a response without the need to
-> convert to the VRF index. It also allows ping and ping6 to work when
-> specifying an enslaved interface (e.g., ping -I swp1 <ip>) which is
-> a natural use case.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  drivers/net/vrf.c   |  2 ++
->  net/ipv4/route.c    |  4 ++++
->  net/l3mdev/l3mdev.c | 20 +++++++++++++++-----
->  3 files changed, 21 insertions(+), 5 deletions(-)
-> 
-
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 8c8c655bb2c4..a1f2830d8110 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2146,6 +2146,7 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
->  	unsigned int flags = 0;
->  	struct fib_result res;
->  	struct rtable *rth;
-> +	int master_idx;
->  	int orig_oif;
->  	int err = -ENETUNREACH;
->  
-> @@ -2155,6 +2156,9 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
->  
->  	orig_oif = fl4->flowi4_oif;
->  
-> +	master_idx = l3mdev_master_ifindex_by_index(net, fl4->flowi4_oif);
-> +	if (master_idx)
-> +		fl4->flowi4_oif = master_idx;
-
-	Changing the flowi4_oif at this point can have
-bad effects. I remember for recent commit for  __mkroute_output
-where the route caching is disabled if traffic is redirected
-to loopback. I think, such change can affect the route
-caching, for example, now we use nexthop on master_idx to
-cache routes for orig_oif. Such problems with the caching
-in the past always caused lookups to return wrong cached result
-for other users. But this is only my fears, I don't know
-the actual result of this change. May be you are trying to
-change flowi4_oif at one place instead of every caller.
-
-Regards
+-- 
+Dean Jenkins
+Embedded Software Engineer
+Linux Transportation Solutions
+Mentor Embedded Software Division
+Mentor Graphics (UK) Ltd.
