@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 09/20] net: dsa: mv88e6xxx: factorize VTU access
-Date: Thu,  5 May 2016 18:40:53 -0400
-Message-ID: <1462488064-1841-10-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC PATCH net-next 18/20] net: dsa: mv88e6xxx: factorize switch setup
+Date: Thu,  5 May 2016 18:41:02 -0400
+Message-ID: <1462488064-1841-19-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,267 +14,362 @@ In-Reply-To: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a MV88E6XXX_FLAG_VTU flag to indentify switch models with a VLAN
-Table Unit.
+Provide a shared mv88e6xxx_setup function to the drivers.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  5 +++++
- drivers/net/dsa/mv88e6131.c | 12 ++++++++----
- drivers/net/dsa/mv88e6171.c | 12 ++++++++----
- drivers/net/dsa/mv88e6352.c | 18 ++++++++++++------
- drivers/net/dsa/mv88e6xxx.c | 16 ++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  6 ++++++
- 6 files changed, 55 insertions(+), 14 deletions(-)
+ drivers/net/dsa/mv88e6123.c | 16 +----------
+ drivers/net/dsa/mv88e6131.c | 16 +----------
+ drivers/net/dsa/mv88e6171.c | 16 +----------
+ drivers/net/dsa/mv88e6352.c | 16 +----------
+ drivers/net/dsa/mv88e6xxx.c | 69 ++++++++++++++++++++++-----------------------
+ drivers/net/dsa/mv88e6xxx.h |  3 +-
+ 6 files changed, 38 insertions(+), 98 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 05d5196..3992f4f 100644
+index 9d3f672..bad4b8d 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -139,6 +139,11 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
- 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
- 	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
-+	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
-+	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
-+	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-+	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-+	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
- };
+@@ -54,24 +54,10 @@ static const char *mv88e6123_drv_probe(struct device *dsa_dev,
+ 				   ARRAY_SIZE(mv88e6123_table));
+ }
  
- MODULE_ALIAS("platform:mv88e6123");
+-static int mv88e6123_setup(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	ps->ds = ds;
+-
+-	ret = mv88e6xxx_setup_common(ps);
+-	if (ret < 0)
+-		return ret;
+-
+-	return mv88e6xxx_setup_ports(ds);
+-}
+-
+ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6123_drv_probe,
+-	.setup			= mv88e6123_setup,
++	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 125fbbb..d99ebad 100644
+index 4ab617a..cf7d710 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -25,7 +25,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.num_databases = 256,
- 		.num_ports = 11,
- 		.flags = MV88E6XXX_FLAG_PPU |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6085,
- 		.family = MV88E6XXX_FAMILY_6097,
-@@ -33,7 +34,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 10,
- 		.flags = MV88E6XXX_FLAG_PPU |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6131,
- 		.family = MV88E6XXX_FAMILY_6185,
-@@ -41,7 +43,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.num_databases = 256,
- 		.num_ports = 8,
- 		.flags = MV88E6XXX_FLAG_PPU |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6185,
- 		.family = MV88E6XXX_FAMILY_6185,
-@@ -49,7 +52,8 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.num_databases = 256,
- 		.num_ports = 10,
- 		.flags = MV88E6XXX_FLAG_PPU |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}
- };
+@@ -74,24 +74,10 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+ 				   ARRAY_SIZE(mv88e6131_table));
+ }
  
+-static int mv88e6131_setup(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	ps->ds = ds;
+-
+-	ret = mv88e6xxx_setup_common(ps);
+-	if (ret < 0)
+-		return ret;
+-
+-	return mv88e6xxx_setup_ports(ds);
+-}
+-
+ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_DSA,
+ 	.probe			= mv88e6131_drv_probe,
+-	.setup			= mv88e6131_setup,
++	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 8ba338d..bbea365 100644
+index df7a810..a5f32dc 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -28,7 +28,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 			MV88E6XXX_FLAG_SMI_PHY |
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
- 		.family = MV88E6XXX_FAMILY_6351,
-@@ -39,7 +40,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 			MV88E6XXX_FLAG_SMI_PHY |
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
- 		.family = MV88E6XXX_FAMILY_6351,
-@@ -50,7 +52,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 			MV88E6XXX_FLAG_SMI_PHY |
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
- 		.family = MV88E6XXX_FAMILY_6351,
-@@ -61,7 +64,8 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 			MV88E6XXX_FLAG_SMI_PHY |
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}
- };
+@@ -86,24 +86,10 @@ static const char *mv88e6171_drv_probe(struct device *dsa_dev,
+ 				   ARRAY_SIZE(mv88e6171_table));
+ }
  
+-static int mv88e6171_setup(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	ps->ds = ds;
+-
+-	ret = mv88e6xxx_setup_common(ps);
+-	if (ret < 0)
+-		return ret;
+-
+-	return mv88e6xxx_setup_ports(ds);
+-}
+-
+ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6171_drv_probe,
+-	.setup			= mv88e6171_setup,
++	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index a67dcf9..0ed4172 100644
+index b24bae1..d34eff5 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -36,7 +36,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6321,
- 		.family = MV88E6XXX_FAMILY_6320,
-@@ -50,7 +51,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6172,
- 		.family = MV88E6XXX_FAMILY_6352,
-@@ -64,7 +66,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6176,
- 		.family = MV88E6XXX_FAMILY_6352,
-@@ -78,7 +81,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6240,
- 		.family = MV88E6XXX_FAMILY_6352,
-@@ -92,7 +96,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6352,
- 		.family = MV88E6XXX_FAMILY_6352,
-@@ -106,7 +111,8 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT |
--			MV88E6XXX_FLAG_VLANTABLE,
-+			MV88E6XXX_FLAG_VLANTABLE |
-+			MV88E6XXX_FLAG_VTU,
- 	}
- };
+@@ -137,24 +137,10 @@ static const char *mv88e6352_drv_probe(struct device *dsa_dev,
+ 				   ARRAY_SIZE(mv88e6352_table));
+ }
  
+-static int mv88e6352_setup(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	ps->ds = ds;
+-
+-	ret = mv88e6xxx_setup_common(ps);
+-	if (ret < 0)
+-		return ret;
+-
+-	return mv88e6xxx_setup_ports(ds);
+-}
+-
+ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6352_drv_probe,
+-	.setup			= mv88e6352_setup,
++	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index c6e4254e..805bd0f 100644
+index 2c4594b..ad0513d 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1586,6 +1586,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 	u16 pvid;
- 	int err;
+@@ -2630,14 +2630,12 @@ static int mv88e6xxx_power_on_serdes(struct mv88e6xxx_priv_state *ps)
+ 	return ret;
+ }
  
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	err = _mv88e6xxx_port_pvid_get(ps, port, &pvid);
-@@ -2009,6 +2012,9 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
- 		PORT_CONTROL_2_8021Q_DISABLED;
+-static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
++static int _mv88e6xxx_setup_port(struct mv88e6xxx_priv_state *ps, int port)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct dsa_switch *ds = ps->ds;
  	int ret;
+ 	u16 reg;
  
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
+-	mutex_lock(&ps->smi_mutex);
+-
+ 	if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
+ 	    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
+ 	    mv88e6xxx_6185_family(ps) || mv88e6xxx_6095_family(ps) ||
+@@ -2666,7 +2664,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_PCS_CTRL, reg);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 	}
  
- 	ret = _mv88e6xxx_reg_read(ps, REG_PORT(port), PORT_CONTROL_2);
-@@ -2042,8 +2048,12 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_vlan *vlan,
- 				struct switchdev_trans *trans)
+ 	/* Port Control: disable Drop-on-Unlock, disable Drop-on-Lock,
+@@ -2730,7 +2728,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_CONTROL, reg);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 	}
+ 
+ 	/* If this port is connected to a SerDes, make sure the SerDes is not
+@@ -2739,14 +2737,14 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	if (mv88e6xxx_6352_family(ps)) {
+ 		ret = _mv88e6xxx_reg_read(ps, REG_PORT(port), PORT_STATUS);
+ 		if (ret < 0)
+-			goto abort;
++			return ret;
+ 		ret &= PORT_STATUS_CMODE_MASK;
+ 		if ((ret == PORT_STATUS_CMODE_100BASE_X) ||
+ 		    (ret == PORT_STATUS_CMODE_1000BASE_X) ||
+ 		    (ret == PORT_STATUS_CMODE_SGMII)) {
+ 			ret = mv88e6xxx_power_on_serdes(ps);
+ 			if (ret < 0)
+-				goto abort;
++				return ret;
+ 		}
+ 	}
+ 
+@@ -2783,7 +2781,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_CONTROL_2, reg);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 	}
+ 
+ 	/* Port Association Vector: when learning source addresses
+@@ -2798,13 +2796,13 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 
+ 	ret = _mv88e6xxx_reg_write(ps, REG_PORT(port), PORT_ASSOC_VECTOR, reg);
+ 	if (ret)
+-		goto abort;
++		return ret;
+ 
+ 	/* Egress rate control 2: disable egress rate control. */
+ 	ret = _mv88e6xxx_reg_write(ps, REG_PORT(port), PORT_RATE_CONTROL_2,
+ 				   0x0000);
+ 	if (ret)
+-		goto abort;
++		return ret;
+ 
+ 	if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
+ 	    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
+@@ -2816,7 +2814,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_PAUSE_CTRL, 0x0000);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 
+ 		/* Port ATU control: disable limiting the number of
+ 		 * address database entries that this port is allowed
+@@ -2830,7 +2828,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_PRI_OVERRIDE, 0x0000);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 
+ 		/* Port Ethertype: use the Ethertype DSA Ethertype
+ 		 * value.
+@@ -2838,14 +2836,14 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_ETH_TYPE, ETH_P_EDSA);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 		/* Tag Remap: use an identity 802.1p prio -> switch
+ 		 * prio mapping.
+ 		 */
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_TAG_REGMAP_0123, 0x3210);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 
+ 		/* Tag Remap 2: use an identity 802.1p prio -> switch
+ 		 * prio mapping.
+@@ -2853,7 +2851,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_TAG_REGMAP_4567, 0x7654);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 	}
+ 
+ 	if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
+@@ -2864,7 +2862,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 		ret = _mv88e6xxx_reg_write(ps, REG_PORT(port),
+ 					   PORT_RATE_CONTROL, 0x0001);
+ 		if (ret)
+-			goto abort;
++			return ret;
+ 	}
+ 
+ 	/* Port Control 1: disable trunking, disable sending
+@@ -2872,7 +2870,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	 */
+ 	ret = _mv88e6xxx_reg_write(ps, REG_PORT(port), PORT_CONTROL_1, 0x0000);
+ 	if (ret)
+-		goto abort;
++		return ret;
+ 
+ 	/* Port based VLAN map: give each port the same default address
+ 	 * database, and allow bidirectional communication between the
+@@ -2880,33 +2878,20 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	 */
+ 	ret = _mv88e6xxx_port_fid_set(ps, port, 0);
+ 	if (ret)
+-		goto abort;
++		return ret;
+ 
+ 	ret = _mv88e6xxx_port_based_vlan_map(ps, port);
+ 	if (ret)
+-		goto abort;
++		return ret;
+ 
+ 	/* Default VLAN ID and priority: don't set a default VLAN
+ 	 * ID, and set the default packet priority to zero.
+ 	 */
+ 	ret = _mv88e6xxx_reg_write(ps, REG_PORT(port), PORT_DEFAULT_VLAN,
+ 				   0x0000);
+-abort:
+-	mutex_unlock(&ps->smi_mutex);
+-	return ret;
+-}
+-
+-int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-	int i;
++	if (ret)
++		return ret;
+ 
+-	for (i = 0; i < ps->info->num_ports; i++) {
+-		ret = mv88e6xxx_setup_port(ds, i);
+-		if (ret < 0)
+-			return ret;
+-	}
+ 	return 0;
+ }
+ 
+@@ -3122,9 +3107,13 @@ static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+ 	return err;
+ }
+ 
+-int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
++int mv88e6xxx_setup(struct dsa_switch *ds)
  {
 +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
  	int err;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
-+		return -EOPNOTSUPP;
++	int i;
 +
- 	/* If the requested port doesn't belong to the same bridge as the VLAN
- 	 * members, do not support it (yet) and fallback to software VLAN.
- 	 */
-@@ -2084,6 +2094,9 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
- 	u16 vid;
++	ps->ds = ds;
  
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
-+		return;
+ 	mutex_init(&ps->smi_mutex);
+ 
+@@ -3143,6 +3132,14 @@ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ 		goto unlock;
+ 
+ 	err = _mv88e6xxx_setup_global(ps);
++	if (err)
++		goto unlock;
 +
- 	mutex_lock(&ps->smi_mutex);
++	for (i = 0; i < ps->info->num_ports; i++) {
++		err = _mv88e6xxx_setup_port(ps, i);
++		if (err)
++			goto unlock;
++	}
  
- 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
-@@ -2141,6 +2154,9 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 	u16 pvid, vid;
- 	int err = 0;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	err = _mv88e6xxx_port_pvid_get(ps, port, &pvid);
+ unlock:
+ 	mutex_unlock(&ps->smi_mutex);
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index bf8475b..9de6ae9 100644
+index c8677dd..d13e290 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -394,6 +394,11 @@ enum mv88e6xxx_cap {
- 	 * the output (or egress) ports to which it is allowed to send frames.
- 	 */
- 	MV88E6XXX_CAP_VLANTABLE,
-+
-+	/* VLAN Table Unit.
-+	 * The VTU is used to program 802.1Q VLANs. See GLOBAL_VTU_OP.
-+	 */
-+	MV88E6XXX_CAP_VTU,
- };
+@@ -537,8 +537,7 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+ 				const struct mv88e6xxx_info *table,
+ 				unsigned int num);
  
- /* Bitmask of capabilities */
-@@ -406,6 +411,7 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
- #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
- #define MV88E6XXX_FLAG_VLANTABLE	BIT(MV88E6XXX_CAP_VLANTABLE)
-+#define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
- 
- struct mv88e6xxx_info {
- 	enum mv88e6xxx_family family;
+-int mv88e6xxx_setup_ports(struct dsa_switch *ds);
+-int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps);
++int mv88e6xxx_setup(struct dsa_switch *ds);
+ int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg);
+ int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
+ 			int reg, u16 val);
 -- 
 2.8.2
