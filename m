@@ -1,125 +1,88 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 04/14] fou: Call setup_udp_tunnel_sock
-Date: Wed, 4 May 2016 18:02:34 -0700
-Message-ID: <1462410164-1953217-5-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 08/14] ipv6: Change "final" protocol processing for encapsulation
+Date: Wed, 4 May 2016 18:02:38 -0700
+Message-ID: <1462410164-1953217-9-git-send-email-tom@herbertland.com>
 References: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37406 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16082 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755483AbcEEBC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 21:02:59 -0400
+	by vger.kernel.org with ESMTP id S1755516AbcEEBDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 21:03:00 -0400
 Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u450xWB9027375
-	for <netdev@vger.kernel.org>; Wed, 4 May 2016 18:02:58 -0700
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u450xUOX027334
+	for <netdev@vger.kernel.org>; Wed, 4 May 2016 18:02:59 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 22qh8mkqwt-2
+	by mx0b-00082601.pphosted.com with ESMTP id 22qh8mkqxd-3
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 04 May 2016 18:02:56 -0700
+	for <netdev@vger.kernel.org>; Wed, 04 May 2016 18:02:59 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.103.99.99) with ESMTP	id
- 1985d26e125d11e6b1ad0002c9dfb610-b2eeac50 for <netdev@vger.kernel.org>;	Wed,
- 04 May 2016 18:02:55 -0700
+ 1b8f3104125d11e6b1ad0002c9dfb610-b2eeac50 for <netdev@vger.kernel.org>;	Wed,
+ 04 May 2016 18:02:58 -0700
 In-Reply-To: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use helper function to set up UDP tunnel related information for a fou
-socket.
+When performing foo-over-UDP, UDP are receveived processed by the
+encapsulation header which returns another protocol to process.
+This may result in processing two (or more) protocols in the
+loop that are marked as INET6_PROTO_FINAL. The actions taken
+for hitting a final protocol, in particular the skb_postpull_rcsum
+can only be performed.
+
+This patch set adds a check of a final protocol has been seen. The
+rules are:
+  - If the final protocol has not been seen any protocol is processed
+    (final and non-final). In the case of a final protocol, the final
+    actions are taken (like the skb_postpull_rcsum)
+  - If a final protocol has been seen (e.g. an encapsulating UDP
+    header) then no further non-final protocols are allowed
+    (e.g. extension headers). For more final protocols the
+    final actions are not taken (e.g. skb_postpull_rcsum).
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv4/fou.c | 50 ++++++++++++++++----------------------------------
- 1 file changed, 16 insertions(+), 34 deletions(-)
+ net/ipv6/ip6_input.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 7ac5ec8..a8b5cbf 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -446,31 +446,13 @@ static void fou_release(struct fou *fou)
- 	kfree_rcu(fou, rcu);
- }
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 2a0258a..7d98d01 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -216,6 +216,7 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
+ 	unsigned int nhoff;
+ 	int nexthdr;
+ 	bool raw;
++	bool have_final = false;
  
--static int fou_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
--{
--	udp_sk(sk)->encap_rcv = fou_udp_recv;
--	udp_sk(sk)->gro_receive = fou_gro_receive;
--	udp_sk(sk)->gro_complete = fou_gro_complete;
--	fou_from_sock(sk)->protocol = cfg->protocol;
--
--	return 0;
--}
--
--static int gue_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
--{
--	udp_sk(sk)->encap_rcv = gue_udp_recv;
--	udp_sk(sk)->gro_receive = gue_gro_receive;
--	udp_sk(sk)->gro_complete = gue_gro_complete;
--
--	return 0;
--}
--
- static int fou_create(struct net *net, struct fou_cfg *cfg,
- 		      struct socket **sockp)
- {
- 	struct socket *sock = NULL;
- 	struct fou *fou = NULL;
- 	struct sock *sk;
-+	struct udp_tunnel_sock_cfg tunnel_cfg;
- 	int err;
+ 	/*
+ 	 *	Parse extension headers
+@@ -235,9 +236,21 @@ resubmit:
+ 	if (ipprot) {
+ 		int ret;
  
- 	/* Open UDP socket */
-@@ -489,33 +471,33 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+-		if (ipprot->flags & INET6_PROTO_FINAL) {
++		if (have_final) {
++			if (!(ipprot->flags & INET6_PROTO_FINAL)) {
++				/* Once we've seen a final protocol don't
++				 * allow encapsulation on any non-final
++				 * ones. This allows foo in UDP encapsulation
++				 * to work.
++				 */
++				goto discard;
++			}
++		} else if (ipprot->flags & INET6_PROTO_FINAL) {
+ 			const struct ipv6hdr *hdr;
  
- 	fou->flags = cfg->flags;
- 	fou->port = cfg->udp_config.local_udp_port;
-+	fou->type = cfg->type;
-+	fou->sock = sock;
++			/* Only do this once for first final protocol */
++			have_final = true;
 +
-+	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
-+	tunnel_cfg.encap_type = 1;
-+	tunnel_cfg.sk_user_data = fou;
-+	tunnel_cfg.encap_destroy = NULL;
- 
- 	/* Initial for fou type */
- 	switch (cfg->type) {
- 	case FOU_ENCAP_DIRECT:
--		err = fou_encap_init(sk, fou, cfg);
--		if (err)
--			goto error;
-+		tunnel_cfg.encap_rcv = fou_udp_recv;
-+		tunnel_cfg.gro_receive = fou_gro_receive;
-+		tunnel_cfg.gro_complete = fou_gro_complete;
-+		fou->protocol = cfg->protocol;
- 		break;
- 	case FOU_ENCAP_GUE:
--		err = gue_encap_init(sk, fou, cfg);
--		if (err)
--			goto error;
-+		tunnel_cfg.encap_rcv = gue_udp_recv;
-+		tunnel_cfg.gro_receive = gue_gro_receive;
-+		tunnel_cfg.gro_complete = gue_gro_complete;
- 		break;
- 	default:
- 		err = -EINVAL;
- 		goto error;
- 	}
- 
--	fou->type = cfg->type;
--
--	udp_sk(sk)->encap_type = 1;
--	udp_encap_enable();
--
--	sk->sk_user_data = fou;
--	fou->sock = sock;
--
--	inet_inc_convert_csum(sk);
-+	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
- 
- 	sk->sk_allocation = GFP_ATOMIC;
- 
+ 			/* Free reference early: we don't need it any more,
+ 			   and it may hold ip_conntrack module loaded
+ 			   indefinitely. */
 -- 
 2.8.0.rc2
