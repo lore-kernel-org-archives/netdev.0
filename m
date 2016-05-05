@@ -1,8 +1,7 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 2/2] netxen: reversed condition in
- netxen_nic_set_link_parameters()
-Date: Thu, 5 May 2016 16:19:44 +0300
-Message-ID: <20160505131944.GC3038@mwanda>
+Subject: [patch] netxen: netxen_rom_fast_read() doesn't return -1
+Date: Thu, 5 May 2016 16:20:20 +0300
+Message-ID: <20160505132019.GD3038@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Sony Chacko <sony.chacko@qlogic.com>,
@@ -15,22 +14,22 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My static checker complains that we are using "autoneg" without
-initializing it.  The problem is the ->phy_read() condition is reversed
-so we only set this on error instead of success.
+The error handling is broken here.  netxen_rom_fast_read() returns zero
+on success and -EIO on error.  It never returns -1.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index a320541..2b10f1b 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -1944,7 +1944,7 @@ void netxen_nic_set_link_parameters(struct netxen_adapter *adapter)
- 				if (adapter->phy_read &&
- 				    adapter->phy_read(adapter,
- 						      NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
--						      &autoneg) != 0)
-+						      &autoneg) == 0)
- 					adapter->link_autoneg = autoneg;
- 			} else
- 				goto link_down;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index fd362b6..9c6eed9 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -852,7 +852,8 @@ netxen_check_options(struct netxen_adapter *adapter)
+ 	ptr32 = (__le32 *)&serial_num;
+ 	offset = NX_FW_SERIAL_NUM_OFFSET;
+ 	for (i = 0; i < 8; i++) {
+-		if (netxen_rom_fast_read(adapter, offset, &val) == -1) {
++		err = netxen_rom_fast_read(adapter, offset, &val);
++		if (err) {
+ 			dev_err(&pdev->dev, "error reading board info\n");
+ 			adapter->driver_mismatch = 1;
+ 			return;
