@@ -1,7 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 3/3] net-next: lantiq: change my email address
-Date: Thu,  5 May 2016 11:28:46 +0200
-Message-ID: <1462440526-52203-3-git-send-email-john@phrozen.org>
+Subject: [PATCH 2/3] net-next: mediatek: change my email address
+Date: Thu,  5 May 2016 11:28:45 +0200
+Message-ID: <1462440526-52203-2-git-send-email-john@phrozen.org>
 References: <1462440526-52203-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,29 +26,28 @@ The old address is no longer valid. Use the new one instead.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/lantiq_etop.c |    4 ++--
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index dc82b1b..fdd76b2 100644
---- a/drivers/net/ethernet/lantiq_etop.c
-+++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -11,7 +11,7 @@
-  *   You should have received a copy of the GNU General Public License
-  *   along with this program; if not, see <http://www.gnu.org/licenses/>.
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index b709212..3da91df 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -7,7 +7,7 @@
+  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  *   GNU General Public License for more details.
   *
-- *   Copyright (C) 2011 John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-+ *   Copyright (C) 2011 John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+- *   Copyright (C) 2009-2016 John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
++ *   Copyright (C) 2009-2016 John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+  *   Copyright (C) 2009-2016 Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+  *   Copyright (C) 2013-2016 Michael Lee <igvtee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
   */
+@@ -1913,5 +1913,5 @@ static struct platform_driver mtk_driver = {
+ module_platform_driver(mtk_driver);
  
- #include <linux/kernel.h>
-@@ -791,6 +791,6 @@ exit_ltq_etop(void)
- module_init(init_ltq_etop);
- module_exit(exit_ltq_etop);
- 
+ MODULE_LICENSE("GPL");
 -MODULE_AUTHOR("John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>");
 +MODULE_AUTHOR("John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>");
- MODULE_DESCRIPTION("Lantiq SoC ETOP");
- MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("Ethernet driver for MediaTek SoC");
 -- 
 1.7.10.4
