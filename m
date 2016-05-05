@@ -1,7 +1,8 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 1/2] netxen: fix error handling in netxen_get_flash_block()
-Date: Thu, 5 May 2016 16:18:46 +0300
-Message-ID: <20160505131846.GB3038@mwanda>
+Subject: [patch 2/2] netxen: reversed condition in
+ netxen_nic_set_link_parameters()
+Date: Thu, 5 May 2016 16:19:44 +0300
+Message-ID: <20160505131944.GC3038@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Sony Chacko <sony.chacko@qlogic.com>,
@@ -14,42 +15,22 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My static checker complained that "v" can be used unintialized if
-netxen_rom_fast_read() returns -EIO.  That function never actually
-returns -1.
+My static checker complains that we are using "autoneg" without
+initializing it.  The problem is the ->phy_read() condition is reversed
+so we only set this on error instead of success.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index db80eb1..a320541 100644
+index a320541..2b10f1b 100644
 --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
 +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -1015,20 +1015,24 @@ static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
- {
- 	int i, v, addr;
- 	__le32 *ptr32;
-+	int ret;
- 
- 	addr = base;
- 	ptr32 = buf;
- 	for (i = 0; i < size / sizeof(u32); i++) {
--		if (netxen_rom_fast_read(adapter, addr, &v) == -1)
--			return -1;
-+		ret = netxen_rom_fast_read(adapter, addr, &v);
-+		if (ret)
-+			return ret;
-+
- 		*ptr32 = cpu_to_le32(v);
- 		ptr32++;
- 		addr += sizeof(u32);
- 	}
- 	if ((char *)buf + size > (char *)ptr32) {
- 		__le32 local;
--		if (netxen_rom_fast_read(adapter, addr, &v) == -1)
--			return -1;
-+		ret = netxen_rom_fast_read(adapter, addr, &v);
-+		if (ret)
-+			return ret;
- 		local = cpu_to_le32(v);
- 		memcpy(ptr32, &local, (char *)buf + size - (char *)ptr32);
- 	}
+@@ -1944,7 +1944,7 @@ void netxen_nic_set_link_parameters(struct netxen_adapter *adapter)
+ 				if (adapter->phy_read &&
+ 				    adapter->phy_read(adapter,
+ 						      NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
+-						      &autoneg) != 0)
++						      &autoneg) == 0)
+ 					adapter->link_autoneg = autoneg;
+ 			} else
+ 				goto link_down;
