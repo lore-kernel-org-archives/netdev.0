@@ -1,162 +1,128 @@
-From: Marc Angel <marc@arista.com>
-Subject: [PATCH net-next v3] macvtap: add namespace support to the sysfs device class
-Date: Thu,  5 May 2016 02:34:08 +0200
-Message-ID: <1462408448-14033-1-git-send-email-marc@arista.com>
-References: <20160504.160445.640444073175153113.davem@davemloft.net>
-Cc: ebiederm@xmission.com
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 00/14] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
+Date: Wed, 4 May 2016 18:02:30 -0700
+Message-ID: <1462410164-1953217-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37023 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752822AbcEEAdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 20:33:32 -0400
-Received: by mail-wm0-f54.google.com with SMTP id a17so2762677wme.0
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 17:33:31 -0700 (PDT)
-In-Reply-To: <20160504.160445.640444073175153113.davem@davemloft.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:39975 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754043AbcEEBCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 21:02:54 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u450wjFC022416
+	for <netdev@vger.kernel.org>; Wed, 4 May 2016 18:02:52 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 22qcem67tx-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 04 May 2016 18:02:52 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.103.99.99) with ESMTP	id
+ 170da822125d11e6b1ad0002c9dfb610-b2eeac50 for <netdev@vger.kernel.org>;	Wed,
+ 04 May 2016 18:02:50 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When creating macvtaps that are expected to have the same ifindex
-in different network namespaces, only the first one will succeed.
-The others will fail with a sysfs_warn_dup warning due to them trying
-to create the following sysfs link (with 'NN' the ifindex of macvtapX):
+This patch set:
+  - Fixes GRE6 to process translate flags correctly from configuration
+  - Adds support for GSO and GRO for ip6ip6 and ip4ip6
+  - Add support for FOU and GUE in IPv6
+  - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
+  - Fixes ip6_input to deal with UDP encapsulations
+  - Some other minor fixes
 
-/sys/class/macvtap/tapNN -> /sys/devices/virtual/net/macvtapX/tapNN
 
-This is reproducible by running the following commands:
+Tested:
+   Tested a variety of case, but not the full matrix (which is quite
+   large now). Most of the obivous cases (e.g. GRE) work fine. Still
+   some issues probably with GSO/GRO being effective in all cases.
 
-ip netns add ns1
-ip netns add ns2
-ip link add veth0 type veth peer name veth1
-ip link set veth0 netns ns1
-ip link set veth1 netns ns2
-ip netns exec ns1 ip l add link veth0 macvtap0 type macvtap
-ip netns exec ns2 ip l add link veth1 macvtap1 type macvtap
+    - IPv4/GRE/GUE/IPv6 with RCO
+      1 TCP_STREAM
+      	6616 Mbps
+      200 TCP_RR
+	1244043 tps
+        141/243/446 90/95/99% latencies
+	86.61% CPU utilization
+    - IPv6/GRE/GUE/IPv6 with RCO
+      1 TCP_STREAM
+	6940 Mbps
+      200 TCP_RR
+	1270903 tps
+	138/236/440 90/95/99% latencies
+	87.51% CPU utilization
 
-The last command will fail with "RTNETLINK answers: File exists" (along
-with the kernel warning) but retrying it will work because the ifindex
-was incremented.
+     - IP6IP6
+      1 TCP_STREAM
+	2576 Mbps
+      200 TCP_RR
+	498981 tps
+	388/498/631 90/95/99% latencies
+	19.75% CPU utilization (1 CPU saturated)
 
-The 'net' device class is isolated between network namespaces so each
-one has its own hierarchy of net devices.
-This isn't the case for the 'macvtap' device class.
-The problem occurs half-way through the netdev registration, when
-`macvtap_device_event` is called-back to create the 'tapNN' macvtap
-class device under the 'macvtapX' net class device.
+     - IP6IP6/GUE/IPv6 with RCO
+      1 TCP_STREAM
+	1854 Mbps
+      200 TCP_RR
+	1233818 tps
+	143/244/451 90/95/99% latencies
+	87.57 CPU utilization
 
-This patch adds namespace support to the 'macvtap' device class so
-that /sys/class/macvtap is no longer shared between net namespaces.
+     - IP4IP6
+      1 TCP_STREAM
+      200 TCP_RR
+	763774 tps
+	250/318/466 90/95/99% latencies
+	35.25% CPU utilization (1 CPU saturated)
 
-However, making the macvtap sysfs class namespace-aware has the side
-effect of changing /sys/devices/virtual/net/macvtapX/tapNN  into
-/sys/devices/virtual/net/macvtapX/macvtap/tapNN.
+     - GRE with keyid
+      200 TCP_RR
+	744173 tps
+	258/332/461 90/95/99% latencies
+	34.59% CPU utilization (1 CPU saturated)
+      
 
-This is due to Commit 24b1442 ("Driver-core: Always create class
-directories for classses that support namespaces") and the fact that
-class devices supporting namespaces are really not supposed to be placed
-directly under other class devices.
+Tom Herbert (14):
+  gso: Remove arbitrary checks for unsupported GSO
+  gre6: Fix flag translations
+  udp: Don't set skb->encapsulation with RCO
+  fou: Call setup_udp_tunnel_sock
+  fou: Split out {fou,gue}_build_header
+  fou: Add encap ops for IPv6 tunnels
+  ipv6: Fix nexthdr for reinjection
+  ipv6: Change "final" protocol processing for encapsulation
+  fou: Support IPv6 in fou
+  ip6_tun: Add infrastructure for doing encapsulation
+  ip6_gre: Add support for fou/gue encapsulation
+  ip6_tunnel: Add support for fou/gue encapsulation
+  ip6ip6: Support for GSO/GRO
+  ip4ip6: Support for GSO/GRO
 
-To avoid breaking userland, a tapNN symlink pointing to macvtap/tapNN is
-created inside the macvtapX directory.
+ include/linux/netdev_features.h |   8 ++-
+ include/linux/netdevice.h       |   2 +
+ include/linux/skbuff.h          |   4 ++
+ include/net/fou.h               |  10 +--
+ include/net/inet_common.h       |   5 ++
+ include/net/ip6_tunnel.h        |  22 +++++-
+ net/core/ethtool.c              |   1 +
+ net/ipv4/af_inet.c              |  30 ++-------
+ net/ipv4/fou.c                  | 144 ++++++++++++++++++++++++----------------
+ net/ipv4/gre_offload.c          |  14 ----
+ net/ipv4/tcp_offload.c          |  19 ------
+ net/ipv4/udp_offload.c          |  20 ++----
+ net/ipv6/Makefile               |   4 +-
+ net/ipv6/fou6.c                 | 140 ++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_gre.c              |  95 +++++++++++++++++++++++---
+ net/ipv6/ip6_input.c            |  24 +++++--
+ net/ipv6/ip6_offload.c          |  76 +++++++++++++++------
+ net/ipv6/ip6_tunnel.c           | 101 ++++++++++++++++++++++++++--
+ net/ipv6/ip6_tunnel_core.c      | 108 ++++++++++++++++++++++++++++++
+ net/ipv6/udp_offload.c          |  13 ----
+ 20 files changed, 652 insertions(+), 188 deletions(-)
+ create mode 100644 net/ipv6/fou6.c
+ create mode 100644 net/ipv6/ip6_tunnel_core.c
 
-Signed-off-by: Marc Angel <marc@arista.com>
----
- drivers/net/macvtap.c | 36 ++++++++++++++++++++++++++----------
- 1 file changed, 26 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 95394ed..d89820f 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -129,7 +129,18 @@ static DEFINE_MUTEX(minor_lock);
- static DEFINE_IDR(minor_idr);
- 
- #define GOODCOPY_LEN 128
--static struct class *macvtap_class;
-+static const void *macvtap_net_namespace(struct device *d)
-+{
-+	struct net_device *dev = to_net_dev(d->parent);
-+	return dev_net(dev);
-+}
-+
-+static struct class macvtap_class = {
-+	.name = "macvtap",
-+	.owner = THIS_MODULE,
-+	.ns_type = &net_ns_type_operations,
-+	.namespace = macvtap_net_namespace,
-+};
- static struct cdev macvtap_cdev;
- 
- static const struct proto_ops macvtap_socket_ops;
-@@ -1278,10 +1289,12 @@ static int macvtap_device_event(struct notifier_block *unused,
- 	struct device *classdev;
- 	dev_t devt;
- 	int err;
-+	char tap_name[IFNAMSIZ];
- 
- 	if (dev->rtnl_link_ops != &macvtap_link_ops)
- 		return NOTIFY_DONE;
- 
-+	snprintf(tap_name, IFNAMSIZ, "tap%d", dev->ifindex);
- 	vlan = netdev_priv(dev);
- 
- 	switch (event) {
-@@ -1295,16 +1308,21 @@ static int macvtap_device_event(struct notifier_block *unused,
- 			return notifier_from_errno(err);
- 
- 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
--		classdev = device_create(macvtap_class, &dev->dev, devt,
--					 dev, "tap%d", dev->ifindex);
-+		classdev = device_create(&macvtap_class, &dev->dev, devt,
-+					 dev, tap_name);
- 		if (IS_ERR(classdev)) {
- 			macvtap_free_minor(vlan);
- 			return notifier_from_errno(PTR_ERR(classdev));
- 		}
-+		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
-+					tap_name);
-+		if (err)
-+			return notifier_from_errno(err);
- 		break;
- 	case NETDEV_UNREGISTER:
-+		sysfs_remove_link(&dev->dev.kobj, tap_name);
- 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
--		device_destroy(macvtap_class, devt);
-+		device_destroy(&macvtap_class, devt);
- 		macvtap_free_minor(vlan);
- 		break;
- 	}
-@@ -1330,11 +1348,9 @@ static int macvtap_init(void)
- 	if (err)
- 		goto out2;
- 
--	macvtap_class = class_create(THIS_MODULE, "macvtap");
--	if (IS_ERR(macvtap_class)) {
--		err = PTR_ERR(macvtap_class);
-+	err = class_register(&macvtap_class);
-+	if (err)
- 		goto out3;
--	}
- 
- 	err = register_netdevice_notifier(&macvtap_notifier_block);
- 	if (err)
-@@ -1349,7 +1365,7 @@ static int macvtap_init(void)
- out5:
- 	unregister_netdevice_notifier(&macvtap_notifier_block);
- out4:
--	class_unregister(macvtap_class);
-+	class_unregister(&macvtap_class);
- out3:
- 	cdev_del(&macvtap_cdev);
- out2:
-@@ -1363,7 +1379,7 @@ static void macvtap_exit(void)
- {
- 	rtnl_link_unregister(&macvtap_link_ops);
- 	unregister_netdevice_notifier(&macvtap_notifier_block);
--	class_unregister(macvtap_class);
-+	class_unregister(&macvtap_class);
- 	cdev_del(&macvtap_cdev);
- 	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
- 	idr_destroy(&minor_idr);
 -- 
-2.8.0
+2.8.0.rc2
