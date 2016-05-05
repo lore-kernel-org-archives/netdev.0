@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 05/20] net: dsa: mv88e6xxx: factorize MAC address setting
-Date: Thu,  5 May 2016 18:40:49 -0400
-Message-ID: <1462488064-1841-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC PATCH net-next 04/20] net: dsa: mv88e6xxx: factorize temperature access
+Date: Thu,  5 May 2016 18:40:48 -0400
+Message-ID: <1462488064-1841-5-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,355 +9,325 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58634 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758019AbcEEWls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 18:41:48 -0400
 In-Reply-To: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some switch models have a dedicated register for Switch MAC/WoF/WoL.
-This register, when present, is used to indirectly set the switch MAC
-address, instead of a direct write to 3 global registers.
-
-Identify this feature and share a common mv88e6xxx_set_addr function.
+Add MV88E6XXX_FLAG_TEMP and MV88E6XXX_FLAG_TEMP_LIMIT flags to describe
+switch models featuring a temperature access. Use them to centralize the
+access to the temperature feature.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  11 +++--
- drivers/net/dsa/mv88e6131.c |   2 +-
- drivers/net/dsa/mv88e6171.c |   6 ++-
- drivers/net/dsa/mv88e6352.c |   8 ++-
- drivers/net/dsa/mv88e6xxx.c | 115 ++++++++++++++++++++++++--------------------
- drivers/net/dsa/mv88e6xxx.h |  11 ++++-
- 6 files changed, 92 insertions(+), 61 deletions(-)
+ drivers/net/dsa/mv88e6123.c |  6 ++++++
+ drivers/net/dsa/mv88e6131.c |  6 ++++++
+ drivers/net/dsa/mv88e6171.c | 17 ++++++++++++-----
+ drivers/net/dsa/mv88e6352.c | 24 ++++++++++++++++++------
+ drivers/net/dsa/mv88e6xxx.c | 32 +++++++++++++++++++-------------
+ drivers/net/dsa/mv88e6xxx.h |  8 ++++++++
+ 6 files changed, 69 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 6f4f719..57a6d76 100644
+index 1fc8f0d..6f4f719 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -24,21 +24,24 @@ static const struct mv88e6xxx_info mv88e6123_table[] = {
+@@ -24,18 +24,21 @@ static const struct mv88e6xxx_info mv88e6123_table[] = {
  		.name = "Marvell 88E6123",
  		.num_databases = 4096,
  		.num_ports = 3,
--		.flags = MV88E6XXX_FLAG_TEMP,
-+		.flags = MV88E6XXX_FLAG_SWITCH_MAC |
-+			MV88E6XXX_FLAG_TEMP,
++		.flags = MV88E6XXX_FLAG_TEMP,
  	}, {
  		.prod_num = PORT_SWITCH_ID_PROD_NUM_6161,
  		.family = MV88E6XXX_FAMILY_6165,
  		.name = "Marvell 88E6161",
  		.num_databases = 4096,
  		.num_ports = 6,
--		.flags = MV88E6XXX_FLAG_TEMP,
-+		.flags = MV88E6XXX_FLAG_SWITCH_MAC |
-+			MV88E6XXX_FLAG_TEMP,
++		.flags = MV88E6XXX_FLAG_TEMP,
  	}, {
  		.prod_num = PORT_SWITCH_ID_PROD_NUM_6165,
  		.family = MV88E6XXX_FAMILY_6165,
  		.name = "Marvell 88E6165",
  		.num_databases = 4096,
  		.num_ports = 6,
--		.flags = MV88E6XXX_FLAG_TEMP,
-+		.flags = MV88E6XXX_FLAG_SWITCH_MAC |
++		.flags = MV88E6XXX_FLAG_TEMP,
+ 	}
+ };
+ 
+@@ -120,6 +123,9 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp		= mv88e6xxx_get_temp,
++	.get_temp_limit		= mv88e6xxx_get_temp_limit,
++	.set_temp_limit		= mv88e6xxx_set_temp_limit,
++	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
+ #endif
+ 	.get_eeprom		= mv88e6xxx_get_eeprom,
+ 	.set_eeprom		= mv88e6xxx_set_eeprom,
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 3796f6d..e8eb9a6 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -155,6 +155,12 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
+ 	.get_eeprom		= mv88e6xxx_get_eeprom,
+ 	.set_eeprom		= mv88e6xxx_set_eeprom,
++#ifdef CONFIG_NET_DSA_HWMON
++	.get_temp		= mv88e6xxx_get_temp,
++	.get_temp_limit		= mv88e6xxx_get_temp_limit,
++	.set_temp_limit		= mv88e6xxx_set_temp_limit,
++	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
++#endif
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index b8b6902..bd2082e 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -24,28 +24,32 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
+ 		.name = "Marvell 88E6171",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
+-		.flags = MV88E6XXX_FLAG_SMI_PHY,
++		.flags = MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6175",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
+-		.flags = MV88E6XXX_FLAG_SMI_PHY,
++		.flags = MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6350",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
+-		.flags = MV88E6XXX_FLAG_SMI_PHY,
++		.flags = MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6351",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
+-		.flags = MV88E6XXX_FLAG_SMI_PHY,
++		.flags = MV88E6XXX_FLAG_SMI_PHY |
 +			MV88E6XXX_FLAG_TEMP,
  	}
  };
  
-@@ -114,7 +117,7 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6123_drv_probe,
- 	.setup			= mv88e6123_setup,
--	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index e8eb9a6..519d1eb 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -147,7 +147,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_DSA,
- 	.probe			= mv88e6131_drv_probe,
- 	.setup			= mv88e6131_setup,
--	.set_addr		= mv88e6xxx_set_addr_direct,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index bd2082e..f947950 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -25,6 +25,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.flags = MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
-@@ -33,6 +34,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.flags = MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
-@@ -41,6 +43,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.flags = MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
-@@ -49,6 +52,7 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.flags = MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP,
- 	}
- };
-@@ -127,7 +131,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6171_drv_probe,
- 	.setup			= mv88e6171_setup,
--	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
+@@ -131,7 +135,10 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ #ifdef CONFIG_NET_DSA_HWMON
+-	.get_temp               = mv88e6xxx_get_temp,
++	.get_temp		= mv88e6xxx_get_temp,
++	.get_temp_limit		= mv88e6xxx_get_temp_limit,
++	.set_temp_limit		= mv88e6xxx_set_temp_limit,
++	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
+ #endif
+ 	.get_eeprom		= mv88e6xxx_get_eeprom,
+ 	.set_eeprom		= mv88e6xxx_set_eeprom,
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index f588e2f..90732da 100644
+index e6437de..f588e2f 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -31,6 +31,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+@@ -30,7 +30,9 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.num_databases = 4096,
  		.num_ports = 7,
  		.flags = MV88E6XXX_FLAG_EEPROM |
- 			MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT,
+-			MV88E6XXX_FLAG_SMI_PHY,
++			MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP |
++			MV88E6XXX_FLAG_TEMP_LIMIT,
  	}, {
-@@ -41,6 +42,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6321,
+ 		.family = MV88E6XXX_FAMILY_6320,
+@@ -38,7 +40,9 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.num_databases = 4096,
  		.num_ports = 7,
  		.flags = MV88E6XXX_FLAG_EEPROM |
- 			MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT,
+-			MV88E6XXX_FLAG_SMI_PHY,
++			MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP |
++			MV88E6XXX_FLAG_TEMP_LIMIT,
  	}, {
-@@ -51,6 +53,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6172,
+ 		.family = MV88E6XXX_FAMILY_6352,
+@@ -46,7 +50,9 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.num_databases = 4096,
  		.num_ports = 7,
  		.flags = MV88E6XXX_FLAG_EEPROM |
- 			MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT,
+-			MV88E6XXX_FLAG_SMI_PHY,
++			MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP |
++			MV88E6XXX_FLAG_TEMP_LIMIT,
  	}, {
-@@ -61,6 +64,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6176,
+ 		.family = MV88E6XXX_FAMILY_6352,
+@@ -54,7 +60,9 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.num_databases = 4096,
  		.num_ports = 7,
  		.flags = MV88E6XXX_FLAG_EEPROM |
- 			MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT,
+-			MV88E6XXX_FLAG_SMI_PHY,
++			MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP |
++			MV88E6XXX_FLAG_TEMP_LIMIT,
  	}, {
-@@ -71,6 +75,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6240,
+ 		.family = MV88E6XXX_FAMILY_6352,
+@@ -62,7 +70,9 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.num_databases = 4096,
  		.num_ports = 7,
  		.flags = MV88E6XXX_FLAG_EEPROM |
- 			MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT,
+-			MV88E6XXX_FLAG_SMI_PHY,
++			MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP |
++			MV88E6XXX_FLAG_TEMP_LIMIT,
  	}, {
-@@ -81,6 +86,7 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6352,
+ 		.family = MV88E6XXX_FAMILY_6352,
+@@ -70,7 +80,9 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.num_databases = 4096,
  		.num_ports = 7,
  		.flags = MV88E6XXX_FLAG_EEPROM |
- 			MV88E6XXX_FLAG_SMI_PHY |
-+			MV88E6XXX_FLAG_SWITCH_MAC |
- 			MV88E6XXX_FLAG_TEMP |
- 			MV88E6XXX_FLAG_TEMP_LIMIT,
+-			MV88E6XXX_FLAG_SMI_PHY,
++			MV88E6XXX_FLAG_SMI_PHY |
++			MV88E6XXX_FLAG_TEMP |
++			MV88E6XXX_FLAG_TEMP_LIMIT,
  	}
-@@ -158,7 +164,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6352_drv_probe,
- 	.setup			= mv88e6352_setup,
--	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
+ };
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 5f7851e..5483e69 100644
+index 233c265..5f7851e 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -173,58 +173,6 @@ int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
- 	return ret;
- }
+@@ -3125,16 +3125,13 @@ mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
  
--int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int err;
--
--	err = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MAC_01,
--				  (addr[0] << 8) | addr[1]);
--	if (err)
--		return err;
--
--	err = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MAC_23,
--				  (addr[2] << 8) | addr[3]);
--	if (err)
--		return err;
--
--	return mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MAC_45,
--				   (addr[4] << 8) | addr[5]);
--}
--
--int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int ret;
--	int i;
--
--	for (i = 0; i < 6; i++) {
--		int j;
--
--		/* Write the MAC address byte. */
--		ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_SWITCH_MAC,
--					  GLOBAL2_SWITCH_MAC_BUSY |
--					  (i << 8) | addr[i]);
--		if (ret)
--			return ret;
--
--		/* Wait for the write to complete. */
--		for (j = 0; j < 16; j++) {
--			ret = mv88e6xxx_reg_read(ps, REG_GLOBAL2,
--						 GLOBAL2_SWITCH_MAC);
--			if (ret < 0)
--				return ret;
--
--			if ((ret & GLOBAL2_SWITCH_MAC_BUSY) == 0)
--				break;
--		}
--		if (j == 16)
--			return -ETIMEDOUT;
--	}
--
--	return 0;
--}
--
- static int _mv88e6xxx_phy_read(struct mv88e6xxx_priv_state *ps, int addr,
- 			       int regnum)
+ #ifdef CONFIG_NET_DSA_HWMON
+ 
+-static int mv88e61xx_get_temp(struct dsa_switch *ds, int *temp)
++static int _mv88e61xx_get_temp(struct mv88e6xxx_priv_state *ps, int *temp)
  {
-@@ -1131,6 +1079,69 @@ out:
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 	int val;
+ 
+ 	*temp = 0;
+ 
+-	mutex_lock(&ps->smi_mutex);
+-
+ 	ret = _mv88e6xxx_phy_write(ps, 0x0, 0x16, 0x6);
+ 	if (ret < 0)
+ 		goto error;
+@@ -3166,19 +3163,18 @@ static int mv88e61xx_get_temp(struct dsa_switch *ds, int *temp)
+ 
+ error:
+ 	_mv88e6xxx_phy_write(ps, 0x0, 0x16, 0x0);
+-	mutex_unlock(&ps->smi_mutex);
++
  	return ret;
  }
  
-+static int _mv88e6xxx_set_addr_direct(struct mv88e6xxx_priv_state *ps, u8 *addr)
-+{
+-static int mv88e63xx_get_temp(struct dsa_switch *ds, int *temp)
++static int _mv88e63xx_get_temp(struct mv88e6xxx_priv_state *ps, int *temp)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
+ 	int ret;
+ 
+ 	*temp = 0;
+ 
+-	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 27);
++	ret = _mv88e6xxx_phy_page_read(ps, phy, 6, 27);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -3190,11 +3186,21 @@ static int mv88e63xx_get_temp(struct dsa_switch *ds, int *temp)
+ int mv88e6xxx_get_temp(struct dsa_switch *ds, int *temp)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 +	int err;
 +
-+	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MAC_01,
-+				   (addr[0] << 8) | addr[1]);
-+	if (err)
-+		return err;
-+
-+	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MAC_23,
-+				   (addr[2] << 8) | addr[3]);
-+	if (err)
-+		return err;
-+
-+	return _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MAC_45,
-+				    (addr[4] << 8) | addr[5]);
-+}
-+
-+static int _mv88e6xxx_switch_mac_wait(struct mv88e6xxx_priv_state *ps)
-+{
-+	return _mv88e6xxx_wait(ps, REG_GLOBAL2, GLOBAL2_SWITCH_MAC,
-+			       GLOBAL2_SWITCH_MAC_BUSY);
-+}
-+
-+static int _mv88e6xxx_set_addr_indirect(struct mv88e6xxx_priv_state *ps,
-+					u8 *addr)
-+{
-+	int i, err;
-+
-+	for (i = 0; i < 6; i++) {
-+		/* Write the MAC address byte. */
-+		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_SWITCH_MAC,
-+					   GLOBAL2_SWITCH_MAC_BUSY |
-+					   (i << 8) | addr[i]);
-+		if (err)
-+			break;
-+
-+		/* Wait for the write to complete. */
-+		err = _mv88e6xxx_switch_mac_wait(ps);
-+		if (err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+
-+int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int err;
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP))
++		return -EOPNOTSUPP;
 +
 +	mutex_lock(&ps->smi_mutex);
-+
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_SWITCH_MAC))
-+		err = _mv88e6xxx_set_addr_indirect(ps, addr);
+ 
+ 	if (mv88e6xxx_6320_family(ps) || mv88e6xxx_6352_family(ps))
+-		return mv88e63xx_get_temp(ds, temp);
++		err = _mv88e63xx_get_temp(ps, temp);
 +	else
-+		err = _mv88e6xxx_set_addr_direct(ps, addr);
-+
++		err = _mv88e61xx_get_temp(ps, temp);
+ 
+-	return mv88e61xx_get_temp(ds, temp);
 +	mutex_unlock(&ps->smi_mutex);
 +
 +	return err;
-+}
-+
- static int _mv88e6xxx_atu_cmd(struct mv88e6xxx_priv_state *ps, u16 fid, u16 cmd)
- {
+ }
+ 
+ int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp)
+@@ -3203,7 +3209,7 @@ int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp)
+ 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
  	int ret;
+ 
+-	if (!mv88e6xxx_6320_family(ps) && !mv88e6xxx_6352_family(ps))
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
+ 		return -EOPNOTSUPP;
+ 
+ 	*temp = 0;
+@@ -3223,7 +3229,7 @@ int mv88e6xxx_set_temp_limit(struct dsa_switch *ds, int temp)
+ 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
+ 	int ret;
+ 
+-	if (!mv88e6xxx_6320_family(ps) && !mv88e6xxx_6352_family(ps))
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
+ 		return -EOPNOTSUPP;
+ 
+ 	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 26);
+@@ -3240,7 +3246,7 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
+ 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
+ 	int ret;
+ 
+-	if (!mv88e6xxx_6320_family(ps) && !mv88e6xxx_6352_family(ps))
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
+ 		return -EOPNOTSUPP;
+ 
+ 	*alarm = false;
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index e7c2e45..72b563e 100644
+index 08cb5c4..e7c2e45 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -367,6 +367,13 @@ enum mv88e6xxx_cap {
+@@ -366,12 +366,20 @@ enum mv88e6xxx_cap {
+ 	 * GLOBAL2_SMI_OP, otherwise direct access to PHY registers is done.
  	 */
  	MV88E6XXX_CAP_SMI_PHY,
- 
-+	/* Switch MAC/WoL/WoF register.
-+	 * This requires an indirect access to set the switch MAC address
-+	 * through GLOBAL2_SWITCH_MAC, otherwise GLOBAL_MAC_01, GLOBAL_MAC_23,
-+	 * and GLOBAL_MAC_45 are used with a direct access.
-+	 */
-+	MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF,
 +
- 	/* Internal temperature sensor.
- 	 * Available from any enabled port's PHY register 26, page 6.
- 	 */
-@@ -378,6 +385,7 @@ enum mv88e6xxx_cap {
++	/* Internal temperature sensor.
++	 * Available from any enabled port's PHY register 26, page 6.
++	 */
++	MV88E6XXX_CAP_TEMP,
++	MV88E6XXX_CAP_TEMP_LIMIT,
+ };
+ 
+ /* Bitmask of capabilities */
  #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
  #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
  #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
-+#define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
- #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
++#define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
++#define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
  
-@@ -497,8 +505,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds);
- int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg);
- int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
- 			int reg, u16 val);
--int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr);
--int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr);
-+int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr);
- int mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum);
- int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val);
- void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
+ struct mv88e6xxx_info {
+ 	enum mv88e6xxx_family family;
 -- 
 2.8.2
