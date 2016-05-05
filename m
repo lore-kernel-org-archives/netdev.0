@@ -1,94 +1,61 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net-next] cnic: call cp->stop_hw() in cnic_start_hw() on allocation failure
-Date: Thu,  5 May 2016 09:55:51 +1000
-Message-ID: <1462406151-5224-1-git-send-email-jmaxwell37@gmail.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [RESEND PATCH 2/3] fs: poll/select/recvmmsg: use
+ timespec64 for timeout events
+Date: Wed, 4 May 2016 17:01:24 -0700
+Message-ID: <CALAqxLVPGBfuSmN_b_obAL5-ChfqpyipZtE-20x9omk_QeTQMw@mail.gmail.com>
+References: <1461947989-21926-3-git-send-email-deepa.kernel@gmail.com>
+ <1462389899-2480-1-git-send-email-deepa.kernel@gmail.com>
+ <CALAqxLVB8XiRrFKxK3GzBxw-CfEmC=Dh-CrTOEqT144ngZg-Dw@mail.gmail.com>
+ <4256673.7Gok2HNpOM@wuerfel>
+ <20160504165115.e0247881921fdcd0af4a394c@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, jmaxwell@redhat.com,
-	ivecera@redhat.com, Jon Maxwell <jmaxwell37@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+ Arnd Bergmann <arnd@arndb.de>, y2038 Mailman List <y2038@lists.linaro.org>,
+ netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
+ Oleg Nesterov <oleg@redhat.com>, Arjan van de Ven <arjan@linux.intel.com>,
+ Alexander Viro <viro@zeniv.linux.org.uk>,
+ "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+ Thomas Gleixner <tglx@linutronix.de>,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ Deepa Dinamani <deepa.kernel@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <20160504165115.e0247881921fdcd0af4a394c@linux-foundation.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-We recently had a system crash in the cnic module. Vmcore analysis conf=
-irmed=20
-that "ip link up" was executed which failed due to an allocation failur=
-e=20
-because of memory fragmentation. Futher analysis revealed that the cnic=
- irq=20
-vector was still allocated after the "ip link up" that failed. When=20
-"ip link down" was executed it called free_msi_irqs() which crashed the=
- system=20
-because the cnic irq was still inuse.
-
-PANIC: "kernel BUG at drivers/pci/msi.c:411!"
-
-The code execution was:
-
-cnic_netdev_event()
-if (event =3D=3D NETDEV_UP) {
-=2E
-=2E
-       =E2=96=B9       if (!cnic_start_hw(dev))
-cnic_start_hw()
-calls cnic_cm_open() which failed with -ENOMEM
-cnic_start_hw() then took the err1 path:
-
-err1:=E2=86=A9
-       cp->free_resc(dev);=E2=86=A9 <---- frees resources but not irq v=
-ector
-       pci_dev_put(dev->pcidev);=E2=86=A9
-       return err;=E2=86=A9
-}=E2=86=A9
-
-This returns control back to cnic_netdev_event() but now the cnic irq v=
-ector=20
-is still allocated even although cnic_cm_open() failed. The next=20
-"ip link down" while trigger the crash.=20
-
-The cnic_start_hw() routine is not handling the allocation failure corr=
-ectly.=20
-=46ix this by checking whether CNIC_DRV_STATE_HANDLES_IRQ flag is set i=
-ndicating=20
-that the hardware has been started in cnic_start_hw(). If it has then c=
-all=20
-cp->stop_hw() which frees the cnic irq vector and cnic resources. Other=
-wise=20
-just maintain the previous behaviour and free cnic resources.=20
-
-I reproduced this by injecting an ENOMEM error into cnic_cm_alloc_mem()=
-s return
-code.=20
-
-# ip link set dev enpX down
-# ip link set dev enpX up <--- hit's allocation failure
-# ip link set dev enpX down <--- crashes here
-
-With this patch I confirmed there was no crash in the reproducer.
-
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
----
- drivers/net/ethernet/broadcom/cnic.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/etherne=
-t/broadcom/cnic.c
-index b69dc58..b1d2ac8 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -5350,7 +5350,10 @@ static int cnic_start_hw(struct cnic_dev *dev)
- 	return 0;
-=20
- err1:
--	cp->free_resc(dev);
-+	if (ethdev->drv_state & CNIC_DRV_STATE_HANDLES_IRQ)
-+		cp->stop_hw(dev);
-+	else
-+		cp->free_resc(dev);
- 	pci_dev_put(dev->pcidev);
- 	return err;
- }
---=20
-1.8.3.1
+T24gV2VkLCBNYXkgNCwgMjAxNiBhdCA0OjUxIFBNLCBBbmRyZXcgTW9ydG9uIDxha3BtQGxpbnV4
+LWZvdW5kYXRpb24ub3JnPiB3cm90ZToKPiBPbiBXZWQsIDA0IE1heSAyMDE2IDIzOjA4OjExICsw
+MjAwIEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+IHdyb3RlOgo+Cj4+ID4gQnV0IEknbSBs
+ZXNzIGNvbWZvcnRhYmxlIG1ha2luZyB0aGUgY2FsbCBvbiB0aGlzIG9uZS4gSXQgbG9va3MKPj4g
+PiByZWxhdGl2ZWx5IHN0cmFpZ2h0IGZvcndhcmQsIGJ1dCBpdCB3b3VsZCBiZSBnb29kIHRvIGhh
+dmUgbWFpbnRhaW5lcgo+PiA+IGFja3MgYmVmb3JlIEkgYWRkIGl0IHRvIG15IHRyZWUuCj4+Cj4+
+IEFncmVlZC4gRmVlbCBmcmVlIHRvIGFkZCBteQo+Pgo+PiBSZXZpZXdlZC1ieTogQXJuZCBCZXJn
+bWFubiA8YXJuZEBhcm5kYi5kZT4KPj4KPj4gYXQgbGVhc3QgKHdob2V2ZXIgcGlja3MgaXQgdXAp
+Lgo+Cj4gSW4gcmVwbHkgdG8gWzEvM10gSm9obiBzYWlkCj4KPiA6IExvb2tzIG9rIGF0IHRoZSBm
+aXJzdCBnbGFuY2UuIEkndmUgcXVldWVkIHRoZXNlIHVwIGZvciB0ZXN0aW5nLAo+IDogaG93ZXZl
+ciBJIG9ubHkgZ290ICMxIGFuZCAjMyBvZiB0aGUgc2V0LiBBcmUgeW91IGhvcGluZyB0aGVzZSB0
+d28KPiA6IHBhdGNoZXMgd2lsbCBnbyB0aHJvdWdoIHRpcC90aW1lcnMvY29yZSBvciBhcmUgeW91
+IGxvb2tpbmcgZm9yIGFja3Mgc28KPiA6IHRoZXkgY2FuIGdvIHZpYSBhbm90aGVyIHRyZWU/Cj4K
+PiBIb3dldmVyIG5vbmUgb2YgdGhlIHBhdGNoZXMgYXJlIGluIGxpbnV4LW5leHQuCj4KPiBKb2hu
+IGhhZCBxdWFsbXMgYWJvdXQgWzIvM10sIGJ1dCBpdCBsb29rcyBsaWtlIGEgc3RyYWlnaHRmb3J3
+YXJkCj4gc3Vic3RpdHV0aW9uIGluIGFyZWFzIHdoaWNoIHdpbGwgZ2V0IHBsZW50eSBvZiB0ZXN0
+aW5nCgpZZWEuIE15IG1haW4gY29uY2VybiBpcyBqdXN0IG5vdCBzdGVwcGluZyBvbiBhbnkgb3Ro
+ZXIgbWFpbnRhaW5lcnMgdG9lcy4KCj4gSSdsbCBncmFiIHRoZSBwYXRjaGVzIGZvciBub3cgdG8g
+Z2V0IHRoZW0gc29tZSBleHRlcm5hbCB0ZXN0aW5nLgoKSSdkIGJlIGp1c3QgYXMgaGFwcHkgaWYg
+dGhlIHNldCB3ZW50IHRocm91Z2ggeW91IEFuZHJldy4KCkZvciB0aGUgc2V0OiBBY2tlZC1ieTog
+Sm9obiBTdHVsdHogPGpvaG4uc3R1bHR6QGxpbmFyby5vcmc+Cgp0aGFua3MKLWpvaG4KX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBs
+aXN0ClkyMDM4QGxpc3RzLmxpbmFyby5vcmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxt
+YW4vbGlzdGluZm8veTIwMzgK
