@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 13/20] net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL setup
-Date: Thu,  5 May 2016 18:40:57 -0400
-Message-ID: <1462488064-1841-14-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC PATCH net-next 15/20] net: dsa: mv88e6xxx: factorize GLOBAL_MONITOR_CONTROL setup
+Date: Thu,  5 May 2016 18:40:59 -0400
+Message-ID: <1462488064-1841-16-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,125 +14,146 @@ In-Reply-To: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All switch models configure the GLOBAL_CONTROL register with slightly
-differences.
+All switch drivers configure the GLOBAL_MONITOR_CONTROL register with
+slightly changes.
 
-Assume a common setup to enable the PHY Polling Unit if present, discard
-packets with excessive collisions, set the maximum frame size to 1632,
-and mask all interrupt sources.
+Assume the setup of the upstream port, and configure it as the port to
+which ingress and egress and ARP monitor frames are to be sent.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  8 --------
- drivers/net/dsa/mv88e6131.c | 11 -----------
- drivers/net/dsa/mv88e6171.c |  9 ---------
- drivers/net/dsa/mv88e6352.c |  9 ---------
- drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++++
- 5 files changed, 14 insertions(+), 37 deletions(-)
+ drivers/net/dsa/mv88e6123.c | 14 --------------
+ drivers/net/dsa/mv88e6131.c | 13 -------------
+ drivers/net/dsa/mv88e6171.c | 15 ---------------
+ drivers/net/dsa/mv88e6352.c | 14 --------------
+ drivers/net/dsa/mv88e6xxx.c | 12 ++++++++++++
+ 5 files changed, 12 insertions(+), 56 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 938d5ca..077fe30 100644
+index 077fe30..98eaee1 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -61,14 +61,6 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	/* Disable the PHY polling unit (since there won't be any
--	 * external PHYs to poll), don't discard packets with
--	 * excessive collisions, and mask all interrupt sources.
+@@ -57,20 +57,6 @@ static const char *mv88e6123_drv_probe(struct device *dsa_dev,
+ static int mv88e6123_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+-	int ret;
+-	u32 reg;
+-
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
 -	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL, 0x0000);
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 -	if (ret)
 -		return ret;
--
- 	/* Configure the upstream port, and configure the upstream
- 	 * port as the port to which ingress and egress monitor frames
- 	 * are to be sent.
+ 
+ 	/* Disable remote management for now, and set the switch's
+ 	 * DSA device number.
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 2c43348..013668c 100644
+index 4c0b1e9..c675070 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -77,17 +77,6 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+@@ -77,20 +77,7 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
  	int ret;
- 	u32 reg;
- 
--	/* Enable the PHY polling unit, don't discard packets with
--	 * excessive collisions, use a weighted fair queueing scheme
--	 * to arbitrate between packet queues, set the maximum frame
--	 * size to 1632, and mask all interrupt sources.
+-	u32 reg;
+-
+-	/* Disable ARP mirroring, and configure the upstream port as
+-	 * the port to which ingress and egress monitor frames are to
+-	 * be sent.
 -	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  GLOBAL_CONTROL_PPU_ENABLE |
--				  GLOBAL_CONTROL_MAX_FRAME_1632);
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		GLOBAL_MONITOR_CONTROL_ARP_DISABLED;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 -	if (ret)
 -		return ret;
--
- 	/* Set the VLAN ethertype to 0x8100. */
- 	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE, 0x8100);
- 	if (ret)
+ 
+ 	/* Disable cascade port functionality unless this device
+ 	 * is used in a cascade configuration, and set the switch's
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index fcdb5a7..f7dbf78 100644
+index f7dbf78..4c14f9f 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -93,15 +93,6 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	/* Discard packets with excessive collisions, mask all
--	 * interrupt sources, enable PPU.
+@@ -89,21 +89,6 @@ static const char *mv88e6171_drv_probe(struct device *dsa_dev,
+ static int mv88e6171_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+-	int ret;
+-	u32 reg;
+-
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
 -	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  GLOBAL_CONTROL_PPU_ENABLE |
--				  GLOBAL_CONTROL_DISCARD_EXCESS);
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_MIRROR_SHIFT;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 -	if (ret)
 -		return ret;
--
- 	/* Configure the upstream port, and configure the upstream
- 	 * port as the port to which ingress and egress monitor frames
- 	 * are to be sent.
+ 
+ 	/* Disable remote management for now, and set the switch's
+ 	 * DSA device number.
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 94a2698..54849f5 100644
+index 54849f5..52547d0 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -144,15 +144,6 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	/* Discard packets with excessive collisions,
--	 * mask all interrupt sources, enable PPU (bit 14, undocumented).
+@@ -140,20 +140,6 @@ static const char *mv88e6352_drv_probe(struct device *dsa_dev,
+ static int mv88e6352_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+-	int ret;
+-	u32 reg;
+-
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
 -	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  GLOBAL_CONTROL_PPU_ENABLE |
--				  GLOBAL_CONTROL_DISCARD_EXCESS);
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 -	if (ret)
 -		return ret;
--
- 	/* Configure the upstream port, and configure the upstream
- 	 * port as the port to which ingress and egress monitor frames
- 	 * are to be sent.
+ 
+ 	/* Disable remote management for now, and set the switch's
+ 	 * DSA device number.
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 7ec532d..1cba078 100644
+index f7fca3e..de37f20 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2912,9 +2912,23 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+@@ -2912,6 +2912,8 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
  
  static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
  {
-+	u16 reg;
++	struct dsa_switch *ds = ps->ds;
++	u32 upstream_port = dsa_upstream_port(ds);
+ 	u16 reg;
  	int err;
  	int i;
+@@ -2937,6 +2939,16 @@ static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+ 			return err;
+ 	}
  
-+	/* Enable the PHY Polling Unit if present, discard packets with
-+	 * excessive collisions, set the maximum frame size to 1632, and mask
-+	 * all interrupt sources.
++	/* Configure the upstream port, and configure it as the port to which
++	 * ingress and egress and ARP monitor frames are to be sent.
 +	 */
-+	reg = GLOBAL_CONTROL_DISCARD_EXCESS | GLOBAL_CONTROL_MAX_FRAME_1632;
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU) ||
-+	    mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU_ACTIVE))
-+		reg |= GLOBAL_CONTROL_PPU_ENABLE;
-+
-+	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL, reg);
++	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
++		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
++		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
++	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
 +	if (err)
 +		return err;
 +
