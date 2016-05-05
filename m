@@ -1,86 +1,187 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next 08/15] i40e: Allow user to change input set mask for
- flow director
-Date: Wed, 4 May 2016 20:22:30 -0700
-Message-ID: <572ABC76.2080600@gmail.com>
-References: <1461704148-114349-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1461704148-114349-9-git-send-email-jeffrey.t.kirsher@intel.com>
- <20160426.234814.31916479145118247.davem@davemloft.net>
- <572AB43E.2020007@intel.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v10, 5/7] powerpc/fsl: move mpc85xx.h to include/linux/fsl
+Date: Thu, 5 May 2016 11:12:28 +0800
+Message-ID: <1462417950-46796-6-git-send-email-yangbo.lu@nxp.com>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: "Patil, Kiran" <kiran.patil@intel.com>,
-	David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35774 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114AbcEEDWu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2016 23:22:50 -0400
-Received: by mail-pa0-f49.google.com with SMTP id iv1so30914072pac.2
-        for <netdev@vger.kernel.org>; Wed, 04 May 2016 20:22:49 -0700 (PDT)
-In-Reply-To: <572AB43E.2020007@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, Bhupesh
+	Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, xiaobo.xie-3arQi8VN3Tc@public.gmane.org,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1462417950-46796-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-05-04 07:47 PM, Patil, Kiran wrote:
-> On 4/26/2016 8:48 PM, David Miller wrote:
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: Tue, 26 Apr 2016 13:55:41 -0700
->>
->>> From: Kiran Patil <kiran.patil@intel.com>
->>>
->>> This patch implements feature, which allows user to change
->>> input set mask for flow director using side-band channel.
->>> This patch adds definition of FLOW_TYPE_MASK into the header file.
->>> With this patch, user can now specify less than 4 tuple(src ip, dsp ip,
->>> src port, dst port) for flow type TCP4/UDP4.
->>>
->>> Change-Id: I90052508f8c172c0da5a4b78b949704b4a59ea78
->>> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
->>> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>
->> If you want to do this, you have to define the semantics generically
->> in include/uapi/linux/ethtool.h so that other drivers can implement
->> this too.
->>
->> Please don't ever implement private, driver specific, interpretations
->> of the generic ethtool facilitites.
->>
->> The semantics and interpretations of the values must absolutely be
->> consistent across all drivers in the tree.
->>
->> Otherwise the user experience is terrible.
->>
->> Thanks.
->>
-> This is not new feature implemented in i40e driver. This is the original
-> feature of ethtool which allows user to specify subset of tuple for
-> setting up flow director.
-> 
-> i40e driver using it same way as ixgbe.
-> 
-> Please let us know if I misinterpreted your response.
-> 
-> Would you recommend that we re-submit patch with better patch
-> description (indicating that it is not new feature but just enabling
-> feature).
-> 
-> Thanks,
-> -- Kiran P.
+Move mpc85xx.h to include/linux/fsl and rename it to svr.h as
+a common header file. It has been used for mpc85xx and it will
+be used for ARM-based SoC as well.
 
-At least define FLOW_TYPE_MASK in ethtool.h then its not
-sort of hobbled together in the driver and others can use it
-instead of the normal ~FLOW_EXT which I see other drivers used.
-Another benefit if its near the definition of the flow types
-you have a chance of someone seeing it if they add a flag
-past 0xff.
+Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Acked-by: Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>
+Acked-by: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Acked-by: Joerg Roedel <jroedel-l3A5Bk7waGM@public.gmane.org>
+---
+Changes for v2:
+	- None
+Changes for v3:
+	- None
+Changes for v4:
+	- None
+Changes for v5:
+	- Changed to Move mpc85xx.h to include/linux/fsl/
+	- Adjusted '#include <linux/fsl/svr.h>' position in file
+Changes for v6:
+	- None
+Changes for v7:
+	- Added 'Acked-by: Wolfram Sang' for I2C part
+	- Also applied to arch/powerpc/kernel/cpu_setup_fsl_booke.S
+Changes for v8:
+	- Added 'Acked-by: Stephen Boyd' for clk part
+	- Added 'Acked-by: Scott Wood'
+	- Added 'Acked-by: Joerg Roedel' for iommu part
+Changes for v9:
+	- None
+Changes for v10:
+	- None
+---
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S                     | 2 +-
+ drivers/clk/clk-qoriq.c                                       | 3 +--
+ drivers/i2c/busses/i2c-mpc.c                                  | 2 +-
+ drivers/iommu/fsl_pamu.c                                      | 3 +--
+ drivers/net/ethernet/freescale/gianfar.c                      | 2 +-
+ arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h | 4 ++--
+ 6 files changed, 7 insertions(+), 9 deletions(-)
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 
-And maybe do it as a separate patch. So you aren't adding normal
-driver ethtool implementation and a new #define for all drivers
-in the same patch.
-
-.John
+diff --git a/arch/powerpc/kernel/cpu_setup_fsl_booke.S b/arch/powerpc/kernel/cpu_setup_fsl_booke.S
+index 462aed9..2b0284e 100644
+--- a/arch/powerpc/kernel/cpu_setup_fsl_booke.S
++++ b/arch/powerpc/kernel/cpu_setup_fsl_booke.S
+@@ -13,13 +13,13 @@
+  *
+  */
+ 
++#include <linux/fsl/svr.h>
+ #include <asm/page.h>
+ #include <asm/processor.h>
+ #include <asm/cputable.h>
+ #include <asm/ppc_asm.h>
+ #include <asm/mmu-book3e.h>
+ #include <asm/asm-offsets.h>
+-#include <asm/mpc85xx.h>
+ 
+ _GLOBAL(__e500_icache_setup)
+ 	mfspr	r0, SPRN_L1CSR1
+diff --git a/drivers/clk/clk-qoriq.c b/drivers/clk/clk-qoriq.c
+index 7bc1c45..fc7f722 100644
+--- a/drivers/clk/clk-qoriq.c
++++ b/drivers/clk/clk-qoriq.c
+@@ -13,6 +13,7 @@
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/fsl/guts.h>
++#include <linux/fsl/svr.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+@@ -1148,8 +1149,6 @@ bad_args:
+ }
+ 
+ #ifdef CONFIG_PPC
+-#include <asm/mpc85xx.h>
+-
+ static const u32 a4510_svrs[] __initconst = {
+ 	(SVR_P2040 << 8) | 0x10,	/* P2040 1.0 */
+ 	(SVR_P2040 << 8) | 0x11,	/* P2040 1.1 */
+diff --git a/drivers/i2c/busses/i2c-mpc.c b/drivers/i2c/busses/i2c-mpc.c
+index 48ecffe..600704c 100644
+--- a/drivers/i2c/busses/i2c-mpc.c
++++ b/drivers/i2c/busses/i2c-mpc.c
+@@ -27,9 +27,9 @@
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
+ #include <linux/delay.h>
++#include <linux/fsl/svr.h>
+ 
+ #include <asm/mpc52xx.h>
+-#include <asm/mpc85xx.h>
+ #include <sysdev/fsl_soc.h>
+ 
+ #define DRV_NAME "mpc-i2c"
+diff --git a/drivers/iommu/fsl_pamu.c b/drivers/iommu/fsl_pamu.c
+index a34355f..af8fb27 100644
+--- a/drivers/iommu/fsl_pamu.c
++++ b/drivers/iommu/fsl_pamu.c
+@@ -21,11 +21,10 @@
+ #include "fsl_pamu.h"
+ 
+ #include <linux/fsl/guts.h>
++#include <linux/fsl/svr.h>
+ #include <linux/interrupt.h>
+ #include <linux/genalloc.h>
+ 
+-#include <asm/mpc85xx.h>
+-
+ /* define indexes for each operation mapping scenario */
+ #define OMI_QMAN        0x00
+ #define OMI_FMAN        0x01
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index d2f917a..2224b10 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -86,11 +86,11 @@
+ #include <linux/udp.h>
+ #include <linux/in.h>
+ #include <linux/net_tstamp.h>
++#include <linux/fsl/svr.h>
+ 
+ #include <asm/io.h>
+ #ifdef CONFIG_PPC
+ #include <asm/reg.h>
+-#include <asm/mpc85xx.h>
+ #endif
+ #include <asm/irq.h>
+ #include <asm/uaccess.h>
+diff --git a/arch/powerpc/include/asm/mpc85xx.h b/include/linux/fsl/svr.h
+similarity index 97%
+rename from arch/powerpc/include/asm/mpc85xx.h
+rename to include/linux/fsl/svr.h
+index 213f3a8..8d13836 100644
+--- a/arch/powerpc/include/asm/mpc85xx.h
++++ b/include/linux/fsl/svr.h
+@@ -9,8 +9,8 @@
+  * (at your option) any later version.
+  */
+ 
+-#ifndef __ASM_PPC_MPC85XX_H
+-#define __ASM_PPC_MPC85XX_H
++#ifndef FSL_SVR_H
++#define FSL_SVR_H
+ 
+ #define SVR_REV(svr)	((svr) & 0xFF)		/* SOC design resision */
+ #define SVR_MAJ(svr)	(((svr) >>  4) & 0xF)	/* Major revision field*/
+-- 
+2.1.0.27.g96db324
