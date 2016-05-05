@@ -1,50 +1,51 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: A couple of questions about the SKB fragments
-Date: Thu, 5 May 2016 08:58:29 -0400
-Message-ID: <20160505125829.GA26978@oracle.com>
-References: <CAKh5naYrZtf5y_Qw93G+GbxRVucsk4nbuiaguHcghtKEL=yQBw@mail.gmail.com>
- <572B2AEE.1020802@solarflare.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] virtio/qemu: fixes for 4.6
+Date: Thu, 5 May 2016 16:04:55 +0300
+Message-ID: <20160505160455-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: matvejchikov@gmail.com, netdev@vger.kernel.org,
-	Aleksey.Baulin@gmail.com
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31159 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203AbcEEM6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 08:58:45 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	dan.carpenter@oracle.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <572B2AEE.1020802@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On (05/05/16 12:13), Edward Cree wrote:
-> On 05/05/16 08:40, Ilya Matveychikov wrote:
-> >
-> > While working with fragmented SKBs we've got stuck with the following:
-> > - is it possible for an SKB fragment in skb_shinfo(skb)->frag_list to
-> > be fragmented too (i.e. to have SKBs in frag_list)?
-> > - do skb->len and skb->data_len contain the whole SKB length,
-> > including the length of all fragments (not only the paged parts)?
-> >
-> > Is there any docs except the kernel sources itself to refer to?
-> davem has some docs up at http://vger.kernel.org/~davem/skb.html and
-> http://vger.kernel.org/~davem/skb_data.html
-> In particular note the following:
-> "The frag_list is used to maintain a chain of SKBs organized for
->  fragmentation purposes, it is _not_ used for maintaining paged data."
-> So my reading would suggest there is no way to multiple-layer-fragment
-> an SKB; the frags are page pointers and offsets, not entire sk_buff
-> structs in their own right.
+The following changes since commit c3b46c73264b03000d1e18b22f5caf63332547c9:
 
-Actually (and perhaps I am mixing up skb_frag_t with the sk_buff in
-skb_shinfo(skb)->frag_list) I think it is entirely possible in theory 
-for the frag_list to itself both skb_frag_t's as well as more sk_buffs
-in the ->frag_list- at least that's why I understand fromcode
-that recurses using skb_walk_frags(), such as tcp_md5_hash_skb_data().
-AIUI, the statement about page pointers and offsets applies to the 
-skb_frag_t's in the skb_shared_info. The len and data_len should be
-the sum-total for the whole skb, including skb_frag_t's and ->frag_list.
+  Linux 4.6-rc4 (2016-04-17 19:13:32 -0700)
 
---Sowmini
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to e00f7bd221292b318d4d09c3f0c2c8af9b1e5edf:
+
+  virtio: Silence uninitialized variable warning (2016-05-01 15:50:08 +0300)
+
+----------------------------------------------------------------
+virtio/qemu: fixes for 4.6
+
+A couple of fixes for virtio and for the new QEMU fw cfg driver.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Dan Carpenter (2):
+      firmware: qemu_fw_cfg.c: potential unintialized variable
+      virtio: Silence uninitialized variable warning
+
+ drivers/firmware/qemu_fw_cfg.c | 2 +-
+ drivers/virtio/virtio_ring.c   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
