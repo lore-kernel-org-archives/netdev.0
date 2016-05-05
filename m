@@ -1,8 +1,8 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 06/12] net-next: mediatek: add next data pointer coherency
- protection
-Date: Thu,  5 May 2016 11:26:19 +0200
-Message-ID: <1462440385-51939-7-git-send-email-john@phrozen.org>
+Subject: [PATCH 04/12] net-next: mediatek: invalid buffer lookup in
+ mtk_tx_map()
+Date: Thu,  5 May 2016 11:26:17 +0200
+Message-ID: <1462440385-51939-5-git-send-email-john@phrozen.org>
 References: <1462440385-51939-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,41 +23,27 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The QDMA engine can fail to update the register pointing to the next TX
-descriptor if this bit does not get set in the QDMA configuration register.
-Not setting this bit can result in invalid values inside the TX rings
-registers which will causes TX stalls.
+The lookup of the tx_buffer in the error path inside mtk_tx_map() uses the
+wrong descriptor pointer. This looks like a copy & paste error. Change the
+code to use the correct pointer.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
  drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |    1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 2e79af9..60095be 100644
+index e415986..7fdd1a3 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1277,7 +1277,7 @@ static int mtk_start_dma(struct mtk_eth *eth)
- 	mtk_w32(eth,
- 		MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN |
- 		MTK_RX_2B_OFFSET | MTK_DMA_SIZE_16DWORDS |
--		MTK_RX_BT_32DWORDS,
-+		MTK_RX_BT_32DWORDS | MTK_NDP_CO_PRO,
- 		MTK_QDMA_GLO_CFG);
+@@ -671,7 +671,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
  
- 	return 0;
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 57f7e8a..a5eb7c6 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -91,6 +91,7 @@
- #define MTK_QDMA_GLO_CFG	0x1A04
- #define MTK_RX_2B_OFFSET	BIT(31)
- #define MTK_RX_BT_32DWORDS	(3 << 11)
-+#define MTK_NDP_CO_PRO		BIT(10)
- #define MTK_TX_WB_DDONE		BIT(6)
- #define MTK_DMA_SIZE_16DWORDS	(2 << 4)
- #define MTK_RX_DMA_BUSY		BIT(3)
+ err_dma:
+ 	do {
+-		tx_buf = mtk_desc_to_tx_buf(ring, txd);
++		tx_buf = mtk_desc_to_tx_buf(ring, itxd);
+ 
+ 		/* unmap dma */
+ 		mtk_tx_unmap(&dev->dev, tx_buf);
 -- 
 1.7.10.4
