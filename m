@@ -1,110 +1,115 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1 1/1] ISDN: eicon: replace custom hex_asc_lo() / hex_pack_byte()
-Date: Fri,  6 May 2016 20:55:23 +0300
-Message-ID: <1462557323-102678-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Armin Schindler <mac@melware.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33829 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755370AbcEFRz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 May 2016 13:55:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH v2] rtlwifi: pci: use dev_kfree_skb_irq instead of
+ kfree_skb in rtl_pci_reset_trx_ring
+Date: Fri, 6 May 2016 13:01:20 -0500
+Message-ID: <572CDBF0.9000607@lwfinger.net>
+References: <20160506163351.GA4589@udknight>
+ <CAKgT0Uff5dc3_iEjK6GScqgP5_1kcg3YQAv7AH3bzuVDguXiPw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Wang YanQing <udknight@gmail.com>, chaoming_li@realsil.com.cn,
+	kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0Uff5dc3_iEjK6GScqgP5_1kcg3YQAv7AH3bzuVDguXiPw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of custom approach re-use generic helpers to convert byte to hex
-format.
+On 05/06/2016 12:13 PM, Alexander Duyck wrote:
+> On Fri, May 6, 2016 at 9:33 AM, Wang YanQing <udknight@gmail.com> wrote:
+>> We can't use kfree_skb in irq disable context, because spin_lock_irqsave
+>> make sure we are always in irq disable context, use dev_kfree_skb_irq
+>> instead of kfree_skb is better than dev_kfree_skb_any.
+>>
+>> This patch fix below kernel warning:
+>> [ 7612.095528] ------------[ cut here ]------------
+>> [ 7612.095546] WARNING: CPU: 3 PID: 4460 at kernel/softirq.c:150 __local_bh_enable_ip+0x58/0x80()
+>> [ 7612.095550] Modules linked in: rtl8723be x86_pkg_temp_thermal btcoexist rtl_pci rtlwifi rtl8723_common
+>> [ 7612.095567] CPU: 3 PID: 4460 Comm: ifconfig Tainted: G        W       4.4.0+ #4
+>> [ 7612.095570] Hardware name: LENOVO 20DFA04FCD/20DFA04FCD, BIOS J5ET48WW (1.19 ) 08/27/2015
+>> [ 7612.095574]  00000000 00000000 da37fc70 c12ce7c5 00000000 da37fca0 c104cc59 c19d4454
+>> [ 7612.095584]  00000003 0000116c c19d4784 00000096 c10508a8 c10508a8 00000200 c1b42400
+>> [ 7612.095594]  f29be780 da37fcb0 c104ccad 00000009 00000000 da37fcbc c10508a8 f21f08b8
+>> [ 7612.095604] Call Trace:
+>> [ 7612.095614]  [<c12ce7c5>] dump_stack+0x41/0x5c
+>> [ 7612.095620]  [<c104cc59>] warn_slowpath_common+0x89/0xc0
+>> [ 7612.095628]  [<c10508a8>] ? __local_bh_enable_ip+0x58/0x80
+>> [ 7612.095634]  [<c10508a8>] ? __local_bh_enable_ip+0x58/0x80
+>> [ 7612.095640]  [<c104ccad>] warn_slowpath_null+0x1d/0x20
+>> [ 7612.095646]  [<c10508a8>] __local_bh_enable_ip+0x58/0x80
+>> [ 7612.095653]  [<c16b7d34>] destroy_conntrack+0x64/0xa0
+>> [ 7612.095660]  [<c16b300f>] nf_conntrack_destroy+0xf/0x20
+>> [ 7612.095665]  [<c1677565>] skb_release_head_state+0x55/0xa0
+>> [ 7612.095670]  [<c16775bb>] skb_release_all+0xb/0x20
+>> [ 7612.095674]  [<c167760b>] __kfree_skb+0xb/0x60
+>> [ 7612.095679]  [<c16776f0>] kfree_skb+0x30/0x70
+>> [ 7612.095686]  [<f81b869d>] ? rtl_pci_reset_trx_ring+0x22d/0x370 [rtl_pci]
+>> [ 7612.095692]  [<f81b869d>] rtl_pci_reset_trx_ring+0x22d/0x370 [rtl_pci]
+>> [ 7612.095698]  [<f81b87f9>] rtl_pci_start+0x19/0x190 [rtl_pci]
+>> [ 7612.095705]  [<f81970e6>] rtl_op_start+0x56/0x90 [rtlwifi]
+>> [ 7612.095712]  [<c17e3f16>] drv_start+0x36/0xc0
+>> [ 7612.095717]  [<c17f5ab3>] ieee80211_do_open+0x2d3/0x890
+>> [ 7612.095725]  [<c16820fe>] ? call_netdevice_notifiers_info+0x2e/0x60
+>> [ 7612.095730]  [<c17f60bd>] ieee80211_open+0x4d/0x50
+>> [ 7612.095736]  [<c16891b3>] __dev_open+0xa3/0x130
+>> [ 7612.095742]  [<c183fa53>] ? _raw_spin_unlock_bh+0x13/0x20
+>> [ 7612.095748]  [<c1689499>] __dev_change_flags+0x89/0x140
+>> [ 7612.095753]  [<c127c70d>] ? selinux_capable+0xd/0x10
+>> [ 7612.095759]  [<c1689589>] dev_change_flags+0x29/0x60
+>> [ 7612.095765]  [<c1700b93>] devinet_ioctl+0x553/0x670
+>> [ 7612.095772]  [<c12db758>] ? _copy_to_user+0x28/0x40
+>> [ 7612.095777]  [<c17018b5>] inet_ioctl+0x85/0xb0
+>> [ 7612.095783]  [<c166e647>] sock_ioctl+0x67/0x260
+>> [ 7612.095788]  [<c166e5e0>] ? sock_fasync+0x80/0x80
+>> [ 7612.095795]  [<c115c99b>] do_vfs_ioctl+0x6b/0x550
+>> [ 7612.095800]  [<c127c812>] ? selinux_file_ioctl+0x102/0x1e0
+>> [ 7612.095807]  [<c10a8914>] ? timekeeping_suspend+0x294/0x320
+>> [ 7612.095813]  [<c10a256a>] ? __hrtimer_run_queues+0x14a/0x210
+>> [ 7612.095820]  [<c1276e24>] ? security_file_ioctl+0x34/0x50
+>> [ 7612.095827]  [<c115cef0>] SyS_ioctl+0x70/0x80
+>> [ 7612.095832]  [<c1001804>] do_fast_syscall_32+0x84/0x120
+>> [ 7612.095839]  [<c183ff91>] sysenter_past_esp+0x36/0x55
+>> [ 7612.095844] ---[ end trace 97e9c637a20e8348 ]---
+>>
+>> Signed-off-by: Wang YanQing <udknight@gmail.com>
+>> Cc: Stable <stable@vger.kernel.org>
+>> ---
+>>   Changes:
+>>   v1-v2:
+>>   1: add a Cc to stable.
+>>
+>>   drivers/net/wireless/realtek/rtlwifi/pci.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
+>> index 1ac41b8..99a3a03 100644
+>> --- a/drivers/net/wireless/realtek/rtlwifi/pci.c
+>> +++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
+>> @@ -1572,7 +1572,7 @@ int rtl_pci_reset_trx_ring(struct ieee80211_hw *hw)
+>>                                                           true,
+>>                                                           HW_DESC_TXBUFF_ADDR),
+>>                                                   skb->len, PCI_DMA_TODEVICE);
+>> -                               kfree_skb(skb);
+>> +                               dev_kfree_skb_irq(skb);
+>>                                  ring->idx = (ring->idx + 1) % ring->entries;
+>>                          }
+>>                          ring->idx = 0;
+>
+> Is this always called in IRQ context?  You might be better off using
+> dev_kfree_skb_any instead if this is something that can be called from
+> net_device_ops since that way you avoid having to call into the Tx
+> softirq cleanup routine to free the buffers later unless you really
+> need it.
+>
+> - Alex
+>
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- drivers/isdn/hardware/eicon/message.c | 21 +++++++--------------
- 1 file changed, 7 insertions(+), 14 deletions(-)
+Alex,
 
-diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
-index d7c2866..1a1d997 100644
---- a/drivers/isdn/hardware/eicon/message.c
-+++ b/drivers/isdn/hardware/eicon/message.c
-@@ -1147,8 +1147,6 @@ static byte test_c_ind_mask_bit(PLCI *plci, word b)
- 
- static void dump_c_ind_mask(PLCI *plci)
- {
--	static char hex_digit_table[0x10] =
--		{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
- 	word i, j, k;
- 	dword d;
- 	char *p;
-@@ -1165,7 +1163,7 @@ static void dump_c_ind_mask(PLCI *plci)
- 				d = plci->c_ind_mask_table[i + j];
- 				for (k = 0; k < 8; k++)
- 				{
--					*(--p) = hex_digit_table[d & 0xf];
-+					*(--p) = hex_asc_lo(d);
- 					d >>= 4;
- 				}
- 			}
-@@ -10507,7 +10505,6 @@ static void mixer_set_bchannel_id(PLCI *plci, byte *chi)
- 
- static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
- {
--	static char hex_digit_table[0x10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
- 	word n, i, j;
- 	char *p;
- 	char hex_line[2 * MIXER_MAX_DUMP_CHANNELS + MIXER_MAX_DUMP_CHANNELS / 8 + 4];
-@@ -10690,13 +10687,13 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
- 	n = li_total_channels;
- 	if (n > MIXER_MAX_DUMP_CHANNELS)
- 		n = MIXER_MAX_DUMP_CHANNELS;
-+
- 	p = hex_line;
- 	for (j = 0; j < n; j++)
- 	{
- 		if ((j & 0x7) == 0)
- 			*(p++) = ' ';
--		*(p++) = hex_digit_table[li_config_table[j].curchnl >> 4];
--		*(p++) = hex_digit_table[li_config_table[j].curchnl & 0xf];
-+		p = hex_byte_pack(p, li_config_table[j].curchnl);
- 	}
- 	*p = '\0';
- 	dbug(1, dprintf("[%06lx] CURRENT %s",
-@@ -10706,8 +10703,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
- 	{
- 		if ((j & 0x7) == 0)
- 			*(p++) = ' ';
--		*(p++) = hex_digit_table[li_config_table[j].channel >> 4];
--		*(p++) = hex_digit_table[li_config_table[j].channel & 0xf];
-+		p = hex_byte_pack(p, li_config_table[j].channel);
- 	}
- 	*p = '\0';
- 	dbug(1, dprintf("[%06lx] CHANNEL %s",
-@@ -10717,8 +10713,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
- 	{
- 		if ((j & 0x7) == 0)
- 			*(p++) = ' ';
--		*(p++) = hex_digit_table[li_config_table[j].chflags >> 4];
--		*(p++) = hex_digit_table[li_config_table[j].chflags & 0xf];
-+		p = hex_byte_pack(p, li_config_table[j].chflags);
- 	}
- 	*p = '\0';
- 	dbug(1, dprintf("[%06lx] CHFLAG  %s",
-@@ -10730,8 +10725,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
- 		{
- 			if ((j & 0x7) == 0)
- 				*(p++) = ' ';
--			*(p++) = hex_digit_table[li_config_table[i].flag_table[j] >> 4];
--			*(p++) = hex_digit_table[li_config_table[i].flag_table[j] & 0xf];
-+			p = hex_byte_pack(p, li_config_table[i].flag_table[j]);
- 		}
- 		*p = '\0';
- 		dbug(1, dprintf("[%06lx] FLAG[%02x]%s",
-@@ -10744,8 +10738,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
- 		{
- 			if ((j & 0x7) == 0)
- 				*(p++) = ' ';
--			*(p++) = hex_digit_table[li_config_table[i].coef_table[j] >> 4];
--			*(p++) = hex_digit_table[li_config_table[i].coef_table[j] & 0xf];
-+			p = hex_byte_pack(p, li_config_table[i].coef_table[j]);
- 		}
- 		*p = '\0';
- 		dbug(1, dprintf("[%06lx] COEF[%02x]%s",
--- 
-2.8.1
+Six lines below the change is a spin_unlock_irqrestore(), which is always 
+called. I believe that the patch is correct.
+
+Larry
