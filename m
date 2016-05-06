@@ -1,304 +1,229 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v3 net-next 06/11] fou: Add encap ops for IPv6 tunnels
-Date: Fri, 6 May 2016 15:12:01 -0700
-Message-ID: <1462572726-566137-7-git-send-email-tom@herbertland.com>
+Subject: [PATCH v3 net-next 01/11] gso: Remove arbitrary checks for unsupported GSO
+Date: Fri, 6 May 2016 15:11:56 -0700
+Message-ID: <1462572726-566137-2-git-send-email-tom@herbertland.com>
 References: <1462572726-566137-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49938 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758408AbcEFWMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 18:12:22 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46MBM8A007808
-	for <netdev@vger.kernel.org>; Fri, 6 May 2016 15:12:21 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:22771 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758589AbcEFWMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 18:12:14 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u46M8TN6023374
+	for <netdev@vger.kernel.org>; Fri, 6 May 2016 15:12:13 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22rxqt1fm8-1
+	by m0001303.ppops.net with ESMTP id 22ruk83fc8-6
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 06 May 2016 15:12:21 -0700
+	for <netdev@vger.kernel.org>; Fri, 06 May 2016 15:12:13 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 99d208c213d711e6ae7d0002c9521c9e-807fcc50 for <netdev@vger.kernel.org>;	Fri,
- 06 May 2016 15:12:20 -0700
+ 949d62de13d711e6ae7d0002c9521c9e-807fcc50 for <netdev@vger.kernel.org>;	Fri,
+ 06 May 2016 15:12:11 -0700
 In-Reply-To: <1462572726-566137-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thsi packet adds IP tunnel encapsulation operations for IPv6. This
-includes the infrastructure to add and delete operations. IPv6 variants
-for fou6_build_header and gue6_build_header are added in a new
-fou6 module. These encapsulation operations for fou and gue are
-automatically added when the fou6 module loads.
+In several gso_segment functions there are checks of gso_type against
+a seemingly arbitrary list of SKB_GSO_* flags. This seems like an
+attempt to identify unsupported GSO types, but since the stack is
+the one that set these GSO types in the first place this seems
+unnecessary to do. If a combination isn't valid in the first
+place that stack should not allow setting it.
+
+This is a code simplication especially for add new GSO types.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/fou.h          |   2 +-
- include/net/ip6_tunnel.h   |  14 +++++
- net/ipv6/Makefile          |   4 +-
- net/ipv6/fou6.c            | 140 +++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/ip6_tunnel_core.c |  44 ++++++++++++++
- 5 files changed, 202 insertions(+), 2 deletions(-)
- create mode 100644 net/ipv6/fou6.c
- create mode 100644 net/ipv6/ip6_tunnel_core.c
+ net/ipv4/af_inet.c     | 18 ------------------
+ net/ipv4/gre_offload.c | 14 --------------
+ net/ipv4/tcp_offload.c | 19 -------------------
+ net/ipv4/udp_offload.c | 10 ----------
+ net/ipv6/ip6_offload.c | 18 ------------------
+ net/ipv6/udp_offload.c | 13 -------------
+ net/mpls/mpls_gso.c    |  9 ---------
+ 7 files changed, 101 deletions(-)
 
-diff --git a/include/net/fou.h b/include/net/fou.h
-index 7d2fda2..f5cc691 100644
---- a/include/net/fou.h
-+++ b/include/net/fou.h
-@@ -9,7 +9,7 @@
- #include <net/udp.h>
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 2e6e65f..7f08d45 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1205,24 +1205,6 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	int ihl;
+ 	int id;
  
- size_t fou_encap_hlen(struct ip_tunnel_encap *e);
--static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
-+size_t gue_encap_hlen(struct ip_tunnel_encap *e);
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-		     ~(SKB_GSO_TCPV4 |
+-		       SKB_GSO_UDP |
+-		       SKB_GSO_DODGY |
+-		       SKB_GSO_TCP_ECN |
+-		       SKB_GSO_GRE |
+-		       SKB_GSO_GRE_CSUM |
+-		       SKB_GSO_IPIP |
+-		       SKB_GSO_SIT |
+-		       SKB_GSO_TCPV6 |
+-		       SKB_GSO_UDP_TUNNEL |
+-		       SKB_GSO_UDP_TUNNEL_CSUM |
+-		       SKB_GSO_TCP_FIXEDID |
+-		       SKB_GSO_TUNNEL_REMCSUM |
+-		       SKB_GSO_PARTIAL |
+-		       0)))
+-		goto out;
+-
+ 	skb_reset_network_header(skb);
+ 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index e88190a..ecd1e09 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -26,20 +26,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 	int gre_offset, outer_hlen;
+ 	bool need_csum, ufo;
  
- int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 		       u8 *protocol, __be16 *sport, int type);
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index fb9e015..1c14c27 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -34,6 +34,20 @@ struct __ip6_tnl_parm {
- 	__be32			o_key;
- };
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-				~(SKB_GSO_TCPV4 |
+-				  SKB_GSO_TCPV6 |
+-				  SKB_GSO_UDP |
+-				  SKB_GSO_DODGY |
+-				  SKB_GSO_TCP_ECN |
+-				  SKB_GSO_TCP_FIXEDID |
+-				  SKB_GSO_GRE |
+-				  SKB_GSO_GRE_CSUM |
+-				  SKB_GSO_IPIP |
+-				  SKB_GSO_SIT |
+-				  SKB_GSO_PARTIAL)))
+-		goto out;
+-
+ 	if (!skb->encapsulation)
+ 		goto out;
  
-+struct ip6_tnl_encap_ops {
-+	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
-+	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+			    u8 *protocol, struct flowi6 *fl6);
-+};
-+
-+extern const struct ip6_tnl_encap_ops __rcu *
-+		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS];
-+
-+int ip6_tnl_encap_add_ops(const struct ip6_tnl_encap_ops *op,
-+			  unsigned int num);
-+int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *op,
-+			  unsigned int num);
-+
- /* IPv6 tunnel */
- struct ip6_tnl {
- 	struct ip6_tnl __rcu *next;	/* next tunnel in list */
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 5e9d6bf..5cf4a1f 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -9,7 +9,7 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
- 		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o ping.o \
- 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o \
--		udp_offload.o
-+		udp_offload.o ip6_tunnel_core.o
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 02737b6..5c59649 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -83,25 +83,6 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
  
- ipv6-offload :=	ip6_offload.o tcpv6_offload.o exthdrs_offload.o
+ 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+ 		/* Packet is from an untrusted source, reset gso_segs. */
+-		int type = skb_shinfo(skb)->gso_type;
+-
+-		if (unlikely(type &
+-			     ~(SKB_GSO_TCPV4 |
+-			       SKB_GSO_DODGY |
+-			       SKB_GSO_TCP_ECN |
+-			       SKB_GSO_TCP_FIXEDID |
+-			       SKB_GSO_TCPV6 |
+-			       SKB_GSO_GRE |
+-			       SKB_GSO_GRE_CSUM |
+-			       SKB_GSO_IPIP |
+-			       SKB_GSO_SIT |
+-			       SKB_GSO_UDP_TUNNEL |
+-			       SKB_GSO_UDP_TUNNEL_CSUM |
+-			       SKB_GSO_TUNNEL_REMCSUM |
+-			       0) ||
+-			     !(type & (SKB_GSO_TCPV4 |
+-				       SKB_GSO_TCPV6))))
+-			goto out;
  
-@@ -43,6 +43,8 @@ obj-$(CONFIG_IPV6_SIT) += sit.o
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
- obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
  
-+obj-$(CONFIG_NET_FOU) += fou6.o
-+
- obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
- obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 097060de..b556ef6 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -209,16 +209,6 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
  
-diff --git a/net/ipv6/fou6.c b/net/ipv6/fou6.c
-new file mode 100644
-index 0000000..c972d0b
---- /dev/null
-+++ b/net/ipv6/fou6.c
-@@ -0,0 +1,140 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <net/fou.h>
-+#include <net/ip.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
-+#include <net/protocol.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+
-+static void fou6_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+			   struct flowi6 *fl6, u8 *protocol, __be16 sport)
-+{
-+	struct udphdr *uh;
-+
-+	skb_push(skb, sizeof(struct udphdr));
-+	skb_reset_transport_header(skb);
-+
-+	uh = udp_hdr(skb);
-+
-+	uh->dest = e->dport;
-+	uh->source = sport;
-+	uh->len = htons(skb->len);
-+	udp6_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM6), skb,
-+		      &fl6->saddr, &fl6->daddr, skb->len);
-+
-+	*protocol = IPPROTO_UDP;
-+}
-+
-+int fou6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+		      u8 *protocol, struct flowi6 *fl6)
-+{
-+	__be16 sport;
-+	int err;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
-+		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	err = __fou_build_header(skb, e, protocol, &sport, type);
-+	if (err)
-+		return err;
-+
-+	fou6_build_udp(skb, e, fl6, protocol, sport);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(fou6_build_header);
-+
-+int gue6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+		      u8 *protocol, struct flowi6 *fl6)
-+{
-+	__be16 sport;
-+	int err;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
-+		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	err = __gue_build_header(skb, e, protocol, &sport, type);
-+	if (err)
-+		return err;
-+
-+	fou6_build_udp(skb, e, fl6, protocol, sport);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(gue6_build_header);
-+
-+#ifdef CONFIG_NET_FOU_IP_TUNNELS
-+
-+static const struct ip6_tnl_encap_ops fou_ip6tun_ops = {
-+	.encap_hlen = fou_encap_hlen,
-+	.build_header = fou6_build_header,
-+};
-+
-+static const struct ip6_tnl_encap_ops gue_ip6tun_ops = {
-+	.encap_hlen = gue_encap_hlen,
-+	.build_header = gue6_build_header,
-+};
-+
-+static int ip6_tnl_encap_add_fou_ops(void)
-+{
-+	int ret;
-+
-+	ret = ip6_tnl_encap_add_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+	if (ret < 0) {
-+		pr_err("can't add fou6 ops\n");
-+		return ret;
-+	}
-+
-+	ret = ip6_tnl_encap_add_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
-+	if (ret < 0) {
-+		pr_err("can't add gue6 ops\n");
-+		ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static void ip6_tnl_encap_del_fou_ops(void)
-+{
-+	ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+	ip6_tnl_encap_del_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
-+}
-+
-+#else
-+
-+static int ip6_tnl_encap_add_fou_ops(void)
-+{
-+	return 0;
-+}
-+
-+static void ip6_tnl_encap_del_fou_ops(void)
-+{
-+}
-+
-+#endif
-+
-+static int __init fou6_init(void)
-+{
-+	int ret;
-+
-+	ret = ip6_tnl_encap_add_fou_ops();
-+
-+	return ret;
-+}
-+
-+static void __exit fou6_fini(void)
-+{
-+	ip6_tnl_encap_del_fou_ops();
-+}
-+
-+module_init(fou6_init);
-+module_exit(fou6_fini);
-+MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
-+MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/ip6_tunnel_core.c b/net/ipv6/ip6_tunnel_core.c
-new file mode 100644
-index 0000000..5f5b79e
---- /dev/null
-+++ b/net/ipv6/ip6_tunnel_core.c
-@@ -0,0 +1,44 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/if.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/net.h>
-+#include <linux/in6.h>
-+#include <net/ip6_tunnel.h>
-+
-+const struct ip6_tnl_encap_ops __rcu *
-+		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
-+EXPORT_SYMBOL(ip6tun_encaps);
-+
-+int ip6_tnl_encap_add_ops(const struct ip6_tnl_encap_ops *ops,
-+			  unsigned int num)
-+{
-+	if (num >= MAX_IPTUN_ENCAP_OPS)
-+		return -ERANGE;
-+
-+	return !cmpxchg((const struct ip6_tnl_encap_ops **)
-+			&ip6tun_encaps[num],
-+			NULL, ops) ? 0 : -1;
-+}
-+EXPORT_SYMBOL(ip6_tnl_encap_add_ops);
-+
-+int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *ops,
-+			  unsigned int num)
-+{
-+	int ret;
-+
-+	if (num >= MAX_IPTUN_ENCAP_OPS)
-+		return -ERANGE;
-+
-+	ret = (cmpxchg((const struct ip6_tnl_encap_ops **)
-+		       &ip6tun_encaps[num],
-+		       ops, NULL) == ops) ? 0 : -1;
-+
-+	synchronize_net();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(ip6_tnl_encap_del_ops);
-+
+ 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+ 		/* Packet is from an untrusted source, reset gso_segs. */
+-		int type = skb_shinfo(skb)->gso_type;
+-
+-		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
+-				      SKB_GSO_UDP_TUNNEL |
+-				      SKB_GSO_UDP_TUNNEL_CSUM |
+-				      SKB_GSO_TUNNEL_REMCSUM |
+-				      SKB_GSO_IPIP |
+-				      SKB_GSO_GRE | SKB_GSO_GRE_CSUM) ||
+-			     !(type & (SKB_GSO_UDP))))
+-			goto out;
+ 
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index f5eb184..9ad743b 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -69,24 +69,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	bool encap, udpfrag;
+ 	int nhoff;
+ 
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-		     ~(SKB_GSO_TCPV4 |
+-		       SKB_GSO_UDP |
+-		       SKB_GSO_DODGY |
+-		       SKB_GSO_TCP_ECN |
+-		       SKB_GSO_TCP_FIXEDID |
+-		       SKB_GSO_TCPV6 |
+-		       SKB_GSO_GRE |
+-		       SKB_GSO_GRE_CSUM |
+-		       SKB_GSO_IPIP |
+-		       SKB_GSO_SIT |
+-		       SKB_GSO_UDP_TUNNEL |
+-		       SKB_GSO_UDP_TUNNEL_CSUM |
+-		       SKB_GSO_TUNNEL_REMCSUM |
+-		       SKB_GSO_PARTIAL |
+-		       0)))
+-		goto out;
+-
+ 	skb_reset_network_header(skb);
+ 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 5429f6b..ac858c4 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -36,19 +36,6 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 
+ 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+ 		/* Packet is from an untrusted source, reset gso_segs. */
+-		int type = skb_shinfo(skb)->gso_type;
+-
+-		if (unlikely(type & ~(SKB_GSO_UDP |
+-				      SKB_GSO_DODGY |
+-				      SKB_GSO_UDP_TUNNEL |
+-				      SKB_GSO_UDP_TUNNEL_CSUM |
+-				      SKB_GSO_TUNNEL_REMCSUM |
+-				      SKB_GSO_GRE |
+-				      SKB_GSO_GRE_CSUM |
+-				      SKB_GSO_IPIP |
+-				      SKB_GSO_SIT) ||
+-			     !(type & (SKB_GSO_UDP))))
+-			goto out;
+ 
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+index bbcf604..6de1e13 100644
+--- a/net/mpls/mpls_gso.c
++++ b/net/mpls/mpls_gso.c
+@@ -26,15 +26,6 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t mpls_features;
+ 	__be16 mpls_protocol;
+ 
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-				~(SKB_GSO_TCPV4 |
+-				  SKB_GSO_TCPV6 |
+-				  SKB_GSO_UDP |
+-				  SKB_GSO_DODGY |
+-				  SKB_GSO_TCP_FIXEDID |
+-				  SKB_GSO_TCP_ECN)))
+-		goto out;
+-
+ 	/* Setup inner SKB. */
+ 	mpls_protocol = skb->protocol;
+ 	skb->protocol = skb->inner_protocol;
 -- 
 2.8.0.rc2
