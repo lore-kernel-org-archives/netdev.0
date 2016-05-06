@@ -1,146 +1,112 @@
-From: Caesar Wang <wxt@rock-chips.com>
-Subject: [PATCH v2] net: arc/emac: Move arc_emac_tx_clean() into arc_emac_tx() and disable tx interrut
-Date: Fri,  6 May 2016 20:19:16 +0800
-Message-ID: <1462537156-10489-1-git-send-email-wxt@rock-chips.com>
-Cc: heiko@sntech.de, linux-rockchip@lists.infradead.org,
-	Shuyu Wei <sy.w@outlook.com>,
-	Alexander Kochetkov <al.kochet@gmail.com>,
-	netdev@vger.kernel.org, Caesar Wang <wxt@rock-chips.com>,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: OpenWRT wrong adjustment of fq_codel defaults (Was:
+ fq_codel_drop vs a udp flood)
+Date: Fri, 6 May 2016 14:47:40 +0200
+Message-ID: <20160506144740.210901f5@redhat.com>
+References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
+ <1462125592.5535.194.camel@edumazet-glaptop3.roam.corp.google.com>
+ <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
+ <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
+ <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
+ <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
+ <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
+ <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
+ <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
+ <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160506114243.4eb4f95e@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: make-wifi-fast@lists.bufferbloat.net, zajec5@gmail.com,
+ ath10k <ath10k@lists.infradead.org>,
+ "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Jonathan Morton <chromatix99@gmail.com>,
+ Roman Yeryomin <leroi.lists@gmail.com>, openwrt-devel@lists.openwrt.org
+To: Felix Fietkau <nbd@nbd.name>, Dave Taht <dave.taht@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <20160506114243.4eb4f95e@redhat.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+ <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+ <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Errors-To: codel-bounces@lists.bufferbloat.net
+Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
 List-Id: netdev.vger.kernel.org
 
-From: Shuyu Wei <sy.w@outlook.com>
-
-Doing tx_clean() inside poll() may scramble the tx ring buffer if
-tx() is running. This will cause tx to stop working, which can be
-reproduced by simultaneously downloading two large files at high speed.
-
-Moving tx_clean() into tx() will prevent this. And tx interrupt is no
-longer needed now.
-
-Picked the Shuyu's patch up, the patch is sent on
-https://patchwork.kernel.org/patch/8356821/, since that make sense for
-rockchip platform.
-Note: Many people feedback the cransh problems with rk3036/rk3188 emac when
-download the heavy loading and this patch is indeed can fix the crash.
-
-The crash log as the followings:
-...
-[ 2191.996127 ] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.4.0-rc6 #114
-[ 2192.002475 ] Hardware name: Rockchip (Device Tree)
-[ 2192.007174 ] Backtrace:
-[ 2192.009658 ] [<c00134d4>] (dump_backtrace) from [<c0013680>]
-    (show_stack+0x18/0x1c)
-[ 2192.017220 ]  r7:c051c4f8 r6:ef463180 r5:c05b7000 r4:00000000
-[ 2192.022948 ] [<c0013668>] (show_stack) from [<c0219d90>]
-    (dump_stack+0x90/0xa0)
-[ 2192.030176 ] [<c0219d00>] (dump_stack) from [<c00b2cd4>]
-    (bad_page+0xdc/0x12c)
-[ 2192.037302 ]  r5:c059a100 r4:c05f430c
-[ 2192.040913 ] [<c00b2bf8>] (bad_page) from [<c00b606c>]
-    (get_page_from_freelist+0x388/0x95c)
-[ 2192.049166 ]  r9:00000008 r8:ef463180 r7:c051c4d0 r6:00000000
-    r5:00000000 r4:c051c4e4
-[ 2192.056982 ] [<c00b5ce4>] (get_page_from_freelist) from
-[<c00b6880>] (__alloc_pages_nodemask+0xd8/0x8e8)
-[ 2192.066362 ]  r10:c001b068 r9:00000000 r8:ee0b02b0 r7:60000113
-    r6:00000003 r5:02095220
-[ 2192.074254 ]  r4:c05ca1c0
-[ 2192.076809 ] [<c00b67a8>] (__alloc_pages_nodemask) from
-[<c00b7140>] (__alloc_page_frag+0xb0/0x160)
-[ 2192.085757 ]  r10:c001b068 r9:00000000 r8:ee0b02b0 r7:60000113
-    r6:02080020 r5:00000740
-[ 2192.093650 ]  r4:eedbc884
-[ 2192.096207 ] [<c00b7090>] (__alloc_page_frag) from [<c03273b4>]
-    (__netdev_alloc_skb+0xa0/0x104)
-[ 2192.104806 ]  r7:60000113 r6:eedbc884 r5:ee0b0000 r4:00000740
-[ 2192.110525 ] [<c0327314>] (__netdev_alloc_skb) from [<c02aac00>]
-    (arc_emac_poll+0x318/0x57c)
-[ 2192.118865 ]  r9:00000000 r8:ee0b02b0 r7:0000019c r6:ee163780
-    r5:00000670 r4:ee0b0000
-[ 2192.126683 ] [<c02aa8e8>] (arc_emac_poll) from [<c0339ed8>]
-    (net_rx_action+0x1f0/0x2ec)
-[ 2192.134590 ]  r10:c0599df8 r9:c059a100 r8:00073760 r7:0000012c
-    r6:00000028 r5:c02aa8e8
-[ 2192.142483 ]  r4:ee0b04e0
-[ 2192.145040 ] [<c0339ce8>] (net_rx_action) from [<c0026f5c>]
-    (__do_softirq+0x134/0x258)
-[ 2192.152860 ]  r10:c059a080 r9:40000003 r8:00000003 r7:00000100
-    r6:c0598000 r5:c059a08c
-[ 2192.160751 ]  r4:00000000
-...
-
-Signed-off-by: Shuyu Wei <sy.w@outlook.com>
-Tested-by: Michael Niewoehner <linux@mniewoehner.de>
-Tested-by: Xing Zheng <zhengxing@rock-chips.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexander Kochetkov <al.kochet@gmail.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Caesar Wang <wxt@rock-chips.com>
----
-
- drivers/net/ethernet/arc/emac_main.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index a3a9392..4f4e25e 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -311,12 +311,10 @@ static int arc_emac_poll(struct napi_struct *napi, int budget)
- 	struct arc_emac_priv *priv = netdev_priv(ndev);
- 	unsigned int work_done;
- 
--	arc_emac_tx_clean(ndev);
--
- 	work_done = arc_emac_rx(ndev, budget);
- 	if (work_done < budget) {
- 		napi_complete(napi);
--		arc_reg_or(priv, R_ENABLE, RXINT_MASK | TXINT_MASK);
-+		arc_reg_or(priv, R_ENABLE, RXINT_MASK);
- 	}
- 
- 	return work_done;
-@@ -345,9 +343,9 @@ static irqreturn_t arc_emac_intr(int irq, void *dev_instance)
- 	/* Reset all flags except "MDIO complete" */
- 	arc_reg_set(priv, R_STATUS, status);
- 
--	if (status & (RXINT_MASK | TXINT_MASK)) {
-+	if (status & RXINT_MASK) {
- 		if (likely(napi_schedule_prep(&priv->napi))) {
--			arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK);
-+			arc_reg_clr(priv, R_ENABLE, RXINT_MASK);
- 			__napi_schedule(&priv->napi);
- 		}
- 	}
-@@ -461,7 +459,7 @@ static int arc_emac_open(struct net_device *ndev)
- 	arc_reg_set(priv, R_TX_RING, (unsigned int)priv->txbd_dma);
- 
- 	/* Enable interrupts */
--	arc_reg_set(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
-+	arc_reg_set(priv, R_ENABLE, RXINT_MASK | ERR_MASK);
- 
- 	/* Set CONTROL */
- 	arc_reg_set(priv, R_CTRL,
-@@ -594,7 +592,7 @@ static int arc_emac_stop(struct net_device *ndev)
- 	netif_stop_queue(ndev);
- 
- 	/* Disable interrupts */
--	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
-+	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | ERR_MASK);
- 
- 	/* Disable EMAC */
- 	arc_reg_clr(priv, R_CTRL, EN_MASK);
-@@ -656,6 +654,8 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
- 	__le32 *info = &priv->txbd[*txbd_curr].info;
- 	dma_addr_t addr;
- 
-+	arc_emac_tx_clean(ndev);
-+
- 	if (skb_padto(skb, ETH_ZLEN))
- 		return NETDEV_TX_OK;
- 
--- 
-1.9.1
+CkkndmUgY3JlYXRlZCBhIE9wZW5XUlQgdGlja2V0WzFdIG9uIHRoaXMgaXNzdWUsIGFzIGl0IHNl
+ZW1zIHRoYXQgc29tZW9uZVsyXQpjbG9zZWQgRmVsaXgnZXMgT3BlbldSVCBlbWFpbCBhY2NvdW50
+IChiYWQgY2hvaWNlISBlbWFpbHMgYm91bmNpbmcpLgpTb3VuZHMgbGlrZSBPcGVuV1JUIGFuZCB0
+aGUgTEVERSBodHRwczovL3d3dy5sZWRlLXByb2plY3Qub3JnLyBwcm9qZWN0CmlzIGluIHNvbWUg
+a2luZCBvZiBjb25mbGljdC4KCk9wZW5XUlQgdGlja2V0IFsxXSBodHRwczovL2Rldi5vcGVud3J0
+Lm9yZy90aWNrZXQvMjIzNDkKClsyXSBodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5jb21w
+LmVtYmVkZGVkLm9wZW53cnQuZGV2ZWwvNDAyOTgvZm9jdXM9NDAzMzUKCgpPbiBGcmksIDYgTWF5
+IDIwMTYgMTE6NDI6NDMgKzAyMDAKSmVzcGVyIERhbmdhYXJkIEJyb3VlciA8YnJvdWVyQHJlZGhh
+dC5jb20+IHdyb3RlOgoKPiBIaSBGZWxpeCwKPiAKPiBUaGlzIGlzIGFuIGltcG9ydGFudCBmaXgg
+Zm9yIE9wZW5XUlQsIHBsZWFzZSByZWFkIQo+IAo+IE9wZW5XUlQgY2hhbmdlZCB0aGUgZGVmYXVs
+dCBmcV9jb2RlbCBzY2gtPmxpbWl0IGZyb20gMTAyNDAgdG8gMTAyNCwKPiB3aXRob3V0IGFsc28g
+YWRqdXN0aW5nIHEtPmZsb3dzX2NudC4gIEVyaWMgZXhwbGFpbnMgYmVsb3cgdGhhdCB5b3UgbXVz
+dAo+IGFsc28gYWRqdXN0IHRoZSBidWNrZXRzIChxLT5mbG93c19jbnQpIGZvciB0aGlzIG5vdCB0
+byBicmVhay4gKEp1c3QKPiBhZGp1c3QgaXQgdG8gMTI4KQo+IAo+IFByb2JsZW1hdGljIE9wZW5X
+UlQgY29tbWl0IGluIHF1ZXN0aW9uOgo+ICBodHRwOi8vZ2l0Lm9wZW53cnQub3JnLz9wPW9wZW53
+cnQuZ2l0O2E9cGF0Y2g7aD0xMmNkNjU3ODA4NGUKPiAgMTJjZDY1NzgwODRlICgia2VybmVsOiBy
+ZXZlcnQgZnFfY29kZWwgcXVhbnR1bSBvdmVycmlkZSB0byBwcmV2ZW50IGl0IGZyb20gY2F1c2lu
+ZyB0b28gbXVjaCBjcHUgbG9hZCB3aXRoIGhpZ2hlciBzcGVlZCAoIzIxMzI2KSIpCj4gCj4gCj4g
+SSBhbHNvIGhpZ2hseSByZWNvbW1lbmQgeW91IGNoZXJyeS1waWNrIHRoaXMgdmVyeSByZWNlbnQg
+Y29tbWl0Ogo+ICBuZXQtbmV4dDogOWQxODU2MmEyMjc4ICgiZnFfY29kZWw6IGFkZCBiYXRjaCBh
+YmlsaXR5IHRvIGZxX2NvZGVsX2Ryb3AoKSIpCj4gIGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvZGF2
+ZW0vbmV0LW5leHQvYy85ZDE4NTYyYTIyNwo+IAo+IFRoaXMgc2hvdWxkIGZpeCB2ZXJ5IGhpZ2gg
+Q1BVIHVzYWdlIGluLWNhc2UgZnFfY29kZWwgZ29lcyBpbnRvIGRyb3AgbW9kZS4KPiBUaGUgcHJv
+YmxlbSBpcyB0aGF0IGRyb3AgbW9kZSB3YXMgY29uc2lkZXJlZCByYXJlLCBhbmQgaW1wbGVtZW50
+YXRpb24KPiB3aXNlIGl0IHdhcyBjaG9zZW4gdG8gYmUgbW9yZSBleHBlbnNpdmUgKHRvIHNhdmUg
+Y3ljbGVzIG9uIG5vcm1hbCBtb2RlKS4KPiBVbmZvcnR1bmF0ZWx5IGlzIGl0IGVhc3kgdG8gdHJp
+Z2dlciB3aXRoIGFuIFVEUCBmbG9vZC4gRHJvcCBtb2RlIGlzCj4gZXNwZWNpYWxseSBleHBlbnNp
+dmUgZm9yIHNtYWxsZXIgZGV2aWNlcywgYXMgaXQgc2NhbnMgYSA0SyBiaWcgYXJyYXksCj4gdGh1
+cyA2NCBjYWNoZSBtaXNzZXMgZm9yIHNtYWxsIGRldmljZXMhCj4gCj4gVGhlIGZpeCBpcyB0byBh
+bGxvdyBkcm9wLW1vZGUgdG8gYnVsay1kcm9wIG1vcmUgcGFja2V0cyB3aGVuIGVudGVyaW5nCj4g
+ZHJvcC1tb2RlIChkZWZhdWx0IDY0IGJ1bGsgZHJvcCkuICBUaGF0IHdheSB3ZSBkb24ndCBzdWRk
+ZW5seQo+IGV4cGVyaWVuY2UgYSBzaWduaWZpY2FudGx5IGhpZ2hlciBwcm9jZXNzaW5nIGNvc3Qg
+cGVyIHBhY2tldCwgYnV0Cj4gaW5zdGVhZCBjYW4gYW1vcnRpemUgdGhpcy4KPiAKPiBUbyBFcmlj
+LCBzaG91bGQgd2UgcmVjb21tZW5kIE9wZW5XUlQgdG8gYWRqdXN0IGRlZmF1bHQgKG1heCkgNjQg
+YnVsawo+IGRyb3AsIGdpdmVuIHdlIGFsc28gcmVjb21tZW5kIGJ1Y2tldCBzaXplIHRvIGJlIDEy
+OCA/ICh0aHVzIHRoZSBhbW91bnQKPiBvZiBtZW1vcnkgdG8gc2NhbiBpcyBsZXNzLCBidXQgdGhl
+aXIgQ1BVIGlzIGFsc28gbXVjaCBzbWFsbGVyKS4KPiAKPiAtLUplc3Blcgo+IAo+IAo+IE9uIFRo
+dSwgMDUgTWF5IDIwMTYgMTI6MjM6MjcgLTA3MDAgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRA
+Z21haWwuY29tPiB3cm90ZToKPiAKPiA+IE9uIFRodSwgMjAxNi0wNS0wNSBhdCAxOToyNSArMDMw
+MCwgUm9tYW4gWWVyeW9taW4gd3JvdGU6ICAKPiA+ID4gT24gNSBNYXkgMjAxNiBhdCAxOToxMiwg
+RXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZTogICAgCj4gPiA+ID4g
+T24gVGh1LCAyMDE2LTA1LTA1IGF0IDE3OjUzICswMzAwLCBSb21hbiBZZXJ5b21pbiB3cm90ZToK
+PiA+ID4gPiAgICAKPiA+ID4gPj4KPiA+ID4gPj4gcWRpc2MgZnFfY29kZWwgMDogZGV2IGV0aDAg
+cm9vdCByZWZjbnQgMiBsaW1pdCAxMDI0cCBmbG93cyAxMDI0Cj4gPiA+ID4+IHF1YW50dW0gMTUx
+NCB0YXJnZXQgNS4wbXMgaW50ZXJ2YWwgMTAwLjBtcyBlY24KPiA+ID4gPj4gIFNlbnQgMTIzMDYg
+Ynl0ZXMgMTI4IHBrdCAoZHJvcHBlZCAwLCBvdmVybGltaXRzIDAgcmVxdWV1ZXMgMCkKPiA+ID4g
+Pj4gIGJhY2tsb2cgMGIgMHAgcmVxdWV1ZXMgMAo+ID4gPiA+PiAgIG1heHBhY2tldCAwIGRyb3Bf
+b3ZlcmxpbWl0IDAgbmV3X2Zsb3dfY291bnQgMCBlY25fbWFyayAwCj4gPiA+ID4+ICAgbmV3X2Zs
+b3dzX2xlbiAwIG9sZF9mbG93c19sZW4gMCAgICAKPiA+ID4gPgo+ID4gPiA+Cj4gPiA+ID4gTGlt
+aXQgb2YgMTAyNCBwYWNrZXRzIGFuZCAxMDI0IGZsb3dzIGlzIG5vdCB3aXNlIEkgdGhpbmsuCj4g
+PiA+ID4KPiA+ID4gPiAoSWYgYWxsIGJ1Y2tldHMgYXJlIGluIHVzZSwgZWFjaCBidWNrZXQgaGFz
+IGEgdmlydHVhbCBxdWV1ZSBvZiAxIHBhY2tldCwKPiA+ID4gPiB3aGljaCBpcyBhbG1vc3QgdGhl
+IHNhbWUgdGhhbiBoYXZpbmcgbm8gcXVldWUgYXQgYWxsKQo+ID4gPiA+Cj4gPiA+ID4gSSBzdWdn
+ZXN0IHRvIGhhdmUgYXQgbGVhc3QgOCBwYWNrZXRzIHBlciBidWNrZXQsIHRvIGxldCBDb2RlbCBo
+YXZlIGEKPiA+ID4gPiBjaGFuY2UgdG8gdHJpZ2dlci4KPiA+ID4gPgo+ID4gPiA+IFNvIHlvdSBj
+b3VsZCBlaXRoZXIgcmVkdWNlIG51bWJlciBvZiBidWNrZXRzIHRvIDEyOCAoaWYgbWVtb3J5IGlz
+Cj4gPiA+ID4gdGlnaHQpLCBvciBpbmNyZWFzZSBsaW1pdCB0byA4MTkyLiAgICAKPiA+ID4gCj4g
+PiA+IFdpbGwgdHJ5LCBidXQgd2hhdCBJJ3ZlIHBvc3RlZCBpcyBkZWZhdWx0LCBJIGRpZG4ndCBj
+aGFuZ2UvY29uZmlndXJlIHRoYXQuICAgIAo+ID4gCj4gPiBmcV9jb2RlbCBoYXMgYSBkZWZhdWx0
+IG9mIDEwMjQwIHBhY2tldHMgYW5kIDEwMjQgYnVja2V0cy4KPiA+IAo+ID4gaHR0cDovL2x4ci5m
+cmVlLWVsZWN0cm9ucy5jb20vc291cmNlL25ldC9zY2hlZC9zY2hfZnFfY29kZWwuYyNMNDEzCj4g
+PiAKPiA+IElmIHNvbWVvbmUgY2hhbmdlZCB0aGF0IGluIHRoZSBsaW51eCB2YXJpYW50IHlvdSB1
+c2UsIGhlIHByb2JhYmx5IHNob3VsZAo+ID4gZXhwbGFpbiB0aGUgcmF0aW9uYWxlLiAgCgotLSAK
+QmVzdCByZWdhcmRzLAogIEplc3BlciBEYW5nYWFyZCBCcm91ZXIKICBNU2MuQ1MsIFByaW5jaXBh
+bCBLZXJuZWwgRW5naW5lZXIgYXQgUmVkIEhhdAogIEF1dGhvciBvZiBodHRwOi8vd3d3LmlwdHYt
+YW5hbHl6ZXIub3JnCiAgTGlua2VkSW46IGh0dHA6Ly93d3cubGlua2VkaW4uY29tL2luL2Jyb3Vl
+cgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb2RlbCBt
+YWlsaW5nIGxpc3QKQ29kZWxAbGlzdHMuYnVmZmVyYmxvYXQubmV0Cmh0dHBzOi8vbGlzdHMuYnVm
+ZmVyYmxvYXQubmV0L2xpc3RpbmZvL2NvZGVsCg==
