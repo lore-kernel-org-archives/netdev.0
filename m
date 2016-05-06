@@ -1,192 +1,183 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3 flow/port
- support
-Date: Fri, 6 May 2016 14:57:07 +0900
-Message-ID: <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
+Subject: Re: [PATCH v9 net-next 7/7] openvswitch: use ipgre tunnel rather
+ than gretap tunnel
+Date: Fri, 6 May 2016 15:54:02 +0900
+Message-ID: <20160506065400.GA15277@penelope.isobedori.kobe.vergenet.net>
 References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+ <1462347393-22354-8-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_BAFuZjoUgza9n8g1pborjCsYAC0DU4cXsff_9q9Cp+Fg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>,
-	Lorand Jakab <lojakab@cisco.com>,
-	Thomas Morin <thomas.morin@orange.com>,
-	Jiri Benc <jbenc@redhat.com>
+	ovs dev <dev@openvswitch.org>, Jiri Benc <jbenc@redhat.com>
 To: pravin shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33550 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbcEFF5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 01:57:17 -0400
-Received: by mail-pa0-f51.google.com with SMTP id xk12so44269329pac.0
-        for <netdev@vger.kernel.org>; Thu, 05 May 2016 22:57:17 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36311 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbcEFGyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 02:54:12 -0400
+Received: by mail-pf0-f176.google.com with SMTP id c189so48072612pfb.3
+        for <netdev@vger.kernel.org>; Thu, 05 May 2016 23:54:12 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+In-Reply-To: <CAOrHB_BAFuZjoUgza9n8g1pborjCsYAC0DU4cXsff_9q9Cp+Fg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 [CC Jiri Benc]
 
-On Thu, May 05, 2016 at 10:37:08AM -0700, pravin shelar wrote:
+On Thu, May 05, 2016 at 02:45:15PM -0700, pravin shelar wrote:
 > On Wed, May 4, 2016 at 12:36 AM, Simon Horman
 > <simon.horman@netronome.com> wrote:
-> > From: Lorand Jakab <lojakab@cisco.com>
+> > This allows GRE tunnels to send and receive both
+> > layer 2 packets (packets with an ethernet header) and
+> > layer 3 packets (packets without an ethernet header).
 > >
-> > Implementation of the pop_eth and push_eth actions in the kernel, and
-> > layer 3 flow support.
-> >
-> > This doesn't actually do anything yet as no layer 2 tunnel ports are
-> > supported yet. The original patch by Lorand was against the Open vSwtich
-> > tree which has L2 LISP tunnels but that is not supported in mainline Linux.
-> > I (Simon) plan to follow up with support for non-TEB GRE ports based on
-> > work by Thomas Morin.
-> >
-> > Cc: Thomas Morin <thomas.morin@orange.com>
-> > Signed-off-by: Lorand Jakab <lojakab@cisco.com>
 > > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> >
 > > ---
-> 
+> > v9
+> > New Patch
+> > ---
+> >  include/net/gre.h              |  4 ++--
+> >  net/ipv4/ip_gre.c              |  8 ++++----
+> >  net/openvswitch/vport-gre.c    |  4 ++--
+> >  net/openvswitch/vport-netdev.c | 12 +++++++++++-
+> >  net/openvswitch/vport-netdev.h |  1 +
+> >  5 files changed, 20 insertions(+), 9 deletions(-)
+> >
 > ...
+> ...
+> > diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+> > index f003225de994..b1aa02904ae4 100644
+> > --- a/net/openvswitch/vport-gre.c
+> > +++ b/net/openvswitch/vport-gre.c
+> > @@ -60,7 +60,7 @@ static struct vport *gre_tnl_create(const struct vport_parms *parms)
+> >                 return vport;
+> >
+> >         rtnl_lock();
+> > -       dev = gretap_fb_dev_create(net, parms->name, NET_NAME_USER);
+> > +       dev = gre_fb_dev_create(net, parms->name, NET_NAME_USER);
+> >         if (IS_ERR(dev)) {
+> >                 rtnl_unlock();
+> >                 ovs_vport_free(vport);
+> > @@ -87,7 +87,7 @@ static struct vport *gre_create(const struct vport_parms *parms)
+> >  static struct vport_ops ovs_gre_vport_ops = {
+> >         .type           = OVS_VPORT_TYPE_GRE,
+> >         .create         = gre_create,
+> > -       .send           = ovs_netdev_send_tap,
+> > +       .send           = ovs_netdev_send_raw_tun,
+> >         .destroy        = ovs_netdev_tunnel_destroy,
+> >  };
+> >
 > 
-> > diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> > index 0ea128eeeab2..6e174ea5f2bb 100644
-> > --- a/net/openvswitch/flow.c
-> > +++ b/net/openvswitch/flow.c
-> > @@ -468,28 +468,31 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
-> >
-> >         skb_reset_mac_header(skb);
-> >
-> > -       /* Link layer.  We are guaranteed to have at least the 14 byte Ethernet
-> > -        * header in the linear data area.
-> > -        */
-> > -       eth = eth_hdr(skb);
-> > -       ether_addr_copy(key->eth.src, eth->h_source);
-> > -       ether_addr_copy(key->eth.dst, eth->h_dest);
-> > +       /* Link layer. */
-> > +       if (key->phy.is_layer3) {
-> > +               key->eth.tci = 0;
-> > +               key->eth.type = skb->protocol;
-> > +       } else {
-> > +               eth = eth_hdr(skb);
-> > +               ether_addr_copy(key->eth.src, eth->h_source);
-> > +               ether_addr_copy(key->eth.dst, eth->h_dest);
-> >
-> > -       __skb_pull(skb, 2 * ETH_ALEN);
-> > -       /* We are going to push all headers that we pull, so no need to
-> > -        * update skb->csum here.
-> > -        */
-> > +               __skb_pull(skb, 2 * ETH_ALEN);
-> > +               /* We are going to push all headers that we pull, so no need to
-> > +                * update skb->csum here.
-> > +                */
-> >
-> > -       key->eth.tci = 0;
-> > -       if (skb_vlan_tag_present(skb))
-> > -               key->eth.tci = htons(skb->vlan_tci);
-> > -       else if (eth->h_proto == htons(ETH_P_8021Q))
-> > -               if (unlikely(parse_vlan(skb, key)))
-> > -                       return -ENOMEM;
-> > +               key->eth.tci = 0;
-> > +               if (skb_vlan_tag_present(skb))
-> > +                       key->eth.tci = htons(skb->vlan_tci);
-> > +               else if (eth->h_proto == htons(ETH_P_8021Q))
-> > +                       if (unlikely(parse_vlan(skb, key)))
-> > +                               return -ENOMEM;
-> >
-> > -       key->eth.type = parse_ethertype(skb);
-> > -       if (unlikely(key->eth.type == htons(0)))
-> > -               return -ENOMEM;
-> > +               key->eth.type = parse_ethertype(skb);
-> > +               if (unlikely(key->eth.type == htons(0)))
-> > +                       return -ENOMEM;
-> > +       }
-> >
-> >         skb_reset_network_header(skb);
-> >         skb_reset_mac_len(skb);
-> > @@ -696,11 +699,23 @@ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
-> >  int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
-> >                          struct sk_buff *skb, struct sw_flow_key *key)
-> >  {
-> > +       bool is_layer3 = false;
-> > +       bool is_teb = false;
-> is_layer3 and is_teb are mutually exclusive, so can't we use single
-> boolean here?
+> This trick of using vport-send only works in case of compat tunnel
+> device mode. But in normal case the LWT interface allows us to use net
+> devices for tunnel traffic. So you need some sort of mechanism to
+> handle l3 only packets on vport-netdev.
 
-Sure, I can do something like the following if you prefer.
-To my mind it makes things a bit less readable. But I don't feel
-strongly about this.
+Thanks. Clearly I did not consider that and clearly I should have.
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index d320c2657627..fc92cf542101 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -701,7 +701,6 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
- 			 struct sk_buff *skb, struct sw_flow_key *key)
+On the kernel side I wonder if something like the following (untested
+with tunnel vport-netdev) would resolve the problem.
+
+I think that some work probably also needs to be done in user-space to make it
+aware of how to handle l3 only packets on such vports.
+
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index 906ae9c58c2e..7a06e19f5279 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -116,7 +116,7 @@ static struct vport_ops ovs_geneve_vport_ops = {
+ 	.create		= geneve_create,
+ 	.destroy	= ovs_netdev_tunnel_destroy,
+ 	.get_options	= geneve_get_options,
+-	.send		= ovs_netdev_send_tap,
++	.send		= ovs_netdev_send,
+ };
+ 
+ static int __init ovs_geneve_tnl_init(void)
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index b1aa02904ae4..c1cab9dd392f 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -87,7 +87,7 @@ static struct vport *gre_create(const struct vport_parms *parms)
+ static struct vport_ops ovs_gre_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_GRE,
+ 	.create		= gre_create,
+-	.send		= ovs_netdev_send_raw_tun,
++	.send		= ovs_netdev_send,
+ 	.destroy	= ovs_netdev_tunnel_destroy,
+ };
+ 
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index e6a2718204a8..0ffe07721336 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -197,25 +197,20 @@ void ovs_netdev_tunnel_destroy(struct vport *vport)
+ }
+ EXPORT_SYMBOL_GPL(ovs_netdev_tunnel_destroy);
+ 
+-int ovs_netdev_send_tap(struct sk_buff *skb)
++int ovs_netdev_send(struct sk_buff *skb)
  {
- 	bool is_layer3 = false;
--	bool is_teb = false;
- 	int err;
+-	/* Only send L2 packets */
+-	if (skb->mac_len)
+-		return dev_queue_xmit(skb);
++	struct net_device *dev = skb->dev;
  
- 	/* Extract metadata from packet. */
-@@ -709,13 +708,9 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
- 		key->tun_proto = ip_tunnel_info_af(tun_info);
- 		memcpy(&key->tun_key, &tun_info->key, sizeof(key->tun_key));
- 
--		if (OVS_CB(skb)->input_vport->dev->type != ARPHRD_ETHER) {
--			if (skb->protocol == htons(ETH_P_TEB))
--				is_teb = true;
--			else
--				is_layer3 = true;
--		}
+-	kfree_skb(skb);
+-	return -EINVAL;
+-}
+-EXPORT_SYMBOL_GPL(ovs_netdev_send_tap);
 -
-+		if (OVS_CB(skb)->input_vport->dev->type != ARPHRD_ETHER &&
-+		    skb->protocol != htons(ETH_P_TEB))
-+			is_layer3 = true;
- 
- 		if (tun_info->options_len) {
- 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
-@@ -746,10 +741,12 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
- 	if (err < 0)
- 		return err;
- 
--	if (is_teb)
--		skb->protocol = key->eth.type;
--	else if (is_layer3)
--		key->eth.type = skb->protocol;
-+	if (tun_info && OVS_CB(skb)->input_vport->dev->type != ARPHRD_ETHER) {
-+		if (is_layer3)
-+			key->eth.type = skb->protocol;
-+		else
-+			skb->protocol = key->eth.type;
+-int ovs_netdev_send_raw_tun(struct sk_buff *skb)
+-{
+-	if (skb->mac_len)
+-		skb->protocol = ntohs(ETH_P_TEB);
++	if (dev->type != ARPHRD_ETHER && skb->mac_len) {
++		skb->protocol = htons(ETH_P_TEB);
++	} else if (dev->type == ARPHRD_ETHER && !skb->mac_len) {
++		kfree_skb(skb);
++		return -EINVAL;
 +	}
  
- 	return err;
+ 	return dev_queue_xmit(skb);
  }
-
-> > +       int err;
-> > +
-> >         /* Extract metadata from packet. */
-> >         if (tun_info) {
-> >                 key->tun_proto = ip_tunnel_info_af(tun_info);
-> >                 memcpy(&key->tun_key, &tun_info->key, sizeof(key->tun_key));
-> >
-> > +               if (OVS_CB(skb)->input_vport->dev->type != ARPHRD_ETHER) {
-> > +                       if (skb->protocol == htons(ETH_P_TEB))
-> > +                               is_teb = true;
-> > +                       else
-> > +                               is_layer3 = true;
-> > +               }
-> > +
-> On transmit side you are using mac_len to detect l3 packet, why not do
-> same while extracting the key?
-
-Unfortunately mac_len can't be relied on here, emprically it has the same
-value (28 in my tests) for both the TEB and layer3 case above.
-
-Perhaps that could be changed by futher enhancements in the tunneling code
-but I think things are symetric as they stand:
-
-* On recieve skb->protocol can be read to distinguish TEB and layer3 packets
-* On transmit skb->protocol should be set to distinguish TEB and layer3 packets
+-EXPORT_SYMBOL_GPL(ovs_netdev_send_raw_tun);
++EXPORT_SYMBOL_GPL(ovs_netdev_send);
+ 
+ /* Returns null if this device is not attached to a datapath. */
+ struct vport *ovs_netdev_get_vport(struct net_device *dev)
+@@ -231,7 +226,7 @@ static struct vport_ops ovs_netdev_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_NETDEV,
+ 	.create		= netdev_create,
+ 	.destroy	= netdev_destroy,
+-	.send		= ovs_netdev_send_tap,
++	.send		= ovs_netdev_send,
+ };
+ 
+ int __init ovs_netdev_init(void)
+diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
+index ae59c02ba6a9..637b14a9963c 100644
+--- a/net/openvswitch/vport-netdev.h
++++ b/net/openvswitch/vport-netdev.h
+@@ -34,6 +34,5 @@ void ovs_netdev_exit(void);
+ 
+ void ovs_netdev_tunnel_destroy(struct vport *vport);
+ 
+-int ovs_netdev_send_tap(struct sk_buff *skb);
+-int ovs_netdev_send_raw_tun(struct sk_buff *skb);
++int ovs_netdev_send(struct sk_buff *skb);
+ #endif /* vport_netdev.h */
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index 009a4aab505a..13f11ad7e35a 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -153,7 +153,7 @@ static struct vport_ops ovs_vxlan_netdev_vport_ops = {
+ 	.create			= vxlan_create,
+ 	.destroy		= ovs_netdev_tunnel_destroy,
+ 	.get_options		= vxlan_get_options,
+-	.send			= ovs_netdev_send_tap,
++	.send			= ovs_netdev_send,
+ };
+ 
+ static int __init ovs_vxlan_tnl_init(void)
