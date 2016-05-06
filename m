@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 2/2] udp_offload: Set encapsulation before inner
- completes.
-Date: Fri, 06 May 2016 18:25:48 -0400 (EDT)
-Message-ID: <20160506.182548.2125009837273287619.davem@davemloft.net>
-References: <1462317021-7236-1-git-send-email-jarno@ovn.org>
-	<1462317021-7236-2-git-send-email-jarno@ovn.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 12/21] net: dsa: mv88e6xxx: factorize switch
+ reset
+Date: Sat, 7 May 2016 00:27:58 +0200
+Message-ID: <20160506222758.GC2073@lunn.ch>
+References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1462571843-14397-13-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jesse@kernel.org
-To: jarno@ovn.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462317021-7236-2-git-send-email-jarno@ovn.org>
+Content-Disposition: inline
+In-Reply-To: <1462571843-14397-13-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jarno@ovn.org>
-Date: Tue,  3 May 2016 16:10:21 -0700
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index dbbda4e..b744ed5 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -2551,6 +2551,68 @@ restore_page_0:
+>  	return ret;
+>  }
+>  
+> +static int _mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps)
+> +{
 
-> UDP tunnel segmentation code relies on the inner offsets being set for
-> an UDP tunnel GSO packet, but the inner *_complete() functions will
-> set the inner offsets only if 'encapsulation' is set before calling
-> them.  Currently, udp_gro_complete() sets 'encapsulation' only after
-> the inner *_complete() functions are done.  This causes the inner
-> offsets having invalid values after udp_gro_complete() returns, which
-> in turn will make it impossible to properly segment the packet in case
-> it needs to be forwarded, which would be visible to the user either as
-> invalid packets being sent or as packet loss.
-> 
-> This patch fixes this by setting skb's 'encapsulation' in
-> udp_gro_complete() before calling into the inner complete functions,
-> and by making each possible UDP tunnel gro_complete() callback set the
-> inner_mac_header to the beginning of the tunnel payload.
-> 
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
-> v3: Added setting inner_mac_header from all possible callbacks to cover
->     cases where there is no inner mac header.
+You missed removing the _ prefix.
 
-Applied.
+Thanks for removing the others. With so much less noise, it is easier
+to review the patches.
+
+   Andrew
