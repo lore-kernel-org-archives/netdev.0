@@ -1,50 +1,58 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net] netfilter: nf_conntrack: Use net_mutex for helper unregistration.
-Date: Fri, 6 May 2016 12:38:44 -0700
-Message-ID: <CAPWQB7H0qdi2+rL92_O=-ku+FeqDSGEmn+d0wivk-1RSAsgeFw@mail.gmail.com>
-References: <1462488637-46877-1-git-send-email-joe@ovn.org> <20160506110325.GA2420@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160506110325.GA2420@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [PATCH] e1000e: prevent division by zero if TIMINCA is zero
+Date: Fri,  6 May 2016 21:41:51 +0200
+Message-ID: <1462563711-30350-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>,
+	"Ruinskiy, Dima" <dima.ruinskiy@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6 May 2016 at 04:03, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> Hi Joe,
->
-> On Thu, May 05, 2016 at 03:50:37PM -0700, Joe Stringer wrote:
->> diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
->> index 3b40ec575cd5..6860b19be406 100644
->> --- a/net/netfilter/nf_conntrack_helper.c
->> +++ b/net/netfilter/nf_conntrack_helper.c
->> @@ -449,10 +449,10 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
->>        */
->>       synchronize_rcu();
->>
->> -     rtnl_lock();
->> +     mutex_lock(&net_mutex);
->>       for_each_net(net)
->>               __nf_conntrack_helper_unregister(me, net);
->> -     rtnl_unlock();
->> +     mutex_unlock(&net_mutex);
->
-> This simple solution works because we have no .exit callbacks in any
-> of our helpers. Otherwise, the helper code may be already gone by when
-> the worker has a chance to run to release the netns.
+Users report that under VMWare, er32(TIMINCA) returns zero.
+This causes division by zero at init time as follows:
 
-I'm open to any alternative solutions, but if helper code isn't doing
-this yet then perhaps this fix is sufficient?
+ ==>            incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
+                for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
+                        /* latch SYSTIMH on read of SYSTIML */
+                        systim_next = (cycle_t)er32(SYSTIML);
+                        systim_next |= (cycle_t)er32(SYSTIMH) << 32;
 
-> If so, probably I can append this as comment to this function so we
-> don't forget. If we ever have .exit callbacks (I don't expect so), we
-> would need to wait for worker completion.
+                        time_delta = systim_next - systim;
+                        temp = time_delta;
+ ====>                  rem = do_div(temp, incvalue);
 
-Sounds reasonable to me.
+This change makes kernel survive this, and users report that
+NIC does work after this change.
 
-I see there's a bunch of other unregister locations like
-nf_nat_l3proto_clean(), nf_nat_l4proto_clean(), nf_unregister_hook()
-which might need similar treatment?
+Since on real hardware incvalue is never zero, this should not affect
+real hardware use case.
+
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+CC: LKML <linux-kernel@vger.kernel.org>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 269087c..0626935 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4315,7 +4315,8 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 
+ 			time_delta = systim_next - systim;
+ 			temp = time_delta;
+-			rem = do_div(temp, incvalue);
++			/* VMWare users have seen incvalue of zero, don't div / 0 */
++			rem = incvalue ? do_div(temp, incvalue) : (time_delta != 0);
+ 
+ 			systim = systim_next;
+ 
+-- 
+1.8.1.4
