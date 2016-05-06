@@ -1,157 +1,597 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: rtk8168 driver help needed
-Date: Fri, 6 May 2016 18:03:52 -0400
-Message-ID: <572D14C8.1050800@ti.com>
-References: <572D147C.8020203@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:41565 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932252AbcEFWDt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 May 2016 18:03:49 -0400
-Received: from dflxv15.itg.ti.com ([128.247.5.124])
-	by arroyo.ext.ti.com (8.13.7/8.13.7) with ESMTP id u46M3mxG006828
-	for <netdev@vger.kernel.org>; Fri, 6 May 2016 17:03:48 -0500
-Received: from DLEE71.ent.ti.com (dlee71.ent.ti.com [157.170.170.114])
-	by dflxv15.itg.ti.com (8.14.3/8.13.8) with ESMTP id u46M3mSl003878
-	for <netdev@vger.kernel.org>; Fri, 6 May 2016 17:03:48 -0500
-Received: from [158.218.103.157] (ileax41-snat.itg.ti.com [10.172.224.153])	by
- dlep33.itg.ti.com (8.14.3/8.13.8) with ESMTP id u46M3mhp000710	for
- <netdev@vger.kernel.org>; Fri, 6 May 2016 17:03:48 -0500
-In-Reply-To: <572D147C.8020203@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 04/21] net: dsa: mv88e6xxx: factorize EEPROM access
+Date: Fri,  6 May 2016 17:57:06 -0400
+Message-ID: <1462571843-14397-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/06/2016 06:02 PM, Murali Karicheri wrote:
-> Hi,
-> 
-> I am trying to integrate the rtl8168 PCIe card to have Ethernet functional on my
-> Keystone EVM. I purchased the rtl8111c Gib card from Amazon. The Card is detected
-> by the RC and I can see it is enumerated and show up when doing lspci command.
-> However I can't get the Ethernet port functional. Does this need MSI interrupt?
-> I can't see it has requested any.
-> 
-> root@k2g-evm:~# cat /proc/interrupts 
->            CPU0       
->  18:     152104       GIC  27 Edge      arch_timer
->  22:       3326       GIC 196 Edge      serial
->  24:          0       GIC 120 Edge      2530000.i2c
->  25:          0       GIC 121 Edge      2530400.i2c
->  26:         14       GIC  98 Edge      21805800.spi
->  27:          0       GIC 160 Edge      2680000.keystone-dwc3, xhci-hcd:usb1
->  30:          0       GIC 228 Edge      gpmc
->  31:          0       GIC 229 Edge      21c8000.elm
->  32:        159       GIC 356 Level     2a00000.msgmgr rx_005_002
->  49:          0       GIC 232 Edge      2700000.edma_ccint
->  51:          0       GIC 249 Edge      2700000.edma_ccerrint
->  52:       1840       GIC 240 Edge      2728000.edma_ccint
->  54:          2       GIC 252 Edge      2728000.edma_ccerrint
->  57:       5424       GIC 128 Edge      mmc0
->  58:        461       GIC 129 Edge      mmc1
-> 285:          0  Keystone-PCIe-MSI-IRQ   0 Edge      PCIe PME, aerdrv
-> IPI0:          0  CPU wakeup interrupts
-> IPI1:          0  Timer broadcast interrupts
-> IPI2:          0  Rescheduling interrupts
-> IPI3:          0  Function call interrupts
-> IPI4:          0  Single function call interrupts
-> IPI5:          0  CPU stop interrupts
-> IPI6:          0  IRQ work interrupts
-> IPI7:          0  completion interrupts
-> 
-> 
-> root@k2g-evm:~# ifconfig -a
-> eth0      Link encap:Ethernet  HWaddr 00:00:00:00:00:00  
->           BROADCAST MULTICAST  MTU:1500  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000 
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+Add a MV88E6XXX_FLAG_EEPROM flag to describe switch models featuring an
+EEPROM and distribute the EEPROM access routines to all models.
 
-Also why MAC address is showing all zeros? Any settings needed?
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6123.c |   2 +
+ drivers/net/dsa/mv88e6131.c |   2 +
+ drivers/net/dsa/mv88e6171.c |   2 +
+ drivers/net/dsa/mv88e6352.c | 207 +------------------------------------------
+ drivers/net/dsa/mv88e6xxx.c | 208 +++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/dsa/mv88e6xxx.h |  18 +++-
+ 6 files changed, 228 insertions(+), 211 deletions(-)
 
-> 
-> gre0      Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-50-00-00-00-00-00-00-00-00  
->           NOARP  MTU:1476  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1 
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-> 
-> gretap0   Link encap:Ethernet  HWaddr 00:00:00:00:00:00  
->           BROADCAST MULTICAST  MTU:1462  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000 
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-> 
-> lo        Link encap:Local Loopback  
->           inet addr:127.0.0.1  Mask:255.0.0.0
->           inet6 addr: ::1/128 Scope:Host
->           UP LOOPBACK RUNNING  MTU:65536  Metric:1
->           RX packets:14 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:14 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1 
->           RX bytes:968 (968.0 B)  TX bytes:968 (968.0 B)
-> 
-> tunl0     Link encap:UNSPEC  HWaddr 00-00-00-00-31-00-00-50-00-00-00-00-00-00-00-00  
->           NOARP  MTU:1480  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1 
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-> 
-> root@k2g-evm:~# ifup eth0
-> ifconfig: SIOCSIFFLAGS: Cannot assign requested address
-> 
-> 
-> [    2.303965] PCI host bridge /soc/pcie@21800000 ranges:
-> [    2.309108]   No bus range found for /soc/pcie@21800000, using [bus 00-ff]
-> [    2.316269]    IO 0x23250000..0x23253fff -> 0x00000000
-> [    2.321499]   MEM 0x50000000..0x5fffffff -> 0x50000000
-> [    2.331666] keystone-pcie 21801000.pcie: PCI host bridge to bus 0000:00
-> [    2.338283] pci_bus 0000:00: root bus resource [bus 00-ff]
-> [    2.343937] pci_bus 0000:00: root bus resource [io  0x0000-0x3fff]
-> [    2.350114] pci_bus 0000:00: root bus resource [mem 0x50000000-0x5fffffff]
-> [    2.357095] pci 0000:00:00.0: [104c:b00b] type 01 class 0x060400
-> [    2.357665] PCI: bus0: Fast back to back transfers disabled
-> [    2.363717] pci 0000:01:00.0: [10ec:8168] type 00 class 0x020000
-> [    2.363809] pci 0000:01:00.0: reg 0x10: [io  0x0000-0x00ff]
-> [    2.363867] pci 0000:01:00.0: reg 0x18: [mem 0x00000000-0x00000fff 64bit]
-> [    2.363909] pci 0000:01:00.0: reg 0x20: [mem 0x00000000-0x0000ffff 64bit pref]
-> [    2.363939] pci 0000:01:00.0: reg 0x30: [mem 0x00000000-0x0001ffff pref]
-> [    2.364099] pci 0000:01:00.0: supports D1 D2
-> [    2.364116] pci 0000:01:00.0: PME# supported from D0 D1 D2 D3hot D3cold
-> [    2.381251] PCI: bus1: Fast back to back transfers disabled
-> [    2.386989] pci 0000:00:00.0: BAR 8: assigned [mem 0x50000000-0x500fffff]
-> [    2.393937] pci 0000:00:00.0: BAR 9: assigned [mem 0x50100000-0x501fffff pref]
-> [    2.401221] pci 0000:00:00.0: BAR 7: assigned [io  0x1000-0x1fff]
-> [    2.407320] pci 0000:01:00.0: BAR 6: assigned [mem 0x50100000-0x5011ffff pref]
-> [    2.414597] pci 0000:01:00.0: BAR 4: assigned [mem 0x50120000-0x5012ffff 64bit pref]
-> [    2.422380] pci 0000:01:00.0: BAR 2: assigned [mem 0x50000000-0x50000fff 64bit]
-> [    2.429702] pci 0000:01:00.0: BAR 0: assigned [io  0x1000-0x10ff]
-> [    2.435821] pci 0000:00:00.0: PCI bridge to [bus 01]
-> [    2.440783] pci 0000:00:00.0:   bridge window [io  0x1000-0x1fff]
-> [    2.446896] pci 0000:00:00.0:   bridge window [mem 0x50000000-0x500fffff]
-> [    2.453699] pci 0000:00:00.0:   bridge window [mem 0x50100000-0x501fffff pref]
-> [    2.461453] pcieport 0000:00:00.0: Signaling PME through PCIe PME interrupt
-> [    2.468411] pci 0000:01:00.0: Signaling PME through PCIe PME interrupt
-> [    2.475075] pcie_pme 0000:00:00.0:pcie01: service driver pcie_pme loaded
-> [    2.475392] aer 0000:00:00.0:pcie02: service driver aer loaded
-> [    2.475652] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> [    2.481419] r8169 0000:01:00.0: enabling device (0140 -> 0143)
-> [    2.488865] r8169 0000:01:00.0 eth0: RTL8169 at 0xf0d6a000, 00:00:00:00:00:00, XID 00000000 IRQ 286
-> [    2.498259] r8169 0000:01:00.0 eth0: jumbo features [frames: 7152 bytes, tx checksumming: ok]
-> 
-> 
-> Complete log at http://pastebin.ubuntu.com/16268925/
-> 
-> Can someone help me figure out what is missing?
-> 
-
-
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index ab5885b..8330a8e 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -124,6 +124,8 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp		= mv88e6xxx_get_temp,
+ #endif
++	.get_eeprom		= mv88e6xxx_get_eeprom,
++	.set_eeprom		= mv88e6xxx_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+ };
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 9d21d69..ab8c507 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -153,6 +153,8 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
++	.get_eeprom		= mv88e6xxx_get_eeprom,
++	.set_eeprom		= mv88e6xxx_set_eeprom,
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index b190647..a7afbaa 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -133,6 +133,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp               = mv88e6xxx_get_temp,
+ #endif
++	.get_eeprom		= mv88e6xxx_get_eeprom,
++	.set_eeprom		= mv88e6xxx_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 6fa7c02..3bb271e 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -125,8 +125,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	mutex_init(&ps->eeprom_mutex);
+-
+ 	ret = mv88e6xxx_switch_reset(ps, true);
+ 	if (ret < 0)
+ 		return ret;
+@@ -138,207 +136,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	return mv88e6xxx_setup_ports(ds);
+ }
+ 
+-static int mv88e6352_read_eeprom_word(struct dsa_switch *ds, int addr)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	mutex_lock(&ps->eeprom_mutex);
+-
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
+-				  GLOBAL2_EEPROM_OP_READ |
+-				  (addr & GLOBAL2_EEPROM_OP_ADDR_MASK));
+-	if (ret < 0)
+-		goto error;
+-
+-	ret = mv88e6xxx_eeprom_busy_wait(ds);
+-	if (ret < 0)
+-		goto error;
+-
+-	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL2, GLOBAL2_EEPROM_DATA);
+-error:
+-	mutex_unlock(&ps->eeprom_mutex);
+-	return ret;
+-}
+-
+-static int mv88e6352_get_eeprom(struct dsa_switch *ds,
+-				struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	int offset;
+-	int len;
+-	int ret;
+-
+-	offset = eeprom->offset;
+-	len = eeprom->len;
+-	eeprom->len = 0;
+-
+-	eeprom->magic = 0xc3ec4951;
+-
+-	ret = mv88e6xxx_eeprom_load_wait(ds);
+-	if (ret < 0)
+-		return ret;
+-
+-	if (offset & 1) {
+-		int word;
+-
+-		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
+-		if (word < 0)
+-			return word;
+-
+-		*data++ = (word >> 8) & 0xff;
+-
+-		offset++;
+-		len--;
+-		eeprom->len++;
+-	}
+-
+-	while (len >= 2) {
+-		int word;
+-
+-		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
+-		if (word < 0)
+-			return word;
+-
+-		*data++ = word & 0xff;
+-		*data++ = (word >> 8) & 0xff;
+-
+-		offset += 2;
+-		len -= 2;
+-		eeprom->len += 2;
+-	}
+-
+-	if (len) {
+-		int word;
+-
+-		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
+-		if (word < 0)
+-			return word;
+-
+-		*data++ = word & 0xff;
+-
+-		offset++;
+-		len--;
+-		eeprom->len++;
+-	}
+-
+-	return 0;
+-}
+-
+-static int mv88e6352_eeprom_is_readonly(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL2, GLOBAL2_EEPROM_OP);
+-	if (ret < 0)
+-		return ret;
+-
+-	if (!(ret & GLOBAL2_EEPROM_OP_WRITE_EN))
+-		return -EROFS;
+-
+-	return 0;
+-}
+-
+-static int mv88e6352_write_eeprom_word(struct dsa_switch *ds, int addr,
+-				       u16 data)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+-
+-	mutex_lock(&ps->eeprom_mutex);
+-
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_EEPROM_DATA, data);
+-	if (ret < 0)
+-		goto error;
+-
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
+-				  GLOBAL2_EEPROM_OP_WRITE |
+-				  (addr & GLOBAL2_EEPROM_OP_ADDR_MASK));
+-	if (ret < 0)
+-		goto error;
+-
+-	ret = mv88e6xxx_eeprom_busy_wait(ds);
+-error:
+-	mutex_unlock(&ps->eeprom_mutex);
+-	return ret;
+-}
+-
+-static int mv88e6352_set_eeprom(struct dsa_switch *ds,
+-				struct ethtool_eeprom *eeprom, u8 *data)
+-{
+-	int offset;
+-	int ret;
+-	int len;
+-
+-	if (eeprom->magic != 0xc3ec4951)
+-		return -EINVAL;
+-
+-	ret = mv88e6352_eeprom_is_readonly(ds);
+-	if (ret)
+-		return ret;
+-
+-	offset = eeprom->offset;
+-	len = eeprom->len;
+-	eeprom->len = 0;
+-
+-	ret = mv88e6xxx_eeprom_load_wait(ds);
+-	if (ret < 0)
+-		return ret;
+-
+-	if (offset & 1) {
+-		int word;
+-
+-		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
+-		if (word < 0)
+-			return word;
+-
+-		word = (*data++ << 8) | (word & 0xff);
+-
+-		ret = mv88e6352_write_eeprom_word(ds, offset >> 1, word);
+-		if (ret < 0)
+-			return ret;
+-
+-		offset++;
+-		len--;
+-		eeprom->len++;
+-	}
+-
+-	while (len >= 2) {
+-		int word;
+-
+-		word = *data++;
+-		word |= *data++ << 8;
+-
+-		ret = mv88e6352_write_eeprom_word(ds, offset >> 1, word);
+-		if (ret < 0)
+-			return ret;
+-
+-		offset += 2;
+-		len -= 2;
+-		eeprom->len += 2;
+-	}
+-
+-	if (len) {
+-		int word;
+-
+-		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
+-		if (word < 0)
+-			return word;
+-
+-		word = (word & 0xff00) | *data++;
+-
+-		ret = mv88e6352_write_eeprom_word(ds, offset >> 1, word);
+-		if (ret < 0)
+-			return ret;
+-
+-		offset++;
+-		len--;
+-		eeprom->len++;
+-	}
+-
+-	return 0;
+-}
+-
+ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6352_drv_probe,
+@@ -358,8 +155,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.set_temp_limit		= mv88e6xxx_set_temp_limit,
+ 	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
+ #endif
+-	.get_eeprom		= mv88e6352_get_eeprom,
+-	.set_eeprom		= mv88e6352_set_eeprom,
++	.get_eeprom		= mv88e6xxx_get_eeprom,
++	.set_eeprom		= mv88e6xxx_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 2c8c5e1..921fe87 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -823,7 +823,7 @@ static int _mv88e6xxx_phy_wait(struct mv88e6xxx_priv_state *ps)
+ 			       GLOBAL2_SMI_OP_BUSY);
+ }
+ 
+-int mv88e6xxx_eeprom_load_wait(struct dsa_switch *ds)
++static int mv88e6xxx_eeprom_load_wait(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+@@ -831,7 +831,7 @@ int mv88e6xxx_eeprom_load_wait(struct dsa_switch *ds)
+ 			      GLOBAL2_EEPROM_OP_LOAD);
+ }
+ 
+-int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds)
++static int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+@@ -839,6 +839,207 @@ int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds)
+ 			      GLOBAL2_EEPROM_OP_BUSY);
+ }
+ 
++static int mv88e6xxx_read_eeprom_word(struct dsa_switch *ds, int addr)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ret;
++
++	mutex_lock(&ps->eeprom_mutex);
++
++	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
++				  GLOBAL2_EEPROM_OP_READ |
++				  (addr & GLOBAL2_EEPROM_OP_ADDR_MASK));
++	if (ret < 0)
++		goto error;
++
++	ret = mv88e6xxx_eeprom_busy_wait(ds);
++	if (ret < 0)
++		goto error;
++
++	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL2, GLOBAL2_EEPROM_DATA);
++error:
++	mutex_unlock(&ps->eeprom_mutex);
++	return ret;
++}
++
++int mv88e6xxx_get_eeprom(struct dsa_switch *ds, struct ethtool_eeprom *eeprom,
++			 u8 *data)
++{
++	int offset;
++	int len;
++	int ret;
++
++	offset = eeprom->offset;
++	len = eeprom->len;
++	eeprom->len = 0;
++
++	eeprom->magic = 0xc3ec4951;
++
++	ret = mv88e6xxx_eeprom_load_wait(ds);
++	if (ret < 0)
++		return ret;
++
++	if (offset & 1) {
++		int word;
++
++		word = mv88e6xxx_read_eeprom_word(ds, offset >> 1);
++		if (word < 0)
++			return word;
++
++		*data++ = (word >> 8) & 0xff;
++
++		offset++;
++		len--;
++		eeprom->len++;
++	}
++
++	while (len >= 2) {
++		int word;
++
++		word = mv88e6xxx_read_eeprom_word(ds, offset >> 1);
++		if (word < 0)
++			return word;
++
++		*data++ = word & 0xff;
++		*data++ = (word >> 8) & 0xff;
++
++		offset += 2;
++		len -= 2;
++		eeprom->len += 2;
++	}
++
++	if (len) {
++		int word;
++
++		word = mv88e6xxx_read_eeprom_word(ds, offset >> 1);
++		if (word < 0)
++			return word;
++
++		*data++ = word & 0xff;
++
++		offset++;
++		len--;
++		eeprom->len++;
++	}
++
++	return 0;
++}
++
++static int mv88e6xxx_eeprom_is_readonly(struct dsa_switch *ds)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ret;
++
++	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL2, GLOBAL2_EEPROM_OP);
++	if (ret < 0)
++		return ret;
++
++	if (!(ret & GLOBAL2_EEPROM_OP_WRITE_EN))
++		return -EROFS;
++
++	return 0;
++}
++
++static int mv88e6xxx_write_eeprom_word(struct dsa_switch *ds, int addr,
++				       u16 data)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ret;
++
++	mutex_lock(&ps->eeprom_mutex);
++
++	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_EEPROM_DATA, data);
++	if (ret < 0)
++		goto error;
++
++	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
++				  GLOBAL2_EEPROM_OP_WRITE |
++				  (addr & GLOBAL2_EEPROM_OP_ADDR_MASK));
++	if (ret < 0)
++		goto error;
++
++	ret = mv88e6xxx_eeprom_busy_wait(ds);
++error:
++	mutex_unlock(&ps->eeprom_mutex);
++	return ret;
++}
++
++int mv88e6xxx_set_eeprom(struct dsa_switch *ds, struct ethtool_eeprom *eeprom,
++			 u8 *data)
++{
++	int offset;
++	int ret;
++	int len;
++
++	if (eeprom->magic != 0xc3ec4951)
++		return -EINVAL;
++
++	ret = mv88e6xxx_eeprom_is_readonly(ds);
++	if (ret)
++		return ret;
++
++	offset = eeprom->offset;
++	len = eeprom->len;
++	eeprom->len = 0;
++
++	ret = mv88e6xxx_eeprom_load_wait(ds);
++	if (ret < 0)
++		return ret;
++
++	if (offset & 1) {
++		int word;
++
++		word = mv88e6xxx_read_eeprom_word(ds, offset >> 1);
++		if (word < 0)
++			return word;
++
++		word = (*data++ << 8) | (word & 0xff);
++
++		ret = mv88e6xxx_write_eeprom_word(ds, offset >> 1, word);
++		if (ret < 0)
++			return ret;
++
++		offset++;
++		len--;
++		eeprom->len++;
++	}
++
++	while (len >= 2) {
++		int word;
++
++		word = *data++;
++		word |= *data++ << 8;
++
++		ret = mv88e6xxx_write_eeprom_word(ds, offset >> 1, word);
++		if (ret < 0)
++			return ret;
++
++		offset += 2;
++		len -= 2;
++		eeprom->len += 2;
++	}
++
++	if (len) {
++		int word;
++
++		word = mv88e6xxx_read_eeprom_word(ds, offset >> 1);
++		if (word < 0)
++			return word;
++
++		word = (word & 0xff00) | *data++;
++
++		ret = mv88e6xxx_write_eeprom_word(ds, offset >> 1, word);
++		if (ret < 0)
++			return ret;
++
++		offset++;
++		len--;
++		eeprom->len++;
++	}
++
++	return 0;
++}
++
+ static int _mv88e6xxx_atu_wait(struct mv88e6xxx_priv_state *ps)
+ {
+ 	return _mv88e6xxx_wait(ps, REG_GLOBAL, GLOBAL_ATU_OP,
+@@ -2596,6 +2797,9 @@ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ 
+ 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+ 
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
++		mutex_init(&ps->eeprom_mutex);
++
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+ 		mv88e6xxx_ppu_state_init(ps);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 5972571..0181f67 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -351,6 +351,11 @@ enum mv88e6xxx_family {
+ };
+ 
+ enum mv88e6xxx_cap {
++	/* EEPROM Command and Data registers.
++	 * See GLOBAL2_EEPROM_OP and GLOBAL2_EEPROM_DATA.
++	 */
++	MV88E6XXX_CAP_EEPROM,
++
+ 	/* PHY Polling Unit.
+ 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
+ 	 */
+@@ -364,6 +369,7 @@ enum mv88e6xxx_cap {
+ };
+ 
+ /* Bitmask of capabilities */
++#define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
+ 
+@@ -379,13 +385,15 @@ enum mv88e6xxx_cap {
+ 	MV88E6XXX_FLAG_PPU
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6320	\
+-	MV88E6XXX_FLAG_SMI_PHY
++	(MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_SMI_PHY)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	MV88E6XXX_FLAG_SMI_PHY
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+-	MV88E6XXX_FLAG_SMI_PHY
++	(MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_SMI_PHY)
+ 
+ struct mv88e6xxx_info {
+ 	enum mv88e6xxx_family family;
+@@ -521,8 +529,10 @@ int mv88e6xxx_get_temp(struct dsa_switch *ds, int *temp);
+ int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp);
+ int mv88e6xxx_set_temp_limit(struct dsa_switch *ds, int temp);
+ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm);
+-int mv88e6xxx_eeprom_load_wait(struct dsa_switch *ds);
+-int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds);
++int mv88e6xxx_get_eeprom(struct dsa_switch *ds, struct ethtool_eeprom *eeprom,
++			 u8 *data);
++int mv88e6xxx_set_eeprom(struct dsa_switch *ds, struct ethtool_eeprom *eeprom,
++			 u8 *data);
+ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
+ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 		      struct phy_device *phydev, struct ethtool_eee *e);
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+2.8.2
