@@ -1,69 +1,54 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v2] Documentation/networking: more accurate LCO explanation
-Date: Fri,  6 May 2016 20:27:43 +0300
-Message-ID: <1462555663-10216-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Edward Cree <ecree@solarflare.com>, shmulik.ladkani@gmail.com
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34168 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758212AbcEFR2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 13:28:03 -0400
-Received: by mail-wm0-f68.google.com with SMTP id n129so9759398wmn.1
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 10:28:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow transmissions
+Date: Fri, 6 May 2016 10:40:47 -0700
+Message-ID: <CALAqxLUtASiOiOE6YGj8B1w+r8u+Q00WtJ9_D68Y6SMyXTyFcA@mail.gmail.com>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+	<57286E15.2080900@mentor.com>
+	<CAFGCpxx0f7g7rXyZ-P0EF7QVX7Z0ziK+7VMPKK7pQteBowkw3Q@mail.gmail.com>
+	<5728837D.60702@mentor.com>
+	<CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
+	<572B0023.9060505@mentor.com>
+	<CAFGCpxyeXkbQXW6Dm9ZpUXpVDWgaQziPnsC9GcZPqeg5jnbJUA@mail.gmail.com>
+	<572CB188.7050203@mentor.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Guodong Xu <guodong.xu@linaro.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Ivan Vecera <ivecera@redhat.com>,
+	"David B. Robins" <linux@davidrobins.net>
+To: Dean Jenkins <Dean_Jenkins@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <572CB188.7050203@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In few places the term "ones-complement sum" was used but the actual
-meaning is "the complement of the ones-complement sum".
+On Fri, May 6, 2016 at 8:00 AM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
+> My conclusion is that your USB to Ethernet Adaptor is not running at high
+> speed (480Mbps) mode which is causing a partial loss (corruption) of
+> Ethernet frames across the USB link. A USB Protocol Analyser or software
+> tool usbmon could be used to confirm this scenario.
+>
+> Therefore please retest with a working high-speed USB hub or remove the
+> full-speed USB hub from the test environment and directly connect the USB to
+> Ethernet Adaptor to the root hub of the USB port. Then repeat the tests to
+> see whether anything improved.
+>
+> In other words, you need to eliminate the dmesg messages saying "not running
+> at top speed; connect to a high speed hub".
 
-Also, avoid enclosing long statements with underscore, to ease
-readability.
+The aarch64 system has a quirk that at the moment limits it to the
+slower full-speed mode, which also exacerbates the issue (basically
+taking a fairly slow 1.1.Mb/s network connection without your patch,
+to an almost unusable 30Kb/s with it).
 
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Acked-by: Edward Cree <ecree@solarflare.com>
+But that isn't the case on the x86_64 system, which is seeing a very
+similar problem (though the performance effect isn't nearly as bad, as
+the error rate in time seems relatively similar on both, and I think
+my scp transmissions are cpu bound on this atom board :).
 
----
- v2:
-  - Fixed one more occurence where "complement of" was missing
-  - Got rid of unreadable underscore wrapped statements
-
- Took the liberty having the underscore removal as part of this patch.
- Let me know if you feel this needs a patch split.
-
- Documentation/networking/checksum-offloads.txt | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/Documentation/networking/checksum-offloads.txt b/Documentation/networking/checksum-offloads.txt
-index de2a327766..56e3686124 100644
---- a/Documentation/networking/checksum-offloads.txt
-+++ b/Documentation/networking/checksum-offloads.txt
-@@ -69,18 +69,18 @@ LCO: Local Checksum Offload
- LCO is a technique for efficiently computing the outer checksum of an
-  encapsulated datagram when the inner checksum is due to be offloaded.
- The ones-complement sum of a correctly checksummed TCP or UDP packet is
-- equal to the sum of the pseudo header, because everything else gets
-- 'cancelled out' by the checksum field.  This is because the sum was
-+ equal to the complement of the sum of the pseudo header, because everything
-+ else gets 'cancelled out' by the checksum field.  This is because the sum was
-  complemented before being written to the checksum field.
- More generally, this holds in any case where the 'IP-style' ones complement
-  checksum is used, and thus any checksum that TX Checksum Offload supports.
- That is, if we have set up TX Checksum Offload with a start/offset pair, we
-- know that _after the device has filled in that checksum_, the ones
-+ know that after the device has filled in that checksum, the ones
-  complement sum from csum_start to the end of the packet will be equal to
-- _whatever value we put in the checksum field beforehand_.  This allows us
-- to compute the outer checksum without looking at the payload: we simply
-- stop summing when we get to csum_start, then add the 16-bit word at
-- (csum_start + csum_offset).
-+ the complement of whatever value we put in the checksum field beforehand.
-+ This allows us to compute the outer checksum without looking at the payload:
-+ we simply stop summing when we get to csum_start, then add the complement of
-+ the 16-bit word at (csum_start + csum_offset).
- Then, when the true inner checksum is filled in (either by hardware or by
-  skb_checksum_help()), the outer checksum will become correct by virtue of
-  the arithmetic.
--- 
-2.7.4
+thanks
+-john
