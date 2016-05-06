@@ -1,45 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cnic: call cp->stop_hw() in cnic_start_hw()
- on allocation failure
-Date: Fri, 06 May 2016 15:45:29 -0400 (EDT)
-Message-ID: <20160506.154529.2181132233503341654.davem@davemloft.net>
-References: <1462406151-5224-1-git-send-email-jmaxwell37@gmail.com>
+Subject: Re: [RESEND PATCH 2/3] fs: poll/select/recvmmsg: use
+ timespec64 for timeout events
+Date: Fri, 06 May 2016 15:45:48 -0400 (EDT)
+Message-ID: <20160506.154548.630368691269399992.davem@davemloft.net>
+References: <4256673.7Gok2HNpOM@wuerfel>
+ <20160504165115.e0247881921fdcd0af4a394c@linux-foundation.org>
+ <CALAqxLVPGBfuSmN_b_obAL5-ChfqpyipZtE-20x9omk_QeTQMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jmaxwell@redhat.com, ivecera@redhat.com
-To: jmaxwell37@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462406151-5224-1-git-send-email-jmaxwell37@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: eliezer.tamir@linux.intel.com, arnd@arndb.de, y2038@lists.linaro.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org, oleg@redhat.com,
+ arjan@linux.intel.com, deepa.kernel@gmail.com, linux-fsdevel@vger.kernel.org,
+ akpm@linux-foundation.org, torvalds@linux-foundation.org, tglx@linutronix.de,
+ viro@zeniv.linux.org.uk
+To: john.stultz@linaro.org
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <CALAqxLVPGBfuSmN_b_obAL5-ChfqpyipZtE-20x9omk_QeTQMw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Date: Thu,  5 May 2016 09:55:51 +1000
-
-> We recently had a system crash in the cnic module. Vmcore analysis confirmed 
-> that "ip link up" was executed which failed due to an allocation failure 
-> because of memory fragmentation. Futher analysis revealed that the cnic irq 
-> vector was still allocated after the "ip link up" that failed. When 
-> "ip link down" was executed it called free_msi_irqs() which crashed the system 
-> because the cnic irq was still inuse.
- ...
-> The cnic_start_hw() routine is not handling the allocation failure correctly. 
-> Fix this by checking whether CNIC_DRV_STATE_HANDLES_IRQ flag is set indicating 
-> that the hardware has been started in cnic_start_hw(). If it has then call 
-> cp->stop_hw() which frees the cnic irq vector and cnic resources. Otherwise 
-> just maintain the previous behaviour and free cnic resources. 
-> 
-> I reproduced this by injecting an ENOMEM error into cnic_cm_alloc_mem()s return
-> code. 
-> 
-> # ip link set dev enpX down
-> # ip link set dev enpX up <--- hit's allocation failure
-> # ip link set dev enpX down <--- crashes here
-> 
-> With this patch I confirmed there was no crash in the reproducer.
-> 
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
-
-Applied, thank you.
+RnJvbTogSm9obiBTdHVsdHogPGpvaG4uc3R1bHR6QGxpbmFyby5vcmc+CkRhdGU6IFdlZCwgNCBN
+YXkgMjAxNiAxNzowMToyNCAtMDcwMAoKPiBPbiBXZWQsIE1heSA0LCAyMDE2IGF0IDQ6NTEgUE0s
+IEFuZHJldyBNb3J0b24gPGFrcG1AbGludXgtZm91bmRhdGlvbi5vcmc+IHdyb3RlOgo+PiBPbiBX
+ZWQsIDA0IE1heSAyMDE2IDIzOjA4OjExICswMjAwIEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIu
+ZGU+IHdyb3RlOgo+Pgo+Pj4gPiBCdXQgSSdtIGxlc3MgY29tZm9ydGFibGUgbWFraW5nIHRoZSBj
+YWxsIG9uIHRoaXMgb25lLiBJdCBsb29rcwo+Pj4gPiByZWxhdGl2ZWx5IHN0cmFpZ2h0IGZvcndh
+cmQsIGJ1dCBpdCB3b3VsZCBiZSBnb29kIHRvIGhhdmUgbWFpbnRhaW5lcgo+Pj4gPiBhY2tzIGJl
+Zm9yZSBJIGFkZCBpdCB0byBteSB0cmVlLgo+Pj4KPj4+IEFncmVlZC4gRmVlbCBmcmVlIHRvIGFk
+ZCBteQo+Pj4KPj4+IFJldmlld2VkLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgo+
+Pj4KPj4+IGF0IGxlYXN0ICh3aG9ldmVyIHBpY2tzIGl0IHVwKS4KPj4KPj4gSW4gcmVwbHkgdG8g
+WzEvM10gSm9obiBzYWlkCj4+Cj4+IDogTG9va3Mgb2sgYXQgdGhlIGZpcnN0IGdsYW5jZS4gSSd2
+ZSBxdWV1ZWQgdGhlc2UgdXAgZm9yIHRlc3RpbmcsCj4+IDogaG93ZXZlciBJIG9ubHkgZ290ICMx
+IGFuZCAjMyBvZiB0aGUgc2V0LiBBcmUgeW91IGhvcGluZyB0aGVzZSB0d28KPj4gOiBwYXRjaGVz
+IHdpbGwgZ28gdGhyb3VnaCB0aXAvdGltZXJzL2NvcmUgb3IgYXJlIHlvdSBsb29raW5nIGZvciBh
+Y2tzIHNvCj4+IDogdGhleSBjYW4gZ28gdmlhIGFub3RoZXIgdHJlZT8KPj4KPj4gSG93ZXZlciBu
+b25lIG9mIHRoZSBwYXRjaGVzIGFyZSBpbiBsaW51eC1uZXh0Lgo+Pgo+PiBKb2huIGhhZCBxdWFs
+bXMgYWJvdXQgWzIvM10sIGJ1dCBpdCBsb29rcyBsaWtlIGEgc3RyYWlnaHRmb3J3YXJkCj4+IHN1
+YnN0aXR1dGlvbiBpbiBhcmVhcyB3aGljaCB3aWxsIGdldCBwbGVudHkgb2YgdGVzdGluZwo+IAo+
+IFllYS4gTXkgbWFpbiBjb25jZXJuIGlzIGp1c3Qgbm90IHN0ZXBwaW5nIG9uIGFueSBvdGhlciBt
+YWludGFpbmVycyB0b2VzLgoKVGhlIG5ldHdvcmtpbmcgY2hhbmdlcyBsb29rIGZpbmUgdG8gbWU6
+CgpBY2tlZC1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxp
+c3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1h
+bi9saXN0aW5mby95MjAzOAo=
