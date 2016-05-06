@@ -1,82 +1,186 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] Add support for configuring Infiniband GUIDs
-Date: Fri, 6 May 2016 20:05:01 +0300
-Message-ID: <572CCEBD.5090602@cogentembedded.com>
-References: <1462549405-16003-1-git-send-email-eli@mellanox.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow transmissions
+Date: Fri, 6 May 2016 10:06:13 -0700
+Message-ID: <CALAqxLWbKs94QHXHak2OPohzv30Lp6jCfODNgTfV0fT4Be593A@mail.gmail.com>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+	<57286E15.2080900@mentor.com>
+	<CAFGCpxx0f7g7rXyZ-P0EF7QVX7Z0ziK+7VMPKK7pQteBowkw3Q@mail.gmail.com>
+	<5728837D.60702@mentor.com>
+	<CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
+	<572B0023.9060505@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eli Cohen <eli@mellanox.com>, shemminger@osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:34729 "EHLO
-	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758424AbcEFRFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 13:05:06 -0400
-Received: by mail-lf0-f42.google.com with SMTP id m64so138179785lfd.1
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 10:05:05 -0700 (PDT)
-In-Reply-To: <1462549405-16003-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Guodong Xu <guodong.xu@linaro.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Ivan Vecera <ivecera@redhat.com>,
+	"David B. Robins" <linux@davidrobins.net>
+To: Dean Jenkins <Dean_Jenkins@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <572B0023.9060505@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 05/06/2016 06:43 PM, Eli Cohen wrote:
-
-> Add two NLA's that allow configuration of Infiniband node or port GUIDs
-> by referencing the IPoIB net device set over then physical function. The
-> format to be used is as follows:
+On Thu, May 5, 2016 at 1:11 AM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
+> On 05/05/16 00:45, John Stultz wrote:
+>>
+>> Just as a sample point, I have managed to reproduce exactly this issue
+>> on an x86_64 system by simply scp'ing a large file.
 >
-> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
-> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
->
-> Issue: 702759
-> Change-Id: I5ffb54d6de7bfa8650bf5818f484279914991d6e
-> Signed-off-by: Eli Cohen <eli@mellanox.com>
-> ---
->   ip/iplink.c           | 40 ++++++++++++++++++++++++++++++++++++++++
->   man/man8/ip-link.8.in | 12 +++++++++++-
->   2 files changed, 51 insertions(+), 1 deletion(-)
->
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index d2e586b6d133..3f885defdfeb 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -237,6 +237,30 @@ struct iplink_req {
->   	char			buf[1024];
->   };
->
-> +static int extract_guid(__u64 *guid, char *arg)
-> +{
-> +	__u64 ret;
-> +	int g[8];
-> +	int err;
-> +
-> +	err = sscanf(arg, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-> +		     g, g + 1, g + 2, g + 3, g + 4, g + 5, g + 6, g + 7);
-> +	if (err != 8)
+> Please tell us the x86_64 kernel version number that you used and which
+> Linux Distribution it was ? This allows other people a chance to reproduce
+> your observations.
 
-    Strange name for a variable, if sscanf() returns # of fields read... In 
-fact, you don't even need this variable.
+Sorry for being a little slow here, had some other issues I had to chase.
 
-> +		return -1;
-> +
-> +	ret = ((__u64)(g[0]) << 56) |
-> +	      ((__u64)(g[1]) << 48) |
-> +	      ((__u64)(g[2]) << 40) |
-> +	      ((__u64)(g[3]) << 32) |
-> +	      ((__u64)(g[4]) << 24) |
-> +	      ((__u64)(g[5]) << 16) |
-> +	      ((__u64)(g[6]) << 8) |
-> +	      ((__u64)(g[7]));
-> +	*guid = ret;
-> +
-> +	return 0;
-> +}
-> +
->   static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
->   			   struct iplink_req *req, int dev_index)
->   {
-[...]
+On my x86_64 system, its Ubuntu 14.04.4, with a 4.6.0-rc2 kernel.
 
-MBR, Sergei
+
+>> [  417.819276] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+>> synchronisation was lost, remaining 988
+>
+> It is interesting that the reported "remaining" value is 988. Is 988 always
+> shown ? I mean that do you see any other "remaining" values for the "Data
+> Header synchronisation was lost" error message ?
+
+Yep. Its always the same 988 remaining, on either architecture.
+
+
+>> [  417.823415] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+>> 0xef830347, offset 4
+>
+> The gap in the timestamps shows 417.823415 - 417.819276 = 0.004139 = 4ms
+> which is a large gap in terms of USB 2.0 high speed communications. This gap
+> is expected to be in the 100us range for consecutive URBs. So 4ms is
+> strange.
+>
+> The expectation is that the "Data Header synchronisation was lost" error
+> message resets the 32-bit header word synchronisation to the start of the
+> next URB buffer. The "Bad Header Length, offset 4" is the expected outcome
+> for the next URB because it is unlikely the 32-bit header word is at the
+> start of URB buffer due to Ethernet frames spanning across URBs.
+>>
+>> [  417.827502] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+>> 0x31e2b348, offset 4
+>
+> Timestamps show the gap to be 4ms which is strange for USB 2.0 high speed,
+> are you sure high speed mode is being used ?
+>>
+
+Yep, on my x86_64 system, it seems to be.
+
+[    3.101115] usb 1-5: new high-speed USB device number 2 using ehci-pci
+[    3.232309] usb 1-5: New USB device found, idVendor=0b95, idProduct=772b
+[    3.232327] usb 1-5: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[    3.232339] usb 1-5: Product: AX88772B
+[    3.232350] usb 1-5: Manufacturer: ASIX Elec. Corp.
+[    3.232360] usb 1-5: SerialNumber: 188298
+[    4.032206] asix 1-5:1.0 eth1: register 'asix' at
+usb-0000:00:04.1-5, ASIX AX88772B USB 2.0 Ethernet, 00:50:b6:18:82:98
+
+
+> Please can you supply the output of ifconfig for the USB to Ethernet
+> adaptor, your example above shows eth1 as the device.
+>
+> Please show the output of ifconfig eth1 before and after the issue is seen.
+> This will show us whether the kernel logs any network errors and how many
+> bytes have been transferred.
+
+Before:
+$ ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:50:b6:18:82:98
+          inet addr:192.168.0.12  Bcast:192.168.0.255  Mask:255.255.255.0
+          inet6 addr: 2601:1c2:1002:83f0:250:b6ff:fe18:8298/64 Scope:Global
+          inet6 addr: fe80::250:b6ff:fe18:8298/64 Scope:Link
+          inet6 addr: 2601:1c2:1002:83f0:b0f0:71a0:6c7e:346b/64 Scope:Global
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:372 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:385 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:38523 (38.5 KB)  TX bytes:48801 (48.8 KB)
+
+
+After:
+$ ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:50:b6:18:82:98
+          inet addr:192.168.0.12  Bcast:192.168.0.255  Mask:255.255.255.0
+          inet6 addr: 2601:1c2:1002:83f0:250:b6ff:fe18:8298/64 Scope:Global
+          inet6 addr: fe80::250:b6ff:fe18:8298/64 Scope:Link
+          inet6 addr: 2601:1c2:1002:83f0:b0f0:71a0:6c7e:346b/64 Scope:Global
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:151005 errors:169 dropped:0 overruns:0 frame:0
+          TX packets:61351 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:225874384 (225.8 MB)  TX bytes:4431098 (4.4 MB)
+
+
+
+
+> After the issue is seen, please can you show us the output of "dmesg | grep
+> asix" so that we can see status messages from the ASIX driver that the USB
+> to Ethernet adaptor is using. In particular we need to check that USB high
+> speed operation (480Mbps) is being used and not full speed operation
+> (12Mbps).
+
+
+[    2.766525] usbcore: registered new interface driver asix
+[    4.031443] asix 1-5:1.0 eth1: register 'asix' at
+usb-0000:00:04.1-5, ASIX AX88772B USB 2.0 Ethernet, 00:50:b6:18:82:98
+[   31.578983] asix 1-5:1.0 eth1: link down
+[   33.244743] asix 1-5:1.0 eth1: link up, 100Mbps, full-duplex, lpa 0xCDE1
+[  171.959244] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  171.959530] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x1651c2bf, offset 4
+[  171.959768] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xfcf61092, offset 4
+[  171.960001] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x3269b285, offset 4
+[  171.960348] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xdf3bd279, offset 4
+[  171.976453] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  171.976663] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x8ad939e0, offset 4
+[  171.976835] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xeb99048f, offset 4
+[  171.977002] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x5d1ac177, offset 4
+[  172.312002] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  172.312319] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x3722a6f0, offset 4
+[  172.312503] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x45371a3e, offset 4
+[  172.312680] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xc396c451, offset 4
+[  173.066398] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  173.066686] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xa445167f, offset 4
+[  173.066921] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xa16d6b5b, offset 4
+[  173.293636] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  173.293904] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xb1510dad, offset 4
+[  173.294167] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x22709710, offset 4
+[  173.304459] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
+synchronisation was lost, remaining 988
+[  173.304679] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x1472a821, offset 4
+[  173.304861] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0x9e2b0c30, offset 4
+[  173.305085] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xcfe77e12, offset 4
+[  173.305308] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
+0xfc5b890d, offset 4
+...
+
+
+thanks
+-john
