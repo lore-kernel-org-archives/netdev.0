@@ -1,52 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 1/2] mlxsw: spectrum: Fix rollback order in LAG join failure
-Date: Fri,  6 May 2016 22:18:39 +0200
-Message-ID: <1462565920-1959-2-git-send-email-jiri@resnulli.us>
-References: <1462565920-1959-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net v3 2/2] udp_offload: Set encapsulation before inner completes.
+Date: Fri, 6 May 2016 13:20:57 -0700
+Message-ID: <CALx6S34AZ6t5t5VqodMFB4PVVYf4w+4SA+a6frsySOiJ9qVCRA@mail.gmail.com>
+References: <1462317021-7236-1-git-send-email-jarno@ovn.org>
+	<1462317021-7236-2-git-send-email-jarno@ovn.org>
+	<20160506.153412.1756777490005831525.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jarno Rajahalme <jarno@ovn.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35087 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758634AbcEFUSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:18:44 -0400
-Received: by mail-wm0-f68.google.com with SMTP id e201so10433260wme.2
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:18:43 -0700 (PDT)
-In-Reply-To: <1462565920-1959-1-git-send-email-jiri@resnulli.us>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:35884 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758671AbcEFUU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:20:58 -0400
+Received: by mail-io0-f181.google.com with SMTP id u185so143988345iod.3
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:20:57 -0700 (PDT)
+In-Reply-To: <20160506.153412.1756777490005831525.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Fri, May 6, 2016 at 12:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jarno Rajahalme <jarno@ovn.org>
+> Date: Tue,  3 May 2016 16:10:21 -0700
+>
+>> UDP tunnel segmentation code relies on the inner offsets being set for
+>> an UDP tunnel GSO packet, but the inner *_complete() functions will
+>> set the inner offsets only if 'encapsulation' is set before calling
+>> them.  Currently, udp_gro_complete() sets 'encapsulation' only after
+>> the inner *_complete() functions are done.  This causes the inner
+>> offsets having invalid values after udp_gro_complete() returns, which
+>> in turn will make it impossible to properly segment the packet in case
+>> it needs to be forwarded, which would be visible to the user either as
+>> invalid packets being sent or as packet loss.
+>>
+>> This patch fixes this by setting skb's 'encapsulation' in
+>> udp_gro_complete() before calling into the inner complete functions,
+>> and by making each possible UDP tunnel gro_complete() callback set the
+>> inner_mac_header to the beginning of the tunnel payload.
+>>
+>> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+>> ---
+>> v3: Added setting inner_mac_header from all possible callbacks to cover
+>>     cases where there is no inner mac header.
+>
+> Alex and Tom, can you please review this new version since you guys had
+> so much feedback for v2?
+>
 
-Make the leave procedure in the error path symmetric to the join
-procedure and first remove the port from the collector before
-potentially destroying the LAG.
+I'm okay with the patch.Clarifying exactly what skb->encaspulation
+means is future work.
 
-Fixes: 0d65fc13042f ("mlxsw: spectrum: Implement LAG port join/leave")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4afbc3e..668b2f4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2541,11 +2541,11 @@ static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 	lag->ref_count++;
- 	return 0;
- 
-+err_col_port_enable:
-+	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
- err_col_port_add:
- 	if (!lag->ref_count)
- 		mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
--err_col_port_enable:
--	mlxsw_sp_lag_col_port_remove(mlxsw_sp_port, lag_id);
- 	return err;
- }
- 
--- 
-2.5.5
+> THanks.
