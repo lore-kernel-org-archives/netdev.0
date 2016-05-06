@@ -1,115 +1,191 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow transmissions
-Date: Fri, 6 May 2016 13:57:22 -0700
-Message-ID: <CALAqxLXsna_em_5w8yonXUCcMwbOGknYtL5LhqYCHUK9LKFr0A@mail.gmail.com>
-References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
-	<87ed4c76328ed9dc5591359ea0e98ab9@i4031.net>
-	<57291539.6080405@mentor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David B. Robins" <linux@davidrobins.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Mark Craske <Mark_Craske@mentor.com>,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 06/21] net: dsa: mv88e6xxx: factorize MAC address setting
+Date: Fri,  6 May 2016 17:57:08 -0400
+Message-ID: <1462571843-14397-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
-	YongQin Liu <yongqin.liu@linaro.org>,
-	Guodong Xu <guodong.xu@linaro.org>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Ivan Vecera <ivecera@redhat.com>
-To: Dean Jenkins <Dean_Jenkins@mentor.com>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57291539.6080405@mentor.com>
+In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 3, 2016 at 2:16 PM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
->
-> [  239.027993] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header
-> synchronisation was lost, remaining 988
->
-> This error message consistently shows the remaining value to be 988, at
-> least for the 3 examples provided by John. This does not suggest a random
-> failure unless there are other examples of a non 988 remaining value error
-> message. 988 is well within a Ethernet frame length so seems to be valid.
->
-> I think a good step would be to add some debug to print the rx->remaining
-> value at entry to asix_rx_fixup_internal(). This would generate a lot of
-> debug but a pattern of the values might emerge.
+Some switch models have a dedicated register for Switch MAC/WoF/WoL.
+This register, when present, is used to indirectly set the switch MAC
+address, instead of a direct write to 3 global registers.
 
+Identify this feature and share a common mv88e6xxx_set_addr function.
 
-So I've been trying to add some print messages here to better
-understand whats going on.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6123.c |  2 +-
+ drivers/net/dsa/mv88e6131.c |  2 +-
+ drivers/net/dsa/mv88e6171.c |  2 +-
+ drivers/net/dsa/mv88e6352.c |  2 +-
+ drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++--
+ drivers/net/dsa/mv88e6xxx.h | 17 ++++++++++++++---
+ 6 files changed, 30 insertions(+), 9 deletions(-)
 
-Again, I'm a bit new to this code, so forgive me for my lack of
-understanding things. Since the remaining value seems to be key, I
-tried to look around and figure out where it was being set. It seems
-like its only set in this function, is that right?  So this made me
-guess something might be happening in a previous iteration that was
-causing this to trigger.
-
-I added some debug prints to every time we set the remaining value, or
-modify it, as well as to print the value if we enter the fixup
-function with a non-zero remaining value.
-
-When we set the remaining value, usually its to 1514, when the skblen is 1518.
-
-However, right before we catch the problem, I see this:
-
-
-[   84.844337] JDB set remaining to 1514 (skblen: 1518)
-[   84.844379] JDB set remaining to 1514 (skblen: 1518)
-[   84.844429] JDB set remaining to 1514 (skblen: 1518)
-[   84.844458] JDB set remaining to 1514 (skblen: 1518)
-[   84.844483] JDB set remaining to 1514 (skblen: 1518)
-[   84.844507] JDB set remaining to 1514 (skblen: 1518)
-[   84.844559] JDB set remaining to 1514 (skblen: 2048)
-[   84.844583] JDB set remaining to 1514 (skblen: 2048)
-[   84.844595] JDB: 1514 > 2048 - 1522
-[   84.844606] JDB: dropping remaining by 526
-[   84.844624] asix_rx_fixup_internal()  remaining: 988,  skb->len: 2048
-[   84.844672] asix 1-5:1.0 eth1: asix_rx_fixup() Data Header
-synchronisation was lost, remaining 988
-[   84.844945] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0xdd5f8f9b, offset 4
-[   84.845217] asix 1-5:1.0 eth1: asix_rx_fixup() Bad Header Length
-0x3ce1ad3c, offset 4
-[   84.845451] JDB set remaining to 1514 (skblen: 1518)
-[   84.845485] JDB set remaining to 1514 (skblen: 1518)
-[   84.845511] JDB set remaining to 1514 (skblen: 1518)
-[   84.851003] JDB set remaining to 1514 (skblen: 1518)
-
-
-So when the issue happens, it seems to be due to an larger then usual
-skb (2048). The first time through the wile loop we set the remaining
-to 1514, but offset is fairly small, so we set copy_length to 1514,
-and clear remaining. The offset is bumped by a little more then the
-copy length and we loop again.  Then the second time through we set
-remaining to 1514, but since offset is bigger now, the if
-(rx->remaining > skb->len - offset)  case is true..
-
-This is where it feels a little strange..
-
-We calculate the copy_length as the difference between the offset and
-the skb->len (so how much is left in the skb, which is 526), then
-decrement remaining by that amount.  Not really sure what remaining
-(now 988) is supposed to represent here. We copy the 526 bytes, and
-then exit the loop.
-
-Now the next time we are called, we enter and we have a remaining
-value still of 988, which triggers the header synchronization error
-path.
-
-Now, I'm not sure if the remainder handling logic is sane, or if the
-skb->len being 2048 is problematic, or what.  The skb->lens can vary
-in sizes, usually 1518 during high throughput, but I've seen 1588,
-1640, and other larger numbers that don't trigger the same problem.
-
-ie:
-[  106.946473] JDB set remaining to 1514 (skblen: 1518)
-[  106.946525] JDB set remaining to 1514 (skblen: 1640)
-[  106.946546] JDB set remaining to 118 (skblen: 1640)
-[  106.946586] JDB set remaining to 1514 (skblen: 1518)
-
-
-So yea.. maybe that will help clue things in a bit? I'm still a bit lost. :)
-
-thanks
--john
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index e234bdb..c349fb7 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -114,7 +114,7 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6123_drv_probe,
+ 	.setup			= mv88e6123_setup,
+-	.set_addr		= mv88e6xxx_set_addr_indirect,
++	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+ 	.get_strings		= mv88e6xxx_get_strings,
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 089f9c0..1e040c6 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -147,7 +147,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_DSA,
+ 	.probe			= mv88e6131_drv_probe,
+ 	.setup			= mv88e6131_setup,
+-	.set_addr		= mv88e6xxx_set_addr_direct,
++	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+ 	.get_strings		= mv88e6xxx_get_strings,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 588b486..f9b20e0 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -123,7 +123,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6171_drv_probe,
+ 	.setup			= mv88e6171_setup,
+-	.set_addr		= mv88e6xxx_set_addr_indirect,
++	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+ 	.get_strings		= mv88e6xxx_get_strings,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 3bb271e..d03c14a 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -140,7 +140,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6352_drv_probe,
+ 	.setup			= mv88e6352_setup,
+-	.set_addr		= mv88e6xxx_set_addr_indirect,
++	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+ 	.get_strings		= mv88e6xxx_get_strings,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index c010bb9..10cc277 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -173,7 +173,7 @@ int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
+ 	return ret;
+ }
+ 
+-int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
++static int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int err;
+@@ -192,7 +192,7 @@ int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
+ 				   (addr[4] << 8) | addr[5]);
+ }
+ 
+-int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
++static int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+@@ -225,6 +225,16 @@ int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
+ 	return 0;
+ }
+ 
++int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_SWITCH_MAC))
++		return mv88e6xxx_set_addr_indirect(ds, addr);
++	else
++		return mv88e6xxx_set_addr_direct(ds, addr);
++}
++
+ static int _mv88e6xxx_phy_read(struct mv88e6xxx_priv_state *ps, int addr,
+ 			       int regnum)
+ {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 9ddb6d0..517e95f 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -367,6 +367,13 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_SMI_PHY,
+ 
++	/* Switch MAC/WoL/WoF register.
++	 * This requires an indirect access to set the switch MAC address
++	 * through GLOBAL2_SWITCH_MAC, otherwise GLOBAL_MAC_01, GLOBAL_MAC_23,
++	 * and GLOBAL_MAC_45 are used with a direct access.
++	 */
++	MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF,
++
+ 	/* Internal temperature sensor.
+ 	 * Available from any enabled port's PHY register 26, page 6.
+ 	 */
+@@ -378,6 +385,7 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
++#define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+ #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
+ 
+@@ -388,7 +396,8 @@ enum mv88e6xxx_cap {
+ 	MV88E6XXX_FLAG_PPU
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+-	MV88E6XXX_FLAG_TEMP
++	(MV88E6XXX_FLAG_SWITCH_MAC |	\
++	 MV88E6XXX_FLAG_TEMP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	MV88E6XXX_FLAG_PPU
+@@ -396,16 +405,19 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAGS_FAMILY_6320	\
+ 	(MV88E6XXX_FLAG_EEPROM |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
++	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	(MV88E6XXX_FLAG_SMI_PHY |	\
++	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+ 	(MV88E6XXX_FLAG_EEPROM |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY	|	\
++	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT)
+ 
+@@ -525,8 +537,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds);
+ int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg);
+ int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
+ 			int reg, u16 val);
+-int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr);
+-int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr);
++int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr);
+ int mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum);
+ int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val);
+ void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
+-- 
+2.8.2
