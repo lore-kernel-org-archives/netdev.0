@@ -1,7 +1,7 @@
 From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next 6/7] Driver: Vmxnet3: Introduce command to register memory region
-Date: Fri,  6 May 2016 16:12:15 -0700
-Message-ID: <1462576336-83513-7-git-send-email-skhare@vmware.com>
+Subject: [PATCH net-next 2/7] Driver: Vmxnet3: Introduce generic command interface to configure the device
+Date: Fri,  6 May 2016 16:12:11 -0700
+Message-ID: <1462576336-83513-3-git-send-email-skhare@vmware.com>
 References: <1462576336-83513-1-git-send-email-skhare@vmware.com>
 Cc: Shrikrishna Khare <skhare@vmware.com>,
 	Guolin Yang <gyang@vmware.com>
@@ -15,43 +15,55 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Guolin Yang <gyang@vmware.com>
 Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
 ---
- drivers/net/vmxnet3/vmxnet3_defs.h | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ drivers/net/vmxnet3/vmxnet3_defs.h | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index a0fdaac..a336b25 100644
+index 8345e0c..a26a69d 100644
 --- a/drivers/net/vmxnet3/vmxnet3_defs.h
 +++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -81,6 +81,7 @@ enum {
+@@ -79,6 +79,7 @@ enum {
+ 	VMXNET3_CMD_RESERVED1,
+ 	VMXNET3_CMD_LOAD_PLUGIN,
  	VMXNET3_CMD_RESERVED2,
- 	VMXNET3_CMD_RESERVED3,
- 	VMXNET3_CMD_SET_COALESCE,
-+	VMXNET3_CMD_REGISTER_MEMREGS,
++	VMXNET3_CMD_RESERVED3,
  
  	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
  	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
-@@ -668,6 +669,22 @@ struct Vmxnet3_CoalesceScheme {
- 	} coalPara;
+@@ -612,6 +613,18 @@ struct Vmxnet3_RxQueueDesc {
+ 	u8				      __pad[88]; /* 128 aligned */
  };
  
-+struct Vmxnet3_MemoryRegion {
-+	__le64					startPA;
-+	__le32					length;
-+	__le16					txQueueBits;
-+	__le16					rxQueueBits;
++struct Vmxnet3_SetPolling {
++	u8					enablePolling;
 +};
 +
-+#define MAX_MEMORY_REGION_PER_QUEUE 16
-+#define MAX_MEMORY_REGION_PER_DEVICE 256
-+
-+struct Vmxnet3_MemRegs {
-+	__le16					numRegs;
-+	__le16					pad[3];
-+	struct Vmxnet3_MemoryRegion		memRegs[1];
++/* If the command data <= 16 bytes, use the shared memory directly.
++ * otherwise, use variable length configuration descriptor.
++ */
++union Vmxnet3_CmdInfo {
++	struct Vmxnet3_VariableLenConfDesc	varConf;
++	struct Vmxnet3_SetPolling		setPolling;
++	__le64					data[2];
 +};
-+
- /* If the command data <= 16 bytes, use the shared memory directly.
-  * otherwise, use variable length configuration descriptor.
-  */
+ 
+ struct Vmxnet3_DSDevRead {
+ 	/* read-only region for device, read by dev in response to a SET cmd */
+@@ -630,7 +643,14 @@ struct Vmxnet3_DriverShared {
+ 	__le32				pad;
+ 	struct Vmxnet3_DSDevRead	devRead;
+ 	__le32				ecr;
+-	__le32				reserved[5];
++	__le32				reserved;
++	union {
++		__le32			reserved1[4];
++		union Vmxnet3_CmdInfo	cmdInfo; /* only valid in the context of
++						  * executing the relevant
++						  * command
++						  */
++	} cu;
+ };
+ 
+ 
 -- 
 1.9.1
