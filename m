@@ -1,101 +1,231 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: OpenWRT wrong adjustment of fq_codel defaults (Was:
- fq_codel_drop vs a udp flood)
-Date: Fri, 6 May 2016 11:42:43 +0200
-Message-ID: <20160506114243.4eb4f95e@redhat.com>
-References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
- <1462125592.5535.194.camel@edumazet-glaptop3.roam.corp.google.com>
- <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
- <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
- <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
- <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
- <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
- <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
- <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
- <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCHv2 bluetooth-next 07/10] ipv6: introduce neighbour
+ discovery ops
+Date: Fri, 6 May 2016 11:47:11 +0200
+Message-ID: <741404ec-e23e-30a9-c954-83b26ea71d7e@pengutronix.de>
+References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
+ <1461140382-4784-8-git-send-email-aar@pengutronix.de>
+ <5729E9AB.5000301@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: make-wifi-fast@lists.bufferbloat.net, zajec5@gmail.com,
- ath10k <ath10k@lists.infradead.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
- Jonathan Morton <chromatix99@gmail.com>,
- Roman Yeryomin <leroi.lists@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>, Felix Fietkau <nbd@openwrt.org>,
- Dave Taht <dave.taht@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Errors-To: codel-bounces@lists.bufferbloat.net
-Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5729E9AB.5000301-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CkhpIEZlbGl4LAoKVGhpcyBpcyBhbiBpbXBvcnRhbnQgZml4IGZvciBPcGVuV1JULCBwbGVhc2Ug
-cmVhZCEKCk9wZW5XUlQgY2hhbmdlZCB0aGUgZGVmYXVsdCBmcV9jb2RlbCBzY2gtPmxpbWl0IGZy
-b20gMTAyNDAgdG8gMTAyNCwKd2l0aG91dCBhbHNvIGFkanVzdGluZyBxLT5mbG93c19jbnQuICBF
-cmljIGV4cGxhaW5zIGJlbG93IHRoYXQgeW91IG11c3QKYWxzbyBhZGp1c3QgdGhlIGJ1Y2tldHMg
-KHEtPmZsb3dzX2NudCkgZm9yIHRoaXMgbm90IHRvIGJyZWFrLiAoSnVzdAphZGp1c3QgaXQgdG8g
-MTI4KQoKUHJvYmxlbWF0aWMgT3BlbldSVCBjb21taXQgaW4gcXVlc3Rpb246CiBodHRwOi8vZ2l0
-Lm9wZW53cnQub3JnLz9wPW9wZW53cnQuZ2l0O2E9cGF0Y2g7aD0xMmNkNjU3ODA4NGUKIDEyY2Q2
-NTc4MDg0ZSAoImtlcm5lbDogcmV2ZXJ0IGZxX2NvZGVsIHF1YW50dW0gb3ZlcnJpZGUgdG8gcHJl
-dmVudCBpdCBmcm9tIGNhdXNpbmcgdG9vIG11Y2ggY3B1IGxvYWQgd2l0aCBoaWdoZXIgc3BlZWQg
-KCMyMTMyNikiKQoKCkkgYWxzbyBoaWdobHkgcmVjb21tZW5kIHlvdSBjaGVycnktcGljayB0aGlz
-IHZlcnkgcmVjZW50IGNvbW1pdDoKIG5ldC1uZXh0OiA5ZDE4NTYyYTIyNzggKCJmcV9jb2RlbDog
-YWRkIGJhdGNoIGFiaWxpdHkgdG8gZnFfY29kZWxfZHJvcCgpIikKIGh0dHBzOi8vZ2l0Lmtlcm5l
-bC5vcmcvZGF2ZW0vbmV0LW5leHQvYy85ZDE4NTYyYTIyNwoKVGhpcyBzaG91bGQgZml4IHZlcnkg
-aGlnaCBDUFUgdXNhZ2UgaW4tY2FzZSBmcV9jb2RlbCBnb2VzIGludG8gZHJvcCBtb2RlLgpUaGUg
-cHJvYmxlbSBpcyB0aGF0IGRyb3AgbW9kZSB3YXMgY29uc2lkZXJlZCByYXJlLCBhbmQgaW1wbGVt
-ZW50YXRpb24Kd2lzZSBpdCB3YXMgY2hvc2VuIHRvIGJlIG1vcmUgZXhwZW5zaXZlICh0byBzYXZl
-IGN5Y2xlcyBvbiBub3JtYWwgbW9kZSkuClVuZm9ydHVuYXRlbHkgaXMgaXQgZWFzeSB0byB0cmln
-Z2VyIHdpdGggYW4gVURQIGZsb29kLiBEcm9wIG1vZGUgaXMKZXNwZWNpYWxseSBleHBlbnNpdmUg
-Zm9yIHNtYWxsZXIgZGV2aWNlcywgYXMgaXQgc2NhbnMgYSA0SyBiaWcgYXJyYXksCnRodXMgNjQg
-Y2FjaGUgbWlzc2VzIGZvciBzbWFsbCBkZXZpY2VzIQoKVGhlIGZpeCBpcyB0byBhbGxvdyBkcm9w
-LW1vZGUgdG8gYnVsay1kcm9wIG1vcmUgcGFja2V0cyB3aGVuIGVudGVyaW5nCmRyb3AtbW9kZSAo
-ZGVmYXVsdCA2NCBidWxrIGRyb3ApLiAgVGhhdCB3YXkgd2UgZG9uJ3Qgc3VkZGVubHkKZXhwZXJp
-ZW5jZSBhIHNpZ25pZmljYW50bHkgaGlnaGVyIHByb2Nlc3NpbmcgY29zdCBwZXIgcGFja2V0LCBi
-dXQKaW5zdGVhZCBjYW4gYW1vcnRpemUgdGhpcy4KClRvIEVyaWMsIHNob3VsZCB3ZSByZWNvbW1l
-bmQgT3BlbldSVCB0byBhZGp1c3QgZGVmYXVsdCAobWF4KSA2NCBidWxrCmRyb3AsIGdpdmVuIHdl
-IGFsc28gcmVjb21tZW5kIGJ1Y2tldCBzaXplIHRvIGJlIDEyOCA/ICh0aHVzIHRoZSBhbW91bnQK
-b2YgbWVtb3J5IHRvIHNjYW4gaXMgbGVzcywgYnV0IHRoZWlyIENQVSBpcyBhbHNvIG11Y2ggc21h
-bGxlcikuCgotLUplc3BlcgoKCk9uIFRodSwgMDUgTWF5IDIwMTYgMTI6MjM6MjcgLTA3MDAgRXJp
-YyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToKCj4gT24gVGh1LCAyMDE2
-LTA1LTA1IGF0IDE5OjI1ICswMzAwLCBSb21hbiBZZXJ5b21pbiB3cm90ZToKPiA+IE9uIDUgTWF5
-IDIwMTYgYXQgMTk6MTIsIEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3Jv
-dGU6ICAKPiA+ID4gT24gVGh1LCAyMDE2LTA1LTA1IGF0IDE3OjUzICswMzAwLCBSb21hbiBZZXJ5
-b21pbiB3cm90ZToKPiA+ID4gIAo+ID4gPj4KPiA+ID4+IHFkaXNjIGZxX2NvZGVsIDA6IGRldiBl
-dGgwIHJvb3QgcmVmY250IDIgbGltaXQgMTAyNHAgZmxvd3MgMTAyNAo+ID4gPj4gcXVhbnR1bSAx
-NTE0IHRhcmdldCA1LjBtcyBpbnRlcnZhbCAxMDAuMG1zIGVjbgo+ID4gPj4gIFNlbnQgMTIzMDYg
-Ynl0ZXMgMTI4IHBrdCAoZHJvcHBlZCAwLCBvdmVybGltaXRzIDAgcmVxdWV1ZXMgMCkKPiA+ID4+
-ICBiYWNrbG9nIDBiIDBwIHJlcXVldWVzIDAKPiA+ID4+ICAgbWF4cGFja2V0IDAgZHJvcF9vdmVy
-bGltaXQgMCBuZXdfZmxvd19jb3VudCAwIGVjbl9tYXJrIDAKPiA+ID4+ICAgbmV3X2Zsb3dzX2xl
-biAwIG9sZF9mbG93c19sZW4gMCAgCj4gPiA+Cj4gPiA+Cj4gPiA+IExpbWl0IG9mIDEwMjQgcGFj
-a2V0cyBhbmQgMTAyNCBmbG93cyBpcyBub3Qgd2lzZSBJIHRoaW5rLgo+ID4gPgo+ID4gPiAoSWYg
-YWxsIGJ1Y2tldHMgYXJlIGluIHVzZSwgZWFjaCBidWNrZXQgaGFzIGEgdmlydHVhbCBxdWV1ZSBv
-ZiAxIHBhY2tldCwKPiA+ID4gd2hpY2ggaXMgYWxtb3N0IHRoZSBzYW1lIHRoYW4gaGF2aW5nIG5v
-IHF1ZXVlIGF0IGFsbCkKPiA+ID4KPiA+ID4gSSBzdWdnZXN0IHRvIGhhdmUgYXQgbGVhc3QgOCBw
-YWNrZXRzIHBlciBidWNrZXQsIHRvIGxldCBDb2RlbCBoYXZlIGEKPiA+ID4gY2hhbmNlIHRvIHRy
-aWdnZXIuCj4gPiA+Cj4gPiA+IFNvIHlvdSBjb3VsZCBlaXRoZXIgcmVkdWNlIG51bWJlciBvZiBi
-dWNrZXRzIHRvIDEyOCAoaWYgbWVtb3J5IGlzCj4gPiA+IHRpZ2h0KSwgb3IgaW5jcmVhc2UgbGlt
-aXQgdG8gODE5Mi4gIAo+ID4gCj4gPiBXaWxsIHRyeSwgYnV0IHdoYXQgSSd2ZSBwb3N0ZWQgaXMg
-ZGVmYXVsdCwgSSBkaWRuJ3QgY2hhbmdlL2NvbmZpZ3VyZSB0aGF0LiAgCj4gCj4gZnFfY29kZWwg
-aGFzIGEgZGVmYXVsdCBvZiAxMDI0MCBwYWNrZXRzIGFuZCAxMDI0IGJ1Y2tldHMuCj4gCj4gaHR0
-cDovL2x4ci5mcmVlLWVsZWN0cm9ucy5jb20vc291cmNlL25ldC9zY2hlZC9zY2hfZnFfY29kZWwu
-YyNMNDEzCj4gCj4gSWYgc29tZW9uZSBjaGFuZ2VkIHRoYXQgaW4gdGhlIGxpbnV4IHZhcmlhbnQg
-eW91IHVzZSwgaGUgcHJvYmFibHkgc2hvdWxkCj4gZXhwbGFpbiB0aGUgcmF0aW9uYWxlLgoKCi0t
-IApCZXN0IHJlZ2FyZHMsCiAgSmVzcGVyIERhbmdhYXJkIEJyb3VlcgogIE1TYy5DUywgUHJpbmNp
-cGFsIEtlcm5lbCBFbmdpbmVlciBhdCBSZWQgSGF0CiAgQXV0aG9yIG9mIGh0dHA6Ly93d3cuaXB0
-di1hbmFseXplci5vcmcKICBMaW5rZWRJbjogaHR0cDovL3d3dy5saW5rZWRpbi5jb20vaW4vYnJv
-dWVyCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkNvZGVs
-IG1haWxpbmcgbGlzdApDb2RlbEBsaXN0cy5idWZmZXJibG9hdC5uZXQKaHR0cHM6Ly9saXN0cy5i
-dWZmZXJibG9hdC5uZXQvbGlzdGluZm8vY29kZWwK
+
+Hi,
+
+On 05/04/2016 02:23 PM, Stefan Schmidt wrote:
+> Hello.
+> 
+> On 20/04/16 10:19, Alexander Aring wrote:
+>> This patch introduces neighbour discovery ops callback structure. The
+>> structure contains at first receive and transmit handling for NS/NA and
+>> userspace option field functionality.
+>>
+>> These callback offers 6lowpan different handling, such as 802.15.4 short
+>> address handling or RFC6775 (Neighbor Discovery Optimization for IPv6 over
+>> 6LoWPANs).
+>>
+>> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>> Cc: Alexey Kuznetsov<kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
+>> Cc: James Morris<jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
+>> Cc: Hideaki YOSHIFUJI<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+>> Cc: Patrick McHardy<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+>> Signed-off-by: Alexander Aring<aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>> ---
+>>   include/linux/netdevice.h |  3 ++
+>>   include/net/ndisc.h       | 96 +++++++++++++++++++++++++++++++++++++++++++----
+>>   net/ipv6/addrconf.c       |  1 +
+>>   net/ipv6/ndisc.c          | 71 ++++++++++++++++++++++++-----------
+>>   net/ipv6/route.c          |  2 +-
+>>   5 files changed, 144 insertions(+), 29 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 0052c42..bc60033 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -1677,6 +1677,9 @@ struct net_device {
+>>   #ifdef CONFIG_NET_L3_MASTER_DEV
+>>       const struct l3mdev_ops    *l3mdev_ops;
+>>   #endif
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +    const struct ndisc_ops *ndisc_ops;
+>> +#endif
+>>         const struct header_ops *header_ops;
+>>   diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+>> index aac868e..14ed016 100644
+>> --- a/include/net/ndisc.h
+>> +++ b/include/net/ndisc.h
+>> @@ -110,7 +110,8 @@ struct ndisc_options {
+>>     #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
+>>   -struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
+>> +struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
+>> +                      u8 *opt, int opt_len,
+>>                         struct ndisc_options *ndopts);
+>>     /*
+>> @@ -173,6 +174,93 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
+>>       return n;
+>>   }
+>>   +static inline int __ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
+> 
+> Name it __ipv6... instead of __ip6...?
+
+I had ipv6 before, but then I saw ip6... prefixes functionality in
+ndisc.c and changed it to ip6...., but both seems to be used.
+
+See "ip6_nd_hdr".
+
+>> +{
+>> +    return opt->nd_opt_type == ND_OPT_RDNSS ||
+>> +        opt->nd_opt_type == ND_OPT_DNSSL;
+>> +}
+>> +
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +struct ndisc_ops {
+>> +    int    (*is_useropt)(struct nd_opt_hdr *opt);
+>> +    void    (*send_na)(struct net_device *dev,
+>> +               const struct in6_addr *daddr,
+>> +               const struct in6_addr *solicited_addr,
+>> +               bool router, bool solicited,
+>> +               bool override, bool inc_opt);
+>> +    void    (*recv_na)(struct sk_buff *skb);
+>> +    void    (*send_ns)(struct net_device *dev,
+>> +               const struct in6_addr *solicit,
+>> +               const struct in6_addr *daddr,
+>> +               const struct in6_addr *saddr);
+>> +    void    (*recv_ns)(struct sk_buff *skb);
+>> +};
+>> +
+>> +static inline int ndisc_is_useropt(const struct net_device *dev,
+>> +                   struct nd_opt_hdr *opt)
+>> +{
+>> +    if (likely(dev->ndisc_ops->is_useropt))
+>> +        return dev->ndisc_ops->is_useropt(opt);
+>> +    else
+>> +        return 0;
+>> +}
+>> +
+>> +static inline void ndisc_send_na(struct net_device *dev,
+>> +                 const struct in6_addr *daddr,
+>> +                 const struct in6_addr *solicited_addr,
+>> +                 bool router, bool solicited, bool override,
+>> +                 bool inc_opt)
+>> +{
+>> +    if (likely(dev->ndisc_ops->send_na))
+>> +        dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
+>> +                    solicited, override, inc_opt);
+>> +}
+>> +
+>> +static inline void ndisc_recv_na(struct sk_buff *skb)
+>> +{
+>> +    if (likely(skb->dev->ndisc_ops->recv_na))
+>> +        skb->dev->ndisc_ops->recv_na(skb);
+>> +}
+>> +
+>> +static inline void ndisc_send_ns(struct net_device *dev,
+>> +                 const struct in6_addr *solicit,
+>> +                 const struct in6_addr *daddr,
+>> +                 const struct in6_addr *saddr)
+>> +{
+>> +    if (likely(dev->ndisc_ops->send_ns))
+>> +        dev->ndisc_ops->send_ns(dev, solicit, daddr, saddr);
+>> +}
+>> +
+>> +static inline void ndisc_recv_ns(struct sk_buff *skb)
+>> +{
+>> +    if (likely(skb->dev->ndisc_ops->recv_ns))
+>> +        skb->dev->ndisc_ops->recv_ns(skb);
+>> +}
+>> +#else
+>> +static inline int ndisc_is_useropt(const struct net_device *dev,
+>> +                   struct nd_opt_hdr *opt)
+>> +{
+>> +    return 0;
+>> +}
+>> +
+>> +static inline void ndisc_send_na(struct net_device *dev,
+>> +                 const struct in6_addr *daddr,
+>> +                 const struct in6_addr *solicited_addr,
+>> +                 bool router, bool solicited, bool override,
+>> +                 bool inc_opt) { }
+>> +
+>> +static inline void ndisc_recv_na(struct sk_buff *skb) { }
+>> +
+>> +static inline void ndisc_send_ns(struct net_device *dev,
+>> +                 const struct in6_addr *solicit,
+>> +                 const struct in6_addr *daddr,
+>> +                 const struct in6_addr *saddr) { }
+>> +
+>> +static inline void ndisc_recv_ns(struct sk_buff *skb) { }
+>> +#endif
+>> +
+>> +void ip6_register_ndisc_ops(struct net_device *dev);
+>> +
+>>   int ndisc_init(void);
+>>   int ndisc_late_init(void);
+>>   @@ -181,14 +269,8 @@ void ndisc_cleanup(void);
+>>     int ndisc_rcv(struct sk_buff *skb);
+>>   -void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+>> -           const struct in6_addr *daddr, const struct in6_addr *saddr);
+>> -
+>>   void ndisc_send_rs(struct net_device *dev,
+>>              const struct in6_addr *saddr, const struct in6_addr *daddr);
+>> -void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
+>> -           const struct in6_addr *solicited_addr,
+>> -           bool router, bool solicited, bool override, bool inc_opt);
+>>     void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target);
+>>   diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 54e18c2..a2ef04b 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -3266,6 +3266,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+>>               idev = ipv6_add_dev(dev);
+>>               if (IS_ERR(idev))
+>>                   return notifier_from_errno(PTR_ERR(idev));
+>> +            ip6_register_ndisc_ops(dev);
+>>           }
+>>           break;
+>>   diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+>> index 176c7c4..297080a 100644
+>> --- a/net/ipv6/ndisc.c
+>> +++ b/net/ipv6/ndisc.c
+>> @@ -185,24 +185,25 @@ static struct nd_opt_hdr *ndisc_next_option(struct nd_opt_hdr *cur,
+>>       return cur <= end && cur->nd_opt_type == type ? cur : NULL;
+>>   }
+>>   -static inline int ndisc_is_useropt(struct nd_opt_hdr *opt)
+>> +static inline int ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
+>>   {
+>> -    return opt->nd_opt_type == ND_OPT_RDNSS ||
+>> -        opt->nd_opt_type == ND_OPT_DNSSL;
+>> +    return __ip6_ndisc_is_useropt(opt);
+> 
+> Why putting this check into a different function? It looks like a not needed redirection.
+
+because these IPv6 userspace options are valid in 6LoWPAN-ND and IPv6-ND.
+
+In 6LoWPAN we do:
+
+static inline int lowpan_ndisc_is_useropt(struct nd_opt_hdr *opt)
+{
+        return __ip6_ndisc_is_useropt(opt) || opt->nd_opt_type == ND_OPT_6CO;
+}
+
+I don't believe that _any_ IPv6 implementation in userspace can do something
+with 6CO option fields. For this reason ARPHRD_6LOWPAN should make them
+valid for userspace only. (btw: the radvd maintainer wants to add some
+patches for 6CO processing support).
+
+- Alex
