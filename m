@@ -1,229 +1,183 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 next-next 01/12] gso: Remove arbitrary checks for unsupported GSO
-Date: Fri, 6 May 2016 13:04:45 -0700
-Message-ID: <1462565096-4076043-2-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 next-next 10/12] fou: Support IPv6 in fou
+Date: Fri, 6 May 2016 13:04:54 -0700
+Message-ID: <1462565096-4076043-11-git-send-email-tom@herbertland.com>
 References: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:29759 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758771AbcEFUFz (ORCPT
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58434 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758779AbcEFUFz (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:05:55 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K5i9L012726
-	for <netdev@vger.kernel.org>; Fri, 6 May 2016 13:05:53 -0700
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K5dgp020207
+	for <netdev@vger.kernel.org>; Fri, 6 May 2016 13:05:55 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 22rgdn50n8-7
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:05:52 -0700
+	by mx0a-00082601.pphosted.com with ESMTP id 22s15pgad6-14
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:05:55 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- d4b9d3b413c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
- 06 May 2016 13:05:08 -0700
+ e5100f8a13c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
+ 06 May 2016 13:05:35 -0700
 In-Reply-To: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In several gso_segment functions there are checks of gso_type against
-a seemingly arbitrary list of SKB_GSO_* flags. This seems like an
-attempt to identify unsupported GSO types, but since the stack is
-the one that set these GSO types in the first place this seems
-unnecessary to do. If a combination isn't valid in the first
-place that stack should not allow setting it.
+This patch adds receive path support for IPv6 with fou.
 
-This is a code simplication especially for add new GSO types.
+- Add address family to fou structure for open sockets. This supports
+  AF_INET and AF_INET6. Lookups for fou ports are performed on both the
+  port number and family.
+- In fou and gue receive adjust tot_len in IPv4 header or payload_len
+  based on address family.
+- Allow AF_INET6 in FOU_ATTR_AF netlink attribute.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv4/af_inet.c     | 18 ------------------
- net/ipv4/gre_offload.c | 14 --------------
- net/ipv4/tcp_offload.c | 19 -------------------
- net/ipv4/udp_offload.c | 10 ----------
- net/ipv6/ip6_offload.c | 18 ------------------
- net/ipv6/udp_offload.c | 13 -------------
- net/mpls/mpls_gso.c    |  9 ---------
- 7 files changed, 101 deletions(-)
+ net/ipv4/fou.c | 47 +++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 35 insertions(+), 12 deletions(-)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 2e6e65f..7f08d45 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1205,24 +1205,6 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	int ihl;
- 	int id;
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 971c8c6..75db828 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -21,6 +21,7 @@ struct fou {
+ 	u8 protocol;
+ 	u8 flags;
+ 	__be16 port;
++	u8 family;
+ 	u16 type;
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+@@ -47,14 +48,17 @@ static inline struct fou *fou_from_sock(struct sock *sk)
+ 	return sk->sk_user_data;
+ }
  
--	if (unlikely(skb_shinfo(skb)->gso_type &
--		     ~(SKB_GSO_TCPV4 |
--		       SKB_GSO_UDP |
--		       SKB_GSO_DODGY |
--		       SKB_GSO_TCP_ECN |
--		       SKB_GSO_GRE |
--		       SKB_GSO_GRE_CSUM |
--		       SKB_GSO_IPIP |
--		       SKB_GSO_SIT |
--		       SKB_GSO_TCPV6 |
--		       SKB_GSO_UDP_TUNNEL |
--		       SKB_GSO_UDP_TUNNEL_CSUM |
--		       SKB_GSO_TCP_FIXEDID |
--		       SKB_GSO_TUNNEL_REMCSUM |
--		       SKB_GSO_PARTIAL |
--		       0)))
--		goto out;
+-static int fou_recv_pull(struct sk_buff *skb, size_t len)
++static int fou_recv_pull(struct sk_buff *skb, struct fou *fou, size_t len)
+ {
+-	struct iphdr *iph = ip_hdr(skb);
 -
- 	skb_reset_network_header(skb);
- 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
- 	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index e88190a..ecd1e09 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -26,20 +26,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	int gre_offset, outer_hlen;
- 	bool need_csum, ufo;
+ 	/* Remove 'len' bytes from the packet (UDP header and
+ 	 * FOU header if present).
+ 	 */
+-	iph->tot_len = htons(ntohs(iph->tot_len) - len);
++	if (fou->family == AF_INET)
++		ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
++	else
++		ipv6_hdr(skb)->payload_len =
++		    htons(ntohs(ipv6_hdr(skb)->payload_len) - len);
++
+ 	__skb_pull(skb, len);
+ 	skb_postpull_rcsum(skb, udp_hdr(skb), len);
+ 	skb_reset_transport_header(skb);
+@@ -68,7 +72,7 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (!fou)
+ 		return 1;
  
--	if (unlikely(skb_shinfo(skb)->gso_type &
--				~(SKB_GSO_TCPV4 |
--				  SKB_GSO_TCPV6 |
--				  SKB_GSO_UDP |
--				  SKB_GSO_DODGY |
--				  SKB_GSO_TCP_ECN |
--				  SKB_GSO_TCP_FIXEDID |
--				  SKB_GSO_GRE |
--				  SKB_GSO_GRE_CSUM |
--				  SKB_GSO_IPIP |
--				  SKB_GSO_SIT |
--				  SKB_GSO_PARTIAL)))
--		goto out;
--
- 	if (!skb->encapsulation)
- 		goto out;
+-	if (fou_recv_pull(skb, sizeof(struct udphdr)))
++	if (fou_recv_pull(skb, fou, sizeof(struct udphdr)))
+ 		goto drop;
  
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 02737b6..5c59649 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -83,25 +83,6 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 	return -fou->protocol;
+@@ -141,7 +145,11 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
  
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type &
--			     ~(SKB_GSO_TCPV4 |
--			       SKB_GSO_DODGY |
--			       SKB_GSO_TCP_ECN |
--			       SKB_GSO_TCP_FIXEDID |
--			       SKB_GSO_TCPV6 |
--			       SKB_GSO_GRE |
--			       SKB_GSO_GRE_CSUM |
--			       SKB_GSO_IPIP |
--			       SKB_GSO_SIT |
--			       SKB_GSO_UDP_TUNNEL |
--			       SKB_GSO_UDP_TUNNEL_CSUM |
--			       SKB_GSO_TUNNEL_REMCSUM |
--			       0) ||
--			     !(type & (SKB_GSO_TCPV4 |
--				       SKB_GSO_TCPV6))))
--			goto out;
+ 	hdrlen = sizeof(struct guehdr) + optlen;
  
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+-	ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
++	if (fou->family == AF_INET)
++		ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
++	else
++		ipv6_hdr(skb)->payload_len =
++		    htons(ntohs(ipv6_hdr(skb)->payload_len) - len);
  
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 097060de..b556ef6 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -209,16 +209,6 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 	/* Pull csum through the guehdr now . This can be used if
+ 	 * there is a remote checksum offload.
+@@ -424,7 +432,8 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou)
  
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
--				      SKB_GSO_UDP_TUNNEL |
--				      SKB_GSO_UDP_TUNNEL_CSUM |
--				      SKB_GSO_TUNNEL_REMCSUM |
--				      SKB_GSO_IPIP |
--				      SKB_GSO_GRE | SKB_GSO_GRE_CSUM) ||
--			     !(type & (SKB_GSO_UDP))))
--			goto out;
+ 	mutex_lock(&fn->fou_lock);
+ 	list_for_each_entry(fout, &fn->fou_list, list) {
+-		if (fou->port == fout->port) {
++		if (fou->port == fout->port &&
++		    fou->family == fout->family) {
+ 			mutex_unlock(&fn->fou_lock);
+ 			return -EALREADY;
+ 		}
+@@ -469,8 +478,9 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
  
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 	sk = sock->sk;
  
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index f5eb184..9ad743b 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -69,24 +69,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	bool encap, udpfrag;
- 	int nhoff;
+-	fou->flags = cfg->flags;
+ 	fou->port = cfg->udp_config.local_udp_port;
++	fou->family = cfg->udp_config.family;
++	fou->flags = cfg->flags;
+ 	fou->type = cfg->type;
+ 	fou->sock = sock;
  
--	if (unlikely(skb_shinfo(skb)->gso_type &
--		     ~(SKB_GSO_TCPV4 |
--		       SKB_GSO_UDP |
--		       SKB_GSO_DODGY |
--		       SKB_GSO_TCP_ECN |
--		       SKB_GSO_TCP_FIXEDID |
--		       SKB_GSO_TCPV6 |
--		       SKB_GSO_GRE |
--		       SKB_GSO_GRE_CSUM |
--		       SKB_GSO_IPIP |
--		       SKB_GSO_SIT |
--		       SKB_GSO_UDP_TUNNEL |
--		       SKB_GSO_UDP_TUNNEL_CSUM |
--		       SKB_GSO_TUNNEL_REMCSUM |
--		       SKB_GSO_PARTIAL |
--		       0)))
--		goto out;
--
- 	skb_reset_network_header(skb);
- 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
- 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index 5429f6b..ac858c4 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -36,19 +36,6 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+@@ -522,12 +532,13 @@ static int fou_destroy(struct net *net, struct fou_cfg *cfg)
+ {
+ 	struct fou_net *fn = net_generic(net, fou_net_id);
+ 	__be16 port = cfg->udp_config.local_udp_port;
++	u8 family = cfg->udp_config.family;
+ 	int err = -EINVAL;
+ 	struct fou *fou;
  
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type & ~(SKB_GSO_UDP |
--				      SKB_GSO_DODGY |
--				      SKB_GSO_UDP_TUNNEL |
--				      SKB_GSO_UDP_TUNNEL_CSUM |
--				      SKB_GSO_TUNNEL_REMCSUM |
--				      SKB_GSO_GRE |
--				      SKB_GSO_GRE_CSUM |
--				      SKB_GSO_IPIP |
--				      SKB_GSO_SIT) ||
--			     !(type & (SKB_GSO_UDP))))
--			goto out;
+ 	mutex_lock(&fn->fou_lock);
+ 	list_for_each_entry(fou, &fn->fou_list, list) {
+-		if (fou->port == port) {
++		if (fou->port == port && fou->family == family) {
+ 			fou_release(fou);
+ 			err = 0;
+ 			break;
+@@ -565,8 +576,15 @@ static int parse_nl_config(struct genl_info *info,
+ 	if (info->attrs[FOU_ATTR_AF]) {
+ 		u8 family = nla_get_u8(info->attrs[FOU_ATTR_AF]);
  
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+-		if (family != AF_INET)
+-			return -EINVAL;
++		switch (family) {
++		case AF_INET:
++			break;
++		case AF_INET6:
++			cfg->udp_config.ipv6_v6only = 1;
++			break;
++		default:
++			return -EAFNOSUPPORT;
++		}
  
-diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-index bbcf604..6de1e13 100644
---- a/net/mpls/mpls_gso.c
-+++ b/net/mpls/mpls_gso.c
-@@ -26,15 +26,6 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
- 	netdev_features_t mpls_features;
- 	__be16 mpls_protocol;
+ 		cfg->udp_config.family = family;
+ 	}
+@@ -657,6 +675,7 @@ static int fou_nl_cmd_get_port(struct sk_buff *skb, struct genl_info *info)
+ 	struct fou_cfg cfg;
+ 	struct fou *fout;
+ 	__be16 port;
++	u8 family;
+ 	int ret;
  
--	if (unlikely(skb_shinfo(skb)->gso_type &
--				~(SKB_GSO_TCPV4 |
--				  SKB_GSO_TCPV6 |
--				  SKB_GSO_UDP |
--				  SKB_GSO_DODGY |
--				  SKB_GSO_TCP_FIXEDID |
--				  SKB_GSO_TCP_ECN)))
--		goto out;
--
- 	/* Setup inner SKB. */
- 	mpls_protocol = skb->protocol;
- 	skb->protocol = skb->inner_protocol;
+ 	ret = parse_nl_config(info, &cfg);
+@@ -666,6 +685,10 @@ static int fou_nl_cmd_get_port(struct sk_buff *skb, struct genl_info *info)
+ 	if (port == 0)
+ 		return -EINVAL;
+ 
++	family = cfg.udp_config.family;
++	if (family != AF_INET && family != AF_INET6)
++		return -EINVAL;
++
+ 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return -ENOMEM;
+@@ -673,7 +696,7 @@ static int fou_nl_cmd_get_port(struct sk_buff *skb, struct genl_info *info)
+ 	ret = -ESRCH;
+ 	mutex_lock(&fn->fou_lock);
+ 	list_for_each_entry(fout, &fn->fou_list, list) {
+-		if (port == fout->port) {
++		if (port == fout->port && family == fout->family) {
+ 			ret = fou_dump_info(fout, info->snd_portid,
+ 					    info->snd_seq, 0, msg,
+ 					    info->genlhdr->cmd);
 -- 
 2.8.0.rc2
