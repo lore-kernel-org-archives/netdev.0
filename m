@@ -1,42 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] sfc: Support setting rss_cpus to 'cores',
- 'packages' or 'hyperthreads'
-Date: Fri, 06 May 2016 15:38:29 -0400 (EDT)
-Message-ID: <20160506.153829.1292994792261109577.davem@davemloft.net>
-References: <572A29AF.1040607@solarflare.com>
-	<572A2B00.7060301@solarflare.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH net] netfilter: nf_conntrack: Use net_mutex for helper unregistration.
+Date: Fri, 6 May 2016 12:38:44 -0700
+Message-ID: <CAPWQB7H0qdi2+rL92_O=-ku+FeqDSGEmn+d0wivk-1RSAsgeFw@mail.gmail.com>
+References: <1462488637-46877-1-git-send-email-joe@ovn.org> <20160506110325.GA2420@salvia>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48718 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758152AbcEFTib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 15:38:31 -0400
-In-Reply-To: <572A2B00.7060301@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160506110325.GA2420@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Wed, 4 May 2016 18:01:52 +0100
+On 6 May 2016 at 04:03, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> Hi Joe,
+>
+> On Thu, May 05, 2016 at 03:50:37PM -0700, Joe Stringer wrote:
+>> diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+>> index 3b40ec575cd5..6860b19be406 100644
+>> --- a/net/netfilter/nf_conntrack_helper.c
+>> +++ b/net/netfilter/nf_conntrack_helper.c
+>> @@ -449,10 +449,10 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
+>>        */
+>>       synchronize_rcu();
+>>
+>> -     rtnl_lock();
+>> +     mutex_lock(&net_mutex);
+>>       for_each_net(net)
+>>               __nf_conntrack_helper_unregister(me, net);
+>> -     rtnl_unlock();
+>> +     mutex_unlock(&net_mutex);
+>
+> This simple solution works because we have no .exit callbacks in any
+> of our helpers. Otherwise, the helper code may be already gone by when
+> the worker has a chance to run to release the netns.
 
-> These settings autoconfigure the number of RSS channels to match the number of
-> CPUs present.
-> 
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
+I'm open to any alternative solutions, but if helper code isn't doing
+this yet then perhaps this fix is sufficient?
 
-I can't believe I allowed this 'rss_cpus' thing into the tree to begin with.
+> If so, probably I can append this as comment to this function so we
+> don't forget. If we ever have .exit callbacks (I don't expect so), we
+> would need to wait for worker completion.
 
-It's completely wrong and is exactly the kind of thing we are trying
-to actively avoid in network drivers.
+Sounds reasonable to me.
 
-If another network driver wants to provide the same facility they will
-add a module parameter with a slightly different name, a different
-set of valid choices, and different semantics.
-
-Define a proper global, stable, tree-wide mechanism to configure these
-kinds of things and use that instead.
-
-Thanks.
+I see there's a bunch of other unregister locations like
+nf_nat_l3proto_clean(), nf_nat_l4proto_clean(), nf_unregister_hook()
+which might need similar treatment?
