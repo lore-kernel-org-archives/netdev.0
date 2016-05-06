@@ -1,46 +1,36 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC PATCH net-next 14/20] net: dsa: mv88e6xxx: factorize VLAN Ethertype
-Date: Fri, 06 May 2016 11:12:56 -0400
-Message-ID: <874mab9q4n.fsf@ketchup.mtl.sfl>
-References: <1462488064-1841-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1462488064-1841-15-git-send-email-vivien.didelot@savoirfairelinux.com> <20160506005759.GL7972@lunn.ch>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH iproute2] geneve: fix IPv6 remote address reporting
+Date: Fri, 6 May 2016 16:14:11 +0100
+Message-ID: <572CB4C3.3040708@solarflare.com>
+References: <572CAA09.302@solarflare.com>
+ <20160506144345.GC11058@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Phil Sutter <phil@nwl.cc>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:56422 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758037AbcEFPNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 11:13:00 -0400
-In-Reply-To: <20160506005759.GL7972@lunn.ch>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:3647 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751111AbcEFPO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 11:14:28 -0400
+In-Reply-To: <20160506144345.GC11058@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 06/05/16 15:43, Phil Sutter wrote:
+> On Fri, May 06, 2016 at 03:28:25PM +0100, Edward Cree wrote:
+>> Since we can only configure unicast, we probably want to be able to
+>> display unicast, rather than multicast.
+> Furthermore, the kernel even rejects multicast peer addresses.
+Yes, but a future kernel might not, and iproute2 is meant to be forward-
+compatible.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> Why do you then propose a dubious fix to a dubious check instead of
+> getting rid of it in the first place?
+Because John Linville clearly had some reason for putting a check there,
+and he probably knows better than me.  Chesterton's fence.
 
->> @@ -55,6 +58,7 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
->>  		.num_databases = 256,
->>  		.num_ports = 10,
->>  		.flags = MV88E6XXX_FLAG_ATU |
->> +			MV88E6XXX_FLAG_CORE_TAG_TYPE |
->>  			MV88E6XXX_FLAG_PPU |
->>  			MV88E6XXX_FLAG_VLANTABLE |
->>  			MV88E6XXX_FLAG_VTU,
->
-> Rather than repeating these flags again and again, could you add one
-> #define containing the flags, and then use that to initialise .flags.
-
-Hum OK, I wasn't sure, but looking at the final mv88e6xxx_info table, I
-can see that models from the same family all have the same set of flags,
-even if they don't have the same number of ports or databases.
-
-I'll add one MV88E6XXX_FLAGS_xxxx per family.
-
-Thanks,
-
-        Vivien
+-Ed
