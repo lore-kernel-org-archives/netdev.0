@@ -1,126 +1,36 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: Re: OpenWRT wrong adjustment of fq_codel defaults (Was:
- fq_codel_drop vs a udp flood)
-Date: Fri, 6 May 2016 21:43:54 +0300
-Message-ID: <CACiydbL3qZrvZ4a_OUXiN0dp7qdqOktaQdAUdfOpKkZ1OfEZbA@mail.gmail.com>
-References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
- <1462125592.5535.194.camel@edumazet-glaptop3.roam.corp.google.com>
- <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
- <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
- <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
- <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
- <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
- <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
- <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
- <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160506114243.4eb4f95e@redhat.com>
- <20160506144740.210901f5@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 0/2] ip link gre: fix external mode handling
+Date: Fri, 6 May 2016 11:50:17 -0700
+Message-ID: <20160506115017.1d1f21f9@xeon-e3>
+References: <cover.1461766016.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: make-wifi-fast@lists.bufferbloat.net,
- =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
- ath10k <ath10k@lists.infradead.org>,
- "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Jonathan Morton <chromatix99@gmail.com>,
- OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
- Felix Fietkau <nbd@nbd.name>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <20160506144740.210901f5@redhat.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Errors-To: codel-bounces@lists.bufferbloat.net
-Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Paolo Abeni <pabeni@redhat.com>,
+	Pravin Shelar <pshelar@ovn.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33668 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758144AbcEFSuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 14:50:06 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 206so52814597pfu.0
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 11:50:06 -0700 (PDT)
+In-Reply-To: <cover.1461766016.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gNiBNYXkgMjAxNiBhdCAxNTo0NywgSmVzcGVyIERhbmdhYXJkIEJyb3VlciA8YnJvdWVyQHJl
-ZGhhdC5jb20+IHdyb3RlOgo+Cj4gSSd2ZSBjcmVhdGVkIGEgT3BlbldSVCB0aWNrZXRbMV0gb24g
-dGhpcyBpc3N1ZSwgYXMgaXQgc2VlbXMgdGhhdCBzb21lb25lWzJdCj4gY2xvc2VkIEZlbGl4J2Vz
-IE9wZW5XUlQgZW1haWwgYWNjb3VudCAoYmFkIGNob2ljZSEgZW1haWxzIGJvdW5jaW5nKS4KPiBT
-b3VuZHMgbGlrZSBPcGVuV1JUIGFuZCB0aGUgTEVERSBodHRwczovL3d3dy5sZWRlLXByb2plY3Qu
-b3JnLyBwcm9qZWN0Cj4gaXMgaW4gc29tZSBraW5kIG9mIGNvbmZsaWN0Lgo+Cj4gT3BlbldSVCB0
-aWNrZXQgWzFdIGh0dHBzOi8vZGV2Lm9wZW53cnQub3JnL3RpY2tldC8yMjM0OQo+Cj4gWzJdIGh0
-dHA6Ly90aHJlYWQuZ21hbmUub3JnL2dtYW5lLmNvbXAuZW1iZWRkZWQub3BlbndydC5kZXZlbC80
-MDI5OC9mb2N1cz00MDMzNQoKT0ssIHNvLCBhZnRlciBwb3J0aW5nIHRoZSBwYXRjaCB0byA0LjEg
-b3BlbndydCBrZXJuZWwgYW5kIHBsYXlpbmcgYQpiaXQgd2l0aCBmcV9jb2RlbCBsaW1pdHMgSSB3
-YXMgYWJsZSB0byBnZXQgNDIwTWJwcyBVRFAgbGlrZSB0aGlzOgp0YyBxZGlzYyByZXBsYWNlIGRl
-diB3bGFuMCBwYXJlbnQgOjEgZnFfY29kZWwgZmxvd3MgMTYgbGltaXQgMjU2CgpUaGlzIGlzIGNl
-cnRhaW5seSBiZXR0ZXIgdGhhbiAzME1icHMgYnV0IHN0aWxsIG1vcmUgdGhhbiB0d28gdGltZXMK
-bGVzcyB0aGFuIGJlZm9yZSAoOTAwKS4KVENQIGFsc28gaW1wcm92ZWQgYSBsaXR0bGUgKDU1MCB0
-byB+NTkwKS4KCkZlbGl4LCBvdGhlcnMsIGRvIHlvdSB3YW50IHRvIHNlZSB0aGUgcG9ydGVkIHBh
-dGNoLCBtYXliZSBJIGRpZCBzb21ldGhpbmcgd3Jvbmc/CkRvZXNuJ3QgbG9vayBsaWtlIGl0IHdp
-bGwgc2F2ZSBhdGgxMGsgZnJvbSBwZXJmb3JtYW5jZSByZWdyZXNzaW9uLgoKPgo+IE9uIEZyaSwg
-NiBNYXkgMjAxNiAxMTo0Mjo0MyArMDIwMAo+IEplc3BlciBEYW5nYWFyZCBCcm91ZXIgPGJyb3Vl
-ckByZWRoYXQuY29tPiB3cm90ZToKPgo+PiBIaSBGZWxpeCwKPj4KPj4gVGhpcyBpcyBhbiBpbXBv
-cnRhbnQgZml4IGZvciBPcGVuV1JULCBwbGVhc2UgcmVhZCEKPj4KPj4gT3BlbldSVCBjaGFuZ2Vk
-IHRoZSBkZWZhdWx0IGZxX2NvZGVsIHNjaC0+bGltaXQgZnJvbSAxMDI0MCB0byAxMDI0LAo+PiB3
-aXRob3V0IGFsc28gYWRqdXN0aW5nIHEtPmZsb3dzX2NudC4gIEVyaWMgZXhwbGFpbnMgYmVsb3cg
-dGhhdCB5b3UgbXVzdAo+PiBhbHNvIGFkanVzdCB0aGUgYnVja2V0cyAocS0+Zmxvd3NfY250KSBm
-b3IgdGhpcyBub3QgdG8gYnJlYWsuIChKdXN0Cj4+IGFkanVzdCBpdCB0byAxMjgpCj4+Cj4+IFBy
-b2JsZW1hdGljIE9wZW5XUlQgY29tbWl0IGluIHF1ZXN0aW9uOgo+PiAgaHR0cDovL2dpdC5vcGVu
-d3J0Lm9yZy8/cD1vcGVud3J0LmdpdDthPXBhdGNoO2g9MTJjZDY1NzgwODRlCj4+ICAxMmNkNjU3
-ODA4NGUgKCJrZXJuZWw6IHJldmVydCBmcV9jb2RlbCBxdWFudHVtIG92ZXJyaWRlIHRvIHByZXZl
-bnQgaXQgZnJvbSBjYXVzaW5nIHRvbyBtdWNoIGNwdSBsb2FkIHdpdGggaGlnaGVyIHNwZWVkICgj
-MjEzMjYpIikKPj4KPj4KPj4gSSBhbHNvIGhpZ2hseSByZWNvbW1lbmQgeW91IGNoZXJyeS1waWNr
-IHRoaXMgdmVyeSByZWNlbnQgY29tbWl0Ogo+PiAgbmV0LW5leHQ6IDlkMTg1NjJhMjI3OCAoImZx
-X2NvZGVsOiBhZGQgYmF0Y2ggYWJpbGl0eSB0byBmcV9jb2RlbF9kcm9wKCkiKQo+PiAgaHR0cHM6
-Ly9naXQua2VybmVsLm9yZy9kYXZlbS9uZXQtbmV4dC9jLzlkMTg1NjJhMjI3Cj4+Cj4+IFRoaXMg
-c2hvdWxkIGZpeCB2ZXJ5IGhpZ2ggQ1BVIHVzYWdlIGluLWNhc2UgZnFfY29kZWwgZ29lcyBpbnRv
-IGRyb3AgbW9kZS4KPj4gVGhlIHByb2JsZW0gaXMgdGhhdCBkcm9wIG1vZGUgd2FzIGNvbnNpZGVy
-ZWQgcmFyZSwgYW5kIGltcGxlbWVudGF0aW9uCj4+IHdpc2UgaXQgd2FzIGNob3NlbiB0byBiZSBt
-b3JlIGV4cGVuc2l2ZSAodG8gc2F2ZSBjeWNsZXMgb24gbm9ybWFsIG1vZGUpLgo+PiBVbmZvcnR1
-bmF0ZWx5IGlzIGl0IGVhc3kgdG8gdHJpZ2dlciB3aXRoIGFuIFVEUCBmbG9vZC4gRHJvcCBtb2Rl
-IGlzCj4+IGVzcGVjaWFsbHkgZXhwZW5zaXZlIGZvciBzbWFsbGVyIGRldmljZXMsIGFzIGl0IHNj
-YW5zIGEgNEsgYmlnIGFycmF5LAo+PiB0aHVzIDY0IGNhY2hlIG1pc3NlcyBmb3Igc21hbGwgZGV2
-aWNlcyEKPj4KPj4gVGhlIGZpeCBpcyB0byBhbGxvdyBkcm9wLW1vZGUgdG8gYnVsay1kcm9wIG1v
-cmUgcGFja2V0cyB3aGVuIGVudGVyaW5nCj4+IGRyb3AtbW9kZSAoZGVmYXVsdCA2NCBidWxrIGRy
-b3ApLiAgVGhhdCB3YXkgd2UgZG9uJ3Qgc3VkZGVubHkKPj4gZXhwZXJpZW5jZSBhIHNpZ25pZmlj
-YW50bHkgaGlnaGVyIHByb2Nlc3NpbmcgY29zdCBwZXIgcGFja2V0LCBidXQKPj4gaW5zdGVhZCBj
-YW4gYW1vcnRpemUgdGhpcy4KPj4KPj4gVG8gRXJpYywgc2hvdWxkIHdlIHJlY29tbWVuZCBPcGVu
-V1JUIHRvIGFkanVzdCBkZWZhdWx0IChtYXgpIDY0IGJ1bGsKPj4gZHJvcCwgZ2l2ZW4gd2UgYWxz
-byByZWNvbW1lbmQgYnVja2V0IHNpemUgdG8gYmUgMTI4ID8gKHRodXMgdGhlIGFtb3VudAo+PiBv
-ZiBtZW1vcnkgdG8gc2NhbiBpcyBsZXNzLCBidXQgdGhlaXIgQ1BVIGlzIGFsc28gbXVjaCBzbWFs
-bGVyKS4KPj4KPj4gLS1KZXNwZXIKPj4KPj4KPj4gT24gVGh1LCAwNSBNYXkgMjAxNiAxMjoyMzoy
-NyAtMDcwMCBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+IHdyb3RlOgo+Pgo+
-PiA+IE9uIFRodSwgMjAxNi0wNS0wNSBhdCAxOToyNSArMDMwMCwgUm9tYW4gWWVyeW9taW4gd3Jv
-dGU6Cj4+ID4gPiBPbiA1IE1heSAyMDE2IGF0IDE5OjEyLCBFcmljIER1bWF6ZXQgPGVyaWMuZHVt
-YXpldEBnbWFpbC5jb20+IHdyb3RlOgo+PiA+ID4gPiBPbiBUaHUsIDIwMTYtMDUtMDUgYXQgMTc6
-NTMgKzAzMDAsIFJvbWFuIFllcnlvbWluIHdyb3RlOgo+PiA+ID4gPgo+PiA+ID4gPj4KPj4gPiA+
-ID4+IHFkaXNjIGZxX2NvZGVsIDA6IGRldiBldGgwIHJvb3QgcmVmY250IDIgbGltaXQgMTAyNHAg
-Zmxvd3MgMTAyNAo+PiA+ID4gPj4gcXVhbnR1bSAxNTE0IHRhcmdldCA1LjBtcyBpbnRlcnZhbCAx
-MDAuMG1zIGVjbgo+PiA+ID4gPj4gIFNlbnQgMTIzMDYgYnl0ZXMgMTI4IHBrdCAoZHJvcHBlZCAw
-LCBvdmVybGltaXRzIDAgcmVxdWV1ZXMgMCkKPj4gPiA+ID4+ICBiYWNrbG9nIDBiIDBwIHJlcXVl
-dWVzIDAKPj4gPiA+ID4+ICAgbWF4cGFja2V0IDAgZHJvcF9vdmVybGltaXQgMCBuZXdfZmxvd19j
-b3VudCAwIGVjbl9tYXJrIDAKPj4gPiA+ID4+ICAgbmV3X2Zsb3dzX2xlbiAwIG9sZF9mbG93c19s
-ZW4gMAo+PiA+ID4gPgo+PiA+ID4gPgo+PiA+ID4gPiBMaW1pdCBvZiAxMDI0IHBhY2tldHMgYW5k
-IDEwMjQgZmxvd3MgaXMgbm90IHdpc2UgSSB0aGluay4KPj4gPiA+ID4KPj4gPiA+ID4gKElmIGFs
-bCBidWNrZXRzIGFyZSBpbiB1c2UsIGVhY2ggYnVja2V0IGhhcyBhIHZpcnR1YWwgcXVldWUgb2Yg
-MSBwYWNrZXQsCj4+ID4gPiA+IHdoaWNoIGlzIGFsbW9zdCB0aGUgc2FtZSB0aGFuIGhhdmluZyBu
-byBxdWV1ZSBhdCBhbGwpCj4+ID4gPiA+Cj4+ID4gPiA+IEkgc3VnZ2VzdCB0byBoYXZlIGF0IGxl
-YXN0IDggcGFja2V0cyBwZXIgYnVja2V0LCB0byBsZXQgQ29kZWwgaGF2ZSBhCj4+ID4gPiA+IGNo
-YW5jZSB0byB0cmlnZ2VyLgo+PiA+ID4gPgo+PiA+ID4gPiBTbyB5b3UgY291bGQgZWl0aGVyIHJl
-ZHVjZSBudW1iZXIgb2YgYnVja2V0cyB0byAxMjggKGlmIG1lbW9yeSBpcwo+PiA+ID4gPiB0aWdo
-dCksIG9yIGluY3JlYXNlIGxpbWl0IHRvIDgxOTIuCj4+ID4gPgo+PiA+ID4gV2lsbCB0cnksIGJ1
-dCB3aGF0IEkndmUgcG9zdGVkIGlzIGRlZmF1bHQsIEkgZGlkbid0IGNoYW5nZS9jb25maWd1cmUg
-dGhhdC4KPj4gPgo+PiA+IGZxX2NvZGVsIGhhcyBhIGRlZmF1bHQgb2YgMTAyNDAgcGFja2V0cyBh
-bmQgMTAyNCBidWNrZXRzLgo+PiA+Cj4+ID4gaHR0cDovL2x4ci5mcmVlLWVsZWN0cm9ucy5jb20v
-c291cmNlL25ldC9zY2hlZC9zY2hfZnFfY29kZWwuYyNMNDEzCj4+ID4KPj4gPiBJZiBzb21lb25l
-IGNoYW5nZWQgdGhhdCBpbiB0aGUgbGludXggdmFyaWFudCB5b3UgdXNlLCBoZSBwcm9iYWJseSBz
-aG91bGQKPj4gPiBleHBsYWluIHRoZSByYXRpb25hbGUuCj4KPiAtLQo+IEJlc3QgcmVnYXJkcywK
-PiAgIEplc3BlciBEYW5nYWFyZCBCcm91ZXIKPiAgIE1TYy5DUywgUHJpbmNpcGFsIEtlcm5lbCBF
-bmdpbmVlciBhdCBSZWQgSGF0Cj4gICBBdXRob3Igb2YgaHR0cDovL3d3dy5pcHR2LWFuYWx5emVy
-Lm9yZwo+ICAgTGlua2VkSW46IGh0dHA6Ly93d3cubGlua2VkaW4uY29tL2luL2Jyb3VlcgpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb2RlbCBtYWlsaW5n
-IGxpc3QKQ29kZWxAbGlzdHMuYnVmZmVyYmxvYXQubmV0Cmh0dHBzOi8vbGlzdHMuYnVmZmVyYmxv
-YXQubmV0L2xpc3RpbmZvL2NvZGVsCg==
+On Wed, 27 Apr 2016 16:11:12 +0200
+Jiri Benc <jbenc@redhat.com> wrote:
+
+> Fix two bugs with handling of the 'external' keyword for GRE.
+> 
+> Jiri Benc (2):
+>   ip link gre: create interfaces in external mode correctly
+>   ip link gre: print only relevant info in external mode
+> 
+>  ip/link_gre.c | 43 +++++++++++++++++++++++++------------------
+>  1 file changed, 25 insertions(+), 18 deletions(-)
+> 
+
+Applied
