@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 14/21] net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL setup
-Date: Fri,  6 May 2016 17:57:16 -0400
-Message-ID: <1462571843-14397-15-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 20/21] net: dsa: mv88e6xxx: factorize tag protocol
+Date: Fri,  6 May 2016 17:57:22 -0400
+Message-ID: <1462571843-14397-21-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,140 +14,41 @@ In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All switch models configure the GLOBAL_CONTROL register with slightly
-differences.
-
-Discarding packets with excessive collisions
-(GLOBAL_CONTROL_DISCARD_EXCESS) is specific to 6352 and similar
-switches, and setting a maximum frame size
-(GLOBAL_CONTROL_MAX_FRAME_1632) is specific to 6185 and similar
-switches.
-
-As we are centralizing the chips setup, skip these settings and don't
-discard any frames yet, until we found out that such discarding by the
-hardware is necessary.
-
-Assume a common setup to enable the PHY Polling Unit if present, don't
-discard any packets, and mask all interrupt sources.
-
-Tested on 88E6352 and 88E6185.
+6131 is the only driver to set the tag protocol to DSA_TAG_PROTO_DSA.
+Since it works fine with DSA_TAG_PROTO_EDSA, change its value, like all
+other mv88e6xxx drivers.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  8 --------
- drivers/net/dsa/mv88e6131.c | 11 -----------
- drivers/net/dsa/mv88e6171.c |  9 ---------
- drivers/net/dsa/mv88e6352.c |  9 ---------
- drivers/net/dsa/mv88e6xxx.c | 13 +++++++++++++
- 5 files changed, 13 insertions(+), 37 deletions(-)
+ drivers/net/dsa/Kconfig     | 2 +-
+ drivers/net/dsa/mv88e6131.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index d74695a..1cd30ac 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -58,14 +58,6 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	/* Disable the PHY polling unit (since there won't be any
--	 * external PHYs to poll), don't discard packets with
--	 * excessive collisions, and mask all interrupt sources.
--	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL, 0x0000);
--	if (ret)
--		return ret;
--
- 	/* Configure the upstream port, and configure the upstream
- 	 * port as the port to which ingress and egress monitor frames
- 	 * are to be sent.
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 4aaadce..7e01dce 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -17,7 +17,7 @@ config NET_DSA_MV88E6131
+ 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
+ 	depends on NET_DSA
+ 	select NET_DSA_MV88E6XXX
+-	select NET_DSA_TAG_DSA
++	select NET_DSA_TAG_EDSA
+ 	---help---
+ 	  This enables support for the Marvell 88E6085/6095/6095F/6131
+ 	  ethernet switch chips.
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index e22ca7b..d05fc79 100644
+index 22952be..bbad199 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -65,17 +65,6 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
+@@ -59,7 +59,7 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+ }
  
--	/* Enable the PHY polling unit, don't discard packets with
--	 * excessive collisions, use a weighted fair queueing scheme
--	 * to arbitrate between packet queues, set the maximum frame
--	 * size to 1632, and mask all interrupt sources.
--	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  GLOBAL_CONTROL_PPU_ENABLE |
--				  GLOBAL_CONTROL_MAX_FRAME_1632);
--	if (ret)
--		return ret;
--
- 	/* Set the VLAN ethertype to 0x8100. */
- 	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE, 0x8100);
- 	if (ret)
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 4bbf2e1..6c8554c 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -65,15 +65,6 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	/* Discard packets with excessive collisions, mask all
--	 * interrupt sources, enable PPU.
--	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  GLOBAL_CONTROL_PPU_ENABLE |
--				  GLOBAL_CONTROL_DISCARD_EXCESS);
--	if (ret)
--		return ret;
--
- 	/* Configure the upstream port, and configure the upstream
- 	 * port as the port to which ingress and egress monitor frames
- 	 * are to be sent.
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 3e0be87..a27616c 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -84,15 +84,6 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	/* Discard packets with excessive collisions,
--	 * mask all interrupt sources, enable PPU (bit 14, undocumented).
--	 */
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  GLOBAL_CONTROL_PPU_ENABLE |
--				  GLOBAL_CONTROL_DISCARD_EXCESS);
--	if (ret)
--		return ret;
--
- 	/* Configure the upstream port, and configure the upstream
- 	 * port as the port to which ingress and egress monitor frames
- 	 * are to be sent.
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 92f4b00..1572719 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2914,9 +2914,22 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
- 
- static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
- {
-+	u16 reg;
- 	int err;
- 	int i;
- 
-+	/* Enable the PHY Polling Unit if present, don't discard any packets,
-+	 * and mask all interrupt sources.
-+	 */
-+	reg = 0;
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU) ||
-+	    mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU_ACTIVE))
-+		reg |= GLOBAL_CONTROL_PPU_ENABLE;
-+
-+	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL, reg);
-+	if (err)
-+		return err;
-+
- 	/* Set the default address aging time to 5 minutes, and
- 	 * enable address learn messages to be sent to all message
- 	 * ports.
+ struct dsa_switch_driver mv88e6131_switch_driver = {
+-	.tag_protocol		= DSA_TAG_PROTO_DSA,
++	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.probe			= mv88e6131_drv_probe,
+ 	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
 -- 
 2.8.2
