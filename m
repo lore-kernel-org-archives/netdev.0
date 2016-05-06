@@ -1,41 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: spectrum: Fix ordering in mlxsw_sp_fini
-Date: Fri,  6 May 2016 22:20:59 +0200
-Message-ID: <1462566059-2128-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 next-next 04/12] udp: Don't set skb->encapsulation with RCO
+Date: Fri, 6 May 2016 13:23:57 -0700
+Message-ID: <CAKgT0UepRt3dP9=g2+cdM1iL6t5j5YA_hfGcFRK40aUFCxFaXg@mail.gmail.com>
+References: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
+	<1462565096-4076043-5-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35244 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758671AbcEFUVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:21:07 -0400
-Received: by mail-wm0-f67.google.com with SMTP id e201so10440853wme.2
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:21:01 -0700 (PDT)
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:38371 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758275AbcEFUX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:23:58 -0400
+Received: by mail-ig0-f181.google.com with SMTP id m9so50159193ige.1
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:23:58 -0700 (PDT)
+In-Reply-To: <1462565096-4076043-5-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Fri, May 6, 2016 at 1:04 PM, Tom Herbert <tom@herbertland.com> wrote:
+> When RCO is in effect we want to ensure that the outer checksum is
+> properly offloaded. Don't set skb->encapsulation in this case to
+> ensure that checksum offload is later considered for hw_features
+> instead of hw_enc_features.
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  net/ipv4/udp_offload.c | 9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index b556ef6..92a9222 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -94,11 +94,12 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>         do {
+>                 unsigned int len;
+>
+> -               if (remcsum)
+> +               if (remcsum) {
+>                         skb->ip_summed = CHECKSUM_NONE;
+> -
+> -               /* Set up inner headers if we are offloading inner checksum */
+> -               if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +               } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +                       /* Set up inner headers if we are offloading inner
+> +                        * checksum
+> +                        */
+>                         skb_reset_inner_headers(skb);
+>                         skb->encapsulation = 1;
+>                 }
 
-Fixes: 0f433fa0ec ("mlxsw: spectrum_buffers: Implement shared buffer configuration")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+You can just drop this patch.  It doesn't actually change anything
+behaviorwise.  If remcsum is set then skb->ip_summed is set to
+CHECKSUM_NONE so it isn't going to hit the CHECKSUM_PARTIAL code so
+you don't need the else.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4758516..4a72737 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2449,8 +2449,8 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 
--	mlxsw_sp_buffers_fini(mlxsw_sp);
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
-+	mlxsw_sp_buffers_fini(mlxsw_sp);
- 	mlxsw_sp_traps_fini(mlxsw_sp);
- 	mlxsw_sp_event_unregister(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
- 	mlxsw_sp_ports_remove(mlxsw_sp);
--- 
-2.5.5
+- Alex
