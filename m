@@ -1,31 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: vrf: Create FIB tables on link create
-Date: Fri, 06 May 2016 15:52:11 -0400 (EDT)
-Message-ID: <20160506.155211.622224584415415289.davem@davemloft.net>
-References: <1462423572-15722-1-git-send-email-dsa@cumulusnetworks.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net v3 2/2] udp_offload: Set encapsulation before inner completes.
+Date: Fri, 6 May 2016 12:52:39 -0700
+Message-ID: <CAKgT0UdC=rPvV24ftW3w1vLhmeq=SENLJSNNnQDsMQNNLDmHJA@mail.gmail.com>
+References: <1462317021-7236-1-git-send-email-jarno@ovn.org>
+	<1462317021-7236-2-git-send-email-jarno@ovn.org>
+	<20160506.153412.1756777490005831525.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Jarno Rajahalme <jarno@ovn.org>, Netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48922 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758601AbcEFTwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 15:52:12 -0400
-In-Reply-To: <1462423572-15722-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:37553 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758322AbcEFTwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 15:52:40 -0400
+Received: by mail-ig0-f179.google.com with SMTP id s8so49499572ign.0
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 12:52:40 -0700 (PDT)
+In-Reply-To: <20160506.153412.1756777490005831525.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed,  4 May 2016 21:46:12 -0700
+On Fri, May 6, 2016 at 12:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jarno Rajahalme <jarno@ovn.org>
+> Date: Tue,  3 May 2016 16:10:21 -0700
+>
+>> UDP tunnel segmentation code relies on the inner offsets being set for
+>> an UDP tunnel GSO packet, but the inner *_complete() functions will
+>> set the inner offsets only if 'encapsulation' is set before calling
+>> them.  Currently, udp_gro_complete() sets 'encapsulation' only after
+>> the inner *_complete() functions are done.  This causes the inner
+>> offsets having invalid values after udp_gro_complete() returns, which
+>> in turn will make it impossible to properly segment the packet in case
+>> it needs to be forwarded, which would be visible to the user either as
+>> invalid packets being sent or as packet loss.
+>>
+>> This patch fixes this by setting skb's 'encapsulation' in
+>> udp_gro_complete() before calling into the inner complete functions,
+>> and by making each possible UDP tunnel gro_complete() callback set the
+>> inner_mac_header to the beginning of the tunnel payload.
+>>
+>> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+>> ---
+>> v3: Added setting inner_mac_header from all possible callbacks to cover
+>>     cases where there is no inner mac header.
+>
+> Alex and Tom, can you please review this new version since you guys had
+> so much feedback for v2?
+>
+> THanks.
 
-> Tables have to exist for VRFs to function. Ensure they exist
-> when VRF device is created.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - create table before rt6 allocation per comment from DaveM
+I had reviewed it a day or so ago.  It did address the issues I saw
+with the original patch, and from what I can tell it is fixing the
+original issue reported.
 
-Yep, this looks better, applied.
+Reviewed-by: Alexander Duyck <aduyck@mirantis.com>
