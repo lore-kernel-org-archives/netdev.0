@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 20/21] net: dsa: mv88e6xxx: factorize tag protocol
-Date: Fri,  6 May 2016 17:57:22 -0400
-Message-ID: <1462571843-14397-21-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 18/21] net: dsa: mv88e6xxx: factorize frames priorities
+Date: Fri,  6 May 2016 17:57:20 -0400
+Message-ID: <1462571843-14397-19-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,41 +14,50 @@ In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-6131 is the only driver to set the tag protocol to DSA_TAG_PROTO_DSA.
-Since it works fine with DSA_TAG_PROTO_EDSA, change its value, like all
-other mv88e6xxx drivers.
+6131 is the only driver to setup the priority of IGMP/MLD snoop frames
+and ARP frames to the highest setting. Drop such change until we figure
+out a common configuration for all switch models.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/Kconfig     | 2 +-
- drivers/net/dsa/mv88e6131.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6131.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 4aaadce..7e01dce 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -17,7 +17,7 @@ config NET_DSA_MV88E6131
- 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
- 	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
--	select NET_DSA_TAG_DSA
-+	select NET_DSA_TAG_EDSA
- 	---help---
- 	  This enables support for the Marvell 88E6085/6095/6095F/6131
- 	  ethernet switch chips.
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 22952be..bbad199 100644
+index b6ca07b..da28327 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -59,7 +59,7 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+@@ -58,20 +58,6 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+ 				   ARRAY_SIZE(mv88e6131_table));
  }
  
- struct dsa_switch_driver mv88e6131_switch_driver = {
--	.tag_protocol		= DSA_TAG_PROTO_DSA,
-+	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6131_drv_probe,
- 	.setup			= mv88e6xxx_setup,
- 	.set_addr		= mv88e6xxx_set_addr,
+-static int mv88e6131_setup_global(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-
+-	/* Force the priority of IGMP/MLD snoop frames and ARP frames
+-	 * to the highest setting.
+-	 */
+-	return mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
+-				   GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP |
+-				   7 << GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT |
+-				   GLOBAL2_PRIO_OVERRIDE_FORCE_ARP |
+-				   7 << GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT);
+-}
+-
+ static int mv88e6131_setup(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -83,10 +69,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6131_setup_global(ds);
+-	if (ret < 0)
+-		return ret;
+-
+ 	return mv88e6xxx_setup_ports(ds);
+ }
+ 
 -- 
 2.8.2
