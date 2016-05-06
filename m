@@ -1,87 +1,147 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 00/21] net: dsa: mv88e6xxx: turn into monolithic driver
-Date: Fri,  6 May 2016 17:57:02 -0400
-Message-ID: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v3 net-next 00/11] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
+Date: Fri, 6 May 2016 15:11:55 -0700
+Message-ID: <1462572726-566137-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:22897 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758408AbcEFWMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 18:12:13 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u46M8TN0023374
+	for <netdev@vger.kernel.org>; Fri, 6 May 2016 15:12:12 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 22ruk83fc8-3
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 06 May 2016 15:12:12 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 93defdb213d711e6ae7d0002c9521c9e-807fcc50 for <netdev@vger.kernel.org>;	Fri,
+ 06 May 2016 15:12:10 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset merges all mv88e6* drivers supported by the shared
-mv88e6xxx code into a single mv88e6xxx DSA switch driver.
+This patch set:
+  - Fixes GRE6 to process translate flags correctly from configuration
+  - Adds support for GSO and GRO for ip6ip6 and ip4ip6
+  - Add support for FOU and GUE in IPv6
+  - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
+  - Fixes ip6_input to deal with UDP encapsulations
+  - Some other minor fixes
 
-Some flags are added to describe the capabilities of a switch model,
-such as the presence of a PPU, EEPROM, some old or new registers, etc.
+v2:
+  - Removed a check of GSO types in MPLS
+  - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
+    from Alexander)
+  - Don't define GSO types specifally for IP6IP6 and IP4IP6, above
+    fix makes that uncessary
+  - Don't bother clearing encapsulation flag in UDP tunnel segment
+    (another item suggested by Alexander).
 
-First these flags are used to conditionally support the same set of
-functions in every driver, then specific driver files are removed in
-favor of the common mv88e6xxx driver.
+v3:
+  - Address some minor comments from Alexander
 
-Only the merge of driver specific setup code assumes a few differences.
-If these differences such as frames priorities are really needed for
-some models, they can easily be brought back in a future patch.
+Tested:
+   Tested a variety of case, but not the full matrix (which is quite
+   large now). Most of the obivous cases (e.g. GRE) work fine. Still
+   some issues probably with GSO/GRO being effective in all cases.
 
-Some inconsistencies might show up, such as the need for
-MV88E6XXX_FLAG_PPU and MV88E6XXX_FLAG_PPU_ACTIVE flags. But this
-patchset does not aim to fix them yet. A future patch can do that if
-they end up being unwanted.
+    - IPv4/GRE/GUE/IPv6 with RCO
+      1 TCP_STREAM
+      	6616 Mbps
+      200 TCP_RR
+	1244043 tps
+        141/243/446 90/95/99% latencies
+	86.61% CPU utilization
+    - IPv6/GRE/GUE/IPv6 with RCO
+      1 TCP_STREAM
+	6940 Mbps
+      200 TCP_RR
+	1270903 tps
+	138/236/440 90/95/99% latencies
+	87.51% CPU utilization
 
-The patchset has been tested on interconnected 88E6352 and 88E6185.
+     - IP6IP6
+      1 TCP_STREAM
+	2576 Mbps
+      200 TCP_RR
+	498981 tps
+	388/498/631 90/95/99% latencies
+	19.75% CPU utilization (1 CPU saturated)
 
-Changes RFC -> v1:
-  - introduce flags in a separate patch
-  - do not refactor anything yet
-  - do not add new functions prefixed with _
-  - drop packet discarding and mentioned tested platforms
-  - factorize family flags
-  - update text for NET_DSA_MV88E6XXX Kconfig entry
+     - IP6IP6/GUE/IPv6 with RCO
+      1 TCP_STREAM
+	1854 Mbps
+      200 TCP_RR
+	1233818 tps
+	143/244/451 90/95/99% latencies
+	87.57 CPU utilization
 
-Vivien Didelot (21):
-  net: dsa: mv88e6xxx: add flags to info
-  net: dsa: mv88e6xxx: factorize PHY access with PPU
-  net: dsa: mv88e6xxx: factorize PHY indirect access
-  net: dsa: mv88e6xxx: factorize EEPROM access
-  net: dsa: mv88e6xxx: factorize temperature access
-  net: dsa: mv88e6xxx: factorize MAC address setting
-  net: dsa: mv88e6xxx: factorize EEE access
-  net: dsa: mv88e6xxx: factorize registers access
-  net: dsa: mv88e6xxx: factorize bridge support
-  net: dsa: mv88e6xxx: factorize VTU access
-  net: dsa: mv88e6xxx: factorize ATU access
-  net: dsa: mv88e6xxx: factorize switch reset
-  net: dsa: mv88e6xxx: factorize global setup
-  net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL setup
-  net: dsa: mv88e6xxx: factorize VLAN Ethertype
-  net: dsa: mv88e6xxx: factorize GLOBAL_MONITOR_CONTROL setup
-  net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL_2 setup
-  net: dsa: mv88e6xxx: factorize frames priorities
-  net: dsa: mv88e6xxx: factorize switch setup
-  net: dsa: mv88e6xxx: factorize tag protocol
-  net: dsa: mv88e6xxx: factorize the switch driver
+     - IP4IP6
+      1 TCP_STREAM
+      200 TCP_RR
+	763774 tps
+	250/318/466 90/95/99% latencies
+	35.25% CPU utilization (1 CPU saturated)
 
- arch/arm/configs/multi_v5_defconfig |   5 +-
- arch/arm/configs/mvebu_v7_defconfig |   2 +-
- arch/arm/configs/orion5x_defconfig  |   3 +-
- arch/tile/configs/tilegx_defconfig  |   3 +-
- arch/tile/configs/tilepro_defconfig |   3 +-
- drivers/net/dsa/Kconfig             |  45 +-
- drivers/net/dsa/Makefile            |  15 +-
- drivers/net/dsa/mv88e6123.c         | 130 -----
- drivers/net/dsa/mv88e6131.c         | 204 --------
- drivers/net/dsa/mv88e6171.c         | 151 ------
- drivers/net/dsa/mv88e6352.c         | 377 --------------
- drivers/net/dsa/mv88e6xxx.c         | 984 +++++++++++++++++++++++++++---------
- drivers/net/dsa/mv88e6xxx.h         | 249 ++++++---
- 13 files changed, 908 insertions(+), 1263 deletions(-)
- delete mode 100644 drivers/net/dsa/mv88e6123.c
- delete mode 100644 drivers/net/dsa/mv88e6131.c
- delete mode 100644 drivers/net/dsa/mv88e6171.c
- delete mode 100644 drivers/net/dsa/mv88e6352.c
+     - GRE with keyid
+      200 TCP_RR
+	744173 tps
+	258/332/461 90/95/99% latencies
+	34.59% CPU utilization (1 CPU saturated)
+      
+
+Tom Herbert (11):
+  gso: Remove arbitrary checks for unsupported GSO
+  net: define gso types for IPx over IPv4 and IPv6
+  gre6: Fix flag translations
+  fou: Call setup_udp_tunnel_sock
+  fou: Split out {fou,gue}_build_header
+  fou: Add encap ops for IPv6 tunnels
+  ipv6: Fix nexthdr for reinjection
+  ipv6: Change "final" protocol processing for encapsulation
+  fou: Support IPv6 in fou
+  ip6_tun: Add infrastructure for doing encapsulation
+  ip6_gre: Add support for fou/gue encapsulation
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   5 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c       |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c       |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   3 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   3 +-
+ include/linux/netdev_features.h                   |  12 +-
+ include/linux/netdevice.h                         |   4 +-
+ include/linux/skbuff.h                            |   4 +-
+ include/net/fou.h                                 |  10 +-
+ include/net/ip6_tunnel.h                          |  22 +++-
+ net/core/ethtool.c                                |   4 +-
+ net/ipv4/af_inet.c                                |  20 +--
+ net/ipv4/fou.c                                    | 144 +++++++++++++---------
+ net/ipv4/gre_offload.c                            |  14 ---
+ net/ipv4/ipip.c                                   |   2 +-
+ net/ipv4/tcp_offload.c                            |  19 ---
+ net/ipv4/udp_offload.c                            |  10 --
+ net/ipv6/Makefile                                 |   4 +-
+ net/ipv6/fou6.c                                   | 140 +++++++++++++++++++++
+ net/ipv6/ip6_gre.c                                |  95 ++++++++++++--
+ net/ipv6/ip6_input.c                              |  24 +++-
+ net/ipv6/ip6_offload.c                            |  22 +---
+ net/ipv6/ip6_tunnel.c                             |   4 +
+ net/ipv6/ip6_tunnel_core.c                        | 108 ++++++++++++++++
+ net/ipv6/sit.c                                    |   4 +-
+ net/ipv6/udp_offload.c                            |  13 --
+ net/mpls/mpls_gso.c                               |   9 --
+ net/netfilter/ipvs/ip_vs_xmit.c                   |  17 ++-
+ 31 files changed, 511 insertions(+), 221 deletions(-)
+ create mode 100644 net/ipv6/fou6.c
+ create mode 100644 net/ipv6/ip6_tunnel_core.c
 
 -- 
-2.8.2
+2.8.0.rc2
