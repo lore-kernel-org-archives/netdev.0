@@ -1,50 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net/mlx4: Avoid wrong virtual mappings
-Date: Thu, 05 May 2016 23:22:39 -0400 (EDT)
-Message-ID: <20160505.232239.927667859977554070.davem@davemloft.net>
-References: <1462362615-20238-1-git-send-email-hagaya@mellanox.com>
+Subject: Re: [PATCH net] net/mlx4_en: Fix endianness bug in IPV6 csum
+ calculation
+Date: Thu, 05 May 2016 23:27:06 -0400 (EDT)
+Message-ID: <20160505.232706.406069830279349152.davem@davemloft.net>
+References: <1462363233-8598-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, okaya@codeaurora.org, timur@codeaurora.org,
-	eli@mellanox.com, ogerlitz@mellanox.com, eranbe@mellanox.com,
-	yishaih@mellanox.com, talal@mellanox.com, saeedm@mellanox.com
-To: hagaya@mellanox.com
+Cc: netdev@vger.kernel.org, danielj@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37449 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37499 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756186AbcEFDWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 23:22:44 -0400
-In-Reply-To: <1462362615-20238-1-git-send-email-hagaya@mellanox.com>
+	with ESMTP id S1757294AbcEFD1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 23:27:09 -0400
+In-Reply-To: <1462363233-8598-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haggai Abramovsky <hagaya@mellanox.com>
-Date: Wed,  4 May 2016 14:50:15 +0300
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Wed,  4 May 2016 15:00:33 +0300
 
-> The dma_alloc_coherent() function returns a virtual address which can
-> be used for coherent access to the underlying memory.  On some
-> architectures, like arm64, undefined behavior results if this memory is
-> also accessed via virtual mappings that are not coherent.  Because of
-> their undefined nature, operations like virt_to_page() return garbage
-> when passed virtual addresses obtained from dma_alloc_coherent().  Any
-> subsequent mappings via vmap() of the garbage page values are unusable
-> and result in bad things like bus errors (synchronous aborts in ARM64
-> speak).
+> From: Daniel Jurgens <danielj@mellanox.com>
 > 
-> The mlx4 driver contains code that does the equivalent of:
-> vmap(virt_to_page(dma_alloc_coherent)), this results in an OOPs when the
-> device is opened.
+> Use htons instead of unconditionally byte swapping nexthdr.  On a little
+> endian systems shifting the byte is correct behavior, but it results in
+> incorrect csums on big endian architectures.
 > 
-> Prevent Ethernet driver to run this problematic code by forcing it to
-> allocate contiguous memory. As for the Infiniband driver, at first we
-> are trying to allocate contiguous memory, but in case of failure roll
-> back to work with fragmented memory.
-> 
-> Signed-off-by: Haggai Abramovsky <hagaya@mellanox.com>
-> Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
-> Reported-by: David Daney <david.daney@cavium.com>
-> Tested-by: Sinan Kaya <okaya@codeaurora.org>
+> Fixes: f8c6455bb04b ('net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE')
+> Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+> Reviewed-by: Carol Soto <clsoto@us.ibm.com>
+> Tested-by: Carol Soto <clsoto@us.ibm.com>
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
