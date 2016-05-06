@@ -1,88 +1,63 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/2] net: phy: add ethtool_phy_{get|set}_link_ksettings
-Date: Sat,  7 May 2016 01:18:48 +0200
-Message-ID: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: fec: use ethtool_phy_{get|set}_link_ksettings
+Date: Sat,  7 May 2016 01:18:49 +0200
+Message-ID: <1462576729-5932-2-git-send-email-tremyfr@gmail.com>
+References: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Philippe Reynes <tremyfr@gmail.com>
 To: f.fainelli@gmail.com, fugang.duan@nxp.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36069 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758281AbcEFXTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 19:19:03 -0400
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36078 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758602AbcEFXTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 19:19:04 -0400
+In-Reply-To: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The callback {get|set}_link_ksettings are often defined
-in a very close way. There are mainly two differences in
-those callback:
-- the name of the netdev private structure
-- the name of the struct phydev in the private structure
-
-We add two defines ethtool_phy_{get|set}_link_ksettings
-to avoid writing severals times almost the same function.
+Use the generic ethtool_phy_{get|set}_link_ksettings to
+generate the callback for {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- include/linux/phy.h |   46 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 46 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c |   25 ++-----------------------
+ 1 files changed, 2 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index be3f83b..e4a79fa 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -830,6 +830,52 @@ int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
- void phy_ethtool_get_wol(struct phy_device *phydev,
- 			 struct ethtool_wolinfo *wol);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index bfa10c3..00339d0 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2058,29 +2058,8 @@ static void fec_enet_mii_remove(struct fec_enet_private *fep)
+ 	}
+ }
  
-+/**
-+ * ethtool_phy_get_link_ksettings() - Helper macro for get_link_ksettings
-+ * @name: name of the driver
-+ * @private: name of the private structure in the net device
-+ * @phy: name of the phydev variable in the private structure
-+ *
-+ * Helper macro for the callback get_link_ksettings which
-+ * simply call phy_ethtool_ksettings_get.
-+ */
-+#define ethtool_phy_get_link_ksettings(name, private, phy)		\
-+	static int							\
-+	name##_get_link_ksettings(struct net_device *ndev,		\
-+				  struct ethtool_link_ksettings *cmd)	\
-+	{								\
-+		struct private *priv = netdev_priv(ndev);		\
-+		struct phy_device *phydev = priv->phy;			\
-+									\
-+		if (!phydev)						\
-+			return -ENODEV;					\
-+									\
-+		return phy_ethtool_ksettings_get(phydev, cmd);		\
-+	}
-+
-+/**
-+ * ethtool_phy_set_link_ksettings() - Helper macro for set_link_ksettings
-+ * @name: name of the driver
-+ * @private: name of the private structure in the net device
-+ * @phy: name of the phydev variable in the private structure
-+ *
-+ * Helper macro for the callback set_link_ksettings which
-+ * simply call phy_ethtool_ksettings_set.
-+ */
-+#define ethtool_phy_set_link_ksettings(name, private, phy)		\
-+	static int							\
-+	name##_set_link_ksettings(struct net_device *ndev,		\
-+				  const struct ethtool_link_ksettings *cmd) \
-+	{								\
-+		struct private *priv = netdev_priv(ndev);		\
-+		struct phy_device *phydev = priv->phy;			\
-+									\
-+		if (!phydev)						\
-+			return -ENODEV;					\
-+									\
-+		return phy_ethtool_ksettings_set(phydev, cmd);		\
-+	}
-+
- int __init mdio_bus_init(void);
- void mdio_bus_exit(void);
+-static int fec_enet_get_link_ksettings(struct net_device *ndev,
+-				       struct ethtool_link_ksettings *cmd)
+-{
+-	struct fec_enet_private *fep = netdev_priv(ndev);
+-	struct phy_device *phydev = fep->phy_dev;
+-
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_ksettings_get(phydev, cmd);
+-}
+-
+-static int fec_enet_set_link_ksettings(struct net_device *ndev,
+-				       const struct ethtool_link_ksettings *cmd)
+-{
+-	struct fec_enet_private *fep = netdev_priv(ndev);
+-	struct phy_device *phydev = fep->phy_dev;
+-
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_ksettings_set(phydev, cmd);
+-}
++ethtool_phy_get_link_ksettings(fec_enet, fec_enet_private, phy_dev);
++ethtool_phy_set_link_ksettings(fec_enet, fec_enet_private, phy_dev);
  
+ static void fec_enet_get_drvinfo(struct net_device *ndev,
+ 				 struct ethtool_drvinfo *info)
 -- 
 1.7.4.4
