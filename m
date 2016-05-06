@@ -1,55 +1,75 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [Intel-wired-lan] NULL dereference on v4.1.x while enabling VF
-Date: Fri, 6 May 2016 16:26:24 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF2228664691EA7CAF@ORSMSX116.amr.corp.intel.com>
-References: <CAJ75kXZV32hLzYY-dynYAj6NHm2xNoq89inmSSbqUyxPvUazEw@mail.gmail.com>
- <F6FB0E698C9B3143BDF729DF2228664691EA68EC@ORSMSX116.amr.corp.intel.com>
- <CAJ75kXY_PMK0iTyM5bbhQoAS9je5AqpW67jyZpJEUoNw0BPcqw@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] Documentation/networking: more accurate LCO explanation
+Date: Fri, 6 May 2016 09:29:56 -0700
+Message-ID: <CAKgT0UcpbKVpip0pSaCOY7xVQ=3wwUxFing7Sht8ptH8VRB=FA@mail.gmail.com>
+References: <1462550263-9742-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: NETDEV <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	Alex Duyck <aduyck@mirantis.com>
-To: William Dauchy <wdauchy@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Edward Cree <ecree@solarflare.com>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:45099 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755528AbcEFQ02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 May 2016 12:26:28 -0400
-In-Reply-To: <CAJ75kXY_PMK0iTyM5bbhQoAS9je5AqpW67jyZpJEUoNw0BPcqw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-io0-f176.google.com ([209.85.223.176]:34085 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755272AbcEFQ35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 12:29:57 -0400
+Received: by mail-io0-f176.google.com with SMTP id 190so119368960iow.1
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 09:29:57 -0700 (PDT)
+In-Reply-To: <1462550263-9742-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGV5IFdpbGxpYW0sDQoNCk15IHZhbGlkYXRpb24gaGFzbid0IGJlIGFibGUgdG8gcmVjcmVhdGUg
-dGhlIGRlcmVmZXJlbmNlIG9uIHY0LjEueCwgdjQuNS54IG9yIG5ldF9uZXh0LiAgV2hlcmUgZXhh
-Y3RseSBkaWQgeW91IHBsYWNlIHRoZSB0d28gbGluZSBzY3JpcHQgaW4geW91ciByYyBzY3JpcHRz
-LiAgT3VyIHZhbGlkYXRpb24gd2FzIGFibGUgdG8gcnVuIGl0IGFzIHNvb24gYXMgfjE0IHNlY29u
-ZCBhZnRlciB0aGUgZmlyc3QgYm9vdCBtZXNzYWdlIGxvZ2dlZCBpbiBkbWVzZy4gIElzIHRoaXMg
-YW55d2hlcmUgY2xvc2UgdG8gd2hlcmUgeW91IHdlcmUgZXhlY3V0aW5nIGl0PyAgTGlrZXdpc2Ug
-aGUgaGFzIGF0dGVtcHRlZCBydW5uaW5nIGF0IGJvdGggcnVuIGxldmVsIDMgYW5kIDUgaW4gY2Fz
-ZSB0aGF0IGNoYW5nZWQgYW55IG9mIHRoZSB0aW1lcyBvZiBob3cgc29vbiB0aGUgcmMgc2NyaXB0
-cyBhcmUgZXhlY3V0ZWQuICBTbyB0aGUgbW9yZSBkZXRhaWwgeW91IGNhbiBnaXZlIG9mIHNldHVw
-IHRoZSBtb3JlIGl0IG1pZ2h0IGhlbHAgdXMgcmVjcmVhdGUgd2hhdCB5b3UgYXJlIHNlZWluZy4N
-Cg0KVGhhbmtzLA0KLURvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmU+DQoNCiANCg0KPiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXaWxsaWFtIERhdWNoeSBbbWFpbHRv
-OndkYXVjaHlAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBNYXkgMDMsIDIwMTYgNTozMyBB
-TQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+
-DQo+IENjOiBORVRERVYgPG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc+OyBpbnRlbC13aXJlZC1sYW5A
-bGlzdHMub3N1b3NsLm9yZzsNCj4gQWxleCBEdXljayA8YWR1eWNrQG1pcmFudGlzLmNvbT4NCj4g
-U3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIE5VTEwgZGVyZWZlcmVuY2Ugb24gdjQuMS54
-IHdoaWxlIGVuYWJsaW5nIFZGDQo+IA0KPiBIZWxsbyBEb24sDQo+IA0KPiBUaGFuayB5b3UgZm9y
-IHlvdXIgcmVwbHkuDQo+IA0KPiBPbiBNb24sIE1heSAyLCAyMDE2IGF0IDExOjMzIFBNLCBTa2lk
-bW9yZSwgRG9uYWxkIEMNCj4gPGRvbmFsZC5jLnNraWRtb3JlQGludGVsLmNvbT4gd3JvdGU6DQo+
-ID4gVGhhbmtzIGZvciByZXBvcnRpbmcgdGhlIGRlcmVmZXJlbmNlLiAgQ291bGQgeW91IHByb3Zp
-ZGUgYSBsaXR0bGUgbW9yZQ0KPiBkZXRhaWwgb24gaG93IHlvdSBjcmVhdGVkIHRoaXMgaXNzdWU/
-ICBBcmUgeW91IGp1c3QgcnVubmluZyB0aGUgdHdvDQo+IGNvbW1hbmRzIChpcCwgc3Jpb3ZfbnVt
-dmZzKSBpbiBzb21lIHJjIHNjcmlwdCBhbmQgaWYgeW91IHB1dCBhIGZldyBzZWNvbmQNCj4gc2xl
-ZXAgaW4gZnJvbnQgb2YgaXQgeW91IGRvbid0IHNlZSB0aGUgZmFpbHVyZT8NCj4gDQo+IFlvdXIg
-dW5kZXJzdGFuZGluZyBpcyBjb3JyZWN0OyBhIHJjIHNjcmlwdCBpcyBydW4gd2l0aCBpcCBhbmQg
-ZWNobyBpbiBudW12ZnMNCj4gY29tbWFuZHMuIEkgdHJpZWQgdG8gcmVkdWNlIGl0IHRvIHRoZSBt
-aW5pbXVtLiBJZiBJIHB1dCBhIHNsZWVwDQo+IDIwIGluIGZyb250IG9mIGl0LCBpdCBkb2VzIG5v
-dCBjcmFzaC4gSSBhbHNvIGZvcmdvdCB0byBhZGQgSSBkaWQgbm90IGhhZCB0aGUgaXNzdWUNCj4g
-aW4gMy4xNC54IHdpdGggdGhlIHNhbWUgc2NyaXB0Lg0KPiANCj4gQmVzdCwNCj4gLS0NCj4gV2ls
-bGlhbQ0K
+On Fri, May 6, 2016 at 8:57 AM, Shmulik Ladkani
+<shmulik.ladkani@gmail.com> wrote:
+> In few places the term "ones-complement sum" was used but the actual
+> meaning is "the complement of the ones-complement sum".
+
+Looks like there might still be a few minor corrections needed.
+Comments inline below.
+
+>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> ---
+>
+>  I assume readers interpret the term "ones-complement sum" as the sum
+>  using one's complement arithmentic, without the final bitwise
+>  complement of sum's result.
+>  Hence I added "the complement of" where applicable.
+>
+>  Documentation/networking/checksum-offloads.txt | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+>
+> diff --git a/Documentation/networking/checksum-offloads.txt b/Documentation/networking/checksum-offloads.txt
+> index de2a327766..9567200e1f 100644
+> --- a/Documentation/networking/checksum-offloads.txt
+> +++ b/Documentation/networking/checksum-offloads.txt
+> @@ -69,17 +69,17 @@ LCO: Local Checksum Offload
+>  LCO is a technique for efficiently computing the outer checksum of an
+>   encapsulated datagram when the inner checksum is due to be offloaded.
+>  The ones-complement sum of a correctly checksummed TCP or UDP packet is
+> - equal to the sum of the pseudo header, because everything else gets
+> - 'cancelled out' by the checksum field.  This is because the sum was
+> + equal to the complement of the sum of the pseudo header, because everything
+> + else gets 'cancelled out' by the checksum field.  This is because the sum was
+>   complemented before being written to the checksum field.
+>  More generally, this holds in any case where the 'IP-style' ones complement
+>   checksum is used, and thus any checksum that TX Checksum Offload supports.
+>  That is, if we have set up TX Checksum Offload with a start/offset pair, we
+>   know that _after the device has filled in that checksum_, the ones
+>   complement sum from csum_start to the end of the packet will be equal to
+> - _whatever value we put in the checksum field beforehand_.  This allows us
+> - to compute the outer checksum without looking at the payload: we simply
+> - stop summing when we get to csum_start, then add the 16-bit word at
+> + the complement of _whatever value we put in the checksum field beforehand_.
+
+I don't really see the point of using an underscore before and after
+that statement.  If it was only one or two words it might work for
+emphasis but the statement is large enough that starting it with an
+underscore just makes it harder to read.
+
+> + This allows us to compute the outer checksum without looking at the payload:
+> + we simply stop summing when we get to csum_start, then add the 16-bit word at
+>   (csum_start + csum_offset).
+
+You don't add the 16-bit word you add the compliment of the 16 bit word.
