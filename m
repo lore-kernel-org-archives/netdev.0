@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 4/7] bpf: wire in data and data_end for cls_act_bpf
-Date: Thu, 5 May 2016 19:49:12 -0700
-Message-ID: <1462502955-1731797-5-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 6/7] samples/bpf: add 'pointer to packet' tests
+Date: Thu, 5 May 2016 19:49:14 -0700
+Message-ID: <1462502955-1731797-7-git-send-email-ast@fb.com>
 References: <1462502955-1731797-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,217 +9,378 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
 	<kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33080 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33079 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756782AbcEFCtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 22:49:21 -0400
+	by vger.kernel.org with ESMTP id S1756383AbcEFCtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 22:49:19 -0400
 Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u462jjsj027658
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u462jlHi027669
 	for <netdev@vger.kernel.org>; Thu, 5 May 2016 19:49:17 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22rh7ugj8u-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	by mx0a-00082601.pphosted.com with ESMTP id 22rh7ugj8s-3
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Thu, 05 May 2016 19:49:17 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 1f9715ea133511e6b5310002c95209d8-9baf4c50 for <netdev@vger.kernel.org>;	Thu,
+ mx-out.facebook.com (10.103.99.99) with ESMTP	id
+ 1fa8ec20133511e69fe30002c9dfb610-afee4c50 for <netdev@vger.kernel.org>;	Thu,
  05 May 2016 19:49:16 -0700
 In-Reply-To: <1462502955-1731797-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-allow cls_bpf and act_bpf programs access skb->data and skb->data_end pointers.
-The bpf helpers that change skb->data need to update data_end pointer as well.
-The verifier checks that programs always reload data, data_end pointers
-after calls to such bpf helpers.
-We cannot add 'data_end' pointer to struct qdisc_skb_cb directly,
-since it's embedded as-is by infiniband ipoib, so wrapper struct is needed.
+parse_simple.c - packet parser exapmle with single length check that
+filters out udp packets for port 9
+
+parse_varlen.c - variable length parser that understand multiple vlan headers,
+ipip, ipip6 and ip options to filter out udp or tcp packets on port 9.
+The packet is parsed layer by layer with multitple length checks.
+
+parse_ldabs.c - classic style of packet parsing using LD_ABS instruction.
+Same functionality as parse_simple.
+
+simple = 24.1Mpps per core
+varlen = 22.7Mpps
+ldabs  = 21.4Mpps
+
+Parser with LD_ABS instructions is slower than full direct access parser
+which does more packet accesses and checks.
+
+These examples demonstrate the choice bpf program authors can make between
+flexibility of the parser vs speed.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/filter.h | 16 ++++++++++++++++
- net/core/filter.c      | 51 ++++++++++++++++++++++++++++++++++++++++++++------
- net/sched/act_bpf.c    |  2 ++
- net/sched/cls_bpf.c    |  2 ++
- 4 files changed, 65 insertions(+), 6 deletions(-)
+ samples/bpf/Makefile        |   2 +
+ samples/bpf/parse_ldabs.c   |  41 ++++++++++++
+ samples/bpf/parse_simple.c  |  48 ++++++++++++++
+ samples/bpf/parse_varlen.c  | 153 ++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/test_cls_bpf.sh |  37 +++++++++++
+ 5 files changed, 281 insertions(+)
+ create mode 100644 samples/bpf/parse_ldabs.c
+ create mode 100644 samples/bpf/parse_simple.c
+ create mode 100644 samples/bpf/parse_varlen.c
+ create mode 100755 samples/bpf/test_cls_bpf.sh
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 43aa1f8855c7..ec1411c89105 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -352,6 +352,22 @@ struct sk_filter {
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 66897e61232c..0bf2478cb7df 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -60,6 +60,7 @@ always += spintest_kern.o
+ always += map_perf_test_kern.o
+ always += test_overhead_tp_kern.o
+ always += test_overhead_kprobe_kern.o
++always += parse_varlen.o parse_simple.o parse_ldabs.o
  
- #define BPF_SKB_CB_LEN QDISC_CB_PRIV_LEN
+ HOSTCFLAGS += -I$(objtree)/usr/include
  
-+struct bpf_skb_data_end {
-+	struct qdisc_skb_cb qdisc_cb;
-+	void *data_end;
+@@ -120,4 +121,5 @@ $(src)/*.c: verify_target_bpf
+ $(obj)/%.o: $(src)/%.c
+ 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+ 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
++		-Wno-compare-distinct-pointer-types \
+ 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+diff --git a/samples/bpf/parse_ldabs.c b/samples/bpf/parse_ldabs.c
+new file mode 100644
+index 000000000000..d17550198d06
+--- /dev/null
++++ b/samples/bpf/parse_ldabs.c
+@@ -0,0 +1,41 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/in.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++
++#define DEFAULT_PKTGEN_UDP_PORT	9
++#define IP_MF			0x2000
++#define IP_OFFSET		0x1FFF
++
++static inline int ip_is_fragment(struct __sk_buff *ctx, __u64 nhoff)
++{
++	return load_half(ctx, nhoff + offsetof(struct iphdr, frag_off))
++		& (IP_MF | IP_OFFSET);
++}
++
++SEC("ldabs")
++int handle_ingress(struct __sk_buff *skb)
++{
++	__u64 troff = ETH_HLEN + sizeof(struct iphdr);
++
++	if (load_half(skb, offsetof(struct ethhdr, h_proto)) != ETH_P_IP)
++		return 0;
++	if (load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol)) != IPPROTO_UDP ||
++	    load_byte(skb, ETH_HLEN) != 0x45)
++		return 0;
++	if (ip_is_fragment(skb, ETH_HLEN))
++		return 0;
++	if (load_half(skb, troff + offsetof(struct udphdr, dest)) == DEFAULT_PKTGEN_UDP_PORT)
++		return TC_ACT_SHOT;
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/parse_simple.c b/samples/bpf/parse_simple.c
+new file mode 100644
+index 000000000000..cf2511c33905
+--- /dev/null
++++ b/samples/bpf/parse_simple.c
+@@ -0,0 +1,48 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/in.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <uapi/linux/bpf.h>
++#include <net/ip.h>
++#include "bpf_helpers.h"
++
++#define DEFAULT_PKTGEN_UDP_PORT 9
++
++/* copy of 'struct ethhdr' without __packed */
++struct eth_hdr {
++	unsigned char   h_dest[ETH_ALEN];
++	unsigned char   h_source[ETH_ALEN];
++	unsigned short  h_proto;
 +};
 +
-+/* compute the linear packet data range [data, data_end) which
-+ * will be accessed by cls_bpf and act_bpf programs
++SEC("simple")
++int handle_ingress(struct __sk_buff *skb)
++{
++	void *data = (void *)(long)skb->data;
++	struct eth_hdr *eth = data;
++	struct iphdr *iph = data + sizeof(*eth);
++	struct udphdr *udp = data + sizeof(*eth) + sizeof(*iph);
++	void *data_end = (void *)(long)skb->data_end;
++
++	/* single length check */
++	if (data + sizeof(*eth) + sizeof(*iph) + sizeof(*udp) > data_end)
++		return 0;
++
++	if (eth->h_proto != htons(ETH_P_IP))
++		return 0;
++	if (iph->protocol != IPPROTO_UDP || iph->ihl != 5)
++		return 0;
++	if (ip_is_fragment(iph))
++		return 0;
++	if (udp->dest == htons(DEFAULT_PKTGEN_UDP_PORT))
++		return TC_ACT_SHOT;
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/parse_varlen.c b/samples/bpf/parse_varlen.c
+new file mode 100644
+index 000000000000..edab34dce79b
+--- /dev/null
++++ b/samples/bpf/parse_varlen.c
+@@ -0,0 +1,153 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
 + */
-+static inline void bpf_compute_data_end(struct sk_buff *skb)
-+{
-+	struct bpf_skb_data_end *cb = (struct bpf_skb_data_end *)skb->cb;
++#include <linux/if_ether.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/in.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <uapi/linux/bpf.h>
++#include <net/ip.h>
++#include "bpf_helpers.h"
 +
-+	BUILD_BUG_ON(sizeof(*cb) > FIELD_SIZEOF(struct sk_buff, cb));
-+	cb->data_end = skb->data + skb_headlen(skb);
++#define DEFAULT_PKTGEN_UDP_PORT 9
++#define DEBUG 0
++
++static int tcp(void *data, uint64_t tp_off, void *data_end)
++{
++	struct tcphdr *tcp = data + tp_off;
++
++	if (tcp + 1 > data_end)
++		return 0;
++	if (tcp->dest == htons(80) || tcp->source == htons(80))
++		return TC_ACT_SHOT;
++	return 0;
 +}
 +
- static inline u8 *bpf_skb_cb(struct sk_buff *skb)
- {
- 	/* eBPF programs may read/write skb->cb[] area to transfer meta
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 218e5de8c402..71c2a1f473ad 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1344,6 +1344,21 @@ struct bpf_scratchpad {
- 
- static DEFINE_PER_CPU(struct bpf_scratchpad, bpf_sp);
- 
-+static inline int bpf_try_make_writable(struct sk_buff *skb,
-+					unsigned int write_len)
++static int udp(void *data, uint64_t tp_off, void *data_end)
 +{
-+	int err;
++	struct udphdr *udp = data + tp_off;
 +
-+	if (!skb_cloned(skb))
++	if (udp + 1 > data_end)
 +		return 0;
-+	if (skb_clone_writable(skb, write_len))
-+		return 0;
-+	err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+	if (!err)
-+		bpf_compute_data_end(skb);
-+	return err;
-+}
++	if (udp->dest == htons(DEFAULT_PKTGEN_UDP_PORT) ||
++	    udp->source == htons(DEFAULT_PKTGEN_UDP_PORT)) {
++		if (DEBUG) {
++			char fmt[] = "udp port 9 indeed\n";
 +
- static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
- {
- 	struct bpf_scratchpad *sp = this_cpu_ptr(&bpf_sp);
-@@ -1366,7 +1381,7 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
- 	 */
- 	if (unlikely((u32) offset > 0xffff || len > sizeof(sp->buff)))
- 		return -EFAULT;
--	if (unlikely(skb_try_make_writable(skb, offset + len)))
-+	if (unlikely(bpf_try_make_writable(skb, offset + len)))
- 		return -EFAULT;
- 
- 	ptr = skb_header_pointer(skb, offset, len, sp->buff);
-@@ -1444,7 +1459,7 @@ static u64 bpf_l3_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
- 		return -EINVAL;
- 	if (unlikely((u32) offset > 0xffff))
- 		return -EFAULT;
--	if (unlikely(skb_try_make_writable(skb, offset + sizeof(sum))))
-+	if (unlikely(bpf_try_make_writable(skb, offset + sizeof(sum))))
- 		return -EFAULT;
- 
- 	ptr = skb_header_pointer(skb, offset, sizeof(sum), &sum);
-@@ -1499,7 +1514,7 @@ static u64 bpf_l4_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
- 		return -EINVAL;
- 	if (unlikely((u32) offset > 0xffff))
- 		return -EFAULT;
--	if (unlikely(skb_try_make_writable(skb, offset + sizeof(sum))))
-+	if (unlikely(bpf_try_make_writable(skb, offset + sizeof(sum))))
- 		return -EFAULT;
- 
- 	ptr = skb_header_pointer(skb, offset, sizeof(sum), &sum);
-@@ -1699,12 +1714,15 @@ static u64 bpf_skb_vlan_push(u64 r1, u64 r2, u64 vlan_tci, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
- 	__be16 vlan_proto = (__force __be16) r2;
-+	int ret;
- 
- 	if (unlikely(vlan_proto != htons(ETH_P_8021Q) &&
- 		     vlan_proto != htons(ETH_P_8021AD)))
- 		vlan_proto = htons(ETH_P_8021Q);
- 
--	return skb_vlan_push(skb, vlan_proto, vlan_tci);
-+	ret = skb_vlan_push(skb, vlan_proto, vlan_tci);
-+	bpf_compute_data_end(skb);
-+	return ret;
- }
- 
- const struct bpf_func_proto bpf_skb_vlan_push_proto = {
-@@ -1720,8 +1738,11 @@ EXPORT_SYMBOL_GPL(bpf_skb_vlan_push_proto);
- static u64 bpf_skb_vlan_pop(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
-+	int ret;
- 
--	return skb_vlan_pop(skb);
-+	ret = skb_vlan_pop(skb);
-+	bpf_compute_data_end(skb);
-+	return ret;
- }
- 
- const struct bpf_func_proto bpf_skb_vlan_pop_proto = {
-@@ -2066,8 +2087,12 @@ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
- static bool sk_filter_is_valid_access(int off, int size,
- 				      enum bpf_access_type type)
- {
--	if (off == offsetof(struct __sk_buff, tc_classid))
-+	switch (off) {
-+	case offsetof(struct __sk_buff, tc_classid):
-+	case offsetof(struct __sk_buff, data):
-+	case offsetof(struct __sk_buff, data_end):
- 		return false;
++			bpf_trace_printk(fmt, sizeof(fmt));
++		}
++		return TC_ACT_SHOT;
 +	}
- 
- 	if (type == BPF_WRITE) {
- 		switch (off) {
-@@ -2215,6 +2240,20 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 			*insn++ = BPF_LDX_MEM(BPF_H, dst_reg, src_reg, ctx_off);
- 		break;
- 
-+	case offsetof(struct __sk_buff, data):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct sk_buff, data)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct sk_buff, data));
-+		break;
++	return 0;
++}
 +
-+	case offsetof(struct __sk_buff, data_end):
-+		ctx_off -= offsetof(struct __sk_buff, data_end);
-+		ctx_off += offsetof(struct sk_buff, cb);
-+		ctx_off += offsetof(struct bpf_skb_data_end, data_end);
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(sizeof(void *)),
-+				      dst_reg, src_reg, ctx_off);
-+		break;
++static int parse_ipv4(void *data, uint64_t nh_off, void *data_end)
++{
++	struct iphdr *iph;
++	uint64_t ihl_len;
 +
- 	case offsetof(struct __sk_buff, tc_index):
- #ifdef CONFIG_NET_SCHED
- 		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, tc_index) != 2);
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index 4fd703362563..c7123e01c2ca 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -53,9 +53,11 @@ static int tcf_bpf(struct sk_buff *skb, const struct tc_action *act,
- 	filter = rcu_dereference(prog->filter);
- 	if (at_ingress) {
- 		__skb_push(skb, skb->mac_len);
-+		bpf_compute_data_end(skb);
- 		filter_res = BPF_PROG_RUN(filter, skb);
- 		__skb_pull(skb, skb->mac_len);
- 	} else {
-+		bpf_compute_data_end(skb);
- 		filter_res = BPF_PROG_RUN(filter, skb);
- 	}
- 	rcu_read_unlock();
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 425fe6a0eda3..7b342c779da7 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -96,9 +96,11 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		if (at_ingress) {
- 			/* It is safe to push/pull even if skb_shared() */
- 			__skb_push(skb, skb->mac_len);
-+			bpf_compute_data_end(skb);
- 			filter_res = BPF_PROG_RUN(prog->filter, skb);
- 			__skb_pull(skb, skb->mac_len);
- 		} else {
-+			bpf_compute_data_end(skb);
- 			filter_res = BPF_PROG_RUN(prog->filter, skb);
- 		}
- 
++	iph = data + nh_off;
++	if (iph + 1 > data_end)
++		return 0;
++
++	if (ip_is_fragment(iph))
++		return 0;
++	ihl_len = iph->ihl * 4;
++
++	if (iph->protocol == IPPROTO_IPIP) {
++		iph = data + nh_off + ihl_len;
++		if (iph + 1 > data_end)
++			return 0;
++		ihl_len += iph->ihl * 4;
++	}
++
++	if (iph->protocol == IPPROTO_TCP)
++		return tcp(data, nh_off + ihl_len, data_end);
++	else if (iph->protocol == IPPROTO_UDP)
++		return udp(data, nh_off + ihl_len, data_end);
++	return 0;
++}
++
++static int parse_ipv6(void *data, uint64_t nh_off, void *data_end)
++{
++	struct ipv6hdr *ip6h;
++	struct iphdr *iph;
++	uint64_t ihl_len = sizeof(struct ipv6hdr);
++	uint64_t nexthdr;
++
++	ip6h = data + nh_off;
++	if (ip6h + 1 > data_end)
++		return 0;
++
++	nexthdr = ip6h->nexthdr;
++
++	if (nexthdr == IPPROTO_IPIP) {
++		iph = data + nh_off + ihl_len;
++		if (iph + 1 > data_end)
++			return 0;
++		ihl_len += iph->ihl * 4;
++		nexthdr = iph->protocol;
++	} else if (nexthdr == IPPROTO_IPV6) {
++		ip6h = data + nh_off + ihl_len;
++		if (ip6h + 1 > data_end)
++			return 0;
++		ihl_len += sizeof(struct ipv6hdr);
++		nexthdr = ip6h->nexthdr;
++	}
++
++	if (nexthdr == IPPROTO_TCP)
++		return tcp(data, nh_off + ihl_len, data_end);
++	else if (nexthdr == IPPROTO_UDP)
++		return udp(data, nh_off + ihl_len, data_end);
++	return 0;
++}
++
++struct vlan_hdr {
++	uint16_t h_vlan_TCI;
++	uint16_t h_vlan_encapsulated_proto;
++};
++
++SEC("varlen")
++int handle_ingress(struct __sk_buff *skb)
++{
++	void *data = (void *)(long)skb->data;
++	struct ethhdr *eth = data;
++	void *data_end = (void *)(long)skb->data_end;
++	uint64_t h_proto, nh_off;
++
++	nh_off = sizeof(*eth);
++	if (data + nh_off > data_end)
++		return 0;
++
++	h_proto = eth->h_proto;
++
++	if (h_proto == ETH_P_8021Q || h_proto == ETH_P_8021AD) {
++		struct vlan_hdr *vhdr;
++
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return 0;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
++	if (h_proto == ETH_P_8021Q || h_proto == ETH_P_8021AD) {
++		struct vlan_hdr *vhdr;
++
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return 0;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
++	if (h_proto == htons(ETH_P_IP))
++		return parse_ipv4(data, nh_off, data_end);
++	else if (h_proto == htons(ETH_P_IPV6))
++		return parse_ipv6(data, nh_off, data_end);
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/test_cls_bpf.sh b/samples/bpf/test_cls_bpf.sh
+new file mode 100755
+index 000000000000..0365d5ee512c
+--- /dev/null
++++ b/samples/bpf/test_cls_bpf.sh
+@@ -0,0 +1,37 @@
++#!/bin/bash
++
++function pktgen {
++    ../pktgen/pktgen_bench_xmit_mode_netif_receive.sh -i $IFC -s 64 \
++        -m 90:e2:ba:ff:ff:ff -d 192.168.0.1 -t 4
++    local dropped=`tc -s qdisc show dev $IFC | tail -3 | awk '/drop/{print $7}'`
++    if [ "$dropped" == "0," ]; then
++        echo "FAIL"
++    else
++        echo "Successfully filtered " $dropped " packets"
++    fi
++}
++
++function test {
++    echo -n "Loading bpf program '$2'... "
++    tc qdisc add dev $IFC clsact
++    tc filter add dev $IFC ingress bpf da obj $1 sec $2
++    local status=$?
++    if [ $status -ne 0 ]; then
++        echo "FAIL"
++    else
++        echo "ok"
++	pktgen
++    fi
++    tc qdisc del dev $IFC clsact
++}
++
++IFC=test_veth
++
++ip link add name $IFC type veth peer name pair_$IFC
++ip link set $IFC up
++ip link set pair_$IFC up
++
++test ./parse_simple.o simple
++test ./parse_varlen.o varlen
++test ./parse_ldabs.o ldabs
++ip link del dev $IFC
 -- 
 2.8.0
