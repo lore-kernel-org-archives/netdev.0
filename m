@@ -1,63 +1,53 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: fec: use ethtool_phy_{get|set}_link_ksettings
-Date: Sat,  7 May 2016 01:18:49 +0200
-Message-ID: <1462576729-5932-2-git-send-email-tremyfr@gmail.com>
-References: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: f.fainelli@gmail.com, fugang.duan@nxp.com, davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ifb: support more features
+Date: Fri, 06 May 2016 16:41:16 -0700
+Message-ID: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36078 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758602AbcEFXTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 19:19:04 -0400
-In-Reply-To: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:32781 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758804AbcEFXlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 19:41:19 -0400
+Received: by mail-pf0-f170.google.com with SMTP id 206so54810060pfu.0
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 16:41:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the generic ethtool_phy_{get|set}_link_ksettings to
-generate the callback for {get|set}_link_ksettings.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+When using ifb+netem on ingress on SIT/IPIP/GRE traffic,
+GRO packets are not properly processed.
+
+Segmentation should not be forced, as ifb is already adding
+quite a performance hit.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   25 ++-----------------------
- 1 files changed, 2 insertions(+), 23 deletions(-)
+ drivers/net/ifb.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index bfa10c3..00339d0 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2058,29 +2058,8 @@ static void fec_enet_mii_remove(struct fec_enet_private *fep)
- 	}
- }
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index cc56fac3c3f8..0cb5d8cbe679 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -197,7 +197,7 @@ static const struct net_device_ops ifb_netdev_ops = {
+ #define IFB_FEATURES (NETIF_F_HW_CSUM | NETIF_F_SG  | NETIF_F_FRAGLIST	| \
+ 		      NETIF_F_TSO_ECN | NETIF_F_TSO | NETIF_F_TSO6	| \
+ 		      NETIF_F_HIGHDMA | NETIF_F_HW_VLAN_CTAG_TX		| \
+-		      NETIF_F_HW_VLAN_STAG_TX)
++		      NETIF_F_GSO_ENCAP_ALL | NETIF_F_HW_VLAN_STAG_TX)
  
--static int fec_enet_get_link_ksettings(struct net_device *ndev,
--				       struct ethtool_link_ksettings *cmd)
--{
--	struct fec_enet_private *fep = netdev_priv(ndev);
--	struct phy_device *phydev = fep->phy_dev;
--
--	if (!phydev)
--		return -ENODEV;
--
--	return phy_ethtool_ksettings_get(phydev, cmd);
--}
--
--static int fec_enet_set_link_ksettings(struct net_device *ndev,
--				       const struct ethtool_link_ksettings *cmd)
--{
--	struct fec_enet_private *fep = netdev_priv(ndev);
--	struct phy_device *phydev = fep->phy_dev;
--
--	if (!phydev)
--		return -ENODEV;
--
--	return phy_ethtool_ksettings_set(phydev, cmd);
--}
-+ethtool_phy_get_link_ksettings(fec_enet, fec_enet_private, phy_dev);
-+ethtool_phy_set_link_ksettings(fec_enet, fec_enet_private, phy_dev);
+ static void ifb_dev_free(struct net_device *dev)
+ {
+@@ -224,6 +224,7 @@ static void ifb_setup(struct net_device *dev)
+ 	dev->tx_queue_len = TX_Q_LIMIT;
  
- static void fec_enet_get_drvinfo(struct net_device *ndev,
- 				 struct ethtool_drvinfo *info)
--- 
-1.7.4.4
+ 	dev->features |= IFB_FEATURES;
++	dev->hw_features |= NETIF_F_GSO_ENCAP_ALL;
+ 	dev->vlan_features |= IFB_FEATURES & ~(NETIF_F_HW_VLAN_CTAG_TX |
+ 					       NETIF_F_HW_VLAN_STAG_TX);
+ 
