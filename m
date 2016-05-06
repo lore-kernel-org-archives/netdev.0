@@ -1,85 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/11][pull request] 40GbE Intel Wired LAN Driver Updates 2016-05-05
-Date: Fri,  6 May 2016 00:03:37 -0700
-Message-ID: <1462518228-30527-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 10/11] i40e: fix misleading indentation
+Date: Fri,  6 May 2016 00:03:47 -0700
+Message-ID: <1462518228-30527-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1462518228-30527-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:40771 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752531AbcEFHG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 May 2016 03:06:28 -0400
+	id S1757957AbcEFHGg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 May 2016 03:06:36 -0400
+In-Reply-To: <1462518228-30527-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Arnd Bergmann <arnd@arndb.de>
 
-The theme behind this series is code reduction, yeah!  Jesse provides
-most of the changes starting with a refactor of the interpretation of
-a tunnel which lets us start using the hardware's parsing.  Removed
-the packet split receive routine and ancillary code in preparation
-for the Rx-refactor.  The refactor of the receive routine,
-aligns the receive routine with the one in ixgbe which was highly
-optimized.  The hardware supports a 16 byte descriptor for receive,
-but the driver was never using it in production.  There was no performance
-benefit to the real driver of 16 byte descriptors, so drop a whole lot
-of complexity while getting rid of the code.  Fixed a bug where while
-changing the number of descriptors using ethtool, the driver did not
-test the limits of the system memory before permanently assuming it
-would be able to get receive buffer memory.
+Newly added code in i40e_vc_config_promiscuous_mode_msg() is indented
+in a way that gcc rightly complains about:
 
-Mitch fixes a memory leak of one page each time the driver is opened by
-allocating the correct number of receive buffers and do not fiddle with
-next_to_use in the VF driver.
+drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c: In function 'i40e_vc_config_promiscuous_mode_msg':
+drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c:1543:4: error: this 'if' clause does not guard... [-Werror=misleading-indentation]
+    if (f->vlan >= 0 && f->vlan <= I40E_MAX_VLANID)
+    ^~
+drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c:1550:5: note: ...this statement, but the latter is misleadingly indented as if it is guarded by the 'if'
+     aq_err = pf->hw.aq.asq_last_status;
 
-Arnd Bergmann fixed a indentation issue by adding the appropriate
-curly braces in i40e_vc_config_promiscuous_mode_msg().
+>From the context, it looks like the aq_err assignment was meant to be
+inside of the conditional expression, so I'm adding the appropriate
+curly braces now.
 
-Julia Lawall fixed an issue found by Coccinelle, where i40e_client_ops
-structure can be const since it is never modified.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 5676a8b9cd9a ("i40e: Add VF promiscuous mode driver support")
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-The following are changes since commit 035cd6ba53eff060760c4f4d11339fcc916a967c:
-  MAINTAINERS: Cleanup Intel Wired LAN maintainers list
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Arnd Bergmann (1):
-  i40e: fix misleading indentation
-
-Jesse Brandeburg (8):
-  i40e/i40evf: Refactor tunnel interpretation
-  i40e: Drop packet split receive routine
-  i40e/i40evf: Remove reference to ring->dtype
-  i40e: Refactor receive routine
-  i40evf: Drop packet split receive routine
-  i40evf: refactor receive routine
-  i40e/i40evf: Remove unused hardware receive descriptor code
-  i40e: Test memory before ethtool alloc succeeds
-
-Julia Lawall (1):
-  i40e: constify i40e_client_ops structure
-
-Mitch Williams (1):
-  i40evf: Allocate Rx buffers properly
-
- drivers/infiniband/hw/i40iw/i40iw_main.c           |   2 +-
- drivers/net/ethernet/intel/i40e/i40e.h             |  11 +-
- drivers/net/ethernet/intel/i40e/i40e_client.h      |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  31 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  54 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  73 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 968 ++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  69 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   5 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 930 ++++++++++----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  69 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   7 -
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  65 --
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  34 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   4 -
- 15 files changed, 1062 insertions(+), 1262 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 36aa33a..a9b04e7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1544,7 +1544,7 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
+ 	} else if (i40e_getnum_vf_vsi_vlan_filters(vsi)) {
+ 		list_for_each_entry(f, &vsi->mac_filter_list, list) {
+ 			aq_ret = 0;
+-			if (f->vlan >= 0 && f->vlan <= I40E_MAX_VLANID)
++			if (f->vlan >= 0 && f->vlan <= I40E_MAX_VLANID) {
+ 				aq_ret =
+ 				i40e_aq_set_vsi_uc_promisc_on_vlan(hw,
+ 								   vsi->seid,
+@@ -1552,6 +1552,7 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
+ 								   f->vlan,
+ 								   NULL);
+ 				aq_err = pf->hw.aq.asq_last_status;
++			}
+ 			if (aq_ret)
+ 				dev_err(&pf->pdev->dev,
+ 					"Could not add VLAN %d to Unicast promiscuous domain err %s aq_err %s\n",
 -- 
 2.5.5
