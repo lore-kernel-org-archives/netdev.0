@@ -1,49 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 2/2] udp_offload: Set encapsulation before inner
- completes.
-Date: Fri, 06 May 2016 15:34:12 -0400 (EDT)
-Message-ID: <20160506.153412.1756777490005831525.davem@davemloft.net>
-References: <1462317021-7236-1-git-send-email-jarno@ovn.org>
-	<1462317021-7236-2-git-send-email-jarno@ovn.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/3] net/mlx5e: make VXLAN support conditional
+Date: Fri, 06 May 2016 15:35:56 -0400 (EDT)
+Message-ID: <20160506.153556.1442520532117922001.davem@davemloft.net>
+References: <1462365116-3856622-1-git-send-email-arnd@arndb.de>
+	<CALzJLG885q-Nm4xD3FobvY4A9RhLAV3jLwfAWdJwyDOid+tJ6g@mail.gmail.com>
+	<4306900.EI0LQtX7kx@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	tom@herbertland.com
-To: jarno@ovn.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48674 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758809AbcEFTeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 15:34:16 -0400
-In-Reply-To: <1462317021-7236-2-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	matt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, achiad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	galp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4306900.EI0LQtX7kx@wuerfel>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jarno@ovn.org>
-Date: Tue,  3 May 2016 16:10:21 -0700
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Date: Thu, 05 May 2016 20:09:19 +0200
 
-> UDP tunnel segmentation code relies on the inner offsets being set for
-> an UDP tunnel GSO packet, but the inner *_complete() functions will
-> set the inner offsets only if 'encapsulation' is set before calling
-> them.  Currently, udp_gro_complete() sets 'encapsulation' only after
-> the inner *_complete() functions are done.  This causes the inner
-> offsets having invalid values after udp_gro_complete() returns, which
-> in turn will make it impossible to properly segment the packet in case
-> it needs to be forwarded, which would be visible to the user either as
-> invalid packets being sent or as packet loss.
-> 
-> This patch fixes this by setting skb's 'encapsulation' in
-> udp_gro_complete() before calling into the inner complete functions,
-> and by making each possible UDP tunnel gro_complete() callback set the
-> inner_mac_header to the beginning of the tunnel payload.
-> 
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
-> v3: Added setting inner_mac_header from all possible callbacks to cover
->     cases where there is no inner mac header.
+> For reference, I've tried it out on the MLX4 driver, and it does
+> seem nicer that way, see below.
 
-Alex and Tom, can you please review this new version since you guys had
-so much feedback for v2?
+Is it possible to wind down this conversation and have someone submit
+whatever final patch everyone agrees to?
 
-THanks.
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
