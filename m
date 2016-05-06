@@ -1,304 +1,214 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 next-next 07/12] fou: Add encap ops for IPv6 tunnels
-Date: Fri, 6 May 2016 13:04:51 -0700
-Message-ID: <1462565096-4076043-8-git-send-email-tom@herbertland.com>
-References: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
+From: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/3] net/mlx5e: make VXLAN support conditional
+Date: Fri, 6 May 2016 13:12:49 -0700
+Message-ID: <CAKgT0UcHtsnCb48SM6afYcuigd-7L0zSbNMeGJao9YLra4FDmw@mail.gmail.com>
+References: <1462364774-3792510-1-git-send-email-arnd@arndb.de>
+	<1462365116-3856622-1-git-send-email-arnd@arndb.de>
+	<CALzJLG885q-Nm4xD3FobvY4A9RhLAV3jLwfAWdJwyDOid+tJ6g@mail.gmail.com>
+	<4306900.EI0LQtX7kx@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58429 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758758AbcEFUFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:05:55 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K5dgl020207
-	for <netdev@vger.kernel.org>; Fri, 6 May 2016 13:05:54 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22s15pgad6-10
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:05:54 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- e38281b613c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
- 06 May 2016 13:05:32 -0700
-In-Reply-To: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Matthew Finlay <matt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Haggai Abramonvsky <hagaya-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Achiad Shochat <achiad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Gal Pressman <galp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4306900.EI0LQtX7kx@wuerfel>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Thsi packet adds IP tunnel encapsulation operations for IPv6. This
-includes the infrastructure to add and delete operations. IPv6 variants
-for fou6_build_header and gue6_build_header are added in a new
-fou6 module. These encapsulation operations for fou and gue are
-automatically added when the fou6 module loads.
+On Thu, May 5, 2016 at 11:09 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> On Thursday 05 May 2016 19:44:36 Saeed Mahameed wrote:
+>> On Wed, May 4, 2016 at 3:31 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+>> > VXLAN can be disabled at compile-time or it can be a loadable
+>> > module while mlx5 is built-in, which leads to a link error:
+>> >
+>> > drivers/net/built-in.o: In function `mlx5e_create_netdev':
+>> > ntb_netdev.c:(.text+0x106de4): undefined reference to `vxlan_get_rx_port'
+>> >
+>> > This avoids the link error and makes the vxlan code optional,
+>> > like the other ethernet drivers do as well.
+>> >
+>> > Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+>> > Link: https://patchwork.ozlabs.org/patch/589296/
+>> > Fixes: b3f63c3d5e2c ("net/mlx5e: Add netdev support for VXLAN tunneling")
+>> > ---
+>> > I sent it originally on Feb 26 2016, but misread Saeed Mahameed's
+>> > reply as saying that he'd fix it up himself. The new version
+>> > should address the original comment.
+>> > ---
+>>
+>> Hi Arnd,
+>>
+>> I didn't post a fix up since it is not needed anymore, see
+>> b7aade15485a ('vxlan: break dependency with netdev drivers') in
+>> net-next.
+>>
+>> The new issue is introduced due to : "net/mlx5: Kconfig: Fix
+>> MLX5_EN/VXLAN build issue" which was merged from net tree.
+>>
+>> Dave shouldn't have merged it into net-next, I explicitly asked him
+>> that in the cover letter.  Maybe he missed it.
+>>
+>> I just checked and It is sufficient to only take the revert patch:
+>> [PATCH 1/3] Revert "net/mlx5: Kconfig: Fix MLX5_EN/VXLAN build issue"
+>> to net-next.
+>>
+>> Can you please confirm that with only the revert patch, you don't see
+>> the issue ?
+>
+> Yes, it works, but not it is different from all the other drivers
+> (MLX4, BENET, IXGBE, I40E, FM10K, QLCNIC, and QEDE). If the 'select
+> VXLAN' is not the preferred way to handle this, we should change
+> the other ones the same way, right?
+>
+> For reference, I've tried it out on the MLX4 driver, and it does
+> seem nicer that way, see below.
+>
+>         Arnd
+> ---
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> in case someone wants to pick up that patch and do the other
+> ones as well.
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+> index 9ca3734ebb6b..88fff4484200 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
+> +++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+> @@ -6,6 +6,7 @@ config MLX4_EN
+>         tristate "Mellanox Technologies 1/10/40Gbit Ethernet support"
+>         depends on MAY_USE_DEVLINK
+>         depends on PCI
+> +       select VXLAN
+>         select MLX4_CORE
+>         select PTP_1588_CLOCK
+>         ---help---
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/net/fou.h          |   2 +-
- include/net/ip6_tunnel.h   |  14 +++++
- net/ipv6/Makefile          |   4 +-
- net/ipv6/fou6.c            | 140 +++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/ip6_tunnel_core.c |  44 ++++++++++++++
- 5 files changed, 202 insertions(+), 2 deletions(-)
- create mode 100644 net/ipv6/fou6.c
- create mode 100644 net/ipv6/ip6_tunnel_core.c
+This piece is unnecessary and unwanted.  We just recently added the
+ability to load the modules without the need for VXLAN.  Lets not take
+that in the wrong direction by having the drivers select a module they
+don't have to have.
 
-diff --git a/include/net/fou.h b/include/net/fou.h
-index 7d2fda2..f5cc691 100644
---- a/include/net/fou.h
-+++ b/include/net/fou.h
-@@ -9,7 +9,7 @@
- #include <net/udp.h>
- 
- size_t fou_encap_hlen(struct ip_tunnel_encap *e);
--static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
-+size_t gue_encap_hlen(struct ip_tunnel_encap *e);
- 
- int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 		       u8 *protocol, __be16 *sport, int type);
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index fb9e015..1c14c27 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -34,6 +34,20 @@ struct __ip6_tnl_parm {
- 	__be32			o_key;
- };
- 
-+struct ip6_tnl_encap_ops {
-+	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
-+	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+			    u8 *protocol, struct flowi6 *fl6);
-+};
-+
-+extern const struct ip6_tnl_encap_ops __rcu *
-+		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS];
-+
-+int ip6_tnl_encap_add_ops(const struct ip6_tnl_encap_ops *op,
-+			  unsigned int num);
-+int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *op,
-+			  unsigned int num);
-+
- /* IPv6 tunnel */
- struct ip6_tnl {
- 	struct ip6_tnl __rcu *next;	/* next tunnel in list */
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 5e9d6bf..5cf4a1f 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -9,7 +9,7 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
- 		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o ping.o \
- 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o \
--		udp_offload.o
-+		udp_offload.o ip6_tunnel_core.o
- 
- ipv6-offload :=	ip6_offload.o tcpv6_offload.o exthdrs_offload.o
- 
-@@ -43,6 +43,8 @@ obj-$(CONFIG_IPV6_SIT) += sit.o
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
- obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
- 
-+obj-$(CONFIG_NET_FOU) += fou6.o
-+
- obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
- obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
- 
-diff --git a/net/ipv6/fou6.c b/net/ipv6/fou6.c
-new file mode 100644
-index 0000000..c972d0b
---- /dev/null
-+++ b/net/ipv6/fou6.c
-@@ -0,0 +1,140 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <net/fou.h>
-+#include <net/ip.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
-+#include <net/protocol.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+
-+static void fou6_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+			   struct flowi6 *fl6, u8 *protocol, __be16 sport)
-+{
-+	struct udphdr *uh;
-+
-+	skb_push(skb, sizeof(struct udphdr));
-+	skb_reset_transport_header(skb);
-+
-+	uh = udp_hdr(skb);
-+
-+	uh->dest = e->dport;
-+	uh->source = sport;
-+	uh->len = htons(skb->len);
-+	udp6_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM6), skb,
-+		      &fl6->saddr, &fl6->daddr, skb->len);
-+
-+	*protocol = IPPROTO_UDP;
-+}
-+
-+int fou6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+		      u8 *protocol, struct flowi6 *fl6)
-+{
-+	__be16 sport;
-+	int err;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
-+		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	err = __fou_build_header(skb, e, protocol, &sport, type);
-+	if (err)
-+		return err;
-+
-+	fou6_build_udp(skb, e, fl6, protocol, sport);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(fou6_build_header);
-+
-+int gue6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+		      u8 *protocol, struct flowi6 *fl6)
-+{
-+	__be16 sport;
-+	int err;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
-+		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	err = __gue_build_header(skb, e, protocol, &sport, type);
-+	if (err)
-+		return err;
-+
-+	fou6_build_udp(skb, e, fl6, protocol, sport);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(gue6_build_header);
-+
-+#ifdef CONFIG_NET_FOU_IP_TUNNELS
-+
-+static const struct ip6_tnl_encap_ops fou_ip6tun_ops = {
-+	.encap_hlen = fou_encap_hlen,
-+	.build_header = fou6_build_header,
-+};
-+
-+static const struct ip6_tnl_encap_ops gue_ip6tun_ops = {
-+	.encap_hlen = gue_encap_hlen,
-+	.build_header = gue6_build_header,
-+};
-+
-+static int ip6_tnl_encap_add_fou_ops(void)
-+{
-+	int ret;
-+
-+	ret = ip6_tnl_encap_add_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+	if (ret < 0) {
-+		pr_err("can't add fou6 ops\n");
-+		return ret;
-+	}
-+
-+	ret = ip6_tnl_encap_add_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
-+	if (ret < 0) {
-+		pr_err("can't add gue6 ops\n");
-+		ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static void ip6_tnl_encap_del_fou_ops(void)
-+{
-+	ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+	ip6_tnl_encap_del_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
-+}
-+
-+#else
-+
-+static int ip6_tnl_encap_add_fou_ops(void)
-+{
-+	return 0;
-+}
-+
-+static void ip6_tnl_encap_del_fou_ops(void)
-+{
-+}
-+
-+#endif
-+
-+static int __init fou6_init(void)
-+{
-+	int ret;
-+
-+	ret = ip6_tnl_encap_add_fou_ops();
-+
-+	return ret;
-+}
-+
-+static void __exit fou6_fini(void)
-+{
-+	ip6_tnl_encap_del_fou_ops();
-+}
-+
-+module_init(fou6_init);
-+module_exit(fou6_fini);
-+MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
-+MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/ip6_tunnel_core.c b/net/ipv6/ip6_tunnel_core.c
-new file mode 100644
-index 0000000..5f5b79e
---- /dev/null
-+++ b/net/ipv6/ip6_tunnel_core.c
-@@ -0,0 +1,44 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/if.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/net.h>
-+#include <linux/in6.h>
-+#include <net/ip6_tunnel.h>
-+
-+const struct ip6_tnl_encap_ops __rcu *
-+		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
-+EXPORT_SYMBOL(ip6tun_encaps);
-+
-+int ip6_tnl_encap_add_ops(const struct ip6_tnl_encap_ops *ops,
-+			  unsigned int num)
-+{
-+	if (num >= MAX_IPTUN_ENCAP_OPS)
-+		return -ERANGE;
-+
-+	return !cmpxchg((const struct ip6_tnl_encap_ops **)
-+			&ip6tun_encaps[num],
-+			NULL, ops) ? 0 : -1;
-+}
-+EXPORT_SYMBOL(ip6_tnl_encap_add_ops);
-+
-+int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *ops,
-+			  unsigned int num)
-+{
-+	int ret;
-+
-+	if (num >= MAX_IPTUN_ENCAP_OPS)
-+		return -ERANGE;
-+
-+	ret = (cmpxchg((const struct ip6_tnl_encap_ops **)
-+		       &ip6tun_encaps[num],
-+		       ops, NULL) == ops) ? 0 : -1;
-+
-+	synchronize_net();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(ip6_tnl_encap_del_ops);
-+
--- 
-2.8.0.rc2
+The rest of this code is probably fine.  After the dependency was
+broken via b7aade15485a ('vxlan: break dependency with netdev
+drivers') you could probably go through and just pull all the VXLAN
+ifdefs from all the drivers since I don't think there is anything that
+explicitly relies on that module anymore as the only export still
+hanging around is vxlan_dev_create and I don't think any Ethernet
+drivers are directly spawning VXLAN interfaces.
+
+> @@ -24,13 +25,6 @@ config MLX4_EN_DCB
+>
+>           If unsure, set to Y
+>
+> -config MLX4_EN_VXLAN
+> -       bool "VXLAN offloads Support"
+> -       default y
+> -       depends on MLX4_EN && VXLAN && !(MLX4_EN=y && VXLAN=m)
+> -       ---help---
+> -         Say Y here if you want to use VXLAN offloads in the driver.
+> -
+>  config MLX4_CORE
+>         tristate
+>         depends on PCI
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 6f28ac58251c..ad887c425f2d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -1691,10 +1691,8 @@ int mlx4_en_start_port(struct net_device *dev)
+>         /* Schedule multicast task to populate multicast list */
+>         queue_work(mdev->workqueue, &priv->rx_mode_task);
+>
+> -#ifdef CONFIG_MLX4_EN_VXLAN
+>         if (priv->mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+>                 vxlan_get_rx_port(dev);
+> -#endif
+>         priv->port_up = true;
+>         netif_tx_start_all_queues(dev);
+>         netif_device_attach(dev);
+> @@ -2337,7 +2335,6 @@ static int mlx4_en_get_phys_port_id(struct net_device *dev,
+>         return 0;
+>  }
+>
+> -#ifdef CONFIG_MLX4_EN_VXLAN
+>  static void mlx4_en_add_vxlan_offloads(struct work_struct *work)
+>  {
+>         int ret;
+> @@ -2448,7 +2445,6 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+>
+>         return features;
+>  }
+> -#endif
+>
+>  static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
+>  {
+> @@ -2501,11 +2497,9 @@ static const struct net_device_ops mlx4_netdev_ops = {
+>         .ndo_rx_flow_steer      = mlx4_en_filter_rfs,
+>  #endif
+>         .ndo_get_phys_port_id   = mlx4_en_get_phys_port_id,
+> -#ifdef CONFIG_MLX4_EN_VXLAN
+>         .ndo_add_vxlan_port     = mlx4_en_add_vxlan_port,
+>         .ndo_del_vxlan_port     = mlx4_en_del_vxlan_port,
+>         .ndo_features_check     = mlx4_en_features_check,
+> -#endif
+>         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
+>  };
+>
+> @@ -2539,11 +2533,9 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+>         .ndo_rx_flow_steer      = mlx4_en_filter_rfs,
+>  #endif
+>         .ndo_get_phys_port_id   = mlx4_en_get_phys_port_id,
+> -#ifdef CONFIG_MLX4_EN_VXLAN
+>         .ndo_add_vxlan_port     = mlx4_en_add_vxlan_port,
+>         .ndo_del_vxlan_port     = mlx4_en_del_vxlan_port,
+>         .ndo_features_check     = mlx4_en_features_check,
+> -#endif
+>         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
+>  };
+>
+> @@ -2834,10 +2826,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+>         INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
+>         INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
+>         INIT_DELAYED_WORK(&priv->service_task, mlx4_en_service_task);
+> -#ifdef CONFIG_MLX4_EN_VXLAN
+>         INIT_WORK(&priv->vxlan_add_task, mlx4_en_add_vxlan_offloads);
+>         INIT_WORK(&priv->vxlan_del_task, mlx4_en_del_vxlan_offloads);
+> -#endif
+>  #ifdef CONFIG_RFS_ACCEL
+>         INIT_LIST_HEAD(&priv->filters);
+>         spin_lock_init(&priv->filters_lock);
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index 63b1aeae2c03..cbab8741d60f 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -546,10 +546,8 @@ struct mlx4_en_priv {
+>         struct work_struct linkstate_task;
+>         struct delayed_work stats_task;
+>         struct delayed_work service_task;
+> -#ifdef CONFIG_MLX4_EN_VXLAN
+>         struct work_struct vxlan_add_task;
+>         struct work_struct vxlan_del_task;
+> -#endif
+>         struct mlx4_en_perf_stats pstats;
+>         struct mlx4_en_pkt_stats pkstats;
+>         struct mlx4_en_counter_stats pf_stats;
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
