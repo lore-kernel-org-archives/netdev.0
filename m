@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 02/21] net: dsa: mv88e6xxx: factorize PHY access with PPU
-Date: Fri,  6 May 2016 17:57:04 -0400
-Message-ID: <1462571843-14397-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 10/21] net: dsa: mv88e6xxx: factorize VTU access
+Date: Fri,  6 May 2016 17:57:12 -0400
+Message-ID: <1462571843-14397-11-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,288 +9,168 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:43084 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759078AbcEFV6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 17:58:07 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a MV88E6XXX_FLAG_PPU flag to describe switch models with a PHY
-Polling Unit. This allows to merge PPU specific PHY access code in the
-share code.
-
-Make the mv88e6xxx_ppu_disable and mv88e6xxx_phy_{read,write}_ppu
-functions use unlocked register accesses in order to call them in
-mv88e6xxx_phy_{read,write} in a locked context.
-
-Since the PPU code is shared, also remove NET_DSA_MV88E6XXX_NEED_PPU.
+Add a MV88E6XXX_FLAG_VTU flag to indentify switch models with a VLAN
+Table Unit.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/Kconfig     |  5 -----
- drivers/net/dsa/mv88e6131.c | 39 ++-------------------------------------
- drivers/net/dsa/mv88e6xxx.c | 40 +++++++++++++++++++++++++---------------
- drivers/net/dsa/mv88e6xxx.h | 25 ++++++++++++++++---------
- 4 files changed, 43 insertions(+), 66 deletions(-)
+ drivers/net/dsa/mv88e6123.c |  5 +++++
+ drivers/net/dsa/mv88e6xxx.c | 16 ++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h | 24 ++++++++++++++++++------
+ 3 files changed, 39 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 90ba003..4aaadce 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -13,15 +13,10 @@ config NET_DSA_MV88E6060
- 	  This enables support for the Marvell 88E6060 ethernet switch
- 	  chip.
- 
--config NET_DSA_MV88E6XXX_NEED_PPU
--	bool
--	default n
--
- config NET_DSA_MV88E6131
- 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
- 	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
--	select NET_DSA_MV88E6XXX_NEED_PPU
- 	select NET_DSA_TAG_DSA
- 	---help---
- 	  This enables support for the Marvell 88E6085/6095/6095F/6131
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index d477320..9d21d69 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -132,8 +132,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	mv88e6xxx_ppu_state_init(ps);
--
- 	ret = mv88e6xxx_switch_reset(ps, false);
- 	if (ret < 0)
- 		return ret;
-@@ -145,46 +143,13 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 	return mv88e6xxx_setup_ports(ds);
- }
- 
--static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--
--	if (port >= 0 && port < ps->info->num_ports)
--		return port;
--
--	return -EINVAL;
--}
--
--static int
--mv88e6131_phy_read(struct dsa_switch *ds, int port, int regnum)
--{
--	int addr = mv88e6131_port_to_phy_addr(ds, port);
--
--	if (addr < 0)
--		return addr;
--
--	return mv88e6xxx_phy_read_ppu(ds, addr, regnum);
--}
--
--static int
--mv88e6131_phy_write(struct dsa_switch *ds,
--			      int port, int regnum, u16 val)
--{
--	int addr = mv88e6131_port_to_phy_addr(ds, port);
--
--	if (addr < 0)
--		return addr;
--
--	return mv88e6xxx_phy_write_ppu(ds, addr, regnum, val);
--}
--
- struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_DSA,
- 	.probe			= mv88e6131_drv_probe,
- 	.setup			= mv88e6131_setup,
- 	.set_addr		= mv88e6xxx_set_addr_direct,
--	.phy_read		= mv88e6131_phy_read,
--	.phy_write		= mv88e6131_phy_write,
-+	.phy_read		= mv88e6xxx_phy_read,
-+	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 470cfc7..a28b46c 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -241,24 +241,23 @@ static int _mv88e6xxx_phy_write(struct mv88e6xxx_priv_state *ps, int addr,
- 	return 0;
- }
- 
--#ifdef CONFIG_NET_DSA_MV88E6XXX_NEED_PPU
- static int mv88e6xxx_ppu_disable(struct mv88e6xxx_priv_state *ps)
- {
- 	int ret;
- 	unsigned long timeout;
- 
--	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_CONTROL);
-+	ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_CONTROL);
- 	if (ret < 0)
- 		return ret;
- 
--	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  ret & ~GLOBAL_CONTROL_PPU_ENABLE);
-+	ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
-+				   ret & ~GLOBAL_CONTROL_PPU_ENABLE);
- 	if (ret)
- 		return ret;
- 
- 	timeout = jiffies + 1 * HZ;
- 	while (time_before(jiffies, timeout)) {
--		ret = mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_STATUS);
-+		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_STATUS);
- 		if (ret < 0)
- 			return ret;
- 
-@@ -361,35 +360,33 @@ void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
- 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
- }
- 
--int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
-+static int mv88e6xxx_phy_read_ppu(struct mv88e6xxx_priv_state *ps, int addr,
-+				  int regnum)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
- 	ret = mv88e6xxx_ppu_access_get(ps);
- 	if (ret >= 0) {
--		ret = mv88e6xxx_reg_read(ps, addr, regnum);
-+		ret = _mv88e6xxx_reg_read(ps, addr, regnum);
- 		mv88e6xxx_ppu_access_put(ps);
- 	}
- 
- 	return ret;
- }
- 
--int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
--			    int regnum, u16 val)
-+static int mv88e6xxx_phy_write_ppu(struct mv88e6xxx_priv_state *ps, int addr,
-+				   int regnum, u16 val)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
- 	ret = mv88e6xxx_ppu_access_get(ps);
- 	if (ret >= 0) {
--		ret = mv88e6xxx_reg_write(ps, addr, regnum, val);
-+		ret = _mv88e6xxx_reg_write(ps, addr, regnum, val);
- 		mv88e6xxx_ppu_access_put(ps);
- 	}
- 
- 	return ret;
- }
--#endif
- 
- static bool mv88e6xxx_6065_family(struct mv88e6xxx_priv_state *ps)
- {
-@@ -2599,6 +2596,9 @@ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
- 
- 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
- 
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
-+		mv88e6xxx_ppu_state_init(ps);
-+
- 	return 0;
- }
- 
-@@ -2884,7 +2884,12 @@ mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
- 		return 0xffff;
- 
- 	mutex_lock(&ps->smi_mutex);
--	ret = _mv88e6xxx_phy_read(ps, addr, regnum);
-+
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
-+		ret = mv88e6xxx_phy_read_ppu(ps, addr, regnum);
-+	else
-+		ret = _mv88e6xxx_phy_read(ps, addr, regnum);
-+
- 	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
-@@ -2900,7 +2905,12 @@ mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
- 		return 0xffff;
- 
- 	mutex_lock(&ps->smi_mutex);
--	ret = _mv88e6xxx_phy_write(ps, addr, regnum, val);
-+
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
-+		ret = mv88e6xxx_phy_write_ppu(ps, addr, regnum, val);
-+	else
-+		ret = _mv88e6xxx_phy_write(ps, addr, regnum, val);
-+
- 	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index c67b72a..52ca24e 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -350,13 +350,26 @@ enum mv88e6xxx_family {
- 	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 81cd4a9..da5aa9c 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -136,6 +136,11 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
++	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
++	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
++	.port_vlan_add		= mv88e6xxx_port_vlan_add,
++	.port_vlan_del		= mv88e6xxx_port_vlan_del,
++	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
  };
  
--#define MV88E6XXX_FLAGS_FAMILY_6095	0
-+enum mv88e6xxx_cap {
-+	/* PHY Polling Unit.
-+	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
-+	 */
-+	MV88E6XXX_CAP_PPU,
-+};
+ MODULE_ALIAS("platform:mv88e6123");
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 492cb24..7994486 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1588,6 +1588,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+ 	u16 pvid;
+ 	int err;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
 +
-+/* Bitmask of capabilities */
-+#define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ 	mutex_lock(&ps->smi_mutex);
  
--#define MV88E6XXX_FLAGS_FAMILY_6097	0
-+#define MV88E6XXX_FLAGS_FAMILY_6095	\
-+	MV88E6XXX_FLAG_PPU
+ 	err = _mv88e6xxx_port_pvid_get(ps, port, &pvid);
+@@ -2011,6 +2014,9 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+ 		PORT_CONTROL_2_8021Q_DISABLED;
+ 	int ret;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
 +
-+#define MV88E6XXX_FLAGS_FAMILY_6097	\
-+	MV88E6XXX_FLAG_PPU
+ 	mutex_lock(&ps->smi_mutex);
  
- #define MV88E6XXX_FLAGS_FAMILY_6165	0
+ 	ret = _mv88e6xxx_reg_read(ps, REG_PORT(port), PORT_CONTROL_2);
+@@ -2044,8 +2050,12 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int err;
  
--#define MV88E6XXX_FLAGS_FAMILY_6185	0
-+#define MV88E6XXX_FLAGS_FAMILY_6185	\
-+	MV88E6XXX_FLAG_PPU
- 
- #define MV88E6XXX_FLAGS_FAMILY_6320	0
- 
-@@ -418,7 +431,6 @@ struct mv88e6xxx_priv_state {
- 	struct mii_bus *bus;
- 	int sw_addr;
- 
--#ifdef CONFIG_NET_DSA_MV88E6XXX_NEED_PPU
- 	/* Handles automatic disabling and re-enabling of the PHY
- 	 * polling unit.
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
++
+ 	/* If the requested port doesn't belong to the same bridge as the VLAN
+ 	 * members, do not support it (yet) and fallback to software VLAN.
  	 */
-@@ -426,7 +438,6 @@ struct mv88e6xxx_priv_state {
- 	int			ppu_disabled;
- 	struct work_struct	ppu_work;
- 	struct timer_list	ppu_timer;
--#endif
+@@ -2086,6 +2096,9 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
+ 	u16 vid;
  
- 	/* This mutex serialises access to the statistics unit.
- 	 * Hold this mutex over snapshot + dump sequences.
-@@ -489,10 +500,6 @@ int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val);
- int mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum);
- int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
- 				 u16 val);
--void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps);
--int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum);
--int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
--			    int regnum, u16 val);
- void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
- void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
- 				 uint64_t *data);
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
+@@ -2143,6 +2156,9 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 	u16 pvid, vid;
+ 	int err = 0;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	err = _mv88e6xxx_port_pvid_get(ps, port, &pvid);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index d15e0b3..4f21206 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -394,6 +394,11 @@ enum mv88e6xxx_cap {
+ 	 * the output (or egress) ports to which it is allowed to send frames.
+ 	 */
+ 	MV88E6XXX_CAP_VLANTABLE,
++
++	/* VLAN Table Unit.
++	 * The VTU is used to program 802.1Q VLANs. See GLOBAL_VTU_OP.
++	 */
++	MV88E6XXX_CAP_VTU,
+ };
+ 
+ /* Bitmask of capabilities */
+@@ -406,14 +411,17 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+ #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
+ #define MV88E6XXX_FLAG_VLANTABLE	BIT(MV88E6XXX_CAP_VLANTABLE)
++#define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6095	\
+ 	(MV88E6XXX_FLAG_PPU |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+ 	(MV88E6XXX_FLAG_PPU |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+ 	(MV88E6XXX_FLAG_SWITCH_MAC |	\
+@@ -421,7 +429,8 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	(MV88E6XXX_FLAG_PPU |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6320	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+@@ -431,14 +440,16 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	(MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+@@ -448,7 +459,8 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ struct mv88e6xxx_info {
+ 	enum mv88e6xxx_family family;
 -- 
 2.8.2
