@@ -1,40 +1,131 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] Add support for configuring Infiniband GUIDs
-Date: Fri, 6 May 2016 11:53:41 -0700
-Message-ID: <20160506115341.5b8d4587@xeon-e3>
-References: <1462549405-16003-1-git-send-email-eli@mellanox.com>
+From: Roman Yeryomin <leroi.lists@gmail.com>
+Subject: Re: OpenWRT wrong adjustment of fq_codel defaults (Was:
+ fq_codel_drop vs a udp flood)
+Date: Fri, 6 May 2016 21:56:58 +0300
+Message-ID: <CACiydb+A_vFNdp7tbw67Rnp+kHwt5GsLa+Su+pO8YmOZYp_KHg@mail.gmail.com>
+References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
+ <1462125592.5535.194.camel@edumazet-glaptop3.roam.corp.google.com>
+ <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
+ <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
+ <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
+ <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
+ <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
+ <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
+ <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
+ <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160506114243.4eb4f95e@redhat.com>
+ <20160506144740.210901f5@redhat.com>
+ <CACiydbL3qZrvZ4a_OUXiN0dp7qdqOktaQdAUdfOpKkZ1OfEZbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-To: Eli Cohen <eli@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35743 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756380AbcEFSx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 14:53:29 -0400
-Received: by mail-pa0-f45.google.com with SMTP id iv1so50061225pac.2
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 11:53:29 -0700 (PDT)
-In-Reply-To: <1462549405-16003-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: make-wifi-fast@lists.bufferbloat.net,
+ =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+ ath10k <ath10k@lists.infradead.org>,
+ "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Jonathan Morton <chromatix99@gmail.com>,
+ OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+ Felix Fietkau <nbd@nbd.name>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <CACiydbL3qZrvZ4a_OUXiN0dp7qdqOktaQdAUdfOpKkZ1OfEZbA@mail.gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+ <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+ <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Errors-To: codel-bounces@lists.bufferbloat.net
+Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
+List-Id: netdev.vger.kernel.org
 
-On Fri,  6 May 2016 10:43:25 -0500
-Eli Cohen <eli@mellanox.com> wrote:
-
-> Add two NLA's that allow configuration of Infiniband node or port GUIDs
-> by referencing the IPoIB net device set over then physical function. The
-> format to be used is as follows:
-> 
-> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
-> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
-> 
-> Issue: 702759
-> Change-Id: I5ffb54d6de7bfa8650bf5818f484279914991d6e
-> Signed-off-by: Eli Cohen <eli@mellanox.com>
-
-I am not that familiar with Infiniband, but the documentation seems
-to use a non-colon form:
- # ip link set dev ib0 vf 0 node_guid 0002c90300216e70
-
-Seems like ip should follow the lead of ibstat and friends.
+T24gNiBNYXkgMjAxNiBhdCAyMTo0MywgUm9tYW4gWWVyeW9taW4gPGxlcm9pLmxpc3RzQGdtYWls
+LmNvbT4gd3JvdGU6Cj4gT24gNiBNYXkgMjAxNiBhdCAxNTo0NywgSmVzcGVyIERhbmdhYXJkIEJy
+b3VlciA8YnJvdWVyQHJlZGhhdC5jb20+IHdyb3RlOgo+Pgo+PiBJJ3ZlIGNyZWF0ZWQgYSBPcGVu
+V1JUIHRpY2tldFsxXSBvbiB0aGlzIGlzc3VlLCBhcyBpdCBzZWVtcyB0aGF0IHNvbWVvbmVbMl0K
+Pj4gY2xvc2VkIEZlbGl4J2VzIE9wZW5XUlQgZW1haWwgYWNjb3VudCAoYmFkIGNob2ljZSEgZW1h
+aWxzIGJvdW5jaW5nKS4KPj4gU291bmRzIGxpa2UgT3BlbldSVCBhbmQgdGhlIExFREUgaHR0cHM6
+Ly93d3cubGVkZS1wcm9qZWN0Lm9yZy8gcHJvamVjdAo+PiBpcyBpbiBzb21lIGtpbmQgb2YgY29u
+ZmxpY3QuCj4+Cj4+IE9wZW5XUlQgdGlja2V0IFsxXSBodHRwczovL2Rldi5vcGVud3J0Lm9yZy90
+aWNrZXQvMjIzNDkKPj4KPj4gWzJdIGh0dHA6Ly90aHJlYWQuZ21hbmUub3JnL2dtYW5lLmNvbXAu
+ZW1iZWRkZWQub3BlbndydC5kZXZlbC80MDI5OC9mb2N1cz00MDMzNQo+Cj4gT0ssIHNvLCBhZnRl
+ciBwb3J0aW5nIHRoZSBwYXRjaCB0byA0LjEgb3BlbndydCBrZXJuZWwgYW5kIHBsYXlpbmcgYQo+
+IGJpdCB3aXRoIGZxX2NvZGVsIGxpbWl0cyBJIHdhcyBhYmxlIHRvIGdldCA0MjBNYnBzIFVEUCBs
+aWtlIHRoaXM6Cj4gdGMgcWRpc2MgcmVwbGFjZSBkZXYgd2xhbjAgcGFyZW50IDoxIGZxX2NvZGVs
+IGZsb3dzIDE2IGxpbWl0IDI1NgoKRm9yZ290IHRvIG1lbnRpb24sIEkndmUgcmVkdWNlZCBkcm9w
+X2JhdGNoX3NpemUgZG93biB0byAzMgoKPiBUaGlzIGlzIGNlcnRhaW5seSBiZXR0ZXIgdGhhbiAz
+ME1icHMgYnV0IHN0aWxsIG1vcmUgdGhhbiB0d28gdGltZXMKPiBsZXNzIHRoYW4gYmVmb3JlICg5
+MDApLgo+IFRDUCBhbHNvIGltcHJvdmVkIGEgbGl0dGxlICg1NTAgdG8gfjU5MCkuCj4KPiBGZWxp
+eCwgb3RoZXJzLCBkbyB5b3Ugd2FudCB0byBzZWUgdGhlIHBvcnRlZCBwYXRjaCwgbWF5YmUgSSBk
+aWQgc29tZXRoaW5nIHdyb25nPwo+IERvZXNuJ3QgbG9vayBsaWtlIGl0IHdpbGwgc2F2ZSBhdGgx
+MGsgZnJvbSBwZXJmb3JtYW5jZSByZWdyZXNzaW9uLgo+Cj4+Cj4+IE9uIEZyaSwgNiBNYXkgMjAx
+NiAxMTo0Mjo0MyArMDIwMAo+PiBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyIDxicm91ZXJAcmVkaGF0
+LmNvbT4gd3JvdGU6Cj4+Cj4+PiBIaSBGZWxpeCwKPj4+Cj4+PiBUaGlzIGlzIGFuIGltcG9ydGFu
+dCBmaXggZm9yIE9wZW5XUlQsIHBsZWFzZSByZWFkIQo+Pj4KPj4+IE9wZW5XUlQgY2hhbmdlZCB0
+aGUgZGVmYXVsdCBmcV9jb2RlbCBzY2gtPmxpbWl0IGZyb20gMTAyNDAgdG8gMTAyNCwKPj4+IHdp
+dGhvdXQgYWxzbyBhZGp1c3RpbmcgcS0+Zmxvd3NfY250LiAgRXJpYyBleHBsYWlucyBiZWxvdyB0
+aGF0IHlvdSBtdXN0Cj4+PiBhbHNvIGFkanVzdCB0aGUgYnVja2V0cyAocS0+Zmxvd3NfY250KSBm
+b3IgdGhpcyBub3QgdG8gYnJlYWsuIChKdXN0Cj4+PiBhZGp1c3QgaXQgdG8gMTI4KQo+Pj4KPj4+
+IFByb2JsZW1hdGljIE9wZW5XUlQgY29tbWl0IGluIHF1ZXN0aW9uOgo+Pj4gIGh0dHA6Ly9naXQu
+b3BlbndydC5vcmcvP3A9b3BlbndydC5naXQ7YT1wYXRjaDtoPTEyY2Q2NTc4MDg0ZQo+Pj4gIDEy
+Y2Q2NTc4MDg0ZSAoImtlcm5lbDogcmV2ZXJ0IGZxX2NvZGVsIHF1YW50dW0gb3ZlcnJpZGUgdG8g
+cHJldmVudCBpdCBmcm9tIGNhdXNpbmcgdG9vIG11Y2ggY3B1IGxvYWQgd2l0aCBoaWdoZXIgc3Bl
+ZWQgKCMyMTMyNikiKQo+Pj4KPj4+Cj4+PiBJIGFsc28gaGlnaGx5IHJlY29tbWVuZCB5b3UgY2hl
+cnJ5LXBpY2sgdGhpcyB2ZXJ5IHJlY2VudCBjb21taXQ6Cj4+PiAgbmV0LW5leHQ6IDlkMTg1NjJh
+MjI3OCAoImZxX2NvZGVsOiBhZGQgYmF0Y2ggYWJpbGl0eSB0byBmcV9jb2RlbF9kcm9wKCkiKQo+
+Pj4gIGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvZGF2ZW0vbmV0LW5leHQvYy85ZDE4NTYyYTIyNwo+
+Pj4KPj4+IFRoaXMgc2hvdWxkIGZpeCB2ZXJ5IGhpZ2ggQ1BVIHVzYWdlIGluLWNhc2UgZnFfY29k
+ZWwgZ29lcyBpbnRvIGRyb3AgbW9kZS4KPj4+IFRoZSBwcm9ibGVtIGlzIHRoYXQgZHJvcCBtb2Rl
+IHdhcyBjb25zaWRlcmVkIHJhcmUsIGFuZCBpbXBsZW1lbnRhdGlvbgo+Pj4gd2lzZSBpdCB3YXMg
+Y2hvc2VuIHRvIGJlIG1vcmUgZXhwZW5zaXZlICh0byBzYXZlIGN5Y2xlcyBvbiBub3JtYWwgbW9k
+ZSkuCj4+PiBVbmZvcnR1bmF0ZWx5IGlzIGl0IGVhc3kgdG8gdHJpZ2dlciB3aXRoIGFuIFVEUCBm
+bG9vZC4gRHJvcCBtb2RlIGlzCj4+PiBlc3BlY2lhbGx5IGV4cGVuc2l2ZSBmb3Igc21hbGxlciBk
+ZXZpY2VzLCBhcyBpdCBzY2FucyBhIDRLIGJpZyBhcnJheSwKPj4+IHRodXMgNjQgY2FjaGUgbWlz
+c2VzIGZvciBzbWFsbCBkZXZpY2VzIQo+Pj4KPj4+IFRoZSBmaXggaXMgdG8gYWxsb3cgZHJvcC1t
+b2RlIHRvIGJ1bGstZHJvcCBtb3JlIHBhY2tldHMgd2hlbiBlbnRlcmluZwo+Pj4gZHJvcC1tb2Rl
+IChkZWZhdWx0IDY0IGJ1bGsgZHJvcCkuICBUaGF0IHdheSB3ZSBkb24ndCBzdWRkZW5seQo+Pj4g
+ZXhwZXJpZW5jZSBhIHNpZ25pZmljYW50bHkgaGlnaGVyIHByb2Nlc3NpbmcgY29zdCBwZXIgcGFj
+a2V0LCBidXQKPj4+IGluc3RlYWQgY2FuIGFtb3J0aXplIHRoaXMuCj4+Pgo+Pj4gVG8gRXJpYywg
+c2hvdWxkIHdlIHJlY29tbWVuZCBPcGVuV1JUIHRvIGFkanVzdCBkZWZhdWx0IChtYXgpIDY0IGJ1
+bGsKPj4+IGRyb3AsIGdpdmVuIHdlIGFsc28gcmVjb21tZW5kIGJ1Y2tldCBzaXplIHRvIGJlIDEy
+OCA/ICh0aHVzIHRoZSBhbW91bnQKPj4+IG9mIG1lbW9yeSB0byBzY2FuIGlzIGxlc3MsIGJ1dCB0
+aGVpciBDUFUgaXMgYWxzbyBtdWNoIHNtYWxsZXIpLgo+Pj4KPj4+IC0tSmVzcGVyCj4+Pgo+Pj4K
+Pj4+IE9uIFRodSwgMDUgTWF5IDIwMTYgMTI6MjM6MjcgLTA3MDAgRXJpYyBEdW1hemV0IDxlcmlj
+LmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToKPj4+Cj4+PiA+IE9uIFRodSwgMjAxNi0wNS0wNSBh
+dCAxOToyNSArMDMwMCwgUm9tYW4gWWVyeW9taW4gd3JvdGU6Cj4+PiA+ID4gT24gNSBNYXkgMjAx
+NiBhdCAxOToxMiwgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToK
+Pj4+ID4gPiA+IE9uIFRodSwgMjAxNi0wNS0wNSBhdCAxNzo1MyArMDMwMCwgUm9tYW4gWWVyeW9t
+aW4gd3JvdGU6Cj4+PiA+ID4gPgo+Pj4gPiA+ID4+Cj4+PiA+ID4gPj4gcWRpc2MgZnFfY29kZWwg
+MDogZGV2IGV0aDAgcm9vdCByZWZjbnQgMiBsaW1pdCAxMDI0cCBmbG93cyAxMDI0Cj4+PiA+ID4g
+Pj4gcXVhbnR1bSAxNTE0IHRhcmdldCA1LjBtcyBpbnRlcnZhbCAxMDAuMG1zIGVjbgo+Pj4gPiA+
+ID4+ICBTZW50IDEyMzA2IGJ5dGVzIDEyOCBwa3QgKGRyb3BwZWQgMCwgb3ZlcmxpbWl0cyAwIHJl
+cXVldWVzIDApCj4+PiA+ID4gPj4gIGJhY2tsb2cgMGIgMHAgcmVxdWV1ZXMgMAo+Pj4gPiA+ID4+
+ICAgbWF4cGFja2V0IDAgZHJvcF9vdmVybGltaXQgMCBuZXdfZmxvd19jb3VudCAwIGVjbl9tYXJr
+IDAKPj4+ID4gPiA+PiAgIG5ld19mbG93c19sZW4gMCBvbGRfZmxvd3NfbGVuIDAKPj4+ID4gPiA+
+Cj4+PiA+ID4gPgo+Pj4gPiA+ID4gTGltaXQgb2YgMTAyNCBwYWNrZXRzIGFuZCAxMDI0IGZsb3dz
+IGlzIG5vdCB3aXNlIEkgdGhpbmsuCj4+PiA+ID4gPgo+Pj4gPiA+ID4gKElmIGFsbCBidWNrZXRz
+IGFyZSBpbiB1c2UsIGVhY2ggYnVja2V0IGhhcyBhIHZpcnR1YWwgcXVldWUgb2YgMSBwYWNrZXQs
+Cj4+PiA+ID4gPiB3aGljaCBpcyBhbG1vc3QgdGhlIHNhbWUgdGhhbiBoYXZpbmcgbm8gcXVldWUg
+YXQgYWxsKQo+Pj4gPiA+ID4KPj4+ID4gPiA+IEkgc3VnZ2VzdCB0byBoYXZlIGF0IGxlYXN0IDgg
+cGFja2V0cyBwZXIgYnVja2V0LCB0byBsZXQgQ29kZWwgaGF2ZSBhCj4+PiA+ID4gPiBjaGFuY2Ug
+dG8gdHJpZ2dlci4KPj4+ID4gPiA+Cj4+PiA+ID4gPiBTbyB5b3UgY291bGQgZWl0aGVyIHJlZHVj
+ZSBudW1iZXIgb2YgYnVja2V0cyB0byAxMjggKGlmIG1lbW9yeSBpcwo+Pj4gPiA+ID4gdGlnaHQp
+LCBvciBpbmNyZWFzZSBsaW1pdCB0byA4MTkyLgo+Pj4gPiA+Cj4+PiA+ID4gV2lsbCB0cnksIGJ1
+dCB3aGF0IEkndmUgcG9zdGVkIGlzIGRlZmF1bHQsIEkgZGlkbid0IGNoYW5nZS9jb25maWd1cmUg
+dGhhdC4KPj4+ID4KPj4+ID4gZnFfY29kZWwgaGFzIGEgZGVmYXVsdCBvZiAxMDI0MCBwYWNrZXRz
+IGFuZCAxMDI0IGJ1Y2tldHMuCj4+PiA+Cj4+PiA+IGh0dHA6Ly9seHIuZnJlZS1lbGVjdHJvbnMu
+Y29tL3NvdXJjZS9uZXQvc2NoZWQvc2NoX2ZxX2NvZGVsLmMjTDQxMwo+Pj4gPgo+Pj4gPiBJZiBz
+b21lb25lIGNoYW5nZWQgdGhhdCBpbiB0aGUgbGludXggdmFyaWFudCB5b3UgdXNlLCBoZSBwcm9i
+YWJseSBzaG91bGQKPj4+ID4gZXhwbGFpbiB0aGUgcmF0aW9uYWxlLgo+Pgo+PiAtLQo+PiBCZXN0
+IHJlZ2FyZHMsCj4+ICAgSmVzcGVyIERhbmdhYXJkIEJyb3Vlcgo+PiAgIE1TYy5DUywgUHJpbmNp
+cGFsIEtlcm5lbCBFbmdpbmVlciBhdCBSZWQgSGF0Cj4+ICAgQXV0aG9yIG9mIGh0dHA6Ly93d3cu
+aXB0di1hbmFseXplci5vcmcKPj4gICBMaW5rZWRJbjogaHR0cDovL3d3dy5saW5rZWRpbi5jb20v
+aW4vYnJvdWVyCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CkNvZGVsIG1haWxpbmcgbGlzdApDb2RlbEBsaXN0cy5idWZmZXJibG9hdC5uZXQKaHR0cHM6Ly9s
+aXN0cy5idWZmZXJibG9hdC5uZXQvbGlzdGluZm8vY29kZWwK
