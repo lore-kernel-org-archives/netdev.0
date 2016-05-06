@@ -1,77 +1,151 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 next-next 08/12] ipv6: Fix nexthdr for reinjection
-Date: Fri, 6 May 2016 13:04:52 -0700
-Message-ID: <1462565096-4076043-9-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 next-next 11/12] ip6_tun: Add infrastructure for doing encapsulation
+Date: Fri, 6 May 2016 13:04:55 -0700
+Message-ID: <1462565096-4076043-12-git-send-email-tom@herbertland.com>
 References: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58331 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58353 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758334AbcEFUFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:05:34 -0400
+	by vger.kernel.org with ESMTP id S1758397AbcEFUFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:05:46 -0400
 Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K0pJD014726
-	for <netdev@vger.kernel.org>; Fri, 6 May 2016 13:05:34 -0700
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K5dgY020207
+	for <netdev@vger.kernel.org>; Fri, 6 May 2016 13:05:40 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22s15pgabu-4
+	by mx0a-00082601.pphosted.com with ESMTP id 22s15pgac1-4
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:05:34 -0700
+	for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:05:40 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- e3f2a9fa13c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
- 06 May 2016 13:05:33 -0700
+ e58edcfc13c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
+ 06 May 2016 13:05:36 -0700
 In-Reply-To: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ip6_input_finish the protocol handle returns a value greater than
-zero the packet needs to be resubmitted using the returned protocol.
-The returned protocol is being ignored and each time through resubmit
-nexthdr is taken from an offest in the packet. This patch fixes that
-so that nexthdr is taken from return value of the protocol handler.
+Add encap_hlen and ip_tunnel_encap structure to ip6_tnl. Add functions
+for getting encap hlen, setting up encap on a tunnel, performing
+encapsulation operation.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_input.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ include/net/ip6_tunnel.h   |  8 +++++-
+ net/ipv6/ip6_tunnel.c      |  4 +++
+ net/ipv6/ip6_tunnel_core.c | 64 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 75 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 6ed5601..2a0258a 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -222,13 +222,14 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
- 	 */
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 1c14c27..1b8db86 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -66,10 +66,16 @@ struct ip6_tnl {
+ 	__u32 o_seqno;	/* The last output seqno */
+ 	int hlen;       /* tun_hlen + encap_hlen */
+ 	int tun_hlen;	/* Precalculated header length */
++	int encap_hlen; /* Encap header length (FOU,GUE) */
++	struct ip_tunnel_encap encap;
+ 	int mlink;
+-
+ };
  
- 	rcu_read_lock();
--resubmit:
++int ip6_tnl_encap_setup(struct ip6_tnl *t,
++			struct ip_tunnel_encap *ipencap);
++int ip6_tnl_encap(struct sk_buff *skb, struct ip6_tnl *t,
++		  u8 *protocol, struct flowi6 *fl6);
 +
- 	idev = ip6_dst_idev(skb_dst(skb));
- 	if (!pskb_pull(skb, skb_transport_offset(skb)))
- 		goto discard;
- 	nhoff = IP6CB(skb)->nhoff;
- 	nexthdr = skb_network_header(skb)[nhoff];
+ /* Tunnel encapsulation limit destination sub-option */
  
-+resubmit:
- 	raw = raw6_local_deliver(skb, nexthdr);
- 	ipprot = rcu_dereference(inet6_protos[nexthdr]);
- 	if (ipprot) {
-@@ -256,10 +257,12 @@ resubmit:
- 			goto discard;
+ struct ipv6_tlv_tnl_enc_lim {
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index ade55af..2c096ab 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1013,6 +1013,10 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 	unsigned int max_headroom = sizeof(struct ipv6hdr);
+ 	int err = -1;
  
- 		ret = ipprot->handler(skb);
--		if (ret > 0)
-+		if (ret > 0) {
-+			nexthdr = ret;
- 			goto resubmit;
--		else if (ret == 0)
-+		} else if (ret == 0) {
- 			__IP6_INC_STATS(net, idev, IPSTATS_MIB_INDELIVERS);
-+		}
- 	} else {
- 		if (!raw) {
- 			if (xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
++	err = ip6_tnl_encap(skb, t, &proto, fl6);
++	if (err)
++		return err;
++
+ 	/* NBMA tunnel */
+ 	if (ipv6_addr_any(&t->parms.raddr)) {
+ 		struct in6_addr *addr6;
+diff --git a/net/ipv6/ip6_tunnel_core.c b/net/ipv6/ip6_tunnel_core.c
+index 5f5b79e..94aa414 100644
+--- a/net/ipv6/ip6_tunnel_core.c
++++ b/net/ipv6/ip6_tunnel_core.c
+@@ -42,3 +42,67 @@ int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *ops,
+ }
+ EXPORT_SYMBOL(ip6_tnl_encap_del_ops);
+ 
++static int ip6_encap_hlen(struct ip_tunnel_encap *e)
++{
++	const struct ip6_tnl_encap_ops *ops;
++	int hlen = -EINVAL;
++
++	if (e->type == TUNNEL_ENCAP_NONE)
++		return 0;
++
++	if (e->type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
++
++	rcu_read_lock();
++	ops = rcu_dereference(ip6tun_encaps[e->type]);
++	if (likely(ops && ops->encap_hlen))
++		hlen = ops->encap_hlen(e);
++	rcu_read_unlock();
++
++	return hlen;
++}
++
++int ip6_tnl_encap_setup(struct ip6_tnl *t,
++			struct ip_tunnel_encap *ipencap)
++{
++	int hlen;
++
++	memset(&t->encap, 0, sizeof(t->encap));
++
++	hlen = ip6_encap_hlen(ipencap);
++	if (hlen < 0)
++		return hlen;
++
++	t->encap.type = ipencap->type;
++	t->encap.sport = ipencap->sport;
++	t->encap.dport = ipencap->dport;
++	t->encap.flags = ipencap->flags;
++
++	t->encap_hlen = hlen;
++	t->hlen = t->encap_hlen + t->tun_hlen;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ip6_tnl_encap_setup);
++
++int ip6_tnl_encap(struct sk_buff *skb, struct ip6_tnl *t,
++		  u8 *protocol, struct flowi6 *fl6)
++{
++	const struct ip6_tnl_encap_ops *ops;
++	int ret = -EINVAL;
++
++	if (t->encap.type == TUNNEL_ENCAP_NONE)
++		return 0;
++
++	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
++
++	rcu_read_lock();
++	ops = rcu_dereference(ip6tun_encaps[t->encap.type]);
++	if (likely(ops && ops->build_header))
++		ret = ops->build_header(skb, &t->encap, protocol, fl6);
++	rcu_read_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL(ip6_tnl_encap);
 -- 
 2.8.0.rc2
