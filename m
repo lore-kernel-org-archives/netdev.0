@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] bpf: introduce direct packet access
-Date: Fri, 06 May 2016 16:02:10 -0400 (EDT)
-Message-ID: <20160506.160210.336273886152008913.davem@davemloft.net>
-References: <1462502955-1731797-1-git-send-email-ast@fb.com>
+Subject: Re: [PATCH net-next] ipv4: tcp: ip_send_unicast_reply() is not BH
+ safe
+Date: Fri, 06 May 2016 16:03:08 -0400 (EDT)
+Message-ID: <20160506.160308.392258128417213365.davem@davemloft.net>
+References: <1462553178.13075.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: ast@fb.com
+Cc: netdev@vger.kernel.org, andreslc@google.com, edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49037 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758152AbcEFUCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:02:12 -0400
-In-Reply-To: <1462502955-1731797-1-git-send-email-ast@fb.com>
+	with ESMTP id S1758232AbcEFUDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:03:11 -0400
+In-Reply-To: <1462553178.13075.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Thu, 5 May 2016 19:49:08 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 06 May 2016 09:46:18 -0700
 
-> This set of patches introduce 'direct packet access' from
-> cls_bpf and act_bpf programs (which are root only).
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> I forgot that ip_send_unicast_reply() is not BH safe (yet).
+> 
+> Disabling preemption before calling it was not a good move.
+> 
+> Fixes: c10d9310edf5 ("tcp: do not assume TCP code is non preemptible")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andres Lagar-Cavilla  <andreslc@google.com>
 
-Series applied, thanks Alexei.
+Applied, thanks.
