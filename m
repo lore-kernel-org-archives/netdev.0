@@ -1,379 +1,223 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 next-next 02/12] net: define gso types for IPx over
- IPv4 and IPv6
-Date: Fri, 6 May 2016 13:43:07 -0700
-Message-ID: <CALx6S374bWLRk2T6UhNa30e-rRRyNe6cemuqRHbphkAfo6991w@mail.gmail.com>
-References: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
-	<1462565096-4076043-3-git-send-email-tom@herbertland.com>
-	<CAKgT0UdXWPqBN9SN45U80+fPOoukns38gZbR1B2abpCr1iDhcA@mail.gmail.com>
+From: "David B. Robins" <linux@davidrobins.net>
+Subject: Re: [REGRESSION] asix: Lots of =?UTF-8?Q?asix=5Frx=5Ffixup=28=29?=
+ =?UTF-8?Q?=20errors=20and=20slow=20transmissions?=
+Date: Fri, 06 May 2016 16:45:16 -0400
+Message-ID: <918e1422f872d1277d28cf2a29e4dac6@i4031.net>
+References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
+ <87ed4c76328ed9dc5591359ea0e98ab9@i4031.net> <57291539.6080405@mentor.com>
+ <e4efd48d3c16c27de68d464ad3170b02@i4031.net> <5729AB90.9010704@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Stultz <john.stultz@linaro.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	Guodong Xu <guodong.xu@linaro.org>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Ivan Vecera <ivecera@redhat.com>
+To: Dean Jenkins <Dean_Jenkins@mentor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38556 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758397AbcEFUnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:43:08 -0400
-Received: by mail-ig0-f171.google.com with SMTP id m9so50538474ige.1
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:43:08 -0700 (PDT)
-In-Reply-To: <CAKgT0UdXWPqBN9SN45U80+fPOoukns38gZbR1B2abpCr1iDhcA@mail.gmail.com>
+Received: from 99-28-9-118.lightspeed.iplsin.sbcglobal.net ([99.28.9.118]:11297
+	"EHLO i4031.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758275AbcEFUpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:45:44 -0400
+In-Reply-To: <5729AB90.9010704@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 6, 2016 at 1:34 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Fri, May 6, 2016 at 1:04 PM, Tom Herbert <tom@herbertland.com> wrote:
->> This patch defines two new GDO definitions SKB_GSO_IPXIP4 and
->> SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
->> NETIF_F_GSO_IPXIP6. These are used to described IP in IP
->> tunnel and what the outer protocol is. The inner protocol
->> can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
->> SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
->> are removed (these are both instances of SKB_GSO_IPXIP4).
->> SKB_GSO_IPXIP6 will be used when support for GSO with IP
->> encapsulation over IPv6 is added.
->>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
->> ---
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
->>  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
->>  drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
->>  drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
->>  drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
->>  drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
->>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
->>  include/linux/netdev_features.h                   | 12 ++++++------
->>  include/linux/netdevice.h                         |  4 ++--
->>  include/linux/skbuff.h                            |  4 ++--
->>  net/core/ethtool.c                                |  4 ++--
->>  net/ipv4/af_inet.c                                |  2 +-
->>  net/ipv4/ipip.c                                   |  2 +-
->>  net/ipv6/ip6_offload.c                            |  4 ++--
->>  net/ipv6/sit.c                                    |  4 ++--
->>  net/netfilter/ipvs/ip_vs_xmit.c                   | 11 ++---------
->>  17 files changed, 30 insertions(+), 44 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> index d465bd7..0a5b770 100644
->> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> @@ -13259,12 +13259,11 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
->>                 NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
->>         if (!chip_is_e1x) {
->>                 dev->hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
->> -                                   NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
->> +                                   NETIF_F_GSO_IPXIP4;
->>                 dev->hw_enc_features =
->>                         NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
->>                         NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
->> -                       NETIF_F_GSO_IPIP |
->> -                       NETIF_F_GSO_SIT |
->> +                       NETIF_F_GSO_IPXIP4 |
->>                         NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL;
->>         }
->>
->> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> index fd85b6d..e449228 100644
->> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> @@ -6218,7 +6218,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>         dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
->>                            NETIF_F_TSO | NETIF_F_TSO6 |
->>                            NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
->> -                          NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
->> +                          NETIF_F_GSO_IPXIP4 |
->>                            NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
->>                            NETIF_F_GSO_PARTIAL | NETIF_F_RXHASH |
->>                            NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
->> @@ -6228,7 +6228,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>                         NETIF_F_TSO | NETIF_F_TSO6 |
->>                         NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
->>                         NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
->> -                       NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
->> +                       NETIF_F_GSO_IPXIP4;
->>                         NETIF_F_GSO_PARTIAL;
->>         dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM |
->>                                     NETIF_F_GSO_GRE_CSUM;
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> index f6da6b7..c2a4c10 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> @@ -9131,8 +9131,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
->>                                    NETIF_F_TSO6                 |
->>                                    NETIF_F_GSO_GRE              |
->>                                    NETIF_F_GSO_GRE_CSUM         |
->> -                                  NETIF_F_GSO_IPIP             |
->> -                                  NETIF_F_GSO_SIT              |
->> +                                  NETIF_F_GSO_IPXIP4           |
->>                                    NETIF_F_GSO_UDP_TUNNEL       |
->>                                    NETIF_F_GSO_UDP_TUNNEL_CSUM  |
->>                                    NETIF_F_GSO_PARTIAL          |
->
-> So for all the Intel drivers they support IPv6 and IPv4 outer header
-> tunnel types.  As such you can add SKB_GSO_IPXIP6 as well and you
-> should be able to see offloads without any issues.  This applies for
-> all the Intel drivers below and igb which should have a patch
-> available sometime soon as it is still in Jeff Kirsher's tree.
->
-Can we do this in a follow up patch?
+On 2016-05-04 03:58, Dean Jenkins wrote:
+> On 04/05/16 01:28, David B. Robins wrote:
+>> 
+>>> 
+>>> Here is the code snippet from the patch with my annotations between #
+>>> #, I will try to explain my intentions. Feel free to point out any
+>>> flaws:
+>>> 
+>>>     if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
+>>>         # Only runs when rx->remaining !=0 and the end of the 
+>>> Ethernet
+>>> frame + next 32-bit header word is within the URB buffer. #
+>>>         # Therefore, this code does not run when the end of an
+>>> Ethernet frame has been reached in the previous URB #
+>>>         # or when the end of the Ethernet frame + next 32-bit header
+>>> word will be in a later URB buffer #
+>> 
+>> It may well be. I don't have the setup with me now, but I can try 
+>> tomorrow to reproduce an environment where I can add some more 
+>> detailed logging.
+>> 
+>> Since the URB length has to be >= than the remaining data plus a u32, 
+>> the devices that John Stultz and I are using (AX88772B in my case) may 
+>> be adding some additional data/padding after an Ethernet frame, 
+>> expecting it to be discarded, and running into this check and its 
+>> consequences. This may mean the device is badly behaved, if it is 
+>> specified not to send anything extra; in any case, a well-intentioned 
+>> error correction has gone badly, but I better understand the intent 
+>> now. I am curious to know how often the device you are using benefits 
+>> from this block of code.
+> 
+> The issue is that the driver should be robust to cope with missing
+> URBs. Whilst testing with D-Link DUB-E100 C1 AX88772 USB to Ethernet
+> adaptor in our ARM embedded system which runs in hostile environments,
+> it was noticed that URBs could be lost (probably due to a bug
+> elsewhere or low memory issue). Without this patch, a missing URB
+> causes bad Ethernet frames to be passed up to the IP stack because
+> rx->remaining spans multiple URBs.
+> 
+> In the good case of an Ethernet frame spanning 2 URBs, the 1st URB is
+> processed and copies the 1st part of the Ethernet frame into the
+> netdev buffer, for the 2nd URB the remaining part of the Ethernet
+> frame is copied into the same netdev buffer to complete the Ethernet
+> frame. The netdev buffer is then sent up to the IP stack.
+> 
+> In the case of a missing URB, a bad Ethernet frame is created as 
+> follows:
+> The 1st URB is processed and copies the 1st part of the Ethernet frame
+> into the netdev buffer, the 2nd URB is lost (somehow),  the 3rd URB is
+> processed and blindly copies what it thinks is the remaining part of
+> the Ethernet frame in the same netdev buffer which corrupts the
+> Ethernet frame. The netdev buffer is then sent up to the IP stack. The
+> 3rd URB and subsequent URBs are processed but synchronisation has been
+> lost so can misread data as a 32-bit header word. It is likely that
+> some good Ethernet frames get discarded whilst trying to
+> resynchronise.
+> 
+> A recovery strategy for regaining lock with the 32-bit header word is
+> necessary otherwise the driver will have difficulty in recovering from
+> a lost URB.
+> 
+> In the "olden days", the 32-bit header word was always at the start of
+> the URB buffer so previous URBs did not influence the current URB. So
+> no recovery strategy was needed at that time. But now we have to
+> remember what happened in the previous URB and a lost URB can cause a
+> discontinuity in the data stream because the data is not always
+> aligned to the start of the URB buffer.
+> 
+> I agree that your environment may never suffer from lost URBs so
+> removal of the patch would work OK.
+> 
+> I will try to find some time to setup a test environment.
 
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> index 2765d7e..4a3d60a 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->> @@ -2302,8 +2302,7 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
->>
->>         if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
->>                                          SKB_GSO_GRE_CSUM |
->> -                                        SKB_GSO_IPIP |
->> -                                        SKB_GSO_SIT |
->> +                                        SKB_GSO_IPXIP4 |
->>                                          SKB_GSO_UDP_TUNNEL |
->>                                          SKB_GSO_UDP_TUNNEL_CSUM)) {
->>                 if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
->> diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
->> index ede8dfc..aaccb7e 100644
->> --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
->> +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
->> @@ -1567,8 +1567,7 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
->>
->>         if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
->>                                          SKB_GSO_GRE_CSUM |
->> -                                        SKB_GSO_IPIP |
->> -                                        SKB_GSO_SIT |
->> +                                        SKB_GSO_IPXIP4 |
->>                                          SKB_GSO_UDP_TUNNEL |
->>                                          SKB_GSO_UDP_TUNNEL_CSUM)) {
->>                 if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
->> diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
->> index 9f0bd7a..bfd0962 100644
->> --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
->> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
->> @@ -2241,8 +2241,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
->>                                    NETIF_F_TSO6                 |
->>                                    NETIF_F_GSO_GRE              |
->>                                    NETIF_F_GSO_GRE_CSUM         |
->> -                                  NETIF_F_GSO_IPIP             |
->> -                                  NETIF_F_GSO_SIT              |
->> +                                  NETIF_F_GSO_IPXIP4           |
->>                                    NETIF_F_GSO_UDP_TUNNEL       |
->>                                    NETIF_F_GSO_UDP_TUNNEL_CSUM  |
->>                                    NETIF_F_GSO_PARTIAL          |
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index d08fbcf..28e3b5a 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -9482,8 +9482,7 @@ skip_sriov:
->>
->>  #define IXGBE_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
->>                                     NETIF_F_GSO_GRE_CSUM | \
->> -                                   NETIF_F_GSO_IPIP | \
->> -                                   NETIF_F_GSO_SIT | \
->> +                                   NETIF_F_GSO_IPXIP4 | \
->>                                     NETIF_F_GSO_UDP_TUNNEL | \
->>                                     NETIF_F_GSO_UDP_TUNNEL_CSUM)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> index 5e348b1..d86e511 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> @@ -4062,8 +4062,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->>
->>  #define IXGBEVF_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
->>                                       NETIF_F_GSO_GRE_CSUM | \
->> -                                     NETIF_F_GSO_IPIP | \
->> -                                     NETIF_F_GSO_SIT | \
->> +                                     NETIF_F_GSO_IPXIP4 | \
->>                                       NETIF_F_GSO_UDP_TUNNEL | \
->>                                       NETIF_F_GSO_UDP_TUNNEL_CSUM)
->>
->
-> So with GSO partial all of the igb/ixgbe parts should be able to
-> support any tunnel type you can throw at it.
->
->> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
->> index bc87362..aa7b240 100644
->> --- a/include/linux/netdev_features.h
->> +++ b/include/linux/netdev_features.h
->> @@ -44,8 +44,8 @@ enum {
->>         NETIF_F_FSO_BIT,                /* ... FCoE segmentation */
->>         NETIF_F_GSO_GRE_BIT,            /* ... GRE with TSO */
->>         NETIF_F_GSO_GRE_CSUM_BIT,       /* ... GRE with csum with TSO */
->> -       NETIF_F_GSO_IPIP_BIT,           /* ... IPIP tunnel with TSO */
->> -       NETIF_F_GSO_SIT_BIT,            /* ... SIT tunnel with TSO */
->> +       NETIF_F_GSO_IPXIP4_BIT,         /* ... IP4 or IP6 over IP4 with TSO */
->> +       NETIF_F_GSO_IPXIP6_BIT,         /* ... IP4 or IP6 over IP6 with TSO */
->>         NETIF_F_GSO_UDP_TUNNEL_BIT,     /* ... UDP TUNNEL with TSO */
->>         NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
->>         NETIF_F_GSO_PARTIAL_BIT,        /* ... Only segment inner-most L4
->> @@ -121,8 +121,8 @@ enum {
->>  #define NETIF_F_RXALL          __NETIF_F(RXALL)
->>  #define NETIF_F_GSO_GRE                __NETIF_F(GSO_GRE)
->>  #define NETIF_F_GSO_GRE_CSUM   __NETIF_F(GSO_GRE_CSUM)
->> -#define NETIF_F_GSO_IPIP       __NETIF_F(GSO_IPIP)
->> -#define NETIF_F_GSO_SIT                __NETIF_F(GSO_SIT)
->> +#define NETIF_F_GSO_IPXIP4     __NETIF_F(GSO_IPXIP4)
->> +#define NETIF_F_GSO_IPXIP6     __NETIF_F(GSO_IPXIP6)
->>  #define NETIF_F_GSO_UDP_TUNNEL __NETIF_F(GSO_UDP_TUNNEL)
->>  #define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
->>  #define NETIF_F_TSO_MANGLEID   __NETIF_F(TSO_MANGLEID)
->> @@ -200,8 +200,8 @@ enum {
->>
->>  #define NETIF_F_GSO_ENCAP_ALL  (NETIF_F_GSO_GRE |                      \
->>                                  NETIF_F_GSO_GRE_CSUM |                 \
->> -                                NETIF_F_GSO_IPIP |                     \
->> -                                NETIF_F_GSO_SIT |                      \
->> +                                NETIF_F_GSO_IPXIP4 |                   \
->> +                                NETIF_F_GSO_IPXIP6 |                   \
->>                                  NETIF_F_GSO_UDP_TUNNEL |               \
->>                                  NETIF_F_GSO_UDP_TUNNEL_CSUM)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 63580e6..8b1eedc 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -4005,8 +4005,8 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
->>         BUILD_BUG_ON(SKB_GSO_FCOE    != (NETIF_F_FSO >> NETIF_F_GSO_SHIFT));
->>         BUILD_BUG_ON(SKB_GSO_GRE     != (NETIF_F_GSO_GRE >> NETIF_F_GSO_SHIFT));
->>         BUILD_BUG_ON(SKB_GSO_GRE_CSUM != (NETIF_F_GSO_GRE_CSUM >> NETIF_F_GSO_SHIFT));
->> -       BUILD_BUG_ON(SKB_GSO_IPIP    != (NETIF_F_GSO_IPIP >> NETIF_F_GSO_SHIFT));
->> -       BUILD_BUG_ON(SKB_GSO_SIT     != (NETIF_F_GSO_SIT >> NETIF_F_GSO_SHIFT));
->> +       BUILD_BUG_ON(SKB_GSO_IPXIP4  != (NETIF_F_GSO_IPXIP4 >> NETIF_F_GSO_SHIFT));
->> +       BUILD_BUG_ON(SKB_GSO_IPXIP6  != (NETIF_F_GSO_IPXIP6 >> NETIF_F_GSO_SHIFT));
->>         BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL != (NETIF_F_GSO_UDP_TUNNEL >> NETIF_F_GSO_SHIFT));
->>         BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL_CSUM != (NETIF_F_GSO_UDP_TUNNEL_CSUM >> NETIF_F_GSO_SHIFT));
->>         BUILD_BUG_ON(SKB_GSO_PARTIAL != (NETIF_F_GSO_PARTIAL >> NETIF_F_GSO_SHIFT));
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index c413c58..65968a9 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -471,9 +471,9 @@ enum {
->>
->>         SKB_GSO_GRE_CSUM = 1 << 8,
->>
->> -       SKB_GSO_IPIP = 1 << 9,
->> +       SKB_GSO_IPXIP4 = 1 << 9,
->>
->> -       SKB_GSO_SIT = 1 << 10,
->> +       SKB_GSO_IPXIP6 = 1 << 10,
->>
->>         SKB_GSO_UDP_TUNNEL = 1 << 11,
->>
->> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
->> index bdb4013..f403481 100644
->> --- a/net/core/ethtool.c
->> +++ b/net/core/ethtool.c
->> @@ -84,8 +84,8 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
->>         [NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
->>         [NETIF_F_GSO_GRE_BIT] =          "tx-gre-segmentation",
->>         [NETIF_F_GSO_GRE_CSUM_BIT] =     "tx-gre-csum-segmentation",
->> -       [NETIF_F_GSO_IPIP_BIT] =         "tx-ipip-segmentation",
->> -       [NETIF_F_GSO_SIT_BIT] =          "tx-sit-segmentation",
->> +       [NETIF_F_GSO_IPXIP4_BIT] =       "tx-ipxip4-segmentation",
->> +       [NETIF_F_GSO_IPXIP6_BIT] =       "tx-ipxip6-segmentation",
->>         [NETIF_F_GSO_UDP_TUNNEL_BIT] =   "tx-udp_tnl-segmentation",
->>         [NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
->>         [NETIF_F_GSO_PARTIAL_BIT] =      "tx-gso-partial",
->> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
->> index 7f08d45..25040b1 100644
->> --- a/net/ipv4/af_inet.c
->> +++ b/net/ipv4/af_inet.c
->> @@ -1483,7 +1483,7 @@ out_unlock:
->>  static int ipip_gro_complete(struct sk_buff *skb, int nhoff)
->>  {
->>         skb->encapsulation = 1;
->> -       skb_shinfo(skb)->gso_type |= SKB_GSO_IPIP;
->> +       skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP4;
->>         return inet_gro_complete(skb, nhoff);
->>  }
->>
->> diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
->> index 9282748..9783701 100644
->> --- a/net/ipv4/ipip.c
->> +++ b/net/ipv4/ipip.c
->> @@ -219,7 +219,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
->>         if (unlikely(skb->protocol != htons(ETH_P_IP)))
->>                 goto tx_error;
->>
->> -       if (iptunnel_handle_offloads(skb, SKB_GSO_IPIP))
->> +       if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP4))
->>                 goto tx_error;
->>
->>         skb_set_inner_ipproto(skb, IPPROTO_IPIP);
->> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
->> index 9ad743b..787e55f 100644
->> --- a/net/ipv6/ip6_offload.c
->> +++ b/net/ipv6/ip6_offload.c
->> @@ -86,7 +86,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
->>         proto = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
->>
->>         if (skb->encapsulation &&
->> -           skb_shinfo(skb)->gso_type & (SKB_GSO_SIT|SKB_GSO_IPIP))
->> +           skb_shinfo(skb)->gso_type & (SKB_GSO_IPXIP4 | SKB_GSO_IPXIP6))
->>                 udpfrag = proto == IPPROTO_UDP && encap;
->>         else
->>                 udpfrag = proto == IPPROTO_UDP && !skb->encapsulation;
->> @@ -294,7 +294,7 @@ out_unlock:
->>  static int sit_gro_complete(struct sk_buff *skb, int nhoff)
->>  {
->>         skb->encapsulation = 1;
->> -       skb_shinfo(skb)->gso_type |= SKB_GSO_SIT;
->> +       skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP4;
->>         return ipv6_gro_complete(skb, nhoff);
->>  }
->>
->> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
->> index a13d8c1..0a5a255 100644
->> --- a/net/ipv6/sit.c
->> +++ b/net/ipv6/sit.c
->> @@ -913,7 +913,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
->>                 goto tx_error;
->>         }
->>
->> -       if (iptunnel_handle_offloads(skb, SKB_GSO_SIT)) {
->> +       if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP4)) {
->>                 ip_rt_put(rt);
->>                 goto tx_error;
->>         }
->> @@ -1000,7 +1000,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
->>         struct ip_tunnel *tunnel = netdev_priv(dev);
->>         const struct iphdr  *tiph = &tunnel->parms.iph;
->>
->> -       if (iptunnel_handle_offloads(skb, SKB_GSO_IPIP))
->> +       if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP4))
->>                 goto tx_error;
->>
->>         skb_set_inner_ipproto(skb, IPPROTO_IPIP);
->> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
->> index 6d19d2e..f646ef6 100644
->> --- a/net/netfilter/ipvs/ip_vs_xmit.c
->> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
->> @@ -932,16 +932,9 @@ error:
->>
->>  static inline int __tun_gso_type_mask(int encaps_af, int orig_af)
->>  {
->> -       if (encaps_af == AF_INET) {
->> -               if (orig_af == AF_INET)
->> -                       return SKB_GSO_IPIP;
->> +       if (encaps_af == AF_INET)
->> +               return SKB_GSO_IPXIP4;
->>
->> -               return SKB_GSO_SIT;
->> -       }
->> -
->> -       /* GSO: we need to provide proper SKB_GSO_ value for IPv6:
->> -        * SKB_GSO_SIT/IPV6
->> -        */
->
-> I wouldn't delete this comment until you actually have resolved the
-> issue of providing a proper GSO value for IPv6.
->
->>         return 0;
->>  }
->>
->> --
->> 2.8.0.rc2
->>
+I got the chance to add some more logging (and add back the header 
+synchronization code) to a system which is receiving video data on an 
+8-port POE device using AX88772Bs - it replaces the "Data header 
+synchronization was lost" log and logs a few more local items ("u32" = 
+rx->header):
+
+[3105478.073908] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3105478.073918] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() Bad Header 
+Length 0xf05b7c5f, offset 4
+[3105478.074022] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() skb->len = 
+2048
+[3105478.074032] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() Bad Header 
+Length 0xffaae2a5, offset 4
+[3105478.074146] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() skb->len = 
+1518
+[3105478.074280] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() skb->len = 
+2048
+[3105478.074291] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() Bad Header 
+Length 0xe1478400, offset 4
+[3105478.074399] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() skb->len = 916
+[3105478.074409] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() Bad Header 
+Length 0x9fa84eb5, offset 4
+[3105478.074657] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() skb->len = 
+1518
+
+Grepping for just the SYNC_LOSS messages shows a similar pattern to that 
+seen elsewhere in the thread:
+
+[3104761.056033] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.058035] asix 1-1.4.1.3:1.0 poe2: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.076795] asix 1-1.4.2.3:1.0 poe4: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.107904] asix 1-1.4.2.3:1.0 poe4: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.114649] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.121152] asix 1-1.4.1.1:1.0 poe1: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 1518 offset 992 u32 0xecf95000
+[3104761.147784] asix 1-1.4.1.3:1.0 poe2: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.160535] asix 1-1.4.1.1:1.0 poe1: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.168024] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.168403] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.170654] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.180418] asix 1-1.4.1.1:1.0 poe1: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.221783] asix 1-1.4.1.1:1.0 poe1: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.248784] asix 1-1.4.2.2:1.0 poe7: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.252421] asix 1-1.4.1.2:1.0 poe5: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.262903] asix 1-1.4.2.4:1.0 poe8: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.266904] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.267281] asix 1-1.4.2.4:1.0 poe8: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.271665] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.273915] asix 1-1.4.2.4:1.0 poe8: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.280048] asix 1-1.4.2.4:1.0 poe8: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.287152] asix 1-1.4.2.3:1.0 poe4: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.292157] asix 1-1.4.2.3:1.0 poe4: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.295054] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.310915] asix 1-1.4.1.1:1.0 poe1: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2022 offset 992 u32 0xecf95000
+[3104761.316918] asix 1-1.4.2.3:1.0 poe4: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.324935] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.326665] asix 1-1.4.2.3:1.0 poe4: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+[3104761.336420] asix 1-1.4.1.4:1.0 poe6: asix_rx_fixup() SYNC_LOSS 
+remain 988 len 2048 offset 992 u32 0xecf95000
+
+This is an Ubuntu 14.04.2 LTS i686 (32-bit) system running kernel 
+3.13.0-53-generic. I don't see any "low-speed" warnings, and lsusb -t 
+shows each device (and their hubs) running at 480M.
+
+ifconfig poe1:
+
+poe1      Link encap:Ethernet  HWaddr 00:50:f9:ec:4f:d8
+           inet addr:192.168.201.1  Bcast:192.168.201.255  
+Mask:255.255.255.0
+           inet6 addr: fe80::250:f9ff:feec:4fd8/64 Scope:Link
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:194441 errors:16649 dropped:15 overruns:0 frame:0
+           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:267310738 (267.3 MB)  TX bytes:10300282 (10.3 MB)
+
+Without the "sanity test/synchronization" code:
+
+poe1      Link encap:Ethernet  HWaddr 00:50:f9:ec:4f:d8
+           inet addr:192.168.201.1  Bcast:192.168.201.255  
+Mask:255.255.255.0
+           inet6 addr: fe80::250:f9ff:feec:4fd8/64 Scope:Link
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:398910 errors:1 dropped:14 overruns:0 frame:0
+           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:513363997 (513.3 MB)  TX bytes:13154142 (13.1 MB)
+
+> 
+> Regards,
+> Dean
+
+David
