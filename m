@@ -1,54 +1,110 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [REGRESSION] asix: Lots of asix_rx_fixup() errors and slow transmissions
-Date: Fri, 6 May 2016 10:40:47 -0700
-Message-ID: <CALAqxLUtASiOiOE6YGj8B1w+r8u+Q00WtJ9_D68Y6SMyXTyFcA@mail.gmail.com>
-References: <CALAqxLUj+-yUGTNviHu4+KE9=JTxjZyHBv4pdUob=xndAr8ZmA@mail.gmail.com>
-	<57286E15.2080900@mentor.com>
-	<CAFGCpxx0f7g7rXyZ-P0EF7QVX7Z0ziK+7VMPKK7pQteBowkw3Q@mail.gmail.com>
-	<5728837D.60702@mentor.com>
-	<CALAqxLXbMuK3Sj45vbf_r4GYQR=8bGUrhDz9-7+S2pbO_dJZ4A@mail.gmail.com>
-	<572B0023.9060505@mentor.com>
-	<CAFGCpxyeXkbQXW6Dm9ZpUXpVDWgaQziPnsC9GcZPqeg5jnbJUA@mail.gmail.com>
-	<572CB188.7050203@mentor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Guodong Xu <guodong.xu@linaro.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Mark Craske <Mark_Craske@mentor.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	YongQin Liu <yongqin.liu@linaro.org>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Ivan Vecera <ivecera@redhat.com>,
-	"David B. Robins" <linux@davidrobins.net>
-To: Dean Jenkins <Dean_Jenkins@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <572CB188.7050203@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1 1/1] ISDN: eicon: replace custom hex_asc_lo() / hex_pack_byte()
+Date: Fri,  6 May 2016 20:55:23 +0300
+Message-ID: <1462557323-102678-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Armin Schindler <mac@melware.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:33829 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755370AbcEFRz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 May 2016 13:55:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 6, 2016 at 8:00 AM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
-> My conclusion is that your USB to Ethernet Adaptor is not running at high
-> speed (480Mbps) mode which is causing a partial loss (corruption) of
-> Ethernet frames across the USB link. A USB Protocol Analyser or software
-> tool usbmon could be used to confirm this scenario.
->
-> Therefore please retest with a working high-speed USB hub or remove the
-> full-speed USB hub from the test environment and directly connect the USB to
-> Ethernet Adaptor to the root hub of the USB port. Then repeat the tests to
-> see whether anything improved.
->
-> In other words, you need to eliminate the dmesg messages saying "not running
-> at top speed; connect to a high speed hub".
+Instead of custom approach re-use generic helpers to convert byte to hex
+format.
 
-The aarch64 system has a quirk that at the moment limits it to the
-slower full-speed mode, which also exacerbates the issue (basically
-taking a fairly slow 1.1.Mb/s network connection without your patch,
-to an almost unusable 30Kb/s with it).
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/isdn/hardware/eicon/message.c | 21 +++++++--------------
+ 1 file changed, 7 insertions(+), 14 deletions(-)
 
-But that isn't the case on the x86_64 system, which is seeing a very
-similar problem (though the performance effect isn't nearly as bad, as
-the error rate in time seems relatively similar on both, and I think
-my scp transmissions are cpu bound on this atom board :).
-
-thanks
--john
+diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
+index d7c2866..1a1d997 100644
+--- a/drivers/isdn/hardware/eicon/message.c
++++ b/drivers/isdn/hardware/eicon/message.c
+@@ -1147,8 +1147,6 @@ static byte test_c_ind_mask_bit(PLCI *plci, word b)
+ 
+ static void dump_c_ind_mask(PLCI *plci)
+ {
+-	static char hex_digit_table[0x10] =
+-		{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+ 	word i, j, k;
+ 	dword d;
+ 	char *p;
+@@ -1165,7 +1163,7 @@ static void dump_c_ind_mask(PLCI *plci)
+ 				d = plci->c_ind_mask_table[i + j];
+ 				for (k = 0; k < 8; k++)
+ 				{
+-					*(--p) = hex_digit_table[d & 0xf];
++					*(--p) = hex_asc_lo(d);
+ 					d >>= 4;
+ 				}
+ 			}
+@@ -10507,7 +10505,6 @@ static void mixer_set_bchannel_id(PLCI *plci, byte *chi)
+ 
+ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
+ {
+-	static char hex_digit_table[0x10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+ 	word n, i, j;
+ 	char *p;
+ 	char hex_line[2 * MIXER_MAX_DUMP_CHANNELS + MIXER_MAX_DUMP_CHANNELS / 8 + 4];
+@@ -10690,13 +10687,13 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
+ 	n = li_total_channels;
+ 	if (n > MIXER_MAX_DUMP_CHANNELS)
+ 		n = MIXER_MAX_DUMP_CHANNELS;
++
+ 	p = hex_line;
+ 	for (j = 0; j < n; j++)
+ 	{
+ 		if ((j & 0x7) == 0)
+ 			*(p++) = ' ';
+-		*(p++) = hex_digit_table[li_config_table[j].curchnl >> 4];
+-		*(p++) = hex_digit_table[li_config_table[j].curchnl & 0xf];
++		p = hex_byte_pack(p, li_config_table[j].curchnl);
+ 	}
+ 	*p = '\0';
+ 	dbug(1, dprintf("[%06lx] CURRENT %s",
+@@ -10706,8 +10703,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
+ 	{
+ 		if ((j & 0x7) == 0)
+ 			*(p++) = ' ';
+-		*(p++) = hex_digit_table[li_config_table[j].channel >> 4];
+-		*(p++) = hex_digit_table[li_config_table[j].channel & 0xf];
++		p = hex_byte_pack(p, li_config_table[j].channel);
+ 	}
+ 	*p = '\0';
+ 	dbug(1, dprintf("[%06lx] CHANNEL %s",
+@@ -10717,8 +10713,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
+ 	{
+ 		if ((j & 0x7) == 0)
+ 			*(p++) = ' ';
+-		*(p++) = hex_digit_table[li_config_table[j].chflags >> 4];
+-		*(p++) = hex_digit_table[li_config_table[j].chflags & 0xf];
++		p = hex_byte_pack(p, li_config_table[j].chflags);
+ 	}
+ 	*p = '\0';
+ 	dbug(1, dprintf("[%06lx] CHFLAG  %s",
+@@ -10730,8 +10725,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
+ 		{
+ 			if ((j & 0x7) == 0)
+ 				*(p++) = ' ';
+-			*(p++) = hex_digit_table[li_config_table[i].flag_table[j] >> 4];
+-			*(p++) = hex_digit_table[li_config_table[i].flag_table[j] & 0xf];
++			p = hex_byte_pack(p, li_config_table[i].flag_table[j]);
+ 		}
+ 		*p = '\0';
+ 		dbug(1, dprintf("[%06lx] FLAG[%02x]%s",
+@@ -10744,8 +10738,7 @@ static void mixer_calculate_coefs(DIVA_CAPI_ADAPTER *a)
+ 		{
+ 			if ((j & 0x7) == 0)
+ 				*(p++) = ' ';
+-			*(p++) = hex_digit_table[li_config_table[i].coef_table[j] >> 4];
+-			*(p++) = hex_digit_table[li_config_table[i].coef_table[j] & 0xf];
++			p = hex_byte_pack(p, li_config_table[i].coef_table[j]);
+ 		}
+ 		*p = '\0';
+ 		dbug(1, dprintf("[%06lx] COEF[%02x]%s",
+-- 
+2.8.1
