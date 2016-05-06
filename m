@@ -1,88 +1,172 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 next-next 09/12] ipv6: Change "final" protocol processing for encapsulation
-Date: Fri, 6 May 2016 13:04:53 -0700
-Message-ID: <1462565096-4076043-10-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 next-next 12/12] ip6_gre: Add support for fou/gue encapsulation
+Date: Fri, 6 May 2016 13:04:56 -0700
+Message-ID: <1462565096-4076043-13-git-send-email-tom@herbertland.com>
 References: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58432 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58436 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758780AbcEFUFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:05:55 -0400
+	by vger.kernel.org with ESMTP id S1758781AbcEFUF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 16:05:56 -0400
 Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K5dgo020207
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u46K5dgq020207
 	for <netdev@vger.kernel.org>; Fri, 6 May 2016 13:05:55 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22s15pgad6-13
+	by mx0a-00082601.pphosted.com with ESMTP id 22s15pgad6-15
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Fri, 06 May 2016 13:05:55 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- e49ac91e13c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
- 06 May 2016 13:05:34 -0700
+ e60afd4613c511e6b7640002c99293a0-61c766d0 for <netdev@vger.kernel.org>;	Fri,
+ 06 May 2016 13:05:37 -0700
 In-Reply-To: <1462565096-4076043-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When performing foo-over-UDP, UDP are receveived processed by the
-encapsulation header which returns another protocol to process.
-This may result in processing two (or more) protocols in the
-loop that are marked as INET6_PROTO_FINAL. The actions taken
-for hitting a final protocol, in particular the skb_postpull_rcsum
-can only be performed.
-
-This patch set adds a check of a final protocol has been seen. The
-rules are:
-  - If the final protocol has not been seen any protocol is processed
-    (final and non-final). In the case of a final protocol, the final
-    actions are taken (like the skb_postpull_rcsum)
-  - If a final protocol has been seen (e.g. an encapsulating UDP
-    header) then no further non-final protocols are allowed
-    (e.g. extension headers). For more final protocols the
-    final actions are not taken (e.g. skb_postpull_rcsum).
+Add netlink and setup for encapsulation
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_input.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ net/ipv6/ip6_gre.c | 75 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 75 insertions(+)
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 2a0258a..7d98d01 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -216,6 +216,7 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
- 	unsigned int nhoff;
- 	int nexthdr;
- 	bool raw;
-+	bool have_final = false;
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 70a1f72..ed5ddcc 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1027,6 +1027,8 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
  
- 	/*
- 	 *	Parse extension headers
-@@ -235,9 +236,21 @@ resubmit:
- 	if (ipprot) {
- 		int ret;
+ 	tunnel->tun_hlen = gre_calc_hlen(tunnel->parms.o_flags);
  
--		if (ipprot->flags & INET6_PROTO_FINAL) {
-+		if (have_final) {
-+			if (!(ipprot->flags & INET6_PROTO_FINAL)) {
-+				/* Once we've seen a final protocol don't
-+				 * allow encapsulation on any non-final
-+				 * ones. This allows foo in UDP encapsulation
-+				 * to work.
-+				 */
-+				goto discard;
-+			}
-+		} else if (ipprot->flags & INET6_PROTO_FINAL) {
- 			const struct ipv6hdr *hdr;
- 
-+			/* Only do this once for first final protocol */
-+			have_final = true;
++	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
 +
- 			/* Free reference early: we don't need it any more,
- 			   and it may hold ip_conntrack module loaded
- 			   indefinitely. */
+ 	t_hlen = tunnel->hlen + sizeof(struct ipv6hdr);
+ 
+ 	dev->needed_headroom	= LL_MAX_HEADER + t_hlen + 4;
+@@ -1293,15 +1295,57 @@ static void ip6gre_tap_setup(struct net_device *dev)
+ 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ }
+ 
++static bool ip6gre_netlink_encap_parms(struct nlattr *data[],
++				       struct ip_tunnel_encap *ipencap)
++{
++	bool ret = false;
++
++	memset(ipencap, 0, sizeof(*ipencap));
++
++	if (!data)
++		return ret;
++
++	if (data[IFLA_GRE_ENCAP_TYPE]) {
++		ret = true;
++		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
++	}
++
++	if (data[IFLA_GRE_ENCAP_FLAGS]) {
++		ret = true;
++		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
++	}
++
++	if (data[IFLA_GRE_ENCAP_SPORT]) {
++		ret = true;
++		ipencap->sport = nla_get_be16(data[IFLA_GRE_ENCAP_SPORT]);
++	}
++
++	if (data[IFLA_GRE_ENCAP_DPORT]) {
++		ret = true;
++		ipencap->dport = nla_get_be16(data[IFLA_GRE_ENCAP_DPORT]);
++	}
++
++	return ret;
++}
++
+ static int ip6gre_newlink(struct net *src_net, struct net_device *dev,
+ 	struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct ip6_tnl *nt;
+ 	struct net *net = dev_net(dev);
+ 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
++	struct ip_tunnel_encap ipencap;
+ 	int err;
+ 
+ 	nt = netdev_priv(dev);
++
++	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
++		int err = ip6_tnl_encap_setup(nt, &ipencap);
++
++		if (err < 0)
++			return err;
++	}
++
+ 	ip6gre_netlink_parms(data, &nt->parms);
+ 
+ 	if (ip6gre_tunnel_find(net, &nt->parms, dev->type))
+@@ -1348,10 +1392,18 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	struct net *net = nt->net;
+ 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
+ 	struct __ip6_tnl_parm p;
++	struct ip_tunnel_encap ipencap;
+ 
+ 	if (dev == ign->fb_tunnel_dev)
+ 		return -EINVAL;
+ 
++	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
++		int err = ip6_tnl_encap_setup(nt, &ipencap);
++
++		if (err < 0)
++			return err;
++	}
++
+ 	ip6gre_netlink_parms(data, &p);
+ 
+ 	t = ip6gre_tunnel_locate(net, &p, 0);
+@@ -1405,6 +1457,14 @@ static size_t ip6gre_get_size(const struct net_device *dev)
+ 		nla_total_size(4) +
+ 		/* IFLA_GRE_FLAGS */
+ 		nla_total_size(4) +
++		/* IFLA_GRE_ENCAP_TYPE */
++		nla_total_size(2) +
++		/* IFLA_GRE_ENCAP_FLAGS */
++		nla_total_size(2) +
++		/* IFLA_GRE_ENCAP_SPORT */
++		nla_total_size(2) +
++		/* IFLA_GRE_ENCAP_DPORT */
++		nla_total_size(2) +
+ 		0;
+ }
+ 
+@@ -1428,6 +1488,17 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_be32(skb, IFLA_GRE_FLOWINFO, p->flowinfo) ||
+ 	    nla_put_u32(skb, IFLA_GRE_FLAGS, p->flags))
+ 		goto nla_put_failure;
++
++	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
++			t->encap.type) ||
++	    nla_put_be16(skb, IFLA_GRE_ENCAP_SPORT,
++			 t->encap.sport) ||
++	    nla_put_be16(skb, IFLA_GRE_ENCAP_DPORT,
++			 t->encap.dport) ||
++	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
++			t->encap.flags))
++		goto nla_put_failure;
++
+ 	return 0;
+ 
+ nla_put_failure:
+@@ -1446,6 +1517,10 @@ static const struct nla_policy ip6gre_policy[IFLA_GRE_MAX + 1] = {
+ 	[IFLA_GRE_ENCAP_LIMIT] = { .type = NLA_U8 },
+ 	[IFLA_GRE_FLOWINFO]    = { .type = NLA_U32 },
+ 	[IFLA_GRE_FLAGS]       = { .type = NLA_U32 },
++	[IFLA_GRE_ENCAP_TYPE]   = { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_FLAGS]  = { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_SPORT]  = { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_DPORT]  = { .type = NLA_U16 },
+ };
+ 
+ static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
 -- 
 2.8.0.rc2
