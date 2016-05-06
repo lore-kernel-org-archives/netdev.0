@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: do not disconnect socket when peer has shutdown
- SEND only
-Date: Thu, 05 May 2016 23:32:08 -0400 (EDT)
-Message-ID: <20160505.233208.1854080809719423732.davem@davemloft.net>
-References: <1462368113-5493-1-git-send-email-ian.campbell@docker.com>
+Subject: Re: [PATCH net] net: bridge: fix old ioctl unlocked net device walk
+Date: Thu, 05 May 2016 23:33:22 -0400 (EDT)
+Message-ID: <20160505.233322.2284182158683953456.davem@davemloft.net>
+References: <1462371525-26786-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stefanha@redhat.com,
-	imbrenda@linux.vnet.ibm.com, acking@vmware.com, dtor@vmware.com,
-	jhansen@vmware.com, aditr@vmware.com
-To: ian.campbell@docker.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37551 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37561 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755380AbcEFDcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 23:32:11 -0400
-In-Reply-To: <1462368113-5493-1-git-send-email-ian.campbell@docker.com>
+	with ESMTP id S1756087AbcEFDdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2016 23:33:24 -0400
+In-Reply-To: <1462371525-26786-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@docker.com>
-Date: Wed,  4 May 2016 14:21:53 +0100
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Wed,  4 May 2016 16:18:45 +0200
 
-> The peer may be expecting a reply having sent a request and then done a
-> shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-> wrong and breaks for me with a client which does a SHUT_WR.
+> get_bridge_ifindices() is used from the old "deviceless" bridge ioctl
+> calls which aren't called with rtnl held. The comment above says that it is
+> called with rtnl but that is not really the case.
+> Here's a sample output from a test ASSERT_RTNL() which I put in
+> get_bridge_ifindices and executed "brctl show":
+ ...
+> Since it only reads bridge ifindices, we can use rcu to safely walk the net
+> device list. Also remove the wrong rtnl comment above.
 > 
-> Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-> here does not seem to be the norm and removing it does not seem to have
-> had any adverse effects that I can see.
-> 
-> I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-> on the vmci transport.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@docker.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> AFAICT this has been present since the beginning of git history thus no
+> fixes tag.
 
 Applied and queued up for -stable, thanks.
