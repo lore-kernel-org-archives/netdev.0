@@ -1,75 +1,72 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] Documentation/networking: more accurate LCO explanation
-Date: Fri, 6 May 2016 09:29:56 -0700
-Message-ID: <CAKgT0UcpbKVpip0pSaCOY7xVQ=3wwUxFing7Sht8ptH8VRB=FA@mail.gmail.com>
-References: <1462550263-9742-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv4: tcp: ip_send_unicast_reply() is not BH safe
+Date: Fri, 06 May 2016 09:46:18 -0700
+Message-ID: <1462553178.13075.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Edward Cree <ecree@solarflare.com>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Andres Lagar-Cavilla <andreslc@google.com>, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:34085 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755272AbcEFQ35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 12:29:57 -0400
-Received: by mail-io0-f176.google.com with SMTP id 190so119368960iow.1
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 09:29:57 -0700 (PDT)
-In-Reply-To: <1462550263-9742-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36496 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758171AbcEFQqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 12:46:21 -0400
+Received: by mail-pf0-f174.google.com with SMTP id c189so53133231pfb.3
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 09:46:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 6, 2016 at 8:57 AM, Shmulik Ladkani
-<shmulik.ladkani@gmail.com> wrote:
-> In few places the term "ones-complement sum" was used but the actual
-> meaning is "the complement of the ones-complement sum".
+From: Eric Dumazet <edumazet@google.com>
 
-Looks like there might still be a few minor corrections needed.
-Comments inline below.
+I forgot that ip_send_unicast_reply() is not BH safe (yet).
 
->
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> ---
->
->  I assume readers interpret the term "ones-complement sum" as the sum
->  using one's complement arithmentic, without the final bitwise
->  complement of sum's result.
->  Hence I added "the complement of" where applicable.
->
->  Documentation/networking/checksum-offloads.txt | 10 +++++-----
->  1 file changed, 5 insertions(+), 5 deletions(-)
->
-> diff --git a/Documentation/networking/checksum-offloads.txt b/Documentation/networking/checksum-offloads.txt
-> index de2a327766..9567200e1f 100644
-> --- a/Documentation/networking/checksum-offloads.txt
-> +++ b/Documentation/networking/checksum-offloads.txt
-> @@ -69,17 +69,17 @@ LCO: Local Checksum Offload
->  LCO is a technique for efficiently computing the outer checksum of an
->   encapsulated datagram when the inner checksum is due to be offloaded.
->  The ones-complement sum of a correctly checksummed TCP or UDP packet is
-> - equal to the sum of the pseudo header, because everything else gets
-> - 'cancelled out' by the checksum field.  This is because the sum was
-> + equal to the complement of the sum of the pseudo header, because everything
-> + else gets 'cancelled out' by the checksum field.  This is because the sum was
->   complemented before being written to the checksum field.
->  More generally, this holds in any case where the 'IP-style' ones complement
->   checksum is used, and thus any checksum that TX Checksum Offload supports.
->  That is, if we have set up TX Checksum Offload with a start/offset pair, we
->   know that _after the device has filled in that checksum_, the ones
->   complement sum from csum_start to the end of the packet will be equal to
-> - _whatever value we put in the checksum field beforehand_.  This allows us
-> - to compute the outer checksum without looking at the payload: we simply
-> - stop summing when we get to csum_start, then add the 16-bit word at
-> + the complement of _whatever value we put in the checksum field beforehand_.
+Disabling preemption before calling it was not a good move.
 
-I don't really see the point of using an underscore before and after
-that statement.  If it was only one or two words it might work for
-emphasis but the statement is large enough that starting it with an
-underscore just makes it harder to read.
+Fixes: c10d9310edf5 ("tcp: do not assume TCP code is non preemptible")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andres Lagar-Cavilla  <andreslc@google.com>
+---
+ net/ipv4/tcp_ipv4.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-> + This allows us to compute the outer checksum without looking at the payload:
-> + we simply stop summing when we get to csum_start, then add the 16-bit word at
->   (csum_start + csum_offset).
-
-You don't add the 16-bit word you add the compliment of the 16 bit word.
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a7ab9472d64560d86ea24ac1b6e1a7800f89989d..8219d0d8dc8370d0d3e6fc4cd17b4925617968ab 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -692,7 +692,7 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
+ 		     offsetof(struct inet_timewait_sock, tw_bound_dev_if));
+ 
+ 	arg.tos = ip_hdr(skb)->tos;
+-	preempt_disable();
++	local_bh_disable();
+ 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
+ 			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
+ 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
+@@ -700,7 +700,7 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
+ 
+ 	__TCP_INC_STATS(net, TCP_MIB_OUTSEGS);
+ 	__TCP_INC_STATS(net, TCP_MIB_OUTRSTS);
+-	preempt_enable();
++	local_bh_enable();
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ out:
+@@ -776,14 +776,14 @@ static void tcp_v4_send_ack(struct net *net,
+ 	if (oif)
+ 		arg.bound_dev_if = oif;
+ 	arg.tos = tos;
+-	preempt_disable();
++	local_bh_disable();
+ 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
+ 			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
+ 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
+ 			      &arg, arg.iov[0].iov_len);
+ 
+ 	__TCP_INC_STATS(net, TCP_MIB_OUTSEGS);
+-	preempt_enable();
++	local_bh_enable();
+ }
+ 
+ static void tcp_v4_timewait_ack(struct sock *sk, struct sk_buff *skb)
