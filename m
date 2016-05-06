@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 13/21] net: dsa: mv88e6xxx: factorize global setup
-Date: Fri,  6 May 2016 17:57:15 -0400
-Message-ID: <1462571843-14397-14-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 15/21] net: dsa: mv88e6xxx: factorize VLAN Ethertype
+Date: Fri,  6 May 2016 17:57:17 -0400
+Message-ID: <1462571843-14397-16-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,326 +14,99 @@ In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Every driver is calling mv88e6xxx_setup_global after
-mv88e6xxx_setup_common. Call the former in the latter.
+The 6131 switch models have a Core Tag Type register. Add a
+MV88E6XXX_FLAG_CORE_TAG_TYPE flag and set the VLAN Ethertype to 0x8100
+in the shared setup code if it is present.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |   4 --
- drivers/net/dsa/mv88e6131.c |   4 --
- drivers/net/dsa/mv88e6171.c |   4 --
- drivers/net/dsa/mv88e6352.c |   4 --
- drivers/net/dsa/mv88e6xxx.c | 109 +++++++++++++++++++++++---------------------
- drivers/net/dsa/mv88e6xxx.h |   1 -
- 6 files changed, 56 insertions(+), 70 deletions(-)
+ drivers/net/dsa/mv88e6131.c |  5 -----
+ drivers/net/dsa/mv88e6xxx.c |  8 ++++++++
+ drivers/net/dsa/mv88e6xxx.h | 10 ++++++++++
+ 3 files changed, 18 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index fadec7a..d74695a 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -58,10 +58,6 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	ret = mv88e6xxx_setup_global(ds);
--	if (ret)
--		return ret;
--
- 	/* Disable the PHY polling unit (since there won't be any
- 	 * external PHYs to poll), don't discard packets with
- 	 * excessive collisions, and mask all interrupt sources.
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 25ed823..e22ca7b 100644
+index d05fc79..1c3b245 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -65,10 +65,6 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+@@ -65,11 +65,6 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
  	int ret;
  	u32 reg;
  
--	ret = mv88e6xxx_setup_global(ds);
+-	/* Set the VLAN ethertype to 0x8100. */
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE, 0x8100);
 -	if (ret)
 -		return ret;
 -
- 	/* Enable the PHY polling unit, don't discard packets with
- 	 * excessive collisions, use a weighted fair queueing scheme
- 	 * to arbitrate between packet queues, set the maximum frame
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index caaa4b6..4bbf2e1 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -65,10 +65,6 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	ret = mv88e6xxx_setup_global(ds);
--	if (ret)
--		return ret;
--
- 	/* Discard packets with excessive collisions, mask all
- 	 * interrupt sources, enable PPU.
- 	 */
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 470789a..3e0be87 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -84,10 +84,6 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
- 	int ret;
- 	u32 reg;
- 
--	ret = mv88e6xxx_setup_global(ds);
--	if (ret)
--		return ret;
--
- 	/* Discard packets with excessive collisions,
- 	 * mask all interrupt sources, enable PPU (bit 14, undocumented).
- 	 */
+ 	/* Disable ARP mirroring, and configure the upstream port as
+ 	 * the port to which ingress and egress monitor frames are to
+ 	 * be sent.
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b744ed5..92f4b00 100644
+index 1572719..b0245e7 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2912,36 +2912,11 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
- 	return 0;
- }
+@@ -2930,6 +2930,14 @@ static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+ 	if (err)
+ 		return err;
  
--int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
-+static int _mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
- {
- 	int err;
--
--	mutex_init(&ps->smi_mutex);
--
--	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
--
--	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
--		mutex_init(&ps->eeprom_mutex);
--
--	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
--		mv88e6xxx_ppu_state_init(ps);
--
--	mutex_lock(&ps->smi_mutex);
--
--	err = _mv88e6xxx_switch_reset(ps);
--
--	mutex_unlock(&ps->smi_mutex);
--
--	return err;
--}
--
--int mv88e6xxx_setup_global(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int err;
- 	int i;
- 
--	mutex_lock(&ps->smi_mutex);
++	/* Set the VLAN ethertype to 0x8100. */
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_CORE_TAG_TYPE)) {
++		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE,
++					   0x8100);
++		if (err)
++			return err;
++	}
++
  	/* Set the default address aging time to 5 minutes, and
  	 * enable address learn messages to be sent to all message
  	 * ports.
-@@ -2949,45 +2924,45 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_ATU_CONTROL,
- 				   0x0140 | GLOBAL_ATU_CONTROL_LEARN2ALL);
- 	if (err)
--		goto unlock;
-+		return err;
- 
- 	/* Configure the IP ToS mapping registers. */
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_0, 0x0000);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_1, 0x0000);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_2, 0x5555);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_3, 0x5555);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_4, 0xaaaa);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_5, 0xaaaa);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_6, 0xffff);
- 	if (err)
--		goto unlock;
-+		return err;
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_7, 0xffff);
- 	if (err)
--		goto unlock;
-+		return err;
- 
- 	/* Configure the IEEE 802.1p priority mapping register. */
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IEEE_PRI, 0xfa41);
- 	if (err)
--		goto unlock;
-+		return err;
- 
- 	/* Send all frames with destination addresses matching
- 	 * 01:80:c2:00:00:0x to the CPU port.
- 	 */
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_MGMT_EN_0X, 0xffff);
- 	if (err)
--		goto unlock;
-+		return err;
- 
- 	/* Ignore removed tag data on doubly tagged packets, disable
- 	 * flow control messages, force flow control priority to the
-@@ -2998,15 +2973,15 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 				   0x7 | GLOBAL2_SWITCH_MGMT_RSVD2CPU | 0x70 |
- 				   GLOBAL2_SWITCH_MGMT_FORCE_FLOW_CTRL_PRI);
- 	if (err)
--		goto unlock;
-+		return err;
- 
- 	/* Program the DSA routing table. */
- 	for (i = 0; i < 32; i++) {
- 		int nexthop = 0x1f;
- 
--		if (ds->pd->rtable &&
--		    i != ds->index && i < ds->dst->pd->nr_chips)
--			nexthop = ds->pd->rtable[i] & 0x1f;
-+		if (ps->ds->pd->rtable &&
-+		    i != ps->ds->index && i < ps->ds->dst->pd->nr_chips)
-+			nexthop = ps->ds->pd->rtable[i] & 0x1f;
- 
- 		err = _mv88e6xxx_reg_write(
- 			ps, REG_GLOBAL2,
-@@ -3014,7 +2989,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 			GLOBAL2_DEVICE_MAPPING_UPDATE |
- 			(i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) | nexthop);
- 		if (err)
--			goto unlock;
-+			return err;
- 	}
- 
- 	/* Clear all trunk masks. */
-@@ -3024,7 +2999,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 					   (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
- 					   ((1 << ps->info->num_ports) - 1));
- 		if (err)
--			goto unlock;
-+			return err;
- 	}
- 
- 	/* Clear all trunk mappings. */
-@@ -3035,7 +3010,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 			GLOBAL2_TRUNK_MAPPING_UPDATE |
- 			(i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
- 		if (err)
--			goto unlock;
-+			return err;
- 	}
- 
- 	if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
-@@ -3047,7 +3022,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2,
- 					   GLOBAL2_MGMT_EN_2X, 0xffff);
- 		if (err)
--			goto unlock;
-+			return err;
- 
- 		/* Initialise cross-chip port VLAN table to reset
- 		 * defaults.
-@@ -3055,7 +3030,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2,
- 					   GLOBAL2_PVT_ADDR, 0x9000);
- 		if (err)
--			goto unlock;
-+			return err;
- 
- 		/* Clear the priority override table. */
- 		for (i = 0; i < 16; i++) {
-@@ -3063,7 +3038,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 						   GLOBAL2_PRIO_OVERRIDE,
- 						   0x8000 | (i << 8));
- 			if (err)
--				goto unlock;
-+				return err;
- 		}
- 	}
- 
-@@ -3080,7 +3055,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 						   GLOBAL2_INGRESS_OP,
- 						   0x9000 | (i << 8));
- 			if (err)
--				goto unlock;
-+				return err;
- 		}
- 	}
- 
-@@ -3088,20 +3063,48 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_STATS_OP,
- 				   GLOBAL_STATS_OP_FLUSH_ALL);
- 	if (err)
--		goto unlock;
-+		return err;
- 
- 	/* Wait for the flush to complete. */
- 	err = _mv88e6xxx_stats_wait(ps);
--	if (err < 0)
--		goto unlock;
-+	if (err)
-+		return err;
- 
- 	/* Clear all ATU entries */
- 	err = _mv88e6xxx_atu_flush(ps, 0, true);
--	if (err < 0)
--		goto unlock;
-+	if (err)
-+		return err;
- 
- 	/* Clear all the VTU and STU entries */
- 	err = _mv88e6xxx_vtu_stu_flush(ps);
-+	if (err < 0)
-+		return err;
-+
-+	return err;
-+}
-+
-+int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
-+{
-+	int err;
-+
-+	mutex_init(&ps->smi_mutex);
-+
-+	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
-+
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
-+		mutex_init(&ps->eeprom_mutex);
-+
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
-+		mv88e6xxx_ppu_state_init(ps);
-+
-+	mutex_lock(&ps->smi_mutex);
-+
-+	err = _mv88e6xxx_switch_reset(ps);
-+	if (err)
-+		goto unlock;
-+
-+	err = _mv88e6xxx_setup_global(ps);
-+
- unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index efd6ebd..62f6fc9 100644
+index 62f6fc9..555903f 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -590,7 +590,6 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+@@ -365,6 +365,12 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_EEPROM,
  
- int mv88e6xxx_setup_ports(struct dsa_switch *ds);
- int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps);
--int mv88e6xxx_setup_global(struct dsa_switch *ds);
- int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg);
- int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
- 			int reg, u16 val);
++	/* Core Tag Type.
++	 * Used with Double Tagged frames and ports in UseCoreTag mode.
++	 * See GLOBAL_CORE_TAG_TYPE.
++	 */
++	MV88E6XXX_CAP_CORE_TAG_TYPE,
++
+ 	/* Port State Filtering for 802.1D Spanning Tree.
+ 	 * See PORT_CONTROL_STATE_* values in the PORT_CONTROL register.
+ 	 */
+@@ -411,6 +417,7 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_ATU		BIT(MV88E6XXX_CAP_ATU)
+ #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
+ #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
++#define MV88E6XXX_FLAG_CORE_TAG_TYPE	BIT(MV88E6XXX_CAP_CORE_TAG_TYPE)
+ #define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
+@@ -423,12 +430,14 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6095	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_CORE_TAG_TYPE |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_CORE_TAG_TYPE |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
+@@ -439,6 +448,7 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_CORE_TAG_TYPE |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
 -- 
 2.8.2
