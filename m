@@ -1,125 +1,52 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v3 net-next 02/11] net: define gso types for IPx over IPv4
- and IPv6
-Date: Fri, 6 May 2016 15:55:28 -0700
-Message-ID: <CALx6S37VEZ8y+-N-SDp2avwvxELFS1+PMhL2czW+QpPeCpjRHw@mail.gmail.com>
-References: <1462572726-566137-1-git-send-email-tom@herbertland.com>
-	<1462572726-566137-3-git-send-email-tom@herbertland.com>
-	<572D1F33.9040206@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: make sch_handle_ingress() drop monitor ready
+Date: Fri, 06 May 2016 15:55:50 -0700
+Message-ID: <1462575350.13075.60.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36039 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758503AbcEFWz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 18:55:29 -0400
-Received: by mail-io0-f180.google.com with SMTP id u185so147398369iod.3
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 15:55:29 -0700 (PDT)
-In-Reply-To: <572D1F33.9040206@gmail.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33680 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758503AbcEFWzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 18:55:52 -0400
+Received: by mail-pf0-f173.google.com with SMTP id 206so54519104pfu.0
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 15:55:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 6, 2016 at 3:48 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On 05/06/2016 03:11 PM, Tom Herbert wrote:
->>
->> This patch defines two new GDO definitions SKB_GSO_IPXIP4 and
->> SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
->> NETIF_F_GSO_IPXIP6. These are used to described IP in IP
->> tunnel and what the outer protocol is. The inner protocol
->> can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
->> SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
->> are removed (these are both instances of SKB_GSO_IPXIP4).
->> SKB_GSO_IPXIP6 will be used when support for GSO with IP
->> encapsulation over IPv6 is added.
->>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
->> ---
->>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
->>   drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
->>   drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
->>   drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
->>   drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
->>   drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
->>   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
->>   include/linux/netdev_features.h                   | 12 ++++++------
->>   include/linux/netdevice.h                         |  4 ++--
->>   include/linux/skbuff.h                            |  4 ++--
->>   net/core/ethtool.c                                |  4 ++--
->>   net/ipv4/af_inet.c                                |  2 +-
->>   net/ipv4/ipip.c                                   |  2 +-
->>   net/ipv6/ip6_offload.c                            |  4 ++--
->>   net/ipv6/sit.c                                    |  4 ++--
->>   net/netfilter/ipvs/ip_vs_xmit.c                   | 17 +++++++----------
->>   17 files changed, 35 insertions(+), 45 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> index d465bd7..0a5b770 100644
->> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
->> @@ -13259,12 +13259,11 @@ static int bnx2x_init_dev(struct bnx2x *bp,
->> struct pci_dev *pdev,
->>                 NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
->>         if (!chip_is_e1x) {
->>                 dev->hw_features |= NETIF_F_GSO_GRE |
->> NETIF_F_GSO_UDP_TUNNEL |
->> -                                   NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
->> +                                   NETIF_F_GSO_IPXIP4;
->>                 dev->hw_enc_features =
->>                         NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
->>                         NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
->> -                       NETIF_F_GSO_IPIP |
->> -                       NETIF_F_GSO_SIT |
->> +                       NETIF_F_GSO_IPXIP4 |
->>                         NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL;
->>         }
->>
->> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> index fd85b6d..e449228 100644
->> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
->> @@ -6218,7 +6218,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const
->> struct pci_device_id *ent)
->>         dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->> NETIF_F_SG |
->>                            NETIF_F_TSO | NETIF_F_TSO6 |
->>                            NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
->> -                          NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
->> +                          NETIF_F_GSO_IPXIP4 |
->>                            NETIF_F_GSO_UDP_TUNNEL_CSUM |
->> NETIF_F_GSO_GRE_CSUM |
->>                            NETIF_F_GSO_PARTIAL | NETIF_F_RXHASH |
->>                            NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
->> @@ -6228,7 +6228,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const
->> struct pci_device_id *ent)
->>                         NETIF_F_TSO | NETIF_F_TSO6 |
->>                         NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
->>                         NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM
->> |
->> -                       NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
->> +                       NETIF_F_GSO_IPXIP4;
->>                         NETIF_F_GSO_PARTIAL;
->>         dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM |
->>                                     NETIF_F_GSO_GRE_CSUM;
->
->
-> You should try building the bnxt driver at least if you are making changes
-> to it.  This bit is broken.  It should be an '|' and not a ';' here.
->
-> The other bits seem to be correct.  I'll try testing this over the next few
-> hours to see if I can find any other issues.
+From: Eric Dumazet <edumazet@google.com>
 
-Huh, that's odd. I'm pretty sure I built drivers/net with allyesconfig
-with this.
+TC_ACT_STOLEN is used when ingress traffic is mirred/redirected
+to say ifb.
 
-Thanks for catching it.
+Packet is not dropped, but consumed.
 
->
-> - Alex
+Only TC_ACT_SHOT is a clear indication something went wrong.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/core/dev.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e98ba63fe2800c10d4d407f12d11ca8975dc1e8e..c7490339315cc0046a2da67c00a95f079e602588 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3956,9 +3956,11 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+ 		break;
+ 	case TC_ACT_SHOT:
+ 		qdisc_qstats_cpu_drop(cl->q);
++		kfree_skb(skb);
++		return NULL;
+ 	case TC_ACT_STOLEN:
+ 	case TC_ACT_QUEUED:
+-		kfree_skb(skb);
++		consume_skb(skb);
+ 		return NULL;
+ 	case TC_ACT_REDIRECT:
+ 		/* skb_mac_header check was done by cls/act_bpf, so
