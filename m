@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 08/21] net: dsa: mv88e6xxx: factorize registers access
-Date: Fri,  6 May 2016 17:57:10 -0400
-Message-ID: <1462571843-14397-9-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 07/21] net: dsa: mv88e6xxx: factorize EEE access
+Date: Fri,  6 May 2016 17:57:09 -0400
+Message-ID: <1462571843-14397-8-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,50 +14,124 @@ In-Reply-To: <1462571843-14397-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Only 6131 was not supporting the port registers access yet. Assume such
-support and use the unlock access routines in the meantime.
+Add a MV88E6XXX_FLAG_EEE flag to describe switch models featuring Energy
+Efficient Ethernet. Use it to conditionally support such access in the
+common code.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6131.c | 2 ++
- drivers/net/dsa/mv88e6xxx.c | 6 +++++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6123.c |  2 ++
+ drivers/net/dsa/mv88e6131.c |  2 ++
+ drivers/net/dsa/mv88e6171.c |  2 ++
+ drivers/net/dsa/mv88e6xxx.c |  6 ++++++
+ drivers/net/dsa/mv88e6xxx.h | 11 +++++++++--
+ 5 files changed, 21 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index c349fb7..1ad7bcd 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -117,6 +117,8 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
++	.set_eee		= mv88e6xxx_set_eee,
++	.get_eee		= mv88e6xxx_get_eee,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 432d3c4..3fb06af 100644
+index 1e040c6..432d3c4 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -157,6 +157,8 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+@@ -150,6 +150,8 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
++	.set_eee		= mv88e6xxx_set_eee,
++	.get_eee		= mv88e6xxx_get_eee,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
  	.get_sset_count		= mv88e6xxx_get_sset_count,
- 	.get_eeprom		= mv88e6xxx_get_eeprom,
- 	.set_eeprom		= mv88e6xxx_set_eeprom,
-+	.get_regs_len		= mv88e6xxx_get_regs_len,
-+	.get_regs		= mv88e6xxx_get_regs,
- #ifdef CONFIG_NET_DSA_HWMON
- 	.get_temp		= mv88e6xxx_get_temp,
- 	.get_temp_limit		= mv88e6xxx_get_temp_limit,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index f9b20e0..a98e7d3 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -126,6 +126,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.set_addr		= mv88e6xxx_set_addr,
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
++	.set_eee		= mv88e6xxx_set_eee,
++	.get_eee		= mv88e6xxx_get_eee,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index f76cdc9..7a4ab4b 100644
+index 10cc277..f76cdc9 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -787,13 +787,17 @@ void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
+@@ -1097,6 +1097,9 @@ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int reg;
  
- 	memset(p, 0xff, 32 * sizeof(u16));
- 
-+	mutex_lock(&ps->smi_mutex);
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEE))
++		return -EOPNOTSUPP;
 +
- 	for (i = 0; i < 32; i++) {
- 		int ret;
+ 	mutex_lock(&ps->smi_mutex);
  
--		ret = mv88e6xxx_reg_read(ps, REG_PORT(port), i);
-+		ret = _mv88e6xxx_reg_read(ps, REG_PORT(port), i);
- 		if (ret >= 0)
- 			p[i] = ret;
- 	}
+ 	reg = _mv88e6xxx_phy_read_indirect(ps, port, 16);
+@@ -1125,6 +1128,9 @@ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 	int reg;
+ 	int ret;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEE))
++		return -EOPNOTSUPP;
 +
-+	mutex_unlock(&ps->smi_mutex);
- }
+ 	mutex_lock(&ps->smi_mutex);
  
- static int _mv88e6xxx_wait(struct mv88e6xxx_priv_state *ps, int reg, int offset,
+ 	ret = _mv88e6xxx_phy_read_indirect(ps, port, 16);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 517e95f..b99e090 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -351,6 +351,10 @@ enum mv88e6xxx_family {
+ };
+ 
+ enum mv88e6xxx_cap {
++	/* Energy Efficient Ethernet.
++	 */
++	MV88E6XXX_CAP_EEE,
++
+ 	/* EEPROM Command and Data registers.
+ 	 * See GLOBAL2_EEPROM_OP and GLOBAL2_EEPROM_DATA.
+ 	 */
+@@ -382,6 +386,7 @@ enum mv88e6xxx_cap {
+ };
+ 
+ /* Bitmask of capabilities */
++#define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
+ #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
+@@ -403,7 +408,8 @@ enum mv88e6xxx_cap {
+ 	MV88E6XXX_FLAG_PPU
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6320	\
+-	(MV88E6XXX_FLAG_EEPROM |	\
++	(MV88E6XXX_FLAG_EEE |		\
++	 MV88E6XXX_FLAG_EEPROM |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+@@ -415,7 +421,8 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_TEMP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+-	(MV88E6XXX_FLAG_EEPROM |	\
++	(MV88E6XXX_FLAG_EEE |		\
++	 MV88E6XXX_FLAG_EEPROM |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY	|	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
 -- 
 2.8.2
