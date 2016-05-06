@@ -1,36 +1,40 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/2] ip link gre: fix external mode handling
-Date: Fri, 6 May 2016 11:50:17 -0700
-Message-ID: <20160506115017.1d1f21f9@xeon-e3>
-References: <cover.1461766016.git.jbenc@redhat.com>
+Subject: Re: [PATCH] Add support for configuring Infiniband GUIDs
+Date: Fri, 6 May 2016 11:53:41 -0700
+Message-ID: <20160506115341.5b8d4587@xeon-e3>
+References: <1462549405-16003-1-git-send-email-eli@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Paolo Abeni <pabeni@redhat.com>,
-	Pravin Shelar <pshelar@ovn.org>
-To: Jiri Benc <jbenc@redhat.com>
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
+To: Eli Cohen <eli@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33668 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758144AbcEFSuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 14:50:06 -0400
-Received: by mail-pf0-f180.google.com with SMTP id 206so52814597pfu.0
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 11:50:06 -0700 (PDT)
-In-Reply-To: <cover.1461766016.git.jbenc@redhat.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35743 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756380AbcEFSx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 14:53:29 -0400
+Received: by mail-pa0-f45.google.com with SMTP id iv1so50061225pac.2
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 11:53:29 -0700 (PDT)
+In-Reply-To: <1462549405-16003-1-git-send-email-eli@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Apr 2016 16:11:12 +0200
-Jiri Benc <jbenc@redhat.com> wrote:
+On Fri,  6 May 2016 10:43:25 -0500
+Eli Cohen <eli@mellanox.com> wrote:
 
-> Fix two bugs with handling of the 'external' keyword for GRE.
+> Add two NLA's that allow configuration of Infiniband node or port GUIDs
+> by referencing the IPoIB net device set over then physical function. The
+> format to be used is as follows:
 > 
-> Jiri Benc (2):
->   ip link gre: create interfaces in external mode correctly
->   ip link gre: print only relevant info in external mode
+> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
+> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
 > 
->  ip/link_gre.c | 43 +++++++++++++++++++++++++------------------
->  1 file changed, 25 insertions(+), 18 deletions(-)
-> 
+> Issue: 702759
+> Change-Id: I5ffb54d6de7bfa8650bf5818f484279914991d6e
+> Signed-off-by: Eli Cohen <eli@mellanox.com>
 
-Applied
+I am not that familiar with Infiniband, but the documentation seems
+to use a non-colon form:
+ # ip link set dev ib0 vf 0 node_guid 0002c90300216e70
+
+Seems like ip should follow the lead of ibstat and friends.
