@@ -1,25 +1,55 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH] Documentation/networking: more accurate LCO explanation
-Date: Fri, 6 May 2016 17:12:53 +0100
-Message-ID: <572CC285.2090208@solarflare.com>
-References: <1462550263-9742-1-git-send-email-shmulik.ladkani@gmail.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [Intel-wired-lan] NULL dereference on v4.1.x while enabling VF
+Date: Fri, 6 May 2016 16:26:24 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF2228664691EA7CAF@ORSMSX116.amr.corp.intel.com>
+References: <CAJ75kXZV32hLzYY-dynYAj6NHm2xNoq89inmSSbqUyxPvUazEw@mail.gmail.com>
+ <F6FB0E698C9B3143BDF729DF2228664691EA68EC@ORSMSX116.amr.corp.intel.com>
+ <CAJ75kXY_PMK0iTyM5bbhQoAS9je5AqpW67jyZpJEUoNw0BPcqw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: NETDEV <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	Alex Duyck <aduyck@mirantis.com>
+To: William Dauchy <wdauchy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:2456 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758166AbcEFQND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 12:13:03 -0400
-In-Reply-To: <1462550263-9742-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:45099 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755528AbcEFQ02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 May 2016 12:26:28 -0400
+In-Reply-To: <CAJ75kXY_PMK0iTyM5bbhQoAS9je5AqpW67jyZpJEUoNw0BPcqw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/05/16 16:57, Shmulik Ladkani wrote:
-> In few places the term "ones-complement sum" was used but the actual
-> meaning is "the complement of the ones-complement sum".
->
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Acked-by: Edward Cree <ecree@solarflare.com>
+SGV5IFdpbGxpYW0sDQoNCk15IHZhbGlkYXRpb24gaGFzbid0IGJlIGFibGUgdG8gcmVjcmVhdGUg
+dGhlIGRlcmVmZXJlbmNlIG9uIHY0LjEueCwgdjQuNS54IG9yIG5ldF9uZXh0LiAgV2hlcmUgZXhh
+Y3RseSBkaWQgeW91IHBsYWNlIHRoZSB0d28gbGluZSBzY3JpcHQgaW4geW91ciByYyBzY3JpcHRz
+LiAgT3VyIHZhbGlkYXRpb24gd2FzIGFibGUgdG8gcnVuIGl0IGFzIHNvb24gYXMgfjE0IHNlY29u
+ZCBhZnRlciB0aGUgZmlyc3QgYm9vdCBtZXNzYWdlIGxvZ2dlZCBpbiBkbWVzZy4gIElzIHRoaXMg
+YW55d2hlcmUgY2xvc2UgdG8gd2hlcmUgeW91IHdlcmUgZXhlY3V0aW5nIGl0PyAgTGlrZXdpc2Ug
+aGUgaGFzIGF0dGVtcHRlZCBydW5uaW5nIGF0IGJvdGggcnVuIGxldmVsIDMgYW5kIDUgaW4gY2Fz
+ZSB0aGF0IGNoYW5nZWQgYW55IG9mIHRoZSB0aW1lcyBvZiBob3cgc29vbiB0aGUgcmMgc2NyaXB0
+cyBhcmUgZXhlY3V0ZWQuICBTbyB0aGUgbW9yZSBkZXRhaWwgeW91IGNhbiBnaXZlIG9mIHNldHVw
+IHRoZSBtb3JlIGl0IG1pZ2h0IGhlbHAgdXMgcmVjcmVhdGUgd2hhdCB5b3UgYXJlIHNlZWluZy4N
+Cg0KVGhhbmtzLA0KLURvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmU+DQoNCiANCg0KPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXaWxsaWFtIERhdWNoeSBbbWFpbHRv
+OndkYXVjaHlAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBNYXkgMDMsIDIwMTYgNTozMyBB
+TQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+
+DQo+IENjOiBORVRERVYgPG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc+OyBpbnRlbC13aXJlZC1sYW5A
+bGlzdHMub3N1b3NsLm9yZzsNCj4gQWxleCBEdXljayA8YWR1eWNrQG1pcmFudGlzLmNvbT4NCj4g
+U3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIE5VTEwgZGVyZWZlcmVuY2Ugb24gdjQuMS54
+IHdoaWxlIGVuYWJsaW5nIFZGDQo+IA0KPiBIZWxsbyBEb24sDQo+IA0KPiBUaGFuayB5b3UgZm9y
+IHlvdXIgcmVwbHkuDQo+IA0KPiBPbiBNb24sIE1heSAyLCAyMDE2IGF0IDExOjMzIFBNLCBTa2lk
+bW9yZSwgRG9uYWxkIEMNCj4gPGRvbmFsZC5jLnNraWRtb3JlQGludGVsLmNvbT4gd3JvdGU6DQo+
+ID4gVGhhbmtzIGZvciByZXBvcnRpbmcgdGhlIGRlcmVmZXJlbmNlLiAgQ291bGQgeW91IHByb3Zp
+ZGUgYSBsaXR0bGUgbW9yZQ0KPiBkZXRhaWwgb24gaG93IHlvdSBjcmVhdGVkIHRoaXMgaXNzdWU/
+ICBBcmUgeW91IGp1c3QgcnVubmluZyB0aGUgdHdvDQo+IGNvbW1hbmRzIChpcCwgc3Jpb3ZfbnVt
+dmZzKSBpbiBzb21lIHJjIHNjcmlwdCBhbmQgaWYgeW91IHB1dCBhIGZldyBzZWNvbmQNCj4gc2xl
+ZXAgaW4gZnJvbnQgb2YgaXQgeW91IGRvbid0IHNlZSB0aGUgZmFpbHVyZT8NCj4gDQo+IFlvdXIg
+dW5kZXJzdGFuZGluZyBpcyBjb3JyZWN0OyBhIHJjIHNjcmlwdCBpcyBydW4gd2l0aCBpcCBhbmQg
+ZWNobyBpbiBudW12ZnMNCj4gY29tbWFuZHMuIEkgdHJpZWQgdG8gcmVkdWNlIGl0IHRvIHRoZSBt
+aW5pbXVtLiBJZiBJIHB1dCBhIHNsZWVwDQo+IDIwIGluIGZyb250IG9mIGl0LCBpdCBkb2VzIG5v
+dCBjcmFzaC4gSSBhbHNvIGZvcmdvdCB0byBhZGQgSSBkaWQgbm90IGhhZCB0aGUgaXNzdWUNCj4g
+aW4gMy4xNC54IHdpdGggdGhlIHNhbWUgc2NyaXB0Lg0KPiANCj4gQmVzdCwNCj4gLS0NCj4gV2ls
+bGlhbQ0K
