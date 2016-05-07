@@ -1,36 +1,185 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 0/2] net: l3mdev: Allow send on enslaved interface
-Date: Sat,  7 May 2016 16:48:58 -0700
-Message-ID: <1462664940-26678-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/2] net: l3mdev: Move get_saddr and rt6_dst
+Date: Sat,  7 May 2016 16:48:59 -0700
+Message-ID: <1462664940-26678-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1462664940-26678-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33867 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbcEGXtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 19:49:08 -0400
-Received: by mail-pa0-f41.google.com with SMTP id r5so61074882pag.1
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 16:49:08 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35508 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbcEGXtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 19:49:09 -0400
+Received: by mail-pa0-f51.google.com with SMTP id iv1so59434391pac.2
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 16:49:09 -0700 (PDT)
+In-Reply-To: <1462664940-26678-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First patch preps for the second. The second is required for several use
-cases such as ping on an interface and BFD that need to send packets on
-a specific interface, including ones enslaved to a VRF device.
+Move l3mdev_rt6_dst_by_oif and l3mdev_get_saddr to l3mdev.c. Collapse
+l3mdev_get_rt6_dst into l3mdev_rt6_dst_by_oif since it is the only
+user and keep the l3mdev_get_rt6_dst name for consistency with other
+hooks.
 
-v2
-- fixed brackets on both patches per comment from DaveM
+A follow-on patch adds more code to these functions making them long
+for inlined functions.
 
-David Ahern (2):
-  net: l3mdev: Move get_saddr and rt6_dst
-  net: l3mdev: Allow send on enslaved interface
-
- drivers/net/vrf.c    |  2 ++
- include/net/l3mdev.h | 56 +++-------------------------------------------
- net/ipv4/route.c     |  4 ++++
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/net/l3mdev.h | 56 +++-------------------------------------------------
  net/ipv6/route.c     |  2 +-
- net/l3mdev/l3mdev.c  | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 73 insertions(+), 54 deletions(-)
+ net/l3mdev/l3mdev.c  | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 58 insertions(+), 54 deletions(-)
 
+diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
+index c43a9c73de5e..78872bd1dc2c 100644
+--- a/include/net/l3mdev.h
++++ b/include/net/l3mdev.h
+@@ -130,52 +130,9 @@ static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
+ 	return rc;
+ }
+ 
+-static inline int l3mdev_get_saddr(struct net *net, int ifindex,
+-				   struct flowi4 *fl4)
+-{
+-	struct net_device *dev;
+-	int rc = 0;
+-
+-	if (ifindex) {
+-
+-		rcu_read_lock();
+-
+-		dev = dev_get_by_index_rcu(net, ifindex);
+-		if (dev && netif_is_l3_master(dev) &&
+-		    dev->l3mdev_ops->l3mdev_get_saddr) {
+-			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
+-		}
+-
+-		rcu_read_unlock();
+-	}
+-
+-	return rc;
+-}
++int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4);
+ 
+-static inline struct dst_entry *l3mdev_get_rt6_dst(const struct net_device *dev,
+-						   const struct flowi6 *fl6)
+-{
+-	if (netif_is_l3_master(dev) && dev->l3mdev_ops->l3mdev_get_rt6_dst)
+-		return dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
+-
+-	return NULL;
+-}
+-
+-static inline
+-struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
+-					const struct flowi6 *fl6)
+-{
+-	struct dst_entry *dst = NULL;
+-	struct net_device *dev;
+-
+-	dev = dev_get_by_index(net, fl6->flowi6_oif);
+-	if (dev) {
+-		dst = l3mdev_get_rt6_dst(dev, fl6);
+-		dev_put(dev);
+-	}
+-
+-	return dst;
+-}
++struct dst_entry *l3mdev_get_rt6_dst(struct net *net, const struct flowi6 *fl6);
+ 
+ #else
+ 
+@@ -233,14 +190,7 @@ static inline int l3mdev_get_saddr(struct net *net, int ifindex,
+ }
+ 
+ static inline
+-struct dst_entry *l3mdev_get_rt6_dst(const struct net_device *dev,
+-				     const struct flowi6 *fl6)
+-{
+-	return NULL;
+-}
+-static inline
+-struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
+-					const struct flowi6 *fl6)
++struct dst_entry *l3mdev_get_rt6_dst(struct net *net, const struct flowi6 *fl6)
+ {
+ 	return NULL;
+ }
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index af46e19205f5..c42fa1deb152 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1190,7 +1190,7 @@ struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
+ 	struct dst_entry *dst;
+ 	bool any_src;
+ 
+-	dst = l3mdev_rt6_dst_by_oif(net, fl6);
++	dst = l3mdev_get_rt6_dst(net, fl6);
+ 	if (dst)
+ 		return dst;
+ 
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index e925037fa0df..898d01e0f87b 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -97,3 +97,57 @@ u32 l3mdev_fib_table_by_index(struct net *net, int ifindex)
+ 	return tb_id;
+ }
+ EXPORT_SYMBOL_GPL(l3mdev_fib_table_by_index);
++
++/**
++ *	l3mdev_get_rt6_dst - IPv6 route lookup based on flow. Returns
++ *			     cached route for L3 master device if relevant
++ *			     to flow
++ *	@net: network namespace for device index lookup
++ *	@fl6: IPv6 flow struct for lookup
++ */
++
++struct dst_entry *l3mdev_get_rt6_dst(struct net *net,
++				     const struct flowi6 *fl6)
++{
++	struct dst_entry *dst = NULL;
++	struct net_device *dev;
++
++	dev = dev_get_by_index(net, fl6->flowi6_oif);
++	if (dev) {
++		if (netif_is_l3_master(dev) &&
++		    dev->l3mdev_ops->l3mdev_get_rt6_dst)
++			dst = dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
++		dev_put(dev);
++	}
++
++	return dst;
++}
++EXPORT_SYMBOL_GPL(l3mdev_get_rt6_dst);
++
++/**
++ *	l3mdev_get_saddr - get source address for a flow based on an interface
++ *			   enslaved to an L3 master device
++ *	@net: network namespace for device index lookup
++ *	@ifindex: Interface index
++ *	@fl4: IPv4 flow struct
++ */
++
++int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4)
++{
++	struct net_device *dev;
++	int rc = 0;
++
++	if (ifindex) {
++		rcu_read_lock();
++
++		dev = dev_get_by_index_rcu(net, ifindex);
++		if (dev && netif_is_l3_master(dev) &&
++		    dev->l3mdev_ops->l3mdev_get_saddr)
++			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
++
++		rcu_read_unlock();
++	}
++
++	return rc;
++}
++EXPORT_SYMBOL_GPL(l3mdev_get_saddr);
 -- 
 2.1.4
