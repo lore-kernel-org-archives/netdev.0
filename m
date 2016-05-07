@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: l3mdev: Move get_saddr and rt6_dst
-Date: Sat, 07 May 2016 15:01:14 -0400 (EDT)
-Message-ID: <20160507.150114.1039727169335366513.davem@davemloft.net>
-References: <1462424050-16084-1-git-send-email-dsa@cumulusnetworks.com>
-	<1462424050-16084-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/4] xen-netback: add control protocol
+ implementation
+Date: Sat, 07 May 2016 15:09:21 -0400 (EDT)
+Message-ID: <20160507.150921.2053537729453518863.davem@davemloft.net>
+References: <1462447170-1815-1-git-send-email-paul.durrant@citrix.com>
+	<1462447170-1815-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com
+To: paul.durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35426 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35507 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750934AbcEGTBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 15:01:19 -0400
-In-Reply-To: <1462424050-16084-2-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1750857AbcEGTJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 15:09:23 -0400
+In-Reply-To: <1462447170-1815-3-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed,  4 May 2016 21:54:09 -0700
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Thu, 5 May 2016 12:19:28 +0100
 
-> +		if (dev && netif_is_l3_master(dev) &&
-> +		    dev->l3mdev_ops->l3mdev_get_saddr) {
-> +			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
-> +		}
+> +struct xenvif_hash_cache {
+> +	rwlock_t lock;
 
-Please do not use braces for single statement basic blocks.
+You really don't want to lock on every SKB hash computation like
+this, turn this into a spin lock for locking the write side and
+use RCU locking for lookup and usage.
 
-The same issue exists in patch #2 so please fix it there as well.
-
-Thanks.
+THanks.
