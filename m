@@ -1,66 +1,49 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2 1/2 -net] ravb: Add missing free_irq() call to ravb_close()
-Date: Sat, 7 May 2016 21:42:35 +0200
-Message-ID: <CAMuHMdXse+4E0=71ErEv6hiWQ7-G2eM8aQAh9dF8wCyCPLQOvA@mail.gmail.com>
-References: <1462619832-5177-1-git-send-email-geert+renesas@glider.be>
-	<1462619832-5177-2-git-send-email-geert+renesas@glider.be>
-	<572E3673.5020304@cogentembedded.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] pxa168_eth: mdiobus_scan() doesn't return NULL anymore
+Date: Sat, 07 May 2016 22:53:40 +0300
+Message-ID: <3730936.r1jNy7SQee@wasted.cogentembedded.com>
+References: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f193.google.com ([209.85.213.193]:32910 "EHLO
-	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbcEGTmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 15:42:36 -0400
-In-Reply-To: <572E3673.5020304@cogentembedded.com>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:35586 "EHLO
+	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbcEGTxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 15:53:45 -0400
+Received: by mail-lf0-f45.google.com with SMTP id j8so163531629lfd.2
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 12:53:44 -0700 (PDT)
+Received: from wasted.cogentembedded.com ([31.173.81.110])
+        by smtp.gmail.com with ESMTPSA id j2sm3734903lfb.13.2016.05.07.12.53.41
+        for <netdev@vger.kernel.org>
+        (version=TLSv1/SSLv3 cipher=OTHER);
+        Sat, 07 May 2016 12:53:42 -0700 (PDT)
+In-Reply-To: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 7, 2016 at 8:39 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 05/07/2016 02:17 PM, Geert Uytterhoeven wrote:
->
->> When reopening the network device on ra7795/salvator-x, e.g. after a
->> DHCP timeout:
->>
->>      IP-Config: Reopening network devices...
->>      genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs.
->> 00000000 (eth0:ch24:emac)
->>      ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
->
->    Er, this can't be a message from the kernel built from net.git. That
-> driver used 'ndev->name'
-> to request both IRQs...
+Now that mdiobus_scan() doesn't return NULL on failure anymore, this driver
+no  longer needs to check for it...
 
-Oops, I copied the error message from the second patch.
-I don't think it matters that much, though...
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
->>      IP-Config: Failed to open eth0
->>      IP-Config: No network devices available
->>
->> The "mismatch" is due to requesting an IRQ that is already in use,
->> while IRQF_PROBE_SHARED wasn't set.
->>
->> However, the real cause is that ravb_close() doesn't release the R-Car
->> Gen3-specific secondary IRQ.
->>
->> Add the missing free_irq() call to fix this.
->>
->> Fixes: 22d4df8ff3a3cc72 ("ravb: Add support for r8a7795 SoC")
->> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
->
->
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+The patch is against DaveM's 'net-next.git' repo.
 
-Thanks!
+ drivers/net/ethernet/marvell/pxa168_eth.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-Gr{oetje,eeting}s,
-
-                        Geert
+Index: net-next/drivers/net/ethernet/marvell/pxa168_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/marvell/pxa168_eth.c
++++ net-next/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -981,8 +981,6 @@ static int pxa168_init_phy(struct net_de
+ 	pep->phy = mdiobus_scan(pep->smi_bus, pep->phy_addr);
+ 	if (IS_ERR(pep->phy))
+ 		return PTR_ERR(pep->phy);
+-	if (!pep->phy)
+-		return -ENODEV;
+ 
+ 	err = phy_connect_direct(dev, pep->phy, pxa168_eth_adjust_link,
+ 				 pep->phy_intf);
