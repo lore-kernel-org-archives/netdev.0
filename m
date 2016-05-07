@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Reset dcb state machine and tx queue
- prio only if dcb is enabled
-Date: Sat, 07 May 2016 15:16:05 -0400 (EDT)
-Message-ID: <20160507.151605.680566397138476812.davem@davemloft.net>
-References: <1462426539-5729-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [patch 2/2] netxen: reversed condition in
+ netxen_nic_set_link_parameters()
+Date: Sat, 07 May 2016 15:16:16 -0400 (EDT)
+Message-ID: <20160507.151616.1691068510125905278.davem@davemloft.net>
+References: <20160505131944.GC3038@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35554 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbcEGTQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 15:16:08 -0400
-In-Reply-To: <1462426539-5729-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
+	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160505131944.GC3038@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Thu,  5 May 2016 11:05:39 +0530
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 5 May 2016 16:19:44 +0300
 
-> When cxgb4 is enabled with CONFIG_CHELSIO_T4_DCB set, VI enable command
-> gets called with DCB enabled. But when we have a back to back setup with
-> DCB enabled on one side and non-DCB on the Peer side. Firmware doesn't
-> send any DCB_L2_CFG, and DCB priority is never set for Tx queue.
-> But driver resets the queue priority and state machine whenever there
-> is a link down, this patch fixes it by adding a check to reset only if
-> cxgb4_dcb_enabled() returns true.
+> My static checker complains that we are using "autoneg" without
+> initializing it.  The problem is the ->phy_read() condition is reversed
+> so we only set this on error instead of success.
 > 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
