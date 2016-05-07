@@ -1,102 +1,58 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3 net-next 00/11] ipv6: Enable GUEoIPv6 and more fixes
- for v6 tunneling
-Date: Fri, 6 May 2016 18:09:53 -0700
-Message-ID: <CAKgT0UdvZbDsDewsGRvMO93OZNSSXKfWaT7RvWkb6DQaG9jvyA@mail.gmail.com>
-References: <1462572726-566137-1-git-send-email-tom@herbertland.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/2] net: vrf: Fixup PKTINFO to return enslaved
+ device index
+Date: Fri, 6 May 2016 19:04:47 -0600
+Message-ID: <572D3F2F.4030307@cumulusnetworks.com>
+References: <1462477063-21699-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:38798 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758804AbcEGBJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 21:09:54 -0400
-Received: by mail-ig0-f179.google.com with SMTP id m9so54343026ige.1
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 18:09:54 -0700 (PDT)
-In-Reply-To: <1462572726-566137-1-git-send-email-tom@herbertland.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:36179 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758804AbcEGBEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 21:04:51 -0400
+Received: by mail-ob0-f178.google.com with SMTP id aq1so54349845obc.3
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 18:04:51 -0700 (PDT)
+Received: from [192.168.0.4] (65-128-63-165.hlrn.qwest.net. [65.128.63.165])
+        by smtp.googlemail.com with ESMTPSA id w140sm5652839oif.24.2016.05.06.18.04.48
+        for <netdev@vger.kernel.org>
+        (version=TLSv1/SSLv3 cipher=OTHER);
+        Fri, 06 May 2016 18:04:49 -0700 (PDT)
+In-Reply-To: <1462477063-21699-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 6, 2016 at 3:11 PM, Tom Herbert <tom@herbertland.com> wrote:
-> This patch set:
->   - Fixes GRE6 to process translate flags correctly from configuration
->   - Adds support for GSO and GRO for ip6ip6 and ip4ip6
->   - Add support for FOU and GUE in IPv6
->   - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
->   - Fixes ip6_input to deal with UDP encapsulations
->   - Some other minor fixes
+On 5/5/16 1:37 PM, David Ahern wrote:
+> Applications such as OSPF and BFD need the original ingress device not
+> the VRF device; the latter can be derived from the former. To that end
+> move the packet intercept from an rx handler that is invoked by
+> __netif_receive_skb_core to the ipv4 and ipv6 receive processing.
 >
-> v2:
->   - Removed a check of GSO types in MPLS
->   - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
->     from Alexander)
->   - Don't define GSO types specifally for IP6IP6 and IP4IP6, above
->     fix makes that uncessary
->   - Don't bother clearing encapsulation flag in UDP tunnel segment
->     (another item suggested by Alexander).
+> IPv6 already saves the skb_iif to the control buffer in ipv6_rcv. Since
+> the skb->dev has not been switched the cb has the enslaved device. Make
+> the same happen for IPv4 by adding the skb_iif to inet_skb_parm and set
+> it in ipv4 code after clearing the skb control buffer similar to IPv6.
+>  From there the pktinfo can just pull it from cb with the PKTINFO_SKB_CB
+> cast.
 >
-> v3:
->   - Address some minor comments from Alexander
+> David Ahern (2):
+>    net: l3mdev: Add hook in ip and ipv6
+>    net: original ingress device index in PKTINFO
 >
-> Tested:
->    Tested a variety of case, but not the full matrix (which is quite
->    large now). Most of the obivous cases (e.g. GRE) work fine. Still
->    some issues probably with GSO/GRO being effective in all cases.
+>   drivers/net/vrf.c         | 186 ++++++++++++++++++++++------------------------
+>   include/linux/ipv6.h      |   3 +-
+>   include/linux/netdevice.h |   2 +
+>   include/net/ip.h          |   1 +
+>   include/net/l3mdev.h      |  43 +++++++++++
+>   include/net/tcp.h         |   3 +-
+>   net/core/dev.c            |   3 +-
+>   net/ipv4/ip_input.c       |   8 ++
+>   net/ipv4/ip_sockglue.c    |   7 +-
+>   net/ipv6/ip6_input.c      |   7 ++
+>   10 files changed, 161 insertions(+), 102 deletions(-)
 >
->     - IPv4/GRE/GUE/IPv6 with RCO
->       1 TCP_STREAM
->         6616 Mbps
->       200 TCP_RR
->         1244043 tps
->         141/243/446 90/95/99% latencies
->         86.61% CPU utilization
->     - IPv6/GRE/GUE/IPv6 with RCO
->       1 TCP_STREAM
->         6940 Mbps
->       200 TCP_RR
->         1270903 tps
->         138/236/440 90/95/99% latencies
->         87.51% CPU utilization
->
->      - IP6IP6
->       1 TCP_STREAM
->         2576 Mbps
->       200 TCP_RR
->         498981 tps
->         388/498/631 90/95/99% latencies
->         19.75% CPU utilization (1 CPU saturated)
->
->      - IP6IP6/GUE/IPv6 with RCO
->       1 TCP_STREAM
->         1854 Mbps
->       200 TCP_RR
->         1233818 tps
->         143/244/451 90/95/99% latencies
->         87.57 CPU utilization
->
->      - IP4IP6
->       1 TCP_STREAM
->       200 TCP_RR
->         763774 tps
->         250/318/466 90/95/99% latencies
->         35.25% CPU utilization (1 CPU saturated)
->
->      - GRE with keyid
->       200 TCP_RR
->         744173 tps
->         258/332/461 90/95/99% latencies
->         34.59% CPU utilization (1 CPU saturated)
 
-So I tried testing your patch set and it looks like I cannot get GRE
-working for any netperf test.  If I pop the patches off it is even
-worse since it looks like patch 3 fixes some tunnel flags issues, but
-still doesn't resolve all the issues introduced with b05229f44228
-("gre6: Cleanup GREv6 transmit path, call common GRE functions").
-Reverting the entire patch seems to resolve the issues, but I will try
-to pick it apart tonight to see if I can find the other issues that
-weren't addressed in this patch series.
-
-- Alex
+Dave: please ignore. I have an update that better encapsulates the 
+inet6_iif and tcp iif change. Will send v2 shortly.
