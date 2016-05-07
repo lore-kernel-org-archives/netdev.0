@@ -1,129 +1,97 @@
 From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH net v3] vlan: Propagate MAC address to VLANs
-Date: Sat, 7 May 2016 10:58:31 +0100
-Message-ID: <572DBC47.7070005@brocade.com>
-References: <572C99FB.1060905@brocade.com> <572C9B9E.1000304@brocade.com>
- <CAKgT0UeOhYkajP7PJo15cvTJsiEo_Z0OD7Kf=z1iXVRWQhkqaQ@mail.gmail.com>
- <572CF258.4070309@brocade.com>
- <CAKgT0Uerb6k2aDhzJ9y+O7E5O40orX7pwOb2K2JEu048UfbFag@mail.gmail.com>
+Subject: [PATCH net v4] vlan: Propagate MAC address to VLANs
+Date: Sat, 7 May 2016 11:00:09 +0100
+Message-ID: <572DBCA9.7060906@brocade.com>
+References: <572DB364.2040109@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:50830 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750936AbcEGJ7C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 05:59:02 -0400
-In-Reply-To: <CAKgT0Uerb6k2aDhzJ9y+O7E5O40orX7pwOb2K2JEu048UfbFag@mail.gmail.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:7094 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751023AbcEGKAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 06:00:23 -0400
+Received: from pps.filterd (m0000700.ppops.net [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u479xBTt006667
+	for <netdev@vger.kernel.org>; Sat, 7 May 2016 03:00:22 -0700
+Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
+	by mx0b-000f0801.pphosted.com with ESMTP id 22se00g0q9-1
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Sat, 07 May 2016 03:00:22 -0700
+In-Reply-To: <572DB364.2040109@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/06/2016 08:48 PM, Alexander Duyck wrote:
-> On Fri, May 6, 2016 at 12:36 PM, Mike Manning <mmanning@brocade.com> wrote:
->> On 05/06/2016 06:02 PM, Alexander Duyck wrote:
->>> On Fri, May 6, 2016 at 6:26 AM, Mike Manning <mmanning@brocade.com> wrote:
->>>> The MAC address of the physical interface is only copied to the VLAN
->>>> when it is first created, resulting in an inconsistency after MAC
->>>> address changes of only newly created VLANs having an up-to-date MAC.
->>>>
->>>> The VLANs should continue inheriting the MAC address of the physical
->>>> interface, unless explicitly changed to be different from this.
->>>> This allows IPv6 EUI64 addresses for the VLAN to reflect any changes
->>>> to the MAC of the physical interface and thus for DAD to behave as
->>>> expected.
->>>>
->>>> Signed-off-by: Mike Manning <mmanning@brocade.com>
->>>> ---
->>>>  include/linux/if_vlan.h |    2 ++
->>>>  net/8021q/vlan.c        |   17 +++++++++++------
->>>>  net/8021q/vlan_dev.c    |   13 ++++++++++---
->>>>  3 files changed, 23 insertions(+), 9 deletions(-)
->>>>
->>>> --- a/include/linux/if_vlan.h
->>>> +++ b/include/linux/if_vlan.h
->>>> @@ -138,6 +138,7 @@ struct netpoll;
->>>>   *     @flags: device flags
->>>>   *     @real_dev: underlying netdevice
->>>>   *     @real_dev_addr: address of underlying netdevice
->>>> + *     @addr_assign_type: address assignment type
->>>>   *     @dent: proc dir entry
->>>>   *     @vlan_pcpu_stats: ptr to percpu rx stats
->>>>   */
->>>> @@ -153,6 +154,7 @@ struct vlan_dev_priv {
->>>>
->>>>         struct net_device                       *real_dev;
->>>>         unsigned char                           real_dev_addr[ETH_ALEN];
->>>> +       unsigned char                           addr_assign_type;
->>>>
->>>>         struct proc_dir_entry                   *dent;
->>>>         struct vlan_pcpu_stats __percpu         *vlan_pcpu_stats;
->>>
->>> Please don't start adding new members to structures when it already
->>> exists in the net_device.  If anything you should be able to drop
->>> read_dev_addr if you do this correctly because you shouldn't need to
->>> clone the lower dev address to watch for changes.  All you will need
->>> to do is watch NET_ADDR_STOLEN.
->>>
->>
->> Thanks for the detailed review. I had initially used the existing type
->> in net_device, but the problem with this was that it got overwritten to
->> NET_ADDR_SET in dev_set_mac_address(), which I was reluctant to modify.
->> It would just be a case of setting the type earlier in that function
->> (and caching the previous value in case there is an error).
->>
->> However, based on your later comment, it seems I should not bother with
->> the approach I have here, namely that if the VLAN MAC is set to the same
->> value as that of the lower device MAC, that is to be considered as
->> resetting it and thus for MAC inheritance to resume. Instead, I will just
->> make this a 1-shot transition, i.e. the VLAN MAC starts off as inherited,
->> and if it is set to anything (even the value of the lower device MAC),
->> inheritance is stopped. I agree this makes for a far simpler changeset.
->>
->> I don't think I can remove real_dev_addr, as that is still needed for
->> the existing functionality in vlan_sync_address() to determine if the sync
->> should be done, also as a way of caching it for handling in vlan_dev_open().
-> 
-> The thing is that logic isn't really needed anymore though if you are
-> going to be following the lower dev.  If you follow the code what it
-> is doing is adding the address via dev_uc_add if the lower address
-> moves away from the VLAN address.  With your changes you are updating
-> the VLAN MAC address to the lower value in the NET_ADDR_STOLEN case so
-> you don't need to add or remove an extra unicast address.  If the user
-> sets the MAC address you can then use the vlandev->dev_addr as the
-> address you add/remove from the unicast list and you probably don't
-> need to bother with tracking the lower device state anyway.
->
+The MAC address of the physical interface is only copied to the VLAN
+when it is first created, resulting in an inconsistency after MAC
+address changes of only newly created VLANs having an up-to-date MAC.
 
-I agree that this logic is not needed at all for the NET_ADDR_STOLEN case.
-However, once the VLAN MAC has been explicitly set, the situation reverts
-to the existing functionality, whereby real_dev_addr is used to ensure that
-dev_uc_add/del are not incorrectly called multiple times for the same MACs.
-As an example, if the lower device MAC is different from the VLAN MAC and
-is repeatedly set to the same value, then without this check on
-real_dev_addr, the refcnt for the VLAN MAC would keep getting incremented.
-The checks on the lower device MAC need to remain in place so as to call
-dev_uc_add/del if this is changed to be different/same as the VLAN MAC.
-For this reason, I have left this logic unchanged. Also, to ensure that
-the value of real_dev_addr is correct on the transition to NET_ADDR_SET,
-I keep this up-to-date (the alternative would be to add some code in
-vlan_dev_set_mac_address() to copy dev_addr to real_dev_addr if the type on
-entry is NET_ADDR_STOLEN).
+The VLANs should continue inheriting the MAC address of the physical
+interface until the VLAN MAC address is explicitly set to any value. 
+This allows IPv6 EUI64 addresses for the VLAN to reflect any changes
+to the MAC of the physical interface and thus for DAD to behave as
+expected.
 
->> As a matter of interest, what is the advantage of not updating the VLAN
->> MAC when it is down? I appreciate that one should not add/delete
->> secondary unicast addresses in this case, but there is no such
->> restriction for copying the MAC.
-> 
-> Basically you are just wasting cycles messing with it while it is
-> down.  You don't need to bother with syncing up the addresses until
-> you bring the interface up.  At that point you essentially need to do
-> the vlan_sync_address type work anyway because you have to push your
-> address to the lower dev, or you have to pull it up from the lower dev
-> in the case of the stolen address.  You don't want to have MAC
-> addresses written to the device for an interface that is down.
-> 
+Signed-off-by: Mike Manning <mmanning@brocade.com>
+---
+ net/8021q/vlan.c     |    7 +++++++
+ net/8021q/vlan_dev.c |   14 ++++++++++----
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
-Thanks, I no longer copy the address in vlan_sync_address() when the interface
-is down, and have moved this to vlan_dev_open() instead.
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -291,6 +291,12 @@ static void vlan_sync_address(struct net
+ 	if (ether_addr_equal(vlan->real_dev_addr, dev->dev_addr))
+ 		return;
+ 
++	/* vlan continues to inherit address of parent interface */
++	if (vlandev->addr_assign_type == NET_ADDR_STOLEN) {
++		ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
++		goto out;
++	}
++
+ 	/* vlan address was different from the old address and is equal to
+ 	 * the new address */
+ 	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+@@ -303,6 +309,7 @@ static void vlan_sync_address(struct net
+ 	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+ 		dev_uc_add(dev, vlandev->dev_addr);
+ 
++out:
+ 	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
+ }
+ 
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -255,9 +255,13 @@ static int vlan_dev_open(struct net_devi
+ 		return -ENETDOWN;
+ 
+ 	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
+-		err = dev_uc_add(real_dev, dev->dev_addr);
+-		if (err < 0)
+-			goto out;
++		if (dev->addr_assign_type == NET_ADDR_STOLEN) {
++			ether_addr_copy(dev->dev_addr, real_dev->dev_addr);
++		} else {
++			err = dev_uc_add(real_dev, dev->dev_addr);
++			if (err < 0)
++				goto out;
++		}
+ 	}
+ 
+ 	if (dev->flags & IFF_ALLMULTI) {
+@@ -558,8 +562,10 @@ static int vlan_dev_init(struct net_devi
+ 	/* ipv6 shared card related stuff */
+ 	dev->dev_id = real_dev->dev_id;
+ 
+-	if (is_zero_ether_addr(dev->dev_addr))
++	if (is_zero_ether_addr(dev->dev_addr)) {
+ 		eth_hw_addr_inherit(dev, real_dev);
++		dev->addr_assign_type = NET_ADDR_STOLEN;
++	}
+ 	if (is_zero_ether_addr(dev->broadcast))
+ 		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
+
+-- 
+1.7.10.4
