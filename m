@@ -1,35 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ifb: support more features
-Date: Fri, 06 May 2016 17:21:43 -0700
-Message-ID: <1462580503.13075.64.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v3 net-next 00/11] ipv6: Enable GUEoIPv6 and more fixes
+ for v6 tunneling
+Date: Fri, 6 May 2016 18:09:53 -0700
+Message-ID: <CAKgT0UdvZbDsDewsGRvMO93OZNSSXKfWaT7RvWkb6DQaG9jvyA@mail.gmail.com>
+References: <1462572726-566137-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33328 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759127AbcEGAVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 20:21:46 -0400
-Received: by mail-pa0-f53.google.com with SMTP id xk12so52632053pac.0
-        for <netdev@vger.kernel.org>; Fri, 06 May 2016 17:21:46 -0700 (PDT)
-In-Reply-To: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38798 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758804AbcEGBJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2016 21:09:54 -0400
+Received: by mail-ig0-f179.google.com with SMTP id m9so54343026ige.1
+        for <netdev@vger.kernel.org>; Fri, 06 May 2016 18:09:54 -0700 (PDT)
+In-Reply-To: <1462572726-566137-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-05-06 at 16:41 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When using ifb+netem on ingress on SIT/IPIP/GRE traffic,
-> GRO packets are not properly processed.
-> 
-> Segmentation should not be forced, as ifb is already adding
-> quite a performance hit.
+On Fri, May 6, 2016 at 3:11 PM, Tom Herbert <tom@herbertland.com> wrote:
+> This patch set:
+>   - Fixes GRE6 to process translate flags correctly from configuration
+>   - Adds support for GSO and GRO for ip6ip6 and ip4ip6
+>   - Add support for FOU and GUE in IPv6
+>   - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
+>   - Fixes ip6_input to deal with UDP encapsulations
+>   - Some other minor fixes
+>
+> v2:
+>   - Removed a check of GSO types in MPLS
+>   - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
+>     from Alexander)
+>   - Don't define GSO types specifally for IP6IP6 and IP4IP6, above
+>     fix makes that uncessary
+>   - Don't bother clearing encapsulation flag in UDP tunnel segment
+>     (another item suggested by Alexander).
+>
+> v3:
+>   - Address some minor comments from Alexander
+>
+> Tested:
+>    Tested a variety of case, but not the full matrix (which is quite
+>    large now). Most of the obivous cases (e.g. GRE) work fine. Still
+>    some issues probably with GSO/GRO being effective in all cases.
+>
+>     - IPv4/GRE/GUE/IPv6 with RCO
+>       1 TCP_STREAM
+>         6616 Mbps
+>       200 TCP_RR
+>         1244043 tps
+>         141/243/446 90/95/99% latencies
+>         86.61% CPU utilization
+>     - IPv6/GRE/GUE/IPv6 with RCO
+>       1 TCP_STREAM
+>         6940 Mbps
+>       200 TCP_RR
+>         1270903 tps
+>         138/236/440 90/95/99% latencies
+>         87.51% CPU utilization
+>
+>      - IP6IP6
+>       1 TCP_STREAM
+>         2576 Mbps
+>       200 TCP_RR
+>         498981 tps
+>         388/498/631 90/95/99% latencies
+>         19.75% CPU utilization (1 CPU saturated)
+>
+>      - IP6IP6/GUE/IPv6 with RCO
+>       1 TCP_STREAM
+>         1854 Mbps
+>       200 TCP_RR
+>         1233818 tps
+>         143/244/451 90/95/99% latencies
+>         87.57 CPU utilization
+>
+>      - IP4IP6
+>       1 TCP_STREAM
+>       200 TCP_RR
+>         763774 tps
+>         250/318/466 90/95/99% latencies
+>         35.25% CPU utilization (1 CPU saturated)
+>
+>      - GRE with keyid
+>       200 TCP_RR
+>         744173 tps
+>         258/332/461 90/95/99% latencies
+>         34.59% CPU utilization (1 CPU saturated)
 
-Please ignore, wrong version.
+So I tried testing your patch set and it looks like I cannot get GRE
+working for any netperf test.  If I pop the patches off it is even
+worse since it looks like patch 3 fixes some tunnel flags issues, but
+still doesn't resolve all the issues introduced with b05229f44228
+("gre6: Cleanup GREv6 transmit path, call common GRE functions").
+Reverting the entire patch seems to resolve the issues, but I will try
+to pick it apart tonight to see if I can find the other issues that
+weren't addressed in this patch series.
 
-Will send a V2
-
-Thanks.
+- Alex
