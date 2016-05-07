@@ -1,81 +1,68 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v9 net-next 1/2] hv_sock: introduce Hyper-V Sockets
-Date: Sat, 7 May 2016 10:49:25 +0000
-Message-ID: <BLUPR03MB1410F30AED34632F8F1268DEBF7E0@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <1462381017-568-1-git-send-email-decui@microsoft.com>
- <20160506.130353.2082047339292515860.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"cavery@redhat.com" <cavery@redhat.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"joe@perches.com" <joe@perches.com>,
-	"vkuznets@redhat.com" <vkuznets@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0147.outbound.protection.outlook.com ([157.56.110.147]:33795
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750786AbcEGKta convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 06:49:30 -0400
-In-Reply-To: <20160506.130353.2082047339292515860.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH v2 0/2] ravb: Add missing free_irq() calls to ravb_close()
+Date: Sat,  7 May 2016 13:17:10 +0200
+Message-ID: <1462619832-5177-1-git-send-email-geert+renesas@glider.be>
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Simon Horman <horms+renesas@verge.net.au>,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, May 7, 2016 1:04
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com; cavery@redhat.com; KY
-> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
-> joe@perches.com; vkuznets@redhat.com
-> Subject: Re: [PATCH v9 net-next 1/2] hv_sock: introduce Hyper-V Sockets
-> 
-> From: Dexuan Cui <decui@microsoft.com>
-> Date: Wed,  4 May 2016 09:56:57 -0700
-> 
-> > +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV (5 * PAGE_SIZE)
-> > +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_SEND (5 * PAGE_SIZE)
-> > +
-> > +#define HVSOCK_RCV_BUF_SZ
-> 	VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV
->  ...
-> > +struct hvsock_sock {
->  ...
-> > +	/* The 'hdr' and 'buf' in the below 'send' and 'recv' definitions must
-> > +	 * be consecutive: see hvsock_send_data() and hvsock_recv_data().
-> > +	 */
-> > +	struct {
-> > +		struct vmpipe_proto_header hdr;
-> > +		u8 buf[HVSOCK_SND_BUF_SZ];
-> > +	} send;
-> > +
-> > +	struct {
-> > +		struct vmpipe_proto_header hdr;
-> > +		u8 buf[HVSOCK_RCV_BUF_SZ];
-> > +
-> > +		unsigned int data_len;
-> > +		unsigned int data_offset;
-> > +	} recv;
-> 
-> I don't think allocating 5 pages of unswappable memory for every Hyper-V
-> socket
-> created is reasonable.
+	Hi Dave,
 
-Thanks for the comment, David!
+When reopening the network device on ra7795/salvator-x, e.g. after a
+DHCP timeout:
 
-I should be able to make 'send', 'recv' here to pointers and use vmalloc()
-to allocate the memory for them.  I will do this.
+    IP-Config: Reopening network devices...
+    genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs. 00000000 (
+    ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
+    IP-Config: Failed to open eth0
+    IP-Config: No network devices available
 
-Thanks,
--- Dexuan
+The "mismatch" is due to requesting an IRQ that is already in use,
+while IRQF_PROBE_SHARED wasn't set.
+
+However, the real cause is that ravb_close() doesn't release any of the
+R-Car Gen3-specific secondary IRQs. Hence the following two patches add
+the missing free_irq() calls to fix this.
+
+As the code has been changed in net-next.git to support more interrupts,
+and these weren't freed neither, I'm sending two patches:
+  1. The first patch applies to net.git,
+  2. The second patch applies to net-next.git.
+
+If you prefer the second patch to be replaced by a version that applies
+to net-next.git after you will have applied the first patch to net.git,
+and merged net.git into net-next.git, just let me know.
+
+Chances compared to the previous version:
+  - Add version against net.git,
+  - Clearly state which version the second patch is against,
+  - Add Fixes tags.
+
+Thanks!
+
+Geert Uytterhoeven (1):
+  ravb: Add missing free_irq() call to ravb_close()
+  ravb: Add missing free_irq() calls to ravb_close()
+
+ drivers/net/ethernet/renesas/ravb_main.c       | 9 +++++++
+ 1 files changed, 9 insertions(+)
+
+-- 
+1.9.1
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
