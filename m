@@ -1,59 +1,71 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v2 1/2 -net] ravb: Add missing free_irq() call to ravb_close()
-Date: Sat,  7 May 2016 13:17:11 +0200
-Message-ID: <1462619832-5177-2-git-send-email-geert+renesas@glider.be>
-References: <1462619832-5177-1-git-send-email-geert+renesas@glider.be>
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1462619832-5177-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/2] net: phy: add ethtool_phy_{get|set}_link_ksettings
+Date: Sat, 07 May 2016 12:59:57 +0100
+Message-ID: <1462622397.19332.28.camel@decadent.org.uk>
+References: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-/e2UIH9RWctcYlyNhFaZ"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>, f.fainelli@gmail.com,
+	fugang.duan@nxp.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51084 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751771AbcEGMAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 08:00:10 -0400
+In-Reply-To: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When reopening the network device on ra7795/salvator-x, e.g. after a
-DHCP timeout:
 
-    IP-Config: Reopening network devices...
-    genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs. 00000000 (eth0:ch24:emac)
-    ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
-    IP-Config: Failed to open eth0
-    IP-Config: No network devices available
+--=-/e2UIH9RWctcYlyNhFaZ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-The "mismatch" is due to requesting an IRQ that is already in use,
-while IRQF_PROBE_SHARED wasn't set.
+On Sat, 2016-05-07 at 01:18 +0200, Philippe Reynes wrote:
+> The callback {get|set}_link_ksettings are often defined
+> in a very close way. There are mainly two differences in
+> those callback:
+> - the name of the netdev private structure
+> - the name of the struct phydev in the private structure
+>=20
+> We add two defines ethtool_phy_{get|set}_link_ksettings
+> to avoid writing severals times almost the same function.
+[...]
 
-However, the real cause is that ravb_close() doesn't release the R-Car
-Gen3-specific secondary IRQ.
+I don't think there's no need to access a private structure, as there's
+a phydev pointer in struct net_device. =C2=A0If some drivers don't maintain
+that pointer, they should be changed to do so. =C2=A0Then they can=20
+use generic implementations of {get,set}_link_ksettings provided by
+phylib.
 
-Add the missing free_irq() call to fix this.
+Ben.
 
-Fixes: 22d4df8ff3a3cc72 ("ravb: Add support for r8a7795 SoC")
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
-This version is against net.git.
+--=20
+Ben Hutchings
+Editing code like this is akin to sticking plasters on the bleeding stump
+of a severed limb. - me, 29 June 1999
+--=-/e2UIH9RWctcYlyNhFaZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-v2:
-  - New.
----
- drivers/net/ethernet/renesas/ravb_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 9e2a0bd8f5a88803..4277d0c12101fef7 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1506,6 +1506,8 @@ static int ravb_close(struct net_device *ndev)
- 		priv->phydev = NULL;
- 	}
- 
-+	if (priv->chip_id == RCAR_GEN3)
-+		free_irq(priv->emac_irq, ndev);
- 	free_irq(ndev->irq, ndev);
- 
- 	napi_disable(&priv->napi[RAVB_NC]);
--- 
-1.9.1
+iQIcBAABCgAGBQJXLdi9AAoJEOe/yOyVhhEJz+wP/3f2rlvfBG1vgivF7gha2iYf
+jFHMbeCQpISCKRBwTLkv9mX6YUXsYHosFLsK05eM4MyvMJnxAf6vmpb1PYkoPQNK
+ZpY14Wa6DpWQwRyR3nfxbDIb5vQAsIxPCEZwJ6fCiAxwNC9wBuiBQh+2Fw8tYuKu
+MiA3a3CQr2WoZ7NTBsdXDfuEDYRImdD/ZNp8znFjWL4Iv/LTnd+EY0/wf0a5l1uC
+SeJH4duG2ZCli6bRC63tQ3GCwScYY0MICC7wLsJQADG5adEB8BPMbgPW1srGPrQH
+H4n/W7GnDcf1IRgsHvIvsqR827jnqNsS06eJEwk9qeW4j3fzlBUnt6FfPLwHo/Zt
+MxVlvVYQz1+j2FgULE/XGjJT1YS73qNLUFMV91yRf0L419kdqmIvbQepmtihp/iv
+DOrJ3c+FUhAalKInxkeuyQ8yBM+w6DraoDAYiib/GmwbCJvt0FADJidqznzrqaQV
+C9pmH2D7lhJow6hgfdZT5OrqeRBKRWF2pNVsk+QBRKnqgldd6lkIEhvyolbHYqhK
+ayJUWOFz+xFh2Ao8C+xF82KQH5uENA94FWsc+/pckqRxOM9BhEGBhSoucZpLifPH
+ISdYtaQwRL6uj/S0t9uzs1KDdzaKeEUKmWiKm3l18fYBLB93Fun16oEYw7qB7TnU
+Nz99Nk6rXHupL6GSHZdC
+=+ZhM
+-----END PGP SIGNATURE-----
+
+--=-/e2UIH9RWctcYlyNhFaZ--
