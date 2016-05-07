@@ -1,72 +1,58 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] net: l3mdev: Add hook in ip and ipv6
-Date: Sat, 7 May 2016 21:32:05 +0300
-Message-ID: <20160507213205.02529bde@halley>
-References: <1462585781-9146-1-git-send-email-dsa@cumulusnetworks.com>
-	<1462585781-9146-2-git-send-email-dsa@cumulusnetworks.com>
-	<20160507113025.67c3ab43@halley>
-	<572E00C9.4050109@cumulusnetworks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 1/2 -net] ravb: Add missing free_irq() call to
+ ravb_close()
+Date: Sat, 7 May 2016 21:39:47 +0300
+Message-ID: <572E3673.5020304@cogentembedded.com>
+References: <1462619832-5177-1-git-send-email-geert+renesas@glider.be>
+ <1462619832-5177-2-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Simon Horman <horms+renesas@verge.net.au>,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33484 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbcEGScN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 14:32:13 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r12so13841972wme.0
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 11:32:13 -0700 (PDT)
-In-Reply-To: <572E00C9.4050109@cumulusnetworks.com>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34979 "EHLO
+	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750901AbcEGSjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 14:39:52 -0400
+Received: by mail-lf0-f54.google.com with SMTP id j8so162601697lfd.2
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 11:39:51 -0700 (PDT)
+In-Reply-To: <1462619832-5177-2-git-send-email-geert+renesas@glider.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hello.
 
-On Sat, 7 May 2016 08:50:49 -0600 David Ahern <dsa@cumulusnetworks.com> wrote:
-> >> +static inline
-> >> +struct sk_buff *l3mdev_l3_rcv(struct sk_buff *skb, u16 proto)
-> >> +{
-> >> +	struct net_device *master = NULL;
-> >> +
-> >> +	if (netif_is_l3_slave(skb->dev))
-> >> +		master = netdev_master_upper_dev_get_rcu(skb->dev);
-> >> +
-> >> +	else if (netif_is_l3_master(skb->dev))
-> >> +		master = skb->dev;
-> >> +
-> >> +	if (master && master->l3mdev_ops->l3mdev_l3_rcv)
-> >> +		skb = master->l3mdev_ops->l3mdev_l3_rcv(master, skb, proto);  
-> >
-> > In the case where netif_is_l3_master(skb->dev) is true, can you explain
-> > why we need to pass it through the l3mdev_l3_rcv callback again?  
-> 
-> what do you mean again? This is only time the l3mdev_l3_rcv method is 
-> called on a packet.
+On 05/07/2016 02:17 PM, Geert Uytterhoeven wrote:
 
-You have the following:
+> When reopening the network device on ra7795/salvator-x, e.g. after a
+> DHCP timeout:
+>
+>      IP-Config: Reopening network devices...
+>      genirq: Flags mismatch irq 139. 00000000 (eth0:ch24:emac) vs. 00000000 (eth0:ch24:emac)
+>      ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch24:emac
 
-	if (netif_is_l3_slave(skb->dev))
-		master = netdev_master_upper_dev_get_rcu(skb->dev);
-	else if (netif_is_l3_master(skb->dev))
-		master = skb->dev;
-	if (master && master->l3mdev_ops->l3mdev_l3_rcv)
-		skb = master->l3mdev_ops->l3mdev_l3_rcv(master, skb, proto);
+    Er, this can't be a message from the kernel built from net.git. That 
+driver used 'ndev->name'
+to request both IRQs...
 
-So in both conditions (skb->dev being the slave or the master) the skb
-is passed to master's l3mdev_l3_rcv callback.
+>      IP-Config: Failed to open eth0
+>      IP-Config: No network devices available
+>
+> The "mismatch" is due to requesting an IRQ that is already in use,
+> while IRQF_PROBE_SHARED wasn't set.
+>
+> However, the real cause is that ravb_close() doesn't release the R-Car
+> Gen3-specific secondary IRQ.
+>
+> Add the missing free_irq() call to fix this.
+>
+> Fixes: 22d4df8ff3a3cc72 ("ravb: Add support for r8a7795 SoC")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-Appreciate if you can elaborate:
- - Why callback needs to be invoked when skb->dev is the L3 master?
- - On which circumstances we end up entering
-   l3mdev_ip_rcv/l3mdev_ip6_rcv where skb->dev is the master?
-   If I got it right, we enter 'ip_rcv_finish' on a slave device,
-   the callback is invoked and eventually sets skb->dev and skb->skb_iif
-   to the VRF device; then ip_rcv_finish continues processing the
-   altered skb (with the changed skb->dev).
-   So on which cicumstances do we enter 'ip_rcv_finish' where the
-   skb->dev is ALREADY a master device?
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Thanks,
-Shmulik
+MBR, Sergei
