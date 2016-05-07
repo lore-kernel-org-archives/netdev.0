@@ -1,44 +1,52 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2] net: phy: add ethtool_phy_{get|set}_link_ksettings
-Date: Sat, 07 May 2016 12:59:57 +0100
-Message-ID: <1462622397.19332.28.camel@decadent.org.uk>
-References: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net-next 5/7] Driver: Vmxnet3: Add support for
+ get_coalesce, set_coalesce ethtool operations
+Date: Sat, 07 May 2016 13:04:46 +0100
+Message-ID: <1462622686.19332.33.camel@decadent.org.uk>
+References: <1462576336-83513-1-git-send-email-skhare@vmware.com>
+	 <1462576336-83513-6-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-/e2UIH9RWctcYlyNhFaZ"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, f.fainelli@gmail.com,
-	fugang.duan@nxp.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51084 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751771AbcEGMAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 08:00:10 -0400
-In-Reply-To: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-XRxruTvPAyi8dKiwM7GR"
+Cc: Keyong Sun <sunk@vmware.com>, Manoj Tammali <tammalim@vmware.com>
+To: Shrikrishna Khare <skhare@vmware.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pv-drivers@vmware.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462576336-83513-6-git-send-email-skhare@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-/e2UIH9RWctcYlyNhFaZ
+--=-XRxruTvPAyi8dKiwM7GR
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2016-05-07 at 01:18 +0200, Philippe Reynes wrote:
-> The callback {get|set}_link_ksettings are often defined
-> in a very close way. There are mainly two differences in
-> those callback:
-> - the name of the netdev private structure
-> - the name of the struct phydev in the private structure
->=20
-> We add two defines ethtool_phy_{get|set}_link_ksettings
-> to avoid writing severals times almost the same function.
+On Fri, 2016-05-06 at 16:12 -0700, Shrikrishna Khare wrote:
+[...]
+> +static int
+> +vmxnet3_set_coalesce(struct net_device *netdev, struct ethtool_coalesce =
+*ec)
+> +{
+[...]
+> +	switch (ec->rx_coalesce_usecs) {
+> +	case VMXNET3_COALESCE_DEFAULT:
+> +	case VMXNET3_COALESCE_DISABLED:
+> +	case VMXNET3_COALESCE_ADAPT:
+> +		if (ec->tx_max_coalesced_frames ||
+> +		=C2=A0=C2=A0=C2=A0=C2=A0ec->tx_max_coalesced_frames_irq ||
+> +		=C2=A0=C2=A0=C2=A0=C2=A0ec->rx_max_coalesced_frames_irq) {
+> +			return -EINVAL;
+> +		}
+> +		memset(adapter->coal_conf, 0, sizeof(*adapter->coal_conf));
+> +		adapter->coal_conf->coalMode =3D ec->rx_coalesce_usecs;
+> +		break;
+> +	case VMXNET3_COALESCE_STATIC:
 [...]
 
-I don't think there's no need to access a private structure, as there's
-a phydev pointer in struct net_device. =C2=A0If some drivers don't maintain
-that pointer, they should be changed to do so. =C2=A0Then they can=20
-use generic implementations of {get,set}_link_ksettings provided by
-phylib.
+I don't want to see drivers introducing magic values for fields that
+are denominated in microseconds (especially not for 0, which is the
+correct way to specify 'no coalescing'). =C2=A0If the current
+ethtool_coalesce structure is inadequate, propose an extension.
 
 Ben.
 
@@ -46,26 +54,26 @@ Ben.
 Ben Hutchings
 Editing code like this is akin to sticking plasters on the bleeding stump
 of a severed limb. - me, 29 June 1999
---=-/e2UIH9RWctcYlyNhFaZ
+--=-XRxruTvPAyi8dKiwM7GR
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJXLdi9AAoJEOe/yOyVhhEJz+wP/3f2rlvfBG1vgivF7gha2iYf
-jFHMbeCQpISCKRBwTLkv9mX6YUXsYHosFLsK05eM4MyvMJnxAf6vmpb1PYkoPQNK
-ZpY14Wa6DpWQwRyR3nfxbDIb5vQAsIxPCEZwJ6fCiAxwNC9wBuiBQh+2Fw8tYuKu
-MiA3a3CQr2WoZ7NTBsdXDfuEDYRImdD/ZNp8znFjWL4Iv/LTnd+EY0/wf0a5l1uC
-SeJH4duG2ZCli6bRC63tQ3GCwScYY0MICC7wLsJQADG5adEB8BPMbgPW1srGPrQH
-H4n/W7GnDcf1IRgsHvIvsqR827jnqNsS06eJEwk9qeW4j3fzlBUnt6FfPLwHo/Zt
-MxVlvVYQz1+j2FgULE/XGjJT1YS73qNLUFMV91yRf0L419kdqmIvbQepmtihp/iv
-DOrJ3c+FUhAalKInxkeuyQ8yBM+w6DraoDAYiib/GmwbCJvt0FADJidqznzrqaQV
-C9pmH2D7lhJow6hgfdZT5OrqeRBKRWF2pNVsk+QBRKnqgldd6lkIEhvyolbHYqhK
-ayJUWOFz+xFh2Ao8C+xF82KQH5uENA94FWsc+/pckqRxOM9BhEGBhSoucZpLifPH
-ISdYtaQwRL6uj/S0t9uzs1KDdzaKeEUKmWiKm3l18fYBLB93Fun16oEYw7qB7TnU
-Nz99Nk6rXHupL6GSHZdC
-=+ZhM
+iQIcBAABCgAGBQJXLdneAAoJEOe/yOyVhhEJNa4P/RxBk75w+vL+rqIQyDa1TJx8
+O6BqSMvvbDnFDQRCYG1fKYtJoyAYOEua5VPyzXg4GCeNqAL8qBjWIkbDFb9kipVm
+TumbSKrSo5Jnr5ZoDtgDHi094wyFcXoL0gu+MXZ2UbVMVFjFeovZj4irKWS3PVYN
+4u5XPOs8mNqe9JWbyxsYYZ9ANW33egC8GN/ub5ErofpgGMnYSUPzkk060QEgD3cd
+tysZ4y/7miuLmdRz965YAwxh5BNT0i3/LTwoTIqbgUrFMOZpZ2CaTwJO4DacHFYm
+EDyfJrkqSmEzjv2QmSVUuSqq0ei+g3iYGtRHKHCpJIL0DV5dnJ9OzxQMWjzQs0X1
+tELmzK18awDInK2kUKb/TKomD08HZZKC7jzmOb8l1cA8zHdK2FVq59keWitCc6pS
+3JOgmdqqPNhMbFrrmvTAOP7TA2RF75RFBoOPsOq9pQb8erk0AC4FDXBlG60ne+Ke
+rEDYLTjNCG2slan7d0DCmrS645PipByjk3JrVXHEhTdC7BBVeYt+ajI2vkleXhyc
+GgWY3gNckCsg4/eupzT4oVsuhmXsI4iMJTsGMipf5FMqyN46pX65HDKAE9mfB1BV
+jocyEXoJBMklqebPgEKe2HXyBTnacqIl2Lig+bjOiJJ4O+2Up+ZrOiXsGx8ADMik
+0rKt1aPN9h0afO3AH4b5
+=zVrR
 -----END PGP SIGNATURE-----
 
---=-/e2UIH9RWctcYlyNhFaZ--
+--=-XRxruTvPAyi8dKiwM7GR--
