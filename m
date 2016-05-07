@@ -1,143 +1,64 @@
-From: Hans de Goede <hdegoede@redhat.com>
-Subject: Re: [PATCH RFC 1/5] net: phy: sun8i-h3-ephy: Add bindings for
- Allwinner H3 Ethernet PHY
-Date: Sat, 7 May 2016 10:14:10 +0200
-Message-ID: <793b5915-1f14-b00f-1c3d-101e800eac3b@redhat.com>
-References: <1459786954-12649-1-git-send-email-wens@csie.org>
- <1459786954-12649-2-git-send-email-wens@csie.org>
- <570BF9B0.2090602@gmail.com>
- <CAGb2v662vHfYox2Ff9Mm=sXq4UHg92SQe2ihnKY9Aa4X9yss4Q@mail.gmail.com>
- <CAGb2v65qPMieWU-1CRJYL_zZ3JpUm83+AN477jGdrWYnjjJ66g@mail.gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] net: l3mdev: Add hook in ip and ipv6
+Date: Sat, 7 May 2016 11:30:25 +0300
+Message-ID: <20160507113025.67c3ab43@halley>
+References: <1462585781-9146-1-git-send-email-dsa@cumulusnetworks.com>
+	<1462585781-9146-2-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	devicetree <devicetree@vger.kernel.org>,
-	LABBE Corentin <clabbe.montjoie@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Chen-Yu Tsai <wens@csie.org>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGb2v65qPMieWU-1CRJYL_zZ3JpUm83+AN477jGdrWYnjjJ66g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34290 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751011AbcEGIaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 04:30:30 -0400
+Received: by mail-wm0-f67.google.com with SMTP id n129so12235051wmn.1
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 01:30:29 -0700 (PDT)
+In-Reply-To: <1462585781-9146-2-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi David,
 
-On 07-05-16 07:30, Chen-Yu Tsai wrote:
-> Hi,
->
-> On Tue, Apr 12, 2016 at 9:38 AM, Chen-Yu Tsai <wens@csie.org> wrote:
->> On Tue, Apr 12, 2016 at 3:23 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>> On 04/04/16 09:22, Chen-Yu Tsai wrote:
->>>> The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
->>>> configured through a memory mapped hardware register.
->>>>
->>>> This same register also configures the MAC interface mode and TX clock
->>>> source. Also covered by the register, but not supported in these bindings,
->>>> are TX/RX clock delay chains and inverters, and an RMII module.
->>>>
->>>> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
->>>> ---
->>>>  .../bindings/net/allwinner,sun8i-h3-ephy.txt       | 44 ++++++++++++++++++++++
->>>>  1 file changed, 44 insertions(+)
->>>>  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
->>>> new file mode 100644
->>>> index 000000000000..146f227e6d88
->>>> --- /dev/null
->>>> +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
->>>> @@ -0,0 +1,44 @@
->>>> +* Allwinner H3 E(thernet) PHY
->>>> +
->>>> +The Allwinner H3 integrates an MII ethernet PHY. As with external PHYs,
->>>> +before it can be configured over the MDIO bus and used, certain hardware
->>>> +features must be configured, such as the PHY address and LED polarity.
->>>
->>> Is the internal PHY address really configurable? Not that there is
->>> anything wrong with it, this is good.
->>
->> It is. Things that are configured or provided to a discrete PHY are routed
->> to registers in the SoC, things such as PHY address, clocks, resets.
->>
->>>> +The PHY must also be powered on and brought out of reset.
->>>> +
->>>> +This is accomplished with regulators and pull-up/downs for external PHYs.
->>>> +For this internal PHY, a hardware register is programmed.
->>>> +
->>>> +The same hardware register also contains clock and interface controls
->>>> +for the MAC. This is also present in earlier SoCs, and is covered by
->>>> +"allwinner,sun7i-a20-gmac-clk". The controls in the H3 are slightly
->>>> +different due to the inclusion of what appears to be an RMII-MII
->>>> +bridge.
->>>> +
->>>> +Required properties:
->>>> +- compatible: should be "allwinner,sun8i-h3-ephy"
->>>> +- reg: address and length of the register set for the device
->>>> +- clocks: A phandle to the reference clock for this device
->>>> +- resets: A phandle to the reset control for this device
->>>> +
->>>> +Ethernet PHY related properties:
->>>> +- allwinner,ephy-addr: the MDIO bus address the PHY should respond to.
->>>> +                    If this is not set, the external PHY is used, and
->>>> +                    everything else in this section is ignored.
->>>
->>> So we are going to put the same value here, and in the actual Ethernet
->>> PHY device tree node that should be hanging off the EMAC/MDIO bus
->>> controller, this is confusing and error prone.
->>
->> Yes, that would be an issue when writing the DTS.
->>>
->>>> +- allwinner,leds-active-low: LEDs are active low. Without this, LEDs are
->>>> +                          active high.
->>>> +
->>>> +Ethernet MAC clock related properties:
->>>> +- #clock-cells: should be 0
->>>> +- clock-output-names: "mac_tx"
->>>> +
->>>> +Example:
->>>> +
->>>> +ethernet-phy@01c00030 {
->>>> +     compatible = "allwinner,sun8i-h3-ephy";
->>>> +     reg = <0x01c00030 0x4>;
->>>
->>> Looking at this register space this looks more like an internal PHY SHIM
->>> that is needed to be configured before the internal PHY can be access,
->>> not a proper Ethernet PHY per-se, see replies in aptch 2.
->>>
->>> Should not this block be a second cell associated with the Ethernet MAC
->>> block? One or the other are not going to be very useful without
->>> knowledge of each other.
->>
->> True. However the lower half of the same register also controls the
->> MAC interface mode and TX clock source and delays. This we had a clock
->> driver that was used in conjuction with stmmac on earlier SoCs. I was
->> hoping to keep that model with the newer EMAC. At the time it was
->> argued that what seemed like a clock should be handled by a clock
->> driver, instead of just a "syscon". If this is reaching too far to
->> handle this new use case, I will happily just provide patches to merge
->> this into the MAC.
->
-> Maxime, Hans, any thoughts?
->
-> It seems like it'd be easier to just fold this into the EMAC driver.
-> The register is not part of the clock controller in these new SoCs,
-> so it's nicer than what we had in A20/A31. It's also not just a clock
-> control, but a bunch of various controls.
+On Fri,  6 May 2016 18:49:40 -0700 David Ahern <dsa@cumulusnetworks.com> wrote:
+> +static bool ipv6_ndisc_frame(const struct sk_buff *skb)
+> +{
+> +	const struct ipv6hdr *ipv6h = (struct ipv6hdr *)skb->data;
+> +	size_t hlen = sizeof(*ipv6h);
+> +	bool rc = false;
+> +
+> +	if (ipv6h->nexthdr == NEXTHDR_ICMP) {
+> +		const struct icmp6hdr *icmph;
+> +
+> +		if (skb->len < hlen + sizeof(*icmph))
+> +			goto out;
+> +
+> +		icmph = (struct icmp6hdr *)(skb->data + sizeof(*ipv6h));
+> +		switch (icmph->icmp6_type) {
 
-I don't know the emac stuff well enough to really have an opinion,
-but with that said I've no objections against just folding this into
-the driver. If you believe that is best, go for it.
+Don't we need an additional pskb_may_pull here?
+
+If I get it right, 'ipv6_rcv' only assures sizeof(ipv6hdr) to be in the
+linear header (unless it's a NEXTHDR_HOP, which is not the case here).
+
+> +static inline
+> +struct sk_buff *l3mdev_l3_rcv(struct sk_buff *skb, u16 proto)
+> +{
+> +	struct net_device *master = NULL;
+> +
+> +	if (netif_is_l3_slave(skb->dev))
+> +		master = netdev_master_upper_dev_get_rcu(skb->dev);
+> +
+> +	else if (netif_is_l3_master(skb->dev))
+> +		master = skb->dev;
+> +
+> +	if (master && master->l3mdev_ops->l3mdev_l3_rcv)
+> +		skb = master->l3mdev_ops->l3mdev_l3_rcv(master, skb, proto);
+
+In the case where netif_is_l3_master(skb->dev) is true, can you explain
+why we need to pass it through the l3mdev_l3_rcv callback again?
 
 Regards,
-
-Hans
+Shmulik
