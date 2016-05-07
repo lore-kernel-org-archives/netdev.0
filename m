@@ -1,90 +1,104 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth-next 2016-05-07
-Date: Sat, 7 May 2016 21:56:23 +0300
-Message-ID: <20160507185623.GA18557@t440s.P-661HNU-F1>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+Date: Sat, 7 May 2016 11:56:50 -0700
+Message-ID: <0288eea6-9669-d763-4bd8-9438ce0c1f94@boundarydevices.com>
+References: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
+ <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="liOOAslEiF7prFVr"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Fabio Estevam <fabio.estevam@nxp.com>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"gerg@uclinux.org" <gerg@uclinux.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"holgerschurig@gmail.com" <holgerschurig@gmail.com>
+To: Fugang Duan <fugang.duan@nxp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"lznuaa@gmail.com" <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35976 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbcEGS4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 14:56:51 -0400
+Received: by mail-pf0-f173.google.com with SMTP id c189so62981214pfb.3
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 11:56:51 -0700 (PDT)
+In-Reply-To: <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 4/21/2016 10:59 PM, Fugang Duan wrote:
+> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Friday, April 22, 2016 10:01 AM
+>> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
+>> <fugang.duan@nxp.com>; lznuaa@gmail.com
+>> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
+>> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
+>> kernel@lists.infradead.org; johannes@sipsolutions.net;
+>> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
+>> arnd@arndb.de; holgerschurig@gmail.com; Troy Kisky
+>> <troy.kisky@boundarydevices.com>
+>> Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+>>
+>> If dirty_tx isn't updated, then dma_unmap_single will be called twice.
+>>
+>> This fixes a
+>> [   58.420980] ------------[ cut here ]------------
+>> [   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-
+>> 4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
+>> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA
+>> memory it has not allocated [device address=0x0000000000000000] [size=66
+>> bytes]
+>>
+>> encountered by Holger
+>>
+>> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+>> Tested-by: <holgerschurig@gmail.com>
+>> ---
+>>  drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
+>>  1 file changed, 3 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>> b/drivers/net/ethernet/freescale/fec_main.c
+>> index 08243c2..b71654c 100644
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16
+>> queue_id)
+>>  					 fec16_to_cpu(bdp->cbd_datlen),
+>>  					 DMA_TO_DEVICE);
+>>  		bdp->cbd_bufaddr = cpu_to_fec32(0);
+>> -		if (!skb) {
+>> -			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+>> -			continue;
+>> -		}
+>> +		if (!skb)
+>> +			goto skb_done;
+>>
+>>  		/* Check for errors. */
+>>  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC | @@ -1239,7
+>> +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+>>
+>>  		/* Free the sk buffer associated with this last transmit */
+>>  		dev_kfree_skb_any(skb);
+>> -
+>> +skb_done:
+>>  		/* Make sure the update to bdp and tx_skbuff are performed
+>>  		 * before dirty_tx
+>>  		 */
+>> --
+>> 2.5.0
+> 
+> The patch is fine for me.
+> Can you review below patch that also fix the issue. It can take much effort due to less rmb() and READ_ONCE() operation that is very sensitive for duplex Gbps test for i.MX6SX/i.MX7d SOC. (i.MX6SX can reach at 1.4Gbps, i.MX7D can reach at 1.8Gbps.)
+> 
 
 
---liOOAslEiF7prFVr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi Dave,
-
-Here are a few more Bluetooth patches for the 4.7 kernel:
-
- - NULL pointer fix in hci_intel driver
- - New Intel Bluetooth controller id in btusb driver
- - Added device tree binding documentation for Marvel's bt-sd8xxx
- - Platform specific wakeup interrupt support for btmrvl driver
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 582a1db98892ef4c1f34c7338b272331994d44ab:
-
-  Merge branch 'qed-selftests' (2016-05-02 00:16:45 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
-
-for you to fetch changes up to a0af53b511423cca93900066512379e21586d7dd:
-
-  Bluetooth: Add support for Intel Bluetooth device 8265 [8087:0a2b] (2016-05-06 21:52:35 +0200)
-
-----------------------------------------------------------------
-Loic Poulain (1):
-      Bluetooth: hci_intel: Fix null gpio desc pointer dereference
-
-Tedd Ho-Jeong An (1):
-      Bluetooth: Add support for Intel Bluetooth device 8265 [8087:0a2b]
-
-Xinming Hu (2):
-      dt: bindings: add MARVELL's bt-sd8xxx wireless device
-      btmrvl: add platform specific wakeup interrupt support
-
- Documentation/devicetree/bindings/btmrvl.txt       | 29 --------
- .../devicetree/bindings/net/marvell-bt-sd8xxx.txt  | 56 +++++++++++++++
- drivers/bluetooth/btmrvl_drv.h                     | 11 +++
- drivers/bluetooth/btmrvl_main.c                    | 35 +++++----
- drivers/bluetooth/btmrvl_sdio.c                    | 79 +++++++++++++++++++++
- drivers/bluetooth/btmrvl_sdio.h                    |  6 ++
- drivers/bluetooth/btusb.c                          | 11 +--
- drivers/bluetooth/hci_intel.c                      |  6 +-
- 8 files changed, 180 insertions(+), 53 deletions(-)
- delete mode 100644 Documentation/devicetree/bindings/btmrvl.txt
- create mode 100644 Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
-
---liOOAslEiF7prFVr
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXLjpXAAoJECQj9vv5qNQSpXYP/1aihY7+FIKzvYdH/bqgAxK5
-7i5ggXk1wnfLpLVZxcggMDa2oKLIrYacRJgKKtO9AXflgh5TYwvgzhauGKrmxSpB
-5hk6RMhSmD/a6BC0qnMOziYmVFZDEuCTKfaYEh9iUOF1Qlw9Y/p727l/V1a4Wg47
-gXk5NhVg5W2WKuOJyFN1Tme714nPuG3q1FsOTgfqTgzyryBizQn4nttnWAFREhm6
-eECfAN2Mmb8UcioWyNhXBIiGBK9JDJ36n0lO4XzEsbhfLlpwnGbLA1hBefs8ePVg
-zHlltiQSiourbG1KOLVXlMswiGjE0WLDkTXl0jV24GV+qG+vEaL027/0Kui+ynXE
-QRWWxS0n8a4IoVqKThxR0xHXUw7QocHGS7mMUzwMKY4Yti7Y6mAtBmuytKoRPbA0
-hFe8WIKBD3gCCqsyoES6PP39218qUTsWdY9Q+rxAx4gTpZnVMKwKU0mrhxFBPx/8
-oEF/67/EoRVb2yVL8L6c5omtBMnItDJylwOj5z98R8AOku86bCAu3I1jFoMFho07
-GVMS6OPwLyekfe2/qN9Bs6dvvpdiXtGYLPOw3VVH129fq22PtkmJiOPuUADiC49e
-VB7cJmqAZUlRPzQRxwewItfdc4sP76PwvPXamfQAkjo3pnJJZYI2cBm2t+7gq+sm
-ZHcwCADUmX6RlN4vlHSD
-=LdEK
------END PGP SIGNATURE-----
-
---liOOAslEiF7prFVr--
+Am I supposed to do anything else to get this patch into net ?
