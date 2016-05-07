@@ -1,48 +1,50 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: original ingress device index in
- PKTINFO
-Date: Sat, 7 May 2016 11:41:48 +0300
-Message-ID: <20160507114148.347716e4@halley>
-References: <1462585781-9146-1-git-send-email-dsa@cumulusnetworks.com>
-	<1462585781-9146-3-git-send-email-dsa@cumulusnetworks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net] netfilter: nf_conntrack: Use net_mutex for helper
+ unregistration.
+Date: Sat, 7 May 2016 11:18:45 +0200
+Message-ID: <20160507091845.GA6911@breakpoint.cc>
+References: <1462488637-46877-1-git-send-email-joe@ovn.org>
+ <20160506110325.GA2420@salvia>
+ <CAPWQB7H0qdi2+rL92_O=-ku+FeqDSGEmn+d0wivk-1RSAsgeFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35312 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbcEGIly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 04:41:54 -0400
-Received: by mail-wm0-f66.google.com with SMTP id e201so12304845wme.2
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 01:41:53 -0700 (PDT)
-In-Reply-To: <1462585781-9146-3-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>
+To: Joe Stringer <joe@ovn.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7H0qdi2+rL92_O=-ku+FeqDSGEmn+d0wivk-1RSAsgeFw@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Joe Stringer <joe@ovn.org> wrote:
+> > If so, probably I can append this as comment to this function so we
+> > don't forget. If we ever have .exit callbacks (I don't expect so), we
+> > would need to wait for worker completion.
+> 
+> Sounds reasonable to me.
+> 
+> I see there's a bunch of other unregister locations like
+> nf_nat_l3proto_clean(), nf_nat_l4proto_clean(), nf_unregister_hook()
+> which might need similar treatment?
 
-On Fri,  6 May 2016 18:49:41 -0700 David Ahern <dsa@cumulusnetworks.com> wrote:
-> Applications such as OSPF and BFD need the original ingress device not
-> the VRF device;
+I think they are fine, hook entries are duplicated per netns so we
+should not access data in a removed module.
 
-Would you consider this true for any IP_PKTINFO users in VRF setups?
+However, we might be able to trigger the
 
-> @@ -1193,7 +1193,12 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
->  		       ipv6_sk_rxinfo(sk);
->  
->  	if (prepare && skb_rtable(skb)) {
-> -		pktinfo->ipi_ifindex = inet_iif(skb);
-> +		/* skb->cb is overloaded: prior to this point it is IP{6}CB
-> +		 * which has interface index (iif) as the first member of the
-> +		 * underlying inet{6}_skb_parm struct. This code then overlays
-> +		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
-> +		 * element so the iif is picked up from the prior IPCB
-> +		 */
+WARN(1, "nf_unregister_net_hook: hook not found!\n");
 
-Better if there was a guarantee in the code that inet_skb_parm layout stays
-that way. Or instead just explicitly assign the iif.
+part in nf_unregister_net_hook():
 
-Regards,
-Shmulik
+[ destroy netns -> destruction queued -> rmmod -> all hooks are
+destroyed -> netns workq runs -> nf_unregister_net_hook gets called
+-> hook already gone ]
+
+For nf_nat_l3|4proto_clean I don't see a problem either, if netns
+is gone all these conntracks will be zapped once the workqueue runs, even if
+the iteration in those function did not see the netns anymore.
+
+Cheers,
+Florian
