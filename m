@@ -1,50 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] netfilter: nf_conntrack: Use net_mutex for helper
- unregistration.
-Date: Sat, 7 May 2016 11:18:45 +0200
-Message-ID: <20160507091845.GA6911@breakpoint.cc>
-References: <1462488637-46877-1-git-send-email-joe@ovn.org>
- <20160506110325.GA2420@salvia>
- <CAPWQB7H0qdi2+rL92_O=-ku+FeqDSGEmn+d0wivk-1RSAsgeFw@mail.gmail.com>
+From: Ilya Matveychikov <matvejchikov@gmail.com>
+Subject: Re: A couple of questions about the SKB fragments
+Date: Sat, 7 May 2016 12:21:01 +0300
+Message-ID: <CAKh5naYgXko0NBefiNXio7_oPQmmuEtSw4BXCZFMmjshFriYMA@mail.gmail.com>
+References: <CAKh5naYrZtf5y_Qw93G+GbxRVucsk4nbuiaguHcghtKEL=yQBw@mail.gmail.com>
+ <572B2AEE.1020802@solarflare.com>
+Reply-To: matvejchikov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAPWQB7H0qdi2+rL92_O=-ku+FeqDSGEmn+d0wivk-1RSAsgeFw@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Aleksey.Baulin@gmail.com
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f196.google.com ([209.85.214.196]:36277 "EHLO
+	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbcEGJVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 05:21:21 -0400
+Received: by mail-ob0-f196.google.com with SMTP id ds10so7902146obb.3
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 02:21:21 -0700 (PDT)
+In-Reply-To: <572B2AEE.1020802@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Stringer <joe@ovn.org> wrote:
-> > If so, probably I can append this as comment to this function so we
-> > don't forget. If we ever have .exit callbacks (I don't expect so), we
-> > would need to wait for worker completion.
-> 
-> Sounds reasonable to me.
-> 
-> I see there's a bunch of other unregister locations like
-> nf_nat_l3proto_clean(), nf_nat_l4proto_clean(), nf_unregister_hook()
-> which might need similar treatment?
+2016-05-05 14:13 GMT+03:00 Edward Cree <ecree@solarflare.com>:
+> On 05/05/16 08:40, Ilya Matveychikov wrote:
+> > Is there any docs except the kernel sources itself to refer to?
 
-I think they are fine, hook entries are duplicated per netns so we
-should not access data in a removed module.
+> davem has some docs up at http://vger.kernel.org/~davem/skb.html and
+> http://vger.kernel.org/~davem/skb_data.html
+> In particular note the following:
+> "The frag_list is used to maintain a chain of SKBs organized for
+>  fragmentation purposes, it is _not_ used for maintaining paged data."
+> So my reading would suggest there is no way to multiple-layer-fragment
+> an SKB; the frags are page pointers and offsets, not entire sk_buff
+> structs in their own right.
+>
 
-However, we might be able to trigger the
-
-WARN(1, "nf_unregister_net_hook: hook not found!\n");
-
-part in nf_unregister_net_hook():
-
-[ destroy netns -> destruction queued -> rmmod -> all hooks are
-destroyed -> netns workq runs -> nf_unregister_net_hook gets called
--> hook already gone ]
-
-For nf_nat_l3|4proto_clean I don't see a problem either, if netns
-is gone all these conntracks will be zapped once the workqueue runs, even if
-the iteration in those function did not see the netns anymore.
-
-Cheers,
-Florian
+Seems that the docs is slightly outdated. I think the structure of SKB does
+not impose any restrictions on the nesting of the fragments. But is there
+any of them in the kernel's code?
