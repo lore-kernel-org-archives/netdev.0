@@ -1,104 +1,33 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
-Date: Sat, 7 May 2016 11:56:50 -0700
-Message-ID: <0288eea6-9669-d763-4bd8-9438ce0c1f94@boundarydevices.com>
-References: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
- <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] net: l3mdev: Move get_saddr and rt6_dst
+Date: Sat, 07 May 2016 15:01:14 -0400 (EDT)
+Message-ID: <20160507.150114.1039727169335366513.davem@davemloft.net>
+References: <1462424050-16084-1-git-send-email-dsa@cumulusnetworks.com>
+	<1462424050-16084-2-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"gerg@uclinux.org" <gerg@uclinux.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"holgerschurig@gmail.com" <holgerschurig@gmail.com>
-To: Fugang Duan <fugang.duan@nxp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"lznuaa@gmail.com" <lznuaa@gmail.com>
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35976 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750990AbcEGS4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 14:56:51 -0400
-Received: by mail-pf0-f173.google.com with SMTP id c189so62981214pfb.3
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 11:56:51 -0700 (PDT)
-In-Reply-To: <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35426 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934AbcEGTBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 15:01:19 -0400
+In-Reply-To: <1462424050-16084-2-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/21/2016 10:59 PM, Fugang Duan wrote:
-> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Friday, April 22, 2016 10:01 AM
->> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
->> <fugang.duan@nxp.com>; lznuaa@gmail.com
->> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
->> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
->> kernel@lists.infradead.org; johannes@sipsolutions.net;
->> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
->> arnd@arndb.de; holgerschurig@gmail.com; Troy Kisky
->> <troy.kisky@boundarydevices.com>
->> Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
->>
->> If dirty_tx isn't updated, then dma_unmap_single will be called twice.
->>
->> This fixes a
->> [   58.420980] ------------[ cut here ]------------
->> [   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-
->> 4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
->> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA
->> memory it has not allocated [device address=0x0000000000000000] [size=66
->> bytes]
->>
->> encountered by Holger
->>
->> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
->> Tested-by: <holgerschurig@gmail.com>
->> ---
->>  drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
->>  1 file changed, 3 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/fec_main.c
->> b/drivers/net/ethernet/freescale/fec_main.c
->> index 08243c2..b71654c 100644
->> --- a/drivers/net/ethernet/freescale/fec_main.c
->> +++ b/drivers/net/ethernet/freescale/fec_main.c
->> @@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16
->> queue_id)
->>  					 fec16_to_cpu(bdp->cbd_datlen),
->>  					 DMA_TO_DEVICE);
->>  		bdp->cbd_bufaddr = cpu_to_fec32(0);
->> -		if (!skb) {
->> -			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
->> -			continue;
->> -		}
->> +		if (!skb)
->> +			goto skb_done;
->>
->>  		/* Check for errors. */
->>  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC | @@ -1239,7
->> +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
->>
->>  		/* Free the sk buffer associated with this last transmit */
->>  		dev_kfree_skb_any(skb);
->> -
->> +skb_done:
->>  		/* Make sure the update to bdp and tx_skbuff are performed
->>  		 * before dirty_tx
->>  		 */
->> --
->> 2.5.0
-> 
-> The patch is fine for me.
-> Can you review below patch that also fix the issue. It can take much effort due to less rmb() and READ_ONCE() operation that is very sensitive for duplex Gbps test for i.MX6SX/i.MX7d SOC. (i.MX6SX can reach at 1.4Gbps, i.MX7D can reach at 1.8Gbps.)
-> 
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed,  4 May 2016 21:54:09 -0700
 
+> +		if (dev && netif_is_l3_master(dev) &&
+> +		    dev->l3mdev_ops->l3mdev_get_saddr) {
+> +			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
+> +		}
 
-Am I supposed to do anything else to get this patch into net ?
+Please do not use braces for single statement basic blocks.
+
+The same issue exists in patch #2 so please fix it there as well.
+
+Thanks.
