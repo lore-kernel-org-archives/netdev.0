@@ -1,106 +1,90 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/2] net: l3mdev: Allow send on enslaved interface
-Date: Sat,  7 May 2016 16:49:00 -0700
-Message-ID: <1462664940-26678-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1462664940-26678-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/2] net: phy: add ethtool_phy_{get|set}_link_ksettings
+Date: Sun, 08 May 2016 01:13:05 +0100
+Message-ID: <1462666385.2634.1.camel@decadent.org.uk>
+References: <1462576729-5932-1-git-send-email-tremyfr@gmail.com>
+	 <1462622397.19332.28.camel@decadent.org.uk> <572E72A2.9010004@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-MtbPnP3SkCoX1XEzlVxM"
+Cc: f.fainelli@gmail.com, fugang.duan@nxp.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35510 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbcEGXtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 19:49:11 -0400
-Received: by mail-pa0-f41.google.com with SMTP id iv1so59434496pac.2
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 16:49:10 -0700 (PDT)
-In-Reply-To: <1462664940-26678-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54490 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751137AbcEHANQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2016 20:13:16 -0400
+In-Reply-To: <572E72A2.9010004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow udp and raw sockets to send by oif that is an enslaved interface
-versus the l3mdev/VRF device. For example, this allows BFD to use ifindex
-from IP_PKTINFO on a receive to send a response without the need to
-convert to the VRF index. It also allows ping and ping6 to work when
-specifying an enslaved interface (e.g., ping -I swp1 <ip>) which is
-a natural use case.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c   |  2 ++
- net/ipv4/route.c    |  4 ++++
- net/l3mdev/l3mdev.c | 17 +++++++++++++----
- 3 files changed, 19 insertions(+), 4 deletions(-)
+--=-MtbPnP3SkCoX1XEzlVxM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 4b2461ae5d3b..c8db55aa8280 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -648,6 +648,8 @@ static int vrf_get_saddr(struct net_device *dev, struct flowi4 *fl4)
- 
- 	fl4->flowi4_flags |= FLOWI_FLAG_SKIP_NH_OIF;
- 	fl4->flowi4_iif = LOOPBACK_IFINDEX;
-+	/* make sure oif is set to VRF device for lookup */
-+	fl4->flowi4_oif = dev->ifindex;
- 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
- 			     RT_SCOPE_LINK : RT_SCOPE_UNIVERSE);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8c8c655bb2c4..a1f2830d8110 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2146,6 +2146,7 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
- 	unsigned int flags = 0;
- 	struct fib_result res;
- 	struct rtable *rth;
-+	int master_idx;
- 	int orig_oif;
- 	int err = -ENETUNREACH;
- 
-@@ -2155,6 +2156,9 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
- 
- 	orig_oif = fl4->flowi4_oif;
- 
-+	master_idx = l3mdev_master_ifindex_by_index(net, fl4->flowi4_oif);
-+	if (master_idx)
-+		fl4->flowi4_oif = master_idx;
- 	fl4->flowi4_iif = LOOPBACK_IFINDEX;
- 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
-diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
-index 898d01e0f87b..6651a78e100c 100644
---- a/net/l3mdev/l3mdev.c
-+++ b/net/l3mdev/l3mdev.c
-@@ -112,12 +112,18 @@ struct dst_entry *l3mdev_get_rt6_dst(struct net *net,
- 	struct dst_entry *dst = NULL;
- 	struct net_device *dev;
- 
--	dev = dev_get_by_index(net, fl6->flowi6_oif);
--	if (dev) {
--		if (netif_is_l3_master(dev) &&
-+	if (fl6->flowi6_oif) {
-+		rcu_read_lock();
-+
-+		dev = dev_get_by_index_rcu(net, fl6->flowi6_oif);
-+		if (dev && netif_is_l3_slave(dev))
-+			dev = netdev_master_upper_dev_get_rcu(dev);
-+
-+		if (dev && netif_is_l3_master(dev) &&
- 		    dev->l3mdev_ops->l3mdev_get_rt6_dst)
- 			dst = dev->l3mdev_ops->l3mdev_get_rt6_dst(dev, fl6);
--		dev_put(dev);
-+
-+		rcu_read_unlock();
- 	}
- 
- 	return dst;
-@@ -141,6 +147,9 @@ int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4)
- 		rcu_read_lock();
- 
- 		dev = dev_get_by_index_rcu(net, ifindex);
-+		if (dev && netif_is_l3_slave(dev))
-+			dev = netdev_master_upper_dev_get_rcu(dev);
-+
- 		if (dev && netif_is_l3_master(dev) &&
- 		    dev->l3mdev_ops->l3mdev_get_saddr)
- 			rc = dev->l3mdev_ops->l3mdev_get_saddr(dev, fl4);
--- 
-2.1.4
+On Sun, 2016-05-08 at 00:56 +0200, Philippe Reynes wrote:
+> On 07/05/16 13:59, Ben Hutchings wrote:
+> >=20
+> > On Sat, 2016-05-07 at 01:18 +0200, Philippe Reynes wrote:
+> > >=20
+> > > The callback {get|set}_link_ksettings are often defined
+> > > in a very close way. There are mainly two differences in
+> > > those callback:
+> > > - the name of the netdev private structure
+> > > - the name of the struct phydev in the private structure
+> > >=20
+> > > We add two defines ethtool_phy_{get|set}_link_ksettings
+> > > to avoid writing severals times almost the same function.
+> > [...]
+> >=20
+> > I don't think there's no need to access a private structure, as there's
+> > a phydev pointer in struct net_device.=C2=A0=C2=A0If some drivers don't=
+ maintain
+> > that pointer, they should be changed to do so.=C2=A0=C2=A0Then they can
+> > use generic implementations of {get,set}_link_ksettings provided by
+> > phylib.
+> If we could use the phydev in the struct net_device, we could write a
+> generic function for {get|set}_link_ksettings. It's a good idea.
+>=20
+> But I've quickly looked and a lot of ethernet driver use the private
+> structure to store the phydev. If the ethernet driver may use the
+> struct net_device for phydev, do you know why so many drivers use
+> the private structure ?
+
+Maybe just because no-one bothered to update them after it was added to
+net_device.
+
+Ben.
+
+> If everybody agree, I can send a new version with a generic {get|set}_lin=
+k_ksettings
+> and a update of fec to use the phydev store in the structure net_device.
+
+--=C2=A0
+Ben Hutchings
+I haven't lost my mind; it's backed up on tape somewhere.
+--=-MtbPnP3SkCoX1XEzlVxM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXLoSRAAoJEOe/yOyVhhEJMtwP/jxY762FePxuDqbBOHkfpTz1
+Bx7AHqB/Hy6oEwGWspLvgO+mMmpSmnWKQed6hyi70X+LaFjD9avzCrP+nRFTnobm
+EegrDhoRGzNYVD/nAk+mHC7OhpkhDODbUm2Hdc3RRaxK2b2LZJW1LKDefwiZ/Opx
+7QGTwCp1GqPYRJZaTJdrrDANf9/EHFsFPSBKRYGS/V9flgYLoImllwZ3t9sUxhVi
+NA2Oigw+CL39+kMGLLFmP67l1vj9b5D/Prf4G77AvVFHh5ejKg+Aw7y+uA3rHg9s
+wxrJ2Nlc9kpcMPSUi3I+96lj/4ScIs9JKieRmY1WippZ21lw3dV5YfAiA5EkvquW
+mG1UTdJd04SwCA5ZjUZ1M8T6w+zmTg6KRERA8Dl2nz/U6GOj03pk63H/gv8O+j2F
+OaRXjxrin82NS4VIL/2359sAwgfUZAfudPhJIYpKcxIPxzitX08ggOWHkZC9l6Pj
+Z/vJXjJMXR4sARoZYH9oCpsGccdXNYsQhzt9IR+aukMS+KG9Qs5VdjEWLk3He3EF
+3BGDseMX+VvHT2IlaigeV3Qsn++flifYUxtgjsclpu6DVbnxd947BPCku6Z6Iz8+
+RBudupBPUv6k5W60RVIRveOUEhfJQKdhtVYdxB6WJIl6En7JFBCHHoJglG3NFy75
+nQOa1w/9+QX9bQ6TDeup
+=VOvp
+-----END PGP SIGNATURE-----
+
+--=-MtbPnP3SkCoX1XEzlVxM--
