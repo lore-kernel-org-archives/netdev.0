@@ -1,78 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/2] net: original ingress device index in PKTINFO
-Date: Sat,  7 May 2016 21:16:45 -0700
-Message-ID: <1462681005-25959-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1462681005-25959-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH] Add support for configuring Infiniband GUIDs
+Date: Sun, 8 May 2016 07:59:47 +0300
+Message-ID: <20160508045947.GP29160@leon.nu>
+References: <1462549405-16003-1-git-send-email-eli@mellanox.com>
+Reply-To: leon@kernel.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="WOTjKnJ88wpJKlWH"
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
+To: Eli Cohen <eli@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33990 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbcEHEQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 00:16:57 -0400
-Received: by mail-pf0-f175.google.com with SMTP id y69so63191059pfb.1
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 21:16:57 -0700 (PDT)
-In-Reply-To: <1462681005-25959-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail.kernel.org ([198.145.29.136]:49844 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929AbcEHE75 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 May 2016 00:59:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1462549405-16003-1-git-send-email-eli@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Applications such as OSPF and BFD need the original ingress device not
-the VRF device; the latter can be derived from the former. To that end
-add the skb_iif to inet_skb_parm and set it in ipv4 code after clearing
-the skb control buffer similar to IPv6. From there the pktinfo can just
-pull it from cb with the PKTINFO_SKB_CB cast.
 
-The previous patch moving the skb->dev change to L3 means nothing else
-is needed for IPv6; it just works.
+--WOTjKnJ88wpJKlWH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/ip.h       | 1 +
- net/ipv4/ip_input.c    | 1 +
- net/ipv4/ip_sockglue.c | 7 ++++++-
- 3 files changed, 8 insertions(+), 1 deletion(-)
+On Fri, May 06, 2016 at 10:43:25AM -0500, Eli Cohen wrote:
+> Add two NLA's that allow configuration of Infiniband node or port GUIDs
+> by referencing the IPoIB net device set over then physical function. The
+> format to be used is as follows:
+>=20
+> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
+> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
+>=20
+> Issue: 702759
+> Change-Id: I5ffb54d6de7bfa8650bf5818f484279914991d6e
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 247ac82e9cf2..37165fba3741 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -36,6 +36,7 @@
- struct sock;
- 
- struct inet_skb_parm {
-+	int			iif;
- 	struct ip_options	opt;		/* Compiled IP options		*/
- 	unsigned char		flags;
- 
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 37375eedeef9..4b351af3e67b 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -478,6 +478,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
- 
- 	/* Remove any debris in the socket control block */
- 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+	IPCB(skb)->iif = skb->skb_iif;
- 
- 	/* Must drop socket now because of tproxy. */
- 	skb_orphan(skb);
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index bdb222c0c6a2..5805762d7fc7 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -1193,7 +1193,12 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
- 		       ipv6_sk_rxinfo(sk);
- 
- 	if (prepare && skb_rtable(skb)) {
--		pktinfo->ipi_ifindex = inet_iif(skb);
-+		/* skb->cb is overloaded: prior to this point it is IP{6}CB
-+		 * which has interface index (iif) as the first member of the
-+		 * underlying inet{6}_skb_parm struct. This code then overlays
-+		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
-+		 * element so the iif is picked up from the prior IPCB
-+		 */
- 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
- 	} else {
- 		pktinfo->ipi_ifindex = 0;
--- 
-2.1.4
+These two lines are not needed to be part of commit message.
+
+--WOTjKnJ88wpJKlWH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXLsfDAAoJEORje4g2clinlVAP/iDKER7ob/xXs9vNxVkBGSAo
+pp0pXmgsLfgZkFmgJzMtiU/Kg9kozZ/bdm0MM1YXcyvvXAUY/aYLzn1aUNg82JKW
+ztG+0VVJNYM5papDt9x/u8aK3jrAXAjFulGYK7QGtU1PX+y3Zysrc/dJuQUpWOKi
+TaUWmIdNKzITTkaZKoMur8X/T+CkkoSUP6IzQ3PRagNU+h0/P8lZSkyxR8b+tjOv
+FVDZAozf8QPYr6JwaSD5k1HlwFMzJwN4H+vdlsED+96UaWyw7uHmyhIDdhnloVXf
+NxxGn9KeGaRqPKSrTiz5kFCDtd4lHcUr00sMqsvQSOGeCpq5LrHtBg0Z1TjfLad6
+xqwn2NI/gJUiNSL5z7WrXHmOeOsP6J523QKzUyQcKzdf2BU49sxDK9MhmklqMuJY
+A/utNAa+jBLeEEuiMq1w9yPxnY05lMB7oYEkeBP6cYuCQSuJT8nQjZzIKTEuroeg
+heQRFnNy/7+rWhsUxCaZT12R/upk8vPVkRX26tnPjJ5yS4/MHpZ2LnWKp5tIRaJw
+4ynYAns2t6NfATrOIJ9pO32N3oolhekxctABCEhXiyr24VZ6Wdi95lrd8wsurCGS
+ozX7xq7AM/AJ3M9EfyqJtadcpknK0COIRvOlXQ4RF+wYgrAKWPt+yejxXwCWtEPb
+3UsvtqCxfZVS7ES0TJdE
+=7Bto
+-----END PGP SIGNATURE-----
+
+--WOTjKnJ88wpJKlWH--
