@@ -1,45 +1,38 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [iproute2 PATCH 1/1] tc fix ife late binding
-Date: Sun,  8 May 2016 11:28:49 -0400
-Message-ID: <1462721329-27987-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34150 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbcEHP26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 11:28:58 -0400
-Received: by mail-io0-f193.google.com with SMTP id d62so16773142iof.1
-        for <netdev@vger.kernel.org>; Sun, 08 May 2016 08:28:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kangjie Lu <kangjielu@gmail.com>
+Subject: [PATCH] fix a kernel infoleak in x25 module
+Date: Sun,  8 May 2016 12:10:14 -0400
+Message-ID: <1462723814-14732-1-git-send-email-kjlu@gatech.edu>
+Cc: davem@davemloft.net, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	taesoo@gatech.edu, insu@gatech.edu, csong84@gatech.edu,
+	Kangjie Lu <kjlu@gatech.edu>
+To: andrew.hendry@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+Stack object "dte_facilities" is allocated in x25_rx_call_request(),
+which is supposed to be initialized in x25_negotiate_facilities.
+However, 5 fields (8 bytes in total) are not initialized. This
+object is then copied to userland via copy_to_user, thus infoleak
+occurs.
 
-following late action binding didn't work:
-
-sudo tc actions add action ife encode \
-type 0xDEAD allow mark dst 02:15:15:15:15:15 index 1
-
-sudo tc filter add dev lo parent ffff: protocol ip prio 2 u32\
-match ip src 127.0.0.2/32 flowid 1:2 action ife index 1
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
 ---
- tc/m_ife.c | 1 +
+ net/x25/x25_facilities.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/tc/m_ife.c b/tc/m_ife.c
-index ed01ff7..c8ae04d 100644
---- a/tc/m_ife.c
-+++ b/tc/m_ife.c
-@@ -182,6 +182,7 @@ static int parse_ife(struct action_util *a, int *argc_p, char ***argv_p,
- 				fprintf(stderr, "ife: Illegal \"index\"\n");
- 				return -1;
- 			}
-+			ok++;
- 			argc--;
- 			argv++;
- 		}
+diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+index 2844031..a1c30c6 100644
+--- a/net/x25/x25_facilities.c
++++ b/net/x25/x25_facilities.c
+@@ -278,6 +278,7 @@ int x25_negotiate_facilities(struct sk_buff *skb, struct sock *sk,
+ 
+ 	memset(&theirs, 0, sizeof(theirs));
+ 	memcpy(new, ours, sizeof(*new));
++	memset(dte, 0, sizeof(*dte));
+ 
+ 	len = x25_parse_facilities(skb, &theirs, dte, &x25->vc_facil_mask);
+ 	if (len < 0)
 -- 
 1.9.1
