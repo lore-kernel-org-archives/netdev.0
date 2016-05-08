@@ -1,30 +1,30 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH 2/6] tc ipt action fix late binding
-Date: Sun,  8 May 2016 13:16:02 -0400
-Message-ID: <1462727766-28359-3-git-send-email-jhs@emojatatu.com>
+Subject: [net-next PATCH 3/6] tc mirred action fix late binding
+Date: Sun,  8 May 2016 13:16:03 -0400
+Message-ID: <1462727766-28359-4-git-send-email-jhs@emojatatu.com>
 References: <1462727766-28359-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f194.google.com ([209.85.213.194]:33314 "EHLO
-	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbcEHRQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 13:16:32 -0400
-Received: by mail-ig0-f194.google.com with SMTP id rc4so9516071igc.0
-        for <netdev@vger.kernel.org>; Sun, 08 May 2016 10:16:31 -0700 (PDT)
+Received: from mail-ig0-f195.google.com ([209.85.213.195]:34941 "EHLO
+	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750975AbcEHRQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 13:16:33 -0400
+Received: by mail-ig0-f195.google.com with SMTP id jn6so9457067igb.2
+        for <netdev@vger.kernel.org>; Sun, 08 May 2016 10:16:32 -0700 (PDT)
 In-Reply-To: <1462727766-28359-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-This was broken and is fixed with this patch.
+The process below was broken and is fixed with this patch.
 
-//add an ipt action and give it an instance id of 1
-sudo tc actions add action ipt -j mark --set-mark 2 index 1
-//create a filter which binds to ipt action id 1
+//add an mirred action and give it an instance id of 1
+sudo tc actions add action mirred egress mirror dev $MDEV  index 1
+//create a filter which binds to mirred action id 1
 sudo tc filter add dev $DEV parent ffff: protocol ip prio 1 u32\
-match ip dst 17.0.0.1/32 flowid 1:10 action ipt index 1
+match ip dst 17.0.0.1/32 flowid 1:10 action mirred index 1
 
 Message before bug fix was:
 RTNETLINK answers: Invalid argument
@@ -32,51 +32,79 @@ We have an error talking to the kernel
 
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/sched/act_ipt.c | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ net/sched/act_mirred.c | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 1464f6a..722b5d8 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -96,7 +96,7 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	struct tcf_ipt *ipt;
- 	struct xt_entry_target *td, *t;
- 	char *tname;
--	int ret = 0, err;
-+	int ret = 0, err, aexists = 0;
- 	u32 hook = 0;
- 	u32 index = 0;
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index dea57c1..9e682c8 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -61,7 +61,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	struct tc_mirred *parm;
+ 	struct tcf_mirred *m;
+ 	struct net_device *dev;
+-	int ret, ok_push = 0;
++	int ret, ok_push = 0, aexists = 0;
  
-@@ -107,18 +107,23 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	if (err < 0)
- 		return err;
- 
--	if (tb[TCA_IPT_HOOK] == NULL)
--		return -EINVAL;
--	if (tb[TCA_IPT_TARG] == NULL)
-+	if (tb[TCA_IPT_INDEX] != NULL)
-+		index = nla_get_u32(tb[TCA_IPT_INDEX]);
+ 	if (nla == NULL)
+ 		return -EINVAL;
+@@ -71,17 +71,27 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	if (tb[TCA_MIRRED_PARMS] == NULL)
+ 		return -EINVAL;
+ 	parm = nla_data(tb[TCA_MIRRED_PARMS]);
 +
-+	aexists = tcf_hash_check(tn, index, a, bind);
++	aexists = tcf_hash_check(tn, parm->index, a, bind);
 +	if (aexists && bind)
 +		return 0;
 +
-+	if (tb[TCA_IPT_HOOK] == NULL || tb[TCA_IPT_TARG] == NULL) {
+ 	switch (parm->eaction) {
+ 	case TCA_EGRESS_MIRROR:
+ 	case TCA_EGRESS_REDIR:
+ 		break;
+ 	default:
 +		if (aexists)
 +			tcf_hash_release(a, bind);
  		return -EINVAL;
-+	}
+ 	}
+ 	if (parm->ifindex) {
+ 		dev = __dev_get_by_index(net, parm->ifindex);
+-		if (dev == NULL)
++		if (dev == NULL) {
++			if (aexists)
++				tcf_hash_release(a, bind);
+ 			return -ENODEV;
++		}
+ 		switch (dev->type) {
+ 		case ARPHRD_TUNNEL:
+ 		case ARPHRD_TUNNEL6:
+@@ -99,7 +109,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 		dev = NULL;
+ 	}
  
- 	td = (struct xt_entry_target *)nla_data(tb[TCA_IPT_TARG]);
- 	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size)
- 		return -EINVAL;
- 
--	if (tb[TCA_IPT_INDEX] != NULL)
--		index = nla_get_u32(tb[TCA_IPT_INDEX]);
+-	if (!tcf_hash_check(tn, parm->index, a, bind)) {
++	if (!aexists) {
+ 		if (dev == NULL)
+ 			return -EINVAL;
+ 		ret = tcf_hash_create(tn, parm->index, est, a,
+@@ -108,9 +118,6 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 			return ret;
+ 		ret = ACT_P_CREATED;
+ 	} else {
+-		if (bind)
+-			return 0;
 -
- 	if (!tcf_hash_check(tn, index, a, bind)) {
- 		ret = tcf_hash_create(tn, index, est, a, sizeof(*ipt), bind,
- 				      false);
+ 		tcf_hash_release(a, bind);
+ 		if (!ovr)
+ 			return -EEXIST;
+@@ -195,7 +202,8 @@ out:
+ 	return retval;
+ }
+ 
+-static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
++			   int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_mirred *m = a->priv;
 -- 
 1.9.1
