@@ -1,63 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] net: phy: add ethtool_phy_{get|set}_link_ksettings
-Date: Sun, 08 May 2016 11:19:25 -0700
-Message-ID: <14232933-5A87-460D-B3BB-9E7FD4F56D99@gmail.com>
-References: <1462576729-5932-1-git-send-email-tremyfr@gmail.com> <1462622397.19332.28.camel@decadent.org.uk> <572E72A2.9010004@gmail.com>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: Re: [PATCH net-next 5/7] Driver: Vmxnet3: Add support for get_coalesce,
+ set_coalesce ethtool operations
+Date: Sun, 8 May 2016 13:55:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.10.1605081335140.13942@shri-linux.eng.vmware.com>
+References: <1462576336-83513-1-git-send-email-skhare@vmware.com>  <1462576336-83513-6-git-send-email-skhare@vmware.com> <1462622686.19332.33.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: fugang.duan@nxp.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f193.google.com ([209.85.214.193]:35399 "EHLO
-	mail-ob0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852AbcEHSTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 14:19:33 -0400
-In-Reply-To: <572E72A2.9010004@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="554307656-2136172662-1462740944=:13942"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, Keyong Sun <sunk@vmware.com>,
+	Manoj Tammali <tammalim@vmware.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462622686.19332.33.camel@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On May 7, 2016 3:56:34 PM PDT, Philippe Reynes <tremyfr@gmail.com> wrote:
->On 07/05/16 13:59, Ben Hutchings wrote:
->> On Sat, 2016-05-07 at 01:18 +0200, Philippe Reynes wrote:
->>> The callback {get|set}_link_ksettings are often defined
->>> in a very close way. There are mainly two differences in
->>> those callback:
->>> - the name of the netdev private structure
->>> - the name of the struct phydev in the private structure
->>>
->>> We add two defines ethtool_phy_{get|set}_link_ksettings
->>> to avoid writing severals times almost the same function.
->> [...]
->>
->> I don't think there's no need to access a private structure, as
->there's
->> a phydev pointer in struct net_device.  If some drivers don't
->maintain
->> that pointer, they should be changed to do so.  Then they can
->> use generic implementations of {get,set}_link_ksettings provided by
->> phylib.
->
->If we could use the phydev in the struct net_device, we could write a
->generic function for {get|set}_link_ksettings. It's a good idea.
->
->But I've quickly looked and a lot of ethernet driver use the private
->structure to store the phydev. If the ethernet driver may use the
->struct net_device for phydev, do you know why so many drivers use
->the private structure ?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-The introduction of a phy_device pointer in net_device came much later than the introduction and use of PHYLIB by most drivers so it is probably just an oversight.
+--554307656-2136172662-1462740944=:13942
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
->
->If everybody agree, I can send a new version with a generic
->{get|set}_link_ksettings
->and a update of fec to use the phydev store in the structure
->net_device.
 
-Yes, that sounds very reasonable. It might be possible to cook a coccinelle patch which replaces the use of a private phy_device pointer and utilize the one from net_device.
 
--- 
-Florian
+On Sat, 7 May 2016, Ben Hutchings wrote:
+
+> On Fri, 2016-05-06 at 16:12 -0700, Shrikrishna Khare wrote:
+> [...]
+> > +static int
+> > +vmxnet3_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *ec)
+> > +{
+> [...]
+> > +	switch (ec->rx_coalesce_usecs) {
+> > +	case VMXNET3_COALESCE_DEFAULT:
+> > +	case VMXNET3_COALESCE_DISABLED:
+> > +	case VMXNET3_COALESCE_ADAPT:
+> > +		if (ec->tx_max_coalesced_frames ||
+> > +		    ec->tx_max_coalesced_frames_irq ||
+> > +		    ec->rx_max_coalesced_frames_irq) {
+> > +			return -EINVAL;
+> > +		}
+> > +		memset(adapter->coal_conf, 0, sizeof(*adapter->coal_conf));
+> > +		adapter->coal_conf->coalMode = ec->rx_coalesce_usecs;
+> > +		break;
+> > +	case VMXNET3_COALESCE_STATIC:
+> [...]
+> 
+> I don't want to see drivers introducing magic values for fields that
+> are denominated in microseconds (especially not for 0, which is the
+> correct way to specify 'no coalescing').  If the current
+> ethtool_coalesce structure is inadequate, propose an extension.
+
+For vmxnet3, we need an ethtool mechanism to indicate coalescing mode to 
+the device.
+
+Would a patch that maps 0 to 'no coalescing' be acceptable? That is:
+
+rx-usecs = 0 -> coalescing disabled.
+rx-usecs = 1 -> default (chosen by the device).
+rx-usecs = 2 -> adaptive coalescing.
+rx-usecs = 3 -> static coalescing.
+all other rx-usecs values -> rate based coalescing where rx-usecs denotes 
+rate.
+
+Alternatively: I don't think new members could be added to struct 
+ethtool_coalesce without breaking compatibility. Thus, I could extend 
+coalescing as follows:
+- new struct ethtool_coalesce_v2 with coalesce_mode (along with all the 
+members of struct ethtool_coalesce).
+- introduce new ETHTOOL_{G,S}COALESCE_V2 commands.
+- extend userspace ethtool to invoke new commands.
+
+Could you please advice?
+
+Thanks,
+Shri
+--554307656-2136172662-1462740944=:13942--
