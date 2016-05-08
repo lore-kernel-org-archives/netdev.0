@@ -1,42 +1,92 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] net: l3mdev: Add hook in ip and ipv6
-Date: Sun, 8 May 2016 08:44:40 +0300
-Message-ID: <20160508084440.49a6865a@halley>
-References: <1462585781-9146-1-git-send-email-dsa@cumulusnetworks.com>
-	<1462585781-9146-2-git-send-email-dsa@cumulusnetworks.com>
-	<20160507113025.67c3ab43@halley>
-	<572E00C9.4050109@cumulusnetworks.com>
-	<20160507213205.02529bde@halley>
-	<572EA3A4.9010200@cumulusnetworks.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v9 net-next 1/2] hv_sock: introduce Hyper-V Sockets
+Date: Sun, 8 May 2016 06:11:04 +0000
+Message-ID: <BLUPR03MB141044B2FC50DE43401C8C17BF7F0@BLUPR03MB1410.namprd03.prod.outlook.com>
+References: <1462381017-568-1-git-send-email-decui@microsoft.com>
+ <20160506.130353.2082047339292515860.davem@davemloft.net>
+ <BLUPR03MB1410F30AED34632F8F1268DEBF7E0@BLUPR03MB1410.namprd03.prod.outlook.com>
+ <20160507.134048.139772599380708393.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38123 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbcEHFos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 01:44:48 -0400
-Received: by mail-wm0-f43.google.com with SMTP id g17so135636835wme.1
-        for <netdev@vger.kernel.org>; Sat, 07 May 2016 22:44:48 -0700 (PDT)
-In-Reply-To: <572EA3A4.9010200@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "joe@perches.com" <joe@perches.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160507.134048.139772599380708393.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Sunday, May 8, 2016 1:41
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com; cavery@redhat.com; KY
+> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
+> joe@perches.com; vkuznets@redhat.com
+> Subject: Re: [PATCH v9 net-next 1/2] hv_sock: introduce Hyper-V Sockets
+>
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Sat, 7 May 2016 10:49:25 +0000
+>
+> > I should be able to make 'send', 'recv' here to pointers and use vmalloc()
+> > to allocate the memory for them.  I will do this.
+>
+> That's still unswappable kernel memory.
+Hi David,
+My understanding is: kernel pages are not swappable in Linux, so it looks I
+can't avoid unswappable kernel memory here?
 
-On Sat, 7 May 2016 20:25:40 -0600 David Ahern <dsa@cumulusnetworks.com> wrote:
-> >   - On which circumstances we end up entering
-> >     l3mdev_ip_rcv/l3mdev_ip6_rcv where skb->dev is the master?
-> >     If I got it right, we enter 'ip_rcv_finish' on a slave device,
-> >     the callback is invoked and eventually sets skb->dev and skb->skb_iif
-> >     to the VRF device; then ip_rcv_finish continues processing the
-> >     altered skb (with the changed skb->dev).
-> >     So on which cicumstances do we enter 'ip_rcv_finish' where the
-> >     skb->dev is ALREADY a master device?  
-> 
-> If you look at the full patchset I posted on 5/4 the patch after PKTINFO 
-> allows local traffic. That change needs the netif_is_l3_master().
+> People can open N sockets, where N is something on the order of the FD
+> limit the process has, per process.  This allows someone to quickly
+> eat up a lot of memory and hold onto it nearly indefinitely.
 
-I see. Thanks David.
+Thanks for pointing this out!
+I understand, so I think I should add a module parameter, e.g.,
+"hv_sock.max_socket_number" with a default value, say, 1024?
+
+1 established hv_sock connection takes less than 20 pages, including 10
+pages for VMBus ringbuffer, 6 pages for send/recv buffers(I'll use
+vmalloc() for this), etc.
+Here the recv buf needs a size of 5 pages because potentially the host
+can send the guest a VMBus packet with an up-to-5-page payload, i..e,
+the VMBus inbound ringbuffer size.
+
+1024 hv_sock connections take less than 20*4KB * 1K = 80MB memory.
+
+A user who needs more connections can change the module parameter
+without reboot.
+
+hv_sock connection is designed  to work only between the host and the
+guest. I think 1024 connections seem pretty enough.
+
+BTW, a user can't create hv_sock connections without enough privilege.
+Please see
+
++static int hvsock_create(struct net *net, struct socket *sock,
++                        int protocol, int kern)
++{
++       if (!capable(CAP_SYS_ADMIN) && !capable(CAP_NET_ADMIN))
++               return -EPERM;
+
+David, does this make sense to you?
+
+Thanks,
+-- Dexuan
