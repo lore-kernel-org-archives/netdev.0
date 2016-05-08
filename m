@@ -1,79 +1,42 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: Re: [PATCH net-next 5/7] Driver: Vmxnet3: Add support for get_coalesce,
- set_coalesce ethtool operations
-Date: Sun, 8 May 2016 13:55:44 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1605081335140.13942@shri-linux.eng.vmware.com>
-References: <1462576336-83513-1-git-send-email-skhare@vmware.com>  <1462576336-83513-6-git-send-email-skhare@vmware.com> <1462622686.19332.33.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="554307656-2136172662-1462740944=:13942"
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH v2 0/3] net: ethtool: add ethtool_op_{get|set}_link_ksettings
+Date: Sun,  8 May 2016 23:44:34 +0200
+Message-ID: <1462743877-31738-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, Keyong Sun <sunk@vmware.com>,
-	Manoj Tammali <tammalim@vmware.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+	Philippe Reynes <tremyfr@gmail.com>
+To: fugang.duan@nxp.com, davem@davemloft.net, ben@decadent.org.uk,
+	kan.liang@intel.com, decot@googlers.com, aduyck@mirantis.com,
+	jiri@mellanox.com, jacob.e.keller@intel.com, tom@herbertland.com,
+	andrew@lunn.ch
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462622686.19332.33.camel@decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Ethtool callbacks {get|set}_link_ksettings may be the
+same for many drivers. So we add two generics callbacks
+ethtool_op_{get|set}_link_ksettings.
 
---554307656-2136172662-1462740944=:13942
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+To use those generics callbacks, the ethernet driver must
+use the pointer phydev contained in struct net_device, and
+not use a private structure to store this pointer.
 
+Changelog:
+v2:
+- use generic function instead of macro
+- ethernet driver use the pointer phydev provided by struct net_device
+  Those idea were provided by Ben Hutchings,
+  and Florian Fainelli acknowledge them.
 
+Philippe Reynes (3):
+  net: core: ethtool: add ethtool_op_{get|set}_link_ksettings
+  net: ethernet: fec: use phydev from struct net_device
+  net: ethernet: fec: use ethtool_op_{get|set}_link_ksettings
 
-On Sat, 7 May 2016, Ben Hutchings wrote:
+ drivers/net/ethernet/freescale/fec.h      |    1 -
+ drivers/net/ethernet/freescale/fec_main.c |   71 +++++++++--------------------
+ include/linux/ethtool.h                   |    5 ++
+ net/core/ethtool.c                        |   24 ++++++++++
+ 4 files changed, 50 insertions(+), 51 deletions(-)
 
-> On Fri, 2016-05-06 at 16:12 -0700, Shrikrishna Khare wrote:
-> [...]
-> > +static int
-> > +vmxnet3_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *ec)
-> > +{
-> [...]
-> > +	switch (ec->rx_coalesce_usecs) {
-> > +	case VMXNET3_COALESCE_DEFAULT:
-> > +	case VMXNET3_COALESCE_DISABLED:
-> > +	case VMXNET3_COALESCE_ADAPT:
-> > +		if (ec->tx_max_coalesced_frames ||
-> > +		    ec->tx_max_coalesced_frames_irq ||
-> > +		    ec->rx_max_coalesced_frames_irq) {
-> > +			return -EINVAL;
-> > +		}
-> > +		memset(adapter->coal_conf, 0, sizeof(*adapter->coal_conf));
-> > +		adapter->coal_conf->coalMode = ec->rx_coalesce_usecs;
-> > +		break;
-> > +	case VMXNET3_COALESCE_STATIC:
-> [...]
-> 
-> I don't want to see drivers introducing magic values for fields that
-> are denominated in microseconds (especially not for 0, which is the
-> correct way to specify 'no coalescing').  If the current
-> ethtool_coalesce structure is inadequate, propose an extension.
-
-For vmxnet3, we need an ethtool mechanism to indicate coalescing mode to 
-the device.
-
-Would a patch that maps 0 to 'no coalescing' be acceptable? That is:
-
-rx-usecs = 0 -> coalescing disabled.
-rx-usecs = 1 -> default (chosen by the device).
-rx-usecs = 2 -> adaptive coalescing.
-rx-usecs = 3 -> static coalescing.
-all other rx-usecs values -> rate based coalescing where rx-usecs denotes 
-rate.
-
-Alternatively: I don't think new members could be added to struct 
-ethtool_coalesce without breaking compatibility. Thus, I could extend 
-coalescing as follows:
-- new struct ethtool_coalesce_v2 with coalesce_mode (along with all the 
-members of struct ethtool_coalesce).
-- introduce new ETHTOOL_{G,S}COALESCE_V2 commands.
-- extend userspace ethtool to invoke new commands.
-
-Could you please advice?
-
-Thanks,
-Shri
---554307656-2136172662-1462740944=:13942--
+-- 
+1.7.4.4
