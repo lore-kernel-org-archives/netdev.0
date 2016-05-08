@@ -1,63 +1,83 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH] Add support for configuring Infiniband GUIDs
-Date: Sun, 8 May 2016 07:59:47 +0300
-Message-ID: <20160508045947.GP29160@leon.nu>
-References: <1462549405-16003-1-git-send-email-eli@mellanox.com>
-Reply-To: leon@kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] ifb: support more features
+Date: Sat, 07 May 2016 22:41:12 -0700
+Message-ID: <1462686072.23934.4.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="WOTjKnJ88wpJKlWH"
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-To: Eli Cohen <eli@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:49844 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929AbcEHE75 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 May 2016 00:59:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1462549405-16003-1-git-send-email-eli@mellanox.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34797 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbcEHFlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 01:41:15 -0400
+Received: by mail-pa0-f54.google.com with SMTP id r5so62711261pag.1
+        for <netdev@vger.kernel.org>; Sat, 07 May 2016 22:41:14 -0700 (PDT)
+In-Reply-To: <1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2016-05-06 at 18:19 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When using ifb+netem on ingress on SIT/IPIP/GRE traffic,
+> GRO packets are not properly processed.
+> 
+> Segmentation should not be forced, since ifb is already adding
+> quite a performance hit.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  drivers/net/ifb.c |    3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+> index cc56fac3c3f8..66c0eeafcb5d 100644
+> --- a/drivers/net/ifb.c
+> +++ b/drivers/net/ifb.c
+> @@ -196,6 +196,7 @@ static const struct net_device_ops ifb_netdev_ops = {
+>  
+>  #define IFB_FEATURES (NETIF_F_HW_CSUM | NETIF_F_SG  | NETIF_F_FRAGLIST	| \
+>  		      NETIF_F_TSO_ECN | NETIF_F_TSO | NETIF_F_TSO6	| \
+> +		      NETIF_F_GSO_ENCAP_ALL 				| \
+>  		      NETIF_F_HIGHDMA | NETIF_F_HW_VLAN_CTAG_TX		| \
+>  		      NETIF_F_HW_VLAN_STAG_TX)
+>  
+> @@ -224,6 +225,8 @@ static void ifb_setup(struct net_device *dev)
+>  	dev->tx_queue_len = TX_Q_LIMIT;
+>  
+>  	dev->features |= IFB_FEATURES;
+> +	dev->hw_features |= dev->features;
+> +	dev->hw_enc_features |= dev->features;
+>  	dev->vlan_features |= IFB_FEATURES & ~(NETIF_F_HW_VLAN_CTAG_TX |
+>  					       NETIF_F_HW_VLAN_STAG_TX);
+>  
+> 
 
---WOTjKnJ88wpJKlWH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, May 06, 2016 at 10:43:25AM -0500, Eli Cohen wrote:
-> Add two NLA's that allow configuration of Infiniband node or port GUIDs
-> by referencing the IPoIB net device set over then physical function. The
-> format to be used is as follows:
->=20
-> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
-> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
->=20
-> Issue: 702759
-> Change-Id: I5ffb54d6de7bfa8650bf5818f484279914991d6e
+BTW, encapsulated GRO traffic going through mirred+ifb is dropped
+because segments get an incorrect skb->mac_len 
 
-These two lines are not needed to be part of commit message.
+(If TSO/GSO is disabled on ifb, as before the above patch)
 
---WOTjKnJ88wpJKlWH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+SIT traffic for example : segments get mac_len set to 34 instead of 14
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+What do you think of :
 
-iQIcBAEBAgAGBQJXLsfDAAoJEORje4g2clinlVAP/iDKER7ob/xXs9vNxVkBGSAo
-pp0pXmgsLfgZkFmgJzMtiU/Kg9kozZ/bdm0MM1YXcyvvXAUY/aYLzn1aUNg82JKW
-ztG+0VVJNYM5papDt9x/u8aK3jrAXAjFulGYK7QGtU1PX+y3Zysrc/dJuQUpWOKi
-TaUWmIdNKzITTkaZKoMur8X/T+CkkoSUP6IzQ3PRagNU+h0/P8lZSkyxR8b+tjOv
-FVDZAozf8QPYr6JwaSD5k1HlwFMzJwN4H+vdlsED+96UaWyw7uHmyhIDdhnloVXf
-NxxGn9KeGaRqPKSrTiz5kFCDtd4lHcUr00sMqsvQSOGeCpq5LrHtBg0Z1TjfLad6
-xqwn2NI/gJUiNSL5z7WrXHmOeOsP6J523QKzUyQcKzdf2BU49sxDK9MhmklqMuJY
-A/utNAa+jBLeEEuiMq1w9yPxnY05lMB7oYEkeBP6cYuCQSuJT8nQjZzIKTEuroeg
-heQRFnNy/7+rWhsUxCaZT12R/upk8vPVkRX26tnPjJ5yS4/MHpZ2LnWKp5tIRaJw
-4ynYAns2t6NfATrOIJ9pO32N3oolhekxctABCEhXiyr24VZ6Wdi95lrd8wsurCGS
-ozX7xq7AM/AJ3M9EfyqJtadcpknK0COIRvOlXQ4RF+wYgrAKWPt+yejxXwCWtEPb
-3UsvtqCxfZVS7ES0TJdE
-=7Bto
------END PGP SIGNATURE-----
-
---WOTjKnJ88wpJKlWH--
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index e561f9f07d6d..bec5c32b2fe9 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3176,7 +3176,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 		__copy_skb_header(nskb, head_skb);
+ 
+ 		skb_headers_offset_update(nskb, skb_headroom(nskb) - headroom);
+-		skb_reset_mac_len(nskb);
++		nskb->mac_len = head_skb->mac_len;
+ 
+ 		skb_copy_from_linear_data_offset(head_skb, -tnl_hlen,
+ 						 nskb->data - tnl_hlen,
