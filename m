@@ -1,41 +1,50 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 0/6] Fix broken late binding of actions
-Date: Sun, 8 May 2016 13:21:02 -0400
-Message-ID: <572F757E.4000000@mojatatu.com>
-References: <1462727766-28359-1-git-send-email-jhs@emojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Subject: [net-next PATCH v2 0/6] net sched: Fix broken late binding of actions
+Date: Sun,  8 May 2016 13:26:26 -0400
+Message-ID: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35473 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750880AbcEHRVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 13:21:04 -0400
-Received: by mail-io0-f194.google.com with SMTP id u185so19014871iod.2
-        for <netdev@vger.kernel.org>; Sun, 08 May 2016 10:21:04 -0700 (PDT)
-In-Reply-To: <1462727766-28359-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34644 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbcEHR0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 13:26:42 -0400
+Received: by mail-io0-f193.google.com with SMTP id d62so16936769iof.1
+        for <netdev@vger.kernel.org>; Sun, 08 May 2016 10:26:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-05-08 01:16 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Some actions were broken in allowing for late binding of actions.
-> Late binding workflow is as follows:
-> a) create an action and provide all necessary parameters for it
-> Optionally provide an index or let the kernel give you one.
-> Example:
-> sudo tc actions add action police rate 1kbit burst 90k drop index 1
->
-> b) later on bind to the pre-created action from a filter definition
-> by merely specifying the index.
-> Example:
-> sudo tc filter add dev lo parent ffff: protocol ip prio 8 \
-> u32 match ip src 127.0.0.8/32 flowid 1:8 action police index 1
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Sorry - will resend with proper subject
+Some actions were broken in allowing for late binding of actions.
+Late binding workflow is as follows:
+a) create an action and provide all necessary parameters for it
+Optionally provide an index or let the kernel give you one.
+Example:
+sudo tc actions add action police rate 1kbit burst 90k drop index 1
 
-cheers,
-jamal
+b) later on bind to the pre-created action from a filter definition
+by merely specifying the index.
+Example:
+sudo tc filter add dev lo parent ffff: protocol ip prio 8 \
+u32 match ip src 127.0.0.8/32 flowid 1:8 action police index 1
+
+
+Jamal Hadi Salim (6):
+  tc vlan action fix late binding
+  tc ipt action fix late binding
+  tc mirred action fix late binding
+  tc simple action fix late binding
+  tc skbedit action fix late binding
+  tc ife action fix late binding
+
+ net/sched/act_ife.c     | 16 +++++++++++-----
+ net/sched/act_ipt.c     | 19 ++++++++++++-------
+ net/sched/act_mirred.c  | 22 +++++++++++++++-------
+ net/sched/act_simple.c  | 18 ++++++++++++------
+ net/sched/act_skbedit.c | 22 +++++++++++++++-------
+ net/sched/act_vlan.c    | 22 ++++++++++++++++------
+ 6 files changed, 81 insertions(+), 38 deletions(-)
+
+-- 
+1.9.1
