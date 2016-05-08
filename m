@@ -1,50 +1,86 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH v2 0/6] net sched: Fix broken late binding of actions
-Date: Sun,  8 May 2016 13:26:26 -0400
-Message-ID: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
+Subject: [net-next PATCH v2 4/6] net sched: simple action fix late binding
+Date: Sun,  8 May 2016 13:26:30 -0400
+Message-ID: <1462728392-28489-5-git-send-email-jhs@emojatatu.com>
+References: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34644 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbcEHR0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 13:26:42 -0400
-Received: by mail-io0-f193.google.com with SMTP id d62so16936769iof.1
-        for <netdev@vger.kernel.org>; Sun, 08 May 2016 10:26:41 -0700 (PDT)
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36130 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885AbcEHR0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 13:26:45 -0400
+Received: by mail-io0-f194.google.com with SMTP id k129so16828260iof.3
+        for <netdev@vger.kernel.org>; Sun, 08 May 2016 10:26:45 -0700 (PDT)
+In-Reply-To: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Some actions were broken in allowing for late binding of actions.
-Late binding workflow is as follows:
-a) create an action and provide all necessary parameters for it
-Optionally provide an index or let the kernel give you one.
-Example:
-sudo tc actions add action police rate 1kbit burst 90k drop index 1
+The process below was broken and is fixed with this patch.
 
-b) later on bind to the pre-created action from a filter definition
-by merely specifying the index.
-Example:
-sudo tc filter add dev lo parent ffff: protocol ip prio 8 \
-u32 match ip src 127.0.0.8/32 flowid 1:8 action police index 1
+//add a simple action and give it an instance id of 1
+sudo tc actions add action simple sdata "foobar" index 1
+//create a filter which binds to simple action id 1
+sudo tc filter add dev $DEV parent ffff: protocol ip prio 1 u32\
+match ip dst 17.0.0.1/32 flowid 1:10 action simple index 1
 
+Message before fix was:
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
 
-Jamal Hadi Salim (6):
-  tc vlan action fix late binding
-  tc ipt action fix late binding
-  tc mirred action fix late binding
-  tc simple action fix late binding
-  tc skbedit action fix late binding
-  tc ife action fix late binding
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/act_simple.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
 
- net/sched/act_ife.c     | 16 +++++++++++-----
- net/sched/act_ipt.c     | 19 ++++++++++++-------
- net/sched/act_mirred.c  | 22 +++++++++++++++-------
- net/sched/act_simple.c  | 18 ++++++++++++------
- net/sched/act_skbedit.c | 22 +++++++++++++++-------
- net/sched/act_vlan.c    | 22 ++++++++++++++++------
- 6 files changed, 81 insertions(+), 38 deletions(-)
-
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
+index 2057fd56..d9f44be 100644
+--- a/net/sched/act_simple.c
++++ b/net/sched/act_simple.c
+@@ -87,7 +87,7 @@ static int tcf_simp_init(struct net *net, struct nlattr *nla,
+ 	struct tc_defact *parm;
+ 	struct tcf_defact *d;
+ 	char *defdata;
+-	int ret = 0, err;
++	int ret = 0, err, aexists = 0;
+ 
+ 	if (nla == NULL)
+ 		return -EINVAL;
+@@ -99,13 +99,21 @@ static int tcf_simp_init(struct net *net, struct nlattr *nla,
+ 	if (tb[TCA_DEF_PARMS] == NULL)
+ 		return -EINVAL;
+ 
+-	if (tb[TCA_DEF_DATA] == NULL)
+-		return -EINVAL;
+ 
+ 	parm = nla_data(tb[TCA_DEF_PARMS]);
++	aexists = tcf_hash_check(tn, parm->index, a, bind);
++	if (aexists && bind)
++		return 0;
++
++	if (tb[TCA_DEF_DATA] == NULL) {
++		if (aexists)
++			tcf_hash_release(a, bind);
++		return -EINVAL;
++	}
++
+ 	defdata = nla_data(tb[TCA_DEF_DATA]);
+ 
+-	if (!tcf_hash_check(tn, parm->index, a, bind)) {
++	if (!aexists) {
+ 		ret = tcf_hash_create(tn, parm->index, est, a,
+ 				      sizeof(*d), bind, false);
+ 		if (ret)
+@@ -122,8 +130,6 @@ static int tcf_simp_init(struct net *net, struct nlattr *nla,
+ 	} else {
+ 		d = to_defact(a);
+ 
+-		if (bind)
+-			return 0;
+ 		tcf_hash_release(a, bind);
+ 		if (!ovr)
+ 			return -EEXIST;
 -- 
 1.9.1
