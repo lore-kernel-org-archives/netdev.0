@@ -1,199 +1,408 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v3 net-next 00/11] ipv6: Enable GUEoIPv6 and more fixes
- for v6 tunneling
-Date: Mon, 9 May 2016 14:37:55 -0700
-Message-ID: <CALx6S37htan22_ssFH8J52eaKyt2gc7su-YfDXMC4e-TPfJbcQ@mail.gmail.com>
-References: <1462572726-566137-1-git-send-email-tom@herbertland.com>
-	<CAKgT0UdvZbDsDewsGRvMO93OZNSSXKfWaT7RvWkb6DQaG9jvyA@mail.gmail.com>
-	<CALx6S36uA83qEoYw2daxHrpege0zyNO=5u0iJ9tZu=RaBAK8cA@mail.gmail.com>
-	<CAKgT0UdM1aQF8cLWVLXMmXyJnMHkZUum8YyKsyCSVFvBALmyCA@mail.gmail.com>
-	<CALx6S37MF5Q7mVurAZR0KPpu2Y-rSQrRPGY3TkSZOpZgkaCHmw@mail.gmail.com>
-	<CAKgT0Ucs4oJ6yCb3AKR8jVvdF7WBojBX6hbqrS5e--deP7KZvw@mail.gmail.com>
-	<CALx6S34QeJpb4MocpDN_0XuvV4fxN25yO7-SjYBNta5ALzoDSw@mail.gmail.com>
-	<CAKgT0UeA2feSNSP_LfxNbH-ZdwmjDNjjDSy3uE6qycKVN96Amw@mail.gmail.com>
-	<CAKgT0Ucnr=BzOexzHJ8UXSktAU5Ji9nkmt23+gpQvJxpO3ug=Q@mail.gmail.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [PATCH v2 net-next] tcp: replace cnt & rtt with struct in pkts_acked()
+Date: Mon, 9 May 2016 14:46:12 -0700
+Message-ID: <1462830372-3563095-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36421 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751468AbcEIVh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 17:37:56 -0400
-Received: by mail-io0-f175.google.com with SMTP id u185so215871159iod.3
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 14:37:56 -0700 (PDT)
-In-Reply-To: <CAKgT0Ucnr=BzOexzHJ8UXSktAU5Ji9nkmt23+gpQvJxpO3ug=Q@mail.gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:21395 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752374AbcEIVq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 17:46:26 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u49Li92m009697
+	for <netdev@vger.kernel.org>; Mon, 9 May 2016 14:46:25 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 22ty650yfc-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 09 May 2016 14:46:25 -0700
+Received: from facebook.com (2401:db00:11:d037:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 736ee952162f11e69b9d0002c95209d8-a0dfcc50 for <netdev@vger.kernel.org>;	Mon,
+ 09 May 2016 14:46:14 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 9, 2016 at 2:35 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Mon, May 9, 2016 at 10:32 AM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Mon, May 9, 2016 at 9:56 AM, Tom Herbert <tom@herbertland.com> wrote:
->>> On Fri, May 6, 2016 at 8:03 PM, Alexander Duyck
->>> <alexander.duyck@gmail.com> wrote:
->>>> On Fri, May 6, 2016 at 7:11 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>>> On Fri, May 6, 2016 at 7:03 PM, Alexander Duyck
->>>>> <alexander.duyck@gmail.com> wrote:
->>>>>> On Fri, May 6, 2016 at 6:57 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>>>>> On Fri, May 6, 2016 at 6:09 PM, Alexander Duyck
->>>>>>> <alexander.duyck@gmail.com> wrote:
->>>>>>>> On Fri, May 6, 2016 at 3:11 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>>>>>>> This patch set:
->>>>>>>>>   - Fixes GRE6 to process translate flags correctly from configuration
->>>>>>>>>   - Adds support for GSO and GRO for ip6ip6 and ip4ip6
->>>>>>>>>   - Add support for FOU and GUE in IPv6
->>>>>>>>>   - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
->>>>>>>>>   - Fixes ip6_input to deal with UDP encapsulations
->>>>>>>>>   - Some other minor fixes
->>>>>>>>>
->>>>>>>>> v2:
->>>>>>>>>   - Removed a check of GSO types in MPLS
->>>>>>>>>   - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
->>>>>>>>>     from Alexander)
->>>>>>>>>   - Don't define GSO types specifally for IP6IP6 and IP4IP6, above
->>>>>>>>>     fix makes that uncessary
->>>>>>>>>   - Don't bother clearing encapsulation flag in UDP tunnel segment
->>>>>>>>>     (another item suggested by Alexander).
->>>>>>>>>
->>>>>>>>> v3:
->>>>>>>>>   - Address some minor comments from Alexander
->>>>>>>>>
->>>>>>>>> Tested:
->>>>>>>>>    Tested a variety of case, but not the full matrix (which is quite
->>>>>>>>>    large now). Most of the obivous cases (e.g. GRE) work fine. Still
->>>>>>>>>    some issues probably with GSO/GRO being effective in all cases.
->>>>>>>>>
->>>>>>>>>     - IPv4/GRE/GUE/IPv6 with RCO
->>>>>>>>>       1 TCP_STREAM
->>>>>>>>>         6616 Mbps
->>>>>>>>>       200 TCP_RR
->>>>>>>>>         1244043 tps
->>>>>>>>>         141/243/446 90/95/99% latencies
->>>>>>>>>         86.61% CPU utilization
->>>>>>>>>     - IPv6/GRE/GUE/IPv6 with RCO
->>>>>>>>>       1 TCP_STREAM
->>>>>>>>>         6940 Mbps
->>>>>>>>>       200 TCP_RR
->>>>>>>>>         1270903 tps
->>>>>>>>>         138/236/440 90/95/99% latencies
->>>>>>>>>         87.51% CPU utilization
->>>>>>>>>
->>>>>>>>>      - IP6IP6
->>>>>>>>>       1 TCP_STREAM
->>>>>>>>>         2576 Mbps
->>>>>>>>>       200 TCP_RR
->>>>>>>>>         498981 tps
->>>>>>>>>         388/498/631 90/95/99% latencies
->>>>>>>>>         19.75% CPU utilization (1 CPU saturated)
->>>>>>>>>
->>>>>>>>>      - IP6IP6/GUE/IPv6 with RCO
->>>>>>>>>       1 TCP_STREAM
->>>>>>>>>         1854 Mbps
->>>>>>>>>       200 TCP_RR
->>>>>>>>>         1233818 tps
->>>>>>>>>         143/244/451 90/95/99% latencies
->>>>>>>>>         87.57 CPU utilization
->>>>>>>>>
->>>>>>>>>      - IP4IP6
->>>>>>>>>       1 TCP_STREAM
->>>>>>>>>       200 TCP_RR
->>>>>>>>>         763774 tps
->>>>>>>>>         250/318/466 90/95/99% latencies
->>>>>>>>>         35.25% CPU utilization (1 CPU saturated)
->>>>>>>>>
->>>>>>>>>      - GRE with keyid
->>>>>>>>>       200 TCP_RR
->>>>>>>>>         744173 tps
->>>>>>>>>         258/332/461 90/95/99% latencies
->>>>>>>>>         34.59% CPU utilization (1 CPU saturated)
->>>>>>>>
->>>>>>>> So I tried testing your patch set and it looks like I cannot get GRE
->>>>>>>> working for any netperf test.  If I pop the patches off it is even
->>>>>>>> worse since it looks like patch 3 fixes some tunnel flags issues, but
->>>>>>>> still doesn't resolve all the issues introduced with b05229f44228
->>>>>>>> ("gre6: Cleanup GREv6 transmit path, call common GRE functions").
->>>>>>>> Reverting the entire patch seems to resolve the issues, but I will try
->>>>>>>> to pick it apart tonight to see if I can find the other issues that
->>>>>>>> weren't addressed in this patch series.
->>>>>>>>
->>>>>>>
->>>>>>> Can you give details about configuration, test you're running, and HW?
->>>>>>
->>>>>> The issue looks like it may be specific to ip6gretap.  I'm running the
->>>>>> test over an i40e adapter, but it shouldn't make much difference.  I'm
->>>>>> thinking it may have something to do with the MTU configuration as
->>>>>> that is one of the things I am noticing has changed between the
->>>>>> working and the broken version of the code.
->>>>>>
->>>>> I'm not seeing any issue with configuring:
->>>>>
->>>>> ip link add name tun8 type ip6gretap remote
->>>>> 2401:db00:20:911a:face:0:27:0 local 2401:db00:20:911a:face:0:25:0 ttl
->>>>> 225
->>>>>
->>>>> MTU issues would not surprise me with IPv6 though. This is part of the
->>>>> area of code that seems drastically different than what IPv4 is doing.
->>>>
->>>> I am also using a key.
->>>>
->>>>         ip link add $name type ip6gretap key $net \
->>>>                 local fec0::1 remote $addr6 ttl 225 dev $PF0
->>>>
->>> I don't see any issue with key enabled.
->>>
->>>> Does the device you are using support any kind of checksum offload for
->>>> inner headers on GRE tunnels?  It looks like if I turn off checksums
->>>
->>> I don't believe so.
->>>
->>>> and correct the MTU I can then send traffic without issues.  I'd say
->>>> that the Tx cleanup probably introduced 3 regressions.  The first one
->>>> you addressed in patch 3 which fixes the flags.  The second being the
->>>> fact that the MTU is wrong, and the third being something that
->>>> apparently broke checksum and maybe segmentation offload for
->>>> ip6gretap.
->>>>
->>> The MTU can be set in place in IPv6 code that doesn't exist in Ipv4. I
->>> am especially wondering about the "if (p->flags & IP6_TNL_F_CAP_XMIT)"
->>> block.
->
-> So I think I have figured out the MTU problem.  You need to go through
-> and audit the spots where you are using GRE_ flags instead of TUNNEL_
-> flags.  Specifically in ip6gre_tnl_link_config you are using GRE_
-> flags to test o_flags which is configured to use the TUNNEL_ prefixed
-> flags.  When I changed those out then the MTU started coming out
-> correct again.  There were a couple other places you were using
-> GRE_SEQ where you should have been using TUNNEL_SEQ as well so you
-> could probably clean those up and add them to patch 3 of your set that
-> was fixing the flags so that they should be TUNNEL_ prefixed.
->
->>>> Really I think the transmit path cleanup should have probably been
->>>> broken down into a set of patches rather than slamming it in all in
->>>> one block.  I can spend some time next week trying to sort it out if
->>>> you don't have any hardware that supports GRE segmentation or checksum
->>>> offload.  If worse comes to worse I will just try breaking the revert
->>>> down into a set of smaller patches so I can figure out exactly which
->>>> change broke things.
->>>>
->>> I am still trying to reproduce.
->>
->> What NICs are you testing with?  Depending on the NIC I might be able
->> to point you in the direction of something that can reproduce the
->> issue.
->>
->> At this point I am thinking it is an issue with a header offset since
->> I believe GSO resets all that and probably corrects the issue.
->
-> I'm still doing some digging on my end.  I'm hoping to have this
-> figured out by the end of today.
->
+Replace 2 arguments (cnt and rtt) in the congestion control modules'
+pkts_acked() function with a struct. This will allow adding more
+information without having to modify existing congestion control
+modules (tcp_nv in particular needs bytes in flight when packet
+was sent).
 
-Yes, I will be sending a patch shortly for that if you can try it.
+As proposed by Neal Cardwell in his comments to the tcp_nv patch.
 
-Tom
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+---
+ include/net/tcp.h       |  7 ++++++-
+ net/ipv4/tcp_bic.c      |  6 +++---
+ net/ipv4/tcp_cdg.c      | 14 +++++++-------
+ net/ipv4/tcp_cubic.c    |  6 +++---
+ net/ipv4/tcp_htcp.c     | 10 +++++-----
+ net/ipv4/tcp_illinois.c | 20 ++++++++++----------
+ net/ipv4/tcp_input.c    |  8 ++++++--
+ net/ipv4/tcp_lp.c       |  6 +++---
+ net/ipv4/tcp_vegas.c    |  6 +++---
+ net/ipv4/tcp_vegas.h    |  2 +-
+ net/ipv4/tcp_veno.c     |  7 ++++---
+ net/ipv4/tcp_westwood.c |  7 ++++---
+ net/ipv4/tcp_yeah.c     |  7 ++++---
+ 13 files changed, 59 insertions(+), 47 deletions(-)
 
-> - Alex
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 24ec804..dc588c3 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -849,6 +849,11 @@ enum tcp_ca_ack_event_flags {
+ 
+ union tcp_cc_info;
+ 
++struct ack_sample {
++	u32 pkts_acked;
++	s32 rtt_us;
++};
++
+ struct tcp_congestion_ops {
+ 	struct list_head	list;
+ 	u32 key;
+@@ -872,7 +877,7 @@ struct tcp_congestion_ops {
+ 	/* new value of cwnd after loss (optional) */
+ 	u32  (*undo_cwnd)(struct sock *sk);
+ 	/* hook for packet ack accounting (optional) */
+-	void (*pkts_acked)(struct sock *sk, u32 num_acked, s32 rtt_us);
++	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
+ 	/* get info for inet_diag (optional) */
+ 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
+ 			   union tcp_cc_info *info);
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+index fd1405d..f469f1b 100644
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -197,15 +197,15 @@ static void bictcp_state(struct sock *sk, u8 new_state)
+ /* Track delayed acknowledgment ratio using sliding window
+  * ratio = (15*ratio + sample) / 16
+  */
+-static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt)
++static void bictcp_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 
+ 	if (icsk->icsk_ca_state == TCP_CA_Open) {
+ 		struct bictcp *ca = inet_csk_ca(sk);
+ 
+-		cnt -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+-		ca->delayed_ack += cnt;
++		ca->delayed_ack += sample->pkts_acked - 
++			(ca->delayed_ack >> ACK_RATIO_SHIFT);
+ 	}
+ }
+ 
+diff --git a/net/ipv4/tcp_cdg.c b/net/ipv4/tcp_cdg.c
+index ccce8a5..03725b2 100644
+--- a/net/ipv4/tcp_cdg.c
++++ b/net/ipv4/tcp_cdg.c
+@@ -294,12 +294,12 @@ static void tcp_cdg_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+ 	ca->shadow_wnd = max(ca->shadow_wnd, ca->shadow_wnd + incr);
+ }
+ 
+-static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
++static void tcp_cdg_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct cdg *ca = inet_csk_ca(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	if (rtt_us <= 0)
++	if (sample->rtt_us <= 0)
+ 		return;
+ 
+ 	/* A heuristic for filtering delayed ACKs, adapted from:
+@@ -307,20 +307,20 @@ static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
+ 	 * delay and rate based TCP mechanisms." TR 100219A. CAIA, 2010.
+ 	 */
+ 	if (tp->sacked_out == 0) {
+-		if (num_acked == 1 && ca->delack) {
++		if (sample->pkts_acked == 1 && ca->delack) {
+ 			/* A delayed ACK is only used for the minimum if it is
+ 			 * provenly lower than an existing non-zero minimum.
+ 			 */
+-			ca->rtt.min = min(ca->rtt.min, rtt_us);
++			ca->rtt.min = min(ca->rtt.min, sample->rtt_us);
+ 			ca->delack--;
+ 			return;
+-		} else if (num_acked > 1 && ca->delack < 5) {
++		} else if (sample->pkts_acked > 1 && ca->delack < 5) {
+ 			ca->delack++;
+ 		}
+ 	}
+ 
+-	ca->rtt.min = min_not_zero(ca->rtt.min, rtt_us);
+-	ca->rtt.max = max(ca->rtt.max, rtt_us);
++	ca->rtt.min = min_not_zero(ca->rtt.min, sample->rtt_us);
++	ca->rtt.max = max(ca->rtt.max, sample->rtt_us);
+ }
+ 
+ static u32 tcp_cdg_ssthresh(struct sock *sk)
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 0ce946e..c99230e 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -437,21 +437,21 @@ static void hystart_update(struct sock *sk, u32 delay)
+ /* Track delayed acknowledgment ratio using sliding window
+  * ratio = (15*ratio + sample) / 16
+  */
+-static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
++static void bictcp_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+ 	u32 delay;
+ 
+ 	/* Some calls are for duplicates without timetamps */
+-	if (rtt_us < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* Discard delay samples right after fast recovery */
+ 	if (ca->epoch_start && (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
+ 		return;
+ 
+-	delay = (rtt_us << 3) / USEC_PER_MSEC;
++	delay = (sample->rtt_us << 3) / USEC_PER_MSEC;
+ 	if (delay == 0)
+ 		delay = 1;
+ 
+diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
+index 82f0d9e..4a4d8e7 100644
+--- a/net/ipv4/tcp_htcp.c
++++ b/net/ipv4/tcp_htcp.c
+@@ -99,7 +99,7 @@ static inline void measure_rtt(struct sock *sk, u32 srtt)
+ }
+ 
+ static void measure_achieved_throughput(struct sock *sk,
+-					u32 pkts_acked, s32 rtt)
++					const struct ack_sample *sample)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+@@ -107,10 +107,10 @@ static void measure_achieved_throughput(struct sock *sk,
+ 	u32 now = tcp_time_stamp;
+ 
+ 	if (icsk->icsk_ca_state == TCP_CA_Open)
+-		ca->pkts_acked = pkts_acked;
++		ca->pkts_acked = sample->pkts_acked;
+ 
+-	if (rtt > 0)
+-		measure_rtt(sk, usecs_to_jiffies(rtt));
++	if (sample->rtt_us > 0)
++		measure_rtt(sk, usecs_to_jiffies(sample->rtt_us));
+ 
+ 	if (!use_bandwidth_switch)
+ 		return;
+@@ -122,7 +122,7 @@ static void measure_achieved_throughput(struct sock *sk,
+ 		return;
+ 	}
+ 
+-	ca->packetcount += pkts_acked;
++	ca->packetcount += sample->pkts_acked;
+ 
+ 	if (ca->packetcount >= tp->snd_cwnd - (ca->alpha >> 7 ? : 1) &&
+ 	    now - ca->lasttime >= ca->minRTT &&
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+index 2ab9bbb..77ad119 100644
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -82,30 +82,30 @@ static void tcp_illinois_init(struct sock *sk)
+ }
+ 
+ /* Measure RTT for each ack. */
+-static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, s32 rtt)
++static void tcp_illinois_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct illinois *ca = inet_csk_ca(sk);
+ 
+-	ca->acked = pkts_acked;
++	ca->acked = sample->pkts_acked;
+ 
+ 	/* dup ack, no rtt sample */
+-	if (rtt < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* ignore bogus values, this prevents wraparound in alpha math */
+-	if (rtt > RTT_MAX)
+-		rtt = RTT_MAX;
++	if (sample->rtt_us > RTT_MAX)
++		sample->rtt_us = RTT_MAX;
+ 
+ 	/* keep track of minimum RTT seen so far */
+-	if (ca->base_rtt > rtt)
+-		ca->base_rtt = rtt;
++	if (ca->base_rtt > sample->rtt_us)
++		ca->base_rtt = sample->rtt_us;
+ 
+ 	/* and max */
+-	if (ca->max_rtt < rtt)
+-		ca->max_rtt = rtt;
++	if (ca->max_rtt < sample->rtt_us)
++		ca->max_rtt = sample->rtt_us;
+ 
+ 	++ca->cnt_rtt;
+-	ca->sum_rtt += rtt;
++	ca->sum_rtt += sample->rtt_us;
+ }
+ 
+ /* Maximum queuing delay */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a914e06..22a57a8 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3248,8 +3248,12 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 		tcp_rearm_rto(sk);
+ 	}
+ 
+-	if (icsk->icsk_ca_ops->pkts_acked)
+-		icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
++	if (icsk->icsk_ca_ops->pkts_acked) {
++		struct ack_sample sample = {.pkts_acked = pkts_acked,
++					    .rtt_us = ca_rtt_us};
++
++		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
++	}
+ 
+ #if FASTRETRANS_DEBUG > 0
+ 	WARN_ON((int)tp->sacked_out < 0);
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+index 1e70fa8..c67ece1 100644
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -260,13 +260,13 @@ static void tcp_lp_rtt_sample(struct sock *sk, u32 rtt)
+  * newReno in increase case.
+  * We work it out by following the idea from TCP-LP's paper directly
+  */
+-static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
++static void tcp_lp_pkts_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct lp *lp = inet_csk_ca(sk);
+ 
+-	if (rtt_us > 0)
+-		tcp_lp_rtt_sample(sk, rtt_us);
++	if (sample->rtt_us > 0)
++		tcp_lp_rtt_sample(sk, sample->rtt_us);
+ 
+ 	/* calc inference */
+ 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+index 13951c4..4c4bac1 100644
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -107,16 +107,16 @@ EXPORT_SYMBOL_GPL(tcp_vegas_init);
+  *   o min-filter RTT samples from a much longer window (forever for now)
+  *     to find the propagation delay (baseRTT)
+  */
+-void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
++void tcp_vegas_pkts_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct vegas *vegas = inet_csk_ca(sk);
+ 	u32 vrtt;
+ 
+-	if (rtt_us < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* Never allow zero rtt or baseRTT */
+-	vrtt = rtt_us + 1;
++	vrtt = sample->rtt_us + 1;
+ 
+ 	/* Filter to find propagation delay: */
+ 	if (vrtt < vegas->baseRTT)
+diff --git a/net/ipv4/tcp_vegas.h b/net/ipv4/tcp_vegas.h
+index ef9da53..248cfc0 100644
+--- a/net/ipv4/tcp_vegas.h
++++ b/net/ipv4/tcp_vegas.h
+@@ -17,7 +17,7 @@ struct vegas {
+ 
+ void tcp_vegas_init(struct sock *sk);
+ void tcp_vegas_state(struct sock *sk, u8 ca_state);
+-void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us);
++void tcp_vegas_pkts_acked(struct sock *sk, const struct ack_sample *sample);
+ void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event);
+ size_t tcp_vegas_get_info(struct sock *sk, u32 ext, int *attr,
+ 			  union tcp_cc_info *info);
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+index 0d094b9..40171e1 100644
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -69,16 +69,17 @@ static void tcp_veno_init(struct sock *sk)
+ }
+ 
+ /* Do rtt sampling needed for Veno. */
+-static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
++static void tcp_veno_pkts_acked(struct sock *sk,
++				const struct ack_sample *sample)
+ {
+ 	struct veno *veno = inet_csk_ca(sk);
+ 	u32 vrtt;
+ 
+-	if (rtt_us < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* Never allow zero rtt or baseRTT */
+-	vrtt = rtt_us + 1;
++	vrtt = sample->rtt_us + 1;
+ 
+ 	/* Filter to find propagation delay: */
+ 	if (vrtt < veno->basertt)
+diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
+index c10732e..4b03a2e 100644
+--- a/net/ipv4/tcp_westwood.c
++++ b/net/ipv4/tcp_westwood.c
+@@ -99,12 +99,13 @@ static void westwood_filter(struct westwood *w, u32 delta)
+  * Called after processing group of packets.
+  * but all westwood needs is the last sample of srtt.
+  */
+-static void tcp_westwood_pkts_acked(struct sock *sk, u32 cnt, s32 rtt)
++static void tcp_westwood_pkts_acked(struct sock *sk,
++				    const struct ack_sample *sample)
+ {
+ 	struct westwood *w = inet_csk_ca(sk);
+ 
+-	if (rtt > 0)
+-		w->rtt = usecs_to_jiffies(rtt);
++	if (sample->rtt_us > 0)
++		w->rtt = usecs_to_jiffies(sample->rtt_us);
+ }
+ 
+ /*
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index 3e6a472..028eb04 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -56,15 +56,16 @@ static void tcp_yeah_init(struct sock *sk)
+ 	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
+ }
+ 
+-static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, s32 rtt_us)
++static void tcp_yeah_pkts_acked(struct sock *sk,
++				const struct ack_sample *sample)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct yeah *yeah = inet_csk_ca(sk);
+ 
+ 	if (icsk->icsk_ca_state == TCP_CA_Open)
+-		yeah->pkts_acked = pkts_acked;
++		yeah->pkts_acked = sample->pkts_acked;
+ 
+-	tcp_vegas_pkts_acked(sk, pkts_acked, rtt_us);
++	tcp_vegas_pkts_acked(sk, sample);
+ }
+ 
+ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+-- 
+2.8.0.rc2
