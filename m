@@ -1,152 +1,58 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH net v4] vlan: Propagate MAC address to VLANs
-Date: Mon, 9 May 2016 13:19:47 +0100
-Message-ID: <57308063.8000006@brocade.com>
-References: <572DB364.2040109@brocade.com> <572DBCA9.7060906@brocade.com>
- <20160509064825.GA27709@unicorn.suse.cz>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 net-next] ifstat: move to new RTM_GETSTATS api
+Date: Mon, 9 May 2016 08:38:04 -0400
+Message-ID: <573084AC.6030407@mojatatu.com>
+References: <1461998511-24193-1-git-send-email-roopa@cumulusnetworks.com>
+ <57248720.8060001@mojatatu.com> <5724CC01.3030203@cumulusnetworks.com>
+ <573016F1.8050700@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Michal Kubecek <mkubecek@suse.cz>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com, nikolay@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:32432 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751512AbcEIMUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 08:20:04 -0400
-In-Reply-To: <20160509064825.GA27709@unicorn.suse.cz>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35927 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421AbcEIMiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 08:38:07 -0400
+Received: by mail-ig0-f182.google.com with SMTP id u10so102617363igr.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 05:38:07 -0700 (PDT)
+In-Reply-To: <573016F1.8050700@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/09/2016 07:48 AM, Michal Kubecek wrote:
-> On Sat, May 07, 2016 at 11:00:09AM +0100, Mike Manning wrote:
->> The MAC address of the physical interface is only copied to the VLAN
->> when it is first created, resulting in an inconsistency after MAC
->> address changes of only newly created VLANs having an up-to-date MAC.
->>
->> The VLANs should continue inheriting the MAC address of the physical
->> interface until the VLAN MAC address is explicitly set to any value. 
->> This allows IPv6 EUI64 addresses for the VLAN to reflect any changes
->> to the MAC of the physical interface and thus for DAD to behave as
->> expected.
->>
->> Signed-off-by: Mike Manning <mmanning@brocade.com>
->> ---
->>  net/8021q/vlan.c     |    7 +++++++
->>  net/8021q/vlan_dev.c |   14 ++++++++++----
->>  2 files changed, 17 insertions(+), 4 deletions(-)
->>
->> --- a/net/8021q/vlan.c
->> +++ b/net/8021q/vlan.c
->> @@ -291,6 +291,12 @@ static void vlan_sync_address(struct net
->>  	if (ether_addr_equal(vlan->real_dev_addr, dev->dev_addr))
->>  		return;
->>  
->> +	/* vlan continues to inherit address of parent interface */
->> +	if (vlandev->addr_assign_type == NET_ADDR_STOLEN) {
->> +		ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
->> +		goto out;
->> +	}
->> +
-> 
-> I might have missed something in the previous discussion but as
-> ether_addr_copy() is just an optimized memcpy(), how is this going to
-> handle the setups where the vlan device itself has an upper device? For
-> example,
-> 
->   - if it is a bridge port, how is the bridge going to learn about its
->     address change so that it can update its FDB?
->   - if it is a bond slave or team port, current code preserves the vlan
->     device address on real device change so everything is fine; your
->     proposal would change vlan device's address without bond being even
->     notified, I believe
->   - there might be a macvlan on top of the vlan and you might
->     accidentally match its address with the new one
+On 16-05-09 12:49 AM, Roopa Prabhu wrote:
+> On 4/30/16, 8:15 AM, Roopa Prabhu wrote:
+>> On 4/30/16, 3:21 AM, Jamal Hadi Salim wrote:
+
+> AFAICS ifstat history file handling today assumes all 32 bit stats.
+
+Indeed it does.
+
+> And to preserve backward compatibility, new ifstat should work with old and
+> new history files with 32bit and 64 bit stats.
+
+True.
+It may be ok to just provide a conversion tool maybe for taking 32b
+history into 64b? I dont know if someone is going to "migrate" their
+history files so even that may not be worth it.
+
+> The file format cannot be changed because of the same backward compat issues.
+> So, I am leaning towards a new history file with a new option (maybe ifstat -64) to
+> save/query 64 bit stats using the new api when available.
+>
+> I see some previous brief discussions on moving ifstat to 64 bit.
+>
+> The other option is to only change 'ip -s link show' to use the new stats api.
+>
+> let me know if there are other thoughts.
 >
 
-Thanks for your review and this excellent catch. I will add address
-notification for the vlan itself and test appropriately for when an upper
-device is present.
+Is it not possible to convert to 64b - and IFLA_STAT
+becomes available just store it still in 64b?
+i.e 32b will fit in 64b space.
 
->>  	/* vlan address was different from the old address and is equal to
->>  	 * the new address */
->>  	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
->> @@ -303,6 +309,7 @@ static void vlan_sync_address(struct net
->>  	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
->>  		dev_uc_add(dev, vlandev->dev_addr);
->>  
->> +out:
->>  	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
->>  }
->>  
->> --- a/net/8021q/vlan_dev.c
->> +++ b/net/8021q/vlan_dev.c
->> @@ -255,9 +255,13 @@ static int vlan_dev_open(struct net_devi
->>  		return -ENETDOWN;
->>  
->>  	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
->> -		err = dev_uc_add(real_dev, dev->dev_addr);
->> -		if (err < 0)
->> -			goto out;
->> +		if (dev->addr_assign_type == NET_ADDR_STOLEN) {
->> +			ether_addr_copy(dev->dev_addr, real_dev->dev_addr);
-> 
-> The same question here.
-> 
->> +		} else {
->> +			err = dev_uc_add(real_dev, dev->dev_addr);
->> +			if (err < 0)
->> +				goto out;
->> +		}
->>  	}
->>  
->>  	if (dev->flags & IFF_ALLMULTI) {
->> @@ -558,8 +562,10 @@ static int vlan_dev_init(struct net_devi
->>  	/* ipv6 shared card related stuff */
->>  	dev->dev_id = real_dev->dev_id;
->>  
->> -	if (is_zero_ether_addr(dev->dev_addr))
->> +	if (is_zero_ether_addr(dev->dev_addr)) {
->>  		eth_hw_addr_inherit(dev, real_dev);
->> +		dev->addr_assign_type = NET_ADDR_STOLEN;
-> 
-> You might want to replace eth_hw_addr_inherit() with ether_addr_copy()
-> here as they only differ in the former copying addr_assign_type which
-> you are going to rewrite anyway. (But as both are most likely inlined,
-> I would expect the resulting code to be the same in the end.)
-> 
->                                                        Michal Kubecek
->
-
-Thanks. Yes, I was aware of this but decided not to change it to keep the
-changeset to a minimum. I will make the change as recommended.
- 
->> +	}
->>  	if (is_zero_ether_addr(dev->broadcast))
->>  		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
->>
->> -- 
->> 1.7.10.4
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
->>
+cheers,
+jamal
