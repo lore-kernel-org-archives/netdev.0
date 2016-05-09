@@ -1,195 +1,166 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 06/21] net: dsa: mv88e6xxx: factorize MAC address setting
-Date: Mon,  9 May 2016 13:22:43 -0400
-Message-ID: <1462814578-6249-7-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50902 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752175AbcEIRXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:23:35 -0400
-In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elad Kanfi <eladkan@mellanox.com>
+Subject: [PATCH v3 1/2] net: nps_enet: Tx handler synchronization
+Date: Mon, 9 May 2016 20:13:19 +0300
+Message-ID: <1462814000-16331-2-git-send-email-eladkan@mellanox.com>
+References: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
+	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
+	<netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some switch models have a dedicated register for Switch MAC/WoF/WoL.
-This register, when present, is used to indirectly set the switch MAC
-address, instead of a direct write to 3 global registers.
+From: Elad Kanfi <eladkan@mellanox.com>
 
-Identify this feature and share a common mv88e6xxx_set_addr function.
+Below is a description of a possible problematic
+sequence. CPU-A is sending a frame and CPU-B handles
+the interrupt that indicates the frame was sent. CPU-B
+reads an invalid value of tx_packet_sent.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+	CPU-A				CPU-B
+	-----				-----
+	nps_enet_send_frame
+	.
+	.
+	tx_skb = skb
+	tx_packet_sent = true
+	order HW to start tx
+	.
+	.
+	HW complete tx
+			    ------> 	get tx complete interrupt
+					.
+					.
+					if(tx_packet_sent == true)
+						handle tx_skb
+
+	end memory transaction
+	(tx_packet_sent actually
+	 written)
+
+Furthermore there is a dependency between tx_skb and tx_packet_sent.
+There is no assurance that tx_skb contains a valid pointer at CPU B
+when it sees tx_packet_sent == true.
+
+Solution:
+
+Initialize tx_skb to NULL and use it to indicate that packet was sent,
+in this way tx_packet_sent can be removed.
+Add a write memory barrier after setting tx_skb in order to make sure
+that it is valid before HW is informed and IRQ is fired.
+
+Fixed sequence will be:
+
+       CPU-A                           CPU-B
+       -----                           -----
+
+	tx_skb = skb
+	wmb()
+	.
+	.
+	order HW to start tx
+	.
+	.
+	HW complete tx
+			------>		get tx complete interrupt
+					.
+					.
+					if(tx_skb != NULL)
+						handle tx_skb
+
+					tx_skb = NULL
+
+Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
+Acked-by: Noam Camus <noamca@mellanox.com>
+Acked-by: Gilad Ben-Yossef <giladby@mellanox.com>
 ---
- drivers/net/dsa/mv88e6123.c |  2 +-
- drivers/net/dsa/mv88e6131.c |  2 +-
- drivers/net/dsa/mv88e6171.c |  2 +-
- drivers/net/dsa/mv88e6352.c |  2 +-
- drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++--
- drivers/net/dsa/mv88e6xxx.h | 17 ++++++++++++++---
- 6 files changed, 30 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/ezchip/nps_enet.c |   15 +++++++++------
+ drivers/net/ethernet/ezchip/nps_enet.h |    2 --
+ 2 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index e234bdb..c349fb7 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -114,7 +114,7 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6123_drv_probe,
- 	.setup			= mv88e6123_setup,
--	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 089f9c0..1e040c6 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -147,7 +147,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_DSA,
- 	.probe			= mv88e6131_drv_probe,
- 	.setup			= mv88e6131_setup,
--	.set_addr		= mv88e6xxx_set_addr_direct,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 588b486..f9b20e0 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -123,7 +123,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6171_drv_probe,
- 	.setup			= mv88e6171_setup,
--	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 3bb271e..d03c14a 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -140,7 +140,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6352_drv_probe,
- 	.setup			= mv88e6352_setup,
--	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
- 	.get_strings		= mv88e6xxx_get_strings,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 24aea90..4f0e047 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -173,7 +173,7 @@ int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
- 	return ret;
- }
+diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
+index 1f23845..25ac2de 100644
+--- a/drivers/net/ethernet/ezchip/nps_enet.c
++++ b/drivers/net/ethernet/ezchip/nps_enet.c
+@@ -145,7 +145,7 @@ static void nps_enet_tx_handler(struct net_device *ndev)
+ 	u32 tx_ctrl_nt = (tx_ctrl_value & TX_CTL_NT_MASK) >> TX_CTL_NT_SHIFT;
  
--int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
-+static int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int err;
-@@ -192,7 +192,7 @@ int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
- 				   (addr[4] << 8) | addr[5]);
- }
+ 	/* Check if we got TX */
+-	if (!priv->tx_packet_sent || tx_ctrl_ct)
++	if (!priv->tx_skb || tx_ctrl_ct)
+ 		return;
  
--int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
-+static int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
-@@ -225,6 +225,16 @@ int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
- 	return 0;
- }
+ 	/* Ack Tx ctrl register */
+@@ -160,7 +160,7 @@ static void nps_enet_tx_handler(struct net_device *ndev)
+ 	}
  
-+int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_SWITCH_MAC))
-+		return mv88e6xxx_set_addr_indirect(ds, addr);
-+	else
-+		return mv88e6xxx_set_addr_direct(ds, addr);
-+}
-+
- static int _mv88e6xxx_phy_read(struct mv88e6xxx_priv_state *ps, int addr,
- 			       int regnum)
- {
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 9ddb6d0..517e95f 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -367,6 +367,13 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_SMI_PHY,
+ 	dev_kfree_skb(priv->tx_skb);
+-	priv->tx_packet_sent = false;
++	priv->tx_skb = NULL;
  
-+	/* Switch MAC/WoL/WoF register.
-+	 * This requires an indirect access to set the switch MAC address
-+	 * through GLOBAL2_SWITCH_MAC, otherwise GLOBAL_MAC_01, GLOBAL_MAC_23,
-+	 * and GLOBAL_MAC_45 are used with a direct access.
+ 	if (netif_queue_stopped(ndev))
+ 		netif_wake_queue(ndev);
+@@ -217,7 +217,7 @@ static irqreturn_t nps_enet_irq_handler(s32 irq, void *dev_instance)
+ 	u32 tx_ctrl_ct = (tx_ctrl_value & TX_CTL_CT_MASK) >> TX_CTL_CT_SHIFT;
+ 	u32 rx_ctrl_cr = (rx_ctrl_value & RX_CTL_CR_MASK) >> RX_CTL_CR_SHIFT;
+ 
+-	if ((!tx_ctrl_ct && priv->tx_packet_sent) || rx_ctrl_cr)
++	if ((!tx_ctrl_ct && priv->tx_skb) || rx_ctrl_cr)
+ 		if (likely(napi_schedule_prep(&priv->napi))) {
+ 			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
+ 			__napi_schedule(&priv->napi);
+@@ -387,8 +387,6 @@ static void nps_enet_send_frame(struct net_device *ndev,
+ 	/* Write the length of the Frame */
+ 	tx_ctrl_value |= length << TX_CTL_NT_SHIFT;
+ 
+-	/* Indicate SW is done */
+-	priv->tx_packet_sent = true;
+ 	tx_ctrl_value |= NPS_ENET_ENABLE << TX_CTL_CT_SHIFT;
+ 	/* Send Frame */
+ 	nps_enet_reg_set(priv, NPS_ENET_REG_TX_CTL, tx_ctrl_value);
+@@ -465,7 +463,7 @@ static s32 nps_enet_open(struct net_device *ndev)
+ 	s32 err;
+ 
+ 	/* Reset private variables */
+-	priv->tx_packet_sent = false;
++	priv->tx_skb = NULL;
+ 	priv->ge_mac_cfg_2_value = 0;
+ 	priv->ge_mac_cfg_3_value = 0;
+ 
+@@ -534,6 +532,11 @@ static netdev_tx_t nps_enet_start_xmit(struct sk_buff *skb,
+ 
+ 	priv->tx_skb = skb;
+ 
++	/* make sure tx_skb is actually written to the memory
++	 * before the HW is informed and the IRQ is fired.
 +	 */
-+	MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF,
++	wmb();
 +
- 	/* Internal temperature sensor.
- 	 * Available from any enabled port's PHY register 26, page 6.
- 	 */
-@@ -378,6 +385,7 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
- #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
-+#define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
- #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
+ 	nps_enet_send_frame(ndev, skb);
  
-@@ -388,7 +396,8 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_FLAG_PPU
- 
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
--	MV88E6XXX_FLAG_TEMP
-+	(MV88E6XXX_FLAG_SWITCH_MAC |	\
-+	 MV88E6XXX_FLAG_TEMP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
- 	MV88E6XXX_FLAG_PPU
-@@ -396,16 +405,19 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6320	\
- 	(MV88E6XXX_FLAG_EEPROM |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
-+	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_TEMP_LIMIT)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
- 	(MV88E6XXX_FLAG_SMI_PHY |	\
-+	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EEPROM |	\
- 	 MV88E6XXX_FLAG_SMI_PHY	|	\
-+	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_TEMP_LIMIT)
- 
-@@ -525,8 +537,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds);
- int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg);
- int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
- 			int reg, u16 val);
--int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr);
--int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr);
-+int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr);
- int mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum);
- int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val);
- void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
+ 	return NETDEV_TX_OK;
+diff --git a/drivers/net/ethernet/ezchip/nps_enet.h b/drivers/net/ethernet/ezchip/nps_enet.h
+index d0cab60..3939ca2 100644
+--- a/drivers/net/ethernet/ezchip/nps_enet.h
++++ b/drivers/net/ethernet/ezchip/nps_enet.h
+@@ -165,14 +165,12 @@
+  * struct nps_enet_priv - Storage of ENET's private information.
+  * @regs_base:      Base address of ENET memory-mapped control registers.
+  * @irq:            For RX/TX IRQ number.
+- * @tx_packet_sent: SW indication if frame is being sent.
+  * @tx_skb:         socket buffer of sent frame.
+  * @napi:           Structure for NAPI.
+  */
+ struct nps_enet_priv {
+ 	void __iomem *regs_base;
+ 	s32 irq;
+-	bool tx_packet_sent;
+ 	struct sk_buff *tx_skb;
+ 	struct napi_struct napi;
+ 	u32 ge_mac_cfg_2_value;
 -- 
-2.8.2
+1.7.1
