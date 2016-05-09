@@ -1,9 +1,10 @@
 From: Serge Hallyn <serge.hallyn@ubuntu.com>
-Subject: Re: [PATCH 1/2] kernel: Add noaudit variant of ns_capable()
-Date: Mon, 9 May 2016 04:23:47 +0000
-Message-ID: <20160509042347.GA22508@ubuntumail>
+Subject: Re: [PATCH 2/2] net: Use ns_capable_noaudit() when determining net
+ sysctl permissions
+Date: Mon, 9 May 2016 04:24:20 +0000
+Message-ID: <20160509042420.GB22508@ubuntumail>
 References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
- <1462575854-4301-2-git-send-email-tyhicks@canonical.com>
+ <1462575854-4301-3-git-send-email-tyhicks@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
@@ -11,121 +12,50 @@ Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
 	Serge Hallyn <serge.hallyn@canonical.com>,
 	"David S . Miller" <davem@davemloft.net>
 To: Tyler Hicks <tyhicks@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:45824 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbcEIEYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 00:24:24 -0400
 Content-Disposition: inline
-In-Reply-To: <1462575854-4301-2-git-send-email-tyhicks@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1462575854-4301-3-git-send-email-tyhicks@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Quoting Tyler Hicks (tyhicks@canonical.com):
-> When checking the current cred for a capability in a specific user
-> namespace, it isn't always desirable to have the LSMs audit the check.
-> This patch adds a noaudit variant of ns_capable() for when those
-> situations arise.
+> The capability check should not be audited since it is only being used
+> to determine the inode permissions. A failed check does not indicate a
+> violation of security policy but, when an LSM is enabled, a denial audit
+> message was being generated.
 > 
-> The common logic between ns_capable() and the new ns_capable_noaudit()
-> is moved into a single, shared function to keep duplicated code to a
-> minimum and ease maintainability.
+> The denial audit message caused confusion for some application authors
+> because root-running Go applications always triggered the denial. To
+> prevent this confusion, the capability check in net_ctl_permissions() is
+> switched to the noaudit variant.
+> 
+> BugLink: https://launchpad.net/bugs/1465724
 > 
 > Signed-off-by: Tyler Hicks <tyhicks@canonical.com>
 
 Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
 
 > ---
->  include/linux/capability.h |  5 +++++
->  kernel/capability.c        | 46 ++++++++++++++++++++++++++++++++++++----------
->  2 files changed, 41 insertions(+), 10 deletions(-)
+>  net/sysctl_net.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/include/linux/capability.h b/include/linux/capability.h
-> index 00690ff..5f3c63d 100644
-> --- a/include/linux/capability.h
-> +++ b/include/linux/capability.h
-> @@ -206,6 +206,7 @@ extern bool has_ns_capability_noaudit(struct task_struct *t,
->  				      struct user_namespace *ns, int cap);
->  extern bool capable(int cap);
->  extern bool ns_capable(struct user_namespace *ns, int cap);
-> +extern bool ns_capable_noaudit(struct user_namespace *ns, int cap);
->  #else
->  static inline bool has_capability(struct task_struct *t, int cap)
->  {
-> @@ -233,6 +234,10 @@ static inline bool ns_capable(struct user_namespace *ns, int cap)
->  {
->  	return true;
->  }
-> +static inline bool ns_capable_noaudit(struct user_namespace *ns, int cap)
-> +{
-> +	return true;
-> +}
->  #endif /* CONFIG_MULTIUSER */
->  extern bool capable_wrt_inode_uidgid(const struct inode *inode, int cap);
->  extern bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap);
-> diff --git a/kernel/capability.c b/kernel/capability.c
-> index 45432b5..00411c8 100644
-> --- a/kernel/capability.c
-> +++ b/kernel/capability.c
-> @@ -361,6 +361,24 @@ bool has_capability_noaudit(struct task_struct *t, int cap)
->  	return has_ns_capability_noaudit(t, &init_user_ns, cap);
->  }
+> diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+> index ed98c1f..46a71c7 100644
+> --- a/net/sysctl_net.c
+> +++ b/net/sysctl_net.c
+> @@ -46,7 +46,7 @@ static int net_ctl_permissions(struct ctl_table_header *head,
+>  	kgid_t root_gid = make_kgid(net->user_ns, 0);
 >  
-> +static bool ns_capable_common(struct user_namespace *ns, int cap, bool audit)
-> +{
-> +	int capable;
-> +
-> +	if (unlikely(!cap_valid(cap))) {
-> +		pr_crit("capable() called with invalid cap=%u\n", cap);
-> +		BUG();
-> +	}
-> +
-> +	capable = audit ? security_capable(current_cred(), ns, cap) :
-> +			  security_capable_noaudit(current_cred(), ns, cap);
-> +	if (capable == 0) {
-> +		current->flags |= PF_SUPERPRIV;
-> +		return true;
-> +	}
-> +	return false;
-> +}
-> +
->  /**
->   * ns_capable - Determine if the current task has a superior capability in effect
->   * @ns:  The usernamespace we want the capability in
-> @@ -374,19 +392,27 @@ bool has_capability_noaudit(struct task_struct *t, int cap)
->   */
->  bool ns_capable(struct user_namespace *ns, int cap)
->  {
-> -	if (unlikely(!cap_valid(cap))) {
-> -		pr_crit("capable() called with invalid cap=%u\n", cap);
-> -		BUG();
-> -	}
-> -
-> -	if (security_capable(current_cred(), ns, cap) == 0) {
-> -		current->flags |= PF_SUPERPRIV;
-> -		return true;
-> -	}
-> -	return false;
-> +	return ns_capable_common(ns, cap, true);
->  }
->  EXPORT_SYMBOL(ns_capable);
->  
-> +/**
-> + * ns_capable_noaudit - Determine if the current task has a superior capability
-> + * (unaudited) in effect
-> + * @ns:  The usernamespace we want the capability in
-> + * @cap: The capability to be tested for
-> + *
-> + * Return true if the current task has the given superior capability currently
-> + * available for use, false if not.
-> + *
-> + * This sets PF_SUPERPRIV on the task if the capability is available on the
-> + * assumption that it's about to be used.
-> + */
-> +bool ns_capable_noaudit(struct user_namespace *ns, int cap)
-> +{
-> +	return ns_capable_common(ns, cap, false);
-> +}
-> +EXPORT_SYMBOL(ns_capable_noaudit);
->  
->  /**
->   * capable - Determine if the current task has a superior capability in effect
+>  	/* Allow network administrator to have same access as root. */
+> -	if (ns_capable(net->user_ns, CAP_NET_ADMIN) ||
+> +	if (ns_capable_noaudit(net->user_ns, CAP_NET_ADMIN) ||
+>  	    uid_eq(root_uid, current_euid())) {
+>  		int mode = (table->mode >> 6) & 7;
+>  		return (mode << 6) | (mode << 3) | mode;
 > -- 
 > 2.7.4
 > 
