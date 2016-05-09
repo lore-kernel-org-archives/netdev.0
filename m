@@ -1,36 +1,44 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: [PATCH v2] uapi glibc compat: fix compile errors when glibc
- net/if.h included before linux/if.h
-Date: Tue, 10 May 2016 01:15:13 +0300
-Message-ID: <20160509221513.GF5160@lakka.kapsi.fi>
-References: <1461512707-23058-1-git-send-email-mikko.rapeli@iki.fi>
- <CA+5PVA7eQLc1UGbaJg9B2BY-6L35Vx3Enpc6Ez9ySucGsY+o6A@mail.gmail.com>
- <20160509213535.GA23623@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Josh Boyer <jwboyer@fedoraproject.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	Jan Engelhardt <jengelh@inai.de>,
-	Waldemar Brodkorb <mail@waldemar-brodkorb.de>,
-	Gabriel Laskar <gabriel@lse.epita.fr>,
-	netfilter-devel@vger.kernel.org,
-	libc-alpha <libc-alpha@sourceware.org>, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH v3 0/3] net: phy: add phy_ethtool_{get|set}_link_ksettings
+Date: Tue, 10 May 2016 00:19:40 +0200
+Message-ID: <1462832383-25541-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: fugang.duan@nxp.com, f.fainelli@gmail.com, davem@davemloft.net,
+	decot@googlers.com, ben@decadent.org.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160509213535.GA23623@salvia>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 09, 2016 at 11:35:35PM +0200, Pablo Neira Ayuso wrote:
-> It seems linux-netdev was not Cc'ed. I cannot find this in David's
-> patchwork [1].
-> 
-> @Mikko: Could you resubmit including netdev@vger.kernel.org? Thanks.
+Ethtool callbacks {get|set}_link_ksettings may be the
+same for many drivers. So we add two generics callbacks
+phy_ethtool_{get|set}_link_ksettings.
 
-Done: http://patchwork.ozlabs.org/patch/620262/
+To use those generics callbacks, the ethernet driver must
+use the pointer phydev contained in struct net_device, and
+not use a private structure to store this pointer.
 
--Mikko
+Changelog:
+v3:
+- rename function to phy_ethtool_{get|set}_link_ksettings
+- move code to net/phy/phy.c
+  This feedback were provided by David Decotigny
+v2:
+- use generic function instead of macro
+- ethernet driver use the pointer phydev provided by struct net_device
+  Those idea were provided by Ben Hutchings,
+  and Florian Fainelli acknowledge them.
+
+Philippe Reynes (3):
+  net: phy: add phy_ethtool_{get|set}_link_ksettings
+  net: ethernet: fec: use phydev from struct net_device
+  net: ethernet: fec: use phy_ethtool_{get|set}_link_ksettings
+
+ drivers/net/ethernet/freescale/fec.h      |    1 -
+ drivers/net/ethernet/freescale/fec_main.c |   71 +++++++++--------------------
+ drivers/net/phy/phy.c                     |   24 ++++++++++
+ include/linux/phy.h                       |    4 ++
+ 4 files changed, 49 insertions(+), 51 deletions(-)
+
+-- 
+1.7.4.4
