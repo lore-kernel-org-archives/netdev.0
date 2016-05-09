@@ -1,46 +1,108 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 04/22] net-next: mediatek: properly handle RGMII modes
-Date: Mon,  9 May 2016 12:03:56 +0200
-Message-ID: <1462788254-40572-5-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 05/22] net-next: mediatek: fix DQL support
+Date: Mon,  9 May 2016 12:03:57 +0200
+Message-ID: <1462788254-40572-6-git-send-email-john@phrozen.org>
 References: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Cc: nbd@nbd.name, netdev@vger.kernel.org,
 	linux-mediatek@lists.infradead.org, John Crispin <john@phrozen.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:47270 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:47309 "EHLO nbd.name"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751188AbcEIKEa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 06:04:30 -0400
+	id S1751782AbcEIKEb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 06:04:31 -0400
 In-Reply-To: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If an external Gigabit PHY is connected to either of the MACs we need to
-be able to tell the PHY to use a delay. Not doing so will result in heavy
-packet loss and/or data corruption when using PHYs such as the IC+ IP1001.
-We tell the PHY which MII delay mode to use via the devictree.
-
-The ethernet driver needs to be adapted to handle all 3 rgmii-*id modes
-in the same way as normal rgmii when setting up the MAC.
+The MTK ethernet core has 2 MACs both sitting on the same DMA ring. The
+current code will assign the TX traffic of each MAC to its own DQL. This
+results in the amount of data, that DQL says is in the queue incorrect. As
+the data from multiple devices is infact enqueued. This makes any decision
+based on these value non deterministic. Fix this by tracking all TX
+traffic, regardless of the MAC it belongs to in the DQL of all devices
+using the DMA.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   33 ++++++++++++++++-----------
+ 1 file changed, 20 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 4d59bda..c5ddb4d 100644
+index c5ddb4d..4a01ba7 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -226,6 +226,9 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 		return -ENODEV;
+@@ -643,7 +643,16 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
+ 				(!nr_frags * TX_DMA_LS0)));
  
- 	switch (of_get_phy_mode(np)) {
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+	case PHY_INTERFACE_MODE_RGMII_ID:
- 	case PHY_INTERFACE_MODE_RGMII:
- 		ge_mode = 0;
- 		break;
+-	netdev_sent_queue(dev, skb->len);
++	/* we have a single DMA ring so BQL needs to be updated for all devices
++	 * sitting on this ring
++	 */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
++
++		netdev_sent_queue(eth->netdev[i], skb->len);
++	}
++
+ 	skb_tx_timestamp(skb);
+ 
+ 	ring->next_free = mtk_qdma_phys_to_virt(ring, txd->txd2);
+@@ -871,21 +880,18 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
+ 	struct mtk_tx_dma *desc;
+ 	struct sk_buff *skb;
+ 	struct mtk_tx_buf *tx_buf;
+-	int total = 0, done[MTK_MAX_DEVS];
+-	unsigned int bytes[MTK_MAX_DEVS];
++	int total = 0, done = 0;
++	unsigned int bytes = 0;
+ 	u32 cpu, dma;
+ 	static int condition;
+ 	int i;
+ 
+-	memset(done, 0, sizeof(done));
+-	memset(bytes, 0, sizeof(bytes));
+-
+ 	cpu = mtk_r32(eth, MTK_QTX_CRX_PTR);
+ 	dma = mtk_r32(eth, MTK_QTX_DRX_PTR);
+ 
+ 	desc = mtk_qdma_phys_to_virt(ring, cpu);
+ 
+-	while ((cpu != dma) && budget) {
++	while ((cpu != dma) && done < budget) {
+ 		u32 next_cpu = desc->txd2;
+ 		int mac;
+ 
+@@ -905,9 +911,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
+ 		}
+ 
+ 		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
+-			bytes[mac] += skb->len;
+-			done[mac]++;
+-			budget--;
++			bytes += skb->len;
++			done++;
+ 		}
+ 		mtk_tx_unmap(eth->dev, tx_buf);
+ 
+@@ -920,11 +925,13 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
+ 
+ 	mtk_w32(eth, cpu, MTK_QTX_CRX_PTR);
+ 
++	/* we have a single DMA ring so BQL needs to be updated for all devices
++	 * sitting on this ring
++	 */
+ 	for (i = 0; i < MTK_MAC_COUNT; i++) {
+-		if (!eth->netdev[i] || !done[i])
++		if (!eth->netdev[i])
+ 			continue;
+-		netdev_completed_queue(eth->netdev[i], done[i], bytes[i]);
+-		total += done[i];
++		netdev_completed_queue(eth->netdev[i], done, bytes);
+ 	}
+ 
+ 	/* read hw index again make sure no new tx packet */
 -- 
 1.7.10.4
