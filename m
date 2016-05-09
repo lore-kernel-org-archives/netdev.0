@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pxa168_eth: mdiobus_scan() doesn't return NULL anymore
-Date: Mon, 09 May 2016 00:14:34 -0400 (EDT)
-Message-ID: <20160509.001434.1561770698500730391.davem@davemloft.net>
-References: <19240252.825Vlx6L0H@wasted.cogentembedded.com>
-	<3730936.r1jNy7SQee@wasted.cogentembedded.com>
+Subject: Re: [PATCH 0/2] sh_eth: couple of software reset bit cleanups
+Date: Mon, 09 May 2016 00:15:51 -0400 (EDT)
+Message-ID: <20160509.001551.992827306777802470.davem@davemloft.net>
+References: <1808900.MGlUzc8O9C@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
 To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54053 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbcEIEOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 00:14:37 -0400
-In-Reply-To: <3730936.r1jNy7SQee@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1808900.MGlUzc8O9C@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sat, 07 May 2016 22:53:40 +0300
+Date: Sun, 08 May 2016 00:06:53 +0300
 
-> Now that mdiobus_scan() doesn't return NULL on failure anymore, this driver
-> no  longer needs to check for it...
+>    Here's a set of 2 patches against DaveM's 'net-next.git' repo. We can save
+> on the repetitive chip reset code...
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> [1/2] sh_eth: call sh_eth_tsu_write() from sh_eth_chip_reset_giga()
+> [2/2] sh_eth: reuse sh_eth_chip_reset()
 
-Applied.
+Series applied, thanks.
