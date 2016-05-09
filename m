@@ -1,91 +1,94 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 25/36] netfilter: conntrack: introduce nf_ct_acct_update()
-Date: Mon,  9 May 2016 20:46:43 +0200
-Message-ID: <1462819614-5402-26-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 29/36] netfilter: nf_tables: allow set names up to 32 bytes
+Date: Mon,  9 May 2016 20:46:47 +0200
+Message-ID: <1462819614-5402-30-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45787 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752714AbcEISrd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 14:47:33 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 6683DE8E89
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:32 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 4D087134724
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:32 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 86E8EFAB55
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:29 +0200 (CEST)
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce a helper function to update conntrack counters.
-__nf_ct_kill_acct() was unnecessarily subtracting skb_network_offset()
-that is expected to be zero from the ipv4/ipv6 hooks.
+Currently, we support set names of up to 16 bytes, get this aligned
+with the maximum length we can use in ipset to make it easier when
+considering migration to nf_tables.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c | 42 ++++++++++++++++++---------------------
- 1 file changed, 19 insertions(+), 23 deletions(-)
+ include/net/netfilter/nf_tables.h        | 2 +-
+ include/uapi/linux/netfilter/nf_tables.h | 1 +
+ net/netfilter/nf_tables_api.c            | 6 +++---
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index f72ede1..25e0c26 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -602,6 +602,21 @@ out:
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index f6b1daf..0922354 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -303,7 +303,7 @@ void nft_unregister_set(struct nft_set_ops *ops);
+ struct nft_set {
+ 	struct list_head		list;
+ 	struct list_head		bindings;
+-	char				name[IFNAMSIZ];
++	char				name[NFT_SET_MAXNAMELEN];
+ 	u32				ktype;
+ 	u32				dtype;
+ 	u32				size;
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 6602313..6a4dbe0 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -3,6 +3,7 @@
  
-+static inline void nf_ct_acct_update(struct nf_conn *ct,
-+				     enum ip_conntrack_info ctinfo,
-+				     unsigned int len)
-+{
-+	struct nf_conn_acct *acct;
-+
-+	acct = nf_conn_acct_find(ct);
-+	if (acct) {
-+		struct nf_conn_counter *counter = acct->counter;
-+
-+		atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
-+		atomic64_add(len, &counter[CTINFO2DIR(ctinfo)].bytes);
-+	}
-+}
-+
- /* Confirm a connection given skb; places it in hash table */
- int
- __nf_conntrack_confirm(struct sk_buff *skb)
-@@ -1258,17 +1273,8 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
- 	}
+ #define NFT_TABLE_MAXNAMELEN	32
+ #define NFT_CHAIN_MAXNAMELEN	32
++#define NFT_SET_MAXNAMELEN	32
+ #define NFT_USERDATA_MAXLEN	256
  
- acct:
--	if (do_acct) {
--		struct nf_conn_acct *acct;
--
--		acct = nf_conn_acct_find(ct);
--		if (acct) {
--			struct nf_conn_counter *counter = acct->counter;
--
--			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
--			atomic64_add(skb->len, &counter[CTINFO2DIR(ctinfo)].bytes);
--		}
--	}
-+	if (do_acct)
-+		nf_ct_acct_update(ct, ctinfo, skb->len);
- }
- EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
+ /**
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 73c8fad..4d292b9 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2317,7 +2317,7 @@ nft_select_set_ops(const struct nlattr * const nla[],
+ static const struct nla_policy nft_set_policy[NFTA_SET_MAX + 1] = {
+ 	[NFTA_SET_TABLE]		= { .type = NLA_STRING },
+ 	[NFTA_SET_NAME]			= { .type = NLA_STRING,
+-					    .len = IFNAMSIZ - 1 },
++					    .len = NFT_SET_MAXNAMELEN - 1 },
+ 	[NFTA_SET_FLAGS]		= { .type = NLA_U32 },
+ 	[NFTA_SET_KEY_TYPE]		= { .type = NLA_U32 },
+ 	[NFTA_SET_KEY_LEN]		= { .type = NLA_U32 },
+@@ -2401,7 +2401,7 @@ static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
+ 	unsigned long *inuse;
+ 	unsigned int n = 0, min = 0;
  
-@@ -1277,18 +1283,8 @@ bool __nf_ct_kill_acct(struct nf_conn *ct,
- 		       const struct sk_buff *skb,
- 		       int do_acct)
- {
--	if (do_acct) {
--		struct nf_conn_acct *acct;
--
--		acct = nf_conn_acct_find(ct);
--		if (acct) {
--			struct nf_conn_counter *counter = acct->counter;
--
--			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
--			atomic64_add(skb->len - skb_network_offset(skb),
--				     &counter[CTINFO2DIR(ctinfo)].bytes);
--		}
--	}
-+	if (do_acct)
-+		nf_ct_acct_update(ct, ctinfo, skb->len);
- 
- 	if (del_timer(&ct->timeout)) {
- 		ct->timeout.function((unsigned long)ct);
+-	p = strnchr(name, IFNAMSIZ, '%');
++	p = strnchr(name, NFT_SET_MAXNAMELEN, '%');
+ 	if (p != NULL) {
+ 		if (p[1] != 'd' || strchr(p + 2, '%'))
+ 			return -EINVAL;
+@@ -2696,7 +2696,7 @@ static int nf_tables_newset(struct net *net, struct sock *nlsk,
+ 	struct nft_table *table;
+ 	struct nft_set *set;
+ 	struct nft_ctx ctx;
+-	char name[IFNAMSIZ];
++	char name[NFT_SET_MAXNAMELEN];
+ 	unsigned int size;
+ 	bool create;
+ 	u64 timeout;
 -- 
 2.1.4
-
