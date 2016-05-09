@@ -1,61 +1,59 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V1 2/3] mlx4: use napi_alloc_skb API to get SKB
- bulk allocations
-Date: Mon, 09 May 2016 15:44:34 +0200
-Message-ID: <20160509134434.3573.87133.stgit@firesoul>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next PATCH V1 3/3] net: warn on napi_alloc_skb being called
+ in wrong context
+Date: Mon, 9 May 2016 16:53:50 +0300
+Message-ID: <50c0ae0c-2382-42ea-998b-f5c641e5db4a@cogentembedded.com>
 References: <20160509134352.3573.37044.stgit@firesoul>
+ <20160509134439.3573.97841.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: saeedm@mellanox.com, gerlitz.or@gmail.com, eugenia@mellanox.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44751 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751899AbcEINog (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 09:44:36 -0400
-In-Reply-To: <20160509134352.3573.37044.stgit@firesoul>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:33927 "EHLO
+	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbcEINxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 09:53:53 -0400
+Received: by mail-lf0-f46.google.com with SMTP id m64so200492977lfd.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 06:53:52 -0700 (PDT)
+In-Reply-To: <20160509134439.3573.97841.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Activate the bulk alloc API, simply by changing mlx4 from using
-netdev_alloc_skb() to using napi_alloc_skb().
+Hello.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+On 5/9/2016 4:44 PM, Jesper Dangaard Brouer wrote:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 8ef6875b6cf9..84fd6db5a176 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -577,14 +577,15 @@ fail:
- static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 				      struct mlx4_en_rx_desc *rx_desc,
- 				      struct mlx4_en_rx_alloc *frags,
--				      unsigned int length)
-+				      unsigned int length,
-+				      struct napi_struct *napi)
- {
- 	struct sk_buff *skb;
- 	void *va;
- 	int used_frags;
- 	dma_addr_t dma;
- 
--	skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
-+	skb = napi_alloc_skb(napi, SMALL_PACKET_SIZE + NET_IP_ALIGN);
- 	if (!skb) {
- 		en_dbg(RX_ERR, priv, "Failed allocating skb\n");
- 		return NULL;
-@@ -932,7 +933,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		}
- 
- 		/* GRO not possible, complete processing here */
--		skb = mlx4_en_rx_skb(priv, rx_desc, frags, length);
-+		skb = mlx4_en_rx_skb(priv, rx_desc, frags, length, &cq->napi);
- 		if (!skb) {
- 			ring->dropped++;
- 			goto next;
+> It have always been required to call napi_alloc_skb from NAPI/softirq
+
+    It has.
+
+> context, which implies running with local_bh_disable'ed.  Thus, this
+
+    Not local_bh_disable'd?
+
+> code path should already be well tested. But recent SKB bulk changes
+> introduced will make this more volatile and bugs more subtle, if this
+> is violated.
+>
+> To catch any driver violating this add a loud WARN_ON.
+>
+> Performance wise, I do worry about adding this runtime check code into
+> the hotpath, of this highly optimized function call.  I've
+
+    Hot path? My spellchecker trips here.
+
+> micro-benchmarked it with both IP-forwarding and local UDP delivery,
+> and didn't see any regressions.  It does adds extra code size (icache).
+>
+> add/remove: 0/0 grow/shrink: 1/0 up/down: 43/0 (43)
+> function                                     old     new   delta
+> __napi_alloc_skb                             461     504     +43
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+[...]
+
+MBR, Sergei
