@@ -1,81 +1,51 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 19/22] net-next: mediatek: add IRQ locking
-Date: Mon,  9 May 2016 12:04:11 +0200
-Message-ID: <1462788254-40572-20-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 17/22] net-next: mediatek: remove superfluous register reads
+Date: Mon,  9 May 2016 12:04:09 +0200
+Message-ID: <1462788254-40572-18-git-send-email-john@phrozen.org>
 References: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Cc: nbd@nbd.name, netdev@vger.kernel.org,
 	linux-mediatek@lists.infradead.org, John Crispin <john@phrozen.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:50310 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:50398 "EHLO nbd.name"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751426AbcEIK1E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 06:27:04 -0400
+	id S1751377AbcEIK1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 06:27:35 -0400
 In-Reply-To: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code that enables and disables IRQs is missing proper locking. After
-adding the IRQ separation patch and routing the putting the RX and TX IRQs
-on different cores we experienced IRQ stalls. Fix this by adding proper
-locking. We use a dedicated lock to reduce the latency if the IRQ code.
-Otherwise it might wait for bottom code to finish before reenabling or
-disabling IRQs.
+The driver was originally written for MIPS based SoC. These required the
+IRQ mask register to be read after writing it to ensure that the content
+was actually applied. As this version only works on ARM based SoC, we can
+safely remove the 2 reads as they ware not required.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 +++++++
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |    1 +
- 2 files changed, 8 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 5c20fbf..a738221 100644
+index 74375a1..464a8ec 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -318,18 +318,24 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
+@@ -322,8 +322,6 @@ static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
  
- static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
- {
-+	unsigned long flags;
- 	u32 val;
- 
-+	spin_lock_irqsave(&eth->irq_lock, flags);
  	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
  	mtk_w32(eth, val & ~mask, MTK_QDMA_INT_MASK);
-+	spin_unlock_irqrestore(&eth->irq_lock, flags);
+-	/* flush write */
+-	mtk_r32(eth, MTK_QDMA_INT_MASK);
  }
  
  static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
- {
-+	unsigned long flags;
- 	u32 val;
+@@ -332,8 +330,6 @@ static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
  
-+	spin_lock_irqsave(&eth->irq_lock, flags);
  	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
  	mtk_w32(eth, val | mask, MTK_QDMA_INT_MASK);
-+	spin_unlock_irqrestore(&eth->irq_lock, flags);
+-	/* flush write */
+-	mtk_r32(eth, MTK_QDMA_INT_MASK);
  }
  
  static int mtk_set_mac_address(struct net_device *dev, void *p)
-@@ -1757,6 +1763,7 @@ static int mtk_probe(struct platform_device *pdev)
- 		return PTR_ERR(eth->base);
- 
- 	spin_lock_init(&eth->page_lock);
-+	spin_lock_init(&eth->irq_lock);
- 
- 	eth->ethsys = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
- 						      "mediatek,ethsys");
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index a5eb7c6..3159d2a 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -373,6 +373,7 @@ struct mtk_eth {
- 	void __iomem			*base;
- 	struct reset_control		*rstc;
- 	spinlock_t			page_lock;
-+	spinlock_t			irq_lock;
- 	struct net_device		dummy_dev;
- 	struct net_device		*netdev[MTK_MAX_DEVS];
- 	struct mtk_mac			*mac[MTK_MAX_DEVS];
 -- 
 1.7.10.4
