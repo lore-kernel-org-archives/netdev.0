@@ -1,26 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] qede: uninitialized variable in qede_start_xmit()
-Date: Sun, 08 May 2016 23:32:08 -0400 (EDT)
-Message-ID: <20160508.233208.1239185600962622193.davem@davemloft.net>
-References: <20160505132130.GE3038@mwanda>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next PATCH v2 6/6] net sched: ife action fix late binding
+Date: Sun, 8 May 2016 20:32:51 -0700
+Message-ID: <CAM_iQpXfA47LoK-zNBk6QyucA4ogagTiWSbnd0x2CQs-28rw+w@mail.gmail.com>
+References: <1462728392-28489-1-git-send-email-jhs@emojatatu.com> <1462728392-28489-7-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160505132130.GE3038@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:33992 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbcEIDdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:33:11 -0400
+Received: by mail-yw0-f175.google.com with SMTP id j74so239037324ywg.1
+        for <netdev@vger.kernel.org>; Sun, 08 May 2016 20:33:11 -0700 (PDT)
+In-Reply-To: <1462728392-28489-7-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 5 May 2016 16:21:30 +0300
+On Sun, May 8, 2016 at 10:26 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> @@ -689,7 +695,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+>         /*
+>            OUTERHDR:TOTMETALEN:{TLVHDR:Metadatum:TLVHDR..}:ORIGDATA
+>            where ORIGDATA = original ethernet header ...
+> -        */
+> +       */
 
-> "data_split" was never set to false.  It's just uninitialized.
-> 
-> Fixes: 2950219d87b0 ('qede: Add basic network device support')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Applied, thanks Dan.
+Irrelevant to the bug fix.
