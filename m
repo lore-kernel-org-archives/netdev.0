@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 05/21] net: dsa: mv88e6xxx: factorize temperature access
-Date: Mon,  9 May 2016 13:22:42 -0400
-Message-ID: <1462814578-6249-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 12/21] net: dsa: mv88e6xxx: factorize switch reset
+Date: Mon,  9 May 2016 13:22:49 -0400
+Message-ID: <1462814578-6249-13-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,161 +14,299 @@ In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add MV88E6XXX_FLAG_TEMP and MV88E6XXX_FLAG_TEMP_LIMIT flags to describe
-switch models featuring a temperature access. Use them to centralize the
-access to the temperature feature.
+Add a MV88E6XXX_FLAG_PPU_ACTIVE flag to describe how to reset the
+switch, and merge the reset call to the common setup code.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  3 +++
- drivers/net/dsa/mv88e6131.c |  6 ++++++
- drivers/net/dsa/mv88e6171.c |  3 +++
- drivers/net/dsa/mv88e6xxx.c |  9 ++++++---
- drivers/net/dsa/mv88e6xxx.h | 22 ++++++++++++++++++----
- 5 files changed, 36 insertions(+), 7 deletions(-)
+ drivers/net/dsa/mv88e6123.c |   4 --
+ drivers/net/dsa/mv88e6131.c |   4 --
+ drivers/net/dsa/mv88e6171.c |   4 --
+ drivers/net/dsa/mv88e6352.c |   4 --
+ drivers/net/dsa/mv88e6xxx.c | 137 +++++++++++++++++++++++---------------------
+ drivers/net/dsa/mv88e6xxx.h |   6 +-
+ 6 files changed, 76 insertions(+), 83 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 8330a8e..e234bdb 100644
+index 45cce4f..fadec7a 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -123,6 +123,9 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.adjust_link		= mv88e6xxx_adjust_link,
- #ifdef CONFIG_NET_DSA_HWMON
- 	.get_temp		= mv88e6xxx_get_temp,
-+	.get_temp_limit		= mv88e6xxx_get_temp_limit,
-+	.set_temp_limit		= mv88e6xxx_set_temp_limit,
-+	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
- #endif
- 	.get_eeprom		= mv88e6xxx_get_eeprom,
- 	.set_eeprom		= mv88e6xxx_set_eeprom,
+@@ -99,10 +99,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, false);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6123_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index ab8c507..089f9c0 100644
+index 5d25244..25ed823 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -155,6 +155,12 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
- 	.get_eeprom		= mv88e6xxx_get_eeprom,
- 	.set_eeprom		= mv88e6xxx_set_eeprom,
-+#ifdef CONFIG_NET_DSA_HWMON
-+	.get_temp		= mv88e6xxx_get_temp,
-+	.get_temp_limit		= mv88e6xxx_get_temp_limit,
-+	.set_temp_limit		= mv88e6xxx_set_temp_limit,
-+	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
-+#endif
- 	.adjust_link		= mv88e6xxx_adjust_link,
- 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
- 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+@@ -132,10 +132,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, false);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6131_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index a7afbaa..588b486 100644
+index a98e7d3..caaa4b6 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -132,6 +132,9 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.adjust_link		= mv88e6xxx_adjust_link,
- #ifdef CONFIG_NET_DSA_HWMON
- 	.get_temp               = mv88e6xxx_get_temp,
-+	.get_temp_limit		= mv88e6xxx_get_temp_limit,
-+	.set_temp_limit		= mv88e6xxx_set_temp_limit,
-+	.get_temp_alarm		= mv88e6xxx_get_temp_alarm,
- #endif
- 	.get_eeprom		= mv88e6xxx_get_eeprom,
- 	.set_eeprom		= mv88e6xxx_set_eeprom,
+@@ -108,10 +108,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, true);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6171_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index d03c14a..470789a 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -125,10 +125,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_switch_reset(ps, true);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = mv88e6352_setup_global(ds);
+ 	if (ret < 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index d277350..24aea90 100644
+index 037244b..b631a5d 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3199,6 +3199,9 @@ int mv88e6xxx_get_temp(struct dsa_switch *ds, int *temp)
+@@ -2559,6 +2559,68 @@ restore_page_0:
+ 	return ret;
+ }
+ 
++static int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps)
++{
++	bool ppu_active = mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU_ACTIVE);
++	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
++	struct gpio_desc *gpiod = ps->ds->pd->reset;
++	unsigned long timeout;
++	int ret;
++	int i;
++
++	/* Set all ports to the disabled state. */
++	for (i = 0; i < ps->info->num_ports; i++) {
++		ret = _mv88e6xxx_reg_read(ps, REG_PORT(i), PORT_CONTROL);
++		if (ret < 0)
++			return ret;
++
++		ret = _mv88e6xxx_reg_write(ps, REG_PORT(i), PORT_CONTROL,
++					   ret & 0xfffc);
++		if (ret)
++			return ret;
++	}
++
++	/* Wait for transmit queues to drain. */
++	usleep_range(2000, 4000);
++
++	/* If there is a gpio connected to the reset pin, toggle it */
++	if (gpiod) {
++		gpiod_set_value_cansleep(gpiod, 1);
++		usleep_range(10000, 20000);
++		gpiod_set_value_cansleep(gpiod, 0);
++		usleep_range(10000, 20000);
++	}
++
++	/* Reset the switch. Keep the PPU active if requested. The PPU
++	 * needs to be active to support indirect phy register access
++	 * through global registers 0x18 and 0x19.
++	 */
++	if (ppu_active)
++		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc000);
++	else
++		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc400);
++	if (ret)
++		return ret;
++
++	/* Wait up to one second for reset to complete. */
++	timeout = jiffies + 1 * HZ;
++	while (time_before(jiffies, timeout)) {
++		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, 0x00);
++		if (ret < 0)
++			return ret;
++
++		if ((ret & is_reset) == is_reset)
++			break;
++		usleep_range(1000, 2000);
++	}
++	if (time_after(jiffies, timeout))
++		ret = -ETIMEDOUT;
++	else
++		ret = 0;
++
++	return ret;
++}
++
+ static int mv88e6xxx_power_on_serdes(struct mv88e6xxx_priv_state *ps)
+ {
+ 	int ret;
+@@ -2860,6 +2922,8 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+ 
+ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ {
++	int err;
++
+ 	mutex_init(&ps->smi_mutex);
+ 
+ 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+@@ -2870,7 +2934,13 @@ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+ 		mv88e6xxx_ppu_state_init(ps);
+ 
+-	return 0;
++	mutex_lock(&ps->smi_mutex);
++
++	err = mv88e6xxx_switch_reset(ps);
++
++	mutex_unlock(&ps->smi_mutex);
++
++	return err;
+ }
+ 
+ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+@@ -3046,71 +3116,6 @@ unlock:
+ 	return err;
+ }
+ 
+-int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps, bool ppu_active)
+-{
+-	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
+-	struct gpio_desc *gpiod = ps->ds->pd->reset;
+-	unsigned long timeout;
+-	int ret;
+-	int i;
+-
+-	mutex_lock(&ps->smi_mutex);
+-
+-	/* Set all ports to the disabled state. */
+-	for (i = 0; i < ps->info->num_ports; i++) {
+-		ret = _mv88e6xxx_reg_read(ps, REG_PORT(i), PORT_CONTROL);
+-		if (ret < 0)
+-			goto unlock;
+-
+-		ret = _mv88e6xxx_reg_write(ps, REG_PORT(i), PORT_CONTROL,
+-					   ret & 0xfffc);
+-		if (ret)
+-			goto unlock;
+-	}
+-
+-	/* Wait for transmit queues to drain. */
+-	usleep_range(2000, 4000);
+-
+-	/* If there is a gpio connected to the reset pin, toggle it */
+-	if (gpiod) {
+-		gpiod_set_value_cansleep(gpiod, 1);
+-		usleep_range(10000, 20000);
+-		gpiod_set_value_cansleep(gpiod, 0);
+-		usleep_range(10000, 20000);
+-	}
+-
+-	/* Reset the switch. Keep the PPU active if requested. The PPU
+-	 * needs to be active to support indirect phy register access
+-	 * through global registers 0x18 and 0x19.
+-	 */
+-	if (ppu_active)
+-		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc000);
+-	else
+-		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x04, 0xc400);
+-	if (ret)
+-		goto unlock;
+-
+-	/* Wait up to one second for reset to complete. */
+-	timeout = jiffies + 1 * HZ;
+-	while (time_before(jiffies, timeout)) {
+-		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, 0x00);
+-		if (ret < 0)
+-			goto unlock;
+-
+-		if ((ret & is_reset) == is_reset)
+-			break;
+-		usleep_range(1000, 2000);
+-	}
+-	if (time_after(jiffies, timeout))
+-		ret = -ETIMEDOUT;
+-	else
+-		ret = 0;
+-unlock:
+-	mutex_unlock(&ps->smi_mutex);
+-
+-	return ret;
+-}
+-
+ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
  {
  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP))
-+		return -EOPNOTSUPP;
-+
- 	if (mv88e6xxx_6320_family(ps) || mv88e6xxx_6352_family(ps))
- 		return mv88e63xx_get_temp(ds, temp);
- 
-@@ -3211,7 +3214,7 @@ int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp)
- 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
- 	int ret;
- 
--	if (!mv88e6xxx_6320_family(ps) && !mv88e6xxx_6352_family(ps))
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
- 		return -EOPNOTSUPP;
- 
- 	*temp = 0;
-@@ -3231,7 +3234,7 @@ int mv88e6xxx_set_temp_limit(struct dsa_switch *ds, int temp)
- 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
- 	int ret;
- 
--	if (!mv88e6xxx_6320_family(ps) && !mv88e6xxx_6352_family(ps))
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
- 		return -EOPNOTSUPP;
- 
- 	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 26);
-@@ -3248,7 +3251,7 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
- 	int phy = mv88e6xxx_6320_family(ps) ? 3 : 0;
- 	int ret;
- 
--	if (!mv88e6xxx_6320_family(ps) && !mv88e6xxx_6352_family(ps))
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
- 		return -EOPNOTSUPP;
- 
- 	*alarm = false;
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 0181f67..9ddb6d0 100644
+index 192292f..efd6ebd 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -366,12 +366,20 @@ enum mv88e6xxx_cap {
- 	 * GLOBAL2_SMI_OP, otherwise direct access to PHY registers is done.
+@@ -374,6 +374,7 @@ enum mv88e6xxx_cap {
+ 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
  	 */
- 	MV88E6XXX_CAP_SMI_PHY,
-+
-+	/* Internal temperature sensor.
-+	 * Available from any enabled port's PHY register 26, page 6.
-+	 */
-+	MV88E6XXX_CAP_TEMP,
-+	MV88E6XXX_CAP_TEMP_LIMIT,
- };
+ 	MV88E6XXX_CAP_PPU,
++	MV88E6XXX_CAP_PPU_ACTIVE,
  
- /* Bitmask of capabilities */
+ 	/* SMI PHY Command and Data registers.
+ 	 * This requires an indirect access to PHY registers through
+@@ -412,6 +413,7 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
+ #define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
  #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
++#define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
  #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
-+#define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
-+#define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6095	\
- 	MV88E6XXX_FLAG_PPU
-@@ -379,21 +387,27 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6097	\
- 	MV88E6XXX_FLAG_PPU
- 
--#define MV88E6XXX_FLAGS_FAMILY_6165	0
-+#define MV88E6XXX_FLAGS_FAMILY_6165	\
-+	MV88E6XXX_FLAG_TEMP
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
- 	MV88E6XXX_FLAG_PPU
- 
- #define MV88E6XXX_FLAGS_FAMILY_6320	\
- 	(MV88E6XXX_FLAG_EEPROM |	\
--	 MV88E6XXX_FLAG_SMI_PHY)
-+	 MV88E6XXX_FLAG_SMI_PHY |	\
-+	 MV88E6XXX_FLAG_TEMP |		\
-+	 MV88E6XXX_FLAG_TEMP_LIMIT)
- 
+ #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+@@ -446,6 +448,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_EEPROM |	\
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
++	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+@@ -456,6 +459,7 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAGS_FAMILY_6351	\
--	MV88E6XXX_FLAG_SMI_PHY
-+	(MV88E6XXX_FLAG_SMI_PHY |	\
-+	 MV88E6XXX_FLAG_TEMP)
+ 	(MV88E6XXX_FLAG_ATU |		\
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
++	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+@@ -467,6 +471,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_EEPROM |	\
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
++	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+@@ -578,7 +583,6 @@ static inline bool mv88e6xxx_has(struct mv88e6xxx_priv_state *ps,
+ 	return (ps->info->flags & flags) == flags;
+ }
  
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EEPROM |	\
--	 MV88E6XXX_FLAG_SMI_PHY)
-+	 MV88E6XXX_FLAG_SMI_PHY	|	\
-+	 MV88E6XXX_FLAG_TEMP |		\
-+	 MV88E6XXX_FLAG_TEMP_LIMIT)
- 
- struct mv88e6xxx_info {
- 	enum mv88e6xxx_family family;
+-int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps, bool ppu_active);
+ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+ 				int sw_addr, void **priv,
+ 				const struct mv88e6xxx_info *table,
 -- 
 2.8.2
