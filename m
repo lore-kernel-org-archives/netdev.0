@@ -1,23 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
-Date: Sun, 08 May 2016 23:56:20 -0400 (EDT)
-Message-ID: <20160508.235620.333454221783238471.davem@davemloft.net>
-References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
+Subject: Re: [PATCH v2 net-next] ifb: support more features
+Date: Mon, 09 May 2016 00:01:54 -0400 (EDT)
+Message-ID: <20160509.000154.2249776807369776317.davem@davemloft.net>
+References: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
-To: tyhicks@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53952 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbcEIEB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 00:01:56 -0400
+In-Reply-To: <1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tyler Hicks <tyhicks@canonical.com>
-Date: Fri,  6 May 2016 18:04:12 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 06 May 2016 18:19:59 -0700
 
-> This pair of patches does away with what I believe is a useless denial
-> audit message when a privileged process initially accesses a net sysctl.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When using ifb+netem on ingress on SIT/IPIP/GRE traffic,
+> GRO packets are not properly processed.
+> 
+> Segmentation should not be forced, since ifb is already adding
+> quite a performance hit.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-The LSM folks can apply this if they agree with you.
+Applied.
