@@ -1,157 +1,122 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 36/36] netfilter: conntrack: use single slab cache
-Date: Mon,  9 May 2016 20:46:54 +0200
-Message-ID: <1462819614-5402-37-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/36] ipvs: optimize release of connections in OPS mode
+Date: Mon,  9 May 2016 20:46:20 +0200
+Message-ID: <1462819614-5402-3-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45683 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752180AbcEISrI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 14:47:08 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 3F22AE8E8E
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:04 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 2EDF5134712
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:04 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 07FAD134712
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:02 +0200 (CEST)
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Marco Angaroni <marcoangaroni@gmail.com>
 
-An earlier patch changed lookup side to also net_eq() namespaces after
-obtaining a reference on the conntrack, so a single kmemcache can be used.
+One-packet-scheduling is the most expensive mode in IPVS from
+performance point of view: for each packet to be processed a new
+connection data structure is created and, after packet is sent,
+deleted by starting a new timer set to expire immediately.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+SIP persistent-engine needs OPS mode to have Call-ID based load
+balancing, so OPS mode performance has negative impact in SIP
+protocol load balancing.
+
+This patch aims to improve performance of OPS mode by means of the
+following changes in the release mechanism of OPS connections:
+a) call expire callback ip_vs_conn_expire() directly instead of
+   starting a timer programmed to fire immediately.
+b) avoid call_rcu() overhead inside expire callback, since OPS
+   connection are not inserted in the hash-table and last just the
+   time to process the packet, hence there is no concurrent access
+   to such data structures.
+
+Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/netns/conntrack.h     |  2 --
- net/netfilter/nf_conntrack_core.c | 36 ++++++++++++++----------------------
- 2 files changed, 14 insertions(+), 24 deletions(-)
+ net/netfilter/ipvs/ip_vs_conn.c | 26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index 1e751bf..38b1a80 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -84,7 +84,6 @@ struct netns_ct {
- 	struct ctl_table_header	*event_sysctl_header;
- 	struct ctl_table_header	*helper_sysctl_header;
- #endif
--	char			*slabname;
- 	unsigned int		sysctl_log_invalid; /* Log invalid packets */
- 	int			sysctl_events;
- 	int			sysctl_acct;
-@@ -93,7 +92,6 @@ struct netns_ct {
- 	int			sysctl_tstamp;
- 	int			sysctl_checksum;
- 
--	struct kmem_cache	*nf_conntrack_cachep;
- 	struct ct_pcpu __percpu *pcpu_lists;
- 	struct ip_conntrack_stat __percpu *stat;
- 	struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index f58a704..0cd2936 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -72,6 +72,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
- struct hlist_nulls_head *nf_conntrack_hash __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_hash);
- 
-+static __read_mostly struct kmem_cache *nf_conntrack_cachep;
- static __read_mostly spinlock_t nf_conntrack_locks_all_lock;
- static __read_mostly seqcount_t nf_conntrack_generation;
- static __read_mostly bool nf_conntrack_locks_all;
-@@ -910,7 +911,7 @@ __nf_conntrack_alloc(struct net *net,
- 	 * Do not use kmem_cache_zalloc(), as this cache uses
- 	 * SLAB_DESTROY_BY_RCU.
- 	 */
--	ct = kmem_cache_alloc(net->ct.nf_conntrack_cachep, gfp);
-+	ct = kmem_cache_alloc(nf_conntrack_cachep, gfp);
- 	if (ct == NULL)
- 		goto out;
- 
-@@ -937,7 +938,7 @@ __nf_conntrack_alloc(struct net *net,
- 	atomic_set(&ct->ct_general.use, 0);
- 	return ct;
- out_free:
--	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-+	kmem_cache_free(nf_conntrack_cachep, ct);
- out:
- 	atomic_dec(&net->ct.count);
- 	return ERR_PTR(-ENOMEM);
-@@ -964,7 +965,7 @@ void nf_conntrack_free(struct nf_conn *ct)
- 
- 	nf_ct_ext_destroy(ct);
- 	nf_ct_ext_free(ct);
--	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-+	kmem_cache_free(nf_conntrack_cachep, ct);
- 	smp_mb__before_atomic();
- 	atomic_dec(&net->ct.count);
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 85ca189..dd75d41 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -104,6 +104,7 @@ static inline void ct_write_unlock_bh(unsigned int key)
+ 	spin_unlock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
  }
-@@ -1587,8 +1588,6 @@ i_see_dead_people:
- 		nf_conntrack_tstamp_pernet_fini(net);
- 		nf_conntrack_acct_pernet_fini(net);
- 		nf_conntrack_expect_pernet_fini(net);
--		kmem_cache_destroy(net->ct.nf_conntrack_cachep);
--		kfree(net->ct.slabname);
- 		free_percpu(net->ct.stat);
- 		free_percpu(net->ct.pcpu_lists);
- 	}
-@@ -1693,7 +1692,8 @@ EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
- int nf_conntrack_init_start(void)
- {
- 	int max_factor = 8;
--	int i, ret, cpu;
-+	int ret = -ENOMEM;
-+	int i, cpu;
  
- 	seqcount_init(&nf_conntrack_generation);
++static void ip_vs_conn_expire(unsigned long data);
  
-@@ -1729,6 +1729,12 @@ int nf_conntrack_init_start(void)
+ /*
+  *	Returns hash value for IPVS connection entry
+@@ -453,10 +454,16 @@ ip_vs_conn_out_get_proto(struct netns_ipvs *ipvs, int af,
+ }
+ EXPORT_SYMBOL_GPL(ip_vs_conn_out_get_proto);
  
- 	nf_conntrack_max = max_factor * nf_conntrack_htable_size;
- 
-+	nf_conntrack_cachep = kmem_cache_create("nf_conntrack",
-+						sizeof(struct nf_conn), 0,
-+						SLAB_DESTROY_BY_RCU, NULL);
-+	if (!nf_conntrack_cachep)
-+		goto err_cachep;
++static void __ip_vs_conn_put_notimer(struct ip_vs_conn *cp)
++{
++	__ip_vs_conn_put(cp);
++	ip_vs_conn_expire((unsigned long)cp);
++}
 +
- 	printk(KERN_INFO "nf_conntrack version %s (%u buckets, %d max)\n",
- 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
- 	       nf_conntrack_max);
-@@ -1805,6 +1811,8 @@ err_tstamp:
- err_acct:
- 	nf_conntrack_expect_fini();
- err_expect:
-+	kmem_cache_destroy(nf_conntrack_cachep);
-+err_cachep:
- 	nf_ct_free_hashtable(nf_conntrack_hash, nf_conntrack_htable_size);
- 	return ret;
+ /*
+  *      Put back the conn and restart its timer with its timeout
+  */
+-void ip_vs_conn_put(struct ip_vs_conn *cp)
++static void __ip_vs_conn_put_timer(struct ip_vs_conn *cp)
+ {
+ 	unsigned long t = (cp->flags & IP_VS_CONN_F_ONE_PACKET) ?
+ 		0 : cp->timeout;
+@@ -465,6 +472,16 @@ void ip_vs_conn_put(struct ip_vs_conn *cp)
+ 	__ip_vs_conn_put(cp);
  }
-@@ -1846,18 +1854,6 @@ int nf_conntrack_init_net(struct net *net)
- 	if (!net->ct.stat)
- 		goto err_pcpu_lists;
  
--	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
--	if (!net->ct.slabname)
--		goto err_slabname;
--
--	net->ct.nf_conntrack_cachep = kmem_cache_create(net->ct.slabname,
--							sizeof(struct nf_conn), 0,
--							SLAB_DESTROY_BY_RCU, NULL);
--	if (!net->ct.nf_conntrack_cachep) {
--		printk(KERN_ERR "Unable to create nf_conn slab cache\n");
--		goto err_cache;
--	}
--
- 	ret = nf_conntrack_expect_pernet_init(net);
- 	if (ret < 0)
- 		goto err_expect;
-@@ -1889,10 +1885,6 @@ err_tstamp:
- err_acct:
- 	nf_conntrack_expect_pernet_fini(net);
- err_expect:
--	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
--err_cache:
--	kfree(net->ct.slabname);
--err_slabname:
- 	free_percpu(net->ct.stat);
- err_pcpu_lists:
- 	free_percpu(net->ct.pcpu_lists);
++void ip_vs_conn_put(struct ip_vs_conn *cp)
++{
++	if ((cp->flags & IP_VS_CONN_F_ONE_PACKET) &&
++	    (atomic_read(&cp->refcnt) == 1) &&
++	    !timer_pending(&cp->timer))
++		/* expire connection immediately */
++		__ip_vs_conn_put_notimer(cp);
++	else
++		__ip_vs_conn_put_timer(cp);
++}
+ 
+ /*
+  *	Fill a no_client_port connection with a client port number
+@@ -834,7 +851,10 @@ static void ip_vs_conn_expire(unsigned long data)
+ 		ip_vs_unbind_dest(cp);
+ 		if (cp->flags & IP_VS_CONN_F_NO_CPORT)
+ 			atomic_dec(&ip_vs_conn_no_cport_cnt);
+-		call_rcu(&cp->rcu_head, ip_vs_conn_rcu_free);
++		if (cp->flags & IP_VS_CONN_F_ONE_PACKET)
++			ip_vs_conn_rcu_free(&cp->rcu_head);
++		else
++			call_rcu(&cp->rcu_head, ip_vs_conn_rcu_free);
+ 		atomic_dec(&ipvs->conn_count);
+ 		return;
+ 	}
+@@ -850,7 +870,7 @@ static void ip_vs_conn_expire(unsigned long data)
+ 	if (ipvs->sync_state & IP_VS_STATE_MASTER)
+ 		ip_vs_sync_conn(ipvs, cp, sysctl_sync_threshold(ipvs));
+ 
+-	ip_vs_conn_put(cp);
++	__ip_vs_conn_put_timer(cp);
+ }
+ 
+ /* Modify timer, so that it expires as soon as possible.
 -- 
 2.1.4
-
