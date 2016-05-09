@@ -1,104 +1,84 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 32/36] netfilter: conntrack: make netns address part of expect hash
-Date: Mon,  9 May 2016 20:46:50 +0200
-Message-ID: <1462819614-5402-33-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/36] ipvs: don't alter conntrack in OPS mode
+Date: Mon,  9 May 2016 20:46:21 +0200
+Message-ID: <1462819614-5402-4-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45821 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752820AbcEISrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 14:47:36 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 5AE69E8E87
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 4832913470E
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 1CAFB134729
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:32 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Marco Angaroni <marcoangaroni@gmail.com>
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+When using OPS mode in conjunction with SIP persistent-engine, packets
+originating from the same ip-address/port could be balanced to different
+real servers, and (to properly handle SIP responses) OPS connections
+are created in the in-out direction too, where ip_vs_update_conntrack()
+is called to modify the reply tuple.
+
+As a result, there can be collision of conntrack tuples, causing random
+packet drops, as explained below:
+
+conntrack1: orig=CIP->VIP, reply=RIP1->CIP
+conntrack2: orig=RIP2->CIP, reply=CIP->VIP
+
+Tuple CIP->VIP is both in orig of conntrack1 and reply of conntrack2.
+The collision triggers packet drop inside nf_conntrack processing.
+
+In addition, the current implementation deletes the conntrack object at
+every expire of an OPS connection (once every forwarded packet), to have
+it recreated from scratch at next packet traversing IPVS.
+
+Since in OPS mode, by definition, we don't expect any associated
+response, the choices implemented in this patch are:
+a) don't call nf_conntrack_alter_reply() for OPS connections inside
+   ip_vs_update_conntrack().
+b) don't delete the conntrack object at OPS connection expire.
+
+The result is that created conntrack objects for each tuple CIP->VIP,
+RIP-N->CIP, etc. are left in UNREPLIED state and not modified by IPVS
+OPS connection management. This eliminates packet drops and leaves
+a single conntrack object for each tuple packets are sent from.
+
+Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_expect.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+ net/netfilter/ipvs/ip_vs_conn.c | 3 ++-
+ net/netfilter/ipvs/ip_vs_nfct.c | 4 ++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index da95d74..130f1be 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -24,6 +24,7 @@
- #include <linux/moduleparam.h>
- #include <linux/export.h>
- #include <net/net_namespace.h>
-+#include <net/netns/hash.h>
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index dd75d41..292365f 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -836,7 +836,8 @@ static void ip_vs_conn_expire(unsigned long data)
+ 		if (cp->control)
+ 			ip_vs_control_del(cp);
  
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_core.h>
-@@ -73,15 +74,17 @@ static void nf_ct_expectation_timed_out(unsigned long ul_expect)
- 	nf_ct_expect_put(exp);
- }
+-		if (cp->flags & IP_VS_CONN_F_NFCT) {
++		if ((cp->flags & IP_VS_CONN_F_NFCT) &&
++		    !(cp->flags & IP_VS_CONN_F_ONE_PACKET)) {
+ 			/* Do not access conntracks during subsys cleanup
+ 			 * because nf_conntrack_find_get can not be used after
+ 			 * conntrack cleanup for the net.
+diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
+index 30434fb..f04fd8d 100644
+--- a/net/netfilter/ipvs/ip_vs_nfct.c
++++ b/net/netfilter/ipvs/ip_vs_nfct.c
+@@ -93,6 +93,10 @@ ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
+ 	if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
+ 		return;
  
--static unsigned int nf_ct_expect_dst_hash(const struct nf_conntrack_tuple *tuple)
-+static unsigned int nf_ct_expect_dst_hash(const struct net *n, const struct nf_conntrack_tuple *tuple)
- {
--	unsigned int hash;
-+	unsigned int hash, seed;
- 
- 	get_random_once(&nf_ct_expect_hashrnd, sizeof(nf_ct_expect_hashrnd));
- 
-+	seed = nf_ct_expect_hashrnd ^ net_hash_mix(n);
++	/* Never alter conntrack for OPS conns (no reply is expected) */
++	if (cp->flags & IP_VS_CONN_F_ONE_PACKET)
++		return;
 +
- 	hash = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
- 		      (((tuple->dst.protonum ^ tuple->src.l3num) << 16) |
--		       (__force __u16)tuple->dst.u.all) ^ nf_ct_expect_hashrnd);
-+		       (__force __u16)tuple->dst.u.all) ^ seed);
- 
- 	return reciprocal_scale(hash, nf_ct_expect_hsize);
- }
-@@ -108,7 +111,7 @@ __nf_ct_expect_find(struct net *net,
- 	if (!net->ct.expect_count)
- 		return NULL;
- 
--	h = nf_ct_expect_dst_hash(tuple);
-+	h = nf_ct_expect_dst_hash(net, tuple);
- 	hlist_for_each_entry_rcu(i, &net->ct.expect_hash[h], hnode) {
- 		if (nf_ct_exp_equal(tuple, i, zone, net))
- 			return i;
-@@ -148,7 +151,7 @@ nf_ct_find_expectation(struct net *net,
- 	if (!net->ct.expect_count)
- 		return NULL;
- 
--	h = nf_ct_expect_dst_hash(tuple);
-+	h = nf_ct_expect_dst_hash(net, tuple);
- 	hlist_for_each_entry(i, &net->ct.expect_hash[h], hnode) {
- 		if (!(i->flags & NF_CT_EXPECT_INACTIVE) &&
- 		    nf_ct_exp_equal(tuple, i, zone, net)) {
-@@ -352,7 +355,7 @@ static int nf_ct_expect_insert(struct nf_conntrack_expect *exp)
- 	struct nf_conn_help *master_help = nfct_help(exp->master);
- 	struct nf_conntrack_helper *helper;
- 	struct net *net = nf_ct_exp_net(exp);
--	unsigned int h = nf_ct_expect_dst_hash(&exp->tuple);
-+	unsigned int h = nf_ct_expect_dst_hash(net, &exp->tuple);
- 
- 	/* two references : one for hash insert, one for the timer */
- 	atomic_add(2, &exp->use);
-@@ -411,7 +414,7 @@ static inline int __nf_ct_expect_check(struct nf_conntrack_expect *expect)
- 		ret = -ESHUTDOWN;
- 		goto out;
- 	}
--	h = nf_ct_expect_dst_hash(&expect->tuple);
-+	h = nf_ct_expect_dst_hash(net, &expect->tuple);
- 	hlist_for_each_entry_safe(i, next, &net->ct.expect_hash[h], hnode) {
- 		if (expect_matches(i, expect)) {
- 			if (del_timer(&i->timeout)) {
+ 	/* Alter reply only in original direction */
+ 	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
+ 		return;
 -- 
 2.1.4
+
