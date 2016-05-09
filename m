@@ -1,10 +1,10 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v2 1/6] net sched: vlan action fix late binding
-Date: Mon, 9 May 2016 07:50:21 -0400
-Message-ID: <5730797D.9020100@mojatatu.com>
+Subject: Re: [net-next PATCH v2 3/6] net sched: mirred action fix late binding
+Date: Mon, 9 May 2016 07:51:54 -0400
+Message-ID: <573079DA.4020807@mojatatu.com>
 References: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
- <1462728392-28489-2-git-send-email-jhs@emojatatu.com>
- <CAM_iQpVtk1AowsH_jDz24yNqAZTCOPtMk=KM0dhFtYUJLfOk4Q@mail.gmail.com>
+ <1462728392-28489-4-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpWjQsJTRVoE2nf4SxY=YF-0q4j6kDD8fJDLq3K=2QWwLw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,39 +12,30 @@ Cc: David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:37238 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536AbcEILuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 07:50:24 -0400
-Received: by mail-ig0-f178.google.com with SMTP id s8so89438967ign.0
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 04:50:24 -0700 (PDT)
-In-Reply-To: <CAM_iQpVtk1AowsH_jDz24yNqAZTCOPtMk=KM0dhFtYUJLfOk4Q@mail.gmail.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:33795 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751242AbcEILv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 07:51:57 -0400
+Received: by mail-ig0-f170.google.com with SMTP id u5so14843464igk.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 04:51:56 -0700 (PDT)
+In-Reply-To: <CAM_iQpWjQsJTRVoE2nf4SxY=YF-0q4j6kDD8fJDLq3K=2QWwLw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-05-08 11:08 PM, Cong Wang wrote:
+On 16-05-08 11:19 PM, Cong Wang wrote:
 > On Sun, May 8, 2016 at 10:26 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-[..]
->> +       aexists = tcf_hash_check(tn, parm->index, a, bind);
+>> -static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+>> +static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+>> +                          int ref)
+>>   {
+>>          unsigned char *b = skb_tail_pointer(skb);
+>>          struct tcf_mirred *m = a->priv;
 >
->
-> I think 'exists' is a better name than 'aexists', shorter and clear.
->
-
-aexists is more specific (doesnt quiet apply to this case but has better
-grep-ability).
-exists looked too generic - initially I was going to have act_exists. 
-Yes, it is a tiny but ocd detail. Let me know if you feel strongly
-and i will change it in next update.
-
->> +               if (aexists)
->> +                       tcf_hash_release(a, bind);
->
->
-> Introduce a goto to reduce duplicated cleanup code?
+> Nit: this is irrelevant to the bug you fix.
 >
 
-Will do.
+It is (80 char) indentation fix. Dont think it deserves its own patch
+but it was annoying enough to include.
 
 cheers,
 jamal
