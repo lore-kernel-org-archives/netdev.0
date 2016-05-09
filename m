@@ -1,50 +1,67 @@
-From: Elad Kanfi <eladkan@mellanox.com>
-Subject: [PATCH v3 0/2] Net driver bugs fix
-Date: Mon, 9 May 2016 20:13:18 +0300
-Message-ID: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
-	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 18/21] net: dsa: mv88e6131: drop frames priorities setup
+Date: Mon,  9 May 2016 13:22:55 -0400
+Message-ID: <1462814578-6249-19-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50945 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752879AbcEIRXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:23:50 -0400
+In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Elad Kanfi <eladkan@mellanox.com>
+6131 is the only driver which setups the priority of IGMP/MLD snoop
+frames and ARP frames to the highest setting. Drop such change until we
+figure out a common configuration for all switch models.
 
-v3:
-tx_packet_sent flag is not necessary, use socket buffer pointer
-instead.
-Use wmb() instead of smp_wmb().
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6131.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
 
-v2:
-Remove code style commit for now.
-Code style commit will be added after the bugs fix will be approved.
-
-Summary:
- 1. Bug description: TX done interrupts that arrives while interrupts
-    are masked, during NAPI poll, will not trigger an interrupt handling.
-    Since TX interrupt is of level edge we will lose the TX done interrupt.
-    As a result all pending tx frames will get no service.
-
-    Solution: Check if there is a pending tx request after unmasking the
-    interrupt and if answer is yes then re-add ourselves to
-    the NAPI poll list.
-
- 2. Bug description: CPU-A before sending a frame will set a variable
-    to true. CPU-B that executes the tx done interrupt service routine
-    might read a non valid value of that variable.
-
-    Solution: Use the socket buffer pointer instead of the variable,
-    and add a write memory barrier at the tx sending function after
-    the pointer is set.
-
-Elad Kanfi (2):
-  net: nps_enet: Tx handler synchronization
-  net: nps_enet: bug fix - handle lost tx interrupts
-
- drivers/net/ethernet/ezchip/nps_enet.c |   30 ++++++++++++++++++++++++------
- drivers/net/ethernet/ezchip/nps_enet.h |    2 --
- 2 files changed, 24 insertions(+), 8 deletions(-)
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index b6ca07b..da28327 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -58,20 +58,6 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+ 				   ARRAY_SIZE(mv88e6131_table));
+ }
+ 
+-static int mv88e6131_setup_global(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-
+-	/* Force the priority of IGMP/MLD snoop frames and ARP frames
+-	 * to the highest setting.
+-	 */
+-	return mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
+-				   GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP |
+-				   7 << GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT |
+-				   GLOBAL2_PRIO_OVERRIDE_FORCE_ARP |
+-				   7 << GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT);
+-}
+-
+ static int mv88e6131_setup(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -83,10 +69,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6131_setup_global(ds);
+-	if (ret < 0)
+-		return ret;
+-
+ 	return mv88e6xxx_setup_ports(ds);
+ }
+ 
+-- 
+2.8.2
