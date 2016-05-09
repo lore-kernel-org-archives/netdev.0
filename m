@@ -1,118 +1,136 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 30/36] ipvs: make drop_entry protection effective for SIP-pe
-Date: Mon,  9 May 2016 20:46:48 +0200
-Message-ID: <1462819614-5402-31-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/36] netfilter: nft_rbtree: allow adjacent intervals with dynamic updates
+Date: Mon,  9 May 2016 20:46:28 +0200
+Message-ID: <1462819614-5402-11-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45703 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752469AbcEISrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 14:47:14 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 26ECAE8E85
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:13 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 15FC3134700
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:13 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 0C06E134704
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:11 +0200 (CEST)
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marco Angaroni <marcoangaroni@gmail.com>
+This patch fixes dynamic element updates for adjacent intervals in the
+rb-tree representation.
 
-DoS protection policy that deletes connections to avoid out of memory is
-currently not effective for SIP-pe plus OPS-mode for two reasons:
-  1) connection templates (holding SIP call-id) are always skipped in
-     ip_vs_random_dropentry()
-  2) in_pkts counter (used by drop_entry algorithm) is not incremented
-     for connection templates
+Since elements are sorted in the rb-tree, in case of adjacent nodes with
+the same key, the assumption is that an interval end node must be placed
+before an interval opening.
 
-This patch addresses such problems with the following changes:
-  a) connection templates associated (via their dest) to virtual-services
-     configured in OPS mode are included in ip_vs_random_dropentry()
-     monitoring. This applies to SIP-pe over UDP (which requires OPS mode),
-     but is more general principle: when OPS is controlled by templates
-     memory can be used only by templates themselves, since OPS conns are
-     deleted after packet is forwarded.
-  b) OPS connections, if controlled by a template, cause increment of
-     in_pkts counter of their template. This is already happening but only
-     in case director is in master-slave mode (see ip_vs_sync_conn()).
+In tree lookup operations, the idea is to search for the closer element
+that is smaller than the one we're searching for. Given that we'll have
+two possible matchings, we have to take the opening interval in case of
+adjacent nodes.
 
-Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Range merges are not trivial with the current representation,
+specifically we have to check if node extensions are equal and make sure
+we keep the existing internal states around.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_conn.c | 22 +++++++++++++++++++---
- net/netfilter/ipvs/ip_vs_core.c |  8 +++++++-
- 2 files changed, 26 insertions(+), 4 deletions(-)
+ net/netfilter/nft_rbtree.c | 40 +++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 35 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 292365f..2cb3c62 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -1261,6 +1261,16 @@ static inline int todrop_entry(struct ip_vs_conn *cp)
- 	return 1;
+diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
+index 29f2ab8..f762094 100644
+--- a/net/netfilter/nft_rbtree.c
++++ b/net/netfilter/nft_rbtree.c
+@@ -35,6 +35,12 @@ static bool nft_rbtree_interval_end(const struct nft_rbtree_elem *rbe)
+ 	       (*nft_set_ext_flags(&rbe->ext) & NFT_SET_ELEM_INTERVAL_END);
  }
  
-+static inline bool ip_vs_conn_ops_mode(struct ip_vs_conn *cp)
++static bool nft_rbtree_equal(const struct nft_set *set, const void *this,
++			     const struct nft_rbtree_elem *interval)
 +{
-+	struct ip_vs_service *svc;
-+
-+	if (!cp->dest)
-+		return false;
-+	svc = rcu_dereference(cp->dest->svc);
-+	return svc && (svc->flags & IP_VS_SVC_F_ONEPACKET);
++	return memcmp(this, nft_set_ext_key(&interval->ext), set->klen) == 0;
 +}
 +
- /* Called from keventd and must protect itself from softirqs */
- void ip_vs_random_dropentry(struct netns_ipvs *ipvs)
+ static bool nft_rbtree_lookup(const struct nft_set *set, const u32 *key,
+ 			      const struct nft_set_ext **ext)
  {
-@@ -1275,11 +1285,16 @@ void ip_vs_random_dropentry(struct netns_ipvs *ipvs)
- 		unsigned int hash = prandom_u32() & ip_vs_conn_tab_mask;
+@@ -42,6 +48,7 @@ static bool nft_rbtree_lookup(const struct nft_set *set, const u32 *key,
+ 	const struct nft_rbtree_elem *rbe, *interval = NULL;
+ 	const struct rb_node *parent;
+ 	u8 genmask = nft_genmask_cur(read_pnet(&set->pnet));
++	const void *this;
+ 	int d;
  
- 		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
--			if (cp->flags & IP_VS_CONN_F_TEMPLATE)
--				/* connection template */
--				continue;
- 			if (cp->ipvs != ipvs)
- 				continue;
-+			if (cp->flags & IP_VS_CONN_F_TEMPLATE) {
-+				if (atomic_read(&cp->n_control) ||
-+				    !ip_vs_conn_ops_mode(cp))
-+					continue;
+ 	spin_lock_bh(&nft_rbtree_lock);
+@@ -49,9 +56,16 @@ static bool nft_rbtree_lookup(const struct nft_set *set, const u32 *key,
+ 	while (parent != NULL) {
+ 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
+ 
+-		d = memcmp(nft_set_ext_key(&rbe->ext), key, set->klen);
++		this = nft_set_ext_key(&rbe->ext);
++		d = memcmp(this, key, set->klen);
+ 		if (d < 0) {
+ 			parent = parent->rb_left;
++			/* In case of adjacent ranges, we always see the high
++			 * part of the range in first place, before the low one.
++			 * So don't update interval if the keys are equal.
++			 */
++			if (interval && nft_rbtree_equal(set, this, interval))
++				continue;
+ 			interval = rbe;
+ 		} else if (d > 0)
+ 			parent = parent->rb_right;
+@@ -101,9 +115,16 @@ static int __nft_rbtree_insert(const struct nft_set *set,
+ 		else if (d > 0)
+ 			p = &parent->rb_right;
+ 		else {
+-			if (nft_set_elem_active(&rbe->ext, genmask))
+-				return -EEXIST;
+-			p = &parent->rb_left;
++			if (nft_set_elem_active(&rbe->ext, genmask)) {
++				if (nft_rbtree_interval_end(rbe) &&
++				    !nft_rbtree_interval_end(new))
++					p = &parent->rb_left;
++				else if (!nft_rbtree_interval_end(rbe) &&
++					 nft_rbtree_interval_end(new))
++					p = &parent->rb_right;
 +				else
-+					/* connection template of OPS */
-+					goto try_drop;
++					return -EEXIST;
 +			}
- 			if (cp->protocol == IPPROTO_TCP) {
- 				switch(cp->state) {
- 				case IP_VS_TCP_S_SYN_RECV:
-@@ -1307,6 +1322,7 @@ void ip_vs_random_dropentry(struct netns_ipvs *ipvs)
- 					continue;
- 				}
- 			} else {
-+try_drop:
- 				if (!todrop_entry(cp))
- 					continue;
- 			}
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index f3bac2e..1207f20 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -612,7 +612,10 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- 		ret = cp->packet_xmit(skb, cp, pd->pp, iph);
- 		/* do not touch skb anymore */
- 
--		atomic_inc(&cp->in_pkts);
-+		if ((cp->flags & IP_VS_CONN_F_ONE_PACKET) && cp->control)
-+			atomic_inc(&cp->control->in_pkts);
-+		else
-+			atomic_inc(&cp->in_pkts);
- 		ip_vs_conn_put(cp);
- 		return ret;
+ 		}
  	}
-@@ -1991,6 +1994,9 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
+ 	rb_link_node(&new->node, parent, p);
+@@ -148,7 +169,7 @@ static void *nft_rbtree_deactivate(const struct nft_set *set,
+ {
+ 	const struct nft_rbtree *priv = nft_set_priv(set);
+ 	const struct rb_node *parent = priv->root.rb_node;
+-	struct nft_rbtree_elem *rbe;
++	struct nft_rbtree_elem *rbe, *this = elem->priv;
+ 	u8 genmask = nft_genmask_cur(read_pnet(&set->pnet));
+ 	int d;
  
- 	if (ipvs->sync_state & IP_VS_STATE_MASTER)
- 		ip_vs_sync_conn(ipvs, cp, pkts);
-+	else if ((cp->flags & IP_VS_CONN_F_ONE_PACKET) && cp->control)
-+		/* increment is done inside ip_vs_sync_conn too */
-+		atomic_inc(&cp->control->in_pkts);
- 
- 	ip_vs_conn_put(cp);
- 	return ret;
+@@ -166,6 +187,15 @@ static void *nft_rbtree_deactivate(const struct nft_set *set,
+ 				parent = parent->rb_left;
+ 				continue;
+ 			}
++			if (nft_rbtree_interval_end(rbe) &&
++			    !nft_rbtree_interval_end(this)) {
++				parent = parent->rb_left;
++				continue;
++			} else if (!nft_rbtree_interval_end(rbe) &&
++				   nft_rbtree_interval_end(this)) {
++				parent = parent->rb_right;
++				continue;
++			}
+ 			nft_set_elem_change_active(set, &rbe->ext);
+ 			return rbe;
+ 		}
 -- 
 2.1.4
-
