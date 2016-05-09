@@ -1,47 +1,41 @@
-From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 12/22] net-next: mediatek: fix threshold value
-Date: Mon,  9 May 2016 12:04:04 +0200
-Message-ID: <1462788254-40572-13-git-send-email-john@phrozen.org>
-References: <1462788254-40572-1-git-send-email-john@phrozen.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1462788254-40572-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Subject: [RESEND PATCH v6 6/6] ARM: dts: stm32f429: Update Ethernet node on Eval board
+Date: Mon,  9 May 2016 12:31:39 +0200
+Message-ID: <1462789899-13153-7-git-send-email-alexandre.torgue@gmail.com>
+References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	robh@kernel.org, manabian@gmail.com, wens@csie.org
+To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36064 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752599AbcEIKcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 06:32:14 -0400
+In-Reply-To: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIGxvZ2ljIHRvIGNhbGN1bGF0ZSB0aGUgdGhyZXNob2xkIHZhbHVlIGZvciBzdG9wcGluZyB0
-aGUgVFggcXVldWUgaXMKYmFkLiBDdXJyZW50bHkgaXQgd2lsbCBhbHdheXMgdXNlIDEvMiBvZiB0
-aGUgcmluZ3Mgc2l6ZSwgd2hpY2ggaXMgd2F5IHRvbwptdWNoLiBTZXQgdGhlIHRocmVzaG9sZCB0
-byBNQVhfU0tCX0ZSQUdTLiBUaGlzIG1ha2VzIHN1cmUgdGhhdCB0aGUgcXVldWUKaXMgc3RvcHBl
-ZCB3aGVuIHRoZXJlIGlzIG5vdCBlbm91Z2ggcm9vbSB0byBhY2NlcHQgYW4gYWRkaXRpb25hbCBz
-ZWdtZW50LsKgCgpTaWduZWQtb2ZmLWJ5OiBKb2huIENyaXNwaW4gPGpvaG5AcGhyb3plbi5vcmc+
-Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0aF9zb2MuYyB8ICAgIDMg
-Ky0tCiAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDIgZGVsZXRpb25zKC0pCgpkaWZm
-IC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0aF9zb2MuYyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L21lZGlhdGVrL210a19ldGhfc29jLmMKaW5kZXggYjhkOGFkMi4u
-OTg0Nzg4YSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0
-aF9zb2MuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWRpYXRlay9tdGtfZXRoX3NvYy5j
-CkBAIC0xMDMwLDggKzEwMzAsNyBAQCBzdGF0aWMgaW50IG10a190eF9hbGxvYyhzdHJ1Y3QgbXRr
-X2V0aCAqZXRoKQogCWF0b21pY19zZXQoJnJpbmctPmZyZWVfY291bnQsIE1US19ETUFfU0laRSAt
-IDIpOwogCXJpbmctPm5leHRfZnJlZSA9ICZyaW5nLT5kbWFbMF07CiAJcmluZy0+bGFzdF9mcmVl
-ID0gJnJpbmctPmRtYVtNVEtfRE1BX1NJWkUgLSAyXTsKLQlyaW5nLT50aHJlc2ggPSBtYXgoKHVu
-c2lnbmVkIGxvbmcpTVRLX0RNQV9TSVpFID4+IDIsCi0JCQkgICAgICBNQVhfU0tCX0ZSQUdTKTsK
-KwlyaW5nLT50aHJlc2ggPSBNQVhfU0tCX0ZSQUdTOwogCiAJLyogbWFrZSBzdXJlIHRoYXQgYWxs
-IGNoYW5nZXMgdG8gdGhlIGRtYSByaW5nIGFyZSBmbHVzaGVkIGJlZm9yZSB3ZQogCSAqIGNvbnRp
-bnVlCi0tIAoxLjcuMTAuNAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCkxpbnV4LW1lZGlhdGVrIG1haWxpbmcgbGlzdApMaW51eC1tZWRpYXRla0BsaXN0
-cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGlu
-Zm8vbGludXgtbWVkaWF0ZWsK
+Update new pinctrl phandle name and use new node name.
+
+Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+
+diff --git a/arch/arm/boot/dts/stm32429i-eval.dts b/arch/arm/boot/dts/stm32429i-eval.dts
+index 6bfc595..9a72445 100644
+--- a/arch/arm/boot/dts/stm32429i-eval.dts
++++ b/arch/arm/boot/dts/stm32429i-eval.dts
+@@ -94,9 +94,9 @@
+ 	clock-frequency = <25000000>;
+ };
+ 
+-&ethernet0 {
++&mac {
+ 	status = "okay";
+-	pinctrl-0	= <&ethernet0_mii>;
++	pinctrl-0	= <&ethernet_mii>;
+ 	pinctrl-names	= "default";
+ 	phy-mode	= "mii-id";
+ 	mdio0 {
+-- 
+1.9.1
