@@ -1,51 +1,84 @@
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Subject: [PATCH net-next 1/2] net: sched: Move TCA_CLS_FLAGS_SKIP_HW to uapi header file.
-Date: Mon,  9 May 2016 12:18:43 -0700
-Message-ID: <1462821524-2534-1-git-send-email-sridhar.samudrala@intel.com>
-To: john.r.fastabend@intel.com, netdev@vger.kernel.org
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: NFSroot hangs with bad unlock balance in Linux next
+Date: Mon, 9 May 2016 12:40:54 -0700
+Message-ID: <20160509194054.GI5995@atomide.com>
+References: <20160505220344.GE5995@atomide.com>
+ <20160508141629.GF2694@ZenIV.linux.org.uk>
+ <20160509073235.GI2694@ZenIV.linux.org.uk>
+ <CANn89iK5H-SokYE1r+OO3sPmQ1vpGqYGbE4x1QLn44wdyvH0cw@mail.gmail.com>
+ <20160509151219.GF5995@atomide.com>
+ <20160509152138.GG5995@atomide.com>
+ <20160509153932.GJ2694@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>, linux-nfs@vger.kernel.org,
+	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Christoph Hellwig <hch@lst.de>, linux-omap@vger.kernel.org,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:16295 "EHLO mga04.intel.com"
+Received: from muru.com ([72.249.23.125]:53735 "EHLO muru.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750910AbcEITXw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 15:23:52 -0400
+	id S1751033AbcEITk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 15:40:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20160509153932.GJ2694@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This enables the flag to be shared with userspace(iproute2 etc).
+* Al Viro <viro@ZenIV.linux.org.uk> [160509 08:41]:
+> On Mon, May 09, 2016 at 08:21:38AM -0700, Tony Lindgren wrote:
+> 
+> > Looks like with both patches applied I still also get this eventually:
+> > 
+> > =====================================
+> > [ BUG: bad unlock balance detected! ]
+> > 4.6.0-rc7-next-20160509+ #1264 Not tainted
+> > -------------------------------------
+> 
+> Lockdep warnings are noise.  To make them STFU try the following incremental;
+> I'll fold it into #work.lookups and #for-next.  Note that it will do nothing
+> to hangs - those are completely unrelated and you need Eric's patch to deal
+> with them.
 
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
----
- include/net/pkt_cls.h        | 3 ---
- include/uapi/linux/pkt_cls.h | 3 +++
- 2 files changed, 3 insertions(+), 3 deletions(-)
+OK yeah that helps thanks:
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index caa5e18..339ef08 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -392,9 +392,6 @@ struct tc_cls_u32_offload {
- 	};
- };
- 
--/* tca flags definitions */
--#define TCA_CLS_FLAGS_SKIP_HW 1
--
- static inline bool tc_should_offload(struct net_device *dev, u32 flags)
- {
- 	if (!(dev->features & NETIF_F_HW_TC))
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 8466090..3e8b65f 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -151,6 +151,9 @@ enum {
- 
- #define TCA_POLICE_MAX (__TCA_POLICE_MAX - 1)
- 
-+/* tca flags definitions */
-+#define TCA_CLS_FLAGS_SKIP_HW	(1 << 0)
-+
- /* U32 filters */
- 
- #define TC_U32_HTID(h) ((h)&0xFFF00000)
--- 
-2.1.0
+Tested-by: Tony Lindgren <tony@atomide.com>
+
+> diff --git a/fs/nfs/unlink.c b/fs/nfs/unlink.c
+> index d367b06..1868246 100644
+> --- a/fs/nfs/unlink.c
+> +++ b/fs/nfs/unlink.c
+> @@ -64,7 +64,7 @@ static void nfs_async_unlink_release(void *calldata)
+>  	struct dentry *dentry = data->dentry;
+>  	struct super_block *sb = dentry->d_sb;
+>  
+> -	up_read(&NFS_I(d_inode(dentry->d_parent))->rmdir_sem);
+> +	up_read_non_owner(&NFS_I(d_inode(dentry->d_parent))->rmdir_sem);
+>  	d_lookup_done(dentry);
+>  	nfs_free_unlinkdata(data);
+>  	dput(dentry);
+> @@ -117,10 +117,10 @@ static int nfs_call_unlink(struct dentry *dentry, struct nfs_unlinkdata *data)
+>  	struct inode *dir = d_inode(dentry->d_parent);
+>  	struct dentry *alias;
+>  
+> -	down_read(&NFS_I(dir)->rmdir_sem);
+> +	down_read_non_owner(&NFS_I(dir)->rmdir_sem);
+>  	alias = d_alloc_parallel(dentry->d_parent, &data->args.name, &data->wq);
+>  	if (IS_ERR(alias)) {
+> -		up_read(&NFS_I(dir)->rmdir_sem);
+> +		up_read_non_owner(&NFS_I(dir)->rmdir_sem);
+>  		return 0;
+>  	}
+>  	if (!d_in_lookup(alias)) {
+> @@ -142,7 +142,7 @@ static int nfs_call_unlink(struct dentry *dentry, struct nfs_unlinkdata *data)
+>  			ret = 0;
+>  		spin_unlock(&alias->d_lock);
+>  		dput(alias);
+> -		up_read(&NFS_I(dir)->rmdir_sem);
+> +		up_read_non_owner(&NFS_I(dir)->rmdir_sem);
+>  		/*
+>  		 * If we'd displaced old cached devname, free it.  At that
+>  		 * point dentry is definitely not a root, so we won't need
