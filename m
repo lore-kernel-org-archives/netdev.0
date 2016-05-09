@@ -1,211 +1,278 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/36] Netfilter updates for net-next
-Date: Mon,  9 May 2016 20:46:18 +0200
-Message-ID: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH 33/36] netfilter: conntrack: use a single expectation table for all namespaces
+Date: Mon,  9 May 2016 20:46:51 +0200
+Message-ID: <1462819614-5402-34-git-send-email-pablo@netfilter.org>
+References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45669 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:45825 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751295AbcEISrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 14:47:06 -0400
+	id S1752808AbcEISrh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 14:47:37 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 5C6ECE8E83
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:02 +0200 (CEST)
+	by mail.us.es (Postfix) with ESMTP id 5E983E8E8A
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:35 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 455DE134705
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:02 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 49757134702
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:35 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 958E8134703
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:46:59 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 08A78134704
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:33 +0200 (CEST)
+In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Florian Westphal <fw@strlen.de>
 
-The following large patchset contains Netfilter updates for your
-net-next tree. My initial intention was to send you this in two goes but
-when I looked back twice I already had this burden on top of me.
+We already include netns address in the hash and compare the netns pointers
+during lookup, so even if namespaces have overlapping addresses entries
+will be spread across the expectation table.
 
-Several updates for IPVS from Marco Angaroni:
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/netfilter/nf_conntrack_expect.h        |  1 +
+ include/net/netns/conntrack.h                      |  1 -
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |  6 ++--
+ net/netfilter/nf_conntrack_expect.c                | 42 ++++++++++------------
+ net/netfilter/nf_conntrack_helper.c                |  2 +-
+ net/netfilter/nf_conntrack_netlink.c               |  6 ++--
+ 6 files changed, 25 insertions(+), 33 deletions(-)
 
-1) Allow SIP connections originating from real-servers to be load
-   balanced by the SIP persistence engine as is already implemented
-   in the other direction.
-
-2) Release connections immediately for One-packet-scheduling (OPS)
-   in IPVS, instead of making it via timer and rcu callback.
-
-3) Skip deleting conntracks for each one packet in OPS, and don't call
-   nf_conntrack_alter_reply() since no reply is expected.
-
-4) Enable drop on exhaustion for OPS + SIP persistence.
-
-Miscelaneous conntrack updates from Florian Westphal, including fix for
-hash resize:
-
-5) Move conntrack generation counter out of conntrack pernet structure
-   since this is only used by the init_ns to allow hash resizing.
-
-6) Use get_random_once() from packet path to collect hash random seed
-    instead of our compound.
-
-7) Don't disable BH from ____nf_conntrack_find() for statistics,
-   use NF_CT_STAT_INC_ATOMIC() instead.
-
-8) Fix lookup race during conntrack hash resizing.
-
-9) Introduce clash resolution on conntrack insertion for connectionless
-   protocol.
-
-Then, Florian's netns rework to get rid of per-netns conntrack table,
-thus we use one single table for them all. There was consensus on this
-change during the NFWS 2015 and, on top of that, it has recently been
-pointed as a source of multiple problems from unpriviledged netns:
-
-11) Use a single conntrack hashtable for all namespaces. Include netns
-    in object comparisons and make it part of the hash calculation.
-    Adapt early_drop() to consider netns.
-
-12) Use single expectation and NAT hashtable for all namespaces.
-
-13) Use a single slab cache for all namespaces for conntrack objects.
-
-14) Skip full table scanning from nf_ct_iterate_cleanup() if the pernet
-    conntrack counter tells us the table is empty (ie. equals zero).
-
-Fixes for nf_tables interval set element handling, support to set
-conntrack connlabels and allow set names up to 32 bytes.
-
-15) Parse element flags from element deletion path and pass it up to the
-    backend set implementation.
-
-16) Allow adjacent intervals in the rbtree set type for dynamic interval
-    updates.
-
-17) Add support to set connlabel from nf_tables, from Florian Westphal.
-
-18) Allow set names up to 32 bytes in nf_tables.
-
-Several x_tables fixes and updates:
-
-19) Fix incorrect use of IS_ERR_VALUE() in x_tables, original patch
-    from Andrzej Hajda.
-
-And finally, miscelaneous netfilter updates such as:
-
-20) Disable automatic helper assignment by default. Note this proc knob
-    was introduced by a9006892643a ("netfilter: nf_ct_helper: allow to
-    disable automatic helper assignment") 4 years ago to start moving
-    towards explicit conntrack helper configuration via iptables CT
-    target.
-
-21) Get rid of obsolete and inconsistent debugging instrumentation
-    in x_tables.
-
-22) Remove unnecessary check for null after ip6_route_output().
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 15cfd40771e18a4e9b788c64c9db2606f958b93d:
-
-  hv_netvsc: Fix the list processing for network change event (2016-04-24 23:27:58 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
-
-for you to fetch changes up to 0c5366b3a8c77fd6d67b763c5a76dfdc314e7726:
-
-  netfilter: conntrack: use single slab cache (2016-05-09 16:45:50 +0200)
-
-----------------------------------------------------------------
-Florian Westphal (19):
-      netfilter: conntrack: move generation seqcnt out of netns_ct
-      netfilter: conntrack: use get_random_once for nat and expectations
-      netfilter: conntrack: use get_random_once for conntrack hash seed
-      netfilter: nftables: add connlabel set support
-      netfilter: conntrack: keep BH enabled during lookup
-      netfilter: conntrack: fix lookup race during hash resize
-      netfilter: conntrack: don't attempt to iterate over empty table
-      netfilter: conntrack: use nf_ct_key_equal() in more places
-      netfilter: conntrack: small refactoring of conntrack seq_printf
-      netfilter: conntrack: check netns when comparing conntrack objects
-      netfilter: conntrack: make netns address part of hash
-      netfilter: conntrack: use a single hashtable for all namespaces
-      netfilter: conntrack: consider ct netns in early_drop logic
-      netfilter: conntrack: check netns when walking expect hash
-      netfilter: conntrack: make netns address part of expect hash
-      netfilter: conntrack: use a single expectation table for all namespaces
-      netfilter: conntrack: make netns address part of nat bysrc hash
-      netfilter: conntrack: use a single nat bysource table for all namespaces
-      netfilter: conntrack: use single slab cache
-
-Liping Zhang (1):
-      netfilter: ip6t_SYNPROXY: unnecessary to check whether ip6_route_output returns NULL
-
-Marco Angaroni (4):
-      ipvs: handle connections started by real-servers
-      ipvs: optimize release of connections in OPS mode
-      ipvs: don't alter conntrack in OPS mode
-      ipvs: make drop_entry protection effective for SIP-pe
-
-Pablo Neira Ayuso (14):
-      netfilter: nf_tables: introduce nft_setelem_parse_flags() helper
-      netfilter: nf_tables: parse element flags from nft_del_setelem()
-      netfilter: nft_rbtree: introduce nft_rbtree_interval_end() helper
-      netfilter: nft_rbtree: allow adjacent intervals with dynamic updates
-      netfilter: nf_ct_helper: disable automatic helper assignment
-      Merge tag 'ipvs-for-v4.7' of https://git.kernel.org/.../horms/ipvs-next
-      netfilter: fix IS_ERR_VALUE usage
-      netfilter: conntrack: __nf_ct_l4proto_find() always returns valid pointer
-      netfilter: conntrack: introduce nf_ct_acct_update()
-      netfilter: conntrack: introduce clash resolution on insertion race
-      openvswitch: __nf_ct_l{3,4}proto_find() always return a valid pointer
-      netfilter: x_tables: get rid of old and inconsistent debugging
-      netfilter: nf_tables: allow set names up to 32 bytes
-      Merge tag 'ipvs2-for-v4.7' of https://git.kernel.org/.../horms/ipvs-next
-
- include/linux/netfilter/x_tables.h                 |   6 +-
- include/net/ip_vs.h                                |  17 +
- include/net/netfilter/nf_conntrack.h               |   2 -
- include/net/netfilter/nf_conntrack_core.h          |   1 +
- include/net/netfilter/nf_conntrack_expect.h        |   1 +
- include/net/netfilter/nf_conntrack_l4proto.h       |   3 +
- include/net/netfilter/nf_tables.h                  |   2 +-
- include/net/netns/conntrack.h                      |  10 -
- include/uapi/linux/netfilter/nf_tables.h           |   1 +
- net/ipv4/netfilter/arp_tables.c                    | 223 ++---------
- net/ipv4/netfilter/ip_tables.c                     | 250 +++----------
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |   2 +-
- .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |  47 ++-
- net/ipv6/netfilter/ip6_tables.c                    | 235 +++---------
- net/ipv6/netfilter/ip6t_SYNPROXY.c                 |   2 +-
- net/netfilter/ipvs/ip_vs_conn.c                    |  51 ++-
- net/netfilter/ipvs/ip_vs_core.c                    | 162 +++++++-
- net/netfilter/ipvs/ip_vs_ctl.c                     |  46 ++-
- net/netfilter/ipvs/ip_vs_nfct.c                    |   4 +
- net/netfilter/ipvs/ip_vs_pe_sip.c                  |  15 +
- net/netfilter/nf_conntrack_core.c                  | 415 +++++++++++----------
- net/netfilter/nf_conntrack_expect.c                |  83 +++--
- net/netfilter/nf_conntrack_helper.c                |  12 +-
- net/netfilter/nf_conntrack_netlink.c               |  29 +-
- net/netfilter/nf_conntrack_proto_udp.c             |   2 +
- net/netfilter/nf_conntrack_proto_udplite.c         |   2 +
- net/netfilter/nf_conntrack_standalone.c            |  13 +-
- net/netfilter/nf_nat_core.c                        |  39 +-
- net/netfilter/nf_tables_api.c                      |  78 +++-
- net/netfilter/nfnetlink_cttimeout.c                |   6 +-
- net/netfilter/nft_ct.c                             |  30 ++
- net/netfilter/nft_rbtree.c                         |  49 ++-
- net/openvswitch/conntrack.c                        |   8 -
- 33 files changed, 916 insertions(+), 930 deletions(-)
+diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
+index dce56f0..5ed33ea 100644
+--- a/include/net/netfilter/nf_conntrack_expect.h
++++ b/include/net/netfilter/nf_conntrack_expect.h
+@@ -10,6 +10,7 @@
+ 
+ extern unsigned int nf_ct_expect_hsize;
+ extern unsigned int nf_ct_expect_max;
++extern struct hlist_head *nf_ct_expect_hash;
+ 
+ struct nf_conntrack_expect {
+ 	/* Conntrack expectation list member */
+diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+index 251c435..2811ddc 100644
+--- a/include/net/netns/conntrack.h
++++ b/include/net/netns/conntrack.h
+@@ -94,7 +94,6 @@ struct netns_ct {
+ 	int			sysctl_checksum;
+ 
+ 	struct kmem_cache	*nf_conntrack_cachep;
+-	struct hlist_head	*expect_hash;
+ 	struct ct_pcpu __percpu *pcpu_lists;
+ 	struct ip_conntrack_stat __percpu *stat;
+ 	struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index 2b4c729..c6f3c40 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -236,13 +236,12 @@ struct ct_expect_iter_state {
+ 
+ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+ {
+-	struct net *net = seq_file_net(seq);
+ 	struct ct_expect_iter_state *st = seq->private;
+ 	struct hlist_node *n;
+ 
+ 	for (st->bucket = 0; st->bucket < nf_ct_expect_hsize; st->bucket++) {
+ 		n = rcu_dereference(
+-			hlist_first_rcu(&net->ct.expect_hash[st->bucket]));
++			hlist_first_rcu(&nf_ct_expect_hash[st->bucket]));
+ 		if (n)
+ 			return n;
+ 	}
+@@ -252,7 +251,6 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+ static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
+ 					     struct hlist_node *head)
+ {
+-	struct net *net = seq_file_net(seq);
+ 	struct ct_expect_iter_state *st = seq->private;
+ 
+ 	head = rcu_dereference(hlist_next_rcu(head));
+@@ -260,7 +258,7 @@ static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
+ 		if (++st->bucket >= nf_ct_expect_hsize)
+ 			return NULL;
+ 		head = rcu_dereference(
+-			hlist_first_rcu(&net->ct.expect_hash[st->bucket]));
++			hlist_first_rcu(&nf_ct_expect_hash[st->bucket]));
+ 	}
+ 	return head;
+ }
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 130f1be..9e36931 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -36,6 +36,9 @@
+ unsigned int nf_ct_expect_hsize __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_ct_expect_hsize);
+ 
++struct hlist_head *nf_ct_expect_hash __read_mostly;
++EXPORT_SYMBOL_GPL(nf_ct_expect_hash);
++
+ unsigned int nf_ct_expect_max __read_mostly;
+ 
+ static struct kmem_cache *nf_ct_expect_cachep __read_mostly;
+@@ -112,7 +115,7 @@ __nf_ct_expect_find(struct net *net,
+ 		return NULL;
+ 
+ 	h = nf_ct_expect_dst_hash(net, tuple);
+-	hlist_for_each_entry_rcu(i, &net->ct.expect_hash[h], hnode) {
++	hlist_for_each_entry_rcu(i, &nf_ct_expect_hash[h], hnode) {
+ 		if (nf_ct_exp_equal(tuple, i, zone, net))
+ 			return i;
+ 	}
+@@ -152,7 +155,7 @@ nf_ct_find_expectation(struct net *net,
+ 		return NULL;
+ 
+ 	h = nf_ct_expect_dst_hash(net, tuple);
+-	hlist_for_each_entry(i, &net->ct.expect_hash[h], hnode) {
++	hlist_for_each_entry(i, &nf_ct_expect_hash[h], hnode) {
+ 		if (!(i->flags & NF_CT_EXPECT_INACTIVE) &&
+ 		    nf_ct_exp_equal(tuple, i, zone, net)) {
+ 			exp = i;
+@@ -363,7 +366,7 @@ static int nf_ct_expect_insert(struct nf_conntrack_expect *exp)
+ 	hlist_add_head(&exp->lnode, &master_help->expectations);
+ 	master_help->expecting[exp->class]++;
+ 
+-	hlist_add_head_rcu(&exp->hnode, &net->ct.expect_hash[h]);
++	hlist_add_head_rcu(&exp->hnode, &nf_ct_expect_hash[h]);
+ 	net->ct.expect_count++;
+ 
+ 	setup_timer(&exp->timeout, nf_ct_expectation_timed_out,
+@@ -415,7 +418,7 @@ static inline int __nf_ct_expect_check(struct nf_conntrack_expect *expect)
+ 		goto out;
+ 	}
+ 	h = nf_ct_expect_dst_hash(net, &expect->tuple);
+-	hlist_for_each_entry_safe(i, next, &net->ct.expect_hash[h], hnode) {
++	hlist_for_each_entry_safe(i, next, &nf_ct_expect_hash[h], hnode) {
+ 		if (expect_matches(i, expect)) {
+ 			if (del_timer(&i->timeout)) {
+ 				nf_ct_unlink_expect(i);
+@@ -481,12 +484,11 @@ struct ct_expect_iter_state {
+ 
+ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+ {
+-	struct net *net = seq_file_net(seq);
+ 	struct ct_expect_iter_state *st = seq->private;
+ 	struct hlist_node *n;
+ 
+ 	for (st->bucket = 0; st->bucket < nf_ct_expect_hsize; st->bucket++) {
+-		n = rcu_dereference(hlist_first_rcu(&net->ct.expect_hash[st->bucket]));
++		n = rcu_dereference(hlist_first_rcu(&nf_ct_expect_hash[st->bucket]));
+ 		if (n)
+ 			return n;
+ 	}
+@@ -496,14 +498,13 @@ static struct hlist_node *ct_expect_get_first(struct seq_file *seq)
+ static struct hlist_node *ct_expect_get_next(struct seq_file *seq,
+ 					     struct hlist_node *head)
+ {
+-	struct net *net = seq_file_net(seq);
+ 	struct ct_expect_iter_state *st = seq->private;
+ 
+ 	head = rcu_dereference(hlist_next_rcu(head));
+ 	while (head == NULL) {
+ 		if (++st->bucket >= nf_ct_expect_hsize)
+ 			return NULL;
+-		head = rcu_dereference(hlist_first_rcu(&net->ct.expect_hash[st->bucket]));
++		head = rcu_dereference(hlist_first_rcu(&nf_ct_expect_hash[st->bucket]));
+ 	}
+ 	return head;
+ }
+@@ -636,28 +637,13 @@ module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0400);
+ 
+ int nf_conntrack_expect_pernet_init(struct net *net)
+ {
+-	int err = -ENOMEM;
+-
+ 	net->ct.expect_count = 0;
+-	net->ct.expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize, 0);
+-	if (net->ct.expect_hash == NULL)
+-		goto err1;
+-
+-	err = exp_proc_init(net);
+-	if (err < 0)
+-		goto err2;
+-
+-	return 0;
+-err2:
+-	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
+-err1:
+-	return err;
++	return exp_proc_init(net);
+ }
+ 
+ void nf_conntrack_expect_pernet_fini(struct net *net)
+ {
+ 	exp_proc_remove(net);
+-	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
+ }
+ 
+ int nf_conntrack_expect_init(void)
+@@ -673,6 +659,13 @@ int nf_conntrack_expect_init(void)
+ 				0, 0, NULL);
+ 	if (!nf_ct_expect_cachep)
+ 		return -ENOMEM;
++
++	nf_ct_expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize, 0);
++	if (!nf_ct_expect_hash) {
++		kmem_cache_destroy(nf_ct_expect_cachep);
++		return -ENOMEM;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -680,4 +673,5 @@ void nf_conntrack_expect_fini(void)
+ {
+ 	rcu_barrier(); /* Wait for call_rcu() before destroy */
+ 	kmem_cache_destroy(nf_ct_expect_cachep);
++	nf_ct_free_hashtable(nf_ct_expect_hash, nf_ct_expect_hsize);
+ }
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index cb48e6a..f703adb 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -400,7 +400,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
+ 	spin_lock_bh(&nf_conntrack_expect_lock);
+ 	for (i = 0; i < nf_ct_expect_hsize; i++) {
+ 		hlist_for_each_entry_safe(exp, next,
+-					  &net->ct.expect_hash[i], hnode) {
++					  &nf_ct_expect_hash[i], hnode) {
+ 			struct nf_conn_help *help = nfct_help(exp->master);
+ 			if ((rcu_dereference_protected(
+ 					help->helper,
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 5dfb84d..a18d1ce 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2632,7 +2632,7 @@ ctnetlink_exp_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
+ 	last = (struct nf_conntrack_expect *)cb->args[1];
+ 	for (; cb->args[0] < nf_ct_expect_hsize; cb->args[0]++) {
+ restart:
+-		hlist_for_each_entry(exp, &net->ct.expect_hash[cb->args[0]],
++		hlist_for_each_entry(exp, &nf_ct_expect_hash[cb->args[0]],
+ 				     hnode) {
+ 			if (l3proto && exp->tuple.src.l3num != l3proto)
+ 				continue;
+@@ -2890,7 +2890,7 @@ static int ctnetlink_del_expect(struct net *net, struct sock *ctnl,
+ 		spin_lock_bh(&nf_conntrack_expect_lock);
+ 		for (i = 0; i < nf_ct_expect_hsize; i++) {
+ 			hlist_for_each_entry_safe(exp, next,
+-						  &net->ct.expect_hash[i],
++						  &nf_ct_expect_hash[i],
+ 						  hnode) {
+ 
+ 				if (!net_eq(nf_ct_exp_net(exp), net))
+@@ -2912,7 +2912,7 @@ static int ctnetlink_del_expect(struct net *net, struct sock *ctnl,
+ 		spin_lock_bh(&nf_conntrack_expect_lock);
+ 		for (i = 0; i < nf_ct_expect_hsize; i++) {
+ 			hlist_for_each_entry_safe(exp, next,
+-						  &net->ct.expect_hash[i],
++						  &nf_ct_expect_hash[i],
+ 						  hnode) {
+ 
+ 				if (!net_eq(nf_ct_exp_net(exp), net))
+-- 
+2.1.4
