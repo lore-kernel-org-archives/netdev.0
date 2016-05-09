@@ -1,109 +1,69 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 07/22] net-next: mediatek: fix missing free of scratch memory
-Date: Mon,  9 May 2016 12:03:59 +0200
-Message-ID: <1462788254-40572-8-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 02/22] net-next: mediatek: fix gigabit and flow control advertisement
+Date: Mon,  9 May 2016 12:03:54 +0200
+Message-ID: <1462788254-40572-3-git-send-email-john@phrozen.org>
 References: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Cc: nbd@nbd.name, netdev@vger.kernel.org,
 	linux-mediatek@lists.infradead.org, John Crispin <john@phrozen.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:47268 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:47298 "EHLO nbd.name"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751655AbcEIKEa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751631AbcEIKEa (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 May 2016 06:04:30 -0400
 In-Reply-To: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scratch memory gets allocated in mtk_init_fq_dma() but the corresponding
-code to free it is missing inside mtk_dma_free() causing a memory leak.
-With this patch applied, we can run ifconfig/up/down several thousand
-times without any problems.
+The current code will not setup the PHYs advertisement features correctly.
+Fix this and properly advertise Gigabit features and properly handle
+asymmetric pause frames.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   18 +++++++++++++-----
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |    2 ++
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index d16ec59..49a3b7c 100644
+index 28f169f..a76aec20 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -471,14 +471,14 @@ static inline void mtk_rx_get_desc(struct mtk_rx_dma *rxd,
- /* the qdma core needs scratch memory to be setup */
- static int mtk_init_fq_dma(struct mtk_eth *eth)
+@@ -133,6 +133,8 @@ static int mtk_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg)
+ static void mtk_phy_link_adjust(struct net_device *dev)
  {
--	dma_addr_t phy_ring_head, phy_ring_tail;
-+	dma_addr_t phy_ring_tail;
- 	int cnt = MTK_DMA_SIZE;
- 	dma_addr_t dma_addr;
- 	int i;
+ 	struct mtk_mac *mac = netdev_priv(dev);
++	u16 lcl_adv, rmt_adv = 0;
++	u8 flowctrl;
+ 	u32 mcr = MAC_MCR_MAX_RX_1536 | MAC_MCR_IPG_CFG |
+ 		  MAC_MCR_FORCE_MODE | MAC_MCR_TX_EN |
+ 		  MAC_MCR_RX_EN | MAC_MCR_BACKOFF_EN |
+@@ -154,7 +156,16 @@ static void mtk_phy_link_adjust(struct net_device *dev)
+ 		mcr |= MAC_MCR_FORCE_DPX;
  
- 	eth->scratch_ring = dma_alloc_coherent(eth->dev,
- 					       cnt * sizeof(struct mtk_tx_dma),
--					       &phy_ring_head,
-+					       &eth->phy_scratch_ring,
- 					       GFP_ATOMIC | __GFP_ZERO);
- 	if (unlikely(!eth->scratch_ring))
- 		return -ENOMEM;
-@@ -495,19 +495,19 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
- 		return -ENOMEM;
+ 	if (mac->phy_dev->pause)
+-		mcr |= MAC_MCR_FORCE_RX_FC | MAC_MCR_FORCE_TX_FC;
++		rmt_adv = LPA_PAUSE_CAP;
++	if (mac->phy_dev->asym_pause)
++		rmt_adv |= LPA_PAUSE_ASYM;
++
++	lcl_adv = mii_advertise_flowctrl(FLOW_CTRL_RX | FLOW_CTRL_TX);
++	flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
++	if (flowctrl & FLOW_CTRL_TX)
++		mcr |= MAC_MCR_FORCE_TX_FC;
++	if (flowctrl & FLOW_CTRL_RX)
++		mcr |= MAC_MCR_FORCE_RX_FC;
  
- 	memset(eth->scratch_ring, 0x0, sizeof(struct mtk_tx_dma) * cnt);
--	phy_ring_tail = phy_ring_head +
-+	phy_ring_tail = eth->phy_scratch_ring +
- 			(sizeof(struct mtk_tx_dma) * (cnt - 1));
+ 	mtk_w32(mac->hw, mcr, MTK_MAC_MCR(mac->id));
  
- 	for (i = 0; i < cnt; i++) {
- 		eth->scratch_ring[i].txd1 =
- 					(dma_addr + (i * MTK_QDMA_PAGE_SIZE));
- 		if (i < cnt - 1)
--			eth->scratch_ring[i].txd2 = (phy_ring_head +
-+			eth->scratch_ring[i].txd2 = (eth->phy_scratch_ring +
- 				((i + 1) * sizeof(struct mtk_tx_dma)));
- 		eth->scratch_ring[i].txd3 = TX_DMA_SDL(MTK_QDMA_PAGE_SIZE);
- 	}
- 
--	mtk_w32(eth, phy_ring_head, MTK_QDMA_FQ_HEAD);
-+	mtk_w32(eth, eth->phy_scratch_ring, MTK_QDMA_FQ_HEAD);
- 	mtk_w32(eth, phy_ring_tail, MTK_QDMA_FQ_TAIL);
- 	mtk_w32(eth, (cnt << 16) | cnt, MTK_QDMA_FQ_CNT);
- 	mtk_w32(eth, MTK_QDMA_PAGE_SIZE << 16, MTK_QDMA_FQ_BLEN);
-@@ -1207,6 +1207,14 @@ static void mtk_dma_free(struct mtk_eth *eth)
- 	for (i = 0; i < MTK_MAC_COUNT; i++)
- 		if (eth->netdev[i])
- 			netdev_reset_queue(eth->netdev[i]);
-+	if (eth->scratch_ring) {
-+		dma_free_coherent(eth->dev,
-+				  MTK_DMA_SIZE * sizeof(struct mtk_tx_dma),
-+				  eth->scratch_ring,
-+				  eth->phy_scratch_ring);
-+		eth->scratch_ring = NULL;
-+		eth->phy_scratch_ring = 0;
-+	}
- 	mtk_tx_clean(eth);
- 	mtk_rx_clean(eth);
- 	kfree(eth->scratch_head);
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index eed626d..57f7e8a 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -357,6 +357,7 @@ struct mtk_rx_ring {
-  * @rx_ring:		Pointer to the memore holding info about the RX ring
-  * @rx_napi:		The NAPI struct
-  * @scratch_ring:	Newer SoCs need memory for a second HW managed TX ring
-+ * @phy_scratch_ring:	physical address of scratch_ring
-  * @scratch_head:	The scratch memory that scratch_ring points to.
-  * @clk_ethif:		The ethif clock
-  * @clk_esw:		The switch clock
-@@ -384,6 +385,7 @@ struct mtk_eth {
- 	struct mtk_rx_ring		rx_ring;
- 	struct napi_struct		rx_napi;
- 	struct mtk_tx_dma		*scratch_ring;
-+	dma_addr_t			phy_scratch_ring;
- 	void				*scratch_head;
- 	struct clk			*clk_ethif;
- 	struct clk			*clk_esw;
+@@ -236,7 +247,8 @@ static int mtk_phy_connect(struct mtk_mac *mac)
+ 	mac->phy_dev->autoneg = AUTONEG_ENABLE;
+ 	mac->phy_dev->speed = 0;
+ 	mac->phy_dev->duplex = 0;
+-	mac->phy_dev->supported &= PHY_BASIC_FEATURES;
++	mac->phy_dev->supported &= PHY_GBIT_FEATURES | SUPPORTED_Pause |
++				   ~SUPPORTED_Asym_Pause;
+ 	mac->phy_dev->advertising = mac->phy_dev->supported |
+ 				    ADVERTISED_Autoneg;
+ 	phy_start_aneg(mac->phy_dev);
 -- 
 1.7.10.4
