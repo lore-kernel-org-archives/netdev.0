@@ -1,57 +1,57 @@
 From: Alexandre TORGUE <alexandre.torgue@gmail.com>
-Subject: [RESEND PATCH v6 5/6] ARM: dts: stm32f429: Align Ethernet node with new bindings properties
-Date: Mon,  9 May 2016 12:31:38 +0200
-Message-ID: <1462789899-13153-6-git-send-email-alexandre.torgue@gmail.com>
+Subject: [RESEND PATCH v6 4/6] ARM: STM32: Enable Ethernet in stm32_defconfig
+Date: Mon,  9 May 2016 12:31:37 +0200
+Message-ID: <1462789899-13153-5-git-send-email-alexandre.torgue@gmail.com>
 References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	robh@kernel.org, manabian@gmail.com, wens@csie.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: manabian@gmail.com, wens@csie.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
 To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34197 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbcEIKcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 06:32:12 -0400
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org,
+ devicetree@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This patch aligns clocks names and node reference according to new
-stm32-dwmac glue binding. It also renames Ethernet pinctrl phandle
-(indeed there is no need to add 0 as Ethernet instance as there is only
-one IP in SOC).
+Enable basic Ethernet support (IPV4) for stm32 defconfig.
 
 Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
 
-diff --git a/arch/arm/boot/dts/stm32f429.dtsi b/arch/arm/boot/dts/stm32f429.dtsi
-index 35df462..5995998 100644
---- a/arch/arm/boot/dts/stm32f429.dtsi
-+++ b/arch/arm/boot/dts/stm32f429.dtsi
-@@ -304,7 +304,7 @@
- 				};
- 			};
- 
--			ethernet0_mii: mii@0 {
-+			ethernet_mii: mii@0 {
- 				pins {
- 					pinmux = <STM32F429_PG13_FUNC_ETH_MII_TXD0_ETH_RMII_TXD0>,
- 						 <STM32F429_PG14_FUNC_ETH_MII_TXD1_ETH_RMII_TXD1>,
-@@ -363,13 +363,13 @@
- 			st,mem2mem;
- 		};
- 
--		ethernet0: dwmac@40028000 {
-+		mac: ethernet@40028000 {
- 			compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
- 			reg = <0x40028000 0x8000>;
- 			reg-names = "stmmaceth";
- 			interrupts = <61>, <62>;
- 			interrupt-names = "macirq", "eth_wake_irq";
--			clock-names = "stmmaceth", "tx-clk", "rx-clk";
-+			clock-names = "stmmaceth", "mac-clk-tx", "mac-clk-rx";
- 			clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
- 			st,syscon = <&syscfg 0x4>;
- 			snps,pbl = <8>;
+diff --git a/arch/arm/configs/stm32_defconfig b/arch/arm/configs/stm32_defconfig
+index 1e5ec2a..719218b 100644
+--- a/arch/arm/configs/stm32_defconfig
++++ b/arch/arm/configs/stm32_defconfig
+@@ -33,11 +33,20 @@ CONFIG_XIP_PHYS_ADDR=0x08008000
+ CONFIG_BINFMT_FLAT=y
+ CONFIG_BINFMT_SHARED_FLAT=y
+ # CONFIG_COREDUMP is not set
++CONFIG_NET=y
++CONFIG_INET=y
++# CONFIG_INET_XFRM_MODE_TRANSPORT is not set
++# CONFIG_INET_XFRM_MODE_TUNNEL is not set
++# CONFIG_INET_XFRM_MODE_BEET is not set
++# CONFIG_IPV6 is not set
+ CONFIG_DEVTMPFS=y
+ CONFIG_DEVTMPFS_MOUNT=y
+ # CONFIG_FW_LOADER is not set
+ # CONFIG_BLK_DEV is not set
+ CONFIG_EEPROM_93CX6=y
++CONFIG_NETDEVICES=y
++CONFIG_STMMAC_ETH=y
++# CONFIG_WLAN is not set
+ # CONFIG_INPUT is not set
+ # CONFIG_SERIO is not set
+ # CONFIG_VT is not set
 -- 
 1.9.1
