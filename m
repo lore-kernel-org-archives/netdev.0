@@ -1,108 +1,133 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 05/22] net-next: mediatek: fix DQL support
-Date: Mon,  9 May 2016 12:03:57 +0200
-Message-ID: <1462788254-40572-6-git-send-email-john@phrozen.org>
-References: <1462788254-40572-1-git-send-email-john@phrozen.org>
-Cc: nbd@nbd.name, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, John Crispin <john@phrozen.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:47309 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751782AbcEIKEb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 06:04:31 -0400
-In-Reply-To: <1462788254-40572-1-git-send-email-john@phrozen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2016-05-09
+Date: Mon, 9 May 2016 12:17:03 +0200
+Message-ID: <5730639F.2030104@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="01IK2NHu8lTafGMBamH7KRchb1v6ksUWe"
+Cc: David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The MTK ethernet core has 2 MACs both sitting on the same DMA ring. The
-current code will assign the TX traffic of each MAC to its own DQL. This
-results in the amount of data, that DQL says is in the queue incorrect. As
-the data from multiple devices is infact enqueued. This makes any decision
-based on these value non deterministic. Fix this by tracking all TX
-traffic, regardless of the MAC it belongs to in the DQL of all devices
-using the DMA.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--01IK2NHu8lTafGMBamH7KRchb1v6ksUWe
+Content-Type: multipart/mixed; boundary="pXitTt0Wqltxw3OWRWoRvd7cV7TIsKStO"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+ "kernel@pengutronix.de" <kernel@pengutronix.de>,
+ "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Message-ID: <5730639F.2030104@pengutronix.de>
+Subject: pull-request: can-next 2016-05-09
 
-Signed-off-by: John Crispin <john@phrozen.org>
+--pXitTt0Wqltxw3OWRWoRvd7cV7TIsKStO
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello David,
+
+this is a pull request of 12 patches for net-next/master.
+
+Alexander Gerasiov and Nikita Edward Baruzdin each contribute a patch
+improving the sja1000 driver. Amitoj Kaur Chawla's patch converts the
+mcp251x driver to alloc_workqueue(). A patch by Oliver Hartkopp fixes
+the handling of CAN config options. Andreas Gr=C3=B6ger improves the erro=
+r
+handling in the janz-ican3 driver. The patch by Maximilian Schneider
+for the gs_usb improves probing of the USB driver. Finally there are 6
+improvement patches by Marek Vasut for the ifi CAN driver.
+
+regards,
+Marc
+
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   33 ++++++++++++++++-----------
- 1 file changed, 20 insertions(+), 13 deletions(-)
+The following changes since commit 908578e7d5f69087241434c872f8f4a8ab7004=
+5f:
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c5ddb4d..4a01ba7 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -643,7 +643,16 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
- 				(!nr_frags * TX_DMA_LS0)));
- 
--	netdev_sent_queue(dev, skb->len);
-+	/* we have a single DMA ring so BQL needs to be updated for all devices
-+	 * sitting on this ring
-+	 */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+
-+		netdev_sent_queue(eth->netdev[i], skb->len);
-+	}
-+
- 	skb_tx_timestamp(skb);
- 
- 	ring->next_free = mtk_qdma_phys_to_virt(ring, txd->txd2);
-@@ -871,21 +880,18 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 	struct mtk_tx_dma *desc;
- 	struct sk_buff *skb;
- 	struct mtk_tx_buf *tx_buf;
--	int total = 0, done[MTK_MAX_DEVS];
--	unsigned int bytes[MTK_MAX_DEVS];
-+	int total = 0, done = 0;
-+	unsigned int bytes = 0;
- 	u32 cpu, dma;
- 	static int condition;
- 	int i;
- 
--	memset(done, 0, sizeof(done));
--	memset(bytes, 0, sizeof(bytes));
--
- 	cpu = mtk_r32(eth, MTK_QTX_CRX_PTR);
- 	dma = mtk_r32(eth, MTK_QTX_DRX_PTR);
- 
- 	desc = mtk_qdma_phys_to_virt(ring, cpu);
- 
--	while ((cpu != dma) && budget) {
-+	while ((cpu != dma) && done < budget) {
- 		u32 next_cpu = desc->txd2;
- 		int mac;
- 
-@@ -905,9 +911,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 		}
- 
- 		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
--			bytes[mac] += skb->len;
--			done[mac]++;
--			budget--;
-+			bytes += skb->len;
-+			done++;
- 		}
- 		mtk_tx_unmap(eth->dev, tx_buf);
- 
-@@ -920,11 +925,13 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 
- 	mtk_w32(eth, cpu, MTK_QTX_CRX_PTR);
- 
-+	/* we have a single DMA ring so BQL needs to be updated for all devices
-+	 * sitting on this ring
-+	 */
- 	for (i = 0; i < MTK_MAC_COUNT; i++) {
--		if (!eth->netdev[i] || !done[i])
-+		if (!eth->netdev[i])
- 			continue;
--		netdev_completed_queue(eth->netdev[i], done[i], bytes[i]);
--		total += done[i];
-+		netdev_completed_queue(eth->netdev[i], done, bytes);
- 	}
- 
- 	/* read hw index again make sure no new tx packet */
--- 
-1.7.10.4
+  Merge branch 'sh_eth-sw-reset' (2016-05-09 00:15:31 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.7-20160509
+
+for you to fetch changes up to 5bbd655a8bd000579d135ddf30660f759db89996:
+
+  can: ifi: Add more detailed error reporting (2016-05-09 11:07:28 +0200)=
+
+
+----------------------------------------------------------------
+linux-can-next-for-4.7-20160509
+
+----------------------------------------------------------------
+Alexander Gerasiov (1):
+      can: sja1000: Fix error location forwarding
+
+Amitoj Kaur Chawla (1):
+      can: mcp251x: Replace create_freezable_workqueue with alloc_workque=
+ue
+
+Andreas Gr=C3=B6ger (1):
+      can: janz-ican3: error handling for CAL/CANopen firmware
+
+Marek Vasut (6):
+      can: ifi: Start NAPI poll on bus warning too
+      can: ifi: Update timing configuration code
+      can: ifi: Unify timing constants
+      can: ifi: Treat CAN_CTRLMODE_FD_NON_ISO correctly
+      can: ifi: Increment TX counters only on real transmission
+      can: ifi: Add more detailed error reporting
+
+Maximilian Schneider (1):
+      can: gs_usb: modify the usb device table to use only the first usb =
+interface
+
+Nikita Edward Baruzdin (1):
+      can: sja1000: plx_pci: Add support for Marathon CAN-bus-PCIe card
+
+Oliver Hartkopp (1):
+      can: fix handling of unmodifiable configuration options
+
+ drivers/net/can/dev.c                 |  56 +++++++++-
+ drivers/net/can/ifi_canfd/ifi_canfd.c | 187 ++++++++++++++++++++++++----=
+------
+ drivers/net/can/janz-ican3.c          | 104 +++++++++++++++++--
+ drivers/net/can/m_can/m_can.c         |   2 +-
+ drivers/net/can/sja1000/plx_pci.c     |  64 ++++++++++--
+ drivers/net/can/sja1000/sja1000.c     |   6 +-
+ drivers/net/can/spi/mcp251x.c         |   3 +-
+ drivers/net/can/usb/gs_usb.c          |   3 +-
+ include/linux/can/dev.h               |  22 +++-
+ 9 files changed, 367 insertions(+), 80 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--pXitTt0Wqltxw3OWRWoRvd7cV7TIsKStO--
+
+--01IK2NHu8lTafGMBamH7KRchb1v6ksUWe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJXMGOfAAoJED07qiWsqSVqr7QIAKRe4AYZHMi+31SBmRXeQiN6
+40fr+tX5dBJP8YbxUKrVgmXkWT42DStEy8nbMXsFtxJPyC3OD/u9KB430ha3FFrj
+ietiCfI/1wpJeLweLeGeWpJOjeXIJMjfCL9WnkcsGXYLBlCi4nuusyY4HCcIx/SF
+AZZbjNj5E/tIlL3bBxI6ZubIXbG73+g8FfwMnxaklZZkJaR9TqrWeN3NDI7jx5Jp
+thLFihviTRmlAjt6+wBmyTQXPGAiKtgx392stKq0oiE+DbqT2Toygfo2QNDMFDhL
+U1/ebZXGxSigWNoygD6mTCLdrdDBnqhYnzEy47QfT8m2bDo3OWJ5PU4TC6qifFI=
+=JjZN
+-----END PGP SIGNATURE-----
+
+--01IK2NHu8lTafGMBamH7KRchb1v6ksUWe--
