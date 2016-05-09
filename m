@@ -1,33 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macsec: key identifier is 128 bits, not 64
-Date: Mon, 09 May 2016 00:09:24 -0400 (EDT)
-Message-ID: <20160509.000924.1876830470382020347.davem@davemloft.net>
-References: <a4f37c780ee1a5c368662bb389274995b2b51dbc.1462644509.git.sd@queasysnail.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2016-05-07
+Date: Mon, 09 May 2016 00:10:52 -0400 (EDT)
+Message-ID: <20160509.001052.31018663339991882.davem@davemloft.net>
+References: <20160507185623.GA18557@t440s.P-661HNU-F1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54013 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950AbcEIEJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 00:09:31 -0400
-In-Reply-To: <a4f37c780ee1a5c368662bb389274995b2b51dbc.1462644509.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160507185623.GA18557-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Sat,  7 May 2016 20:19:29 +0200
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 7 May 2016 21:56:23 +0300
 
-> The MACsec standard mentions a key identifier for each key, but
-> doesn't specify anything about it, so I arbitrarily chose 64 bits.
+> Here are a few more Bluetooth patches for the 4.7 kernel:
 > 
-> IEEE 802.1X-2010 specifies MKA (MACsec Key Agreement), and defines the
-> key identifier to be 128 bits (96 bits "member identifier" + 32 bits
-> "key number").
+>  - NULL pointer fix in hci_intel driver
+>  - New Intel Bluetooth controller id in btusb driver
+>  - Added device tree binding documentation for Marvel's bt-sd8xxx
+>  - Platform specific wakeup interrupt support for btmrvl driver
 > 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied.
+Pulled, thanks.
