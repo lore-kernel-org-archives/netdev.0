@@ -1,56 +1,102 @@
-From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v3] block/drbd: align properly u64
-	in nl messages
-Date: Mon, 9 May 2016 15:15:48 +0200
-Message-ID: <20160509131547.GX16459@soda.linbit>
-References: <20160503100644.GE16459@soda.linbit>
-	<1462786820-15519-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 00/14] qed*: Add SR-IOV support
+Date: Mon, 9 May 2016 16:19:09 +0300
+Message-ID: <1462799963-23547-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1462786820-15519-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.linbit.com/mailman/options/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linbit.com/pipermail/drbd-dev>
-List-Post: <mailto:drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-List-Help: <mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.linbit.com/mailman/listinfo/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=subscribe>
-Sender: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-Errors-To: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:28374 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751631AbcEINTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 09:19:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 09, 2016 at 11:40:20AM +0200, Nicolas Dichtel wrote:
-> The attribute 0 is never used in drbd, so let's use it as pad attribute
-> in netlink messages. This minimizes the patch.
-> 
-> Note that this patch is only compile-tested.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-> ---
-> 
-> v2 -> v3:
->   use 0 as padattr instead of adding new attributes
+This patch adds SR-IOV support to qed/qede drivers, adding a new PCI
+device ID for a VF that is shared between all the various PFs that
+support IOV.
 
-Thanks.
+This is quite a massive series - the first 7 parts of the series add
+the infrastructure of supporting vfs in qed - mainly adding support in a
+HW-based vf<->pf channel, as well as diverging all existing configuration
+flows based on the pf/vf decision. I.e., while PF-originated requests
+head directly to HW/FW, the VF requests first have to traverse to the PF
+which will perform the configuration.
 
-> v1 -> v2:
->  rework the patch to handle all cases
-> 
-> Maybe prefixing genl_magic_func.h and genl_magic_struct.h by 'drbd_'
-> could be interesting so that new module won't use it. What is your
-> opinion?
+The 8th patch is the one that adds the support for the VF device in qede.
 
-This was supposed to not be DRBD specific.  But it might even still
-need some massaging before it was truly generic. And obviously,
-it does not meet the taste of genetlink folks, to say the least :(
+The remaining 6 patches each adds some user-based API support related to
+VFs that can be used over the PF - forcing mac/vlan, changing speed, etc.
 
-I don't care either way.
+Dave,
 
-    Lars Ellenberg
+Sorry in advance for the length of the series. Most of the bulk here is in
+the infrastructure patches that have to go together [or at least, it makes
+little sense to try splitting them up].
+
+Please consider applying this to `net-next'.
+
+Thanks,
+Yuval
+
+Yuval Mintz (14):
+  qed: Add CONFIG_QED_SRIOV
+  qed: Add VF->PF channel infrastructure
+  qed: Introduce VFs
+  qed: IOV configure and FLR
+  qed: IOV l2 functionality
+  qed: Bulletin and Link
+  qed: Align TLVs
+  qede: Add VF support
+  qed*: Support PVID configuration
+  qed*: Support forced MAC
+  qed*: IOV link control
+  qed*: IOV support spoof-checking
+  qed*: Support ndo_get_vf_config
+  qed*: Tx-switching configuration
+
+ drivers/net/ethernet/qlogic/Kconfig               |   10 +
+ drivers/net/ethernet/qlogic/qed/Makefile          |    1 +
+ drivers/net/ethernet/qlogic/qed/qed.h             |   21 +
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c         |  186 +-
+ drivers/net/ethernet/qlogic/qed/qed_cxt.h         |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |  308 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h     |   31 +-
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h         |   60 +-
+ drivers/net/ethernet/qlogic/qed/qed_hw.c          |   67 +-
+ drivers/net/ethernet/qlogic/qed/qed_hw.h          |   10 +
+ drivers/net/ethernet/qlogic/qed/qed_init_ops.c    |    4 +
+ drivers/net/ethernet/qlogic/qed/qed_int.c         |  101 +-
+ drivers/net/ethernet/qlogic/qed/qed_int.h         |   16 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.c          |  641 ++--
+ drivers/net/ethernet/qlogic/qed/qed_l2.h          |  239 ++
+ drivers/net/ethernet/qlogic/qed/qed_main.c        |  208 +-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c         |  155 +-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h         |   39 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h    |   18 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |    6 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |   13 +-
+ drivers/net/ethernet/qlogic/qed/qed_spq.c         |   19 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c       | 3606 +++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h       |  386 +++
+ drivers/net/ethernet/qlogic/qed/qed_vf.c          | 1102 +++++++
+ drivers/net/ethernet/qlogic/qed/qed_vf.h          |  990 ++++++
+ drivers/net/ethernet/qlogic/qede/qede.h           |    4 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c   |   43 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c      |  183 +-
+ include/linux/qed/common_hsi.h                    |   62 +
+ include/linux/qed/qed_eth_if.h                    |    9 +
+ include/linux/qed/qed_if.h                        |   11 +-
+ include/linux/qed/qed_iov_if.h                    |   34 +
+ 33 files changed, 8130 insertions(+), 456 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_l2.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_sriov.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_sriov.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_vf.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_vf.h
+ create mode 100644 include/linux/qed/qed_iov_if.h
+
+-- 
+1.9.3
