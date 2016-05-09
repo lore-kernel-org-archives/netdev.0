@@ -1,77 +1,53 @@
-From: Elad Kanfi <eladkan@mellanox.com>
-Subject: [PATCH v3 2/2] net: nps_enet: bug fix - handle lost tx interrupts
-Date: Mon, 9 May 2016 20:13:20 +0300
-Message-ID: <1462814000-16331-3-git-send-email-eladkan@mellanox.com>
-References: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 00/21] net: dsa: mv88e6xxx: turn into
+ monolithic driver
+Date: Mon, 9 May 2016 19:56:47 +0200
+Message-ID: <20160509175647.GE10508@lunn.ch>
+References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
-	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0067.outbound.protection.outlook.com ([157.56.112.67]:48292
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751059AbcEIRrh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 13:47:37 -0400
-In-Reply-To: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:60314 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750941AbcEIR4v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 13:56:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Kanfi <eladkan@mellanox.com>
+On Mon, May 09, 2016 at 01:22:37PM -0400, Vivien Didelot wrote:
+> This patchset merges all mv88e6* drivers supported by the shared
+> mv88e6xxx code into a single mv88e6xxx DSA switch driver.
+> 
+> Some flags are added to describe the capabilities of a switch model,
+> such as the presence of a PPU, EEPROM, some old or new registers, etc.
+> 
+> First these flags are used to conditionally support the same set of
+> functions in every driver, then specific driver files are removed in
+> favor of the common mv88e6xxx driver.
+> 
+> Only the merge of driver specific setup code assumes a few differences.
+> If these differences such as frames priorities are really needed for
+> some models, they can easily be brought back in a future patch.
+> 
+> Some inconsistencies might show up, such as the need for
+> MV88E6XXX_FLAG_PPU and MV88E6XXX_FLAG_PPU_ACTIVE flags. But this
+> patchset does not aim to fix them yet. A future patch can do that if
+> they end up being unwanted.
+> 
+> The patchset has been tested on interconnected 88E6352 and 88E6185.
 
-The tx interrupt is of edge type, and in case such interrupt is triggered
-while it is masked it will not be handled even after tx interrupts are
-re-enabled in the end of NAPI poll.
-This will cause tx network to stop in the following scenario:
- * Rx is being handled, hence interrupts are masked.
- * Tx interrupt is triggered after checking if there is some tx to handle
-   and before re-enabling the interrupts.
-In this situation only rx transaction will release tx requests.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-In order to handle the tx that was missed( if there was one ),
-a NAPI reschdule was added after enabling the interrupts.
+I also tested v1, so
 
-Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
-Acked-by: Noam Camus <noamca@mellanox.com>
-Acked-by: Gilad Ben-Yossef <giladby@mellanox.com>
----
- drivers/net/ethernet/ezchip/nps_enet.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+Tested-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 25ac2de..085f912 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.c
-+++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -183,6 +183,9 @@ static int nps_enet_poll(struct napi_struct *napi, int budget)
- 	work_done = nps_enet_rx_handler(ndev);
- 	if (work_done < budget) {
- 		u32 buf_int_enable_value = 0;
-+		u32 tx_ctrl_value = nps_enet_reg_get(priv, NPS_ENET_REG_TX_CTL);
-+		u32 tx_ctrl_ct =
-+			(tx_ctrl_value & TX_CTL_CT_MASK) >> TX_CTL_CT_SHIFT;
- 
- 		napi_complete(napi);
- 
-@@ -192,6 +195,18 @@ static int nps_enet_poll(struct napi_struct *napi, int budget)
- 
- 		nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE,
- 				 buf_int_enable_value);
-+
-+		/* in case we will get a tx interrupt while interrupts
-+		 * are masked, we will lose it since the tx is edge interrupt.
-+		 * specifically, while executing the code section above,
-+		 * between nps_enet_tx_handler and the interrupts enable, all
-+		 * tx requests will be stuck until we will get an rx interrupt.
-+		 * the two code lines below will solve this situation by
-+		 * re-adding ourselves to the poll list.
-+		 */
-+
-+		if (priv->tx_skb && !tx_ctrl_ct)
-+			napi_reschedule(napi);
- 	}
- 
- 	return work_done;
--- 
-1.7.1
+Thanks
+	Andrew
