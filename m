@@ -1,76 +1,139 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2 2/3] net: ethernet: fec: use phydev from struct
- net_device
-Date: Mon, 09 May 2016 00:01:23 +0100
-Message-ID: <1462748483.9308.1.camel@decadent.org.uk>
-References: <1462743877-31738-1-git-send-email-tremyfr@gmail.com>
-	  <1462743877-31738-3-git-send-email-tremyfr@gmail.com>
-	 <1462746137.2634.67.camel@decadent.org.uk> <572FC20A.5030805@gmail.com>
+Subject: Re: [PATCH net-next 5/7] Driver: Vmxnet3: Add support for
+ get_coalesce, set_coalesce ethtool operations
+Date: Mon, 09 May 2016 01:17:20 +0100
+Message-ID: <1462753040.9308.11.camel@decadent.org.uk>
+References: <1462576336-83513-1-git-send-email-skhare@vmware.com>
+	  <1462576336-83513-6-git-send-email-skhare@vmware.com>
+	 <1462622686.19332.33.camel@decadent.org.uk>
+	 <alpine.DEB.2.10.1605081335140.13942@shri-linux.eng.vmware.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o3qMu/TfN+j7AXtoRVmP"
-Cc: fugang.duan@nxp.com, davem@davemloft.net, kan.liang@intel.com,
-	decot@googlers.com, aduyck@mirantis.com, jiri@mellanox.com,
-	jacob.e.keller@intel.com, tom@herbertland.com, andrew@lunn.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:32915 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750844AbcEHXBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 19:01:43 -0400
-In-Reply-To: <572FC20A.5030805@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-iIIyL2eSdGEq7M+apQGr"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, Keyong Sun <sunk@vmware.com>,
+	Manoj Tammali <tammalim@vmware.com>
+To: Shrikrishna Khare <skhare@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1605081335140.13942@shri-linux.eng.vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-o3qMu/TfN+j7AXtoRVmP
+--=-iIIyL2eSdGEq7M+apQGr
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2016-05-09 at 00:47 +0200, Philippe Reynes wrote:
-> On 09/05/16 00:22, Ben Hutchings wrote:
-> >=20
-> > On Sun, 2016-05-08 at 23:44 +0200, Philippe Reynes wrote:
-> > >=20
-> > > The private structure contain a pointer to phydev, but the structure
-> > > net_device already contain such pointer. So we can remove the pointer
-> > > phydev in the private structure, and update the driver to use the one
-> > > contained in struct net_device.
-> > But there is no central code that updates the pointer, so:
-> The function phy_attach_direct and phy_detach update the pointer
-> phydev in the struct net_device.
-[...]
-> So from my understanding, those two lines aren't usefull.
-> May you confirm that I'm on the right way please ?
+On Sun, 2016-05-08 at 13:55 -0700, Shrikrishna Khare wrote:
+>=20
+> On Sat, 7 May 2016, Ben Hutchings wrote:
+>=20
+> > On Fri, 2016-05-06 at 16:12 -0700, Shrikrishna Khare wrote:
+> > [...]
+> > > +static int
+> > > +vmxnet3_set_coalesce(struct net_device *netdev, struct ethtool_coale=
+sce *ec)
+> > > +{
+> > [...]
+> > > +=C2=A0=C2=A0=C2=A0switch (ec->rx_coalesce_usecs) {
+> > > +=C2=A0=C2=A0=C2=A0case VMXNET3_COALESCE_DEFAULT:
+> > > +=C2=A0=C2=A0=C2=A0case VMXNET3_COALESCE_DISABLED:
+> > > +=C2=A0=C2=A0=C2=A0case VMXNET3_COALESCE_ADAPT:
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if=
+ (ec->tx_max_coalesced_frames ||
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0ec->tx_max_coalesced_frames_irq ||
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0ec->rx_max_coalesced_frames_irq) {
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0return -EINVAL;
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0}
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0me=
+mset(adapter->coal_conf, 0, sizeof(*adapter->coal_conf));
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0ad=
+apter->coal_conf->coalMode =3D ec->rx_coalesce_usecs;
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0br=
+eak;
+> > > +=C2=A0=C2=A0=C2=A0case VMXNET3_COALESCE_STATIC:
+> > [...]
+> >=C2=A0
+> > I don't want to see drivers introducing magic values for fields that
+> > are denominated in microseconds (especially not for 0, which is the
+> > correct way to specify 'no coalescing'). =C2=A0If the current
+> > ethtool_coalesce structure is inadequate, propose an extension.
+>=20
+> For vmxnet3, we need an ethtool mechanism to indicate coalescing mode to=
+=C2=A0
+> the device.
+>=20
+> Would a patch that maps 0 to 'no coalescing' be acceptable? That is:
+>=20
+> rx-usecs =3D 0 -> coalescing disabled.
+> rx-usecs =3D 1 -> default (chosen by the device).
+> rx-usecs =3D 2 -> adaptive coalescing.
+> rx-usecs =3D 3 -> static coalescing.
 
-Sorry, you're right.
+I still don't like it much. =C2=A0For the 3 special values (0 isn't really
+special):
+
+1 =3D default: When the driver sets the virtual device to this mode, can it=
+ then read back what the actual settings are, or are they hidden? =C2=A0If =
+it can, then userland can also read the defaults and explicitly return to t=
+hem later. =C2=A0But I do see the usefulness of an explicit request to rese=
+t to defaults.
+
+2 =3D adaptive coalescing: There are already fields to request adaptive coa=
+lescing; you should support them.
+
+3 =3D static coalescing: I don't understand what this means.
+
+> all other rx-usecs values -> rate based coalescing where rx-usecs denotes=
+=C2=A0
+> rate.
+>=20
+> Alternatively: I don't think new members could be added to struct=C2=A0
+> ethtool_coalesce without breaking compatibility.
+
+That's right, unfortunately.
+
+> Thus, I could extend=C2=A0coalescing as follows:
+> - new struct ethtool_coalesce_v2 with coalesce_mode (along with all the=
+=C2=A0
+> members of struct ethtool_coalesce).
+> - introduce new ETHTOOL_{G,S}COALESCE_V2 commands.
+> - extend userspace ethtool to invoke new commands.
+>=20
+> Could you please advice?
+
+That's roughly how you would extend it. =C2=A0Though we would probably want
+to consider making other extensions to interrupt coalescing control at
+the same time.
 
 Ben.
 
---=20
+> =20
 Ben Hutchings
-I haven't lost my mind; it's backed up on tape somewhere.
---=-o3qMu/TfN+j7AXtoRVmP
+If you seem to know what you are doing, you'll be given more to do.
+--=-iIIyL2eSdGEq7M+apQGr
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJXL8VDAAoJEOe/yOyVhhEJ8OkQANWmax29n0uGIdwtSNhS32/4
-2yvWl7GeAc11wVenigOOPF7MQ9exHt+qTh6EGg77sKovQHGqCY5AL6I2CjsmcOGd
-vUFicdPZYBUCuvNMXP4OtlkE2DIgEGiWAdM5TeoVNTzFtYTvYUsmr9gYOlobxUYK
-bzMfNUIe26fIjkhK8quTM5zg506QH7J4xKFbF1qKprs2QKzBEAtFGMCyZfGv8Pky
-b3N+tZmCAKytwAXpbnXvsM0uyI0uyylONKjp5snf/YdEKr4jWGHHUZIKkHFTxtUe
-g+iZB6JhpnM1c7Pp1BH+uml1RD2Xb06nE3BKtTyruMXm5rmYRA6uUt00eeH9hrdw
-4N9QnD7q4ylhegot/jmjPJA+q0VTIJ6WdS+6Tlg6r4Kw+4QtuxqgqX0DZtoBSchh
-OZzuqbjg1BGFYOZKIz/zF5iPU7aI9vVBox/kya+KJtIeBoMdqyZVCTmDt/BlsdI9
-54WchRfIJr3MZm3xrS/zkV/njRKdvJDtcNFcegkURAQQOa2bs72jM/BikBf+tj5E
-5H7ArDLxaqCgGnwYHEXtiNC6aEnwAAjrBq+R08l08IiwWLjioYMF+pA2i53syNTr
-EK/ir70KmkLM24X3Dj++VlA38y/p1qQueJM1j/LM2llJXhL5V8cyAkvBJhhnh2+f
-i04L0e1/FhjGSuKBpqaa
-=msUK
+iQIcBAABCgAGBQJXL9cQAAoJEOe/yOyVhhEJutUP/2V79oxzm80af1sl3OopgGvC
++woVBBmQRLs5dZld+pCvVQuY8sr7uLUopr2GtftaCjRw0PnIObEjPhrbKmGX9Nig
+3WojV55gFTgJsi2vojiUsuxZPDIrE2rsRG/wU87Nojod0r6NwioWt85p/SyRwQTq
+yheUX9sMQAQ3PeE4CmBDK6YsUL5yUhXUyporANvKVfxYYbqjBxjBboioz9gfEByM
+5VTo4RRQzqXyK935+aGFUE/BRYTUTyYm1mlssDzj2DUd8ttzpMkdNl8WCPckxpkB
+fJNixEaHKc4rK8IrNJWL2favwWpt+WEDA6BbYPBQRSh9VxnMmspW4j1klM8pNWxi
+BYvOJlhRpzN9Ly2dXb5ZhpHxmUBc6/mX6oqwRh/jaC5QMECU4gfhA3RJjbNwzzEu
+WmKF4AGhF7rfxwca9hW5zJlTN7woBn5AXxDcgapdn5hSwn9qPpkgnZ3gvgyZngzM
+tNlV/K+ddVHonPG334M5VLxNREqMFC6AlGReAcOSv8UgRJtXUBel8XcEah00Jjc/
+KiDCrFcjJnOEfcByU/QNGVrZ4ZoFd9HskUifPYwc17z5l44rU34DYyM/Wz0QhI5X
+K8/jjQe6jCpgI0vczy5mgnQoAEKxOl7e2IvfUFKNIf1yo4ZRIfiIfJWjJ+QrmT8g
+5i/HibfEEZ70ZqgG0S0L
+=IwBj
 -----END PGP SIGNATURE-----
 
---=-o3qMu/TfN+j7AXtoRVmP--
+--=-iIIyL2eSdGEq7M+apQGr--
