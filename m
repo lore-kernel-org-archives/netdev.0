@@ -1,49 +1,100 @@
-From: "Mr. Hamza Kabore" <glenbrian25@gmail.com>
-Subject: CAN YOU ASSIST ME IN THIS FOR BOTH OF OUR MUTUAL BENEFIT?
-Date: Mon, 9 May 2016 04:40:22 +0200
-Message-ID: <CAD39S0mSYVQPy1B=YGEqCo_Z-067d2uB-GgFb1sxUnfnefaSBA@mail.gmail.com>
-Reply-To: hamza_kabore1@yahoo.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next PATCH v2 1/6] net sched: vlan action fix late binding
+Date: Sun, 8 May 2016 20:08:41 -0700
+Message-ID: <CAM_iQpVtk1AowsH_jDz24yNqAZTCOPtMk=KM0dhFtYUJLfOk4Q@mail.gmail.com>
+References: <1462728392-28489-1-git-send-email-jhs@emojatatu.com> <1462728392-28489-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36331 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbcEICk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 22:40:26 -0400
-Received: by mail-io0-f193.google.com with SMTP id k129so17541744iof.3
-        for <netdev@vger.kernel.org>; Sun, 08 May 2016 19:40:26 -0700 (PDT)
+Received: from mail-yw0-f170.google.com ([209.85.161.170]:32798 "EHLO
+	mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879AbcEIDJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:09:02 -0400
+Received: by mail-yw0-f170.google.com with SMTP id t10so273641571ywa.0
+        for <netdev@vger.kernel.org>; Sun, 08 May 2016 20:09:01 -0700 (PDT)
+In-Reply-To: <1462728392-28489-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--- 
-Dear Friend,
+On Sun, May 8, 2016 at 10:26 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+> index c1682ab..352653f 100644
+> --- a/net/sched/act_vlan.c
+> +++ b/net/sched/act_vlan.c
+> @@ -77,7 +77,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+>         int action;
+>         __be16 push_vid = 0;
+>         __be16 push_proto = 0;
+> -       int ret = 0;
+> +       int ret = 0, aexists = 0;
+>         int err;
+>
+>         if (!nla)
+> @@ -90,15 +90,25 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+>         if (!tb[TCA_VLAN_PARMS])
+>                 return -EINVAL;
+>         parm = nla_data(tb[TCA_VLAN_PARMS]);
+> +       aexists = tcf_hash_check(tn, parm->index, a, bind);
 
-I know that this message will come to you as a surprise. I am the
-Auditing and Accounting section manager with African Development Bank,
-Ouagadougou Burkina faso. I Hope that you will not expose or betray
-this trust and confident that I am about to repose on you for the
-mutual benefit of our both families.
 
-I need your urgent assistance in transferring the sum of($39.5)million
-to your account within 10 or 14 banking days. This money has been
-dormant for years in our Bank without claim.I want the bank to release
-the money to you as the nearest person to our deceased customer late
-George small. who died along with his supposed next of kin in an air
-crash since 31st October 1999.
+I think 'exists' is a better name than 'aexists', shorter and clear.
 
-I don't want the money to go into government treasury as an abandoned
-fund. So this is the reason why I am contacting you so that the bank
-can release the money to you as the next of kin to the deceased
-customer. Please I would like you to keep this proposal as atop secret
-and delete it if you are not interested.
 
-Upon receipt of your reply, I will give you full details on how the
-business will be executed and also note that you will have 40% of the
-above mentioned sum if you agree to handle this business with me.
+> +       if (aexists && bind)
+> +               return 0;
+> +
+>         switch (parm->v_action) {
+>         case TCA_VLAN_ACT_POP:
+>                 break;
+>         case TCA_VLAN_ACT_PUSH:
+> -               if (!tb[TCA_VLAN_PUSH_VLAN_ID])
+> +               if (!tb[TCA_VLAN_PUSH_VLAN_ID]) {
+> +                       if (aexists)
+> +                               tcf_hash_release(a, bind);
+>                         return -EINVAL;
+> +               }
+>                 push_vid = nla_get_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
+> -               if (push_vid >= VLAN_VID_MASK)
+> +               if (push_vid >= VLAN_VID_MASK) {
+> +                       if (aexists)
+> +                               tcf_hash_release(a, bind);
+>                         return -ERANGE;
+> +               }
+>
+>                 if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
+>                         push_proto = nla_get_be16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]);
+> @@ -114,11 +124,13 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+>                 }
+>                 break;
+>         default:
+> +               if (aexists)
+> +                       tcf_hash_release(a, bind);
 
-I am expecting your urgent response as soon as you receive my message.
 
-Best Regard,
+Introduce a goto to reduce duplicated cleanup code?
 
-Auditor Hamza Kabore.
+
+>                 return -EINVAL;
+>         }
+>         action = parm->v_action;
+>
+> -       if (!tcf_hash_check(tn, parm->index, a, bind)) {
+> +       if (!aexists) {
+>                 ret = tcf_hash_create(tn, parm->index, est, a,
+>                                       sizeof(*v), bind, false);
+>                 if (ret)
+> @@ -126,8 +138,6 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+>
+>                 ret = ACT_P_CREATED;
+>         } else {
+> -               if (bind)
+> -                       return 0;
+>                 tcf_hash_release(a, bind);
+>                 if (!ovr)
+>                         return -EEXIST;
+
+
+The rest looks good to me.
