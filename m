@@ -1,29 +1,63 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: IPv6: proxy_ndp to a network range
-Date: Mon, 9 May 2016 01:06:51 -0700
-Message-ID: <31ff66eb-38bd-0186-9e81-0543f0558323@zytor.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Mon, 9 May 2016 17:18:20 +0900
+Message-ID: <20160509081818.GB4470@vergenet.net>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+ <20160506113504.77a9504e@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:54316 "EHLO mail.zytor.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751894AbcEIIG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 04:06:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160506113504.77a9504e@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-There currently doesn't seem to be any support for proxy_ndp of a whole 
-network mask, as IPv4 proxy_arp seems to permit.
-
-a) Am I actually correct in this, or am I just missing something important?
-
-b) Is there a technical reason for this, or is it just a limitation of 
-the current implementation?
-
-Thanks,
-
-	-hpa
+T24gRnJpLCBNYXkgMDYsIDIwMTYgYXQgMTE6MzU6MDRBTSArMDIwMCwgSmlyaSBCZW5jIHdyb3Rl
+Ogo+IE9uIFdlZCwgIDQgTWF5IDIwMTYgMTY6MzY6MzAgKzA5MDAsIFNpbW9uIEhvcm1hbiB3cm90
+ZToKPiA+ICtzdGF0aWMgaW50IHB1c2hfZXRoKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBz
+d19mbG93X2tleSAqa2V5LAo+ID4gKwkJICAgIGNvbnN0IHN0cnVjdCBvdnNfYWN0aW9uX3B1c2hf
+ZXRoICpldGhoKQo+ID4gK3sKPiA+ICsJaW50IGVycjsKPiA+ICsKPiA+ICsJLyogRGUtYWNjZWxl
+cmF0ZSBhbnkgaGFyZHdhcmUgYWNjZWxlcmF0ZWQgVkxBTiB0YWcgYWRkZWQgdG8gYSBwcmV2aW91
+cwo+ID4gKwkgKiBFdGhlcm5ldCBoZWFkZXIgKi8KPiA+ICsJZXJyID0gc2tiX3ZsYW5fZGVhY2Nl
+bChza2IpOwo+ID4gKwlpZiAodW5saWtlbHkoZXJyKSkKPiA+ICsJCXJldHVybiBlcnI7Cj4gPiAr
+Cj4gPiArCS8qIEFkZCB0aGUgbmV3IEV0aGVybmV0IGhlYWRlciAqLwo+ID4gKwlpZiAoc2tiX2Nv
+d19oZWFkKHNrYiwgRVRIX0hMRU4pIDwgMCkKPiA+ICsJCXJldHVybiAtRU5PTUVNOwo+ID4gKwo+
+ID4gKwlza2JfcHVzaChza2IsIEVUSF9ITEVOKTsKPiA+ICsJc2tiX3Jlc2V0X21hY19oZWFkZXIo
+c2tiKTsKPiA+ICsJc2tiX3Jlc2V0X21hY19sZW4oc2tiKTsKPiA+ICsKPiA+ICsJZXRoZXJfYWRk
+cl9jb3B5KGV0aF9oZHIoc2tiKS0+aF9zb3VyY2UsIGV0aGgtPmFkZHJlc3Nlcy5ldGhfc3JjKTsK
+PiA+ICsJZXRoZXJfYWRkcl9jb3B5KGV0aF9oZHIoc2tiKS0+aF9kZXN0LCBldGhoLT5hZGRyZXNz
+ZXMuZXRoX2RzdCk7Cj4gPiArCWV0aF9oZHIoc2tiKS0+aF9wcm90byA9IGV0aGgtPmV0aF90eXBl
+Owo+IAo+IFRoaXMgZG9lc24ndCBzZWVtIHJpZ2h0LiBXZSBrbm93IHRoZSBwYWNrZXQgdHlwZSwg
+aXQncyBza2ItPnByb3RvY29sLgo+IFdlIHNob3VsZCBmaWxsIGluIHRoYXQuCgpJIHRoaW5rIHRo
+YXQgbWFrZXMgc2Vuc2UuIFBvc3NpYmx5IHRoZSBldGhfdHlwZSBmaWVsZApjYW4gYmUgcmVtb3Zl
+ZCBmcm9tIG92c19hY3Rpb25fcHVzaF9ldGguCgo+IEluIGFkZGl0aW9uLCB3ZSBzaG91bGQgY2hl
+Y2sgd2hldGhlciBtYWNfbGVuID4gMCBhbmQgaW4gc3VjaCBjYXNlLAo+IGNoYW5nZSBza2ItPnBy
+b3RvY29sIHRvIEVUSF9QX1RFQiBmaXJzdCAoYW5kIHN0b3JlIHRoYXQgdmFsdWUgaW4gdGhlCj4g
+cHVzaGVkIGV0aCBoZWFkZXIpLgo+IAo+IFNpbWlsYXJseSBvbiBwb3BfZXRoLCB3ZSBuZWVkIHRv
+IGNoZWNrIHNrYi0+cHJvdG9jb2wgYW5kIGlmIGl0IGlzCj4gRVRIX1BfVEVCLCBjYWxsIGV0aF90
+eXBlX3RyYW5zIG9uIHRoZSBtb2RpZmllZCBmcmFtZSB0byBzZXQgdGhlIG5ldwo+IHNrYi0+cHJv
+dG9jb2wgY29ycmVjdGx5LiBJdCdzIHByb2JhYmx5IG5vdCB0aGF0IHNpbXBsZSwgYXMgd2UnZCBu
+ZWVkIGEKPiB2ZXJzaW9uIG9mIGV0aF90eXBlX3RyYW5zIHRoYXQgZG9lc24ndCBuZWVkIGEgbmV0
+IGRldmljZS4KCkknbSBub3Qgc3VyZSBJIHVuZGVyc3RhbmQgdGhlIGludGVyYWN0aW9uIHdpdGgg
+RVRIX1BfVEVCIGhlcmUuCgpJbiBteSBtaW5kIHNrYi0+cHJvdG9jb2wgPT0gRVRIX1BfVEVCIG1h
+eSBiZSB1c2VkIGVhcmx5IG9uIGluIE92UydzIHJlY2VpdmUKcHJvY2Vzc2luZyB0byBmaW5kIHRo
+ZSBpbm5lciBwcm90b2NvbCBmcm9tIHRoZSBwYWNrZXQgYW5kIGF0IHRoYXQgcG9pbnQKc2tiLT5w
+cm90b2NvbCBpcyBzZXQgdG8gdGhhdCB2YWx1ZS4gQW5kIHRoYXQgZm9yIGZ1cnRoZXIgcGFja2V0
+IHByb2Nlc3NpbmcKdGhlIGZhY3QgdGhlIHBhY2tldCB3YXMgcmVjZWl2ZWQgYXMgVEVCIGlzIHRy
+YW5zcGFyZW50LgoKQ29udmVyc2VseSwgc2tiLT5wcm90b2NvbCBtYXkgYmUgc2V0IGFzIG5lY2Vz
+c2FyeSBvbiB0cmFuc21pdCBhcyBhIHBhY2tldApleGl0cyBPdlMuCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52
+c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
