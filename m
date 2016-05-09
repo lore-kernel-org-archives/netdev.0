@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/3] netfilter: IDLETIMER: fix race condition when destroy the target
-Date: Mon,  9 May 2016 21:52:02 +0200
-Message-ID: <1462823523-6682-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/3] netfilter: nfnetlink_acct: validate NFACCT_QUOTA parameter
+Date: Mon,  9 May 2016 21:52:03 +0200
+Message-ID: <1462823523-6682-4-git-send-email-pablo@netfilter.org>
 References: <1462823523-6682-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,30 +10,31 @@ In-Reply-To: <1462823523-6682-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Phil Turnbull <phil.turnbull@oracle.com>
 
-Workqueue maybe still in running while we destroy the IDLETIMER target,
-thus cause a use after free error, add cancel_work_sync() to avoid such
-situation.
+If a quota bit is set in NFACCT_FLAGS but the NFACCT_QUOTA parameter is
+missing then a NULL pointer dereference is triggered. CAP_NET_ADMIN is
+required to trigger the bug.
 
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_IDLETIMER.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/netfilter/nfnetlink_acct.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/netfilter/xt_IDLETIMER.c b/net/netfilter/xt_IDLETIMER.c
-index 29d2c31..daf45da 100644
---- a/net/netfilter/xt_IDLETIMER.c
-+++ b/net/netfilter/xt_IDLETIMER.c
-@@ -236,6 +236,7 @@ static void idletimer_tg_destroy(const struct xt_tgdtor_param *par)
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index 4c2b4c0..dbd0803 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -96,6 +96,8 @@ static int nfnl_acct_new(struct net *net, struct sock *nfnl,
+ 			return -EINVAL;
+ 		if (flags & NFACCT_F_OVERQUOTA)
+ 			return -EINVAL;
++		if ((flags & NFACCT_F_QUOTA) && !tb[NFACCT_QUOTA])
++			return -EINVAL;
  
- 		list_del(&info->timer->entry);
- 		del_timer_sync(&info->timer->timer);
-+		cancel_work_sync(&info->timer->work);
- 		sysfs_remove_file(idletimer_tg_kobj, &info->timer->attr.attr);
- 		kfree(info->timer->attr.attr.name);
- 		kfree(info->timer);
+ 		size += sizeof(u64);
+ 	}
 -- 
 2.1.4
 
