@@ -1,180 +1,114 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 17/21] net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL_2 setup
-Date: Mon,  9 May 2016 13:22:54 -0400
-Message-ID: <1462814578-6249-18-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next] ifb: support more features
+Date: Mon, 9 May 2016 10:22:17 -0700
+Message-ID: <CAKgT0UffTCeUn5jqFYNqtE6g25sdcAvT6hLNG1F=0BKRWd-xWA@mail.gmail.com>
+References: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1462686072.23934.4.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1462723712.23934.18.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1462728942.23934.23.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50921 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752865AbcEIRXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:23:51 -0400
-In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37211 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbcEIRWS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:22:18 -0400
+Received: by mail-ig0-f171.google.com with SMTP id s8so97518175ign.0
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 10:22:18 -0700 (PDT)
+In-Reply-To: <1462728942.23934.23.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All switch models setup the GLOBAL_CONTROL_2 register with slightly
-differences.
+On Sun, May 8, 2016 at 10:35 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2016-05-08 at 09:08 -0700, Eric Dumazet wrote:
+>
+>
+>> So we probably need to make sure the network header is properly set for
+>> the segments. Then skb_reset_mac_len(nskb); would work as intended.
+>>
+>> Since skb_segment() is called from the deepest point in GSO path,
+>> it always see the inner network header.
+>>
+>> Sounds like skb_reset_network_header() calls done in inet_gso_segment()
+>> and ipv6_gso_segment() should only be done for the outer header, (when
+>> SKB_GSO_CB(skb)->encap_level == 0), or even better, only done in
+>> skb_mac_gso_segment()
+>>
+>> Then we need to use the proper (inner) network header in
+>> tcp4_gso_segment() and tcp6_gso_segment(), as they currently use
+>> ip_hdr() and ipv6_hdr()
+>>
+>
+> Prototype patch works for me (but GRE/UDP offloads might need some
+> work), and would even save few cycles...
+>
+> Unfortunately GSO for GRE/UDP is kind of mess.
 
-Since the cascade mode is valid even in a single chip setup, factorize
-such configuration.
+I agree.  I have been trying to work on cleaning it up but it is
+taking a while to get it all sorted out.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6123.c | 15 ---------------
- drivers/net/dsa/mv88e6131.c | 16 ----------------
- drivers/net/dsa/mv88e6171.c | 15 ---------------
- drivers/net/dsa/mv88e6352.c | 14 --------------
- drivers/net/dsa/mv88e6xxx.c |  7 +++++++
- 5 files changed, 7 insertions(+), 60 deletions(-)
+>  net/core/dev.c           |    1 +
+>  net/ipv4/af_inet.c       |    9 +++------
+>  net/ipv4/tcp_offload.c   |    2 +-
+>  net/ipv6/ip6_offload.c   |    9 +++------
+>  net/ipv6/tcpv6_offload.c |    2 +-
+>  5 files changed, 9 insertions(+), 14 deletions(-)
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 5c925ac50b95..3a9035ec862b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2658,6 +2658,7 @@ struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
+>                 return ERR_PTR(-EINVAL);
+>
+>         __skb_pull(skb, vlan_depth);
+> +       skb_reset_network_header(skb);
+>
+>         rcu_read_lock();
+>         list_for_each_entry_rcu(ptype, &offload_base, list) {
 
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 5df06d8..8f3a7c5 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -51,17 +51,6 @@ static const char *mv88e6123_drv_probe(struct device *dsa_dev,
- 				   ARRAY_SIZE(mv88e6123_table));
- }
- 
--static int mv88e6123_setup_global(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--
--	/* Disable remote management for now, and set the switch's
--	 * DSA device number.
--	 */
--	return mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL_2,
--				   ds->index & 0x1f);
--}
--
- static int mv88e6123_setup(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -73,10 +62,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	ret = mv88e6123_setup_global(ds);
--	if (ret < 0)
--		return ret;
--
- 	return mv88e6xxx_setup_ports(ds);
- }
- 
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index c8e3974..b6ca07b 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -61,22 +61,6 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
- static int mv88e6131_setup_global(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int ret;
--
--	/* Disable cascade port functionality unless this device
--	 * is used in a cascade configuration, and set the switch's
--	 * DSA device number.
--	 */
--	if (ds->dst->pd->nr_chips > 1)
--		ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL_2,
--					  GLOBAL_CONTROL_2_MULTIPLE_CASCADE |
--					  (ds->index & 0x1f));
--	else
--		ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL_2,
--					  GLOBAL_CONTROL_2_NO_CASCADE |
--					  (ds->index & 0x1f));
--	if (ret)
--		return ret;
- 
- 	/* Force the priority of IGMP/MLD snoop frames and ARP frames
- 	 * to the highest setting.
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index a848aef..83678ad 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -58,17 +58,6 @@ static const char *mv88e6171_drv_probe(struct device *dsa_dev,
- 				   ARRAY_SIZE(mv88e6171_table));
- }
- 
--static int mv88e6171_setup_global(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--
--	/* Disable remote management for now, and set the switch's
--	 * DSA device number.
--	 */
--	return mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL_2,
--				   ds->index & 0x1f);
--}
--
- static int mv88e6171_setup(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -80,10 +69,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	ret = mv88e6171_setup_global(ds);
--	if (ret < 0)
--		return ret;
--
- 	return mv88e6xxx_setup_ports(ds);
- }
- 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index e098870..81810dd 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -77,16 +77,6 @@ static const char *mv88e6352_drv_probe(struct device *dsa_dev,
- 				   ARRAY_SIZE(mv88e6352_table));
- }
- 
--static int mv88e6352_setup_global(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--
--	/* Disable remote management for now, and set the switch's
--	 * DSA device number.
--	 */
--	return mv88e6xxx_reg_write(ps, REG_GLOBAL, 0x1c, ds->index & 0x1f);
--}
--
- static int mv88e6352_setup(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -98,10 +88,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	ret = mv88e6352_setup_global(ds);
--	if (ret < 0)
--		return ret;
--
- 	return mv88e6xxx_setup_ports(ds);
- }
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 27551c1..d8bb4c8 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2950,6 +2950,13 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
- 	if (err)
- 		return err;
- 
-+	/* Disable remote management, and set the switch's DSA device number. */
-+	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL_2,
-+				   GLOBAL_CONTROL_2_MULTIPLE_CASCADE |
-+				   (ds->index & 0x1f));
-+	if (err)
-+		return err;
-+
- 	/* Set the default address aging time to 5 minutes, and
- 	 * enable address learn messages to be sent to all message
- 	 * ports.
--- 
-2.8.2
+I'm pretty sure just dropping it in here isn't going to fix much since
+this gets called by all the tunnel types that support transparent
+Ethernet bridging.
+
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 9e481992dbae..fef6335a75bc 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1220,12 +1220,12 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>                        0)))
+>                 goto out;
+>
+> -       skb_reset_network_header(skb);
+> -       nhoff = skb_network_header(skb) - skb_mac_header(skb);
+> +       skb_reset_inner_network_header(skb);
+> +       nhoff = skb->data - skb_mac_header(skb);
+>         if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
+>                 goto out;
+>
+> -       iph = ip_hdr(skb);
+> +       iph = inner_ip_hdr(skb);
+>         ihl = iph->ihl * 4;
+>         if (ihl < sizeof(*iph))
+>                 goto out;
+
+One thought that just occurred to me based on this would be to
+configure inner headers on the way up, and to configure the outer
+headers on the way down.  Then that way we could go through and be
+guaranteed that the inner headers represent the inner most set of
+header offsets, and the outer ones represent the outer-most set
+regardless of the total number of headers present and there would be
+no need to call into the reset_headers function since all the headers
+would already be set.
+
+I was also looking at possibly dropping the inner transport offset as
+from what I can tell it and the csum_offset should always be the same
+value since csum_offset will always point to the inner transport
+header when any kind of offload is enabled which is the criteria for
+skb->encapsulation being set anyway.
