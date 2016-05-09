@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/36] netfilter: nf_tables: parse element flags from nft_del_setelem()
-Date: Mon,  9 May 2016 20:46:26 +0200
-Message-ID: <1462819614-5402-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/36] netfilter: conntrack: use get_random_once for conntrack hash seed
+Date: Mon,  9 May 2016 20:46:24 +0200
+Message-ID: <1462819614-5402-7-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,93 +10,87 @@ In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Parse flags and pass them to the set via ->deactivate() to check if we
-remove the right element from the intervals.
+From: Florian Westphal <fw@strlen.de>
 
+As earlier commit removed accessed to the hash from other files we can
+also make it static.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c | 38 +++++++++++++++++++++++++++++++++-----
- 1 file changed, 33 insertions(+), 5 deletions(-)
+ include/net/netfilter/nf_conntrack.h |  2 --
+ net/netfilter/nf_conntrack_core.c    | 26 +++-----------------------
+ 2 files changed, 3 insertions(+), 25 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 1b3210b..73c8fad 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -3592,9 +3592,13 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
- 			   const struct nlattr *attr)
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index fde4068..dd78bea 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -289,8 +289,6 @@ struct kernel_param;
+ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+ extern unsigned int nf_conntrack_htable_size;
+ extern unsigned int nf_conntrack_max;
+-extern unsigned int nf_conntrack_hash_rnd;
+-void init_nf_conntrack_hash_rnd(void);
+ 
+ struct nf_conn *nf_ct_tmpl_alloc(struct net *net,
+ 				 const struct nf_conntrack_zone *zone,
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index a53c009..1fd0ff1 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -142,13 +142,14 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+ 
+-unsigned int nf_conntrack_hash_rnd __read_mostly;
+-EXPORT_SYMBOL_GPL(nf_conntrack_hash_rnd);
++static unsigned int nf_conntrack_hash_rnd __read_mostly;
+ 
+ static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple)
  {
- 	struct nlattr *nla[NFTA_SET_ELEM_MAX + 1];
-+	struct nft_set_ext_tmpl tmpl;
- 	struct nft_data_desc desc;
- 	struct nft_set_elem elem;
-+	struct nft_set_ext *ext;
- 	struct nft_trans *trans;
-+	u32 flags = 0;
-+	void *priv;
- 	int err;
+ 	unsigned int n;
  
- 	err = nla_parse_nested(nla, NFTA_SET_ELEM_MAX, attr,
-@@ -3606,6 +3610,14 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
- 	if (nla[NFTA_SET_ELEM_KEY] == NULL)
- 		goto err1;
- 
-+	nft_set_ext_prepare(&tmpl);
++	get_random_once(&nf_conntrack_hash_rnd, sizeof(nf_conntrack_hash_rnd));
 +
-+	err = nft_setelem_parse_flags(set, nla[NFTA_SET_ELEM_FLAGS], &flags);
-+	if (err < 0)
-+		return err;
-+	if (flags != 0)
-+		nft_set_ext_add(&tmpl, NFT_SET_EXT_FLAGS);
-+
- 	err = nft_data_init(ctx, &elem.key.val, sizeof(elem.key), &desc,
- 			    nla[NFTA_SET_ELEM_KEY]);
- 	if (err < 0)
-@@ -3615,24 +3627,40 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
- 	if (desc.type != NFT_DATA_VALUE || desc.len != set->klen)
- 		goto err2;
+ 	/* The direction must be ignored, so we hash everything up to the
+ 	 * destination ports (which is a multiple of 4) and treat the last
+ 	 * three bytes manually.
+@@ -815,21 +816,6 @@ restart:
+ 	return dropped;
+ }
  
-+	nft_set_ext_add_length(&tmpl, NFT_SET_EXT_KEY, desc.len);
-+
-+	err = -ENOMEM;
-+	elem.priv = nft_set_elem_init(set, &tmpl, elem.key.val.data, NULL, 0,
-+				      GFP_KERNEL);
-+	if (elem.priv == NULL)
-+		goto err2;
-+
-+	ext = nft_set_elem_ext(set, elem.priv);
-+	if (flags)
-+		*nft_set_ext_flags(ext) = flags;
-+
- 	trans = nft_trans_elem_alloc(ctx, NFT_MSG_DELSETELEM, set);
- 	if (trans == NULL) {
- 		err = -ENOMEM;
--		goto err2;
-+		goto err3;
- 	}
+-void init_nf_conntrack_hash_rnd(void)
+-{
+-	unsigned int rand;
+-
+-	/*
+-	 * Why not initialize nf_conntrack_rnd in a "init()" function ?
+-	 * Because there isn't enough entropy when system initializing,
+-	 * and we initialize it as late as possible.
+-	 */
+-	do {
+-		get_random_bytes(&rand, sizeof(rand));
+-	} while (!rand);
+-	cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
+-}
+-
+ static struct nf_conn *
+ __nf_conntrack_alloc(struct net *net,
+ 		     const struct nf_conntrack_zone *zone,
+@@ -839,12 +825,6 @@ __nf_conntrack_alloc(struct net *net,
+ {
+ 	struct nf_conn *ct;
  
--	elem.priv = set->ops->deactivate(set, &elem);
--	if (elem.priv == NULL) {
-+	priv = set->ops->deactivate(set, &elem);
-+	if (priv == NULL) {
- 		err = -ENOENT;
--		goto err3;
-+		goto err4;
- 	}
-+	kfree(elem.priv);
-+	elem.priv = priv;
+-	if (unlikely(!nf_conntrack_hash_rnd)) {
+-		init_nf_conntrack_hash_rnd();
+-		/* recompute the hash as nf_conntrack_hash_rnd is initialized */
+-		hash = hash_conntrack_raw(orig);
+-	}
+-
+ 	/* We don't want any race condition at early drop stage */
+ 	atomic_inc(&net->ct.count);
  
- 	nft_trans_elem(trans) = elem;
- 	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
- 	return 0;
- 
--err3:
-+err4:
- 	kfree(trans);
-+err3:
-+	kfree(elem.priv);
- err2:
- 	nft_data_uninit(&elem.key.val, desc.type);
- err1:
 -- 
 2.1.4
 
