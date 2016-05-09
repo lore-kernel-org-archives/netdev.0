@@ -1,141 +1,137 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/36] netfilter: conntrack: move generation seqcnt out of netns_ct
-Date: Mon,  9 May 2016 20:46:22 +0200
-Message-ID: <1462819614-5402-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/36] netfilter: fix IS_ERR_VALUE usage
+Date: Mon,  9 May 2016 20:46:31 +0200
+Message-ID: <1462819614-5402-14-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45732 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752594AbcEISrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 14:47:23 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id B2875E8E89
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:21 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id A2C3E13471F
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:21 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 9EBC5134711
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:14 +0200 (CEST)
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+This is a forward-port of the original patch from Andrzej Hajda,
+he said:
 
-We only allow rehash in init namespace, so we only use
-init_ns.generation.  And even if we would allow it, it makes no sense
-as the conntrack locks are global; any ongoing rehash prevents insert/
-delete.
+"IS_ERR_VALUE should be used only with unsigned long type.
+Otherwise it can work incorrectly. To achieve this function
+xt_percpu_counter_alloc is modified to return unsigned long,
+and its result is assigned to temporary variable to perform
+error checking, before assigning to .pcnt field.
 
-So make this private to nf_conntrack_core instead.
+The patch follows conclusion from discussion on LKML [1][2].
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+[1]: http://permalink.gmane.org/gmane.linux.kernel/2120927
+[2]: http://permalink.gmane.org/gmane.linux.kernel/2150581"
+
+Original patch from Andrzej is here:
+
+http://patchwork.ozlabs.org/patch/582970/
+
+This patch has clashed with input validation fixes for x_tables.
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netns/conntrack.h     |  1 -
- net/netfilter/nf_conntrack_core.c | 20 +++++++++++---------
- 2 files changed, 11 insertions(+), 10 deletions(-)
+ include/linux/netfilter/x_tables.h | 6 +++---
+ net/ipv4/netfilter/arp_tables.c    | 6 ++++--
+ net/ipv4/netfilter/ip_tables.c     | 6 ++++--
+ net/ipv6/netfilter/ip6_tables.c    | 6 ++++--
+ 4 files changed, 15 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index 723b61c..b052785 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -94,7 +94,6 @@ struct netns_ct {
- 	int			sysctl_checksum;
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 4dd9306..dc4f58a 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -380,16 +380,16 @@ static inline unsigned long ifname_compare_aligned(const char *_a,
+  * allows us to return 0 for single core systems without forcing
+  * callers to deal with SMP vs. NONSMP issues.
+  */
+-static inline u64 xt_percpu_counter_alloc(void)
++static inline unsigned long xt_percpu_counter_alloc(void)
+ {
+ 	if (nr_cpu_ids > 1) {
+ 		void __percpu *res = __alloc_percpu(sizeof(struct xt_counters),
+ 						    sizeof(struct xt_counters));
  
- 	unsigned int		htable_size;
--	seqcount_t		generation;
- 	struct kmem_cache	*nf_conntrack_cachep;
- 	struct hlist_nulls_head	*hash;
- 	struct hlist_head	*expect_hash;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 2fd6074..a53c009 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -69,6 +69,7 @@ __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
- EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
+ 		if (res == NULL)
+-			return (u64) -ENOMEM;
++			return -ENOMEM;
  
- static __read_mostly spinlock_t nf_conntrack_locks_all_lock;
-+static __read_mostly seqcount_t nf_conntrack_generation;
- static __read_mostly bool nf_conntrack_locks_all;
- 
- void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
-@@ -107,7 +108,7 @@ static bool nf_conntrack_double_lock(struct net *net, unsigned int h1,
- 		spin_lock_nested(&nf_conntrack_locks[h1],
- 				 SINGLE_DEPTH_NESTING);
+-		return (u64) (__force unsigned long) res;
++		return (__force unsigned long) res;
  	}
--	if (read_seqcount_retry(&net->ct.generation, sequence)) {
-+	if (read_seqcount_retry(&nf_conntrack_generation, sequence)) {
- 		nf_conntrack_double_unlock(h1, h2);
- 		return true;
- 	}
-@@ -393,7 +394,7 @@ static void nf_ct_delete_from_lists(struct nf_conn *ct)
  
- 	local_bh_disable();
- 	do {
--		sequence = read_seqcount_begin(&net->ct.generation);
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
- 		hash = hash_conntrack(net,
- 				      &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
- 		reply_hash = hash_conntrack(net,
-@@ -560,7 +561,7 @@ nf_conntrack_hash_check_insert(struct nf_conn *ct)
+ 	return 0;
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 60f5161..3355ed7 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -513,11 +513,13 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
+ {
+ 	struct xt_entry_target *t;
+ 	struct xt_target *target;
++	unsigned long pcnt;
+ 	int ret;
  
- 	local_bh_disable();
- 	do {
--		sequence = read_seqcount_begin(&net->ct.generation);
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
- 		hash = hash_conntrack(net,
- 				      &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
- 		reply_hash = hash_conntrack(net,
-@@ -628,7 +629,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	local_bh_disable();
+-	e->counters.pcnt = xt_percpu_counter_alloc();
+-	if (IS_ERR_VALUE(e->counters.pcnt))
++	pcnt = xt_percpu_counter_alloc();
++	if (IS_ERR_VALUE(pcnt))
+ 		return -ENOMEM;
++	e->counters.pcnt = pcnt;
  
- 	do {
--		sequence = read_seqcount_begin(&net->ct.generation);
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
- 		/* reuse the hash saved before */
- 		hash = *(unsigned long *)&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev;
- 		hash = hash_bucket(hash, net);
-@@ -771,12 +772,12 @@ static noinline int early_drop(struct net *net, unsigned int _hash)
+ 	t = arpt_get_target(e);
+ 	target = xt_request_find_target(NFPROTO_ARP, t->u.user.name,
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 735d1ee..21ccc19 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -656,10 +656,12 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
+ 	unsigned int j;
+ 	struct xt_mtchk_param mtpar;
+ 	struct xt_entry_match *ematch;
++	unsigned long pcnt;
  
- 	local_bh_disable();
- restart:
--	sequence = read_seqcount_begin(&net->ct.generation);
-+	sequence = read_seqcount_begin(&nf_conntrack_generation);
- 	hash = hash_bucket(_hash, net);
- 	for (; i < net->ct.htable_size; i++) {
- 		lockp = &nf_conntrack_locks[hash % CONNTRACK_LOCKS];
- 		nf_conntrack_lock(lockp);
--		if (read_seqcount_retry(&net->ct.generation, sequence)) {
-+		if (read_seqcount_retry(&nf_conntrack_generation, sequence)) {
- 			spin_unlock(lockp);
- 			goto restart;
- 		}
-@@ -1607,7 +1608,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+-	e->counters.pcnt = xt_percpu_counter_alloc();
+-	if (IS_ERR_VALUE(e->counters.pcnt))
++	pcnt = xt_percpu_counter_alloc();
++	if (IS_ERR_VALUE(pcnt))
+ 		return -ENOMEM;
++	e->counters.pcnt = pcnt;
  
- 	local_bh_disable();
- 	nf_conntrack_all_lock();
--	write_seqcount_begin(&init_net.ct.generation);
-+	write_seqcount_begin(&nf_conntrack_generation);
+ 	j = 0;
+ 	mtpar.net	= net;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 73e606c..17874e8 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -669,10 +669,12 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
+ 	unsigned int j;
+ 	struct xt_mtchk_param mtpar;
+ 	struct xt_entry_match *ematch;
++	unsigned long pcnt;
  
- 	/* Lookups in the old hash might happen in parallel, which means we
- 	 * might get false negatives during connection lookup. New connections
-@@ -1631,7 +1632,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 	init_net.ct.htable_size = nf_conntrack_htable_size = hashsize;
- 	init_net.ct.hash = hash;
+-	e->counters.pcnt = xt_percpu_counter_alloc();
+-	if (IS_ERR_VALUE(e->counters.pcnt))
++	pcnt = xt_percpu_counter_alloc();
++	if (IS_ERR_VALUE(pcnt))
+ 		return -ENOMEM;
++	e->counters.pcnt = pcnt;
  
--	write_seqcount_end(&init_net.ct.generation);
-+	write_seqcount_end(&nf_conntrack_generation);
- 	nf_conntrack_all_unlock();
- 	local_bh_enable();
- 
-@@ -1657,6 +1658,8 @@ int nf_conntrack_init_start(void)
- 	int max_factor = 8;
- 	int i, ret, cpu;
- 
-+	seqcount_init(&nf_conntrack_generation);
-+
- 	for (i = 0; i < CONNTRACK_LOCKS; i++)
- 		spin_lock_init(&nf_conntrack_locks[i]);
- 
-@@ -1783,7 +1786,6 @@ int nf_conntrack_init_net(struct net *net)
- 	int cpu;
- 
- 	atomic_set(&net->ct.count, 0);
--	seqcount_init(&net->ct.generation);
- 
- 	net->ct.pcpu_lists = alloc_percpu(struct ct_pcpu);
- 	if (!net->ct.pcpu_lists)
+ 	j = 0;
+ 	mtpar.net	= net;
 -- 
 2.1.4
-
