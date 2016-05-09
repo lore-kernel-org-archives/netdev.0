@@ -1,75 +1,50 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v7 2/2] ethtool: use netlink socket when AF_INET not available
-Date: Mon,  9 May 2016 10:00:04 -0700
-Message-ID: <1462813204-14338-3-git-send-email-ddecotig@gmail.com>
-References: <1462813204-14338-1-git-send-email-ddecotig@gmail.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@redhat.com>,
-	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	Joe Perches <joe@perches.com>,
-	David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34850 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729AbcEIRAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:00:15 -0400
-Received: by mail-pf0-f194.google.com with SMTP id r187so18989289pfr.2
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 10:00:15 -0700 (PDT)
-In-Reply-To: <1462813204-14338-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elad Kanfi <eladkan@mellanox.com>
+Subject: [PATCH v3 0/2] Net driver bugs fix
+Date: Mon, 9 May 2016 20:13:18 +0300
+Message-ID: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
+	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
+	<netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@googlers.com>
+From: Elad Kanfi <eladkan@mellanox.com>
 
-To benefit from this, kernel commit 025c68186e07 ("netlink: add support
-for NIC driver ioctls") is needed.
+v3:
+tx_packet_sent flag is not necessary, use socket buffer pointer
+instead.
+Use wmb() instead of smp_wmb().
 
+v2:
+Remove code style commit for now.
+Code style commit will be added after the bugs fix will be approved.
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- configure.ac | 2 +-
- ethtool.c    | 7 +++++++
- 2 files changed, 8 insertions(+), 1 deletion(-)
+Summary:
+ 1. Bug description: TX done interrupts that arrives while interrupts
+    are masked, during NAPI poll, will not trigger an interrupt handling.
+    Since TX interrupt is of level edge we will lose the TX done interrupt.
+    As a result all pending tx frames will get no service.
 
-diff --git a/configure.ac b/configure.ac
-index 3105415..47d2a0f 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -15,7 +15,7 @@ AM_PROG_CC_C_O
- dnl Checks for libraries.
- 
- dnl Checks for header files.
--AC_CHECK_HEADERS(sys/ioctl.h)
-+AC_CHECK_HEADERS(sys/ioctl.h linux/netlink.h)
- 
- dnl Checks for typedefs, structures, and compiler characteristics.
- AC_MSG_CHECKING([whether <linux/types.h> defines big-endian types])
-diff --git a/ethtool.c b/ethtool.c
-index cb3d971..314b1b8 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -42,6 +42,9 @@
- #include <arpa/inet.h>
- 
- #include <linux/sockios.h>
-+#ifdef HAVE_LINUX_NETLINK_H
-+# include <linux/netlink.h>
-+#endif
- 
- #ifndef MAX_ADDR_LEN
- #define MAX_ADDR_LEN	32
-@@ -4645,6 +4648,10 @@ opt_found:
- 
- 		/* Open control socket. */
- 		ctx.fd = socket(AF_INET, SOCK_DGRAM, 0);
-+#ifdef HAVE_LINUX_NETLINK_H
-+		if (ctx.fd < 0)
-+			ctx.fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_GENERIC);
-+#endif
- 		if (ctx.fd < 0) {
- 			perror("Cannot get control socket");
- 			return 70;
--- 
-2.8.0.rc3.226.g39d4020
+    Solution: Check if there is a pending tx request after unmasking the
+    interrupt and if answer is yes then re-add ourselves to
+    the NAPI poll list.
+
+ 2. Bug description: CPU-A before sending a frame will set a variable
+    to true. CPU-B that executes the tx done interrupt service routine
+    might read a non valid value of that variable.
+
+    Solution: Use the socket buffer pointer instead of the variable,
+    and add a write memory barrier at the tx sending function after
+    the pointer is set.
+
+Elad Kanfi (2):
+  net: nps_enet: Tx handler synchronization
+  net: nps_enet: bug fix - handle lost tx interrupts
+
+ drivers/net/ethernet/ezchip/nps_enet.c |   30 ++++++++++++++++++++++++------
+ drivers/net/ethernet/ezchip/nps_enet.h |    2 --
+ 2 files changed, 24 insertions(+), 8 deletions(-)
