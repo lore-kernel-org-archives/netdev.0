@@ -1,62 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] fq_codel: add memory limitation per queue
-Date: Mon, 09 May 2016 07:26:48 -0700
-Message-ID: <1462804008.23934.30.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
-	 <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
-	 <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
-	 <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
-	 <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
-	 <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
-	 <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
-	 <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAA93jw4XZ1+LLX1z6wQ6DHsp4vFCS5zmMz-uku_8SBNG_KuUxA@mail.gmail.com>
-	 <542135C7-D7CC-4E33-B35B-C2AD259FA5AB@gmx.de>
-	 <20160506133323.0b190f47@redhat.com>
-	 <D29AB9B2-D514-4D14-9A16-CFB9ECD05B17@gmx.de>
-	 <1462541156.13075.34.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1462550112.13075.47.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpUfJxMxQXia8JOH5xouSFMThrdZWZMUuQ0q=bSmp8oEEQ@mail.gmail.com>
-	 <1462768295.23934.28.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpXOTjdY4AsQVV6qz_U7be6m6OnYO0ZNSanxo6pXqdOu+Q@mail.gmail.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: IPv6: proxy_ndp to a network range
+Date: Mon, 9 May 2016 16:51:10 +0200
+Message-ID: <20160509145109.GB7267@omega>
+References: <31ff66eb-38bd-0186-9e81-0543f0558323@zytor.com>
+ <20160509083903.GA2462@omega>
+ <A2319CD4-6907-4B21-A4DD-03CCA38328FA@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Dave =?ISO-8859-1?Q?T=E4ht?= <dave.taht@gmail.com>,
-	netdev <netdev@vger.kernel.org>, moeller0 <moeller0@gmx.de>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34670 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080AbcEIO0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 10:26:53 -0400
-Received: by mail-pf0-f171.google.com with SMTP id y69so76136482pfb.1
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 07:26:52 -0700 (PDT)
-In-Reply-To: <CAM_iQpXOTjdY4AsQVV6qz_U7be6m6OnYO0ZNSanxo6pXqdOu+Q@mail.gmail.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37739 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950AbcEIOvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 10:51:14 -0400
+Received: by mail-wm0-f54.google.com with SMTP id a17so191713720wme.0
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 07:51:14 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <A2319CD4-6907-4B21-A4DD-03CCA38328FA@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-05-08 at 22:07 -0700, Cong Wang wrote:
-> On Sun, May 8, 2016 at 9:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Sun, 2016-05-08 at 21:14 -0700, Cong Wang wrote:
+Hi,
+
+On Mon, May 09, 2016 at 01:46:13AM -0700, H. Peter Anvin wrote:
+> On May 9, 2016 1:39:08 AM PDT, Alexander Aring <alex.aring@gmail.com> wrote:
+> >Hi,
 > >
-> >> So when the packet is dropped due to memory over limit, should
-> >> we return failure for this case? Or I miss anything?
+> >On Mon, May 09, 2016 at 01:06:51AM -0700, H. Peter Anvin wrote:
+> >> Hello,
+> >> 
+> >> There currently doesn't seem to be any support for proxy_ndp of a
+> >whole
+> >> network mask, as IPv4 proxy_arp seems to permit.
+> >> 
+> >> a) Am I actually correct in this, or am I just missing something
+> >important?
+> >> 
+> >> b) Is there a technical reason for this, or is it just a limitation
+> >of the
+> >> current implementation?
+> >> 
 > >
-> > Same behavior than before.
+> >So far I know you can do this with the ndppd [0] userspace tool which
+> >listen
+> >NS/NA messages and do the ip -6 neigh add proxy for you.
 > >
-> > If we dropped some packets of this flow, we return NET_XMIT_CN
+> >- Alex
+> >
+> >[0] https://github.com/DanielAdolfsson/ndppd
 > 
-> I think for the limited memory case, the upper layer is supposed
-> to stop sending more packets when hitting the limit.
+> Sure, but it seems like a workaround for something that ought to be simpler?
 
-They doe. NET_XMIT_CN for example aborts IP fragmentation.
+I don't know if there exists a simpler way, but I would also be
+interested into that.
 
-TCP flows will also instantly react.
+There are some people @linux-wpan which wants to plugin an ethernet cable
+and everything works out of the box to access the 6LoWPAN network over
+the ethernet connection without doing routing setup stuff.
+
+"ndppd" was on my list to test for realize such setup. :-)
+
+---
+
+For the simpler solution do you want to move the actually mechanism what
+"ndppd" does into the kernel?
+
+- Alex
