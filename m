@@ -1,83 +1,56 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: NFSroot hangs with bad unlock balance in Linux next
-Date: Mon, 9 May 2016 16:39:33 +0100
-Message-ID: <20160509153932.GJ2694@ZenIV.linux.org.uk>
-References: <20160505220344.GE5995@atomide.com>
- <20160508141629.GF2694@ZenIV.linux.org.uk>
- <20160509073235.GI2694@ZenIV.linux.org.uk>
- <CANn89iK5H-SokYE1r+OO3sPmQ1vpGqYGbE4x1QLn44wdyvH0cw@mail.gmail.com>
- <20160509151219.GF5995@atomide.com>
- <20160509152138.GG5995@atomide.com>
+From: Eli Cohen <eli@mellanox.com>
+Subject: RE: [PATCH] Add support for configuring Infiniband GUIDs
+Date: Mon, 9 May 2016 15:52:02 +0000
+Message-ID: <DB5PR05MB1848F2481D0767935CA14399C5700@DB5PR05MB1848.eurprd05.prod.outlook.com>
+References: <1462549405-16003-1-git-send-email-eli@mellanox.com>
+ <20160506115341.5b8d4587@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
- netdev <netdev@vger.kernel.org>,
- Trond Myklebust <trond.myklebust@primarydata.com>,
- Anna Schumaker <anna.schumaker@netapp.com>, Eric Dumazet <edumazet@google.com>,
- linux-omap@vger.kernel.org, Christoph Hellwig <hch@lst.de>,
- linux-arm-kernel@lists.infradead.org
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20160509152138.GG5995@atomide.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@osdl.org" <shemminger@osdl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eli Cohen (eli@dev.mellanox.co.il)" <eli@dev.mellanox.co.il>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0087.outbound.protection.outlook.com ([157.56.112.87]:43296
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751150AbcEIPwH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 11:52:07 -0400
+In-Reply-To: <20160506115341.5b8d4587@xeon-e3>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 09, 2016 at 08:21:38AM -0700, Tony Lindgren wrote:
+Hi Stephen,
 
-> Looks like with both patches applied I still also get this eventually:
+ibstat is usually used with MLNX_OFED distributions and I don't think it is a part of libibverbs.
+Moreover, in a previous patch I sent https://patchwork.ozlabs.org/patch/596492/ I documented in the change log the same format I mention in this patch. So if I change the format here we will have the changelog in the kernel tree invalid.
+
+How do you think this should be addressed?
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:stephen@networkplumber.org] 
+Sent: Friday, May 06, 2016 1:54 PM
+To: Eli Cohen <eli@mellanox.com>
+Cc: shemminger@osdl.org; netdev@vger.kernel.org
+Subject: Re: [PATCH] Add support for configuring Infiniband GUIDs
+
+On Fri,  6 May 2016 10:43:25 -0500
+Eli Cohen <eli@mellanox.com> wrote:
+
+> Add two NLA's that allow configuration of Infiniband node or port 
+> GUIDs by referencing the IPoIB net device set over then physical 
+> function. The format to be used is as follows:
 > 
-> =====================================
-> [ BUG: bad unlock balance detected! ]
-> 4.6.0-rc7-next-20160509+ #1264 Not tainted
-> -------------------------------------
+> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70 ip link set 
+> dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
+> 
+> Issue: 702759
+> Change-Id: I5ffb54d6de7bfa8650bf5818f484279914991d6e
+> Signed-off-by: Eli Cohen <eli@mellanox.com>
 
-Lockdep warnings are noise.  To make them STFU try the following incremental;
-I'll fold it into #work.lookups and #for-next.  Note that it will do nothing
-to hangs - those are completely unrelated and you need Eric's patch to deal
-with them.
+I am not that familiar with Infiniband, but the documentation seems to use a non-colon form:
+ # ip link set dev ib0 vf 0 node_guid 0002c90300216e70
 
-diff --git a/fs/nfs/unlink.c b/fs/nfs/unlink.c
-index d367b06..1868246 100644
---- a/fs/nfs/unlink.c
-+++ b/fs/nfs/unlink.c
-@@ -64,7 +64,7 @@ static void nfs_async_unlink_release(void *calldata)
- 	struct dentry *dentry = data->dentry;
- 	struct super_block *sb = dentry->d_sb;
- 
--	up_read(&NFS_I(d_inode(dentry->d_parent))->rmdir_sem);
-+	up_read_non_owner(&NFS_I(d_inode(dentry->d_parent))->rmdir_sem);
- 	d_lookup_done(dentry);
- 	nfs_free_unlinkdata(data);
- 	dput(dentry);
-@@ -117,10 +117,10 @@ static int nfs_call_unlink(struct dentry *dentry, struct nfs_unlinkdata *data)
- 	struct inode *dir = d_inode(dentry->d_parent);
- 	struct dentry *alias;
- 
--	down_read(&NFS_I(dir)->rmdir_sem);
-+	down_read_non_owner(&NFS_I(dir)->rmdir_sem);
- 	alias = d_alloc_parallel(dentry->d_parent, &data->args.name, &data->wq);
- 	if (IS_ERR(alias)) {
--		up_read(&NFS_I(dir)->rmdir_sem);
-+		up_read_non_owner(&NFS_I(dir)->rmdir_sem);
- 		return 0;
- 	}
- 	if (!d_in_lookup(alias)) {
-@@ -142,7 +142,7 @@ static int nfs_call_unlink(struct dentry *dentry, struct nfs_unlinkdata *data)
- 			ret = 0;
- 		spin_unlock(&alias->d_lock);
- 		dput(alias);
--		up_read(&NFS_I(dir)->rmdir_sem);
-+		up_read_non_owner(&NFS_I(dir)->rmdir_sem);
- 		/*
- 		 * If we'd displaced old cached devname, free it.  At that
- 		 * point dentry is definitely not a root, so we won't need
+Seems like ip should follow the lead of ibstat and friends.
