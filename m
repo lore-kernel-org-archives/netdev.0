@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 07/21] net: dsa: mv88e6xxx: factorize EEE access
-Date: Mon,  9 May 2016 13:22:44 -0400
-Message-ID: <1462814578-6249-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 10/21] net: dsa: mv88e6xxx: factorize VTU access
+Date: Mon,  9 May 2016 13:22:47 -0400
+Message-ID: <1462814578-6249-11-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -10,132 +10,171 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50815 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50896 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbcEIRXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:23:21 -0400
+	with ESMTP id S1752320AbcEIRXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:23:33 -0400
 In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a MV88E6XXX_FLAG_EEE flag to describe switch models featuring Energy
-Efficient Ethernet. Use it to conditionally support such access in the
-common code.
+Add a MV88E6XXX_FLAG_VTU flag to indentify switch models with a VLAN
+Table Unit.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  2 ++
- drivers/net/dsa/mv88e6131.c |  2 ++
- drivers/net/dsa/mv88e6171.c |  2 ++
- drivers/net/dsa/mv88e6xxx.c |  6 ++++++
- drivers/net/dsa/mv88e6xxx.h | 11 +++++++++--
- 5 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6123.c |  5 +++++
+ drivers/net/dsa/mv88e6xxx.c | 16 ++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h | 24 ++++++++++++++++++------
+ 3 files changed, 39 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index c349fb7..1ad7bcd 100644
+index 81cd4a9..da5aa9c 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -117,6 +117,8 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
-+	.set_eee		= mv88e6xxx_set_eee,
-+	.get_eee		= mv88e6xxx_get_eee,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 1e040c6..432d3c4 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -150,6 +150,8 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
-+	.set_eee		= mv88e6xxx_set_eee,
-+	.get_eee		= mv88e6xxx_get_eee,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index f9b20e0..a98e7d3 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -126,6 +126,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.set_addr		= mv88e6xxx_set_addr,
- 	.phy_read		= mv88e6xxx_phy_read,
- 	.phy_write		= mv88e6xxx_phy_write,
-+	.set_eee		= mv88e6xxx_set_eee,
-+	.get_eee		= mv88e6xxx_get_eee,
- 	.get_strings		= mv88e6xxx_get_strings,
- 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
- 	.get_sset_count		= mv88e6xxx_get_sset_count,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 4f0e047..6aac58b 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1105,6 +1105,9 @@ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int reg;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEE))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	reg = _mv88e6xxx_phy_read_indirect(ps, port, 16);
-@@ -1133,6 +1136,9 @@ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 	int reg;
- 	int ret;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEE))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	ret = _mv88e6xxx_phy_read_indirect(ps, port, 16);
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 517e95f..b99e090 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -351,6 +351,10 @@ enum mv88e6xxx_family {
+@@ -136,6 +136,11 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
++	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
++	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
++	.port_vlan_add		= mv88e6xxx_port_vlan_add,
++	.port_vlan_del		= mv88e6xxx_port_vlan_del,
++	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
  };
  
- enum mv88e6xxx_cap {
-+	/* Energy Efficient Ethernet.
-+	 */
-+	MV88E6XXX_CAP_EEE,
+ MODULE_ALIAS("platform:mv88e6123");
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index f02738e..6c472cf 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1596,6 +1596,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+ 	u16 pvid;
+ 	int err;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
 +
- 	/* EEPROM Command and Data registers.
- 	 * See GLOBAL2_EEPROM_OP and GLOBAL2_EEPROM_DATA.
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	err = _mv88e6xxx_port_pvid_get(ps, port, &pvid);
+@@ -2019,6 +2022,9 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+ 		PORT_CONTROL_2_8021Q_DISABLED;
+ 	int ret;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	ret = _mv88e6xxx_reg_read(ps, REG_PORT(port), PORT_CONTROL_2);
+@@ -2052,8 +2058,12 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int err;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
++
+ 	/* If the requested port doesn't belong to the same bridge as the VLAN
+ 	 * members, do not support it (yet) and fallback to software VLAN.
  	 */
-@@ -382,6 +386,7 @@ enum mv88e6xxx_cap {
+@@ -2094,6 +2104,9 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
+ 	u16 vid;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
+@@ -2151,6 +2164,9 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 	u16 pvid, vid;
+ 	int err = 0;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VTU))
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	err = _mv88e6xxx_port_pvid_get(ps, port, &pvid);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index d15e0b3..4f21206 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -394,6 +394,11 @@ enum mv88e6xxx_cap {
+ 	 * the output (or egress) ports to which it is allowed to send frames.
+ 	 */
+ 	MV88E6XXX_CAP_VLANTABLE,
++
++	/* VLAN Table Unit.
++	 * The VTU is used to program 802.1Q VLANs. See GLOBAL_VTU_OP.
++	 */
++	MV88E6XXX_CAP_VTU,
  };
  
  /* Bitmask of capabilities */
-+#define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
- #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
- #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
-@@ -403,7 +408,8 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_FLAG_PPU
+@@ -406,14 +411,17 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+ #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
+ #define MV88E6XXX_FLAG_VLANTABLE	BIT(MV88E6XXX_CAP_VLANTABLE)
++#define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6095	\
+ 	(MV88E6XXX_FLAG_PPU |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+ 	(MV88E6XXX_FLAG_PPU |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+ 	(MV88E6XXX_FLAG_SWITCH_MAC |	\
+@@ -421,7 +429,8 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	(MV88E6XXX_FLAG_PPU |		\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6320	\
--	(MV88E6XXX_FLAG_EEPROM |	\
-+	(MV88E6XXX_FLAG_EEE |		\
-+	 MV88E6XXX_FLAG_EEPROM |	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+@@ -431,14 +440,16 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	(MV88E6XXX_FLAG_PORTSTATE |	\
  	 MV88E6XXX_FLAG_SMI_PHY |	\
  	 MV88E6XXX_FLAG_SWITCH_MAC |	\
  	 MV88E6XXX_FLAG_TEMP |		\
-@@ -415,7 +421,8 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_TEMP)
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6352	\
--	(MV88E6XXX_FLAG_EEPROM |	\
-+	(MV88E6XXX_FLAG_EEE |		\
-+	 MV88E6XXX_FLAG_EEPROM |	\
- 	 MV88E6XXX_FLAG_SMI_PHY	|	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+@@ -448,7 +459,8 @@ enum mv88e6xxx_cap {
  	 MV88E6XXX_FLAG_SWITCH_MAC |	\
  	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
+-	 MV88E6XXX_FLAG_VLANTABLE)
++	 MV88E6XXX_FLAG_VLANTABLE |	\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ struct mv88e6xxx_info {
+ 	enum mv88e6xxx_family family;
 -- 
 2.8.2
