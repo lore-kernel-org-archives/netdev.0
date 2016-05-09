@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 01/21] net: dsa: mv88e6xxx: add flags to info
-Date: Mon,  9 May 2016 13:22:38 -0400
-Message-ID: <1462814578-6249-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 13/21] net: dsa: mv88e6xxx: factorize global setup
+Date: Mon,  9 May 2016 13:22:50 -0400
+Message-ID: <1462814578-6249-14-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,201 +14,326 @@ In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a flags bitmap to the info structure in order to identify features
-supported or not by the different switch models.
+Every driver is calling mv88e6xxx_setup_global after
+mv88e6xxx_setup_common. Call the former in the latter.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6123.c |  3 +++
- drivers/net/dsa/mv88e6131.c |  4 ++++
- drivers/net/dsa/mv88e6171.c |  4 ++++
- drivers/net/dsa/mv88e6352.c |  6 ++++++
- drivers/net/dsa/mv88e6xxx.h | 21 +++++++++++++++++++++
- 5 files changed, 38 insertions(+)
+ drivers/net/dsa/mv88e6123.c |   4 --
+ drivers/net/dsa/mv88e6131.c |   4 --
+ drivers/net/dsa/mv88e6171.c |   4 --
+ drivers/net/dsa/mv88e6352.c |   4 --
+ drivers/net/dsa/mv88e6xxx.c | 109 +++++++++++++++++++++++---------------------
+ drivers/net/dsa/mv88e6xxx.h |   1 -
+ 6 files changed, 56 insertions(+), 70 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 5535a42..ab5885b 100644
+index fadec7a..d74695a 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -24,18 +24,21 @@ static const struct mv88e6xxx_info mv88e6123_table[] = {
- 		.name = "Marvell 88E6123",
- 		.num_databases = 4096,
- 		.num_ports = 3,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6161,
- 		.family = MV88E6XXX_FAMILY_6165,
- 		.name = "Marvell 88E6161",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6165,
- 		.family = MV88E6XXX_FAMILY_6165,
- 		.name = "Marvell 88E6165",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	}
- };
+@@ -58,10 +58,6 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
+ 	int ret;
+ 	u32 reg;
  
+-	ret = mv88e6xxx_setup_global(ds);
+-	if (ret)
+-		return ret;
+-
+ 	/* Disable the PHY polling unit (since there won't be any
+ 	 * external PHYs to poll), don't discard packets with
+ 	 * excessive collisions, and mask all interrupt sources.
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 357ab79..d477320 100644
+index 25ed823..e22ca7b 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -24,24 +24,28 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
- 		.name = "Marvell 88E6095/88E6095F",
- 		.num_databases = 256,
- 		.num_ports = 11,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6095,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6085,
- 		.family = MV88E6XXX_FAMILY_6097,
- 		.name = "Marvell 88E6085",
- 		.num_databases = 4096,
- 		.num_ports = 10,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6131,
- 		.family = MV88E6XXX_FAMILY_6185,
- 		.name = "Marvell 88E6131",
- 		.num_databases = 256,
- 		.num_ports = 8,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6185,
- 		.family = MV88E6XXX_FAMILY_6185,
- 		.name = "Marvell 88E6185",
- 		.num_databases = 256,
- 		.num_ports = 10,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
- 	}
- };
+@@ -65,10 +65,6 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ 	int ret;
+ 	u32 reg;
  
+-	ret = mv88e6xxx_setup_global(ds);
+-	if (ret)
+-		return ret;
+-
+ 	/* Enable the PHY polling unit, don't discard packets with
+ 	 * excessive collisions, use a weighted fair queueing scheme
+ 	 * to arbitrate between packet queues, set the maximum frame
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index f75164d..e64cbee 100644
+index caaa4b6..4bbf2e1 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -24,24 +24,28 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
- 		.name = "Marvell 88E6171",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
- 		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6175",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
- 		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6350",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
- 		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6351",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	}
- };
+@@ -65,10 +65,6 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
+ 	int ret;
+ 	u32 reg;
  
+-	ret = mv88e6xxx_setup_global(ds);
+-	if (ret)
+-		return ret;
+-
+ 	/* Discard packets with excessive collisions, mask all
+ 	 * interrupt sources, enable PPU.
+ 	 */
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index c622a1d..c61f0f4 100644
+index 470789a..3e0be87 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -29,36 +29,42 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
- 		.name = "Marvell 88E6320",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6321,
- 		.family = MV88E6XXX_FAMILY_6320,
- 		.name = "Marvell 88E6321",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6172,
- 		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6172",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6176,
- 		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6176",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6240,
- 		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6240",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6352,
- 		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6352",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
+@@ -84,10 +84,6 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
+ 	int ret;
+ 	u32 reg;
+ 
+-	ret = mv88e6xxx_setup_global(ds);
+-	if (ret)
+-		return ret;
+-
+ 	/* Discard packets with excessive collisions,
+ 	 * mask all interrupt sources, enable PPU (bit 14, undocumented).
+ 	 */
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index b631a5d..32b36a8 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2920,36 +2920,11 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
++static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+ {
+ 	int err;
+-
+-	mutex_init(&ps->smi_mutex);
+-
+-	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+-
+-	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
+-		mutex_init(&ps->eeprom_mutex);
+-
+-	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+-		mv88e6xxx_ppu_state_init(ps);
+-
+-	mutex_lock(&ps->smi_mutex);
+-
+-	err = mv88e6xxx_switch_reset(ps);
+-
+-	mutex_unlock(&ps->smi_mutex);
+-
+-	return err;
+-}
+-
+-int mv88e6xxx_setup_global(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int err;
+ 	int i;
+ 
+-	mutex_lock(&ps->smi_mutex);
+ 	/* Set the default address aging time to 5 minutes, and
+ 	 * enable address learn messages to be sent to all message
+ 	 * ports.
+@@ -2957,45 +2932,45 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_ATU_CONTROL,
+ 				   0x0140 | GLOBAL_ATU_CONTROL_LEARN2ALL);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Configure the IP ToS mapping registers. */
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_0, 0x0000);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_1, 0x0000);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_2, 0x5555);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_3, 0x5555);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_4, 0xaaaa);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_5, 0xaaaa);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_6, 0xffff);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IP_PRI_7, 0xffff);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Configure the IEEE 802.1p priority mapping register. */
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_IEEE_PRI, 0xfa41);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Send all frames with destination addresses matching
+ 	 * 01:80:c2:00:00:0x to the CPU port.
+ 	 */
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2, GLOBAL2_MGMT_EN_0X, 0xffff);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Ignore removed tag data on doubly tagged packets, disable
+ 	 * flow control messages, force flow control priority to the
+@@ -3006,15 +2981,15 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 				   0x7 | GLOBAL2_SWITCH_MGMT_RSVD2CPU | 0x70 |
+ 				   GLOBAL2_SWITCH_MGMT_FORCE_FLOW_CTRL_PRI);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Program the DSA routing table. */
+ 	for (i = 0; i < 32; i++) {
+ 		int nexthop = 0x1f;
+ 
+-		if (ds->pd->rtable &&
+-		    i != ds->index && i < ds->dst->pd->nr_chips)
+-			nexthop = ds->pd->rtable[i] & 0x1f;
++		if (ps->ds->pd->rtable &&
++		    i != ps->ds->index && i < ps->ds->dst->pd->nr_chips)
++			nexthop = ps->ds->pd->rtable[i] & 0x1f;
+ 
+ 		err = _mv88e6xxx_reg_write(
+ 			ps, REG_GLOBAL2,
+@@ -3022,7 +2997,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 			GLOBAL2_DEVICE_MAPPING_UPDATE |
+ 			(i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) | nexthop);
+ 		if (err)
+-			goto unlock;
++			return err;
  	}
- };
  
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 4f455d2..c67b72a 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -350,12 +350,27 @@ enum mv88e6xxx_family {
- 	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
- };
+ 	/* Clear all trunk masks. */
+@@ -3032,7 +3007,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 					   (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
+ 					   ((1 << ps->info->num_ports) - 1));
+ 		if (err)
+-			goto unlock;
++			return err;
+ 	}
  
-+#define MV88E6XXX_FLAGS_FAMILY_6095	0
-+
-+#define MV88E6XXX_FLAGS_FAMILY_6097	0
-+
-+#define MV88E6XXX_FLAGS_FAMILY_6165	0
-+
-+#define MV88E6XXX_FLAGS_FAMILY_6185	0
-+
-+#define MV88E6XXX_FLAGS_FAMILY_6320	0
-+
-+#define MV88E6XXX_FLAGS_FAMILY_6351	0
-+
-+#define MV88E6XXX_FLAGS_FAMILY_6352	0
-+
- struct mv88e6xxx_info {
- 	enum mv88e6xxx_family family;
- 	u16 prod_num;
- 	const char *name;
- 	unsigned int num_databases;
- 	unsigned int num_ports;
-+	unsigned long flags;
- };
+ 	/* Clear all trunk mappings. */
+@@ -3043,7 +3018,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 			GLOBAL2_TRUNK_MAPPING_UPDATE |
+ 			(i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
+ 		if (err)
+-			goto unlock;
++			return err;
+ 	}
  
- struct mv88e6xxx_atu_entry {
-@@ -449,6 +464,12 @@ struct mv88e6xxx_hw_stat {
- 	enum stat_type type;
- };
+ 	if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
+@@ -3055,7 +3030,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2,
+ 					   GLOBAL2_MGMT_EN_2X, 0xffff);
+ 		if (err)
+-			goto unlock;
++			return err;
  
-+static inline bool mv88e6xxx_has(struct mv88e6xxx_priv_state *ps,
-+				 unsigned long flags)
-+{
-+	return (ps->info->flags & flags) == flags;
+ 		/* Initialise cross-chip port VLAN table to reset
+ 		 * defaults.
+@@ -3063,7 +3038,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 		err = _mv88e6xxx_reg_write(ps, REG_GLOBAL2,
+ 					   GLOBAL2_PVT_ADDR, 0x9000);
+ 		if (err)
+-			goto unlock;
++			return err;
+ 
+ 		/* Clear the priority override table. */
+ 		for (i = 0; i < 16; i++) {
+@@ -3071,7 +3046,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 						   GLOBAL2_PRIO_OVERRIDE,
+ 						   0x8000 | (i << 8));
+ 			if (err)
+-				goto unlock;
++				return err;
+ 		}
+ 	}
+ 
+@@ -3088,7 +3063,7 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 						   GLOBAL2_INGRESS_OP,
+ 						   0x9000 | (i << 8));
+ 			if (err)
+-				goto unlock;
++				return err;
+ 		}
+ 	}
+ 
+@@ -3096,20 +3071,48 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+ 	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_STATS_OP,
+ 				   GLOBAL_STATS_OP_FLUSH_ALL);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Wait for the flush to complete. */
+ 	err = _mv88e6xxx_stats_wait(ps);
+-	if (err < 0)
+-		goto unlock;
++	if (err)
++		return err;
+ 
+ 	/* Clear all ATU entries */
+ 	err = _mv88e6xxx_atu_flush(ps, 0, true);
+-	if (err < 0)
+-		goto unlock;
++	if (err)
++		return err;
+ 
+ 	/* Clear all the VTU and STU entries */
+ 	err = _mv88e6xxx_vtu_stu_flush(ps);
++	if (err < 0)
++		return err;
++
++	return err;
 +}
 +
- int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps, bool ppu_active);
- const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
- 				int sw_addr, void **priv,
++int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
++{
++	int err;
++
++	mutex_init(&ps->smi_mutex);
++
++	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
++
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
++		mutex_init(&ps->eeprom_mutex);
++
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
++		mv88e6xxx_ppu_state_init(ps);
++
++	mutex_lock(&ps->smi_mutex);
++
++	err = mv88e6xxx_switch_reset(ps);
++	if (err)
++		goto unlock;
++
++	err = mv88e6xxx_setup_global(ps);
++
+ unlock:
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index efd6ebd..62f6fc9 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -590,7 +590,6 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+ 
+ int mv88e6xxx_setup_ports(struct dsa_switch *ds);
+ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps);
+-int mv88e6xxx_setup_global(struct dsa_switch *ds);
+ int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg);
+ int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
+ 			int reg, u16 val);
 -- 
 2.8.2
