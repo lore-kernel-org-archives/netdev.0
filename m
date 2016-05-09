@@ -1,116 +1,95 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/36] netfilter: conntrack: fix lookup race during hash resize
-Date: Mon,  9 May 2016 20:46:34 +0200
-Message-ID: <1462819614-5402-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/36] netfilter: nf_tables: introduce nft_setelem_parse_flags() helper
+Date: Mon,  9 May 2016 20:46:25 +0200
+Message-ID: <1462819614-5402-8-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45683 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751961AbcEISrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 14:47:10 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 4216BE8E8E
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:09 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 33EF3134714
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:09 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 309F913470B
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:07 +0200 (CEST)
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+This function parses the set element flags, thus, we can reuse the same
+handling when deleting elements.
 
-When resizing the conntrack hash table at runtime via
-echo 42 > /sys/module/nf_conntrack/parameters/hashsize, we are racing with
-the conntrack lookup path -- reads can happen in parallel and nothing
-prevents readers from observing a the newly allocated hash but the old
-size (or vice versa).
-
-So access to hash[bucket] can trigger OOB read access in case the table got
-expanded and we saw the new size but the old hash pointer (or it got shrunk
-and we got new hash ptr but the size of the old and larger table):
-
-kasan: GPF could be caused by NULL-ptr deref or user memory access general protection fault: 0000 [#1] SMP KASAN
-CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 4.6.0-rc2+ #107
-[..]
-Call Trace:
-[<ffffffff822c3d6a>] ? nf_conntrack_tuple_taken+0x12a/0xe90
-[<ffffffff822c3ac1>] ? nf_ct_invert_tuplepr+0x221/0x3a0
-[<ffffffff8230e703>] get_unique_tuple+0xfb3/0x2760
-
-Use generation counter to obtain the address/length of the same table.
-
-Also add a synchronize_net before freeing the old hash.
-AFAICS, without it we might access ct_hash[bucket] after ct_hash has been
-freed, provided that lockless reader got delayed by another event:
-
-CPU1			CPU2
-seq_begin
-seq_retry
-<delay>			resize occurs
-			free oldhash
-for_each(oldhash[size])
-
-Note that resize is only supported in init_netns, it took over 2 minutes
-of constant resizing+flooding to produce the warning, so this isn't a
-big problem in practice.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c | 24 +++++++++++++++++++-----
- 1 file changed, 19 insertions(+), 5 deletions(-)
+ net/netfilter/nf_tables_api.c | 34 ++++++++++++++++++++++------------
+ 1 file changed, 22 insertions(+), 12 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 1b63359..29fa08b 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -469,11 +469,18 @@ ____nf_conntrack_find(struct net *net, const struct nf_conntrack_zone *zone,
- 		      const struct nf_conntrack_tuple *tuple, u32 hash)
- {
- 	struct nf_conntrack_tuple_hash *h;
-+	struct hlist_nulls_head *ct_hash;
- 	struct hlist_nulls_node *n;
--	unsigned int bucket = hash_bucket(hash, net);
-+	unsigned int bucket, sequence;
- 
- begin:
--	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[bucket], hnnode) {
-+	do {
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
-+		bucket = hash_bucket(hash, net);
-+		ct_hash = net->ct.hash;
-+	} while (read_seqcount_retry(&nf_conntrack_generation, sequence));
-+
-+	hlist_nulls_for_each_entry_rcu(h, n, &ct_hash[bucket], hnnode) {
- 		if (nf_ct_key_equal(h, tuple, zone)) {
- 			NF_CT_STAT_INC_ATOMIC(net, found);
- 			return h;
-@@ -722,15 +729,21 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
- 	struct net *net = nf_ct_net(ignored_conntrack);
- 	const struct nf_conntrack_zone *zone;
- 	struct nf_conntrack_tuple_hash *h;
-+	struct hlist_nulls_head *ct_hash;
-+	unsigned int hash, sequence;
- 	struct hlist_nulls_node *n;
- 	struct nf_conn *ct;
--	unsigned int hash;
- 
- 	zone = nf_ct_zone(ignored_conntrack);
--	hash = hash_conntrack(net, tuple);
- 
- 	rcu_read_lock();
--	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnnode) {
-+	do {
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
-+		hash = hash_conntrack(net, tuple);
-+		ct_hash = net->ct.hash;
-+	} while (read_seqcount_retry(&nf_conntrack_generation, sequence));
-+
-+	hlist_nulls_for_each_entry_rcu(h, n, &ct_hash[hash], hnnode) {
- 		ct = nf_ct_tuplehash_to_ctrack(h);
- 		if (ct != ignored_conntrack &&
- 		    nf_ct_tuple_equal(tuple, &h->tuple) &&
-@@ -1607,6 +1620,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 	nf_conntrack_all_unlock();
- 	local_bh_enable();
- 
-+	synchronize_net();
- 	nf_ct_free_hashtable(old_hash, old_size);
- 	return 0;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 7a85a9d..1b3210b 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3375,6 +3375,22 @@ void nft_set_elem_destroy(const struct nft_set *set, void *elem)
  }
+ EXPORT_SYMBOL_GPL(nft_set_elem_destroy);
+ 
++static int nft_setelem_parse_flags(const struct nft_set *set,
++				   const struct nlattr *attr, u32 *flags)
++{
++	if (attr == NULL)
++		return 0;
++
++	*flags = ntohl(nla_get_be32(attr));
++	if (*flags & ~NFT_SET_ELEM_INTERVAL_END)
++		return -EINVAL;
++	if (!(set->flags & NFT_SET_INTERVAL) &&
++	    *flags & NFT_SET_ELEM_INTERVAL_END)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 			    const struct nlattr *attr)
+ {
+@@ -3388,8 +3404,8 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 	struct nft_data data;
+ 	enum nft_registers dreg;
+ 	struct nft_trans *trans;
++	u32 flags = 0;
+ 	u64 timeout;
+-	u32 flags;
+ 	u8 ulen;
+ 	int err;
+ 
+@@ -3403,17 +3419,11 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 
+ 	nft_set_ext_prepare(&tmpl);
+ 
+-	flags = 0;
+-	if (nla[NFTA_SET_ELEM_FLAGS] != NULL) {
+-		flags = ntohl(nla_get_be32(nla[NFTA_SET_ELEM_FLAGS]));
+-		if (flags & ~NFT_SET_ELEM_INTERVAL_END)
+-			return -EINVAL;
+-		if (!(set->flags & NFT_SET_INTERVAL) &&
+-		    flags & NFT_SET_ELEM_INTERVAL_END)
+-			return -EINVAL;
+-		if (flags != 0)
+-			nft_set_ext_add(&tmpl, NFT_SET_EXT_FLAGS);
+-	}
++	err = nft_setelem_parse_flags(set, nla[NFTA_SET_ELEM_FLAGS], &flags);
++	if (err < 0)
++		return err;
++	if (flags != 0)
++		nft_set_ext_add(&tmpl, NFT_SET_EXT_FLAGS);
+ 
+ 	if (set->flags & NFT_SET_MAP) {
+ 		if (nla[NFTA_SET_ELEM_DATA] == NULL &&
 -- 
 2.1.4
-
