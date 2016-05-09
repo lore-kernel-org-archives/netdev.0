@@ -1,63 +1,81 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 15/22] net-next: mediatek: only wake the queue if it is stopped
-Date: Mon,  9 May 2016 12:04:07 +0200
-Message-ID: <1462788254-40572-16-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 19/22] net-next: mediatek: add IRQ locking
+Date: Mon,  9 May 2016 12:04:11 +0200
+Message-ID: <1462788254-40572-20-git-send-email-john@phrozen.org>
 References: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Cc: nbd@nbd.name, netdev@vger.kernel.org,
 	linux-mediatek@lists.infradead.org, John Crispin <john@phrozen.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:50472 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:50310 "EHLO nbd.name"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752224AbcEIK2D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 06:28:03 -0400
+	id S1751426AbcEIK1E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 06:27:04 -0400
 In-Reply-To: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code unconditionally wakes up the queue at the end of each
-tx_poll action. Change the code to only wake up the queues if any of
-them have actually been stopped before.
+The code that enables and disables IRQs is missing proper locking. After
+adding the IRQ separation patch and routing the putting the RX and TX IRQs
+on different cores we experienced IRQ stalls. Fix this by adding proper
+locking. We use a dedicated lock to reduce the latency if the IRQ code.
+Otherwise it might wait for bottom code to finish before reenabling or
+disabling IRQs.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 +++++++
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |    1 +
+ 2 files changed, 8 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 9f4b533..7f42178 100644
+index 5c20fbf..a738221 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -703,6 +703,20 @@ static inline int mtk_cal_txd_req(struct sk_buff *skb)
- 	return nfrags;
+@@ -318,18 +318,24 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
+ 
+ static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
+ {
++	unsigned long flags;
+ 	u32 val;
+ 
++	spin_lock_irqsave(&eth->irq_lock, flags);
+ 	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
+ 	mtk_w32(eth, val & ~mask, MTK_QDMA_INT_MASK);
++	spin_unlock_irqrestore(&eth->irq_lock, flags);
  }
  
-+static int mtk_queue_stopped(struct mtk_eth *eth)
-+{
-+	int i;
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+		if (netif_queue_stopped(eth->netdev[i]))
-+			return 1;
-+	}
-+
-+	return 0;
-+}
-+
- static void mtk_wake_queue(struct mtk_eth *eth)
+ static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
  {
- 	int i;
-@@ -947,7 +961,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 	if (!total)
- 		return 0;
++	unsigned long flags;
+ 	u32 val;
  
--	if (atomic_read(&ring->free_count) > ring->thresh)
-+	if (mtk_queue_stopped(eth) &&
-+	    (atomic_read(&ring->free_count) > ring->thresh))
- 		mtk_wake_queue(eth);
++	spin_lock_irqsave(&eth->irq_lock, flags);
+ 	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
+ 	mtk_w32(eth, val | mask, MTK_QDMA_INT_MASK);
++	spin_unlock_irqrestore(&eth->irq_lock, flags);
+ }
  
- 	return total;
+ static int mtk_set_mac_address(struct net_device *dev, void *p)
+@@ -1757,6 +1763,7 @@ static int mtk_probe(struct platform_device *pdev)
+ 		return PTR_ERR(eth->base);
+ 
+ 	spin_lock_init(&eth->page_lock);
++	spin_lock_init(&eth->irq_lock);
+ 
+ 	eth->ethsys = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+ 						      "mediatek,ethsys");
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index a5eb7c6..3159d2a 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -373,6 +373,7 @@ struct mtk_eth {
+ 	void __iomem			*base;
+ 	struct reset_control		*rstc;
+ 	spinlock_t			page_lock;
++	spinlock_t			irq_lock;
+ 	struct net_device		dummy_dev;
+ 	struct net_device		*netdev[MTK_MAX_DEVS];
+ 	struct mtk_mac			*mac[MTK_MAX_DEVS];
 -- 
 1.7.10.4
