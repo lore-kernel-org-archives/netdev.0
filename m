@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 00/21] net: dsa: mv88e6xxx: turn into monolithic driver
-Date: Mon,  9 May 2016 13:22:37 -0400
-Message-ID: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 02/21] net: dsa: mv88e6xxx: factorize PHY access with PPU
+Date: Mon,  9 May 2016 13:22:39 -0400
+Message-ID: <1462814578-6249-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,84 +10,283 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset merges all mv88e6* drivers supported by the shared
-mv88e6xxx code into a single mv88e6xxx DSA switch driver.
+Add a MV88E6XXX_FLAG_PPU flag to describe switch models with a PHY
+Polling Unit. This allows to merge PPU specific PHY access code in the
+share code.
 
-Some flags are added to describe the capabilities of a switch model,
-such as the presence of a PPU, EEPROM, some old or new registers, etc.
+Make the mv88e6xxx_ppu_disable and mv88e6xxx_phy_{read,write}_ppu
+functions use unlocked register accesses in order to call them in
+mv88e6xxx_phy_{read,write} in a locked context.
 
-First these flags are used to conditionally support the same set of
-functions in every driver, then specific driver files are removed in
-favor of the common mv88e6xxx driver.
+Since the PPU code is shared, also remove NET_DSA_MV88E6XXX_NEED_PPU.
 
-Only the merge of driver specific setup code assumes a few differences.
-If these differences such as frames priorities are really needed for
-some models, they can easily be brought back in a future patch.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/Kconfig     |  5 -----
+ drivers/net/dsa/mv88e6131.c | 39 ++-------------------------------------
+ drivers/net/dsa/mv88e6xxx.c | 40 +++++++++++++++++++++++++---------------
+ drivers/net/dsa/mv88e6xxx.h | 25 ++++++++++++++++---------
+ 4 files changed, 43 insertions(+), 66 deletions(-)
 
-Some inconsistencies might show up, such as the need for
-MV88E6XXX_FLAG_PPU and MV88E6XXX_FLAG_PPU_ACTIVE flags. But this
-patchset does not aim to fix them yet. A future patch can do that if
-they end up being unwanted.
-
-The patchset has been tested on interconnected 88E6352 and 88E6185.
-
-Changes v1 -> v2:
-  - add missing MV88E6XXX_FLAG_EEPROM flag checks
-  - remove a few remaining _ prefixes
-  - remove MV88E6XXX_FLAG_CORE_TAG_TYPE which is a specific default
-
-Changes RFC -> v1:
-  - introduce flags in a separate patch
-  - do not refactor anything yet
-  - do not add new functions prefixed with _
-  - drop packet discarding and mentioned tested platforms
-  - factorize family flags
-  - update text for NET_DSA_MV88E6XXX Kconfig entry
-
-Vivien Didelot (21):
-  net: dsa: mv88e6xxx: add flags to info
-  net: dsa: mv88e6xxx: factorize PHY access with PPU
-  net: dsa: mv88e6xxx: factorize PHY indirect access
-  net: dsa: mv88e6xxx: factorize EEPROM access
-  net: dsa: mv88e6xxx: factorize temperature access
-  net: dsa: mv88e6xxx: factorize MAC address setting
-  net: dsa: mv88e6xxx: factorize EEE access
-  net: dsa: mv88e6131: add registers access
-  net: dsa: mv88e6xxx: factorize bridge support
-  net: dsa: mv88e6xxx: factorize VTU access
-  net: dsa: mv88e6xxx: factorize ATU access
-  net: dsa: mv88e6xxx: factorize switch reset
-  net: dsa: mv88e6xxx: factorize global setup
-  net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL setup
-  net: dsa: mv88e6131: drop VLAN Ethertype setup
-  net: dsa: mv88e6xxx: factorize GLOBAL_MONITOR_CONTROL setup
-  net: dsa: mv88e6xxx: factorize GLOBAL_CONTROL_2 setup
-  net: dsa: mv88e6131: drop frames priorities setup
-  net: dsa: mv88e6xxx: factorize switch setup
-  net: dsa: mv88e6131: use EDSA tag protocol
-  net: dsa: mv88e6xxx: factorize the switch driver
-
- arch/arm/configs/multi_v5_defconfig |   5 +-
- arch/arm/configs/mvebu_v7_defconfig |   2 +-
- arch/arm/configs/orion5x_defconfig  |   3 +-
- arch/tile/configs/tilegx_defconfig  |   3 +-
- arch/tile/configs/tilepro_defconfig |   3 +-
- drivers/net/dsa/Kconfig             |  45 +-
- drivers/net/dsa/Makefile            |  15 +-
- drivers/net/dsa/mv88e6123.c         | 130 -----
- drivers/net/dsa/mv88e6131.c         | 204 --------
- drivers/net/dsa/mv88e6171.c         | 151 ------
- drivers/net/dsa/mv88e6352.c         | 377 --------------
- drivers/net/dsa/mv88e6xxx.c         | 986 +++++++++++++++++++++++++++---------
- drivers/net/dsa/mv88e6xxx.h         | 239 ++++++---
- 13 files changed, 899 insertions(+), 1264 deletions(-)
- delete mode 100644 drivers/net/dsa/mv88e6123.c
- delete mode 100644 drivers/net/dsa/mv88e6131.c
- delete mode 100644 drivers/net/dsa/mv88e6171.c
- delete mode 100644 drivers/net/dsa/mv88e6352.c
-
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 90ba003..4aaadce 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -13,15 +13,10 @@ config NET_DSA_MV88E6060
+ 	  This enables support for the Marvell 88E6060 ethernet switch
+ 	  chip.
+ 
+-config NET_DSA_MV88E6XXX_NEED_PPU
+-	bool
+-	default n
+-
+ config NET_DSA_MV88E6131
+ 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
+ 	depends on NET_DSA
+ 	select NET_DSA_MV88E6XXX
+-	select NET_DSA_MV88E6XXX_NEED_PPU
+ 	select NET_DSA_TAG_DSA
+ 	---help---
+ 	  This enables support for the Marvell 88E6085/6095/6095F/6131
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index d477320..9d21d69 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -132,8 +132,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	mv88e6xxx_ppu_state_init(ps);
+-
+ 	ret = mv88e6xxx_switch_reset(ps, false);
+ 	if (ret < 0)
+ 		return ret;
+@@ -145,46 +143,13 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	return mv88e6xxx_setup_ports(ds);
+ }
+ 
+-static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-
+-	if (port >= 0 && port < ps->info->num_ports)
+-		return port;
+-
+-	return -EINVAL;
+-}
+-
+-static int
+-mv88e6131_phy_read(struct dsa_switch *ds, int port, int regnum)
+-{
+-	int addr = mv88e6131_port_to_phy_addr(ds, port);
+-
+-	if (addr < 0)
+-		return addr;
+-
+-	return mv88e6xxx_phy_read_ppu(ds, addr, regnum);
+-}
+-
+-static int
+-mv88e6131_phy_write(struct dsa_switch *ds,
+-			      int port, int regnum, u16 val)
+-{
+-	int addr = mv88e6131_port_to_phy_addr(ds, port);
+-
+-	if (addr < 0)
+-		return addr;
+-
+-	return mv88e6xxx_phy_write_ppu(ds, addr, regnum, val);
+-}
+-
+ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_DSA,
+ 	.probe			= mv88e6131_drv_probe,
+ 	.setup			= mv88e6131_setup,
+ 	.set_addr		= mv88e6xxx_set_addr_direct,
+-	.phy_read		= mv88e6131_phy_read,
+-	.phy_write		= mv88e6131_phy_write,
++	.phy_read		= mv88e6xxx_phy_read,
++	.phy_write		= mv88e6xxx_phy_write,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 470cfc7..a28b46c 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -241,24 +241,23 @@ static int _mv88e6xxx_phy_write(struct mv88e6xxx_priv_state *ps, int addr,
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_NET_DSA_MV88E6XXX_NEED_PPU
+ static int mv88e6xxx_ppu_disable(struct mv88e6xxx_priv_state *ps)
+ {
+ 	int ret;
+ 	unsigned long timeout;
+ 
+-	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_CONTROL);
++	ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_CONTROL);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
+-				  ret & ~GLOBAL_CONTROL_PPU_ENABLE);
++	ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
++				   ret & ~GLOBAL_CONTROL_PPU_ENABLE);
+ 	if (ret)
+ 		return ret;
+ 
+ 	timeout = jiffies + 1 * HZ;
+ 	while (time_before(jiffies, timeout)) {
+-		ret = mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_STATUS);
++		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_STATUS);
+ 		if (ret < 0)
+ 			return ret;
+ 
+@@ -361,35 +360,33 @@ void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
+ 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
+ }
+ 
+-int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
++static int mv88e6xxx_phy_read_ppu(struct mv88e6xxx_priv_state *ps, int addr,
++				  int regnum)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+ 	ret = mv88e6xxx_ppu_access_get(ps);
+ 	if (ret >= 0) {
+-		ret = mv88e6xxx_reg_read(ps, addr, regnum);
++		ret = _mv88e6xxx_reg_read(ps, addr, regnum);
+ 		mv88e6xxx_ppu_access_put(ps);
+ 	}
+ 
+ 	return ret;
+ }
+ 
+-int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
+-			    int regnum, u16 val)
++static int mv88e6xxx_phy_write_ppu(struct mv88e6xxx_priv_state *ps, int addr,
++				   int regnum, u16 val)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+ 	ret = mv88e6xxx_ppu_access_get(ps);
+ 	if (ret >= 0) {
+-		ret = mv88e6xxx_reg_write(ps, addr, regnum, val);
++		ret = _mv88e6xxx_reg_write(ps, addr, regnum, val);
+ 		mv88e6xxx_ppu_access_put(ps);
+ 	}
+ 
+ 	return ret;
+ }
+-#endif
+ 
+ static bool mv88e6xxx_6065_family(struct mv88e6xxx_priv_state *ps)
+ {
+@@ -2599,6 +2596,9 @@ int mv88e6xxx_setup_common(struct mv88e6xxx_priv_state *ps)
+ 
+ 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+ 
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
++		mv88e6xxx_ppu_state_init(ps);
++
+ 	return 0;
+ }
+ 
+@@ -2884,7 +2884,12 @@ mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
+ 		return 0xffff;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_read(ps, addr, regnum);
++
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
++		ret = mv88e6xxx_phy_read_ppu(ps, addr, regnum);
++	else
++		ret = _mv88e6xxx_phy_read(ps, addr, regnum);
++
+ 	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+ }
+@@ -2900,7 +2905,12 @@ mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
+ 		return 0xffff;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_write(ps, addr, regnum, val);
++
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
++		ret = mv88e6xxx_phy_write_ppu(ps, addr, regnum, val);
++	else
++		ret = _mv88e6xxx_phy_write(ps, addr, regnum, val);
++
+ 	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+ }
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index c67b72a..52ca24e 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -350,13 +350,26 @@ enum mv88e6xxx_family {
+ 	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
+ };
+ 
+-#define MV88E6XXX_FLAGS_FAMILY_6095	0
++enum mv88e6xxx_cap {
++	/* PHY Polling Unit.
++	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
++	 */
++	MV88E6XXX_CAP_PPU,
++};
++
++/* Bitmask of capabilities */
++#define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ 
+-#define MV88E6XXX_FLAGS_FAMILY_6097	0
++#define MV88E6XXX_FLAGS_FAMILY_6095	\
++	MV88E6XXX_FLAG_PPU
++
++#define MV88E6XXX_FLAGS_FAMILY_6097	\
++	MV88E6XXX_FLAG_PPU
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	0
+ 
+-#define MV88E6XXX_FLAGS_FAMILY_6185	0
++#define MV88E6XXX_FLAGS_FAMILY_6185	\
++	MV88E6XXX_FLAG_PPU
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6320	0
+ 
+@@ -418,7 +431,6 @@ struct mv88e6xxx_priv_state {
+ 	struct mii_bus *bus;
+ 	int sw_addr;
+ 
+-#ifdef CONFIG_NET_DSA_MV88E6XXX_NEED_PPU
+ 	/* Handles automatic disabling and re-enabling of the PHY
+ 	 * polling unit.
+ 	 */
+@@ -426,7 +438,6 @@ struct mv88e6xxx_priv_state {
+ 	int			ppu_disabled;
+ 	struct work_struct	ppu_work;
+ 	struct timer_list	ppu_timer;
+-#endif
+ 
+ 	/* This mutex serialises access to the statistics unit.
+ 	 * Hold this mutex over snapshot + dump sequences.
+@@ -489,10 +500,6 @@ int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val);
+ int mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum);
+ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
+ 				 u16 val);
+-void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps);
+-int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum);
+-int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
+-			    int regnum, u16 val);
+ void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
+ void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
+ 				 uint64_t *data);
 -- 
 2.8.2
