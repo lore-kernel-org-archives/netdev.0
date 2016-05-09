@@ -1,181 +1,177 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 09/21] net: dsa: mv88e6xxx: factorize bridge support
-Date: Mon,  9 May 2016 13:22:46 -0400
-Message-ID: <1462814578-6249-10-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v3 net-next 00/11] ipv6: Enable GUEoIPv6 and more fixes
+ for v6 tunneling
+Date: Mon, 9 May 2016 10:32:26 -0700
+Message-ID: <CAKgT0UeA2feSNSP_LfxNbH-ZdwmjDNjjDSy3uE6qycKVN96Amw@mail.gmail.com>
+References: <1462572726-566137-1-git-send-email-tom@herbertland.com>
+	<CAKgT0UdvZbDsDewsGRvMO93OZNSSXKfWaT7RvWkb6DQaG9jvyA@mail.gmail.com>
+	<CALx6S36uA83qEoYw2daxHrpege0zyNO=5u0iJ9tZu=RaBAK8cA@mail.gmail.com>
+	<CAKgT0UdM1aQF8cLWVLXMmXyJnMHkZUum8YyKsyCSVFvBALmyCA@mail.gmail.com>
+	<CALx6S37MF5Q7mVurAZR0KPpu2Y-rSQrRPGY3TkSZOpZgkaCHmw@mail.gmail.com>
+	<CAKgT0Ucs4oJ6yCb3AKR8jVvdF7WBojBX6hbqrS5e--deP7KZvw@mail.gmail.com>
+	<CALx6S34QeJpb4MocpDN_0XuvV4fxN25yO7-SjYBNta5ALzoDSw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:33647 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbcEIRc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:32:27 -0400
+Received: by mail-io0-f180.google.com with SMTP id f89so179246466ioi.0
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 10:32:27 -0700 (PDT)
+In-Reply-To: <CALx6S34QeJpb4MocpDN_0XuvV4fxN25yO7-SjYBNta5ALzoDSw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add MV88E6XXX_FLAG_PORTSTATE and MV88E6XXX_FLAG_VLANTABLE flags to
-identify switch models with required 802.1D operations.
+On Mon, May 9, 2016 at 9:56 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Fri, May 6, 2016 at 8:03 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Fri, May 6, 2016 at 7:11 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Fri, May 6, 2016 at 7:03 PM, Alexander Duyck
+>>> <alexander.duyck@gmail.com> wrote:
+>>>> On Fri, May 6, 2016 at 6:57 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> On Fri, May 6, 2016 at 6:09 PM, Alexander Duyck
+>>>>> <alexander.duyck@gmail.com> wrote:
+>>>>>> On Fri, May 6, 2016 at 3:11 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>>>> This patch set:
+>>>>>>>   - Fixes GRE6 to process translate flags correctly from configuration
+>>>>>>>   - Adds support for GSO and GRO for ip6ip6 and ip4ip6
+>>>>>>>   - Add support for FOU and GUE in IPv6
+>>>>>>>   - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
+>>>>>>>   - Fixes ip6_input to deal with UDP encapsulations
+>>>>>>>   - Some other minor fixes
+>>>>>>>
+>>>>>>> v2:
+>>>>>>>   - Removed a check of GSO types in MPLS
+>>>>>>>   - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
+>>>>>>>     from Alexander)
+>>>>>>>   - Don't define GSO types specifally for IP6IP6 and IP4IP6, above
+>>>>>>>     fix makes that uncessary
+>>>>>>>   - Don't bother clearing encapsulation flag in UDP tunnel segment
+>>>>>>>     (another item suggested by Alexander).
+>>>>>>>
+>>>>>>> v3:
+>>>>>>>   - Address some minor comments from Alexander
+>>>>>>>
+>>>>>>> Tested:
+>>>>>>>    Tested a variety of case, but not the full matrix (which is quite
+>>>>>>>    large now). Most of the obivous cases (e.g. GRE) work fine. Still
+>>>>>>>    some issues probably with GSO/GRO being effective in all cases.
+>>>>>>>
+>>>>>>>     - IPv4/GRE/GUE/IPv6 with RCO
+>>>>>>>       1 TCP_STREAM
+>>>>>>>         6616 Mbps
+>>>>>>>       200 TCP_RR
+>>>>>>>         1244043 tps
+>>>>>>>         141/243/446 90/95/99% latencies
+>>>>>>>         86.61% CPU utilization
+>>>>>>>     - IPv6/GRE/GUE/IPv6 with RCO
+>>>>>>>       1 TCP_STREAM
+>>>>>>>         6940 Mbps
+>>>>>>>       200 TCP_RR
+>>>>>>>         1270903 tps
+>>>>>>>         138/236/440 90/95/99% latencies
+>>>>>>>         87.51% CPU utilization
+>>>>>>>
+>>>>>>>      - IP6IP6
+>>>>>>>       1 TCP_STREAM
+>>>>>>>         2576 Mbps
+>>>>>>>       200 TCP_RR
+>>>>>>>         498981 tps
+>>>>>>>         388/498/631 90/95/99% latencies
+>>>>>>>         19.75% CPU utilization (1 CPU saturated)
+>>>>>>>
+>>>>>>>      - IP6IP6/GUE/IPv6 with RCO
+>>>>>>>       1 TCP_STREAM
+>>>>>>>         1854 Mbps
+>>>>>>>       200 TCP_RR
+>>>>>>>         1233818 tps
+>>>>>>>         143/244/451 90/95/99% latencies
+>>>>>>>         87.57 CPU utilization
+>>>>>>>
+>>>>>>>      - IP4IP6
+>>>>>>>       1 TCP_STREAM
+>>>>>>>       200 TCP_RR
+>>>>>>>         763774 tps
+>>>>>>>         250/318/466 90/95/99% latencies
+>>>>>>>         35.25% CPU utilization (1 CPU saturated)
+>>>>>>>
+>>>>>>>      - GRE with keyid
+>>>>>>>       200 TCP_RR
+>>>>>>>         744173 tps
+>>>>>>>         258/332/461 90/95/99% latencies
+>>>>>>>         34.59% CPU utilization (1 CPU saturated)
+>>>>>>
+>>>>>> So I tried testing your patch set and it looks like I cannot get GRE
+>>>>>> working for any netperf test.  If I pop the patches off it is even
+>>>>>> worse since it looks like patch 3 fixes some tunnel flags issues, but
+>>>>>> still doesn't resolve all the issues introduced with b05229f44228
+>>>>>> ("gre6: Cleanup GREv6 transmit path, call common GRE functions").
+>>>>>> Reverting the entire patch seems to resolve the issues, but I will try
+>>>>>> to pick it apart tonight to see if I can find the other issues that
+>>>>>> weren't addressed in this patch series.
+>>>>>>
+>>>>>
+>>>>> Can you give details about configuration, test you're running, and HW?
+>>>>
+>>>> The issue looks like it may be specific to ip6gretap.  I'm running the
+>>>> test over an i40e adapter, but it shouldn't make much difference.  I'm
+>>>> thinking it may have something to do with the MTU configuration as
+>>>> that is one of the things I am noticing has changed between the
+>>>> working and the broken version of the code.
+>>>>
+>>> I'm not seeing any issue with configuring:
+>>>
+>>> ip link add name tun8 type ip6gretap remote
+>>> 2401:db00:20:911a:face:0:27:0 local 2401:db00:20:911a:face:0:25:0 ttl
+>>> 225
+>>>
+>>> MTU issues would not surprise me with IPv6 though. This is part of the
+>>> area of code that seems drastically different than what IPv4 is doing.
+>>
+>> I am also using a key.
+>>
+>>         ip link add $name type ip6gretap key $net \
+>>                 local fec0::1 remote $addr6 ttl 225 dev $PF0
+>>
+> I don't see any issue with key enabled.
+>
+>> Does the device you are using support any kind of checksum offload for
+>> inner headers on GRE tunnels?  It looks like if I turn off checksums
+>
+> I don't believe so.
+>
+>> and correct the MTU I can then send traffic without issues.  I'd say
+>> that the Tx cleanup probably introduced 3 regressions.  The first one
+>> you addressed in patch 3 which fixes the flags.  The second being the
+>> fact that the MTU is wrong, and the third being something that
+>> apparently broke checksum and maybe segmentation offload for
+>> ip6gretap.
+>>
+> The MTU can be set in place in IPv6 code that doesn't exist in Ipv4. I
+> am especially wondering about the "if (p->flags & IP6_TNL_F_CAP_XMIT)"
+> block.
+>
+>> Really I think the transmit path cleanup should have probably been
+>> broken down into a set of patches rather than slamming it in all in
+>> one block.  I can spend some time next week trying to sort it out if
+>> you don't have any hardware that supports GRE segmentation or checksum
+>> offload.  If worse comes to worse I will just try breaking the revert
+>> down into a set of smaller patches so I can figure out exactly which
+>> change broke things.
+>>
+> I am still trying to reproduce.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6123.c |  3 +++
- drivers/net/dsa/mv88e6131.c |  1 +
- drivers/net/dsa/mv88e6xxx.c |  9 +++++++++
- drivers/net/dsa/mv88e6xxx.h | 38 ++++++++++++++++++++++++++++++--------
- 4 files changed, 43 insertions(+), 8 deletions(-)
+What NICs are you testing with?  Depending on the NIC I might be able
+to point you in the direction of something that can reproduce the
+issue.
 
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 1ad7bcd..81cd4a9 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -133,6 +133,9 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
- 	.set_eeprom		= mv88e6xxx_set_eeprom,
- 	.get_regs_len		= mv88e6xxx_get_regs_len,
- 	.get_regs		= mv88e6xxx_get_regs,
-+	.port_bridge_join	= mv88e6xxx_port_bridge_join,
-+	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
-+	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
- };
- 
- MODULE_ALIAS("platform:mv88e6123");
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 3fb06af..5d25244 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -168,6 +168,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.adjust_link		= mv88e6xxx_adjust_link,
- 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
- 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
-+	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
- 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index c28ad83..f02738e 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1369,6 +1369,9 @@ void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int stp_state;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_PORTSTATE))
-+		return;
-+
- 	switch (state) {
- 	case BR_STATE_DISABLED:
- 		stp_state = PORT_CONTROL_STATE_DISABLED;
-@@ -2430,6 +2433,9 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i, err = 0;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VLANTABLE))
-+		return -EOPNOTSUPP;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	/* Assign the bridge and remap each port's VLANTable */
-@@ -2454,6 +2460,9 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- 	struct net_device *bridge = ps->ports[port].bridge_dev;
- 	int i;
- 
-+	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VLANTABLE))
-+		return;
-+
- 	mutex_lock(&ps->smi_mutex);
- 
- 	/* Unassign the bridge and remap each port's VLANTable */
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index b99e090..d15e0b3 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -360,6 +360,11 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_EEPROM,
- 
-+	/* Port State Filtering for 802.1D Spanning Tree.
-+	 * See PORT_CONTROL_STATE_* values in the PORT_CONTROL register.
-+	 */
-+	MV88E6XXX_CAP_PORTSTATE,
-+
- 	/* PHY Polling Unit.
- 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
- 	 */
-@@ -383,50 +388,67 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_TEMP,
- 	MV88E6XXX_CAP_TEMP_LIMIT,
-+
-+	/* In-chip Port Based VLANs.
-+	 * Each port VLANTable register (see PORT_BASE_VLAN) is used to restrict
-+	 * the output (or egress) ports to which it is allowed to send frames.
-+	 */
-+	MV88E6XXX_CAP_VLANTABLE,
- };
- 
- /* Bitmask of capabilities */
- #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
- #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
-+#define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
- #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
- #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
- #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
-+#define MV88E6XXX_FLAG_VLANTABLE	BIT(MV88E6XXX_CAP_VLANTABLE)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6095	\
--	MV88E6XXX_FLAG_PPU
-+	(MV88E6XXX_FLAG_PPU |		\
-+	 MV88E6XXX_FLAG_VLANTABLE)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6097	\
--	MV88E6XXX_FLAG_PPU
-+	(MV88E6XXX_FLAG_PPU |		\
-+	 MV88E6XXX_FLAG_VLANTABLE)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
- 	(MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
--	MV88E6XXX_FLAG_PPU
-+	(MV88E6XXX_FLAG_PPU |		\
-+	 MV88E6XXX_FLAG_VLANTABLE)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6320	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_EEPROM |	\
-+	 MV88E6XXX_FLAG_PORTSTATE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
--	 MV88E6XXX_FLAG_TEMP_LIMIT)
-+	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
-+	 MV88E6XXX_FLAG_VLANTABLE)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
--	(MV88E6XXX_FLAG_SMI_PHY |	\
-+	(MV88E6XXX_FLAG_PORTSTATE |	\
-+	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
--	 MV88E6XXX_FLAG_TEMP)
-+	 MV88E6XXX_FLAG_TEMP |		\
-+	 MV88E6XXX_FLAG_VLANTABLE)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_EEPROM |	\
--	 MV88E6XXX_FLAG_SMI_PHY	|	\
-+	 MV88E6XXX_FLAG_PORTSTATE |	\
-+	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
--	 MV88E6XXX_FLAG_TEMP_LIMIT)
-+	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
-+	 MV88E6XXX_FLAG_VLANTABLE)
- 
- struct mv88e6xxx_info {
- 	enum mv88e6xxx_family family;
--- 
-2.8.2
+At this point I am thinking it is an issue with a header offset since
+I believe GSO resets all that and probably corrects the issue.
+
+Thanks.
+
+- Alex
