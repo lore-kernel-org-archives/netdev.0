@@ -1,58 +1,56 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 net-next] ifstat: move to new RTM_GETSTATS api
-Date: Mon, 9 May 2016 08:38:04 -0400
-Message-ID: <573084AC.6030407@mojatatu.com>
-References: <1461998511-24193-1-git-send-email-roopa@cumulusnetworks.com>
- <57248720.8060001@mojatatu.com> <5724CC01.3030203@cumulusnetworks.com>
- <573016F1.8050700@cumulusnetworks.com>
+From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v3] block/drbd: align properly u64
+	in nl messages
+Date: Mon, 9 May 2016 15:15:48 +0200
+Message-ID: <20160509131547.GX16459@soda.linbit>
+References: <20160503100644.GE16459@soda.linbit>
+	<1462786820-15519-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	davem@davemloft.net, edumazet@google.com, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, nikolay@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:35927 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbcEIMiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 08:38:07 -0400
-Received: by mail-ig0-f182.google.com with SMTP id u10so102617363igr.1
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 05:38:07 -0700 (PDT)
-In-Reply-To: <573016F1.8050700@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1462786820-15519-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://lists.linbit.com/mailman/options/drbd-dev>,
+	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linbit.com/pipermail/drbd-dev>
+List-Post: <mailto:drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
+List-Help: <mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.linbit.com/mailman/listinfo/drbd-dev>,
+	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=subscribe>
+Sender: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
+Errors-To: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-05-09 12:49 AM, Roopa Prabhu wrote:
-> On 4/30/16, 8:15 AM, Roopa Prabhu wrote:
->> On 4/30/16, 3:21 AM, Jamal Hadi Salim wrote:
+On Mon, May 09, 2016 at 11:40:20AM +0200, Nicolas Dichtel wrote:
+> The attribute 0 is never used in drbd, so let's use it as pad attribute
+> in netlink messages. This minimizes the patch.
+> 
+> Note that this patch is only compile-tested.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
+> ---
+> 
+> v2 -> v3:
+>   use 0 as padattr instead of adding new attributes
 
-> AFAICS ifstat history file handling today assumes all 32 bit stats.
+Thanks.
 
-Indeed it does.
+> v1 -> v2:
+>  rework the patch to handle all cases
+> 
+> Maybe prefixing genl_magic_func.h and genl_magic_struct.h by 'drbd_'
+> could be interesting so that new module won't use it. What is your
+> opinion?
 
-> And to preserve backward compatibility, new ifstat should work with old and
-> new history files with 32bit and 64 bit stats.
+This was supposed to not be DRBD specific.  But it might even still
+need some massaging before it was truly generic. And obviously,
+it does not meet the taste of genetlink folks, to say the least :(
 
-True.
-It may be ok to just provide a conversion tool maybe for taking 32b
-history into 64b? I dont know if someone is going to "migrate" their
-history files so even that may not be worth it.
+I don't care either way.
 
-> The file format cannot be changed because of the same backward compat issues.
-> So, I am leaning towards a new history file with a new option (maybe ifstat -64) to
-> save/query 64 bit stats using the new api when available.
->
-> I see some previous brief discussions on moving ifstat to 64 bit.
->
-> The other option is to only change 'ip -s link show' to use the new stats api.
->
-> let me know if there are other thoughts.
->
-
-Is it not possible to convert to 64b - and IFLA_STAT
-becomes available just store it still in 64b?
-i.e 32b will fit in 64b space.
-
-cheers,
-jamal
+    Lars Ellenberg
