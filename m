@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: make sch_handle_ingress() drop monitor
- ready
-Date: Sun, 08 May 2016 23:55:49 -0400 (EDT)
-Message-ID: <20160508.235549.505902414432180706.davem@davemloft.net>
-References: <1462575350.13075.60.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH v2] Documentation/networking: more accurate LCO
+ explanation
+Date: Sun, 08 May 2016 23:55:36 -0400 (EDT)
+Message-ID: <20160508.235536.432320048530190707.davem@davemloft.net>
+References: <1462555663-10216-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
+	ecree@solarflare.com
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53911 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53903 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbcEIDzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:55:52 -0400
-In-Reply-To: <1462575350.13075.60.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1750879AbcEIDzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:55:39 -0400
+In-Reply-To: <1462555663-10216-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 May 2016 15:55:50 -0700
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Fri,  6 May 2016 20:27:43 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> In few places the term "ones-complement sum" was used but the actual
+> meaning is "the complement of the ones-complement sum".
 > 
-> TC_ACT_STOLEN is used when ingress traffic is mirred/redirected
-> to say ifb.
+> Also, avoid enclosing long statements with underscore, to ease
+> readability.
 > 
-> Packet is not dropped, but consumed.
-> 
-> Only TC_ACT_SHOT is a clear indication something went wrong.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Acked-by: Edward Cree <ecree@solarflare.com>
 
 Applied.
