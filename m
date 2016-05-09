@@ -1,56 +1,65 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: networking/ip-sysctl.txt: SRR or SSRR
-Date: Sun, 8 May 2016 18:23:59 -0700 (PDT)
-Message-ID: <alpine.DEB.2.20.12.1605081823420.3193@trent.utfs.org>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH v2 0/3] net: ethtool: add
+ ethtool_op_{get|set}_link_ksettings
+Date: Mon, 9 May 2016 01:57:56 +0000
+Message-ID: <VI1PR0401MB1855DC34F07A1B44E7A6369EFF700@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <1462743877-31738-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from trent.utfs.org ([94.185.90.103]:37162 "EHLO trent.utfs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750885AbcEIBbc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 May 2016 21:31:32 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by trent.utfs.org (Postfix) with ESMTP id 6CA123DC89
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 03:23:59 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"kan.liang@intel.com" <kan.liang@intel.com>,
+	"decot@googlers.com" <decot@googlers.com>,
+	"aduyck@mirantis.com" <aduyck@mirantis.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>,
+	"jacob.e.keller@intel.com" <jacob.e.keller@intel.com>,
+	"tom@herbertland.com" <tom@herbertland.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462743877-31738-1-git-send-email-tremyfr@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In Documentation/networking/ip-sysctl.txt, the accept_source_route 
-parameter is described with:
+Fom: Philippe Reynes <tremyfr@gmail.com> Sent: Monday, May 09, 2016 5:45 AM
+> To: Fugang Duan <fugang.duan@nxp.com>; davem@davemloft.net;
+> ben@decadent.org.uk; kan.liang@intel.com; decot@googlers.com;
+> aduyck@mirantis.com; jiri@mellanox.com; jacob.e.keller@intel.com;
+> tom@herbertland.com; andrew@lunn.ch
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Philippe Reynes
+> <tremyfr@gmail.com>
+> Subject: [PATCH v2 0/3] net: ethtool: add ethtool_op_{get|set}_link_ksettings
+> 
+> Ethtool callbacks {get|set}_link_ksettings may be the same for many drivers. So
+> we add two generics callbacks ethtool_op_{get|set}_link_ksettings.
+> 
+> To use those generics callbacks, the ethernet driver must use the pointer
+> phydev contained in struct net_device, and not use a private structure to store
+> this pointer.
+> 
+> Changelog:
+> v2:
+> - use generic function instead of macro
+> - ethernet driver use the pointer phydev provided by struct net_device
+>   Those idea were provided by Ben Hutchings,
+>   and Florian Fainelli acknowledge them.
+> 
+> Philippe Reynes (3):
+>   net: core: ethtool: add ethtool_op_{get|set}_link_ksettings
+>   net: ethernet: fec: use phydev from struct net_device
+>   net: ethernet: fec: use ethtool_op_{get|set}_link_ksettings
+> 
+>  drivers/net/ethernet/freescale/fec.h      |    1 -
+>  drivers/net/ethernet/freescale/fec_main.c |   71 +++++++++--------------------
+>  include/linux/ethtool.h                   |    5 ++
+>  net/core/ethtool.c                        |   24 ++++++++++
+>  4 files changed, 50 insertions(+), 51 deletions(-)
+> 
+> --
+> 1.7.4.4
 
-  Accept packets with SRR option.
-
-I could not find anything describing an "SRR option". The closest thing 
-was something called "SSR - Strict Source Route"[0] - is that what is 
-meant here? If so, RFC791 then refers to the same as "SSRR", as in "strict 
-source and record route". Does the patch below clears that up or did I 
-confuse it with something else?
-
-Thanks,
-Christian.
-
-Signed-off-by: Christian Kujau <lists@nerdbynature.de>
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index b183e2b..db6b538 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1057,9 +1057,9 @@ bootp_relay - BOOLEAN
- 	Not Implemented Yet.
- 
- accept_source_route - BOOLEAN
--	Accept packets with SRR option.
-+	Accept packets with SSRR option (RFC791 3.1).
- 	conf/all/accept_source_route must also be set to TRUE to accept packets
--	with SRR option on the interface
-+	with SSRR option on the interface
- 	default TRUE (router)
- 		FALSE (host)
- 
-
-[0] https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
--- 
-BOFH excuse #224:
-
-Jan  9 16:41:27 huber su: 'su root' succeeded for .... on /dev/pts/1
+Acked-by: Fugang Duan <fugang.duan@nxp.com>
