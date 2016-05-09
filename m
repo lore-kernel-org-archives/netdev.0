@@ -1,57 +1,40 @@
-From: Alexandre TORGUE <alexandre.torgue@gmail.com>
-Subject: [RESEND PATCH v6 4/6] ARM: STM32: Enable Ethernet in stm32_defconfig
-Date: Mon,  9 May 2016 12:31:37 +0200
-Message-ID: <1462789899-13153-5-git-send-email-alexandre.torgue@gmail.com>
+From: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RESEND PATCH v6 3/6] net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+Date: Mon,  9 May 2016 12:31:36 +0200
+Message-ID: <1462789899-13153-4-git-send-email-alexandre.torgue@gmail.com>
 References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: manabian@gmail.com, wens@csie.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
- Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org,
- devicetree@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org
+To: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1462789899-13153-1-git-send-email-alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Enable basic Ethernet support (IPV4) for stm32 defconfig.
+Adds support of Synopsys 3.50a MAC IP in stmmac driver.
 
-Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Tested-by: Maxime Coquelin <maxime.coquelin-qxv4g6HH51o@public.gmane.org>
+Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-diff --git a/arch/arm/configs/stm32_defconfig b/arch/arm/configs/stm32_defconfig
-index 1e5ec2a..719218b 100644
---- a/arch/arm/configs/stm32_defconfig
-+++ b/arch/arm/configs/stm32_defconfig
-@@ -33,11 +33,20 @@ CONFIG_XIP_PHYS_ADDR=0x08008000
- CONFIG_BINFMT_FLAT=y
- CONFIG_BINFMT_SHARED_FLAT=y
- # CONFIG_COREDUMP is not set
-+CONFIG_NET=y
-+CONFIG_INET=y
-+# CONFIG_INET_XFRM_MODE_TRANSPORT is not set
-+# CONFIG_INET_XFRM_MODE_TUNNEL is not set
-+# CONFIG_INET_XFRM_MODE_BEET is not set
-+# CONFIG_IPV6 is not set
- CONFIG_DEVTMPFS=y
- CONFIG_DEVTMPFS_MOUNT=y
- # CONFIG_FW_LOADER is not set
- # CONFIG_BLK_DEV is not set
- CONFIG_EEPROM_93CX6=y
-+CONFIG_NETDEVICES=y
-+CONFIG_STMMAC_ETH=y
-+# CONFIG_WLAN is not set
- # CONFIG_INPUT is not set
- # CONFIG_SERIO is not set
- # CONFIG_VT is not set
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 409db91..7718247 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -262,6 +262,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 	 * once needed on other platforms.
+ 	 */
+ 	if (of_device_is_compatible(np, "st,spear600-gmac") ||
++		of_device_is_compatible(np, "snps,dwmac-3.50a") ||
+ 		of_device_is_compatible(np, "snps,dwmac-3.70a") ||
+ 		of_device_is_compatible(np, "snps,dwmac")) {
+ 		/* Note that the max-frame-size parameter as defined in the
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
