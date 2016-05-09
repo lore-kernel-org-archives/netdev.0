@@ -1,166 +1,164 @@
-From: Elad Kanfi <eladkan@mellanox.com>
-Subject: [PATCH v3 1/2] net: nps_enet: Tx handler synchronization
-Date: Mon, 9 May 2016 20:13:19 +0300
-Message-ID: <1462814000-16331-2-git-send-email-eladkan@mellanox.com>
-References: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
-	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 16/21] net: dsa: mv88e6xxx: factorize GLOBAL_MONITOR_CONTROL setup
+Date: Mon,  9 May 2016 13:22:53 -0400
+Message-ID: <1462814578-6249-17-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462814000-16331-1-git-send-email-eladkan@mellanox.com>
+In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Elad Kanfi <eladkan@mellanox.com>
+All switch drivers configure the GLOBAL_MONITOR_CONTROL register with
+slightly changes.
 
-Below is a description of a possible problematic
-sequence. CPU-A is sending a frame and CPU-B handles
-the interrupt that indicates the frame was sent. CPU-B
-reads an invalid value of tx_packet_sent.
+Assume the setup of the upstream port, and configure it as the port to
+which ingress and egress and ARP monitor frames are to be sent.
 
-	CPU-A				CPU-B
-	-----				-----
-	nps_enet_send_frame
-	.
-	.
-	tx_skb = skb
-	tx_packet_sent = true
-	order HW to start tx
-	.
-	.
-	HW complete tx
-			    ------> 	get tx complete interrupt
-					.
-					.
-					if(tx_packet_sent == true)
-						handle tx_skb
-
-	end memory transaction
-	(tx_packet_sent actually
-	 written)
-
-Furthermore there is a dependency between tx_skb and tx_packet_sent.
-There is no assurance that tx_skb contains a valid pointer at CPU B
-when it sees tx_packet_sent == true.
-
-Solution:
-
-Initialize tx_skb to NULL and use it to indicate that packet was sent,
-in this way tx_packet_sent can be removed.
-Add a write memory barrier after setting tx_skb in order to make sure
-that it is valid before HW is informed and IRQ is fired.
-
-Fixed sequence will be:
-
-       CPU-A                           CPU-B
-       -----                           -----
-
-	tx_skb = skb
-	wmb()
-	.
-	.
-	order HW to start tx
-	.
-	.
-	HW complete tx
-			------>		get tx complete interrupt
-					.
-					.
-					if(tx_skb != NULL)
-						handle tx_skb
-
-					tx_skb = NULL
-
-Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
-Acked-by: Noam Camus <noamca@mellanox.com>
-Acked-by: Gilad Ben-Yossef <giladby@mellanox.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/ezchip/nps_enet.c |   15 +++++++++------
- drivers/net/ethernet/ezchip/nps_enet.h |    2 --
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/dsa/mv88e6123.c | 14 --------------
+ drivers/net/dsa/mv88e6131.c | 13 -------------
+ drivers/net/dsa/mv88e6171.c | 15 ---------------
+ drivers/net/dsa/mv88e6352.c | 14 --------------
+ drivers/net/dsa/mv88e6xxx.c | 12 ++++++++++++
+ 5 files changed, 12 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 1f23845..25ac2de 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.c
-+++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -145,7 +145,7 @@ static void nps_enet_tx_handler(struct net_device *ndev)
- 	u32 tx_ctrl_nt = (tx_ctrl_value & TX_CTL_NT_MASK) >> TX_CTL_NT_SHIFT;
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 1cd30ac..5df06d8 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -54,20 +54,6 @@ static const char *mv88e6123_drv_probe(struct device *dsa_dev,
+ static int mv88e6123_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+-	int ret;
+-	u32 reg;
+-
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
+-	 */
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+-	if (ret)
+-		return ret;
  
- 	/* Check if we got TX */
--	if (!priv->tx_packet_sent || tx_ctrl_ct)
-+	if (!priv->tx_skb || tx_ctrl_ct)
- 		return;
+ 	/* Disable remote management for now, and set the switch's
+ 	 * DSA device number.
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 1c3b245..c8e3974 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -61,20 +61,7 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+ 	int ret;
+-	u32 reg;
+-
+-	/* Disable ARP mirroring, and configure the upstream port as
+-	 * the port to which ingress and egress monitor frames are to
+-	 * be sent.
+-	 */
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		GLOBAL_MONITOR_CONTROL_ARP_DISABLED;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+-	if (ret)
+-		return ret;
  
- 	/* Ack Tx ctrl register */
-@@ -160,7 +160,7 @@ static void nps_enet_tx_handler(struct net_device *ndev)
- 	}
+ 	/* Disable cascade port functionality unless this device
+ 	 * is used in a cascade configuration, and set the switch's
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 6c8554c..a848aef 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -61,21 +61,6 @@ static const char *mv88e6171_drv_probe(struct device *dsa_dev,
+ static int mv88e6171_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+-	int ret;
+-	u32 reg;
+-
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
+-	 */
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_MIRROR_SHIFT;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+-	if (ret)
+-		return ret;
  
- 	dev_kfree_skb(priv->tx_skb);
--	priv->tx_packet_sent = false;
-+	priv->tx_skb = NULL;
+ 	/* Disable remote management for now, and set the switch's
+ 	 * DSA device number.
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index a27616c..e098870 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -80,20 +80,6 @@ static const char *mv88e6352_drv_probe(struct device *dsa_dev,
+ static int mv88e6352_setup_global(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u32 upstream_port = dsa_upstream_port(ds);
+-	int ret;
+-	u32 reg;
+-
+-	/* Configure the upstream port, and configure the upstream
+-	 * port as the port to which ingress and egress monitor frames
+-	 * are to be sent.
+-	 */
+-	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+-		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+-	ret = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+-	if (ret)
+-		return ret;
  
- 	if (netif_queue_stopped(ndev))
- 		netif_wake_queue(ndev);
-@@ -217,7 +217,7 @@ static irqreturn_t nps_enet_irq_handler(s32 irq, void *dev_instance)
- 	u32 tx_ctrl_ct = (tx_ctrl_value & TX_CTL_CT_MASK) >> TX_CTL_CT_SHIFT;
- 	u32 rx_ctrl_cr = (rx_ctrl_value & RX_CTL_CR_MASK) >> RX_CTL_CR_SHIFT;
+ 	/* Disable remote management for now, and set the switch's
+ 	 * DSA device number.
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index f1cd660..27551c1 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2922,6 +2922,8 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
  
--	if ((!tx_ctrl_ct && priv->tx_packet_sent) || rx_ctrl_cr)
-+	if ((!tx_ctrl_ct && priv->tx_skb) || rx_ctrl_cr)
- 		if (likely(napi_schedule_prep(&priv->napi))) {
- 			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
- 			__napi_schedule(&priv->napi);
-@@ -387,8 +387,6 @@ static void nps_enet_send_frame(struct net_device *ndev,
- 	/* Write the length of the Frame */
- 	tx_ctrl_value |= length << TX_CTL_NT_SHIFT;
+ static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+ {
++	struct dsa_switch *ds = ps->ds;
++	u32 upstream_port = dsa_upstream_port(ds);
+ 	u16 reg;
+ 	int err;
+ 	int i;
+@@ -2938,6 +2940,16 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+ 	if (err)
+ 		return err;
  
--	/* Indicate SW is done */
--	priv->tx_packet_sent = true;
- 	tx_ctrl_value |= NPS_ENET_ENABLE << TX_CTL_CT_SHIFT;
- 	/* Send Frame */
- 	nps_enet_reg_set(priv, NPS_ENET_REG_TX_CTL, tx_ctrl_value);
-@@ -465,7 +463,7 @@ static s32 nps_enet_open(struct net_device *ndev)
- 	s32 err;
- 
- 	/* Reset private variables */
--	priv->tx_packet_sent = false;
-+	priv->tx_skb = NULL;
- 	priv->ge_mac_cfg_2_value = 0;
- 	priv->ge_mac_cfg_3_value = 0;
- 
-@@ -534,6 +532,11 @@ static netdev_tx_t nps_enet_start_xmit(struct sk_buff *skb,
- 
- 	priv->tx_skb = skb;
- 
-+	/* make sure tx_skb is actually written to the memory
-+	 * before the HW is informed and the IRQ is fired.
++	/* Configure the upstream port, and configure it as the port to which
++	 * ingress and egress and ARP monitor frames are to be sent.
 +	 */
-+	wmb();
++	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
++		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
++		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
++	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
++	if (err)
++		return err;
 +
- 	nps_enet_send_frame(ndev, skb);
- 
- 	return NETDEV_TX_OK;
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.h b/drivers/net/ethernet/ezchip/nps_enet.h
-index d0cab60..3939ca2 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.h
-+++ b/drivers/net/ethernet/ezchip/nps_enet.h
-@@ -165,14 +165,12 @@
-  * struct nps_enet_priv - Storage of ENET's private information.
-  * @regs_base:      Base address of ENET memory-mapped control registers.
-  * @irq:            For RX/TX IRQ number.
-- * @tx_packet_sent: SW indication if frame is being sent.
-  * @tx_skb:         socket buffer of sent frame.
-  * @napi:           Structure for NAPI.
-  */
- struct nps_enet_priv {
- 	void __iomem *regs_base;
- 	s32 irq;
--	bool tx_packet_sent;
- 	struct sk_buff *tx_skb;
- 	struct napi_struct napi;
- 	u32 ge_mac_cfg_2_value;
+ 	/* Set the default address aging time to 5 minutes, and
+ 	 * enable address learn messages to be sent to all message
+ 	 * ports.
 -- 
-1.7.1
+2.8.2
