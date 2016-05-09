@@ -1,34 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Documentation/networking: more accurate LCO
- explanation
-Date: Sun, 08 May 2016 23:55:36 -0400 (EDT)
-Message-ID: <20160508.235536.432320048530190707.davem@davemloft.net>
-References: <1462555663-10216-1-git-send-email-shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
+Date: Sun, 08 May 2016 23:56:20 -0400 (EDT)
+Message-ID: <20160508.235620.333454221783238471.davem@davemloft.net>
+References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	ecree@solarflare.com
-To: shmulik.ladkani@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53903 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879AbcEIDzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:55:39 -0400
-In-Reply-To: <1462555663-10216-1-git-send-email-shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
+To: tyhicks@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Date: Fri,  6 May 2016 20:27:43 +0300
+From: Tyler Hicks <tyhicks@canonical.com>
+Date: Fri,  6 May 2016 18:04:12 -0500
 
-> In few places the term "ones-complement sum" was used but the actual
-> meaning is "the complement of the ones-complement sum".
-> 
-> Also, avoid enclosing long statements with underscore, to ease
-> readability.
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> Acked-by: Edward Cree <ecree@solarflare.com>
+> This pair of patches does away with what I believe is a useless denial
+> audit message when a privileged process initially accesses a net sysctl.
 
-Applied.
+The LSM folks can apply this if they agree with you.
