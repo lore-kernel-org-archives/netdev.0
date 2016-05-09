@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 20/21] net: dsa: mv88e6131: use EDSA tag protocol
-Date: Mon,  9 May 2016 13:22:57 -0400
-Message-ID: <1462814578-6249-21-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 09/21] net: dsa: mv88e6xxx: factorize bridge support
+Date: Mon,  9 May 2016 13:22:46 -0400
+Message-ID: <1462814578-6249-10-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,50 +9,173 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50984 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752946AbcEIRXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 13:23:54 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1462814578-6249-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-6131 is the only driver to set the tag protocol to DSA_TAG_PROTO_DSA.
-Since it works fine with DSA_TAG_PROTO_EDSA, change its value, like all
-other mv88e6xxx drivers.
+Add MV88E6XXX_FLAG_PORTSTATE and MV88E6XXX_FLAG_VLANTABLE flags to
+identify switch models with required 802.1D operations.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/Kconfig     | 2 +-
- drivers/net/dsa/mv88e6131.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6123.c |  3 +++
+ drivers/net/dsa/mv88e6131.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c |  9 +++++++++
+ drivers/net/dsa/mv88e6xxx.h | 38 ++++++++++++++++++++++++++++++--------
+ 4 files changed, 43 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 4aaadce..7e01dce 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -17,7 +17,7 @@ config NET_DSA_MV88E6131
- 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
- 	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
--	select NET_DSA_TAG_DSA
-+	select NET_DSA_TAG_EDSA
- 	---help---
- 	  This enables support for the Marvell 88E6085/6095/6095F/6131
- 	  ethernet switch chips.
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 1ad7bcd..81cd4a9 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -133,6 +133,9 @@ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.set_eeprom		= mv88e6xxx_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
++	.port_bridge_join	= mv88e6xxx_port_bridge_join,
++	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
++	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6123");
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 22952be..bbad199 100644
+index 3fb06af..5d25244 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -59,7 +59,7 @@ static const char *mv88e6131_drv_probe(struct device *dsa_dev,
- }
+@@ -168,6 +168,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
++	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
+ 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index c28ad83..f02738e 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1369,6 +1369,9 @@ void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int stp_state;
  
- struct dsa_switch_driver mv88e6131_switch_driver = {
--	.tag_protocol		= DSA_TAG_PROTO_DSA,
-+	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6131_drv_probe,
- 	.setup			= mv88e6xxx_setup,
- 	.set_addr		= mv88e6xxx_set_addr,
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_PORTSTATE))
++		return;
++
+ 	switch (state) {
+ 	case BR_STATE_DISABLED:
+ 		stp_state = PORT_CONTROL_STATE_DISABLED;
+@@ -2430,6 +2433,9 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int i, err = 0;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VLANTABLE))
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	/* Assign the bridge and remap each port's VLANTable */
+@@ -2454,6 +2460,9 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+ 	struct net_device *bridge = ps->ports[port].bridge_dev;
+ 	int i;
+ 
++	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_VLANTABLE))
++		return;
++
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	/* Unassign the bridge and remap each port's VLANTable */
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index b99e090..d15e0b3 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -360,6 +360,11 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_EEPROM,
+ 
++	/* Port State Filtering for 802.1D Spanning Tree.
++	 * See PORT_CONTROL_STATE_* values in the PORT_CONTROL register.
++	 */
++	MV88E6XXX_CAP_PORTSTATE,
++
+ 	/* PHY Polling Unit.
+ 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
+ 	 */
+@@ -383,50 +388,67 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_TEMP,
+ 	MV88E6XXX_CAP_TEMP_LIMIT,
++
++	/* In-chip Port Based VLANs.
++	 * Each port VLANTable register (see PORT_BASE_VLAN) is used to restrict
++	 * the output (or egress) ports to which it is allowed to send frames.
++	 */
++	MV88E6XXX_CAP_VLANTABLE,
+ };
+ 
+ /* Bitmask of capabilities */
+ #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
+ #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
++#define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
+ #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+ #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
++#define MV88E6XXX_FLAG_VLANTABLE	BIT(MV88E6XXX_CAP_VLANTABLE)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6095	\
+-	MV88E6XXX_FLAG_PPU
++	(MV88E6XXX_FLAG_PPU |		\
++	 MV88E6XXX_FLAG_VLANTABLE)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+-	MV88E6XXX_FLAG_PPU
++	(MV88E6XXX_FLAG_PPU |		\
++	 MV88E6XXX_FLAG_VLANTABLE)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+ 	(MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+-	MV88E6XXX_FLAG_PPU
++	(MV88E6XXX_FLAG_PPU |		\
++	 MV88E6XXX_FLAG_VLANTABLE)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6320	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+-	 MV88E6XXX_FLAG_TEMP_LIMIT)
++	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
++	 MV88E6XXX_FLAG_VLANTABLE)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+-	(MV88E6XXX_FLAG_SMI_PHY |	\
++	(MV88E6XXX_FLAG_PORTSTATE |	\
++	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+-	 MV88E6XXX_FLAG_TEMP)
++	 MV88E6XXX_FLAG_TEMP |		\
++	 MV88E6XXX_FLAG_VLANTABLE)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_EEPROM |	\
+-	 MV88E6XXX_FLAG_SMI_PHY	|	\
++	 MV88E6XXX_FLAG_PORTSTATE |	\
++	 MV88E6XXX_FLAG_SMI_PHY |	\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+-	 MV88E6XXX_FLAG_TEMP_LIMIT)
++	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
++	 MV88E6XXX_FLAG_VLANTABLE)
+ 
+ struct mv88e6xxx_info {
+ 	enum mv88e6xxx_family family;
 -- 
 2.8.2
