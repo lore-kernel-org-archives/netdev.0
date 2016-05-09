@@ -1,8 +1,8 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 14/22] net-next: mediatek: fix off by one in the TX ring
- allocation
-Date: Mon,  9 May 2016 12:04:06 +0200
-Message-ID: <1462788254-40572-15-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 16/22] net-next: mediatek: remove superfluous queue wake up
+ call
+Date: Mon,  9 May 2016 12:04:08 +0200
+Message-ID: <1462788254-40572-17-git-send-email-john@phrozen.org>
 References: <1462788254-40572-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,36 +23,37 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The TX ring setup has an off by one error causing it to not utilise all
-descriptors. This has the side effect that we need to reset the next
-pointer at runtime to make it work. Fix the off by one and remove the
-code fixing the ring at runtime.
+The code checks if the queue should be stopped because we are below the
+threshold of free descriptors only to check if it should be started again.
+If we do end up in a state where we are at the threshold limit, it makes
+more sense to just stop the queue and wait for the next IRQ to trigger the
+TX housekeeping again. There is no rush in enqueuing the next packet, it
+needs to wait for all the others in the queue to be dispatched first
+anyway.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 3ece159..9f4b533 100644
+index 7f42178..74375a1 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -921,7 +921,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 		}
- 		mtk_tx_unmap(eth->dev, tx_buf);
+@@ -782,12 +782,9 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (mtk_tx_map(skb, dev, tx_num, ring, gso) < 0)
+ 		goto drop;
  
--		ring->last_free->txd2 = next_cpu;
- 		ring->last_free = desc;
- 		atomic_inc(&ring->free_count);
+-	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh)) {
++	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh))
+ 		mtk_stop_queue(eth);
+-		if (unlikely(atomic_read(&ring->free_count) >
+-			     ring->thresh))
+-			mtk_wake_queue(eth);
+-	}
++
+ 	spin_unlock_irqrestore(&eth->page_lock, flags);
  
-@@ -1029,7 +1028,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
- 
- 	atomic_set(&ring->free_count, MTK_DMA_SIZE - 2);
- 	ring->next_free = &ring->dma[0];
--	ring->last_free = &ring->dma[MTK_DMA_SIZE - 2];
-+	ring->last_free = &ring->dma[MTK_DMA_SIZE - 1];
- 	ring->thresh = MAX_SKB_FRAGS;
- 
- 	/* make sure that all changes to the dma ring are flushed before we
+ 	return NETDEV_TX_OK;
 -- 
 1.7.10.4
