@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 34/36] netfilter: conntrack: make netns address part of nat bysrc hash
-Date: Mon,  9 May 2016 20:46:52 +0200
-Message-ID: <1462819614-5402-35-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 25/36] netfilter: conntrack: introduce nf_ct_acct_update()
+Date: Mon,  9 May 2016 20:46:43 +0200
+Message-ID: <1462819614-5402-26-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,41 +10,82 @@ In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+Introduce a helper function to update conntrack counters.
+__nf_ct_kill_acct() was unnecessarily subtracting skb_network_offset()
+that is expected to be zero from the ipv4/ipv6 hooks.
 
-Will be needed soon when we place all in the same hash table.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_nat_core.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/nf_conntrack_core.c | 42 ++++++++++++++++++---------------------
+ 1 file changed, 19 insertions(+), 23 deletions(-)
 
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index d74e716..069912c 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -118,7 +118,7 @@ EXPORT_SYMBOL(nf_xfrm_me_harder);
- 
- /* We keep an extra hash for each conntrack, for fast searching. */
- static inline unsigned int
--hash_by_src(const struct net *net, const struct nf_conntrack_tuple *tuple)
-+hash_by_src(const struct net *n, const struct nf_conntrack_tuple *tuple)
- {
- 	unsigned int hash;
- 
-@@ -126,9 +126,9 @@ hash_by_src(const struct net *net, const struct nf_conntrack_tuple *tuple)
- 
- 	/* Original src, to ensure we map it consistently if poss. */
- 	hash = jhash2((u32 *)&tuple->src, sizeof(tuple->src) / sizeof(u32),
--		      tuple->dst.protonum ^ nf_nat_hash_rnd);
-+		      tuple->dst.protonum ^ nf_nat_hash_rnd ^ net_hash_mix(n));
- 
--	return reciprocal_scale(hash, net->ct.nat_htable_size);
-+	return reciprocal_scale(hash, n->ct.nat_htable_size);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index f72ede1..25e0c26 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -602,6 +602,21 @@ out:
  }
+ EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
  
- /* Is this tuple already taken? (not by us) */
++static inline void nf_ct_acct_update(struct nf_conn *ct,
++				     enum ip_conntrack_info ctinfo,
++				     unsigned int len)
++{
++	struct nf_conn_acct *acct;
++
++	acct = nf_conn_acct_find(ct);
++	if (acct) {
++		struct nf_conn_counter *counter = acct->counter;
++
++		atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
++		atomic64_add(len, &counter[CTINFO2DIR(ctinfo)].bytes);
++	}
++}
++
+ /* Confirm a connection given skb; places it in hash table */
+ int
+ __nf_conntrack_confirm(struct sk_buff *skb)
+@@ -1258,17 +1273,8 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
+ 	}
+ 
+ acct:
+-	if (do_acct) {
+-		struct nf_conn_acct *acct;
+-
+-		acct = nf_conn_acct_find(ct);
+-		if (acct) {
+-			struct nf_conn_counter *counter = acct->counter;
+-
+-			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
+-			atomic64_add(skb->len, &counter[CTINFO2DIR(ctinfo)].bytes);
+-		}
+-	}
++	if (do_acct)
++		nf_ct_acct_update(ct, ctinfo, skb->len);
+ }
+ EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
+ 
+@@ -1277,18 +1283,8 @@ bool __nf_ct_kill_acct(struct nf_conn *ct,
+ 		       const struct sk_buff *skb,
+ 		       int do_acct)
+ {
+-	if (do_acct) {
+-		struct nf_conn_acct *acct;
+-
+-		acct = nf_conn_acct_find(ct);
+-		if (acct) {
+-			struct nf_conn_counter *counter = acct->counter;
+-
+-			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
+-			atomic64_add(skb->len - skb_network_offset(skb),
+-				     &counter[CTINFO2DIR(ctinfo)].bytes);
+-		}
+-	}
++	if (do_acct)
++		nf_ct_acct_update(ct, ctinfo, skb->len);
+ 
+ 	if (del_timer(&ct->timeout)) {
+ 		ct->timeout.function((unsigned long)ct);
 -- 
 2.1.4
 
