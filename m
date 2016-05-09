@@ -1,41 +1,56 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 9 May 2016 10:43:07 +1000
-Message-ID: <20160509104307.180cee9b@canb.auug.org.au>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: networking/ip-sysctl.txt: SRR or SSRR
+Date: Sun, 8 May 2016 18:23:59 -0700 (PDT)
+Message-ID: <alpine.DEB.2.20.12.1605081823420.3193@trent.utfs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jarno Rajahalme <jarno@ovn.org>,
-	Tom Herbert <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from trent.utfs.org ([94.185.90.103]:37162 "EHLO trent.utfs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750885AbcEIBbc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 May 2016 21:31:32 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by trent.utfs.org (Postfix) with ESMTP id 6CA123DC89
+	for <netdev@vger.kernel.org>; Mon,  9 May 2016 03:23:59 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+In Documentation/networking/ip-sysctl.txt, the accept_source_route 
+parameter is described with:
 
-Today's linux-next merge of the net-next tree got a conflict in:
+  Accept packets with SRR option.
 
-  include/linux/netdevice.h
+I could not find anything describing an "SRR option". The closest thing 
+was something called "SSR - Strict Source Route"[0] - is that what is 
+meant here? If so, RFC791 then refers to the same as "SSRR", as in "strict 
+source and record route". Does the patch below clears that up or did I 
+confuse it with something else?
 
-between commit:
+Thanks,
+Christian.
 
-  229740c63169 ("udp_offload: Set encapsulation before inner completes.")
+Signed-off-by: Christian Kujau <lists@nerdbynature.de>
 
-from the net tree and commit:
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index b183e2b..db6b538 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1057,9 +1057,9 @@ bootp_relay - BOOLEAN
+ 	Not Implemented Yet.
+ 
+ accept_source_route - BOOLEAN
+-	Accept packets with SRR option.
++	Accept packets with SSRR option (RFC791 3.1).
+ 	conf/all/accept_source_route must also be set to TRUE to accept packets
+-	with SRR option on the interface
++	with SSRR option on the interface
+ 	default TRUE (router)
+ 		FALSE (host)
+ 
 
-  46aa2f30aa7f ("udp: Remove udp_offloads")
-
-from the net-next tree.
-
-I fixed it up (the latter removed the struct that was commented in the
-former) and can carry the fix as necessary. This is now fixed as far as
-linux-next is concerned, but any non trivial conflicts should be mentioned
-to your upstream maintainer when your tree is submitted for merging.
-You may also want to consider cooperating with the maintainer of the
-conflicting tree to minimise any particularly complex conflicts.
-
+[0] https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
 -- 
-Cheers,
-Stephen Rothwell
+BOFH excuse #224:
+
+Jan  9 16:41:27 huber su: 'su root' succeeded for .... on /dev/pts/1
