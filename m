@@ -1,123 +1,70 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 21/36] netfilter: conntrack: make netns address part of hash
-Date: Mon,  9 May 2016 20:46:39 +0200
-Message-ID: <1462819614-5402-22-git-send-email-pablo@netfilter.org>
-References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH 1/1] net: thunderx: avoid exposing kernel stack
+Date: Mon, 9 May 2016 11:57:17 -0700
+Message-ID: <CA+sq2Cd7DqDneYjy87qjMen6nMR+_wWxqo3asoQ3sddBAVL_5A@mail.gmail.com>
+References: <1462747578-6147-1-git-send-email-xypron.glpk@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rric@kernel.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462747578-6147-1-git-send-email-xypron.glpk@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+Thanks for fixing, changes look okay.
 
-Once we place all conntracks into a global hash table we want them to be
-spread across entire hash table, even if namespaces have overlapping ip
-addresses.
+Sunil.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_core.c | 35 ++++++++++++++++++-----------------
- 1 file changed, 18 insertions(+), 17 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 10ae2ee..ebafa77 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -54,6 +54,7 @@
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_core.h>
- #include <net/netfilter/nf_nat_helper.h>
-+#include <net/netns/hash.h>
- 
- #define NF_CONNTRACK_VERSION	"0.5.0"
- 
-@@ -144,9 +145,11 @@ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
- 
- static unsigned int nf_conntrack_hash_rnd __read_mostly;
- 
--static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple)
-+static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple,
-+			      const struct net *net)
- {
- 	unsigned int n;
-+	u32 seed;
- 
- 	get_random_once(&nf_conntrack_hash_rnd, sizeof(nf_conntrack_hash_rnd));
- 
-@@ -154,32 +157,29 @@ static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple)
- 	 * destination ports (which is a multiple of 4) and treat the last
- 	 * three bytes manually.
- 	 */
-+	seed = nf_conntrack_hash_rnd ^ net_hash_mix(net);
- 	n = (sizeof(tuple->src) + sizeof(tuple->dst.u3)) / sizeof(u32);
--	return jhash2((u32 *)tuple, n, nf_conntrack_hash_rnd ^
-+	return jhash2((u32 *)tuple, n, seed ^
- 		      (((__force __u16)tuple->dst.u.all << 16) |
- 		      tuple->dst.protonum));
- }
- 
--static u32 __hash_bucket(u32 hash, unsigned int size)
--{
--	return reciprocal_scale(hash, size);
--}
--
- static u32 hash_bucket(u32 hash, const struct net *net)
- {
--	return __hash_bucket(hash, net->ct.htable_size);
-+	return reciprocal_scale(hash, net->ct.htable_size);
- }
- 
--static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
--				  unsigned int size)
-+static u32 __hash_conntrack(const struct net *net,
-+			    const struct nf_conntrack_tuple *tuple,
-+			    unsigned int size)
- {
--	return __hash_bucket(hash_conntrack_raw(tuple), size);
-+	return reciprocal_scale(hash_conntrack_raw(tuple, net), size);
- }
- 
--static inline u_int32_t hash_conntrack(const struct net *net,
--				       const struct nf_conntrack_tuple *tuple)
-+static u32 hash_conntrack(const struct net *net,
-+			  const struct nf_conntrack_tuple *tuple)
- {
--	return __hash_conntrack(tuple, net->ct.htable_size);
-+	return __hash_conntrack(net, tuple, net->ct.htable_size);
- }
- 
- bool
-@@ -535,7 +535,7 @@ nf_conntrack_find_get(struct net *net, const struct nf_conntrack_zone *zone,
- 		      const struct nf_conntrack_tuple *tuple)
- {
- 	return __nf_conntrack_find_get(net, zone, tuple,
--				       hash_conntrack_raw(tuple));
-+				       hash_conntrack_raw(tuple, net));
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_find_get);
- 
-@@ -1041,7 +1041,7 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
- 
- 	/* look for tuple match */
- 	zone = nf_ct_zone_tmpl(tmpl, skb, &tmp);
--	hash = hash_conntrack_raw(&tuple);
-+	hash = hash_conntrack_raw(&tuple, net);
- 	h = __nf_conntrack_find_get(net, zone, &tuple, hash);
- 	if (!h) {
- 		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
-@@ -1605,7 +1605,8 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 					struct nf_conntrack_tuple_hash, hnnode);
- 			ct = nf_ct_tuplehash_to_ctrack(h);
- 			hlist_nulls_del_rcu(&h->hnnode);
--			bucket = __hash_conntrack(&h->tuple, hashsize);
-+			bucket = __hash_conntrack(nf_ct_net(ct),
-+						  &h->tuple, hashsize);
- 			hlist_nulls_add_head_rcu(&h->hnnode, &hash[bucket]);
- 		}
- 	}
--- 
-2.1.4
-
+On Sun, May 8, 2016 at 3:46 PM, Heinrich Schuchardt <xypron.glpk@gmx.de> wrote:
+> Reserved fields should be set to zero to avoid exposing
+> bits from the kernel stack.
+>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> ---
+>  drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+> index 8acd7c0..0ff8e60 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+> @@ -533,6 +533,7 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
+>                 nicvf_config_vlan_stripping(nic, nic->netdev->features);
+>
+>         /* Enable Receive queue */
+> +       memset(&rq_cfg, 0, sizeof(struct rq_cfg));
+>         rq_cfg.ena = 1;
+>         rq_cfg.tcp_ena = 0;
+>         nicvf_queue_reg_write(nic, NIC_QSET_RQ_0_7_CFG, qidx, *(u64 *)&rq_cfg);
+> @@ -565,6 +566,7 @@ void nicvf_cmp_queue_config(struct nicvf *nic, struct queue_set *qs,
+>                               qidx, (u64)(cq->dmem.phys_base));
+>
+>         /* Enable Completion queue */
+> +       memset(&cq_cfg, 0, sizeof(struct cq_cfg));
+>         cq_cfg.ena = 1;
+>         cq_cfg.reset = 0;
+>         cq_cfg.caching = 0;
+> @@ -613,6 +615,7 @@ static void nicvf_snd_queue_config(struct nicvf *nic, struct queue_set *qs,
+>                               qidx, (u64)(sq->dmem.phys_base));
+>
+>         /* Enable send queue  & set queue size */
+> +       memset(&sq_cfg, 0, sizeof(struct sq_cfg));
+>         sq_cfg.ena = 1;
+>         sq_cfg.reset = 0;
+>         sq_cfg.ldwb = 0;
+> @@ -649,6 +652,7 @@ static void nicvf_rbdr_config(struct nicvf *nic, struct queue_set *qs,
+>
+>         /* Enable RBDR  & set queue size */
+>         /* Buffer size should be in multiples of 128 bytes */
+> +       memset(&rbdr_cfg, 0, sizeof(struct rbdr_cfg));
+>         rbdr_cfg.ena = 1;
+>         rbdr_cfg.reset = 0;
+>         rbdr_cfg.ldwb = 0;
+> --
+> 2.1.4
+>
