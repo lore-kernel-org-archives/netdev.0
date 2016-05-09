@@ -1,51 +1,102 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/36] netfilter: ip6t_SYNPROXY: unnecessary to check whether ip6_route_output returns NULL
-Date: Mon,  9 May 2016 20:46:30 +0200
-Message-ID: <1462819614-5402-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/36] netfilter: nf_tables: parse element flags from nft_del_setelem()
+Date: Mon,  9 May 2016 20:46:26 +0200
+Message-ID: <1462819614-5402-9-git-send-email-pablo@netfilter.org>
 References: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45714 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752505AbcEISrT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 14:47:19 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 5E66FE8E85
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:18 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 4EFA613471F
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:18 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A56BF13470E
-	for <netdev@vger.kernel.org>; Mon,  9 May 2016 20:47:13 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1462819614-5402-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+Parse flags and pass them to the set via ->deactivate() to check if we
+remove the right element from the intervals.
 
-ip6_route_output() will never return a NULL pointer, so there's no need
-to check it.
-
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/ip6t_SYNPROXY.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_tables_api.c | 38 +++++++++++++++++++++++++++++++++-----
+ 1 file changed, 33 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index 5d778dd..06bed74 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -60,7 +60,7 @@ synproxy_send_tcp(struct net *net,
- 	fl6.fl6_dport = nth->dest;
- 	security_skb_classify_flow((struct sk_buff *)skb, flowi6_to_flowi(&fl6));
- 	dst = ip6_route_output(net, NULL, &fl6);
--	if (dst == NULL || dst->error) {
-+	if (dst->error) {
- 		dst_release(dst);
- 		goto free_nskb;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 1b3210b..73c8fad 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3592,9 +3592,13 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
+ 			   const struct nlattr *attr)
+ {
+ 	struct nlattr *nla[NFTA_SET_ELEM_MAX + 1];
++	struct nft_set_ext_tmpl tmpl;
+ 	struct nft_data_desc desc;
+ 	struct nft_set_elem elem;
++	struct nft_set_ext *ext;
+ 	struct nft_trans *trans;
++	u32 flags = 0;
++	void *priv;
+ 	int err;
+ 
+ 	err = nla_parse_nested(nla, NFTA_SET_ELEM_MAX, attr,
+@@ -3606,6 +3610,14 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
+ 	if (nla[NFTA_SET_ELEM_KEY] == NULL)
+ 		goto err1;
+ 
++	nft_set_ext_prepare(&tmpl);
++
++	err = nft_setelem_parse_flags(set, nla[NFTA_SET_ELEM_FLAGS], &flags);
++	if (err < 0)
++		return err;
++	if (flags != 0)
++		nft_set_ext_add(&tmpl, NFT_SET_EXT_FLAGS);
++
+ 	err = nft_data_init(ctx, &elem.key.val, sizeof(elem.key), &desc,
+ 			    nla[NFTA_SET_ELEM_KEY]);
+ 	if (err < 0)
+@@ -3615,24 +3627,40 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
+ 	if (desc.type != NFT_DATA_VALUE || desc.len != set->klen)
+ 		goto err2;
+ 
++	nft_set_ext_add_length(&tmpl, NFT_SET_EXT_KEY, desc.len);
++
++	err = -ENOMEM;
++	elem.priv = nft_set_elem_init(set, &tmpl, elem.key.val.data, NULL, 0,
++				      GFP_KERNEL);
++	if (elem.priv == NULL)
++		goto err2;
++
++	ext = nft_set_elem_ext(set, elem.priv);
++	if (flags)
++		*nft_set_ext_flags(ext) = flags;
++
+ 	trans = nft_trans_elem_alloc(ctx, NFT_MSG_DELSETELEM, set);
+ 	if (trans == NULL) {
+ 		err = -ENOMEM;
+-		goto err2;
++		goto err3;
  	}
+ 
+-	elem.priv = set->ops->deactivate(set, &elem);
+-	if (elem.priv == NULL) {
++	priv = set->ops->deactivate(set, &elem);
++	if (priv == NULL) {
+ 		err = -ENOENT;
+-		goto err3;
++		goto err4;
+ 	}
++	kfree(elem.priv);
++	elem.priv = priv;
+ 
+ 	nft_trans_elem(trans) = elem;
+ 	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
+ 	return 0;
+ 
+-err3:
++err4:
+ 	kfree(trans);
++err3:
++	kfree(elem.priv);
+ err2:
+ 	nft_data_uninit(&elem.key.val, desc.type);
+ err1:
 -- 
 2.1.4
+
