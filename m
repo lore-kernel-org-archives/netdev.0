@@ -1,481 +1,259 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 10/14] qed*: Support forced MAC
-Date: Mon, 9 May 2016 16:19:19 +0300
-Message-ID: <1462799963-23547-11-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 12/14] qed*: IOV support spoof-checking
+Date: Mon, 9 May 2016 16:19:21 +0300
+Message-ID: <1462799963-23547-13-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1462799963-23547-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:65415 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:36810 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753399AbcEINU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 09:20:28 -0400
+	by vger.kernel.org with ESMTP id S1753340AbcEINUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 09:20:34 -0400
 In-Reply-To: <1462799963-23547-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows the PF to enforce the VF's mac.
-i.e., by using `ip link ... vf <x> mac <value>'.
-
-While a MAC is forced, PF would prevent the VF from configuring any other
-MAC.
+Add support in `ndo_set_vf_spoofchk' for allowing PF control over
+its VF spoof-checking configuration.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c     |   9 ++
- drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 120 +++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_sriov.h  |   1 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c     |  47 +++++++++++
- drivers/net/ethernet/qlogic/qed/qed_vf.h     |  21 +++++
- drivers/net/ethernet/qlogic/qede/qede_main.c |  31 +++++++
- include/linux/qed/qed_eth_if.h               |   3 +
- include/linux/qed/qed_iov_if.h               |   2 +
- 8 files changed, 234 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_l2.c     |  4 ++
+ drivers/net/ethernet/qlogic/qed/qed_l2.h     |  2 +
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 91 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h  |  2 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 11 ++++
+ include/linux/qed/qed_iov_if.h               |  2 +
+ 6 files changed, 112 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 7fb6b82..8d83250 100644
+index 8d83250..e0275a7 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1701,6 +1701,14 @@ static void qed_register_eth_ops(struct qed_dev *cdev,
- 		qed_vf_start_iov_wq(cdev);
- }
+@@ -381,6 +381,10 @@ int qed_sp_vport_update(struct qed_hwfn *p_hwfn,
+ 	p_ramrod->common.tx_switching_en = p_params->tx_switching_flg;
+ 	p_cmn->update_tx_switching_en_flg = p_params->update_tx_switching_flg;
  
-+static bool qed_check_mac(struct qed_dev *cdev, u8 *mac)
-+{
-+	if (IS_PF(cdev))
-+		return true;
++	p_cmn->anti_spoofing_en = p_params->anti_spoofing_en;
++	val = p_params->update_anti_spoofing_en_flg;
++	p_ramrod->common.update_anti_spoofing_en_flg = val;
 +
-+	return qed_vf_check_mac(&cdev->hwfns[0], mac);
-+}
-+
- static int qed_start_vport(struct qed_dev *cdev,
- 			   struct qed_start_vport_params *params)
- {
-@@ -2149,6 +2157,7 @@ static const struct qed_eth_ops qed_eth_ops_pass = {
- #endif
- 	.fill_dev_info = &qed_fill_eth_dev_info,
- 	.register_ops = &qed_register_eth_ops,
-+	.check_mac = &qed_check_mac,
- 	.vport_start = &qed_start_vport,
- 	.vport_stop = &qed_stop_vport,
- 	.vport_update = &qed_update_vport,
+ 	rc = qed_sp_vport_update_rss(p_hwfn, p_ramrod, p_rss_params);
+ 	if (rc) {
+ 		/* Return spq entry which is taken in qed_sp_init_request()*/
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
+index fad30ae..a04fb7f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
+@@ -149,6 +149,8 @@ struct qed_sp_vport_update_params {
+ 	u8				update_tx_switching_flg;
+ 	u8				tx_switching_flg;
+ 	u8				update_approx_mcast_flg;
++	u8				update_anti_spoofing_en_flg;
++	u8				anti_spoofing_en;
+ 	u8				update_accept_any_vlan_flg;
+ 	u8				accept_any_vlan;
+ 	unsigned long			bins[8];
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 77d44ba..c1b7919 100644
+index c9a3bb6..804102c 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1295,6 +1295,29 @@ static int qed_iov_configure_vport_forced(struct qed_hwfn *p_hwfn,
- 	if (!p_vf->vport_instance)
- 		return -EINVAL;
- 
-+	if (events & (1 << MAC_ADDR_FORCED)) {
-+		/* Since there's no way [currently] of removing the MAC,
-+		 * we can always assume this means we need to force it.
-+		 */
-+		memset(&filter, 0, sizeof(filter));
-+		filter.type = QED_FILTER_MAC;
-+		filter.opcode = QED_FILTER_REPLACE;
-+		filter.is_rx_filter = 1;
-+		filter.is_tx_filter = 1;
-+		filter.vport_to_add_to = p_vf->vport_id;
-+		ether_addr_copy(filter.mac, p_vf->bulletin.p_virt->mac);
-+
-+		rc = qed_sp_eth_filter_ucast(p_hwfn, p_vf->opaque_fid,
-+					     &filter, QED_SPQ_MODE_CB, NULL);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "PF failed to configure MAC for VF\n");
-+			return rc;
-+		}
-+
-+		p_vf->configured_features |= 1 << MAC_ADDR_FORCED;
-+	}
-+
- 	if (events & (1 << VLAN_ADDR_FORCED)) {
- 		struct qed_sp_vport_update_params vport_update;
- 		u8 removal;
-@@ -2199,6 +2222,16 @@ static void qed_iov_vf_mbx_ucast_filter(struct qed_hwfn *p_hwfn,
- 		goto out;
- 	}
- 
-+	if ((p_bulletin->valid_bitmap & (1 << MAC_ADDR_FORCED)) &&
-+	    (params.type == QED_FILTER_MAC ||
-+	     params.type == QED_FILTER_MAC_VLAN)) {
-+		if (!ether_addr_equal(p_bulletin->mac, params.mac) ||
-+		    (params.opcode != QED_FILTER_ADD &&
-+		     params.opcode != QED_FILTER_REPLACE))
-+			status = PFVF_STATUS_FORCED;
-+		goto out;
-+	}
-+
- 	rc = qed_iov_chk_ucast(p_hwfn, vf->relative_vf_id, &params);
- 	if (rc) {
- 		status = PFVF_STATUS_FAILURE;
-@@ -2702,6 +2735,30 @@ static int qed_iov_copy_vf_msg(struct qed_hwfn *p_hwfn, struct qed_ptt *ptt,
- 	return 0;
+@@ -1234,6 +1234,39 @@ out:
+ 			     sizeof(struct pfvf_acquire_resp_tlv), vfpf_status);
  }
  
-+static void qed_iov_bulletin_set_forced_mac(struct qed_hwfn *p_hwfn,
-+					    u8 *mac, int vfid)
++static int __qed_iov_spoofchk_set(struct qed_hwfn *p_hwfn,
++				  struct qed_vf_info *p_vf, bool val)
 +{
-+	struct qed_vf_info *vf_info;
-+	u64 feature;
++	struct qed_sp_vport_update_params params;
++	int rc;
 +
-+	vf_info = qed_iov_get_vf_info(p_hwfn, (u16)vfid, true);
-+	if (!vf_info) {
-+		DP_NOTICE(p_hwfn->cdev,
-+			  "Can not set forced MAC, invalid vfid [%d]\n", vfid);
-+		return;
++	if (val == p_vf->spoof_chk) {
++		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++			   "Spoofchk value[%d] is already configured\n", val);
++		return 0;
 +	}
 +
-+	feature = 1 << MAC_ADDR_FORCED;
-+	memcpy(vf_info->bulletin.p_virt->mac, mac, ETH_ALEN);
++	memset(&params, 0, sizeof(struct qed_sp_vport_update_params));
++	params.opaque_fid = p_vf->opaque_fid;
++	params.vport_id = p_vf->vport_id;
++	params.update_anti_spoofing_en_flg = 1;
++	params.anti_spoofing_en = val;
 +
-+	vf_info->bulletin.p_virt->valid_bitmap |= feature;
-+	/* Forced MAC will disable MAC_ADDR */
-+	vf_info->bulletin.p_virt->valid_bitmap &=
-+				~(1 << VFPF_BULLETIN_MAC_ADDR);
++	rc = qed_sp_vport_update(p_hwfn, &params, QED_SPQ_MODE_EBLOCK, NULL);
++	if (rc) {
++		p_vf->spoof_chk = val;
++		p_vf->req_spoofchk_val = p_vf->spoof_chk;
++		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++			   "Spoofchk val[%d] configured\n", val);
++	} else {
++		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++			   "Spoofchk configuration[val:%d] failed for VF[%d]\n",
++			   val, p_vf->relative_vf_id);
++	}
 +
-+	qed_iov_configure_vport_forced(p_hwfn, vf_info, feature);
++	return rc;
 +}
 +
- void qed_iov_bulletin_set_forced_vlan(struct qed_hwfn *p_hwfn,
- 				      u16 pvid, int vfid)
+ static int qed_iov_reconfigure_unicast_vlan(struct qed_hwfn *p_hwfn,
+ 					    struct qed_vf_info *p_vf)
  {
-@@ -2736,6 +2793,21 @@ bool qed_iov_is_vf_stopped(struct qed_hwfn *p_hwfn, int vfid)
+@@ -1476,6 +1509,8 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
+ 
+ 		/* Force configuration if needed on the newly opened vport */
+ 		qed_iov_configure_vport_forced(p_hwfn, vf, *p_bitmap);
++
++		__qed_iov_spoofchk_set(p_hwfn, vf, vf->req_spoofchk_val);
+ 	}
+ 	qed_iov_prepare_resp(p_hwfn, p_ptt, vf, CHANNEL_TLV_VPORT_START,
+ 			     sizeof(struct pfvf_def_resp_tlv), status);
+@@ -1489,6 +1524,7 @@ static void qed_iov_vf_mbx_stop_vport(struct qed_hwfn *p_hwfn,
+ 	int rc;
+ 
+ 	vf->vport_instance--;
++	vf->spoof_chk = false;
+ 
+ 	rc = qed_sp_vport_stop(p_hwfn, vf->opaque_fid, vf->vport_id);
+ 	if (rc != 0) {
+@@ -2782,6 +2818,17 @@ void qed_iov_bulletin_set_forced_vlan(struct qed_hwfn *p_hwfn,
+ 	qed_iov_configure_vport_forced(p_hwfn, vf_info, feature);
+ }
+ 
++static bool qed_iov_vf_has_vport_instance(struct qed_hwfn *p_hwfn, int vfid)
++{
++	struct qed_vf_info *p_vf_info;
++
++	p_vf_info = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
++	if (!p_vf_info)
++		return false;
++
++	return !!p_vf_info->vport_instance;
++}
++
+ bool qed_iov_is_vf_stopped(struct qed_hwfn *p_hwfn, int vfid)
+ {
+ 	struct qed_vf_info *p_vf_info;
+@@ -2793,6 +2840,34 @@ bool qed_iov_is_vf_stopped(struct qed_hwfn *p_hwfn, int vfid)
  	return p_vf_info->state == VF_STOPPED;
  }
  
-+static u8 *qed_iov_bulletin_get_forced_mac(struct qed_hwfn *p_hwfn,
-+					   u16 rel_vf_id)
++int qed_iov_spoofchk_set(struct qed_hwfn *p_hwfn, int vfid, bool val)
 +{
-+	struct qed_vf_info *p_vf;
++	struct qed_vf_info *vf;
++	int rc = -EINVAL;
 +
-+	p_vf = qed_iov_get_vf_info(p_hwfn, rel_vf_id, true);
-+	if (!p_vf || !p_vf->bulletin.p_virt)
-+		return NULL;
++	if (!qed_iov_pf_sanity_check(p_hwfn, vfid)) {
++		DP_NOTICE(p_hwfn,
++			  "SR-IOV sanity check failed, can't set spoofchk\n");
++		goto out;
++	}
 +
-+	if (!(p_vf->bulletin.p_virt->valid_bitmap & (1 << MAC_ADDR_FORCED)))
-+		return NULL;
++	vf = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
++	if (!vf)
++		goto out;
 +
-+	return p_vf->bulletin.p_virt->mac;
++	if (!qed_iov_vf_has_vport_instance(p_hwfn, vfid)) {
++		/* After VF VPORT start PF will configure spoof check */
++		vf->req_spoofchk_val = val;
++		rc = 0;
++		goto out;
++	}
++
++	rc = __qed_iov_spoofchk_set(p_hwfn, vf, val);
++
++out:
++	return rc;
 +}
 +
- u16 qed_iov_bulletin_get_forced_vlan(struct qed_hwfn *p_hwfn, u16 rel_vf_id)
+ static u8 *qed_iov_bulletin_get_forced_mac(struct qed_hwfn *p_hwfn,
+ 					   u16 rel_vf_id)
  {
- 	struct qed_vf_info *p_vf;
-@@ -2899,6 +2971,38 @@ static int qed_sriov_configure(struct qed_dev *cdev, int num_vfs_param)
- 		return qed_sriov_disable(cdev, true);
+@@ -3179,6 +3254,21 @@ static int qed_set_vf_link_state(struct qed_dev *cdev,
+ 	return 0;
  }
  
-+static int qed_sriov_pf_set_mac(struct qed_dev *cdev, u8 *mac, int vfid)
++static int qed_spoof_configure(struct qed_dev *cdev, int vfid, bool val)
 +{
-+	int i;
-+
-+	if (!IS_QED_SRIOV(cdev) || !IS_PF_SRIOV_ALLOC(&cdev->hwfns[0])) {
-+		DP_VERBOSE(cdev, QED_MSG_IOV,
-+			   "Cannot set a VF MAC; Sriov is not enabled\n");
-+		return -EINVAL;
-+	}
-+
-+	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vfid, true)) {
-+		DP_VERBOSE(cdev, QED_MSG_IOV,
-+			   "Cannot set VF[%d] MAC (VF is not active)\n", vfid);
-+		return -EINVAL;
-+	}
++	int i, rc = -EINVAL;
 +
 +	for_each_hwfn(cdev, i) {
-+		struct qed_hwfn *hwfn = &cdev->hwfns[i];
-+		struct qed_public_vf_info *vf_info;
++		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
 +
-+		vf_info = qed_iov_get_public_vf_info(hwfn, vfid, true);
-+		if (!vf_info)
-+			continue;
-+
-+		/* Set the forced MAC, and schedule the IOV task */
-+		ether_addr_copy(vf_info->forced_mac, mac);
-+		qed_schedule_iov(hwfn, QED_IOV_WQ_SET_UNICAST_FILTER_FLAG);
++		rc = qed_iov_spoofchk_set(p_hwfn, vfid, val);
++		if (rc)
++			break;
 +	}
 +
-+	return 0;
++	return rc;
 +}
 +
- static int qed_sriov_pf_set_vlan(struct qed_dev *cdev, u16 vid, int vfid)
+ static int qed_configure_max_vf_rate(struct qed_dev *cdev, int vfid, int rate)
  {
  	int i;
-@@ -3000,12 +3104,27 @@ static void qed_handle_pf_set_vf_unicast(struct qed_hwfn *hwfn)
- 	qed_for_each_vf(hwfn, i) {
- 		struct qed_public_vf_info *info;
- 		bool update = false;
-+		u8 *mac;
- 
- 		info = qed_iov_get_public_vf_info(hwfn, i, true);
- 		if (!info)
- 			continue;
- 
- 		/* Update data on bulletin board */
-+		mac = qed_iov_bulletin_get_forced_mac(hwfn, i);
-+		if (is_valid_ether_addr(info->forced_mac) &&
-+		    (!mac || !ether_addr_equal(mac, info->forced_mac))) {
-+			DP_VERBOSE(hwfn,
-+				   QED_MSG_IOV,
-+				   "Handling PF setting of VF MAC to VF 0x%02x [Abs 0x%02x]\n",
-+				   i,
-+				   hwfn->cdev->p_iov_info->first_vf_in_pf + i);
-+
-+			/* Update bulletin board with forced MAC */
-+			qed_iov_bulletin_set_forced_mac(hwfn,
-+							info->forced_mac, i);
-+			update = true;
-+		}
- 
- 		if (qed_iov_bulletin_get_forced_vlan(hwfn, i) ^
- 		    info->forced_vlan) {
-@@ -3133,5 +3252,6 @@ int qed_iov_wq_start(struct qed_dev *cdev)
- 
- const struct qed_iov_hv_ops qed_iov_ops_pass = {
- 	.configure = &qed_sriov_configure,
-+	.set_mac = &qed_sriov_pf_set_mac,
+@@ -3417,5 +3507,6 @@ const struct qed_iov_hv_ops qed_iov_ops_pass = {
+ 	.set_mac = &qed_sriov_pf_set_mac,
  	.set_vlan = &qed_sriov_pf_set_vlan,
+ 	.set_link_state = &qed_set_vf_link_state,
++	.set_spoof = &qed_spoof_configure,
+ 	.set_rate = &qed_set_vf_rate,
  };
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-index e65f403..e38ea98 100644
+index ab3d291..c8667c6 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -43,6 +43,7 @@ struct qed_public_vf_info {
- 	/* These copies will later be reflected in the bulletin board,
- 	 * but this copy should be newer.
- 	 */
-+	u8 forced_mac[ETH_ALEN];
- 	u16 forced_vlan;
- 	u8 mac[ETH_ALEN];
- };
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 3c8911d..db14e23 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -7,6 +7,7 @@
-  */
+@@ -154,6 +154,8 @@ struct qed_vf_info {
+ 	u16 igu_sbs[QED_MAX_VF_CHAINS_PER_PF];
+ 	u8 num_active_rxqs;
+ 	struct qed_public_vf_info p_vf_info;
++	bool spoof_chk;
++	bool req_spoofchk_val;
  
- #include <linux/crc32.h>
-+#include <linux/etherdevice.h>
- #include "qed.h"
- #include "qed_sriov.h"
- #include "qed_vf.h"
-@@ -1004,6 +1005,43 @@ void qed_vf_get_num_vlan_filters(struct qed_hwfn *p_hwfn, u8 *num_vlan_filters)
- 	*num_vlan_filters = p_vf->acquire_resp.resc.num_vlan_filters;
- }
- 
-+bool qed_vf_check_mac(struct qed_hwfn *p_hwfn, u8 *mac)
-+{
-+	struct qed_bulletin_content *bulletin;
-+
-+	bulletin = &p_hwfn->vf_iov_info->bulletin_shadow;
-+	if (!(bulletin->valid_bitmap & (1 << MAC_ADDR_FORCED)))
-+		return true;
-+
-+	/* Forbid VF from changing a MAC enforced by PF */
-+	if (ether_addr_equal(bulletin->mac, mac))
-+		return false;
-+
-+	return false;
-+}
-+
-+bool qed_vf_bulletin_get_forced_mac(struct qed_hwfn *hwfn,
-+				    u8 *dst_mac, u8 *p_is_forced)
-+{
-+	struct qed_bulletin_content *bulletin;
-+
-+	bulletin = &hwfn->vf_iov_info->bulletin_shadow;
-+
-+	if (bulletin->valid_bitmap & (1 << MAC_ADDR_FORCED)) {
-+		if (p_is_forced)
-+			*p_is_forced = 1;
-+	} else if (bulletin->valid_bitmap & (1 << VFPF_BULLETIN_MAC_ADDR)) {
-+		if (p_is_forced)
-+			*p_is_forced = 0;
-+	} else {
-+		return false;
-+	}
-+
-+	ether_addr_copy(dst_mac, bulletin->mac);
-+
-+	return true;
-+}
-+
- void qed_vf_get_fw_version(struct qed_hwfn *p_hwfn,
- 			   u16 *fw_major, u16 *fw_minor,
- 			   u16 *fw_rev, u16 *fw_eng)
-@@ -1020,6 +1058,15 @@ void qed_vf_get_fw_version(struct qed_hwfn *p_hwfn,
- 
- static void qed_handle_bulletin_change(struct qed_hwfn *hwfn)
- {
-+	struct qed_eth_cb_ops *ops = hwfn->cdev->protocol_ops.eth;
-+	u8 mac[ETH_ALEN], is_mac_exist, is_mac_forced;
-+	void *cookie = hwfn->cdev->ops_cookie;
-+
-+	is_mac_exist = qed_vf_bulletin_get_forced_mac(hwfn, mac,
-+						      &is_mac_forced);
-+	if (is_mac_exist && is_mac_forced && cookie)
-+		ops->force_mac(cookie, mac);
-+
- 	/* Always update link configuration according to bulletin */
- 	qed_link_update(hwfn);
- }
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index 463834f..ae0b92f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -418,6 +418,8 @@ union pfvf_tlvs {
- };
- 
- enum qed_bulletin_bit {
-+	/* Alert the VF that a forced MAC was set by the PF */
-+	MAC_ADDR_FORCED = 0,
- 	/* Alert the VF that a forced VLAN was set by the PF */
- 	VLAN_ADDR_FORCED = 2,
- 
-@@ -425,6 +427,10 @@ enum qed_bulletin_bit {
- 	VFPF_BULLETIN_UNTAGGED_DEFAULT = 3,
- 	VFPF_BULLETIN_UNTAGGED_DEFAULT_FORCED = 4,
- 
-+	/* Alert the VF that suggested mac was sent by the PF.
-+	 * MAC_ADDR will be disabled in case MAC_ADDR_FORCED is set.
-+	 */
-+	VFPF_BULLETIN_MAC_ADDR = 5
- };
- 
- struct qed_bulletin_content {
-@@ -602,6 +608,16 @@ void qed_vf_get_num_vlan_filters(struct qed_hwfn *p_hwfn,
- 				 u8 *num_vlan_filters);
- 
- /**
-+ * @brief Check if VF can set a MAC address
-+ *
-+ * @param p_hwfn
-+ * @param mac
-+ *
-+ * @return bool
-+ */
-+bool qed_vf_check_mac(struct qed_hwfn *p_hwfn, u8 *mac);
-+
-+/**
-  * @brief Set firmware version information in dev_info from VFs acquire response tlv
-  *
-  * @param p_hwfn
-@@ -841,6 +857,11 @@ static inline void qed_vf_get_num_vlan_filters(struct qed_hwfn *p_hwfn,
- {
- }
- 
-+static inline bool qed_vf_check_mac(struct qed_hwfn *p_hwfn, u8 *mac)
-+{
-+	return false;
-+}
-+
- static inline void qed_vf_get_fw_version(struct qed_hwfn *p_hwfn,
- 					 u16 *fw_major, u16 *fw_minor,
- 					 u16 *fw_rev, u16 *fw_eng)
+ 	/* Stores the configuration requested by VF */
+ 	struct qed_vf_shadow_config shadow_config;
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index d3cb672..aa2cc49 100644
+index e702aba..aa01363 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -118,6 +118,22 @@ static int qede_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan, u8 qos)
- 	return edev->ops->iov->set_vlan(edev->cdev, vlan, vf);
+@@ -1802,6 +1802,16 @@ static int qede_set_vf_rate(struct net_device *dev, int vfidx,
+ 					max_tx_rate);
  }
  
-+static int qede_set_vf_mac(struct net_device *ndev, int vfidx, u8 *mac)
++static int qede_set_vf_spoofchk(struct net_device *dev, int vfidx, bool val)
 +{
-+	struct qede_dev *edev = netdev_priv(ndev);
++	struct qede_dev *edev = netdev_priv(dev);
 +
-+	DP_VERBOSE(edev, QED_MSG_IOV,
-+		   "Setting MAC %02x:%02x:%02x:%02x:%02x:%02x to VF [%d]\n",
-+		   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], vfidx);
-+
-+	if (!is_valid_ether_addr(mac)) {
-+		DP_VERBOSE(edev, QED_MSG_IOV, "MAC address isn't valid\n");
++	if (!edev->ops)
 +		return -EINVAL;
-+	}
 +
-+	return edev->ops->iov->set_mac(edev->cdev, mac, vfidx);
++	return edev->ops->iov->set_spoof(edev->cdev, vfidx, val);
 +}
 +
- static int qede_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
+ static int qede_set_vf_link_state(struct net_device *dev, int vfidx,
+ 				  int link_state)
  {
- 	struct qede_dev *edev = netdev_priv(pci_get_drvdata(pdev));
-@@ -138,10 +154,19 @@ static struct pci_driver qede_pci_driver = {
- #endif
- };
- 
-+static void qede_force_mac(void *dev, u8 *mac)
-+{
-+	struct qede_dev *edev = dev;
-+
-+	ether_addr_copy(edev->ndev->dev_addr, mac);
-+	ether_addr_copy(edev->primary_mac, mac);
-+}
-+
- static struct qed_eth_cb_ops qede_ll_ops = {
- 	{
- 		.link_update = qede_link_update,
- 	},
-+	.force_mac = qede_force_mac,
- };
- 
- static int qede_netdev_event(struct notifier_block *this, unsigned long event,
-@@ -2087,6 +2112,7 @@ static const struct net_device_ops qede_netdev_ops = {
- 	.ndo_validate_addr = eth_validate_addr,
- 	.ndo_change_mtu = qede_change_mtu,
+@@ -2142,6 +2152,7 @@ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_get_stats64 = qede_get_stats64,
  #ifdef CONFIG_QED_SRIOV
-+	.ndo_set_vf_mac = qede_set_vf_mac,
- 	.ndo_set_vf_vlan = qede_set_vf_vlan,
+ 	.ndo_set_vf_link_state = qede_set_vf_link_state,
++	.ndo_set_vf_spoofchk = qede_set_vf_spoofchk,
+ 	.ndo_set_vf_rate = qede_set_vf_rate,
  #endif
- 	.ndo_vlan_rx_add_vid = qede_vlan_rx_add_vid,
-@@ -3514,6 +3540,11 @@ static int qede_set_mac_addr(struct net_device *ndev, void *p)
- 		return -EFAULT;
- 	}
- 
-+	if (!edev->ops->check_mac(edev->cdev, addr->sa_data)) {
-+		DP_NOTICE(edev, "qed prevents setting MAC\n");
-+		return -EINVAL;
-+	}
-+
- 	ether_addr_copy(ndev->dev_addr, addr->sa_data);
- 
- 	if (!netif_running(ndev))  {
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index acfafca..e0f6e64 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -122,6 +122,7 @@ struct qed_tunn_params {
- 
- struct qed_eth_cb_ops {
- 	struct qed_common_cb_ops common;
-+	void (*force_mac) (void *dev, u8 *mac);
- };
- 
- struct qed_eth_ops {
-@@ -137,6 +138,8 @@ struct qed_eth_ops {
- 			     struct qed_eth_cb_ops *ops,
- 			     void *cookie);
- 
-+	 bool(*check_mac) (struct qed_dev *cdev, u8 *mac);
-+
- 	int (*vport_start)(struct qed_dev *cdev,
- 			   struct qed_start_vport_params *params);
- 
+ #ifdef CONFIG_QEDE_VXLAN
 diff --git a/include/linux/qed/qed_iov_if.h b/include/linux/qed/qed_iov_if.h
-index 825c007..7a67fbf 100644
+index f364f2b..2596d30 100644
 --- a/include/linux/qed/qed_iov_if.h
 +++ b/include/linux/qed/qed_iov_if.h
-@@ -15,6 +15,8 @@
- struct qed_iov_hv_ops {
- 	int (*configure)(struct qed_dev *cdev, int num_vfs_param);
+@@ -22,6 +22,8 @@ struct qed_iov_hv_ops {
+ 	int (*set_link_state) (struct qed_dev *cdev, int vf_id,
+ 			       int link_state);
  
-+	int (*set_mac) (struct qed_dev *cdev, u8 *mac, int vfid);
++	int (*set_spoof) (struct qed_dev *cdev, int vfid, bool val);
 +
- 	int (*set_vlan) (struct qed_dev *cdev, u16 vid, int vfid);
+ 	int (*set_rate) (struct qed_dev *cdev, int vfid,
+ 			 u32 min_rate, u32 max_rate);
  };
- 
 -- 
 1.9.3
