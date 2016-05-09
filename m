@@ -1,7 +1,7 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
 Subject: Re: [PATCH net-next] ip6_gre: Fix MTU setting
-Date: Mon, 9 May 2016 16:14:11 -0700
-Message-ID: <CAKgT0UdUVvd7eBbYsJ4E-SkUV6hXL04S=xYXkQMnLitrJkpH0g@mail.gmail.com>
+Date: Mon, 9 May 2016 16:47:10 -0700
+Message-ID: <CALx6S370WD7pF8zk2mzi9kZhBRbmG4m1bD_a2jM+coRbWw4afg@mail.gmail.com>
 References: <1462832909-553684-1-git-send-email-tom@herbertland.com>
 	<CAKgT0UdyJyALd6DHA4GeUQtS08MusBTU880A5fNtMbMu_r55Sg@mail.gmail.com>
 	<CALx6S35FbaG9jiM4diNmKC+=cSCi+3t7WM1AXxi_c3iigsUu-A@mail.gmail.com>
@@ -10,14 +10,14 @@ Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35589 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443AbcEIXOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 19:14:12 -0400
-Received: by mail-io0-f181.google.com with SMTP id d62so187936431iof.2
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 16:14:11 -0700 (PDT)
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:38091 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753633AbcEIXrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 19:47:11 -0400
+Received: by mail-ig0-f181.google.com with SMTP id m9so105242303ige.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 16:47:10 -0700 (PDT)
 In-Reply-To: <CAKgT0UcHky39E9Sxo7L_ZtOOx9uUNy5NdLa78C+oLeB2q21o+g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -62,33 +62,23 @@ On Mon, May 9, 2016 at 4:10 PM, Alexander Duyck
 >> other issues then in this path?
 >
 > This piece no.
+>
+> Like I said in the other email I did find two other issues.  First in
+> __gre6_xmit I think you want to set the inner protocol to "protocol",
+> not "proto".  Second is the issue with ip6_tnl_xmit stomping on
+> skb->transport_header.  The second one is the big one that is blocking
+> things badly right now.  That is the one that keeps me from doing
+> anything with any sort of offload as the headers are jumping around
+> out of order with the outer transport header having an offset that is
+> further in than the inner mac header.
+>
+You mean "skb->transport_header = skb->network_header;"? It doesn't
+look right to me either, but that line has been around a while....
 
-Actually I just realized there are two other bits that need to be updated.
+> I'd be fine with you submitting the whole set as one piece with the
+> other 11 patches you had just as long as we get those core pieces
+> fixed in the patch set.
+>
+Probably just as easy to break it up.
 
-I just copied/pasted the below out of a text console so I am sure the
-white-space formatting is wrong.  These two spots should be fixed as
-well as they are using the wrong flag type.
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index ec209f4d3312..ee62ec469ab3 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -343,7 +343,7 @@ static struct ip6_tnl *ip6gre_tunnel_locate(struct net *net,
-                goto failed_free;
-
-        /* Can use a lockless transmit, unless we generate output sequences */
--       if (!(nt->parms.o_flags & GRE_SEQ))
-+       if (!(nt->parms.o_flags & TUNNEL_SEQ))
-                dev->features |= NETIF_F_LLTX;
-
-        dev_hold(dev);
-@@ -1314,7 +1314,7 @@ static int ip6gre_newlink(struct net *src_net,
-struct net_device *dev,
-        dev->features           |= GRE6_FEATURES;
-        dev->hw_features        |= GRE6_FEATURES;
-
--       if (!(nt->parms.o_flags & GRE_SEQ)) {
-+       if (!(nt->parms.o_flags & TUNNEL_SEQ)) {
-                /* TCP segmentation offload is not supported when we
-                 * generate output sequences.
-                 */
+> - Alex
