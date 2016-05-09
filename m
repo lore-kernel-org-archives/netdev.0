@@ -1,119 +1,148 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: NFSroot hangs with bad unlock balance in Linux next
-Date: Mon, 9 May 2016 08:21:38 -0700
-Message-ID: <20160509152138.GG5995@atomide.com>
-References: <20160505220344.GE5995@atomide.com>
- <20160508141629.GF2694@ZenIV.linux.org.uk>
- <20160509073235.GI2694@ZenIV.linux.org.uk>
- <CANn89iK5H-SokYE1r+OO3sPmQ1vpGqYGbE4x1QLn44wdyvH0cw@mail.gmail.com>
- <20160509151219.GF5995@atomide.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [RFC PATCH v3 17/19] calipso: Add validation of CALIPSO option.
+Date: Mon, 9 May 2016 11:30:16 -0400
+Message-ID: <CAHC9VhSQaoC7UX5__LRsG4Jx43mjD9xMu2KTS16oG5M8GDx9bQ@mail.gmail.com>
+References: <1455715329-9601-18-git-send-email-huw@codeweavers.com>
+	<CAHC9VhTRp8bHgwxZ2YNj=pa2a4PtO=8jJT1siG99GiFYnwm53Q@mail.gmail.com>
+	<20160509103918.GC20123@merlot.physics.ox.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfs@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Christoph Hellwig <hch@lst.de>,
-	Al Viro <viro@zeniv.linux.org.uk>, linux-omap@vger.kernel.org,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
+	Paul Moore <pmoore@redhat.com>
+To: Huw Davies <huw@codeweavers.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from muru.com ([72.249.23.125]:53710 "EHLO muru.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751145AbcEIPVn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2016 11:21:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20160509151219.GF5995@atomide.com>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:36845 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbcEIPaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 11:30:18 -0400
+Received: by mail-oi0-f49.google.com with SMTP id x201so214472347oif.3
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 08:30:17 -0700 (PDT)
+In-Reply-To: <20160509103918.GC20123@merlot.physics.ox.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Tony Lindgren <tony@atomide.com> [160509 08:15]:
-> * Eric Dumazet <edumazet@google.com> [160509 07:16]:
-> > On Mon, May 9, 2016 at 12:32 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> > > On Sun, May 08, 2016 at 03:16:29PM +0100, Al Viro wrote:
-> > >
-> > >> Very strange.  We grab that rwsem at the entry into nfs_call_unlink()
-> > >> and then either release it there and return or call nfs_do_call_unlink().
-> > >> Which arranges for eventual call of nfs_async_unlink_release() (via
-> > >> ->rpc_release); nfs_async_unlink_release() releases the rwsem.  Nobody else
-> > >> releases it (on the read side, that is).
-> > >>
-> > >> The only kinda-sorta possibility I see here is that the inode we are
-> > >> unlocking in that nfs_async_unlink_release() is not the one we'd locked
-> > >> in nfs_call_unlink() that has lead to it.  That really shouldn't happen,
-> > >> though...  Just to verify whether that's what we are hitting, could you
-> > >> try to reproduce that thing with the patch below on top of -next and see
-> > >> if it triggers any of those WARN_ON?
-> 
-> Thanks no warnings with that patch though.
-> 
-> > > D'oh...  Lockdep warnings are easy to trigger (and, AFAICS, bogus).
-> > > up_read/down_read in fs/nfs/unlink.c should be replaced with
-> > > up_read_non_owner/down_read_non_owner, lest the lockdep gets confused.
-> > > Hangs are different - I've no idea what's triggering those.  I've seen
-> > > something similar on that -next, but not on work.lookups.
-> > >
-> > > The joy of bisecting -next...  <a couple of hours later>
-> > > 9317bb69824ec8d078b0b786b6971aedb0af3d4f is the first bad commit
-> > > commit 9317bb69824ec8d078b0b786b6971aedb0af3d4f
-> > > Author: Eric Dumazet <edumazet@google.com>
-> > > Date:   Mon Apr 25 10:39:32 2016 -0700
-> > >
-> > >     net: SOCKWQ_ASYNC_NOSPACE optimizations
-> > >
-> > > Reverting changes to sk_set_bit/sk_clear_bit gets rid of the hangs.  Plain
-> > > revert gives a conflict, since there had been additional change in
-> > > "net: SOCKWQ_ASYNC_WAITDATA optimizations"; removing both fixed the hangs.
-> > >
-> > > Note that hangs appear without any fs/nfs/unlink.c modifications being
-> > > there.  When the hang happens it affects NFS traffic; ssh session still
-> > > works fine until it steps on a filesystem operation on NFS (i.e. you
-> > > can use builtins, access procfs, etc.)
-> > 
-> > Yeah, the issue was reported last week (
-> > http://www.spinics.net/lists/netdev/msg375777.html ),
-> > and I could not convince myself to add a new sock flag,  like
-> > SOCK_FASYNC_STICKY.
-> > 
-> > (Just in case NFS would ever call sock_fasync() with an empty
-> > fasync_list, and SOCK_FASYNC would be cleared again.
-> 
-> Yeah applying the test patch from the url above makes things work
-> for me again.
+On Mon, May 9, 2016 at 6:39 AM, Huw Davies <huw@codeweavers.com> wrote:
+> On Fri, May 06, 2016 at 06:59:32PM -0400, Paul Moore wrote:
+>> On Wed, Feb 17, 2016 at 8:22 AM, Huw Davies <huw@codeweavers.com> wrote:
+>> > We check lengths, checksum and the DOI.  We leave checking of the
+>> > level and categories for the socket layer.
+>> >
+>> > Signed-off-by: Huw Davies <huw@codeweavers.com>
+>> > ---
+>> >  include/net/calipso.h |  6 ++++++
+>> >  net/ipv6/calipso.c    | 42 ++++++++++++++++++++++++++++++++++++++++++
+>> >  net/ipv6/exthdrs.c    | 27 +++++++++++++++++++++++++++
+>> >  3 files changed, 75 insertions(+)
+>> >
+>> > diff --git a/include/net/calipso.h b/include/net/calipso.h
+>> > index 38dbb47..85404e2 100644
+>> > --- a/include/net/calipso.h
+>> > +++ b/include/net/calipso.h
+>> > @@ -65,6 +65,7 @@ struct calipso_doi {
+>> >  #ifdef CONFIG_NETLABEL
+>> >  int __init calipso_init(void);
+>> >  void calipso_exit(void);
+>> > +bool calipso_validate(const struct sk_buff *skb, const unsigned char *option);
+>> >  #else
+>> >  static inline int __init calipso_init(void)
+>> >  {
+>> > @@ -74,6 +75,11 @@ static inline int __init calipso_init(void)
+>> >  static inline void calipso_exit(void)
+>> >  {
+>> >  }
+>> > +static inline bool calipso_validate(const struct sk_buff *skb,
+>> > +                                   const unsigned char *option)
+>> > +{
+>> > +       return true;
+>> > +}
+>> >  #endif /* CONFIG_NETLABEL */
+>> >
+>> >  #endif /* _CALIPSO_H */
+>> > diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+>> > index fa371a8..b8bcf9f 100644
+>> > --- a/net/ipv6/calipso.c
+>> > +++ b/net/ipv6/calipso.c
+>> > @@ -321,6 +321,48 @@ doi_walk_return:
+>> >  }
+>> >
+>> >  /**
+>> > + * calipso_validate - Validate a CALIPSO option
+>> > + * @skb: the packet
+>> > + * @option: the start of the option
+>> > + *
+>> > + * Description:
+>> > + * This routine is called to validate a CALIPSO option.
+>> > + * If the option is valid then a zero value is returned.  If the
+>> > + * option is invalid then a non-zero value is returned and
+>> > + * representing the offset to the offending portion of the option.
+>> > + *
+>> > + * The caller should have already checked that the length of the
+>> > + * option (including the TLV header) is >= 10 and that the catmap
+>> > + * length is consistent with the option length.
+>> > + *
+>> > + * We leave checks on the level and categories to the socket layer.
+>> > + */
+>> > +bool calipso_validate(const struct sk_buff *skb, const unsigned char *option)
+>> > +{
+>> > +       struct calipso_doi *doi_def;
+>> > +       int ret_val;
+>> > +       u16 crc, len = option[1] + 2;
+>> > +       static const u8 zero[2];
+>> > +
+>> > +       /* The original CRC runs over the option including the TLV header
+>> > +        * with the CRC-16 field (at offset 8) zeroed out. */
+>> > +       crc = crc_ccitt(0xffff, option, 8);
+>> > +       crc = crc_ccitt(crc, zero, sizeof(zero));
+>> > +       if (len > 10)
+>> > +               crc = crc_ccitt(crc, option + 10, len - 10);
+>> > +       crc = ~crc;
+>>
+>> I should have caught this in the v2 patchset when I mentioned it with
+>> respect to the CRC generation, but why not simply do 'crc =
+>> ~crc_cccitt(...);'?
+>
+> Simply because the final crc_ccitt() is inside an if statement.
+> Since len is guaranteed to be >= 10, I could dispense with the if and
+> have crc_ccitt() handle having its final argument equal to zero (which
+> it does just fine).  Then I could do as you suggest.
 
-Looks like with both patches applied I still also get this eventually:
+Yes, I get that it is in an if-conditional; I probably should have
+been more specific.  I was thinking of something more like this:
 
-=====================================
-[ BUG: bad unlock balance detected! ]
-4.6.0-rc7-next-20160509+ #1264 Not tainted
--------------------------------------
-kworker/0:1/18 is trying to release lock (&nfsi->rmdir_sem) at:
-[<c03a894c>] nfs_async_unlink_release+0x3c/0xc0
-but there are no more locks to release!
+  if (len > 10)
+    crc = ~crc(crc, option + 10, ...);
+  else
+    crc = ~crc;
 
-               other info that might help us debug this:
-2 locks held by kworker/0:1/18:
- #0:  ("nfsiod"){.+.+..}, at: [<c015473c>] process_one_work+0x120/0x6bc
- #1:  ((&task->u.tk_work)#2){+.+...}, at: [<c015473c>] process_one_work+0x120/0x6bc
+... although now that I've typed it out, I'm not sure it's an
+improvement.  I would just ignore me ;)
 
-               stack backtrace:
-CPU: 0 PID: 18 Comm: kworker/0:1 Not tainted 4.6.0-rc7-next-20160509+ #1264
-Hardware name: Generic OMAP5 (Flattened Device Tree)
-Workqueue: nfsiod rpc_async_release
-[<c0110318>] (unwind_backtrace) from [<c010c3bc>] (show_stack+0x10/0x14)
-[<c010c3bc>] (show_stack) from [<c0481da8>] (dump_stack+0xb0/0xe4)
-[<c0481da8>] (dump_stack) from [<c018d090>] (print_unlock_imbalance_bug+0xb0/0xe0)
-[<c018d090>] (print_unlock_imbalance_bug) from [<c0190e9c>] (lock_release+0x2ec/0x4c0)
-[<c0190e9c>] (lock_release) from [<c018a4b8>] (up_read+0x18/0x58)
-[<c018a4b8>] (up_read) from [<c03a894c>] (nfs_async_unlink_release+0x3c/0xc0)
-[<c03a894c>] (nfs_async_unlink_release) from [<c07860e0>] (rpc_free_task+0x24/0x44)
-[<c07860e0>] (rpc_free_task) from [<c0154804>] (process_one_work+0x1e8/0x6bc)
-[<c0154804>] (process_one_work) from [<c0154e1c>] (worker_thread+0x144/0x4e8)
-[<c0154e1c>] (worker_thread) from [<c015acd4>] (kthread+0xdc/0xf8)
-[<c015acd4>] (kthread) from [<c01078f0>] (ret_from_fork+0x14/0x24)
+>> Also, while I'm looking at this, why not do the CRC verification in
+>> ipv6_hop_calipso()?  The only thing we should need to do here is the
+>> DOI lookup/verification so that we still work correctly when
+>> CONFIG_NETLABEL=n; all the core protocol stuff, e.g. length and
+>> checksum validation, should be done in the core stack functions, e.g.
+>> ipv6_hop_calipso().
+>
+> The only reason was to not bring in CONFIG_CRC_CCITT if CONFIG_NETLABEL=n
+> (this is currently selected in net/netlabel/Kconfig).
+>
+> If folks are happy for me to do so, I could change this to:
+> select CONFIG_CRC_CCITT
+> under menuconfig IPV6
+>
+> Then the crc check could move to exthdrs.c:ipv6_hop_calipso().  Would
+> that be ok?
 
-After the warning, NFSroot keeps working with Eric's patch.
+Thanks, that explains it.
 
-Regards,
+I think there is value in verifying the checksum, but I completely
+understand if the netdev folks don't want to pull in the CRC_CCITT
+code, especially since currently only a few network drivers/protocols
+pull it into the build.
 
-Tony
+DaveM, your thoughts?
+
+-- 
+paul moore
+www.paul-moore.com
