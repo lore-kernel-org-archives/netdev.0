@@ -1,89 +1,85 @@
-From: David Decotigny <decot@googlers.com>
-Subject: Re: [PATCH v2 1/3] net: core: ethtool: add ethtool_op_{get|set}_link_ksettings
-Date: Mon, 9 May 2016 09:44:58 -0700
-Message-ID: <CAG88wWaTrFp5-t5pLvndrLYhUkNF9smNMBPgvFtweqNP5jSD2Q@mail.gmail.com>
-References: <1462743877-31738-1-git-send-email-tremyfr@gmail.com> <1462743877-31738-2-git-send-email-tremyfr@gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH V1 2/3] mlx4: use napi_alloc_skb API to get SKB
+ bulk allocations
+Date: Mon, 9 May 2016 09:47:08 -0700
+Message-ID: <CAKgT0UdcAzpYnqvv8HkMaPoPxLPj5-iJpwzdJWVKX9DfYJoYyg@mail.gmail.com>
+References: <20160509134352.3573.37044.stgit@firesoul>
+	<20160509134434.3573.87133.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: fugang.duan@nxp.com, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"Liang, Kan" <kan.liang@intel.com>, aduyck@mirantis.com,
-	jiri@mellanox.com, jacob.e.keller@intel.com, tom@herbertland.com,
-	andrew@lunn.ch, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462743877-31738-2-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:33177 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbcEIQrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 12:47:09 -0400
+Received: by mail-io0-f171.google.com with SMTP id f89so177921285ioi.0
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 09:47:08 -0700 (PDT)
+In-Reply-To: <20160509134434.3573.87133.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Are you sure this belongs to ethtool.h? For one, I believe you need an
-#include phy.h somewhere. I would suggest instead to keep this in
-phy.h, presumably with a more explicit name suggesting that phydev is
-involved.
+On Mon, May 9, 2016 at 6:44 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Activate the bulk alloc API, simply by changing mlx4 from using
+> netdev_alloc_skb() to using napi_alloc_skb().
 
-On Sun, May 8, 2016 at 2:44 PM, Philippe Reynes <tremyfr@gmail.com> wrote:
-> Ethtool callbacks {get|set}_link_ksettings are often the same, so
-> we add two generics functions ethtool_op_{get|set}_link_ksettings
-> to avoid writing severals times the same function.
->
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+This patch is just enabling the napi_alloc_skb call.  You don't need
+to call out that it is enabling bulk allocations.  This patch could
+stand on its own without needing to make reference to the bulk
+allocation API because there is enough of a gain from napi_alloc_skb
+replacing netdev_alloc_skb.
+
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > ---
->  include/linux/ethtool.h |    5 +++++
->  net/core/ethtool.c      |   24 ++++++++++++++++++++++++
->  2 files changed, 29 insertions(+), 0 deletions(-)
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c |    7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
 >
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 9ded8c6..9a55836 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -157,6 +157,11 @@ void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
->  bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
->                                      const unsigned long *src);
->
-> +int ethtool_op_get_link_ksettings(struct net_device *ndev,
-> +                                 struct ethtool_link_ksettings *cmd);
-> +int ethtool_op_set_link_ksettings(struct net_device *ndev,
-> +                                 const struct ethtool_link_ksettings *cmd);
-> +
->  /**
->   * struct ethtool_ops - optional netdev operations
->   * @get_settings: DEPRECATED, use %get_link_ksettings/%set_link_ksettings
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index bdb4013..b605fb1 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -852,6 +852,30 @@ static int ethtool_set_settings(struct net_device *dev, void __user *useraddr)
->         return dev->ethtool_ops->set_settings(dev, &cmd);
->  }
->
-> +int ethtool_op_get_link_ksettings(struct net_device *ndev,
-> +                                 struct ethtool_link_ksettings *cmd)
-> +{
-> +       struct phy_device *phydev = ndev->phydev;
-> +
-> +       if (!phydev)
-> +               return -ENODEV;
-> +
-> +       return phy_ethtool_ksettings_get(phydev, cmd);
-> +}
-> +EXPORT_SYMBOL(ethtool_op_get_link_ksettings);
-> +
-> +int ethtool_op_set_link_ksettings(struct net_device *ndev,
-> +                                 const struct ethtool_link_ksettings *cmd)
-> +{
-> +       struct phy_device *phydev = ndev->phydev;
-> +
-> +       if (!phydev)
-> +               return -ENODEV;
-> +
-> +       return phy_ethtool_ksettings_set(phydev, cmd);
-> +}
-> +EXPORT_SYMBOL(ethtool_op_set_link_ksettings);
-> +
->  static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
->                                                   void __user *useraddr)
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index 8ef6875b6cf9..84fd6db5a176 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -577,14 +577,15 @@ fail:
+>  static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+>                                       struct mlx4_en_rx_desc *rx_desc,
+>                                       struct mlx4_en_rx_alloc *frags,
+> -                                     unsigned int length)
+> +                                     unsigned int length,
+> +                                     struct napi_struct *napi)
+
+Instead of passing the NAPI structure you could just pass the
+mlx4_en_cq pointer to be used by the NAPI alloc function.  In addition
+you might try adding the new parameter before length since that way
+the pointers are in one block followed by integers in a tapering
+length order.
+
 >  {
-> --
-> 1.7.4.4
+>         struct sk_buff *skb;
+>         void *va;
+>         int used_frags;
+>         dma_addr_t dma;
+>
+> -       skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
+> +       skb = napi_alloc_skb(napi, SMALL_PACKET_SIZE + NET_IP_ALIGN);
+
+The NET_IP_ALIGN is redundant as napi_alloc_skb already takes are of
+adding that and NET_SKB_PAD.
+
+>         if (!skb) {
+>                 en_dbg(RX_ERR, priv, "Failed allocating skb\n");
+>                 return NULL;
+> @@ -932,7 +933,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                 }
+>
+>                 /* GRO not possible, complete processing here */
+> -               skb = mlx4_en_rx_skb(priv, rx_desc, frags, length);
+> +               skb = mlx4_en_rx_skb(priv, rx_desc, frags, length, &cq->napi);
+>                 if (!skb) {
+>                         ring->dropped++;
+>                         goto next;
 >
