@@ -1,42 +1,113 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH net-next 2/4] xen-netback: add control
- protocol implementation
-Date: Mon, 9 May 2016 08:56:44 +0000
-Message-ID: <cf95797a1a964e2ea6c525d7070f6f94@AMSPEX02CL03.citrite.net>
-References: <1462447170-1815-1-git-send-email-paul.durrant@citrix.com>
- <1462447170-1815-3-git-send-email-paul.durrant@citrix.com>
- <20160507.150921.2053537729453518863.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
- Wei Liu <wei.liu2@citrix.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20160507.150921.2053537729453518863.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3] block/drbd: align properly u64 in nl messages
+Date: Mon,  9 May 2016 11:40:20 +0200
+Message-ID: <1462786820-15519-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20160503100644.GE16459@soda.linbit>
+Cc: netdev@vger.kernel.org, philipp.reisner@linbit.com,
+	drbd-dev@lists.linbit.com, linux-kernel@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net, lars.ellenberg@linbit.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160503100644.GE16459@soda.linbit>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IERhdmlkIE1pbGxlciBbbWFpbHRv
-OmRhdmVtQGRhdmVtbG9mdC5uZXRdCj4gU2VudDogMDcgTWF5IDIwMTYgMjA6MDkKPiBUbzogUGF1
-bCBEdXJyYW50Cj4gQ2M6IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZzsgbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZzsgV2VpIExpdQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMi80
-XSB4ZW4tbmV0YmFjazogYWRkIGNvbnRyb2wgcHJvdG9jb2wKPiBpbXBsZW1lbnRhdGlvbgo+IAo+
-IEZyb206IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNpdHJpeC5jb20+Cj4gRGF0ZTogVGh1
-LCA1IE1heSAyMDE2IDEyOjE5OjI4ICswMTAwCj4gCj4gPiArc3RydWN0IHhlbnZpZl9oYXNoX2Nh
-Y2hlIHsKPiA+ICsJcndsb2NrX3QgbG9jazsKPiAKPiBZb3UgcmVhbGx5IGRvbid0IHdhbnQgdG8g
-bG9jayBvbiBldmVyeSBTS0IgaGFzaCBjb21wdXRhdGlvbiBsaWtlCj4gdGhpcywgdHVybiB0aGlz
-IGludG8gYSBzcGluIGxvY2sgZm9yIGxvY2tpbmcgdGhlIHdyaXRlIHNpZGUgYW5kCj4gdXNlIFJD
-VSBsb2NraW5nIGZvciBsb29rdXAgYW5kIHVzYWdlLgo+CgpZZXMsIHRoYXQgd291bGQgYmUgYmV0
-dGVyLiBXaWxsIGRvLgoKQ2hlZXJzLAoKICBQYXVsCiAKPiBUSGFua3MuCgpfX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0
-Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHA6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+The attribute 0 is never used in drbd, so let's use it as pad attribute
+in netlink messages. This minimizes the patch.
+
+Note that this patch is only compile-tested.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Lars Ellenberg <lars.ellenberg@linbit.com>
+---
+
+v2 -> v3:
+  use 0 as padattr instead of adding new attributes
+
+v1 -> v2:
+ rework the patch to handle all cases
+
+Maybe prefixing genl_magic_func.h and genl_magic_struct.h by 'drbd_'
+could be interesting so that new module won't use it. What is your
+opinion?
+
+ drivers/block/drbd/drbd_nl.c      | 28 ++++++++++++++++------------
+ include/linux/genl_magic_struct.h |  7 ++++++-
+ 2 files changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/block/drbd/drbd_nl.c b/drivers/block/drbd/drbd_nl.c
+index 1fd1dccebb6b..0bac9c8246bc 100644
+--- a/drivers/block/drbd/drbd_nl.c
++++ b/drivers/block/drbd/drbd_nl.c
+@@ -3633,14 +3633,15 @@ static int nla_put_status_info(struct sk_buff *skb, struct drbd_device *device,
+ 		goto nla_put_failure;
+ 	if (nla_put_u32(skb, T_sib_reason, sib ? sib->sib_reason : SIB_GET_STATUS_REPLY) ||
+ 	    nla_put_u32(skb, T_current_state, device->state.i) ||
+-	    nla_put_u64(skb, T_ed_uuid, device->ed_uuid) ||
+-	    nla_put_u64(skb, T_capacity, drbd_get_capacity(device->this_bdev)) ||
+-	    nla_put_u64(skb, T_send_cnt, device->send_cnt) ||
+-	    nla_put_u64(skb, T_recv_cnt, device->recv_cnt) ||
+-	    nla_put_u64(skb, T_read_cnt, device->read_cnt) ||
+-	    nla_put_u64(skb, T_writ_cnt, device->writ_cnt) ||
+-	    nla_put_u64(skb, T_al_writ_cnt, device->al_writ_cnt) ||
+-	    nla_put_u64(skb, T_bm_writ_cnt, device->bm_writ_cnt) ||
++	    nla_put_u64_0pad(skb, T_ed_uuid, device->ed_uuid) ||
++	    nla_put_u64_0pad(skb, T_capacity,
++			     drbd_get_capacity(device->this_bdev)) ||
++	    nla_put_u64_0pad(skb, T_send_cnt, device->send_cnt) ||
++	    nla_put_u64_0pad(skb, T_recv_cnt, device->recv_cnt) ||
++	    nla_put_u64_0pad(skb, T_read_cnt, device->read_cnt) ||
++	    nla_put_u64_0pad(skb, T_writ_cnt, device->writ_cnt) ||
++	    nla_put_u64_0pad(skb, T_al_writ_cnt, device->al_writ_cnt) ||
++	    nla_put_u64_0pad(skb, T_bm_writ_cnt, device->bm_writ_cnt) ||
+ 	    nla_put_u32(skb, T_ap_bio_cnt, atomic_read(&device->ap_bio_cnt)) ||
+ 	    nla_put_u32(skb, T_ap_pending_cnt, atomic_read(&device->ap_pending_cnt)) ||
+ 	    nla_put_u32(skb, T_rs_pending_cnt, atomic_read(&device->rs_pending_cnt)))
+@@ -3657,13 +3658,16 @@ static int nla_put_status_info(struct sk_buff *skb, struct drbd_device *device,
+ 			goto nla_put_failure;
+ 
+ 		if (nla_put_u32(skb, T_disk_flags, device->ldev->md.flags) ||
+-		    nla_put_u64(skb, T_bits_total, drbd_bm_bits(device)) ||
+-		    nla_put_u64(skb, T_bits_oos, drbd_bm_total_weight(device)))
++		    nla_put_u64_0pad(skb, T_bits_total, drbd_bm_bits(device)) ||
++		    nla_put_u64_0pad(skb, T_bits_oos,
++				     drbd_bm_total_weight(device)))
+ 			goto nla_put_failure;
+ 		if (C_SYNC_SOURCE <= device->state.conn &&
+ 		    C_PAUSED_SYNC_T >= device->state.conn) {
+-			if (nla_put_u64(skb, T_bits_rs_total, device->rs_total) ||
+-			    nla_put_u64(skb, T_bits_rs_failed, device->rs_failed))
++			if (nla_put_u64_0pad(skb, T_bits_rs_total,
++					     device->rs_total) ||
++			    nla_put_u64_0pad(skb, T_bits_rs_failed,
++					     device->rs_failed))
+ 				goto nla_put_failure;
+ 		}
+ 	}
+diff --git a/include/linux/genl_magic_struct.h b/include/linux/genl_magic_struct.h
+index eecd19b37001..6270a56e5edc 100644
+--- a/include/linux/genl_magic_struct.h
++++ b/include/linux/genl_magic_struct.h
+@@ -62,6 +62,11 @@ extern void CONCAT_(GENL_MAGIC_FAMILY, _genl_unregister)(void);
+ 
+ /* MAGIC helpers							{{{2 */
+ 
++static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, u64 value)
++{
++	return nla_put_64bit(skb, attrtype, sizeof(u64), &value, 0);
++}
++
+ /* possible field types */
+ #define __flg_field(attr_nr, attr_flag, name) \
+ 	__field(attr_nr, attr_flag, name, NLA_U8, char, \
+@@ -80,7 +85,7 @@ extern void CONCAT_(GENL_MAGIC_FAMILY, _genl_unregister)(void);
+ 			nla_get_u32, nla_put_u32, true)
+ #define __u64_field(attr_nr, attr_flag, name)	\
+ 	__field(attr_nr, attr_flag, name, NLA_U64, __u64, \
+-			nla_get_u64, nla_put_u64, false)
++			nla_get_u64, nla_put_u64_0pad, false)
+ #define __str_field(attr_nr, attr_flag, name, maxlen) \
+ 	__array(attr_nr, attr_flag, name, NLA_NUL_STRING, char, maxlen, \
+ 			nla_strlcpy, nla_put, false)
+-- 
+2.8.1
