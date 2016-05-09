@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: arc/emac: Move arc_emac_tx_clean() into
- arc_emac_tx() and disable tx interrut
-Date: Sun, 08 May 2016 23:42:56 -0400 (EDT)
-Message-ID: <20160508.234256.359620681931531068.davem@davemloft.net>
-References: <1462537156-10489-1-git-send-email-wxt@rock-chips.com>
+Subject: Re: [PATCH net] macvtap: segmented packet is consumed
+Date: Sun, 08 May 2016 23:44:08 -0400 (EDT)
+Message-ID: <20160508.234408.1850254886727916462.davem@davemloft.net>
+References: <1462539501.13075.29.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: heiko@sntech.de, linux-rockchip@lists.infradead.org,
-	sy.w@outlook.com, al.kochet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: wxt@rock-chips.com
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53769 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53779 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbcEIDnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:43:01 -0400
-In-Reply-To: <1462537156-10489-1-git-send-email-wxt@rock-chips.com>
+	with ESMTP id S1750911AbcEIDoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:44:11 -0400
+In-Reply-To: <1462539501.13075.29.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Caesar Wang <wxt@rock-chips.com>
-Date: Fri,  6 May 2016 20:19:16 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 06 May 2016 05:58:21 -0700
 
-> Doing tx_clean() inside poll() may scramble the tx ring buffer if
-> tx() is running. This will cause tx to stop working, which can be
-> reproduced by simultaneously downloading two large files at high speed.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Moving tx_clean() into tx() will prevent this. And tx interrupt is no
-> longer needed now.
+> If GSO packet is segmented and its segments are properly queued,
+> we call consume_skb() instead of kfree_skb() to be drop monitor
+> friendly.
+> 
+> Fixes: 3e4f8b7873709 ("macvtap: Perform GSO on forwarding path.")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
 
-TX completion work is always recommended to be done in the ->poll()
-handler.
-
-Fix the race or whatever bug there is rather than working around it,
-and regressing the driver, by handling TX completion in the interrupt
-handler.
-
-Thanks.
+Applied, thanks Eric.
