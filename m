@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ifb: support more features
-Date: Mon, 09 May 2016 00:01:54 -0400 (EDT)
-Message-ID: <20160509.000154.2249776807369776317.davem@davemloft.net>
-References: <1462578076.13075.63.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] tcp: replace cnt & rtt with struct in
+ pkts_acked()
+Date: Mon, 09 May 2016 00:02:20 -0400 (EDT)
+Message-ID: <20160509.000220.2229465797333792057.davem@davemloft.net>
+References: <1462591714-1892853-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, ncardwell@google.com,
+	eric.dumazet@gmail.com, ycheng@google.com
+To: brakmo@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53952 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53957 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbcEIEB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 00:01:56 -0400
-In-Reply-To: <1462583999.13075.67.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1750766AbcEIECY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 00:02:24 -0400
+In-Reply-To: <1462591714-1892853-1-git-send-email-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 May 2016 18:19:59 -0700
+From: Lawrence Brakmo <brakmo@fb.com>
+Date: Fri, 6 May 2016 20:28:34 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When using ifb+netem on ingress on SIT/IPIP/GRE traffic,
-> GRO packets are not properly processed.
-> 
-> Segmentation should not be forced, since ifb is already adding
-> quite a performance hit.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> +	if (icsk->icsk_ca_ops->pkts_acked) {
+> +		struct ack_sample sample = {pkts_acked, ca_rtt_us};
 
-Applied.
+Please use named initializers.
+
+Thanks.
