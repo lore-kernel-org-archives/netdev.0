@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [net-next PATCH V1 3/3] net: warn on napi_alloc_skb being called
  in wrong context
-Date: Mon, 9 May 2016 16:53:50 +0300
-Message-ID: <50c0ae0c-2382-42ea-998b-f5c641e5db4a@cogentembedded.com>
+Date: Mon, 9 May 2016 16:53:41 +0300
+Message-ID: <b9f06970-686d-e04d-7620-94e085238456@cogentembedded.com>
 References: <20160509134352.3573.37044.stgit@firesoul>
  <20160509134439.3573.97841.stgit@firesoul>
 Mime-Version: 1.0
@@ -13,12 +13,12 @@ Cc: saeedm@mellanox.com, gerlitz.or@gmail.com, eugenia@mellanox.com,
 To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:33927 "EHLO
-	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805AbcEINxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 09:53:53 -0400
-Received: by mail-lf0-f46.google.com with SMTP id m64so200492977lfd.1
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 06:53:52 -0700 (PDT)
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:33816 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbcEINxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 09:53:49 -0400
+Received: by mail-lf0-f51.google.com with SMTP id m64so200487454lfd.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 06:53:48 -0700 (PDT)
 In-Reply-To: <20160509134439.3573.97841.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -44,7 +44,7 @@ On 5/9/2016 4:44 PM, Jesper Dangaard Brouer wrote:
 > Performance wise, I do worry about adding this runtime check code into
 > the hotpath, of this highly optimized function call.  I've
 
-    Hot path? My spellchecker trips here.
+    Hot path? My spellchecked trips here.
 
 > micro-benchmarked it with both IP-forwarding and local UDP delivery,
 > and didn't see any regressions.  It does adds extra code size (icache).
