@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/1] ISDN: eicon: replace custom hex_asc_lo() /
- hex_pack_byte()
-Date: Sun, 08 May 2016 23:55:42 -0400 (EDT)
-Message-ID: <20160508.235542.971064628779476626.davem@davemloft.net>
-References: <1462557323-102678-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next] net: make sch_handle_ingress() drop monitor
+ ready
+Date: Sun, 08 May 2016 23:55:49 -0400 (EDT)
+Message-ID: <20160508.235549.505902414432180706.davem@davemloft.net>
+References: <1462575350.13075.60.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mac@melware.de, netdev@vger.kernel.org
-To: andriy.shevchenko@linux.intel.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53907 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53911 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011AbcEIDzp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:55:45 -0400
-In-Reply-To: <1462557323-102678-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	with ESMTP id S1751014AbcEIDzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2016 23:55:52 -0400
+In-Reply-To: <1462575350.13075.60.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Fri,  6 May 2016 20:55:23 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 06 May 2016 15:55:50 -0700
 
-> Instead of custom approach re-use generic helpers to convert byte to hex
-> format.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> TC_ACT_STOLEN is used when ingress traffic is mirred/redirected
+> to say ifb.
+> 
+> Packet is not dropped, but consumed.
+> 
+> Only TC_ACT_SHOT is a clear indication something went wrong.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 
 Applied.
