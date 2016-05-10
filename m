@@ -1,61 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Tue, 10 May 2016 07:29:50 -0700
-Message-ID: <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V1 1/3] net: bulk alloc and reuse of SKBs in
+ NAPI context
+Date: Tue, 10 May 2016 16:48:57 +0200
+Message-ID: <20160510164857.72c8a1cb@redhat.com>
+References: <20160509134352.3573.37044.stgit@firesoul>
+	<20160509134429.3573.4048.stgit@firesoul>
+	<CAKgT0Uftr643AR9n2=_aQmaGJO3eEyKTuaCfXwEKbYj1rVruRw@mail.gmail.com>
+	<20160509215956.19ec1c10@redhat.com>
+	<CAKgT0UfKzKWnNzGpB-915by2M1nzDAdNz-hDwwcwGoowmZefrg@mail.gmail.com>
+	<20160510143017.212c3846@redhat.com>
+	<1462888134.23934.60.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	linux-kernel@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1462886866.git.pabeni@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47892 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751069AbcEJOtD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2016 10:49:03 -0400
+In-Reply-To: <1462888134.23934.60.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-05-10 at 16:11 +0200, Paolo Abeni wrote:
-> Currently, the softirq loop can be scheduled both inside the ksofirqd kernel
-> thread and inside any running process. This makes nearly impossible for the
-> process scheduler to balance in a fair way the amount of time that
-> a given core spends performing the softirq loop.
+On Tue, 10 May 2016 06:48:54 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Tue, 2016-05-10 at 14:30 +0200, Jesper Dangaard Brouer wrote:
 > 
-> Under high network load, the softirq loop can take nearly 100% of a given CPU,
-> leaving very little time for use space processing. On single core hosts, this
-> means that the user space can nearly starve; for example super_netperf
-> UDP_STREAM tests towards a remote single core vCPU guest[1] can measure an
-> aggregated throughput of a few thousands pps, and the same behavior can be
-> reproduced even on bare-metal, eventually simulating a single core with taskset
-> and/or sysfs configuration.
+> > Disable busy poll on both client and server, Not patched:
+> > 
+> >  $ netperf -H 198.18.40.2 -t TCP_RR  -l 60 -T 6,6 -Cc
+> >  MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 port 0 AF_INET to 198.18.40.2 
+> >  ()  port 0 AF_INET : histogram : demo : first burst 0 : cpu bind
+> >  Local /Remote
+> >  Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> >  Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> >  bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+> >  
+> >  16384  87380  1       1      60.00   78077.55  3.74   2.69   3.830   8.265  
+> >  16384  87380   
+> 
+> Tell us more about the -T6,6
+> 
+> For example how many TX/RX queues you have on the NIC, and which cpus
+> service interrupts.
 
-I hate these patches and ideas guys, sorry. That is before my breakfast,
-but still...
+The -T6,6 option:
+ -T lcpu,rcpu      Request netperf/netserver be bound to local/remote cpu
 
-I have enough hard time dealing with loads where ksoftirqd has to
-compete with user threads that thought that playing with priorities was
-a nice idea.
+I use the option to get more stable results.  If I don't pin/bind the
+CPU netperf/netserver is running on then the CPU scheduler will migrate
+the processes around.  This gives unpredictable results, worst for the
+busy_poll tests.  Especially if the RX softirq runs on the same CPU
+(also true if it runs on a HyperTread siping).  
 
-Guess what, when they lose networking they complain.
+Netperf client (8 cores i7-4790K CPU @ 4.00GHz)  RX:8 and TX:8 queues.
+Netserver server (2x 12 cores E5-2630 @ 2.30GHz) RX:8 and TX:24 queues.
+Driver mlx4.
+Disabled GRO to hit code path I changed in patch 2.
 
-We already have ksoftirqd to normally cope with the case you are
-describing.
-
-If it is not working as intended, please identify the bugs and fix them,
-instead of adding yet another tests in fast path and extra complexity in
-the stack.
-
-In the one vcpu case, allowing the user thread to consume more UDP
-packets from the target UDP socket will also make your NIC drop more
-packets, that are not necessarily packets for the same socket.
-
-So you are shifting the attack to a different target,
-at the expense of more kernel bloat.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
