@@ -1,49 +1,31 @@
-From: Andy Gross <andy.gross@linaro.org>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 9 May 2016 20:52:12 -0500
-Message-ID: <CAPBZ5QcRiG0w4WsU7rDGSNogH1PSONWSjrZ6fXWb4kdc+BH3JQ@mail.gmail.com>
-References: <20160510112905.5bffcad8@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] fjes: Fix unnecessary spinlock_irqsave
+Date: Mon, 09 May 2016 22:06:17 -0400 (EDT)
+Message-ID: <20160509.220617.839239263740187736.davem@davemloft.net>
+References: <1462843729-32414-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	Bjorn Andersson <bjorn.andersson@sonymobile.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160510112905.5bffcad8@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, isimatu.yasuaki@jp.fujitsu.com
+To: izumi.taku@jp.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36108 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753115AbcEJCGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 22:06:24 -0400
+In-Reply-To: <1462843729-32414-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9 May 2016 at 20:29, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi all,
->
-> After merging the net-next tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
->
-> net/qrtr/smd.c:106:14: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
->   .callback = qcom_smd_qrtr_callback,
->               ^
-> net/qrtr/smd.c:106:14: note: (near initialization for 'qcom_smd_qrtr_driver.callback')
->
-> Caused by commit
->
->   bdabad3e363d ("net: Add Qualcomm IPC router")
->
-> interacting with commit
->
->   b853cb9628bf ("soc: qcom: smd: Make callback pass channel reference")
->
-> from the arm-soc tree.
->
-> I added the following merge fix patch (and it turned out I needed the
-> new stubs).
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Date: Tue, 10 May 2016 10:28:49 +0900
 
-Thanks for fixing this up.  I'll work with Bjorn to get this resolved.
-I'll have something up for tomorrow's next pull.
+> commit-bd5a256 introduces a deadlock bug in fjes_change_mtu().
+> This spin_lock_irqsave() is obviously unnecessary.
+> 
+> This patch eliminates unnecessary spin_lock_irqsave() in
+> fjes_change_mtu()
+> 
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 
-
-Regards,
-
-Andy Gross
+Applied, thanks.
