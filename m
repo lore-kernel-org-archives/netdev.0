@@ -1,48 +1,72 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 0/5] ip6: Transmit tunneling fixes
-Date: Mon, 9 May 2016 17:12:07 -0700
-Message-ID: <1462839132-980991-1-git-send-email-tom@herbertland.com>
+From: "Yang, Yi Y" <yi.y.yang@intel.com>
+Subject: RE: [ovs-dev] [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Tue, 10 May 2016 00:16:36 +0000
+Message-ID: <79BBBFE6CB6C9B488C1A45ACD284F51913CB6446@SHSMSX103.ccr.corp.intel.com>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+ <20160506113504.77a9504e@griffin> <20160509081818.GB4470@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>,
+	Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58605 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754003AbcEJAMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:12:20 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4A0Bp2R014077
-	for <netdev@vger.kernel.org>; Mon, 9 May 2016 17:12:19 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 22u4gm039q-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:12:19 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.102.107.97) with ESMTP	id
- db9d62a6164311e697280002c99331b0-705f6c50 for <netdev@vger.kernel.org>;	Mon,
- 09 May 2016 17:12:18 -0700
+Received: from mga03.intel.com ([134.134.136.65]:9824 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754286AbcEJAQl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2016 20:16:41 -0400
+In-Reply-To: <20160509081818.GB4470@vergenet.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several fixes suggested by Alexander.
-
-Tested: Running netperf TCP_STREAM with gretap and keyid configured.
-Visually verified that MTU is correctly being set. Did not test HW
-offload (Alexander plese try)
-
-
-Tom Herbert (5):
-  ip6_gre: Fix MTU setting
-  gre6: Fix flag translations
-  ip6_gre: Set inner protocol correctly in __gre6_xmit
-  ip6: Don't set transport header in IPv6 tunneling
-  ip6_gre: Use correct flags for reading TUNNEL_SEQ
-
- net/ipv6/ip6_gre.c    | 55 ++++++++++++++++++++++++++-------------------------
- net/ipv6/ip6_tunnel.c |  2 --
- 2 files changed, 28 insertions(+), 29 deletions(-)
-
--- 
-2.8.0.rc2
+SSB0aGluayBpdCBpcyBzdGlsbCBuZWNlc3NhcnkgdG8ga2VlcCBldGhfdHlwZSBpbiBwdXNoX2V0
+aCBhY3Rpb24sIGZvciB0aGUgY2xhc3NpZmllciBjYXNlLCBpdCB3aWxsIHB1c2hfbnNoIHRoZW4g
+cHVzaF9ldGggZm9yIHRoZSBvcmlnaW5hbCBmcmFtZSwgdGhpcyB3aWxsIG5lZWQgdG8gc2V0IGV0
+aF90eXBlIHRvIDB4ODk0ZiBieSBwdXNoX2V0aCwgb3RoZXJ3aXNlIHB1c2hfZXRoIHdvbid0IGtu
+b3cgdGhpcyBldGhfdHlwZS4NCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IGRl
+diBbbWFpbHRvOmRldi1ib3VuY2VzQG9wZW52c3dpdGNoLm9yZ10gT24gQmVoYWxmIE9mIFNpbW9u
+IEhvcm1hbg0KU2VudDogTW9uZGF5LCBNYXkgMDksIDIwMTYgNDoxOCBQTQ0KVG86IEppcmkgQmVu
+YyA8amJlbmNAcmVkaGF0LmNvbT4NCkNjOiBkZXZAb3BlbnZzd2l0Y2gub3JnOyBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW292cy1kZXZdIFtQQVRDSCB2OSBuZXQtbmV4dCA0
+LzddIG9wZW52c3dpdGNoOiBhZGQgbGF5ZXIgMyBmbG93L3BvcnQgc3VwcG9ydA0KDQpPbiBGcmks
+IE1heSAwNiwgMjAxNiBhdCAxMTozNTowNEFNICswMjAwLCBKaXJpIEJlbmMgd3JvdGU6DQo+IE9u
+IFdlZCwgIDQgTWF5IDIwMTYgMTY6MzY6MzAgKzA5MDAsIFNpbW9uIEhvcm1hbiB3cm90ZToNCj4g
+PiArc3RhdGljIGludCBwdXNoX2V0aChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxv
+d19rZXkgKmtleSwNCj4gPiArCQkgICAgY29uc3Qgc3RydWN0IG92c19hY3Rpb25fcHVzaF9ldGgg
+KmV0aGgpIHsNCj4gPiArCWludCBlcnI7DQo+ID4gKw0KPiA+ICsJLyogRGUtYWNjZWxlcmF0ZSBh
+bnkgaGFyZHdhcmUgYWNjZWxlcmF0ZWQgVkxBTiB0YWcgYWRkZWQgdG8gYSBwcmV2aW91cw0KPiA+
+ICsJICogRXRoZXJuZXQgaGVhZGVyICovDQo+ID4gKwllcnIgPSBza2Jfdmxhbl9kZWFjY2VsKHNr
+Yik7DQo+ID4gKwlpZiAodW5saWtlbHkoZXJyKSkNCj4gPiArCQlyZXR1cm4gZXJyOw0KPiA+ICsN
+Cj4gPiArCS8qIEFkZCB0aGUgbmV3IEV0aGVybmV0IGhlYWRlciAqLw0KPiA+ICsJaWYgKHNrYl9j
+b3dfaGVhZChza2IsIEVUSF9ITEVOKSA8IDApDQo+ID4gKwkJcmV0dXJuIC1FTk9NRU07DQo+ID4g
+Kw0KPiA+ICsJc2tiX3B1c2goc2tiLCBFVEhfSExFTik7DQo+ID4gKwlza2JfcmVzZXRfbWFjX2hl
+YWRlcihza2IpOw0KPiA+ICsJc2tiX3Jlc2V0X21hY19sZW4oc2tiKTsNCj4gPiArDQo+ID4gKwll
+dGhlcl9hZGRyX2NvcHkoZXRoX2hkcihza2IpLT5oX3NvdXJjZSwgZXRoaC0+YWRkcmVzc2VzLmV0
+aF9zcmMpOw0KPiA+ICsJZXRoZXJfYWRkcl9jb3B5KGV0aF9oZHIoc2tiKS0+aF9kZXN0LCBldGho
+LT5hZGRyZXNzZXMuZXRoX2RzdCk7DQo+ID4gKwlldGhfaGRyKHNrYiktPmhfcHJvdG8gPSBldGho
+LT5ldGhfdHlwZTsNCj4gDQo+IFRoaXMgZG9lc24ndCBzZWVtIHJpZ2h0LiBXZSBrbm93IHRoZSBw
+YWNrZXQgdHlwZSwgaXQncyBza2ItPnByb3RvY29sLg0KPiBXZSBzaG91bGQgZmlsbCBpbiB0aGF0
+Lg0KDQpJIHRoaW5rIHRoYXQgbWFrZXMgc2Vuc2UuIFBvc3NpYmx5IHRoZSBldGhfdHlwZSBmaWVs
+ZCBjYW4gYmUgcmVtb3ZlZCBmcm9tIG92c19hY3Rpb25fcHVzaF9ldGguDQoNCj4gSW4gYWRkaXRp
+b24sIHdlIHNob3VsZCBjaGVjayB3aGV0aGVyIG1hY19sZW4gPiAwIGFuZCBpbiBzdWNoIGNhc2Us
+IA0KPiBjaGFuZ2Ugc2tiLT5wcm90b2NvbCB0byBFVEhfUF9URUIgZmlyc3QgKGFuZCBzdG9yZSB0
+aGF0IHZhbHVlIGluIHRoZSANCj4gcHVzaGVkIGV0aCBoZWFkZXIpLg0KPiANCj4gU2ltaWxhcmx5
+IG9uIHBvcF9ldGgsIHdlIG5lZWQgdG8gY2hlY2sgc2tiLT5wcm90b2NvbCBhbmQgaWYgaXQgaXMg
+DQo+IEVUSF9QX1RFQiwgY2FsbCBldGhfdHlwZV90cmFucyBvbiB0aGUgbW9kaWZpZWQgZnJhbWUg
+dG8gc2V0IHRoZSBuZXcNCj4gc2tiLT5wcm90b2NvbCBjb3JyZWN0bHkuIEl0J3MgcHJvYmFibHkg
+bm90IHRoYXQgc2ltcGxlLCBhcyB3ZSdkIG5lZWQgYQ0KPiB2ZXJzaW9uIG9mIGV0aF90eXBlX3Ry
+YW5zIHRoYXQgZG9lc24ndCBuZWVkIGEgbmV0IGRldmljZS4NCg0KSSdtIG5vdCBzdXJlIEkgdW5k
+ZXJzdGFuZCB0aGUgaW50ZXJhY3Rpb24gd2l0aCBFVEhfUF9URUIgaGVyZS4NCg0KSW4gbXkgbWlu
+ZCBza2ItPnByb3RvY29sID09IEVUSF9QX1RFQiBtYXkgYmUgdXNlZCBlYXJseSBvbiBpbiBPdlMn
+cyByZWNlaXZlIHByb2Nlc3NpbmcgdG8gZmluZCB0aGUgaW5uZXIgcHJvdG9jb2wgZnJvbSB0aGUg
+cGFja2V0IGFuZCBhdCB0aGF0IHBvaW50DQpza2ItPnByb3RvY29sIGlzIHNldCB0byB0aGF0IHZh
+bHVlLiBBbmQgdGhhdCBmb3IgZnVydGhlciBwYWNrZXQgDQpza2ItPnByb2Nlc3NpbmcNCnRoZSBm
+YWN0IHRoZSBwYWNrZXQgd2FzIHJlY2VpdmVkIGFzIFRFQiBpcyB0cmFuc3BhcmVudC4NCg0KQ29u
+dmVyc2VseSwgc2tiLT5wcm90b2NvbCBtYXkgYmUgc2V0IGFzIG5lY2Vzc2FyeSBvbiB0cmFuc21p
+dCBhcyBhIHBhY2tldCBleGl0cyBPdlMuDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXw0KZGV2IG1haWxpbmcgbGlzdA0KZGV2QG9wZW52c3dpdGNoLm9yZw0K
+aHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldg0K
