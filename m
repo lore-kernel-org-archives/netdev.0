@@ -1,49 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Tue, 10 May 2016 11:32:47 -0700
-Message-ID: <5732294F.3060606@gmail.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
+Date: Tue, 10 May 2016 20:32:49 +0200
+Message-ID: <57322951.3040109@gmx.de>
+References: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
+ <1461763110-15263-2-git-send-email-eladkan@mellanox.com>
+ <20160428.171120.2028974436439452264.davem@davemloft.net>
+ <HE1PR0501MB2026E62285B397A5C7CC9705CD790@HE1PR0501MB2026.eurprd05.prod.outlook.com>
+ <572736D6.5030902@marvell.com>
+ <HE1PR0501MB20265121CBDB2D48F66D408CCD7F0@HE1PR0501MB2026.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34881 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642AbcEJScu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 14:32:50 -0400
-In-Reply-To: <3641492.klKRrvS8tr@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Noam Camus <noamca@mellanox.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"abrodkin@synopsys.com" <abrodkin@synopsys.com>,
+	Tal Zilcer <talz@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Elad Kanfi <eladkan@mellanox.com>,
+	Lino Sanfilippo <lsanfil@marvell.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <HE1PR0501MB20265121CBDB2D48F66D408CCD7F0@HE1PR0501MB2026.eurprd05.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/28/2016 03:12 PM, Sergei Shtylyov wrote:
-> The PHY devices sometimes do have their reset signal (maybe even power
-> supply?) tied to some GPIO and sometimes it also does happen that a boot
-> loader does not leave it deasserted. So far this issue has been attacked
-> from (as I believe) a wrong angle: by teaching the MAC driver to manipulate
-> the GPIO in question; that solution, when applied to the device trees, led
-> to adding the PHY reset GPIO properties to the MAC device node, with one
-> exception: Cadence MACB driver which could handle the "reset-gpios" prop
-> in a PHY device subnode. I believe that the correct approach is to teach
-> the 'phylib' to get the MDIO device reset GPIO from the device tree node
-> corresponding to this device -- which this patch is doing...
+Hi Elad,
+
+On 08.05.2016 15:44, Elad Kanfi wrote:
+
+>   
+> After reviewing the code and your suggestion, it seems that we can do without the flag tx_packet_sent and therefor the first issue becomes irrelevant.
+> The indication that a packet was sent is (tx_skb != NULL) , and the sequence will be:
 > 
-> Note that I had to modify the  AT803x PHY driver as it would stop working
-> otherwise as it made use of the reset GPIO for its own purposes...
+> CPU A:
+> 1. tx_skb = skb
+> 2. wmb() /* make sure tx_skb reaches the RAM before the HW is informed and the IRQ is fired */
+> 3. nps_enet_reg_set(priv, NPS_ENET_REG_TX_CTL, tx_ctrl.value); /* send frame */
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> CPU B:
+> 1. read tx_skb 
+> 2. if( tx_skb != NULL ) handle tx_skb
+> 3. tx_skb = NULL 
+> 
+> 
 
-This looks good to me:
+Ok, without the tx_packet_sent flag the code becomes simpler. But it
+does not mean that we can toss the smp_rmb in the irq handler
+completely. We still have to use a read barrier there to ensure that we
+see the most recent value of tx_skb. E.g like this:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+if (priv->tx_skb != NULL ) {
+	smp_rmb()
+	/ * handle tx_skb */
+}
 
-Can you follow up with changes in phy_{suspend,resume} if that is also
-an use case that you have?
--- 
-Florian
+With both barriers in place the code should work as expected.
+
+Regards,
+Lino
