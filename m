@@ -1,50 +1,49 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 03/17] batman-adv: NETIF_F_NETNS_LOCAL feature to prevent netns moves
-Date: Wed, 11 May 2016 03:29:51 +0800
-Message-ID: <1462908605-27412-4-git-send-email-a__9495.12095326117$1462908698$gmane$org@unstable.cc>
-References: <1462908605-27412-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <a@unstable.cc>
-To: davem@davemloft.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH net-next] gtp: reload GTPv1 header after pskb_may_pull()
+Date: Tue, 10 May 2016 21:33:38 +0200
+Message-ID: <1462908818-6104-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:12541 "EHLO s2.neomailbox.net"
+Received: from mail.us.es ([193.147.175.20]:38224 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752460AbcEJTbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2016 15:31:07 -0400
-In-Reply-To: <1462908605-27412-1-git-send-email-a@unstable.cc>
+	id S1751693AbcEJTdu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2016 15:33:50 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 27903C124D
+	for <netdev@vger.kernel.org>; Tue, 10 May 2016 21:33:47 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 14E472687CD
+	for <netdev@vger.kernel.org>; Tue, 10 May 2016 21:33:47 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id E85A02687C8
+	for <netdev@vger.kernel.org>; Tue, 10 May 2016 21:33:44 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
+The GTPv1 header flags indicate the presence of optional extensions
+after this header. Refresh the pointer to the GTPv1 header as skb->head
+might have be reallocated via pskb_may_pull().
 
-The batX soft interface should not be moved between network name
-spaces. This is similar to bridges, bonds, tunnels, which are not
-allowed to move between network namespaces.
-
-Suggested-by: Daniel Ehlers <danielehlers@mindeye.net>
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Acked-by: Antonio Quartulli <a@unstable.cc>
-Reviewed-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
+Fixes: 459aa660eb1d ("gtp: add initial driver for datapath of GPRS Tunneling Protocol (GTP-U)")
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/batman-adv/soft-interface.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/gtp.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index d72f88707736..66dd0aac480a 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -972,7 +972,7 @@ static void batadv_softif_init_early(struct net_device *dev)
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 8ce1104..f7caf1e 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -253,6 +253,8 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 	if (!pskb_may_pull(skb, hdrlen))
+ 		return -1;
  
- 	dev->netdev_ops = &batadv_netdev_ops;
- 	dev->destructor = batadv_softif_free;
--	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-+	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_NETNS_LOCAL;
- 	dev->priv_flags |= IFF_NO_QUEUE;
- 
- 	/* can't call min_mtu, because the needed variables
++	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
++
+ 	rcu_read_lock();
+ 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
+ 	if (!pctx) {
 -- 
-2.8.2
+2.1.4
