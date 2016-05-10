@@ -1,103 +1,105 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Tue, 10 May 2016 22:46:19 +0200
-Message-ID: <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-References: <cover.1462886866.git.pabeni@redhat.com>
- <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net PATCH v2 1/6] net sched: vlan action fix late binding
+Date: Tue, 10 May 2016 16:49:26 -0400
+Message-ID: <1462913371-9699-2-git-send-email-jhs@emojatatu.com>
+References: <1462913371-9699-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+	alexander.duyck@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:33996 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751473AbcEJUtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 16:49:42 -0400
+Received: by mail-io0-f195.google.com with SMTP id d62so3143865iof.1
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 13:49:41 -0700 (PDT)
+In-Reply-To: <1462913371-9699-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-On 10.05.2016 16:29, Eric Dumazet wrote:
-> On Tue, 2016-05-10 at 16:11 +0200, Paolo Abeni wrote:
->> Currently, the softirq loop can be scheduled both inside the ksofirqd kernel
->> thread and inside any running process. This makes nearly impossible for the
->> process scheduler to balance in a fair way the amount of time that
->> a given core spends performing the softirq loop.
->>
->> Under high network load, the softirq loop can take nearly 100% of a given CPU,
->> leaving very little time for use space processing. On single core hosts, this
->> means that the user space can nearly starve; for example super_netperf
->> UDP_STREAM tests towards a remote single core vCPU guest[1] can measure an
->> aggregated throughput of a few thousands pps, and the same behavior can be
->> reproduced even on bare-metal, eventually simulating a single core with taskset
->> and/or sysfs configuration.
-> 
-> I hate these patches and ideas guys, sorry. That is before my breakfast,
-> but still...
+Late vlan action binding was broken and is fixed with this patch.
 
-:)
+//add a vlan action to pop and give it an instance id of 1
+sudo tc actions add action vlan pop index 1
+//create filter which binds to vlan action id 1
+sudo tc filter add dev $DEV parent ffff: protocol ip prio 1 u32 \
+match ip dst 17.0.0.1/32 flowid 1:1 action vlan index 1
 
-> I have enough hard time dealing with loads where ksoftirqd has to
-> compete with user threads that thought that playing with priorities was
-> a nice idea.
+current message(before bug fix) was:
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
 
-We tried a lot of approaches so far and this seemed to be the best
-architectural RFC we could post. I was quite surprised to see such good
-performance numbers with threaded NAPI, thus I think it could be a way
-forward.
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/act_vlan.c | 22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
 
-Your mentioned problem above seems to be a configuration mistake, no?
-Otherwise isn't that something user space/cgroups might solve?
-
-> Guess what, when they lose networking they complain.
-> 
-> We already have ksoftirqd to normally cope with the case you are
-> describing.
-
-Indeed, but the time until we wake up ksoftirqd can be already quite
-long and for every packet we get in udp_recvmsg the local_bh_enable call
-let's us pick up quite a lot of new packets, which we drop before user
-space can make any progress. By being more fair between user space and
-"napid" we hoped to solve this. We also want more feedback from the
-scheduler people, so we Cc'ed them also.
-
-> If it is not working as intended, please identify the bugs and fix them,
-> instead of adding yet another tests in fast path and extra complexity in
-> the stack.
-
-We could use _local_bh_enable instead of local_bh_enable in udp_recvmsg,
-which certainly wouldn't branch down to softirqs as often, but this
-feels wrong to me and certainly is.
-
-After the discussion on netdev@ with Peter Hurley here [1] about
-"Softirq priority inversion from "softirq: reduce latencies"", we didn't
-want to propose some patch looking like this again, but this could help.
-The idea would be to limit the number we recheck for softirqs but give
-back control to user space.
-
-[1] https://lkml.org/lkml/2016/2/27/152
-
-If I remember local_bh_enable in kernel-rt processes one softirq
-directly and defers its work to ksoftirqd much more quickly.
-
-> In the one vcpu case, allowing the user thread to consume more UDP
-> packets from the target UDP socket will also make your NIC drop more
-> packets, that are not necessarily packets for the same socket.
-> 
-> So you are shifting the attack to a different target,
-> at the expense of more kernel bloat.
-
-I agree here, but I don't think this patch particularly is a lot of
-bloat and something very interesting people can play with and extend upon.
-
-Thanks,
-Hannes
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index bab8ae0..c45f926 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -77,7 +77,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 	int action;
+ 	__be16 push_vid = 0;
+ 	__be16 push_proto = 0;
+-	int ret = 0;
++	int ret = 0, exists = 0;
+ 	int err;
+ 
+ 	if (!nla)
+@@ -90,15 +90,25 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 	if (!tb[TCA_VLAN_PARMS])
+ 		return -EINVAL;
+ 	parm = nla_data(tb[TCA_VLAN_PARMS]);
++	exists = tcf_hash_check(tn, parm->index, a, bind);
++	if (exists && bind)
++		return 0;
++
+ 	switch (parm->v_action) {
+ 	case TCA_VLAN_ACT_POP:
+ 		break;
+ 	case TCA_VLAN_ACT_PUSH:
+-		if (!tb[TCA_VLAN_PUSH_VLAN_ID])
++		if (!tb[TCA_VLAN_PUSH_VLAN_ID]) {
++			if (exists)
++				tcf_hash_release(a, bind);
+ 			return -EINVAL;
++		}
+ 		push_vid = nla_get_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
+-		if (push_vid >= VLAN_VID_MASK)
++		if (push_vid >= VLAN_VID_MASK) {
++			if (exists)
++				tcf_hash_release(a, bind);
+ 			return -ERANGE;
++		}
+ 
+ 		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
+ 			push_proto = nla_get_be16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]);
+@@ -114,11 +124,13 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 		}
+ 		break;
+ 	default:
++		if (exists)
++			tcf_hash_release(a, bind);
+ 		return -EINVAL;
+ 	}
+ 	action = parm->v_action;
+ 
+-	if (!tcf_hash_check(tn, parm->index, a, bind)) {
++	if (!exists) {
+ 		ret = tcf_hash_create(tn, parm->index, est, a,
+ 				      sizeof(*v), bind, false);
+ 		if (ret)
+@@ -126,8 +138,6 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 
+ 		ret = ACT_P_CREATED;
+ 	} else {
+-		if (bind)
+-			return 0;
+ 		tcf_hash_release(a, bind);
+ 		if (!ovr)
+ 			return -EEXIST;
+-- 
+1.9.1
