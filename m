@@ -1,60 +1,66 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH v2 1/2] net: nps_enet: Sync access to packet sent flag
-Date: Tue, 10 May 2016 20:32:49 +0200
-Message-ID: <57322951.3040109@gmx.de>
-References: <1461763110-15263-1-git-send-email-eladkan@mellanox.com>
- <1461763110-15263-2-git-send-email-eladkan@mellanox.com>
- <20160428.171120.2028974436439452264.davem@davemloft.net>
- <HE1PR0501MB2026E62285B397A5C7CC9705CD790@HE1PR0501MB2026.eurprd05.prod.outlook.com>
- <572736D6.5030902@marvell.com>
- <HE1PR0501MB20265121CBDB2D48F66D408CCD7F0@HE1PR0501MB2026.eurprd05.prod.outlook.com>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 10 May 2016 11:39:34 -0700
+Message-ID: <20160510183934.GJ1256@tuxbot>
+References: <20160510112905.5bffcad8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Noam Camus <noamca@mellanox.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"abrodkin@synopsys.com" <abrodkin@synopsys.com>,
-	Tal Zilcer <talz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Elad Kanfi <eladkan@mellanox.com>,
-	Lino Sanfilippo <lsanfil@marvell.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <HE1PR0501MB20265121CBDB2D48F66D408CCD7F0@HE1PR0501MB2026.eurprd05.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Olof Johansson <olof@lixom.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	Andy Gross <andy.gross@linaro.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160510112905.5bffcad8@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Elad,
+On Mon 09 May 18:29 PDT 2016, Stephen Rothwell wrote:
 
-On 08.05.2016 15:44, Elad Kanfi wrote:
-
->   
-> After reviewing the code and your suggestion, it seems that we can do without the flag tx_packet_sent and therefor the first issue becomes irrelevant.
-> The indication that a packet was sent is (tx_skb != NULL) , and the sequence will be:
+> Hi all,
 > 
-> CPU A:
-> 1. tx_skb = skb
-> 2. wmb() /* make sure tx_skb reaches the RAM before the HW is informed and the IRQ is fired */
-> 3. nps_enet_reg_set(priv, NPS_ENET_REG_TX_CTL, tx_ctrl.value); /* send frame */
+> After merging the net-next tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
 > 
-> CPU B:
-> 1. read tx_skb 
-> 2. if( tx_skb != NULL ) handle tx_skb
-> 3. tx_skb = NULL 
+> net/qrtr/smd.c:106:14: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+>   .callback = qcom_smd_qrtr_callback,
+>               ^
+> net/qrtr/smd.c:106:14: note: (near initialization for 'qcom_smd_qrtr_driver.callback')
 > 
+> Caused by commit
+> 
+>   bdabad3e363d ("net: Add Qualcomm IPC router")
+> 
+> interacting with commit
+> 
+>   b853cb9628bf ("soc: qcom: smd: Make callback pass channel reference")
+> 
+> from the arm-soc tree.
+> 
+> I added the following merge fix patch (and it turned out I needed the
+> new stubs).
 > 
 
-Ok, without the tx_packet_sent flag the code becomes simpler. But it
-does not mean that we can toss the smp_rmb in the irq handler
-completely. We still have to use a read barrier there to ensure that we
-see the most recent value of tx_skb. E.g like this:
+Sorry for not spotting this issue earlier, I missed Andy's second pull
+request towards arm-soc and thought the SMD changes missed this cycle.
 
-if (priv->tx_skb != NULL ) {
-	smp_rmb()
-	/ * handle tx_skb */
-}
 
-With both barriers in place the code should work as expected.
+Your patch looks good, but I'm not sure how we should approach the merge
+window; Andy can't pick the patch because he doesn't have the qrtr code
+and David doesn't have the SMD patches coming through Andy.
+
+FWIW, Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+
+
+I assume we could have the QRTR go through Andy and arm-soc, with
+David's approval and this fix squashed in. But we're running rather late
+in this cycle, perhaps we should just back the QRTR patches out and I
+can respin and resend them after the merge window (for v4.8 instead)?
+
+Suggestions are welcome.
 
 Regards,
-Lino
+Bjorn
