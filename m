@@ -1,85 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH V1 1/3] net: bulk alloc and reuse of SKBs in
- NAPI context
-Date: Tue, 10 May 2016 08:44:13 -0700
-Message-ID: <1462895053.23934.86.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160509134352.3573.37044.stgit@firesoul>
-	 <20160509134429.3573.4048.stgit@firesoul>
-	 <CAKgT0Uftr643AR9n2=_aQmaGJO3eEyKTuaCfXwEKbYj1rVruRw@mail.gmail.com>
-	 <20160509215956.19ec1c10@redhat.com>
-	 <CAKgT0UfKzKWnNzGpB-915by2M1nzDAdNz-hDwwcwGoowmZefrg@mail.gmail.com>
-	 <20160510143017.212c3846@redhat.com>
-	 <1462888134.23934.60.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160510164857.72c8a1cb@redhat.com>
+Subject: Re: [PATCH net] tcp: refresh skb timestamp at retransmit time
+Date: Tue, 10 May 2016 08:51:37 -0700
+Message-ID: <1462895497.23934.91.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1462852516.23934.46.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAK6E8=eGaBL9O55xCbtoZuuisvUGF5NRv6qV5bbvQB-JFw6Zjg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35279 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbcEJPoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 11:44:16 -0400
-Received: by mail-pf0-f170.google.com with SMTP id 77so7145007pfv.2
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 08:44:15 -0700 (PDT)
-In-Reply-To: <20160510164857.72c8a1cb@redhat.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:32982 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752413AbcEJPvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 11:51:39 -0400
+Received: by mail-pf0-f169.google.com with SMTP id 206so7296798pfu.0
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 08:51:39 -0700 (PDT)
+In-Reply-To: <CAK6E8=eGaBL9O55xCbtoZuuisvUGF5NRv6qV5bbvQB-JFw6Zjg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-05-10 at 16:48 +0200, Jesper Dangaard Brouer wrote:
-> On Tue, 10 May 2016 06:48:54 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, 2016-05-10 at 08:01 -0700, Yuchung Cheng wrote:
+> On Mon, May 9, 2016 at 8:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > In the very unlikely case __tcp_retransmit_skb() can not use the cloning
+> > done in tcp_transmit_skb(), we need to refresh skb_mstamp before doing
+> > the copy and transmit, otherwise TCP TS val will be an exact copy of
+> > original transmit.
+> >
+> > Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Yuchung Cheng <ycheng@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
 > 
-> > On Tue, 2016-05-10 at 14:30 +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > > Disable busy poll on both client and server, Not patched:
-> > > 
-> > >  $ netperf -H 198.18.40.2 -t TCP_RR  -l 60 -T 6,6 -Cc
-> > >  MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 port 0 AF_INET to 198.18.40.2 
-> > >  ()  port 0 AF_INET : histogram : demo : first burst 0 : cpu bind
-> > >  Local /Remote
-> > >  Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> > >  Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> > >  bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-> > >  
-> > >  16384  87380  1       1      60.00   78077.55  3.74   2.69   3.830   8.265  
-> > >  16384  87380   
-> > 
-> > Tell us more about the -T6,6
-> > 
-> > For example how many TX/RX queues you have on the NIC, and which cpus
-> > service interrupts.
-> 
-> The -T6,6 option:
->  -T lcpu,rcpu      Request netperf/netserver be bound to local/remote cpu
-> 
+> Nice catch Eric. Recovery algorithm like RACK definitely requires this
+> patch b/c it relies on skb mstamps.
+> does the failure usually occur under memory stress?
 
-Sure, I know -T option in netperf.
+For x86, the NET_IP_ALIGN is 0, so the only 'problem' would happen
+for devices with big MTU but no SG support.
 
-> I use the option to get more stable results.  If I don't pin/bind the
-> CPU netperf/netserver is running on then the CPU scheduler will migrate
-> the processes around.  This gives unpredictable results, worst for the
-> busy_poll tests.  Especially if the RX softirq runs on the same CPU
-> (also true if it runs on a HyperTread siping).  
-> 
-> Netperf client (8 cores i7-4790K CPU @ 4.00GHz)  RX:8 and TX:8 queues.
-> Netserver server (2x 12 cores E5-2630 @ 2.30GHz) RX:8 and TX:24 queues.
-> Driver mlx4.
-> Disabled GRO to hit code path I changed in patch 2.
+In the normal case, we allocate small skb->head skbs
+(SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER) in select_size()
 
-But are you using stuff like aRFS, RPS , RFS ?
+So this bug should not happen for most devices.
 
-Each netperf run lands on different cpus, and we know that results can
-have a 25% variability  because of that, even more on 2-node systems.
+RACK will be better, but I was also wondering if PAWS checks on receiver
+could drop all subsequent retransmits and we would have a TCP stalled
+connection ? That would be a more serious bug.
 
-By forcing -T6,6 you force the netperf/netserver cpu, not the RX queues.
 
-A nice effort would be to be able to chose the source in the 4-tuple at
-connect() time so that we know that Toeplitz hash will select the
-'correct' RX queue.
+For arches with NET_IP_ALIGN==2, the bug would be possible if the
+receiver is playing games by partially acking the packets we send.
