@@ -1,65 +1,50 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Tue, 10 May 2016 12:13:24 -0700
-Message-ID: <573232D4.6000006@gmail.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com> <5732294F.3060606@gmail.com>
- <5732327A.6080203@cogentembedded.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -mainline] qlcnic: potential NULL dereference in
+ qlcnic_83xx_get_minidump_template()
+Date: Tue, 10 May 2016 22:20:04 +0300
+Message-ID: <20160510192004.GA30712@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5732327A.6080203-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dept-GELinuxNICDev@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25813 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbcEJTUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 15:20:20 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/10/2016 12:11 PM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 05/10/2016 09:32 PM, Florian Fainelli wrote:
-> 
->>> The PHY devices sometimes do have their reset signal (maybe even power
->>> supply?) tied to some GPIO and sometimes it also does happen that a boot
->>> loader does not leave it deasserted. So far this issue has been attacked
->>> from (as I believe) a wrong angle: by teaching the MAC driver to
->>> manipulate
->>> the GPIO in question; that solution, when applied to the device
->>> trees, led
->>> to adding the PHY reset GPIO properties to the MAC device node, with one
->>> exception: Cadence MACB driver which could handle the "reset-gpios" prop
->>> in a PHY device subnode. I believe that the correct approach is to teach
->>> the 'phylib' to get the MDIO device reset GPIO from the device tree node
->>> corresponding to this device -- which this patch is doing...
->>>
->>> Note that I had to modify the  AT803x PHY driver as it would stop
->>> working
->>> otherwise as it made use of the reset GPIO for its own purposes...
->>>
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
->>
->> This looks good to me:
->>
->> Acked-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
->    Thank you! I'll send v3 without [RFT] then.
-> 
->> Can you follow up with changes in phy_{suspend,resume}
-> 
->    I'm not sure what changes you mean -- powering down the PHYs?
+If qlcnic_fw_cmd_get_minidump_temp() fails then "fw_dump->tmpl_hdr" is
+NULL or possibly freed.  It can lead to an oops later.
 
-Yes, powering down, conversely up the PHY. The whole point of putting
-this in PHYLIB is to be able to perform things like that. We do not need
-this right now, but it would be nice if we saw that materialize at some
-point.
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: d01a6d3c8ae1 ('qlcnic: Add support to enable capability to extend minidump for iSCSI')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+index cda9e60..0844b7c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+@@ -1417,6 +1417,7 @@ void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	bool extended = false;
++	int ret;
+ 
+ 	prev_version = adapter->fw_version;
+ 	current_version = qlcnic_83xx_get_fw_version(adapter);
+@@ -1427,8 +1428,11 @@ void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *adapter)
+ 		if (qlcnic_83xx_md_check_extended_dump_capability(adapter))
+ 			extended = !qlcnic_83xx_extend_md_capab(adapter);
+ 
+-		if (!qlcnic_fw_cmd_get_minidump_temp(adapter))
+-			dev_info(&pdev->dev, "Supports FW dump capability\n");
++		ret = qlcnic_fw_cmd_get_minidump_temp(adapter);
++		if (ret)
++			return;
++
++		dev_info(&pdev->dev, "Supports FW dump capability\n");
+ 
+ 		/* Once we have minidump template with extended iSCSI dump
+ 		 * capability, update the minidump capture mask to 0x1f as
