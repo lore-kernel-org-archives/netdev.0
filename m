@@ -1,79 +1,80 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next] skbuff: remove unused variable `doff'
-Date: Tue, 10 May 2016 12:38:08 -0400
-Message-ID: <20160510163808.GN13183@oracle.com>
+From: Harvey Hunt <harvey.hunt@imgtec.com>
+Subject: [PATCH net] drivers: net: Don't print unpopulated net_device name
+Date: Tue, 10 May 2016 17:43:21 +0100
+Message-ID: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, daniel@iogearbox.net,
-	sowmini.varadhan@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46992 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752341AbcEJQia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 12:38:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Harvey Hunt <harvey.hunt@imgtec.com>,
+	Robert Jarzmik <robert.jarzmik@free.fr>,
+	Barry Song <Baohua.Song@csr.com>,
+	Marcel Ziswiler <marcel@ziswiler.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are two instances of an unused variable, `doff' added by
-commit 6fa01ccd8830 ("skbuff: Add pskb_extract() helper function")
-in pskb_carve_inside_header() and pskb_carve_inside_nonlinear().
-Remove these instances, they are not used.
+For ethernet devices, net_device.name will be eth%d before
+register_netdev() is called. Don't print the net_device name until
+the format string is replaced.
 
-Reported by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Cc: Robert Jarzmik <robert.jarzmik@free.fr>
+Cc: Barry Song <Baohua.Song@csr.com>
+Cc: Marcel Ziswiler <marcel@ziswiler.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+
+Signed-off-by: Harvey Hunt <harvey.hunt@imgtec.com>
 ---
- net/core/skbuff.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+I've tested this patch on a board that has a DM9000, but haven't 
+tested the other two network devices.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5586be9..f2b77e5 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4634,7 +4634,6 @@ static int pskb_carve_inside_header(struct sk_buff *skb, const u32 off,
- 	int size = skb_end_offset(skb);
- 	int new_hlen = headlen - off;
- 	u8 *data;
--	int doff = 0;
- 
- 	size = SKB_DATA_ALIGN(size);
- 
-@@ -4674,13 +4673,11 @@ static int pskb_carve_inside_header(struct sk_buff *skb, const u32 off,
- 		skb_free_head(skb);
+ drivers/net/ethernet/davicom/dm9000.c   | 3 +--
+ drivers/net/ethernet/micrel/ks8695net.c | 3 +--
+ drivers/net/ethernet/netx-eth.c         | 3 +--
+ 3 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index 48d9194..89dcaa1 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -1686,8 +1686,7 @@ dm9000_probe(struct platform_device *pdev)
  	}
  
--	doff = (data - skb->head);
- 	skb->head = data;
- 	skb->data = data;
- 	skb->head_frag = 0;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- 	skb->end = size;
--	doff = 0;
- #else
- 	skb->end = skb->head + size;
- #endif
-@@ -4761,7 +4758,6 @@ static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
- 	u8 *data;
- 	const int nfrags = skb_shinfo(skb)->nr_frags;
- 	struct skb_shared_info *shinfo;
--	int doff = 0;
+ 	if (!is_valid_ether_addr(ndev->dev_addr)) {
+-		dev_warn(db->dev, "%s: Invalid ethernet MAC address. Please "
+-			 "set using ifconfig\n", ndev->name);
++		dev_warn(db->dev, "Invalid ethernet MAC address. Please set using ifconfig\n");
  
- 	size = SKB_DATA_ALIGN(size);
+ 		eth_hw_addr_random(ndev);
+ 		mac_src = "random";
+diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
+index a8522d8..2e2ea61 100644
+--- a/drivers/net/ethernet/micrel/ks8695net.c
++++ b/drivers/net/ethernet/micrel/ks8695net.c
+@@ -1456,8 +1456,7 @@ ks8695_probe(struct platform_device *pdev)
+ 	ndev->dev_addr[5] = maclow & 0xFF;
  
-@@ -4816,13 +4812,11 @@ static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
- 	}
- 	skb_release_data(skb);
+ 	if (!is_valid_ether_addr(ndev->dev_addr))
+-		dev_warn(ksp->dev, "%s: Invalid ethernet MAC address. Please "
+-			 "set using ifconfig\n", ndev->name);
++		dev_warn(ksp->dev, "Invalid ethernet MAC address. Please set using ifconfig\n");
  
--	doff = (data - skb->head);
- 	skb->head = data;
- 	skb->head_frag = 0;
- 	skb->data = data;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- 	skb->end = size;
--	doff = 0;
- #else
- 	skb->end = skb->head + size;
- #endif
+ 	/* In order to be efficient memory-wise, we allocate both
+ 	 * rings in one go.
+diff --git a/drivers/net/ethernet/netx-eth.c b/drivers/net/ethernet/netx-eth.c
+index 9fbc302..c2e2151 100644
+--- a/drivers/net/ethernet/netx-eth.c
++++ b/drivers/net/ethernet/netx-eth.c
+@@ -358,8 +358,7 @@ static int netx_eth_enable(struct net_device *ndev)
+ 	xc_start(priv->xc);
+ 
+ 	if (!is_valid_ether_addr(ndev->dev_addr))
+-		printk("%s: Invalid ethernet MAC address.  Please "
+-		       "set using ifconfig\n", ndev->name);
++		printk("Invalid ethernet MAC address. Please set using ifconfig\n");
+ 
+ 	for (i=2; i<=18; i++)
+ 		pfifo_push(EMPTY_PTR_FIFO(priv->id),
 -- 
-1.7.1
+2.8.0
