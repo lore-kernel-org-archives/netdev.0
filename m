@@ -1,250 +1,176 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [RFC PATCH 1/2] net: implement threaded-able napi poll loop support
-Date: Tue, 10 May 2016 16:11:53 +0200
-Message-ID: <5b4dd23c7cebb677abb61f211fde3de4a83441f7.1462886866.git.pabeni@redhat.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1462886866.git.pabeni@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next] sfc: allocate rx pages on the same node as the
+ interrupt
+Date: Tue, 10 May 2016 15:21:05 +0100
+Message-ID: <5731EE51.2090908@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Pieczko <dpieczko@solarflare.com>
+To: <linux-net-drivers@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:1516 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751740AbcEJOVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 10:21:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch allows running each napi poll loop inside its
-own kernel thread.
-The rx mode can be enabled per napi instance via the
-newly addded napi_set_threaded() api; the requested kthread
-will be created on demand and shut down on device stop.
+From: Daniel Pieczko <dpieczko@solarflare.com>
 
-Once that threaded mode is enabled and the kthread is
-started, napi_schedule() will wake-up such thread instead
-of scheduling the softirq.
+When the interrupt servicing a channel is on a NUMA node that is
+not local to the device, performance is improved by allocating
+rx pages on the node local to the interrupt (remote to the device)
 
-The threaded poll loop behaves quite likely the net_rx_action,
-but it does not have to manipulate local irqs and uses
-an explicit scheduling point based on netdev_budget.
+The performance-optimal case, where interrupts and applications
+are pinned to CPUs on the same node as the device, is not altered
+by this change.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+This change gave a 1% improvement in transaction rate using Nginx
+with all interrupts and Nginx threads on the node remote to the
+device. It also gave a small reduction in round-trip latency,
+again with the interrupt and application on a different node to
+the device.
+
+Allocating rx pages based on the channel->irq_node value is only
+valid for the initial driver-load interrupt affinities; if an
+interrupt is moved later, the wrong node may be used for the
+allocation.
+
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- include/linux/netdevice.h |   4 ++
- net/core/dev.c            | 113 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 117 insertions(+)
+ drivers/net/ethernet/sfc/efx.c        | 38 +++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/net_driver.h |  3 +++
+ drivers/net/ethernet/sfc/rx.c         | 18 ++++++++++++++---
+ 3 files changed, 56 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 63580e6..0722ed5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -323,6 +323,7 @@ struct napi_struct {
- 	struct list_head	dev_list;
- 	struct hlist_node	napi_hash_node;
- 	unsigned int		napi_id;
-+	struct task_struct	*thread;
- };
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 0705ec86..cb1552c 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -445,6 +445,7 @@ efx_alloc_channel(struct efx_nic *efx, int i, struct efx_channel *old_channel)
+ 	channel->efx = efx;
+ 	channel->channel = i;
+ 	channel->type = &efx_default_channel_type;
++	channel->irq_mem_node = NUMA_NO_NODE;
  
- enum {
-@@ -331,6 +332,7 @@ enum {
- 	NAPI_STATE_NPSVC,	/* Netpoll - don't dequeue from poll_list */
- 	NAPI_STATE_HASHED,	/* In NAPI hash (busy polling possible) */
- 	NAPI_STATE_NO_BUSY_POLL,/* Do not add in napi_hash, no busy polling */
-+	NAPI_STATE_THREADED,	/* The poll is performed inside its own thread*/
- };
+ 	for (j = 0; j < EFX_TXQ_TYPES; j++) {
+ 		tx_queue = &channel->tx_queue[j];
+@@ -1486,6 +1487,38 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 	return 0;
+ }
  
- enum gro_result {
-@@ -475,6 +477,8 @@ static inline void napi_complete(struct napi_struct *n)
++#ifndef CONFIG_SMP
++static void efx_set_interrupt_affinity(struct efx_nic *efx __always_unused)
++{
++}
++
++static void efx_clear_interrupt_affinity(struct efx_nic *efx __always_unused)
++{
++}
++#else
++static void efx_set_interrupt_affinity(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++	unsigned int cpu;
++
++	efx_for_each_channel(channel, efx) {
++		cpu = cpumask_local_spread(channel->channel,
++					   pcibus_to_node(efx->pci_dev->bus));
++
++		irq_set_affinity_hint(channel->irq, cpumask_of(cpu));
++		channel->irq_mem_node = cpu_to_mem(cpu);
++	}
++}
++
++static void efx_clear_interrupt_affinity(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++
++	efx_for_each_channel(channel, efx)
++		irq_set_affinity_hint(channel->irq, NULL);
++}
++#endif /* CONFIG_SMP */
++
+ static int efx_soft_enable_interrupts(struct efx_nic *efx)
+ {
+ 	struct efx_channel *channel, *end_channel;
+@@ -2934,6 +2967,7 @@ static void efx_pci_remove_main(struct efx_nic *efx)
+ 	cancel_work_sync(&efx->reset_work);
+ 
+ 	efx_disable_interrupts(efx);
++	efx_clear_interrupt_affinity(efx);
+ 	efx_nic_fini_interrupt(efx);
+ 	efx_fini_port(efx);
+ 	efx->type->fini(efx);
+@@ -3083,6 +3117,9 @@ static int efx_pci_probe_main(struct efx_nic *efx)
+ 	rc = efx_nic_init_interrupt(efx);
+ 	if (rc)
+ 		goto fail5;
++
++	efx_set_interrupt_affinity(efx);
++
+ 	rc = efx_enable_interrupts(efx);
+ 	if (rc)
+ 		goto fail6;
+@@ -3090,6 +3127,7 @@ static int efx_pci_probe_main(struct efx_nic *efx)
+ 	return 0;
+ 
+  fail6:
++	efx_clear_interrupt_affinity(efx);
+ 	efx_nic_fini_interrupt(efx);
+  fail5:
+ 	efx_fini_port(efx);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 38c4223..28c3673 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -423,6 +423,7 @@ enum efx_sync_events_state {
+  * @sync_events_state: Current state of sync events on this channel
+  * @sync_timestamp_major: Major part of the last ptp sync event
+  * @sync_timestamp_minor: Minor part of the last ptp sync event
++ * @irq_mem_node: Memory NUMA node of interrupt
   */
- void napi_hash_add(struct napi_struct *napi);
+ struct efx_channel {
+ 	struct efx_nic *efx;
+@@ -468,6 +469,8 @@ struct efx_channel {
+ 	enum efx_sync_events_state sync_events_state;
+ 	u32 sync_timestamp_major;
+ 	u32 sync_timestamp_minor;
++
++	int irq_mem_node;
+ };
  
-+int napi_set_threaded(struct napi_struct *n, bool threded);
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 8956995..eed0c3b 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -163,9 +163,21 @@ static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue, bool atomic)
+ 	do {
+ 		page = efx_reuse_page(rx_queue);
+ 		if (page == NULL) {
+-			page = alloc_pages(__GFP_COLD | __GFP_COMP |
+-					   (atomic ? GFP_ATOMIC : GFP_KERNEL),
+-					   efx->rx_buffer_order);
++			/* GFP_ATOMIC may fail because of various reasons,
++			 * and we re-schedule rx_fill from non-atomic
++			 * context in such a case.  So, use __GFP_NO_WARN
++			 * in case of atomic.
++			 */
++			struct efx_channel *channel;
 +
- /**
-  *	napi_hash_del - remove a NAPI from global table
-  *	@napi: NAPI context
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c749033..0de286b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -94,6 +94,7 @@
- #include <linux/ethtool.h>
- #include <linux/notifier.h>
- #include <linux/skbuff.h>
-+#include <linux/kthread.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <net/busy_poll.h>
-@@ -1305,9 +1306,19 @@ void netdev_notify_peers(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_notify_peers);
- 
-+static int napi_threaded_poll(void *data);
++			channel = efx_rx_queue_channel(rx_queue);
++			page = alloc_pages_node(channel->irq_mem_node,
++						__GFP_COMP |
++						(atomic ?
++						 (GFP_ATOMIC | __GFP_NOWARN)
++						 : GFP_KERNEL),
++						efx->rx_buffer_order);
 +
-+static inline void napi_thread_start(struct napi_struct *n)
-+{
-+	if (test_bit(NAPI_STATE_THREADED, &n->state) && !n->thread)
-+		n->thread = kthread_create(napi_threaded_poll, n, "%s-%d",
-+					   n->dev->name, n->napi_id);
-+}
-+
- static int __dev_open(struct net_device *dev)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct napi_struct *n;
- 	int ret;
- 
- 	ASSERT_RTNL();
-@@ -1334,6 +1345,9 @@ static int __dev_open(struct net_device *dev)
- 	if (!ret && ops->ndo_open)
- 		ret = ops->ndo_open(dev);
- 
-+	list_for_each_entry(n, &dev->napi_list, dev_list)
-+		napi_thread_start(n);
-+
- 	netpoll_poll_enable(dev);
- 
- 	if (ret)
-@@ -1378,6 +1392,14 @@ int dev_open(struct net_device *dev)
- }
- EXPORT_SYMBOL(dev_open);
- 
-+static inline void napi_thread_stop(struct napi_struct *n)
-+{
-+	if (!n->thread)
-+		return;
-+	kthread_stop(n->thread);
-+	n->thread = NULL;
-+}
-+
- static int __dev_close_many(struct list_head *head)
- {
- 	struct net_device *dev;
-@@ -1406,6 +1428,7 @@ static int __dev_close_many(struct list_head *head)
- 
- 	list_for_each_entry(dev, head, close_list) {
- 		const struct net_device_ops *ops = dev->netdev_ops;
-+		struct napi_struct *n;
- 
- 		/*
- 		 *	Call the device specific close. This cannot fail.
-@@ -1417,6 +1440,9 @@ static int __dev_close_many(struct list_head *head)
- 		if (ops->ndo_stop)
- 			ops->ndo_stop(dev);
- 
-+		list_for_each_entry(n, &dev->napi_list, dev_list)
-+			napi_thread_stop(n);
-+
- 		dev->flags &= ~IFF_UP;
- 		netpoll_poll_enable(dev);
- 	}
-@@ -3456,6 +3482,11 @@ int weight_p __read_mostly = 64;            /* old backlog weight */
- static inline void ____napi_schedule(struct softnet_data *sd,
- 				     struct napi_struct *napi)
- {
-+	if (napi->thread) {
-+		wake_up_process(napi->thread);
-+		return;
-+	}
-+
- 	list_add_tail(&napi->poll_list, &sd->poll_list);
- 	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
- }
-@@ -5174,6 +5205,88 @@ out_unlock:
- 	return work;
- }
- 
-+static int napi_thread_wait(struct napi_struct *napi)
-+{
-+	set_current_state(TASK_INTERRUPTIBLE);
-+
-+	while (!kthread_should_stop() && !napi_disable_pending(napi)) {
-+		if (test_bit(NAPI_STATE_SCHED, &napi->state)) {
-+			__set_current_state(TASK_RUNNING);
-+			return 0;
-+		}
-+
-+		schedule();
-+		set_current_state(TASK_INTERRUPTIBLE);
-+	}
-+	__set_current_state(TASK_RUNNING);
-+	return -1;
-+}
-+
-+static int napi_threaded_poll(void *data)
-+{
-+	struct napi_struct *napi = data;
-+
-+	while (!napi_thread_wait(napi)) {
-+		struct list_head dummy_repoll;
-+		int budget = netdev_budget;
-+		unsigned long time_limit;
-+		bool again = true;
-+
-+		INIT_LIST_HEAD(&dummy_repoll);
-+		local_bh_disable();
-+		time_limit = jiffies + 2;
-+		do {
-+			/* ensure that the poll list is not empty */
-+			if (list_empty(&dummy_repoll))
-+				list_add(&napi->poll_list, &dummy_repoll);
-+
-+			budget -= napi_poll(napi, &dummy_repoll);
-+			if (unlikely(budget <= 0 ||
-+				     time_after_eq(jiffies, time_limit))) {
-+				cond_resched_softirq();
-+
-+				/* refresh the budget */
-+				budget = netdev_budget;
-+				__kfree_skb_flush();
-+				time_limit = jiffies + 2;
-+			}
-+
-+			if (napi_disable_pending(napi))
-+				again = false;
-+			else if (!test_bit(NAPI_STATE_SCHED, &napi->state))
-+				again = false;
-+		} while (again);
-+
-+		__kfree_skb_flush();
-+		local_bh_enable();
-+	}
-+	return 0;
-+}
-+
-+int napi_set_threaded(struct napi_struct *n, bool threaded)
-+{
-+	ASSERT_RTNL();
-+
-+	if (n->dev->flags & IFF_UP)
-+		return -EBUSY;
-+
-+	if (threaded == !!test_bit(NAPI_STATE_THREADED, &n->state))
-+		return 0;
-+	if (threaded)
-+		set_bit(NAPI_STATE_THREADED, &n->state);
-+	else
-+		clear_bit(NAPI_STATE_THREADED, &n->state);
-+
-+	/* if the device is initializing, nothing todo */
-+	if (test_bit(__LINK_STATE_START, &n->dev->state))
-+		return 0;
-+
-+	napi_thread_stop(n);
-+	napi_thread_start(n);
-+	return 0;
-+}
-+EXPORT_SYMBOL(napi_set_threaded);
-+
- static void net_rx_action(struct softirq_action *h)
- {
- 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
--- 
-1.8.3.1
+ 			if (unlikely(page == NULL))
+ 				return -ENOMEM;
+ 			dma_addr =
