@@ -1,47 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/14] qed: Add CONFIG_QED_SRIOV
-Date: Tue, 10 May 2016 15:10:53 -0400 (EDT)
-Message-ID: <20160510.151053.113553471670048412.davem@davemloft.net>
-References: <CO2PR11MB00887DD775313A8DC3F39FA597710@CO2PR11MB0088.namprd11.prod.outlook.com>
-	<20160510.140643.1891656073031893382.davem@davemloft.net>
-	<CO2PR11MB0088ECDC1D7A65B703E2DDE797710@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Tue, 10 May 2016 22:11:54 +0300
+Message-ID: <5732327A.6080203@cogentembedded.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com> <5732294F.3060606@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbcEJTK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 15:10:56 -0400
-In-Reply-To: <CO2PR11MB0088ECDC1D7A65B703E2DDE797710@CO2PR11MB0088.namprd11.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5732294F.3060606-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Tue, 10 May 2016 18:15:08 +0000
+Hello.
 
->> > I'm not entirely convinced this is true; If we'll not enforce the
->> > alignment of this 64-bit field, it's possible there will be
->> > differences between 32-bit and 64-bit machines versions of this struct.
->> > You have to recall that this is going to be copied via DMA between PF
->> > and VF, so they must have the exact same representation of the structure.
->> 
->> Then use properly sized types to fill in all the space in the structure, that's how
->> you guarantee layout, not aligned_u64.  Also, do not use the packed attribute.
->> 
->> struct foo {
->> 	u32 x;
->> 	u32 y;
->> 	u64 z;
->> };
->> 
->> 'z' will always be 64-bit aligned.
-> 
-> Perhaps my bit-numeric is a bit weak - why is it so?
+On 05/10/2016 09:32 PM, Florian Fainelli wrote:
 
-foo is 64-bit aligned, therefore a properly aligned struct member will
-be so as well.
+>> The PHY devices sometimes do have their reset signal (maybe even power
+>> supply?) tied to some GPIO and sometimes it also does happen that a boot
+>> loader does not leave it deasserted. So far this issue has been attacked
+>> from (as I believe) a wrong angle: by teaching the MAC driver to manipulate
+>> the GPIO in question; that solution, when applied to the device trees, led
+>> to adding the PHY reset GPIO properties to the MAC device node, with one
+>> exception: Cadence MACB driver which could handle the "reset-gpios" prop
+>> in a PHY device subnode. I believe that the correct approach is to teach
+>> the 'phylib' to get the MDIO device reset GPIO from the device tree node
+>> corresponding to this device -- which this patch is doing...
+>>
+>> Note that I had to modify the  AT803x PHY driver as it would stop working
+>> otherwise as it made use of the reset GPIO for its own purposes...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+>
+> This looks good to me:
+>
+> Acked-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-We absolutely depend upon this for several data structures in the kernel.
+    Thank you! I'll send v3 without [RFT] then.
+
+> Can you follow up with changes in phy_{suspend,resume}
+
+    I'm not sure what changes you mean -- powering down the PHYs?
+
+> if that is also
+> an use case that you have?
+
+    No, I'm not into power management.
+
+MBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
