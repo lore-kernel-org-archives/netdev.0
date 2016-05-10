@@ -1,42 +1,28 @@
-From: zengzhaoxiu@163.com
-Subject: [patch V4 29/31] ethernet: use parity8 in broadcom/tg3.c
-Date: Wed, 11 May 2016 17:24:33 +0800
-Message-ID: <1462958673-26096-1-git-send-email-zengzhaoxiu@163.com>
-References: <1462955158-28394-1-git-send-email-zengzhaoxiu@163.com>
-Cc: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>,
-	Siva Reddy Kallam <siva.kallam@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462955158-28394-1-git-send-email-zengzhaoxiu@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "aburov52@gmail.com" <128128warranty@vossenwheels.com>
+Subject: =?windows-1251?B?0e7h5fDl7CDk6/8gwuDxIO/uIOjt8uXw7eXy?=
+	=?windows-1251?B?IOHg5/Mg5ODt7fv1IM/u8uXt9ujg6/zt+/Ug?=
+	=?windows-1251?B?6uvo5e3y7uIg5Ov/IMLg+OXj7iDB6Oft5fHg?=
+	=?windows-1251?B?IPLl6yArNzkxMzM5MTM4MzcgKFZpYmVyLCBX?=
+	=?windows-1251?B?aGF0c2FwcCwgVGVsZWdyYW0pIFNreXBlOiBw?=
+	=?windows-1251?B?cm9kYXdlejM4OSBFbWFpbDogYWJ1cm92NTJA?=
+	=?windows-1251?B?Z21haWwuY29tINPn7eDp8uUg7+7k8O7h7eXl?=
+	=?windows-1251?B?IQ==?=
+Date: Wed, 11 May 2016 03:03:53 +0600
+Message-ID: <7E7BCD9E95416EAD71743D8226A42BCD@vossenwheels.com>
+Reply-To: "aburov52@gmail.com" <aburov52@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1251";
+Content-Transfer-Encoding: base64
+To: "warranty@vossenwheels.com" <warranty@vossenwheels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [115.159.55.17] ([115.159.55.17]:47682 "EHLO
+	VM_68_65_centos.localdomain" rhost-flags-FAIL-FAIL-FAIL-FAIL)
+	by vger.kernel.org with ESMTP id S1751765AbcEKJdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 05:33:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
-
-Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
-Acked-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3010080..802a429 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -12939,11 +12939,7 @@ static int tg3_test_nvram(struct tg3 *tp)
- 
- 		err = -EIO;
- 		for (i = 0; i < NVRAM_SELFBOOT_DATA_SIZE; i++) {
--			u8 hw8 = hweight8(data[i]);
--
--			if ((hw8 & 0x1) && parity[i])
--				goto out;
--			else if (!(hw8 & 0x1) && !parity[i])
-+			if (parity8(data[i]) == !!parity[i])
- 				goto out;
- 		}
- 		err = 0;
--- 
-2.7.4
+0e7h5fDl7CDk6/8gwuDxIO/uIOjt8uXw7eXyIOHg5/Mg5ODt7fv1IM/u8uXt9ujg6/zt+/Ug6uvo
+5e3y7uIg5Ov/IMLg+OXj7iDB6Oft5fHgIPLl6yArNzkxMzM5MTM4MzcgKFZpYmVyLCBXaGF0c2Fw
+cCwgVGVsZWdyYW0pIFNreXBlOiBwcm9kYXdlejM4OSBFbWFpbDogYWJ1cm92NTJAZ21haWwuY29t
+INPn7eDp8uUg7+7k8O7h7eXlIQ0KDQoNCg==
