@@ -1,53 +1,44 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH] igb: adjust ptp timestamps for tx/rx latency
-Date: Tue, 10 May 2016 01:31:49 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81EFAB94@ORSMSX101.amr.corp.intel.com>
-References: <1462317056-28805-1-git-send-email-nathan.sullivan@ni.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Mon, 09 May 2016 21:32:08 -0400 (EDT)
+Message-ID: <20160509.213208.1216178823447582162.davem@davemloft.net>
+References: <20160510112914.08f1a497@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nathan Sullivan <nathan.sullivan@ni.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462317056-28805-1-git-send-email-nathan.sullivan@ni.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35823 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754228AbcEJBcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 21:32:11 -0400
+In-Reply-To: <20160510112914.08f1a497@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Nathan Sullivan
-> Sent: Tuesday, May 3, 2016 4:11 PM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; Brandeburg, Jesse
-> <jesse.brandeburg@intel.com>; Nelson, Shannon
-> <shannon.nelson@intel.com>; Wyborny, Carolyn
-> <carolyn.wyborny@intel.com>; Skidmore, Donald C
-> <donald.c.skidmore@intel.com>; Allan, Bruce W <bruce.w.allan@intel.com>;
-> Ronciak, John <john.ronciak@intel.com>; Williams, Mitch A
-> <mitch.a.williams@intel.com>
-> Cc: intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Nathan Sullivan <nathan.sullivan@ni.com>
-> Subject: [PATCH] igb: adjust ptp timestamps for tx/rx latency
-> 
-> Table 7-62 on page 338 of the i210 datasheet lists TX and RX latencies
-> for the various speeds the chip supports.  To give better ptp timestamp
-> accuracy, adjust the timestamps by the amounts Intel gives based on
-> current link speed.
-> 
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb.h     |    8 +++++++
->  drivers/net/ethernet/intel/igb/igb_ptp.c |   36
-> ++++++++++++++++++++++++++++++
->  2 files changed, 44 insertions(+)
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 10 May 2016 11:29:14 +1000
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Caused by commit
+> 
+>   e800072c18f0 ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
+> 
+> which seems to have reversed some of the merge fixes in commit
+> 
+>   cba653210056 ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
+> 
+> But I am not reaaly sure what has happened here :-(
+> 
+> I tried to use the net-next tree from next-20160509 but that now has
+> conflicts agains other changes, so I applied the following fix patch
+> for today.
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 10 May 2016 11:20:23 +1000
+> Subject: [PATCH] net-next: fix bad merge
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+
+Thanks Stephen, I'll try to sort this out.
