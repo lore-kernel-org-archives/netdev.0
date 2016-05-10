@@ -1,38 +1,42 @@
-From: Vivek Bhagat <vivek.bhagat89@gmail.com>
-Subject: ax88179_178a: disabled FLAG_MULTI_PACKET
-Date: Tue, 10 May 2016 13:05:28 +0530
-Message-ID: <CA+vmRF7Rb9HqCjCW84YEqofBDTcsst89BU=zX=Y5fMCeXbP+KA@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V3 00/10] cls_flower hardware offload support
+Date: Tue, 10 May 2016 10:37:46 +0300
+Message-ID: <CAJ3xEMhJ5OSgtRCg9s3ZNZeyw8bjEra0gX-t8kA-ViXJE1msXQ@mail.gmail.com>
+References: <1457433758-9193-1-git-send-email-amir@vadai.me>
+	<20160310.162435.690159053489962918.davem@davemloft.net>
+	<CAJ3xEMjB5YRySTviaKzpr432MR61TnBqJdsqs8rBdfS6cSp2Dg@mail.gmail.com>
+	<20160509.211435.166413633642228166.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Cc: Amir Vadai <amir@vadai.me>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:35647 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033AbcEJHf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 03:35:29 -0400
-Received: by mail-qg0-f49.google.com with SMTP id f74so1992053qge.2
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 00:35:29 -0700 (PDT)
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:35523 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbcEJHhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 03:37:47 -0400
+Received: by mail-oi0-f50.google.com with SMTP id x19so5213897oix.2
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 00:37:46 -0700 (PDT)
+In-Reply-To: <20160509.211435.166413633642228166.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, May 10, 2016 at 4:14 AM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <gerlitz.or@gmail.com>
+> Date: Mon, 9 May 2016 23:31:52 +0300
 
-ax88179_178a_rx_fixup() function is cloning the data and calling
-usbnet_skb_return(). Since FLAG_MULTI_PACKET is not set,
-usbnet_skb_return() is being called second time within rx_process()
-function in usbnet.c.
+>> Wanted to check with you if such a submission can take place in
+>> parallel with another net-next mlx5 only submission which is planned
+>> by the driver team.
 
-I simply enabled the flag in ax88179_info as below -
-    .flags = FLAG_ETHER..| FLAG_MULTI_PACKET
+> One series at a time please.
 
-Ping stops working.
+Okay, since the driver-only series is three patches, will put all in
+one series,
+such that it'e ensured no conflicts and such.
 
-Could anyone please point out what could be the reason behind sending
-same packets 2 times to upper layer (from usbnet and its class driver
-ax88179_178a)?
-
-In case of asix 2.0 driver, avove flag is set and it is working.
-
-
-Thanks,
-Vivek
+Or.
