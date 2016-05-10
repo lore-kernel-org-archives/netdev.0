@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/7] net: ircomm, cleanup TIOCGSERIAL
-Date: Tue, 10 May 2016 14:16:15 -0400 (EDT)
-Message-ID: <20160510.141615.174614051833919078.davem@davemloft.net>
-References: <1462777919-10367-1-git-send-email-jslaby@suse.cz>
-	<1462777919-10367-2-git-send-email-jslaby@suse.cz>
+Subject: Re: pull-request: can-next 2016-05-09,pull-request: can-next
+ 2016-05-09
+Date: Tue, 10 May 2016 14:19:33 -0400 (EDT)
+Message-ID: <20160510.141933.860450741621345452.davem@davemloft.net>
+References: <5730639F.2030104@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-serial@vger.kernel.org,
-	linux-kernel@vger.kernel.org, samuel@sortiz.org,
-	netdev@vger.kernel.org
-To: jslaby@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462777919-10367-2-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41988 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751162AbcEJSTf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 14:19:35 -0400
+In-Reply-To: <5730639F.2030104@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Mon,  9 May 2016 09:11:54 +0200
+=46rom: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon, 9 May 2016 12:17:03 +0200
 
-> In ircomm_tty_get_serial_info, struct serial_struct is memset to 0 and
-> then some members set to 0 explicitly.
-> 
-> Remove the latter as it is obviously superfluous.
-> 
-> And remove the retinfo check against NULL. copy_to_user will take care
-> of that.
-> 
-> Part of hub6 cleanup series.
-> 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> this is a pull request of 12 patches for net-next/master.
+>=20
+> Alexander Gerasiov and Nikita Edward Baruzdin each contribute a patch
+> improving the sja1000 driver. Amitoj Kaur Chawla's patch converts the
+> mcp251x driver to alloc_workqueue(). A patch by Oliver Hartkopp fixes
+> the handling of CAN config options. Andreas Gr=F6ger improves the err=
+or
+> handling in the janz-ican3 driver. The patch by Maximilian Schneider
+> for the gs_usb improves probing of the USB driver. Finally there are =
+6
+> improvement patches by Marek Vasut for the ifi CAN driver.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Pulled, thanks Marc.
