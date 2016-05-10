@@ -1,47 +1,37 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next PATCH v2 3/6] net sched: mirred action fix late binding
-Date: Mon, 9 May 2016 21:37:05 -0700
-Message-ID: <CAM_iQpUCuNs9dcqxoM8rhhhoyYChHEGeqqXhecBw7+nX+m_j+w@mail.gmail.com>
-References: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
- <1462728392-28489-4-git-send-email-jhs@emojatatu.com> <CAM_iQpWjQsJTRVoE2nf4SxY=YF-0q4j6kDD8fJDLq3K=2QWwLw@mail.gmail.com>
- <573079DA.4020807@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] ip6: Transmit tunneling fixes
+Date: Tue, 10 May 2016 00:39:42 -0400 (EDT)
+Message-ID: <20160510.003942.2286178035902304419.davem@davemloft.net>
+References: <1462839132-980991-1-git-send-email-tom@herbertland.com>
+	<CAKgT0Ue_D0_nGuYQnrYfXBDdKb+ieUhZKcfnz_QxhN61mvReBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, netdev@vger.kernel.org, kernel-team@fb.com
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:34665 "EHLO
-	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbcEJEhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 00:37:25 -0400
-Received: by mail-yw0-f172.google.com with SMTP id j74so1306713ywg.1
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 21:37:25 -0700 (PDT)
-In-Reply-To: <573079DA.4020807@mojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36875 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750979AbcEJEjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 00:39:47 -0400
+In-Reply-To: <CAKgT0Ue_D0_nGuYQnrYfXBDdKb+ieUhZKcfnz_QxhN61mvReBw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 9, 2016 at 4:51 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-05-08 11:19 PM, Cong Wang wrote:
->>
->> On Sun, May 8, 2016 at 10:26 AM, Jamal Hadi Salim <jhs@mojatatu.com>
->> wrote:
->>>
->>> -static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int
->>> bind, int ref)
->>> +static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int
->>> bind,
->>> +                          int ref)
->>>   {
->>>          unsigned char *b = skb_tail_pointer(skb);
->>>          struct tcf_mirred *m = a->priv;
->>
->>
->> Nit: this is irrelevant to the bug you fix.
->>
->
-> It is (80 char) indentation fix. Dont think it deserves its own patch
-> but it was annoying enough to include.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Mon, 9 May 2016 20:30:46 -0700
 
-If you target this to net-next, I would not even mention it, but you
-are targeting it for -stable... ;)
+> On Mon, May 9, 2016 at 5:12 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> Several fixes suggested by Alexander.
+>>
+>> Tested: Running netperf TCP_STREAM with gretap and keyid configured.
+>> Visually verified that MTU is correctly being set. Did not test HW
+>> offload (Alexander plese try)
+> 
+> This appears to have fixed the issues I saw.  I can confirm the MTU is
+> the same value that it was before the regression and I am able to
+> send/receive at around 17Gb/s.
+> 
+> Tested-by: Alexander Duyck <aduyck@mirantis.com>
+
+Series applied, thanks everyone.
