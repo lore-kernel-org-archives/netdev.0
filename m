@@ -1,52 +1,122 @@
-From: tcharding <me@tobin.cc>
-Subject: [PATCH 3/3] bridge: netfilter: checkpatch null comparison fixes
-Date: Tue, 10 May 2016 11:26:58 +1000
-Message-ID: <1462843618-21914-4-git-send-email-me@tobin.cc>
-References: <1462843618-21914-1-git-send-email-me@tobin.cc>
-Cc: Tobin C Harding <me@tobin.cc>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1462843618-21914-1-git-send-email-me@tobin.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Tue, 10 May 2016 11:29:05 +1000
+Message-ID: <20160510112905.5bffcad8@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Bjorn Andersson <bjorn.andersson@sonymobile.com>,
+	Andy Gross <andy.gross@linaro.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tobin C Harding <me@tobin.cc>
+Hi all,
 
-checkpatch produces comparison to null 'checks'.
+After merging the net-next tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-This patch amends them.
+net/qrtr/smd.c:106:14: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+  .callback = qcom_smd_qrtr_callback,
+              ^
+net/qrtr/smd.c:106:14: note: (near initialization for 'qcom_smd_qrtr_driver.callback')
 
-Signed-off-by: Tobin C Harding <me@tobin.cc>
+Caused by commit
+
+  bdabad3e363d ("net: Add Qualcomm IPC router")
+
+interacting with commit
+
+  b853cb9628bf ("soc: qcom: smd: Make callback pass channel reference")
+
+from the arm-soc tree.
+
+I added the following merge fix patch (and it turned out I needed the
+new stubs).
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 10 May 2016 11:14:06 +1000
+Subject: [PATCH] soc: qcom: smd: fix for Qualcomm IPC router and callback API
+ change
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- net/bridge/netfilter/ebt_stp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/linux/soc/qcom/smd.h | 9 +++++++++
+ net/qrtr/smd.c               | 9 ++++++---
+ 2 files changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebt_stp.c b/net/bridge/netfilter/ebt_stp.c
-index 9df943f..677904f 100644
---- a/net/bridge/netfilter/ebt_stp.c
-+++ b/net/bridge/netfilter/ebt_stp.c
-@@ -128,7 +128,7 @@ ebt_stp_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	const u8 header[6] = {0x42, 0x42, 0x03, 0x00, 0x00, 0x00};
+diff --git a/include/linux/soc/qcom/smd.h b/include/linux/soc/qcom/smd.h
+index 086e36d76be9..fbebbfc82ed3 100644
+--- a/include/linux/soc/qcom/smd.h
++++ b/include/linux/soc/qcom/smd.h
+@@ -70,6 +70,15 @@ static inline void qcom_smd_driver_unregister(struct qcom_smd_driver *drv)
+ 	WARN_ON(1);
+ }
  
- 	sp = skb_header_pointer(skb, 0, sizeof(_stph), &_stph);
--	if (sp == NULL)
-+	if (!sp)
- 		return false;
++static inline void *qcom_smd_get_drvdata(struct qcom_smd_channel *channel)
++{
++	return NULL;
++}
++
++static inline void qcom_smd_set_drvdata(struct qcom_smd_channel *channel, void *data)
++{
++}
++
+ static inline int qcom_smd_send(struct qcom_smd_channel *channel,
+ 				const void *data, int len)
+ {
+diff --git a/net/qrtr/smd.c b/net/qrtr/smd.c
+index 84ebce73aa23..0d11132b3370 100644
+--- a/net/qrtr/smd.c
++++ b/net/qrtr/smd.c
+@@ -21,13 +21,14 @@
+ struct qrtr_smd_dev {
+ 	struct qrtr_endpoint ep;
+ 	struct qcom_smd_channel *channel;
++	struct device *dev;
+ };
  
- 	/* The stp code only considers these */
-@@ -146,7 +146,7 @@ ebt_stp_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ /* from smd to qrtr */
+-static int qcom_smd_qrtr_callback(struct qcom_smd_device *sdev,
++static int qcom_smd_qrtr_callback(struct qcom_smd_channel *channel,
+ 				  const void *data, size_t len)
+ {
+-	struct qrtr_smd_dev *qdev = dev_get_drvdata(&sdev->dev);
++	struct qrtr_smd_dev *qdev = qcom_smd_get_drvdata(channel);
+ 	int rc;
  
- 		st = skb_header_pointer(skb, sizeof(_stph),
- 					sizeof(_stpc), &_stpc);
--		if (st == NULL)
-+		if (!st)
- 			return false;
- 		return ebt_filter_config(info, st);
+ 	if (!qdev)
+@@ -35,7 +36,7 @@ static int qcom_smd_qrtr_callback(struct qcom_smd_device *sdev,
+ 
+ 	rc = qrtr_endpoint_post(&qdev->ep, data, len);
+ 	if (rc == -EINVAL) {
+-		dev_err(&sdev->dev, "invalid ipcrouter packet\n");
++		dev_err(qdev->dev, "invalid ipcrouter packet\n");
+ 		/* return 0 to let smd drop the packet */
+ 		rc = 0;
  	}
+@@ -73,12 +74,14 @@ static int qcom_smd_qrtr_probe(struct qcom_smd_device *sdev)
+ 		return -ENOMEM;
+ 
+ 	qdev->channel = sdev->channel;
++	qdev->dev = &sdev->dev;
+ 	qdev->ep.xmit = qcom_smd_qrtr_send;
+ 
+ 	rc = qrtr_endpoint_register(&qdev->ep, QRTR_EP_NID_AUTO);
+ 	if (rc)
+ 		return rc;
+ 
++	qcom_smd_set_drvdata(sdev->channel, qdev);
+ 	dev_set_drvdata(&sdev->dev, qdev);
+ 
+ 	dev_dbg(&sdev->dev, "Qualcomm SMD QRTR driver probed\n");
 -- 
-2.8.2
+2.7.0
 
+-- 
+Cheers,
+Stephen Rothwell
