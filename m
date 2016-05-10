@@ -1,33 +1,50 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 0/5] ip6: Transmit tunneling fixes
-Date: Mon, 9 May 2016 20:30:46 -0700
-Message-ID: <CAKgT0Ue_D0_nGuYQnrYfXBDdKb+ieUhZKcfnz_QxhN61mvReBw@mail.gmail.com>
-References: <1462839132-980991-1-git-send-email-tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: refresh skb timestamp at retransmit time
+Date: Mon, 09 May 2016 20:55:16 -0700
+Message-ID: <1462852516.23934.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:34349 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753013AbcEJDas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 23:30:48 -0400
-Received: by mail-io0-f172.google.com with SMTP id 190so2729593iow.1
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 20:30:47 -0700 (PDT)
-In-Reply-To: <1462839132-980991-1-git-send-email-tom@herbertland.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36059 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbcEJDzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 23:55:19 -0400
+Received: by mail-pf0-f182.google.com with SMTP id c189so482558pfb.3
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 20:55:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 9, 2016 at 5:12 PM, Tom Herbert <tom@herbertland.com> wrote:
-> Several fixes suggested by Alexander.
->
-> Tested: Running netperf TCP_STREAM with gretap and keyid configured.
-> Visually verified that MTU is correctly being set. Did not test HW
-> offload (Alexander plese try)
+From: Eric Dumazet <edumazet@google.com>
 
-This appears to have fixed the issues I saw.  I can confirm the MTU is
-the same value that it was before the regression and I am able to
-send/receive at around 17Gb/s.
+In the very unlikely case __tcp_retransmit_skb() can not use the cloning
+done in tcp_transmit_skb(), we need to refresh skb_mstamp before doing
+the copy and transmit, otherwise TCP TS val will be an exact copy of
+original transmit.
 
-Tested-by: Alexander Duyck <aduyck@mirantis.com>
+Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 441ae9da3a23..79a03b87a771 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2640,8 +2640,10 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	 */
+ 	if (unlikely((NET_IP_ALIGN && ((unsigned long)skb->data & 3)) ||
+ 		     skb_headroom(skb) >= 0xFFFF)) {
+-		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
+-						   GFP_ATOMIC);
++		struct sk_buff *nskb;
++
++		skb_mstamp_get(&skb->skb_mstamp);
++		nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
+ 		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+ 			     -ENOBUFS;
+ 	} else {
