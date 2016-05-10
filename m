@@ -1,83 +1,83 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net PATCH v2 2/6] net sched: ipt action fix late binding
-Date: Tue, 10 May 2016 16:49:27 -0400
-Message-ID: <1462913371-9699-3-git-send-email-jhs@emojatatu.com>
-References: <1462913371-9699-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-	alexander.duyck@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36800 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069AbcEJUtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 16:49:43 -0400
-Received: by mail-io0-f194.google.com with SMTP id k129so3119242iof.3
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 13:49:43 -0700 (PDT)
-In-Reply-To: <1462913371-9699-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Tue, 10 May 2016 16:50:56 -0400
+Message-ID: <1462913455.16365.12.camel@redhat.com>
+References: <1462896230.6687.74.camel@redhat.com>
+	 <1462896539.23934.93.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1462911770.5333.11.camel@redhat.com>
+	 <20160510.164538.1375529074383780155.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha256"; protocol="application/pgp-signature"; boundary="=-HpAE9kBurz3ExaIP5NKA"
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	edumazet@google.com, jiri@mellanox.com, daniel@iogearbox.net,
+	ast@plumgrid.com, aduyck@mirantis.com, tom@herbertland.com,
+	peterz@infradead.org, mingo@kernel.org, hannes@stressinduktion.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, pabeni@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160510.164538.1375529074383780155.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-This was broken and is fixed with this patch.
+--=-HpAE9kBurz3ExaIP5NKA
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-//add an ipt action and give it an instance id of 1
-sudo tc actions add action ipt -j mark --set-mark 2 index 1
-//create a filter which binds to ipt action id 1
-sudo tc filter add dev $DEV parent ffff: protocol ip prio 1 u32\
-match ip dst 17.0.0.1/32 flowid 1:10 action ipt index 1
+On Tue, 2016-05-10 at 16:45 -0400, David Miller wrote:
+> From: Paolo Abeni <pabeni@redhat.com>
+> Date: Tue, 10 May 2016 22:22:50 +0200
+>=20
+> > On Tue, 2016-05-10 at 09:08 -0700, Eric Dumazet wrote:
+> >> On Tue, 2016-05-10 at 18:03 +0200, Paolo Abeni wrote:
+> >>=C2=A0
+> >> > If a single core host is under network flood, i.e. ksoftirqd is
+> >> > scheduled and it eventually (after processing ~640 packets) will
+> let the
+> >> > user space process run. The latter will execute a syscall to
+> receive a
+> >> > packet, which will have to disable/enable bh at least once and
+> that will
+> >> > cause the processing of another ~640 packets. To receive a
+> single packet
+> >> > in user space, the kernel has to process more than one thousand
+> packets.
+> >>=C2=A0
+> >> Looks you found the bug then. Have you tried to fix it ?
+> =C2=A0...
+> > The ksoftirq and the local_bh_enable() design are the root of the
+> > problem, they need to be touched/affected to solve it.
+>=20
+> That's not what I read from your description, processing 640 packets
+> before going to ksoftirqd seems to the be the absolute root problem.
 
-Message before bug fix was:
-RTNETLINK answers: Invalid argument
-We have an error talking to the kernel
+What would a fix for that look like?
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_ipt.c | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+Keep track of the number of processed incoming packets,
+and the number of packets handed off, and defer to
+ksoftirqd earlier if the statistics suggest packets are
+getting dropped on the floor?
 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 350e134..8b52700 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -96,7 +96,7 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	struct tcf_ipt *ipt;
- 	struct xt_entry_target *td, *t;
- 	char *tname;
--	int ret = 0, err;
-+	int ret = 0, err, exists = 0;
- 	u32 hook = 0;
- 	u32 index = 0;
- 
-@@ -107,18 +107,23 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	if (err < 0)
- 		return err;
- 
--	if (tb[TCA_IPT_HOOK] == NULL)
--		return -EINVAL;
--	if (tb[TCA_IPT_TARG] == NULL)
-+	if (tb[TCA_IPT_INDEX] != NULL)
-+		index = nla_get_u32(tb[TCA_IPT_INDEX]);
-+
-+	exists = tcf_hash_check(tn, index, a, bind);
-+	if (exists && bind)
-+		return 0;
-+
-+	if (tb[TCA_IPT_HOOK] == NULL || tb[TCA_IPT_TARG] == NULL) {
-+		if (exists)
-+			tcf_hash_release(a, bind);
- 		return -EINVAL;
-+	}
- 
- 	td = (struct xt_entry_target *)nla_data(tb[TCA_IPT_TARG]);
- 	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size)
- 		return -EINVAL;
- 
--	if (tb[TCA_IPT_INDEX] != NULL)
--		index = nla_get_u32(tb[TCA_IPT_INDEX]);
--
- 	if (!tcf_hash_check(tn, index, a, bind)) {
- 		ret = tcf_hash_create(tn, index, est, a, sizeof(*ipt), bind,
- 				      false);
--- 
-1.9.1
+Is there a cheap way to do that kind of thing?
+
+--=20
+All Rights Reversed.
+
+
+--=-HpAE9kBurz3ExaIP5NKA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJXMkmvAAoJEM553pKExN6DzAgIALEIisdS4vyXrvgkxLg2A/k6
+1tj3rATMINT7HhwUnenC/CgYuG64950/Gb9nT5icZR7HjAElBrkSVLWNLG4l7ZjF
+dIOrG8t55susDKE3g01fMuWhXM7dpU1AtGsKkHFLGIebiZ9zo5k6YRM7JAk/tySj
+pVeQT1lLLzPY8sudgjuqq6cz/mewbxzP4tyB+jHdckyBCV7Qbix061tTGEqVfHQo
+uOLCIW0RHBW7GFUN79RxZ4scNyICl1yqr53chdgICjkH9Ohlod06/6z0tdvq98fx
+2Jplw0d8tdiSGCB2FjuYOGoBhK78jF/i79rf3C0bDcUdkEC9XKto55GjQqczrlU=
+=9y3K
+-----END PGP SIGNATURE-----
+
+--=-HpAE9kBurz3ExaIP5NKA--
