@@ -1,311 +1,135 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 2/3] net/mlx5e: Expand WQE stride when CQE compression is enabled
-Date: Wed, 11 May 2016 00:29:15 +0300
-Message-ID: <1462915756-18180-3-git-send-email-saeedm@mellanox.com>
-References: <1462915756-18180-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Tue, 10 May 2016 17:35:21 -0400
+Message-ID: <1462916121.16365.14.camel@redhat.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <1462915900.23934.99.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-+Hp82MwztQaz4s3S4XK7"
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Paolo Abeni <pabeni@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:52818 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753102AbcEJVcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2016 17:32:32 -0400
-In-Reply-To: <1462915756-18180-1-git-send-email-saeedm@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59845 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751479AbcEJVf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2016 17:35:26 -0400
+In-Reply-To: <1462915900.23934.99.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
 
-Make the MPWQE/Striding RQ default configuration dynamic and not
-statically set at compile time.  Now at driver load we set
-stride size and num strides dynamically.
+--=-+Hp82MwztQaz4s3S4XK7
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-By default we use same values as before, but when CQE compression
-is enabled, we set larger stride size to benefit from CQE
-compression for larger packets.
+On Tue, 2016-05-10 at 14:31 -0700, Eric Dumazet wrote:
+> On Tue, 2016-05-10 at 14:09 -0700, Eric Dumazet wrote:
+> >=20
+> > On Tue, May 10, 2016 at 1:46 PM, Hannes Frederic Sowa
+> > <hannes@stressinduktion.org> wrote:
+> >=20
+> > >=20
+> > > I agree here, but I don't think this patch particularly is a lot
+> > > of
+> > > bloat and something very interesting people can play with and
+> > > extend upon.
+> > >=20
+> > Sure, very rarely patch authors think their stuff is bloat.
+> >=20
+> > I prefer to fix kernel softirq.c, or at least show me that you
+> > tried
+> > hard enough.
+> >=20
+> > I am pretty sure that the following would work :
+> >=20
+> > When ksoftirqd is scheduled, remember this in a per cpu variable
+> > (ksoftiqd_scheduled)
+> >=20
+> > When enabling BH , do not call do_softirq() if this variable is
+> > set.
+> >=20
+> > ksoftirqd would clear the variable at the right place (probably in
+> > run_ksoftirqd())
+> >=20
+> > Sure, this might add a lot of latency regressions, but lets fix
+> > them.
+> Only to give the idea (it is completely untested and probably buggy)
+>=20
+> diff --git a/kernel/softirq.c b/kernel/softirq.c
+> index 17caf4b63342..cb30cfd76687 100644
+> --- a/kernel/softirq.c
+> +++ b/kernel/softirq.c
+> @@ -56,6 +56,7 @@ EXPORT_SYMBOL(irq_stat);
+> =C2=A0static struct softirq_action softirq_vec[NR_SOFTIRQS]
+> __cacheline_aligned_in_smp;
+> =C2=A0
+> =C2=A0DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+> +DEFINE_PER_CPU(bool, ksoftirqd_scheduled);
+> =C2=A0
+> =C2=A0const char * const softirq_to_name[NR_SOFTIRQS] =3D {
+> =C2=A0	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
+> @@ -73,8 +74,10 @@ static void wakeup_softirqd(void)
+> =C2=A0	/* Interrupts are disabled: no need to stop preemption */
+> =C2=A0	struct task_struct *tsk =3D __this_cpu_read(ksoftirqd);
+> =C2=A0
+> -	if (tsk && tsk->state !=3D TASK_RUNNING)
+> +	if (tsk && tsk->state !=3D TASK_RUNNING) {
+> +		__this_cpu_write(ksoftirqd_scheduled, true);
+> =C2=A0		wake_up_process(tsk);
+> +	}
+> =C2=A0}
+> =C2=A0
+> =C2=A0/*
+> @@ -162,7 +165,9 @@ void __local_bh_enable_ip(unsigned long ip,
+> unsigned int cnt)
+> =C2=A0	=C2=A0*/
+> =C2=A0	preempt_count_sub(cnt - 1);
+> =C2=A0
+> -	if (unlikely(!in_interrupt() && local_softirq_pending())) {
+> +	if (unlikely(!in_interrupt() &&
+> +		=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0local_softirq_pending() &&
+> +		=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0!__this_cpu_read(ksoftirqd_scheduled))) =
+{
+> =C2=A0		/*
+>=20
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 13 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 23 ++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 39 ++++++++++++-----------
- 3 files changed, 46 insertions(+), 29 deletions(-)
+You might need another one of these in invoke_softirq()
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 19f0d8d..e05abad 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -64,12 +64,9 @@
- #define MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW            0x4
- #define MLX5E_PARAMS_MAXIMUM_LOG_RQ_SIZE_MPW            0x6
- 
--#define MLX5_MPWRQ_LOG_NUM_STRIDES		11 /* >= 9, HW restriction */
- #define MLX5_MPWRQ_LOG_STRIDE_SIZE		6  /* >= 6, HW restriction */
--#define MLX5_MPWRQ_NUM_STRIDES			BIT(MLX5_MPWRQ_LOG_NUM_STRIDES)
--#define MLX5_MPWRQ_STRIDE_SIZE			BIT(MLX5_MPWRQ_LOG_STRIDE_SIZE)
--#define MLX5_MPWRQ_LOG_WQE_SZ			(MLX5_MPWRQ_LOG_NUM_STRIDES +\
--						 MLX5_MPWRQ_LOG_STRIDE_SIZE)
-+#define MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS	8  /* >= 6, HW restriction */
-+#define MLX5_MPWRQ_LOG_WQE_SZ			17
- #define MLX5_MPWRQ_WQE_PAGE_ORDER  (MLX5_MPWRQ_LOG_WQE_SZ - PAGE_SHIFT > 0 ? \
- 				    MLX5_MPWRQ_LOG_WQE_SZ - PAGE_SHIFT : 0)
- #define MLX5_MPWRQ_PAGES_PER_WQE		BIT(MLX5_MPWRQ_WQE_PAGE_ORDER)
-@@ -154,6 +151,8 @@ struct mlx5e_umr_wqe {
- struct mlx5e_params {
- 	u8  log_sq_size;
- 	u8  rq_wq_type;
-+	u8  mpwqe_log_stride_sz;
-+	u8  mpwqe_log_num_strides;
- 	u8  log_rq_size;
- 	u16 num_channels;
- 	u8  num_tc;
-@@ -249,6 +248,8 @@ struct mlx5e_rq {
- 	/* control */
- 	struct mlx5_wq_ctrl    wq_ctrl;
- 	u8                     wq_type;
-+	u32                    mpwqe_stride_sz;
-+	u32                    mpwqe_num_strides;
- 	u32                    rqn;
- 	struct mlx5e_channel  *channel;
- 	struct mlx5e_priv     *priv;
-@@ -272,7 +273,7 @@ struct mlx5e_mpw_info {
- 	void (*dma_pre_sync)(struct device *pdev,
- 			     struct mlx5e_mpw_info *wi,
- 			     u32 wqe_offset, u32 len);
--	void (*add_skb_frag)(struct device *pdev,
-+	void (*add_skb_frag)(struct mlx5e_rq *rq,
- 			     struct sk_buff *skb,
- 			     struct mlx5e_mpw_info *wi,
- 			     u32 page_idx, u32 frag_offset, u32 len);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 0ea4c03..e40e59a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -307,7 +307,9 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 		rq->handle_rx_cqe = mlx5e_handle_rx_cqe_mpwrq;
- 		rq->alloc_wqe = mlx5e_alloc_rx_mpwqe;
- 
--		rq->wqe_sz = MLX5_MPWRQ_NUM_STRIDES * MLX5_MPWRQ_STRIDE_SIZE;
-+		rq->mpwqe_stride_sz = BIT(priv->params.mpwqe_log_stride_sz);
-+		rq->mpwqe_num_strides = BIT(priv->params.mpwqe_log_num_strides);
-+		rq->wqe_sz = rq->mpwqe_stride_sz * rq->mpwqe_num_strides;
- 		byte_count = rq->wqe_sz;
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
-@@ -1130,9 +1132,9 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
- 	switch (priv->params.rq_wq_type) {
- 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
- 		MLX5_SET(wq, wq, log_wqe_num_of_strides,
--			 MLX5_MPWRQ_LOG_NUM_STRIDES - 9);
-+			 priv->params.mpwqe_log_num_strides - 9);
- 		MLX5_SET(wq, wq, log_wqe_stride_size,
--			 MLX5_MPWRQ_LOG_STRIDE_SIZE - 6);
-+			 priv->params.mpwqe_log_stride_sz - 6);
- 		MLX5_SET(wq, wq, wq_type, MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ);
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
-@@ -1199,7 +1201,7 @@ static void mlx5e_build_rx_cq_param(struct mlx5e_priv *priv,
- 	switch (priv->params.rq_wq_type) {
- 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
- 		log_cq_size = priv->params.log_rq_size +
--			MLX5_MPWRQ_LOG_NUM_STRIDES;
-+			priv->params.mpwqe_log_num_strides;
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
- 		log_cq_size = priv->params.log_rq_size;
-@@ -2729,12 +2731,25 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
- 	switch (priv->params.rq_wq_type) {
- 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
- 		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
-+		priv->params.mpwqe_log_stride_sz =
-+			priv->params.rx_cqe_compress ?
-+			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
-+			MLX5_MPWRQ_LOG_STRIDE_SIZE;
-+		priv->params.mpwqe_log_num_strides = MLX5_MPWRQ_LOG_WQE_SZ -
-+			priv->params.mpwqe_log_stride_sz;
- 		priv->params.lro_en = true;
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
- 		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE;
- 	}
- 
-+	mlx5_core_info(mdev,
-+		       "MLX5E: StrdRq(%d) RqSz(%ld) StrdSz(%ld) RxCqeCmprss(%d)\n",
-+		       priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ,
-+		       BIT(priv->params.log_rq_size),
-+		       BIT(priv->params.mpwqe_log_stride_sz),
-+		       priv->params.rx_cqe_compress_admin);
-+
- 	priv->params.min_rx_wqes = mlx5_min_rx_wqes(priv->params.rq_wq_type,
- 					    BIT(priv->params.log_rq_size));
- 	priv->params.rx_cq_moderation_usec =
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index c8b8d45..f345679 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -127,7 +127,7 @@ static inline u32 mlx5e_decompress_cqes_cont(struct mlx5e_rq *rq,
- 
- 	for (i = update_owner_only; i < cqe_count;
- 	     i++, cq->mini_arr_idx++, cqcc++) {
--		if (unlikely(cq->mini_arr_idx == MLX5_MINI_CQE_ARRAY_SIZE))
-+		if (cq->mini_arr_idx == MLX5_MINI_CQE_ARRAY_SIZE)
- 			mlx5e_read_mini_arr_slot(cq, cqcc);
- 
- 		mlx5e_decompress_cqe_no_hash(rq, cq, cqcc);
-@@ -212,6 +212,11 @@ err_free_skb:
- 	return -ENOMEM;
- }
- 
-+static inline int mlx5e_mpwqe_strides_per_page(struct mlx5e_rq *rq)
-+{
-+	return rq->mpwqe_num_strides >> MLX5_MPWRQ_WQE_PAGE_ORDER;
-+}
-+
- static inline void
- mlx5e_dma_pre_sync_linear_mpwqe(struct device *pdev,
- 				struct mlx5e_mpw_info *wi,
-@@ -230,13 +235,13 @@ mlx5e_dma_pre_sync_fragmented_mpwqe(struct device *pdev,
- }
- 
- static inline void
--mlx5e_add_skb_frag_linear_mpwqe(struct device *pdev,
-+mlx5e_add_skb_frag_linear_mpwqe(struct mlx5e_rq *rq,
- 				struct sk_buff *skb,
- 				struct mlx5e_mpw_info *wi,
- 				u32 page_idx, u32 frag_offset,
- 				u32 len)
- {
--	unsigned int truesize =	ALIGN(len, MLX5_MPWRQ_STRIDE_SIZE);
-+	unsigned int truesize =	ALIGN(len, rq->mpwqe_stride_sz);
- 
- 	wi->skbs_frags[page_idx]++;
- 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
-@@ -245,15 +250,15 @@ mlx5e_add_skb_frag_linear_mpwqe(struct device *pdev,
- }
- 
- static inline void
--mlx5e_add_skb_frag_fragmented_mpwqe(struct device *pdev,
-+mlx5e_add_skb_frag_fragmented_mpwqe(struct mlx5e_rq *rq,
- 				    struct sk_buff *skb,
- 				    struct mlx5e_mpw_info *wi,
- 				    u32 page_idx, u32 frag_offset,
- 				    u32 len)
- {
--	unsigned int truesize =	ALIGN(len, MLX5_MPWRQ_STRIDE_SIZE);
-+	unsigned int truesize =	ALIGN(len, rq->mpwqe_stride_sz);
- 
--	dma_sync_single_for_cpu(pdev,
-+	dma_sync_single_for_cpu(rq->pdev,
- 				wi->umr.dma_info[page_idx].addr + frag_offset,
- 				len, DMA_FROM_DEVICE);
- 	wi->skbs_frags[page_idx]++;
-@@ -293,7 +298,6 @@ mlx5e_copy_skb_header_fragmented_mpwqe(struct device *pdev,
- 	skb_copy_to_linear_data_offset(skb, 0,
- 				       page_address(dma_info->page) + offset,
- 				       len);
--#if (MLX5_MPWRQ_SMALL_PACKET_THRESHOLD >= MLX5_MPWRQ_STRIDE_SIZE)
- 	if (unlikely(offset + headlen > PAGE_SIZE)) {
- 		dma_info++;
- 		headlen_pg = len;
-@@ -304,7 +308,6 @@ mlx5e_copy_skb_header_fragmented_mpwqe(struct device *pdev,
- 					       page_address(dma_info->page),
- 					       len);
- 	}
--#endif
- }
- 
- static u16 mlx5e_get_wqe_mtt_offset(u16 rq_ix, u16 wqe_ix)
-@@ -430,7 +433,7 @@ static int mlx5e_alloc_rx_fragmented_mpwqe(struct mlx5e_rq *rq,
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
- 		if (unlikely(mlx5e_alloc_and_map_page(rq, wi, i)))
- 			goto err_unmap;
--		atomic_add(MLX5_MPWRQ_STRIDES_PER_PAGE,
-+		atomic_add(mlx5e_mpwqe_strides_per_page(rq),
- 			   &wi->umr.dma_info[i].page->_count);
- 		wi->skbs_frags[i] = 0;
- 	}
-@@ -449,7 +452,7 @@ err_unmap:
- 	while (--i >= 0) {
- 		dma_unmap_page(rq->pdev, wi->umr.dma_info[i].addr, PAGE_SIZE,
- 			       PCI_DMA_FROMDEVICE);
--		atomic_sub(MLX5_MPWRQ_STRIDES_PER_PAGE,
-+		atomic_sub(mlx5e_mpwqe_strides_per_page(rq),
- 			   &wi->umr.dma_info[i].page->_count);
- 		put_page(wi->umr.dma_info[i].page);
- 	}
-@@ -474,7 +477,7 @@ void mlx5e_free_rx_fragmented_mpwqe(struct mlx5e_rq *rq,
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
- 		dma_unmap_page(rq->pdev, wi->umr.dma_info[i].addr, PAGE_SIZE,
- 			       PCI_DMA_FROMDEVICE);
--		atomic_sub(MLX5_MPWRQ_STRIDES_PER_PAGE - wi->skbs_frags[i],
-+		atomic_sub(mlx5e_mpwqe_strides_per_page(rq) - wi->skbs_frags[i],
- 			   &wi->umr.dma_info[i].page->_count);
- 		put_page(wi->umr.dma_info[i].page);
- 	}
-@@ -524,7 +527,7 @@ static int mlx5e_alloc_rx_linear_mpwqe(struct mlx5e_rq *rq,
- 	 */
- 	split_page(wi->dma_info.page, MLX5_MPWRQ_WQE_PAGE_ORDER);
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
--		atomic_add(MLX5_MPWRQ_STRIDES_PER_PAGE,
-+		atomic_add(mlx5e_mpwqe_strides_per_page(rq),
- 			   &wi->dma_info.page[i]._count);
- 		wi->skbs_frags[i] = 0;
- 	}
-@@ -548,7 +551,7 @@ void mlx5e_free_rx_linear_mpwqe(struct mlx5e_rq *rq,
- 	dma_unmap_page(rq->pdev, wi->dma_info.addr, rq->wqe_sz,
- 		       PCI_DMA_FROMDEVICE);
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
--		atomic_sub(MLX5_MPWRQ_STRIDES_PER_PAGE - wi->skbs_frags[i],
-+		atomic_sub(mlx5e_mpwqe_strides_per_page(rq) - wi->skbs_frags[i],
- 			   &wi->dma_info.page[i]._count);
- 		put_page(&wi->dma_info.page[i]);
- 	}
-@@ -793,9 +796,9 @@ static inline void mlx5e_mpwqe_fill_rx_skb(struct mlx5e_rq *rq,
- 					   u32 cqe_bcnt,
- 					   struct sk_buff *skb)
- {
--	u32 consumed_bytes = ALIGN(cqe_bcnt, MLX5_MPWRQ_STRIDE_SIZE);
-+	u32 consumed_bytes = ALIGN(cqe_bcnt, rq->mpwqe_stride_sz);
- 	u16 stride_ix      = mpwrq_get_cqe_stride_index(cqe);
--	u32 wqe_offset     = stride_ix * MLX5_MPWRQ_STRIDE_SIZE;
-+	u32 wqe_offset     = stride_ix * rq->mpwqe_stride_sz;
- 	u32 head_offset    = wqe_offset & (PAGE_SIZE - 1);
- 	u32 page_idx       = wqe_offset >> PAGE_SHIFT;
- 	u32 head_page_idx  = page_idx;
-@@ -803,19 +806,17 @@ static inline void mlx5e_mpwqe_fill_rx_skb(struct mlx5e_rq *rq,
- 	u32 frag_offset    = head_offset + headlen;
- 	u16 byte_cnt       = cqe_bcnt - headlen;
- 
--#if (MLX5_MPWRQ_SMALL_PACKET_THRESHOLD >= MLX5_MPWRQ_STRIDE_SIZE)
- 	if (unlikely(frag_offset >= PAGE_SIZE)) {
- 		page_idx++;
- 		frag_offset -= PAGE_SIZE;
- 	}
--#endif
- 	wi->dma_pre_sync(rq->pdev, wi, wqe_offset, consumed_bytes);
- 
- 	while (byte_cnt) {
- 		u32 pg_consumed_bytes =
- 			min_t(u32, PAGE_SIZE - frag_offset, byte_cnt);
- 
--		wi->add_skb_frag(rq->pdev, skb, wi, page_idx, frag_offset,
-+		wi->add_skb_frag(rq, skb, wi, page_idx, frag_offset,
- 				 pg_consumed_bytes);
- 		byte_cnt -= pg_consumed_bytes;
- 		frag_offset = 0;
-@@ -865,7 +866,7 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
- 
- mpwrq_cqe_out:
--	if (likely(wi->consumed_strides < MLX5_MPWRQ_NUM_STRIDES))
-+	if (likely(wi->consumed_strides < rq->mpwqe_num_strides))
- 		return;
- 
- 	wi->free_wqe(rq, wi);
--- 
-2.8.0
+--=20
+All Rights Reversed.
+
+
+--=-+Hp82MwztQaz4s3S4XK7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJXMlQZAAoJEM553pKExN6DeEQIAIOLcR7dEj2Iz6Xul5O06A6t
+d5D3bDJI1fqktmpqAiHKJDYjMX+xcet6iehL0RNol2fdxvnXCXerl1h0n8WhYu21
+5TYWHNSuLukK4H/Cc3Cj3gK37YggYqTmfOduGgBORdcrnyzRU1Hg5JgtYq4UkmW/
+GD/zskSRtS5EcbIvIMGcAEeWNd8ohK5YPX5Yyca4+9Dtn5sctU9SPGpd1AKQKuer
+nlxHBCYweu9F+ULOC/xpugN0KT0GLNQEXYhTDKgONU1OdiyAxcNFVbjLtKfSW5OW
+VO943rzAoWiADEX9RYOd4TKYqQdg+WXM8JhPUlqzBcgiN0P7m28VLI4DyTn0mdE=
+=Hsnj
+-----END PGP SIGNATURE-----
+
+--=-+Hp82MwztQaz4s3S4XK7--
