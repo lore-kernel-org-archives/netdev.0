@@ -1,48 +1,51 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH V3 1/4] net-next: mediatek: use mdiobus_free() in favour of kfree()
-Date: Tue, 10 May 2016 07:08:38 +0200
-Message-ID: <1462856921-27441-2-git-send-email-john@phrozen.org>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH V3 3/4] net-next: mediatek: add fixed-phy support
+Date: Tue, 10 May 2016 07:08:40 +0200
+Message-ID: <1462856921-27441-4-git-send-email-john@phrozen.org>
 References: <1462856921-27441-1-git-send-email-john@phrozen.org>
-Cc: nbd@nbd.name, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462856921-27441-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1462856921-27441-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The driver currently uses kfree() to clear the mii_bus. This is not the
-correct way to clear the memory and mdiobus_free() should be used instead.
-This patch fixes the two instances where this happens in the driver.
+The MT7623 SoC has a builtin gigabit switch. If we want to use it, GMAC1
+needs to be configured using a fixed link speed and flow control settings.
+The easiest way to do this is to used the fixed-phy driver, allowing us to
+reuse the existing mdio polling code to setup the MAC.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: John Crispin <john@phrozen.org>
+Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c984462..28f169f 100644
+index a76aec20..4d59bda 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -280,7 +280,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 	return 0;
+@@ -219,6 +219,9 @@ static int mtk_phy_connect(struct mtk_mac *mac)
+ 	u32 val, ge_mode;
  
- err_free_bus:
--	kfree(eth->mii_bus);
-+	mdiobus_free(eth->mii_bus);
+ 	np = of_parse_phandle(mac->of_node, "phy-handle", 0);
++	if (!np && of_phy_is_fixed_link(mac->of_node))
++		if (!of_phy_register_fixed_link(mac->of_node))
++			np = of_node_get(mac->of_node);
+ 	if (!np)
+ 		return -ENODEV;
  
- err_put_node:
- 	of_node_put(mii_np);
-@@ -295,7 +295,7 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
- 
- 	mdiobus_unregister(eth->mii_bus);
- 	of_node_put(eth->mii_bus->dev.of_node);
--	kfree(eth->mii_bus);
-+	mdiobus_free(eth->mii_bus);
- }
- 
- static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
 -- 
 1.7.10.4
