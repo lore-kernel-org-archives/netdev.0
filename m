@@ -1,127 +1,48 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/2] net: dsa: mv88e6xxx: add STU capability
-Date: Tue, 10 May 2016 15:44:29 -0400
-Message-ID: <1462909469-4827-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1462909469-4827-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462909469-4827-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/6] drivers: net: xgene: Using static MSS values
+Date: Tue, 10 May 2016 15:53:54 -0400 (EDT)
+Message-ID: <20160510.155354.2183670732162584648.davem@davemloft.net>
+References: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
+	<1462838656-22043-6-git-send-email-isubramanian@apm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	patches@apm.com, toanle@apm.com
+To: isubramanian@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42962 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751384AbcEJTx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 15:53:58 -0400
+In-Reply-To: <1462838656-22043-6-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some switch models have a STU (per VLAN port state database). Add a new
-capability flag to switches info, instead of checking their family.
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Mon,  9 May 2016 17:04:15 -0700
 
-Also if the 6165 family has an STU, it must have a VTU, so add the
-MV88E6XXX_FLAG_VTU to its family flags.
+> Due to the nature of hardware design for TSO, if the MSS values that are
+> stored in the register, changes during TSO operation, data corruption may
+> occur.
+> 
+> This patch fixes the issue by using one of the predefined MSS values.
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Tested-by: Toan Le <toanle@apm.com>
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 14 ++------------
- drivers/net/dsa/mv88e6xxx.h | 16 ++++++++++++++--
- 2 files changed, 16 insertions(+), 14 deletions(-)
+This is a very serious quality of implementation issue.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 92be27d..835126e 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -453,16 +453,6 @@ static bool mv88e6xxx_has_fid_reg(struct mv88e6xxx_priv_state *ps)
- 	return false;
- }
- 
--static bool mv88e6xxx_has_stu(struct mv88e6xxx_priv_state *ps)
--{
--	/* Does the device have STU and dedicated SID registers for VTU ops? */
--	if (mv88e6xxx_6097_family(ps) || mv88e6xxx_6165_family(ps) ||
--	    mv88e6xxx_6351_family(ps) || mv88e6xxx_6352_family(ps))
--		return true;
--
--	return false;
--}
--
- /* We expect the switch to perform auto negotiation if there is a real
-  * phy. However, in the case of a fixed link phy, we force the port
-  * settings from the fixed link settings.
-@@ -1599,7 +1589,7 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_priv_state *ps,
- 			next.fid |= ret & 0xf;
- 		}
- 
--		if (mv88e6xxx_has_stu(ps)) {
-+		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_STU)) {
- 			ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL,
- 						  GLOBAL_VTU_SID);
- 			if (ret < 0)
-@@ -1686,7 +1676,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_priv_state *ps,
- 	if (ret < 0)
- 		return ret;
- 
--	if (mv88e6xxx_has_stu(ps)) {
-+	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_STU)) {
- 		reg = entry->sid & GLOBAL_VTU_SID_MASK;
- 		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_VTU_SID, reg);
- 		if (ret < 0)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index ca69a93..5f09a4e 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -403,6 +403,12 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_SMI_PHY,
- 
-+	/* Per VLAN Spanning Tree Unit (STU).
-+	 * The Port State database, if present, is accessed through VTU
-+	 * operations and dedicated SID registers. See GLOBAL_VTU_SID.
-+	 */
-+	MV88E6XXX_CAP_STU,
-+
- 	/* Switch MAC/WoL/WoF register.
- 	 * This requires an indirect access to set the switch MAC address
- 	 * through GLOBAL2_SWITCH_MAC, otherwise GLOBAL_MAC_01, GLOBAL_MAC_23,
-@@ -436,6 +442,7 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
- #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
-+#define MV88E6XXX_FLAG_STU		BIT(MV88E6XXX_CAP_STU)
- #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
- #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
-@@ -451,12 +458,15 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6097	\
- 	(MV88E6XXX_FLAG_ATU |		\
- 	 MV88E6XXX_FLAG_PPU |		\
-+	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VLANTABLE |	\
- 	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
--	(MV88E6XXX_FLAG_SWITCH_MAC |	\
--	 MV88E6XXX_FLAG_TEMP)
-+	(MV88E6XXX_FLAG_STU |		\
-+	 MV88E6XXX_FLAG_SWITCH_MAC |	\
-+	 MV88E6XXX_FLAG_TEMP |		\
-+	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
- 	(MV88E6XXX_FLAG_ATU |		\
-@@ -482,6 +492,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_PORTSTATE |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
-+	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_VLANTABLE |	\
-@@ -494,6 +505,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_PORTSTATE |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
-+	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
--- 
-2.8.2
+And it could quietly kill performance for some users, and there is no
+way for them to find out that this is happening.
+
+If you use a predefined set of MSS values, if the MSS value we need is
+between two of them then there is going to be wasted space on the
+wire.  It's can therefore certainly be better to not do TSO in that
+case.
+
+I think you absolutely need to disable TSO by default, and require the
+user to explicitly turn it on, unless you can fix this problem in
+another way.
+
+Thanks.
