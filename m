@@ -1,101 +1,56 @@
-From: Rik van Riel <riel@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
 Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Tue, 10 May 2016 17:01:21 -0400
-Message-ID: <1462914081.16365.13.camel@redhat.com>
-References: <1462911770.5333.11.camel@redhat.com>
-	 <20160510.164538.1375529074383780155.davem@davemloft.net>
-	 <1462913455.16365.12.camel@redhat.com>
-	 <20160510.165215.1602157973141296642.davem@davemloft.net>
+Date: Tue, 10 May 2016 14:09:42 -0700
+Message-ID: <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	<1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	<90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-	protocol="application/pgp-signature"; boundary="=-LCu/Zak3y6B0O+IipVf/"
-Cc: pabeni@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	edumazet@google.com, jiri@mellanox.com, daniel@iogearbox.net,
-	ast@plumgrid.com, aduyck@mirantis.com, tom@herbertland.com,
-	peterz@infradead.org, mingo@kernel.org, hannes@stressinduktion.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160510.165215.1602157973141296642.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Paolo Abeni <pabeni@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f178.google.com ([209.85.161.178]:36233 "EHLO
+	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751227AbcEJVJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 17:09:43 -0400
+Received: by mail-yw0-f178.google.com with SMTP id o66so27562804ywc.3
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 14:09:43 -0700 (PDT)
+In-Reply-To: <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, May 10, 2016 at 1:46 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
 
---=-LCu/Zak3y6B0O+IipVf/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> I agree here, but I don't think this patch particularly is a lot of
+> bloat and something very interesting people can play with and extend upon.
+>
 
-On Tue, 2016-05-10 at 16:52 -0400, David Miller wrote:
-> From: Rik van Riel <riel@redhat.com>
-> Date: Tue, 10 May 2016 16:50:56 -0400
->=20
-> > On Tue, 2016-05-10 at 16:45 -0400, David Miller wrote:
-> >> From: Paolo Abeni <pabeni@redhat.com>
-> >> Date: Tue, 10 May 2016 22:22:50 +0200
-> >>=C2=A0
-> >> > On Tue, 2016-05-10 at 09:08 -0700, Eric Dumazet wrote:
-> >> >> On Tue, 2016-05-10 at 18:03 +0200, Paolo Abeni wrote:
-> >> >>=C2=A0
-> >> >> > If a single core host is under network flood, i.e. ksoftirqd
-> is
-> >> >> > scheduled and it eventually (after processing ~640 packets)
-> will
-> >> let the
-> >> >> > user space process run. The latter will execute a syscall to
-> >> receive a
-> >> >> > packet, which will have to disable/enable bh at least once
-> and
-> >> that will
-> >> >> > cause the processing of another ~640 packets. To receive a
-> >> single packet
-> >> >> > in user space, the kernel has to process more than one
-> thousand
-> >> packets.
-> >> >>=C2=A0
-> >> >> Looks you found the bug then. Have you tried to fix it ?
-> >> =C2=A0...
-> >> > The ksoftirq and the local_bh_enable() design are the root of
-> the
-> >> > problem, they need to be touched/affected to solve it.
-> >>=C2=A0
-> >> That's not what I read from your description, processing 640
-> packets
-> >> before going to ksoftirqd seems to the be the absolute root
-> problem.
-> >=C2=A0
-> > What would a fix for that look like?
-> >=C2=A0
-> > Keep track of the number of processed incoming packets,
-> > and the number of packets handed off, and defer to
-> > ksoftirqd earlier if the statistics suggest packets are
-> > getting dropped on the floor?
->=20
-> Not by packet count but by something more easily to measure and
-> scalable to fairness like processing time.
+Sure, very rarely patch authors think their stuff is bloat.
 
-I need to get back to fixing irq & softirq time accounting,
-which does not currently work correctly in all time keeping
-modes...
+I prefer to fix kernel softirq.c, or at least show me that you tried
+hard enough.
 
---=20
-All Rights Reversed.
+I am pretty sure that the following would work :
 
+When ksoftirqd is scheduled, remember this in a per cpu variable
+(ksoftiqd_scheduled)
 
---=-LCu/Zak3y6B0O+IipVf/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+When enabling BH , do not call do_softirq() if this variable is set.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+ksoftirqd would clear the variable at the right place (probably in
+run_ksoftirqd())
 
-iQEcBAABCAAGBQJXMkwhAAoJEM553pKExN6DlPYH/izXWpR8RmZUGCtbRAOAw3lx
-J/St/WfTcO8MhFccL11dArng7UR8yANj0biQpv7hGp9G9MVpCn8/TY751m0hMbAc
-SEh/Y2wXKE965ZxhHk1ta8jvDAFiPg0xPOejouQJdBE9a0oKdaPPKyIYb0nIjfuv
-zNnj63kBDjWcNKHKp53so53XBGBJpMPtYdy29KqrWjKQvqoKZhX5jaZ8eYsQ3lZ+
-jLOaxczigDYL0KyOa5yt2+nX+hxTHWCaen4SX0gv1Yx4Le3wnTUu4NcWk52mVijZ
-qylSTfsPfhcMW7PZm/oHIbD5zOFkSjmNXIAgyQln/VbErh66hL8CN45Gu/SVDY4=
-=EXjE
------END PGP SIGNATURE-----
-
---=-LCu/Zak3y6B0O+IipVf/--
+Sure, this might add a lot of latency regressions, but lets fix them.
