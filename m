@@ -1,11 +1,9 @@
 From: Paolo Abeni <pabeni@redhat.com>
 Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Tue, 10 May 2016 22:22:50 +0200
-Message-ID: <1462911770.5333.11.camel@redhat.com>
+Date: Tue, 10 May 2016 22:41:21 +0200
+Message-ID: <1462912881.9102.0.camel@redhat.com>
 References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1462896230.6687.74.camel@redhat.com>
-	 <1462896539.23934.93.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <alpine.DEB.2.11.1605101655100.3540@nanos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -20,57 +18,60 @@ Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462896539.23934.93.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <alpine.DEB.2.11.1605101655100.3540@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-05-10 at 09:08 -0700, Eric Dumazet wrote:
-> On Tue, 2016-05-10 at 18:03 +0200, Paolo Abeni wrote:
+On Tue, 2016-05-10 at 17:57 +0200, Thomas Gleixner wrote:
+> On Tue, 10 May 2016, Paolo Abeni wrote:
 > 
-> > If a single core host is under network flood, i.e. ksoftirqd is
-> > scheduled and it eventually (after processing ~640 packets) will let the
-> > user space process run. The latter will execute a syscall to receive a
-> > packet, which will have to disable/enable bh at least once and that will
-> > cause the processing of another ~640 packets. To receive a single packet
-> > in user space, the kernel has to process more than one thousand packets.
+> Nice patch set and very promising results! 
 > 
-> Looks you found the bug then. Have you tried to fix it ?
+> > At this point we are not really sure if we should go with this simpler
+> > approach by putting NAPI itself into kthreads or leverage the threadirqs
+> > function by putting the whole interrupt into a thread and signaling NAPI
+> > that it does not reschedule itself in a softirq but to simply run at
+> > this particular context of the interrupt handler.
+> > 
+> > While the threaded irq way seems to better integrate into the kernel and
+> > also other devices could move their interrupts into the threads easily
+> > on a common policy, we don't know how to really express the necessary
+> > knobs with the current device driver model (module parameters, sysfs
+> > attributes, etc.). This is where we would like to hear some opinions.
+> > NAPI would e.g. have to query the kernel if the particular IRQ/MSI if it
+> > should be scheduled in a softirq or in a thread, so we don't have to
+> > rewrite all device drivers. This might even be needed on a per rx-queue
+> > granularity.
+> 
+> Utilizing threaded irqs should be halfways simple even without touching the
+> device driver at all.
+> 
+> We can do the switch to threading in two ways:
+> 
+> 1) Let the driver request the interrupt(s) as it does now and then have a
+>    /proc/irq/NNN/threaded file which converts it to a threaded interrupt on
+>    the fly. That should be fairly trivial.
+> 
+> 2) Let the driver request the interrupt(s) as it does now and retrieve the
+>    interrupt number which belongs to the device/queue from the network core
+>    and let the irq core switch it over to threaded.
 
-The core functionality is implemented in ~100 lines of code, is that
-the kind of bloat that do concerns you ?
+Thank you for the feedback.
 
-That could probably be improved removing some code duplication, i.e.
-factorizing napi_thread_wait() with irq_wait_for_interrupt() and
-possibly napi_threaded_poll() with net_rx_action(). 
+We actually experimented something similar to (2). In our implementation
+we needed a per device chunk of code to do the actual irq number ->
+queue mapping (and than we performed as well the switch in the device
+code).
 
-If the additional test inside napi_schedule() is really scaring, it can
-be guarded with a static_key.
+> You surely need some way to figure out whether the interrupt is threaded when
+> you set up the device in order to flag your napi struct, but that should be
+> not too hard to achieve.
 
-The ksoftirq and the local_bh_enable() design are the root of the
-problem, they need to be touched/affected to solve it.
-
-We actually experimented several different options.
-
-Limiting the amount of work performed by local_bh_enable() somewhat
-mitigate the issue, but it adds just another kernel parameter difficult
-to be tuned.
-
-Running the softirq loop exclusively inside the ksoftirqd will solve the
-issue, but this is a very invasive approach, affecting all others
-subsystem.
-
-The above can be restricted to the net_rx_action only (i.e. running
-net_rx_action always in ksoftirqd context). The related patch isn't
-really much simpler than this and will add at least the same number of
-additional tests in fast path.
-
-Running the napi loop in a thread that can be migrated gives additional
-benefit in the hyper-visor/VM scenario, which can't be achieved
-elsewhere.
-
-Would you consider the threaded irq alternative more viable ?
+This is the part that required per device changes and complicated a bit
+the implementation. We can research further to simplify it, according to
+the overall discussion.
 
 Cheers,
 
