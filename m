@@ -1,57 +1,58 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v3] block/drbd: align properly u64
-	in nl messages
-Date: Tue, 10 May 2016 11:09:53 +0200
-Message-ID: <5731A561.6090509@6wind.com>
-References: <20160503100644.GE16459@soda.linbit>
-	<1462786820-15519-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20160509131547.GX16459@soda.linbit>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V1 1/3] net: bulk alloc and reuse of SKBs in
+ NAPI context
+Date: Tue, 10 May 2016 11:29:47 +0200
+Message-ID: <20160510112947.5a045d1a@redhat.com>
+References: <20160509134352.3573.37044.stgit@firesoul>
+	<20160509134429.3573.4048.stgit@firesoul>
+	<CAKgT0Uftr643AR9n2=_aQmaGJO3eEyKTuaCfXwEKbYj1rVruRw@mail.gmail.com>
+	<20160509215956.19ec1c10@redhat.com>
+	<CAKgT0UfKzKWnNzGpB-915by2M1nzDAdNz-hDwwcwGoowmZefrg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org,
-	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-Resent-Message-ID: <20160510091243.GB16459@soda.linbit>
-In-Reply-To: <20160509131547.GX16459-w1SgEEioFePxa46PmUWvFg@public.gmane.org>
-List-Unsubscribe: <http://lists.linbit.com/mailman/options/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linbit.com/pipermail/drbd-dev>
-List-Post: <mailto:drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-List-Help: <mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.linbit.com/mailman/listinfo/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=subscribe>
-Sender: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-Errors-To: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>, brouer@redhat.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39215 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751436AbcEJJ3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2016 05:29:52 -0400
+In-Reply-To: <CAKgT0UfKzKWnNzGpB-915by2M1nzDAdNz-hDwwcwGoowmZefrg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 09/05/2016 15:15, Lars Ellenberg a =E9crit :
-> On Mon, May 09, 2016 at 11:40:20AM +0200, Nicolas Dichtel wrote:
-[snip]
->> Maybe prefixing genl_magic_func.h and genl_magic_struct.h by 'drbd_'
->> could be interesting so that new module won't use it. What is your
->> opinion?
-> =
+On Mon, 9 May 2016 13:46:32 -0700
+Alexander Duyck <alexander.duyck@gmail.com> wrote:
 
-> This was supposed to not be DRBD specific.  But it might even still
-> need some massaging before it was truly generic. And obviously,
-> it does not meet the taste of genetlink folks, to say the least :(
-Yes, this file is not generic and netlink APIs are never defined like this.
-These tons of macro complexifies the code too much. It's overengineering for
-what purpose?
-Small examples:
- - the drbd netlink API is not exported via uapi (I wonder how apps using t=
-his
-   API get it)
- - v2 of the patch is nacked because adding a new attribute may break exist=
-ing
-   apps (in networking code, a lot of new attributes are added in each vers=
-ion)
- - it's not possible to grep to show the definition of an attribute ('git g=
-rep
-   -w T_bits_total' returns only 1 line)
+> > As you also know, tuning the SLUB system will give higher performance,
+> > easily.  In the future, I'm planning to get some auto-tuning into the
+> > SLUB allocator.  I've already discussed this with Christiph Lameter, at
+> > MM-summit, see presentation[1] slides 4 and 5.  
+> 
+> We aren't discussing tuning parameters.  We are discussing this patch.
+> If you want to argue that with certain tuning parameters this shows
+> more performance then bring the numbers, but don't try to bias things.
+> If you have to tune the system in some way that nobody will there is
+> probably no point in submitting the patch because nobody will use it
+> that way.
 
+I think you missed the point. I didn't do parameter tuning for my
+benchmarks. I hate tuning parameters, they are huge problem for users
+of the kernel.
+ My point is that I want to implement auto-tuning in the SLUB
+allocator.  This network stack use-case, will just be one use-case
+where the auto-tuning need to show improvements.  It is not that
+complicated. FreeBSD have this kind of auto-tuning to the workload in
+their slab implementation.
 
-Regards,
-Nicolas
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
