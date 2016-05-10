@@ -1,63 +1,101 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: prevent division by zero if
- TIMINCA is zero
-Date: Tue, 10 May 2016 17:00:42 -0400
-Message-ID: <20160510210042.GA19319@redhat.com>
-References: <1462563711-30350-1-git-send-email-dvlasenk@redhat.com>
- <5E18E4A4-E10F-46B5-A2F5-FCA10FAA5030@intel.com>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Tue, 10 May 2016 17:01:21 -0400
+Message-ID: <1462914081.16365.13.camel@redhat.com>
+References: <1462911770.5333.11.camel@redhat.com>
+	 <20160510.164538.1375529074383780155.davem@davemloft.net>
+	 <1462913455.16365.12.camel@redhat.com>
+	 <20160510.165215.1602157973141296642.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:33266 "EHLO
-	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227AbcEJVAq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 17:00:46 -0400
-Received: by mail-qk0-f180.google.com with SMTP id n63so14609727qkf.0
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 14:00:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5E18E4A4-E10F-46B5-A2F5-FCA10FAA5030@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-LCu/Zak3y6B0O+IipVf/"
+Cc: pabeni@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	edumazet@google.com, jiri@mellanox.com, daniel@iogearbox.net,
+	ast@plumgrid.com, aduyck@mirantis.com, tom@herbertland.com,
+	peterz@infradead.org, mingo@kernel.org, hannes@stressinduktion.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160510.165215.1602157973141296642.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 06, 2016 at 11:43:17PM +0000, Rustad, Mark D wrote:
-> Denys Vlasenko <dvlasenk@redhat.com> wrote:
-> 
-> >Users report that under VMWare, er32(TIMINCA) returns zero.
-> >This causes division by zero at init time as follows:
-> >
-> > ==>            incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
-> >                for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
-> >                        /* latch SYSTIMH on read of SYSTIML */
-> >                        systim_next = (cycle_t)er32(SYSTIML);
-> >                        systim_next |= (cycle_t)er32(SYSTIMH) << 32;
-> >
-> >                        time_delta = systim_next - systim;
-> >                        temp = time_delta;
-> > ====>                  rem = do_div(temp, incvalue);
-> >
-> >This change makes kernel survive this, and users report that
-> >NIC does work after this change.
-> >
-> >Since on real hardware incvalue is never zero, this should not affect
-> >real hardware use case.
-...
-> I seem to recall that this was rejected before because it really is VMWare's
-> bug and, if they fix it, any existing VMs that use this will just work.
-> Changing the driver will only fix it for vms that install a new driver. I
-> don't object to doing it, it just seems like not the most effective place to
-> address the issue.
 
-You could also have people who never update VMWare, for whom a kernel
-work-around would be better. I think it'd be best to address it both at
-the driver level and the emulated hardware level, to improve things for
-the most possible users. Those who update neither hypervisor or
-kernel/driver, well, they reap what they sow.
+--=-LCu/Zak3y6B0O+IipVf/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Jarod Wilson
-jarod@redhat.com
+On Tue, 2016-05-10 at 16:52 -0400, David Miller wrote:
+> From: Rik van Riel <riel@redhat.com>
+> Date: Tue, 10 May 2016 16:50:56 -0400
+>=20
+> > On Tue, 2016-05-10 at 16:45 -0400, David Miller wrote:
+> >> From: Paolo Abeni <pabeni@redhat.com>
+> >> Date: Tue, 10 May 2016 22:22:50 +0200
+> >>=C2=A0
+> >> > On Tue, 2016-05-10 at 09:08 -0700, Eric Dumazet wrote:
+> >> >> On Tue, 2016-05-10 at 18:03 +0200, Paolo Abeni wrote:
+> >> >>=C2=A0
+> >> >> > If a single core host is under network flood, i.e. ksoftirqd
+> is
+> >> >> > scheduled and it eventually (after processing ~640 packets)
+> will
+> >> let the
+> >> >> > user space process run. The latter will execute a syscall to
+> >> receive a
+> >> >> > packet, which will have to disable/enable bh at least once
+> and
+> >> that will
+> >> >> > cause the processing of another ~640 packets. To receive a
+> >> single packet
+> >> >> > in user space, the kernel has to process more than one
+> thousand
+> >> packets.
+> >> >>=C2=A0
+> >> >> Looks you found the bug then. Have you tried to fix it ?
+> >> =C2=A0...
+> >> > The ksoftirq and the local_bh_enable() design are the root of
+> the
+> >> > problem, they need to be touched/affected to solve it.
+> >>=C2=A0
+> >> That's not what I read from your description, processing 640
+> packets
+> >> before going to ksoftirqd seems to the be the absolute root
+> problem.
+> >=C2=A0
+> > What would a fix for that look like?
+> >=C2=A0
+> > Keep track of the number of processed incoming packets,
+> > and the number of packets handed off, and defer to
+> > ksoftirqd earlier if the statistics suggest packets are
+> > getting dropped on the floor?
+>=20
+> Not by packet count but by something more easily to measure and
+> scalable to fairness like processing time.
+
+I need to get back to fixing irq & softirq time accounting,
+which does not currently work correctly in all time keeping
+modes...
+
+--=20
+All Rights Reversed.
+
+
+--=-LCu/Zak3y6B0O+IipVf/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJXMkwhAAoJEM553pKExN6DlPYH/izXWpR8RmZUGCtbRAOAw3lx
+J/St/WfTcO8MhFccL11dArng7UR8yANj0biQpv7hGp9G9MVpCn8/TY751m0hMbAc
+SEh/Y2wXKE965ZxhHk1ta8jvDAFiPg0xPOejouQJdBE9a0oKdaPPKyIYb0nIjfuv
+zNnj63kBDjWcNKHKp53so53XBGBJpMPtYdy29KqrWjKQvqoKZhX5jaZ8eYsQ3lZ+
+jLOaxczigDYL0KyOa5yt2+nX+hxTHWCaen4SX0gv1Yx4Le3wnTUu4NcWk52mVijZ
+qylSTfsPfhcMW7PZm/oHIbD5zOFkSjmNXIAgyQln/VbErh66hL8CN45Gu/SVDY4=
+=EXjE
+-----END PGP SIGNATURE-----
+
+--=-LCu/Zak3y6B0O+IipVf/--
