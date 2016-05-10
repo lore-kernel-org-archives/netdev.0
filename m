@@ -1,15 +1,20 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Wed, 11 May 2016 00:32:48 +0200
-Message-ID: <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+Date: Tue, 10 May 2016 15:44:06 -0700
+Message-ID: <1462920246.23934.107.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <cover.1462886866.git.pabeni@redhat.com>
- <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
- <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
- <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <1462915900.23934.99.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1462916121.16365.14.camel@redhat.com>
+	 <1462917217.23934.101.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1462917747.23934.102.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Paolo Abeni <pabeni@redhat.com>,
 	netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -19,53 +24,97 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Alexander Duyck <aduyck@mirantis.com>,
 	Tom Herbert <tom@herbertland.com>,
 	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Rik van Riel <riel@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33770 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293AbcEJWoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 18:44:09 -0400
+In-Reply-To: <1462917747.23934.102.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10.05.2016 23:09, Eric Dumazet wrote:
-> On Tue, May 10, 2016 at 1:46 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
+On Tue, 2016-05-10 at 15:02 -0700, Eric Dumazet wrote:
+> On Tue, 2016-05-10 at 14:53 -0700, Eric Dumazet wrote:
+> > On Tue, 2016-05-10 at 17:35 -0400, Rik van Riel wrote:
+> > 
+> > > You might need another one of these in invoke_softirq()
+> > > 
+> > 
+> > Excellent.
+> > 
+> > I gave it a quick try (without your suggestion), and host seems to
+> > survive a stress test.
+> > 
+> > Of course we do have to fix these problems :
+> > 
+> > [  147.781629] NOHZ: local_softirq_pending 48
+> > [  147.785546] NOHZ: local_softirq_pending 48
+> > [  147.788344] NOHZ: local_softirq_pending 48
+> > [  147.788992] NOHZ: local_softirq_pending 48
+> > [  147.790943] NOHZ: local_softirq_pending 48
+> > [  147.791232] NOHZ: local_softirq_pending 24a
+> > [  147.791258] NOHZ: local_softirq_pending 48
+> > [  147.791366] NOHZ: local_softirq_pending 48
+> > [  147.792118] NOHZ: local_softirq_pending 48
+> > [  147.793428] NOHZ: local_softirq_pending 48
 > 
->> I agree here, but I don't think this patch particularly is a lot of
->> bloat and something very interesting people can play with and extend upon.
->>
 > 
-> Sure, very rarely patch authors think their stuff is bloat.
-> 
-> I prefer to fix kernel softirq.c, or at least show me that you tried
-> hard enough.
-> 
-> I am pretty sure that the following would work :
-> 
-> When ksoftirqd is scheduled, remember this in a per cpu variable
-> (ksoftiqd_scheduled)
-> 
-> When enabling BH , do not call do_softirq() if this variable is set.
-> 
-> ksoftirqd would clear the variable at the right place (probably in
-> run_ksoftirqd())
-> 
-> Sure, this might add a lot of latency regressions, but lets fix them.
+> Well, with your suggestion, these warnings disappear ;)
 
-Probably, yes.
+This is really nice.
 
-We had a version which limited the number of restarts if softirqs were
-invoked from local_bh_enable (so that at least timers etc. would run)
-and would defer all other work to ksoftirqd. That also solved the
-initial live lock problem. I do have concerns about the fairness of this
-approach, but we now have to investigate this. ;)
+Under stress number of context switches is really small.
 
-Not only did we want to present this solely as a bugfix but also as as
-performance enhancements in case of virtio (as you can see in the cover
-letter). Given that a long time ago there was a tendency to remove
-softirqs completely, we thought it might be very interesting, that a
-threaded napi in general seems to be absolutely viable nowadays and
-might offer new features.
+ksoftirqd and my netserver compete equally to get the cpu cycles (on
+CPU0)
 
-Bye,
-Hannes
+lpaa23:~# vmstat 1 10
+procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa
+ 2  0      0 260668416  37240 2414428    0    0    21     0  329  349  0  3 96  0
+ 1  0      0 260667904  37240 2414428    0    0     0    12 193126 1050  0  2 98  0
+ 1  0      0 260667904  37240 2414428    0    0     0     0 194354 1056  0  2 98  0
+ 1  0      0 260669104  37240 2414492    0    0     0     0 200897 1095  0  2 98  0
+ 1  0      0 260668592  37240 2414492    0    0     0     0 205731  964  0  2 98  0
+ 1  0      0 260678832  37240 2414492    0    0     0     0 201689  981  0  2 98  0
+ 1  0      0 260678832  37240 2414492    0    0     0     0 204899  742  0  2 98  0
+ 1  0      0 260678320  37240 2414492    0    0     0     0 199148  792  0  3 97  0
+ 1  0      0 260678832  37240 2414492    0    0     0     0 196398  766  0  2 98  0
+ 1  0      0 260678832  37240 2414492    0    0     0     0 201930  858  0  2 98  0
+
+
+And we can see that ksoftirqd/0 runs for longer periods (~500 usec),
+instead of stupid 4 usec before the patch. Less overhead.
+
+lpaa23:~# cat /proc/3/sched
+ksoftirqd/0 (3, #threads: 1)
+-------------------------------------------------------------------
+se.exec_start                                :       1552401.399526
+se.vruntime                                  :        237599.421560
+se.sum_exec_runtime                          :         75432.494199
+se.nr_migrations                             :                    0
+nr_switches                                  :               144333
+nr_voluntary_switches                        :               143828
+nr_involuntary_switches                      :                  505
+se.load.weight                               :                 1024
+se.avg.load_sum                              :                10445
+se.avg.util_sum                              :                10445
+se.avg.load_avg                              :                    0
+se.avg.util_avg                              :                    0
+se.avg.last_update_time                      :        1552401399526
+policy                                       :                    0
+prio                                         :                  120
+clock-delta                                  :                   47
+lpaa23:~# echo 75432.494199/144333|bc -l
+.52262818758703830724
+
+And yes indeed, user space can progress way faster under flood.
+
+lpaa23:~# nstat >/dev/null;sleep 1;nstat | grep Udp
+UdpInDatagrams                  186132             0.0
+UdpInErrors                     735462             0.0
+UdpOutDatagrams                 10                 0.0
+UdpRcvbufErrors                 735461             0.0
