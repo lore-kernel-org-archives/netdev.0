@@ -1,43 +1,49 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH net-next] fjes: Fix unnecessary spinlock_irqsave
-Date: Tue, 10 May 2016 10:28:49 +0900
-Message-ID: <1462843729-32414-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Cc: isimatu.yasuaki@jp.fujitsu.com,
-	Taku Izumi <izumi.taku@jp.fujitsu.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm02.jp.fujitsu.com ([202.219.69.169]:18970 "EHLO
-	mgwkm02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754028AbcEJBiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 21:38:08 -0400
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 8E291AC0144
-	for <netdev@vger.kernel.org>; Tue, 10 May 2016 10:38:00 +0900 (JST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Gross <andy.gross@linaro.org>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Mon, 9 May 2016 20:52:12 -0500
+Message-ID: <CAPBZ5QcRiG0w4WsU7rDGSNogH1PSONWSjrZ6fXWb4kdc+BH3JQ@mail.gmail.com>
+References: <20160510112905.5bffcad8@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org,
+	Linux Kernel list <linux-kernel@vger.kernel.org>,
+	Bjorn Andersson <bjorn.andersson@sonymobile.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160510112905.5bffcad8@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit-bd5a256 introduces a deadlock bug in fjes_change_mtu().
-This spin_lock_irqsave() is obviously unnecessary.
+On 9 May 2016 at 20:29, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> After merging the net-next tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+>
+> net/qrtr/smd.c:106:14: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+>   .callback = qcom_smd_qrtr_callback,
+>               ^
+> net/qrtr/smd.c:106:14: note: (near initialization for 'qcom_smd_qrtr_driver.callback')
+>
+> Caused by commit
+>
+>   bdabad3e363d ("net: Add Qualcomm IPC router")
+>
+> interacting with commit
+>
+>   b853cb9628bf ("soc: qcom: smd: Make callback pass channel reference")
+>
+> from the arm-soc tree.
+>
+> I added the following merge fix patch (and it turned out I needed the
+> new stubs).
 
-This patch eliminates unnecessary spin_lock_irqsave() in
-fjes_change_mtu()
+Thanks for fixing this up.  I'll work with Bjorn to get this resolved.
+I'll have something up for tomorrow's next pull.
 
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
----
- drivers/net/fjes/fjes_main.c | 1 -
- 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index f4e6926..86c331b 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -819,7 +819,6 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
- 	netdev->mtu = new_mtu;
- 
- 	if (running) {
--		spin_lock_irqsave(&hw->rx_status_lock, flags);
- 		for (epidx = 0; epidx < hw->max_epid; epidx++) {
- 			if (epidx == hw->my_epid)
- 				continue;
--- 
-1.9.1
+Regards,
+
+Andy Gross
