@@ -1,56 +1,41 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Tue, 10 May 2016 14:09:42 -0700
-Message-ID: <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	<1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	<90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net PATCH v2 1/6] net sched: vlan action fix late binding
+Date: Tue, 10 May 2016 14:22:45 -0700
+Message-ID: <CAM_iQpUS3dRY1cGtt_+G97=WoYc9a8Liz0T=F1c9KotAwdC__A@mail.gmail.com>
+References: <1462913371-9699-1-git-send-email-jhs@emojatatu.com> <1462913371-9699-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Paolo Abeni <pabeni@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:36233 "EHLO
-	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227AbcEJVJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 17:09:43 -0400
-Received: by mail-yw0-f178.google.com with SMTP id o66so27562804ywc.3
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 14:09:43 -0700 (PDT)
-In-Reply-To: <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:36355 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293AbcEJVXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 17:23:06 -0400
+Received: by mail-yw0-f193.google.com with SMTP id u62so2250596ywe.3
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 14:23:05 -0700 (PDT)
+In-Reply-To: <1462913371-9699-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 10, 2016 at 1:46 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-
-> I agree here, but I don't think this patch particularly is a lot of
-> bloat and something very interesting people can play with and extend upon.
+On Tue, May 10, 2016 at 1:49 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
+> Late vlan action binding was broken and is fixed with this patch.
+>
+> //add a vlan action to pop and give it an instance id of 1
+> sudo tc actions add action vlan pop index 1
+> //create filter which binds to vlan action id 1
+> sudo tc filter add dev $DEV parent ffff: protocol ip prio 1 u32 \
+> match ip dst 17.0.0.1/32 flowid 1:1 action vlan index 1
+>
+> current message(before bug fix) was:
+> RTNETLINK answers: Invalid argument
+> We have an error talking to the kernel
+>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Sure, very rarely patch authors think their stuff is bloat.
-
-I prefer to fix kernel softirq.c, or at least show me that you tried
-hard enough.
-
-I am pretty sure that the following would work :
-
-When ksoftirqd is scheduled, remember this in a per cpu variable
-(ksoftiqd_scheduled)
-
-When enabling BH , do not call do_softirq() if this variable is set.
-
-ksoftirqd would clear the variable at the right place (probably in
-run_ksoftirqd())
-
-Sure, this might add a lot of latency regressions, but lets fix them.
+Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
