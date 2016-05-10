@@ -1,203 +1,191 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v1 net-next 4/7] dsa: Move gpio reset into switch driver
-Date: Tue, 10 May 2016 23:27:22 +0200
-Message-ID: <1462915645-24674-5-git-send-email-andrew@lunn.ch>
+Subject: [PATCH v1 net-next 3/7] dsa: Add mdio device support to Marvell switches
+Date: Tue, 10 May 2016 23:27:21 +0200
+Message-ID: <1462915645-24674-4-git-send-email-andrew@lunn.ch>
 References: <1462915645-24674-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34979 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:34984 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751739AbcEJV2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2016 17:28:13 -0400
+	id S1751293AbcEJV23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2016 17:28:29 -0400
 In-Reply-To: <1462915645-24674-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resetting the switch is something the driver does, not the framework.
-So move the parsing of this property into the driver.
-
-There are no in kernel users of this property, so moving it does not
-break anything. There is however a board which will make use of this
-property making its way into the kernel.
+Allow Marvell switches to be mdio devices. Currently the driver just
+allocate the private structure and detects what device is on the
+bus. Later patches will make them register with the DSA framework.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- Documentation/devicetree/bindings/net/dsa/dsa.txt     |  2 --
- Documentation/devicetree/bindings/net/dsa/marvell.txt |  8 ++++++++
- drivers/net/dsa/mv88e6xxx.c                           | 14 +++++++++++++-
- drivers/net/dsa/mv88e6xxx.h                           |  7 +++++++
- include/net/dsa.h                                     |  8 --------
- net/dsa/dsa.c                                         | 16 ----------------
- 6 files changed, 28 insertions(+), 27 deletions(-)
+ .../devicetree/bindings/net/dsa/marvell.txt        | 27 +++++++
+ drivers/net/dsa/mv88e6xxx.c                        | 90 +++++++++++++++++-----
+ 2 files changed, 99 insertions(+), 18 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/marvell.txt
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-index 5fdbbcdf8c4b..9f4807f90c31 100644
---- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-@@ -31,8 +31,6 @@ A switch child node has the following optional property:
- 			  switch. Must be set if the switch can not detect
- 			  the presence and/or size of a connected EEPROM,
- 			  otherwise optional.
--- reset-gpios		: phandle and specifier to a gpio line connected to
--			  reset pin of the switch chip.
- 
- A switch may have multiple "port" children nodes
- 
 diff --git a/Documentation/devicetree/bindings/net/dsa/marvell.txt b/Documentation/devicetree/bindings/net/dsa/marvell.txt
-index cdd70cebdea7..7629189398aa 100644
---- a/Documentation/devicetree/bindings/net/dsa/marvell.txt
+new file mode 100644
+index 000000000000..cdd70cebdea7
+--- /dev/null
 +++ b/Documentation/devicetree/bindings/net/dsa/marvell.txt
-@@ -10,10 +10,17 @@ If you need a stable binding, use the old dsa.txt binding.
- Marvell Switches are MDIO devices. The following properties should be
- placed as a child node of an mdio device.
- 
-+The properties described here are those specific to Marvell devices.
-+Additional required and optional properties can be found in dsa.txt.
+@@ -0,0 +1,27 @@
++Marvell DSA Switch Device Tree Bindings
++---------------------------------------
 +
- Required properties:
- - compatible           : Should be one of "marvell,mv88e6085",
- - reg                  : Address on the MII bus for the switch.
- 
-+Optional properties:
++WARNING: This binding is currently unstable. Do not program it into a
++FLASH never to be changed again. Once this binding is stable, this
++warning will be removed.
 +
-+- reset-gpios		: Should be a gpio specifier for a reset line
++If you need a stable binding, use the old dsa.txt binding.
 +
- Example:
- 
-        mdio {
-@@ -23,5 +30,6 @@ Example:
-                switch0: switch@0 {
-                        compatible = "marvell,mv88e6085";
-                        reg = <0>;
-+		       reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
-                };
-        };
++Marvell Switches are MDIO devices. The following properties should be
++placed as a child node of an mdio device.
++
++Required properties:
++- compatible           : Should be one of "marvell,mv88e6085",
++- reg                  : Address on the MII bus for the switch.
++
++Example:
++
++       mdio {
++               #address-cells = <1>;
++               #size-cells = <0>;
++
++               switch0: switch@0 {
++                       compatible = "marvell,mv88e6085";
++                       reg = <0>;
++               };
++       };
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index e5ba04132140..f4bb3bed812f 100644
+index 199a8628df2b..e5ba04132140 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2568,7 +2568,7 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_priv_state *ps)
+@@ -5,6 +5,8 @@
+  * Copyright (c) 2015 CMC Electronics, Inc.
+  *	Added support for VLAN Table Unit operations
+  *
++ * Copyright (c) 2016 Andrew Lunn <andrew@lunn.ch>
++ *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+@@ -17,6 +19,7 @@
+ #include <linux/if_bridge.h>
+ #include <linux/jiffies.h>
+ #include <linux/list.h>
++#include <linux/mdio.h>
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/gpio/consumer.h>
+@@ -3611,36 +3614,87 @@ struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
+ };
+ 
+-static int __init mv88e6xxx_init(void)
++int mv88e6xxx_probe(struct mdio_device *mdiodev)
  {
- 	bool ppu_active = mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU_ACTIVE);
- 	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
--	struct gpio_desc *gpiod = ps->ds->pd->reset;
-+	struct gpio_desc *gpiod = ps->reset;
- 	unsigned long timeout;
- 	int ret;
- 	int i;
-@@ -3620,6 +3620,7 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	struct mv88e6xxx_priv_state *ps;
- 	int id, prod_num, rev;
- 	struct dsa_switch *ds;
-+	int err;
- 
- 	ds = devm_kzalloc(dev, sizeof(*ds) + sizeof(*ps), GFP_KERNEL);
- 	if (!ds)
-@@ -3649,6 +3650,17 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (!ps->info)
- 		return -ENODEV;
- 
-+	ps->reset = devm_gpiod_get(&mdiodev->dev, "reset", GPIOD_ASIS);
-+	if (IS_ERR(ps->reset)) {
-+		err = PTR_ERR(ps->reset);
-+		if (err == -ENOENT) {
-+			/* Optional, so not an error */
-+			ps->reset = NULL;
-+		} else {
-+			return err;
-+		}
-+	}
+-	register_switch_driver(&mv88e6xxx_switch_driver);
++	struct device *dev = &mdiodev->dev;
++	struct mv88e6xxx_priv_state *ps;
++	int id, prod_num, rev;
++	struct dsa_switch *ds;
 +
- 	dev_set_drvdata(dev, ds);
- 
- 	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index ca69a93a42a0..df226c151d9c 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -12,6 +12,7 @@
- #define __MV88E6XXX_H
- 
- #include <linux/if_vlan.h>
-+#include <linux/gpio/consumer.h>
- 
- #ifndef UINT64_MAX
- #define UINT64_MAX		(u64)(~((u64)0))
-@@ -583,6 +584,12 @@ struct mv88e6xxx_priv_state {
- 	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
- 
- 	struct work_struct bridge_work;
++	ds = devm_kzalloc(dev, sizeof(*ds) + sizeof(*ps), GFP_KERNEL);
++	if (!ds)
++		return -ENOMEM;
 +
-+	/* A switch may have a GPIO line tied to its reset pin. Parse
-+	 * this from the device tree, and use it before performing
-+	 * switch soft reset.
-+	 */
-+	struct gpio_desc *reset;
- };
++	ps = (struct mv88e6xxx_priv_state *)(ds + 1);
++	ds->priv = ps;
++	ps->dev = dev;
++	ps->ds = ds;
++	ps->bus = mdiodev->bus;
++	ps->sw_addr = mdiodev->addr;
++	mutex_init(&ps->smi_mutex);
++
++	get_device(&ps->bus->dev);
++
++	ds->drv = &mv88e6xxx_switch_driver;
++
++	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
++	if (id < 0)
++		return id;
++
++	prod_num = (id & 0xfff0) >> 4;
++	rev = id & 0x000f;
++
++	ps->info = mv88e6xxx_lookup_info(prod_num, mv88e6xxx_table,
++					 ARRAY_SIZE(mv88e6xxx_table));
++	if (!ps->info)
++		return -ENODEV;
++
++	dev_set_drvdata(dev, ds);
++
++	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
++		 prod_num, ps->info->name, rev);
  
- enum stat_type {
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 8e86af87c84f..ecb52e265cc3 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -16,7 +16,6 @@
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/of.h>
--#include <linux/of_gpio.h>
- #include <linux/phy.h>
- #include <linux/phy_fixed.h>
- #include <linux/ethtool.h>
-@@ -65,13 +64,6 @@ struct dsa_chip_data {
- 	 * NULL if there is only one switch chip.
- 	 */
- 	s8		*rtable;
--
--	/*
--	 * A switch may have a GPIO line tied to its reset pin. Parse
--	 * this from the device tree, and use it before performing
--	 * switch soft reset.
--	 */
--	struct gpio_desc *reset;
- };
+ 	return 0;
+ }
++
++static void mv88e6xxx_remove(struct mdio_device *mdiodev)
++{
++	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	put_device(&ps->bus->dev);
++}
++
++static const struct of_device_id mv88e6xxx_of_match[] = {
++	{ .compatible = "marvell,mv88e6085" },
++	{ /* sentinel */ },
++};
++
++MODULE_DEVICE_TABLE(of, mv88e6xxx_of_match);
++
++static struct mdio_driver mv88e6xxx_driver = {
++	.probe	= mv88e6xxx_probe,
++	.remove = mv88e6xxx_remove,
++	.mdiodrv.driver = {
++		.name = "mv88e6085",
++		.of_match_table = mv88e6xxx_of_match,
++	},
++};
++
++static int __init mv88e6xxx_init(void)
++{
++	register_switch_driver(&mv88e6xxx_switch_driver);
++	return mdio_driver_register(&mv88e6xxx_driver);
++}
+ module_init(mv88e6xxx_init);
  
- struct dsa_platform_data {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index d61ceed912be..df169811f26d 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -659,9 +659,6 @@ static int dsa_of_probe(struct device *dev)
- 	const char *port_name;
- 	int chip_index, port_index;
- 	const unsigned int *sw_addr, *port_reg;
--	int gpio;
--	enum of_gpio_flags of_flags;
--	unsigned long flags;
- 	u32 eeprom_len;
- 	int ret;
+ static void __exit mv88e6xxx_cleanup(void)
+ {
++	mdio_driver_unregister(&mv88e6xxx_driver);
+ 	unregister_switch_driver(&mv88e6xxx_switch_driver);
+ }
+ module_exit(mv88e6xxx_cleanup);
  
-@@ -740,19 +737,6 @@ static int dsa_of_probe(struct device *dev)
- 			put_device(cd->host_dev);
- 			cd->host_dev = &mdio_bus_switch->dev;
- 		}
--		gpio = of_get_named_gpio_flags(child, "reset-gpios", 0,
--					       &of_flags);
--		if (gpio_is_valid(gpio)) {
--			flags = (of_flags == OF_GPIO_ACTIVE_LOW ?
--				 GPIOF_ACTIVE_LOW : 0);
--			ret = devm_gpio_request_one(dev, gpio, flags,
--						    "switch_reset");
--			if (ret)
--				goto out_free_chip;
--
--			cd->reset = gpio_to_desc(gpio);
--			gpiod_direction_output(cd->reset, 0);
--		}
- 
- 		for_each_available_child_of_node(child, port) {
- 			port_reg = of_get_property(port, "reg", NULL);
+-MODULE_ALIAS("platform:mv88e6085");
+-MODULE_ALIAS("platform:mv88e6095");
+-MODULE_ALIAS("platform:mv88e6095f");
+-MODULE_ALIAS("platform:mv88e6123");
+-MODULE_ALIAS("platform:mv88e6131");
+-MODULE_ALIAS("platform:mv88e6161");
+-MODULE_ALIAS("platform:mv88e6165");
+-MODULE_ALIAS("platform:mv88e6171");
+-MODULE_ALIAS("platform:mv88e6172");
+-MODULE_ALIAS("platform:mv88e6175");
+-MODULE_ALIAS("platform:mv88e6176");
+-MODULE_ALIAS("platform:mv88e6320");
+-MODULE_ALIAS("platform:mv88e6321");
+-MODULE_ALIAS("platform:mv88e6350");
+-MODULE_ALIAS("platform:mv88e6351");
+-MODULE_ALIAS("platform:mv88e6352");
+ MODULE_AUTHOR("Lennert Buytenhek <buytenh@wantstofly.org>");
+ MODULE_DESCRIPTION("Driver for Marvell 88E6XXX ethernet switch chips");
+ MODULE_LICENSE("GPL");
 -- 
 2.8.1
