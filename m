@@ -1,182 +1,52 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 4/6] drivers: net: xgene: fix statistics counters race condition
-Date: Mon,  9 May 2016 17:04:14 -0700
-Message-ID: <1462838656-22043-5-git-send-email-isubramanian@apm.com>
+Subject: [PATCH 2/6] drivers: net: xgene: fix sharing of irqs
+Date: Mon,  9 May 2016 17:04:12 -0700
+Message-ID: <1462838656-22043-3-git-send-email-isubramanian@apm.com>
 References: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	toanle@apm.com, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35441 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753869AbcEJADx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:03:53 -0400
-Received: by mail-pa0-f48.google.com with SMTP id iv1so77617819pac.2
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:03:53 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33516 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752921AbcEJADv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:03:51 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 206so81932516pfu.0
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:03:51 -0700 (PDT)
 In-Reply-To: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the race condition on updating the statistics
-counters by moving the counters to the ring structure.
+Since hardware doesn't allow sharing of interrupts,
+this patch fixes the same by removing IRQF_SHARED flag.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Tested-by: Toan Le <toanle@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 17 +++++++----
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  2 ++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 39 ++++++++++++++++++------
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 10 ++++++
- 4 files changed, 52 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 457f745..0050878 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -223,23 +223,28 @@ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
- 
- 	switch (status) {
- 	case INGRESS_CRC:
--		stats->rx_crc_errors++;
-+		ring->rx_crc_errors++;
-+		ring->rx_dropped++;
- 		break;
- 	case INGRESS_CHECKSUM:
- 	case INGRESS_CHECKSUM_COMPUTE:
--		stats->rx_errors++;
-+		ring->rx_errors++;
-+		ring->rx_dropped++;
- 		break;
- 	case INGRESS_TRUNC_FRAME:
--		stats->rx_frame_errors++;
-+		ring->rx_frame_errors++;
-+		ring->rx_dropped++;
- 		break;
- 	case INGRESS_PKT_LEN:
--		stats->rx_length_errors++;
-+		ring->rx_length_errors++;
-+		ring->rx_dropped++;
- 		break;
- 	case INGRESS_PKT_UNDER:
--		stats->rx_frame_errors++;
-+		ring->rx_frame_errors++;
-+		ring->rx_dropped++;
- 		break;
- 	case INGRESS_FIFO_OVERRUN:
--		stats->rx_fifo_errors++;
-+		ring->rx_fifo_errors++;
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index ba7da98..ecfeffe 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -201,6 +201,8 @@ enum xgene_enet_rm {
- #define USERINFO_LEN			32
- #define FPQNUM_POS			32
- #define FPQNUM_LEN			12
-+#define ELERR_POS                       46
-+#define ELERR_LEN                       2
- #define NV_POS				50
- #define NV_LEN				1
- #define LL_POS				51
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index e75d1a9..d992ae8 100644
+index aa87049..ed90664 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -443,8 +443,8 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
- 
- 	skb_tx_timestamp(skb);
- 
--	pdata->stats.tx_packets++;
--	pdata->stats.tx_bytes += skb->len;
-+	tx_ring->tx_packets++;
-+	tx_ring->tx_bytes += skb->len;
- 
- 	pdata->ring_ops->wr_cmd(tx_ring, count);
- 	return NETDEV_TX_OK;
-@@ -483,12 +483,12 @@ static int xgene_enet_rx_frame(struct xgene_enet_desc_ring *rx_ring,
- 	skb = buf_pool->rx_skb[skb_index];
- 
- 	/* checking for error */
--	status = GET_VAL(LERR, le64_to_cpu(raw_desc->m0));
-+	status = (GET_VAL(ELERR, le64_to_cpu(raw_desc->m0)) << LERR_LEN) ||
-+		  GET_VAL(LERR, le64_to_cpu(raw_desc->m0));
- 	if (unlikely(status > 2)) {
- 		dev_kfree_skb_any(skb);
- 		xgene_enet_parse_error(rx_ring, netdev_priv(rx_ring->ndev),
- 				       status);
--		pdata->stats.rx_dropped++;
- 		ret = -EIO;
- 		goto out;
- 	}
-@@ -506,8 +506,8 @@ static int xgene_enet_rx_frame(struct xgene_enet_desc_ring *rx_ring,
- 		xgene_enet_skip_csum(skb);
- 	}
- 
--	pdata->stats.rx_packets++;
--	pdata->stats.rx_bytes += datalen;
-+	rx_ring->rx_packets++;
-+	rx_ring->rx_bytes += datalen;
- 	napi_gro_receive(&rx_ring->napi, skb);
- out:
- 	if (--rx_ring->nbufpool == 0) {
-@@ -1127,11 +1127,30 @@ static struct rtnl_link_stats64 *xgene_enet_get_stats64(
- {
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct rtnl_link_stats64 *stats = &pdata->stats;
-+	struct xgene_enet_desc_ring *ring;
-+	int i;
-+
-+	memset(stats, 0, sizeof(struct rtnl_link_stats64));
-+	for (i = 0; i < pdata->txq_cnt; i++) {
-+		ring = pdata->tx_ring[i];
-+		if (ring) {
-+			stats->tx_packets += ring->tx_packets;
-+			stats->tx_bytes += ring->tx_bytes;
-+		}
-+	}
- 
--	stats->rx_errors += stats->rx_length_errors +
--			    stats->rx_crc_errors +
--			    stats->rx_frame_errors +
--			    stats->rx_fifo_errors;
-+	for (i = 0; i < pdata->rxq_cnt; i++) {
-+		ring = pdata->rx_ring[i];
-+		if (ring) {
-+			stats->rx_packets += ring->rx_packets;
-+			stats->rx_bytes += ring->rx_bytes;
-+			stats->rx_errors += ring->rx_length_errors +
-+				ring->rx_crc_errors +
-+				ring->rx_frame_errors +
-+				ring->rx_fifo_errors;
-+			stats->rx_dropped += ring->rx_dropped;
-+		}
-+	}
- 	memcpy(storage, &pdata->stats, sizeof(struct rtnl_link_stats64));
- 
- 	return storage;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index cc40c30..092fbec 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -121,6 +121,16 @@ struct xgene_enet_desc_ring {
- 		struct xgene_enet_raw_desc16 *raw_desc16;
- 	};
- 	__le64 *exp_bufs;
-+	u64 tx_packets;
-+	u64 tx_bytes;
-+	u64 rx_packets;
-+	u64 rx_bytes;
-+	u64 rx_dropped;
-+	u64 rx_errors;
-+	u64 rx_length_errors;
-+	u64 rx_crc_errors;
-+	u64 rx_frame_errors;
-+	u64 rx_fifo_errors;
- };
- 
- struct xgene_mac_ops {
+@@ -630,7 +630,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
+ 		ring = pdata->rx_ring[i];
+ 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
+ 		ret = devm_request_irq(dev, ring->irq, xgene_enet_rx_irq,
+-				       IRQF_SHARED, ring->irq_name, ring);
++				       0, ring->irq_name, ring);
+ 		if (ret) {
+ 			netdev_err(ndev, "Failed to request irq %s\n",
+ 				   ring->irq_name);
+@@ -641,7 +641,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
+ 		ring = pdata->tx_ring[i]->cp_ring;
+ 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
+ 		ret = devm_request_irq(dev, ring->irq, xgene_enet_rx_irq,
+-				       IRQF_SHARED, ring->irq_name, ring);
++				       0, ring->irq_name, ring);
+ 		if (ret) {
+ 			netdev_err(ndev, "Failed to request irq %s\n",
+ 				   ring->irq_name);
 -- 
 1.9.1
