@@ -1,176 +1,61 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: allocate rx pages on the same node as the
- interrupt
-Date: Tue, 10 May 2016 15:21:05 +0100
-Message-ID: <5731EE51.2090908@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Tue, 10 May 2016 07:29:50 -0700
+Message-ID: <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Pieczko <dpieczko@solarflare.com>
-To: <linux-net-drivers@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:1516 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751740AbcEJOVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 10:21:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	linux-kernel@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1462886866.git.pabeni@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Pieczko <dpieczko@solarflare.com>
+On Tue, 2016-05-10 at 16:11 +0200, Paolo Abeni wrote:
+> Currently, the softirq loop can be scheduled both inside the ksofirqd kernel
+> thread and inside any running process. This makes nearly impossible for the
+> process scheduler to balance in a fair way the amount of time that
+> a given core spends performing the softirq loop.
+> 
+> Under high network load, the softirq loop can take nearly 100% of a given CPU,
+> leaving very little time for use space processing. On single core hosts, this
+> means that the user space can nearly starve; for example super_netperf
+> UDP_STREAM tests towards a remote single core vCPU guest[1] can measure an
+> aggregated throughput of a few thousands pps, and the same behavior can be
+> reproduced even on bare-metal, eventually simulating a single core with taskset
+> and/or sysfs configuration.
 
-When the interrupt servicing a channel is on a NUMA node that is
-not local to the device, performance is improved by allocating
-rx pages on the node local to the interrupt (remote to the device)
+I hate these patches and ideas guys, sorry. That is before my breakfast,
+but still...
 
-The performance-optimal case, where interrupts and applications
-are pinned to CPUs on the same node as the device, is not altered
-by this change.
+I have enough hard time dealing with loads where ksoftirqd has to
+compete with user threads that thought that playing with priorities was
+a nice idea.
 
-This change gave a 1% improvement in transaction rate using Nginx
-with all interrupts and Nginx threads on the node remote to the
-device. It also gave a small reduction in round-trip latency,
-again with the interrupt and application on a different node to
-the device.
+Guess what, when they lose networking they complain.
 
-Allocating rx pages based on the channel->irq_node value is only
-valid for the initial driver-load interrupt affinities; if an
-interrupt is moved later, the wrong node may be used for the
-allocation.
+We already have ksoftirqd to normally cope with the case you are
+describing.
 
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c        | 38 +++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/sfc/net_driver.h |  3 +++
- drivers/net/ethernet/sfc/rx.c         | 18 ++++++++++++++---
- 3 files changed, 56 insertions(+), 3 deletions(-)
+If it is not working as intended, please identify the bugs and fix them,
+instead of adding yet another tests in fast path and extra complexity in
+the stack.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 0705ec86..cb1552c 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -445,6 +445,7 @@ efx_alloc_channel(struct efx_nic *efx, int i, struct efx_channel *old_channel)
- 	channel->efx = efx;
- 	channel->channel = i;
- 	channel->type = &efx_default_channel_type;
-+	channel->irq_mem_node = NUMA_NO_NODE;
- 
- 	for (j = 0; j < EFX_TXQ_TYPES; j++) {
- 		tx_queue = &channel->tx_queue[j];
-@@ -1486,6 +1487,38 @@ static int efx_probe_interrupts(struct efx_nic *efx)
- 	return 0;
- }
- 
-+#ifndef CONFIG_SMP
-+static void efx_set_interrupt_affinity(struct efx_nic *efx __always_unused)
-+{
-+}
-+
-+static void efx_clear_interrupt_affinity(struct efx_nic *efx __always_unused)
-+{
-+}
-+#else
-+static void efx_set_interrupt_affinity(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	unsigned int cpu;
-+
-+	efx_for_each_channel(channel, efx) {
-+		cpu = cpumask_local_spread(channel->channel,
-+					   pcibus_to_node(efx->pci_dev->bus));
-+
-+		irq_set_affinity_hint(channel->irq, cpumask_of(cpu));
-+		channel->irq_mem_node = cpu_to_mem(cpu);
-+	}
-+}
-+
-+static void efx_clear_interrupt_affinity(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel(channel, efx)
-+		irq_set_affinity_hint(channel->irq, NULL);
-+}
-+#endif /* CONFIG_SMP */
-+
- static int efx_soft_enable_interrupts(struct efx_nic *efx)
- {
- 	struct efx_channel *channel, *end_channel;
-@@ -2934,6 +2967,7 @@ static void efx_pci_remove_main(struct efx_nic *efx)
- 	cancel_work_sync(&efx->reset_work);
- 
- 	efx_disable_interrupts(efx);
-+	efx_clear_interrupt_affinity(efx);
- 	efx_nic_fini_interrupt(efx);
- 	efx_fini_port(efx);
- 	efx->type->fini(efx);
-@@ -3083,6 +3117,9 @@ static int efx_pci_probe_main(struct efx_nic *efx)
- 	rc = efx_nic_init_interrupt(efx);
- 	if (rc)
- 		goto fail5;
-+
-+	efx_set_interrupt_affinity(efx);
-+
- 	rc = efx_enable_interrupts(efx);
- 	if (rc)
- 		goto fail6;
-@@ -3090,6 +3127,7 @@ static int efx_pci_probe_main(struct efx_nic *efx)
- 	return 0;
- 
-  fail6:
-+	efx_clear_interrupt_affinity(efx);
- 	efx_nic_fini_interrupt(efx);
-  fail5:
- 	efx_fini_port(efx);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 38c4223..28c3673 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -423,6 +423,7 @@ enum efx_sync_events_state {
-  * @sync_events_state: Current state of sync events on this channel
-  * @sync_timestamp_major: Major part of the last ptp sync event
-  * @sync_timestamp_minor: Minor part of the last ptp sync event
-+ * @irq_mem_node: Memory NUMA node of interrupt
-  */
- struct efx_channel {
- 	struct efx_nic *efx;
-@@ -468,6 +469,8 @@ struct efx_channel {
- 	enum efx_sync_events_state sync_events_state;
- 	u32 sync_timestamp_major;
- 	u32 sync_timestamp_minor;
-+
-+	int irq_mem_node;
- };
- 
- #ifdef CONFIG_NET_RX_BUSY_POLL
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 8956995..eed0c3b 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -163,9 +163,21 @@ static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue, bool atomic)
- 	do {
- 		page = efx_reuse_page(rx_queue);
- 		if (page == NULL) {
--			page = alloc_pages(__GFP_COLD | __GFP_COMP |
--					   (atomic ? GFP_ATOMIC : GFP_KERNEL),
--					   efx->rx_buffer_order);
-+			/* GFP_ATOMIC may fail because of various reasons,
-+			 * and we re-schedule rx_fill from non-atomic
-+			 * context in such a case.  So, use __GFP_NO_WARN
-+			 * in case of atomic.
-+			 */
-+			struct efx_channel *channel;
-+
-+			channel = efx_rx_queue_channel(rx_queue);
-+			page = alloc_pages_node(channel->irq_mem_node,
-+						__GFP_COMP |
-+						(atomic ?
-+						 (GFP_ATOMIC | __GFP_NOWARN)
-+						 : GFP_KERNEL),
-+						efx->rx_buffer_order);
-+
- 			if (unlikely(page == NULL))
- 				return -ENOMEM;
- 			dma_addr =
+In the one vcpu case, allowing the user thread to consume more UDP
+packets from the target UDP socket will also make your NIC drop more
+packets, that are not necessarily packets for the same socket.
+
+So you are shifting the attack to a different target,
+at the expense of more kernel bloat.
