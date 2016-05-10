@@ -1,80 +1,65 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 1/2] bnxt_en: Add workaround to detect bad opaque in rx completion (part 1)
-Date: Tue, 10 May 2016 19:17:59 -0400
-Message-ID: <1462922280-17851-2-git-send-email-michael.chan@broadcom.com>
-References: <1462922280-17851-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33672 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbcEJXSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 19:18:11 -0400
-Received: by mail-pf0-f170.google.com with SMTP id 206so10934317pfu.0
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 16:18:11 -0700 (PDT)
-In-Reply-To: <1462922280-17851-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Tue, 10 May 2016 18:18:28 -0500
+Message-ID: <57326C44.8020906@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com> <571915F5.5070504@codeaurora.org>
+ <571A7F3D.1070609@codeaurora.org> <571A8207.60704@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <571A8207.60704@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a rare hardware bug that can cause a bad opaque value in the RX
-or TPA completion.  When this happens, the hardware may have used the
-same buffer twice for 2 rx packets.  In addition, the driver will also
-crash later using the bad opaque as the index into the ring.
+Florian Fainelli wrote:
+> Are you utilizing the PHYLIB APIs properly? You need at least a
+> phy_start() to start the PHY state machine, and an adjust_link callback
+> to be provided to phy_connect() (or of_phy_connect()) to manage link
+> state changes. And that's the very basic minimum here, there could be
+> additional APIs that you may end up using.
+>
+> There are tons of example in tree of drivers doing this, bcmgenet,
+> bcmsysport, tg3 etc.
 
-The rx opaque value is predictable and is always monotonically increasing.
-The workaround is to keep track of the expected next opaque value and
-compare it with the one returned by hardware during RX and TPA start
-completions.  If they miscompare, we will not process any more RX and
-TPA completions and exit NAPI.  We will then schedule a workqueue to
-reset the function.
+Thank you.  I think I finally got phylib working, more or less.
 
-This patch adds the logic to keep track of the next rx consumer index.
+Unfortunately, it seems I have some kind of race condition.  The driver 
+has a lot that's wrong with it, and I'm trying to fix it all.  One crazy 
+the driver does is it create a workqueue to handle a lot of the tasks 
+that would normally be handled in the interrupt handler itself.
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 3 +++
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 1 +
- 2 files changed, 4 insertions(+)
+With phylib support, I know my driver can call phy_mac_interrupt() when 
+it gets a link status change interrupt.  I then have an .adjust_link 
+callback which starts or stops the mac accordingly.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 9d4e8e1..58999cd 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -867,6 +867,7 @@ static void bnxt_tpa_start(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
- 
- 	rxr->rx_prod = NEXT_RX(prod);
- 	cons = NEXT_RX(cons);
-+	rxr->rx_next_cons = NEXT_RX(cons);
- 	cons_rx_buf = &rxr->rx_buf_ring[cons];
- 
- 	bnxt_reuse_rx_data(rxr, cons, cons_rx_buf->data);
-@@ -1245,6 +1246,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
- 
- next_rx:
- 	rxr->rx_prod = NEXT_RX(prod);
-+	rxr->rx_next_cons = NEXT_RX(cons);
- 
- next_rx_no_prod:
- 	*raw_cons = tmp_raw_cons;
-@@ -2486,6 +2488,7 @@ static void bnxt_clear_ring_indices(struct bnxt *bp)
- 			rxr->rx_prod = 0;
- 			rxr->rx_agg_prod = 0;
- 			rxr->rx_sw_agg_prod = 0;
-+			rxr->rx_next_cons = 0;
- 		}
- 	}
- }
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 8b823ff..52f2d74 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -584,6 +584,7 @@ struct bnxt_rx_ring_info {
- 	u16			rx_prod;
- 	u16			rx_agg_prod;
- 	u16			rx_sw_agg_prod;
-+	u16			rx_next_cons;
- 	void __iomem		*rx_doorbell;
- 	void __iomem		*rx_agg_doorbell;
- 
+My problem is that I'm not really sure what adjust_link is supposed to 
+be doing.  In addition, it seems that I need to keep the workqueue 
+running, otherwise the interface will not function.  I bring the 
+interface up, and the driver reports success, but pings do not work.
+
+I'm getting really frustrated.  The sample code isn't really helping a 
+whole lot, because I lack a fundamental understanding of what needs to 
+be done.  None of the documentation I've read is helpful, and I don't 
+know how to debug it.
+
+Can you give me some advice on how to debug this?
+
 -- 
-1.8.3.1
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
