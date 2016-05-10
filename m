@@ -1,104 +1,127 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/2] net: dsa: mv88e6xxx: abstract VTU/STU data access
-Date: Tue, 10 May 2016 15:44:28 -0400
-Message-ID: <1462909469-4827-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/2] net: dsa: mv88e6xxx: add STU capability
+Date: Tue, 10 May 2016 15:44:29 -0400
+Message-ID: <1462909469-4827-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1462909469-4827-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462909469-4827-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both VTU and STU operations use the same routine to access their
-(common) data registers, with a different offset.
+Some switch models have a STU (per VLAN port state database). Add a new
+capability flag to switches info, instead of checking their family.
 
-Add VTU and STU specific read and write functions to the data registers
-to abstract the required offset.
+Also if the 6165 family has an STU, it must have a VTU, so add the
+MV88E6XXX_FLAG_VTU to its family flags.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 32 ++++++++++++++++++++++++++++----
- 1 file changed, 28 insertions(+), 4 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 14 ++------------
+ drivers/net/dsa/mv88e6xxx.h | 16 ++++++++++++++--
+ 2 files changed, 16 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 1e5ca8e..92be27d 100644
+index 92be27d..835126e 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1498,6 +1498,18 @@ static int _mv88e6xxx_vtu_stu_data_read(struct mv88e6xxx_priv_state *ps,
- 	return 0;
+@@ -453,16 +453,6 @@ static bool mv88e6xxx_has_fid_reg(struct mv88e6xxx_priv_state *ps)
+ 	return false;
  }
  
-+static int mv88e6xxx_vtu_data_read(struct mv88e6xxx_priv_state *ps,
-+				   struct mv88e6xxx_vtu_stu_entry *entry)
-+{
-+	return _mv88e6xxx_vtu_stu_data_read(ps, entry, 0);
-+}
-+
-+static int mv88e6xxx_stu_data_read(struct mv88e6xxx_priv_state *ps,
-+				   struct mv88e6xxx_vtu_stu_entry *entry)
-+{
-+	return _mv88e6xxx_vtu_stu_data_read(ps, entry, 2);
-+}
-+
- static int _mv88e6xxx_vtu_stu_data_write(struct mv88e6xxx_priv_state *ps,
- 					 struct mv88e6xxx_vtu_stu_entry *entry,
- 					 unsigned int nibble_offset)
-@@ -1523,6 +1535,18 @@ static int _mv88e6xxx_vtu_stu_data_write(struct mv88e6xxx_priv_state *ps,
- 	return 0;
- }
+-static bool mv88e6xxx_has_stu(struct mv88e6xxx_priv_state *ps)
+-{
+-	/* Does the device have STU and dedicated SID registers for VTU ops? */
+-	if (mv88e6xxx_6097_family(ps) || mv88e6xxx_6165_family(ps) ||
+-	    mv88e6xxx_6351_family(ps) || mv88e6xxx_6352_family(ps))
+-		return true;
+-
+-	return false;
+-}
+-
+ /* We expect the switch to perform auto negotiation if there is a real
+  * phy. However, in the case of a fixed link phy, we force the port
+  * settings from the fixed link settings.
+@@ -1599,7 +1589,7 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_priv_state *ps,
+ 			next.fid |= ret & 0xf;
+ 		}
  
-+static int mv88e6xxx_vtu_data_write(struct mv88e6xxx_priv_state *ps,
-+				    struct mv88e6xxx_vtu_stu_entry *entry)
-+{
-+	return _mv88e6xxx_vtu_stu_data_write(ps, entry, 0);
-+}
-+
-+static int mv88e6xxx_stu_data_write(struct mv88e6xxx_priv_state *ps,
-+				    struct mv88e6xxx_vtu_stu_entry *entry)
-+{
-+	return _mv88e6xxx_vtu_stu_data_write(ps, entry, 2);
-+}
-+
- static int _mv88e6xxx_vtu_vid_write(struct mv88e6xxx_priv_state *ps, u16 vid)
- {
- 	return _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_VTU_VID,
-@@ -1551,7 +1575,7 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_priv_state *ps,
- 	next.valid = !!(ret & GLOBAL_VTU_VID_VALID);
- 
- 	if (next.valid) {
--		ret = _mv88e6xxx_vtu_stu_data_read(ps, &next, 0);
-+		ret = mv88e6xxx_vtu_data_read(ps, &next);
- 		if (ret < 0)
- 			return ret;
- 
-@@ -1658,7 +1682,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_priv_state *ps,
- 		goto loadpurge;
- 
- 	/* Write port member tags */
--	ret = _mv88e6xxx_vtu_stu_data_write(ps, entry, 0);
-+	ret = mv88e6xxx_vtu_data_write(ps, entry);
+-		if (mv88e6xxx_has_stu(ps)) {
++		if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_STU)) {
+ 			ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL,
+ 						  GLOBAL_VTU_SID);
+ 			if (ret < 0)
+@@ -1686,7 +1676,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_priv_state *ps,
  	if (ret < 0)
  		return ret;
  
-@@ -1724,7 +1748,7 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_priv_state *ps, u8 sid,
- 	next.valid = !!(ret & GLOBAL_VTU_VID_VALID);
- 
- 	if (next.valid) {
--		ret = _mv88e6xxx_vtu_stu_data_read(ps, &next, 2);
-+		ret = mv88e6xxx_stu_data_read(ps, &next);
+-	if (mv88e6xxx_has_stu(ps)) {
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_STU)) {
+ 		reg = entry->sid & GLOBAL_VTU_SID_MASK;
+ 		ret = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_VTU_SID, reg);
  		if (ret < 0)
- 			return ret;
- 	}
-@@ -1747,7 +1771,7 @@ static int _mv88e6xxx_stu_loadpurge(struct mv88e6xxx_priv_state *ps,
- 		goto loadpurge;
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index ca69a93..5f09a4e 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -403,6 +403,12 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_SMI_PHY,
  
- 	/* Write port states */
--	ret = _mv88e6xxx_vtu_stu_data_write(ps, entry, 2);
-+	ret = mv88e6xxx_stu_data_write(ps, entry);
- 	if (ret < 0)
- 		return ret;
++	/* Per VLAN Spanning Tree Unit (STU).
++	 * The Port State database, if present, is accessed through VTU
++	 * operations and dedicated SID registers. See GLOBAL_VTU_SID.
++	 */
++	MV88E6XXX_CAP_STU,
++
+ 	/* Switch MAC/WoL/WoF register.
+ 	 * This requires an indirect access to set the switch MAC address
+ 	 * through GLOBAL2_SWITCH_MAC, otherwise GLOBAL_MAC_01, GLOBAL_MAC_23,
+@@ -436,6 +442,7 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
+ #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
++#define MV88E6XXX_FLAG_STU		BIT(MV88E6XXX_CAP_STU)
+ #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
+ #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+ #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
+@@ -451,12 +458,15 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+ 	(MV88E6XXX_FLAG_ATU |		\
+ 	 MV88E6XXX_FLAG_PPU |		\
++	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
  
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+-	(MV88E6XXX_FLAG_SWITCH_MAC |	\
+-	 MV88E6XXX_FLAG_TEMP)
++	(MV88E6XXX_FLAG_STU |		\
++	 MV88E6XXX_FLAG_SWITCH_MAC |	\
++	 MV88E6XXX_FLAG_TEMP |		\
++	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	(MV88E6XXX_FLAG_ATU |		\
+@@ -482,6 +492,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
++	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+@@ -494,6 +505,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
++	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
 -- 
 2.8.2
