@@ -1,52 +1,124 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 2/6] drivers: net: xgene: fix sharing of irqs
-Date: Mon,  9 May 2016 17:04:12 -0700
-Message-ID: <1462838656-22043-3-git-send-email-isubramanian@apm.com>
-References: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	toanle@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 1/5] ip6_gre: Fix MTU setting
+Date: Mon, 9 May 2016 17:12:08 -0700
+Message-ID: <1462839132-980991-2-git-send-email-tom@herbertland.com>
+References: <1462839132-980991-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33516 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921AbcEJADv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:03:51 -0400
-Received: by mail-pf0-f180.google.com with SMTP id 206so81932516pfu.0
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:03:51 -0700 (PDT)
-In-Reply-To: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36334 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753673AbcEJAMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:12:22 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4A0CC9A028577
+	for <netdev@vger.kernel.org>; Mon, 9 May 2016 17:12:21 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 22u4etg3pt-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:12:21 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.102.107.97) with ESMTP	id
+ dcfd5db8164311e697280002c99331b0-705f6c50 for <netdev@vger.kernel.org>;	Mon,
+ 09 May 2016 17:12:20 -0700
+In-Reply-To: <1462839132-980991-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since hardware doesn't allow sharing of interrupts,
-this patch fixes the same by removing IRQF_SHARED flag.
+In ip6gre_tnl_link_config set t->tun_len and t->hlen correctly for the
+configuration. For hard_header_len and mtu calculation include
+IPv6 header and encapsulation overhead.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Tested-by: Toan Le <toanle@apm.com>
+In ip6gre_tunnel_init_common set t->tun_len and t->hlen correctly for
+the configuration. Revert to setting hard_header_len instead of
+needed_headroom.
+
+Tested:
+
+./ip link add name tun8 type ip6gretap remote \
+2401:db00:20:911a:face:0:27:0 local \
+2401:db00:20:911a:face:0:25:0 ttl 225
+
+Gives MTU of 1434. That is equal to 1500 - 40 - 14 - 4 - 8.
+
+./ip link add name tun8 type ip6gretap remote \
+2401:db00:20:911a:face:0:27:0 local \
+2401:db00:20:911a:face:0:25:0 ttl 225 okey 123
+
+Gives MTU of 1430. That is equal to 1500 - 40 - 14 - 4 - 8 - 4.
+
+Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/ip6_gre.c | 29 +++++++++++++----------------
+ 1 file changed, 13 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index aa87049..ed90664 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -630,7 +630,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
- 		ring = pdata->rx_ring[i];
- 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
- 		ret = devm_request_irq(dev, ring->irq, xgene_enet_rx_irq,
--				       IRQF_SHARED, ring->irq_name, ring);
-+				       0, ring->irq_name, ring);
- 		if (ret) {
- 			netdev_err(ndev, "Failed to request irq %s\n",
- 				   ring->irq_name);
-@@ -641,7 +641,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
- 		ring = pdata->tx_ring[i]->cp_ring;
- 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
- 		ret = devm_request_irq(dev, ring->irq, xgene_enet_rx_irq,
--				       IRQF_SHARED, ring->irq_name, ring);
-+				       0, ring->irq_name, ring);
- 		if (ret) {
- 			netdev_err(ndev, "Failed to request irq %s\n",
- 				   ring->irq_name);
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 47b671a..6d0aa94 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -700,7 +700,7 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
+ 	struct net_device *dev = t->dev;
+ 	struct __ip6_tnl_parm *p = &t->parms;
+ 	struct flowi6 *fl6 = &t->fl.u.ip6;
+-	int addend = sizeof(struct ipv6hdr) + 4;
++	int t_hlen;
+ 
+ 	if (dev->type != ARPHRD_ETHER) {
+ 		memcpy(dev->dev_addr, &p->laddr, sizeof(struct in6_addr));
+@@ -727,16 +727,11 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
+ 	else
+ 		dev->flags &= ~IFF_POINTOPOINT;
+ 
+-	/* Precalculate GRE options length */
+-	if (t->parms.o_flags&(GRE_CSUM|GRE_KEY|GRE_SEQ)) {
+-		if (t->parms.o_flags&GRE_CSUM)
+-			addend += 4;
+-		if (t->parms.o_flags&GRE_KEY)
+-			addend += 4;
+-		if (t->parms.o_flags&GRE_SEQ)
+-			addend += 4;
+-	}
+-	t->hlen = addend;
++	t->tun_hlen = gre_calc_hlen(t->parms.o_flags);
++
++	t->hlen = t->tun_hlen;
++
++	t_hlen = t->hlen + sizeof(struct ipv6hdr);
+ 
+ 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
+ 		int strict = (ipv6_addr_type(&p->raddr) &
+@@ -750,10 +745,11 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
+ 			return;
+ 
+ 		if (rt->dst.dev) {
+-			dev->hard_header_len = rt->dst.dev->hard_header_len + addend;
++			dev->hard_header_len = rt->dst.dev->hard_header_len +
++					       t_hlen;
+ 
+ 			if (set_mtu) {
+-				dev->mtu = rt->dst.dev->mtu - addend;
++				dev->mtu = rt->dst.dev->mtu - t_hlen;
+ 				if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+ 					dev->mtu -= 8;
+ 				if (dev->type == ARPHRD_ETHER)
+@@ -1027,11 +1023,12 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
+ 
+ 	tunnel->tun_hlen = gre_calc_hlen(tunnel->parms.o_flags);
+ 
+-	t_hlen = tunnel->hlen + sizeof(struct ipv6hdr);
++	tunnel->hlen = tunnel->tun_hlen;
+ 
+-	dev->needed_headroom	= LL_MAX_HEADER + t_hlen + 4;
+-	dev->mtu		= ETH_DATA_LEN - t_hlen - 4;
++	t_hlen = tunnel->hlen + sizeof(struct ipv6hdr);
+ 
++	dev->hard_header_len = LL_MAX_HEADER + t_hlen;
++	dev->mtu = ETH_DATA_LEN - t_hlen;
+ 	if (!(tunnel->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+ 		dev->mtu -= 8;
+ 
 -- 
-1.9.1
+2.8.0.rc2
