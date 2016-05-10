@@ -1,60 +1,107 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 0/6] drivers: net: xgene: Bug fixes
-Date: Mon,  9 May 2016 17:04:10 -0700
-Message-ID: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH 3/6] drivers: net: xgene: fix ununiform latency across queues
+Date: Mon,  9 May 2016 17:04:13 -0700
+Message-ID: <1462838656-22043-4-git-send-email-isubramanian@apm.com>
+References: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	toanle@apm.com, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33147 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921AbcEJADt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:03:49 -0400
-Received: by mail-pa0-f49.google.com with SMTP id xk12so78282531pac.0
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:03:49 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33157 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754011AbcEJADw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 20:03:52 -0400
+Received: by mail-pa0-f41.google.com with SMTP id xk12so78283018pac.0
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 17:03:52 -0700 (PDT)
+In-Reply-To: <1462838656-22043-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set addresses the following bug fixes that were found during testing.
+This patch addresses ununiform latency across queues by adding
+more queues to match with, upto number of CPU cores.
 
-  1. IPv4 forward test crash
-    - drivers: net: xgene: fix IPv4 forward crash
-
-  2. Sharing of irqs
-    - drivers: net: xgene: fix sharing of irqs
-
-  3. Ununiform latency across queues
-    - drivers: net: xgene: fix ununiform latency across queues
-
-  4. Fix statistics counters race condition
-    - drivers: net: xgene: fix statistics counters race condition
-
-  5. TSO data corruption
-    - drivers: net: xgene: Using static MSS values
-
-  6. Correcting register offset and field lengths
-    - drivers: net: xgene: fix register offset
+Also, number of interrupts are increased and the channel numbers
+are reordered.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Tested-by: Toan Le <toanle@apm.com>
 ---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 30 ++++++++++++++++++------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h |  8 +++----
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
-Iyappan Subramanian (6):
-  drivers: net: xgene: fix IPv4 forward crash
-  drivers: net: xgene: fix sharing of irqs
-  drivers: net: xgene: fix ununiform latency across queues
-  drivers: net: xgene: fix statistics counters race condition
-  drivers: net: xgene: Using static MSS values
-  drivers: net: xgene: fix register offset
-
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.c   |  11 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.h   |   2 +
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    |  19 ++--
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  10 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 118 ++++++++++++++++++----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  24 +++--
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.h |   2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  20 +++-
- 8 files changed, 159 insertions(+), 47 deletions(-)
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index ed90664..e75d1a9 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -1247,6 +1247,13 @@ static int xgene_enet_get_irqs(struct xgene_enet_pdata *pdata)
+ 	for (i = 0; i < max_irqs; i++) {
+ 		ret = platform_get_irq(pdev, i);
+ 		if (ret <= 0) {
++			if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
++				max_irqs = i;
++				pdata->rxq_cnt = max_irqs / 2;
++				pdata->txq_cnt = max_irqs / 2;
++				pdata->cq_cnt = max_irqs / 2;
++				break;
++			}
+ 			dev_err(dev, "Unable to get ENET IRQ\n");
+ 			ret = ret ? : -ENXIO;
+ 			return ret;
+@@ -1450,19 +1457,28 @@ static void xgene_enet_setup_ops(struct xgene_enet_pdata *pdata)
+ 		pdata->port_ops = &xgene_xgport_ops;
+ 		pdata->cle_ops = &xgene_cle3in_ops;
+ 		pdata->rm = RM0;
+-		pdata->rxq_cnt = XGENE_NUM_RX_RING;
+-		pdata->txq_cnt = XGENE_NUM_TX_RING;
+-		pdata->cq_cnt = XGENE_NUM_TXC_RING;
++		if (!pdata->rxq_cnt) {
++			pdata->rxq_cnt = XGENE_NUM_RX_RING;
++			pdata->txq_cnt = XGENE_NUM_TX_RING;
++			pdata->cq_cnt = XGENE_NUM_TXC_RING;
++		}
+ 		break;
+ 	}
+ 
+ 	if (pdata->enet_id == XGENE_ENET1) {
+ 		switch (pdata->port_id) {
+ 		case 0:
+-			pdata->cpu_bufnum = START_CPU_BUFNUM_0;
+-			pdata->eth_bufnum = START_ETH_BUFNUM_0;
+-			pdata->bp_bufnum = START_BP_BUFNUM_0;
+-			pdata->ring_num = START_RING_NUM_0;
++			if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
++				pdata->cpu_bufnum = X2_START_CPU_BUFNUM_0;
++				pdata->eth_bufnum = X2_START_ETH_BUFNUM_0;
++				pdata->bp_bufnum = X2_START_BP_BUFNUM_0;
++				pdata->ring_num = START_RING_NUM_0;
++			} else {
++				pdata->cpu_bufnum = START_CPU_BUFNUM_0;
++				pdata->eth_bufnum = START_ETH_BUFNUM_0;
++				pdata->bp_bufnum = START_BP_BUFNUM_0;
++				pdata->ring_num = START_RING_NUM_0;
++			}
+ 			break;
+ 		case 1:
+ 			if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 0a2887b..cc40c30 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -49,10 +49,10 @@
+ #define XGENE_ENET_MSS	1448
+ #define XGENE_MIN_ENET_FRAME_SIZE	60
+ 
+-#define XGENE_MAX_ENET_IRQ	8
+-#define XGENE_NUM_RX_RING	4
+-#define XGENE_NUM_TX_RING	4
+-#define XGENE_NUM_TXC_RING	4
++#define XGENE_MAX_ENET_IRQ	16
++#define XGENE_NUM_RX_RING	8
++#define XGENE_NUM_TX_RING	8
++#define XGENE_NUM_TXC_RING	8
+ 
+ #define START_CPU_BUFNUM_0	0
+ #define START_ETH_BUFNUM_0	2
 -- 
 1.9.1
