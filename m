@@ -1,372 +1,47 @@
-From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [RESEND PATCH v7 14/21] IB/hns: Add operations support for IB device and port
-Date: Tue, 10 May 2016 11:04:36 +0800
-Message-ID: <1462849483-67927-15-git-send-email-oulijun@huawei.com>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [RESEND PATCH v7 06/21] IB/hns: Add initial cmd operation
+Date: Tue, 10 May 2016 11:04:28 +0800
+Message-ID: <1462849483-67927-7-git-send-email-oulijun@huawei.com>
 References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1462849483-67927-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch mainly registered some relative verbs for the kernel.
-These operation functions will be called by user. For example:
-    1. modify device
-    2. query device
-    3. query_port
-    4. modify_port
-and so on.
+This patch added the operation for cmd, and added some functions
+for initializing eq table and selecting cmd mode.
 
-Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_common.h |   4 +
- drivers/infiniband/hw/hns/hns_roce_device.h |  21 +++
- drivers/infiniband/hw/hns/hns_roce_main.c   | 228 ++++++++++++++++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_user.h   |  17 +++
- 4 files changed, 270 insertions(+)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_user.h
+ drivers/infiniband/hw/hns/hns_roce_cmd.c    | 96 +++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_cmd.h    | 19 ++++++
+ drivers/infiniband/hw/hns/hns_roce_common.h |  2 +
+ drivers/infiniband/hw/hns/hns_roce_device.h | 41 ++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   | 13 ++++
+ 5 files changed, 171 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.h
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
-index 45b5804..135203e 100644
---- a/drivers/infiniband/hw/hns/hns_roce_common.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_common.h
-@@ -10,6 +10,10 @@
- #ifndef _HNS_ROCE_COMMON_H
- #define _HNS_ROCE_COMMON_H
- 
-+#ifndef assert
-+#define assert(cond)
-+#endif
-+
- #define roce_writel(value, addr)     writel((value), (addr))
- #define roce_readl(addr)            readl((addr))
- #define roce_raw_write(value, addr) \
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 85ee147..d135e7f 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -22,6 +22,8 @@
- #define DRV_NAME "hns_roce"
- 
- #define MAC_ADDR_OCTET_NUM			6
-+#define HNS_ROCE_MAX_MSG_LEN			0x80000000
-+
- 
- #define HNS_ROCE_BA_SIZE			(32 * 4096)
- 
-@@ -35,7 +37,10 @@
- 
- #define HNS_ROCE_MAX_PORTS			6
- #define HNS_ROCE_MAX_GID_NUM			16
-+#define HNS_ROCE_GID_SIZE			16
- 
-+#define PKEY_ID					0xffff
-+#define NODE_DESC_SIZE				64
- #define ADDR_SHIFT_12				12
- #define ADDR_SHIFT_32				32
- #define ADDR_SHIFT_44				44
-@@ -106,6 +111,11 @@ struct hns_roce_uar {
- 	unsigned long	index;
- };
- 
-+struct hns_roce_ucontext {
-+	struct ib_ucontext	ibucontext;
-+	struct hns_roce_uar	uar;
-+};
-+
- struct hns_roce_bitmap {
- 	/* Bitmap Traversal last a bit which is 1 */
- 	unsigned long		last;
-@@ -363,6 +373,17 @@ struct hns_roce_dev {
- 	struct hns_roce_hw	*hw;
- };
- 
-+static inline struct hns_roce_dev *to_hr_dev(struct ib_device *ib_dev)
-+{
-+	return container_of(ib_dev, struct hns_roce_dev, ib_dev);
-+}
-+
-+static inline struct hns_roce_ucontext
-+			*to_hr_ucontext(struct ib_ucontext *ibucontext)
-+{
-+	return container_of(ibucontext, struct hns_roce_ucontext, ibucontext);
-+}
-+
- static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
- {
- 	__raw_writeq(*(u64 *) val, dest);
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index 9f7ad61..6a1fd38 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -41,6 +41,7 @@
- #include <rdma/ib_verbs.h>
- #include "hns_roce_common.h"
- #include "hns_roce_device.h"
-+#include "hns_roce_user.h"
- #include "hns_roce_icm.h"
- 
- /**
-@@ -341,6 +342,217 @@ int hns_roce_setup_mtu_gids(struct hns_roce_dev  *hr_dev)
- 	return ret;
- }
- 
-+static int hns_roce_query_device(struct ib_device *ib_dev,
-+				 struct ib_device_attr *props,
-+				 struct ib_udata *uhw)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
-+
-+	memset(props, 0, sizeof(*props));
-+
-+	props->fw_ver = hr_dev->fw_ver;
-+	props->sys_image_guid = hr_dev->sys_image_guid;
-+	props->max_mr_size = (u64)(~(0ULL));
-+	props->page_size_cap = hr_dev->caps.page_size_cap;
-+	props->vendor_id = hr_dev->vendor_id;
-+	props->vendor_part_id = hr_dev->vendor_part_id;
-+	props->hw_ver = hr_dev->hw_rev;
-+	props->max_qp = hr_dev->caps.num_qps;
-+	props->max_qp_wr = hr_dev->caps.max_wqes;
-+	props->device_cap_flags = IB_DEVICE_PORT_ACTIVE_EVENT |
-+				  IB_DEVICE_RC_RNR_NAK_GEN |
-+				  IB_DEVICE_LOCAL_DMA_LKEY;
-+	props->max_sge = hr_dev->caps.max_sq_sg;
-+	props->max_sge_rd = 1;
-+	props->max_cq = hr_dev->caps.num_cqs;
-+	props->max_cqe = hr_dev->caps.max_cqes;
-+	props->max_mr = hr_dev->caps.num_mtpts;
-+	props->max_pd = hr_dev->caps.num_pds;
-+	props->max_qp_rd_atom = hr_dev->caps.max_qp_dest_rdma;
-+	props->max_qp_init_rd_atom = hr_dev->caps.max_qp_init_rdma;
-+	props->atomic_cap = IB_ATOMIC_NONE;
-+	props->max_pkeys = 1;
-+	props->local_ca_ack_delay = hr_dev->caps.local_ca_ack_delay;
-+
-+	return 0;
-+}
-+
-+static int hns_roce_query_port(struct ib_device *ib_dev, u8 port_num,
-+			       struct ib_port_attr *props)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct net_device *net_dev;
-+	unsigned long flags;
-+	enum ib_mtu mtu;
-+	u8 port;
-+
-+	assert(port_num > 0);
-+	port = port_num - 1;
-+
-+	memset(props, 0, sizeof(*props));
-+
-+	props->max_mtu = hr_dev->caps.max_mtu;
-+	props->gid_tbl_len = hr_dev->caps.gid_table_len[port];
-+	props->port_cap_flags = IB_PORT_CM_SUP | IB_PORT_REINIT_SUP |
-+				IB_PORT_VENDOR_CLASS_SUP |
-+				IB_PORT_BOOT_MGMT_SUP;
-+	props->max_msg_sz = HNS_ROCE_MAX_MSG_LEN;
-+	props->pkey_tbl_len = 1;
-+	props->active_width = IB_WIDTH_4X;
-+	props->active_speed = 1;
-+
-+	spin_lock_irqsave(&hr_dev->iboe.lock, flags);
-+
-+	net_dev = hr_dev->iboe.netdevs[port];
-+	if (!net_dev) {
-+		spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
-+		dev_err(dev, "find netdev %d failed!\r\n", port);
-+		return -EINVAL;
-+	}
-+
-+	mtu = iboe_get_mtu(net_dev->mtu);
-+	props->active_mtu = mtu ? min(props->max_mtu, mtu) : IB_MTU_256;
-+	props->state = (netif_running(net_dev) && netif_carrier_ok(net_dev)) ?
-+			IB_PORT_ACTIVE : IB_PORT_DOWN;
-+	props->phys_state = (props->state == IB_PORT_ACTIVE) ? 5 : 3;
-+
-+	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
-+
-+	return 0;
-+}
-+
-+static enum rdma_link_layer hns_roce_get_link_layer(struct ib_device *device,
-+						    u8 port_num)
-+{
-+	return IB_LINK_LAYER_ETHERNET;
-+}
-+
-+static int hns_roce_query_gid(struct ib_device *ib_dev, u8 port_num, int index,
-+			      union ib_gid *gid)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
-+	struct device *dev = &hr_dev->pdev->dev;
-+	u8 gid_idx = 0;
-+	u8 port;
-+
-+	if (port_num < 1 || port_num > hr_dev->caps.num_ports ||
-+	    index >= hr_dev->caps.gid_table_len[port_num - 1]) {
-+		dev_err(dev,
-+			"port_num %d index %d illegal! correct range: port_num 1~%d index 0~%d!\n",
-+			port_num, index, hr_dev->caps.num_ports,
-+			hr_dev->caps.gid_table_len[port_num - 1] - 1);
-+		return -EINVAL;
-+	}
-+
-+	port = port_num - 1;
-+	gid_idx = hns_get_gid_index(hr_dev, port, index);
-+	if (gid_idx >= HNS_ROCE_MAX_GID_NUM) {
-+		dev_err(dev, "port_num %d index %d illegal! total gid num %d!\n",
-+			port_num, index, HNS_ROCE_MAX_GID_NUM);
-+		return -EINVAL;
-+	}
-+
-+	memcpy(gid->raw, hr_dev->iboe.gid_table[gid_idx].raw,
-+	       HNS_ROCE_GID_SIZE);
-+
-+	return 0;
-+}
-+
-+static int hns_roce_query_pkey(struct ib_device *ib_dev, u8 port, u16 index,
-+			       u16 *pkey)
-+{
-+	*pkey = PKEY_ID;
-+
-+	return 0;
-+}
-+
-+static int hns_roce_modify_device(struct ib_device *ib_dev, int mask,
-+				  struct ib_device_modify *props)
-+{
-+	unsigned long flags;
-+
-+	if (mask & ~IB_DEVICE_MODIFY_NODE_DESC)
-+		return -EOPNOTSUPP;
-+
-+	if (mask & IB_DEVICE_MODIFY_NODE_DESC) {
-+		spin_lock_irqsave(&to_hr_dev(ib_dev)->sm_lock, flags);
-+		memcpy(ib_dev->node_desc, props->node_desc, NODE_DESC_SIZE);
-+		spin_unlock_irqrestore(&to_hr_dev(ib_dev)->sm_lock, flags);
-+	}
-+
-+	return 0;
-+}
-+
-+static int hns_roce_modify_port(struct ib_device *ib_dev, u8 port_num, int mask,
-+				struct ib_port_modify *props)
-+{
-+	return 0;
-+}
-+
-+static struct ib_ucontext *hns_roce_alloc_ucontext(struct ib_device *ib_dev,
-+						   struct ib_udata *udata)
-+{
-+	int ret = 0;
-+	struct hns_roce_ucontext *context;
-+	struct hns_roce_ib_alloc_ucontext_resp resp;
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
-+
-+	resp.qp_tab_size = hr_dev->caps.num_qps;
-+
-+	context = kmalloc(sizeof(*context), GFP_KERNEL);
-+	if (!context)
-+		return ERR_PTR(-ENOMEM);
-+
-+	ret = hns_roce_uar_alloc(hr_dev, &context->uar);
-+	if (ret)
-+		goto _error_fail_uar_alloc;
-+
-+	ret = ib_copy_to_udata(udata, &resp, sizeof(resp));
-+	if (ret)
-+		goto _error_fail_copy_to_udata;
-+
-+	return &context->ibucontext;
-+
-+_error_fail_copy_to_udata:
-+hns_roce_uar_free(hr_dev, &context->uar);
-+
-+_error_fail_uar_alloc:
-+	kfree(context);
-+
-+	return ERR_PTR(ret);
-+}
-+
-+static int hns_roce_dealloc_ucontext(struct ib_ucontext *ibcontext)
-+{
-+	struct hns_roce_ucontext *context = to_hr_ucontext(ibcontext);
-+
-+	hns_roce_uar_free(to_hr_dev(ibcontext->device), &context->uar);
-+	kfree(context);
-+
-+	return 0;
-+}
-+
-+static int hns_roce_mmap(struct ib_ucontext *context,
-+			 struct vm_area_struct *vma)
-+{
-+	if (((vma->vm_end - vma->vm_start) % PAGE_SIZE) != 0)
-+		return -EINVAL;
-+
-+	if (vma->vm_pgoff == 0) {
-+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-+		if (io_remap_pfn_range(vma, vma->vm_start,
-+				       to_hr_ucontext(context)->uar.pfn,
-+				       PAGE_SIZE, vma->vm_page_prot))
-+			return -EAGAIN;
-+
-+	} else {
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
- {
- 	struct hns_roce_ib_iboe *iboe = &hr_dev->iboe;
-@@ -370,6 +582,22 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->local_dma_lkey		= hr_dev->caps.reserved_lkey;
- 	ib_dev->num_comp_vectors	= hr_dev->caps.num_comp_vectors;
- 	ib_dev->uverbs_abi_ver		= 1;
-+	ib_dev->uverbs_cmd_mask		=
-+		(1ULL << IB_USER_VERBS_CMD_GET_CONTEXT) |
-+		(1ULL << IB_USER_VERBS_CMD_QUERY_DEVICE) |
-+		(1ULL << IB_USER_VERBS_CMD_QUERY_PORT);
-+
-+	/* HCA||device||port */
-+	ib_dev->modify_device		= hns_roce_modify_device;
-+	ib_dev->query_device		= hns_roce_query_device;
-+	ib_dev->query_port		= hns_roce_query_port;
-+	ib_dev->modify_port		= hns_roce_modify_port;
-+	ib_dev->get_link_layer		= hns_roce_get_link_layer;
-+	ib_dev->query_gid		= hns_roce_query_gid;
-+	ib_dev->query_pkey		= hns_roce_query_pkey;
-+	ib_dev->alloc_ucontext		= hns_roce_alloc_ucontext;
-+	ib_dev->dealloc_ucontext	= hns_roce_dealloc_ucontext;
-+	ib_dev->mmap			= hns_roce_mmap;
- 
- 	ret = ib_register_device(ib_dev, NULL);
- 	if (ret) {
-diff --git a/drivers/infiniband/hw/hns/hns_roce_user.h b/drivers/infiniband/hw/hns/hns_roce_user.h
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cmd.c b/drivers/infiniband/hw/hns/hns_roce_cmd.c
 new file mode 100644
-index 0000000..457e77a
+index 0000000..597c964
 --- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_user.h
-@@ -0,0 +1,17 @@
++++ b/drivers/infiniband/hw/hns/hns_roce_cmd.c
+@@ -0,0 +1,96 @@
 +/*
 + * Copyright (c) 2016 Hisilicon Limited.
 + *
@@ -376,18 +51,230 @@ index 0000000..457e77a
 + * (at your option) any later version.
 + */
 +
-+#ifndef _HNS_ROCE_USER_H
-+#define _HNS_ROCE_USER_H
++#include <linux/dma-mapping.h>
++#include <linux/dmapool.h>
++#include <linux/errno.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/list.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include "hns_roce_common.h"
++#include "hns_roce_device.h"
++#include "hns_roce_cmd.h"
 +
-+struct hns_roce_ib_alloc_ucontext_resp {
-+	__u32	qp_tab_size;
++#define CMD_MAX_NUM		32
++
++int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++
++	mutex_init(&hr_dev->cmd.hcr_mutex);
++	sema_init(&hr_dev->cmd.poll_sem, 1);
++	hr_dev->cmd.use_events = 0;
++	hr_dev->cmd.toggle = 1;
++	hr_dev->cmd.max_cmds = CMD_MAX_NUM;
++	hr_dev->cmd.hcr = hr_dev->reg_base + ROCEE_MB1_REG;
++	hr_dev->cmd.pool = dma_pool_create("hns_roce_cmd", dev,
++					   HNS_ROCE_MAILBOX_SIZE,
++					   HNS_ROCE_MAILBOX_SIZE, 0);
++	if (!hr_dev->cmd.pool) {
++		dev_err(dev, "Couldn't create mailbox pool for cmd.\n");
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++void hns_roce_cmd_cleanup(struct hns_roce_dev *hr_dev)
++{
++	dma_pool_destroy(hr_dev->cmd.pool);
++}
++
++int hns_roce_cmd_use_events(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_cmdq *hr_cmd = &hr_dev->cmd;
++	int i;
++
++	hr_cmd->context = kmalloc(hr_cmd->max_cmds *
++				  sizeof(struct hns_roce_cmd_context),
++				  GFP_KERNEL);
++	if (!hr_cmd->context)
++		return -ENOMEM;
++
++	for (i = 0; i < hr_cmd->max_cmds; ++i) {
++		hr_cmd->context[i].token = i;
++		hr_cmd->context[i].next = i + 1;
++	}
++
++	hr_cmd->context[hr_cmd->max_cmds - 1].next = -1;
++	hr_cmd->free_head = 0;
++
++	sema_init(&hr_cmd->event_sem, hr_cmd->max_cmds);
++	spin_lock_init(&hr_cmd->context_lock);
++
++	for (hr_cmd->token_mask = 1; hr_cmd->token_mask < hr_cmd->max_cmds;
++	     hr_cmd->token_mask <<= 1)
++		;
++	--hr_cmd->token_mask;
++	hr_cmd->use_events = 1;
++
++	down(&hr_cmd->poll_sem);
++
++	return 0;
++}
++
++void hns_roce_cmd_use_polling(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_cmdq *hr_cmd = &hr_dev->cmd;
++	int i;
++
++	hr_cmd->use_events = 0;
++
++	for (i = 0; i < hr_cmd->max_cmds; ++i)
++		down(&hr_cmd->event_sem);
++
++	kfree(hr_cmd->context);
++	up(&hr_cmd->poll_sem);
++}
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cmd.h b/drivers/infiniband/hw/hns/hns_roce_cmd.h
+new file mode 100644
+index 0000000..4e102a4
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_cmd.h
+@@ -0,0 +1,19 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _HNS_ROCE_CMD_H
++#define _HNS_ROCE_CMD_H
++
++#include <linux/dma-mapping.h>
++
++enum {
++	HNS_ROCE_MAILBOX_SIZE		=  4096
 +};
 +
-+#endif /*_HNS_ROCE_USER_H */
++#endif /* _HNS_ROCE_CMD_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
+index 553e2a8..5486e0b 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_common.h
++++ b/drivers/infiniband/hw/hns/hns_roce_common.h
+@@ -21,4 +21,6 @@
+ 
+ #define ROCEE_ACK_DELAY_REG			0x14
+ 
++#define ROCEE_MB1_REG				0x210
++
+ #endif /* _HNS_ROCE_COMMON_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+index a187678..f5641ed 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
++++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+@@ -31,6 +31,40 @@
+ 
+ #define ADDR_SHIFT_32				32
+ 
++struct hns_roce_cmd_context {
++	int			next;
++	u16			token;
++};
++
++struct hns_roce_cmdq {
++	struct dma_pool		*pool;
++	u8 __iomem		*hcr;
++	struct mutex		hcr_mutex;
++	struct semaphore	poll_sem;
++	/*
++	* Event mode: cmd register mutex protection,
++	* ensure to not exceed max_cmds and user use limit region
++	*/
++	struct semaphore	event_sem;
++	int			max_cmds;
++	spinlock_t		context_lock;
++	int			free_head;
++	struct hns_roce_cmd_context *context;
++	/*
++	* Result of get integer part
++	* which max_comds compute according a power of 2
++	*/
++	u16			token_mask;
++	/*
++	* Process whether use event mode, init default non-zero
++	* After the event queue of cmd event ready,
++	* can switch into event mode
++	* close device, switch into poll mode(non event mode)
++	*/
++	u8			use_events;
++	u8			toggle;
++};
++
+ struct hns_roce_ib_iboe {
+ 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
+ 	u8			phy_port[HNS_ROCE_MAX_PORTS];
+@@ -100,11 +134,18 @@ struct hns_roce_dev {
+ 	u32                     vendor_part_id;
+ 	u32                     hw_rev;
+ 
++	struct hns_roce_cmdq	cmd;
++
+ 	int			cmd_mod;
+ 	int			loop_idc;
+ 	struct hns_roce_hw	*hw;
+ };
+ 
++int hns_roce_cmd_init(struct hns_roce_dev *hr_dev);
++void hns_roce_cmd_cleanup(struct hns_roce_dev *hr_dev);
++int hns_roce_cmd_use_events(struct hns_roce_dev *hr_dev);
++void hns_roce_cmd_use_polling(struct hns_roce_dev *hr_dev);
++
+ extern struct hns_roce_hw hns_roce_hw_v1;
+ 
+ #endif /* _HNS_ROCE_DEVICE_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index 4aa10d2..07b6fda 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -39,6 +39,7 @@
+ #include <rdma/ib_umem.h>
+ #include <rdma/ib_user_verbs.h>
+ #include <rdma/ib_verbs.h>
++#include "hns_roce_common.h"
+ #include "hns_roce_device.h"
+ 
+ int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+@@ -158,6 +159,17 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 
+ 	hns_roce_profile_init(hr_dev);
+ 
++	ret = hns_roce_cmd_init(hr_dev);
++	if (ret) {
++		dev_err(dev, "cmd init failed!\n");
++		goto error_failed_cmd_init;
++	}
++
++error_failed_cmd_init:
++	ret = hns_roce_engine_reset(hr_dev, false);
++	if (ret)
++		dev_err(&hr_dev->pdev->dev, "roce_engine reset fail\n");
++
+ error_failed_get_cfg:
+ 	ib_dealloc_device(&hr_dev->ib_dev);
+ 
+@@ -172,6 +184,7 @@ static int hns_roce_remove(struct platform_device *pdev)
+ {
+ 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
+ 
++	hns_roce_cmd_cleanup(hr_dev);
+ 	(void)hns_roce_engine_reset(hr_dev, false);
+ 
+ 	ib_dealloc_device(&hr_dev->ib_dev);
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
