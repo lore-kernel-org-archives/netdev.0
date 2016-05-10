@@ -1,77 +1,72 @@
-From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V3 2/4] net-next: mediatek: fix gigabit and flow control
- advertisement
-Date: Tue, 10 May 2016 07:08:39 +0200
-Message-ID: <1462856921-27441-3-git-send-email-john@phrozen.org>
-References: <1462856921-27441-1-git-send-email-john@phrozen.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: add memory limitation per queue
+Date: Mon, 09 May 2016 22:10:36 -0700
+Message-ID: <1462857036.23934.58.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
+	 <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
+	 <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
+	 <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
+	 <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
+	 <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
+	 <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
+	 <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAA93jw4XZ1+LLX1z6wQ6DHsp4vFCS5zmMz-uku_8SBNG_KuUxA@mail.gmail.com>
+	 <542135C7-D7CC-4E33-B35B-C2AD259FA5AB@gmx.de>
+	 <20160506133323.0b190f47@redhat.com>
+	 <D29AB9B2-D514-4D14-9A16-CFB9ECD05B17@gmx.de>
+	 <1462541156.13075.34.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1462550112.13075.47.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpUfJxMxQXia8JOH5xouSFMThrdZWZMUuQ0q=bSmp8oEEQ@mail.gmail.com>
+	 <1462768295.23934.28.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpXOTjdY4AsQVV6qz_U7be6m6OnYO0ZNSanxo6pXqdOu+Q@mail.gmail.com>
+	 <1462804008.23934.30.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpURNs3vVVN1cceRLh2ptvsMno3bPubc9wwfQvcWe8je8g@mail.gmail.com>
+	 <1462855514.23934.51.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpUusrr7W9diudUad+iDg3s5-4We6Z7tVzjLfMSVVJ+MMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1462856921-27441-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Dave =?ISO-8859-1?Q?T=E4ht?= <dave.taht@gmail.com>,
+	netdev <netdev@vger.kernel.org>, moeller0 <moeller0@gmx.de>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34137 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751348AbcEJFKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 01:10:40 -0400
+Received: by mail-pf0-f172.google.com with SMTP id y69so1274031pfb.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 22:10:40 -0700 (PDT)
+In-Reply-To: <CAM_iQpUusrr7W9diudUad+iDg3s5-4We6Z7tVzjLfMSVVJ+MMg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current code will not setup the PHYs advertisement features correctly.
-Fix this and properly advertise Gigabit features and properly handle
-asymmetric pause frames.
+On Mon, 2016-05-09 at 21:57 -0700, Cong Wang wrote:
 
-Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+> Sure, but we are talking about memory constraint case, aren't we?
+> 
+> If the whole system are suffering from memory pressure, the whole
+> qdisc should be halted?
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 28f169f..a76aec20 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -133,6 +133,8 @@ static int mtk_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg)
- static void mtk_phy_link_adjust(struct net_device *dev)
- {
- 	struct mtk_mac *mac = netdev_priv(dev);
-+	u16 lcl_adv, rmt_adv = 0;
-+	u8 flowctrl;
- 	u32 mcr = MAC_MCR_MAX_RX_1536 | MAC_MCR_IPG_CFG |
- 		  MAC_MCR_FORCE_MODE | MAC_MCR_TX_EN |
- 		  MAC_MCR_RX_EN | MAC_MCR_BACKOFF_EN |
-@@ -154,7 +156,16 @@ static void mtk_phy_link_adjust(struct net_device *dev)
- 		mcr |= MAC_MCR_FORCE_DPX;
- 
- 	if (mac->phy_dev->pause)
--		mcr |= MAC_MCR_FORCE_RX_FC | MAC_MCR_FORCE_TX_FC;
-+		rmt_adv = LPA_PAUSE_CAP;
-+	if (mac->phy_dev->asym_pause)
-+		rmt_adv |= LPA_PAUSE_ASYM;
-+
-+	lcl_adv = mii_advertise_flowctrl(FLOW_CTRL_RX | FLOW_CTRL_TX);
-+	flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+	if (flowctrl & FLOW_CTRL_TX)
-+		mcr |= MAC_MCR_FORCE_TX_FC;
-+	if (flowctrl & FLOW_CTRL_RX)
-+		mcr |= MAC_MCR_FORCE_RX_FC;
- 
- 	mtk_w32(mac->hw, mcr, MTK_MAC_MCR(mac->id));
- 
-@@ -236,7 +247,8 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 	mac->phy_dev->autoneg = AUTONEG_ENABLE;
- 	mac->phy_dev->speed = 0;
- 	mac->phy_dev->duplex = 0;
--	mac->phy_dev->supported &= PHY_BASIC_FEATURES;
-+	mac->phy_dev->supported &= PHY_GBIT_FEATURES | SUPPORTED_Pause |
-+				   ~SUPPORTED_Asym_Pause;
- 	mac->phy_dev->advertising = mac->phy_dev->supported |
- 				    ADVERTISED_Autoneg;
- 	phy_start_aneg(mac->phy_dev);
--- 
-1.7.10.4
+Please read the patch again.
+
+I added a mem control, exactly to control memory usage in the first
+place. If the admin allows this qdisc to consume 4MBytes, then we can
+queue up to 4 Mbytes on it.
+
+If we evict packets from _other_ flow because of whatever limit is hit
+(being number of packets or memory usage), we do not report to the
+innocent guy that some packets were dropped.
+
+The innocent guy packet _is_ queued and _should_ be sent eventually.
+
+Of course, if we could predict the future and that 456 usec later, the
+packet will be lost anyway, we would notify the innocent guy right away.
+
+But this is left for future improvement.
