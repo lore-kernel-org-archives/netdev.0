@@ -1,90 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] sfc: allocate rx pages on the same node as the
- interrupt
-Date: Tue, 10 May 2016 07:59:39 -0700
-Message-ID: <1462892379.23934.80.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5731EE51.2090908@solarflare.com>
-	 <1462892106.23934.77.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1462892223.23934.78.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: refresh skb timestamp at retransmit time
+Date: Tue, 10 May 2016 08:01:07 -0700
+Message-ID: <CAK6E8=eGaBL9O55xCbtoZuuisvUGF5NRv6qV5bbvQB-JFw6Zjg@mail.gmail.com>
+References: <1462852516.23934.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Daniel Pieczko <dpieczko@solarflare.com>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35825 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752282AbcEJO7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 10:59:41 -0400
-Received: by mail-pa0-f44.google.com with SMTP id iv1so6487522pac.2
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 07:59:41 -0700 (PDT)
-In-Reply-To: <1462892223.23934.78.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:36667 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbcEJPBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 11:01:49 -0400
+Received: by mail-wm0-f54.google.com with SMTP id n129so182720898wmn.1
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 08:01:48 -0700 (PDT)
+In-Reply-To: <1462852516.23934.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-05-10 at 07:57 -0700, Eric Dumazet wrote:
-> On Tue, 2016-05-10 at 07:55 -0700, Eric Dumazet wrote:
-> > On Tue, 2016-05-10 at 15:21 +0100, Edward Cree wrote:
-> > > From: Daniel Pieczko <dpieczko@solarflare.com>
-> > > 
-> > > When the interrupt servicing a channel is on a NUMA node that is
-> > > not local to the device, performance is improved by allocating
-> > > rx pages on the node local to the interrupt (remote to the device)
-> > > 
-> > > The performance-optimal case, where interrupts and applications
-> > > are pinned to CPUs on the same node as the device, is not altered
-> > > by this change.
-> > > 
-> > > This change gave a 1% improvement in transaction rate using Nginx
-> > > with all interrupts and Nginx threads on the node remote to the
-> > > device. It also gave a small reduction in round-trip latency,
-> > > again with the interrupt and application on a different node to
-> > > the device.
-> > 
-> > Yes, I advocated for such changes in the past for mlx4 NIC.
-> > 
-> > But your patch makes no sense to me.
-> > 
-> > alloc_pages() by default would run on the cpu servicing the IRQ, so
-> > would automatically provide pages on the local node.
-> > 
-> > If you care only of the initial pages allocated with GFP_KERNEL at
-> > device start, really that is a small detail as they should be consumed
-> > and replaced quite fast.
-> > 
-> > If you worry that "wrong" pages would be reused over and over,
-> > you could make sure that efx_reuse_page() wont reuse a page on the wrong
-> > node.
-> > 
-> > page_to_nid(page) != numa_mem_id() 
-> > 
-> > Note that this could happen even if IRQ are not changed since
-> > alloc_pages() could in stress situations give you a page from a remote
-> > node.
-> 
-> Something like this (untested) ?
-> 
-> diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-> index 8956995b2fe713b377f205a55fada36c8a04253a..90665a8992e29cceb29dd465b52f934dff3b3d4e 100644
-> --- a/drivers/net/ethernet/sfc/rx.c
-> +++ b/drivers/net/ethernet/sfc/rx.c
-> @@ -124,7 +124,7 @@ static struct page *efx_reuse_page(struct efx_rx_queue *rx_queue)
->  		++rx_queue->page_remove;
->  
->  	/* If page_count is 1 then we hold the only reference to this page. */
-> -	if (page_count(page) == 1) {
-> +	if (page_count(page) == 1 && page_to_nid(page) == numa_mem_id()) {
->  		++rx_queue->page_recycle_count;
->  		return page;
->  	} else {
-> 
+On Mon, May 9, 2016 at 8:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> In the very unlikely case __tcp_retransmit_skb() can not use the cloning
+> done in tcp_transmit_skb(), we need to refresh skb_mstamp before doing
+> the copy and transmit, otherwise TCP TS val will be an exact copy of
+> original transmit.
+>
+> Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-You could also factorize code from Intel drivers in some common helper
+Nice catch Eric. Recovery algorithm like RACK definitely requires this
+patch b/c it relies on skb mstamps.
+does the failure usually occur under memory stress?
 
-static inline bool igb_page_is_reserved(struct page *page)
-{
-        return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
-}
+> ---
+>  net/ipv4/tcp_output.c |    6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 441ae9da3a23..79a03b87a771 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2640,8 +2640,10 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+>          */
+>         if (unlikely((NET_IP_ALIGN && ((unsigned long)skb->data & 3)) ||
+>                      skb_headroom(skb) >= 0xFFFF)) {
+> -               struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
+> -                                                  GFP_ATOMIC);
+> +               struct sk_buff *nskb;
+> +
+> +               skb_mstamp_get(&skb->skb_mstamp);
+> +               nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
+>                 err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+>                              -ENOBUFS;
+>         } else {
+>
+>
