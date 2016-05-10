@@ -1,62 +1,47 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] fq_codel: add memory limitation per queue
-Date: Mon, 9 May 2016 21:34:50 -0700
-Message-ID: <CAM_iQpURNs3vVVN1cceRLh2ptvsMno3bPubc9wwfQvcWe8je8g@mail.gmail.com>
-References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
- <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com> <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
- <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com> <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
- <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
- <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
- <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
- <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA93jw4XZ1+LLX1z6wQ6DHsp4vFCS5zmMz-uku_8SBNG_KuUxA@mail.gmail.com>
- <542135C7-D7CC-4E33-B35B-C2AD259FA5AB@gmx.de> <20160506133323.0b190f47@redhat.com>
- <D29AB9B2-D514-4D14-9A16-CFB9ECD05B17@gmx.de> <1462541156.13075.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <1462550112.13075.47.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUfJxMxQXia8JOH5xouSFMThrdZWZMUuQ0q=bSmp8oEEQ@mail.gmail.com>
- <1462768295.23934.28.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXOTjdY4AsQVV6qz_U7be6m6OnYO0ZNSanxo6pXqdOu+Q@mail.gmail.com> <1462804008.23934.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [net-next PATCH v2 3/6] net sched: mirred action fix late binding
+Date: Mon, 9 May 2016 21:37:05 -0700
+Message-ID: <CAM_iQpUCuNs9dcqxoM8rhhhoyYChHEGeqqXhecBw7+nX+m_j+w@mail.gmail.com>
+References: <1462728392-28489-1-git-send-email-jhs@emojatatu.com>
+ <1462728392-28489-4-git-send-email-jhs@emojatatu.com> <CAM_iQpWjQsJTRVoE2nf4SxY=YF-0q4j6kDD8fJDLq3K=2QWwLw@mail.gmail.com>
+ <573079DA.4020807@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	=?UTF-8?Q?Dave_T=C3=A4ht?= <dave.taht@gmail.com>,
-	netdev <netdev@vger.kernel.org>, moeller0 <moeller0@gmx.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f181.google.com ([209.85.161.181]:35764 "EHLO
-	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbcEJEfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 00:35:11 -0400
-Received: by mail-yw0-f181.google.com with SMTP id g133so1249764ywb.2
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 21:35:10 -0700 (PDT)
-In-Reply-To: <1462804008.23934.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:34665 "EHLO
+	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbcEJEhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 00:37:25 -0400
+Received: by mail-yw0-f172.google.com with SMTP id j74so1306713ywg.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 21:37:25 -0700 (PDT)
+In-Reply-To: <573079DA.4020807@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 9, 2016 at 7:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2016-05-08 at 22:07 -0700, Cong Wang wrote:
->> On Sun, May 8, 2016 at 9:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Sun, 2016-05-08 at 21:14 -0700, Cong Wang wrote:
->> >
->> >> So when the packet is dropped due to memory over limit, should
->> >> we return failure for this case? Or I miss anything?
->> >
->> > Same behavior than before.
->> >
->> > If we dropped some packets of this flow, we return NET_XMIT_CN
+On Mon, May 9, 2016 at 4:51 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 16-05-08 11:19 PM, Cong Wang wrote:
 >>
->> I think for the limited memory case, the upper layer is supposed
->> to stop sending more packets when hitting the limit.
+>> On Sun, May 8, 2016 at 10:26 AM, Jamal Hadi Salim <jhs@mojatatu.com>
+>> wrote:
+>>>
+>>> -static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int
+>>> bind, int ref)
+>>> +static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int
+>>> bind,
+>>> +                          int ref)
+>>>   {
+>>>          unsigned char *b = skb_tail_pointer(skb);
+>>>          struct tcf_mirred *m = a->priv;
+>>
+>>
+>> Nit: this is irrelevant to the bug you fix.
+>>
 >
-> They doe. NET_XMIT_CN for example aborts IP fragmentation.
->
-> TCP flows will also instantly react.
+> It is (80 char) indentation fix. Dont think it deserves its own patch
+> but it was annoying enough to include.
 
-But not for the NET_XMIT_SUCCESS case:
-
-        return ret == idx ? NET_XMIT_CN : NET_XMIT_SUCCESS;
+If you target this to net-next, I would not even mention it, but you
+are targeting it for -stable... ;)
