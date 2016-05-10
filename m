@@ -1,50 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: refresh skb timestamp at retransmit time
-Date: Mon, 09 May 2016 20:55:16 -0700
-Message-ID: <1462852516.23934.46.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: add memory limitation per queue
+Date: Mon, 9 May 2016 21:34:50 -0700
+Message-ID: <CAM_iQpURNs3vVVN1cceRLh2ptvsMno3bPubc9wwfQvcWe8je8g@mail.gmail.com>
+References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
+ <865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com> <1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
+ <C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com> <1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
+ <1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
+ <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
+ <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
+ <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA93jw4XZ1+LLX1z6wQ6DHsp4vFCS5zmMz-uku_8SBNG_KuUxA@mail.gmail.com>
+ <542135C7-D7CC-4E33-B35B-C2AD259FA5AB@gmx.de> <20160506133323.0b190f47@redhat.com>
+ <D29AB9B2-D514-4D14-9A16-CFB9ECD05B17@gmx.de> <1462541156.13075.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1462550112.13075.47.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUfJxMxQXia8JOH5xouSFMThrdZWZMUuQ0q=bSmp8oEEQ@mail.gmail.com>
+ <1462768295.23934.28.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXOTjdY4AsQVV6qz_U7be6m6OnYO0ZNSanxo6pXqdOu+Q@mail.gmail.com> <1462804008.23934.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	=?UTF-8?Q?Dave_T=C3=A4ht?= <dave.taht@gmail.com>,
+	netdev <netdev@vger.kernel.org>, moeller0 <moeller0@gmx.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:36059 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbcEJDzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 23:55:19 -0400
-Received: by mail-pf0-f182.google.com with SMTP id c189so482558pfb.3
-        for <netdev@vger.kernel.org>; Mon, 09 May 2016 20:55:19 -0700 (PDT)
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:35764 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbcEJEfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 00:35:11 -0400
+Received: by mail-yw0-f181.google.com with SMTP id g133so1249764ywb.2
+        for <netdev@vger.kernel.org>; Mon, 09 May 2016 21:35:10 -0700 (PDT)
+In-Reply-To: <1462804008.23934.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, May 9, 2016 at 7:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2016-05-08 at 22:07 -0700, Cong Wang wrote:
+>> On Sun, May 8, 2016 at 9:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Sun, 2016-05-08 at 21:14 -0700, Cong Wang wrote:
+>> >
+>> >> So when the packet is dropped due to memory over limit, should
+>> >> we return failure for this case? Or I miss anything?
+>> >
+>> > Same behavior than before.
+>> >
+>> > If we dropped some packets of this flow, we return NET_XMIT_CN
+>>
+>> I think for the limited memory case, the upper layer is supposed
+>> to stop sending more packets when hitting the limit.
+>
+> They doe. NET_XMIT_CN for example aborts IP fragmentation.
+>
+> TCP flows will also instantly react.
 
-In the very unlikely case __tcp_retransmit_skb() can not use the cloning
-done in tcp_transmit_skb(), we need to refresh skb_mstamp before doing
-the copy and transmit, otherwise TCP TS val will be an exact copy of
-original transmit.
+But not for the NET_XMIT_SUCCESS case:
 
-Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_output.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 441ae9da3a23..79a03b87a771 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2640,8 +2640,10 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	 */
- 	if (unlikely((NET_IP_ALIGN && ((unsigned long)skb->data & 3)) ||
- 		     skb_headroom(skb) >= 0xFFFF)) {
--		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
--						   GFP_ATOMIC);
-+		struct sk_buff *nskb;
-+
-+		skb_mstamp_get(&skb->skb_mstamp);
-+		nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
- 		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
- 			     -ENOBUFS;
- 	} else {
+        return ret == idx ? NET_XMIT_CN : NET_XMIT_SUCCESS;
