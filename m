@@ -1,52 +1,61 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH] net: phylib: fix interrupts re-enablement in phy_start
-Date: Tue, 10 May 2016 17:42:26 +0800
-Message-ID: <1462873346-46457-1-git-send-email-shh.xie@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 5/7] Driver: Vmxnet3: Add support for
+ get_coalesce, set_coalesce ethtool operations
+Date: Tue, 10 May 2016 11:24:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4B8B61@AcuExch.aculab.com>
+References: <1462576336-83513-1-git-send-email-skhare@vmware.com>
+	  <1462576336-83513-6-git-send-email-skhare@vmware.com>
+	 <1462622686.19332.33.camel@decadent.org.uk>
+	 <alpine.DEB.2.10.1605081335140.13942@shri-linux.eng.vmware.com>
+ <1462753040.9308.11.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@nxp.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0080.outbound.protection.outlook.com ([65.55.169.80]:59568
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751054AbcEJK0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2016 06:26:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	Keyong Sun <sunk@vmware.com>,
+	Manoj Tammali <tammalim@vmware.com>
+To: 'Ben Hutchings' <ben@decadent.org.uk>,
+	Shrikrishna Khare <skhare@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462753040.9308.11.camel@decadent.org.uk>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@nxp.com>
-
-If phy was suspended and is starting, current driver always enable
-phy's interrupts, if phy works in polling, phy can raise unexpected
-interrupt which will not be handled, the interrupt will block system
-enter suspend again. So interrupts should only be re-enabled if phy
-works in interrupt.
-
-Signed-off-by: Shaohui Xie <Shaohui.Xie@nxp.com>
----
- drivers/net/phy/phy.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 6f221c8..baa5ecb 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -871,9 +871,11 @@ void phy_start(struct phy_device *phydev)
- 		break;
- 	case PHY_HALTED:
- 		/* make sure interrupts are re-enabled for the PHY */
--		err = phy_enable_interrupts(phydev);
--		if (err < 0)
--			break;
-+		if (phydev->irq != PHY_POLL) {
-+			err = phy_enable_interrupts(phydev);
-+			if (err < 0)
-+				break;
-+		}
- 
- 		phydev->state = PHY_RESUMING;
- 		do_resume = true;
--- 
-2.1.0.27.g96db324
+RnJvbTogQmVuIEh1dGNoaW5ncw0KPiBTZW50OiAwOSBNYXkgMjAxNiAwMToxNw0KPiBPbiBTdW4s
+IDIwMTYtMDUtMDggYXQgMTM6NTUgLTA3MDAsIFNocmlrcmlzaG5hIEtoYXJlIHdyb3RlOg0KPiA+
+DQo+ID4gT24gU2F0LCA3IE1heSAyMDE2LCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0KPiA+DQo+ID4g
+PiBPbiBGcmksIDIwMTYtMDUtMDYgYXQgMTY6MTIgLTA3MDAsIFNocmlrcmlzaG5hIEtoYXJlIHdy
+b3RlOg0KPiA+ID4gWy4uLl0NCj4gPiA+ID4gK3N0YXRpYyBpbnQNCj4gPiA+ID4gK3ZteG5ldDNf
+c2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIHN0cnVjdCBldGh0b29sX2Nv
+YWxlc2NlICplYykNCj4gPiA+ID4gK3sNCj4gPiA+IFsuLi5dDQo+ID4gPiA+ICvCoMKgwqBzd2l0
+Y2ggKGVjLT5yeF9jb2FsZXNjZV91c2Vjcykgew0KPiA+ID4gPiArwqDCoMKgY2FzZSBWTVhORVQz
+X0NPQUxFU0NFX0RFRkFVTFQ6DQo+ID4gPiA+ICvCoMKgwqBjYXNlIFZNWE5FVDNfQ09BTEVTQ0Vf
+RElTQUJMRUQ6DQo+ID4gPiA+ICvCoMKgwqBjYXNlIFZNWE5FVDNfQ09BTEVTQ0VfQURBUFQ6DQo+
+ID4gPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKGVjLT50eF9tYXhfY29hbGVzY2VkX2Zy
+YW1lcyB8fA0KPiA+ID4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgZWMtPnR4X21h
+eF9jb2FsZXNjZWRfZnJhbWVzX2lycSB8fA0KPiA+ID4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgZWMtPnJ4X21heF9jb2FsZXNjZWRfZnJhbWVzX2lycSkgew0KPiA+ID4gPiArwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByZXR1cm4gLUVJTlZBTDsNCj4gPiA+
+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqB9DQo+ID4gPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgbWVtc2V0KGFkYXB0ZXItPmNvYWxfY29uZiwgMCwgc2l6ZW9mKCphZGFwdGVyLT5jb2FsX2Nv
+bmYpKTsNCj4gPiA+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqBhZGFwdGVyLT5jb2FsX2NvbmYt
+PmNvYWxNb2RlID0gZWMtPnJ4X2NvYWxlc2NlX3VzZWNzOw0KPiA+ID4gPiArwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoGJyZWFrOw0KPiA+ID4gPiArwqDCoMKgY2FzZSBWTVhORVQzX0NPQUxFU0NFX1NU
+QVRJQzoNCj4gPiA+IFsuLi5dDQo+ID4gPg0KPiA+ID4gSSBkb24ndCB3YW50IHRvIHNlZSBkcml2
+ZXJzIGludHJvZHVjaW5nIG1hZ2ljIHZhbHVlcyBmb3IgZmllbGRzIHRoYXQNCj4gPiA+IGFyZSBk
+ZW5vbWluYXRlZCBpbiBtaWNyb3NlY29uZHMgKGVzcGVjaWFsbHkgbm90IGZvciAwLCB3aGljaCBp
+cyB0aGUNCj4gPiA+IGNvcnJlY3Qgd2F5IHRvIHNwZWNpZnkgJ25vIGNvYWxlc2NpbmcnKS4gwqBJ
+ZiB0aGUgY3VycmVudA0KPiA+ID4gZXRodG9vbF9jb2FsZXNjZSBzdHJ1Y3R1cmUgaXMgaW5hZGVx
+dWF0ZSwgcHJvcG9zZSBhbiBleHRlbnNpb24uDQo+ID4NCj4gPiBGb3Igdm14bmV0Mywgd2UgbmVl
+ZCBhbiBldGh0b29sIG1lY2hhbmlzbSB0byBpbmRpY2F0ZSBjb2FsZXNjaW5nIG1vZGUgdG8NCj4g
+PiB0aGUgZGV2aWNlLg0KPiA+DQo+ID4gV291bGQgYSBwYXRjaCB0aGF0IG1hcHMgMCB0byAnbm8g
+Y29hbGVzY2luZycgYmUgYWNjZXB0YWJsZT8gVGhhdCBpczoNCj4gPg0KPiA+IHJ4LXVzZWNzID0g
+MCAtPiBjb2FsZXNjaW5nIGRpc2FibGVkLg0KPiA+IHJ4LXVzZWNzID0gMSAtPiBkZWZhdWx0IChj
+aG9zZW4gYnkgdGhlIGRldmljZSkuDQo+ID4gcngtdXNlY3MgPSAyIC0+IGFkYXB0aXZlIGNvYWxl
+c2NpbmcuDQo+ID4gcngtdXNlY3MgPSAzIC0+IHN0YXRpYyBjb2FsZXNjaW5nLg0KDQpXb3VsZCBp
+dCBiZSBiZXR0ZXIgdG8gdXNlIHN0dXBpZGx5IGxhcmdlIHZhbHVlcyBmb3IgdGhlIG5vbi16ZXJv
+IHNwZWNpYWwgdmFsdWVzPw0KVGhhdCB3b3VsZCBsZXNzIHByb2JsZW1hdGljIGlmIHNvbWVvbmUg
+ZXhwZWN0cyAyIHRvIG1lYW4gJzIgdXNlY3MnLg0KDQoJRGF2aWQNCg==
