@@ -1,55 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] drivers: net: Don't print unpopulated net_device
- name
-Date: Tue, 10 May 2016 11:31:48 -0700
-Message-ID: <20160510113148.4b4d0d6d@xeon-e3>
-References: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Tue, 10 May 2016 11:32:47 -0700
+Message-ID: <5732294F.3060606@gmail.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Robert Jarzmik <robert.jarzmik@free.fr>,
-	Barry Song <Baohua.Song@csr.com>,
-	Marcel Ziswiler <marcel@ziswiler.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Harvey Hunt <harvey.hunt@imgtec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34881 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751642AbcEJScu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 14:32:50 -0400
+In-Reply-To: <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 May 2016 17:43:21 +0100
-Harvey Hunt <harvey.hunt@imgtec.com> wrote:
+On 04/28/2016 03:12 PM, Sergei Shtylyov wrote:
+> The PHY devices sometimes do have their reset signal (maybe even power
+> supply?) tied to some GPIO and sometimes it also does happen that a boot
+> loader does not leave it deasserted. So far this issue has been attacked
+> from (as I believe) a wrong angle: by teaching the MAC driver to manipulate
+> the GPIO in question; that solution, when applied to the device trees, led
+> to adding the PHY reset GPIO properties to the MAC device node, with one
+> exception: Cadence MACB driver which could handle the "reset-gpios" prop
+> in a PHY device subnode. I believe that the correct approach is to teach
+> the 'phylib' to get the MDIO device reset GPIO from the device tree node
+> corresponding to this device -- which this patch is doing...
+> 
+> Note that I had to modify the  AT803x PHY driver as it would stop working
+> otherwise as it made use of the reset GPIO for its own purposes...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> For ethernet devices, net_device.name will be eth%d before
-> register_netdev() is called. Don't print the net_device name until
-> the format string is replaced.
-> 
-> Cc: Robert Jarzmik <robert.jarzmik@free.fr>
-> Cc: Barry Song <Baohua.Song@csr.com>
-> Cc: Marcel Ziswiler <marcel@ziswiler.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> 
-> Signed-off-by: Harvey Hunt <harvey.hunt@imgtec.com>
-> ---
-> I've tested this patch on a board that has a DM9000, but haven't 
-> tested the other two network devices.
-> 
->  drivers/net/ethernet/davicom/dm9000.c   | 3 +--
->  drivers/net/ethernet/micrel/ks8695net.c | 3 +--
->  drivers/net/ethernet/netx-eth.c         | 3 +--
->  3 files changed, 3 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-> index 48d9194..89dcaa1 100644
-> --- a/drivers/net/ethernet/davicom/dm9000.c
-> +++ b/drivers/net/ethernet/davicom/dm9000.c
-> @@ -1686,8 +1686,7 @@ dm9000_probe(struct platform_device *pdev)
->  	}
->  
->  	if (!is_valid_ether_addr(ndev->dev_addr)) {
-> -		dev_warn(db->dev, "%s: Invalid ethernet MAC address. Please "
-> -			 "set using ifconfig\n", ndev->name);
-> +		dev_warn(db->dev, "Invalid ethernet MAC address. Please set using ifconfig\n");
+This looks good to me:
 
-ifconfig is deprecated, therefore please don't tell users to use it.
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Can you follow up with changes in phy_{suspend,resume} if that is also
+an use case that you have?
+-- 
+Florian
