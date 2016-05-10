@@ -1,97 +1,47 @@
-From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v3] block/drbd: align properly u64
- in nl messages
-Date: Tue, 10 May 2016 21:09:03 +0200
-Message-ID: <20160510190902.GF16459@soda.linbit>
-References: <20160509131547.GX16459@soda.linbit> <5731A561.6090509@6wind.com>
-	<20160510094023.GC16459@soda.linbit>
-	<20160510.113949.2077250222547175741.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 01/14] qed: Add CONFIG_QED_SRIOV
+Date: Tue, 10 May 2016 15:10:53 -0400 (EDT)
+Message-ID: <20160510.151053.113553471670048412.davem@davemloft.net>
+References: <CO2PR11MB00887DD775313A8DC3F39FA597710@CO2PR11MB0088.namprd11.prod.outlook.com>
+	<20160510.140643.1891656073031893382.davem@davemloft.net>
+	<CO2PR11MB0088ECDC1D7A65B703E2DDE797710@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-	philipp.reisner-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160510.113949.2077250222547175741.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://lists.linbit.com/mailman/options/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linbit.com/pipermail/drbd-dev>
-List-Post: <mailto:drbd-dev-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org>
-List-Help: <mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.linbit.com/mailman/listinfo/drbd-dev>,
-	<mailto:drbd-dev-request-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org?subject=subscribe>
-Sender: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-Errors-To: drbd-dev-bounces-cunTk1MwBs8qoQakbn7OcQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42480 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751262AbcEJTK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 15:10:56 -0400
+In-Reply-To: <CO2PR11MB0088ECDC1D7A65B703E2DDE797710@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 10, 2016 at 11:39:49AM -0400, David Miller wrote:
-> From: Lars Ellenberg <lars.ellenberg-63ez5xqkn6DQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 10 May 2016 11:40:23 +0200
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Tue, 10 May 2016 18:15:08 +0000
 
-excuse me for reordering the original:
-
-> Anyways, back to the topic, can you please just relent and come to
-> some kind of agreement about the fix for this alignment bug?
-
-I thought we did?  I'm fine with the "v3",
-it even carries my signed-of-by.
-
-Whether or not Nicholas wants to prefix those headers with drbd_,
-I don't really care.
-
-> This is taking a very long time and patches are just rotting in
-> patchwork with no resolution.  Why would 
-
-Nicholas asked how to go about DRBD,
-I suggested to use 0 as a padding attribute,
-and after taking a detour, he did. All good.
-
-
-Rest of original:
-
-> > If we introduce a new config option,
-> > we have to add it to the config scanner (one line),
-> > define min, max, default and scale (four short defines),
-> > and add it to the netlink definition here (one line).
-> > Done, rest of the code is generated,
-> > both on the kernel side,
-> > and on the drbd-utils side used to talk to the kernel.
-> > We found that to be very convenient.
+>> > I'm not entirely convinced this is true; If we'll not enforce the
+>> > alignment of this 64-bit field, it's possible there will be
+>> > differences between 32-bit and 64-bit machines versions of this struct.
+>> > You have to recall that this is going to be copied via DMA between PF
+>> > and VF, so they must have the exact same representation of the structure.
+>> 
+>> Then use properly sized types to fill in all the space in the structure, that's how
+>> you guarantee layout, not aligned_u64.  Also, do not use the packed attribute.
+>> 
+>> struct foo {
+>> 	u32 x;
+>> 	u32 y;
+>> 	u64 z;
+>> };
+>> 
+>> 'z' will always be 64-bit aligned.
 > 
-> But it entirely misses the core design point of netlink.
-> 
-> Sender and receive _DO NOT_ need to coordinate at all.  That's the
-> whole point.  So tightly coupling such coordination is going to run
-> you into all kinds of problems.
-> 
-> When implemented properly, the sender can emit whatever attributes it
-> knows about and can generate, and the receive scans the attributes one
-> by one and picks out the ones it understands and processes them.
-> 
-> If you go against this model
-> then you have no clean way to
+> Perhaps my bit-numeric is a bit weak - why is it so?
 
-We don't.
-We extend (not violate) that model, so the sender *may* indicate
-to the recipient that for some particular attribute, the sender would
-rather have an "I don't understand this" return than a silent ignore.
-And that we can indicate in the definition of the attributes which ones
-are required to make a message meaningful.
+foo is 64-bit aligned, therefore a properly aligned struct member will
+be so as well.
 
-> extend things whilst allowing existing software to continue working.
-
-*that* is exactly why we use netlink,
-and why we do things with it the way we do.
-Actually I think what we are doing there is, comparatively, "elegant".
-You obviously don't have to agree.
-
-I could discuss this in more detail,
-but I assume you are not really interested,
-at least not here and now.
-
-Thanks,
-
-    Lars
+We absolutely depend upon this for several data structures in the kernel.
