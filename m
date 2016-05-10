@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] stmmac: dwmac-socfpga: make
- socfpga_dwmac_pm_ops static
-Date: Mon, 09 May 2016 22:40:40 -0400 (EDT)
-Message-ID: <20160509.224040.1459791490904008872.davem@davemloft.net>
-References: <1462708043-8486-1-git-send-email-manabian@gmail.com>
+Subject: Re: [PATCH] fix a kernel infoleak in x25 module
+Date: Mon, 09 May 2016 22:47:02 -0400 (EDT)
+Message-ID: <20160509.224702.1025080380497378551.davem@davemloft.net>
+References: <1462723814-14732-1-git-send-email-kjlu@gatech.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	dinguyen@opensource.altera.com
-To: manabian@gmail.com
+Cc: andrew.hendry@gmail.com, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	taesoo@gatech.edu, insu@gatech.edu, csong84@gatech.edu,
+	kjlu@gatech.edu
+To: kangjielu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36228 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36271 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752897AbcEJCkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 22:40:43 -0400
-In-Reply-To: <1462708043-8486-1-git-send-email-manabian@gmail.com>
+	with ESMTP id S1751385AbcEJCrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2016 22:47:05 -0400
+In-Reply-To: <1462723814-14732-1-git-send-email-kjlu@gatech.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Sun,  8 May 2016 13:47:23 +0200
+From: Kangjie Lu <kangjielu@gmail.com>
+Date: Sun,  8 May 2016 12:10:14 -0400
 
-> Fix the following sparse warning:
-> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:274:1: warning:
->   symbol 'socfpga_dwmac_pm_ops' was not declared. Should it be static?
+> Stack object "dte_facilities" is allocated in x25_rx_call_request(),
+> which is supposed to be initialized in x25_negotiate_facilities.
+> However, 5 fields (8 bytes in total) are not initialized. This
+> object is then copied to userland via copy_to_user, thus infoleak
+> occurs.
 > 
-> Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+> Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
 
-Applied.
+Applied and queued up for -stable thanks.
+
+Please start formatting your Subject lines properly, I've been fixing
+all of them up by hand.
+
+You should specify a subsystem name prefix, then a ":" character, then
+a space, then a description of your change.  For example, for this
+patch an appropriate Subject would have been:
+
+	[PATCH] x25: Fix a kernel infoleak in x25_negotiate_facilities().
+
+Thanks.
