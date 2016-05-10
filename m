@@ -1,148 +1,90 @@
-From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [RESEND PATCH v7 00/21] Add HiSilicon RoCE driver
-Date: Tue, 10 May 2016 11:04:22 +0800
-Message-ID: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [RESEND PATCH v7 20/21] IB/hns: Kconfig and Makefile for RoCE module
+Date: Tue, 10 May 2016 11:04:42 +0800
+Message-ID: <1462849483-67927-21-git-send-email-oulijun@huawei.com>
+References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The HiSilicon Network Substem is a long term evolution IP which is
-supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
-Sybsystem) also has a hardware support of performing RDMA with
-RoCEE.
-The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
-will support mulitple versions of SOCs in future. This version of driver
-is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
-specifications).
+This patch added Kconfig and Makefile for building RoCE module.
 
-Changes v6 -> v7:
-1. modify some type of parameter, use bool replace the original type.
-2. add the Signed-off-by signatures in the first patch.
-3. delete the improper print sentence in hns_roce_create_eq.
-
-Changes v5 -> v6:
-1. modify the type of obj for unsigned long according the reviews, and
-   modify the same questions in RoCE module.
-2. fix the spelling error.
-3. fix the Signed-off-by signatures.
-
-Changes v4 -> v5:
-1. redesign the patchset for RoCE modules in order to split the huge
-   patch into small patches.
-2. fix the directory path for RoCE module. Delete the hisilicon level.
-3. modify the name of roce_v1_hw into roce_hw_v1.
-
-Changes v3 -> v4:
-1. modify roce.o into hns-roce.o in Makefile and Kconfig file.
-
-Changes v2 -> v3:
-1. modify the formats of RoCE driver code base v2 by the experts 
-   reviewing. also, it used kmalloc_array instead of kmalloc, kcalloc
-   instead of kzalloc, when refer to memory allocation for array
-2. remove some functions without use and unconnected macros
-3. modify the binding document with RoCE DT base v2 which added
-   interrupt-names
-4. redesign the port_map and si_map in hns_dsaf_roce_reset
-5. add HiSilicon RoCE driver maintainers introduction in MAINTAINERS
-   document
-
-Changes v1 -> v2:
-1. modify the formats of roce driver code by the experts reviewing
-2. modify the bindings file with roce dts. add the attribute named 
-   interrput-names.
-3. modify the way of defining port mode in hns_dsaf_main.c
-4. move the Kconfig file into the hns directory and send it with roce
-
-Lijun Ou (21):
-  net: hns: Add reset function support for RoCE driver
-  devicetree: bindings: IB: Add binding document for HiSilicon RoCE
-  IB/hns: Add initial main frame driver and get cfg info
-  IB/hns: Add RoCE engine reset function
-  IB/hns: Add initial profile resource
-  IB/hns: Add initial cmd operation
-  IB/hns: Add event queue support
-  IB/hns: Add icm support
-  IB/hns: Add hca support
-  IB/hns: Add process flow to init RoCE engine
-  IB/hns: Add IB device registration
-  IB/hns: Set mtu and gid support
-  IB/hns: Add interface of the protocol stack registration
-  IB/hns: Add operations support for IB device and port
-  IB/hns: Add PD operations support
-  IB/hns: Add ah operations support
-  IB/hns: Add QP operations support
-  IB/hns: Add CQ operations support
-  IB/hns: Add memory region operations support
-  IB/hns: Kconfig and Makefile for RoCE module
-  MAINTAINERS: Add maintainers for HiSilicon RoCE driver
-
- .../bindings/infiniband/hisilicon-hns-roce.txt     |  107 +
- MAINTAINERS                                        |    8 +
- drivers/infiniband/Kconfig                         |    1 +
- drivers/infiniband/hw/Makefile                     |    1 +
- drivers/infiniband/hw/hns/Kconfig                  |   10 +
- drivers/infiniband/hw/hns/Makefile                 |    9 +
- drivers/infiniband/hw/hns/hns_roce_ah.c            |  109 +
- drivers/infiniband/hw/hns/hns_roce_alloc.c         |  238 ++
- drivers/infiniband/hw/hns/hns_roce_cmd.c           |  324 +++
- drivers/infiniband/hw/hns/hns_roce_cmd.h           |   80 +
- drivers/infiniband/hw/hns/hns_roce_common.h        |  302 +++
- drivers/infiniband/hw/hns/hns_roce_cq.c            |  437 +++
- drivers/infiniband/hw/hns/hns_roce_device.h        |  732 +++++
- drivers/infiniband/hw/hns/hns_roce_eq.c            |  755 ++++++
- drivers/infiniband/hw/hns/hns_roce_eq.h            |  108 +
- drivers/infiniband/hw/hns/hns_roce_hw_v1.c         | 2812 ++++++++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.h         |  966 +++++++
- drivers/infiniband/hw/hns/hns_roce_icm.c           |  583 ++++
- drivers/infiniband/hw/hns/hns_roce_icm.h           |  112 +
- drivers/infiniband/hw/hns/hns_roce_main.c          | 1071 ++++++++
- drivers/infiniband/hw/hns/hns_roce_mr.c            |  599 +++++
- drivers/infiniband/hw/hns/hns_roce_pd.c            |  127 +
- drivers/infiniband/hw/hns/hns_roce_qp.c            |  835 ++++++
- drivers/infiniband/hw/hns/hns_roce_user.h          |   27 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   90 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   32 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   64 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   16 +-
- 28 files changed, 10539 insertions(+), 16 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
+---
+ drivers/infiniband/Kconfig         |  1 +
+ drivers/infiniband/hw/Makefile     |  1 +
+ drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
+ drivers/infiniband/hw/hns/Makefile |  9 +++++++++
+ 4 files changed, 21 insertions(+)
  create mode 100644 drivers/infiniband/hw/hns/Kconfig
  create mode 100644 drivers/infiniband/hw/hns/Makefile
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_ah.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_common.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_cq.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_qp.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_user.h
 
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index 6425c0e..726a4ca 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+ source "drivers/infiniband/hw/nes/Kconfig"
+ source "drivers/infiniband/hw/ocrdma/Kconfig"
+ source "drivers/infiniband/hw/usnic/Kconfig"
++source "drivers/infiniband/hw/hns/Kconfig"
+ 
+ source "drivers/infiniband/ulp/ipoib/Kconfig"
+ 
+diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
+index c7ad0a4..223eb78 100644
+--- a/drivers/infiniband/hw/Makefile
++++ b/drivers/infiniband/hw/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_MLX5_INFINIBAND)		+= mlx5/
+ obj-$(CONFIG_INFINIBAND_NES)		+= nes/
+ obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
+ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+= hns/
+diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hns/Kconfig
+new file mode 100644
+index 0000000..c47c168
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Kconfig
+@@ -0,0 +1,10 @@
++config INFINIBAND_HISILICON_HNS
++	tristate "Hisilicon Hns ROCE Driver"
++	depends on NET_VENDOR_HISILICON
++	depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
++	---help---
++	  This is a ROCE/RDMA driver for the Hisilicon RoCE engine. The engine
++	  is used in Hisilicon Hi1610 and more further ICT SoC.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called hns-roce.
+diff --git a/drivers/infiniband/hw/hns/Makefile b/drivers/infiniband/hw/hns/Makefile
+new file mode 100644
+index 0000000..404a700
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Makefile
+@@ -0,0 +1,9 @@
++#
++# Makefile for the HISILICON RoCE drivers.
++#
++
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) += hns-roce.o
++hns-roce-objs := hns_roce_main.o hns_roce_cmd.o hns_roce_eq.o hns_roce_pd.o \
++	hns_roce_ah.o hns_roce_icm.o hns_roce_mr.o hns_roce_qp.o \
++	hns_roce_cq.o hns_roce_alloc.o hns_roce_hw_v1.o
++
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
