@@ -1,55 +1,55 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next 01/14] qed: Add CONFIG_QED_SRIOV
-Date: Tue, 10 May 2016 18:27:04 +0000
-Message-ID: <CO2PR11MB0088E129548E882E1E86D72297710@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1462799963-23547-2-git-send-email-Yuval.Mintz@qlogic.com>
-	<20160509.151429.403288621356878412.davem@davemloft.net>
-	<CO2PR11MB00887DD775313A8DC3F39FA597710@CO2PR11MB0088.namprd11.prod.outlook.com>
- <20160510.140643.1891656073031893382.davem@davemloft.net>
- <CO2PR11MB0088ECDC1D7A65B703E2DDE797710@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] drivers: net: Don't print unpopulated net_device
+ name
+Date: Tue, 10 May 2016 11:31:48 -0700
+Message-ID: <20160510113148.4b4d0d6d@xeon-e3>
+References: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0130.outbound.protection.outlook.com ([157.56.111.130]:18621
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751277AbcEJS1I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 14:27:08 -0400
-In-Reply-To: <CO2PR11MB0088ECDC1D7A65B703E2DDE797710@CO2PR11MB0088.namprd11.prod.outlook.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, Robert Jarzmik <robert.jarzmik@free.fr>,
+	Barry Song <Baohua.Song@csr.com>,
+	Marcel Ziswiler <marcel@ziswiler.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Harvey Hunt <harvey.hunt@imgtec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > > I'm not entirely convinced this is true; If we'll not enforce the
-> > > alignment of this 64-bit field, it's possible there will be
-> > > differences between 32-bit and 64-bit machines versions of this struct.
-> > > You have to recall that this is going to be copied via DMA between
-> > > PF and VF, so they must have the exact same representation of the structure.
-> >
-> > Then use properly sized types to fill in all the space in the
-> > structure, that's how you guarantee layout, not aligned_u64.  Also, do not use
-> the packed attribute.
-> >
-> > struct foo {
-> > 	u32 x;
-> > 	u32 y;
-> > 	u64 z;
-> > };
-> >
-> > 'z' will always be 64-bit aligned.
+On Tue, 10 May 2016 17:43:21 +0100
+Harvey Hunt <harvey.hunt@imgtec.com> wrote:
+
+> For ethernet devices, net_device.name will be eth%d before
+> register_netdev() is called. Don't print the net_device name until
+> the format string is replaced.
 > 
-> Perhaps my bit-numeric is a bit weak - why is it so?
-> I.e., what prevents `z' from only being 32-bit aligned on a 32-bit machine?
-> Isn't it possible that (&x % 8)  == 4, (&y % 8) == 0 and (&z % 8) == 4 on such a
-> platform?
+> Cc: Robert Jarzmik <robert.jarzmik@free.fr>
+> Cc: Barry Song <Baohua.Song@csr.com>
+> Cc: Marcel Ziswiler <marcel@ziswiler.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> 
+> Signed-off-by: Harvey Hunt <harvey.hunt@imgtec.com>
+> ---
+> I've tested this patch on a board that has a DM9000, but haven't 
+> tested the other two network devices.
+> 
+>  drivers/net/ethernet/davicom/dm9000.c   | 3 +--
+>  drivers/net/ethernet/micrel/ks8695net.c | 3 +--
+>  drivers/net/ethernet/netx-eth.c         | 3 +--
+>  3 files changed, 3 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+> index 48d9194..89dcaa1 100644
+> --- a/drivers/net/ethernet/davicom/dm9000.c
+> +++ b/drivers/net/ethernet/davicom/dm9000.c
+> @@ -1686,8 +1686,7 @@ dm9000_probe(struct platform_device *pdev)
+>  	}
+>  
+>  	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> -		dev_warn(db->dev, "%s: Invalid ethernet MAC address. Please "
+> -			 "set using ifconfig\n", ndev->name);
+> +		dev_warn(db->dev, "Invalid ethernet MAC address. Please set using ifconfig\n");
 
-If struct foo were to have been allocated, would it be guaranteed to be 64-bit
-aligned on a 64-bit platform and 32-bit aligned on a 32-bit platform?
-Assuming it is the case, is it theoretically possible that you'd have 2 different
-32-bit platforms, where on one the `z' field would be packed while on the other
-it will not, introducing a 4-byte gap [assuming `foo' itself was only 32-bit aligned]?
+ifconfig is deprecated, therefore please don't tell users to use it.
