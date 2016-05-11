@@ -1,42 +1,147 @@
-From: "S.C Jonathan" <jcl1043@bankofengland.co.uk>
-Subject: Hallo Freund
-Date: Wed, 11 May 2016 18:28:58 +0800
-Message-ID: <0O7000CWNCYD3G00@relay2.stonline.sk>
-Reply-To: jclff081@aol.co.uk
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Wed, 11 May 2016 06:08:32 -0700
+Message-ID: <1462972112.23934.139.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1462960104.4444.37.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <jcl1043@bankofengland.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kardinal.telekom.sk ([213.81.152.143]:55996 "EHLO smtp.t-com.sk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751386AbcEKL3o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 07:29:44 -0400
-Received: from [10.1.1.5] ([unknown] [120.140.119.226])
- by relay2.stonline.sk (STOnline ESMTP Server)
- with ESMTPSA id <0O7000CWICWU3G00@relay2.stonline.sk> for
- netdev@vger.kernel.org; Wed, 11 May 2016 12:25:53 +0200 (CEST)
-Content-description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462960104.4444.37.camel@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Datum: 2016.05.11
+On Wed, 2016-05-11 at 11:48 +0200, Paolo Abeni wrote:
+> Hi Eric,
+> On Tue, 2016-05-10 at 15:51 -0700, Eric Dumazet wrote:
+> > On Wed, 2016-05-11 at 00:32 +0200, Hannes Frederic Sowa wrote:
+> > 
+> > > Not only did we want to present this solely as a bugfix but also as as
+> > > performance enhancements in case of virtio (as you can see in the cover
+> > > letter). Given that a long time ago there was a tendency to remove
+> > > softirqs completely, we thought it might be very interesting, that a
+> > > threaded napi in general seems to be absolutely viable nowadays and
+> > > might offer new features.
+> > 
+> > Well, you did not fix the bug, you worked around by adding yet another
+> > layer, with another sysctl that admins or programs have to manage.
+> > 
+> > If you have a special need for virtio, do not hide it behind a 'bug fix'
+> > but add it as a features request.
+> > 
+> > This ksoftirqd issue is real and a fix looks very reasonable.
+> > 
+> > Please try this patch, as I had very good success with it.
+> 
+> Thank you for your time and your effort.
+> 
+> I tested your patch on the bare metal "single core" scenario, disabling
+> the unneeded cores with:
+> CPUS=`nproc`
+> for I in `seq 1 $CPUS`; do echo 0  >  /sys/devices/system/node/node0/cpu$I/online; done
+> 
+> And I got a:
+> 
+> [   86.925249] Broke affinity for irq <num>
+> 
 
-Hallo Freund,
+Was it fatal, or simply a warning that you are removing the cpu that was
+the only allowed cpu in an affinity_mask ?
 
-Ich bin Sir Jonathan Stephen Cunliffe, der stellvertretende Gouverneur,=
- Financial Stability, die Bank of England. Ich habe ein interessantes A=
-ngebot, die eine erhebliche Menge mit Ihnen zu teilen lohnt. Wenn Sie i=
-nteressiert sind, schreiben Sie zur=FCck in meine pers=F6nliche E-Mail:=
- jclff081@aol.co.uk f=FCr weitere Details.
+Looks another bug to fix then ? We disabled CPU hotplug here at Google
+for our production, as it was notoriously buggy. No time to fix dozens
+of issues added by a crowd of developers that do not even know a cpu can
+be unplugged.
 
-Hinweis: Diese Meldung =FCbersetzt wurde eine Google-=DCbersetzer verwe=
-nden. Wenn Sie sprechen, schreiben und verstehen Englisch, bitte lassen=
- Sie mich wissen, wie es besser f=FCr unsere Kommunikation sein wird.
+Maybe some caller of local_bh_disable()/local_bh_enable() expected that
+current softirq would be processed. Obviously flaky even before the
+patches.
 
-Gr=FC=DFe,
-Sir Jon S. Cunliffe
+> for each irq number generated by a network device.
+> 
+> In this scenario, your patch solves the ksoftirqd issue, performing
+> comparable to the napi threaded patches (with a negative delta in the
+> noise range) and introducing a minor regression with a single flow, in
+> the noise range (3%).
+> 
+> As said in a previous mail, we actually experimented something similar,
+> but it felt quite hackish.
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Right, we are networking guys, and we feel that messing with such core
+infra is not for us. So we feel comfortable adding a pure networking
+patch.
+
+> 
+> AFAICS this patch adds three more tests in the fast path and affect all
+> other softirq use case. I'm not sure how to check for regression there.
+
+It is obvious to me that ksoftird mechanism is not working as intended.
+
+Fixing it might uncover bugs from parts of the kernel relying on the
+bug, indirectly or directly. Is it a good thing ?
+
+I can not tell before trying.
+
+Just by looking at /proc/{ksoftirqs_pid}/sched you can see the problem,
+as we normally schedule ksoftird under stress but most of the time,
+the softirq items were processed by another tasks as you found out.
+
+
+> 
+> The napi thread patches are actually a new feature, that also fixes the
+> ksoftirqd issue: hunting the ksoftirqd issue has been the initial
+> trigger for this work. I'm sorry for not being clear enough in the cover
+> letter.
+> 
+> The napi thread patches offer additional benefits, i.e. an additional
+> relevant gain in the described test scenario, and do not impact on other
+> subsystems/kernel entities. 
+> 
+> I still think they are worthy, and I bet you would disagree, but could
+> you please articulate more which parts concern you most and/or are more
+> bloated ?
+
+Just look at the added code. napi_threaded_poll() is very buggy, but
+honestly I do not want to fix the bugs you added there. If you have only
+one vcpu, how jiffies can ever change since you block BH ?
+
+I was planning to remove cond_resched_softirq() that we no longer use
+after my recent changes to TCP stack,
+and you call it again (while it is obviously buggy since it does not
+check if a BH is pending, only if a thread needs the cpu)
+
+I prefer fixing the existing code, really. It took us years to
+understand it and maybe fix it.
+
+Just think of what will happen if you have 10 devices (10 new threads in
+your model) and one cpu.
+
+Instead of the nice existing netif_rx() doing 64 packets per device
+rounds, you'll now rely on process scheduler behavior that has no such
+granularity.
+
+Adding more threads is the natural answer of userland programmers, but
+in the kernel it is not the right answer. We already have mechanism,
+just use them and fix them if they are broken.
+
+Sorry, I really do not think your patches are the way to go.
+But this thread is definitely interesting.
