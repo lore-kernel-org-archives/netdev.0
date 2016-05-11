@@ -1,54 +1,58 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: eliminate risk of double link_up events
-Date: Wed, 11 May 2016 19:15:45 -0400
-Message-ID: <1463008545-28994-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] net: cls_u32: Add support for skip-sw
+ flag to tc u32 classifier.
+Date: Wed, 11 May 2016 19:23:16 -0400 (EDT)
+Message-ID: <20160511.192316.1290350535833930948.davem@davemloft.net>
+References: <1462821524-2534-1-git-send-email-sridhar.samudrala@intel.com>
+	<1462821524-2534-2-git-send-email-sridhar.samudrala@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: sridhar.samudrala@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:48107 "EHLO
-	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751580AbcEKXQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 19:16:23 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:52954 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751563AbcEKXXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 19:23:38 -0400
+In-Reply-To: <1462821524-2534-2-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an ACTIVATE or data packet is received in a link in state
-ESTABLISHING, the link does not immediately change state to
-ESTABLISHED, but does instead return a LINK_UP event to the caller,
-which will execute the state change in a different lock context.
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Date: Mon,  9 May 2016 12:18:44 -0700
 
-This non-atomic approach incurs a low risk that we may have two
-LINK_UP events pending simultaneously for the same link, resulting
-in the final part of the setup procedure being executed twice. The
-only potential harm caused by this it that we may see two LINK_UP
-events issued to subsribers of the topology server, something that
-may cause confusion.
+> On devices that support TC U32 offloads, this flag enables a filter to be
+> added only to HW. skip-sw and skip-hw are mutually exclusive flags. By
+> default without any flags, the filter is added to both HW and SW, but no
+> error checks are done in case of failure to add to HW. With skip-sw,
+> failure to add to HW is treated as an error.
 
-This commit eliminates this risk by checking if the link is already
-up before proceeding with the second half of the setup.
+I really want you to provide a "[PATCH net-next 0/2]" header posting
+explaining what this series is doing, and why.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This is a core semantic issue, and we have to make sure all amongst us
+that we are all comfortable with exporting the offloadability controls
+in the way you are implementing them.
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index d903f56..e01e2c71 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -542,7 +542,7 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
- 	struct tipc_link *ol = node_active_link(n, 0);
- 	struct tipc_link *nl = n->links[bearer_id].link;
- 
--	if (!nl)
-+	if (!nl || tipc_link_is_up(nl))
- 		return;
- 
- 	tipc_link_fsm_evt(nl, LINK_ESTABLISH_EVT);
--- 
-1.9.1
+Also:
+
+> @@ -871,10 +889,15 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>  			return err;
+>  		}
+>  
+> +		err = u32_replace_hw_knode(tp, new, flags);
+> +		if (err) {
+> +			u32_destroy_key(tp, new, false);
+> +			return err;
+> +		}
+> +
+>  		u32_replace_knode(tp, tp_c, new);
+>  		tcf_unbind_filter(tp, &n->res);
+>  		call_rcu(&n->rcu, u32_delete_key_rcu);
+> -		u32_replace_hw_knode(tp, new, flags);
+>  		return 0;
+>  	}
+>  
+
+Are you sure this reordering is OK?
