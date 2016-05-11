@@ -1,45 +1,55 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
- driver
-Date: Wed, 11 May 2016 15:27:22 -0500
-Message-ID: <573395AA.1030400@codeaurora.org>
-References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
- <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
- <57100962.40404@gmail.com> <571915F5.5070504@codeaurora.org>
- <571A7F3D.1070609@codeaurora.org> <571A8207.60704@gmail.com>
- <57326C44.8020906@codeaurora.org> <57326E08.40803@gmail.com>
- <573297F7.9020500@codeaurora.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: default to 64-bit DMA on systems without memory
+ below 4 GB
+Date: Wed, 11 May 2016 22:31:26 +0200
+Message-ID: <20160511203126.GA10093@electric-eye.fr.zoreil.com>
+References: <1462952869-23498-1-git-send-email-ard.biesheuvel@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	Shanker Donthineni <shankerd@codeaurora.org>,
-	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org,
-	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
-	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
-	Jon Masters <jcm@redhat.com>,
-	Andy Gross <agross@codeaurora.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <573297F7.9020500@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ricardo.salveti@linaro.org,
+	leo.duran@amd.com, graeme.gregory@linaro.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54434 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932111AbcEKUbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 16:31:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1462952869-23498-1-git-send-email-ard.biesheuvel@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Timur Tabi wrote:
-> I think the problem is that the current driver seems to be too eager to
-> start/stop the MAC.
->
-> Please take a look at emac_work_thread_link_check() at
-> https://lkml.org/lkml/2016/4/13/670.  Every time the PHY link goes up,
-> it does this:
+Ard Biesheuvel <ard.biesheuvel@linaro.org> :
+> The current logic around the 'use_dac' module parameter prevents the
+> r81969 driver from being loadable on 64-bit systems without any RAM
+> below 4 GB when the parameter is left at its default value.
+> So introduce a new default value -1 which indicates that 64-bit DMA
+> should be enabled implicitly, but only if setting a 32-bit DMA mask
+> has failed earlier. This should prevent any regressions like the ones
+> caused by previous attempts to change this code.
 
-Never mind, I figured out the problem.  I still have a lot of work ahead 
-of me, but at least I'm not stuck any more.
+I am not a huge fan but if you really need it...
+
+Which current kernel arches do exhibit the interesting
+f*ck-legacy-32-bits-only-devices property you just described ?
+
+[...]
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 94f08f1e841c..a49e8a58e539 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+[...]
+> @@ -859,7 +859,8 @@ struct rtl8169_private {
+>  MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+>  MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+>  module_param(use_dac, int, 0);
+> -MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
+> +MODULE_PARM_DESC(use_dac,
+> +	"Enable PCI DAC. Unsafe on 32 bit PCI slot (default -1: enable on 64-bit archs only if needed");
+
+Nit: the parameter is bizarre enough that you could leave the original
+description.
 
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
-Forum, a Linux Foundation collaborative project.
+Ueimor
