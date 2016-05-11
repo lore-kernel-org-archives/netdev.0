@@ -1,125 +1,151 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 03/13] fou: Call setup_udp_tunnel_sock
-Date: Wed, 11 May 2016 09:47:23 -0700
-Message-ID: <1462985253-2380625-4-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 04/13] fou: Split out {fou,gue}_build_header
+Date: Wed, 11 May 2016 09:47:24 -0700
+Message-ID: <1462985253-2380625-5-git-send-email-tom@herbertland.com>
 References: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:20486 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48995 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932443AbcEKQsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 12:48:21 -0400
+	by vger.kernel.org with ESMTP id S932583AbcEKQsc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 12:48:32 -0400
 Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4BGiHVG030519
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:21 -0700
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4BGiG5w030513
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:31 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 22uqy44ryt-1
+	by mx0b-00082601.pphosted.com with ESMTP id 22uqy44ryk-2
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:20 -0700
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:31 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 2764c576179811e6af730002c95209d8-993e9c50 for <netdev@vger.kernel.org>;	Wed,
- 11 May 2016 09:48:14 -0700
+ 284e38dc179811e6af730002c95209d8-993e9c50 for <netdev@vger.kernel.org>;	Wed,
+ 11 May 2016 09:48:16 -0700
 In-Reply-To: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use helper function to set up UDP tunnel related information for a fou
-socket.
+Create __fou_build_header and __gue_build_header. These implement the
+protocol generic parts of building the fou and gue header.
+fou_build_header and gue_build_header implement the IPv4 specific
+functions and call the __*_build_header functions.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv4/fou.c | 50 ++++++++++++++++----------------------------------
- 1 file changed, 16 insertions(+), 34 deletions(-)
+ include/net/fou.h |  8 ++++----
+ net/ipv4/fou.c    | 47 +++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 41 insertions(+), 14 deletions(-)
 
+diff --git a/include/net/fou.h b/include/net/fou.h
+index 19b8a0c..7d2fda2 100644
+--- a/include/net/fou.h
++++ b/include/net/fou.h
+@@ -11,9 +11,9 @@
+ size_t fou_encap_hlen(struct ip_tunnel_encap *e);
+ static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
+ 
+-int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4);
+-int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4);
++int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type);
++int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type);
+ 
+ #endif
 diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index eeec7d6..6cbc725 100644
+index 6cbc725..f4f2ddd 100644
 --- a/net/ipv4/fou.c
 +++ b/net/ipv4/fou.c
-@@ -448,31 +448,13 @@ static void fou_release(struct fou *fou)
- 	kfree_rcu(fou, rcu);
+@@ -780,6 +780,22 @@ static void fou_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 	*protocol = IPPROTO_UDP;
  }
  
--static int fou_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
--{
--	udp_sk(sk)->encap_rcv = fou_udp_recv;
--	udp_sk(sk)->gro_receive = fou_gro_receive;
--	udp_sk(sk)->gro_complete = fou_gro_complete;
--	fou_from_sock(sk)->protocol = cfg->protocol;
--
--	return 0;
--}
--
--static int gue_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
--{
--	udp_sk(sk)->encap_rcv = gue_udp_recv;
--	udp_sk(sk)->gro_receive = gue_gro_receive;
--	udp_sk(sk)->gro_complete = gue_gro_complete;
--
--	return 0;
--}
--
- static int fou_create(struct net *net, struct fou_cfg *cfg,
- 		      struct socket **sockp)
++int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type)
++{
++	int err;
++
++	err = iptunnel_handle_offloads(skb, type);
++	if (err)
++		return err;
++
++	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++						skb, 0, 0, false);
++
++	return 0;
++}
++EXPORT_SYMBOL(__fou_build_header);
++
+ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		     u8 *protocol, struct flowi4 *fl4)
  {
- 	struct socket *sock = NULL;
- 	struct fou *fou = NULL;
- 	struct sock *sk;
-+	struct udp_tunnel_sock_cfg tunnel_cfg;
+@@ -788,26 +804,21 @@ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 	__be16 sport;
  	int err;
  
- 	/* Open UDP socket */
-@@ -491,33 +473,33 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+-	err = iptunnel_handle_offloads(skb, type);
++	err = __fou_build_header(skb, e, protocol, &sport, type);
+ 	if (err)
+ 		return err;
  
- 	fou->flags = cfg->flags;
- 	fou->port = cfg->udp_config.local_udp_port;
-+	fou->type = cfg->type;
-+	fou->sock = sock;
-+
-+	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
-+	tunnel_cfg.encap_type = 1;
-+	tunnel_cfg.sk_user_data = fou;
-+	tunnel_cfg.encap_destroy = NULL;
+-	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
+-					       skb, 0, 0, false);
+ 	fou_build_udp(skb, e, fl4, protocol, sport);
  
- 	/* Initial for fou type */
- 	switch (cfg->type) {
- 	case FOU_ENCAP_DIRECT:
--		err = fou_encap_init(sk, fou, cfg);
--		if (err)
--			goto error;
-+		tunnel_cfg.encap_rcv = fou_udp_recv;
-+		tunnel_cfg.gro_receive = fou_gro_receive;
-+		tunnel_cfg.gro_complete = fou_gro_complete;
-+		fou->protocol = cfg->protocol;
- 		break;
- 	case FOU_ENCAP_GUE:
--		err = gue_encap_init(sk, fou, cfg);
--		if (err)
--			goto error;
-+		tunnel_cfg.encap_rcv = gue_udp_recv;
-+		tunnel_cfg.gro_receive = gue_gro_receive;
-+		tunnel_cfg.gro_complete = gue_gro_complete;
- 		break;
- 	default:
- 		err = -EINVAL;
- 		goto error;
+ 	return 0;
+ }
+ EXPORT_SYMBOL(fou_build_header);
+ 
+-int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4)
++int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type)
+ {
+-	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
+-						       SKB_GSO_UDP_TUNNEL;
+ 	struct guehdr *guehdr;
+ 	size_t hdrlen, optlen = 0;
+-	__be16 sport;
+ 	void *data;
+ 	bool need_priv = false;
+ 	int err;
+@@ -826,8 +837,8 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		return err;
+ 
+ 	/* Get source port (based on flow hash) before skb_push */
+-	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
+-					       skb, 0, 0, false);
++	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++						skb, 0, 0, false);
+ 
+ 	hdrlen = sizeof(struct guehdr) + optlen;
+ 
+@@ -872,6 +883,22 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 
  	}
  
--	fou->type = cfg->type;
--
--	udp_sk(sk)->encap_type = 1;
--	udp_encap_enable();
--
--	sk->sk_user_data = fou;
--	fou->sock = sock;
--
--	inet_inc_convert_csum(sk);
-+	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
++	return 0;
++}
++EXPORT_SYMBOL(__gue_build_header);
++
++int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		     u8 *protocol, struct flowi4 *fl4)
++{
++	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
++						       SKB_GSO_UDP_TUNNEL;
++	__be16 sport;
++	int err;
++
++	err = __gue_build_header(skb, e, protocol, &sport, type);
++	if (err)
++		return err;
++
+ 	fou_build_udp(skb, e, fl4, protocol, sport);
  
- 	sk->sk_allocation = GFP_ATOMIC;
- 
+ 	return 0;
 -- 
 2.8.0.rc2
