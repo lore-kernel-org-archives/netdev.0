@@ -1,369 +1,409 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 02/13] net: define gso types for IPx over IPv4 and IPv6
-Date: Wed, 11 May 2016 09:47:22 -0700
-Message-ID: <1462985253-2380625-3-git-send-email-tom@herbertland.com>
-References: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [PATCH v4 net-next] tcp: replace cnt & rtt with struct in pkts_acked()
+Date: Wed, 11 May 2016 10:02:13 -0700
+Message-ID: <1462986133-4101863-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Cc: Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:47922 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59463 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932351AbcEKQsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 12:48:16 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4BGk07j026866
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:15 -0700
+	by vger.kernel.org with ESMTP id S1752001AbcEKRCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 13:02:21 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4BGxseC010566
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 10:02:20 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 22ur09nhb1-2
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:15 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 2641b1ea179811e6af730002c95209d8-993e9c50 for <netdev@vger.kernel.org>;	Wed,
- 11 May 2016 09:48:12 -0700
-In-Reply-To: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
+	by mx0b-00082601.pphosted.com with ESMTP id 22uqy44ve4-2
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 10:02:19 -0700
+Received: from facebook.com (2401:db00:11:d037:face:0:33:0)	by
+ mx-out.facebook.com (10.102.107.99) with ESMTP	id
+ 1b58039a179a11e6948a0002c99293a0-12bf1c50 for <netdev@vger.kernel.org>;	Wed,
+ 11 May 2016 10:02:13 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch defines two new GSO definitions SKB_GSO_IPXIP4 and
-SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
-NETIF_F_GSO_IPXIP6. These are used to described IP in IP
-tunnel and what the outer protocol is. The inner protocol
-can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
-SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
-are removed (these are both instances of SKB_GSO_IPXIP4).
-SKB_GSO_IPXIP6 will be used when support for GSO with IP
-encapsulation over IPv6 is added.
+Replace 2 arguments (cnt and rtt) in the congestion control modules'
+pkts_acked() function with a struct. This will allow adding more
+information without having to modify existing congestion control
+modules (tcp_nv in particular needs bytes in flight when packet
+was sent).
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+As proposed by Neal Cardwell in his comments to the tcp_nv patch.
+
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
- include/linux/netdev_features.h                   | 12 ++++++------
- include/linux/netdevice.h                         |  4 ++--
- include/linux/skbuff.h                            |  4 ++--
- net/core/ethtool.c                                |  4 ++--
- net/ipv4/af_inet.c                                |  2 +-
- net/ipv4/ipip.c                                   |  2 +-
- net/ipv6/ip6_offload.c                            |  4 ++--
- net/ipv6/sit.c                                    |  4 ++--
- net/netfilter/ipvs/ip_vs_xmit.c                   | 17 +++++++----------
- 17 files changed, 35 insertions(+), 45 deletions(-)
+ include/net/tcp.h       |  7 ++++++-
+ net/ipv4/tcp_bic.c      |  6 +++---
+ net/ipv4/tcp_cdg.c      | 14 +++++++-------
+ net/ipv4/tcp_cubic.c    |  6 +++---
+ net/ipv4/tcp_htcp.c     | 10 +++++-----
+ net/ipv4/tcp_illinois.c | 21 +++++++++++----------
+ net/ipv4/tcp_input.c    |  8 ++++++--
+ net/ipv4/tcp_lp.c       |  6 +++---
+ net/ipv4/tcp_vegas.c    |  6 +++---
+ net/ipv4/tcp_vegas.h    |  2 +-
+ net/ipv4/tcp_veno.c     |  7 ++++---
+ net/ipv4/tcp_westwood.c |  7 ++++---
+ net/ipv4/tcp_yeah.c     |  7 ++++---
+ 13 files changed, 60 insertions(+), 47 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index d465bd7..0a5b770 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13259,12 +13259,11 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 		NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
- 	if (!chip_is_e1x) {
- 		dev->hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
--				    NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
-+				    NETIF_F_GSO_IPXIP4;
- 		dev->hw_enc_features =
- 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
- 			NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
--			NETIF_F_GSO_IPIP |
--			NETIF_F_GSO_SIT |
-+			NETIF_F_GSO_IPXIP4 |
- 			NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL;
- 	}
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 24ec804..dc588c3 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -849,6 +849,11 @@ enum tcp_ca_ack_event_flags {
  
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 6a5a717..85adcb0 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -6233,7 +6233,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
- 			   NETIF_F_TSO | NETIF_F_TSO6 |
- 			   NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
--			   NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
-+			   NETIF_F_GSO_IPXIP4 |
- 			   NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
- 			   NETIF_F_GSO_PARTIAL | NETIF_F_RXHASH |
- 			   NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO;
-@@ -6243,7 +6243,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			NETIF_F_TSO | NETIF_F_TSO6 |
- 			NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_GRE |
- 			NETIF_F_GSO_UDP_TUNNEL_CSUM | NETIF_F_GSO_GRE_CSUM |
--			NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |
-+			NETIF_F_GSO_IPXIP4;
- 			NETIF_F_GSO_PARTIAL;
- 	dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM |
- 				    NETIF_F_GSO_GRE_CSUM;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 46a3a67..e4284b5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9082,8 +9082,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 				   NETIF_F_TSO6			|
- 				   NETIF_F_GSO_GRE		|
- 				   NETIF_F_GSO_GRE_CSUM		|
--				   NETIF_F_GSO_IPIP		|
--				   NETIF_F_GSO_SIT		|
-+				   NETIF_F_GSO_IPXIP4		|
- 				   NETIF_F_GSO_UDP_TUNNEL	|
- 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
- 				   NETIF_F_GSO_PARTIAL		|
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index b0edffe..5f3f97b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2284,8 +2284,7 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ union tcp_cc_info;
  
- 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
- 					 SKB_GSO_GRE_CSUM |
--					 SKB_GSO_IPIP |
--					 SKB_GSO_SIT |
-+					 SKB_GSO_IPXIP4 |
- 					 SKB_GSO_UDP_TUNNEL |
- 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
- 		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index fd7dae46..2bbbbd0 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1559,8 +1559,7 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
- 
- 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
- 					 SKB_GSO_GRE_CSUM |
--					 SKB_GSO_IPIP |
--					 SKB_GSO_SIT |
-+					 SKB_GSO_IPXIP4 |
- 					 SKB_GSO_UDP_TUNNEL |
- 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
- 		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index b548dbe..32cdf28 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2217,8 +2217,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 				   NETIF_F_TSO6			|
- 				   NETIF_F_GSO_GRE		|
- 				   NETIF_F_GSO_GRE_CSUM		|
--				   NETIF_F_GSO_IPIP		|
--				   NETIF_F_GSO_SIT		|
-+				   NETIF_F_GSO_IPXIP4		|
- 				   NETIF_F_GSO_UDP_TUNNEL	|
- 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
- 				   NETIF_F_GSO_PARTIAL		|
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d08fbcf..28e3b5a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9482,8 +9482,7 @@ skip_sriov:
- 
- #define IXGBE_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
- 				    NETIF_F_GSO_GRE_CSUM | \
--				    NETIF_F_GSO_IPIP | \
--				    NETIF_F_GSO_SIT | \
-+				    NETIF_F_GSO_IPXIP4 | \
- 				    NETIF_F_GSO_UDP_TUNNEL | \
- 				    NETIF_F_GSO_UDP_TUNNEL_CSUM)
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 5e348b1..d86e511 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -4062,8 +4062,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- #define IXGBEVF_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
- 				      NETIF_F_GSO_GRE_CSUM | \
--				      NETIF_F_GSO_IPIP | \
--				      NETIF_F_GSO_SIT | \
-+				      NETIF_F_GSO_IPXIP4 | \
- 				      NETIF_F_GSO_UDP_TUNNEL | \
- 				      NETIF_F_GSO_UDP_TUNNEL_CSUM)
- 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index bc87362..aa7b240 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -44,8 +44,8 @@ enum {
- 	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
- 	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
- 	NETIF_F_GSO_GRE_CSUM_BIT,	/* ... GRE with csum with TSO */
--	NETIF_F_GSO_IPIP_BIT,		/* ... IPIP tunnel with TSO */
--	NETIF_F_GSO_SIT_BIT,		/* ... SIT tunnel with TSO */
-+	NETIF_F_GSO_IPXIP4_BIT,		/* ... IP4 or IP6 over IP4 with TSO */
-+	NETIF_F_GSO_IPXIP6_BIT,		/* ... IP4 or IP6 over IP6 with TSO */
- 	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
- 	NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
- 	NETIF_F_GSO_PARTIAL_BIT,	/* ... Only segment inner-most L4
-@@ -121,8 +121,8 @@ enum {
- #define NETIF_F_RXALL		__NETIF_F(RXALL)
- #define NETIF_F_GSO_GRE		__NETIF_F(GSO_GRE)
- #define NETIF_F_GSO_GRE_CSUM	__NETIF_F(GSO_GRE_CSUM)
--#define NETIF_F_GSO_IPIP	__NETIF_F(GSO_IPIP)
--#define NETIF_F_GSO_SIT		__NETIF_F(GSO_SIT)
-+#define NETIF_F_GSO_IPXIP4	__NETIF_F(GSO_IPXIP4)
-+#define NETIF_F_GSO_IPXIP6	__NETIF_F(GSO_IPXIP6)
- #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
- #define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
- #define NETIF_F_TSO_MANGLEID	__NETIF_F(TSO_MANGLEID)
-@@ -200,8 +200,8 @@ enum {
- 
- #define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
- 				 NETIF_F_GSO_GRE_CSUM |			\
--				 NETIF_F_GSO_IPIP |			\
--				 NETIF_F_GSO_SIT |			\
-+				 NETIF_F_GSO_IPXIP4 |			\
-+				 NETIF_F_GSO_IPXIP6 |			\
- 				 NETIF_F_GSO_UDP_TUNNEL |		\
- 				 NETIF_F_GSO_UDP_TUNNEL_CSUM)
- 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 63580e6..8b1eedc 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4005,8 +4005,8 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
- 	BUILD_BUG_ON(SKB_GSO_FCOE    != (NETIF_F_FSO >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_GRE     != (NETIF_F_GSO_GRE >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_GRE_CSUM != (NETIF_F_GSO_GRE_CSUM >> NETIF_F_GSO_SHIFT));
--	BUILD_BUG_ON(SKB_GSO_IPIP    != (NETIF_F_GSO_IPIP >> NETIF_F_GSO_SHIFT));
--	BUILD_BUG_ON(SKB_GSO_SIT     != (NETIF_F_GSO_SIT >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_IPXIP4  != (NETIF_F_GSO_IPXIP4 >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_IPXIP6  != (NETIF_F_GSO_IPXIP6 >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL != (NETIF_F_GSO_UDP_TUNNEL >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL_CSUM != (NETIF_F_GSO_UDP_TUNNEL_CSUM >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_PARTIAL != (NETIF_F_GSO_PARTIAL >> NETIF_F_GSO_SHIFT));
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c413c58..65968a9 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -471,9 +471,9 @@ enum {
- 
- 	SKB_GSO_GRE_CSUM = 1 << 8,
- 
--	SKB_GSO_IPIP = 1 << 9,
-+	SKB_GSO_IPXIP4 = 1 << 9,
- 
--	SKB_GSO_SIT = 1 << 10,
-+	SKB_GSO_IPXIP6 = 1 << 10,
- 
- 	SKB_GSO_UDP_TUNNEL = 1 << 11,
- 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index bdb4013..f403481 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -84,8 +84,8 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
- 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
- 	[NETIF_F_GSO_GRE_CSUM_BIT] =	 "tx-gre-csum-segmentation",
--	[NETIF_F_GSO_IPIP_BIT] =	 "tx-ipip-segmentation",
--	[NETIF_F_GSO_SIT_BIT] =		 "tx-sit-segmentation",
-+	[NETIF_F_GSO_IPXIP4_BIT] =	 "tx-ipxip4-segmentation",
-+	[NETIF_F_GSO_IPXIP6_BIT] =	 "tx-ipxip6-segmentation",
- 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
- 	[NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
- 	[NETIF_F_GSO_PARTIAL_BIT] =	 "tx-gso-partial",
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 7f08d45..25040b1 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1483,7 +1483,7 @@ out_unlock:
- static int ipip_gro_complete(struct sk_buff *skb, int nhoff)
++struct ack_sample {
++	u32 pkts_acked;
++	s32 rtt_us;
++};
++
+ struct tcp_congestion_ops {
+ 	struct list_head	list;
+ 	u32 key;
+@@ -872,7 +877,7 @@ struct tcp_congestion_ops {
+ 	/* new value of cwnd after loss (optional) */
+ 	u32  (*undo_cwnd)(struct sock *sk);
+ 	/* hook for packet ack accounting (optional) */
+-	void (*pkts_acked)(struct sock *sk, u32 num_acked, s32 rtt_us);
++	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
+ 	/* get info for inet_diag (optional) */
+ 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
+ 			   union tcp_cc_info *info);
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+index fd1405d..36087bc 100644
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -197,15 +197,15 @@ static void bictcp_state(struct sock *sk, u8 new_state)
+ /* Track delayed acknowledgment ratio using sliding window
+  * ratio = (15*ratio + sample) / 16
+  */
+-static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt)
++static void bictcp_acked(struct sock *sk, const struct ack_sample *sample)
  {
- 	skb->encapsulation = 1;
--	skb_shinfo(skb)->gso_type |= SKB_GSO_IPIP;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP4;
- 	return inet_gro_complete(skb, nhoff);
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 
+ 	if (icsk->icsk_ca_state == TCP_CA_Open) {
+ 		struct bictcp *ca = inet_csk_ca(sk);
+ 
+-		cnt -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+-		ca->delayed_ack += cnt;
++		ca->delayed_ack += sample->pkts_acked -
++			(ca->delayed_ack >> ACK_RATIO_SHIFT);
+ 	}
  }
  
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 9282748..9783701 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -219,7 +219,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (unlikely(skb->protocol != htons(ETH_P_IP)))
- 		goto tx_error;
- 
--	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIP))
-+	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP4))
- 		goto tx_error;
- 
- 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 9ad743b..787e55f 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -86,7 +86,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	proto = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
- 
- 	if (skb->encapsulation &&
--	    skb_shinfo(skb)->gso_type & (SKB_GSO_SIT|SKB_GSO_IPIP))
-+	    skb_shinfo(skb)->gso_type & (SKB_GSO_IPXIP4 | SKB_GSO_IPXIP6))
- 		udpfrag = proto == IPPROTO_UDP && encap;
- 	else
- 		udpfrag = proto == IPPROTO_UDP && !skb->encapsulation;
-@@ -294,7 +294,7 @@ out_unlock:
- static int sit_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	skb->encapsulation = 1;
--	skb_shinfo(skb)->gso_type |= SKB_GSO_SIT;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP4;
- 	return ipv6_gro_complete(skb, nhoff);
+diff --git a/net/ipv4/tcp_cdg.c b/net/ipv4/tcp_cdg.c
+index ccce8a5..03725b2 100644
+--- a/net/ipv4/tcp_cdg.c
++++ b/net/ipv4/tcp_cdg.c
+@@ -294,12 +294,12 @@ static void tcp_cdg_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+ 	ca->shadow_wnd = max(ca->shadow_wnd, ca->shadow_wnd + incr);
  }
  
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index a13d8c1..0a5a255 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -913,7 +913,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		goto tx_error;
- 	}
- 
--	if (iptunnel_handle_offloads(skb, SKB_GSO_SIT)) {
-+	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP4)) {
- 		ip_rt_put(rt);
- 		goto tx_error;
- 	}
-@@ -1000,7 +1000,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	const struct iphdr  *tiph = &tunnel->parms.iph;
- 
--	if (iptunnel_handle_offloads(skb, SKB_GSO_IPIP))
-+	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP4))
- 		goto tx_error;
- 
- 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 6d19d2e..01d3d89 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -932,17 +932,14 @@ error:
- 
- static inline int __tun_gso_type_mask(int encaps_af, int orig_af)
+-static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
++static void tcp_cdg_acked(struct sock *sk, const struct ack_sample *sample)
  {
--	if (encaps_af == AF_INET) {
--		if (orig_af == AF_INET)
--			return SKB_GSO_IPIP;
--
--		return SKB_GSO_SIT;
-+	switch (encaps_af) {
-+	case AF_INET:
-+		return SKB_GSO_IPXIP4;
-+	case AF_INET6:
-+		return SKB_GSO_IPXIP6;
-+	default:
-+		return 0;
+ 	struct cdg *ca = inet_csk_ca(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	if (rtt_us <= 0)
++	if (sample->rtt_us <= 0)
+ 		return;
+ 
+ 	/* A heuristic for filtering delayed ACKs, adapted from:
+@@ -307,20 +307,20 @@ static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
+ 	 * delay and rate based TCP mechanisms." TR 100219A. CAIA, 2010.
+ 	 */
+ 	if (tp->sacked_out == 0) {
+-		if (num_acked == 1 && ca->delack) {
++		if (sample->pkts_acked == 1 && ca->delack) {
+ 			/* A delayed ACK is only used for the minimum if it is
+ 			 * provenly lower than an existing non-zero minimum.
+ 			 */
+-			ca->rtt.min = min(ca->rtt.min, rtt_us);
++			ca->rtt.min = min(ca->rtt.min, sample->rtt_us);
+ 			ca->delack--;
+ 			return;
+-		} else if (num_acked > 1 && ca->delack < 5) {
++		} else if (sample->pkts_acked > 1 && ca->delack < 5) {
+ 			ca->delack++;
+ 		}
  	}
--
--	/* GSO: we need to provide proper SKB_GSO_ value for IPv6:
--	 * SKB_GSO_SIT/IPV6
--	 */
--	return 0;
+ 
+-	ca->rtt.min = min_not_zero(ca->rtt.min, rtt_us);
+-	ca->rtt.max = max(ca->rtt.max, rtt_us);
++	ca->rtt.min = min_not_zero(ca->rtt.min, sample->rtt_us);
++	ca->rtt.max = max(ca->rtt.max, sample->rtt_us);
+ }
+ 
+ static u32 tcp_cdg_ssthresh(struct sock *sk)
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 0ce946e..c99230e 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -437,21 +437,21 @@ static void hystart_update(struct sock *sk, u32 delay)
+ /* Track delayed acknowledgment ratio using sliding window
+  * ratio = (15*ratio + sample) / 16
+  */
+-static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
++static void bictcp_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+ 	u32 delay;
+ 
+ 	/* Some calls are for duplicates without timetamps */
+-	if (rtt_us < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* Discard delay samples right after fast recovery */
+ 	if (ca->epoch_start && (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
+ 		return;
+ 
+-	delay = (rtt_us << 3) / USEC_PER_MSEC;
++	delay = (sample->rtt_us << 3) / USEC_PER_MSEC;
+ 	if (delay == 0)
+ 		delay = 1;
+ 
+diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
+index 82f0d9e..4a4d8e7 100644
+--- a/net/ipv4/tcp_htcp.c
++++ b/net/ipv4/tcp_htcp.c
+@@ -99,7 +99,7 @@ static inline void measure_rtt(struct sock *sk, u32 srtt)
+ }
+ 
+ static void measure_achieved_throughput(struct sock *sk,
+-					u32 pkts_acked, s32 rtt)
++					const struct ack_sample *sample)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+@@ -107,10 +107,10 @@ static void measure_achieved_throughput(struct sock *sk,
+ 	u32 now = tcp_time_stamp;
+ 
+ 	if (icsk->icsk_ca_state == TCP_CA_Open)
+-		ca->pkts_acked = pkts_acked;
++		ca->pkts_acked = sample->pkts_acked;
+ 
+-	if (rtt > 0)
+-		measure_rtt(sk, usecs_to_jiffies(rtt));
++	if (sample->rtt_us > 0)
++		measure_rtt(sk, usecs_to_jiffies(sample->rtt_us));
+ 
+ 	if (!use_bandwidth_switch)
+ 		return;
+@@ -122,7 +122,7 @@ static void measure_achieved_throughput(struct sock *sk,
+ 		return;
+ 	}
+ 
+-	ca->packetcount += pkts_acked;
++	ca->packetcount += sample->pkts_acked;
+ 
+ 	if (ca->packetcount >= tp->snd_cwnd - (ca->alpha >> 7 ? : 1) &&
+ 	    now - ca->lasttime >= ca->minRTT &&
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+index 2ab9bbb..c8e6d86 100644
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -82,30 +82,31 @@ static void tcp_illinois_init(struct sock *sk)
+ }
+ 
+ /* Measure RTT for each ack. */
+-static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, s32 rtt)
++static void tcp_illinois_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct illinois *ca = inet_csk_ca(sk);
++	s32 rtt_us = sample->rtt_us;
+ 
+-	ca->acked = pkts_acked;
++	ca->acked = sample->pkts_acked;
+ 
+ 	/* dup ack, no rtt sample */
+-	if (rtt < 0)
++	if (rtt_us < 0)
+ 		return;
+ 
+ 	/* ignore bogus values, this prevents wraparound in alpha math */
+-	if (rtt > RTT_MAX)
+-		rtt = RTT_MAX;
++	if (rtt_us > RTT_MAX)
++		rtt_us = RTT_MAX;
+ 
+ 	/* keep track of minimum RTT seen so far */
+-	if (ca->base_rtt > rtt)
+-		ca->base_rtt = rtt;
++	if (ca->base_rtt > rtt_us)
++		ca->base_rtt = rtt_us;
+ 
+ 	/* and max */
+-	if (ca->max_rtt < rtt)
+-		ca->max_rtt = rtt;
++	if (ca->max_rtt < rtt_us)
++		ca->max_rtt = rtt_us;
+ 
+ 	++ca->cnt_rtt;
+-	ca->sum_rtt += rtt;
++	ca->sum_rtt += rtt_us;
+ }
+ 
+ /* Maximum queuing delay */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a914e06..d6c8f4cd0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3248,8 +3248,12 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 		tcp_rearm_rto(sk);
+ 	}
+ 
+-	if (icsk->icsk_ca_ops->pkts_acked)
+-		icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
++	if (icsk->icsk_ca_ops->pkts_acked) {
++		struct ack_sample sample = { .pkts_acked = pkts_acked,
++					     .rtt_us = ca_rtt_us };
++
++		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
++	}
+ 
+ #if FASTRETRANS_DEBUG > 0
+ 	WARN_ON((int)tp->sacked_out < 0);
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+index 1e70fa8..c67ece1 100644
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -260,13 +260,13 @@ static void tcp_lp_rtt_sample(struct sock *sk, u32 rtt)
+  * newReno in increase case.
+  * We work it out by following the idea from TCP-LP's paper directly
+  */
+-static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
++static void tcp_lp_pkts_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct lp *lp = inet_csk_ca(sk);
+ 
+-	if (rtt_us > 0)
+-		tcp_lp_rtt_sample(sk, rtt_us);
++	if (sample->rtt_us > 0)
++		tcp_lp_rtt_sample(sk, sample->rtt_us);
+ 
+ 	/* calc inference */
+ 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+index 13951c4..4c4bac1 100644
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -107,16 +107,16 @@ EXPORT_SYMBOL_GPL(tcp_vegas_init);
+  *   o min-filter RTT samples from a much longer window (forever for now)
+  *     to find the propagation delay (baseRTT)
+  */
+-void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
++void tcp_vegas_pkts_acked(struct sock *sk, const struct ack_sample *sample)
+ {
+ 	struct vegas *vegas = inet_csk_ca(sk);
+ 	u32 vrtt;
+ 
+-	if (rtt_us < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* Never allow zero rtt or baseRTT */
+-	vrtt = rtt_us + 1;
++	vrtt = sample->rtt_us + 1;
+ 
+ 	/* Filter to find propagation delay: */
+ 	if (vrtt < vegas->baseRTT)
+diff --git a/net/ipv4/tcp_vegas.h b/net/ipv4/tcp_vegas.h
+index ef9da53..248cfc0 100644
+--- a/net/ipv4/tcp_vegas.h
++++ b/net/ipv4/tcp_vegas.h
+@@ -17,7 +17,7 @@ struct vegas {
+ 
+ void tcp_vegas_init(struct sock *sk);
+ void tcp_vegas_state(struct sock *sk, u8 ca_state);
+-void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us);
++void tcp_vegas_pkts_acked(struct sock *sk, const struct ack_sample *sample);
+ void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event);
+ size_t tcp_vegas_get_info(struct sock *sk, u32 ext, int *attr,
+ 			  union tcp_cc_info *info);
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+index 0d094b9..40171e1 100644
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -69,16 +69,17 @@ static void tcp_veno_init(struct sock *sk)
+ }
+ 
+ /* Do rtt sampling needed for Veno. */
+-static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
++static void tcp_veno_pkts_acked(struct sock *sk,
++				const struct ack_sample *sample)
+ {
+ 	struct veno *veno = inet_csk_ca(sk);
+ 	u32 vrtt;
+ 
+-	if (rtt_us < 0)
++	if (sample->rtt_us < 0)
+ 		return;
+ 
+ 	/* Never allow zero rtt or baseRTT */
+-	vrtt = rtt_us + 1;
++	vrtt = sample->rtt_us + 1;
+ 
+ 	/* Filter to find propagation delay: */
+ 	if (vrtt < veno->basertt)
+diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
+index c10732e..4b03a2e 100644
+--- a/net/ipv4/tcp_westwood.c
++++ b/net/ipv4/tcp_westwood.c
+@@ -99,12 +99,13 @@ static void westwood_filter(struct westwood *w, u32 delta)
+  * Called after processing group of packets.
+  * but all westwood needs is the last sample of srtt.
+  */
+-static void tcp_westwood_pkts_acked(struct sock *sk, u32 cnt, s32 rtt)
++static void tcp_westwood_pkts_acked(struct sock *sk,
++				    const struct ack_sample *sample)
+ {
+ 	struct westwood *w = inet_csk_ca(sk);
+ 
+-	if (rtt > 0)
+-		w->rtt = usecs_to_jiffies(rtt);
++	if (sample->rtt_us > 0)
++		w->rtt = usecs_to_jiffies(sample->rtt_us);
  }
  
  /*
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index 3e6a472..028eb04 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -56,15 +56,16 @@ static void tcp_yeah_init(struct sock *sk)
+ 	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
+ }
+ 
+-static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, s32 rtt_us)
++static void tcp_yeah_pkts_acked(struct sock *sk,
++				const struct ack_sample *sample)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct yeah *yeah = inet_csk_ca(sk);
+ 
+ 	if (icsk->icsk_ca_state == TCP_CA_Open)
+-		yeah->pkts_acked = pkts_acked;
++		yeah->pkts_acked = sample->pkts_acked;
+ 
+-	tcp_vegas_pkts_acked(sk, pkts_acked, rtt_us);
++	tcp_vegas_pkts_acked(sk, sample);
+ }
+ 
+ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 -- 
 2.8.0.rc2
