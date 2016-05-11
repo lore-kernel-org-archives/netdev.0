@@ -1,36 +1,38 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: rtl818x: silence uninitialized variable warning
-Date: Wed, 11 May 2016 18:54:33 +0000 (UTC)
-Message-ID: <20160511185433.DE30C61344@smtp.codeaurora.org>
-References: <20160504061639.GB22064@mwanda>
+Subject: Re: [v2] rtlwifi: Remove double check for cnt_after_linked
+Date: Wed, 11 May 2016 18:55:39 +0000 (UTC)
+Message-ID: <20160511185539.51E2E6133D@smtp.codeaurora.org>
+References: <20160505150822.GA4151@udknight>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
+Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160504061639.GB22064@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-kernel@vger.kernel.org
+To: wang yanqing <udknight@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:35501 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751707AbcEKSzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 14:55:40 -0400
+In-Reply-To: <20160505150822.GA4151@udknight>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> What about if "rtlphy->pwrgroup_cnt" is 2?  In that case we would use an
-> uninitialized "chnlgroup" variable and probably crash.  Maybe that can't
-> happen for some reason which is not obvious but in that case this patch
-> is harmless.
+wang yanqing <udknight@gmail.com> wrote:
+> rtl_lps_enter does two successive check for cnt_after_linked
+> to make sure some time has elapsed after linked. The second
+> check isn't necessary, because if cnt_after_linked is bigger
+> than 5, it is bigger than 2 of course!
 > 
-> Setting it to zero seems like a standard default in the surrounding code
-> so it's probably fine here as well.
+> This patch remove the second check code.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Wang YanQing <udknight@gmail.com>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-2f8514b8b036 rtlwifi: rtl818x: silence uninitialized variable warning
+976aff5fc94b rtlwifi: Remove double check for cnt_after_linked
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9010761/
+https://patchwork.kernel.org/patch/9025161/
