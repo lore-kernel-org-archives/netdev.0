@@ -1,161 +1,69 @@
-From: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [v10, 7/7] mmc: sdhci-of-esdhc: fix host version for
-	T4240-R1.0-R2.0
-Date: Tue, 10 May 2016 22:26:26 -0500
-Message-ID: <1462937186.16584.77.camel@buserror.net>
-References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
-	<4448030.Zs8fVnr3nm@wuerfel>
-	<HE1PR04MB0889B52134A43C0E7A452B7BF87C0@HE1PR04MB0889.eurprd04.prod.outlook.com>
-	<5159406.HOFrj7pRfW@wuerfel>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Wed, 11 May 2016 12:28:14 +0900
+Message-ID: <20160511032812.GC24805@vergenet.net>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+ <20160506113504.77a9504e@griffin>
+ <20160509081818.GB4470@vergenet.net>
+ <20160510140618.3ad4a35f@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
-	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Xi
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <5159406.HOFrj7pRfW@wuerfel>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160510140618.3ad4a35f@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-05-05 at 13:10 +0200, Arnd Bergmann wrote:
-> On Thursday 05 May 2016 09:41:32 Yangbo Lu wrote:
-> > > -----Original Message-----
-> > > From: Arnd Bergmann [mailto:arnd-r2nGTMty4D4@public.gmane.org]
-> > > Sent: Thursday, May 05, 2016 4:32 PM
-> > > To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-> > > Cc: Yangbo Lu; linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> > > linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> > > linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; iommu-cunTk1MwBs/ROKNJybVBZg@public.gmane.org
-> > > foundation.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Mark Rutland;
-> > > ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; Russell King; Bhupesh Sharma; Joerg Roedel;
-> > > Santosh Shilimkar; Yang-Leo Li; Scott Wood; Rob Herring; Claudiu Manoil;
-> > > Kumar Gala; Xiaobo Xie; Qiang Zhao
-> > > Subject: Re: [v10, 7/7] mmc: sdhci-of-esdhc: fix host version for T4240-
-> > > R1.0-R2.0
-> > > 
-> > > On Thursday 05 May 2016 11:12:30 Yangbo Lu wrote:
-> > > > IIRC, it is the same IP block as i.MX and Arnd's point is this won't
-> > > > even compile on !PPC. It is things like this that prevent sharing the
-> > > > driver.
-> > 
-> > The whole point of using the MMIO SVR instead of the PPC SPR is so that
-> > it will work on ARM...  The guts driver should build on any platform as
-> > long as OF is enabled, and if it doesn't find a node to bind to it will
-> > return 0 for SVR, and the eSDHC driver will continue (after printing an
-> > error that should be removed) without the ability to test for errata
-> > based on SVR.
-> 
-> It feels like a bad design to have to come up with a different
-> method for each SoC type here when they all do the same thing
-> and want to identify some variant of the chip to do device
-> specific quirks.
-> 
-> As far as I'm concerned, every driver in drivers/soc that needs to
-> export a symbol to be used by a device driver is an indication that
-> we don't have the right set of abstractions yet. There are cases
-> that are not worth abstracting because the functionality is rather
-> obscure and only a couple of drivers for one particular chip
-> ever need it.
-> 
-> Finding out the version of the SoC does not look like this case.
-
-I'm open to new ways of abstracting this, but can that please be discussed
-after these patches are merged?  This patchset is fixing a problem, the
-existing abstraction is unappealing and not widely adopted, a new abstraction
-is not ready, and we're only touching code for our hardware.
-
-Oh, and the existing abstraction isn't even "existing".  I don't see any
-examples where soc_device is being used like this -- or even any way for a
-driver (the one consuming the information, not the soc "driver") to get a
-reference to the soc_device that's been registered short of searching for the
-device object by name -- and you're asking for new functionality in
-drivers/base/soc.c.
-
-> > > I think the first four patches take care of building for ARM,
-> > > but the problem remains if you want to enable COMPILE_TEST as
-> > > we need for certain automated checking.
-> > 
-> > What specific problem is there with COMPILE_TEST?
-> 
-> COMPILE_TEST is solvable here and the way it is implemented in this
-> case (selecting FSL_GUTS from the driver) indeed looks like it works
-> correctly, but it's still awkward that this means building the
-> SoC specific ID stuff into the vmlinux binary for any driver that
-> uses something like that for a particular SoC.
-
-Please keep in mind that this is a Freescale-specific driver... it's not as if
-we're attaching this dependency to common SDHCI code.
-
-> 
-> > > > Dealing with Si revs is a common problem. We should have a
-> > > > common solution. There is soc_device for this purpose.
-> > > 
-> > > Exactly. The last time this came up, I think we agreed to implement a
-> > > helper using glob_match() on the soc_device strings. Unfortunately
-> > > this hasn't happened then, but I'd still prefer that over yet another
-> > > vendor-specific way of dealing with the generic issue.
-> > 
-> > soc_device would require encoding the SVR as a string and then decoding
-> > the string, which is more complicated and error prone than having
-> > platform-specific code test a platform-specific number. 
-> 
-> You already need to encode it as a string to register the soc_device,
-
-No we don't, because we don't already register a soc_device on arm64 or ppc
-(and it looks like whatever does get registered on at least some relevant
-arm32 chips is not particularly useful).
-
-> and the driver just needs to pass a glob string, so the only part that
-> is missing is the generic function that takes the string from the
-> driver and passes that to glob_match for the soc_device.
-
-"just"
-
-And what would the glob look like?
-
-I'd rather not write kernel code as if it were a shell/Perl script.
-
-> > And when would it get registered on arm64, which doesn't have
-> > platform code?
-> 
-> Whenever the soc driver is loaded, as is the case now. The match
-> function can return -EPROBE_DEFER if no SoC device is registered
-> yet.
-
-That's too late for some places where we need access to SVR, e.g. clock
-drivers (which use CLK_OF_DECLARE and are initialized very early, not as part
-of the driver model and thus can't defer).  Currently we have an #ifdef
-CONFIG_PPC for this in drivers/clk/clk-qoriq.c... Maybe we should have done
-that here as well, and saved some grief. :-)  At least until an erratum pops
-up on an ARM-based chip.
-
-And what happens if we're running on arm32, and thus the arch code already
-registered an soc_device with a different (and less useful) encoding?
-
--Scott
+SGkgSmlyaSwKCk9uIFR1ZSwgTWF5IDEwLCAyMDE2IGF0IDAyOjA2OjE4UE0gKzAyMDAsIEppcmkg
+QmVuYyB3cm90ZToKPiBPbiBNb24sIDkgTWF5IDIwMTYgMTc6MTg6MjAgKzA5MDAsIFNpbW9uIEhv
+cm1hbiB3cm90ZToKPiA+IE9uIEZyaSwgTWF5IDA2LCAyMDE2IGF0IDExOjM1OjA0QU0gKzAyMDAs
+IEppcmkgQmVuYyB3cm90ZToKPiA+ID4gSW4gYWRkaXRpb24sIHdlIHNob3VsZCBjaGVjayB3aGV0
+aGVyIG1hY19sZW4gPiAwIGFuZCBpbiBzdWNoIGNhc2UsCj4gPiA+IGNoYW5nZSBza2ItPnByb3Rv
+Y29sIHRvIEVUSF9QX1RFQiBmaXJzdCAoYW5kIHN0b3JlIHRoYXQgdmFsdWUgaW4gdGhlCj4gPiA+
+IHB1c2hlZCBldGggaGVhZGVyKS4KPiA+ID4gCj4gPiA+IFNpbWlsYXJseSBvbiBwb3BfZXRoLCB3
+ZSBuZWVkIHRvIGNoZWNrIHNrYi0+cHJvdG9jb2wgYW5kIGlmIGl0IGlzCj4gPiA+IEVUSF9QX1RF
+QiwgY2FsbCBldGhfdHlwZV90cmFucyBvbiB0aGUgbW9kaWZpZWQgZnJhbWUgdG8gc2V0IHRoZSBu
+ZXcKPiA+ID4gc2tiLT5wcm90b2NvbCBjb3JyZWN0bHkuIEl0J3MgcHJvYmFibHkgbm90IHRoYXQg
+c2ltcGxlLCBhcyB3ZSdkIG5lZWQgYQo+ID4gPiB2ZXJzaW9uIG9mIGV0aF90eXBlX3RyYW5zIHRo
+YXQgZG9lc24ndCBuZWVkIGEgbmV0IGRldmljZS4KPiA+IAo+ID4gSSdtIG5vdCBzdXJlIEkgdW5k
+ZXJzdGFuZCB0aGUgaW50ZXJhY3Rpb24gd2l0aCBFVEhfUF9URUIgaGVyZS4KPiA+IAo+ID4gSW4g
+bXkgbWluZCBza2ItPnByb3RvY29sID09IEVUSF9QX1RFQiBtYXkgYmUgdXNlZCBlYXJseSBvbiBp
+biBPdlMncyByZWNlaXZlCj4gPiBwcm9jZXNzaW5nIHRvIGZpbmQgdGhlIGlubmVyIHByb3RvY29s
+IGZyb20gdGhlIHBhY2tldCBhbmQgYXQgdGhhdCBwb2ludAo+ID4gc2tiLT5wcm90b2NvbCBpcyBz
+ZXQgdG8gdGhhdCB2YWx1ZS4gQW5kIHRoYXQgZm9yIGZ1cnRoZXIgcGFja2V0IHByb2Nlc3NpbmcK
+PiA+IHRoZSBmYWN0IHRoZSBwYWNrZXQgd2FzIHJlY2VpdmVkIGFzIFRFQiBpcyB0cmFuc3BhcmVu
+dC4KPiAKPiBZZXMgYnV0IHRoaW5rIGFib3V0IHRoZSBjYXNlIHdoZW4geW91IGhhdmUgdHdvIEV0
+aGVybmV0IGhlYWRlcnMgcHVzaGVkLgo+IAo+IFdlIGNhbiBlaXRoZXIgZGlzYWxsb3cgaXQsIG9y
+IGRvIHdoYXQgSSBkZXNjcmliZWQuCj4gCj4gU3BlY2lmaWNhbGx5LCBsZXQncyBhc3N1bWUgd2Ug
+aGF2ZSBhbiBJUCBwYWNrZXQgd2l0aCBhbiBFdGhlcm5ldAo+IGhlYWRlciBwcmVzZW50LiBza2It
+PnByb3RvY29sIGlzIEVUSF9QX0lQLiBOb3csIHdoZW4gdGhlcmUncyBza2JfcHVzaCwKPiB0aGUg
+Y29ycmVjdCBvcGVyYXRpb24gd291bGQgYmUgc2V0dGluZyBza2ItPnByb3RvY29sIHRvIEVUSF9Q
+X1RFQiwKPiBwdXNoaW5nIGEgbmV3IEV0aGVybmV0IGhlYWRlciBhbmQgZmlsaW5nIEVUSF9QX1RF
+QiB0byB0aGUgZXRoZXJ0eXBlCj4gZmllbGQgaW4gdGhlIG5ldyBoZWFkZXIuIFRoZSBwYWNrZXQg
+aXMgbm90IEVUSF9QX0lQIGFueW1vcmUsIGFzIHRoZSBMMgo+IGhlYWRlciBpcyBmb2xsb3dlZCBi
+eSBhbm90aGVyIEV0aGVybmV0IGhlYWRlciBub3cuCgpUaGFua3MgZm9yIHRoZSBjbGFyaWZpY2F0
+aW9uLCBJIGhhZCBub3QgY29uc2lkZXJlZCB0aGUgY2FzZSBvZiB0d28KZXRoZXJuZXQgaGVhZGVy
+cyB3aGVuIEkgd3JvdGUgbXkgcHJldmlvdXMgZW1haWwuCgpJIHRoaW5rIHRoYXQgYXQgdGhpcyBz
+dGFnZSBJIHdvdWxkIHByZWZlciB0byBwcm9oaWJpdCBwdXNoX2V0aCgpIGFjdGluZwpvbiBhIHBh
+Y2tldCB3aGljaCBhbHJlYWR5IGhhcyBhbiBldGhlcm5ldCBoZWFkZXIuIEluZGVlZCB0aGF0IGlz
+IHdoYXQKbXkgcGF0Y2gtc2V0IGFscmVhZHkgZG9lcyBpbiBpdHMgbW9kaWZpY2F0aW9ucyBvZiBf
+X292c19ubGFfY29weV9hY3Rpb25zKCkuCgpUaGUgcmVhc29uIHRoYXQgSSBsZWFuIHRvd2FyZHMg
+cHJvaGliaXRpbmcgdGhpcyBpcyB0aGF0IEkgZG8gbm90CmhhdmUgYW4gZWFzeSB3YXkgdG8gZXhl
+cmNpc2UgdGhpcyBjYXNlIHdpdGhpbiB0aGUgY3VycmVudCBwYXRjaC1zZXQuCkFuZCB0aHVzIHRo
+aXMgZXh0cmEgY29tcGxleGl0eSBzZWVtcyB3ZWxsIHN1aXRlZCB0byBiZWluZyBoYW5kbGVkIGhh
+bmRsZWQKaW5jcmVtZW50YWxseSBhcyBmdXJ0aGVyIHdvcmsuCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
+dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
