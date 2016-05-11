@@ -1,61 +1,111 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
- driver
-Date: Tue, 10 May 2016 21:24:55 -0500
-Message-ID: <573297F7.9020500@codeaurora.org>
-References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
- <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
- <57100962.40404@gmail.com> <571915F5.5070504@codeaurora.org>
- <571A7F3D.1070609@codeaurora.org> <571A8207.60704@gmail.com>
- <57326C44.8020906@codeaurora.org> <57326E08.40803@gmail.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Wed, 11 May 2016 12:06:35 +0900
+Message-ID: <20160511030632.GA24805@vergenet.net>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+ <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
+ <20160506112514.47f6e9dc@griffin>
+ <20160509080420.GA4470@vergenet.net>
+ <20160510140106.367936fb@griffin>
+ <20160511015009.GB24436@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	Shanker Donthineni <shankerd@codeaurora.org>,
-	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org,
-	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
-	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
-	Jon Masters <jcm@redhat.com>,
-	Andy Gross <agross@codeaurora.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <57326E08.40803@gmail.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160511015009.GB24436-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Florian Fainelli wrote:
-> The Ethernet MAC should be started in ndo_open() and stopped in
-> ndo_close(), in between, there are link state changes, but you are not
-> supposed to stop or start your Ethernet MAC and its DMA for instance
-> during link change, if that is a HW requirement, your HW is pretty funky.
-
-I think the problem is that the current driver seems to be too eager to 
-start/stop the MAC.
-
-Please take a look at emac_work_thread_link_check() at 
-https://lkml.org/lkml/2016/4/13/670.  Every time the PHY link goes up, 
-it does this:
-
-if (phy->link_up) {
-	if (netif_carrier_ok(netdev))
-		goto link_task_done;
-
-	pm_runtime_get_sync(netdev->dev.parent);
-	netif_info(adpt, timer, adpt->netdev, "NIC Link is Up %s\n",
-		   speed);
-
-	emac_mac_start(adpt);
-	netif_carrier_on(netdev);
-	netif_wake_queue(netdev);
-
-
-The call to emac_mac_start seems wrong to me here.
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+SGkgSmlyaSwKCk9uIFdlZCwgTWF5IDExLCAyMDE2IGF0IDEwOjUwOjA5QU0gKzA5MDAsIFNpbW9u
+IEhvcm1hbiB3cm90ZToKClsuLi5dCgo+ID4gPiBJdHMgcG9zc2libGUgdGhhdCBJJ3ZlIG92ZXJs
+b29rZWQgc29tZXRoaW5nIGJ1dCBhcyB0aGluZ3Mgc3RhbmQgSSB0aGluawo+ID4gPiB0aGluZ3Mg
+bG9vayBsaWtlIHRoaXM6Cj4gPiA+IAo+ID4gPiAqIG92c19mbG93X2tleV9leHRyYWN0KCkga2V5
+cyBvZmYgZGV2LT50eXBlIGFuZCBza2ItPnByb3RvY29sLgo+ID4gPiAqIG92c19mbG93X2tleV9l
+eHRyYWN0KCkgY2FsbHMga2V5X2V4dHJhY3QoKSB3aGljaCBhbW9uZ3N0IG90aGVyIHRoaW5ncwo+
+ID4gPiAgIHNldHMgdXAgdGhlIHNrYi0+bWFjX2hlYWRlciBhbmQgc2tiLT5tYWNfbGVuIG9mIHRo
+ZSBza2IuCj4gPiA+ICogb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBzZXRzIHNrYi0+cHJvdG9jb2wg
+dG8gdGhhdCBvZiB0aGUgaW5uZXIgcGFja2V0Cj4gPiA+ICAgaW4gdGhlIGNhc2Ugb2YgVEVCCj4g
+PiA+ICogQWN0aW9ucyB1cGRhdGUgdGhlIGFib3ZlIG1lbnRpb25lZCBza2IgZmllbGRzIGFzIGFw
+cHJvcHJpYXRlLgo+ID4gCj4gPiBPa2F5LCB0aGF0IGFjdHVhbGx5IGVhc2VzIHRoaW5ncyBzb21l
+d2hhdC4KPiA+IAo+ID4gPiBTbyBpdCBzZWVtcyB0byBtZSB0aGF0IGl0IHNob3VsZCBiZSBzYWZl
+IHRvIHJlbHkgb24gc2tiLT5wcm90b2NvbAo+ID4gPiBpbiB0aGUgcmVjZWl2ZSBwYXRoLiBPciBt
+b3JlIHNwZWNpZmljYWxseSwgaW4gbmV0ZGV2X3BvcnRfcmVjZWl2ZSgpLgo+ID4gPiAKPiA+ID4g
+SWYgbWFjX2xlbiBpcyBhbHNvIGFibGUgdG8gYmUgdXNlZCB0aGVuIEkgdGhpbmsgZmluZS4gQnV0
+IGl0IHNlZW1zIHRvIG1lCj4gPiA+IHRoYXQgaXQgbmVlZHMgdG8gYmUgc2V0IHVwIGJ5IE92UyBh
+dCBsZWFzdCBmb3IgdGhlIEFSUEhSRF9OT05FIGNhc2UuIFRoaXMKPiA+ID4gY291bGQgYmUgZG9u
+ZSBlYXJseSBvbiwgc2F5IGluIG5ldGRldl9wb3J0X3JlY2VpdmUoKS4gQnV0IGl0IHNlZW1zIHRo
+YXQKPiA+ID4gd291bGQgaW52b2x2ZSBkdXBsaWNhdGluZyBzb21lIG9mIHdoYXQgaXMgYWxyZWFk
+eSBvY2N1cnJpbmcgaW4KPiA+ID4ga2V5X2V4dHJhY3QoKS4KPiA+IAo+ID4gSSdkIGFjdHVhbGx5
+IHByZWZlciBkb2luZyB0aGlzIGVhcmxpZXIsIG5ldGRldl9wb3J0X3JlY2VpdmUgbG9va3MgbGlr
+ZQo+ID4gdGhlIHJpZ2h0IHBsYWNlLiBKdXN0IHNldCBtYWNfbGVuIHRoZXJlIChvciB3aGF0ZXZl
+cikgYW5kIGxldAo+ID4ga2V5X2V4dHJhY3QgZG8gdGhlIHJlc3Qgb2YgdGhlIHdvcmssIG5vdCBk
+ZXBlbmRpbmcgb24gZGV2LT50eXBlIGluCj4gPiB0aGVyZS4KPiA+IAo+ID4gTXkgcG9pbnQgYWJv
+dXQgcmVjaXJjdWxhdGlvbiB3YXMgbm90IGFjdHVhbGx5IHZhbGlkLCBhcyBJIG1pc3NlZCB5b3Un
+cmUKPiA+IGRvaW5nIHRoaXMgaW4gb3ZzX2Zsb3dfa2V5X2V4dHJhY3QgYW5kIG5vdCBpbiBrZXlf
+ZXh0cmFjdC4gU3RpbGwsCj4gPiBJIHRoaW5rIHRoZSBzcGVjaWFsIGhhbmRsaW5nIG9mIHBhcnRp
+Y3VsYXIgaW50ZXJmYWNlIHR5cGVzIGJlbG9uZ3MgdG8KPiA+IHRoZSB0eCBwcm9jZXNzaW5nIG9u
+IHRob3NlIGludGVyZmFjZXMsIG5vdCB0byB0aGUgY29tbW9uIGNvZGUuCj4gCj4gU3VyZSwgaWYg
+dGhhdCBpcyB5b3VyIHByZWZlcmVuY2UgSSB0aGluayBpdCBzaG91bGQgYmUgc2ltcGxlIGVub3Vn
+aCB0bwo+IGltcGxlbWVudC4gSSBhZ3JlZSB0aGF0IG5ldGRldl9wb3J0X3JlY2VpdmUoKSBsb29r
+cyBsaWtlIGEgZ29vZCBwbGFjZSBmb3IKPiB0aGlzLgoKU28gZmFyIEkgaGF2ZSB0aGUgZm9sbG93
+aW5nLCB3aGljaCBzZWVtcyB0byB3b3JrCmNoYW5nZXMgdG8gbWFrZSBkZXYtPnR5cGUgQVJQSFJE
+X05PTkUgZm9yIGNvbXBhdCBHUkUgdnBvcnRzLgoKSXMgdGhpcyBjbG9zZSB0byB3aGF0IHlvdSBo
+YWQgaW4gbWluZD8KCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29w
+ZW52c3dpdGNoL2Zsb3cuYwppbmRleCBkMzIwYzI2NTc2MjcuLjRkMjY5ODU5NjAzMyAxMDA2NDQK
+LS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5j
+CkBAIC03MDAsOCArNzAwLDYgQEAgaW50IG92c19mbG93X2tleV91cGRhdGUoc3RydWN0IHNrX2J1
+ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCiBpbnQgb3ZzX2Zsb3dfa2V5X2V4dHJh
+Y3QoY29uc3Qgc3RydWN0IGlwX3R1bm5lbF9pbmZvICp0dW5faW5mbywKIAkJCSBzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSkKIHsKLQlib29sIGlzX2xheWVyMyA9
+IGZhbHNlOwotCWJvb2wgaXNfdGViID0gZmFsc2U7CiAJaW50IGVycjsKIAogCS8qIEV4dHJhY3Qg
+bWV0YWRhdGEgZnJvbSBwYWNrZXQuICovCkBAIC03MDksMTQgKzcwNyw2IEBAIGludCBvdnNfZmxv
+d19rZXlfZXh0cmFjdChjb25zdCBzdHJ1Y3QgaXBfdHVubmVsX2luZm8gKnR1bl9pbmZvLAogCQlr
+ZXktPnR1bl9wcm90byA9IGlwX3R1bm5lbF9pbmZvX2FmKHR1bl9pbmZvKTsKIAkJbWVtY3B5KCZr
+ZXktPnR1bl9rZXksICZ0dW5faW5mby0+a2V5LCBzaXplb2Yoa2V5LT50dW5fa2V5KSk7CiAKLQkJ
+aWYgKE9WU19DQihza2IpLT5pbnB1dF92cG9ydC0+ZGV2LT50eXBlICE9IEFSUEhSRF9FVEhFUikg
+ewotCQkJaWYgKHNrYi0+cHJvdG9jb2wgPT0gaHRvbnMoRVRIX1BfVEVCKSkKLQkJCQlpc190ZWIg
+PSB0cnVlOwotCQkJZWxzZQotCQkJCWlzX2xheWVyMyA9IHRydWU7Ci0JCX0KLQotCiAJCWlmICh0
+dW5faW5mby0+b3B0aW9uc19sZW4pIHsKIAkJCUJVSUxEX0JVR19PTigoMSA8PCAoc2l6ZW9mKHR1
+bl9pbmZvLT5vcHRpb25zX2xlbikgKgogCQkJCQkJICAgOCkpIC0gMQpAQCAtNzM5LDE3ICs3Mjks
+MTcgQEAgaW50IG92c19mbG93X2tleV9leHRyYWN0KGNvbnN0IHN0cnVjdCBpcF90dW5uZWxfaW5m
+byAqdHVuX2luZm8sCiAJa2V5LT5waHkuc2tiX21hcmsgPSBza2ItPm1hcms7CiAJb3ZzX2N0X2Zp
+bGxfa2V5KHNrYiwga2V5KTsKIAlrZXktPm92c19mbG93X2hhc2ggPSAwOwotCWtleS0+cGh5Lmlz
+X2xheWVyMyA9IGlzX2xheWVyMzsKKwlrZXktPnBoeS5pc19sYXllcjMgPSAodHVuX2luZm8gJiYg
+c2tiLT5tYWNfbGVuID09IDApOwogCWtleS0+cmVjaXJjX2lkID0gMDsKIAogCWVyciA9IGtleV9l
+eHRyYWN0KHNrYiwga2V5KTsKIAlpZiAoZXJyIDwgMCkKIAkJcmV0dXJuIGVycjsKIAotCWlmIChp
+c190ZWIpCi0JCXNrYi0+cHJvdG9jb2wgPSBrZXktPmV0aC50eXBlOwotCWVsc2UgaWYgKGlzX2xh
+eWVyMykKKwlpZiAoa2V5LT5waHkuaXNfbGF5ZXIzKQogCQlrZXktPmV0aC50eXBlID0gc2tiLT5w
+cm90b2NvbDsKKwllbHNlIGlmICh0dW5faW5mbyAmJiBza2ItPnByb3RvY29sID09IGh0b25zKEVU
+SF9QX1RFQikpCisJCXNrYi0+cHJvdG9jb2wgPSBrZXktPmV0aC50eXBlOwogCiAJcmV0dXJuIGVy
+cjsKIH0KZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYyBiL25ldC9v
+cGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwppbmRleCA3ZDU0NDE0YjM1ZWIuLmFjODE3OGFjMmM4
+MSAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jCisrKyBiL25ldC9v
+cGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwpAQCAtNjAsNyArNjAsMjEgQEAgc3RhdGljIHZvaWQg
+bmV0ZGV2X3BvcnRfcmVjZWl2ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCWlmICh2cG9ydC0+ZGV2
+LT50eXBlID09IEFSUEhSRF9FVEhFUikgewogCQlza2JfcHVzaChza2IsIEVUSF9ITEVOKTsKIAkJ
+c2tiX3Bvc3RwdXNoX3Jjc3VtKHNrYiwgc2tiLT5kYXRhLCBFVEhfSExFTik7CisJfSBlbHNlIGlm
+ICh2cG9ydC0+ZGV2LT50eXBlID09IEFSUEhSRF9OT05FKSB7CisJCWlmIChza2ItPnByb3RvY29s
+ID09IGh0b25zKEVUSF9QX1RFQikpIHsKKwkJCXN0cnVjdCBldGhoZHIgKmV0aCA9IGV0aF9oZHIo
+c2tiKTsKKworCQkJaWYgKHVubGlrZWx5KHNrYi0+bGVuIDwgRVRIX0hMRU4pKQorCQkJCWdvdG8g
+ZXJyb3I7CisKKwkJCXNrYi0+bWFjX2xlbiA9IEVUSF9ITEVOOworCQkJaWYgKGV0aC0+aF9wcm90
+byA9PSBodG9ucyhFVEhfUF84MDIxUSkpCisJCQkJc2tiLT5tYWNfbGVuICs9IFZMQU5fSExFTjsK
+KwkJfSBlbHNlIHsKKwkJCXNrYi0+bWFjX2xlbiA9IDA7CisJCX0KIAl9CisKIAlvdnNfdnBvcnRf
+cmVjZWl2ZSh2cG9ydCwgc2tiLCBza2JfdHVubmVsX2luZm8oc2tiKSk7CiAJcmV0dXJuOwogZXJy
+b3I6Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
+YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
+aWxtYW4vbGlzdGluZm8vZGV2Cg==
