@@ -1,111 +1,161 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
- flow/port support
-Date: Wed, 11 May 2016 12:06:35 +0900
-Message-ID: <20160511030632.GA24805@vergenet.net>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
- <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
- <20160506112514.47f6e9dc@griffin>
- <20160509080420.GA4470@vergenet.net>
- <20160510140106.367936fb@griffin>
- <20160511015009.GB24436@vergenet.net>
+From: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [v10, 7/7] mmc: sdhci-of-esdhc: fix host version for
+	T4240-R1.0-R2.0
+Date: Tue, 10 May 2016 22:26:26 -0500
+Message-ID: <1462937186.16584.77.camel@buserror.net>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+	<4448030.Zs8fVnr3nm@wuerfel>
+	<HE1PR04MB0889B52134A43C0E7A452B7BF87C0@HE1PR04MB0889.eurprd04.prod.outlook.com>
+	<5159406.HOFrj7pRfW@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160511015009.GB24436-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Xi
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <5159406.HOFrj7pRfW@wuerfel>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SGkgSmlyaSwKCk9uIFdlZCwgTWF5IDExLCAyMDE2IGF0IDEwOjUwOjA5QU0gKzA5MDAsIFNpbW9u
-IEhvcm1hbiB3cm90ZToKClsuLi5dCgo+ID4gPiBJdHMgcG9zc2libGUgdGhhdCBJJ3ZlIG92ZXJs
-b29rZWQgc29tZXRoaW5nIGJ1dCBhcyB0aGluZ3Mgc3RhbmQgSSB0aGluawo+ID4gPiB0aGluZ3Mg
-bG9vayBsaWtlIHRoaXM6Cj4gPiA+IAo+ID4gPiAqIG92c19mbG93X2tleV9leHRyYWN0KCkga2V5
-cyBvZmYgZGV2LT50eXBlIGFuZCBza2ItPnByb3RvY29sLgo+ID4gPiAqIG92c19mbG93X2tleV9l
-eHRyYWN0KCkgY2FsbHMga2V5X2V4dHJhY3QoKSB3aGljaCBhbW9uZ3N0IG90aGVyIHRoaW5ncwo+
-ID4gPiAgIHNldHMgdXAgdGhlIHNrYi0+bWFjX2hlYWRlciBhbmQgc2tiLT5tYWNfbGVuIG9mIHRo
-ZSBza2IuCj4gPiA+ICogb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBzZXRzIHNrYi0+cHJvdG9jb2wg
-dG8gdGhhdCBvZiB0aGUgaW5uZXIgcGFja2V0Cj4gPiA+ICAgaW4gdGhlIGNhc2Ugb2YgVEVCCj4g
-PiA+ICogQWN0aW9ucyB1cGRhdGUgdGhlIGFib3ZlIG1lbnRpb25lZCBza2IgZmllbGRzIGFzIGFw
-cHJvcHJpYXRlLgo+ID4gCj4gPiBPa2F5LCB0aGF0IGFjdHVhbGx5IGVhc2VzIHRoaW5ncyBzb21l
-d2hhdC4KPiA+IAo+ID4gPiBTbyBpdCBzZWVtcyB0byBtZSB0aGF0IGl0IHNob3VsZCBiZSBzYWZl
-IHRvIHJlbHkgb24gc2tiLT5wcm90b2NvbAo+ID4gPiBpbiB0aGUgcmVjZWl2ZSBwYXRoLiBPciBt
-b3JlIHNwZWNpZmljYWxseSwgaW4gbmV0ZGV2X3BvcnRfcmVjZWl2ZSgpLgo+ID4gPiAKPiA+ID4g
-SWYgbWFjX2xlbiBpcyBhbHNvIGFibGUgdG8gYmUgdXNlZCB0aGVuIEkgdGhpbmsgZmluZS4gQnV0
-IGl0IHNlZW1zIHRvIG1lCj4gPiA+IHRoYXQgaXQgbmVlZHMgdG8gYmUgc2V0IHVwIGJ5IE92UyBh
-dCBsZWFzdCBmb3IgdGhlIEFSUEhSRF9OT05FIGNhc2UuIFRoaXMKPiA+ID4gY291bGQgYmUgZG9u
-ZSBlYXJseSBvbiwgc2F5IGluIG5ldGRldl9wb3J0X3JlY2VpdmUoKS4gQnV0IGl0IHNlZW1zIHRo
-YXQKPiA+ID4gd291bGQgaW52b2x2ZSBkdXBsaWNhdGluZyBzb21lIG9mIHdoYXQgaXMgYWxyZWFk
-eSBvY2N1cnJpbmcgaW4KPiA+ID4ga2V5X2V4dHJhY3QoKS4KPiA+IAo+ID4gSSdkIGFjdHVhbGx5
-IHByZWZlciBkb2luZyB0aGlzIGVhcmxpZXIsIG5ldGRldl9wb3J0X3JlY2VpdmUgbG9va3MgbGlr
-ZQo+ID4gdGhlIHJpZ2h0IHBsYWNlLiBKdXN0IHNldCBtYWNfbGVuIHRoZXJlIChvciB3aGF0ZXZl
-cikgYW5kIGxldAo+ID4ga2V5X2V4dHJhY3QgZG8gdGhlIHJlc3Qgb2YgdGhlIHdvcmssIG5vdCBk
-ZXBlbmRpbmcgb24gZGV2LT50eXBlIGluCj4gPiB0aGVyZS4KPiA+IAo+ID4gTXkgcG9pbnQgYWJv
-dXQgcmVjaXJjdWxhdGlvbiB3YXMgbm90IGFjdHVhbGx5IHZhbGlkLCBhcyBJIG1pc3NlZCB5b3Un
-cmUKPiA+IGRvaW5nIHRoaXMgaW4gb3ZzX2Zsb3dfa2V5X2V4dHJhY3QgYW5kIG5vdCBpbiBrZXlf
-ZXh0cmFjdC4gU3RpbGwsCj4gPiBJIHRoaW5rIHRoZSBzcGVjaWFsIGhhbmRsaW5nIG9mIHBhcnRp
-Y3VsYXIgaW50ZXJmYWNlIHR5cGVzIGJlbG9uZ3MgdG8KPiA+IHRoZSB0eCBwcm9jZXNzaW5nIG9u
-IHRob3NlIGludGVyZmFjZXMsIG5vdCB0byB0aGUgY29tbW9uIGNvZGUuCj4gCj4gU3VyZSwgaWYg
-dGhhdCBpcyB5b3VyIHByZWZlcmVuY2UgSSB0aGluayBpdCBzaG91bGQgYmUgc2ltcGxlIGVub3Vn
-aCB0bwo+IGltcGxlbWVudC4gSSBhZ3JlZSB0aGF0IG5ldGRldl9wb3J0X3JlY2VpdmUoKSBsb29r
-cyBsaWtlIGEgZ29vZCBwbGFjZSBmb3IKPiB0aGlzLgoKU28gZmFyIEkgaGF2ZSB0aGUgZm9sbG93
-aW5nLCB3aGljaCBzZWVtcyB0byB3b3JrCmNoYW5nZXMgdG8gbWFrZSBkZXYtPnR5cGUgQVJQSFJE
-X05PTkUgZm9yIGNvbXBhdCBHUkUgdnBvcnRzLgoKSXMgdGhpcyBjbG9zZSB0byB3aGF0IHlvdSBo
-YWQgaW4gbWluZD8KCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29w
-ZW52c3dpdGNoL2Zsb3cuYwppbmRleCBkMzIwYzI2NTc2MjcuLjRkMjY5ODU5NjAzMyAxMDA2NDQK
-LS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5j
-CkBAIC03MDAsOCArNzAwLDYgQEAgaW50IG92c19mbG93X2tleV91cGRhdGUoc3RydWN0IHNrX2J1
-ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCiBpbnQgb3ZzX2Zsb3dfa2V5X2V4dHJh
-Y3QoY29uc3Qgc3RydWN0IGlwX3R1bm5lbF9pbmZvICp0dW5faW5mbywKIAkJCSBzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSkKIHsKLQlib29sIGlzX2xheWVyMyA9
-IGZhbHNlOwotCWJvb2wgaXNfdGViID0gZmFsc2U7CiAJaW50IGVycjsKIAogCS8qIEV4dHJhY3Qg
-bWV0YWRhdGEgZnJvbSBwYWNrZXQuICovCkBAIC03MDksMTQgKzcwNyw2IEBAIGludCBvdnNfZmxv
-d19rZXlfZXh0cmFjdChjb25zdCBzdHJ1Y3QgaXBfdHVubmVsX2luZm8gKnR1bl9pbmZvLAogCQlr
-ZXktPnR1bl9wcm90byA9IGlwX3R1bm5lbF9pbmZvX2FmKHR1bl9pbmZvKTsKIAkJbWVtY3B5KCZr
-ZXktPnR1bl9rZXksICZ0dW5faW5mby0+a2V5LCBzaXplb2Yoa2V5LT50dW5fa2V5KSk7CiAKLQkJ
-aWYgKE9WU19DQihza2IpLT5pbnB1dF92cG9ydC0+ZGV2LT50eXBlICE9IEFSUEhSRF9FVEhFUikg
-ewotCQkJaWYgKHNrYi0+cHJvdG9jb2wgPT0gaHRvbnMoRVRIX1BfVEVCKSkKLQkJCQlpc190ZWIg
-PSB0cnVlOwotCQkJZWxzZQotCQkJCWlzX2xheWVyMyA9IHRydWU7Ci0JCX0KLQotCiAJCWlmICh0
-dW5faW5mby0+b3B0aW9uc19sZW4pIHsKIAkJCUJVSUxEX0JVR19PTigoMSA8PCAoc2l6ZW9mKHR1
-bl9pbmZvLT5vcHRpb25zX2xlbikgKgogCQkJCQkJICAgOCkpIC0gMQpAQCAtNzM5LDE3ICs3Mjks
-MTcgQEAgaW50IG92c19mbG93X2tleV9leHRyYWN0KGNvbnN0IHN0cnVjdCBpcF90dW5uZWxfaW5m
-byAqdHVuX2luZm8sCiAJa2V5LT5waHkuc2tiX21hcmsgPSBza2ItPm1hcms7CiAJb3ZzX2N0X2Zp
-bGxfa2V5KHNrYiwga2V5KTsKIAlrZXktPm92c19mbG93X2hhc2ggPSAwOwotCWtleS0+cGh5Lmlz
-X2xheWVyMyA9IGlzX2xheWVyMzsKKwlrZXktPnBoeS5pc19sYXllcjMgPSAodHVuX2luZm8gJiYg
-c2tiLT5tYWNfbGVuID09IDApOwogCWtleS0+cmVjaXJjX2lkID0gMDsKIAogCWVyciA9IGtleV9l
-eHRyYWN0KHNrYiwga2V5KTsKIAlpZiAoZXJyIDwgMCkKIAkJcmV0dXJuIGVycjsKIAotCWlmIChp
-c190ZWIpCi0JCXNrYi0+cHJvdG9jb2wgPSBrZXktPmV0aC50eXBlOwotCWVsc2UgaWYgKGlzX2xh
-eWVyMykKKwlpZiAoa2V5LT5waHkuaXNfbGF5ZXIzKQogCQlrZXktPmV0aC50eXBlID0gc2tiLT5w
-cm90b2NvbDsKKwllbHNlIGlmICh0dW5faW5mbyAmJiBza2ItPnByb3RvY29sID09IGh0b25zKEVU
-SF9QX1RFQikpCisJCXNrYi0+cHJvdG9jb2wgPSBrZXktPmV0aC50eXBlOwogCiAJcmV0dXJuIGVy
-cjsKIH0KZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYyBiL25ldC9v
-cGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwppbmRleCA3ZDU0NDE0YjM1ZWIuLmFjODE3OGFjMmM4
-MSAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jCisrKyBiL25ldC9v
-cGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwpAQCAtNjAsNyArNjAsMjEgQEAgc3RhdGljIHZvaWQg
-bmV0ZGV2X3BvcnRfcmVjZWl2ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCWlmICh2cG9ydC0+ZGV2
-LT50eXBlID09IEFSUEhSRF9FVEhFUikgewogCQlza2JfcHVzaChza2IsIEVUSF9ITEVOKTsKIAkJ
-c2tiX3Bvc3RwdXNoX3Jjc3VtKHNrYiwgc2tiLT5kYXRhLCBFVEhfSExFTik7CisJfSBlbHNlIGlm
-ICh2cG9ydC0+ZGV2LT50eXBlID09IEFSUEhSRF9OT05FKSB7CisJCWlmIChza2ItPnByb3RvY29s
-ID09IGh0b25zKEVUSF9QX1RFQikpIHsKKwkJCXN0cnVjdCBldGhoZHIgKmV0aCA9IGV0aF9oZHIo
-c2tiKTsKKworCQkJaWYgKHVubGlrZWx5KHNrYi0+bGVuIDwgRVRIX0hMRU4pKQorCQkJCWdvdG8g
-ZXJyb3I7CisKKwkJCXNrYi0+bWFjX2xlbiA9IEVUSF9ITEVOOworCQkJaWYgKGV0aC0+aF9wcm90
-byA9PSBodG9ucyhFVEhfUF84MDIxUSkpCisJCQkJc2tiLT5tYWNfbGVuICs9IFZMQU5fSExFTjsK
-KwkJfSBlbHNlIHsKKwkJCXNrYi0+bWFjX2xlbiA9IDA7CisJCX0KIAl9CisKIAlvdnNfdnBvcnRf
-cmVjZWl2ZSh2cG9ydCwgc2tiLCBza2JfdHVubmVsX2luZm8oc2tiKSk7CiAJcmV0dXJuOwogZXJy
-b3I6Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
-YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
-aWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Thu, 2016-05-05 at 13:10 +0200, Arnd Bergmann wrote:
+> On Thursday 05 May 2016 09:41:32 Yangbo Lu wrote:
+> > > -----Original Message-----
+> > > From: Arnd Bergmann [mailto:arnd-r2nGTMty4D4@public.gmane.org]
+> > > Sent: Thursday, May 05, 2016 4:32 PM
+> > > To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> > > Cc: Yangbo Lu; linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> > > linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> > > linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; iommu-cunTk1MwBs/ROKNJybVBZg@public.gmane.org
+> > > foundation.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Mark Rutland;
+> > > ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; Russell King; Bhupesh Sharma; Joerg Roedel;
+> > > Santosh Shilimkar; Yang-Leo Li; Scott Wood; Rob Herring; Claudiu Manoil;
+> > > Kumar Gala; Xiaobo Xie; Qiang Zhao
+> > > Subject: Re: [v10, 7/7] mmc: sdhci-of-esdhc: fix host version for T4240-
+> > > R1.0-R2.0
+> > > 
+> > > On Thursday 05 May 2016 11:12:30 Yangbo Lu wrote:
+> > > > IIRC, it is the same IP block as i.MX and Arnd's point is this won't
+> > > > even compile on !PPC. It is things like this that prevent sharing the
+> > > > driver.
+> > 
+> > The whole point of using the MMIO SVR instead of the PPC SPR is so that
+> > it will work on ARM...  The guts driver should build on any platform as
+> > long as OF is enabled, and if it doesn't find a node to bind to it will
+> > return 0 for SVR, and the eSDHC driver will continue (after printing an
+> > error that should be removed) without the ability to test for errata
+> > based on SVR.
+> 
+> It feels like a bad design to have to come up with a different
+> method for each SoC type here when they all do the same thing
+> and want to identify some variant of the chip to do device
+> specific quirks.
+> 
+> As far as I'm concerned, every driver in drivers/soc that needs to
+> export a symbol to be used by a device driver is an indication that
+> we don't have the right set of abstractions yet. There are cases
+> that are not worth abstracting because the functionality is rather
+> obscure and only a couple of drivers for one particular chip
+> ever need it.
+> 
+> Finding out the version of the SoC does not look like this case.
+
+I'm open to new ways of abstracting this, but can that please be discussed
+after these patches are merged?  This patchset is fixing a problem, the
+existing abstraction is unappealing and not widely adopted, a new abstraction
+is not ready, and we're only touching code for our hardware.
+
+Oh, and the existing abstraction isn't even "existing".  I don't see any
+examples where soc_device is being used like this -- or even any way for a
+driver (the one consuming the information, not the soc "driver") to get a
+reference to the soc_device that's been registered short of searching for the
+device object by name -- and you're asking for new functionality in
+drivers/base/soc.c.
+
+> > > I think the first four patches take care of building for ARM,
+> > > but the problem remains if you want to enable COMPILE_TEST as
+> > > we need for certain automated checking.
+> > 
+> > What specific problem is there with COMPILE_TEST?
+> 
+> COMPILE_TEST is solvable here and the way it is implemented in this
+> case (selecting FSL_GUTS from the driver) indeed looks like it works
+> correctly, but it's still awkward that this means building the
+> SoC specific ID stuff into the vmlinux binary for any driver that
+> uses something like that for a particular SoC.
+
+Please keep in mind that this is a Freescale-specific driver... it's not as if
+we're attaching this dependency to common SDHCI code.
+
+> 
+> > > > Dealing with Si revs is a common problem. We should have a
+> > > > common solution. There is soc_device for this purpose.
+> > > 
+> > > Exactly. The last time this came up, I think we agreed to implement a
+> > > helper using glob_match() on the soc_device strings. Unfortunately
+> > > this hasn't happened then, but I'd still prefer that over yet another
+> > > vendor-specific way of dealing with the generic issue.
+> > 
+> > soc_device would require encoding the SVR as a string and then decoding
+> > the string, which is more complicated and error prone than having
+> > platform-specific code test a platform-specific number. 
+> 
+> You already need to encode it as a string to register the soc_device,
+
+No we don't, because we don't already register a soc_device on arm64 or ppc
+(and it looks like whatever does get registered on at least some relevant
+arm32 chips is not particularly useful).
+
+> and the driver just needs to pass a glob string, so the only part that
+> is missing is the generic function that takes the string from the
+> driver and passes that to glob_match for the soc_device.
+
+"just"
+
+And what would the glob look like?
+
+I'd rather not write kernel code as if it were a shell/Perl script.
+
+> > And when would it get registered on arm64, which doesn't have
+> > platform code?
+> 
+> Whenever the soc driver is loaded, as is the case now. The match
+> function can return -EPROBE_DEFER if no SoC device is registered
+> yet.
+
+That's too late for some places where we need access to SVR, e.g. clock
+drivers (which use CLK_OF_DECLARE and are initialized very early, not as part
+of the driver model and thus can't defer).  Currently we have an #ifdef
+CONFIG_PPC for this in drivers/clk/clk-qoriq.c... Maybe we should have done
+that here as well, and saved some grief. :-)  At least until an erratum pops
+up on an ARM-based chip.
+
+And what happens if we're running on arm32, and thus the arch code already
+registered an soc_device with a different (and less useful) encoding?
+
+-Scott
