@@ -1,36 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next 3/4] net: w5100: increase TX timeout period
-Date: Wed, 11 May 2016 19:49:01 -0400 (EDT)
-Message-ID: <20160511.194901.2167534565947789386.davem@davemloft.net>
-References: <1462948227-21276-1-git-send-email-akinobu.mita@gmail.com>
-	<1462948227-21276-4-git-send-email-akinobu.mita@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 12 May 2016 09:56:21 +1000
+Message-ID: <20160512095621.61519433@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, msink@permonline.ru
-To: akinobu.mita@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53092 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751617AbcEKXtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 19:49:03 -0400
-In-Reply-To: <1462948227-21276-4-git-send-email-akinobu.mita@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Benc <jbenc@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Wed, 11 May 2016 15:30:26 +0900
+Hi all,
 
-> This increases TX timeout period from one second to 5 seconds which is
-> default value defined in net/sched/sch_generic.c.
-> 
-> The one second timeout is too short for W5100 with SPI interface mode
-> which doesn't support burst READ/WRITE processing in the SPI transfer.
-> If the packet is transmitted while RX packets are being received at a
-> very high rate, the TX transmittion work in the workqueue is delayed
-> and the watchdog timer is expired.
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Today's linux-next merge of the net-next tree got a conflict in:
 
-It would be just cleaner to just remove the assignment completely, and
-let said net/sched/sch_generic.c code set the default for you.
+  net/ipv4/ip_gre.c
+
+between commit:
+
+  e271c7b4420d ("gre: do not keep the GRE header around in collect medata mode")
+
+from the net tree and commit:
+
+  244a797bdcf1 ("gre: move iptunnel_pull_header down to ipgre_rcv")
+
+from the net-next tree.
+
+I fixed it up (hopefully - see below) and can carry the fix as
+necessary. This is now fixed as far as linux-next is concerned, but any
+non trivial conflicts should be mentioned to your upstream maintainer
+when your tree is submitted for merging.  You may also want to consider
+cooperating with the maintainer of the conflicting tree to minimise any
+particularly complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc net/ipv4/ip_gre.c
+index 4cc84212cce1,2b267e71ebf5..4d1030739efa
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@@ -398,10 -272,11 +272,14 @@@ static int __ipgre_rcv(struct sk_buff *
+  				  iph->saddr, iph->daddr, tpi->key);
+  
+  	if (tunnel) {
++ 		if (__iptunnel_pull_header(skb, hdr_len, tpi->proto,
++ 					   raw_proto, false) < 0)
++ 			goto drop;
++ 
+ -		skb_pop_mac_header(skb);
+ +		if (tunnel->dev->type != ARPHRD_NONE)
+ +			skb_pop_mac_header(skb);
+ +		else
+ +			skb_reset_mac_header(skb);
+  		if (tunnel->collect_md) {
+  			__be16 flags;
+  			__be64 tun_id;
