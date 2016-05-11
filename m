@@ -1,20 +1,22 @@
-From: Eric Dumazet <edumazet@google.com>
+From: Rik van Riel <riel@redhat.com>
 Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Wed, 11 May 2016 07:45:51 -0700
-Message-ID: <CANn89iJOEpoYKS+=VU-zVEcs2geRF07nii_VdwCX1anHmhoodQ@mail.gmail.com>
+Date: Wed, 11 May 2016 11:01:43 -0400
+Message-ID: <1462978903.7134.33.camel@redhat.com>
 References: <cover.1462886866.git.pabeni@redhat.com>
-	<1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	<90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	<CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	<94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	<1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1462960104.4444.37.camel@redhat.com>
-	<1462972112.23934.139.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1462977516.4444.73.camel@redhat.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
+	 <de6ef948-65a4-e7e0-718e-6d37474f65d4@stressinduktion.org>
+	 <CANn89i+Op8UsvrsZKKzHfC5j6gLMmY1ZbCg=OY8o4oW8RT5sxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-K1dzotOHwZKWWrZDA9mi"
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Paolo Abeni <pabeni@redhat.com>,
 	netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Jiri Pirko <jiri@mellanox.com>,
@@ -22,31 +24,62 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Alexei Starovoitov <ast@plumgrid.com>,
 	Alexander Duyck <aduyck@mirantis.com>,
 	Tom Herbert <tom@herbertland.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462977516.4444.73.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53935 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751561AbcEKPBw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2016 11:01:52 -0400
+In-Reply-To: <CANn89i+Op8UsvrsZKKzHfC5j6gLMmY1ZbCg=OY8o4oW8RT5sxg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 11, 2016 at 7:38 AM, Paolo Abeni <pabeni@redhat.com> wrote:
 
-> Uh, we have likely the same issue in the net_rx_action() function, which
-> also execute with bh disabled and check for jiffies changes even on
-> single core hosts ?!?
+--=-K1dzotOHwZKWWrZDA9mi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-That is why we have a loop break after netdev_budget=300 packets.
-And a sysctl to eventually tune this.
+On Wed, 2016-05-11 at 07:40 -0700, Eric Dumazet wrote:
+> On Wed, May 11, 2016 at 6:13 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>=20
+> > This looks racy to me as the ksoftirqd could be in the progress to
+> > stop
+> > and we would miss another softirq invocation.
+>=20
+> Looking at smpboot_thread_fn(), it looks fine :
+>=20
 
-Same issue for softirq handler, look at commit
-34376a50fb1fa095b9d0636fa41ed2e73125f214
+Additionally, we are talking about waking up
+ksoftirqd on the same CPU.
 
-Your questions about this central piece of networking code are worrying.
+That means the wakeup code could interrupt
+ksoftirqd almost going to sleep, but the
+two code paths could not run simultaneously.
 
->
-> Aren't jiffies updated by the timer interrupt ? and thous even with
-> bh_disabled ?!?
+That does narrow the scope considerably.
 
-Exactly my point : jiffie wont be updated in your code, since you block BH.
+--=20
+All rights reversed
+
+--=-K1dzotOHwZKWWrZDA9mi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAABAgAGBQJXM0lYAAoJEM553pKExN6DPN4H/2gAdBT/mc1BHccTWPl4a3JK
+FIKxo1oJz356WcQZnFEJeDTZlPxbe7RxT/tzQzzbpLi8yDTfTea+9cLwWSIa1g+Y
+pEaUhCzpPCiGZnNRnKUwp3Mr5qt9WclXWBO5JglKE65L6v6piBd8uesZOP6SGYIf
+EOGg1Aswriu1HQmtkGV3q0ZskHnJVnmf8w2M8S5BqBDOQi+B3oHxALCCECHBMT8V
+9Ne/9dG24CobbmNnsJeDhLyst0LEWroIo6PqokoQOuQ+/Rr/rj+MckbEAcgjKYn6
+z0rOgtfjcQEV6aGsoGZweFSeYeyzNkBnCV59C6YPWNQRHQL6ie0/4C2t7MdNeLk=
+=dNXz
+-----END PGP SIGNATURE-----
+
+--=-K1dzotOHwZKWWrZDA9mi--
