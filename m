@@ -1,39 +1,92 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net] openvswitch: Fix cached ct with helper.
-Date: Tue, 10 May 2016 17:31:30 -0700
-Message-ID: <CAPWQB7H9CxqgwE_K6_7-PgeoeV2FR=0T8=JXEhVbkpR-WKTk4g@mail.gmail.com>
-References: <1462905631-12209-1-git-send-email-joe@ovn.org> <67865008-7CDC-469D-8EAA-C097C19F7408@ovn.org>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Wed, 11 May 2016 10:50:12 +0900
+Message-ID: <20160511015009.GB24436@vergenet.net>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+ <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
+ <20160506112514.47f6e9dc@griffin>
+ <20160509080420.GA4470@vergenet.net>
+ <20160510140106.367936fb@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Jarno Rajahalme <jarno@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33749 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752268AbcEKAbz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 20:31:55 -0400
-Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
-	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 87B9F172097
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 02:31:52 +0200 (CEST)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-	by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id u2fiVHWyHv6u for <netdev@vger.kernel.org>;
-	Wed, 11 May 2016 02:31:51 +0200 (CEST)
-Received: from mail-oi0-f47.google.com (mail-oi0-f47.google.com [209.85.218.47])
-	(Authenticated sender: joe@ovn.org)
-	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id F103D17209B
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 02:31:50 +0200 (CEST)
-Received: by mail-oi0-f47.google.com with SMTP id v145so43144018oie.0
-        for <netdev@vger.kernel.org>; Tue, 10 May 2016 17:31:50 -0700 (PDT)
-In-Reply-To: <67865008-7CDC-469D-8EAA-C097C19F7408@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160510140106.367936fb@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 10 May 2016 at 16:55, Jarno Rajahalme <jarno@ovn.org> wrote:
-> This would result in inconsistent helper assignment if a first CT action assigns a helper and a further CT action tries to assign a different helper; Typically the second helper assignment would be ignored, but if the unconfirmed conntrack entry is lost due to an upcall the second helper assignment would be successful.  This is best resolved by allowing helper assignment by a committing CT action only by testing the 'info->commit' flag in addition to the conditions you have there already. It may also be helpful to fail helper assignment without the commit flag in parse_ct().
-
-Strictly speaking I think that skb_nfct_cached() handles at least some
-of those cases but I agree it should be more explicit here. I'll send
-a v2. We can follow up separately on net-next to improve the
-parsing/make that more user-friendly.
+SGkgSmlyaSwKCk9uIFR1ZSwgTWF5IDEwLCAyMDE2IGF0IDAyOjAxOjA2UE0gKzAyMDAsIEppcmkg
+QmVuYyB3cm90ZToKPiBPbiBNb24sIDkgTWF5IDIwMTYgMTc6MDQ6MjIgKzA5MDAsIFNpbW9uIEhv
+cm1hbiB3cm90ZToKPiA+IEl0IHNlZW1zIHRvIGJlIGNhdXNlZCBieSB0aGUgZm9sbG93aW5nOgo+
+ID4gCj4gPiAxLiBfX2lwZ3JlX3JjdigpIGNhbGxzIHNrYl9wb3BfbWFjX2hlYWRlcigpIHdoaWNo
+Cj4gPiAgICBzZXRzIHNrYi0+bWFjX2hlYWRlciB0byB0aGUgc2tiLT5uZXR3b3JrX2hlYWRlci4K
+PiA+IAo+ID4gMi4gX19pcGdyZV9yY3YoKSB0aGVuIGNhbGxzIGlwX3R1bm5lbF9yY3YoKSB3aGlj
+aCBjYWxscwo+ID4gICAgc2tiX3Jlc2V0X25ldHdvcmtfaGVhZGVyKCkuIFRoaXMgdXBkYXRlcyBz
+a2ItPm5ldHdvcmtfaGVhZGVyIHRvCj4gPiAgICBqdXN0IGFmdGVyIHRoZSBlbmQgb2YgdGhlIEdS
+RSBoZWFkZXIuCj4gPiAKPiA+ICAgIFRoaXMgaXMgMjggYnl0ZXMgYWZ0ZXIgdGhlIG9sZCBza2It
+Pm5ldHdvcmtfaGVhZGVyCj4gPiAgICBhcyB0aGVyZSBpcyBhIDIwIGJ5dGUgSVB2NCBoZWFkZXIg
+Zm9sbG93ZWQgYnkgYW4KPiA+ICAgIDggYnl0ZSBHUkUgaGVhZGVyLgo+ID4gCj4gPiAzLiBMYXRl
+ciwgZGV2X2dyb19yZWNlaXZlKCkgY2FsbHMgc2tiX3Jlc2V0X21hY19sZW4oKS4KPiA+ICAgIFRo
+aXMgY2FsY3VsYXRlcyBza2ItPm1hY19sZW4gYmFzZWQgb24gc2tiLT5uZXR3b3JrX2hlYWRlciBh
+bmQKPiA+ICAgIHNrYi0+bWFjX2hlYWRlci4gSS5lLiAyOCBieXRlcy4KPiAKPiBSaWdodC4gVGhh
+bmtzIGZvciB0cmFja2luZyB0aGlzIGRvd24hCj4gCj4gPiBJIHRoaW5rIHRoaXMgbWF5IGJlIHBv
+c3NpYmxlIHRvIGFkZHJlc3MgYnkgY2FsbGluZwo+ID4gc2tiX3Jlc2V0X25ldHdvcmtfaGVhZGVy
+KCkgaW5zdGVhZCBvZiBza2JfcG9wX21hY19oZWFkZXIoKQo+ID4gaW4gX19pcGdyZV9yY3YoKS4K
+PiAKPiBXZSBjYW4ndCBkbyB0aGF0LiBUaGUgaW50ZXJmYWNlIHR5cGUgaXMgQVJQSFJEX0lQR1JF
+IGFuZCBub3QKPiBBUlBIUkRfTk9ORSwgc28gdGhlIGN1cnJlbnQgYmVoYXZpb3IgbWFrZXMgcHJl
+dHR5IGdvb2Qgc2Vuc2UuIFNlZQo+IGUuZy4gY29tbWl0IDBlM2RhNWJiOGRhNDUuCj4gCj4gV2Ug
+aGF2ZSB0d28gb3B0aW9ucyBoZXJlOgo+IAo+IDEuIEFzIGZvciBtZXRhZGF0YSB0dW5uZWxzIGFs
+bCB0aGUgaW5mbyBpcyBpbiBtZXRhZGF0YV9kc3QgYW5kIHdlCj4gICAgZG9uJ3QgbmVlZCB0aGUg
+SVAvR1JFIGhlYWRlciBmb3IgYW55dGhpbmcsIHdlIGNhbiBtYWtlIHRoZSBpcGdyZQo+ICAgIGlu
+dGVyZmFjZSBBUlBIUkRfTk9ORSBpbiBtZXRhZGF0YSBiYXNlZCBtb2RlLgo+IAo+IDIuIFdlIGNh
+biBmaXggdGhpcyB1cCBpbiBvdnMgYWZ0ZXIgcmVjZWl2aW5nIHRoZSBwYWNrZXQgZnJvbQo+ICAg
+IEFSUEhSRF9JUEdSRSBpbnRlcmZhY2UuCj4gCj4gSSB0aGluayB0aGUgZmlyc3Qgb3B0aW9uIGlz
+IHRoZSBjb3JyZWN0IG9uZS4gV2UgYWxyZWFkeSBkb24ndCBhc3NpZ24KPiBkZXYtPmhlYWRlcl9v
+cHMgaW4gbWV0YWRhdGEgbW9kZS4gSSdsbCBwcmVwYXJlIGEgcGF0Y2guCgpJIGFncmVlIHRoYXQg
+MS4gc2VlbXMgdG8gYmUgdGhlIGJldHRlciBhcHByb2FjaC4KCj4gPiBJdHMgcG9zc2libGUgdGhh
+dCBJJ3ZlIG92ZXJsb29rZWQgc29tZXRoaW5nIGJ1dCBhcyB0aGluZ3Mgc3RhbmQgSSB0aGluawo+
+ID4gdGhpbmdzIGxvb2sgbGlrZSB0aGlzOgo+ID4gCj4gPiAqIG92c19mbG93X2tleV9leHRyYWN0
+KCkga2V5cyBvZmYgZGV2LT50eXBlIGFuZCBza2ItPnByb3RvY29sLgo+ID4gKiBvdnNfZmxvd19r
+ZXlfZXh0cmFjdCgpIGNhbGxzIGtleV9leHRyYWN0KCkgd2hpY2ggYW1vbmdzdCBvdGhlciB0aGlu
+Z3MKPiA+ICAgc2V0cyB1cCB0aGUgc2tiLT5tYWNfaGVhZGVyIGFuZCBza2ItPm1hY19sZW4gb2Yg
+dGhlIHNrYi4KPiA+ICogb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBzZXRzIHNrYi0+cHJvdG9jb2wg
+dG8gdGhhdCBvZiB0aGUgaW5uZXIgcGFja2V0Cj4gPiAgIGluIHRoZSBjYXNlIG9mIFRFQgo+ID4g
+KiBBY3Rpb25zIHVwZGF0ZSB0aGUgYWJvdmUgbWVudGlvbmVkIHNrYiBmaWVsZHMgYXMgYXBwcm9w
+cmlhdGUuCj4gCj4gT2theSwgdGhhdCBhY3R1YWxseSBlYXNlcyB0aGluZ3Mgc29tZXdoYXQuCj4g
+Cj4gPiBTbyBpdCBzZWVtcyB0byBtZSB0aGF0IGl0IHNob3VsZCBiZSBzYWZlIHRvIHJlbHkgb24g
+c2tiLT5wcm90b2NvbAo+ID4gaW4gdGhlIHJlY2VpdmUgcGF0aC4gT3IgbW9yZSBzcGVjaWZpY2Fs
+bHksIGluIG5ldGRldl9wb3J0X3JlY2VpdmUoKS4KPiA+IAo+ID4gSWYgbWFjX2xlbiBpcyBhbHNv
+IGFibGUgdG8gYmUgdXNlZCB0aGVuIEkgdGhpbmsgZmluZS4gQnV0IGl0IHNlZW1zIHRvIG1lCj4g
+PiB0aGF0IGl0IG5lZWRzIHRvIGJlIHNldCB1cCBieSBPdlMgYXQgbGVhc3QgZm9yIHRoZSBBUlBI
+UkRfTk9ORSBjYXNlLiBUaGlzCj4gPiBjb3VsZCBiZSBkb25lIGVhcmx5IG9uLCBzYXkgaW4gbmV0
+ZGV2X3BvcnRfcmVjZWl2ZSgpLiBCdXQgaXQgc2VlbXMgdGhhdAo+ID4gd291bGQgaW52b2x2ZSBk
+dXBsaWNhdGluZyBzb21lIG9mIHdoYXQgaXMgYWxyZWFkeSBvY2N1cnJpbmcgaW4KPiA+IGtleV9l
+eHRyYWN0KCkuCj4gCj4gSSdkIGFjdHVhbGx5IHByZWZlciBkb2luZyB0aGlzIGVhcmxpZXIsIG5l
+dGRldl9wb3J0X3JlY2VpdmUgbG9va3MgbGlrZQo+IHRoZSByaWdodCBwbGFjZS4gSnVzdCBzZXQg
+bWFjX2xlbiB0aGVyZSAob3Igd2hhdGV2ZXIpIGFuZCBsZXQKPiBrZXlfZXh0cmFjdCBkbyB0aGUg
+cmVzdCBvZiB0aGUgd29yaywgbm90IGRlcGVuZGluZyBvbiBkZXYtPnR5cGUgaW4KPiB0aGVyZS4K
+PiAKPiBNeSBwb2ludCBhYm91dCByZWNpcmN1bGF0aW9uIHdhcyBub3QgYWN0dWFsbHkgdmFsaWQs
+IGFzIEkgbWlzc2VkIHlvdSdyZQo+IGRvaW5nIHRoaXMgaW4gb3ZzX2Zsb3dfa2V5X2V4dHJhY3Qg
+YW5kIG5vdCBpbiBrZXlfZXh0cmFjdC4gU3RpbGwsCj4gSSB0aGluayB0aGUgc3BlY2lhbCBoYW5k
+bGluZyBvZiBwYXJ0aWN1bGFyIGludGVyZmFjZSB0eXBlcyBiZWxvbmdzIHRvCj4gdGhlIHR4IHBy
+b2Nlc3Npbmcgb24gdGhvc2UgaW50ZXJmYWNlcywgbm90IHRvIHRoZSBjb21tb24gY29kZS4KClN1
+cmUsIGlmIHRoYXQgaXMgeW91ciBwcmVmZXJlbmNlIEkgdGhpbmsgaXQgc2hvdWxkIGJlIHNpbXBs
+ZSBlbm91Z2ggdG8KaW1wbGVtZW50LiBJIGFncmVlIHRoYXQgbmV0ZGV2X3BvcnRfcmVjZWl2ZSgp
+IGxvb2tzIGxpa2UgYSBnb29kIHBsYWNlIGZvcgp0aGlzLgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRj
+aC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
