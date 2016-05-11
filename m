@@ -1,62 +1,39 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 11 May 2016 10:11:01 +1000
-Message-ID: <20160511101101.2bf6e5ef@canb.auug.org.au>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH net] openvswitch: Fix cached ct with helper.
+Date: Tue, 10 May 2016 17:31:30 -0700
+Message-ID: <CAPWQB7H9CxqgwE_K6_7-PgeoeV2FR=0T8=JXEhVbkpR-WKTk4g@mail.gmail.com>
+References: <1462905631-12209-1-git-send-email-joe@ovn.org> <67865008-7CDC-469D-8EAA-C097C19F7408@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: Jarno Rajahalme <jarno@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33749 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752268AbcEKAbz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2016 20:31:55 -0400
+Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
+	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 87B9F172097
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 02:31:52 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+	by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id u2fiVHWyHv6u for <netdev@vger.kernel.org>;
+	Wed, 11 May 2016 02:31:51 +0200 (CEST)
+Received: from mail-oi0-f47.google.com (mail-oi0-f47.google.com [209.85.218.47])
+	(Authenticated sender: joe@ovn.org)
+	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id F103D17209B
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 02:31:50 +0200 (CEST)
+Received: by mail-oi0-f47.google.com with SMTP id v145so43144018oie.0
+        for <netdev@vger.kernel.org>; Tue, 10 May 2016 17:31:50 -0700 (PDT)
+In-Reply-To: <67865008-7CDC-469D-8EAA-C097C19F7408@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 10 May 2016 at 16:55, Jarno Rajahalme <jarno@ovn.org> wrote:
+> This would result in inconsistent helper assignment if a first CT action assigns a helper and a further CT action tries to assign a different helper; Typically the second helper assignment would be ignored, but if the unconfirmed conntrack entry is lost due to an upcall the second helper assignment would be successful.  This is best resolved by allowing helper assignment by a committing CT action only by testing the 'info->commit' flag in addition to the conditions you have there already. It may also be helpful to fail helper assignment without the commit flag in parse_ct().
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  net/netfilter/nf_conntrack_core.c
-
-between commit:
-
-  70d72b7e060e ("netfilter: conntrack: init all_locks to avoid debug warning")
-
-from the net tree and commit:
-
-  a3efd81205b1 ("netfilter: conntrack: move generation seqcnt out of netns_ct")
-  56d52d4892d0 ("netfilter: conntrack: use a single hashtable for all namespaces")
-  0c5366b3a8c7 ("netfilter: conntrack: use single slab cache")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/netfilter/nf_conntrack_core.c
-index 895d11dced3c,566c64e3ec50..000000000000
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@@ -66,7 -69,12 +69,12 @@@ EXPORT_SYMBOL_GPL(nf_conntrack_locks)
-  __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
-  EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
-  
-+ struct hlist_nulls_head *nf_conntrack_hash __read_mostly;
-+ EXPORT_SYMBOL_GPL(nf_conntrack_hash);
-+ 
-+ static __read_mostly struct kmem_cache *nf_conntrack_cachep;
- -static __read_mostly spinlock_t nf_conntrack_locks_all_lock;
- +static __read_mostly DEFINE_SPINLOCK(nf_conntrack_locks_all_lock);
-+ static __read_mostly seqcount_t nf_conntrack_generation;
-  static __read_mostly bool nf_conntrack_locks_all;
-  
-  void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
+Strictly speaking I think that skb_nfct_cached() handles at least some
+of those cases but I agree it should be more explicit here. I'll send
+a v2. We can follow up separately on net-next to improve the
+parsing/make that more user-friendly.
