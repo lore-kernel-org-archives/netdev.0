@@ -1,104 +1,60 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3 flow/port
- support
-Date: Thu, 12 May 2016 07:46:52 +0900
-Message-ID: <20160511224650.GA12481@penelope.isobedori.kobe.vergenet.net>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
- <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
- <20160506112514.47f6e9dc@griffin>
- <20160509080420.GA4470@vergenet.net>
- <20160510140106.367936fb@griffin>
- <20160511015009.GB24436@vergenet.net>
- <20160511030632.GA24805@vergenet.net>
- <20160511160928.27816400@griffin>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Thu, 12 May 2016 00:47:29 +0200
+Message-ID: <ff0dc5d3-03c8-0316-71ed-e70426840773@stressinduktion.org>
+References: <cover.1462886866.git.pabeni@redhat.com>
+ <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+ <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+ <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+ <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+ <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1462960104.4444.37.camel@redhat.com>
+ <1462972112.23934.139.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1462977516.4444.73.camel@redhat.com>
+ <CANn89iJOEpoYKS+=VU-zVEcs2geRF07nii_VdwCX1anHmhoodQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pravin shelar <pshelar@ovn.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>,
-	Lorand Jakab <lojakab@cisco.com>,
-	Thomas Morin <thomas.morin@orange.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33570 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769AbcEKWrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 18:47:02 -0400
-Received: by mail-pf0-f181.google.com with SMTP id 206so23352595pfu.0
-        for <netdev@vger.kernel.org>; Wed, 11 May 2016 15:47:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160511160928.27816400@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>, Paolo Abeni <pabeni@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iJOEpoYKS+=VU-zVEcs2geRF07nii_VdwCX1anHmhoodQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 11, 2016 at 04:09:28PM +0200, Jiri Benc wrote:
-> On Wed, 11 May 2016 12:06:35 +0900, Simon Horman wrote:
-> > Is this close to what you had in mind?
+On 11.05.2016 16:45, Eric Dumazet wrote:
+> On Wed, May 11, 2016 at 7:38 AM, Paolo Abeni <pabeni@redhat.com> wrote:
 > 
-> Yes but see below.
+>> Uh, we have likely the same issue in the net_rx_action() function, which
+>> also execute with bh disabled and check for jiffies changes even on
+>> single core hosts ?!?
 > 
-> > @@ -739,17 +729,17 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
-> >  	key->phy.skb_mark = skb->mark;
-> >  	ovs_ct_fill_key(skb, key);
-> >  	key->ovs_flow_hash = 0;
-> > -	key->phy.is_layer3 = is_layer3;
-> > +	key->phy.is_layer3 = (tun_info && skb->mac_len == 0);
+> That is why we have a loop break after netdev_budget=300 packets.
+> And a sysctl to eventually tune this.
 > 
-> Do we have to depend on tun_info? It would be nice to support all
-> ARPHRD_NONE interfaces, not just tunnels. The tun interface (from
-> the tuntap driver) comes to mind, for example.
-
-Yes, I think that should work. I was just being cautious.
-
-Do you think it is safe to detect TEB based on skb->protocol regardless
-of the presence of tun_info?
-
-> > +++ b/net/openvswitch/vport-netdev.c
-> > @@ -60,7 +60,21 @@ static void netdev_port_receive(struct sk_buff *skb)
-> >  	if (vport->dev->type == ARPHRD_ETHER) {
-> >  		skb_push(skb, ETH_HLEN);
-> >  		skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
-> > +	} else if (vport->dev->type == ARPHRD_NONE) {
-> > +		if (skb->protocol == htons(ETH_P_TEB)) {
-> > +			struct ethhdr *eth = eth_hdr(skb);
-> > +
-> > +			if (unlikely(skb->len < ETH_HLEN))
-> > +				goto error;
-> > +
-> > +			skb->mac_len = ETH_HLEN;
-> > +			if (eth->h_proto == htons(ETH_P_8021Q))
-> > +				skb->mac_len += VLAN_HLEN;
-> > +		} else {
-> > +			skb->mac_len = 0;
-> > +		}
+> Same issue for softirq handler, look at commit
+> 34376a50fb1fa095b9d0636fa41ed2e73125f214
 > 
-> Without putting much thought into this, could this perhaps be left for
-> parse_ethertype (called from key_extract) to do?
+> Your questions about this central piece of networking code are worrying.
+> 
+>>
+>> Aren't jiffies updated by the timer interrupt ? and thous even with
+>> bh_disabled ?!?
+> 
+> Exactly my point : jiffie wont be updated in your code, since you block BH.
 
-I think I am confused.
+To be fair, jiffies get updated in hardirq and not softirq context. The
+cond_resched_softirq not looking for pending softirqs is indeed a problem.
 
-I believe that key_extract() does already do all of the above (and more).
-
-The purpose of the above change was to do this work here rather than
-leaving it to parse_ethertype. This is because I was under the impression
-that is what you were after. Specifically as a mechanism to avoid relying
-on vport->dev->type in ovs_flow_key_extract.
-
-If we can live with a bogus skb->mac_len value that is sufficient for
-ovs_flow_key_extract.() and set correctly by key_extract() (which happens
-anyway) we could do something like this:
-
-	} else if (vport->dev->type == ARPHRD_NONE) {
-		if (skb->protocol == htons(ETH_P_TEB))
-			/* Ignores presence of VLAN but is sufficient for
-			 * ovs_flow_key_extract() which then calls key_extract()
-			 * which calculates skb->mac_len correctly. */
-			skb->mac_len = ETH_HLEN; /* Ignores presence of VLAN */
-		else
-			skb->mac_len = 0;
-	}
-
-
-But perhaps I have missed the point somehow.
+Thanks,
+Hannes
