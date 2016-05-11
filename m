@@ -1,62 +1,205 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Wed, 11 May 2016 08:50:08 -0700
-Message-ID: <1462981808.23934.145.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
-	 <de6ef948-65a4-e7e0-718e-6d37474f65d4@stressinduktion.org>
-	 <CANn89i+Op8UsvrsZKKzHfC5j6gLMmY1ZbCg=OY8o4oW8RT5sxg@mail.gmail.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v3 3/4] xen-netback: pass hash value to the frontend
+Date: Wed, 11 May 2016 16:33:36 +0100
+Message-ID: <1462980817-10149-4-git-send-email-paul.durrant@citrix.com>
+References: <1462980817-10149-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Paolo Abeni <pabeni@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89i+Op8UsvrsZKKzHfC5j6gLMmY1ZbCg=OY8o4oW8RT5sxg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>
+To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:53304 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751605AbcEKPuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 11:50:37 -0400
+In-Reply-To: <1462980817-10149-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-11 at 07:40 -0700, Eric Dumazet wrote:
-> On Wed, May 11, 2016 at 6:13 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> 
-> > This looks racy to me as the ksoftirqd could be in the progress to stop
-> > and we would miss another softirq invocation.
-> 
-> Looking at smpboot_thread_fn(), it looks fine :
-> 
->                 if (!ht->thread_should_run(td->cpu)) {
->                         preempt_enable_no_resched();
->                         schedule();
->                 } else {
->                         __set_current_state(TASK_RUNNING);
->                         preempt_enable();
->                         ht->thread_fn(td->cpu);
->                 }
+My recent patch to include/xen/interface/io/netif.h defines a new extra
+info type that can be used to pass hash values between backend and guest
+frontend.
 
-BTW, I wonder why we pass td->cpu as argument to ht->thread_fn(td->cpu)
+This patch adds code to xen-netback to pass hash values calculated for
+guest receive-side packets (i.e. netback transmit side) to the frontend.
 
-This always should be the current processor id.
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+---
+ drivers/net/xen-netback/interface.c | 13 ++++++-
+ drivers/net/xen-netback/netback.c   | 78 +++++++++++++++++++++++++++++++------
+ 2 files changed, 77 insertions(+), 14 deletions(-)
 
-Or do we have an issue because we ignore it in :
-
-static int ksoftirqd_should_run(unsigned int cpu)
-{
-        return local_softirq_pending();
-}
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 5a39cdb..1c7f49b 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -158,8 +158,17 @@ static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	unsigned int size = vif->hash.size;
+ 
+-	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
+-		return fallback(dev, skb) % dev->real_num_tx_queues;
++	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE) {
++		u16 index = fallback(dev, skb) % dev->real_num_tx_queues;
++
++		/* Make sure there is no hash information in the socket
++		 * buffer otherwise it would be incorrectly forwarded
++		 * to the frontend.
++		 */
++		skb_clear_hash(skb);
++
++		return index;
++	}
+ 
+ 	xenvif_set_skb_hash(vif, skb);
+ 
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 6509d11..7c72510 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -168,6 +168,8 @@ static bool xenvif_rx_ring_slots_available(struct xenvif_queue *queue)
+ 	needed = DIV_ROUND_UP(skb->len, XEN_PAGE_SIZE);
+ 	if (skb_is_gso(skb))
+ 		needed++;
++	if (skb->sw_hash)
++		needed++;
+ 
+ 	do {
+ 		prod = queue->rx.sring->req_prod;
+@@ -285,6 +287,8 @@ struct gop_frag_copy {
+ 	struct xenvif_rx_meta *meta;
+ 	int head;
+ 	int gso_type;
++	int protocol;
++	int hash_present;
+ 
+ 	struct page *page;
+ };
+@@ -331,8 +335,15 @@ static void xenvif_setup_copy_gop(unsigned long gfn,
+ 	npo->copy_off += *len;
+ 	info->meta->size += *len;
+ 
++	if (!info->head)
++		return;
++
+ 	/* Leave a gap for the GSO descriptor. */
+-	if (info->head && ((1 << info->gso_type) & queue->vif->gso_mask))
++	if ((1 << info->gso_type) & queue->vif->gso_mask)
++		queue->rx.req_cons++;
++
++	/* Leave a gap for the hash extra segment. */
++	if (info->hash_present)
+ 		queue->rx.req_cons++;
+ 
+ 	info->head = 0; /* There must be something in this buffer now */
+@@ -367,6 +378,11 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+ 		.npo = npo,
+ 		.head = *head,
+ 		.gso_type = XEN_NETIF_GSO_TYPE_NONE,
++		/* xenvif_set_skb_hash() will have either set a s/w
++		 * hash or cleared the hash depending on
++		 * whether the the frontend wants a hash for this skb.
++		 */
++		.hash_present = skb->sw_hash,
+ 	};
+ 	unsigned long bytes;
+ 
+@@ -555,6 +571,7 @@ void xenvif_kick_thread(struct xenvif_queue *queue)
+ 
+ static void xenvif_rx_action(struct xenvif_queue *queue)
+ {
++	struct xenvif *vif = queue->vif;
+ 	s8 status;
+ 	u16 flags;
+ 	struct xen_netif_rx_response *resp;
+@@ -590,9 +607,10 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 	gnttab_batch_copy(queue->grant_copy_op, npo.copy_prod);
+ 
+ 	while ((skb = __skb_dequeue(&rxq)) != NULL) {
++		struct xen_netif_extra_info *extra = NULL;
+ 
+ 		if ((1 << queue->meta[npo.meta_cons].gso_type) &
+-		    queue->vif->gso_prefix_mask) {
++		    vif->gso_prefix_mask) {
+ 			resp = RING_GET_RESPONSE(&queue->rx,
+ 						 queue->rx.rsp_prod_pvt++);
+ 
+@@ -610,7 +628,7 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 		queue->stats.tx_bytes += skb->len;
+ 		queue->stats.tx_packets++;
+ 
+-		status = xenvif_check_gop(queue->vif,
++		status = xenvif_check_gop(vif,
+ 					  XENVIF_RX_CB(skb)->meta_slots_used,
+ 					  &npo);
+ 
+@@ -632,21 +650,57 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+ 					flags);
+ 
+ 		if ((1 << queue->meta[npo.meta_cons].gso_type) &
+-		    queue->vif->gso_mask) {
+-			struct xen_netif_extra_info *gso =
+-				(struct xen_netif_extra_info *)
++		    vif->gso_mask) {
++			extra = (struct xen_netif_extra_info *)
+ 				RING_GET_RESPONSE(&queue->rx,
+ 						  queue->rx.rsp_prod_pvt++);
+ 
+ 			resp->flags |= XEN_NETRXF_extra_info;
+ 
+-			gso->u.gso.type = queue->meta[npo.meta_cons].gso_type;
+-			gso->u.gso.size = queue->meta[npo.meta_cons].gso_size;
+-			gso->u.gso.pad = 0;
+-			gso->u.gso.features = 0;
++			extra->u.gso.type = queue->meta[npo.meta_cons].gso_type;
++			extra->u.gso.size = queue->meta[npo.meta_cons].gso_size;
++			extra->u.gso.pad = 0;
++			extra->u.gso.features = 0;
++
++			extra->type = XEN_NETIF_EXTRA_TYPE_GSO;
++			extra->flags = 0;
++		}
++
++		if (skb->sw_hash) {
++			/* Since the skb got here via xenvif_select_queue()
++			 * we know that the hash has been re-calculated
++			 * according to a configuration set by the frontend
++			 * and therefore we know that it is legitimate to
++			 * pass it to the frontend.
++			 */
++			if (resp->flags & XEN_NETRXF_extra_info)
++				extra->flags |= XEN_NETIF_EXTRA_FLAG_MORE;
++			else
++				resp->flags |= XEN_NETRXF_extra_info;
++
++			extra = (struct xen_netif_extra_info *)
++				RING_GET_RESPONSE(&queue->rx,
++						  queue->rx.rsp_prod_pvt++);
+ 
+-			gso->type = XEN_NETIF_EXTRA_TYPE_GSO;
+-			gso->flags = 0;
++			extra->u.hash.algorithm =
++				XEN_NETIF_CTRL_HASH_ALGORITHM_TOEPLITZ;
++
++			if (skb->l4_hash)
++				extra->u.hash.type =
++					skb->protocol == htons(ETH_P_IP) ?
++					_XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP :
++					_XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP;
++			else
++				extra->u.hash.type =
++					skb->protocol == htons(ETH_P_IP) ?
++					_XEN_NETIF_CTRL_HASH_TYPE_IPV4 :
++					_XEN_NETIF_CTRL_HASH_TYPE_IPV6;
++
++			*(uint32_t *)extra->u.hash.value =
++				skb_get_hash_raw(skb);
++
++			extra->type = XEN_NETIF_EXTRA_TYPE_HASH;
++			extra->flags = 0;
+ 		}
+ 
+ 		xenvif_add_frag_responses(queue, status,
+-- 
+2.1.4
