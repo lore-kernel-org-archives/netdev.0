@@ -1,92 +1,61 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
- flow/port support
-Date: Wed, 11 May 2016 10:50:12 +0900
-Message-ID: <20160511015009.GB24436@vergenet.net>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
- <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
- <20160506112514.47f6e9dc@griffin>
- <20160509080420.GA4470@vergenet.net>
- <20160510140106.367936fb@griffin>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Tue, 10 May 2016 21:24:55 -0500
+Message-ID: <573297F7.9020500@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com> <571915F5.5070504@codeaurora.org>
+ <571A7F3D.1070609@codeaurora.org> <571A8207.60704@gmail.com>
+ <57326C44.8020906@codeaurora.org> <57326E08.40803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160510140106.367936fb@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <57326E08.40803@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgSmlyaSwKCk9uIFR1ZSwgTWF5IDEwLCAyMDE2IGF0IDAyOjAxOjA2UE0gKzAyMDAsIEppcmkg
-QmVuYyB3cm90ZToKPiBPbiBNb24sIDkgTWF5IDIwMTYgMTc6MDQ6MjIgKzA5MDAsIFNpbW9uIEhv
-cm1hbiB3cm90ZToKPiA+IEl0IHNlZW1zIHRvIGJlIGNhdXNlZCBieSB0aGUgZm9sbG93aW5nOgo+
-ID4gCj4gPiAxLiBfX2lwZ3JlX3JjdigpIGNhbGxzIHNrYl9wb3BfbWFjX2hlYWRlcigpIHdoaWNo
-Cj4gPiAgICBzZXRzIHNrYi0+bWFjX2hlYWRlciB0byB0aGUgc2tiLT5uZXR3b3JrX2hlYWRlci4K
-PiA+IAo+ID4gMi4gX19pcGdyZV9yY3YoKSB0aGVuIGNhbGxzIGlwX3R1bm5lbF9yY3YoKSB3aGlj
-aCBjYWxscwo+ID4gICAgc2tiX3Jlc2V0X25ldHdvcmtfaGVhZGVyKCkuIFRoaXMgdXBkYXRlcyBz
-a2ItPm5ldHdvcmtfaGVhZGVyIHRvCj4gPiAgICBqdXN0IGFmdGVyIHRoZSBlbmQgb2YgdGhlIEdS
-RSBoZWFkZXIuCj4gPiAKPiA+ICAgIFRoaXMgaXMgMjggYnl0ZXMgYWZ0ZXIgdGhlIG9sZCBza2It
-Pm5ldHdvcmtfaGVhZGVyCj4gPiAgICBhcyB0aGVyZSBpcyBhIDIwIGJ5dGUgSVB2NCBoZWFkZXIg
-Zm9sbG93ZWQgYnkgYW4KPiA+ICAgIDggYnl0ZSBHUkUgaGVhZGVyLgo+ID4gCj4gPiAzLiBMYXRl
-ciwgZGV2X2dyb19yZWNlaXZlKCkgY2FsbHMgc2tiX3Jlc2V0X21hY19sZW4oKS4KPiA+ICAgIFRo
-aXMgY2FsY3VsYXRlcyBza2ItPm1hY19sZW4gYmFzZWQgb24gc2tiLT5uZXR3b3JrX2hlYWRlciBh
-bmQKPiA+ICAgIHNrYi0+bWFjX2hlYWRlci4gSS5lLiAyOCBieXRlcy4KPiAKPiBSaWdodC4gVGhh
-bmtzIGZvciB0cmFja2luZyB0aGlzIGRvd24hCj4gCj4gPiBJIHRoaW5rIHRoaXMgbWF5IGJlIHBv
-c3NpYmxlIHRvIGFkZHJlc3MgYnkgY2FsbGluZwo+ID4gc2tiX3Jlc2V0X25ldHdvcmtfaGVhZGVy
-KCkgaW5zdGVhZCBvZiBza2JfcG9wX21hY19oZWFkZXIoKQo+ID4gaW4gX19pcGdyZV9yY3YoKS4K
-PiAKPiBXZSBjYW4ndCBkbyB0aGF0LiBUaGUgaW50ZXJmYWNlIHR5cGUgaXMgQVJQSFJEX0lQR1JF
-IGFuZCBub3QKPiBBUlBIUkRfTk9ORSwgc28gdGhlIGN1cnJlbnQgYmVoYXZpb3IgbWFrZXMgcHJl
-dHR5IGdvb2Qgc2Vuc2UuIFNlZQo+IGUuZy4gY29tbWl0IDBlM2RhNWJiOGRhNDUuCj4gCj4gV2Ug
-aGF2ZSB0d28gb3B0aW9ucyBoZXJlOgo+IAo+IDEuIEFzIGZvciBtZXRhZGF0YSB0dW5uZWxzIGFs
-bCB0aGUgaW5mbyBpcyBpbiBtZXRhZGF0YV9kc3QgYW5kIHdlCj4gICAgZG9uJ3QgbmVlZCB0aGUg
-SVAvR1JFIGhlYWRlciBmb3IgYW55dGhpbmcsIHdlIGNhbiBtYWtlIHRoZSBpcGdyZQo+ICAgIGlu
-dGVyZmFjZSBBUlBIUkRfTk9ORSBpbiBtZXRhZGF0YSBiYXNlZCBtb2RlLgo+IAo+IDIuIFdlIGNh
-biBmaXggdGhpcyB1cCBpbiBvdnMgYWZ0ZXIgcmVjZWl2aW5nIHRoZSBwYWNrZXQgZnJvbQo+ICAg
-IEFSUEhSRF9JUEdSRSBpbnRlcmZhY2UuCj4gCj4gSSB0aGluayB0aGUgZmlyc3Qgb3B0aW9uIGlz
-IHRoZSBjb3JyZWN0IG9uZS4gV2UgYWxyZWFkeSBkb24ndCBhc3NpZ24KPiBkZXYtPmhlYWRlcl9v
-cHMgaW4gbWV0YWRhdGEgbW9kZS4gSSdsbCBwcmVwYXJlIGEgcGF0Y2guCgpJIGFncmVlIHRoYXQg
-MS4gc2VlbXMgdG8gYmUgdGhlIGJldHRlciBhcHByb2FjaC4KCj4gPiBJdHMgcG9zc2libGUgdGhh
-dCBJJ3ZlIG92ZXJsb29rZWQgc29tZXRoaW5nIGJ1dCBhcyB0aGluZ3Mgc3RhbmQgSSB0aGluawo+
-ID4gdGhpbmdzIGxvb2sgbGlrZSB0aGlzOgo+ID4gCj4gPiAqIG92c19mbG93X2tleV9leHRyYWN0
-KCkga2V5cyBvZmYgZGV2LT50eXBlIGFuZCBza2ItPnByb3RvY29sLgo+ID4gKiBvdnNfZmxvd19r
-ZXlfZXh0cmFjdCgpIGNhbGxzIGtleV9leHRyYWN0KCkgd2hpY2ggYW1vbmdzdCBvdGhlciB0aGlu
-Z3MKPiA+ICAgc2V0cyB1cCB0aGUgc2tiLT5tYWNfaGVhZGVyIGFuZCBza2ItPm1hY19sZW4gb2Yg
-dGhlIHNrYi4KPiA+ICogb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBzZXRzIHNrYi0+cHJvdG9jb2wg
-dG8gdGhhdCBvZiB0aGUgaW5uZXIgcGFja2V0Cj4gPiAgIGluIHRoZSBjYXNlIG9mIFRFQgo+ID4g
-KiBBY3Rpb25zIHVwZGF0ZSB0aGUgYWJvdmUgbWVudGlvbmVkIHNrYiBmaWVsZHMgYXMgYXBwcm9w
-cmlhdGUuCj4gCj4gT2theSwgdGhhdCBhY3R1YWxseSBlYXNlcyB0aGluZ3Mgc29tZXdoYXQuCj4g
-Cj4gPiBTbyBpdCBzZWVtcyB0byBtZSB0aGF0IGl0IHNob3VsZCBiZSBzYWZlIHRvIHJlbHkgb24g
-c2tiLT5wcm90b2NvbAo+ID4gaW4gdGhlIHJlY2VpdmUgcGF0aC4gT3IgbW9yZSBzcGVjaWZpY2Fs
-bHksIGluIG5ldGRldl9wb3J0X3JlY2VpdmUoKS4KPiA+IAo+ID4gSWYgbWFjX2xlbiBpcyBhbHNv
-IGFibGUgdG8gYmUgdXNlZCB0aGVuIEkgdGhpbmsgZmluZS4gQnV0IGl0IHNlZW1zIHRvIG1lCj4g
-PiB0aGF0IGl0IG5lZWRzIHRvIGJlIHNldCB1cCBieSBPdlMgYXQgbGVhc3QgZm9yIHRoZSBBUlBI
-UkRfTk9ORSBjYXNlLiBUaGlzCj4gPiBjb3VsZCBiZSBkb25lIGVhcmx5IG9uLCBzYXkgaW4gbmV0
-ZGV2X3BvcnRfcmVjZWl2ZSgpLiBCdXQgaXQgc2VlbXMgdGhhdAo+ID4gd291bGQgaW52b2x2ZSBk
-dXBsaWNhdGluZyBzb21lIG9mIHdoYXQgaXMgYWxyZWFkeSBvY2N1cnJpbmcgaW4KPiA+IGtleV9l
-eHRyYWN0KCkuCj4gCj4gSSdkIGFjdHVhbGx5IHByZWZlciBkb2luZyB0aGlzIGVhcmxpZXIsIG5l
-dGRldl9wb3J0X3JlY2VpdmUgbG9va3MgbGlrZQo+IHRoZSByaWdodCBwbGFjZS4gSnVzdCBzZXQg
-bWFjX2xlbiB0aGVyZSAob3Igd2hhdGV2ZXIpIGFuZCBsZXQKPiBrZXlfZXh0cmFjdCBkbyB0aGUg
-cmVzdCBvZiB0aGUgd29yaywgbm90IGRlcGVuZGluZyBvbiBkZXYtPnR5cGUgaW4KPiB0aGVyZS4K
-PiAKPiBNeSBwb2ludCBhYm91dCByZWNpcmN1bGF0aW9uIHdhcyBub3QgYWN0dWFsbHkgdmFsaWQs
-IGFzIEkgbWlzc2VkIHlvdSdyZQo+IGRvaW5nIHRoaXMgaW4gb3ZzX2Zsb3dfa2V5X2V4dHJhY3Qg
-YW5kIG5vdCBpbiBrZXlfZXh0cmFjdC4gU3RpbGwsCj4gSSB0aGluayB0aGUgc3BlY2lhbCBoYW5k
-bGluZyBvZiBwYXJ0aWN1bGFyIGludGVyZmFjZSB0eXBlcyBiZWxvbmdzIHRvCj4gdGhlIHR4IHBy
-b2Nlc3Npbmcgb24gdGhvc2UgaW50ZXJmYWNlcywgbm90IHRvIHRoZSBjb21tb24gY29kZS4KClN1
-cmUsIGlmIHRoYXQgaXMgeW91ciBwcmVmZXJlbmNlIEkgdGhpbmsgaXQgc2hvdWxkIGJlIHNpbXBs
-ZSBlbm91Z2ggdG8KaW1wbGVtZW50LiBJIGFncmVlIHRoYXQgbmV0ZGV2X3BvcnRfcmVjZWl2ZSgp
-IGxvb2tzIGxpa2UgYSBnb29kIHBsYWNlIGZvcgp0aGlzLgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRj
-aC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Florian Fainelli wrote:
+> The Ethernet MAC should be started in ndo_open() and stopped in
+> ndo_close(), in between, there are link state changes, but you are not
+> supposed to stop or start your Ethernet MAC and its DMA for instance
+> during link change, if that is a HW requirement, your HW is pretty funky.
+
+I think the problem is that the current driver seems to be too eager to 
+start/stop the MAC.
+
+Please take a look at emac_work_thread_link_check() at 
+https://lkml.org/lkml/2016/4/13/670.  Every time the PHY link goes up, 
+it does this:
+
+if (phy->link_up) {
+	if (netif_carrier_ok(netdev))
+		goto link_task_done;
+
+	pm_runtime_get_sync(netdev->dev.parent);
+	netif_info(adpt, timer, adpt->netdev, "NIC Link is Up %s\n",
+		   speed);
+
+	emac_mac_start(adpt);
+	netif_carrier_on(netdev);
+	netif_wake_queue(netdev);
+
+
+The call to emac_mac_start seems wrong to me here.
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
