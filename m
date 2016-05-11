@@ -1,169 +1,141 @@
-From: David Miller <davem@davemloft.net>
-Subject: Fw: [GIT] Networking
-Date: Wed, 11 May 2016 15:29:39 -0400 (EDT)
-Message-ID: <20160511.152939.1370671483651845525.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
- boundary="--Next_Part(Wed_May_11_15_29_39_2016_349)--"
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH net-next] phy: micrel: Use MICREL_PHY_ID_MASK definition
+Date: Wed, 11 May 2016 17:02:05 -0300
+Message-ID: <1462996925-7153-1-git-send-email-festevam@gmail.com>
+Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@nxp.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:32769 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932150AbcEKUCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 16:02:16 -0400
+Received: by mail-yw0-f195.google.com with SMTP id y6so5323835ywe.0
+        for <netdev@vger.kernel.org>; Wed, 11 May 2016 13:02:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-----Next_Part(Wed_May_11_15_29_39_2016_349)--
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+From: Fabio Estevam <fabio.estevam@nxp.com>
 
+Replace the hardcoded mask 0x00fffff0 with MICREL_PHY_ID_MASK for
+better readability.
 
-Sorry, forgot to CC: the lists on the initial send.
+Suggested-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+---
+ drivers/net/phy/micrel.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
-----Next_Part(Wed_May_11_15_29_39_2016_349)--
-Content-Type: Message/Rfc822
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-Date: Wed, 11 May 2016 15:27:28 -0400 (EDT)
-Message-Id: <20160511.152728.1913900691450128778.davem@davemloft.net>
-To: torvalds@linux-foundation.org
-CC: akpm@linux-foundation.org
-Subject: [GIT] Networking
-From: David Miller <davem@davemloft.net>
-X-Mailer: Mew version 6.6 on Emacs 24.5 / Mule 6.0 (HANACHIRUSATO)
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-
-Hopefully the last round of fixes this release, fingers crossed :)
-
-1) Initialize static nf_conntrack_locks_all_lock properly, from
-   Florian Westphal.
-
-2) Need to cancel pending work when destroying IDLETIMER entries, from
-   Liping Zhang.
-
-3) Fix TX param usage when sending TSO over iwlwifi devices, from
-   Emmanuel Grumbach.
-
-4) NFACCT quota params not validated properly, from Phil Turnbull.
-
-5) Resolve more glibc vs. kernel header conflicts, from Mikko Tapeli.
-
-6) Missing IRQ free in ravb_close(), from Geert Uytterhoeven.
-
-7) Fix infoleak in x25, from Kangjie Lu.
-
-8) Similarly in thunderx driver, from Heinrich Schuchardt.
-
-9) tc_ife.h uapi header not exported properly, from Jamal Hadi Salim.
-
-10) Don't reenable PHY interreupts if device is in polling mode, from
-    Shaohui Xie.
-
-11) Packet scheduler actions late binding was not being handled properly
-    at all, from Jamal Hadi Salim.
-
-12) Fix binding of conntrack entries to helpers in openvswitch, from
-    Joe Stringer.
-
-Please pull, thanks a lot!
-
-The following changes since commit b507146bb6b9ac0c0197100ba3e299825a21fed3:
-
-  Merge branch 'linus' of git://git.kernel.org/pub/scm/linux/kernel/git/herbert/crypto-2.6 (2016-05-09 12:24:19 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to e271c7b4420ddbb9fae82a2b31a5ab3edafcf4fe:
-
-  gre: do not keep the GRE header around in collect medata mode (2016-05-11 15:16:32 -0400)
-
-----------------------------------------------------------------
-David S. Miller (4):
-      Merge git://git.kernel.org/.../pablo/nf
-      Merge tag 'wireless-drivers-for-davem-2016-05-09' of git://git.kernel.org/.../kvalo/wireless-drivers
-      Merge branch 'nps_enet-fixes'
-      Merge branch 'net-sched-fixes'
-
-Elad Kanfi (2):
-      net: nps_enet: Tx handler synchronization
-      net: nps_enet: bug fix - handle lost tx interrupts
-
-Emmanuel Grumbach (1):
-      iwlwifi: mvm: don't override the rate with the AMSDU len
-
-Eric Dumazet (1):
-      tcp: refresh skb timestamp at retransmit time
-
-Florian Westphal (1):
-      netfilter: conntrack: init all_locks to avoid debug warning
-
-Geert Uytterhoeven (1):
-      ravb: Add missing free_irq() call to ravb_close()
-
-Jamal Hadi Salim (7):
-      export tc ife uapi header
-      net sched: vlan action fix late binding
-      net sched: ipt action fix late binding
-      net sched: mirred action fix late binding
-      net sched: simple action fix late binding
-      net sched: skbedit action fix late binding
-      net sched: ife action fix late binding
-
-Jiri Benc (1):
-      gre: do not keep the GRE header around in collect medata mode
-
-Joe Stringer (1):
-      openvswitch: Fix cached ct with helper.
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2016-05-04' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-Kangjie Lu (1):
-      net: fix a kernel infoleak in x25 module
-
-Liping Zhang (1):
-      netfilter: IDLETIMER: fix race condition when destroy the target
-
-Mikko Rapeli (1):
-      uapi glibc compat: fix compile errors when glibc net/if.h included before linux/if.h
-
-Phil Turnbull (1):
-      netfilter: nfnetlink_acct: validate NFACCT_QUOTA parameter
-
-Shaohui Xie (1):
-      net: phylib: fix interrupts re-enablement in phy_start
-
-xypron.glpk@gmx.de (1):
-      net: thunderx: avoid exposing kernel stack
-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  4 ++++
- drivers/net/ethernet/ezchip/nps_enet.c             | 30 ++++++++++++++++++++++++------
- drivers/net/ethernet/ezchip/nps_enet.h             |  2 --
- drivers/net/ethernet/renesas/ravb_main.c           |  2 ++
- drivers/net/phy/phy.c                              |  8 +++++---
- drivers/net/wireless/intel/iwlwifi/mvm/tx.c        | 83 ++++++++++++++++++++++++++++++++++++++++++++++++-----------------------------------
- include/uapi/linux/if.h                            | 28 ++++++++++++++++++++++++++++
- include/uapi/linux/libc-compat.h                   | 44 ++++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/tc_act/Kbuild                   |  1 +
- net/ipv4/ip_gre.c                                  |  7 ++++++-
- net/ipv4/tcp_output.c                              |  6 ++++--
- net/netfilter/nf_conntrack_core.c                  |  2 +-
- net/netfilter/nfnetlink_acct.c                     |  2 ++
- net/netfilter/xt_IDLETIMER.c                       |  1 +
- net/openvswitch/conntrack.c                        | 13 +++++++++++++
- net/sched/act_ife.c                                | 14 ++++++++++----
- net/sched/act_ipt.c                                | 19 ++++++++++++-------
- net/sched/act_mirred.c                             | 19 +++++++++++++------
- net/sched/act_simple.c                             | 18 ++++++++++++------
- net/sched/act_skbedit.c                            | 18 +++++++++++-------
- net/sched/act_vlan.c                               | 22 ++++++++++++++++------
- net/x25/x25_facilities.c                           |  1 +
- 22 files changed, 258 insertions(+), 86 deletions(-)
-
-----Next_Part(Wed_May_11_15_29_39_2016_349)----
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 4516c8a..5a8fefc 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -726,7 +726,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ static struct phy_driver ksphy_driver[] = {
+ {
+ 	.phy_id		= PHY_ID_KS8737,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KS8737",
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+@@ -781,7 +781,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.resume		= genphy_resume,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8041,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8041",
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+ 				| SUPPORTED_Asym_Pause),
+@@ -800,7 +800,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.resume		= genphy_resume,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8041RNLI,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8041RNLI",
+ 	.features	= PHY_BASIC_FEATURES |
+ 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+@@ -819,7 +819,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.resume		= genphy_resume,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8051,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8051",
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+ 				| SUPPORTED_Asym_Pause),
+@@ -857,7 +857,7 @@ static struct phy_driver ksphy_driver[] = {
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8081,
+ 	.name		= "Micrel KSZ8081 or KSZ8091",
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8081_type,
+@@ -875,7 +875,7 @@ static struct phy_driver ksphy_driver[] = {
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8061,
+ 	.name		= "Micrel KSZ8061",
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+@@ -909,7 +909,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.write_mmd_indirect = ksz9021_wr_mmd_phyreg,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ9031,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ9031 Gigabit PHY",
+ 	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+@@ -926,7 +926,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.resume		= genphy_resume,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8873MLL,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8873MLL Switch",
+ 	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG,
+@@ -940,7 +940,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.resume		= genphy_resume,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ886X,
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ886X Switch",
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+@@ -962,17 +962,17 @@ MODULE_LICENSE("GPL");
+ 
+ static struct mdio_device_id __maybe_unused micrel_tbl[] = {
+ 	{ PHY_ID_KSZ9021, 0x000ffffe },
+-	{ PHY_ID_KSZ9031, 0x00fffff0 },
++	{ PHY_ID_KSZ9031, MICREL_PHY_ID_MASK },
+ 	{ PHY_ID_KSZ8001, 0x00ffffff },
+-	{ PHY_ID_KS8737, 0x00fffff0 },
++	{ PHY_ID_KS8737, MICREL_PHY_ID_MASK },
+ 	{ PHY_ID_KSZ8021, 0x00ffffff },
+ 	{ PHY_ID_KSZ8031, 0x00ffffff },
+-	{ PHY_ID_KSZ8041, 0x00fffff0 },
+-	{ PHY_ID_KSZ8051, 0x00fffff0 },
+-	{ PHY_ID_KSZ8061, 0x00fffff0 },
+-	{ PHY_ID_KSZ8081, 0x00fffff0 },
+-	{ PHY_ID_KSZ8873MLL, 0x00fffff0 },
+-	{ PHY_ID_KSZ886X, 0x00fffff0 },
++	{ PHY_ID_KSZ8041, MICREL_PHY_ID_MASK },
++	{ PHY_ID_KSZ8051, MICREL_PHY_ID_MASK },
++	{ PHY_ID_KSZ8061, MICREL_PHY_ID_MASK },
++	{ PHY_ID_KSZ8081, MICREL_PHY_ID_MASK },
++	{ PHY_ID_KSZ8873MLL, MICREL_PHY_ID_MASK },
++	{ PHY_ID_KSZ886X, MICREL_PHY_ID_MASK },
+ 	{ }
+ };
+ 
+-- 
+1.9.1
