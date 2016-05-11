@@ -1,84 +1,654 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf V2] netfilter: fix oops in nfqueue during netns error unwinding
-Date: Wed, 11 May 2016 17:41:13 +0200
-Message-ID: <1462981273-21676-1-git-send-email-fw@strlen.de>
-Cc: dale.4d@gmail.com, <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: <netfilter-devel@vger.kernel.org>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v3 2/4] xen-netback: add control protocol implementation
+Date: Wed, 11 May 2016 16:33:35 +0100
+Message-ID: <1462980817-10149-3-git-send-email-paul.durrant@citrix.com>
+References: <1462980817-10149-1-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39145 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932080AbcEKPk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 11:40:58 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:36840 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932065AbcEKPsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2016 11:48:46 -0400
+In-Reply-To: <1462980817-10149-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under full load (unshare() in loop -> OOM conditions) we can
-get kernel panic:
+My recent patch to include/xen/interface/io/netif.h defines a new shared
+ring (in addition to the rx and tx rings) for passing control messages
+from a VM frontend driver to a backend driver.
 
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-IP: [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
-[..]
-task: ffff88012dfa3840 ti: ffff88012dffc000 task.ti: ffff88012dffc000
-RIP: 0010:[<ffffffff81476c85>]  [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
-RSP: 0000:ffff88012dfffd80  EFLAGS: 00010206
-RAX: 0000000000000008 RBX: ffffffff81add0c0 RCX: ffff88013fd80000
-[..]
-Call Trace:
- [<ffffffff81474d98>] nf_queue_nf_hook_drop+0x18/0x20
- [<ffffffff814738eb>] nf_unregister_net_hook+0xdb/0x150
- [<ffffffff8147398f>] netfilter_net_exit+0x2f/0x60
- [<ffffffff8141b088>] ops_exit_list.isra.4+0x38/0x60
- [<ffffffff8141b652>] setup_net+0xc2/0x120
- [<ffffffff8141bd09>] copy_net_ns+0x79/0x120
- [<ffffffff8106965b>] create_new_namespaces+0x11b/0x1e0
- [<ffffffff810698a7>] unshare_nsproxy_namespaces+0x57/0xa0
- [<ffffffff8104baa2>] SyS_unshare+0x1b2/0x340
- [<ffffffff81608276>] entry_SYSCALL_64_fastpath+0x1e/0xa8
-Code: 65 00 48 89 e5 41 56 41 55 41 54 53 83 e8 01 48 8b 97 70 12 00 00 48 98 49 89 f4 4c 8b 74 c2 18 4d 8d 6e 08 49 81 c6 88 00 00 00 <49> 8b 5d 00 48 85 db 74 1a 48 89 df 4c 89 e2 48 c7 c6 90 68 47
+A previous patch added the necessary boilerplate for mapping the control
+ring from the frontend, should it be created. This patch adds
+implementations for each of the defined protocol messages.
 
-Problem is that we call into the nfqueue backend to zap
-packets that might be queued to userspace when we unregister a
-netfilter hook.
-
-However, this assumes that the backend was initialized and
-net_generic(net, nfnl_queue_net_id) returns valid memory.
-
-This is only true if the hook unregister happens in the netns exit path.
-If it happens during error unwind because a netns init hook returned
-an error condition (e.g. out of memory), then the result of
-net_generic(net, nfnl_queue_net_id) is undefined.
-
-Only do the cleanup for namespaces that were on the
-net_namespace_list list (i.e., all netns ->init() functions were ok).
-
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Reported-by: Dale Whitfield <dale.4d@gmail.com>
-Fixes: 8405a8fff3f ("netfilter: nf_qeueue: Drop queue entries on nf_unregister_hook")
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
 ---
- AFAICS this works fine as well -- if netns was never on the
- net_namespace_list no packets can be queued so we don't need
- to care if the nf_queue init hook got called or not.
 
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 5baa8e2..9722819 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -102,6 +102,13 @@ void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops)
- {
- 	const struct nf_queue_handler *qh;
+v3:
+ - Remove unintentional label rename
+
+v2:
+ - Use RCU list for hash cache
+---
+ drivers/net/xen-netback/Makefile    |   2 +-
+ drivers/net/xen-netback/common.h    |  46 +++++
+ drivers/net/xen-netback/hash.c      | 386 ++++++++++++++++++++++++++++++++++++
+ drivers/net/xen-netback/interface.c |  24 +++
+ drivers/net/xen-netback/netback.c   |  49 ++++-
+ 5 files changed, 504 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/xen-netback/hash.c
+
+diff --git a/drivers/net/xen-netback/Makefile b/drivers/net/xen-netback/Makefile
+index e346e81..11e02be 100644
+--- a/drivers/net/xen-netback/Makefile
++++ b/drivers/net/xen-netback/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_XEN_NETDEV_BACKEND) := xen-netback.o
  
-+	/* netns wasn't initialized, error unwind in progress.
-+	 * Its possible that the nfq netns init function was not even
-+	 * called, in which case nfq pernetns data is in undefined state.
-+	 */
-+	if (!net->list.next)
+-xen-netback-y := netback.o xenbus.o interface.o
++xen-netback-y := netback.o xenbus.o interface.o hash.o
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 093a12a..84d6cbd 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -220,6 +220,35 @@ struct xenvif_mcast_addr {
+ 
+ #define XEN_NETBK_MCAST_MAX 64
+ 
++#define XEN_NETBK_MAX_HASH_KEY_SIZE 40
++#define XEN_NETBK_MAX_HASH_MAPPING_SIZE 128
++#define XEN_NETBK_HASH_TAG_SIZE 40
++
++struct xenvif_hash_cache_entry {
++	struct list_head link;
++	struct rcu_head rcu;
++	u8 tag[XEN_NETBK_HASH_TAG_SIZE];
++	unsigned int len;
++	u32 val;
++	int seq;
++};
++
++struct xenvif_hash_cache {
++	spinlock_t lock;
++	struct list_head list;
++	unsigned int count;
++	atomic_t seq;
++};
++
++struct xenvif_hash {
++	unsigned int alg;
++	u32 flags;
++	u8 key[XEN_NETBK_MAX_HASH_KEY_SIZE];
++	u32 mapping[XEN_NETBK_MAX_HASH_MAPPING_SIZE];
++	unsigned int size;
++	struct xenvif_hash_cache cache;
++};
++
+ struct xenvif {
+ 	/* Unique identifier for this interface. */
+ 	domid_t          domid;
+@@ -251,6 +280,8 @@ struct xenvif {
+ 	unsigned int num_queues; /* active queues, resource allocated */
+ 	unsigned int stalled_queues;
+ 
++	struct xenvif_hash hash;
++
+ 	struct xenbus_watch credit_watch;
+ 	struct xenbus_watch mcast_ctrl_watch;
+ 
+@@ -353,6 +384,7 @@ extern bool separate_tx_rx_irq;
+ extern unsigned int rx_drain_timeout_msecs;
+ extern unsigned int rx_stall_timeout_msecs;
+ extern unsigned int xenvif_max_queues;
++extern unsigned int xenvif_hash_cache_size;
+ 
+ #ifdef CONFIG_DEBUG_FS
+ extern struct dentry *xen_netback_dbg_root;
+@@ -366,4 +398,18 @@ void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue);
+ bool xenvif_mcast_match(struct xenvif *vif, const u8 *addr);
+ void xenvif_mcast_addr_list_free(struct xenvif *vif);
+ 
++/* Hash */
++void xenvif_init_hash(struct xenvif *vif);
++void xenvif_deinit_hash(struct xenvif *vif);
++
++u32 xenvif_set_hash_alg(struct xenvif *vif, u32 alg);
++u32 xenvif_get_hash_flags(struct xenvif *vif, u32 *flags);
++u32 xenvif_set_hash_flags(struct xenvif *vif, u32 flags);
++u32 xenvif_set_hash_key(struct xenvif *vif, u32 gref, u32 len);
++u32 xenvif_set_hash_mapping_size(struct xenvif *vif, u32 size);
++u32 xenvif_set_hash_mapping(struct xenvif *vif, u32 gref, u32 len,
++			    u32 off);
++
++void xenvif_set_skb_hash(struct xenvif *vif, struct sk_buff *skb);
++
+ #endif /* __XEN_NETBACK__COMMON_H__ */
+diff --git a/drivers/net/xen-netback/hash.c b/drivers/net/xen-netback/hash.c
+new file mode 100644
+index 0000000..47edfe9
+--- /dev/null
++++ b/drivers/net/xen-netback/hash.c
+@@ -0,0 +1,386 @@
++/*
++ * Copyright (c) 2016 Citrix Systems Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Softare Foundation; or, when distributed
++ * separately from the Linux kernel or incorporated into other
++ * software packages, subject to the following license:
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this source file (the "Software"), to deal in the Software without
++ * restriction, including without limitation the rights to use, copy, modify,
++ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
++ * and to permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
++ * IN THE SOFTWARE.
++ */
++
++#define XEN_NETIF_DEFINE_TOEPLITZ
++
++#include "common.h"
++#include <linux/vmalloc.h>
++
++static void xenvif_del_hash(struct rcu_head *rcu)
++{
++	struct xenvif_hash_cache_entry *entry;
++
++	entry = container_of(rcu, struct xenvif_hash_cache_entry, rcu);
++
++	destroy_rcu_head(rcu);
++	kfree(entry);
++}
++
++static void xenvif_add_hash(struct xenvif *vif, const u8 *tag,
++			    unsigned int len, u32 val)
++{
++	struct xenvif_hash_cache_entry *new, *entry, *oldest;
++	unsigned long flags;
++	bool found;
++
++	new = kmalloc(sizeof(*entry), GFP_KERNEL);
++	if (!new)
 +		return;
 +
- 	rcu_read_lock();
- 	qh = rcu_dereference(queue_handler);
- 	if (qh)
++	init_rcu_head(&new->rcu);
++
++	memcpy(new->tag, tag, len);
++	new->len = len;
++	new->val = val;
++
++	spin_lock_irqsave(&vif->hash.cache.lock, flags);
++
++	found = false;
++	oldest = NULL;
++	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
++		/* Make sure we don't add duplicate entries */
++		if (entry->len == len &&
++		    memcmp(entry->tag, tag, len) == 0)
++			found = true;
++		if (!oldest || entry->seq < oldest->seq)
++			oldest = entry;
++	}
++
++	if (!found) {
++		new->seq = atomic_inc_return(&vif->hash.cache.seq);
++		list_add_rcu(&new->link, &vif->hash.cache.list);
++
++		if (++vif->hash.cache.count > xenvif_hash_cache_size) {
++			list_del_rcu(&oldest->link);
++			vif->hash.cache.count--;
++			call_rcu(&oldest->rcu, xenvif_del_hash);
++		}
++	}
++
++	spin_unlock_irqrestore(&vif->hash.cache.lock, flags);
++
++	if (found)
++		kfree(new);
++}
++
++static u32 xenvif_new_hash(struct xenvif *vif, const u8 *data,
++			   unsigned int len)
++{
++	u32 val;
++
++	val = xen_netif_toeplitz_hash(vif->hash.key,
++				      sizeof(vif->hash.key),
++				      data, len);
++
++	if (xenvif_hash_cache_size != 0)
++		xenvif_add_hash(vif, data, len, val);
++
++	return val;
++}
++
++static void xenvif_flush_hash(struct xenvif *vif)
++{
++	struct xenvif_hash_cache_entry *entry;
++	unsigned long flags;
++
++	if (xenvif_hash_cache_size == 0)
++		return;
++
++	spin_lock_irqsave(&vif->hash.cache.lock, flags);
++
++	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
++		list_del_rcu(&entry->link);
++		vif->hash.cache.count--;
++		call_rcu(&entry->rcu, xenvif_del_hash);
++	}
++
++	spin_unlock_irqrestore(&vif->hash.cache.lock, flags);
++}
++
++static u32 xenvif_find_hash(struct xenvif *vif, const u8 *data,
++			    unsigned int len)
++{
++	struct xenvif_hash_cache_entry *entry;
++	u32 val;
++	bool found;
++
++	if (len >= XEN_NETBK_HASH_TAG_SIZE)
++		return 0;
++
++	if (xenvif_hash_cache_size == 0)
++		return xenvif_new_hash(vif, data, len);
++
++	rcu_read_lock();
++
++	found = false;
++
++	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
++		if (entry->len == len &&
++		    memcmp(entry->tag, data, len) == 0) {
++			val = entry->val;
++			entry->seq = atomic_inc_return(&vif->hash.cache.seq);
++			found = true;
++			break;
++		}
++	}
++
++	rcu_read_unlock();
++
++	if (!found)
++		val = xenvif_new_hash(vif, data, len);
++
++	return val;
++}
++
++void xenvif_set_skb_hash(struct xenvif *vif, struct sk_buff *skb)
++{
++	struct flow_keys flow;
++	u32 hash = 0;
++	enum pkt_hash_types type = PKT_HASH_TYPE_NONE;
++	u32 flags = vif->hash.flags;
++	bool has_tcp_hdr;
++
++	/* Quick rejection test: If the network protocol doesn't
++	 * correspond to any enabled hash type then there's no point
++	 * in parsing the packet header.
++	 */
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		if (flags & (XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP |
++			     XEN_NETIF_CTRL_HASH_TYPE_IPV4))
++			break;
++
++		goto done;
++
++	case htons(ETH_P_IPV6):
++		if (flags & (XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP |
++			     XEN_NETIF_CTRL_HASH_TYPE_IPV6))
++			break;
++
++		goto done;
++
++	default:
++		goto done;
++	}
++
++	memset(&flow, 0, sizeof(flow));
++	if (!skb_flow_dissect_flow_keys(skb, &flow, 0))
++		goto done;
++
++	has_tcp_hdr = (flow.basic.ip_proto == IPPROTO_TCP) &&
++		      !(flow.control.flags & FLOW_DIS_IS_FRAGMENT);
++
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		if (has_tcp_hdr &&
++		    (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP)) {
++			u8 data[12];
++
++			memcpy(&data[0], &flow.addrs.v4addrs.src, 4);
++			memcpy(&data[4], &flow.addrs.v4addrs.dst, 4);
++			memcpy(&data[8], &flow.ports.src, 2);
++			memcpy(&data[10], &flow.ports.dst, 2);
++
++			hash = xenvif_find_hash(vif, data, sizeof(data));
++			type = PKT_HASH_TYPE_L4;
++		} else if (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV4) {
++			u8 data[8];
++
++			memcpy(&data[0], &flow.addrs.v4addrs.src, 4);
++			memcpy(&data[4], &flow.addrs.v4addrs.dst, 4);
++
++			hash = xenvif_find_hash(vif, data, sizeof(data));
++			type = PKT_HASH_TYPE_L3;
++		}
++
++		break;
++
++	case htons(ETH_P_IPV6):
++		if (has_tcp_hdr &&
++		    (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP)) {
++			u8 data[36];
++
++			memcpy(&data[0], &flow.addrs.v6addrs.src, 16);
++			memcpy(&data[16], &flow.addrs.v6addrs.dst, 16);
++			memcpy(&data[32], &flow.ports.src, 2);
++			memcpy(&data[34], &flow.ports.dst, 2);
++
++			hash = xenvif_find_hash(vif, data, sizeof(data));
++			type = PKT_HASH_TYPE_L4;
++		} else if (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV6) {
++			u8 data[32];
++
++			memcpy(&data[0], &flow.addrs.v6addrs.src, 16);
++			memcpy(&data[16], &flow.addrs.v6addrs.dst, 16);
++
++			hash = xenvif_find_hash(vif, data, sizeof(data));
++			type = PKT_HASH_TYPE_L3;
++		}
++
++		break;
++	}
++
++done:
++	if (type == PKT_HASH_TYPE_NONE)
++		skb_clear_hash(skb);
++	else
++		__skb_set_sw_hash(skb, hash, type == PKT_HASH_TYPE_L4);
++}
++
++u32 xenvif_set_hash_alg(struct xenvif *vif, u32 alg)
++{
++	switch (alg) {
++	case XEN_NETIF_CTRL_HASH_ALGORITHM_NONE:
++	case XEN_NETIF_CTRL_HASH_ALGORITHM_TOEPLITZ:
++		break;
++
++	default:
++		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++	}
++
++	vif->hash.alg = alg;
++
++	return XEN_NETIF_CTRL_STATUS_SUCCESS;
++}
++
++u32 xenvif_get_hash_flags(struct xenvif *vif, u32 *flags)
++{
++	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
++		return XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED;
++
++	*flags = XEN_NETIF_CTRL_HASH_TYPE_IPV4 |
++		 XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP |
++		 XEN_NETIF_CTRL_HASH_TYPE_IPV6 |
++		 XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP;
++
++	return XEN_NETIF_CTRL_STATUS_SUCCESS;
++}
++
++u32 xenvif_set_hash_flags(struct xenvif *vif, u32 flags)
++{
++	if (flags & ~(XEN_NETIF_CTRL_HASH_TYPE_IPV4 |
++		      XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP |
++		      XEN_NETIF_CTRL_HASH_TYPE_IPV6 |
++		      XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP))
++		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++
++	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
++		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++
++	vif->hash.flags = flags;
++
++	return XEN_NETIF_CTRL_STATUS_SUCCESS;
++}
++
++u32 xenvif_set_hash_key(struct xenvif *vif, u32 gref, u32 len)
++{
++	u8 *key = vif->hash.key;
++	struct gnttab_copy copy_op = {
++		.source.u.ref = gref,
++		.source.domid = vif->domid,
++		.dest.u.gmfn = virt_to_gfn(key),
++		.dest.domid = DOMID_SELF,
++		.dest.offset = xen_offset_in_page(key),
++		.len = len,
++		.flags = GNTCOPY_source_gref
++	};
++
++	if (len > XEN_NETBK_MAX_HASH_KEY_SIZE)
++		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++
++	if (len != 0) {
++		gnttab_batch_copy(&copy_op, 1);
++
++		if (copy_op.status != GNTST_okay)
++			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++	}
++
++	/* Clear any remaining key octets */
++	if (len < XEN_NETBK_MAX_HASH_KEY_SIZE)
++		memset(key + len, 0, XEN_NETBK_MAX_HASH_KEY_SIZE - len);
++
++	xenvif_flush_hash(vif);
++
++	return XEN_NETIF_CTRL_STATUS_SUCCESS;
++}
++
++u32 xenvif_set_hash_mapping_size(struct xenvif *vif, u32 size)
++{
++	if (size > XEN_NETBK_MAX_HASH_MAPPING_SIZE)
++		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++
++	vif->hash.size = size;
++	memset(vif->hash.mapping, 0, sizeof(u32) * size);
++
++	return XEN_NETIF_CTRL_STATUS_SUCCESS;
++}
++
++u32 xenvif_set_hash_mapping(struct xenvif *vif, u32 gref, u32 len,
++			    u32 off)
++{
++	u32 *mapping = &vif->hash.mapping[off];
++	struct gnttab_copy copy_op = {
++		.source.u.ref = gref,
++		.source.domid = vif->domid,
++		.dest.u.gmfn = virt_to_gfn(mapping),
++		.dest.domid = DOMID_SELF,
++		.dest.offset = xen_offset_in_page(mapping),
++		.len = len * sizeof(u32),
++		.flags = GNTCOPY_source_gref
++	};
++
++	if ((off + len > vif->hash.size) || copy_op.len > XEN_PAGE_SIZE)
++		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++
++	while (len-- != 0)
++		if (mapping[off++] >= vif->num_queues)
++			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++
++	if (len != 0) {
++		gnttab_batch_copy(&copy_op, 1);
++
++		if (copy_op.status != GNTST_okay)
++			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
++	}
++
++	return XEN_NETIF_CTRL_STATUS_SUCCESS;
++}
++
++void xenvif_init_hash(struct xenvif *vif)
++{
++	if (xenvif_hash_cache_size == 0)
++		return;
++
++	spin_lock_init(&vif->hash.cache.lock);
++	INIT_LIST_HEAD(&vif->hash.cache.list);
++}
++
++void xenvif_deinit_hash(struct xenvif *vif)
++{
++	xenvif_flush_hash(vif);
++}
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 78a10d2..5a39cdb 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -151,6 +151,24 @@ void xenvif_wake_queue(struct xenvif_queue *queue)
+ 	netif_tx_wake_queue(netdev_get_tx_queue(dev, id));
+ }
+ 
++static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
++			       void *accel_priv,
++			       select_queue_fallback_t fallback)
++{
++	struct xenvif *vif = netdev_priv(dev);
++	unsigned int size = vif->hash.size;
++
++	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
++		return fallback(dev, skb) % dev->real_num_tx_queues;
++
++	xenvif_set_skb_hash(vif, skb);
++
++	if (size == 0)
++		return skb_get_hash_raw(skb) % dev->real_num_tx_queues;
++
++	return vif->hash.mapping[skb_get_hash_raw(skb) % size];
++}
++
+ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+@@ -395,6 +413,7 @@ static const struct ethtool_ops xenvif_ethtool_ops = {
+ };
+ 
+ static const struct net_device_ops xenvif_netdev_ops = {
++	.ndo_select_queue = xenvif_select_queue,
+ 	.ndo_start_xmit	= xenvif_start_xmit,
+ 	.ndo_get_stats	= xenvif_get_stats,
+ 	.ndo_open	= xenvif_open,
+@@ -563,6 +582,8 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
+ 
+ 	vif->ctrl_irq = err;
+ 
++	xenvif_init_hash(vif);
++
+ 	task = kthread_create(xenvif_ctrl_kthread, (void *)vif,
+ 			      "%s-control", dev->name);
+ 	if (IS_ERR(task)) {
+@@ -579,6 +600,7 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
+ 	return 0;
+ 
+ err_deinit:
++	xenvif_deinit_hash(vif);
+ 	unbind_from_irqhandler(vif->ctrl_irq, vif);
+ 	vif->ctrl_irq = 0;
+ 
+@@ -749,6 +771,8 @@ void xenvif_disconnect_ctrl(struct xenvif *vif)
+ 		vif->ctrl_task = NULL;
+ 	}
+ 
++	xenvif_deinit_hash(vif);
++
+ 	if (vif->ctrl_irq) {
+ 		unbind_from_irqhandler(vif->ctrl_irq, vif);
+ 		vif->ctrl_irq = 0;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 45aa40b..6509d11 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -89,6 +89,11 @@ module_param(fatal_skb_slots, uint, 0444);
+  */
+ #define XEN_NETBACK_TX_COPY_LEN 128
+ 
++/* This is the maximum number of flows in the hash cache. */
++#define XENVIF_HASH_CACHE_SIZE_DEFAULT 64
++unsigned int xenvif_hash_cache_size = XENVIF_HASH_CACHE_SIZE_DEFAULT;
++module_param_named(hash_cache_size, xenvif_hash_cache_size, uint, 0644);
++MODULE_PARM_DESC(hash_cache_size, "Number of flows in the hash cache");
+ 
+ static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+ 			       u8 status);
+@@ -2191,8 +2196,48 @@ static void push_ctrl_response(struct xenvif *vif)
+ static void process_ctrl_request(struct xenvif *vif,
+ 				 const struct xen_netif_ctrl_request *req)
+ {
+-	make_ctrl_response(vif, req, XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED,
+-			   0);
++	u32 status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED;
++	u32 data = 0;
++
++	switch (req->type) {
++	case XEN_NETIF_CTRL_TYPE_SET_HASH_ALGORITHM:
++		status = xenvif_set_hash_alg(vif, req->data[0]);
++		break;
++
++	case XEN_NETIF_CTRL_TYPE_GET_HASH_FLAGS:
++		status = xenvif_get_hash_flags(vif, &data);
++		break;
++
++	case XEN_NETIF_CTRL_TYPE_SET_HASH_FLAGS:
++		status = xenvif_set_hash_flags(vif, req->data[0]);
++		break;
++
++	case XEN_NETIF_CTRL_TYPE_SET_HASH_KEY:
++		status = xenvif_set_hash_key(vif, req->data[0],
++					     req->data[1]);
++		break;
++
++	case XEN_NETIF_CTRL_TYPE_GET_HASH_MAPPING_SIZE:
++		status = XEN_NETIF_CTRL_STATUS_SUCCESS;
++		data = XEN_NETBK_MAX_HASH_MAPPING_SIZE;
++		break;
++
++	case XEN_NETIF_CTRL_TYPE_SET_HASH_MAPPING_SIZE:
++		status = xenvif_set_hash_mapping_size(vif,
++						      req->data[0]);
++		break;
++
++	case XEN_NETIF_CTRL_TYPE_SET_HASH_MAPPING:
++		status = xenvif_set_hash_mapping(vif, req->data[0],
++						 req->data[1],
++						 req->data[2]);
++		break;
++
++	default:
++		break;
++	}
++
++	make_ctrl_response(vif, req, status, data);
+ 	push_ctrl_response(vif);
+ }
+ 
 -- 
-2.7.3
+2.1.4
