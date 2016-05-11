@@ -1,137 +1,74 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2] ip link: Add support for kernel side filtering
-Date: Wed, 11 May 2016 06:51:58 -0700
-Message-ID: <1462974718-12860-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3 flow/port
+ support
+Date: Wed, 11 May 2016 16:09:28 +0200
+Message-ID: <20160511160928.27816400@griffin>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+	<1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+	<CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+	<20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
+	<20160506112514.47f6e9dc@griffin>
+	<20160509080420.GA4470@vergenet.net>
+	<20160510140106.367936fb@griffin>
+	<20160511015009.GB24436@vergenet.net>
+	<20160511030632.GA24805@vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pravin shelar <pshelar@ovn.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>,
+	Lorand Jakab <lojakab@cisco.com>,
+	Thomas Morin <thomas.morin@orange.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35859 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932825AbcEKNwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:52:04 -0400
-Received: by mail-pa0-f53.google.com with SMTP id bt5so17856274pac.3
-        for <netdev@vger.kernel.org>; Wed, 11 May 2016 06:52:04 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:35623 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932613AbcEKOJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2016 10:09:33 -0400
+In-Reply-To: <20160511030632.GA24805@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel gained support for filtering link dumps with commit dc599f76c22b
-("net: Add support for filtering link dump by master device and kind").
-Add support to ip link command. If a user passes master device or
-kind to ip link command they are added to the link dump request message.
+On Wed, 11 May 2016 12:06:35 +0900, Simon Horman wrote:
+> Is this close to what you had in mind?
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/libnetlink.h |  6 ++++++
- ip/ipaddress.c       | 33 ++++++++++++++++++++++++++++++++-
- lib/libnetlink.c     | 28 ++++++++++++++++++++++++++++
- 3 files changed, 66 insertions(+), 1 deletion(-)
+Yes but see below.
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 491263f7e103..f7b85dccef36 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -38,6 +38,12 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int fam, int type)
- int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int fam, int type,
- 				    __u32 filt_mask)
- 	__attribute__((warn_unused_result));
-+
-+typedef int (*req_filter_fn_t)(struct nlmsghdr *nlh, int reqlen);
-+
-+int rtnl_wilddump_req_filter_fn(struct rtnl_handle *rth, int fam, int type,
-+				req_filter_fn_t fn)
-+	__attribute__((warn_unused_result));
- int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req,
- 			     int len)
- 	__attribute__((warn_unused_result));
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index aac7970e16dd..0692fbacd669 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1476,6 +1476,36 @@ static int ipaddr_flush(void)
- 	return 1;
- }
- 
-+static int iplink_filter_req(struct nlmsghdr *nlh, int reqlen)
-+{
-+	int err;
-+
-+	err = addattr32(nlh, reqlen, IFLA_EXT_MASK, RTEXT_FILTER_VF);
-+	if (err)
-+		return err;
-+
-+	if (filter.master) {
-+		err = addattr32(nlh, reqlen, IFLA_MASTER, filter.master);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (filter.kind) {
-+		struct rtattr *linkinfo;
-+
-+		linkinfo = addattr_nest(nlh, reqlen, IFLA_LINKINFO);
-+
-+		err = addattr_l(nlh, reqlen, IFLA_INFO_KIND, filter.kind,
-+				strlen(filter.kind));
-+		if (err)
-+			return err;
-+
-+		addattr_nest_end(nlh, linkinfo);
-+	}
-+
-+	return 0;
-+}
-+
- static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- {
- 	struct nlmsg_chain linfo = { NULL, NULL};
-@@ -1638,7 +1668,8 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 		exit(0);
- 	}
- 
--	if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK) < 0) {
-+	if (rtnl_wilddump_req_filter_fn(&rth, preferred_family, RTM_GETLINK,
-+					iplink_filter_req) < 0) {
- 		perror("Cannot send dump request");
- 		exit(1);
- 	}
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index a90e52ca2c0a..0adcbf3f6e38 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -129,6 +129,34 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
- 	return send(rth->fd, (void*)&req, sizeof(req), 0);
- }
- 
-+int rtnl_wilddump_req_filter_fn(struct rtnl_handle *rth, int family, int type,
-+				req_filter_fn_t filter_fn)
-+{
-+	struct {
-+		struct nlmsghdr nlh;
-+		struct ifinfomsg ifm;
-+		char buf[1024];
-+	} req;
-+	int err;
-+
-+	if (!filter_fn)
-+		return -EINVAL;
-+
-+	memset(&req, 0, sizeof(req));
-+	req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-+	req.nlh.nlmsg_type = type;
-+	req.nlh.nlmsg_flags = NLM_F_DUMP|NLM_F_REQUEST;
-+	req.nlh.nlmsg_pid = 0;
-+	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
-+	req.ifm.ifi_family = family;
-+
-+	err = filter_fn(&req.nlh, sizeof(req));
-+	if (err)
-+		return err;
-+
-+	return send(rth->fd, (void*)&req, sizeof(req), 0);
-+}
-+
- int rtnl_send(struct rtnl_handle *rth, const void *buf, int len)
- {
- 	return send(rth->fd, buf, len, 0);
--- 
-2.1.4
+> @@ -739,17 +729,17 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+>  	key->phy.skb_mark = skb->mark;
+>  	ovs_ct_fill_key(skb, key);
+>  	key->ovs_flow_hash = 0;
+> -	key->phy.is_layer3 = is_layer3;
+> +	key->phy.is_layer3 = (tun_info && skb->mac_len == 0);
+
+Do we have to depend on tun_info? It would be nice to support all
+ARPHRD_NONE interfaces, not just tunnels. The tun interface (from
+the tuntap driver) comes to mind, for example.
+
+> --- a/net/openvswitch/vport-netdev.c
+> +++ b/net/openvswitch/vport-netdev.c
+> @@ -60,7 +60,21 @@ static void netdev_port_receive(struct sk_buff *skb)
+>  	if (vport->dev->type == ARPHRD_ETHER) {
+>  		skb_push(skb, ETH_HLEN);
+>  		skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
+> +	} else if (vport->dev->type == ARPHRD_NONE) {
+> +		if (skb->protocol == htons(ETH_P_TEB)) {
+> +			struct ethhdr *eth = eth_hdr(skb);
+> +
+> +			if (unlikely(skb->len < ETH_HLEN))
+> +				goto error;
+> +
+> +			skb->mac_len = ETH_HLEN;
+> +			if (eth->h_proto == htons(ETH_P_8021Q))
+> +				skb->mac_len += VLAN_HLEN;
+> +		} else {
+> +			skb->mac_len = 0;
+> +		}
+
+Without putting much thought into this, could this perhaps be left for
+parse_ethertype (called from key_extract) to do?
+
+Thanks,
+
+ Jiri
