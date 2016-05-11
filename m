@@ -1,820 +1,660 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next v2 09/14] qed*: Support PVID configuration
-Date: Wed, 11 May 2016 16:36:20 +0300
-Message-ID: <1462973785-32532-10-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next v2 06/14] qed: Bulletin and Link
+Date: Wed, 11 May 2016 16:36:17 +0300
+Message-ID: <1462973785-32532-7-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:49909 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932545AbcEKNhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:37:11 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:10614 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932669AbcEKNhC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:37:02 -0400
 In-Reply-To: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for PF control over the VF vlan configuration.
-I.e., `ip link ... vf <x> vlan <vid>' should now be supported.
+Up to this point, VF and PF communication always originates from VF.
+As a result, VF cannot be notified of any async changes, and specifically
+cannot be informed of the current link state.
 
- 1. <vid> != 0 => VF receives [unknowingly] only traffic tagged by
-    <vid> and tags all outgoing traffic sent by VF with <vid>.
- 2. <vid> == 0 ==> Remove the pvid configuration, reverting to previous.
+This introduces the bulletin board, the mechanism through which the PF
+is going to communicate async notifications back to the VF. basically,
+it's a well-defined structure agreed by both PF and VF which the VF would
+continuously poll and into which the PF would DMA messages when needed.
+[Bulletin board is actually allocated and communicated in previous patches
+but never before used]
+
+Based on the bulletin infrastructure, the VF can query its link status
+and receive said async carrier changes.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c    |   9 +-
- drivers/net/ethernet/qlogic/qed/qed_l2.c     |  14 +-
- drivers/net/ethernet/qlogic/qed/qed_l2.h     |   6 +
- drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 364 ++++++++++++++++++++++++++-
- drivers/net/ethernet/qlogic/qed/qed_sriov.h  |  26 ++
- drivers/net/ethernet/qlogic/qed/qed_vf.c     |  18 +-
- drivers/net/ethernet/qlogic/qed/qed_vf.h     |  19 +-
- drivers/net/ethernet/qlogic/qede/qede_main.c |  18 ++
- include/linux/qed/qed_iov_if.h               |   1 +
- 9 files changed, 468 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_main.c  |  12 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 136 +++++++++++++++++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h |   5 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c    | 122 ++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_vf.h    | 156 ++++++++++++++++++++++++++++
+ 5 files changed, 425 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 9d01a16..e75e73a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1104,9 +1104,16 @@ static void qed_hw_get_resc(struct qed_hwfn *p_hwfn)
- 	u8 num_funcs = p_hwfn->num_funcs_on_engine;
- 	u32 *resc_num = p_hwfn->hw_info.resc_num;
- 	struct qed_sb_cnt_info sb_cnt_info;
--	int i;
-+	int i, max_vf_vlan_filters;
- 
- 	memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
-+
-+#ifdef CONFIG_QED_SRIOV
-+	max_vf_vlan_filters = QED_ETH_MAX_VF_NUM_VLAN_FILTERS;
-+#else
-+	max_vf_vlan_filters = 0;
-+#endif
-+
- 	qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
- 
- 	resc_num[QED_SB] = min_t(u32,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 80f0b85..7fb6b82 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -114,7 +114,8 @@ int qed_sp_vport_start(struct qed_hwfn *p_hwfn,
- 					     p_params->mtu,
- 					     p_params->remove_inner_vlan,
- 					     p_params->tpa_mode,
--					     p_params->max_buffers_per_cqe);
-+					     p_params->max_buffers_per_cqe,
-+					     p_params->only_untagged);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index e98610e..dcb782c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1119,9 +1119,9 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
+ 		memcpy(&link_caps, qed_mcp_get_link_capabilities(hwfn),
+ 		       sizeof(link_caps));
+ 	} else {
+-		memset(&params, 0, sizeof(params));
+-		memset(&link, 0, sizeof(link));
+-		memset(&link_caps, 0, sizeof(link_caps));
++		qed_vf_get_link_params(hwfn, &params);
++		qed_vf_get_link_state(hwfn, &link);
++		qed_vf_get_link_caps(hwfn, &link_caps);
  	}
  
- 	return qed_sp_eth_vport_start(p_hwfn, p_params);
-@@ -367,6 +368,16 @@ int qed_sp_vport_update(struct qed_hwfn *p_hwfn,
- 	p_cmn->inner_vlan_removal_en = p_params->inner_vlan_removal_flg;
- 	val = p_params->update_inner_vlan_removal_flg;
- 	p_cmn->update_inner_vlan_removal_en_flg = val;
+ 	/* Set the link parameters to pass to protocol driver */
+@@ -1224,7 +1224,12 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
+ static void qed_get_current_link(struct qed_dev *cdev,
+ 				 struct qed_link_output *if_link)
+ {
++	int i;
 +
-+	p_cmn->default_vlan_en = p_params->default_vlan_enable_flg;
-+	val = p_params->update_default_vlan_enable_flg;
-+	p_cmn->update_default_vlan_en_flg = val;
+ 	qed_fill_link(&cdev->hwfns[0], if_link);
 +
-+	p_cmn->default_vlan = cpu_to_le16(p_params->default_vlan);
-+	p_cmn->update_default_vlan_flg = p_params->update_default_vlan_flg;
-+
-+	p_cmn->silent_vlan_removal_en = p_params->silent_vlan_removal_flg;
-+
- 	p_ramrod->common.tx_switching_en = p_params->tx_switching_flg;
- 	p_cmn->update_tx_switching_en_flg = p_params->update_tx_switching_flg;
++	for_each_hwfn(cdev, i)
++		qed_inform_vf_link_state(&cdev->hwfns[i]);
+ }
  
-@@ -1702,6 +1713,7 @@ static int qed_start_vport(struct qed_dev *cdev,
- 		start.tpa_mode = params->gro_enable ? QED_TPA_MODE_GRO :
- 							QED_TPA_MODE_NONE;
- 		start.remove_inner_vlan = params->remove_inner_vlan;
-+		start.only_untagged = true;	/* untagged only */
- 		start.drop_ttl0 = params->drop_ttl0;
- 		start.opaque_fid = p_hwfn->hw_info.opaque_fid;
- 		start.concrete_fid = p_hwfn->hw_info.concrete_fid;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index f9e677a..fad30ae 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -94,6 +94,7 @@ enum qed_tpa_mode {
- struct qed_sp_vport_start_params {
- 	enum qed_tpa_mode tpa_mode;
- 	bool remove_inner_vlan;
-+	bool only_untagged;
- 	bool drop_ttl0;
- 	u8 max_buffers_per_cqe;
- 	u32 concrete_fid;
-@@ -140,6 +141,11 @@ struct qed_sp_vport_update_params {
- 	u8				vport_active_tx_flg;
- 	u8				update_inner_vlan_removal_flg;
- 	u8				inner_vlan_removal_flg;
-+	u8				silent_vlan_removal_flg;
-+	u8				update_default_vlan_enable_flg;
-+	u8				default_vlan_enable_flg;
-+	u8				update_default_vlan_flg;
-+	u16				default_vlan;
- 	u8				update_tx_switching_flg;
- 	u8				tx_switching_flg;
- 	u8				update_approx_mcast_flg;
+ void qed_link_update(struct qed_hwfn *hwfn)
+@@ -1234,6 +1239,7 @@ void qed_link_update(struct qed_hwfn *hwfn)
+ 	struct qed_link_output if_link;
+ 
+ 	qed_fill_link(hwfn, &if_link);
++	qed_inform_vf_link_state(hwfn);
+ 
+ 	if (IS_LEAD_HWFN(hwfn) && cookie)
+ 		op->link_update(cookie, &if_link);
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 29a53dd..77d44ba 100644
+index 82f1eda3..f6540c0 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1075,6 +1075,7 @@ static void qed_iov_vf_cleanup(struct qed_hwfn *p_hwfn,
- 	p_vf->vport_instance = 0;
- 	p_vf->num_mac_filters = 0;
- 	p_vf->num_vlan_filters = 0;
-+	p_vf->configured_features = 0;
+@@ -7,6 +7,7 @@
+  */
  
- 	/* If VF previously requested less resources, go back to default */
- 	p_vf->num_rxqs = p_vf->num_sbs;
-@@ -1085,6 +1086,7 @@ static void qed_iov_vf_cleanup(struct qed_hwfn *p_hwfn,
- 	for (i = 0; i < QED_MAX_VF_CHAINS_PER_PF; i++)
- 		p_vf->vf_queues[i].rxq_active = 0;
- 
-+	memset(&p_vf->shadow_config, 0, sizeof(p_vf->shadow_config));
- 	qed_iov_clean_vf(p_hwfn, p_vf->relative_vf_id);
+ #include <linux/etherdevice.h>
++#include <linux/crc32.h>
+ #include <linux/qed/qed_iov_if.h>
+ #include "qed_cxt.h"
+ #include "qed_hsi.h"
+@@ -116,6 +117,41 @@ static struct qed_vf_info *qed_iov_get_vf_info(struct qed_hwfn *p_hwfn,
+ 	return vf;
  }
  
-@@ -1232,6 +1234,149 @@ out:
- 			     sizeof(struct pfvf_acquire_resp_tlv), vfpf_status);
- }
- 
-+static int qed_iov_reconfigure_unicast_vlan(struct qed_hwfn *p_hwfn,
-+					    struct qed_vf_info *p_vf)
++int qed_iov_post_vf_bulletin(struct qed_hwfn *p_hwfn,
++			     int vfid, struct qed_ptt *p_ptt)
 +{
-+	struct qed_filter_ucast filter;
-+	int rc = 0;
-+	int i;
-+
-+	memset(&filter, 0, sizeof(filter));
-+	filter.is_rx_filter = 1;
-+	filter.is_tx_filter = 1;
-+	filter.vport_to_add_to = p_vf->vport_id;
-+	filter.opcode = QED_FILTER_ADD;
-+
-+	/* Reconfigure vlans */
-+	for (i = 0; i < QED_ETH_VF_NUM_VLAN_FILTERS + 1; i++) {
-+		if (!p_vf->shadow_config.vlans[i].used)
-+			continue;
-+
-+		filter.type = QED_FILTER_VLAN;
-+		filter.vlan = p_vf->shadow_config.vlans[i].vid;
-+		DP_VERBOSE(p_hwfn,
-+			   QED_MSG_IOV,
-+			   "Reconfiguring VLAN [0x%04x] for VF [%04x]\n",
-+			   filter.vlan, p_vf->relative_vf_id);
-+		rc = qed_sp_eth_filter_ucast(p_hwfn,
-+					     p_vf->opaque_fid,
-+					     &filter,
-+					     QED_SPQ_MODE_CB, NULL);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "Failed to configure VLAN [%04x] to VF [%04x]\n",
-+				  filter.vlan, p_vf->relative_vf_id);
-+			break;
-+		}
-+	}
-+
-+	return rc;
-+}
-+
-+static int
-+qed_iov_reconfigure_unicast_shadow(struct qed_hwfn *p_hwfn,
-+				   struct qed_vf_info *p_vf, u64 events)
-+{
-+	int rc = 0;
-+
-+	if ((events & (1 << VLAN_ADDR_FORCED)) &&
-+	    !(p_vf->configured_features & (1 << VLAN_ADDR_FORCED)))
-+		rc = qed_iov_reconfigure_unicast_vlan(p_hwfn, p_vf);
-+
-+	return rc;
-+}
-+
-+static int qed_iov_configure_vport_forced(struct qed_hwfn *p_hwfn,
-+					  struct qed_vf_info *p_vf, u64 events)
-+{
-+	int rc = 0;
-+	struct qed_filter_ucast filter;
-+
-+	if (!p_vf->vport_instance)
-+		return -EINVAL;
-+
-+	if (events & (1 << VLAN_ADDR_FORCED)) {
-+		struct qed_sp_vport_update_params vport_update;
-+		u8 removal;
-+		int i;
-+
-+		memset(&filter, 0, sizeof(filter));
-+		filter.type = QED_FILTER_VLAN;
-+		filter.is_rx_filter = 1;
-+		filter.is_tx_filter = 1;
-+		filter.vport_to_add_to = p_vf->vport_id;
-+		filter.vlan = p_vf->bulletin.p_virt->pvid;
-+		filter.opcode = filter.vlan ? QED_FILTER_REPLACE :
-+					      QED_FILTER_FLUSH;
-+
-+		/* Send the ramrod */
-+		rc = qed_sp_eth_filter_ucast(p_hwfn, p_vf->opaque_fid,
-+					     &filter, QED_SPQ_MODE_CB, NULL);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "PF failed to configure VLAN for VF\n");
-+			return rc;
-+		}
-+
-+		/* Update the default-vlan & silent vlan stripping */
-+		memset(&vport_update, 0, sizeof(vport_update));
-+		vport_update.opaque_fid = p_vf->opaque_fid;
-+		vport_update.vport_id = p_vf->vport_id;
-+		vport_update.update_default_vlan_enable_flg = 1;
-+		vport_update.default_vlan_enable_flg = filter.vlan ? 1 : 0;
-+		vport_update.update_default_vlan_flg = 1;
-+		vport_update.default_vlan = filter.vlan;
-+
-+		vport_update.update_inner_vlan_removal_flg = 1;
-+		removal = filter.vlan ? 1
-+				      : p_vf->shadow_config.inner_vlan_removal;
-+		vport_update.inner_vlan_removal_flg = removal;
-+		vport_update.silent_vlan_removal_flg = filter.vlan ? 1 : 0;
-+		rc = qed_sp_vport_update(p_hwfn,
-+					 &vport_update,
-+					 QED_SPQ_MODE_EBLOCK, NULL);
-+		if (rc) {
-+			DP_NOTICE(p_hwfn,
-+				  "PF failed to configure VF vport for vlan\n");
-+			return rc;
-+		}
-+
-+		/* Update all the Rx queues */
-+		for (i = 0; i < QED_MAX_VF_CHAINS_PER_PF; i++) {
-+			u16 qid;
-+
-+			if (!p_vf->vf_queues[i].rxq_active)
-+				continue;
-+
-+			qid = p_vf->vf_queues[i].fw_rx_qid;
-+
-+			rc = qed_sp_eth_rx_queues_update(p_hwfn, qid,
-+							 1, 0, 1,
-+							 QED_SPQ_MODE_EBLOCK,
-+							 NULL);
-+			if (rc) {
-+				DP_NOTICE(p_hwfn,
-+					  "Failed to send Rx update fo queue[0x%04x]\n",
-+					  qid);
-+				return rc;
-+			}
-+		}
-+
-+		if (filter.vlan)
-+			p_vf->configured_features |= 1 << VLAN_ADDR_FORCED;
-+		else
-+			p_vf->configured_features &= ~(1 << VLAN_ADDR_FORCED);
-+	}
-+
-+	/* If forced features are terminated, we need to configure the shadow
-+	 * configuration back again.
-+	 */
-+	if (events)
-+		qed_iov_reconfigure_unicast_shadow(p_hwfn, p_vf, events);
-+
-+	return rc;
-+}
-+
- static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
- 				       struct qed_ptt *p_ptt,
- 				       struct qed_vf_info *vf)
-@@ -1241,6 +1386,7 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
- 	struct vfpf_vport_start_tlv *start;
- 	u8 status = PFVF_STATUS_SUCCESS;
- 	struct qed_vf_info *vf_info;
-+	u64 *p_bitmap;
- 	int sb_id;
- 	int rc;
- 
-@@ -1272,10 +1418,24 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
- 	qed_iov_enable_vf_traffic(p_hwfn, p_ptt, vf);
- 
- 	vf->mtu = start->mtu;
-+	vf->shadow_config.inner_vlan_removal = start->inner_vlan_removal;
-+
-+	/* Take into consideration configuration forced by hypervisor;
-+	 * If none is configured, use the supplied VF values [for old
-+	 * vfs that would still be fine, since they passed '0' as padding].
-+	 */
-+	p_bitmap = &vf_info->bulletin.p_virt->valid_bitmap;
-+	if (!(*p_bitmap & (1 << VFPF_BULLETIN_UNTAGGED_DEFAULT_FORCED))) {
-+		u8 vf_req = start->only_untagged;
-+
-+		vf_info->bulletin.p_virt->default_only_untagged = vf_req;
-+		*p_bitmap |= 1 << VFPF_BULLETIN_UNTAGGED_DEFAULT;
-+	}
- 
- 	params.tpa_mode = start->tpa_mode;
- 	params.remove_inner_vlan = start->inner_vlan_removal;
- 
-+	params.only_untagged = vf_info->bulletin.p_virt->default_only_untagged;
- 	params.drop_ttl0 = false;
- 	params.concrete_fid = vf->concrete_fid;
- 	params.opaque_fid = vf->opaque_fid;
-@@ -1290,6 +1450,9 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
- 		status = PFVF_STATUS_FAILURE;
- 	} else {
- 		vf->vport_instance++;
-+
-+		/* Force configuration if needed on the newly opened vport */
-+		qed_iov_configure_vport_forced(p_hwfn, vf, *p_bitmap);
- 	}
- 	qed_iov_prepare_resp(p_hwfn, p_ptt, vf, CHANNEL_TLV_VPORT_START,
- 			     sizeof(struct pfvf_def_resp_tlv), status);
-@@ -1311,6 +1474,10 @@ static void qed_iov_vf_mbx_stop_vport(struct qed_hwfn *p_hwfn,
- 		status = PFVF_STATUS_FAILURE;
- 	}
- 
-+	/* Forget the configuration on the vport */
-+	vf->configured_features = 0;
-+	memset(&vf->shadow_config, 0, sizeof(vf->shadow_config));
-+
- 	qed_iov_prepare_resp(p_hwfn, p_ptt, vf, CHANNEL_TLV_VPORT_TEARDOWN,
- 			     sizeof(struct pfvf_def_resp_tlv), status);
- }
-@@ -1634,8 +1801,13 @@ qed_iov_vp_update_vlan_param(struct qed_hwfn *p_hwfn,
- 	if (!p_vlan_tlv)
- 		return;
- 
--	p_data->update_inner_vlan_removal_flg = 1;
--	p_data->inner_vlan_removal_flg = p_vlan_tlv->remove_vlan;
-+	p_vf->shadow_config.inner_vlan_removal = p_vlan_tlv->remove_vlan;
-+
-+	/* Ignore the VF request if we're forcing a vlan */
-+	if (!(p_vf->configured_features & (1 << VLAN_ADDR_FORCED))) {
-+		p_data->update_inner_vlan_removal_flg = 1;
-+		p_data->inner_vlan_removal_flg = p_vlan_tlv->remove_vlan;
-+	}
- 
- 	*tlvs_mask |= 1 << QED_IOV_VP_UPDATE_VLAN_STRIP;
- }
-@@ -1886,6 +2058,67 @@ out:
- 	qed_iov_send_response(p_hwfn, p_ptt, vf, length, status);
- }
- 
-+static int qed_iov_vf_update_unicast_shadow(struct qed_hwfn *p_hwfn,
-+					    struct qed_vf_info *p_vf,
-+					    struct qed_filter_ucast *p_params)
-+{
-+	int i;
-+
-+	if (p_params->type == QED_FILTER_MAC)
-+		return 0;
-+
-+	/* First remove entries and then add new ones */
-+	if (p_params->opcode == QED_FILTER_REMOVE) {
-+		for (i = 0; i < QED_ETH_VF_NUM_VLAN_FILTERS + 1; i++)
-+			if (p_vf->shadow_config.vlans[i].used &&
-+			    p_vf->shadow_config.vlans[i].vid ==
-+			    p_params->vlan) {
-+				p_vf->shadow_config.vlans[i].used = false;
-+				break;
-+			}
-+		if (i == QED_ETH_VF_NUM_VLAN_FILTERS + 1) {
-+			DP_VERBOSE(p_hwfn,
-+				   QED_MSG_IOV,
-+				   "VF [%d] - Tries to remove a non-existing vlan\n",
-+				   p_vf->relative_vf_id);
-+			return -EINVAL;
-+		}
-+	} else if (p_params->opcode == QED_FILTER_REPLACE ||
-+		   p_params->opcode == QED_FILTER_FLUSH) {
-+		for (i = 0; i < QED_ETH_VF_NUM_VLAN_FILTERS + 1; i++)
-+			p_vf->shadow_config.vlans[i].used = false;
-+	}
-+
-+	/* In forced mode, we're willing to remove entries - but we don't add
-+	 * new ones.
-+	 */
-+	if (p_vf->bulletin.p_virt->valid_bitmap & (1 << VLAN_ADDR_FORCED))
-+		return 0;
-+
-+	if (p_params->opcode == QED_FILTER_ADD ||
-+	    p_params->opcode == QED_FILTER_REPLACE) {
-+		for (i = 0; i < QED_ETH_VF_NUM_VLAN_FILTERS + 1; i++) {
-+			if (p_vf->shadow_config.vlans[i].used)
-+				continue;
-+
-+			p_vf->shadow_config.vlans[i].used = true;
-+			p_vf->shadow_config.vlans[i].vid = p_params->vlan;
-+			break;
-+		}
-+
-+		if (i == QED_ETH_VF_NUM_VLAN_FILTERS + 1) {
-+			DP_VERBOSE(p_hwfn,
-+				   QED_MSG_IOV,
-+				   "VF [%d] - Tries to configure more than %d vlan filters\n",
-+				   p_vf->relative_vf_id,
-+				   QED_ETH_VF_NUM_VLAN_FILTERS + 1);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- int qed_iov_chk_ucast(struct qed_hwfn *hwfn,
- 		      int vfid, struct qed_filter_ucast *params)
- {
-@@ -1907,6 +2140,7 @@ static void qed_iov_vf_mbx_ucast_filter(struct qed_hwfn *p_hwfn,
- 					struct qed_ptt *p_ptt,
- 					struct qed_vf_info *vf)
- {
-+	struct qed_bulletin_content *p_bulletin = vf->bulletin.p_virt;
- 	struct qed_iov_vf_mbx *mbx = &vf->vf_mbx;
- 	struct vfpf_ucast_filter_tlv *req;
- 	u8 status = PFVF_STATUS_SUCCESS;
-@@ -1946,6 +2180,25 @@ static void qed_iov_vf_mbx_ucast_filter(struct qed_hwfn *p_hwfn,
- 		goto out;
- 	}
- 
-+	/* Update shadow copy of the VF configuration */
-+	if (qed_iov_vf_update_unicast_shadow(p_hwfn, vf, &params)) {
-+		status = PFVF_STATUS_FAILURE;
-+		goto out;
-+	}
-+
-+	/* Determine if the unicast filtering is acceptible by PF */
-+	if ((p_bulletin->valid_bitmap & (1 << VLAN_ADDR_FORCED)) &&
-+	    (params.type == QED_FILTER_VLAN ||
-+	     params.type == QED_FILTER_MAC_VLAN)) {
-+		/* Once VLAN is forced or PVID is set, do not allow
-+		 * to add/replace any further VLANs.
-+		 */
-+		if (params.opcode == QED_FILTER_ADD ||
-+		    params.opcode == QED_FILTER_REPLACE)
-+			status = PFVF_STATUS_FORCED;
-+		goto out;
-+	}
-+
- 	rc = qed_iov_chk_ucast(p_hwfn, vf->relative_vf_id, &params);
- 	if (rc) {
- 		status = PFVF_STATUS_FAILURE;
-@@ -2449,6 +2702,29 @@ static int qed_iov_copy_vf_msg(struct qed_hwfn *p_hwfn, struct qed_ptt *ptt,
- 	return 0;
- }
- 
-+void qed_iov_bulletin_set_forced_vlan(struct qed_hwfn *p_hwfn,
-+				      u16 pvid, int vfid)
-+{
-+	struct qed_vf_info *vf_info;
-+	u64 feature;
-+
-+	vf_info = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
-+	if (!vf_info) {
-+		DP_NOTICE(p_hwfn->cdev,
-+			  "Can not set forced MAC, invalid vfid [%d]\n", vfid);
-+		return;
-+	}
-+
-+	feature = 1 << VLAN_ADDR_FORCED;
-+	vf_info->bulletin.p_virt->pvid = pvid;
-+	if (pvid)
-+		vf_info->bulletin.p_virt->valid_bitmap |= feature;
-+	else
-+		vf_info->bulletin.p_virt->valid_bitmap &= ~feature;
-+
-+	qed_iov_configure_vport_forced(p_hwfn, vf_info, feature);
-+}
-+
- bool qed_iov_is_vf_stopped(struct qed_hwfn *p_hwfn, int vfid)
- {
- 	struct qed_vf_info *p_vf_info;
-@@ -2460,6 +2736,20 @@ bool qed_iov_is_vf_stopped(struct qed_hwfn *p_hwfn, int vfid)
- 	return p_vf_info->state == VF_STOPPED;
- }
- 
-+u16 qed_iov_bulletin_get_forced_vlan(struct qed_hwfn *p_hwfn, u16 rel_vf_id)
-+{
++	struct qed_bulletin_content *p_bulletin;
++	int crc_size = sizeof(p_bulletin->crc);
++	struct qed_dmae_params params;
 +	struct qed_vf_info *p_vf;
 +
-+	p_vf = qed_iov_get_vf_info(p_hwfn, rel_vf_id, true);
-+	if (!p_vf || !p_vf->bulletin.p_virt)
-+		return 0;
++	p_vf = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
++	if (!p_vf)
++		return -EINVAL;
 +
-+	if (!(p_vf->bulletin.p_virt->valid_bitmap & (1 << VLAN_ADDR_FORCED)))
-+		return 0;
++	if (!p_vf->vf_bulletin)
++		return -EINVAL;
 +
-+	return p_vf->bulletin.p_virt->pvid;
++	p_bulletin = p_vf->bulletin.p_virt;
++
++	/* Increment bulletin board version and compute crc */
++	p_bulletin->version++;
++	p_bulletin->crc = crc32(0, (u8 *)p_bulletin + crc_size,
++				p_vf->bulletin.size - crc_size);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++		   "Posting Bulletin 0x%08x to VF[%d] (CRC 0x%08x)\n",
++		   p_bulletin->version, p_vf->relative_vf_id, p_bulletin->crc);
++
++	/* propagate bulletin board via dmae to vm memory */
++	memset(&params, 0, sizeof(params));
++	params.flags = QED_DMAE_FLAG_VF_DST;
++	params.dst_vfid = p_vf->abs_vf_id;
++	return qed_dmae_host2host(p_hwfn, p_ptt, p_vf->bulletin.phys,
++				  p_vf->vf_bulletin, p_vf->bulletin.size / 4,
++				  &params);
 +}
 +
- /**
-  * qed_schedule_iov - schedules IOV task for VF and PF
-  * @hwfn: hardware function pointer
-@@ -2609,6 +2899,38 @@ static int qed_sriov_configure(struct qed_dev *cdev, int num_vfs_param)
+ static int qed_iov_pci_cfg_info(struct qed_dev *cdev)
+ {
+ 	struct qed_hw_sriov_info *iov = cdev->p_iov_info;
+@@ -790,6 +826,11 @@ static int qed_iov_release_hw_for_vf(struct qed_hwfn *p_hwfn,
+ 		return -EINVAL;
+ 	}
+ 
++	if (vf->bulletin.p_virt)
++		memset(vf->bulletin.p_virt, 0, sizeof(*vf->bulletin.p_virt));
++
++	memset(&vf->p_vf_info, 0, sizeof(vf->p_vf_info));
++
+ 	if (vf->state != VF_STOPPED) {
+ 		/* Stopping the VF */
+ 		rc = qed_sp_vf_stop(p_hwfn, vf->concrete_fid, vf->opaque_fid);
+@@ -1159,6 +1200,7 @@ static void qed_iov_vf_mbx_acquire(struct qed_hwfn *p_hwfn,
+ 
+ 	/* Fill agreed size of bulletin board in response */
+ 	resp->bulletin_size = vf->bulletin.size;
++	qed_iov_post_vf_bulletin(p_hwfn, vf->relative_vf_id, p_ptt);
+ 
+ 	DP_VERBOSE(p_hwfn,
+ 		   QED_MSG_IOV,
+@@ -2019,6 +2061,45 @@ int qed_iov_mark_vf_flr(struct qed_hwfn *p_hwfn, u32 *p_disabled_vfs)
+ 	return found;
+ }
+ 
++void qed_iov_set_link(struct qed_hwfn *p_hwfn,
++		      u16 vfid,
++		      struct qed_mcp_link_params *params,
++		      struct qed_mcp_link_state *link,
++		      struct qed_mcp_link_capabilities *p_caps)
++{
++	struct qed_vf_info *p_vf = qed_iov_get_vf_info(p_hwfn,
++						       vfid,
++						       false);
++	struct qed_bulletin_content *p_bulletin;
++
++	if (!p_vf)
++		return;
++
++	p_bulletin = p_vf->bulletin.p_virt;
++	p_bulletin->req_autoneg = params->speed.autoneg;
++	p_bulletin->req_adv_speed = params->speed.advertised_speeds;
++	p_bulletin->req_forced_speed = params->speed.forced_speed;
++	p_bulletin->req_autoneg_pause = params->pause.autoneg;
++	p_bulletin->req_forced_rx = params->pause.forced_rx;
++	p_bulletin->req_forced_tx = params->pause.forced_tx;
++	p_bulletin->req_loopback = params->loopback_mode;
++
++	p_bulletin->link_up = link->link_up;
++	p_bulletin->speed = link->speed;
++	p_bulletin->full_duplex = link->full_duplex;
++	p_bulletin->autoneg = link->an;
++	p_bulletin->autoneg_complete = link->an_complete;
++	p_bulletin->parallel_detection = link->parallel_detection;
++	p_bulletin->pfc_enabled = link->pfc_enabled;
++	p_bulletin->partner_adv_speed = link->partner_adv_speed;
++	p_bulletin->partner_tx_flow_ctrl_en = link->partner_tx_flow_ctrl_en;
++	p_bulletin->partner_rx_flow_ctrl_en = link->partner_rx_flow_ctrl_en;
++	p_bulletin->partner_adv_pause = link->partner_adv_pause;
++	p_bulletin->sfp_tx_fault = link->sfp_tx_fault;
++
++	p_bulletin->capability_speed = p_caps->speed_capabilities;
++}
++
+ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
+ 				    struct qed_ptt *p_ptt, int vfid)
+ {
+@@ -2359,6 +2440,29 @@ static int qed_sriov_configure(struct qed_dev *cdev, int num_vfs_param)
  		return qed_sriov_disable(cdev, true);
  }
  
-+static int qed_sriov_pf_set_vlan(struct qed_dev *cdev, u16 vid, int vfid)
++void qed_inform_vf_link_state(struct qed_hwfn *hwfn)
 +{
++	struct qed_mcp_link_capabilities caps;
++	struct qed_mcp_link_params params;
++	struct qed_mcp_link_state link;
 +	int i;
 +
-+	if (!IS_QED_SRIOV(cdev) || !IS_PF_SRIOV_ALLOC(&cdev->hwfns[0])) {
-+		DP_VERBOSE(cdev, QED_MSG_IOV,
-+			   "Cannot set a VF MAC; Sriov is not enabled\n");
-+		return -EINVAL;
++	if (!hwfn->pf_iov_info)
++		return;
++
++	/* Update bulletin of all future possible VFs with link configuration */
++	for (i = 0; i < hwfn->cdev->p_iov_info->total_vfs; i++) {
++		memcpy(&params, qed_mcp_get_link_params(hwfn), sizeof(params));
++		memcpy(&link, qed_mcp_get_link_state(hwfn), sizeof(link));
++		memcpy(&caps, qed_mcp_get_link_capabilities(hwfn),
++		       sizeof(caps));
++
++		qed_iov_set_link(hwfn, i, &params, &link, &caps);
 +	}
 +
-+	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vfid, true)) {
-+		DP_VERBOSE(cdev, QED_MSG_IOV,
-+			   "Cannot set VF[%d] MAC (VF is not active)\n", vfid);
-+		return -EINVAL;
++	qed_schedule_iov(hwfn, QED_IOV_WQ_BULLETIN_UPDATE_FLAG);
++}
++
+ static void qed_handle_vf_msg(struct qed_hwfn *hwfn)
+ {
+ 	u64 events[QED_VF_ARRAY_LENGTH];
+@@ -2398,6 +2502,24 @@ static void qed_handle_vf_msg(struct qed_hwfn *hwfn)
+ 	qed_ptt_release(hwfn, ptt);
+ }
+ 
++static void qed_handle_bulletin_post(struct qed_hwfn *hwfn)
++{
++	struct qed_ptt *ptt;
++	int i;
++
++	ptt = qed_ptt_acquire(hwfn);
++	if (!ptt) {
++		DP_NOTICE(hwfn, "Failed allocating a ptt entry\n");
++		qed_schedule_iov(hwfn, QED_IOV_WQ_BULLETIN_UPDATE_FLAG);
++		return;
 +	}
 +
-+	for_each_hwfn(cdev, i) {
-+		struct qed_hwfn *hwfn = &cdev->hwfns[i];
-+		struct qed_public_vf_info *vf_info;
++	qed_for_each_vf(hwfn, i)
++	    qed_iov_post_vf_bulletin(hwfn, i, ptt);
 +
-+		vf_info = qed_iov_get_public_vf_info(hwfn, vfid, true);
-+		if (!vf_info)
-+			continue;
++	qed_ptt_release(hwfn, ptt);
++}
 +
-+		/* Set the forced vlan, and schedule the IOV task */
-+		vf_info->forced_vlan = vid;
-+		qed_schedule_iov(hwfn, QED_IOV_WQ_SET_UNICAST_FILTER_FLAG);
-+	}
+ void qed_iov_pf_task(struct work_struct *work)
+ {
+ 	struct qed_hwfn *hwfn = container_of(work, struct qed_hwfn,
+@@ -2424,6 +2546,9 @@ void qed_iov_pf_task(struct work_struct *work)
+ 
+ 	if (test_and_clear_bit(QED_IOV_WQ_MSG_FLAG, &hwfn->iov_task_flags))
+ 		qed_handle_vf_msg(hwfn);
++	if (test_and_clear_bit(QED_IOV_WQ_BULLETIN_UPDATE_FLAG,
++			       &hwfn->iov_task_flags))
++		qed_handle_bulletin_post(hwfn);
+ }
+ 
+ void qed_iov_wq_stop(struct qed_dev *cdev, bool schedule_first)
+@@ -2453,8 +2578,10 @@ int qed_iov_wq_start(struct qed_dev *cdev)
+ 	for_each_hwfn(cdev, i) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
+ 
+-		/* PFs needs a dedicated workqueue only if they support IOV. */
+-		if (!IS_PF_SRIOV(p_hwfn))
++		/* PFs needs a dedicated workqueue only if they support IOV.
++		 * VFs always require one.
++		 */
++		if (IS_PF(p_hwfn->cdev) && !IS_PF_SRIOV(p_hwfn))
+ 			continue;
+ 
+ 		snprintf(name, NAME_SIZE, "iov-%02x:%02x.%02x",
+@@ -2467,7 +2594,10 @@ int qed_iov_wq_start(struct qed_dev *cdev)
+ 			return -ENOMEM;
+ 		}
+ 
+-		INIT_DELAYED_WORK(&p_hwfn->iov_task, qed_iov_pf_task);
++		if (IS_PF(cdev))
++			INIT_DELAYED_WORK(&p_hwfn->iov_task, qed_iov_pf_task);
++		else
++			INIT_DELAYED_WORK(&p_hwfn->iov_task, qed_iov_vf_task);
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+index 63bce9c..0f5689b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+@@ -268,6 +268,7 @@ int qed_iov_wq_start(struct qed_dev *cdev);
+ void qed_schedule_iov(struct qed_hwfn *hwfn, enum qed_iov_wq_flag flag);
+ void qed_vf_start_iov_wq(struct qed_dev *cdev);
+ int qed_sriov_disable(struct qed_dev *cdev, bool pci_enabled);
++void qed_inform_vf_link_state(struct qed_hwfn *hwfn);
+ #else
+ static inline u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn,
+ 					     u16 rel_vf_id)
+@@ -332,6 +333,10 @@ static inline int qed_sriov_disable(struct qed_dev *cdev, bool pci_enabled)
+ {
+ 	return 0;
+ }
++
++static inline void qed_inform_vf_link_state(struct qed_hwfn *hwfn)
++{
++}
+ #endif
+ 
+ #define qed_for_each_vf(_p_hwfn, _i)			  \
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+index 961de77..05b3cca 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+@@ -6,6 +6,7 @@
+  * this source tree.
+  */
+ 
++#include <linux/crc32.h>
+ #include "qed.h"
+ #include "qed_sriov.h"
+ #include "qed_vf.h"
+@@ -865,6 +866,103 @@ u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
+ 	return p_iov->acquire_resp.resc.hw_sbs[sb_id].hw_sb_id;
+ }
+ 
++int qed_vf_read_bulletin(struct qed_hwfn *p_hwfn, u8 *p_change)
++{
++	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
++	struct qed_bulletin_content shadow;
++	u32 crc, crc_size;
++
++	crc_size = sizeof(p_iov->bulletin.p_virt->crc);
++	*p_change = 0;
++
++	/* Need to guarantee PF is not in the middle of writing it */
++	memcpy(&shadow, p_iov->bulletin.p_virt, p_iov->bulletin.size);
++
++	/* If version did not update, no need to do anything */
++	if (shadow.version == p_iov->bulletin_shadow.version)
++		return 0;
++
++	/* Verify the bulletin we see is valid */
++	crc = crc32(0, (u8 *)&shadow + crc_size,
++		    p_iov->bulletin.size - crc_size);
++	if (crc != shadow.crc)
++		return -EAGAIN;
++
++	/* Set the shadow bulletin and process it */
++	memcpy(&p_iov->bulletin_shadow, &shadow, p_iov->bulletin.size);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++		   "Read a bulletin update %08x\n", shadow.version);
++
++	*p_change = 1;
 +
 +	return 0;
 +}
 +
- void qed_inform_vf_link_state(struct qed_hwfn *hwfn)
- {
- 	struct qed_mcp_link_capabilities caps;
-@@ -2671,6 +2993,38 @@ static void qed_handle_vf_msg(struct qed_hwfn *hwfn)
- 	qed_ptt_release(hwfn, ptt);
- }
- 
-+static void qed_handle_pf_set_vf_unicast(struct qed_hwfn *hwfn)
++void __qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
++			      struct qed_mcp_link_params *p_params,
++			      struct qed_bulletin_content *p_bulletin)
 +{
-+	int i;
++	memset(p_params, 0, sizeof(*p_params));
 +
-+	qed_for_each_vf(hwfn, i) {
-+		struct qed_public_vf_info *info;
-+		bool update = false;
-+
-+		info = qed_iov_get_public_vf_info(hwfn, i, true);
-+		if (!info)
-+			continue;
-+
-+		/* Update data on bulletin board */
-+
-+		if (qed_iov_bulletin_get_forced_vlan(hwfn, i) ^
-+		    info->forced_vlan) {
-+			DP_VERBOSE(hwfn,
-+				   QED_MSG_IOV,
-+				   "Handling PF setting of pvid [0x%04x] to VF 0x%02x [Abs 0x%02x]\n",
-+				   info->forced_vlan,
-+				   i,
-+				   hwfn->cdev->p_iov_info->first_vf_in_pf + i);
-+			qed_iov_bulletin_set_forced_vlan(hwfn,
-+							 info->forced_vlan, i);
-+			update = true;
-+		}
-+
-+		if (update)
-+			qed_schedule_iov(hwfn, QED_IOV_WQ_BULLETIN_UPDATE_FLAG);
-+	}
++	p_params->speed.autoneg = p_bulletin->req_autoneg;
++	p_params->speed.advertised_speeds = p_bulletin->req_adv_speed;
++	p_params->speed.forced_speed = p_bulletin->req_forced_speed;
++	p_params->pause.autoneg = p_bulletin->req_autoneg_pause;
++	p_params->pause.forced_rx = p_bulletin->req_forced_rx;
++	p_params->pause.forced_tx = p_bulletin->req_forced_tx;
++	p_params->loopback_mode = p_bulletin->req_loopback;
 +}
 +
- static void qed_handle_bulletin_post(struct qed_hwfn *hwfn)
++void qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
++			    struct qed_mcp_link_params *params)
++{
++	__qed_vf_get_link_params(p_hwfn, params,
++				 &(p_hwfn->vf_iov_info->bulletin_shadow));
++}
++
++void __qed_vf_get_link_state(struct qed_hwfn *p_hwfn,
++			     struct qed_mcp_link_state *p_link,
++			     struct qed_bulletin_content *p_bulletin)
++{
++	memset(p_link, 0, sizeof(*p_link));
++
++	p_link->link_up = p_bulletin->link_up;
++	p_link->speed = p_bulletin->speed;
++	p_link->full_duplex = p_bulletin->full_duplex;
++	p_link->an = p_bulletin->autoneg;
++	p_link->an_complete = p_bulletin->autoneg_complete;
++	p_link->parallel_detection = p_bulletin->parallel_detection;
++	p_link->pfc_enabled = p_bulletin->pfc_enabled;
++	p_link->partner_adv_speed = p_bulletin->partner_adv_speed;
++	p_link->partner_tx_flow_ctrl_en = p_bulletin->partner_tx_flow_ctrl_en;
++	p_link->partner_rx_flow_ctrl_en = p_bulletin->partner_rx_flow_ctrl_en;
++	p_link->partner_adv_pause = p_bulletin->partner_adv_pause;
++	p_link->sfp_tx_fault = p_bulletin->sfp_tx_fault;
++}
++
++void qed_vf_get_link_state(struct qed_hwfn *p_hwfn,
++			   struct qed_mcp_link_state *link)
++{
++	__qed_vf_get_link_state(p_hwfn, link,
++				&(p_hwfn->vf_iov_info->bulletin_shadow));
++}
++
++void __qed_vf_get_link_caps(struct qed_hwfn *p_hwfn,
++			    struct qed_mcp_link_capabilities *p_link_caps,
++			    struct qed_bulletin_content *p_bulletin)
++{
++	memset(p_link_caps, 0, sizeof(*p_link_caps));
++	p_link_caps->speed_capabilities = p_bulletin->capability_speed;
++}
++
++void qed_vf_get_link_caps(struct qed_hwfn *p_hwfn,
++			  struct qed_mcp_link_capabilities *p_link_caps)
++{
++	__qed_vf_get_link_caps(p_hwfn, p_link_caps,
++			       &(p_hwfn->vf_iov_info->bulletin_shadow));
++}
++
+ void qed_vf_get_num_rxqs(struct qed_hwfn *p_hwfn, u8 *num_rxqs)
  {
- 	struct qed_ptt *ptt;
-@@ -2715,6 +3069,11 @@ void qed_iov_pf_task(struct work_struct *work)
- 
- 	if (test_and_clear_bit(QED_IOV_WQ_MSG_FLAG, &hwfn->iov_task_flags))
- 		qed_handle_vf_msg(hwfn);
+ 	*num_rxqs = p_hwfn->vf_iov_info->acquire_resp.resc.num_rxqs;
+@@ -897,3 +995,27 @@ void qed_vf_get_fw_version(struct qed_hwfn *p_hwfn,
+ 	*fw_rev = info->fw_rev;
+ 	*fw_eng = info->fw_eng;
+ }
 +
-+	if (test_and_clear_bit(QED_IOV_WQ_SET_UNICAST_FILTER_FLAG,
-+			       &hwfn->iov_task_flags))
-+		qed_handle_pf_set_vf_unicast(hwfn);
++static void qed_handle_bulletin_change(struct qed_hwfn *hwfn)
++{
++	/* Always update link configuration according to bulletin */
++	qed_link_update(hwfn);
++}
 +
- 	if (test_and_clear_bit(QED_IOV_WQ_BULLETIN_UPDATE_FLAG,
- 			       &hwfn->iov_task_flags))
- 		qed_handle_bulletin_post(hwfn);
-@@ -2774,4 +3133,5 @@ int qed_iov_wq_start(struct qed_dev *cdev)
- 
- const struct qed_iov_hv_ops qed_iov_ops_pass = {
- 	.configure = &qed_sriov_configure,
-+	.set_vlan = &qed_sriov_pf_set_vlan,
- };
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-index 2c94b44..e65f403 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -24,6 +24,9 @@
- #define QED_MAX_VF_CHAINS_PER_PF 16
- #define QED_ETH_VF_NUM_VLAN_FILTERS 2
- 
-+#define QED_ETH_MAX_VF_NUM_VLAN_FILTERS	\
-+	(MAX_NUM_VFS * QED_ETH_VF_NUM_VLAN_FILTERS)
++void qed_iov_vf_task(struct work_struct *work)
++{
++	struct qed_hwfn *hwfn = container_of(work, struct qed_hwfn,
++					     iov_task.work);
++	u8 change = 0;
 +
- enum qed_iov_vport_update_flag {
- 	QED_IOV_VP_UPDATE_ACTIVATE,
- 	QED_IOV_VP_UPDATE_VLAN_STRIP,
-@@ -40,6 +43,7 @@ struct qed_public_vf_info {
- 	/* These copies will later be reflected in the bulletin board,
- 	 * but this copy should be newer.
- 	 */
-+	u16 forced_vlan;
- 	u8 mac[ETH_ALEN];
- };
- 
-@@ -98,6 +102,18 @@ enum vf_state {
- 	VF_STOPPED		/* VF, Stopped */
- };
- 
-+struct qed_vf_vlan_shadow {
-+	bool used;
-+	u16 vid;
-+};
++	if (test_and_clear_bit(QED_IOV_WQ_STOP_WQ_FLAG, &hwfn->iov_task_flags))
++		return;
 +
-+struct qed_vf_shadow_config {
-+	/* Shadow copy of all guest vlans */
-+	struct qed_vf_vlan_shadow vlans[QED_ETH_VF_NUM_VLAN_FILTERS + 1];
++	/* Handle bulletin board changes */
++	qed_vf_read_bulletin(hwfn, &change);
++	if (change)
++		qed_handle_bulletin_change(hwfn);
 +
-+	u8 inner_vlan_removal;
-+};
-+
- /* PFs maintain an array of this structure, per VF */
- struct qed_vf_info {
- 	struct qed_iov_vf_mbx vf_mbx;
-@@ -131,6 +147,16 @@ struct qed_vf_info {
- 	u16 igu_sbs[QED_MAX_VF_CHAINS_PER_PF];
- 	u8 num_active_rxqs;
- 	struct qed_public_vf_info p_vf_info;
-+
-+	/* Stores the configuration requested by VF */
-+	struct qed_vf_shadow_config shadow_config;
-+
-+	/* A bitfield using bulletin's valid-map bits, used to indicate
-+	 * which of the bulletin board features have been configured.
-+	 */
-+	u64 configured_features;
-+#define QED_IOV_CONFIGURED_FEATURES_MASK        ((1 << MAC_ADDR_FORCED) | \
-+						 (1 << VLAN_ADDR_FORCED))
- };
- 
- /* This structure is part of qed_hwfn and used only for PFs that have sriov
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index e788954..3c8911d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -474,7 +474,7 @@ int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 			  u16 mtu,
- 			  u8 inner_vlan_removal,
- 			  enum qed_tpa_mode tpa_mode,
--			  u8 max_buffers_per_cqe)
-+			  u8 max_buffers_per_cqe, u8 only_untagged)
- {
- 	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
- 	struct vfpf_vport_start_tlv *req;
-@@ -489,6 +489,7 @@ int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 	req->inner_vlan_removal = inner_vlan_removal;
- 	req->tpa_mode = tpa_mode;
- 	req->max_buffers_per_cqe = max_buffers_per_cqe;
-+	req->only_untagged = only_untagged;
- 
- 	/* status blocks */
- 	for (i = 0; i < p_hwfn->vf_iov_info->acquire_resp.resc.num_sbs; i++)
-@@ -547,6 +548,8 @@ qed_vf_handle_vp_update_is_needed(struct qed_hwfn *p_hwfn,
- 		return !!p_data->update_tx_switching_flg;
- 	case CHANNEL_TLV_VPORT_UPDATE_VLAN_STRIP:
- 		return !!p_data->update_inner_vlan_removal_flg;
-+	case CHANNEL_TLV_VPORT_UPDATE_ACCEPT_ANY_VLAN:
-+		return !!p_data->update_accept_any_vlan_flg;
- 	case CHANNEL_TLV_VPORT_UPDATE_MCAST:
- 		return !!p_data->update_approx_mcast_flg;
- 	case CHANNEL_TLV_VPORT_UPDATE_ACCEPT_PARAM:
-@@ -696,6 +699,19 @@ int qed_vf_pf_vport_update(struct qed_hwfn *p_hwfn,
- 		       sizeof(rss_params->rss_key));
- 	}
- 
-+	if (p_params->update_accept_any_vlan_flg) {
-+		struct vfpf_vport_update_accept_any_vlan_tlv *p_any_vlan_tlv;
-+
-+		size = sizeof(struct vfpf_vport_update_accept_any_vlan_tlv);
-+		tlv = CHANNEL_TLV_VPORT_UPDATE_ACCEPT_ANY_VLAN;
-+		p_any_vlan_tlv = qed_add_tlv(p_hwfn, &p_iov->offset, tlv, size);
-+
-+		resp_size += sizeof(struct pfvf_def_resp_tlv);
-+		p_any_vlan_tlv->accept_any_vlan = p_params->accept_any_vlan;
-+		p_any_vlan_tlv->update_accept_any_vlan_flg =
-+		    p_params->update_accept_any_vlan_flg;
-+	}
-+
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
- 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
++	/* As VF is polling bulletin board, need to constantly re-schedule */
++	queue_delayed_work(hwfn->iov_wq, &hwfn->iov_task, HZ);
++}
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index f2b46fd..463834f 100644
+index 81600eb..2d24965 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -417,6 +417,16 @@ union pfvf_tlvs {
- 	struct pfvf_start_queue_resp_tlv queue_start;
- };
+@@ -10,6 +10,7 @@
+ #define _QED_VF_H
  
-+enum qed_bulletin_bit {
-+	/* Alert the VF that a forced VLAN was set by the PF */
-+	VLAN_ADDR_FORCED = 2,
-+
-+	/* Indicate that `default_only_untagged' contains actual data */
-+	VFPF_BULLETIN_UNTAGGED_DEFAULT = 3,
-+	VFPF_BULLETIN_UNTAGGED_DEFAULT_FORCED = 4,
-+
-+};
-+
- struct qed_bulletin_content {
- 	/* crc of structure to ensure is not in mid-update */
- 	u32 crc;
-@@ -465,6 +475,10 @@ struct qed_bulletin_content {
- 	u32 partner_adv_speed;
+ #include "qed_l2.h"
++#include "qed_mcp.h"
  
- 	u32 capability_speed;
+ #define T_ETH_INDIRECTION_TABLE_SIZE 128
+ #define T_ETH_RSS_KEY_SIZE 10
+@@ -377,6 +378,46 @@ struct qed_bulletin_content {
+ 
+ 	/* bitmap indicating which fields hold valid values */
+ 	u64 valid_bitmap;
 +
-+	/* Forced vlan */
-+	u16 pvid;
-+	u16 padding5;
++	/* used for MAC_ADDR or MAC_ADDR_FORCED */
++	u8 mac[ETH_ALEN];
++
++	/* If valid, 1 => only untagged Rx if no vlan is configured */
++	u8 default_only_untagged;
++	u8 padding;
++
++	/* The following is a 'copy' of qed_mcp_link_state,
++	 * qed_mcp_link_params and qed_mcp_link_capabilities. Since it's
++	 * possible the structs will increase further along the road we cannot
++	 * have it here; Instead we need to have all of its fields.
++	 */
++	u8 req_autoneg;
++	u8 req_autoneg_pause;
++	u8 req_forced_rx;
++	u8 req_forced_tx;
++	u8 padding2[4];
++
++	u32 req_adv_speed;
++	u32 req_forced_speed;
++	u32 req_loopback;
++	u32 padding3;
++
++	u8 link_up;
++	u8 full_duplex;
++	u8 autoneg;
++	u8 autoneg_complete;
++	u8 parallel_detection;
++	u8 pfc_enabled;
++	u8 partner_tx_flow_ctrl_en;
++	u8 partner_rx_flow_ctrl_en;
++	u8 partner_adv_pause;
++	u8 sfp_tx_fault;
++	u8 padding4[6];
++
++	u32 speed;
++	u32 partner_adv_speed;
++
++	u32 capability_speed;
  };
  
  struct qed_bulletin {
-@@ -737,7 +751,7 @@ int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 			  u16 mtu,
- 			  u8 inner_vlan_removal,
- 			  enum qed_tpa_mode tpa_mode,
--			  u8 max_buffers_per_cqe);
-+			  u8 max_buffers_per_cqe, u8 only_untagged);
+@@ -433,6 +474,43 @@ struct qed_vf_iov {
  
+ #ifdef CONFIG_QED_SRIOV
  /**
-  * @brief qed_vf_pf_vport_stop - stop the VF's vport
-@@ -898,7 +912,8 @@ static inline int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 					u16 mtu,
- 					u8 inner_vlan_removal,
- 					enum qed_tpa_mode tpa_mode,
--					u8 max_buffers_per_cqe)
-+					u8 max_buffers_per_cqe,
-+					u8 only_untagged)
++ * @brief Read the VF bulletin and act on it if needed
++ *
++ * @param p_hwfn
++ * @param p_change - qed fills 1 iff bulletin board has changed, 0 otherwise.
++ *
++ * @return enum _qed_status
++ */
++int qed_vf_read_bulletin(struct qed_hwfn *p_hwfn, u8 *p_change);
++
++/**
++ * @brief Get link paramters for VF from qed
++ *
++ * @param p_hwfn
++ * @param params - the link params structure to be filled for the VF
++ */
++void qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
++			    struct qed_mcp_link_params *params);
++
++/**
++ * @brief Get link state for VF from qed
++ *
++ * @param p_hwfn
++ * @param link - the link state structure to be filled for the VF
++ */
++void qed_vf_get_link_state(struct qed_hwfn *p_hwfn,
++			   struct qed_mcp_link_state *link);
++
++/**
++ * @brief Get link capabilities for VF from qed
++ *
++ * @param p_hwfn
++ * @param p_link_caps - the link capabilities structure to be filled for the VF
++ */
++void qed_vf_get_link_caps(struct qed_hwfn *p_hwfn,
++			  struct qed_mcp_link_capabilities *p_link_caps);
++
++/**
+  * @brief Get number of Rx queues allocated for VF by qed
+  *
+  *  @param p_hwfn
+@@ -577,6 +655,7 @@ int qed_vf_pf_reset(struct qed_hwfn *p_hwfn);
+  * @return enum _qed_status
+  */
+ int qed_vf_pf_release(struct qed_hwfn *p_hwfn);
++
+ /**
+  * @brief qed_vf_get_igu_sb_id - Get the IGU SB ID for a given
+  *        sb_id. For VFs igu sbs don't have to be contiguous
+@@ -631,7 +710,58 @@ void qed_vf_pf_filter_mcast(struct qed_hwfn *p_hwfn,
+  * @return enum _qed_status
+  */
+ int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn);
++
++/**
++ * @brief - return the link params in a given bulletin board
++ *
++ * @param p_hwfn
++ * @param p_params - pointer to a struct to fill with link params
++ * @param p_bulletin
++ */
++void __qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
++			      struct qed_mcp_link_params *p_params,
++			      struct qed_bulletin_content *p_bulletin);
++
++/**
++ * @brief - return the link state in a given bulletin board
++ *
++ * @param p_hwfn
++ * @param p_link - pointer to a struct to fill with link state
++ * @param p_bulletin
++ */
++void __qed_vf_get_link_state(struct qed_hwfn *p_hwfn,
++			     struct qed_mcp_link_state *p_link,
++			     struct qed_bulletin_content *p_bulletin);
++
++/**
++ * @brief - return the link capabilities in a given bulletin board
++ *
++ * @param p_hwfn
++ * @param p_link - pointer to a struct to fill with link capabilities
++ * @param p_bulletin
++ */
++void __qed_vf_get_link_caps(struct qed_hwfn *p_hwfn,
++			    struct qed_mcp_link_capabilities *p_link_caps,
++			    struct qed_bulletin_content *p_bulletin);
++
++void qed_iov_vf_task(struct work_struct *work);
+ #else
++static inline void qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
++					  struct qed_mcp_link_params *params)
++{
++}
++
++static inline void qed_vf_get_link_state(struct qed_hwfn *p_hwfn,
++					 struct qed_mcp_link_state *link)
++{
++}
++
++static inline void
++qed_vf_get_link_caps(struct qed_hwfn *p_hwfn,
++		     struct qed_mcp_link_capabilities *p_link_caps)
++{
++}
++
+ static inline void qed_vf_get_num_rxqs(struct qed_hwfn *p_hwfn, u8 *num_rxqs)
+ {
+ }
+@@ -741,6 +871,32 @@ static inline int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn)
  {
  	return -EINVAL;
  }
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 57e3426..d3cb672 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -103,6 +103,21 @@ static int qede_alloc_rx_buffer(struct qede_dev *edev,
- static void qede_link_update(void *dev, struct qed_link_output *link);
- 
- #ifdef CONFIG_QED_SRIOV
-+static int qede_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan, u8 qos)
++
++static inline void __qed_vf_get_link_params(struct qed_hwfn *p_hwfn,
++					    struct qed_mcp_link_params
++					    *p_params,
++					    struct qed_bulletin_content
++					    *p_bulletin)
 +{
-+	struct qede_dev *edev = netdev_priv(ndev);
-+
-+	if (vlan > 4095) {
-+		DP_NOTICE(edev, "Illegal vlan value %d\n", vlan);
-+		return -EINVAL;
-+	}
-+
-+	DP_VERBOSE(edev, QED_MSG_IOV, "Setting Vlan 0x%04x to VF [%d]\n",
-+		   vlan, vf);
-+
-+	return edev->ops->iov->set_vlan(edev->cdev, vlan, vf);
 +}
 +
- static int qede_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
- {
- 	struct qede_dev *edev = netdev_priv(pci_get_drvdata(pdev));
-@@ -2071,6 +2086,9 @@ static const struct net_device_ops qede_netdev_ops = {
- 	.ndo_set_mac_address = qede_set_mac_addr,
- 	.ndo_validate_addr = eth_validate_addr,
- 	.ndo_change_mtu = qede_change_mtu,
-+#ifdef CONFIG_QED_SRIOV
-+	.ndo_set_vf_vlan = qede_set_vf_vlan,
-+#endif
- 	.ndo_vlan_rx_add_vid = qede_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid = qede_vlan_rx_kill_vid,
- 	.ndo_get_stats64 = qede_get_stats64,
-diff --git a/include/linux/qed/qed_iov_if.h b/include/linux/qed/qed_iov_if.h
-index c53bfa6..825c007 100644
---- a/include/linux/qed/qed_iov_if.h
-+++ b/include/linux/qed/qed_iov_if.h
-@@ -15,6 +15,7 @@
- struct qed_iov_hv_ops {
- 	int (*configure)(struct qed_dev *cdev, int num_vfs_param);
- 
-+	int (*set_vlan) (struct qed_dev *cdev, u16 vid, int vfid);
- };
++static inline void __qed_vf_get_link_state(struct qed_hwfn *p_hwfn,
++					   struct qed_mcp_link_state *p_link,
++					   struct qed_bulletin_content
++					   *p_bulletin)
++{
++}
++
++static inline void
++__qed_vf_get_link_caps(struct qed_hwfn *p_hwfn,
++		       struct qed_mcp_link_capabilities *p_link_caps,
++		       struct qed_bulletin_content *p_bulletin)
++{
++}
++
++static inline void qed_iov_vf_task(struct work_struct *work)
++{
++}
+ #endif
  
  #endif
 -- 
