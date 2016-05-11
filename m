@@ -1,164 +1,229 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 00/13] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
-Date: Wed, 11 May 2016 09:47:20 -0700
-Message-ID: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 01/13] gso: Remove arbitrary checks for unsupported GSO
+Date: Wed, 11 May 2016 09:47:21 -0700
+Message-ID: <1462985253-2380625-2-git-send-email-tom@herbertland.com>
+References: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35754 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:6385 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752001AbcEKQsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 12:48:11 -0400
+	by vger.kernel.org with ESMTP id S932318AbcEKQsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 12:48:13 -0400
 Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4BGiW1o023190
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:10 -0700
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4BGi6I8023090
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:13 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 22u4gmcftb-2
+	by m0001303.ppops.net with ESMTP id 22u4gmcfu7-1
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:10 -0700
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:48:13 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 23658370179811e6af730002c95209d8-993e9c50 for <netdev@vger.kernel.org>;	Wed,
- 11 May 2016 09:48:08 -0700
+ 24dc5878179811e6af730002c95209d8-993e9c50 for <netdev@vger.kernel.org>;	Wed,
+ 11 May 2016 09:48:10 -0700
+In-Reply-To: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set:
-  - Adds support for GSO and GRO for ip6ip6 and ip4ip6
-  - Add support for FOU and GUE in IPv6
-  - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
-  - Fixes ip6_input to deal with UDP encapsulations
-  - Some other minor fixes
+In several gso_segment functions there are checks of gso_type against
+a seemingly arbitrary list of SKB_GSO_* flags. This seems like an
+attempt to identify unsupported GSO types, but since the stack is
+the one that set these GSO types in the first place this seems
+unnecessary to do. If a combination isn't valid in the first
+place that stack should not allow setting it.
 
-v2:
-  - Removed a check of GSO types in MPLS
-  - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
-    from Alexander)
-  - Don't define GSO types specifally for IP6IP6 and IP4IP6, above
-    fix makes that uncessary
-  - Don't bother clearing encapsulation flag in UDP tunnel segment
-    (another item suggested by Alexander).
+This is a code simplication especially for add new GSO types.
 
-v3:
-  - Address some minor comments from Alexander
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ net/ipv4/af_inet.c     | 18 ------------------
+ net/ipv4/gre_offload.c | 14 --------------
+ net/ipv4/tcp_offload.c | 19 -------------------
+ net/ipv4/udp_offload.c | 10 ----------
+ net/ipv6/ip6_offload.c | 18 ------------------
+ net/ipv6/udp_offload.c | 13 -------------
+ net/mpls/mpls_gso.c    |  9 ---------
+ 7 files changed, 101 deletions(-)
 
-v4:
-  - Rebase on changes to fix IP TX tunnels
-  - Fix MTU issues in ip4ip6, ip6ip6
-  - Add test data for above
-
-Tested:
-   Tested a variety of case, but not the full matrix (which is quite
-   large now). Most of the obivous cases (e.g. GRE) work fine. Still
-   some issues probably with GSO/GRO being effective in all cases.
-
-    - IPv4/GRE/GUE/IPv6 with RCO
-      1 TCP_STREAM
-      	6616 Mbps
-      200 TCP_RR
-	1244043 tps
-        141/243/446 90/95/99% latencies
-	86.61% CPU utilization
-
-    - IPv6/GRE/GUE/IPv6 with RCO
-      1 TCP_STREAM
-	6940 Mbps
-      200 TCP_RR
-	1270903 tps
-	138/236/440 90/95/99% latencies
-	87.51% CPU utilization
-
-     - IP6IP6
-      1 TCP_STREAM
-	2576 Mbps
-      200 TCP_RR
-	498981 tps
-	388/498/631 90/95/99% latencies
-	19.75% CPU utilization (1 CPU saturated)
-
-     - IP6IP6/GUE with RCO
-      1 TCP_STREAM
-	2031 Mbps
-      200 TCP_RR
-	1233818 tps
-	143/244/451 90/95/99% latencies
-	87.57 CPU utilization
-
-     - IP4IP6
-      1 TCP_STREAM
-	2371 Mbps
-      200 TCP_RR
-	763774 tps
-	250/318/466 90/95/99% latencies
-	35.25% CPU utilization (1 CPU saturated)
-
-     - IP4IP6/GUE with RCO
-      1 TCP_STREAM
-	2054 Mbps
-      200 TCP_RR
-	1196385 tps
-	148/251/460 90/95/99% latencies
-	87.56 CPU utilization
-
-     - GRE with keyid
-      200 TCP_RR
-	744173 tps
-	258/332/461 90/95/99% latencies
-	34.59% CPU utilization (1 CPU saturated)
-      
-
-Tom Herbert (13):
-  gso: Remove arbitrary checks for unsupported GSO
-  net: define gso types for IPx over IPv4 and IPv6
-  fou: Call setup_udp_tunnel_sock
-  fou: Split out {fou,gue}_build_header
-  fou: Add encap ops for IPv6 tunnels
-  ipv6: Fix nexthdr for reinjection
-  ipv6: Change "final" protocol processing for encapsulation
-  fou: Support IPv6 in fou
-  ip6_tun: Add infrastructure for doing encapsulation
-  ip6_gre: Add support for fou/gue encapsulation
-  ip6_tunnel: Add support for fou/gue encapsulation
-  ip6ip6: Support for GSO/GRO
-  ip4ip6: Support for GSO/GRO
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   5 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c       |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c       |   3 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c   |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   3 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   3 +-
- include/linux/netdev_features.h                   |  12 +-
- include/linux/netdevice.h                         |   4 +-
- include/linux/skbuff.h                            |   4 +-
- include/net/fou.h                                 |  10 +-
- include/net/inet_common.h                         |   5 +
- include/net/ip6_tunnel.h                          |  22 +++-
- net/core/ethtool.c                                |   4 +-
- net/ipv4/af_inet.c                                |  32 ++---
- net/ipv4/fou.c                                    | 144 +++++++++++++---------
- net/ipv4/gre_offload.c                            |  14 ---
- net/ipv4/ipip.c                                   |   2 +-
- net/ipv4/tcp_offload.c                            |  19 ---
- net/ipv4/udp_offload.c                            |  10 --
- net/ipv6/Makefile                                 |   4 +-
- net/ipv6/fou6.c                                   | 140 +++++++++++++++++++++
- net/ipv6/ip6_gre.c                                |  77 +++++++++++-
- net/ipv6/ip6_input.c                              |  24 +++-
- net/ipv6/ip6_offload.c                            |  77 ++++++++----
- net/ipv6/ip6_tunnel.c                             | 116 +++++++++++++++--
- net/ipv6/ip6_tunnel_core.c                        | 108 ++++++++++++++++
- net/ipv6/sit.c                                    |   4 +-
- net/ipv6/udp_offload.c                            |  13 --
- net/mpls/mpls_gso.c                               |   9 --
- net/netfilter/ipvs/ip_vs_xmit.c                   |  17 ++-
- 32 files changed, 662 insertions(+), 236 deletions(-)
- create mode 100644 net/ipv6/fou6.c
- create mode 100644 net/ipv6/ip6_tunnel_core.c
-
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 2e6e65f..7f08d45 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1205,24 +1205,6 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	int ihl;
+ 	int id;
+ 
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-		     ~(SKB_GSO_TCPV4 |
+-		       SKB_GSO_UDP |
+-		       SKB_GSO_DODGY |
+-		       SKB_GSO_TCP_ECN |
+-		       SKB_GSO_GRE |
+-		       SKB_GSO_GRE_CSUM |
+-		       SKB_GSO_IPIP |
+-		       SKB_GSO_SIT |
+-		       SKB_GSO_TCPV6 |
+-		       SKB_GSO_UDP_TUNNEL |
+-		       SKB_GSO_UDP_TUNNEL_CSUM |
+-		       SKB_GSO_TCP_FIXEDID |
+-		       SKB_GSO_TUNNEL_REMCSUM |
+-		       SKB_GSO_PARTIAL |
+-		       0)))
+-		goto out;
+-
+ 	skb_reset_network_header(skb);
+ 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index e88190a..ecd1e09 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -26,20 +26,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 	int gre_offset, outer_hlen;
+ 	bool need_csum, ufo;
+ 
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-				~(SKB_GSO_TCPV4 |
+-				  SKB_GSO_TCPV6 |
+-				  SKB_GSO_UDP |
+-				  SKB_GSO_DODGY |
+-				  SKB_GSO_TCP_ECN |
+-				  SKB_GSO_TCP_FIXEDID |
+-				  SKB_GSO_GRE |
+-				  SKB_GSO_GRE_CSUM |
+-				  SKB_GSO_IPIP |
+-				  SKB_GSO_SIT |
+-				  SKB_GSO_PARTIAL)))
+-		goto out;
+-
+ 	if (!skb->encapsulation)
+ 		goto out;
+ 
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 02737b6..5c59649 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -83,25 +83,6 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 
+ 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+ 		/* Packet is from an untrusted source, reset gso_segs. */
+-		int type = skb_shinfo(skb)->gso_type;
+-
+-		if (unlikely(type &
+-			     ~(SKB_GSO_TCPV4 |
+-			       SKB_GSO_DODGY |
+-			       SKB_GSO_TCP_ECN |
+-			       SKB_GSO_TCP_FIXEDID |
+-			       SKB_GSO_TCPV6 |
+-			       SKB_GSO_GRE |
+-			       SKB_GSO_GRE_CSUM |
+-			       SKB_GSO_IPIP |
+-			       SKB_GSO_SIT |
+-			       SKB_GSO_UDP_TUNNEL |
+-			       SKB_GSO_UDP_TUNNEL_CSUM |
+-			       SKB_GSO_TUNNEL_REMCSUM |
+-			       0) ||
+-			     !(type & (SKB_GSO_TCPV4 |
+-				       SKB_GSO_TCPV6))))
+-			goto out;
+ 
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 6b7459c..81f253b 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -209,16 +209,6 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 
+ 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+ 		/* Packet is from an untrusted source, reset gso_segs. */
+-		int type = skb_shinfo(skb)->gso_type;
+-
+-		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
+-				      SKB_GSO_UDP_TUNNEL |
+-				      SKB_GSO_UDP_TUNNEL_CSUM |
+-				      SKB_GSO_TUNNEL_REMCSUM |
+-				      SKB_GSO_IPIP |
+-				      SKB_GSO_GRE | SKB_GSO_GRE_CSUM) ||
+-			     !(type & (SKB_GSO_UDP))))
+-			goto out;
+ 
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index f5eb184..9ad743b 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -69,24 +69,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	bool encap, udpfrag;
+ 	int nhoff;
+ 
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-		     ~(SKB_GSO_TCPV4 |
+-		       SKB_GSO_UDP |
+-		       SKB_GSO_DODGY |
+-		       SKB_GSO_TCP_ECN |
+-		       SKB_GSO_TCP_FIXEDID |
+-		       SKB_GSO_TCPV6 |
+-		       SKB_GSO_GRE |
+-		       SKB_GSO_GRE_CSUM |
+-		       SKB_GSO_IPIP |
+-		       SKB_GSO_SIT |
+-		       SKB_GSO_UDP_TUNNEL |
+-		       SKB_GSO_UDP_TUNNEL_CSUM |
+-		       SKB_GSO_TUNNEL_REMCSUM |
+-		       SKB_GSO_PARTIAL |
+-		       0)))
+-		goto out;
+-
+ 	skb_reset_network_header(skb);
+ 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 5429f6b..ac858c4 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -36,19 +36,6 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 
+ 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+ 		/* Packet is from an untrusted source, reset gso_segs. */
+-		int type = skb_shinfo(skb)->gso_type;
+-
+-		if (unlikely(type & ~(SKB_GSO_UDP |
+-				      SKB_GSO_DODGY |
+-				      SKB_GSO_UDP_TUNNEL |
+-				      SKB_GSO_UDP_TUNNEL_CSUM |
+-				      SKB_GSO_TUNNEL_REMCSUM |
+-				      SKB_GSO_GRE |
+-				      SKB_GSO_GRE_CSUM |
+-				      SKB_GSO_IPIP |
+-				      SKB_GSO_SIT) ||
+-			     !(type & (SKB_GSO_UDP))))
+-			goto out;
+ 
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+index bbcf604..6de1e13 100644
+--- a/net/mpls/mpls_gso.c
++++ b/net/mpls/mpls_gso.c
+@@ -26,15 +26,6 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t mpls_features;
+ 	__be16 mpls_protocol;
+ 
+-	if (unlikely(skb_shinfo(skb)->gso_type &
+-				~(SKB_GSO_TCPV4 |
+-				  SKB_GSO_TCPV6 |
+-				  SKB_GSO_UDP |
+-				  SKB_GSO_DODGY |
+-				  SKB_GSO_TCP_FIXEDID |
+-				  SKB_GSO_TCP_ECN)))
+-		goto out;
+-
+ 	/* Setup inner SKB. */
+ 	mpls_protocol = skb->protocol;
+ 	skb->protocol = skb->inner_protocol;
 -- 
 2.8.0.rc2
