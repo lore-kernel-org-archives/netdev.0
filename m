@@ -1,47 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: mvneta: bm: fix dependencies again
-Date: Wed, 11 May 2016 22:13:23 +0200
-Message-ID: <1462997636-1049487-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Marcin Wojtas <mw@semihalf.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Wed, 11 May 2016 15:27:22 -0500
+Message-ID: <573395AA.1030400@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com> <571915F5.5070504@codeaurora.org>
+ <571A7F3D.1070609@codeaurora.org> <571A8207.60704@gmail.com>
+ <57326C44.8020906@codeaurora.org> <57326E08.40803@gmail.com>
+ <573297F7.9020500@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <573297F7.9020500@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I tried to fix this before, but my previous fix was incomplete
-and we can still get the same link error in randconfig builds
-because of the way that Kconfig treats the
+Timur Tabi wrote:
+> I think the problem is that the current driver seems to be too eager to
+> start/stop the MAC.
+>
+> Please take a look at emac_work_thread_link_check() at
+> https://lkml.org/lkml/2016/4/13/670.  Every time the PHY link goes up,
+> it does this:
 
-	default y if MVNETA=y && MVNETA_BM_ENABLE
+Never mind, I figured out the problem.  I still have a lot of work ahead 
+of me, but at least I'm not stuck any more.
 
-line that does not actually trigger when MVNETA_BM_ENABLE=m,
-unlike I intended.
-Changing the line to use MVNETA_BM_ENABLE!=n however has
-the desired effect and hopefully makes all configurations
-work as expected.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 019ded3aa7c9 ("net: mvneta: bm: clarify dependencies")
----
- drivers/net/ethernet/marvell/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index b5c6d42daa12..2664827ddecd 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -68,7 +68,7 @@ config MVNETA
- 
- config MVNETA_BM
- 	tristate
--	default y if MVNETA=y && MVNETA_BM_ENABLE
-+	default y if MVNETA=y && MVNETA_BM_ENABLE!=n
- 	default MVNETA_BM_ENABLE
- 	select HWBM
- 	help
 -- 
-2.7.0
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
