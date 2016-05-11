@@ -1,44 +1,60 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH 1/2] ip6_gre: Fix get_size calculation for gre6 tunnel
-Date: Wed, 11 May 2016 18:48:31 +0800
-Message-ID: <1462963712-13781-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Dmitry Kozlov <xeb@mail.ru>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 net-next] ifstat: move to new RTM_GETSTATS api
+Date: Wed, 11 May 2016 07:24:23 -0400
+Message-ID: <57331667.5090208@mojatatu.com>
+References: <1461998511-24193-1-git-send-email-roopa@cumulusnetworks.com>
+ <57248720.8060001@mojatatu.com> <5724CC01.3030203@cumulusnetworks.com>
+ <573016F1.8050700@cumulusnetworks.com> <573084AC.6030407@mojatatu.com>
+ <57320B6A.3090301@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com, nikolay@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34614 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbcEKLYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 07:24:32 -0400
+Received: by mail-io0-f193.google.com with SMTP id d62so5375916iof.1
+        for <netdev@vger.kernel.org>; Wed, 11 May 2016 04:24:31 -0700 (PDT)
+In-Reply-To: <57320B6A.3090301@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do not include attribute IFLA_GRE_TOS.
+On 16-05-10 12:25 PM, Roopa Prabhu wrote:
+> On 5/9/16, 5:38 AM, Jamal Hadi Salim wrote:
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/ipv6/ip6_gre.c | 3 ---
- 1 file changed, 3 deletions(-)
+>> Is it not possible to convert to 64b - and IFLA_STAT
+>> becomes available just store it still in 64b?
+>> i.e 32b will fit in 64b space.
+>
+> The only problem is again if the last saved history file had 32 bit
+> and 32bit counters may roll over earlier.
+>
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index ee62ec4..3c25fe6 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1394,8 +1394,6 @@ static size_t ip6gre_get_size(const struct net_device *dev)
- 		nla_total_size(sizeof(struct in6_addr)) +
- 		/* IFLA_GRE_TTL */
- 		nla_total_size(1) +
--		/* IFLA_GRE_TOS */
--		nla_total_size(1) +
- 		/* IFLA_GRE_ENCAP_LIMIT */
- 		nla_total_size(1) +
- 		/* IFLA_GRE_FLOWINFO */
-@@ -1420,7 +1418,6 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_in6_addr(skb, IFLA_GRE_LOCAL, &p->laddr) ||
- 	    nla_put_in6_addr(skb, IFLA_GRE_REMOTE, &p->raddr) ||
- 	    nla_put_u8(skb, IFLA_GRE_TTL, p->hop_limit) ||
--	    /*nla_put_u8(skb, IFLA_GRE_TOS, t->priority) ||*/
- 	    nla_put_u8(skb, IFLA_GRE_ENCAP_LIMIT, p->encap_limit) ||
- 	    nla_put_be32(skb, IFLA_GRE_FLOWINFO, p->flowinfo) ||
- 	    nla_put_u32(skb, IFLA_GRE_FLAGS, p->flags))
--- 
-1.8.3.1
+I am not sure there is a good case of someone upgrading from 32b to 64b.
+
+> One more thing i am looking at right now which might work is using
+>   the existing history file and use the info_source (aka header) in ifstat history file to indicate
+> 32bit or 64bit stats. For 32 bit it is currently "#kernel".
+> For 64 bit i plan to use "#kernel64".
+>
+
+Good idea.
+
+> If we are starting a new history file, i will always use 64bit and when using an existing history file,
+> it will use 32bit.
+>
+> And 64bit stats will be queried with RTM_GETSTATS if available or will use IFLA_STATS64 when
+> RTM_NEWLINK Is used.
+>
+> will see if i can get this working for all cases,
+
+Yes, this would work.
+Release it and see if someone is going to complain.
+
+cheers,
+jamal
