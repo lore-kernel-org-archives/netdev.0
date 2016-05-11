@@ -1,41 +1,101 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: default to 64-bit DMA on systems without memory
- below 4 GB
-Date: Wed, 11 May 2016 23:48:01 +0200
-Message-ID: <20160511214801.GA11929@electric-eye.fr.zoreil.com>
-References: <1462952869-23498-1-git-send-email-ard.biesheuvel@linaro.org>
- <20160511203126.GA10093@electric-eye.fr.zoreil.com>
- <CAKv+Gu95h2WPXDvwWjOkYH8A11RysCXBcvti62hvXo1J7zgwEA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Wed, 11 May 2016 14:56:44 -0700
+Message-ID: <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Ricardo Salveti <ricardo.salveti@linaro.org>,
-	Leo Duran <leo.duran@amd.com>,
-	G Gregory <graeme.gregory@linaro.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:54625 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbcEKVsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 17:48:12 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKv+Gu95h2WPXDvwWjOkYH8A11RysCXBcvti62hvXo1J7zgwEA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Paolo Abeni <pabeni@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160511065527.GD3193@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ard Biesheuvel <ard.biesheuvel@linaro.org> :
-> On 11 May 2016 at 22:31, Francois Romieu <romieu@fr.zoreil.com> wrote:
-[...]
-> It has little to do with f*cking legacy 32-bits-only-devices if DRAM
-> simply starts at 0x80_0000_0000. This is on an AMD arm64 chip.
+On Wed, 2016-05-11 at 08:55 +0200, Peter Zijlstra wrote:
+> On Tue, May 10, 2016 at 03:51:37PM -0700, Eric Dumazet wrote:
+> > diff --git a/kernel/softirq.c b/kernel/softirq.c
+> > index 17caf4b63342..22463217e3cf 100644
+> > --- a/kernel/softirq.c
+> > +++ b/kernel/softirq.c
+> > @@ -56,6 +56,7 @@ EXPORT_SYMBOL(irq_stat);
+> >  static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
+> >  
+> >  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+> > +DEFINE_PER_CPU(bool, ksoftirqd_scheduled);
+> >  
+> >  const char * const softirq_to_name[NR_SOFTIRQS] = {
+> >  	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
+> > @@ -73,8 +74,10 @@ static void wakeup_softirqd(void)
+> >  	/* Interrupts are disabled: no need to stop preemption */
+> >  	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+> >  
+> > -	if (tsk && tsk->state != TASK_RUNNING)
+> > +	if (tsk && tsk->state != TASK_RUNNING) {
+> > +		__this_cpu_write(ksoftirqd_scheduled, true);
+> >  		wake_up_process(tsk);
+> 
+> Since we're already looking at tsk->state, and the wake_up_process()
+> ensures the thing becomes TASK_RUNNING, you could add:
+> 
+> static inline bool ksoftirqd_running(void)
+> {
+> 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
+> }
 
-The lack of IOMMU surprizes me.
+Indeed, and the patch looks quite simple now ;)
 
-[...]
-> OK, if you prefer. Should I send a v2?
-
-Don't bother unless someones comes with a more substantial request.
-
--- 
-Ueimor
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 17caf4b63342d7839528f367b283a386413b0362..23c364485d03618773c385d943c0ef39f5931d09 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -57,6 +57,11 @@ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp
+ 
+ DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+ 
++static inline bool ksoftirqd_running(void)
++{
++	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
++}
++
+ const char * const softirq_to_name[NR_SOFTIRQS] = {
+ 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
+ 	"TASKLET", "SCHED", "HRTIMER", "RCU"
+@@ -313,7 +318,7 @@ asmlinkage __visible void do_softirq(void)
+ 
+ 	pending = local_softirq_pending();
+ 
+-	if (pending)
++	if (pending && !ksoftirqd_running())
+ 		do_softirq_own_stack();
+ 
+ 	local_irq_restore(flags);
+@@ -340,6 +345,9 @@ void irq_enter(void)
+ 
+ static inline void invoke_softirq(void)
+ {
++	if (ksoftirqd_running())
++		return;
++
+ 	if (!force_irqthreads) {
+ #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
+ 		/*
