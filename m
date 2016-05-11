@@ -1,60 +1,42 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 net-next] ifstat: move to new RTM_GETSTATS api
-Date: Wed, 11 May 2016 07:24:23 -0400
-Message-ID: <57331667.5090208@mojatatu.com>
-References: <1461998511-24193-1-git-send-email-roopa@cumulusnetworks.com>
- <57248720.8060001@mojatatu.com> <5724CC01.3030203@cumulusnetworks.com>
- <573016F1.8050700@cumulusnetworks.com> <573084AC.6030407@mojatatu.com>
- <57320B6A.3090301@cumulusnetworks.com>
+From: "S.C Jonathan" <jcl1043@bankofengland.co.uk>
+Subject: Hallo Freund
+Date: Wed, 11 May 2016 18:28:58 +0800
+Message-ID: <0O7000CWNCYD3G00@relay2.stonline.sk>
+Reply-To: jclff081@aol.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	davem@davemloft.net, edumazet@google.com, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, nikolay@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <jcl1043@bankofengland.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34614 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751129AbcEKLYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 07:24:32 -0400
-Received: by mail-io0-f193.google.com with SMTP id d62so5375916iof.1
-        for <netdev@vger.kernel.org>; Wed, 11 May 2016 04:24:31 -0700 (PDT)
-In-Reply-To: <57320B6A.3090301@cumulusnetworks.com>
+Received: from kardinal.telekom.sk ([213.81.152.143]:55996 "EHLO smtp.t-com.sk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751386AbcEKL3o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 07:29:44 -0400
+Received: from [10.1.1.5] ([unknown] [120.140.119.226])
+ by relay2.stonline.sk (STOnline ESMTP Server)
+ with ESMTPSA id <0O7000CWICWU3G00@relay2.stonline.sk> for
+ netdev@vger.kernel.org; Wed, 11 May 2016 12:25:53 +0200 (CEST)
+Content-description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-05-10 12:25 PM, Roopa Prabhu wrote:
-> On 5/9/16, 5:38 AM, Jamal Hadi Salim wrote:
+Datum: 2016.05.11
 
->> Is it not possible to convert to 64b - and IFLA_STAT
->> becomes available just store it still in 64b?
->> i.e 32b will fit in 64b space.
->
-> The only problem is again if the last saved history file had 32 bit
-> and 32bit counters may roll over earlier.
->
+Hallo Freund,
 
-I am not sure there is a good case of someone upgrading from 32b to 64b.
+Ich bin Sir Jonathan Stephen Cunliffe, der stellvertretende Gouverneur,=
+ Financial Stability, die Bank of England. Ich habe ein interessantes A=
+ngebot, die eine erhebliche Menge mit Ihnen zu teilen lohnt. Wenn Sie i=
+nteressiert sind, schreiben Sie zur=FCck in meine pers=F6nliche E-Mail:=
+ jclff081@aol.co.uk f=FCr weitere Details.
 
-> One more thing i am looking at right now which might work is using
->   the existing history file and use the info_source (aka header) in ifstat history file to indicate
-> 32bit or 64bit stats. For 32 bit it is currently "#kernel".
-> For 64 bit i plan to use "#kernel64".
->
+Hinweis: Diese Meldung =FCbersetzt wurde eine Google-=DCbersetzer verwe=
+nden. Wenn Sie sprechen, schreiben und verstehen Englisch, bitte lassen=
+ Sie mich wissen, wie es besser f=FCr unsere Kommunikation sein wird.
 
-Good idea.
+Gr=FC=DFe,
+Sir Jon S. Cunliffe
 
-> If we are starting a new history file, i will always use 64bit and when using an existing history file,
-> it will use 32bit.
->
-> And 64bit stats will be queried with RTM_GETSTATS if available or will use IFLA_STATS64 when
-> RTM_NEWLINK Is used.
->
-> will see if i can get this working for all cases,
-
-Yes, this would work.
-Release it and see if someone is going to complain.
-
-cheers,
-jamal
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
