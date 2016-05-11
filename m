@@ -1,19 +1,19 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Wed, 11 May 2016 06:08:32 -0700
-Message-ID: <1462972112.23934.139.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 11 May 2016 15:13:49 +0200
+Message-ID: <de6ef948-65a4-e7e0-718e-6d37474f65d4@stressinduktion.org>
 References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1462960104.4444.37.camel@redhat.com>
+ <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+ <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+ <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+ <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+ <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160511065527.GD3193@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
+Cc: Eric Dumazet <edumazet@google.com>,
+	Paolo Abeni <pabeni@redhat.com>,
 	netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Jiri Pirko <jiri@mellanox.com>,
@@ -21,127 +21,55 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Alexei Starovoitov <ast@plumgrid.com>,
 	Alexander Duyck <aduyck@mirantis.com>,
 	Tom Herbert <tom@herbertland.com>,
-	Peter Zijlstra <peterz@infradead.org>,
 	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
 	LKML <linux-kernel@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462960104.4444.37.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57364 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751816AbcEKNOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:14:04 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 1B50121461
+	for <netdev@vger.kernel.org>; Wed, 11 May 2016 09:14:03 -0400 (EDT)
+In-Reply-To: <20160511065527.GD3193@twins.programming.kicks-ass.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-11 at 11:48 +0200, Paolo Abeni wrote:
-> Hi Eric,
-> On Tue, 2016-05-10 at 15:51 -0700, Eric Dumazet wrote:
-> > On Wed, 2016-05-11 at 00:32 +0200, Hannes Frederic Sowa wrote:
-> > 
-> > > Not only did we want to present this solely as a bugfix but also as as
-> > > performance enhancements in case of virtio (as you can see in the cover
-> > > letter). Given that a long time ago there was a tendency to remove
-> > > softirqs completely, we thought it might be very interesting, that a
-> > > threaded napi in general seems to be absolutely viable nowadays and
-> > > might offer new features.
-> > 
-> > Well, you did not fix the bug, you worked around by adding yet another
-> > layer, with another sysctl that admins or programs have to manage.
-> > 
-> > If you have a special need for virtio, do not hide it behind a 'bug fix'
-> > but add it as a features request.
-> > 
-> > This ksoftirqd issue is real and a fix looks very reasonable.
-> > 
-> > Please try this patch, as I had very good success with it.
+On 11.05.2016 08:55, Peter Zijlstra wrote:
+> On Tue, May 10, 2016 at 03:51:37PM -0700, Eric Dumazet wrote:
+>> diff --git a/kernel/softirq.c b/kernel/softirq.c
+>> index 17caf4b63342..22463217e3cf 100644
+>> --- a/kernel/softirq.c
+>> +++ b/kernel/softirq.c
+>> @@ -56,6 +56,7 @@ EXPORT_SYMBOL(irq_stat);
+>>  static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
+>>  
+>>  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+>> +DEFINE_PER_CPU(bool, ksoftirqd_scheduled);
+>>  
+>>  const char * const softirq_to_name[NR_SOFTIRQS] = {
+>>  	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
+>> @@ -73,8 +74,10 @@ static void wakeup_softirqd(void)
+>>  	/* Interrupts are disabled: no need to stop preemption */
+>>  	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+>>  
+>> -	if (tsk && tsk->state != TASK_RUNNING)
+>> +	if (tsk && tsk->state != TASK_RUNNING) {
+>> +		__this_cpu_write(ksoftirqd_scheduled, true);
+>>  		wake_up_process(tsk);
 > 
-> Thank you for your time and your effort.
+> Since we're already looking at tsk->state, and the wake_up_process()
+> ensures the thing becomes TASK_RUNNING, you could add:
 > 
-> I tested your patch on the bare metal "single core" scenario, disabling
-> the unneeded cores with:
-> CPUS=`nproc`
-> for I in `seq 1 $CPUS`; do echo 0  >  /sys/devices/system/node/node0/cpu$I/online; done
-> 
-> And I got a:
-> 
-> [   86.925249] Broke affinity for irq <num>
-> 
+> static inline bool ksoftirqd_running(void)
+> {
+> 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
+> }
 
-Was it fatal, or simply a warning that you are removing the cpu that was
-the only allowed cpu in an affinity_mask ?
+This looks racy to me as the ksoftirqd could be in the progress to stop
+and we would miss another softirq invocation.
 
-Looks another bug to fix then ? We disabled CPU hotplug here at Google
-for our production, as it was notoriously buggy. No time to fix dozens
-of issues added by a crowd of developers that do not even know a cpu can
-be unplugged.
-
-Maybe some caller of local_bh_disable()/local_bh_enable() expected that
-current softirq would be processed. Obviously flaky even before the
-patches.
-
-> for each irq number generated by a network device.
-> 
-> In this scenario, your patch solves the ksoftirqd issue, performing
-> comparable to the napi threaded patches (with a negative delta in the
-> noise range) and introducing a minor regression with a single flow, in
-> the noise range (3%).
-> 
-> As said in a previous mail, we actually experimented something similar,
-> but it felt quite hackish.
-
-Right, we are networking guys, and we feel that messing with such core
-infra is not for us. So we feel comfortable adding a pure networking
-patch.
-
-> 
-> AFAICS this patch adds three more tests in the fast path and affect all
-> other softirq use case. I'm not sure how to check for regression there.
-
-It is obvious to me that ksoftird mechanism is not working as intended.
-
-Fixing it might uncover bugs from parts of the kernel relying on the
-bug, indirectly or directly. Is it a good thing ?
-
-I can not tell before trying.
-
-Just by looking at /proc/{ksoftirqs_pid}/sched you can see the problem,
-as we normally schedule ksoftird under stress but most of the time,
-the softirq items were processed by another tasks as you found out.
-
-
-> 
-> The napi thread patches are actually a new feature, that also fixes the
-> ksoftirqd issue: hunting the ksoftirqd issue has been the initial
-> trigger for this work. I'm sorry for not being clear enough in the cover
-> letter.
-> 
-> The napi thread patches offer additional benefits, i.e. an additional
-> relevant gain in the described test scenario, and do not impact on other
-> subsystems/kernel entities. 
-> 
-> I still think they are worthy, and I bet you would disagree, but could
-> you please articulate more which parts concern you most and/or are more
-> bloated ?
-
-Just look at the added code. napi_threaded_poll() is very buggy, but
-honestly I do not want to fix the bugs you added there. If you have only
-one vcpu, how jiffies can ever change since you block BH ?
-
-I was planning to remove cond_resched_softirq() that we no longer use
-after my recent changes to TCP stack,
-and you call it again (while it is obviously buggy since it does not
-check if a BH is pending, only if a thread needs the cpu)
-
-I prefer fixing the existing code, really. It took us years to
-understand it and maybe fix it.
-
-Just think of what will happen if you have 10 devices (10 new threads in
-your model) and one cpu.
-
-Instead of the nice existing netif_rx() doing 64 packets per device
-rounds, you'll now rely on process scheduler behavior that has no such
-granularity.
-
-Adding more threads is the natural answer of userland programmers, but
-in the kernel it is not the right answer. We already have mechanism,
-just use them and fix them if they are broken.
-
-Sorry, I really do not think your patches are the way to go.
-But this thread is definitely interesting.
+Thanks,
+Hannes
