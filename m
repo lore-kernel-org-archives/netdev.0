@@ -1,38 +1,57 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] vxlan: set mac_header correctly in GPE mode
-Date: Wed, 11 May 2016 15:55:06 +0200
-Message-ID: <3b9c5ffd8085c0af7072960865883a23be0d0a32.1462974886.git.jbenc@redhat.com>
-Cc: Simon Horman <simon.horman@netronome.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3 flow/port
+ support
+Date: Wed, 11 May 2016 15:57:26 +0200
+Message-ID: <20160511155726.17268c07@griffin>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+	<1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+	<CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+	<20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
+	<20160506112514.47f6e9dc@griffin>
+	<20160509080420.GA4470@vergenet.net>
+	<20160510140106.367936fb@griffin>
+	<20160511015009.GB24436@vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pravin shelar <pshelar@ovn.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>,
+	Lorand Jakab <lojakab@cisco.com>,
+	Thomas Morin <thomas.morin@orange.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32796 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58645 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933136AbcEKNzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 May 2016 09:55:25 -0400
+	id S932725AbcEKN5b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2016 09:57:31 -0400
+In-Reply-To: <20160511015009.GB24436@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For VXLAN-GPE, the interface is ARPHRD_NONE, thus we need to reset
-mac_header after pulling the outer header.
+On Wed, 11 May 2016 10:50:12 +0900, Simon Horman wrote:
+> On Tue, May 10, 2016 at 02:01:06PM +0200, Jiri Benc wrote:
+> > We have two options here:
+> > 
+> > 1. As for metadata tunnels all the info is in metadata_dst and we
+> >    don't need the IP/GRE header for anything, we can make the ipgre
+> >    interface ARPHRD_NONE in metadata based mode.
+> > 
+> > 2. We can fix this up in ovs after receiving the packet from
+> >    ARPHRD_IPGRE interface.
+> > 
+> > I think the first option is the correct one. We already don't assign
+> > dev->header_ops in metadata mode. I'll prepare a patch.
+> 
+> I agree that 1. seems to be the better approach.
 
-Fixes: e1e5314de08b ("vxlan: implement GPE")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/vxlan.c | 2 ++
- 1 file changed, 2 insertions(+)
+I just sent a patch that fixes this. And we have the same bug in
+VXLAN-GPE, I sent a patch, too.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 2f29d20aa08f..e030a804b772 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1338,6 +1338,8 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 	if (__iptunnel_pull_header(skb, VXLAN_HLEN, protocol, raw_proto,
- 				   !net_eq(vxlan->net, dev_net(vxlan->dev))))
- 			goto drop;
-+	if (raw_proto)
-+		skb_reset_mac_header(skb);
- 
- 	if (vxlan_collect_metadata(vs)) {
- 		__be32 vni = vxlan_vni(vxlan_hdr(skb)->vx_vni);
--- 
-1.8.3.1
+> Sure, if that is your preference I think it should be simple enough to
+> implement. I agree that netdev_port_receive() looks like a good place for
+> this.
+
+Great, thanks!
+
+ Jiri
