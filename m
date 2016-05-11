@@ -1,838 +1,865 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next v2 01/14] qed: Add CONFIG_QED_SRIOV
-Date: Wed, 11 May 2016 16:36:12 +0300
-Message-ID: <1462973785-32532-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next v2 02/14] qed: Add VF->PF channel infrastructure
+Date: Wed, 11 May 2016 16:36:13 +0300
+Message-ID: <1462973785-32532-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:49892 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932634AbcEKNgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:36:39 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:15961 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932634AbcEKNgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:36:45 -0400
 In-Reply-To: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for a new Kconfig option for qed* driver which would allow
-[eventually] the support in VFs.
+Communication between VF and PF is based on a dedicated HW channel;
+VF will prepare a messge, and by signaling the HW the PF would get a
+notification of that message existance. The PF would then copy the
+message, process it and DMA an answer back to the VF as a response.
 
-This patch adds the necessary logic in the PF to learn about the possible
-VFs it will have to support [Based on PCI configuration space and HW],
-and prepare a database with an entry per-VF as infrastructure for future
-interaction with said VFs.
+The messages themselves are TLV-based - allowing easier backward/forward
+compatibility.
+
+This patch adds the infrastructure of the channel on the PF side -
+starting with the arrival of the notification and ending with DMAing
+the response back to the VF.
+
+It also adds a dummy-response as reference, as it only lays the
+groundwork of the communication; it doesn't really add support of any
+actual messages.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/Kconfig         |  10 +
- drivers/net/ethernet/qlogic/qed/Makefile    |   1 +
- drivers/net/ethernet/qlogic/qed/qed.h       |   7 +
- drivers/net/ethernet/qlogic/qed/qed_dev.c   |  19 ++
- drivers/net/ethernet/qlogic/qed/qed_hw.c    |  11 +
- drivers/net/ethernet/qlogic/qed/qed_hw.h    |  10 +
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 366 ++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_sriov.h | 185 ++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_vf.h    |  41 ++++
- 9 files changed, 650 insertions(+)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_sriov.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_sriov.h
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_vf.h
+ drivers/net/ethernet/qlogic/qed/qed.h         |   6 +
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h |  27 +-
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h     |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed_hw.c      |  44 ++-
+ drivers/net/ethernet/qlogic/qed/qed_main.c    |  10 +-
+ drivers/net/ethernet/qlogic/qed/qed_spq.c     |  16 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c   | 385 ++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h   |  53 ++++
+ drivers/net/ethernet/qlogic/qed/qed_vf.h      |  52 ++++
+ include/linux/qed/common_hsi.h                |   5 +
+ 10 files changed, 585 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index c0a11b5..680d8c7 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -98,6 +98,16 @@ config QED
- 	---help---
- 	  This enables the support for ...
- 
-+config QED_SRIOV
-+	bool "QLogic QED 25/40/100Gb SR-IOV support"
-+	depends on QED && PCI_IOV
-+	default y
-+	---help---
-+	  This configuration parameter enables Single Root Input Output
-+	  Virtualization support for QED devices.
-+	  This allows for virtual function acceleration in virtualized
-+	  environments.
-+
- config QEDE
- 	tristate "QLogic QED 25/40/100Gb Ethernet NIC"
- 	depends on QED
-diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
-index aafa669..e11a809 100644
---- a/drivers/net/ethernet/qlogic/qed/Makefile
-+++ b/drivers/net/ethernet/qlogic/qed/Makefile
-@@ -3,3 +3,4 @@ obj-$(CONFIG_QED) := qed.o
- qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
- 	 qed_int.o qed_main.o qed_mcp.o qed_sp_commands.o qed_spq.o qed_l2.o \
- 	 qed_selftest.o
-+qed-$(CONFIG_QED_SRIOV) += qed_sriov.o
 diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index cceac32..2e067c7 100644
+index 2e067c7..01f9b6c 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -152,6 +152,7 @@ enum QED_RESOURCES {
+@@ -378,6 +378,12 @@ struct qed_hwfn {
  
- enum QED_FEATURE {
- 	QED_PF_L2_QUE,
-+	QED_VF,
- 	QED_MAX_FEATURES,
- };
+ 	struct qed_simd_fp_handler	simd_proto_handler[64];
  
-@@ -360,6 +361,7 @@ struct qed_hwfn {
- 	/* True if the driver requests for the link */
- 	bool				b_drv_link_init;
- 
-+	struct qed_pf_iov		*pf_iov_info;
- 	struct qed_mcp_info		*mcp_info;
- 
- 	struct qed_hw_cid_data		*p_tx_cids;
-@@ -484,6 +486,10 @@ struct qed_dev {
- 	u8				num_hwfns;
- 	struct qed_hwfn			hwfns[MAX_HWFNS_PER_DEVICE];
- 
-+	/* SRIOV */
-+	struct qed_hw_sriov_info *p_iov_info;
-+#define IS_QED_SRIOV(cdev)              (!!(cdev)->p_iov_info)
++#ifdef CONFIG_QED_SRIOV
++	struct workqueue_struct *iov_wq;
++	struct delayed_work iov_task;
++	unsigned long iov_task_flags;
++#endif
 +
- 	unsigned long			tunn_mode;
- 	u32				drv_type;
- 
-@@ -514,6 +520,7 @@ struct qed_dev {
- 	const struct firmware		*firmware;
+ 	struct z_stream_s		*stream;
  };
  
-+#define NUM_OF_VFS(dev)         MAX_NUM_VFS_BB
- #define NUM_OF_SBS(dev)         MAX_SB_PER_PATH_BB
- #define NUM_OF_ENG_PFS(dev)     MAX_NUM_PFS_BB
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+index 6aac3f8..f567371 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+@@ -182,11 +182,15 @@ enum qed_dmae_address_type_t {
+  * used mostly to write a zeroed buffer to destination address
+  * using DMA
+  */
+-#define QED_DMAE_FLAG_RW_REPL_SRC       0x00000001
+-#define QED_DMAE_FLAG_COMPLETION_DST    0x00000008
++#define QED_DMAE_FLAG_RW_REPL_SRC	0x00000001
++#define QED_DMAE_FLAG_VF_SRC		0x00000002
++#define QED_DMAE_FLAG_VF_DST		0x00000004
++#define QED_DMAE_FLAG_COMPLETION_DST	0x00000008
  
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index b500c86..7a359c4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -30,6 +30,7 @@
+ struct qed_dmae_params {
+-	u32	flags; /* consists of QED_DMAE_FLAG_* values */
++	u32 flags; /* consists of QED_DMAE_FLAG_* values */
++	u8 src_vfid;
++	u8 dst_vfid;
+ };
+ 
+ /**
+@@ -209,6 +213,23 @@ qed_dmae_host2grc(struct qed_hwfn *p_hwfn,
+ 		  u32 flags);
+ 
+ /**
++ * @brief qed_dmae_host2host - copy data from to source address
++ * to a destination adress (for SRIOV) using the given ptt
++ *
++ * @param p_hwfn
++ * @param p_ptt
++ * @param source_addr
++ * @param dest_addr
++ * @param size_in_dwords
++ * @param params
++ */
++int qed_dmae_host2host(struct qed_hwfn *p_hwfn,
++		       struct qed_ptt *p_ptt,
++		       dma_addr_t source_addr,
++		       dma_addr_t dest_addr,
++		       u32 size_in_dwords, struct qed_dmae_params *p_params);
++
++/**
+  * @brief qed_chain_alloc - Allocate and initialize a chain
+  *
+  * @param p_hwfn
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index c4fae71..6ba197c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -31,7 +31,7 @@ enum common_event_opcode {
+ 	COMMON_EVENT_PF_STOP,
+ 	COMMON_EVENT_RESERVED,
+ 	COMMON_EVENT_RESERVED2,
+-	COMMON_EVENT_RESERVED3,
++	COMMON_EVENT_VF_PF_CHANNEL,
+ 	COMMON_EVENT_RESERVED4,
+ 	COMMON_EVENT_RESERVED5,
+ 	COMMON_EVENT_RESERVED6,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+index a8cf96c..a9be5a4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hw.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+@@ -355,8 +355,8 @@ static void qed_dmae_opcode(struct qed_hwfn *p_hwfn,
+ 			    const u8 is_dst_type_grc,
+ 			    struct qed_dmae_params *p_params)
+ {
++	u16 opcode_b = 0;
+ 	u32 opcode = 0;
+-	u16 opcodeB = 0;
+ 
+ 	/* Whether the source is the PCIe or the GRC.
+ 	 * 0- The source is the PCIe
+@@ -398,14 +398,24 @@ static void qed_dmae_opcode(struct qed_hwfn *p_hwfn,
+ 	opcode |= (DMAE_CMD_DST_ADDR_RESET_MASK <<
+ 		   DMAE_CMD_DST_ADDR_RESET_SHIFT);
+ 
+-	opcodeB |= (DMAE_CMD_SRC_VF_ID_MASK <<
+-		    DMAE_CMD_SRC_VF_ID_SHIFT);
++	/* SRC/DST VFID: all 1's - pf, otherwise VF id */
++	if (p_params->flags & QED_DMAE_FLAG_VF_SRC) {
++		opcode |= 1 << DMAE_CMD_SRC_VF_ID_VALID_SHIFT;
++		opcode_b |= p_params->src_vfid << DMAE_CMD_SRC_VF_ID_SHIFT;
++	} else {
++		opcode_b |= DMAE_CMD_SRC_VF_ID_MASK <<
++			    DMAE_CMD_SRC_VF_ID_SHIFT;
++	}
+ 
+-	opcodeB |= (DMAE_CMD_DST_VF_ID_MASK <<
+-		    DMAE_CMD_DST_VF_ID_SHIFT);
++	if (p_params->flags & QED_DMAE_FLAG_VF_DST) {
++		opcode |= 1 << DMAE_CMD_DST_VF_ID_VALID_SHIFT;
++		opcode_b |= p_params->dst_vfid << DMAE_CMD_DST_VF_ID_SHIFT;
++	} else {
++		opcode_b |= DMAE_CMD_DST_VF_ID_MASK << DMAE_CMD_DST_VF_ID_SHIFT;
++	}
+ 
+ 	p_hwfn->dmae_info.p_dmae_cmd->opcode = cpu_to_le32(opcode);
+-	p_hwfn->dmae_info.p_dmae_cmd->opcode_b = cpu_to_le16(opcodeB);
++	p_hwfn->dmae_info.p_dmae_cmd->opcode_b = cpu_to_le16(opcode_b);
+ }
+ 
+ u32 qed_dmae_idx_to_go_cmd(u8 idx)
+@@ -753,6 +763,28 @@ int qed_dmae_host2grc(struct qed_hwfn *p_hwfn,
+ 	return rc;
+ }
+ 
++int
++qed_dmae_host2host(struct qed_hwfn *p_hwfn,
++		   struct qed_ptt *p_ptt,
++		   dma_addr_t source_addr,
++		   dma_addr_t dest_addr,
++		   u32 size_in_dwords, struct qed_dmae_params *p_params)
++{
++	int rc;
++
++	mutex_lock(&(p_hwfn->dmae_info.mutex));
++
++	rc = qed_dmae_execute_command(p_hwfn, p_ptt, source_addr,
++				      dest_addr,
++				      QED_DMAE_ADDRESS_HOST_PHYS,
++				      QED_DMAE_ADDRESS_HOST_PHYS,
++				      size_in_dwords, p_params);
++
++	mutex_unlock(&(p_hwfn->dmae_info.mutex));
++
++	return rc;
++}
++
+ u16 qed_get_qm_pq(struct qed_hwfn *p_hwfn,
+ 		  enum protocol_type proto,
+ 		  union qed_qm_pq_params *p_params)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 1b758bd..c209ed4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -24,6 +24,7 @@
+ #include <linux/qed/qed_if.h>
+ 
+ #include "qed.h"
++#include "qed_sriov.h"
+ #include "qed_sp.h"
+ #include "qed_dev_api.h"
+ #include "qed_mcp.h"
+@@ -749,7 +750,10 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 	struct qed_mcp_drv_version drv_version;
+ 	const u8 *data = NULL;
+ 	struct qed_hwfn *hwfn;
+-	int rc;
++	int rc = -EINVAL;
++
++	if (qed_iov_wq_start(cdev))
++		goto err;
+ 
+ 	rc = request_firmware(&cdev->firmware, QED_FW_FILE_NAME,
+ 			      &cdev->pdev->dev);
+@@ -826,6 +830,8 @@ err1:
+ err:
+ 	release_firmware(cdev->firmware);
+ 
++	qed_iov_wq_stop(cdev, false);
++
+ 	return rc;
+ }
+ 
+@@ -842,6 +848,8 @@ static int qed_slowpath_stop(struct qed_dev *cdev)
+ 	qed_disable_msix(cdev);
+ 	qed_nic_reset(cdev);
+ 
++	qed_iov_wq_stop(cdev, true);
++
+ 	release_firmware(cdev->firmware);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index 89469d5..0e439e4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -27,6 +27,7 @@
  #include "qed_mcp.h"
  #include "qed_reg_addr.h"
  #include "qed_sp.h"
 +#include "qed_sriov.h"
  
- /* API common to all protocols */
- enum BAR_ID {
-@@ -136,6 +137,7 @@ void qed_resc_free(struct qed_dev *cdev)
- 		qed_eq_free(p_hwfn, p_hwfn->p_eq);
- 		qed_consq_free(p_hwfn, p_hwfn->p_consq);
- 		qed_int_free(p_hwfn);
-+		qed_iov_free(p_hwfn);
- 		qed_dmae_info_free(p_hwfn);
- 	}
- }
-@@ -316,6 +318,10 @@ int qed_resc_alloc(struct qed_dev *cdev)
- 		if (rc)
- 			goto alloc_err;
- 
-+		rc = qed_iov_alloc(p_hwfn);
-+		if (rc)
-+			goto alloc_err;
-+
- 		/* EQ */
- 		p_eq = qed_eq_alloc(p_hwfn, 256);
- 		if (!p_eq) {
-@@ -373,6 +379,8 @@ void qed_resc_setup(struct qed_dev *cdev)
- 		       p_hwfn->mcp_info->mfw_mb_length);
- 
- 		qed_int_setup(p_hwfn, p_hwfn->p_main_ptt);
-+
-+		qed_iov_setup(p_hwfn, p_hwfn->p_main_ptt);
- 	}
- }
- 
-@@ -1238,6 +1246,13 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
- 	u32 port_mode;
- 	int rc;
- 
-+	/* Since all information is common, only first hwfns should do this */
-+	if (IS_LEAD_HWFN(p_hwfn)) {
-+		rc = qed_iov_hw_info(p_hwfn);
-+		if (rc)
-+			return rc;
+ /***************************************************************************
+ * Structures & Definitions
+@@ -242,10 +243,17 @@ static int
+ qed_async_event_completion(struct qed_hwfn *p_hwfn,
+ 			   struct event_ring_entry *p_eqe)
+ {
+-	DP_NOTICE(p_hwfn,
+-		  "Unknown Async completion for protocol: %d\n",
+-		   p_eqe->protocol_id);
+-	return -EINVAL;
++	switch (p_eqe->protocol_id) {
++	case PROTOCOLID_COMMON:
++		return qed_sriov_eqe_event(p_hwfn,
++					   p_eqe->opcode,
++					   p_eqe->echo, &p_eqe->data);
++	default:
++		DP_NOTICE(p_hwfn,
++			  "Unknown Async completion for protocol: %d\n",
++			  p_eqe->protocol_id);
++		return -EINVAL;
 +	}
-+
- 	/* Read the port mode */
- 	port_mode = qed_rd(p_hwfn, p_ptt,
- 			   CNIG_REG_NW_PORT_MODE_BB_B0);
-@@ -1397,6 +1412,8 @@ static int qed_hw_prepare_single(struct qed_hwfn *p_hwfn,
- 
- 	return rc;
- err2:
-+	if (IS_LEAD_HWFN(p_hwfn))
-+		qed_iov_free_hw_info(p_hwfn->cdev);
- 	qed_mcp_free(p_hwfn);
- err1:
- 	qed_hw_hwfn_free(p_hwfn);
-@@ -1463,6 +1480,8 @@ void qed_hw_remove(struct qed_dev *cdev)
- 		qed_hw_hwfn_free(p_hwfn);
- 		qed_mcp_free(p_hwfn);
- 	}
-+
-+	qed_iov_free_hw_info(cdev);
  }
  
- int qed_chain_alloc(struct qed_dev *cdev,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
-index a95a3e4..a8cf96c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hw.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
-@@ -338,6 +338,17 @@ void qed_port_unpretend(struct qed_hwfn *p_hwfn,
- 	       *(u32 *)&p_ptt->pxp.pretend);
- }
- 
-+u32 qed_vfid_to_concrete(struct qed_hwfn *p_hwfn, u8 vfid)
-+{
-+	u32 concrete_fid = 0;
-+
-+	SET_FIELD(concrete_fid, PXP_CONCRETE_FID_PFID, p_hwfn->rel_pf_id);
-+	SET_FIELD(concrete_fid, PXP_CONCRETE_FID_VFID, vfid);
-+	SET_FIELD(concrete_fid, PXP_CONCRETE_FID_VFVALID, 1);
-+
-+	return concrete_fid;
-+}
-+
- /* DMAE */
- static void qed_dmae_opcode(struct qed_hwfn *p_hwfn,
- 			    const u8 is_src_type_grc,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.h b/drivers/net/ethernet/qlogic/qed/qed_hw.h
-index e56d433..4367363 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hw.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hw.h
-@@ -221,6 +221,16 @@ void qed_port_unpretend(struct qed_hwfn *p_hwfn,
- 			struct qed_ptt *p_ptt);
- 
- /**
-+ * @brief qed_vfid_to_concrete - build a concrete FID for a
-+ *        given VF ID
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ * @param vfid
-+ */
-+u32 qed_vfid_to_concrete(struct qed_hwfn *p_hwfn, u8 vfid);
-+
-+/**
-  * @brief qed_dmae_idx_to_go_cmd - map the idx to dmae cmd
-  * this is declared here since other files will require it.
-  * @param idx
+ /***************************************************************************
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-new file mode 100644
-index 0000000..685e3fa
---- /dev/null
+index 685e3fa..4a6af42 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -0,0 +1,366 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
-+
-+#include "qed_hw.h"
-+#include "qed_int.h"
-+#include "qed_reg_addr.h"
-+#include "qed_sriov.h"
-+#include "qed_vf.h"
-+
-+bool qed_iov_is_valid_vfid(struct qed_hwfn *p_hwfn,
-+			   int rel_vf_id, bool b_enabled_only)
+@@ -31,6 +31,26 @@ bool qed_iov_is_valid_vfid(struct qed_hwfn *p_hwfn,
+ 	return true;
+ }
+ 
++static struct qed_vf_info *qed_iov_get_vf_info(struct qed_hwfn *p_hwfn,
++					       u16 relative_vf_id,
++					       bool b_enabled_only)
 +{
++	struct qed_vf_info *vf = NULL;
++
 +	if (!p_hwfn->pf_iov_info) {
 +		DP_NOTICE(p_hwfn->cdev, "No iov info\n");
-+		return false;
++		return NULL;
 +	}
 +
-+	if ((rel_vf_id >= p_hwfn->cdev->p_iov_info->total_vfs) ||
-+	    (rel_vf_id < 0))
++	if (qed_iov_is_valid_vfid(p_hwfn, relative_vf_id, b_enabled_only))
++		vf = &p_hwfn->pf_iov_info->vfs_array[relative_vf_id];
++	else
++		DP_ERR(p_hwfn, "qed_iov_get_vf_info: VF[%d] is not enabled\n",
++		       relative_vf_id);
++
++	return vf;
++}
++
+ static int qed_iov_pci_cfg_info(struct qed_dev *cdev)
+ {
+ 	struct qed_hw_sriov_info *iov = cdev->p_iov_info;
+@@ -349,6 +369,232 @@ int qed_iov_hw_info(struct qed_hwfn *p_hwfn)
+ 	return 0;
+ }
+ 
++static bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
++{
++	/* Check PF supports sriov */
++	if (!IS_QED_SRIOV(p_hwfn->cdev) || !IS_PF_SRIOV_ALLOC(p_hwfn))
 +		return false;
 +
-+	if ((!p_hwfn->pf_iov_info->vfs_array[rel_vf_id].b_init) &&
-+	    b_enabled_only)
++	/* Check VF validity */
++	if (!qed_iov_is_valid_vfid(p_hwfn, vfid, true))
 +		return false;
 +
 +	return true;
 +}
 +
-+static int qed_iov_pci_cfg_info(struct qed_dev *cdev)
++static bool qed_iov_tlv_supported(u16 tlvtype)
 +{
-+	struct qed_hw_sriov_info *iov = cdev->p_iov_info;
-+	int pos = iov->pos;
-+
-+	DP_VERBOSE(cdev, QED_MSG_IOV, "sriov ext pos %d\n", pos);
-+	pci_read_config_word(cdev->pdev, pos + PCI_SRIOV_CTRL, &iov->ctrl);
-+
-+	pci_read_config_word(cdev->pdev,
-+			     pos + PCI_SRIOV_TOTAL_VF, &iov->total_vfs);
-+	pci_read_config_word(cdev->pdev,
-+			     pos + PCI_SRIOV_INITIAL_VF, &iov->initial_vfs);
-+
-+	pci_read_config_word(cdev->pdev, pos + PCI_SRIOV_NUM_VF, &iov->num_vfs);
-+	if (iov->num_vfs) {
-+		DP_VERBOSE(cdev,
-+			   QED_MSG_IOV,
-+			   "Number of VFs are already set to non-zero value. Ignoring PCI configuration value\n");
-+		iov->num_vfs = 0;
-+	}
-+
-+	pci_read_config_word(cdev->pdev,
-+			     pos + PCI_SRIOV_VF_OFFSET, &iov->offset);
-+
-+	pci_read_config_word(cdev->pdev,
-+			     pos + PCI_SRIOV_VF_STRIDE, &iov->stride);
-+
-+	pci_read_config_word(cdev->pdev,
-+			     pos + PCI_SRIOV_VF_DID, &iov->vf_device_id);
-+
-+	pci_read_config_dword(cdev->pdev,
-+			      pos + PCI_SRIOV_SUP_PGSIZE, &iov->pgsz);
-+
-+	pci_read_config_dword(cdev->pdev, pos + PCI_SRIOV_CAP, &iov->cap);
-+
-+	pci_read_config_byte(cdev->pdev, pos + PCI_SRIOV_FUNC_LINK, &iov->link);
-+
-+	DP_VERBOSE(cdev,
-+		   QED_MSG_IOV,
-+		   "IOV info: nres %d, cap 0x%x, ctrl 0x%x, total %d, initial %d, num vfs %d, offset %d, stride %d, page size 0x%x\n",
-+		   iov->nres,
-+		   iov->cap,
-+		   iov->ctrl,
-+		   iov->total_vfs,
-+		   iov->initial_vfs,
-+		   iov->nr_virtfn, iov->offset, iov->stride, iov->pgsz);
-+
-+	/* Some sanity checks */
-+	if (iov->num_vfs > NUM_OF_VFS(cdev) ||
-+	    iov->total_vfs > NUM_OF_VFS(cdev)) {
-+		/* This can happen only due to a bug. In this case we set
-+		 * num_vfs to zero to avoid memory corruption in the code that
-+		 * assumes max number of vfs
-+		 */
-+		DP_NOTICE(cdev,
-+			  "IOV: Unexpected number of vfs set: %d setting num_vf to zero\n",
-+			  iov->num_vfs);
-+
-+		iov->num_vfs = 0;
-+		iov->total_vfs = 0;
-+	}
-+
-+	return 0;
++	return CHANNEL_TLV_NONE < tlvtype && tlvtype < CHANNEL_TLV_MAX;
 +}
 +
-+static void qed_iov_clear_vf_igu_blocks(struct qed_hwfn *p_hwfn,
-+					struct qed_ptt *p_ptt)
++/* place a given tlv on the tlv buffer, continuing current tlv list */
++void *qed_add_tlv(struct qed_hwfn *p_hwfn, u8 **offset, u16 type, u16 length)
 +{
-+	struct qed_igu_block *p_sb;
-+	u16 sb_id;
-+	u32 val;
++	struct channel_tlv *tl = (struct channel_tlv *)*offset;
 +
-+	if (!p_hwfn->hw_info.p_igu_info) {
-+		DP_ERR(p_hwfn,
-+		       "qed_iov_clear_vf_igu_blocks IGU Info not initialized\n");
++	tl->type = type;
++	tl->length = length;
++
++	/* Offset should keep pointing to next TLV (the end of the last) */
++	*offset += length;
++
++	/* Return a pointer to the start of the added tlv */
++	return *offset - length;
++}
++
++/* list the types and lengths of the tlvs on the buffer */
++void qed_dp_tlv_list(struct qed_hwfn *p_hwfn, void *tlvs_list)
++{
++	u16 i = 1, total_length = 0;
++	struct channel_tlv *tlv;
++
++	do {
++		tlv = (struct channel_tlv *)((u8 *)tlvs_list + total_length);
++
++		/* output tlv */
++		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++			   "TLV number %d: type %d, length %d\n",
++			   i, tlv->type, tlv->length);
++
++		if (tlv->type == CHANNEL_TLV_LIST_END)
++			return;
++
++		/* Validate entry - protect against malicious VFs */
++		if (!tlv->length) {
++			DP_NOTICE(p_hwfn, "TLV of length 0 found\n");
++			return;
++		}
++
++		total_length += tlv->length;
++
++		if (total_length >= sizeof(struct tlv_buffer_size)) {
++			DP_NOTICE(p_hwfn, "TLV ==> Buffer overflow\n");
++			return;
++		}
++
++		i++;
++	} while (1);
++}
++
++static void qed_iov_send_response(struct qed_hwfn *p_hwfn,
++				  struct qed_ptt *p_ptt,
++				  struct qed_vf_info *p_vf,
++				  u16 length, u8 status)
++{
++	struct qed_iov_vf_mbx *mbx = &p_vf->vf_mbx;
++	struct qed_dmae_params params;
++	u8 eng_vf_id;
++
++	mbx->reply_virt->default_resp.hdr.status = status;
++
++	qed_dp_tlv_list(p_hwfn, mbx->reply_virt);
++
++	eng_vf_id = p_vf->abs_vf_id;
++
++	memset(&params, 0, sizeof(struct qed_dmae_params));
++	params.flags = QED_DMAE_FLAG_VF_DST;
++	params.dst_vfid = eng_vf_id;
++
++	qed_dmae_host2host(p_hwfn, p_ptt, mbx->reply_phys + sizeof(u64),
++			   mbx->req_virt->first_tlv.reply_address +
++			   sizeof(u64),
++			   (sizeof(union pfvf_tlvs) - sizeof(u64)) / 4,
++			   &params);
++
++	qed_dmae_host2host(p_hwfn, p_ptt, mbx->reply_phys,
++			   mbx->req_virt->first_tlv.reply_address,
++			   sizeof(u64) / 4, &params);
++
++	REG_WR(p_hwfn,
++	       GTT_BAR0_MAP_REG_USDM_RAM +
++	       USTORM_VF_PF_CHANNEL_READY_OFFSET(eng_vf_id), 1);
++}
++
++static void qed_iov_prepare_resp(struct qed_hwfn *p_hwfn,
++				 struct qed_ptt *p_ptt,
++				 struct qed_vf_info *vf_info,
++				 u16 type, u16 length, u8 status)
++{
++	struct qed_iov_vf_mbx *mbx = &vf_info->vf_mbx;
++
++	mbx->offset = (u8 *)mbx->reply_virt;
++
++	qed_add_tlv(p_hwfn, &mbx->offset, type, length);
++	qed_add_tlv(p_hwfn, &mbx->offset, CHANNEL_TLV_LIST_END,
++		    sizeof(struct channel_list_end_tlv));
++
++	qed_iov_send_response(p_hwfn, p_ptt, vf_info, length, status);
++}
++
++static void qed_iov_process_mbx_dummy_resp(struct qed_hwfn *p_hwfn,
++					   struct qed_ptt *p_ptt,
++					   struct qed_vf_info *p_vf)
++{
++	qed_iov_prepare_resp(p_hwfn, p_ptt, p_vf, CHANNEL_TLV_NONE,
++			     sizeof(struct pfvf_def_resp_tlv),
++			     PFVF_STATUS_SUCCESS);
++}
++
++static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
++				    struct qed_ptt *p_ptt, int vfid)
++{
++	struct qed_iov_vf_mbx *mbx;
++	struct qed_vf_info *p_vf;
++	int i;
++
++	p_vf = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
++	if (!p_vf)
 +		return;
-+	}
 +
-+	for (sb_id = 0; sb_id < QED_MAPPING_MEMORY_SIZE(p_hwfn->cdev);
-+	     sb_id++) {
-+		p_sb = &p_hwfn->hw_info.p_igu_info->igu_map.igu_blocks[sb_id];
-+		if ((p_sb->status & QED_IGU_STATUS_FREE) &&
-+		    !(p_sb->status & QED_IGU_STATUS_PF)) {
-+			val = qed_rd(p_hwfn, p_ptt,
-+				     IGU_REG_MAPPING_MEMORY + sb_id * 4);
-+			SET_FIELD(val, IGU_MAPPING_LINE_VALID, 0);
-+			qed_wr(p_hwfn, p_ptt,
-+			       IGU_REG_MAPPING_MEMORY + 4 * sb_id, val);
++	mbx = &p_vf->vf_mbx;
++
++	/* qed_iov_process_mbx_request */
++	DP_VERBOSE(p_hwfn,
++		   QED_MSG_IOV,
++		   "qed_iov_process_mbx_req vfid %d\n", p_vf->abs_vf_id);
++
++	mbx->first_tlv = mbx->req_virt->first_tlv;
++
++	/* check if tlv type is known */
++	if (qed_iov_tlv_supported(mbx->first_tlv.tl.type)) {
++		qed_iov_process_mbx_dummy_resp(p_hwfn, p_ptt, p_vf);
++	} else {
++		/* unknown TLV - this may belong to a VF driver from the future
++		 * - a version written after this PF driver was written, which
++		 * supports features unknown as of yet. Too bad since we don't
++		 * support them. Or this may be because someone wrote a crappy
++		 * VF driver and is sending garbage over the channel.
++		 */
++		DP_ERR(p_hwfn,
++		       "unknown TLV. type %d length %d. first 20 bytes of mailbox buffer:\n",
++		       mbx->first_tlv.tl.type, mbx->first_tlv.tl.length);
++
++		for (i = 0; i < 20; i++) {
++			DP_VERBOSE(p_hwfn,
++				   QED_MSG_IOV,
++				   "%x ",
++				   mbx->req_virt->tlv_buf_size.tlv_buffer[i]);
 +		}
 +	}
 +}
 +
-+static void qed_iov_setup_vfdb(struct qed_hwfn *p_hwfn)
++void qed_iov_pf_add_pending_events(struct qed_hwfn *p_hwfn, u8 vfid)
 +{
-+	struct qed_hw_sriov_info *p_iov = p_hwfn->cdev->p_iov_info;
-+	struct qed_pf_iov *p_iov_info = p_hwfn->pf_iov_info;
-+	struct qed_bulletin_content *p_bulletin_virt;
-+	dma_addr_t req_p, rply_p, bulletin_p;
-+	union pfvf_tlvs *p_reply_virt_addr;
-+	union vfpf_tlvs *p_req_virt_addr;
-+	u8 idx = 0;
++	u64 add_bit = 1ULL << (vfid % 64);
 +
-+	memset(p_iov_info->vfs_array, 0, sizeof(p_iov_info->vfs_array));
-+
-+	p_req_virt_addr = p_iov_info->mbx_msg_virt_addr;
-+	req_p = p_iov_info->mbx_msg_phys_addr;
-+	p_reply_virt_addr = p_iov_info->mbx_reply_virt_addr;
-+	rply_p = p_iov_info->mbx_reply_phys_addr;
-+	p_bulletin_virt = p_iov_info->p_bulletins;
-+	bulletin_p = p_iov_info->bulletins_phys;
-+	if (!p_req_virt_addr || !p_reply_virt_addr || !p_bulletin_virt) {
-+		DP_ERR(p_hwfn,
-+		       "qed_iov_setup_vfdb called without allocating mem first\n");
-+		return;
-+	}
-+
-+	for (idx = 0; idx < p_iov->total_vfs; idx++) {
-+		struct qed_vf_info *vf = &p_iov_info->vfs_array[idx];
-+		u32 concrete;
-+
-+		vf->vf_mbx.req_virt = p_req_virt_addr + idx;
-+		vf->vf_mbx.req_phys = req_p + idx * sizeof(union vfpf_tlvs);
-+		vf->vf_mbx.reply_virt = p_reply_virt_addr + idx;
-+		vf->vf_mbx.reply_phys = rply_p + idx * sizeof(union pfvf_tlvs);
-+
-+		vf->state = VF_STOPPED;
-+		vf->b_init = false;
-+
-+		vf->bulletin.phys = idx *
-+				    sizeof(struct qed_bulletin_content) +
-+				    bulletin_p;
-+		vf->bulletin.p_virt = p_bulletin_virt + idx;
-+		vf->bulletin.size = sizeof(struct qed_bulletin_content);
-+
-+		vf->relative_vf_id = idx;
-+		vf->abs_vf_id = idx + p_iov->first_vf_in_pf;
-+		concrete = qed_vfid_to_concrete(p_hwfn, vf->abs_vf_id);
-+		vf->concrete_fid = concrete;
-+		vf->opaque_fid = (p_hwfn->hw_info.opaque_fid & 0xff) |
-+				 (vf->abs_vf_id << 8);
-+		vf->vport_id = idx + 1;
-+	}
++	p_hwfn->pf_iov_info->pending_events[vfid / 64] |= add_bit;
 +}
 +
-+static int qed_iov_allocate_vfdb(struct qed_hwfn *p_hwfn)
++static void qed_iov_pf_get_and_clear_pending_events(struct qed_hwfn *p_hwfn,
++						    u64 *events)
 +{
-+	struct qed_pf_iov *p_iov_info = p_hwfn->pf_iov_info;
-+	void **p_v_addr;
-+	u16 num_vfs = 0;
++	u64 *p_pending_events = p_hwfn->pf_iov_info->pending_events;
 +
-+	num_vfs = p_hwfn->cdev->p_iov_info->total_vfs;
++	memcpy(events, p_pending_events, sizeof(u64) * QED_VF_ARRAY_LENGTH);
++	memset(p_pending_events, 0, sizeof(u64) * QED_VF_ARRAY_LENGTH);
++}
 +
-+	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+		   "qed_iov_allocate_vfdb for %d VFs\n", num_vfs);
++static int qed_sriov_vfpf_msg(struct qed_hwfn *p_hwfn,
++			      u16 abs_vfid, struct regpair *vf_msg)
++{
++	u8 min = (u8)p_hwfn->cdev->p_iov_info->first_vf_in_pf;
++	struct qed_vf_info *p_vf;
 +
-+	/* Allocate PF Mailbox buffer (per-VF) */
-+	p_iov_info->mbx_msg_size = sizeof(union vfpf_tlvs) * num_vfs;
-+	p_v_addr = &p_iov_info->mbx_msg_virt_addr;
-+	*p_v_addr = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
-+				       p_iov_info->mbx_msg_size,
-+				       &p_iov_info->mbx_msg_phys_addr,
-+				       GFP_KERNEL);
-+	if (!*p_v_addr)
-+		return -ENOMEM;
++	if (!qed_iov_pf_sanity_check(p_hwfn, (int)abs_vfid - min)) {
++		DP_VERBOSE(p_hwfn,
++			   QED_MSG_IOV,
++			   "Got a message from VF [abs 0x%08x] that cannot be handled by PF\n",
++			   abs_vfid);
++		return 0;
++	}
++	p_vf = &p_hwfn->pf_iov_info->vfs_array[(u8)abs_vfid - min];
 +
-+	/* Allocate PF Mailbox Reply buffer (per-VF) */
-+	p_iov_info->mbx_reply_size = sizeof(union pfvf_tlvs) * num_vfs;
-+	p_v_addr = &p_iov_info->mbx_reply_virt_addr;
-+	*p_v_addr = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
-+				       p_iov_info->mbx_reply_size,
-+				       &p_iov_info->mbx_reply_phys_addr,
-+				       GFP_KERNEL);
-+	if (!*p_v_addr)
-+		return -ENOMEM;
++	/* List the physical address of the request so that handler
++	 * could later on copy the message from it.
++	 */
++	p_vf->vf_mbx.pending_req = (((u64)vf_msg->hi) << 32) | vf_msg->lo;
 +
-+	p_iov_info->bulletins_size = sizeof(struct qed_bulletin_content) *
-+				     num_vfs;
-+	p_v_addr = &p_iov_info->p_bulletins;
-+	*p_v_addr = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
-+				       p_iov_info->bulletins_size,
-+				       &p_iov_info->bulletins_phys,
-+				       GFP_KERNEL);
-+	if (!*p_v_addr)
-+		return -ENOMEM;
-+
-+	DP_VERBOSE(p_hwfn,
-+		   QED_MSG_IOV,
-+		   "PF's Requests mailbox [%p virt 0x%llx phys],  Response mailbox [%p virt 0x%llx phys] Bulletins [%p virt 0x%llx phys]\n",
-+		   p_iov_info->mbx_msg_virt_addr,
-+		   (u64) p_iov_info->mbx_msg_phys_addr,
-+		   p_iov_info->mbx_reply_virt_addr,
-+		   (u64) p_iov_info->mbx_reply_phys_addr,
-+		   p_iov_info->p_bulletins, (u64) p_iov_info->bulletins_phys);
++	/* Mark the event and schedule the workqueue */
++	qed_iov_pf_add_pending_events(p_hwfn, p_vf->relative_vf_id);
++	qed_schedule_iov(p_hwfn, QED_IOV_WQ_MSG_FLAG);
 +
 +	return 0;
 +}
 +
-+static void qed_iov_free_vfdb(struct qed_hwfn *p_hwfn)
++int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
++			u8 opcode, __le16 echo, union event_ring_data *data)
 +{
-+	struct qed_pf_iov *p_iov_info = p_hwfn->pf_iov_info;
-+
-+	if (p_hwfn->pf_iov_info->mbx_msg_virt_addr)
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  p_iov_info->mbx_msg_size,
-+				  p_iov_info->mbx_msg_virt_addr,
-+				  p_iov_info->mbx_msg_phys_addr);
-+
-+	if (p_hwfn->pf_iov_info->mbx_reply_virt_addr)
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  p_iov_info->mbx_reply_size,
-+				  p_iov_info->mbx_reply_virt_addr,
-+				  p_iov_info->mbx_reply_phys_addr);
-+
-+	if (p_iov_info->p_bulletins)
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  p_iov_info->bulletins_size,
-+				  p_iov_info->p_bulletins,
-+				  p_iov_info->bulletins_phys);
++	switch (opcode) {
++	case COMMON_EVENT_VF_PF_CHANNEL:
++		return qed_sriov_vfpf_msg(p_hwfn, le16_to_cpu(echo),
++					  &data->vf_pf_channel.msg_addr);
++	default:
++		DP_INFO(p_hwfn->cdev, "Unknown sriov eqe event 0x%02x\n",
++			opcode);
++		return -EINVAL;
++	}
 +}
 +
-+int qed_iov_alloc(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_pf_iov *p_sriov;
+ u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn, u16 rel_vf_id)
+ {
+ 	struct qed_hw_sriov_info *p_iov = p_hwfn->cdev->p_iov_info;
+@@ -364,3 +610,142 @@ u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn, u16 rel_vf_id)
+ out:
+ 	return MAX_NUM_VFS;
+ }
 +
-+	if (!IS_PF_SRIOV(p_hwfn)) {
++static int qed_iov_copy_vf_msg(struct qed_hwfn *p_hwfn, struct qed_ptt *ptt,
++			       int vfid)
++{
++	struct qed_dmae_params params;
++	struct qed_vf_info *vf_info;
++
++	vf_info = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
++	if (!vf_info)
++		return -EINVAL;
++
++	memset(&params, 0, sizeof(struct qed_dmae_params));
++	params.flags = QED_DMAE_FLAG_VF_SRC | QED_DMAE_FLAG_COMPLETION_DST;
++	params.src_vfid = vf_info->abs_vf_id;
++
++	if (qed_dmae_host2host(p_hwfn, ptt,
++			       vf_info->vf_mbx.pending_req,
++			       vf_info->vf_mbx.req_phys,
++			       sizeof(union vfpf_tlvs) / 4, &params)) {
 +		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "No SR-IOV - no need for IOV db\n");
-+		return 0;
++			   "Failed to copy message from VF 0x%02x\n", vfid);
++
++		return -EIO;
 +	}
-+
-+	p_sriov = kzalloc(sizeof(*p_sriov), GFP_KERNEL);
-+	if (!p_sriov) {
-+		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_sriov'\n");
-+		return -ENOMEM;
-+	}
-+
-+	p_hwfn->pf_iov_info = p_sriov;
-+
-+	return qed_iov_allocate_vfdb(p_hwfn);
-+}
-+
-+void qed_iov_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	if (!IS_PF_SRIOV(p_hwfn) || !IS_PF_SRIOV_ALLOC(p_hwfn))
-+		return;
-+
-+	qed_iov_setup_vfdb(p_hwfn);
-+	qed_iov_clear_vf_igu_blocks(p_hwfn, p_ptt);
-+}
-+
-+void qed_iov_free(struct qed_hwfn *p_hwfn)
-+{
-+	if (IS_PF_SRIOV_ALLOC(p_hwfn)) {
-+		qed_iov_free_vfdb(p_hwfn);
-+		kfree(p_hwfn->pf_iov_info);
-+	}
-+}
-+
-+void qed_iov_free_hw_info(struct qed_dev *cdev)
-+{
-+	kfree(cdev->p_iov_info);
-+	cdev->p_iov_info = NULL;
-+}
-+
-+int qed_iov_hw_info(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_dev *cdev = p_hwfn->cdev;
-+	int pos;
-+	int rc;
-+
-+	/* Learn the PCI configuration */
-+	pos = pci_find_ext_capability(p_hwfn->cdev->pdev,
-+				      PCI_EXT_CAP_ID_SRIOV);
-+	if (!pos) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV, "No PCIe IOV support\n");
-+		return 0;
-+	}
-+
-+	/* Allocate a new struct for IOV information */
-+	cdev->p_iov_info = kzalloc(sizeof(*cdev->p_iov_info), GFP_KERNEL);
-+	if (!cdev->p_iov_info) {
-+		DP_NOTICE(p_hwfn, "Can't support IOV due to lack of memory\n");
-+		return -ENOMEM;
-+	}
-+	cdev->p_iov_info->pos = pos;
-+
-+	rc = qed_iov_pci_cfg_info(cdev);
-+	if (rc)
-+		return rc;
-+
-+	/* We want PF IOV to be synonemous with the existance of p_iov_info;
-+	 * In case the capability is published but there are no VFs, simply
-+	 * de-allocate the struct.
-+	 */
-+	if (!cdev->p_iov_info->total_vfs) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "IOV capabilities, but no VFs are published\n");
-+		kfree(cdev->p_iov_info);
-+		cdev->p_iov_info = NULL;
-+		return 0;
-+	}
-+
-+	/* Calculate the first VF index - this is a bit tricky; Basically,
-+	 * VFs start at offset 16 relative to PF0, and 2nd engine VFs begin
-+	 * after the first engine's VFs.
-+	 */
-+	cdev->p_iov_info->first_vf_in_pf = p_hwfn->cdev->p_iov_info->offset +
-+					   p_hwfn->abs_pf_id - 16;
-+	if (QED_PATH_ID(p_hwfn))
-+		cdev->p_iov_info->first_vf_in_pf -= MAX_NUM_VFS_BB;
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+		   "First VF in hwfn 0x%08x\n",
-+		   cdev->p_iov_info->first_vf_in_pf);
 +
 +	return 0;
 +}
 +
-+u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn, u16 rel_vf_id)
++/**
++ * qed_schedule_iov - schedules IOV task for VF and PF
++ * @hwfn: hardware function pointer
++ * @flag: IOV flag for VF/PF
++ */
++void qed_schedule_iov(struct qed_hwfn *hwfn, enum qed_iov_wq_flag flag)
 +{
-+	struct qed_hw_sriov_info *p_iov = p_hwfn->cdev->p_iov_info;
-+	u16 i;
++	smp_mb__before_atomic();
++	set_bit(flag, &hwfn->iov_task_flags);
++	smp_mb__after_atomic();
++	DP_VERBOSE(hwfn, QED_MSG_IOV, "Scheduling iov task [Flag: %d]\n", flag);
++	queue_delayed_work(hwfn->iov_wq, &hwfn->iov_task, 0);
++}
 +
-+	if (!p_iov)
-+		goto out;
++static void qed_handle_vf_msg(struct qed_hwfn *hwfn)
++{
++	u64 events[QED_VF_ARRAY_LENGTH];
++	struct qed_ptt *ptt;
++	int i;
 +
-+	for (i = rel_vf_id; i < p_iov->total_vfs; i++)
-+		if (qed_iov_is_valid_vfid(p_hwfn, rel_vf_id, true))
-+			return i;
++	ptt = qed_ptt_acquire(hwfn);
++	if (!ptt) {
++		DP_VERBOSE(hwfn, QED_MSG_IOV,
++			   "Can't acquire PTT; re-scheduling\n");
++		qed_schedule_iov(hwfn, QED_IOV_WQ_MSG_FLAG);
++		return;
++	}
 +
-+out:
-+	return MAX_NUM_VFS;
++	qed_iov_pf_get_and_clear_pending_events(hwfn, events);
++
++	DP_VERBOSE(hwfn, QED_MSG_IOV,
++		   "Event mask of VF events: 0x%llx 0x%llx 0x%llx\n",
++		   events[0], events[1], events[2]);
++
++	qed_for_each_vf(hwfn, i) {
++		/* Skip VFs with no pending messages */
++		if (!(events[i / 64] & (1ULL << (i % 64))))
++			continue;
++
++		DP_VERBOSE(hwfn, QED_MSG_IOV,
++			   "Handling VF message from VF 0x%02x [Abs 0x%02x]\n",
++			   i, hwfn->cdev->p_iov_info->first_vf_in_pf + i);
++
++		/* Copy VF's message to PF's request buffer for that VF */
++		if (qed_iov_copy_vf_msg(hwfn, ptt, i))
++			continue;
++
++		qed_iov_process_mbx_req(hwfn, ptt, i);
++	}
++
++	qed_ptt_release(hwfn, ptt);
++}
++
++void qed_iov_pf_task(struct work_struct *work)
++{
++	struct qed_hwfn *hwfn = container_of(work, struct qed_hwfn,
++					     iov_task.work);
++
++	if (test_and_clear_bit(QED_IOV_WQ_STOP_WQ_FLAG, &hwfn->iov_task_flags))
++		return;
++
++	if (test_and_clear_bit(QED_IOV_WQ_MSG_FLAG, &hwfn->iov_task_flags))
++		qed_handle_vf_msg(hwfn);
++}
++
++void qed_iov_wq_stop(struct qed_dev *cdev, bool schedule_first)
++{
++	int i;
++
++	for_each_hwfn(cdev, i) {
++		if (!cdev->hwfns[i].iov_wq)
++			continue;
++
++		if (schedule_first) {
++			qed_schedule_iov(&cdev->hwfns[i],
++					 QED_IOV_WQ_STOP_WQ_FLAG);
++			cancel_delayed_work_sync(&cdev->hwfns[i].iov_task);
++		}
++
++		flush_workqueue(cdev->hwfns[i].iov_wq);
++		destroy_workqueue(cdev->hwfns[i].iov_wq);
++	}
++}
++
++int qed_iov_wq_start(struct qed_dev *cdev)
++{
++	char name[NAME_SIZE];
++	int i;
++
++	for_each_hwfn(cdev, i) {
++		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
++
++		/* PFs needs a dedicated workqueue only if they support IOV. */
++		if (!IS_PF_SRIOV(p_hwfn))
++			continue;
++
++		snprintf(name, NAME_SIZE, "iov-%02x:%02x.%02x",
++			 cdev->pdev->bus->number,
++			 PCI_SLOT(cdev->pdev->devfn), p_hwfn->abs_pf_id);
++
++		p_hwfn->iov_wq = create_singlethread_workqueue(name);
++		if (!p_hwfn->iov_wq) {
++			DP_NOTICE(p_hwfn, "Cannot create iov workqueue\n");
++			return -ENOMEM;
++		}
++
++		INIT_DELAYED_WORK(&p_hwfn->iov_task, qed_iov_pf_task);
++	}
++
++	return 0;
 +}
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-new file mode 100644
-index 0000000..0ac5619
---- /dev/null
+index 0ac5619..1122168 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -0,0 +1,185 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
+@@ -50,6 +50,14 @@ struct qed_iov_vf_mbx {
+ 	dma_addr_t req_phys;
+ 	union pfvf_tlvs *reply_virt;
+ 	dma_addr_t reply_phys;
 +
-+#ifndef _QED_SRIOV_H
-+#define _QED_SRIOV_H
-+#include <linux/types.h>
-+#include "qed_vf.h"
-+#define QED_VF_ARRAY_LENGTH (3)
++	/* Address in VF where a pending message is located */
++	dma_addr_t pending_req;
 +
-+#define IS_VF(cdev)             ((cdev)->b_is_vf)
-+#define IS_PF(cdev)             (!((cdev)->b_is_vf))
-+#ifdef CONFIG_QED_SRIOV
-+#define IS_PF_SRIOV(p_hwfn)     (!!((p_hwfn)->cdev->p_iov_info))
-+#else
-+#define IS_PF_SRIOV(p_hwfn)     (0)
-+#endif
-+#define IS_PF_SRIOV_ALLOC(p_hwfn)       (!!((p_hwfn)->pf_iov_info))
++	u8 *offset;
 +
-+/* This struct is part of qed_dev and contains data relevant to all hwfns;
-+ * Initialized only if SR-IOV cpabability is exposed in PCIe config space.
-+ */
-+struct qed_hw_sriov_info {
-+	int pos;		/* capability position */
-+	int nres;		/* number of resources */
-+	u32 cap;		/* SR-IOV Capabilities */
-+	u16 ctrl;		/* SR-IOV Control */
-+	u16 total_vfs;		/* total VFs associated with the PF */
-+	u16 num_vfs;		/* number of vfs that have been started */
-+	u16 initial_vfs;	/* initial VFs associated with the PF */
-+	u16 nr_virtfn;		/* number of VFs available */
-+	u16 offset;		/* first VF Routing ID offset */
-+	u16 stride;		/* following VF stride */
-+	u16 vf_device_id;	/* VF device id */
-+	u32 pgsz;		/* page size for BAR alignment */
-+	u8 link;		/* Function Dependency Link */
-+
-+	u32 first_vf_in_pf;
++	/* saved VF request header */
++	struct vfpf_first_tlv first_tlv;
+ };
+ 
+ enum vf_state {
+@@ -96,6 +104,14 @@ struct qed_pf_iov {
+ 	u32 bulletins_size;
+ };
+ 
++enum qed_iov_wq_flag {
++	QED_IOV_WQ_MSG_FLAG,
++	QED_IOV_WQ_SET_UNICAST_FILTER_FLAG,
++	QED_IOV_WQ_BULLETIN_UPDATE_FLAG,
++	QED_IOV_WQ_STOP_WQ_FLAG,
++	QED_IOV_WQ_FLR_FLAG,
 +};
 +
-+/* This mailbox is maintained per VF in its PF contains all information
-+ * required for sending / receiving a message.
-+ */
-+struct qed_iov_vf_mbx {
-+	union vfpf_tlvs *req_virt;
-+	dma_addr_t req_phys;
-+	union pfvf_tlvs *reply_virt;
-+	dma_addr_t reply_phys;
-+};
+ #ifdef CONFIG_QED_SRIOV
+ /**
+  * @brief - Given a VF index, return index of next [including that] active VF.
+@@ -147,6 +163,22 @@ void qed_iov_free(struct qed_hwfn *p_hwfn);
+  * @param cdev
+  */
+ void qed_iov_free_hw_info(struct qed_dev *cdev);
 +
-+enum vf_state {
-+	VF_STOPPED		/* VF, Stopped */
-+};
-+
-+/* PFs maintain an array of this structure, per VF */
-+struct qed_vf_info {
-+	struct qed_iov_vf_mbx vf_mbx;
-+	enum vf_state state;
-+	bool b_init;
-+
-+	struct qed_bulletin bulletin;
-+	dma_addr_t vf_bulletin;
-+
-+	u32 concrete_fid;
-+	u16 opaque_fid;
-+
-+	u8 vport_id;
-+	u8 relative_vf_id;
-+	u8 abs_vf_id;
-+#define QED_VF_ABS_ID(p_hwfn, p_vf)	(QED_PATH_ID(p_hwfn) ?		      \
-+					 (p_vf)->abs_vf_id + MAX_NUM_VFS_BB : \
-+					 (p_vf)->abs_vf_id)
-+};
-+
-+/* This structure is part of qed_hwfn and used only for PFs that have sriov
-+ * capability enabled.
-+ */
-+struct qed_pf_iov {
-+	struct qed_vf_info vfs_array[MAX_NUM_VFS];
-+	u64 pending_events[QED_VF_ARRAY_LENGTH];
-+	u64 pending_flr[QED_VF_ARRAY_LENGTH];
-+
-+	/* Allocate message address continuosuly and split to each VF */
-+	void *mbx_msg_virt_addr;
-+	dma_addr_t mbx_msg_phys_addr;
-+	u32 mbx_msg_size;
-+	void *mbx_reply_virt_addr;
-+	dma_addr_t mbx_reply_phys_addr;
-+	u32 mbx_reply_size;
-+	void *p_bulletins;
-+	dma_addr_t bulletins_phys;
-+	u32 bulletins_size;
-+};
-+
-+#ifdef CONFIG_QED_SRIOV
 +/**
-+ * @brief - Given a VF index, return index of next [including that] active VF.
++ * @brief qed_sriov_eqe_event - handle async sriov event arrived on eqe.
 + *
 + * @param p_hwfn
-+ * @param rel_vf_id
-+ *
-+ * @return MAX_NUM_VFS in case no further active VFs, otherwise index.
++ * @param opcode
++ * @param echo
++ * @param data
 + */
-+u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn, u16 rel_vf_id);
++int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
++			u8 opcode, __le16 echo, union event_ring_data *data);
 +
-+/**
-+ * @brief Read sriov related information and allocated resources
-+ *  reads from configuraiton space, shmem, etc.
-+ *
-+ * @param p_hwfn
-+ *
-+ * @return int
-+ */
-+int qed_iov_hw_info(struct qed_hwfn *p_hwfn);
++void qed_iov_wq_stop(struct qed_dev *cdev, bool schedule_first);
++int qed_iov_wq_start(struct qed_dev *cdev);
 +
-+/**
-+ * @brief qed_iov_alloc - allocate sriov related resources
-+ *
-+ * @param p_hwfn
-+ *
-+ * @return int
-+ */
-+int qed_iov_alloc(struct qed_hwfn *p_hwfn);
++void qed_schedule_iov(struct qed_hwfn *hwfn, enum qed_iov_wq_flag flag);
+ #else
+ static inline u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn,
+ 					     u16 rel_vf_id)
+@@ -175,6 +207,27 @@ static inline void qed_iov_free(struct qed_hwfn *p_hwfn)
+ static inline void qed_iov_free_hw_info(struct qed_dev *cdev)
+ {
+ }
 +
-+/**
-+ * @brief qed_iov_setup - setup sriov related resources
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ */
-+void qed_iov_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+
-+/**
-+ * @brief qed_iov_free - free sriov related resources
-+ *
-+ * @param p_hwfn
-+ */
-+void qed_iov_free(struct qed_hwfn *p_hwfn);
-+
-+/**
-+ * @brief free sriov related memory that was allocated during hw_prepare
-+ *
-+ * @param cdev
-+ */
-+void qed_iov_free_hw_info(struct qed_dev *cdev);
-+#else
-+static inline u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn,
-+					     u16 rel_vf_id)
++static inline int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
++				      u8 opcode,
++				      __le16 echo, union event_ring_data *data)
 +{
-+	return MAX_NUM_VFS;
++	return -EINVAL;
 +}
 +
-+static inline int qed_iov_hw_info(struct qed_hwfn *p_hwfn)
++static inline void qed_iov_wq_stop(struct qed_dev *cdev, bool schedule_first)
++{
++}
++
++static inline int qed_iov_wq_start(struct qed_dev *cdev)
 +{
 +	return 0;
 +}
 +
-+static inline int qed_iov_alloc(struct qed_hwfn *p_hwfn)
-+{
-+	return 0;
-+}
-+
-+static inline void qed_iov_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++static inline void qed_schedule_iov(struct qed_hwfn *hwfn,
++				    enum qed_iov_wq_flag flag)
 +{
 +}
-+
-+static inline void qed_iov_free(struct qed_hwfn *p_hwfn)
-+{
-+}
-+
-+static inline void qed_iov_free_hw_info(struct qed_dev *cdev)
-+{
-+}
-+#endif
-+
-+#define qed_for_each_vf(_p_hwfn, _i)			  \
-+	for (_i = qed_iov_get_next_active_vf(_p_hwfn, 0); \
-+	     _i < MAX_NUM_VFS;				  \
-+	     _i = qed_iov_get_next_active_vf(_p_hwfn, _i + 1))
-+
-+#endif
+ #endif
+ 
+ #define qed_for_each_vf(_p_hwfn, _i)			  \
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-new file mode 100644
-index 0000000..7c78f01
---- /dev/null
+index 7c78f01..a0a68308 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -0,0 +1,41 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
+@@ -9,16 +9,62 @@
+ #ifndef _QED_VF_H
+ #define _QED_VF_H
+ 
++enum {
++	PFVF_STATUS_WAITING,
++	PFVF_STATUS_SUCCESS,
++	PFVF_STATUS_FAILURE,
++	PFVF_STATUS_NOT_SUPPORTED,
++	PFVF_STATUS_NO_RESOURCE,
++	PFVF_STATUS_FORCED,
++};
++
++/* vf pf channel tlvs */
++/* general tlv header (used for both vf->pf request and pf->vf response) */
++struct channel_tlv {
++	u16 type;
++	u16 length;
++};
++
++/* header of first vf->pf tlv carries the offset used to calculate reponse
++ * buffer address
 + */
-+
-+#ifndef _QED_VF_H
-+#define _QED_VF_H
-+
-+#define TLV_BUFFER_SIZE                 1024
-+struct tlv_buffer_size {
-+	u8 tlv_buffer[TLV_BUFFER_SIZE];
++struct vfpf_first_tlv {
++	struct channel_tlv tl;
++	u32 padding;
++	u64 reply_address;
 +};
 +
-+union vfpf_tlvs {
-+	struct tlv_buffer_size tlv_buf_size;
++/* header of pf->vf tlvs, carries the status of handling the request */
++struct pfvf_tlv {
++	struct channel_tlv tl;
++	u8 status;
++	u8 padding[3];
 +};
 +
-+union pfvf_tlvs {
-+	struct tlv_buffer_size tlv_buf_size;
++/* response tlv used for most tlvs */
++struct pfvf_def_resp_tlv {
++	struct pfvf_tlv hdr;
 +};
 +
-+struct qed_bulletin_content {
-+	/* crc of structure to ensure is not in mid-update */
-+	u32 crc;
-+
-+	u32 version;
-+
-+	/* bitmap indicating which fields hold valid values */
-+	u64 valid_bitmap;
++/* used to terminate and pad a tlv list */
++struct channel_list_end_tlv {
++	struct channel_tlv tl;
++	u8 padding[4];
 +};
 +
-+struct qed_bulletin {
-+	dma_addr_t phys;
-+	struct qed_bulletin_content *p_virt;
-+	u32 size;
+ #define TLV_BUFFER_SIZE                 1024
+ struct tlv_buffer_size {
+ 	u8 tlv_buffer[TLV_BUFFER_SIZE];
+ };
+ 
+ union vfpf_tlvs {
++	struct vfpf_first_tlv first_tlv;
++	struct channel_list_end_tlv list_end;
+ 	struct tlv_buffer_size tlv_buf_size;
+ };
+ 
+ union pfvf_tlvs {
++	struct pfvf_def_resp_tlv default_resp;
+ 	struct tlv_buffer_size tlv_buf_size;
+ };
+ 
+@@ -38,4 +84,10 @@ struct qed_bulletin {
+ 	u32 size;
+ };
+ 
++enum {
++	CHANNEL_TLV_NONE,	/* ends tlv sequence */
++	CHANNEL_TLV_LIST_END,
++	CHANNEL_TLV_MAX
 +};
 +
-+#endif
+ #endif
+diff --git a/include/linux/qed/common_hsi.h b/include/linux/qed/common_hsi.h
+index 53ecb37..8914d27 100644
+--- a/include/linux/qed/common_hsi.h
++++ b/include/linux/qed/common_hsi.h
+@@ -327,9 +327,14 @@ struct regpair {
+ 	__le32	hi;
+ };
+ 
++struct vf_pf_channel_eqe_data {
++	struct regpair msg_addr;
++};
++
+ /* Event Data Union */
+ union event_ring_data {
+ 	u8				bytes[8];
++	struct vf_pf_channel_eqe_data	vf_pf_channel;
+ 	struct async_data		async_info;
+ };
+ 
 -- 
 1.9.3
