@@ -1,206 +1,247 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next v2 13/14] qed*: support ndo_get_vf_config
-Date: Wed, 11 May 2016 16:36:24 +0300
-Message-ID: <1462973785-32532-14-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next v2 14/14] qed*: Tx-switching configuration
+Date: Wed, 11 May 2016 16:36:25 +0300
+Message-ID: <1462973785-32532-15-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:49916 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932694AbcEKNhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:37:25 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:13231 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932694AbcEKNh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 09:37:29 -0400
 In-Reply-To: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows the user to view the VF configuration by observing the PF's
-device.
+Device should be configured by default to VEB once VFs are active.
+This changes the configuration of both PFs' and VFs' vports into enabling
+tx-switching once sriov is enabled.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 93 ++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qede/qede_main.c | 12 ++++
- include/linux/qed/qed_iov_if.h               |  3 +
- 3 files changed, 108 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |  3 ++-
+ drivers/net/ethernet/qlogic/qed/qed_l2.c          |  4 ++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.h          |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c        |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h          |  3 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |  5 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c       |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c          | 12 ++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c      | 24 ++++++++++++++++++++++-
+ include/linux/qed/qed_eth_if.h                    |  2 ++
+ include/linux/qed/qed_if.h                        |  1 +
+ 11 files changed, 53 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index acaa286..6fb6016 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -688,7 +688,8 @@ static int qed_hw_init_pf(struct qed_hwfn *p_hwfn,
+ 		qed_int_igu_enable(p_hwfn, p_ptt, int_mode);
+ 
+ 		/* send function start command */
+-		rc = qed_sp_pf_start(p_hwfn, p_tunn, p_hwfn->cdev->mf_mode);
++		rc = qed_sp_pf_start(p_hwfn, p_tunn, p_hwfn->cdev->mf_mode,
++				     allow_npar_tx_switch);
+ 		if (rc)
+ 			DP_NOTICE(p_hwfn, "Function start ramrod failed\n");
+ 	}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index e0275a7..8fba87dd 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -99,6 +99,8 @@ int qed_sp_eth_vport_start(struct qed_hwfn *p_hwfn,
+ 		break;
+ 	}
+ 
++	p_ramrod->tx_switching_en = p_params->tx_switching;
++
+ 	/* Software Function ID in hwfn (PFs are 0 - 15, VFs are 16 - 135) */
+ 	p_ramrod->sw_fid = qed_concrete_to_sw_fid(p_hwfn->cdev,
+ 						  p_params->concrete_fid);
+@@ -1792,6 +1794,8 @@ static int qed_update_vport(struct qed_dev *cdev,
+ 		params->update_vport_active_flg;
+ 	sp_params.vport_active_rx_flg = params->vport_active_flg;
+ 	sp_params.vport_active_tx_flg = params->vport_active_flg;
++	sp_params.update_tx_switching_flg = params->update_tx_switching_flg;
++	sp_params.tx_switching_flg = params->tx_switching_flg;
+ 	sp_params.accept_any_vlan = params->accept_any_vlan;
+ 	sp_params.update_accept_any_vlan_flg =
+ 		params->update_accept_any_vlan_flg;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
+index a04fb7f..0021145 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
+@@ -94,6 +94,7 @@ enum qed_tpa_mode {
+ struct qed_sp_vport_start_params {
+ 	enum qed_tpa_mode tpa_mode;
+ 	bool remove_inner_vlan;
++	bool tx_switching;
+ 	bool only_untagged;
+ 	bool drop_ttl0;
+ 	u8 max_buffers_per_cqe;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index dcb782c..6ffc21d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -216,6 +216,7 @@ int qed_fill_dev_info(struct qed_dev *cdev,
+ 		dev_info->fw_rev = FW_REVISION_VERSION;
+ 		dev_info->fw_eng = FW_ENGINEERING_VERSION;
+ 		dev_info->mf_mode = cdev->mf_mode;
++		dev_info->tx_switching = true;
+ 	} else {
+ 		qed_vf_get_fw_version(&cdev->hwfns[0], &dev_info->fw_major,
+ 				      &dev_info->fw_minor, &dev_info->fw_rev,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+index c2999cb..ab5549f 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+@@ -344,13 +344,14 @@ int qed_sp_init_request(struct qed_hwfn *p_hwfn,
+  * @param p_hwfn
+  * @param p_tunn
+  * @param mode
++ * @param allow_npar_tx_switch
+  *
+  * @return int
+  */
+ 
+ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ 		    struct qed_tunn_start_params *p_tunn,
+-		    enum qed_mf_mode mode);
++		    enum qed_mf_mode mode, bool allow_npar_tx_switch);
+ 
+ /**
+  * @brief qed_sp_pf_stop - PF Function Stop Ramrod
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+index ed90947..8c555ed 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+@@ -299,7 +299,7 @@ qed_tunn_set_pf_start_params(struct qed_hwfn *p_hwfn,
+ 
+ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ 		    struct qed_tunn_start_params *p_tunn,
+-		    enum qed_mf_mode mode)
++		    enum qed_mf_mode mode, bool allow_npar_tx_switch)
+ {
+ 	struct pf_start_ramrod_data *p_ramrod = NULL;
+ 	u16 sb = qed_int_get_sp_sb_id(p_hwfn);
+@@ -358,6 +358,9 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ 				     &p_ramrod->tunnel_config);
+ 	p_hwfn->hw_info.personality = PERSONALITY_ETH;
+ 
++	if (IS_MF_SI(p_hwfn))
++		p_ramrod->allow_npar_tx_switching = allow_npar_tx_switch;
++
+ 	if (p_hwfn->cdev->p_iov_info) {
+ 		struct qed_hw_sriov_info *p_iov = p_hwfn->cdev->p_iov_info;
+ 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 804102c..6af8fd9f 100644
+index 6af8fd9f..d4df406 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -2588,6 +2588,30 @@ void qed_iov_set_link(struct qed_hwfn *p_hwfn,
- 	p_bulletin->capability_speed = p_caps->speed_capabilities;
- }
+@@ -1490,6 +1490,7 @@ static void qed_iov_vf_mbx_start_vport(struct qed_hwfn *p_hwfn,
  
-+static void qed_iov_get_link(struct qed_hwfn *p_hwfn,
-+			     u16 vfid,
-+			     struct qed_mcp_link_params *p_params,
-+			     struct qed_mcp_link_state *p_link,
-+			     struct qed_mcp_link_capabilities *p_caps)
-+{
-+	struct qed_vf_info *p_vf = qed_iov_get_vf_info(p_hwfn,
-+						       vfid,
-+						       false);
-+	struct qed_bulletin_content *p_bulletin;
-+
-+	if (!p_vf)
-+		return;
-+
-+	p_bulletin = p_vf->bulletin.p_virt;
-+
-+	if (p_params)
-+		__qed_vf_get_link_params(p_hwfn, p_params, p_bulletin);
-+	if (p_link)
-+		__qed_vf_get_link_state(p_hwfn, p_link, p_bulletin);
-+	if (p_caps)
-+		__qed_vf_get_link_caps(p_hwfn, p_caps, p_bulletin);
-+}
-+
- static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
- 				    struct qed_ptt *p_ptt, int vfid)
- {
-@@ -2840,6 +2864,17 @@ bool qed_iov_is_vf_stopped(struct qed_hwfn *p_hwfn, int vfid)
- 	return p_vf_info->state == VF_STOPPED;
- }
+ 	params.tpa_mode = start->tpa_mode;
+ 	params.remove_inner_vlan = start->inner_vlan_removal;
++	params.tx_switching = true;
  
-+static bool qed_iov_spoofchk_get(struct qed_hwfn *p_hwfn, int vfid)
-+{
-+	struct qed_vf_info *vf_info;
-+
-+	vf_info = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
-+	if (!vf_info)
-+		return false;
-+
-+	return vf_info->spoof_chk;
-+}
-+
- int qed_iov_spoofchk_set(struct qed_hwfn *p_hwfn, int vfid, bool val)
- {
- 	struct qed_vf_info *vf;
-@@ -2937,6 +2972,23 @@ int qed_iov_configure_min_tx_rate(struct qed_dev *cdev, int vfid, u32 rate)
- 	return qed_configure_vport_wfq(cdev, vport_id, rate);
- }
+ 	params.only_untagged = vf_info->bulletin.p_virt->default_only_untagged;
+ 	params.drop_ttl0 = false;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+index db14e23..72e69c0 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+@@ -633,6 +633,18 @@ int qed_vf_pf_vport_update(struct qed_hwfn *p_hwfn,
+ 		}
+ 	}
  
-+static int qed_iov_get_vf_min_rate(struct qed_hwfn *p_hwfn, int vfid)
-+{
-+	struct qed_wfq_data *vf_vp_wfq;
-+	struct qed_vf_info *vf_info;
++	if (p_params->update_tx_switching_flg) {
++		struct vfpf_vport_update_tx_switch_tlv *p_tx_switch_tlv;
 +
-+	vf_info = qed_iov_get_vf_info(p_hwfn, (u16) vfid, true);
-+	if (!vf_info)
-+		return 0;
++		size = sizeof(struct vfpf_vport_update_tx_switch_tlv);
++		tlv = CHANNEL_TLV_VPORT_UPDATE_TX_SWITCH;
++		p_tx_switch_tlv = qed_add_tlv(p_hwfn, &p_iov->offset,
++					      tlv, size);
++		resp_size += sizeof(struct pfvf_def_resp_tlv);
 +
-+	vf_vp_wfq = &p_hwfn->qm_info.wfq_data[vf_info->vport_id];
-+
-+	if (vf_vp_wfq->configured)
-+		return vf_vp_wfq->min_speed;
-+	else
-+		return 0;
-+}
-+
- /**
-  * qed_schedule_iov - schedules IOV task for VF and PF
-  * @hwfn: hardware function pointer
-@@ -3153,6 +3205,46 @@ static int qed_sriov_pf_set_vlan(struct qed_dev *cdev, u16 vid, int vfid)
- 	return 0;
- }
- 
-+static int qed_get_vf_config(struct qed_dev *cdev,
-+			     int vf_id, struct ifla_vf_info *ivi)
-+{
-+	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_public_vf_info *vf_info;
-+	struct qed_mcp_link_state link;
-+	u32 tx_rate;
-+
-+	/* Sanitize request */
-+	if (IS_VF(cdev))
-+		return -EINVAL;
-+
-+	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vf_id, true)) {
-+		DP_VERBOSE(cdev, QED_MSG_IOV,
-+			   "VF index [%d] isn't active\n", vf_id);
-+		return -EINVAL;
++		p_tx_switch_tlv->tx_switching = p_params->tx_switching_flg;
 +	}
 +
-+	vf_info = qed_iov_get_public_vf_info(hwfn, vf_id, true);
-+
-+	qed_iov_get_link(hwfn, vf_id, NULL, &link, NULL);
-+
-+	/* Fill information about VF */
-+	ivi->vf = vf_id;
-+
-+	if (is_valid_ether_addr(vf_info->forced_mac))
-+		ether_addr_copy(ivi->mac, vf_info->forced_mac);
-+	else
-+		ether_addr_copy(ivi->mac, vf_info->mac);
-+
-+	ivi->vlan = vf_info->forced_vlan;
-+	ivi->spoofchk = qed_iov_spoofchk_get(hwfn, vf_id);
-+	ivi->linkstate = vf_info->link_state;
-+	tx_rate = vf_info->tx_rate;
-+	ivi->max_tx_rate = tx_rate ? tx_rate : link.speed;
-+	ivi->min_tx_rate = qed_iov_get_vf_min_rate(hwfn, vf_id);
-+
-+	return 0;
-+}
-+
- void qed_inform_vf_link_state(struct qed_hwfn *hwfn)
- {
- 	struct qed_mcp_link_capabilities caps;
-@@ -3506,6 +3598,7 @@ const struct qed_iov_hv_ops qed_iov_ops_pass = {
- 	.configure = &qed_sriov_configure,
- 	.set_mac = &qed_sriov_pf_set_mac,
- 	.set_vlan = &qed_sriov_pf_set_vlan,
-+	.get_config = &qed_get_vf_config,
- 	.set_link_state = &qed_set_vf_link_state,
- 	.set_spoof = &qed_spoof_configure,
- 	.set_rate = &qed_set_vf_rate,
+ 	if (p_params->update_approx_mcast_flg) {
+ 		struct vfpf_vport_update_mcast_bin_tlv *p_mcast_tlv;
+ 
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index aa01363..90c3e1e 100644
+index 90c3e1e..1755d4a 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1793,6 +1793,17 @@ static struct rtnl_link_stats64 *qede_get_stats64(
- }
- 
- #ifdef CONFIG_QED_SRIOV
-+static int qede_get_vf_config(struct net_device *dev, int vfidx,
-+			      struct ifla_vf_info *ivi)
-+{
-+	struct qede_dev *edev = netdev_priv(dev);
-+
-+	if (!edev->ops)
-+		return -EINVAL;
-+
-+	return edev->ops->iov->get_config(edev->cdev, vfidx, ivi);
-+}
-+
- static int qede_set_vf_rate(struct net_device *dev, int vfidx,
- 			    int min_tx_rate, int max_tx_rate)
+@@ -137,10 +137,26 @@ static int qede_set_vf_mac(struct net_device *ndev, int vfidx, u8 *mac)
+ static int qede_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
  {
-@@ -2153,6 +2164,7 @@ static const struct net_device_ops qede_netdev_ops = {
- #ifdef CONFIG_QED_SRIOV
- 	.ndo_set_vf_link_state = qede_set_vf_link_state,
- 	.ndo_set_vf_spoofchk = qede_set_vf_spoofchk,
-+	.ndo_get_vf_config = qede_get_vf_config,
- 	.ndo_set_vf_rate = qede_set_vf_rate,
- #endif
- #ifdef CONFIG_QEDE_VXLAN
-diff --git a/include/linux/qed/qed_iov_if.h b/include/linux/qed/qed_iov_if.h
-index 2596d30..5a4f8d0 100644
---- a/include/linux/qed/qed_iov_if.h
-+++ b/include/linux/qed/qed_iov_if.h
-@@ -19,6 +19,9 @@ struct qed_iov_hv_ops {
+ 	struct qede_dev *edev = netdev_priv(pci_get_drvdata(pdev));
++	struct qed_dev_info *qed_info = &edev->dev_info.common;
++	int rc;
  
- 	int (*set_vlan) (struct qed_dev *cdev, u16 vid, int vfid);
+ 	DP_VERBOSE(edev, QED_MSG_IOV, "Requested %d VFs\n", num_vfs_param);
  
-+	int (*get_config) (struct qed_dev *cdev, int vf_id,
-+			   struct ifla_vf_info *ivi);
+-	return edev->ops->iov->configure(edev->cdev, num_vfs_param);
++	rc = edev->ops->iov->configure(edev->cdev, num_vfs_param);
 +
- 	int (*set_link_state) (struct qed_dev *cdev, int vf_id,
- 			       int link_state);
++	/* Enable/Disable Tx switching for PF */
++	if ((rc == num_vfs_param) && netif_running(edev->ndev) &&
++	    qed_info->mf_mode != QED_MF_NPAR && qed_info->tx_switching) {
++		struct qed_update_vport_params params;
++
++		memset(&params, 0, sizeof(params));
++		params.vport_id = 0;
++		params.update_tx_switching_flg = 1;
++		params.tx_switching_flg = num_vfs_param ? 1 : 0;
++		edev->ops->vport_update(edev->cdev, &params);
++	}
++
++	return rc;
+ }
+ #endif
  
+@@ -3293,6 +3309,12 @@ static int qede_start_queues(struct qede_dev *edev)
+ 	vport_update_params.update_vport_active_flg = 1;
+ 	vport_update_params.vport_active_flg = 1;
+ 
++	if ((qed_info->mf_mode == QED_MF_NPAR || pci_num_vf(edev->pdev)) &&
++	    qed_info->tx_switching) {
++		vport_update_params.update_tx_switching_flg = 1;
++		vport_update_params.tx_switching_flg = 1;
++	}
++
+ 	/* Fill struct with RSS params */
+ 	if (QEDE_RSS_CNT(edev) > 1) {
+ 		vport_update_params.update_rss_flg = 1;
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index e0f6e64..6ae8cb4 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -35,6 +35,8 @@ struct qed_update_vport_params {
+ 	u8 vport_id;
+ 	u8 update_vport_active_flg;
+ 	u8 vport_active_flg;
++	u8 update_tx_switching_flg;
++	u8 tx_switching_flg;
+ 	u8 update_accept_any_vlan_flg;
+ 	u8 accept_any_vlan;
+ 	u8 update_rss_flg;
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 76a6f16..0fd8f24 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -93,6 +93,7 @@ struct qed_dev_info {
+ 
+ 	u32		flash_size;
+ 	u8		mf_mode;
++	bool		tx_switching;
+ };
+ 
+ enum qed_sb_type {
 -- 
 1.9.3
