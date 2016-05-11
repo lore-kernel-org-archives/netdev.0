@@ -1,7 +1,7 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v2 2/4] xen-netback: add control protocol implementation
-Date: Wed, 11 May 2016 16:16:28 +0100
-Message-ID: <1462979790-2824-3-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next v2 1/4] xen-netback: add control ring boilerplate
+Date: Wed, 11 May 2016 16:16:27 +0100
+Message-ID: <1462979790-2824-2-git-send-email-paul.durrant@citrix.com>
 References: <1462979790-2824-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,10 +9,10 @@ Cc: Paul Durrant <paul.durrant@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
 To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:2034 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:50470 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932388AbcEKPam (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 May 2016 11:30:42 -0400
+	id S932093AbcEKPal (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2016 11:30:41 -0400
 In-Reply-To: <1462979790-2824-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,640 +21,513 @@ My recent patch to include/xen/interface/io/netif.h defines a new shared
 ring (in addition to the rx and tx rings) for passing control messages
 from a VM frontend driver to a backend driver.
 
-A previous patch added the necessary boilerplate for mapping the control
-ring from the frontend, should it be created. This patch adds
-implementations for each of the defined protocol messages.
+This patch adds the necessary code to xen-netback to map this new shared
+ring, should it be created by a frontend, but does not add implementations
+for any of the defined protocol messages. These are added in a subsequent
+patch for clarity.
 
 Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 Cc: Wei Liu <wei.liu2@citrix.com>
 ---
 
 v2:
- - Use RCU list for hash cache
+ - Changed error handling style in connect_ctrl_ring()
 ---
- drivers/net/xen-netback/Makefile    |   2 +-
- drivers/net/xen-netback/common.h    |  46 +++++
- drivers/net/xen-netback/hash.c      | 386 ++++++++++++++++++++++++++++++++++++
- drivers/net/xen-netback/interface.c |  28 ++-
- drivers/net/xen-netback/netback.c   |  49 ++++-
- 5 files changed, 506 insertions(+), 5 deletions(-)
- create mode 100644 drivers/net/xen-netback/hash.c
+ drivers/net/xen-netback/common.h    |  28 +++++++---
+ drivers/net/xen-netback/interface.c | 101 +++++++++++++++++++++++++++++++++---
+ drivers/net/xen-netback/netback.c   |  99 +++++++++++++++++++++++++++++++++--
+ drivers/net/xen-netback/xenbus.c    |  79 ++++++++++++++++++++++++----
+ 4 files changed, 277 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/xen-netback/Makefile b/drivers/net/xen-netback/Makefile
-index e346e81..11e02be 100644
---- a/drivers/net/xen-netback/Makefile
-+++ b/drivers/net/xen-netback/Makefile
-@@ -1,3 +1,3 @@
- obj-$(CONFIG_XEN_NETDEV_BACKEND) := xen-netback.o
- 
--xen-netback-y := netback.o xenbus.o interface.o
-+xen-netback-y := netback.o xenbus.o interface.o hash.o
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 093a12a..84d6cbd 100644
+index f44b388..093a12a 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -220,6 +220,35 @@ struct xenvif_mcast_addr {
+@@ -260,6 +260,11 @@ struct xenvif {
+ 	struct dentry *xenvif_dbg_root;
+ #endif
  
- #define XEN_NETBK_MCAST_MAX 64
++	struct xen_netif_ctrl_back_ring ctrl;
++	struct task_struct *ctrl_task;
++	wait_queue_head_t ctrl_wq;
++	unsigned int ctrl_irq;
++
+ 	/* Miscellaneous private stuff. */
+ 	struct net_device *dev;
+ };
+@@ -285,10 +290,15 @@ struct xenvif *xenvif_alloc(struct device *parent,
+ int xenvif_init_queue(struct xenvif_queue *queue);
+ void xenvif_deinit_queue(struct xenvif_queue *queue);
  
-+#define XEN_NETBK_MAX_HASH_KEY_SIZE 40
-+#define XEN_NETBK_MAX_HASH_MAPPING_SIZE 128
-+#define XEN_NETBK_HASH_TAG_SIZE 40
-+
-+struct xenvif_hash_cache_entry {
-+	struct list_head link;
-+	struct rcu_head rcu;
-+	u8 tag[XEN_NETBK_HASH_TAG_SIZE];
-+	unsigned int len;
-+	u32 val;
-+	int seq;
-+};
-+
-+struct xenvif_hash_cache {
-+	spinlock_t lock;
-+	struct list_head list;
-+	unsigned int count;
-+	atomic_t seq;
-+};
-+
-+struct xenvif_hash {
-+	unsigned int alg;
-+	u32 flags;
-+	u8 key[XEN_NETBK_MAX_HASH_KEY_SIZE];
-+	u32 mapping[XEN_NETBK_MAX_HASH_MAPPING_SIZE];
-+	unsigned int size;
-+	struct xenvif_hash_cache cache;
-+};
-+
- struct xenvif {
- 	/* Unique identifier for this interface. */
- 	domid_t          domid;
-@@ -251,6 +280,8 @@ struct xenvif {
- 	unsigned int num_queues; /* active queues, resource allocated */
- 	unsigned int stalled_queues;
+-int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
+-		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
+-		   unsigned int rx_evtchn);
+-void xenvif_disconnect(struct xenvif *vif);
++int xenvif_connect_data(struct xenvif_queue *queue,
++			unsigned long tx_ring_ref,
++			unsigned long rx_ring_ref,
++			unsigned int tx_evtchn,
++			unsigned int rx_evtchn);
++void xenvif_disconnect_data(struct xenvif *vif);
++int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
++			unsigned int evtchn);
++void xenvif_disconnect_ctrl(struct xenvif *vif);
+ void xenvif_free(struct xenvif *vif);
  
-+	struct xenvif_hash hash;
+ int xenvif_xenbus_init(void);
+@@ -300,10 +310,10 @@ int xenvif_queue_stopped(struct xenvif_queue *queue);
+ void xenvif_wake_queue(struct xenvif_queue *queue);
+ 
+ /* (Un)Map communication rings. */
+-void xenvif_unmap_frontend_rings(struct xenvif_queue *queue);
+-int xenvif_map_frontend_rings(struct xenvif_queue *queue,
+-			      grant_ref_t tx_ring_ref,
+-			      grant_ref_t rx_ring_ref);
++void xenvif_unmap_frontend_data_rings(struct xenvif_queue *queue);
++int xenvif_map_frontend_data_rings(struct xenvif_queue *queue,
++				   grant_ref_t tx_ring_ref,
++				   grant_ref_t rx_ring_ref);
+ 
+ /* Check for SKBs from frontend and schedule backend processing */
+ void xenvif_napi_schedule_or_enable_events(struct xenvif_queue *queue);
+@@ -318,6 +328,8 @@ void xenvif_kick_thread(struct xenvif_queue *queue);
+ 
+ int xenvif_dealloc_kthread(void *data);
+ 
++int xenvif_ctrl_kthread(void *data);
 +
- 	struct xenbus_watch credit_watch;
- 	struct xenbus_watch mcast_ctrl_watch;
+ void xenvif_rx_queue_tail(struct xenvif_queue *queue, struct sk_buff *skb);
  
-@@ -353,6 +384,7 @@ extern bool separate_tx_rx_irq;
- extern unsigned int rx_drain_timeout_msecs;
- extern unsigned int rx_stall_timeout_msecs;
- extern unsigned int xenvif_max_queues;
-+extern unsigned int xenvif_hash_cache_size;
+ void xenvif_carrier_on(struct xenvif *vif);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index f5231a2..78a10d2 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -128,6 +128,15 @@ irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
++irqreturn_t xenvif_ctrl_interrupt(int irq, void *dev_id)
++{
++	struct xenvif *vif = dev_id;
++
++	wake_up(&vif->ctrl_wq);
++
++	return IRQ_HANDLED;
++}
++
+ int xenvif_queue_stopped(struct xenvif_queue *queue)
+ {
+ 	struct net_device *dev = queue->vif->dev;
+@@ -527,9 +536,66 @@ void xenvif_carrier_on(struct xenvif *vif)
+ 	rtnl_unlock();
+ }
+ 
+-int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
+-		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
+-		   unsigned int rx_evtchn)
++int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
++			unsigned int evtchn)
++{
++	struct net_device *dev = vif->dev;
++	void *addr;
++	struct xen_netif_ctrl_sring *shared;
++	struct task_struct *task;
++	int err = -ENOMEM;
++
++	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
++				     &ring_ref, 1, &addr);
++	if (err)
++		goto err;
++
++	shared = (struct xen_netif_ctrl_sring *)addr;
++	BACK_RING_INIT(&vif->ctrl, shared, XEN_PAGE_SIZE);
++
++	init_waitqueue_head(&vif->ctrl_wq);
++
++	err = bind_interdomain_evtchn_to_irqhandler(vif->domid, evtchn,
++						    xenvif_ctrl_interrupt,
++						    0, dev->name, vif);
++	if (err < 0)
++		goto err_unmap;
++
++	vif->ctrl_irq = err;
++
++	task = kthread_create(xenvif_ctrl_kthread, (void *)vif,
++			      "%s-control", dev->name);
++	if (IS_ERR(task)) {
++		pr_warn("Could not allocate kthread for %s\n", dev->name);
++		err = PTR_ERR(task);
++		goto err_deinit;
++	}
++
++	get_task_struct(task);
++	vif->ctrl_task = task;
++
++	wake_up_process(vif->ctrl_task);
++
++	return 0;
++
++err_deinit:
++	unbind_from_irqhandler(vif->ctrl_irq, vif);
++	vif->ctrl_irq = 0;
++
++err_unmap:
++	xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
++				vif->ctrl.sring);
++	vif->ctrl.sring = NULL;
++
++err:
++	return err;
++}
++
++int xenvif_connect_data(struct xenvif_queue *queue,
++			unsigned long tx_ring_ref,
++			unsigned long rx_ring_ref,
++			unsigned int tx_evtchn,
++			unsigned int rx_evtchn)
+ {
+ 	struct task_struct *task;
+ 	int err = -ENOMEM;
+@@ -538,7 +604,8 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
+ 	BUG_ON(queue->task);
+ 	BUG_ON(queue->dealloc_task);
+ 
+-	err = xenvif_map_frontend_rings(queue, tx_ring_ref, rx_ring_ref);
++	err = xenvif_map_frontend_data_rings(queue, tx_ring_ref,
++					     rx_ring_ref);
+ 	if (err < 0)
+ 		goto err;
+ 
+@@ -614,7 +681,7 @@ err_tx_unbind:
+ 	unbind_from_irqhandler(queue->tx_irq, queue);
+ 	queue->tx_irq = 0;
+ err_unmap:
+-	xenvif_unmap_frontend_rings(queue);
++	xenvif_unmap_frontend_data_rings(queue);
+ 	netif_napi_del(&queue->napi);
+ err:
+ 	module_put(THIS_MODULE);
+@@ -634,7 +701,7 @@ void xenvif_carrier_off(struct xenvif *vif)
+ 	rtnl_unlock();
+ }
+ 
+-void xenvif_disconnect(struct xenvif *vif)
++void xenvif_disconnect_data(struct xenvif *vif)
+ {
+ 	struct xenvif_queue *queue = NULL;
+ 	unsigned int num_queues = vif->num_queues;
+@@ -668,12 +735,32 @@ void xenvif_disconnect(struct xenvif *vif)
+ 			queue->tx_irq = 0;
+ 		}
+ 
+-		xenvif_unmap_frontend_rings(queue);
++		xenvif_unmap_frontend_data_rings(queue);
+ 	}
+ 
+ 	xenvif_mcast_addr_list_free(vif);
+ }
+ 
++void xenvif_disconnect_ctrl(struct xenvif *vif)
++{
++	if (vif->ctrl_task) {
++		kthread_stop(vif->ctrl_task);
++		put_task_struct(vif->ctrl_task);
++		vif->ctrl_task = NULL;
++	}
++
++	if (vif->ctrl_irq) {
++		unbind_from_irqhandler(vif->ctrl_irq, vif);
++		vif->ctrl_irq = 0;
++	}
++
++	if (vif->ctrl.sring) {
++		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
++					vif->ctrl.sring);
++		vif->ctrl.sring = NULL;
++	}
++}
++
+ /* Reverse the relevant parts of xenvif_init_queue().
+  * Used for queue teardown from xenvif_free(), and on the
+  * error handling paths in xenbus.c:connect().
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index b42f260..45aa40b 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1925,7 +1925,7 @@ static inline bool tx_dealloc_work_todo(struct xenvif_queue *queue)
+ 	return queue->dealloc_cons != queue->dealloc_prod;
+ }
+ 
+-void xenvif_unmap_frontend_rings(struct xenvif_queue *queue)
++void xenvif_unmap_frontend_data_rings(struct xenvif_queue *queue)
+ {
+ 	if (queue->tx.sring)
+ 		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(queue->vif),
+@@ -1935,9 +1935,9 @@ void xenvif_unmap_frontend_rings(struct xenvif_queue *queue)
+ 					queue->rx.sring);
+ }
+ 
+-int xenvif_map_frontend_rings(struct xenvif_queue *queue,
+-			      grant_ref_t tx_ring_ref,
+-			      grant_ref_t rx_ring_ref)
++int xenvif_map_frontend_data_rings(struct xenvif_queue *queue,
++				   grant_ref_t tx_ring_ref,
++				   grant_ref_t rx_ring_ref)
+ {
+ 	void *addr;
+ 	struct xen_netif_tx_sring *txs;
+@@ -1964,7 +1964,7 @@ int xenvif_map_frontend_rings(struct xenvif_queue *queue,
+ 	return 0;
+ 
+ err:
+-	xenvif_unmap_frontend_rings(queue);
++	xenvif_unmap_frontend_data_rings(queue);
+ 	return err;
+ }
+ 
+@@ -2163,6 +2163,95 @@ int xenvif_dealloc_kthread(void *data)
+ 	return 0;
+ }
+ 
++static void make_ctrl_response(struct xenvif *vif,
++			       const struct xen_netif_ctrl_request *req,
++			       u32 status, u32 data)
++{
++	RING_IDX idx = vif->ctrl.rsp_prod_pvt;
++	struct xen_netif_ctrl_response rsp = {
++		.id = req->id,
++		.type = req->type,
++		.status = status,
++		.data = data,
++	};
++
++	*RING_GET_RESPONSE(&vif->ctrl, idx) = rsp;
++	vif->ctrl.rsp_prod_pvt = ++idx;
++}
++
++static void push_ctrl_response(struct xenvif *vif)
++{
++	int notify;
++
++	RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&vif->ctrl, notify);
++	if (notify)
++		notify_remote_via_irq(vif->ctrl_irq);
++}
++
++static void process_ctrl_request(struct xenvif *vif,
++				 const struct xen_netif_ctrl_request *req)
++{
++	make_ctrl_response(vif, req, XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED,
++			   0);
++	push_ctrl_response(vif);
++}
++
++static void xenvif_ctrl_action(struct xenvif *vif)
++{
++	for (;;) {
++		RING_IDX req_prod, req_cons;
++
++		req_prod = vif->ctrl.sring->req_prod;
++		req_cons = vif->ctrl.req_cons;
++
++		/* Make sure we can see requests before we process them. */
++		rmb();
++
++		if (req_cons == req_prod)
++			break;
++
++		while (req_cons != req_prod) {
++			struct xen_netif_ctrl_request req;
++
++			RING_COPY_REQUEST(&vif->ctrl, req_cons, &req);
++			req_cons++;
++
++			process_ctrl_request(vif, &req);
++		}
++
++		vif->ctrl.req_cons = req_cons;
++		vif->ctrl.sring->req_event = req_cons + 1;
++	}
++}
++
++static bool xenvif_ctrl_work_todo(struct xenvif *vif)
++{
++	if (likely(RING_HAS_UNCONSUMED_REQUESTS(&vif->ctrl)))
++		return 1;
++
++	return 0;
++}
++
++int xenvif_ctrl_kthread(void *data)
++{
++	struct xenvif *vif = data;
++
++	for (;;) {
++		wait_event_interruptible(vif->ctrl_wq,
++					 xenvif_ctrl_work_todo(vif) ||
++					 kthread_should_stop());
++		if (kthread_should_stop())
++			break;
++
++		while (xenvif_ctrl_work_todo(vif))
++			xenvif_ctrl_action(vif);
++
++		cond_resched();
++	}
++
++	return 0;
++}
++
+ static int __init netback_init(void)
+ {
+ 	int rc = 0;
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index bd182cd..6a31f26 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -38,7 +38,8 @@ struct backend_info {
+ 	const char *hotplug_script;
+ };
+ 
+-static int connect_rings(struct backend_info *be, struct xenvif_queue *queue);
++static int connect_data_rings(struct backend_info *be,
++			      struct xenvif_queue *queue);
+ static void connect(struct backend_info *be);
+ static int read_xenbus_vif_flags(struct backend_info *be);
+ static int backend_create_xenvif(struct backend_info *be);
+@@ -367,6 +368,12 @@ static int netback_probe(struct xenbus_device *dev,
+ 	if (err)
+ 		pr_debug("Error writing multi-queue-max-queues\n");
+ 
++	err = xenbus_printf(XBT_NIL, dev->nodename,
++			    "feature-ctrl-ring",
++			    "%u", true);
++	if (err)
++		pr_debug("Error writing feature-ctrl-ring\n");
++
+ 	script = xenbus_read(XBT_NIL, dev->nodename, "script", NULL);
+ 	if (IS_ERR(script)) {
+ 		err = PTR_ERR(script);
+@@ -457,7 +464,8 @@ static void backend_disconnect(struct backend_info *be)
  #ifdef CONFIG_DEBUG_FS
- extern struct dentry *xen_netback_dbg_root;
-@@ -366,4 +398,18 @@ void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue);
- bool xenvif_mcast_match(struct xenvif *vif, const u8 *addr);
- void xenvif_mcast_addr_list_free(struct xenvif *vif);
+ 		xenvif_debugfs_delif(be->vif);
+ #endif /* CONFIG_DEBUG_FS */
+-		xenvif_disconnect(be->vif);
++		xenvif_disconnect_data(be->vif);
++		xenvif_disconnect_ctrl(be->vif);
+ 	}
+ }
  
-+/* Hash */
-+void xenvif_init_hash(struct xenvif *vif);
-+void xenvif_deinit_hash(struct xenvif *vif);
-+
-+u32 xenvif_set_hash_alg(struct xenvif *vif, u32 alg);
-+u32 xenvif_get_hash_flags(struct xenvif *vif, u32 *flags);
-+u32 xenvif_set_hash_flags(struct xenvif *vif, u32 flags);
-+u32 xenvif_set_hash_key(struct xenvif *vif, u32 gref, u32 len);
-+u32 xenvif_set_hash_mapping_size(struct xenvif *vif, u32 size);
-+u32 xenvif_set_hash_mapping(struct xenvif *vif, u32 gref, u32 len,
-+			    u32 off);
-+
-+void xenvif_set_skb_hash(struct xenvif *vif, struct sk_buff *skb);
-+
- #endif /* __XEN_NETBACK__COMMON_H__ */
-diff --git a/drivers/net/xen-netback/hash.c b/drivers/net/xen-netback/hash.c
-new file mode 100644
-index 0000000..47edfe9
---- /dev/null
-+++ b/drivers/net/xen-netback/hash.c
-@@ -0,0 +1,386 @@
-+/*
-+ * Copyright (c) 2016 Citrix Systems Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version 2
-+ * as published by the Free Softare Foundation; or, when distributed
-+ * separately from the Linux kernel or incorporated into other
-+ * software packages, subject to the following license:
-+ *
-+ * Permission is hereby granted, free of charge, to any person obtaining a copy
-+ * of this source file (the "Software"), to deal in the Software without
-+ * restriction, including without limitation the rights to use, copy, modify,
-+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
-+ * and to permit persons to whom the Software is furnished to do so, subject to
-+ * the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-+ * IN THE SOFTWARE.
-+ */
-+
-+#define XEN_NETIF_DEFINE_TOEPLITZ
-+
-+#include "common.h"
-+#include <linux/vmalloc.h>
-+
-+static void xenvif_del_hash(struct rcu_head *rcu)
+@@ -825,6 +833,48 @@ static void hotplug_status_changed(struct xenbus_watch *watch,
+ 	kfree(str);
+ }
+ 
++static int connect_ctrl_ring(struct backend_info *be)
 +{
-+	struct xenvif_hash_cache_entry *entry;
++	struct xenbus_device *dev = be->dev;
++	struct xenvif *vif = be->vif;
++	unsigned int val;
++	grant_ref_t ring_ref;
++	unsigned int evtchn;
++	int err;
 +
-+	entry = container_of(rcu, struct xenvif_hash_cache_entry, rcu);
++	err = xenbus_gather(XBT_NIL, dev->otherend,
++			    "ctrl-ring-ref", "%u", &val, NULL);
++	if (err)
++		goto done; /* The frontend does not have a control ring */
 +
-+	destroy_rcu_head(rcu);
-+	kfree(entry);
-+}
++	ring_ref = val;
 +
-+static void xenvif_add_hash(struct xenvif *vif, const u8 *tag,
-+			    unsigned int len, u32 val)
-+{
-+	struct xenvif_hash_cache_entry *new, *entry, *oldest;
-+	unsigned long flags;
-+	bool found;
-+
-+	new = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	if (!new)
-+		return;
-+
-+	init_rcu_head(&new->rcu);
-+
-+	memcpy(new->tag, tag, len);
-+	new->len = len;
-+	new->val = val;
-+
-+	spin_lock_irqsave(&vif->hash.cache.lock, flags);
-+
-+	found = false;
-+	oldest = NULL;
-+	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
-+		/* Make sure we don't add duplicate entries */
-+		if (entry->len == len &&
-+		    memcmp(entry->tag, tag, len) == 0)
-+			found = true;
-+		if (!oldest || entry->seq < oldest->seq)
-+			oldest = entry;
++	err = xenbus_gather(XBT_NIL, dev->otherend,
++			    "event-channel-ctrl", "%u", &val, NULL);
++	if (err) {
++		xenbus_dev_fatal(dev, err,
++				 "reading %s/event-channel-ctrl",
++				 dev->otherend);
++		goto fail;
 +	}
 +
-+	if (!found) {
-+		new->seq = atomic_inc_return(&vif->hash.cache.seq);
-+		list_add_rcu(&new->link, &vif->hash.cache.list);
++	evtchn = val;
 +
-+		if (++vif->hash.cache.count > xenvif_hash_cache_size) {
-+			list_del_rcu(&oldest->link);
-+			vif->hash.cache.count--;
-+			call_rcu(&oldest->rcu, xenvif_del_hash);
-+		}
-+	}
-+
-+	spin_unlock_irqrestore(&vif->hash.cache.lock, flags);
-+
-+	if (found)
-+		kfree(new);
-+}
-+
-+static u32 xenvif_new_hash(struct xenvif *vif, const u8 *data,
-+			   unsigned int len)
-+{
-+	u32 val;
-+
-+	val = xen_netif_toeplitz_hash(vif->hash.key,
-+				      sizeof(vif->hash.key),
-+				      data, len);
-+
-+	if (xenvif_hash_cache_size != 0)
-+		xenvif_add_hash(vif, data, len, val);
-+
-+	return val;
-+}
-+
-+static void xenvif_flush_hash(struct xenvif *vif)
-+{
-+	struct xenvif_hash_cache_entry *entry;
-+	unsigned long flags;
-+
-+	if (xenvif_hash_cache_size == 0)
-+		return;
-+
-+	spin_lock_irqsave(&vif->hash.cache.lock, flags);
-+
-+	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
-+		list_del_rcu(&entry->link);
-+		vif->hash.cache.count--;
-+		call_rcu(&entry->rcu, xenvif_del_hash);
-+	}
-+
-+	spin_unlock_irqrestore(&vif->hash.cache.lock, flags);
-+}
-+
-+static u32 xenvif_find_hash(struct xenvif *vif, const u8 *data,
-+			    unsigned int len)
-+{
-+	struct xenvif_hash_cache_entry *entry;
-+	u32 val;
-+	bool found;
-+
-+	if (len >= XEN_NETBK_HASH_TAG_SIZE)
-+		return 0;
-+
-+	if (xenvif_hash_cache_size == 0)
-+		return xenvif_new_hash(vif, data, len);
-+
-+	rcu_read_lock();
-+
-+	found = false;
-+
-+	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
-+		if (entry->len == len &&
-+		    memcmp(entry->tag, data, len) == 0) {
-+			val = entry->val;
-+			entry->seq = atomic_inc_return(&vif->hash.cache.seq);
-+			found = true;
-+			break;
-+		}
-+	}
-+
-+	rcu_read_unlock();
-+
-+	if (!found)
-+		val = xenvif_new_hash(vif, data, len);
-+
-+	return val;
-+}
-+
-+void xenvif_set_skb_hash(struct xenvif *vif, struct sk_buff *skb)
-+{
-+	struct flow_keys flow;
-+	u32 hash = 0;
-+	enum pkt_hash_types type = PKT_HASH_TYPE_NONE;
-+	u32 flags = vif->hash.flags;
-+	bool has_tcp_hdr;
-+
-+	/* Quick rejection test: If the network protocol doesn't
-+	 * correspond to any enabled hash type then there's no point
-+	 * in parsing the packet header.
-+	 */
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		if (flags & (XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP |
-+			     XEN_NETIF_CTRL_HASH_TYPE_IPV4))
-+			break;
-+
-+		goto done;
-+
-+	case htons(ETH_P_IPV6):
-+		if (flags & (XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP |
-+			     XEN_NETIF_CTRL_HASH_TYPE_IPV6))
-+			break;
-+
-+		goto done;
-+
-+	default:
-+		goto done;
-+	}
-+
-+	memset(&flow, 0, sizeof(flow));
-+	if (!skb_flow_dissect_flow_keys(skb, &flow, 0))
-+		goto done;
-+
-+	has_tcp_hdr = (flow.basic.ip_proto == IPPROTO_TCP) &&
-+		      !(flow.control.flags & FLOW_DIS_IS_FRAGMENT);
-+
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		if (has_tcp_hdr &&
-+		    (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP)) {
-+			u8 data[12];
-+
-+			memcpy(&data[0], &flow.addrs.v4addrs.src, 4);
-+			memcpy(&data[4], &flow.addrs.v4addrs.dst, 4);
-+			memcpy(&data[8], &flow.ports.src, 2);
-+			memcpy(&data[10], &flow.ports.dst, 2);
-+
-+			hash = xenvif_find_hash(vif, data, sizeof(data));
-+			type = PKT_HASH_TYPE_L4;
-+		} else if (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV4) {
-+			u8 data[8];
-+
-+			memcpy(&data[0], &flow.addrs.v4addrs.src, 4);
-+			memcpy(&data[4], &flow.addrs.v4addrs.dst, 4);
-+
-+			hash = xenvif_find_hash(vif, data, sizeof(data));
-+			type = PKT_HASH_TYPE_L3;
-+		}
-+
-+		break;
-+
-+	case htons(ETH_P_IPV6):
-+		if (has_tcp_hdr &&
-+		    (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP)) {
-+			u8 data[36];
-+
-+			memcpy(&data[0], &flow.addrs.v6addrs.src, 16);
-+			memcpy(&data[16], &flow.addrs.v6addrs.dst, 16);
-+			memcpy(&data[32], &flow.ports.src, 2);
-+			memcpy(&data[34], &flow.ports.dst, 2);
-+
-+			hash = xenvif_find_hash(vif, data, sizeof(data));
-+			type = PKT_HASH_TYPE_L4;
-+		} else if (flags & XEN_NETIF_CTRL_HASH_TYPE_IPV6) {
-+			u8 data[32];
-+
-+			memcpy(&data[0], &flow.addrs.v6addrs.src, 16);
-+			memcpy(&data[16], &flow.addrs.v6addrs.dst, 16);
-+
-+			hash = xenvif_find_hash(vif, data, sizeof(data));
-+			type = PKT_HASH_TYPE_L3;
-+		}
-+
-+		break;
++	err = xenvif_connect_ctrl(vif, ring_ref, evtchn);
++	if (err) {
++		xenbus_dev_fatal(dev, err,
++				 "mapping shared-frame %u port %u",
++				 ring_ref, evtchn);
++		goto fail;
 +	}
 +
 +done:
-+	if (type == PKT_HASH_TYPE_NONE)
-+		skb_clear_hash(skb);
-+	else
-+		__skb_set_sw_hash(skb, hash, type == PKT_HASH_TYPE_L4);
++	return 0;
++
++fail:
++	return err;
 +}
 +
-+u32 xenvif_set_hash_alg(struct xenvif *vif, u32 alg)
-+{
-+	switch (alg) {
-+	case XEN_NETIF_CTRL_HASH_ALGORITHM_NONE:
-+	case XEN_NETIF_CTRL_HASH_ALGORITHM_TOEPLITZ:
-+		break;
-+
-+	default:
-+		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	vif->hash.alg = alg;
-+
-+	return XEN_NETIF_CTRL_STATUS_SUCCESS;
-+}
-+
-+u32 xenvif_get_hash_flags(struct xenvif *vif, u32 *flags)
-+{
-+	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
-+		return XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED;
-+
-+	*flags = XEN_NETIF_CTRL_HASH_TYPE_IPV4 |
-+		 XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP |
-+		 XEN_NETIF_CTRL_HASH_TYPE_IPV6 |
-+		 XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP;
-+
-+	return XEN_NETIF_CTRL_STATUS_SUCCESS;
-+}
-+
-+u32 xenvif_set_hash_flags(struct xenvif *vif, u32 flags)
-+{
-+	if (flags & ~(XEN_NETIF_CTRL_HASH_TYPE_IPV4 |
-+		      XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP |
-+		      XEN_NETIF_CTRL_HASH_TYPE_IPV6 |
-+		      XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP))
-+		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+
-+	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
-+		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+
-+	vif->hash.flags = flags;
-+
-+	return XEN_NETIF_CTRL_STATUS_SUCCESS;
-+}
-+
-+u32 xenvif_set_hash_key(struct xenvif *vif, u32 gref, u32 len)
-+{
-+	u8 *key = vif->hash.key;
-+	struct gnttab_copy copy_op = {
-+		.source.u.ref = gref,
-+		.source.domid = vif->domid,
-+		.dest.u.gmfn = virt_to_gfn(key),
-+		.dest.domid = DOMID_SELF,
-+		.dest.offset = xen_offset_in_page(key),
-+		.len = len,
-+		.flags = GNTCOPY_source_gref
-+	};
-+
-+	if (len > XEN_NETBK_MAX_HASH_KEY_SIZE)
-+		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+
-+	if (len != 0) {
-+		gnttab_batch_copy(&copy_op, 1);
-+
-+		if (copy_op.status != GNTST_okay)
-+			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	/* Clear any remaining key octets */
-+	if (len < XEN_NETBK_MAX_HASH_KEY_SIZE)
-+		memset(key + len, 0, XEN_NETBK_MAX_HASH_KEY_SIZE - len);
-+
-+	xenvif_flush_hash(vif);
-+
-+	return XEN_NETIF_CTRL_STATUS_SUCCESS;
-+}
-+
-+u32 xenvif_set_hash_mapping_size(struct xenvif *vif, u32 size)
-+{
-+	if (size > XEN_NETBK_MAX_HASH_MAPPING_SIZE)
-+		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+
-+	vif->hash.size = size;
-+	memset(vif->hash.mapping, 0, sizeof(u32) * size);
-+
-+	return XEN_NETIF_CTRL_STATUS_SUCCESS;
-+}
-+
-+u32 xenvif_set_hash_mapping(struct xenvif *vif, u32 gref, u32 len,
-+			    u32 off)
-+{
-+	u32 *mapping = &vif->hash.mapping[off];
-+	struct gnttab_copy copy_op = {
-+		.source.u.ref = gref,
-+		.source.domid = vif->domid,
-+		.dest.u.gmfn = virt_to_gfn(mapping),
-+		.dest.domid = DOMID_SELF,
-+		.dest.offset = xen_offset_in_page(mapping),
-+		.len = len * sizeof(u32),
-+		.flags = GNTCOPY_source_gref
-+	};
-+
-+	if ((off + len > vif->hash.size) || copy_op.len > XEN_PAGE_SIZE)
-+		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+
-+	while (len-- != 0)
-+		if (mapping[off++] >= vif->num_queues)
-+			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+
-+	if (len != 0) {
-+		gnttab_batch_copy(&copy_op, 1);
-+
-+		if (copy_op.status != GNTST_okay)
-+			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
-+	}
-+
-+	return XEN_NETIF_CTRL_STATUS_SUCCESS;
-+}
-+
-+void xenvif_init_hash(struct xenvif *vif)
-+{
-+	if (xenvif_hash_cache_size == 0)
+ static void connect(struct backend_info *be)
+ {
+ 	int err;
+@@ -861,6 +911,12 @@ static void connect(struct backend_info *be)
+ 	xen_register_watchers(dev, be->vif);
+ 	read_xenbus_vif_flags(be);
+ 
++	err = connect_ctrl_ring(be);
++	if (err) {
++		xenbus_dev_fatal(dev, err, "connecting control ring");
 +		return;
-+
-+	spin_lock_init(&vif->hash.cache.lock);
-+	INIT_LIST_HEAD(&vif->hash.cache.list);
-+}
-+
-+void xenvif_deinit_hash(struct xenvif *vif)
-+{
-+	xenvif_flush_hash(vif);
-+}
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 78a10d2..483080f 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -151,6 +151,24 @@ void xenvif_wake_queue(struct xenvif_queue *queue)
- 	netif_tx_wake_queue(netdev_get_tx_queue(dev, id));
- }
- 
-+static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
-+			       void *accel_priv,
-+			       select_queue_fallback_t fallback)
-+{
-+	struct xenvif *vif = netdev_priv(dev);
-+	unsigned int size = vif->hash.size;
-+
-+	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
-+		return fallback(dev, skb) % dev->real_num_tx_queues;
-+
-+	xenvif_set_skb_hash(vif, skb);
-+
-+	if (size == 0)
-+		return skb_get_hash_raw(skb) % dev->real_num_tx_queues;
-+
-+	return vif->hash.mapping[skb_get_hash_raw(skb) % size];
-+}
-+
- static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct xenvif *vif = netdev_priv(dev);
-@@ -395,6 +413,7 @@ static const struct ethtool_ops xenvif_ethtool_ops = {
- };
- 
- static const struct net_device_ops xenvif_netdev_ops = {
-+	.ndo_select_queue = xenvif_select_queue,
- 	.ndo_start_xmit	= xenvif_start_xmit,
- 	.ndo_get_stats	= xenvif_get_stats,
- 	.ndo_open	= xenvif_open,
-@@ -563,12 +582,14 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
- 
- 	vif->ctrl_irq = err;
- 
-+	xenvif_init_hash(vif);
-+
- 	task = kthread_create(xenvif_ctrl_kthread, (void *)vif,
- 			      "%s-control", dev->name);
- 	if (IS_ERR(task)) {
- 		pr_warn("Could not allocate kthread for %s\n", dev->name);
- 		err = PTR_ERR(task);
--		goto err_deinit;
-+		goto err_unbind;
- 	}
- 
- 	get_task_struct(task);
-@@ -578,7 +599,8 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
- 
- 	return 0;
- 
--err_deinit:
-+err_unbind:
-+	xenvif_deinit_hash(vif);
- 	unbind_from_irqhandler(vif->ctrl_irq, vif);
- 	vif->ctrl_irq = 0;
- 
-@@ -749,6 +771,8 @@ void xenvif_disconnect_ctrl(struct xenvif *vif)
- 		vif->ctrl_task = NULL;
- 	}
- 
-+	xenvif_deinit_hash(vif);
-+
- 	if (vif->ctrl_irq) {
- 		unbind_from_irqhandler(vif->ctrl_irq, vif);
- 		vif->ctrl_irq = 0;
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 45aa40b..6509d11 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -89,6 +89,11 @@ module_param(fatal_skb_slots, uint, 0444);
-  */
- #define XEN_NETBACK_TX_COPY_LEN 128
- 
-+/* This is the maximum number of flows in the hash cache. */
-+#define XENVIF_HASH_CACHE_SIZE_DEFAULT 64
-+unsigned int xenvif_hash_cache_size = XENVIF_HASH_CACHE_SIZE_DEFAULT;
-+module_param_named(hash_cache_size, xenvif_hash_cache_size, uint, 0644);
-+MODULE_PARM_DESC(hash_cache_size, "Number of flows in the hash cache");
- 
- static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
- 			       u8 status);
-@@ -2191,8 +2196,48 @@ static void push_ctrl_response(struct xenvif *vif)
- static void process_ctrl_request(struct xenvif *vif,
- 				 const struct xen_netif_ctrl_request *req)
- {
--	make_ctrl_response(vif, req, XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED,
--			   0);
-+	u32 status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED;
-+	u32 data = 0;
-+
-+	switch (req->type) {
-+	case XEN_NETIF_CTRL_TYPE_SET_HASH_ALGORITHM:
-+		status = xenvif_set_hash_alg(vif, req->data[0]);
-+		break;
-+
-+	case XEN_NETIF_CTRL_TYPE_GET_HASH_FLAGS:
-+		status = xenvif_get_hash_flags(vif, &data);
-+		break;
-+
-+	case XEN_NETIF_CTRL_TYPE_SET_HASH_FLAGS:
-+		status = xenvif_set_hash_flags(vif, req->data[0]);
-+		break;
-+
-+	case XEN_NETIF_CTRL_TYPE_SET_HASH_KEY:
-+		status = xenvif_set_hash_key(vif, req->data[0],
-+					     req->data[1]);
-+		break;
-+
-+	case XEN_NETIF_CTRL_TYPE_GET_HASH_MAPPING_SIZE:
-+		status = XEN_NETIF_CTRL_STATUS_SUCCESS;
-+		data = XEN_NETBK_MAX_HASH_MAPPING_SIZE;
-+		break;
-+
-+	case XEN_NETIF_CTRL_TYPE_SET_HASH_MAPPING_SIZE:
-+		status = xenvif_set_hash_mapping_size(vif,
-+						      req->data[0]);
-+		break;
-+
-+	case XEN_NETIF_CTRL_TYPE_SET_HASH_MAPPING:
-+		status = xenvif_set_hash_mapping(vif, req->data[0],
-+						 req->data[1],
-+						 req->data[2]);
-+		break;
-+
-+	default:
-+		break;
 +	}
 +
-+	make_ctrl_response(vif, req, status, data);
- 	push_ctrl_response(vif);
+ 	/* Use the number of queues requested by the frontend */
+ 	be->vif->queues = vzalloc(requested_num_queues *
+ 				  sizeof(struct xenvif_queue));
+@@ -896,11 +952,12 @@ static void connect(struct backend_info *be)
+ 		queue->remaining_credit = credit_bytes;
+ 		queue->credit_usec = credit_usec;
+ 
+-		err = connect_rings(be, queue);
++		err = connect_data_rings(be, queue);
+ 		if (err) {
+-			/* connect_rings() cleans up after itself on failure,
+-			 * but we need to clean up after xenvif_init_queue() here,
+-			 * and also clean up any previously initialised queues.
++			/* connect_data_rings() cleans up after itself on
++			 * failure, but we need to clean up after
++			 * xenvif_init_queue() here, and also clean up any
++			 * previously initialised queues.
+ 			 */
+ 			xenvif_deinit_queue(queue);
+ 			be->vif->num_queues = queue_index;
+@@ -935,15 +992,17 @@ static void connect(struct backend_info *be)
+ 
+ err:
+ 	if (be->vif->num_queues > 0)
+-		xenvif_disconnect(be->vif); /* Clean up existing queues */
++		xenvif_disconnect_data(be->vif); /* Clean up existing queues */
+ 	vfree(be->vif->queues);
+ 	be->vif->queues = NULL;
+ 	be->vif->num_queues = 0;
++	xenvif_disconnect_ctrl(be->vif);
+ 	return;
  }
  
+ 
+-static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
++static int connect_data_rings(struct backend_info *be,
++			      struct xenvif_queue *queue)
+ {
+ 	struct xenbus_device *dev = be->dev;
+ 	unsigned int num_queues = queue->vif->num_queues;
+@@ -1007,8 +1066,8 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+ 	}
+ 
+ 	/* Map the shared frame, irq etc. */
+-	err = xenvif_connect(queue, tx_ring_ref, rx_ring_ref,
+-			     tx_evtchn, rx_evtchn);
++	err = xenvif_connect_data(queue, tx_ring_ref, rx_ring_ref,
++				  tx_evtchn, rx_evtchn);
+ 	if (err) {
+ 		xenbus_dev_fatal(dev, err,
+ 				 "mapping shared-frames %lu/%lu port tx %u rx %u",
 -- 
 2.1.4
