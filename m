@@ -1,46 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware time
- stamping?
-Date: Sun, 15 May 2016 09:51:30 +0200
-Message-ID: <20160515075129.GA2581@netboy>
-References: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
- <20160514073002.GA2053@netboy>
- <4AAA3CE1-B137-4AC1-AB85-B4690E8E3E12@alum.mit.edu>
- <20160514202653.GA6529@netboy>
- <B32E7BAF-090F-4D9F-A519-B96AF2FD0EF0@alum.mit.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>
-To: Guy Harris <guy@alum.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35777 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630AbcEOHvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 03:51:41 -0400
-Received: by mail-wm0-f50.google.com with SMTP id e201so66959271wme.0
-        for <netdev@vger.kernel.org>; Sun, 15 May 2016 00:51:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <B32E7BAF-090F-4D9F-A519-B96AF2FD0EF0@alum.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net] net/mlx4_core: Fix access to uninitialized index
+Date: Wed, 11 May 2016 15:59:37 +0300
+Message-ID: <1462971577-29692-1-git-send-email-tariqt@mellanox.com>
+Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 14, 2016 at 07:11:50PM -0700, Guy Harris wrote:
-> It could do a combination of #2 and #1, where "offers all
-> possibilities" is replaced by "opens the adapter, tries each of the
-> possibilities, and offers the ones that don't fail" - but, other
-> than the current bugs with ETHTOOL_GET_TS_INFO, I don't see any
-> advantage to doing only #1, rather than trying #2, perhaps with some
-> special-casing to work around the bugs in question, and only falling
-> back on actually trying to set the options if we can't ask about
-> them.
+Prevent using uninitialized or negative index when handling
+steering entries.
 
-Right.
+Fixes: b12d93d63c32 ('mlx4: Add support for promiscuous mode in the new steering model.')
+Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reported-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx4/mcg.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Regarding the drivers you found, even if you can't patch them
-yourself, please write the maintainers directly with me and netdev on
-CC in order to bring attention to the bugs.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 6aa7397..f2d0920 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -1102,7 +1102,7 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 	struct mlx4_cmd_mailbox *mailbox;
+ 	struct mlx4_mgm *mgm;
+ 	u32 members_count;
+-	int index, prev;
++	int index = -1, prev;
+ 	int link = 0;
+ 	int i;
+ 	int err;
+@@ -1181,7 +1181,7 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 		goto out;
+ 
+ out:
+-	if (prot == MLX4_PROT_ETH) {
++	if (prot == MLX4_PROT_ETH && index != -1) {
+ 		/* manage the steering entry for promisc mode */
+ 		if (new_entry)
+ 			err = new_steering_entry(dev, port, steer,
+-- 
+1.8.3.1
 
-The get_maintainer.pl script can help identify the maintainers.
-
-Thanks,
-Richard
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
