@@ -1,69 +1,37 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
- flow/port support
-Date: Wed, 11 May 2016 12:28:14 +0900
-Message-ID: <20160511032812.GC24805@vergenet.net>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <20160506113504.77a9504e@griffin>
- <20160509081818.GB4470@vergenet.net>
- <20160510140618.3ad4a35f@griffin>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 20160511
+Date: Tue, 10 May 2016 23:36:45 -0400 (EDT)
+Message-ID: <20160510.233645.812129971297090233.davem@davemloft.net>
+References: <1462908605-27412-1-git-send-email-a@unstable.cc>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160510140618.3ad4a35f@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: a@unstable.cc
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1462908605-27412-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-SGkgSmlyaSwKCk9uIFR1ZSwgTWF5IDEwLCAyMDE2IGF0IDAyOjA2OjE4UE0gKzAyMDAsIEppcmkg
-QmVuYyB3cm90ZToKPiBPbiBNb24sIDkgTWF5IDIwMTYgMTc6MTg6MjAgKzA5MDAsIFNpbW9uIEhv
-cm1hbiB3cm90ZToKPiA+IE9uIEZyaSwgTWF5IDA2LCAyMDE2IGF0IDExOjM1OjA0QU0gKzAyMDAs
-IEppcmkgQmVuYyB3cm90ZToKPiA+ID4gSW4gYWRkaXRpb24sIHdlIHNob3VsZCBjaGVjayB3aGV0
-aGVyIG1hY19sZW4gPiAwIGFuZCBpbiBzdWNoIGNhc2UsCj4gPiA+IGNoYW5nZSBza2ItPnByb3Rv
-Y29sIHRvIEVUSF9QX1RFQiBmaXJzdCAoYW5kIHN0b3JlIHRoYXQgdmFsdWUgaW4gdGhlCj4gPiA+
-IHB1c2hlZCBldGggaGVhZGVyKS4KPiA+ID4gCj4gPiA+IFNpbWlsYXJseSBvbiBwb3BfZXRoLCB3
-ZSBuZWVkIHRvIGNoZWNrIHNrYi0+cHJvdG9jb2wgYW5kIGlmIGl0IGlzCj4gPiA+IEVUSF9QX1RF
-QiwgY2FsbCBldGhfdHlwZV90cmFucyBvbiB0aGUgbW9kaWZpZWQgZnJhbWUgdG8gc2V0IHRoZSBu
-ZXcKPiA+ID4gc2tiLT5wcm90b2NvbCBjb3JyZWN0bHkuIEl0J3MgcHJvYmFibHkgbm90IHRoYXQg
-c2ltcGxlLCBhcyB3ZSdkIG5lZWQgYQo+ID4gPiB2ZXJzaW9uIG9mIGV0aF90eXBlX3RyYW5zIHRo
-YXQgZG9lc24ndCBuZWVkIGEgbmV0IGRldmljZS4KPiA+IAo+ID4gSSdtIG5vdCBzdXJlIEkgdW5k
-ZXJzdGFuZCB0aGUgaW50ZXJhY3Rpb24gd2l0aCBFVEhfUF9URUIgaGVyZS4KPiA+IAo+ID4gSW4g
-bXkgbWluZCBza2ItPnByb3RvY29sID09IEVUSF9QX1RFQiBtYXkgYmUgdXNlZCBlYXJseSBvbiBp
-biBPdlMncyByZWNlaXZlCj4gPiBwcm9jZXNzaW5nIHRvIGZpbmQgdGhlIGlubmVyIHByb3RvY29s
-IGZyb20gdGhlIHBhY2tldCBhbmQgYXQgdGhhdCBwb2ludAo+ID4gc2tiLT5wcm90b2NvbCBpcyBz
-ZXQgdG8gdGhhdCB2YWx1ZS4gQW5kIHRoYXQgZm9yIGZ1cnRoZXIgcGFja2V0IHByb2Nlc3NpbmcK
-PiA+IHRoZSBmYWN0IHRoZSBwYWNrZXQgd2FzIHJlY2VpdmVkIGFzIFRFQiBpcyB0cmFuc3BhcmVu
-dC4KPiAKPiBZZXMgYnV0IHRoaW5rIGFib3V0IHRoZSBjYXNlIHdoZW4geW91IGhhdmUgdHdvIEV0
-aGVybmV0IGhlYWRlcnMgcHVzaGVkLgo+IAo+IFdlIGNhbiBlaXRoZXIgZGlzYWxsb3cgaXQsIG9y
-IGRvIHdoYXQgSSBkZXNjcmliZWQuCj4gCj4gU3BlY2lmaWNhbGx5LCBsZXQncyBhc3N1bWUgd2Ug
-aGF2ZSBhbiBJUCBwYWNrZXQgd2l0aCBhbiBFdGhlcm5ldAo+IGhlYWRlciBwcmVzZW50LiBza2It
-PnByb3RvY29sIGlzIEVUSF9QX0lQLiBOb3csIHdoZW4gdGhlcmUncyBza2JfcHVzaCwKPiB0aGUg
-Y29ycmVjdCBvcGVyYXRpb24gd291bGQgYmUgc2V0dGluZyBza2ItPnByb3RvY29sIHRvIEVUSF9Q
-X1RFQiwKPiBwdXNoaW5nIGEgbmV3IEV0aGVybmV0IGhlYWRlciBhbmQgZmlsaW5nIEVUSF9QX1RF
-QiB0byB0aGUgZXRoZXJ0eXBlCj4gZmllbGQgaW4gdGhlIG5ldyBoZWFkZXIuIFRoZSBwYWNrZXQg
-aXMgbm90IEVUSF9QX0lQIGFueW1vcmUsIGFzIHRoZSBMMgo+IGhlYWRlciBpcyBmb2xsb3dlZCBi
-eSBhbm90aGVyIEV0aGVybmV0IGhlYWRlciBub3cuCgpUaGFua3MgZm9yIHRoZSBjbGFyaWZpY2F0
-aW9uLCBJIGhhZCBub3QgY29uc2lkZXJlZCB0aGUgY2FzZSBvZiB0d28KZXRoZXJuZXQgaGVhZGVy
-cyB3aGVuIEkgd3JvdGUgbXkgcHJldmlvdXMgZW1haWwuCgpJIHRoaW5rIHRoYXQgYXQgdGhpcyBz
-dGFnZSBJIHdvdWxkIHByZWZlciB0byBwcm9oaWJpdCBwdXNoX2V0aCgpIGFjdGluZwpvbiBhIHBh
-Y2tldCB3aGljaCBhbHJlYWR5IGhhcyBhbiBldGhlcm5ldCBoZWFkZXIuIEluZGVlZCB0aGF0IGlz
-IHdoYXQKbXkgcGF0Y2gtc2V0IGFscmVhZHkgZG9lcyBpbiBpdHMgbW9kaWZpY2F0aW9ucyBvZiBf
-X292c19ubGFfY29weV9hY3Rpb25zKCkuCgpUaGUgcmVhc29uIHRoYXQgSSBsZWFuIHRvd2FyZHMg
-cHJvaGliaXRpbmcgdGhpcyBpcyB0aGF0IEkgZG8gbm90CmhhdmUgYW4gZWFzeSB3YXkgdG8gZXhl
-cmNpc2UgdGhpcyBjYXNlIHdpdGhpbiB0aGUgY3VycmVudCBwYXRjaC1zZXQuCkFuZCB0aHVzIHRo
-aXMgZXh0cmEgY29tcGxleGl0eSBzZWVtcyB3ZWxsIHN1aXRlZCB0byBiZWluZyBoYW5kbGVkIGhh
-bmRsZWQKaW5jcmVtZW50YWxseSBhcyBmdXJ0aGVyIHdvcmsuCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
-dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Antonio Quartulli <a@unstable.cc>
+Date: Wed, 11 May 2016 03:29:48 +0800
+
+> here you have a pull request intended for net-next.
+> There are 17 patches in this batch, but most of them are cleanups
+> and minor code re-arrangement.
+> 
+> The more detailed description follows in the git tag.
+> 
+> Please pull or let me know of any problem.
+
+Pulled, thanks Antonio.
