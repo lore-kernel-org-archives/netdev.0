@@ -1,14 +1,12 @@
 From: zengzhaoxiu@163.com
-Subject: [patch V4 23/31] ethernet: use parity8 in sun/niu.c
-Date: Wed, 11 May 2016 17:22:17 +0800
-Message-ID: <1462958539-25752-1-git-send-email-zengzhaoxiu@163.com>
+Subject: [patch V4 29/31] ethernet: use parity8 in broadcom/tg3.c
+Date: Wed, 11 May 2016 17:24:33 +0800
+Message-ID: <1462958673-26096-1-git-send-email-zengzhaoxiu@163.com>
 References: <1462955158-28394-1-git-send-email-zengzhaoxiu@163.com>
 Cc: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>,
-	Michal Nazarewicz <mina86@mina86.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+	Siva Reddy Kallam <siva.kallam@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1462955158-28394-1-git-send-email-zengzhaoxiu@163.com>
@@ -18,35 +16,27 @@ List-Id: netdev.vger.kernel.org
 From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
 
 Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
-Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Acked-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
 ---
- drivers/net/ethernet/sun/niu.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 9cc4564..8c344ef 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -2742,18 +2742,12 @@ static int niu_set_alt_mac_rdc_table(struct niu *np, int idx,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 3010080..802a429 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -12939,11 +12939,7 @@ static int tg3_test_nvram(struct tg3 *tp)
  
- static u64 vlan_entry_set_parity(u64 reg_val)
- {
--	u64 port01_mask;
--	u64 port23_mask;
+ 		err = -EIO;
+ 		for (i = 0; i < NVRAM_SELFBOOT_DATA_SIZE; i++) {
+-			u8 hw8 = hweight8(data[i]);
 -
--	port01_mask = 0x00ff;
--	port23_mask = 0xff00;
--
--	if (hweight64(reg_val & port01_mask) & 1)
-+	if (parity8(reg_val))
- 		reg_val |= ENET_VLAN_TBL_PARITY0;
- 	else
- 		reg_val &= ~ENET_VLAN_TBL_PARITY0;
- 
--	if (hweight64(reg_val & port23_mask) & 1)
-+	if (parity8((unsigned int)reg_val >> 8))
- 		reg_val |= ENET_VLAN_TBL_PARITY1;
- 	else
- 		reg_val &= ~ENET_VLAN_TBL_PARITY1;
+-			if ((hw8 & 0x1) && parity[i])
+-				goto out;
+-			else if (!(hw8 & 0x1) && !parity[i])
++			if (parity8(data[i]) == !!parity[i])
+ 				goto out;
+ 		}
+ 		err = 0;
 -- 
 2.7.4
