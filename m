@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] openvswitch: Fix cached ct with helper.
-Date: Wed, 11 May 2016 15:15:59 -0400 (EDT)
-Message-ID: <20160511.151559.438965239616890068.davem@davemloft.net>
-References: <1462987766-5151-1-git-send-email-joe@ovn.org>
+Subject: Re: [PATCH net] gre: do not keep the GRE header around in collect
+ medata mode
+Date: Wed, 11 May 2016 15:17:41 -0400 (EDT)
+Message-ID: <20160511.151741.532292838636551403.davem@davemloft.net>
+References: <208ed3349bdc26bb9af1fe7e8ff64895e0e2c088.1462974784.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarno@ovn.org
-To: joe@ovn.org
+Cc: netdev@vger.kernel.org, pshelar@ovn.org, simon.horman@netronome.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51622 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51637 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751413AbcEKTQF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 15:16:05 -0400
-In-Reply-To: <1462987766-5151-1-git-send-email-joe@ovn.org>
+	with ESMTP id S1751766AbcEKTRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 15:17:43 -0400
+In-Reply-To: <208ed3349bdc26bb9af1fe7e8ff64895e0e2c088.1462974784.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@ovn.org>
-Date: Wed, 11 May 2016 10:29:26 -0700
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 11 May 2016 15:53:57 +0200
 
-> When using conntrack helpers from OVS, a common configuration is to
-> perform a lookup without specifying a helper, then go through a
-> firewalling policy, only to decide to attach a helper afterwards.
+> For ipgre interface in collect metadata mode, it doesn't make sense for the
+> interface to be of ARPHRD_IPGRE type. The outer header of received packets
+> is not needed, as all the information from it is present in metadata_dst. We
+> already don't set ipgre_header_ops for collect metadata interfaces, which is
+> the only consumer of mac_header pointing to the outer IP header.
 > 
-> In this case, the initial lookup will cause a ct entry to be attached to
-> the skb, then the later commit with helper should attach the helper and
-> confirm the connection. However, the helper attachment has been missing.
-> If the user has enabled automatic helper attachment, then this issue
-> will be masked as it will be applied in init_conntrack(). It is also
-> masked if the action is executed from ovs_packet_cmd_execute() as that
-> will construct a fresh skb.
+> Just set the interface type to ARPHRD_NONE in collect metadata mode for
+> ipgre (not gretap, that still correctly stays ARPHRD_ETHER) and reset
+> mac_header.
 > 
-> This patch fixes the issue by making an explicit call to try to assign
-> the helper if there is a discrepancy between the action's helper and the
-> current skb->nfct.
-> 
-> Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
-> Signed-off-by: Joe Stringer <joe@ovn.org>
-> ---
-> v2: Only apply to connections that we will commit.
+> Fixes: a64b04d86d14 ("gre: do not assign header_ops in collect metadata mode")
+> Fixes: 2e15ea390e6f4 ("ip_gre: Add support to collect tunnel metadata.")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks Jiri.
