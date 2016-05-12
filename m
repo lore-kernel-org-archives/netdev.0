@@ -1,226 +1,82 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 2/5] drivers: replace dev->trans_start accesses
- with dev_trans_start
-Date: Thu, 12 May 2016 15:39:55 -0400
-Message-ID: <8622dc0c-fd1a-a553-0c55-9ca566149a5d@redhat.com>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH net-next 4/5] treewide: replace dev->trans_start update
+ with helper
+Date: Thu, 12 May 2016 15:40:46 -0400
+Message-ID: <20118955-8739-b79a-e20e-96302e8b41bf@redhat.com>
 References: <1462285862-30946-1-git-send-email-fw@strlen.de>
- <1462285862-30946-3-git-send-email-fw@strlen.de>
+ <1462285994-31983-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
  protocol="application/pgp-signature";
- boundary="978cihIIG1clfpM2h1eOhkOiMxPj7sISJ"
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1462285862-30946-3-git-send-email-fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ boundary="MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r"
+Cc: user-mode-linux-devel@lists.sourceforge.net,
+	linux-xtensa@linux-xtensa.org,
+	linux1394-devel@lists.sourceforge.net, linux-rdma@vger.kernel.org,
+	mpt-fusionlinux.pdl@broadcom.com, linux-scsi@vger.kernel.org,
+	linux-can@vger.kernel.org, linux-parisc@vger.kernel.org,
+	linux-omap@vger.kernel.org, linux-hams@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-s390@vger.kernel.org, devel@driverdev.osuosl.org,
+	b.a.t.m.a.n@lists.open-mesh.org, linux-bluetooth@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <1462285994-31983-1-git-send-email-fw@strlen.de>
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---978cihIIG1clfpM2h1eOhkOiMxPj7sISJ
+--MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: quoted-printable
 
-On 05/03/2016 10:30 AM, Florian Westphal wrote:
-> a trans_start struct member exists twice:
-> - in struct net_device (legacy)
-> - in struct netdev_queue
+On 05/03/2016 10:33 AM, Florian Westphal wrote:
+> Replace all trans_start updates with netif_trans_update helper.
+> change was done via spatch:
 >=20
-> Instead of open-coding dev->trans_start usage to obtain the current
-> trans_start value, use dev_trans_start() instead.
+> struct net_device *d;
+> @@
+> - d->trans_start =3D jiffies
+> + netif_trans_update(d)
 >=20
-> This is not exactly the same, as dev_trans_start also considers
-> the trans_start values of the netdev queues owned by the device
-> and provides the most recent one.
+> Compile tested only.
 >=20
-> For legacy devices this doesn't matter as dev_trans_start can cope
-> with netdev trans_start values of 0 (they are ignored).
->=20
-> This is a prerequisite to eventual removal of dev->trans_start.
->=20
-> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+> Cc: user-mode-linux-devel@lists.sourceforge.net
+> Cc: linux-xtensa@linux-xtensa.org
+> Cc: linux1394-devel@lists.sourceforge.net
+> Cc: linux-rdma@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: MPT-FusionLinux.pdl@broadcom.com
+> Cc: linux-scsi@vger.kernel.org
+> Cc: linux-can@vger.kernel.org
+> Cc: linux-parisc@vger.kernel.org
+> Cc: linux-omap@vger.kernel.org
+> Cc: linux-hams@vger.kernel.org
+> Cc: linux-usb@vger.kernel.org
+> Cc: linux-wireless@vger.kernel.org
+> Cc: linux-s390@vger.kernel.org
+> Cc: devel@driverdev.osuosl.org
+> Cc: b.a.t.m.a.n@lists.open-mesh.org
+> Cc: linux-bluetooth@vger.kernel.org
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 > ---
->  Checkpatch complains about Lines > 80 but I find line break more ugly.=
-
+>  Checkpatch complains about whitespace damage, but
+>  this extra whitespace already exists before this patch.
 >=20
->  drivers/infiniband/ulp/ipoib/ipoib_main.c              | 2 +-
+>  drivers/infiniband/hw/nes/nes_nic.c                    | 2 +-
+>  drivers/infiniband/ulp/ipoib/ipoib_cm.c                | 2 +-
+>  drivers/infiniband/ulp/ipoib/ipoib_ib.c                | 2 +-
 
-For ipoib part,
+For InfiniBand bits,
 
-Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
->  drivers/net/ethernet/intel/e1000e/netdev.c             | 2 +-
->  drivers/net/ethernet/intel/igb/igb_main.c              | 2 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c          | 2 +-
->  drivers/net/ethernet/microchip/encx24j600.c            | 2 +-
->  drivers/net/ethernet/qualcomm/qca_spi.c                | 2 +-
->  drivers/net/fjes/fjes_main.c                           | 2 +-
->  drivers/net/hamradio/mkiss.c                           | 2 +-
->  drivers/staging/rtl8192e/rtllib_softmac.c              | 2 +-
->  drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c | 2 +-
->  10 files changed, 10 insertions(+), 10 deletions(-)
->=20
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infini=
-band/ulp/ipoib/ipoib_main.c
-> index 80807d6..b940ef1 100644
-> --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> @@ -1036,7 +1036,7 @@ static void ipoib_timeout(struct net_device *dev)=
-
->  	struct ipoib_dev_priv *priv =3D netdev_priv(dev);
-> =20
->  	ipoib_warn(priv, "transmit timeout: latency %d msecs\n",
-> -		   jiffies_to_msecs(jiffies - dev->trans_start));
-> +		   jiffies_to_msecs(jiffies - dev_trans_start(dev)));
->  	ipoib_warn(priv, "queue stopped %d, tx_head %u, tx_tail %u\n",
->  		   netif_queue_stopped(dev),
->  		   priv->tx_head, priv->tx_tail);
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/e=
-thernet/intel/e1000e/netdev.c
-> index a7f16c3..269087c 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -242,7 +242,7 @@ static void e1000e_dump(struct e1000_adapter *adapt=
-er)
->  		dev_info(&adapter->pdev->dev, "Net device Info\n");
->  		pr_info("Device Name     state            trans_start      last_rx\n=
-");
->  		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
-> -			netdev->state, netdev->trans_start, netdev->last_rx);
-> +			netdev->state, dev_trans_start(netdev), netdev->last_rx);
->  	}
-> =20
->  	/* Print Registers */
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/et=
-hernet/intel/igb/igb_main.c
-> index 8e96c35..7460bdb 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -383,7 +383,7 @@ static void igb_dump(struct igb_adapter *adapter)
->  		dev_info(&adapter->pdev->dev, "Net device Info\n");
->  		pr_info("Device Name     state            trans_start      last_rx\n=
-");
->  		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
-> -			netdev->state, netdev->trans_start, netdev->last_rx);
-> +			netdev->state, dev_trans_start(netdev), netdev->last_rx);
->  	}
-> =20
->  	/* Print Registers */
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/ne=
-t/ethernet/intel/ixgbe/ixgbe_main.c
-> index 0ef4a15..18dcfc5 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -608,7 +608,7 @@ static void ixgbe_dump(struct ixgbe_adapter *adapte=
-r)
->  		pr_info("%-15s %016lX %016lX %016lX\n",
->  			netdev->name,
->  			netdev->state,
-> -			netdev->trans_start,
-> +			dev_trans_start(netdev),
->  			netdev->last_rx);
->  	}
-> =20
-> diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/=
-ethernet/microchip/encx24j600.c
-> index 7df3183..707283b 100644
-> --- a/drivers/net/ethernet/microchip/encx24j600.c
-> +++ b/drivers/net/ethernet/microchip/encx24j600.c
-> @@ -890,7 +890,7 @@ static void encx24j600_tx_timeout(struct net_device=
- *dev)
->  	struct encx24j600_priv *priv =3D netdev_priv(dev);
-> =20
->  	netif_err(priv, tx_err, dev, "TX timeout at %ld, latency %ld\n",
-> -		  jiffies, jiffies - dev->trans_start);
-> +		  jiffies, jiffies - dev_trans_start(dev));
-> =20
->  	dev->stats.tx_errors++;
->  	netif_wake_queue(dev);
-> diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethe=
-rnet/qualcomm/qca_spi.c
-> index 1ef0393..82f3c88 100644
-> --- a/drivers/net/ethernet/qualcomm/qca_spi.c
-> +++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-> @@ -734,7 +734,7 @@ qcaspi_netdev_tx_timeout(struct net_device *dev)
->  	struct qcaspi *qca =3D netdev_priv(dev);
-> =20
->  	netdev_info(qca->net_dev, "Transmit timeout at %ld, latency %ld\n",
-> -		    jiffies, jiffies - dev->trans_start);
-> +		    jiffies, jiffies - dev_trans_start(dev));
->  	qca->net_dev->stats.tx_errors++;
->  	/* Trigger tx queue flush and QCA7000 reset */
->  	qca->sync =3D QCASPI_SYNC_UNKNOWN;
-> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.=
-c
-> index bb7e903..7ad3d04 100644
-> --- a/drivers/net/fjes/fjes_main.c
-> +++ b/drivers/net/fjes/fjes_main.c
-> @@ -471,7 +471,7 @@ static void fjes_tx_stall_task(struct work_struct *=
-work)
->  	int i;
-> =20
->  	if (((long)jiffies -
-> -		(long)(netdev->trans_start)) > FJES_TX_TX_STALL_TIMEOUT) {
-> +		dev_trans_start(netdev)) > FJES_TX_TX_STALL_TIMEOUT) {
->  		netif_wake_queue(netdev);
->  		return;
->  	}
-> diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.=
-c
-> index 85828f1..c685937 100644
-> --- a/drivers/net/hamradio/mkiss.c
-> +++ b/drivers/net/hamradio/mkiss.c
-> @@ -542,7 +542,7 @@ static netdev_tx_t ax_xmit(struct sk_buff *skb, str=
-uct net_device *dev)
->  		 * May be we must check transmitter timeout here ?
->  		 *      14 Oct 1994 Dmitry Gorodchanin.
->  		 */
-> -		if (time_before(jiffies, dev->trans_start + 20 * HZ)) {
-> +		if (time_before(jiffies, dev_trans_start(dev) + 20 * HZ)) {
->  			/* 20 sec timeout not reached */
->  			return NETDEV_TX_BUSY;
->  		}
-> diff --git a/drivers/staging/rtl8192e/rtllib_softmac.c b/drivers/stagin=
-g/rtl8192e/rtllib_softmac.c
-> index cfab715..62154e3 100644
-> --- a/drivers/staging/rtl8192e/rtllib_softmac.c
-> +++ b/drivers/staging/rtl8192e/rtllib_softmac.c
-> @@ -1991,7 +1991,7 @@ static short rtllib_sta_ps_sleep(struct rtllib_de=
-vice *ieee, u64 *time)
->  		return 2;
-> =20
->  	if (!time_after(jiffies,
-> -			ieee->dev->trans_start + msecs_to_jiffies(timeout)))
-> +			dev_trans_start(ieee->dev) + msecs_to_jiffies(timeout)))
->  		return 0;
->  	if (!time_after(jiffies,
->  			ieee->last_rx_ps_time + msecs_to_jiffies(timeout)))
-> diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c b/d=
-rivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-> index ae1274c..de71450 100644
-> --- a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-> +++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-> @@ -1737,7 +1737,7 @@ static short ieee80211_sta_ps_sleep(struct ieee80=
-211_device *ieee, u32 *time_h,
->  		return 2;
-> =20
->  	if(!time_after(jiffies,
-> -		       ieee->dev->trans_start + msecs_to_jiffies(timeout)))
-> +		       dev_trans_start(ieee->dev) + msecs_to_jiffies(timeout)))
->  		return 0;
-> =20
->  	if(!time_after(jiffies,
->=20
-
+Acked-by: Doug Ledford <dledford@redhat.com>
 
 --=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Doug Ledford <dledford@redhat.com>
               GPG KeyID: 0E572FDD
 
 
 
---978cihIIG1clfpM2h1eOhkOiMxPj7sISJ
+--MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -229,23 +85,19 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2
 Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-iQIcBAEBCAAGBQJXNNwLAAoJELgmozMOVy/dAcEP/0CkWNUUOAj/oJg0JzJr6uGm
-oWfdhul/GP8X4SL/MuMES+Zj2u0U3hTngWpDj+59dkKYIBnuNijjCFnpYdzbPXrw
-F3UCHDoDdVfc+ANCtwoaFT5juSJMimTWSQF4ql9wy3yIOjhc62hiqWmUwBZoDyeH
-NDqq1E7ay7x8g8GOEGikFcDxWrwOIA2mBMNY7+8jgVgcF5aPLEXHb5eapzVh+bCB
-KLHv1Jej7hx0zIga+pOe4Cyi2b9Wn/iBuGvwxiLp2inkf2UqaeuGn+a8Hm5xCF0U
-6nOQ1gT+Q5VUZQnqKrzwmTq3CeWoSm9cl4FRfr/fiKmL3SGZ/J22aYKnHPB5js4+
-CAsn+3piZb9EPaPlidPx0qpl7M4AAfrFGIfCNfVS8ypS+Gx1p4GRu2W7vIR62wa3
-Xw6DhXwG/C9bkeO6415pxWLYmqyrZ55EMbHmV/EckzQF/UBGE8ZyU/uZrh3pYrat
-FYo3QuYg/OOvvgtA/xtNB9CiVU6OouPYq1+B+AGXDRRBtPuSK45UR7RIvrw4ZEqH
-WVEpH1jyg9n+70NVHNq0TR5mafal3IS2kM1eJIQwoD5mYNItUzoi4S0xqlhcEGzZ
-cPS+3Sx6SoRdhz+PnbA/epOb25k9w8rovaVDAPU2CjlriP6HaNop4r09THPeCI07
-lwKZoDJxopRDwZ9qbX8S
-=xm9L
+iQIcBAEBCAAGBQJXNNw+AAoJELgmozMOVy/dVQcP/1RZvmqQVJpZMtptIm8OpoPW
+4QrFlnjv+KorYVaF1Hg7+0X6yfCF53ofTKRAg4zaYiASZw4AJWYzslxA9b0OvpPS
+TzMjJrbWm27+W2pH8ZivFepys9afxW5o/qb7CFYyOPOEml495zReUvTqt/nSh7jG
+8nTdwO4xH5kY4P82bDn18Lyqd/8cS7yFl1OAK88eqq+y9JgveiIsO2PlsrtFENtX
++RyadCAluEUdfe6CZjMjUptBptIi6hfoMqmXXu4vcFs48mqbVf4QubFp5f+4wJa2
+KScILHNil3156j3TY3lpG1ukf2SfF0UYDYxco5tZlZ3O7nB3Xteif94gvvUiszyO
+IfGn3/wblQs6tRSHjMRNYiTVeYkyh0eXbdbha/7bkBG58mEjYFnrjtRuBMD2Ogmm
+uz6MhyD6Ez7mKKVBc3ooQ6SYpcwb4surHEGm36a2Utnb/vftxyPYpA75neZbSGZO
+X828tsNcxB9K8FUCEcP/Xasc5xE6kPtpwu5TIbJ7itYLs4yRoZbsmcI5UrhjqERp
+YAAiI07vifFHyFLUnfAOefjXxQOFJdQHtMphlnjfYiKXSpJsAhT2LIJpepgbovCc
+/268dPol/ul7WUbLu2P4zlnnIEQgABW6NKFMAg/N/b4XQ08VkeKv82yJ9aLuyG2J
+0QbOFyrXnR/I1OYFeDAU
+=2VMH
 -----END PGP SIGNATURE-----
 
---978cihIIG1clfpM2h1eOhkOiMxPj7sISJ--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r--
