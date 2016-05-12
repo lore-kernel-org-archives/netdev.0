@@ -1,56 +1,44 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next 1/4] netdevice: add SW statistics ndo
-Date: Thu, 12 May 2016 14:10:08 -0700
-Message-ID: <5734F130.3050303@cumulusnetworks.com>
-References: <1463053730-14991-1-git-send-email-jiri@resnulli.us> <1463053730-14991-2-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] tipc: eliminate risk of double link_up
+ events
+Date: Thu, 12 May 2016 17:12:02 -0400 (EDT)
+Message-ID: <20160512.171202.1805015690277237755.davem@davemloft.net>
+References: <1463008545-28994-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-	ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33957 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbcELVKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 17:10:11 -0400
-Received: by mail-pa0-f44.google.com with SMTP id r5so34148188pag.1
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 14:10:11 -0700 (PDT)
-In-Reply-To: <1463053730-14991-2-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59679 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751466AbcELVMI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 17:12:08 -0400
+In-Reply-To: <1463008545-28994-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/12/16, 4:48 AM, Jiri Pirko wrote:
-> From: Nogah Frankel <nogahf@mellanox.com>
->
-> Till now we had a ndo statistics function that returned SW statistics.
-> We want to change the "basic" statistics to return HW statistics if
-> available.
-> In this case we need to expose a new ndo to return the SW statistics.
-> Add a new ndo declaration to get SW statistics
-> Add a function that gets SW statistics if a competible ndo exist
->
-> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->
-To me netdev stats is  combined 'SW + HW' stats for that netdev.
-ndo_get_stats64 callback into the drivers does the magic of adding HW stats
-to SW (netdev) stats and returning (see enic_get_stats). HW stats is available for netdevs
-that are offloaded or are backed by hardware. SW stats is the stats that the driver maintains
-(logical or physical). HW stats is queried and added to the SW stats.
-In fact, we represent all our offloaded netdev stats following this model.
-This fits well for logical devices like vlan/bond/vxlan which are hardware offloaded too.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed, 11 May 2016 19:15:45 -0400
 
-There is HW extended stats which today are represented by ethtool
-and I had an example of a new nested attribute like IFLA_STATS_LINK_HW_EXTENDED
-to provide ethtool like extensible stats. If people want pure hardware stats, they
-get it via this. In which case I am not seeing the point in adding a new ndo and a new
-stats attribute just for this. If you are looking for pure hardware stats, any reason we cant
-just use the IFLA_STATS_LINK_HW_EXTENDED and add ethtool like hw stats ?.
-This will be one place to look for all hardware stats and will be extensible too.
+> When an ACTIVATE or data packet is received in a link in state
+> ESTABLISHING, the link does not immediately change state to
+> ESTABLISHED, but does instead return a LINK_UP event to the caller,
+> which will execute the state change in a different lock context.
+> 
+> This non-atomic approach incurs a low risk that we may have two
+> LINK_UP events pending simultaneously for the same link, resulting
+> in the final part of the setup procedure being executed twice. The
+> only potential harm caused by this it that we may see two LINK_UP
+> events issued to subsribers of the topology server, something that
+> may cause confusion.
+> 
+> This commit eliminates this risk by checking if the link is already
+> up before proceeding with the second half of the setup.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+
+Applied.
