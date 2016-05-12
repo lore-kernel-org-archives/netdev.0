@@ -1,52 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Thu, 12 May 2016 13:49:39 -0700
-Message-ID: <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
-	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1463083620.5281.1.camel@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ip6_gre: Fix get_size calculation for gre6 tunnel
+Date: Thu, 12 May 2016 16:54:16 -0400 (EDT)
+Message-ID: <20160512.165416.349752696770813418.davem@davemloft.net>
+References: <1462963712-13781-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463083620.5281.1.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xeb@mail.ru, kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59585 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676AbcELUyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:54:24 -0400
+In-Reply-To: <1462963712-13781-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-05-12 at 22:07 +0200, Paolo Abeni wrote:
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Wed, 11 May 2016 18:48:31 +0800
 
-> > > static inline bool ksoftirqd_running(void)
-> > > {
-> > > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
+> Do not include attribute IFLA_GRE_TOS.
 > 
-> here something like:
-> 
-> 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
->         return tsk && (tsk->state == TASK_RUNNING);
-> 
-> is needed since __this_cpu_read(ksoftirqd) can be NULL on boot.
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-Indeed I've seen this but only when backporting to an older linux kernel
-this morning.
-
-Have you got this with current linux kernel ?
+Applied.
