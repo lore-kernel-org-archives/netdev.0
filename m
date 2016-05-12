@@ -1,83 +1,138 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH] phy: add support for a reset-gpio specification
-Date: Thu, 12 May 2016 12:00:33 +0200
-Message-ID: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, "Andrew F . Davis" <afd-l0cyMroinI0@public.gmane.org>,
-	Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 3/4] net: core: add SW stats to if_stats_msg
+Date: Thu, 12 May 2016 11:59:57 +0200
+Message-ID: <1463047198-10630-4-git-send-email-jiri@resnulli.us>
+References: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33076 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751816AbcELKAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 06:00:05 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r12so14979886wme.0
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 03:00:04 -0700 (PDT)
+In-Reply-To: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The framework only asserts (for now) that the reset gpio is not active.
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+If there is a dedicated ndo to return SW stats - use
+it. Otherwise (indicates that there is no HW stats) use
+the default stats ndo.
+Return results under IFLA_STATS_LINK_SW_64.
+
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- Documentation/devicetree/bindings/net/phy.txt | 3 +++
- drivers/net/phy/phy_device.c                  | 8 ++++++++
- 2 files changed, 11 insertions(+)
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 35 +++++++++++++++++++++++++++++------
+ 2 files changed, 30 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentat=
-ion/devicetree/bindings/net/phy.txt
-index bc1c3c8bf8fa..c00a9a894547 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -35,6 +35,8 @@ Optional Properties:
- - broken-turn-around: If set, indicates the PHY device does not correc=
-tly
-   release the turn around line low at the end of a MDIO transaction.
-=20
-+- reset-gpios: Reference to a GPIO used to reset the phy.
-+
- Example:
-=20
- ethernet-phy@0 {
-@@ -42,4 +44,5 @@ ethernet-phy@0 {
- 	interrupt-parent =3D <40000>;
- 	interrupts =3D <35 1>;
- 	reg =3D <0>;
-+	reset-gpios =3D <&gpio1 17 GPIO_ACTIVE_LOW>;
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 98175e7..fcfb944 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -823,6 +823,7 @@ enum {
+ 	IFLA_STATS_UNSPEC, /* also used as 64bit pad attribute */
+ 	IFLA_STATS_LINK_64,
+ 	IFLA_STATS_LINK_XSTATS,
++	IFLA_STATS_LINK_SW_64,
+ 	__IFLA_STATS_MAX,
  };
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.=
-c
-index e551f3a89cfd..7d666ab47271 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -34,6 +34,7 @@
- #include <linux/io.h>
- #include <linux/uaccess.h>
- #include <linux/of.h>
-+#include <linux/gpio/consumer.h>
-=20
- #include <asm/irq.h>
-=20
-@@ -1569,9 +1570,16 @@ static int phy_probe(struct device *dev)
- 	struct device_driver *drv =3D phydev->mdio.dev.driver;
- 	struct phy_driver *phydrv =3D to_phy_driver(drv);
- 	int err =3D 0;
-+	struct gpio_descs *reset_gpios;
-=20
- 	phydev->drv =3D phydrv;
-=20
-+	/* take phy out of reset */
-+	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
-+						    GPIOD_OUT_LOW);
-+	if (IS_ERR(reset_gpios))
-+		return PTR_ERR(reset_gpios);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a127d67..f8b12e4 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3481,6 +3481,9 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	struct nlmsghdr *nlh;
+ 	struct nlattr *attr;
+ 	int s_prividx = *prividx;
++	struct rtnl_link_stats64 *sp;
++	struct rtnl_link_stats64 *stats64_sp = 0;
++	int err;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -3493,24 +3496,20 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	ifsm->filter_mask = filter_mask;
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, *idxattr)) {
+-		struct rtnl_link_stats64 *sp;
+-
+ 		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_64,
+ 					 sizeof(struct rtnl_link_stats64),
+ 					 IFLA_STATS_UNSPEC);
+ 		if (!attr)
+ 			goto nla_put_failure;
+ 
+-		sp = nla_data(attr);
+-		dev_get_stats(dev, sp);
++		stats64_sp = nla_data(attr);
++		dev_get_stats(dev, stats64_sp);
+ 	}
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, *idxattr)) {
+ 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
+ 
+ 		if (ops && ops->fill_linkxstats) {
+-			int err;
+-
+ 			*idxattr = IFLA_STATS_LINK_XSTATS;
+ 			attr = nla_nest_start(skb,
+ 					      IFLA_STATS_LINK_XSTATS);
+@@ -3525,6 +3524,27 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 	}
+ 
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, *idxattr)) {
++		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_SW_64,
++					 sizeof(struct rtnl_link_stats64),
++					 IFLA_STATS_UNSPEC);
++		if (!attr)
++			goto nla_put_failure;
 +
- 	/* Disable the interrupt if the PHY doesn't support it
- 	 * but the interrupt is still a valid one
- 	 */
---=20
-2.8.0.rc3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++		sp = nla_data(attr);
++		err = dev_get_sw_stats(dev, sp);
++		if (err) {
++			/* if err it means there is no dedicated ndo to
++			 * get SW stats - so it is returned by the default
++			 * stats ndo
++			 */
++			if (stats64_sp)
++				copy_rtnl_link_stats64(sp, stats64_sp);
++			else
++				dev_get_stats(dev, sp);
++		}
++	}
++
+ 	nlmsg_end(skb, nlh);
+ 
+ 	return 0;
+@@ -3541,6 +3561,7 @@ nla_put_failure:
+ 
+ static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
+ 	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
++	[IFLA_STATS_LINK_SW_64] = { .len = sizeof(struct rtnl_link_stats64) },
+ };
+ 
+ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+@@ -3550,6 +3571,8 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
+ 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, 0))
++		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, 0)) {
+ 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
+-- 
+2.5.5
