@@ -1,133 +1,92 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: Re: [RFC] Reset pins of phys and their representation in a device tree
-Date: Thu, 12 May 2016 21:49:05 +0800
-Message-ID: <CAGb2v64=iEA4VS3r4-ctVR6OKu_rRbiZytDtuQJ_LDr8JPq0Pg@mail.gmail.com>
-References: <20160512071542.GC30822@pengutronix.de> <e75ab3a0-da5e-fef1-d5e1-65c37e7714eb@cogentembedded.com>
- <CABxcv==YQshEvUw2a91nqjqrT3JU52Yzy4RbcWiTS-nWMf2m=Q@mail.gmail.com>
+From: Nishanth Menon <nm@ti.com>
+Subject: Re: [PATCH] phy: add support for a reset-gpio specification
+Date: Thu, 12 May 2016 08:50:34 -0500
+Message-ID: <57348A2A.8070806@ti.com>
+References: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	=?UTF-8?Q?Krzysztof_Koz=C5=82owski?= <k.kozlowski@samsung.com>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Sascha Hauer <kernel@pengutronix.de>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	=?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-To: Javier Martinez Canillas <javier@dowhile0.org>
+Cc: <kernel@pengutronix.de>, "Andrew F . Davis" <afd@ti.com>,
+	Roger Quadros <rogerq@ti.com>, Sekhar Nori <nsekhar@ti.com>,
+	Suman Anna <s-anna@ti.com>
+To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.csie.ntu.edu.tw ([140.112.30.61]:59600 "EHLO
-	smtp.csie.ntu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751940AbcELNta convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 09:49:30 -0400
-In-Reply-To: <CABxcv==YQshEvUw2a91nqjqrT3JU52Yzy4RbcWiTS-nWMf2m=Q@mail.gmail.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:43910 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752198AbcELNup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 09:50:45 -0400
+In-Reply-To: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 05/12/2016 05:00 AM, Uwe Kleine-K=C3=B6nig wrote:
+> The framework only asserts (for now) that the reset gpio is not activ=
+e.
+>=20
+> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+> ---
+>  Documentation/devicetree/bindings/net/phy.txt | 3 +++
+>  drivers/net/phy/phy_device.c                  | 8 ++++++++
+>  2 files changed, 11 insertions(+)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Document=
+ation/devicetree/bindings/net/phy.txt
+> index bc1c3c8bf8fa..c00a9a894547 100644
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -35,6 +35,8 @@ Optional Properties:
+>  - broken-turn-around: If set, indicates the PHY device does not corr=
+ectly
+>    release the turn around line low at the end of a MDIO transaction.
+> =20
+> +- reset-gpios: Reference to a GPIO used to reset the phy.
+> +
+>  Example:
+> =20
+>  ethernet-phy@0 {
+> @@ -42,4 +44,5 @@ ethernet-phy@0 {
+>  	interrupt-parent =3D <40000>;
+>  	interrupts =3D <35 1>;
+>  	reg =3D <0>;
+> +	reset-gpios =3D <&gpio1 17 GPIO_ACTIVE_LOW>;
+>  };
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_devic=
+e.c
+> index e551f3a89cfd..7d666ab47271 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -34,6 +34,7 @@
+>  #include <linux/io.h>
+>  #include <linux/uaccess.h>
+>  #include <linux/of.h>
+> +#include <linux/gpio/consumer.h>
+> =20
+>  #include <asm/irq.h>
+> =20
+> @@ -1569,9 +1570,16 @@ static int phy_probe(struct device *dev)
+>  	struct device_driver *drv =3D phydev->mdio.dev.driver;
+>  	struct phy_driver *phydrv =3D to_phy_driver(drv);
+>  	int err =3D 0;
+> +	struct gpio_descs *reset_gpios;
+> =20
+>  	phydev->drv =3D phydrv;
+> =20
+> +	/* take phy out of reset */
+> +	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
+> +						    GPIOD_OUT_LOW);
+> +	if (IS_ERR(reset_gpios))
+> +		return PTR_ERR(reset_gpios);
+> +
+>  	/* Disable the interrupt if the PHY doesn't support it
+>  	 * but the interrupt is still a valid one
+>  	 */
+>=20
 
-On Thu, May 12, 2016 at 9:40 PM, Javier Martinez Canillas
-<javier@dowhile0.org> wrote:
-> [adding Krzysztof as cc]
->
-> On Thu, May 12, 2016 at 8:25 AM, Sergei Shtylyov
-> <sergei.shtylyov@cogentembedded.com> wrote:
->> Hello.
->>
->>
->> On 5/12/2016 10:15 AM, Uwe Kleine-K=C3=B6nig wrote:
->>
->>> I have a machine here where the reset pin of the phy is connected t=
-o a
->>> GPIO.
->>>
->>> There are different possibilities available today to handle this
->>> situation, here are the ones I'm aware of:
->>>
->>>  - Use a gpio-hog to set the reset gpio to non-active
->>>    This might result in dependency problems (and that's what I am
->>>    currently faced with) because there is no connection in the devi=
-ce
->>>    tree between the hog and the phy.
->>>
->>>  - [Documentation/devicetree/bindings/net/fsl-fec.txt]
->>>    The fec node supports properties
->>>
->>>         phy-reset-gpios =3D <&gpio2 14 0>;
->>>         phy-reset-duration =3D <200> /* milliseconds */;
->>>
->>>    Something similar exists in TI's vendor kernel
->>>
->>> (http://git.ti.com/ti-linux-kernel/ti-linux-kernel/commit/17d192b99=
-9ee904ced223c16cef76111a51c461b)
->>>    with different (and IMHO bader) naming.
->>>    This is the wrong place to specify the gpios; they shouldn't be =
-in the
->>>    mac's node, but in a phy node instead.
->>>
->>> So what I actually want is to put the gpio specification in the rig=
-ht
->>> place and let it look as follows:
->>>
->>>         mymdiobus {
->>>                 [...]
->>>                 myfirstphy: ethernet-phy@0 {
->>>                         compatible =3D "ethernet-phy-ieee802.3-c22"=
-;
->>>                         reg =3D <0>;
->>>
->>>                         reset-gpios =3D <&gpio2 14 0>;
->>>                         reset-duration-ms =3D <200>;
->>>                 };
->>>
->>>                 mysecondphy: ethernet-phy@2 {
->>>                         compatible =3D "ethernet-phy-ieee802.3-c22"=
-;
->>>                         reg =3D <2>;
->>>
->>>                         reset-gpios =3D <&gpio3 10 0>;
->>>                         reset-duration-ms =3D <200>;
->>>                 };
->>>         };
->>>
->>> And with this we could defer probe of &myfirstphy if &gpio2 isn't
->>> available yet.
->>>
->>> Does this sound sensible? Does something like that already exist wh=
-ich I
->>> missed? Any further ideas/comments?
->>
->>
->> http://patchwork.ozlabs.org/patch/616495/
->>
->>    I'll post a new version RSN.
->>
->
-> This seems to be similar to what's needed by MMC/SD/SDIO devices (i.e=
-:
-> a WiFi chip) that needs some power sequence for reset and be
-> enumerable.
->
-> Krzysztof has been working  to make the MMC pwrseq framework more
-> generic [0] since he wants to use it also for built-in USB devices.
->
-> From a quick look at the patches mentioned in this thread, it seems
-> that the same framework can be used to reset the PHYs unless I'm
-> missing something. Have you considered using this? It would be good i=
-f
-> there is a consistent way to define the power sequence for devices
-> across the different subsystems.
->
-> [0]: https://lkml.org/lkml/2016/5/5/230
+This looks like the right approach to me at least: I see that TI EVMs
+will also benefit with this approach.
 
-You probably missed the part that Rob nacked the bindings in that
-series?
-
-Putting the reset gpios under the PHY nodes and handling it from
-phylib is probably the way to go. I'd like to ask for regulator
-and clock support as well, if possible.
-
-Regards
-ChenYu
+--=20
+Regards,
+Nishanth Menon
