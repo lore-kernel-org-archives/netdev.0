@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -mainline] qlcnic: potential NULL dereference in
- qlcnic_83xx_get_minidump_template()
-Date: Wed, 11 May 2016 23:45:19 -0400 (EDT)
-Message-ID: <20160511.234519.219883219155587882.davem@davemloft.net>
-References: <20160510192004.GA30712@mwanda>
+Subject: Re: [PATCH net 0/2] bnxt_en: Add workaround to detect bad opaque
+ in rx completion.
+Date: Wed, 11 May 2016 23:47:18 -0400 (EDT)
+Message-ID: <20160511.234718.248803885951301937.davem@davemloft.net>
+References: <1462922280-17851-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dept-GELinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160510192004.GA30712@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54005 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751552AbcELDrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 23:47:20 -0400
+In-Reply-To: <1462922280-17851-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 10 May 2016 22:20:04 +0300
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Tue, 10 May 2016 19:17:58 -0400
 
-> If qlcnic_fw_cmd_get_minidump_temp() fails then "fw_dump->tmpl_hdr" is
-> NULL or possibly freed.  It can lead to an oops later.
-> 
-> Fixes: d01a6d3c8ae1 ('qlcnic: Add support to enable capability to extend minidump for iSCSI')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 2-part workaround for this hardware bug.
 
-Applied.
+Series applied.
