@@ -1,41 +1,58 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH -next 3/4] net: w5100: increase TX timeout period
-Date: Thu, 12 May 2016 19:50:39 +0900
-Message-ID: <CAC5umyguwoKbOeNUjx_BH0=Aj5WdJoQan0p6LJppObsSw3Wd1g@mail.gmail.com>
-References: <1462948227-21276-1-git-send-email-akinobu.mita@gmail.com>
- <1462948227-21276-4-git-send-email-akinobu.mita@gmail.com> <20160511.194901.2167534565947789386.davem@davemloft.net>
+From: "Daniel Pieczko (dpieczko)" <dpieczko@solarflare.com>
+Subject: Re: [PATCH net-next] sfc: allocate rx pages on the same node as the
+ interrupt
+Date: Thu, 12 May 2016 11:35:39 +0100
+Message-ID: <1e4520d2-d097-665c-c8b8-b6aef3d2ed9b@solarflare.com>
+References: <5731EE51.2090908@solarflare.com>
+ <1462892106.23934.77.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1462892223.23934.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Mike Sinkovsky <msink@permonline.ru>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:36153 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751552AbcELKvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 06:51:00 -0400
-Received: by mail-qg0-f67.google.com with SMTP id f74so4899791qge.3
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 03:50:59 -0700 (PDT)
-In-Reply-To: <20160511.194901.2167534565947789386.davem@davemloft.net>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:10383 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752154AbcELKxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 06:53:11 -0400
+In-Reply-To: <1462892223.23934.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-05-12 8:49 GMT+09:00 David Miller <davem@davemloft.net>:
-> From: Akinobu Mita <akinobu.mita@gmail.com>
-> Date: Wed, 11 May 2016 15:30:26 +0900
->
->> This increases TX timeout period from one second to 5 seconds which is
->> default value defined in net/sched/sch_generic.c.
->>
->> The one second timeout is too short for W5100 with SPI interface mode
->> which doesn't support burst READ/WRITE processing in the SPI transfer.
->> If the packet is transmitted while RX packets are being received at a
->> very high rate, the TX transmittion work in the workqueue is delayed
->> and the watchdog timer is expired.
->>
->> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
->
-> It would be just cleaner to just remove the assignment completely, and
-> let said net/sched/sch_generic.c code set the default for you.
+On 10/05/16 15:57, Eric Dumazet wrote:
+> On Tue, 2016-05-10 at 07:55 -0700, Eric Dumazet wrote:
+>> If you care only of the initial pages allocated with GFP_KERNEL at
+>> device start, really that is a small detail as they should be consumed
+>> and replaced quite fast.
 
-Sounds good.  I'll resubmit the series with that change.
+This patch was addressing just that situation.
+
+>> If you worry that "wrong" pages would be reused over and over,
+>> you could make sure that efx_reuse_page() wont reuse a page on the wrong
+>> node.
+>>
+>> page_to_nid(page) != numa_mem_id()
+
+Yes, that would solve the general problem and your patch looks correct
+for the code as it is right now.
+
+However, we have some pending changes to our rx recycle ring that
+haven't been submitted upstream yet which will alter the way that pages
+are reused, so the solution may no longer be so simple.  I think we
+avoided making the simple change of checking page_to_nid() right now
+because of these future changes to rx page recycling.
+
+So I think that the original patch in this submission is valuable in
+addressing the initial startup case - that won't be changed by the other
+rx page recycling changes.
+
+I have no preference on whether we take Eric's follow-up patch to check
+page_to_nid() right now or wait until the other rx changes are submitted
+and then fix it up as required.
+
+
+Daniel
