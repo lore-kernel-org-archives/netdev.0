@@ -1,88 +1,106 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] phy: add support for a reset-gpio specification
-Date: Fri, 13 May 2016 00:41:47 +0300
-Message-ID: <4363f9c0-d447-5fc1-3ac9-382a172a7087@cogentembedded.com>
-References: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 06/13] ipv6: Fix nexthdr for reinjection
+Date: Thu, 12 May 2016 14:45:36 -0700
+Message-ID: <CALx6S34BHQnxSBAW4n4k+pf0Zey+XaiLAVvU5k_zVVRz=jAJvw@mail.gmail.com>
+References: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
+	<1462985253-2380625-7-git-send-email-tom@herbertland.com>
+	<20160512232304.437eb3bc@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kernel@pengutronix.de, "Andrew F . Davis" <afd@ti.com>,
-	Nishanth Menon <nm@ti.com>
-To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:32804 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167AbcELVl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 17:41:56 -0400
-Received: by mail-lb0-f175.google.com with SMTP id jj5so17162531lbc.0
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 14:41:56 -0700 (PDT)
-In-Reply-To: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from mail-ig0-f195.google.com ([209.85.213.195]:34149 "EHLO
+	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbcELVph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 17:45:37 -0400
+Received: by mail-ig0-f195.google.com with SMTP id kj7so21024igb.1
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 14:45:37 -0700 (PDT)
+In-Reply-To: <20160512232304.437eb3bc@halley>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2016 01:00 PM, Uwe Kleine-K=C3=B6nig wrote:
+On Thu, May 12, 2016 at 1:23 PM, Shmulik Ladkani
+<shmulik.ladkani@gmail.com> wrote:
+> Hi Tom,
+>
+> On Wed, 11 May 2016 09:47:26 -0700 Tom Herbert <tom@herbertland.com> wrote:
+>> In ip6_input_finish the protocol handle returns a value greater than
+>> zero the packet needs to be resubmitted using the returned protocol.
+>> The returned protocol is being ignored and each time through resubmit
+>> nexthdr is taken from an offest in the packet. This patch fixes that
+>> so that nexthdr is taken from return value of the protocol handler.
+>>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>> ---
+>>  net/ipv6/ip6_input.c | 9 ++++++---
+>>  1 file changed, 6 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+>> index 6ed5601..2a0258a 100644
+>> --- a/net/ipv6/ip6_input.c
+>> +++ b/net/ipv6/ip6_input.c
+>> @@ -222,13 +222,14 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
+>>        */
+>>
+>>       rcu_read_lock();
+>> -resubmit:
+>> +
+>>       idev = ip6_dst_idev(skb_dst(skb));
+>>       if (!pskb_pull(skb, skb_transport_offset(skb)))
+>>               goto discard;
+>>       nhoff = IP6CB(skb)->nhoff;
+>>       nexthdr = skb_network_header(skb)[nhoff];
+>>
+>> +resubmit:
+>
+> This has already been attempted in 0243508edd "ipv6: Fix protocol
+> resubmission" and reverted in 1b0ccfe54a.
+>
+> It looks that in some genuine extension header handling cases of ipv6
+> (not related to encapsulation), the original resubmission code REALLY
+> requires one to re-read IP6CB(skb)->nhoff and refetch the nexthdr.
+>
+Is there any reason why the EH handlers can't read the nexthdr and return that?
 
-> The framework only asserts (for now) that the reset gpio is not activ=
-e.
->
-> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-> ---
->  Documentation/devicetree/bindings/net/phy.txt | 3 +++
->  drivers/net/phy/phy_device.c                  | 8 ++++++++
->  2 files changed, 11 insertions(+)
->
-> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Document=
-ation/devicetree/bindings/net/phy.txt
-> index bc1c3c8bf8fa..c00a9a894547 100644
-> --- a/Documentation/devicetree/bindings/net/phy.txt
-> +++ b/Documentation/devicetree/bindings/net/phy.txt
-> @@ -35,6 +35,8 @@ Optional Properties:
->  - broken-turn-around: If set, indicates the PHY device does not corr=
-ectly
->    release the turn around line low at the end of a MDIO transaction.
->
-> +- reset-gpios: Reference to a GPIO used to reset the phy.
-> +
->  Example:
->
->  ethernet-phy@0 {
-> @@ -42,4 +44,5 @@ ethernet-phy@0 {
->  	interrupt-parent =3D <40000>;
->  	interrupts =3D <35 1>;
->  	reg =3D <0>;
-> +	reset-gpios =3D <&gpio1 17 GPIO_ACTIVE_LOW>;
- >  };
+Tom
 
-    OK, the example has PHY ID specified in the "compatible" prop. It's=
- a=20
-vital detail, you should mention it somewhere...
-
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_devic=
-e.c
-> index e551f3a89cfd..7d666ab47271 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-[...]
-> @@ -1569,9 +1570,16 @@ static int phy_probe(struct device *dev)
->  	struct device_driver *drv =3D phydev->mdio.dev.driver;
->  	struct phy_driver *phydrv =3D to_phy_driver(drv);
->  	int err =3D 0;
-> +	struct gpio_descs *reset_gpios;
+> See ipv6_rthdr_rcv and ipv6_destopt_rcv for example:
 >
->  	phydev->drv =3D phydrv;
+> Snip from ipv6_rthdr_rcv:
 >
-> +	/* take phy out of reset */
-> +	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
-> +						    GPIOD_OUT_LOW);
-> +	if (IS_ERR(reset_gpios))
-> +		return PTR_ERR(reset_gpios);
-> +
-
-    It would have been logical to assert back the reset GPIO in phy_rem=
-ove(),=20
-no? Also, you'd need to store the GPIO permanently somewhere...
-
-MBR, Sergei
+>         struct inet6_skb_parm *opt = IP6CB(skb);
+>
+>                 opt->lastopt = opt->srcrt = skb_network_header_len(skb);
+>                 skb->transport_header += (hdr->hdrlen + 1) << 3;
+>                 opt->dst0 = opt->dst1;
+>                 opt->dst1 = 0;
+>                 opt->nhoff = (&hdr->nexthdr) - skb_network_header(skb);
+>                 return 1;
+>
+> Snip from ipv6_destopt_rcv:
+>
+>                 opt = IP6CB(skb);
+> #if IS_ENABLED(CONFIG_IPV6_MIP6)
+>                 opt->nhoff = dstbuf;
+> #else
+>                 opt->nhoff = opt->dst1;
+> #endif
+>                 return 1;
+>
+> I think there are two "resubmission" cases:
+>  1. original ipv6 extension header handling, which seem to require
+>     nexthdr re-read (after IP6CB(skb)->nhoff re-assigned), as seen above
+>  2. encapsulation resubmission (e.g. fou)
+>
+> One suggestion: we may identify the encapsulation case by returning the
+> negative of the proto number.
+>
+> Another suggestion: we can take your approach, but execute the nexthdr
+> re-read within ipv6_rthdr_rcv and ipv6_destopt_rcv (and similar
+> inet6_protocol.handler functions).
+>
+> Regards,
+> Shmulik
