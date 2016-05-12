@@ -1,77 +1,71 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net-next] gtp: put back reference to netns when not required anymore
-Date: Thu, 12 May 2016 17:16:31 +0200
-Message-ID: <1463066191-20748-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42591 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752222AbcELPQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 May 2016 11:16:46 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id C52FA13C0DE
-	for <netdev@vger.kernel.org>; Thu, 12 May 2016 17:16:44 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id B4E982687C2
-	for <netdev@vger.kernel.org>; Thu, 12 May 2016 17:16:44 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id B7C172687C2
-	for <netdev@vger.kernel.org>; Thu, 12 May 2016 17:16:39 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH] net: mvneta: bm: fix dependencies again
+Date: Thu, 12 May 2016 17:32:34 +0200
+Message-ID: <87shxnmgvh.fsf@free-electrons.com>
+References: <1462997636-1049487-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Marcin Wojtas <mw@semihalf.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462997636-1049487-1-git-send-email-arnd@arndb.de> (Arnd
+	Bergmann's message of "Wed, 11 May 2016 22:13:23 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes a netns leak.
+Hi Arnd,
+ 
+ On mer., mai 11 2016, Arnd Bergmann <arnd@arndb.de> wrote:
 
-Fixes: 93edb8c7f94f ("gtp: reload GTPv1 header after pskb_may_pull()")
-Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- drivers/net/gtp.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+> I tried to fix this before, but my previous fix was incomplete
+> and we can still get the same link error in randconfig builds
+> because of the way that Kconfig treats the
+>
+> 	default y if MVNETA=y && MVNETA_BM_ENABLE
+>
+> line that does not actually trigger when MVNETA_BM_ENABLE=m,
+> unlike I intended.
+> Changing the line to use MVNETA_BM_ENABLE!=n however has
+> the desired effect and hopefully makes all configurations
+> work as expected.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 019ded3aa7c9 ("net: mvneta: bm: clarify dependencies")
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f7caf1e..4e976a0 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -1028,8 +1028,11 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
- 
- 	/* Check if there's an existing gtpX device to configure */
- 	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL)
-+	if (dev == NULL) {
-+		put_net(net);
- 		return -ENODEV;
-+	}
-+	put_net(net);
- 
- 	return ipv4_pdp_add(dev, info);
- }
-@@ -1051,8 +1054,11 @@ static int gtp_genl_del_pdp(struct sk_buff *skb, struct genl_info *info)
- 
- 	/* Check if there's an existing gtpX device to configure */
- 	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL)
-+	if (dev == NULL) {
-+		put_net(net);
- 		return -ENODEV;
-+	}
-+	put_net(net);
- 
- 	gtp = netdev_priv(dev);
- 
-@@ -1163,8 +1169,11 @@ static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
- 
- 	/* Check if there's an existing gtpX device to configure */
- 	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL)
-+	if (dev == NULL) {
-+		put_net(net);
- 		return -ENODEV;
-+	}
-+	put_net(net);
- 
- 	gtp = netdev_priv(dev);
- 
+It looks ok for me.
+
+Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+
+Thanks,
+
+Gregory
+
+> ---
+>  drivers/net/ethernet/marvell/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+> index b5c6d42daa12..2664827ddecd 100644
+> --- a/drivers/net/ethernet/marvell/Kconfig
+> +++ b/drivers/net/ethernet/marvell/Kconfig
+> @@ -68,7 +68,7 @@ config MVNETA
+>  
+>  config MVNETA_BM
+>  	tristate
+> -	default y if MVNETA=y && MVNETA_BM_ENABLE
+> +	default y if MVNETA=y && MVNETA_BM_ENABLE!=n
+>  	default MVNETA_BM_ENABLE
+>  	select HWBM
+>  	help
+> -- 
+> 2.7.0
+>
+
 -- 
-2.1.4
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
