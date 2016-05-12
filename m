@@ -1,38 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net: cls_u32: Add support for skip-sw
- flag to tc u32 classifier.
-Date: Thu, 12 May 2016 00:15:46 -0400 (EDT)
-Message-ID: <20160512.001546.1671453290307211390.davem@davemloft.net>
-References: <1462821524-2534-2-git-send-email-sridhar.samudrala@intel.com>
-	<20160511.192316.1290350535833930948.davem@davemloft.net>
-	<5733C3F7.1060800@intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next PATCH] udp: Resolve NULL pointer dereference
+Date: Wed, 11 May 2016 21:29:34 -0700
+Message-ID: <CAM_iQpXWWbAKdkngMpE81Snmcam5cFY5JWt-tXSrHQVRU_nggA@mail.gmail.com>
+References: <20160512022306.3691.40769.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: sridhar.samudrala@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54073 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327AbcELEPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 00:15:52 -0400
-In-Reply-To: <5733C3F7.1060800@intel.com>
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:33020 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711AbcELE3y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 00:29:54 -0400
+Received: by mail-yw0-f175.google.com with SMTP id t10so70702861ywa.0
+        for <netdev@vger.kernel.org>; Wed, 11 May 2016 21:29:53 -0700 (PDT)
+In-Reply-To: <20160512022306.3691.40769.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Date: Wed, 11 May 2016 16:44:55 -0700
+On Wed, May 11, 2016 at 7:24 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> While testing an OpenStack configuration using VXLANs I saw the following
+> call trace:
+...
+>
+> I believe the trace is pointing to the call to dev_net(dev) in
+> udp4_lib_lookup_skb.  If I am not mistaken I believe it is possible for us
+> to have skb_dst(skb)->dev be NULL.  So to resolve that I am adding a check
+> for this case and skipping the assignment if such an event occurs.
 
-> 
-> On 5/11/2016 4:23 PM, David Miller wrote:
->> This is a core semantic issue, and we have to make sure all amongst us
->> that we are all comfortable with exporting the offloadability controls
->> in the way you are implementing them.
-> 
-> I tried to implement the semantics based on an earlier discussion
-> about these flags in this
-> email thread.
->     http://thread.gmane.org/gmane.linux.network/401733
-
-Most developers reading your patches will not know to go to that URL,
-nor that we even had that discussion at all.
+Isn't in this tunneling case skb_dst() should be NULL?
