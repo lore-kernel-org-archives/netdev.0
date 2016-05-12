@@ -1,69 +1,77 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: Aw: [PATCH 0/6] hv_netvsc: avoid races on mtu change/set channels
-Date: Thu, 12 May 2016 17:09:24 +0200
-Message-ID: <87r3d7mhy3.fsf@vitty.brq.redhat.com>
-References: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
- <trinity-ccc16f5c-6580-4594-a0d0-c7b07bf2f7a6-1463065112147@3capp-gmx-bs05>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <trinity-ccc16f5c-6580-4594-a0d0-c7b07bf2f7a6-1463065112147@3capp-gmx-bs05>
- (Lino Sanfilippo's message of "Thu, 12 May 2016 16:58:32 +0200")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH net-next] gtp: put back reference to netns when not required anymore
+Date: Thu, 12 May 2016 17:16:31 +0200
+Message-ID: <1463066191-20748-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42591 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752222AbcELPQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 May 2016 11:16:46 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id C52FA13C0DE
+	for <netdev@vger.kernel.org>; Thu, 12 May 2016 17:16:44 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B4E982687C2
+	for <netdev@vger.kernel.org>; Thu, 12 May 2016 17:16:44 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B7C172687C2
+	for <netdev@vger.kernel.org>; Thu, 12 May 2016 17:16:39 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Lino Sanfilippo" <LinoSanfilippo@gmx.de> writes:
+This patch fixes a netns leak.
 
-> Hi,
->
->>
->> MTU change and set channels operations are implemented as netvsc device
->> re-creation destroying internal structures (struct net_device stays). This
->> is really unfortunate but there is no support from Hyper-V host to do it
->> in a different way. Such re-creation is unsurprisingly racy, Haiyang
->> reported a crash when netvsc_change_mtu() is racing with
->> netvsc_link_change() but I was able to identify additional races upon
->> investigation. Both netvsc_set_channels() and netvsc_change_mtu() race
->> against:
->> 1) netvsc_link_change()
->> 2) netvsc_remove()
->> 3) netvsc_send()
->> 
->
-> after having a look into this driver I got the impression that you are working around an
-> unfortunate implementation of the shutdown sequence in the remove function:
-> If you do unregister_netdev() first instead of resource cleanup then neither set_channels()
-> nor change_mtu() can race with remove(). This is since after unregister_netdev() returns
-> the netdev is not longer available from userspace and thus neither set_channels nor
-> change_mtu can be called anymore (note that all of these functions are protected by the 
-> rtnl_lock).
+Fixes: 93edb8c7f94f ("gtp: reload GTPv1 header after pskb_may_pull()")
+Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ drivers/net/gtp.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
-It's worse: before the patch series we get 'struct hv_device' (as it is
-called from core VMBus code and we simply cannot get to 'struct
-net_device' we need without traveling through 'struct
-netvsc_device'. This structure is removed and re-created by both
-netvsc_set_channels() and netvsc_change_mtu().
-
->
-> To avoid the race between netvsc_change_mtu()/netvsc_set_channels() and netvsc_link_change()
-> you have to stop the concerning worker thread (dwork) before you call netvsc_close() and
-> restart it once the device is up again.
-
-Yes, but we also need to guarantee this won't get rescheduled so we need
-a flag for that. The appropriate flag is start_remove but only after we
-move it from a structure we remove.
-
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index f7caf1e..4e976a0 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -1028,8 +1028,11 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	/* Check if there's an existing gtpX device to configure */
+ 	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
+-	if (dev == NULL)
++	if (dev == NULL) {
++		put_net(net);
+ 		return -ENODEV;
++	}
++	put_net(net);
+ 
+ 	return ipv4_pdp_add(dev, info);
+ }
+@@ -1051,8 +1054,11 @@ static int gtp_genl_del_pdp(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	/* Check if there's an existing gtpX device to configure */
+ 	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
+-	if (dev == NULL)
++	if (dev == NULL) {
++		put_net(net);
+ 		return -ENODEV;
++	}
++	put_net(net);
+ 
+ 	gtp = netdev_priv(dev);
+ 
+@@ -1163,8 +1169,11 @@ static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	/* Check if there's an existing gtpX device to configure */
+ 	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
+-	if (dev == NULL)
++	if (dev == NULL) {
++		put_net(net);
+ 		return -ENODEV;
++	}
++	put_net(net);
+ 
+ 	gtp = netdev_priv(dev);
+ 
 -- 
-  Vitaly
+2.1.4
