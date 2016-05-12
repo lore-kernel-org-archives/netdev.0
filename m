@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/4] netdevice: add SW statistics ndo
-Date: Thu, 12 May 2016 13:48:47 +0200
-Message-ID: <1463053730-14991-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/4] net: core: add SW stats to if_stats_msg
+Date: Thu, 12 May 2016 13:48:49 +0200
+Message-ID: <1463053730-14991-4-git-send-email-jiri@resnulli.us>
 References: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
 	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,112 +11,131 @@ Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
 	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33544 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36113 "EHLO
 	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751863AbcELLsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 07:48:54 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r12so15647988wme.0
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 04:48:53 -0700 (PDT)
+	with ESMTP id S932114AbcELLs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 07:48:56 -0400
+Received: by mail-wm0-f66.google.com with SMTP id w143so15516115wmw.3
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 04:48:55 -0700 (PDT)
 In-Reply-To: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-Till now we had a ndo statistics function that returned SW statistics.
-We want to change the "basic" statistics to return HW statistics if
-available.
-In this case we need to expose a new ndo to return the SW statistics.
-Add a new ndo declaration to get SW statistics
-Add a function that gets SW statistics if a competible ndo exist
+If there is a dedicated ndo to return SW stats - use
+it. Otherwise (indicates that there is no HW stats) use
+the default stats ndo.
+Return results under IFLA_STATS_LINK_SW_64.
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/linux/netdevice.h | 12 ++++++++++++
- net/core/dev.c            | 25 +++++++++++++++++++++++++
- 2 files changed, 37 insertions(+)
+v1->v2:
+- fixed NULL initialization
+---
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 35 +++++++++++++++++++++++++++++------
+ 2 files changed, 30 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c2f5112..3ac3e8f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -891,6 +891,14 @@ struct tc_to_netdev {
-  *	   field is written atomically.
-  *	3. Update dev->stats asynchronously and atomically, and define
-  *	   neither operation.
-+ *	Driver should return HW statistics, if available.
-+ *
-+ * struct rtnl_link_stats64* (*ndo_get_sw_stats64)(struct net_device *dev,
-+ *			struct rtnl_link_stats64 *storage);
-+ *	Similar to rtnl_link_stats64 but used to get SW statistics,
-+ *	if it is possible to get HW and SW statistics separately.
-+ *	If this option isn't valid - driver doesn't need to define
-+ *	this function.
-  *
-  * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
-  *	If device supports VLAN filtering this function is called when a
-@@ -1133,6 +1141,9 @@ struct net_device_ops {
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 98175e7..fcfb944 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -823,6 +823,7 @@ enum {
+ 	IFLA_STATS_UNSPEC, /* also used as 64bit pad attribute */
+ 	IFLA_STATS_LINK_64,
+ 	IFLA_STATS_LINK_XSTATS,
++	IFLA_STATS_LINK_SW_64,
+ 	__IFLA_STATS_MAX,
+ };
  
- 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
- 						     struct rtnl_link_stats64 *storage);
-+	struct rtnl_link_stats64* (*ndo_get_sw_stats64)(struct net_device *dev,
-+							struct rtnl_link_stats64 *storage);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a127d67..9f670a8 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3481,6 +3481,9 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	struct nlmsghdr *nlh;
+ 	struct nlattr *attr;
+ 	int s_prividx = *prividx;
++	struct rtnl_link_stats64 *sp;
++	struct rtnl_link_stats64 *stats64_sp = NULL;
++	int err;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -3493,24 +3496,20 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 	ifsm->filter_mask = filter_mask;
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, *idxattr)) {
+-		struct rtnl_link_stats64 *sp;
+-
+ 		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_64,
+ 					 sizeof(struct rtnl_link_stats64),
+ 					 IFLA_STATS_UNSPEC);
+ 		if (!attr)
+ 			goto nla_put_failure;
+ 
+-		sp = nla_data(attr);
+-		dev_get_stats(dev, sp);
++		stats64_sp = nla_data(attr);
++		dev_get_stats(dev, stats64_sp);
+ 	}
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, *idxattr)) {
+ 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
+ 
+ 		if (ops && ops->fill_linkxstats) {
+-			int err;
+-
+ 			*idxattr = IFLA_STATS_LINK_XSTATS;
+ 			attr = nla_nest_start(skb,
+ 					      IFLA_STATS_LINK_XSTATS);
+@@ -3525,6 +3524,27 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 	}
+ 
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, *idxattr)) {
++		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_SW_64,
++					 sizeof(struct rtnl_link_stats64),
++					 IFLA_STATS_UNSPEC);
++		if (!attr)
++			goto nla_put_failure;
 +
- 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
- 
- 	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
-@@ -3755,6 +3766,7 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
- 					struct rtnl_link_stats64 *storage);
- void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
- 			     const struct net_device_stats *netdev_stats);
-+int dev_get_sw_stats(struct net_device *dev, struct rtnl_link_stats64 *storage);
- 
- extern int		netdev_max_backlog;
- extern int		netdev_tstamp_prequeue;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 12436d1..a69e418 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7376,6 +7376,8 @@ EXPORT_SYMBOL(netdev_stats_to_stats64);
-  *	The device driver may provide its own method by setting
-  *	dev->netdev_ops->get_stats64 or dev->netdev_ops->get_stats;
-  *	otherwise the internal statistics structure is used.
-+ *	If device supports both HW & SW statistics - this function should
-+ *	return the HW statistics.
-  */
- struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
- 					struct rtnl_link_stats64 *storage)
-@@ -7397,6 +7399,29 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
- }
- EXPORT_SYMBOL(dev_get_stats);
- 
-+/*	dev_get_sw_stats    - get network device SW statistics
-+ *	(if it is possible to get HW & SW statistics separately)
-+ *	@dev: device to get statistics from
-+ *	@storage: place to store stats
-+ *
-+ *	if exist a function to query the netdev SW statistics get it to storage
-+ *	return 0 if did, or -EINVAL if this function doesn't exist
-+ */
-+int dev_get_sw_stats(struct net_device *dev,
-+		     struct rtnl_link_stats64 *storage)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (ops->ndo_get_sw_stats64) {
-+		memset(storage, 0, sizeof(*storage));
-+		ops->ndo_get_sw_stats64(dev, storage);
-+	} else {
-+		return -EINVAL;
++		sp = nla_data(attr);
++		err = dev_get_sw_stats(dev, sp);
++		if (err) {
++			/* if err it means there is no dedicated ndo to
++			 * get SW stats - so it is returned by the default
++			 * stats ndo
++			 */
++			if (stats64_sp)
++				copy_rtnl_link_stats64(sp, stats64_sp);
++			else
++				dev_get_stats(dev, sp);
++		}
 +	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(dev_get_sw_stats);
 +
- struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
- {
- 	struct netdev_queue *queue = dev_ingress_queue(dev);
+ 	nlmsg_end(skb, nlh);
+ 
+ 	return 0;
+@@ -3541,6 +3561,7 @@ nla_put_failure:
+ 
+ static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
+ 	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
++	[IFLA_STATS_LINK_SW_64] = { .len = sizeof(struct rtnl_link_stats64) },
+ };
+ 
+ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+@@ -3550,6 +3571,8 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
+ 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, 0))
++		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, 0)) {
+ 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
 -- 
 2.5.5
