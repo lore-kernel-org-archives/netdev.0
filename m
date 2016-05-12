@@ -1,63 +1,84 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next] vxlan: set mac_header correctly in GPE mode
-Date: Thu, 12 May 2016 09:47:58 +0300
-Message-ID: <20160512094758.32bd517c@halley>
-References: <3b9c5ffd8085c0af7072960865883a23be0d0a32.1462974886.git.jbenc@redhat.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [RFC] Reset pins of phys and their representation in a device tree
+Date: Thu, 12 May 2016 09:15:42 +0200
+Message-ID: <20160512071542.GC30822@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kernel@pengutronix.de
+To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33698 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbcELGsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 02:48:10 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r12so13871251wme.0
-        for <netdev@vger.kernel.org>; Wed, 11 May 2016 23:48:09 -0700 (PDT)
-In-Reply-To: <3b9c5ffd8085c0af7072960865883a23be0d0a32.1462974886.git.jbenc@redhat.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47159 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752181AbcELHPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 03:15:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+Hello,
 
-On Wed, 11 May 2016 15:55:06 +0200 Jiri Benc <jbenc@redhat.com> wrote:
-> For VXLAN-GPE, the interface is ARPHRD_NONE, thus we need to reset
-> mac_header after pulling the outer header.
-> 
-> Fixes: e1e5314de08b ("vxlan: implement GPE")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
->  drivers/net/vxlan.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 2f29d20aa08f..e030a804b772 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1338,6 +1338,8 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
->  	if (__iptunnel_pull_header(skb, VXLAN_HLEN, protocol, raw_proto,
->  				   !net_eq(vxlan->net, dev_net(vxlan->dev))))
->  			goto drop;
-> +	if (raw_proto)
-> +		skb_reset_mac_header(skb);
+I have a machine here where the reset pin of the phy is connected to a
+GPIO.
 
-Would it make sense to perform this within __iptunnel_pull_header (in
-case raw_proto is true) for all __iptunnel_pull_header callers?
+There are different possibilities available today to handle this
+situation, here are the ones I'm aware of:
 
-If not (meaning vxlan specific), in next few lines we have:
+ - Use a gpio-hog to set the reset gpio to non-active
+   This might result in dependency problems (and that's what I am
+   currently faced with) because there is no connection in the device
+   tree between the hog and the phy.
 
-	if (!raw_proto) {
-		if (!vxlan_set_mac(vxlan, vs, skb))
-			goto drop;
-	} else {
-		skb->dev = vxlan->dev;
-		skb->pkt_type = PACKET_HOST;
-	}
+ - [Documentation/devicetree/bindings/net/fsl-fec.txt]
+   The fec node supports properties
 
-Seems more appropriate to place the missing 'skb_reset_mac_header'
-within the "else" part, which logically holds all "things to initialize
-in the skb if raw_proto is true, thus havn't called vxlan_set_mac".
+	phy-reset-gpios =3D <&gpio2 14 0>;
+	phy-reset-duration =3D <200> /* milliseconds */;
 
-Regards,
-Shmulik
+   Something similar exists in TI's vendor kernel
+   (http://git.ti.com/ti-linux-kernel/ti-linux-kernel/commit/17d192b999=
+ee904ced223c16cef76111a51c461b)
+   with different (and IMHO bader) naming.
+   This is the wrong place to specify the gpios; they shouldn't be in t=
+he
+   mac's node, but in a phy node instead.
+
+So what I actually want is to put the gpio specification in the right
+place and let it look as follows:
+
+	mymdiobus {
+		[...]
+		myfirstphy: ethernet-phy@0 {
+			compatible =3D "ethernet-phy-ieee802.3-c22";
+			reg =3D <0>;
+
+			reset-gpios =3D <&gpio2 14 0>;
+			reset-duration-ms =3D <200>;
+		};
+
+		mysecondphy: ethernet-phy@2 {
+			compatible =3D "ethernet-phy-ieee802.3-c22";
+			reg =3D <2>;
+
+			reset-gpios =3D <&gpio3 10 0>;
+			reset-duration-ms =3D <200>;
+		};
+	};
+
+And with this we could defer probe of &myfirstphy if &gpio2 isn't
+available yet.
+
+Does this sound sensible? Does something like that already exist which =
+I
+missed? Any further ideas/comments?
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
