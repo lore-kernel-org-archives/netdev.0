@@ -1,275 +1,251 @@
-From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [RFC] wcn36xx: Implement firmware assisted scan
-Date: Thu, 12 May 2016 12:33:25 -0700
-Message-ID: <1463081605-27971-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jouni Malinen <j@w1.fi>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 2/5] drivers: replace dev->trans_start accesses
+ with dev_trans_start
+Date: Thu, 12 May 2016 15:39:55 -0400
+Message-ID: <8622dc0c-fd1a-a553-0c55-9ca566149a5d@redhat.com>
+References: <1462285862-30946-1-git-send-email-fw@strlen.de>
+ <1462285862-30946-3-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="978cihIIG1clfpM2h1eOhkOiMxPj7sISJ"
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1462285862-30946-3-git-send-email-fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Using the software based channel scan mechanism from mac80211 keeps us
-offline for 10-15 second, we should instead issue a start_scan/end_scan
-on each channel reducing this time.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--978cihIIG1clfpM2h1eOhkOiMxPj7sISJ
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
+On 05/03/2016 10:30 AM, Florian Westphal wrote:
+> a trans_start struct member exists twice:
+> - in struct net_device (legacy)
+> - in struct netdev_queue
+>=20
+> Instead of open-coding dev->trans_start usage to obtain the current
+> trans_start value, use dev_trans_start() instead.
+>=20
+> This is not exactly the same, as dev_trans_start also considers
+> the trans_start values of the netdev queues owned by the device
+> and provides the most recent one.
+>=20
+> For legacy devices this doesn't matter as dev_trans_start can cope
+> with netdev trans_start values of 0 (they are ignored).
+>=20
+> This is a prerequisite to eventual removal of dev->trans_start.
+>=20
+> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+> ---
+>  Checkpatch complains about Lines > 80 but I find line break more ugly.=
 
-With this implementation I see a reduction of throughput for about 1-2 seconds
-with iperf while scanning, so the improvement is clear.
+>=20
+>  drivers/infiniband/ulp/ipoib/ipoib_main.c              | 2 +-
 
-The problem with the implementation is that ieee80211_rx_status must specify
-the correct band for the core to not drop the beacons. I have searched for
-indications in the incoming data, but am not able to find anything useful, so
-this currently rely on shared state (scan_freq/scan_band) that gets updated
-during scan.
+For ipoib part,
 
-If anyone familiar with this hardware have any suggestions on how to better
-deal with this I would appreciate the feedback.
+Acked-by: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
- drivers/net/wireless/ath/wcn36xx/main.c    | 62 ++++++++++++++++++++++++------
- drivers/net/wireless/ath/wcn36xx/smd.c     |  8 ++--
- drivers/net/wireless/ath/wcn36xx/smd.h     |  4 +-
- drivers/net/wireless/ath/wcn36xx/txrx.c    | 19 ++++++---
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  9 +++++
- 5 files changed, 79 insertions(+), 23 deletions(-)
+>  drivers/net/ethernet/intel/e1000e/netdev.c             | 2 +-
+>  drivers/net/ethernet/intel/igb/igb_main.c              | 2 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c          | 2 +-
+>  drivers/net/ethernet/microchip/encx24j600.c            | 2 +-
+>  drivers/net/ethernet/qualcomm/qca_spi.c                | 2 +-
+>  drivers/net/fjes/fjes_main.c                           | 2 +-
+>  drivers/net/hamradio/mkiss.c                           | 2 +-
+>  drivers/staging/rtl8192e/rtllib_softmac.c              | 2 +-
+>  drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c | 2 +-
+>  10 files changed, 10 insertions(+), 10 deletions(-)
+>=20
+> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infini=
+band/ulp/ipoib/ipoib_main.c
+> index 80807d6..b940ef1 100644
+> --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> @@ -1036,7 +1036,7 @@ static void ipoib_timeout(struct net_device *dev)=
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index 25a492d7504b..20ff661694ed 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -489,23 +489,57 @@ out:
- 	return ret;
- }
- 
--static void wcn36xx_sw_scan_start(struct ieee80211_hw *hw,
--				  struct ieee80211_vif *vif,
--				  const u8 *mac_addr)
-+static void wcn36xx_hw_scan_worker(struct work_struct *work)
- {
--	struct wcn36xx *wcn = hw->priv;
-+	struct wcn36xx *wcn = container_of(work, struct wcn36xx, scan_work);
-+	struct cfg80211_scan_request *req = wcn->scan_req;
-+	u8 channels[WCN36XX_HAL_PNO_MAX_NETW_CHANNELS_EX];
-+	int i;
-+
-+	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac80211 scan %d channels worker\n", req->n_channels);
-+
-+	for (i = 0; i < req->n_channels; i++)
-+		channels[i] = req->channels[i]->hw_value;
-+
-+	wcn36xx_smd_update_scan_params(wcn, channels, req->n_channels);
- 
- 	wcn36xx_smd_init_scan(wcn, HAL_SYS_MODE_SCAN);
--	wcn36xx_smd_start_scan(wcn);
-+	for (i = 0; i < req->n_channels; i++) {
-+		wcn->scan_freq = req->channels[i]->center_freq;
-+		wcn->scan_band = req->channels[i]->band;
-+
-+		wcn36xx_smd_start_scan(wcn, req->channels[i]->hw_value);
-+		msleep(30);
-+		wcn36xx_smd_end_scan(wcn, req->channels[i]->hw_value);
-+
-+		wcn->scan_freq = 0;
-+	}
-+	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
-+
-+	ieee80211_scan_completed(wcn->hw, false);
-+
-+	mutex_lock(&wcn->scan_lock);
-+	wcn->scan_req = NULL;
-+	mutex_unlock(&wcn->scan_lock);
- }
- 
--static void wcn36xx_sw_scan_complete(struct ieee80211_hw *hw,
--				     struct ieee80211_vif *vif)
-+static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
-+			   struct ieee80211_vif *vif,
-+			   struct ieee80211_scan_request *hw_req)
- {
- 	struct wcn36xx *wcn = hw->priv;
- 
--	wcn36xx_smd_end_scan(wcn);
--	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
-+	mutex_lock(&wcn->scan_lock);
-+	if (wcn->scan_req) {
-+		mutex_unlock(&wcn->scan_lock);
-+		return -EBUSY;
-+	}
-+	wcn->scan_req = &hw_req->req;
-+	mutex_unlock(&wcn->scan_lock);
-+
-+	schedule_work(&wcn->scan_work);
-+
-+	return 0;
- }
- 
- static void wcn36xx_update_allowed_rates(struct ieee80211_sta *sta,
-@@ -919,8 +953,7 @@ static const struct ieee80211_ops wcn36xx_ops = {
- 	.configure_filter       = wcn36xx_configure_filter,
- 	.tx			= wcn36xx_tx,
- 	.set_key		= wcn36xx_set_key,
--	.sw_scan_start		= wcn36xx_sw_scan_start,
--	.sw_scan_complete	= wcn36xx_sw_scan_complete,
-+	.hw_scan		= wcn36xx_hw_scan,
- 	.bss_info_changed	= wcn36xx_bss_info_changed,
- 	.set_rts_threshold	= wcn36xx_set_rts_threshold,
- 	.sta_add		= wcn36xx_sta_add,
-@@ -945,6 +978,7 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
- 	ieee80211_hw_set(wcn->hw, SUPPORTS_PS);
- 	ieee80211_hw_set(wcn->hw, SIGNAL_DBM);
- 	ieee80211_hw_set(wcn->hw, HAS_RATE_CONTROL);
-+	ieee80211_hw_set(wcn->hw, SINGLE_SCAN_ON_ALL_BANDS);
- 
- 	wcn->hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
- 		BIT(NL80211_IFTYPE_AP) |
-@@ -954,6 +988,9 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
- 	wcn->hw->wiphy->bands[IEEE80211_BAND_2GHZ] = &wcn_band_2ghz;
- 	wcn->hw->wiphy->bands[IEEE80211_BAND_5GHZ] = &wcn_band_5ghz;
- 
-+	wcn->hw->wiphy->max_scan_ssids = WCN36XX_MAX_SCAN_SSIDS;
-+	wcn->hw->wiphy->max_scan_ie_len = WCN36XX_MAX_SCAN_IE_LEN;
-+
- 	wcn->hw->wiphy->cipher_suites = cipher_suites;
- 	wcn->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
- 
-@@ -1074,6 +1111,9 @@ static int wcn36xx_probe(struct platform_device *pdev)
- 	wcn->hw = hw;
- 	wcn->dev = &pdev->dev;
- 	mutex_init(&wcn->hal_mutex);
-+	mutex_init(&wcn->scan_lock);
-+
-+	INIT_WORK(&wcn->scan_work, wcn36xx_hw_scan_worker);
- 
- 	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process);
- 	if (IS_ERR(wcn->smd_channel)) {
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index 377c4bfb84ee..aa65d8ec7abf 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.c
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -528,7 +528,7 @@ out:
- 	return ret;
- }
- 
--int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
-+int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel)
- {
- 	struct wcn36xx_hal_start_scan_req_msg msg_body;
- 	int ret = 0;
-@@ -536,7 +536,7 @@ int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
- 	mutex_lock(&wcn->hal_mutex);
- 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_START_SCAN_REQ);
- 
--	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
-+	msg_body.scan_channel = scan_channel;
- 
- 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
- 
-@@ -558,7 +558,7 @@ out:
- 	return ret;
- }
- 
--int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
-+int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel)
- {
- 	struct wcn36xx_hal_end_scan_req_msg msg_body;
- 	int ret = 0;
-@@ -566,7 +566,7 @@ int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
- 	mutex_lock(&wcn->hal_mutex);
- 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_END_SCAN_REQ);
- 
--	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
-+	msg_body.scan_channel = scan_channel;
- 
- 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
- 
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
-index 82e3b37b669e..e4574c87528a 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.h
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.h
-@@ -69,8 +69,8 @@ int wcn36xx_smd_load_nv(struct wcn36xx *wcn);
- int wcn36xx_smd_start(struct wcn36xx *wcn);
- int wcn36xx_smd_stop(struct wcn36xx *wcn);
- int wcn36xx_smd_init_scan(struct wcn36xx *wcn, enum wcn36xx_hal_sys_mode mode);
--int wcn36xx_smd_start_scan(struct wcn36xx *wcn);
--int wcn36xx_smd_end_scan(struct wcn36xx *wcn);
-+int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel);
-+int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel);
- int wcn36xx_smd_finish_scan(struct wcn36xx *wcn,
- 			    enum wcn36xx_hal_sys_mode mode);
- int wcn36xx_smd_update_scan_params(struct wcn36xx *wcn, u8 *channels, size_t channel_count);
-diff --git a/drivers/net/wireless/ath/wcn36xx/txrx.c b/drivers/net/wireless/ath/wcn36xx/txrx.c
-index 9bec8237231d..1754027d6500 100644
---- a/drivers/net/wireless/ath/wcn36xx/txrx.c
-+++ b/drivers/net/wireless/ath/wcn36xx/txrx.c
-@@ -45,9 +45,20 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
- 	skb_put(skb, bd->pdu.mpdu_header_off + bd->pdu.mpdu_len);
- 	skb_pull(skb, bd->pdu.mpdu_header_off);
- 
-+	hdr = (struct ieee80211_hdr *) skb->data;
-+	fc = __le16_to_cpu(hdr->frame_control);
-+	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
-+
-+	/* When scanning associate beacons to this */
-+	if (ieee80211_is_beacon(hdr->frame_control) && wcn->scan_freq) {
-+		status.freq = wcn->scan_freq;
-+		status.band = wcn->scan_band;
-+	} else {
-+		status.freq = WCN36XX_CENTER_FREQ(wcn);
-+		status.band = WCN36XX_BAND(wcn);
-+	}
-+
- 	status.mactime = 10;
--	status.freq = WCN36XX_CENTER_FREQ(wcn);
--	status.band = WCN36XX_BAND(wcn);
- 	status.signal = -get_rssi0(bd);
- 	status.antenna = 1;
- 	status.rate_idx = 1;
-@@ -61,10 +72,6 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
- 
- 	memcpy(IEEE80211_SKB_RXCB(skb), &status, sizeof(status));
- 
--	hdr = (struct ieee80211_hdr *) skb->data;
--	fc = __le16_to_cpu(hdr->frame_control);
--	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
--
- 	if (ieee80211_is_beacon(hdr->frame_control)) {
- 		wcn36xx_dbg(WCN36XX_DBG_BEACON, "beacon skb %p len %d fc %04x sn %d\n",
- 			    skb, skb->len, fc, sn);
-diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index 38d55804ffaf..45d2db99e12c 100644
---- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-+++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -35,6 +35,9 @@
- /* How many frames until we start a-mpdu TX session */
- #define WCN36XX_AMPDU_START_THRESH	20
- 
-+#define WCN36XX_MAX_SCAN_SSIDS		9
-+#define WCN36XX_MAX_SCAN_IE_LEN		500
-+
- extern unsigned int wcn36xx_dbg_mask;
- 
- enum wcn36xx_debug_mask {
-@@ -212,6 +215,12 @@ struct wcn36xx {
- 	spinlock_t		hal_ind_lock;
- 	struct list_head	hal_ind_queue;
- 
-+	struct work_struct	scan_work;
-+	struct cfg80211_scan_request *scan_req;
-+	int			scan_freq;
-+	int			scan_band;
-+	struct mutex		scan_lock;
-+
- 	/* DXE channels */
- 	struct wcn36xx_dxe_ch	dxe_tx_l_ch;	/* TX low */
- 	struct wcn36xx_dxe_ch	dxe_tx_h_ch;	/* TX high */
--- 
-2.5.0
+>  	struct ipoib_dev_priv *priv =3D netdev_priv(dev);
+> =20
+>  	ipoib_warn(priv, "transmit timeout: latency %d msecs\n",
+> -		   jiffies_to_msecs(jiffies - dev->trans_start));
+> +		   jiffies_to_msecs(jiffies - dev_trans_start(dev)));
+>  	ipoib_warn(priv, "queue stopped %d, tx_head %u, tx_tail %u\n",
+>  		   netif_queue_stopped(dev),
+>  		   priv->tx_head, priv->tx_tail);
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/e=
+thernet/intel/e1000e/netdev.c
+> index a7f16c3..269087c 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -242,7 +242,7 @@ static void e1000e_dump(struct e1000_adapter *adapt=
+er)
+>  		dev_info(&adapter->pdev->dev, "Net device Info\n");
+>  		pr_info("Device Name     state            trans_start      last_rx\n=
+");
+>  		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
+> -			netdev->state, netdev->trans_start, netdev->last_rx);
+> +			netdev->state, dev_trans_start(netdev), netdev->last_rx);
+>  	}
+> =20
+>  	/* Print Registers */
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/et=
+hernet/intel/igb/igb_main.c
+> index 8e96c35..7460bdb 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -383,7 +383,7 @@ static void igb_dump(struct igb_adapter *adapter)
+>  		dev_info(&adapter->pdev->dev, "Net device Info\n");
+>  		pr_info("Device Name     state            trans_start      last_rx\n=
+");
+>  		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
+> -			netdev->state, netdev->trans_start, netdev->last_rx);
+> +			netdev->state, dev_trans_start(netdev), netdev->last_rx);
+>  	}
+> =20
+>  	/* Print Registers */
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/ne=
+t/ethernet/intel/ixgbe/ixgbe_main.c
+> index 0ef4a15..18dcfc5 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -608,7 +608,7 @@ static void ixgbe_dump(struct ixgbe_adapter *adapte=
+r)
+>  		pr_info("%-15s %016lX %016lX %016lX\n",
+>  			netdev->name,
+>  			netdev->state,
+> -			netdev->trans_start,
+> +			dev_trans_start(netdev),
+>  			netdev->last_rx);
+>  	}
+> =20
+> diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/=
+ethernet/microchip/encx24j600.c
+> index 7df3183..707283b 100644
+> --- a/drivers/net/ethernet/microchip/encx24j600.c
+> +++ b/drivers/net/ethernet/microchip/encx24j600.c
+> @@ -890,7 +890,7 @@ static void encx24j600_tx_timeout(struct net_device=
+ *dev)
+>  	struct encx24j600_priv *priv =3D netdev_priv(dev);
+> =20
+>  	netif_err(priv, tx_err, dev, "TX timeout at %ld, latency %ld\n",
+> -		  jiffies, jiffies - dev->trans_start);
+> +		  jiffies, jiffies - dev_trans_start(dev));
+> =20
+>  	dev->stats.tx_errors++;
+>  	netif_wake_queue(dev);
+> diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethe=
+rnet/qualcomm/qca_spi.c
+> index 1ef0393..82f3c88 100644
+> --- a/drivers/net/ethernet/qualcomm/qca_spi.c
+> +++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+> @@ -734,7 +734,7 @@ qcaspi_netdev_tx_timeout(struct net_device *dev)
+>  	struct qcaspi *qca =3D netdev_priv(dev);
+> =20
+>  	netdev_info(qca->net_dev, "Transmit timeout at %ld, latency %ld\n",
+> -		    jiffies, jiffies - dev->trans_start);
+> +		    jiffies, jiffies - dev_trans_start(dev));
+>  	qca->net_dev->stats.tx_errors++;
+>  	/* Trigger tx queue flush and QCA7000 reset */
+>  	qca->sync =3D QCASPI_SYNC_UNKNOWN;
+> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.=
+c
+> index bb7e903..7ad3d04 100644
+> --- a/drivers/net/fjes/fjes_main.c
+> +++ b/drivers/net/fjes/fjes_main.c
+> @@ -471,7 +471,7 @@ static void fjes_tx_stall_task(struct work_struct *=
+work)
+>  	int i;
+> =20
+>  	if (((long)jiffies -
+> -		(long)(netdev->trans_start)) > FJES_TX_TX_STALL_TIMEOUT) {
+> +		dev_trans_start(netdev)) > FJES_TX_TX_STALL_TIMEOUT) {
+>  		netif_wake_queue(netdev);
+>  		return;
+>  	}
+> diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.=
+c
+> index 85828f1..c685937 100644
+> --- a/drivers/net/hamradio/mkiss.c
+> +++ b/drivers/net/hamradio/mkiss.c
+> @@ -542,7 +542,7 @@ static netdev_tx_t ax_xmit(struct sk_buff *skb, str=
+uct net_device *dev)
+>  		 * May be we must check transmitter timeout here ?
+>  		 *      14 Oct 1994 Dmitry Gorodchanin.
+>  		 */
+> -		if (time_before(jiffies, dev->trans_start + 20 * HZ)) {
+> +		if (time_before(jiffies, dev_trans_start(dev) + 20 * HZ)) {
+>  			/* 20 sec timeout not reached */
+>  			return NETDEV_TX_BUSY;
+>  		}
+> diff --git a/drivers/staging/rtl8192e/rtllib_softmac.c b/drivers/stagin=
+g/rtl8192e/rtllib_softmac.c
+> index cfab715..62154e3 100644
+> --- a/drivers/staging/rtl8192e/rtllib_softmac.c
+> +++ b/drivers/staging/rtl8192e/rtllib_softmac.c
+> @@ -1991,7 +1991,7 @@ static short rtllib_sta_ps_sleep(struct rtllib_de=
+vice *ieee, u64 *time)
+>  		return 2;
+> =20
+>  	if (!time_after(jiffies,
+> -			ieee->dev->trans_start + msecs_to_jiffies(timeout)))
+> +			dev_trans_start(ieee->dev) + msecs_to_jiffies(timeout)))
+>  		return 0;
+>  	if (!time_after(jiffies,
+>  			ieee->last_rx_ps_time + msecs_to_jiffies(timeout)))
+> diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c b/d=
+rivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
+> index ae1274c..de71450 100644
+> --- a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
+> +++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
+> @@ -1737,7 +1737,7 @@ static short ieee80211_sta_ps_sleep(struct ieee80=
+211_device *ieee, u32 *time_h,
+>  		return 2;
+> =20
+>  	if(!time_after(jiffies,
+> -		       ieee->dev->trans_start + msecs_to_jiffies(timeout)))
+> +		       dev_trans_start(ieee->dev) + msecs_to_jiffies(timeout)))
+>  		return 0;
+> =20
+>  	if(!time_after(jiffies,
+>=20
 
+
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+              GPG KeyID: 0E572FDD
+
+
+
+--978cihIIG1clfpM2h1eOhkOiMxPj7sISJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJXNNwLAAoJELgmozMOVy/dAcEP/0CkWNUUOAj/oJg0JzJr6uGm
+oWfdhul/GP8X4SL/MuMES+Zj2u0U3hTngWpDj+59dkKYIBnuNijjCFnpYdzbPXrw
+F3UCHDoDdVfc+ANCtwoaFT5juSJMimTWSQF4ql9wy3yIOjhc62hiqWmUwBZoDyeH
+NDqq1E7ay7x8g8GOEGikFcDxWrwOIA2mBMNY7+8jgVgcF5aPLEXHb5eapzVh+bCB
+KLHv1Jej7hx0zIga+pOe4Cyi2b9Wn/iBuGvwxiLp2inkf2UqaeuGn+a8Hm5xCF0U
+6nOQ1gT+Q5VUZQnqKrzwmTq3CeWoSm9cl4FRfr/fiKmL3SGZ/J22aYKnHPB5js4+
+CAsn+3piZb9EPaPlidPx0qpl7M4AAfrFGIfCNfVS8ypS+Gx1p4GRu2W7vIR62wa3
+Xw6DhXwG/C9bkeO6415pxWLYmqyrZ55EMbHmV/EckzQF/UBGE8ZyU/uZrh3pYrat
+FYo3QuYg/OOvvgtA/xtNB9CiVU6OouPYq1+B+AGXDRRBtPuSK45UR7RIvrw4ZEqH
+WVEpH1jyg9n+70NVHNq0TR5mafal3IS2kM1eJIQwoD5mYNItUzoi4S0xqlhcEGzZ
+cPS+3Sx6SoRdhz+PnbA/epOb25k9w8rovaVDAPU2CjlriP6HaNop4r09THPeCI07
+lwKZoDJxopRDwZ9qbX8S
+=xm9L
+-----END PGP SIGNATURE-----
+
+--978cihIIG1clfpM2h1eOhkOiMxPj7sISJ--
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
