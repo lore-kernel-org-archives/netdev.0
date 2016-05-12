@@ -1,7 +1,7 @@
-From: Paolo Abeni <pabeni@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Thu, 12 May 2016 22:58:34 +0200
-Message-ID: <1463086714.5281.8.camel@redhat.com>
+Date: Thu, 12 May 2016 14:05:18 -0700
+Message-ID: <1463087118.23934.168.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <cover.1462886866.git.pabeni@redhat.com>
 	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
 	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
@@ -12,6 +12,7 @@ References: <cover.1462886866.git.pabeni@redhat.com>
 	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
 	 <1463083620.5281.1.camel@redhat.com>
 	 <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463086714.5281.8.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -28,39 +29,54 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
 	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
 	LKML <linux-kernel@vger.kernel.org>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <1463086714.5281.8.camel@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-05-12 at 13:49 -0700, Eric Dumazet wrote:
-> On Thu, 2016-05-12 at 22:07 +0200, Paolo Abeni wrote:
-> 
-> > > > static inline bool ksoftirqd_running(void)
-> > > > {
-> > > > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
+On Thu, 2016-05-12 at 22:58 +0200, Paolo Abeni wrote:
+> On Thu, 2016-05-12 at 13:49 -0700, Eric Dumazet wrote:
+> > On Thu, 2016-05-12 at 22:07 +0200, Paolo Abeni wrote:
 > > 
-> > here something like:
+> > > > > static inline bool ksoftirqd_running(void)
+> > > > > {
+> > > > > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
+> > > 
+> > > here something like:
+> > > 
+> > > 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+> > >         return tsk && (tsk->state == TASK_RUNNING);
+> > > 
+> > > is needed since __this_cpu_read(ksoftirqd) can be NULL on boot.
 > > 
-> > 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
-> >         return tsk && (tsk->state == TASK_RUNNING);
+> > Indeed I've seen this but only when backporting to an older linux kernel
+> > this morning.
 > > 
-> > is needed since __this_cpu_read(ksoftirqd) can be NULL on boot.
+> > Have you got this with current linux kernel ?
 > 
-> Indeed I've seen this but only when backporting to an older linux kernel
-> this morning.
+> Yes, on net-next updated to 
 > 
-> Have you got this with current linux kernel ?
+> commit c66b2581123cd1527b6a084f39e9271cb02673b7
+> Author: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Date:   Sat May 7 14:09:01 2016 -0700
+> 
+>     sh_eth: reuse sh_eth_chip_reset()
+> 
 
-Yes, on net-next updated to 
+Yeah, I was unsure if the same test in wakeup_softirqd() was still
+relevant today.
 
-commit c66b2581123cd1527b6a084f39e9271cb02673b7
-Author: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date:   Sat May 7 14:09:01 2016 -0700
+static void wakeup_softirqd(void)
+{
+        /* Interrupts are disabled: no need to stop preemption */
+        struct task_struct *tsk = __this_cpu_read(ksoftirqd);
 
-    sh_eth: reuse sh_eth_chip_reset()
+        if (tsk && tsk->state != TASK_RUNNING)
+                wake_up_process(tsk);
+}
 
-Cheers,
 
-Paolo
+I guess we could avoid the NULL test if all these per_cpu var where
+pointing to a dummy task_struct at boot time, before they are properly
+allocated.
