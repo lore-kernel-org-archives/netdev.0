@@ -1,27 +1,52 @@
 From: Harvey Hunt <harvey.hunt@imgtec.com>
 Subject: Re: [PATCH net] drivers: net: Don't print unpopulated net_device name
-Date: Thu, 12 May 2016 14:27:10 +0100
-Message-ID: <573484AE.2040507@imgtec.com>
+Date: Thu, 12 May 2016 14:27:50 +0100
+Message-ID: <573484D6.1080500@imgtec.com>
 References: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
- <20160511.192631.759104843385712307.davem@davemloft.net>
+ <20160510113148.4b4d0d6d@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <robert.jarzmik@free.fr>, <Baohua.Song@csr.com>,
-	<marcel@ziswiler.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <davem@davemloft.net>, Robert Jarzmik <robert.jarzmik@free.fr>,
+	Barry Song <Baohua.Song@csr.com>,
+	Marcel Ziswiler <marcel@ziswiler.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160511.192631.759104843385712307.davem@davemloft.net>
+In-Reply-To: <20160510113148.4b4d0d6d@xeon-e3>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hi Stephen,
 
-On 12/05/16 00:26, David Miller wrote:
-> From: Harvey Hunt <harvey.hunt@imgtec.com>
-> Date: Tue, 10 May 2016 17:43:21 +0100
+On 10/05/16 19:31, Stephen Hemminger wrote:
+> On Tue, 10 May 2016 17:43:21 +0100
+> Harvey Hunt <harvey.hunt@imgtec.com> wrote:
 >
+>> For ethernet devices, net_device.name will be eth%d before
+>> register_netdev() is called. Don't print the net_device name until
+>> the format string is replaced.
+>>
+>> Cc: Robert Jarzmik <robert.jarzmik@free.fr>
+>> Cc: Barry Song <Baohua.Song@csr.com>
+>> Cc: Marcel Ziswiler <marcel@ziswiler.com>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-kernel@vger.kernel.org
+>>
+>> Signed-off-by: Harvey Hunt <harvey.hunt@imgtec.com>
+>> ---
+>> I've tested this patch on a board that has a DM9000, but haven't
+>> tested the other two network devices.
+>>
+>>   drivers/net/ethernet/davicom/dm9000.c   | 3 +--
+>>   drivers/net/ethernet/micrel/ks8695net.c | 3 +--
+>>   drivers/net/ethernet/netx-eth.c         | 3 +--
+>>   3 files changed, 3 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+>> index 48d9194..89dcaa1 100644
+>> --- a/drivers/net/ethernet/davicom/dm9000.c
+>> +++ b/drivers/net/ethernet/davicom/dm9000.c
 >> @@ -1686,8 +1686,7 @@ dm9000_probe(struct platform_device *pdev)
 >>   	}
 >>
@@ -29,20 +54,11 @@ On 12/05/16 00:26, David Miller wrote:
 >> -		dev_warn(db->dev, "%s: Invalid ethernet MAC address. Please "
 >> -			 "set using ifconfig\n", ndev->name);
 >> +		dev_warn(db->dev, "Invalid ethernet MAC address. Please set using ifconfig\n");
->>
->>   		eth_hw_addr_random(ndev);
->>   		mac_src = "random";
 >
-> If we don't print the netdev name, it's harder for the user to see which
-> adapter has the problem.
->
-> Therefore, it is better if you save some boolean state into a local variable
-> here, then print the warning right after register_netdev().
->
-> Likewise for the rest of your changes too.
+> ifconfig is deprecated, therefore please don't tell users to use it.
 >
 
-Okay, I'll do that for v2.
+I'll update it to print "Please set using ip".
 
 Thanks,
 
