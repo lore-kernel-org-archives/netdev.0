@@ -1,82 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Thu, 12 May 2016 14:05:18 -0700
-Message-ID: <1463087118.23934.168.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
-	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1463083620.5281.1.camel@redhat.com>
-	 <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1463086714.5281.8.camel@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: default to 64-bit DMA on systems without memory
+ below 4 GB
+Date: Thu, 12 May 2016 23:09:09 +0200
+Message-ID: <20160512210909.GA9234@electric-eye.fr.zoreil.com>
+References: <CAKv+Gu-UcEnvFcK+6GSHkas5V5ZUMawc2K_EfRpW3K+jLNB4+A@mail.gmail.com>
+ <20160512140920.GA28073@electric-eye.fr.zoreil.com>
+ <CAKv+Gu-0xuE3HuTeXncZt2QoM50dxLKAtBEaZCMy3m5TAak0mg@mail.gmail.com>
+ <20160512203753.GA8550@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463086714.5281.8.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Ricardo Salveti <ricardo.salveti@linaro.org>,
+	Leo Duran <leo.duran@amd.com>,
+	G Gregory <graeme.gregory@linaro.org>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Chunhao Lin <hau@realtek.com>
+To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57830 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751242AbcELVJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 17:09:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20160512203753.GA8550@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-05-12 at 22:58 +0200, Paolo Abeni wrote:
-> On Thu, 2016-05-12 at 13:49 -0700, Eric Dumazet wrote:
-> > On Thu, 2016-05-12 at 22:07 +0200, Paolo Abeni wrote:
-> > 
-> > > > > static inline bool ksoftirqd_running(void)
-> > > > > {
-> > > > > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
-> > > 
-> > > here something like:
-> > > 
-> > > 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
-> > >         return tsk && (tsk->state == TASK_RUNNING);
-> > > 
-> > > is needed since __this_cpu_read(ksoftirqd) can be NULL on boot.
-> > 
-> > Indeed I've seen this but only when backporting to an older linux kernel
-> > this morning.
-> > 
-> > Have you got this with current linux kernel ?
+Francois Romieu <romieu@fr.zoreil.com> :
+> Ard Biesheuvel <ard.biesheuvel@linaro.org> :
+> > On 12 May 2016 at 16:09, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> [...]
+> > By resurrecting 353176888386, I mean the patch that changes the
+> > default for PCI express devices, so I think we are in agreement here ?
 > 
-> Yes, on net-next updated to 
+> Almost 353176888386: please modify it so that there's no change of
+> behavior for mac_version < RTL_GIGA_MAC_VER_18.
 > 
-> commit c66b2581123cd1527b6a084f39e9271cb02673b7
-> Author: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Date:   Sat May 7 14:09:01 2016 -0700
-> 
->     sh_eth: reuse sh_eth_chip_reset()
-> 
+> It will avoid a bit more than the plain old PCI chipsets, including the
+> one that caused 353176888386 reversal as well as a few one that I don't
+> feel confortable with due to their vicinity with the original 8169.
 
-Yeah, I was unsure if the same test in wakeup_softirqd() was still
-relevant today.
+The patch below may be of use before refreshing 353176888386:
 
-static void wakeup_softirqd(void)
-{
-        /* Interrupts are disabled: no need to stop preemption */
-        struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+Btw I have to find a way to force descriptor ring allocation above 4G
+because none of my testing has exercized it so far but my tax
+paperwork can't wait.
 
-        if (tsk && tsk->state != TASK_RUNNING)
-                wake_up_process(tsk);
-}
+Good luck.
 
-
-I guess we could avoid the NULL test if all these per_cpu var where
-pointing to a dummy task_struct at boot time, before they are properly
-allocated.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 94f08f1..ac23240 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -8224,20 +8224,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_mwi_2;
+ 	}
+ 
+-	tp->cp_cmd = 0;
+-
+-	if ((sizeof(dma_addr_t) > 4) &&
+-	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
+-		tp->cp_cmd |= PCIDAC;
+-		dev->features |= NETIF_F_HIGHDMA;
+-	} else {
+-		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+-		if (rc < 0) {
+-			netif_err(tp, probe, dev, "DMA configuration failed\n");
+-			goto err_out_free_res_3;
+-		}
+-	}
+-
+ 	/* ioremap MMIO region */
+ 	ioaddr = ioremap(pci_resource_start(pdev, region), R8169_REGS_SIZE);
+ 	if (!ioaddr) {
+@@ -8253,6 +8239,20 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* Identify chip attached to board */
+ 	rtl8169_get_mac_version(tp, dev, cfg->default_ver);
+ 
++	tp->cp_cmd = 0;
++
++	if ((sizeof(dma_addr_t) > 4) &&
++	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
++		tp->cp_cmd |= PCIDAC;
++		dev->features |= NETIF_F_HIGHDMA;
++	} else {
++		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++		if (rc < 0) {
++			netif_err(tp, probe, dev, "DMA configuration failed\n");
++			goto err_out_unmap_4;
++		}
++	}
++
+ 	rtl_init_rxcfg(tp);
+ 
+ 	rtl_irq_disable(tp);
+@@ -8412,12 +8412,12 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 					   &tp->counters_phys_addr, GFP_KERNEL);
+ 	if (!tp->counters) {
+ 		rc = -ENOMEM;
+-		goto err_out_msi_4;
++		goto err_out_msi_5;
+ 	}
+ 
+ 	rc = register_netdev(dev);
+ 	if (rc < 0)
+-		goto err_out_cnt_5;
++		goto err_out_cnt_6;
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+@@ -8451,12 +8451,13 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ out:
+ 	return rc;
+ 
+-err_out_cnt_5:
++err_out_cnt_6:
+ 	dma_free_coherent(&pdev->dev, sizeof(*tp->counters), tp->counters,
+ 			  tp->counters_phys_addr);
+-err_out_msi_4:
++err_out_msi_5:
+ 	netif_napi_del(&tp->napi);
+ 	rtl_disable_msi(pdev, tp);
++err_out_unmap_4:
+ 	iounmap(ioaddr);
+ err_out_free_res_3:
+ 	pci_release_regions(pdev);
