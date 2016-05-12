@@ -1,57 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: default to 64-bit DMA on systems without memory
- below 4 GB
-Date: Thu, 12 May 2016 22:37:53 +0200
-Message-ID: <20160512203753.GA8550@electric-eye.fr.zoreil.com>
-References: <CAKv+Gu-UcEnvFcK+6GSHkas5V5ZUMawc2K_EfRpW3K+jLNB4+A@mail.gmail.com>
- <20160512140920.GA28073@electric-eye.fr.zoreil.com>
- <CAKv+Gu-0xuE3HuTeXncZt2QoM50dxLKAtBEaZCMy3m5TAak0mg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Thu, 12 May 2016 13:49:39 -0700
+Message-ID: <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
+	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463083620.5281.1.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Ricardo Salveti <ricardo.salveti@linaro.org>,
-	Leo Duran <leo.duran@amd.com>,
-	G Gregory <graeme.gregory@linaro.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Chunhao Lin <hau@realtek.com>
-To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57737 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148AbcELUiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:38:09 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKv+Gu-0xuE3HuTeXncZt2QoM50dxLKAtBEaZCMy3m5TAak0mg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463083620.5281.1.camel@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ard Biesheuvel <ard.biesheuvel@linaro.org> :
-> On 12 May 2016 at 16:09, Francois Romieu <romieu@fr.zoreil.com> wrote:
-[...]
-> By resurrecting 353176888386, I mean the patch that changes the
-> default for PCI express devices, so I think we are in agreement here ?
+On Thu, 2016-05-12 at 22:07 +0200, Paolo Abeni wrote:
 
-Almost 353176888386: please modify it so that there's no change of
-behavior for mac_version < RTL_GIGA_MAC_VER_18.
-
-It will avoid a bit more than the plain old PCI chipsets, including the
-one that caused 353176888386 reversal as well as a few one that I don't
-feel confortable with due to their vicinity with the original 8169.
-
-[...]
-> > A few news from the "pathologically better safe than sorry" squad:
-> > I have switched the default on a couple of non-critical production
-> > servers that include 8168c (RTL_GIGA_MAC_VER_22). It should give an hint
-> > for hardware from 2008 ~ 2009. I'll do some basic sanity testing with
-> > different chipsets.
-> >
+> > > static inline bool ksoftirqd_running(void)
+> > > {
+> > > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
 > 
-> Thanks for testing that. In the mean time, I will dust off the patch
-> and rebase it to today's -next.
+> here something like:
+> 
+> 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+>         return tsk && (tsk->state == TASK_RUNNING);
+> 
+> is needed since __this_cpu_read(ksoftirqd) can be NULL on boot.
 
-8106e (RTL_GIGA_MAC_VER_39) doesn't exhibit any difference of behavior
-either.
+Indeed I've seen this but only when backporting to an older linux kernel
+this morning.
 
--- 
-Ueimor
+Have you got this with current linux kernel ?
