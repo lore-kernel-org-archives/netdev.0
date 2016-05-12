@@ -1,159 +1,138 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 3/4] net: core: add SW stats to if_stats_msg
-Date: Thu, 12 May 2016 13:44:05 +0200
-Message-ID: <20160512114405.GA2070@nanopsycho.orion>
-References: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
- <1463047198-10630-4-git-send-email-jiri@resnulli.us>
- <53FEDB49-7A52-4247-8B6C-572FEF2C6475@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	nogahf@mellanox.com, Ido Schimmel <idosch@mellanox.com>,
+Subject: [patch net-next 4/4] mlxsw: spectrum: Implement SW stats ndo and expose HW stats by default
+Date: Thu, 12 May 2016 13:48:50 +0200
+Message-ID: <1463053730-14991-5-git-send-email-jiri@resnulli.us>
+References: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
 	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	linville@tuxdriver.com, tgraf@suug.ch,
-	Andy Gospodarek <gospo@cumulusnetworks.com>, sfeldma@gmail.com,
-	sd@queasysnail.net, eranbe@mellanox.com, ast@plumgrid.com,
-	edumazet@google.com, hannes@stressinduktion.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32893 "EHLO
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33579 "EHLO
 	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929AbcELLoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 07:44:08 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r12so15615793wme.0
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 04:44:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <53FEDB49-7A52-4247-8B6C-572FEF2C6475@cumulusnetworks.com>
+	with ESMTP id S932120AbcELLs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 07:48:57 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r12so15648285wme.0
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 04:48:56 -0700 (PDT)
+In-Reply-To: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, May 12, 2016 at 01:33:11PM CEST, nikolay@cumulusnetworks.com wrote:
->
->> On May 12, 2016, at 12:59 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> 
->> From: Nogah Frankel <nogahf@mellanox.com>
->> 
->> If there is a dedicated ndo to return SW stats - use
->> it. Otherwise (indicates that there is no HW stats) use
->> the default stats ndo.
->> Return results under IFLA_STATS_LINK_SW_64.
->> 
->> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
->> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->> include/uapi/linux/if_link.h |  1 +
->> net/core/rtnetlink.c         | 35 +++++++++++++++++++++++++++++------
->> 2 files changed, 30 insertions(+), 6 deletions(-)
->> 
->> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->> index 98175e7..fcfb944 100644
->> --- a/include/uapi/linux/if_link.h
->> +++ b/include/uapi/linux/if_link.h
->> @@ -823,6 +823,7 @@ enum {
->> 	IFLA_STATS_UNSPEC, /* also used as 64bit pad attribute */
->> 	IFLA_STATS_LINK_64,
->> 	IFLA_STATS_LINK_XSTATS,
->> +	IFLA_STATS_LINK_SW_64,
->> 	__IFLA_STATS_MAX,
->> };
->> 
->> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->> index a127d67..f8b12e4 100644
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -3481,6 +3481,9 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
->> 	struct nlmsghdr *nlh;
->> 	struct nlattr *attr;
->> 	int s_prividx = *prividx;
->> +	struct rtnl_link_stats64 *sp;
->> +	struct rtnl_link_stats64 *stats64_sp = 0;
->
->s/0/NULL/
->net/core//rtnetlink.c:3485:48: warning: Using plain integer as NULL pointer
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Will fix and send v2. Thanks.
+Add a function to get the SW statistics with an ndo
+Change the default statistics ndo to return HW statistics
+(like the one returned by ethtool_ops)
 
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 65 ++++++++++++++++++++++----
+ 1 file changed, 57 insertions(+), 8 deletions(-)
 
->
->> +	int err;
->> 
->> 	ASSERT_RTNL();
->> 
->> @@ -3493,24 +3496,20 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
->> 	ifsm->filter_mask = filter_mask;
->> 
->> 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, *idxattr)) {
->> -		struct rtnl_link_stats64 *sp;
->> -
->> 		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_64,
->> 					 sizeof(struct rtnl_link_stats64),
->> 					 IFLA_STATS_UNSPEC);
->> 		if (!attr)
->> 			goto nla_put_failure;
->> 
->> -		sp = nla_data(attr);
->> -		dev_get_stats(dev, sp);
->> +		stats64_sp = nla_data(attr);
->> +		dev_get_stats(dev, stats64_sp);
->> 	}
->> 
->> 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, *idxattr)) {
->> 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
->> 
->> 		if (ops && ops->fill_linkxstats) {
->> -			int err;
->> -
->> 			*idxattr = IFLA_STATS_LINK_XSTATS;
->> 			attr = nla_nest_start(skb,
->> 					      IFLA_STATS_LINK_XSTATS);
->> @@ -3525,6 +3524,27 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
->> 		}
->> 	}
->> 
->> +	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, *idxattr)) {
->> +		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_SW_64,
->> +					 sizeof(struct rtnl_link_stats64),
->> +					 IFLA_STATS_UNSPEC);
->> +		if (!attr)
->> +			goto nla_put_failure;
->> +
->> +		sp = nla_data(attr);
->> +		err = dev_get_sw_stats(dev, sp);
->> +		if (err) {
->> +			/* if err it means there is no dedicated ndo to
->> +			 * get SW stats - so it is returned by the default
->> +			 * stats ndo
->> +			 */
->> +			if (stats64_sp)
->> +				copy_rtnl_link_stats64(sp, stats64_sp);
->> +			else
->> +				dev_get_stats(dev, sp);
->> +		}
->> +	}
->> +
->> 	nlmsg_end(skb, nlh);
->> 
->> 	return 0;
->> @@ -3541,6 +3561,7 @@ nla_put_failure:
->> 
->> static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
->> 	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
->> +	[IFLA_STATS_LINK_SW_64] = { .len = sizeof(struct rtnl_link_stats64) },
->> };
->> 
->> static size_t if_nlmsg_stats_size(const struct net_device *dev,
->> @@ -3550,6 +3571,8 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
->> 
->> 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
->> 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
->> +	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, 0))
->> +		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
->> 
->> 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, 0)) {
->> 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
->> -- 
->> 2.5.5
->> 
->
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 4a72737..956e724 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -535,8 +535,8 @@ err_port_mtu_set:
+ }
+ 
+ static struct rtnl_link_stats64 *
+-mlxsw_sp_port_get_stats64(struct net_device *dev,
+-			  struct rtnl_link_stats64 *stats)
++mlxsw_sp_port_get_sw_stats64(struct net_device *dev,
++			     struct rtnl_link_stats64 *stats)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+ 	struct mlxsw_sp_port_pcpu_stats *p;
+@@ -566,6 +566,59 @@ mlxsw_sp_port_get_stats64(struct net_device *dev,
+ 	return stats;
+ }
+ 
++static int mlxsw_sp_port_get_stats_raw(struct net_device *dev,
++				       char *ppcnt_pl)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	int err;
++
++	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port,
++			     MLXSW_REG_PPCNT_IEEE_8023_CNT, 0);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
++	return err;
++}
++
++static struct rtnl_link_stats64 *
++mlxsw_sp_port_get_stats64(struct net_device *dev,
++			  struct rtnl_link_stats64 *stats)
++{
++	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
++	int err;
++
++	err =  mlxsw_sp_port_get_stats_raw(dev, ppcnt_pl);
++	if (err)
++		goto out;
++
++	stats->tx_packets =
++		mlxsw_reg_ppcnt_a_frames_transmitted_ok_get(ppcnt_pl);
++	stats->rx_packets =
++		mlxsw_reg_ppcnt_a_frames_received_ok_get(ppcnt_pl);
++	stats->tx_bytes =
++		mlxsw_reg_ppcnt_a_octets_transmitted_ok_get(ppcnt_pl);
++	stats->rx_bytes =
++		mlxsw_reg_ppcnt_a_octets_received_ok_get(ppcnt_pl);
++	stats->multicast =
++		mlxsw_reg_ppcnt_a_multicast_frames_received_ok_get(ppcnt_pl);
++	stats->multicast +=
++		mlxsw_reg_ppcnt_a_broadcast_frames_received_ok_get(ppcnt_pl);
++
++	stats->rx_crc_errors =
++		mlxsw_reg_ppcnt_a_frame_check_sequence_errors_get(ppcnt_pl);
++	stats->rx_frame_errors =
++		mlxsw_reg_ppcnt_a_alignment_errors_get(ppcnt_pl);
++
++	stats->rx_length_errors = (
++		mlxsw_reg_ppcnt_a_in_range_length_errors_get(ppcnt_pl) +
++		mlxsw_reg_ppcnt_a_out_of_range_length_field_get(ppcnt_pl) +
++		mlxsw_reg_ppcnt_a_frame_too_long_errors_get(ppcnt_pl));
++
++	stats->rx_errors = (stats->rx_crc_errors +
++		stats->rx_frame_errors + stats->rx_length_errors);
++out:
++	return stats;
++}
++
+ int mlxsw_sp_port_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid_begin,
+ 			   u16 vid_end, bool is_member, bool untagged)
+ {
+@@ -980,6 +1033,7 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_set_mac_address	= mlxsw_sp_port_set_mac_address,
+ 	.ndo_change_mtu		= mlxsw_sp_port_change_mtu,
+ 	.ndo_get_stats64	= mlxsw_sp_port_get_stats64,
++	.ndo_get_sw_stats64     = mlxsw_sp_port_get_sw_stats64,
+ 	.ndo_vlan_rx_add_vid	= mlxsw_sp_port_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= mlxsw_sp_port_kill_vid,
+ 	.ndo_fdb_add		= switchdev_port_fdb_add,
+@@ -1200,15 +1254,10 @@ static int mlxsw_sp_port_set_phys_id(struct net_device *dev,
+ static void mlxsw_sp_port_get_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *data)
+ {
+-	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
+ 	int i;
+ 	int err;
+-
+-	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port,
+-			     MLXSW_REG_PPCNT_IEEE_8023_CNT, 0);
+-	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
++	err = mlxsw_sp_port_get_stats_raw(dev, ppcnt_pl);
+ 	for (i = 0; i < MLXSW_SP_PORT_HW_STATS_LEN; i++)
+ 		data[i] = !err ? mlxsw_sp_port_hw_stats[i].getter(ppcnt_pl) : 0;
+ }
+-- 
+2.5.5
