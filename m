@@ -1,27 +1,275 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/14] qed*: Add SR-IOV support
-Date: Thu, 12 May 2016 15:30:17 -0400 (EDT)
-Message-ID: <20160512.153017.1217159985120994302.davem@davemloft.net>
-References: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59205 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932307AbcELTaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 15:30:19 -0400
-In-Reply-To: <1462973785-32532-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [RFC] wcn36xx: Implement firmware assisted scan
+Date: Thu, 12 May 2016 12:33:25 -0700
+Message-ID: <1463081605-27971-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jouni Malinen <j@w1.fi>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Wed, 11 May 2016 16:36:11 +0300
+Using the software based channel scan mechanism from mac80211 keeps us
+offline for 10-15 second, we should instead issue a start_scan/end_scan
+on each channel reducing this time.
 
-> This patch adds SR-IOV support to qed/qede drivers, adding a new PCI
-> device ID for a VF that is shared between all the various PFs that
-> support IOV.
+Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
 
-Series applied.
+With this implementation I see a reduction of throughput for about 1-2 seconds
+with iperf while scanning, so the improvement is clear.
+
+The problem with the implementation is that ieee80211_rx_status must specify
+the correct band for the core to not drop the beacons. I have searched for
+indications in the incoming data, but am not able to find anything useful, so
+this currently rely on shared state (scan_freq/scan_band) that gets updated
+during scan.
+
+If anyone familiar with this hardware have any suggestions on how to better
+deal with this I would appreciate the feedback.
+
+ drivers/net/wireless/ath/wcn36xx/main.c    | 62 ++++++++++++++++++++++++------
+ drivers/net/wireless/ath/wcn36xx/smd.c     |  8 ++--
+ drivers/net/wireless/ath/wcn36xx/smd.h     |  4 +-
+ drivers/net/wireless/ath/wcn36xx/txrx.c    | 19 ++++++---
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  9 +++++
+ 5 files changed, 79 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index 25a492d7504b..20ff661694ed 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -489,23 +489,57 @@ out:
+ 	return ret;
+ }
+ 
+-static void wcn36xx_sw_scan_start(struct ieee80211_hw *hw,
+-				  struct ieee80211_vif *vif,
+-				  const u8 *mac_addr)
++static void wcn36xx_hw_scan_worker(struct work_struct *work)
+ {
+-	struct wcn36xx *wcn = hw->priv;
++	struct wcn36xx *wcn = container_of(work, struct wcn36xx, scan_work);
++	struct cfg80211_scan_request *req = wcn->scan_req;
++	u8 channels[WCN36XX_HAL_PNO_MAX_NETW_CHANNELS_EX];
++	int i;
++
++	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac80211 scan %d channels worker\n", req->n_channels);
++
++	for (i = 0; i < req->n_channels; i++)
++		channels[i] = req->channels[i]->hw_value;
++
++	wcn36xx_smd_update_scan_params(wcn, channels, req->n_channels);
+ 
+ 	wcn36xx_smd_init_scan(wcn, HAL_SYS_MODE_SCAN);
+-	wcn36xx_smd_start_scan(wcn);
++	for (i = 0; i < req->n_channels; i++) {
++		wcn->scan_freq = req->channels[i]->center_freq;
++		wcn->scan_band = req->channels[i]->band;
++
++		wcn36xx_smd_start_scan(wcn, req->channels[i]->hw_value);
++		msleep(30);
++		wcn36xx_smd_end_scan(wcn, req->channels[i]->hw_value);
++
++		wcn->scan_freq = 0;
++	}
++	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
++
++	ieee80211_scan_completed(wcn->hw, false);
++
++	mutex_lock(&wcn->scan_lock);
++	wcn->scan_req = NULL;
++	mutex_unlock(&wcn->scan_lock);
+ }
+ 
+-static void wcn36xx_sw_scan_complete(struct ieee80211_hw *hw,
+-				     struct ieee80211_vif *vif)
++static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
++			   struct ieee80211_vif *vif,
++			   struct ieee80211_scan_request *hw_req)
+ {
+ 	struct wcn36xx *wcn = hw->priv;
+ 
+-	wcn36xx_smd_end_scan(wcn);
+-	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
++	mutex_lock(&wcn->scan_lock);
++	if (wcn->scan_req) {
++		mutex_unlock(&wcn->scan_lock);
++		return -EBUSY;
++	}
++	wcn->scan_req = &hw_req->req;
++	mutex_unlock(&wcn->scan_lock);
++
++	schedule_work(&wcn->scan_work);
++
++	return 0;
+ }
+ 
+ static void wcn36xx_update_allowed_rates(struct ieee80211_sta *sta,
+@@ -919,8 +953,7 @@ static const struct ieee80211_ops wcn36xx_ops = {
+ 	.configure_filter       = wcn36xx_configure_filter,
+ 	.tx			= wcn36xx_tx,
+ 	.set_key		= wcn36xx_set_key,
+-	.sw_scan_start		= wcn36xx_sw_scan_start,
+-	.sw_scan_complete	= wcn36xx_sw_scan_complete,
++	.hw_scan		= wcn36xx_hw_scan,
+ 	.bss_info_changed	= wcn36xx_bss_info_changed,
+ 	.set_rts_threshold	= wcn36xx_set_rts_threshold,
+ 	.sta_add		= wcn36xx_sta_add,
+@@ -945,6 +978,7 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	ieee80211_hw_set(wcn->hw, SUPPORTS_PS);
+ 	ieee80211_hw_set(wcn->hw, SIGNAL_DBM);
+ 	ieee80211_hw_set(wcn->hw, HAS_RATE_CONTROL);
++	ieee80211_hw_set(wcn->hw, SINGLE_SCAN_ON_ALL_BANDS);
+ 
+ 	wcn->hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
+ 		BIT(NL80211_IFTYPE_AP) |
+@@ -954,6 +988,9 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	wcn->hw->wiphy->bands[IEEE80211_BAND_2GHZ] = &wcn_band_2ghz;
+ 	wcn->hw->wiphy->bands[IEEE80211_BAND_5GHZ] = &wcn_band_5ghz;
+ 
++	wcn->hw->wiphy->max_scan_ssids = WCN36XX_MAX_SCAN_SSIDS;
++	wcn->hw->wiphy->max_scan_ie_len = WCN36XX_MAX_SCAN_IE_LEN;
++
+ 	wcn->hw->wiphy->cipher_suites = cipher_suites;
+ 	wcn->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
+ 
+@@ -1074,6 +1111,9 @@ static int wcn36xx_probe(struct platform_device *pdev)
+ 	wcn->hw = hw;
+ 	wcn->dev = &pdev->dev;
+ 	mutex_init(&wcn->hal_mutex);
++	mutex_init(&wcn->scan_lock);
++
++	INIT_WORK(&wcn->scan_work, wcn36xx_hw_scan_worker);
+ 
+ 	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process);
+ 	if (IS_ERR(wcn->smd_channel)) {
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+index 377c4bfb84ee..aa65d8ec7abf 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -528,7 +528,7 @@ out:
+ 	return ret;
+ }
+ 
+-int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
++int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel)
+ {
+ 	struct wcn36xx_hal_start_scan_req_msg msg_body;
+ 	int ret = 0;
+@@ -536,7 +536,7 @@ int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_START_SCAN_REQ);
+ 
+-	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
++	msg_body.scan_channel = scan_channel;
+ 
+ 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
+ 
+@@ -558,7 +558,7 @@ out:
+ 	return ret;
+ }
+ 
+-int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
++int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel)
+ {
+ 	struct wcn36xx_hal_end_scan_req_msg msg_body;
+ 	int ret = 0;
+@@ -566,7 +566,7 @@ int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_END_SCAN_REQ);
+ 
+-	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
++	msg_body.scan_channel = scan_channel;
+ 
+ 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
+ 
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
+index 82e3b37b669e..e4574c87528a 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.h
++++ b/drivers/net/wireless/ath/wcn36xx/smd.h
+@@ -69,8 +69,8 @@ int wcn36xx_smd_load_nv(struct wcn36xx *wcn);
+ int wcn36xx_smd_start(struct wcn36xx *wcn);
+ int wcn36xx_smd_stop(struct wcn36xx *wcn);
+ int wcn36xx_smd_init_scan(struct wcn36xx *wcn, enum wcn36xx_hal_sys_mode mode);
+-int wcn36xx_smd_start_scan(struct wcn36xx *wcn);
+-int wcn36xx_smd_end_scan(struct wcn36xx *wcn);
++int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel);
++int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel);
+ int wcn36xx_smd_finish_scan(struct wcn36xx *wcn,
+ 			    enum wcn36xx_hal_sys_mode mode);
+ int wcn36xx_smd_update_scan_params(struct wcn36xx *wcn, u8 *channels, size_t channel_count);
+diff --git a/drivers/net/wireless/ath/wcn36xx/txrx.c b/drivers/net/wireless/ath/wcn36xx/txrx.c
+index 9bec8237231d..1754027d6500 100644
+--- a/drivers/net/wireless/ath/wcn36xx/txrx.c
++++ b/drivers/net/wireless/ath/wcn36xx/txrx.c
+@@ -45,9 +45,20 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
+ 	skb_put(skb, bd->pdu.mpdu_header_off + bd->pdu.mpdu_len);
+ 	skb_pull(skb, bd->pdu.mpdu_header_off);
+ 
++	hdr = (struct ieee80211_hdr *) skb->data;
++	fc = __le16_to_cpu(hdr->frame_control);
++	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
++
++	/* When scanning associate beacons to this */
++	if (ieee80211_is_beacon(hdr->frame_control) && wcn->scan_freq) {
++		status.freq = wcn->scan_freq;
++		status.band = wcn->scan_band;
++	} else {
++		status.freq = WCN36XX_CENTER_FREQ(wcn);
++		status.band = WCN36XX_BAND(wcn);
++	}
++
+ 	status.mactime = 10;
+-	status.freq = WCN36XX_CENTER_FREQ(wcn);
+-	status.band = WCN36XX_BAND(wcn);
+ 	status.signal = -get_rssi0(bd);
+ 	status.antenna = 1;
+ 	status.rate_idx = 1;
+@@ -61,10 +72,6 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
+ 
+ 	memcpy(IEEE80211_SKB_RXCB(skb), &status, sizeof(status));
+ 
+-	hdr = (struct ieee80211_hdr *) skb->data;
+-	fc = __le16_to_cpu(hdr->frame_control);
+-	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
+-
+ 	if (ieee80211_is_beacon(hdr->frame_control)) {
+ 		wcn36xx_dbg(WCN36XX_DBG_BEACON, "beacon skb %p len %d fc %04x sn %d\n",
+ 			    skb, skb->len, fc, sn);
+diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+index 38d55804ffaf..45d2db99e12c 100644
+--- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
++++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+@@ -35,6 +35,9 @@
+ /* How many frames until we start a-mpdu TX session */
+ #define WCN36XX_AMPDU_START_THRESH	20
+ 
++#define WCN36XX_MAX_SCAN_SSIDS		9
++#define WCN36XX_MAX_SCAN_IE_LEN		500
++
+ extern unsigned int wcn36xx_dbg_mask;
+ 
+ enum wcn36xx_debug_mask {
+@@ -212,6 +215,12 @@ struct wcn36xx {
+ 	spinlock_t		hal_ind_lock;
+ 	struct list_head	hal_ind_queue;
+ 
++	struct work_struct	scan_work;
++	struct cfg80211_scan_request *scan_req;
++	int			scan_freq;
++	int			scan_band;
++	struct mutex		scan_lock;
++
+ 	/* DXE channels */
+ 	struct wcn36xx_dxe_ch	dxe_tx_l_ch;	/* TX low */
+ 	struct wcn36xx_dxe_ch	dxe_tx_h_ch;	/* TX high */
+-- 
+2.5.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
