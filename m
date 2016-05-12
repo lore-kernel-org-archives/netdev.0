@@ -1,46 +1,83 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/4] return offloaded stats as default and expose original sw start
-Date: Thu, 12 May 2016 11:59:54 +0200
-Message-ID: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35171 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbcELKAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 06:00:01 -0400
-Received: by mail-wm0-f65.google.com with SMTP id e201so14911869wme.2
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 03:00:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH] phy: add support for a reset-gpio specification
+Date: Thu, 12 May 2016 12:00:33 +0200
+Message-ID: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, "Andrew F . Davis" <afd-l0cyMroinI0@public.gmane.org>,
+	Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+The framework only asserts (for now) that the reset gpio is not active.
 
-Until now we had stats functions return SW statistics. However, it makes
-a lot of sense to return HW stats as default. The existing apps count with
-having the defaults stats complete, but that is not true now as the offloaded
-forward traffic is not visible there.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/phy.txt | 3 +++
+ drivers/net/phy/phy_device.c                  | 8 ++++++++
+ 2 files changed, 11 insertions(+)
 
-If user wants to know real SW stats, this patchset provides way to get
-it as well.
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentat=
+ion/devicetree/bindings/net/phy.txt
+index bc1c3c8bf8fa..c00a9a894547 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -35,6 +35,8 @@ Optional Properties:
+ - broken-turn-around: If set, indicates the PHY device does not correc=
+tly
+   release the turn around line low at the end of a MDIO transaction.
+=20
++- reset-gpios: Reference to a GPIO used to reset the phy.
++
+ Example:
+=20
+ ethernet-phy@0 {
+@@ -42,4 +44,5 @@ ethernet-phy@0 {
+ 	interrupt-parent =3D <40000>;
+ 	interrupts =3D <35 1>;
+ 	reg =3D <0>;
++	reset-gpios =3D <&gpio1 17 GPIO_ACTIVE_LOW>;
+ };
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.=
+c
+index e551f3a89cfd..7d666ab47271 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -34,6 +34,7 @@
+ #include <linux/io.h>
+ #include <linux/uaccess.h>
+ #include <linux/of.h>
++#include <linux/gpio/consumer.h>
+=20
+ #include <asm/irq.h>
+=20
+@@ -1569,9 +1570,16 @@ static int phy_probe(struct device *dev)
+ 	struct device_driver *drv =3D phydev->mdio.dev.driver;
+ 	struct phy_driver *phydrv =3D to_phy_driver(drv);
+ 	int err =3D 0;
++	struct gpio_descs *reset_gpios;
+=20
+ 	phydev->drv =3D phydrv;
+=20
++	/* take phy out of reset */
++	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
++						    GPIOD_OUT_LOW);
++	if (IS_ERR(reset_gpios))
++		return PTR_ERR(reset_gpios);
++
+ 	/* Disable the interrupt if the PHY doesn't support it
+ 	 * but the interrupt is still a valid one
+ 	 */
+--=20
+2.8.0.rc3
 
-Nogah Frankel (4):
-  netdevice: add SW statistics ndo
-  rtnetlink: add HW/SW stats distinction in rtnl_fill_stats
-  net: core: add SW stats to if_stats_msg
-  mlxsw: spectrum: Implement SW stats ndo and expose HW stats by default
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 65 ++++++++++++++++++++++----
- include/linux/netdevice.h                      | 12 +++++
- include/uapi/linux/if_link.h                   |  2 +
- net/core/dev.c                                 | 25 ++++++++++
- net/core/rtnetlink.c                           | 55 +++++++++++++++++++---
- 5 files changed, 145 insertions(+), 14 deletions(-)
-
--- 
-2.5.5
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
