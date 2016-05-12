@@ -1,99 +1,78 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 06/13] ipv6: Fix nexthdr for reinjection
-Date: Thu, 12 May 2016 23:23:04 +0300
-Message-ID: <20160512232304.437eb3bc@halley>
-References: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
-	<1462985253-2380625-7-git-send-email-tom@herbertland.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2] udp: Resolve NULL pointer dereference over
+ flow-based vxlan device
+Date: Thu, 12 May 2016 13:27:10 -0700
+Message-ID: <CAKgT0Ud_q7j0MT4oH_wFEw8vsSLZAc3jZbvcjeqZbfSe1gyDUQ@mail.gmail.com>
+References: <20160512022306.3691.40769.stgit@localhost.localdomain>
+	<20160512195003.26694.17950.stgit@localhost.localdomain>
+	<1463082953.23934.160.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35590 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889AbcELUXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:23:13 -0400
-Received: by mail-wm0-f67.google.com with SMTP id e201so17909895wme.2
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 13:23:12 -0700 (PDT)
-In-Reply-To: <1462985253-2380625-7-git-send-email-tom@herbertland.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36667 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751666AbcELU1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:27:11 -0400
+Received: by mail-io0-f193.google.com with SMTP id k129so12035806iof.3
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 13:27:10 -0700 (PDT)
+In-Reply-To: <1463082953.23934.160.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+On Thu, May 12, 2016 at 12:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2016-05-12 at 12:51 -0700, Alexander Duyck wrote:
+>> While testing an OpenStack configuration using VXLANs I saw the following
+>> call trace:
+>
+>> The following trace is seen when receiving a DHCP request over a flow-based
+>> VXLAN tunnel.  I believe this is caused by the metadata dst having a NULL
+>> dev value and as a result dev_net(dev) is causing a NULL pointer dereference.
+>>
+>> To resolve this I am replacing the check for skb_dst() with skb_valid_dst()
+>> so that we do not attempt to use the metadata dst to retrieve a device in
+>> order to determine the network namespace.
+>>
+>> Fixes: 63058308cd55 ("udp: Add udp6_lib_lookup_skb and udp4_lib_lookup_skb")
+>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+>> ---
+>>  net/ipv4/udp.c |    3 ++-
+>>  net/ipv6/udp.c |    3 ++-
+>>  2 files changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+>> index f67f52ba4809..69aa7ab81933 100644
+>> --- a/net/ipv4/udp.c
+>> +++ b/net/ipv4/udp.c
+>> @@ -114,6 +114,7 @@
+>>  #include <net/busy_poll.h>
+>>  #include "udp_impl.h"
+>>  #include <net/sock_reuseport.h>
+>> +#include <net/dst_metadata.h>
+>>
+>>  struct udp_table udp_table __read_mostly;
+>>  EXPORT_SYMBOL(udp_table);
+>> @@ -614,7 +615,7 @@ struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
+>>  {
+>>       const struct iphdr *iph = ip_hdr(skb);
+>>       const struct net_device *dev =
+>> -         skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
+>> +             skb_valid_dst(skb) ? skb_dst(skb)->dev : skb->dev;
+>
+> Looks overly complicated to me.
+>
+> If this is called from GRO, why don't we simply use skb->dev ?
 
-On Wed, 11 May 2016 09:47:26 -0700 Tom Herbert <tom@herbertland.com> wrote:
-> In ip6_input_finish the protocol handle returns a value greater than
-> zero the packet needs to be resubmitted using the returned protocol.
-> The returned protocol is being ignored and each time through resubmit
-> nexthdr is taken from an offest in the packet. This patch fixes that
-> so that nexthdr is taken from return value of the protocol handler.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  net/ipv6/ip6_input.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-> index 6ed5601..2a0258a 100644
-> --- a/net/ipv6/ip6_input.c
-> +++ b/net/ipv6/ip6_input.c
-> @@ -222,13 +222,14 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
->  	 */
->  
->  	rcu_read_lock();
-> -resubmit:
-> +
->  	idev = ip6_dst_idev(skb_dst(skb));
->  	if (!pskb_pull(skb, skb_transport_offset(skb)))
->  		goto discard;
->  	nhoff = IP6CB(skb)->nhoff;
->  	nexthdr = skb_network_header(skb)[nhoff];
->  
-> +resubmit:
+I'm assuming this was using skb_dst(skb)->dev in order to allow for
+use of this function by other callers since the original function
+__udp4_lib_lookup_skb was using that.  If we change this then it
+reduces the likelihood of the code being reusable by other callers.
+In such a case I would probably want to go through and also rename the
+functions to make sure they are tagged as being GRO specific.
 
-This has already been attempted in 0243508edd "ipv6: Fix protocol
-resubmission" and reverted in 1b0ccfe54a.
-
-It looks that in some genuine extension header handling cases of ipv6
-(not related to encapsulation), the original resubmission code REALLY
-requires one to re-read IP6CB(skb)->nhoff and refetch the nexthdr.
-
-See ipv6_rthdr_rcv and ipv6_destopt_rcv for example:
-
-Snip from ipv6_rthdr_rcv:
-
-	struct inet6_skb_parm *opt = IP6CB(skb);
-
-		opt->lastopt = opt->srcrt = skb_network_header_len(skb);
-		skb->transport_header += (hdr->hdrlen + 1) << 3;
-		opt->dst0 = opt->dst1;
-		opt->dst1 = 0;
-		opt->nhoff = (&hdr->nexthdr) - skb_network_header(skb);
-		return 1;
-
-Snip from ipv6_destopt_rcv:
-
-		opt = IP6CB(skb);
-#if IS_ENABLED(CONFIG_IPV6_MIP6)
-		opt->nhoff = dstbuf;
-#else
-		opt->nhoff = opt->dst1;
-#endif
-		return 1;
-
-I think there are two "resubmission" cases:
- 1. original ipv6 extension header handling, which seem to require
-    nexthdr re-read (after IP6CB(skb)->nhoff re-assigned), as seen above
- 2. encapsulation resubmission (e.g. fou)
-
-One suggestion: we may identify the encapsulation case by returning the
-negative of the proto number.
-
-Another suggestion: we can take your approach, but execute the nexthdr
-re-read within ipv6_rthdr_rcv and ipv6_destopt_rcv (and similar
-inet6_protocol.handler functions).
-
-Regards,
-Shmulik
+- Alex
