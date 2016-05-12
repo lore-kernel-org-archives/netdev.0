@@ -1,71 +1,49 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH 5/6] hv_netvsc: synchronize
- netvsc_change_mtu()/netvsc_set_channels() with netvsc_remove()
-Date: Thu, 12 May 2016 14:49:37 +0200
-Message-ID: <1463057378-21118-6-git-send-email-vkuznets@redhat.com>
-References: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
+From: Harvey Hunt <harvey.hunt@imgtec.com>
+Subject: Re: [PATCH net] drivers: net: Don't print unpopulated net_device name
+Date: Thu, 12 May 2016 14:27:10 +0100
+Message-ID: <573484AE.2040507@imgtec.com>
+References: <1462898601-5429-1-git-send-email-harvey.hunt@imgtec.com>
+ <20160511.192631.759104843385712307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: <robert.jarzmik@free.fr>, <Baohua.Song@csr.com>,
+	<marcel@ziswiler.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160511.192631.759104843385712307.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When netvsc device is removed during mtu change or channels setup we get
-into troubles as both paths are trying to remove the device. Synchronize
-them with start_remove flag and rtnl lock.
+Hi David,
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/hyperv/netvsc_drv.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+On 12/05/16 00:26, David Miller wrote:
+> From: Harvey Hunt <harvey.hunt@imgtec.com>
+> Date: Tue, 10 May 2016 17:43:21 +0100
+>
+>> @@ -1686,8 +1686,7 @@ dm9000_probe(struct platform_device *pdev)
+>>   	}
+>>
+>>   	if (!is_valid_ether_addr(ndev->dev_addr)) {
+>> -		dev_warn(db->dev, "%s: Invalid ethernet MAC address. Please "
+>> -			 "set using ifconfig\n", ndev->name);
+>> +		dev_warn(db->dev, "Invalid ethernet MAC address. Please set using ifconfig\n");
+>>
+>>   		eth_hw_addr_random(ndev);
+>>   		mac_src = "random";
+>
+> If we don't print the netdev name, it's harder for the user to see which
+> adapter has the problem.
+>
+> Therefore, it is better if you save some boolean state into a local variable
+> here, then print the warning right after register_netdev().
+>
+> Likewise for the rest of your changes too.
+>
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 393403a..71b9125 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -707,7 +707,7 @@ static int netvsc_set_channels(struct net_device *net,
- 	int ret = 0;
- 	bool recovering = false;
- 
--	if (!nvdev || nvdev->destroy)
-+	if (net_device_ctx->start_remove || !nvdev || nvdev->destroy)
- 		return -ENODEV;
- 
- 	num_chn = nvdev->num_chn;
-@@ -855,7 +855,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	u32 num_chn;
- 	int ret = 0;
- 
--	if (nvdev == NULL || nvdev->destroy)
-+	if (ndevctx->start_remove || !nvdev || nvdev->destroy)
- 		return -ENODEV;
- 
- 	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
-@@ -1206,7 +1206,12 @@ static int netvsc_remove(struct hv_device *dev)
- 	ndev_ctx = netdev_priv(net);
- 	net_device = ndev_ctx->nvdev;
- 
-+	/* Avoid racing with netvsc_change_mtu()/netvsc_set_channels()
-+	 * removing the device.
-+	 */
-+	rtnl_lock();
- 	ndev_ctx->start_remove = true;
-+	rtnl_unlock();
- 
- 	cancel_delayed_work_sync(&ndev_ctx->dwork);
- 	cancel_work_sync(&ndev_ctx->work);
--- 
-2.5.5
+Okay, I'll do that for v2.
+
+Thanks,
+
+Harvey
