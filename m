@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] [4.6] NFC update
-Date: Wed, 11 May 2016 23:43:11 -0400 (EDT)
-Message-ID: <20160511.234311.134807571404517952.davem@davemloft.net>
-References: <20160511091128.GA4214@zurbaran.home>
+Subject: Re: [patch -mainline] qlcnic: potential NULL dereference in
+ qlcnic_83xx_get_minidump_template()
+Date: Wed, 11 May 2016 23:45:19 -0400 (EDT)
+Message-ID: <20160511.234519.219883219155587882.davem@davemloft.net>
+References: <20160510192004.GA30712@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-nfc@lists.01.org
-To: sameo@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53984 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751552AbcELDoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2016 23:44:07 -0400
-In-Reply-To: <20160511091128.GA4214@zurbaran.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dept-GELinuxNICDev@qlogic.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20160510192004.GA30712@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <sameo@linux.intel.com>
-Date: Wed, 11 May 2016 11:11:28 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 10 May 2016 22:20:04 +0300
 
-> This is the first NFC pull request for 4.7. With this one we
-> mainly have:
+> If qlcnic_fw_cmd_get_minidump_temp() fails then "fw_dump->tmpl_hdr" is
+> NULL or possibly freed.  It can lead to an oops later.
+> 
+> Fixes: d01a6d3c8ae1 ('qlcnic: Add support to enable capability to extend minidump for iSCSI')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Pulled, thanks.
+Applied.
