@@ -1,103 +1,116 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH net-next 4/5] treewide: replace dev->trans_start update
- with helper
-Date: Thu, 12 May 2016 15:40:46 -0400
-Message-ID: <20118955-8739-b79a-e20e-96302e8b41bf@redhat.com>
-References: <1462285862-30946-1-git-send-email-fw@strlen.de>
- <1462285994-31983-1-git-send-email-fw@strlen.de>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v2] udp: Resolve NULL pointer dereference over
+ flow-based vxlan device
+Date: Thu, 12 May 2016 12:51:02 -0700
+Message-ID: <20160512195003.26694.17950.stgit@localhost.localdomain>
+References: <20160512022306.3691.40769.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r"
-Cc: user-mode-linux-devel@lists.sourceforge.net,
-	linux-xtensa@linux-xtensa.org,
-	linux1394-devel@lists.sourceforge.net, linux-rdma@vger.kernel.org,
-	mpt-fusionlinux.pdl@broadcom.com, linux-scsi@vger.kernel.org,
-	linux-can@vger.kernel.org, linux-parisc@vger.kernel.org,
-	linux-omap@vger.kernel.org, linux-hams@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-s390@vger.kernel.org, devel@driverdev.osuosl.org,
-	b.a.t.m.a.n@lists.open-mesh.org, linux-bluetooth@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <1462285994-31983-1-git-send-email-fw@strlen.de>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, tom@herbertland.com, jbenc@redhat.com,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35242 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752978AbcELTvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 15:51:08 -0400
+Received: by mail-pf0-f173.google.com with SMTP id 77so33781860pfv.2
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 12:51:07 -0700 (PDT)
+In-Reply-To: <20160512022306.3691.40769.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+While testing an OpenStack configuration using VXLANs I saw the following
+call trace:
 
-On 05/03/2016 10:33 AM, Florian Westphal wrote:
-> Replace all trans_start updates with netif_trans_update helper.
-> change was done via spatch:
->=20
-> struct net_device *d;
-> @@
-> - d->trans_start =3D jiffies
-> + netif_trans_update(d)
->=20
-> Compile tested only.
->=20
-> Cc: user-mode-linux-devel@lists.sourceforge.net
-> Cc: linux-xtensa@linux-xtensa.org
-> Cc: linux1394-devel@lists.sourceforge.net
-> Cc: linux-rdma@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: MPT-FusionLinux.pdl@broadcom.com
-> Cc: linux-scsi@vger.kernel.org
-> Cc: linux-can@vger.kernel.org
-> Cc: linux-parisc@vger.kernel.org
-> Cc: linux-omap@vger.kernel.org
-> Cc: linux-hams@vger.kernel.org
-> Cc: linux-usb@vger.kernel.org
-> Cc: linux-wireless@vger.kernel.org
-> Cc: linux-s390@vger.kernel.org
-> Cc: devel@driverdev.osuosl.org
-> Cc: b.a.t.m.a.n@lists.open-mesh.org
-> Cc: linux-bluetooth@vger.kernel.org
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  Checkpatch complains about whitespace damage, but
->  this extra whitespace already exists before this patch.
->=20
->  drivers/infiniband/hw/nes/nes_nic.c                    | 2 +-
->  drivers/infiniband/ulp/ipoib/ipoib_cm.c                | 2 +-
->  drivers/infiniband/ulp/ipoib/ipoib_ib.c                | 2 +-
+ RIP: 0010:[<ffffffff815fad49>] udp4_lib_lookup_skb+0x49/0x80
+ RSP: 0018:ffff88103867bc50  EFLAGS: 00010286
+ RAX: ffff88103269bf00 RBX: ffff88103269bf00 RCX: 00000000ffffffff
+ RDX: 0000000000004300 RSI: 0000000000000000 RDI: ffff880f2932e780
+ RBP: ffff88103867bc60 R08: 0000000000000000 R09: 000000009001a8c0
+ R10: 0000000000004400 R11: ffffffff81333a58 R12: ffff880f2932e794
+ R13: 0000000000000014 R14: 0000000000000014 R15: ffffe8efbfd89ca0
+ FS:  0000000000000000(0000) GS:ffff88103fd80000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: 0000000000000488 CR3: 0000000001c06000 CR4: 00000000001426e0
+ Stack:
+  ffffffff81576515 ffffffff815733c0 ffff88103867bc98 ffffffff815fcc17
+  ffff88103269bf00 ffffe8efbfd89ca0 0000000000000014 0000000000000080
+  ffffe8efbfd89ca0 ffff88103867bcc8 ffffffff815fcf8b ffff880f2932e794
+ Call Trace:
+  [<ffffffff81576515>] ? skb_checksum+0x35/0x50
+  [<ffffffff815733c0>] ? skb_push+0x40/0x40
+  [<ffffffff815fcc17>] udp_gro_receive+0x57/0x130
+  [<ffffffff815fcf8b>] udp4_gro_receive+0x10b/0x2c0
+  [<ffffffff81605863>] inet_gro_receive+0x1d3/0x270
+  [<ffffffff81589e59>] dev_gro_receive+0x269/0x3b0
+  [<ffffffff8158a1b8>] napi_gro_receive+0x38/0x120
+  [<ffffffffa0871297>] gro_cell_poll+0x57/0x80 [vxlan]
+  [<ffffffff815899d0>] net_rx_action+0x160/0x380
+  [<ffffffff816965c7>] __do_softirq+0xd7/0x2c5
+  [<ffffffff8107d969>] run_ksoftirqd+0x29/0x50
+  [<ffffffff8109a50f>] smpboot_thread_fn+0x10f/0x160
+  [<ffffffff8109a400>] ? sort_range+0x30/0x30
+  [<ffffffff81096da8>] kthread+0xd8/0xf0
+  [<ffffffff81693c82>] ret_from_fork+0x22/0x40
+  [<ffffffff81096cd0>] ? kthread_park+0x60/0x60
 
-For InfiniBand bits,
+The following trace is seen when receiving a DHCP request over a flow-based
+VXLAN tunnel.  I believe this is caused by the metadata dst having a NULL
+dev value and as a result dev_net(dev) is causing a NULL pointer dereference.
 
-Acked-by: Doug Ledford <dledford@redhat.com>
+To resolve this I am replacing the check for skb_dst() with skb_valid_dst()
+so that we do not attempt to use the metadata dst to retrieve a device in
+order to determine the network namespace.
 
---=20
-Doug Ledford <dledford@redhat.com>
-              GPG KeyID: 0E572FDD
+Fixes: 63058308cd55 ("udp: Add udp6_lib_lookup_skb and udp4_lib_lookup_skb")
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ net/ipv4/udp.c |    3 ++-
+ net/ipv6/udp.c |    3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-
-
---MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJXNNw+AAoJELgmozMOVy/dVQcP/1RZvmqQVJpZMtptIm8OpoPW
-4QrFlnjv+KorYVaF1Hg7+0X6yfCF53ofTKRAg4zaYiASZw4AJWYzslxA9b0OvpPS
-TzMjJrbWm27+W2pH8ZivFepys9afxW5o/qb7CFYyOPOEml495zReUvTqt/nSh7jG
-8nTdwO4xH5kY4P82bDn18Lyqd/8cS7yFl1OAK88eqq+y9JgveiIsO2PlsrtFENtX
-+RyadCAluEUdfe6CZjMjUptBptIi6hfoMqmXXu4vcFs48mqbVf4QubFp5f+4wJa2
-KScILHNil3156j3TY3lpG1ukf2SfF0UYDYxco5tZlZ3O7nB3Xteif94gvvUiszyO
-IfGn3/wblQs6tRSHjMRNYiTVeYkyh0eXbdbha/7bkBG58mEjYFnrjtRuBMD2Ogmm
-uz6MhyD6Ez7mKKVBc3ooQ6SYpcwb4surHEGm36a2Utnb/vftxyPYpA75neZbSGZO
-X828tsNcxB9K8FUCEcP/Xasc5xE6kPtpwu5TIbJ7itYLs4yRoZbsmcI5UrhjqERp
-YAAiI07vifFHyFLUnfAOefjXxQOFJdQHtMphlnjfYiKXSpJsAhT2LIJpepgbovCc
-/268dPol/ul7WUbLu2P4zlnnIEQgABW6NKFMAg/N/b4XQ08VkeKv82yJ9aLuyG2J
-0QbOFyrXnR/I1OYFeDAU
-=2VMH
------END PGP SIGNATURE-----
-
---MxOQ9rEvBghhBiQvcDah4SfXu2ff5Ef0r--
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f67f52ba4809..69aa7ab81933 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -114,6 +114,7 @@
+ #include <net/busy_poll.h>
+ #include "udp_impl.h"
+ #include <net/sock_reuseport.h>
++#include <net/dst_metadata.h>
+ 
+ struct udp_table udp_table __read_mostly;
+ EXPORT_SYMBOL(udp_table);
+@@ -614,7 +615,7 @@ struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	const struct net_device *dev =
+-	    skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
++		skb_valid_dst(skb) ? skb_dst(skb)->dev : skb->dev;
+ 
+ 	return __udp4_lib_lookup(dev_net(dev), iph->saddr, sport,
+ 				 iph->daddr, dport, inet_iif(skb),
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index aca06094110f..12c06deda5ef 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -49,6 +49,7 @@
+ #include <net/inet6_hashtables.h>
+ #include <net/busy_poll.h>
+ #include <net/sock_reuseport.h>
++#include <net/dst_metadata.h>
+ 
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+@@ -331,7 +332,7 @@ struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	const struct net_device *dev =
+-	    skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
++		skb_valid_dst(skb) ? skb_dst(skb)->dev : skb->dev;
+ 
+ 	return __udp6_lib_lookup(dev_net(dev), &iph->saddr, sport,
+ 				 &iph->daddr, dport, inet6_iif(skb),
