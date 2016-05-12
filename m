@@ -1,53 +1,44 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net] xen-netback: fix extra_info handling in
- xenvif_tx_err()
-Date: Thu, 12 May 2016 15:15:33 +0100
-Message-ID: <20160512141533.GL8063@citrix.com>
-References: <1463060583-7524-1-git-send-email-paul.durrant@citrix.com>
+From: Nishanth Menon <nm@ti.com>
+Subject: Re: [PATCH] phy: add support for a reset-gpio specification
+Date: Thu, 12 May 2016 09:05:15 -0500
+Message-ID: <57348D9B.2080200@ti.com>
+References: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
+ <57348A2A.8070806@ti.com> <57348D05.905@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <kernel@pengutronix.de>, "Andrew F . Davis" <afd@ti.com>,
+	Sekhar Nori <nsekhar@ti.com>, Suman Anna <s-anna@ti.com>
+To: Roger Quadros <rogerq@ti.com>,
+	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:56271 "EHLO SMTP.CITRIX.COM"
+Received: from arroyo.ext.ti.com ([198.47.19.12]:39101 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751901AbcELOPk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 May 2016 10:15:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1463060583-7524-1-git-send-email-paul.durrant@citrix.com>
+	id S1751901AbcELOPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 May 2016 10:15:38 -0400
+In-Reply-To: <57348D05.905@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 12, 2016 at 02:43:03PM +0100, Paul Durrant wrote:
-> Patch 562abd39 "xen-netback: support multiple extra info fragments
-> passed from frontend" contained a mistake which can result in an in-
-> correct number of responses being generated when handling errors
-> encountered when processing packets containing extra info fragments.
-> This patch fixes the problem.
+On 05/12/2016 09:02 AM, Roger Quadros wrote:
+[...]
+>> This looks like the right approach to me at least: I see that TI EVMs
+>> will also benefit with this approach.
+>>
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Reported-by: Jan Beulich <JBeulich@suse.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
+> Agreed. Although on some of our boards we actually need a RESET pulse
+> to get the PHY in a sane state. I can send a patch on top for that.
+> 
+> Reviewed-by: Roger Quadros <rogerq@ti.com>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+There is an interesting thread starting up on Linux-arm[1] as well - I
+guess Uwe can comment on direction.
 
-> ---
->  drivers/net/xen-netback/netback.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index b42f260..4412a57 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -711,6 +711,7 @@ static void xenvif_tx_err(struct xenvif_queue *queue,
->  		if (cons == end)
->  			break;
->  		RING_COPY_REQUEST(&queue->tx, cons++, txp);
-> +		extra_count = 0; /* only the first frag can have extras */
->  	} while (1);
->  	queue->tx.req_cons = cons;
->  }
-> -- 
-> 2.1.4
-> 
+[1] http://marc.info/?t=146303744800003&r=1&w=2
+
+
+-- 
+Regards,
+Nishanth Menon
