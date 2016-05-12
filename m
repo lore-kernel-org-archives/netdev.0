@@ -1,107 +1,105 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH 2/6] hv_netvsc: use start_remove flag to protect
- netvsc_link_change()
-Date: Thu, 12 May 2016 14:49:34 +0200
-Message-ID: <1463057378-21118-3-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH 6/6] hv_netvsc: set nvdev link after populating chn_table
+Date: Thu, 12 May 2016 14:49:38 +0200
+Message-ID: <1463057378-21118-7-git-send-email-vkuznets@redhat.com>
 References: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"K. Y. Srinivasan" <kys@microsoft.com>
 To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netvsc_link_change() can race with netvsc_change_mtu() or
-netvsc_set_channels() as these functions destroy struct netvsc_device and
-rndis filter. Use start_remove flag for syncronization. As
-netvsc_change_mtu()/netvsc_set_channels() are called with rtnl lock held
-we need to take it before checking start_remove value in
-netvsc_link_change().
+Crash in netvsc_send() is observed when netvsc device is re-created on
+mtu change/set channels. The crash is caused by dereferencing of NULL
+channel pointer which comes from chn_table. The root cause is a mixture
+of two facts:
+- we set nvdev pointer in net_device_context in alloc_net_device()
+  before we populate chn_table.
+- we populate chn_table[0] only.
 
-Reported-by: Haiyang Zhang <haiyangz@microsoft.com>
+The issue could be papered over by checking channel != NULL in
+netvsc_send() but populating the whole chn_table and writing the
+nvdev pointer afterwards seems more appropriate.
+
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/hyperv/netvsc.c | 29 ++++++++++++++++++-----------
+ 1 file changed, 18 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 48dc81c..9a46b3d 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -787,6 +787,8 @@ static int netvsc_set_channels(struct net_device *net,
-  out:
- 	netvsc_open(net);
- 	net_device_ctx->start_remove = false;
-+	/* We may have missed link change notifications */
-+	schedule_delayed_work(&net_device_ctx->dwork, 0);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index f755b03..5049346 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -34,11 +34,9 @@
+ #include "hyperv_net.h"
  
- 	return ret;
  
-@@ -895,6 +897,9 @@ out:
- 	netvsc_open(ndev);
- 	ndevctx->start_remove = false;
+-static struct netvsc_device *alloc_net_device(struct hv_device *device)
++static struct netvsc_device *alloc_net_device(void)
+ {
+ 	struct netvsc_device *net_device;
+-	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
  
-+	/* We may have missed link change notifications */
-+	schedule_delayed_work(&ndevctx->dwork, 0);
-+
- 	return ret;
- }
+ 	net_device = kzalloc(sizeof(struct netvsc_device), GFP_KERNEL);
+ 	if (!net_device)
+@@ -55,8 +53,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
  
-@@ -1015,6 +1020,11 @@ static void netvsc_link_change(struct work_struct *w)
- 	unsigned long flags, next_reconfig, delay;
- 
- 	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
-+
-+	rtnl_lock();
-+	if (ndev_ctx->start_remove)
-+		goto out_unlock;
-+
- 	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
- 	rdev = net_device->extension;
- 	net = net_device->ndev;
-@@ -1028,7 +1038,7 @@ static void netvsc_link_change(struct work_struct *w)
- 		delay = next_reconfig - jiffies;
- 		delay = delay < LINKCHANGE_INT ? delay : LINKCHANGE_INT;
- 		schedule_delayed_work(&ndev_ctx->dwork, delay);
--		return;
-+		goto out_unlock;
- 	}
- 	ndev_ctx->last_reconfig = jiffies;
- 
-@@ -1042,9 +1052,7 @@ static void netvsc_link_change(struct work_struct *w)
- 	spin_unlock_irqrestore(&ndev_ctx->lock, flags);
- 
- 	if (!event)
--		return;
+-	net_device_ctx->nvdev = net_device;
 -
--	rtnl_lock();
-+		goto out_unlock;
- 
- 	switch (event->event) {
- 		/* Only the following events are possible due to the check in
-@@ -1093,6 +1101,11 @@ static void netvsc_link_change(struct work_struct *w)
- 	 */
- 	if (reschedule)
- 		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
-+
-+	return;
-+
-+out_unlock:
-+	rtnl_unlock();
+ 	return net_device;
  }
  
- static void netvsc_free_netdev(struct net_device *netdev)
+@@ -1209,20 +1205,19 @@ void netvsc_channel_cb(void *context)
+  */
+ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ {
+-	int ret = 0;
++	int i, ret = 0;
+ 	int ring_size =
+ 	((struct netvsc_device_info *)additional_info)->ring_size;
+ 	struct netvsc_device *net_device;
+-	struct net_device *ndev;
++	struct net_device *ndev = hv_get_drvdata(device);
++	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 
+-	net_device = alloc_net_device(device);
++	net_device = alloc_net_device();
+ 	if (!net_device)
+ 		return -ENOMEM;
+ 
+ 	net_device->ring_size = ring_size;
+ 
+-	ndev = hv_get_drvdata(device);
+-
+ 	/* Initialize the NetVSC channel extension */
+ 	init_completion(&net_device->channel_init_wait);
+ 
+@@ -1241,7 +1236,19 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	/* Channel is opened */
+ 	pr_info("hv_netvsc channel opened successfully\n");
+ 
+-	net_device->chn_table[0] = device->channel;
++	/* If we're reopening the device we may have multiple queues, fill the
++	 * chn_table with the default channel to use it before subchannels are
++	 * opened.
++	 */
++	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
++		net_device->chn_table[i] = device->channel;
++
++	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
++	 * populated.
++	 */
++	wmb();
++
++	net_device_ctx->nvdev = net_device;
+ 
+ 	/* Connect with the NetVsp */
+ 	ret = netvsc_connect_vsp(device);
 -- 
 2.5.5
