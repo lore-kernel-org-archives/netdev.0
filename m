@@ -1,36 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mvneta: bm: fix dependencies again
-Date: Thu, 12 May 2016 16:57:27 -0400 (EDT)
-Message-ID: <20160512.165727.1632623842392504859.davem@davemloft.net>
-References: <1462997636-1049487-1-git-send-email-arnd@arndb.de>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Thu, 12 May 2016 22:58:34 +0200
+Message-ID: <1463086714.5281.8.camel@redhat.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
+	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463083620.5281.1.camel@redhat.com>
+	 <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gregory.clement@free-electrons.com, paul.gortmaker@windriver.com,
-	mw@semihalf.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462997636-1049487-1-git-send-email-arnd@arndb.de>
+In-Reply-To: <1463086179.23934.162.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 11 May 2016 22:13:23 +0200
+On Thu, 2016-05-12 at 13:49 -0700, Eric Dumazet wrote:
+> On Thu, 2016-05-12 at 22:07 +0200, Paolo Abeni wrote:
+> 
+> > > > static inline bool ksoftirqd_running(void)
+> > > > {
+> > > > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
+> > 
+> > here something like:
+> > 
+> > 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+> >         return tsk && (tsk->state == TASK_RUNNING);
+> > 
+> > is needed since __this_cpu_read(ksoftirqd) can be NULL on boot.
+> 
+> Indeed I've seen this but only when backporting to an older linux kernel
+> this morning.
+> 
+> Have you got this with current linux kernel ?
 
-> I tried to fix this before, but my previous fix was incomplete
-> and we can still get the same link error in randconfig builds
-> because of the way that Kconfig treats the
-> 
-> 	default y if MVNETA=y && MVNETA_BM_ENABLE
-> 
-> line that does not actually trigger when MVNETA_BM_ENABLE=m,
-> unlike I intended.
-> Changing the line to use MVNETA_BM_ENABLE!=n however has
-> the desired effect and hopefully makes all configurations
-> work as expected.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 019ded3aa7c9 ("net: mvneta: bm: clarify dependencies")
+Yes, on net-next updated to 
 
-Applied.
+commit c66b2581123cd1527b6a084f39e9271cb02673b7
+Author: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date:   Sat May 7 14:09:01 2016 -0700
+
+    sh_eth: reuse sh_eth_chip_reset()
+
+Cheers,
+
+Paolo
