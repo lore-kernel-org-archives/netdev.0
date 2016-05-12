@@ -1,31 +1,57 @@
-From: Chris Friesen <cbf123@mail.usask.ca>
-Subject: Re: where is the ethernet device number determined?
-Date: Thu, 12 May 2016 14:27:56 -0600
-Message-ID: <5734E74C.9060409@mail.usask.ca>
-References: <5734E226.6040706@mail.usask.ca> <CAM_iQpVmy4bAKB9jwd0+uetw6GZuxg4MOmOb4Zya31VUwRYDQQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: default to 64-bit DMA on systems without memory
+ below 4 GB
+Date: Thu, 12 May 2016 22:37:53 +0200
+Message-ID: <20160512203753.GA8550@electric-eye.fr.zoreil.com>
+References: <CAKv+Gu-UcEnvFcK+6GSHkas5V5ZUMawc2K_EfRpW3K+jLNB4+A@mail.gmail.com>
+ <20160512140920.GA28073@electric-eye.fr.zoreil.com>
+ <CAKv+Gu-0xuE3HuTeXncZt2QoM50dxLKAtBEaZCMy3m5TAak0mg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Ricardo Salveti <ricardo.salveti@linaro.org>,
+	Leo Duran <leo.duran@amd.com>,
+	G Gregory <graeme.gregory@linaro.org>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Chunhao Lin <hau@realtek.com>
+To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-no.shaw.ca ([64.59.134.9]:44248 "EHLO
-	smtp-out-no.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387AbcELUgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:36:08 -0400
-In-Reply-To: <CAM_iQpVmy4bAKB9jwd0+uetw6GZuxg4MOmOb4Zya31VUwRYDQQ@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57737 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbcELUiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:38:09 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKv+Gu-0xuE3HuTeXncZt2QoM50dxLKAtBEaZCMy3m5TAak0mg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2016 02:19 PM, Cong Wang wrote:
-> On Thu, May 12, 2016 at 1:05 PM, Chris Friesen <cbf123@mail.usask.ca> wrote:
+Ard Biesheuvel <ard.biesheuvel@linaro.org> :
+> On 12 May 2016 at 16:09, Francois Romieu <romieu@fr.zoreil.com> wrote:
+[...]
+> By resurrecting 353176888386, I mean the patch that changes the
+> default for PCI express devices, so I think we are in agreement here ?
 
->> I hope this is a simple question...with legacy naming ethernet devices are
->> named ethX.  Where is that X determined?  I've been looking in
->> alloc_netdev_mqs() and friends, but haven't found it yet.
->
-> __dev_alloc_name()
+Almost 353176888386: please modify it so that there's no change of
+behavior for mac_version < RTL_GIGA_MAC_VER_18.
 
-Much appreciated.
+It will avoid a bit more than the plain old PCI chipsets, including the
+one that caused 353176888386 reversal as well as a few one that I don't
+feel confortable with due to their vicinity with the original 8169.
 
-Chris
+[...]
+> > A few news from the "pathologically better safe than sorry" squad:
+> > I have switched the default on a couple of non-critical production
+> > servers that include 8168c (RTL_GIGA_MAC_VER_22). It should give an hint
+> > for hardware from 2008 ~ 2009. I'll do some basic sanity testing with
+> > different chipsets.
+> >
+> 
+> Thanks for testing that. In the mean time, I will dust off the patch
+> and rebase it to today's -next.
+
+8106e (RTL_GIGA_MAC_VER_39) doesn't exhibit any difference of behavior
+either.
+
+-- 
+Ueimor
