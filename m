@@ -1,54 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/4] return offloaded stats as default and
- expose original sw start
-Date: Thu, 12 May 2016 16:48:04 +0200
-Message-ID: <20160512144803.GB2070@nanopsycho.orion>
-References: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
- <20160512143645.GE26864@lunn.ch>
+From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+Subject: Aw: [PATCH 0/6] hv_netvsc: avoid races on mtu change/set channels
+Date: Thu, 12 May 2016 16:58:32 +0200
+Message-ID: <trinity-ccc16f5c-6580-4594-a0d0-c7b07bf2f7a6-1463065112147@3capp-gmx-bs05>
+References: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-	ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
-	gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
-	eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
-	hannes@stressinduktion.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38295 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932198AbcELOsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 10:48:12 -0400
-Received: by mail-wm0-f43.google.com with SMTP id g17so140229111wme.1
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 07:48:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160512143645.GE26864@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: "Vitaly Kuznetsov" <vkuznets@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1463057378-21118-1-git-send-email-vkuznets@redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Thu, May 12, 2016 at 04:36:45PM CEST, andrew@lunn.ch wrote:
->On Thu, May 12, 2016 at 11:59:54AM +0200, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Until now we had stats functions return SW statistics. However, it makes
->> a lot of sense to return HW stats as default.
->
->Hi Jiri
->
->DSA has always returned the HW stats, i.e, ethtool -S shows the
->counters the switch has for the port.
->
->How do you expect ethtool to handle your change? ethtool -S will print
->both sets? Or are you thinking of adding a new flag?
-
-Ethtool still continues to provide the hw counters. We do the same for
-mlxsw driver. No change there.
+Hi,
 
 >
->I'm just trying to understand the big picture, and how it affects DSA,
->if at all.
+> MTU change and set channels operations are implemented as netvsc device
+> re-creation destroying internal structures (struct net_device stays). This
+> is really unfortunate but there is no support from Hyper-V host to do it
+> in a different way. Such re-creation is unsurprisingly racy, Haiyang
+> reported a crash when netvsc_change_mtu() is racing with
+> netvsc_link_change() but I was able to identify additional races upon
+> investigation. Both netvsc_set_channels() and netvsc_change_mtu() race
+> against:
+> 1) netvsc_link_change()
+> 2) netvsc_remove()
+> 3) netvsc_send()
+> 
 
-I didn't check the code, but if dsa provides sw stats by default, it
-should be changed to provide hwstats instead. The goal is to keep the
-existing applications to see what is going on.
+after having a look into this driver I got the impression that you are working around an
+unfortunate implementation of the shutdown sequence in the remove function:
+If you do unregister_netdev() first instead of resource cleanup then neither set_channels()
+nor change_mtu() can race with remove(). This is since after unregister_netdev() returns
+the netdev is not longer available from userspace and thus neither set_channels nor
+change_mtu can be called anymore (note that all of these functions are protected by the 
+rtnl_lock).
+
+To avoid the race between netvsc_change_mtu()/netvsc_set_channels() and netvsc_link_change()
+you have to stop the concerning worker thread (dwork) before you call netvsc_close() and
+restart it once the device is up again.
+
+Regards,
+Lino
