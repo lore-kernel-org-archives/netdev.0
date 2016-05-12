@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/4] net: core: add SW stats to if_stats_msg
-Date: Thu, 12 May 2016 11:59:57 +0200
-Message-ID: <1463047198-10630-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/4] rtnetlink: add HW/SW stats distinction in rtnl_fill_stats
+Date: Thu, 12 May 2016 11:59:56 +0200
+Message-ID: <1463047198-10630-3-git-send-email-jiri@resnulli.us>
 References: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
 	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,128 +11,88 @@ Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
 	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33076 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34780 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbcELKAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 06:00:05 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r12so14979886wme.0
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 03:00:04 -0700 (PDT)
+	with ESMTP id S1751535AbcELKAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 06:00:03 -0400
+Received: by mail-wm0-f67.google.com with SMTP id n129so14946056wmn.1
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 03:00:03 -0700 (PDT)
 In-Reply-To: <1463047198-10630-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-If there is a dedicated ndo to return SW stats - use
-it. Otherwise (indicates that there is no HW stats) use
-the default stats ndo.
-Return results under IFLA_STATS_LINK_SW_64.
+Since hardware stats are now returned by default, add a way to
+query only software stats.
+They are saved in IFLA_SW_STATS64.
+(This option is valid only if the driver return HW stats in the
+default ndo stats)
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
  include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 35 +++++++++++++++++++++++++++++------
- 2 files changed, 30 insertions(+), 6 deletions(-)
+ net/core/rtnetlink.c         | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 98175e7..fcfb944 100644
+index bb36bd5..98175e7 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -823,6 +823,7 @@ enum {
- 	IFLA_STATS_UNSPEC, /* also used as 64bit pad attribute */
- 	IFLA_STATS_LINK_64,
- 	IFLA_STATS_LINK_XSTATS,
-+	IFLA_STATS_LINK_SW_64,
- 	__IFLA_STATS_MAX,
+@@ -156,6 +156,7 @@ enum {
+ 	IFLA_GSO_MAX_SEGS,
+ 	IFLA_GSO_MAX_SIZE,
+ 	IFLA_PAD,
++	IFLA_SW_STATS64,
+ 	__IFLA_MAX
  };
  
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index a127d67..f8b12e4 100644
+index d69c464..a127d67 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -3481,6 +3481,9 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 	struct nlmsghdr *nlh;
+@@ -1046,20 +1046,40 @@ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void copy_rtnl_link_stats64(void *v, const struct rtnl_link_stats64 *b)
++{
++	memcpy(v, b, sizeof(*b));
++}
++
+ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
+ 					      struct net_device *dev)
+ {
++	struct rtnl_link_stats64 sw_stats;
+ 	struct rtnl_link_stats64 *sp;
  	struct nlattr *attr;
- 	int s_prividx = *prividx;
-+	struct rtnl_link_stats64 *sp;
-+	struct rtnl_link_stats64 *stats64_sp = 0;
 +	int err;
  
- 	ASSERT_RTNL();
- 
-@@ -3493,24 +3496,20 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 	ifsm->filter_mask = filter_mask;
- 
- 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, *idxattr)) {
--		struct rtnl_link_stats64 *sp;
--
- 		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_64,
- 					 sizeof(struct rtnl_link_stats64),
- 					 IFLA_STATS_UNSPEC);
- 		if (!attr)
- 			goto nla_put_failure;
- 
--		sp = nla_data(attr);
--		dev_get_stats(dev, sp);
-+		stats64_sp = nla_data(attr);
-+		dev_get_stats(dev, stats64_sp);
- 	}
- 
- 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, *idxattr)) {
- 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
- 
- 		if (ops && ops->fill_linkxstats) {
--			int err;
--
- 			*idxattr = IFLA_STATS_LINK_XSTATS;
- 			attr = nla_nest_start(skb,
- 					      IFLA_STATS_LINK_XSTATS);
-@@ -3525,6 +3524,27 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		}
- 	}
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, *idxattr)) {
-+		attr = nla_reserve_64bit(skb, IFLA_STATS_LINK_SW_64,
-+					 sizeof(struct rtnl_link_stats64),
-+					 IFLA_STATS_UNSPEC);
-+		if (!attr)
-+			goto nla_put_failure;
+ 	attr = nla_reserve_64bit(skb, IFLA_STATS64,
+ 				 sizeof(struct rtnl_link_stats64), IFLA_PAD);
 +
-+		sp = nla_data(attr);
-+		err = dev_get_sw_stats(dev, sp);
-+		if (err) {
-+			/* if err it means there is no dedicated ndo to
-+			 * get SW stats - so it is returned by the default
-+			 * stats ndo
-+			 */
-+			if (stats64_sp)
-+				copy_rtnl_link_stats64(sp, stats64_sp);
-+			else
-+				dev_get_stats(dev, sp);
-+		}
+ 	if (!attr)
+ 		return -EMSGSIZE;
+ 
+ 	sp = nla_data(attr);
+ 	dev_get_stats(dev, sp);
+ 
++	err = dev_get_sw_stats(dev, &sw_stats);
++	if (!err) {
++		attr = nla_reserve_64bit(skb, IFLA_SW_STATS64,
++					 sizeof(struct rtnl_link_stats64),
++					 IFLA_PAD);
++
++		if (!attr)
++			return -EMSGSIZE;
++
++		copy_rtnl_link_stats64(nla_data(attr), &sw_stats);
 +	}
 +
- 	nlmsg_end(skb, nlh);
- 
- 	return 0;
-@@ -3541,6 +3561,7 @@ nla_put_failure:
- 
- static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
- 	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
-+	[IFLA_STATS_LINK_SW_64] = { .len = sizeof(struct rtnl_link_stats64) },
- };
- 
- static size_t if_nlmsg_stats_size(const struct net_device *dev,
-@@ -3550,6 +3571,8 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
- 
- 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_64, 0))
- 		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_SW_64, 0))
-+		size += nla_total_size_64bit(sizeof(struct rtnl_link_stats64));
- 
- 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, 0)) {
- 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
+ 	attr = nla_reserve(skb, IFLA_STATS,
+ 			   sizeof(struct rtnl_link_stats));
+ 	if (!attr)
 -- 
 2.5.5
