@@ -1,57 +1,70 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] driver: ixgbevf: ixgbevf_write/read_posted_mbx should use IXGBE_ERR_MBX to initialize ret_val
-Date: Fri, 13 May 2016 01:51:55 +0800
-Message-ID: <c74ebf3e68d0207e95f71086693916fe99f10658.1463075515.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>
-To: network dev <netdev@vger.kernel.org>,
-	intel-wired-lan@lists.osuosl.org
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH] r8169: default to 64-bit DMA on systems without memory
+ below 4 GB
+Date: Thu, 12 May 2016 19:53:18 +0200
+Message-ID: <CAKv+Gu-0xuE3HuTeXncZt2QoM50dxLKAtBEaZCMy3m5TAak0mg@mail.gmail.com>
+References: <CAKv+Gu-UcEnvFcK+6GSHkas5V5ZUMawc2K_EfRpW3K+jLNB4+A@mail.gmail.com>
+	<20160512140920.GA28073@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Ricardo Salveti <ricardo.salveti@linaro.org>,
+	Leo Duran <leo.duran@amd.com>,
+	G Gregory <graeme.gregory@linaro.org>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Chunhao Lin <hau@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33146 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751693AbcELRv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 13:51:59 -0400
-Received: by mail-pa0-f66.google.com with SMTP id gh9so6670547pac.0
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 10:51:59 -0700 (PDT)
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37125 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbcELRxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 13:53:19 -0400
+Received: by mail-ig0-f171.google.com with SMTP id s8so57205151ign.0
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 10:53:18 -0700 (PDT)
+In-Reply-To: <20160512140920.GA28073@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now ixgbevf_write/read_posted_mbx use -IXGBE_ERR_MBX as the initiative
-return value, but it's incorrect, cause in ixgbevf_vlan_rx_add_vid(),
-it use err == IXGBE_ERR_MBX, the err returned from mac.ops.set_vfta,
-and in ixgbevf_set_vfta_vf, it return from write/read_posted. so we
-should initialize err with IXGBE_ERR_MBX, instead of -IXGBE_ERR_MBX.
+On 12 May 2016 at 16:09, Francois Romieu <romieu@fr.zoreil.com> wrote:
+>> On 12 May 2016 at 01:58, David Miller <davem@davemloft.net> wrote:
+>> > From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+>> > Date: Wed, 11 May 2016 09:47:49 +0200
+> [...]
+>> > I think we should just seriously consider changing the default, it's
+>> > a really outdated reasoning behind the current default setting.  Maybe
+>> > relevant a decade ago, but probably not now.
+>> >
+>> > And if the card is completely disfunctional in said configuration, the
+>> > default is definitely wrong.
+>>
+>> The card is indeed completely disfunctional. So we could try to
+>> resurrect 353176888386 ("r8169: enable 64-bit DMA by default for PCI
+>> Express devices"), and instead of backing it out again if regressions
+>> are reported, blacklist the particular chips. This is a much better
+>> approach, since then we can also print some kind of diagnostic on
+>> those arm64 systems why such a blacklisted NIC is not supported.
+>
+> I doubt there will be much *reporting* from broken systems that
+> include plain old PCI realtek chipsets (r8169.c::RTL_CFG_0). Changing
+> the default for those is imnsho asking for troubles without clear
+> benefit (experimental evidence suggests that smsc etherpower II grows
+> older more easily than plain pci 8169 :o/ ).
+>
 
-With this fix, the other functions that called it also can work well,
-cause they only care about if err is 0 or not.
+By resurrecting 353176888386, I mean the patch that changes the
+default for PCI express devices, so I think we are in agreement here?
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- drivers/net/ethernet/intel/ixgbevf/mbx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> I'd rather leave these alone and change the default for the PCI Express
+> chipsets. Btw, while it does not seem to hurt, they should not need any
+> CPlusCmd Dual Access Cycle tweak either. Realtek may establish it (Lin ?)
+>
+> A few news from the "pathologically better safe than sorry" squad:
+> I have switched the default on a couple of non-critical production
+> servers that include 8168c (RTL_GIGA_MAC_VER_22). It should give an hint
+> for hardware from 2008 ~ 2009. I'll do some basic sanity testing with
+> different chipsets.
+>
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.c b/drivers/net/ethernet/intel/ixgbevf/mbx.c
-index dc68fea..567ed6d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/mbx.c
-@@ -85,7 +85,7 @@ static s32 ixgbevf_poll_for_ack(struct ixgbe_hw *hw)
- static s32 ixgbevf_read_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
--	s32 ret_val = -IXGBE_ERR_MBX;
-+	s32 ret_val = IXGBE_ERR_MBX;
- 
- 	if (!mbx->ops.read)
- 		goto out;
-@@ -111,7 +111,7 @@ out:
- static s32 ixgbevf_write_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
--	s32 ret_val = -IXGBE_ERR_MBX;
-+	s32 ret_val = IXGBE_ERR_MBX;
- 
- 	/* exit if either we can't write or there isn't a defined timeout */
- 	if (!mbx->ops.write || !mbx->timeout)
--- 
-2.1.0
+Thanks for testing that. In the mean time, I will dust off the patch
+and rebase it to today's -next.
