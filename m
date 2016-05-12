@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] phy: micrel: Use MICREL_PHY_ID_MASK definition
-Date: Thu, 12 May 2016 16:57:18 -0400 (EDT)
-Message-ID: <20160512.165718.1295735147761042519.davem@davemloft.net>
-References: <1462996925-7153-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH] net: mvneta: bm: fix dependencies again
+Date: Thu, 12 May 2016 16:57:27 -0400 (EDT)
+Message-ID: <20160512.165727.1632623842392504859.davem@davemloft.net>
+References: <1462997636-1049487-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
-	fabio.estevam@nxp.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59604 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752384AbcELU5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 16:57:22 -0400
-In-Reply-To: <1462996925-7153-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregory.clement@free-electrons.com, paul.gortmaker@windriver.com,
+	mw@semihalf.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1462997636-1049487-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Wed, 11 May 2016 17:02:05 -0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 11 May 2016 22:13:23 +0200
 
-> From: Fabio Estevam <fabio.estevam@nxp.com>
+> I tried to fix this before, but my previous fix was incomplete
+> and we can still get the same link error in randconfig builds
+> because of the way that Kconfig treats the
 > 
-> Replace the hardcoded mask 0x00fffff0 with MICREL_PHY_ID_MASK for
-> better readability.
+> 	default y if MVNETA=y && MVNETA_BM_ENABLE
 > 
-> Suggested-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+> line that does not actually trigger when MVNETA_BM_ENABLE=m,
+> unlike I intended.
+> Changing the line to use MVNETA_BM_ENABLE!=n however has
+> the desired effect and hopefully makes all configurations
+> work as expected.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 019ded3aa7c9 ("net: mvneta: bm: clarify dependencies")
 
 Applied.
