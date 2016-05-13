@@ -1,41 +1,72 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v2] vxlan: set mac_header correctly in GPE mode
-Date: Fri, 13 May 2016 10:48:42 +0200
-Message-ID: <2f5ecda4984940c2c6820cbbed18555d5023e2ed.1463129287.git.jbenc@redhat.com>
-Cc: Simon Horman <simon.horman@netronome.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: netdev@vger.kernel.org
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v4 4/4] xen-netback: use hash value from the frontend
+Date: Fri, 13 May 2016 09:37:29 +0100
+Message-ID: <1463128649-20832-5-git-send-email-paul.durrant@citrix.com>
+References: <1463128649-20832-1-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>
+To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48973 "EHLO mx1.redhat.com"
+Received: from smtp02.citrix.com ([66.165.176.63]:6218 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751675AbcEMIs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 04:48:57 -0400
+	id S1751407AbcEMIvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 04:51:12 -0400
+In-Reply-To: <1463128649-20832-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For VXLAN-GPE, the interface is ARPHRD_NONE, thus we need to reset
-mac_header after pulling the outer header.
+My recent patch to include/xen/interface/io/netif.h defines a new extra
+info type that can be used to pass hash values between backend and guest
+frontend.
 
-v2: Put the code to the existing conditional block as suggested by
-    Shmulik Ladkani.
+This patch adds code to xen-netback to use the value in a hash extra
+info fragment passed from the guest frontend in a transmit-side
+(i.e. netback receive side) packet to set the skb hash accordingly.
 
-Fixes: e1e5314de08b ("vxlan: implement GPE")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/vxlan.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/xen-netback/netback.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 2f29d20aa08f..25ab6bf013c4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1381,6 +1381,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 		if (!vxlan_set_mac(vxlan, vs, skb))
- 			goto drop;
- 	} else {
-+		skb_reset_mac_header(skb);
- 		skb->dev = vxlan->dev;
- 		skb->pkt_type = PACKET_HOST;
- 	}
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 7c72510..a5b5aad 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1509,6 +1509,33 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 			}
+ 		}
+ 
++		if (extras[XEN_NETIF_EXTRA_TYPE_HASH - 1].type) {
++			struct xen_netif_extra_info *extra;
++			enum pkt_hash_types type = PKT_HASH_TYPE_NONE;
++
++			extra = &extras[XEN_NETIF_EXTRA_TYPE_HASH - 1];
++
++			switch (extra->u.hash.type) {
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV4:
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV6:
++				type = PKT_HASH_TYPE_L3;
++				break;
++
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV4_TCP:
++			case _XEN_NETIF_CTRL_HASH_TYPE_IPV6_TCP:
++				type = PKT_HASH_TYPE_L4;
++				break;
++
++			default:
++				break;
++			}
++
++			if (type != PKT_HASH_TYPE_NONE)
++				skb_set_hash(skb,
++					     *(u32 *)extra->u.hash.value,
++					     type);
++		}
++
+ 		XENVIF_TX_CB(skb)->pending_idx = pending_idx;
+ 
+ 		__skb_put(skb, data_len);
 -- 
-1.8.3.1
+2.1.4
