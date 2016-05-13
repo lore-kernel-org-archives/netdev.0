@@ -1,7 +1,7 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 04/10] bpf, x86/arm64: remove useless checks on prog
-Date: Fri, 13 May 2016 19:08:29 +0200
-Message-ID: <bd2c1206d14a65f7a2ef111c38b675d9ba771a82.1463158442.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 05/10] bpf: add bpf_patch_insn_single helper
+Date: Fri, 13 May 2016 19:08:30 +0200
+Message-ID: <fad46b06830ceaf1235473c07a121c5ff49cbdfa.1463158442.git.daniel@iogearbox.net>
 References: <cover.1463158442.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
 	zlim.lnx@gmail.com, yang.shi@linaro.org,
@@ -9,9 +9,9 @@ Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41869 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:41872 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753436AbcEMRJC (ORCPT
+	with ESMTP id S1753437AbcEMRJC (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 13:09:02 -0400
 In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
@@ -19,45 +19,204 @@ References: <cover.1463158442.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is never such a situation, where bpf_int_jit_compile() is
-called with either prog as NULL or len as 0, so the tests are
-unnecessary and confusing as people would just copy them. s390
-doesn't have them, so no change is needed there.
+Move the functionality to patch instructions out of the verifier
+code and into the core as the new bpf_patch_insn_single() helper
+will be needed later on for blinding as well. No changes in
+functionality.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- arch/arm64/net/bpf_jit_comp.c | 3 ---
- arch/x86/net/bpf_jit_comp.c   | 3 ---
- 2 files changed, 6 deletions(-)
+ include/linux/filter.h |  3 +++
+ kernel/bpf/core.c      | 71 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/verifier.c  | 53 +++++++------------------------------
+ 3 files changed, 83 insertions(+), 44 deletions(-)
 
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index a34420a..a7fb209 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -771,9 +771,6 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
- 	if (!bpf_jit_enable)
- 		return;
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 4ff0e64..c4aae49 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -495,6 +495,9 @@ u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+ void bpf_int_jit_compile(struct bpf_prog *fp);
+ bool bpf_helper_changes_skb_data(void *func);
  
--	if (!prog || !prog->len)
--		return;
++struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
++				       const struct bpf_insn *patch, u32 len);
++
+ #ifdef CONFIG_BPF_JIT
+ extern int bpf_jit_enable;
+ 
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 5313d09..49b5538 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -136,6 +136,77 @@ void __bpf_prog_free(struct bpf_prog *fp)
+ 	vfree(fp);
+ }
+ 
++static bool bpf_is_jmp_and_has_target(const struct bpf_insn *insn)
++{
++	return BPF_CLASS(insn->code) == BPF_JMP  &&
++	       /* Call and Exit are both special jumps with no
++		* target inside the BPF instruction image.
++		*/
++	       BPF_OP(insn->code) != BPF_CALL &&
++	       BPF_OP(insn->code) != BPF_EXIT;
++}
++
++static void bpf_adj_branches(struct bpf_prog *prog, u32 pos, u32 delta)
++{
++	struct bpf_insn *insn = prog->insnsi;
++	u32 i, insn_cnt = prog->len;
++
++	for (i = 0; i < insn_cnt; i++, insn++) {
++		if (!bpf_is_jmp_and_has_target(insn))
++			continue;
++
++		/* Adjust offset of jmps if we cross boundaries. */
++		if (i < pos && i + insn->off + 1 > pos)
++			insn->off += delta;
++		else if (i > pos + delta && i + insn->off + 1 <= pos + delta)
++			insn->off -= delta;
++	}
++}
++
++struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
++				       const struct bpf_insn *patch, u32 len)
++{
++	u32 insn_adj_cnt, insn_rest, insn_delta = len - 1;
++	struct bpf_prog *prog_adj;
++
++	/* Since our patchlet doesn't expand the image, we're done. */
++	if (insn_delta == 0) {
++		memcpy(prog->insnsi + off, patch, sizeof(*patch));
++		return prog;
++	}
++
++	insn_adj_cnt = prog->len + insn_delta;
++
++	/* Several new instructions need to be inserted. Make room
++	 * for them. Likely, there's no need for a new allocation as
++	 * last page could have large enough tailroom.
++	 */
++	prog_adj = bpf_prog_realloc(prog, bpf_prog_size(insn_adj_cnt),
++				    GFP_USER);
++	if (!prog_adj)
++		return NULL;
++
++	prog_adj->len = insn_adj_cnt;
++
++	/* Patching happens in 3 steps:
++	 *
++	 * 1) Move over tail of insnsi from next instruction onwards,
++	 *    so we can patch the single target insn with one or more
++	 *    new ones (patching is always from 1 to n insns, n > 0).
++	 * 2) Inject new instructions at the target location.
++	 * 3) Adjust branch offsets if necessary.
++	 */
++	insn_rest = insn_adj_cnt - off - len;
++
++	memmove(prog_adj->insnsi + off + len, prog_adj->insnsi + off + 1,
++		sizeof(*patch) * insn_rest);
++	memcpy(prog_adj->insnsi + off, patch, sizeof(*patch) * len);
++
++	bpf_adj_branches(prog_adj, off, insn_delta);
++
++	return prog_adj;
++}
++
+ #ifdef CONFIG_BPF_JIT
+ struct bpf_binary_header *
+ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 84bff68..a08d662 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2587,26 +2587,6 @@ static void convert_pseudo_ld_imm64(struct verifier_env *env)
+ 			insn->src_reg = 0;
+ }
+ 
+-static void adjust_branches(struct bpf_prog *prog, int pos, int delta)
+-{
+-	struct bpf_insn *insn = prog->insnsi;
+-	int insn_cnt = prog->len;
+-	int i;
 -
- 	memset(&ctx, 0, sizeof(ctx));
- 	ctx.prog = prog;
- 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 4286f36..f5bfd4f 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -1086,9 +1086,6 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
- 	if (!bpf_jit_enable)
- 		return;
- 
--	if (!prog || !prog->len)
--		return;
+-	for (i = 0; i < insn_cnt; i++, insn++) {
+-		if (BPF_CLASS(insn->code) != BPF_JMP ||
+-		    BPF_OP(insn->code) == BPF_CALL ||
+-		    BPF_OP(insn->code) == BPF_EXIT)
+-			continue;
 -
- 	addrs = kmalloc(prog->len * sizeof(*addrs), GFP_KERNEL);
- 	if (!addrs)
- 		return;
+-		/* adjust offset of jmps if necessary */
+-		if (i < pos && i + insn->off + 1 > pos)
+-			insn->off += delta;
+-		else if (i > pos + delta && i + insn->off + 1 <= pos + delta)
+-			insn->off -= delta;
+-	}
+-}
+-
+ /* convert load instructions that access fields of 'struct __sk_buff'
+  * into sequence of instructions that access fields of 'struct sk_buff'
+  */
+@@ -2616,14 +2596,15 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 	int insn_cnt = env->prog->len;
+ 	struct bpf_insn insn_buf[16];
+ 	struct bpf_prog *new_prog;
+-	u32 cnt;
+-	int i;
+ 	enum bpf_access_type type;
++	int i;
+ 
+ 	if (!env->prog->aux->ops->convert_ctx_access)
+ 		return 0;
+ 
+ 	for (i = 0; i < insn_cnt; i++, insn++) {
++		u32 insn_delta, cnt;
++
+ 		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W))
+ 			type = BPF_READ;
+ 		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W))
+@@ -2645,34 +2626,18 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 			return -EINVAL;
+ 		}
+ 
+-		if (cnt == 1) {
+-			memcpy(insn, insn_buf, sizeof(*insn));
+-			continue;
+-		}
+-
+-		/* several new insns need to be inserted. Make room for them */
+-		insn_cnt += cnt - 1;
+-		new_prog = bpf_prog_realloc(env->prog,
+-					    bpf_prog_size(insn_cnt),
+-					    GFP_USER);
++		new_prog = bpf_patch_insn_single(env->prog, i, insn_buf, cnt);
+ 		if (!new_prog)
+ 			return -ENOMEM;
+ 
+-		new_prog->len = insn_cnt;
+-
+-		memmove(new_prog->insnsi + i + cnt, new_prog->insns + i + 1,
+-			sizeof(*insn) * (insn_cnt - i - cnt));
+-
+-		/* copy substitute insns in place of load instruction */
+-		memcpy(new_prog->insnsi + i, insn_buf, sizeof(*insn) * cnt);
+-
+-		/* adjust branches in the whole program */
+-		adjust_branches(new_prog, i, cnt - 1);
++		insn_delta = cnt - 1;
+ 
+ 		/* keep walking new program and skip insns we just inserted */
+ 		env->prog = new_prog;
+-		insn = new_prog->insnsi + i + cnt - 1;
+-		i += cnt - 1;
++		insn      = new_prog->insnsi + i + insn_delta;
++
++		insn_cnt += insn_delta;
++		i        += insn_delta;
+ 	}
+ 
+ 	return 0;
 -- 
 1.9.3
