@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next 7/8] net/mlx5_core: Flow counters infrastructure
-Date: Fri, 13 May 2016 12:55:41 +0000
-Message-ID: <1463144142-13810-8-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next 8/8] net/mlx5e: Hardware offloaded flower filter statistics support
+Date: Fri, 13 May 2016 12:55:42 +0000
+Message-ID: <1463144142-13810-9-git-send-email-amir@vadai.me>
 References: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amir@vadai.me>,
@@ -9,381 +9,178 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41828 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:41834 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752689AbcEMM6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 08:58:11 -0400
+	id S1752689AbcEMM6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 08:58:23 -0400
 In-Reply-To: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirva@mellanox.com>
 
-If a counter has the aging flag set when created, it is added to a list
-of counters that will be queried periodically from a workqueue.  query
-result and last use timestamp are cached.
-add/del counter must be very efficient since thousands of such
-operations might be issued in a second.
-There is only a single reference to counters without aging, therefore
-no need for locks.
-But, counters with aging enabled are stored in a list. In order to make
-code as lockless as possible, all the list manipulation and access to
-hardware is done from a single context - the periodic counters query
-thread.
-
-The hardware supports multiple counters per FTE, however currently we
-are using one counter for each FTE.
+Introduce support in updating statistics of offloaded TC flower
+classifiers. Currently only the DROP action is supported.
 
 Signed-off-by: Amir Vadai <amirva@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |   7 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   3 +
- .../net/ethernet/mellanox/mlx5/core/fs_counters.c  | 226 +++++++++++++++++++++
- include/linux/mlx5/driver.h                        |  14 ++
- include/linux/mlx5/fs.h                            |   5 +
- 6 files changed, 255 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  2 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   | 71 ++++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h   |  3 +
+ 3 files changed, 69 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index b531d4f..9ea7b58 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -2,7 +2,7 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 0804070..fd43929 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2154,6 +2154,8 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
+ 			return mlx5e_configure_flower(priv, proto, tc->cls_flower);
+ 		case TC_CLSFLOWER_DESTROY:
+ 			return mlx5e_delete_flower(priv, tc->cls_flower);
++		case TC_CLSFLOWER_STATS:
++			return mlx5e_stats_flower(priv, tc->cls_flower);
+ 		}
+ 	default:
+ 		return -EOPNOTSUPP;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index ef017c0..704c3d3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -53,13 +53,24 @@ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+ 						u32 *match_c, u32 *match_v,
+ 						u32 action, u32 flow_tag)
+ {
+-	struct mlx5_flow_destination dest = {
+-		.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE,
+-		{.ft = priv->fs.vlan.ft.t},
+-	};
++	struct mlx5_core_dev *dev = priv->mdev;
++	struct mlx5_flow_destination dest = { 0 };
++	struct mlx5_fc *counter = NULL;
+ 	struct mlx5_flow_rule *rule;
+ 	bool table_created = false;
  
- mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
--		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o
-+		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o fs_counters.o
++	if (action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
++		dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
++		dest.ft = priv->fs.vlan.ft.t;
++	} else {
++		counter = mlx5_fc_create(dev, true);
++		if (IS_ERR(counter))
++			return ERR_CAST(counter);
++
++		dest.type = MLX5_FLOW_DESTINATION_TYPE_COUNTER;
++		dest.counter = counter;
++	}
++
+ 	if (IS_ERR_OR_NULL(priv->fs.tc.t)) {
+ 		priv->fs.tc.t =
+ 			mlx5_create_auto_grouped_flow_table(priv->fs.ns,
+@@ -70,7 +81,8 @@ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+ 		if (IS_ERR(priv->fs.tc.t)) {
+ 			netdev_err(priv->netdev,
+ 				   "Failed to create tc offload table\n");
+-			return ERR_CAST(priv->fs.tc.t);
++			rule = ERR_CAST(priv->fs.tc.t);
++			goto err_create_ft;
+ 		}
  
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
- 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 9420def..8b5f0b2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1771,6 +1771,7 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
- 	cleanup_single_prio_root_ns(dev, dev->priv.fdb_root_ns);
- 	cleanup_single_prio_root_ns(dev, dev->priv.esw_egress_root_ns);
- 	cleanup_single_prio_root_ns(dev, dev->priv.esw_ingress_root_ns);
-+	mlx5_cleanup_fc_stats(dev);
+ 		table_created = true;
+@@ -79,12 +91,20 @@ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+ 	rule = mlx5_add_flow_rule(priv->fs.tc.t, MLX5_MATCH_OUTER_HEADERS,
+ 				  match_c, match_v,
+ 				  action, flow_tag,
+-				  action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST ? &dest : NULL);
++				  &dest);
++
++	if (IS_ERR(rule))
++		goto err_add_rule;
++
++	return rule;
+ 
+-	if (IS_ERR(rule) && table_created) {
++err_add_rule:
++	if (table_created) {
+ 		mlx5_destroy_flow_table(priv->fs.tc.t);
+ 		priv->fs.tc.t = NULL;
+ 	}
++err_create_ft:
++	mlx5_fc_destroy(dev, counter);
+ 
+ 	return rule;
+ }
+@@ -92,8 +112,14 @@ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
+ 			      struct mlx5_flow_rule *rule)
+ {
++	struct mlx5_fc *counter = NULL;
++
++	counter = mlx5_flow_rule_counter(rule);
++
+ 	mlx5_del_flow_rule(rule);
+ 
++	mlx5_fc_destroy(priv->mdev, counter);
++
+ 	if (!mlx5e_tc_num_filters(priv)) {
+ 		mlx5_destroy_flow_table(priv->fs.tc.t);
+ 		priv->fs.tc.t = NULL;
+@@ -286,6 +312,9 @@ static int parse_tc_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 
+ 		if (is_tcf_gact_shot(a)) {
+ 			*action |= MLX5_FLOW_CONTEXT_ACTION_DROP;
++			if (MLX5_CAP_FLOWTABLE(priv->mdev,
++					       flow_table_properties_nic_receive.flow_counter))
++				*action |= MLX5_FLOW_CONTEXT_ACTION_COUNT;
+ 			continue;
+ 		}
+ 
+@@ -394,6 +423,34 @@ int mlx5e_delete_flower(struct mlx5e_priv *priv,
+ 	return 0;
  }
  
- static int init_fdb_root_ns(struct mlx5_core_dev *dev)
-@@ -1827,10 +1828,14 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
- {
- 	int err = 0;
- 
-+	err = mlx5_init_fc_stats(dev);
-+	if (err)
-+		return err;
-+
- 	if (MLX5_CAP_GEN(dev, nic_flow_table)) {
- 		err = init_root_ns(dev);
- 		if (err)
--			return err;
-+			goto err;
- 	}
- 	if (MLX5_CAP_GEN(dev, eswitch_flow_table)) {
- 		err = init_fdb_root_ns(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 1989048..aa41a73 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -169,6 +169,9 @@ struct mlx5_flow_root_namespace {
- 	struct mutex			chain_lock;
- };
- 
-+int mlx5_init_fc_stats(struct mlx5_core_dev *dev);
-+void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev);
-+
- int mlx5_init_fs(struct mlx5_core_dev *dev);
- void mlx5_cleanup_fs(struct mlx5_core_dev *dev);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-new file mode 100644
-index 0000000..164dc37
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-@@ -0,0 +1,226 @@
-+/*
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/fs.h>
-+#include "mlx5_core.h"
-+#include "fs_core.h"
-+#include "fs_cmd.h"
-+
-+#define MLX5_FC_STATS_PERIOD msecs_to_jiffies(1000)
-+
-+/* locking scheme:
-+ *
-+ * It is the responsibility of the user to prevent concurrent calls or bad
-+ * ordering to mlx5_fc_create(), mlx5_fc_destroy() and accessing a reference
-+ * to struct mlx5_fc.
-+ * e.g en_tc.c is protected by RTNL lock of its caller, and will never call a
-+ * dump (access to struct mlx5_fc) after a counter is destroyed.
-+ *
-+ * access to counter list:
-+ * - create (user context)
-+ *   - mlx5_fc_create() only adds to an addlist to be used by
-+ *     mlx5_fc_stats_query_work(). addlist is protected by a spinlock.
-+ *   - spawn thread to do the actual destroy
-+ *
-+ * - destroy (user context)
-+ *   - mark a counter as deleted
-+ *   - spawn thread to do the actual del
-+ *
-+ * - dump (user context)
-+ *   user should not call dump after destroy
-+ *
-+ * - query (single thread workqueue context)
-+ *   destroy/dump - no conflict (see destroy)
-+ *   query/dump - packets and bytes might be inconsistent (since update is not
-+ *                atomic)
-+ *   query/create - no conflict (see create)
-+ *   since every create/destroy spawn the work, only after necessary time has
-+ *   elapsed, the thread will actually query the hardware.
-+ */
-+
-+static void mlx5_fc_stats_work(struct work_struct *work)
++int mlx5e_stats_flower(struct mlx5e_priv *priv,
++		       struct tc_cls_flower_offload *f)
 +{
-+	struct mlx5_core_dev *dev = container_of(work, struct mlx5_core_dev,
-+						 priv.fc_stats.work.work);
-+	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
-+	unsigned long now = jiffies;
++	struct mlx5e_tc_table *tc = &priv->fs.tc;
++	struct mlx5e_tc_flow *flow;
++	struct tc_action *a;
 +	struct mlx5_fc *counter;
-+	struct mlx5_fc *tmp;
-+	int err = 0;
++	u64 bytes;
++	u64 packets;
++	u64 lastuse;
 +
-+	spin_lock(&fc_stats->addlist_lock);
++	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
++				      tc->ht_params);
++	if (!flow)
++		return -EINVAL;
 +
-+	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
-+
-+	if (!list_empty(&fc_stats->list))
-+		queue_delayed_work(fc_stats->wq, &fc_stats->work, MLX5_FC_STATS_PERIOD);
-+
-+	spin_unlock(&fc_stats->addlist_lock);
-+
-+	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
-+		struct mlx5_fc_cache *c = &counter->cache;
-+		u64 packets;
-+		u64 bytes;
-+
-+		if (counter->deleted) {
-+			list_del(&counter->list);
-+
-+			mlx5_cmd_fc_free(dev, counter->id);
-+
-+			kfree(counter);
-+			continue;
-+		}
-+
-+		if (time_before(now, fc_stats->next_query))
-+			continue;
-+
-+		err = mlx5_cmd_fc_query(dev, counter->id, &packets, &bytes);
-+		if (err) {
-+			pr_err("Error querying stats for counter id %d\n",
-+			       counter->id);
-+			continue;
-+		}
-+
-+		if (packets == c->packets)
-+			continue;
-+
-+		c->lastuse = jiffies;
-+		c->packets = packets;
-+		c->bytes   = bytes;
-+	}
-+
-+	if (time_after_eq(now, fc_stats->next_query))
-+		fc_stats->next_query = now + MLX5_FC_STATS_PERIOD;
-+}
-+
-+struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging)
-+{
-+	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
-+	struct mlx5_fc *counter;
-+	int err;
-+
-+	counter = kzalloc(sizeof(*counter), GFP_KERNEL);
++	counter = mlx5_flow_rule_counter(flow->rule);
 +	if (!counter)
-+		return ERR_PTR(-ENOMEM);
++		return 0;
 +
-+	err = mlx5_cmd_fc_alloc(dev, &counter->id);
-+	if (err)
-+		goto err_out;
++	mlx5_fc_query_cached(counter, &bytes, &packets, &lastuse);
 +
-+	if (aging) {
-+		counter->aging = true;
-+
-+		spin_lock(&fc_stats->addlist_lock);
-+		list_add(&counter->list, &fc_stats->addlist);
-+		spin_unlock(&fc_stats->addlist_lock);
-+
-+		mod_delayed_work(fc_stats->wq, &fc_stats->work, 0);
-+	}
-+
-+	return counter;
-+
-+err_out:
-+	kfree(counter);
-+
-+	return ERR_PTR(err);
-+}
-+
-+void mlx5_fc_destroy(struct mlx5_core_dev *dev, struct mlx5_fc *counter)
-+{
-+	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
-+
-+	if (!counter)
-+		return;
-+
-+	if (counter->aging) {
-+		counter->deleted = true;
-+		mod_delayed_work(fc_stats->wq, &fc_stats->work, 0);
-+		return;
-+	}
-+
-+	mlx5_cmd_fc_free(dev, counter->id);
-+	kfree(counter);
-+}
-+
-+int mlx5_init_fc_stats(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
-+
-+	INIT_LIST_HEAD(&fc_stats->list);
-+	INIT_LIST_HEAD(&fc_stats->addlist);
-+	spin_lock_init(&fc_stats->addlist_lock);
-+
-+	fc_stats->wq = create_singlethread_workqueue("mlx5_fc");
-+	if (!fc_stats->wq)
-+		return -ENOMEM;
-+
-+	INIT_DELAYED_WORK(&fc_stats->work, mlx5_fc_stats_work);
++	tc_for_each_action(a, f->exts)
++		tcf_action_stats_update(a, bytes, packets, lastuse);
 +
 +	return 0;
 +}
 +
-+void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
-+	struct mlx5_fc *counter;
-+	struct mlx5_fc *tmp;
-+
-+	cancel_delayed_work_sync(&dev->priv.fc_stats.work);
-+	destroy_workqueue(dev->priv.fc_stats.wq);
-+	dev->priv.fc_stats.wq = NULL;
-+
-+	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
-+
-+	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
-+		list_del(&counter->list);
-+
-+		mlx5_cmd_fc_free(dev, counter->id);
-+
-+		kfree(counter);
-+	}
-+}
-+
-+void mlx5_fc_query_cached(struct mlx5_fc *counter,
-+			  u64 *bytes, u64 *packets, u64 *lastuse)
-+{
-+	struct mlx5_fc_cache c;
-+
-+	c = counter->cache;
-+
-+	*bytes = c.bytes - counter->lastbytes;
-+	*packets = c.packets - counter->lastpackets;
-+	*lastuse = c.lastuse;
-+
-+	counter->lastbytes = c.bytes;
-+	counter->lastpackets = c.packets;
-+}
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 9613143..07b504f 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -41,6 +41,7 @@
- #include <linux/slab.h>
- #include <linux/vmalloc.h>
- #include <linux/radix-tree.h>
-+#include <linux/workqueue.h>
+ static const struct rhashtable_params mlx5e_tc_flow_ht_params = {
+ 	.head_offset = offsetof(struct mlx5e_tc_flow, node),
+ 	.key_offset = offsetof(struct mlx5e_tc_flow, cookie),
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+index a4f17b9..34bf903 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+@@ -43,6 +43,9 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ int mlx5e_delete_flower(struct mlx5e_priv *priv,
+ 			struct tc_cls_flower_offload *f);
  
- #include <linux/mlx5/device.h>
- #include <linux/mlx5/doorbell.h>
-@@ -457,6 +458,17 @@ struct mlx5_irq_info {
- 	char name[MLX5_MAX_IRQ_NAME];
- };
- 
-+struct mlx5_fc_stats {
-+	struct list_head list;
-+	struct list_head addlist;
-+	/* protect addlist add/splice operations */
-+	spinlock_t addlist_lock;
++int mlx5e_stats_flower(struct mlx5e_priv *priv,
++		       struct tc_cls_flower_offload *f);
 +
-+	struct workqueue_struct *wq;
-+	struct delayed_work work;
-+	unsigned long next_query;
-+};
-+
- struct mlx5_eswitch;
- 
- struct mlx5_priv {
-@@ -520,6 +532,8 @@ struct mlx5_priv {
- 	struct mlx5_flow_root_namespace *fdb_root_ns;
- 	struct mlx5_flow_root_namespace *esw_egress_root_ns;
- 	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
-+
-+	struct mlx5_fc_stats		fc_stats;
- };
- 
- enum mlx5_device_state {
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-index c8b9ede..4b7a107 100644
---- a/include/linux/mlx5/fs.h
-+++ b/include/linux/mlx5/fs.h
-@@ -127,4 +127,9 @@ int mlx5_modify_rule_destination(struct mlx5_flow_rule *rule,
- 				 struct mlx5_flow_destination *dest);
- 
- struct mlx5_fc *mlx5_flow_rule_counter(struct mlx5_flow_rule *rule);
-+struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging);
-+void mlx5_fc_destroy(struct mlx5_core_dev *dev, struct mlx5_fc *counter);
-+void mlx5_fc_query_cached(struct mlx5_fc *counter,
-+			  u64 *bytes, u64 *packets, u64 *lastuse);
-+
- #endif
+ static inline int mlx5e_tc_num_filters(struct mlx5e_priv *priv)
+ {
+ 	return atomic_read(&priv->fs.tc.ht.nelems);
 -- 
 2.8.0
