@@ -1,98 +1,45 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH] i40e: constify i40e_client_ops structure
-Date: Fri, 13 May 2016 16:42:52 -0400
-Message-ID: <7b2cd30a-77c3-4204-c2cf-df5a2870b443@redhat.com>
-References: <1462104443-30724-1-git-send-email-Julia.Lawall@lip6.fr>
- <0c2df9ca-64bd-ac73-9071-f4d619887df8@redhat.com>
- <1463168405.2612.23.camel@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Fri, 13 May 2016 22:44:36 +0200
+Message-ID: <20160513204436.GC7600@lunn.ch>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+ <20160512184233.GJ30822@pengutronix.de>
+ <5735995B.8030802@ti.com>
+ <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO"
-Cc: kernel-janitors@vger.kernel.org, linux-rdma@vger.kernel.org,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Tatyana Nikolova <tatyana.e.nikolova@intel.com>,
-	Shiraz Saleem <shiraz.saleem@intel.com>,
-	Mustafa Ismail <mustafa.ismail@intel.com>,
-	Chien Tin Tung <chien.tin.tung@intel.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463168405.2612.23.camel@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roger Quadros <rogerq@ti.com>,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, grant.likely@linaro.org,
+	robh+dt@kernel.org, devicetree@vger.kernel.org,
+	f.fainelli@gmail.com, netdev@vger.kernel.org,
+	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	linux-kernel@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:37837 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932254AbcEMUot (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 16:44:49 -0400
+Content-Disposition: inline
+In-Reply-To: <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+> >Another issue is that on some boards we have one reset line tied to
+> >multiple PHYs.How do we prevent multiple resets being taking place when each of
+> >the PHYs are registered?
+> 
+>    My patch just doesn't address this case -- it's about the
+> individual resets only.
 
-On 05/13/2016 03:40 PM, Jeff Kirsher wrote:
-> On Fri, 2016-05-13 at 12:50 -0400, Doug Ledford wrote:
->> On 05/01/2016 08:07 AM, Julia Lawall wrote:
->>> The i40e_client_ops structure is never modified, so declare it as
->> const.
->>> =20
->>> Done with the help of Coccinelle.
->>> =20
->>> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->>
->> Thanks, applied.
->=20
-> I already have this patch queued up to push through David Miller's net-=
-next=20
-> tree.
->=20
-> Julia- please do not shotgun blast several maintainers and several list=
-s,
-> it causes confusion on who is *REALLY* going to accept and apply the pa=
-tch.
-> Please use scripts/get_maintainer.pl to get the correct mailing lists a=
-nd
-> maintainers to add to the To: and CC: lines.
->=20
+This actually needs to be addresses a layer above. What you have is a
+bus reset, not a device reset. So the gpio line is associated to the
+mdio bus, not a PHY. Either your MDIO driver needs to handle the gpio
+line, or in __mdio_register(), before it starts looking at the
+children.
 
-I've dropped it from my tree.  There won't be a conflict.
-
---=20
-Doug Ledford <dledford@redhat.com>
-              GPG KeyID: 0E572FDD
-
-
-
---qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJXNjxMAAoJELgmozMOVy/dTLkP/RNLyYE+Eih1PRkb8xWrsGrj
-JCzANSluRVpTPLZWEm+2w54tsDi5ZZOdXmHHWJEBIJ+2Cq2Twu5URjUYTCM07anL
-g8P+UFMCKpoSlpFwinUbnNl4KHNdfGwvpHgvTz7Cl6WEInujKh8wCZORe1dMVVUD
-nOCLnCQd9Sa9UlBAGK6Im14YorX1qp+rhuqWhrdqUufv5fWH9T3YTeKlXtrKRl1N
-4fZ8zLQ4RhHF/EI6USEtdVfSZXD29i5jvWo9klJxSwqM5QTnLbb5Y2Q9kbXrPWoJ
-F1cXDdZ50wHcCtvmZRjjjPCnXEHh/cTJRCFPjxsS+/lJIj3ECiTiHci0peuaYHaE
-WT6uluntfuNszpxul2nNBBW0gWSYKvQLrBtipKgc0v1YiERfaGhiMoMkYX5XIvek
-ZTJmuLYvIYnRkjagkrMcBD8c3NepiiYUErczKvrwOIDDci7UKeLesWMZI+h03ff5
-cUM2oDRKtEi1aAlQ7Wdp6kCW+1L81+5NXj8mTMMoo1oSz/JWY8nwjP2FXIdPwQqV
-DIMsAeGSJ/WddcnXJV14oVcvG7yiO+2u8pAMZ3jNBKJc03uC1YproqtasewVMq4/
-IFwNy4Wh4KHw8IZolAD48fZT3TCV5GeippdwOGSkLhnru5ZMelFdkvJ1lthWP67D
-I+C8PNkj74nVP0qIIfIZ
-=OgVU
------END PGP SIGNATURE-----
-
---qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO--
+	Andrew
