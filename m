@@ -1,229 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH nf V2] netfilter: fix oops in nfqueue during netns error unwinding
-Date: Fri, 13 May 2016 15:44:38 -0500
-Message-ID: <87zirtofgp.fsf@x220.int.ebiederm.org>
-References: <1462981273-21676-1-git-send-email-fw@strlen.de>
-	<20160512094725.GB1777@salvia> <87twi3qmlf.fsf@x220.int.ebiederm.org>
-	<20160512164000.GA9815@breakpoint.cc>
-	<87a8jtrbk3.fsf@x220.int.ebiederm.org>
-	<20160513200442.GA29941@breakpoint.cc>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Fri, 13 May 2016 23:56:12 +0300
+Message-ID: <1a44a737-2b81-625b-8edf-d1c3dfcdd619@cogentembedded.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+ <20160512184233.GJ30822@pengutronix.de> <5735995B.8030802@ti.com>
+ <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
+ <20160513204436.GC7600@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, dale.4d@gmail.com,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160513200442.GA29941@breakpoint.cc> (Florian Westphal's
-	message of "Fri, 13 May 2016 22:04:42 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roger Quadros <rogerq@ti.com>,
+	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, linux-kernel@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160513204436.GC7600@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 05/13/2016 11:44 PM, Andrew Lunn wrote:
 
-Florian could you test and verify this patch fixes your issues?
-
-Unlike the other possibilities that have been discussed this also
-addresses the nf_queue path as well as the nf_queue_hook_drop path.
-
-And frankly that is the best argument I have for fixing it this way
-because potentially nf_queue could have similar issues.
-
-Eric
-
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 13 May 2016 15:26:03 -0500
-Subject: [PATCH] nf_queue: Make the queue_handler pernet
-
-Florian Weber reported:
-> Under full load (unshare() in loop -> OOM conditions) we can
-> get kernel panic:
+>>> Another issue is that on some boards we have one reset line tied to
+>>> multiple PHYs.How do we prevent multiple resets being taking place when each of
+>>> the PHYs are registered?
+>>
+>>    My patch just doesn't address this case -- it's about the
+>> individual resets only.
 >
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-> IP: [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
-> [..]
-> task: ffff88012dfa3840 ti: ffff88012dffc000 task.ti: ffff88012dffc000
-> RIP: 0010:[<ffffffff81476c85>]  [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
-> RSP: 0000:ffff88012dfffd80  EFLAGS: 00010206
-> RAX: 0000000000000008 RBX: ffffffff81add0c0 RCX: ffff88013fd80000
-> [..]
-> Call Trace:
->  [<ffffffff81474d98>] nf_queue_nf_hook_drop+0x18/0x20
->  [<ffffffff814738eb>] nf_unregister_net_hook+0xdb/0x150
->  [<ffffffff8147398f>] netfilter_net_exit+0x2f/0x60
->  [<ffffffff8141b088>] ops_exit_list.isra.4+0x38/0x60
->  [<ffffffff8141b652>] setup_net+0xc2/0x120
->  [<ffffffff8141bd09>] copy_net_ns+0x79/0x120
->  [<ffffffff8106965b>] create_new_namespaces+0x11b/0x1e0
->  [<ffffffff810698a7>] unshare_nsproxy_namespaces+0x57/0xa0
->  [<ffffffff8104baa2>] SyS_unshare+0x1b2/0x340
->  [<ffffffff81608276>] entry_SYSCALL_64_fastpath+0x1e/0xa8
-> Code: 65 00 48 89 e5 41 56 41 55 41 54 53 83 e8 01 48 8b 97 70 12 00 00 48 98 49 89 f4 4c 8b 74 c2 18 4d 8d 6e 08 49 81 c6 88 00 00 00 <49> 8b 5d 00 48 85 db 74 1a 48 89 df 4c 89 e2 48 c7 c6 90 68 47
+> This actually needs to be addresses a layer above. What you have is a
+> bus reset, not a device reset.
+
+    No.
+    There's simply no such thing as a bus reset for the xMII/MDIO busses, 
+there's simply no reset signaling on them. Every device has its own reset 
+signal and its own timing requirements.
+
+> So the gpio line is associated to the mdio bus, not a PHY.
+
+    No.
+
+> Either your MDIO driver needs to handle the gpio
+> line,  or in __mdio_register(),
+
+    __mdiobus_register(), you mean?
+
+> before it starts looking at the
+> children.
+
+    It's basically the same thing.
+    The MDIO bus reset is a misconception.
+
 >
+> 	Andrew
 
-The simple fix for this requires a new pernet variable for struct
-nf_queue that indicates when it is safe to use the dynamically
-allocated nf_queue state.
-
-As we need a variable anyway make nf_register_queue_handler and
-nf_unregister_queue_handler pernet.  This allows the existing logic of
-when it is safe to use the state from the nfnetlink_queue module to be
-reused with no changes except for making it per net.
-
-The syncrhonize_rcu from nf_unregister_queue_handler is moved to a new
-function nfnl_queue_net_exit_batch so that the worst case of having a
-syncrhonize_rcu in the pernet exit path is not experienced in batch
-mode.
-
-Reported-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/net/netfilter/nf_queue.h |  4 ++--
- include/net/netns/netfilter.h    |  2 ++
- net/netfilter/nf_queue.c         | 17 ++++++++---------
- net/netfilter/nfnetlink_queue.c  | 18 ++++++++++++------
- 4 files changed, 24 insertions(+), 17 deletions(-)
-
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index 9c5638ad872e..0dbce55437f2 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -28,8 +28,8 @@ struct nf_queue_handler {
- 						struct nf_hook_ops *ops);
- };
- 
--void nf_register_queue_handler(const struct nf_queue_handler *qh);
--void nf_unregister_queue_handler(void);
-+void nf_register_queue_handler(struct net *net, const struct nf_queue_handler *qh);
-+void nf_unregister_queue_handler(struct net *net);
- void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
- 
- void nf_queue_entry_get_refs(struct nf_queue_entry *entry);
-diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
-index 38aa4983e2a9..36d723579af2 100644
---- a/include/net/netns/netfilter.h
-+++ b/include/net/netns/netfilter.h
-@@ -5,11 +5,13 @@
- 
- struct proc_dir_entry;
- struct nf_logger;
-+struct nf_queue_handler;
- 
- struct netns_nf {
- #if defined CONFIG_PROC_FS
- 	struct proc_dir_entry *proc_netfilter;
- #endif
-+	const struct nf_queue_handler __rcu *queue_handler;
- 	const struct nf_logger __rcu *nf_loggers[NFPROTO_NUMPROTO];
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header *nf_log_dir_header;
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 5baa8e24e6ac..b19ad20a705c 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -26,23 +26,21 @@
-  * Once the queue is registered it must reinject all packets it
-  * receives, no matter what.
-  */
--static const struct nf_queue_handler __rcu *queue_handler __read_mostly;
- 
- /* return EBUSY when somebody else is registered, return EEXIST if the
-  * same handler is registered, return 0 in case of success. */
--void nf_register_queue_handler(const struct nf_queue_handler *qh)
-+void nf_register_queue_handler(struct net *net, const struct nf_queue_handler *qh)
- {
- 	/* should never happen, we only have one queueing backend in kernel */
--	WARN_ON(rcu_access_pointer(queue_handler));
--	rcu_assign_pointer(queue_handler, qh);
-+	WARN_ON(rcu_access_pointer(net->nf.queue_handler));
-+	rcu_assign_pointer(net->nf.queue_handler, qh);
- }
- EXPORT_SYMBOL(nf_register_queue_handler);
- 
- /* The caller must flush their queue before this */
--void nf_unregister_queue_handler(void)
-+void nf_unregister_queue_handler(struct net *net)
- {
--	RCU_INIT_POINTER(queue_handler, NULL);
--	synchronize_rcu();
-+	RCU_INIT_POINTER(net->nf.queue_handler, NULL);
- }
- EXPORT_SYMBOL(nf_unregister_queue_handler);
- 
-@@ -103,7 +101,7 @@ void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops)
- 	const struct nf_queue_handler *qh;
- 
- 	rcu_read_lock();
--	qh = rcu_dereference(queue_handler);
-+	qh = rcu_dereference(net->nf.queue_handler);
- 	if (qh)
- 		qh->nf_hook_drop(net, ops);
- 	rcu_read_unlock();
-@@ -122,9 +120,10 @@ int nf_queue(struct sk_buff *skb,
- 	struct nf_queue_entry *entry = NULL;
- 	const struct nf_afinfo *afinfo;
- 	const struct nf_queue_handler *qh;
-+	struct net *net = state->net;
- 
- 	/* QUEUE == DROP if no one is waiting, to be safe. */
--	qh = rcu_dereference(queue_handler);
-+	qh = rcu_dereference(net->nf.queue_handler);
- 	if (!qh) {
- 		status = -ESRCH;
- 		goto err;
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index cb5b630a645b..2c13e41c508c 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -1377,21 +1377,29 @@ static int __net_init nfnl_queue_net_init(struct net *net)
- 			 net->nf.proc_netfilter, &nfqnl_file_ops))
- 		return -ENOMEM;
- #endif
-+	nf_register_queue_handler(net, &nfqh);
- 	return 0;
- }
- 
- static void __net_exit nfnl_queue_net_exit(struct net *net)
- {
-+	nf_unregister_queue_handler(net);
- #ifdef CONFIG_PROC_FS
- 	remove_proc_entry("nfnetlink_queue", net->nf.proc_netfilter);
- #endif
- }
- 
-+static void nfnl_queue_net_exit_batch(struct list_head *net_exit_list)
-+{
-+	synchronize_rcu();
-+}
-+
- static struct pernet_operations nfnl_queue_net_ops = {
--	.init	= nfnl_queue_net_init,
--	.exit	= nfnl_queue_net_exit,
--	.id	= &nfnl_queue_net_id,
--	.size	= sizeof(struct nfnl_queue_net),
-+	.init		= nfnl_queue_net_init,
-+	.exit		= nfnl_queue_net_exit,
-+	.exit_batch	= nfnl_queue_net_exit_batch,
-+	.id		= &nfnl_queue_net_id,
-+	.size		= sizeof(struct nfnl_queue_net),
- };
- 
- static int __init nfnetlink_queue_init(void)
-@@ -1412,7 +1420,6 @@ static int __init nfnetlink_queue_init(void)
- 	}
- 
- 	register_netdevice_notifier(&nfqnl_dev_notifier);
--	nf_register_queue_handler(&nfqh);
- 	return status;
- 
- cleanup_netlink_notifier:
-@@ -1424,7 +1431,6 @@ out:
- 
- static void __exit nfnetlink_queue_fini(void)
- {
--	nf_unregister_queue_handler();
- 	unregister_netdevice_notifier(&nfqnl_dev_notifier);
- 	nfnetlink_subsys_unregister(&nfqnl_subsys);
- 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
--- 
-2.8.1
-
+MBR, Sergei
