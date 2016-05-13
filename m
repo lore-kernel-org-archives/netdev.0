@@ -1,58 +1,42 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net-next] sock: ignore TIMESTAMP, RXQ_OVFL, WIFI_STATUS in sock_cmsg_send
-Date: Fri, 13 May 2016 00:47:10 -0400
-Message-ID: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
-Cc: edumazet@google.com, maze@google.com, willemb@google.com,
-	Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sunrpc: set SOCK_FASYNC
+Date: Fri, 13 May 2016 01:46:18 -0400 (EDT)
+Message-ID: <20160513.014618.367967738394775604.davem@davemloft.net>
+References: <20160502191229.GA1946@nanopsycho.orion>
+	<1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1463114499.23934.179.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, edumazet@google.com, netdev@vger.kernel.org,
+	ying.huang@intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f65.google.com ([209.85.192.65]:35630 "EHLO
-	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbcEMErX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 00:47:23 -0400
-Received: by mail-qg0-f65.google.com with SMTP id b14so6422599qge.2
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 21:47:23 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:33626 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbcEMFqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 01:46:23 -0400
+In-Reply-To: <1463114499.23934.179.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 12 May 2016 21:41:39 -0700
 
-SO_TIMESTAMP(NS), RXQ_OVFL, and WIFI_STATUS can be returned as
-receive-side control messages from recvmsg(). Although invalid,
-some applications may reflect those receive-side control messages
-back to sendmsg(). Since socket-level control messages were being
-ignored in ipv4 and ipv6, such applications would not get an error.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> sunrpc is using SOCKWQ_ASYNC_NOSPACE without setting SOCK_FASYNC,
+> so the recent optimizations done in sk_set_bit() and sk_clear_bit()
+> broke it.
+> 
+> There is still the risk that a subsequent sock_fasync() call
+> would clear SOCK_FASYNC, but sunrpc does not use this yet.
+> 
+> Fixes: 9317bb69824e ("net: SOCKWQ_ASYNC_NOSPACE optimizations")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Jiri Pirko <jiri@resnulli.us>
+> Reported-by: Huang, Ying <ying.huang@intel.com>
+> Tested-by: Jiri Pirko <jiri@resnulli.us>
+> Tested-by: Huang, Ying <ying.huang@intel.com>
 
-24025c4 (ipv4: process socket-level control messages in IPv4) and
-ad1e46 (ipv6: process socket-level control messages in IPv6) add
-support for socket-level control messages in ipv4 and ipv6 on
-sendmsg(). This results in getting -EINVAL, if the application
-passes in a message with SO_WIFI_STATUS, SO_RXQ_OVFL, SO_TIMESTAMP
-and/or SO_TIMESTAMPNS that might have been received in recvmsg().
-
-Ignore SO_WIFI_STATUS, SO_TIMESTAMP(NS), and SO_RXQ_OVFL when
-processing socket-level control messages in send-side to remain
-backward compatible.
----
- net/core/sock.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 08bf97e..1e0bcd0 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1938,6 +1938,12 @@ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
- 		sockc->tsflags &= ~SOF_TIMESTAMPING_TX_RECORD_MASK;
- 		sockc->tsflags |= tsflags;
- 		break;
-+	/* Ignore the following types on send to remain backward compatible. */
-+	case SO_RXQ_OVFL:	/* Fall through */
-+	case SO_TIMESTAMP:	/* Fall through */
-+	case SO_TIMESTAMPNS:	/* Fall through */
-+	case SO_WIFI_STATUS:
-+		break;
- 	default:
- 		return -EINVAL;
- 	}
--- 
-2.8.0.rc3.226.g39d4020
+Applied, thanks.
