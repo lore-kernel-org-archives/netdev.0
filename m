@@ -1,78 +1,98 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH nf V2] netfilter: fix oops in nfqueue during netns error unwinding
-Date: Fri, 13 May 2016 15:26:44 -0500
-Message-ID: <87h9e1puuz.fsf@x220.int.ebiederm.org>
-References: <1462981273-21676-1-git-send-email-fw@strlen.de>
-	<20160512094725.GB1777@salvia> <87twi3qmlf.fsf@x220.int.ebiederm.org>
-	<20160512164000.GA9815@breakpoint.cc>
-	<87a8jtrbk3.fsf@x220.int.ebiederm.org>
-	<20160513200442.GA29941@breakpoint.cc>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH] i40e: constify i40e_client_ops structure
+Date: Fri, 13 May 2016 16:42:52 -0400
+Message-ID: <7b2cd30a-77c3-4204-c2cf-df5a2870b443@redhat.com>
+References: <1462104443-30724-1-git-send-email-Julia.Lawall@lip6.fr>
+ <0c2df9ca-64bd-ac73-9071-f4d619887df8@redhat.com>
+ <1463168405.2612.23.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, dale.4d@gmail.com,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:58627 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932128AbcEMUkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 16:40:25 -0400
-In-Reply-To: <20160513200442.GA29941@breakpoint.cc> (Florian Westphal's
-	message of "Fri, 13 May 2016 22:04:42 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO"
+Cc: kernel-janitors@vger.kernel.org, linux-rdma@vger.kernel.org,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Tatyana Nikolova <tatyana.e.nikolova@intel.com>,
+	Shiraz Saleem <shiraz.saleem@intel.com>,
+	Mustafa Ismail <mustafa.ismail@intel.com>,
+	Chien Tin Tung <chien.tin.tung@intel.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463168405.2612.23.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Florian Westphal <fw@strlen.de> writes:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> Eric W. Biederman <ebiederm@xmission.com> wrote:
->> > AFAICS no other callers do something similar, but yes,
->> > we'd need this all over the place if there are others.
->> >
->> > Maybe we need a saner fix, e.g. by adding bounds check to net_generic(),
->> > and making sure that net_generic() returns non-NULL only if the per
->> > netns memory was allocated properly.
->> 
->> As a first approximiation I am thinking we should fix by making
->> nf_queue_register_handler a per netns operation.
->
-> We can do that but then we'd end up storing the very same address
-> for each namespace which I think isn't nice either.
+On 05/13/2016 03:40 PM, Jeff Kirsher wrote:
+> On Fri, 2016-05-13 at 12:50 -0400, Doug Ledford wrote:
+>> On 05/01/2016 08:07 AM, Julia Lawall wrote:
+>>> The i40e_client_ops structure is never modified, so declare it as
+>> const.
+>>> =20
+>>> Done with the help of Coccinelle.
+>>> =20
+>>> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+>>
+>> Thanks, applied.
+>=20
+> I already have this patch queued up to push through David Miller's net-=
+next=20
+> tree.
+>=20
+> Julia- please do not shotgun blast several maintainers and several list=
+s,
+> it causes confusion on who is *REALLY* going to accept and apply the pa=
+tch.
+> Please use scripts/get_maintainer.pl to get the correct mailing lists a=
+nd
+> maintainers to add to the To: and CC: lines.
+>=20
 
-Sort of.  At the same time we fundamentally need a per namespace
-variable to ask if things were initialized.  So using the address as
-that variable changes the equation not at all, and keeps the code
-simpler.
+I've dropped it from my tree.  There won't be a conflict.
 
->> Either that or give nfnetlink_queue it's own dedicated place in
->> struct net for struct nfnl_queue_net.
->
-> That would work too, but then I don't see why that is preferrable
-> to this proposed patch. We could add a helper for this so that
-> we have something like
->
-> static bool netns_was_inited(const struct net *n)
-> {
-> 	return net->list.next != NULL;
-> }
+--=20
+Doug Ledford <dledford@redhat.com>
+              GPG KeyID: 0E572FDD
 
-That does not work because the real question were the things this piece
-of code cares about initialized.
 
-> Another alternative is this patch (not even compile tested, just to
-> illustrate the idea):
 
-Very much no.
+--qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-I believe that changing net_generic to return a value so that
-nfqnl_nf_hook_drop can detect if the timing is wrong is an error.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-I also don't think your changes to net_generic will work as the number
-of pointers should have been allocted properly from the start.  
+iQIcBAEBCAAGBQJXNjxMAAoJELgmozMOVy/dTLkP/RNLyYE+Eih1PRkb8xWrsGrj
+JCzANSluRVpTPLZWEm+2w54tsDi5ZZOdXmHHWJEBIJ+2Cq2Twu5URjUYTCM07anL
+g8P+UFMCKpoSlpFwinUbnNl4KHNdfGwvpHgvTz7Cl6WEInujKh8wCZORe1dMVVUD
+nOCLnCQd9Sa9UlBAGK6Im14YorX1qp+rhuqWhrdqUufv5fWH9T3YTeKlXtrKRl1N
+4fZ8zLQ4RhHF/EI6USEtdVfSZXD29i5jvWo9klJxSwqM5QTnLbb5Y2Q9kbXrPWoJ
+F1cXDdZ50wHcCtvmZRjjjPCnXEHh/cTJRCFPjxsS+/lJIj3ECiTiHci0peuaYHaE
+WT6uluntfuNszpxul2nNBBW0gWSYKvQLrBtipKgc0v1YiERfaGhiMoMkYX5XIvek
+ZTJmuLYvIYnRkjagkrMcBD8c3NepiiYUErczKvrwOIDDci7UKeLesWMZI+h03ff5
+cUM2oDRKtEi1aAlQ7Wdp6kCW+1L81+5NXj8mTMMoo1oSz/JWY8nwjP2FXIdPwQqV
+DIMsAeGSJ/WddcnXJV14oVcvG7yiO+2u8pAMZ3jNBKJc03uC1YproqtasewVMq4/
+IFwNy4Wh4KHw8IZolAD48fZT3TCV5GeippdwOGSkLhnru5ZMelFdkvJ1lthWP67D
+I+C8PNkj74nVP0qIIfIZ
+=OgVU
+-----END PGP SIGNATURE-----
 
-Your proposed change is just papering over the problem and fixing it at
-the wrong level.  (The obvious level yes) but still the wrong level.
-
-> What do you think?
-
-Eric
+--qNWrvwFh2QVa1sF9q7gn4CFd7nFXSRqlO--
