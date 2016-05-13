@@ -1,59 +1,92 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net-next] sock: ignore TIMESTAMP, RXQ_OVFL, WIFI_STATUS in sock_cmsg_send
-Date: Fri, 13 May 2016 08:14:22 -0400
-Message-ID: <CACSApvZpnu-F6Z7gH37Z942cDW0ruag+_jb_ukw+Vf5dvZk3cw@mail.gmail.com>
-References: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com> <20160513.020356.2040257607864696950.davem@davemloft.net>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH 1/2] net: mv643xx_eth: use {readl|writel}_relaxed
+ instead of readl/writel
+Date: Fri, 13 May 2016 20:19:55 +0800
+Message-ID: <20160513201955.256e5169@xhacker>
+References: <1463140760-7128-1-git-send-email-jszhang@marvell.com>
+	<1463140760-7128-2-git-send-email-jszhang@marvell.com>
+	<3966837.tFk2PD8QFb@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:35085 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139AbcEMMPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 08:15:03 -0400
-Received: by mail-oi0-f48.google.com with SMTP id x19so166997846oix.2
-        for <netdev@vger.kernel.org>; Fri, 13 May 2016 05:15:03 -0700 (PDT)
-In-Reply-To: <20160513.020356.2040257607864696950.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<sebastian.hesselbarth@gmail.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3966837.tFk2PD8QFb@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 13, 2016 at 2:03 AM, David Miller <davem@davemloft.net> wrote:
-> From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-> Date: Fri, 13 May 2016 00:47:10 -0400
->
->> From: Soheil Hassas Yeganeh <soheil@google.com>
->>
->> SO_TIMESTAMP(NS), RXQ_OVFL, and WIFI_STATUS can be returned as
->> receive-side control messages from recvmsg(). Although invalid,
->> some applications may reflect those receive-side control messages
->> back to sendmsg(). Since socket-level control messages were being
->> ignored in ipv4 and ipv6, such applications would not get an error.
->>
->> 24025c4 (ipv4: process socket-level control messages in IPv4) and
->> ad1e46 (ipv6: process socket-level control messages in IPv6) add
->> support for socket-level control messages in ipv4 and ipv6 on
->> sendmsg(). This results in getting -EINVAL, if the application
->> passes in a message with SO_WIFI_STATUS, SO_RXQ_OVFL, SO_TIMESTAMP
->> and/or SO_TIMESTAMPNS that might have been received in recvmsg().
->>
->> Ignore SO_WIFI_STATUS, SO_TIMESTAMP(NS), and SO_RXQ_OVFL when
->> processing socket-level control messages in send-side to remain
->> backward compatible.
->
-> This patch is missing a proper Signed-Off-By: tag.
+Dear Arnd,
 
-Oops, sorry. :(
+On Fri, 13 May 2016 14:09:43 +0200 Arnd Bergmann wrote:
 
-> But I think this change is wrong.  Just because we silently accepted
-> garbage in the past doesn't mean more strict checking is invalid.
->
-> Applications blindly echoing control messages from recvmsg to sendmsg
-> must be fixed.
+> On Friday 13 May 2016 19:59:19 Jisheng Zhang wrote:
+> >  /* port register accessors **************************************************/
+> >  static inline u32 rdl(struct mv643xx_eth_private *mp, int offset)
+> >  {
+> > -	return readl(mp->shared->base + offset);
+> > +	return readl_relaxed(mp->shared->base + offset);
+> >  }
+> >  
+> >  static inline u32 rdlp(struct mv643xx_eth_private *mp, int offset)
+> >  {
+> > -	return readl(mp->base + offset);
+> > +	return readl_relaxed(mp->base + offset);
+> >  }  
+> 
+> I'd recommend not changing these in general, but introducing new 'rdl_relaxed()'
+> and 'rdlp_relaxed()' etc variants that you use in the code that actually
+> is performance sensitive, but use the normal non-relaxed versions by
+> default.
+> 
+> Then add a comment to each use of the relaxed accessors on how you know
+> that it's safe for that caller. This usually is just needed for the xmit()
+> function and for the interrupt handler.
 
-Agreed, by this patch, I just wanted to note such potential issues and
-make sure I haven't broken any user-space application. Thanks David!
+Got your points and I do think it makes sense. But could we always use the
+relaxed version to save some LoCs, although I have no mv643xx_eth platform
+but I can confirm similar relaxed version changes in pxa168_eth is safe and
+this is what we do in product's kernel.
+
+Above is just my humble opinion, comments are welcome.
+
+Thanks,
+Jisheng
+
+>   
+> > @@ -2642,10 +2642,10 @@ mv643xx_eth_conf_mbus_windows(struct mv643xx_eth_shared_private *msp,
+> >  	int i;
+> >  
+> >  	for (i = 0; i < 6; i++) {
+> > -		writel(0, base + WINDOW_BASE(i));
+> > -		writel(0, base + WINDOW_SIZE(i));
+> > +		writel_relaxed(0, base + WINDOW_BASE(i));
+> > +		writel_relaxed(0, base + WINDOW_SIZE(i));
+> >  		if (i < 4)
+> > -			writel(0, base + WINDOW_REMAP_HIGH(i));
+> > +			writel_relaxed(0, base + WINDOW_REMAP_HIGH(i));
+> >  	}
+> >  
+> >  	win_enable = 0x3f;  
+> 
+> Configuring the mbus for instance is clearly not an operation in which
+> performance matters at all, so better not touch that.
+> 
+> > @@ -2674,8 +2675,8 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
+> >  	 * [21:8], or a 16-bit coal limit in bits [25,21:7] of the
+> >  	 * SDMA config register.
+> >  	 */
+> > -	writel(0x02000000, msp->base + 0x0400 + SDMA_CONFIG);
+> > -	if (readl(msp->base + 0x0400 + SDMA_CONFIG) & 0x02000000)
+> > +	writel_relaxed(0x02000000, msp->base + 0x0400 + SDMA_CONFIG);
+> > +	if (readl_relaxed(msp->base + 0x0400 + SDMA_CONFIG) & 0x02000000)
+> >  		msp->extended_rx_coal_limit = 1;
+> >  	else
+> >  		msp->extended_rx_coal_limit = 0;  
+> 
+> 
+> This also seems to be configuration, rather than in the packet rx/tx hotpath.
+> 
+> 	Arnd
