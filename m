@@ -1,71 +1,39 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Fri, 13 May 2016 23:01:11 +0200
-Message-ID: <2606282.lG9qK7uBW0@wuerfel>
-References: <20160510112905.5bffcad8@canb.auug.org.au> <20160510183934.GJ1256@tuxbot>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	Andy Gross <andy.gross@linaro.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
-	Olof Johansson <olof@lixom.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160510183934.GJ1256@tuxbot>
-Sender: linux-next-owner@vger.kernel.org
+From: Yichen Zhao <zhaoyichen@google.com>
+Subject: Re: [PATCH] Bluetooth: Fix l2cap_sock_teardown_cb race condition with bt_accept_dequeue
+Date: Fri, 13 May 2016 14:00:30 -0700
+Message-ID: <1463173230-16159-1-git-send-email-zhaoyichen@google.com>
+References: <45EE47FA-D319-4091-941A-C4005E32B572@holtmann.org>
+Cc: Yichen Zhao <zhaoyichen@google.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <45EE47FA-D319-4091-941A-C4005E32B572@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 10 May 2016 11:39:34 Bjorn Andersson wrote:
-> On Mon 09 May 18:29 PDT 2016, Stephen Rothwell wrote:
-> 
-> > Hi all,
-> > 
-> > After merging the net-next tree, today's linux-next build (x86_64
-> > allmodconfig) failed like this:
-> > 
-> > net/qrtr/smd.c:106:14: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
-> >   .callback = qcom_smd_qrtr_callback,
-> >               ^
-> > net/qrtr/smd.c:106:14: note: (near initialization for 'qcom_smd_qrtr_driver.callback')
-> > 
-> > Caused by commit
-> > 
-> >   bdabad3e363d ("net: Add Qualcomm IPC router")
-> > 
-> > interacting with commit
-> > 
-> >   b853cb9628bf ("soc: qcom: smd: Make callback pass channel reference")
-> > 
-> > from the arm-soc tree.
-> > 
-> > I added the following merge fix patch (and it turned out I needed the
-> > new stubs).
-> > 
-> 
-> Sorry for not spotting this issue earlier, I missed Andy's second pull
-> request towards arm-soc and thought the SMD changes missed this cycle.
-> 
-> 
-> Your patch looks good, but I'm not sure how we should approach the merge
-> window; Andy can't pick the patch because he doesn't have the qrtr code
-> and David doesn't have the SMD patches coming through Andy.
-> 
-> FWIW, Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> 
-> 
-> I assume we could have the QRTR go through Andy and arm-soc, with
-> David's approval and this fix squashed in. But we're running rather late
-> in this cycle, perhaps we should just back the QRTR patches out and I
-> can respin and resend them after the merge window (for v4.8 instead)?
+Hi Marcel,
 
-I'd suggest you do a merge of next-next with the qcom/soc-2 branch that
-we have in arm-soc and resolve the conflict in the merge, then send
-a pull request with the merge to davem.
+> so I am not big fan of the conditional locking in case of parent is set or not. Do you have a test case that reproduces the mentioned race. It would love to have that in tools/l2cap-tester or similar.
 
-Alternatively, in case Linus merges net-next before we get that fix
-in, I could send Stephen's fix to Linus along with the pull requests.
+So far I could only reproduce the bug by repeatedly performing RFCOMM connections and resets. I'll try to implement something in rfcomm-tester or l2cap-tester.
 
-	Arnd
+Since this is a race condition, I'm not confident that I can help you reproduce the bug reliably on a different test setup. I'd appreciate it very much if you can offer any tips on triggering a race condition faster in a test case.
+
+> Maybe the code needs some restructuring to avoid the conditional locking.
+
+I agree that my patch is not very elegant, and I'd love any way to improve it.
+I have some ideas, but I'm not familiar enough with kernel development to know whether other solutions are safe to implement, such as:
+
+* Removing bt_accept_unlink from l2cap_teardown_cb, and relying on bt_accept_dequeue to unlink the socket when it's enumerated. Is it safe to leave a zapped sock in accept_q?
+* Perform "unlock sock; lock parent; lock sock" before calling bt_accept_unlink in teardown_cb. This is still conditional locking, but around a smaller block of code. Is it safe to unlock a zapped sock?
+* Use RCU for handling accept_q. Is this appropriate?
+
+Please let me know what you think.
+
+Regards,
+
+Yichen Zhao
