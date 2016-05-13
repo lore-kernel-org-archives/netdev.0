@@ -1,58 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Sat, 14 May 2016 00:16:35 +0300
-Message-ID: <9c1c7190-f3bb-2e95-7d1f-c61ca8f6ee90@cogentembedded.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
- <20160512184233.GJ30822@pengutronix.de>
- <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
- <20160513040653.GA24461@lunn.ch>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH nf V2] netfilter: fix oops in nfqueue during netns error
+ unwinding
+Date: Fri, 13 May 2016 23:20:29 +0200
+Message-ID: <20160513212029.GC29941@breakpoint.cc>
+References: <1462981273-21676-1-git-send-email-fw@strlen.de>
+ <20160512094725.GB1777@salvia>
+ <87twi3qmlf.fsf@x220.int.ebiederm.org>
+ <20160512164000.GA9815@breakpoint.cc>
+ <87a8jtrbk3.fsf@x220.int.ebiederm.org>
+ <20160513200442.GA29941@breakpoint.cc>
+ <87zirtofgp.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
-	grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160513040653.GA24461@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, dale.4d@gmail.com,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87zirtofgp.fsf@x220.int.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Florian could you test and verify this patch fixes your issues?
 
-On 05/13/2016 07:06 AM, Andrew Lunn wrote:
+Yes, this seems to work.
 
->>>> +	gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
->>>> +	/* Deassert the reset signal */
->>>> +	if (!IS_ERR(gpiod))
->>>> +		gpiod_direction_output(gpiod, 0);
->>>
->>> This is wrong I think. You must only ignore -ENODEV, all other error
->>
->>    At least -ENOSYS should also be ignored (it's returned when
->> gpiolib is not configured), right? When does -ENODEV gets returned
->> (it's not easy to follow)?
->>
->>> codes should be passed to the caller.
->>
->>    The caller doesn't care anyway...
->
-> It should do.
+Pablo, I'm fine with this patch going into -nf/stable but I do not think
+making the pointers per netns is a desireable option in the long term.
 
-    Tell that to Florian. So far, everybody has been happy with 
-of_mdiobus_register(). Until I had to touch this code. :-)
+> Unlike the other possibilities that have been discussed this also
+> addresses the nf_queue path as well as the nf_queue_hook_drop path.
 
-> What if fwnode_get_named_gpiod() returns -EPROBE_DEFER
-> because the GPIO driver has not been loaded yet?
+The nf_queue path should have been fine, no?
 
-    Bad luck. :-)
-    Seriously, I'll see what I can do but it's not a trivial case.
-
-> 	Andrew
-
-MBR, Sergei
+Or putting it differently: can we start processing skbs before a netns
+is fully initialized?
