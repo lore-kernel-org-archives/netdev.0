@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next 1/8] net/sched: Enable netdev drivers to update statistics of offloaded actions
-Date: Fri, 13 May 2016 12:55:35 +0000
-Message-ID: <1463144142-13810-2-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next 3/8] net/sched: cls_flower: Hardware offloaded filters statistics support
+Date: Fri, 13 May 2016 12:55:37 +0000
+Message-ID: <1463144142-13810-4-git-send-email-amir@vadai.me>
 References: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amir@vadai.me>,
@@ -9,95 +9,76 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41770 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:41790 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751555AbcEMM5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 08:57:18 -0400
+	id S1753028AbcEMM5r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 08:57:47 -0400
 In-Reply-To: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirva@mellanox.com>
 
-Introduce stats_update callback. netdev driver could call it for offloaded
-actions to update the basic statistics (packets, bytes and last use).
-Since bstats_update() and bstats_cpu_update() use skb as an argument to
-get the counters, _bstats_update() and _bstats_cpu_update(), that get
-bytes and packets as arguments, were added.
+Introduce a new command in ndo_setup_tc() for hardware offloaded
+filters, to call the NIC driver, and make it update the statistics.
+This will be done before dumping the filter and its statistics.
 
 Signed-off-by: Amir Vadai <amirva@mellanox.com>
 ---
- include/net/act_api.h     | 12 ++++++++++++
- include/net/sch_generic.h | 20 ++++++++++++++++++--
- 2 files changed, 30 insertions(+), 2 deletions(-)
+ include/net/pkt_cls.h  |  1 +
+ net/sched/cls_flower.c | 21 +++++++++++++++++++++
+ 2 files changed, 22 insertions(+)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 03e322b..2cd9e9b 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -106,6 +106,7 @@ struct tc_action_ops {
- 			int bind);
- 	int     (*walk)(struct net *, struct sk_buff *,
- 			struct netlink_callback *, int, struct tc_action *);
-+	void	(*stats_update)(struct tc_action *, u64, u32, u64);
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index caa5e18..cc561a8 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -412,6 +412,7 @@ static inline bool tc_should_offload(struct net_device *dev, u32 flags)
+ enum tc_fl_command {
+ 	TC_CLSFLOWER_REPLACE,
+ 	TC_CLSFLOWER_DESTROY,
++	TC_CLSFLOWER_STATS,
  };
  
- struct tc_action_net {
-@@ -178,10 +179,21 @@ int tcf_action_copy_stats(struct sk_buff *, struct tc_action *, int);
+ struct tc_cls_flower_offload {
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 2181ffc..730aaca 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -210,6 +210,25 @@ static void fl_hw_replace_filter(struct tcf_proto *tp,
+ 	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
+ }
  
- #define tc_for_each_action(_a, _exts) \
- 	list_for_each_entry(a, &(_exts)->actions, list)
-+
-+static inline void tcf_action_stats_update(struct tc_action *a, u64 bytes,
-+					   u64 packets, u64 lastuse)
++static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
 +{
-+	if (!a->ops->stats_update)
++	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tc_cls_flower_offload offload = {0};
++	struct tc_to_netdev tc;
++
++	if (!tc_should_offload(dev, 0))
 +		return;
 +
-+	a->ops->stats_update(a, bytes, packets, lastuse);
++	offload.command = TC_CLSFLOWER_STATS;
++	offload.cookie = (unsigned long)f;
++	offload.exts = &f->exts;
++
++	tc.type = TC_SETUP_CLSFLOWER;
++	tc.cls_flower = &offload;
++
++	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
 +}
 +
- #else /* CONFIG_NET_CLS_ACT */
- 
- #define tc_no_actions(_exts) true
- #define tc_for_each_action(_a, _exts) while (0)
-+#define tcf_action_stats_update(a, bytes, packets, lastuse)
- 
- #endif /* CONFIG_NET_CLS_ACT */
- #endif
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 46e55f0..a1fd76c 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -527,11 +527,27 @@ static inline bool qdisc_is_percpu_stats(const struct Qdisc *q)
- 	return q->flags & TCQ_F_CPUSTATS;
- }
- 
-+static inline void _bstats_update(struct gnet_stats_basic_packed *bstats,
-+				  __u64 bytes, __u32 packets)
-+{
-+	bstats->bytes += bytes;
-+	bstats->packets += packets;
-+}
-+
- static inline void bstats_update(struct gnet_stats_basic_packed *bstats,
- 				 const struct sk_buff *skb)
+ static bool fl_destroy(struct tcf_proto *tp, bool force)
  {
--	bstats->bytes += qdisc_pkt_len(skb);
--	bstats->packets += skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 1;
-+	_bstats_update(bstats,
-+		       qdisc_pkt_len(skb),
-+		       skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 1);
-+}
-+
-+static inline void _bstats_cpu_update(struct gnet_stats_basic_cpu *bstats,
-+				      __u64 bytes, __u32 packets)
-+{
-+	u64_stats_update_begin(&bstats->syncp);
-+	_bstats_update(&bstats->bstats, bytes, packets);
-+	u64_stats_update_end(&bstats->syncp);
- }
+ 	struct cls_fl_head *head = rtnl_dereference(tp->root);
+@@ -662,6 +681,8 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 			goto nla_put_failure;
+ 	}
  
- static inline void bstats_cpu_update(struct gnet_stats_basic_cpu *bstats,
++	fl_hw_update_stats(tp, f);
++
+ 	if (fl_dump_key_val(skb, key->eth.dst, TCA_FLOWER_KEY_ETH_DST,
+ 			    mask->eth.dst, TCA_FLOWER_KEY_ETH_DST_MASK,
+ 			    sizeof(key->eth.dst)) ||
 -- 
 2.8.0
