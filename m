@@ -1,113 +1,96 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Fri, 13 May 2016 18:50:03 +0200
-Message-ID: <1463158203.11721.25.camel@redhat.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
-	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 3.2 085/115] veth: don???t modify ip_summed; doing so
+ treats packets with bad checksums as good.
+Date: Fri, 13 May 2016 09:57:19 -0700
+Message-ID: <5736076F.10003@candelatech.com>
+References: <1462041181.17662.3.camel@decadent.org.uk>
+ <57250A17.5090804@candelatech.com>
+ <CALx6S36cqecPH+Zd8pGVdFHRi7bmWgAwm2UgFVprt5JOuO47UA@mail.gmail.com>
+ <57251CB3.1040504@candelatech.com>
+ <CAKUBDd-_5RouHduHvjOqgOpyAArEBd80BEy4KBDPLRQoTtWb2Q@mail.gmail.com>
+ <572523C4.4080307@candelatech.com>
+ <CAKUBDd8fksttZOW3T5zdKD4rzbcZzZer-DCMMsA2zKF4A_hXQw@mail.gmail.com>
+ <57252918.7070302@candelatech.com>
+ <CAKUBDd8S2=YcJ5wtM24D6-vw+bMud=Om9TBykMvSYcJ4X5tryw@mail.gmail.com>
+ <57253527.7010009@candelatech.com> <20160501053059.GA26097@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
+Cc: Willy Tarreau <w@1wt.eu>, Vijay Pandurangan <vijayp@vijayp.ca>,
 	Tom Herbert <tom@herbertland.com>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	Ben Hutchings <ben@decadent.org.uk>,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	LKML <linux-kernel@vger.kernel.org>, stable@vger.kernel.org,
+	akpm@linux-foundation.org, Cong Wang <cwang@twopensource.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Evan Jones <ej@evanjones.ca>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20160501053059.GA26097@1wt.eu>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-05-11 at 14:56 -0700, Eric Dumazet wrote:
-> On Wed, 2016-05-11 at 08:55 +0200, Peter Zijlstra wrote:
-> > On Tue, May 10, 2016 at 03:51:37PM -0700, Eric Dumazet wrote:
-> > > diff --git a/kernel/softirq.c b/kernel/softirq.c
-> > > index 17caf4b63342..22463217e3cf 100644
-> > > --- a/kernel/softirq.c
-> > > +++ b/kernel/softirq.c
-> > > @@ -56,6 +56,7 @@ EXPORT_SYMBOL(irq_stat);
-> > >  static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
-> > >  
-> > >  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
-> > > +DEFINE_PER_CPU(bool, ksoftirqd_scheduled);
-> > >  
-> > >  const char * const softirq_to_name[NR_SOFTIRQS] = {
-> > >  	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
-> > > @@ -73,8 +74,10 @@ static void wakeup_softirqd(void)
-> > >  	/* Interrupts are disabled: no need to stop preemption */
-> > >  	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
-> > >  
-> > > -	if (tsk && tsk->state != TASK_RUNNING)
-> > > +	if (tsk && tsk->state != TASK_RUNNING) {
-> > > +		__this_cpu_write(ksoftirqd_scheduled, true);
-> > >  		wake_up_process(tsk);
-> > 
-> > Since we're already looking at tsk->state, and the wake_up_process()
-> > ensures the thing becomes TASK_RUNNING, you could add:
-> > 
-> > static inline bool ksoftirqd_running(void)
-> > {
-> > 	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
-> > }
-> 
-> Indeed, and the patch looks quite simple now ;)
-> 
-> diff --git a/kernel/softirq.c b/kernel/softirq.c
-> index 17caf4b63342d7839528f367b283a386413b0362..23c364485d03618773c385d943c0ef39f5931d09 100644
-> --- a/kernel/softirq.c
-> +++ b/kernel/softirq.c
-> @@ -57,6 +57,11 @@ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp
->  
->  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
->  
-> +static inline bool ksoftirqd_running(void)
-> +{
-> +	return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
-> +}
-> +
->  const char * const softirq_to_name[NR_SOFTIRQS] = {
->  	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
->  	"TASKLET", "SCHED", "HRTIMER", "RCU"
-> @@ -313,7 +318,7 @@ asmlinkage __visible void do_softirq(void)
->  
->  	pending = local_softirq_pending();
->  
-> -	if (pending)
-> +	if (pending && !ksoftirqd_running())
->  		do_softirq_own_stack();
->  
->  	local_irq_restore(flags);
-> @@ -340,6 +345,9 @@ void irq_enter(void)
->  
->  static inline void invoke_softirq(void)
->  {
-> +	if (ksoftirqd_running())
-> +		return;
-> +
->  	if (!force_irqthreads) {
->  #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
->  		/*
+Mr Miller:
 
-In this version of the path, the chunk affecting __local_bh_enable_ip()
-has been removed.
+How do you feel about a new socket-option to allow a socket to
+request the old veth behaviour?
 
-I think it is beneficial, because it allows avoiding a
-local_irq_save()/local_irq_restore() pairs per local_bh_enable under heavy load.
+Thanks,
+Ben
 
-Cheers,
+On 04/30/2016 10:30 PM, Willy Tarreau wrote:
+> On Sat, Apr 30, 2016 at 03:43:51PM -0700, Ben Greear wrote:
+>> On 04/30/2016 03:01 PM, Vijay Pandurangan wrote:
+>>> Consider:
+>>>
+>>> - App A  sends out corrupt packets 50% of the time and discards inbound data.
+> (...)
+>> How can you make a generic app C know how to do this?  The path could be,
+>> for instance:
+>>
+>> eth0 <-> user-space-A <-> vethA <-> vethB <-> { kernel routing logic } <-> vethC <-> vethD <-> appC
+>>
+>> There are no sockets on vethB, but it does need to have special behaviour to elide
+>> csums.  Even if appC is hacked to know how to twiddle some thing on it's veth port,
+>> mucking with vethD will have no effect on vethB.
+>>
+>> With regard to your example above, why would A corrupt packets?  My guess:
+>>
+>> 1)  It has bugs (so, fix the bugs, it could equally create incorrect data with proper checksums,
+>>      so just enabling checksumming adds no useful protection.)
+>
+> I agree with Ben here, what he needs is the ability for userspace to be
+> trusted when *forwarding* a packet. Ideally you'd only want to receive
+> the csum status per packet on the packet socket and pass the same value
+> on the vethA interface, with this status being kept when the packet
+> reaches vethB.
+>
+> If A purposely corrupts packet, it's A's problem. It's similar to designing
+> a NIC which intentionally corrupts packets and reports "checksum good".
+>
+> The real issue is that in order to do things right, the userspace bridge
+> (here, "A") would really need to pass this status. In Ben's case as he
+> says, bad checksum packets are dropped before reaching A, so that
+> simplifies the process quite a bit and that might be what causes some
+> confusion, but ideally we'd rather have recvmsg() and sendmsg() with
+> these flags.
+>
+> I faced the exact same issue 3 years ago when playing with netmap, it was
+> slow as hell because it would lose all checksum information when packets
+> were passing through userland, resulting in GRO/GSO etc being disabled,
+> and had to modify it to let userland preserve it. That's especially
+> important when you have to deal with possibly corrupted packets not yet
+> detected in the chain because the NIC did not validate their checksums.
+>
+> Willy
+>
 
-Paolo
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
