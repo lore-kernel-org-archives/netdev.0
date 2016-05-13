@@ -1,142 +1,227 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v3] udp: Resolve NULL pointer dereference over
- flow-based vxlan device
-Date: Thu, 12 May 2016 16:23:44 -0700
-Message-ID: <20160512232203.12606.41050.stgit@localhost.localdomain>
-References: <20160512022306.3691.40769.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, tom@herbertland.com, jbenc@redhat.com,
-	eric.dumazet@gmail.com
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	alexander.duyck@gmail.com
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Subject: [PATCH v2 net-next 2/2] net: cls_u32: Add support for skip-sw flag to tc u32 classifier.
+Date: Thu, 12 May 2016 17:08:23 -0700
+Message-ID: <1463098103-2434-3-git-send-email-sridhar.samudrala@intel.com>
+References: <1463098103-2434-1-git-send-email-sridhar.samudrala@intel.com>
+To: john.r.fastabend@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33068 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbcELXXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2016 19:23:47 -0400
-Received: by mail-pa0-f41.google.com with SMTP id xk12so34276086pac.0
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 16:23:46 -0700 (PDT)
-In-Reply-To: <20160512022306.3691.40769.stgit@localhost.localdomain>
+Received: from mga03.intel.com ([134.134.136.65]:26690 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751352AbcEMANg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 May 2016 20:13:36 -0400
+In-Reply-To: <1463098103-2434-1-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While testing an OpenStack configuration using VXLANs I saw the following
-call trace:
+On devices that support TC U32 offloads, this flag enables a filter to be
+added only to HW. skip-sw and skip-hw are mutually exclusive flags. By
+default without any flags, the filter is added to both HW and SW, but no
+error checks are done in case of failure to add to HW. With skip-sw,
+failure to add to HW is treated as an error.
 
- RIP: 0010:[<ffffffff815fad49>] udp4_lib_lookup_skb+0x49/0x80
- RSP: 0018:ffff88103867bc50  EFLAGS: 00010286
- RAX: ffff88103269bf00 RBX: ffff88103269bf00 RCX: 00000000ffffffff
- RDX: 0000000000004300 RSI: 0000000000000000 RDI: ffff880f2932e780
- RBP: ffff88103867bc60 R08: 0000000000000000 R09: 000000009001a8c0
- R10: 0000000000004400 R11: ffffffff81333a58 R12: ffff880f2932e794
- R13: 0000000000000014 R14: 0000000000000014 R15: ffffe8efbfd89ca0
- FS:  0000000000000000(0000) GS:ffff88103fd80000(0000) knlGS:0000000000000000
- CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
- CR2: 0000000000000488 CR3: 0000000001c06000 CR4: 00000000001426e0
- Stack:
-  ffffffff81576515 ffffffff815733c0 ffff88103867bc98 ffffffff815fcc17
-  ffff88103269bf00 ffffe8efbfd89ca0 0000000000000014 0000000000000080
-  ffffe8efbfd89ca0 ffff88103867bcc8 ffffffff815fcf8b ffff880f2932e794
- Call Trace:
-  [<ffffffff81576515>] ? skb_checksum+0x35/0x50
-  [<ffffffff815733c0>] ? skb_push+0x40/0x40
-  [<ffffffff815fcc17>] udp_gro_receive+0x57/0x130
-  [<ffffffff815fcf8b>] udp4_gro_receive+0x10b/0x2c0
-  [<ffffffff81605863>] inet_gro_receive+0x1d3/0x270
-  [<ffffffff81589e59>] dev_gro_receive+0x269/0x3b0
-  [<ffffffff8158a1b8>] napi_gro_receive+0x38/0x120
-  [<ffffffffa0871297>] gro_cell_poll+0x57/0x80 [vxlan]
-  [<ffffffff815899d0>] net_rx_action+0x160/0x380
-  [<ffffffff816965c7>] __do_softirq+0xd7/0x2c5
-  [<ffffffff8107d969>] run_ksoftirqd+0x29/0x50
-  [<ffffffff8109a50f>] smpboot_thread_fn+0x10f/0x160
-  [<ffffffff8109a400>] ? sort_range+0x30/0x30
-  [<ffffffff81096da8>] kthread+0xd8/0xf0
-  [<ffffffff81693c82>] ret_from_fork+0x22/0x40
-  [<ffffffff81096cd0>] ? kthread_park+0x60/0x60
+Here is a sample script that adds 2 filters, one with skip-sw and the other
+with skip-hw flag.
 
-The following trace is seen when receiving a DHCP request over a flow-based
-VXLAN tunnel.  I believe this is caused by the metadata dst having a NULL
-dev value and as a result dev_net(dev) is causing a NULL pointer dereference.
+   # add ingress qdisc
+   tc qdisc add dev p4p1 ingress
 
-To resolve this I am replacing the check for skb_dst(skb)->dev with just
-skb->dev.  This makes sense as the callers of this function are usually in
-the receive path and as such skb->dev should always be populated.  In
-addition other functions in the area where these are called are already
-using dev_net(skb->dev) to determine the namespace the UDP packet belongs
-in.
+   # enable hw tc offload.
+   ethtool -K p4p1 hw-tc-offload on
 
-Fixes: 63058308cd55 ("udp: Add udp6_lib_lookup_skb and udp4_lib_lookup_skb")
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+   # add u32 filter with skip-sw flag.
+   tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+      handle 800:0:1 u32 ht 800: flowid 800:1 \
+      skip-sw \
+      match ip src 192.168.1.0/24 \
+      action drop
+
+   # add u32 filter with skip-hw flag.
+   tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+      handle 800:0:2 u32 ht 800: flowid 800:2 \
+      skip-hw \
+      match ip src 192.168.2.0/24 \
+      action drop
+
+Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 ---
+ include/net/pkt_cls.h        | 17 +++++++++++++++++
+ include/uapi/linux/pkt_cls.h |  1 +
+ net/sched/cls_u32.c          | 45 +++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 54 insertions(+), 9 deletions(-)
 
-v2: Replaced skb_dst(skb)->dev == NULL test with skb_valid_dst(skb).
-    Added update for IPv6 as well since issue would affect both.
-v3: Dropped use of skb_dst(skb) entirely and instead just used skb->dev.
-
- net/ipv4/udp.c |   10 ++--------
- net/ipv6/udp.c |    8 +++-----
- 2 files changed, 5 insertions(+), 13 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f67f52ba4809..2e3ebfe5549e 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -604,7 +604,7 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 
--	return __udp4_lib_lookup(dev_net(skb_dst(skb)->dev), iph->saddr, sport,
-+	return __udp4_lib_lookup(dev_net(skb->dev), iph->saddr, sport,
- 				 iph->daddr, dport, inet_iif(skb),
- 				 udptable, skb);
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 339ef08..8b48938 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -406,6 +406,23 @@ static inline bool tc_should_offload(struct net_device *dev, u32 flags)
+ 	return true;
  }
-@@ -612,13 +612,7 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
- struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
- 				 __be16 sport, __be16 dport)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct net_device *dev =
--	    skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
--
--	return __udp4_lib_lookup(dev_net(dev), iph->saddr, sport,
--				 iph->daddr, dport, inet_iif(skb),
--				 &udp_table, skb);
-+	return __udp4_lib_lookup_skb(skb, sport, dport, &udp_table);
- }
- EXPORT_SYMBOL_GPL(udp4_lib_lookup_skb);
  
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index aca06094110f..2ba6a77a8815 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -315,13 +315,13 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
- 					  __be16 sport, __be16 dport,
- 					  struct udp_table *udptable)
- {
--	struct sock *sk;
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct sock *sk;
++static inline bool tc_skip_sw(u32 flags)
++{
++	return (flags & TCA_CLS_FLAGS_SKIP_SW) ? true : false;
++}
++
++/* SKIP_HW and SKIP_SW are mutually exclusive flags. */
++static inline bool tc_flags_valid(u32 flags)
++{
++	if (flags & ~(TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW))
++		return false;
++
++	if (!(flags ^ (TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW)))
++		return false;
++
++	return true;
++}
++
+ enum tc_fl_command {
+ 	TC_CLSFLOWER_REPLACE,
+ 	TC_CLSFLOWER_DESTROY,
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 3e8b65f..eba5914 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -153,6 +153,7 @@ enum {
  
- 	sk = skb_steal_sock(skb);
- 	if (unlikely(sk))
- 		return sk;
--	return __udp6_lib_lookup(dev_net(skb_dst(skb)->dev), &iph->saddr, sport,
-+	return __udp6_lib_lookup(dev_net(skb->dev), &iph->saddr, sport,
- 				 &iph->daddr, dport, inet6_iif(skb),
- 				 udptable, skb);
- }
-@@ -330,10 +330,8 @@ struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
- 				 __be16 sport, __be16 dport)
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
--	const struct net_device *dev =
--	    skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
+ /* tca flags definitions */
+ #define TCA_CLS_FLAGS_SKIP_HW	(1 << 0)
++#define TCA_CLS_FLAGS_SKIP_SW	(1 << 1)
  
--	return __udp6_lib_lookup(dev_net(dev), &iph->saddr, sport,
-+	return __udp6_lib_lookup(dev_net(skb->dev), &iph->saddr, sport,
- 				 &iph->daddr, dport, inet6_iif(skb),
- 				 &udp_table, skb);
+ /* U32 filters */
+ 
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index e64877a..079b43b 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -134,6 +134,11 @@ next_knode:
+ 		j = 0;
+ #endif
+ 
++		if (tc_skip_sw(n->flags)) {
++			n = rcu_dereference_bh(n->next);
++			goto next_knode;
++		}
++
+ #ifdef CONFIG_CLS_U32_MARK
+ 		if ((skb->mark & n->mask) != n->val) {
+ 			n = rcu_dereference_bh(n->next);
+@@ -443,13 +448,14 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ 	}
  }
+ 
+-static void u32_replace_hw_hnode(struct tcf_proto *tp,
++static int u32_replace_hw_hnode(struct tcf_proto *tp,
+ 				 struct tc_u_hnode *h,
+ 				 u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_u32_offload u32_offload = {0};
+ 	struct tc_to_netdev offload;
++	int err;
+ 
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+@@ -460,9 +466,13 @@ static void u32_replace_hw_hnode(struct tcf_proto *tp,
+ 		offload.cls_u32->hnode.handle = h->handle;
+ 		offload.cls_u32->hnode.prio = h->prio;
+ 
+-		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+-					      tp->protocol, &offload);
++		err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
++						    tp->protocol, &offload);
++		if (tc_skip_sw(flags))
++			return err;
+ 	}
++
++	return 0;
+ }
+ 
+ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+@@ -485,13 +495,14 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	}
+ }
+ 
+-static void u32_replace_hw_knode(struct tcf_proto *tp,
++static int u32_replace_hw_knode(struct tcf_proto *tp,
+ 				 struct tc_u_knode *n,
+ 				 u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_u32_offload u32_offload = {0};
+ 	struct tc_to_netdev offload;
++	int err;
+ 
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+@@ -512,9 +523,13 @@ static void u32_replace_hw_knode(struct tcf_proto *tp,
+ 		if (n->ht_down)
+ 			offload.cls_u32->knode.link_handle = n->ht_down->handle;
+ 
+-		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+-					      tp->protocol, &offload);
++		err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
++						    tp->protocol, &offload);
++		if (tc_skip_sw(flags))
++			return err;
+ 	}
++
++	return 0;
+ }
+ 
+ static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
+@@ -845,8 +860,11 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (tb[TCA_U32_FLAGS])
++	if (tb[TCA_U32_FLAGS]) {
+ 		flags = nla_get_u32(tb[TCA_U32_FLAGS]);
++		if (!tc_flags_valid(flags))
++			return err;
++	}
+ 
+ 	n = (struct tc_u_knode *)*arg;
+ 	if (n) {
+@@ -871,10 +889,15 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 			return err;
+ 		}
+ 
++		err = u32_replace_hw_knode(tp, new, flags);
++		if (err) {
++			u32_destroy_key(tp, new, false);
++			return err;
++		}
++
+ 		u32_replace_knode(tp, tp_c, new);
+ 		tcf_unbind_filter(tp, &n->res);
+ 		call_rcu(&n->rcu, u32_delete_key_rcu);
+-		u32_replace_hw_knode(tp, new, flags);
+ 		return 0;
+ 	}
+ 
+@@ -978,6 +1001,10 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		struct tc_u_knode __rcu **ins;
+ 		struct tc_u_knode *pins;
+ 
++		err = u32_replace_hw_knode(tp, n, flags);
++		if (err)
++			goto errhw;
++
+ 		ins = &ht->ht[TC_U32_HASH(handle)];
+ 		for (pins = rtnl_dereference(*ins); pins;
+ 		     ins = &pins->next, pins = rtnl_dereference(*ins))
+@@ -986,11 +1013,11 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 		RCU_INIT_POINTER(n->next, pins);
+ 		rcu_assign_pointer(*ins, n);
+-		u32_replace_hw_knode(tp, n, flags);
+ 		*arg = (unsigned long)n;
+ 		return 0;
+ 	}
+ 
++errhw:
+ #ifdef CONFIG_CLS_U32_MARK
+ 	free_percpu(n->pcpu_success);
+ errout:
+-- 
+2.1.0
