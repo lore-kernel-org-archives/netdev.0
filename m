@@ -1,186 +1,104 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Sat, 14 May 2016 00:49:04 +0300
-Message-ID: <f27f4c4c-f4b0-dfb3-ec20-c8584c637288@cogentembedded.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
- <20160512184233.GJ30822@pengutronix.de>
- <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
- <20160513070620.GB28415@pengutronix.de>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RESEND PATCH v7 17/21] IB/hns: Add QP operations support
+Date: Fri, 13 May 2016 17:52:04 -0400
+Message-ID: <bf001e31-982a-c51d-782e-81ee19f9de09@redhat.com>
+References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
+ <1462849483-67927-18-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160513070620.GB28415@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="jveuGMgECj8uME3rkPil7mqHGxXbvOcqB"
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1462849483-67927-18-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--jveuGMgECj8uME3rkPil7mqHGxXbvOcqB
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-On 05/13/2016 10:06 AM, Uwe Kleine-K=F6nig wrote:
+On 05/09/2016 11:04 PM, Lijun Ou wrote:
+> +int __hns_roce_cmd(struct hns_roce_dev *hr_dev, u64 in_param, u64 *out=
+_param,
+> +		   unsigned long in_modifier, u8 op_modifier, u16 op,
+> +		   unsigned long timeout);
+> +
+> +/* Invoke a command with no output parameter */
+> +static inline int hns_roce_cmd(struct hns_roce_dev *hr_dev, u64 in_par=
+am,
+> +			       unsigned long in_modifier, u8 op_modifier,
+> +			       u16 op, unsigned long timeout)
+> +{
+> +	return __hns_roce_cmd(hr_dev, in_param, NULL, in_modifier,
+> +			      op_modifier, op, timeout);
+> +}
+> +
+> +/* Invoke a command with an output mailbox */
+> +static inline int hns_roce_cmd_box(struct hns_roce_dev *hr_dev, u64 in=
+_param,
+> +				   u64 out_param, unsigned long in_modifier,
+> +				   u8 op_modifier, u16 op,
+> +				   unsigned long timeout)
+> +{
+> +	return __hns_roce_cmd(hr_dev, in_param, &out_param, in_modifier,
+> +			      op_modifier, op, timeout);
+> +}
 
-[...]
->>>> Index: net-next/drivers/of/of_mdio.c
->>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>>> --- net-next.orig/drivers/of/of_mdio.c
->>>> +++ net-next/drivers/of/of_mdio.c
->>>> @@ -44,6 +44,7 @@ static int of_get_phy_id(struct device_n
->>>> static void of_mdiobus_register_phy(struct mii_bus *mdio,
->>>> 				    struct device_node *child, u32 addr)
->>>> {
->>>> +	struct gpio_desc *gpiod;
->>>> 	struct phy_device *phy;
->>>> 	bool is_c45;
->>>> 	int rc;
->>>> @@ -52,10 +53,17 @@ static void of_mdiobus_register_phy(stru
->>>> 	is_c45 =3D of_device_is_compatible(child,
->>>> 					 "ethernet-phy-ieee802.3-c45");
->>>>
->>>> +	gpiod =3D fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
->>>> +	/* Deassert the reset signal */
->>>> +	if (!IS_ERR(gpiod))
->>>> +		gpiod_direction_output(gpiod, 0);
->>>
->>> This is wrong I think. You must only ignore -ENODEV, all other erro=
-r
->>
->>    At least -ENOSYS should also be ignored (it's returned when gpiol=
-ib is
->> not configured), right?
->
-> No, that's a common misconception. If GPIOLIB is off you cannot
-> determine if dt specified a reset gpio. So you have the choice betwee=
-n:
->
->  a) ignore -ENOSYS and so don't handle the reset line in the cases wh=
-ere
->     it's necessary probably yielding an "Error: phy not found" messag=
-e.
->  b) fail to probe even if a reset handling isn't necessary, yielding
->     "Error: failed to get hold of reset gpio".
->
-> I say b) is the better one. It's easier to debug because the error
-> message is better, GPIOLIB is enabled in most cases anyhow (still may=
-be
-> select it?) and it's ensured that we're operating in the limits of th=
-e
-> hardware specs (maybe a phy returns a random value when a register is
-> read while reset is applied?).
+This will make people scratch their head in the future.  You are using
+two commands to map to one command without there being any locking
+involved.  The typical convention for routine_1() -> __routine_1() is
+that the __ version requires that it be called while locked, and the
+version without a __ does the locking before calling it.  That way a
+used can always know if they aren't currently holding the appropriate
+lock, then they6 call routine_1() and if they are, they call
+__routine_1() to avoid a deadlock.  I would suggest changing the name of
+__hns_roce_cmd to hns_roce_cmd_box and completely remove the existing
+hns_roce_cmd_box inline, and then change the hns_roce_cmd() inline to
+directly call hns_roce_cmd_box() which will then select between
+event/poll command sends.
 
-    It returns all ones in my case.
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+              GPG KeyID: 0E572FDD
 
->> When does -ENODEV gets returned (it's not easy to follow)?
->
-> I don't know for sure for fwnode_get_named_gpiod, but the gpiod_get*(=
-)
-> family returns -ENODEV if the node doesn't have a reset-gpio property=
-=2E
 
-    Are you sure it's not -ENOENT?
 
->>> codes should be passed to the caller.
->>
->>    The caller doesn't care anyway...
->>
->>> (I see that's not trivial because
->>> of_mdiobus_register_phy returns void.)
->>
->>    I've made this function *void* in net-next.
->
-> I'd say this is a step in the wrong direction. For example this makes=
- it
-> impossible to handle the case where the phy should be probed, the gpi=
-o
-> driver isn't available yet, though. Normally you'd want to return
-> -EPROBE_DEFER in this case and retry probing later.
+--jveuGMgECj8uME3rkPil7mqHGxXbvOcqB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-    Well, of_mdiobus_register() is not an easy function to add the chec=
-ks=20
-whiuch were never there (and undo the done stuff on failure). I'll see =
-what I=20
-can do but no promises...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
->>> In my patch I used devm_gpiod_get_array which has the nice property=
- that
->>> I can already pass GPIOD_OUT_LOW in flags. Also this binds the life=
-time
->>> of the gpio to the device which is nice and IMHO the right directio=
-n for
->>> the phylib (i.e. better embracing of the device model).
->>>
->>> This cannot be used here easily however because there is no struct
->>> device yet and this is only created after the phy id is determined.
->>
->>    Your last patch [1] didn't make use of the managed device API (de=
-vm)
->> either, I didn't quite get to the bottom of that...
->
-> Right, devm didn't work. My patch was a prototype for a way that allo=
-wed
-> to bind the lifetime of the gpio to the device. This might be longer
-> than the call to mdiobus_unregister.
+iQIcBAEBCAAGBQJXNkyEAAoJELgmozMOVy/dfGkP/1eSnxCzxbLrms/NZCBfALNB
+BHt5TYgcJF8qkQqirubFt6YS51zJdOTO5xMqyv3ySOLMggG6fVRVjWoC6WxRGZtT
+oFSNiv8JBgpYG0w7e5u49jdaDQT33hql6ndpfg+vWO3WXT7YAk+mS0+9NFARFbmC
+QqoZTCh1lb3Bg3/fwynPY7SdzUfOt98R+nLUGOpgqssNGG0pKEUXbZbC3T2bd/P+
+p2E+FlmBaJy/5H2evRcQ3C4bC8nSQVhvhocEQTh2DCF80+wa0Yoc271yZgSSFXy3
+/mUdD4tgOAyTUOmbrCNMwXzXIgbMiw+h8QB74bN2D1HqLfKTyStkPwrK/Nny9t44
+8TcmiSL8RzTYc7X2jWuZKp6EE93fiNF1cGoT8fEY5Q0V08Ll9YaNiIX1beUncjGq
+iC0Zdbz9z17jY0TAPWQsbgRzhFnlnxC7xQ8ZYuWQnU04ZqSHnANznzFVEZxEPnu7
+M1oFYL1GO/jPuNTv3XV12xOPkAuL4xrn2NGkf25FNSCkBr9vQRkwmPBeQ77vVkuU
+Xvk/j7Mv0reqvmbVLPKVuit1fZl1xfJ765cyjKVpaiDoAS3tesOZhwcc8h81ycdM
+Rk+iwxXI6U7mt6V897bfCHrwkdKbk2plXUqdGE32cgsGJrxJkLLnERHFhMd2lXGs
+4icFUfNSvSaAckG60JYe
+=CRdL
+-----END PGP SIGNATURE-----
 
-    Ah, that was the reason... Well, then you hardly achieved anything =
-with=20
-rehashing the code...
-
-> See the problems that i2c handles
-> because it doesn't handle lifetimes correctly in drivers/i2c/i2c-core=
-=2Ec
-> at the end of i2c_del_adapter.
->
->>> The phy id is either read from the device tree or must be read from
->>> the phy which might fail if reset is not deasserted.
->>
->>> Principally there is no reason however that the phy_id must be know=
-n
->>> before the struct device is created however.
->>
->>    It's just that the code is cleaner that way...
->
-> I don't agree, I don't see that
->
-> 	determine_phyid()
-> 	allocate_device()
->
-> is better than
->
-> 	allocate_device()
-> 	determine_phyid()
-
-    This is an oversimplified view. Actually, it is:
-
-	error =3D determine_phyid()
-	if (error)
-		return
-	allocate_device()
-
-versus
-
-	allocate_device()
-	error =3D determine_phyid()
-	if (error)
-		free_device()
-
-> . The former is maybe easier because that's the status quo and it
-> doesn't need patching. But IMHO the result is on a similar level of
-> cleanliness.
-
-    I disagree. And I don't see why it's necessary at all. Just to use =
-another=20
-gpiolib API?
-
-> Best regards
-> Uwe
-
-MBR, Sergei
+--jveuGMgECj8uME3rkPil7mqHGxXbvOcqB--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
