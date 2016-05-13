@@ -1,74 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: qrtr: fix build problems
-Date: Fri, 13 May 2016 15:09:58 +0200
-Message-ID: <1463145025-4011396-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Bjorn Andersson <bjorn.andersson@sonymobile.com>,
-	Courtney Cavin <courtney.cavin@sonymobile.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:56814 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932127AbcEMNKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 09:10:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [patch net-next 07/11] net: hns: dsaf adds support of acpi
+Date: Fri, 13 May 2016 16:12:16 +0300
+Message-ID: <1463145136.17131.344.camel@linux.intel.com>
+References: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
+	 <1463127557-90824-8-git-send-email-Yisen.Zhuang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, andrew@lunn.ch, geliangtang@163.com,
+	ivecera@redhat.com, fengguang.wu@intel.com,
+	charles.chenxin@huawei.com, haifeng.wei@huawei.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxarm@huawei.com
+To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
+	rjw@rjwysocki.net, lenb@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463127557-90824-8-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Having multiple loadable modules with the same name cannot work
-with modprobe, and having both net/qrtr/smd.ko and drivers/soc/qcom/smd.ko
-results in a (somewhat cryptic) build error:
+On Fri, 2016-05-13 at 16:19 +0800, Yisen Zhuang wrote:
+> From: Kejian Yan <yankejian@huawei.com>
+> 
+> Dsaf needs to get configuration parameter by ACPI, so this patch add
+> support of ACPI.
+> 
 
-ERROR: "qcom_smd_driver_unregister" [net/qrtr/smd.ko] undefined!
-ERROR: "qcom_smd_driver_register" [net/qrtr/smd.ko] undefined!
-ERROR: "qcom_smd_set_drvdata" [net/qrtr/smd.ko] undefined!
-ERROR: "qcom_smd_send" [net/qrtr/smd.ko] undefined!
-ERROR: "qcom_smd_get_drvdata" [net/qrtr/smd.ko] undefined!
-ERROR: "qcom_smd_driver_unregister" [drivers/soc/qcom/wcnss_ctrl.ko] undefined!
-ERROR: "qcom_smd_driver_register" [drivers/soc/qcom/wcnss_ctrl.ko] undefined!
-ERROR: "qcom_smd_set_drvdata" [drivers/soc/qcom/wcnss_ctrl.ko] undefined!
-ERROR: "qcom_smd_send" [drivers/soc/qcom/wcnss_ctrl.ko] undefined!
-ERROR: "qcom_smd_get_drvdata" [drivers/soc/qcom/wcnss_ctrl.ko] undefined!
+Looks like at some point better to split driver to core part, and PCI
+and ACPI/DT/platform code.
 
-Also, the qrtr driver uses the SMD interface and has a Kconfig dependency,
-but also allows for compile-testing when SMD is disabled. However, if
-with QCOM_SMD=m and COMPILE_TEST=y we can end up with QRTR_SMD=y and
-that fails with a related link error.
+Too many changes where IS_ENABLED() involved shows as I can imagine bad
+architecture / split of the driver.
 
-The changes the dependency so we can still compile-test the driver but
-not have it built-in if SMD is a module, to avoid running in the broken
-configuration, and changes the Makefile to provide the driver under
-a different module name.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: bdabad3e363d ("net: Add Qualcomm IPC router")
----
- net/qrtr/Kconfig  | 2 +-
- net/qrtr/Makefile | 4 +++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/qrtr/Kconfig b/net/qrtr/Kconfig
-index 673fd1f86ebe..b83c6807a5ae 100644
---- a/net/qrtr/Kconfig
-+++ b/net/qrtr/Kconfig
-@@ -16,7 +16,7 @@ if QRTR
- 
- config QRTR_SMD
- 	tristate "SMD IPC Router channels"
--	depends on QCOM_SMD || COMPILE_TEST
-+	depends on QCOM_SMD || (COMPILE_TEST && QCOM_SMD=n)
- 	---help---
- 	  Say Y here to support SMD based ipcrouter channels.  SMD is the
- 	  most common transport for IPC Router.
-diff --git a/net/qrtr/Makefile b/net/qrtr/Makefile
-index 6c00dc623b7e..ab09e40f7c74 100644
---- a/net/qrtr/Makefile
-+++ b/net/qrtr/Makefile
-@@ -1,2 +1,4 @@
- obj-$(CONFIG_QRTR) := qrtr.o
--obj-$(CONFIG_QRTR_SMD) += smd.o
-+
-+obj-$(CONFIG_QRTR_SMD) += qrtr-smd.o
-+qrtr-smd-y	:= smd.o
 -- 
-2.7.0
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
