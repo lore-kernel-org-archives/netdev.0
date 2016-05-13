@@ -1,80 +1,105 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RESEND PATCH v7 17/21] IB/hns: Add QP operations support
-Date: Fri, 13 May 2016 18:04:00 -0400
-Message-ID: <16fc19ea-308a-ceee-d2da-4de93c66e2d7@redhat.com>
-References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
- <1462849483-67927-18-git-send-email-oulijun@huawei.com>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: QRTR merge conflict resolution (was: Re: linux-next: build failure
+ after merge of the net-next tree)
+Date: Fri, 13 May 2016 15:19:09 -0700
+Message-ID: <20160513221909.GC1256@tuxbot>
+References: <20160510112905.5bffcad8@canb.auug.org.au>
+ <20160510183934.GJ1256@tuxbot>
+ <2606282.lG9qK7uBW0@wuerfel>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm"
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1462849483-67927-18-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Andy Gross <andy.gross@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	Olof Johansson <olof@lixom.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2606282.lG9qK7uBW0@wuerfel>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+On Fri 13 May 14:01 PDT 2016, Arnd Bergmann wrote:
 
-On 05/09/2016 11:04 PM, Lijun Ou wrote:
-> +static void hns_roce_v1_cq_clean(struct hns_roce_cq *hr_cq, u32 qpn,
-> +				 struct hns_roce_srq *srq)
-> +{
-> +	spin_lock_irq(&hr_cq->lock);
-> +	hns_roce_v1_clean_cq(hr_cq, qpn, srq);
-> +	spin_unlock_irq(&hr_cq->lock);
-> +}
+> On Tuesday 10 May 2016 11:39:34 Bjorn Andersson wrote:
+[..]
+> > I assume we could have the QRTR go through Andy and arm-soc, with
+> > David's approval and this fix squashed in. But we're running rather late
+> > in this cycle, perhaps we should just back the QRTR patches out and I
+> > can respin and resend them after the merge window (for v4.8 instead)?
+> 
+> I'd suggest you do a merge of next-next with the qcom/soc-2 branch that
+> we have in arm-soc and resolve the conflict in the merge, then send
+> a pull request with the merge to davem.
+> 
 
-This is a perfect example of what I was talking about in my last email.
-The convention here would be to name the main function
-__hns_roce_v1_cq_clean and the wrapper hns_roce_v1_cq_clean.  Instead,
-you have one named cq_clean and one named clean_cq.  Keeping straight
-which of those locks itself and which needs to be called with the lock
-held is nigh impossible.
+Hi David,
 
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-              GPG KeyID: 0E572FDD
+In case you missed this thread, linux-next highlighted an upcoming merge
+conflict between the net-next and one of the branches included in the
+arm-soc trees.
 
+I have prepared the merge of net-next and the conflicting tag from the
+Qualcomm SOC, please include this in your pull towards Linus to avoid
+the merge conflict.
 
+Regards,
+Bjorn
 
---gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+The following changes since commit ed7cbbce544856b20e5811de373cf92e92499771:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+  udp: Resolve NULL pointer dereference over flow-based vxlan device (2016-05-13 01:56:14 -0400)
 
-iQIcBAEBCAAGBQJXNk9QAAoJELgmozMOVy/d5KkQAKtVYYM4THOrYfL7ArX+qXUf
-xzovO2VKoa9Vbf7OtuGlpfF1Uk/RSJVlNFyB5qEo58useH4x5VBTWIvBbtPIvtEC
-o5PfkAvBfo6hRj7ZuHmxd4/OguZFVkxX7oZXr619Exv9dn33RmgAlWibv2TCYss4
-3RUPBDylSkFTjtpr0HWzFOYa8u2KFbprZi477Xf1Ry9R/j25ezSXFgTvXSsGMLy1
-cSnvBfvvXcS8sgGmj7Gr4BHWcJeCRcjWAkMe4e/MGA2wUR66gNfHdsbUgAo1u9Ur
-ZHKKQjqVMb9N1zl4frfPrOkuNNgNX2PPEI0cR1QQMBJ1W0SpBAx2lMpo+cwp2TTh
-Cl7c4PhfLgQNj3dnkkzmL8cEui4MEzKU7UBXuWLa8CFbP72VYPW6K/0e3MzI8OE/
-+ng0OqWVIZhSwSZtYiG5a/+uSdH0nF8y4Fjou4ZXuN8RMKxL0bpJGZ7NZ1YEh/g/
-wyRVQvQsb1CrdskjKjAUJGcgwbRkVF/9saW28RZ+rBXbJT+3E/j1AUBI3Ro+i6So
-FaMjKA5d8IIAbmXJJsMWiKOGAeLHQkcs++NJpcr5eSHzI89QuB4fHVEkTqLKAzkK
-HhmtmgVt/XfVV3OW4Zi/oaoOXpemXz3GhpsAlEb3xAc8n8t/RElCyIYHGjuDitE8
-NfQHoQfCfX+pddFIMcLi
-=5Mnc
------END PGP SIGNATURE-----
+are available in the git repository at:
 
---gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  git://github.com/andersson/kernel tags/net-next-qcom-soc-4.7-2-merge
+
+for you to fetch changes up to f79a917e69e1f5cd86e864b67f06147f1b0340f4:
+
+  Merge tag 'qcom-soc-for-4.7-2' into net-next (2016-05-13 14:42:23 -0700)
+
+----------------------------------------------------------------
+Merge tag 'qcom-soc-for-4.7-2' into net-next
+
+This merges the Qualcomm SOC tree with the net-next, solving the
+merge conflict in the SMD API between the two.
+
+----------------------------------------------------------------
+Andy Gross (1):
+      Merge tag 'qcom-soc-for-4.7' into soc-for-4.7-p2
+
+Bjorn Andersson (9):
+      soc: qcom: smem_state: Add stubs for disabled smem_state
+      soc: qcom: smd: Introduce callback setter
+      soc: qcom: smd: Split discovery and state change work
+      soc: qcom: smd: Refactor channel open and close handling
+      soc: qcom: smd: Support multiple channels per sdev
+      soc: qcom: smd: Support opening additional channels
+      soc: qcom: smem: Use write-combine remap for SMEM
+      soc: qcom: smd: Make callback pass channel reference
+      Merge tag 'qcom-soc-for-4.7-2' into net-next
+
+Lina Iyer (1):
+      drivers: qcom: spm: avoid module usage in non-modular SPM driver
+
+Srinivas Kandagatla (2):
+      MAINTAINERS: add qcom i2c and spi drivers to list
+      MAINTAINERS: add qcom clocks to the maintainers list
+
+ MAINTAINERS                         |   3 +
+ drivers/soc/qcom/smd-rpm.c          |   9 +-
+ drivers/soc/qcom/smd.c              | 247 +++++++++++++++++++++++++++---------
+ drivers/soc/qcom/smem.c             |   3 +-
+ drivers/soc/qcom/spm.c              |   8 +-
+ drivers/soc/qcom/wcnss_ctrl.c       |   8 +-
+ include/linux/soc/qcom/smd.h        |  33 ++++-
+ include/linux/soc/qcom/smem_state.h |  35 +++++
+ net/qrtr/smd.c                      |   9 +-
+ 9 files changed, 278 insertions(+), 77 deletions(-)
+
+> Alternatively, in case Linus merges net-next before we get that fix
+> in, I could send Stephen's fix to Linus along with the pull requests.
+> 
+> 	Arnd
