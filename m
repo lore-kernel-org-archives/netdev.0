@@ -1,49 +1,34 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
-Date: Fri, 13 May 2016 19:43:00 +0200
-Message-ID: <20160513174300.GB7600@lunn.ch>
-References: <1463131568-36948-1-git-send-email-harinik@xilinx.com>
- <1463131568-36948-2-git-send-email-harinik@xilinx.com>
+From: "Alfred" <alfred_weiyun@sina.com>
+Subject: From China Freight agency company
+Date: Sat, 14 May 2016 01:46:03 +0800
+Message-ID: <201605140146030308901@a.ncbpzh.com>
+Reply-To: alfred_weiyun@sina.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org
-To: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1463131568-36948-2-git-send-email-harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [123.170.236.41] ([123.170.236.41]:3733 "HELO a.ncbpzh.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
+	id S1751573AbcEMRvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 13:51:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Harini
-
-Is this backward compatible? Will devices using the old binding still
-work?
-
-  /* Disable RX and TX (XXX: Should we halt the transmission
-   * more gracefully?)
-    */
--   macb_writel(bp, NCR, 0);
-+   ctrl = macb_readl(bp, NCR);
-+   ctrl &= ~(MACB_BIT(RE) | MACB_BIT(TE));
-+   macb_writel(bp, NCR, ctrl);
- 
-	/* Clear the stats registers (XXX: Update stats first?) */
--	macb_writel(bp, NCR, MACB_BIT(CLRSTAT));
-+	ctrl |= MACB_BIT(CLRSTAT);
-+	macb_writel(bp, NCR, ctrl);
- 
-	/* Clear all status flags */
- 	macb_writel(bp, TSR, -1);
-
-It is not clear to me what this part has to do with MDIO.
-
-   Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RGVhciBTaXJzOg0KDQogICAgSG93IGFyZSB5b3UhDQoNCiAgICBUaGUgc2Vjb25kIHRvIHlvdS4N
+Cg0KICAgIElmIHlvdXIgY29tcGFueSBoYXZlIGltcG9ydCBzb21lIHByb2R1Y3QgZnJvbSBDaGlu
+YS5NYXkgSSBoZWxwIHlvdSBvbiB0aGUgbG9naXN0aWNzIGZpZWxkLg0KDQogICAgV2Ugc3BlY2lh
+bGl6ZWQgaW4gaW50ZXJuYXRpb25hbCBleHByZXNzLCBhaXIgdHJhbnNwb3J0LCBzaGlwcGluZy4g
+d2l0aCBnb29kIHByaWNlIGFuZCBnb29kIHNlcnZpY2UsIHdpdGggbWFueSB5ZWFycyBleHBlcmll
+bmNlICEgV2UgYXJlIHB1cnN1aW5nIGlzIHRoZSBpbnRlZ3JpdHkgYW5kIHNlY3VyaXR5IG9mIGdv
+b2RzIC4NCg0KICAgIEZ1cnRoZXIgaW5mb3JtYXRpb24gcGxlYXNlIGNvbnRhY3QgZnJlZWx5IVRo
+YW5rIHlvdS4NCg0KICAgIEhhdmUgYSBncmVhdCBkYXkuDQoNCg0KLS0tLS0tLS0tLS0tLS0tDQoN
+CkFsZnJlZA0KDQoNClNoZW56aGVuIERvbmdkYSBGcmVpZ2h0IGFnZW5jeSBDTy4sIExURA0KDQot
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCg0KVGVsOjg2LTc1NS02MTk2
+MTM3MA0KTW9io7o4Ni0xODkyOTM5MzgzNg0KRmF4o7o4Ni03NTUtMjkxOTY2NjENCkVtYWlso7ph
+bGZyZWRfd2VpeXVuQHNpbmEuY29tICAgICAgICBzYWxlczJAZGRoeTE2OC5jb20NClNLWVBFOmRk
+aHkxNjggICAgICBRUToxNTU5NDg5NTI2DQpXZWKjund3dy5kZGh5MTY4LmNvbQ0KQWRkcmVzczog
+NTE2IEJhaXNoaXdlaSBMb2dpc3RpY3MgUGFyayBGdXdlaQ0KICAgICAgICAgQ29tbXVuaXR5IEZ1
+eW9uZyBTdHJlZXQNCiAgICAgICAgIEJhbydhbiBEaXN0cmljdCwNCiAgICAgICAgIFNoZW56aGVu
+o6w1MTgxMDMgQ2hpbmE=
