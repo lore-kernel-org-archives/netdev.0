@@ -1,62 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Fri, 13 May 2016 23:56:12 +0300
-Message-ID: <1a44a737-2b81-625b-8edf-d1c3dfcdd619@cogentembedded.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
- <20160512184233.GJ30822@pengutronix.de> <5735995B.8030802@ti.com>
- <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
- <20160513204436.GC7600@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roger Quadros <rogerq@ti.com>,
-	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
-	grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Subject: [PATCH 2/3] netfilter: ipset: use setup_timer() and mod_timer().
+Date: Sat, 14 May 2016 02:28:53 +0530
+Message-ID: <1463173145-16167-2-git-send-email-falakreyaz@gmail.com>
+References: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Joshua Hunt <johunt@akamai.com>,
+	Sergey Popovich <popovich_sergei@mail.ua>,
+	Vishwanath Pai <vpai@akamai.com>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160513204436.GC7600@lunn.ch>
+In-Reply-To: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/13/2016 11:44 PM, Andrew Lunn wrote:
+Use setup_timer() and instead of init_timer(), being the preferred way
+of setting up a timer.
 
->>> Another issue is that on some boards we have one reset line tied to
->>> multiple PHYs.How do we prevent multiple resets being taking place when each of
->>> the PHYs are registered?
->>
->>    My patch just doesn't address this case -- it's about the
->> individual resets only.
->
-> This actually needs to be addresses a layer above. What you have is a
-> bus reset, not a device reset.
+Also, quoting the mod_timer() function comment:
+-> mod_timer() is a more efficient way to update the expire field of an
+   active timer (if the timer is inactive it will be activated).
 
-    No.
-    There's simply no such thing as a bus reset for the xMII/MDIO busses, 
-there's simply no reset signaling on them. Every device has its own reset 
-signal and its own timing requirements.
+Use setup_timer() and mod_timer() to setup and arm a timer, making the
+code compact and easier to read.
 
-> So the gpio line is associated to the mdio bus, not a PHY.
+Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
+---
+ net/netfilter/ipset/ip_set_hash_gen.h | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-    No.
-
-> Either your MDIO driver needs to handle the gpio
-> line,  or in __mdio_register(),
-
-    __mdiobus_register(), you mean?
-
-> before it starts looking at the
-> children.
-
-    It's basically the same thing.
-    The MDIO bus reset is a misconception.
-
->
-> 	Andrew
-
-MBR, Sergei
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index d32fd6b..5a06ff2 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -444,11 +444,8 @@ mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
+ {
+ 	struct htype *h = set->data;
+ 
+-	init_timer(&h->gc);
+-	h->gc.data = (unsigned long)set;
+-	h->gc.function = gc;
+-	h->gc.expires = jiffies + IPSET_GC_PERIOD(set->timeout) * HZ;
+-	add_timer(&h->gc);
++	setup_timer(&h->gc, gc, (unsigned long)set);
++	mod_timer(&h->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ 	pr_debug("gc initialized, run in every %u\n",
+ 		 IPSET_GC_PERIOD(set->timeout));
+ }
+-- 
+1.9.1
