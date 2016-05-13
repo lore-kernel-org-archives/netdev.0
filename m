@@ -1,180 +1,430 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Fri, 13 May 2016 09:06:20 +0200
-Message-ID: <20160513070620.GB28415@pengutronix.de>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
- <20160512184233.GJ30822@pengutronix.de>
- <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
+From: <thloh@altera.com>
+Subject: [PATCH 1/1] net: ethernet: Add SGMII support to dwmac-socfpga
+Date: Fri, 13 May 2016 00:01:12 -0700
+Message-ID: <1463122872-31309-1-git-send-email-thloh@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Tien Hock Loh <thloh@altera.com>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<peppe.cavallaro@st.com>, <dinguyen@altera.com>,
+	<thloh85@gmail.com>, <cnphoon@altera.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0069.outbound.protection.outlook.com ([65.55.169.69]:8944
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751104AbcEMHR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 03:17:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Sergei,
+From: Tien Hock Loh <thloh@altera.com>
 
-On Fri, May 13, 2016 at 12:35:50AM +0300, Sergei Shtylyov wrote:
-> On 05/12/2016 09:42 PM, Uwe Kleine-K=F6nig wrote:
-> >>Index: net-next/drivers/net/phy/mdio_device.c
-> >>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> >>--- net-next.orig/drivers/net/phy/mdio_device.c
-> >>+++ net-next/drivers/net/phy/mdio_device.c
-> [...]
-> >>@@ -117,9 +126,16 @@ static int mdio_probe(struct device *dev
-> >> 	struct mdio_driver *mdiodrv =3D to_mdio_driver(drv);
-> >> 	int err =3D 0;
-> >>
-> >>-	if (mdiodrv->probe)
-> >>+	if (mdiodrv->probe) {
-> >>+		/* Deassert the reset signal */
-> >>+		mdio_device_reset(mdiodev, 0);
-> >>+
-> >> 		err =3D mdiodrv->probe(mdiodev);
-> >>
-> >>+		/* Assert the reset signal */
-> >>+		mdio_device_reset(mdiodev, 1);
-> >
-> >I wonder if it's safe to do this in general. What if ->probe does
-> >something with the phy that is lost by resetting but that is relied =
-on
-> >later?
->=20
->    Well, I thought that config_init() method is designed for that but=
- indeed
-> the LXT driver writes to BMCR in its probe() method and hence is brok=
-en.
-> Thank you for noticing...
->=20
-> [...]
-> >>Index: net-next/drivers/of/of_mdio.c
-> >>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> >>--- net-next.orig/drivers/of/of_mdio.c
-> >>+++ net-next/drivers/of/of_mdio.c
-> >>@@ -44,6 +44,7 @@ static int of_get_phy_id(struct device_n
-> >> static void of_mdiobus_register_phy(struct mii_bus *mdio,
-> >> 				    struct device_node *child, u32 addr)
-> >> {
-> >>+	struct gpio_desc *gpiod;
-> >> 	struct phy_device *phy;
-> >> 	bool is_c45;
-> >> 	int rc;
-> >>@@ -52,10 +53,17 @@ static void of_mdiobus_register_phy(stru
-> >> 	is_c45 =3D of_device_is_compatible(child,
-> >> 					 "ethernet-phy-ieee802.3-c45");
-> >>
-> >>+	gpiod =3D fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
-> >>+	/* Deassert the reset signal */
-> >>+	if (!IS_ERR(gpiod))
-> >>+		gpiod_direction_output(gpiod, 0);
-> >
-> >This is wrong I think. You must only ignore -ENODEV, all other error
->=20
->    At least -ENOSYS should also be ignored (it's returned when gpioli=
-b is
-> not configured), right?
+Adds SGMII support for dwmac-socfpga to enable the SGMII PHY when phy-mode
+of the dwmac is set to sgmii.
 
-No, that's a common misconception. If GPIOLIB is off you cannot
-determine if dt specified a reset gpio. So you have the choice between:
+Signed-off-by: Tien Hock Loh <thloh@altera.com>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 339 ++++++++++++++++++++-
+ 1 file changed, 329 insertions(+), 10 deletions(-)
 
- a) ignore -ENOSYS and so don't handle the reset line in the cases wher=
-e
-    it's necessary probably yielding an "Error: phy not found" message.
- b) fail to probe even if a reset handling isn't necessary, yielding
-    "Error: failed to get hold of reset gpio".
-
-I say b) is the better one. It's easier to debug because the error
-message is better, GPIOLIB is enabled in most cases anyhow (still maybe
-select it?) and it's ensured that we're operating in the limits of the
-hardware specs (maybe a phy returns a random value when a register is
-read while reset is applied?).
-
-> When does -ENODEV gets returned (it's not easy to follow)?
-
-I don't know for sure for fwnode_get_named_gpiod, but the gpiod_get*()
-family returns -ENODEV if the node doesn't have a reset-gpio property.
-
-> >codes should be passed to the caller.
->=20
->    The caller doesn't care anyway...
->=20
-> >(I see that's not trivial because
-> >of_mdiobus_register_phy returns void.)
->=20
->    I've made this function *void* in net-next.
-
-I'd say this is a step in the wrong direction. For example this makes i=
-t
-impossible to handle the case where the phy should be probed, the gpio
-driver isn't available yet, though. Normally you'd want to return
--EPROBE_DEFER in this case and retry probing later.
-
-> >In my patch I used devm_gpiod_get_array which has the nice property =
-that
-> >I can already pass GPIOD_OUT_LOW in flags. Also this binds the lifet=
-ime
-> >of the gpio to the device which is nice and IMHO the right direction=
- for
-> >the phylib (i.e. better embracing of the device model).
-> >
-> >This cannot be used here easily however because there is no struct
-> >device yet and this is only created after the phy id is determined.
->=20
->    Your last patch [1] didn't make use of the managed device API (dev=
-m)
-> either, I didn't quite get to the bottom of that...
-
-Right, devm didn't work. My patch was a prototype for a way that allowe=
-d
-to bind the lifetime of the gpio to the device. This might be longer
-than the call to mdiobus_unregister. See the problems that i2c handles
-because it doesn't handle lifetimes correctly in drivers/i2c/i2c-core.c
-at the end of i2c_del_adapter.
-
-> >The phy id is either read from the device tree or must be read from
-> >the phy which might fail if reset is not deasserted.
->=20
-> >Principally there is no reason however that the phy_id must be known
-> >before the struct device is created however.
->=20
->    It's just that the code is cleaner that way...
-
-I don't agree, I don't see that
-
-	determine_phyid()
-	allocate_device()
-
-is better than
-
-	allocate_device()
-	determine_phyid()
-
-=2E The former is maybe easier because that's the status quo and it
-doesn't need patching. But IMHO the result is on a similar level of
-cleanliness.
-
-Best regards
-Uwe
-
-> [1] http://paste.debian.net/683630/
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 41f4c58..a59d590 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -40,6 +40,43 @@
+ #define EMAC_SPLITTER_CTRL_SPEED_100		0x3
+ #define EMAC_SPLITTER_CTRL_SPEED_1000		0x0
+ 
++#define TSE_PCS_CONTROL_AN_EN_MASK			0x1000
++#define TSE_PCS_CONTROL_REG				0x00
++#define TSE_PCS_CONTROL_RESTART_AN_MASK		0x0200
++#define TSE_PCS_IF_MODE_REG				0x28
++#define TSE_PCS_LINK_TIMER_0_REG			0x24
++#define TSE_PCS_LINK_TIMER_1_REG			0x26
++#define TSE_PCS_SIZE					0x40
++#define TSE_PCS_STATUS_AN_COMPLETED_MASK		0x0020
++#define TSE_PCS_STATUS_LINK_MASK			0x0004
++#define TSE_PCS_STATUS_REG				0x02
++#define TSE_PCS_SGMII_SPEED_1000			0x8
++#define TSE_PCS_SGMII_SPEED_100			0x4
++#define TSE_PCS_SGMII_SPEED_10				0x0
++#define TSE_PCS_SW_RST_MASK				0x8000
++#define TSE_PCS_PARTNER_ABILITY_REG			0x0A
++#define TSE_PCS_PARTNER_DUPLEX_FULL			0x1000
++#define TSE_PCS_PARTNER_DUPLEX_HALF			0x0000
++#define TSE_PCS_PARTNER_DUPLEX_MASK			0x1000
++#define TSE_PCS_PARTNER_SPEED_MASK			0x0c00
++#define TSE_PCS_PARTNER_SPEED_1000			0x0800
++#define TSE_PCS_PARTNER_SPEED_100			0x0400
++#define TSE_PCS_PARTNER_SPEED_10			0x0000
++#define TSE_PCS_PARTNER_SPEED_1000			0x0800
++#define TSE_PCS_PARTNER_SPEED_100			0x0400
++#define TSE_PCS_PARTNER_SPEED_10			0x0000
++#define TSE_PCS_SGMII_SPEED_MASK			0x000C
++#define TSE_PCS_SGMII_LINK_TIMER_0			0x0D40
++#define TSE_PCS_SGMII_LINK_TIMER_1			0x0003
++#define TSE_PCS_SW_RESET_TIMEOUT			100
++#define TSE_PCS_USE_SGMII_AN_MASK			0x0002
++
++#define SGMII_ADAPTER_CTRL_REG				0x00
++#define SGMII_ADAPTER_DISABLE				0x0001
++#define SGMII_ADAPTER_ENABLE				0x0000
++#define LINK_TIMER					20
++#define AUTONEGO_TIMER					20
++
+ struct socfpga_dwmac {
+ 	int	interface;
+ 	u32	reg_offset;
+@@ -49,18 +86,17 @@ struct socfpga_dwmac {
+ 	struct reset_control *stmmac_rst;
+ 	void __iomem *splitter_base;
+ 	bool f2h_ptp_ref_clk;
++	void __iomem *tse_pcs_base;
++	void __iomem *sgmii_adapter_base;
++	struct timer_list an_timer;
++	struct timer_list link_timer;
+ };
+ 
+-static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
++static void config_emac_splitter_speed(void __iomem *base, unsigned int speed)
+ {
+-	struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)priv;
+-	void __iomem *splitter_base = dwmac->splitter_base;
+ 	u32 val;
+ 
+-	if (!splitter_base)
+-		return;
+-
+-	val = readl(splitter_base + EMAC_SPLITTER_CTRL_REG);
++	val = readl(base + EMAC_SPLITTER_CTRL_REG);
+ 	val &= ~EMAC_SPLITTER_CTRL_SPEED_MASK;
+ 
+ 	switch (speed) {
+@@ -76,8 +112,214 @@ static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
+ 	default:
+ 		return;
+ 	}
++	writel(val, base + EMAC_SPLITTER_CTRL_REG);
++}
++
++static void config_tx_buffer(u16 data, void __iomem *base)
++{
++	writew(data, base + SGMII_ADAPTER_CTRL_REG);
++}
++
++static void tse_pcs_reset(void __iomem *base, struct socfpga_dwmac *dwmac)
++{
++	int counter = 0;
++	u16 val;
++
++	val = readw(base + TSE_PCS_CONTROL_REG);
++	val |= TSE_PCS_SW_RST_MASK;
++	writew(val, base + TSE_PCS_CONTROL_REG);
++
++	while (counter < TSE_PCS_SW_RESET_TIMEOUT) {
++		val = readw(base + TSE_PCS_CONTROL_REG);
++		val &= TSE_PCS_SW_RST_MASK;
++		if (val == 0)
++			break;
++		counter++;
++		udelay(1);
++	}
++	if (counter >= TSE_PCS_SW_RESET_TIMEOUT)
++		dev_err(dwmac->dev, "PCS could not get out of sw reset\n");
++}
++
++static void tse_pcs_init(void __iomem *base, struct socfpga_dwmac *dwmac)
++{
++	writew(0x0001, base + TSE_PCS_IF_MODE_REG);
++
++	writew(TSE_PCS_SGMII_LINK_TIMER_0, base + TSE_PCS_LINK_TIMER_0_REG);
++	writew(TSE_PCS_SGMII_LINK_TIMER_1, base + TSE_PCS_LINK_TIMER_1_REG);
++
++	tse_pcs_reset(base, dwmac);
++}
++
++static void pcs_link_timer_callback(unsigned long data)
++{
++	u16 val = 0;
++
++	struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)data;
++	void __iomem *tse_pcs_base = dwmac->tse_pcs_base;
++	void __iomem *sgmii_adapter_base = dwmac->sgmii_adapter_base;
++
++	val = readw(tse_pcs_base + TSE_PCS_STATUS_REG);
++	val &=  TSE_PCS_STATUS_LINK_MASK;
++
++	if (val != 0) {
++		dev_dbg(dwmac->dev, "Adapter: Link is established\n");
++		config_tx_buffer(SGMII_ADAPTER_ENABLE, sgmii_adapter_base);
++	} else {
++		mod_timer(&dwmac->link_timer, jiffies +
++				msecs_to_jiffies(LINK_TIMER));
++	}
++}
++
++static void auto_nego_timer_callback(unsigned long data)
++{
++	u16 val = 0;
++	u16 speed = 0;
++	u16 duplex = 0;
++
++	struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)data;
++	void __iomem *tse_pcs_base = dwmac->tse_pcs_base;
++	void __iomem *sgmii_adapter_base = dwmac->sgmii_adapter_base;
++
++	val = readw(tse_pcs_base + TSE_PCS_STATUS_REG);
++	val &=  TSE_PCS_STATUS_AN_COMPLETED_MASK;
++
++	if (val != 0) {
++		dev_dbg(dwmac->dev, "Adapter: Auto Negotiation is completed\n");
++		val = readw(tse_pcs_base + TSE_PCS_PARTNER_ABILITY_REG);
++		speed = val & TSE_PCS_PARTNER_SPEED_MASK;
++		duplex = val & TSE_PCS_PARTNER_DUPLEX_MASK;
++
++		if (speed == TSE_PCS_PARTNER_SPEED_10 &&
++		    duplex == TSE_PCS_PARTNER_DUPLEX_FULL)
++			dev_dbg(dwmac->dev,
++				"Adapter: Link Partner is Up - 10/Full\n");
++		else if (speed == TSE_PCS_PARTNER_SPEED_100 &&
++			 duplex == TSE_PCS_PARTNER_DUPLEX_FULL)
++			dev_dbg(dwmac->dev,
++				"Adapter: Link Partner is Up - 100/Full\n");
++		else if (speed == TSE_PCS_PARTNER_SPEED_1000 &&
++			 duplex == TSE_PCS_PARTNER_DUPLEX_FULL)
++			dev_dbg(dwmac->dev,
++				"Adapter: Link Partner is Up - 1000/Full\n");
++		else if (speed == TSE_PCS_PARTNER_SPEED_10 &&
++			 duplex == TSE_PCS_PARTNER_DUPLEX_HALF)
++			dev_err(dwmac->dev,
++				"Adapter does not support Half Duplex\n");
++		else if (speed == TSE_PCS_PARTNER_SPEED_100 &&
++			 duplex == TSE_PCS_PARTNER_DUPLEX_HALF)
++			dev_err(dwmac->dev,
++				"Adapter does not support Half Duplex\n");
++		else if (speed == TSE_PCS_PARTNER_SPEED_1000 &&
++			 duplex == TSE_PCS_PARTNER_DUPLEX_HALF)
++			dev_err(dwmac->dev,
++				"Adapter does not support Half Duplex\n");
++		else
++			dev_err(dwmac->dev,
++				"Adapter: Invalid Partner Speed and Duplex\n");
++
++		config_tx_buffer(SGMII_ADAPTER_ENABLE, sgmii_adapter_base);
++	} else {
++		val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
++		val |= TSE_PCS_CONTROL_RESTART_AN_MASK;
++		writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
++
++		tse_pcs_reset(tse_pcs_base, dwmac);
++		mod_timer(&dwmac->an_timer, jiffies +
++			  msecs_to_jiffies(AUTONEGO_TIMER));
++	}
++}
++
++static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
++{
++	struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)priv;
++	void __iomem *splitter_base = dwmac->splitter_base;
++	void __iomem *tse_pcs_base = dwmac->tse_pcs_base;
++	void __iomem *sgmii_adapter_base = dwmac->sgmii_adapter_base;
++	struct device *dev = dwmac->dev;
++	struct net_device *ndev = dev_get_drvdata(dev);
++	struct phy_device *phy_dev = ndev->phydev;
++	u32 val;
+ 
+-	writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
++	if ((tse_pcs_base) && (sgmii_adapter_base)) {
++		config_tx_buffer(SGMII_ADAPTER_DISABLE, sgmii_adapter_base);
++		if (splitter_base)
++			config_emac_splitter_speed(splitter_base, speed);
++
++		if (phy_dev->autoneg == AUTONEG_ENABLE) {
++			val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
++			val |= TSE_PCS_CONTROL_AN_EN_MASK;
++			writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
++
++			val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
++			val |= TSE_PCS_USE_SGMII_AN_MASK;
++			writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
++
++			val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
++			val |= TSE_PCS_CONTROL_RESTART_AN_MASK;
++			writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
++
++			tse_pcs_reset(tse_pcs_base, dwmac);
++
++			setup_timer(&dwmac->an_timer,
++				    auto_nego_timer_callback,
++				    (unsigned long)dwmac);
++			mod_timer(&dwmac->an_timer, jiffies +
++				  msecs_to_jiffies(AUTONEGO_TIMER));
++		} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
++			val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
++			val &= ~TSE_PCS_CONTROL_AN_EN_MASK;
++			writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
++
++			val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
++			val &= ~TSE_PCS_USE_SGMII_AN_MASK;
++			writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
++
++			val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
++			val &= ~TSE_PCS_SGMII_SPEED_MASK;
++
++			switch (speed) {
++			case 1000:
++				val |= TSE_PCS_SGMII_SPEED_1000;
++				break;
++			case 100:
++				val |= TSE_PCS_SGMII_SPEED_100;
++				break;
++			case 10:
++				val |= TSE_PCS_SGMII_SPEED_10;
++				break;
++			default:
++				return;
++			}
++			writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
++
++			tse_pcs_reset(tse_pcs_base, dwmac);
++
++			setup_timer(&dwmac->link_timer,
++				    pcs_link_timer_callback,
++						(unsigned long)dwmac);
++			mod_timer(&dwmac->link_timer, jiffies +
++				  msecs_to_jiffies(LINK_TIMER));
++		}
++	} else if (splitter_base) {
++		val = readl(splitter_base + EMAC_SPLITTER_CTRL_REG);
++		val &= ~EMAC_SPLITTER_CTRL_SPEED_MASK;
++
++		switch (speed) {
++		case 1000:
++			val |= EMAC_SPLITTER_CTRL_SPEED_1000;
++			break;
++		case 100:
++			val |= EMAC_SPLITTER_CTRL_SPEED_100;
++			break;
++		case 10:
++			val |= EMAC_SPLITTER_CTRL_SPEED_10;
++			break;
++		default:
++			return;
++		}
++		writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
++	}
+ }
+ 
+ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
+@@ -85,9 +327,13 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 	struct device_node *np = dev->of_node;
+ 	struct regmap *sys_mgr_base_addr;
+ 	u32 reg_offset, reg_shift;
+-	int ret;
+-	struct device_node *np_splitter;
++	int ret, index;
++	struct device_node *np_splitter = NULL;
++	struct device_node *np_sgmii_adapter = NULL;
++
+ 	struct resource res_splitter;
++	struct resource res_tse_pcs;
++	struct resource res_sgmii_adapter;
+ 
+ 	dwmac->stmmac_rst = devm_reset_control_get(dev,
+ 						  STMMAC_RESOURCE_NAME);
+@@ -134,6 +380,72 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 		}
+ 	}
+ 
++	np_sgmii_adapter = of_parse_phandle(np,
++					    "altr,gmii_to_sgmii_converter", 0);
++	if (np_sgmii_adapter) {
++		index = of_property_match_string(np_sgmii_adapter, "reg-names",
++						 "hps_emac_interface_splitter_avalon_slave");
++
++		if (index >= 0) {
++			if (of_address_to_resource(np_sgmii_adapter, index,
++						   &res_splitter)) {
++				dev_err(dev, "%s: ERROR: missing emac splitter "
++					"address\n", __func__);
++				return -EINVAL;
++			}
++
++			dwmac->splitter_base = devm_ioremap_resource(
++				dev, &res_splitter);
++
++			if (IS_ERR(dwmac->splitter_base)) {
++				dev_err(dev, "%s: ERROR: failed to mapping emac"
++					" splitter\n", __func__);
++				return PTR_ERR(dwmac->splitter_base);
++			}
++		}
++
++		index = of_property_match_string(np_sgmii_adapter, "reg-names",
++						 "gmii_to_sgmii_adapter_avalon_slave");
++
++		if (index >= 0) {
++			if (of_address_to_resource(np_sgmii_adapter, index,
++						   &res_sgmii_adapter)) {
++				dev_err(dev, "%s: ERROR: failed to mapping adapter\n",
++					__func__);
++				return -EINVAL;
++			}
++
++			dwmac->sgmii_adapter_base = devm_ioremap_resource(
++				dev, &res_sgmii_adapter);
++
++			if (IS_ERR(dwmac->sgmii_adapter_base)) {
++				dev_err(dev, "%s: failed to mapping adapter\n",
++					__func__);
++				return PTR_ERR(dwmac->sgmii_adapter_base);
++			}
++		}
++
++		index = of_property_match_string(np_sgmii_adapter, "reg-names",
++						 "eth_tse_control_port");
++
++		if (index >= 0) {
++			if (of_address_to_resource(np_sgmii_adapter, index,
++						   &res_tse_pcs)) {
++				dev_err(dev, "%s: ERROR: failed mapping tse control port\n",
++					__func__);
++				return -EINVAL;
++			}
++
++			dwmac->tse_pcs_base = devm_ioremap_resource(
++			dev, &res_tse_pcs);
++
++			if (IS_ERR(dwmac->tse_pcs_base)) {
++				dev_err(dev, "%s: failed to mapping tse control port\n",
++					__func__);
++				return PTR_ERR(dwmac->sgmii_adapter_base);
++			}
++		}
++	}
+ 	dwmac->reg_offset = reg_offset;
+ 	dwmac->reg_shift = reg_shift;
+ 	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
+@@ -157,6 +469,7 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+ 		break;
+ 	case PHY_INTERFACE_MODE_MII:
+ 	case PHY_INTERFACE_MODE_GMII:
++	case PHY_INTERFACE_MODE_SGMII:
+ 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
+ 		break;
+ 	default:
+@@ -181,6 +494,12 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+ 		ctrl &= ~(SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2));
+ 
+ 	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
++
++	if (phymode == PHY_INTERFACE_MODE_SGMII) {
++		tse_pcs_init(dwmac->tse_pcs_base, dwmac);
++		config_tx_buffer(SGMII_ADAPTER_ENABLE,
++				 dwmac->sgmii_adapter_base);
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.7.11.GIT
