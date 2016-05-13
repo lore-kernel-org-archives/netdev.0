@@ -1,62 +1,52 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] net/route: enforce hoplimit max value
-Date: Fri, 13 May 2016 18:33:41 +0200
-Message-ID: <4a951826f558b10f62ce4338cb2620b6fc886ba5.1463154659.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] ixgbe: take online CPU number as MQ max limit when alloc_etherdev_mq()
+Date: Fri, 13 May 2016 09:46:37 -0700
+Message-ID: <CAKgT0UeiEW21E7A9fnt_BUCppopns-E2w1WbwF-8A6sCZkJ8rQ@mail.gmail.com>
+References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	shannon nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ethan Zhao <ethan.kernel@gmail.com>
+To: Ethan Zhao <ethan.zhao@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46395 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752823AbcEMQd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 12:33:56 -0400
+Received: from mail-io0-f176.google.com ([209.85.223.176]:33590 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752336AbcEMQqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 12:46:38 -0400
+In-Reply-To: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, when creating or updating a route, no check is performed
-in both ipv4 and ipv6 code to the hoplimit value.
+On Thu, May 12, 2016 at 10:56 PM, Ethan Zhao <ethan.zhao@oracle.com> wrote:
+> Allocating 64 Tx/Rx as default doesn't benefit perfomrnace when less
+> CPUs were assigned. especially when DCB is enabled, so we should take
+> num_online_cpus() as top limit, and aslo to make sure every TC has
+> at least one queue, take the MAX_TRAFFIC_CLASS as bottom limit of queues
+> number.
+>
+> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
 
-The caller can i.e. set hoplimit to 256, and when such route will
- be used, packets will be sent with hoplimit/ttl equal to 0.
+What is the harm in allowing the user to specify up to 64 queues if
+they want to?  Also what is your opinion based on?  In the case of RSS
+traffic the upper limit is only 16 on older NICs, but last I knew the
+latest X550 can support more queues for RSS.  Have you only been
+testing on older NICs or did you test on the latest hardware as well?
 
-This commit adds checks for the RTAX_HOPLIMIT value, in both ipv4
-ipv6 route code, substituting any value greater than 255 with 255.
+If you want to control the number of queues allocated in a given
+configuration you should look at the code over in the ixgbe_lib.c, not
+ixgbe_main.c.  All you are doing with this patch is denying the user
+choice with this change as they then are not allowed to set more
+queues.  Even if they find your decision was wrong for their
+configuration.
 
-This is consistent with what is currently done for ADVMSS and MTU
-in the ipv4 code.
-
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/fib_semantics.c | 2 ++
- net/ipv6/route.c         | 2 ++
- 2 files changed, 4 insertions(+)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d97268e..2b68418 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -975,6 +975,8 @@ fib_convert_metrics(struct fib_info *fi, const struct fib_config *cfg)
- 			val = 65535 - 40;
- 		if (type == RTAX_MTU && val > 65535 - 15)
- 			val = 65535 - 15;
-+		if (type == RTAX_HOPLIMIT && val > 255)
-+			val = 255;
- 		if (type == RTAX_FEATURES && (val & ~RTAX_FEATURE_MASK))
- 			return -EINVAL;
- 		fi->fib_metrics[type - 1] = val;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index d916d6a..6f32944 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1750,6 +1750,8 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
- 		} else {
- 			val = nla_get_u32(nla);
- 		}
-+		if (type == RTAX_HOPLIMIT && val > 255)
-+			val = 255;
- 		if (type == RTAX_FEATURES && (val & ~RTAX_FEATURE_MASK))
- 			goto err;
- 
--- 
-1.8.3.1
+- Alex
