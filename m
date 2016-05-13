@@ -1,7 +1,7 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 07/10] bpf: add generic constant blinding for use in jits
-Date: Fri, 13 May 2016 19:08:32 +0200
-Message-ID: <2f24a9bbf761accb982715c761c0840a14c0b5cd.1463158442.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 10/10] bpf, s390: add support for constant blinding
+Date: Fri, 13 May 2016 19:08:35 +0200
+Message-ID: <f73f01f19050dcc2900db0c8f1f77c883ca08cc7.1463158442.git.daniel@iogearbox.net>
 References: <cover.1463158442.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
 	zlim.lnx@gmail.com, yang.shi@linaro.org,
@@ -9,526 +9,203 @@ Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41886 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:41916 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445AbcEMRJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 13:09:04 -0400
+	with ESMTP id S1753434AbcEMRJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 13:09:05 -0400
 In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
 References: <cover.1463158442.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work adds a generic facility for use from eBPF JIT compilers
-that allows for further hardening of JIT generated images through
-blinding constants. In response to the original work on BPF JIT
-spraying published by Keegan McAllister [1], most BPF JITs were
-changed to make images read-only and start at a randomized offset
-in the page, where the rest was filled with trap instructions. We
-have this nowadays in x86, arm, arm64 and s390 JIT compilers.
-Additionally, later work also made eBPF interpreter images read
-only for kernels supporting DEBUG_SET_MODULE_RONX, that is, x86,
-arm, arm64 and s390 archs as well currently. This is done by
-default for mentioned JITs when JITing is enabled. Furthermore,
-we had a generic and configurable constant blinding facility on our
-todo for quite some time now to further make spraying harder, and
-first implementation since around netconf 2016.
+This patch adds recently added constant blinding helpers into the
+s390 eBPF JIT. In the bpf_int_jit_compile() path, requirements are
+to utilize bpf_jit_blind_constants()/bpf_jit_prog_release_other()
+pair for rewriting the program into a blinded one, and to map the
+BPF_REG_AX register to a CPU register. The mapping of BPF_REG_AX
+is at r12 and similarly like in x86 case performs reloading when
+ld_abs/ind is used. When blinding is not used, there's no additional
+overhead in the generated image.
 
-We found that for systems where untrusted users can load cBPF/eBPF
-code where JIT is enabled, start offset randomization helps a bit
-to make jumps into crafted payload harder, but in case where larger
-programs that cross page boundary are injected, we again have some
-part of the program opcodes at a page start offset. With improved
-guessing and more reliable payload injection, chances can increase
-to jump into such payload. Elena Reshetova recently wrote a test
-case for it [2, 3]. Moreover, eBPF comes with 64 bit constants, which
-can leave some more room for payloads. Note that for all this,
-additional bugs in the kernel are still required to make the jump
-(and of course to guess right, to not jump into a trap) and naturally
-the JIT must be enabled, which is disabled by default.
-
-For helping mitigation, the general idea is to provide an option
-bpf_jit_harden that admins can tweak along with bpf_jit_enable, so
-that for cases where JIT should be enabled for performance reasons,
-the generated image can be further hardened with blinding constants
-for unpriviledged users (bpf_jit_harden == 1), with trading off
-performance for these, but not for privileged ones. We also added
-the option of blinding for all users (bpf_jit_harden == 2), which
-is quite helpful for testing f.e. with test_bpf.ko. There are no
-further e.g. hardening levels of bpf_jit_harden switch intended,
-rationale is to have it dead simple to use as on/off. Since this
-functionality would need to be duplicated over and over for JIT
-compilers to use, which are already complex enough, we provide a
-generic eBPF byte-code level based blinding implementation, which is
-then just transparently JITed. JIT compilers need to make only a few
-changes to integrate this facility and can be migrated one by one.
-
-This option is for eBPF JITs and will be used in x86, arm64, s390
-without too much effort, and soon ppc64 JITs, thus that native eBPF
-can be blinded as well as cBPF to eBPF migrations, so that both can
-be covered with a single implementation. The rule for JITs is that
-bpf_jit_blind_constants() must be called from bpf_int_jit_compile(),
-and in case blinding is disabled, we follow normally with JITing the
-passed program. In case blinding is enabled and we fail during the
-process of blinding itself, we must return with the interpreter.
-Similarly, in case the JITing process after the blinding failed, we
-return normally to the interpreter with the non-blinded code. Meaning,
-interpreter doesn't change in any way and operates on eBPF code as
-usual. For doing this pre-JIT blinding step, we need to make use of
-a helper/auxiliary register, here BPF_REG_AX. This is strictly internal
-to the JIT and not in any way part of the eBPF architecture. Just like
-in the same way as JITs internally make use of some helper registers
-when emitting code, only that here the helper register is one
-abstraction level higher in eBPF bytecode, but nevertheless in JIT
-phase. That helper register is needed since f.e. manually written
-program can issue loads to all registers of eBPF architecture.
-
-The core concept with the additional register is: blind out all 32
-and 64 bit constants by converting BPF_K based instructions into a
-small sequence from K_VAL into ((RND ^ K_VAL) ^ RND). Therefore, this
-is transformed into: BPF_REG_AX := (RND ^ K_VAL), BPF_REG_AX ^= RND,
-and REG <OP> BPF_REG_AX, so actual operation on the target register
-is translated from BPF_K into BPF_X one that is operating on
-BPF_REG_AX's content. During rewriting phase when blinding, RND is
-newly generated via prandom_u32() for each processed instruction.
-64 bit loads are split into two 32 bit loads to make translation and
-patching not too complex. Only basic thing required by JITs is to
-call the helper bpf_jit_blind_constants()/bpf_jit_prog_release_other()
-pair, and to map BPF_REG_AX into an unused register.
-
-Small bpf_jit_disasm extract from [2] when applied to x86 JIT:
-
-echo 0 > /proc/sys/net/core/bpf_jit_harden
-
-  ffffffffa034f5e9 + <x>:
-  [...]
-  39:   mov    $0xa8909090,%eax
-  3e:   mov    $0xa8909090,%eax
-  43:   mov    $0xa8ff3148,%eax
-  48:   mov    $0xa89081b4,%eax
-  4d:   mov    $0xa8900bb0,%eax
-  52:   mov    $0xa810e0c1,%eax
-  57:   mov    $0xa8908eb4,%eax
-  5c:   mov    $0xa89020b0,%eax
-  [...]
-
-echo 1 > /proc/sys/net/core/bpf_jit_harden
-
-  ffffffffa034f1e5 + <x>:
-  [...]
-  39:   mov    $0xe1192563,%r10d
-  3f:   xor    $0x4989b5f3,%r10d
-  46:   mov    %r10d,%eax
-  49:   mov    $0xb8296d93,%r10d
-  4f:   xor    $0x10b9fd03,%r10d
-  56:   mov    %r10d,%eax
-  59:   mov    $0x8c381146,%r10d
-  5f:   xor    $0x24c7200e,%r10d
-  66:   mov    %r10d,%eax
-  69:   mov    $0xeb2a830e,%r10d
-  6f:   xor    $0x43ba02ba,%r10d
-  76:   mov    %r10d,%eax
-  79:   mov    $0xd9730af,%r10d
-  7f:   xor    $0xa5073b1f,%r10d
-  86:   mov    %r10d,%eax
-  89:   mov    $0x9a45662b,%r10d
-  8f:   xor    $0x325586ea,%r10d
-  96:   mov    %r10d,%eax
-  [...]
-
-As can be seen, original constants that carry payload are hidden
-when enabled, actual operations are transformed from constant-based
-to register-based ones, making jumps into constants ineffective.
-Above extract/example uses single BPF load instruction over and
-over, but of course all instructions with constants are blinded.
-
-Performance wise, JIT with blinding performs a bit slower than just
-JIT and faster than interpreter case. This is expected, since we
-still get all the performance benefits from JITing and in normal
-use-cases not every single instruction needs to be blinded. Summing
-up all 296 test cases averaged over multiple runs from test_bpf.ko
-suite, interpreter was 55% slower than JIT only and JIT with blinding
-was 8% slower than JIT only. Since there are also some extremes in
-the test suite, I expect for ordinary workloads that the performance
-for the JIT with blinding case is even closer to JIT only case,
-f.e. nmap test case from suite has averaged timings in ns 29 (JIT),
-35 (+ blinding), and 151 (interpreter).
-
-BPF test suite, seccomp test suite, eBPF sample code and various
-bigger networking eBPF programs have been tested with this and were
-running fine. For testing purposes, I also adapted interpreter and
-redirected blinded eBPF image to interpreter and also here all tests
-pass.
-
-  [1] http://mainisusuallyafunction.blogspot.com/2012/11/attacking-hardened-linux-systems-with.html
-  [2] https://github.com/01org/jit-spray-poc-for-ksp/
-  [3] http://www.openwall.com/lists/kernel-hardening/2016/05/03/5
+When BPF_REG_AX is used, we don't need to emit skb->data reload when
+helper function changed skb->data, as this will be reloaded later
+on anyway from stack on ld_abs/ind, where skb->data is needed. s390
+allows for this w/o much additional complexity unlike f.e. x86.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Reviewed-by: Elena Reshetova <elena.reshetova@intel.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 ---
- Documentation/sysctl/net.txt |  11 +++
- include/linux/filter.h       |  42 +++++++++
- kernel/bpf/core.c            | 203 +++++++++++++++++++++++++++++++++++++++++++
- net/Kconfig                  |   7 +-
- net/core/sysctl_net_core.c   |   9 ++
- 5 files changed, 270 insertions(+), 2 deletions(-)
+ arch/s390/net/bpf_jit_comp.c | 73 +++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 56 insertions(+), 17 deletions(-)
 
-diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
-index 809ab6e..f0480f7 100644
---- a/Documentation/sysctl/net.txt
-+++ b/Documentation/sysctl/net.txt
-@@ -43,6 +43,17 @@ Values :
- 	1 - enable the JIT
- 	2 - enable the JIT and ask the compiler to emit traces on kernel log.
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index fcf301a..9133b0e 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -54,16 +54,17 @@ struct bpf_jit {
+ #define SEEN_FUNC	16	/* calls C functions */
+ #define SEEN_TAIL_CALL	32	/* code uses tail calls */
+ #define SEEN_SKB_CHANGE	64	/* code changes skb data */
++#define SEEN_REG_AX	128	/* code uses constant blinding */
+ #define SEEN_STACK	(SEEN_FUNC | SEEN_MEM | SEEN_SKB)
  
-+bpf_jit_harden
-+--------------
-+
-+This enables hardening for the Berkeley Packet Filter Just in Time compiler.
-+Supported are eBPF JIT backends. Enabling hardening trades off performance,
-+but can mitigate JIT spraying.
-+Values :
-+	0 - disable JIT hardening (default value)
-+	1 - enable JIT hardening for unprivileged users only
-+	2 - enable JIT hardening for all users
-+
- dev_weight
- --------------
- 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 891852c..6fc31ef 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -13,6 +13,8 @@
- #include <linux/printk.h>
- #include <linux/workqueue.h>
- #include <linux/sched.h>
-+#include <linux/capability.h>
-+
- #include <net/sch_generic.h>
- 
- #include <asm/cacheflush.h>
-@@ -42,6 +44,15 @@ struct bpf_prog_aux;
- #define BPF_REG_X	BPF_REG_7
- #define BPF_REG_TMP	BPF_REG_8
- 
-+/* Kernel hidden auxiliary/helper register for hardening step.
-+ * Only used by eBPF JITs. It's nothing more than a temporary
-+ * register that JITs use internally, only that here it's part
-+ * of eBPF instructions that have been rewritten for blinding
-+ * constants. See JIT pre-step in bpf_jit_blind_constants().
-+ */
-+#define BPF_REG_AX		MAX_BPF_REG
-+#define MAX_BPF_JIT_REG		(MAX_BPF_REG + 1)
-+
- /* BPF program can access up to 512 bytes of stack space. */
- #define MAX_BPF_STACK	512
- 
-@@ -501,6 +512,7 @@ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
- 
- #ifdef CONFIG_BPF_JIT
- extern int bpf_jit_enable;
-+extern int bpf_jit_harden;
- 
- typedef void (*bpf_jit_fill_hole_t)(void *area, unsigned int size);
- 
-@@ -513,6 +525,9 @@ void bpf_jit_binary_free(struct bpf_binary_header *hdr);
- void bpf_jit_compile(struct bpf_prog *fp);
- void bpf_jit_free(struct bpf_prog *fp);
- 
-+struct bpf_prog *bpf_jit_blind_constants(struct bpf_prog *fp);
-+void bpf_jit_prog_release_other(struct bpf_prog *fp, struct bpf_prog *fp_other);
-+
- static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 				u32 pass, void *image)
+ /*
+  * s390 registers
+  */
+-#define REG_W0		(__MAX_BPF_REG+0)	/* Work register 1 (even) */
+-#define REG_W1		(__MAX_BPF_REG+1)	/* Work register 2 (odd) */
+-#define REG_SKB_DATA	(__MAX_BPF_REG+2)	/* SKB data register */
+-#define REG_L		(__MAX_BPF_REG+3)	/* Literal pool register */
+-#define REG_15		(__MAX_BPF_REG+4)	/* Register 15 */
++#define REG_W0		(MAX_BPF_JIT_REG + 0)	/* Work register 1 (even) */
++#define REG_W1		(MAX_BPF_JIT_REG + 1)	/* Work register 2 (odd) */
++#define REG_SKB_DATA	(MAX_BPF_JIT_REG + 2)	/* SKB data register */
++#define REG_L		(MAX_BPF_JIT_REG + 3)	/* Literal pool register */
++#define REG_15		(MAX_BPF_JIT_REG + 4)	/* Register 15 */
+ #define REG_0		REG_W0			/* Register 0 */
+ #define REG_1		REG_W1			/* Register 1 */
+ #define REG_2		BPF_REG_1		/* Register 2 */
+@@ -88,6 +89,8 @@ static const int reg2hex[] = {
+ 	[BPF_REG_9]	= 10,
+ 	/* BPF stack pointer */
+ 	[BPF_REG_FP]	= 13,
++	/* Register for blinding (shared with REG_SKB_DATA) */
++	[BPF_REG_AX]	= 12,
+ 	/* SKB data pointer */
+ 	[REG_SKB_DATA]	= 12,
+ 	/* Work registers for s390x backend */
+@@ -385,7 +388,7 @@ static void save_restore_regs(struct bpf_jit *jit, int op)
+ /*
+  * For SKB access %b1 contains the SKB pointer. For "bpf_jit.S"
+  * we store the SKB header length on the stack and the SKB data
+- * pointer in REG_SKB_DATA.
++ * pointer in REG_SKB_DATA if BPF_REG_AX is not used.
+  */
+ static void emit_load_skb_data_hlen(struct bpf_jit *jit)
  {
-@@ -523,6 +538,33 @@ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
- 			       16, 1, image, proglen, false);
+@@ -397,9 +400,10 @@ static void emit_load_skb_data_hlen(struct bpf_jit *jit)
+ 		   offsetof(struct sk_buff, data_len));
+ 	/* stg %w1,ST_OFF_HLEN(%r0,%r15) */
+ 	EMIT6_DISP_LH(0xe3000000, 0x0024, REG_W1, REG_0, REG_15, STK_OFF_HLEN);
+-	/* lg %skb_data,data_off(%b1) */
+-	EMIT6_DISP_LH(0xe3000000, 0x0004, REG_SKB_DATA, REG_0,
+-		      BPF_REG_1, offsetof(struct sk_buff, data));
++	if (!(jit->seen & SEEN_REG_AX))
++		/* lg %skb_data,data_off(%b1) */
++		EMIT6_DISP_LH(0xe3000000, 0x0004, REG_SKB_DATA, REG_0,
++			      BPF_REG_1, offsetof(struct sk_buff, data));
  }
+ 
+ /*
+@@ -487,6 +491,8 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
+ 	s32 imm = insn->imm;
+ 	s16 off = insn->off;
+ 
++	if (dst_reg == BPF_REG_AX || src_reg == BPF_REG_AX)
++		jit->seen |= SEEN_REG_AX;
+ 	switch (insn->code) {
+ 	/*
+ 	 * BPF_MOV
+@@ -1188,7 +1194,7 @@ call_fn:
+ 		/*
+ 		 * Implicit input:
+ 		 *  BPF_REG_6	 (R7) : skb pointer
+-		 *  REG_SKB_DATA (R12): skb data pointer
++		 *  REG_SKB_DATA (R12): skb data pointer (if no BPF_REG_AX)
+ 		 *
+ 		 * Calculated input:
+ 		 *  BPF_REG_2	 (R3) : offset of byte(s) to fetch in skb
+@@ -1209,6 +1215,11 @@ call_fn:
+ 			/* agfr %b2,%src (%src is s32 here) */
+ 			EMIT4(0xb9180000, BPF_REG_2, src_reg);
+ 
++		/* Reload REG_SKB_DATA if BPF_REG_AX is used */
++		if (jit->seen & SEEN_REG_AX)
++			/* lg %skb_data,data_off(%b6) */
++			EMIT6_DISP_LH(0xe3000000, 0x0004, REG_SKB_DATA, REG_0,
++				      BPF_REG_6, offsetof(struct sk_buff, data));
+ 		/* basr %b5,%w1 (%b5 is call saved) */
+ 		EMIT2(0x0d00, BPF_REG_5, REG_W1);
+ 
+@@ -1264,36 +1275,60 @@ void bpf_jit_compile(struct bpf_prog *fp)
+  */
+ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
+ {
++	struct bpf_prog *tmp, *orig_fp = fp;
+ 	struct bpf_binary_header *header;
++	bool tmp_blinded = false;
+ 	struct bpf_jit jit;
+ 	int pass;
+ 
+ 	if (!bpf_jit_enable)
+-		return fp;
++		return orig_fp;
 +
-+static inline bool bpf_jit_is_ebpf(void)
-+{
-+# ifdef CONFIG_HAVE_EBPF_JIT
-+	return true;
-+# else
-+	return false;
-+# endif
-+}
-+
-+static inline bool bpf_jit_blinding_enabled(void)
-+{
-+	/* These are the prerequisites, should someone ever have the
-+	 * idea to call blinding outside of them, we make sure to
-+	 * bail out.
++	tmp = bpf_jit_blind_constants(fp);
++	/*
++	 * If blinding was requested and we failed during blinding,
++	 * we must fall back to the interpreter.
 +	 */
-+	if (!bpf_jit_is_ebpf())
-+		return false;
-+	if (!bpf_jit_enable)
-+		return false;
-+	if (!bpf_jit_harden)
-+		return false;
-+	if (bpf_jit_harden == 1 && capable(CAP_SYS_ADMIN))
-+		return false;
-+
-+	return true;
-+}
- #else
- static inline void bpf_jit_compile(struct bpf_prog *fp)
- {
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 70f0821..f1e8a0d 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -243,6 +243,209 @@ void bpf_jit_binary_free(struct bpf_binary_header *hdr)
- {
- 	module_memfree(hdr);
- }
-+
-+int bpf_jit_harden __read_mostly;
-+
-+static int bpf_jit_blind_insn(const struct bpf_insn *from,
-+			      const struct bpf_insn *aux,
-+			      struct bpf_insn *to_buff)
-+{
-+	struct bpf_insn *to = to_buff;
-+	u32 imm_rnd = prandom_u32();
-+	s16 off;
-+
-+	BUILD_BUG_ON(BPF_REG_AX  + 1 != MAX_BPF_JIT_REG);
-+	BUILD_BUG_ON(MAX_BPF_REG + 1 != MAX_BPF_JIT_REG);
-+
-+	if (from->imm == 0 &&
-+	    (from->code == (BPF_ALU   | BPF_MOV | BPF_K) ||
-+	     from->code == (BPF_ALU64 | BPF_MOV | BPF_K))) {
-+		*to++ = BPF_ALU64_REG(BPF_XOR, from->dst_reg, from->dst_reg);
++	if (IS_ERR(tmp))
++		return orig_fp;
++	if (tmp != fp) {
++		tmp_blinded = true;
++		fp = tmp;
++	}
+ 
+ 	memset(&jit, 0, sizeof(jit));
+ 	jit.addrs = kcalloc(fp->len + 1, sizeof(*jit.addrs), GFP_KERNEL);
+-	if (jit.addrs == NULL)
+-		return fp;
++	if (jit.addrs == NULL) {
++		fp = orig_fp;
 +		goto out;
 +	}
-+
-+	switch (from->code) {
-+	case BPF_ALU | BPF_ADD | BPF_K:
-+	case BPF_ALU | BPF_SUB | BPF_K:
-+	case BPF_ALU | BPF_AND | BPF_K:
-+	case BPF_ALU | BPF_OR  | BPF_K:
-+	case BPF_ALU | BPF_XOR | BPF_K:
-+	case BPF_ALU | BPF_MUL | BPF_K:
-+	case BPF_ALU | BPF_MOV | BPF_K:
-+	case BPF_ALU | BPF_DIV | BPF_K:
-+	case BPF_ALU | BPF_MOD | BPF_K:
-+		*to++ = BPF_ALU32_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ from->imm);
-+		*to++ = BPF_ALU32_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_ALU32_REG(from->code, from->dst_reg, BPF_REG_AX);
-+		break;
-+
-+	case BPF_ALU64 | BPF_ADD | BPF_K:
-+	case BPF_ALU64 | BPF_SUB | BPF_K:
-+	case BPF_ALU64 | BPF_AND | BPF_K:
-+	case BPF_ALU64 | BPF_OR  | BPF_K:
-+	case BPF_ALU64 | BPF_XOR | BPF_K:
-+	case BPF_ALU64 | BPF_MUL | BPF_K:
-+	case BPF_ALU64 | BPF_MOV | BPF_K:
-+	case BPF_ALU64 | BPF_DIV | BPF_K:
-+	case BPF_ALU64 | BPF_MOD | BPF_K:
-+		*to++ = BPF_ALU64_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ from->imm);
-+		*to++ = BPF_ALU64_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_ALU64_REG(from->code, from->dst_reg, BPF_REG_AX);
-+		break;
-+
-+	case BPF_JMP | BPF_JEQ  | BPF_K:
-+	case BPF_JMP | BPF_JNE  | BPF_K:
-+	case BPF_JMP | BPF_JGT  | BPF_K:
-+	case BPF_JMP | BPF_JGE  | BPF_K:
-+	case BPF_JMP | BPF_JSGT | BPF_K:
-+	case BPF_JMP | BPF_JSGE | BPF_K:
-+	case BPF_JMP | BPF_JSET | BPF_K:
-+		/* Accommodate for extra offset in case of a backjump. */
-+		off = from->off;
-+		if (off < 0)
-+			off -= 2;
-+		*to++ = BPF_ALU64_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ from->imm);
-+		*to++ = BPF_ALU64_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_JMP_REG(from->code, from->dst_reg, BPF_REG_AX, off);
-+		break;
-+
-+	case BPF_LD | BPF_ABS | BPF_W:
-+	case BPF_LD | BPF_ABS | BPF_H:
-+	case BPF_LD | BPF_ABS | BPF_B:
-+		*to++ = BPF_ALU64_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ from->imm);
-+		*to++ = BPF_ALU64_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_LD_IND(from->code, BPF_REG_AX, 0);
-+		break;
-+
-+	case BPF_LD | BPF_IND | BPF_W:
-+	case BPF_LD | BPF_IND | BPF_H:
-+	case BPF_LD | BPF_IND | BPF_B:
-+		*to++ = BPF_ALU64_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ from->imm);
-+		*to++ = BPF_ALU64_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_ALU32_REG(BPF_ADD, BPF_REG_AX, from->src_reg);
-+		*to++ = BPF_LD_IND(from->code, BPF_REG_AX, 0);
-+		break;
-+
-+	case BPF_LD | BPF_IMM | BPF_DW:
-+		*to++ = BPF_ALU64_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ aux[1].imm);
-+		*to++ = BPF_ALU64_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_ALU64_IMM(BPF_LSH, BPF_REG_AX, 32);
-+		*to++ = BPF_ALU64_REG(BPF_MOV, aux[0].dst_reg, BPF_REG_AX);
-+		break;
-+	case 0: /* Part 2 of BPF_LD | BPF_IMM | BPF_DW. */
-+		*to++ = BPF_ALU32_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ aux[0].imm);
-+		*to++ = BPF_ALU32_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_ALU64_REG(BPF_OR,  aux[0].dst_reg, BPF_REG_AX);
-+		break;
-+
-+	case BPF_ST | BPF_MEM | BPF_DW:
-+	case BPF_ST | BPF_MEM | BPF_W:
-+	case BPF_ST | BPF_MEM | BPF_H:
-+	case BPF_ST | BPF_MEM | BPF_B:
-+		*to++ = BPF_ALU64_IMM(BPF_MOV, BPF_REG_AX, imm_rnd ^ from->imm);
-+		*to++ = BPF_ALU64_IMM(BPF_XOR, BPF_REG_AX, imm_rnd);
-+		*to++ = BPF_STX_MEM(from->code, from->dst_reg, BPF_REG_AX, from->off);
-+		break;
-+	}
-+out:
-+	return to - to_buff;
-+}
-+
-+static struct bpf_prog *bpf_prog_clone_create(struct bpf_prog *fp_other,
-+					      gfp_t gfp_extra_flags)
-+{
-+	gfp_t gfp_flags = GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO |
-+			  gfp_extra_flags;
-+	struct bpf_prog *fp;
-+
-+	fp = __vmalloc(fp_other->pages * PAGE_SIZE, gfp_flags, PAGE_KERNEL);
-+	if (fp != NULL) {
-+		kmemcheck_annotate_bitfield(fp, meta);
-+
-+		/* aux->prog still points to the fp_other one, so
-+		 * when promoting the clone to the real program,
-+		 * this still needs to be adapted.
-+		 */
-+		memcpy(fp, fp_other, fp_other->pages * PAGE_SIZE);
-+	}
-+
-+	return fp;
-+}
-+
-+static void bpf_prog_clone_free(struct bpf_prog *fp)
-+{
-+	/* aux was stolen by the other clone, so we cannot free
-+	 * it from this path! It will be freed eventually by the
-+	 * other program on release.
-+	 *
-+	 * At this point, we don't need a deferred release since
-+	 * clone is guaranteed to not be locked.
-+	 */
-+	fp->aux = NULL;
-+	__bpf_prog_free(fp);
-+}
-+
-+void bpf_jit_prog_release_other(struct bpf_prog *fp, struct bpf_prog *fp_other)
-+{
-+	/* We have to repoint aux->prog to self, as we don't
-+	 * know whether fp here is the clone or the original.
-+	 */
-+	fp->aux->prog = fp;
-+	bpf_prog_clone_free(fp_other);
-+}
-+
-+struct bpf_prog *bpf_jit_blind_constants(struct bpf_prog *prog)
-+{
-+	struct bpf_insn insn_buff[16], aux[2];
-+	struct bpf_prog *clone, *tmp;
-+	int insn_delta, insn_cnt;
-+	struct bpf_insn *insn;
-+	int i, rewritten;
-+
-+	if (!bpf_jit_blinding_enabled())
-+		return prog;
-+
-+	clone = bpf_prog_clone_create(prog, GFP_USER);
-+	if (!clone)
-+		return ERR_PTR(-ENOMEM);
-+
-+	insn_cnt = clone->len;
-+	insn = clone->insnsi;
-+
-+	for (i = 0; i < insn_cnt; i++, insn++) {
-+		/* We temporarily need to hold the original ld64 insn
-+		 * so that we can still access the first part in the
-+		 * second blinding run.
-+		 */
-+		if (insn[0].code == (BPF_LD | BPF_IMM | BPF_DW) &&
-+		    insn[1].code == 0)
-+			memcpy(aux, insn, sizeof(aux));
-+
-+		rewritten = bpf_jit_blind_insn(insn, aux, insn_buff);
-+		if (!rewritten)
-+			continue;
-+
-+		tmp = bpf_patch_insn_single(clone, i, insn_buff, rewritten);
-+		if (!tmp) {
-+			/* Patching may have repointed aux->prog during
-+			 * realloc from the original one, so we need to
-+			 * fix it up here on error.
-+			 */
-+			bpf_jit_prog_release_other(prog, clone);
-+			return ERR_PTR(-ENOMEM);
+ 	/*
+ 	 * Three initial passes:
+ 	 *   - 1/2: Determine clobbered registers
+ 	 *   - 3:   Calculate program size and addrs arrray
+ 	 */
+ 	for (pass = 1; pass <= 3; pass++) {
+-		if (bpf_jit_prog(&jit, fp))
++		if (bpf_jit_prog(&jit, fp)) {
++			fp = orig_fp;
+ 			goto free_addrs;
 +		}
-+
-+		clone = tmp;
-+		insn_delta = rewritten - 1;
-+
-+		/* Walk new program and skip insns we just inserted. */
-+		insn = clone->insnsi + i + insn_delta;
-+		insn_cnt += insn_delta;
-+		i        += insn_delta;
+ 	}
+ 	/*
+ 	 * Final pass: Allocate and generate program
+ 	 */
+-	if (jit.size >= BPF_SIZE_MAX)
++	if (jit.size >= BPF_SIZE_MAX) {
++		fp = orig_fp;
+ 		goto free_addrs;
 +	}
-+
-+	return clone;
-+}
- #endif /* CONFIG_BPF_JIT */
+ 	header = bpf_jit_binary_alloc(jit.size, &jit.prg_buf, 2, jit_fill_hole);
+-	if (!header)
++	if (!header) {
++		fp = orig_fp;
+ 		goto free_addrs;
+-	if (bpf_jit_prog(&jit, fp))
++	}
++	if (bpf_jit_prog(&jit, fp)) {
++		fp = orig_fp;
+ 		goto free_addrs;
++	}
+ 	if (bpf_jit_enable > 1) {
+ 		bpf_jit_dump(fp->len, jit.size, pass, jit.prg_buf);
+ 		if (jit.prg_buf)
+@@ -1306,6 +1341,10 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
+ 	}
+ free_addrs:
+ 	kfree(jit.addrs);
++out:
++	if (tmp_blinded)
++		bpf_jit_prog_release_other(fp, fp == orig_fp ?
++					   tmp : orig_fp);
+ 	return fp;
+ }
  
- /* Base function for offset calculation. Needs to go into .text section,
-diff --git a/net/Kconfig b/net/Kconfig
-index f7148f2..ff40562 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -295,8 +295,11 @@ config BPF_JIT
- 	  Berkeley Packet Filter filtering capabilities are normally handled
- 	  by an interpreter. This option allows kernel to generate a native
- 	  code when filter is loaded in memory. This should speedup
--	  packet sniffing (libpcap/tcpdump). Note : Admin should enable
--	  this feature changing /proc/sys/net/core/bpf_jit_enable
-+	  packet sniffing (libpcap/tcpdump).
-+
-+	  Note, admin should enable this feature changing:
-+	  /proc/sys/net/core/bpf_jit_enable
-+	  /proc/sys/net/core/bpf_jit_harden (optional)
- 
- config NET_FLOW_LIMIT
- 	bool
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index a6beb7b..0df2aa6 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -294,6 +294,15 @@ static struct ctl_table net_core_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+# ifdef CONFIG_HAVE_EBPF_JIT
-+	{
-+		.procname	= "bpf_jit_harden",
-+		.data		= &bpf_jit_harden,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0600,
-+		.proc_handler	= proc_dointvec,
-+	},
-+# endif
- #endif
- 	{
- 		.procname	= "netdev_tstamp_prequeue",
 -- 
 1.9.3
