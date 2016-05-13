@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [patch net-next 06/11] ACPI: bus: move acpi_match_device_ids() to linux/acpi.h
-Date: Fri, 13 May 2016 16:19:12 +0800
-Message-ID: <1463127557-90824-7-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [patch net-next 02/11] net: hns: use device_* APIs instead of of_* APIs
+Date: Fri, 13 May 2016 16:19:08 +0800
+Message-ID: <1463127557-90824-3-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,58 +16,91 @@ In-Reply-To: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
+From: Kejian Yan <yankejian@huawei.com>
 
-acpi_match_device_ids() will be used for drivers to match
-different hardware versions, it will be compiled in non-ACPI
-case, but acpi_match_device_ids() in acpi_bus.h and it can
-only be used in ACPI case, so move it to linux/acpi.h and
-introduce a stub function for it.
+OF series functions can be used only for OF case. It needs to be similar
+series function for the others cases. There are uniform interface which
+has device_ prefix to get properties from the platform firmware. So this
+patch will use the device_* series functions instead of of_* functions.
 
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- include/acpi/acpi_bus.h |  2 --
- include/linux/acpi.h    | 11 +++++++++++
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  9 +++++----
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 11 +++--------
+ 2 files changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
-index 3a93250..12cf2cb 100644
---- a/include/acpi/acpi_bus.h
-+++ b/include/acpi/acpi_bus.h
-@@ -513,8 +513,6 @@ void acpi_bus_unregister_driver(struct acpi_driver *driver);
- int acpi_bus_scan(acpi_handle handle);
- void acpi_bus_trim(struct acpi_device *start);
- acpi_status acpi_bus_get_ejd(acpi_handle handle, acpi_handle * ejd);
--int acpi_match_device_ids(struct acpi_device *device,
--			  const struct acpi_device_id *ids);
- int acpi_create_dir(struct acpi_device *);
- void acpi_remove_dir(struct acpi_device *);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 1c2ddb2..9afc5e6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -50,7 +50,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	else
+ 		dsaf_dev->dsaf_ver = AE_VERSION_2;
  
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 06ed7e5..e578bce 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -933,7 +933,18 @@ int __acpi_probe_device_table(struct acpi_probe_entry *start, int nr);
- 					  (&ACPI_PROBE_TABLE_END(t) -	\
- 					   &ACPI_PROBE_TABLE(t)));	\
- 	})
-+
-+int acpi_match_device_ids(struct acpi_device *device,
-+			  const struct acpi_device_id *ids);
-+
- #else
-+
-+static inline int acpi_match_device_ids(struct acpi_device *device,
-+					const struct acpi_device_id *ids)
-+{
-+	return -ENOENT;
-+}
-+
- static inline int acpi_dev_get_property(struct acpi_device *adev,
- 					const char *name, acpi_object_type type,
- 					const union acpi_object **obj)
+-	ret = of_property_read_string(np, "mode", &mode_str);
++	ret = device_property_read_string(dsaf_dev->dev, "mode", &mode_str);
+ 	if (ret) {
+ 		dev_err(dsaf_dev->dev, "get dsaf mode fail, ret=%d!\n", ret);
+ 		return ret;
+@@ -142,7 +142,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 		}
+ 	}
+ 
+-	ret = of_property_read_u32(np, "desc-num", &desc_num);
++	ret = device_property_read_u32(dsaf_dev->dev, "desc-num", &desc_num);
+ 	if (ret < 0 || desc_num < HNS_DSAF_MIN_DESC_CNT ||
+ 	    desc_num > HNS_DSAF_MAX_DESC_CNT) {
+ 		dev_err(dsaf_dev->dev, "get desc-num(%d) fail, ret=%d!\n",
+@@ -151,14 +151,15 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	}
+ 	dsaf_dev->desc_num = desc_num;
+ 
+-	ret = of_property_read_u32(np, "reset-field-offset", &reset_offset);
++	ret = device_property_read_u32(dsaf_dev->dev, "reset-field-offset",
++				       &reset_offset);
+ 	if (ret < 0) {
+ 		dev_dbg(dsaf_dev->dev,
+ 			"get reset-field-offset fail, ret=%d!\r\n", ret);
+ 	}
+ 	dsaf_dev->reset_offset = reset_offset;
+ 
+-	ret = of_property_read_u32(np, "buf-size", &buf_size);
++	ret = device_property_read_u32(dsaf_dev->dev, "buf-size", &buf_size);
+ 	if (ret < 0) {
+ 		dev_err(dsaf_dev->dev,
+ 			"get buf-size fail, ret=%d!\r\n", ret);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index e621636..8851420 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1067,13 +1067,8 @@ void hns_nic_update_stats(struct net_device *netdev)
+ static void hns_init_mac_addr(struct net_device *ndev)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+-	struct device_node *node = priv->dev->of_node;
+-	const void *mac_addr_temp;
+ 
+-	mac_addr_temp = of_get_mac_address(node);
+-	if (mac_addr_temp && is_valid_ether_addr(mac_addr_temp)) {
+-		memcpy(ndev->dev_addr, mac_addr_temp, ndev->addr_len);
+-	} else {
++	if (!device_get_mac_address(priv->dev, ndev->dev_addr, ETH_ALEN)) {
+ 		eth_hw_addr_random(ndev);
+ 		dev_warn(priv->dev, "No valid mac, use random mac %pM",
+ 			 ndev->dev_addr);
+@@ -1898,10 +1893,10 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 		goto out_read_prop_fail;
+ 	}
+ 	/* try to find port-idx-in-ae first */
+-	ret = of_property_read_u32(node, "port-idx-in-ae", &port_id);
++	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
+ 	if (ret) {
+ 		/* only for old code compatible */
+-		ret = of_property_read_u32(node, "port-id", &port_id);
++		ret = device_property_read_u32(dev, "port-id", &port_id);
+ 		if (ret)
+ 			goto out_read_prop_fail;
+ 		/* for old dts, we need to caculate the port offset */
 -- 
 1.9.1
