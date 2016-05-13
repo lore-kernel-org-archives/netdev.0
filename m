@@ -1,152 +1,97 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware time stamping?
-Date: Fri, 13 May 2016 16:12:52 -0700
-Message-ID: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: Network Development <netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/14] e1000e: Cleanup consistency in ret_val variable usage
+Date: Fri, 13 May 2016 16:43:43 -0700
+Message-ID: <1463183035-31888-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Brian Walsh <brian@walsh.ws>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from d.mail.sonic.net ([64.142.111.50]:39143 "EHLO d.mail.sonic.net"
+Received: from mga03.intel.com ([134.134.136.65]:49411 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753570AbcEMXXr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 19:23:47 -0400
-Received: from [192.168.42.66] (173-228-4-107.dsl.dynamic.fusionbroadband.com [173.228.4.107])
-	(authenticated bits=0)
-	by d.mail.sonic.net (8.15.1/8.15.1) with ESMTPSA id u4DNCrHd007819
-	(version=TLSv1 cipher=DHE-RSA-AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 13 May 2016 16:12:53 -0700
+	id S932081AbcEMXn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 19:43:58 -0400
+In-Reply-To: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-libpcap offers the ability to request hardware time stamping for packets and to inquire which forms of hardware time stamping, if any, are supported for an interface.
+From: Brian Walsh <brian@walsh.ws>
 
-The Linux implementation currently implements the inquiry by doing a ETHTOOL_GET_TS_INFO SIOETHTOOL ioctl and looking at the so_timestamping bits, if the linux/ethtool.h header defines ETHTOOL_GET_TS_INFO and the ioctl succeeds on the device.
+Fixed the file to use a consistent ret_val for return value checking.
 
-This is inadequate - as libpcap requests hardware time stamping for all packets, it should also check whether HWTSTAMP_FILTER_ALL is set in rx_filters, and only offer hardware time stamping if it's set.
+Signed-off-by: Brian Walsh <brian@walsh.ws>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-The code in ixgbe_ptp.c does:
-
-	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-	case HWTSTAMP_FILTER_ALL:
-		/* The X550 controller is capable of timestamping all packets,
-		 * which allows it to accept any filter.
-		 */
-		if (hw->mac.type >= ixgbe_mac_X550) {
-			tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_ALL;
-			config->rx_filter = HWTSTAMP_FILTER_ALL;
-			adapter->flags |= IXGBE_FLAG_RX_HWTSTAMP_ENABLED;
-			break;
-		}
-		/* fall through */
-	default:
-		/*
-		 * register RXMTRL must be set in order to do V1 packets,
-		 * therefore it is not possible to time stamp both V1 Sync and
-		 * Delay_Req messages and hardware does not support
-		 * timestamping all packets => return error
-		 */
-		adapter->flags &= ~(IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
-				    IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
-		config->rx_filter = HWTSTAMP_FILTER_NONE;
-		return -ERANGE;
-
-which seems to indicate that only the X550 controller supports time stamping all packets in hardware.
-
-However, the code in ixgbe_ethtool.c does:
-
-	switch (adapter->hw.mac.type) {
-	case ixgbe_mac_X550:
-	case ixgbe_mac_X550EM_x:
-	case ixgbe_mac_X540:
-	case ixgbe_mac_82599EB:
-		info->so_timestamping =
-			SOF_TIMESTAMPING_TX_SOFTWARE |
-			SOF_TIMESTAMPING_RX_SOFTWARE |
-			SOF_TIMESTAMPING_SOFTWARE |
-			SOF_TIMESTAMPING_TX_HARDWARE |
-			SOF_TIMESTAMPING_RX_HARDWARE |
-			SOF_TIMESTAMPING_RAW_HARDWARE;
-
-		if (adapter->ptp_clock)
-			info->phc_index = ptp_clock_index(adapter->ptp_clock);
-		else
-			info->phc_index = -1;
-
-		info->tx_types =
-			(1 << HWTSTAMP_TX_OFF) |
-			(1 << HWTSTAMP_TX_ON);
-
-		info->rx_filters =
-			(1 << HWTSTAMP_FILTER_NONE) |
-			(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-			(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-			(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
-		break;
-	default:
-		return ethtool_op_get_ts_info(dev, info);
-	}
-
-which draws no distinction between the X550 controller and the X540 and 82599, and doesn't say *any* of them support HWTSTAMP_FILTER_ALL.
-
-Is it the case that only the ixgbe_mac_X550 and ixgbe_mac_X550EM_x controllers support HWTSTAMP_FILTER_ALL?  If so, shouldn't ixgbe_get_ts_info() be doing something such as:
-
-	switch (adapter->hw.mac.type) {
-	case ixgbe_mac_X550:
-	case ixgbe_mac_X550EM_x:
-	case ixgbe_mac_X540:
-	case ixgbe_mac_82599EB:
-		info->so_timestamping =
-			SOF_TIMESTAMPING_TX_SOFTWARE |
-			SOF_TIMESTAMPING_RX_SOFTWARE |
-			SOF_TIMESTAMPING_SOFTWARE |
-			SOF_TIMESTAMPING_TX_HARDWARE |
-			SOF_TIMESTAMPING_RX_HARDWARE |
-			SOF_TIMESTAMPING_RAW_HARDWARE;
-
-		if (adapter->ptp_clock)
-			info->phc_index = ptp_clock_index(adapter->ptp_clock);
-		else
-			info->phc_index = -1;
-
-		info->tx_types =
-			(1 << HWTSTAMP_TX_OFF) |
-			(1 << HWTSTAMP_TX_ON);
-
-		info->rx_filters =
-			(1 << HWTSTAMP_FILTER_NONE) |
-			(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-			(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-			(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
-		if (adapter->hw.mac.type >= ixgbe_mac_X550)
-			info->rx_filters |= (1 << HWTSTAMP_FILTER_ALL);
-		break;
-	default:
-		return ethtool_op_get_ts_info(dev, info);
-	}
-
->From a quick scan of drivers/net, it looks as if
-
-	drivers/net/ethernet/cavium/liquidio
-
-also support HWTSTAMP_FILTER_ALL but don't advertise it, 
-
-	drivers/net/ethernet/chelsio/cxgb4
-
-doesn't set rx_filters (or tx_types) and thus doesn't appear to advertise support for *any* filters, 
-
-	drivers/net/ethernet/freescale/gianfar*.c
-
-reports HWTSTAMP_FILTER_ALL even if the device doesn't have FSL_GIANFAR_DEV_HAS_TIMER set so that it claims that devices without a timer can do hardware timestamping,
-
-	drivers/net/ethernet/stmicro/stmmac/
-
-appears to advertise a whole bunch of HWTSTAMP_FILTER_ types regardless of whether the device supports "IEEE 1588-2008 Advanced Time Stamp", but, if it doesn't support that, it maps all supports filters other than HWTSTAMP_FILTER_NONE to HWTSTAMP_FILTER_PTP_V1_L4_EVENT (which is misleading), and
-
-	drivers/net/ethernet/cavium/octeon
-
-	drivers/net/ethernet/neterion/vxge/
-
-	drivers/net/ethernet/tile/tilegx.c
-
-don't even provide their own get_ts_info routines and thus doesn't advertise hardware timestamping at all.
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 269087c..671256d 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3368,12 +3368,12 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
+ 		 * combining
+ 		 */
+ 		netdev_for_each_uc_addr(ha, netdev) {
+-			int rval;
++			int ret_val;
+ 
+ 			if (!rar_entries)
+ 				break;
+-			rval = hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
+-			if (rval < 0)
++			ret_val = hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
++			if (ret_val < 0)
+ 				return -ENOMEM;
+ 			count++;
+ 		}
+@@ -6965,7 +6965,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int bars, i, err, pci_using_dac;
+ 	u16 eeprom_data = 0;
+ 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
+-	s32 rval = 0;
++	s32 ret_val = 0;
+ 
+ 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
+ 		aspm_disable_flag = PCIE_LINK_STATE_L0S;
+@@ -7200,18 +7200,18 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	} else if (adapter->flags & FLAG_APME_IN_CTRL3) {
+ 		if (adapter->flags & FLAG_APME_CHECK_PORT_B &&
+ 		    (adapter->hw.bus.func == 1))
+-			rval = e1000_read_nvm(&adapter->hw,
++			ret_val = e1000_read_nvm(&adapter->hw,
+ 					      NVM_INIT_CONTROL3_PORT_B,
+ 					      1, &eeprom_data);
+ 		else
+-			rval = e1000_read_nvm(&adapter->hw,
++			ret_val = e1000_read_nvm(&adapter->hw,
+ 					      NVM_INIT_CONTROL3_PORT_A,
+ 					      1, &eeprom_data);
+ 	}
+ 
+ 	/* fetch WoL from EEPROM */
+-	if (rval)
+-		e_dbg("NVM read error getting WoL initial values: %d\n", rval);
++	if (ret_val)
++		e_dbg("NVM read error getting WoL initial values: %d\n", ret_val);
+ 	else if (eeprom_data & eeprom_apme_mask)
+ 		adapter->eeprom_wol |= E1000_WUFC_MAG;
+ 
+@@ -7231,10 +7231,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		device_wakeup_enable(&pdev->dev);
+ 
+ 	/* save off EEPROM version number */
+-	rval = e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
++	ret_val = e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
+ 
+-	if (rval) {
+-		e_dbg("NVM read error getting EEPROM version: %d\n", rval);
++	if (ret_val) {
++		e_dbg("NVM read error getting EEPROM version: %d\n", ret_val);
+ 		adapter->eeprom_vers = 0;
+ 	}
+ 
+-- 
+2.5.5
