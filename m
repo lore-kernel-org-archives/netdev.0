@@ -1,76 +1,77 @@
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCHv2 bluetooth-next 00/10] 6lowpan: introduce basic
- 6lowpan-nd
-Date: Fri, 13 May 2016 14:33:40 +0200
-Message-ID: <f1898362-7bf3-705b-d72a-289e81910be8@pengutronix.de>
-References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
- <D212A5BF-A414-403B-A409-1F8C2D279883@holtmann.org>
- <57354315.2050509@miraclelinux.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] sock: ignore TIMESTAMP, RXQ_OVFL, WIFI_STATUS in
+ sock_cmsg_send
+Date: Fri, 13 May 2016 15:46:15 +0300
+Message-ID: <1ffa9a5a-ed5a-dfdf-9d35-1da3b2059df9@cogentembedded.com>
+References: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
-	Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>,
-	Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <57354315.2050509-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, maze@google.com, willemb@google.com,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:33825 "EHLO
+	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbcEMMqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 08:46:19 -0400
+Received: by mail-lf0-f53.google.com with SMTP id m64so87543044lfd.1
+        for <netdev@vger.kernel.org>; Fri, 13 May 2016 05:46:18 -0700 (PDT)
+In-Reply-To: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-Hi,
+On 5/13/2016 7:47 AM, Soheil Hassas Yeganeh wrote:
 
-On 05/13/2016 04:59 AM, YOSHIFUJI Hideaki wrote:
-> Hi,
-> 
-> Marcel Holtmann wrote:
->> Hi Dave,
-> :
->>> include/linux/netdevice.h     |   6 +-
->>> include/net/6lowpan.h         |  24 ++
->>> include/net/addrconf.h        |   3 +
->>> include/net/ndisc.h           | 124 ++++++++-
->>> net/6lowpan/6lowpan_i.h       |   2 +
->>> net/6lowpan/Makefile          |   2 +-
->>> net/6lowpan/core.c            |  50 +++-
->>> net/6lowpan/iphc.c            | 167 +++++++++--
->>> net/6lowpan/ndisc.c           | 633 ++++++++++++++++++++++++++++++++++++++++++
->>> net/bluetooth/6lowpan.c       |   2 +
->>> net/ieee802154/6lowpan/core.c |  12 +
->>> net/ieee802154/6lowpan/tx.c   | 107 ++++---
->>> net/ipv6/addrconf.c           |   7 +-
->>> net/ipv6/ndisc.c              | 132 +++++----
->>> net/ipv6/route.c              |   4 +-
->>> 15 files changed, 1117 insertions(+), 158 deletions(-)
->>> create mode 100644 net/6lowpan/ndisc.c
->>
->> is there a chance that we get input into this patch set? I wonder also if it would be acceptable to take this through bluetooth-next or should it better go straight into net-next?
-> 
-> The core idea of introducing ndisc_ops is okay, but I do think this
-> series of patches should be refactored; we should not make another
-> "copy" of core of ndisc logic.  We can introduce "ops" for each
-> option, for example.
-> 
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+>
+> SO_TIMESTAMP(NS), RXQ_OVFL, and WIFI_STATUS can be returned as
+> receive-side control messages from recvmsg(). Although invalid,
+> some applications may reflect those receive-side control messages
+> back to sendmsg(). Since socket-level control messages were being
+> ignored in ipv4 and ipv6, such applications would not get an error.
+>
+> 24025c4 (ipv4: process socket-level control messages in IPv4) and
+> ad1e46 (ipv6: process socket-level control messages in IPv6) add
 
-Thanks for your suggestion. I will try to make another patch series
-which introduce ops for each option.
+    scripts/checkpatch.pl now enforces certain commit citing style, yours 
+doesn't quite match -- SHA1 should be at least 12 digits and the summary 
+enclosed in ("").
 
-I also thinks it's better now. E.g. some days ago there was another
-question on netdev for doing more ndp_proxy stuff inside the kernel [0].
-If such feature will be added later then both implementation would be
-touched (which almost introduce the same code).
+> support for socket-level control messages in ipv4 and ipv6 on
+> sendmsg(). This results in getting -EINVAL, if the application
+> passes in a message with SO_WIFI_STATUS, SO_RXQ_OVFL, SO_TIMESTAMP
+> and/or SO_TIMESTAMPNS that might have been received in recvmsg().
+>
+> Ignore SO_WIFI_STATUS, SO_TIMESTAMP(NS), and SO_RXQ_OVFL when
+> processing socket-level control messages in send-side to remain
+> backward compatible.
+> ---
+>  net/core/sock.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 08bf97e..1e0bcd0 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1938,6 +1938,12 @@ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+>  		sockc->tsflags &= ~SOF_TIMESTAMPING_TX_RECORD_MASK;
+>  		sockc->tsflags |= tsflags;
+>  		break;
+> +	/* Ignore the following types on send to remain backward compatible. */
+> +	case SO_RXQ_OVFL:	/* Fall through */
+> +	case SO_TIMESTAMP:	/* Fall through */
+> +	case SO_TIMESTAMPNS:	/* Fall through */
+                                 ^^^^^^^^^^^^^^^^^^
+    There's no need for such comments here.
 
-- Alex
+> +	case SO_WIFI_STATUS:
+> +		break;
+>  	default:
+>  		return -EINVAL;
+>  	}
 
-[0] http://marc.info/?l=linux-netdev&m=146278123414146
+MBR, Sergei
