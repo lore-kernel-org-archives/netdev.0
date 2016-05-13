@@ -1,475 +1,69 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next v2 4/6] hv_netvsc: get rid of struct net_device
- pointer in struct netvsc_device
-Date: Fri, 13 May 2016 13:55:23 +0200
-Message-ID: <1463140525-27338-5-git-send-email-vkuznets@redhat.com>
-References: <1463140525-27338-1-git-send-email-vkuznets@redhat.com>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH 2/2] net: pxa168_eth: Use dma_wmb/rmb where appropriate
+Date: Fri, 13 May 2016 19:57:30 +0800
+Message-ID: <1463140650-7038-3-git-send-email-jszhang@marvell.com>
+References: <1463140650-7038-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- linux-kernel@vger.kernel.org, Lino Sanfilippo <LinoSanfilippo@gmx.de>
-To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1463140525-27338-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Jisheng Zhang <jszhang@marvell.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1463140650-7038-1-git-send-email-jszhang@marvell.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Simplify netvsvc pointer graph by getting rid of the redundant ndev
-pointer. We can always get a pointer to struct net_device from somewhere
-else.
+Update the pxa168_eth driver to use the dma_rmb/wmb calls instead of the
+full barriers in order to improve performance: reduced 97ns/39ns on
+average in tx/rx path on Marvell BG4CT platform.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |  5 +--
- drivers/net/hyperv/netvsc.c       | 36 +++++++---------
- drivers/net/hyperv/netvsc_drv.c   | 91 +++++++++++++++++++++++----------------
- drivers/net/hyperv/rndis_filter.c |  4 +-
- 4 files changed, 72 insertions(+), 64 deletions(-)
+ drivers/net/ethernet/marvell/pxa168_eth.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 0f38743..c270c5a 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -173,7 +173,6 @@ struct rndis_device {
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index db774e3..728a115 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -342,9 +342,9 @@ static void rxq_refill(struct net_device *dev)
+ 		pep->rx_skb[used_rx_desc] = skb;
  
- /* Interface */
- struct rndis_message;
--struct netvsc_device;
- int netvsc_device_add(struct hv_device *device, void *additional_info);
- int netvsc_device_remove(struct hv_device *device);
- int netvsc_send(struct hv_device *device,
-@@ -203,7 +202,7 @@ int rndis_filter_receive(struct hv_device *dev,
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
- int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
+ 		/* Return the descriptor to DMA ownership */
+-		wmb();
++		dma_wmb();
+ 		p_used_rx_desc->cmd_sts = BUF_OWNED_BY_DMA | RX_EN_INT;
+-		wmb();
++		dma_wmb();
  
--void netvsc_switch_datapath(struct netvsc_device *nv_dev, bool vf);
-+void netvsc_switch_datapath(struct net_device *nv_dev, bool vf);
- 
- #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
- 
-@@ -711,8 +710,6 @@ struct netvsc_device {
- 	struct nvsp_message revoke_packet;
- 	/* unsigned char HwMacAddr[HW_MACADDR_LEN]; */
- 
--	struct net_device *ndev;
--
- 	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
- 	u32 send_table[VRSS_SEND_TAB_SIZE];
- 	u32 max_chn;
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 1cd01ad..96b3c32 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -37,12 +37,12 @@
-  * Switch the data path from the synthetic interface to the VF
-  * interface.
-  */
--void netvsc_switch_datapath(struct netvsc_device *nv_dev, bool vf)
-+void netvsc_switch_datapath(struct net_device *ndev, bool vf)
- {
--	struct nvsp_message *init_pkt = &nv_dev->channel_init_pkt;
--	struct net_device *ndev = nv_dev->ndev;
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
- 	struct hv_device *dev = net_device_ctx->device_ctx;
-+	struct netvsc_device *nv_dev = net_device_ctx->nvdev;
-+	struct nvsp_message *init_pkt = &nv_dev->channel_init_pkt;
- 
- 	memset(init_pkt, 0, sizeof(struct nvsp_message));
- 	init_pkt->hdr.msg_type = NVSP_MSG4_TYPE_SWITCH_DATA_PATH;
-@@ -80,7 +80,6 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	net_device->destroy = false;
- 	atomic_set(&net_device->open_cnt, 0);
- 	atomic_set(&net_device->vf_use_cnt, 0);
--	net_device->ndev = ndev;
- 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
- 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
- 
-@@ -263,7 +262,7 @@ static int netvsc_init_buf(struct hv_device *device)
- 	net_device = get_outbound_net_device(device);
- 	if (!net_device)
- 		return -ENODEV;
--	ndev = net_device->ndev;
-+	ndev = hv_get_drvdata(device);
- 
- 	node = cpu_to_node(device->channel->target_cpu);
- 	net_device->recv_buf = vzalloc_node(net_device->recv_buf_size, node);
-@@ -453,6 +452,7 @@ static int negotiate_nvsp_ver(struct hv_device *device,
- 			      struct nvsp_message *init_packet,
- 			      u32 nvsp_ver)
- {
-+	struct net_device *ndev = hv_get_drvdata(device);
- 	int ret;
- 	unsigned long t;
- 
-@@ -486,8 +486,7 @@ static int negotiate_nvsp_ver(struct hv_device *device,
- 	/* NVSPv2 or later: Send NDIS config */
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 	init_packet->hdr.msg_type = NVSP_MSG2_TYPE_SEND_NDIS_CONFIG;
--	init_packet->msg.v2_msg.send_ndis_config.mtu = net_device->ndev->mtu +
--						       ETH_HLEN;
-+	init_packet->msg.v2_msg.send_ndis_config.mtu = ndev->mtu + ETH_HLEN;
- 	init_packet->msg.v2_msg.send_ndis_config.capability.ieee8021q = 1;
- 
- 	if (nvsp_ver >= NVSP_PROTOCOL_VERSION_5)
-@@ -507,7 +506,6 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	struct netvsc_device *net_device;
- 	struct nvsp_message *init_packet;
- 	int ndis_version;
--	struct net_device *ndev;
- 	u32 ver_list[] = { NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
- 		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5 };
- 	int i, num_ver = 4; /* number of different NVSP versions */
-@@ -515,7 +513,6 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	net_device = get_outbound_net_device(device);
- 	if (!net_device)
- 		return -ENODEV;
--	ndev = net_device->ndev;
- 
- 	init_packet = &net_device->channel_init_pkt;
- 
-@@ -768,6 +765,7 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
- }
- 
- static inline int netvsc_send_pkt(
-+	struct hv_device *device,
- 	struct hv_netvsc_packet *packet,
- 	struct netvsc_device *net_device,
- 	struct hv_page_buffer **pb,
-@@ -776,7 +774,7 @@ static inline int netvsc_send_pkt(
- 	struct nvsp_message nvmsg;
- 	u16 q_idx = packet->q_idx;
- 	struct vmbus_channel *out_channel = net_device->chn_table[q_idx];
--	struct net_device *ndev = net_device->ndev;
-+	struct net_device *ndev = hv_get_drvdata(device);
- 	u64 req_id;
- 	int ret;
- 	struct hv_page_buffer *pgbuf;
-@@ -971,7 +969,8 @@ int netvsc_send(struct hv_device *device,
- 	}
- 
- 	if (msd_send) {
--		m_ret = netvsc_send_pkt(msd_send, net_device, NULL, msd_skb);
-+		m_ret = netvsc_send_pkt(device, msd_send, net_device,
-+					NULL, msd_skb);
- 
- 		if (m_ret != 0) {
- 			netvsc_free_send_slot(net_device,
-@@ -982,7 +981,7 @@ int netvsc_send(struct hv_device *device,
- 
- send_now:
- 	if (cur_send)
--		ret = netvsc_send_pkt(cur_send, net_device, pb, skb);
-+		ret = netvsc_send_pkt(device, cur_send, net_device, pb, skb);
- 
- 	if (ret != 0 && section_index != NETVSC_INVALID_INDEX)
- 		netvsc_free_send_slot(net_device, section_index);
-@@ -998,9 +997,7 @@ static void netvsc_send_recv_completion(struct hv_device *device,
- 	struct nvsp_message recvcompMessage;
- 	int retries = 0;
- 	int ret;
--	struct net_device *ndev;
--
--	ndev = net_device->ndev;
-+	struct net_device *ndev = hv_get_drvdata(device);
- 
- 	recvcompMessage.hdr.msg_type =
- 				NVSP_MSG1_TYPE_SEND_RNDIS_PKT_COMPLETE;
-@@ -1047,11 +1044,9 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 	u32 status = NVSP_STAT_SUCCESS;
- 	int i;
- 	int count = 0;
--	struct net_device *ndev;
-+	struct net_device *ndev = hv_get_drvdata(device);
- 	void *data;
- 
--	ndev = net_device->ndev;
--
- 	/*
- 	 * All inbound packets other than send completion should be xfer page
- 	 * packet
-@@ -1107,14 +1102,13 @@ static void netvsc_send_table(struct hv_device *hdev,
- 			      struct nvsp_message *nvmsg)
- {
- 	struct netvsc_device *nvscdev;
--	struct net_device *ndev;
-+	struct net_device *ndev = hv_get_drvdata(hdev);
- 	int i;
- 	u32 count, *tab;
- 
- 	nvscdev = get_outbound_net_device(hdev);
- 	if (!nvscdev)
- 		return;
--	ndev = nvscdev->ndev;
- 
- 	count = nvmsg->msg.v5_msg.send_table.count;
- 	if (count != VRSS_SEND_TAB_SIZE) {
-@@ -1173,7 +1167,7 @@ void netvsc_channel_cb(void *context)
- 	net_device = get_inbound_net_device(device);
- 	if (!net_device)
- 		return;
--	ndev = net_device->ndev;
-+	ndev = hv_get_drvdata(device);
- 	buffer = get_per_channel_state(channel);
- 
- 	do {
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index a33a1c9..7325d69 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -67,18 +67,19 @@ static void do_set_multicast(struct work_struct *w)
- {
- 	struct net_device_context *ndevctx =
- 		container_of(w, struct net_device_context, work);
--	struct netvsc_device *nvdev;
-+	struct hv_device *device_obj = ndevctx->device_ctx;
-+	struct net_device *ndev = hv_get_drvdata(device_obj);
-+	struct netvsc_device *nvdev = ndevctx->nvdev;
- 	struct rndis_device *rdev;
- 
--	nvdev = ndevctx->nvdev;
--	if (nvdev == NULL || nvdev->ndev == NULL)
-+	if (!nvdev)
- 		return;
- 
- 	rdev = nvdev->extension;
- 	if (rdev == NULL)
- 		return;
- 
--	if (nvdev->ndev->flags & IFF_PROMISC)
-+	if (ndev->flags & IFF_PROMISC)
- 		rndis_filter_set_packet_filter(rdev,
- 			NDIS_PACKET_TYPE_PROMISCUOUS);
- 	else
-@@ -1050,23 +1051,22 @@ static const struct net_device_ops device_ops = {
-  */
- static void netvsc_link_change(struct work_struct *w)
- {
--	struct net_device_context *ndev_ctx;
--	struct net_device *net;
-+	struct net_device_context *ndev_ctx =
-+		container_of(w, struct net_device_context, dwork.work);
-+	struct hv_device *device_obj = ndev_ctx->device_ctx;
-+	struct net_device *net = hv_get_drvdata(device_obj);
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rdev;
- 	struct netvsc_reconfig *event = NULL;
- 	bool notify = false, reschedule = false;
- 	unsigned long flags, next_reconfig, delay;
- 
--	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
--
- 	rtnl_lock();
- 	if (ndev_ctx->start_remove)
- 		goto out_unlock;
- 
- 	net_device = ndev_ctx->nvdev;
- 	rdev = net_device->extension;
--	net = net_device->ndev;
- 
- 	next_reconfig = ndev_ctx->last_reconfig + LINKCHANGE_INT;
- 	if (time_is_after_jiffies(next_reconfig)) {
-@@ -1167,10 +1167,9 @@ static void netvsc_notify_peers(struct work_struct *wrk)
- 	atomic_dec(&gwrk->netvsc_dev->vf_use_cnt);
- }
- 
--static struct netvsc_device *get_netvsc_device(char *mac)
-+static struct net_device *get_netvsc_net_device(char *mac)
- {
--	struct net_device *dev;
--	struct net_device_context *netvsc_ctx = NULL;
-+	struct net_device *dev, *found = NULL;
- 	int rtnl_locked;
- 
- 	rtnl_locked = rtnl_trylock();
-@@ -1179,21 +1178,20 @@ static struct netvsc_device *get_netvsc_device(char *mac)
- 		if (memcmp(dev->dev_addr, mac, ETH_ALEN) == 0) {
- 			if (dev->netdev_ops != &device_ops)
- 				continue;
--			netvsc_ctx = netdev_priv(dev);
-+			found = dev;
+ 		/* Move the used descriptor pointer to the next descriptor */
+ 		pep->rx_used_desc_q = (used_rx_desc + 1) % pep->rx_ring_size;
+@@ -794,7 +794,7 @@ static int rxq_process(struct net_device *dev, int budget)
+ 		rx_used_desc = pep->rx_used_desc_q;
+ 		rx_desc = &pep->p_rx_desc_area[rx_curr_desc];
+ 		cmd_sts = rx_desc->cmd_sts;
+-		rmb();
++		dma_rmb();
+ 		if (cmd_sts & (BUF_OWNED_BY_DMA))
  			break;
- 		}
- 	}
- 	if (rtnl_locked)
- 		rtnl_unlock();
+ 		skb = pep->rx_skb[rx_curr_desc];
+@@ -1289,7 +1289,7 @@ static int pxa168_eth_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
--	if (netvsc_ctx == NULL)
--		return NULL;
--
--	return netvsc_ctx->nvdev;
-+	return found;
- }
+ 	skb_tx_timestamp(skb);
  
- static int netvsc_register_vf(struct net_device *vf_netdev)
- {
-+	struct net_device *ndev;
-+	struct net_device_context *net_device_ctx;
- 	struct netvsc_device *netvsc_dev;
- 	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
- 
-@@ -1205,11 +1203,16 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
- 	 * associate with the VF interface. If we don't find a matching
- 	 * synthetic interface, move on.
- 	 */
--	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
-+	if (!ndev)
-+		return NOTIFY_DONE;
-+
-+	net_device_ctx = netdev_priv(ndev);
-+	netvsc_dev = net_device_ctx->nvdev;
- 	if (netvsc_dev == NULL)
- 		return NOTIFY_DONE;
- 
--	netdev_info(netvsc_dev->ndev, "VF registering: %s\n", vf_netdev->name);
-+	netdev_info(ndev, "VF registering: %s\n", vf_netdev->name);
- 	/*
- 	 * Take a reference on the module.
- 	 */
-@@ -1221,6 +1224,7 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
- 
- static int netvsc_vf_up(struct net_device *vf_netdev)
- {
-+	struct net_device *ndev;
- 	struct netvsc_device *netvsc_dev;
- 	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
- 	struct net_device_context *net_device_ctx;
-@@ -1228,13 +1232,17 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 	if (eth_ops == &ethtool_ops)
- 		return NOTIFY_DONE;
- 
--	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
-+	if (!ndev)
-+		return NOTIFY_DONE;
-+
-+	net_device_ctx = netdev_priv(ndev);
-+	netvsc_dev = net_device_ctx->nvdev;
- 
- 	if ((netvsc_dev == NULL) || (netvsc_dev->vf_netdev == NULL))
- 		return NOTIFY_DONE;
- 
--	netdev_info(netvsc_dev->ndev, "VF up: %s\n", vf_netdev->name);
--	net_device_ctx = netdev_priv(netvsc_dev->ndev);
-+	netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
- 	netvsc_dev->vf_inject = true;
- 
- 	/*
-@@ -1245,11 +1253,10 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 	/*
- 	 * notify the host to switch the data path.
- 	 */
--	netvsc_switch_datapath(netvsc_dev, true);
--	netdev_info(netvsc_dev->ndev, "Data path switched to VF: %s\n",
--		    vf_netdev->name);
-+	netvsc_switch_datapath(ndev, true);
-+	netdev_info(ndev, "Data path switched to VF: %s\n", vf_netdev->name);
- 
--	netif_carrier_off(netvsc_dev->ndev);
-+	netif_carrier_off(ndev);
- 
- 	/*
- 	 * Now notify peers. We are scheduling work to
-@@ -1267,6 +1274,7 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 
- static int netvsc_vf_down(struct net_device *vf_netdev)
- {
-+	struct net_device *ndev;
- 	struct netvsc_device *netvsc_dev;
- 	struct net_device_context *net_device_ctx;
- 	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
-@@ -1274,13 +1282,17 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 	if (eth_ops == &ethtool_ops)
- 		return NOTIFY_DONE;
- 
--	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
-+	if (!ndev)
-+		return NOTIFY_DONE;
-+
-+	net_device_ctx = netdev_priv(ndev);
-+	netvsc_dev = net_device_ctx->nvdev;
- 
- 	if ((netvsc_dev == NULL) || (netvsc_dev->vf_netdev == NULL))
- 		return NOTIFY_DONE;
- 
--	netdev_info(netvsc_dev->ndev, "VF down: %s\n", vf_netdev->name);
--	net_device_ctx = netdev_priv(netvsc_dev->ndev);
-+	netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
- 	netvsc_dev->vf_inject = false;
- 	/*
- 	 * Wait for currently active users to
-@@ -1289,16 +1301,15 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 
- 	while (atomic_read(&netvsc_dev->vf_use_cnt) != 0)
- 		udelay(50);
--	netvsc_switch_datapath(netvsc_dev, false);
--	netdev_info(netvsc_dev->ndev, "Data path switched from VF: %s\n",
--		    vf_netdev->name);
-+	netvsc_switch_datapath(ndev, false);
-+	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
- 	rndis_filter_close(net_device_ctx->device_ctx);
--	netif_carrier_on(netvsc_dev->ndev);
-+	netif_carrier_on(ndev);
- 	/*
- 	 * Notify peers.
- 	 */
- 	atomic_inc(&netvsc_dev->vf_use_cnt);
--	net_device_ctx->gwrk.netdev = netvsc_dev->ndev;
-+	net_device_ctx->gwrk.netdev = ndev;
- 	net_device_ctx->gwrk.netvsc_dev = netvsc_dev;
- 	schedule_work(&net_device_ctx->gwrk.dwrk);
- 
-@@ -1308,17 +1319,23 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 
- static int netvsc_unregister_vf(struct net_device *vf_netdev)
- {
-+	struct net_device *ndev;
- 	struct netvsc_device *netvsc_dev;
- 	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
-+	struct net_device_context *net_device_ctx;
- 
- 	if (eth_ops == &ethtool_ops)
- 		return NOTIFY_DONE;
- 
--	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
-+	if (!ndev)
-+		return NOTIFY_DONE;
-+
-+	net_device_ctx = netdev_priv(ndev);
-+	netvsc_dev = net_device_ctx->nvdev;
- 	if (netvsc_dev == NULL)
- 		return NOTIFY_DONE;
--	netdev_info(netvsc_dev->ndev, "VF unregistering: %s\n",
--		    vf_netdev->name);
-+	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
- 
- 	netvsc_dev->vf_netdev = NULL;
- 	module_put(THIS_MODULE);
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 6caba51..97c292b 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1061,8 +1061,8 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	ret = rndis_filter_query_device(rndis_device,
- 					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
- 					&mtu, &size);
--	if (ret == 0 && size == sizeof(u32) && mtu < net_device->ndev->mtu)
--		net_device->ndev->mtu = mtu;
-+	if (ret == 0 && size == sizeof(u32) && mtu < net->mtu)
-+		net->mtu = mtu;
- 
- 	/* Get the mac address */
- 	ret = rndis_filter_query_device_mac(rndis_device);
+-	wmb();
++	dma_wmb();
+ 	desc->cmd_sts = BUF_OWNED_BY_DMA | TX_GEN_CRC | TX_FIRST_DESC |
+ 			TX_ZERO_PADDING | TX_LAST_DESC | TX_EN_INT;
+ 	wmb();
 -- 
-2.5.5
+2.8.1
