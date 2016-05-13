@@ -1,54 +1,52 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Sat, 14 May 2016 01:44:10 +0200
-Message-ID: <20160513234410.GE7600@lunn.ch>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
- <20160512184233.GJ30822@pengutronix.de>
- <5735995B.8030802@ti.com>
- <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
- <20160513204436.GC7600@lunn.ch>
- <1a44a737-2b81-625b-8edf-d1c3dfcdd619@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roger Quadros <rogerq@ti.com>,
-	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, grant.likely@linaro.org,
-	robh+dt@kernel.org, devicetree@vger.kernel.org,
-	f.fainelli@gmail.com, netdev@vger.kernel.org,
-	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1a44a737-2b81-625b-8edf-d1c3dfcdd619@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] e1000e: mark shifted values as unsigned
+Date: Fri, 13 May 2016 16:43:53 -0700
+Message-ID: <1463183035-31888-13-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:31691 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932231AbcEMXoB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 19:44:01 -0400
+In-Reply-To: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 13, 2016 at 11:56:12PM +0300, Sergei Shtylyov wrote:
-> On 05/13/2016 11:44 PM, Andrew Lunn wrote:
-> 
-> >>>Another issue is that on some boards we have one reset line tied to
-> >>>multiple PHYs.How do we prevent multiple resets being taking place when each of
-> >>>the PHYs are registered?
-> >>
-> >>   My patch just doesn't address this case -- it's about the
-> >>individual resets only.
-> >
-> >This actually needs to be addresses a layer above. What you have is a
-> >bus reset, not a device reset.
-> 
->    No.
->    There's simply no such thing as a bus reset for the xMII/MDIO
-> busses, there's simply no reset signaling on them. Every device has
-> its own reset signal and its own timing requirements.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Except in the case above, where two phys are sharing the same reset
-signal. So although it is not part of the mdio standard to have a bus
-reset, this is in effect what the gpio line is doing, resetting all
-devices on the bus. If you don't model that as a bus reset, how do you
-model it?
+The E1000_ICH_NVM_SIG_MASK value is shifted, out to the 31st bit, which
+is the signed bit for signed constants. Mark these values as unsigned to
+prevent compiler warnings and issues on platforms which a different
+signed bit implementation.
 
-      Andrew
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/ich8lan.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index 2311f60..67163ca 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -73,10 +73,10 @@
+ 				 (ID_LED_OFF1_ON2  <<  4) | \
+ 				 (ID_LED_DEF1_DEF2))
+ 
+-#define E1000_ICH_NVM_SIG_WORD		0x13
+-#define E1000_ICH_NVM_SIG_MASK		0xC000
+-#define E1000_ICH_NVM_VALID_SIG_MASK	0xC0
+-#define E1000_ICH_NVM_SIG_VALUE		0x80
++#define E1000_ICH_NVM_SIG_WORD		0x13u
++#define E1000_ICH_NVM_SIG_MASK		0xC000u
++#define E1000_ICH_NVM_VALID_SIG_MASK	0xC0u
++#define E1000_ICH_NVM_SIG_VALUE		0x80u
+ 
+ #define E1000_ICH8_LAN_INIT_TIMEOUT	1500
+ 
+-- 
+2.5.5
