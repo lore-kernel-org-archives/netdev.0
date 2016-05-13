@@ -1,122 +1,99 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] phy: add support for a reset-gpio specification
-Date: Fri, 13 May 2016 22:10:40 +0300
-Message-ID: <658c33a1-3304-8b0c-abfd-9e2a8b556d29@cogentembedded.com>
-References: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <4363f9c0-d447-5fc1-3ac9-382a172a7087@cogentembedded.com>
- <20160513062631.GA28415@pengutronix.de>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Fri, 13 May 2016 22:18:16 +0300
+Message-ID: <31707c49-1f61-8ab8-eb87-5ce4e235db7b@cogentembedded.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+ <20160512184233.GJ30822@pengutronix.de>
+ <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>, kernel@pengutronix.de,
-	"Andrew F . Davis" <afd@ti.com>, Nishanth Menon <nm@ti.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, linux-kernel@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>
 To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:35086 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbcEMTKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 15:10:45 -0400
-Received: by mail-lf0-f52.google.com with SMTP id j8so92585058lfd.2
-        for <netdev@vger.kernel.org>; Fri, 13 May 2016 12:10:44 -0700 (PDT)
-In-Reply-To: <20160513062631.GA28415@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 05/13/2016 09:26 AM, Uwe Kleine-K=F6nig wrote:
+On 05/13/2016 12:35 AM, Sergei Shtylyov wrote:
 
->>> The framework only asserts (for now) that the reset gpio is not act=
-ive.
->>>
->>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->>> ---
->>> Documentation/devicetree/bindings/net/phy.txt | 3 +++
->>> drivers/net/phy/phy_device.c                  | 8 ++++++++
->>> 2 files changed, 11 insertions(+)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Docume=
-ntation/devicetree/bindings/net/phy.txt
->>> index bc1c3c8bf8fa..c00a9a894547 100644
->>> --- a/Documentation/devicetree/bindings/net/phy.txt
->>> +++ b/Documentation/devicetree/bindings/net/phy.txt
+>> [we already talked about this patch in #armlinux, I'm now just
+>> forwarding my comments on the list. Background was that I sent an easier
+>> and less complete patch with the same idea. See
+>> http://patchwork.ozlabs.org/patch/621418/]
+>>
+>> [added Linus Walleij to Cc, there is a question for you/him below]
+>>
+>> On Fri, Apr 29, 2016 at 01:12:54AM +0300, Sergei Shtylyov wrote:
+>>> --- net-next.orig/Documentation/devicetree/bindings/net/phy.txt
+>>> +++ net-next/Documentation/devicetree/bindings/net/phy.txt
 >>> @@ -35,6 +35,8 @@ Optional Properties:
->>> - broken-turn-around: If set, indicates the PHY device does not cor=
-rectly
->>>   release the turn around line low at the end of a MDIO transaction=
-=2E
+>>>  - broken-turn-around: If set, indicates the PHY device does not correctly
+>>>    release the turn around line low at the end of a MDIO transaction.
 >>>
->>> +- reset-gpios: Reference to a GPIO used to reset the phy.
+>>> +- reset-gpios: The GPIO phandle and specifier for the PHY reset signal.
 >>> +
->>> Example:
+>>>  Example:
 >>>
->>> ethernet-phy@0 {
->>> @@ -42,4 +44,5 @@ ethernet-phy@0 {
->>> 	interrupt-parent =3D <40000>;
->>> 	interrupts =3D <35 1>;
->>> 	reg =3D <0>;
->>> +	reset-gpios =3D <&gpio1 17 GPIO_ACTIVE_LOW>;
->>>  };
+>>>  ethernet-phy@0 {
 >>
->>    OK, the example has PHY ID specified in the "compatible" prop. It=
-'s a
->> vital detail, you should mention it somewhere...
+>> This is great.
+>>
+>>> Index: net-next/drivers/net/phy/at803x.c
+>>> ===================================================================
+>>> --- net-next.orig/drivers/net/phy/at803x.c
+>>> +++ net-next/drivers/net/phy/at803x.c
+>>> @@ -65,7 +65,6 @@ MODULE_LICENSE("GPL");
+>>> [...]
+>>
+>> My patch breaks this driver. I wasn't aware of it.
 >
-> Something like that in the commit log:
->
-> 	Note that reset is only deasserted when the PHY ID is already
-> 	determined. If your phy doesn't support reading the PHY ID while
-> 	reset is asserted it's recommended to specify it in the
-> 	compatible string. Otherwise the device might fail to probe.
+>    I tried to be as careful as I could but still it looks that I didn't
+> succeed at that too...
 
-    Yes, that should do.
+    Hm, I'm starting to forget the vital details about my patch...
 
->>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_dev=
-ice.c
->>> index e551f3a89cfd..7d666ab47271 100644
->>> --- a/drivers/net/phy/phy_device.c
->>> +++ b/drivers/net/phy/phy_device.c
->> [...]
->>> @@ -1569,9 +1570,16 @@ static int phy_probe(struct device *dev)
->>> 	struct device_driver *drv =3D phydev->mdio.dev.driver;
->>> 	struct phy_driver *phydrv =3D to_phy_driver(drv);
->>> 	int err =3D 0;
->>> +	struct gpio_descs *reset_gpios;
+> [...]
+>>> Index: net-next/drivers/net/phy/mdio_device.c
+>>> ===================================================================
+>>> --- net-next.orig/drivers/net/phy/mdio_device.c
+>>> +++ net-next/drivers/net/phy/mdio_device.c
+> [...]
+>>> @@ -117,9 +126,16 @@ static int mdio_probe(struct device *dev
+>>>      struct mdio_driver *mdiodrv = to_mdio_driver(drv);
+>>>      int err = 0;
 >>>
->>> 	phydev->drv =3D phydrv;
->>>
->>> +	/* take phy out of reset */
->>> +	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
->>> +						    GPIOD_OUT_LOW);
->>> +	if (IS_ERR(reset_gpios))
->>> +		return PTR_ERR(reset_gpios);
+>>> -    if (mdiodrv->probe)
+>>> +    if (mdiodrv->probe) {
+>>> +        /* Deassert the reset signal */
+>>> +        mdio_device_reset(mdiodev, 0);
 >>> +
+>>>          err = mdiodrv->probe(mdiodev);
+>>>
+>>> +        /* Assert the reset signal */
+>>> +        mdio_device_reset(mdiodev, 1);
 >>
->>    It would have been logical to assert back the reset GPIO in phy_r=
-emove(),
-
-> Not necessarily. If you want to save some energy it might make sense.=
- If
-
-    Yes, we'd like to do that. Florian (the phylib maintainer) even wan=
-ted=20
-asserting reset during the PM suspended state.
-
-> you only focus on making the device work, ensuring that reset is not
-> applied is enough.
-
->> no? Also, you'd need to store the GPIO permanently somewhere...
+>> I wonder if it's safe to do this in general. What if ->probe does
+>> something with the phy that is lost by resetting but that is relied on
+>> later?
 >
-> I need to store it, iff I want to do something with the reset line
-> later. Currently that's not the case.
+>    Well, I thought that config_init() method is designed for that but indeed
+> the LXT driver writes to BMCR in its probe() method and hence is broken.
+ > Thank you for noticing...
 
-    Oops, I seem to somewhat muddled up here. Of course, you need to st=
-ore it=20
-if you intend to de-assert it later.
+    It's broken even without my patch. The phylib will cause a PHY soft reset 
+when attaching to the PHY device, so all BMCR programming dpone in the probe() 
+method will be lost. My patch does make sense as is. Looks like I should also 
+look into fixing lxt.c. Florian, what do you think?
 
-> Best regards
-> Uwe
+[...]
 
 MBR, Sergei
