@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [patch net-next 04/11] net: hns: enet specify a reference to dsaf by fwnode_handle
-Date: Fri, 13 May 2016 16:19:10 +0800
-Message-ID: <1463127557-90824-5-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [patch net-next 11/11] net: hns: enet adds support of acpi
+Date: Fri, 13 May 2016 16:19:17 +0800
+Message-ID: <1463127557-90824-12-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,147 +18,103 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-As device_node is only used by OF case, it is expected to find uniform
-ways. So fwnode_handle is the suitable method.
+Enet needs to get configration parameter by acpi. This patch
+adds support of ACPI for enet. The configuration parameter will
+be configed in BIOS.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.c     | 18 ++++++++++++------
- drivers/net/ethernet/hisilicon/hns/hnae.h     |  3 ++-
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 15 ++++++++-------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h |  2 +-
- 4 files changed, 23 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 54 +++++++++++++++++++++------
+ 1 file changed, 42 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 3bfe36f..b5bf12a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -96,16 +96,22 @@ static int __ae_match(struct device *dev, const void *data)
- {
- 	struct hnae_ae_dev *hdev = cls_to_ae_dev(dev);
- 
--	return hdev->dev->of_node == data;
-+	if (IS_ENABLED(CONFIG_OF) && hdev->dev->of_node)
-+		return (data == &hdev->dev->of_node->fwnode);
-+	else if (ACPI_COMPANION(hdev->dev))
-+		return (data == hdev->dev->fwnode);
-+
-+	dev_err(dev, "__ae_match cannot read cfg data from OF or acpi\n");
-+	return 0;
- }
- 
--static struct hnae_ae_dev *find_ae(const struct device_node *ae_node)
-+static struct hnae_ae_dev *find_ae(const struct fwnode_handle *fwnode)
- {
- 	struct device *dev;
- 
--	WARN_ON(!ae_node);
-+	WARN_ON(!fwnode);
- 
--	dev = class_find_device(hnae_class, NULL, ae_node, __ae_match);
-+	dev = class_find_device(hnae_class, NULL, fwnode, __ae_match);
- 
- 	return dev ? cls_to_ae_dev(dev) : NULL;
- }
-@@ -312,7 +318,7 @@ EXPORT_SYMBOL(hnae_reinit_handle);
-  * return handle ptr or ERR_PTR
-  */
- struct hnae_handle *hnae_get_handle(struct device *owner_dev,
--				    const struct device_node *ae_node,
-+				    const struct fwnode_handle	*fwnode,
- 				    u32 port_id,
- 				    struct hnae_buf_ops *bops)
- {
-@@ -321,7 +327,7 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
- 	int i, j;
- 	int ret;
- 
--	dev = find_ae(ae_node);
-+	dev = find_ae(fwnode);
- 	if (!dev)
- 		return ERR_PTR(-ENODEV);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index e8d36aa..3ad3e55 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -27,6 +27,7 @@
-  * "cb" means control block
-  */
- 
-+#include <linux/acpi.h>
- #include <linux/delay.h>
- #include <linux/device.h>
- #include <linux/module.h>
-@@ -528,7 +529,7 @@ struct hnae_handle {
- #define ring_to_dev(ring) ((ring)->q->dev->dev)
- 
- struct hnae_handle *hnae_get_handle(struct device *owner_dev,
--				    const struct device_node *ae_node,
-+				    const struct fwnode_handle	*fwnode,
- 				    u32 port_id,
- 				    struct hnae_buf_ops *bops);
- 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 8851420..4fa9c21 100644
+index 34ebe7d..ade14d9 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1807,7 +1807,7 @@ static int hns_nic_try_get_ae(struct net_device *ndev)
- 	int ret;
+@@ -132,6 +132,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	ring_ptr_move_fw(ring, next_to_use);
+ }
  
- 	h = hnae_get_handle(&priv->netdev->dev,
--			    priv->ae_node, priv->port_id, NULL);
-+			    priv->fwnode, priv->port_id, NULL);
- 	if (IS_ERR_OR_NULL(h)) {
- 		ret = -ENODEV;
- 		dev_dbg(priv->dev, "has not handle, register notifier!\n");
-@@ -1867,7 +1867,7 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
++static const struct acpi_device_id hns_enet_acpi_match[] = {
++	{ "HISI00C1", 0 },
++	{ "HISI00C2", 0 },
++	{ },
++};
++MODULE_DEVICE_TABLE(acpi, hns_enet_acpi_match);
++
+ static void fill_desc(struct hnae_ring *ring, void *priv,
+ 		      int size, dma_addr_t dma, int frag_end,
+ 		      int buf_num, enum hns_desc_type type, int mtu)
+@@ -1903,7 +1910,6 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
  	struct device *dev = &pdev->dev;
  	struct net_device *ndev;
  	struct hns_nic_priv *priv;
--	struct device_node *node = dev->of_node;
-+	struct device_node *ae_node;
+-	struct device_node *ae_node;
  	u32 port_id;
  	int ret;
  
-@@ -1881,18 +1881,19 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+@@ -1917,19 +1923,42 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
  	priv->dev = dev;
  	priv->netdev = ndev;
  
--	if (of_device_is_compatible(node, "hisilicon,hns-nic-v1"))
-+	if (of_device_is_compatible(dev->of_node, "hisilicon,hns-nic-v1"))
- 		priv->enet_ver = AE_VERSION_1;
- 	else
- 		priv->enet_ver = AE_VERSION_2;
+-	if (of_device_is_compatible(dev->of_node, "hisilicon,hns-nic-v1"))
+-		priv->enet_ver = AE_VERSION_1;
+-	else
+-		priv->enet_ver = AE_VERSION_2;
++	if (IS_ENABLED(CONFIG_OF) && pdev->dev.of_node) {
++		struct device_node *ae_node;
  
--	priv->ae_node = (void *)of_parse_phandle(node, "ae-handle", 0);
--	if (IS_ERR_OR_NULL(priv->ae_node)) {
--		ret = PTR_ERR(priv->ae_node);
-+	ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
-+	if (IS_ERR_OR_NULL(ae_node)) {
-+		ret = PTR_ERR(ae_node);
- 		dev_err(dev, "not find ae-handle\n");
- 		goto out_read_prop_fail;
- 	}
--	/* try to find port-idx-in-ae first */
-+	priv->fwnode = &ae_node->fwnode;
+-	ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
+-	if (IS_ERR_OR_NULL(ae_node)) {
+-		ret = PTR_ERR(ae_node);
+-		dev_err(dev, "not find ae-handle\n");
+-		goto out_read_prop_fail;
+-	}
+-	priv->fwnode = &ae_node->fwnode;
++		if (of_device_is_compatible(dev->of_node,
++					    "hisilicon,hns-nic-v1"))
++			priv->enet_ver = AE_VERSION_1;
++		else
++			priv->enet_ver = AE_VERSION_2;
 +
++		ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
++		if (IS_ERR_OR_NULL(ae_node)) {
++			ret = PTR_ERR(ae_node);
++			dev_err(dev, "not find ae-handle\n");
++			goto out_read_prop_fail;
++		}
++			priv->fwnode = &ae_node->fwnode;
++	} else if (ACPI_COMPANION(&pdev->dev)) {
++		struct acpi_device *adev = to_acpi_device_node(dev->fwnode);
++		struct acpi_reference_args args;
+ 
++		if (!acpi_match_device_ids(adev, &hns_enet_acpi_match[1]))
++			priv->enet_ver = AE_VERSION_2;
++		else
++			priv->enet_ver = AE_VERSION_1;
++
++		ret = acpi_node_get_property_reference(dev->fwnode,
++						       "ae-handle", 0, &args);
++		if (ret) {
++			dev_err(dev, "not find ae-handle\n");
++			goto out_read_prop_fail;
++		}
++		priv->fwnode = acpi_fwnode_handle(args.adev);
++	} else {
++		dev_err(dev, "cannot read cfg data from OF or acpi\n");
++		return -ENXIO;
++	}
  	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
  	if (ret) {
  		/* only for old code compatible */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-index 337efa5..44bb301 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-@@ -54,7 +54,7 @@ struct hns_nic_ops {
- };
- 
- struct hns_nic_priv {
--	const struct device_node *ae_node;
-+	const struct fwnode_handle      *fwnode;
- 	u32 enet_ver;
- 	u32 port_id;
- 	int phy_mode;
+@@ -2046,6 +2075,7 @@ static struct platform_driver hns_nic_dev_driver = {
+ 	.driver = {
+ 		.name = "hns-nic",
+ 		.of_match_table = hns_enet_of_match,
++		.acpi_match_table = ACPI_PTR(hns_enet_acpi_match),
+ 	},
+ 	.probe = hns_nic_dev_probe,
+ 	.remove = hns_nic_dev_remove,
 -- 
 1.9.1
