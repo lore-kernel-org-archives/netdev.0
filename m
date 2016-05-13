@@ -1,34 +1,40 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next v2] vxlan: set mac_header correctly in GPE mode
-Date: Fri, 13 May 2016 13:21:45 +0300
-Message-ID: <20160513132145.65764ae2@halley>
-References: <2f5ecda4984940c2c6820cbbed18555d5023e2ed.1463129287.git.jbenc@redhat.com>
+From: Martin Willi <martin@strongswan.org>
+Subject: Re: [PATCH v2 0/2] wireless: Allow wiphy/hwsim management from user
+ namespaces
+Date: Fri, 13 May 2016 12:37:08 +0200
+Message-ID: <1463135828.1443.6.camel@strongswan.org>
+References: <1462811639-29906-1-git-send-email-martin@strongswan.org>
+	 <1463045221.13313.16.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:38223 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbcEMKVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 06:21:49 -0400
-Received: by mail-wm0-f41.google.com with SMTP id g17so22199573wme.1
-        for <netdev@vger.kernel.org>; Fri, 13 May 2016 03:21:49 -0700 (PDT)
-In-Reply-To: <2f5ecda4984940c2c6820cbbed18555d5023e2ed.1463129287.git.jbenc@redhat.com>
+Received: from sitav-80046.hsr.ch ([152.96.80.46]:58611 "EHLO
+	mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751573AbcEMKhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 06:37:12 -0400
+In-Reply-To: <1463045221.13313.16.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi=C2=A0Johannes,
 
-On Fri, 13 May 2016 10:48:42 +0200 Jiri Benc <jbenc@redhat.com> wrote:
-> For VXLAN-GPE, the interface is ARPHRD_NONE, thus we need to reset
-> mac_header after pulling the outer header.
-> 
-> v2: Put the code to the existing conditional block as suggested by
->     Shmulik Ladkani.
-> 
-> Fixes: e1e5314de08b ("vxlan: implement GPE")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> So I think you should change the "wmediumd_portid" variable to live
+> in=C2=A0struct hwsim_net and then allow HWSIM_CMD_REGISTER to be done
+> inside the net namespace.
+>=20
+> With that, and making the other few wmediumd related operations
+> namespace aware, we would be able to run wmediumd in any net
+> namespace and have it manage all the radios created in that
+> namespace.
 
-Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Yes, that makes sense. I've a patch mostly ready, but it needs some
+more testing before I can submit it. Hope to complete that today.
+
+While testing I've hit a Netlink verification issue that I'll
+separately submit a patch for.
+
+Best regards
+Martin
