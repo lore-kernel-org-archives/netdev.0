@@ -1,48 +1,68 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [patch net-next 06/11] ACPI: bus: move acpi_match_device_ids()
- to linux/acpi.h
-Date: Fri, 13 May 2016 16:15:12 +0300
-Message-ID: <1463145312.17131.347.camel@linux.intel.com>
-References: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
-	 <1463127557-90824-7-git-send-email-Yisen.Zhuang@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sock: propagate __sock_cmsg_send() error
+Date: Fri, 13 May 2016 06:14:37 -0700
+Message-ID: <1463145277.23934.186.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: arnd@arndb.de, andrew@lunn.ch, geliangtang@163.com,
-	ivecera@redhat.com, fengguang.wu@intel.com,
-	charles.chenxin@huawei.com, haifeng.wei@huawei.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxarm@huawei.com
-To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
-	rjw@rjwysocki.net, lenb@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463127557-90824-7-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com,
+	maze@google.com, willemb@google.com,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33491 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbcEMNOl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 09:14:41 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y7so9365917pfb.0
+        for <netdev@vger.kernel.org>; Fri, 13 May 2016 06:14:40 -0700 (PDT)
+In-Reply-To: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-05-13 at 16:19 +0800, Yisen Zhuang wrote:
-> From: Hanjun Guo <hanjun.guo@linaro.org>
->=20
-> acpi_match_device_ids() will be used for drivers to match
-> different hardware versions, it will be compiled in non-ACPI
-> case, but acpi_match_device_ids() in acpi_bus.h and it can
-> only be used in ACPI case, so move it to linux/acpi.h and
-> introduce a stub function for it.
+From: Eric Dumazet <edumazet@google.com>
 
-I somehow doubt this is right move.
+__sock_cmsg_send() might return different error codes, not only -EINVAL.
 
-Like I said in the previous comment the architectural split might make
-this a bit better.
+Fixes: 24025c465f77 ("ipv4: process socket-level control messages in IPv4")
+Fixes: ad1e46a83716 ("ipv6: process socket-level control messages in IPv6")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Soheil Hassas Yeganeh <soheil@google.com>
+---
+ net/ipv4/ip_sockglue.c |    5 +++--
+ net/ipv6/datagram.c    |    5 +++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
-You might use=C2=A0
-
-#ifdef IS_ENABLED(CONFIG_ACPI)
-#else
-#endif
-
-only once to some big part of code. If kernel is build without ACPI
-support you even will not have this in your driver at all.
-
---=C2=A0
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 5805762d7fc79a702f1d67e802992b822f66f000..71a52f4d4cffba2db9353f43dc817689bf4fab10 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -247,8 +247,9 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+ 		}
+ #endif
+ 		if (cmsg->cmsg_level == SOL_SOCKET) {
+-			if (__sock_cmsg_send(sk, msg, cmsg, &ipc->sockc))
+-				return -EINVAL;
++			err = __sock_cmsg_send(sk, msg, cmsg, &ipc->sockc);
++			if (err)
++				return err;
+ 			continue;
+ 		}
+ 
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 00d0c2903173a96571983216f2839a93059cad22..37874e2f30edf98f31e2a5097761143d507d5b95 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -746,8 +746,9 @@ int ip6_datagram_send_ctl(struct net *net, struct sock *sk,
+ 		}
+ 
+ 		if (cmsg->cmsg_level == SOL_SOCKET) {
+-			if (__sock_cmsg_send(sk, msg, cmsg, sockc))
+-				return -EINVAL;
++			err = __sock_cmsg_send(sk, msg, cmsg, sockc);
++			if (err)
++				return err;
+ 			continue;
+ 		}
+ 
