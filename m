@@ -1,7 +1,7 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 05/10] bpf: add bpf_patch_insn_single helper
-Date: Fri, 13 May 2016 19:08:30 +0200
-Message-ID: <fad46b06830ceaf1235473c07a121c5ff49cbdfa.1463158442.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 03/10] bpf: split HAVE_BPF_JIT into cBPF and eBPF variant
+Date: Fri, 13 May 2016 19:08:28 +0200
+Message-ID: <ee7e973704289fbded9228f75fd84343e3bfdaf3.1463158442.git.daniel@iogearbox.net>
 References: <cover.1463158442.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
 	zlim.lnx@gmail.com, yang.shi@linaro.org,
@@ -9,9 +9,9 @@ Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41872 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:41862 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753437AbcEMRJC (ORCPT
+	with ESMTP id S1753435AbcEMRJC (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 13:09:02 -0400
 In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
@@ -19,204 +19,158 @@ References: <cover.1463158442.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the functionality to patch instructions out of the verifier
-code and into the core as the new bpf_patch_insn_single() helper
-will be needed later on for blinding as well. No changes in
-functionality.
+Split the HAVE_BPF_JIT into two for distinguishing cBPF and eBPF JITs.
+
+Current cBPF ones:
+
+  # git grep -n HAVE_CBPF_JIT arch/
+  arch/arm/Kconfig:44:    select HAVE_CBPF_JIT
+  arch/mips/Kconfig:18:   select HAVE_CBPF_JIT if !CPU_MICROMIPS
+  arch/powerpc/Kconfig:129:       select HAVE_CBPF_JIT
+  arch/sparc/Kconfig:35:  select HAVE_CBPF_JIT
+
+Current eBPF ones:
+
+  # git grep -n HAVE_EBPF_JIT arch/
+  arch/arm64/Kconfig:61:  select HAVE_EBPF_JIT
+  arch/s390/Kconfig:126:  select HAVE_EBPF_JIT if PACK_STACK && HAVE_MARCH_Z196_FEATURES
+  arch/x86/Kconfig:94:    select HAVE_EBPF_JIT                    if X86_64
+
+Later code also needs this facility to check for eBPF JITs.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/filter.h |  3 +++
- kernel/bpf/core.c      | 71 ++++++++++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/verifier.c  | 53 +++++++------------------------------
- 3 files changed, 83 insertions(+), 44 deletions(-)
+ arch/arm/Kconfig     |  2 +-
+ arch/arm64/Kconfig   |  2 +-
+ arch/mips/Kconfig    |  2 +-
+ arch/powerpc/Kconfig |  2 +-
+ arch/s390/Kconfig    |  2 +-
+ arch/sparc/Kconfig   |  2 +-
+ arch/x86/Kconfig     |  2 +-
+ net/Kconfig          | 14 +++++++++++---
+ 8 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 4ff0e64..c4aae49 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -495,6 +495,9 @@ u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
- void bpf_int_jit_compile(struct bpf_prog *fp);
- bool bpf_helper_changes_skb_data(void *func);
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index cdfa6c2..2315b0d 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -41,7 +41,7 @@ config ARM
+ 	select HAVE_ARCH_SECCOMP_FILTER if (AEABI && !OABI_COMPAT)
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_ARM_SMCCC if CPU_V7
+-	select HAVE_BPF_JIT
++	select HAVE_CBPF_JIT
+ 	select HAVE_CC_STACKPROTECTOR
+ 	select HAVE_CONTEXT_TRACKING
+ 	select HAVE_C_RECORDMCOUNT
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 4f43622..e6761ea 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -58,7 +58,7 @@ config ARM64
+ 	select HAVE_ARCH_MMAP_RND_COMPAT_BITS if COMPAT
+ 	select HAVE_ARCH_SECCOMP_FILTER
+ 	select HAVE_ARCH_TRACEHOOK
+-	select HAVE_BPF_JIT
++	select HAVE_EBPF_JIT
+ 	select HAVE_C_RECORDMCOUNT
+ 	select HAVE_CC_STACKPROTECTOR
+ 	select HAVE_CMPXCHG_DOUBLE
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 2018c2b..3ee1ea6 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -15,7 +15,7 @@ config MIPS
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_SECCOMP_FILTER
+ 	select HAVE_ARCH_TRACEHOOK
+-	select HAVE_BPF_JIT if !CPU_MICROMIPS
++	select HAVE_CBPF_JIT if !CPU_MICROMIPS
+ 	select HAVE_FUNCTION_TRACER
+ 	select HAVE_DYNAMIC_FTRACE
+ 	select HAVE_FTRACE_MCOUNT_RECORD
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 7cd32c0..2fdb73d 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -126,7 +126,7 @@ config PPC
+ 	select IRQ_FORCED_THREADING
+ 	select HAVE_RCU_TABLE_FREE if SMP
+ 	select HAVE_SYSCALL_TRACEPOINTS
+-	select HAVE_BPF_JIT
++	select HAVE_CBPF_JIT
+ 	select HAVE_ARCH_JUMP_LABEL
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index bf24ab1..a883981 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -126,7 +126,7 @@ config S390
+ 	select HAVE_ARCH_SOFT_DIRTY
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_ARCH_TRANSPARENT_HUGEPAGE
+-	select HAVE_BPF_JIT if PACK_STACK && HAVE_MARCH_Z196_FEATURES
++	select HAVE_EBPF_JIT if PACK_STACK && HAVE_MARCH_Z196_FEATURES
+ 	select HAVE_CMPXCHG_DOUBLE
+ 	select HAVE_CMPXCHG_LOCAL
+ 	select HAVE_DEBUG_KMEMLEAK
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index 57ffaf2..d500381 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -32,7 +32,7 @@ config SPARC
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select GENERIC_PCI_IOMAP
+ 	select HAVE_NMI_WATCHDOG if SPARC64
+-	select HAVE_BPF_JIT
++	select HAVE_CBPF_JIT
+ 	select HAVE_DEBUG_BUGVERBOSE
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_CLOCKEVENTS
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 2dc18605..ae83046 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -91,7 +91,7 @@ config X86
+ 	select HAVE_ARCH_SOFT_DIRTY		if X86_64
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_ARCH_TRANSPARENT_HUGEPAGE
+-	select HAVE_BPF_JIT			if X86_64
++	select HAVE_EBPF_JIT			if X86_64
+ 	select HAVE_CC_STACKPROTECTOR
+ 	select HAVE_CMPXCHG_DOUBLE
+ 	select HAVE_CMPXCHG_LOCAL
+diff --git a/net/Kconfig b/net/Kconfig
+index b841c42..f7148f2 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -289,7 +289,7 @@ config BQL
  
-+struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-+				       const struct bpf_insn *patch, u32 len);
-+
- #ifdef CONFIG_BPF_JIT
- extern int bpf_jit_enable;
+ config BPF_JIT
+ 	bool "enable BPF Just In Time compiler"
+-	depends on HAVE_BPF_JIT
++	depends on HAVE_CBPF_JIT || HAVE_EBPF_JIT
+ 	depends on MODULES
+ 	---help---
+ 	  Berkeley Packet Filter filtering capabilities are normally handled
+@@ -419,6 +419,14 @@ config MAY_USE_DEVLINK
  
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 5313d09..49b5538 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -136,6 +136,77 @@ void __bpf_prog_free(struct bpf_prog *fp)
- 	vfree(fp);
- }
+ endif   # if NET
  
-+static bool bpf_is_jmp_and_has_target(const struct bpf_insn *insn)
-+{
-+	return BPF_CLASS(insn->code) == BPF_JMP  &&
-+	       /* Call and Exit are both special jumps with no
-+		* target inside the BPF instruction image.
-+		*/
-+	       BPF_OP(insn->code) != BPF_CALL &&
-+	       BPF_OP(insn->code) != BPF_EXIT;
-+}
+-# Used by archs to tell that they support BPF_JIT
+-config HAVE_BPF_JIT
++# Used by archs to tell that they support BPF JIT compiler plus which flavour.
++# Only one of the two can be selected for a specific arch since eBPF JIT supersedes
++# the cBPF JIT.
 +
-+static void bpf_adj_branches(struct bpf_prog *prog, u32 pos, u32 delta)
-+{
-+	struct bpf_insn *insn = prog->insnsi;
-+	u32 i, insn_cnt = prog->len;
++# Classic BPF JIT (cBPF)
++config HAVE_CBPF_JIT
++	bool
 +
-+	for (i = 0; i < insn_cnt; i++, insn++) {
-+		if (!bpf_is_jmp_and_has_target(insn))
-+			continue;
-+
-+		/* Adjust offset of jmps if we cross boundaries. */
-+		if (i < pos && i + insn->off + 1 > pos)
-+			insn->off += delta;
-+		else if (i > pos + delta && i + insn->off + 1 <= pos + delta)
-+			insn->off -= delta;
-+	}
-+}
-+
-+struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-+				       const struct bpf_insn *patch, u32 len)
-+{
-+	u32 insn_adj_cnt, insn_rest, insn_delta = len - 1;
-+	struct bpf_prog *prog_adj;
-+
-+	/* Since our patchlet doesn't expand the image, we're done. */
-+	if (insn_delta == 0) {
-+		memcpy(prog->insnsi + off, patch, sizeof(*patch));
-+		return prog;
-+	}
-+
-+	insn_adj_cnt = prog->len + insn_delta;
-+
-+	/* Several new instructions need to be inserted. Make room
-+	 * for them. Likely, there's no need for a new allocation as
-+	 * last page could have large enough tailroom.
-+	 */
-+	prog_adj = bpf_prog_realloc(prog, bpf_prog_size(insn_adj_cnt),
-+				    GFP_USER);
-+	if (!prog_adj)
-+		return NULL;
-+
-+	prog_adj->len = insn_adj_cnt;
-+
-+	/* Patching happens in 3 steps:
-+	 *
-+	 * 1) Move over tail of insnsi from next instruction onwards,
-+	 *    so we can patch the single target insn with one or more
-+	 *    new ones (patching is always from 1 to n insns, n > 0).
-+	 * 2) Inject new instructions at the target location.
-+	 * 3) Adjust branch offsets if necessary.
-+	 */
-+	insn_rest = insn_adj_cnt - off - len;
-+
-+	memmove(prog_adj->insnsi + off + len, prog_adj->insnsi + off + 1,
-+		sizeof(*patch) * insn_rest);
-+	memcpy(prog_adj->insnsi + off, patch, sizeof(*patch) * len);
-+
-+	bpf_adj_branches(prog_adj, off, insn_delta);
-+
-+	return prog_adj;
-+}
-+
- #ifdef CONFIG_BPF_JIT
- struct bpf_binary_header *
- bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 84bff68..a08d662 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2587,26 +2587,6 @@ static void convert_pseudo_ld_imm64(struct verifier_env *env)
- 			insn->src_reg = 0;
- }
- 
--static void adjust_branches(struct bpf_prog *prog, int pos, int delta)
--{
--	struct bpf_insn *insn = prog->insnsi;
--	int insn_cnt = prog->len;
--	int i;
--
--	for (i = 0; i < insn_cnt; i++, insn++) {
--		if (BPF_CLASS(insn->code) != BPF_JMP ||
--		    BPF_OP(insn->code) == BPF_CALL ||
--		    BPF_OP(insn->code) == BPF_EXIT)
--			continue;
--
--		/* adjust offset of jmps if necessary */
--		if (i < pos && i + insn->off + 1 > pos)
--			insn->off += delta;
--		else if (i > pos + delta && i + insn->off + 1 <= pos + delta)
--			insn->off -= delta;
--	}
--}
--
- /* convert load instructions that access fields of 'struct __sk_buff'
-  * into sequence of instructions that access fields of 'struct sk_buff'
-  */
-@@ -2616,14 +2596,15 @@ static int convert_ctx_accesses(struct verifier_env *env)
- 	int insn_cnt = env->prog->len;
- 	struct bpf_insn insn_buf[16];
- 	struct bpf_prog *new_prog;
--	u32 cnt;
--	int i;
- 	enum bpf_access_type type;
-+	int i;
- 
- 	if (!env->prog->aux->ops->convert_ctx_access)
- 		return 0;
- 
- 	for (i = 0; i < insn_cnt; i++, insn++) {
-+		u32 insn_delta, cnt;
-+
- 		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W))
- 			type = BPF_READ;
- 		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W))
-@@ -2645,34 +2626,18 @@ static int convert_ctx_accesses(struct verifier_env *env)
- 			return -EINVAL;
- 		}
- 
--		if (cnt == 1) {
--			memcpy(insn, insn_buf, sizeof(*insn));
--			continue;
--		}
--
--		/* several new insns need to be inserted. Make room for them */
--		insn_cnt += cnt - 1;
--		new_prog = bpf_prog_realloc(env->prog,
--					    bpf_prog_size(insn_cnt),
--					    GFP_USER);
-+		new_prog = bpf_patch_insn_single(env->prog, i, insn_buf, cnt);
- 		if (!new_prog)
- 			return -ENOMEM;
- 
--		new_prog->len = insn_cnt;
--
--		memmove(new_prog->insnsi + i + cnt, new_prog->insns + i + 1,
--			sizeof(*insn) * (insn_cnt - i - cnt));
--
--		/* copy substitute insns in place of load instruction */
--		memcpy(new_prog->insnsi + i, insn_buf, sizeof(*insn) * cnt);
--
--		/* adjust branches in the whole program */
--		adjust_branches(new_prog, i, cnt - 1);
-+		insn_delta = cnt - 1;
- 
- 		/* keep walking new program and skip insns we just inserted */
- 		env->prog = new_prog;
--		insn = new_prog->insnsi + i + cnt - 1;
--		i += cnt - 1;
-+		insn      = new_prog->insnsi + i + insn_delta;
-+
-+		insn_cnt += insn_delta;
-+		i        += insn_delta;
- 	}
- 
- 	return 0;
++# Extended BPF JIT (eBPF)
++config HAVE_EBPF_JIT
+ 	bool
 -- 
 1.9.3
