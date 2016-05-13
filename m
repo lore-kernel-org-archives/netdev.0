@@ -1,91 +1,76 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 06/13] ipv6: Fix nexthdr for reinjection
-Date: Fri, 13 May 2016 07:16:13 +0300
-Message-ID: <20160513071613.3749e0c9@halley>
-References: <1462985253-2380625-1-git-send-email-tom@herbertland.com>
-	<1462985253-2380625-7-git-send-email-tom@herbertland.com>
-	<20160512232304.437eb3bc@halley>
-	<CALx6S34BHQnxSBAW4n4k+pf0Zey+XaiLAVvU5k_zVVRz=jAJvw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sunrpc: set SOCK_FASYNC
+Date: Thu, 12 May 2016 21:41:39 -0700
+Message-ID: <1463114499.23934.179.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461605974-4242-1-git-send-email-edumazet@google.com>
+	 <1461605974-4242-2-git-send-email-edumazet@google.com>
+	 <20160502161602.GA1984@nanopsycho.orion>
+	 <1462206138.5535.255.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160502191229.GA1946@nanopsycho.orion>
+	 <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Huang Ying <ying.huang@intel.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34593 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbcEMEQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 00:16:18 -0400
-Received: by mail-wm0-f65.google.com with SMTP id n129so1195261wmn.1
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 21:16:17 -0700 (PDT)
-In-Reply-To: <CALx6S34BHQnxSBAW4n4k+pf0Zey+XaiLAVvU5k_zVVRz=jAJvw@mail.gmail.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:35624 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763AbcEMElm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 00:41:42 -0400
+Received: by mail-pa0-f67.google.com with SMTP id zy2so9039927pac.2
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 21:41:42 -0700 (PDT)
+In-Reply-To: <1462220607.5535.273.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+From: Eric Dumazet <edumazet@google.com>
 
-On Thu, 12 May 2016 14:45:36 -0700 Tom Herbert <tom@herbertland.com> wrote:
-> On Thu, May 12, 2016 at 1:23 PM, Shmulik Ladkani
-> <shmulik.ladkani@gmail.com> wrote:
-> > On Wed, 11 May 2016 09:47:26 -0700 Tom Herbert <tom@herbertland.com> wrote:  
-> >> In ip6_input_finish the protocol handle returns a value greater than
-> >> zero the packet needs to be resubmitted using the returned protocol.
-> >> The returned protocol is being ignored and each time through resubmit
-> >> nexthdr is taken from an offest in the packet. This patch fixes that
-> >> so that nexthdr is taken from return value of the protocol handler.
-> >>
-> >> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> >> ---
-> >>  net/ipv6/ip6_input.c | 9 ++++++---
-> >>  1 file changed, 6 insertions(+), 3 deletions(-)
-> >>
-> >> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-> >> index 6ed5601..2a0258a 100644
-> >> --- a/net/ipv6/ip6_input.c
-> >> +++ b/net/ipv6/ip6_input.c
-> >> @@ -222,13 +222,14 @@ static int ip6_input_finish(struct net *net, struct sock *sk, struct sk_buff *sk
-> >>        */
-> >>
-> >>       rcu_read_lock();
-> >> -resubmit:
-> >> +
-> >>       idev = ip6_dst_idev(skb_dst(skb));
-> >>       if (!pskb_pull(skb, skb_transport_offset(skb)))
-> >>               goto discard;
-> >>       nhoff = IP6CB(skb)->nhoff;
-> >>       nexthdr = skb_network_header(skb)[nhoff];
-> >>
-> >> +resubmit:  
-> >
-> > This has already been attempted in 0243508edd "ipv6: Fix protocol
-> > resubmission" and reverted in 1b0ccfe54a.
-> >
-> > It looks that in some genuine extension header handling cases of ipv6
-> > (not related to encapsulation), the original resubmission code REALLY
-> > requires one to re-read IP6CB(skb)->nhoff and refetch the nexthdr.
-> >  
-> Is there any reason why the EH handlers can't read the nexthdr and return
-> that?
+sunrpc is using SOCKWQ_ASYNC_NOSPACE without setting SOCK_FASYNC,
+so the recent optimizations done in sk_set_bit() and sk_clear_bit()
+broke it.
 
-Unaware of any reason; It does looks like we can simply do so for the EH
-handlers (this was my 2nd suggestion).
+There is still the risk that a subsequent sock_fasync() call
+would clear SOCK_FASYNC, but sunrpc does not use this yet.
 
-Note also, that after resubmission, if the new nexthdr proto isn't found
-at inet6_protos, there's a later:
+Fixes: 9317bb69824e ("net: SOCKWQ_ASYNC_NOSPACE optimizations")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Jiri Pirko <jiri@resnulli.us>
+Reported-by: Huang, Ying <ying.huang@intel.com>
+Tested-by: Jiri Pirko <jiri@resnulli.us>
+Tested-by: Huang, Ying <ying.huang@intel.com>
+---
+ net/sunrpc/xprtsock.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-				icmpv6_send(skb, ICMPV6_PARAMPROB,
-					    ICMPV6_UNK_NEXTHDR, nhoff);
-
-whose purpose is to send icmpv6 "Parameter Problem, Unrecognized Next
-Header", with the "Pointer info" field set to value of 'nhoff'.
-
-Thus for the EH handlers case we need to pass the updated
-'IP6CB(skb)->nhoff' as the last argument.
-
-OTOH, if the nexthdr proto was due to encapsulation resubmission, I'm
-not sure what's the right "pointer info" value to specify :)
-
-Regards,
-Shmulik
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index a6c68dc086af83233ee315642638f4a1990ee622..b90c5397b5e137c6cc8accad6eebe2b876363d4e 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1950,6 +1950,7 @@ static int xs_local_finish_connecting(struct rpc_xprt *xprt,
+ 		sk->sk_user_data = xprt;
+ 		sk->sk_data_ready = xs_data_ready;
+ 		sk->sk_write_space = xs_udp_write_space;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		sk->sk_error_report = xs_error_report;
+ 		sk->sk_allocation = GFP_NOIO;
+ 
+@@ -2136,6 +2137,7 @@ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ 		sk->sk_user_data = xprt;
+ 		sk->sk_data_ready = xs_data_ready;
+ 		sk->sk_write_space = xs_udp_write_space;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		sk->sk_allocation = GFP_NOIO;
+ 
+ 		xprt_set_connected(xprt);
+@@ -2237,6 +2239,7 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ 		sk->sk_data_ready = xs_tcp_data_ready;
+ 		sk->sk_state_change = xs_tcp_state_change;
+ 		sk->sk_write_space = xs_tcp_write_space;
++		sock_set_flag(sk, SOCK_FASYNC);
+ 		sk->sk_error_report = xs_error_report;
+ 		sk->sk_allocation = GFP_NOIO;
+ 
