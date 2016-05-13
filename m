@@ -1,71 +1,74 @@
-From: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
-Date: Fri, 13 May 2016 14:56:08 +0530
-Message-ID: <1463131568-36948-2-git-send-email-harinik@xilinx.com>
-References: <1463131568-36948-1-git-send-email-harinik@xilinx.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH] arm64: bpf: jit JMP_JSET_{X,K}
+Date: Fri, 13 May 2016 10:57:19 +0100
+Message-ID: <20160513095718.GB13689@arm.com>
+References: <1463121478-18484-1-git-send-email-zlim.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	<punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1463131568-36948-1-git-send-email-harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Yang Shi <yang.shi@linaro.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Zi Shen Lim <zlim.lnx@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:35245 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751089AbcEMJ5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 05:57:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1463121478-18484-1-git-send-email-zlim.lnx@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add documentations for macb mdio driver.
+On Thu, May 12, 2016 at 11:37:58PM -0700, Zi Shen Lim wrote:
+> Original implementation commit e54bcde3d69d ("arm64: eBPF JIT compiler")
+> had the relevant code paths, but due to an oversight always fail jiting.
+> 
+> As a result, we had been falling back to BPF interpreter whenever a BPF
+> program has JMP_JSET_{X,K} instructions.
+> 
+> With this fix, we confirm that the corresponding tests in lib/test_bpf
+> continue to pass, and also jited.
+> 
+> ...
+> [    2.784553] test_bpf: #30 JSET jited:1 188 192 197 PASS
+> [    2.791373] test_bpf: #31 tcpdump port 22 jited:1 325 677 625 PASS
+> [    2.808800] test_bpf: #32 tcpdump complex jited:1 323 731 991 PASS
+> ...
+> [    3.190759] test_bpf: #237 JMP_JSET_K: if (0x3 & 0x2) return 1 jited:1 110 PASS
+> [    3.192524] test_bpf: #238 JMP_JSET_K: if (0x3 & 0xffffffff) return 1 jited:1 98 PASS
+> [    3.211014] test_bpf: #249 JMP_JSET_X: if (0x3 & 0x2) return 1 jited:1 120 PASS
+> [    3.212973] test_bpf: #250 JMP_JSET_X: if (0x3 & 0xffffffff) return 1 jited:1 89 PASS
+> ...
+> 
+> Fixes: e54bcde3d69d ("arm64: eBPF JIT compiler")
+> Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+> ---
+>  arch/arm64/net/bpf_jit_comp.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+> index 031ed08..d0d5190 100644
+> --- a/arch/arm64/net/bpf_jit_comp.c
+> +++ b/arch/arm64/net/bpf_jit_comp.c
+> @@ -478,6 +478,7 @@ emit_cond_jmp:
+>  		case BPF_JGE:
+>  			jmp_cond = A64_COND_CS;
+>  			break;
+> +		case BPF_JSET:
+>  		case BPF_JNE:
+>  			jmp_cond = A64_COND_NE;
+>  			break;
 
-Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
----
- .../devicetree/bindings/net/macb-mdio.txt          |   31 ++++++++++++++++++++
- 1 file changed, 31 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/macb-mdio.txt
+Are you sure about this? filter.txt says:
 
-diff --git a/Documentation/devicetree/bindings/net/macb-mdio.txt b/Documentation/devicetree/bindings/net/macb-mdio.txt
-new file mode 100644
-index 0000000..11c70a3
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/macb-mdio.txt
-@@ -0,0 +1,31 @@
-+* Cadence MACB MDIO controller
-+
-+Required properties:
-+- compatible: Should be "cdns,macb-mdio"
-+- reg: Address and length of the register set of MAC to be used
-+- clock-names: Tuple listing input clock names.
-+	Required elements: 'pclk', 'hclk'
-+	Optional elements: 'tx_clk'
-+- clocks: Phandles to input clocks.
-+
-+Examples:
-+
-+	mdio {
-+		compatible = "cdns,macb-mdio";
-+		reg = <0x0 0xff0b0000 0x0 0x1000>;
-+		clocks = <&clk125>, <&clk125>, <&clk125>;
-+		clock-names = "pclk", "hclk", "tx_clk";
-+		ethernet_phyC: ethernet-phy@C {
-+			reg = <C>;
-+		};
-+		ethernet_phy7: ethernet-phy@7 {
-+			reg = <7>;
-+		};
-+		ethernet_phy3: ethernet-phy@3 {
-+			reg = <3>;
-+		};
-+		ethernet_phy8: ethernet-phy@8 {
-+			reg = <8>;
-+		};
-+	};
-+
--- 
-1.7.9.5
+jne  - Jump on K != A
+...
+jset - Jump on k & A
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+so it looks weird wiring them both to the same thing. I'm not sure you
+can express this as a simple CMP + B.<cond>.
+
+Will
