@@ -1,104 +1,193 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] 1GbE Intel Wired LAN Driver Updates 2016-05-13
-Date: Fri, 13 May 2016 16:43:41 -0700
-Message-ID: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 14/14] e1000e: don't modify SYSTIM registers during SIOCSHWTSTAMP ioctl
+Date: Fri, 13 May 2016 16:43:55 -0700
+Message-ID: <1463183035-31888-15-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:13874 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:31691 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753076AbcEMXn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 19:43:57 -0400
+	id S932254AbcEMXoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 19:44:04 -0400
+In-Reply-To: <1463183035-31888-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e1000e, igb and igbvf.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Steve Shih fixes an issue for disabling auto-negotiation and forcing
-speed and duplex settings for non-copper media.
+The e1000e_config_hwtstamp function was incorrectly resetting the SYSTIM
+registers every time the ioctl was being run. If you happened to be
+running ptp4l and lost the PTP connect (removing cable, or blocking the
+UDP traffic for example), then ptp4l will eventually perform a restart
+which involves re-requesting timestamp settings. In e1000e this has the
+unfortunate and incorrect result of resetting SYSTIME to the kernel
+time. Since kernel time is usually in UTC, and PTP time is in TAI, this
+results in the leap second being re-applied.
 
-Brian Walsh cleanups some inconsistency in the use of return variables
-names to avoid confusion.
+Fix this by extracting the SYSTIME reset out into its own function,
+e1000e_ptp_reset, which we call during reset to restore the hardware
+registers. This function will (a) restart the timecounter based on the
+new system time, (b) restore the previous PPB setting, and (c) restore
+the previous hwtstamp settings.
 
-Jake cleans up the drivers to use the BIT() macro when it can, which will
-future proof the drivers for GCC 6 when it gets released.  Cleaned up
-dead code which was never being used.  Also fixed e1000e, where it was
-incorrectly restting the SYSTIM registers every time the ioctl was being
-run.
+In order to perform (b), I had to modify the adjfreq ptp function
+pointer to store the old delta each time it is called. This also has the
+side effect of restoring the correct base timinca register correctly.
+The driver does not need to explicitly zero the ptp_delta variable since
+the entire adapter structure comes zero-initialized.
 
-Denys Vlasenko fixes an oversight where incvalue variable holds a 32
-bit value so we should declare it as such, instead of 64 bits.  Also
-fixed an overflow check, where two reads are the same, then it is not
-an overflow.
+Reported-by: Brian Walsh <brian@walsh.ws>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Brian Walsh <brian@walsh.ws>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/e1000.h  |  1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c | 68 +++++++++++++++++++++++-------
+ drivers/net/ethernet/intel/e1000e/ptp.c    |  2 +
+ 3 files changed, 55 insertions(+), 16 deletions(-)
 
-Nathan Sullivan fixes the PTP timestamps for transmit and receive
-latency based on the current link speed.
-
-Alexander Duyck adds support for partial GSO segmentation in the case
-of tunnels for igb and igbvf.
-
-The following are changes since commit ed7cbbce544856b20e5811de373cf92e92499771:
-  udp: Resolve NULL pointer dereference over flow-based vxlan device
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
-
-Alexander Duyck (1):
-  igb/igbvf: Add support for GSO partial
-
-Brian Walsh (1):
-  e1000e: Cleanup consistency in ret_val variable usage
-
-Denys Vlasenko (3):
-  e1000e: e1000e_cyclecounter_read(): incvalue is 32 bits, not 64
-  e1000e: e1000e_cyclecounter_read(): fix er32(SYSTIML) overflow check
-  e1000e: e1000e_cyclecounter_read(): do overflow check only if needed
-
-Jacob Keller (7):
-  igb: use BIT() macro or unsigned prefix
-  igb: make igb_update_pf_vlvf static
-  igbvf: remove unused variable and dead code
-  igbvf: use BIT() macro instead of shifts
-  e1000e: use BIT() macro for bit defines
-  e1000e: mark shifted values as unsigned
-  e1000e: don't modify SYSTIM registers during SIOCSHWTSTAMP ioctl
-
-Nathan Sullivan (1):
-  igb: adjust PTP timestamps for Tx/Rx latency
-
-Steve Shih (1):
-  e1000e: fix ethtool autoneg off for non-copper
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |  12 +-
- drivers/net/ethernet/intel/e1000e/82571.c       |  30 ++--
- drivers/net/ethernet/intel/e1000e/e1000.h       | 109 ++++++-------
- drivers/net/ethernet/intel/e1000e/ethtool.c     |  57 ++++---
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |  44 +++---
- drivers/net/ethernet/intel/e1000e/ich8lan.h     |   8 +-
- drivers/net/ethernet/intel/e1000e/mac.c         |   2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      | 149 +++++++++++-------
- drivers/net/ethernet/intel/e1000e/nvm.c         |   2 +-
- drivers/net/ethernet/intel/e1000e/phy.c         |   4 +-
- drivers/net/ethernet/intel/e1000e/phy.h         |  10 +-
- drivers/net/ethernet/intel/e1000e/ptp.c         |   2 +
- drivers/net/ethernet/intel/igb/e1000_82575.c    |   8 +-
- drivers/net/ethernet/intel/igb/e1000_82575.h    |  30 ++--
- drivers/net/ethernet/intel/igb/e1000_defines.h  | 108 ++++++-------
- drivers/net/ethernet/intel/igb/e1000_mac.c      |  10 +-
- drivers/net/ethernet/intel/igb/e1000_mbx.c      |   4 +-
- drivers/net/ethernet/intel/igb/e1000_nvm.c      |   2 +-
- drivers/net/ethernet/intel/igb/e1000_phy.h      |   6 +-
- drivers/net/ethernet/intel/igb/igb.h            |  40 +++--
- drivers/net/ethernet/intel/igb/igb_ethtool.c    |  18 +--
- drivers/net/ethernet/intel/igb/igb_main.c       | 187 ++++++++++++++--------
- drivers/net/ethernet/intel/igb/igb_ptp.c        |  42 ++++-
- drivers/net/ethernet/intel/igbvf/defines.h      |   2 +-
- drivers/net/ethernet/intel/igbvf/ethtool.c      |   3 +-
- drivers/net/ethernet/intel/igbvf/igbvf.h        |   4 +-
- drivers/net/ethernet/intel/igbvf/netdev.c       | 196 ++++++++++++++----------
- drivers/net/ethernet/intel/igbvf/vf.c           |   2 +-
- 28 files changed, 635 insertions(+), 456 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 010e6d6..ef96cd1 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -347,6 +347,7 @@ struct e1000_adapter {
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_clock_info;
+ 	struct pm_qos_request pm_qos_req;
++	s32 ptp_delta;
+ 
+ 	u16 eee_advert;
+ };
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index c597398..75e6089 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3580,7 +3580,6 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter,
+ 	bool is_l4 = false;
+ 	bool is_l2 = false;
+ 	u32 regval;
+-	s32 ret_val;
+ 
+ 	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
+ 		return -EINVAL;
+@@ -3719,16 +3718,6 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter,
+ 	er32(RXSTMPH);
+ 	er32(TXSTMPH);
+ 
+-	/* Get and set the System Time Register SYSTIM base frequency */
+-	ret_val = e1000e_get_base_timinca(adapter, &regval);
+-	if (ret_val)
+-		return ret_val;
+-	ew32(TIMINCA, regval);
+-
+-	/* reset the ns time counter */
+-	timecounter_init(&adapter->tc, &adapter->cc,
+-			 ktime_to_ns(ktime_get_real()));
+-
+ 	return 0;
+ }
+ 
+@@ -3885,6 +3874,53 @@ static void e1000_flush_desc_rings(struct e1000_adapter *adapter)
+ }
+ 
+ /**
++ * e1000e_systim_reset - reset the timesync registers after a hardware reset
++ * @adapter: board private structure
++ *
++ * When the MAC is reset, all hardware bits for timesync will be reset to the
++ * default values. This function will restore the settings last in place.
++ * Since the clock SYSTIME registers are reset, we will simply restore the
++ * cyclecounter to the kernel real clock time.
++ **/
++static void e1000e_systim_reset(struct e1000_adapter *adapter)
++{
++	struct ptp_clock_info *info = &adapter->ptp_clock_info;
++	struct e1000_hw *hw = &adapter->hw;
++	unsigned long flags;
++	u32 timinca;
++	s32 ret_val;
++
++	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
++		return;
++
++	if (info->adjfreq) {
++		/* restore the previous ptp frequency delta */
++		ret_val = info->adjfreq(info, adapter->ptp_delta);
++	} else {
++		/* set the default base frequency if no adjustment possible */
++		ret_val = e1000e_get_base_timinca(adapter, &timinca);
++		if (!ret_val)
++			ew32(TIMINCA, timinca);
++	}
++
++	if (ret_val) {
++		dev_warn(&adapter->pdev->dev,
++			 "Failed to restore TIMINCA clock rate delta: %d\n",
++			 ret_val);
++		return;
++	}
++
++	/* reset the systim ns time counter */
++	spin_lock_irqsave(&adapter->systim_lock, flags);
++	timecounter_init(&adapter->tc, &adapter->cc,
++			 ktime_to_ns(ktime_get_real()));
++	spin_unlock_irqrestore(&adapter->systim_lock, flags);
++
++	/* restore the previous hwtstamp configuration settings */
++	e1000e_config_hwtstamp(adapter, &adapter->hwtstamp_config);
++}
++
++/**
+  * e1000e_reset - bring the hardware into a known good state
+  *
+  * This function boots the hardware and enables some settings that
+@@ -4063,8 +4099,8 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 
+ 	e1000e_reset_adaptive(hw);
+ 
+-	/* initialize systim and reset the ns time counter */
+-	e1000e_config_hwtstamp(adapter, &adapter->hwtstamp_config);
++	/* restore systim and hwtstamp settings */
++	e1000e_systim_reset(adapter);
+ 
+ 	/* Set EEE advertisement as appropriate */
+ 	if (adapter->flags2 & FLAG2_HAS_EEE) {
+@@ -7239,6 +7275,9 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		adapter->eeprom_vers = 0;
+ 	}
+ 
++	/* init PTP hardware clock */
++	e1000e_ptp_init(adapter);
++
+ 	/* reset the hardware with the new settings */
+ 	e1000e_reset(adapter);
+ 
+@@ -7257,9 +7296,6 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* carrier off reporting is important to ethtool even BEFORE open */
+ 	netif_carrier_off(netdev);
+ 
+-	/* init PTP hardware clock */
+-	e1000e_ptp_init(adapter);
+-
+ 	e1000_print_device_info(adapter);
+ 
+ 	if (pci_dev_run_wake(pdev))
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+index e2ff3ef..2e1b17a 100644
+--- a/drivers/net/ethernet/intel/e1000e/ptp.c
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -79,6 +79,8 @@ static int e1000e_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 
+ 	ew32(TIMINCA, timinca);
+ 
++	adapter->ptp_delta = delta;
++
+ 	spin_unlock_irqrestore(&adapter->systim_lock, flags);
+ 
+ 	return 0;
 -- 
 2.5.5
