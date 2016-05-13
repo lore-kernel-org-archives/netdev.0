@@ -1,16 +1,20 @@
 From: Muhammad Falak R Wani <falakreyaz@gmail.com>
-Subject: [PATCH 1/3] netfilter: ipset: use setup_timer() and mod_timer().
-Date: Sat, 14 May 2016 02:28:52 +0530
-Message-ID: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
+Subject: [PATCH 3/3] netfilter: ipset: use setup_timer() and mod_timer().
+Date: Sat, 14 May 2016 02:28:54 +0530
+Message-ID: <1463173145-16167-3-git-send-email-falakreyaz@gmail.com>
+References: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Vishwanath Pai <vpai@akamai.com>,
+	Sergey Popovich <popovich_sergei@mail.ua>,
 	Joshua Hunt <johunt@akamai.com>,
+	Nikolay Borisov <kernel@kyup.com>,
+	Vishwanath Pai <vpai@akamai.com>,
 	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -26,16 +30,16 @@ code compact and easier to read.
 
 Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
 ---
- net/netfilter/ipset/ip_set_bitmap_gen.h | 7 ++-----
+ net/netfilter/ipset/ip_set_list_set.c | 7 ++-----
  1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-index 2e8e7e5..29ae5d8 100644
---- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -40,11 +40,8 @@ mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index a2a89e4..530da56 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -570,11 +570,8 @@ list_set_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
  {
- 	struct mtype *map = set->data;
+ 	struct list_set *map = set->data;
  
 -	init_timer(&map->gc);
 -	map->gc.data = (unsigned long)set;
@@ -46,6 +50,6 @@ index 2e8e7e5..29ae5d8 100644
 +	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
  }
  
- static void
+ /* Create list:set type of sets */
 -- 
 1.9.1
