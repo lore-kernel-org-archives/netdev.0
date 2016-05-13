@@ -1,13 +1,13 @@
 From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Subject: Re: [RESEND PATCH v7 17/21] IB/hns: Add QP operations support
-Date: Fri, 13 May 2016 17:52:04 -0400
-Message-ID: <bf001e31-982a-c51d-782e-81ee19f9de09@redhat.com>
+Date: Fri, 13 May 2016 18:04:00 -0400
+Message-ID: <16fc19ea-308a-ceee-d2da-4de93c66e2d7@redhat.com>
 References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
  <1462849483-67927-18-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
  protocol="application/pgp-signature";
- boundary="jveuGMgECj8uME3rkPil7mqHGxXbvOcqB"
+ boundary="gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm"
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
 	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
@@ -23,49 +23,25 @@ Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---jveuGMgECj8uME3rkPil7mqHGxXbvOcqB
+--gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: quoted-printable
 
 On 05/09/2016 11:04 PM, Lijun Ou wrote:
-> +int __hns_roce_cmd(struct hns_roce_dev *hr_dev, u64 in_param, u64 *out=
-_param,
-> +		   unsigned long in_modifier, u8 op_modifier, u16 op,
-> +		   unsigned long timeout);
-> +
-> +/* Invoke a command with no output parameter */
-> +static inline int hns_roce_cmd(struct hns_roce_dev *hr_dev, u64 in_par=
-am,
-> +			       unsigned long in_modifier, u8 op_modifier,
-> +			       u16 op, unsigned long timeout)
+> +static void hns_roce_v1_cq_clean(struct hns_roce_cq *hr_cq, u32 qpn,
+> +				 struct hns_roce_srq *srq)
 > +{
-> +	return __hns_roce_cmd(hr_dev, in_param, NULL, in_modifier,
-> +			      op_modifier, op, timeout);
-> +}
-> +
-> +/* Invoke a command with an output mailbox */
-> +static inline int hns_roce_cmd_box(struct hns_roce_dev *hr_dev, u64 in=
-_param,
-> +				   u64 out_param, unsigned long in_modifier,
-> +				   u8 op_modifier, u16 op,
-> +				   unsigned long timeout)
-> +{
-> +	return __hns_roce_cmd(hr_dev, in_param, &out_param, in_modifier,
-> +			      op_modifier, op, timeout);
+> +	spin_lock_irq(&hr_cq->lock);
+> +	hns_roce_v1_clean_cq(hr_cq, qpn, srq);
+> +	spin_unlock_irq(&hr_cq->lock);
 > +}
 
-This will make people scratch their head in the future.  You are using
-two commands to map to one command without there being any locking
-involved.  The typical convention for routine_1() -> __routine_1() is
-that the __ version requires that it be called while locked, and the
-version without a __ does the locking before calling it.  That way a
-used can always know if they aren't currently holding the appropriate
-lock, then they6 call routine_1() and if they are, they call
-__routine_1() to avoid a deadlock.  I would suggest changing the name of
-__hns_roce_cmd to hns_roce_cmd_box and completely remove the existing
-hns_roce_cmd_box inline, and then change the hns_roce_cmd() inline to
-directly call hns_roce_cmd_box() which will then select between
-event/poll command sends.
+This is a perfect example of what I was talking about in my last email.
+The convention here would be to name the main function
+__hns_roce_v1_cq_clean and the wrapper hns_roce_v1_cq_clean.  Instead,
+you have one named cq_clean and one named clean_cq.  Keeping straight
+which of those locks itself and which needs to be called with the lock
+held is nigh impossible.
 
 --=20
 Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
@@ -73,7 +49,7 @@ Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
 
 
---jveuGMgECj8uME3rkPil7mqHGxXbvOcqB
+--gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -82,22 +58,22 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2
 Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-iQIcBAEBCAAGBQJXNkyEAAoJELgmozMOVy/dfGkP/1eSnxCzxbLrms/NZCBfALNB
-BHt5TYgcJF8qkQqirubFt6YS51zJdOTO5xMqyv3ySOLMggG6fVRVjWoC6WxRGZtT
-oFSNiv8JBgpYG0w7e5u49jdaDQT33hql6ndpfg+vWO3WXT7YAk+mS0+9NFARFbmC
-QqoZTCh1lb3Bg3/fwynPY7SdzUfOt98R+nLUGOpgqssNGG0pKEUXbZbC3T2bd/P+
-p2E+FlmBaJy/5H2evRcQ3C4bC8nSQVhvhocEQTh2DCF80+wa0Yoc271yZgSSFXy3
-/mUdD4tgOAyTUOmbrCNMwXzXIgbMiw+h8QB74bN2D1HqLfKTyStkPwrK/Nny9t44
-8TcmiSL8RzTYc7X2jWuZKp6EE93fiNF1cGoT8fEY5Q0V08Ll9YaNiIX1beUncjGq
-iC0Zdbz9z17jY0TAPWQsbgRzhFnlnxC7xQ8ZYuWQnU04ZqSHnANznzFVEZxEPnu7
-M1oFYL1GO/jPuNTv3XV12xOPkAuL4xrn2NGkf25FNSCkBr9vQRkwmPBeQ77vVkuU
-Xvk/j7Mv0reqvmbVLPKVuit1fZl1xfJ765cyjKVpaiDoAS3tesOZhwcc8h81ycdM
-Rk+iwxXI6U7mt6V897bfCHrwkdKbk2plXUqdGE32cgsGJrxJkLLnERHFhMd2lXGs
-4icFUfNSvSaAckG60JYe
-=CRdL
+iQIcBAEBCAAGBQJXNk9QAAoJELgmozMOVy/d5KkQAKtVYYM4THOrYfL7ArX+qXUf
+xzovO2VKoa9Vbf7OtuGlpfF1Uk/RSJVlNFyB5qEo58useH4x5VBTWIvBbtPIvtEC
+o5PfkAvBfo6hRj7ZuHmxd4/OguZFVkxX7oZXr619Exv9dn33RmgAlWibv2TCYss4
+3RUPBDylSkFTjtpr0HWzFOYa8u2KFbprZi477Xf1Ry9R/j25ezSXFgTvXSsGMLy1
+cSnvBfvvXcS8sgGmj7Gr4BHWcJeCRcjWAkMe4e/MGA2wUR66gNfHdsbUgAo1u9Ur
+ZHKKQjqVMb9N1zl4frfPrOkuNNgNX2PPEI0cR1QQMBJ1W0SpBAx2lMpo+cwp2TTh
+Cl7c4PhfLgQNj3dnkkzmL8cEui4MEzKU7UBXuWLa8CFbP72VYPW6K/0e3MzI8OE/
++ng0OqWVIZhSwSZtYiG5a/+uSdH0nF8y4Fjou4ZXuN8RMKxL0bpJGZ7NZ1YEh/g/
+wyRVQvQsb1CrdskjKjAUJGcgwbRkVF/9saW28RZ+rBXbJT+3E/j1AUBI3Ro+i6So
+FaMjKA5d8IIAbmXJJsMWiKOGAeLHQkcs++NJpcr5eSHzI89QuB4fHVEkTqLKAzkK
+HhmtmgVt/XfVV3OW4Zi/oaoOXpemXz3GhpsAlEb3xAc8n8t/RElCyIYHGjuDitE8
+NfQHoQfCfX+pddFIMcLi
+=5Mnc
 -----END PGP SIGNATURE-----
 
---jveuGMgECj8uME3rkPil7mqHGxXbvOcqB--
+--gqmVEoNUsX4c6WUwINla6lvFkkGeFnUcm--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
