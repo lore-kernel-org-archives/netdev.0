@@ -1,114 +1,97 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Fri, 13 May 2016 19:19:00 +0200
-Message-ID: <1463159940.11721.37.camel@redhat.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	 <1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	 <CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	 <94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	 <1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160511065527.GD3193@twins.programming.kicks-ass.net>
-	 <1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1463158203.11721.25.camel@redhat.com>
-	 <CANn89iLxx-K6XDgU=c+6S1ExtSoCqQyG+7XjzJW+xoL3ACJYuQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next v3 2/4] rtnetlink: add HW/SW stats distinction
+ in rtnl_fill_stats
+Date: Fri, 13 May 2016 10:20:18 -0700
+Message-ID: <1463160018.23934.203.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463151257-3972-1-git-send-email-jiri@resnulli.us>
+	 <1463151257-3972-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iLxx-K6XDgU=c+6S1ExtSoCqQyG+7XjzJW+xoL3ACJYuQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
+	gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
+	eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
+	hannes@stressinduktion.org, f.fainelli@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:32820 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbcEMRUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 13:20:21 -0400
+Received: by mail-pa0-f67.google.com with SMTP id gh9so8951487pac.0
+        for <netdev@vger.kernel.org>; Fri, 13 May 2016 10:20:20 -0700 (PDT)
+In-Reply-To: <1463151257-3972-3-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-05-13 at 10:03 -0700, Eric Dumazet wrote:
-> On Fri, May 13, 2016 at 9:50 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+On Fri, 2016-05-13 at 16:54 +0200, Jiri Pirko wrote:
+> From: Nogah Frankel <nogahf@mellanox.com>
 > 
-> >> Indeed, and the patch looks quite simple now ;)
-> >>
-> >> diff --git a/kernel/softirq.c b/kernel/softirq.c
-> >> index 17caf4b63342d7839528f367b283a386413b0362..23c364485d03618773c385d943c0ef39f5931d09 100644
-> >> --- a/kernel/softirq.c
-> >> +++ b/kernel/softirq.c
-> >> @@ -57,6 +57,11 @@ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp
-> >>
-> >>  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
-> >>
-> >> +static inline bool ksoftirqd_running(void)
-> >> +{
-> >> +     return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
-> >> +}
-> >> +
-> >>  const char * const softirq_to_name[NR_SOFTIRQS] = {
-> >>       "HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
-> >>       "TASKLET", "SCHED", "HRTIMER", "RCU"
-> >> @@ -313,7 +318,7 @@ asmlinkage __visible void do_softirq(void)
-> >>
-> >>       pending = local_softirq_pending();
-> >>
-> >> -     if (pending)
-> >> +     if (pending && !ksoftirqd_running())
-> >>               do_softirq_own_stack();
-> >>
-> >>       local_irq_restore(flags);
-> >> @@ -340,6 +345,9 @@ void irq_enter(void)
-> >>
-> >>  static inline void invoke_softirq(void)
-> >>  {
-> >> +     if (ksoftirqd_running())
-> >> +             return;
-> >> +
-> >>       if (!force_irqthreads) {
-> >>  #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
-> >>               /*
-> >
-> > In this version of the path, the chunk affecting __local_bh_enable_ip()
-> > has been removed.
-> >
-> > I think it is beneficial, because it allows avoiding a
-> > local_irq_save()/local_irq_restore() pairs per local_bh_enable under heavy load.
-> >
+> Since hardware stats are now returned by default, add a way to
+> query only software stats.
+> They are saved in IFLA_SW_STATS64.
+> (This option is valid only if the driver return HW stats in the
+> default ndo stats)
 > 
-> Interesting, do you have any numbers ?
-
-The difference is small, in the noise range:
-
-[with this patch applied]
-super_netperf 100 -H 192.168.122.1 -t UDP_STREAM -l 60 -- -m 1 
-9.00
-
-[adding the test into __local_bh_enable_ip(), too]
-super_netperf 100 -H 192.168.122.1 -t UDP_STREAM -l 60 -- -m 1 
-9.14
-
-but reproducible, in my experiments.
-I have similar data for different number of flows.
-
-> I believe I did this so that we factorize the logic in do_softirq()
-> and keep the code local to kernel/softirq.c
+> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v2->v3:
+> - avoided memcpy as requerted by DaveM
+> v1->v2:
+> - no change
+> ---
+>  include/uapi/linux/if_link.h |  1 +
+>  net/core/rtnetlink.c         | 13 +++++++++++++
+>  2 files changed, 14 insertions(+)
 > 
-> Otherwise, netif_rx_ni() could also process softirq while ksoftirqd
-> was scheduled,
-> so I would have to  'export' the ksoftirqd_running(void) helper in an
-> include file.
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index bb36bd5..98175e7 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -156,6 +156,7 @@ enum {
+>  	IFLA_GSO_MAX_SEGS,
+>  	IFLA_GSO_MAX_SIZE,
+>  	IFLA_PAD,
+> +	IFLA_SW_STATS64,
+>  	__IFLA_MAX
+>  };
+>  
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index d69c464..b0ebac6 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1054,12 +1054,25 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
+>  
+>  	attr = nla_reserve_64bit(skb, IFLA_STATS64,
+>  				 sizeof(struct rtnl_link_stats64), IFLA_PAD);
+> +
+>  	if (!attr)
+>  		return -EMSGSIZE;
+>  
+>  	sp = nla_data(attr);
+>  	dev_get_stats(dev, sp);
+>  
+> +	if (dev_have_sw_stats(dev)) {
+> +		attr = nla_reserve_64bit(skb, IFLA_SW_STATS64,
+> +					 sizeof(struct rtnl_link_stats64),
+> +					 IFLA_PAD);
+> +
+> +		if (!attr)
+> +			return -EMSGSIZE;
+> +
+> +		sp = nla_data(attr);
+> +		dev_get_sw_stats(dev, sp);
+> +	}
+> +
+>  	attr = nla_reserve(skb, IFLA_STATS,
+>  			   sizeof(struct rtnl_link_stats));
+>  	if (!attr)
 
-The idea could be to add the test in __local_bh_enable_ip(), maintaining
-the test also in do_softirq() (as currently done, i.e for
-local_softirq_pending())
 
-Cheers,
+You forgot to change if_nlmsg_size() ?
 
-Paolo
+nla_total_size_64bit(sizeof(struct rtnl_link_stats64)) is quite big.
