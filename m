@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [patch net-next 09/11] ACPI: bus: add stub acpi_evaluate_dsm() to linux/acpi.h
-Date: Fri, 13 May 2016 16:19:15 +0800
-Message-ID: <1463127557-90824-10-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [patch net-next 05/11] net: hns: add uniform interface for phy connection
+Date: Fri, 13 May 2016 16:19:11 +0800
+Message-ID: <1463127557-90824-6-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,36 +18,223 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-acpi_evaluate_dsm() will be used to handle the _DSM method in ACPI case.
-It will be compiled in non-ACPI case, but the function is in acpi_bus.h
-and acpi_bus.h can only be used in ACPI case, so this patch add the stub
-function to linux/acpi.h to make compiled successfully in non-ACPI cases.
+As device_node is only used by OF case, HNS needs to treat the others
+cases including ACPI. It needs to use uniform ways to handle both of
+OF and ACPI. This patch chooses phy_device, and of_phy_connect and
+of_phy_attach are only used by OF case. It needs to add uniform interface
+to handle that sequence by both OF and ACPI.
 
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- include/linux/acpi.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 34 +++++++++++-----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 46 +++++++++++++++++++---
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  2 +-
+ 7 files changed, 70 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index e578bce..5c5566e 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -661,6 +661,14 @@ static inline bool acpi_driver_match_device(struct device *dev,
- 	return false;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 3ad3e55..529cb13 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -513,7 +513,7 @@ struct hnae_ae_dev {
+ struct hnae_handle {
+ 	struct device *owner_dev; /* the device which make use of this handle */
+ 	struct hnae_ae_dev *dev;  /* the device who provides this handle */
+-	struct device_node *phy_node;
++	struct phy_device *phy_dev;
+ 	phy_interface_t phy_if;
+ 	u32 if_support;
+ 	int q_num;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 7a757e8..8e009f4 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -131,7 +131,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	vf_cb->mac_cb = dsaf_dev->mac_cb[port_id];
+ 
+ 	ae_handle->phy_if = vf_cb->mac_cb->phy_if;
+-	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
++	ae_handle->phy_dev = vf_cb->mac_cb->phy_dev;
+ 	ae_handle->if_support = vf_cb->mac_cb->if_support;
+ 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
+ 	ae_handle->dport_id = port_id;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index 611581f..527b49d 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -15,7 +15,8 @@
+ #include <linux/netdevice.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+-#include <linux/phy_fixed.h>
++#include <linux/of_mdio.h>
++#include <linux/phy.h>
+ #include <linux/platform_device.h>
+ 
+ #include "hns_dsaf_main.h"
+@@ -645,7 +646,7 @@ free_mac_drv:
+  */
+ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ {
+-	struct device_node *np = mac_cb->dev->of_node;
++	struct device_node *np;
+ 	struct regmap *syscon;
+ 	struct of_phandle_args cpld_args;
+ 	u32 ret;
+@@ -672,21 +673,34 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 	 * from dsaf node
+ 	 */
+ 	if (!mac_cb->fw_port) {
+-		mac_cb->phy_node = of_parse_phandle(np, "phy-handle",
+-						    mac_cb->mac_id);
+-		if (mac_cb->phy_node)
++		np = of_parse_phandle(mac_cb->dev->of_node, "phy-handle",
++				      mac_cb->mac_id);
++		mac_cb->phy_dev = of_phy_find_device(np);
++		if (mac_cb->phy_dev) {
++			/* refcount is held by of_phy_find_device()
++			 * if the phy_dev is found
++			 */
++			put_device(&mac_cb->phy_dev->mdio.dev);
++
+ 			dev_dbg(mac_cb->dev, "mac%d phy_node: %s\n",
+-				mac_cb->mac_id, mac_cb->phy_node->name);
++				mac_cb->mac_id, np->name);
++		}
++
+ 		return 0;
+ 	}
++
+ 	if (!is_of_node(mac_cb->fw_port))
+ 		return -EINVAL;
++
+ 	/* parse property from port subnode in dsaf */
+-	mac_cb->phy_node = of_parse_phandle(to_of_node(mac_cb->fw_port),
+-					    "phy-handle", 0);
+-	if (mac_cb->phy_node)
++	np = of_parse_phandle(to_of_node(mac_cb->fw_port), "phy-handle", 0);
++	mac_cb->phy_dev = of_phy_find_device(np);
++	if (mac_cb->phy_dev) {
++		put_device(&mac_cb->phy_dev->mdio.dev);
+ 		dev_dbg(mac_cb->dev, "mac%d phy_node: %s\n",
+-			mac_cb->mac_id, mac_cb->phy_node->name);
++			mac_cb->mac_id, np->name);
++		}
++
+ 	syscon = syscon_node_to_regmap(
+ 			of_parse_phandle(to_of_node(mac_cb->fw_port),
+ 					 "serdes-syscon", 0));
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+index 97ce9a7..89b49d7 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+@@ -338,7 +338,7 @@ struct hns_mac_cb {
+ 	phy_interface_t phy_if;
+ 	enum hnae_loop loop_mode;
+ 
+-	struct device_node *phy_node;
++	struct phy_device *phy_dev;
+ 
+ 	struct mac_hw_stats hw_stats;
+ };
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index a837bb9..a843a86 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -332,7 +332,7 @@ int hns_mac_config_sds_loopback(struct hns_mac_cb *mac_cb, u8 en)
+ 	int sfp_prsnt;
+ 	int ret = hns_mac_get_sfp_prsnt(mac_cb, &sfp_prsnt);
+ 
+-	if (!mac_cb->phy_node) {
++	if (!mac_cb->phy_dev) {
+ 		if (ret)
+ 			pr_info("please confirm sfp is present or not\n");
+ 		else
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 4fa9c21..34ebe7d 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -987,6 +987,41 @@ static void hns_nic_adjust_link(struct net_device *ndev)
+ 	h->dev->ops->adjust_link(h, ndev->phydev->speed, ndev->phydev->duplex);
  }
  
-+static inline union acpi_object *acpi_evaluate_dsm(acpi_handle handle,
-+						   const u8 *uuid,
-+						   int rev, int func,
-+						   union acpi_object *argv4)
++static
++struct phy_device *hns_nic_phy_attach(struct net_device *dev,
++				      struct phy_device *phy,
++				      u32 flags,
++				      phy_interface_t iface)
 +{
-+	return NULL;
++	int ret;
++
++	if (!phy)
++		return NULL;
++
++	ret = phy_attach_direct(dev, phy, flags, iface);
++
++	return ret ? NULL : phy;
 +}
 +
- static inline int acpi_device_uevent_modalias(struct device *dev,
- 				struct kobj_uevent_env *env)
++static
++struct phy_device *hns_nic_phy_connect(struct net_device *dev,
++				       struct phy_device *phy,
++				       void (*hndlr)(struct net_device *),
++				       u32 flags,
++				       phy_interface_t iface)
++{
++	int ret;
++
++	if (!phy)
++		return NULL;
++
++	phy->dev_flags = flags;
++
++	ret = phy_connect_direct(dev, phy, hndlr, iface);
++
++	return ret ? NULL : phy;
++}
++
+ /**
+  *hns_nic_init_phy - init phy
+  *@ndev: net device
+@@ -996,16 +1031,17 @@ static void hns_nic_adjust_link(struct net_device *ndev)
+ int hns_nic_init_phy(struct net_device *ndev, struct hnae_handle *h)
  {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+-	struct phy_device *phy_dev = NULL;
++	struct phy_device *phy_dev = h->phy_dev;
+ 
+-	if (!h->phy_node)
++	if (!h->phy_dev)
+ 		return 0;
+ 
+ 	if (h->phy_if != PHY_INTERFACE_MODE_XGMII)
+-		phy_dev = of_phy_connect(ndev, h->phy_node,
+-					 hns_nic_adjust_link, 0, h->phy_if);
++		phy_dev = hns_nic_phy_connect(ndev, phy_dev,
++					      hns_nic_adjust_link,
++					      0, h->phy_if);
+ 	else
+-		phy_dev = of_phy_attach(ndev, h->phy_node, 0, h->phy_if);
++		phy_dev = hns_nic_phy_attach(ndev, phy_dev, 0, h->phy_if);
+ 
+ 	if (unlikely(!phy_dev) || IS_ERR(phy_dev))
+ 		return !phy_dev ? -ENODEV : PTR_ERR(phy_dev);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3d746c8..03007d2 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -597,7 +597,7 @@ static void hns_nic_self_test(struct net_device *ndev,
+ 	st_param[1][0] = MAC_INTERNALLOOP_SERDES;
+ 	st_param[1][1] = 1; /*serdes must exist*/
+ 	st_param[2][0] = MAC_INTERNALLOOP_PHY; /* only supporte phy node*/
+-	st_param[2][1] = ((!!(priv->ae_handle->phy_node)) &&
++	st_param[2][1] = ((!!(priv->ae_handle->phy_dev)) &&
+ 		(priv->ae_handle->phy_if != PHY_INTERFACE_MODE_XGMII));
+ 
+ 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
 -- 
 1.9.1
