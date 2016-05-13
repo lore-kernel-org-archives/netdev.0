@@ -1,92 +1,58 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RESEND PATCH v7 00/21] Add HiSilicon RoCE driver
-Date: Fri, 13 May 2016 17:09:39 -0400
-Message-ID: <ee4fe6df-e9b0-28da-c960-c288d6617025@redhat.com>
-References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Sat, 14 May 2016 00:16:35 +0300
+Message-ID: <9c1c7190-f3bb-2e95-7d1f-c61ca8f6ee90@cogentembedded.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+ <20160512184233.GJ30822@pengutronix.de>
+ <f1fae99f-2464-8a42-deb8-c27cccf8df12@cogentembedded.com>
+ <20160513040653.GA24461@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="EdjFGaXEAr61LuLmHVlr8sxX9ipGHrGa3"
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1462849483-67927-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, linux-kernel@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160513040653.GA24461@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---EdjFGaXEAr61LuLmHVlr8sxX9ipGHrGa3
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Hello.
 
-On 05/09/2016 11:04 PM, Lijun Ou wrote:
-> The HiSilicon Network Substem is a long term evolution IP which is
-> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
-> Sybsystem) also has a hardware support of performing RDMA with
-> RoCEE.
-> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
-> will support mulitple versions of SOCs in future. This version of drive=
-r
-> is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
-> specifications).
->=20
-> Changes v6 -> v7:
-> 1. modify some type of parameter, use bool replace the original type.
-> 2. add the Signed-off-by signatures in the first patch.
-> 3. delete the improper print sentence in hns_roce_create_eq.
+On 05/13/2016 07:06 AM, Andrew Lunn wrote:
 
-One thing you should be aware of (but which you may not care about,
-which is fine) is that if you want your driver to be available as part
-of the OpenFabric Alliances OFED distribution, the license on the files
-would need to be "GPL or BSD" (see the remainder of the RDMA stack for
-examples).  If you don't want that license on your files, I'm fine with
-that, and I won't hold up your submission based on the license.  If,
-however, you *do* want your code to be shipable as part of OFED, it is
-much easier to update the license on the files before you submit them
-and third parties modify them.  If you want to change the license later,
-you have to get every person that has made any substantive change to the
-file to agree to the license change.
+>>>> +	gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
+>>>> +	/* Deassert the reset signal */
+>>>> +	if (!IS_ERR(gpiod))
+>>>> +		gpiod_direction_output(gpiod, 0);
+>>>
+>>> This is wrong I think. You must only ignore -ENODEV, all other error
+>>
+>>    At least -ENOSYS should also be ignored (it's returned when
+>> gpiolib is not configured), right? When does -ENODEV gets returned
+>> (it's not easy to follow)?
+>>
+>>> codes should be passed to the caller.
+>>
+>>    The caller doesn't care anyway...
+>
+> It should do.
 
+    Tell that to Florian. So far, everybody has been happy with 
+of_mdiobus_register(). Until I had to touch this code. :-)
 
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-              GPG KeyID: 0E572FDD
+> What if fwnode_get_named_gpiod() returns -EPROBE_DEFER
+> because the GPIO driver has not been loaded yet?
 
+    Bad luck. :-)
+    Seriously, I'll see what I can do but it's not a trivial case.
 
+> 	Andrew
 
---EdjFGaXEAr61LuLmHVlr8sxX9ipGHrGa3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJXNkKTAAoJELgmozMOVy/drEsP/R2CqLByXp0pcEluRItRQuiN
-Bq/1NsUB6WcodZAN+QwoP9G4tXCU7G/N4d5MnkkI965KAgBGe7bhJaYJhVCmFiMr
-Ca9xvSLRqvZt6HcONB/kwHY39tC9SjNBfQBD8sWb81sIPOFR6AowvY4b+SF0tlTJ
-JeaAgyrwU8MncE2LI7mYurkWoPvAL4uevN0r/Ai8UixYjBJ48vPOz5zH3fkPml/n
-pYqlvu6ruPXOkAMAiXLOh6ZV+/jz9uK44h8kwr+blwPlb6WvIMTxjYYWBDWDdhWD
-xhfvX0YIK9++MLZW+4boTgI6tlW3y5BFHUactlEb2UfY+FN49do1+L9yTX1sacfq
-ausO/EGkFI3X61MhIbPvG9NnByE2R2AQAV1fuQo0Igtd9x9uddzBMi3jqoL/6Vfi
-Ge4KgHED8v9c7ibYDmJpCANRkrAufsL2T5vRnTVf4UjS+qHv5dqfQf41bfveS9eE
-hy+DkCwo//8uGFgmylggkAa+H2L0a8ZUcsSlRdB7q1h/iFAiKOPWMHjucKmBnAvq
-/w7B9hPsPsv4uMluyFTH3DMHFzJL1XiHxt5jwHlqcN2m2iU9qGbG6HiMgrdom9uX
-9ZtAU9+KMiqcbnTjpfAw5oW7tzOsAM+6jRKSZzIP0KacNacKUmKKiHqSMQpcF7yF
-36gIc0+3kX3HEmVI7kdW
-=pW2L
------END PGP SIGNATURE-----
-
---EdjFGaXEAr61LuLmHVlr8sxX9ipGHrGa3--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
