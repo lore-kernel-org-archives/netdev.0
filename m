@@ -1,92 +1,76 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH 1/2] net: mv643xx_eth: use {readl|writel}_relaxed
- instead of readl/writel
-Date: Fri, 13 May 2016 20:19:55 +0800
-Message-ID: <20160513201955.256e5169@xhacker>
-References: <1463140760-7128-1-git-send-email-jszhang@marvell.com>
-	<1463140760-7128-2-git-send-email-jszhang@marvell.com>
-	<3966837.tFk2PD8QFb@wuerfel>
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCHv2 bluetooth-next 00/10] 6lowpan: introduce basic
+ 6lowpan-nd
+Date: Fri, 13 May 2016 14:33:40 +0200
+Message-ID: <f1898362-7bf3-705b-d72a-289e81910be8@pengutronix.de>
+References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
+ <D212A5BF-A414-403B-A409-1F8C2D279883@holtmann.org>
+ <57354315.2050509@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<sebastian.hesselbarth@gmail.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3966837.tFk2PD8QFb@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org,
+	Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>,
+	Linux Bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57354315.2050509-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dear Arnd,
 
-On Fri, 13 May 2016 14:09:43 +0200 Arnd Bergmann wrote:
+Hi,
 
-> On Friday 13 May 2016 19:59:19 Jisheng Zhang wrote:
-> >  /* port register accessors **************************************************/
-> >  static inline u32 rdl(struct mv643xx_eth_private *mp, int offset)
-> >  {
-> > -	return readl(mp->shared->base + offset);
-> > +	return readl_relaxed(mp->shared->base + offset);
-> >  }
-> >  
-> >  static inline u32 rdlp(struct mv643xx_eth_private *mp, int offset)
-> >  {
-> > -	return readl(mp->base + offset);
-> > +	return readl_relaxed(mp->base + offset);
-> >  }  
+On 05/13/2016 04:59 AM, YOSHIFUJI Hideaki wrote:
+> Hi,
 > 
-> I'd recommend not changing these in general, but introducing new 'rdl_relaxed()'
-> and 'rdlp_relaxed()' etc variants that you use in the code that actually
-> is performance sensitive, but use the normal non-relaxed versions by
-> default.
+> Marcel Holtmann wrote:
+>> Hi Dave,
+> :
+>>> include/linux/netdevice.h     |   6 +-
+>>> include/net/6lowpan.h         |  24 ++
+>>> include/net/addrconf.h        |   3 +
+>>> include/net/ndisc.h           | 124 ++++++++-
+>>> net/6lowpan/6lowpan_i.h       |   2 +
+>>> net/6lowpan/Makefile          |   2 +-
+>>> net/6lowpan/core.c            |  50 +++-
+>>> net/6lowpan/iphc.c            | 167 +++++++++--
+>>> net/6lowpan/ndisc.c           | 633 ++++++++++++++++++++++++++++++++++++++++++
+>>> net/bluetooth/6lowpan.c       |   2 +
+>>> net/ieee802154/6lowpan/core.c |  12 +
+>>> net/ieee802154/6lowpan/tx.c   | 107 ++++---
+>>> net/ipv6/addrconf.c           |   7 +-
+>>> net/ipv6/ndisc.c              | 132 +++++----
+>>> net/ipv6/route.c              |   4 +-
+>>> 15 files changed, 1117 insertions(+), 158 deletions(-)
+>>> create mode 100644 net/6lowpan/ndisc.c
+>>
+>> is there a chance that we get input into this patch set? I wonder also if it would be acceptable to take this through bluetooth-next or should it better go straight into net-next?
 > 
-> Then add a comment to each use of the relaxed accessors on how you know
-> that it's safe for that caller. This usually is just needed for the xmit()
-> function and for the interrupt handler.
+> The core idea of introducing ndisc_ops is okay, but I do think this
+> series of patches should be refactored; we should not make another
+> "copy" of core of ndisc logic.  We can introduce "ops" for each
+> option, for example.
+> 
 
-Got your points and I do think it makes sense. But could we always use the
-relaxed version to save some LoCs, although I have no mv643xx_eth platform
-but I can confirm similar relaxed version changes in pxa168_eth is safe and
-this is what we do in product's kernel.
+Thanks for your suggestion. I will try to make another patch series
+which introduce ops for each option.
 
-Above is just my humble opinion, comments are welcome.
+I also thinks it's better now. E.g. some days ago there was another
+question on netdev for doing more ndp_proxy stuff inside the kernel [0].
+If such feature will be added later then both implementation would be
+touched (which almost introduce the same code).
 
-Thanks,
-Jisheng
+- Alex
 
->   
-> > @@ -2642,10 +2642,10 @@ mv643xx_eth_conf_mbus_windows(struct mv643xx_eth_shared_private *msp,
-> >  	int i;
-> >  
-> >  	for (i = 0; i < 6; i++) {
-> > -		writel(0, base + WINDOW_BASE(i));
-> > -		writel(0, base + WINDOW_SIZE(i));
-> > +		writel_relaxed(0, base + WINDOW_BASE(i));
-> > +		writel_relaxed(0, base + WINDOW_SIZE(i));
-> >  		if (i < 4)
-> > -			writel(0, base + WINDOW_REMAP_HIGH(i));
-> > +			writel_relaxed(0, base + WINDOW_REMAP_HIGH(i));
-> >  	}
-> >  
-> >  	win_enable = 0x3f;  
-> 
-> Configuring the mbus for instance is clearly not an operation in which
-> performance matters at all, so better not touch that.
-> 
-> > @@ -2674,8 +2675,8 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
-> >  	 * [21:8], or a 16-bit coal limit in bits [25,21:7] of the
-> >  	 * SDMA config register.
-> >  	 */
-> > -	writel(0x02000000, msp->base + 0x0400 + SDMA_CONFIG);
-> > -	if (readl(msp->base + 0x0400 + SDMA_CONFIG) & 0x02000000)
-> > +	writel_relaxed(0x02000000, msp->base + 0x0400 + SDMA_CONFIG);
-> > +	if (readl_relaxed(msp->base + 0x0400 + SDMA_CONFIG) & 0x02000000)
-> >  		msp->extended_rx_coal_limit = 1;
-> >  	else
-> >  		msp->extended_rx_coal_limit = 0;  
-> 
-> 
-> This also seems to be configuration, rather than in the packet rx/tx hotpath.
-> 
-> 	Arnd
+[0] http://marc.info/?l=linux-netdev&m=146278123414146
