@@ -1,59 +1,27 @@
-From: Andy Gross <andy.gross@linaro.org>
-Subject: Re: QRTR merge conflict resolution (was: Re: linux-next: build
- failure after merge of the net-next tree)
-Date: Fri, 13 May 2016 17:47:17 -0500
-Message-ID: <CAPBZ5Qfa+b1LLgqpxfKGysY5jXVrzmBzhga=ZYtpdDAKC9hnTQ@mail.gmail.com>
-References: <20160510112905.5bffcad8@canb.auug.org.au>
-	<20160510183934.GJ1256@tuxbot>
-	<2606282.lG9qK7uBW0@wuerfel>
-	<20160513221909.GC1256@tuxbot>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 0/2] Don't return NULL from get_phy_device() anymore
+Date: Sat, 14 May 2016 02:05:17 +0300
+Message-ID: <7078673.lTHka36u4G@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	linux-next@vger.kernel.org, Olof Johansson <olof@lixom.net>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160513221909.GC1256@tuxbot>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: f.fainelli@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33962 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753559AbcEMXFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 19:05:22 -0400
+Received: by mail-lf0-f47.google.com with SMTP id m64so94897128lfd.1
+        for <netdev@vger.kernel.org>; Fri, 13 May 2016 16:05:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13 May 2016 at 17:19, Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
-> On Fri 13 May 14:01 PDT 2016, Arnd Bergmann wrote:
->
->> On Tuesday 10 May 2016 11:39:34 Bjorn Andersson wrote:
-> [..]
->> > I assume we could have the QRTR go through Andy and arm-soc, with
->> > David's approval and this fix squashed in. But we're running rather late
->> > in this cycle, perhaps we should just back the QRTR patches out and I
->> > can respin and resend them after the merge window (for v4.8 instead)?
->>
->> I'd suggest you do a merge of next-next with the qcom/soc-2 branch that
->> we have in arm-soc and resolve the conflict in the merge, then send
->> a pull request with the merge to davem.
->>
->
-> Hi David,
->
-> In case you missed this thread, linux-next highlighted an upcoming merge
-> conflict between the net-next and one of the branches included in the
-> arm-soc trees.
->
-> I have prepared the merge of net-next and the conflicting tag from the
-> Qualcomm SOC, please include this in your pull towards Linus to avoid
-> the merge conflict.
->
-> Regards,
-> Bjorn
->
-> The following changes since commit ed7cbbce544856b20e5811de373cf92e92499771:
->
->   udp: Resolve NULL pointer dereference over flow-based vxlan device (2016-05-13 01:56:14 -0400)
+Hello.
 
+   Here's the set of 2 patches against DaveM's 'net-next.git' repo. We save
+several LoCs on the unneeded local variables....
 
-OK. The contents look good to me.
+[1/2] lxt: simplify lxt97[01]_config_intr()
+[2/2] lxt: simplify lxt970_config_init()
 
-Acked-by: Andy Gross <andy.gross@linaro.org>
+MBR, Sergei
