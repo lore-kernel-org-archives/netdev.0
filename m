@@ -1,34 +1,59 @@
-From: "Alfred" <alfred_weiyun@sina.com>
-Subject: From China Freight agency company
-Date: Sat, 14 May 2016 01:46:03 +0800
-Message-ID: <201605140146030308901@a.ncbpzh.com>
-Reply-To: alfred_weiyun@sina.com
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH v2 net-next 2/2] net: cls_u32: Add support for skip-sw
+ flag to tc u32 classifier.
+Date: Fri, 13 May 2016 11:15:36 -0700
+Message-ID: <573619C8.2040905@gmail.com>
+References: <1463098103-2434-1-git-send-email-sridhar.samudrala@intel.com>
+ <1463098103-2434-3-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [123.170.236.41] ([123.170.236.41]:3733 "HELO a.ncbpzh.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
-	id S1751573AbcEMRvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 13:51:39 -0400
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34205 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751481AbcEMSPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 14:15:50 -0400
+Received: by mail-pa0-f67.google.com with SMTP id yl2so9020111pac.1
+        for <netdev@vger.kernel.org>; Fri, 13 May 2016 11:15:49 -0700 (PDT)
+In-Reply-To: <1463098103-2434-3-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGVhciBTaXJzOg0KDQogICAgSG93IGFyZSB5b3UhDQoNCiAgICBUaGUgc2Vjb25kIHRvIHlvdS4N
-Cg0KICAgIElmIHlvdXIgY29tcGFueSBoYXZlIGltcG9ydCBzb21lIHByb2R1Y3QgZnJvbSBDaGlu
-YS5NYXkgSSBoZWxwIHlvdSBvbiB0aGUgbG9naXN0aWNzIGZpZWxkLg0KDQogICAgV2Ugc3BlY2lh
-bGl6ZWQgaW4gaW50ZXJuYXRpb25hbCBleHByZXNzLCBhaXIgdHJhbnNwb3J0LCBzaGlwcGluZy4g
-d2l0aCBnb29kIHByaWNlIGFuZCBnb29kIHNlcnZpY2UsIHdpdGggbWFueSB5ZWFycyBleHBlcmll
-bmNlICEgV2UgYXJlIHB1cnN1aW5nIGlzIHRoZSBpbnRlZ3JpdHkgYW5kIHNlY3VyaXR5IG9mIGdv
-b2RzIC4NCg0KICAgIEZ1cnRoZXIgaW5mb3JtYXRpb24gcGxlYXNlIGNvbnRhY3QgZnJlZWx5IVRo
-YW5rIHlvdS4NCg0KICAgIEhhdmUgYSBncmVhdCBkYXkuDQoNCg0KLS0tLS0tLS0tLS0tLS0tDQoN
-CkFsZnJlZA0KDQoNClNoZW56aGVuIERvbmdkYSBGcmVpZ2h0IGFnZW5jeSBDTy4sIExURA0KDQot
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCg0KVGVsOjg2LTc1NS02MTk2
-MTM3MA0KTW9io7o4Ni0xODkyOTM5MzgzNg0KRmF4o7o4Ni03NTUtMjkxOTY2NjENCkVtYWlso7ph
-bGZyZWRfd2VpeXVuQHNpbmEuY29tICAgICAgICBzYWxlczJAZGRoeTE2OC5jb20NClNLWVBFOmRk
-aHkxNjggICAgICBRUToxNTU5NDg5NTI2DQpXZWKjund3dy5kZGh5MTY4LmNvbQ0KQWRkcmVzczog
-NTE2IEJhaXNoaXdlaSBMb2dpc3RpY3MgUGFyayBGdXdlaQ0KICAgICAgICAgQ29tbXVuaXR5IEZ1
-eW9uZyBTdHJlZXQNCiAgICAgICAgIEJhbydhbiBEaXN0cmljdCwNCiAgICAgICAgIFNoZW56aGVu
-o6w1MTgxMDMgQ2hpbmE=
+On 16-05-12 05:08 PM, Sridhar Samudrala wrote:
+> On devices that support TC U32 offloads, this flag enables a filter to be
+> added only to HW. skip-sw and skip-hw are mutually exclusive flags. By
+> default without any flags, the filter is added to both HW and SW, but no
+> error checks are done in case of failure to add to HW. With skip-sw,
+> failure to add to HW is treated as an error.
+> 
+> Here is a sample script that adds 2 filters, one with skip-sw and the other
+> with skip-hw flag.
+> 
+>    # add ingress qdisc
+>    tc qdisc add dev p4p1 ingress
+> 
+>    # enable hw tc offload.
+>    ethtool -K p4p1 hw-tc-offload on
+> 
+>    # add u32 filter with skip-sw flag.
+>    tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+>       handle 800:0:1 u32 ht 800: flowid 800:1 \
+>       skip-sw \
+>       match ip src 192.168.1.0/24 \
+>       action drop
+> 
+>    # add u32 filter with skip-hw flag.
+>    tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+>       handle 800:0:2 u32 ht 800: flowid 800:2 \
+>       skip-hw \
+>       match ip src 192.168.2.0/24 \
+>       action drop
+> 
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> ---
+
+Looks good to me thanks for doing this.
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
