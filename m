@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next 3/8] net/sched: cls_flower: Hardware offloaded filters statistics support
-Date: Fri, 13 May 2016 12:55:37 +0000
-Message-ID: <1463144142-13810-4-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next 2/8] net/sched: act_gact: Update statistics when offloaded to hardware
+Date: Fri, 13 May 2016 12:55:36 +0000
+Message-ID: <1463144142-13810-3-git-send-email-amir@vadai.me>
 References: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amir@vadai.me>,
@@ -9,76 +9,56 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41790 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:41782 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753028AbcEMM5r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 08:57:47 -0400
+	id S1751625AbcEMM5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 08:57:42 -0400
 In-Reply-To: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirva@mellanox.com>
 
-Introduce a new command in ndo_setup_tc() for hardware offloaded
-filters, to call the NIC driver, and make it update the statistics.
-This will be done before dumping the filter and its statistics.
+Implement the stats_update callback that will be called by NIC drivers
+for hardware offloaded filters.
 
 Signed-off-by: Amir Vadai <amirva@mellanox.com>
 ---
- include/net/pkt_cls.h  |  1 +
- net/sched/cls_flower.c | 21 +++++++++++++++++++++
- 2 files changed, 22 insertions(+)
+ net/sched/act_gact.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index caa5e18..cc561a8 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -412,6 +412,7 @@ static inline bool tc_should_offload(struct net_device *dev, u32 flags)
- enum tc_fl_command {
- 	TC_CLSFLOWER_REPLACE,
- 	TC_CLSFLOWER_DESTROY,
-+	TC_CLSFLOWER_STATS,
- };
- 
- struct tc_cls_flower_offload {
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 2181ffc..730aaca 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -210,6 +210,25 @@ static void fl_hw_replace_filter(struct tcf_proto *tp,
- 	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index 1a6e09f..ec5cc84 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -148,6 +148,20 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
+ 	return action;
  }
  
-+static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
++static void tcf_gact_stats_update(struct tc_action *a, u64 bytes, u32 packets,
++				  u64 lastuse)
 +{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_flower_offload offload = {0};
-+	struct tc_to_netdev tc;
++	struct tcf_gact *gact = a->priv;
++	int action = READ_ONCE(gact->tcf_action);
++	struct tcf_t *tm = &gact->tcf_tm;
 +
-+	if (!tc_should_offload(dev, 0))
-+		return;
++	_bstats_cpu_update(this_cpu_ptr(gact->common.cpu_bstats), bytes, packets);
++	if (action == TC_ACT_SHOT)
++		this_cpu_ptr(gact->common.cpu_qstats)->drops += packets;
 +
-+	offload.command = TC_CLSFLOWER_STATS;
-+	offload.cookie = (unsigned long)f;
-+	offload.exts = &f->exts;
-+
-+	tc.type = TC_SETUP_CLSFLOWER;
-+	tc.cls_flower = &offload;
-+
-+	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
++	tm->lastuse = lastuse;
 +}
 +
- static bool fl_destroy(struct tcf_proto *tp, bool force)
+ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
  {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
-@@ -662,6 +681,8 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			goto nla_put_failure;
- 	}
- 
-+	fl_hw_update_stats(tp, f);
-+
- 	if (fl_dump_key_val(skb, key->eth.dst, TCA_FLOWER_KEY_ETH_DST,
- 			    mask->eth.dst, TCA_FLOWER_KEY_ETH_DST_MASK,
- 			    sizeof(key->eth.dst)) ||
+ 	unsigned char *b = skb_tail_pointer(skb);
+@@ -207,6 +221,7 @@ static struct tc_action_ops act_gact_ops = {
+ 	.type		=	TCA_ACT_GACT,
+ 	.owner		=	THIS_MODULE,
+ 	.act		=	tcf_gact,
++	.stats_update	=	tcf_gact_stats_update,
+ 	.dump		=	tcf_gact_dump,
+ 	.init		=	tcf_gact_init,
+ 	.walk		=	tcf_gact_walker,
 -- 
 2.8.0
