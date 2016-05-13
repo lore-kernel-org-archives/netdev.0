@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next 2/8] net/sched: act_gact: Update statistics when offloaded to hardware
-Date: Fri, 13 May 2016 12:55:36 +0000
-Message-ID: <1463144142-13810-3-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next 4/8] net/mlx5_core: Use a macro in mlx5_command_str()
+Date: Fri, 13 May 2016 12:55:38 +0000
+Message-ID: <1463144142-13810-5-git-send-email-amir@vadai.me>
 References: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amir@vadai.me>,
@@ -9,56 +9,337 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:41782 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:41798 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751625AbcEMM5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 08:57:42 -0400
+	id S1753093AbcEMM5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 08:57:52 -0400
 In-Reply-To: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirva@mellanox.com>
 
-Implement the stats_update callback that will be called by NIC drivers
-for hardware offloaded filters.
+Use a macro instead of copying the OP name.
 
 Signed-off-by: Amir Vadai <amirva@mellanox.com>
 ---
- net/sched/act_gact.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 303 +++++++++++---------------
+ 1 file changed, 132 insertions(+), 171 deletions(-)
 
-diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index 1a6e09f..ec5cc84 100644
---- a/net/sched/act_gact.c
-+++ b/net/sched/act_gact.c
-@@ -148,6 +148,20 @@ static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
- 	return action;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index eb926e1..63cac84 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -406,178 +406,139 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
  
-+static void tcf_gact_stats_update(struct tc_action *a, u64 bytes, u32 packets,
-+				  u64 lastuse)
-+{
-+	struct tcf_gact *gact = a->priv;
-+	int action = READ_ONCE(gact->tcf_action);
-+	struct tcf_t *tm = &gact->tcf_tm;
-+
-+	_bstats_cpu_update(this_cpu_ptr(gact->common.cpu_bstats), bytes, packets);
-+	if (action == TC_ACT_SHOT)
-+		this_cpu_ptr(gact->common.cpu_qstats)->drops += packets;
-+
-+	tm->lastuse = lastuse;
-+}
-+
- static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ const char *mlx5_command_str(int command)
  {
- 	unsigned char *b = skb_tail_pointer(skb);
-@@ -207,6 +221,7 @@ static struct tc_action_ops act_gact_ops = {
- 	.type		=	TCA_ACT_GACT,
- 	.owner		=	THIS_MODULE,
- 	.act		=	tcf_gact,
-+	.stats_update	=	tcf_gact_stats_update,
- 	.dump		=	tcf_gact_dump,
- 	.init		=	tcf_gact_init,
- 	.walk		=	tcf_gact_walker,
+-	switch (command) {
+-	case MLX5_CMD_OP_QUERY_HCA_VPORT_CONTEXT:
+-		return "QUERY_HCA_VPORT_CONTEXT";
+-
+-	case MLX5_CMD_OP_MODIFY_HCA_VPORT_CONTEXT:
+-		return "MODIFY_HCA_VPORT_CONTEXT";
+-
+-	case MLX5_CMD_OP_QUERY_HCA_CAP:
+-		return "QUERY_HCA_CAP";
+-
+-	case MLX5_CMD_OP_SET_HCA_CAP:
+-		return "SET_HCA_CAP";
+-
+-	case MLX5_CMD_OP_QUERY_ADAPTER:
+-		return "QUERY_ADAPTER";
+-
+-	case MLX5_CMD_OP_INIT_HCA:
+-		return "INIT_HCA";
+-
+-	case MLX5_CMD_OP_TEARDOWN_HCA:
+-		return "TEARDOWN_HCA";
+-
+-	case MLX5_CMD_OP_ENABLE_HCA:
+-		return "MLX5_CMD_OP_ENABLE_HCA";
+-
+-	case MLX5_CMD_OP_DISABLE_HCA:
+-		return "MLX5_CMD_OP_DISABLE_HCA";
+-
+-	case MLX5_CMD_OP_QUERY_PAGES:
+-		return "QUERY_PAGES";
+-
+-	case MLX5_CMD_OP_MANAGE_PAGES:
+-		return "MANAGE_PAGES";
+-
+-	case MLX5_CMD_OP_CREATE_MKEY:
+-		return "CREATE_MKEY";
+-
+-	case MLX5_CMD_OP_QUERY_MKEY:
+-		return "QUERY_MKEY";
+-
+-	case MLX5_CMD_OP_DESTROY_MKEY:
+-		return "DESTROY_MKEY";
+-
+-	case MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS:
+-		return "QUERY_SPECIAL_CONTEXTS";
+-
+-	case MLX5_CMD_OP_CREATE_EQ:
+-		return "CREATE_EQ";
+-
+-	case MLX5_CMD_OP_DESTROY_EQ:
+-		return "DESTROY_EQ";
+-
+-	case MLX5_CMD_OP_QUERY_EQ:
+-		return "QUERY_EQ";
+-
+-	case MLX5_CMD_OP_CREATE_CQ:
+-		return "CREATE_CQ";
+-
+-	case MLX5_CMD_OP_DESTROY_CQ:
+-		return "DESTROY_CQ";
+-
+-	case MLX5_CMD_OP_QUERY_CQ:
+-		return "QUERY_CQ";
+-
+-	case MLX5_CMD_OP_MODIFY_CQ:
+-		return "MODIFY_CQ";
+-
+-	case MLX5_CMD_OP_CREATE_QP:
+-		return "CREATE_QP";
+-
+-	case MLX5_CMD_OP_DESTROY_QP:
+-		return "DESTROY_QP";
+-
+-	case MLX5_CMD_OP_RST2INIT_QP:
+-		return "RST2INIT_QP";
+-
+-	case MLX5_CMD_OP_INIT2RTR_QP:
+-		return "INIT2RTR_QP";
+-
+-	case MLX5_CMD_OP_RTR2RTS_QP:
+-		return "RTR2RTS_QP";
+-
+-	case MLX5_CMD_OP_RTS2RTS_QP:
+-		return "RTS2RTS_QP";
+-
+-	case MLX5_CMD_OP_SQERR2RTS_QP:
+-		return "SQERR2RTS_QP";
+-
+-	case MLX5_CMD_OP_2ERR_QP:
+-		return "2ERR_QP";
+-
+-	case MLX5_CMD_OP_2RST_QP:
+-		return "2RST_QP";
+-
+-	case MLX5_CMD_OP_QUERY_QP:
+-		return "QUERY_QP";
+-
+-	case MLX5_CMD_OP_MAD_IFC:
+-		return "MAD_IFC";
+-
+-	case MLX5_CMD_OP_INIT2INIT_QP:
+-		return "INIT2INIT_QP";
+-
+-	case MLX5_CMD_OP_CREATE_PSV:
+-		return "CREATE_PSV";
+-
+-	case MLX5_CMD_OP_DESTROY_PSV:
+-		return "DESTROY_PSV";
+-
+-	case MLX5_CMD_OP_CREATE_SRQ:
+-		return "CREATE_SRQ";
+-
+-	case MLX5_CMD_OP_DESTROY_SRQ:
+-		return "DESTROY_SRQ";
+-
+-	case MLX5_CMD_OP_QUERY_SRQ:
+-		return "QUERY_SRQ";
+-
+-	case MLX5_CMD_OP_ARM_RQ:
+-		return "ARM_RQ";
+-
+-	case MLX5_CMD_OP_CREATE_XRC_SRQ:
+-		return "CREATE_XRC_SRQ";
+-
+-	case MLX5_CMD_OP_DESTROY_XRC_SRQ:
+-		return "DESTROY_XRC_SRQ";
+-
+-	case MLX5_CMD_OP_QUERY_XRC_SRQ:
+-		return "QUERY_XRC_SRQ";
+-
+-	case MLX5_CMD_OP_ARM_XRC_SRQ:
+-		return "ARM_XRC_SRQ";
+-
+-	case MLX5_CMD_OP_ALLOC_PD:
+-		return "ALLOC_PD";
+-
+-	case MLX5_CMD_OP_DEALLOC_PD:
+-		return "DEALLOC_PD";
+-
+-	case MLX5_CMD_OP_ALLOC_UAR:
+-		return "ALLOC_UAR";
+-
+-	case MLX5_CMD_OP_DEALLOC_UAR:
+-		return "DEALLOC_UAR";
+-
+-	case MLX5_CMD_OP_ATTACH_TO_MCG:
+-		return "ATTACH_TO_MCG";
+-
+-	case MLX5_CMD_OP_DETTACH_FROM_MCG:
+-		return "DETTACH_FROM_MCG";
+-
+-	case MLX5_CMD_OP_ALLOC_XRCD:
+-		return "ALLOC_XRCD";
+-
+-	case MLX5_CMD_OP_DEALLOC_XRCD:
+-		return "DEALLOC_XRCD";
+-
+-	case MLX5_CMD_OP_ACCESS_REG:
+-		return "MLX5_CMD_OP_ACCESS_REG";
+-
+-	case MLX5_CMD_OP_SET_WOL_ROL:
+-		return "SET_WOL_ROL";
+-
+-	case MLX5_CMD_OP_QUERY_WOL_ROL:
+-		return "QUERY_WOL_ROL";
+-
+-	case MLX5_CMD_OP_ADD_VXLAN_UDP_DPORT:
+-		return "ADD_VXLAN_UDP_DPORT";
+-
+-	case MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT:
+-		return "DELETE_VXLAN_UDP_DPORT";
++#define MLX5_COMMAND_STR_CASE(__cmd) case MLX5_CMD_OP_ ## __cmd: return #__cmd
+ 
++	switch (command) {
++	MLX5_COMMAND_STR_CASE(QUERY_HCA_CAP);
++	MLX5_COMMAND_STR_CASE(QUERY_ADAPTER);
++	MLX5_COMMAND_STR_CASE(INIT_HCA);
++	MLX5_COMMAND_STR_CASE(TEARDOWN_HCA);
++	MLX5_COMMAND_STR_CASE(ENABLE_HCA);
++	MLX5_COMMAND_STR_CASE(DISABLE_HCA);
++	MLX5_COMMAND_STR_CASE(QUERY_PAGES);
++	MLX5_COMMAND_STR_CASE(MANAGE_PAGES);
++	MLX5_COMMAND_STR_CASE(SET_HCA_CAP);
++	MLX5_COMMAND_STR_CASE(QUERY_ISSI);
++	MLX5_COMMAND_STR_CASE(SET_ISSI);
++	MLX5_COMMAND_STR_CASE(CREATE_MKEY);
++	MLX5_COMMAND_STR_CASE(QUERY_MKEY);
++	MLX5_COMMAND_STR_CASE(DESTROY_MKEY);
++	MLX5_COMMAND_STR_CASE(QUERY_SPECIAL_CONTEXTS);
++	MLX5_COMMAND_STR_CASE(PAGE_FAULT_RESUME);
++	MLX5_COMMAND_STR_CASE(CREATE_EQ);
++	MLX5_COMMAND_STR_CASE(DESTROY_EQ);
++	MLX5_COMMAND_STR_CASE(QUERY_EQ);
++	MLX5_COMMAND_STR_CASE(GEN_EQE);
++	MLX5_COMMAND_STR_CASE(CREATE_CQ);
++	MLX5_COMMAND_STR_CASE(DESTROY_CQ);
++	MLX5_COMMAND_STR_CASE(QUERY_CQ);
++	MLX5_COMMAND_STR_CASE(MODIFY_CQ);
++	MLX5_COMMAND_STR_CASE(CREATE_QP);
++	MLX5_COMMAND_STR_CASE(DESTROY_QP);
++	MLX5_COMMAND_STR_CASE(RST2INIT_QP);
++	MLX5_COMMAND_STR_CASE(INIT2RTR_QP);
++	MLX5_COMMAND_STR_CASE(RTR2RTS_QP);
++	MLX5_COMMAND_STR_CASE(RTS2RTS_QP);
++	MLX5_COMMAND_STR_CASE(SQERR2RTS_QP);
++	MLX5_COMMAND_STR_CASE(2ERR_QP);
++	MLX5_COMMAND_STR_CASE(2RST_QP);
++	MLX5_COMMAND_STR_CASE(QUERY_QP);
++	MLX5_COMMAND_STR_CASE(SQD_RTS_QP);
++	MLX5_COMMAND_STR_CASE(INIT2INIT_QP);
++	MLX5_COMMAND_STR_CASE(CREATE_PSV);
++	MLX5_COMMAND_STR_CASE(DESTROY_PSV);
++	MLX5_COMMAND_STR_CASE(CREATE_SRQ);
++	MLX5_COMMAND_STR_CASE(DESTROY_SRQ);
++	MLX5_COMMAND_STR_CASE(QUERY_SRQ);
++	MLX5_COMMAND_STR_CASE(ARM_RQ);
++	MLX5_COMMAND_STR_CASE(CREATE_XRC_SRQ);
++	MLX5_COMMAND_STR_CASE(DESTROY_XRC_SRQ);
++	MLX5_COMMAND_STR_CASE(QUERY_XRC_SRQ);
++	MLX5_COMMAND_STR_CASE(ARM_XRC_SRQ);
++	MLX5_COMMAND_STR_CASE(CREATE_DCT);
++	MLX5_COMMAND_STR_CASE(DESTROY_DCT);
++	MLX5_COMMAND_STR_CASE(DRAIN_DCT);
++	MLX5_COMMAND_STR_CASE(QUERY_DCT);
++	MLX5_COMMAND_STR_CASE(ARM_DCT_FOR_KEY_VIOLATION);
++	MLX5_COMMAND_STR_CASE(QUERY_VPORT_STATE);
++	MLX5_COMMAND_STR_CASE(MODIFY_VPORT_STATE);
++	MLX5_COMMAND_STR_CASE(QUERY_ESW_VPORT_CONTEXT);
++	MLX5_COMMAND_STR_CASE(MODIFY_ESW_VPORT_CONTEXT);
++	MLX5_COMMAND_STR_CASE(QUERY_NIC_VPORT_CONTEXT);
++	MLX5_COMMAND_STR_CASE(MODIFY_NIC_VPORT_CONTEXT);
++	MLX5_COMMAND_STR_CASE(QUERY_ROCE_ADDRESS);
++	MLX5_COMMAND_STR_CASE(SET_ROCE_ADDRESS);
++	MLX5_COMMAND_STR_CASE(QUERY_HCA_VPORT_CONTEXT);
++	MLX5_COMMAND_STR_CASE(MODIFY_HCA_VPORT_CONTEXT);
++	MLX5_COMMAND_STR_CASE(QUERY_HCA_VPORT_GID);
++	MLX5_COMMAND_STR_CASE(QUERY_HCA_VPORT_PKEY);
++	MLX5_COMMAND_STR_CASE(QUERY_VPORT_COUNTER);
++	MLX5_COMMAND_STR_CASE(ALLOC_Q_COUNTER);
++	MLX5_COMMAND_STR_CASE(DEALLOC_Q_COUNTER);
++	MLX5_COMMAND_STR_CASE(QUERY_Q_COUNTER);
++	MLX5_COMMAND_STR_CASE(ALLOC_PD);
++	MLX5_COMMAND_STR_CASE(DEALLOC_PD);
++	MLX5_COMMAND_STR_CASE(ALLOC_UAR);
++	MLX5_COMMAND_STR_CASE(DEALLOC_UAR);
++	MLX5_COMMAND_STR_CASE(CONFIG_INT_MODERATION);
++	MLX5_COMMAND_STR_CASE(ACCESS_REG);
++	MLX5_COMMAND_STR_CASE(ATTACH_TO_MCG);
++	MLX5_COMMAND_STR_CASE(DETTACH_FROM_MCG);
++	MLX5_COMMAND_STR_CASE(GET_DROPPED_PACKET_LOG);
++	MLX5_COMMAND_STR_CASE(MAD_IFC);
++	MLX5_COMMAND_STR_CASE(QUERY_MAD_DEMUX);
++	MLX5_COMMAND_STR_CASE(SET_MAD_DEMUX);
++	MLX5_COMMAND_STR_CASE(NOP);
++	MLX5_COMMAND_STR_CASE(ALLOC_XRCD);
++	MLX5_COMMAND_STR_CASE(DEALLOC_XRCD);
++	MLX5_COMMAND_STR_CASE(ALLOC_TRANSPORT_DOMAIN);
++	MLX5_COMMAND_STR_CASE(DEALLOC_TRANSPORT_DOMAIN);
++	MLX5_COMMAND_STR_CASE(QUERY_CONG_STATUS);
++	MLX5_COMMAND_STR_CASE(MODIFY_CONG_STATUS);
++	MLX5_COMMAND_STR_CASE(QUERY_CONG_PARAMS);
++	MLX5_COMMAND_STR_CASE(MODIFY_CONG_PARAMS);
++	MLX5_COMMAND_STR_CASE(QUERY_CONG_STATISTICS);
++	MLX5_COMMAND_STR_CASE(ADD_VXLAN_UDP_DPORT);
++	MLX5_COMMAND_STR_CASE(DELETE_VXLAN_UDP_DPORT);
++	MLX5_COMMAND_STR_CASE(SET_L2_TABLE_ENTRY);
++	MLX5_COMMAND_STR_CASE(QUERY_L2_TABLE_ENTRY);
++	MLX5_COMMAND_STR_CASE(DELETE_L2_TABLE_ENTRY);
++	MLX5_COMMAND_STR_CASE(SET_WOL_ROL);
++	MLX5_COMMAND_STR_CASE(QUERY_WOL_ROL);
++	MLX5_COMMAND_STR_CASE(CREATE_TIR);
++	MLX5_COMMAND_STR_CASE(MODIFY_TIR);
++	MLX5_COMMAND_STR_CASE(DESTROY_TIR);
++	MLX5_COMMAND_STR_CASE(QUERY_TIR);
++	MLX5_COMMAND_STR_CASE(CREATE_SQ);
++	MLX5_COMMAND_STR_CASE(MODIFY_SQ);
++	MLX5_COMMAND_STR_CASE(DESTROY_SQ);
++	MLX5_COMMAND_STR_CASE(QUERY_SQ);
++	MLX5_COMMAND_STR_CASE(CREATE_RQ);
++	MLX5_COMMAND_STR_CASE(MODIFY_RQ);
++	MLX5_COMMAND_STR_CASE(DESTROY_RQ);
++	MLX5_COMMAND_STR_CASE(QUERY_RQ);
++	MLX5_COMMAND_STR_CASE(CREATE_RMP);
++	MLX5_COMMAND_STR_CASE(MODIFY_RMP);
++	MLX5_COMMAND_STR_CASE(DESTROY_RMP);
++	MLX5_COMMAND_STR_CASE(QUERY_RMP);
++	MLX5_COMMAND_STR_CASE(CREATE_TIS);
++	MLX5_COMMAND_STR_CASE(MODIFY_TIS);
++	MLX5_COMMAND_STR_CASE(DESTROY_TIS);
++	MLX5_COMMAND_STR_CASE(QUERY_TIS);
++	MLX5_COMMAND_STR_CASE(CREATE_RQT);
++	MLX5_COMMAND_STR_CASE(MODIFY_RQT);
++	MLX5_COMMAND_STR_CASE(DESTROY_RQT);
++	MLX5_COMMAND_STR_CASE(QUERY_RQT);
++	MLX5_COMMAND_STR_CASE(SET_FLOW_TABLE_ROOT);
++	MLX5_COMMAND_STR_CASE(CREATE_FLOW_TABLE);
++	MLX5_COMMAND_STR_CASE(DESTROY_FLOW_TABLE);
++	MLX5_COMMAND_STR_CASE(QUERY_FLOW_TABLE);
++	MLX5_COMMAND_STR_CASE(CREATE_FLOW_GROUP);
++	MLX5_COMMAND_STR_CASE(DESTROY_FLOW_GROUP);
++	MLX5_COMMAND_STR_CASE(QUERY_FLOW_GROUP);
++	MLX5_COMMAND_STR_CASE(SET_FLOW_TABLE_ENTRY);
++	MLX5_COMMAND_STR_CASE(QUERY_FLOW_TABLE_ENTRY);
++	MLX5_COMMAND_STR_CASE(DELETE_FLOW_TABLE_ENTRY);
+ 	default: return "unknown command opcode";
+ 	}
+ }
 -- 
 2.8.0
