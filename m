@@ -1,47 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v3] udp: Resolve NULL pointer dereference over
- flow-based vxlan device
-Date: Thu, 12 May 2016 21:43:33 -0700
-Message-ID: <1463114613.23934.180.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160512022306.3691.40769.stgit@localhost.localdomain>
-	 <20160512232203.12606.41050.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	alexander.duyck@gmail.com, tgraf@suug.ch, tom@herbertland.com,
-	jbenc@redhat.com
-To: Alexander Duyck <aduyck@mirantis.com>
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net-next] sock: ignore TIMESTAMP, RXQ_OVFL, WIFI_STATUS in sock_cmsg_send
+Date: Fri, 13 May 2016 00:47:10 -0400
+Message-ID: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
+Cc: edumazet@google.com, maze@google.com, willemb@google.com,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36060 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbcEMEng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 00:43:36 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g132so8336361pfb.3
-        for <netdev@vger.kernel.org>; Thu, 12 May 2016 21:43:35 -0700 (PDT)
-In-Reply-To: <20160512232203.12606.41050.stgit@localhost.localdomain>
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:35630 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbcEMErX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 00:47:23 -0400
+Received: by mail-qg0-f65.google.com with SMTP id b14so6422599qge.2
+        for <netdev@vger.kernel.org>; Thu, 12 May 2016 21:47:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-05-12 at 16:23 -0700, Alexander Duyck wrote:
-> While testing an OpenStack configuration using VXLANs I saw the following
-> call trace:
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-> The following trace is seen when receiving a DHCP request over a flow-based
-> VXLAN tunnel.  I believe this is caused by the metadata dst having a NULL
-> dev value and as a result dev_net(dev) is causing a NULL pointer dereference.
-> 
-> To resolve this I am replacing the check for skb_dst(skb)->dev with just
-> skb->dev.  This makes sense as the callers of this function are usually in
-> the receive path and as such skb->dev should always be populated.  In
-> addition other functions in the area where these are called are already
-> using dev_net(skb->dev) to determine the namespace the UDP packet belongs
-> in.
-> 
-> Fixes: 63058308cd55 ("udp: Add udp6_lib_lookup_skb and udp4_lib_lookup_skb")
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> ---
+SO_TIMESTAMP(NS), RXQ_OVFL, and WIFI_STATUS can be returned as
+receive-side control messages from recvmsg(). Although invalid,
+some applications may reflect those receive-side control messages
+back to sendmsg(). Since socket-level control messages were being
+ignored in ipv4 and ipv6, such applications would not get an error.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+24025c4 (ipv4: process socket-level control messages in IPv4) and
+ad1e46 (ipv6: process socket-level control messages in IPv6) add
+support for socket-level control messages in ipv4 and ipv6 on
+sendmsg(). This results in getting -EINVAL, if the application
+passes in a message with SO_WIFI_STATUS, SO_RXQ_OVFL, SO_TIMESTAMP
+and/or SO_TIMESTAMPNS that might have been received in recvmsg().
 
-Thanks ;)
+Ignore SO_WIFI_STATUS, SO_TIMESTAMP(NS), and SO_RXQ_OVFL when
+processing socket-level control messages in send-side to remain
+backward compatible.
+---
+ net/core/sock.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 08bf97e..1e0bcd0 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1938,6 +1938,12 @@ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+ 		sockc->tsflags &= ~SOF_TIMESTAMPING_TX_RECORD_MASK;
+ 		sockc->tsflags |= tsflags;
+ 		break;
++	/* Ignore the following types on send to remain backward compatible. */
++	case SO_RXQ_OVFL:	/* Fall through */
++	case SO_TIMESTAMP:	/* Fall through */
++	case SO_TIMESTAMPNS:	/* Fall through */
++	case SO_WIFI_STATUS:
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+-- 
+2.8.0.rc3.226.g39d4020
