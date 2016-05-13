@@ -1,95 +1,202 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
-Date: Fri, 13 May 2016 10:03:42 -0700
-Message-ID: <CANn89iLxx-K6XDgU=c+6S1ExtSoCqQyG+7XjzJW+xoL3ACJYuQ@mail.gmail.com>
-References: <cover.1462886866.git.pabeni@redhat.com>
-	<1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
-	<90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
-	<CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
-	<94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
-	<1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160511065527.GD3193@twins.programming.kicks-ass.net>
-	<1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1463158203.11721.25.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463158203.11721.25.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 08/10] bpf, x86: add support for constant blinding
+Date: Fri, 13 May 2016 19:08:33 +0200
+Message-ID: <3dd23ead374c4f5ca5cfa6dfd6902538144b8df9.1463158442.git.daniel@iogearbox.net>
+References: <cover.1463158442.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
+	zlim.lnx@gmail.com, yang.shi@linaro.org,
+	holzheu@linux.vnet.ibm.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:41898 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753129AbcEMRJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 13:09:04 -0400
+In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
+References: <cover.1463158442.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 13, 2016 at 9:50 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+This patch adds recently added constant blinding helpers into the
+x86 eBPF JIT. In the bpf_int_jit_compile() path, requirements are
+to utilize bpf_jit_blind_constants()/bpf_jit_prog_release_other()
+pair for rewriting the program into a blinded one, and to map the
+BPF_REG_AX register to a CPU register. The mapping of BPF_REG_AX
+is at non-callee saved register r10, and thus shared with cached
+skb->data used for ld_abs/ind and not in every program type needed.
+When blinding is not used, there's zero additional overhead in the
+generated image.
 
->> Indeed, and the patch looks quite simple now ;)
->>
->> diff --git a/kernel/softirq.c b/kernel/softirq.c
->> index 17caf4b63342d7839528f367b283a386413b0362..23c364485d03618773c385d943c0ef39f5931d09 100644
->> --- a/kernel/softirq.c
->> +++ b/kernel/softirq.c
->> @@ -57,6 +57,11 @@ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp
->>
->>  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
->>
->> +static inline bool ksoftirqd_running(void)
->> +{
->> +     return __this_cpu_read(ksoftirqd)->state == TASK_RUNNING;
->> +}
->> +
->>  const char * const softirq_to_name[NR_SOFTIRQS] = {
->>       "HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
->>       "TASKLET", "SCHED", "HRTIMER", "RCU"
->> @@ -313,7 +318,7 @@ asmlinkage __visible void do_softirq(void)
->>
->>       pending = local_softirq_pending();
->>
->> -     if (pending)
->> +     if (pending && !ksoftirqd_running())
->>               do_softirq_own_stack();
->>
->>       local_irq_restore(flags);
->> @@ -340,6 +345,9 @@ void irq_enter(void)
->>
->>  static inline void invoke_softirq(void)
->>  {
->> +     if (ksoftirqd_running())
->> +             return;
->> +
->>       if (!force_irqthreads) {
->>  #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
->>               /*
->
-> In this version of the path, the chunk affecting __local_bh_enable_ip()
-> has been removed.
->
-> I think it is beneficial, because it allows avoiding a
-> local_irq_save()/local_irq_restore() pairs per local_bh_enable under heavy load.
->
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ arch/x86/net/bpf_jit_comp.c | 66 ++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 53 insertions(+), 13 deletions(-)
 
-Interesting, do you have any numbers ?
-
-I believe I did this so that we factorize the logic in do_softirq()
-and keep the code local to kernel/softirq.c
-
-Otherwise, netif_rx_ni() could also process softirq while ksoftirqd
-was scheduled,
-so I would have to  'export' the ksoftirqd_running(void) helper in an
-include file.
-
-I noticed that simply doing a "ping -n gateway" while the UDP flood
-was occurring, my udp receiver had quite a different efficiency.
-
-Thanks.
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 6b2d23e..fe04a04 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -110,11 +110,16 @@ static void bpf_flush_icache(void *start, void *end)
+ 	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
+ 
+ /* pick a register outside of BPF range for JIT internal work */
+-#define AUX_REG (MAX_BPF_REG + 1)
++#define AUX_REG (MAX_BPF_JIT_REG + 1)
+ 
+-/* the following table maps BPF registers to x64 registers.
+- * x64 register r12 is unused, since if used as base address register
+- * in load/store instructions, it always needs an extra byte of encoding
++/* The following table maps BPF registers to x64 registers.
++ *
++ * x64 register r12 is unused, since if used as base address
++ * register in load/store instructions, it always needs an
++ * extra byte of encoding and is callee saved.
++ *
++ *  r9 caches skb->len - skb->data_len
++ * r10 caches skb->data, and used for blinding (if enabled)
+  */
+ static const int reg2hex[] = {
+ 	[BPF_REG_0] = 0,  /* rax */
+@@ -128,6 +133,7 @@ static const int reg2hex[] = {
+ 	[BPF_REG_8] = 6,  /* r14 callee saved */
+ 	[BPF_REG_9] = 7,  /* r15 callee saved */
+ 	[BPF_REG_FP] = 5, /* rbp readonly */
++	[BPF_REG_AX] = 2, /* r10 temp register */
+ 	[AUX_REG] = 3,    /* r11 temp register */
+ };
+ 
+@@ -141,7 +147,8 @@ static bool is_ereg(u32 reg)
+ 			     BIT(AUX_REG) |
+ 			     BIT(BPF_REG_7) |
+ 			     BIT(BPF_REG_8) |
+-			     BIT(BPF_REG_9));
++			     BIT(BPF_REG_9) |
++			     BIT(BPF_REG_AX));
+ }
+ 
+ /* add modifiers if 'reg' maps to x64 registers r8..r15 */
+@@ -182,6 +189,7 @@ static void jit_fill_hole(void *area, unsigned int size)
+ struct jit_context {
+ 	int cleanup_addr; /* epilogue code offset */
+ 	bool seen_ld_abs;
++	bool seen_ax_reg;
+ };
+ 
+ /* maximum number of bytes emitted while JITing one eBPF insn */
+@@ -345,6 +353,7 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 	struct bpf_insn *insn = bpf_prog->insnsi;
+ 	int insn_cnt = bpf_prog->len;
+ 	bool seen_ld_abs = ctx->seen_ld_abs | (oldproglen == 0);
++	bool seen_ax_reg = ctx->seen_ax_reg | (oldproglen == 0);
+ 	bool seen_exit = false;
+ 	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
+ 	int i, cnt = 0;
+@@ -367,6 +376,9 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 		int ilen;
+ 		u8 *func;
+ 
++		if (dst_reg == BPF_REG_AX || src_reg == BPF_REG_AX)
++			ctx->seen_ax_reg = seen_ax_reg = true;
++
+ 		switch (insn->code) {
+ 			/* ALU */
+ 		case BPF_ALU | BPF_ADD | BPF_X:
+@@ -1002,6 +1014,10 @@ common_load:
+ 			 * sk_load_* helpers also use %r10 and %r9d.
+ 			 * See bpf_jit.S
+ 			 */
++			if (seen_ax_reg)
++				/* r10 = skb->data, mov %r10, off32(%rbx) */
++				EMIT3_off32(0x4c, 0x8b, 0x93,
++					    offsetof(struct sk_buff, data));
+ 			EMIT1_off32(0xE8, jmp_offset); /* call */
+ 			break;
+ 
+@@ -1076,19 +1092,34 @@ void bpf_jit_compile(struct bpf_prog *prog)
+ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+ {
+ 	struct bpf_binary_header *header = NULL;
++	struct bpf_prog *tmp, *orig_prog = prog;
+ 	int proglen, oldproglen = 0;
+ 	struct jit_context ctx = {};
++	bool tmp_blinded = false;
+ 	u8 *image = NULL;
+ 	int *addrs;
+ 	int pass;
+ 	int i;
+ 
+ 	if (!bpf_jit_enable)
+-		return prog;
++		return orig_prog;
++
++	tmp = bpf_jit_blind_constants(prog);
++	/* If blinding was requested and we failed during blinding,
++	 * we must fall back to the interpreter.
++	 */
++	if (IS_ERR(tmp))
++		return orig_prog;
++	if (tmp != prog) {
++		tmp_blinded = true;
++		prog = tmp;
++	}
+ 
+ 	addrs = kmalloc(prog->len * sizeof(*addrs), GFP_KERNEL);
+-	if (!addrs)
+-		return prog;
++	if (!addrs) {
++		prog = orig_prog;
++		goto out;
++	}
+ 
+ 	/* Before first pass, make a rough estimation of addrs[]
+ 	 * each bpf instruction is translated to less than 64 bytes
+@@ -1110,21 +1141,25 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+ 			image = NULL;
+ 			if (header)
+ 				bpf_jit_binary_free(header);
+-			goto out;
++			prog = orig_prog;
++			goto out_addrs;
+ 		}
+ 		if (image) {
+ 			if (proglen != oldproglen) {
+ 				pr_err("bpf_jit: proglen=%d != oldproglen=%d\n",
+ 				       proglen, oldproglen);
+-				goto out;
++				prog = orig_prog;
++				goto out_addrs;
+ 			}
+ 			break;
+ 		}
+ 		if (proglen == oldproglen) {
+ 			header = bpf_jit_binary_alloc(proglen, &image,
+ 						      1, jit_fill_hole);
+-			if (!header)
+-				goto out;
++			if (!header) {
++				prog = orig_prog;
++				goto out_addrs;
++			}
+ 		}
+ 		oldproglen = proglen;
+ 	}
+@@ -1138,8 +1173,13 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+ 		prog->bpf_func = (void *)image;
+ 		prog->jited = 1;
+ 	}
+-out:
++
++out_addrs:
+ 	kfree(addrs);
++out:
++	if (tmp_blinded)
++		bpf_jit_prog_release_other(prog, prog == orig_prog ?
++					   tmp : orig_prog);
+ 	return prog;
+ }
+ 
+-- 
+1.9.3
