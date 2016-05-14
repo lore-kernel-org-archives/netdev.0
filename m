@@ -1,67 +1,41 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
-Date: Sat, 14 May 2016 08:20:35 +0530
-Message-ID: <CAFcVECJjHRYUmtN3Gha-zNz+4JvXRH-BY+eEumdboaREp1D4Ow@mail.gmail.com>
-References: <1463131568-36948-1-git-send-email-harinik@xilinx.com>
-	<1463131568-36948-2-git-send-email-harinik@xilinx.com>
-	<20160513174300.GB7600@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Harini Katakam <harini.katakam@xilinx.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	"michals@xilinx.com" <michals@xilinx.com>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH -next v2 0/4] net: w5100: collection of small changes
+Date: Sat, 14 May 2016 14:55:46 +0900
+Message-ID: <1463205350-7089-1-git-send-email-akinobu.mita@gmail.com>
+Cc: Akinobu Mita <akinobu.mita@gmail.com>,
+	Mike Sinkovsky <msink@permonline.ru>,
+	"David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:35786 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810AbcENCuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 22:50:37 -0400
-In-Reply-To: <20160513174300.GB7600@lunn.ch>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35359 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbcENF4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 01:56:30 -0400
+Received: by mail-pf0-f194.google.com with SMTP id b66so2926093pfb.2
+        for <netdev@vger.kernel.org>; Fri, 13 May 2016 22:56:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HI Andrew,
+This patch series is the collection of relatively small changes for
+w5100 driver which includes a cleanup with no functional change,
+two fixes, and adding a functionality.
 
-On Fri, May 13, 2016 at 11:13 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> Hi Harini
->
-> Is this backward compatible? Will devices using the old binding still
-> work?
+* Changes from v1
+- Remove the watchdong_timeo assignment to set default tx timeout,
+  suggested by David Miller.
 
-It isn't right now.
-I will have to assign the bus read/write functions conditionally in order to
-do that - I'll see if I can make it clean.
+Akinobu Mita (4):
+  net: w5100: remove unused is_w5200()
+  net: w5100: fix MAC filtering for W5500
+  net: w5100: increase TX timeout period
+  net: w5100-spi: add support to specify MAC address by device tree
 
->
->   /* Disable RX and TX (XXX: Should we halt the transmission
->    * more gracefully?)
->     */
-> -   macb_writel(bp, NCR, 0);
-> +   ctrl = macb_readl(bp, NCR);
-> +   ctrl &= ~(MACB_BIT(RE) | MACB_BIT(TE));
-> +   macb_writel(bp, NCR, ctrl);
->
->         /* Clear the stats registers (XXX: Update stats first?) */
-> -       macb_writel(bp, NCR, MACB_BIT(CLRSTAT));
-> +       ctrl |= MACB_BIT(CLRSTAT);
-> +       macb_writel(bp, NCR, ctrl);
->
->         /* Clear all status flags */
->         macb_writel(bp, TSR, -1);
->
-> It is not clear to me what this part has to do with MDIO.
->
+ drivers/net/ethernet/wiznet/w5100-spi.c |  4 +++-
+ drivers/net/ethernet/wiznet/w5100.c     | 28 ++++++++++++++++------------
+ drivers/net/ethernet/wiznet/w5100.h     |  3 ++-
+ 3 files changed, 21 insertions(+), 14 deletions(-)
 
-Sorry, I'll move this to a separate patch in my next version.
-It is intended to write those registers without disturbing reserved bits.
-
-Regards,
-Harini
+Cc: Mike Sinkovsky <msink@permonline.ru>
+Cc: David S. Miller <davem@davemloft.net>
+-- 
+2.7.4
