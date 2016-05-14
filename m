@@ -1,104 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: net/tipc: NULL-ptr dereference in tipc_nl_publ_dump
-Date: Sat, 14 May 2016 10:13:10 -0700
-Message-ID: <1463245990.18194.20.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <573742CF.3000703@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab name
+Date: Sat, 14 May 2016 11:24:08 -0700 (PDT)
+Message-ID: <alpine.LFD.2.20.1605141116100.24646@i7>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: Baozeng Ding <sploving1@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Willy Tarreau <w@1wt.eu>,
+	Network Development List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:33556 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752304AbcENRNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 13:13:23 -0400
-Received: by mail-pa0-f67.google.com with SMTP id gh9so10878812pac.0
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 10:13:23 -0700 (PDT)
-In-Reply-To: <573742CF.3000703@gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36196 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506AbcENSYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 14:24:10 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g132so11918695pfb.3
+        for <netdev@vger.kernel.org>; Sat, 14 May 2016 11:24:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-05-14 at 23:22 +0800, Baozeng Ding wrote:
-> Hello all,
-> The following program triggers NULL-ptr dereference in 
-> tipc_nl_publ_dump. The kernel version is 4.6.0-rc7+ (on May 13 commit
-> 1410b74e4061e05a5d2bffb1f99829efce27c8a9). Thanks.
-> ----------------------------------------------------------------------------------
-> netlink: 1 bytes leftover after parsing attributes in process 
-> `syz-executor'.
-> kasan: CONFIG_KASAN_INLINE enabled
-> kasan: GPF could be caused by NULL-ptr deref or user memory 
-> accessgeneral protection fault: 0000 [#1] SMP KASAN
-> Modules linked in:
-> CPU: 2 PID: 1346 Comm: syz-executor Not tainted 4.6.0-rc7+ #2
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 
-> Ubuntu-1.8.2-1ubuntu1 04/01/2014
-> task: ffff88001eb1dd40 ti: ffff88001bd98000 task.ti: ffff88001bd98000
-> RIP: 0010:[<ffffffff85940bb9>]  [<ffffffff85940bb9>] 
-> tipc_nl_publ_dump+0xa39/0xdf0
-> RSP: 0018:ffff88001bd9f428  EFLAGS: 00010246
-> RAX: dffffc0000000000 RBX: ffff88003562efc0 RCX: ffffc900012c7000
-> RDX: 0000000000000000 RSI: ffff880036215d98 RDI: ffff8800196fda98
-> RBP: ffff88001bd9f678 R08: 0000000000000001 R09: 0000000000000000
-> R10: ffffed00032dfb5a R11: 1ffffffff1131255 R12: 0000000000000000
-> R13: ffff88002d0f8040 R14: 0000000000000000 R15: ffff88002ea220a8
-> FS:  00007f0b7c70f700(0000) GS:ffff880036200000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020b5d7f2 CR3: 00000000301fe000 CR4: 00000000000006e0
-> Stack:
->   0000000000000000 ffff88002ea22100 ffff88002ea220f8 ffff88002ea220f0
->   000000001bd9f520 1ffff100037b3e92 ffff88002ea220b0 ffff88001bd9f498
->   ffffffff815bcc6e ffff880036223e40 ffff88002fd60008 0000000000000000
-> Call Trace:
->   [<ffffffff84b9d298>] genl_lock_dumpit+0x68/0x90 
-> net/netlink/genetlink.c:517
->   [<ffffffff84b9250a>] netlink_dump+0x36a/0xa40 
-> net/netlink/af_netlink.c:2108
->   [<ffffffff84b95349>] __netlink_dump_start+0x4e9/0x760 
-> net/netlink/af_netlink.c:2196
->   [<ffffffff84b9e5f1>] genl_family_rcv_msg+0xa91/0xc30 
-> net/netlink/genetlink.c:584
->   [<ffffffff84b9e93b>] genl_rcv_msg+0x1ab/0x260 net/netlink/genetlink.c:658
->   [<ffffffff84b9ca3c>] netlink_rcv_skb+0x29c/0x390 
-> net/netlink/af_netlink.c:2277
->   [<ffffffff84b9db48>] genl_rcv+0x28/0x40 net/netlink/genetlink.c:669
->   [<     inline     >] netlink_unicast_kernel net/netlink/af_netlink.c:1214
->   [<ffffffff84b9b352>] netlink_unicast+0x5a2/0x890 
-> net/netlink/af_netlink.c:1240
->   [<ffffffff84b9bfc1>] netlink_sendmsg+0x981/0xcb0 
-> net/netlink/af_netlink.c:1786
->   [<     inline     >] sock_sendmsg_nosec net/socket.c:612
->   [<ffffffff849ee09a>] sock_sendmsg+0xca/0x110 net/socket.c:622
->   [<ffffffff849efee8>] ___sys_sendmsg+0x728/0x860 net/socket.c:1946
->   [<ffffffff849f1ed1>] __sys_sendmsg+0xd1/0x170 net/socket.c:1980
->   [<     inline     >] SYSC_sendmsg net/socket.c:1991
->   [<ffffffff849f1f9d>] SyS_sendmsg+0x2d/0x50 net/socket.c:1987
->   [<ffffffff85b4b340>] entry_SYSCALL_64_fastpath+0x23/0xc1 
-> arch/x86/entry/entry_64.S:207
-> Code: df 49 8d 7e 10 48 89 fa 48 c1 ea 03 80 3c 02 00 0f 85 df 01 00 00 
-> 4d 8b 76 10 48 b8 00 00 00 00 00 fc ff df 4c 89 f2 48 c1 ea 03 <0f> b6 
-> 14 02 4c 89 f0 83 e0 07 83 c0 01 38 d0 7c 08 84 d2 0f 85
-> RIP  [<ffffffff85940bb9>] tipc_nl_publ_dump+0xa39/0xdf0 
-> net/tipc/socket.c:2810
->   RSP <ffff88001bd9f428>
-> ---[ end trace e8355fded2057a4f ]---
 
-Probable fix :
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 14 May 2016 11:11:44 -0700
+Subject: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab name
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 3eeb50a27b89..5f80d3fa9c85 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2807,6 +2807,9 @@ int tipc_nl_publ_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		if (err)
- 			return err;
+The slab name ends up being visible in the directory structure under
+/sys, and even if you don't have access rights to the file you can see
+the filenames.
+
+Just use a 64-bit counter instead of the pointer to the 'net' structure
+to generate a unique name.
+
+This code will go away in 4.7 when the conntrack code moves to a single
+kmemcache, but this is the backportable simple solution to avoiding
+leaking kernel pointers to user space.
+
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: stable@vger.kernel.org
+---
+
+This would seem to be the minimal patch.
+
+Eric - I marked you as "acking" this patch from the discussion. It's not 
+actually any of the exact patches that were flying around, but close 
+enough..
+
+It's been "tested" by booting and looking at the end result. Seems to 
+work, and it's not exactly complicated.
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 895d11dced3c..e27fd17c6743 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1778,6 +1778,7 @@ void nf_conntrack_init_end(void)
  
-+		if (!attrs[TIPC_NLA_SOCK])
-+			return -EINVAL;
-+
- 		err = nla_parse_nested(sock, TIPC_NLA_SOCK_MAX,
- 				       attrs[TIPC_NLA_SOCK],
- 				       tipc_nl_sock_policy);
+ int nf_conntrack_init_net(struct net *net)
+ {
++	static atomic64_t unique_id;
+ 	int ret = -ENOMEM;
+ 	int cpu;
+ 
+@@ -1800,7 +1801,8 @@ int nf_conntrack_init_net(struct net *net)
+ 	if (!net->ct.stat)
+ 		goto err_pcpu_lists;
+ 
+-	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
++	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%llu",
++				(u64)atomic64_inc_return(&unique_id));
+ 	if (!net->ct.slabname)
+ 		goto err_slabname;
+ 
