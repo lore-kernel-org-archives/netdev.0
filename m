@@ -1,84 +1,53 @@
-From: Marcin Szewczyk <Marcin.Szewczyk@wodny.org>
-Subject: No "unreachable" response for an outgoing TCP connection when using
- fwmark
-Date: Sat, 14 May 2016 02:13:41 +0200
-Message-ID: <20160514001341.GB3256@orkisz>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH nf V2] netfilter: fix oops in nfqueue during netns error unwinding
+Date: Fri, 13 May 2016 19:58:28 -0500
+Message-ID: <87k2ixo3pn.fsf@x220.int.ebiederm.org>
+References: <1462981273-21676-1-git-send-email-fw@strlen.de>
+	<20160512094725.GB1777@salvia> <87twi3qmlf.fsf@x220.int.ebiederm.org>
+	<20160512164000.GA9815@breakpoint.cc>
+	<87a8jtrbk3.fsf@x220.int.ebiederm.org>
+	<20160513200442.GA29941@breakpoint.cc>
+	<87zirtofgp.fsf@x220.int.ebiederm.org>
+	<20160513212029.GC29941@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from n26.netmark.pl ([94.124.9.61]:36001 "EHLO n26.netmark.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751201AbcENBDI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2016 21:03:08 -0400
-Received: from 87-207-218-242.dynamic.chello.pl ([87.207.218.242]:43425 helo=orkisz)
-	by n26.netmark.pl with esmtpsa (TLSv1:DHE-RSA-AES256-SHA:256)
-	(Exim 4.87)
-	(envelope-from <Marcin.Szewczyk@wodny.org>)
-	id 1b1NDB-003EVE-J9
-	for netdev@vger.kernel.org; Sat, 14 May 2016 02:13:48 +0200
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, dale.4d@gmail.com,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160513212029.GC29941@breakpoint.cc> (Florian Westphal's
+	message of "Fri, 13 May 2016 23:20:29 +0200")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Florian Westphal <fw@strlen.de> writes:
 
-I hope this is the right group even though it concerns mainly
-development but I have not found a better one.
+> Eric W. Biederman <ebiederm@xmission.com> wrote:
+>> Florian could you test and verify this patch fixes your issues?
+>
+> Yes, this seems to work.
+>
+> Pablo, I'm fine with this patch going into -nf/stable but I do not think
+> making the pointers per netns is a desireable option in the long term.
+>
+>> Unlike the other possibilities that have been discussed this also
+>> addresses the nf_queue path as well as the nf_queue_hook_drop path.
+>
+> The nf_queue path should have been fine, no?
+>
+> Or putting it differently: can we start processing skbs before a netns
+> is fully initialized?
 
-I would like to route locally-generated traffic:
-- to a TCP port "A" of host "H" via the interface "A",
-- to a TCP port "B" of host "H" via the interface "B".
+The practical case that worries me is what happens when someone does
+"rmmod nfnetlink_queue" while the system is running.  It appears to me
+that today we could free the per netns data during the rcu grace period
+and cause a similar issue in nfnl_queue_pernet.
 
-Interface "B" is sometimes unavailable. Then I would like the kernel to
-notify the user with "Network is unreachable" error if one tries to
-connect to the TCP port "B".
+That looks like it could affect both the nf_queue path and the
+nf_queue_nf_hook_drop path.
 
-I have tried the following settings (when the interface "B" is down):
+Eric
 
-# iptables -t mangle -nvL OUTPUT
-Chain OUTPUT (policy ACCEPT 2 packets, 120 bytes)
- pkts bytes target     prot opt in     out     source               destination         
-    2   120 MARK       all  --  *      *       0.0.0.0/0            host-H-ip         MARK set 0x64
-(for simplicity the rule does not include ports yet)
 
-# ip rule
-0:      from all lookup local 
-32765:  from all fwmark 0x64 lookup 200 
-32766:  from all lookup main 
-32767:  from all lookup default
 
-# ip route show table 200
-prohibit default
-
-There are no surprises when the interface "B" is available and the 200
-table contains a regular routing rule.
-
-But when the interface "B" is not available I get satisfactory results
-only for ICMP and UDP:
-
-$ ping host-H-ip
-PING host-H-ip (host-H-ip) 56(84) bytes of data.
-ping: sendmsg: Network is unreachable
-
-$ nc -nuv host-H-ip 5000
-(UNKNOWN) [host-H-ip] 5000 (?) open
-foo
-too many output retries : Network is unreachable
-
-For TCP it just hangs:
-$ nc -nv host-H-ip 5000
-
-I have found some threads that seem to be connected with the topic:
-http://marc.info/?l=linux-netdev&m=136633466813095&w=2
-http://www.spinics.net/lists/netdev/msg281954.html
-http://netfilter-devel.vger.kernel.narkive.com/8ggjpr4G/netfilter-core-mangle-table-rules-are-not-taken-into-account-in-preliminary-routing-decision
-
-Unfortunately, I still do not understand why I do not get "Network is
-unreachable" for TCP as well. Could anybody explain it to me?
-
-Best regards,
-
--- 
-Marcin Szewczyk
-http://wodny.org
