@@ -1,69 +1,64 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH -next v2 2/4] net: w5100: fix MAC filtering for W5500
-Date: Sat, 14 May 2016 14:55:48 +0900
-Message-ID: <1463205350-7089-3-git-send-email-akinobu.mita@gmail.com>
-References: <1463205350-7089-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	Mike Sinkovsky <msink@permonline.ru>,
-	"David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware time
+ stamping?
+Date: Sat, 14 May 2016 09:30:03 +0200
+Message-ID: <20160514073002.GA2053@netboy>
+References: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>
+To: Guy Harris <guy@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34989 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735AbcENF4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 01:56:37 -0400
-Received: by mail-pa0-f68.google.com with SMTP id zy2so11786826pac.2
-        for <netdev@vger.kernel.org>; Fri, 13 May 2016 22:56:36 -0700 (PDT)
-In-Reply-To: <1463205350-7089-1-git-send-email-akinobu.mita@gmail.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:35223 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146AbcENHaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 03:30:09 -0400
+Received: by mail-wm0-f52.google.com with SMTP id e201so45645727wme.0
+        for <netdev@vger.kernel.org>; Sat, 14 May 2016 00:30:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W5500 has different bit position for MAC filter in Socket n mode
-register from W5100 and W5200.
+On Fri, May 13, 2016 at 04:12:52PM -0700, Guy Harris wrote:
+> The Linux implementation currently implements the inquiry by doing a
+> ETHTOOL_GET_TS_INFO SIOETHTOOL ioctl and looking at the
+> so_timestamping bits, if the linux/ethtool.h header defines
+> ETHTOOL_GET_TS_INFO and the ioctl succeeds on the device.
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: Mike Sinkovsky <msink@permonline.ru>
-Cc: David S. Miller <davem@davemloft.net>
----
-* No changes from v1
+So far, so good. 
 
- drivers/net/ethernet/wiznet/w5100.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+> This is inadequate - as libpcap requests hardware time stamping for
+> all packets, it should also check whether HWTSTAMP_FILTER_ALL is set
+> in rx_filters, and only offer hardware time stamping if it's set.
 
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 56ceed9..c80438c 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -63,8 +63,9 @@ MODULE_LICENSE("GPL");
- #define S0_REGS(priv)		((priv)->s0_regs)
- 
- #define W5100_S0_MR(priv)	(S0_REGS(priv) + W5100_Sn_MR)
--#define   S0_MR_MACRAW		  0x04 /* MAC RAW mode (promiscuous) */
--#define   S0_MR_MACRAW_MF	  0x44 /* MAC RAW mode (filtered) */
-+#define   S0_MR_MACRAW		  0x04 /* MAC RAW mode */
-+#define   S0_MR_MF		  0x40 /* MAC Filter for W5100 and W5200 */
-+#define   W5500_S0_MR_MF	  0x80 /* MAC Filter for W5500 */
- #define W5100_S0_CR(priv)	(S0_REGS(priv) + W5100_Sn_CR)
- #define   S0_CR_OPEN		  0x01 /* OPEN command */
- #define   S0_CR_CLOSE		  0x10 /* CLOSE command */
-@@ -702,8 +703,16 @@ static int w5100_hw_reset(struct w5100_priv *priv)
- 
- static void w5100_hw_start(struct w5100_priv *priv)
- {
--	w5100_write(priv, W5100_S0_MR(priv), priv->promisc ?
--			  S0_MR_MACRAW : S0_MR_MACRAW_MF);
-+	u8 mode = S0_MR_MACRAW;
-+
-+	if (!priv->promisc) {
-+		if (priv->ops->chip_id == W5500)
-+			mode |= W5500_S0_MR_MF;
-+		else
-+			mode |= S0_MR_MF;
-+	}
-+
-+	w5100_write(priv, W5100_S0_MR(priv), mode);
- 	w5100_command(priv, S0_CR_OPEN);
- 	w5100_enable_intr(priv);
- }
--- 
-2.7.4
+The SO_TIMESTAMPING and SIOCSHWTSTAMP interfaces predate
+ETHTOOL_GET_TS_INFO, and they work fine without it.  Applications
+should simply use SIOCSHWTSTAMP to request the mode that they need and
+check the result.
+
+That said, the information in ETHTOOL_GET_TS_INFO should be correct.
+
+> Is it the case that only the ixgbe_mac_X550 and ixgbe_mac_X550EM_x
+> controllers support HWTSTAMP_FILTER_ALL?  
+
+Looks like it.
+
+> If so, shouldn't ixgbe_get_ts_info() be doing something such as:
+
+> 		if (adapter->hw.mac.type >= ixgbe_mac_X550)
+> 			info->rx_filters |= (1 << HWTSTAMP_FILTER_ALL);
+
+Yes, probably.
+
+> From a quick scan of drivers/net, it looks as if
+> 
+> 	drivers/net/ethernet/cavium/liquidio
+> 
+> also support HWTSTAMP_FILTER_ALL but don't advertise it, 
+
+For this and the other drivers you mentioned, their maintainers might
+appreciate patches...
+
+Thanks,
+Richard
