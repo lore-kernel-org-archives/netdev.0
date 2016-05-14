@@ -1,46 +1,45 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab name
-Date: Sat, 14 May 2016 14:31:04 -0700
-Message-ID: <CA+55aFx_PuzNC0riLEN7PUpVnvQg374ZqCYBV-Uw6Be-OA=DwQ@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab
+ name
+Date: Sat, 14 May 2016 23:33:22 +0200
+Message-ID: <20160514213322.GD9763@1wt.eu>
 References: <alpine.LFD.2.20.1605141116100.24646@i7>
+ <CA+55aFx_PuzNC0riLEN7PUpVnvQg374ZqCYBV-Uw6Be-OA=DwQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Willy Tarreau <w@1wt.eu>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	Network Development List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36567 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754038AbcENVbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 17:31:05 -0400
-Received: by mail-io0-f193.google.com with SMTP id k129so19935193iof.3
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 14:31:04 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.20.1605141116100.24646@i7>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:28632 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753913AbcENVd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 May 2016 17:33:29 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+55aFx_PuzNC0riLEN7PUpVnvQg374ZqCYBV-Uw6Be-OA=DwQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 14, 2016 at 11:24 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
->
-> -       net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
-> +       net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%llu",
-> +                               (u64)atomic64_inc_return(&unique_id));
+On Sat, May 14, 2016 at 02:31:04PM -0700, Linus Torvalds wrote:
+> On Sat, May 14, 2016 at 11:24 AM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+> >
+> >
+> > -       net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
+> > +       net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%llu",
+> > +                               (u64)atomic64_inc_return(&unique_id));
+> 
+> Oh well. I suspect this is going to cause a new warning on alpha and
+> ia64 and possibly others.
+> 
+> "u64" is indeed "unsigned long long" on x86 and many other
+> architectures, but on alpga and ia64 it's just "unsigned long".
+> 
+> So that case should have been to "long long". I detest how there isn't
+> a "64-bit size" printf specifier.
 
-Oh well. I suspect this is going to cause a new warning on alpha and
-ia64 and possibly others.
+Why simply not cast the atomic to (unsigned long long) instead of (u64)
+so that %llu always matches ?
 
-"u64" is indeed "unsigned long long" on x86 and many other
-architectures, but on alpga and ia64 it's just "unsigned long".
-
-So that case should have been to "long long". I detest how there isn't
-a "64-bit size" printf specifier.
-
-And no, PRId64 preprocessor garbage and similar disgusting hacks by
-POSIX isn't the answer. I think MSC actually got that right with
-"%I64d".
-
-Oh well. It's a fairly harmless compiler warning, it isn't a code
-correctness issue.
-
-               Linus
+Willy
