@@ -1,37 +1,68 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: switchdev: Drop EXPERIMENTAL from description
-Date: Sat, 14 May 2016 12:49:54 -0700
-Message-ID: <1463255394-15299-1-git-send-email-f.fainelli@gmail.com>
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Sat, 14 May 2016 21:50:16 +0200
+Message-ID: <20160514195016.GC26220@lunn.ch>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+ <20160512184233.GJ30822@pengutronix.de>
+ <5735995B.8030802@ti.com>
+ <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
+ <20160513204436.GC7600@lunn.ch>
+ <1a44a737-2b81-625b-8edf-d1c3dfcdd619@cogentembedded.com>
+ <20160513234410.GE7600@lunn.ch>
+ <cc232c9e-ef25-482d-0978-cbdfe03bad22@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Roger Quadros <rogerq@ti.com>,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, grant.likely@linaro.org,
+	robh+dt@kernel.org, devicetree@vger.kernel.org,
+	f.fainelli@gmail.com, netdev@vger.kernel.org,
+	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	linux-kernel@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cc232c9e-ef25-482d-0978-cbdfe03bad22@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switchdev has been around for quite a while now, putting "EXPERIMENTAL"
-in the description is no longer accurate, drop it.
+On Sat, May 14, 2016 at 10:36:38PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 05/14/2016 02:44 AM, Andrew Lunn wrote:
+> 
+> >>>>>Another issue is that on some boards we have one reset line tied to
+> >>>>>multiple PHYs.How do we prevent multiple resets being taking place when each of
+> >>>>>the PHYs are registered?
+> >>>>
+> >>>>  My patch just doesn't address this case -- it's about the
+> >>>>individual resets only.
+> >>>
+> >>>This actually needs to be addresses a layer above. What you have is a
+> >>>bus reset, not a device reset.
+> >>
+> >>   No.
+> >>   There's simply no such thing as a bus reset for the xMII/MDIO
+> >>busses, there's simply no reset signaling on them. Every device has
+> >>its own reset signal and its own timing requirements.
+> >
+> >Except in the case above, where two phys are sharing the same reset
+> >signal. So although it is not part of the mdio standard to have a bus
+> >reset, this is in effect what the gpio line is doing, resetting all
+> >devices on the bus. If you don't model that as a bus reset, how do you
+> >model it?
+> 
+>    I'm not suggesting that the shared reset should be handled by my
+> patch. Contrariwise, I suggested to use the mii_bus::reset() method
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/switchdev/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I think we miss understood each other somewhere.
 
-diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
-index 86a47e1..651fa20 100644
---- a/net/switchdev/Kconfig
-+++ b/net/switchdev/Kconfig
-@@ -3,7 +3,7 @@
- #
- 
- config NET_SWITCHDEV
--	bool "Switch (and switch-ish) device support (EXPERIMENTAL)"
-+	bool "Switch (and switch-ish) device support"
- 	depends on INET
- 	---help---
- 	  This module provides glue between core networking code and device
--- 
-2.7.4
+Your code is great for one gpio reset line for one phy.
+
+I think there could be similar code one layer above to handle one gpio
+line for multiple phys.
+
+     Andrew
