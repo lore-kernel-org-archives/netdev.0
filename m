@@ -1,79 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab
- name
-Date: Sat, 14 May 2016 11:46:06 -0700
-Message-ID: <1463251566.18194.31.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <alpine.LFD.2.20.1605141116100.24646@i7>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/4] netdevice: add SW statistics ndo
+Date: Sat, 14 May 2016 20:46:29 +0200
+Message-ID: <20160514184629.GA2176@nanopsycho.orion>
+References: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
+ <1463053730-14991-2-git-send-email-jiri@resnulli.us>
+ <5734F130.3050303@cumulusnetworks.com>
+ <20160513060348.GA2060@nanopsycho.orion>
+ <57362154.8040500@cumulusnetworks.com>
+ <20160514124917.GA1957@nanopsycho.orion>
+ <5737489D.4090800@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Willy Tarreau <w@1wt.eu>,
-	Network Development List <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35743 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370AbcENSqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 14:46:10 -0400
-Received: by mail-pa0-f66.google.com with SMTP id zy2so12957693pac.2
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 11:46:09 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.20.1605141116100.24646@i7>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35616 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908AbcENSqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 14:46:33 -0400
+Received: by mail-wm0-f68.google.com with SMTP id e201so9959528wme.2
+        for <netdev@vger.kernel.org>; Sat, 14 May 2016 11:46:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5737489D.4090800@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-05-14 at 11:24 -0700, Linus Torvalds wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Sat, 14 May 2016 11:11:44 -0700
-> Subject: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab name
-> 
-> The slab name ends up being visible in the directory structure under
-> /sys, and even if you don't have access rights to the file you can see
-> the filenames.
-> 
-> Just use a 64-bit counter instead of the pointer to the 'net' structure
-> to generate a unique name.
-> 
-> This code will go away in 4.7 when the conntrack code moves to a single
-> kmemcache, but this is the backportable simple solution to avoiding
-> leaking kernel pointers to user space.
-> 
-> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: stable@vger.kernel.org
-> ---
-> 
-> This would seem to be the minimal patch.
-> 
-> Eric - I marked you as "acking" this patch from the discussion. It's not 
-> actually any of the exact patches that were flying around, but close 
-> enough..
-> 
-> It's been "tested" by booting and looking at the end result. Seems to 
-> work, and it's not exactly complicated.
-> 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 895d11dced3c..e27fd17c6743 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1778,6 +1778,7 @@ void nf_conntrack_init_end(void)
->  
->  int nf_conntrack_init_net(struct net *net)
->  {
-> +	static atomic64_t unique_id;
->  	int ret = -ENOMEM;
->  	int cpu;
->  
-> @@ -1800,7 +1801,8 @@ int nf_conntrack_init_net(struct net *net)
->  	if (!net->ct.stat)
->  		goto err_pcpu_lists;
->  
-> -	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
-> +	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%llu",
-> +				(u64)atomic64_inc_return(&unique_id));
->  	if (!net->ct.slabname)
->  		goto err_slabname;
->  
+Sat, May 14, 2016 at 05:47:41PM CEST, roopa@cumulusnetworks.com wrote:
+>On 5/14/16, 5:49 AM, Jiri Pirko wrote:
+>> Fri, May 13, 2016 at 08:47:48PM CEST, roopa@cumulusnetworks.com wrote:
+>>> On 5/12/16, 11:03 PM, Jiri Pirko wrote:
+>>>> Thu, May 12, 2016 at 11:10:08PM CEST, roopa@cumulusnetworks.com wrote:
+>>>>> On 5/12/16, 4:48 AM, Jiri Pirko wrote:
+>>>>>> From: Nogah Frankel <nogahf@mellanox.com>
+>>>>>>
+>>>>>> Till now we had a ndo statistics function that returned SW statistics.
+>>>>>> We want to change the "basic" statistics to return HW statistics if
+>>>>>> available.
+>>>>>> In this case we need to expose a new ndo to return the SW statistics.
+>>>>>> Add a new ndo declaration to get SW statistics
+>>>>>> Add a function that gets SW statistics if a competible ndo exist
+>>>>>>
+>>>>>> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+>>>>>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+>>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>>> ---
+>>>>>>
+>>>>> To me netdev stats is  combined 'SW + HW' stats for that netdev.
+>>>>> ndo_get_stats64 callback into the drivers does the magic of adding HW stats
+>>>>> to SW (netdev) stats and returning (see enic_get_stats). HW stats is available for netdevs
+>>>>> that are offloaded or are backed by hardware. SW stats is the stats that the driver maintains
+>>>>> (logical or physical). HW stats is queried and added to the SW stats.
+>>>> I'm not sure I follow. HW stats already contain SW stats. Because on
+>>>> slow path every packet that is not offloaded and goes through kernel is
+>>>> counted into HW stats as well (because it goes through HW port). 
+>>> yes, correct... we don't want to double count those. But since these stats are
+>>> generally queried from hw, I am calling them HW stats.
+>>> you will not really maintain a software counter for this. But, the driver can maintain its own
+>>> counters for rx and tx errors etc and I call these SW stats. They are counted at the driver.
+>>>
+>>>> If you
+>>>> do HW stats + SW stats, what you get makes no sense. Am I missing something?
+>>> If you go by my definition of HW and SW stats above, on a ndo_get_stats64() call,
+>>> you will add the SW counters + HW counters and return. In my definition, the pkts
+>>> that was rx'ed or tx'ed successfully are always in the HW count.
+>>>
+>>>> Btw, looking at enic_get_stats, looks exactly what we introduce for
+>>>> mlxsw in this patchset.
+>>> In enic_get_stats, the ones counted in software are the ones taken from 'enic->'
+>>>     net_stats->rx_over_errors = enic->rq_truncated_pkts;
+>>>     net_stats->rx_crc_errors = enic->rq_bad_fcs;
+>>>
+>>>> With this patchset, we only allow user to se the actual stats for
+>>>> slow-path aka SW stats.
+>>> hmm...ok. But i am not sure how many will use this new attribute.
+>>> When you do 'ip -s link show' you really want all counters on that port
+>>> hardware or software does not matter at that point.
+>>>
+>>> My suggestion to move this to ethtool like attribute is because that is an existing
+>>> way to break down your stats which ever way you want. And the best part is it can be
+>>> customized (say rx_pkts_cpu_saw)
+>> I bevieve that ethtool is really not a place to expose sw stats. Does
+>> not make sense.
+>2 things:
+>- i was surprised you don't want your ndo_get_stats64 to be a unified view of HW and SW stats
 
-SGTM, thanks Linus.
+Roopa, please, look at the patch 4/4. That is exactly what we are doing.
+We expose HW stats via ndo_get_stats64 and that is of course including
+whatever comes through slowpath (non-forwarded in HW).
 
-Fixes: 5b3501faa874 ("netfilter: nf_conntrack: per netns nf_conntrack_cachep")
+
+>- by bringing up ethtool like stats (IFLA_STATS_LINK_HW_EXTENDED) I am just saying
+>it has always been a way to breakdown stats. If you don't want to show explicit SW stats there,
+>there is always a way to show HW only stats....and now you know the delta between the unified stats
+>and the HW only stats is your SW stats.
+
+I think we don/t understand each other. HW stats always include SW
+stats. Because whatever goes in or out goes through HW. Therefore, the
+"unified stats" you mention are exactly HW stats.
+
+This is fine, Patch 4/4 would do to make this correct. However, I think
+it has value for user to know what went via slowpath (non-forwarded in HW).
+And that is exacly exposed by the SW stats we try to add.
+
+Is that confusing?
