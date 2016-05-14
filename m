@@ -1,30 +1,67 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware time stamping?
-Date: Fri, 13 May 2016 19:23:36 -0700
-Message-ID: <076DDE1B-C6F3-43FD-94BE-1EAF15726383@alum.mit.edu>
-References: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: Network Development <netdev@vger.kernel.org>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
+Date: Sat, 14 May 2016 08:20:35 +0530
+Message-ID: <CAFcVECJjHRYUmtN3Gha-zNz+4JvXRH-BY+eEumdboaREp1D4Ow@mail.gmail.com>
+References: <1463131568-36948-1-git-send-email-harinik@xilinx.com>
+	<1463131568-36948-2-git-send-email-harinik@xilinx.com>
+	<20160513174300.GB7600@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Harini Katakam <harini.katakam@xilinx.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	"michals@xilinx.com" <michals@xilinx.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c.mail.sonic.net ([64.142.111.80]:39028 "EHLO c.mail.sonic.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753551AbcENCXj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 22:23:39 -0400
-Received: from [192.168.42.66] (173-228-4-107.dsl.dynamic.fusionbroadband.com [173.228.4.107])
-	(authenticated bits=0)
-	by c.mail.sonic.net (8.15.1/8.15.1) with ESMTPSA id u4E2Nal1030531
-	(version=TLSv1 cipher=DHE-RSA-AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 13 May 2016 19:23:37 -0700
-In-Reply-To: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:35786 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753810AbcENCuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 22:50:37 -0400
+In-Reply-To: <20160513174300.GB7600@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On May 13, 2016, at 4:12 PM, Guy Harris <guy@alum.mit.edu> wrote:
+HI Andrew,
 
-> 	drivers/net/ethernet/freescale/gianfar*.c
-> 
-> reports HWTSTAMP_FILTER_ALL even if the device doesn't have FSL_GIANFAR_DEV_HAS_TIMER set so that it claims that devices without a timer can do hardware timestamping,
+On Fri, May 13, 2016 at 11:13 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> Hi Harini
+>
+> Is this backward compatible? Will devices using the old binding still
+> work?
 
-Nope - I checked, and it doesn't claim to support any hardware timestamping at all if it doesn't have FSL_GIANFAR_DEV_HAS_TIMER set, so that *particular* driver is OK.
+It isn't right now.
+I will have to assign the bus read/write functions conditionally in order to
+do that - I'll see if I can make it clean.
+
+>
+>   /* Disable RX and TX (XXX: Should we halt the transmission
+>    * more gracefully?)
+>     */
+> -   macb_writel(bp, NCR, 0);
+> +   ctrl = macb_readl(bp, NCR);
+> +   ctrl &= ~(MACB_BIT(RE) | MACB_BIT(TE));
+> +   macb_writel(bp, NCR, ctrl);
+>
+>         /* Clear the stats registers (XXX: Update stats first?) */
+> -       macb_writel(bp, NCR, MACB_BIT(CLRSTAT));
+> +       ctrl |= MACB_BIT(CLRSTAT);
+> +       macb_writel(bp, NCR, ctrl);
+>
+>         /* Clear all status flags */
+>         macb_writel(bp, TSR, -1);
+>
+> It is not clear to me what this part has to do with MDIO.
+>
+
+Sorry, I'll move this to a separate patch in my next version.
+It is intended to write those registers without disturbing reserved bits.
+
+Regards,
+Harini
