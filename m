@@ -1,56 +1,91 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arm64: bpf: jit JMP_JSET_{X,K}
-Date: Sat, 14 May 2016 16:12:06 -0400 (EDT)
-Message-ID: <20160514.161206.373725987038622109.davem@davemloft.net>
-References: <1463121478-18484-1-git-send-email-zlim.lnx@gmail.com>
-	<20160513095718.GB13689@arm.com>
-	<20160513100307.GC13689@arm.com>
+Subject: [GIT] Networking
+Date: Sat, 14 May 2016 16:16:00 -0400 (EDT)
+Message-ID: <20160514.161600.885146107956523790.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zlim.lnx@gmail.com, ast@kernel.org, catalin.marinas@arm.com,
-	daniel@iogearbox.net, yang.shi@linaro.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: will.deacon@arm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49264 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753790AbcENUML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 16:12:11 -0400
-In-Reply-To: <20160513100307.GC13689@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Will Deacon <will.deacon@arm.com>
-Date: Fri, 13 May 2016 11:03:07 +0100
 
-> On Fri, May 13, 2016 at 10:57:18AM +0100, Will Deacon wrote:
->> On Thu, May 12, 2016 at 11:37:58PM -0700, Zi Shen Lim wrote:
->> > Original implementation commit e54bcde3d69d ("arm64: eBPF JIT compiler")
->> > had the relevant code paths, but due to an oversight always fail jiting.
->> > 
->> > As a result, we had been falling back to BPF interpreter whenever a BPF
->> > program has JMP_JSET_{X,K} instructions.
->> > 
->> > With this fix, we confirm that the corresponding tests in lib/test_bpf
->> > continue to pass, and also jited.
->> > 
->> > ...
->> > [    2.784553] test_bpf: #30 JSET jited:1 188 192 197 PASS
->> > [    2.791373] test_bpf: #31 tcpdump port 22 jited:1 325 677 625 PASS
->> > [    2.808800] test_bpf: #32 tcpdump complex jited:1 323 731 991 PASS
->> > ...
->> > [    3.190759] test_bpf: #237 JMP_JSET_K: if (0x3 & 0x2) return 1 jited:1 110 PASS
->> > [    3.192524] test_bpf: #238 JMP_JSET_K: if (0x3 & 0xffffffff) return 1 jited:1 98 PASS
->> > [    3.211014] test_bpf: #249 JMP_JSET_X: if (0x3 & 0x2) return 1 jited:1 120 PASS
->> > [    3.212973] test_bpf: #250 JMP_JSET_X: if (0x3 & 0xffffffff) return 1 jited:1 89 PASS
->> > ...
->> > 
->> > Fixes: e54bcde3d69d ("arm64: eBPF JIT compiler")
->> > Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
- ...
-> Acked-by: Will Deacon <will.deacon@arm.com>
-> 
-> I'm assuming David will queue this?
+1) Fix mvneta/bm dependencies, from Arnd Bergmann.
 
-Yep I got this, applied, thanks.
+2) RX completion hw bug workaround in bnxt_en, from Michael Chan.
+
+3) Kernel pointer leak in nf_conntrack, from Linus.
+
+4) Hoplimit route attribute limits not enforced properly, from
+   Paolo Abeni.
+
+5) qlcnic driver NULL deref fix from Dan Carpenter.
+
+Please pull, thanks a lot!
+
+The following changes since commit 685764b108a7e5fe9f5ee213d6a627c1166d7c88:
+
+  Merge tag 'scsi-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi (2016-05-11 13:17:12 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
+
+for you to fetch changes up to 98397fc547e3f4553553a30ea56fa34d613f0a4c:
+
+  arm64: bpf: jit JMP_JSET_{X,K} (2016-05-14 16:11:45 -0400)
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      net: mvneta: bm: fix dependencies again
+
+Dan Carpenter (1):
+      qlcnic: potential NULL dereference in qlcnic_83xx_get_minidump_template()
+
+David S. Miller (2):
+      Merge branch 'bnxt_en-fixes'
+      Merge branch 'xgene-fixes'
+
+Iyappan Subramanian (5):
+      drivers: net: xgene: fix IPv4 forward crash
+      drivers: net: xgene: fix sharing of irqs
+      drivers: net: xgene: fix ununiform latency across queues
+      drivers: net: xgene: fix statistics counters race condition
+      drivers: net: xgene: fix register offset
+
+Linus Torvalds (1):
+      nf_conntrack: avoid kernel pointer value leak in slab name
+
+Michael Chan (2):
+      bnxt_en: Add workaround to detect bad opaque in rx completion (part 1)
+      bnxt_en: Add workaround to detect bad opaque in rx completion (part 2)
+
+Paolo Abeni (1):
+      net/route: enforce hoplimit max value
+
+Paul Durrant (1):
+      xen-netback: fix extra_info handling in xenvif_tx_err()
+
+Zi Shen Lim (1):
+      arm64: bpf: jit JMP_JSET_{X,K}
+
+ arch/arm64/net/bpf_jit_comp.c                        |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_cle.c      | 11 +++++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_cle.h      |  2 ++
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c       | 19 ++++++++++-------
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h       |  8 ++++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c     | 75 +++++++++++++++++++++++++++++++++++++++++++++++------------------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h     | 18 ++++++++++++----
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.h    |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c            | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h            |  2 ++
+ drivers/net/ethernet/marvell/Kconfig                 |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c |  8 +++++--
+ drivers/net/xen-netback/netback.c                    |  1 +
+ net/ipv4/fib_semantics.c                             |  2 ++
+ net/ipv6/route.c                                     |  2 ++
+ net/netfilter/nf_conntrack_core.c                    |  4 +++-
+ 16 files changed, 175 insertions(+), 45 deletions(-)
