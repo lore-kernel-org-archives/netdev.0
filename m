@@ -1,79 +1,162 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth-next 2016-05-14
-Date: Sat, 14 May 2016 14:22:01 +0300
-Message-ID: <20160514112201.GA3954@t440s>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH] r8169: default to 64-bit DMA on recent PCIe chips
+Date: Sat, 14 May 2016 14:08:54 +0200
+Message-ID: <CAKv+Gu8uiR0uLpbvJ+K8xRVXt=-bsTAuCrL0jicoPbMfE5PzWQ@mail.gmail.com>
+References: <1463222485-4513-1-git-send-email-ard.biesheuvel@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="wac7ysb48OaltWcw"
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Ricardo Salveti <ricardo.salveti@linaro.org>,
+	Leif Lindholm <leif.lindholm@linaro.org>,
+	G Gregory <graeme.gregory@linaro.org>,
+	Amit Kucheria <amit.kucheria@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ard Biesheuvel <ard.biesheuvel@linaro.org>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:33001 "EHLO
-	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbcENLWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 07:22:11 -0400
-Content-Disposition: inline
+Received: from mail-io0-f170.google.com ([209.85.223.170]:36723 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbcENMI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 08:08:56 -0400
+Received: by mail-io0-f170.google.com with SMTP id i75so156973732ioa.3
+        for <netdev@vger.kernel.org>; Sat, 14 May 2016 05:08:55 -0700 (PDT)
+In-Reply-To: <1463222485-4513-1-git-send-email-ard.biesheuvel@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 14 May 2016 at 12:41, Ard Biesheuvel <ard.biesheuvel@linaro.org> wrote:
+> The current logic around the 'use_dac' module parameter prevents the
+> r81969 driver from being loadable on 64-bit systems without any RAM
+> below 4 GB when the parameter is left at its default value.
+>
+> So introduce a new default value -1 which indicates that 64-bit DMA
+> should be enabled on sufficiently recent PCIe chips, i.e., versions
+> RTL_GIGA_MAC_VER_18 or later. Explicit param values of 0 or 1 retain
+> the existing behavior of unconditionally enabling/disabling 64-bit DMA
+> on 64-bit architectures (i.e., regardless of the type and version of the
+> chip)
+>
+> Since PCIe chips do not need to CPlusCmd Dual Address Cycle to be set,
+> make that conditional on the device type as well.
+>
+> Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+> ---
+>
+> This is a followup to 'r8169: default to 64-bit DMA on systems without memory
+> below 4 GB' [1]. At the request of Francois, this version bases the decision
+> whether to use 64-bit DMA by default on whether the device is PCIe and
+> sufficiently recent, rather than whether the platform requires 64-bit DMA
+> because it does not have any memory below 4 GB to begin with. This is safer,
+> since it will prevent the use of such problematic cards on these platforms.
+>
+> [1] http://article.gmane.org/gmane.linux.network/412246
+>
+>  drivers/net/ethernet/realtek/r8169.c | 48 +++++++++++---------
+>  1 file changed, 27 insertions(+), 21 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 94f08f1e841c..80bb8ea265ad 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -345,7 +345,7 @@ static const struct pci_device_id rtl8169_pci_tbl[] = {
+>  MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+>
+>  static int rx_buf_sz = 16383;
+> -static int use_dac;
+> +static int use_dac = -1;
+>  static struct {
+>         u32 msg_enable;
+>  } debug = { -1 };
+> @@ -8224,20 +8224,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>                 goto err_out_mwi_2;
+>         }
+>
+> -       tp->cp_cmd = 0;
+> -
+> -       if ((sizeof(dma_addr_t) > 4) &&
+> -           !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
+> -               tp->cp_cmd |= PCIDAC;
+> -               dev->features |= NETIF_F_HIGHDMA;
+> -       } else {
+> -               rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+> -               if (rc < 0) {
+> -                       netif_err(tp, probe, dev, "DMA configuration failed\n");
+> -                       goto err_out_free_res_3;
+> -               }
+> -       }
+> -
+>         /* ioremap MMIO region */
+>         ioaddr = ioremap(pci_resource_start(pdev, region), R8169_REGS_SIZE);
+>         if (!ioaddr) {
+> @@ -8247,11 +8233,30 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         }
+>         tp->mmio_addr = ioaddr;
+>
+> +       /* Identify chip attached to board */
+> +       rtl8169_get_mac_version(tp, dev, cfg->default_ver);
+> +
+>         if (!pci_is_pcie(pdev))
+>                 netif_info(tp, probe, dev, "not PCI Express\n");
+>
+> -       /* Identify chip attached to board */
+> -       rtl8169_get_mac_version(tp, dev, cfg->default_ver);
 
---wac7ysb48OaltWcw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The reordering above is actually unnecessary, it crept in inadvertently.
 
-Hi Dave,
-
-Here are two more Bluetooth patches for the 4.7 kernel which we wanted
-to get into net-next before the merge window opens. Please let me know
-if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit ed7cbbce544856b20e5811de373cf92e92499771:
-
-  udp: Resolve NULL pointer dereference over flow-based vxlan device (2016-05-13 01:56:14 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
-
-for you to fetch changes up to 72f9f8b58bc743e6b6abdc68f60db98486c3ffcf:
-
-  Bluetooth: Add USB ID 13D3:3487 to ath3k (2016-05-13 16:54:59 +0200)
-
-----------------------------------------------------------------
-Jiri Slaby (1):
-      Bluetooth: fix power_on vs close race
-
-Lauro Costa (1):
-      Bluetooth: Add USB ID 13D3:3487 to ath3k
-
- drivers/bluetooth/ath3k.c | 2 ++
- drivers/bluetooth/btusb.c | 1 +
- net/bluetooth/hci_core.c  | 4 ++--
- 3 files changed, 5 insertions(+), 2 deletions(-)
-
-
---wac7ysb48OaltWcw
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXNwpZAAoJECQj9vv5qNQSw0MQALtrBXVsNCTbRuHSzTNuEeNG
-50MC3idq9STg0MbuIgd16yjjSyJtb0GFBIrcGWJBjEX4nK+vtfoq/FFXV2gArunj
-5v7J+Lw5P+s7rLOrfdCh6gxfZBBFAexmdRhi1E6pzYIDty5ZOVLc8r+lvvYjRIDE
-EaBusokEinsD1rJH+jRN5Zx0I0mH2CbRGRqDcS/y61eFVPA4B9dRl3BtxiOvmeNl
-Kw4w9Wgz6Bhp7ll+GirPGKLHljcxlhhy6NrzQXARllaoALCFhpWdCKNzXiTL9Nyo
-271v6gCCs8+tMdiBeZpsT9tlQ7s2+e+JXhYvuHG5bAWnChirYx8KjezwjEC+QjMY
-nCIS17sRKpldwlgJT8KrwNkdU6PRQK7Om4cIPDEexP1hRMbz5D0pppv920IzAakv
-2qY2GrnJEHuMd+NnKBrLbMPOysRYzTkbyjMNLlBhTKuTxeNxuO3OmdEchE71iT8u
-pkRqGmgjX+RVJlpEJFf4FPMEZxH39DcfVuAKdGU5/gAoDbuGgjCi0b6SSiyCVfof
-2BXR6C4Y1YeuFAMPW5+5xRED8aaLJ8zw7EWSwPqZgAHKNSSTGeH1sxouklY1efj/
-tS2RGKhfmbqTyQtHqiJd/cUMiNw2w3gECIYcmTBxB23KqpvSa/DOpygB11VxtUne
-9u4w/3lxXVqgxRtz3VOi
-=NqlX
------END PGP SIGNATURE-----
-
---wac7ysb48OaltWcw--
+> +       tp->cp_cmd = 0;
+> +
+> +       if ((sizeof(dma_addr_t) > 4) &&
+> +           (use_dac == 1 || (use_dac == -1 && pci_is_pcie(pdev) &&
+> +                             tp->mac_version >= RTL_GIGA_MAC_VER_18)) &&
+> +           !pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
+> +
+> +               /* CPlusCmd Dual Access Cycle is only needed for non-PCIe */
+> +               if (!pci_is_pcie(pdev))
+> +                       tp->cp_cmd |= PCIDAC;
+> +               dev->features |= NETIF_F_HIGHDMA;
+> +       } else {
+> +               rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+> +               if (rc < 0) {
+> +                       netif_err(tp, probe, dev, "DMA configuration failed\n");
+> +                       goto err_out_unmap_4;
+> +               }
+> +       }
+>
+>         rtl_init_rxcfg(tp);
+>
+> @@ -8412,12 +8417,12 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>                                            &tp->counters_phys_addr, GFP_KERNEL);
+>         if (!tp->counters) {
+>                 rc = -ENOMEM;
+> -               goto err_out_msi_4;
+> +               goto err_out_msi_5;
+>         }
+>
+>         rc = register_netdev(dev);
+>         if (rc < 0)
+> -               goto err_out_cnt_5;
+> +               goto err_out_cnt_6;
+>
+>         pci_set_drvdata(pdev, dev);
+>
+> @@ -8451,12 +8456,13 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  out:
+>         return rc;
+>
+> -err_out_cnt_5:
+> +err_out_cnt_6:
+>         dma_free_coherent(&pdev->dev, sizeof(*tp->counters), tp->counters,
+>                           tp->counters_phys_addr);
+> -err_out_msi_4:
+> +err_out_msi_5:
+>         netif_napi_del(&tp->napi);
+>         rtl_disable_msi(pdev, tp);
+> +err_out_unmap_4:
+>         iounmap(ioaddr);
+>  err_out_free_res_3:
+>         pci_release_regions(pdev);
+> --
+> 2.7.4
+>
