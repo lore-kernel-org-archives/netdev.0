@@ -1,52 +1,128 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 2/5] drivers: net: xgene: fix sharing of irqs
-Date: Fri, 13 May 2016 16:52:58 -0700
-Message-ID: <1463183581-30475-3-git-send-email-isubramanian@apm.com>
-References: <1463183581-30475-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	toanle@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34197 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774AbcEMXwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 19:52:09 -0400
-Received: by mail-pf0-f179.google.com with SMTP id y69so46750448pfb.1
-        for <netdev@vger.kernel.org>; Fri, 13 May 2016 16:52:09 -0700 (PDT)
-In-Reply-To: <1463183581-30475-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
+Date: Fri, 13 May 2016 20:38:23 -0400
+Message-ID: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since hardware doesn't allow sharing of interrupts,
-this patch fixes the same by removing IRQF_SHARED flag.
+Now that the bridge code defers the switchdev port state setting, there
+is no need to defer the port STP state change within the mv88e6xxx code.
+Thus get rid of the driver's bridge work code.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Tested-by: Toan Le <toanle@apm.com>
+This also fixes a race condition where the DSA layer assumes that the
+bridge code already set the unbridged port's STP state to Disabled
+before restoring the Forwarding state.
+
+As a consequence, this also fixes the FDB flush for the unbridged port
+which now correctly occurs during the Forwarding to Disabled transition.
+
+Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request attr_set as deferred")
+Reported-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 37 ++++++++-----------------------------
+ drivers/net/dsa/mv88e6xxx.h |  5 -----
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index aa87049..ed90664 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -630,7 +630,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
- 		ring = pdata->rx_ring[i];
- 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
- 		ret = devm_request_irq(dev, ring->irq, xgene_enet_rx_irq,
--				       IRQF_SHARED, ring->irq_name, ring);
-+				       0, ring->irq_name, ring);
- 		if (ret) {
- 			netdev_err(ndev, "Failed to request irq %s\n",
- 				   ring->irq_name);
-@@ -641,7 +641,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
- 		ring = pdata->tx_ring[i]->cp_ring;
- 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
- 		ret = devm_request_irq(dev, ring->irq, xgene_enet_rx_irq,
--				       IRQF_SHARED, ring->irq_name, ring);
-+				       0, ring->irq_name, ring);
- 		if (ret) {
- 			netdev_err(ndev, "Failed to request irq %s\n",
- 				   ring->irq_name);
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index a3f0e7e..ba9dfc9 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1373,6 +1373,7 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int stp_state;
++	int err;
+ 
+ 	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_PORTSTATE))
+ 		return;
+@@ -1394,12 +1395,13 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ 		break;
+ 	}
+ 
+-	/* mv88e6xxx_port_stp_state_set may be called with softirqs disabled,
+-	 * so we can not update the port state directly but need to schedule it.
+-	 */
+-	ps->ports[port].state = stp_state;
+-	set_bit(port, ps->port_state_update_mask);
+-	schedule_work(&ps->bridge_work);
++	mutex_lock(&ps->smi_mutex);
++	err = _mv88e6xxx_port_state(ps, port, stp_state);
++	mutex_unlock(&ps->smi_mutex);
++
++	if (err)
++		netdev_err(ds->ports[port], "failed to update state to %s\n",
++			   mv88e6xxx_port_state_names[stp_state]);
+ }
+ 
+ static int _mv88e6xxx_port_pvid(struct mv88e6xxx_priv_state *ps, int port,
+@@ -2535,27 +2537,6 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+ 	mutex_unlock(&ps->smi_mutex);
+ }
+ 
+-static void mv88e6xxx_bridge_work(struct work_struct *work)
+-{
+-	struct mv88e6xxx_priv_state *ps;
+-	struct dsa_switch *ds;
+-	int port;
+-
+-	ps = container_of(work, struct mv88e6xxx_priv_state, bridge_work);
+-	ds = ps->ds;
+-
+-	mutex_lock(&ps->smi_mutex);
+-
+-	for (port = 0; port < ps->info->num_ports; ++port)
+-		if (test_and_clear_bit(port, ps->port_state_update_mask) &&
+-		    _mv88e6xxx_port_state(ps, port, ps->ports[port].state))
+-			netdev_warn(ds->ports[port],
+-				    "failed to update state to %s\n",
+-				    mv88e6xxx_port_state_names[ps->ports[port].state]);
+-
+-	mutex_unlock(&ps->smi_mutex);
+-}
+-
+ static int _mv88e6xxx_phy_page_write(struct mv88e6xxx_priv_state *ps,
+ 				     int port, int page, int reg, int val)
+ {
+@@ -3145,8 +3126,6 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 
+ 	ps->ds = ds;
+ 
+-	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+-
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
+ 		mutex_init(&ps->eeprom_mutex);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 40e8721..36d0e15 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -543,7 +543,6 @@ struct mv88e6xxx_vtu_stu_entry {
+ 
+ struct mv88e6xxx_priv_port {
+ 	struct net_device *bridge_dev;
+-	u8 state;
+ };
+ 
+ struct mv88e6xxx_priv_state {
+@@ -593,10 +592,6 @@ struct mv88e6xxx_priv_state {
+ 
+ 	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
+ 
+-	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
+-
+-	struct work_struct bridge_work;
+-
+ 	/* A switch may have a GPIO line tied to its reset pin. Parse
+ 	 * this from the device tree, and use it before performing
+ 	 * switch soft reset.
 -- 
-1.9.1
+2.8.2
