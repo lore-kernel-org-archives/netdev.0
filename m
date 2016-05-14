@@ -1,162 +1,87 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Subject: Re: [PATCH] r8169: default to 64-bit DMA on recent PCIe chips
-Date: Sat, 14 May 2016 14:08:54 +0200
-Message-ID: <CAKv+Gu8uiR0uLpbvJ+K8xRVXt=-bsTAuCrL0jicoPbMfE5PzWQ@mail.gmail.com>
-References: <1463222485-4513-1-git-send-email-ard.biesheuvel@linaro.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/4] netdevice: add SW statistics ndo
+Date: Sat, 14 May 2016 14:49:17 +0200
+Message-ID: <20160514124917.GA1957@nanopsycho.orion>
+References: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
+ <1463053730-14991-2-git-send-email-jiri@resnulli.us>
+ <5734F130.3050303@cumulusnetworks.com>
+ <20160513060348.GA2060@nanopsycho.orion>
+ <57362154.8040500@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ricardo Salveti <ricardo.salveti@linaro.org>,
-	Leif Lindholm <leif.lindholm@linaro.org>,
-	G Gregory <graeme.gregory@linaro.org>,
-	Amit Kucheria <amit.kucheria@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ard Biesheuvel <ard.biesheuvel@linaro.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:36723 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848AbcENMI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 08:08:56 -0400
-Received: by mail-io0-f170.google.com with SMTP id i75so156973732ioa.3
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 05:08:55 -0700 (PDT)
-In-Reply-To: <1463222485-4513-1-git-send-email-ard.biesheuvel@linaro.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35736 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbcENMtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 08:49:20 -0400
+Received: by mail-wm0-f65.google.com with SMTP id e201so8752760wme.2
+        for <netdev@vger.kernel.org>; Sat, 14 May 2016 05:49:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <57362154.8040500@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14 May 2016 at 12:41, Ard Biesheuvel <ard.biesheuvel@linaro.org> wrote:
-> The current logic around the 'use_dac' module parameter prevents the
-> r81969 driver from being loadable on 64-bit systems without any RAM
-> below 4 GB when the parameter is left at its default value.
+Fri, May 13, 2016 at 08:47:48PM CEST, roopa@cumulusnetworks.com wrote:
+>On 5/12/16, 11:03 PM, Jiri Pirko wrote:
+>> Thu, May 12, 2016 at 11:10:08PM CEST, roopa@cumulusnetworks.com wrote:
+>>> On 5/12/16, 4:48 AM, Jiri Pirko wrote:
+>>>> From: Nogah Frankel <nogahf@mellanox.com>
+>>>>
+>>>> Till now we had a ndo statistics function that returned SW statistics.
+>>>> We want to change the "basic" statistics to return HW statistics if
+>>>> available.
+>>>> In this case we need to expose a new ndo to return the SW statistics.
+>>>> Add a new ndo declaration to get SW statistics
+>>>> Add a function that gets SW statistics if a competible ndo exist
+>>>>
+>>>> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+>>>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>> ---
+>>>>
+>>> To me netdev stats is  combined 'SW + HW' stats for that netdev.
+>>> ndo_get_stats64 callback into the drivers does the magic of adding HW stats
+>>> to SW (netdev) stats and returning (see enic_get_stats). HW stats is available for netdevs
+>>> that are offloaded or are backed by hardware. SW stats is the stats that the driver maintains
+>>> (logical or physical). HW stats is queried and added to the SW stats.
+>> I'm not sure I follow. HW stats already contain SW stats. Because on
+>> slow path every packet that is not offloaded and goes through kernel is
+>> counted into HW stats as well (because it goes through HW port). 
+>yes, correct... we don't want to double count those. But since these stats are
+>generally queried from hw, I am calling them HW stats.
+>you will not really maintain a software counter for this. But, the driver can maintain its own
+> counters for rx and tx errors etc and I call these SW stats. They are counted at the driver.
 >
-> So introduce a new default value -1 which indicates that 64-bit DMA
-> should be enabled on sufficiently recent PCIe chips, i.e., versions
-> RTL_GIGA_MAC_VER_18 or later. Explicit param values of 0 or 1 retain
-> the existing behavior of unconditionally enabling/disabling 64-bit DMA
-> on 64-bit architectures (i.e., regardless of the type and version of the
-> chip)
+>> If you
+>> do HW stats + SW stats, what you get makes no sense. Am I missing something?
+>If you go by my definition of HW and SW stats above, on a ndo_get_stats64() call,
+>you will add the SW counters + HW counters and return. In my definition, the pkts
+>that was rx'ed or tx'ed successfully are always in the HW count.
 >
-> Since PCIe chips do not need to CPlusCmd Dual Address Cycle to be set,
-> make that conditional on the device type as well.
+>> Btw, looking at enic_get_stats, looks exactly what we introduce for
+>> mlxsw in this patchset.
 >
-> Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
-> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-> ---
+>In enic_get_stats, the ones counted in software are the ones taken from 'enic->'
+>     net_stats->rx_over_errors = enic->rq_truncated_pkts;
+>     net_stats->rx_crc_errors = enic->rq_bad_fcs;
 >
-> This is a followup to 'r8169: default to 64-bit DMA on systems without memory
-> below 4 GB' [1]. At the request of Francois, this version bases the decision
-> whether to use 64-bit DMA by default on whether the device is PCIe and
-> sufficiently recent, rather than whether the platform requires 64-bit DMA
-> because it does not have any memory below 4 GB to begin with. This is safer,
-> since it will prevent the use of such problematic cards on these platforms.
+>>
+>> With this patchset, we only allow user to se the actual stats for
+>> slow-path aka SW stats.
+>hmm...ok. But i am not sure how many will use this new attribute.
+>When you do 'ip -s link show' you really want all counters on that port
+>hardware or software does not matter at that point.
 >
-> [1] http://article.gmane.org/gmane.linux.network/412246
->
->  drivers/net/ethernet/realtek/r8169.c | 48 +++++++++++---------
->  1 file changed, 27 insertions(+), 21 deletions(-)
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 94f08f1e841c..80bb8ea265ad 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -345,7 +345,7 @@ static const struct pci_device_id rtl8169_pci_tbl[] = {
->  MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
->
->  static int rx_buf_sz = 16383;
-> -static int use_dac;
-> +static int use_dac = -1;
->  static struct {
->         u32 msg_enable;
->  } debug = { -1 };
-> @@ -8224,20 +8224,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->                 goto err_out_mwi_2;
->         }
->
-> -       tp->cp_cmd = 0;
-> -
-> -       if ((sizeof(dma_addr_t) > 4) &&
-> -           !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
-> -               tp->cp_cmd |= PCIDAC;
-> -               dev->features |= NETIF_F_HIGHDMA;
-> -       } else {
-> -               rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-> -               if (rc < 0) {
-> -                       netif_err(tp, probe, dev, "DMA configuration failed\n");
-> -                       goto err_out_free_res_3;
-> -               }
-> -       }
-> -
->         /* ioremap MMIO region */
->         ioaddr = ioremap(pci_resource_start(pdev, region), R8169_REGS_SIZE);
->         if (!ioaddr) {
-> @@ -8247,11 +8233,30 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->         }
->         tp->mmio_addr = ioaddr;
->
-> +       /* Identify chip attached to board */
-> +       rtl8169_get_mac_version(tp, dev, cfg->default_ver);
-> +
->         if (!pci_is_pcie(pdev))
->                 netif_info(tp, probe, dev, "not PCI Express\n");
->
-> -       /* Identify chip attached to board */
-> -       rtl8169_get_mac_version(tp, dev, cfg->default_ver);
+>My suggestion to move this to ethtool like attribute is because that is an existing
+> way to break down your stats which ever way you want. And the best part is it can be
+>customized (say rx_pkts_cpu_saw)
 
-The reordering above is actually unnecessary, it crept in inadvertently.
-
-> +       tp->cp_cmd = 0;
-> +
-> +       if ((sizeof(dma_addr_t) > 4) &&
-> +           (use_dac == 1 || (use_dac == -1 && pci_is_pcie(pdev) &&
-> +                             tp->mac_version >= RTL_GIGA_MAC_VER_18)) &&
-> +           !pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
-> +
-> +               /* CPlusCmd Dual Access Cycle is only needed for non-PCIe */
-> +               if (!pci_is_pcie(pdev))
-> +                       tp->cp_cmd |= PCIDAC;
-> +               dev->features |= NETIF_F_HIGHDMA;
-> +       } else {
-> +               rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-> +               if (rc < 0) {
-> +                       netif_err(tp, probe, dev, "DMA configuration failed\n");
-> +                       goto err_out_unmap_4;
-> +               }
-> +       }
->
->         rtl_init_rxcfg(tp);
->
-> @@ -8412,12 +8417,12 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->                                            &tp->counters_phys_addr, GFP_KERNEL);
->         if (!tp->counters) {
->                 rc = -ENOMEM;
-> -               goto err_out_msi_4;
-> +               goto err_out_msi_5;
->         }
->
->         rc = register_netdev(dev);
->         if (rc < 0)
-> -               goto err_out_cnt_5;
-> +               goto err_out_cnt_6;
->
->         pci_set_drvdata(pdev, dev);
->
-> @@ -8451,12 +8456,13 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  out:
->         return rc;
->
-> -err_out_cnt_5:
-> +err_out_cnt_6:
->         dma_free_coherent(&pdev->dev, sizeof(*tp->counters), tp->counters,
->                           tp->counters_phys_addr);
-> -err_out_msi_4:
-> +err_out_msi_5:
->         netif_napi_del(&tp->napi);
->         rtl_disable_msi(pdev, tp);
-> +err_out_unmap_4:
->         iounmap(ioaddr);
->  err_out_free_res_3:
->         pci_release_regions(pdev);
-> --
-> 2.7.4
->
+I bevieve that ethtool is really not a place to expose sw stats. Does
+not make sense.
