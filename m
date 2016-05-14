@@ -1,175 +1,252 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware
- time stamping?
-Date: Sat, 14 May 2016 00:41:20 -0700
-Message-ID: <1463211680.2720.5.camel@gmail.com>
-References: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-fK9tONFqnKT1LH7pb0DN"
-Cc: Don Skidmore <donald.c.skidmore@intel.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
-To: Guy Harris <guy@alum.mit.edu>,
-	Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33556 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911AbcENHl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 03:41:27 -0400
-Received: by mail-pa0-f54.google.com with SMTP id xk12so48301264pac.0
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 00:41:26 -0700 (PDT)
-In-Reply-To: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Martin Willi <martin-jzJueiEJWxp8fCCB1iTX4w@public.gmane.org>
+Subject: [PATCH] mac80211_hwsim: Allow wmediumd to attach to radios created in its netns
+Date: Sat, 14 May 2016 10:34:44 +0200
+Message-ID: <1463214884-5983-1-git-send-email-martin@strongswan.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Registering wmediumd is currently limited to the initial network
+namespace. This patch enables wmediumd to attach from non-initial
+network namespaces using a user namespace having CAP_NET_ADMIN. A
+registered wmediumd can forward frames on radios that have been created
+in the same network namespace, even if they have been moved to other
+network namespaces.
 
---=-fK9tONFqnKT1LH7pb0DN
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+The wmediumd Netlink portid is tracked per net namespace. Additionally,
+the portid is stored on all radios created in that net namespace to
+simplify the portid lookup in the data path.
 
-T24gRnJpLCAyMDE2LTA1LTEzIGF0IDE2OjEyIC0wNzAwLCBHdXkgSGFycmlzIHdyb3RlOgo+IGxp
-YnBjYXAgb2ZmZXJzIHRoZSBhYmlsaXR5IHRvIHJlcXVlc3QgaGFyZHdhcmUgdGltZSBzdGFtcGlu
-ZyBmb3IgcGFja2V0cwo+IGFuZCB0byBpbnF1aXJlIHdoaWNoIGZvcm1zIG9mIGhhcmR3YXJlIHRp
-bWUgc3RhbXBpbmcsIGlmIGFueSwgYXJlCj4gc3VwcG9ydGVkIGZvciBhbiBpbnRlcmZhY2UuCj4g
-Cj4gVGhlIExpbnV4IGltcGxlbWVudGF0aW9uIGN1cnJlbnRseSBpbXBsZW1lbnRzIHRoZSBpbnF1
-aXJ5IGJ5IGRvaW5nIGEKPiBFVEhUT09MX0dFVF9UU19JTkZPIFNJT0VUSFRPT0wgaW9jdGwgYW5k
-IGxvb2tpbmcgYXQgdGhlIHNvX3RpbWVzdGFtcGluZwo+IGJpdHMsIGlmIHRoZSBsaW51eC9ldGh0
-b29sLmggaGVhZGVyIGRlZmluZXMgRVRIVE9PTF9HRVRfVFNfSU5GTyBhbmQgdGhlCj4gaW9jdGwg
-c3VjY2VlZHMgb24gdGhlIGRldmljZS4KPiAKPiBUaGlzIGlzIGluYWRlcXVhdGUgLSBhcyBsaWJw
-Y2FwIHJlcXVlc3RzIGhhcmR3YXJlIHRpbWUgc3RhbXBpbmcgZm9yIGFsbAo+IHBhY2tldHMsIGl0
-IHNob3VsZCBhbHNvIGNoZWNrIHdoZXRoZXIgSFdUU1RBTVBfRklMVEVSX0FMTCBpcyBzZXQgaW4K
-PiByeF9maWx0ZXJzLCBhbmQgb25seSBvZmZlciBoYXJkd2FyZSB0aW1lIHN0YW1waW5nIGlmIGl0
-J3Mgc2V0Lgo+IAo+IFRoZSBjb2RlIGluIGl4Z2JlX3B0cC5jIGRvZXM6Cj4gCj4gwqDCoMKgwqDC
-oMKgwqDCoGNhc2UgSFdUU1RBTVBfRklMVEVSX1BUUF9WMV9MNF9FVkVOVDoKPiDCoMKgwqDCoMKg
-wqDCoMKgY2FzZSBIV1RTVEFNUF9GSUxURVJfQUxMOgo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgLyogVGhlIFg1NTAgY29udHJvbGxlciBpcyBjYXBhYmxlIG9mIHRpbWVzdGFtcGlu
-ZyBhbGwKPiBwYWNrZXRzLAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICogd2hp
-Y2ggYWxsb3dzIGl0IHRvIGFjY2VwdCBhbnkgZmlsdGVyLgo+IMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgICovCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpZiAoaHct
-Pm1hYy50eXBlID49IGl4Z2JlX21hY19YNTUwKSB7Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgdHN5bmNfcnhfY3RsIHw9IElYR0JFX1RTWU5DUlhDVExf
-VFlQRV9BTEw7Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgY29uZmlnLT5yeF9maWx0ZXIgPSBIV1RTVEFNUF9GSUxURVJfQUxMOwo+IMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGFkYXB0ZXItPmZsYWdzIHw9IElY
-R0JFX0ZMQUdfUlhfSFdUU1RBTVBfRU5BQkxFRDsKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBicmVhazsKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoH0KPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoC8qIGZhbGwgdGhyb3Vn
-aCAqLwo+IMKgwqDCoMKgwqDCoMKgwqBkZWZhdWx0Ogo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgLyoKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAqIHJlZ2lzdGVy
-IFJYTVRSTCBtdXN0IGJlIHNldCBpbiBvcmRlciB0byBkbyBWMSBwYWNrZXRzLAo+IMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICogdGhlcmVmb3JlIGl0IGlzIG5vdCBwb3NzaWJsZSB0
-byB0aW1lIHN0YW1wIGJvdGggVjEKPiBTeW5jIGFuZAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgICogRGVsYXlfUmVxIG1lc3NhZ2VzIGFuZCBoYXJkd2FyZSBkb2VzIG5vdCBzdXBw
-b3J0Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgKiB0aW1lc3RhbXBpbmcgYWxs
-IHBhY2tldHMgPT4gcmV0dXJuIGVycm9yCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqAgKi8KPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGFkYXB0ZXItPmZsYWdzICY9
-IH4oSVhHQkVfRkxBR19SWF9IV1RTVEFNUF9FTkFCTEVEIHwKPiDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIElYR0JF
-X0ZMQUdfUlhfSFdUU1RBTVBfSU5fUkVHSVNURVIpOwo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgY29uZmlnLT5yeF9maWx0ZXIgPSBIV1RTVEFNUF9GSUxURVJfTk9ORTsKPiDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJldHVybiAtRVJBTkdFOwo+IAo+IHdoaWNoIHNl
-ZW1zIHRvIGluZGljYXRlIHRoYXQgb25seSB0aGUgWDU1MCBjb250cm9sbGVyIHN1cHBvcnRzIHRp
-bWUKPiBzdGFtcGluZyBhbGwgcGFja2V0cyBpbiBoYXJkd2FyZS4KPiAKPiBIb3dldmVyLCB0aGUg
-Y29kZSBpbiBpeGdiZV9ldGh0b29sLmMgZG9lczoKPiAKPiDCoMKgwqDCoMKgwqDCoMKgc3dpdGNo
-IChhZGFwdGVyLT5ody5tYWMudHlwZSkgewo+IMKgwqDCoMKgwqDCoMKgwqBjYXNlIGl4Z2JlX21h
-Y19YNTUwOgo+IMKgwqDCoMKgwqDCoMKgwqBjYXNlIGl4Z2JlX21hY19YNTUwRU1feDoKPiDCoMKg
-wqDCoMKgwqDCoMKgY2FzZSBpeGdiZV9tYWNfWDU0MDoKPiDCoMKgwqDCoMKgwqDCoMKgY2FzZSBp
-eGdiZV9tYWNfODI1OTlFQjoKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGluZm8t
-PnNvX3RpbWVzdGFtcGluZyA9Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgU09GX1RJTUVTVEFNUElOR19UWF9TT0ZUV0FSRSB8Cj4gwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgU09GX1RJTUVTVEFNUElOR19SWF9T
-T0ZUV0FSRSB8Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgU09GX1RJTUVTVEFNUElOR19TT0ZUV0FSRSB8Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgU09GX1RJTUVTVEFNUElOR19UWF9IQVJEV0FSRSB8Cj4g
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgU09GX1RJTUVT
-VEFNUElOR19SWF9IQVJEV0FSRSB8Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgU09GX1RJTUVTVEFNUElOR19SQVdfSEFSRFdBUkU7Cj4gCj4gwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpZiAoYWRhcHRlci0+cHRwX2Nsb2NrKQo+IMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGluZm8tPnBoY19pbmRl
-eCA9IHB0cF9jbG9ja19pbmRleChhZGFwdGVyLQo+ID5wdHBfY2xvY2spOwo+IMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgZWxzZQo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoGluZm8tPnBoY19pbmRleCA9IC0xOwo+IAo+IMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgaW5mby0+dHhfdHlwZXMgPQo+IMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCgxIDw8IEhXVFNUQU1QX1RYX09GRikgfAo+
-IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCgxIDw8IEhX
-VFNUQU1QX1RYX09OKTsKPiAKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGluZm8t
-PnJ4X2ZpbHRlcnMgPQo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoCgxIDw8IEhXVFNUQU1QX0ZJTFRFUl9OT05FKSB8Cj4gwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgKDEgPDwgSFdUU1RBTVBfRklMVEVSX1BUUF9W
-MV9MNF9TWU5DKSB8Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgKDEgPDwgSFdUU1RBTVBfRklMVEVSX1BUUF9WMV9MNF9ERUxBWV9SRVEpIHwKPiDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAoMSA8PCBIV1RTVEFN
-UF9GSUxURVJfUFRQX1YyX0VWRU5UKTsKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oGJyZWFrOwo+IMKgwqDCoMKgwqDCoMKgwqBkZWZhdWx0Ogo+IMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgcmV0dXJuIGV0aHRvb2xfb3BfZ2V0X3RzX2luZm8oZGV2LCBpbmZvKTsKPiDC
-oMKgwqDCoMKgwqDCoMKgfQo+IAo+IHdoaWNoIGRyYXdzIG5vIGRpc3RpbmN0aW9uIGJldHdlZW4g
-dGhlIFg1NTAgY29udHJvbGxlciBhbmQgdGhlIFg1NDAgYW5kCj4gODI1OTksIGFuZCBkb2Vzbid0
-IHNheSAqYW55KiBvZiB0aGVtIHN1cHBvcnQgSFdUU1RBTVBfRklMVEVSX0FMTC4KPiAKPiBJcyBp
-dCB0aGUgY2FzZSB0aGF0IG9ubHkgdGhlIGl4Z2JlX21hY19YNTUwIGFuZCBpeGdiZV9tYWNfWDU1
-MEVNX3gKPiBjb250cm9sbGVycyBzdXBwb3J0IEhXVFNUQU1QX0ZJTFRFUl9BTEw/wqAgSWYgc28s
-IHNob3VsZG4ndAo+IGl4Z2JlX2dldF90c19pbmZvKCkgYmUgZG9pbmcgc29tZXRoaW5nIHN1Y2gg
-YXM6Cj4gCj4gwqDCoMKgwqDCoMKgwqDCoHN3aXRjaCAoYWRhcHRlci0+aHcubWFjLnR5cGUpIHsK
-PiDCoMKgwqDCoMKgwqDCoMKgY2FzZSBpeGdiZV9tYWNfWDU1MDoKPiDCoMKgwqDCoMKgwqDCoMKg
-Y2FzZSBpeGdiZV9tYWNfWDU1MEVNX3g6Cj4gwqDCoMKgwqDCoMKgwqDCoGNhc2UgaXhnYmVfbWFj
-X1g1NDA6Cj4gwqDCoMKgwqDCoMKgwqDCoGNhc2UgaXhnYmVfbWFjXzgyNTk5RUI6Cj4gwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpbmZvLT5zb190aW1lc3RhbXBpbmcgPQo+IMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoFNPRl9USU1FU1RBTVBJ
-TkdfVFhfU09GVFdBUkUgfAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoFNPRl9USU1FU1RBTVBJTkdfUlhfU09GVFdBUkUgfAo+IMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoFNPRl9USU1FU1RBTVBJTkdfU09GVFdB
-UkUgfAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoFNP
-Rl9USU1FU1RBTVBJTkdfVFhfSEFSRFdBUkUgfAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoFNPRl9USU1FU1RBTVBJTkdfUlhfSEFSRFdBUkUgfAo+IMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoFNPRl9USU1FU1RB
-TVBJTkdfUkFXX0hBUkRXQVJFOwo+IAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-aWYgKGFkYXB0ZXItPnB0cF9jbG9jaykKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqBpbmZvLT5waGNfaW5kZXggPSBwdHBfY2xvY2tfaW5kZXgoYWRhcHRl
-ci0KPiA+cHRwX2Nsb2NrKTsKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGVsc2UK
-PiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpbmZvLT5w
-aGNfaW5kZXggPSAtMTsKPiAKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGluZm8t
-PnR4X3R5cGVzID0KPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqAoMSA8PCBIV1RTVEFNUF9UWF9PRkYpIHwKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAoMSA8PCBIV1RTVEFNUF9UWF9PTik7Cj4gCj4gwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpbmZvLT5yeF9maWx0ZXJzID0KPiDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAoMSA8PCBIV1RTVEFNUF9GSUxU
-RVJfTk9ORSkgfAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoCgxIDw8IEhXVFNUQU1QX0ZJTFRFUl9QVFBfVjFfTDRfU1lOQykgfAo+IMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCgxIDw8IEhXVFNUQU1QX0ZJTFRF
-Ul9QVFBfVjFfTDRfREVMQVlfUkVRKSB8Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgKDEgPDwgSFdUU1RBTVBfRklMVEVSX1BUUF9WMl9FVkVOVCk7Cj4g
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpZiAoYWRhcHRlci0+aHcubWFjLnR5cGUg
-Pj0gaXhnYmVfbWFjX1g1NTApCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgaW5mby0+cnhfZmlsdGVycyB8PSAoMSA8PCBIV1RTVEFNUF9GSUxURVJfQUxM
-KTsKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJyZWFrOwo+IMKgwqDCoMKgwqDC
-oMKgwqBkZWZhdWx0Ogo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIGV0
-aHRvb2xfb3BfZ2V0X3RzX2luZm8oZGV2LCBpbmZvKTsKPiDCoMKgwqDCoMKgwqDCoMKgfQoKQXJl
-IHlvdSBwbGFubmluZyB0byBwcm9kdWNlIGEgcGF0Y2ggb3IgYXJlIHlvdSB3YW50aW5nIHVzIHRv
-IGRvIHRoZSB3b3JrIHRvCmZpeCB0aGUgaXNzdWU/IMKgSnVzdCBhc2tpbmcgc28gdGhhdCB3b3Jr
-IGlzIG5vdCBkdXBsaWNhdGVkLg==
+Signed-off-by: Martin Willi <martin-jzJueiEJWxp8fCCB1iTX4w@public.gmane.org>
+---
+ drivers/net/wireless/mac80211_hwsim.c | 92 +++++++++++++++++++++++++++++------
+ 1 file changed, 76 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index a16cd0c..5bb9f0a 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -41,8 +41,6 @@ MODULE_AUTHOR("Jouni Malinen");
+ MODULE_DESCRIPTION("Software simulator of 802.11 radio(s) for mac80211");
+ MODULE_LICENSE("GPL");
+ 
+-static u32 wmediumd_portid;
+-
+ static int radios = 2;
+ module_param(radios, int, 0444);
+ MODULE_PARM_DESC(radios, "Number of simulated radios");
+@@ -258,6 +256,7 @@ static int hwsim_netgroup;
+ 
+ struct hwsim_net {
+ 	int netgroup;
++	u32 wmediumd;
+ };
+ 
+ static inline int hwsim_net_get_netgroup(struct net *net)
+@@ -274,6 +273,20 @@ static inline void hwsim_net_set_netgroup(struct net *net)
+ 	hwsim_net->netgroup = hwsim_netgroup++;
+ }
+ 
++static inline u32 hwsim_net_get_wmediumd(struct net *net)
++{
++	struct hwsim_net *hwsim_net = net_generic(net, hwsim_net_id);
++
++	return hwsim_net->wmediumd;
++}
++
++static inline void hwsim_net_set_wmediumd(struct net *net, u32 portid)
++{
++	struct hwsim_net *hwsim_net = net_generic(net, hwsim_net_id);
++
++	hwsim_net->wmediumd = portid;
++}
++
+ static struct class *hwsim_class;
+ 
+ static struct net_device *hwsim_mon; /* global monitor netdev */
+@@ -552,6 +565,8 @@ struct mac80211_hwsim_data {
+ 
+ 	/* group shared by radios created in the same netns */
+ 	int netgroup;
++	/* wmediumd portid responsile for netgroup of this radio */
++	u32 wmediumd;
+ 
+ 	int power_level;
+ 
+@@ -983,6 +998,29 @@ static bool hwsim_ps_rx_ok(struct mac80211_hwsim_data *data,
+ 	return true;
+ }
+ 
++static int hwsim_unicast_netgroup(struct mac80211_hwsim_data *data,
++				  struct sk_buff *skb, int portid)
++{
++	struct net *net;
++	bool found = false;
++	int res = -ENOENT;
++
++	rcu_read_lock();
++	for_each_net_rcu(net) {
++		if (data->netgroup == hwsim_net_get_netgroup(net)) {
++			res = genlmsg_unicast(net, skb, portid);
++			found = true;
++			break;
++		}
++	}
++	rcu_read_unlock();
++
++	if (!found)
++		nlmsg_free(skb);
++
++	return res;
++}
++
+ static void mac80211_hwsim_tx_frame_nl(struct ieee80211_hw *hw,
+ 				       struct sk_buff *my_skb,
+ 				       int dst_portid)
+@@ -1062,7 +1100,7 @@ static void mac80211_hwsim_tx_frame_nl(struct ieee80211_hw *hw,
+ 		goto nla_put_failure;
+ 
+ 	genlmsg_end(skb, msg_head);
+-	if (genlmsg_unicast(&init_net, skb, dst_portid))
++	if (hwsim_unicast_netgroup(data, skb, dst_portid))
+ 		goto err_free_txskb;
+ 
+ 	/* Enqueue the packet */
+@@ -1355,7 +1393,7 @@ static void mac80211_hwsim_tx(struct ieee80211_hw *hw,
+ 	mac80211_hwsim_monitor_rx(hw, skb, channel);
+ 
+ 	/* wmediumd mode check */
+-	_portid = ACCESS_ONCE(wmediumd_portid);
++	_portid = ACCESS_ONCE(data->wmediumd);
+ 
+ 	if (_portid)
+ 		return mac80211_hwsim_tx_frame_nl(hw, skb, _portid);
+@@ -1451,7 +1489,8 @@ static void mac80211_hwsim_tx_frame(struct ieee80211_hw *hw,
+ 				    struct sk_buff *skb,
+ 				    struct ieee80211_channel *chan)
+ {
+-	u32 _pid = ACCESS_ONCE(wmediumd_portid);
++	struct mac80211_hwsim_data *data = hw->priv;
++	u32 _pid = ACCESS_ONCE(data->wmediumd);
+ 
+ 	if (ieee80211_hw_check(hw, SUPPORTS_RC_TABLE)) {
+ 		struct ieee80211_tx_info *txi = IEEE80211_SKB_CB(skb);
+@@ -2796,6 +2835,20 @@ static struct mac80211_hwsim_data *get_hwsim_data_ref_from_addr(const u8 *addr)
+ 	return data;
+ }
+ 
++static void hwsim_register_wmediumd(struct net *net, u32 portid)
++{
++	struct mac80211_hwsim_data *data;
++
++	hwsim_net_set_wmediumd(net, portid);
++
++	spin_lock_bh(&hwsim_radio_lock);
++	list_for_each_entry(data, &hwsim_radios, list) {
++		if (data->netgroup == hwsim_net_get_netgroup(net))
++			data->wmediumd = portid;
++	}
++	spin_unlock_bh(&hwsim_radio_lock);
++}
++
+ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
+ 					   struct genl_info *info)
+ {
+@@ -2811,9 +2864,6 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
+ 	int i;
+ 	bool found = false;
+ 
+-	if (info->snd_portid != wmediumd_portid)
+-		return -EINVAL;
+-
+ 	if (!info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER] ||
+ 	    !info->attrs[HWSIM_ATTR_FLAGS] ||
+ 	    !info->attrs[HWSIM_ATTR_COOKIE] ||
+@@ -2829,6 +2879,12 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
+ 	if (!data2)
+ 		goto out;
+ 
++	if (hwsim_net_get_netgroup(genl_info_net(info)) != data2->netgroup)
++		goto out;
++
++	if (info->snd_portid != data2->wmediumd)
++		goto out;
++
+ 	/* look for the skb matching the cookie passed back from user */
+ 	skb_queue_walk_safe(&data2->pending, skb, tmp) {
+ 		u64 skb_cookie;
+@@ -2892,9 +2948,6 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
+ 	void *frame_data;
+ 	struct sk_buff *skb = NULL;
+ 
+-	if (info->snd_portid != wmediumd_portid)
+-		return -EINVAL;
+-
+ 	if (!info->attrs[HWSIM_ATTR_ADDR_RECEIVER] ||
+ 	    !info->attrs[HWSIM_ATTR_FRAME] ||
+ 	    !info->attrs[HWSIM_ATTR_RX_RATE] ||
+@@ -2920,6 +2973,12 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
+ 	if (!data2)
+ 		goto out;
+ 
++	if (hwsim_net_get_netgroup(genl_info_net(info)) != data2->netgroup)
++		goto out;
++
++	if (info->snd_portid != data2->wmediumd)
++		goto out;
++
+ 	/* check if radio is configured properly */
+ 
+ 	if (data2->idle || !data2->started)
+@@ -2966,6 +3025,7 @@ out:
+ static int hwsim_register_received_nl(struct sk_buff *skb_2,
+ 				      struct genl_info *info)
+ {
++	struct net *net = genl_info_net(info);
+ 	struct mac80211_hwsim_data *data;
+ 	int chans = 1;
+ 
+@@ -2982,10 +3042,10 @@ static int hwsim_register_received_nl(struct sk_buff *skb_2,
+ 	if (chans > 1)
+ 		return -EOPNOTSUPP;
+ 
+-	if (wmediumd_portid)
++	if (hwsim_net_get_wmediumd(net))
+ 		return -EBUSY;
+ 
+-	wmediumd_portid = info->snd_portid;
++	hwsim_register_wmediumd(net, info->snd_portid);
+ 
+ 	printk(KERN_DEBUG "mac80211_hwsim: received a REGISTER, "
+ 	       "switching to wmediumd mode with pid %d\n", info->snd_portid);
+@@ -3152,7 +3212,7 @@ static const struct genl_ops hwsim_ops[] = {
+ 		.cmd = HWSIM_CMD_REGISTER,
+ 		.policy = hwsim_genl_policy,
+ 		.doit = hwsim_register_received_nl,
+-		.flags = GENL_ADMIN_PERM,
++		.flags = GENL_UNS_ADMIN_PERM,
+ 	},
+ 	{
+ 		.cmd = HWSIM_CMD_FRAME,
+@@ -3218,10 +3278,10 @@ static int mac80211_hwsim_netlink_notify(struct notifier_block *nb,
+ 
+ 	remove_user_radios(notify->portid);
+ 
+-	if (notify->portid == wmediumd_portid) {
++	if (notify->portid == hwsim_net_get_wmediumd(notify->net)) {
+ 		printk(KERN_INFO "mac80211_hwsim: wmediumd released netlink"
+ 		       " socket, switching to perfect channel medium\n");
+-		wmediumd_portid = 0;
++		hwsim_register_wmediumd(notify->net, 0);
+ 	}
+ 	return NOTIFY_DONE;
+ 
+-- 
+2.7.4
 
---=-fK9tONFqnKT1LH7pb0DN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXNtagAAoJEOVv75VaS+3OUhQQAIFDaEYH9bsqj3CezEibFDlS
-X+zRls/KsHtw1/Hhjlg+FevaWRWemcQuU13uqsmAXY1rBGr0P3Ei4QeTNwVQy/O5
-qnhuO5dfJ0WllXTp0OOtHg6dbwMqZGoliRJ9kV0Rt7lZNBFp5QRw+tj+j6xUS1N3
-ywRMaMBy8vcb0JF+2161gqe8oBlk3IoJ2af2Jgl2CQ5jd1BwyWKKb+HXq8B5IvgW
-6CQPJ36Y6ViWfWdULVuSXfJ6dnfVmpLQZMZejmMXYp+iD2XGBNI2I9N/eZpqf4kH
-giktEaXvP6QjyOTu11Ir2PHkpP3vkFINYAL6oDpKrg/WjIUiFO9DwgoTHU/5183d
-YrAM4NQ7f7Ch9A3EEXIR708tm1pJgFETXH9lBOHpg8gMJC4guy1PPiDPOiqKw6F2
-2dgsFyu/MBr3I6vtCbh0sjrSUjx9Wa5vi6YMw4i81rCfEnRD2y9JVUxFT7aerXgz
-fB5j0RNQYhkDC3PmtLM9nJOQnzpNpEar3RMmVRbI+XbSZwVhghzXVdrECAmqae56
-HzycJnQghZOrxEybllu5koNs/1YFcGEcAkn+moCgcoPYciHjkJ406NUPGo1mmFd3
-1RQyK/bmq19eTXffwJ6dUVnRq+3xfB70goR4bqkfehI3ai7lzZM9yExYvlG/ndK/
-guRFUm0lz9yg5QElWToP
-=Ww/3
------END PGP SIGNATURE-----
-
---=-fK9tONFqnKT1LH7pb0DN--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
