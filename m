@@ -1,108 +1,217 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 4/5] drivers: net: xgene: fix statistics counters
- race condition
-Date: Fri, 13 May 2016 18:41:44 -0700
-Message-ID: <1463190104.18194.3.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463183581-30475-1-git-send-email-isubramanian@apm.com>
- <1463183581-30475-5-git-send-email-isubramanian@apm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] nf_queue: Make the queue_handler pernet
+Date: Fri, 13 May 2016 21:18:52 -0500
+Message-ID: <87bn49nzzn.fsf_-_@x220.int.ebiederm.org>
+References: <1462981273-21676-1-git-send-email-fw@strlen.de>
+	<20160512094725.GB1777@salvia> <87twi3qmlf.fsf@x220.int.ebiederm.org>
+	<20160512164000.GA9815@breakpoint.cc>
+	<87a8jtrbk3.fsf@x220.int.ebiederm.org>
+	<20160513200442.GA29941@breakpoint.cc>
+	<87zirtofgp.fsf@x220.int.ebiederm.org>
+	<20160513212029.GC29941@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: toanle@apm.com, netdev@vger.kernel.org, patches@apm.com,
- davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1463183581-30475-5-git-send-email-isubramanian@apm.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain
+Cc: netfilter-devel@vger.kernel.org, dale.4d@gmail.com,
+	netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160513212029.GC29941@breakpoint.cc> (Florian Westphal's
+	message of "Fri, 13 May 2016 23:20:29 +0200")
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-05-13 at 16:53 -0700, Iyappan Subramanian wrote:
-> This patch fixes the race condition on updating the statistics
-> counters by moving the counters to the ring structure.
-> 
 
-...
+Florian Weber reported:
+> Under full load (unshare() in loop -> OOM conditions) we can
+> get kernel panic:
+>
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+> IP: [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
+> [..]
+> task: ffff88012dfa3840 ti: ffff88012dffc000 task.ti: ffff88012dffc000
+> RIP: 0010:[<ffffffff81476c85>]  [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
+> RSP: 0000:ffff88012dfffd80  EFLAGS: 00010206
+> RAX: 0000000000000008 RBX: ffffffff81add0c0 RCX: ffff88013fd80000
+> [..]
+> Call Trace:
+>  [<ffffffff81474d98>] nf_queue_nf_hook_drop+0x18/0x20
+>  [<ffffffff814738eb>] nf_unregister_net_hook+0xdb/0x150
+>  [<ffffffff8147398f>] netfilter_net_exit+0x2f/0x60
+>  [<ffffffff8141b088>] ops_exit_list.isra.4+0x38/0x60
+>  [<ffffffff8141b652>] setup_net+0xc2/0x120
+>  [<ffffffff8141bd09>] copy_net_ns+0x79/0x120
+>  [<ffffffff8106965b>] create_new_namespaces+0x11b/0x1e0
+>  [<ffffffff810698a7>] unshare_nsproxy_namespaces+0x57/0xa0
+>  [<ffffffff8104baa2>] SyS_unshare+0x1b2/0x340
+>  [<ffffffff81608276>] entry_SYSCALL_64_fastpath+0x1e/0xa8
+> Code: 65 00 48 89 e5 41 56 41 55 41 54 53 83 e8 01 48 8b 97 70 12 00 00 48 98 49 89 f4 4c 8b 74 c2 18 4d 8d 6e 08 49 81 c6 88 00 00 00 <49> 8b 5d 00 48 85 db 74 1a 48 89 df 4c 89 e2 48 c7 c6 90 68 47
+>
 
-> @@ -1127,12 +1127,31 @@ static struct rtnl_link_stats64 *xgene_enet_get_stats64(
->  {
->  	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
->  	struct rtnl_link_stats64 *stats = &pdata->stats;
-> +	struct xgene_enet_desc_ring *ring;
-> +	int i;
-> +
-> +	memset(stats, 0, sizeof(struct rtnl_link_stats64));
+The simple fix for this requires a new pernet variable for struct
+nf_queue that indicates when it is safe to use the dynamically
+allocated nf_queue state.
 
-The memset() should already be done in the caller.
+As we need a variable anyway make nf_register_queue_handler and
+nf_unregister_queue_handler pernet.  This allows the existing logic of
+when it is safe to use the state from the nfnetlink_queue module to be
+reused with no changes except for making it per net.
 
-> +	for (i = 0; i < pdata->txq_cnt; i++) {
-> +		ring = pdata->tx_ring[i];
-> +		if (ring) {
-> +			stats->tx_packets += ring->tx_packets;
-> +			stats->tx_bytes += ring->tx_bytes;
-> +		}
-> +	}
->  
-> -	stats->rx_errors += stats->rx_length_errors +
-> -			    stats->rx_crc_errors +
-> -			    stats->rx_frame_errors +
-> -			    stats->rx_fifo_errors;
+The syncrhonize_rcu from nf_unregister_queue_handler is moved to a new
+function nfnl_queue_net_exit_batch so that the worst case of having a
+syncrhonize_rcu in the pernet exit path is not experienced in batch
+mode.
 
+Reported-by: Florian Westphal <fw@strlen.de>
+Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ include/net/netfilter/nf_queue.h |  4 ++--
+ include/net/netns/netfilter.h    |  2 ++
+ net/netfilter/nf_queue.c         | 17 ++++++++---------
+ net/netfilter/nfnetlink_queue.c  | 18 ++++++++++++------
+ 4 files changed, 24 insertions(+), 17 deletions(-)
 
-Right, this piece was completely buggy.
+diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
+index 9c5638ad872e..0dbce55437f2 100644
+--- a/include/net/netfilter/nf_queue.h
++++ b/include/net/netfilter/nf_queue.h
+@@ -28,8 +28,8 @@ struct nf_queue_handler {
+ 						struct nf_hook_ops *ops);
+ };
+ 
+-void nf_register_queue_handler(const struct nf_queue_handler *qh);
+-void nf_unregister_queue_handler(void);
++void nf_register_queue_handler(struct net *net, const struct nf_queue_handler *qh);
++void nf_unregister_queue_handler(struct net *net);
+ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
+ 
+ void nf_queue_entry_get_refs(struct nf_queue_entry *entry);
+diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
+index 38aa4983e2a9..36d723579af2 100644
+--- a/include/net/netns/netfilter.h
++++ b/include/net/netns/netfilter.h
+@@ -5,11 +5,13 @@
+ 
+ struct proc_dir_entry;
+ struct nf_logger;
++struct nf_queue_handler;
+ 
+ struct netns_nf {
+ #if defined CONFIG_PROC_FS
+ 	struct proc_dir_entry *proc_netfilter;
+ #endif
++	const struct nf_queue_handler __rcu *queue_handler;
+ 	const struct nf_logger __rcu *nf_loggers[NFPROTO_NUMPROTO];
+ #ifdef CONFIG_SYSCTL
+ 	struct ctl_table_header *nf_log_dir_header;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 5baa8e24e6ac..b19ad20a705c 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -26,23 +26,21 @@
+  * Once the queue is registered it must reinject all packets it
+  * receives, no matter what.
+  */
+-static const struct nf_queue_handler __rcu *queue_handler __read_mostly;
+ 
+ /* return EBUSY when somebody else is registered, return EEXIST if the
+  * same handler is registered, return 0 in case of success. */
+-void nf_register_queue_handler(const struct nf_queue_handler *qh)
++void nf_register_queue_handler(struct net *net, const struct nf_queue_handler *qh)
+ {
+ 	/* should never happen, we only have one queueing backend in kernel */
+-	WARN_ON(rcu_access_pointer(queue_handler));
+-	rcu_assign_pointer(queue_handler, qh);
++	WARN_ON(rcu_access_pointer(net->nf.queue_handler));
++	rcu_assign_pointer(net->nf.queue_handler, qh);
+ }
+ EXPORT_SYMBOL(nf_register_queue_handler);
+ 
+ /* The caller must flush their queue before this */
+-void nf_unregister_queue_handler(void)
++void nf_unregister_queue_handler(struct net *net)
+ {
+-	RCU_INIT_POINTER(queue_handler, NULL);
+-	synchronize_rcu();
++	RCU_INIT_POINTER(net->nf.queue_handler, NULL);
+ }
+ EXPORT_SYMBOL(nf_unregister_queue_handler);
+ 
+@@ -103,7 +101,7 @@ void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops)
+ 	const struct nf_queue_handler *qh;
+ 
+ 	rcu_read_lock();
+-	qh = rcu_dereference(queue_handler);
++	qh = rcu_dereference(net->nf.queue_handler);
+ 	if (qh)
+ 		qh->nf_hook_drop(net, ops);
+ 	rcu_read_unlock();
+@@ -122,9 +120,10 @@ int nf_queue(struct sk_buff *skb,
+ 	struct nf_queue_entry *entry = NULL;
+ 	const struct nf_afinfo *afinfo;
+ 	const struct nf_queue_handler *qh;
++	struct net *net = state->net;
+ 
+ 	/* QUEUE == DROP if no one is waiting, to be safe. */
+-	qh = rcu_dereference(queue_handler);
++	qh = rcu_dereference(net->nf.queue_handler);
+ 	if (!qh) {
+ 		status = -ESRCH;
+ 		goto err;
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index cb5b630a645b..2c13e41c508c 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -1377,21 +1377,29 @@ static int __net_init nfnl_queue_net_init(struct net *net)
+ 			 net->nf.proc_netfilter, &nfqnl_file_ops))
+ 		return -ENOMEM;
+ #endif
++	nf_register_queue_handler(net, &nfqh);
+ 	return 0;
+ }
+ 
+ static void __net_exit nfnl_queue_net_exit(struct net *net)
+ {
++	nf_unregister_queue_handler(net);
+ #ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("nfnetlink_queue", net->nf.proc_netfilter);
+ #endif
+ }
+ 
++static void nfnl_queue_net_exit_batch(struct list_head *net_exit_list)
++{
++	synchronize_rcu();
++}
++
+ static struct pernet_operations nfnl_queue_net_ops = {
+-	.init	= nfnl_queue_net_init,
+-	.exit	= nfnl_queue_net_exit,
+-	.id	= &nfnl_queue_net_id,
+-	.size	= sizeof(struct nfnl_queue_net),
++	.init		= nfnl_queue_net_init,
++	.exit		= nfnl_queue_net_exit,
++	.exit_batch	= nfnl_queue_net_exit_batch,
++	.id		= &nfnl_queue_net_id,
++	.size		= sizeof(struct nfnl_queue_net),
+ };
+ 
+ static int __init nfnetlink_queue_init(void)
+@@ -1412,7 +1420,6 @@ static int __init nfnetlink_queue_init(void)
+ 	}
+ 
+ 	register_netdevice_notifier(&nfqnl_dev_notifier);
+-	nf_register_queue_handler(&nfqh);
+ 	return status;
+ 
+ cleanup_netlink_notifier:
+@@ -1424,7 +1431,6 @@ out:
+ 
+ static void __exit nfnetlink_queue_fini(void)
+ {
+-	nf_unregister_queue_handler();
+ 	unregister_netdevice_notifier(&nfqnl_dev_notifier);
+ 	nfnetlink_subsys_unregister(&nfqnl_subsys);
+ 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
+-- 
+2.8.1
 
-Not a race, but rx_errors was growing every time stats were fetched on
-this device.
-
-
-stats->rx_errors =   sum(...)    was probably the intent.
-
-
-
-> -	memcpy(storage, &pdata->stats, sizeof(struct rtnl_link_stats64));
-> +	for (i = 0; i < pdata->rxq_cnt; i++) {
-> +		ring = pdata->rx_ring[i];
-> +		if (ring) {
-> +			stats->rx_packets += ring->rx_packets;
-> +			stats->rx_bytes += ring->rx_bytes;
-> +			stats->rx_errors += ring->rx_length_errors +
-> +				ring->rx_crc_errors +
-> +				ring->rx_frame_errors +
-> +				ring->rx_fifo_errors;
-> +			stats->rx_dropped += ring->rx_dropped;
-> +		}
-> +	}
-> +	memcpy(storage, stats, sizeof(struct rtnl_link_stats64));
->  
->  	return storage;
->  }
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-> index cc40c30..092fbec 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-> @@ -121,6 +121,16 @@ struct xgene_enet_desc_ring {
->  		struct xgene_enet_raw_desc16 *raw_desc16;
->  	};
->  	__le64 *exp_bufs;
-> +	u64 tx_packets;
-> +	u64 tx_bytes;
-> +	u64 rx_packets;
-> +	u64 rx_bytes;
-> +	u64 rx_dropped;
-> +	u64 rx_errors;
-> +	u64 rx_length_errors;
-> +	u64 rx_crc_errors;
-> +	u64 rx_frame_errors;
-> +	u64 rx_fifo_errors;
-
-Note that there is still a race on 32bit arches.
-
-It seems this driver should really use "unsigned long" counters and
-provide standard ndo_get_stats()
