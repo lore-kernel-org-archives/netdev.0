@@ -1,110 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/4] netdevice: add SW statistics ndo
-Date: Sat, 14 May 2016 20:46:29 +0200
-Message-ID: <20160514184629.GA2176@nanopsycho.orion>
-References: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
- <1463053730-14991-2-git-send-email-jiri@resnulli.us>
- <5734F130.3050303@cumulusnetworks.com>
- <20160513060348.GA2060@nanopsycho.orion>
- <57362154.8040500@cumulusnetworks.com>
- <20160514124917.GA1957@nanopsycho.orion>
- <5737489D.4090800@cumulusnetworks.com>
-Mime-Version: 1.0
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware time stamping?
+Date: Sat, 14 May 2016 11:47:22 -0700
+Message-ID: <4AAA3CE1-B137-4AC1-AB85-B4690E8E3E12@alum.mit.edu>
+References: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu> <20160514073002.GA2053@netboy>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-	ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Transfer-Encoding: 8BIT
+Cc: Network Development <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35616 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753908AbcENSqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 14:46:33 -0400
-Received: by mail-wm0-f68.google.com with SMTP id e201so9959528wme.2
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 11:46:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5737489D.4090800@cumulusnetworks.com>
+Received: from c.mail.sonic.net ([64.142.111.80]:32776 "EHLO c.mail.sonic.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932215AbcENSr0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2016 14:47:26 -0400
+In-Reply-To: <20160514073002.GA2053@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, May 14, 2016 at 05:47:41PM CEST, roopa@cumulusnetworks.com wrote:
->On 5/14/16, 5:49 AM, Jiri Pirko wrote:
->> Fri, May 13, 2016 at 08:47:48PM CEST, roopa@cumulusnetworks.com wrote:
->>> On 5/12/16, 11:03 PM, Jiri Pirko wrote:
->>>> Thu, May 12, 2016 at 11:10:08PM CEST, roopa@cumulusnetworks.com wrote:
->>>>> On 5/12/16, 4:48 AM, Jiri Pirko wrote:
->>>>>> From: Nogah Frankel <nogahf@mellanox.com>
->>>>>>
->>>>>> Till now we had a ndo statistics function that returned SW statistics.
->>>>>> We want to change the "basic" statistics to return HW statistics if
->>>>>> available.
->>>>>> In this case we need to expose a new ndo to return the SW statistics.
->>>>>> Add a new ndo declaration to get SW statistics
->>>>>> Add a function that gets SW statistics if a competible ndo exist
->>>>>>
->>>>>> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
->>>>>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>>>> ---
->>>>>>
->>>>> To me netdev stats is  combined 'SW + HW' stats for that netdev.
->>>>> ndo_get_stats64 callback into the drivers does the magic of adding HW stats
->>>>> to SW (netdev) stats and returning (see enic_get_stats). HW stats is available for netdevs
->>>>> that are offloaded or are backed by hardware. SW stats is the stats that the driver maintains
->>>>> (logical or physical). HW stats is queried and added to the SW stats.
->>>> I'm not sure I follow. HW stats already contain SW stats. Because on
->>>> slow path every packet that is not offloaded and goes through kernel is
->>>> counted into HW stats as well (because it goes through HW port). 
->>> yes, correct... we don't want to double count those. But since these stats are
->>> generally queried from hw, I am calling them HW stats.
->>> you will not really maintain a software counter for this. But, the driver can maintain its own
->>> counters for rx and tx errors etc and I call these SW stats. They are counted at the driver.
->>>
->>>> If you
->>>> do HW stats + SW stats, what you get makes no sense. Am I missing something?
->>> If you go by my definition of HW and SW stats above, on a ndo_get_stats64() call,
->>> you will add the SW counters + HW counters and return. In my definition, the pkts
->>> that was rx'ed or tx'ed successfully are always in the HW count.
->>>
->>>> Btw, looking at enic_get_stats, looks exactly what we introduce for
->>>> mlxsw in this patchset.
->>> In enic_get_stats, the ones counted in software are the ones taken from 'enic->'
->>>     net_stats->rx_over_errors = enic->rq_truncated_pkts;
->>>     net_stats->rx_crc_errors = enic->rq_bad_fcs;
->>>
->>>> With this patchset, we only allow user to se the actual stats for
->>>> slow-path aka SW stats.
->>> hmm...ok. But i am not sure how many will use this new attribute.
->>> When you do 'ip -s link show' you really want all counters on that port
->>> hardware or software does not matter at that point.
->>>
->>> My suggestion to move this to ethtool like attribute is because that is an existing
->>> way to break down your stats which ever way you want. And the best part is it can be
->>> customized (say rx_pkts_cpu_saw)
->> I bevieve that ethtool is really not a place to expose sw stats. Does
->> not make sense.
->2 things:
->- i was surprised you don't want your ndo_get_stats64 to be a unified view of HW and SW stats
+On May 14, 2016, at 12:30 AM, Richard Cochran <richardcochran@gmail.com> wrote:
 
-Roopa, please, look at the patch 4/4. That is exactly what we are doing.
-We expose HW stats via ndo_get_stats64 and that is of course including
-whatever comes through slowpath (non-forwarded in HW).
+> On Fri, May 13, 2016 at 04:12:52PM -0700, Guy Harris wrote:
+>> The Linux implementation currently implements the inquiry by doing a
+>> ETHTOOL_GET_TS_INFO SIOETHTOOL ioctl and looking at the
+>> so_timestamping bits, if the linux/ethtool.h header defines
+>> ETHTOOL_GET_TS_INFO and the ioctl succeeds on the device.
+> 
+> So far, so good. 
+> 
+>> This is inadequate - as libpcap requests hardware time stamping for
+>> all packets, it should also check whether HWTSTAMP_FILTER_ALL is set
+>> in rx_filters, and only offer hardware time stamping if it's set.
+> 
+> The SO_TIMESTAMPING and SIOCSHWTSTAMP interfaces predate
+> ETHTOOL_GET_TS_INFO, and they work fine without it.  Applications
+> should simply use SIOCSHWTSTAMP to request the mode that they need and
+> check the result.
 
+So if you have a GUI application for packet capture, with a combo box to select the type of time stamping, should it:
 
->- by bringing up ethtool like stats (IFLA_STATS_LINK_HW_EXTENDED) I am just saying
->it has always been a way to breakdown stats. If you don't want to show explicit SW stats there,
->there is always a way to show HW only stats....and now you know the delta between the unified stats
->and the HW only stats is your SW stats.
+	1) regardless of whether ETHTOOL_GET_TS_INFO is available, open the adapter, try each of the time stamp types to see whether it works, and show a combo box based on that;
 
-I think we don/t understand each other. HW stats always include SW
-stats. Because whatever goes in or out goes through HW. Therefore, the
-"unified stats" you mention are exactly HW stats.
+	2) use ETHTOOL_GET_TS_INFO if available;
 
-This is fine, Patch 4/4 would do to make this correct. However, I think
-it has value for user to know what went via slowpath (non-forwarded in HW).
-And that is exacly exposed by the SW stats we try to add.
+	3) offer all possibilities regardless of whether they work with the adapter or not, and just report an error for possibilities that don't work?
 
-Is that confusing?
+My preference is 2) - which is the main reason why libpcap offers "what possibilities are available?" APIs, not just "request this possibility" APIs.
