@@ -1,49 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] drivers: net: xgene: Bug fixes
-Date: Fri, 13 May 2016 21:12:26 -0400 (EDT)
-Message-ID: <20160513.211226.1164377917890147208.davem@davemloft.net>
-References: <1463183581-30475-1-git-send-email-isubramanian@apm.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
+Date: Fri, 13 May 2016 21:28:28 -0400
+Message-ID: <8737plig1v.fsf@ketchup.mtl.sfl>
+References: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	patches@apm.com, toanle@apm.com
-To: isubramanian@apm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41222 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753557AbcENBMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2016 21:12:30 -0400
-In-Reply-To: <1463183581-30475-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Fri, 13 May 2016 16:52:56 -0700
+Hi David,
 
-> This patch set addresses the following bug fixes that were found during testing.
-> 
->   1. IPv4 forward test crash
->     - drivers: net: xgene: fix IPv4 forward crash
-> 
->   2. Sharing of irqs
->     - drivers: net: xgene: fix sharing of irqs
-> 
->   3. Ununiform latency across queues
->     - drivers: net: xgene: fix ununiform latency across queues
-> 
->   4. Fix statistics counters race condition
->     - drivers: net: xgene: fix statistics counters race condition
-> 
->   5. Correcting register offset and field lengths
->     - drivers: net: xgene: fix register offset
-> 
-> v2: Address review comments from v1
-> - Defer TSO fix, and reposting all other patches from v1
-> 
-> v1:
-> - Initial version
-> 
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
 
-Series applied, thanks.
+> Now that the bridge code defers the switchdev port state setting, there
+> is no need to defer the port STP state change within the mv88e6xxx code.
+> Thus get rid of the driver's bridge work code.
+>
+> This also fixes a race condition where the DSA layer assumes that the
+> bridge code already set the unbridged port's STP state to Disabled
+> before restoring the Forwarding state.
+>
+> As a consequence, this also fixes the FDB flush for the unbridged port
+> which now correctly occurs during the Forwarding to Disabled transition.
+>
+> Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request attr_set as deferred")
+> Reported-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+This patch doesn't apply to -net, only applies to net-next...
+
+How should I handle that, do I resend a patch for net-next with the good
+subject prefix, and a v2 for -net?
+
+Sorry for the noise,
+
+      Vivien
