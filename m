@@ -1,128 +1,84 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
-Date: Fri, 13 May 2016 20:38:23 -0400
-Message-ID: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Marcin Szewczyk <Marcin.Szewczyk@wodny.org>
+Subject: No "unreachable" response for an outgoing TCP connection when using
+ fwmark
+Date: Sat, 14 May 2016 02:13:41 +0200
+Message-ID: <20160514001341.GB3256@orkisz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from n26.netmark.pl ([94.124.9.61]:36001 "EHLO n26.netmark.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751201AbcENBDI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2016 21:03:08 -0400
+Received: from 87-207-218-242.dynamic.chello.pl ([87.207.218.242]:43425 helo=orkisz)
+	by n26.netmark.pl with esmtpsa (TLSv1:DHE-RSA-AES256-SHA:256)
+	(Exim 4.87)
+	(envelope-from <Marcin.Szewczyk@wodny.org>)
+	id 1b1NDB-003EVE-J9
+	for netdev@vger.kernel.org; Sat, 14 May 2016 02:13:48 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that the bridge code defers the switchdev port state setting, there
-is no need to defer the port STP state change within the mv88e6xxx code.
-Thus get rid of the driver's bridge work code.
+Hi,
 
-This also fixes a race condition where the DSA layer assumes that the
-bridge code already set the unbridged port's STP state to Disabled
-before restoring the Forwarding state.
+I hope this is the right group even though it concerns mainly
+development but I have not found a better one.
 
-As a consequence, this also fixes the FDB flush for the unbridged port
-which now correctly occurs during the Forwarding to Disabled transition.
+I would like to route locally-generated traffic:
+- to a TCP port "A" of host "H" via the interface "A",
+- to a TCP port "B" of host "H" via the interface "B".
 
-Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request attr_set as deferred")
-Reported-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 37 ++++++++-----------------------------
- drivers/net/dsa/mv88e6xxx.h |  5 -----
- 2 files changed, 8 insertions(+), 34 deletions(-)
+Interface "B" is sometimes unavailable. Then I would like the kernel to
+notify the user with "Network is unreachable" error if one tries to
+connect to the TCP port "B".
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index a3f0e7e..ba9dfc9 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1373,6 +1373,7 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int stp_state;
-+	int err;
- 
- 	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_PORTSTATE))
- 		return;
-@@ -1394,12 +1395,13 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 		break;
- 	}
- 
--	/* mv88e6xxx_port_stp_state_set may be called with softirqs disabled,
--	 * so we can not update the port state directly but need to schedule it.
--	 */
--	ps->ports[port].state = stp_state;
--	set_bit(port, ps->port_state_update_mask);
--	schedule_work(&ps->bridge_work);
-+	mutex_lock(&ps->smi_mutex);
-+	err = _mv88e6xxx_port_state(ps, port, stp_state);
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	if (err)
-+		netdev_err(ds->ports[port], "failed to update state to %s\n",
-+			   mv88e6xxx_port_state_names[stp_state]);
- }
- 
- static int _mv88e6xxx_port_pvid(struct mv88e6xxx_priv_state *ps, int port,
-@@ -2535,27 +2537,6 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- 	mutex_unlock(&ps->smi_mutex);
- }
- 
--static void mv88e6xxx_bridge_work(struct work_struct *work)
--{
--	struct mv88e6xxx_priv_state *ps;
--	struct dsa_switch *ds;
--	int port;
--
--	ps = container_of(work, struct mv88e6xxx_priv_state, bridge_work);
--	ds = ps->ds;
--
--	mutex_lock(&ps->smi_mutex);
--
--	for (port = 0; port < ps->info->num_ports; ++port)
--		if (test_and_clear_bit(port, ps->port_state_update_mask) &&
--		    _mv88e6xxx_port_state(ps, port, ps->ports[port].state))
--			netdev_warn(ds->ports[port],
--				    "failed to update state to %s\n",
--				    mv88e6xxx_port_state_names[ps->ports[port].state]);
--
--	mutex_unlock(&ps->smi_mutex);
--}
--
- static int _mv88e6xxx_phy_page_write(struct mv88e6xxx_priv_state *ps,
- 				     int port, int page, int reg, int val)
- {
-@@ -3145,8 +3126,6 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 
- 	ps->ds = ds;
- 
--	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
--
- 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
- 		mutex_init(&ps->eeprom_mutex);
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 40e8721..36d0e15 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -543,7 +543,6 @@ struct mv88e6xxx_vtu_stu_entry {
- 
- struct mv88e6xxx_priv_port {
- 	struct net_device *bridge_dev;
--	u8 state;
- };
- 
- struct mv88e6xxx_priv_state {
-@@ -593,10 +592,6 @@ struct mv88e6xxx_priv_state {
- 
- 	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
- 
--	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
--
--	struct work_struct bridge_work;
--
- 	/* A switch may have a GPIO line tied to its reset pin. Parse
- 	 * this from the device tree, and use it before performing
- 	 * switch soft reset.
+I have tried the following settings (when the interface "B" is down):
+
+# iptables -t mangle -nvL OUTPUT
+Chain OUTPUT (policy ACCEPT 2 packets, 120 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+    2   120 MARK       all  --  *      *       0.0.0.0/0            host-H-ip         MARK set 0x64
+(for simplicity the rule does not include ports yet)
+
+# ip rule
+0:      from all lookup local 
+32765:  from all fwmark 0x64 lookup 200 
+32766:  from all lookup main 
+32767:  from all lookup default
+
+# ip route show table 200
+prohibit default
+
+There are no surprises when the interface "B" is available and the 200
+table contains a regular routing rule.
+
+But when the interface "B" is not available I get satisfactory results
+only for ICMP and UDP:
+
+$ ping host-H-ip
+PING host-H-ip (host-H-ip) 56(84) bytes of data.
+ping: sendmsg: Network is unreachable
+
+$ nc -nuv host-H-ip 5000
+(UNKNOWN) [host-H-ip] 5000 (?) open
+foo
+too many output retries : Network is unreachable
+
+For TCP it just hangs:
+$ nc -nv host-H-ip 5000
+
+I have found some threads that seem to be connected with the topic:
+http://marc.info/?l=linux-netdev&m=136633466813095&w=2
+http://www.spinics.net/lists/netdev/msg281954.html
+http://netfilter-devel.vger.kernel.narkive.com/8ggjpr4G/netfilter-core-mangle-table-rules-are-not-taken-into-account-in-preliminary-routing-decision
+
+Unfortunately, I still do not understand why I do not get "Network is
+unreachable" for TCP as well. Could anybody explain it to me?
+
+Best regards,
+
 -- 
-2.8.2
+Marcin Szewczyk
+http://wodny.org
