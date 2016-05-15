@@ -1,232 +1,80 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 2/5] qed: Improve VF interrupt reset
-Date: Sun, 15 May 2016 14:48:06 +0300
-Message-ID: <1463312889-19351-3-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Shuyu Wei <wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] ethernet:arc: Fix racing of TX ring buffer
+Date: Sun, 15 May 2016 20:38:29 +0800
+Message-ID: <20160515123829.GA2831@debian-dorm>
+References: <20160514161602.GA3347@debian-dorm>
+ <20160514200356.GA14105@electric-eye.fr.zoreil.com>
+ <20160514231044.GA2968@debian-dorm>
+ <20160515091953.GA19983@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46649 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754197AbcEOLs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 07:48:28 -0400
-In-Reply-To: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160515091953.GA19983-lmTtMILVy1jWQcoT9B9Ug5SCg42XY1Uw0E9HWUfgJXw@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-During FLR flow, need to make sure HW is no longer capable of writing to
-host memory as part of its interrupt mechanisms.
-While we're at it, unify the logic cleaning the driver's status-blocks
-into using a single API function for both PFs and VFs.
+On Sun, May 15, 2016 at 11:19:53AM +0200, Francois Romieu wrote:
+> 
+> static void arc_emac_tx_clean(struct net_device *ndev)
+> {
+> [...]
+>         for (i = 0; i < TX_BD_NUM; i++) {
+>                 unsigned int *txbd_dirty = &priv->txbd_dirty;
+>                 struct arc_emac_bd *txbd = &priv->txbd[*txbd_dirty];
+>                 struct buffer_state *tx_buff = &priv->tx_buff[*txbd_dirty];
+>                 struct sk_buff *skb = tx_buff->skb;
+>                 unsigned int info = le32_to_cpu(txbd->info);
+> 
+>                 if ((info & FOR_EMAC) || !txbd->data || !skb)
+>                         break;
+>                         ^^^^^
+> 
+> -> the "break" statement prevents reading all txbds. At most one extra
+>    descriptor is read and this driver isn't in the Mpps business.
+> 
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qed/qed_int.c      | 59 ++++++++++++++------------
- drivers/net/ethernet/qlogic/qed/qed_int.h      | 20 +--------
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  2 +
- drivers/net/ethernet/qlogic/qed/qed_sriov.c    | 20 +++------
- 4 files changed, 41 insertions(+), 60 deletions(-)
+You are right, I forgot the break statement.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index bbecfa5..09a6ad3 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -2805,20 +2805,13 @@ void qed_int_igu_disable_int(struct qed_hwfn *p_hwfn,
- }
+> > I tried your advice, Tx throughput can only reach 5.52MB/s.
+> 
+> Even with the original code above ?
+
+Yes, I left tx_clean unmodified, and took your advice below.
+I tested it again just now, this time throughput do reach 9.8MB/s,
+Maybe last time cpu is not idle.
+
+I still have a question, is it possible that tx_clean() run
+between   priv->tx_buff[*txbd_curr].skb = skb   and   dma_wmb()?
+
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -685,13 +685,15 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+        wmb();
  
- #define IGU_CLEANUP_SLEEP_LENGTH                (1000)
--void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
--			    struct qed_ptt *p_ptt,
--			    u32 sb_id,
--			    bool cleanup_set,
--			    u16 opaque_fid
--			    )
-+static void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
-+				   struct qed_ptt *p_ptt,
-+				   u32 sb_id, bool cleanup_set, u16 opaque_fid)
- {
-+	u32 cmd_ctrl = 0, val = 0, sb_bit = 0, sb_bit_addr = 0, data = 0;
- 	u32 pxp_addr = IGU_CMD_INT_ACK_BASE + sb_id;
- 	u32 sleep_cnt = IGU_CLEANUP_SLEEP_LENGTH;
--	u32 data = 0;
--	u32 cmd_ctrl = 0;
--	u32 val = 0;
--	u32 sb_bit = 0;
--	u32 sb_bit_addr = 0;
- 
- 	/* Set the data field */
- 	SET_FIELD(data, IGU_CLEANUP_CLEANUP_SET, cleanup_set ? 1 : 0);
-@@ -2863,11 +2856,9 @@ void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
- 
- void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt,
--				     u32 sb_id,
--				     u16 opaque,
--				     bool b_set)
-+				     u32 sb_id, u16 opaque, bool b_set)
- {
--	int pi;
-+	int pi, i;
- 
- 	/* Set */
- 	if (b_set)
-@@ -2876,6 +2867,22 @@ void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 	/* Clear */
- 	qed_int_igu_cleanup_sb(p_hwfn, p_ptt, sb_id, 0, opaque);
- 
-+	/* Wait for the IGU SB to cleanup */
-+	for (i = 0; i < IGU_CLEANUP_SLEEP_LENGTH; i++) {
-+		u32 val;
+        skb_tx_timestamp(skb);
++       priv->tx_buff[*txbd_curr].skb = skb;
 +
-+		val = qed_rd(p_hwfn, p_ptt,
-+			     IGU_REG_WRITE_DONE_PENDING + ((sb_id / 32) * 4));
-+		if (val & (1 << (sb_id % 32)))
-+			usleep_range(10, 20);
-+		else
-+			break;
-+	}
-+	if (i == IGU_CLEANUP_SLEEP_LENGTH)
-+		DP_NOTICE(p_hwfn,
-+			  "Failed SB[0x%08x] still appearing in WRITE_DONE_PENDING\n",
-+			  sb_id);
-+
- 	/* Clear the CAU for the SB */
- 	for (pi = 0; pi < 12; pi++)
- 		qed_wr(p_hwfn, p_ptt,
-@@ -2884,13 +2891,11 @@ void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
++       dma_wmb();
  
- void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
- 			      struct qed_ptt *p_ptt,
--			      bool b_set,
--			      bool b_slowpath)
-+			      bool b_set, bool b_slowpath)
- {
- 	u32 igu_base_sb = p_hwfn->hw_info.p_igu_info->igu_base_sb;
- 	u32 igu_sb_cnt = p_hwfn->hw_info.p_igu_info->igu_sb_cnt;
--	u32 sb_id = 0;
--	u32 val = 0;
-+	u32 sb_id = 0, val = 0;
+        *info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
  
- 	val = qed_rd(p_hwfn, p_ptt, IGU_REG_BLOCK_CONFIGURATION);
- 	val |= IGU_REG_BLOCK_CONFIGURATION_VF_CLEANUP_EN;
-@@ -2906,14 +2911,14 @@ void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
- 						p_hwfn->hw_info.opaque_fid,
- 						b_set);
+        /* Make sure info word is set */
+        wmb();
  
--	if (b_slowpath) {
--		sb_id = p_hwfn->hw_info.p_igu_info->igu_dsb_id;
--		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
--			   "IGU cleaning slowpath SB [%d]\n", sb_id);
--		qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, sb_id,
--						p_hwfn->hw_info.opaque_fid,
--						b_set);
--	}
-+	if (!b_slowpath)
-+		return;
-+
-+	sb_id = p_hwfn->hw_info.p_igu_info->igu_dsb_id;
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
-+		   "IGU cleaning slowpath SB [%d]\n", sb_id);
-+	qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt, sb_id,
-+					p_hwfn->hw_info.opaque_fid, b_set);
- }
+-       priv->tx_buff[*txbd_curr].skb = skb;
  
- static u32 qed_int_igu_read_cam_block(struct qed_hwfn	*p_hwfn,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
-index 295df44..20b4686 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
-@@ -298,26 +298,8 @@ u16 qed_int_get_sp_sb_id(struct qed_hwfn *p_hwfn);
-  * @param p_hwfn
-  * @param p_ptt
-  * @param sb_id		- igu status block id
-- * @param cleanup_set	- set(1) / clear(0)
-- * @param opaque_fid    - the function for which to perform
-- *			cleanup, for example a PF on behalf of
-- *			its VFs.
-- */
--void qed_int_igu_cleanup_sb(struct qed_hwfn *p_hwfn,
--			    struct qed_ptt *p_ptt,
--			    u32 sb_id,
--			    bool cleanup_set,
--			    u16 opaque_fid);
--
--/**
-- * @brief Status block cleanup. Should be called for each status
-- *        block that will be used -> both PF / VF
-- *
-- * @param p_hwfn
-- * @param p_ptt
-- * @param sb_id		- igu status block id
-  * @param opaque	- opaque fid of the sb owner.
-- * @param cleanup_set	- set(1) / clear(0)
-+ * @param b_set		- set(1) / clear(0)
-  */
- void qed_int_igu_init_pure_rt_single(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index bb7dcf1..3a6c506 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -429,6 +429,8 @@
- 	0x184000UL
- #define IGU_REG_STATISTIC_NUM_VF_MSG_SENT \
- 	0x180408UL
-+#define IGU_REG_WRITE_DONE_PENDING \
-+	0x180900UL
- #define  MISCS_REG_GENERIC_POR_0	\
- 	0x0096d4UL
- #define  MCP_REG_NVM_CFG4 \
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 2c4f9b0..7b6b4a0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -526,7 +526,6 @@ static void qed_iov_vf_pglue_clear_err(struct qed_hwfn *p_hwfn,
- static void qed_iov_vf_igu_reset(struct qed_hwfn *p_hwfn,
- 				 struct qed_ptt *p_ptt, struct qed_vf_info *vf)
- {
--	u16 igu_sb_id;
- 	int i;
- 
- 	/* Set VF masks and configuration - pretend */
-@@ -534,23 +533,14 @@ static void qed_iov_vf_igu_reset(struct qed_hwfn *p_hwfn,
- 
- 	qed_wr(p_hwfn, p_ptt, IGU_REG_STATISTIC_NUM_VF_MSG_SENT, 0);
- 
--	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
--		   "value in VF_CONFIGURATION of vf %d after write %x\n",
--		   vf->abs_vf_id,
--		   qed_rd(p_hwfn, p_ptt, IGU_REG_VF_CONFIGURATION));
--
- 	/* unpretend */
- 	qed_fid_pretend(p_hwfn, p_ptt, (u16) p_hwfn->hw_info.concrete_fid);
- 
- 	/* iterate over all queues, clear sb consumer */
--	for (i = 0; i < vf->num_sbs; i++) {
--		igu_sb_id = vf->igu_sbs[i];
--		/* Set then clear... */
--		qed_int_igu_cleanup_sb(p_hwfn, p_ptt, igu_sb_id, 1,
--				       vf->opaque_fid);
--		qed_int_igu_cleanup_sb(p_hwfn, p_ptt, igu_sb_id, 0,
--				       vf->opaque_fid);
--	}
-+	for (i = 0; i < vf->num_sbs; i++)
-+		qed_int_igu_init_pure_rt_single(p_hwfn, p_ptt,
-+						vf->igu_sbs[i],
-+						vf->opaque_fid, true);
- }
- 
- static void qed_iov_vf_igu_set_int(struct qed_hwfn *p_hwfn,
-@@ -591,6 +581,8 @@ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
- 
- 	qed_iov_vf_pglue_clear_err(p_hwfn, p_ptt, QED_VF_ABS_ID(p_hwfn, vf));
- 
-+	qed_iov_vf_igu_reset(p_hwfn, p_ptt, vf);
-+
- 	rc = qed_mcp_config_vf_msix(p_hwfn, p_ptt, vf->abs_vf_id, vf->num_sbs);
- 	if (rc)
- 		return rc;
--- 
-1.9.3
+        /* Increment index to point to the next BD */
+        *txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
