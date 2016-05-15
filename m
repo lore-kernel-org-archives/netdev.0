@@ -1,201 +1,147 @@
-From: kan.liang@intel.com
-Subject: [PATCH 3/5] ethtool: introduce new ioctl for per queue setting
-Date: Sun, 15 May 2016 00:14:34 -0700
-Message-ID: <1463296476-32493-3-git-send-email-kan.liang@intel.com>
-References: <1463296476-32493-1-git-send-email-kan.liang@intel.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	nicolas.dichtel@6wind.com, ben@decadent.org.uk,
-	jesse.brandeburg@intel.com, andi@firstfloor.org,
-	Kan Liang <kan.liang@intel.com>
-To: bwh@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59592 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752262AbcEOOkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2016 10:40:40 -0400
-In-Reply-To: <1463296476-32493-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: =?UTF-8?q?=5BPATCH=20v11=20net-next=200/1=5D=20introduce=20Hyper-V=20VM=20Sockets=28hv=5Fsock=29?=
+Date: Sun, 15 May 2016 09:52:42 -0700
+Message-ID: <1463331162-6679-1-git-send-email-decui@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: joe@perches.com
+To: gregkh@linuxfoundation.org, davem@davemloft.net, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org, olaf@aepfle.de,
+ apw@canonical.com, jasowang@redhat.com, cavery@redhat.com,
+ kys@microsoft.com, haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Kan Liang <kan.liang@intel.com>
-
-Introduce a new ioctl for per queue parameters setting.
-Users can apply commands to specific queues by setting SUB_COMMAND and
-queue_mask as following command.
-
- ethtool --set-perqueue-command DEVNAME [queue_mask %x] SUB_COMMAND
-
-If queue_mask is not set, the SUB_COMMAND will be applied to all queues.
-
-The following patches will enable SUB_COMMANDs for per queue setting.
-
-Signed-off-by: Kan Liang <kan.liang@intel.com>
----
- ethtool.8.in |  19 ++++++++++++
- ethtool.c    | 100 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 119 insertions(+)
-
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 009711d..26d01cb 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -339,6 +339,13 @@ ethtool \- query or control network driver and hardware settings
- .B2 tx-lpi on off
- .BN tx-timer
- .BN advertise
-+.HP
-+.B ethtool \-\-set\-perqueue\-command
-+.I devname
-+.RB [ queue_mask
-+.IR %x ]
-+.I sub_command
-+.RB ...
- .
- .\" Adjust lines (i.e. full justification) and hyphenate.
- .ad
-@@ -920,6 +927,18 @@ Values are as for
- Sets the amount of time the device should stay in idle mode prior to asserting
- its Tx LPI (in microseconds). This has meaning only when Tx LPI is enabled.
- .RE
-+.TP
-+.B \-\-set\-perqueue\-command
-+Sets sub command to specific queues.
-+.RS 4
-+.TP
-+.B queue_mask %x
-+Sets the specific queues which the sub command is applied to.
-+If queue_mask is not set, the sub command will be applied to all queues.
-+.TP
-+.B sub_command
-+Sets the sub command.
-+.RE
- .SH BUGS
- Not supported (in part or whole) on all network drivers.
- .SH AUTHOR
-diff --git a/ethtool.c b/ethtool.c
-index 86724a2..ba741f0 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -4037,6 +4037,8 @@ static int do_seee(struct cmd_context *ctx)
- 	return 0;
- }
- 
-+static int do_perqueue(struct cmd_context *ctx);
-+
- #ifndef TEST_ETHTOOL
- int send_ioctl(struct cmd_context *ctx, void *cmd)
- {
-@@ -4196,6 +4198,8 @@ static const struct option {
- 	  "		[ advertise %x ]\n"
- 	  "		[ tx-lpi on|off ]\n"
- 	  "		[ tx-timer %d ]\n"},
-+	{ "--set-perqueue-command", 1, do_perqueue, "Set per queue command",
-+	  "		[queue_mask %x] SUB_COMMAND\n"},
- 	{ "-h|--help", 0, show_usage, "Show this help" },
- 	{ "--version", 0, do_version, "Show version number" },
- 	{}
-@@ -4247,6 +4251,102 @@ static int find_option(int argc, char **argp)
- 	return -1;
- }
- 
-+static int set_queue_mask(u32 *queue_mask, char *str)
-+{
-+	int len = strlen(str);
-+	int index = __KERNEL_DIV_ROUND_UP(len * 4, 32);
-+	char tmp[9];
-+	char *end = str + len;
-+	int i, num;
-+	__u32 mask;
-+	int n_queues = 0;
-+
-+	if (len > MAX_NUM_QUEUE)
-+		return -EINVAL;
-+
-+	for (i = 0; i < index; i++) {
-+		num = end - str;
-+
-+		if (num >= 8) {
-+			end -= 8;
-+			num = 8;
-+		} else {
-+			end = str;
-+		}
-+		strncpy(tmp, end, num);
-+		tmp[num] = '\0';
-+
-+		queue_mask[i] = strtoul(tmp, NULL, 16);
-+
-+		mask = queue_mask[i];
-+		while (mask > 0) {
-+			if (mask & 0x1)
-+				n_queues++;
-+			mask = mask >> 1;
-+		}
-+	}
-+
-+	return n_queues;
-+}
-+
-+#define MAX(x, y) (x > y ? x : y)
-+
-+static int find_max_num_queues(struct cmd_context *ctx)
-+{
-+	struct ethtool_channels echannels;
-+
-+	echannels.cmd = ETHTOOL_GCHANNELS;
-+	if (send_ioctl(ctx, &echannels))
-+		return -1;
-+
-+	return MAX(MAX(echannels.rx_count, echannels.tx_count), echannels.combined_count);
-+}
-+
-+static int do_perqueue(struct cmd_context *ctx)
-+{
-+	__u32 queue_mask[__KERNEL_DIV_ROUND_UP(MAX_NUM_QUEUE, 32)] = {0};
-+	int i, n_queues = 0;
-+
-+	if (ctx->argc == 0)
-+		exit_bad_args();
-+
-+	/*
-+	 * The sub commands will be applied to
-+	 * all queues if no queue_mask set
-+	 */
-+	if (strncmp(*ctx->argp, "queue_mask", 10)) {
-+		n_queues = find_max_num_queues(ctx);
-+		if (n_queues < 0) {
-+			perror("Cannot get number of queues");
-+			return -EFAULT;
-+		}
-+		for (i = 0; i < n_queues / 32; i++)
-+			queue_mask[i] = ~0;
-+		queue_mask[i] = (1 << (n_queues - i * 32)) - 1;
-+		fprintf(stdout, "The sub commands will be applied"
-+				" to all %d queues\n", n_queues);
-+	} else {
-+		ctx->argc--;
-+		ctx->argp++;
-+		n_queues = set_queue_mask(queue_mask, *ctx->argp);
-+		if (n_queues < 0) {
-+			perror("Invalid queue mask");
-+			return n_queues;
-+		}
-+		ctx->argc--;
-+		ctx->argp++;
-+
-+	}
-+
-+	i = find_option(ctx->argc, ctx->argp);
-+	if (i < 0)
-+		exit_bad_args();
-+
-+	/* no sub_command support yet */
-+
-+	return 0;
-+}
-+
- int main(int argc, char **argp)
- {
- 	int (*func)(struct cmd_context *);
--- 
-2.5.0
+SHlwZXItViBTb2NrZXRzIChodl9zb2NrKSBzdXBwbGllcyBhIGJ5dGUtc3RyZWFtIGJhc2VkIGNv
+bW11bmljYXRpb24KbWVjaGFuaXNtIGJldHdlZW4gdGhlIGhvc3QgYW5kIHRoZSBndWVzdC4gSXQn
+cyBzb21ld2hhdCBsaWtlIFRDUCBvdmVyClZNQnVzLCBidXQgdGhlIHRyYW5zcG9ydGF0aW9uIGxh
+eWVyIChWTUJ1cykgaXMgbXVjaCBzaW1wbGVyIHRoYW4gSVAuCgpXaXRoIEh5cGVyLVYgU29ja2V0
+cywgYXBwbGljYXRpb25zIGJldHdlZW4gdGhlIGhvc3QgYW5kIHRoZSBndWVzdCBjYW4gdGFsawp0
+byBlYWNoIG90aGVyIGRpcmVjdGx5IGJ5IHRoZSB0cmFkaXRpb25hbCBCU0Qtc3R5bGUgc29ja2V0
+IEFQSXMuCgpIeXBlci1WIFNvY2tldHMgaXMgb25seSBhdmFpbGFibGUgb24gbmV3IFdpbmRvd3Mg
+aG9zdHMsIGxpa2UgV2luZG93cyBTZXJ2ZXIKMjAxNi4gTW9yZSBpbmZvIGlzIGluIHRoaXMgYXJ0
+aWNsZSAiTWFrZSB5b3VyIG93biBpbnRlZ3JhdGlvbiBzZXJ2aWNlcyI6Cmh0dHBzOi8vbXNkbi5t
+aWNyb3NvZnQuY29tL2VuLXVzL3ZpcnR1YWxpemF0aW9uL2h5cGVydl9vbl93aW5kb3dzL2RldmVs
+b3AvbWFrZV9tZ210X3NlcnZpY2UKClRoZSBwYXRjaCBpbXBsZW1lbnRzIHRoZSBuZWNlc3Nhcnkg
+c3VwcG9ydCBpbiB0aGUgZ3Vlc3Qgc2lkZSBieQppbnRyb2R1Y2luZyBhIG5ldyBzb2NrZXQgYWRk
+cmVzcyBmYW1pbHkgQUZfSFlQRVJWLgoKWW91IGNhbiBhbHNvIGdldCB0aGUgcGF0Y2ggYnk6Cmh0
+dHBzOi8vZ2l0aHViLmNvbS9kY3VpL2xpbnV4L2NvbW1pdHMvZGVjdWkvaHZfc29jay9uZXQtbmV4
+dC8yMDE2MDUxMl92MTAKCk5vdGU6IHRoZSBWTUJ1cyBkcml2ZXIgc2lkZSdzIHN1cHBvcnRpbmcg
+cGF0Y2hlcyBoYXZlIGJlZW4gaW4gdGhlIG1haW5saW5lCnRyZWUuCgpJIGtub3cgdGhlIGtlcm5l
+bCBoYXMgYWxyZWFkeSBoYWQgYSBWTSBTb2NrZXRzIGRyaXZlciAoQUZfVlNPQ0spIGJhc2VkCm9u
+IFZNd2FyZSBWTUNJIChuZXQvdm13X3Zzb2NrLywgZHJpdmVycy9taXNjL3Ztd192bWNpKSwgYW5k
+IEtWTSBpcwpwcm9wb3NpbmcgQUZfVlNPQ0sgb2YgdmlydGlvIHZlcnNpb246Cmh0dHA6Ly9tYXJj
+LmluZm8vP2w9bGludXgtbmV0ZGV2Jm09MTQ1OTUyMDY0MDA0NzY1Jnc9MgoKSG93ZXZlciwgdGhv
+dWdoIEh5cGVyLVYgU29ja2V0cyBtYXkgc2VlbSBjb25jZXB0dWFsbHkgc2ltaWxhciB0bwpBRl9W
+T1NDSywgdGhlcmUgYXJlIGRpZmZlcmVuY2VzIGluIHRoZSB0cmFuc3BvcnRhdGlvbiBsYXllciwg
+YW5kIElNTyB0aGVzZQptYWtlIHRoZSBkaXJlY3QgY29kZSByZXVzaW5nIGltcHJhY3RpY2FsOgoK
+MS4gSW4gQUZfVlNPQ0ssIHRoZSBlbmRwb2ludCB0eXBlIGlzOiA8dTMyIENvbnRleHRJRCwgdTMy
+IFBvcnQ+LCBidXQgaW4KQUZfSFlQRVJWLCB0aGUgZW5kcG9pbnQgdHlwZSBpczogPEdVSUQgVk1f
+SUQsIEdVSUQgU2VydmljZUlEPi4gSGVyZSBHVUlECmlzIDEyOC1iaXQuCgoyLiBBRl9WU09DSyBz
+dXBwb3J0cyBTT0NLX0RHUkFNLCB3aGlsZSBBRl9IWVBFUlYgZG9lc24ndC4KCjMuIEFGX1ZTT0NL
+IHN1cHBvcnRzIHNvbWUgc3BlY2lhbCBzb2NrIG9wdHMsIGxpa2UgU09fVk1fU09DS0VUU19CVUZG
+RVJfU0laRSwKU09fVk1fU09DS0VUU19CVUZGRVJfTUlOL01BWF9TSVpFIGFuZCBTT19WTV9TT0NL
+RVRTX0NPTk5FQ1RfVElNRU9VVC4KVGhlc2UgYXJlIG1lYW5pbmdsZXNzIHRvIEFGX0hZUEVSVi4K
+CjQuIFNvbWUgQUZfVlNPQ0sncyBWTUNJIHRyYW5zcG9ydGF0aW9uIG9wcyBhcmUgbWVhbmxlc3Mg
+dG8gQUZfSFlQRVJWL1ZNQnVzLApsaWtlIC5ub3RpZnlfcmVjdl9pbml0Ci5ub3RpZnlfcmVjdl9w
+cmVfYmxvY2sKLm5vdGlmeV9yZWN2X3ByZV9kZXF1ZXVlCi5ub3RpZnlfcmVjdl9wb3N0X2RlcXVl
+dWUKLm5vdGlmeV9zZW5kX2luaXQKLm5vdGlmeV9zZW5kX3ByZV9ibG9jawoubm90aWZ5X3NlbmRf
+cHJlX2VucXVldWUKLm5vdGlmeV9zZW5kX3Bvc3RfZW5xdWV1ZQpldGMuCgpTbyBJIHRoaW5rIHdl
+J2QgYmV0dGVyIGludHJvZHVjZSBhIG5ldyBhZGRyZXNzIGZhbWlseTogQUZfSFlQRVJWLgoKUGxl
+YXNlIHJldmlldyB0aGUgcGF0Y2guCgpMb29raW5nIGZvcndhcmQgdG8geW91ciBjb21tZW50cywg
+ZXNwZWNpYWxseSBjb21tZW50cyBmcm9tIERhdmlkLiA6LSkKCkNoYW5nZXMgc2luY2UgdjE6Ci0g
+dXBkYXRlZCAiW1BBVENIIDYvN10gaHZzb2NrOiBpbnRyb2R1Y2UgSHlwZXItViBWTSBTb2NrZXRz
+IGZlYXR1cmUiCi0gYWRkZWQgX19pbml0IGFuZCBfX2V4aXQgZm9yIHRoZSBtb2R1bGUgaW5pdC9l
+eGl0IGZ1bmN0aW9ucwotIG5ldC9odl9zb2NrL0tjb25maWc6ICJkZWZhdWx0IG0iIC0+ICJkZWZh
+dWx0IG0gaWYgSFlQRVJWIgotIE1PRFVMRV9MSUNFTlNFOiAiRHVhbCBNSVQvR1BMIiAtPiAiRHVh
+bCBCU0QvR1BMIgoKQ2hhbmdlcyBzaW5jZSB2MjoKLSBmaXhlZCB2YXJpb3VzIGNvZGluZyBpc3N1
+ZSBwb2ludGVkIG91dCBieSBEYXZpZCBNaWxsZXIKLSBmaXhlZCBpbmRlbnRhdGlvbiBpc3N1ZXMK
+LSByZW1vdmVkIHByX2RlYnVnIGluIG5ldC9odl9zb2NrL2FmX2h2c29jay5jCi0gdXNlZCByZXZl
+cnNlLUNocmlzbWFzLXRyZWUgc3R5bGUgZm9yIGxvY2FsIHZhcmlhYmxlcy4KLSBFWFBPUlRfU1lN
+Qk9MIC0+IEVYUE9SVF9TWU1CT0xfR1BMCgpDaGFuZ2VzIHNpbmNlIHYzOgotIGZpeGVkIGEgZmV3
+IGNvZGluZyBpc3N1ZSBwb2ludGVkIGJ5IFZpdGFseSBLdXpuZXRzb3YgYW5kIERhbiBDYXJwZW50
+ZXIKLSBmaXhlZCB0aGUgcmV0IHZhbHVlIGluIHZtYnVzX3JlY3ZwYWNrZXRfaHZzb2NrIG9uIGVy
+cm9yCi0gZml4ZWQgdGhlIHN0eWxlIG9mIG11bHRpLWxpbmUgY29tbWVudDogdm1idXNfZ2V0X2h2
+c29ja19yd19zdGF0dXMoKQoKQ2hhbmdlcyBzaW5jZSB2NCAoaHR0cHM6Ly9sa21sLm9yZy9sa21s
+LzIwMTUvNy8yOC80MDQpOgotIGFkZHJlc3NlZCBhbGwgdGhlIGNvbW1lbnRzIGFib3V0IFY0Lgot
+IHRyZWF0IHRoZSBodnNvY2sgb2ZmZXJzL2NoYW5uZWxzIGFzIHNwZWNpYWwgVk1CdXMgZGV2aWNl
+cwotIGFkZCBhIG1lY2hhbmlzbSB0byBwYXNzIGh2c29jayBldmVudHMgdG8gdGhlIGh2c29jayBk
+cml2ZXIKLSBmaXhlZCBzb21lIGNvcm5lciBjYXNlcyB3aXRoIHByb3BlciBsb2NraW5nIHdoZW4g
+YSBjb25uZWN0aW9uIGlzIGNsb3NlZAotIHJlYmFzZWQgdG8gdGhlIGxhdGVzdCBHcmVnJ3MgdHJl
+ZQoKQ2hhbmdlcyBzaW5jZSB2NSAoaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTUvMTIvMjQvMTAz
+KToKLSBhZGRyZXNzZWQgdGhlIGNvZGluZyBzdHlsZSBpc3N1ZXMgKFZpdGFseSBLdXpuZXRzb3Yg
+JiBEYXZpZCBNaWxsZXIsIHRoYW5rcyEpCi0gdXNlZCBhIGJldHRlciBjb2RpbmcgZm9yIHRoZSBw
+ZXItY2hhbm5lbCByZXNjaW5kIGNhbGxiYWNrIChUaGFuayBWaXRhbHkhKQotIGF2b2lkZWQgdGhl
+IGludHJvZHVjdGlvbiBvZiBuZXcgVk1CVVMgZHJpdmVyIEFQSXMgdm1idXNfc2VuZHBhY2tldF9o
+dnNvY2soKQphbmQgdm1idXNfcmVjdnBhY2tldF9odnNvY2soKSBhbmQgdXNlZCB2bWJ1c19zZW5k
+cGFja2V0KCkvdm1idXNfcmVjdnBhY2tldCgpCmluIHRoZSBoaWdoZXIgbGV2ZWwgKGkuZS4sIHRo
+ZSB2bXNvY2sgZHJpdmVyKS4gVGhhbmsgVml0YWx5IQoKQ2hhbmdlcyBzaW5jZSB2NiAoaHR0cDov
+L2xrbWwuaXUuZWR1L2h5cGVybWFpbC9saW51eC9rZXJuZWwvMTYwMS4zLzAxODEzLmh0bWwpCi0g
+b25seSBhIGZldyBtaW5vciBjaGFuZ2VzIG9mIGNvZGluZyBzdHlsZSBhbmQgY29tbWVudHMKCkNo
+YW5nZXMgc2luY2UgdjcKLSBhIGZldyBtaW5vciBjaGFuZ2VzIG9mIGNvZGluZyBzdHlsZTogdGhh
+bmtzLCBKb2UgUGVyY2hlcyEKLSBhZGRlZCBzb21lIGxpbmVzIG9mIGNvbW1lbnRzIGFib3V0IEdV
+SUQvVVVJRCBiZWZvcmUgdGhlIHN0cnVjdCBzb2NrYWRkcl9odi4KCkNoYW5nZXMgc2luY2UgdjgK
+LSByZW1vdmVkIHRoZSB1bm5lY2Vzc2FyeSBfX3BhY2tlZCBmb3Igc29tZSBkZWZpbml0aW9uczog
+dGhhbmtzLCBEYXZpZCEKLSBodnNvY2tfb3Blbl9jb25uZWN0aW9uOiAgdXNlIG9mZmVyLnUucGlw
+ZS51c2VyX2RlZlswXSB0byBrbm93IHRoZSBjb25uZWN0aW9uCmFuZCByZW9yZ2FuaXplZCB0aGUg
+ZnVuY3Rpb24KZGlyZWN0aW9uIAotIHJlb3JnYW5pemVkIHRoZSBjb2RlIGFjY29yZGluZyB0byBz
+dWdnZXN0aW9ucyBmcm9tIENhdGh5IEF2ZXJ5OiBzcGxpdCBiaWcKZnVuY3Rpb25zIGludG8gc21h
+bGwgb25lcywgc2V0IC5zZXRzb2Nrb3B0IGFuZCBnZXRzb2Nrb3B0IHRvCnNvY2tfbm9fc2V0c29j
+a29wdC9zb2NrX25vX2dldHNvY2tvcHQKLSBpbmxpbmUnZCBzb21lIHNtYWxsIGxpc3QgaGVscGVy
+IGZ1bmN0aW9ucwoKQ2hhbmdlcyBzaW5jZSB2OQotIG1pbmltaXplZCBzdHJ1Y3QgaHZzb2NrX3Nv
+Y2sgYnkgbWFraW5nIHRoZSBzZW5kL3JlY3YgYnVmZmVycyBwb2ludGVycy4KICAgdGhlIGJ1ZmZl
+cnMgYXJlIGFsbG9jYXRlZCBieSBrbWFsbG9jKCkgaW4gX19odnNvY2tfY3JlYXRlKCkgbm93Lgot
+IG1pbmltaXplZCB0aGUgc2l6ZXMgb2YgdGhlIHNlbmQvcmVjdiBidWZmZXJzIGFuZCB0aGUgdm1i
+dXMgcmluZ2J1ZmZlcnMuCgpDaGFuZ2VzIHNpbmNlIHYxMAoKMSkgYWRkIG1vZHVsZSBwYXJhbXM6
+IHNlbmRfcmluZ19wYWdlLCByZWN2X3JpbmdfcGFnZS4gVGhleSBjYW4gYmUgdXNlZCB0bwplbmxh
+cmdlIHRoZSByaW5nYnVmZmVyIHNpemUgdG8gZ2V0IGJldHRlciBwZXJmb3JtYW5jZSwgZS5nLiwK
+IyBtb2Rwcm9iZSBodl9zb2NrICByZWN2X3JpbmdfcGFnZT0xNiBzZW5kX3JpbmdfcGFnZT0xNgpC
+eSBkZWZhdWx0LCByZWN2X3JpbmdfcGFnZSBpcyAzIGFuZCBzZW5kX3JpbmdfcGFnZSBpcyAyLgoK
+MikgYWRkIG1vZHVsZSBwYXJhbSBtYXhfc29ja2V0X251bWJlciAodGhlIGRlZmF1bHQgaXMgMTAy
+NCkuCkEgdXNlciBjYW4gZW5sYXJnZSB0aGUgbnVtYmVyIHRvIGNyZWF0ZSBtb3JlIHRoYW4gMTAy
+NCBodl9zb2NrIHNvY2tldHMuCkJ5IGRlZmF1bHQsIDEwMjQgc29ja2V0cyB0YWtlIGFib3V0IDEw
+MjQgKiAoMysyKzErMSkgKiA0S0IgPSAyOE0gYnl0ZXMuCihIZXJlIDErMSBtZWFucyAxIHBhZ2Ug
+Zm9yIHNlbmQvcmVjdiBidWZmZXJzIHBlciBjb25uZWN0aW9uLCByZXNwZWN0aXZlbHkuKQoKMykg
+aW1wbGVtZW50IHRoZSBUT0RPIGluIGh2c29ja19zaHV0ZG93bigpLgoKNCkgZml4IGEgYnVnIGlu
+IGh2c29ja19jbG9zZV9jb25uZWN0aW9uKCk6CiAgIEkgcmVtb3ZlICJzay0+c2tfc29ja2V0LT5z
+dGF0ZSA9IFNTX1VOQ09OTkVDVEVEOyIgLS0gYWN0dWFsbHkgdGhpcyBsaW5lCmlzIG5vdCByZWFs
+bHkgdXNlZnVsLiBGb3IgYSBjb25uZWN0aW9uIHRyaWdnZXJlZCBieSBhIGhvc3QgYXBw4oCZcyBj
+b25uZWN0KCksCnNrLT5za19zb2NrZXQgcmVtYWlucyBOVUxMIGJlZm9yZSB0aGUgY29ubmVjdGlv
+biBpcyBhY2NlcHRlZCBieSB0aGUgc2VydmVyCmFwcCAoaW4gTGludXggVk0pOiBzZWUgaHZzb2Nr
+X2FjY2VwdCgpIC0+IGh2c29ja19hY2NlcHRfd2FpdCgpIC0+CnNvY2tfZ3JhZnQoY29ubmVjdGVk
+LCBuZXdzb2NrKS4gSWYgdGhlIGhvc3QgYXBwIGV4aXRzIGJlZm9yZSB0aGUgc2VydmVyCmFwcOKA
+mXMgYWNjZXB0KCkgcmV0dXJucywgdGhlIGhvc3QgY2FuIHNlbmQgYSByZXNjaW5kLW1lc3NhZ2Ug
+dG8gY2xvc2UgdGhlCmNvbm5lY3Rpb24gYW5kIGxhdGVyIGluIHRoZSBMaW51eCBWTeKAmXMgbWVz
+c2FnZSBoYW5kbGVyIAppLmUuIHZtYnVzX29ub2ZmZXJfcmVzY2luZCgpKSwgTGludXggd2lsbCBn
+ZXQgYSBOVUxMIGRlLXJlZmVyZW5jaW5nIGNyYXNoLiAKCjUpIGZpeCBhIGJ1ZyBpbiBodnNvY2tf
+b3Blbl9jb25uZWN0aW9uKCkKICBJIG1vdmUgdGhlIHZtYnVzX3NldF9jaG5fcmVzY2luZF9jYWxs
+YmFjaygpIHRvIGEgbGF0ZXIgcGxhY2UsIGJlY2F1c2UKd2hlbiB2bWJ1c19vcGVuKCkgZmFpbHMs
+IGh2c29ja19jbG9zZV9jb25uZWN0aW9uKCkgY2FuIGRvIG5vdGhpbmcgYW5kIHdlCmNvdW50IG9u
+IHZtYnVzX29ub2ZmZXJfcmVzY2luZCgpIC0+IHZtYnVzX2RldmljZV91bnJlZ2lzdGVyKCkgdG8g
+Y2xlYW4gdXAKdGhlIGRldmljZS4KCjYpIHNvbWUgc3R5bGlzdGljIG1vZGlmaWNpYXRpb24uCgpE
+ZXh1YW4gQ3VpICgxKToKICBodl9zb2NrOiBpbnRyb2R1Y2UgSHlwZXItViBTb2NrZXRzCgogTUFJ
+TlRBSU5FUlMgICAgICAgICAgICAgICAgIHwgICAgMiArCiBpbmNsdWRlL2xpbnV4L2h5cGVydi5o
+ICAgICAgfCAgIDE0ICsKIGluY2x1ZGUvbGludXgvc29ja2V0LmggICAgICB8ICAgIDQgKy0KIGlu
+Y2x1ZGUvbmV0L2FmX2h2c29jay5oICAgICB8ICAgNzggKysrCiBpbmNsdWRlL3VhcGkvbGludXgv
+aHlwZXJ2LmggfCAgIDI1ICsKIG5ldC9LY29uZmlnICAgICAgICAgICAgICAgICB8ICAgIDEgKwog
+bmV0L01ha2VmaWxlICAgICAgICAgICAgICAgIHwgICAgMSArCiBuZXQvaHZfc29jay9LY29uZmln
+ICAgICAgICAgfCAgIDEwICsKIG5ldC9odl9zb2NrL01ha2VmaWxlICAgICAgICB8ICAgIDMgKwog
+bmV0L2h2X3NvY2svYWZfaHZzb2NrLmMgICAgIHwgMTUyMCArKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrCiAxMCBmaWxlcyBjaGFuZ2VkLCAxNjU3IGluc2VydGlvbnMo
+KyksIDEgZGVsZXRpb24oLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL25ldC9hZl9odnNv
+Y2suaAogY3JlYXRlIG1vZGUgMTAwNjQ0IG5ldC9odl9zb2NrL0tjb25maWcKIGNyZWF0ZSBtb2Rl
+IDEwMDY0NCBuZXQvaHZfc29jay9NYWtlZmlsZQogY3JlYXRlIG1vZGUgMTAwNjQ0IG5ldC9odl9z
+b2NrL2FmX2h2c29jay5jCgotLSAKMi43LjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlzdApkZXZlbEBsaW51eGRyaXZlcnBy
+b2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhkcml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
