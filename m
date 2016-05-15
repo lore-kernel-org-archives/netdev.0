@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [PATCH 2/5] ethtool: move cmdline_coalesce out of do_scoalesce
-Date: Sun, 15 May 2016 00:14:33 -0700
-Message-ID: <1463296476-32493-2-git-send-email-kan.liang@intel.com>
+Subject: [PATCH 5/5] ethtool: support per queue sub command --coalesce
+Date: Sun, 15 May 2016 00:14:36 -0700
+Message-ID: <1463296476-32493-5-git-send-email-kan.liang@intel.com>
 References: <1463296476-32493-1-git-send-email-kan.liang@intel.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	nicolas.dichtel@6wind.com, ben@decadent.org.uk,
@@ -11,195 +11,153 @@ To: bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:59591 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751995AbcEOOkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2016 10:40:40 -0400
+	id S1753327AbcEOOkl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 May 2016 10:40:41 -0400
 In-Reply-To: <1463296476-32493-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-Moving cmdline_coalesce out of do_scoalesce, so it can be shared with
-other functions.
-No behavior change.
+This patch uses a similar way as do_scoalesce to set coalesce per queue.
+It reads the current settings, change them, and write them back to the
+kernel for each masked queue.
+
+Example:
+
+ $ sudo ./ethtool --set-perqueue-command eth5 queue_mask 0x1 --coalesce
+ rx-usecs 10 tx-usecs 5
+ $ sudo ./ethtool --set-perqueue-command eth5 queue_mask 0x1
+ --show-coalesce
+
+ Queue: 0
+ Adaptive RX: on  TX: on
+ stats-block-usecs: 0
+ sample-interval: 0
+ pkt-rate-low: 0
+ pkt-rate-high: 0
+
+ rx-usecs: 10
+ rx-frames: 0
+ rx-usecs-irq: 0
+ rx-frames-irq: 256
+
+ tx-usecs: 5
+ tx-frames: 0
+ tx-usecs-irq: 0
+ tx-frames-irq: 256
+
+ rx-usecs-low: 0
+ rx-frame-low: 0
+ tx-usecs-low: 0
+ tx-frame-low: 0
+
+ rx-usecs-high: 0
+ rx-frame-high: 0
+ tx-usecs-high: 0
+ tx-frame-high: 0
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- ethtool.c | 147 +++++++++++++++++++++++++++++++-------------------------------
- 1 file changed, 74 insertions(+), 73 deletions(-)
+ ethtool.8.in |  2 +-
+ ethtool.c    | 58 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 58 insertions(+), 2 deletions(-)
 
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 210ec8c..0e42180 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -937,7 +937,7 @@ Sets the specific queues which the sub command is applied to.
+ If queue_mask is not set, the sub command will be applied to all queues.
+ .TP
+ .B sub_command
+-Sets the sub command. The supported sub commands include --show-coalesce.
++Sets the sub command. The supported sub commands include --show-coalesce and --coalesce.
+ .RE
+ .SH BUGS
+ Not supported (in part or whole) on all network drivers.
 diff --git a/ethtool.c b/ethtool.c
-index bd0583c..86724a2 100644
+index a966bf8..55ba26c 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -1883,85 +1883,86 @@ static int do_gcoalesce(struct cmd_context *ctx)
- 	return 0;
+@@ -4222,7 +4222,7 @@ static const struct option {
+ 	  "		[ tx-lpi on|off ]\n"
+ 	  "		[ tx-timer %d ]\n"},
+ 	{ "--set-perqueue-command", 1, do_perqueue, "Set per queue command. "
+-	  "The supported sub commands include --show-coalesce",
++	  "The supported sub commands include --show-coalesce, --coalesce",
+ 	  "		[queue_mask %x] SUB_COMMAND\n"},
+ 	{ "-h|--help", 0, show_usage, "Show this help" },
+ 	{ "--version", 0, do_version, "Show version number" },
+@@ -4348,6 +4348,52 @@ get_per_queue_coalesce(struct cmd_context *ctx,
+ 	return per_queue_opt;
  }
  
-+static struct ethtool_coalesce s_ecoal;
-+static s32 coal_stats_wanted = -1;
-+static int coal_adaptive_rx_wanted = -1;
-+static int coal_adaptive_tx_wanted = -1;
-+static s32 coal_sample_rate_wanted = -1;
-+static s32 coal_pkt_rate_low_wanted = -1;
-+static s32 coal_pkt_rate_high_wanted = -1;
-+static s32 coal_rx_usec_wanted = -1;
-+static s32 coal_rx_frames_wanted = -1;
-+static s32 coal_rx_usec_irq_wanted = -1;
-+static s32 coal_rx_frames_irq_wanted = -1;
-+static s32 coal_tx_usec_wanted = -1;
-+static s32 coal_tx_frames_wanted = -1;
-+static s32 coal_tx_usec_irq_wanted = -1;
-+static s32 coal_tx_frames_irq_wanted = -1;
-+static s32 coal_rx_usec_low_wanted = -1;
-+static s32 coal_rx_frames_low_wanted = -1;
-+static s32 coal_tx_usec_low_wanted = -1;
-+static s32 coal_tx_frames_low_wanted = -1;
-+static s32 coal_rx_usec_high_wanted = -1;
-+static s32 coal_rx_frames_high_wanted = -1;
-+static s32 coal_tx_usec_high_wanted = -1;
-+static s32 coal_tx_frames_high_wanted = -1;
++static void __set_per_queue_coalesce(int queue)
++{
++	int changed = 0;
 +
-+static struct cmdline_info cmdline_coalesce[] = {
-+	{ "adaptive-rx", CMDL_BOOL, &coal_adaptive_rx_wanted,
-+	  &s_ecoal.use_adaptive_rx_coalesce },
-+	{ "adaptive-tx", CMDL_BOOL, &coal_adaptive_tx_wanted,
-+	  &s_ecoal.use_adaptive_tx_coalesce },
-+	{ "sample-interval", CMDL_S32, &coal_sample_rate_wanted,
-+	  &s_ecoal.rate_sample_interval },
-+	{ "stats-block-usecs", CMDL_S32, &coal_stats_wanted,
-+	  &s_ecoal.stats_block_coalesce_usecs },
-+	{ "pkt-rate-low", CMDL_S32, &coal_pkt_rate_low_wanted,
-+	  &s_ecoal.pkt_rate_low },
-+	{ "pkt-rate-high", CMDL_S32, &coal_pkt_rate_high_wanted,
-+	  &s_ecoal.pkt_rate_high },
-+	{ "rx-usecs", CMDL_S32, &coal_rx_usec_wanted,
-+	  &s_ecoal.rx_coalesce_usecs },
-+	{ "rx-frames", CMDL_S32, &coal_rx_frames_wanted,
-+	  &s_ecoal.rx_max_coalesced_frames },
-+	{ "rx-usecs-irq", CMDL_S32, &coal_rx_usec_irq_wanted,
-+	  &s_ecoal.rx_coalesce_usecs_irq },
-+	{ "rx-frames-irq", CMDL_S32, &coal_rx_frames_irq_wanted,
-+	  &s_ecoal.rx_max_coalesced_frames_irq },
-+	{ "tx-usecs", CMDL_S32, &coal_tx_usec_wanted,
-+	  &s_ecoal.tx_coalesce_usecs },
-+	{ "tx-frames", CMDL_S32, &coal_tx_frames_wanted,
-+	  &s_ecoal.tx_max_coalesced_frames },
-+	{ "tx-usecs-irq", CMDL_S32, &coal_tx_usec_irq_wanted,
-+	  &s_ecoal.tx_coalesce_usecs_irq },
-+	{ "tx-frames-irq", CMDL_S32, &coal_tx_frames_irq_wanted,
-+	  &s_ecoal.tx_max_coalesced_frames_irq },
-+	{ "rx-usecs-low", CMDL_S32, &coal_rx_usec_low_wanted,
-+	  &s_ecoal.rx_coalesce_usecs_low },
-+	{ "rx-frames-low", CMDL_S32, &coal_rx_frames_low_wanted,
-+	  &s_ecoal.rx_max_coalesced_frames_low },
-+	{ "tx-usecs-low", CMDL_S32, &coal_tx_usec_low_wanted,
-+	  &s_ecoal.tx_coalesce_usecs_low },
-+	{ "tx-frames-low", CMDL_S32, &coal_tx_frames_low_wanted,
-+	  &s_ecoal.tx_max_coalesced_frames_low },
-+	{ "rx-usecs-high", CMDL_S32, &coal_rx_usec_high_wanted,
-+	  &s_ecoal.rx_coalesce_usecs_high },
-+	{ "rx-frames-high", CMDL_S32, &coal_rx_frames_high_wanted,
-+	  &s_ecoal.rx_max_coalesced_frames_high },
-+	{ "tx-usecs-high", CMDL_S32, &coal_tx_usec_high_wanted,
-+	  &s_ecoal.tx_coalesce_usecs_high },
-+	{ "tx-frames-high", CMDL_S32, &coal_tx_frames_high_wanted,
-+	  &s_ecoal.tx_max_coalesced_frames_high },
-+};
- static int do_scoalesce(struct cmd_context *ctx)
++	do_generic_set(cmdline_coalesce, ARRAY_SIZE(cmdline_coalesce),
++		       &changed);
++
++	if (!changed)
++		fprintf(stderr, "Queue %d, no coalesce parameters changed\n", queue);
++}
++
++static void set_per_queue_coalesce(struct cmd_context *ctx,
++				   struct ethtool_per_queue_op *per_queue_opt)
++{
++	__u32 *queue_mask = per_queue_opt->queue_mask;
++	char *addr = (char *)per_queue_opt + sizeof(*per_queue_opt);
++	int gcoalesce_changed = 0;
++	int i;
++
++	parse_generic_cmdline(ctx, &gcoalesce_changed,
++			      cmdline_coalesce, ARRAY_SIZE(cmdline_coalesce));
++
++	for (i = 0; i < __KERNEL_DIV_ROUND_UP(MAX_NUM_QUEUE, 32); i++) {
++		int queue = i * 32;
++		__u32 mask = queue_mask[i];
++
++		while (mask > 0) {
++			if (mask & 0x1) {
++				memcpy(&s_ecoal, addr, sizeof(struct ethtool_coalesce));
++				__set_per_queue_coalesce(queue);
++				memcpy(addr, &s_ecoal, sizeof(struct ethtool_coalesce));
++				addr += sizeof(struct ethtool_coalesce);
++			}
++			mask = mask >> 1;
++			queue++;
++		}
++	}
++
++	per_queue_opt->cmd = ETHTOOL_PERQUEUE;
++	per_queue_opt->sub_command = ETHTOOL_SCOALESCE;
++
++	if (send_ioctl(ctx, per_queue_opt))
++		perror("Cannot set device per queue parameters");
++
++}
++
+ static int do_perqueue(struct cmd_context *ctx)
  {
--	struct ethtool_coalesce ecoal;
- 	int gcoalesce_changed = 0;
--	s32 coal_stats_wanted = -1;
--	int coal_adaptive_rx_wanted = -1;
--	int coal_adaptive_tx_wanted = -1;
--	s32 coal_sample_rate_wanted = -1;
--	s32 coal_pkt_rate_low_wanted = -1;
--	s32 coal_pkt_rate_high_wanted = -1;
--	s32 coal_rx_usec_wanted = -1;
--	s32 coal_rx_frames_wanted = -1;
--	s32 coal_rx_usec_irq_wanted = -1;
--	s32 coal_rx_frames_irq_wanted = -1;
--	s32 coal_tx_usec_wanted = -1;
--	s32 coal_tx_frames_wanted = -1;
--	s32 coal_tx_usec_irq_wanted = -1;
--	s32 coal_tx_frames_irq_wanted = -1;
--	s32 coal_rx_usec_low_wanted = -1;
--	s32 coal_rx_frames_low_wanted = -1;
--	s32 coal_tx_usec_low_wanted = -1;
--	s32 coal_tx_frames_low_wanted = -1;
--	s32 coal_rx_usec_high_wanted = -1;
--	s32 coal_rx_frames_high_wanted = -1;
--	s32 coal_tx_usec_high_wanted = -1;
--	s32 coal_tx_frames_high_wanted = -1;
--	struct cmdline_info cmdline_coalesce[] = {
--		{ "adaptive-rx", CMDL_BOOL, &coal_adaptive_rx_wanted,
--		  &ecoal.use_adaptive_rx_coalesce },
--		{ "adaptive-tx", CMDL_BOOL, &coal_adaptive_tx_wanted,
--		  &ecoal.use_adaptive_tx_coalesce },
--		{ "sample-interval", CMDL_S32, &coal_sample_rate_wanted,
--		  &ecoal.rate_sample_interval },
--		{ "stats-block-usecs", CMDL_S32, &coal_stats_wanted,
--		  &ecoal.stats_block_coalesce_usecs },
--		{ "pkt-rate-low", CMDL_S32, &coal_pkt_rate_low_wanted,
--		  &ecoal.pkt_rate_low },
--		{ "pkt-rate-high", CMDL_S32, &coal_pkt_rate_high_wanted,
--		  &ecoal.pkt_rate_high },
--		{ "rx-usecs", CMDL_S32, &coal_rx_usec_wanted,
--		  &ecoal.rx_coalesce_usecs },
--		{ "rx-frames", CMDL_S32, &coal_rx_frames_wanted,
--		  &ecoal.rx_max_coalesced_frames },
--		{ "rx-usecs-irq", CMDL_S32, &coal_rx_usec_irq_wanted,
--		  &ecoal.rx_coalesce_usecs_irq },
--		{ "rx-frames-irq", CMDL_S32, &coal_rx_frames_irq_wanted,
--		  &ecoal.rx_max_coalesced_frames_irq },
--		{ "tx-usecs", CMDL_S32, &coal_tx_usec_wanted,
--		  &ecoal.tx_coalesce_usecs },
--		{ "tx-frames", CMDL_S32, &coal_tx_frames_wanted,
--		  &ecoal.tx_max_coalesced_frames },
--		{ "tx-usecs-irq", CMDL_S32, &coal_tx_usec_irq_wanted,
--		  &ecoal.tx_coalesce_usecs_irq },
--		{ "tx-frames-irq", CMDL_S32, &coal_tx_frames_irq_wanted,
--		  &ecoal.tx_max_coalesced_frames_irq },
--		{ "rx-usecs-low", CMDL_S32, &coal_rx_usec_low_wanted,
--		  &ecoal.rx_coalesce_usecs_low },
--		{ "rx-frames-low", CMDL_S32, &coal_rx_frames_low_wanted,
--		  &ecoal.rx_max_coalesced_frames_low },
--		{ "tx-usecs-low", CMDL_S32, &coal_tx_usec_low_wanted,
--		  &ecoal.tx_coalesce_usecs_low },
--		{ "tx-frames-low", CMDL_S32, &coal_tx_frames_low_wanted,
--		  &ecoal.tx_max_coalesced_frames_low },
--		{ "rx-usecs-high", CMDL_S32, &coal_rx_usec_high_wanted,
--		  &ecoal.rx_coalesce_usecs_high },
--		{ "rx-frames-high", CMDL_S32, &coal_rx_frames_high_wanted,
--		  &ecoal.rx_max_coalesced_frames_high },
--		{ "tx-usecs-high", CMDL_S32, &coal_tx_usec_high_wanted,
--		  &ecoal.tx_coalesce_usecs_high },
--		{ "tx-frames-high", CMDL_S32, &coal_tx_frames_high_wanted,
--		  &ecoal.tx_max_coalesced_frames_high },
--	};
- 	int err, changed = 0;
- 
- 	parse_generic_cmdline(ctx, &gcoalesce_changed,
- 			      cmdline_coalesce, ARRAY_SIZE(cmdline_coalesce));
- 
--	ecoal.cmd = ETHTOOL_GCOALESCE;
--	err = send_ioctl(ctx, &ecoal);
-+	s_ecoal.cmd = ETHTOOL_GCOALESCE;
-+	err = send_ioctl(ctx, &s_ecoal);
- 	if (err) {
- 		perror("Cannot get device coalesce settings");
- 		return 76;
-@@ -1975,8 +1976,8 @@ static int do_scoalesce(struct cmd_context *ctx)
- 		return 80;
- 	}
- 
--	ecoal.cmd = ETHTOOL_SCOALESCE;
--	err = send_ioctl(ctx, &ecoal);
-+	s_ecoal.cmd = ETHTOOL_SCOALESCE;
-+	err = send_ioctl(ctx, &s_ecoal);
- 	if (err) {
- 		perror("Cannot set device coalesce parameters");
- 		return 81;
+ 	struct ethtool_per_queue_op *per_queue_opt;
+@@ -4397,6 +4443,16 @@ static int do_perqueue(struct cmd_context *ctx)
+ 		}
+ 		dump_per_queue_coalesce(per_queue_opt, queue_mask);
+ 		free(per_queue_opt);
++	} else if (strstr(args[i].opts, "--coalesce") != NULL) {
++		ctx->argc--;
++		ctx->argp++;
++		per_queue_opt = get_per_queue_coalesce(ctx, queue_mask, n_queues);
++		if (per_queue_opt == NULL) {
++			perror("Cannot get device per queue parameters");
++			return -EFAULT;
++		}
++		set_per_queue_coalesce(ctx, per_queue_opt);
++		free(per_queue_opt);
+ 	} else {
+ 		perror("The subcommand is not supported yet");
+ 		return -EOPNOTSUPP;
 -- 
 2.5.0
