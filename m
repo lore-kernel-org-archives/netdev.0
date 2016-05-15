@@ -1,160 +1,176 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v5 net-next 12/14] ip6_tunnel: Add support for fou/gue encapsulation
-Date: Sun, 15 May 2016 16:42:33 -0700
-Message-ID: <1463355755-3481375-13-git-send-email-tom@herbertland.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH v5 net-next 00/14] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
+Date: Sun, 15 May 2016 16:42:21 -0700
+Message-ID: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:61056 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60892 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752821AbcEOXnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 19:43:01 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4FNernh021254
-	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:43:00 -0700
+	by vger.kernel.org with ESMTP id S1751982AbcEOXmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 19:42:49 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4FNcuvD028379
+	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:42:46 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 22wygmd10a-2
+	by mx0b-00082601.pphosted.com with ESMTP id 22wytvmt3u-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:43:00 -0700
+	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:42:46 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.223.101.97) with ESMTP	id
- c15b7c0e1af611e6a12624be0595f910-d34ebc50 for <netdev@vger.kernel.org>;	Sun,
- 15 May 2016 16:42:59 -0700
-In-Reply-To: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
+ b7f0359c1af611e6a12624be0595f910-d34ebc50 for <netdev@vger.kernel.org>;	Sun,
+ 15 May 2016 16:42:43 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add netlink and setup for encapsulation
+This patch set:
+  - Fixes GRE6 to process translate flags correctly from configuration
+  - Adds support for GSO and GRO for ip6ip6 and ip4ip6
+  - Add support for FOU and GUE in IPv6
+  - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
+  - Fixes ip6_input to deal with UDP encapsulations
+  - Some other minor fixes
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv6/ip6_tunnel.c | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
+v2:
+  - Removed a check of GSO types in MPLS
+  - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
+    from Alexander)
+  - Don't define GSO types specifically for IP6IP6 and IP4IP6, above
+    fix makes that unnecessary
+  - Don't bother clearing encapsulation flag in UDP tunnel segment
+    (another item suggested by Alexander).
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 9f0ea85..093bdba 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1796,13 +1796,55 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
- 		parms->proto = nla_get_u8(data[IFLA_IPTUN_PROTO]);
- }
- 
-+static bool ip6_tnl_netlink_encap_parms(struct nlattr *data[],
-+					struct ip_tunnel_encap *ipencap)
-+{
-+	bool ret = false;
-+
-+	memset(ipencap, 0, sizeof(*ipencap));
-+
-+	if (!data)
-+		return ret;
-+
-+	if (data[IFLA_IPTUN_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_IPTUN_ENCAP_TYPE]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_IPTUN_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_be16(data[IFLA_IPTUN_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_be16(data[IFLA_IPTUN_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
-+}
-+
- static int ip6_tnl_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct net *net = dev_net(dev);
- 	struct ip6_tnl *nt, *t;
-+	struct ip_tunnel_encap ipencap;
- 
- 	nt = netdev_priv(dev);
-+
-+	if (ip6_tnl_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(nt, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	ip6_tnl_netlink_parms(data, &nt->parms);
- 
- 	t = ip6_tnl_locate(net, &nt->parms, 0);
-@@ -1819,10 +1861,17 @@ static int ip6_tnl_changelink(struct net_device *dev, struct nlattr *tb[],
- 	struct __ip6_tnl_parm p;
- 	struct net *net = t->net;
- 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
-+	struct ip_tunnel_encap ipencap;
- 
- 	if (dev == ip6n->fb_tnl_dev)
- 		return -EINVAL;
- 
-+	if (ip6_tnl_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(t, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
- 	ip6_tnl_netlink_parms(data, &p);
- 
- 	t = ip6_tnl_locate(net, &p, 0);
-@@ -1863,6 +1912,14 @@ static size_t ip6_tnl_get_size(const struct net_device *dev)
- 		nla_total_size(4) +
- 		/* IFLA_IPTUN_PROTO */
- 		nla_total_size(1) +
-+		/* IFLA_IPTUN_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
- }
- 
-@@ -1880,6 +1937,17 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u32(skb, IFLA_IPTUN_FLAGS, parm->flags) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_PROTO, parm->proto))
- 		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
-+			tunnel->encap.type) ||
-+	nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT,
-+		     tunnel->encap.sport) ||
-+	nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT,
-+		     tunnel->encap.dport) ||
-+	nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
-+		    tunnel->encap.flags))
-+		goto nla_put_failure;
-+
- 	return 0;
- 
- nla_put_failure:
-@@ -1903,6 +1971,10 @@ static const struct nla_policy ip6_tnl_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_FLOWINFO]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_FLAGS]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_PROTO]		= { .type = NLA_U8 },
-+	[IFLA_IPTUN_ENCAP_TYPE]		= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
- };
- 
- static struct rtnl_link_ops ip6_link_ops __read_mostly = {
+v3:
+  - Address some minor comments from Alexander
+
+v4:
+  - Rebase on changes to fix IP TX tunnels
+  - Fix MTU issues in ip4ip6, ip6ip6
+  - Add test data for above
+
+v5:
+  - Address feedback from Shmulik Ladkani regarding extension header
+    code that does not return next header but in instead relies
+    on returning value via nhoff. Solution here is to fix EH
+    processing to return nexthdr value.
+  - Refactored IPv4 encaps so that we won't need to create
+    a ip6_tunnel_core.c when adding encap support IPv6.
+
+Tested:
+   Tested a variety of case, but not the full matrix (which is quite
+   large now). Most of the obvious cases (e.g. GRE) work fine. Still
+   some issues probably with GSO/GRO being effective in all cases.
+
+    - IPv4/GRE/GUE/IPv6 with RCO
+      1 TCP_STREAM
+      	6616 Mbps
+      200 TCP_RR
+	1244043 tps
+        141/243/446 90/95/99% latencies
+	86.61% CPU utilization
+
+    - IPv6/GRE/GUE/IPv6 with RCO
+      1 TCP_STREAM
+	6940 Mbps
+      200 TCP_RR
+	1270903 tps
+	138/236/440 90/95/99% latencies
+	87.51% CPU utilization
+
+     - IP6IP6
+      1 TCP_STREAM
+	2576 Mbps
+      200 TCP_RR
+	498981 tps
+	388/498/631 90/95/99% latencies
+	19.75% CPU utilization (1 CPU saturated)
+
+     - IP6IP6/GUE with RCO
+      1 TCP_STREAM
+	2031 Mbps
+      200 TCP_RR
+	1233818 tps
+	143/244/451 90/95/99% latencies
+	87.57 CPU utilization
+
+     - IP4IP6
+      1 TCP_STREAM
+	2371 Mbps
+      200 TCP_RR
+	763774 tps
+	250/318/466 90/95/99% latencies
+	35.25% CPU utilization (1 CPU saturated)
+
+     - IP4IP6/GUE with RCO
+      1 TCP_STREAM
+	2054 Mbps
+      200 TCP_RR
+	1196385 tps
+	148/251/460 90/95/99% latencies
+	87.56 CPU utilization
+
+     - GRE with keyid
+      200 TCP_RR
+	744173 tps
+	258/332/461 90/95/99% latencies
+	34.59% CPU utilization (1 CPU saturated)
+      
+
+Tom Herbert (14):
+  gso: Remove arbitrary checks for unsupported GSO
+  net: define gso types for IPx over IPv4 and IPv6
+  ipv6: Fix nexthdr for reinjection
+  ipv6: Change "final" protocol processing for encapsulation
+  net: Cleanup encap items in ip_tunnels.h
+  fou: Call setup_udp_tunnel_sock
+  fou: Split out {fou,gue}_build_header
+  fou: Support IPv6 in fou
+  ip6_tun: Add infrastructure for doing encapsulation
+  fou: Add encap ops for IPv6 tunnels
+  ip6_gre: Add support for fou/gue encapsulation
+  ip6_tunnel: Add support for fou/gue encapsulation
+  ip6ip6: Support for GSO/GRO
+  ip4ip6: Support for GSO/GRO
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   5 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c       |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c       |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   |   3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c         |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   3 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   3 +-
+ include/linux/netdev_features.h                   |  12 +-
+ include/linux/netdevice.h                         |   4 +-
+ include/linux/skbuff.h                            |   4 +-
+ include/net/fou.h                                 |  10 +-
+ include/net/inet_common.h                         |   5 +
+ include/net/ip6_tunnel.h                          |  58 ++++++++
+ include/net/ip_tunnels.h                          |  76 +++++++---
+ net/core/ethtool.c                                |   4 +-
+ net/ipv4/af_inet.c                                |  32 ++---
+ net/ipv4/fou.c                                    | 144 +++++++++++--------
+ net/ipv4/gre_offload.c                            |  14 --
+ net/ipv4/ip_tunnel.c                              |  45 ------
+ net/ipv4/ip_tunnel_core.c                         |   9 ++
+ net/ipv4/ipip.c                                   |   2 +-
+ net/ipv4/tcp_offload.c                            |  19 ---
+ net/ipv4/udp_offload.c                            |  10 --
+ net/ipv6/Makefile                                 |   1 +
+ net/ipv6/fou6.c                                   | 140 ++++++++++++++++++
+ net/ipv6/ip6_gre.c                                |  77 +++++++++-
+ net/ipv6/ip6_input.c                              |  33 ++++-
+ net/ipv6/ip6_offload.c                            |  77 +++++++---
+ net/ipv6/ip6_tunnel.c                             | 167 ++++++++++++++++++++--
+ net/ipv6/sit.c                                    |   4 +-
+ net/ipv6/udp_offload.c                            |  13 --
+ net/mpls/mpls_gso.c                               |   9 --
+ net/netfilter/ipvs/ip_vs_xmit.c                   |  17 +--
+ 35 files changed, 718 insertions(+), 298 deletions(-)
+ create mode 100644 net/ipv6/fou6.c
+
 -- 
 2.8.0.rc2
