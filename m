@@ -1,36 +1,38 @@
 From: Baozeng Ding <sploving1@gmail.com>
-Subject: BUG: net/ipv4: KASAN: use-after-free in tcp_v4_rcv
-Date: Mon, 16 May 2016 00:02:26 +0800
-Message-ID: <57389D92.6050408@gmail.com>
+Subject: BUG: net/ipv4: KASAN: use-after-free in tcp_sendmsg
+Date: Mon, 16 May 2016 00:09:17 +0800
+Message-ID: <57389F2D.4060701@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33361 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752185AbcEOQCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 12:02:36 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36189 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754344AbcEOQJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 12:09:28 -0400
+Received: by mail-pf0-f193.google.com with SMTP id g132so13547622pfb.3
+        for <netdev@vger.kernel.org>; Sun, 15 May 2016 09:09:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi all,
-I've got the following report use-after-free in tcp_v4_rcv while running 
-syzkaller.
+I've got the following report use-after-free in  tcp_sendmsg (net/ipv4) 
+while running syzkaller.
 Unfortunately no reproducer.The kernel version is 4.6.0-rc2+.
 
-===========================================================
-BUG: KASAN: use-after-free in tcp_v4_rcv+0x2144/0x2c20 at addr 
+==================================================================
+BUG: KASAN: use-after-free in release_sock+0x4a0/0x510 at addr 
 ffff8800380279c0
-Write of size 8 by task syz-executor/7055
+Read of size 8 by task sshd/7035
 =============================================================================
 BUG skbuff_head_cache (Tainted: G    B D        ): kasan: bad access 
 detected
 -----------------------------------------------------------------------------
 
-INFO: Freed in e1000_clean+0xa08/0x24a0 age=6364136532 cpu=2226773637 pid=-1
+INFO: Freed in e1000_clean+0xa08/0x24a0 age=6364136656 cpu=2226773637 pid=-1
 [<     inline     >] napi_poll net/core/dev.c:5087
 [<      none      >] net_rx_action+0x751/0xd80 net/core/dev.c:5152
 [<      none      >] __do_softirq+0x22b/0x8da kernel/softirq.c:273
@@ -53,7 +55,6 @@ INFO: Freed in e1000_clean+0xa08/0x24a0 age=6364136532 cpu=2226773637 pid=-1
 net/core/dev.c:4143
 [<      none      >] __netif_receive_skb+0x2a/0x160 net/core/dev.c:4198
 
-
 Call Trace:
   [<     inline     >] __dump_stack lib/dump_stack.c:15
   [<ffffffff829557d1>] dump_stack+0xb3/0x112 lib/dump_stack.c:51
@@ -61,153 +62,63 @@ Call Trace:
   [<ffffffff817165af>] object_err+0x2f/0x40 mm/slub.c:674
   [<     inline     >] print_address_description mm/kasan/report.c:179
   [<ffffffff81718dd8>] kasan_report_error+0x218/0x530 mm/kasan/report.c:275
-  [<ffffffff84f3c5f4>] ? tcp_v4_rcv+0x1d14/0x2c20 net/ipv4/tcp_ipv4.c:1653
+  [<     inline     >] ? rdtsc ./arch/x86/include/asm/msr.h:155
+  [<     inline     >] ? rdtsc_ordered ./arch/x86/include/asm/msr.h:183
+  [<ffffffff82983d18>] ? delay_tsc+0x18/0x70 arch/x86/lib/delay.c:58
   [<     inline     >] kasan_report mm/kasan/report.c:297
-  [<ffffffff8171932e>] __asan_report_store8_noabort+0x3e/0x40 
-mm/kasan/report.c:323
-  [<     inline     >] ? nf_reset include/linux/skbuff.h:3464
-  [<ffffffff84f3c501>] ? tcp_v4_rcv+0x1c21/0x2c20 net/ipv4/tcp_ipv4.c:1639
-  [<     inline     >] ? __sk_add_backlog include/net/sock.h:810
-  [<     inline     >] ? sk_add_backlog include/net/sock.h:843
-  [<ffffffff84f3ca24>] ? tcp_v4_rcv+0x2144/0x2c20 net/ipv4/tcp_ipv4.c:1659
-  [<     inline     >] __sk_add_backlog include/net/sock.h:810
-  [<     inline     >] sk_add_backlog include/net/sock.h:843
-  [<ffffffff84f3ca24>] tcp_v4_rcv+0x2144/0x2c20 net/ipv4/tcp_ipv4.c:1659
-  [<ffffffff84f5b6b1>] ? raw_local_deliver+0x7c1/0xae0 net/ipv4/raw.c:221
-  [<ffffffff84cee35a>] ? nf_iterate+0x1aa/0x230 net/netfilter/core.c:289
-  [<ffffffff84cee3e0>] ? nf_iterate+0x230/0x230 net/netfilter/core.c:268
-  [<ffffffff84e96fb0>] ip_local_deliver_finish+0x2b0/0xa50 
-net/ipv4/ip_input.c:216
-  [<     inline     >] ? __skb_pull include/linux/skbuff.h:1900
-  [<ffffffff84e96e2a>] ? ip_local_deliver_finish+0x12a/0xa50 
-net/ipv4/ip_input.c:194
-  [<     inline     >] NF_HOOK_THRESH include/linux/netfilter.h:219
-  [<     inline     >] NF_HOOK include/linux/netfilter.h:242
-  [<ffffffff84e97e43>] ip_local_deliver+0x1b3/0x350 net/ipv4/ip_input.c:257
-  [<ffffffff84e97c90>] ? ip_call_ra_chain+0x540/0x540 
-net/ipv4/ip_input.c:163
-  [<ffffffff84e96d00>] ? ip_rcv_finish+0x1ab0/0x1ab0 
-include/net/net_namespace.h:259
-  [<     inline     >] dst_input include/net/dst.h:510
-  [<ffffffff84e958c9>] ip_rcv_finish+0x679/0x1ab0 net/ipv4/ip_input.c:388
-  [<ffffffff84be8d1f>] ? sk_filter+0x7f/0xe50 net/core/filter.c:94
-  [<     inline     >] NF_HOOK_THRESH include/linux/netfilter.h:219
-  [<     inline     >] NF_HOOK include/linux/netfilter.h:242
-  [<ffffffff84e98943>] ip_rcv+0x963/0x10c0 net/ipv4/ip_input.c:478
-  [<ffffffff84e97fe0>] ? ip_local_deliver+0x350/0x350 
-net/ipv4/ip_input.c:250
-  [<ffffffff84b56c02>] ? skb_release_data+0x3d2/0x430 net/core/skbuff.c:599
-  [<ffffffff84e95250>] ? inet_del_offload+0x40/0x40 ??:?
-  [<ffffffff852211ed>] ? packet_rcv_spkt+0xdd/0x4a0 
-net/packet/af_packet.c:1822
-  [<ffffffff84e97fe0>] ? ip_local_deliver+0x350/0x350 
-net/ipv4/ip_input.c:250
-  [<ffffffff84b99b1d>] __netif_receive_skb_core+0x168d/0x3060 
-net/core/dev.c:4160
-  [<ffffffff84b98490>] ? netif_wake_subqueue+0x220/0x220 
+  [<ffffffff817191ee>] __asan_report_load8_noabort+0x3e/0x40 
+mm/kasan/report.c:318
+  [<     inline     >] ? __raw_spin_unlock 
+include/linux/spinlock_api_smp.h:153
+  [<ffffffff85c8a400>] ? _raw_spin_unlock+0x20/0x30 
+kernel/locking/spinlock.c:183
+  [<     inline     >] ? __release_sock net/core/sock.c:1984
+  [<ffffffff84b45a80>] ? release_sock+0x4a0/0x510 net/core/sock.c:2442
+  [<     inline     >] __release_sock net/core/sock.c:1984
+  [<ffffffff84b45a80>] release_sock+0x4a0/0x510 net/core/sock.c:2442
+  [<ffffffff84edc13e>] tcp_sendmsg+0x1de/0x2a90 net/ipv4/tcp.c:1293
+  [<ffffffff84edbf60>] ? tcp_sendpage+0x1820/0x1820 
+include/linux/skbuff.h:1491
+  [<     inline     >] ? sock_rps_record_flow include/net/sock.h:878
+  [<ffffffff84f94493>] ? inet_sendmsg+0x73/0x4c0 net/ipv4/af_inet.c:733
+  [<     inline     >] ? rcu_read_unlock include/linux/rcupdate.h:922
+  [<     inline     >] ? sock_rps_record_flow_hash include/net/sock.h:871
+  [<     inline     >] ? sock_rps_record_flow include/net/sock.h:878
+  [<ffffffff84f9461a>] ? inet_sendmsg+0x1fa/0x4c0 net/ipv4/af_inet.c:733
+  [<ffffffff84f94715>] inet_sendmsg+0x2f5/0x4c0 net/ipv4/af_inet.c:740
+  [<     inline     >] ? sock_rps_record_flow include/net/sock.h:878
+  [<ffffffff84f94493>] ? inet_sendmsg+0x73/0x4c0 net/ipv4/af_inet.c:733
+  [<ffffffff84f94420>] ? inet_recvmsg+0x4a0/0x4a0 
 include/linux/compiler.h:222
-  [<     inline     >] ? ktime_get_real include/linux/timekeeping.h:179
-  [<     inline     >] ? __net_timestamp include/linux/skbuff.h:3099
-  [<ffffffff84b9ddf5>] ? netif_receive_skb_internal+0x125/0x390 
-net/core/dev.c:4207
-  [<     inline     >] ? __net_timestamp include/linux/skbuff.h:3099
-  [<ffffffff84b9de1a>] ? netif_receive_skb_internal+0x14a/0x390 
-net/core/dev.c:4207
-  [<ffffffff84b9b51a>] __netif_receive_skb+0x2a/0x160 net/core/dev.c:4198
-  [<ffffffff84b9de85>] netif_receive_skb_internal+0x1b5/0x390 
-net/core/dev.c:4226
-  [<     inline     >] ? __net_timestamp include/linux/skbuff.h:3099
-  [<ffffffff84b9de1a>] ? netif_receive_skb_internal+0x14a/0x390 
-net/core/dev.c:4207
-  [<ffffffff84b9dcd0>] ? dev_cpu_callback+0x690/0x690 net/core/dev.c:7755
-  [<ffffffff84ba1849>] ? dev_gro_receive+0x1d9/0x16f0 net/core/dev.c:4514
-  [<     inline     >] ? skb_is_gso include/linux/skbuff.h:3648
-  [<ffffffff84ba1cd5>] ? dev_gro_receive+0x665/0x16f0 net/core/dev.c:4426
-  [<ffffffff817187d2>] ? kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:482
-  [<     inline     >] ? trace_kmem_cache_alloc 
-include/trace/events/kmem.h:53
-  [<ffffffff81713149>] ? kmem_cache_alloc+0x1f9/0x2f0 mm/slub.c:2587
-  [<ffffffff84c46a40>] ? eth_type_trans+0x2a0/0x5b0 net/ethernet/eth.c:186
-  [<     inline     >] napi_skb_finish net/core/dev.c:4553
-  [<ffffffff84ba3882>] napi_gro_receive+0x2c2/0x480 net/core/dev.c:4585
-  [<     inline     >] e1000_receive_skb 
-drivers/net/ethernet/intel/e1000/e1000_main.c:4035
-  [<ffffffff83977bb0>] e1000_clean_rx_irq+0x440/0x1110 
-drivers/net/ethernet/intel/e1000/e1000_main.c:4491
-  [<ffffffff83977770>] ? e1000_enter_82542_rst+0x260/0x260 
-drivers/net/ethernet/intel/e1000/e1000_main.c:2148
-  [<ffffffff83974d08>] e1000_clean+0xa08/0x24a0 
-drivers/net/ethernet/intel/e1000/e1000_main.c:3836
-  [<ffffffff813c0d29>] ? check_preempt_wakeup+0x3c9/0xa70 
-kernel/sched/fair.c:5411
-  [<ffffffff83974300>] ? 
-e1000_unmap_and_free_tx_resource.isra.46+0x3e0/0x3e0 
-drivers/net/ethernet/intel/e1000/e1000_main.c:1972
-  [<ffffffff814011ad>] ? trace_hardirqs_off+0xd/0x10 
-kernel/locking/lockdep.c:2772
-  [<ffffffff81409300>] ? debug_check_no_locks_freed+0x290/0x290 
-kernel/locking/lockdep.c:4212
-  [<     inline     >] napi_poll net/core/dev.c:5087
-  [<ffffffff84ba02c1>] net_rx_action+0x751/0xd80 net/core/dev.c:5152
-  [<ffffffff82da9bbc>] ? add_interrupt_randomness+0x2bc/0x570 
-drivers/char/random.c:922
-  [<ffffffff84b9fb70>] ? sk_busy_loop+0x1130/0x1130 
-include/trace/events/napi.h:13
-  [<ffffffff814412a2>] ? handle_irq_event+0xb2/0x140 kernel/irq/handle.c:194
-  [<     inline     >] ? apic_eoi ./arch/x86/include/asm/apic.h:402
-  [<     inline     >] ? ack_APIC_irq ./arch/x86/include/asm/apic.h:446
-  [<ffffffff812120d5>] ? ioapic_ack_level+0x165/0x450 
-arch/x86/kernel/apic/io_apic.c:1814
-  [<     inline     >] ? invoke_softirq kernel/softirq.c:350
-  [<ffffffff8131690d>] ? irq_exit+0x15d/0x190 kernel/softirq.c:391
-  [<ffffffff85c8d91b>] __do_softirq+0x22b/0x8da kernel/softirq.c:273
-  [<     inline     >] invoke_softirq kernel/softirq.c:350
-  [<ffffffff8131690d>] irq_exit+0x15d/0x190 kernel/softirq.c:391
-  [<     inline     >] exiting_irq ./arch/x86/include/asm/apic.h:658
-  [<ffffffff85c8d0c6>] do_IRQ+0x86/0x1a0 arch/x86/kernel/irq.c:252
-  [<ffffffff85c8b50c>] common_interrupt+0x8c/0x8c 
-arch/x86/entry/entry_64.S:454
-  [<     inline     >] ? copy_pte_range mm/memory.c:945
-  [<     inline     >] ? copy_pmd_range mm/memory.c:1003
-  [<     inline     >] ? copy_pud_range mm/memory.c:1025
-  [<ffffffff816accd9>] ? copy_page_range+0xa69/0x19d0 mm/memory.c:1087
-  [<     inline     >] ? copy_pte_range mm/memory.c:945
-  [<     inline     >] ? copy_pmd_range mm/memory.c:1003
-  [<     inline     >] ? copy_pud_range mm/memory.c:1025
-  [<ffffffff816accba>] ? copy_page_range+0xa4a/0x19d0 mm/memory.c:1087
-  [<     inline     >] ? rb_insert_augmented 
-include/linux/rbtree_augmented.h:60
-  [<     inline     >] ? __anon_vma_interval_tree_insert 
-mm/interval_tree.c:72
-  [<ffffffff81694b83>] ? anon_vma_interval_tree_insert+0x233/0x2d0 
-mm/interval_tree.c:83
-  [<ffffffff816ac270>] ? vm_iomap_memory+0x130/0x130 mm/memory.c:1836
-  [<     inline     >] ? vma_rb_insert include/linux/rbtree_augmented.h:60
-  [<ffffffff816b7795>] ? __vma_link_rb+0x445/0x5d0 mm/mmap.c:531
-  [<     inline     >] dup_mmap kernel/fork.c:513
-  [<     inline     >] dup_mm kernel/fork.c:937
-  [<     inline     >] copy_mm kernel/fork.c:991
-  [<ffffffff812ffeed>] copy_process.part.37+0x468d/0x5a50 kernel/fork.c:1456
-  [<ffffffff812fb860>] ? __cleanup_sighand+0x50/0x50 kernel/fork.c:1105
-  [<     inline     >] copy_process kernel/fork.c:1282
-  [<ffffffff813015c9>] _do_fork+0x1a9/0xcd0 kernel/fork.c:1731
-  [<ffffffff81301420>] ? fork_idle+0x110/0x110 include/linux/list.h:601
-  [<ffffffff8183628e>] ? __fsnotify_parent+0x5e/0x2b0 
-fs/notify/fsnotify.c:98
-  [<     inline     >] ? inc_syscr include/linux/sched.h:3178
-  [<ffffffff81764623>] ? vfs_read+0x223/0x310 fs/read_write.c:499
-  [<     inline     >] SYSC_clone kernel/fork.c:1840
-  [<ffffffff813021c7>] SyS_clone+0x37/0x50 kernel/fork.c:1834
-  [<ffffffff85c8ad30>] ? ptregs_sys_rt_sigreturn+0x10/0x10 
-arch/x86/include/generated/asm/syscalls_64.h:16
-  [<ffffffff8100653d>] do_syscall_64+0x1ad/0x4b0 arch/x86/entry/common.c:350
-  [<ffffffff81302190>] ? sys_vfork+0x30/0x30 kernel/fork.c:1813
-  [<ffffffff85c8ac43>] entry_SYSCALL64_slow_path+0x25/0x25 
-arch/x86/entry/entry_64.S:248
+  [<     inline     >] sock_sendmsg_nosec net/socket.c:612
+  [<ffffffff84b3858a>] sock_sendmsg+0xca/0x110 net/socket.c:622
+  [<ffffffff84b387e6>] sock_write_iter+0x216/0x3a0 net/socket.c:821
+  [<ffffffff84b385d0>] ? sock_sendmsg+0x110/0x110 net/socket.c:612
+  [<ffffffff82992caf>] ? iov_iter_init+0xaf/0x1d0 lib/iov_iter.c:359
+  [<     inline     >] new_sync_write fs/read_write.c:518
+  [<ffffffff81762fa0>] __vfs_write+0x300/0x4b0 fs/read_write.c:531
+  [<ffffffff81762ca0>] ? do_iter_readv_writev+0x2b0/0x2b0 
+fs/read_write.c:707
+  [<ffffffff8132ccb0>] ? retarget_shared_pending+0x210/0x210 
+include/linux/signal.h:117
+  [<     inline     >] ? spin_unlock_irq include/linux/spinlock.h:357
+  [<ffffffff813360f0>] ? __set_current_blocked+0x80/0xa0 
+kernel/signal.c:2490
+  [<ffffffff8275d442>] ? apparmor_file_permission+0x22/0x30 
+security/apparmor/lsm.c:446
+  [<ffffffff81764242>] ? rw_verify_area+0x102/0x2c0 fs/read_write.c:448
+  [<ffffffff81764877>] vfs_write+0x167/0x4a0 fs/read_write.c:578
+  [<     inline     >] SYSC_write fs/read_write.c:625
+  [<ffffffff817686b1>] SyS_write+0x111/0x220 fs/read_write.c:617
+  [<ffffffff817685a0>] ? SyS_read+0x220/0x220 fs/read_write.c:599
+  [<ffffffff8100301b>] ? trace_hardirqs_on_thunk+0x1b/0x1d 
+arch/x86/entry/thunk_64.S:42
+  [<ffffffff85c8ab80>] entry_SYSCALL_64_fastpath+0x23/0xc1 
+arch/x86/entry/entry_64.S:207
 Memory state around the buggy address:
   ffff880038027880: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
   ffff880038027900: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->ffff880038027980: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
+ >ffff880038027980: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
                                             ^
   ffff880038027a00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
   ffff880038027a80: fb fb fb fb fc fc fc fc fc fc fc fc fc fc fc fc
