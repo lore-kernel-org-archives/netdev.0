@@ -1,87 +1,85 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/13] i40e: Implement the API function for aq_set_switch_config
-Date: Sat, 14 May 2016 21:57:25 -0700
-Message-ID: <1463288255-1654-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/13] i40e: Add support for disabling all link and change bits needed for PHY interactions
+Date: Sat, 14 May 2016 21:57:23 -0700
+Message-ID: <1463288255-1654-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1463288255-1654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51923 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:57094 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750731AbcEOE5j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2016 00:57:39 -0400
+	id S1751704AbcEOE5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 May 2016 00:57:38 -0400
 In-Reply-To: <1463288255-1654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Kevin Scott <kevin.c.scott@intel.com>
 
-Add the support code for calling the AdminQ API call aq_set_switch_config
+Add flag to tell firmware to disable link on all ports.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+This patch changes the bits set for telling firmware the PHY needs
+to be modified by driver.  Without this patch, the setting will only
+set that mode for the current port on the device.  Because the
+MDIO interface is common for the copper device. The command needs to
+set the mode for all ports.
+
+Change-ID: I8baa7da91d384291ac95b41ae1a516604f8eb67f
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 29 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  4 ++++
- 2 files changed, 33 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h            | 4 +++-
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h | 3 +++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c    | 2 +-
+ 3 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 4a934e1..4739a9c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2283,6 +2283,35 @@ i40e_status i40e_aq_get_switch_config(struct i40e_hw *hw,
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 2a6a5d3..01cc732 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -111,7 +111,9 @@
+ #define I40E_OEM_VER_PATCH_MASK    0xff
+ #define I40E_OEM_VER_BUILD_SHIFT   8
+ #define I40E_OEM_VER_SHIFT         24
+-#define I40E_PHY_DEBUG_PORT        BIT(4)
++#define I40E_PHY_DEBUG_ALL \
++	(I40E_AQ_PHY_DEBUG_DISABLE_LINK_FW | \
++	I40E_AQ_PHY_DEBUG_DISABLE_ALL_LINK_FW)
  
- /**
-+ * i40e_aq_set_switch_config
-+ * @hw: pointer to the hardware structure
-+ * @flags: bit flag values to set
-+ * @valid_flags: which bit flags to set
-+ * @cmd_details: pointer to command details structure or NULL
-+ *
-+ * Set switch configuration bits
-+ **/
-+enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
-+						u16 flags,
-+						u16 valid_flags,
-+				struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_set_switch_config *scfg =
-+		(struct i40e_aqc_set_switch_config *)&desc.params.raw;
-+	enum i40e_status_code status;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_set_switch_config);
-+	scfg->flags = cpu_to_le16(flags);
-+	scfg->valid_flags = cpu_to_le16(valid_flags);
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_get_firmware_version
-  * @hw: pointer to the hw struct
-  * @fw_major_version: firmware major version
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 4c8977c..b76b158 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -182,6 +182,10 @@ i40e_status i40e_aq_get_switch_config(struct i40e_hw *hw,
- 				struct i40e_aqc_get_switch_config_resp *buf,
- 				u16 buf_size, u16 *start_seid,
- 				struct i40e_asq_cmd_details *cmd_details);
-+enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
-+						u16 flags,
-+						u16 valid_flags,
-+				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_request_resource(struct i40e_hw *hw,
- 				enum i40e_aq_resources_ids resource,
- 				enum i40e_aq_resource_access_type access,
+ /* The values in here are decimal coded as hex as is the case in the NVM map*/
+ #define I40E_CURRENT_NVM_VERSION_HI 0x2
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index eacbe74..11cf1a5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -1833,7 +1833,10 @@ struct i40e_aqc_set_phy_debug {
+ #define I40E_AQ_PHY_DEBUG_RESET_EXTERNAL_NONE	0x00
+ #define I40E_AQ_PHY_DEBUG_RESET_EXTERNAL_HARD	0x01
+ #define I40E_AQ_PHY_DEBUG_RESET_EXTERNAL_SOFT	0x02
++/* Disable link manageability on a single port */
+ #define I40E_AQ_PHY_DEBUG_DISABLE_LINK_FW	0x10
++/* Disable link manageability on all ports */
++#define I40E_AQ_PHY_DEBUG_DISABLE_ALL_LINK_FW	0x20
+ 	u8	reserved[15];
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 51a994d..6fa05c4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1880,7 +1880,7 @@ static int i40e_set_phys_id(struct net_device *netdev,
+ 		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY)) {
+ 			pf->led_status = i40e_led_get(hw);
+ 		} else {
+-			i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_PORT, NULL);
++			i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_ALL, NULL);
+ 			ret = i40e_led_get_phy(hw, &temp_status,
+ 					       &pf->phy_led_val);
+ 			pf->led_status = temp_status;
 -- 
 2.5.5
