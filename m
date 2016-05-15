@@ -1,81 +1,97 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: pull request [net]: batman-adv 20160515
-Date: Sun, 15 May 2016 23:11:29 +0800
-Message-ID: <1463325093-3927-1-git-send-email-a__42353.9353804246$1463325181$gmane$org@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 4/4] batman-adv: Fix refcnt leak in batadv_v_neigh_*
+Date: Sun, 15 May 2016 23:11:33 +0800
+Message-ID: <1463325093-3927-5-git-send-email-a__12639.9992769167$1463325201$gmane$org@unstable.cc>
+References: <1463325093-3927-1-git-send-email-a@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:5268 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:29032 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751738AbcEOPMY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2016 11:12:24 -0400
+	id S1754275AbcEOPMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 May 2016 11:12:43 -0400
+In-Reply-To: <1463325093-3927-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Sven Eckelmann <sven@narfation.org>
 
-although we are extremely late in the release cycle we have 4 fixes
-which would really be worth merging before releasing linux-4.6.
+The functions batadv_neigh_ifinfo_get increase the reference counter of the
+batadv_neigh_ifinfo. These have to be reduced again when the reference is
+not used anymore to correctly free the objects.
 
-As you can read in the git tag below, each of them can lead to a
-kernel crash or to an unstable system.
+Fixes: 9786906022eb ("batman-adv: B.A.T.M.A.N. V - implement neighbor comparison API calls")
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
+---
+ net/batman-adv/bat_v.c | 32 +++++++++++++++++++++++++-------
+ 1 file changed, 25 insertions(+), 7 deletions(-)
 
-We came up with several fixes after having tested our new B.A.T.M.A.N. V
-code at the Wireless Battle Mesh in Porto (PT) at the beginning of the month,
-however, what I am sending here is the minimum subset that we though being
-extremely important to avoid easy kernel crashes. The change footprint is
-also rather small.
-
-
-Please pull or let me know if you rather prefer to get this through net-next.
-
-If you decide to pull, you will hit some conflicts when merging net into
-net-next, but I can send you some instructions to ease the process.
-
-
-Thanks a lot!
-	Antonio
-
-
-The following changes since commit b91506586206140154b0b44cccf88c8cc0a4dca5:
-
-  Merge branch 'xgene-fixes' (2016-05-13 21:12:07 -0400)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to 6b892c1cb0805acee5d4ddd9e7878ed076c1b7c7:
-
-  batman-adv: Fix refcnt leak in batadv_v_neigh_* (2016-05-14 15:51:39 +0800)
-
-----------------------------------------------------------------
-During the Wireless Battle Mesh v9 in Porto (PT) at the beginning of
-May, we managed to uncover and fix some important bugs in our
-new B.A.T.M.A.N. V algorithm. These are the most critical fixes we
-came up with aimed to avoid easy kernel crashes:
-- avoid potential crash due to NULL pointer dereference in
-  B.A.T.M.A.N. V routine when a neigh_ifinfo object is not found, by
-  Sven Eckelmann
-- avoid crash due to double kref_put on neigh_node object in
-  B.A.T.M.A.N. V routine leading to use-after-free, by Sven
-  Eckelmann (this crash can be always replicated)
-- avoid use-after-free of skb when counting outgoing bytes, by Florian
-  Westphal
-- fix neigh_ifinfo object reference counting imbalance when using
-  B.A.T.M.A.N. V, by Sven Eckelmann. Such imbalance may lead to the
-  impossibility of releasing the related netdev object on shutdown.
-
-----------------------------------------------------------------
-Florian Westphal (1):
-      batman-adv: fix skb deref after free
-
-Sven Eckelmann (3):
-      batman-adv: Avoid nullptr derefence in batadv_v_neigh_is_sob
-      batman-adv: Fix double neigh_node_put in batadv_v_ogm_route_update
-      batman-adv: Fix refcnt leak in batadv_v_neigh_*
-
- net/batman-adv/bat_v.c     | 30 ++++++++++++++++++++++++++----
- net/batman-adv/bat_v_ogm.c |  4 +++-
- net/batman-adv/routing.c   |  4 +++-
- 3 files changed, 32 insertions(+), 6 deletions(-)
+diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
+index e81ad4b8e5c8..7fd477583eb0 100644
+--- a/net/batman-adv/bat_v.c
++++ b/net/batman-adv/bat_v.c
+@@ -257,14 +257,23 @@ static int batadv_v_neigh_cmp(struct batadv_neigh_node *neigh1,
+ 			      struct batadv_hard_iface *if_outgoing2)
+ {
+ 	struct batadv_neigh_ifinfo *ifinfo1, *ifinfo2;
++	int ret = 0;
+ 
+ 	ifinfo1 = batadv_neigh_ifinfo_get(neigh1, if_outgoing1);
++	if (WARN_ON(!ifinfo1))
++		goto err_ifinfo1;
++
+ 	ifinfo2 = batadv_neigh_ifinfo_get(neigh2, if_outgoing2);
++	if (WARN_ON(!ifinfo2))
++		goto err_ifinfo2;
+ 
+-	if (WARN_ON(!ifinfo1 || !ifinfo2))
+-		return 0;
++	ret = ifinfo1->bat_v.throughput - ifinfo2->bat_v.throughput;
+ 
+-	return ifinfo1->bat_v.throughput - ifinfo2->bat_v.throughput;
++	batadv_neigh_ifinfo_put(ifinfo2);
++err_ifinfo2:
++	batadv_neigh_ifinfo_put(ifinfo1);
++err_ifinfo1:
++	return ret;
+ }
+ 
+ static bool batadv_v_neigh_is_sob(struct batadv_neigh_node *neigh1,
+@@ -274,17 +283,26 @@ static bool batadv_v_neigh_is_sob(struct batadv_neigh_node *neigh1,
+ {
+ 	struct batadv_neigh_ifinfo *ifinfo1, *ifinfo2;
+ 	u32 threshold;
++	bool ret = false;
+ 
+ 	ifinfo1 = batadv_neigh_ifinfo_get(neigh1, if_outgoing1);
+-	ifinfo2 = batadv_neigh_ifinfo_get(neigh2, if_outgoing2);
++	if (WARN_ON(!ifinfo1))
++		goto err_ifinfo1;
+ 
+-	if (WARN_ON(!ifinfo1 || !ifinfo2))
+-		return false;
++	ifinfo2 = batadv_neigh_ifinfo_get(neigh2, if_outgoing2);
++	if (WARN_ON(!ifinfo2))
++		goto err_ifinfo2;
+ 
+ 	threshold = ifinfo1->bat_v.throughput / 4;
+ 	threshold = ifinfo1->bat_v.throughput - threshold;
+ 
+-	return ifinfo2->bat_v.throughput > threshold;
++	ret = ifinfo2->bat_v.throughput > threshold;
++
++	batadv_neigh_ifinfo_put(ifinfo2);
++err_ifinfo2:
++	batadv_neigh_ifinfo_put(ifinfo1);
++err_ifinfo1:
++	return ret;
+ }
+ 
+ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
+-- 
+2.8.2
