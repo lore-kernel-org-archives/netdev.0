@@ -1,44 +1,118 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 2/9] bnxt_en: Add Support for ETHTOOL_GMODULEINFO
- and ETHTOOL_GMODULEEEPRO
-Date: Sat, 14 May 2016 23:01:18 -0700
-Message-ID: <CACKFLinShcLykdPDUN0wBb1f10_i8MyLZXZt4jObKuZADU+ezA@mail.gmail.com>
-References: <1463272188-30025-1-git-send-email-michael.chan@broadcom.com>
-	<1463272188-30025-3-git-send-email-michael.chan@broadcom.com>
-	<1463275917.2631.31.camel@decadent.org.uk>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/4] netdevice: add SW statistics ndo
+Date: Sun, 15 May 2016 08:47:27 +0200
+Message-ID: <20160515064726.GB1974@nanopsycho.orion>
+References: <1463053730-14991-1-git-send-email-jiri@resnulli.us>
+ <1463053730-14991-2-git-send-email-jiri@resnulli.us>
+ <5734F130.3050303@cumulusnetworks.com>
+ <20160513060348.GA2060@nanopsycho.orion>
+ <57362154.8040500@cumulusnetworks.com>
+ <20160514124917.GA1957@nanopsycho.orion>
+ <5737489D.4090800@cumulusnetworks.com>
+ <20160514184629.GA2176@nanopsycho.orion>
+ <5737F6E8.3040002@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:36563 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbcEOGBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 02:01:19 -0400
-Received: by mail-oi0-f49.google.com with SMTP id x201so227392890oif.3
-        for <netdev@vger.kernel.org>; Sat, 14 May 2016 23:01:19 -0700 (PDT)
-In-Reply-To: <1463275917.2631.31.camel@decadent.org.uk>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34889 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753183AbcEOGra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 02:47:30 -0400
+Received: by mail-wm0-f68.google.com with SMTP id e201so11614490wme.2
+        for <netdev@vger.kernel.org>; Sat, 14 May 2016 23:47:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5737F6E8.3040002@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 14, 2016 at 6:31 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> On Sat, 2016-05-14 at 20:29 -0400, Michael Chan wrote:
->> From: Ajit Khaparde <ajit.khaparde@broadcom.com>
-> [...]
->> +     /* Read A2 portion of the EEPROM */
->> +     if (length) {
->> +             start -= ETH_MODULE_SFF_8436_LEN;
->> +             bnxt_read_sfp_module_eeprom_info(bp, I2C_DEV_ADDR_A2, 1, start,
->> +                                              length, data + start);
+Sun, May 15, 2016 at 06:11:20AM CEST, roopa@cumulusnetworks.com wrote:
+>On 5/14/16, 11:46 AM, Jiri Pirko wrote:
+>> Sat, May 14, 2016 at 05:47:41PM CEST, roopa@cumulusnetworks.com wrote:
+>>> On 5/14/16, 5:49 AM, Jiri Pirko wrote:
+>>>> Fri, May 13, 2016 at 08:47:48PM CEST, roopa@cumulusnetworks.com wrote:
+>>>>>
+>[snip]
+>>>>>  Jiri Pirko <jiri@mellanox.com>
+>>>>> ---
+>>>>>
+>>>>>>> To me netdev stats is  combined 'SW + HW' stats for that netdev.
+>>>>>>> ndo_get_stats64 callback into the drivers does the magic of adding HW stats
+>>>>>>> to SW (netdev) stats and returning (see enic_get_stats). HW stats is available for netdevs
+>>>>>>> that are offloaded or are backed by hardware. SW stats is the stats that the driver maintains
+>>>>>>> (logical or physical). HW stats is queried and added to the SW stats.
+>>>>>> I'm not sure I follow. HW stats already contain SW stats. Because on
+>>>>>> slow path every packet that is not offloaded and goes through kernel is
+>>>>>> counted into HW stats as well (because it goes through HW port). 
+>>>>> yes, correct... we don't want to double count those. But since these stats are
+>>>>> generally queried from hw, I am calling them HW stats.
+>>>>> you will not really maintain a software counter for this. But, the driver can maintain its own
+>>>>> counters for rx and tx errors etc and I call these SW stats. They are counted at the driver.
+>>>>>
+>>>>>> If you
+>>>>>> do HW stats + SW stats, what you get makes no sense. Am I missing something?
+>>>>> If you go by my definition of HW and SW stats above, on a ndo_get_stats64() call,
+>>>>> you will add the SW counters + HW counters and return. In my definition, the pkts
+>>>>> that was rx'ed or tx'ed successfully are always in the HW count.
+>>>>>
+>>>>>> Btw, looking at enic_get_stats, looks exactly what we introduce for
+>>>>>> mlxsw in this patchset.
+>>>>> In enic_get_stats, the ones counted in software are the ones taken from 'enic->'
+>>>>>     net_stats->rx_over_errors = enic->rq_truncated_pkts;
+>>>>>     net_stats->rx_crc_errors = enic->rq_bad_fcs;
+>>>>>
+>>>>>> With this patchset, we only allow user to se the actual stats for
+>>>>>> slow-path aka SW stats.
+>>>>> hmm...ok. But i am not sure how many will use this new attribute.
+>>>>> When you do 'ip -s link show' you really want all counters on that port
+>>>>> hardware or software does not matter at that point.
+>>>>>
+>>>>> My suggestion to move this to ethtool like attribute is because that is an existing
+>>>>> way to break down your stats which ever way you want. And the best part is it can be
+>>>>> customized (say rx_pkts_cpu_saw)
+>>>> I bevieve that ethtool is really not a place to expose sw stats. Does
+>>>> not make sense.
+>>> 2 things:
+>>> - i was surprised you don't want your ndo_get_stats64 to be a unified view of HW and SW stats
+>> Roopa, please, look at the patch 4/4. That is exactly what we are doing.
+>> We expose HW stats via ndo_get_stats64 and that is of course including
+>> whatever comes through slowpath (non-forwarded in HW).
 >
-> The output address calculation (data + start) makes no sense at all.
-> If eeprom->offset < ETH_MODULE_SFF_8436_LEN then start == 0 here and
-> this read overwrites earlier data in the output buffer.  If
-> eeeprom->offset > ETH_MODULE_SFF_8436_LEN then start > 0 here and this
-> overruns the output buffer.
+>Maybe i missed it but i did not think it included any rx or tx err counters counted solely
+>by the driver.
+>>
+>>
+>>> - by bringing up ethtool like stats (IFLA_STATS_LINK_HW_EXTENDED) I am just saying
+>>> it has always been a way to breakdown stats. If you don't want to show explicit SW stats there,
+>>> there is always a way to show HW only stats....and now you know the delta between the unified stats
+>>> and the HW only stats is your SW stats.
+>> I think we don/t understand each other. HW stats always include SW
+>> stats. Because whatever goes in or out goes through HW. Therefore, the
+>> "unified stats" you mention are exactly HW stats.
+>>
+>> This is fine, Patch 4/4 would do to make this correct. However, I think
+>> it has value for user to know what went via slowpath (non-forwarded in HW).
+>> And that is exacly exposed by the SW stats we try to add.
+>>
+>> Is that confusing?
 >
-> I think that 'data' should be incremented along with 'start' in the
-> previous if-block.
->
+>Its not confusing. I understand what you are doing.
+>The only point I was making was that most drivers have unified stats via ndo
+>and there are also hw stats via ethtool like api (which will also be part of the stats
+>api in the future). And sw only stats can be derived from that...which is the way most
 
-Yes, you're right.  We'll fix it and resend.  Thanks.
+The thing is, they can't be derived from it. That is my whole point.
+HW-HW=0
+
+
+>people do today.
+>But that's fine. If you think it will be useful/easier to have a new api/attribute
+>for software only stats for some drivers, sure, fine. Lets move on.
+>
+>
