@@ -1,51 +1,46 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Fix access to uninitialized index
-Date: Sun, 15 May 2016 10:21:26 +0300
-Message-ID: <1463296886-4364-1-git-send-email-tariqt@mellanox.com>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: What ixgbe devices support HWTSTAMP_FILTER_ALL for hardware time
+ stamping?
+Date: Sun, 15 May 2016 09:51:30 +0200
+Message-ID: <20160515075129.GA2581@netboy>
+References: <582A121C-339D-4469-958C-9673C7E5A654@alum.mit.edu>
+ <20160514073002.GA2053@netboy>
+ <4AAA3CE1-B137-4AC1-AB85-B4690E8E3E12@alum.mit.edu>
+ <20160514202653.GA6529@netboy>
+ <B32E7BAF-090F-4D9F-A519-B96AF2FD0EF0@alum.mit.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>
+To: Guy Harris <guy@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36001 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752082AbcEOHWX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2016 03:22:23 -0400
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35777 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbcEOHvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 03:51:41 -0400
+Received: by mail-wm0-f50.google.com with SMTP id e201so66959271wme.0
+        for <netdev@vger.kernel.org>; Sun, 15 May 2016 00:51:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <B32E7BAF-090F-4D9F-A519-B96AF2FD0EF0@alum.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prevent using uninitialized or negative index when handling
-steering entries.
+On Sat, May 14, 2016 at 07:11:50PM -0700, Guy Harris wrote:
+> It could do a combination of #2 and #1, where "offers all
+> possibilities" is replaced by "opens the adapter, tries each of the
+> possibilities, and offers the ones that don't fail" - but, other
+> than the current bugs with ETHTOOL_GET_TS_INFO, I don't see any
+> advantage to doing only #1, rather than trying #2, perhaps with some
+> special-casing to work around the bugs in question, and only falling
+> back on actually trying to set the options if we can't ask about
+> them.
 
-Fixes: b12d93d63c32 ('mlx4: Add support for promiscuous mode in the new steering model.')
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Right.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 6aa7397..f2d0920 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -1102,7 +1102,7 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 	struct mlx4_cmd_mailbox *mailbox;
- 	struct mlx4_mgm *mgm;
- 	u32 members_count;
--	int index, prev;
-+	int index = -1, prev;
- 	int link = 0;
- 	int i;
- 	int err;
-@@ -1181,7 +1181,7 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 		goto out;
- 
- out:
--	if (prot == MLX4_PROT_ETH) {
-+	if (prot == MLX4_PROT_ETH && index != -1) {
- 		/* manage the steering entry for promisc mode */
- 		if (new_entry)
- 			err = new_steering_entry(dev, port, steer,
--- 
-1.8.3.1
+Regarding the drivers you found, even if you can't patch them
+yourself, please write the maintainers directly with me and netdev on
+CC in order to bring attention to the bugs.
+
+The get_maintainer.pl script can help identify the maintainers.
+
+Thanks,
+Richard
