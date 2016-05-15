@@ -1,60 +1,48 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/13] i40e: don't add broadcast filter for VFs
-Date: Sat, 14 May 2016 21:57:33 -0700
-Message-ID: <1463288255-1654-12-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1463288255-1654-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab
+ name
+Date: Sun, 15 May 2016 07:22:40 +0200
+Message-ID: <20160515052240.GA10828@1wt.eu>
+References: <alpine.LFD.2.20.1605141116100.24646@i7>
+ <CA+55aFx_PuzNC0riLEN7PUpVnvQg374ZqCYBV-Uw6Be-OA=DwQ@mail.gmail.com>
+ <20160514213322.GD9763@1wt.eu>
+ <CA+55aFwthSgQyG_=mTpwctpOWqc1D7KgWHrdrqh+PLiFjuT=_A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Network Development List <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:57094 "EHLO mga09.intel.com"
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:29726 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752608AbcEOE5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2016 00:57:42 -0400
-In-Reply-To: <1463288255-1654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750747AbcEOFWt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 May 2016 01:22:49 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+55aFwthSgQyG_=mTpwctpOWqc1D7KgWHrdrqh+PLiFjuT=_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On Sat, May 14, 2016 at 03:21:31PM -0700, Linus Torvalds wrote:
+> On Sat, May 14, 2016 at 2:33 PM, Willy Tarreau <w@1wt.eu> wrote:
+> >
+> > Why simply not cast the atomic to (unsigned long long) instead of (u64)
+> > so that %llu always matches ?
+> 
+> Yes, that fixes the problem. It's just more typing, and annoying. The
+> fact that MS got it right while posix and gcc screwed it up is a bit
+> embarrassing..
 
-Now that all VSIs are configured to receive broadcasts as default, we
-don't need to add a filter. This eliminates an annoying but harmless
-error message each time VFs are created or reset.
+Well on the other hand, because of this MS still has problems porting
+code from 32 to 64 bit. The real problem is that on both sides they
+imagined that you needed only one way to specify your types. In practice
+users generally want either the most optimal types for the architecture
+because they don't care about the size (char, int, size_t, void *...)
+or a specific size. This last one is annoying to use with printf format.
 
-Change-ID: I4cd6339684df45b0d2722133eeb84c14fa93ea19
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 8 --------
- 1 file changed, 8 deletions(-)
+> If we ever start using __uint128_t, we'll have even more problems in
+> this area. Oh well.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 9473429..1fcafcf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -665,8 +665,6 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
- 		goto error_alloc_vsi_res;
- 	}
- 	if (type == I40E_VSI_SRIOV) {
--		u8 brdcast[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
--
- 		vf->lan_vsi_idx = vsi->idx;
- 		vf->lan_vsi_id = vsi->id;
- 		/* If the port VLAN has been configured and then the
-@@ -688,12 +686,6 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
- 					 "Could not add MAC filter %pM for VF %d\n",
- 					vf->default_lan_addr.addr, vf->vf_id);
- 		}
--		f = i40e_add_filter(vsi, brdcast,
--				    vf->port_vlan_id ? vf->port_vlan_id : -1,
--				    true, false);
--		if (!f)
--			dev_info(&pf->pdev->dev,
--				 "Could not allocate VF broadcast filter\n");
- 		spin_unlock_bh(&vsi->mac_filter_list_lock);
- 	}
- 
--- 
-2.5.5
+Definitely.
+
+Willy
