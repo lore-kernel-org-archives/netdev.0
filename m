@@ -1,74 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next] ingress, clsact: don't add TCA_OPTIONS to nl msg
-Date: Sun, 15 May 2016 18:36:03 +0200
-Message-ID: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
-Cc: jhs@mojatatu.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42799 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754247AbcEOQgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 12:36:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v11 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+Date: Sun, 15 May 2016 13:16:06 -0400 (EDT)
+Message-ID: <20160515.131606.1794366975297405715.davem@davemloft.net>
+References: <1463331162-6679-1-git-send-email-decui@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, gregkh@linuxfoundation.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, joe@perches.com, netdev@vger.kernel.org,
+ apw@canonical.com, devel@linuxdriverproject.org, haiyangz@microsoft.com
+To: decui@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1463331162-6679-1-git-send-email-decui@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-In ingress and clsact qdisc TCA_OPTIONS are ignored, since it's
-parameterless. In tc, we add an empty addattr_l(... TCA_OPTIONS,
-NULL, 0) to the netlink message nevertheless. This has the
-side effect that when someone tries a 'tc qdisc replace' and
-already an existing such qdisc is present, tc fails with
-EINVAL here.
+From: Dexuan Cui <decui@microsoft.com>
+Date: Sun, 15 May 2016 09:52:42 -0700
 
-Reason is that in the kernel, this invokes qdisc_change() when
-such requested qdisc is already present. When TCA_OPTIONS are
-passed to modify parameters, it looks whether qdisc implements
-.change() callback, and if not present (like in both cases here)
-it returns with error. Rather than adding an empty stub to the
-kernel that ignores TCA_OPTIONS again, just don't add TCA_OPTIONS
-to the netlink message in the first place.
+> Changes since v10
+> 
+> 1) add module params: send_ring_page, recv_ring_page. They can be used to
+> enlarge the ringbuffer size to get better performance, e.g.,
+> # modprobe hv_sock  recv_ring_page=16 send_ring_page=16
+> By default, recv_ring_page is 3 and send_ring_page is 2.
+> 
+> 2) add module param max_socket_number (the default is 1024).
+> A user can enlarge the number to create more than 1024 hv_sock sockets.
+> By default, 1024 sockets take about 1024 * (3+2+1+1) * 4KB = 28M bytes.
+> (Here 1+1 means 1 page for send/recv buffers per connection, respectively.)
 
-Before:
+This is papering around my objections, and create module parameters which
+I am fundamentally against.
 
-  # tc qdisc replace dev foo clsact    # first try
-  # tc qdisc replace dev foo clsact    # second one
-  RTNETLINK answers: Invalid argument
+You're making the facility unusable by default, just to work around my
+memory consumption concerns.
 
-After:
+What will end up happening is that everyone will simply increase the
+values.
 
-  # tc qdisc replace dev foo clsact
-  # tc qdisc replace dev foo clsact
-  # tc qdisc replace dev foo clsact
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tc/q_clsact.c  | 1 -
- tc/q_ingress.c | 1 -
- 2 files changed, 2 deletions(-)
-
-diff --git a/tc/q_clsact.c b/tc/q_clsact.c
-index 0c05dbd..e2a1a71 100644
---- a/tc/q_clsact.c
-+++ b/tc/q_clsact.c
-@@ -18,7 +18,6 @@ static int clsact_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 		return -1;
- 	}
- 
--	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
- 	return 0;
- }
- 
-diff --git a/tc/q_ingress.c b/tc/q_ingress.c
-index c3c9b40..31699a8 100644
---- a/tc/q_ingress.c
-+++ b/tc/q_ingress.c
-@@ -34,7 +34,6 @@ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 		}
- 	}
- 
--	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
- 	return 0;
- }
- 
--- 
-1.9.3
+You're not really addressing the core issue, and I will be ignoring you
+future submissions of this change until you do.
