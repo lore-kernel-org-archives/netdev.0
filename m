@@ -1,174 +1,151 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v5 net-next 11/14] ip6_gre: Add support for fou/gue encapsulation
-Date: Sun, 15 May 2016 16:42:32 -0700
-Message-ID: <1463355755-3481375-12-git-send-email-tom@herbertland.com>
+Subject: [PATCH v5 net-next 07/14] fou: Split out {fou,gue}_build_header
+Date: Sun, 15 May 2016 16:42:28 -0700
+Message-ID: <1463355755-3481375-8-git-send-email-tom@herbertland.com>
 References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:8502 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752812AbcEOXnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 19:43:00 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4FNerng021254
-	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:43:00 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57882 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751934AbcEOXmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 19:42:55 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4FNf1ca023477
+	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:42:55 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 22wygmd10a-1
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:43:00 -0700
+	by mx0a-00082601.pphosted.com with ESMTP id 22x03xx35y-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 15 May 2016 16:42:55 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.223.101.97) with ESMTP	id
- c0c229461af611e6a12624be0595f910-d34ebc50 for <netdev@vger.kernel.org>;	Sun,
- 15 May 2016 16:42:58 -0700
+ be2949081af611e6a12624be0595f910-d34ebc50 for <netdev@vger.kernel.org>;	Sun,
+ 15 May 2016 16:42:53 -0700
 In-Reply-To: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add netlink and setup for encapsulation
+Create __fou_build_header and __gue_build_header. These implement the
+protocol generic parts of building the fou and gue header.
+fou_build_header and gue_build_header implement the IPv4 specific
+functions and call the __*_build_header functions.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_gre.c | 77 +++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 74 insertions(+), 3 deletions(-)
+ include/net/fou.h |  8 ++++----
+ net/ipv4/fou.c    | 47 +++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 41 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 4541fa5..f040bcf 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1022,9 +1022,7 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
- 	}
+diff --git a/include/net/fou.h b/include/net/fou.h
+index 19b8a0c..7d2fda2 100644
+--- a/include/net/fou.h
++++ b/include/net/fou.h
+@@ -11,9 +11,9 @@
+ size_t fou_encap_hlen(struct ip_tunnel_encap *e);
+ static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
  
- 	tunnel->tun_hlen = gre_calc_hlen(tunnel->parms.o_flags);
--
--	tunnel->hlen = tunnel->tun_hlen;
--
-+	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
- 	t_hlen = tunnel->hlen + sizeof(struct ipv6hdr);
+-int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4);
+-int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4);
++int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type);
++int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type);
  
- 	dev->hard_header_len = LL_MAX_HEADER + t_hlen;
-@@ -1290,15 +1288,57 @@ static void ip6gre_tap_setup(struct net_device *dev)
- 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ #endif
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 6cbc725..f4f2ddd 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -780,6 +780,22 @@ static void fou_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 	*protocol = IPPROTO_UDP;
  }
  
-+static bool ip6gre_netlink_encap_parms(struct nlattr *data[],
-+				       struct ip_tunnel_encap *ipencap)
++int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type)
 +{
-+	bool ret = false;
++	int err;
 +
-+	memset(ipencap, 0, sizeof(*ipencap));
++	err = iptunnel_handle_offloads(skb, type);
++	if (err)
++		return err;
 +
-+	if (!data)
-+		return ret;
++	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++						skb, 0, 0, false);
 +
-+	if (data[IFLA_GRE_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_be16(data[IFLA_GRE_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_be16(data[IFLA_GRE_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
++	return 0;
 +}
++EXPORT_SYMBOL(__fou_build_header);
 +
- static int ip6gre_newlink(struct net *src_net, struct net_device *dev,
- 	struct nlattr *tb[], struct nlattr *data[])
+ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		     u8 *protocol, struct flowi4 *fl4)
  {
- 	struct ip6_tnl *nt;
- 	struct net *net = dev_net(dev);
- 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
-+	struct ip_tunnel_encap ipencap;
+@@ -788,26 +804,21 @@ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 	__be16 sport;
  	int err;
  
- 	nt = netdev_priv(dev);
-+
-+	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(nt, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	ip6gre_netlink_parms(data, &nt->parms);
+-	err = iptunnel_handle_offloads(skb, type);
++	err = __fou_build_header(skb, e, protocol, &sport, type);
+ 	if (err)
+ 		return err;
  
- 	if (ip6gre_tunnel_find(net, &nt->parms, dev->type))
-@@ -1345,10 +1385,18 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
- 	struct net *net = nt->net;
- 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
- 	struct __ip6_tnl_parm p;
-+	struct ip_tunnel_encap ipencap;
+-	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
+-					       skb, 0, 0, false);
+ 	fou_build_udp(skb, e, fl4, protocol, sport);
  
- 	if (dev == ign->fb_tunnel_dev)
- 		return -EINVAL;
- 
-+	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(nt, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	ip6gre_netlink_parms(data, &p);
- 
- 	t = ip6gre_tunnel_locate(net, &p, 0);
-@@ -1400,6 +1448,14 @@ static size_t ip6gre_get_size(const struct net_device *dev)
- 		nla_total_size(4) +
- 		/* IFLA_GRE_FLAGS */
- 		nla_total_size(4) +
-+		/* IFLA_GRE_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
- }
- 
-@@ -1422,6 +1478,17 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be32(skb, IFLA_GRE_FLOWINFO, p->flowinfo) ||
- 	    nla_put_u32(skb, IFLA_GRE_FLAGS, p->flags))
- 		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
-+			t->encap.type) ||
-+	    nla_put_be16(skb, IFLA_GRE_ENCAP_SPORT,
-+			 t->encap.sport) ||
-+	    nla_put_be16(skb, IFLA_GRE_ENCAP_DPORT,
-+			 t->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
-+			t->encap.flags))
-+		goto nla_put_failure;
-+
  	return 0;
+ }
+ EXPORT_SYMBOL(fou_build_header);
  
- nla_put_failure:
-@@ -1440,6 +1507,10 @@ static const struct nla_policy ip6gre_policy[IFLA_GRE_MAX + 1] = {
- 	[IFLA_GRE_ENCAP_LIMIT] = { .type = NLA_U8 },
- 	[IFLA_GRE_FLOWINFO]    = { .type = NLA_U32 },
- 	[IFLA_GRE_FLAGS]       = { .type = NLA_U32 },
-+	[IFLA_GRE_ENCAP_TYPE]   = { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_FLAGS]  = { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_SPORT]  = { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_DPORT]  = { .type = NLA_U16 },
- };
+-int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4)
++int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type)
+ {
+-	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
+-						       SKB_GSO_UDP_TUNNEL;
+ 	struct guehdr *guehdr;
+ 	size_t hdrlen, optlen = 0;
+-	__be16 sport;
+ 	void *data;
+ 	bool need_priv = false;
+ 	int err;
+@@ -826,8 +837,8 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		return err;
  
- static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
+ 	/* Get source port (based on flow hash) before skb_push */
+-	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
+-					       skb, 0, 0, false);
++	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++						skb, 0, 0, false);
+ 
+ 	hdrlen = sizeof(struct guehdr) + optlen;
+ 
+@@ -872,6 +883,22 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 
+ 	}
+ 
++	return 0;
++}
++EXPORT_SYMBOL(__gue_build_header);
++
++int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		     u8 *protocol, struct flowi4 *fl4)
++{
++	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
++						       SKB_GSO_UDP_TUNNEL;
++	__be16 sport;
++	int err;
++
++	err = __gue_build_header(skb, e, protocol, &sport, type);
++	if (err)
++		return err;
++
+ 	fou_build_udp(skb, e, fl4, protocol, sport);
+ 
+ 	return 0;
 -- 
 2.8.0.rc2
