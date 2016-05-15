@@ -1,48 +1,45 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/5] qed: Correct PF-sanity check
-Date: Sun, 15 May 2016 14:48:05 +0300
-Message-ID: <1463312889-19351-2-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 0/5] qed: IOV enhncements and fixups
+Date: Sun, 15 May 2016 14:48:04 +0300
+Message-ID: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:53077 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752420AbcEOLsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 07:48:20 -0400
-In-Reply-To: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:59505 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752420AbcEOLsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 07:48:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Seems like something broke in commit 1408cc1fa48c ("qed: Introduce VFs")
-and the function no longer verifies that the vf is indeed a valid one.
+Hi Dave,
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+This is a follow-up on the recent patch series that adds SR-IOV support
+to qed. All content here is iov-related fixups [nothing terminal] and
+enhancements.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index d4df406..2c4f9b0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -476,12 +476,12 @@ int qed_iov_hw_info(struct qed_hwfn *p_hwfn)
- static bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
- {
- 	/* Check PF supports sriov */
--	if (!IS_QED_SRIOV(p_hwfn->cdev) || !IS_PF_SRIOV_ALLOC(p_hwfn))
-+	if (IS_VF(p_hwfn->cdev) || !IS_QED_SRIOV(p_hwfn->cdev) ||
-+	    !IS_PF_SRIOV_ALLOC(p_hwfn))
- 		return false;
- 
- 	/* Check VF validity */
--	if (IS_VF(p_hwfn->cdev) || !IS_QED_SRIOV(p_hwfn->cdev) ||
--	    !IS_PF_SRIOV_ALLOC(p_hwfn))
-+	if (!qed_iov_is_valid_vfid(p_hwfn, vfid, true))
- 		return false;
- 
- 	return true;
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval
+
+Manish Chopra (1):
+  qed: Reset link on IOV disable
+
+Yuval Mintz (4):
+  qed: Correct PF-sanity check
+  qed: Improve VF interrupt reset
+  qed: Allow more than 16 VFs
+  qed: VFs gracefully accept lack of PM
+
+ drivers/net/ethernet/qlogic/qed/qed_int.c      |  59 ++++++------
+ drivers/net/ethernet/qlogic/qed/qed_int.h      |  20 +----
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c    | 119 +++++++++++++------------
+ 5 files changed, 99 insertions(+), 103 deletions(-)
+
 -- 
 1.9.3
