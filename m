@@ -1,41 +1,59 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] nf_conntrack: avoid kernel pointer value leak in slab name
-Date: Sun, 15 May 2016 11:05:16 -0700
-Message-ID: <CA+55aFxRg36qT9HSY9QgCV-8hhxD83Pa_kVyP=G+pa3iYBxj8g@mail.gmail.com>
-References: <alpine.LFD.2.20.1605141116100.24646@i7>
-	<CA+55aFx_PuzNC0riLEN7PUpVnvQg374ZqCYBV-Uw6Be-OA=DwQ@mail.gmail.com>
+From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH] ethernet:arc: Fix racing of TX ring buffer
+Date: Sun, 15 May 2016 20:07:34 +0200
+Message-ID: <20160515180734.GA23253@electric-eye.fr.zoreil.com>
+References: <20160514161602.GA3347@debian-dorm>
+ <20160514200356.GA14105@electric-eye.fr.zoreil.com>
+ <20160514231044.GA2968@debian-dorm>
+ <20160515091953.GA19983@electric-eye.fr.zoreil.com>
+ <20160515123829.GA2831@debian-dorm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	Network Development List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:34702 "EHLO
-	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbcEOSFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 14:05:17 -0400
-Received: by mail-io0-f182.google.com with SMTP id 190so187041273iow.1
-        for <netdev@vger.kernel.org>; Sun, 15 May 2016 11:05:17 -0700 (PDT)
-In-Reply-To: <CA+55aFx_PuzNC0riLEN7PUpVnvQg374ZqCYBV-Uw6Be-OA=DwQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Shuyu Wei <wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160515123829.GA2831@debian-dorm>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 14, 2016 at 2:31 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> "u64" is indeed "unsigned long long" on x86 and many other
-> architectures, but on alpha and ia64 it's just "unsigned long".
+Shuyu Wei <wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> :
+[...]
+> I still have a question, is it possible that tx_clean() run
+> between   priv->tx_buff[*txbd_curr].skb = skb   and   dma_wmb()?
 
-Actually, I take that back.
+A (previous) run can take place after priv->tx_buff[*txbd_curr].skb and
+before *info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len).
 
-In the kernel, it seems to always be "unsigned long long", even on
-alpha and ia64.
+So, yes, the driver must check in arc_emac_tx_clean() that 1) either
+txbd_dirty != txbd_curr or 2) "info" is not consistent with a still-not-used
+status word. Please be patient with me and get rid of the useless "i"
 
-We do have a "int-l64.h" file that typedef's __u64 to be just unsigned
-long, and yes, that file is included for alpha and ia64, but it seems
-that that only happens when __KERNEL__ is not defined.
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index a3a9392..337ea3b 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -153,9 +153,8 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+ {
+ 	struct arc_emac_priv *priv = netdev_priv(ndev);
+ 	struct net_device_stats *stats = &ndev->stats;
+-	unsigned int i;
+ 
+-	for (i = 0; i < TX_BD_NUM; i++) {
++	while (priv->txbd_dirty != priv->txbd_curr) {
+ 		unsigned int *txbd_dirty = &priv->txbd_dirty;
+ 		struct arc_emac_bd *txbd = &priv->txbd[*txbd_dirty];
+ 		struct buffer_state *tx_buff = &priv->tx_buff[*txbd_dirty];
 
-So it does seem like using "%ull" and u64 is fine. Not in general, but
-inside the kernel it's ok.
-
-              Linus
+-- 
+Ueimor
