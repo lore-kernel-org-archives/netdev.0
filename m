@@ -1,40 +1,28 @@
-From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-Subject: Re: iwlwifi: mvm: add reorder buffer per queue
-Date: Mon, 16 May 2016 14:41:35 +0300
-Message-ID: <1463398895.25219.82.camel@coelho.fi>
-References: <20160513085428.GA13194@mwanda>
+From: "Olander, Donna" <DOlander@echn.org>
+Subject: IT- Desk Password Update
+Date: Mon, 16 May 2016 07:37:38 -0400
+Message-ID: <AB5C4600F906FE40AB2D71231AD5433D0215B454C0@ECHNMX1.echn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160513085428.GA13194@mwanda>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: 8BIT
+To: "info@mail.org" <info@mail.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us-smtp-delivery-104.mimecast.com ([63.128.21.104]:30619 "EHLO
+	us-smtp-delivery-104.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751077AbcEPLoi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2016 07:44:38 -0400
+Received: from 127.0.0.1 (ZixVPM [127.0.0.1])
+	by Outbound.echn.org (Proprietary) with SMTP id C24DB1969D89
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 07:37:40 -0400 (EDT)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-05-13 at 11:54 +0300, Dan Carpenter wrote:
-> Hello Sara Sharon,
-> 
-> The patch b915c10174fb: "iwlwifi: mvm: add reorder buffer per queue"
-> from Mar 23, 2016, leads to the following static checker warnings:
-> 
-> 	drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c:912
-> iwl_mvm_rx_mpdu_mq()
-> 	error: potential NULL dereference 'sta'.
-> 
-> 	drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c:912
-> iwl_mvm_rx_mpdu_mq()
-> 	error: we previously assumed 'sta' could be null (see line 796)
+Your e-mailbox password will soon expire. To keep your password active. Click Here<http://echn13.jimdo.com/> to update
 
-Thanks for the analysis and report, Dan!
+IT- Desk
 
-I have queued a fix for this through our internal tree.
 
---
-Cheers,
-Luca.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+________________________________
+"This message originates from Eastern Connecticut Health Network. The information contained in this message may be privileged and confidential. If you are the intended recipient, you must maintain this message in a secure and confidential manner. If you are not the intended recipient, please notify the sender immediately and destroy this message. Thank you."
