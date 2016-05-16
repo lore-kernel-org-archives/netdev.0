@@ -1,213 +1,183 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v6 net-next 10/14] fou: Add encap ops for IPv6 tunnels
-Date: Mon, 16 May 2016 14:33:05 -0700
-Message-ID: <1463434389-314297-11-git-send-email-tom@herbertland.com>
+Subject: [PATCH v6 net-next 11/14] ip6_gre: Add support for fou/gue encapsulation
+Date: Mon, 16 May 2016 14:33:06 -0700
+Message-ID: <1463434389-314297-12-git-send-email-tom@herbertland.com>
 References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:13327 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751763AbcEPVdf (ORCPT
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:52841 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751772AbcEPVdf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:35 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4GLSU5k013094
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:34 -0700
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLVkes007075
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:35 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 22wypaw1cp-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:34 -0700
+	by mx0a-00082601.pphosted.com with ESMTP id 22ynaygby6-1
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:35 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.232.63) with ESMTP	id
- d68a03681bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
- 16 May 2016 14:33:32 -0700
+ d75291481bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
+ 16 May 2016 14:33:34 -0700
 In-Reply-To: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add a new fou6 module that provides encapsulation
-operations for IPv6.
+Add netlink and setup for encapsulation
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/fou.h |   2 +-
- net/ipv6/Makefile |   1 +
- net/ipv6/fou6.c   | 140 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 142 insertions(+), 1 deletion(-)
- create mode 100644 net/ipv6/fou6.c
+ net/ipv6/ip6_gre.c | 79 +++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 75 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/fou.h b/include/net/fou.h
-index 7d2fda2..f5cc691 100644
---- a/include/net/fou.h
-+++ b/include/net/fou.h
-@@ -9,7 +9,7 @@
- #include <net/udp.h>
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 4541fa5..6fb1b89 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -729,7 +729,7 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
  
- size_t fou_encap_hlen(struct ip_tunnel_encap *e);
--static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
-+size_t gue_encap_hlen(struct ip_tunnel_encap *e);
+ 	t->tun_hlen = gre_calc_hlen(t->parms.o_flags);
  
- int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 		       u8 *protocol, __be16 *sport, int type);
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 5e9d6bf..7ec3129 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -42,6 +42,7 @@ obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
- obj-$(CONFIG_IPV6_SIT) += sit.o
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
- obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
-+obj-$(CONFIG_NET_FOU) += fou6.o
+-	t->hlen = t->tun_hlen;
++	t->hlen = t->encap_hlen + t->tun_hlen;
  
- obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
- obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
-diff --git a/net/ipv6/fou6.c b/net/ipv6/fou6.c
-new file mode 100644
-index 0000000..c972d0b
---- /dev/null
-+++ b/net/ipv6/fou6.c
-@@ -0,0 +1,140 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <net/fou.h>
-+#include <net/ip.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
-+#include <net/protocol.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+
-+static void fou6_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+			   struct flowi6 *fl6, u8 *protocol, __be16 sport)
+ 	t_hlen = t->hlen + sizeof(struct ipv6hdr);
+ 
+@@ -1022,9 +1022,7 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
+ 	}
+ 
+ 	tunnel->tun_hlen = gre_calc_hlen(tunnel->parms.o_flags);
+-
+-	tunnel->hlen = tunnel->tun_hlen;
+-
++	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
+ 	t_hlen = tunnel->hlen + sizeof(struct ipv6hdr);
+ 
+ 	dev->hard_header_len = LL_MAX_HEADER + t_hlen;
+@@ -1290,15 +1288,57 @@ static void ip6gre_tap_setup(struct net_device *dev)
+ 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ }
+ 
++static bool ip6gre_netlink_encap_parms(struct nlattr *data[],
++				       struct ip_tunnel_encap *ipencap)
 +{
-+	struct udphdr *uh;
++	bool ret = false;
 +
-+	skb_push(skb, sizeof(struct udphdr));
-+	skb_reset_transport_header(skb);
++	memset(ipencap, 0, sizeof(*ipencap));
 +
-+	uh = udp_hdr(skb);
-+
-+	uh->dest = e->dport;
-+	uh->source = sport;
-+	uh->len = htons(skb->len);
-+	udp6_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM6), skb,
-+		      &fl6->saddr, &fl6->daddr, skb->len);
-+
-+	*protocol = IPPROTO_UDP;
-+}
-+
-+int fou6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+		      u8 *protocol, struct flowi6 *fl6)
-+{
-+	__be16 sport;
-+	int err;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
-+		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	err = __fou_build_header(skb, e, protocol, &sport, type);
-+	if (err)
-+		return err;
-+
-+	fou6_build_udp(skb, e, fl6, protocol, sport);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(fou6_build_header);
-+
-+int gue6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+		      u8 *protocol, struct flowi6 *fl6)
-+{
-+	__be16 sport;
-+	int err;
-+	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
-+		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	err = __gue_build_header(skb, e, protocol, &sport, type);
-+	if (err)
-+		return err;
-+
-+	fou6_build_udp(skb, e, fl6, protocol, sport);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(gue6_build_header);
-+
-+#ifdef CONFIG_NET_FOU_IP_TUNNELS
-+
-+static const struct ip6_tnl_encap_ops fou_ip6tun_ops = {
-+	.encap_hlen = fou_encap_hlen,
-+	.build_header = fou6_build_header,
-+};
-+
-+static const struct ip6_tnl_encap_ops gue_ip6tun_ops = {
-+	.encap_hlen = gue_encap_hlen,
-+	.build_header = gue6_build_header,
-+};
-+
-+static int ip6_tnl_encap_add_fou_ops(void)
-+{
-+	int ret;
-+
-+	ret = ip6_tnl_encap_add_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+	if (ret < 0) {
-+		pr_err("can't add fou6 ops\n");
++	if (!data)
 +		return ret;
++
++	if (data[IFLA_GRE_ENCAP_TYPE]) {
++		ret = true;
++		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
 +	}
 +
-+	ret = ip6_tnl_encap_add_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
-+	if (ret < 0) {
-+		pr_err("can't add gue6 ops\n");
-+		ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+		return ret;
++	if (data[IFLA_GRE_ENCAP_FLAGS]) {
++		ret = true;
++		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
 +	}
 +
-+	return 0;
-+}
++	if (data[IFLA_GRE_ENCAP_SPORT]) {
++		ret = true;
++		ipencap->sport = nla_get_be16(data[IFLA_GRE_ENCAP_SPORT]);
++	}
 +
-+static void ip6_tnl_encap_del_fou_ops(void)
-+{
-+	ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
-+	ip6_tnl_encap_del_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
-+}
-+
-+#else
-+
-+static int ip6_tnl_encap_add_fou_ops(void)
-+{
-+	return 0;
-+}
-+
-+static void ip6_tnl_encap_del_fou_ops(void)
-+{
-+}
-+
-+#endif
-+
-+static int __init fou6_init(void)
-+{
-+	int ret;
-+
-+	ret = ip6_tnl_encap_add_fou_ops();
++	if (data[IFLA_GRE_ENCAP_DPORT]) {
++		ret = true;
++		ipencap->dport = nla_get_be16(data[IFLA_GRE_ENCAP_DPORT]);
++	}
 +
 +	return ret;
 +}
 +
-+static void __exit fou6_fini(void)
-+{
-+	ip6_tnl_encap_del_fou_ops();
-+}
+ static int ip6gre_newlink(struct net *src_net, struct net_device *dev,
+ 	struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct ip6_tnl *nt;
+ 	struct net *net = dev_net(dev);
+ 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
++	struct ip_tunnel_encap ipencap;
+ 	int err;
+ 
+ 	nt = netdev_priv(dev);
 +
-+module_init(fou6_init);
-+module_exit(fou6_fini);
-+MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
-+MODULE_LICENSE("GPL");
++	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
++		int err = ip6_tnl_encap_setup(nt, &ipencap);
++
++		if (err < 0)
++			return err;
++	}
++
+ 	ip6gre_netlink_parms(data, &nt->parms);
+ 
+ 	if (ip6gre_tunnel_find(net, &nt->parms, dev->type))
+@@ -1345,10 +1385,18 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	struct net *net = nt->net;
+ 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
+ 	struct __ip6_tnl_parm p;
++	struct ip_tunnel_encap ipencap;
+ 
+ 	if (dev == ign->fb_tunnel_dev)
+ 		return -EINVAL;
+ 
++	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
++		int err = ip6_tnl_encap_setup(nt, &ipencap);
++
++		if (err < 0)
++			return err;
++	}
++
+ 	ip6gre_netlink_parms(data, &p);
+ 
+ 	t = ip6gre_tunnel_locate(net, &p, 0);
+@@ -1400,6 +1448,14 @@ static size_t ip6gre_get_size(const struct net_device *dev)
+ 		nla_total_size(4) +
+ 		/* IFLA_GRE_FLAGS */
+ 		nla_total_size(4) +
++		/* IFLA_GRE_ENCAP_TYPE */
++		nla_total_size(2) +
++		/* IFLA_GRE_ENCAP_FLAGS */
++		nla_total_size(2) +
++		/* IFLA_GRE_ENCAP_SPORT */
++		nla_total_size(2) +
++		/* IFLA_GRE_ENCAP_DPORT */
++		nla_total_size(2) +
+ 		0;
+ }
+ 
+@@ -1422,6 +1478,17 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_be32(skb, IFLA_GRE_FLOWINFO, p->flowinfo) ||
+ 	    nla_put_u32(skb, IFLA_GRE_FLAGS, p->flags))
+ 		goto nla_put_failure;
++
++	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
++			t->encap.type) ||
++	    nla_put_be16(skb, IFLA_GRE_ENCAP_SPORT,
++			 t->encap.sport) ||
++	    nla_put_be16(skb, IFLA_GRE_ENCAP_DPORT,
++			 t->encap.dport) ||
++	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
++			t->encap.flags))
++		goto nla_put_failure;
++
+ 	return 0;
+ 
+ nla_put_failure:
+@@ -1440,6 +1507,10 @@ static const struct nla_policy ip6gre_policy[IFLA_GRE_MAX + 1] = {
+ 	[IFLA_GRE_ENCAP_LIMIT] = { .type = NLA_U8 },
+ 	[IFLA_GRE_FLOWINFO]    = { .type = NLA_U32 },
+ 	[IFLA_GRE_FLAGS]       = { .type = NLA_U32 },
++	[IFLA_GRE_ENCAP_TYPE]   = { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_FLAGS]  = { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_SPORT]  = { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_DPORT]  = { .type = NLA_U16 },
+ };
+ 
+ static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
 -- 
 2.8.0.rc2
