@@ -1,91 +1,90 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v5 net-next 02/14] net: define gso types for IPx over IPv4
- and IPv6
-Date: Mon, 16 May 2016 10:04:36 -0700
-Message-ID: <CAKgT0UdvVwURGfLfDmSdSW3fSnm96U0JJYu9fPd=CUjU=BXnjg@mail.gmail.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	<1463355755-3481375-3-git-send-email-tom@herbertland.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] ixgbe: take online CPU number as MQ max
+ limit when alloc_etherdev_mq()
+Date: Mon, 16 May 2016 10:14:04 -0700
+Message-ID: <5739FFDC.80908@gmail.com>
+References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
+ <CAKgT0UeiEW21E7A9fnt_BUCppopns-E2w1WbwF-8A6sCZkJ8rQ@mail.gmail.com>
+ <573937A7.9010405@oracle.com>
+ <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34742 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbcEPREh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:04:37 -0400
-Received: by mail-io0-f196.google.com with SMTP id d62so16166946iof.1
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 10:04:37 -0700 (PDT)
-In-Reply-To: <1463355755-3481375-3-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Ethan Zhao <ethan.kernel@gmail.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	ethan zhao <ethan.zhao@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 15, 2016 at 4:42 PM, Tom Herbert <tom@herbertland.com> wrote:
-> This patch defines two new GSO definitions SKB_GSO_IPXIP4 and
-> SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
-> NETIF_F_GSO_IPXIP6. These are used to described IP in IP
-> tunnel and what the outer protocol is. The inner protocol
-> can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
-> SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
-> are removed (these are both instances of SKB_GSO_IPXIP4).
-> SKB_GSO_IPXIP6 will be used when support for GSO with IP
-> encapsulation over IPv6 is added.
->
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
->  drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
->  drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
->  drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
->  drivers/net/ethernet/intel/igb/igb_main.c         |  3 +--
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
->  include/linux/netdev_features.h                   | 12 ++++++------
->  include/linux/netdevice.h                         |  4 ++--
->  include/linux/skbuff.h                            |  4 ++--
->  net/core/ethtool.c                                |  4 ++--
->  net/ipv4/af_inet.c                                |  2 +-
->  net/ipv4/ipip.c                                   |  2 +-
->  net/ipv6/ip6_offload.c                            |  4 ++--
->  net/ipv6/sit.c                                    |  4 ++--
->  net/netfilter/ipvs/ip_vs_xmit.c                   | 17 +++++++----------
->  18 files changed, 36 insertions(+), 47 deletions(-)
->
+[...]
 
-<...>
+>>> ixgbe_main.c.  All you are doing with this patch is denying the user
+>>> choice with this change as they then are not allowed to set more
+>>
+>>   Yes, it is purposed to deny configuration that doesn't benefit.
+> 
+> Doesn't benefit who?  It is obvious you don't understand how DCB is
+> meant to work since you are assuming the queues are throw-away.
+> Anyone who makes use of the ability to prioritize their traffic would
+> likely have a different opinion.
 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 2172769..808d48f 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -2418,8 +2418,7 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->
->  #define IGB_GSO_PARTIAL_FEATURES (NETIF_F_GSO_GRE | \
->                                   NETIF_F_GSO_GRE_CSUM | \
-> -                                 NETIF_F_GSO_IPIP | \
-> -                                 NETIF_F_GSO_SIT | \
-> +                                 SKB_GSO_IPXIP4 | \
->                                   NETIF_F_GSO_UDP_TUNNEL | \
->                                   NETIF_F_GSO_UDP_TUNNEL_CSUM)
->
 
-Sorry but this is yet another bug.  It should be NETIF_F_GSO_IPXIP4,
-not SKB_GSO_IPXIP4.
++1 this is actually needed so that when DCB is turned on we can
+see both prioritize between tcs (DCB feature) but also do not
+see a performance degradation with just a single TC transmitting.
 
-So we are up to at least 3 items that need to be addressed in this patch.
+If we break this (and its happened occasionally) we end up with
+bug reports so its clear to me folks care about it.
 
-1.  igbvf/netdev.c also has a reference to NETIF_F_GSO_IPIP/NETIF_F_GSO_SIT.
-2.  bnxt needs a '|' instead of a ';' to avoid statement with no effect.
-3.  Use of SKB_GSO_IPXIP4 in igb/igb_main.c which should have been
-NETIF_F_GSO_IPXIP4.
+> 
+>>> queues.  Even if they find your decision was wrong for their
+>>> configuration.
+>>>
+>>> - Alex
+>>>
+>>  Thanks,
+>>  Ethan
+> 
+> Your response clearly points out you don't understand DCB.  I suggest
+> you take another look at how things are actually being configured.  I
+> believe what you will find is that the current implementation is
+> basing things on the number of online CPUs already based on the
+> ring_feature[RING_F_RSS].limit value.  All that is happening is that
+> you are getting that value multiplied by the number of TCs and the RSS
+> value is reduced if the result is greater than 64 based on the maximum
+> number of queues.
+> 
+> With your code on an 8 core system you go from being able to perform
+> RSS over 8 queues to only being able to perform RSS over 1 queue when
+> you enable DCB.  There was a bug a long time ago where this actually
+> didn't provide any gain because the interrupt allocation was binding
+> all 8 RSS queues to a single q_vector, but that has long since been
+> fixed and what you should be seeing is that RSS will spread traffic
+> across either 8 or 16 queues when DCB is enabled in either 8 or 4 TC
+> mode.
+> 
+> My advice would be to use a netperf TCP_CRR test and watch what queues
+> and what interrupts traffic is being delivered to.  Then if you have
+> DCB enabled on both ends you might try changing the priority of your
+> netperf session and watch what happens when you switch between TCs.
+> What you should find is that you will shift between groups of queues
+> and as you do so you should not have any active queues overlapping
+> unless you have less interrupts than CPUs.
+> 
 
-I think that is everything for this patch.  I'll be certain once I can
-do some performance testing to determine if the hardware offloads for
-the Intel parts are working correctly.
+Yep.
 
-Thanks.
+Thanks,
+John
 
-- Alex
+> - Alex
+> _______________________________________________
+> Intel-wired-lan mailing list
+> Intel-wired-lan@lists.osuosl.org
+> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+> 
