@@ -1,160 +1,291 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v6 net-next 12/14] ip6_tunnel: Add support for fou/gue encapsulation
-Date: Mon, 16 May 2016 14:33:07 -0700
-Message-ID: <1463434389-314297-13-git-send-email-tom@herbertland.com>
+Subject: [PATCH v6 net-next 09/14] ip6_tun: Add infrastructure for doing encapsulation
+Date: Mon, 16 May 2016 14:33:04 -0700
+Message-ID: <1463434389-314297-10-git-send-email-tom@herbertland.com>
 References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56663 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:15219 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751790AbcEPVdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:37 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLVkTf007083
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:36 -0700
+	by vger.kernel.org with ESMTP id S1751724AbcEPVdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:33 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLWE73031784
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:32 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22ynaygbyd-1
+	by mx0a-00082601.pphosted.com with ESMTP id 22yfr32nhw-1
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:36 -0700
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:32 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.232.63) with ESMTP	id
- d820e49e1bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
- 16 May 2016 14:33:35 -0700
+ d5b764761bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
+ 16 May 2016 14:33:31 -0700
 In-Reply-To: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add netlink and setup for encapsulation
+Add encap_hlen and ip_tunnel_encap structure to ip6_tnl. Add functions
+for getting encap hlen, setting up encap on a tunnel, performing
+encapsulation operation.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_tunnel.c | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
+ include/net/ip6_tunnel.h  | 58 ++++++++++++++++++++++++++++++++
+ net/ipv4/ip_tunnel_core.c |  5 +++
+ net/ipv6/ip6_tunnel.c     | 85 ++++++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 139 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index ec53612..8076c7a 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1796,13 +1796,55 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
- 		parms->proto = nla_get_u8(data[IFLA_IPTUN_PROTO]);
- }
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index fb9e015..d325c81 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -52,10 +52,68 @@ struct ip6_tnl {
+ 	__u32 o_seqno;	/* The last output seqno */
+ 	int hlen;       /* tun_hlen + encap_hlen */
+ 	int tun_hlen;	/* Precalculated header length */
++	int encap_hlen; /* Encap header length (FOU,GUE) */
++	struct ip_tunnel_encap encap;
+ 	int mlink;
++};
  
-+static bool ip6_tnl_netlink_encap_parms(struct nlattr *data[],
-+					struct ip_tunnel_encap *ipencap)
++struct ip6_tnl_encap_ops {
++	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
++	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
++			    u8 *protocol, struct flowi6 *fl6);
+ };
+ 
++extern const struct ip6_tnl_encap_ops __rcu *
++		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS];
++
++int ip6_tnl_encap_add_ops(const struct ip6_tnl_encap_ops *ops,
++			  unsigned int num);
++int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *ops,
++			  unsigned int num);
++int ip6_tnl_encap_setup(struct ip6_tnl *t,
++			struct ip_tunnel_encap *ipencap);
++
++static inline int ip6_encap_hlen(struct ip_tunnel_encap *e)
 +{
-+	bool ret = false;
++	const struct ip6_tnl_encap_ops *ops;
++	int hlen = -EINVAL;
 +
-+	memset(ipencap, 0, sizeof(*ipencap));
++	if (e->type == TUNNEL_ENCAP_NONE)
++		return 0;
 +
-+	if (!data)
-+		return ret;
++	if (e->type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
 +
-+	if (data[IFLA_IPTUN_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_IPTUN_ENCAP_TYPE]);
-+	}
++	rcu_read_lock();
++	ops = rcu_dereference(ip6tun_encaps[e->type]);
++	if (likely(ops && ops->encap_hlen))
++		hlen = ops->encap_hlen(e);
++	rcu_read_unlock();
 +
-+	if (data[IFLA_IPTUN_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_IPTUN_ENCAP_FLAGS]);
-+	}
++	return hlen;
++}
 +
-+	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_be16(data[IFLA_IPTUN_ENCAP_SPORT]);
-+	}
++static inline int ip6_tnl_encap(struct sk_buff *skb, struct ip6_tnl *t,
++				u8 *protocol, struct flowi6 *fl6)
++{
++	const struct ip6_tnl_encap_ops *ops;
++	int ret = -EINVAL;
 +
-+	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_be16(data[IFLA_IPTUN_ENCAP_DPORT]);
-+	}
++	if (t->encap.type == TUNNEL_ENCAP_NONE)
++		return 0;
++
++	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
++
++	rcu_read_lock();
++	ops = rcu_dereference(ip6tun_encaps[t->encap.type]);
++	if (likely(ops && ops->build_header))
++		ret = ops->build_header(skb, &t->encap, protocol, fl6);
++	rcu_read_unlock();
 +
 +	return ret;
 +}
 +
- static int ip6_tnl_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct net *net = dev_net(dev);
- 	struct ip6_tnl *nt, *t;
-+	struct ip_tunnel_encap ipencap;
+ /* Tunnel encapsulation limit destination sub-option */
  
- 	nt = netdev_priv(dev);
+ struct ipv6_tlv_tnl_enc_lim {
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index cc66a20..afd6b59 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -37,6 +37,7 @@
+ #include <net/icmp.h>
+ #include <net/protocol.h>
+ #include <net/ip_tunnels.h>
++#include <net/ip6_tunnel.h>
+ #include <net/arp.h>
+ #include <net/checksum.h>
+ #include <net/dsfield.h>
+@@ -51,6 +52,10 @@ const struct ip_tunnel_encap_ops __rcu *
+ 		iptun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
+ EXPORT_SYMBOL(iptun_encaps);
+ 
++const struct ip6_tnl_encap_ops __rcu *
++		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
++EXPORT_SYMBOL(ip6tun_encaps);
 +
-+	if (ip6_tnl_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(nt, &ipencap);
+ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 		   __be32 src, __be32 dst, __u8 proto,
+ 		   __u8 tos, __u8 ttl, __be16 df, bool xnet)
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index e79330f..ec53612 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1125,10 +1125,14 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 	}
+ 
+ 	max_headroom = LL_RESERVED_SPACE(dst->dev) + sizeof(struct ipv6hdr)
+-			+ dst->header_len;
++			+ dst->header_len + t->hlen;
+ 	if (max_headroom > dev->needed_headroom)
+ 		dev->needed_headroom = max_headroom;
+ 
++	err = ip6_tnl_encap(skb, t, &proto, fl6);
++	if (err)
++		return err;
 +
-+		if (err < 0)
-+			return err;
-+	}
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+ 	ipv6h = ipv6_hdr(skb);
+@@ -1280,6 +1284,7 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
+ 	struct net_device *dev = t->dev;
+ 	struct __ip6_tnl_parm *p = &t->parms;
+ 	struct flowi6 *fl6 = &t->fl.u.ip6;
++	int t_hlen;
+ 
+ 	memcpy(dev->dev_addr, &p->laddr, sizeof(struct in6_addr));
+ 	memcpy(dev->broadcast, &p->raddr, sizeof(struct in6_addr));
+@@ -1303,6 +1308,10 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
+ 	else
+ 		dev->flags &= ~IFF_POINTOPOINT;
+ 
++	t->tun_hlen = 0;
++	t->hlen = t->encap_hlen + t->tun_hlen;
++	t_hlen = t->hlen + sizeof(struct ipv6hdr);
 +
- 	ip6_tnl_netlink_parms(data, &nt->parms);
+ 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
+ 		int strict = (ipv6_addr_type(&p->raddr) &
+ 			      (IPV6_ADDR_MULTICAST|IPV6_ADDR_LINKLOCAL));
+@@ -1316,9 +1325,9 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
  
- 	t = ip6_tnl_locate(net, &nt->parms, 0);
-@@ -1819,10 +1861,17 @@ static int ip6_tnl_changelink(struct net_device *dev, struct nlattr *tb[],
- 	struct __ip6_tnl_parm p;
- 	struct net *net = t->net;
- 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
-+	struct ip_tunnel_encap ipencap;
+ 		if (rt->dst.dev) {
+ 			dev->hard_header_len = rt->dst.dev->hard_header_len +
+-				sizeof(struct ipv6hdr);
++				sizeof(struct ipv6hdr) + t->encap_hlen;
  
- 	if (dev == ip6n->fb_tnl_dev)
- 		return -EINVAL;
+-			dev->mtu = rt->dst.dev->mtu - sizeof(struct ipv6hdr);
++			dev->mtu = rt->dst.dev->mtu - t_hlen;
+ 			if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+ 				dev->mtu -= 8;
  
-+	if (ip6_tnl_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(t, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
- 	ip6_tnl_netlink_parms(data, &p);
- 
- 	t = ip6_tnl_locate(net, &p, 0);
-@@ -1863,6 +1912,14 @@ static size_t ip6_tnl_get_size(const struct net_device *dev)
- 		nla_total_size(4) +
- 		/* IFLA_IPTUN_PROTO */
- 		nla_total_size(1) +
-+		/* IFLA_IPTUN_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
+@@ -1564,6 +1573,59 @@ int ip6_tnl_get_iflink(const struct net_device *dev)
  }
+ EXPORT_SYMBOL(ip6_tnl_get_iflink);
  
-@@ -1880,6 +1937,17 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u32(skb, IFLA_IPTUN_FLAGS, parm->flags) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_PROTO, parm->proto))
- 		goto nla_put_failure;
++int ip6_tnl_encap_add_ops(const struct ip6_tnl_encap_ops *ops,
++			  unsigned int num)
++{
++	if (num >= MAX_IPTUN_ENCAP_OPS)
++		return -ERANGE;
 +
-+	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
-+			tunnel->encap.type) ||
-+	nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT,
-+		     tunnel->encap.sport) ||
-+	nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT,
-+		     tunnel->encap.dport) ||
-+	nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
-+		    tunnel->encap.flags))
-+		goto nla_put_failure;
++	return !cmpxchg((const struct ip6_tnl_encap_ops **)
++			&ip6tun_encaps[num],
++			NULL, ops) ? 0 : -1;
++}
++EXPORT_SYMBOL(ip6_tnl_encap_add_ops);
 +
++int ip6_tnl_encap_del_ops(const struct ip6_tnl_encap_ops *ops,
++			  unsigned int num)
++{
++	int ret;
++
++	if (num >= MAX_IPTUN_ENCAP_OPS)
++		return -ERANGE;
++
++	ret = (cmpxchg((const struct ip6_tnl_encap_ops **)
++		       &ip6tun_encaps[num],
++		       ops, NULL) == ops) ? 0 : -1;
++
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL(ip6_tnl_encap_del_ops);
++
++int ip6_tnl_encap_setup(struct ip6_tnl *t,
++			struct ip_tunnel_encap *ipencap)
++{
++	int hlen;
++
++	memset(&t->encap, 0, sizeof(t->encap));
++
++	hlen = ip6_encap_hlen(ipencap);
++	if (hlen < 0)
++		return hlen;
++
++	t->encap.type = ipencap->type;
++	t->encap.sport = ipencap->sport;
++	t->encap.dport = ipencap->dport;
++	t->encap.flags = ipencap->flags;
++
++	t->encap_hlen = hlen;
++	t->hlen = t->encap_hlen + t->tun_hlen;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ip6_tnl_encap_setup);
++
+ static const struct net_device_ops ip6_tnl_netdev_ops = {
+ 	.ndo_init	= ip6_tnl_dev_init,
+ 	.ndo_uninit	= ip6_tnl_dev_uninit,
+@@ -1590,14 +1652,11 @@ static void ip6_tnl_dev_setup(struct net_device *dev)
+ 	dev->netdev_ops = &ip6_tnl_netdev_ops;
+ 	dev->destructor = ip6_dev_free;
+ 
+-	dev->type = ARPHRD_TUNNEL6;
+-	dev->hard_header_len = LL_MAX_HEADER + sizeof(struct ipv6hdr);
+-	dev->mtu = ETH_DATA_LEN - sizeof(struct ipv6hdr);
+ 	t = netdev_priv(dev);
+-	if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+-		dev->mtu -= 8;
++	dev->type = ARPHRD_TUNNEL6;
+ 	dev->flags |= IFF_NOARP;
+ 	dev->addr_len = sizeof(struct in6_addr);
++	dev->features |= NETIF_F_LLTX;
+ 	netif_keep_dst(dev);
+ 	/* This perm addr will be used as interface identifier by IPv6 */
+ 	dev->addr_assign_type = NET_ADDR_RANDOM;
+@@ -1615,6 +1674,7 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 	int ret;
++	int t_hlen;
+ 
+ 	t->dev = dev;
+ 	t->net = dev_net(dev);
+@@ -1630,8 +1690,15 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
+ 	if (ret)
+ 		goto destroy_dst;
+ 
+-	t->hlen = 0;
+ 	t->tun_hlen = 0;
++	t->hlen = t->encap_hlen + t->tun_hlen;
++	t_hlen = t->hlen + sizeof(struct ipv6hdr);
++
++	dev->type = ARPHRD_TUNNEL6;
++	dev->hard_header_len = LL_MAX_HEADER + t_hlen;
++	dev->mtu = ETH_DATA_LEN - t_hlen;
++	if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
++		dev->mtu -= 8;
+ 
  	return 0;
  
- nla_put_failure:
-@@ -1903,6 +1971,10 @@ static const struct nla_policy ip6_tnl_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_FLOWINFO]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_FLAGS]		= { .type = NLA_U32 },
- 	[IFLA_IPTUN_PROTO]		= { .type = NLA_U8 },
-+	[IFLA_IPTUN_ENCAP_TYPE]		= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
- };
- 
- static struct rtnl_link_ops ip6_link_ops __read_mostly = {
 -- 
 2.8.0.rc2
