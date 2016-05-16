@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] qed: IOV enhncements and fixups
-Date: Mon, 16 May 2016 13:59:35 -0400 (EDT)
-Message-ID: <20160516.135935.1205411474155598012.davem@davemloft.net>
-References: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH] net/hsr: Use setup_timer and mod_timer.
+Date: Mon, 16 May 2016 14:01:07 -0400 (EDT)
+Message-ID: <20160516.140107.648493980838894656.davem@davemloft.net>
+References: <1463321265-11577-1-git-send-email-falakreyaz@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@qlogic.com
+Cc: arvid.brodin@alten.se, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: falakreyaz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37120 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37138 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754535AbcEPR7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:59:36 -0400
-In-Reply-To: <1463312889-19351-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1753854AbcEPSBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:01:09 -0400
+In-Reply-To: <1463321265-11577-1-git-send-email-falakreyaz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 15 May 2016 14:48:04 +0300
+From: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Date: Sun, 15 May 2016 19:37:44 +0530
 
-> This is a follow-up on the recent patch series that adds SR-IOV support
-> to qed. All content here is iov-related fixups [nothing terminal] and
-> enhancements.
+> The function setup_timer combines the initialization of a timer with the
+> initialization of the timer's function and data fields. The mulitiline
+> code for timer initialization is now replaced with function setup_timer.
 > 
-> Please consider applying this series to `net-next'.
+> Also, quoting the mod_timer() function comment:
+> -> mod_timer() is a more efficient way to update the expire field of an
+>    active timer (if the timer is inactive it will be activated).
+> 
+> Use setup_timer() and mod_timer() to setup and arm a timer, making the
+> code compact and aid readablity.
+> 
+> Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
 
-Series applied, thanks.
+Applied.
