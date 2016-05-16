@@ -1,34 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: also make sch_handle_egress() drop
- monitor ready
-Date: Mon, 16 May 2016 14:03:10 -0400 (EDT)
-Message-ID: <20160516.140310.1776883472080796642.davem@davemloft.net>
-References: <94bae5636d86c039a0cfee3aa4876fc7bcde2eef.1463347152.git.daniel@iogearbox.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 0/2] Don't return NULL from get_phy_device() anymore
+Date: Mon, 16 May 2016 21:03:41 +0300
+Message-ID: <d0d1cfea-2e0f-cf6c-5a87-a3f230e96b17@cogentembedded.com>
+References: <7078673.lTHka36u4G@wasted.cogentembedded.com>
+ <20160516.135349.1027929193904713083.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, alexei.starovoitov@gmail.com,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37155 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753854AbcEPSDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:03:12 -0400
-In-Reply-To: <94bae5636d86c039a0cfee3aa4876fc7bcde2eef.1463347152.git.daniel@iogearbox.net>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:36426 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754199AbcEPSDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:03:45 -0400
+Received: by mail-lf0-f50.google.com with SMTP id u64so120372565lff.3
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:03:44 -0700 (PDT)
+In-Reply-To: <20160516.135349.1027929193904713083.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sun, 15 May 2016 23:28:29 +0200
+Hello.
 
-> Follow-up for 8a3a4c6e7b34 ("net: make sch_handle_ingress() drop
-> monitor ready") to also make the egress side drop monitor ready.
-> 
-> Also here only TC_ACT_SHOT is a clear indication that something
-> went wrong. Hence don't provide false positives to drop monitors
-> such as 'perf record -e skb:kfree_skb ...'.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+On 05/16/2016 08:53 PM, David Miller wrote:
 
-Applied.
+>>    Here's the set of 2 patches against DaveM's 'net-next.git' repo. We save
+>> several LoCs on the unneeded local variables....
+>>
+>> [1/2] lxt: simplify lxt97[01]_config_intr()
+>> [2/2] lxt: simplify lxt970_config_init()
+>
+> I'm pretty sure that Subject isn't accurate so I didn't include it in the
+> merge commit for this series :)
+
+    I have instantly reposted the cover letter. :-)
+
+> Series applied, thanks.
+
+    Thank you.
+    I thought I also found a bug in this driver but it was a false alarm -- 
+the libphy code is sometimes hard to get right. :-)
+
+MBR, Sergei
