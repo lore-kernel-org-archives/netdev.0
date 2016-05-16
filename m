@@ -1,78 +1,77 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [ethtool 0/3][pull request] Intel Wired LAN Driver Updates
- 2016-05-03
-Date: Mon, 16 May 2016 16:46:05 -0700
-Message-ID: <1463442365.2609.39.camel@intel.com>
-References: <1462380293-4132-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Shi, Yang" <yang.shi@linaro.org>
+Subject: Re: [PATCH net-next] bpf: arm64: remove callee-save registers use for
+ tmp registers
+Date: Mon, 16 May 2016 16:47:41 -0700
+Message-ID: <8d153729-f2c8-adc2-f10f-6f9a2318746c@linaro.org>
+References: <1463440193-31934-1-git-send-email-yang.shi@linaro.org>
+ <CABg9mcv8ekAxy98VZqq-Aev3rv3wx7UJDM++6AjOJqscJUN5NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-pzrV0/fS8HLhp9KrWZG0"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Will Deacon <will.deacon@arm.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linaro-kernel@lists.linaro.org
+To: Z Lim <zlim.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:31627 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751229AbcEPXqm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2016 19:46:42 -0400
-In-Reply-To: <1462380293-4132-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34984 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbcEPXro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 19:47:44 -0400
+Received: by mail-pf0-f177.google.com with SMTP id 77so72170018pfv.2
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 16:47:44 -0700 (PDT)
+In-Reply-To: <CABg9mcv8ekAxy98VZqq-Aev3rv3wx7UJDM++6AjOJqscJUN5NQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 5/16/2016 4:45 PM, Z Lim wrote:
+> Hi Yang,
+>
+> On Mon, May 16, 2016 at 4:09 PM, Yang Shi <yang.shi@linaro.org> wrote:
+>> In the current implementation of ARM64 eBPF JIT, R23 and R24 are used for
+>> tmp registers, which are callee-saved registers. This leads to variable size
+>> of JIT prologue and epilogue. The latest blinding constant change prefers to
+>> constant size of prologue and epilogue. AAPCS reserves R9 ~ R15 for temp
+>> registers which not need to be saved/restored during function call. So, replace
+>> R23 and R24 to R10 and R11, and remove tmp_used flag.
+>>
+>> CC: Zi Shen Lim <zlim.lnx@gmail.com>
+>> CC: Daniel Borkmann <daniel@iogearbox.net>
+>> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+>> ---
+>
+> Couple suggestions, but otherwise:
+> Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
+>
+> 1. Update the diagram. I think it should now be:
+>
+> -        * BPF fp register => -80:+-----+ <= (BPF_FP)
+> +        * BPF fp register => -64:+-----+ <= (BPF_FP)
 
---=-pzrV0/fS8HLhp9KrWZG0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Nice catch. I forgot the stack diagram.
 
-On Wed, 2016-05-04 at 09:44 -0700, Jeff Kirsher wrote:
-> This series contains updates to ixgbe in ethtool.
->=20
-> Preethi adds missing device IDs and mac_type definitions, also updated
-> the display registers for x550, x550em_x/a.=C2=A0=C2=A0Cleaned up the for=
-mat string
-> storage by taking advantage of "for" loops.
->=20
-> The following are changes since commit
-> deb1c6613ec14fd828d321e38c7bea45fe559bd5:
-> =C2=A0 Release version 4.5.
-> and are available in the git repository at:
-> =C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/ethtool mas=
-ter
->=20
-> Preethi Banala (3):
-> =C2=A0 ethtool/ixgbe: Add device ID and mac_type definitions
-> =C2=A0 ethtool/ixgbe: Correct offsets and support x550, x550em_x, x550em_=
-a
-> =C2=A0 ethtool/ixgbe: Reduce format string storage
->=20
-> =C2=A0ixgbe.c | 173 +++++++++++++++++++++++++++++++++++------------------=
------
-> ------
-> =C2=A01 file changed, 95 insertions(+), 78 deletions(-)
->=20
+>
+> 2. Add a comment in commit log along the lines of: this is an
+> optimization saving 2 instructions per jited BPF program.
 
-Ping? =C2=A0Ben do you have these changes queued up for ethtool?
---=-pzrV0/fS8HLhp9KrWZG0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Sure, will address in V2.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Thanks,
+Yang
 
-iQIcBAABCgAGBQJXOlu9AAoJEOVv75VaS+3OXv8P/2BWDieE0O6ZSPxCQAYGtDml
-P48xkrrilbYgACuvrRXJOL+wpjpK4s7VdBYLO/c+JE5AIxYFY/UTiHSCOiJMLqKs
-wpVWZsPYKLCEGJGc1878QpCyDyB5MV/ajQ097vel/4J0Gmjk5yl1tVtq2H18gHcw
-KETk5ZFZ5i45G9CpBufAsRBm4wmScmT+XyyK2TIXgyOPiy/R2UkONRcAGq2q/6hv
-q0MCS0Q9m5jM+E7QIP8PGZnGrBEOzj7/qCpN9nAqCT/qrxsLjwA9P6BDt0vmujQM
-ut8DDppkdHHoUyarzit2uC9i12RjDg1H7kW57kv6v0a1HgyNjWPJfQUizozqIU04
-tA6I25zg34fHuEAKV8+MFjEy8IQUFMFYrXm7o3sAR0nPq98Cg2GPOhXYh0mh1BLu
-+zbc3s9SRH/81Gf+2wrXJ9FnP7gLfhfShYOwn1mWBRfg6OJH9p/gCcmmA2nJVj4k
-V8SdPR2aHwXEXq9qxaYDv3SAF4FsV8B8t/kw26RBdqEz8Zp3X1t0Gn/c2xLHkf4M
-dA0w0HFfdK/7lhWpCYhiOs5HicRkfSEfEohJo9kJgNhU9i4ufy3v7xrvPMX/reCK
-uF2W+E9TX4ee5CD/gr3OArBxgsg3e+VMPUN/DWB/Jo3w7dUZojz/b6ZOqFakW753
-ofpkm6NqV3/JF3N0b1bK
-=dphl
------END PGP SIGNATURE-----
-
---=-pzrV0/fS8HLhp9KrWZG0--
+>
+> Thanks :)
+>
+> z
+>
+>> Apply on top of Daniel's blinding constant patchset.
+>>
+>>  arch/arm64/net/bpf_jit_comp.c | 32 ++++----------------------------
+>>  1 file changed, 4 insertions(+), 28 deletions(-)
+>>
