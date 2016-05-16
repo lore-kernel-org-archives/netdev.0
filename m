@@ -1,90 +1,58 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH] ixgbe: take online CPU number as MQ max
- limit when alloc_etherdev_mq()
-Date: Mon, 16 May 2016 10:14:04 -0700
-Message-ID: <5739FFDC.80908@gmail.com>
-References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
- <CAKgT0UeiEW21E7A9fnt_BUCppopns-E2w1WbwF-8A6sCZkJ8rQ@mail.gmail.com>
- <573937A7.9010405@oracle.com>
- <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: BUG: use-after-free in netlink_dump
+Date: Mon, 16 May 2016 10:22:07 -0700
+Message-ID: <CAM_iQpUaoOqeA2TUwdqDNULcRAQyh3Eb=qaoiSt_-2KAbf6e_Q@mail.gmail.com>
+References: <573894B3.8030009@gmail.com> <CAM_iQpV90MKyP2X32yatwktO9Yk-CSb32Oaa+VpdU8e_k8m-yQ@mail.gmail.com>
+ <20160516092816.GA2331@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Ethan Zhao <ethan.kernel@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	ethan zhao <ethan.zhao@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Baozeng Ding <sploving1@gmail.com>,
+	David Miller <davem@davemloft.net>, chamaken@gmail.com,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	fuzzyer0@gmail.com, Pravin B Shelar <pshelar@nicira.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:35849 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753854AbcEPRW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:22:27 -0400
+Received: by mail-yw0-f193.google.com with SMTP id u62so20374664ywe.3
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 10:22:27 -0700 (PDT)
+In-Reply-To: <20160516092816.GA2331@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[...]
-
->>> ixgbe_main.c.  All you are doing with this patch is denying the user
->>> choice with this change as they then are not allowed to set more
+On Mon, May 16, 2016 at 2:28 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Sun, May 15, 2016 at 12:06:46PM -0700, Cong Wang wrote:
 >>
->>   Yes, it is purposed to deny configuration that doesn't benefit.
-> 
-> Doesn't benefit who?  It is obvious you don't understand how DCB is
-> meant to work since you are assuming the queues are throw-away.
-> Anyone who makes use of the ability to prioritize their traffic would
-> likely have a different opinion.
+>> Similar to what Richard reported, I think the problem is cb->skb,
+>> which is exposed to other thread since cb is per netlink socket
+>> (cb = &nlk->cb). IOW, the cb->skb is freed by one thread at the
+>> end of netlink_dump() meanwhile the other thread is still using
+>> it via NETLINK_CB(cb->skb).portid.
+>
+> You're on the right track.  I think what's happening is that the
+> second thread is starting a new dump and the first thread ends up
+> freeing the skb of the new dump and leaking the old skb.
+>
+> ---8<---
+> Subject: netlink: Fix dump skb leak/double free
+>
+> When we free cb->skb after a dump, we do it after releasing the
+> lock.  This means that a new dump could have started in the time
+> being and we'll end up freeing their skb instead of ours.
+>
+> This patch saves the skb and module before we unlock so we free
+> the right memory.
 
+Yeah, this fix makes more sense than mine.
 
-+1 this is actually needed so that when DCB is turned on we can
-see both prioritize between tcs (DCB feature) but also do not
-see a performance degradation with just a single TC transmitting.
+>
+> Fixes: 16b304f3404f ("netlink: Eliminate kmalloc in netlink dump operation.")
+> Reported-by: Baozeng Ding <sploving1@gmail.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-If we break this (and its happened occasionally) we end up with
-bug reports so its clear to me folks care about it.
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-> 
->>> queues.  Even if they find your decision was wrong for their
->>> configuration.
->>>
->>> - Alex
->>>
->>  Thanks,
->>  Ethan
-> 
-> Your response clearly points out you don't understand DCB.  I suggest
-> you take another look at how things are actually being configured.  I
-> believe what you will find is that the current implementation is
-> basing things on the number of online CPUs already based on the
-> ring_feature[RING_F_RSS].limit value.  All that is happening is that
-> you are getting that value multiplied by the number of TCs and the RSS
-> value is reduced if the result is greater than 64 based on the maximum
-> number of queues.
-> 
-> With your code on an 8 core system you go from being able to perform
-> RSS over 8 queues to only being able to perform RSS over 1 queue when
-> you enable DCB.  There was a bug a long time ago where this actually
-> didn't provide any gain because the interrupt allocation was binding
-> all 8 RSS queues to a single q_vector, but that has long since been
-> fixed and what you should be seeing is that RSS will spread traffic
-> across either 8 or 16 queues when DCB is enabled in either 8 or 4 TC
-> mode.
-> 
-> My advice would be to use a netperf TCP_CRR test and watch what queues
-> and what interrupts traffic is being delivered to.  Then if you have
-> DCB enabled on both ends you might try changing the priority of your
-> netperf session and watch what happens when you switch between TCs.
-> What you should find is that you will shift between groups of queues
-> and as you do so you should not have any active queues overlapping
-> unless you have less interrupts than CPUs.
-> 
-
-Yep.
-
-Thanks,
-John
-
-> - Alex
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
-> 
+Thanks.
