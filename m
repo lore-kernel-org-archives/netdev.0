@@ -1,238 +1,30 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v6 net-next 01/14] gso: Remove arbitrary checks for unsupported GSO
-Date: Mon, 16 May 2016 14:32:56 -0700
-Message-ID: <1463434389-314297-2-git-send-email-tom@herbertland.com>
-References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf, doc: fix typo on bpf_asm descriptions
+Date: Mon, 16 May 2016 14:52:55 -0700
+Message-ID: <20160516215251.GA10876@ast-mbp.thefacebook.com>
+References: <e99246ae5491ccf99726ca78e78d58d8c41c78e7.1463432379.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, sebastian.amend@googlemail.com,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51018 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750869AbcEPVdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:21 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLUubZ029688
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:20 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22ymw9gkam-1
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:20 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- ce6c819c1bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
- 16 May 2016 14:33:19 -0700
-In-Reply-To: <1463434389-314297-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33293 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbcEPVxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:53:00 -0400
+Received: by mail-pa0-f67.google.com with SMTP id gh9so15491629pac.0
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:52:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <e99246ae5491ccf99726ca78e78d58d8c41c78e7.1463432379.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In several gso_segment functions there are checks of gso_type against
-a seemingly arbitrary list of SKB_GSO_* flags. This seems like an
-attempt to identify unsupported GSO types, but since the stack is
-the one that set these GSO types in the first place this seems
-unnecessary to do. If a combination isn't valid in the first
-place that stack should not allow setting it.
+On Mon, May 16, 2016 at 11:06:53PM +0200, Daniel Borkmann wrote:
+> Fix description of some of the bpf_asm tool related jump instructions
+> and generally move them to format A <op> k.
+> 
+> Reported-by: Sebastian Amend <sebastian.amend@googlemail.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-This is a code simplication especially for add new GSO types.
-
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv4/af_inet.c     | 18 ------------------
- net/ipv4/gre_offload.c | 14 --------------
- net/ipv4/tcp_offload.c | 19 -------------------
- net/ipv4/udp_offload.c | 10 ----------
- net/ipv6/ip6_offload.c | 18 ------------------
- net/ipv6/udp_offload.c | 13 -------------
- net/mpls/mpls_gso.c    | 11 +----------
- 7 files changed, 1 insertion(+), 102 deletions(-)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 2e6e65f..7f08d45 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1205,24 +1205,6 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	int ihl;
- 	int id;
- 
--	if (unlikely(skb_shinfo(skb)->gso_type &
--		     ~(SKB_GSO_TCPV4 |
--		       SKB_GSO_UDP |
--		       SKB_GSO_DODGY |
--		       SKB_GSO_TCP_ECN |
--		       SKB_GSO_GRE |
--		       SKB_GSO_GRE_CSUM |
--		       SKB_GSO_IPIP |
--		       SKB_GSO_SIT |
--		       SKB_GSO_TCPV6 |
--		       SKB_GSO_UDP_TUNNEL |
--		       SKB_GSO_UDP_TUNNEL_CSUM |
--		       SKB_GSO_TCP_FIXEDID |
--		       SKB_GSO_TUNNEL_REMCSUM |
--		       SKB_GSO_PARTIAL |
--		       0)))
--		goto out;
--
- 	skb_reset_network_header(skb);
- 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
- 	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index e88190a..ecd1e09 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -26,20 +26,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	int gre_offset, outer_hlen;
- 	bool need_csum, ufo;
- 
--	if (unlikely(skb_shinfo(skb)->gso_type &
--				~(SKB_GSO_TCPV4 |
--				  SKB_GSO_TCPV6 |
--				  SKB_GSO_UDP |
--				  SKB_GSO_DODGY |
--				  SKB_GSO_TCP_ECN |
--				  SKB_GSO_TCP_FIXEDID |
--				  SKB_GSO_GRE |
--				  SKB_GSO_GRE_CSUM |
--				  SKB_GSO_IPIP |
--				  SKB_GSO_SIT |
--				  SKB_GSO_PARTIAL)))
--		goto out;
--
- 	if (!skb->encapsulation)
- 		goto out;
- 
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 02737b6..5c59649 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -83,25 +83,6 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type &
--			     ~(SKB_GSO_TCPV4 |
--			       SKB_GSO_DODGY |
--			       SKB_GSO_TCP_ECN |
--			       SKB_GSO_TCP_FIXEDID |
--			       SKB_GSO_TCPV6 |
--			       SKB_GSO_GRE |
--			       SKB_GSO_GRE_CSUM |
--			       SKB_GSO_IPIP |
--			       SKB_GSO_SIT |
--			       SKB_GSO_UDP_TUNNEL |
--			       SKB_GSO_UDP_TUNNEL_CSUM |
--			       SKB_GSO_TUNNEL_REMCSUM |
--			       0) ||
--			     !(type & (SKB_GSO_TCPV4 |
--				       SKB_GSO_TCPV6))))
--			goto out;
- 
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
- 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 6b7459c..81f253b 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -209,16 +209,6 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
--				      SKB_GSO_UDP_TUNNEL |
--				      SKB_GSO_UDP_TUNNEL_CSUM |
--				      SKB_GSO_TUNNEL_REMCSUM |
--				      SKB_GSO_IPIP |
--				      SKB_GSO_GRE | SKB_GSO_GRE_CSUM) ||
--			     !(type & (SKB_GSO_UDP))))
--			goto out;
- 
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
- 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index f5eb184..9ad743b 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -69,24 +69,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	bool encap, udpfrag;
- 	int nhoff;
- 
--	if (unlikely(skb_shinfo(skb)->gso_type &
--		     ~(SKB_GSO_TCPV4 |
--		       SKB_GSO_UDP |
--		       SKB_GSO_DODGY |
--		       SKB_GSO_TCP_ECN |
--		       SKB_GSO_TCP_FIXEDID |
--		       SKB_GSO_TCPV6 |
--		       SKB_GSO_GRE |
--		       SKB_GSO_GRE_CSUM |
--		       SKB_GSO_IPIP |
--		       SKB_GSO_SIT |
--		       SKB_GSO_UDP_TUNNEL |
--		       SKB_GSO_UDP_TUNNEL_CSUM |
--		       SKB_GSO_TUNNEL_REMCSUM |
--		       SKB_GSO_PARTIAL |
--		       0)))
--		goto out;
--
- 	skb_reset_network_header(skb);
- 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
- 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index 5429f6b..ac858c4 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -36,19 +36,6 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type & ~(SKB_GSO_UDP |
--				      SKB_GSO_DODGY |
--				      SKB_GSO_UDP_TUNNEL |
--				      SKB_GSO_UDP_TUNNEL_CSUM |
--				      SKB_GSO_TUNNEL_REMCSUM |
--				      SKB_GSO_GRE |
--				      SKB_GSO_GRE_CSUM |
--				      SKB_GSO_IPIP |
--				      SKB_GSO_SIT) ||
--			     !(type & (SKB_GSO_UDP))))
--			goto out;
- 
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
- 
-diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-index bbcf604..2055e57 100644
---- a/net/mpls/mpls_gso.c
-+++ b/net/mpls/mpls_gso.c
-@@ -26,15 +26,6 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
- 	netdev_features_t mpls_features;
- 	__be16 mpls_protocol;
- 
--	if (unlikely(skb_shinfo(skb)->gso_type &
--				~(SKB_GSO_TCPV4 |
--				  SKB_GSO_TCPV6 |
--				  SKB_GSO_UDP |
--				  SKB_GSO_DODGY |
--				  SKB_GSO_TCP_FIXEDID |
--				  SKB_GSO_TCP_ECN)))
--		goto out;
--
- 	/* Setup inner SKB. */
- 	mpls_protocol = skb->protocol;
- 	skb->protocol = skb->inner_protocol;
-@@ -57,7 +48,7 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
- 	 * skb_mac_gso_segment(), an indirect caller of this function.
- 	 */
- 	__skb_pull(skb, skb->data - skb_mac_header(skb));
--out:
-+
- 	return segs;
- }
- 
--- 
-2.8.0.rc2
+Acked-by: Alexei Starovoitov <ast@kernel.org>
