@@ -1,301 +1,161 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: OpenWRT wrong adjustment of fq_codel defaults (Was: [Codel]
- fq_codel_drop vs a udp flood)
-Date: Mon, 16 May 2016 09:04:01 -0700
-Message-ID: <CAA93jw7=FRhj+oZ8LT0Oxn2Lb3YFL-u5yZr7mi8bc2HZWzLxvg@mail.gmail.com>
-References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
-	<1462125592.5535.194.camel@edumazet-glaptop3.roam.corp.google.com>
-	<865DA393-262D-40B6-A9D3-1B978CD5F6C6@gmail.com>
-	<1462128385.5535.200.camel@edumazet-glaptop3.roam.corp.google.com>
-	<C5D365DA-18EE-446E-9D25-41F48B1C583E@gmail.com>
-	<1462136140.5535.219.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CACiydbKUu11=zWitkDha0ddgk1-G_Z4-e1+=9ky776VktF5HHg@mail.gmail.com>
-	<1462201620.5535.250.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CACiydbKeKUENncrc-NmYRcku-DGVeGqqzYMqsCqKdxPsR7yUOQ@mail.gmail.com>
-	<1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
-	<1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
-	<1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160506114243.4eb4f95e@redhat.com>
-	<20160506144740.210901f5@redhat.com>
-	<CACiydbL3qZrvZ4a_OUXiN0dp7qdqOktaQdAUdfOpKkZ1OfEZbA@mail.gmail.com>
-	<CACiydb+A_vFNdp7tbw67Rnp+kHwt5GsLa+Su+pO8YmOZYp_KHg@mail.gmail.com>
-	<CAA93jw4XeMSxiTLHWZ2b=F9ni7wz9RpkWDdhTh99gn4Mf1aWjA@mail.gmail.com>
-	<CACiydbLcYe=2VLb3W9i-i2FGALwxJK=oO8RcZWjmj3YPGObK3Q@mail.gmail.com>
-	<CACiydbJWY7xK1tj1Q-umdSNkTy9V+HYQ6SeOxihMASwr1zcApg@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] ixgbe: take online CPU number as MQ max limit when alloc_etherdev_mq()
+Date: Mon, 16 May 2016 09:09:02 -0700
+Message-ID: <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
+References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
+	<CAKgT0UeiEW21E7A9fnt_BUCppopns-E2w1WbwF-8A6sCZkJ8rQ@mail.gmail.com>
+	<573937A7.9010405@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rajkumar Manoharan <rmanohar@codeaurora.org>,
-	Michal Kazior <michal.kazior@tieto.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Felix Fietkau <nbd@nbd.name>,
-	Jonathan Morton <chromatix99@gmail.com>,
-	"codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
-	ath10k <ath10k@lists.infradead.org>,
-	make-wifi-fast@lists.bufferbloat.net,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	OpenWrt Development List <openwrt-devel@lists.openwrt.org>
-To: Roman Yeryomin <leroi.lists@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:34710 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753654AbcEPQEE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 12:04:04 -0400
-Received: by mail-oi0-f47.google.com with SMTP id k142so275146414oib.1
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 09:04:03 -0700 (PDT)
-In-Reply-To: <CACiydbJWY7xK1tj1Q-umdSNkTy9V+HYQ6SeOxihMASwr1zcApg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	shannon nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ethan Zhao <ethan.kernel@gmail.com>
+To: ethan zhao <ethan.zhao@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <573937A7.9010405@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2016 at 1:14 AM, Roman Yeryomin <leroi.lists@gmail.com>=
- wrote:
-> On 16 May 2016 at 01:34, Roman Yeryomin <leroi.lists@gmail.com> wrote=
-:
->> On 6 May 2016 at 22:43, Dave Taht <dave.taht@gmail.com> wrote:
->>> On Fri, May 6, 2016 at 11:56 AM, Roman Yeryomin <leroi.lists@gmail.=
-com> wrote:
->>>> On 6 May 2016 at 21:43, Roman Yeryomin <leroi.lists@gmail.com> wro=
-te:
->>>>> On 6 May 2016 at 15:47, Jesper Dangaard Brouer <brouer@redhat.com=
-> wrote:
->>>>>>
->>>>>> I've created a OpenWRT ticket[1] on this issue, as it seems that=
- someone[2]
->>>>>> closed Felix'es OpenWRT email account (bad choice! emails bounci=
-ng).
->>>>>> Sounds like OpenWRT and the LEDE https://www.lede-project.org/ p=
-roject
->>>>>> is in some kind of conflict.
->>>>>>
->>>>>> OpenWRT ticket [1] https://dev.openwrt.org/ticket/22349
->>>>>>
->>>>>> [2] http://thread.gmane.org/gmane.comp.embedded.openwrt.devel/40=
-298/focus=3D40335
->>>>>
->>>>> OK, so, after porting the patch to 4.1 openwrt kernel and playing=
- a
->>>>> bit with fq_codel limits I was able to get 420Mbps UDP like this:
->>>>> tc qdisc replace dev wlan0 parent :1 fq_codel flows 16 limit 256
->>>>
->>>> Forgot to mention, I've reduced drop_batch_size down to 32
->>>
->>> 0) Not clear to me if that's the right line, there are 4 wifi queue=
-s,
->>> and the third one
->>> is the BE queue.
->>
->> That was an example, sorry, should have stated that. I've applied sa=
-me
->> settings to all 4 queues.
->>
->>> That is too low a limit, also, for normal use. And:
->>> for the purpose of this particular UDP test, flows 16 is ok, but no=
-t
->>> ideal.
->>
->> I played with different combinations, it doesn't make any
->> (significant) difference: 20-30Mbps, not more.
->> What numbers would you propose?
->>
->>> 1) What's the tcp number (with a simultaneous ping) with this lates=
-t patchset?
->>> (I care about tcp performance a lot more than udp floods - survivin=
-g a
->>> udp flood yes, performance, no)
->>
->> During the test (both TCP and UDP) it's roughly 5ms in average, not
->> running tests ~2ms. Actually I'm now wondering if target is working =
-at
->> all, because I had same result with target 80ms..
->> So, yes, latency is good, but performance is poor.
->>
->>> before/after?
->>>
->>> tc -s qdisc show dev wlan0 during/after results?
->>
->> during the test:
->>
->> qdisc mq 0: root
->>  Sent 1600496000 bytes 1057194 pkt (dropped 1421568, overlimits 0 re=
-queues 17)
->>  backlog 1545794b 1021p requeues 17
->> qdisc fq_codel 8001: parent :1 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>  backlog 0b 0p requeues 0
->>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>   new_flows_len 0 old_flows_len 0
->> qdisc fq_codel 8002: parent :2 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>  backlog 0b 0p requeues 0
->>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>   new_flows_len 0 old_flows_len 0
->> qdisc fq_codel 8003: parent :3 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 1601271168 bytes 1057706 pkt (dropped 1422304, overlimits 0 re=
-queues 17)
->>  backlog 1541252b 1018p requeues 17
->>   maxpacket 1514 drop_overlimit 1422304 new_flow_count 35 ecn_mark 0
->>   new_flows_len 0 old_flows_len 1
->> qdisc fq_codel 8004: parent :4 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>  backlog 0b 0p requeues 0
->>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>   new_flows_len 0 old_flows_len 0
->>
->>
->> after the test (60sec):
->>
->> qdisc mq 0: root
->>  Sent 3084996052 bytes 2037744 pkt (dropped 2770176, overlimits 0 re=
-queues 28)
->>  backlog 0b 0p requeues 28
->> qdisc fq_codel 8001: parent :1 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>  backlog 0b 0p requeues 0
->>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>   new_flows_len 0 old_flows_len 0
->> qdisc fq_codel 8002: parent :2 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>  backlog 0b 0p requeues 0
->>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>   new_flows_len 0 old_flows_len 0
->> qdisc fq_codel 8003: parent :3 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 3084996052 bytes 2037744 pkt (dropped 2770176, overlimits 0 re=
-queues 28)
->>  backlog 0b 0p requeues 28
->>   maxpacket 1514 drop_overlimit 2770176 new_flow_count 64 ecn_mark 0
->>   new_flows_len 0 old_flows_len 1
->> qdisc fq_codel 8004: parent :4 limit 1024p flows 16 quantum 1514
->> target 80.0ms ce_threshold 32us interval 100.0ms ecn
->>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>  backlog 0b 0p requeues 0
->>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>   new_flows_len 0 old_flows_len 0
->>
->>
->>> IF you are doing builds for the archer c7v2, I can join in on this.=
-=2E. (?)
->>
->> I'm not but I have c7 somewhere, so I can do a build for it and also
->> test, so we are on the same page.
->>
->>> I did do a test of the ath10k "before", fq_codel *never engaged*, a=
-nd
->>> tcp induced latencies under load, e at 100mbit, cracked 600ms, whil=
-e
->>> staying flat (20ms) at 100mbit. (not the same patches you are testi=
-ng)
->>> on x86. I have got tcp 300Mbit out of an osx box, similar latency,
->>> have yet to get anything more on anything I currently have
->>> before/after patchsets.
->>>
->>> I'll go add flooding to the tests, I just finished a series compari=
-ng
->>> two different speed stations and life was good on that.
->>>
->>> "before" - fq_codel never engages, we see seconds of latency under =
-load.
->>>
->>> root@apu2:~# tc -s qdisc show dev wlp4s0
->>> qdisc mq 0: root
->>>  Sent 8570563893 bytes 6326983 pkt (dropped 0, overlimits 0 requeue=
-s 0)
->>>  backlog 0b 0p requeues 0
->>> qdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514
->>> target 5.0ms interval 100.0ms ecn
->>>  Sent 2262 bytes 17 pkt (dropped 0, overlimits 0 requeues 0)
->>>  backlog 0b 0p requeues 0
->>>   maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
->>>   new_flows_len 0 old_flows_len 0
->>> qdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514
->>> target 5.0ms interval 100.0ms ecn
->>>  Sent 220486569 bytes 152058 pkt (dropped 0, overlimits 0 requeues =
-0)
->>>  backlog 0b 0p requeues 0
->>>   maxpacket 18168 drop_overlimit 0 new_flow_count 1 ecn_mark 0
->>>   new_flows_len 0 old_flows_len 1
->>> qdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514
->>> target 5.0ms interval 100.0ms ecn
->>>  Sent 8340546509 bytes 6163431 pkt (dropped 0, overlimits 0 requeue=
-s 0)
->>>  backlog 0b 0p requeues 0
->>>   maxpacket 68130 drop_overlimit 0 new_flow_count 120050 ecn_mark 0
->>>   new_flows_len 1 old_flows_len 3
->>> qdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514
->>> target 5.0ms interval 100.0ms ecn
->>>  Sent 9528553 bytes 11477 pkt (dropped 0, overlimits 0 requeues 0)
->>>  backlog 0b 0p requeues 0
->>>   maxpacket 66 drop_overlimit 0 new_flow_count 1 ecn_mark 0
->>>   new_flows_len 1 old_flows_len 0
->>>   ```
->>>
->>>
->>>>> This is certainly better than 30Mbps but still more than two time=
-s
->>>>> less than before (900).
->>>
->>> The number that I still am not sure we got is that you were sending
->>> 900mbit udp and recieving 900mbit on the prior tests?
->>
->> 900 was sending, AP POV (wifi client is downloading)
->>
->>>>> TCP also improved a little (550 to ~590).
->>>
->>> The limit is probably a bit low, also.  You might want to try targe=
-t
->>> 20ms as well.
->>
->> I've tried limit up to 1024 and target up to 80ms
->>
->>>>>
->>>>> Felix, others, do you want to see the ported patch, maybe I did s=
-omething wrong?
->>>>> Doesn't look like it will save ath10k from performance regression=
-=2E
->>>
->>> what was tcp "before"? (I'm sorry, such a long thread)
->>
->> 750Mbps
+On Sun, May 15, 2016 at 7:59 PM, ethan zhao <ethan.zhao@oracle.com> wrote:
+> Alexander,
 >
-> Michal, after retesting with your patch (sorry, it was late yesterday=
-,
-> confused compat-wireless archives) I saw the difference.
-> So the progress looks like this (all with fq_codel flows 16 limit 102=
-4
-> target 20ms):
-> no patches: 380Mbps UDP, 550 TCP
-> Eric's (fq_codel drop) patch: 420Mbps UDP, 590 TCP (+40Mbps), latency
-> 5-6ms during test
-> Michal's (improve tx scheduling) patch: 580Mbps UDP, 660 TCP, latency
-> up to 30-40ms during test
-> after Rajkumar's proposal to "try without registering wake_tx_queue
-> callback": 820Mbps UDP, 690 TCP.
-
-And the simultaneous ping on the last test was?
-
-> So, very close to "as before": 900Mbps UDP, 750 TCP.
-> But still, I was expecting performance improvements from latest ath10=
-k
-> code, not regressions.
-> I know that hw is capable of 800Mbps TCP, which I'm targeting.
+> On 2016/5/14 0:46, Alexander Duyck wrote:
+>>
+>> On Thu, May 12, 2016 at 10:56 PM, Ethan Zhao <ethan.zhao@oracle.com>
+>> wrote:
+>>>
+>>> Allocating 64 Tx/Rx as default doesn't benefit perfomrnace when less
+>>> CPUs were assigned. especially when DCB is enabled, so we should take
+>>> num_online_cpus() as top limit, and aslo to make sure every TC has
+>>> at least one queue, take the MAX_TRAFFIC_CLASS as bottom limit of queues
+>>> number.
+>>>
+>>> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+>>
+>> What is the harm in allowing the user to specify up to 64 queues if
+>> they want to?  Also what is your opinion based on?  In the case of RSS
 >
-> Regards,
-> Roman
 >
-> p.s. sorry for confusion
+>  There is no module parameter to specify queue number in this upstream ixgbe
+>   driver.  for what to specify more queues than num_online_cpus() via
+> ethtool ?
+>  I couldn't figure out the benefit to do that.
 
+There are a number of benefits to being able to set the number of
+queues based on the user desire.  Just because you can't figure out
+how to use a feature is no reason to break it so that nobody else can.
 
+>  But if DCB is turned on after loading, the queues would be 64/64, that
+> doesn't
+>  make sense if only 16 CPUs assigned.
 
---=20
-Dave T=C3=A4ht
-Let's go make home routers and wifi faster! With better software!
-http://blog.cerowrt.org
+It makes perfect sense.  What is happening is that it is allocating an
+RSS set per TC.  So what you should have is either 4 queues per CPU
+with each one belonging to a different TC, or 4 queues per CPU with
+the first 8 CPUs covering TCs 0-3, and the last 8 CPUs covering TCs
+4-7.
+
+I can see how the last setup might actually be a bit confusing.  To
+that end you might consider modifying ixgbe_acquire_msix_vectors uses
+the number of RSS queues instead of the number of Rx queues in the
+case of DCB.  Then you would get more consistent behavior with each
+q_vector or CPU (if num_q_vecotrs == num_online_cpus()) having one
+queue belonging to each TC.  You would end up with either 8 or 16
+q_vectors hosting 8 or 4 queues so that they can process DCB requests
+without having to worry about head of line blocking.
+
+>> traffic the upper limit is only 16 on older NICs, but last I knew the
+>> latest X550 can support more queues for RSS.  Have you only been
+>> testing on older NICs or did you test on the latest hardware as well?
+>
+>   More queues for RSS than num_online_cpus() could bring better performance
+> ?
+>   Test result shows false result.  even memory cost is not an issue for most
+> of
+>   the expensive servers, but not for all.
+
+The feature is called DCB.  What it allows for is the avoidance of
+head-of-line blocking.  So when you have DCB enabled you should have a
+set of queues for each possible RSS result so that if you get a higher
+priority request on one of the queues it can use the higher priority
+queue instead of having to rely on the the lower priority queue to
+receive traffic.  You cannot do that without allocating a queue for
+each TC, and reducing the number of RSS queues supported on the system
+will hurt performance.  Therefore on a 16 CPU system it is very useful
+to be able to allocate 4 queues per RSS flow as that way you get
+optimal CPU distribution and can still avoid head-of-line blocking via
+DCB.
+
+>>
+>> If you want to control the number of queues allocated in a given
+>> configuration you should look at the code over in the ixgbe_lib.c, not
+>
+>   Yes,  RSS,  RSS with SRIOV, FCoE, DCB etc uses different queues
+> calculation algorithm.
+>   But they all take the dev queues allocated in alloc_etherdev_mq() as upper
+> limit.
+>
+>  If we set 64 as default here, DCB would says "oh, there is 64 there, I
+> could use it"
+
+Right.  But the deciding factor for DCB is RSS which is already
+limited by the number of CPUs.  If it is allocating 64 queues it is
+because there are either at least 8 CPUs present and 8 TCs being
+allocated per CPU, or there are at least 16 queues present and it is
+allocating 4 TCs per CPU.
+
+>>
+>> ixgbe_main.c.  All you are doing with this patch is denying the user
+>> choice with this change as they then are not allowed to set more
+>
+>   Yes, it is purposed to deny configuration that doesn't benefit.
+
+Doesn't benefit who?  It is obvious you don't understand how DCB is
+meant to work since you are assuming the queues are throw-away.
+Anyone who makes use of the ability to prioritize their traffic would
+likely have a different opinion.
+
+>> queues.  Even if they find your decision was wrong for their
+>> configuration.
+>>
+>> - Alex
+>>
+>  Thanks,
+>  Ethan
+
+Your response clearly points out you don't understand DCB.  I suggest
+you take another look at how things are actually being configured.  I
+believe what you will find is that the current implementation is
+basing things on the number of online CPUs already based on the
+ring_feature[RING_F_RSS].limit value.  All that is happening is that
+you are getting that value multiplied by the number of TCs and the RSS
+value is reduced if the result is greater than 64 based on the maximum
+number of queues.
+
+With your code on an 8 core system you go from being able to perform
+RSS over 8 queues to only being able to perform RSS over 1 queue when
+you enable DCB.  There was a bug a long time ago where this actually
+didn't provide any gain because the interrupt allocation was binding
+all 8 RSS queues to a single q_vector, but that has long since been
+fixed and what you should be seeing is that RSS will spread traffic
+across either 8 or 16 queues when DCB is enabled in either 8 or 4 TC
+mode.
+
+My advice would be to use a netperf TCP_CRR test and watch what queues
+and what interrupts traffic is being delivered to.  Then if you have
+DCB enabled on both ends you might try changing the priority of your
+netperf session and watch what happens when you switch between TCs.
+What you should find is that you will shift between groups of queues
+and as you do so you should not have any active queues overlapping
+unless you have less interrupts than CPUs.
+
+- Alex
