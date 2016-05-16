@@ -1,76 +1,65 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v5 net-next 02/14] net: define gso types for IPx over IPv4
- and IPv6
-Date: Mon, 16 May 2016 11:13:36 -0700
-Message-ID: <CAKgT0UfC6DsSFB+o+r=+gfcda-50qK0CY-2SDkshuBC=WiKLBw@mail.gmail.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	<1463355755-3481375-3-git-send-email-tom@herbertland.com>
-	<CAKgT0Uc1mQwP4xoQxM9J08kyEaxKpZse5nWdctgrrmjJowebJg@mail.gmail.com>
-	<CALx6S37hCkvOZ+D15MUJUXjiGa-BdfQhPG7jo498F29-7eUSsg@mail.gmail.com>
+From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: iwlwifi: mvm: add reorder buffer per queue
+Date: Mon, 16 May 2016 11:15:43 -0700
+Message-ID: <CAA93jw7hkK8+Zx+DJEWDUGxKhSkr6wTLpNmbXYiVc+8OZL-OVA@mail.gmail.com>
+References: <20160513085428.GA13194@mwanda>
+	<1463398895.25219.82.camel@coelho.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:35764 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753491AbcEPSNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:13:37 -0400
-Received: by mail-io0-f172.google.com with SMTP id d62so220096621iof.2
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:13:36 -0700 (PDT)
-In-Reply-To: <CALx6S37hCkvOZ+D15MUJUXjiGa-BdfQhPG7jo498F29-7eUSsg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Sara Sharon <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1463398895.25219.82.camel-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2016 at 11:07 AM, Tom Herbert <tom@herbertland.com> wrote:
-> On Mon, May 16, 2016 at 9:32 AM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Sun, May 15, 2016 at 4:42 PM, Tom Herbert <tom@herbertland.com> wrote:
->>> This patch defines two new GSO definitions SKB_GSO_IPXIP4 and
->>> SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
->>> NETIF_F_GSO_IPXIP6. These are used to described IP in IP
->>> tunnel and what the outer protocol is. The inner protocol
->>> can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
->>> SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
->>> are removed (these are both instances of SKB_GSO_IPXIP4).
->>> SKB_GSO_IPXIP6 will be used when support for GSO with IP
->>> encapsulation over IPv6 is added.
->>>
->>> Signed-off-by: Tom Herbert <tom@herbertland.com>
->>> ---
->>>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
->>>  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
->>>  drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
->>>  drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
->>>  drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
->>>  drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
->>>  drivers/net/ethernet/intel/igb/igb_main.c         |  3 +--
->>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
->>>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
->>>  include/linux/netdev_features.h                   | 12 ++++++------
->>>  include/linux/netdevice.h                         |  4 ++--
->>>  include/linux/skbuff.h                            |  4 ++--
->>>  net/core/ethtool.c                                |  4 ++--
->>>  net/ipv4/af_inet.c                                |  2 +-
->>>  net/ipv4/ipip.c                                   |  2 +-
->>>  net/ipv6/ip6_offload.c                            |  4 ++--
->>>  net/ipv6/sit.c                                    |  4 ++--
->>>  net/netfilter/ipvs/ip_vs_xmit.c                   | 17 +++++++----------
->>>  18 files changed, 36 insertions(+), 47 deletions(-)
+I can't even describe how much I hate the concept of the reorder
+buffer in general. Ordering is the endpoints problem.
+
+Someday, after we get fq_codeled, short queues again, I'll be able to s=
+how why.
+
+On Mon, May 16, 2016 at 4:41 AM, Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org> wrote:
+> On Fri, 2016-05-13 at 11:54 +0300, Dan Carpenter wrote:
+>> Hello Sara Sharon,
 >>
->> It looks like you missed drivers/net/ethernet/intel/igb/netdev.c.  If
->> you don't get it then it will break the build.
+>> The patch b915c10174fb: "iwlwifi: mvm: add reorder buffer per queue"
+>> from Mar 23, 2016, leads to the following static checker warnings:
 >>
+>>       drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c:912
+>> iwl_mvm_rx_mpdu_mq()
+>>       error: potential NULL dereference 'sta'.
+>>
+>>       drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c:912
+>> iwl_mvm_rx_mpdu_mq()
+>>       error: we previously assumed 'sta' could be null (see line 796=
+)
 >
-> I don't see file that in betdev branch, maybe it's new?
+> Thanks for the analysis and report, Dan!
+>
+> I have queued a fix for this through our internal tree.
+>
+> --
+> Cheers,
+> Luca.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wirel=
+ess" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Nope, it has been there for a while.  It got patched to support IPIP
-and SIT tunnels in the same patch that updated igb/igb_main.c.
 
-I am also looking into the other patches now.  It looks like something
-broke hardware offloads again as I am only getting .9 Mb/s for IPv6
-based GRE tunnels with your patches applied.  I'm trying to bisect it
-now.
 
-- Alex
+--=20
+Dave T=C3=A4ht
+Let's go make home routers and wifi faster! With better software!
+http://blog.cerowrt.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
