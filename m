@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/4] xen-netback: support for control ring
-Date: Mon, 16 May 2016 13:36:11 -0400 (EDT)
-Message-ID: <20160516.133611.976787620871442054.davem@davemloft.net>
-References: <1463128649-20832-1-git-send-email-paul.durrant@citrix.com>
+Subject: Re: [PATCH net-next v2] vxlan: set mac_header correctly in GPE mode
+Date: Mon, 16 May 2016 13:38:47 -0400 (EDT)
+Message-ID: <20160516.133847.1906083294466783910.davem@davemloft.net>
+References: <2f5ecda4984940c2c6820cbbed18555d5023e2ed.1463129287.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org
-To: paul.durrant@citrix.com
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+	shmulik.ladkani@gmail.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36649 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36669 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754356AbcEPRgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:36:14 -0400
-In-Reply-To: <1463128649-20832-1-git-send-email-paul.durrant@citrix.com>
+	with ESMTP id S1753758AbcEPRi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:38:58 -0400
+In-Reply-To: <2f5ecda4984940c2c6820cbbed18555d5023e2ed.1463129287.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Durrant <paul.durrant@citrix.com>
-Date: Fri, 13 May 2016 09:37:25 +0100
+From: Jiri Benc <jbenc@redhat.com>
+Date: Fri, 13 May 2016 10:48:42 +0200
 
-> My recent patch to import an up-to-date include/xen/interface/io/netif.h
-> from the Xen Project brought in the necessary definitions to support the
-> new control shared ring and protocol. This patch series updates xen-netback
-> to support the new ring.
+> For VXLAN-GPE, the interface is ARPHRD_NONE, thus we need to reset
+> mac_header after pulling the outer header.
 > 
-> Patch #1 adds the necessary boilerplate to map the control ring and handle
-> messages. No implementation of the new protocol is included in this patch
-> so that it can be kept to a reasonable size.
+> v2: Put the code to the existing conditional block as suggested by
+>     Shmulik Ladkani.
 > 
-> Patch #2 adds the protocol implementation.
-> 
-> Patch #3 adds support for passing has values calculated by xen-netback to
-> capable frontends.
-> 
-> Patch #4 adds support for accepting hash values calculated by capable
-> frontends and using them the set the socket buffer hash.
+> Fixes: e1e5314de08b ("vxlan: implement GPE")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Series applied, thanks.
+Applied.
