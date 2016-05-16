@@ -1,84 +1,125 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v5 net-next 09/14] ip6_tun: Add infrastructure for doing encapsulation
-Date: Mon, 16 May 2016 13:16:50 -0700
-Message-ID: <CAKgT0Ufm8D9u0zn859RzUSrU9K45hLyZt3f_w1O5daySZOWhog@mail.gmail.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	<1463355755-3481375-10-git-send-email-tom@herbertland.com>
-	<CAKgT0UfyVkdYMDAwNcycR4pnW-7GTeu4a-oiCnnXn6oOQt3nUw@mail.gmail.com>
-	<CALx6S35_EykxGm-S83cuCZFp6yaesqbLWgTxKQfdNr2WfBP8Ag@mail.gmail.com>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH v2 2/2] phy dp83867: Make rgmii parameters optional
+Date: Mon, 16 May 2016 15:27:49 -0500
+Message-ID: <573A2D45.6010800@ti.com>
+References: <1463424763-58807-1-git-send-email-agraf@suse.de> <1463424763-58807-2-git-send-email-agraf@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:37055 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754624AbcEPUQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 16:16:51 -0400
-Received: by mail-ig0-f182.google.com with SMTP id s8so45854707ign.0
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 13:16:51 -0700 (PDT)
-In-Reply-To: <CALx6S35_EykxGm-S83cuCZFp6yaesqbLWgTxKQfdNr2WfBP8Ag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <michal.simek@xilinx.com>,
+	<andrew@lunn.ch>
+To: Alexander Graf <agraf@suse.de>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463424763-58807-2-git-send-email-agraf@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2016 at 12:28 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Mon, May 16, 2016 at 12:24 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Sun, May 15, 2016 at 4:42 PM, Tom Herbert <tom@herbertland.com> wrote:
->>> Add encap_hlen and ip_tunnel_encap structure to ip6_tnl. Add functions
->>> for getting encap hlen, setting up encap on a tunnel, performing
->>> encapsulation operation.
->>>
->>> Signed-off-by: Tom Herbert <tom@herbertland.com>
->>> ---
->>>  include/net/ip6_tunnel.h  | 58 ++++++++++++++++++++++++++++++
->>>  net/ipv4/ip_tunnel_core.c |  5 +++
->>>  net/ipv6/ip6_tunnel.c     | 89 +++++++++++++++++++++++++++++++++++++++++------
->>>  3 files changed, 141 insertions(+), 11 deletions(-)
->>
->> So a bisect is pointing to this patch as causing a regression in IPv6
->> GRE throughput from 20 Gb/s to .04 Mb/s
->>
->> <...>
->>
->>> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
->>> index e79330f..9f0ea85 100644
->>> --- a/net/ipv6/ip6_tunnel.c
->>> +++ b/net/ipv6/ip6_tunnel.c
->>> @@ -1010,7 +1010,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
->>>         struct dst_entry *dst = NULL, *ndst = NULL;
->>>         struct net_device *tdev;
->>>         int mtu;
->>> -       unsigned int max_headroom = sizeof(struct ipv6hdr);
->>> +       unsigned int max_headroom = sizeof(struct ipv6hdr) + t->hlen;
->>>         int err = -1;
->>>
->>>         /* NBMA tunnel */
->>> @@ -1063,7 +1063,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
->>>                                      t->parms.name);
->>>                 goto tx_err_dst_release;
->>>         }
->>> -       mtu = dst_mtu(dst) - sizeof(*ipv6h);
->>> +       mtu = dst_mtu(dst) - sizeof(*ipv6h) - t->hlen;
->>>         if (encap_limit >= 0) {
->>>                 max_headroom += 8;
->>>                 mtu -= 8;
->>
->> So I am pretty sure this bit here is causing the regression.  Your skb
->> already has a GRE header added and it is included in skb->len.  In the
->> tests just below here you are comparing skb->len to mtu, but you now
->> have the GRE header included twice so it is going to fail.  Odds are
->> this should be t->encap_hlen, and not t->hlen.
->>
-> Good catch! Fixing now...
+On 05/16/2016 01:52 PM, Alexander Graf wrote:
+> If you compile without OF_MDIO support in an RGMII configuration, we fail
+> to configure the dp83867 phy today by writing garbage into its configuration
+> registers.
+>
+> On the other hand if you do compile with OF_MDIO and the phy gets loaded via
+> device tree, you have to have the properties set in the device tree, otherwise
+> we fail to load the driver and don't even attach the generic phy driver to
+> the interface anymore.
+>
+> To make things slightly more consistent, make the rgmii configuration properties
+> optional and allow a user to omit them in their device tree.
+>
+> Signed-off-by: Alexander Graf <agraf@suse.de>
+> ---
+>  drivers/net/phy/dp83867.c | 31 ++++++++++++++++++++++++++++---
+>  1 file changed, 28 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+> index 94cc278..1b01680 100644
+> --- a/drivers/net/phy/dp83867.c
+> +++ b/drivers/net/phy/dp83867.c
+> @@ -65,6 +65,7 @@ struct dp83867_private {
+>  	int rx_id_delay;
+>  	int tx_id_delay;
+>  	int fifo_depth;
+> +	int values_are_sane;
+>  };
+>  
+>  static int dp83867_ack_interrupt(struct phy_device *phydev)
+> @@ -113,15 +114,30 @@ static int dp83867_of_init(struct phy_device *phydev)
+>  	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
+>  				   &dp83867->rx_id_delay);
+>  	if (ret)
+> -		return ret;
+> +		goto invalid_dt;
+>  
+>  	ret = of_property_read_u32(of_node, "ti,tx-internal-delay",
+>  				   &dp83867->tx_id_delay);
+>  	if (ret)
+> -		return ret;
+> +		goto invalid_dt;
 
-Actually I think the one other case above for max_headroom probably
-should be encap_hlen as well.  After all we don't need to allocate
-headroom for something we have already placed in the skb.
+Optional means you may or may not have the entries
 
-I'm still digging into the patch set.  If I find anything else I will
-let you know.  I'm hoping to be able to test ip6ip6 hardware tunnel
-offloads by the end of today.
+I would prefer to wrap the DT reading with the interface type check.
 
-- Alex
+if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID ||
+phydev->interface == PHY_INTERFACE_MODE_RGMII_ID  )
+
+ 	ret = of_property_read_u32(of_node, "ti,tx-internal-delay",
+ 				   &dp83867->tx_id_delay);
+	if (ret)
+
+goto invalid_dt;
+
+Otherwise this continues to mandate that you need to declare all the DT entries
+when in fact you may only have to declare 1.
+
+And if the other interfaces are declared then DT entries are ignored.  And configuring
+internal delay is not required per section 8.9 footnote 3 of the data sheet.
+
+Dan
+
+
+
+>  
+> -	return of_property_read_u32(of_node, "ti,fifo-depth",
+> +	ret = of_property_read_u32(of_node, "ti,fifo-depth",
+>  				   &dp83867->fifo_depth);
+> +	if (ret)
+> +		goto invalid_dt;
+> +
+> +	dp83867->values_are_sane = 1;
+> +
+> +	return 0;
+> +
+> +invalid_dt:
+> +	phydev_err(phydev, "missing properties in device tree");
+> +
+> +	/*
+> +	 * We can still run with a broken dt by not using any of the optional
+> +	 * parameters, so just don't set dp83867->values_are_sane.
+> +	 */
+> +	return 0;
+>  }
+>  #else
+>  static int dp83867_of_init(struct phy_device *phydev)
+> @@ -150,6 +166,15 @@ static int dp83867_config_init(struct phy_device *phydev)
+>  		dp83867 = (struct dp83867_private *)phydev->priv;
+>  	}
+>  
+> +	/*
+> +	 * With no or broken device tree, we don't have the values that we would
+> +	 * want to configure the phy with. In that case, cross our fingers and
+> +	 * assume that firmware did everything correctly for us or that we don't
+> +	 * need them.
+> +	 */
+> +	if (!dp83867->values_are_sane)
+> +		return 0;
+> +
+>  	if (phy_interface_is_rgmii(phydev)) {
+>  		ret = phy_write(phydev, MII_DP83867_PHYCTRL,
+>  			(dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT));
+
+
+-- 
+------------------
+Dan Murphy
