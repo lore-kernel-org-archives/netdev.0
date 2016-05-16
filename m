@@ -1,203 +1,219 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v6 net-next 14/14] ip4ip6: Support for GSO/GRO
-Date: Mon, 16 May 2016 16:53:40 -0700
-Message-ID: <CAKgT0Ud9Oyeu2tt1qnzQAmcZCx6RJuBW8tykpwR1AYEFEKDcCA@mail.gmail.com>
-References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
-	<1463434389-314297-15-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36644 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185AbcEPXxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 19:53:41 -0400
-Received: by mail-io0-f196.google.com with SMTP id k129so436844iof.3
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 16:53:41 -0700 (PDT)
-In-Reply-To: <1463434389-314297-15-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yang Shi <yang.shi@linaro.org>
+Subject: [PATCH v2 net-next] bpf: arm64: remove callee-save registers use for tmp registers
+Date: Mon, 16 May 2016 16:36:26 -0700
+Message-ID: <1463441786-32224-1-git-send-email-yang.shi@linaro.org>
+Cc: will.deacon@arm.com, catalin.marinas@arm.com, daniel@iogearbox.net,
+	zlim.lnx@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linaro-kernel@lists.linaro.org, yang.shi@linaro.org
+To: ast@kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2016 at 2:33 PM, Tom Herbert <tom@herbertland.com> wrote:
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  include/net/inet_common.h |  5 +++++
->  net/ipv4/af_inet.c        | 12 +++++++-----
->  net/ipv6/ip6_offload.c    | 33 ++++++++++++++++++++++++++++++++-
->  net/ipv6/ip6_tunnel.c     |  3 +++
->  4 files changed, 47 insertions(+), 6 deletions(-)
->
-> diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-> index 109e3ee..5d68342 100644
-> --- a/include/net/inet_common.h
-> +++ b/include/net/inet_common.h
-> @@ -39,6 +39,11 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
->  int inet_recv_error(struct sock *sk, struct msghdr *msg, int len,
->                     int *addr_len);
->
-> +struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb);
-> +int inet_gro_complete(struct sk_buff *skb, int nhoff);
-> +struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> +                                netdev_features_t features);
-> +
->  static inline void inet_ctl_sock_destroy(struct sock *sk)
->  {
->         if (sk)
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 25040b1..377424e 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1192,8 +1192,8 @@ int inet_sk_rebuild_header(struct sock *sk)
->  }
->  EXPORT_SYMBOL(inet_sk_rebuild_header);
->
-> -static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> -                                       netdev_features_t features)
-> +struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> +                                netdev_features_t features)
->  {
->         bool udpfrag = false, fixedid = false, encap;
->         struct sk_buff *segs = ERR_PTR(-EINVAL);
-> @@ -1280,9 +1280,9 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->  out:
->         return segs;
->  }
-> +EXPORT_SYMBOL(inet_gso_segment);
->
-> -static struct sk_buff **inet_gro_receive(struct sk_buff **head,
-> -                                        struct sk_buff *skb)
-> +struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->  {
->         const struct net_offload *ops;
->         struct sk_buff **pp = NULL;
-> @@ -1398,6 +1398,7 @@ out:
->
->         return pp;
->  }
-> +EXPORT_SYMBOL(inet_gro_receive);
->
->  static struct sk_buff **ipip_gro_receive(struct sk_buff **head,
->                                          struct sk_buff *skb)
-> @@ -1449,7 +1450,7 @@ int inet_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
->         return -EINVAL;
->  }
->
-> -static int inet_gro_complete(struct sk_buff *skb, int nhoff)
-> +int inet_gro_complete(struct sk_buff *skb, int nhoff)
->  {
->         __be16 newlen = htons(skb->len - nhoff);
->         struct iphdr *iph = (struct iphdr *)(skb->data + nhoff);
-> @@ -1479,6 +1480,7 @@ out_unlock:
->
->         return err;
->  }
-> +EXPORT_SYMBOL(inet_gro_complete);
->
->  static int ipip_gro_complete(struct sk_buff *skb, int nhoff)
->  {
-> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> index 332d6a0..22e90e5 100644
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-> @@ -16,6 +16,7 @@
->
->  #include <net/protocol.h>
->  #include <net/ipv6.h>
-> +#include <net/inet_common.h>
->
->  #include "ip6_offload.h"
->
-> @@ -268,6 +269,21 @@ static struct sk_buff **sit_ip6ip6_gro_receive(struct sk_buff **head,
->         return ipv6_gro_receive(head, skb);
->  }
->
-> +static struct sk_buff **ip4ip6_gro_receive(struct sk_buff **head,
-> +                                          struct sk_buff *skb)
-> +{
-> +       /* Common GRO receive for SIT and IP6IP6 */
-> +
-> +       if (NAPI_GRO_CB(skb)->encap_mark) {
-> +               NAPI_GRO_CB(skb)->flush = 1;
-> +               return NULL;
-> +       }
-> +
-> +       NAPI_GRO_CB(skb)->encap_mark = 1;
-> +
-> +       return inet_gro_receive(head, skb);
-> +}
-> +
->  static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
->  {
->         const struct net_offload *ops;
-> @@ -307,6 +323,13 @@ static int ip6ip6_gro_complete(struct sk_buff *skb, int nhoff)
->         return ipv6_gro_complete(skb, nhoff);
->  }
->
-> +static int ip4ip6_gro_complete(struct sk_buff *skb, int nhoff)
-> +{
-> +       skb->encapsulation = 1;
-> +       skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP6;
-> +       return inet_gro_complete(skb, nhoff);
-> +}
-> +
->  static struct packet_offload ipv6_packet_offload __read_mostly = {
->         .type = cpu_to_be16(ETH_P_IPV6),
->         .callbacks = {
-> @@ -324,6 +347,14 @@ static const struct net_offload sit_offload = {
->         },
->  };
->
-> +static const struct net_offload ip4ip6_offload = {
-> +       .callbacks = {
-> +               .gso_segment    = inet_gso_segment,
-> +               .gro_receive    = ip4ip6_gro_receive,
-> +               .gro_complete   = ip4ip6_gro_complete,
-> +       },
-> +};
-> +
->  static const struct net_offload ip6ip6_offload = {
->         .callbacks = {
->                 .gso_segment    = ipv6_gso_segment,
-> @@ -331,7 +362,6 @@ static const struct net_offload ip6ip6_offload = {
->                 .gro_complete   = ip6ip6_gro_complete,
->         },
->  };
-> -
->  static int __init ipv6_offload_init(void)
->  {
->
-> @@ -344,6 +374,7 @@ static int __init ipv6_offload_init(void)
->
->         inet_add_offload(&sit_offload, IPPROTO_IPV6);
->         inet6_add_offload(&ip6ip6_offload, IPPROTO_IPV6);
-> +       inet6_add_offload(&ip4ip6_offload, IPPROTO_IPIP);
->
->         return 0;
->  }
-> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-> index d205f17..00b2832 100644
-> --- a/net/ipv6/ip6_tunnel.c
-> +++ b/net/ipv6/ip6_tunnel.c
-> @@ -1184,6 +1184,9 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
->         if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
->                 fl6.flowi6_mark = skb->mark;
->
-> +       if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
-> +               return -1;
-> +
->         err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
->                            IPPROTO_IPIP);
->         if (err != 0) {
+In the current implementation of ARM64 eBPF JIT, R23 and R24 are used for
+tmp registers, which are callee-saved registers. This leads to variable size
+of JIT prologue and epilogue. The latest blinding constant change prefers to
+constant size of prologue and epilogue. AAPCS reserves R9 ~ R15 for temp
+registers which not need to be saved/restored during function call. So, replace
+R23 and R24 to R10 and R11, and remove tmp_used flag to save 2 instructions for
+some jited BPF program.
 
+CC: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
+Signed-off-by: Yang Shi <yang.shi@linaro.org>
+---
+Changelog v1 --> v2:
+  * Updated stack diagram
+  * Added the comment from Zi for the commit log
+  * Added Zi's Acked-by
 
-The same issue exists here as there was in the IPv6.  You need to call
-skb_set_inner_ipprot(skb, IPRPTO_IPIP) so that things don't get
-confused and think this is some sort of TEB based tunnel.
+Apply on top of Daniel's blinding constant patchset
 
-Also since you now have a call to iptunnel_handle_offloads() in all
-paths you can probably drop the block in ip6_tnl_xmit that was
-checking for skb->encapsulation and resetting the inner headers.
+ arch/arm64/net/bpf_jit_comp.c | 34 +++++-----------------------------
+ 1 file changed, 5 insertions(+), 29 deletions(-)
 
-- Alex
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index d0d5190..49ba37e 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -51,9 +51,9 @@ static const int bpf2a64[] = {
+ 	[BPF_REG_9] = A64_R(22),
+ 	/* read-only frame pointer to access stack */
+ 	[BPF_REG_FP] = A64_R(25),
+-	/* temporary register for internal BPF JIT */
+-	[TMP_REG_1] = A64_R(23),
+-	[TMP_REG_2] = A64_R(24),
++	/* temporary registers for internal BPF JIT */
++	[TMP_REG_1] = A64_R(10),
++	[TMP_REG_2] = A64_R(11),
+ 	/* temporary register for blinding constants */
+ 	[BPF_REG_AX] = A64_R(9),
+ };
+@@ -61,7 +61,6 @@ static const int bpf2a64[] = {
+ struct jit_ctx {
+ 	const struct bpf_prog *prog;
+ 	int idx;
+-	int tmp_used;
+ 	int epilogue_offset;
+ 	int *offset;
+ 	u32 *image;
+@@ -154,8 +153,6 @@ static void build_prologue(struct jit_ctx *ctx)
+ 	const u8 r8 = bpf2a64[BPF_REG_8];
+ 	const u8 r9 = bpf2a64[BPF_REG_9];
+ 	const u8 fp = bpf2a64[BPF_REG_FP];
+-	const u8 tmp1 = bpf2a64[TMP_REG_1];
+-	const u8 tmp2 = bpf2a64[TMP_REG_2];
+ 
+ 	/*
+ 	 * BPF prog stack layout
+@@ -167,7 +164,7 @@ static void build_prologue(struct jit_ctx *ctx)
+ 	 *                        | ... | callee saved registers
+ 	 *                        +-----+
+ 	 *                        |     | x25/x26
+-	 * BPF fp register => -80:+-----+ <= (BPF_FP)
++	 * BPF fp register => -64:+-----+ <= (BPF_FP)
+ 	 *                        |     |
+ 	 *                        | ... | BPF prog stack
+ 	 *                        |     |
+@@ -189,8 +186,6 @@ static void build_prologue(struct jit_ctx *ctx)
+ 	/* Save callee-saved register */
+ 	emit(A64_PUSH(r6, r7, A64_SP), ctx);
+ 	emit(A64_PUSH(r8, r9, A64_SP), ctx);
+-	if (ctx->tmp_used)
+-		emit(A64_PUSH(tmp1, tmp2, A64_SP), ctx);
+ 
+ 	/* Save fp (x25) and x26. SP requires 16 bytes alignment */
+ 	emit(A64_PUSH(fp, A64_R(26), A64_SP), ctx);
+@@ -210,8 +205,6 @@ static void build_epilogue(struct jit_ctx *ctx)
+ 	const u8 r8 = bpf2a64[BPF_REG_8];
+ 	const u8 r9 = bpf2a64[BPF_REG_9];
+ 	const u8 fp = bpf2a64[BPF_REG_FP];
+-	const u8 tmp1 = bpf2a64[TMP_REG_1];
+-	const u8 tmp2 = bpf2a64[TMP_REG_2];
+ 
+ 	/* We're done with BPF stack */
+ 	emit(A64_ADD_I(1, A64_SP, A64_SP, STACK_SIZE), ctx);
+@@ -220,8 +213,6 @@ static void build_epilogue(struct jit_ctx *ctx)
+ 	emit(A64_POP(fp, A64_R(26), A64_SP), ctx);
+ 
+ 	/* Restore callee-saved register */
+-	if (ctx->tmp_used)
+-		emit(A64_POP(tmp1, tmp2, A64_SP), ctx);
+ 	emit(A64_POP(r8, r9, A64_SP), ctx);
+ 	emit(A64_POP(r6, r7, A64_SP), ctx);
+ 
+@@ -317,7 +308,6 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 			emit(A64_UDIV(is64, dst, dst, src), ctx);
+ 			break;
+ 		case BPF_MOD:
+-			ctx->tmp_used = 1;
+ 			emit(A64_UDIV(is64, tmp, dst, src), ctx);
+ 			emit(A64_MUL(is64, tmp, tmp, src), ctx);
+ 			emit(A64_SUB(is64, dst, dst, tmp), ctx);
+@@ -390,49 +380,41 @@ emit_bswap_uxt:
+ 	/* dst = dst OP imm */
+ 	case BPF_ALU | BPF_ADD | BPF_K:
+ 	case BPF_ALU64 | BPF_ADD | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_ADD(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_SUB | BPF_K:
+ 	case BPF_ALU64 | BPF_SUB | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_SUB(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_AND | BPF_K:
+ 	case BPF_ALU64 | BPF_AND | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_AND(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_OR | BPF_K:
+ 	case BPF_ALU64 | BPF_OR | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_ORR(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_XOR | BPF_K:
+ 	case BPF_ALU64 | BPF_XOR | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_EOR(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_MUL | BPF_K:
+ 	case BPF_ALU64 | BPF_MUL | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_MUL(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_DIV | BPF_K:
+ 	case BPF_ALU64 | BPF_DIV | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp, imm, ctx);
+ 		emit(A64_UDIV(is64, dst, dst, tmp), ctx);
+ 		break;
+ 	case BPF_ALU | BPF_MOD | BPF_K:
+ 	case BPF_ALU64 | BPF_MOD | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(is64, tmp2, imm, ctx);
+ 		emit(A64_UDIV(is64, tmp, dst, tmp2), ctx);
+ 		emit(A64_MUL(is64, tmp, tmp, tmp2), ctx);
+@@ -503,12 +485,10 @@ emit_cond_jmp:
+ 	case BPF_JMP | BPF_JNE | BPF_K:
+ 	case BPF_JMP | BPF_JSGT | BPF_K:
+ 	case BPF_JMP | BPF_JSGE | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(1, tmp, imm, ctx);
+ 		emit(A64_CMP(1, dst, tmp), ctx);
+ 		goto emit_cond_jmp;
+ 	case BPF_JMP | BPF_JSET | BPF_K:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(1, tmp, imm, ctx);
+ 		emit(A64_TST(1, dst, tmp), ctx);
+ 		goto emit_cond_jmp;
+@@ -518,7 +498,6 @@ emit_cond_jmp:
+ 		const u8 r0 = bpf2a64[BPF_REG_0];
+ 		const u64 func = (u64)__bpf_call_base + imm;
+ 
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i64(tmp, func, ctx);
+ 		emit(A64_PUSH(A64_FP, A64_LR, A64_SP), ctx);
+ 		emit(A64_MOV(1, A64_FP, A64_SP), ctx);
+@@ -564,7 +543,6 @@ emit_cond_jmp:
+ 	case BPF_LDX | BPF_MEM | BPF_H:
+ 	case BPF_LDX | BPF_MEM | BPF_B:
+ 	case BPF_LDX | BPF_MEM | BPF_DW:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(1, tmp, off, ctx);
+ 		switch (BPF_SIZE(code)) {
+ 		case BPF_W:
+@@ -588,7 +566,6 @@ emit_cond_jmp:
+ 	case BPF_ST | BPF_MEM | BPF_B:
+ 	case BPF_ST | BPF_MEM | BPF_DW:
+ 		/* Load imm to a register then store it */
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(1, tmp2, off, ctx);
+ 		emit_a64_mov_i(1, tmp, imm, ctx);
+ 		switch (BPF_SIZE(code)) {
+@@ -612,7 +589,6 @@ emit_cond_jmp:
+ 	case BPF_STX | BPF_MEM | BPF_H:
+ 	case BPF_STX | BPF_MEM | BPF_B:
+ 	case BPF_STX | BPF_MEM | BPF_DW:
+-		ctx->tmp_used = 1;
+ 		emit_a64_mov_i(1, tmp, off, ctx);
+ 		switch (BPF_SIZE(code)) {
+ 		case BPF_W:
+@@ -798,7 +774,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
+ 
+ 	/* 1. Initial fake pass to compute ctx->idx. */
+ 
+-	/* Fake pass to fill in ctx->offset and ctx->tmp_used. */
++	/* Fake pass to fill in ctx->offset. */
+ 	if (build_body(&ctx)) {
+ 		prog = orig_prog;
+ 		goto out_off;
+-- 
+2.0.2
