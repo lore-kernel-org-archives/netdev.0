@@ -1,56 +1,69 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH -next v2 3/4] net: w5100: increase TX timeout period
-Date: Mon, 16 May 2016 22:53:41 +0900
-Message-ID: <CAC5umygRFn0vV9pRds45w2eXGfjZAnUn9Jg1De7khmLt0s5jCA@mail.gmail.com>
-References: <1463205350-7089-1-git-send-email-akinobu.mita@gmail.com>
- <1463205350-7089-4-git-send-email-akinobu.mita@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D5F4BF7F1@AcuExch.aculab.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: linux-next: manual merge of the wireless-drivers-next tree with the net-next tree
+Date: Mon, 16 May 2016 16:58:17 +0300
+Message-ID: <87shxi85qe.fsf@kamboji.qca.qualcomm.com>
+References: <20160516101606.751f9613@canb.auug.org.au>
+	<871t529mik.fsf@kamboji.qca.qualcomm.com>
+	<1463405875.25219.98.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Mike Sinkovsky <msink@permonline.ru>,
-	"David S . Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:34583 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbcEPNyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 09:54:02 -0400
-Received: by mail-qg0-f67.google.com with SMTP id e35so13659923qge.1
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 06:54:01 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4BF7F1@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "sfr\@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"davem\@davemloft.net" <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next\@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	emmanuel.grumbach@intel.com
+To: "Coelho\, Luciano" <luciano.coelho@intel.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1463405875.25219.98.camel@intel.com> (Luciano Coelho's message
+	of "Mon, 16 May 2016 13:37:55 +0000")
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-05-16 18:33 GMT+09:00 David Laight <David.Laight@aculab.com>:
-> From: netdev-owner@vger.kernel.org Akinobu Mita
->> Sent: 14 May 2016 06:56
->> This increases TX timeout period from one second to 5 seconds which is
->> the default value if the driver doesn't explicitly set
->> net_device->watchdog_timeo.
->>
->> The one second timeout is too short for W5100 with SPI interface mode
->> which doesn't support burst READ/WRITE processing in the SPI transfer.
->> If the packet is transmitted while RX packets are being received at a
->> very high rate, the TX transmittion work in the workqueue is delayed
->> and the watchdog timer is expired.
+"Coelho, Luciano" <luciano.coelho@intel.com> writes:
+
+(dropping damaged diffs etc, adding Emmanuel as the author of
+5c08b0f5026f ("iwlwifi: mvm: don't override the rate with the AMSDU
+len"))
+
+>> I wasn't expecting that skb_info variable is removed. Do we now have
+>> merge damage somewhere? Luca, what do you think?
 >
-> ISTM that if RX traffic can cause a 1 second timeout to expire I can
-> see no reason why it shouldn't also cause a 5 second timer to expire.
+> As we discussed on IRC, it seems to me that there was a merge damage
+> when Dave merged net.git into net-next.git (as you mostly found out ;).
 >
-> I'm guessing that something needs to be done to cause the SPI
-> block to discard receive frames (I guess the hardware will be discarding
-> them as well) in order to allow frames to be transmitted.
+> I'm not sure how to solve that, but I'm sure you and Dave can figure
+> something out. :) Please let me know if you need any help with it.
 
-You are right.  In SPI interface mode, the interrupt of W5100 is masked
-as far as receiving packets in w5100_rx_work(). (Ideally, RECV interrupt
-should only be masked as W5200 and W5500 have different interrupt mask
-bits for RECV and SENDOK, but W5100 doesn't have)
+Yeah, I guess in net-next.git Dave assumed that 'info == skb_info' is
+always valid in iwl_mvm_set_tx_cmd(), but I don't that's the case. So I
+think the end case, after a merge, should look like this:
 
-So this problem should be fixed by limiting the maximum execution time
-of w5100_rx_skb() in w5100_rx_work() by maximum loop count or querying
-jiffies.  I'll try it out.
+void iwl_mvm_set_tx_cmd(struct iwl_mvm *mvm, struct sk_buff *skb,
+			struct iwl_tx_cmd *tx_cmd,
+			struct ieee80211_tx_info *info, u8 sta_id)
+{
+	struct ieee80211_tx_info *skb_info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_hdr *hdr = (void *)skb->data;
+	__le16 fc = hdr->frame_control;
+	u32 tx_flags = le32_to_cpu(tx_cmd->tx_flags);
+	u32 len = skb->len + FCS_LEN;
+	u8 ac;
 
-> Given the 'damp string' nature of SPI, you might even want to give
-> transmits priority over receives.
+[...]
 
-How can we do this?
+	tx_cmd->tx_flags = cpu_to_le32(tx_flags);
+	/* Total # bytes to be transmitted */
+	tx_cmd->len = cpu_to_le16((u16)skb->len +
+		(uintptr_t)skb_info->driver_data[0]);
+	tx_cmd->life_time = cpu_to_le32(TX_CMD_LIFE_TIME_INFINITE);
+	tx_cmd->sta_id = sta_id;
+
+I'm going to propose this to Dave in my pending pull request[1]. But I
+would appreciate if someone else would double check this.
+
+[1] https://patchwork.ozlabs.org/patch/621953/
+
+-- 
+Kalle Valo
