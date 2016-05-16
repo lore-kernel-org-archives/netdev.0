@@ -1,33 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request [net]: batman-adv 20160515
-Date: Mon, 16 May 2016 14:01:39 -0400 (EDT)
-Message-ID: <20160516.140139.1101312834024055294.davem@davemloft.net>
-References: <1463325093-3927-1-git-send-email-a@unstable.cc>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: also make sch_handle_egress() drop
+ monitor ready
+Date: Mon, 16 May 2016 14:03:10 -0400 (EDT)
+Message-ID: <20160516.140310.1776883472080796642.davem@davemloft.net>
+References: <94bae5636d86c039a0cfee3aa4876fc7bcde2eef.1463347152.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: a@unstable.cc
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1463325093-3927-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, alexei.starovoitov@gmail.com,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37155 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753854AbcEPSDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:03:12 -0400
+In-Reply-To: <94bae5636d86c039a0cfee3aa4876fc7bcde2eef.1463347152.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Sun, 15 May 2016 23:11:29 +0800
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sun, 15 May 2016 23:28:29 +0200
 
-> Please pull or let me know if you rather prefer to get this through net-next.
+> Follow-up for 8a3a4c6e7b34 ("net: make sch_handle_ingress() drop
+> monitor ready") to also make the egress side drop monitor ready.
+> 
+> Also here only TC_ACT_SHOT is a clear indication that something
+> went wrong. Hence don't provide false positives to drop monitors
+> such as 'perf record -e skb:kfree_skb ...'.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Since the merge window is open, please send me this via net-next.
-
-Thank you.
+Applied.
