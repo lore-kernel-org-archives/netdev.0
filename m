@@ -1,71 +1,52 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: fec-mpc52xx: use phy_ethtool_{get|set}_link_ksettings
-Date: Tue, 17 May 2016 00:32:34 +0200
-Message-ID: <1463437954-6014-2-git-send-email-tremyfr@gmail.com>
-References: <1463437954-6014-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, treding@nvidia.com
+From: Dimitris Michailidis <dmichail@google.com>
+Subject: [PATCH] net: don't lose features in netdev_add_tso_features()
+Date: Mon, 16 May 2016 15:33:35 -0700
+Message-ID: <1463438015-19529-1-git-send-email-dmichail@google.com>
+Cc: edumazet@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36311 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937AbcEPWcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 18:32:45 -0400
-In-Reply-To: <1463437954-6014-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35073 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395AbcEPWdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 18:33:45 -0400
+Received: by mail-pa0-f54.google.com with SMTP id gj5so11232427pac.2
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 15:33:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+The goal of netdev_add_tso_features() is to enable all TSO features but
+it unintentionally loses NETIF_F_ALL_FOR_ALL features. This is because
+the netdev_increment_features() it calls clears any NETIF_F_ALL_FOR_ALL
+bits that aren't included in the incremental features and none of them
+are included in NETIF_F_ALL_TSO. The behavior can be seen by enabling
+tx-nocache-copy on the slaves and noticing the feature remains off at
+the master.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Fix this by including NETIF_F_ALL_FOR_ALL in the incremental features.
+
+Signed-off-by: Dave Platt <dplatt@google.com>
+Signed-off-by: Dimitris Michailidis <dmichail@google.com>
 ---
- drivers/net/ethernet/freescale/fec_mpc52xx.c |   26 ++------------------------
- 1 files changed, 2 insertions(+), 24 deletions(-)
+ include/linux/netdevice.h | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-index bcf0600..446ae9d 100644
---- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
-+++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-@@ -762,28 +762,6 @@ static void mpc52xx_fec_reset(struct net_device *dev)
- 
- /* ethtool interface */
- 
--static int mpc52xx_fec_get_ksettings(struct net_device *dev,
--				     struct ethtool_link_ksettings *cmd)
--{
--	struct phy_device *phydev = dev->phydev;
--
--	if (!phydev)
--		return -ENODEV;
--
--	return phy_ethtool_ksettings_get(phydev, cmd);
--}
--
--static int mpc52xx_fec_set_ksettings(struct net_device *dev,
--				     const struct ethtool_link_ksettings *cmd)
--{
--	struct phy_device *phydev = dev->phydev;
--
--	if (!phydev)
--		return -ENODEV;
--
--	return phy_ethtool_ksettings_set(phydev, cmd);
--}
--
- static u32 mpc52xx_fec_get_msglevel(struct net_device *dev)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c2f5112..da45388 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3978,7 +3978,12 @@ netdev_features_t netdev_increment_features(netdev_features_t all,
+ static inline netdev_features_t netdev_add_tso_features(netdev_features_t features,
+ 							netdev_features_t mask)
  {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-@@ -801,8 +779,8 @@ static const struct ethtool_ops mpc52xx_fec_ethtool_ops = {
- 	.get_msglevel = mpc52xx_fec_get_msglevel,
- 	.set_msglevel = mpc52xx_fec_set_msglevel,
- 	.get_ts_info = ethtool_op_get_ts_info,
--	.get_link_ksettings = mpc52xx_fec_get_ksettings,
--	.set_link_ksettings = mpc52xx_fec_set_ksettings,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
+-	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
++	/* OR in NETIF_F_ALL_FOR_ALL to preserve any of its bits already present
++	 * in features
++	 */
++	return netdev_increment_features(features,
++					 NETIF_F_ALL_TSO | NETIF_F_ALL_FOR_ALL,
++					 mask);
+ }
  
- 
+ int __netdev_update_features(struct net_device *dev);
 -- 
-1.7.4.4
+2.8.0.rc3.226.g39d4020
