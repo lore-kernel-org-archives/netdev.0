@@ -1,38 +1,67 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: RE: [PATCH 1/2] net: ethernet: gianfar: use phydev from struct
- net_device
-Date: Mon, 16 May 2016 11:39:05 +0000
-Message-ID: <DB4PR04MB379E3AB3AB9A553DEB034DE96770@DB4PR04MB379.eurprd04.prod.outlook.com>
-References: <1463355009-19803-1-git-send-email-tremyfr@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] phy: remove irq param to fix crash in fixed_phy_add()
+Date: Mon, 16 May 2016 14:29:03 +0200
+Message-ID: <20160516122903.GA27725@lunn.ch>
+References: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Philippe Reynes <tremyfr@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0054.outbound.protection.outlook.com ([157.56.112.54]:64744
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750897AbcEPMMg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 08:12:36 -0400
-In-Reply-To: <1463355009-19803-1-git-send-email-tremyfr@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+	linux-mips@linux-mips.org, devicetree@vger.kernel.org,
+	Rabin Vincent <rabinv@axis.com>
+To: Rabin Vincent <rabin.vincent@axis.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Philippe Reynes [mailto:tremyfr@gmail.com]
->Sent: Monday, May 16, 2016 2:30 AM
->To: claudiu.manoil@freescale.com; davem@davemloft.net
->Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Philippe Reynes
-><tremyfr@gmail.com>
->Subject: [PATCH 1/2] net: ethernet: gianfar: use phydev from struct net_device
->
->The private structure contain a pointer to phydev, but the structure
->net_device already contain such pointer. So we can remove the pointer
->phydev in the private structure, and update the driver to use the
->one contained in struct net_device.
->
+On Mon, May 16, 2016 at 01:15:56PM +0200, Rabin Vincent wrote:
+> From: Rabin Vincent <rabinv@axis.com>
+> 
+> Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
+> platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
+> called (for example, because the platform code and the fixed_phy driver
+> use the same initcall level) crash in fixed_phy_add() since the
+> ->mii_bus is not allocated.
+> 
+> Also since e7f4dc3536a, these interrupts are initalized to polling by
+> default.  All callers of both fixed_phy_register() and fixed_phy_add()
+> pass PHY_POLL for the irq argument, so we can fix these crashes by
+> simply removing the irq parameter, since the default is correct for all
+> users.
 
-Acked-by: Claudiu Manoil <claudiu.manoil@nxp.com>
+Hi Rabin
+
+Thanks for the patch. However, this is more of a work around than a
+fix. And it leaves one case still open for bad things to happen. Take
+the call sequence:
+
+	ret = of_phy_register_fixed_link(port_dn);
+        if (ret) {
+        	netdev_err(slave_dev, "failed to register fixed PHY: %d\n", ret);
+                return ret;
+  	}
+
+	p->phy = of_phy_connect(slave_dev, phy_dn,
+        			dsa_slave_adjust_link,
+                                phy_flags,
+                                p->phy_interface);
+ 
+This is taken from net/dsa/slave.c
+
+With your patch, of_phy_register_fixed_link() will be successful, but
+the call to of_phy_connect() will fail, returning NULL, because the
+mdio bus the phy is on has not yet been added to the bus.
+
+What i think is better is to make fixed_phy_add() return -EPROBE_DEFER
+if it is called before fixed_mdio_bus_init().
+
+I also think it is a bad idea to remove the interrupt
+parameter. fixed_phy can actually change it state, so maybe at some
+point in the future, somebody will want an interrupt for this? We
+should try to keep this phy emulation as similar to real phys as
+possible, so lets keep the interrupt for the moment.
+
+	Thanks
+	  Andrew
