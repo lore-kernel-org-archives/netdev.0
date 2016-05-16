@@ -1,96 +1,122 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH v5 net-next 02/14] net: define gso types for IPx over
- IPv4 and IPv6
-Date: Sun, 15 May 2016 17:34:10 -0700
-Message-ID: <1463358850.2720.18.camel@gmail.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	 <1463355755-3481375-3-git-send-email-tom@herbertland.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Subject: Re: [patch net-next 05/11] net: hns: add uniform interface for phy
+ connection
+Date: Mon, 16 May 2016 08:40:24 +0800
+Message-ID: <573916F8.50005@huawei.com>
+References: <1463127557-90824-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <1463127557-90824-6-git-send-email-Yisen.Zhuang@huawei.com>
+ <1463144845.17131.342.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-8Zgt3O/qhu+hk80ZNBQi"
-Cc: kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33944 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189AbcEPAec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2016 20:34:32 -0400
-Received: by mail-pa0-f66.google.com with SMTP id yl2so13042510pac.1
-        for <netdev@vger.kernel.org>; Sun, 15 May 2016 17:34:32 -0700 (PDT)
-In-Reply-To: <1463355755-3481375-3-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-8Zgt3O/qhu+hk80ZNBQi
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-T24gU3VuLCAyMDE2LTA1LTE1IGF0IDE2OjQyIC0wNzAwLCBUb20gSGVyYmVydCB3cm90ZToKPiBU
-aGlzIHBhdGNoIGRlZmluZXMgdHdvIG5ldyBHU08gZGVmaW5pdGlvbnMgU0tCX0dTT19JUFhJUDQg
-YW5kCj4gU0tCX0dTT19JUFhJUDYgYWxvbmcgd2l0aCBjb3JyZXNwb25kaW5nIE5FVElGX0ZfR1NP
-X0lQWElQNCBhbmQKPiBORVRJRl9GX0dTT19JUFhJUDYuIFRoZXNlIGFyZSB1c2VkIHRvIGRlc2Ny
-aWJlZCBJUCBpbiBJUAo+IHR1bm5lbCBhbmQgd2hhdCB0aGUgb3V0ZXIgcHJvdG9jb2wgaXMuIFRo
-ZSBpbm5lciBwcm90b2NvbAo+IGNhbiBiZSBkZWR1Y2VkIGZyb20gb3RoZXIgR1NPIHR5cGVzIChl
-LmcuIFNLQl9HU09fVENQVjQgYW5kCj4gU0tCX0dTT19UQ1BWNikuIFRoZSBHU08gdHlwZXMgb2Yg
-U0tCX0dTT19JUElQIGFuZCBTS0JfR1NPX1NJVAo+IGFyZSByZW1vdmVkICh0aGVzZSBhcmUgYm90
-aCBpbnN0YW5jZXMgb2YgU0tCX0dTT19JUFhJUDQpLgo+IFNLQl9HU09fSVBYSVA2IHdpbGwgYmUg
-dXNlZCB3aGVuIHN1cHBvcnQgZm9yIEdTTyB3aXRoIElQCj4gZW5jYXBzdWxhdGlvbiBvdmVyIElQ
-djYgaXMgYWRkZWQuCj4gCj4gU2lnbmVkLW9mZi1ieTogVG9tIEhlcmJlcnQgPHRvbUBoZXJiZXJ0
-bGFuZC5jb20+CgpBY2tlZC1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRl
-bC5jb20+CkZvciB0aGUgSW50ZWwgZHJpdmVyIGNoYW5nZXMuLi4KCj4gLS0tCj4gwqBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmPCoCB8wqAgNSArKy0tLQo+
-IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54dC9ibnh0LmPCoMKgwqDCoMKgwqDC
-oMKgIHzCoCA0ICsrLS0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9t
-YWluLmPCoMKgwqDCoMKgwqAgfMKgIDMgKy0tCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9pNDBlL2k0MGVfdHhyeC5jwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGVfdHhyeC5jwqDCoMKgwqAgfMKgIDMgKy0tCj4gwqBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZXZmX21haW4uY8KgwqAgfMKgIDMg
-Ky0tCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uY8KgwqDCoMKg
-wqDCoMKgwqAgfMKgIDMgKy0tCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9p
-eGdiZV9tYWluLmPCoMKgwqDCoCB8wqAgMyArLS0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMgfMKgIDMgKy0tCj4gwqBpbmNsdWRlL2xpbnV4L25l
-dGRldl9mZWF0dXJlcy5owqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgMTIg
-KysrKysrLS0tLS0tCj4gwqBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5owqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHzCoCA0ICsrLS0KPiDCoGluY2x1ZGUv
-bGludXgvc2tidWZmLmjCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqAgfMKgIDQgKystLQo+IMKgbmV0L2NvcmUvZXRodG9vbC5jwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfMKgIDQg
-KystLQo+IMKgbmV0L2lwdjQvYWZfaW5ldC5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfMKgIDIgKy0KPiDCoG5ldC9pcHY0L2lw
-aXAuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgIHzCoCAyICstCj4gwqBuZXQvaXB2Ni9pcDZfb2ZmbG9hZC5jwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHzCoCA0ICsr
-LS0KPiDCoG5ldC9pcHY2L3NpdC5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8wqAgNCArKy0tCj4gwqBuZXQvbmV0
-ZmlsdGVyL2lwdnMvaXBfdnNfeG1pdC5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgIHwgMTcgKysrKysrKy0tLS0tLS0tLS0KPiDCoDE4IGZpbGVzIGNoYW5nZWQsIDM2IGluc2Vy
-dGlvbnMoKyksIDQ3IGRlbGV0aW9ucygtKQo=
-
-
---=-8Zgt3O/qhu+hk80ZNBQi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
+Cc: <arnd@arndb.de>, <andrew@lunn.ch>, <geliangtang@163.com>,
+	<ivecera@redhat.com>, <fengguang.wu@intel.com>,
+	<charles.chenxin@huawei.com>, <haifeng.wei@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Yisen Zhuang <Yisen.Zhuang@huawei.com>, <davem@davemloft.net>,
+	<rjw@rjwysocki.net>, <lenb@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463144845.17131.342.camel@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAABCgAGBQJXORWCAAoJEOVv75VaS+3Oo/gP/3bP1C9lQ4HUuigW3uc48RO/
-c1NK25ltpeHn4tWXwrTAbFHn1J8qHus8nMuXSPlNxzhyRT1n21NiDrm6/E8IEXY7
-+FgFdeDkXHXJibEI3m5Qg3N0H7/Uix59vy3/k3GGi7D4DjD7ncIh/UdzlffvBES2
-53PptjVztJ931dCEOP0HPBVZswAFMPeg8XRQve90GXYe1wc/sFX9a52p4WYw/Y6F
-4FJZbvV6EZj7kfegk4kHz7+p+sNVWcmzzGCeVqHu7LRIy0q0OwQYZe24FKmezVm7
-N4myYzECHb6GPjoRaNqGtIE93vONitjmWveweLpoUO50uBa0Ecsns5lFF8/C5n7A
-XicG5QPOCzLTT25nAREWtyvthppSMiBht5sfG4FKexThL9889vY0HtMD7SYTTzeY
-1o1HZ9BJreVZvFCM+bGiRPAKT/TRoNG9wBKwfv95wB/5ZM/jYqhRlvvn+3BsqOlG
-pcX3IwpF8ytewJBMEWgkjSkz0TVvZi08ps3wO/9xTqG8XSkBWL+Lkx21RKvToKOq
-xf1c8BMI86pkoQWK7vzFuscvsdn0uzB2DepqDY3HfXRfJKlH4T0gB72MlSgMMBKI
-nSmwL2J3B6C8CtPOTyqPNVanDMjpehjCIWmHI3NsM7FOv7B9Y/4vDM6GduLB6D6S
-E1MLhuDr4HQsmOk3R7VL
-=7h7S
------END PGP SIGNATURE-----
 
---=-8Zgt3O/qhu+hk80ZNBQi--
+On 2016/5/13 21:07, Andy Shevchenko wrote:
+> On Fri, 2016-05-13 at 16:19 +0800, Yisen Zhuang wrote:
+>> From: Kejian Yan <yankejian@huawei.com>
+>>
+>> As device_node is only used by OF case, HNS needs to treat the others
+>> cases including ACPI. It needs to use uniform ways to handle both of
+>> OF and ACPI. This patch chooses phy_device, and of_phy_connect and
+>> of_phy_attach are only used by OF case. It needs to add uniform
+>> interface
+>> to handle that sequence by both OF and ACPI.
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+>> @@ -987,6 +987,41 @@ static void hns_nic_adjust_link(struct net_device
+>> *ndev)
+>>  	h->dev->ops->adjust_link(h, ndev->phydev->speed, ndev-
+>>> phydev->duplex);
+>>  }
+>>  
+>> +static
+>> +struct phy_device *hns_nic_phy_attach(struct net_device *dev,
+>> +				      struct phy_device *phy,
+>> +				      u32 flags,
+>> +				      phy_interface_t iface)
+>> +{
+>> +	int ret;
+>> +
+>> +	if (!phy)
+>> +		return NULL;
+> No need to use defensive programming here.
+>
+>> +
+>> +	ret = phy_attach_direct(dev, phy, flags, iface);
+>> +
+>> +	return ret ? NULL : phy;
+> Shouldn't it return an error?
+>
+>
+>> +}
+>> +
+>> +static
+>> +struct phy_device *hns_nic_phy_connect(struct net_device *dev,
+>> +				       struct phy_device *phy,
+>> +				       void (*hndlr)(struct
+>> net_device *),
+>> +				       u32 flags,
+>> +				       phy_interface_t iface)
+>> +{
+>> +	int ret;
+>> +
+>> +	if (!phy)
+>> +		return NULL;
+>> +
+>> +	phy->dev_flags = flags;
+>> +
+>> +	ret = phy_connect_direct(dev, phy, hndlr, iface);
+>> +
+>> +	return ret ? NULL : phy;
+>> +}
+>> +
+> For now looks that above functions are redundant and you may call them
+> directly in below code.
+
+Hi Andy,
+Thanks for you suggestions, it will be fixed in next submit
+
+MBR,
+Kejian
+
+>>  /**
+>>   *hns_nic_init_phy - init phy
+>>   *@ndev: net device
+>> @@ -996,16 +1031,17 @@ static void hns_nic_adjust_link(struct
+>> net_device *ndev)
+>>  int hns_nic_init_phy(struct net_device *ndev, struct hnae_handle *h)
+>>  {
+>>  	struct hns_nic_priv *priv = netdev_priv(ndev);
+>> -	struct phy_device *phy_dev = NULL;
+>> +	struct phy_device *phy_dev = h->phy_dev;
+>>  
+>> -	if (!h->phy_node)
+>> +	if (!h->phy_dev)
+>>  		return 0;
+>>  
+>>  	if (h->phy_if != PHY_INTERFACE_MODE_XGMII)
+>> -		phy_dev = of_phy_connect(ndev, h->phy_node,
+>> -					 hns_nic_adjust_link, 0, h-
+>>> phy_if);
+>> +		phy_dev = hns_nic_phy_connect(ndev, phy_dev,
+>> +					      hns_nic_adjust_link,
+>> +					      0, h->phy_if);
+>>  	else
+>> -		phy_dev = of_phy_attach(ndev, h->phy_node, 0, h-
+>>> phy_if);
+>> +		phy_dev = hns_nic_phy_attach(ndev, phy_dev, 0, h-
+>>> phy_if);
+>
