@@ -1,183 +1,83 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v6 net-next 11/14] ip6_gre: Add support for fou/gue encapsulation
-Date: Mon, 16 May 2016 14:33:06 -0700
-Message-ID: <1463434389-314297-12-git-send-email-tom@herbertland.com>
+Subject: [PATCH v6 net-next 03/14] ipv6: Fix nexthdr for reinjection
+Date: Mon, 16 May 2016 14:32:58 -0700
+Message-ID: <1463434389-314297-4-git-send-email-tom@herbertland.com>
 References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:52841 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751772AbcEPVdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:35 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLVkes007075
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:35 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:2984 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751229AbcEPVdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:24 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4GLSU5a013094
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:24 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22ynaygby6-1
+	by m0001303.ppops.net with ESMTP id 22wypaw1bs-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:35 -0700
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:24 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.232.63) with ESMTP	id
- d75291481bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
- 16 May 2016 14:33:34 -0700
+ d037cae01bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
+ 16 May 2016 14:33:22 -0700
 In-Reply-To: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add netlink and setup for encapsulation
+In ip6_input_finish the nexthdr protocol is retrieved from the
+next header offset that is returned in the cb of the skb.
+This method does not work for UDP encapsulation that may not
+even have a concept of a nexthdr field (e.g. FOU).
+
+This patch checks for a final protocol (INET6_PROTO_FINAL) when a
+protocol handler returns > 0. If the protocol is not final then
+resubmission is performed on nhoff value. If the protocol is final
+then the nexthdr is taken to be the return value.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_gre.c | 79 +++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 75 insertions(+), 4 deletions(-)
+ net/ipv6/ip6_input.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 4541fa5..6fb1b89 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -729,7 +729,7 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index f185cbc..d35dff2 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -236,6 +236,7 @@ resubmit:
+ 	nhoff = IP6CB(skb)->nhoff;
+ 	nexthdr = skb_network_header(skb)[nhoff];
  
- 	t->tun_hlen = gre_calc_hlen(t->parms.o_flags);
++resubmit_final:
+ 	raw = raw6_local_deliver(skb, nexthdr);
+ 	ipprot = rcu_dereference(inet6_protos[nexthdr]);
+ 	if (ipprot) {
+@@ -263,10 +264,21 @@ resubmit:
+ 			goto discard;
  
--	t->hlen = t->tun_hlen;
-+	t->hlen = t->encap_hlen + t->tun_hlen;
- 
- 	t_hlen = t->hlen + sizeof(struct ipv6hdr);
- 
-@@ -1022,9 +1022,7 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
- 	}
- 
- 	tunnel->tun_hlen = gre_calc_hlen(tunnel->parms.o_flags);
--
--	tunnel->hlen = tunnel->tun_hlen;
--
-+	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
- 	t_hlen = tunnel->hlen + sizeof(struct ipv6hdr);
- 
- 	dev->hard_header_len = LL_MAX_HEADER + t_hlen;
-@@ -1290,15 +1288,57 @@ static void ip6gre_tap_setup(struct net_device *dev)
- 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- }
- 
-+static bool ip6gre_netlink_encap_parms(struct nlattr *data[],
-+				       struct ip_tunnel_encap *ipencap)
-+{
-+	bool ret = false;
-+
-+	memset(ipencap, 0, sizeof(*ipencap));
-+
-+	if (!data)
-+		return ret;
-+
-+	if (data[IFLA_GRE_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_be16(data[IFLA_GRE_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_be16(data[IFLA_GRE_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
-+}
-+
- static int ip6gre_newlink(struct net *src_net, struct net_device *dev,
- 	struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct ip6_tnl *nt;
- 	struct net *net = dev_net(dev);
- 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
-+	struct ip_tunnel_encap ipencap;
- 	int err;
- 
- 	nt = netdev_priv(dev);
-+
-+	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(nt, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	ip6gre_netlink_parms(data, &nt->parms);
- 
- 	if (ip6gre_tunnel_find(net, &nt->parms, dev->type))
-@@ -1345,10 +1385,18 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
- 	struct net *net = nt->net;
- 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
- 	struct __ip6_tnl_parm p;
-+	struct ip_tunnel_encap ipencap;
- 
- 	if (dev == ign->fb_tunnel_dev)
- 		return -EINVAL;
- 
-+	if (ip6gre_netlink_encap_parms(data, &ipencap)) {
-+		int err = ip6_tnl_encap_setup(nt, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	ip6gre_netlink_parms(data, &p);
- 
- 	t = ip6gre_tunnel_locate(net, &p, 0);
-@@ -1400,6 +1448,14 @@ static size_t ip6gre_get_size(const struct net_device *dev)
- 		nla_total_size(4) +
- 		/* IFLA_GRE_FLAGS */
- 		nla_total_size(4) +
-+		/* IFLA_GRE_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
- }
- 
-@@ -1422,6 +1478,17 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be32(skb, IFLA_GRE_FLOWINFO, p->flowinfo) ||
- 	    nla_put_u32(skb, IFLA_GRE_FLAGS, p->flags))
- 		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
-+			t->encap.type) ||
-+	    nla_put_be16(skb, IFLA_GRE_ENCAP_SPORT,
-+			 t->encap.sport) ||
-+	    nla_put_be16(skb, IFLA_GRE_ENCAP_DPORT,
-+			 t->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
-+			t->encap.flags))
-+		goto nla_put_failure;
-+
- 	return 0;
- 
- nla_put_failure:
-@@ -1440,6 +1507,10 @@ static const struct nla_policy ip6gre_policy[IFLA_GRE_MAX + 1] = {
- 	[IFLA_GRE_ENCAP_LIMIT] = { .type = NLA_U8 },
- 	[IFLA_GRE_FLOWINFO]    = { .type = NLA_U32 },
- 	[IFLA_GRE_FLAGS]       = { .type = NLA_U32 },
-+	[IFLA_GRE_ENCAP_TYPE]   = { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_FLAGS]  = { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_SPORT]  = { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_DPORT]  = { .type = NLA_U16 },
- };
- 
- static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
+ 		ret = ipprot->handler(skb);
+-		if (ret > 0)
+-			goto resubmit;
+-		else if (ret == 0)
++		if (ret > 0) {
++			if (ipprot->flags & INET6_PROTO_FINAL) {
++				/* Not an extension header, most likely UDP
++				 * encapsulation. Use return value as nexthdr
++				 * protocol not nhoff (which presumably is
++				 * not set by handler).
++				 */
++				nexthdr = ret;
++				goto resubmit_final;
++			} else {
++				goto resubmit;
++			}
++		} else if (ret == 0) {
+ 			__IP6_INC_STATS(net, idev, IPSTATS_MIB_INDELIVERS);
++		}
+ 	} else {
+ 		if (!raw) {
+ 			if (xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
 -- 
 2.8.0.rc2
