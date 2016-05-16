@@ -1,42 +1,59 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH v5 net-next 03/14] ipv6: Fix nexthdr for reinjection
-Date: Mon, 16 May 2016 21:19:25 +0300
-Message-ID: <20160516211925.1498653f@halley>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	<1463355755-3481375-4-git-send-email-tom@herbertland.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -next] ingress, clsact: don't add TCA_OPTIONS
+ to nl msg
+Date: Mon, 16 May 2016 11:22:37 -0700
+Message-ID: <20160516112237.2e1fb0b9@xeon-e3>
+References: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: jhs@mojatatu.com, tgraf@suug.ch, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35056 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753491AbcEPSTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:19:34 -0400
-Received: by mail-wm0-f67.google.com with SMTP id e201so19908432wme.2
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:19:33 -0700 (PDT)
-In-Reply-To: <1463355755-3481375-4-git-send-email-tom@herbertland.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34457 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbcEPSWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:22:24 -0400
+Received: by mail-pf0-f176.google.com with SMTP id y69so69510327pfb.1
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:22:24 -0700 (PDT)
+In-Reply-To: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sun, 15 May 2016 18:36:03 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-On Sun, 15 May 2016 16:42:24 -0700 Tom Herbert <tom@herbertland.com> wrote:
-> In ip6_input_finish the nexthdr protocol is retrieved from the
-> next header offset that is returned in the cb of the skb.
-> This method does not work for UDP encapsulation that may not
-> even have a concept of a nexthdr field (e.g. FOU).
+> In ingress and clsact qdisc TCA_OPTIONS are ignored, since it's
+> parameterless. In tc, we add an empty addattr_l(... TCA_OPTIONS,
+> NULL, 0) to the netlink message nevertheless. This has the
+> side effect that when someone tries a 'tc qdisc replace' and
+> already an existing such qdisc is present, tc fails with
+> EINVAL here.
 > 
-> This patch checks for a final protocol (INET6_PROTO_FINAL) when a
-> protocol handler returns > 1. If the protocol is not final then
-
-If you respin due to other reasons:  s/> 1/> 0/
-
-> resubmission is performed on nhoff value. If the protocol is final
-> then the nexthdr is taken to be the return value.
+> Reason is that in the kernel, this invokes qdisc_change() when
+> such requested qdisc is already present. When TCA_OPTIONS are
+> passed to modify parameters, it looks whether qdisc implements
+> .change() callback, and if not present (like in both cases here)
+> it returns with error. Rather than adding an empty stub to the
+> kernel that ignores TCA_OPTIONS again, just don't add TCA_OPTIONS
+> to the netlink message in the first place.
 > 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> Before:
+> 
+>   # tc qdisc replace dev foo clsact    # first try
+>   # tc qdisc replace dev foo clsact    # second one
+>   RTNETLINK answers: Invalid argument
+> 
+> After:
+> 
+>   # tc qdisc replace dev foo clsact
+>   # tc qdisc replace dev foo clsact
+>   # tc qdisc replace dev foo clsact
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  tc/q_clsact.c  | 1 -
+>  tc/q_ingress.c | 1 -
+>  2 files changed, 2 deletions(-)
 
-Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Applied to net-next
