@@ -1,59 +1,97 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -next] ingress, clsact: don't add TCA_OPTIONS
- to nl msg
-Date: Mon, 16 May 2016 11:22:37 -0700
-Message-ID: <20160516112237.2e1fb0b9@xeon-e3>
-References: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH] phy dp83867: depend on CONFIG_OF_MDIO
+Date: Mon, 16 May 2016 13:22:57 -0500
+Message-ID: <573A1001.4000503@ti.com>
+References: <1463398095-123269-1-git-send-email-agraf@suse.de> <5739CD4C.7020208@ti.com> <202f4843-bf2f-8131-cea8-923ba3766fc3@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34457 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbcEPSWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:22:24 -0400
-Received: by mail-pf0-f176.google.com with SMTP id y69so69510327pfb.1
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:22:24 -0700 (PDT)
-In-Reply-To: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <michal.simek@xilinx.com>
+To: Alexander Graf <agraf@suse.de>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <202f4843-bf2f-8131-cea8-923ba3766fc3@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 15 May 2016 18:36:03 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+Alex
 
-> In ingress and clsact qdisc TCA_OPTIONS are ignored, since it's
-> parameterless. In tc, we add an empty addattr_l(... TCA_OPTIONS,
-> NULL, 0) to the netlink message nevertheless. This has the
-> side effect that when someone tries a 'tc qdisc replace' and
-> already an existing such qdisc is present, tc fails with
-> EINVAL here.
-> 
-> Reason is that in the kernel, this invokes qdisc_change() when
-> such requested qdisc is already present. When TCA_OPTIONS are
-> passed to modify parameters, it looks whether qdisc implements
-> .change() callback, and if not present (like in both cases here)
-> it returns with error. Rather than adding an empty stub to the
-> kernel that ignores TCA_OPTIONS again, just don't add TCA_OPTIONS
-> to the netlink message in the first place.
-> 
-> Before:
-> 
->   # tc qdisc replace dev foo clsact    # first try
->   # tc qdisc replace dev foo clsact    # second one
->   RTNETLINK answers: Invalid argument
-> 
-> After:
-> 
->   # tc qdisc replace dev foo clsact
->   # tc qdisc replace dev foo clsact
->   # tc qdisc replace dev foo clsact
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  tc/q_clsact.c  | 1 -
->  tc/q_ingress.c | 1 -
->  2 files changed, 2 deletions(-)
+On 05/16/2016 12:57 PM, Alexander Graf wrote:
+> Hi Dan,
+>
+> On 16.05.16 15:38, Dan Murphy wrote:
+>> Alexander
+>>
+>> On 05/16/2016 06:28 AM, Alexander Graf wrote:
+>>> The DP83867 phy driver doesn't actually work when CONFIG_OF_MDIO isn't enabled.
+>>> It simply passes the device tree test, but leaves all internal configuration
+>>> initialized at 0. Then it configures the phy with those values and renders a
+>>> previously working configuration useless.
+>>>
+>>> This patch makes sure that we only build the DP83867 phy code when
+>>> CONFIG_OF_MDIO is set, to not run into that problem.
+>>>
+>>> Signed-off-by: Alexander Graf <agraf@suse.de>
+>>> ---
+>>>  drivers/net/phy/Kconfig   | 1 +
+>>>  drivers/net/phy/dp83867.c | 7 -------
+>>>  2 files changed, 1 insertion(+), 7 deletions(-)
+>>>
+>>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+>>> index 6dad9a9..4265ad5 100644
+>>> --- a/drivers/net/phy/Kconfig
+>>> +++ b/drivers/net/phy/Kconfig
+>>> @@ -148,6 +148,7 @@ config DP83848_PHY
+>>>  
+>>>  config DP83867_PHY
+>>>  	tristate "Drivers for Texas Instruments DP83867 Gigabit PHY"
+>>> +	depends on OF_MDIO
+>>>  	---help---
+>>>  	  Currently supports the DP83867 PHY.
+>>>  
+>>> diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+>>> index 2afa61b..ff867ba 100644
+>>> --- a/drivers/net/phy/dp83867.c
+>>> +++ b/drivers/net/phy/dp83867.c
+>>> @@ -99,7 +99,6 @@ static int dp83867_config_intr(struct phy_device *phydev)
+>>>  	return phy_write(phydev, MII_DP83867_MICR, micr_status);
+>>>  }
+>>>  
+>>> -#ifdef CONFIG_OF_MDIO
+>>>  static int dp83867_of_init(struct phy_device *phydev)
+>>>  {
+>>>  	struct dp83867_private *dp83867 = phydev->priv;
+>>> @@ -123,12 +122,6 @@ static int dp83867_of_init(struct phy_device *phydev)
+>>>  	return of_property_read_u32(of_node, "ti,fifo-depth",
+>>>  				   &dp83867->fifo_depth);
+>>>  }
+>>> -#else
+>>> -static int dp83867_of_init(struct phy_device *phydev)
+>>> -{
+>>> -	return 0;
+>>> -}
+>>> -#endif /* CONFIG_OF_MDIO */
+>>>  
+>>>  static int dp83867_config_init(struct phy_device *phydev)
+>>>  {
+>> I don't think we want this to depend solely on OF_MDIO.
+>>
+>> The #else case should probably be coded to look at platform data, if
+>> it exists.  I don't have any boards that still used platform data to test this
+>> out so I did not feel comfortable adding code I could not test.
+> Since there was no code to look at platform data, those boards would be
+> broken just as well today, no? So at the end of the day, this change
+> should be no regression for them.
 
-Applied to net-next
+As Andrew pointed out if you are not using RGMII you don't need internal delay or fifo_depth so making the driver dependent on OF_MDIO
+does not make sense.
+
+The DP83867 RGMII tx and rx delays and fifo should really be changed to optional parameters and only programmed if set.
+
+Dan
+>
+> Alex
+
+
+-- 
+------------------
+Dan Murphy
