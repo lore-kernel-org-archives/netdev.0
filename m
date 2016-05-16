@@ -1,62 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: take online CPU number as MQ max limit when
- alloc_etherdev_mq()
-Date: Mon, 16 May 2016 13:58:42 -0700
-Message-ID: <1463432322.2609.12.camel@intel.com>
-References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-UkNUNi+QmcfXAo94WkoH"
-Cc: linux-kernel@vger.kernel.org, ethan.kernel@gmail.com
-To: Ethan Zhao <ethan.zhao@oracle.com>, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, doc: fix typo on bpf_asm descriptions
+Date: Mon, 16 May 2016 23:06:53 +0200
+Message-ID: <e99246ae5491ccf99726ca78e78d58d8c41c78e7.1463432379.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, sebastian.amend@googlemail.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:35999 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbcEPVHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:07:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Fix description of some of the bpf_asm tool related jump instructions
+and generally move them to format A <op> k.
 
---=-UkNUNi+QmcfXAo94WkoH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Reported-by: Sebastian Amend <sebastian.amend@googlemail.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ Documentation/networking/filter.txt | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-On Fri, 2016-05-13 at 14:56 +0900, Ethan Zhao wrote:
-> Allocating 64 Tx/Rx as default doesn't benefit perfomrnace when less
-> CPUs were assigned. especially when DCB is enabled, so we should take
-> num_online_cpus() as top limit, and aslo to make sure every TC has
-> at least one queue, take the MAX_TRAFFIC_CLASS as bottom limit of queues
-> number.
->=20
-> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++++
-> =C2=A01 file changed, 4 insertions(+)
-
-Dropping this patch based on Alex's and John's feedback.
---=-UkNUNi+QmcfXAo94WkoH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXOjSCAAoJEOVv75VaS+3OgwAP/iswNKomnUJXx5wixfTtMVyv
-XxzBsrhubT1OmrsEKBWI8r3Gd1UCQJufd00PeJTVCTszjzQzUHYSRIkRlpOlbuny
-BKVIt6TOhrsllvPGXK7Sut8vrLYWnQVQ6WCKeczW6IOFA1TFxFsMjpPg3/KUi2jN
-025zvsavMaIZ8ptaL6QjDevGBJkkTxyhEKzB4luZm5NDf3YZWP2Ulml04k4y6rYZ
-WatTqpeY8mGNlmbPa0bW28n2B1flAyT3FenLsnbMq3UwttE9L3OiUtjgpXe/XpCx
-byMBb0egozS3twryRtPTxpG7/CiE0Yh7fJ6FVXIl98CAAczKUNQnvmz8vHeZ7i0r
-Wje/i4Jxh+HRSOFGG2laTqWhXWNuM8NWGzXXWmRzTAdet5WGbx5PazBg6lmmUn1m
-Uk/juElZkf7k+ypQfyq+6cB5Hf71FF3GIAS7OHJsBhNcnt3p2UWuxhtDPGpaZ0gY
-nIoBkNRUgrFitkvptLBh4lIRtwduRbWwImZAQ6gQ1ByR+8ASkwdbOwseIkgWhE/r
-/AR3LqKYzvqECGpjaWe+iPjC5bSai52yWb0WVxaqJzQtII7F9fqAMBdq6nhP1lhs
-IbdlcqTzRlRoMUpWWifmvjG9orXq3zRVnwTePiEWjc1BiLC7B268Q8BuOcybrC82
-+hpfjgDLgFiyGallzTll
-=jrEd
------END PGP SIGNATURE-----
-
---=-UkNUNi+QmcfXAo94WkoH--
+diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
+index 6aef0b5..b9a4edf 100644
+--- a/Documentation/networking/filter.txt
++++ b/Documentation/networking/filter.txt
+@@ -216,14 +216,14 @@ opcodes as defined in linux/filter.h stand for:
+ 
+   jmp              6                    Jump to label
+   ja               6                    Jump to label
+-  jeq              7, 8                 Jump on k == A
+-  jneq             8                    Jump on k != A
+-  jne              8                    Jump on k != A
+-  jlt              8                    Jump on k < A
+-  jle              8                    Jump on k <= A
+-  jgt              7, 8                 Jump on k > A
+-  jge              7, 8                 Jump on k >= A
+-  jset             7, 8                 Jump on k & A
++  jeq              7, 8                 Jump on A == k
++  jneq             8                    Jump on A != k
++  jne              8                    Jump on A != k
++  jlt              8                    Jump on A <  k
++  jle              8                    Jump on A <= k
++  jgt              7, 8                 Jump on A >  k
++  jge              7, 8                 Jump on A >= k
++  jset             7, 8                 Jump on A &  k
+ 
+   add              0, 4                 A + <x>
+   sub              0, 4                 A - <x>
+-- 
+1.9.3
