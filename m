@@ -1,42 +1,66 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v6 net-next 09/14] ip6_tun: Add infrastructure for doing encapsulation
-Date: Mon, 16 May 2016 15:25:06 -0700
-Message-ID: <CAKgT0UcKFEB6oPXtVQsQK0qSCRNRhxs4juvcMHh_1x8bRCPaXQ@mail.gmail.com>
-References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
-	<1463434389-314297-10-git-send-email-tom@herbertland.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] e1000e: prevent division by zero if
+	TIMINCA is zero
+Date: Mon, 16 May 2016 22:31:53 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81EFDBA5@ORSMSX101.amr.corp.intel.com>
+References: <1462563711-30350-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Denys Vlasenko <dvlasenk@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:36537 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011AbcEPWZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 18:25:07 -0400
-Received: by mail-io0-f173.google.com with SMTP id i75so1169101ioa.3
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 15:25:06 -0700 (PDT)
-In-Reply-To: <1463434389-314297-10-git-send-email-tom@herbertland.com>
+Received: from mga01.intel.com ([192.55.52.88]:41488 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752879AbcEPWby convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 18:31:54 -0400
+In-Reply-To: <1462563711-30350-1-git-send-email-dvlasenk@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2016 at 2:33 PM, Tom Herbert <tom@herbertland.com> wrote:
-> Add encap_hlen and ip_tunnel_encap structure to ip6_tnl. Add functions
-> for getting encap hlen, setting up encap on a tunnel, performing
-> encapsulation operation.
->
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Denys Vlasenko
+> Sent: Friday, May 6, 2016 12:42 PM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> Cc: intel-wired-lan@lists.osuosl.org; Denys Vlasenko
+> <dvlasenk@redhat.com>; LKML <linux-kernel@vger.kernel.org>;
+> netdev@vger.kernel.org
+> Subject: [Intel-wired-lan] [PATCH] e1000e: prevent division by zero if
+> TIMINCA is zero
+> 
+> Users report that under VMWare, er32(TIMINCA) returns zero.
+> This causes division by zero at init time as follows:
+> 
+>  ==>            incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
+>                 for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
+>                         /* latch SYSTIMH on read of SYSTIML */
+>                         systim_next = (cycle_t)er32(SYSTIML);
+>                         systim_next |= (cycle_t)er32(SYSTIMH) << 32;
+> 
+>                         time_delta = systim_next - systim;
+>                         temp = time_delta;
+>  ====>                  rem = do_div(temp, incvalue);
+> 
+> This change makes kernel survive this, and users report that
+> NIC does work after this change.
+> 
+> Since on real hardware incvalue is never zero, this should not affect
+> real hardware use case.
+> 
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
+> CC: intel-wired-lan@lists.osuosl.org
+> CC: netdev@vger.kernel.org
+> CC: LKML <linux-kernel@vger.kernel.org>
 > ---
->  include/net/ip6_tunnel.h  | 58 ++++++++++++++++++++++++++++++++
->  net/ipv4/ip_tunnel_core.c |  5 +++
->  net/ipv6/ip6_tunnel.c     | 85 ++++++++++++++++++++++++++++++++++++++++++-----
->  3 files changed, 139 insertions(+), 9 deletions(-)
->
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 
-So it looks like you completely dropped the two spots that were
-updating mtu and max_headroom with the t->hlen.  I thought you needed
-to at least have a check that used t->encap_hlen here in order to
-avoid overflowing the buffer or exceeding skb_headroom, or am I
-missing something?
+As Mark Rustad pointed out I recall this was earlier rejected as something that is a VMWare error and it should be fixed there so that existing VMs will start working without installing a new driver.  Having said that, it does not seem to be causing any harm in my testing, so...
 
-- Alex
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
