@@ -1,66 +1,149 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] e1000e: prevent division by zero if
-	TIMINCA is zero
-Date: Mon, 16 May 2016 22:31:53 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81EFDBA5@ORSMSX101.amr.corp.intel.com>
-References: <1462563711-30350-1-git-send-email-dvlasenk@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Denys Vlasenko <dvlasenk@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: fec-mpc52xx: use phydev from struct net_device
+Date: Tue, 17 May 2016 00:32:33 +0200
+Message-ID: <1463437954-6014-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, treding@nvidia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41488 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752879AbcEPWby convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 18:31:54 -0400
-In-Reply-To: <1462563711-30350-1-git-send-email-dvlasenk@redhat.com>
-Content-Language: en-US
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36302 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810AbcEPWco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 18:32:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Denys Vlasenko
-> Sent: Friday, May 6, 2016 12:42 PM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: intel-wired-lan@lists.osuosl.org; Denys Vlasenko
-> <dvlasenk@redhat.com>; LKML <linux-kernel@vger.kernel.org>;
-> netdev@vger.kernel.org
-> Subject: [Intel-wired-lan] [PATCH] e1000e: prevent division by zero if
-> TIMINCA is zero
-> 
-> Users report that under VMWare, er32(TIMINCA) returns zero.
-> This causes division by zero at init time as follows:
-> 
->  ==>            incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
->                 for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
->                         /* latch SYSTIMH on read of SYSTIML */
->                         systim_next = (cycle_t)er32(SYSTIML);
->                         systim_next |= (cycle_t)er32(SYSTIMH) << 32;
-> 
->                         time_delta = systim_next - systim;
->                         temp = time_delta;
->  ====>                  rem = do_div(temp, incvalue);
-> 
-> This change makes kernel survive this, and users report that
-> NIC does work after this change.
-> 
-> Since on real hardware incvalue is never zero, this should not affect
-> real hardware use case.
-> 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
-> CC: intel-wired-lan@lists.osuosl.org
-> CC: netdev@vger.kernel.org
-> CC: LKML <linux-kernel@vger.kernel.org>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phydev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-As Mark Rustad pointed out I recall this was earlier rejected as something that is a VMWare error and it should be fixed there so that existing VMs will start working without installing a new driver.  Having said that, it does not seem to be causing any harm in my testing, so...
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/freescale/fec_mpc52xx.c |   43 ++++++++++++--------------
+ 1 files changed, 20 insertions(+), 23 deletions(-)
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+index f444714..bcf0600 100644
+--- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
++++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+@@ -66,7 +66,6 @@ struct mpc52xx_fec_priv {
+ 	/* MDIO link details */
+ 	unsigned int mdio_speed;
+ 	struct device_node *phy_node;
+-	struct phy_device *phydev;
+ 	enum phy_state link;
+ 	int seven_wire_mode;
+ };
+@@ -165,7 +164,7 @@ static int mpc52xx_fec_alloc_rx_buffers(struct net_device *dev, struct bcom_task
+ static void mpc52xx_fec_adjust_link(struct net_device *dev)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 	int new_state = 0;
+ 
+ 	if (phydev->link != PHY_DOWN) {
+@@ -215,16 +214,17 @@ static void mpc52xx_fec_adjust_link(struct net_device *dev)
+ static int mpc52xx_fec_open(struct net_device *dev)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = NULL;
+ 	int err = -EBUSY;
+ 
+ 	if (priv->phy_node) {
+-		priv->phydev = of_phy_connect(priv->ndev, priv->phy_node,
+-					      mpc52xx_fec_adjust_link, 0, 0);
+-		if (!priv->phydev) {
++		phydev = of_phy_connect(priv->ndev, priv->phy_node,
++					mpc52xx_fec_adjust_link, 0, 0);
++		if (!phydev) {
+ 			dev_err(&dev->dev, "of_phy_connect failed\n");
+ 			return -ENODEV;
+ 		}
+-		phy_start(priv->phydev);
++		phy_start(phydev);
+ 	}
+ 
+ 	if (request_irq(dev->irq, mpc52xx_fec_interrupt, IRQF_SHARED,
+@@ -268,10 +268,9 @@ static int mpc52xx_fec_open(struct net_device *dev)
+  free_ctrl_irq:
+ 	free_irq(dev->irq, dev);
+  free_phy:
+-	if (priv->phydev) {
+-		phy_stop(priv->phydev);
+-		phy_disconnect(priv->phydev);
+-		priv->phydev = NULL;
++	if (phydev) {
++		phy_stop(phydev);
++		phy_disconnect(phydev);
+ 	}
+ 
+ 	return err;
+@@ -280,6 +279,7 @@ static int mpc52xx_fec_open(struct net_device *dev)
+ static int mpc52xx_fec_close(struct net_device *dev)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = dev->phydev;
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -291,11 +291,10 @@ static int mpc52xx_fec_close(struct net_device *dev)
+ 	free_irq(priv->r_irq, dev);
+ 	free_irq(priv->t_irq, dev);
+ 
+-	if (priv->phydev) {
++	if (phydev) {
+ 		/* power down phy */
+-		phy_stop(priv->phydev);
+-		phy_disconnect(priv->phydev);
+-		priv->phydev = NULL;
++		phy_stop(phydev);
++		phy_disconnect(phydev);
+ 	}
+ 
+ 	return 0;
+@@ -766,10 +765,9 @@ static void mpc52xx_fec_reset(struct net_device *dev)
+ static int mpc52xx_fec_get_ksettings(struct net_device *dev,
+ 				     struct ethtool_link_ksettings *cmd)
+ {
+-	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 
+-	if (!priv->phydev)
++	if (!phydev)
+ 		return -ENODEV;
+ 
+ 	return phy_ethtool_ksettings_get(phydev, cmd);
+@@ -778,10 +776,9 @@ static int mpc52xx_fec_get_ksettings(struct net_device *dev,
+ static int mpc52xx_fec_set_ksettings(struct net_device *dev,
+ 				     const struct ethtool_link_ksettings *cmd)
+ {
+-	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 
+-	if (!priv->phydev)
++	if (!phydev)
+ 		return -ENODEV;
+ 
+ 	return phy_ethtool_ksettings_set(phydev, cmd);
+@@ -811,12 +808,12 @@ static const struct ethtool_ops mpc52xx_fec_ethtool_ops = {
+ 
+ static int mpc52xx_fec_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = dev->phydev;
+ 
+-	if (!priv->phydev)
++	if (!phydev)
+ 		return -ENOTSUPP;
+ 
+-	return phy_mii_ioctl(priv->phydev, rq, cmd);
++	return phy_mii_ioctl(phydev, rq, cmd);
+ }
+ 
+ static const struct net_device_ops mpc52xx_fec_netdev_ops = {
+-- 
+1.7.4.4
