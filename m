@@ -1,31 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] net/mlx4_core: Fix access to uninitialized index
-Date: Mon, 16 May 2016 13:58:32 -0400 (EDT)
-Message-ID: <20160516.135832.1771202592587427917.davem@davemloft.net>
-References: <1463296886-4364-1-git-send-email-tariqt@mellanox.com>
+From: Alexander Graf <agraf@suse.de>
+Subject: Re: [PATCH] phy dp83867: depend on CONFIG_OF_MDIO
+Date: Mon, 16 May 2016 19:59:26 +0200
+Message-ID: <6b92e909-6d2f-6ff0-8e1b-eb0c3f8c2dcd@suse.de>
+References: <1463398095-123269-1-git-send-email-agraf@suse.de>
+ <20160516124444.GB27725@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1463296886-4364-1-git-send-email-tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	michal.simek@xilinx.com, Dan Murphy <dmurphy@ti.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160516124444.GB27725@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Date: Sun, 15 May 2016 10:21:26 +0300
 
-> Prevent using uninitialized or negative index when handling
-> steering entries.
+
+On 16.05.16 14:44, Andrew Lunn wrote:
+> On Mon, May 16, 2016 at 01:28:15PM +0200, Alexander Graf wrote:
+>> The DP83867 phy driver doesn't actually work when CONFIG_OF_MDIO isn't enabled.
+>> It simply passes the device tree test, but leaves all internal configuration
+>> initialized at 0. Then it configures the phy with those values and renders a
+>> previously working configuration useless.
+>>
+>> This patch makes sure that we only build the DP83867 phy code when
+>> CONFIG_OF_MDIO is set, to not run into that problem.
 > 
-> Fixes: b12d93d63c32 ('mlx4: Add support for promiscuous mode in the new steering model.')
-> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Reported-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Hi Alexander
+> 
+> Looking at the code, the parameters read from device tree are needed
+> for RGMII mode. What about the case the PHY is used not in RGMII mode?
+> Could it be there are device trees which legitimately don't have these
+> properties since they are not needed, and are now going to get
+> -ENODEV?
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To be honest, I don't know. I only stumbled over this because we compile
+all those phy drivers as modules and the driver simply rendered one
+system I was working on unusable wrt network.
+
+Dan?
+
+
+Alex
