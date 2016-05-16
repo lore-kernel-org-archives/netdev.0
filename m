@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] BPF updates
-Date: Mon, 16 May 2016 13:49:59 -0400 (EDT)
-Message-ID: <20160516.134959.1324414574261810210.davem@davemloft.net>
-References: <cover.1463158442.git.daniel@iogearbox.net>
+Subject: Re: [PATCH 0/2] Don't return NULL from get_phy_device() anymore
+Date: Mon, 16 May 2016 13:53:49 -0400 (EDT)
+Message-ID: <20160516.135349.1027929193904713083.davem@davemloft.net>
+References: <7078673.lTHka36u4G@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
-	zlim.lnx@gmail.com, yang.shi@linaro.org,
-	holzheu@linux.vnet.ibm.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36808 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36824 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754488AbcEPRuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:50:02 -0400
-In-Reply-To: <cover.1463158442.git.daniel@iogearbox.net>
+	with ESMTP id S1754398AbcEPRxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:53:51 -0400
+In-Reply-To: <7078673.lTHka36u4G@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 13 May 2016 19:08:25 +0200
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 14 May 2016 02:05:17 +0300
 
-> This set implements constant blinding for BPF, first couple of
-> patches are some preparatory cleanups, followed by the blinding.
-> Please see individual patches for details.
+> Hello.
+> 
+>    Here's the set of 2 patches against DaveM's 'net-next.git' repo. We save
+> several LoCs on the unneeded local variables....
+> 
+> [1/2] lxt: simplify lxt97[01]_config_intr()
+> [2/2] lxt: simplify lxt970_config_init()
 
-Looks good, series applied.
+I'm pretty sure that Subject isn't accurate so I didn't include it in the
+merge commit for this series :)
 
-"BPF blinding" would have been a good Subject line. :)
+Series applied, thanks.
