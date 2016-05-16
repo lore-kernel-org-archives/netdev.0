@@ -1,97 +1,49 @@
-From: Sebastian Moeller <moeller0@gmx.de>
-Subject: Re: [OpenWrt-Devel] [Make-wifi-fast] OpenWRT wrong
-	adjustment of fq_codel defaults (Was: fq_codel_drop vs a udp flood)
-Date: Mon, 16 May 2016 12:34:24 +0200
-Message-ID: <1E11CBFE-1471-4ECC-8D34-9172B61D3F59@gmx.de>
-References: <CAA93jw6QLyx9EaS+ntB0D3duoysu_Z-UYyQfHnRa=pfqPDfWOw@mail.gmail.com>
- <1462205669.5535.254.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbL26Jj3EcEL4EmqaH=1Dm-Q0dpVwoWxqUSZ7ry10bRgeg@mail.gmail.com>
- <1462464776.13075.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACiydbJYrFRMJvSHM6tJYWR8vmgV3xxnSUQsb-h5WcnLW=KXoQ@mail.gmail.com>
- <1462476207.13075.20.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160506114243.4eb4f95e@redhat.com> <20160506144740.210901f5@redhat.com>
- <CACiydbL3qZrvZ4a_OUXiN0dp7qdqOktaQdAUdfOpKkZ1OfEZbA@mail.gmail.com>
- <CACiydb+A_vFNdp7tbw67Rnp+kHwt5GsLa+Su+pO8YmOZYp_KHg@mail.gmail.com>
- <CAA93jw4XeMSxiTLHWZ2b=F9ni7wz9RpkWDdhTh99gn4Mf1aWjA@mail.gmail.com>
- <CACiydbLcYe=2VLb3W9i-i2FGALwxJK=oO8RcZWjmj3YPGObK3Q@mail.gmail.com>
- <alpine.DEB.2.02.1605160110270.1574@nftneq.ynat.uz>
- <CACiydbL_dfBU=8m=gSSiR6HwdVU+z2WMeQMjP+boNhGe19_7Sg@mail.gmail.com>
- <alpine.DEB.2.02.1605160127430.1574@nftneq.ynat.uz>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [v4.6-rc7-183-g1410b74e4061]
+Date: Mon, 16 May 2016 12:50:45 +0200
+Message-ID: <20160516105045.GA19189@gmail.com>
+References: <CA+icZUXF9DkymNNGwP8zzmKY9PRAPGFZ+7p9En1xy80FcX_RRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: make-wifi-fast@lists.bufferbloat.net, ath10k <ath10k@lists.infradead.org>,
- "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- OpenWrt Development List <openwrt-devel@lists.openwrt.org>
-To: David Lang <david@lang.hm>,Roman Yeryomin <leroi.lists@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <alpine.DEB.2.02.1605160127430.1574@nftneq.ynat.uz>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Errors-To: codel-bounces@lists.bufferbloat.net
-Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Sedat Dilek <sedat.dilek@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+icZUXF9DkymNNGwP8zzmKY9PRAPGFZ+7p9En1xy80FcX_RRw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRGF2aWQsCgpPbiBNYXkgMTYsIDIwMTYgMTA6NDY6MjUgQU0gR01UKzAyOjAwLCBEYXZpZCBM
-YW5nIDxkYXZpZEBsYW5nLmhtPiB3cm90ZToKPk9uIE1vbiwgMTYgTWF5IDIwMTYsIFJvbWFuIFll
-cnlvbWluIHdyb3RlOgo+Cj4+IE9uIDE2IE1heSAyMDE2IGF0IDExOjEyLCBEYXZpZCBMYW5nIDxk
-YXZpZEBsYW5nLmhtPiB3cm90ZToKPj4+IE9uIE1vbiwgMTYgTWF5IDIwMTYsIFJvbWFuIFllcnlv
-bWluIHdyb3RlOgo+Pj4KPj4+PiBPbiA2IE1heSAyMDE2IGF0IDIyOjQzLCBEYXZlIFRhaHQgPGRh
-dmUudGFodEBnbWFpbC5jb20+IHdyb3RlOgo+Pj4+Pgo+Pj4+PiBPbiBGcmksIE1heSA2LCAyMDE2
-IGF0IDExOjU2IEFNLCBSb21hbiBZZXJ5b21pbgo+PGxlcm9pLmxpc3RzQGdtYWlsLmNvbT4KPj4+
-Pj4gd3JvdGU6Cj4+Pj4+Pgo+Pj4+Pj4gT24gNiBNYXkgMjAxNiBhdCAyMTo0MywgUm9tYW4gWWVy
-eW9taW4gPGxlcm9pLmxpc3RzQGdtYWlsLmNvbT4KPndyb3RlOgo+Pj4+Pj4+Cj4+Pj4+Pj4gT24g
-NiBNYXkgMjAxNiBhdCAxNTo0NywgSmVzcGVyIERhbmdhYXJkIEJyb3Vlcgo+PGJyb3VlckByZWRo
-YXQuY29tPgo+Pj4+Pj4+IHdyb3RlOgo+Pj4+Pj4+Pgo+Pj4+Pj4+Pgo+Pj4+Cj4+Pj4+IFRoYXQg
-aXMgdG9vIGxvdyBhIGxpbWl0LCBhbHNvLCBmb3Igbm9ybWFsIHVzZS4gQW5kOgo+Pj4+PiBmb3Ig
-dGhlIHB1cnBvc2Ugb2YgdGhpcyBwYXJ0aWN1bGFyIFVEUCB0ZXN0LCBmbG93cyAxNiBpcyBvaywg
-YnV0Cj5ub3QKPj4+Pj4gaWRlYWwuCj4+Pj4KPj4+Pgo+Pj4+IEkgcGxheWVkIHdpdGggZGlmZmVy
-ZW50IGNvbWJpbmF0aW9ucywgaXQgZG9lc24ndCBtYWtlIGFueQo+Pj4+IChzaWduaWZpY2FudCkg
-ZGlmZmVyZW5jZTogMjAtMzBNYnBzLCBub3QgbW9yZS4KPj4+PiBXaGF0IG51bWJlcnMgd291bGQg
-eW91IHByb3Bvc2U/Cj4+Pgo+Pj4KPj4+IEhvdyBtYW55IGRpZmZlcmVudCBmbG93cyBkaWQgeW91
-IGhhdmUgZ29pbmcgYXQgb25jZT8gSSBiZWxpZXZlIHRoYXQKPnRoZQo+Pj4gcmVhc29uIGZvciBo
-aWdoZXIgbnVtYmVycyBpc24ndCBmb3IgdGhyb3VnaHB1dCwgYnV0IHRvIGFsbG93IGZvcgo+bW9y
-ZSBmbG93cwo+Pj4gdG8gYmUgaXNvbGF0ZWQgZnJvbSBlYWNoIG90aGVyLiBJZiB5b3UgaGF2ZSB0
-b28gZmV3IGJ1Y2tldHMsCj5kaWZmZXJlbnQgZmxvd3MKPj4+IHdpbGwgZW5kIHVwIGJlaW5nIGNv
-bWJpbmVkIGludG8gb25lIGJ1Y2tldCBzbyB0aGF0IG9uZSB3aWxsIGFmZmVjdAo+dGhlIG90aGVy
-Cj4+PiBtb3JlLgo+Pgo+PiBJJ20gdGVzdGluZyB3aXRoIG9uZSBmbG93LCBJIG5ldmVyIHNhdyBi
-aWdnZXIgcGVyZm9ybWFuY2Ugd2l0aCBtb3JlCj4+IGZsb3dzIChlLmcuIC1QOCB0byBpcGVyZjMp
-Lgo+Cj5UaGUgaXNzdWUgaXNuJ3QgcGVyZm9ybWFuY2UsIGl0J3MgaXNvbGF0aW5nIGEgRE5TIHJl
-cXVlc3QgZnJvbSBhIFZvSVAKPmZsb3cgCj5mcm9tIGEgc3RyZWFtaW5nIHZpZGVvIGZsb3cgZnJv
-bSBhIERWRCBpbWFnZSBkb3dubG9hZC4KPgo+VGhlIHF1ZXN0aW9uIGlzIGhvdyBtYW55IGJ1Y2tl
-dHMgZG8geW91IG5lZWQgdG8gaGF2ZSB0byBpc29sYXRlIHRoZXNlCj5pbiAKPnByYWN0aWNlPyBp
-dCBkZXBlbmRzIGhvdyBtYW55IGZsb3dzIHlvdSBoYXZlLiBUaGUgZGVmYXVsdCB3YXMgMTAyNAo+
-YnVja2V0cywgYnV0IAo+Z290IGNoYW5nZWQgdG8gMTI4IGZvciBsb3cgbWVtb3J5IGRldmljZXMs
-IGFuZCB0aGF0IGxvd2VyIHZhbHVlIGdvdAo+bWFkZSBpbnRvIAo+dGhlIGRlZmF1bHQsIGV2ZW4g
-Zm9yIGRldmljZXMgd2l0aCBsb3RzIG9mIG1lbW9yeS4KCkFuZCBJIGJlbGlldmUgdGhhdCB0aGUg
-cmVkdWN0aW9uIHdhcyBzdWJvcHRpbWFsLCB3ZSBuZWVkIHRoZSBIYXNoIGJ1Y2tldHMgdG8gc3By
-ZWFkIHRoZSBnbG93cyBhcm91bmQgdG8gYXZvaWQgc2hhcmVkIGZhdGUgZHVlIHRvIHNoYXJlZCBi
-dWNrZXRzLi4uIFNvIHRoZSAxMDI0IGdsb3dzIG1ha2UgYSBsb3Qgb2Ygc2Vuc2UgZXZlbiBpZiB0
-aGUgbnVtYmVyIG9mIHJlYWwgIGNvbmN1cnJlbnQgZmxvd3MgaXMgbG93ZXIgdGhpbmsgYmlydGhk
-YXkgcGFyYWRveG9uLgpUaGUgY2hhbmdlIGNhbWUgYmVjYXVzZSBhdCBmdWxsIHNhdHVyYXRpb24g
-b3VyIHJlZHVjZWQgcGFja2V0IGxpbWl0IG9ubHkgYWxsb3dlZCBvbmUgcGFja2V0IHBlciBidWNr
-ZXQgd2hpY2ggaXMgdG9vIGxvdyBmb3IgZGVjZW50IHBlcmZvcm1hbmNlLi4uIGFsc28gbGVzcyBo
-YXNoIGJ1Y2tldHMgbWFrZSBzZWFyY2hpbmcgZmFzdGVyLgpTaW5jZSB3ZSBub3cgY2FuIHNwZWNp
-ZnkgYSBtZW1vcnkgbGltaXQgaW4gYWRkaXRpb24gdG8gdGhlIHBhY2tldCBsaW1pdCwgd2Ugc2hv
-dWxkIHNldCB0aGUgcGFja2V0IGxpbWl0IGJhY2sgdG8gaXRzIGRlZmF1bHQgb2YgMTAyNDAgYW5k
-IGluc3RlYWQgc2V0IHRoZSBtZW1vcnkgbGltaXQgdG8gc29tZXRoaW5nIHNhbWUgZm9yIGVhY2gg
-cGxhdGZvcm0uIFRoaXMgd2lsbCBlZmZlY3RpdmVseSBoYXZlIHRoZSBzYW1lIGNvbnNlcXVlbmNl
-cyBhcyBzZXR0aW5nIGEgcGFja2V0IGxpbWl0LCBleGNlcHQgaXQgYmVjb21lcyBjbGVhcmVyIHdo
-eSBwZXJmb3JtYW5jZSBkZWdyYWRlcyBhbmQgSSBhdCBsZWFzdCB0YWtlIGEgcGVyZm9ybWFuY2Ug
-aGl0IGdsYWRseSBvdmVyIGEgZm9yY2VkIG9vbSByZWJvb3QuLi4uCgoKCj4KPkknbSB3b25kZXJp
-bmcgaWYgaW5zdGVhZCBvZiB0cnlpbmcgdG8gc2l6ZSB0aGlzIGJhc2VkIG9uIGRldmljZSBtZW1v
-cnksCj5jYW4gaXQgCj5iZSByZXNpemFibGUgb24gdGhlIGZseSBhbmQgZ3JvdyBpZiB0b28gbWFu
-eSBmbG93cy9jb2xsaXNpb25zIGFyZQo+ZGV0ZWN0ZWQ/Cj4KPkRhdmlkIExhbmcKPl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCj5vcGVud3J0LWRldmVsIG1h
-aWxpbmcgbGlzdAo+b3BlbndydC1kZXZlbEBsaXN0cy5vcGVud3J0Lm9yZwo+aHR0cHM6Ly9saXN0
-cy5vcGVud3J0Lm9yZy9jZ2ktYmluL21haWxtYW4vbGlzdGluZm8vb3BlbndydC1kZXZlbAoKLS0g
-ClNlbnQgZnJvbSBteSBBbmRyb2lkIGRldmljZSB3aXRoIEstOSBNYWlsLiBQbGVhc2UgZXhjdXNl
-IG15IGJyZXZpdHkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCkNvZGVsIG1haWxpbmcgbGlzdApDb2RlbEBsaXN0cy5idWZmZXJibG9hdC5uZXQKaHR0cHM6
-Ly9saXN0cy5idWZmZXJibG9hdC5uZXQvbGlzdGluZm8vY29kZWwK
+
+* Sedat Dilek <sedat.dilek@gmail.com> wrote:
+
+> Hi,
+> 
+> as Linux v4.6 is very near, I decided to write this bug report (only
+> drunk one coffee).
+> 
+> First, I am not absolutely sure if this is a real issue as...
+> #1: This is only a (lockdep) warning.
+> #2: I have not a "vanilla" Linux v4.6-rc7+ here (see P.S. and attached patch)
+
+Having such a kernel base is certainly not helpful to the quality of your report, 
+please try to reproduce under the vanilla kernel.
+
+> For a more helpful feedback I should test a...
+> #1: vanilla v4.6-rc7-183-g1410b74e4061
+
+I'd suggest v4.6 plus this debug patch from Peter:
+
+  https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1142352.html
+
+... to see whether something fishy is going on.
+
+Thanks,
+
+	Ingo
