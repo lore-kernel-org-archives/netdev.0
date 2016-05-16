@@ -1,40 +1,70 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 00/10] BPF updates
-Date: Mon, 16 May 2016 20:07:36 +0200
-Message-ID: <573A0C68.40603@iogearbox.net>
-References: <cover.1463158442.git.daniel@iogearbox.net> <20160516.134959.1324414574261810210.davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v5 net-next 02/14] net: define gso types for IPx over IPv4
+ and IPv6
+Date: Mon, 16 May 2016 11:07:53 -0700
+Message-ID: <CALx6S37hCkvOZ+D15MUJUXjiGa-BdfQhPG7jo498F29-7eUSsg@mail.gmail.com>
+References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
+	<1463355755-3481375-3-git-send-email-tom@herbertland.com>
+	<CAKgT0Uc1mQwP4xoQxM9J08kyEaxKpZse5nWdctgrrmjJowebJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
-	zlim.lnx@gmail.com, yang.shi@linaro.org,
-	holzheu@linux.vnet.ibm.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45036 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbcEPSHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:07:44 -0400
-In-Reply-To: <20160516.134959.1324414574261810210.davem@davemloft.net>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34823 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753451AbcEPSHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:07:54 -0400
+Received: by mail-io0-f173.google.com with SMTP id d62so219892786iof.2
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:07:54 -0700 (PDT)
+In-Reply-To: <CAKgT0Uc1mQwP4xoQxM9J08kyEaxKpZse5nWdctgrrmjJowebJg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/16/2016 07:49 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Fri, 13 May 2016 19:08:25 +0200
+On Mon, May 16, 2016 at 9:32 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Sun, May 15, 2016 at 4:42 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> This patch defines two new GSO definitions SKB_GSO_IPXIP4 and
+>> SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
+>> NETIF_F_GSO_IPXIP6. These are used to described IP in IP
+>> tunnel and what the outer protocol is. The inner protocol
+>> can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
+>> SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
+>> are removed (these are both instances of SKB_GSO_IPXIP4).
+>> SKB_GSO_IPXIP6 will be used when support for GSO with IP
+>> encapsulation over IPv6 is added.
+>>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
+>>  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
+>>  drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
+>>  drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
+>>  drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
+>>  drivers/net/ethernet/intel/igb/igb_main.c         |  3 +--
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
+>>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
+>>  include/linux/netdev_features.h                   | 12 ++++++------
+>>  include/linux/netdevice.h                         |  4 ++--
+>>  include/linux/skbuff.h                            |  4 ++--
+>>  net/core/ethtool.c                                |  4 ++--
+>>  net/ipv4/af_inet.c                                |  2 +-
+>>  net/ipv4/ipip.c                                   |  2 +-
+>>  net/ipv6/ip6_offload.c                            |  4 ++--
+>>  net/ipv6/sit.c                                    |  4 ++--
+>>  net/netfilter/ipvs/ip_vs_xmit.c                   | 17 +++++++----------
+>>  18 files changed, 36 insertions(+), 47 deletions(-)
 >
->> This set implements constant blinding for BPF, first couple of
->> patches are some preparatory cleanups, followed by the blinding.
->> Please see individual patches for details.
+> It looks like you missed drivers/net/ethernet/intel/igb/netdev.c.  If
+> you don't get it then it will break the build.
 >
-> Looks good, series applied.
 
-Thanks!
+I don't see file that in betdev branch, maybe it's new?
 
-> "BPF blinding" would have been a good Subject line. :)
+Tom
 
-Right, I'll get rid of this subject habit on my cover letters
-in future.
-
-Thanks,
-Daniel
+> Thanks.
+>
+> - Alex
