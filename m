@@ -1,32 +1,44 @@
-From: Rabin Vincent <rabin-66gdRtMMWGc@public.gmane.org>
-Subject: Re: [PATCH] phy: remove irq param to fix crash in fixed_phy_add()
-Date: Mon, 16 May 2016 15:11:35 +0200
-Message-ID: <20160516131134.GA31094@lnxartpec.se.axis.com>
-References: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
- <20160516122903.GA27725@lunn.ch>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: pull-request: wireless-drivers-next 2016-05-13
+Date: Mon, 16 May 2016 16:16:39 +0300
+Message-ID: <87wpmu87ns.fsf@kamboji.qca.qualcomm.com>
+References: <87oa8ab3eo.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rabin Vincent <rabin.vincent-VrBV9hrLPhE@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org,
-	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Rabin Vincent <rabinv-VrBV9hrLPhE@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160516122903.GA27725-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:36312 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbcEPNQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 09:16:45 -0400
+In-Reply-To: <87oa8ab3eo.fsf@kamboji.qca.qualcomm.com> (Kalle Valo's message
+	of "Fri, 13 May 2016 14:31:11 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2016 at 02:29:03PM +0200, Andrew Lunn wrote:
-> What i think is better is to make fixed_phy_add() return -EPROBE_DEFER
-> if it is called before fixed_mdio_bus_init().
+Hi Dave,
 
-I don't see how this will work for platforms such as ar7 and bcm47xx
-which call fixed_phy_add() from platform code.  There is no probe to
-retry there so while the EPROBE_DEFER will certainly fix the crash it
-will also leave the platforms without a phy.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Kalle Valo <kvalo@codeaurora.org> writes:
+
+> this is the last pull request to net-next for 4.7. Nothing really out of
+> ordinary, the signed tag below contains more info. Please let me know if
+> there are any issues.
+>
+> Kalle
+>
+>
+> The following changes since commit ede00a5ceb4d903a8c137a52bb77d574baaef8bd:
+>
+>   Merge tag 'wireless-drivers-next-for-davem-2016-05-02' of git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next (2016-05-03 00:35:16 -0400)
+>
+> are available in the git repository at:
+>
+>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git tags/wireless-drivers-next-for-davem-2016-05-13
+
+Please don't pull this yet, there might be something wrong now with
+merges and need to check that first.
+
+-- 
+Kalle Valo
