@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] Enable SW only or HW only offloads
- with u32 classifier
-Date: Mon, 16 May 2016 13:31:13 -0400 (EDT)
-Message-ID: <20160516.133113.2239373107740584921.davem@davemloft.net>
-References: <1463098103-2434-1-git-send-email-sridhar.samudrala@intel.com>
+Subject: Re: [PATCH net-next v4 0/4] xen-netback: support for control ring
+Date: Mon, 16 May 2016 13:36:11 -0400 (EDT)
+Message-ID: <20160516.133611.976787620871442054.davem@davemloft.net>
+References: <1463128649-20832-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: sridhar.samudrala@intel.com
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: paul.durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36540 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36649 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753485AbcEPRbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:31:15 -0400
-In-Reply-To: <1463098103-2434-1-git-send-email-sridhar.samudrala@intel.com>
+	with ESMTP id S1754356AbcEPRgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:36:14 -0400
+In-Reply-To: <1463128649-20832-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Date: Thu, 12 May 2016 17:08:21 -0700
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Fri, 13 May 2016 09:37:25 +0100
 
-> This set of patches export TCA_CLS_FLAGS_SKIP_HW to userspace and also
-> introduces another flag TCA_CLS_FLAGS_SKIP_SW. These flags enable offloading 
-> u32 filters to either SW or HW only.
+> My recent patch to import an up-to-date include/xen/interface/io/netif.h
+> from the Xen Project brought in the necessary definitions to support the
+> new control shared ring and protocol. This patch series updates xen-netback
+> to support the new ring.
 > 
-> The default semantics with no flags is to add the filter to HW if possible and
-> also into SW. 
-> With SKIP_HW flag, the filter is only added to SW.
-> With SKIP_SW flag, the filter is added to HW and an error is returned
-> to user on failure.
-> These flags are mutually exclusive.
-> There was an earlier discussion on these semantics in the following email
-> thread.
-> 	http://thread.gmane.org/gmane.linux.network/401733
+> Patch #1 adds the necessary boilerplate to map the control ring and handle
+> messages. No implementation of the new protocol is included in this patch
+> so that it can be kept to a reasonable size.
+> 
+> Patch #2 adds the protocol implementation.
+> 
+> Patch #3 adds support for passing has values calculated by xen-netback to
+> capable frontends.
+> 
+> Patch #4 adds support for accepting hash values calculated by capable
+> frontends and using them the set the socket buffer hash.
 
 Series applied, thanks.
