@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vrf: protect changes to private data
- with rcu
-Date: Mon, 16 May 2016 13:47:46 -0400 (EDT)
-Message-ID: <20160516.134746.1801114108978272123.davem@davemloft.net>
-References: <1463167425-20416-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
+Date: Mon, 16 May 2016 13:48:23 -0400 (EDT)
+Message-ID: <20160516.134823.1909596879203571371.davem@davemloft.net>
+References: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+	<8737plig1v.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36787 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754419AbcEPRrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:47:47 -0400
-In-Reply-To: <1463167425-20416-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	jiri@resnulli.us
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8737plig1v.fsf@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Fri, 13 May 2016 12:23:45 -0700
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 13 May 2016 21:28:28 -0400
 
-> One cpu can be processing packets which includes using the cached route
-> entries in the vrf device's private data and on another cpu the device
-> gets deleted which releases the routes and sets the pointers in net_vrf
-> to NULL. This results in datapath dereferencing a NULL pointer.
+> Hi David,
 > 
-> Fix by protecting access to dst's with rcu.
+> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
 > 
-> Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
-> Fixes: 35402e313663 ("net: Add IPv6 support to VRF device")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> Now that the bridge code defers the switchdev port state setting, there
+>> is no need to defer the port STP state change within the mv88e6xxx code.
+>> Thus get rid of the driver's bridge work code.
+>>
+>> This also fixes a race condition where the DSA layer assumes that the
+>> bridge code already set the unbridged port's STP state to Disabled
+>> before restoring the Forwarding state.
+>>
+>> As a consequence, this also fixes the FDB flush for the unbridged port
+>> which now correctly occurs during the Forwarding to Disabled transition.
+>>
+>> Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request attr_set as deferred")
+>> Reported-by: Andrew Lunn <andrew@lunn.ch>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> 
+> This patch doesn't apply to -net, only applies to net-next...
+> 
+> How should I handle that, do I resend a patch for net-next with the good
+> subject prefix, and a v2 for -net?
 
-Applied.
-
-> Dave: I can handle the backports to stable branches if you prefer.
-
-Sure, I'd really appreciate that.
+I applied this to net-next, thanks.
