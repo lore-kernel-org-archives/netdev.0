@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: minor optimizations around tcp_hdr()
- usage
-Date: Mon, 16 May 2016 13:47:20 -0400 (EDT)
-Message-ID: <20160516.134720.895829616600822039.davem@davemloft.net>
-References: <1463156200.23934.199.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] netlink: kill nla_put_u64()
+Date: Mon, 16 May 2016 13:47:04 -0400 (EDT)
+Message-ID: <20160516.134704.1454236893448895407.davem@davemloft.net>
+References: <1463145940-5932-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36783 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36779 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754267AbcEPRrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:47:21 -0400
-In-Reply-To: <1463156200.23934.199.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1754283AbcEPRrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:47:06 -0400
+In-Reply-To: <1463145940-5932-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 13 May 2016 09:16:40 -0700
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 13 May 2016 15:25:40 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> This function is not used anymore. nla_put_u64_64bit() should be used
+> instead.
 > 
-> tcp_hdr() is slightly more expensive than using skb->data in contexts
-> where we know they point to the same byte.
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
 > 
-> In receive path, tcp_v4_rcv() and tcp_v6_rcv() are in this situation,
-> as tcp header has not been pulled yet.
-> 
-> In output path, the same can be said when we just pushed the tcp header
-> in the skb, in tcp_transmit_skb() and tcp_make_synack()
-> 
-> Also factorize the two checks for tcb->tcp_flags & TCPHDR_SYN in
-> tcp_transmit_skb() and pass tcp header pointer to tcp_ecn_send(),
-> so that compiler can further optimize and avoid a reload.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> I'm asking myself if it's better to rename nla_put_u64_64bit() to
+> nla_put_u64(). Because there is a lot of users, the change will be
+> huge, so I tend to say no.
 
 Applied.
