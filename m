@@ -1,58 +1,34 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [v4.6-rc7-183-g1410b74e4061]
-Date: Mon, 16 May 2016 19:42:35 +0200
-Message-ID: <CA+icZUUJed6KqxhPKyrr_ACCfnp09T+R5S0J8-Bf6+1SJZvtoQ@mail.gmail.com>
-References: <CA+icZUXF9DkymNNGwP8zzmKY9PRAPGFZ+7p9En1xy80FcX_RRw@mail.gmail.com>
-	<20160516105045.GA19189@gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] sched,mlx5: Offloaded TC flower filter
+ statistics
+Date: Mon, 16 May 2016 13:44:08 -0400 (EDT)
+Message-ID: <20160516.134408.547753707515208595.davem@davemloft.net>
+References: <1463144142-13810-1-git-send-email-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160516105045.GA19189@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, saeedm@mellanox.com
+To: amir@vadai.me
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36742 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415AbcEPRoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:44:11 -0400
+In-Reply-To: <1463144142-13810-1-git-send-email-amir@vadai.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/16/16, Ingo Molnar <mingo@kernel.org> wrote:
->
-> * Sedat Dilek <sedat.dilek@gmail.com> wrote:
->
->> Hi,
->>
->> as Linux v4.6 is very near, I decided to write this bug report (only
->> drunk one coffee).
->>
->> First, I am not absolutely sure if this is a real issue as...
->> #1: This is only a (lockdep) warning.
->> #2: I have not a "vanilla" Linux v4.6-rc7+ here (see P.S. and attached
->> patch)
->
-> Having such a kernel base is certainly not helpful to the quality of your
-> report,
-> please try to reproduce under the vanilla kernel.
->
->> For a more helpful feedback I should test a...
->> #1: vanilla v4.6-rc7-183-g1410b74e4061
->
-> I'd suggest v4.6 plus this debug patch from Peter:
->
->   https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1142352.html
->
-> ... to see whether something fishy is going on.
->
-> Thanks,
->
+From: Amir Vadai <amir@vadai.me>
+Date: Fri, 13 May 2016 12:55:34 +0000
 
-Unfortunately, I could not reproduce this again with none of my 183-kernels.
-When I first hit a "chain_key collision" issue, it was hard to redproduce, so.
-Any idea, how I can "force" this?
+> This patchset introduces counters support for offloaded cls_flower filters.
+> When the user calls 'tc show -s ..', fl_dump is called.
+> Before fl_dump() returns the statistics, it calls the NIC driver (using a new
+> ndo_setup_tc() command - TC_CLSFLOWER_STATS) to read the hardware counters and
+> update the statistics accordingly. A new TC action op was added (stats_update())
+> to be used by the NIC driver to update the statistics.
+> 
+> Patchset was applied and tested over commit ed7cbbc ("udp: Resolve NULL pointer
+> dereference over flow-based vxlan device")
 
-- Sedat -
+Series applied, thanks.
