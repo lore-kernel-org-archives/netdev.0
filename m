@@ -1,182 +1,225 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v6 net-next 00/14] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
-Date: Mon, 16 May 2016 14:32:55 -0700
-Message-ID: <1463434389-314297-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH v6 net-next 05/14] net: Cleanup encap items in ip_tunnels.h
+Date: Mon, 16 May 2016 14:33:00 -0700
+Message-ID: <1463434389-314297-6-git-send-email-tom@herbertland.com>
+References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40293 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14907 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750777AbcEPVdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:20 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLJHPK028057
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:18 -0700
+	by vger.kernel.org with ESMTP id S1751540AbcEPVd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:29 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4GLSVTr013100
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:28 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 22wytvspfh-6
+	by m0001303.ppops.net with ESMTP id 22wypaw1c5-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:18 -0700
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:28 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.232.63) with ESMTP	id
- ccf3cabe1bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
- 16 May 2016 14:33:16 -0700
+ d29fe7221bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
+ 16 May 2016 14:33:26 -0700
+In-Reply-To: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set:
-  - Fixes GRE6 to process translate flags correctly from configuration
-  - Adds support for GSO and GRO for ip6ip6 and ip4ip6
-  - Add support for FOU and GUE in IPv6
-  - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
-  - Fixes ip6_input to deal with UDP encapsulations
-  - Some other minor fixes
+Consolidate all the ip_tunnel_encap definitions in one spot in the
+header file. Also, move ip_encap_hlen and ip_tunnel_encap from
+ip_tunnel.c to ip_tunnels.h so they call be called without a dependency
+on ip_tunnel module. Similarly, move iptun_encaps to ip_tunnel_core.c.
 
-v2:
-  - Removed a check of GSO types in MPLS
-  - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
-    from Alexander)
-  - Don't define GSO types specifically for IP6IP6 and IP4IP6, above
-    fix makes that unnecessary
-  - Don't bother clearing encapsulation flag in UDP tunnel segment
-    (another item suggested by Alexander).
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/net/ip_tunnels.h  | 76 ++++++++++++++++++++++++++++++++++++-----------
+ net/ipv4/ip_tunnel.c      | 45 ----------------------------
+ net/ipv4/ip_tunnel_core.c |  4 +++
+ 3 files changed, 62 insertions(+), 63 deletions(-)
 
-v3:
-  - Address some minor comments from Alexander
-
-v4:
-  - Rebase on changes to fix IP TX tunnels
-  - Fix MTU issues in ip4ip6, ip6ip6
-  - Add test data for above
-
-v5:
-  - Address feedback from Shmulik Ladkani regarding extension header
-    code that does not return next header but in instead relies
-    on returning value via nhoff. Solution here is to fix EH
-    processing to return nexthdr value.
-  - Refactored IPv4 encaps so that we won't need to create
-    a ip6_tunnel_core.c when adding encap support IPv6.
-
-v6:
-  - Fix build issues with regard to new GSO constants
-  - FIx MTU calculation issues ip6_tunnel.c pointed out byt ALex
-  - Add encap_hlen into headroom for GREv6 to work with FOU/GUE
-
-Tested:
-   Tested a variety of case, but not the full matrix (which is quite
-   large now). Most of the obvious cases (e.g. GRE) work fine. Still
-   some issues probably with GSO/GRO being effective in all cases.
-
-    - IPv4/GRE/GUE/IPv6 with RCO
-      1 TCP_STREAM
-      	6616 Mbps
-      200 TCP_RR
-	1244043 tps
-        141/243/446 90/95/99% latencies
-	86.61% CPU utilization
-
-    - IPv6/GRE/GUE/IPv6 with RCO
-      1 TCP_STREAM
-	6940 Mbps
-      200 TCP_RR
-	1270903 tps
-	138/236/440 90/95/99% latencies
-	87.51% CPU utilization
-
-     - IP6IP6
-      1 TCP_STREAM
-	2576 Mbps
-      200 TCP_RR
-	498981 tps
-	388/498/631 90/95/99% latencies
-	19.75% CPU utilization (1 CPU saturated)
-
-     - IP6IP6/GUE with RCO
-      1 TCP_STREAM
-	2031 Mbps
-      200 TCP_RR
-	1233818 tps
-	143/244/451 90/95/99% latencies
-	87.57 CPU utilization
-
-     - IP4IP6
-      1 TCP_STREAM
-	2371 Mbps
-      200 TCP_RR
-	763774 tps
-	250/318/466 90/95/99% latencies
-	35.25% CPU utilization (1 CPU saturated)
-
-     - IP4IP6/GUE with RCO
-      1 TCP_STREAM
-	2054 Mbps
-      200 TCP_RR
-	1196385 tps
-	148/251/460 90/95/99% latencies
-	87.56 CPU utilization
-
-     - GRE with keyid
-      200 TCP_RR
-	744173 tps
-	258/332/461 90/95/99% latencies
-	34.59% CPU utilization (1 CPU saturated)
-      
-
-Tom Herbert (14):
-  gso: Remove arbitrary checks for unsupported GSO
-  net: define gso types for IPx over IPv4 and IPv6
-  ipv6: Fix nexthdr for reinjection
-  ipv6: Change "final" protocol processing for encapsulation
-  net: Cleanup encap items in ip_tunnels.h
-  fou: Call setup_udp_tunnel_sock
-  fou: Split out {fou,gue}_build_header
-  fou: Support IPv6 in fou
-  ip6_tun: Add infrastructure for doing encapsulation
-  fou: Add encap ops for IPv6 tunnels
-  ip6_gre: Add support for fou/gue encapsulation
-  ip6_tunnel: Add support for fou/gue encapsulation
-  ip6ip6: Support for GSO/GRO
-  ip4ip6: Support for GSO/GRO
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   5 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c       |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c       |   3 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c   |   3 +-
- drivers/net/ethernet/intel/igb/igb_main.c         |   3 +-
- drivers/net/ethernet/intel/igbvf/netdev.c         |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   3 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   3 +-
- include/linux/netdev_features.h                   |  12 +-
- include/linux/netdevice.h                         |   4 +-
- include/linux/skbuff.h                            |   4 +-
- include/net/fou.h                                 |  10 +-
- include/net/inet_common.h                         |   5 +
- include/net/ip6_tunnel.h                          |  58 ++++++++
- include/net/ip_tunnels.h                          |  76 +++++++---
- net/core/ethtool.c                                |   4 +-
- net/ipv4/af_inet.c                                |  32 ++---
- net/ipv4/fou.c                                    | 144 +++++++++++--------
- net/ipv4/gre_offload.c                            |  14 --
- net/ipv4/ip_tunnel.c                              |  45 ------
- net/ipv4/ip_tunnel_core.c                         |   9 ++
- net/ipv4/ipip.c                                   |   2 +-
- net/ipv4/tcp_offload.c                            |  19 ---
- net/ipv4/udp_offload.c                            |  10 --
- net/ipv6/Makefile                                 |   1 +
- net/ipv6/fou6.c                                   | 140 +++++++++++++++++++
- net/ipv6/ip6_gre.c                                |  79 ++++++++++-
- net/ipv6/ip6_input.c                              |  33 ++++-
- net/ipv6/ip6_offload.c                            |  77 +++++++---
- net/ipv6/ip6_tunnel.c                             | 163 ++++++++++++++++++++--
- net/ipv6/sit.c                                    |   4 +-
- net/ipv6/udp_offload.c                            |  13 --
- net/mpls/mpls_gso.c                               |  11 +-
- net/netfilter/ipvs/ip_vs_xmit.c                   |  17 +--
- 36 files changed, 719 insertions(+), 301 deletions(-)
- create mode 100644 net/ipv6/fou6.c
-
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index d916b43..dbf4444 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -171,22 +171,6 @@ struct ip_tunnel_net {
+ 	struct ip_tunnel __rcu *collect_md_tun;
+ };
+ 
+-struct ip_tunnel_encap_ops {
+-	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
+-	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-			    u8 *protocol, struct flowi4 *fl4);
+-};
+-
+-#define MAX_IPTUN_ENCAP_OPS 8
+-
+-extern const struct ip_tunnel_encap_ops __rcu *
+-		iptun_encaps[MAX_IPTUN_ENCAP_OPS];
+-
+-int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *op,
+-			    unsigned int num);
+-int ip_tunnel_encap_del_ops(const struct ip_tunnel_encap_ops *op,
+-			    unsigned int num);
+-
+ static inline void ip_tunnel_key_init(struct ip_tunnel_key *key,
+ 				      __be32 saddr, __be32 daddr,
+ 				      u8 tos, u8 ttl, __be32 label,
+@@ -251,8 +235,6 @@ void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params, const u8 protocol);
+ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd);
+-int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
+-		    u8 *protocol, struct flowi4 *fl4);
+ int __ip_tunnel_change_mtu(struct net_device *dev, int new_mtu, bool strict);
+ int ip_tunnel_change_mtu(struct net_device *dev, int new_mtu);
+ 
+@@ -271,9 +253,67 @@ int ip_tunnel_changelink(struct net_device *dev, struct nlattr *tb[],
+ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p);
+ void ip_tunnel_setup(struct net_device *dev, int net_id);
++
++struct ip_tunnel_encap_ops {
++	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
++	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
++			    u8 *protocol, struct flowi4 *fl4);
++};
++
++#define MAX_IPTUN_ENCAP_OPS 8
++
++extern const struct ip_tunnel_encap_ops __rcu *
++		iptun_encaps[MAX_IPTUN_ENCAP_OPS];
++
++int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *op,
++			    unsigned int num);
++int ip_tunnel_encap_del_ops(const struct ip_tunnel_encap_ops *op,
++			    unsigned int num);
++
+ int ip_tunnel_encap_setup(struct ip_tunnel *t,
+ 			  struct ip_tunnel_encap *ipencap);
+ 
++static inline int ip_encap_hlen(struct ip_tunnel_encap *e)
++{
++	const struct ip_tunnel_encap_ops *ops;
++	int hlen = -EINVAL;
++
++	if (e->type == TUNNEL_ENCAP_NONE)
++		return 0;
++
++	if (e->type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
++
++	rcu_read_lock();
++	ops = rcu_dereference(iptun_encaps[e->type]);
++	if (likely(ops && ops->encap_hlen))
++		hlen = ops->encap_hlen(e);
++	rcu_read_unlock();
++
++	return hlen;
++}
++
++static inline int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++				  u8 *protocol, struct flowi4 *fl4)
++{
++	const struct ip_tunnel_encap_ops *ops;
++	int ret = -EINVAL;
++
++	if (t->encap.type == TUNNEL_ENCAP_NONE)
++		return 0;
++
++	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
++		return -EINVAL;
++
++	rcu_read_lock();
++	ops = rcu_dereference(iptun_encaps[t->encap.type]);
++	if (likely(ops && ops->build_header))
++		ret = ops->build_header(skb, &t->encap, protocol, fl4);
++	rcu_read_unlock();
++
++	return ret;
++}
++
+ /* Extract dsfield from inner protocol */
+ static inline u8 ip_tunnel_get_dsfield(const struct iphdr *iph,
+ 				       const struct sk_buff *skb)
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index a69ed94..d8f5e0a 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -443,29 +443,6 @@ drop:
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_rcv);
+ 
+-static int ip_encap_hlen(struct ip_tunnel_encap *e)
+-{
+-	const struct ip_tunnel_encap_ops *ops;
+-	int hlen = -EINVAL;
+-
+-	if (e->type == TUNNEL_ENCAP_NONE)
+-		return 0;
+-
+-	if (e->type >= MAX_IPTUN_ENCAP_OPS)
+-		return -EINVAL;
+-
+-	rcu_read_lock();
+-	ops = rcu_dereference(iptun_encaps[e->type]);
+-	if (likely(ops && ops->encap_hlen))
+-		hlen = ops->encap_hlen(e);
+-	rcu_read_unlock();
+-
+-	return hlen;
+-}
+-
+-const struct ip_tunnel_encap_ops __rcu *
+-		iptun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
+-
+ int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *ops,
+ 			    unsigned int num)
+ {
+@@ -519,28 +496,6 @@ int ip_tunnel_encap_setup(struct ip_tunnel *t,
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
+ 
+-int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
+-		    u8 *protocol, struct flowi4 *fl4)
+-{
+-	const struct ip_tunnel_encap_ops *ops;
+-	int ret = -EINVAL;
+-
+-	if (t->encap.type == TUNNEL_ENCAP_NONE)
+-		return 0;
+-
+-	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
+-		return -EINVAL;
+-
+-	rcu_read_lock();
+-	ops = rcu_dereference(iptun_encaps[t->encap.type]);
+-	if (likely(ops && ops->build_header))
+-		ret = ops->build_header(skb, &t->encap, protocol, fl4);
+-	rcu_read_unlock();
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL(ip_tunnel_encap);
+-
+ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ 			    struct rtable *rt, __be16 df,
+ 			    const struct iphdr *inner_iph)
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 9118b0e..cc66a20 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -47,6 +47,10 @@
+ #include <net/rtnetlink.h>
+ #include <net/dst_metadata.h>
+ 
++const struct ip_tunnel_encap_ops __rcu *
++		iptun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
++EXPORT_SYMBOL(iptun_encaps);
++
+ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 		   __be32 src, __be32 dst, __u8 proto,
+ 		   __u8 tos, __u8 ttl, __be16 df, bool xnet)
 -- 
 2.8.0.rc2
