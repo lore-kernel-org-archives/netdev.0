@@ -1,53 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] phy: add support for a reset-gpio specification
-Date: Mon, 16 May 2016 14:04:15 -0400 (EDT)
-Message-ID: <20160516.140415.1976709754133870798.davem@davemloft.net>
-References: <1463047233-18091-1-git-send-email-u.kleine-koenig@pengutronix.de>
-	<20160516.132307.165371654494650235.davem@davemloft.net>
-	<573A0388.2010002@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 00/10] BPF updates
+Date: Mon, 16 May 2016 20:07:36 +0200
+Message-ID: <573A0C68.40603@iogearbox.net>
+References: <cover.1463158442.git.daniel@iogearbox.net> <20160516.134959.1324414574261810210.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, afd-l0cyMroinI0@public.gmane.org,
-	nm-l0cyMroinI0@public.gmane.org
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <573A0388.2010002-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
+	zlim.lnx@gmail.com, yang.shi@linaro.org,
+	holzheu@linux.vnet.ibm.com, tgraf@suug.ch, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:45036 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbcEPSHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:07:44 -0400
+In-Reply-To: <20160516.134959.1324414574261810210.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 16 May 2016 10:29:44 -0700
+On 05/16/2016 07:49 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Fri, 13 May 2016 19:08:25 +0200
+>
+>> This set implements constant blinding for BPF, first couple of
+>> patches are some preparatory cleanups, followed by the blinding.
+>> Please see individual patches for details.
+>
+> Looks good, series applied.
 
-> On 05/16/2016 10:23 AM, David Miller wrote:
->> From: Uwe Kleine-K=F6nig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->> Date: Thu, 12 May 2016 12:00:33 +0200
->>=20
->>> The framework only asserts (for now) that the reset gpio is not act=
-ive.
->>>
->>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->>=20
->> Applied.
->=20
-> Humm that was a little too quick IMHO, there are two concurrent patch=
-es
-> adressing the same problem right now, and Uwe's patch relies on a
-> specific "quirk" of specifying the Ethernet PHY's full OUI in the Dev=
-ice
-> Tree compatible string, while Sergei's approach does not require that=
-=2E..
-> AFAICT, the binding portion of the patch was also still being discuss=
-ed.
->=20
-> I guess we will have to submit incremental patches now.
+Thanks!
 
-Sorry, I thought this one had been resolved. :-/
+> "BPF blinding" would have been a good Subject line. :)
 
-There is still a lot of time to correct this, don't worry.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Right, I'll get rid of this subject habit on my cover letters
+in future.
+
+Thanks,
+Daniel
