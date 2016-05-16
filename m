@@ -1,72 +1,62 @@
-From: ethan zhao <ethan.zhao@oracle.com>
-Subject: Re: [PATCH] ixgbe: take online CPU number as MQ max limit when
- alloc_etherdev_mq()
-Date: Mon, 16 May 2016 13:38:53 +0800
-Message-ID: <57395CED.1090200@oracle.com>
-References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
- <c7bd9abf-55c0-f0d6-5cb2-45fbd6358d18@cogentembedded.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf-next] netfilter: allow logging from non-init
+	namespaces
+Date: Mon, 16 May 2016 08:43:16 +0200
+Message-ID: <20160516064316.GA6455@unicorn.suse.cz>
+References: <20160428074838.0BBB5A0C94@unicorn.suse.cz>
+	<20160512095726.GA1975@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, ethan.kernel@gmail.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c7bd9abf-55c0-f0d6-5cb2-45fbd6358d18@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bridge@lists.linux-foundation.org, Jonathan Corbet <corbet@lwn.net>,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20160512095726.GA1975@salvia>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for your reviewing.
+On Thu, May 12, 2016 at 11:57:26AM +0200, Pablo Neira Ayuso wrote:
+> Hi Michal,
+> 
+> On Wed, Apr 27, 2016 at 02:48:02PM +0200, Michal Kubecek wrote:
+> > Commit 69b34fb996b2 ("netfilter: xt_LOG: add net namespace support for
+> > xt_LOG") disabled logging packets using the LOG target from non-init
+> > namespaces. The motivation was to prevent containers from flooding
+> > kernel log of the host. The plan was to keep it that way until syslog
+> > namespace implementation allows containers to log in a safe way.
+> > 
+> > However, the work on syslog namespace seems to have hit a dead end
+> > somewhere in 2013 and there are users who want to use xt_LOG in all
+> > network namespaces. This patch allows to do so by setting
+> 
+> I understand this stuff is tricky. Did you contact already namespace
+> folks to see if they plan any move on this?
 
-Ethan
+Not yet. I'll contact the people involved in the discussion about the
+serires submitted in 2013 to check what their plans are (and if there
+are any).
 
-On 2016/5/13 20:52, Sergei Shtylyov wrote:
-> Hello.
->
-> On 5/13/2016 8:56 AM, Ethan Zhao wrote:
->
->> Allocating 64 Tx/Rx as default doesn't benefit perfomrnace when less
->
->    Performance.
->
->> CPUs were assigned. especially when DCB is enabled, so we should take
->> num_online_cpus() as top limit, and aslo to make sure every TC has
->
->    Also.
->
->> at least one queue, take the MAX_TRAFFIC_CLASS as bottom limit of queues
->> number.
->>
->> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++++
->>  1 file changed, 4 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c 
->> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 7df3fe2..1f9769c 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -9105,6 +9105,10 @@ static int ixgbe_probe(struct pci_dev *pdev, 
->> const struct pci_device_id *ent)
->>          indices = IXGBE_MAX_RSS_INDICES;
->>  #endif
->>      }
->> +    /* Don't allocate too more queues than online cpus number */
->
->    "Too" not needed here. CPUs.
->
->> +    indices = min_t(int, indices, num_online_cpus());
->> +    /* To make sure TC works, allocate at least 1 queue per TC */
->> +    indices = max_t(int, indices, MAX_TRAFFIC_CLASS);
->>
->>      netdev = alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indices);
->>      if (!netdev) {
->
-> MBR, Sergei
->
->
+> >   /proc/sys/net/netfilter/nf_log_all_netns
+> 
+> My only concern with this is that I don't see how users know what log
+> message has triggered from what container.
+
+IMHO this is a more generic issue with containers: there is no (known to
+me) link between userspace "containers" and kernel namespaces that could
+be used in kernel log messages. In this case, --log-prefix can be used
+in netfilter logging rules to identify the container messages belong to.
+
+                                                          Michal Kubecek
