@@ -1,74 +1,74 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v5 net-next 09/14] ip6_tun: Add infrastructure for doing encapsulation
-Date: Mon, 16 May 2016 12:28:52 -0700
-Message-ID: <CALx6S35_EykxGm-S83cuCZFp6yaesqbLWgTxKQfdNr2WfBP8Ag@mail.gmail.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	<1463355755-3481375-10-git-send-email-tom@herbertland.com>
-	<CAKgT0UfyVkdYMDAwNcycR4pnW-7GTeu4a-oiCnnXn6oOQt3nUw@mail.gmail.com>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: i40e: Errors while turning off TSO
+Date: Mon, 16 May 2016 12:34:33 -0700
+Message-ID: <573A20C9.90803@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: intel-wired-lan@lists.osuosl.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	netdev <netdev@vger.kernel.org>, carolyn.wyborny@intel.com,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	mitch.a.williams@intel.com,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:34872 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754474AbcEPT2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 15:28:53 -0400
-Received: by mail-ig0-f175.google.com with SMTP id bi2so60375237igb.0
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 12:28:53 -0700 (PDT)
-In-Reply-To: <CAKgT0UfyVkdYMDAwNcycR4pnW-7GTeu4a-oiCnnXn6oOQt3nUw@mail.gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:37228 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754651AbcEPTel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 15:34:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2016 at 12:24 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Sun, May 15, 2016 at 4:42 PM, Tom Herbert <tom@herbertland.com> wrote:
->> Add encap_hlen and ip_tunnel_encap structure to ip6_tnl. Add functions
->> for getting encap hlen, setting up encap on a tunnel, performing
->> encapsulation operation.
->>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
->> ---
->>  include/net/ip6_tunnel.h  | 58 ++++++++++++++++++++++++++++++
->>  net/ipv4/ip_tunnel_core.c |  5 +++
->>  net/ipv6/ip6_tunnel.c     | 89 +++++++++++++++++++++++++++++++++++++++++------
->>  3 files changed, 141 insertions(+), 11 deletions(-)
->
-> So a bisect is pointing to this patch as causing a regression in IPv6
-> GRE throughput from 20 Gb/s to .04 Mb/s
->
-> <...>
->
->> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
->> index e79330f..9f0ea85 100644
->> --- a/net/ipv6/ip6_tunnel.c
->> +++ b/net/ipv6/ip6_tunnel.c
->> @@ -1010,7 +1010,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
->>         struct dst_entry *dst = NULL, *ndst = NULL;
->>         struct net_device *tdev;
->>         int mtu;
->> -       unsigned int max_headroom = sizeof(struct ipv6hdr);
->> +       unsigned int max_headroom = sizeof(struct ipv6hdr) + t->hlen;
->>         int err = -1;
->>
->>         /* NBMA tunnel */
->> @@ -1063,7 +1063,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
->>                                      t->parms.name);
->>                 goto tx_err_dst_release;
->>         }
->> -       mtu = dst_mtu(dst) - sizeof(*ipv6h);
->> +       mtu = dst_mtu(dst) - sizeof(*ipv6h) - t->hlen;
->>         if (encap_limit >= 0) {
->>                 max_headroom += 8;
->>                 mtu -= 8;
->
-> So I am pretty sure this bit here is causing the regression.  Your skb
-> already has a GRE header added and it is included in skb->len.  In the
-> tests just below here you are comparing skb->len to mtu, but you now
-> have the GRE header included twice so it is going to fail.  Odds are
-> this should be t->encap_hlen, and not t->hlen.
->
-Good catch! Fixing now...
+On systems with 128 CPUs, turning off TSO results in errors.
 
-> - Alex
+Errors:
+i40e 0000:03:00.0: failed to get tracking for 1 vectors for VSI 400, err=-12
+i40e 0000:03:00.0: Couldn't create FDir VSI
+i40e 0000:03:00.0: i40e_ptp_init: PTP not supported on eth0
+i40e 0000:03:00.0: couldn't add VEB, err I40E_ERR_ADMIN_QUEUE_ERROR
+aq_err I40E_AQ_RC_ENOENT
+i40e 0000:03:00.0: rebuild of switch failed: -1, will try to set up
+simple PF connection
+i40e 0000:03:00.0 eth0: adding 00:10:e0:8a:24:b6 vid=0
+
+
+ From kernel log:
+i40e: Intel(R) Ethernet Connection XL710 Network Driver - version 1.4.8-k
+i40e: Copyright (c) 2013 - 2014 Intel Corporation.
+i40e 0000:03:00.0: fw 4.40.35115 api 1.4 nvm 4.53 0x80001e8c 0.0.0
+i40e 0000:03:00.0: MAC address: 00:10:e0:8a:24:b6
+i40e 0000:03:00.0: i40e_ptp_init: PTP not supported on eth0
+i40e 0000:03:00.0: PCI-Express: Speed 8.0GT/s Width x8
+i40e 0000:03:00.0: Features: PF-id[0] VFs: 32 VSIs: 34 QP: 128 RX: 1BUF
+RSS FD_ATR VxLAN VEPA
+
+As per the log above, feature FD_SB (sideband flow director)) is not
+enabled. Because there are no enough MSI-X vectors available.
+(Device function caps report 129 MSI-X vectors in this case. And driver
+reserved 1 of them for misc interrupt and rest 128 for 128 QP. So no
+vector left for FD_SB. Therefore driver disables FD_SB)
+
+However turning off TSO invokes i40e_set_ntuple()
+that enables FD_SB and returns true, issues reset in i40e_set_features()
+i.e i40e_do_reset.
+
+Later during reset, driver fails to find irq for FD_SB from irq pile
+(and it won't because there was no irq vector assigned for FD_SB).
+This results in the very first error,
+'i40e 0000:03:00.0: failed to get tracking for 1 vectors for VSI 400,
+err=-12'
+
+I believe before enabling FD_SB in i40e_set_ntuple(), driver should
+check if MSI-X vector available for FD_SB.
+
+Sending patch in separate email.
+
+(FWIW, if number of CPUs reduced to 64, I don't see the issue
+described above because in that case out of 129 MSI-X vectors only
+64 get assigned to QP. Remaining are used for features like FD_SB)
+
+-Tushar
