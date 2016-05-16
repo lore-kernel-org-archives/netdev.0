@@ -1,80 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: use-after-free in netlink_dump
-Date: Mon, 16 May 2016 17:28:16 +0800
-Message-ID: <20160516092816.GA2331@gondor.apana.org.au>
-References: <573894B3.8030009@gmail.com>
- <CAM_iQpV90MKyP2X32yatwktO9Yk-CSb32Oaa+VpdU8e_k8m-yQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH -next v2 3/4] net: w5100: increase TX timeout period
+Date: Mon, 16 May 2016 09:33:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4BF7F1@AcuExch.aculab.com>
+References: <1463205350-7089-1-git-send-email-akinobu.mita@gmail.com>
+ <1463205350-7089-4-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baozeng Ding <sploving1@gmail.com>,
-	David Miller <davem@davemloft.net>, chamaken@gmail.com,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	fuzzyer0@gmail.com, Pravin B Shelar <pshelar@nicira.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Mike Sinkovsky <msink@permonline.ru>,
+	"David S . Miller" <davem@davemloft.net>
+To: 'Akinobu Mita' <akinobu.mita@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:53102 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753551AbcEPJ2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 05:28:34 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpV90MKyP2X32yatwktO9Yk-CSb32Oaa+VpdU8e_k8m-yQ@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.191]:50886 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753246AbcEPJfA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 05:35:00 -0400
+In-Reply-To: <1463205350-7089-4-git-send-email-akinobu.mita@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 15, 2016 at 12:06:46PM -0700, Cong Wang wrote:
->
-> Similar to what Richard reported, I think the problem is cb->skb,
-> which is exposed to other thread since cb is per netlink socket
-> (cb = &nlk->cb). IOW, the cb->skb is freed by one thread at the
-> end of netlink_dump() meanwhile the other thread is still using
-> it via NETLINK_CB(cb->skb).portid.
+From: netdev-owner@vger.kernel.org Akinobu Mita
+> Sent: 14 May 2016 06:56
+> This increases TX timeout period from one second to 5 seconds which is
+> the default value if the driver doesn't explicitly set
+> net_device->watchdog_timeo.
+> 
+> The one second timeout is too short for W5100 with SPI interface mode
+> which doesn't support burst READ/WRITE processing in the SPI transfer.
+> If the packet is transmitted while RX packets are being received at a
+> very high rate, the TX transmittion work in the workqueue is delayed
+> and the watchdog timer is expired.
 
-You're on the right track.  I think what's happening is that the
-second thread is starting a new dump and the first thread ends up
-freeing the skb of the new dump and leaking the old skb.
+ISTM that if RX traffic can cause a 1 second timeout to expire I can
+see no reason why it shouldn't also cause a 5 second timer to expire.
 
----8<---
-Subject: netlink: Fix dump skb leak/double free
+I'm guessing that something needs to be done to cause the SPI
+block to discard receive frames (I guess the hardware will be discarding
+them as well) in order to allow frames to be transmitted.
 
-When we free cb->skb after a dump, we do it after releasing the
-lock.  This means that a new dump could have started in the time
-being and we'll end up freeing their skb instead of ours.
+Given the 'damp string' nature of SPI, you might even want to give
+transmits priority over receives.
 
-This patch saves the skb and module before we unlock so we free
-the right memory.
-
-Fixes: 16b304f3404f ("netlink: Eliminate kmalloc in netlink dump operation.")
-Reported-by: Baozeng Ding <sploving1@gmail.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 215fc08..f8b50c1 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2059,6 +2059,7 @@ static int netlink_dump(struct sock *sk)
- 	struct netlink_callback *cb;
- 	struct sk_buff *skb = NULL;
- 	struct nlmsghdr *nlh;
-+	struct module *module;
- 	int len, err = -ENOBUFS;
- 	int alloc_min_size;
- 	int alloc_size;
-@@ -2134,9 +2135,11 @@ static int netlink_dump(struct sock *sk)
- 		cb->done(cb);
- 
- 	nlk->cb_running = false;
-+	module = cb->module;
-+	skb = cb->skb;
- 	mutex_unlock(nlk->cb_mutex);
--	module_put(cb->module);
--	consume_skb(cb->skb);
-+	module_put(module);
-+	consume_skb(skb);
- 	return 0;
- 
- errout_skb:
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	David
