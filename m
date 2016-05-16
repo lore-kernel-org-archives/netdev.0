@@ -1,112 +1,183 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v6 net-next 13/14] ip6ip6: Support for GSO/GRO
-Date: Mon, 16 May 2016 14:33:08 -0700
-Message-ID: <1463434389-314297-14-git-send-email-tom@herbertland.com>
+Subject: [PATCH v6 net-next 08/14] fou: Support IPv6 in fou
+Date: Mon, 16 May 2016 14:33:03 -0700
+Message-ID: <1463434389-314297-9-git-send-email-tom@herbertland.com>
 References: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:17667 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751745AbcEPVdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:38 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4GLVjal007047
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:37 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48530 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751712AbcEPVdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 17:33:33 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4GLSV8r013103
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:32 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22ynaygbyg-1
+	by m0001303.ppops.net with ESMTP id 22wypaw1cc-1
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:37 -0700
+	for <netdev@vger.kernel.org>; Mon, 16 May 2016 14:33:32 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.232.63) with ESMTP	id
- d8f1f7781bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
- 16 May 2016 14:33:36 -0700
+ d4febdd61bad11e6b3ae0002c992ebde-8f5f6c50 for <netdev@vger.kernel.org>;	Mon,
+ 16 May 2016 14:33:30 -0700
 In-Reply-To: <1463434389-314297-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds receive path support for IPv6 with fou.
+
+- Add address family to fou structure for open sockets. This supports
+  AF_INET and AF_INET6. Lookups for fou ports are performed on both the
+  port number and family.
+- In fou and gue receive adjust tot_len in IPv4 header or payload_len
+  based on address family.
+- Allow AF_INET6 in FOU_ATTR_AF netlink attribute.
+
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv6/ip6_offload.c | 24 +++++++++++++++++++++---
- net/ipv6/ip6_tunnel.c  |  3 +++
- 2 files changed, 24 insertions(+), 3 deletions(-)
+ net/ipv4/fou.c | 47 +++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 35 insertions(+), 12 deletions(-)
 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 787e55f..332d6a0 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -253,9 +253,11 @@ out:
- 	return pp;
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index f4f2ddd..5f9207c 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -21,6 +21,7 @@ struct fou {
+ 	u8 protocol;
+ 	u8 flags;
+ 	__be16 port;
++	u8 family;
+ 	u16 type;
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+@@ -47,14 +48,17 @@ static inline struct fou *fou_from_sock(struct sock *sk)
+ 	return sk->sk_user_data;
  }
  
--static struct sk_buff **sit_gro_receive(struct sk_buff **head,
--					struct sk_buff *skb)
-+static struct sk_buff **sit_ip6ip6_gro_receive(struct sk_buff **head,
-+					       struct sk_buff *skb)
+-static int fou_recv_pull(struct sk_buff *skb, size_t len)
++static int fou_recv_pull(struct sk_buff *skb, struct fou *fou, size_t len)
  {
-+	/* Common GRO receive for SIT and IP6IP6 */
+-	struct iphdr *iph = ip_hdr(skb);
+-
+ 	/* Remove 'len' bytes from the packet (UDP header and
+ 	 * FOU header if present).
+ 	 */
+-	iph->tot_len = htons(ntohs(iph->tot_len) - len);
++	if (fou->family == AF_INET)
++		ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
++	else
++		ipv6_hdr(skb)->payload_len =
++		    htons(ntohs(ipv6_hdr(skb)->payload_len) - len);
 +
- 	if (NAPI_GRO_CB(skb)->encap_mark) {
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
-@@ -298,6 +300,13 @@ static int sit_gro_complete(struct sk_buff *skb, int nhoff)
- 	return ipv6_gro_complete(skb, nhoff);
- }
+ 	__skb_pull(skb, len);
+ 	skb_postpull_rcsum(skb, udp_hdr(skb), len);
+ 	skb_reset_transport_header(skb);
+@@ -68,7 +72,7 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (!fou)
+ 		return 1;
  
-+static int ip6ip6_gro_complete(struct sk_buff *skb, int nhoff)
-+{
-+	skb->encapsulation = 1;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP6;
-+	return ipv6_gro_complete(skb, nhoff);
-+}
-+
- static struct packet_offload ipv6_packet_offload __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_IPV6),
- 	.callbacks = {
-@@ -310,11 +319,19 @@ static struct packet_offload ipv6_packet_offload __read_mostly = {
- static const struct net_offload sit_offload = {
- 	.callbacks = {
- 		.gso_segment	= ipv6_gso_segment,
--		.gro_receive    = sit_gro_receive,
-+		.gro_receive    = sit_ip6ip6_gro_receive,
- 		.gro_complete   = sit_gro_complete,
- 	},
- };
+-	if (fou_recv_pull(skb, sizeof(struct udphdr)))
++	if (fou_recv_pull(skb, fou, sizeof(struct udphdr)))
+ 		goto drop;
  
-+static const struct net_offload ip6ip6_offload = {
-+	.callbacks = {
-+		.gso_segment	= ipv6_gso_segment,
-+		.gro_receive    = sit_ip6ip6_gro_receive,
-+		.gro_complete   = ip6ip6_gro_complete,
-+	},
-+};
-+
- static int __init ipv6_offload_init(void)
+ 	return -fou->protocol;
+@@ -141,7 +145,11 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	hdrlen = sizeof(struct guehdr) + optlen;
+ 
+-	ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
++	if (fou->family == AF_INET)
++		ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
++	else
++		ipv6_hdr(skb)->payload_len =
++		    htons(ntohs(ipv6_hdr(skb)->payload_len) - len);
+ 
+ 	/* Pull csum through the guehdr now . This can be used if
+ 	 * there is a remote checksum offload.
+@@ -426,7 +434,8 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou)
+ 
+ 	mutex_lock(&fn->fou_lock);
+ 	list_for_each_entry(fout, &fn->fou_list, list) {
+-		if (fou->port == fout->port) {
++		if (fou->port == fout->port &&
++		    fou->family == fout->family) {
+ 			mutex_unlock(&fn->fou_lock);
+ 			return -EALREADY;
+ 		}
+@@ -471,8 +480,9 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 
+ 	sk = sock->sk;
+ 
+-	fou->flags = cfg->flags;
+ 	fou->port = cfg->udp_config.local_udp_port;
++	fou->family = cfg->udp_config.family;
++	fou->flags = cfg->flags;
+ 	fou->type = cfg->type;
+ 	fou->sock = sock;
+ 
+@@ -524,12 +534,13 @@ static int fou_destroy(struct net *net, struct fou_cfg *cfg)
  {
+ 	struct fou_net *fn = net_generic(net, fou_net_id);
+ 	__be16 port = cfg->udp_config.local_udp_port;
++	u8 family = cfg->udp_config.family;
+ 	int err = -EINVAL;
+ 	struct fou *fou;
  
-@@ -326,6 +343,7 @@ static int __init ipv6_offload_init(void)
- 	dev_add_offload(&ipv6_packet_offload);
+ 	mutex_lock(&fn->fou_lock);
+ 	list_for_each_entry(fou, &fn->fou_list, list) {
+-		if (fou->port == port) {
++		if (fou->port == port && fou->family == family) {
+ 			fou_release(fou);
+ 			err = 0;
+ 			break;
+@@ -567,8 +578,15 @@ static int parse_nl_config(struct genl_info *info,
+ 	if (info->attrs[FOU_ATTR_AF]) {
+ 		u8 family = nla_get_u8(info->attrs[FOU_ATTR_AF]);
  
- 	inet_add_offload(&sit_offload, IPPROTO_IPV6);
-+	inet6_add_offload(&ip6ip6_offload, IPPROTO_IPV6);
+-		if (family != AF_INET)
+-			return -EINVAL;
++		switch (family) {
++		case AF_INET:
++			break;
++		case AF_INET6:
++			cfg->udp_config.ipv6_v6only = 1;
++			break;
++		default:
++			return -EAFNOSUPPORT;
++		}
  
- 	return 0;
- }
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 8076c7a..d205f17 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1238,6 +1238,9 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
- 		fl6.flowi6_mark = skb->mark;
+ 		cfg->udp_config.family = family;
+ 	}
+@@ -659,6 +677,7 @@ static int fou_nl_cmd_get_port(struct sk_buff *skb, struct genl_info *info)
+ 	struct fou_cfg cfg;
+ 	struct fou *fout;
+ 	__be16 port;
++	u8 family;
+ 	int ret;
  
-+	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
-+		return -1;
+ 	ret = parse_nl_config(info, &cfg);
+@@ -668,6 +687,10 @@ static int fou_nl_cmd_get_port(struct sk_buff *skb, struct genl_info *info)
+ 	if (port == 0)
+ 		return -EINVAL;
+ 
++	family = cfg.udp_config.family;
++	if (family != AF_INET && family != AF_INET6)
++		return -EINVAL;
 +
- 	err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
- 			   IPPROTO_IPV6);
- 	if (err != 0) {
+ 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return -ENOMEM;
+@@ -675,7 +698,7 @@ static int fou_nl_cmd_get_port(struct sk_buff *skb, struct genl_info *info)
+ 	ret = -ESRCH;
+ 	mutex_lock(&fn->fou_lock);
+ 	list_for_each_entry(fout, &fn->fou_list, list) {
+-		if (port == fout->port) {
++		if (port == fout->port && family == fout->family) {
+ 			ret = fou_dump_info(fout, info->snd_portid,
+ 					    info->snd_seq, 0, msg,
+ 					    info->genlhdr->cmd);
 -- 
 2.8.0.rc2
