@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sock: propagate __sock_cmsg_send() error
-Date: Mon, 16 May 2016 13:46:57 -0400 (EDT)
-Message-ID: <20160516.134657.356847091980945795.davem@davemloft.net>
-References: <1463114830-32751-1-git-send-email-soheil.kdev@gmail.com>
-	<1463145277.23934.186.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] tcp: minor optimizations around tcp_hdr()
+ usage
+Date: Mon, 16 May 2016 13:47:20 -0400 (EDT)
+Message-ID: <20160516.134720.895829616600822039.davem@davemloft.net>
+References: <1463156200.23934.199.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: soheil.kdev@gmail.com, netdev@vger.kernel.org, edumazet@google.com,
-	maze@google.com, willemb@google.com, soheil@google.com
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36776 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36783 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754346AbcEPRrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:47:01 -0400
-In-Reply-To: <1463145277.23934.186.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1754267AbcEPRrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 13:47:21 -0400
+In-Reply-To: <1463156200.23934.199.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 13 May 2016 06:14:37 -0700
+Date: Fri, 13 May 2016 09:16:40 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> __sock_cmsg_send() might return different error codes, not only -EINVAL.
+> tcp_hdr() is slightly more expensive than using skb->data in contexts
+> where we know they point to the same byte.
 > 
-> Fixes: 24025c465f77 ("ipv4: process socket-level control messages in IPv4")
-> Fixes: ad1e46a83716 ("ipv6: process socket-level control messages in IPv6")
+> In receive path, tcp_v4_rcv() and tcp_v6_rcv() are in this situation,
+> as tcp header has not been pulled yet.
+> 
+> In output path, the same can be said when we just pushed the tcp header
+> in the skb, in tcp_transmit_skb() and tcp_make_synack()
+> 
+> Also factorize the two checks for tcb->tcp_flags & TCPHDR_SYN in
+> tcp_transmit_skb() and pass tcp header pointer to tcp_ecn_send(),
+> so that compiler can further optimize and avoid a reload.
+> 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil@google.com>
 
 Applied.
