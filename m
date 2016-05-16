@@ -1,42 +1,85 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [v4.6-rc7-183-g1410b74e4061]
-Date: Mon, 16 May 2016 19:57:35 +0200
-Message-ID: <20160516175735.GS3193@twins.programming.kicks-ass.net>
-References: <CA+icZUXF9DkymNNGwP8zzmKY9PRAPGFZ+7p9En1xy80FcX_RRw@mail.gmail.com>
- <20160516105045.GA19189@gmail.com>
- <CA+icZUUJed6KqxhPKyrr_ACCfnp09T+R5S0J8-Bf6+1SJZvtoQ@mail.gmail.com>
+From: Alexander Graf <agraf@suse.de>
+Subject: Re: [PATCH] phy dp83867: depend on CONFIG_OF_MDIO
+Date: Mon, 16 May 2016 19:57:59 +0200
+Message-ID: <202f4843-bf2f-8131-cea8-923ba3766fc3@suse.de>
+References: <1463398095-123269-1-git-send-email-agraf@suse.de>
+ <5739CD4C.7020208@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>, David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Sedat Dilek <sedat.dilek@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, michal.simek@xilinx.com
+To: Dan Murphy <dmurphy@ti.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+icZUUJed6KqxhPKyrr_ACCfnp09T+R5S0J8-Bf6+1SJZvtoQ@mail.gmail.com>
+In-Reply-To: <5739CD4C.7020208@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2016 at 07:42:35PM +0200, Sedat Dilek wrote:
+Hi Dan,
 
-> Unfortunately, I could not reproduce this again with none of my 183-kernels.
-> When I first hit a "chain_key collision" issue, it was hard to redproduce, so.
-> Any idea, how I can "force" this?
+On 16.05.16 15:38, Dan Murphy wrote:
+> Alexander
+> 
+> On 05/16/2016 06:28 AM, Alexander Graf wrote:
+>> The DP83867 phy driver doesn't actually work when CONFIG_OF_MDIO isn't enabled.
+>> It simply passes the device tree test, but leaves all internal configuration
+>> initialized at 0. Then it configures the phy with those values and renders a
+>> previously working configuration useless.
+>>
+>> This patch makes sure that we only build the DP83867 phy code when
+>> CONFIG_OF_MDIO is set, to not run into that problem.
+>>
+>> Signed-off-by: Alexander Graf <agraf@suse.de>
+>> ---
+>>  drivers/net/phy/Kconfig   | 1 +
+>>  drivers/net/phy/dp83867.c | 7 -------
+>>  2 files changed, 1 insertion(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+>> index 6dad9a9..4265ad5 100644
+>> --- a/drivers/net/phy/Kconfig
+>> +++ b/drivers/net/phy/Kconfig
+>> @@ -148,6 +148,7 @@ config DP83848_PHY
+>>  
+>>  config DP83867_PHY
+>>  	tristate "Drivers for Texas Instruments DP83867 Gigabit PHY"
+>> +	depends on OF_MDIO
+>>  	---help---
+>>  	  Currently supports the DP83867 PHY.
+>>  
+>> diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+>> index 2afa61b..ff867ba 100644
+>> --- a/drivers/net/phy/dp83867.c
+>> +++ b/drivers/net/phy/dp83867.c
+>> @@ -99,7 +99,6 @@ static int dp83867_config_intr(struct phy_device *phydev)
+>>  	return phy_write(phydev, MII_DP83867_MICR, micr_status);
+>>  }
+>>  
+>> -#ifdef CONFIG_OF_MDIO
+>>  static int dp83867_of_init(struct phy_device *phydev)
+>>  {
+>>  	struct dp83867_private *dp83867 = phydev->priv;
+>> @@ -123,12 +122,6 @@ static int dp83867_of_init(struct phy_device *phydev)
+>>  	return of_property_read_u32(of_node, "ti,fifo-depth",
+>>  				   &dp83867->fifo_depth);
+>>  }
+>> -#else
+>> -static int dp83867_of_init(struct phy_device *phydev)
+>> -{
+>> -	return 0;
+>> -}
+>> -#endif /* CONFIG_OF_MDIO */
+>>  
+>>  static int dp83867_config_init(struct phy_device *phydev)
+>>  {
+> I don't think we want this to depend solely on OF_MDIO.
+> 
+> The #else case should probably be coded to look at platform data, if
+> it exists.  I don't have any boards that still used platform data to test this
+> out so I did not feel comfortable adding code I could not test.
 
-Nope; I wish I knew, that'd be so much easier to work with :/
+Since there was no code to look at platform data, those boards would be
+broken just as well today, no? So at the end of the day, this change
+should be no regression for them.
 
-I'm hoping someone will report a reproducer, even something that
-triggers once every 5-10 runs would be awesome.
 
-In any case, like I've explained before, nothing regressed as such, we
-only added this new warning under DEBUG_LOCKDEP because we want to
-better understand the condition that triggers it.
-
-If it bothers you, just turn off DEBUG_LOCKDEP and know that your kernel
-is as reliable as it was before. OTOH, if you do keep it on, please
-let me know if you can (semi) reliably trigger this, as I'd really like
-to have a better understanding.
+Alex
