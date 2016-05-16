@@ -1,87 +1,64 @@
-From: Dan Murphy <dmurphy@ti.com>
-Subject: Re: [PATCH] phy dp83867: depend on CONFIG_OF_MDIO
-Date: Mon, 16 May 2016 08:38:20 -0500
-Message-ID: <5739CD4C.7020208@ti.com>
-References: <1463398095-123269-1-git-send-email-agraf@suse.de>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [RFC PATCH 0/2] net: threadable napi poll loop
+Date: Mon, 16 May 2016 06:38:52 -0700
+Message-ID: <CANn89iLph4R=YYqNJfZ8AudOueWD+gyoOxxc098bFv0=5L-X3A@mail.gmail.com>
+References: <cover.1462886866.git.pabeni@redhat.com>
+	<1462890590.23934.68.camel@edumazet-glaptop3.roam.corp.google.com>
+	<90f3db8c-c30c-b204-576a-454939ac93ce@stressinduktion.org>
+	<CANn89i+YKrVOgfFwW-2psfCzq5_YLdmbV06-H-1FCOwXdMBuzQ@mail.gmail.com>
+	<94f323a9-515e-4d75-cac8-ef0214f0499e@stressinduktion.org>
+	<1462920697.23934.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160511065527.GD3193@twins.programming.kicks-ass.net>
+	<1463003804.23934.154.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1463158203.11721.25.camel@redhat.com>
+	<CANn89iLxx-K6XDgU=c+6S1ExtSoCqQyG+7XjzJW+xoL3ACJYuQ@mail.gmail.com>
+	<1463159940.11721.37.camel@redhat.com>
+	<CANn89iJER4ziKLsAkSpKMRKBtHApzsHOnSndXJn2oTsf_01beA@mail.gmail.com>
+	<1463404232.4921.26.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <michal.simek@xilinx.com>
-To: Alexander Graf <agraf@suse.de>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([198.47.19.11]:47697 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751815AbcEPNiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2016 09:38:25 -0400
-In-Reply-To: <1463398095-123269-1-git-send-email-agraf@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Ingo Molnar <mingo@kernel.org>, Rik van Riel <riel@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463404232.4921.26.camel@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexander
-
-On 05/16/2016 06:28 AM, Alexander Graf wrote:
-> The DP83867 phy driver doesn't actually work when CONFIG_OF_MDIO isn't enabled.
-> It simply passes the device tree test, but leaves all internal configuration
-> initialized at 0. Then it configures the phy with those values and renders a
-> previously working configuration useless.
+On Mon, May 16, 2016 at 6:10 AM, Paolo Abeni <pabeni@redhat.com> wrote:
 >
-> This patch makes sure that we only build the DP83867 phy code when
-> CONFIG_OF_MDIO is set, to not run into that problem.
+> I'm sorry for the not-so-prompt reply. I had to use a different H/W, so
+> I had to re-run the tests with all the patch flavors to get comparable
+> results.
 >
-> Signed-off-by: Alexander Graf <agraf@suse.de>
-> ---
->  drivers/net/phy/Kconfig   | 1 +
->  drivers/net/phy/dp83867.c | 7 -------
->  2 files changed, 1 insertion(+), 7 deletions(-)
+> While I can confirm that adding the '!ksoftirqd_running()' condition
+> improves the throughput a little, but in a reproducible way, removing
+> the '!in_interrupt()' don't change the result measurably, in my
+> environment.
 >
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index 6dad9a9..4265ad5 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -148,6 +148,7 @@ config DP83848_PHY
->  
->  config DP83867_PHY
->  	tristate "Drivers for Texas Instruments DP83867 Gigabit PHY"
-> +	depends on OF_MDIO
->  	---help---
->  	  Currently supports the DP83867 PHY.
->  
-> diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-> index 2afa61b..ff867ba 100644
-> --- a/drivers/net/phy/dp83867.c
-> +++ b/drivers/net/phy/dp83867.c
-> @@ -99,7 +99,6 @@ static int dp83867_config_intr(struct phy_device *phydev)
->  	return phy_write(phydev, MII_DP83867_MICR, micr_status);
->  }
->  
-> -#ifdef CONFIG_OF_MDIO
->  static int dp83867_of_init(struct phy_device *phydev)
->  {
->  	struct dp83867_private *dp83867 = phydev->priv;
-> @@ -123,12 +122,6 @@ static int dp83867_of_init(struct phy_device *phydev)
->  	return of_property_read_u32(of_node, "ti,fifo-depth",
->  				   &dp83867->fifo_depth);
->  }
-> -#else
-> -static int dp83867_of_init(struct phy_device *phydev)
-> -{
-> -	return 0;
-> -}
-> -#endif /* CONFIG_OF_MDIO */
->  
->  static int dp83867_config_init(struct phy_device *phydev)
->  {
-I don't think we want this to depend solely on OF_MDIO.
+> While running the test against a kernel with the above chunk applied I
+> got a couple of:
+>
+> [  702.791025] NOHZ: local_softirq_pending 08
+>
+> Not seen with the other versions of this patch.
 
-The #else case should probably be coded to look at platform data, if
-it exists.  I don't have any boards that still used platform data to test this
-out so I did not feel comfortable adding code I could not test.
+I've seen this message in all versions, depending on the workload.
 
-The platform data should contain the RGMII tx/rx delay and FIFO control.
+Either a barrier of some kind is missing, or we uncover an existing bug.
 
-
-Dan
-
--- 
-------------------
-Dan Murphy
+Note that in my tests on an older base kernel (something based on 3.11
+but with thousands of patches),
+I would not have the scary rcu messages that I got with current
+upstream kernels.
