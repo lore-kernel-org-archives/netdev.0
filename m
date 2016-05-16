@@ -1,125 +1,62 @@
-From: Dan Murphy <dmurphy@ti.com>
-Subject: Re: [PATCH v2 2/2] phy dp83867: Make rgmii parameters optional
-Date: Mon, 16 May 2016 15:27:49 -0500
-Message-ID: <573A2D45.6010800@ti.com>
-References: <1463424763-58807-1-git-send-email-agraf@suse.de> <1463424763-58807-2-git-send-email-agraf@suse.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ixgbe: take online CPU number as MQ max limit when
+ alloc_etherdev_mq()
+Date: Mon, 16 May 2016 13:58:42 -0700
+Message-ID: <1463432322.2609.12.camel@intel.com>
+References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <michal.simek@xilinx.com>,
-	<andrew@lunn.ch>
-To: Alexander Graf <agraf@suse.de>, <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-UkNUNi+QmcfXAo94WkoH"
+Cc: linux-kernel@vger.kernel.org, ethan.kernel@gmail.com
+To: Ethan Zhao <ethan.zhao@oracle.com>, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463424763-58807-2-git-send-email-agraf@suse.de>
+In-Reply-To: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/16/2016 01:52 PM, Alexander Graf wrote:
-> If you compile without OF_MDIO support in an RGMII configuration, we fail
-> to configure the dp83867 phy today by writing garbage into its configuration
-> registers.
->
-> On the other hand if you do compile with OF_MDIO and the phy gets loaded via
-> device tree, you have to have the properties set in the device tree, otherwise
-> we fail to load the driver and don't even attach the generic phy driver to
-> the interface anymore.
->
-> To make things slightly more consistent, make the rgmii configuration properties
-> optional and allow a user to omit them in their device tree.
->
-> Signed-off-by: Alexander Graf <agraf@suse.de>
+
+--=-UkNUNi+QmcfXAo94WkoH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2016-05-13 at 14:56 +0900, Ethan Zhao wrote:
+> Allocating 64 Tx/Rx as default doesn't benefit perfomrnace when less
+> CPUs were assigned. especially when DCB is enabled, so we should take
+> num_online_cpus() as top limit, and aslo to make sure every TC has
+> at least one queue, take the MAX_TRAFFIC_CLASS as bottom limit of queues
+> number.
+>=20
+> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
 > ---
->  drivers/net/phy/dp83867.c | 31 ++++++++++++++++++++++++++++---
->  1 file changed, 28 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-> index 94cc278..1b01680 100644
-> --- a/drivers/net/phy/dp83867.c
-> +++ b/drivers/net/phy/dp83867.c
-> @@ -65,6 +65,7 @@ struct dp83867_private {
->  	int rx_id_delay;
->  	int tx_id_delay;
->  	int fifo_depth;
-> +	int values_are_sane;
->  };
->  
->  static int dp83867_ack_interrupt(struct phy_device *phydev)
-> @@ -113,15 +114,30 @@ static int dp83867_of_init(struct phy_device *phydev)
->  	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
->  				   &dp83867->rx_id_delay);
->  	if (ret)
-> -		return ret;
-> +		goto invalid_dt;
->  
->  	ret = of_property_read_u32(of_node, "ti,tx-internal-delay",
->  				   &dp83867->tx_id_delay);
->  	if (ret)
-> -		return ret;
-> +		goto invalid_dt;
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++++
+> =C2=A01 file changed, 4 insertions(+)
 
-Optional means you may or may not have the entries
+Dropping this patch based on Alex's and John's feedback.
+--=-UkNUNi+QmcfXAo94WkoH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-I would prefer to wrap the DT reading with the interface type check.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID ||
-phydev->interface == PHY_INTERFACE_MODE_RGMII_ID  )
+iQIcBAABCgAGBQJXOjSCAAoJEOVv75VaS+3OgwAP/iswNKomnUJXx5wixfTtMVyv
+XxzBsrhubT1OmrsEKBWI8r3Gd1UCQJufd00PeJTVCTszjzQzUHYSRIkRlpOlbuny
+BKVIt6TOhrsllvPGXK7Sut8vrLYWnQVQ6WCKeczW6IOFA1TFxFsMjpPg3/KUi2jN
+025zvsavMaIZ8ptaL6QjDevGBJkkTxyhEKzB4luZm5NDf3YZWP2Ulml04k4y6rYZ
+WatTqpeY8mGNlmbPa0bW28n2B1flAyT3FenLsnbMq3UwttE9L3OiUtjgpXe/XpCx
+byMBb0egozS3twryRtPTxpG7/CiE0Yh7fJ6FVXIl98CAAczKUNQnvmz8vHeZ7i0r
+Wje/i4Jxh+HRSOFGG2laTqWhXWNuM8NWGzXXWmRzTAdet5WGbx5PazBg6lmmUn1m
+Uk/juElZkf7k+ypQfyq+6cB5Hf71FF3GIAS7OHJsBhNcnt3p2UWuxhtDPGpaZ0gY
+nIoBkNRUgrFitkvptLBh4lIRtwduRbWwImZAQ6gQ1ByR+8ASkwdbOwseIkgWhE/r
+/AR3LqKYzvqECGpjaWe+iPjC5bSai52yWb0WVxaqJzQtII7F9fqAMBdq6nhP1lhs
+IbdlcqTzRlRoMUpWWifmvjG9orXq3zRVnwTePiEWjc1BiLC7B268Q8BuOcybrC82
++hpfjgDLgFiyGallzTll
+=jrEd
+-----END PGP SIGNATURE-----
 
- 	ret = of_property_read_u32(of_node, "ti,tx-internal-delay",
- 				   &dp83867->tx_id_delay);
-	if (ret)
-
-goto invalid_dt;
-
-Otherwise this continues to mandate that you need to declare all the DT entries
-when in fact you may only have to declare 1.
-
-And if the other interfaces are declared then DT entries are ignored.  And configuring
-internal delay is not required per section 8.9 footnote 3 of the data sheet.
-
-Dan
-
-
-
->  
-> -	return of_property_read_u32(of_node, "ti,fifo-depth",
-> +	ret = of_property_read_u32(of_node, "ti,fifo-depth",
->  				   &dp83867->fifo_depth);
-> +	if (ret)
-> +		goto invalid_dt;
-> +
-> +	dp83867->values_are_sane = 1;
-> +
-> +	return 0;
-> +
-> +invalid_dt:
-> +	phydev_err(phydev, "missing properties in device tree");
-> +
-> +	/*
-> +	 * We can still run with a broken dt by not using any of the optional
-> +	 * parameters, so just don't set dp83867->values_are_sane.
-> +	 */
-> +	return 0;
->  }
->  #else
->  static int dp83867_of_init(struct phy_device *phydev)
-> @@ -150,6 +166,15 @@ static int dp83867_config_init(struct phy_device *phydev)
->  		dp83867 = (struct dp83867_private *)phydev->priv;
->  	}
->  
-> +	/*
-> +	 * With no or broken device tree, we don't have the values that we would
-> +	 * want to configure the phy with. In that case, cross our fingers and
-> +	 * assume that firmware did everything correctly for us or that we don't
-> +	 * need them.
-> +	 */
-> +	if (!dp83867->values_are_sane)
-> +		return 0;
-> +
->  	if (phy_interface_is_rgmii(phydev)) {
->  		ret = phy_write(phydev, MII_DP83867_PHYCTRL,
->  			(dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT));
-
-
--- 
-------------------
-Dan Murphy
+--=-UkNUNi+QmcfXAo94WkoH--
