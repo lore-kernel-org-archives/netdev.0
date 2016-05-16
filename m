@@ -1,70 +1,82 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v5 net-next 02/14] net: define gso types for IPx over IPv4
- and IPv6
-Date: Mon, 16 May 2016 11:07:53 -0700
-Message-ID: <CALx6S37hCkvOZ+D15MUJUXjiGa-BdfQhPG7jo498F29-7eUSsg@mail.gmail.com>
-References: <1463355755-3481375-1-git-send-email-tom@herbertland.com>
-	<1463355755-3481375-3-git-send-email-tom@herbertland.com>
-	<CAKgT0Uc1mQwP4xoQxM9J08kyEaxKpZse5nWdctgrrmjJowebJg@mail.gmail.com>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: pull-request: wireless-drivers-next 2016-05-13
+Date: Mon, 16 May 2016 18:11:47 +0000
+Message-ID: <1463422307.25219.107.camel@intel.com>
+References: <87oa8ab3eo.fsf@kamboji.qca.qualcomm.com>
+	 <87wpmu87ns.fsf@kamboji.qca.qualcomm.com>
+	 <87futi858q.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34823 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753451AbcEPSHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 14:07:54 -0400
-Received: by mail-io0-f173.google.com with SMTP id d62so219892786iof.2
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 11:07:54 -0700 (PDT)
-In-Reply-To: <CAKgT0Uc1mQwP4xoQxM9J08kyEaxKpZse5nWdctgrrmjJowebJg@mail.gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:3506 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753451AbcEPSLw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2016 14:11:52 -0400
+In-Reply-To: <87futi858q.fsf@kamboji.qca.qualcomm.com>
+Content-Language: en-US
+Content-ID: <37DA4C33CBD2D24E939CE62C0DA1B407@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2016 at 9:32 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Sun, May 15, 2016 at 4:42 PM, Tom Herbert <tom@herbertland.com> wrote:
->> This patch defines two new GSO definitions SKB_GSO_IPXIP4 and
->> SKB_GSO_IPXIP6 along with corresponding NETIF_F_GSO_IPXIP4 and
->> NETIF_F_GSO_IPXIP6. These are used to described IP in IP
->> tunnel and what the outer protocol is. The inner protocol
->> can be deduced from other GSO types (e.g. SKB_GSO_TCPV4 and
->> SKB_GSO_TCPV6). The GSO types of SKB_GSO_IPIP and SKB_GSO_SIT
->> are removed (these are both instances of SKB_GSO_IPXIP4).
->> SKB_GSO_IPXIP6 will be used when support for GSO with IP
->> encapsulation over IPv6 is added.
->>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
->> ---
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  5 ++---
->>  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 ++--
->>  drivers/net/ethernet/intel/i40e/i40e_main.c       |  3 +--
->>  drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  3 +--
->>  drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  3 +--
->>  drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  3 +--
->>  drivers/net/ethernet/intel/igb/igb_main.c         |  3 +--
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  3 +--
->>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  3 +--
->>  include/linux/netdev_features.h                   | 12 ++++++------
->>  include/linux/netdevice.h                         |  4 ++--
->>  include/linux/skbuff.h                            |  4 ++--
->>  net/core/ethtool.c                                |  4 ++--
->>  net/ipv4/af_inet.c                                |  2 +-
->>  net/ipv4/ipip.c                                   |  2 +-
->>  net/ipv6/ip6_offload.c                            |  4 ++--
->>  net/ipv6/sit.c                                    |  4 ++--
->>  net/netfilter/ipvs/ip_vs_xmit.c                   | 17 +++++++----------
->>  18 files changed, 36 insertions(+), 47 deletions(-)
->
-> It looks like you missed drivers/net/ethernet/intel/igb/netdev.c.  If
-> you don't get it then it will break the build.
->
-
-I don't see file that in betdev branch, maybe it's new?
-
-Tom
-
-> Thanks.
->
-> - Alex
+T24gTW9uLCAyMDE2LTA1LTE2IGF0IDE3OjA4ICswMzAwLCBLYWxsZSBWYWxvIHdyb3RlOg0KPiBL
+YWxsZSBWYWxvIDxrdmFsb0Bjb2RlYXVyb3JhLm9yZz4gd3JpdGVzOg0KPiANCj4gPiANCj4gPiBL
+YWxsZSBWYWxvIDxrdmFsb0Bjb2RlYXVyb3JhLm9yZz4gd3JpdGVzOg0KPiA+IA0KPiA+ID4gDQo+
+ID4gPiBUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0DQo+ID4gPiBlZGUwMGE1Y2Vi
+NGQ5MDNhOGMxMzdhNTJiYjc3ZDU3NGJhYWVmOGJkOg0KPiA+ID4gDQo+ID4gPiDCoCBNZXJnZSB0
+YWcgJ3dpcmVsZXNzLWRyaXZlcnMtbmV4dC1mb3ItZGF2ZW0tMjAxNi0wNS0wMicgb2YNCj4gPiA+
+IGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9rdmFsby93aXJl
+bGVzcy0NCj4gPiA+IGRyaXZlcnMtbmV4dCAoMjAxNi0wNS0wMyAwMDozNToxNiAtMDQwMCkNCj4g
+PiA+IA0KPiA+ID4gYXJlIGF2YWlsYWJsZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQo+ID4g
+PiANCj4gPiA+IA0KPiA+ID4gwqAgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9r
+ZXJuZWwvZ2l0L2t2YWxvL3dpcmVsZXNzLQ0KPiA+ID4gZHJpdmVycy1uZXh0LmdpdCB0YWdzL3dp
+cmVsZXNzLWRyaXZlcnMtbmV4dC1mb3ItZGF2ZW0tMjAxNi0wNS0xMw0KPiA+IFBsZWFzZSBkb24n
+dCBwdWxsIHRoaXMgeWV0LCB0aGVyZSBtaWdodCBiZSBzb21ldGhpbmcgd3Jvbmcgbm93IHdpdGgN
+Cj4gPiBtZXJnZXMgYW5kIG5lZWQgdG8gY2hlY2sgdGhhdCBmaXJzdC4NCj4gT2ssIGxpa2UgZGlz
+Y3Vzc2VkIGluIHRocmVhZCAibGludXgtbmV4dDogbWFudWFsIG1lcmdlIG9mIHRoZQ0KPiB3aXJl
+bGVzcy1kcml2ZXJzLW5leHQgdHJlZSB3aXRoIHRoZSBuZXQtbmV4dCB0cmVlIiB0aGVyZSBzZWVt
+cyB0byBiZQ0KPiBhDQo+IHByb2JsZW0gb24gbmV0LW5leHQgaW4gZnVuY3Rpb24gaXdsX212bV9z
+ZXRfdHhfY21kKCkuIEhlcmUgaXMgaG93IEkNCj4gcHJvcG9zZSB0byBmaXggdGhpcy4NCj4gDQo+
+IFdoZW4gcHVsbGluZyB0aGUgdGFnIGFib3ZlIHlvdSBzaG91bGQgZ2V0IGEgY29uZmxpY3QgbGlr
+ZSB0aGlzOg0KPiANCj4gZGlmZiAtLWNjIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdp
+ZmkvbXZtL3R4LmMNCj4gaW5kZXggODgwMjEwOTE3YTZmLDc3OWJhZmNiYzlhMS4uMDAwMDAwMDAw
+MDAwDQo+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL3R4LmMN
+Cj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9tdm0vdHguYw0KPiBA
+QEAgLTI5NCw3IC0yOTUsNyArMjk0LDExIEBAQCB2b2lkIGl3bF9tdm1fc2V0X3R4X2NtZChzdHJ1
+Y3QgaXdsX212bcKgDQo+IMKgwqDCoMKgwqDCoMKgwqB0eF9jbWQtPnR4X2ZsYWdzID0gY3B1X3Rv
+X2xlMzIodHhfZmxhZ3MpOw0KPiDCoMKgwqDCoMKgwqDCoMKgLyogVG90YWwgIyBieXRlcyB0byBi
+ZSB0cmFuc21pdHRlZCAqLw0KPiDCoMKgwqDCoMKgwqDCoMKgdHhfY21kLT5sZW4gPSBjcHVfdG9f
+bGUxNigodTE2KXNrYi0+bGVuICsNCj4gKys8PDw8PDw8IEhFQUQNCj4gwqArwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoCh1aW50cHRyX3QpaW5mby0+ZHJpdmVyX2RhdGFbMF0pOw0KPiArKz09
+PT09PT0NCj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCh1aW50cHRyX3Qpc2tiX2lu
+Zm8tPmRyaXZlcl9kYXRhWzBdKTsNCj4gKys+Pj4+Pj4+IG1hc3Rlcg0KPiDCoMKgwqDCoMKgwqDC
+oMKgdHhfY21kLT5saWZlX3RpbWUgPSBjcHVfdG9fbGUzMihUWF9DTURfTElGRV9USU1FX0lORklO
+SVRFKTsNCj4gwqDCoMKgwqDCoMKgwqDCoHR4X2NtZC0+c3RhX2lkID0gc3RhX2lkOw0KPiANCj4g
+UGljayB0aGUgbGF0dGVyIHdpdGggc2tiX2luZm8gYW5kIHRoZW4gYWRkIHNrYl9pbmZvIHRvIHRo
+ZSBiZWdpbm5pbmcNCj4gb2YNCj4gdGhlIHNhbWUgZnVuY3Rpb24uIFNvIHRoZSBmdW5jdGlvbiBz
+aG91bGQgYmU6DQo+IA0KPiB2b2lkIGl3bF9tdm1fc2V0X3R4X2NtZChzdHJ1Y3QgaXdsX212bSAq
+bXZtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLA0KPiAJCQlzdHJ1Y3QgaXdsX3R4X2NtZCAqdHhfY21k
+LA0KPiAJCQlzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gKmluZm8sIHU4IHN0YV9pZCkNCj4gew0K
+PiAJc3RydWN0IGllZWU4MDIxMV90eF9pbmZvICpza2JfaW5mbyA9IElFRUU4MDIxMV9TS0JfQ0Io
+c2tiKTsNCj4gCXN0cnVjdCBpZWVlODAyMTFfaGRyICpoZHIgPSAodm9pZCAqKXNrYi0+ZGF0YTsN
+Cj4gCV9fbGUxNiBmYyA9IGhkci0+ZnJhbWVfY29udHJvbDsNCj4gCXUzMiB0eF9mbGFncyA9IGxl
+MzJfdG9fY3B1KHR4X2NtZC0+dHhfZmxhZ3MpOw0KPiAJdTMyIGxlbiA9IHNrYi0+bGVuICsgRkNT
+X0xFTjsNCj4gCXU4IGFjOw0KPiANCj4gWy4uLl0NCj4gDQo+IAl0eF9jbWQtPnR4X2ZsYWdzID0g
+Y3B1X3RvX2xlMzIodHhfZmxhZ3MpOw0KPiAJLyogVG90YWwgIyBieXRlcyB0byBiZSB0cmFuc21p
+dHRlZCAqLw0KPiAJdHhfY21kLT5sZW4gPSBjcHVfdG9fbGUxNigodTE2KXNrYi0+bGVuICsNCj4g
+CQkodWludHB0cl90KXNrYl9pbmZvLT5kcml2ZXJfZGF0YVswXSk7DQo+IAl0eF9jbWQtPmxpZmVf
+dGltZSA9IGNwdV90b19sZTMyKFRYX0NNRF9MSUZFX1RJTUVfSU5GSU5JVEUpOw0KPiAJdHhfY21k
+LT5zdGFfaWQgPSBzdGFfaWQ7DQo+IA0KPiBTb3JyeSBhYm91dCB0aGUgaGFzc2xlIGFuZCBwbGVh
+c2UgbGV0IG1lIGtub3cgaWYgeW91IGhhdmUgYW55DQo+IHByb2JsZW1zLg0KPiBBZGRpbmcgTHVj
+YSBhbmQgRW1tYW51ZWwganVzdCBpbiBjYXNlIEkgbWlzc2VkIHNvbWV0aGluZy4NCg0KQUNLLiDC
+oFRoaXMgbG9va3MgY29ycmVjdC4gwqBJIGp1c3QgZGlmZmVkIHRoZSBpd2x3aWZpLW5leHQuZ2l0
+IHRyZWUgKGF0DQpjb21taXQgYTUyNWQwZWFiMTdkIC0tIHdoaWNoIGlzIHdoZXJlIEkgbWVyZ2Ug
+aXdsd2lmaS1maXhlcyBpbnRvDQppd2x3aWZpLW5leHQpIHdpdGggbmV0LW5leHQuZ2l0IG1hc3Rl
+ciBhbmQgdGhlIGRpZmZlcmVuY2UgWzFdwqBpcw0KZXhhY3RseSB3aGF0IHlvdSBwcm9wb3NlZCB0
+byBmaXguDQoNClsxXcKgaHR0cDovL3Bhc3RlYmluLmNvZWxoby5maS8xYjY5MDdjZGI5YTI1NDEz
+LnR4dA0KDQotLQ0KQ2hlZXJzLA0KTHVjYS4=
