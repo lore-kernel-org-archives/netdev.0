@@ -1,41 +1,38 @@
 From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] net: irda: avoid null pointer dereference
-Date: Wed, 18 May 2016 00:06:02 +0200
-Message-ID: <1463522762-11144-1-git-send-email-xypron.glpk@gmx.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Subject: [PATCH 1/1] net: rsi: eliminate superfluous NULL check
+Date: Wed, 18 May 2016 00:30:41 +0200
+Message-ID: <1463524241-11351-1-git-send-email-xypron.glpk@gmx.de>
+Cc: Nicholas Mc Guire <hofrat@osadl.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Samuel Ortiz <samuel@sortiz.org>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Only dereference variable self after checking it is not NULL.
+msg is dereferenced before checking against NULL, e.g.
+when assigning pad_bytes.
+Remove the superfluous check in function rsi_mgmt_pkt_to_core.
 
 Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 ---
- drivers/net/irda/nsc-ircc.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/wireless/rsi/rsi_91x_mgmt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
-index 9ef13d8..aaecc3b 100644
---- a/drivers/net/irda/nsc-ircc.c
-+++ b/drivers/net/irda/nsc-ircc.c
-@@ -1253,7 +1253,7 @@ static void nsc_ircc_change_dongle_speed(int iobase, int speed, int dongle_id)
-  */
- static __u8 nsc_ircc_change_speed(struct nsc_ircc_cb *self, __u32 speed)
- {
--	struct net_device *dev = self->netdev;
-+	struct net_device *dev;
- 	__u8 mcr = MCR_SIR;
- 	int iobase; 
- 	__u8 bank;
-@@ -1263,6 +1263,7 @@ static __u8 nsc_ircc_change_speed(struct nsc_ircc_cb *self, __u32 speed)
+diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
+index 40658b6..35c14cc 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
++++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
+@@ -398,7 +398,7 @@ static int rsi_mgmt_pkt_to_core(struct rsi_common *common,
+ 			return -ENOLINK;
  
- 	IRDA_ASSERT(self != NULL, return 0;);
- 
-+	dev = self->netdev;
- 	iobase = self->io.fir_base;
- 
- 	/* Update accounting for new speed */
+ 		msg_len -= pad_bytes;
+-		if ((msg_len <= 0) || (!msg)) {
++		if (msg_len <= 0) {
+ 			rsi_dbg(MGMT_RX_ZONE,
+ 				"%s: Invalid rx msg of len = %d\n",
+ 				__func__, msg_len);
 -- 
 2.1.4
