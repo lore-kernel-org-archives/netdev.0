@@ -1,205 +1,68 @@
-From: ethan zhao <ethan.zhao@oracle.com>
-Subject: Re: [PATCH] ixgbe: take online CPU number as MQ max limit when
- alloc_etherdev_mq()
-Date: Tue, 17 May 2016 17:00:46 +0800
-Message-ID: <573ADDBE.8080702@oracle.com>
-References: <1463118995-31763-1-git-send-email-ethan.zhao@oracle.com>
- <CAKgT0UeiEW21E7A9fnt_BUCppopns-E2w1WbwF-8A6sCZkJ8rQ@mail.gmail.com>
- <573937A7.9010405@oracle.com>
- <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	shannon nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ethan Zhao <ethan.kernel@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UfJqu5sa7U4HKLFk0h3NjqavaAY0xfsahZ32MvnePFHdg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rabin Vincent <rabin.vincent@axis.com>
+Subject: [PATCHv2] phy: fix crash in fixed_phy_add()
+Date: Tue, 17 May 2016 11:01:50 +0200
+Message-ID: <1463475710-15869-1-git-send-email-rabin.vincent@axis.com>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	Rabin Vincent <rabinv@axis.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bastet.se.axis.com ([195.60.68.11]:57357 "EHLO
+	bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754462AbcEQJB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 05:01:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexander,
+From: Rabin Vincent <rabinv@axis.com>
 
-On 2016/5/17 0:09, Alexander Duyck wrote:
-> On Sun, May 15, 2016 at 7:59 PM, ethan zhao <ethan.zhao@oracle.com> wrote:
->> Alexander,
->>
->> On 2016/5/14 0:46, Alexander Duyck wrote:
->>> On Thu, May 12, 2016 at 10:56 PM, Ethan Zhao <ethan.zhao@oracle.com>
->>> wrote:
->>>> Allocating 64 Tx/Rx as default doesn't benefit perfomrnace when less
->>>> CPUs were assigned. especially when DCB is enabled, so we should take
->>>> num_online_cpus() as top limit, and aslo to make sure every TC has
->>>> at least one queue, take the MAX_TRAFFIC_CLASS as bottom limit of queues
->>>> number.
->>>>
->>>> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
->>> What is the harm in allowing the user to specify up to 64 queues if
->>> they want to?  Also what is your opinion based on?  In the case of RSS
->>
->>   There is no module parameter to specify queue number in this upstream ixgbe
->>    driver.  for what to specify more queues than num_online_cpus() via
->> ethtool ?
->>   I couldn't figure out the benefit to do that.
-> There are a number of benefits to being able to set the number of
-> queues based on the user desire.  Just because you can't figure out
-> how to use a feature is no reason to break it so that nobody else can.
->
->>   But if DCB is turned on after loading, the queues would be 64/64, that
->> doesn't
->>   make sense if only 16 CPUs assigned.
-> It makes perfect sense.  What is happening is that it is allocating an
-> RSS set per TC.  So what you should have is either 4 queues per CPU
-> with each one belonging to a different TC, or 4 queues per CPU with
-> the first 8 CPUs covering TCs 0-3, and the last 8 CPUs covering TCs
-> 4-7.
->
-> I can see how the last setup might actually be a bit confusing.  To
-> that end you might consider modifying ixgbe_acquire_msix_vectors uses
-> the number of RSS queues instead of the number of Rx queues in the
+Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
+platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
+called (for example, because the platform code and the fixed_phy driver
+use the same initcall level) crash in fixed_phy_add() since the
+->mii_bus is not allocated.
 
+Also since e7f4dc3536a, these interrupts are initalized to polling by
+default.  The few (old) platforms which directly use fixed_phy_add()
+from their platform code all pass PHY_POLL for the irq argument, so we
+can keep these platforms not crashing by simply not attempting to set
+the irq if PHY_POLL is passed.
 
-> case of DCB.  Then you would get more consistent behavior with each
-> q_vector or CPU (if num_q_vecotrs == num_online_cpus()) having one
-> queue belonging to each TC.  You would end up with either 8 or 16
-> q_vectors hosting 8 or 4 queues so that they can process DCB requests
-> without having to worry about head of line blocking.
->
->>> traffic the upper limit is only 16 on older NICs, but last I knew the
->>> latest X550 can support more queues for RSS.  Have you only been
->>> testing on older NICs or did you test on the latest hardware as well?
->>    More queues for RSS than num_online_cpus() could bring better performance
->> ?
->>    Test result shows false result.  even memory cost is not an issue for most
->> of
->>    the expensive servers, but not for all.
-> The feature is called DCB.  What it allows for is the avoidance of
-> head-of-line blocking.  So when you have DCB enabled you should have a
-> set of queues for each possible RSS result so that if you get a higher
-> priority request on one of the queues it can use the higher priority
-> queue instead of having to rely on the the lower priority queue to
-> receive traffic.  You cannot do that without allocating a queue for
-> each TC, and reducing the number of RSS queues supported on the system
-> will hurt performance.  Therefore on a 16 CPU system it is very useful
-> to be able to allocate 4 queues per RSS flow as that way you get
-> optimal CPU distribution and can still avoid head-of-line blocking via
-> DCB.
->
->>> If you want to control the number of queues allocated in a given
->>> configuration you should look at the code over in the ixgbe_lib.c, not
->>    Yes,  RSS,  RSS with SRIOV, FCoE, DCB etc uses different queues
->> calculation algorithm.
->>    But they all take the dev queues allocated in alloc_etherdev_mq() as upper
->> limit.
->>
->>   If we set 64 as default here, DCB would says "oh, there is 64 there, I
->> could use it"
-> Right.  But the deciding factor for DCB is RSS which is already
-> limited by the number of CPUs.  If it is allocating 64 queues it is
-> because there are either at least 8 CPUs present and 8 TCs being
-> allocated per CPU, or there are at least 16 queues present and it is
-> allocating 4 TCs per CPU.
->
->>> ixgbe_main.c.  All you are doing with this patch is denying the user
->>> choice with this change as they then are not allowed to set more
->>    Yes, it is purposed to deny configuration that doesn't benefit.
-> Doesn't benefit who?  It is obvious you don't understand how DCB is
-> meant to work since you are assuming the queues are throw-away.
-> Anyone who makes use of the ability to prioritize their traffic would
-> likely have a different opinion.
->
->>> queues.  Even if they find your decision was wrong for their
->>> configuration.
->>>
->>> - Alex
->>>
->>   Thanks,
->>   Ethan
-> Your response clearly points out you don't understand DCB.  I suggest
-> you take another look at how things are actually being configured.  I
-> believe what you will find is that the current implementation is
-> basing things on the number of online CPUs already based on the
-> ring_feature[RING_F_RSS].limit value.  All that is happening is that
-> you are getting that value multiplied by the number of TCs and the RSS
-> value is reduced if the result is greater than 64 based on the maximum
-> number of queues.
->
-> With your code on an 8 core system you go from being able to perform
-> RSS over 8 queues to only being able to perform RSS over 1 queue when
-> you enable DCB.  There was a bug a long time ago where this actually
-> didn't provide any gain because the interrupt allocation was binding
-> all 8 RSS queues to a single q_vector, but that has long since been
-> fixed and what you should be seeing is that RSS will spread traffic
-> across either 8 or 16 queues when DCB is enabled in either 8 or 4 TC
-Here is my understanding of current code about the DCB mapping.
-Is it right ?
+Also, even if problems have not been reported on more modern platforms
+which used fixed_phy_register() from drivers' probe functions, we return
+-EPROBE_DEFER if the MDIO bus is not yet registered so that the probe is
+retried later.
 
-If we have 8 TCs and 4 RSS queues per TC, one q_vector per queue and
-we have total 32 CPUs, the proper layout would be:
+Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+Signed-off-by: Rabin Vincent <rabinv@axis.com>
+---
+v2: rewrite according to Andrew's suggestions
 
-App0---> Prio0 --> TC0 --> RSS_queue0 --->Q_vector0 ---->CPU0
-                                   |----> RSS_queue1 --->Q_vector1 ---->CPU1
-                                   |----> RSS_queue2 --->Q_vector2 ---->CPU2
-                                   |----> RSS_queue3 --->Q_vector3 ---->CPU3
-                                                  . .             
-.            .
-                                                  . .             
-.            .
-                                                   . .             
-.            .
-App7---> Prio7 --> TC7 --> RSS_queue28 --->Q_vector28 ---->CPU28
-                                  |----> RSS_queue29 --->Q_vector29 
----->CPU29
-                                  |----> RSS_queue30 --->Q_vector30 
----->CPU30
-                                  |----> RSS_queue31 --->Q_vector31 
----->CPU31
+ drivers/net/phy/fixed_phy.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-if we less CPUs, for example only 4 CPUs, the layout would be
-(according to current implementation)
-
-App0---> Prio0 --> TC0 --> RSS_queue0 --->Q_vector0 ---->CPU0
-                                  |----> RSS_queue1 --->Q_vector1 ---->CPU1
-                                  |----> RSS_queue2 --->Q_vector2 ---->CPU2
-                                  |----> RSS_queue3 --->Q_vector3 ---->CPU3
-                                               . .             
-.            .
-                                               . .             
-.            .
-                                               . .             
-.            .
-App7---> Prio7 --> TC7 --> RSS_queue28 --->Q_vector0 ---->CPU0
-                                  |----> RSS_queue29 --->Q_vector1 ---->CPU1
-                                  |----> RSS_queue30 --->Q_vector2 ---->CPU2
-                                  |----> RSS_queue31 --->Q_vector3 ---->CPU3
-
-So we bond two 8 queues to one q_vector / CPU.
-And here, Yes, we could scale every TC's traffic to all 4 CPUs with RSS.
-if the workload of one TC's traffic is beyond one CPU's capability, it
-is useful to be scalable.  though it might break the CPU affinity of
-application and stack/driver data flow.
-
-Thanks,
-Ethan
-> mode.
->
-> My advice would be to use a netperf TCP_CRR test and watch what queues
-> and what interrupts traffic is being delivered to.  Then if you have
-> DCB enabled on both ends you might try changing the priority of your
-> netperf session and watch what happens when you switch between TCs.
-> What you should find is that you will shift between groups of queues
-> and as you do so you should not have any active queues overlapping
-> unless you have less interrupts than CPUs.
->
-> - Alex
->
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index fc07a88..d9dc1f5 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -255,7 +255,8 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+ 
+ 	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
+ 
+-	fmb->mii_bus->irq[phy_addr] = irq;
++	if (irq != PHY_POLL)
++		fmb->mii_bus->irq[phy_addr] = irq;
+ 
+ 	fp->addr = phy_addr;
+ 	fp->status = *status;
+@@ -314,6 +315,9 @@ struct phy_device *fixed_phy_register(unsigned int irq,
+ 	int phy_addr;
+ 	int ret;
+ 
++	if (!fmb->mii_bus)
++		return ERR_PTR(-EPROBE_DEFER);
++
+ 	/* Get the next available PHY address, up to PHY_MAX_ADDR */
+ 	spin_lock(&phy_fixed_addr_lock);
+ 	if (phy_fixed_addr == PHY_MAX_ADDR) {
+-- 
+2.1.4
