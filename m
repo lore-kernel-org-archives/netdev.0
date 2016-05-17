@@ -1,59 +1,35 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: drivers: net: xgene: fix statistics counters race condition
-Date: Tue, 17 May 2016 10:33:44 +0300
-Message-ID: <20160517073344.GD10872@mwanda>
+Subject: [patch] qed: Remove a stray tab
+Date: Tue, 17 May 2016 10:34:50 +0300
+Message-ID: <20160517073450.GE10872@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: isubramanian@apm.com
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>, everest-linux-l2@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38776 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752061AbcEQHd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 03:33:57 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:25386 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751791AbcEQHfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 03:35:03 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Iyappan Subramanian,
+This line was intended more than it should be.
 
-The patch 3bb502f83080: "drivers: net: xgene: fix statistics counters
-race condition" from May 13, 2016, leads to the following static
-checker warning:
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-	drivers/net/ethernet/apm/xgene/xgene_enet_main.c:487 xgene_enet_rx_frame()
-	warn: should this be a bitwise op?
-
-drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-   472          u8 status;
-   473          int ret = 0;
-   474  
-   475          ndev = rx_ring->ndev;
-   476          pdata = netdev_priv(ndev);
-   477          dev = ndev_to_dev(rx_ring->ndev);
-   478          buf_pool = rx_ring->buf_pool;
-   479  
-   480          dma_unmap_single(dev, GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1)),
-   481                           XGENE_ENET_MAX_MTU, DMA_FROM_DEVICE);
-   482          skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
-   483          skb = buf_pool->rx_skb[skb_index];
-   484  
-   485          /* checking for error */
-   486          status = (GET_VAL(ELERR, le64_to_cpu(raw_desc->m0)) << LERR_LEN) ||
-   487                    GET_VAL(LERR, le64_to_cpu(raw_desc->m0));
-   488          if (unlikely(status > 2)) {
-
-This code doesn't make sense and I don't know what is intended.
-LERR_LEN is 3, but why are we shifting when we just care about
-true/false?  In the original code status could be > 2 but now it's
-either 0 or 1.
-
-   489                  dev_kfree_skb_any(skb);
-   490                  xgene_enet_parse_error(rx_ring, netdev_priv(rx_ring->ndev),
-   491                                         status);
-   492                  ret = -EIO;
-   493                  goto out;
-   494          }
-
-regards,
-dan carpenter
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 6ffc21d..05fcb25 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -177,7 +177,7 @@ static int qed_init_pci(struct qed_dev *cdev,
+ 	}
+ 
+ 	if (IS_PF(cdev)) {
+-			cdev->db_phys_addr = pci_resource_start(cdev->pdev, 2);
++		cdev->db_phys_addr = pci_resource_start(cdev->pdev, 2);
+ 		cdev->db_size = pci_resource_len(cdev->pdev, 2);
+ 		cdev->doorbells = ioremap_wc(cdev->db_phys_addr, cdev->db_size);
+ 		if (!cdev->doorbells) {
