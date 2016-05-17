@@ -1,39 +1,41 @@
 From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] net: ieee802154/adf7242: syntax error ifdef DEBUG
-Date: Tue, 17 May 2016 23:58:40 +0200
-Message-ID: <1463522320-10964-1-git-send-email-xypron.glpk@gmx.de>
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Subject: [PATCH 1/1] net: irda: avoid null pointer dereference
+Date: Wed, 18 May 2016 00:06:02 +0200
+Message-ID: <1463522762-11144-1-git-send-email-xypron.glpk@gmx.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Michael Hennerich <michael.hennerich@analog.com>,
-	Alexander Aring <aar@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:57492 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750940AbcEQV66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2016 17:58:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If DEBUG is defined, a superfluous closing brace
-is introduced.
+Only dereference variable self after checking it is not NULL.
 
 Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 ---
- drivers/net/ieee802154/adf7242.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/irda/nsc-ircc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ieee802154/adf7242.c b/drivers/net/ieee802154/adf7242.c
-index b82e39d..9fa7ac9 100644
---- a/drivers/net/ieee802154/adf7242.c
-+++ b/drivers/net/ieee802154/adf7242.c
-@@ -915,7 +915,6 @@ static void adf7242_debug(u8 irq1)
- 		(stat & 0xf) == RC_STATUS_PHY_RDY ? "RC_STATUS_PHY_RDY" : "",
- 		(stat & 0xf) == RC_STATUS_RX ? "RC_STATUS_RX" : "",
- 		(stat & 0xf) == RC_STATUS_TX ? "RC_STATUS_TX" : "");
--	}
- #endif
- }
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index 9ef13d8..aaecc3b 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -1253,7 +1253,7 @@ static void nsc_ircc_change_dongle_speed(int iobase, int speed, int dongle_id)
+  */
+ static __u8 nsc_ircc_change_speed(struct nsc_ircc_cb *self, __u32 speed)
+ {
+-	struct net_device *dev = self->netdev;
++	struct net_device *dev;
+ 	__u8 mcr = MCR_SIR;
+ 	int iobase; 
+ 	__u8 bank;
+@@ -1263,6 +1263,7 @@ static __u8 nsc_ircc_change_speed(struct nsc_ircc_cb *self, __u32 speed)
  
+ 	IRDA_ASSERT(self != NULL, return 0;);
+ 
++	dev = self->netdev;
+ 	iobase = self->io.fir_base;
+ 
+ 	/* Update accounting for new speed */
 -- 
 2.1.4
