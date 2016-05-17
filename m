@@ -1,35 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next] bpf: arm64: remove callee-save registers
- use for tmp registers
-Date: Tue, 17 May 2016 13:52:19 +0200
-Message-ID: <573B05F3.7000009@iogearbox.net>
-References: <1463441786-32224-1-git-send-email-yang.shi@linaro.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 -next] ingress, clsact: don't add TCA_OPTIONS to
+ nl msg
+Date: Tue, 17 May 2016 07:54:30 -0400
+Message-ID: <573B0676.30500@mojatatu.com>
+References: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: will.deacon@arm.com, catalin.marinas@arm.com, zlim.lnx@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org
-To: Yang Shi <yang.shi@linaro.org>, ast@kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463441786-32224-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f195.google.com ([209.85.213.195]:34235 "EHLO
+	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779AbcEQLyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 07:54:39 -0400
+Received: by mail-ig0-f195.google.com with SMTP id kj7so1441136igb.1
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 04:54:39 -0700 (PDT)
+In-Reply-To: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/17/2016 01:36 AM, Yang Shi wrote:
-> In the current implementation of ARM64 eBPF JIT, R23 and R24 are used for
-> tmp registers, which are callee-saved registers. This leads to variable size
-> of JIT prologue and epilogue. The latest blinding constant change prefers to
-> constant size of prologue and epilogue. AAPCS reserves R9 ~ R15 for temp
-> registers which not need to be saved/restored during function call. So, replace
-> R23 and R24 to R10 and R11, and remove tmp_used flag to save 2 instructions for
-> some jited BPF program.
+On 16-05-15 12:36 PM, Daniel Borkmann wrote:
+> In ingress and clsact qdisc TCA_OPTIONS are ignored, since it's
+> parameterless. In tc, we add an empty addattr_l(... TCA_OPTIONS,
+> NULL, 0) to the netlink message nevertheless. This has the
+> side effect that when someone tries a 'tc qdisc replace' and
+> already an existing such qdisc is present, tc fails with
+> EINVAL here.
 >
-> CC: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+> Reason is that in the kernel, this invokes qdisc_change() when
+> such requested qdisc is already present. When TCA_OPTIONS are
+> passed to modify parameters, it looks whether qdisc implements
+> .change() callback, and if not present (like in both cases here)
+> it returns with error. Rather than adding an empty stub to the
+> kernel that ignores TCA_OPTIONS again, just don't add TCA_OPTIONS
+> to the netlink message in the first place.
+>
+> Before:
+>
+>    # tc qdisc replace dev foo clsact    # first try
+>    # tc qdisc replace dev foo clsact    # second one
+>    RTNETLINK answers: Invalid argument
+>
+> After:
+>
+>    # tc qdisc replace dev foo clsact
+>    # tc qdisc replace dev foo clsact
+>    # tc qdisc replace dev foo clsact
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-LGTM, thanks!
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+I see need for correctness but was curious of use case
+that made you even look at this ;->
+
+cheers,
+jamal
