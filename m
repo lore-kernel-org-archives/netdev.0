@@ -1,55 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] phy dp83867: Make rgmii parameters optional
-Date: Tue, 17 May 2016 14:48:38 -0400 (EDT)
-Message-ID: <20160517.144838.81367550225777134.davem@davemloft.net>
-References: <1463424763-58807-2-git-send-email-agraf@suse.de>
-	<20160517.142224.1322153249705614542.davem@davemloft.net>
-	<573B643A.9060700@ti.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: agraf@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, michal.simek@xilinx.com,
-	andrew@lunn.ch
-To: dmurphy@ti.com
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [RFC PATCH net] e1000e: keep vlan interfaces functional after rxvlan off
+Date: Tue, 17 May 2016 15:03:51 -0400
+Message-ID: <1463511831-13684-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <573B643A.9060700@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Murphy <dmurphy@ti.com>
-Date: Tue, 17 May 2016 13:34:34 -0500
+I've got a bug report about an e1000e interface, where a vlan interface is
+set up on top of it:
 
-> David
-> 
-> On 05/17/2016 01:22 PM, David Miller wrote:
->> From: Alexander Graf <agraf@suse.de>
->> Date: Mon, 16 May 2016 20:52:43 +0200
->>
->>> If you compile without OF_MDIO support in an RGMII configuration, we fail
->>> to configure the dp83867 phy today by writing garbage into its configuration
->>> registers.
->>>
->>> On the other hand if you do compile with OF_MDIO and the phy gets loaded via
->>> device tree, you have to have the properties set in the device tree, otherwise
->>> we fail to load the driver and don't even attach the generic phy driver to
->>> the interface anymore.
->>>
->>> To make things slightly more consistent, make the rgmii configuration properties
->>> optional and allow a user to omit them in their device tree.
->>>
->>> Signed-off-by: Alexander Graf <agraf@suse.de>
->> Applied.
-> 
-> This patch should not have been applied.
-> 
-> I did not believe the implementation was proper for that driver.
-> 
-> It seems my objection to the code was not seen.  Nor was Andrew's point about the DT bindings document
-> 
-> https://patchwork.kernel.org/patch/9105371/
+$ ip link add link ens1f0 name ens1f0.99 type vlan id 99
+$ ip link set ens1f0 up
+$ ip link set ens1f0.99 up
+$ ip addr add 192.168.99.92 dev ens1f0.99
 
-The discussions around the recent phy patches have been a labrynth that I've
-found hard to follow, sorry.
+At this point, I can ping another host on vlan 99, ip 192.168.99.91.
+However, if I do the following:
 
-I'll revert these two, sigh....
+$ ethtool -K ens1f0 rxvlan off
+
+Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
+again. I'm not sure if this is actually intended behavior, or if there's a
+lack of software vlan stripping fallback, or what, but things continue to
+work if I simply don't call e1000e_vlan_strip_disable() if there are
+active vlans (plagiarizing a function from the e1000 driver here) on the
+interface.
+
+Also slipped a related-ish fix to the kerneldoc text for
+e1000e_vlan_strip_disable here...
+
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 75e6089..73f7452 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -154,6 +154,16 @@ void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+ 	writel(val, hw->hw_addr + reg);
+ }
+ 
++static bool e1000e_vlan_used(struct e1000_adapter *adapter)
++{
++	u16 vid;
++
++	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
++		return true;
++
++	return false;
++}
++
+ /**
+  * e1000_regdump - register printout routine
+  * @hw: pointer to the HW structure
+@@ -2789,7 +2799,7 @@ static void e1000e_vlan_filter_enable(struct e1000_adapter *adapter)
+ }
+ 
+ /**
+- * e1000e_vlan_strip_enable - helper to disable HW VLAN stripping
++ * e1000e_vlan_strip_disable - helper to disable HW VLAN stripping
+  * @adapter: board private structure to initialize
+  **/
+ static void e1000e_vlan_strip_disable(struct e1000_adapter *adapter)
+@@ -3443,7 +3453,8 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
+ 
+ 	ew32(RCTL, rctl);
+ 
+-	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX ||
++	    e1000e_vlan_used(adapter))
+ 		e1000e_vlan_strip_enable(adapter);
+ 	else
+ 		e1000e_vlan_strip_disable(adapter);
+-- 
+1.8.3.1
