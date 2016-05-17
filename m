@@ -1,36 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] bpf: arm64: remove callee-save registers
- use for tmp registers
-Date: Tue, 17 May 2016 14:03:46 -0400 (EDT)
-Message-ID: <20160517.140346.1420108193136786648.davem@davemloft.net>
-References: <1463441786-32224-1-git-send-email-yang.shi@linaro.org>
+Subject: Re: [PATCH] net: don't lose features in netdev_add_tso_features()
+Date: Tue, 17 May 2016 14:10:25 -0400 (EDT)
+Message-ID: <20160517.141025.306603458593770186.davem@davemloft.net>
+References: <1463438015-19529-1-git-send-email-dmichail@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, will.deacon@arm.com, catalin.marinas@arm.com,
-	daniel@iogearbox.net, zlim.lnx@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linaro-kernel@lists.linaro.org
-To: yang.shi@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463441786-32224-1-git-send-email-yang.shi@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: dmichail@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49177 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751496AbcEQSK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:10:27 -0400
+In-Reply-To: <1463438015-19529-1-git-send-email-dmichail@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yang Shi <yang.shi@linaro.org>
-Date: Mon, 16 May 2016 16:36:26 -0700
+From: Dimitris Michailidis <dmichail@google.com>
+Date: Mon, 16 May 2016 15:33:35 -0700
 
-> In the current implementation of ARM64 eBPF JIT, R23 and R24 are used for
-> tmp registers, which are callee-saved registers. This leads to variable size
-> of JIT prologue and epilogue. The latest blinding constant change prefers to
-> constant size of prologue and epilogue. AAPCS reserves R9 ~ R15 for temp
-> registers which not need to be saved/restored during function call. So, replace
-> R23 and R24 to R10 and R11, and remove tmp_used flag to save 2 instructions for
-> some jited BPF program.
+> The goal of netdev_add_tso_features() is to enable all TSO features but
+> it unintentionally loses NETIF_F_ALL_FOR_ALL features. This is because
+> the netdev_increment_features() it calls clears any NETIF_F_ALL_FOR_ALL
+> bits that aren't included in the incremental features and none of them
+> are included in NETIF_F_ALL_TSO. The behavior can be seen by enabling
+> tx-nocache-copy on the slaves and noticing the feature remains off at
+> the master.
 > 
-> CC: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Zi Shen Lim <zlim.lnx@gmail.com>
-> Signed-off-by: Yang Shi <yang.shi@linaro.org>
+> Fix this by including NETIF_F_ALL_FOR_ALL in the incremental features.
+> 
+> Signed-off-by: Dave Platt <dplatt@google.com>
+> Signed-off-by: Dimitris Michailidis <dmichail@google.com>
 
-Applied.
+This doesn't look right to me at all.
+
+The second argument to netdev_increment_features, 'one', clearly
+states that all it is supposed to do is handle a new device being
+added which has the features mentioned in 'one'.  It makes no sense to
+arbitrarily add ALL_FOR_ALL in there, and if it is legitimate, why
+doesn't every other call site of netdev_increment_features have this
+same problem?
+
+If netdev_increment_features is doing something different either it's
+documentation is wrong or it's implementation is losing ALL_FOR_ALL
+bits erroneously.
