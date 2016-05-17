@@ -1,30 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
-Date: Tue, 17 May 2016 12:42:36 -0400 (EDT)
-Message-ID: <20160517.124236.184552515136376350.davem@davemloft.net>
-References: <8737plig1v.fsf@ketchup.mtl.sfl>
-	<20160516.134823.1909596879203571371.davem@davemloft.net>
-	<87r3d01yok.fsf@ketchup.mtl.sfl>
+Subject: Re: linux-4.6/net/kcm/kcmsock.c:1508: bad if test ?
+Date: Tue, 17 May 2016 12:44:13 -0400 (EDT)
+Message-ID: <20160517.124413.1000589286930755736.davem@davemloft.net>
+References: <CAMzoambRTmpCmM0upiM5PMZtEioSMpw3QB4k--OCvHKmhCnw7w@mail.gmail.com>
+	<CAM_iQpWi4L-Dz92ce_nfvXJujEDKnmy_d6Ytsd0hLokvsSV3eA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com,
-	jiri@resnulli.us
-To: vivien.didelot@savoirfairelinux.com
+Cc: linuxdev.baldrick@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dcb314@hotmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48331 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48355 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752369AbcEQQmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 12:42:38 -0400
-In-Reply-To: <87r3d01yok.fsf@ketchup.mtl.sfl>
+	with ESMTP id S1750729AbcEQQoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 12:44:15 -0400
+In-Reply-To: <CAM_iQpWi4L-Dz92ce_nfvXJujEDKnmy_d6Ytsd0hLokvsSV3eA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue, 17 May 2016 11:39:23 -0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 17 May 2016 09:04:21 -0700
 
-> Do we want to send this fix to -net as well?
+> On Mon, May 16, 2016 at 11:40 AM, David Binderman
+> <linuxdev.baldrick@gmail.com> wrote:
+>> Hello there,
+>>
+>> linux-4.6/net/kcm/kcmsock.c:1508]: (style) Checking if unsigned
+>> variable 'copied' is less than zero.
+>>
+>> Source code is
+>>
+>>     if (copied < 0) {
+>>
+>> but
+>>
+>>    size_t copied;
+>>
+>> Suggest code rework.
+> 
+> Thanks for the report! I think the following patch is enough:
+> 
+> diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+> index 40662d73..8bfc390 100644
+> --- a/net/kcm/kcmsock.c
+> +++ b/net/kcm/kcmsock.c
+> @@ -1483,7 +1483,7 @@ static ssize_t kcm_splice_read(struct socket
+> *sock, loff_t *ppos,
+>         long timeo;
+>         struct kcm_rx_msg *rxm;
+>         int err = 0;
+> -       size_t copied;
+> +       int copied;
 
-net isn't open and is irrelevant right now, everything goes through the net-next
-tree since we are in the merge window.
+Or 'ssize_t' since that is the return type of this function.
