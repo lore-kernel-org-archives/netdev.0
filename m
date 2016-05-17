@@ -1,95 +1,54 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3 flow/port
- support
-Date: Tue, 17 May 2016 16:32:50 +0200
-Message-ID: <20160517163250.7ead555e@griffin>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
-	<1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next 1/4] netdevice: add SW statistics ndo
+Date: Tue, 17 May 2016 07:42:22 -0700
+Message-ID: <573B2DCE.9030907@cumulusnetworks.com>
+References: <1463053730-14991-1-git-send-email-jiri@resnulli.us> <1463053730-14991-2-git-send-email-jiri@resnulli.us> <20160517083908.GA13823@pox.localdomain> <20160517084145.GA2057@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Lorand Jakab <lojakab@cisco.com>,
-	Thomas Morin <thomas.morin@orange.com>
-To: Simon Horman <simon.horman@netronome.com>
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	nikolay@cumulusnetworks.com, linville@tuxdriver.com,
+	gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
+	eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
+	hannes@stressinduktion.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35758 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932188AbcEQOcy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2016 10:32:54 -0400
-In-Reply-To: <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:32952 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243AbcEQOm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 10:42:26 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 206so7705494pfu.0
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 07:42:25 -0700 (PDT)
+In-Reply-To: <20160517084145.GA2057@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looking through the patchset again, this time more deeply. Sorry for
-the delay.
-
-On Wed,  4 May 2016 16:36:30 +0900, Simon Horman wrote:
-> +struct ovs_action_push_eth {
-> +	struct ovs_key_ethernet addresses;
-> +	__be16   eth_type;
-
-Extra spaces.
-
-> +static int pop_eth(struct sk_buff *skb, struct sw_flow_key *key)
-> +{
-> +	skb_pull_rcsum(skb, ETH_HLEN);
-> +	skb_reset_mac_header(skb);
-> +	skb->mac_len -= ETH_HLEN;
-> +
-> +	invalidate_flow_key(key);
-> +	return 0;
-> +}
-
-There's a fundamental question here: how should pop_eth behave when
-vlan tag is present?
-
-There are two options: either vlan is considered part of the Ethernet
-header and pop_eth means implicitly resetting vlan tag, or packet can
-have vlan tag even if it's not Ethernet.
-
-This patch seems to implement the first option; however, skb->vlan_tci
-should be reset and pop_eth should check whether the vlan tag is
-present in the frame (deaccelerated) and remove it if it is. Otherwise,
-the behavior of pop_eth would be inconsistent.
-
-However, I'm not sure whether the second option does not make more
-sense. It may, in fact, be needed - ARPHRD_NONE tunnel port could not
-be set as an access port otherwise (unless I'm missing something).
-
-In that case, pop_eth will need to put the vlan tag to skb->vlan_tci if
-it's in the frame itself. Also, push_vlan and pop_vlan would need to be
-modified to work with is_layer3 packets.
-
-> +static int push_eth(struct sk_buff *skb, struct sw_flow_key *key,
-> +		    const struct ovs_action_push_eth *ethh)
-> +{
-> +	int err;
-> +
-> +	/* De-accelerate any hardware accelerated VLAN tag added to a previous
-> +	 * Ethernet header */
-> +	err = skb_vlan_deaccel(skb);
-
-Why? Just keep it in skb->vlan_tci.
-
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -468,28 +468,31 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
->  
->  	skb_reset_mac_header(skb);
->  
-> -	/* Link layer.  We are guaranteed to have at least the 14 byte Ethernet
-> -	 * header in the linear data area.
-> -	 */
-> -	eth = eth_hdr(skb);
-> -	ether_addr_copy(key->eth.src, eth->h_source);
-> -	ether_addr_copy(key->eth.dst, eth->h_dest);
-> +	/* Link layer. */
-> +	if (key->phy.is_layer3) {
-> +		key->eth.tci = 0;
-
-Could make sense to use skb->vlan_tci, see above.
-
-Thanks,
-
- Jiri
+On 5/17/16, 1:41 AM, Jiri Pirko wrote:
+> Tue, May 17, 2016 at 10:39:08AM CEST, tgraf@suug.ch wrote:
+>> On 05/12/16 at 01:48pm, Jiri Pirko wrote:
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 12436d1..a69e418 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -7376,6 +7376,8 @@ EXPORT_SYMBOL(netdev_stats_to_stats64);
+>>>   *	The device driver may provide its own method by setting
+>>>   *	dev->netdev_ops->get_stats64 or dev->netdev_ops->get_stats;
+>>>   *	otherwise the internal statistics structure is used.
+>>> + *	If device supports both HW & SW statistics - this function should
+>>> + *	return the HW statistics.
+>>>   */
+>>>  struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+>>>  					struct rtnl_link_stats64 *storage)
+>> Can we clarify in a comment that given HW stats are available whether this
+>> would continue to account for something like a memory allocation failure
+>> through tx_dropped (for drivers which do skb_realloc_headroom() in xmit)
+>> or tx_busy for when the ring is busy? HW would never see such failures Is
+>> the expectation that dev_get_stats() continues to include these software
+>> failures?
+> I think it makes sense to merge HW counters with the kernel error counters
+> you mention. We'll fix that. Thanks.
+yep. This is what i was pointing out as well with enic and possibly other drivers.
+Mellanox driver does it or not...,..the comment should definitely be fixed since
+some drivers already do this.
