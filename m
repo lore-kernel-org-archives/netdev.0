@@ -1,49 +1,27 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: linux-4.6/net/kcm/kcmsock.c:1508: bad if test ?
-Date: Tue, 17 May 2016 09:04:21 -0700
-Message-ID: <CAM_iQpWi4L-Dz92ce_nfvXJujEDKnmy_d6Ytsd0hLokvsSV3eA@mail.gmail.com>
-References: <CAMzoambRTmpCmM0upiM5PMZtEioSMpw3QB4k--OCvHKmhCnw7w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/2][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2016-05-16
+Date: Tue, 17 May 2016 12:19:28 -0400 (EDT)
+Message-ID: <20160517.121928.1553835317411702208.davem@davemloft.net>
+References: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, dcb314@hotmail.com
-To: David Binderman <linuxdev.baldrick@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMzoambRTmpCmM0upiM5PMZtEioSMpw3QB4k--OCvHKmhCnw7w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48062 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135AbcEQQTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 12:19:38 -0400
+In-Reply-To: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2016 at 11:40 AM, David Binderman
-<linuxdev.baldrick@gmail.com> wrote:
-> Hello there,
->
-> linux-4.6/net/kcm/kcmsock.c:1508]: (style) Checking if unsigned
-> variable 'copied' is less than zero.
->
-> Source code is
->
->     if (copied < 0) {
->
-> but
->
->    size_t copied;
->
-> Suggest code rework.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 16 May 2016 19:25:22 -0700
 
-Thanks for the report! I think the following patch is enough:
+> This series contains 2 fixes to ixgbe only.
 
-diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
-index 40662d73..8bfc390 100644
---- a/net/kcm/kcmsock.c
-+++ b/net/kcm/kcmsock.c
-@@ -1483,7 +1483,7 @@ static ssize_t kcm_splice_read(struct socket
-*sock, loff_t *ppos,
-        long timeo;
-        struct kcm_rx_msg *rxm;
-        int err = 0;
--       size_t copied;
-+       int copied;
-        struct sk_buff *skb;
-
-        /* Only support splice for SOCKSEQPACKET */
+Pulled, thanks Jeff.
