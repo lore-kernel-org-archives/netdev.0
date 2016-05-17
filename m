@@ -1,68 +1,69 @@
-From: Rabin Vincent <rabin.vincent@axis.com>
-Subject: [PATCHv2] phy: fix crash in fixed_phy_add()
-Date: Tue, 17 May 2016 11:01:50 +0200
-Message-ID: <1463475710-15869-1-git-send-email-rabin.vincent@axis.com>
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	Rabin Vincent <rabinv@axis.com>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH v3 -net-next] ravb: Add missing free_irq() calls to ravb_close()
+Date: Tue, 17 May 2016 11:05:34 +0200
+Message-ID: <1463475934-3062-1-git-send-email-geert+renesas@glider.be>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms+renesas@verge.net.au>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	Geert Uytterhoeven <geert+renesas@glider.be>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bastet.se.axis.com ([195.60.68.11]:57357 "EHLO
-	bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754462AbcEQJB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 05:01:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rabin Vincent <rabinv@axis.com>
+When reopening the network device on ra7795/salvator-x, e.g. after a
+DHCP timeout:
 
-Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
-platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
-called (for example, because the platform code and the fixed_phy driver
-use the same initcall level) crash in fixed_phy_add() since the
-->mii_bus is not allocated.
+    IP-Config: Reopening network devices...
+    genirq: Flags mismatch irq 139. 00000000 (eth0:ch0:rx_be) vs. 00000000 (ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch0:rx_be
+    IP-Config: Failed to open eth0
+    IP-Config: No network devices available
 
-Also since e7f4dc3536a, these interrupts are initalized to polling by
-default.  The few (old) platforms which directly use fixed_phy_add()
-from their platform code all pass PHY_POLL for the irq argument, so we
-can keep these platforms not crashing by simply not attempting to set
-the irq if PHY_POLL is passed.
+The "mismatch" is due to requesting an IRQ that is already in use,
+while IRQF_PROBE_SHARED wasn't set.
 
-Also, even if problems have not been reported on more modern platforms
-which used fixed_phy_register() from drivers' probe functions, we return
--EPROBE_DEFER if the MDIO bus is not yet registered so that the probe is
-retried later.
+However, the real cause is that ravb_close() doesn't release any of the
+R-Car Gen3-specific secondary IRQs.
 
-Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
-Signed-off-by: Rabin Vincent <rabinv@axis.com>
+Add the missing free_irq() calls to fix this.
+
+Fixes: f51bdc236b6c5835 ("ravb: Add dma queue interrupt support")
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
-v2: rewrite according to Andrew's suggestions
+This version is against today's net-next.git.
 
- drivers/net/phy/fixed_phy.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+v3:
+  - Add Acked-by,
+  - Rebase against net-next.git, which has received a partial fix
+    through net.git,
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index fc07a88..d9dc1f5 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -255,7 +255,8 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+v2:
+  - Clearly state which version this patch is against,
+  - Add Fixes tags.
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index bcebafd780234f96..867caf6e7a5a65ad 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1667,8 +1667,13 @@ static int ravb_close(struct net_device *ndev)
+ 		priv->phydev = NULL;
+ 	}
  
- 	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
+-	if (priv->chip_id == RCAR_GEN3)
++	if (priv->chip_id != RCAR_GEN2) {
++		free_irq(priv->tx_irqs[RAVB_NC], ndev);
++		free_irq(priv->rx_irqs[RAVB_NC], ndev);
++		free_irq(priv->tx_irqs[RAVB_BE], ndev);
++		free_irq(priv->rx_irqs[RAVB_BE], ndev);
+ 		free_irq(priv->emac_irq, ndev);
++	}
+ 	free_irq(ndev->irq, ndev);
  
--	fmb->mii_bus->irq[phy_addr] = irq;
-+	if (irq != PHY_POLL)
-+		fmb->mii_bus->irq[phy_addr] = irq;
- 
- 	fp->addr = phy_addr;
- 	fp->status = *status;
-@@ -314,6 +315,9 @@ struct phy_device *fixed_phy_register(unsigned int irq,
- 	int phy_addr;
- 	int ret;
- 
-+	if (!fmb->mii_bus)
-+		return ERR_PTR(-EPROBE_DEFER);
-+
- 	/* Get the next available PHY address, up to PHY_MAX_ADDR */
- 	spin_lock(&phy_fixed_addr_lock);
- 	if (phy_fixed_addr == PHY_MAX_ADDR) {
+ 	napi_disable(&priv->napi[RAVB_NC]);
 -- 
-2.1.4
+1.9.1
