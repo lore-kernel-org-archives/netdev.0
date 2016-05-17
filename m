@@ -1,66 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
-Date: Tue, 17 May 2016 18:03:58 +0200
-Message-ID: <20160517160358.GC26948@lunn.ch>
-References: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <8737plig1v.fsf@ketchup.mtl.sfl>
- <20160516.134823.1909596879203571371.davem@davemloft.net>
- <87r3d01yok.fsf@ketchup.mtl.sfl>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: linux-4.6/net/kcm/kcmsock.c:1508: bad if test ?
+Date: Tue, 17 May 2016 09:04:21 -0700
+Message-ID: <CAM_iQpWi4L-Dz92ce_nfvXJujEDKnmy_d6Ytsd0hLokvsSV3eA@mail.gmail.com>
+References: <CAMzoambRTmpCmM0upiM5PMZtEioSMpw3QB4k--OCvHKmhCnw7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	f.fainelli@gmail.com, jiri@resnulli.us
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, dcb314@hotmail.com
+To: David Binderman <linuxdev.baldrick@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87r3d01yok.fsf@ketchup.mtl.sfl>
+In-Reply-To: <CAMzoambRTmpCmM0upiM5PMZtEioSMpw3QB4k--OCvHKmhCnw7w@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 17, 2016 at 11:39:23AM -0400, Vivien Didelot wrote:
-> Hi David,
-> 
-> David Miller <davem@davemloft.net> writes:
-> 
-> > From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> > Date: Fri, 13 May 2016 21:28:28 -0400
-> >
-> >> Hi David,
-> >> 
-> >> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
-> >> 
-> >>> Now that the bridge code defers the switchdev port state setting, there
-> >>> is no need to defer the port STP state change within the mv88e6xxx code.
-> >>> Thus get rid of the driver's bridge work code.
-> >>>
-> >>> This also fixes a race condition where the DSA layer assumes that the
-> >>> bridge code already set the unbridged port's STP state to Disabled
-> >>> before restoring the Forwarding state.
-> >>>
-> >>> As a consequence, this also fixes the FDB flush for the unbridged port
-> >>> which now correctly occurs during the Forwarding to Disabled transition.
-> >>>
-> >>> Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request attr_set as deferred")
-> >>> Reported-by: Andrew Lunn <andrew@lunn.ch>
-> >>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> >> 
-> >> This patch doesn't apply to -net, only applies to net-next...
-> >> 
-> >> How should I handle that, do I resend a patch for net-next with the good
-> >> subject prefix, and a v2 for -net?
-> >
-> > I applied this to net-next, thanks.
-> 
-> Do we want to send this fix to -net as well?
+On Mon, May 16, 2016 at 11:40 AM, David Binderman
+<linuxdev.baldrick@gmail.com> wrote:
+> Hello there,
+>
+> linux-4.6/net/kcm/kcmsock.c:1508]: (style) Checking if unsigned
+> variable 'copied' is less than zero.
+>
+> Source code is
+>
+>     if (copied < 0) {
+>
+> but
+>
+>    size_t copied;
+>
+> Suggest code rework.
 
-Hi Vivien
+Thanks for the report! I think the following patch is enough:
 
-I don't see this bug as being highly critical that it needs to be
-fixed immediately.
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index 40662d73..8bfc390 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -1483,7 +1483,7 @@ static ssize_t kcm_splice_read(struct socket
+*sock, loff_t *ppos,
+        long timeo;
+        struct kcm_rx_msg *rxm;
+        int err = 0;
+-       size_t copied;
++       int copied;
+        struct sk_buff *skb;
 
-I would suggest we wait until -rc1 is out, and then produce a backport
-version. Given the changes we have made to that driver, there is
-little chance the existing fix will cherry-pick backwards.
-
-       Andrew
+        /* Only support splice for SOCKSEQPACKET */
