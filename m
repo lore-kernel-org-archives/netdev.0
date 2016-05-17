@@ -1,52 +1,87 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Regarding vxlan unicast configuration
-Date: Mon, 16 May 2016 18:52:33 -0700
-Message-ID: <CADAe=++oAXEuxOrJ0xw5VAvkre98SQa71vur6SjkyuWB4jg8xQ@mail.gmail.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.4 31/73] VSOCK: do not disconnect socket when peer has shutdown SEND only
+Date: Mon, 16 May 2016 18:15:01 -0700
+Message-ID: <20160517011453.331644564@linuxfoundation.org>
+References: <20160517011451.827433776@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f43.google.com ([209.85.213.43]:34386 "EHLO
-	mail-vk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755677AbcEQBxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 21:53:15 -0400
-Received: by mail-vk0-f43.google.com with SMTP id c189so2487391vkb.1
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 18:53:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Ian Campbell <ian.campbell@docker.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20160517011451.827433776@linuxfoundation.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+4.4-stable review patch.  If anyone has any objections, please let me know.
 
-I am trying vxlan unicast configuration on a back to back connected
-interfaces of VM1 and VM2 running fedora 23 with 4.2 version of
-kernel. Below is my configuration
+------------------
 
-VM1
+From: Ian Campbell <ian.campbell@docker.com>
 
-ip address add 100.1.1.1/24 dev enp0s8
-ifconfig enp0s8 up
-ip link add name vxlan42 type vxlan id 42 dev enp0s8 remote 50.1.1.2
-local 50.1.1.1 dstport 4789
-ip address add 50.1.1.1/24 dev vxlan42
-ip link set up vxlan42
+[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
 
-VM2
+The peer may be expecting a reply having sent a request and then done a
+shutdown(SHUT_WR), so tearing down the whole socket at this point seems
+wrong and breaks for me with a client which does a SHUT_WR.
 
-ip address add 100.1.1.2/24 dev enp0s8
-ifconfig enp0s8 up
-ip link add name vxlan42 type vxlan id 42 dev enp0s8 remote 50.1.1.1
-local 50.1.1.2 dstport 4789
-ip address add 50.1.1.2/24 dev vxlan42
-ip link set up vxlan42
+Looking at other socket family's stream_recvmsg callbacks doing a shutdown
+here does not seem to be the norm and removing it does not seem to have
+had any adverse effects that I can see.
 
+I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
+on the vmci transport.
 
-Now when I try to ping 50.1.1.1 from VM2, I am receiving ARP packets
-on VM1 which are not vxlan tagged. As a result ping is not working.
+Signed-off-by: Ian Campbell <ian.campbell@docker.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+Cc: Andy King <acking@vmware.com>
+Cc: Dmitry Torokhov <dtor@vmware.com>
+Cc: Jorgen Hansen <jhansen@vmware.com>
+Cc: Adit Ranadive <aditr@vmware.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ net/vmw_vsock/af_vsock.c |   21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
 
-I am able to successfully configure multicast based vxlan but having
-issues with vxlan unicast.
-
-Is there something wrong with my configuration ?
-
-Regards,
-Ajith
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1794,27 +1794,8 @@ vsock_stream_recvmsg(struct socket *sock
+ 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		err = 0;
+ 
+-	if (copied > 0) {
+-		/* We only do these additional bookkeeping/notification steps
+-		 * if we actually copied something out of the queue pair
+-		 * instead of just peeking ahead.
+-		 */
+-
+-		if (!(flags & MSG_PEEK)) {
+-			/* If the other side has shutdown for sending and there
+-			 * is nothing more to read, then modify the socket
+-			 * state.
+-			 */
+-			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
+-				if (vsock_stream_has_data(vsk) <= 0) {
+-					sk->sk_state = SS_UNCONNECTED;
+-					sock_set_flag(sk, SOCK_DONE);
+-					sk->sk_state_change(sk);
+-				}
+-			}
+-		}
++	if (copied > 0)
+ 		err = copied;
+-	}
+ 
+ out_wait:
+ 	finish_wait(sk_sleep(sk), &wait);
