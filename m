@@ -1,46 +1,49 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the arm64
- tree
-Date: Tue, 17 May 2016 09:12:34 +0200
-Message-ID: <573AC462.7070809@iogearbox.net>
-References: <20160517102441.0cfbc192@canb.auug.org.au> <CAMuHMdX8oW2M8Rr_LUHNSi9PMyEoNOdsp4MrN5z3SySjfahFmw@mail.gmail.com>
+From: Jonathan Woithe <jwoithe@atrad.com.au>
+Subject: Re: r8169 regression: UDP packets dropped intermittantly
+Date: Tue, 17 May 2016 16:22:31 +0930
+Message-ID: <20160517065231.GO30050@marvin.atrad.com.au>
+References: <20151119005608.GB4882@electric-eye.fr.zoreil.com>
+ <20151120024616.GL7136@marvin.atrad.com.au>
+ <20151120224534.GA25025@electric-eye.fr.zoreil.com>
+ <20151121223627.GA3493@electric-eye.fr.zoreil.com>
+ <20151122225039.GE2957@marvin.atrad.com.au>
+ <20151122230244.GA12249@electric-eye.fr.zoreil.com>
+ <20151130064255.GL5537@marvin.atrad.com.au>
+ <20151201235852.GA16429@electric-eye.fr.zoreil.com>
+ <20160208023318.GJ9174@marvin.atrad.com.au>
+ <20160407024417.GE17921@marvin.atrad.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Yang Shi <yang.shi@linaro.org>,
-	Will Deacon <will.deacon@arm.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdX8oW2M8Rr_LUHNSi9PMyEoNOdsp4MrN5z3SySjfahFmw@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.atrad.com.au ([150.101.241.2]:35619 "EHLO
+	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711AbcEQHTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 03:19:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20160407024417.GE17921@marvin.atrad.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/17/2016 09:03 AM, Geert Uytterhoeven wrote:
-[...]
-> Someone's not gonna be happy with commit 6077776b5908 ("bpf: split
-> HAVE_BPF_JIT into cBPF and eBPF variant") breaking the sort order again...
+On Thu, Apr 07, 2016 at 12:14:18PM +0930, Jonathan Woithe wrote:
+> On Mon, Feb 08, 2016 at 01:03:19PM +1030, Jonathan Woithe wrote:
+> > On Wed, Dec 02, 2015 at 12:58:52AM +0100, Francois Romieu wrote:
+> > > Jonathan Woithe <jwoithe@atrad.com.au> :
+> > > [...]
+> > > > Any thoughts or progress at this stage?  Are there further tests you need me
+> > > > to do ?
+> > > 
+> > > Yes but you should expect two more days without signal.
+> > 
+> > FYI I am now back from annual leave and linux.conf.au.  This means I am in
+> > a position to test possible solutions to this problem once you are able to
+> > make them available.
+> 
+> Has there been any further progress on this problem?  I still have access to
+> the hardware and systems if further tests are required.
 
-Wasn't aware of that. Maybe I'm missing something, but there appears
-to be no throughout consistent ordering ...
+Any further progress?
 
-[...]
-         select HAVE_PERF_REGS
-         select HAVE_PERF_USER_STACK_DUMP
-         select HAVE_RCU_TABLE_FREE
-         select HAVE_SYSCALL_TRACEPOINTS
-         select IOMMU_DMA if IOMMU_SUPPORT
-         select IRQ_DOMAIN
-         select IRQ_FORCED_THREADING
-[...]
-         select RTC_LIB
-         select SPARSE_IRQ
-         select SYSCTL_EXCEPTION_TRACE
-         select HAVE_CONTEXT_TRACKING
-         select HAVE_ARM_SMCCC
-[...]
+Regards
+  jonathan
