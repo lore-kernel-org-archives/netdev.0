@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: gianfar: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Mon, 16 May 2016 21:52:00 -0400 (EDT)
-Message-ID: <20160516.215200.1754453319923888929.davem@davemloft.net>
-References: <1463355009-19803-1-git-send-email-tremyfr@gmail.com>
-	<1463355009-19803-2-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH 1/2] net: ethernet: ftgmac100: use phydev from struct
+ net_device
+Date: Mon, 16 May 2016 21:52:06 -0400 (EDT)
+Message-ID: <20160516.215206.379321754603168751.davem@davemloft.net>
+References: <1463355314-20889-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: claudiu.manoil@freescale.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, linux@roeck-us.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463355009-19803-2-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1463355314-20889-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Mon, 16 May 2016 01:30:09 +0200
+Date: Mon, 16 May 2016 01:35:13 +0200
 
-> There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-> so we can use them instead of defining the same code in the driver.
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phydev in the private structure, and update the driver to use the
+> one contained in struct net_device.
 > 
 > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
