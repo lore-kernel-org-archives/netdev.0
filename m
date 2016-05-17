@@ -1,45 +1,49 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net] netfilter: nf_conntrack: Use net_mutex for helper unregistration.
-Date: Mon, 16 May 2016 21:38:53 -0700
-Message-ID: <CAPWQB7Eqoxk6-B5iEhkk9yF-DDduavtm=K8OE-3Of7JF6-Opvg@mail.gmail.com>
-References: <1462488637-46877-1-git-send-email-joe@ovn.org> <20160506110325.GA2420@salvia>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the arm64
+ tree
+Date: Tue, 17 May 2016 08:05:11 +0200
+Message-ID: <573AB497.2020301@iogearbox.net>
+References: <20160517102441.0cfbc192@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160506110325.GA2420@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Yang Shi <yang.shi@linaro.org>,
+	Will Deacon <will.deacon@arm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Catalin Marinas <catalin.marinas@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46437 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754062AbcEQGFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 02:05:25 -0400
+In-Reply-To: <20160517102441.0cfbc192@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6 May 2016 at 04:03, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> Hi Joe,
+On 05/17/2016 02:24 AM, Stephen Rothwell wrote:
+> Hi all,
 >
-> On Thu, May 05, 2016 at 03:50:37PM -0700, Joe Stringer wrote:
->> diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
->> index 3b40ec575cd5..6860b19be406 100644
->> --- a/net/netfilter/nf_conntrack_helper.c
->> +++ b/net/netfilter/nf_conntrack_helper.c
->> @@ -449,10 +449,10 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
->>        */
->>       synchronize_rcu();
->>
->> -     rtnl_lock();
->> +     mutex_lock(&net_mutex);
->>       for_each_net(net)
->>               __nf_conntrack_helper_unregister(me, net);
->> -     rtnl_unlock();
->> +     mutex_unlock(&net_mutex);
+> Today's linux-next merge of the net-next tree got a conflict in:
 >
-> This simple solution works because we have no .exit callbacks in any
-> of our helpers. Otherwise, the helper code may be already gone by when
-> the worker has a chance to run to release the netns.
+>    arch/arm64/Kconfig
 >
-> If so, probably I can append this as comment to this function so we
-> don't forget. If we ever have .exit callbacks (I don't expect so), we
-> would need to wait for worker completion.
+> between commit:
+>
+>    8ee708792e1c ("arm64: Kconfig: remove redundant HAVE_ARCH_TRANSPARENT_HUGEPAGE definition")
+>
+> from the arm64 tree and commit:
+>
+>    6077776b5908 ("bpf: split HAVE_BPF_JIT into cBPF and eBPF variant")
+>
+> from the net-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
-Hi Pablo,
-
-Did you want me to re-spin this patch or look into another approach?
+Diff looks good, thanks!
