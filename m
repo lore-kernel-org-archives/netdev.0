@@ -1,80 +1,51 @@
-From: Tyler Hicks <tyhicks@canonical.com>
-Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
-Date: Tue, 17 May 2016 09:13:47 -0500
-Message-ID: <573B271B.30202@canonical.com>
-References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
- <20160508.235620.333454221783238471.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Reorder of packets
+Date: Tue, 17 May 2016 07:28:08 -0700
+Message-ID: <1463495288.18194.89.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CANKzZ6xn8yPyyS4dTYSFU643ru207voMfFP1gscC1npnF+jb6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq"
-Cc: David Miller <davem@davemloft.net>,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
-To: jmorris@namei.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160508.235620.333454221783238471.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	netem@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+To: Tuvia Rosenberg <rtuvia197@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33380 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755385AbcEQO2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 10:28:11 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y7so2120047pfb.0
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 07:28:11 -0700 (PDT)
+In-Reply-To: <CANKzZ6xn8yPyyS4dTYSFU643ru207voMfFP1gscC1npnF+jb6g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq
-Content-Type: multipart/mixed; boundary="NqAuU6cvBqmdN3J9Ua2d0L5B6K1ucmUA6"
-From: Tyler Hicks <tyhicks@canonical.com>
-To: jmorris@namei.org
-Cc: David Miller <davem@davemloft.net>,
- linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
-Message-ID: <573B271B.30202@canonical.com>
-Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
-References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
- <20160508.235620.333454221783238471.davem@davemloft.net>
-In-Reply-To: <20160508.235620.333454221783238471.davem@davemloft.net>
+On Tue, 2016-05-17 at 14:45 +0300, Tuvia Rosenberg wrote:
+> Hi,
+> I need example of reordering incoming UPD/IP packets with netem
+> command.
+> Can someone write an example ?
+> Thanks,Tuvia R.
 
---NqAuU6cvBqmdN3J9Ua2d0L5B6K1ucmUA6
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Simple one would be :
 
-On 05/08/2016 10:56 PM, David Miller wrote:
-> From: Tyler Hicks <tyhicks@canonical.com>
-> Date: Fri,  6 May 2016 18:04:12 -0500
->=20
->> This pair of patches does away with what I believe is a useless denial=
+# netem based setup, installed at receiver side only
+ETH=eth0
+IFB=ifb10
+DELAY=200us
+JITTER=100us
 
->> audit message when a privileged process initially accesses a net sysct=
-l.
->=20
-> The LSM folks can apply this if they agree with you.
+ip link add ifb10 numtxqueues $TXQ type ifb
+ip link set dev $IFB up
 
-Hi James - Could you pick up these two bug fix patches? Thanks!
+tc qdisc del dev $ETH ingress 2>/dev/null
+tc qdisc add dev $ETH ingress
 
-Tyler
+tc filter add dev $ETH parent ffff: \
+   protocol ip u32 match u32 0 0 flowid 1:1 \
+	action mirred egress redirect dev $IFB
 
-
-
---NqAuU6cvBqmdN3J9Ua2d0L5B6K1ucmUA6--
-
---FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJXOycgAAoJENaSAD2qAscK8kEP/R2mBIi8zM6j1OsMAM0X56CP
-SK+IeXqLAfTIufpNXWL+81elJgUj9umLCQRzmu5b5AHgJhIqz8+G6gZIaBqPAop1
-qyRe9N4YmBP5Zx0J4pcVNyxcmux41HcicJS2ADXk8mXsTHVsEN36KMpOEX9iRFVa
-YOVAl1KYihJt2dJhYAfx6tJ/cH+0ZvVjHG2aUy/DKLL+2wrsy0epHgSLQsp4Tkor
-gMvX1qJStJh7MhbS/DabOe4mI8dxVJEpkuD+IKnH2pcbPcfaZIw9+hnzWDMgCvmU
-NDXBdHJTW5EwiqSYb1BtLyuvsMfQ0dRsTmeuWkCMzW+X9XzW7TWKxovCZe6U26ha
-1Uf+4LnXdh+MqTEYd4v0jHsrJDhQv/O0syaJ/zF1jJUKYx7nSIa26mzAOmQu7X58
-Ls/zABOvyHPLKRYeAx7N3xJD3fT9VfRSgi3FXvua4TgsmRN6I2Flu7aZLxaxchSH
-GunDIq9fkUlmvEHaIPM5f9gX6hGmM73MhHq6YANFinps2EwwvIJK4wTw1C0buBzs
-rDx5wNjKUtfugxOtJGRQ39NRXjLjwO3xSUyMnNSHnBgqsWYZ2Zjb7ooVXUHULp1k
-RytWN0wianIK4O5SIkpdu5t/C1tJfjulq+XuFGGOoXNosB+d/z5V8MubGnluYkYa
-RdUjvRp6Lj2E13MCODWq
-=hxRz
------END PGP SIGNATURE-----
-
---FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq--
+tc qdisc del dev $IFB root 2>/dev/null
+tc qdisc add dev $IFB root netem limit 10000 delay $DELAY $JITTER
