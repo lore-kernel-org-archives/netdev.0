@@ -1,39 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2016-05-13
-Date: Tue, 17 May 2016 12:21:29 -0400 (EDT)
-Message-ID: <20160517.122129.77809623717937332.davem@davemloft.net>
-References: <87wpmu87ns.fsf@kamboji.qca.qualcomm.com>
-	<87futi858q.fsf@kamboji.qca.qualcomm.com>
-	<8737ph89rd.fsf@kamboji.qca.qualcomm.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
+Date: Tue, 17 May 2016 12:23:34 -0400
+Message-ID: <87a8jozm9l.fsf@ketchup.mtl.sfl>
+References: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com> <8737plig1v.fsf@ketchup.mtl.sfl> <20160516.134823.1909596879203571371.davem@davemloft.net> <87r3d01yok.fsf@ketchup.mtl.sfl> <20160517160358.GC26948@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8737ph89rd.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	f.fainelli@gmail.com, jiri@resnulli.us
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160517160358.GC26948@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Tue, 17 May 2016 09:43:34 +0300
+Hi Andrew,
 
-> I noticed that you had marked this as Superseded in pathwork[1]. I was
-> actually hoping that you would pull this with the instructions how to
-> fix the conflict. But do you actually want me to resubmit the pull
-> request? Or something else?
-> 
-> [1] https://patchwork.ozlabs.org/patch/621953/
+Andrew Lunn <andrew@lunn.ch> writes:
 
-My impression is that you need to make adjustments to fix the merge error
-I made the other day, and that a new pull request would show up with that
-corrected.
+>> Do we want to send this fix to -net as well?
+>
+> I don't see this bug as being highly critical that it needs to be
+> fixed immediately.
+>
+> I would suggest we wait until -rc1 is out, and then produce a backport
+> version. Given the changes we have made to that driver, there is
+> little chance the existing fix will cherry-pick backwards.
 
-There is no rush, whenever you submit it I'll still take it.
+Sounds good to me!
 
-THanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+
+        Vivien
