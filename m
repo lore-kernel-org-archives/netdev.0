@@ -1,79 +1,56 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: Re: [PATCH 1/1] net: thunderx: avoid null pointer dereference
-Date: Tue, 17 May 2016 23:37:11 +0200
-Message-ID: <573B8F07.6080600@gmx.de>
-References: <1463514038-9008-1-git-send-email-xypron.glpk@gmx.de>
- <573B7D39.9050305@caviumnetworks.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@minaslivre.org>
+Subject: Re: [PATCH 1/1] net: ehea: avoid null pointer dereference
+Date: Tue, 17 May 2016 18:33:34 -0300
+Message-ID: <20160517213333.GN25580@siri.cascardo.eti.br>
+References: <1463516934-10115-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: David Daney <ddaney@caviumnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <573B7D39.9050305@caviumnetworks.com>
+Content-Disposition: inline
+In-Reply-To: <1463516934-10115-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 05/17/2016 10:21 PM, David Daney wrote:
-> On 05/17/2016 12:40 PM, Heinrich Schuchardt wrote:
->> In function bgx_lmac_handler only use a member of
->> lmac after checking it is not null.
->>
+On Tue, May 17, 2016 at 10:28:54PM +0200, Heinrich Schuchardt wrote:
+> ehea_get_port may return NULL. Do not dereference NULL value.
 > 
-> Were you seeing and actual OOPs, or is this only a theoretical problem
-> flagged by some sort of static code checker?
+> Fixes: 8c4877a4128e ("ehea: Use the standard logging functions")
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 
-Cppcheck identified the code inconsistency.
+Acked-by: Thadeu Lima de Souza Cascardo <cascardo@debian.org>
 
-If the struct netdev * parameter cannot be NULL, you could eliminate the
-check.
-
-Other drivers do no have check against a NULL parameter in the
-adjust_link handler function (e.g. bgmac_adjust_link,
-pxa168_eth_adjust_link).
-
-Best regards
-
-Heinrich
-
+> ---
+>  drivers/net/ethernet/ibm/ehea/ehea_main.c | 9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
 > 
->> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-> 
-> In any event, it seems sane to make this change, so:
-> 
-> Acked-by: David Daney <david.daney@cavium.com>
-> 
-> 
->> ---
->>   drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 4 +++-
->>   1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->> b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->> index d20539a..3ed2198 100644
->> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->> @@ -274,12 +274,14 @@ static void bgx_sgmii_change_link_state(struct
->> lmac *lmac)
->>   static void bgx_lmac_handler(struct net_device *netdev)
->>   {
->>       struct lmac *lmac = container_of(netdev, struct lmac, netdev);
->> -    struct phy_device *phydev = lmac->phydev;
->> +    struct phy_device *phydev;
->>       int link_changed = 0;
->>
->>       if (!lmac)
->>           return;
->>
->> +    phydev = lmac->phydev;
->> +
->>       if (!phydev->link && lmac->last_link)
->>           link_changed = -1;
->>
->>
-> 
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> index 2a0dc12..54efa9a 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> @@ -1169,16 +1169,15 @@ static void ehea_parse_eqe(struct ehea_adapter *adapter, u64 eqe)
+>  	ec = EHEA_BMASK_GET(NEQE_EVENT_CODE, eqe);
+>  	portnum = EHEA_BMASK_GET(NEQE_PORTNUM, eqe);
+>  	port = ehea_get_port(adapter, portnum);
+> +	if (!port) {
+> +		netdev_err(NULL, "unknown portnum %x\n", portnum);
+> +		return;
+> +	}
+>  	dev = port->netdev;
+>  
+>  	switch (ec) {
+>  	case EHEA_EC_PORTSTATE_CHG:	/* port state change */
+>  
+> -		if (!port) {
+> -			netdev_err(dev, "unknown portnum %x\n", portnum);
+> -			break;
+> -		}
+> -
+>  		if (EHEA_BMASK_GET(NEQE_PORT_UP, eqe)) {
+>  			if (!netif_carrier_ok(dev)) {
+>  				ret = ehea_sense_port_attr(port);
+> -- 
+> 2.1.4
 > 
