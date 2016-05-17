@@ -1,49 +1,49 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the arm64
- tree
-Date: Tue, 17 May 2016 08:05:11 +0200
-Message-ID: <573AB497.2020301@iogearbox.net>
-References: <20160517102441.0cfbc192@canb.auug.org.au>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: pull-request: wireless-drivers-next 2016-05-13
+Date: Tue, 17 May 2016 09:43:34 +0300
+Message-ID: <8737ph89rd.fsf@kamboji.qca.qualcomm.com>
+References: <87oa8ab3eo.fsf@kamboji.qca.qualcomm.com>
+	<87wpmu87ns.fsf@kamboji.qca.qualcomm.com>
+	<87futi858q.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Yang Shi <yang.shi@linaro.org>,
-	Will Deacon <will.deacon@arm.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Catalin Marinas <catalin.marinas@arm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	luciano.coelho@intel.com, emmanuel.grumbach@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46437 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754062AbcEQGFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 02:05:25 -0400
-In-Reply-To: <20160517102441.0cfbc192@canb.auug.org.au>
+Received: from smtp.codeaurora.org ([198.145.29.96]:38226 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754036AbcEQGnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 02:43:41 -0400
+In-Reply-To: <87futi858q.fsf@kamboji.qca.qualcomm.com> (Kalle Valo's message
+	of "Mon, 16 May 2016 17:08:53 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/17/2016 02:24 AM, Stephen Rothwell wrote:
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in:
->
->    arch/arm64/Kconfig
->
-> between commit:
->
->    8ee708792e1c ("arm64: Kconfig: remove redundant HAVE_ARCH_TRANSPARENT_HUGEPAGE definition")
->
-> from the arm64 tree and commit:
->
->    6077776b5908 ("bpf: split HAVE_BPF_JIT into cBPF and eBPF variant")
->
-> from the net-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
+Hi Dave,
 
-Diff looks good, thanks!
+Kalle Valo <kvalo@codeaurora.org> writes:
+
+> Kalle Valo <kvalo@codeaurora.org> writes:
+>
+>> Kalle Valo <kvalo@codeaurora.org> writes:
+>>
+>>>   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git tags/wireless-drivers-next-for-davem-2016-05-13
+>>
+>> Please don't pull this yet, there might be something wrong now with
+>> merges and need to check that first.
+>
+> Ok, like discussed in thread "linux-next: manual merge of the
+> wireless-drivers-next tree with the net-next tree" there seems to be a
+> problem on net-next in function iwl_mvm_set_tx_cmd(). Here is how I
+> propose to fix this.
+
+I noticed that you had marked this as Superseded in pathwork[1]. I was
+actually hoping that you would pull this with the instructions how to
+fix the conflict. But do you actually want me to resubmit the pull
+request? Or something else?
+
+[1] https://patchwork.ozlabs.org/patch/621953/
+
+-- 
+Kalle Valo
