@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: remove irq param to fix crash in fixed_phy_add()
-Date: Tue, 17 May 2016 14:20:34 -0400 (EDT)
-Message-ID: <20160517.142034.611823602956859056.davem@davemloft.net>
-References: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
+Subject: Re: [PATCH v2 2/2] phy dp83867: Make rgmii parameters optional
+Date: Tue, 17 May 2016 14:22:24 -0400 (EDT)
+Message-ID: <20160517.142224.1322153249705614542.davem@davemloft.net>
+References: <1463424763-58807-1-git-send-email-agraf@suse.de>
+	<1463424763-58807-2-git-send-email-agraf@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-m68k@lists.linux-m68k.org, linux-mips@linux-mips.org,
-	devicetree@vger.kernel.org, rabinv@axis.com
-To: rabin.vincent@axis.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	michal.simek@xilinx.com, dmurphy@ti.com, andrew@lunn.ch
+To: agraf@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49256 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49280 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371AbcEQSUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:20:36 -0400
-In-Reply-To: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
+	with ESMTP id S1752249AbcEQSW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:22:27 -0400
+In-Reply-To: <1463424763-58807-2-git-send-email-agraf@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rabin Vincent <rabin.vincent@axis.com>
-Date: Mon, 16 May 2016 13:15:56 +0200
+From: Alexander Graf <agraf@suse.de>
+Date: Mon, 16 May 2016 20:52:43 +0200
 
-> From: Rabin Vincent <rabinv@axis.com>
+> If you compile without OF_MDIO support in an RGMII configuration, we fail
+> to configure the dp83867 phy today by writing garbage into its configuration
+> registers.
 > 
-> Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
-> platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
-> called (for example, because the platform code and the fixed_phy driver
-> use the same initcall level) crash in fixed_phy_add() since the
-> ->mii_bus is not allocated.
+> On the other hand if you do compile with OF_MDIO and the phy gets loaded via
+> device tree, you have to have the properties set in the device tree, otherwise
+> we fail to load the driver and don't even attach the generic phy driver to
+> the interface anymore.
 > 
-> Also since e7f4dc3536a, these interrupts are initalized to polling by
-> default.  All callers of both fixed_phy_register() and fixed_phy_add()
-> pass PHY_POLL for the irq argument, so we can fix these crashes by
-> simply removing the irq parameter, since the default is correct for all
-> users.
+> To make things slightly more consistent, make the rgmii configuration properties
+> optional and allow a user to omit them in their device tree.
 > 
-> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
-> Signed-off-by: Rabin Vincent <rabinv@axis.com>
+> Signed-off-by: Alexander Graf <agraf@suse.de>
 
 Applied.
