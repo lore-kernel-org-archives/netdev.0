@@ -1,67 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net_sched: close another race condition in
- tcf_mirred_release()
-Date: Tue, 17 May 2016 14:22:47 -0400 (EDT)
-Message-ID: <20160517.142247.1572671234268001610.davem@davemloft.net>
-References: <1463436678-20254-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2] r8169: default to 64-bit DMA on recent PCIe chips
+Date: Tue, 17 May 2016 14:22:38 -0400 (EDT)
+Message-ID: <20160517.142238.1044761521251148537.davem@davemloft.net>
+References: <1463258415-31072-1-git-send-email-ard.biesheuvel@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	ricardo.salveti@linaro.org, leif.lindholm@linaro.org,
+	graeme.gregory@linaro.org, amit.kucheria@linaro.org,
+	nic_swsd@realtek.com
+To: ard.biesheuvel@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49289 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49284 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbcEQSWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:22:53 -0400
-In-Reply-To: <1463436678-20254-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1752386AbcEQSWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:22:40 -0400
+In-Reply-To: <1463258415-31072-1-git-send-email-ard.biesheuvel@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 16 May 2016 15:11:18 -0700
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Sat, 14 May 2016 22:40:15 +0200
 
-> We saw the following extra refcount release on veth device:
+> The current logic around the 'use_dac' module parameter prevents the
+> r81969 driver from being loadable on 64-bit systems without any RAM
+> below 4 GB when the parameter is left at its default value.
 > 
->   kernel: [7957821.463992] unregister_netdevice: waiting for mesos50284 to become free. Usage count = -1
+> So introduce a new default value -1 which indicates that 64-bit DMA
+> should be enabled on sufficiently recent PCIe chips, i.e., versions
+> RTL_GIGA_MAC_VER_18 or later. Explicit param values of 0 or 1 retain
+> the existing behavior of unconditionally enabling/disabling 64-bit DMA
+> on 64-bit architectures (i.e., regardless of the type and version of the
+> chip)
 > 
-> Since we heavily use mirred action to redirect packets to veth, I think
-> this is caused by the following race condition:
+> Since PCIe chips do not need to CPlusCmd Dual Address Cycle to be set,
+> make that conditional on the device type as well.
 > 
-> CPU0:
-> tcf_mirred_release(): (in RCU callback)
-> 	struct net_device *dev = rcu_dereference_protected(m->tcfm_dev, 1);
-> 
-> CPU1:
-> mirred_device_event():
->         spin_lock_bh(&mirred_list_lock);
->         list_for_each_entry(m, &mirred_list, tcfm_list) {
->                 if (rcu_access_pointer(m->tcfm_dev) == dev) {
->                         dev_put(dev);
->                         /* Note : no rcu grace period necessary, as
->                          * net_device are already rcu protected.
->                          */
->                         RCU_INIT_POINTER(m->tcfm_dev, NULL);
->                 }
->         }
->         spin_unlock_bh(&mirred_list_lock);
-> 
-> CPU0:
-> tcf_mirred_release():
->         spin_lock_bh(&mirred_list_lock);
->         list_del(&m->tcfm_list);
->         spin_unlock_bh(&mirred_list_lock);
->         if (dev)               // <======== Stil refers to the old m->tcfm_dev
->                 dev_put(dev);  // <======== dev_put() is called on it again
-> 
-> The action init code path is good because it is impossible to modify
-> an action that is being removed.
-> 
-> So, fix this by moving everything under the spinlock.
-> 
-> Fixes: 2ee22a90c7af ("net_sched: act_mirred: remove spinlock in fast path")
-> Fixes: 6bd00b850635 ("act_mirred: fix a race condition on mirred_list")
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
-Applied.
+Applied, let's see what happens...
