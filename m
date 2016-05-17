@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/2][pull request] 10GbE Intel Wired LAN Driver
- Updates 2016-05-16
-Date: Tue, 17 May 2016 12:19:28 -0400 (EDT)
-Message-ID: <20160517.121928.1553835317411702208.davem@davemloft.net>
-References: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2016-05-13
+Date: Tue, 17 May 2016 12:21:29 -0400 (EDT)
+Message-ID: <20160517.122129.77809623717937332.davem@davemloft.net>
+References: <87wpmu87ns.fsf@kamboji.qca.qualcomm.com>
+	<87futi858q.fsf@kamboji.qca.qualcomm.com>
+	<8737ph89rd.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48062 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbcEQQTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 12:19:38 -0400
-In-Reply-To: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8737ph89rd.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 16 May 2016 19:25:22 -0700
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Tue, 17 May 2016 09:43:34 +0300
 
-> This series contains 2 fixes to ixgbe only.
+> I noticed that you had marked this as Superseded in pathwork[1]. I was
+> actually hoping that you would pull this with the instructions how to
+> fix the conflict. But do you actually want me to resubmit the pull
+> request? Or something else?
+> 
+> [1] https://patchwork.ozlabs.org/patch/621953/
 
-Pulled, thanks Jeff.
+My impression is that you need to make adjustments to fix the merge error
+I made the other day, and that a new pull request would show up with that
+corrected.
+
+There is no rush, whenever you submit it I'll still take it.
+
+THanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
