@@ -1,71 +1,66 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net] net_sched: close another race condition in
- tcf_mirred_release()
-Date: Tue, 17 May 2016 08:08:02 -0400
-Message-ID: <573B09A2.3040206@mojatatu.com>
-References: <1463436678-20254-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 -next] ingress, clsact: don't add TCA_OPTIONS
+ to nl msg
+Date: Tue, 17 May 2016 15:10:42 +0200
+Message-ID: <573B1852.4000703@iogearbox.net>
+References: <192c686bb5e277b9552fe1e5c39b14bed520dddd.1463329895.git.daniel@iogearbox.net> <573B0676.30500@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33994 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754897AbcEQMIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 08:08:05 -0400
-Received: by mail-io0-f194.google.com with SMTP id d62so2984655iof.1
-        for <netdev@vger.kernel.org>; Tue, 17 May 2016 05:08:04 -0700 (PDT)
-In-Reply-To: <1463436678-20254-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:37938 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643AbcEQNKs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 09:10:48 -0400
+In-Reply-To: <573B0676.30500@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-05-16 06:11 PM, Cong Wang wrote:
-> We saw the following extra refcount release on veth device:
+On 05/17/2016 01:54 PM, Jamal Hadi Salim wrote:
+> On 16-05-15 12:36 PM, Daniel Borkmann wrote:
+>> In ingress and clsact qdisc TCA_OPTIONS are ignored, since it's
+>> parameterless. In tc, we add an empty addattr_l(... TCA_OPTIONS,
+>> NULL, 0) to the netlink message nevertheless. This has the
+>> side effect that when someone tries a 'tc qdisc replace' and
+>> already an existing such qdisc is present, tc fails with
+>> EINVAL here.
+>>
+>> Reason is that in the kernel, this invokes qdisc_change() when
+>> such requested qdisc is already present. When TCA_OPTIONS are
+>> passed to modify parameters, it looks whether qdisc implements
+>> .change() callback, and if not present (like in both cases here)
+>> it returns with error. Rather than adding an empty stub to the
+>> kernel that ignores TCA_OPTIONS again, just don't add TCA_OPTIONS
+>> to the netlink message in the first place.
+>>
+>> Before:
+>>
+>>    # tc qdisc replace dev foo clsact    # first try
+>>    # tc qdisc replace dev foo clsact    # second one
+>>    RTNETLINK answers: Invalid argument
+>>
+>> After:
+>>
+>>    # tc qdisc replace dev foo clsact
+>>    # tc qdisc replace dev foo clsact
+>>    # tc qdisc replace dev foo clsact
+>>
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 >
->    kernel: [7957821.463992] unregister_netdevice: waiting for mesos50284 to become free. Usage count = -1
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> Since we heavily use mirred action to redirect packets to veth, I think
-> this is caused by the following race condition:
->
-> CPU0:
-> tcf_mirred_release(): (in RCU callback)
-> 	struct net_device *dev = rcu_dereference_protected(m->tcfm_dev, 1);
->
-> CPU1:
-> mirred_device_event():
->          spin_lock_bh(&mirred_list_lock);
->          list_for_each_entry(m, &mirred_list, tcfm_list) {
->                  if (rcu_access_pointer(m->tcfm_dev) == dev) {
->                          dev_put(dev);
->                          /* Note : no rcu grace period necessary, as
->                           * net_device are already rcu protected.
->                           */
->                          RCU_INIT_POINTER(m->tcfm_dev, NULL);
->                  }
->          }
->          spin_unlock_bh(&mirred_list_lock);
->
-> CPU0:
-> tcf_mirred_release():
->          spin_lock_bh(&mirred_list_lock);
->          list_del(&m->tcfm_list);
->          spin_unlock_bh(&mirred_list_lock);
->          if (dev)               // <======== Stil refers to the old m->tcfm_dev
->                  dev_put(dev);  // <======== dev_put() is called on it again
->
-> The action init code path is good because it is impossible to modify
-> an action that is being removed.
->
-> So, fix this by moving everything under the spinlock.
->
-> Fixes: 2ee22a90c7af ("net_sched: act_mirred: remove spinlock in fast path")
-> Fixes: 6bd00b850635 ("act_mirred: fix a race condition on mirred_list")
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> I see need for correctness but was curious of use case
+> that made you even look at this ;->
 
-LGTM.
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Sure, wanted to use this in a script that is called when some event
+arrives and the error 'Invalid argument' looked quite weird to me
+(... would have understood -ENOTSUPP ;)), which then led me looking
+into whether clsact code is correct or not, but it eventually turned
+out that the api code throws that error when TCA_OPTIONS are present,
+but no .change() callback, so motivation was to make sure clsact is
+fine and to improve usability there for the replace command.
 
-
-cheers,
-jamal
+Thanks,
+Daniel
