@@ -1,11 +1,14 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 6/7] ath6kl: fix typo
-Date: Tue, 17 May 2016 16:38:45 +0200
-Message-ID: <1463495926-13728-7-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 7/7] mwifiex: fix typo
+Date: Tue, 17 May 2016 16:38:46 +0200
+Message-ID: <1463495926-13728-8-git-send-email-Julia.Lawall@lip6.fr>
 References: <1463495926-13728-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
+Cc: kernel-janitors@vger.kernel.org,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Amitkumar Karwar <akarwar@marvell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1463495926-13728-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -16,19 +19,19 @@ firmare -> firmware
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/wireless/ath/ath6kl/core.h |    2 +-
+ drivers/net/wireless/marvell/mwifiex/pcie.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath6kl/core.h b/drivers/net/wireless/ath/ath6kl/core.h
-index 713a571..ebc40f6 100644
---- a/drivers/net/wireless/ath/ath6kl/core.h
-+++ b/drivers/net/wireless/ath/ath6kl/core.h
-@@ -148,7 +148,7 @@ enum ath6kl_fw_capability {
- 	/* ratetable is the 2 stream version (max MCS15) */
- 	ATH6KL_FW_CAPABILITY_RATETABLE_MCS15,
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
+index 0c7937e..9246ce8 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
+@@ -2804,7 +2804,7 @@ static int mwifiex_pcie_request_irq(struct mwifiex_adapter *adapter)
+ }
  
--	/* firmare doesn't support IP checksumming */
-+	/* firmware doesn't support IP checksumming */
- 	ATH6KL_FW_CAPABILITY_NO_IP_CHECKSUM,
- 
- 	/* this needs to be last */
+ /*
+- * This function get firmare name for downloading by revision id
++ * This function gets the firmware name for downloading by revision id
+  *
+  * Read revision id register to get revision id
+  */
