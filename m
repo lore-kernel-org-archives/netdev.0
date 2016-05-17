@@ -1,56 +1,80 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the arm64
- tree
-Date: Tue, 17 May 2016 15:49:05 +0200
-Message-ID: <573B2151.5010907@iogearbox.net>
-References: <20160517102441.0cfbc192@canb.auug.org.au> <CAMuHMdX8oW2M8Rr_LUHNSi9PMyEoNOdsp4MrN5z3SySjfahFmw@mail.gmail.com> <573AC462.7070809@iogearbox.net> <20160517133834.GF23555@e104818-lin.cambridge.arm.com>
+From: Tyler Hicks <tyhicks@canonical.com>
+Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
+Date: Tue, 17 May 2016 09:13:47 -0500
+Message-ID: <573B271B.30202@canonical.com>
+References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
+ <20160508.235620.333454221783238471.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Yang Shi <yang.shi@linaro.org>,
-	Will Deacon <will.deacon@arm.com>
-To: Catalin Marinas <catalin.marinas@arm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160517133834.GF23555@e104818-lin.cambridge.arm.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq"
+Cc: David Miller <davem@davemloft.net>,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
+To: jmorris@namei.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160508.235620.333454221783238471.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/17/2016 03:38 PM, Catalin Marinas wrote:
-> On Tue, May 17, 2016 at 09:12:34AM +0200, Daniel Borkmann wrote:
->> On 05/17/2016 09:03 AM, Geert Uytterhoeven wrote:
->> [...]
->>> Someone's not gonna be happy with commit 6077776b5908 ("bpf: split
->>> HAVE_BPF_JIT into cBPF and eBPF variant") breaking the sort order again...
->>
->> Wasn't aware of that. Maybe I'm missing something, but there appears
->> to be no throughout consistent ordering ...
->>
->> [...]
->>          select HAVE_PERF_REGS
->>          select HAVE_PERF_USER_STACK_DUMP
->>          select HAVE_RCU_TABLE_FREE
->>          select HAVE_SYSCALL_TRACEPOINTS
->>          select IOMMU_DMA if IOMMU_SUPPORT
->>          select IRQ_DOMAIN
->>          select IRQ_FORCED_THREADING
->> [...]
->>          select RTC_LIB
->>          select SPARSE_IRQ
->>          select SYSCTL_EXCEPTION_TRACE
->>          select HAVE_CONTEXT_TRACKING
->>          select HAVE_ARM_SMCCC
->> [...]
->
-> We keep fixing them as we merge other stuff. For example, latest
-> mainline has commit 8ee708792e1c ("arm64: Kconfig: remove redundant
-> HAVE_ARCH_TRANSPARENT_HUGEPAGE definition") which also fixes up the
-> Kconfig order.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq
+Content-Type: multipart/mixed; boundary="NqAuU6cvBqmdN3J9Ua2d0L5B6K1ucmUA6"
+From: Tyler Hicks <tyhicks@canonical.com>
+To: jmorris@namei.org
+Cc: David Miller <davem@davemloft.net>,
+ linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
+Message-ID: <573B271B.30202@canonical.com>
+Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
+References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
+ <20160508.235620.333454221783238471.davem@davemloft.net>
+In-Reply-To: <20160508.235620.333454221783238471.davem@davemloft.net>
 
-Understood, thanks for the clarification (and sorry for the sort order
-issue).
+--NqAuU6cvBqmdN3J9Ua2d0L5B6K1ucmUA6
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
+
+On 05/08/2016 10:56 PM, David Miller wrote:
+> From: Tyler Hicks <tyhicks@canonical.com>
+> Date: Fri,  6 May 2016 18:04:12 -0500
+>=20
+>> This pair of patches does away with what I believe is a useless denial=
+
+>> audit message when a privileged process initially accesses a net sysct=
+l.
+>=20
+> The LSM folks can apply this if they agree with you.
+
+Hi James - Could you pick up these two bug fix patches? Thanks!
+
+Tyler
+
+
+
+--NqAuU6cvBqmdN3J9Ua2d0L5B6K1ucmUA6--
+
+--FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJXOycgAAoJENaSAD2qAscK8kEP/R2mBIi8zM6j1OsMAM0X56CP
+SK+IeXqLAfTIufpNXWL+81elJgUj9umLCQRzmu5b5AHgJhIqz8+G6gZIaBqPAop1
+qyRe9N4YmBP5Zx0J4pcVNyxcmux41HcicJS2ADXk8mXsTHVsEN36KMpOEX9iRFVa
+YOVAl1KYihJt2dJhYAfx6tJ/cH+0ZvVjHG2aUy/DKLL+2wrsy0epHgSLQsp4Tkor
+gMvX1qJStJh7MhbS/DabOe4mI8dxVJEpkuD+IKnH2pcbPcfaZIw9+hnzWDMgCvmU
+NDXBdHJTW5EwiqSYb1BtLyuvsMfQ0dRsTmeuWkCMzW+X9XzW7TWKxovCZe6U26ha
+1Uf+4LnXdh+MqTEYd4v0jHsrJDhQv/O0syaJ/zF1jJUKYx7nSIa26mzAOmQu7X58
+Ls/zABOvyHPLKRYeAx7N3xJD3fT9VfRSgi3FXvua4TgsmRN6I2Flu7aZLxaxchSH
+GunDIq9fkUlmvEHaIPM5f9gX6hGmM73MhHq6YANFinps2EwwvIJK4wTw1C0buBzs
+rDx5wNjKUtfugxOtJGRQ39NRXjLjwO3xSUyMnNSHnBgqsWYZ2Zjb7ooVXUHULp1k
+RytWN0wianIK4O5SIkpdu5t/C1tJfjulq+XuFGGOoXNosB+d/z5V8MubGnluYkYa
+RdUjvRp6Lj2E13MCODWq
+=hxRz
+-----END PGP SIGNATURE-----
+
+--FdWqHrkVOXAXf5jwedm8Jobtrgsw1emcq--
