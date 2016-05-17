@@ -1,44 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: check nl sock before
- parsing nested attributes
-Date: Mon, 16 May 2016 21:59:21 -0400 (EDT)
-Message-ID: <20160516.215921.884864359703583643.davem@davemloft.net>
-References: <1463390094-9235-1-git-send-email-richard.alpe@ericsson.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for SOCK_DESTROY
+Date: Tue, 17 May 2016 11:04:53 +0900
+Message-ID: <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
+References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
+ <1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
+ <CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
+ <bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
+ <CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com> <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	eric.dumazet@gmail.com, sploving1@gmail.com
-To: richard.alpe@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1463390094-9235-1-git-send-email-richard.alpe@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:35117 "EHLO
+	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752704AbcEQCFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 22:05:14 -0400
+Received: by mail-yw0-f171.google.com with SMTP id g133so2305723ywb.2
+        for <netdev@vger.kernel.org>; Mon, 16 May 2016 19:05:14 -0700 (PDT)
+In-Reply-To: <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Alpe <richard.alpe@ericsson.com>
-Date: Mon, 16 May 2016 11:14:54 +0200
+On Tue, May 17, 2016 at 10:52 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> code is not setup to handle that. Only option seems to be at least dump an
+> error message, but the message can not relate any of the specifics about the
+> filter. So something like this though it dumps the message per socket
+> matched by the filter. Could throttle it to once.
+> [...]
+>         if (diag_arg->f->kill && kill_inet_sock(h, arg) != 0) {
+> -               if (errno == EOPNOTSUPP || errno == ENOENT) {
+> -                       /* Socket can't be closed, or is already closed. */
+> +               if (errno == ENOENT) {
+> +                       /* socket is already closed. */
+> +                       return 0;
+> +               /* Socket can't be closed OR config is not enabled */
+> +               } else if (errno == EOPNOTSUPP) {
+> +                       perror("SOCK_DESTROY answers");
 
-> Make sure the socket for which the user is listing publication exists
-> before parsing the socket netlink attributes.
-> 
-> Prior to this patch a call without any socket caused a NULL pointer
-> dereference in tipc_nl_publ_dump().
-> 
-> Tested-and-reported-by: Baozeng Ding <sploving1@gmail.com>
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+The reason the code was written like that is that I didn't want to
+print one error message for every socket that can't be closed - such
+as TIME_WAIT sockets or UDP sockets.
 
-Applied and queued up for -stable.
+Given that the filter can specify a number of sockets, some of which
+can and some of which can't be closed, and that whether a given socket
+can be closed is only known at the time we attempt to close it, there
+is a choice between two bad outcomes:
 
-------------------------------------------------------------------------------
-Mobile security can be enabling, not merely restricting. Employees who
-bring their own devices (BYOD) to work are irked by the imposition of MDM
-restrictions. Mobile Device Manager Plus allows you to control only the
-apps on BYO-devices by containerizing them, leaving personal data untouched!
-https://ad.doubleclick.net/ddm/clk/304595813;131938128;j
+1. Users try to use "ss -K" with a kernel that doesn't support it, and
+get confused about why it does nothing and doesn't print an error
+message.
+2. Users use "ss -K" with a kernel that does support it, and get
+irritated by seeing one error message per TCP_TIME_WAIT socket, UDP
+socket, etc.
+
+Personally I think it's more important to avoid #2 than #1, because #1
+is one time (only if you're compiling your own kernel), but #2 is
+forever. Also, I think it's consistent with other behaviours in ss -
+for example, if the kernel doesn't support SOCK_DIAG for UDP, you just
+get nothing back if you run "ss -u".
+
+That said, I'm not the maintainer of this code. Stephen, any thoughts?
