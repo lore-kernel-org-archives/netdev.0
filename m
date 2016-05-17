@@ -1,43 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] r8169: default to 64-bit DMA on recent PCIe chips
-Date: Tue, 17 May 2016 14:22:38 -0400 (EDT)
-Message-ID: <20160517.142238.1044761521251148537.davem@davemloft.net>
-References: <1463258415-31072-1-git-send-email-ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Tue, 17 May 2016 14:24:56 -0400 (EDT)
+Message-ID: <20160517.142456.2247845107325931733.davem@davemloft.net>
+References: <20160517152520.GA2750@debian-dorm>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	ricardo.salveti@linaro.org, leif.lindholm@linaro.org,
-	graeme.gregory@linaro.org, amit.kucheria@linaro.org,
-	nic_swsd@realtek.com
-To: ard.biesheuvel@linaro.org
+Cc: wxt@rock-chips.com, romieu@fr.zoreil.com, heiko@sntech.de,
+	linux-rockchip@lists.infradead.org, netdev@vger.kernel.org
+To: wsy2220@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49284 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49318 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbcEQSWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:22:40 -0400
-In-Reply-To: <1463258415-31072-1-git-send-email-ard.biesheuvel@linaro.org>
+	with ESMTP id S1751370AbcEQSY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:24:59 -0400
+In-Reply-To: <20160517152520.GA2750@debian-dorm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Sat, 14 May 2016 22:40:15 +0200
+From: Shuyu Wei <wsy2220@gmail.com>
+Date: Tue, 17 May 2016 23:25:20 +0800
 
-> The current logic around the 'use_dac' module parameter prevents the
-> r81969 driver from being loadable on 64-bit systems without any RAM
-> below 4 GB when the parameter is left at its default value.
+> diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+> index a3a9392..df3dfef 100644
+> --- a/drivers/net/ethernet/arc/emac_main.c
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -153,9 +153,8 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+>  {
+>  	struct arc_emac_priv *priv = netdev_priv(ndev);
+>  	struct net_device_stats *stats = &ndev->stats;
+> -	unsigned int i;
+>  
+> -	for (i = 0; i < TX_BD_NUM; i++) {
+> +	while (priv->txbd_dirty != priv->txbd_curr) {
+>  		unsigned int *txbd_dirty = &priv->txbd_dirty;
+>  		struct arc_emac_bd *txbd = &priv->txbd[*txbd_dirty];
+>  		struct buffer_state *tx_buff = &priv->tx_buff[*txbd_dirty];
+> @@ -685,13 +684,15 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+>  	wmb();
+>  
+>  	skb_tx_timestamp(skb);
+> +	priv->tx_buff[*txbd_curr].skb = skb;
+> +
+> +	dma_wmb();
+>  
+>  	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+>  
+>  	/* Make sure info word is set */
+>  	wmb();
+>  
+> -	priv->tx_buff[*txbd_curr].skb = skb;
+>  
+>  	/* Increment index to point to the next BD */
+>  	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
 > 
-> So introduce a new default value -1 which indicates that 64-bit DMA
-> should be enabled on sufficiently recent PCIe chips, i.e., versions
-> RTL_GIGA_MAC_VER_18 or later. Explicit param values of 0 or 1 retain
-> the existing behavior of unconditionally enabling/disabling 64-bit DMA
-> on 64-bit architectures (i.e., regardless of the type and version of the
-> chip)
-> 
-> Since PCIe chips do not need to CPlusCmd Dual Address Cycle to be set,
-> make that conditional on the device type as well.
-> 
-> Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
-> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
-Applied, let's see what happens...
+These memory barriers do not look correct to me.
+
+dma_wmb() is about visibility between CPU reads/writes and device
+accesses to a piece of memory.  But what you're concerned about wrt.
+the SKB pointer assignment is CPU to CPU accesses.  Therefore something
+like smp_wmb() would be appropriate.
+
+And the wmb() looks like it should be a dma_wmb().
