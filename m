@@ -1,113 +1,41 @@
-From: Amit Ghadge <amitg.b14@gmail.com>
-Subject: [PATCH v2 2/2] net: Fix coding style warnings and errors.
-Date: Tue, 17 May 2016 23:23:52 +0530
-Message-ID: <1463507632-10540-1-git-send-email-amitg.b14@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Amit Ghadge <amitg.b14@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net] switchdev: pass pointer to fib_info instead of copy
+Date: Tue, 17 May 2016 14:00:36 -0400 (EDT)
+Message-ID: <20160517.140036.1802823189592173373.davem@davemloft.net>
+References: <1463504288-2226-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	sfeldma@gmail.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33265 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbcEQRyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 13:54:17 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:49102 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751571AbcEQSAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:00:41 -0400
+In-Reply-To: <1463504288-2226-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a patch to clean checkpatch warnings and errors
-in the Space.c file.
-Clean up the following warnings and errors.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 17 May 2016 18:58:08 +0200
 
-WARNING :
-* Block comments use * on subsequent lines
-* Missing a blank line after declarations
-* networking block comments don't use an empty /* line, use /*
-* please, no space before tabs
-* please, no spaces at the start of a line
-* line over 80 characters
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> The problem is that fib_info->nh is [0] so the struct fib_info
+> allocation size depends on number of nexthops. If we just copy fib_info,
+> we do not copy the nexthops info and driver accesses memory which is not
+> ours.
 
-ERROR :
-* code indent should use tabs where possible
-* space prohibited after that open parenthesis '('
+Oops.
 
-Signed-off-by: Amit Ghadge <amitg.b14@gmail.com>
----
-Changes v2 :
-  - Added space between the "/*" and "ISA".
----
- drivers/net/Space.c | 21 ++++++++++-----------
- 1 file changed, 10 insertions(+), 11 deletions(-)
+> Given the fact that fib4 does not defer operations and therefore it does
+> not need copy, just pass the pointer down to drivers as it was done
+> before.
+> 
+> Fixes: 850d0cbc91 ("switchdev: remove pointers from switchdev objects")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-diff --git a/drivers/net/Space.c b/drivers/net/Space.c
-index 67977f1..11fe712 100644
---- a/drivers/net/Space.c
-+++ b/drivers/net/Space.c
-@@ -35,8 +35,8 @@
- #include <net/Space.h>
- 
- /* A unified ethernet device probe.  This is the easiest way to have every
--   ethernet adaptor have the name "eth[0123...]".
--   */
-+ * ethernet adaptor have the name "eth[0123...]".
-+ */
- 
- struct devprobe2 {
- 	struct net_device *(*probe)(int unit);
-@@ -46,6 +46,7 @@ struct devprobe2 {
- static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
- {
- 	struct net_device *dev;
-+
- 	for (; p->probe; p++) {
- 		if (autoprobe && p->status)
- 			continue;
-@@ -58,8 +59,7 @@ static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
- 	return -ENODEV;
- }
- 
--/*
-- * ISA probes that touch addresses < 0x400 (including those that also
-+/* ISA probes that touch addresses < 0x400 (including those that also
-  * look for EISA/PCI cards in addition to ISA cards).
-  */
- static struct devprobe2 isa_probes[] __initdata = {
-@@ -86,11 +86,11 @@ static struct devprobe2 isa_probes[] __initdata = {
- #endif
- #ifdef CONFIG_CS89x0
- #ifndef CONFIG_CS89x0_PLATFORM
-- 	{cs89x0_probe, 0},
-+	{cs89x0_probe, 0},
- #endif
- #endif
--#if defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
--	{i82596_probe, 0},
-+#if defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel */
-+	{i82596_probe, 0},					/* I82596 */
- #endif
- #ifdef CONFIG_NI65
- 	{ni65_probe, 0},
-@@ -118,13 +118,12 @@ static struct devprobe2 m68k_probes[] __initdata = {
- 	{mac8390_probe, 0},
- #endif
- #ifdef CONFIG_MAC89x0
-- 	{mac89x0_probe, 0},
-+	{mac89x0_probe, 0},
- #endif
- 	{NULL, 0},
- };
- 
--/*
-- * Unified ethernet device probe, segmented per architecture and
-+/* Unified ethernet device probe, segmented per architecture and
-  * per bus interface. This drives the legacy devices only for now.
-  */
- 
-@@ -135,7 +134,7 @@ static void __init ethif_probe2(int unit)
- 	if (base_addr == 1)
- 		return;
- 
--	(void)(	probe_list2(unit, m68k_probes, base_addr == 0) &&
-+	(void)(probe_list2(unit, m68k_probes, base_addr == 0) &&
- 		probe_list2(unit, isa_probes, base_addr == 0));
- }
- 
--- 
-2.5.5
+Applied and queued up for -stable, thanks Jiri.
