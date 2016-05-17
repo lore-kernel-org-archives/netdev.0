@@ -1,50 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for SOCK_DESTROY
-Date: Mon, 16 May 2016 20:24:03 -0600
-Message-ID: <3d0fd83a-fa88-8ceb-a44d-237f5a005eb4@cumulusnetworks.com>
-References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
- <1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
- <CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
- <bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
- <CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com>
- <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
- <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lorenzo Colitti <lorenzo@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/2] ixgbe: Fix VLAN features error
+Date: Mon, 16 May 2016 19:25:24 -0700
+Message-ID: <1463451924-96911-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:35652 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754615AbcEQCYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2016 22:24:08 -0400
-Received: by mail-io0-f171.google.com with SMTP id d62so6506007iof.2
-        for <netdev@vger.kernel.org>; Mon, 16 May 2016 19:24:08 -0700 (PDT)
-In-Reply-To: <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:8392 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751807AbcEQCZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2016 22:25:27 -0400
+In-Reply-To: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/16/16 8:04 PM, Lorenzo Colitti wrote:
-> Given that the filter can specify a number of sockets, some of which
-> can and some of which can't be closed, and that whether a given socket
-> can be closed is only known at the time we attempt to close it, there
-> is a choice between two bad outcomes:
->
-> 1. Users try to use "ss -K" with a kernel that doesn't support it, and
-> get confused about why it does nothing and doesn't print an error
-> message.
-> 2. Users use "ss -K" with a kernel that does support it, and get
-> irritated by seeing one error message per TCP_TIME_WAIT socket, UDP
-> socket, etc.
+From: Alexander Duyck <aduyck@mirantis.com>
 
-As I mentioned we can print the unsupported once or per socket matched 
-and with the socket params. e.g.,
+It looks like at some point I somehow transposed the location of setting
+the VLAN features in netdev->features and the configuration of the
+vlan_features.  As a result the driver is now generating a warning about
+vlan_features being setup incorrectly.
 
-+               } else if (errno == EOPNOTSUPP) {
-+                       printf("Operation not supported for:\n");
-+                       inet_show_sock(h, diag_arg->f, diag_arg->protocol);
+This patch corrects that by placing the update of netdev->features to
+include the VLAN features so that it is after the point where we write
+netdev->features into netdev->vlan_features.
 
-Actively suppressing all error messages is just wrong. I get the 
-flooding issue so I'm fine with just printing it once.
+Fixes: b83e30104bd9 ("ixgbe/ixgbevf: Add support for GSO partial")
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 7bbf9b1..9f3677c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9508,15 +9508,15 @@ skip_sriov:
+ 	if (pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
++	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
++	netdev->hw_enc_features |= netdev->vlan_features;
++	netdev->mpls_features |= NETIF_F_HW_CSUM;
++
+ 	/* set this bit last since it cannot be part of vlan_features */
+ 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
+ 			    NETIF_F_HW_VLAN_CTAG_RX |
+ 			    NETIF_F_HW_VLAN_CTAG_TX;
+ 
+-	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
+-	netdev->hw_enc_features |= netdev->vlan_features;
+-	netdev->mpls_features |= NETIF_F_HW_CSUM;
+-
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+ 
+-- 
+2.5.5
