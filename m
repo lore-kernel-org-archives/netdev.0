@@ -1,50 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Fix coding style warnings and errors.
-Date: Tue, 17 May 2016 11:35:08 -0400 (EDT)
-Message-ID: <20160517.113508.276162469969907777.davem@davemloft.net>
-References: <1463454990-9723-1-git-send-email-amitg.b14@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
+Date: Tue, 17 May 2016 11:39:23 -0400
+Message-ID: <87r3d01yok.fsf@ketchup.mtl.sfl>
+References: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com> <8737plig1v.fsf@ketchup.mtl.sfl> <20160516.134823.1909596879203571371.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: amitg.b14@gmail.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463454990-9723-1-git-send-email-amitg.b14@gmail.com>
+In-Reply-To: <20160516.134823.1909596879203571371.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Amit Ghadge <amitg.b14@gmail.com>
-Date: Tue, 17 May 2016 08:46:30 +0530
+Hi David,
 
-> Clean up checkpatch warnings and errors:
-> 
-> * WARNING: Block comments use * on subsequent lines
-> * WARNING: Missing a blank line after declarations
-> * WARNING: networking block comments don't use an empty /* line, use /*
-> * ERROR: code indent should use tabs where possible
-> * WARNING: please, no space before tabs
-> * WARNING: please, no spaces at the start of a line
-> * WARNING: line over 80 characters
-> * ERROR: space prohibited after that open parenthesis '('
-> 
-> Signed-off-by: Amit Ghadge <amitg.b14@gmail.com>
+David Miller <davem@davemloft.net> writes:
 
-I hate robotic checkpatch fixes like this.
+> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Date: Fri, 13 May 2016 21:28:28 -0400
+>
+>> Hi David,
+>> 
+>> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+>> 
+>>> Now that the bridge code defers the switchdev port state setting, there
+>>> is no need to defer the port STP state change within the mv88e6xxx code.
+>>> Thus get rid of the driver's bridge work code.
+>>>
+>>> This also fixes a race condition where the DSA layer assumes that the
+>>> bridge code already set the unbridged port's STP state to Disabled
+>>> before restoring the Forwarding state.
+>>>
+>>> As a consequence, this also fixes the FDB flush for the unbridged port
+>>> which now correctly occurs during the Forwarding to Disabled transition.
+>>>
+>>> Fixes: 0bc05d585d38 ("switchdev: allow caller to explicitly request attr_set as deferred")
+>>> Reported-by: Andrew Lunn <andrew@lunn.ch>
+>>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> 
+>> This patch doesn't apply to -net, only applies to net-next...
+>> 
+>> How should I handle that, do I resend a patch for net-next with the good
+>> subject prefix, and a v2 for -net?
+>
+> I applied this to net-next, thanks.
 
-> @@ -58,8 +59,7 @@ static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
->  	return -ENODEV;
->  }
->  
-> -/*
-> - * ISA probes that touch addresses < 0x400 (including those that also
-> +/*ISA probes that touch addresses < 0x400 (including those that also
->   * look for EISA/PCI cards in addition to ISA cards).
->   */
+Do we want to send this fix to -net as well?
 
-You're making the comment look worse not better, because you don't even
-have a space between the "/*" and "ISA".
+Thanks,
 
-Honestly, does that look nice when you look at it?
-
-If you're not going to put thought and serious consideration into this
-change, don't do it at all, thank you.
+        Vivien
