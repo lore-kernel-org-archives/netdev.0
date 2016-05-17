@@ -1,49 +1,67 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH 0/2] net sched small OCD cleanups
-Date: Tue, 17 May 2016 17:19:13 -0400
-Message-ID: <1463519955-2866-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, nbd@nbd.name,
-	baronchon@n7mm.org, alexander.duyck@gmail.com,
-	herbert@gondor.apana.org.au, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Dimitris Michailidis <dmichail@google.com>
+Subject: Re: [PATCH] net: don't lose features in netdev_add_tso_features()
+Date: Tue, 17 May 2016 14:31:40 -0700
+Message-ID: <CAG76SjYT7UoUeG2uKchoYJS5A=L0wjrvfAWgmyxVR5AadO1WTA@mail.gmail.com>
+References: <1463438015-19529-1-git-send-email-dmichail@google.com> <20160517.141025.306603458593770186.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36346 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbcEQVT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 17:19:27 -0400
-Received: by mail-io0-f193.google.com with SMTP id k129so5948605iof.3
-        for <netdev@vger.kernel.org>; Tue, 17 May 2016 14:19:26 -0700 (PDT)
+Received: from mail-vk0-f54.google.com ([209.85.213.54]:33561 "EHLO
+	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751169AbcEQVbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 17:31:43 -0400
+Received: by mail-vk0-f54.google.com with SMTP id z184so37482710vkg.0
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 14:31:42 -0700 (PDT)
+In-Reply-To: <20160517.141025.306603458593770186.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Tue, May 17, 2016 at 11:10 AM, David Miller <davem@davemloft.net> wrote:
+> From: Dimitris Michailidis <dmichail@google.com>
+> Date: Mon, 16 May 2016 15:33:35 -0700
+>
+>> The goal of netdev_add_tso_features() is to enable all TSO features but
+>> it unintentionally loses NETIF_F_ALL_FOR_ALL features. This is because
+>> the netdev_increment_features() it calls clears any NETIF_F_ALL_FOR_ALL
+>> bits that aren't included in the incremental features and none of them
+>> are included in NETIF_F_ALL_TSO. The behavior can be seen by enabling
+>> tx-nocache-copy on the slaves and noticing the feature remains off at
+>> the master.
+>>
+>> Fix this by including NETIF_F_ALL_FOR_ALL in the incremental features.
+>>
+>> Signed-off-by: Dave Platt <dplatt@google.com>
+>> Signed-off-by: Dimitris Michailidis <dmichail@google.com>
+>
+> This doesn't look right to me at all.
+>
+> The second argument to netdev_increment_features, 'one', clearly
+> states that all it is supposed to do is handle a new device being
+> added which has the features mentioned in 'one'.  It makes no sense to
+> arbitrarily add ALL_FOR_ALL in there, and if it is legitimate, why
+> doesn't every other call site of netdev_increment_features have this
+> same problem?
+>
+> If netdev_increment_features is doing something different either it's
+> documentation is wrong or it's implementation is losing ALL_FOR_ALL
+> bits erroneously.
 
-I have been staring at these small OCD cleanups for a while.
-Got cycles to do them as prep for another patch i am working on.
-Indentation/stylistic and consistency updates
+This call to netdev_increment_features() is different from most others. Usually
+netdev_increment_features() is called with features that belong to an
+actual device,
+with the goal of integrating that device's features into the overall
+ones. In that case
+we use whatever features the device has without augmenting them in any way.
+If the device lacks some NETIF_F_ALL_FOR_ALL features
+netdev_increment_features() rightfully turns them off in the result.
 
-Jamal Hadi Salim (2):
-  net sched: indentation and other OCD stylistic fixes
-  net sched: actions use tcf_lastuse_update for consistency
+The call here is different. It is a convenience call to enable NETIF_F_ALL_TSO
+bits in a netdev_features_t. netdev_increment_features(), still believing the
+NETIF_F_ALL_TSO is coming from a device we are adding, does its usual clearing
+of missing NETIF_F_ALL_FOR_ALL bits. But there's no device being added here
+and the call doesn't intend to clear any existing bits.
 
- include/net/act_api.h          | 14 ++++++++------
- include/net/tc_act/tc_defact.h |  4 ++--
- include/uapi/linux/pkt_cls.h   |  6 +++---
- net/sched/act_api.c            | 19 +++++++++++--------
- net/sched/act_bpf.c            |  3 ++-
- net/sched/act_connmark.c       |  2 +-
- net/sched/act_csum.c           |  2 +-
- net/sched/act_gact.c           |  3 ++-
- net/sched/act_ife.c            |  6 +++---
- net/sched/act_ipt.c            |  8 +++++---
- net/sched/act_mirred.c         |  1 -
- net/sched/act_nat.c            |  2 +-
- net/sched/act_pedit.c          |  2 +-
- net/sched/act_simple.c         |  2 +-
- net/sched/act_skbedit.c        |  2 +-
- net/sched/act_vlan.c           |  5 +++--
- net/sched/cls_api.c            | 11 +++++++----
- 17 files changed, 52 insertions(+), 40 deletions(-)
-
--- 
-1.9.1
+I guess the issue arises from netdev_increment_features' purpose being to deal
+with device additions, as its doc specifies, but it's not used for that here.
