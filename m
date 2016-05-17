@@ -1,67 +1,79 @@
-From: Dimitris Michailidis <dmichail@google.com>
-Subject: Re: [PATCH] net: don't lose features in netdev_add_tso_features()
-Date: Tue, 17 May 2016 14:31:40 -0700
-Message-ID: <CAG76SjYT7UoUeG2uKchoYJS5A=L0wjrvfAWgmyxVR5AadO1WTA@mail.gmail.com>
-References: <1463438015-19529-1-git-send-email-dmichail@google.com> <20160517.141025.306603458593770186.davem@davemloft.net>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: Re: [PATCH 1/1] net: thunderx: avoid null pointer dereference
+Date: Tue, 17 May 2016 23:37:11 +0200
+Message-ID: <573B8F07.6080600@gmx.de>
+References: <1463514038-9008-1-git-send-email-xypron.glpk@gmx.de>
+ <573B7D39.9050305@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f54.google.com ([209.85.213.54]:33561 "EHLO
-	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169AbcEQVbn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 17:31:43 -0400
-Received: by mail-vk0-f54.google.com with SMTP id z184so37482710vkg.0
-        for <netdev@vger.kernel.org>; Tue, 17 May 2016 14:31:42 -0700 (PDT)
-In-Reply-To: <20160517.141025.306603458593770186.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <573B7D39.9050305@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 17, 2016 at 11:10 AM, David Miller <davem@davemloft.net> wrote:
-> From: Dimitris Michailidis <dmichail@google.com>
-> Date: Mon, 16 May 2016 15:33:35 -0700
->
->> The goal of netdev_add_tso_features() is to enable all TSO features but
->> it unintentionally loses NETIF_F_ALL_FOR_ALL features. This is because
->> the netdev_increment_features() it calls clears any NETIF_F_ALL_FOR_ALL
->> bits that aren't included in the incremental features and none of them
->> are included in NETIF_F_ALL_TSO. The behavior can be seen by enabling
->> tx-nocache-copy on the slaves and noticing the feature remains off at
->> the master.
+
+
+On 05/17/2016 10:21 PM, David Daney wrote:
+> On 05/17/2016 12:40 PM, Heinrich Schuchardt wrote:
+>> In function bgx_lmac_handler only use a member of
+>> lmac after checking it is not null.
 >>
->> Fix this by including NETIF_F_ALL_FOR_ALL in the incremental features.
+> 
+> Were you seeing and actual OOPs, or is this only a theoretical problem
+> flagged by some sort of static code checker?
+
+Cppcheck identified the code inconsistency.
+
+If the struct netdev * parameter cannot be NULL, you could eliminate the
+check.
+
+Other drivers do no have check against a NULL parameter in the
+adjust_link handler function (e.g. bgmac_adjust_link,
+pxa168_eth_adjust_link).
+
+Best regards
+
+Heinrich
+
+> 
+>> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> 
+> In any event, it seems sane to make this change, so:
+> 
+> Acked-by: David Daney <david.daney@cavium.com>
+> 
+> 
+>> ---
+>>   drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 4 +++-
+>>   1 file changed, 3 insertions(+), 1 deletion(-)
 >>
->> Signed-off-by: Dave Platt <dplatt@google.com>
->> Signed-off-by: Dimitris Michailidis <dmichail@google.com>
->
-> This doesn't look right to me at all.
->
-> The second argument to netdev_increment_features, 'one', clearly
-> states that all it is supposed to do is handle a new device being
-> added which has the features mentioned in 'one'.  It makes no sense to
-> arbitrarily add ALL_FOR_ALL in there, and if it is legitimate, why
-> doesn't every other call site of netdev_increment_features have this
-> same problem?
->
-> If netdev_increment_features is doing something different either it's
-> documentation is wrong or it's implementation is losing ALL_FOR_ALL
-> bits erroneously.
-
-This call to netdev_increment_features() is different from most others. Usually
-netdev_increment_features() is called with features that belong to an
-actual device,
-with the goal of integrating that device's features into the overall
-ones. In that case
-we use whatever features the device has without augmenting them in any way.
-If the device lacks some NETIF_F_ALL_FOR_ALL features
-netdev_increment_features() rightfully turns them off in the result.
-
-The call here is different. It is a convenience call to enable NETIF_F_ALL_TSO
-bits in a netdev_features_t. netdev_increment_features(), still believing the
-NETIF_F_ALL_TSO is coming from a device we are adding, does its usual clearing
-of missing NETIF_F_ALL_FOR_ALL bits. But there's no device being added here
-and the call doesn't intend to clear any existing bits.
-
-I guess the issue arises from netdev_increment_features' purpose being to deal
-with device additions, as its doc specifies, but it's not used for that here.
+>> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+>> b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+>> index d20539a..3ed2198 100644
+>> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+>> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+>> @@ -274,12 +274,14 @@ static void bgx_sgmii_change_link_state(struct
+>> lmac *lmac)
+>>   static void bgx_lmac_handler(struct net_device *netdev)
+>>   {
+>>       struct lmac *lmac = container_of(netdev, struct lmac, netdev);
+>> -    struct phy_device *phydev = lmac->phydev;
+>> +    struct phy_device *phydev;
+>>       int link_changed = 0;
+>>
+>>       if (!lmac)
+>>           return;
+>>
+>> +    phydev = lmac->phydev;
+>> +
+>>       if (!phydev->link && lmac->last_link)
+>>           link_changed = -1;
+>>
+>>
+> 
+> 
