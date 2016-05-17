@@ -1,37 +1,54 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 7/7] mwifiex: fix typo
-Date: Tue, 17 May 2016 16:38:46 +0200
-Message-ID: <1463495926-13728-8-git-send-email-Julia.Lawall@lip6.fr>
-References: <1463495926-13728-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Amitkumar Karwar <akarwar@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463495926-13728-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: [PATCH net] tipc: fix nametable publication field
+	in nl compat
+Date: Tue, 17 May 2016 16:57:37 +0200
+Message-ID: <1463497057-1610-1-git-send-email-richard.alpe@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net, Richard
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-firmare -> firmware
+The publication field of the old netlink API should contain the
+publication key and not the publication reference.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
+Fixes: 44a8ae94fd55 (tipc: convert legacy nl name table dump to nl compat)
+Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- drivers/net/wireless/marvell/mwifiex/pcie.c |    2 +-
+ net/tipc/netlink_compat.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
-index 0c7937e..9246ce8 100644
---- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-+++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-@@ -2804,7 +2804,7 @@ static int mwifiex_pcie_request_irq(struct mwifiex_adapter *adapter)
- }
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index d7d050f..4dfc5c1 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -802,7 +802,7 @@ static int tipc_nl_compat_name_table_dump(struct tipc_nl_compat_msg *msg,
+ 		goto out;
  
- /*
-- * This function get firmare name for downloading by revision id
-+ * This function gets the firmware name for downloading by revision id
-  *
-  * Read revision id register to get revision id
-  */
+ 	tipc_tlv_sprintf(msg->rep, "%-10u %s",
+-			 nla_get_u32(publ[TIPC_NLA_PUBL_REF]),
++			 nla_get_u32(publ[TIPC_NLA_PUBL_KEY]),
+ 			 scope_str[nla_get_u32(publ[TIPC_NLA_PUBL_SCOPE])]);
+ out:
+ 	tipc_tlv_sprintf(msg->rep, "\n");
+-- 
+2.1.4
+
+
+------------------------------------------------------------------------------
+Mobile security can be enabling, not merely restricting. Employees who
+bring their own devices (BYOD) to work are irked by the imposition of MDM
+restrictions. Mobile Device Manager Plus allows you to control only the
+apps on BYO-devices by containerizing them, leaving personal data untouched!
+https://ad.doubleclick.net/ddm/clk/304595813;131938128;j
