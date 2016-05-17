@@ -1,47 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RESEND PATCH v6 0/6] Add Ethernet support on STM32F429
-Date: Tue, 17 May 2016 12:25:27 -0400 (EDT)
-Message-ID: <20160517.122527.1937360418899371800.davem@davemloft.net>
-References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-	<20160509.150634.213732321950308841.davem@davemloft.net>
-	<CALszF6Cfs02-tGvFqpyJpUy7jSfjGTY8fVaaLQ8iQaGfCxvDtQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 -net-next] ravb: Add missing free_irq() calls to
+ ravb_close()
+Date: Tue, 17 May 2016 12:28:47 -0400 (EDT)
+Message-ID: <20160517.122847.2276488826673799483.davem@davemloft.net>
+References: <1463475934-3062-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org
-To: mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALszF6Cfs02-tGvFqpyJpUy7jSfjGTY8fVaaLQ8iQaGfCxvDtQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: sergei.shtylyov@cogentembedded.com, horms+renesas@verge.net.au,
+	ykaneko0929@gmail.com, netdev@vger.kernel.org,
+	linux-renesas-soc@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1463475934-3062-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 17 May 2016 11:20:16 +0200
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Tue, 17 May 2016 11:05:34 +0200
 
-> Hi David,
+> When reopening the network device on ra7795/salvator-x, e.g. after a
+> DHCP timeout:
 > 
-> 2016-05-09 21:06 GMT+02:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
->> From: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> Date: Mon,  9 May 2016 12:31:33 +0200
->>
->>> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
->>> This series:
->>>  -enhance current stmmac driver to control it (code already
->>> available) and adds basic glue for STM32F429 chip.
->>>  -Enable basic Net config in kernel.
->>
->> I assume this will go via the ARM tree, for the networking bits:
-> I would expect patches 1, 2 & 3 to got via your tree, to avoid conflicts.
+>     IP-Config: Reopening network devices...
+>     genirq: Flags mismatch irq 139. 00000000 (eth0:ch0:rx_be) vs. 00000000 (ravb e6800000.ethernet eth0: cannot request IRQ eth0:ch0:rx_be
+>     IP-Config: Failed to open eth0
+>     IP-Config: No network devices available
+> 
+> The "mismatch" is due to requesting an IRQ that is already in use,
+> while IRQF_PROBE_SHARED wasn't set.
+> 
+> However, the real cause is that ravb_close() doesn't release any of the
+> R-Car Gen3-specific secondary IRQs.
+> 
+> Add the missing free_irq() calls to fix this.
+> 
+> Fixes: f51bdc236b6c5835 ("ravb: Add dma queue interrupt support")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-I don't think putting them all via the ARM tree is going to create much
-in the way of conflicts, and right now during the merge window offloading
-that work from me would really help my backlog a lot.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
