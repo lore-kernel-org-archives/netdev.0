@@ -1,34 +1,31 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: remove bridge work
-Date: Tue, 17 May 2016 12:23:34 -0400
-Message-ID: <87a8jozm9l.fsf@ketchup.mtl.sfl>
-References: <1463186303-3139-1-git-send-email-vivien.didelot@savoirfairelinux.com> <8737plig1v.fsf@ketchup.mtl.sfl> <20160516.134823.1909596879203571371.davem@davemloft.net> <87r3d01yok.fsf@ketchup.mtl.sfl> <20160517160358.GC26948@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v2] qed: Remove a stray tab
+Date: Tue, 17 May 2016 12:24:05 -0400 (EDT)
+Message-ID: <20160517.122405.2136930391443244645.davem@davemloft.net>
+References: <CO2PR11MB00880C22B76A203A30BCDF8297480@CO2PR11MB0088.namprd11.prod.outlook.com>
+	<20160517080920.GD11011@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	f.fainelli@gmail.com, jiri@resnulli.us
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160517160358.GC26948@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48112 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893AbcEQQYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 12:24:08 -0400
+In-Reply-To: <20160517080920.GD11011@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 17 May 2016 11:09:20 +0300
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> This line was indented more than it should be.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
->> Do we want to send this fix to -net as well?
->
-> I don't see this bug as being highly critical that it needs to be
-> fixed immediately.
->
-> I would suggest we wait until -rc1 is out, and then produce a backport
-> version. Given the changes we have made to that driver, there is
-> little chance the existing fix will cherry-pick backwards.
-
-Sounds good to me!
-
-Thanks,
-
-        Vivien
+Applied.
