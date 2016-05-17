@@ -1,49 +1,59 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Tue, 17 May 2016 16:22:31 +0930
-Message-ID: <20160517065231.GO30050@marvin.atrad.com.au>
-References: <20151119005608.GB4882@electric-eye.fr.zoreil.com>
- <20151120024616.GL7136@marvin.atrad.com.au>
- <20151120224534.GA25025@electric-eye.fr.zoreil.com>
- <20151121223627.GA3493@electric-eye.fr.zoreil.com>
- <20151122225039.GE2957@marvin.atrad.com.au>
- <20151122230244.GA12249@electric-eye.fr.zoreil.com>
- <20151130064255.GL5537@marvin.atrad.com.au>
- <20151201235852.GA16429@electric-eye.fr.zoreil.com>
- <20160208023318.GJ9174@marvin.atrad.com.au>
- <20160407024417.GE17921@marvin.atrad.com.au>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: drivers: net: xgene: fix statistics counters race condition
+Date: Tue, 17 May 2016 10:33:44 +0300
+Message-ID: <20160517073344.GD10872@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: isubramanian@apm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:35619 "EHLO
-	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbcEQHTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 03:19:32 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:38776 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061AbcEQHd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 03:33:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20160407024417.GE17921@marvin.atrad.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 07, 2016 at 12:14:18PM +0930, Jonathan Woithe wrote:
-> On Mon, Feb 08, 2016 at 01:03:19PM +1030, Jonathan Woithe wrote:
-> > On Wed, Dec 02, 2015 at 12:58:52AM +0100, Francois Romieu wrote:
-> > > Jonathan Woithe <jwoithe@atrad.com.au> :
-> > > [...]
-> > > > Any thoughts or progress at this stage?  Are there further tests you need me
-> > > > to do ?
-> > > 
-> > > Yes but you should expect two more days without signal.
-> > 
-> > FYI I am now back from annual leave and linux.conf.au.  This means I am in
-> > a position to test possible solutions to this problem once you are able to
-> > make them available.
-> 
-> Has there been any further progress on this problem?  I still have access to
-> the hardware and systems if further tests are required.
+Hello Iyappan Subramanian,
 
-Any further progress?
+The patch 3bb502f83080: "drivers: net: xgene: fix statistics counters
+race condition" from May 13, 2016, leads to the following static
+checker warning:
 
-Regards
-  jonathan
+	drivers/net/ethernet/apm/xgene/xgene_enet_main.c:487 xgene_enet_rx_frame()
+	warn: should this be a bitwise op?
+
+drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+   472          u8 status;
+   473          int ret = 0;
+   474  
+   475          ndev = rx_ring->ndev;
+   476          pdata = netdev_priv(ndev);
+   477          dev = ndev_to_dev(rx_ring->ndev);
+   478          buf_pool = rx_ring->buf_pool;
+   479  
+   480          dma_unmap_single(dev, GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1)),
+   481                           XGENE_ENET_MAX_MTU, DMA_FROM_DEVICE);
+   482          skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
+   483          skb = buf_pool->rx_skb[skb_index];
+   484  
+   485          /* checking for error */
+   486          status = (GET_VAL(ELERR, le64_to_cpu(raw_desc->m0)) << LERR_LEN) ||
+   487                    GET_VAL(LERR, le64_to_cpu(raw_desc->m0));
+   488          if (unlikely(status > 2)) {
+
+This code doesn't make sense and I don't know what is intended.
+LERR_LEN is 3, but why are we shifting when we just care about
+true/false?  In the original code status could be > 2 but now it's
+either 0 or 1.
+
+   489                  dev_kfree_skb_any(skb);
+   490                  xgene_enet_parse_error(rx_ring, netdev_priv(rx_ring->ndev),
+   491                                         status);
+   492                  ret = -EIO;
+   493                  goto out;
+   494          }
+
+regards,
+dan carpenter
