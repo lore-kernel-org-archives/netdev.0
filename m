@@ -1,55 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: remove irq param to fix crash in fixed_phy_add()
-Date: Tue, 17 May 2016 14:30:30 -0400 (EDT)
-Message-ID: <20160517.143030.176679255082144481.davem@davemloft.net>
-References: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
-	<20160517.142034.611823602956859056.davem@davemloft.net>
-	<573B6280.3030405@gmail.com>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH v2 2/2] phy dp83867: Make rgmii parameters optional
+Date: Tue, 17 May 2016 13:34:34 -0500
+Message-ID: <573B643A.9060700@ti.com>
+References: <1463424763-58807-1-git-send-email-agraf@suse.de>	<1463424763-58807-2-git-send-email-agraf@suse.de> <20160517.142224.1322153249705614542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: rabin.vincent@axis.com, andrew@lunn.ch, netdev@vger.kernel.org,
-	linux-m68k@lists.linux-m68k.org, linux-mips@linux-mips.org,
-	devicetree@vger.kernel.org, rabinv@axis.com
-To: f.fainelli@gmail.com
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <573B6280.3030405@gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<michal.simek@xilinx.com>, <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>, <agraf@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160517.142224.1322153249705614542.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 17 May 2016 11:27:12 -0700
+David
 
-> On 05/17/2016 11:20 AM, David Miller wrote:
->> From: Rabin Vincent <rabin.vincent@axis.com>
->> Date: Mon, 16 May 2016 13:15:56 +0200
->> 
->>> From: Rabin Vincent <rabinv@axis.com>
->>>
->>> Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
->>> platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
->>> called (for example, because the platform code and the fixed_phy driver
->>> use the same initcall level) crash in fixed_phy_add() since the
->>> ->mii_bus is not allocated.
->>>
->>> Also since e7f4dc3536a, these interrupts are initalized to polling by
->>> default.  All callers of both fixed_phy_register() and fixed_phy_add()
->>> pass PHY_POLL for the irq argument, so we can fix these crashes by
->>> simply removing the irq parameter, since the default is correct for all
->>> users.
->>>
->>> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
->>> Signed-off-by: Rabin Vincent <rabinv@axis.com>
->> 
->> Applied.
-> 
-> David, there was a v2 sent just earlier this morning here:
-> 
-> http://patchwork.ozlabs.org/patch/622967/
-> 
-> which was appropriately marked with Changes Requested, so why would we
-> apply v1?
+On 05/17/2016 01:22 PM, David Miller wrote:
+> From: Alexander Graf <agraf@suse.de>
+> Date: Mon, 16 May 2016 20:52:43 +0200
+>
+>> If you compile without OF_MDIO support in an RGMII configuration, we fail
+>> to configure the dp83867 phy today by writing garbage into its configuration
+>> registers.
+>>
+>> On the other hand if you do compile with OF_MDIO and the phy gets loaded via
+>> device tree, you have to have the properties set in the device tree, otherwise
+>> we fail to load the driver and don't even attach the generic phy driver to
+>> the interface anymore.
+>>
+>> To make things slightly more consistent, make the rgmii configuration properties
+>> optional and allow a user to omit them in their device tree.
+>>
+>> Signed-off-by: Alexander Graf <agraf@suse.de>
+> Applied.
 
-And that v2 needs changes still.
+This patch should not have been applied.
 
-My bad I'll revert v1, sorry.
+I did not believe the implementation was proper for that driver.
+
+It seems my objection to the code was not seen.  Nor was Andrew's point about the DT bindings document
+
+https://patchwork.kernel.org/patch/9105371/
+
+Dan
+
+-- 
+------------------
+Dan Murphy
