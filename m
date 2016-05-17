@@ -1,47 +1,62 @@
-From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RESEND PATCH v6 0/6] Add Ethernet support on STM32F429
-Date: Tue, 17 May 2016 11:20:16 +0200
-Message-ID: <CALszF6Cfs02-tGvFqpyJpUy7jSfjGTY8fVaaLQ8iQaGfCxvDtQ@mail.gmail.com>
-References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-	<20160509.150634.213732321950308841.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] netfilter: nf_conntrack: Use net_mutex for helper
+ unregistration.
+Date: Tue, 17 May 2016 12:16:01 +0200
+Message-ID: <20160517101601.GA2244@salvia>
+References: <1462488637-46877-1-git-send-email-joe@ovn.org>
+ <20160506110325.GA2420@salvia>
+ <CAPWQB7Eqoxk6-B5iEhkk9yF-DDduavtm=K8OE-3Of7JF6-Opvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160509.150634.213732321950308841.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Joe Stringer <joe@ovn.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7Eqoxk6-B5iEhkk9yF-DDduavtm=K8OE-3Of7JF6-Opvg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Cc'ing Eric Biederman.
 
-2016-05-09 21:06 GMT+02:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
-> From: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Mon,  9 May 2016 12:31:33 +0200
->
->> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
->> This series:
->>  -enhance current stmmac driver to control it (code already
->> available) and adds basic glue for STM32F429 chip.
->>  -Enable basic Net config in kernel.
->
-> I assume this will go via the ARM tree, for the networking bits:
-I would expect patches 1, 2 & 3 to got via your tree, to avoid conflicts.
+On Mon, May 16, 2016 at 09:38:53PM -0700, Joe Stringer wrote:
+> On 6 May 2016 at 04:03, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > Hi Joe,
+> >
+> > On Thu, May 05, 2016 at 03:50:37PM -0700, Joe Stringer wrote:
+> >> diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+> >> index 3b40ec575cd5..6860b19be406 100644
+> >> --- a/net/netfilter/nf_conntrack_helper.c
+> >> +++ b/net/netfilter/nf_conntrack_helper.c
+> >> @@ -449,10 +449,10 @@ void nf_conntrack_helper_unregister(struct nf_conntrack_helper *me)
+> >>        */
+> >>       synchronize_rcu();
+> >>
+> >> -     rtnl_lock();
+> >> +     mutex_lock(&net_mutex);
+> >>       for_each_net(net)
+> >>               __nf_conntrack_helper_unregister(me, net);
+> >> -     rtnl_unlock();
+> >> +     mutex_unlock(&net_mutex);
+> >
+> > This simple solution works because we have no .exit callbacks in any
+> > of our helpers. Otherwise, the helper code may be already gone by when
+> > the worker has a chance to run to release the netns.
+> >
+> > If so, probably I can append this as comment to this function so we
+> > don't forget. If we ever have .exit callbacks (I don't expect so), we
+> > would need to wait for worker completion.
+> 
+> Hi Pablo,
+> 
+> Did you want me to re-spin this patch or look into another approach?
 
-> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Last time I looked into this, my impression was that we should
+register each conntrack helper via register_pernet_subsys(). Then,
+from the exit path I was missing something like netns_barrier() [ note
+that I didn't seem to find anything similar] to ensure netns workqueue
+completion before we leave from the module exit path so that the
+->exit() netns callback code doesn't go away.
 
-Thanks,
-Maxime
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That would also avoid the rtnl_lock() dependency.
