@@ -1,63 +1,41 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/2] ixgbe: Fix VLAN features error
-Date: Mon, 16 May 2016 19:25:24 -0700
-Message-ID: <1463451924-96911-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/2][pull request] 10GbE Intel Wired LAN Driver Updates 2016-05-16
+Date: Mon, 16 May 2016 19:25:22 -0700
+Message-ID: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8392 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:2862 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807AbcEQCZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2016 22:25:27 -0400
-In-Reply-To: <1463451924-96911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750964AbcEQCZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2016 22:25:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+This series contains 2 fixes to ixgbe only.
 
-It looks like at some point I somehow transposed the location of setting
+Emil fixes transmit hangs when enabling SRIOV by swapping the parameters
+in GENMASK in order to generate the correct mask.
+
+Alex fixes his previous patch b83e30104bd9 ("ixgbe/ixgbevf: Add support
+for GSO partial") where he somehow transposed the location of setting
 the VLAN features in netdev->features and the configuration of the
-vlan_features.  As a result the driver is now generating a warning about
-vlan_features being setup incorrectly.
+vlan_features.
 
-This patch corrects that by placing the update of netdev->features to
-include the VLAN features so that it is after the point where we write
-netdev->features into netdev->vlan_features.
+The following are changes since commit 7e2c3aea4398d079745b9faa2c17b6cbd010f221:
+  net: also make sch_handle_egress() drop monitor ready
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
 
-Fixes: b83e30104bd9 ("ixgbe/ixgbevf: Add support for GSO partial")
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Alexander Duyck (1):
+  ixgbe: Fix VLAN features error
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7bbf9b1..9f3677c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9508,15 +9508,15 @@ skip_sriov:
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
-+	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
-+	netdev->hw_enc_features |= netdev->vlan_features;
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+
- 	/* set this bit last since it cannot be part of vlan_features */
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
- 			    NETIF_F_HW_VLAN_CTAG_RX |
- 			    NETIF_F_HW_VLAN_CTAG_TX;
- 
--	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
--	netdev->hw_enc_features |= netdev->vlan_features;
--	netdev->mpls_features |= NETIF_F_HW_CSUM;
--
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
- 
+Emil Tantilov (1):
+  ixgbe: use correct mask when enabling sriov
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
 -- 
 2.5.5
