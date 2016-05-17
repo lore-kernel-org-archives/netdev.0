@@ -1,28 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: QRTR merge conflict resolution
-Date: Tue, 17 May 2016 14:11:54 -0400 (EDT)
-Message-ID: <20160517.141154.1511755950068252376.davem@davemloft.net>
-References: <20160510183934.GJ1256@tuxbot>
-	<2606282.lG9qK7uBW0@wuerfel>
-	<20160513221909.GC1256@tuxbot>
+Subject: Re: [PATCH] phy: remove irq param to fix crash in fixed_phy_add()
+Date: Tue, 17 May 2016 14:20:34 -0400 (EDT)
+Message-ID: <20160517.142034.611823602956859056.davem@davemloft.net>
+References: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, linux-arm-kernel@lists.infradead.org,
-	sfr@canb.auug.org.au, andy.gross@linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, olof@lixom.net
-To: bjorn.andersson@linaro.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160513221909.GC1256@tuxbot>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-m68k@lists.linux-m68k.org, linux-mips@linux-mips.org,
+	devicetree@vger.kernel.org, rabinv@axis.com
+To: rabin.vincent@axis.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49256 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbcEQSUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 14:20:36 -0400
+In-Reply-To: <1463397356-5656-1-git-send-email-rabin.vincent@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Fri, 13 May 2016 15:19:09 -0700
+From: Rabin Vincent <rabin.vincent@axis.com>
+Date: Mon, 16 May 2016 13:15:56 +0200
 
-> I have prepared the merge of net-next and the conflicting tag from the
-> Qualcomm SOC, please include this in your pull towards Linus to avoid
-> the merge conflict.
+> From: Rabin Vincent <rabinv@axis.com>
+> 
+> Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
+> platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
+> called (for example, because the platform code and the fixed_phy driver
+> use the same initcall level) crash in fixed_phy_add() since the
+> ->mii_bus is not allocated.
+> 
+> Also since e7f4dc3536a, these interrupts are initalized to polling by
+> default.  All callers of both fixed_phy_register() and fixed_phy_add()
+> pass PHY_POLL for the irq argument, so we can fix these crashes by
+> simply removing the irq parameter, since the default is correct for all
+> users.
+> 
+> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+> Signed-off-by: Rabin Vincent <rabinv@axis.com>
 
-Pulled, thanks.
+Applied.
