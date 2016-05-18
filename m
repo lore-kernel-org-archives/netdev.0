@@ -1,71 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RESEND PATCH v6 0/6] Add Ethernet support on STM32F429
-Date: Wed, 18 May 2016 11:31:17 +0200
-Message-ID: <2535270.dCFPoM2olB@wuerfel>
-References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
- <20160517.122527.1937360418899371800.davem@davemloft.net>
- <CALszF6AE7jkRX3sSNm=PCvEmkmZM-Sv5LxFSj7J3vMbvi8M5Cg@mail.gmail.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: correct length checks on hash
+ copy_ops
+Date: Wed, 18 May 2016 10:42:03 +0100
+Message-ID: <20160518094203.GY8974@citrix.com>
+References: <1463557981-17294-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Kevin Hilman <khilman@kernel.org>, netdev@vger.kernel.org,
- Joachim Eastwood <manabian@gmail.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Chen-Yu Tsai <wens@csie.org>, Alexandre Torgue <alexandre.torgue@gmail.com>,
- Olof Johansson <olof@lixom.net>, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Maxime Coquelin <mcoquelin.stm32@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CALszF6AE7jkRX3sSNm=PCvEmkmZM-Sv5LxFSj7J3vMbvi8M5Cg@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:36343 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751767AbcERJmH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 05:42:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1463557981-17294-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 18 May 2016 09:48:53 Maxime Coquelin wrote:
-> 2016-05-17 18:25 GMT+02:00 David Miller <davem@davemloft.net>:
-> > From: Maxime Coquelin <mcoquelin.stm32@gmail.com>
-> > Date: Tue, 17 May 2016 11:20:16 +0200
-> >
-> >> Hi David,
-> >>
-> >> 2016-05-09 21:06 GMT+02:00 David Miller <davem@davemloft.net>:
-> >>> From: Alexandre TORGUE <alexandre.torgue@gmail.com>
-> >>> Date: Mon,  9 May 2016 12:31:33 +0200
-> >>>
-> >>>> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
-> >>>> This series:
-> >>>>  -enhance current stmmac driver to control it (code already
-> >>>> available) and adds basic glue for STM32F429 chip.
-> >>>>  -Enable basic Net config in kernel.
-> >>>
-> >>> I assume this will go via the ARM tree, for the networking bits:
-> >> I would expect patches 1, 2 & 3 to got via your tree, to avoid conflicts.
-> >
-> > I don't think putting them all via the ARM tree is going to create much
-> > in the way of conflicts, and right now during the merge window offloading
-> > that work from me would really help my backlog a lot.
+On Wed, May 18, 2016 at 08:53:01AM +0100, Paul Durrant wrote:
+> The length checks on the grant table copy_ops for setting hash key and
+> hash mapping are checking the local 'len' value which is correct in
+> the case of the former but not the latter. This was picked up by
+> static analysis checks.
 > 
-> Ok, I understand this is not the best time to pick it.
+> This patch replaces checks of 'len' with 'copy_op.len' in both cases
+> to correct the incorrect check, keep the two checks consistent, and to
+> make it clear what the checks are for.
 > 
-> Arnd, Olof & Kevin, would you accept to pick the series in your tree?
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+> ---
+>  drivers/net/xen-netback/hash.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-
-It's too late for v4.7 for us too, please pick up the arch/arm patches
-in your normal stm32 tree and send them to us along with any other changes
-you may have, and resend the driver by itself to netdev time after the
-merge window.
-
-The binding document can go either way, with the dts changes or with
-the driver. I see no dependencies between the patches, so we just need
-to land them all in v4.8.
-
-	Arnd
+> diff --git a/drivers/net/xen-netback/hash.c b/drivers/net/xen-netback/hash.c
+> index 392e392..fb87cb3 100644
+> --- a/drivers/net/xen-netback/hash.c
+> +++ b/drivers/net/xen-netback/hash.c
+> @@ -311,7 +311,7 @@ u32 xenvif_set_hash_key(struct xenvif *vif, u32 gref, u32 len)
+>  	if (len > XEN_NETBK_MAX_HASH_KEY_SIZE)
+>  		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
+>  
+> -	if (len != 0) {
+> +	if (copy_op.len != 0) {
+>  		gnttab_batch_copy(&copy_op, 1);
+>  
+>  		if (copy_op.status != GNTST_okay)
+> @@ -359,7 +359,7 @@ u32 xenvif_set_hash_mapping(struct xenvif *vif, u32 gref, u32 len,
+>  		if (mapping[off++] >= vif->num_queues)
+>  			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
+>  
+> -	if (len != 0) {
+> +	if (copy_op.len != 0) {
+>  		gnttab_batch_copy(&copy_op, 1);
+>  
+>  		if (copy_op.status != GNTST_okay)
+> -- 
+> 2.1.4
+> 
