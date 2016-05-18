@@ -1,32 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bpf: rather use get_random_int for randomizations
-Date: Wed, 18 May 2016 07:17:48 -0700
-Message-ID: <1463581068.18194.111.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
-	 <1463577634.18194.100.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <e478c91f-28ec-e07a-6afd-0757ac72d1f3@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34846 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932227AbcERORw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 10:17:52 -0400
-Received: by mail-pa0-f65.google.com with SMTP id rw9so5063489pab.2
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 07:17:52 -0700 (PDT)
-In-Reply-To: <e478c91f-28ec-e07a-6afd-0757ac72d1f3@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] mlx5: avoid unused variable warning
+Date: Wed, 18 May 2016 16:21:07 +0200
+Message-ID: <1463581293-1069553-1-git-send-email-arnd@arndb.de>
+Cc: Jiri Pirko <jiri@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirva@mellanox.com>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-05-18 at 15:28 +0200, Hannes Frederic Sowa wrote:
+When CONFIG_NET_CLS_ACT is disabled, we get a new warning in the mlx5
+ethernet driver because the tc_for_each_action() loop never references
+the iterator:
 
-> I don't consider this a big thing, I just mentioned that we probably
-> shouldn't use prandom_u32 if the value somehow could leak to user space
-> and should be used for security.
+mellanox/mlx5/core/en_tc.c: In function 'mlx5e_stats_flower':
+mellanox/mlx5/core/en_tc.c:431:20: error: unused variable 'a' [-Werror=unused-variable]
+  struct tc_action *a;
 
-Yes, I was mostly trying to understand if you had real security issues
-there or some general concerns ;)
+This changes the dummy tc_for_each_action() macro by adding a
+cast to void, letting the compiler know that the variable is
+intentionally declared but not used here. I could not come up
+with a nicer workaround, but this seems to do the trick.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: aad7e08d39bd ("net/mlx5e: Hardware offloaded flower filter statistics support")
+Fixes: 00175aec941e ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
+---
+ include/net/act_api.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 2cd9e9bb059a..9a9a8edc138f 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -192,7 +192,7 @@ static inline void tcf_action_stats_update(struct tc_action *a, u64 bytes,
+ #else /* CONFIG_NET_CLS_ACT */
+ 
+ #define tc_no_actions(_exts) true
+-#define tc_for_each_action(_a, _exts) while (0)
++#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
+ #define tcf_action_stats_update(a, bytes, packets, lastuse)
+ 
+ #endif /* CONFIG_NET_CLS_ACT */
+-- 
+2.7.0
