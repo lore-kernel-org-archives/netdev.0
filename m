@@ -1,125 +1,213 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v7 net-next 06/16] fou: Call setup_udp_tunnel_sock
-Date: Wed, 18 May 2016 09:06:14 -0700
-Message-ID: <1463587584-2315623-7-git-send-email-tom@herbertland.com>
+Subject: [PATCH v7 net-next 10/16] fou: Add encap ops for IPv6 tunnels
+Date: Wed, 18 May 2016 09:06:18 -0700
+Message-ID: <1463587584-2315623-11-git-send-email-tom@herbertland.com>
 References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35870 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53079 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932747AbcERQGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:06:41 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4IG2UPN005300
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:40 -0700
+	by vger.kernel.org with ESMTP id S932747AbcERQGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:06:45 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4IG1vGc017606
+	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:44 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 230sbg0mv1-5
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:40 -0700
+	by mx0a-00082601.pphosted.com with ESMTP id 230s3e8q6t-1
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:44 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 8172d0f61d1211e689100002c99293a0-3fbf2c50 for <netdev@vger.kernel.org>;	Wed,
- 18 May 2016 09:06:40 -0700
+ 838f41e41d1211e689100002c99293a0-3fbf2c50 for <netdev@vger.kernel.org>;	Wed,
+ 18 May 2016 09:06:43 -0700
 In-Reply-To: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use helper function to set up UDP tunnel related information for a fou
-socket.
+This patch add a new fou6 module that provides encapsulation
+operations for IPv6.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv4/fou.c | 50 ++++++++++++++++----------------------------------
- 1 file changed, 16 insertions(+), 34 deletions(-)
+ include/net/fou.h |   2 +-
+ net/ipv6/Makefile |   1 +
+ net/ipv6/fou6.c   | 140 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 142 insertions(+), 1 deletion(-)
+ create mode 100644 net/ipv6/fou6.c
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index eeec7d6..6cbc725 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -448,31 +448,13 @@ static void fou_release(struct fou *fou)
- 	kfree_rcu(fou, rcu);
- }
+diff --git a/include/net/fou.h b/include/net/fou.h
+index 7d2fda2..f5cc691 100644
+--- a/include/net/fou.h
++++ b/include/net/fou.h
+@@ -9,7 +9,7 @@
+ #include <net/udp.h>
  
--static int fou_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
--{
--	udp_sk(sk)->encap_rcv = fou_udp_recv;
--	udp_sk(sk)->gro_receive = fou_gro_receive;
--	udp_sk(sk)->gro_complete = fou_gro_complete;
--	fou_from_sock(sk)->protocol = cfg->protocol;
--
--	return 0;
--}
--
--static int gue_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
--{
--	udp_sk(sk)->encap_rcv = gue_udp_recv;
--	udp_sk(sk)->gro_receive = gue_gro_receive;
--	udp_sk(sk)->gro_complete = gue_gro_complete;
--
--	return 0;
--}
--
- static int fou_create(struct net *net, struct fou_cfg *cfg,
- 		      struct socket **sockp)
- {
- 	struct socket *sock = NULL;
- 	struct fou *fou = NULL;
- 	struct sock *sk;
-+	struct udp_tunnel_sock_cfg tunnel_cfg;
- 	int err;
+ size_t fou_encap_hlen(struct ip_tunnel_encap *e);
+-static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
++size_t gue_encap_hlen(struct ip_tunnel_encap *e);
  
- 	/* Open UDP socket */
-@@ -491,33 +473,33 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		       u8 *protocol, __be16 *sport, int type);
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 5e9d6bf..7ec3129 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -42,6 +42,7 @@ obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
+ obj-$(CONFIG_IPV6_SIT) += sit.o
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+ obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
++obj-$(CONFIG_NET_FOU) += fou6.o
  
- 	fou->flags = cfg->flags;
- 	fou->port = cfg->udp_config.local_udp_port;
-+	fou->type = cfg->type;
-+	fou->sock = sock;
+ obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
+ obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
+diff --git a/net/ipv6/fou6.c b/net/ipv6/fou6.c
+new file mode 100644
+index 0000000..c972d0b
+--- /dev/null
++++ b/net/ipv6/fou6.c
+@@ -0,0 +1,140 @@
++#include <linux/module.h>
++#include <linux/errno.h>
++#include <linux/socket.h>
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++#include <linux/udp.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <net/fou.h>
++#include <net/ip.h>
++#include <net/ip6_tunnel.h>
++#include <net/ip6_checksum.h>
++#include <net/protocol.h>
++#include <net/udp.h>
++#include <net/udp_tunnel.h>
 +
-+	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
-+	tunnel_cfg.encap_type = 1;
-+	tunnel_cfg.sk_user_data = fou;
-+	tunnel_cfg.encap_destroy = NULL;
- 
- 	/* Initial for fou type */
- 	switch (cfg->type) {
- 	case FOU_ENCAP_DIRECT:
--		err = fou_encap_init(sk, fou, cfg);
--		if (err)
--			goto error;
-+		tunnel_cfg.encap_rcv = fou_udp_recv;
-+		tunnel_cfg.gro_receive = fou_gro_receive;
-+		tunnel_cfg.gro_complete = fou_gro_complete;
-+		fou->protocol = cfg->protocol;
- 		break;
- 	case FOU_ENCAP_GUE:
--		err = gue_encap_init(sk, fou, cfg);
--		if (err)
--			goto error;
-+		tunnel_cfg.encap_rcv = gue_udp_recv;
-+		tunnel_cfg.gro_receive = gue_gro_receive;
-+		tunnel_cfg.gro_complete = gue_gro_complete;
- 		break;
- 	default:
- 		err = -EINVAL;
- 		goto error;
- 	}
- 
--	fou->type = cfg->type;
--
--	udp_sk(sk)->encap_type = 1;
--	udp_encap_enable();
--
--	sk->sk_user_data = fou;
--	fou->sock = sock;
--
--	inet_inc_convert_csum(sk);
-+	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
- 
- 	sk->sk_allocation = GFP_ATOMIC;
- 
++static void fou6_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
++			   struct flowi6 *fl6, u8 *protocol, __be16 sport)
++{
++	struct udphdr *uh;
++
++	skb_push(skb, sizeof(struct udphdr));
++	skb_reset_transport_header(skb);
++
++	uh = udp_hdr(skb);
++
++	uh->dest = e->dport;
++	uh->source = sport;
++	uh->len = htons(skb->len);
++	udp6_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM6), skb,
++		      &fl6->saddr, &fl6->daddr, skb->len);
++
++	*protocol = IPPROTO_UDP;
++}
++
++int fou6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		      u8 *protocol, struct flowi6 *fl6)
++{
++	__be16 sport;
++	int err;
++	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
++		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	err = __fou_build_header(skb, e, protocol, &sport, type);
++	if (err)
++		return err;
++
++	fou6_build_udp(skb, e, fl6, protocol, sport);
++
++	return 0;
++}
++EXPORT_SYMBOL(fou6_build_header);
++
++int gue6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		      u8 *protocol, struct flowi6 *fl6)
++{
++	__be16 sport;
++	int err;
++	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
++		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	err = __gue_build_header(skb, e, protocol, &sport, type);
++	if (err)
++		return err;
++
++	fou6_build_udp(skb, e, fl6, protocol, sport);
++
++	return 0;
++}
++EXPORT_SYMBOL(gue6_build_header);
++
++#ifdef CONFIG_NET_FOU_IP_TUNNELS
++
++static const struct ip6_tnl_encap_ops fou_ip6tun_ops = {
++	.encap_hlen = fou_encap_hlen,
++	.build_header = fou6_build_header,
++};
++
++static const struct ip6_tnl_encap_ops gue_ip6tun_ops = {
++	.encap_hlen = gue_encap_hlen,
++	.build_header = gue6_build_header,
++};
++
++static int ip6_tnl_encap_add_fou_ops(void)
++{
++	int ret;
++
++	ret = ip6_tnl_encap_add_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
++	if (ret < 0) {
++		pr_err("can't add fou6 ops\n");
++		return ret;
++	}
++
++	ret = ip6_tnl_encap_add_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
++	if (ret < 0) {
++		pr_err("can't add gue6 ops\n");
++		ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
++		return ret;
++	}
++
++	return 0;
++}
++
++static void ip6_tnl_encap_del_fou_ops(void)
++{
++	ip6_tnl_encap_del_ops(&fou_ip6tun_ops, TUNNEL_ENCAP_FOU);
++	ip6_tnl_encap_del_ops(&gue_ip6tun_ops, TUNNEL_ENCAP_GUE);
++}
++
++#else
++
++static int ip6_tnl_encap_add_fou_ops(void)
++{
++	return 0;
++}
++
++static void ip6_tnl_encap_del_fou_ops(void)
++{
++}
++
++#endif
++
++static int __init fou6_init(void)
++{
++	int ret;
++
++	ret = ip6_tnl_encap_add_fou_ops();
++
++	return ret;
++}
++
++static void __exit fou6_fini(void)
++{
++	ip6_tnl_encap_del_fou_ops();
++}
++
++module_init(fou6_init);
++module_exit(fou6_fini);
++MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
++MODULE_LICENSE("GPL");
 -- 
 2.8.0.rc2
