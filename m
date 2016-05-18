@@ -1,86 +1,109 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH 1/1] net: hns: avoid null pointer dereference
-Date: Wed, 18 May 2016 09:04:07 +0800
-Message-ID: <573BBF87.4010101@huawei.com>
-References: <1463515275-9836-1-git-send-email-xypron.glpk@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kejian Yan <yankejian@huawei.com>, Lisheng <lisheng011@huawei.com>,
-	Kenneth Lee <liguozhu@huawei.com>,
-	Andrew Lunn <andrew@lunn.ch>, Salil <salil.mehta@huawei.com>,
-	Qianqian Xie <xieqianqian@huawei.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	Chenny Xu <chenny.xu@huawei.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
-	"David S. Miller" <davem@davemloft.net>
+From: Amit Ghadge <amitg.b14@gmail.com>
+Subject: [PATCH v2] net: Fix coding style warnings and errors.
+Date: Wed, 18 May 2016 06:46:30 +0530
+Message-ID: <1463534190-3327-1-git-send-email-amitg.b14@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Amit Ghadge <amitg.b14@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463515275-9836-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Heinrich,
+This is a patch to clean checkpatch warnings and errors
+in the Space.c file.
+Clean up the following warnings and errors.
 
-This patch is fine to me.
+WARNING :
+* Block comments use * on subsequent lines
+* Missing a blank line after declarations
+* networking block comments don't use an empty /* line, use /*
+* please, no space before tabs
+* please, no spaces at the start of a line
+* line over 80 characters
 
-Thanks,
+ERROR :
+* code indent should use tabs where possible
+* space prohibited after that open parenthesis '('
 
-Yisen
+Signed-off-by: Amit Ghadge <amitg.b14@gmail.com>
+---
+Changes v2 :
+  - Added space between the "/*" and "ISA".
+---
+ drivers/net/Space.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-=E5=9C=A8 2016/5/18 4:01, Heinrich Schuchardt =E5=86=99=E9=81=93:
-> In the statement
->   assert(priv || priv->ae_handle);
-> the right side of || is only evaluated if priv is null.
->=20
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-> ---
->  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drive=
-rs/net/ethernet/hisilicon/hns/hns_ethtool.c
-> index 3d746c8..834a50a 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> @@ -720,7 +720,7 @@ static int hns_set_pauseparam(struct net_device *=
-net_dev,
->  	struct hnae_handle *h;
->  	struct hnae_ae_ops *ops;
-> =20
-> -	assert(priv || priv->ae_handle);
-> +	assert(priv && priv->ae_handle);
-> =20
->  	h =3D priv->ae_handle;
->  	ops =3D h->dev->ops;
-> @@ -780,7 +780,7 @@ static int hns_set_coalesce(struct net_device *ne=
-t_dev,
->  	struct hnae_ae_ops *ops;
->  	int ret;
-> =20
-> -	assert(priv || priv->ae_handle);
-> +	assert(priv && priv->ae_handle);
-> =20
->  	ops =3D priv->ae_handle->dev->ops;
-> =20
-> @@ -1111,7 +1111,7 @@ void hns_get_regs(struct net_device *net_dev, s=
-truct ethtool_regs *cmd,
->  	struct hns_nic_priv *priv =3D netdev_priv(net_dev);
->  	struct hnae_ae_ops *ops;
-> =20
-> -	assert(priv || priv->ae_handle);
-> +	assert(priv && priv->ae_handle);
-> =20
->  	ops =3D priv->ae_handle->dev->ops;
-> =20
-> @@ -1135,7 +1135,7 @@ static int hns_get_regs_len(struct net_device *=
-net_dev)
->  	struct hns_nic_priv *priv =3D netdev_priv(net_dev);
->  	struct hnae_ae_ops *ops;
-> =20
-> -	assert(priv || priv->ae_handle);
-> +	assert(priv && priv->ae_handle);
-> =20
->  	ops =3D priv->ae_handle->dev->ops;
->  	if (!ops->get_regs_len) {
->=20
+diff --git a/drivers/net/Space.c b/drivers/net/Space.c
+index 67977f1..11fe712 100644
+--- a/drivers/net/Space.c
++++ b/drivers/net/Space.c
+@@ -35,8 +35,8 @@
+ #include <net/Space.h>
+ 
+ /* A unified ethernet device probe.  This is the easiest way to have every
+-   ethernet adaptor have the name "eth[0123...]".
+-   */
++ * ethernet adaptor have the name "eth[0123...]".
++ */
+ 
+ struct devprobe2 {
+ 	struct net_device *(*probe)(int unit);
+@@ -46,6 +46,7 @@ struct devprobe2 {
+ static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
+ {
+ 	struct net_device *dev;
++
+ 	for (; p->probe; p++) {
+ 		if (autoprobe && p->status)
+ 			continue;
+@@ -58,8 +59,7 @@ static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
+ 	return -ENODEV;
+ }
+ 
+-/*
+- * ISA probes that touch addresses < 0x400 (including those that also
++/* ISA probes that touch addresses < 0x400 (including those that also
+  * look for EISA/PCI cards in addition to ISA cards).
+  */
+ static struct devprobe2 isa_probes[] __initdata = {
+@@ -86,11 +86,11 @@ static struct devprobe2 isa_probes[] __initdata = {
+ #endif
+ #ifdef CONFIG_CS89x0
+ #ifndef CONFIG_CS89x0_PLATFORM
+- 	{cs89x0_probe, 0},
++	{cs89x0_probe, 0},
+ #endif
+ #endif
+-#if defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
+-	{i82596_probe, 0},
++#if defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel */
++	{i82596_probe, 0},					/* I82596 */
+ #endif
+ #ifdef CONFIG_NI65
+ 	{ni65_probe, 0},
+@@ -118,13 +118,12 @@ static struct devprobe2 m68k_probes[] __initdata = {
+ 	{mac8390_probe, 0},
+ #endif
+ #ifdef CONFIG_MAC89x0
+- 	{mac89x0_probe, 0},
++	{mac89x0_probe, 0},
+ #endif
+ 	{NULL, 0},
+ };
+ 
+-/*
+- * Unified ethernet device probe, segmented per architecture and
++/* Unified ethernet device probe, segmented per architecture and
+  * per bus interface. This drives the legacy devices only for now.
+  */
+ 
+@@ -135,7 +134,7 @@ static void __init ethif_probe2(int unit)
+ 	if (base_addr == 1)
+ 		return;
+ 
+-	(void)(	probe_list2(unit, m68k_probes, base_addr == 0) &&
++	(void)(probe_list2(unit, m68k_probes, base_addr == 0) &&
+ 		probe_list2(unit, isa_probes, base_addr == 0));
+ }
+ 
+-- 
+2.5.5
