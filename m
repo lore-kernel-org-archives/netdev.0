@@ -1,63 +1,50 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
- flow/port support
-Date: Wed, 18 May 2016 11:18:16 +0900
-Message-ID: <20160518021813.GA27411@vergenet.net>
-References: <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
- <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
- <20160506112514.47f6e9dc@griffin>
- <20160509080420.GA4470@vergenet.net>
- <20160510140106.367936fb@griffin>
- <20160511015009.GB24436@vergenet.net>
- <20160511030632.GA24805@vergenet.net>
- <20160511160928.27816400@griffin>
- <20160511224650.GA12481@penelope.isobedori.kobe.vergenet.net>
- <20160517164320.46e03c81@griffin>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH v9 net-next 5/7] openvswitch: add layer 3 support to
+ ovs_packet_cmd_execute()
+Date: Wed, 18 May 2016 11:24:21 +0900
+Message-ID: <20160518022419.GB27411@vergenet.net>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-6-git-send-email-simon.horman@netronome.com>
+ <20160517165108.2f24054e@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Lorand Jakab <lojakab@cisco.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33442 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752440AbcERCYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 22:24:31 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 206so13068101pfu.0
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 19:24:30 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160517164320.46e03c81@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160517165108.2f24054e@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBNYXkgMTcsIDIwMTYgYXQgMDQ6NDM6MjBQTSArMDIwMCwgSmlyaSBCZW5jIHdyb3Rl
-Ogo+IE9uIFRodSwgMTIgTWF5IDIwMTYgMDc6NDY6NTIgKzA5MDAsIFNpbW9uIEhvcm1hbiB3cm90
-ZToKPiA+IElmIHdlIGNhbiBsaXZlIHdpdGggYSBib2d1cyBza2ItPm1hY19sZW4gdmFsdWUgdGhh
-dCBpcyBzdWZmaWNpZW50IGZvcgo+ID4gb3ZzX2Zsb3dfa2V5X2V4dHJhY3QuKCkgYW5kIHNldCBj
-b3JyZWN0bHkgYnkga2V5X2V4dHJhY3QoKSAod2hpY2ggaGFwcGVucwo+ID4gYW55d2F5KSB3ZSBj
-b3VsZCBkbyBzb21ldGhpbmcgbGlrZSB0aGlzOgo+ID4gCj4gPiAJfSBlbHNlIGlmICh2cG9ydC0+
-ZGV2LT50eXBlID09IEFSUEhSRF9OT05FKSB7Cj4gPiAJCWlmIChza2ItPnByb3RvY29sID09IGh0
-b25zKEVUSF9QX1RFQikpCj4gPiAJCQkvKiBJZ25vcmVzIHByZXNlbmNlIG9mIFZMQU4gYnV0IGlz
-IHN1ZmZpY2llbnQgZm9yCj4gPiAJCQkgKiBvdnNfZmxvd19rZXlfZXh0cmFjdCgpIHdoaWNoIHRo
-ZW4gY2FsbHMga2V5X2V4dHJhY3QoKQo+ID4gCQkJICogd2hpY2ggY2FsY3VsYXRlcyBza2ItPm1h
-Y19sZW4gY29ycmVjdGx5LiAqLwo+ID4gCQkJc2tiLT5tYWNfbGVuID0gRVRIX0hMRU47IC8qIEln
-bm9yZXMgcHJlc2VuY2Ugb2YgVkxBTiAqLwo+ID4gCQllbHNlCj4gPiAJCQlza2ItPm1hY19sZW4g
-PSAwOwo+ID4gCX0KPiA+IAo+ID4gCj4gPiBCdXQgcGVyaGFwcyBJIGhhdmUgbWlzc2VkIHRoZSBw
-b2ludCBzb21laG93Lgo+IAo+IFlvdSBkaWQgbm90LCBJIHdhcyBtb3JlIHRoaW5raW5nIGFsb3Vk
-LiBCdXQgeW91J3JlIHJpZ2h0LCBpdCBkb2Vzbid0Cj4gbWFrZSBtdWNoIHNlbnNlLgo+IAo+IFNv
-LCB3b3VsZG4ndCBpdCBiZSBhY3R1YWxseSBtb3JlIGNvcnJlY3QgYW5kIGluIGxpbmUgd2l0aCBw
-YXRjaCAyIHRvCj4gY2FsbCBldGhfdHlwZV90cmFucygpIGhlcmU/CgpZZXMsIHRoYXQgc2VlbXMg
-cmVhc29uYWJsZS4KCj4gUG9zc2libHkgZXZlbiBmb2xsb3dlZCBieSBza2Jfdmxhbl91bnRhZwo+
-IChub3QgbmVlZGVkLiBCdXQgaXQgbWlnaHQgbWFrZSB0aGluZ3MgZWFzaWVyIHRvIGhhdmUgdGhl
-IGZpcnN0IHZsYW4gdGFnCj4gYWx3YXlzIHJlc2lkZSBpbnNpZGUgc2tiLT52bGFuX3RjaSBhbmQg
-dHJlYXQgdGhhdCBhcyBhbiBpbnZhcmlhbnQgaW4KPiB0aGUgd2hvbGUgb3ZzIGtlcm5lbCBjb2Rl
-LiBJdCdsbCBuZWVkIHRvIGJlIGRvbmUgaW4gbW9yZSBzcG90cyB0aGFuCj4ganVzdCB0aGlzIG9u
-ZSwgdGhvdWdoLCBhbmQgaXMgcHJvYmFibHkgbWF0dGVyIG9mIGEgc2VwYXJhdGUgcGF0Y2hzZXQp
-LgoKVGhhdCBhbHNvIHNlZW1zIHJlYXNvbmFibGUuIEJ1dCBhcyBpdCBzZWVtcyBtb3JlIGludmFz
-aXZlIGFuZCBpcyBub3QKc3RyaWN0bHkgbmVjZXNzYXJ5IEknZCByYXRoZXIgaGFuZGxlIHRoYXQg
-dXBkYXRlIHNlcGFyYXRlbHkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
-bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Tue, May 17, 2016 at 04:51:08PM +0200, Jiri Benc wrote:
+> On Wed,  4 May 2016 16:36:31 +0900, Simon Horman wrote:
+> > +	/* Packets from user space for execution only have metadata key
+> > +	 * attributes.  OVS_KEY_ATTR_PACKET_ETHERTYPE is then used to specify
+> > +	 * the starting layer of the packet.  Packets with Ethernet headers
+> > +	 * have this attribute set to 0
+> > +	 */
+> > +	if (*attrs & (1ULL << OVS_KEY_ATTR_PACKET_ETHERTYPE)) {
+> > +		__be16 eth_type;
+> > +
+> > +		if (is_mask) {
+> > +			/* Always exact match packet EtherType */
+> > +			eth_type = htons(0xffff);
+> > +		} else {
+> > +			eth_type = nla_get_be16(a[OVS_KEY_ATTR_PACKET_ETHERTYPE]);
+> > +			is_layer3 = ((eth_type == htons(ETH_P_IP)) ||
+> > +				     (eth_type == htons(ETH_P_IPV6)));
+> 
+> Unknown types need to be rejected, not treated as layer2, otherwise we
+> may run into problems later (with combination of this kernel + newer
+> user space) when we add more types, such as ETH_P_NSH.
+
+I believe this is fixed by the following patch.
+
+Possibly it makes sense to squash that patch into and earlier patches.
