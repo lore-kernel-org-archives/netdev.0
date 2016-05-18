@@ -1,68 +1,57 @@
-From: Rabin Vincent <rabin.vincent@axis.com>
-Subject: [PATCHv3] phy: fix crash in fixed_phy_add()
-Date: Wed, 18 May 2016 12:47:31 +0200
-Message-ID: <1463568451-9385-1-git-send-email-rabin.vincent@axis.com>
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	Rabin Vincent <rabinv@axis.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC][PATCH net] bpf: Use mount_nodev not mount_ns to mount the
+ bpf filesystem
+Date: Wed, 18 May 2016 12:48:27 +0200
+Message-ID: <79e26212-3b09-1be3-0fbf-30de1b265045@stressinduktion.org>
+References: <87oa84wa6h.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:58990 "EHLO bes.se.axis.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752008AbcERKrk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 06:47:40 -0400
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:35263 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752407AbcERKsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 06:48:30 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 82EE621154
+	for <netdev@vger.kernel.org>; Wed, 18 May 2016 06:48:29 -0400 (EDT)
+In-Reply-To: <87oa84wa6h.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rabin Vincent <rabinv@axis.com>
+On 18.05.2016 01:12, Eric W. Biederman wrote:
+> 
+> While reviewing the filesystems that set FS_USERNS_MOUNT I spotted the
+> bpf filesystem.  Looking at the code I saw a broken usage of mount_ns
+> with current->nsproxy->mnt_ns. As the code does not acquire a reference
+> to the mount namespace it can not possibly be correct to store the mount
+> namespace on the superblock as it does.
+> 
+> Replace mount_ns with mount_nodev so that each mount of the bpf
+> filesystem returns a distinct instance, and the code is not utterly
+> broken.
+> 
+> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+> 
+> No one should care about this change, as userspace typically only mounts
+> things once and does not depend on things in one mount do not showing up
+> in another.  Can someone who actually uses the bpf filesystem please
+> verify this.
+> 
+> This needs to be fixed as the existing code is broken beyond words that
+> I know how to express.
 
-Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
-platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
-called (for example, because the platform code and the fixed_phy driver
-use the same initcall level) crash in fixed_phy_add() since the
-->mii_bus is not allocated.
+The idea is to have the bpf filesystem as a singeleton per mnt-namespace
+to prevent endless instances being created and kernel resources being
+hogged by pinning them to hard to discover bpf mounts.
 
-Also since e7f4dc3536a, these interrupts are initalized to polling by
-default.  The few (old) platforms which directly use fixed_phy_add()
-from their platform code all pass PHY_POLL for the irq argument, so we
-can keep these platforms not crashing by simply not attempting to set
-the irq if PHY_POLL is passed.
+Do you see any problem with adding appropriate reference counts?
 
-Also, even if problems have not been reported on more modern platforms
-which used fixed_phy_register() from drivers' probe functions, we return
--EPROBE_DEFER if the MDIO bus is not yet registered so that the probe is
-retried later.
-
-Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
-Signed-off-by: Rabin Vincent <rabinv@axis.com>
----
-v3: One more suggestion from Andrew: check mii bus state
-
- drivers/net/phy/fixed_phy.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index fc07a88..e7dcda6 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -255,7 +255,8 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
- 
- 	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
- 
--	fmb->mii_bus->irq[phy_addr] = irq;
-+	if (irq != PHY_POLL)
-+		fmb->mii_bus->irq[phy_addr] = irq;
- 
- 	fp->addr = phy_addr;
- 	fp->status = *status;
-@@ -314,6 +315,9 @@ struct phy_device *fixed_phy_register(unsigned int irq,
- 	int phy_addr;
- 	int ret;
- 
-+	if (!fmb->mii_bus || fmb->mii_bus->state != MDIOBUS_REGISTERED)
-+		return ERR_PTR(-EPROBE_DEFER);
-+
- 	/* Get the next available PHY address, up to PHY_MAX_ADDR */
- 	spin_lock(&phy_fixed_addr_lock);
- 	if (phy_fixed_addr == PHY_MAX_ADDR) {
--- 
-2.1.4
+Bye,
+Hannes
