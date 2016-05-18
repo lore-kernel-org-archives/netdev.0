@@ -1,208 +1,52 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes
- for v6 tunneling
-Date: Wed, 18 May 2016 10:40:13 -0700
-Message-ID: <CALx6S353_yoDsQayfEv5WSnLC8O82LTxWhkeP6MK4Sr7bxXygg@mail.gmail.com>
-References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
-	<CAKgT0UdcOqYxsJ2uW4Eu4c8aTTLgFTBTcEPYT3QXyj8Qhszpgg@mail.gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH 0/2] Follow-ups for GUEoIPv6 patches
+Date: Wed, 18 May 2016 10:44:40 -0700
+Message-ID: <20160518173605.2608.42484.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: tom@herbertland.com, alexander.duyck@gmail.com,
+	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, kernel-team@fb.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:33241 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751967AbcERRkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:40:14 -0400
-Received: by mail-io0-f195.google.com with SMTP id x35so10764868ioi.0
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 10:40:14 -0700 (PDT)
-In-Reply-To: <CAKgT0UdcOqYxsJ2uW4Eu4c8aTTLgFTBTcEPYT3QXyj8Qhszpgg@mail.gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33635 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753207AbcERRon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:44:43 -0400
+Received: by mail-pa0-f52.google.com with SMTP id xk12so19994493pac.0
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 10:44:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2016 at 10:32 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Wed, May 18, 2016 at 9:06 AM, Tom Herbert <tom@herbertland.com> wrote:
->> This patch set:
->>   - Fixes GRE6 to process translate flags correctly from configuration
->>   - Adds support for GSO and GRO for ip6ip6 and ip4ip6
->>   - Add support for FOU and GUE in IPv6
->>   - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
->>   - Fixes ip6_input to deal with UDP encapsulations
->>   - Some other minor fixes
->>
->> v2:
->>   - Removed a check of GSO types in MPLS
->>   - Define GSO type SKB_GSO_IPXIP6 and SKB_GSO_IPXIP4 (based on input
->>     from Alexander)
->>   - Don't define GSO types specifically for IP6IP6 and IP4IP6, above
->>     fix makes that unnecessary
->>   - Don't bother clearing encapsulation flag in UDP tunnel segment
->>     (another item suggested by Alexander).
->>
->> v3:
->>   - Address some minor comments from Alexander
->>
->> v4:
->>   - Rebase on changes to fix IP TX tunnels
->>   - Fix MTU issues in ip4ip6, ip6ip6
->>   - Add test data for above
->>
->> v5:
->>   - Address feedback from Shmulik Ladkani regarding extension header
->>     code that does not return next header but in instead relies
->>     on returning value via nhoff. Solution here is to fix EH
->>     processing to return nexthdr value.
->>   - Refactored IPv4 encaps so that we won't need to create
->>     a ip6_tunnel_core.c when adding encap support IPv6.
->>
->> v6:
->>   - Fix build issues with regard to new GSO constants
->>   - FIx MTU calculation issues ip6_tunnel.c pointed out byt ALex
->>   - Add encap_hlen into headroom for GREv6 to work with FOU/GUE
->>
->> v7:
->>   - Added skb_set_inner_ipproto to ip4ip6 and ip6ip6
->>   - Clarified max_headroom in ip6_tnl_xmit
->>   - Set features for IPv6 tunnels
->>   - Other cleanup suggested by Alexander
->>   - Above fixes throughput performance issues in ip4ip6 and ip6ip6,
->>     updated test results to reflect that
->>
->> Tested: Various cases of IP tunnels with netperf TCP_STREAM and TCP_RR.
->>
->>     - IPv4/GRE/GUE/IPv6 with RCO
->>       1 TCP_STREAM
->>         6616 Mbps
->>       200 TCP_RR
->>         1244043 tps
->>         141/243/446 90/95/99% latencies
->>         86.61% CPU utilization
->>
->>     - IPv6/GRE/GUE/IPv6 with RCO
->>       1 TCP_STREAM
->>         6940 Mbps
->>       200 TCP_RR
->>         1270903 tps
->>         138/236/440 90/95/99% latencies
->>         87.51% CPU utilization
->>
->>      - IP6IP6
->>       1 TCP_STREAM
->>         5307 Mbps
->>       200 TCP_RR
->>         498981 tps
->>         388/498/631 90/95/99% latencies
->>         19.75% CPU utilization (1 CPU saturated)
->>
->>      - IP6IP6/GUE with RCO
->>       1 TCP_STREAM
->>         5575 Mbps
->>       200 TCP_RR
->>         1233818 tps
->>         143/244/451 90/95/99% latencies
->>         87.57 CPU utilization
->>
->>      - IP4IP6
->>       1 TCP_STREAM
->>         5235 Mbps
->>       200 TCP_RR
->>         763774 tps
->>         250/318/466 90/95/99% latencies
->>         35.25% CPU utilization (1 CPU saturated)
->>
->>      - IP4IP6/GUE with RCO
->>       1 TCP_STREAM
->>         5337 Mbps
->>       200 TCP_RR
->>         1196385 tps
->>         148/251/460 90/95/99% latencies
->>         87.56 CPU utilization
->>
->>      - GRE with keyid
->>       200 TCP_RR
->>         744173 tps
->>         258/332/461 90/95/99% latencies
->>         34.59% CPU utilization (1 CPU saturated)
->>
->>
->> Tom Herbert (16):
->>   gso: Remove arbitrary checks for unsupported GSO
->>   net: define gso types for IPx over IPv4 and IPv6
->>   ipv6: Fix nexthdr for reinjection
->>   ipv6: Change "final" protocol processing for encapsulation
->>   net: Cleanup encap items in ip_tunnels.h
->>   fou: Call setup_udp_tunnel_sock
->>   fou: Split out {fou,gue}_build_header
->>   fou: Support IPv6 in fou
->>   ip6_tun: Add infrastructure for doing encapsulation
->>   fou: Add encap ops for IPv6 tunnels
->>   ip6_gre: Add support for fou/gue encapsulation
->>   ip6_tunnel: Add support for fou/gue encapsulation
->>   ipv6: Set features for IPv6 tunnels
->>   ip6ip6: Support for GSO/GRO
->>   ip4ip6: Support for GSO/GRO
->>   ipv6: Don't reset inner headers in ip6_tnl_xmit
->>
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   5 +-
->>  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   5 +-
->>  drivers/net/ethernet/intel/i40e/i40e_main.c       |   3 +-
->>  drivers/net/ethernet/intel/i40e/i40e_txrx.c       |   3 +-
->>  drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |   3 +-
->>  drivers/net/ethernet/intel/i40evf/i40evf_main.c   |   3 +-
->>  drivers/net/ethernet/intel/igb/igb_main.c         |   3 +-
->>  drivers/net/ethernet/intel/igbvf/netdev.c         |   3 +-
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   3 +-
->>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   3 +-
->>  include/linux/netdev_features.h                   |  12 +-
->>  include/linux/netdevice.h                         |   4 +-
->>  include/linux/skbuff.h                            |   4 +-
->>  include/net/fou.h                                 |  10 +-
->>  include/net/inet_common.h                         |   5 +
->>  include/net/ip6_tunnel.h                          |  58 +++++++
->>  include/net/ip_tunnels.h                          |  76 +++++++--
->>  net/core/ethtool.c                                |   4 +-
->>  net/ipv4/af_inet.c                                |  32 +---
->>  net/ipv4/fou.c                                    | 144 +++++++++-------
->>  net/ipv4/gre_offload.c                            |  14 --
->>  net/ipv4/ip_tunnel.c                              |  45 -----
->>  net/ipv4/ip_tunnel_core.c                         |   9 +
->>  net/ipv4/ipip.c                                   |   2 +-
->>  net/ipv4/tcp_offload.c                            |  19 ---
->>  net/ipv4/udp_offload.c                            |  10 --
->>  net/ipv6/Makefile                                 |   1 +
->>  net/ipv6/fou6.c                                   | 140 ++++++++++++++++
->>  net/ipv6/ip6_gre.c                                |  79 ++++++++-
->>  net/ipv6/ip6_input.c                              |  33 +++-
->>  net/ipv6/ip6_offload.c                            |  77 ++++++---
->>  net/ipv6/ip6_tunnel.c                             | 190 ++++++++++++++++++++--
->>  net/ipv6/sit.c                                    |   4 +-
->>  net/ipv6/udp_offload.c                            |  13 --
->>  net/mpls/mpls_gso.c                               |  11 +-
->>  net/netfilter/ipvs/ip_vs_xmit.c                   |  17 +-
->>  36 files changed, 737 insertions(+), 310 deletions(-)
->>  create mode 100644 net/ipv6/fou6.c
->>
->> --
->> 2.8.0.rc2
->>
->
-> So I have put this patch series through a quick check by comparing it
-> against the code I had in terms of fixes and as such and it looks
-> good.
->
-> I have 2 follow-up patches I will probably want to submit for it.  One
-> prevents us from supporting segmentation offloads if GRE_CSUM is
-> enabled for a FOU/GUE tunnel with GRE, and the other enables the Intel
-> NICs to offload this in hardware or via a mix of hardware and software
-> using GSO_PARTIAL.
->
-That sounds good. I also assume some drivers will want to enable
-IPXIP6 offloads.
+This patch series is meant to be applied after:
+[PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
 
-> Reviewed-by: Alexander Duyck <aduyck@mirantis.com>
+The first patch addresses an issue we already resolved in the GREv4 and is
+now present in GREv6 with the introduction of FOU/GUE for IPv6 based GRE
+tunnels.
 
-Thanks for all your hard work on this!
+The second patch goes through and enables IPv6 tunnel offloads for the Intel
+NICs that already support the IPv4 based IP-in-IP tunnel offloads.  I have
+only done a bit of touch testing but have seen ~20 Gb/s over an i40e
+interface using a v4-in-v6 tunnel, and I have verified IPv6 GRE is still
+passing traffic at around the same rate.  I plan to do further testing but
+with these patches present it should enable a wider audience to be able to
+test the new features introduced in Tom's patchset with hardware offloads.
 
-Tom
+---
+
+Alexander Duyck (2):
+      ip6_gre: Do not allow segmentation offloads GRE_CSUM is enabled with FOU/GUE
+      intel: Add support for IPv6 IP-in-IP offload
+
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c       |    1 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c       |    1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |    1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   |    1 +
+ drivers/net/ethernet/intel/igb/igb_main.c         |    1 +
+ drivers/net/ethernet/intel/igbvf/netdev.c         |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |    1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    1 +
+ net/ipv6/ip6_gre.c                                |   12 ++++++++----
+ 9 files changed, 16 insertions(+), 4 deletions(-)
