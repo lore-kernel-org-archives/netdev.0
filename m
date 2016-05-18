@@ -1,62 +1,54 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/1] rtlwifi: rtl8192ee: simplify coding
-Date: Wed, 18 May 2016 07:02:49 -0500
-Message-ID: <573C59E9.8090902@lwfinger.net>
-References: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH 1/1] rtlwifi: rtl8723be: avoid undefined behavior
+Date: Wed, 18 May 2016 07:12:08 -0500
+Message-ID: <573C5C18.8030300@lwfinger.net>
+References: <1463525183-11483-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wu Fengguang <fengguang.wu@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36447 "EHLO
-	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbcERMC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 08:02:57 -0400
-In-Reply-To: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1463525183-11483-1-git-send-email-xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/17/2016 07:43 PM, Heinrich Schuchardt wrote:
-> Simplify _rtl92ee_phy_path_adda_on.
+On 05/17/2016 05:46 PM, Heinrich Schuchardt wrote:
+> Do not return undefined value for transmission power
+> if the rate is invalid.
 >
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
 > ---
->   drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c | 13 ++-----------
->   1 file changed, 2 insertions(+), 11 deletions(-)
+>   drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-> index 018340a..c2bf8d1 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-> @@ -2414,19 +2414,10 @@ static void _rtl92ee_phy_reload_mac_registers(struct ieee80211_hw *hw,
->   static void _rtl92ee_phy_path_adda_on(struct ieee80211_hw *hw, u32 *addareg,
->   				      bool is_patha_on, bool is2t)
->   {
-> -	u32 pathon;
->   	u32 i;
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
+> index 445f681..c5ca9df 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
+> @@ -1019,7 +1019,7 @@ static u8 _rtl8723be_get_txpower_index(struct ieee80211_hw *hw, u8 path,
+>   	struct rtl_priv *rtlpriv = rtl_priv(hw);
+>   	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
+>   	u8 index = (channel - 1);
+> -	u8 txpower;
+> +	u8 txpower = 0;
+>   	u8 power_diff_byrate = 0;
 >
-> -	pathon = is_patha_on ? 0x0fc01616 : 0x0fc01616;
-> -	if (!is2t) {
-> -		pathon = 0x0fc01616;
-> -		rtl_set_bbreg(hw, addareg[0], MASKDWORD, 0x0fc01616);
-> -	} else {
-> -		rtl_set_bbreg(hw, addareg[0], MASKDWORD, pathon);
-> -	}
-> -
-> -	for (i = 1; i < IQK_ADDA_REG_NUM; i++)
-> -		rtl_set_bbreg(hw, addareg[i], MASKDWORD, pathon);
-> +	for (i = 0; i < IQK_ADDA_REG_NUM; i++)
-> +		rtl_set_bbreg(hw, addareg[i], MASKDWORD, 0x0fc01616);
->   }
->
->   static void _rtl92ee_phy_mac_setting_calibration(struct ieee80211_hw *hw,
+>   	if (channel > 14 || channel < 1) {
 
-Initially the thought was that addareg[0] would need to be set differently for 
-devices with 2 TX paths. For that reason, this routine was coded as shown. As 
-that assumption is no longer valid, this change should be made.
+Did gcc give you a warning about this variable not being initialized? Mine does 
+not. In any case, this change is appropriate.
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+
+Thanks,
+
+Larry
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
