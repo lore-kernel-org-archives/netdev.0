@@ -1,90 +1,68 @@
-From: "Coelho, Luciano" <luciano.coelho@intel.com>
-Subject: Re: [GIT] Networking
-Date: Wed, 18 May 2016 18:50:11 +0000
-Message-ID: <1463597411.29999.16.camel@intel.com>
-References: <20160517.151113.367799295750703003.davem@davemloft.net>
-	 <CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
-	 <CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
-	 <1463568714.13625.18.camel@intel.com>
-	 <CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
-	 <1463575273.13625.23.camel@intel.com>
-	 <CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
-	 <1463581411.29999.1.camel@intel.com>
-	 <CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for
+ SOCK_DESTROY
+Date: Wed, 18 May 2016 11:51:08 -0700
+Message-ID: <20160518115108.46fabd49@xeon-e3>
+References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
+	<1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
+	<CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
+	<bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
+	<CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com>
+	<39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
+	<CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
+	<3d0fd83a-fa88-8ceb-a44d-237f5a005eb4@cumulusnetworks.com>
+	<CAKD1Yr0E9i0s0ocSyYhEjODnVVQVBPOfbepvORAhT9gi9Qqz6A@mail.gmail.com>
+	<a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"egrumbach@gmail.com" <egrumbach@gmail.com>,
-	"reinoudkoornstra@gmail.com" <reinoudkoornstra@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-To: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41731 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752009AbcERSuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 14:50:16 -0400
-In-Reply-To: <CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <6F51AE4DB231374981F7ECC4A7A9DFF8@intel.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:32850 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753477AbcERSu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 14:50:59 -0400
+Received: by mail-pa0-f50.google.com with SMTP id xk12so20479054pac.0
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 11:50:59 -0700 (PDT)
+In-Reply-To: <a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE2LTA1LTE4IGF0IDExOjQ1IC0wNzAwLCBMaW51cyBUb3J2YWxkcyB3cm90ZToN
-Cj4gT24gV2VkLCBNYXkgMTgsIDIwMTYgYXQgNzoyMyBBTSwgQ29lbGhvLCBMdWNpYW5vDQo+IDxs
-dWNpYW5vLmNvZWxob0BpbnRlbC5jb20+IHdyb3RlOg0KPiA+IA0KPiA+IA0KPiA+IEkgY2FuIGNv
-bmZpcm0gdGhhdCA0LjYgY29udGFpbnMgdGhlIHNhbWUgYnVnLsKgwqBBbmQgcmV2ZXJ0aW5nIHRo
-ZQ0KPiA+IHBhdGNoDQo+ID4gSSBtZW50aW9uZWQgZG9lcyBzb2x2ZSB0aGUgcHJvYmxlbS4uLg0K
-PiA+IA0KPiA+IFRoZSBzYW1lIHBhdGNoIHdvcmtzIGZpbmUgaW4gb3VyIGludGVybmFsIHRyZWUu
-wqDCoEknbGwgaGF2ZSB0bw0KPiA+IGZpZ3VyZQ0KPiA+IG91dCB0b2dldGhlciB3aXRoIEVtbWFu
-dWVsIHdoYXQgdGhlIHByb2JsZW0gYWN0dWFsbHkgaXMuDQo+IEhtbS4NCj4gDQo+IEZyb20gd2hh
-dCBJIGNhbiB0ZWxsLCB0aGVyZSdzIGEgbWVyZ2UgYnVnIGluIGNvbW1pdCA5MDliMjdmNzA2NDMs
-DQo+IHdoZXJlIERhdmlkIHNlZW1zIHRvIGhhdmUgbG9zdCBzb21lIG9mIHRoZSBjaGFuZ2VzIHRv
-DQo+IGl3bF9tdm1fc2V0X3R4X2NtZCgpLg0KPiANCj4gVGhlIHJlYXNvbiBzZWVtcyB0byBiZSBh
-IGNvbmZsaWN0IHdpdGggZDhmZTQ4NDQ3MGRkLCB3aGVyZSBEYXZpZA0KPiBtaXNzZWQgdGhlIGZh
-Y3QgdGhhdCAiaW5mby0+ZHJpdmVyX2RhdGFbMF0iIGhhZCBiZWNvbWUNCj4gInNrYl9pbmZvLT5k
-cml2ZXJfZGF0YVswXSIsIGFuZCB0aGVuIGhlIHJlbW92ZWQgdGhlIHNrYl9pbmZvIGJlY2F1c2UN
-Cj4gaXQgd2FzIHVudXNlZC4NCj4gDQo+IEkgZG8gbm90IGtub3cgaWYgdGhhdCdzIHRoZSByZWFz
-b24gZm9yIHRoZSBwcm9ibGVtIEkgc2VlLiBCdXQgSSB3aWxsDQo+IHRlc3QuDQo+IA0KPiBEYXZp
-ZCwgZG8geW91IGhhcHBlbiB0byByZWNhbGwgdGhhdCBtZXJnZSBjb25mbGljdD8gSSB0aGluayB5
-b3UgbXVzdA0KPiBoYXZlIHJlbW92ZWQgdGhhdCAic2tiX2luZm8iIHZhcmlhYmxlIGRlY2xhcmF0
-aW9uIGFuZCBpbml0aWFsaXphdGlvbg0KPiBtYW51YWxseSAoZHVlIHRvIHRoZSAidW51c2VkIHZh
-cmlhYmxlIiB3YXJuaW5nLCB3aGljaCBpbiB0dXJuIHdhcyBkdWUNCj4gdG8gdGhlIGluY29ycmVj
-dCBtZXJnZSBvZiB0aGUgYWN0dWFsIGNvbmZsaWN0KSwgYmVjYXVzZSBJIHRoaW5rIGdpdA0KPiB3
-b3VsZCBoYXZlIG1lcmdlZCB0aGF0IGxpbmUgaW50byB0aGUgcmVzdWx0Lg0KDQpBY3R1YWxseSBJ
-IGp1c3QgdGVzdGVkIGl0IGFuZCBpbmRlZWQgaXQgc2VlbXMgdG8gYmUgdGhlIG1lcmdlIGRhbWFn
-ZQ0KKHdoaWNoIHdlIGRpc2N1c3NlZCBleHRlbnNpdmVseSBpbiB0aGUgbGludXgtd2lyZWxlc3Mg
-bWFpbGluZyBsaXN0KQ0KdGhhdCBjYXVzZXMgdGhpcyBwcm9ibGVtLiDCoFRoZSAiNC42IGRvZXNu
-J3Qgd29yayBlaXRoZXIiIHRoaW5nIHdhcyBhDQpmYWxzZSBhbGFybS4NCg0KSWYgdGhlIG1lcmdl
-IGRhbWFnZSBpcyBmaXhlZCB0aGlzIHdheSwgdGhlIHByb2JsZW0gaXMgZ29uZToNCg0KZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL3R4LmMNCmIvZHJp
-dmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9tdm0vdHguYw0KaW5kZXggYjVmN2MzNi4u
-YWUyZWNmNiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkv
-bXZtL3R4LmMNCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL3R4
-LmMNCkBAIC0yMTEsNiArMjExLDcgQEAgdm9pZCBpd2xfbXZtX3NldF90eF9jbWQoc3RydWN0IGl3
-bF9tdm0gKm12bSwgc3RydWN0DQpza19idWZmICpza2IsDQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBzdHJ1Y3QgaXdsX3R4X2NtZCAqdHhfY21kLA0KwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgc3RydWN0IGllZWU4
-MDIxMV90eF9pbmZvICppbmZvLCB1OCBzdGFfaWQpDQrCoHsNCivCoMKgwqDCoMKgwqDCoHN0cnVj
-dCBpZWVlODAyMTFfdHhfaW5mbyAqc2tiX2luZm8gPSBJRUVFODAyMTFfU0tCX0NCKHNrYik7DQrC
-oMKgwqDCoMKgwqDCoMKgc3RydWN0IGllZWU4MDIxMV9oZHIgKmhkciA9ICh2b2lkICopc2tiLT5k
-YXRhOw0KwqDCoMKgwqDCoMKgwqDCoF9fbGUxNiBmYyA9IGhkci0+ZnJhbWVfY29udHJvbDsNCsKg
-wqDCoMKgwqDCoMKgwqB1MzIgdHhfZmxhZ3MgPSBsZTMyX3RvX2NwdSh0eF9jbWQtPnR4X2ZsYWdz
-KTsNCkBAIC0yOTQsNyArMjk1LDcgQEAgdm9pZCBpd2xfbXZtX3NldF90eF9jbWQoc3RydWN0IGl3
-bF9tdm0gKm12bSwgc3RydWN0DQpza19idWZmICpza2IsDQrCoMKgwqDCoMKgwqDCoMKgdHhfY21k
-LT50eF9mbGFncyA9IGNwdV90b19sZTMyKHR4X2ZsYWdzKTsNCsKgwqDCoMKgwqDCoMKgwqAvKiBU
-b3RhbCAjIGJ5dGVzIHRvIGJlIHRyYW5zbWl0dGVkICovDQrCoMKgwqDCoMKgwqDCoMKgdHhfY21k
-LT5sZW4gPSBjcHVfdG9fbGUxNigodTE2KXNrYi0+bGVuICsNCi3CoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqAodWludHB0cl90KWluZm8tPmRyaXZlcl9kYXRhWzBdKTsNCivCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqAodWludHB0cl90KXNrYl9pbmZvLT5kcml2ZXJfZGF0YVswXSk7
-DQrCoMKgwqDCoMKgwqDCoMKgdHhfY21kLT5saWZlX3RpbWUgPSBjcHVfdG9fbGUzMihUWF9DTURf
-TElGRV9USU1FX0lORklOSVRFKTsNCsKgwqDCoMKgwqDCoMKgwqB0eF9jbWQtPnN0YV9pZCA9IHN0
-YV9pZDsNCg0KDQpLYWxsZSwgRGF2aWQsIHdoYXQgaXMgdGhlIHN0YXR1cyB3aXRoIHRoZSBmaXgg
-dGhhdCBpcyBvbiB0aGUgd2F5IHZpYQ0KeW91ciB0cmVlcz8NCg0KLS0NCkNoZWVycywNCkx1Y2Eu
+On Tue, 17 May 2016 12:35:53 -0600
+subashab@codeaurora.org wrote:
+
+> On 2016-05-16 20:29, Lorenzo Colitti wrote:
+> > On Tue, May 17, 2016 at 11:24 AM, David Ahern <dsa@cumulusnetworks.com> 
+> > wrote:
+> >> As I mentioned we can print the unsupported once or per socket matched 
+> >> and
+> >> with the socket params. e.g.,
+> >> 
+> >> +               } else if (errno == EOPNOTSUPP) {
+> >> +                       printf("Operation not supported for:\n");
+> >> +                       inet_show_sock(h, diag_arg->f, 
+> >> diag_arg->protocol);
+> >> 
+> >> Actively suppressing all error messages is just wrong. I get the 
+> >> flooding
+> >> issue so I'm fine with just printing it once.
+> > 
+> > I disagree, but then I'm the one who wrote it in the first place, so
+> > you wouldn't expect me to agree. :-) Let's see what Stephen says.
+> 
+> Hi Lorenzo
+> 
+> Would it be acceptable to have a separate column which displays the 
+> result of the sock destroy operation per socket.
+> State    ... Killed
+> ESTAB         Y
+> TIME_WAIT     N
+> 
+> If it is not supported from kernel, maybe print U (unsupported) for 
+> this.
+
+When you guys come to a conclusion, then I will review the result.
+Right now neither solution looks good.
