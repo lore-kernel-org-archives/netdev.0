@@ -1,66 +1,134 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 6/8] batman-adv: Fix integer overflow in batadv_iv_ogm_calc_tq
-Date: Wed, 18 May 2016 13:04:50 +0800
-Message-ID: <1463547892-11290-7-git-send-email-a@unstable.cc>
+Subject: [PATCH 7/8] batman-adv: Avoid duplicate neigh_node additions
+Date: Wed, 18 May 2016 13:04:51 +0800
+Message-ID: <1463547892-11290-8-git-send-email-a@unstable.cc>
 References: <1463547892-11290-1-git-send-email-a@unstable.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven.eckelmann@open-mesh.com>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:26059 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:47606 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751899AbcERFGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 01:06:25 -0400
+	id S1751899AbcERFGa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 01:06:30 -0400
 In-Reply-To: <1463547892-11290-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven.eckelmann@open-mesh.com>
+=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 
-The undefined behavior sanatizer detected an signed integer overflow in a
-setup with near perfect link quality
+Two parallel calls to batadv_neigh_node_new() might race for creating
+and adding the same neig_node. Fix this by including the check for any
+already existing, identical neigh_node within the spin-lock.
 
-    UBSAN: Undefined behaviour in net/batman-adv/bat_iv_ogm.c:1246:25
-    signed integer overflow:
-    8713350 * 255 cannot be represented in type 'int'
+This fixes splats like the following:
 
-The problems happens because the calculation of mixed unsigned and signed
-integers resulted in an integer multiplication.
+[  739.535069] ------------[ cut here ]------------
+[  739.535079] WARNING: CPU: 0 PID: 0 at /usr/src/batman-adv/git/batman=
+-adv/net/batman-adv/bat_iv_ogm.c:1004 batadv_iv_ogm_process_per_outif+0=
+xe3f/0xe60 [batman_adv]()
+[  739.535092] too many matching neigh_nodes
+[  739.535094] Modules linked in: dm_mod tun ip6table_filter ip6table_m=
+angle ip6table_nat nf_nat_ipv6 ip6_tables xt_nat iptable_nat nf_nat_ipv=
+4 nf_nat xt_TCPMSS xt_mark iptable_mangle xt_tcpudp xt_conntrack iptabl=
+e_filter ip_tables x_tables ip_gre ip_tunnel gre bridge stp llc thermal=
+_sys kvm_intel kvm crct10dif_pclmul crc32_pclmul sha256_ssse3 sha256_ge=
+neric hmac drbg ansi_cprng aesni_intel aes_x86_64 lrw gf128mul glue_hel=
+per ablk_helper cryptd evdev pcspkr ip6_gre ip6_tunnel tunnel6 batman_a=
+dv(O) libcrc32c nf_conntrack_ipv6 nf_defrag_ipv6 nf_conntrack_ipv4 nf_d=
+efrag_ipv4 nf_conntrack autofs4 ext4 crc16 mbcache jbd2 xen_netfront xe=
+n_blkfront crc32c_intel
+[  739.535177] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W  O    =
+4.2.0-0.bpo.1-amd64 #1 Debian 4.2.6-3~bpo8+2
+[  739.535186]  0000000000000000 ffffffffa013b050 ffffffff81554521 ffff=
+88007d003c18
+[  739.535201]  ffffffff8106fa01 0000000000000000 ffff8800047a087a ffff=
+880079c3a000
+[  739.735602]  ffff88007b82bf40 ffff88007bc2d1c0 ffffffff8106fa7a ffff=
+ffffa013aa8e
+[  739.735624] Call Trace:
+[  739.735639]  <IRQ>  [<ffffffff81554521>] ? dump_stack+0x40/0x50
+[  739.735677]  [<ffffffff8106fa01>] ? warn_slowpath_common+0x81/0xb0
+[  739.735692]  [<ffffffff8106fa7a>] ? warn_slowpath_fmt+0x4a/0x50
+[  739.735715]  [<ffffffffa012448f>] ? batadv_iv_ogm_process_per_outif+=
+0xe3f/0xe60 [batman_adv]
+[  739.735740]  [<ffffffffa0124813>] ? batadv_iv_ogm_receive+0x363/0x38=
+0 [batman_adv]
+[  739.735762]  [<ffffffffa0124813>] ? batadv_iv_ogm_receive+0x363/0x38=
+0 [batman_adv]
+[  739.735783]  [<ffffffff810b0841>] ? __raw_callee_save___pv_queued_sp=
+in_unlock+0x11/0x20
+[  739.735804]  [<ffffffffa012cb39>] ? batadv_batman_skb_recv+0xc9/0x11=
+0 [batman_adv]
+[  739.735825]  [<ffffffff81464891>] ? __netif_receive_skb_core+0x841/0=
+x9a0
+[  739.735838]  [<ffffffff810b0841>] ? __raw_callee_save___pv_queued_sp=
+in_unlock+0x11/0x20
+[  739.735853]  [<ffffffff81465681>] ? process_backlog+0xa1/0x140
+[  739.735864]  [<ffffffff81464f1a>] ? net_rx_action+0x20a/0x320
+[  739.735878]  [<ffffffff81073aa7>] ? __do_softirq+0x107/0x270
+[  739.735891]  [<ffffffff81073d82>] ? irq_exit+0x92/0xa0
+[  739.735905]  [<ffffffff8137e0d1>] ? xen_evtchn_do_upcall+0x31/0x40
+[  739.735924]  [<ffffffff8155b8fe>] ? xen_do_hypervisor_callback+0x1e/=
+0x40
+[  739.735939]  <EOI>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0x=
+a/0x20
+[  739.735965]  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
+[  739.735979]  [<ffffffff8100a39c>] ? xen_safe_halt+0xc/0x20
+[  739.735991]  [<ffffffff8101da6c>] ? default_idle+0x1c/0xa0
+[  739.736004]  [<ffffffff810abf6b>] ? cpu_startup_entry+0x2eb/0x350
+[  739.736019]  [<ffffffff81b2af5e>] ? start_kernel+0x480/0x48b
+[  739.736032]  [<ffffffff81b2d116>] ? xen_start_kernel+0x507/0x511
+[  739.736048] ---[ end trace c106bb901244bc8c ]---
 
-      batadv_ogm_packet::tq (u8 255)
-    * tq_own (u8 255)
-    * tq_asym_penalty (int 134; max 255)
-    * tq_iface_penalty (int 255; max 255)
-
-The tq_iface_penalty, tq_asym_penalty and inv_asym_penalty can just be
-changed to unsigned int because they are not expected to become negative.
-
-Fixes: c039876892e3 ("batman-adv: add WiFi penalty")
-Signed-off-by: Sven Eckelmann <sven.eckelmann@open-mesh.com>
+=46ixes: f987ed6ebd99 ("batman-adv: protect neighbor list with rcu lock=
+s")
+Reported-by: Martin Weinelt <martin@darmstadt.freifunk.net>
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/bat_iv_ogm.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/batman-adv/originator.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 1b5bbafc0fa3..ce2f203048d3 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1180,9 +1180,10 @@ static bool batadv_iv_ogm_calc_tq(struct batadv_orig_node *orig_node,
- 	u8 total_count;
- 	u8 orig_eq_count, neigh_rq_count, neigh_rq_inv, tq_own;
- 	unsigned int neigh_rq_inv_cube, neigh_rq_max_cube;
--	int tq_asym_penalty, inv_asym_penalty, if_num;
-+	int if_num;
-+	unsigned int tq_asym_penalty, inv_asym_penalty;
- 	unsigned int combined_tq;
--	int tq_iface_penalty;
-+	unsigned int tq_iface_penalty;
- 	bool ret = false;
- 
- 	/* find corresponding one hop neighbor */
--- 
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 1ff4ee473966..7f51bc2c06eb 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -619,6 +619,8 @@ batadv_neigh_node_new(struct batadv_orig_node *orig=
+_node,
+ 	struct batadv_neigh_node *neigh_node;
+ 	struct batadv_hardif_neigh_node *hardif_neigh =3D NULL;
+=20
++	spin_lock_bh(&orig_node->neigh_list_lock);
++
+ 	neigh_node =3D batadv_neigh_node_get(orig_node, hard_iface, neigh_add=
+r);
+ 	if (neigh_node)
+ 		goto out;
+@@ -650,15 +652,15 @@ batadv_neigh_node_new(struct batadv_orig_node *or=
+ig_node,
+ 	kref_init(&neigh_node->refcount);
+ 	kref_get(&neigh_node->refcount);
+=20
+-	spin_lock_bh(&orig_node->neigh_list_lock);
+ 	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
+-	spin_unlock_bh(&orig_node->neigh_list_lock);
+=20
+ 	batadv_dbg(BATADV_DBG_BATMAN, orig_node->bat_priv,
+ 		   "Creating new neighbor %pM for orig_node %pM on interface %s\n",
+ 		   neigh_addr, orig_node->orig, hard_iface->net_dev->name);
+=20
+ out:
++	spin_unlock_bh(&orig_node->neigh_list_lock);
++
+ 	if (hardif_neigh)
+ 		batadv_hardif_neigh_put(hardif_neigh);
+ 	return neigh_node;
+--=20
 2.8.2
