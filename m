@@ -1,181 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
-Date: Wed, 18 May 2016 19:46:19 +0300
-Message-ID: <20160518194334-mutt-send-email-mst@redhat.com>
-References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
- <1463370998.18194.74.camel@edumazet-glaptop3.roam.corp.google.com>
- <57397C14.1080701@redhat.com>
- <20160518101359.37f5343b@redhat.com>
- <20160518191148-mutt-send-email-mst@redhat.com>
- <1463589663.18194.134.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] fou: avoid using sk_user_data before it is initialised
+Date: Wed, 18 May 2016 09:46:13 -0700
+Message-ID: <CAM_iQpWfvcRMoXPsuOq6fi1TufzOYZWCg0FwpyDN2WNbTd3gmg@mail.gmail.com>
+References: <1463560216-26616-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1463589663.18194.134.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:33246 "EHLO
+	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762AbcERQqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:46:40 -0400
+Received: by mail-yw0-f194.google.com with SMTP id y6so7325530ywe.0
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:46:38 -0700 (PDT)
+In-Reply-To: <1463560216-26616-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2016 at 09:41:03AM -0700, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 19:26 +0300, Michael S. Tsirkin wrote:
-> > On Wed, May 18, 2016 at 10:13:59AM +0200, Jesper Dangaard Brouer wrote:
-> > > I agree. It is sad to see everybody is implementing the same thing,
-> > > open coding an array/circular based ring buffer.  This kind of code is
-> > > hard to maintain and get right with barriers etc.  We can achieve the
-> > > same performance with a generic implementation, by inlining the help
-> > > function calls.
-> > 
-> > So my testing seems to show that at least for the common usecase
-> > in networking, which isn't lockless, circular buffer
-> > with indices does not perform that well, because
-> > each index access causes a cache line to bounce between
-> > CPUs, and index access causes stalls due to the dependency.
-> 
-> 
-> Yes.
-> 
-> > 
-> > By comparison, an array of pointers where NULL means invalid
-> > and !NULL means valid, can be updated without messing up barriers
-> > at all and does not have this issue.
-> 
-> Right but then you need appropriate barriers.
-> 
-> > 
-> > You also mentioned cache pressure caused by using large queues, and I
-> > think it's a significant issue. tun has a queue of 1000 entries by
-> > default and that's 8K already.
-> > 
-> > So, I had an idea: with an array of pointers we could actually use
-> > only part of the ring as long as it stays mostly empty.
-> > We do want to fill at least two cache lines to prevent producer
-> > and consumer from writing over the same cache line all the time.
-> > This is SKB_ARRAY_MIN_SIZE logic below.
-> > 
-> > Pls take a look at the implementation below.  It's a straight port from virtio
-> > unit test, so should work fine, except the SKB_ARRAY_MIN_SIZE hack that
-> > I added.  Today I run out of time for testing this.  Posting for early
-> > flames/feedback.
-> > 
-> > It's using skb pointers but we switching to void * would be easy at cost
-> > of type safety, though it appears that people want lockless  push
-> > etc so I'm not sure of the value.
-> > 
-> > --->
-> > skb_array: array based FIFO for skbs
-> > 
-> > A simple array based FIFO of pointers.
-> > Intended for net stack so uses skbs for type
-> > safety, but we can replace with with void *
-> > if others find it useful outside of net stack.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > 
-> > ---
-> > 
-> > diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-> > new file mode 100644
-> > index 0000000..a67cc8b
-> > --- /dev/null
-> > +++ b/include/linux/skb_array.h
-> > @@ -0,0 +1,116 @@
-> > +/*
-> > + * See Documentation/skbular-buffers.txt for more information.
-> > + */
-> > +
-> > +#ifndef _LINUX_SKB_ARRAY_H
-> > +#define _LINUX_SKB_ARRAY_H 1
-> > +
-> > +#include <linux/spinlock.h>
-> > +#include <linux/cache.h>
-> > +#include <linux/types.h>
-> > +#include <linux/compiler.h>
-> > +#include <linux/cache.h>
-> > +#include <linux/slab.h>
-> > +#include <asm/errno.h>
-> > +
-> > +struct sk_buff;
-> > +
-> > +struct skb_array {
-> > +	int producer ____cacheline_aligned_in_smp;
-> > +	spinlock_t producer_lock;
-> > +	int consumer ____cacheline_aligned_in_smp;
-> > +	spinlock_t consumer_lock;
-> > +	/* Shared consumer/producer data */
-> > +	int size ____cacheline_aligned_in_smp; /* max entries in queue */
-> > +	struct sk_buff **queue;
-> > +};
-> > +
-> > +#define SKB_ARRAY_MIN_SIZE (2 * (0x1 << cache_line_size()) / \
-> > +			    sizeof (struct sk_buff *))
-> > +
-> > +static inline int __skb_array_produce(struct skb_array *a,
-> > +				       struct sk_buff *skb)
-> > +{
-> > +	/* Try to start from beginning: good for cache utilization as we'll
-> > +	 * keep reusing the same cache line.
-> > +	 * Produce at least SKB_ARRAY_MIN_SIZE entries before trying to do this,
-> > +	 * to reduce bouncing cache lines between them.
-> > +	 */
-> > +	if (a->producer >= SKB_ARRAY_MIN_SIZE && !a->queue[0])
-> 
-> a->queue[0] might be set by consumer, you probably need a barrier.
+On Wed, May 18, 2016 at 1:30 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> During initialisation sk->sk_user_data should be initialised before
+> it is referenced via a call to gue_encap_init().
 
-I think not - we write to the same place below and two accesses to
-same address are never reordered.
+Or just use 'fou' directly?
 
-> > +		a->producer = 0;
-> > +	if (a->queue[a->producer])
-> > +		return -ENOSPC;
-> > +	a->queue[a->producer] = skb;
-> > +	if (unlikely(++a->producer > a->size))
-> > +		a->producer = 0;
-> > +	return 0;
-> > +}
-> > +
-> > +static inline int skb_array_produce_bh(struct skb_array *a,
-> > +				       struct sk_buff *skb)
-> > +{
-> > +	int ret;
-> > +
-> > +	spin_lock_bh(&a->producer_lock);
-> > +	ret = __skb_array_produce(a, skb);
-> > +	spin_unlock_bh(&a->producer_lock);
-> > +
-> > +	return ret;
-> > +}
-> > +
-> > +static inline struct sk_buff *__skb_array_peek(struct skb_array *a)
-> > +{
-> > +	if (a->queue[a->consumer])
-> > +		return a->queue[a->consumer];
-> > +
-> > +	/* Check whether producer started at the beginning. */
-> > +	if (unlikely(a->consumer >= SKB_ARRAY_MIN_SIZE && a->queue[0])) {
-> > +		a->consumer = 0;
-> > +		return a->queue[0];
-> > +	}
-> > +
-> > +	return NULL;
-> > +}
-> > +
-> > +static inline void __skb_array_consume(struct skb_array *a)
-> > +{
-> > +	a->queue[a->consumer++] = NULL;
-> > +	if (unlikely(++a->consumer > a->size))
-> 
-> a->consumer is incremented twice ?
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index eeec7d6..0b7a983 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -453,7 +453,7 @@ static int fou_encap_init(struct sock *sk, struct
+fou *fou, struct fou_cfg *cfg)
+        udp_sk(sk)->encap_rcv = fou_udp_recv;
+        udp_sk(sk)->gro_receive = fou_gro_receive;
+        udp_sk(sk)->gro_complete = fou_gro_complete;
+-       fou_from_sock(sk)->protocol = cfg->protocol;
++       fou->protocol = cfg->protocol;
 
-Oops.
-
-> > +		a->consumer = 0;
-> > +}
-> > +
-> 
-> 
-> 
+        return 0;
+ }
