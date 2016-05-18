@@ -1,43 +1,53 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next RFC 1/1] net sched actions: introduce timestamp for
- first time used
-Date: Wed, 18 May 2016 10:17:24 -0700
-Message-ID: <CAM_iQpWXgncANS5MrBzrZiEVSbGzNptrAjisg_K2NTA-PsAMKg@mail.gmail.com>
-References: <1463528337-4986-1-git-send-email-jhs@emojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/4] scsi_tcp: block BH in TCP callbacks
+Date: Wed, 18 May 2016 10:29:25 -0700
+Message-ID: <1463592565.18194.137.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463532249-20850-1-git-send-email-edumazet@google.com>
+	 <1463532249-20850-2-git-send-email-edumazet@google.com>
+	 <573CA47F.10304@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, nbd@nbd.name,
-	baronchon@n7mm.org, Alexander Duyck <alexander.duyck@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Venkatesh Srinivas <venkateshs@google.com>
+To: Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:34541 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753420AbcERRRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:17:49 -0400
-Received: by mail-yw0-f193.google.com with SMTP id i22so7438003ywc.1
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 10:17:44 -0700 (PDT)
-In-Reply-To: <1463528337-4986-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33863 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932559AbcERR32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:29:28 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 145so5606869pfz.1
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 10:29:27 -0700 (PDT)
+In-Reply-To: <573CA47F.10304@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 17, 2016 at 4:38 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-> index 014f9a6..f581e01 100644
-> --- a/net/sched/act_bpf.c
-> +++ b/net/sched/act_bpf.c
-> @@ -156,6 +156,7 @@ static int tcf_bpf_dump(struct sk_buff *skb, struct tc_action *act,
->
->         tm.install = jiffies_to_clock_t(jiffies - prog->tcf_tm.install);
->         tm.lastuse = jiffies_to_clock_t(jiffies - prog->tcf_tm.lastuse);
-> +       tm.firstuse = jiffies_to_clock_t(jiffies - prog->tcf_tm.firstuse);
->         tm.expires = jiffies_to_clock_t(prog->tcf_tm.expires);
+On Wed, 2016-05-18 at 12:21 -0500, Mike Christie wrote:
 
+> Can I just confirm that nested bh lock calls like:
+> 
+> spin_lock_bh(lock1);
+> spin_lock_bh(lock2);
+> 
+> do something
+> 
+> spin_unlock_bh(lock2);
+> spin_unlock_bh(lock1);
+> 
+> is ok? It seems smatch sometimes warns about this.
 
-I think it is the time to add a wrapper for these tm.XX =
-jiffies_to_clock_t(XXX).
+It is ok.
+
+More generally
+
+local_bh_disable();
+local_bh_disable();
+
+..
+
+local_bh_enable();
+local_bh_enable();
+
+is ok, we already have a lot of them.
