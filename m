@@ -1,134 +1,124 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 7/8] batman-adv: Avoid duplicate neigh_node additions
-Date: Wed, 18 May 2016 13:04:51 +0800
-Message-ID: <1463547892-11290-8-git-send-email-a@unstable.cc>
+Subject: [PATCH 8/8] batman-adv: initialize ELP orig address on secondary interfaces
+Date: Wed, 18 May 2016 13:04:52 +0800
+Message-ID: <1463547892-11290-9-git-send-email-a@unstable.cc>
 References: <1463547892-11290-1-git-send-email-a@unstable.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:47606 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:8159 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751899AbcERFGa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 01:06:30 -0400
+	id S1751899AbcERFGc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 01:06:32 -0400
 In-Reply-To: <1463547892-11290-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+From: Marek Lindner <mareklindner@neomailbox.ch>
 
-Two parallel calls to batadv_neigh_node_new() might race for creating
-and adding the same neig_node. Fix this by including the check for any
-already existing, identical neigh_node within the spin-lock.
+This fix prevents nodes to wrongly create a 00:00:00:00:00:00 originator
+which can potentially interfere with the rest of the neighbor statistics.
 
-This fixes splats like the following:
-
-[  739.535069] ------------[ cut here ]------------
-[  739.535079] WARNING: CPU: 0 PID: 0 at /usr/src/batman-adv/git/batman=
--adv/net/batman-adv/bat_iv_ogm.c:1004 batadv_iv_ogm_process_per_outif+0=
-xe3f/0xe60 [batman_adv]()
-[  739.535092] too many matching neigh_nodes
-[  739.535094] Modules linked in: dm_mod tun ip6table_filter ip6table_m=
-angle ip6table_nat nf_nat_ipv6 ip6_tables xt_nat iptable_nat nf_nat_ipv=
-4 nf_nat xt_TCPMSS xt_mark iptable_mangle xt_tcpudp xt_conntrack iptabl=
-e_filter ip_tables x_tables ip_gre ip_tunnel gre bridge stp llc thermal=
-_sys kvm_intel kvm crct10dif_pclmul crc32_pclmul sha256_ssse3 sha256_ge=
-neric hmac drbg ansi_cprng aesni_intel aes_x86_64 lrw gf128mul glue_hel=
-per ablk_helper cryptd evdev pcspkr ip6_gre ip6_tunnel tunnel6 batman_a=
-dv(O) libcrc32c nf_conntrack_ipv6 nf_defrag_ipv6 nf_conntrack_ipv4 nf_d=
-efrag_ipv4 nf_conntrack autofs4 ext4 crc16 mbcache jbd2 xen_netfront xe=
-n_blkfront crc32c_intel
-[  739.535177] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W  O    =
-4.2.0-0.bpo.1-amd64 #1 Debian 4.2.6-3~bpo8+2
-[  739.535186]  0000000000000000 ffffffffa013b050 ffffffff81554521 ffff=
-88007d003c18
-[  739.535201]  ffffffff8106fa01 0000000000000000 ffff8800047a087a ffff=
-880079c3a000
-[  739.735602]  ffff88007b82bf40 ffff88007bc2d1c0 ffffffff8106fa7a ffff=
-ffffa013aa8e
-[  739.735624] Call Trace:
-[  739.735639]  <IRQ>  [<ffffffff81554521>] ? dump_stack+0x40/0x50
-[  739.735677]  [<ffffffff8106fa01>] ? warn_slowpath_common+0x81/0xb0
-[  739.735692]  [<ffffffff8106fa7a>] ? warn_slowpath_fmt+0x4a/0x50
-[  739.735715]  [<ffffffffa012448f>] ? batadv_iv_ogm_process_per_outif+=
-0xe3f/0xe60 [batman_adv]
-[  739.735740]  [<ffffffffa0124813>] ? batadv_iv_ogm_receive+0x363/0x38=
-0 [batman_adv]
-[  739.735762]  [<ffffffffa0124813>] ? batadv_iv_ogm_receive+0x363/0x38=
-0 [batman_adv]
-[  739.735783]  [<ffffffff810b0841>] ? __raw_callee_save___pv_queued_sp=
-in_unlock+0x11/0x20
-[  739.735804]  [<ffffffffa012cb39>] ? batadv_batman_skb_recv+0xc9/0x11=
-0 [batman_adv]
-[  739.735825]  [<ffffffff81464891>] ? __netif_receive_skb_core+0x841/0=
-x9a0
-[  739.735838]  [<ffffffff810b0841>] ? __raw_callee_save___pv_queued_sp=
-in_unlock+0x11/0x20
-[  739.735853]  [<ffffffff81465681>] ? process_backlog+0xa1/0x140
-[  739.735864]  [<ffffffff81464f1a>] ? net_rx_action+0x20a/0x320
-[  739.735878]  [<ffffffff81073aa7>] ? __do_softirq+0x107/0x270
-[  739.735891]  [<ffffffff81073d82>] ? irq_exit+0x92/0xa0
-[  739.735905]  [<ffffffff8137e0d1>] ? xen_evtchn_do_upcall+0x31/0x40
-[  739.735924]  [<ffffffff8155b8fe>] ? xen_do_hypervisor_callback+0x1e/=
-0x40
-[  739.735939]  <EOI>  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0x=
-a/0x20
-[  739.735965]  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
-[  739.735979]  [<ffffffff8100a39c>] ? xen_safe_halt+0xc/0x20
-[  739.735991]  [<ffffffff8101da6c>] ? default_idle+0x1c/0xa0
-[  739.736004]  [<ffffffff810abf6b>] ? cpu_startup_entry+0x2eb/0x350
-[  739.736019]  [<ffffffff81b2af5e>] ? start_kernel+0x480/0x48b
-[  739.736032]  [<ffffffff81b2d116>] ? xen_start_kernel+0x507/0x511
-[  739.736048] ---[ end trace c106bb901244bc8c ]---
-
-=46ixes: f987ed6ebd99 ("batman-adv: protect neighbor list with rcu lock=
-s")
-Reported-by: Martin Weinelt <martin@darmstadt.freifunk.net>
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+Fixes: d6f94d91f766 ("batman-adv: ELP - adding basic infrastructure")
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/originator.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/batman-adv/bat_v.c     | 10 ++++++++++
+ net/batman-adv/bat_v_elp.c | 31 ++++++++++++++++++++++---------
+ net/batman-adv/bat_v_elp.h |  2 ++
+ 3 files changed, 34 insertions(+), 9 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 1ff4ee473966..7f51bc2c06eb 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -619,6 +619,8 @@ batadv_neigh_node_new(struct batadv_orig_node *orig=
-_node,
- 	struct batadv_neigh_node *neigh_node;
- 	struct batadv_hardif_neigh_node *hardif_neigh =3D NULL;
-=20
-+	spin_lock_bh(&orig_node->neigh_list_lock);
+diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
+index 31bc57e2a944..0a12e5cdd65d 100644
+--- a/net/batman-adv/bat_v.c
++++ b/net/batman-adv/bat_v.c
+@@ -40,6 +40,16 @@
+ 
+ static void batadv_v_iface_activate(struct batadv_hard_iface *hard_iface)
+ {
++	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
++	struct batadv_hard_iface *primary_if;
 +
- 	neigh_node =3D batadv_neigh_node_get(orig_node, hard_iface, neigh_add=
-r);
- 	if (neigh_node)
- 		goto out;
-@@ -650,15 +652,15 @@ batadv_neigh_node_new(struct batadv_orig_node *or=
-ig_node,
- 	kref_init(&neigh_node->refcount);
- 	kref_get(&neigh_node->refcount);
-=20
--	spin_lock_bh(&orig_node->neigh_list_lock);
- 	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
--	spin_unlock_bh(&orig_node->neigh_list_lock);
-=20
- 	batadv_dbg(BATADV_DBG_BATMAN, orig_node->bat_priv,
- 		   "Creating new neighbor %pM for orig_node %pM on interface %s\n",
- 		   neigh_addr, orig_node->orig, hard_iface->net_dev->name);
-=20
- out:
-+	spin_unlock_bh(&orig_node->neigh_list_lock);
++	primary_if = batadv_primary_if_get_selected(bat_priv);
 +
- 	if (hardif_neigh)
- 		batadv_hardif_neigh_put(hardif_neigh);
- 	return neigh_node;
---=20
++	if (primary_if) {
++		batadv_v_elp_iface_activate(primary_if, hard_iface);
++		batadv_hardif_put(primary_if);
++	}
++
+ 	/* B.A.T.M.A.N. V does not use any queuing mechanism, therefore it can
+ 	 * set the interface as ACTIVE right away, without any risk of race
+ 	 * condition
+diff --git a/net/batman-adv/bat_v_elp.c b/net/batman-adv/bat_v_elp.c
+index 3844e7efd0b0..df42eb1365a0 100644
+--- a/net/batman-adv/bat_v_elp.c
++++ b/net/batman-adv/bat_v_elp.c
+@@ -377,6 +377,27 @@ void batadv_v_elp_iface_disable(struct batadv_hard_iface *hard_iface)
+ }
+ 
+ /**
++ * batadv_v_elp_iface_activate - update the ELP buffer belonging to the given
++ *  hard-interface
++ * @primary_iface: the new primary interface
++ * @hard_iface: interface holding the to-be-updated buffer
++ */
++void batadv_v_elp_iface_activate(struct batadv_hard_iface *primary_iface,
++				 struct batadv_hard_iface *hard_iface)
++{
++	struct batadv_elp_packet *elp_packet;
++	struct sk_buff *skb;
++
++	if (!hard_iface->bat_v.elp_skb)
++		return;
++
++	skb = hard_iface->bat_v.elp_skb;
++	elp_packet = (struct batadv_elp_packet *)skb->data;
++	ether_addr_copy(elp_packet->orig,
++			primary_iface->net_dev->dev_addr);
++}
++
++/**
+  * batadv_v_elp_primary_iface_set - change internal data to reflect the new
+  *  primary interface
+  * @primary_iface: the new primary interface
+@@ -384,8 +405,6 @@ void batadv_v_elp_iface_disable(struct batadv_hard_iface *hard_iface)
+ void batadv_v_elp_primary_iface_set(struct batadv_hard_iface *primary_iface)
+ {
+ 	struct batadv_hard_iface *hard_iface;
+-	struct batadv_elp_packet *elp_packet;
+-	struct sk_buff *skb;
+ 
+ 	/* update orig field of every elp iface belonging to this mesh */
+ 	rcu_read_lock();
+@@ -393,13 +412,7 @@ void batadv_v_elp_primary_iface_set(struct batadv_hard_iface *primary_iface)
+ 		if (primary_iface->soft_iface != hard_iface->soft_iface)
+ 			continue;
+ 
+-		if (!hard_iface->bat_v.elp_skb)
+-			continue;
+-
+-		skb = hard_iface->bat_v.elp_skb;
+-		elp_packet = (struct batadv_elp_packet *)skb->data;
+-		ether_addr_copy(elp_packet->orig,
+-				primary_iface->net_dev->dev_addr);
++		batadv_v_elp_iface_activate(primary_iface, hard_iface);
+ 	}
+ 	rcu_read_unlock();
+ }
+diff --git a/net/batman-adv/bat_v_elp.h b/net/batman-adv/bat_v_elp.h
+index e95f1bca0785..cc130b2d05e5 100644
+--- a/net/batman-adv/bat_v_elp.h
++++ b/net/batman-adv/bat_v_elp.h
+@@ -25,6 +25,8 @@ struct work_struct;
+ 
+ int batadv_v_elp_iface_enable(struct batadv_hard_iface *hard_iface);
+ void batadv_v_elp_iface_disable(struct batadv_hard_iface *hard_iface);
++void batadv_v_elp_iface_activate(struct batadv_hard_iface *primary_iface,
++				 struct batadv_hard_iface *hard_iface);
+ void batadv_v_elp_primary_iface_set(struct batadv_hard_iface *primary_iface);
+ int batadv_v_elp_packet_recv(struct sk_buff *skb,
+ 			     struct batadv_hard_iface *if_incoming);
+-- 
 2.8.2
