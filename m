@@ -1,65 +1,103 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] tuntap: correctly wake up process during uninit
-Date: Wed, 18 May 2016 18:58:17 +0800
-Message-ID: <1463569097-3528-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>, Xi Wang <xii@google.com>,
-	"Michael S . Tsirkin" <mst@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
+Date: Wed, 18 May 2016 13:58:57 +0300
+Message-ID: <20160518135304-mutt-send-email-mst@redhat.com>
+References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
+ <20160516070012-mutt-send-email-mst@redhat.com>
+ <57397C2B.7000603@redhat.com>
+ <20160516105434-mutt-send-email-mst@redhat.com>
+ <573A761D.8080909@redhat.com>
+ <20160518101631.368e3447@redhat.com>
+ <20160518112045-mutt-send-email-mst@redhat.com>
+ <20160518112129.0472b5dc@redhat.com>
+ <20160518124655-mutt-send-email-mst@redhat.com>
+ <573C4702.5070309@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <573C4702.5070309@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We used to check dev->reg_state against NETREG_REGISTERED after each
-time we are woke up. But after commit 9e641bdcfa4e ("net-tun:
-restructure tun_do_read for better sleep/wakeup efficiency"), it uses
-skb_recv_datagram() which does not check dev->reg_state. This will
-result if we delete a tun/tap device after a process is blocked in the
-reading. The device will wait for the reference count which was held
-by that process for ever.
+On Wed, May 18, 2016 at 06:42:10PM +0800, Jason Wang wrote:
+>=20
+>=20
+> On 2016=E5=B9=B405=E6=9C=8818=E6=97=A5 17:55, Michael S. Tsirkin wrot=
+e:
+> >On Wed, May 18, 2016 at 11:21:29AM +0200, Jesper Dangaard Brouer wro=
+te:
+> >>On Wed, 18 May 2016 11:21:59 +0300
+> >>"Michael S. Tsirkin" <mst@redhat.com> wrote:
+> >>
+> >>>On Wed, May 18, 2016 at 10:16:31AM +0200, Jesper Dangaard Brouer w=
+rote:
+> >>>>On Tue, 17 May 2016 09:38:37 +0800 Jason Wang <jasowang@redhat.co=
+m> wrote:
+> >>>>>>>And if tx_queue_length is not power of 2,
+> >>>>>>>we probably need modulus to calculate the capacity.
+> >>>>>>Is that really that important for speed?
+> >>>>>Not sure, I can test.
+> >>>>In my experience, yes, adding a modulus does affect performance.
+> >>>How about simple
+> >>>	if (unlikely(++idx > size))
+> >>>		idx =3D 0;
+> >>So, you are exchanging an AND-operation with a mask, for a
+> >>branch-operation.  If the branch predictor is good enough in the CP=
+U
+> >>and code-"size" use-case, then I could be just as fast.
+> >>
+> >>I've actually played with a lot of different approaches:
+> >>  https://github.com/netoptimizer/prototype-kernel/blob/master/kern=
+el/include/linux/alf_queue_helpers.h
+> >>
+> >>I cannot remember the exact results. I do remember micro benchmarki=
+ng
+> >>showed good results with the advanced "unroll" approach, but IPv4
+> >>forwarding, where I know I-cache is getting evicted, showed best
+> >>results with the more simpler implementations.
+> >This is all assuming you can somehow batch operations.
+> >We can do this for transmit sometimes (when linux
+> >is the source of the packets) but not always.
+> >
+> >>>>>Right, this sounds a good solution.
+> >>>>Good idea.
+> >>>I'm not that sure - it's clearly wasting memory.
+> >>Rounding up to power of two.  In this case I don't think the memory
+> >>wast is too high.  As we are talking about max 16 bytes elements.
+> >It almost doubles it.
+> >E.g. queue size of 10000 (rather common) will become 16K, wasting 6K=
+=2E
+>=20
+> It depends on the user, e.g default tx_queue_len is around 1000 for r=
+eal
+> cards. If we really care about the wasting, we can add a threshold an=
+d fall
+> back to normal linked list during resizing.
 
-Fixes this by using RCV_SHUTDOWN which will be checked during
-sk_recv_datagram() before trying to wake up the process during uninit.
+That looks like a lot of complexity.
 
-Fixes: 9e641bdcfa4e ("net-tun: restructure tun_do_read for better
-sleep/wakeup efficiency")
-
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Xi Wang <xii@google.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch is needed for -stable.
----
- drivers/net/tun.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 425e983..752d849 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -580,11 +580,13 @@ static void tun_detach_all(struct net_device *dev)
- 	for (i = 0; i < n; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
- 		BUG_ON(!tfile);
-+		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
- 		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
- 		--tun->numqueues;
- 	}
- 	list_for_each_entry(tfile, &tun->disabled, next) {
-+		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
- 		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
- 	}
-@@ -641,6 +643,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 			goto out;
- 	}
- 	tfile->queue_index = tun->numqueues;
-+	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
- 	rcu_assign_pointer(tfile->tun, tun);
- 	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
- 	tun->numqueues++;
--- 
-2.7.4
+> >
+> >>I am concerned about memory in another way. We need to keep these
+> >>arrays/rings small, due to data cache usage.  A 4096 ring queue is =
+bad
+> >>because e.g. 16*4096=3D65536 bytes, and typical L1 cache is 32K-64K=
+=2E As
+> >>this is a circular buffer, we walk over this memory all the time, t=
+hus
+> >>evicting the L1 cache.
+> >Depends on the usage I guess.
+> >Entries pointed to are much bigger, and you are
+> >going to access them - is this really an issue?
+> >If yes this shouldn't be that hard to fix ...
+> >
+> >>--=20
+> >>Best regards,
+> >>   Jesper Dangaard Brouer
+> >>   MSc.CS, Principal Kernel Engineer at Red Hat
+> >>   Author of http://www.iptv-analyzer.org
+> >>   LinkedIn: http://www.linkedin.com/in/brouer
