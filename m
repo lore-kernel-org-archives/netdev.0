@@ -1,125 +1,63 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next 1/2] tcp: add in_flight to tcp_skb_cb
-Date: Tue, 17 May 2016 18:25:35 -0700
-Message-ID: <1463534736-2739015-2-git-send-email-brakmo@fb.com>
-References: <1463534736-2739015-1-git-send-email-brakmo@fb.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Wed, 18 May 2016 11:18:16 +0900
+Message-ID: <20160518021813.GA27411@vergenet.net>
+References: <CAOrHB_AMC4x=NnLTpGbXdW31Vp0f1R3VoaD9ksST5EesrdGsug@mail.gmail.com>
+ <20160506055705.GA9276@penelope.isobedori.kobe.vergenet.net>
+ <20160506112514.47f6e9dc@griffin>
+ <20160509080420.GA4470@vergenet.net>
+ <20160510140106.367936fb@griffin>
+ <20160511015009.GB24436@vergenet.net>
+ <20160511030632.GA24805@vergenet.net>
+ <20160511160928.27816400@griffin>
+ <20160511224650.GA12481@penelope.isobedori.kobe.vergenet.net>
+ <20160517164320.46e03c81@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55792 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752595AbcERB0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 21:26:01 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4I1JRW5007382
-	for <netdev@vger.kernel.org>; Tue, 17 May 2016 18:25:59 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 22wypb7hgh-2
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 17 May 2016 18:25:59 -0700
-Received: from facebook.com (2401:db00:11:d037:face:0:33:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 787bb72c1c9711e682a024be0595f910-d22e7c50 for <netdev@vger.kernel.org>;	Tue,
- 17 May 2016 18:25:57 -0700
-In-Reply-To: <1463534736-2739015-1-git-send-email-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160517164320.46e03c81@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Add in_flight (bytes in flight when packet was sent) field
-to tx component of tcp_skb_cb and make it available to
-congestion modules' pkts_acked() function through the
-ack_sample function argument.
-
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
----
- include/net/tcp.h     | 2 ++
- net/ipv4/tcp_input.c  | 6 +++++-
- net/ipv4/tcp_output.c | 4 +++-
- 3 files changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c9ab561..5fd0541 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -767,6 +767,7 @@ struct tcp_skb_cb {
- 	union {
- 		struct {
- 			/* There is space for up to 20 bytes */
-+			__u32 in_flight;/* Bytes in flight when packet sent */
- 		} tx;   /* only used for outgoing skbs */
- 		union {
- 			struct inet_skb_parm	h4;
-@@ -857,6 +858,7 @@ union tcp_cc_info;
- struct ack_sample {
- 	u32 pkts_acked;
- 	s32 rtt_us;
-+	u32 in_flight;
- };
- 
- struct tcp_congestion_ops {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ba8bf5c..0486606 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3115,6 +3115,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	long ca_rtt_us = -1L;
- 	struct sk_buff *skb;
- 	u32 pkts_acked = 0;
-+	u32 last_in_flight = 0;
- 	bool rtt_update;
- 	int flag = 0;
- 
-@@ -3154,6 +3155,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 			if (!first_ackt.v64)
- 				first_ackt = last_ackt;
- 
-+			last_in_flight = TCP_SKB_CB(skb)->tx.in_flight;
- 			reord = min(pkts_acked, reord);
- 			if (!after(scb->end_seq, tp->high_seq))
- 				flag |= FLAG_ORIG_SACK_ACKED;
-@@ -3249,7 +3251,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	}
- 
- 	if (icsk->icsk_ca_ops->pkts_acked) {
--		struct ack_sample sample = {pkts_acked, ca_rtt_us};
-+		struct ack_sample sample = {.pkts_acked = pkts_acked,
-+					    .rtt_us = ca_rtt_us,
-+					    .in_flight = last_in_flight};
- 
- 		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
- 	}
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 8daefd8..c615218 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -911,9 +911,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	int err;
- 
- 	BUG_ON(!skb || !tcp_skb_pcount(skb));
-+	tp = tcp_sk(sk);
- 
- 	if (clone_it) {
- 		skb_mstamp_get(&skb->skb_mstamp);
-+		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
-+			- tp->snd_una;
- 
- 		if (unlikely(skb_cloned(skb)))
- 			skb = pskb_copy(skb, gfp_mask);
-@@ -924,7 +927,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	}
- 
- 	inet = inet_sk(sk);
--	tp = tcp_sk(sk);
- 	tcb = TCP_SKB_CB(skb);
- 	memset(&opts, 0, sizeof(opts));
- 
--- 
-2.8.0.rc2
+T24gVHVlLCBNYXkgMTcsIDIwMTYgYXQgMDQ6NDM6MjBQTSArMDIwMCwgSmlyaSBCZW5jIHdyb3Rl
+Ogo+IE9uIFRodSwgMTIgTWF5IDIwMTYgMDc6NDY6NTIgKzA5MDAsIFNpbW9uIEhvcm1hbiB3cm90
+ZToKPiA+IElmIHdlIGNhbiBsaXZlIHdpdGggYSBib2d1cyBza2ItPm1hY19sZW4gdmFsdWUgdGhh
+dCBpcyBzdWZmaWNpZW50IGZvcgo+ID4gb3ZzX2Zsb3dfa2V5X2V4dHJhY3QuKCkgYW5kIHNldCBj
+b3JyZWN0bHkgYnkga2V5X2V4dHJhY3QoKSAod2hpY2ggaGFwcGVucwo+ID4gYW55d2F5KSB3ZSBj
+b3VsZCBkbyBzb21ldGhpbmcgbGlrZSB0aGlzOgo+ID4gCj4gPiAJfSBlbHNlIGlmICh2cG9ydC0+
+ZGV2LT50eXBlID09IEFSUEhSRF9OT05FKSB7Cj4gPiAJCWlmIChza2ItPnByb3RvY29sID09IGh0
+b25zKEVUSF9QX1RFQikpCj4gPiAJCQkvKiBJZ25vcmVzIHByZXNlbmNlIG9mIFZMQU4gYnV0IGlz
+IHN1ZmZpY2llbnQgZm9yCj4gPiAJCQkgKiBvdnNfZmxvd19rZXlfZXh0cmFjdCgpIHdoaWNoIHRo
+ZW4gY2FsbHMga2V5X2V4dHJhY3QoKQo+ID4gCQkJICogd2hpY2ggY2FsY3VsYXRlcyBza2ItPm1h
+Y19sZW4gY29ycmVjdGx5LiAqLwo+ID4gCQkJc2tiLT5tYWNfbGVuID0gRVRIX0hMRU47IC8qIEln
+bm9yZXMgcHJlc2VuY2Ugb2YgVkxBTiAqLwo+ID4gCQllbHNlCj4gPiAJCQlza2ItPm1hY19sZW4g
+PSAwOwo+ID4gCX0KPiA+IAo+ID4gCj4gPiBCdXQgcGVyaGFwcyBJIGhhdmUgbWlzc2VkIHRoZSBw
+b2ludCBzb21laG93Lgo+IAo+IFlvdSBkaWQgbm90LCBJIHdhcyBtb3JlIHRoaW5raW5nIGFsb3Vk
+LiBCdXQgeW91J3JlIHJpZ2h0LCBpdCBkb2Vzbid0Cj4gbWFrZSBtdWNoIHNlbnNlLgo+IAo+IFNv
+LCB3b3VsZG4ndCBpdCBiZSBhY3R1YWxseSBtb3JlIGNvcnJlY3QgYW5kIGluIGxpbmUgd2l0aCBw
+YXRjaCAyIHRvCj4gY2FsbCBldGhfdHlwZV90cmFucygpIGhlcmU/CgpZZXMsIHRoYXQgc2VlbXMg
+cmVhc29uYWJsZS4KCj4gUG9zc2libHkgZXZlbiBmb2xsb3dlZCBieSBza2Jfdmxhbl91bnRhZwo+
+IChub3QgbmVlZGVkLiBCdXQgaXQgbWlnaHQgbWFrZSB0aGluZ3MgZWFzaWVyIHRvIGhhdmUgdGhl
+IGZpcnN0IHZsYW4gdGFnCj4gYWx3YXlzIHJlc2lkZSBpbnNpZGUgc2tiLT52bGFuX3RjaSBhbmQg
+dHJlYXQgdGhhdCBhcyBhbiBpbnZhcmlhbnQgaW4KPiB0aGUgd2hvbGUgb3ZzIGtlcm5lbCBjb2Rl
+LiBJdCdsbCBuZWVkIHRvIGJlIGRvbmUgaW4gbW9yZSBzcG90cyB0aGFuCj4ganVzdCB0aGlzIG9u
+ZSwgdGhvdWdoLCBhbmQgaXMgcHJvYmFibHkgbWF0dGVyIG9mIGEgc2VwYXJhdGUgcGF0Y2hzZXQp
+LgoKVGhhdCBhbHNvIHNlZW1zIHJlYXNvbmFibGUuIEJ1dCBhcyBpdCBzZWVtcyBtb3JlIGludmFz
+aXZlIGFuZCBpcyBub3QKc3RyaWN0bHkgbmVjZXNzYXJ5IEknZCByYXRoZXIgaGFuZGxlIHRoYXQg
+dXBkYXRlIHNlcGFyYXRlbHkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
+bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
