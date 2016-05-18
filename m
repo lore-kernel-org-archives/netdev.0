@@ -1,77 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tuntap: correctly wake up process during uninit
-Date: Wed, 18 May 2016 06:01:34 -0700
-Message-ID: <1463576494.18194.94.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463569097-3528-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH v2] net: sock: move ->sk_shutdown out of bitfields.
+Date: Wed, 18 May 2016 06:03:41 -0700
+Message-ID: <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <a070f6f7-ed85-c909-ce8b-748210402211@stressinduktion.org>
+	 <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Xi Wang <xii@google.com>,
-	"Michael S . Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463569097-3528-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-05-18 at 18:58 +0800, Jason Wang wrote:
-> We used to check dev->reg_state against NETREG_REGISTERED after each
-> time we are woke up. But after commit 9e641bdcfa4e ("net-tun:
-> restructure tun_do_read for better sleep/wakeup efficiency"), it uses
-> skb_recv_datagram() which does not check dev->reg_state. This will
-> result if we delete a tun/tap device after a process is blocked in the
-> reading. The device will wait for the reference count which was held
-> by that process for ever.
+On Wed, 2016-05-18 at 15:03 +0300, Andrey Ryabinin wrote:
+> ->sk_shutdown bits share one bitfield with some other bits in sock struct,
+> such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
+> sock_setsockopt() may write to these bits, while holding the socket lock.
 > 
-> Fixes this by using RCV_SHUTDOWN which will be checked during
-> sk_recv_datagram() before trying to wake up the process during uninit.
+> In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
+> unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
+> to corrupting these bits.
 > 
-> Fixes: 9e641bdcfa4e ("net-tun: restructure tun_do_read for better
-> sleep/wakeup efficiency")
-
-<nit : no newline before Fixes: and other parts>
-
+> Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
+> This will not change the 'struct sock' size since ->sk_shutdown moved into
+> previously unused 16-bit hole.
 > 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Xi Wang <xii@google.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
-> The patch is needed for -stable.
-> ---
->  drivers/net/tun.c | 3 +++
->  1 file changed, 3 insertions(+)
+>  include/net/sock.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 425e983..752d849 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -580,11 +580,13 @@ static void tun_detach_all(struct net_device *dev)
->  	for (i = 0; i < n; i++) {
->  		tfile = rtnl_dereference(tun->tfiles[i]);
->  		BUG_ON(!tfile);
-> +		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
->  		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
->  		RCU_INIT_POINTER(tfile->tun, NULL);
->  		--tun->numqueues;
->  	}
->  	list_for_each_entry(tfile, &tun->disabled, next) {
-> +		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
->  		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
->  		RCU_INIT_POINTER(tfile->tun, NULL);
->  	}
-> @@ -641,6 +643,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
->  			goto out;
->  	}
->  	tfile->queue_index = tun->numqueues;
-> +	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
->  	rcu_assign_pointer(tfile->tun, tun);
->  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
->  	tun->numqueues++;
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index c9c8b19..04dc131 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -383,8 +383,7 @@ struct sock {
+>  	int			sk_sndbuf;
+>  	struct sk_buff_head	sk_write_queue;
+>  	kmemcheck_bitfield_begin(flags);
+> -	unsigned int		sk_shutdown  : 2,
 
-Is the "if (tun->dev->reg_state != NETREG_REGISTERED) return -EIO;"
-check still needed then ?
+
+Please replace by a padding, so that sk_protocol is sill a byte,
+not 8 bits spaning 2 bytes in memory.
+
+> -				sk_no_check_tx : 1,
+> +	unsigned int		sk_no_check_tx : 1,
+>  				sk_no_check_rx : 1,
+>  				sk_userlocks : 4,
+>  				sk_protocol  : 8,
+> @@ -418,6 +417,7 @@ struct sock {
+>  	struct timer_list	sk_timer;
+>  	ktime_t			sk_stamp;
+>  	u16			sk_tsflags;
+> +	u8			sk_shutdown;
+>  	u32			sk_tskey;
+>  	struct socket		*sk_socket;
+>  	void			*sk_user_data;
 
 Thanks.
