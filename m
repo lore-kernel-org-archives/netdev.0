@@ -1,49 +1,82 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] mlx5: avoid unused variable warning
-Date: Wed, 18 May 2016 16:21:07 +0200
-Message-ID: <1463581293-1069553-1-git-send-email-arnd@arndb.de>
-Cc: Jiri Pirko <jiri@mellanox.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirva@mellanox.com>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: [GIT] Networking
+Date: Wed, 18 May 2016 14:23:31 +0000
+Message-ID: <1463581411.29999.1.camel@intel.com>
+References: <20160517.151113.367799295750703003.davem@davemloft.net>
+	 <CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
+	 <CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
+	 <1463568714.13625.18.camel@intel.com>
+	 <CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
+	 <1463575273.13625.23.camel@intel.com>
+	 <CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxwifi <linuxwifi@intel.com>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"egrumbach@gmail.com" <egrumbach@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: "reinoudkoornstra@gmail.com" <reinoudkoornstra@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <04A0B55698731F47A91BDBFC24C7B85B@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When CONFIG_NET_CLS_ACT is disabled, we get a new warning in the mlx5
-ethernet driver because the tc_for_each_action() loop never references
-the iterator:
-
-mellanox/mlx5/core/en_tc.c: In function 'mlx5e_stats_flower':
-mellanox/mlx5/core/en_tc.c:431:20: error: unused variable 'a' [-Werror=unused-variable]
-  struct tc_action *a;
-
-This changes the dummy tc_for_each_action() macro by adding a
-cast to void, letting the compiler know that the variable is
-intentionally declared but not used here. I could not come up
-with a nicer workaround, but this seems to do the trick.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: aad7e08d39bd ("net/mlx5e: Hardware offloaded flower filter statistics support")
-Fixes: 00175aec941e ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
----
- include/net/act_api.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 2cd9e9bb059a..9a9a8edc138f 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -192,7 +192,7 @@ static inline void tcf_action_stats_update(struct tc_action *a, u64 bytes,
- #else /* CONFIG_NET_CLS_ACT */
- 
- #define tc_no_actions(_exts) true
--#define tc_for_each_action(_a, _exts) while (0)
-+#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
- #define tcf_action_stats_update(a, bytes, packets, lastuse)
- 
- #endif /* CONFIG_NET_CLS_ACT */
--- 
-2.7.0
+T24gV2VkLCAyMDE2LTA1LTE4IGF0IDA2OjUxIC0wNjAwLCBSZWlub3VkIEtvb3Juc3RyYSB3cm90
+ZToNCj4gT24gV2VkLCBNYXkgMTgsIDIwMTYgYXQgNjo0MSBBTSwgQ29lbGhvLCBMdWNpYW5vDQo+
+IDxsdWNpYW5vLmNvZWxob0BpbnRlbC5jb20+IHdyb3RlOg0KPiA+IA0KPiA+IE9uIFdlZCwgMjAx
+Ni0wNS0xOCBhdCAwNjoyMCAtMDYwMCwgUmVpbm91ZCBLb29ybnN0cmEgd3JvdGU6DQo+ID4gPiAN
+Cj4gPiA+IE9uIFdlZCwgTWF5IDE4LCAyMDE2IGF0IDQ6NTEgQU0sIENvZWxobywgTHVjaWFubw0K
+PiA+ID4gPGx1Y2lhbm8uY29lbGhvQGludGVsLmNvbT4gd3JvdGU6DQo+ID4gPiA+IA0KPiA+ID4g
+PiANCj4gPiA+ID4gSGkgRW1tYW51ZWwsIExpbnVzLA0KPiA+ID4gPiANCj4gPiA+ID4gDQo+ID4g
+PiA+IE9uIFdlZCwgMjAxNi0wNS0xOCBhdCAwNjozNyArMDMwMCwgRW1tYW51ZWwgR3J1bWJhY2gg
+d3JvdGU6DQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gT24gV2VkLCBNYXkgMTgs
+IDIwMTYgYXQgNDowMCBBTSwgTGludXMgVG9ydmFsZHMNCj4gPiA+ID4gPiA8dG9ydmFsZHNAbGlu
+dXgtZm91bmRhdGlvbi5vcmc+IHdyb3RlOg0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4g
+PiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gT24gVHVlLCBNYXkgMTcsIDIwMTYgYXQgMTI6MTEgUE0s
+IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW0NCj4gPiA+ID4gPiA+IGxvZnQNCj4gPiA+ID4gPiA+
+IC5uZXQNCj4gPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiB3cm90
+ZToNCj4gPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiBIaWdobGln
+aHRzOg0KPiA+ID4gPiA+ID4gTG93bGlnaHRzOg0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiDC
+oDEpIHRoZSBpd2x3aWZpIGRyaXZlciBzZWVtcyB0byBiZSBicm9rZW4NCj4gPiA+ID4gPiA+IA0K
+PiA+ID4gPiA+ID4gTXkgbGFwdG9wIHRoYXQgdXNlcyB0aGUgaW50ZWwgNzY4MCBpd2x3aWZpIG1v
+ZHVsZSBubyBsb25nZXINCj4gPiA+ID4gPiA+IGNvbm5lY3RzDQo+ID4gPiA+ID4gPiB0byB0aGUg
+bmV0d29yay4gSXQgZmFpbHMgd2l0aCBhICJNaWNyb2NvZGUgU1cgZXJyb3INCj4gPiA+ID4gPiA+
+IGRldGVjdGVkLiINCj4gPiA+ID4gPiA+IGFuZA0KPiA+ID4gPiA+ID4gc3Bld3Mgb3V0IHJlZ2lz
+dGVyIHN0YXRlIG92ZXIgYW5kIG92ZXIgYWdhaW4uDQo+ID4gPiA+ID4gQ2FuIHdlIGhhdmUgdGhl
+IHJlZ2lzdGVyIHN0YXRlIGFuZCB0aGUgQVNTRVJUIC8gTk1JIC8NCj4gPiA+ID4gPiB3aGF0ZXZl
+cg0KPiA+ID4gPiA+IHRoYXQNCj4gPiA+ID4gPiBnb2VzIGFsb25nIHdpdGggaXQ/DQo+ID4gPiA+
+ID4gVGhpcyBjbGVhcmx5IG1lYW5zIHRoYXQgdGhlIGZpcm13YXJlIGlzIGNyYXNoaW5nLCBidXQg
+SSBkb24ndA0KPiA+ID4gPiA+IGtub3cNCj4gPiA+ID4gPiB3aHksDQo+ID4gPiA+ID4gSSBjb3Bp
+ZWQgaGVyZSB0aGUgbGluZXMgdGhhdCBJIG5lZWQgZnJvbSBhbm90aGVyIGJ1ZyB3aXRoDQo+ID4g
+PiA+ID4gYW5vdGhlcg0KPiA+ID4gPiA+IGRldmljZSB3aXRoIGFub3RoZXIgZmlybXdhcmUsDQo+
+ID4gPiA+ID4gYnV0IHRoZSBsb2cgdGhhdCB3ZSB3aWxsIHN0aWxsIGV4cGxhaW4gd2hhdCBJIG5l
+ZWQ6DQo+ID4gPiA+IEkgbWFuYWdlZCB0byByZXByb2R1Y2UgdGhpcyBidWcgbG9jYWxseSB3aXRo
+IExpbnVzJw0KPiA+ID4gPiBtYXN0ZXIuwqDCoEknbQ0KPiA+ID4gPiBpbnZlc3RpZ2F0aW5nIHRo
+ZSBjYXVzZSBhbmQgSSdsbCBsZXQgeW91IGhvdyBpdCBnb2VzLg0KPiA+ID4gSSBkaWQgcnVuIHRo
+ZSBsYXRlc3QgZ2l0IGNvZGUgYXMgd2VsbCA0LjYrDQo+ID4gPiBpd2x3aWZpIHdlbnQgcGVhcnNo
+YXBlIGluIG15IGNhc2UgYXMgd2VsbC4NCj4gPiA+IEkganVzdCB1cGRhdGVkIHRoZSBtaWNyb2Nv
+ZGUgYXMgd2VsbCwgaXQgZGlkbid0IG1hdHRlci4NCj4gPiA+IDQuNi1yYzcgd29ya3MgZmluZSBh
+bmQgbm8gZXJyb3JzIGFyZSByZXBvcnRlZCB3aXRoIGl3bHdpZmkuDQo+ID4gPiANCj4gPiA+IEhl
+cmUncyBvdXRwdXQgdGhhdCBtaWdodCBjb21lIGluIGhhbmR5DQo+ID4gVGhhbmtzISBUaGF0IGlz
+IGhlbHBmdWwuDQo+ID4gDQo+ID4gU2luY2UgeW91IHNheSB0aGF0IDQuNi1yYzcgd29ya3MgYnV0
+IDQuNiBkb2Vzbid0LCB0aGUgcHJpbWUgc3VzcGVjdA0KPiA+IGlzDQo+ID4gY29tbWl0IDVjMDhi
+MGY1MDI2ZiAoIml3bHdpZmk6IG12bTogZG9uJ3Qgb3ZlcnJpZGUgdGhlIHJhdGUgd2l0aA0KPiA+
+IHRoZQ0KPiA+IEFNU0RVIGxlbiIpLCB3aGljaCBpcyB0aGUgb25seSBpd2x3aWZpIHBhdGNoIGJl
+dHdlZW4gdGhvc2UgdHdvDQo+ID4gcmVsZWFzZXMuDQo+ID4gDQo+ID4gQ291bGQgeW91IHRyeSB0
+byByZXZlcnQgdGhhdCBhbmQgc2VlIGlmIHRoZSBlcnJvciBpcyBnb25lPw0KPiBXaWxsIGRvLCBz
+aW5jZSBnaXQgcmV2ZXJ0IGZhaWxlZCBJJ2xsIHJldmVydCBtYW51YWxseSBhbmQgcmVwb3J0DQo+
+IGJhY2suDQoNCkkgY2FuIGNvbmZpcm0gdGhhdCA0LjYgY29udGFpbnMgdGhlIHNhbWUgYnVnLiDC
+oEFuZCByZXZlcnRpbmcgdGhlIHBhdGNoDQpJIG1lbnRpb25lZCBkb2VzIHNvbHZlIHRoZSBwcm9i
+bGVtLi4uDQoNClRoZSBzYW1lIHBhdGNoIHdvcmtzIGZpbmUgaW4gb3VyIGludGVybmFsIHRyZWUu
+IMKgSSdsbCBoYXZlIHRvIGZpZ3VyZQ0Kb3V0IHRvZ2V0aGVyIHdpdGggRW1tYW51ZWwgd2hhdCB0
+aGUgcHJvYmxlbSBhY3R1YWxseSBpcy4NCg0KLS0NCkx1Y2Eu
