@@ -1,62 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] bpf: rather use get_random_int for randomizations
-Date: Wed, 18 May 2016 15:28:01 +0200
-Message-ID: <e478c91f-28ec-e07a-6afd-0757ac72d1f3@stressinduktion.org>
-References: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
- <1463577634.18194.100.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Subject: Re: [PATCH v2] net: sock: move ->sk_shutdown out of bitfields.
+Date: Wed, 18 May 2016 16:14:36 +0300
+Message-ID: <573C6ABC.3090008@virtuozzo.com>
+References: <a070f6f7-ed85-c909-ce8b-748210402211@stressinduktion.org>
+ <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
+ <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57148 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753011AbcERN2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 09:28:04 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 43A7F20D4E
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:28:03 -0400 (EDT)
-In-Reply-To: <1463577634.18194.100.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-db3on0122.outbound.protection.outlook.com ([157.55.234.122]:26349
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751120AbcERN3j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 09:29:39 -0400
+In-Reply-To: <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18.05.2016 15:20, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 14:14 +0200, Daniel Borkmann wrote:
->> Start address randomization and blinding in BPF currently use
->> prandom_u32(). prandom_u32() values are not exposed to unpriviledged
->> user space to my knowledge, but given other kernel facilities such as
->> ASLR, stack canaries, etc make use of stronger get_random_int(), we
->> better make use of it here as well given blinding requests successively
->> new random values. get_random_int() has minimal entropy pool depletion,
->> is not cryptographically secure, but doesn't need to be for our use
->> cases here.
+
+
+On 05/18/2016 04:03 PM, Eric Dumazet wrote:
+> On Wed, 2016-05-18 at 15:03 +0300, Andrey Ryabinin wrote:
+>> ->sk_shutdown bits share one bitfield with some other bits in sock struct,
+>> such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
+>> sock_setsockopt() may write to these bits, while holding the socket lock.
+>>
+>> In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
+>> unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
+>> to corrupting these bits.
+>>
+>> Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
+>> This will not change the 'struct sock' size since ->sk_shutdown moved into
+>> previously unused 16-bit hole.
+>>
+>> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+>> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> ---
+>>  include/net/sock.h | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index c9c8b19..04dc131 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>> @@ -383,8 +383,7 @@ struct sock {
+>>  	int			sk_sndbuf;
+>>  	struct sk_buff_head	sk_write_queue;
+>>  	kmemcheck_bitfield_begin(flags);
+>> -	unsigned int		sk_shutdown  : 2,
 > 
-> Well, if it is not crypto secure, what is the point using it instead of
-> prandom_u32() ?
+> 
+> Please replace by a padding, so that sk_protocol is sill a byte,
+> not 8 bits spaning 2 bytes in memory.
 
-Leaks of prandom_u32 allows an attacker to find the whole sequence of
-generated random numbers or the other way around.
+I think, it would be better to have something like this:
 
-> I do not think changing this is fundamentally changing something, it
-> looks like code churn or magic incantation to me.
-
-I saw this during the review of the blinding patches. I was afraid, that
-by extracting or dumping the ebpf program, a user could find out the
-blinding constant and after some retries could find out the coefficients
-to the taus rng, thus being able to infer the whole sequence generated
-by prandom_u32.
-
-> There is little amount of entropy since the hole is constrained by
-> PAGE_SIZE. 
-
-True.
-
-I don't consider this a big thing, I just mentioned that we probably
-shouldn't use prandom_u32 if the value somehow could leak to user space
-and should be used for security.
-
-Bye,
-Hannes
+	u16 sk_type;
+	u8 sk_protocol;
+	kmemcheck_bitfield_begin(flags);
+	u8			sk_no_check_tx : 1,
+				sk_no_check_rx : 1,
+				sk_userlocks : 4,
+	kmemcheck_bitfield_end(flags);
