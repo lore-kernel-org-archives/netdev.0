@@ -1,61 +1,84 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Make TCP work better with re-ordered frames?
-Date: Wed, 18 May 2016 08:07:51 -0700
-Message-ID: <573C8547.3020709@candelatech.com>
-References: <573C758E.9050008@candelatech.com> <1463581760.18194.114.camel@edumazet-glaptop3.roam.corp.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH net] bpf: Use mount_nodev not mount_ns to mount the bpf filesystem
+Date: Wed, 18 May 2016 09:56:28 -0500
+Message-ID: <87inybv2hv.fsf@x220.int.ebiederm.org>
+References: <87oa84wa6h.fsf@x220.int.ebiederm.org>
+	<79e26212-3b09-1be3-0fbf-30de1b265045@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:56403 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbcERPHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:07:53 -0400
-In-Reply-To: <1463581760.18194.114.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:47718 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751458AbcERPIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:08:00 -0400
+In-Reply-To: <79e26212-3b09-1be3-0fbf-30de1b265045@stressinduktion.org>
+	(Hannes Frederic Sowa's message of "Wed, 18 May 2016 12:48:27 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
 
-
-On 05/18/2016 07:29 AM, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 07:00 -0700, Ben Greear wrote:
->> We are investigating a system that has fairly poor TCP throughput
->> with the 3.17 and 4.0 kernels, but evidently it worked pretty well
->> with 3.14 (I should be able to verify 3.14 later today).
->>
->> One thing I notice is that a UDP download test shows lots of reordered
->> frames, so I am thinking maybe TCP is running slow because of this.
->>
->> (We see about 800Mbps UDP download, but only 500Mbps TCP, even when
->>    using 100 concurrent TCP streams.)
->>
->> Is there some way to tune the TCP stack to better handle reordered frames?
+> On 18.05.2016 01:12, Eric W. Biederman wrote:
+>> 
+>> While reviewing the filesystems that set FS_USERNS_MOUNT I spotted the
+>> bpf filesystem.  Looking at the code I saw a broken usage of mount_ns
+>> with current->nsproxy->mnt_ns. As the code does not acquire a reference
+>> to the mount namespace it can not possibly be correct to store the mount
+>> namespace on the superblock as it does.
+>> 
+>> Replace mount_ns with mount_nodev so that each mount of the bpf
+>> filesystem returns a distinct instance, and the code is not utterly
+>> broken.
+>> 
+>> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+>> 
+>> No one should care about this change, as userspace typically only mounts
+>> things once and does not depend on things in one mount do not showing up
+>> in another.  Can someone who actually uses the bpf filesystem please
+>> verify this.
+>> 
+>> This needs to be fixed as the existing code is broken beyond words that
+>> I know how to express.
 >
-> Nothing yet. Are you the sender or the receiver ?
->
-> You really want to avoid reorders as much as possible.
->
-> Are you telling us something broke in networking layers between 3.14 and
-> 3.17 leadings to reorders ?
+> The idea is to have the bpf filesystem as a singeleton per mnt-namespace
+> to prevent endless instances being created and kernel resources being
+> hogged by pinning them to hard to discover bpf mounts.
 
-I am both sender and receiver, through an access-controller and wifi AP as DUT.
-The sender is Intel 1G NIC, so I suspect it is not causing reordering, which
-indicates most likely DUT is to blame.
+There is no method in the kernel to support a singleton per mount
+namespace.  Mount propagation ruins that idea, and in most recent
+distros mount propgation is enabled by default (it is something you can
+opt out of later but not opt into later).
 
-Using several off-the-shelf APs in our lab we do not see this problem.
+In general convention is a much better defense against endless
+instances.
 
-I am not certain yet what is the difference, but customer reports 600+Mbps
-with their older code, and best I can get is around 500Mbps with newer stuff.
+Having just fought a similar fight with devpts (because things went
+horribly wrong) you are much better off with telling people to be careful
+how to use things rather than not letting people use things wrong.
+Especially if we are still at the "the idea is" stage rather than a
+stage where changing this will actually break deployed implementations.
 
-Lots of stuff changed though (ath10k firmware, user-space at least slightly,
-kernel, etc), so possibly the regression is elsewhere.
+> Do you see any problem with adding appropriate reference counts?
 
-Thanks,
-Ben
+Honestly my head hurts thinking about it.  Technically reference counts
+would fix one aspect of it, but the whole situation really sucks.
 
+Especially in a world of mount propgation where these mounts propgate
+between mount namespaces, and where people choose to share or not on a
+different criteria besides the mount namespace, attempting a one fs per
+mount namespace policy is just bizarre bordering on completely broken.
+Even if implemented correctly.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Filesystems do not know and should not care about the mount namespace
+they are implemented it.  These are and should remain independent
+concenpts and your implementation and attempted semantics violate that
+horribly and I can't see a way to achieve what you were trying to
+achieve.  The VFS just doesn't work that way.
+
+Eric
