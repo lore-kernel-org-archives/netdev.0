@@ -1,33 +1,38 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net 2/2] RDS: TCP: Avoid rds connection churn from rogue
- SYNs
-Date: Wed, 18 May 2016 11:33:59 -0700
-Message-ID: <bac715b0-569b-4017-51fe-7763ba77ca52@oracle.com>
-References: <cover.1463579486.git.sowmini.varadhan@oracle.com>
- <b768a2aabf58f282e8058cf04dfed5d682cf0110.1463579486.git.sowmini.varadhan@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46077 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101AbcERSeV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 14:34:21 -0400
-In-Reply-To: <b768a2aabf58f282e8058cf04dfed5d682cf0110.1463579486.git.sowmini.varadhan@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] net: pegasus: simplify logical constraint
+Date: Wed, 18 May 2016 20:40:51 +0200
+Message-ID: <1463596851-3581-1-git-send-email-xypron.glpk@gmx.de>
+References: <1463555740.22748.0.camel@suse.com>
+Cc: Oliver Neukum <oneukum@suse.com>,
+	Guenter Roeck <linux@roeck-us.net>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Petko Manolov <petkan@mip-labs.com>,
+	Petko Manolov <petkan@nucleusys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463555740.22748.0.camel@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/18/2016 10:06 AM, Sowmini Varadhan wrote:
-> When a rogue SYN is received after the connection arbitration
-> algorithm has converged, the incoming SYN should not needlessly
-> quiesce the transmit path, and it should not result in needless
-> TCP connection resets due to re-execution of the connection
-> arbitration logic.
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+If !count is true, count < 4 is also true.
+
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+---
+ drivers/net/usb/pegasus.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index 36cd7f0..9bbe0161 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -473,7 +473,7 @@ static void read_bulk_callback(struct urb *urb)
+ 		goto goon;
+ 	}
+ 
+-	if (!count || count < 4)
++	if (count < 4)
+ 		goto goon;
+ 
+ 	rx_status = buf[count - 2];
+-- 
+2.1.4
