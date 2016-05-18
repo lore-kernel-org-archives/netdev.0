@@ -1,41 +1,46 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: QRTR merge conflict resolution
-Date: Wed, 18 May 2016 10:43:20 +1000
-Message-ID: <20160518104320.23ae8557@canb.auug.org.au>
-References: <20160510183934.GJ1256@tuxbot>
-	<2606282.lG9qK7uBW0@wuerfel>
-	<20160513221909.GC1256@tuxbot>
-	<20160517.141154.1511755950068252376.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bjorn.andersson@linaro.org, arnd@arndb.de,
-	linux-arm-kernel@lists.infradead.org, andy.gross@linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, olof@lixom.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160517.141154.1511755950068252376.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/4] net: block BH in TCP callbacks
+Date: Tue, 17 May 2016 17:44:05 -0700
+Message-ID: <1463532249-20850-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Venkatesh Srinivas <venkateshs@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34414 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751513AbcERAoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 20:44:16 -0400
+Received: by mail-pa0-f41.google.com with SMTP id qo8so11840190pab.1
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 17:44:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Four layers using TCP stack were assuming sk_callback_lock could
+be locked using read_lock() in their handlers because TCP stack
+was running with BH disabled.
 
-On Tue, 17 May 2016 14:11:54 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
->
-> From: Bjorn Andersson <bjorn.andersson@linaro.org>
-> Date: Fri, 13 May 2016 15:19:09 -0700
-> 
-> > I have prepared the merge of net-next and the conflicting tag from the
-> > Qualcomm SOC, please include this in your pull towards Linus to avoid
-> > the merge conflict.  
-> 
-> Pulled, thanks.
+This is no longer the case. Since presumably the rest could
+also depend on BH being disabled, just use read_lock_bh().
 
-Except in the merge resolution, the 2 new functions added to
-include/linux/soc/qcom/smd.h (qcom_smd_get_drvdata and
-qcom_smd_set_drvdata) were not marked "static inline" :-(
+Then each layer might consider switching to RCU protection
+and no longer depend on BH.
+
+Eric Dumazet (4):
+  scsi_tcp: block BH in TCP callbacks
+  ocfs2/cluster: block BH in TCP callbacks
+  rds: tcp: block BH in TCP callbacks
+  tipc: block BH in TCP callbacks
+
+ drivers/scsi/iscsi_tcp.c | 12 ++++++------
+ fs/ocfs2/cluster/tcp.c   | 17 +++++++++--------
+ net/rds/tcp_connect.c    |  4 ++--
+ net/rds/tcp_listen.c     |  4 ++--
+ net/rds/tcp_recv.c       |  4 ++--
+ net/rds/tcp_send.c       |  4 ++--
+ net/tipc/server.c        |  8 ++++----
+ 7 files changed, 27 insertions(+), 26 deletions(-)
 
 -- 
-Cheers,
-Stephen Rothwell
+2.8.0.rc3.226.g39d4020
