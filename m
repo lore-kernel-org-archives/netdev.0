@@ -1,202 +1,151 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v7 net-next 15/16] ip4ip6: Support for GSO/GRO
-Date: Wed, 18 May 2016 09:06:23 -0700
-Message-ID: <1463587584-2315623-16-git-send-email-tom@herbertland.com>
+Subject: [PATCH v7 net-next 07/16] fou: Split out {fou,gue}_build_header
+Date: Wed, 18 May 2016 09:06:15 -0700
+Message-ID: <1463587584-2315623-8-git-send-email-tom@herbertland.com>
 References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:27733 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932767AbcERQGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:06:48 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4IG1ttv017564
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:48 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:63563 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932753AbcERQGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:06:43 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u4IG4363016941
+	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:42 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 230s3e8q74-2
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:48 -0700
+	by m0001303.ppops.net with ESMTP id 22wypbbc14-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:42 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 864727121d1211e689100002c99293a0-3fbf2c50 for <netdev@vger.kernel.org>;	Wed,
- 18 May 2016 09:06:48 -0700
+ 820a39aa1d1211e689100002c99293a0-3fbf2c50 for <netdev@vger.kernel.org>;	Wed,
+ 18 May 2016 09:06:41 -0700
 In-Reply-To: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Create __fou_build_header and __gue_build_header. These implement the
+protocol generic parts of building the fou and gue header.
+fou_build_header and gue_build_header implement the IPv4 specific
+functions and call the __*_build_header functions.
+
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/inet_common.h |  5 +++++
- net/ipv4/af_inet.c        | 12 +++++++-----
- net/ipv6/ip6_offload.c    | 33 ++++++++++++++++++++++++++++++++-
- net/ipv6/ip6_tunnel.c     |  5 +++++
- 4 files changed, 49 insertions(+), 6 deletions(-)
+ include/net/fou.h |  8 ++++----
+ net/ipv4/fou.c    | 47 +++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 41 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index 109e3ee..5d68342 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -39,6 +39,11 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- int inet_recv_error(struct sock *sk, struct msghdr *msg, int len,
- 		    int *addr_len);
+diff --git a/include/net/fou.h b/include/net/fou.h
+index 19b8a0c..7d2fda2 100644
+--- a/include/net/fou.h
++++ b/include/net/fou.h
+@@ -11,9 +11,9 @@
+ size_t fou_encap_hlen(struct ip_tunnel_encap *e);
+ static size_t gue_encap_hlen(struct ip_tunnel_encap *e);
  
-+struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb);
-+int inet_gro_complete(struct sk_buff *skb, int nhoff);
-+struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-+				 netdev_features_t features);
-+
- static inline void inet_ctl_sock_destroy(struct sock *sk)
- {
- 	if (sk)
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 25040b1..377424e 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1192,8 +1192,8 @@ int inet_sk_rebuild_header(struct sock *sk)
- }
- EXPORT_SYMBOL(inet_sk_rebuild_header);
+-int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4);
+-int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4);
++int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type);
++int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type);
  
--static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
--					netdev_features_t features)
-+struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-+				 netdev_features_t features)
- {
- 	bool udpfrag = false, fixedid = false, encap;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
-@@ -1280,9 +1280,9 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- out:
- 	return segs;
- }
-+EXPORT_SYMBOL(inet_gso_segment);
- 
--static struct sk_buff **inet_gro_receive(struct sk_buff **head,
--					 struct sk_buff *skb)
-+struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- {
- 	const struct net_offload *ops;
- 	struct sk_buff **pp = NULL;
-@@ -1398,6 +1398,7 @@ out:
- 
- 	return pp;
- }
-+EXPORT_SYMBOL(inet_gro_receive);
- 
- static struct sk_buff **ipip_gro_receive(struct sk_buff **head,
- 					 struct sk_buff *skb)
-@@ -1449,7 +1450,7 @@ int inet_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 	return -EINVAL;
+ #endif
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 6cbc725..f4f2ddd 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -780,6 +780,22 @@ static void fou_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 	*protocol = IPPROTO_UDP;
  }
  
--static int inet_gro_complete(struct sk_buff *skb, int nhoff)
-+int inet_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	__be16 newlen = htons(skb->len - nhoff);
- 	struct iphdr *iph = (struct iphdr *)(skb->data + nhoff);
-@@ -1479,6 +1480,7 @@ out_unlock:
- 
- 	return err;
- }
-+EXPORT_SYMBOL(inet_gro_complete);
- 
- static int ipip_gro_complete(struct sk_buff *skb, int nhoff)
- {
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 332d6a0..22e90e5 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -16,6 +16,7 @@
- 
- #include <net/protocol.h>
- #include <net/ipv6.h>
-+#include <net/inet_common.h>
- 
- #include "ip6_offload.h"
- 
-@@ -268,6 +269,21 @@ static struct sk_buff **sit_ip6ip6_gro_receive(struct sk_buff **head,
- 	return ipv6_gro_receive(head, skb);
- }
- 
-+static struct sk_buff **ip4ip6_gro_receive(struct sk_buff **head,
-+					   struct sk_buff *skb)
++int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type)
 +{
-+	/* Common GRO receive for SIT and IP6IP6 */
++	int err;
 +
-+	if (NAPI_GRO_CB(skb)->encap_mark) {
-+		NAPI_GRO_CB(skb)->flush = 1;
-+		return NULL;
-+	}
++	err = iptunnel_handle_offloads(skb, type);
++	if (err)
++		return err;
 +
-+	NAPI_GRO_CB(skb)->encap_mark = 1;
++	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++						skb, 0, 0, false);
 +
-+	return inet_gro_receive(head, skb);
++	return 0;
 +}
++EXPORT_SYMBOL(__fou_build_header);
 +
- static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
+ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		     u8 *protocol, struct flowi4 *fl4)
  {
- 	const struct net_offload *ops;
-@@ -307,6 +323,13 @@ static int ip6ip6_gro_complete(struct sk_buff *skb, int nhoff)
- 	return ipv6_gro_complete(skb, nhoff);
- }
+@@ -788,26 +804,21 @@ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 	__be16 sport;
+ 	int err;
  
-+static int ip4ip6_gro_complete(struct sk_buff *skb, int nhoff)
-+{
-+	skb->encapsulation = 1;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_IPXIP6;
-+	return inet_gro_complete(skb, nhoff);
-+}
-+
- static struct packet_offload ipv6_packet_offload __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_IPV6),
- 	.callbacks = {
-@@ -324,6 +347,14 @@ static const struct net_offload sit_offload = {
- 	},
- };
+-	err = iptunnel_handle_offloads(skb, type);
++	err = __fou_build_header(skb, e, protocol, &sport, type);
+ 	if (err)
+ 		return err;
  
-+static const struct net_offload ip4ip6_offload = {
-+	.callbacks = {
-+		.gso_segment	= inet_gso_segment,
-+		.gro_receive    = ip4ip6_gro_receive,
-+		.gro_complete   = ip4ip6_gro_complete,
-+	},
-+};
-+
- static const struct net_offload ip6ip6_offload = {
- 	.callbacks = {
- 		.gso_segment	= ipv6_gso_segment,
-@@ -331,7 +362,6 @@ static const struct net_offload ip6ip6_offload = {
- 		.gro_complete   = ip6ip6_gro_complete,
- 	},
- };
--
- static int __init ipv6_offload_init(void)
- {
- 
-@@ -344,6 +374,7 @@ static int __init ipv6_offload_init(void)
- 
- 	inet_add_offload(&sit_offload, IPPROTO_IPV6);
- 	inet6_add_offload(&ip6ip6_offload, IPPROTO_IPV6);
-+	inet6_add_offload(&ip4ip6_offload, IPPROTO_IPIP);
+-	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
+-					       skb, 0, 0, false);
+ 	fou_build_udp(skb, e, fl4, protocol, sport);
  
  	return 0;
  }
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index d26d226..823dad1 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1188,6 +1188,11 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
- 		fl6.flowi6_mark = skb->mark;
+ EXPORT_SYMBOL(fou_build_header);
  
-+	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
-+		return -1;
+-int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+-		     u8 *protocol, struct flowi4 *fl4)
++int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		       u8 *protocol, __be16 *sport, int type)
+ {
+-	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
+-						       SKB_GSO_UDP_TUNNEL;
+ 	struct guehdr *guehdr;
+ 	size_t hdrlen, optlen = 0;
+-	__be16 sport;
+ 	void *data;
+ 	bool need_priv = false;
+ 	int err;
+@@ -826,8 +837,8 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 		return err;
+ 
+ 	/* Get source port (based on flow hash) before skb_push */
+-	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
+-					       skb, 0, 0, false);
++	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++						skb, 0, 0, false);
+ 
+ 	hdrlen = sizeof(struct guehdr) + optlen;
+ 
+@@ -872,6 +883,22 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ 
+ 	}
+ 
++	return 0;
++}
++EXPORT_SYMBOL(__gue_build_header);
 +
-+	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
++int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++		     u8 *protocol, struct flowi4 *fl4)
++{
++	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
++						       SKB_GSO_UDP_TUNNEL;
++	__be16 sport;
++	int err;
 +
- 	err = ip6_tnl_xmit(skb, dev, dsfield, &fl6, encap_limit, &mtu,
- 			   IPPROTO_IPIP);
- 	if (err != 0) {
++	err = __gue_build_header(skb, e, protocol, &sport, type);
++	if (err)
++		return err;
++
+ 	fou_build_udp(skb, e, fl4, protocol, sport);
+ 
+ 	return 0;
 -- 
 2.8.0.rc2
