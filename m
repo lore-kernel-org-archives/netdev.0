@@ -1,93 +1,94 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
-Date: Wed, 18 May 2016 11:23:56 +0300
-Message-ID: <20160518112225-mutt-send-email-mst@redhat.com>
-References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
- <1463370998.18194.74.camel@edumazet-glaptop3.roam.corp.google.com>
- <57397C14.1080701@redhat.com>
- <20160518101359.37f5343b@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160518101359.37f5343b@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net] fou: avoid using sk_user_data before it is initialised
+Date: Wed, 18 May 2016 17:30:16 +0900
+Message-ID: <1463560216-26616-1-git-send-email-simon.horman@netronome.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+	Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33902 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752094AbcERIau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 04:30:50 -0400
+Received: by mail-pf0-f178.google.com with SMTP id y69so16206584pfb.1
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 01:30:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2016 at 10:13:59AM +0200, Jesper Dangaard Brouer wrote:
-> On Mon, 16 May 2016 15:51:48 +0800
-> Jason Wang <jasowang@redhat.com> wrote:
->=20
-> > On 2016=E5=B9=B405=E6=9C=8816=E6=97=A5 11:56, Eric Dumazet wrote:
-> > > On Mon, 2016-05-16 at 09:17 +0800, Jason Wang wrote: =20
-> > >> We used to queue tx packets in sk_receive_queue, this is less
-> > >> efficient since it requires spinlocks to synchronize between pro=
-ducer
-> > >> and consumer. =20
-> > > ...
-> > > =20
-> > >>   	struct tun_struct *detached;
-> > >> +	/* reader lock */
-> > >> +	spinlock_t rlock;
-> > >> +	unsigned long tail;
-> > >> +	struct tun_desc tx_descs[TUN_RING_SIZE];
-> > >> +	/* writer lock */
-> > >> +	spinlock_t wlock;
-> > >> +	unsigned long head;
-> > >>   };
-> > >>    =20
-> > > Ok, we had these kind of ideas floating around for many other cas=
-es,
-> > > like qdisc, UDP or af_packet sockets...
-> > >
-> > > I believe we should have a common set of helpers, not hidden in
-> > > drivers/net/tun.c but in net/core/skb_ring.c or something, with m=
-ore
-> > > flexibility (like the number of slots)
-> > > =20
-> >=20
-> > Yes, this sounds good.
->=20
-> I agree. It is sad to see everybody is implementing the same thing,
-> open coding an array/circular based ring buffer.  This kind of code i=
-s
-> hard to maintain and get right with barriers etc.  We can achieve the
-> same performance with a generic implementation, by inlining the help
-> function calls.
->=20
-> I implemented an array based Lock-Free/cmpxchg based queue, that you
-> could be inspired by, see:
->  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/=
-include/linux/alf_queue.h
->=20
-> The main idea behind my implementation is bulking, to amortize the
-> locked cmpxchg operation. You might not need it now, but I expect we
-> need it in the future.
->=20
-> You cannot use my alf_queue directly as your "struct tun_desc" is
-> larger than one-pointer (which the alf_queue works with).  But it
-> should be possible to extend to handle larger "objects".
->=20
->=20
-> Maybe Steven Rostedt have an even better ring queue implementation
-> already avail in the kernel?
+During initialisation sk->sk_user_data should be initialised before
+it is referenced via a call to gue_encap_init().
 
-BTW at least for tun, index based isn't really needed.
-A simple array seems to be more readable, faster and use less memory.
-I have implemented this and it seems to work OK, will
-post shortly.
+Found by bisection after noticing the following:
 
+$ ip fou add port 8888 ipproto 47
+[    0.383417] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+[    0.384132] IP: [<ffffffff81327691>] fou_nl_cmd_add_port+0x1e1/0x230
+[    0.384707] PGD 1fafc067 PUD 1fb72067 PMD 0
+[    0.385110] Oops: 0002 [#1] SMP
+[    0.385387] Modules linked in:
+[    0.385667] CPU: 0 PID: 55 Comm: ip Not tainted 4.6.0-03623-g0b7962a6c4a3 #430
+[    0.386244] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+[    0.386244] task: ffff88001fb9cac0 ti: ffff88001fbc8000 task.ti: ffff88001fbc8000
+[    0.386244] RIP: 0010:[<ffffffff81327691>]  [<ffffffff81327691>] fou_nl_cmd_add_port+0x1e1/0x230
+[    0.386244] RSP: 0018:ffff88001fbcbb78  EFLAGS: 00010246
+[    0.386244] RAX: 0000000000000001 RBX: ffff88001fb8eb40 RCX: 000000000000002f
+[    0.386244] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff880019fcafc0
+[    0.386244] RBP: ffff880019fcaf80 R08: ffffffff8130c370 R09: ffff880019fcaf80
+[    0.386244] R10: ffff880019e12b8c R11: 0000000000000000 R12: 0000000000000004
+[    0.386244] R13: 0000000000000014 R14: ffff88001fb1a300 R15: ffffffff816634c0
+[    0.386244] FS:  00007f016eb4d700(0000) GS:ffff88001a200000(0000) knlGS:0000000000000000
+[    0.386244] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[    0.386244] CR2: 0000000000000008 CR3: 000000001fb69000 CR4: 00000000000006b0
+[    0.386244] Stack:
+[    0.386244]  ffff88001faaea24 ffff8800192426c0 00000002002f0001 0000000000000000
+[    0.386244]  0000000000000000 0000000000000000 0000000000000000 000000000000b822
+[    0.386244]  ffffffff81461480 ffff88001faaea14 0000000000000004 ffffffff812b0e17
+[    0.386244] Call Trace:
+[    0.386244]  [<ffffffff812b0e17>] ? genl_family_rcv_msg+0x197/0x320
+[    0.386244]  [<ffffffff812b0fa0>] ? genl_family_rcv_msg+0x320/0x320
+[    0.386244]  [<ffffffff812b1010>] ? genl_rcv_msg+0x70/0xb0
+[    0.386244]  [<ffffffff812b01c1>] ? netlink_rcv_skb+0xa1/0xc0
+[    0.386244]  [<ffffffff812b0c64>] ? genl_rcv+0x24/0x40
+[    0.386244]  [<ffffffff812afb33>] ? netlink_unicast+0x143/0x1d0
+[    0.386244]  [<ffffffff812affd6>] ? netlink_sendmsg+0x366/0x390
+[    0.386244]  [<ffffffff8110a2a8>] ? rw_copy_check_uvector+0x68/0x110
+[    0.386244]  [<ffffffff8126a030>] ? sock_sendmsg+0x10/0x20
+[    0.386244]  [<ffffffff8126a661>] ? ___sys_sendmsg+0x1f1/0x200
+[    0.386244]  [<ffffffff81110000>] ? pipe_write+0x1a0/0x420
+[    0.386244]  [<ffffffff81116c32>] ? do_filp_open+0x92/0xe0
+[    0.386244]  [<ffffffff8126b541>] ? __sys_sendmsg+0x41/0x70
+[    0.386244]  [<ffffffff8139c81b>] ? entry_SYSCALL_64_fastpath+0x13/0x8f
+[    0.386244] Code: 4c 24 12 48 8b 93 28 02 00 00 48 c7 83 68 03 00 00 e0 76 32 81 48 c7 83 78 03 00 00 50 61 32 81 48 c7 83 80 03 00 00 e0 64 32 81 <88> 4a 08 e9 20 ff ff ff 4c 89 e7 bb 8e ff ff ff e8 1a 34 07 00
+[    0.386244] RIP  [<ffffffff81327691>] fou_nl_cmd_add_port+0x1e1/0x230
+[    0.386244]  RSP <ffff88001fbcbb78>
+[    0.386244] CR2: 0000000000000008
+[    0.407176] ---[ end trace 13bf0d24a4b7f9c3 ]---
 
+Fixes: d92283e338f6 ("fou: change to use UDP socket GRO")
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ net/ipv4/fou.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> --=20
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index eeec7d60e5fd..5f9634915cf2 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -488,6 +488,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 	}
+ 
+ 	sk = sock->sk;
++	sk->sk_user_data = fou;
+ 
+ 	fou->flags = cfg->flags;
+ 	fou->port = cfg->udp_config.local_udp_port;
+@@ -514,7 +515,6 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 	udp_sk(sk)->encap_type = 1;
+ 	udp_encap_enable();
+ 
+-	sk->sk_user_data = fou;
+ 	fou->sock = sock;
+ 
+ 	inet_inc_convert_csum(sk);
+-- 
+2.1.4
