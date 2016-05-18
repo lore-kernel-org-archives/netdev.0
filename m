@@ -1,97 +1,166 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH v7 net-next 02/16] net: define gso types for IPx over
- IPv4 and IPv6
-Date: Wed, 18 May 2016 15:03:24 -0700
-Message-ID: <1463609004.2713.81.camel@gmail.com>
-References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
-	 <1463587584-2315623-3-git-send-email-tom@herbertland.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Thu, 19 May 2016 00:55:29 +0200
+Message-ID: <20160518225529.GA18671@electric-eye.fr.zoreil.com>
+References: <20160517152520.GA2750@debian-dorm>
+ <20160517.142456.2247845107325931733.davem@davemloft.net>
+ <20160518000153.GA21757@electric-eye.fr.zoreil.com>
+ <573CD09D.1060307@gmx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ppKgAYr7ioo9OZRV35nc"
-Cc: kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34786 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbcERWDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 18:03:32 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 145so6136323pfz.1
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 15:03:32 -0700 (PDT)
-In-Reply-To: <1463587584-2315623-3-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-ppKgAYr7ioo9OZRV35nc
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-T24gV2VkLCAyMDE2LTA1LTE4IGF0IDA5OjA2IC0wNzAwLCBUb20gSGVyYmVydCB3cm90ZToKPiBU
-aGlzIHBhdGNoIGRlZmluZXMgdHdvIG5ldyBHU08gZGVmaW5pdGlvbnMgU0tCX0dTT19JUFhJUDQg
-YW5kCj4gU0tCX0dTT19JUFhJUDYgYWxvbmcgd2l0aCBjb3JyZXNwb25kaW5nIE5FVElGX0ZfR1NP
-X0lQWElQNCBhbmQKPiBORVRJRl9GX0dTT19JUFhJUDYuIFRoZXNlIGFyZSB1c2VkIHRvIGRlc2Ny
-aWJlZCBJUCBpbiBJUAo+IHR1bm5lbCBhbmQgd2hhdCB0aGUgb3V0ZXIgcHJvdG9jb2wgaXMuIFRo
-ZSBpbm5lciBwcm90b2NvbAo+IGNhbiBiZSBkZWR1Y2VkIGZyb20gb3RoZXIgR1NPIHR5cGVzIChl
-LmcuIFNLQl9HU09fVENQVjQgYW5kCj4gU0tCX0dTT19UQ1BWNikuIFRoZSBHU08gdHlwZXMgb2Yg
-U0tCX0dTT19JUElQIGFuZCBTS0JfR1NPX1NJVAo+IGFyZSByZW1vdmVkICh0aGVzZSBhcmUgYm90
-aCBpbnN0YW5jZXMgb2YgU0tCX0dTT19JUFhJUDQpLgo+IFNLQl9HU09fSVBYSVA2IHdpbGwgYmUg
-dXNlZCB3aGVuIHN1cHBvcnQgZm9yIEdTTyB3aXRoIElQCj4gZW5jYXBzdWxhdGlvbiBvdmVyIElQ
-djYgaXMgYWRkZWQuCj4gCj4gU2lnbmVkLW9mZi1ieTogVG9tIEhlcmJlcnQgPHRvbUBoZXJiZXJ0
-bGFuZC5jb20+CgpBY2tlZC1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRl
-bC5jb20+CkZvciB0aGUgSW50ZWwgRXRoZXJuZXQgZHJpdmVyIGNoYW5nZXMuLi4KCj4gLS0tCj4g
-wqBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmPCoCB8wqAg
-NSArKy0tLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54dC9ibnh0LmPCoMKg
-wqDCoMKgwqDCoMKgIHzCoCA1ICsrLS0tCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
-NDBlL2k0MGVfbWFpbi5jwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguY8KgwqDCoMKgwqDCoCB8wqAgMyArLS0KPiDCoGRy
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGV2Zi9pNDBlX3R4cnguY8KgwqDCoMKgIHzCoCAz
-ICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGV2Zl9tYWluLmPC
-oMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWlu
-LmPCoMKgwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaWdidmYvbmV0ZGV2LmPCoMKgwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jwqDCoMKgwqAgfMKgIDMgKy0tCj4g
-wqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jIHzCoCAz
-ICstLQo+IMKgaW5jbHVkZS9saW51eC9uZXRkZXZfZmVhdHVyZXMuaMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoCB8IDEyICsrKysrKy0tLS0tLQo+IMKgaW5jbHVkZS9saW51eC9u
-ZXRkZXZpY2UuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oCB8wqAgNCArKy0tCj4gwqBpbmNsdWRlL2xpbnV4L3NrYnVmZi5owqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHzCoCA0ICsrLS0KPiDCoG5ldC9j
-b3JlL2V0aHRvb2wuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgIHzCoCA0ICsrLS0KPiDCoG5ldC9pcHY0L2FmX2luZXQuY8KgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-IHzCoCAyICstCj4gwqBuZXQvaXB2NC9pcGlwLmPCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8wqAgMiArLQo+IMKgbmV0
-L2lwdjYvaXA2X29mZmxvYWQuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoCB8wqAgNCArKy0tCj4gwqBuZXQvaXB2Ni9zaXQuY8KgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqAgfMKgIDQgKystLQo+IMKgbmV0L25ldGZpbHRlci9pcHZzL2lwX3ZzX3htaXQuY8KgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IDE3ICsrKysrKystLS0tLS0tLS0tCj4gwqAx
-OSBmaWxlcyBjaGFuZ2VkLCAzNyBpbnNlcnRpb25zKCspLCA1MCBkZWxldGlvbnMoLSkK
-
-
---=-ppKgAYr7ioo9OZRV35nc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <573CD09D.1060307-Mmb7MZpHnFY@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org> :
+[...]
+> what about the (only compile tested) code below?
 
-iQIcBAABCgAGBQJXPOasAAoJEOVv75VaS+3Opy4P/ih+6LJcsSDpeABIuNPihN+d
-LeL8gYR2BDQ7eailtV6l1gVRmwLmwzM02qYpdL5UaEWf2Z8EzMPaOjOvHap0QcDx
-WEokN43Rz0xywJBiV+2m7fSyYvfMOYx0U7VntkYwjd/ZqRAQ/mcZz5DcT5VX9kuL
-PEtXuhASzf/bf/AL8GaDJs1ojO8Yc5YVnz0z8auFqQiu64ey7NBIdKUEbks1VPJm
-xLW/8p53MPElH8mJ9aibrOJAHBwvfMGXc3k0/YXkOIuCm4i5U8++xCeeovK6PqNx
-gaU4SEMa++6XyLmBh/6iC0TJy0Q6RQ8uFOqBoZ6uwwJUpx/mXBS48GYlgHjHJ/uj
-pUYq+v2QFqGG3xf6UOvHE6umUiy+BJSDVgOb/+SypNKrLjsilPcgUiu5cYFWFxjM
-f7wqZ5NwztFIqhJerubXGtv4OVO+7omXXQgjuQUohKAVz8uBlabIb7YP5z3abocg
-lR99tEH2bUSZKTou4jY0b/gUlAaKSZRlgW4EUE2yI+f8MJvZEggPiP5eYLPHTKhc
-xvR2/7FulQ6dMK2Whu9qqEIaNCmxlIrchfLOPnAcUgj2fwQUvzMIo0glJND4WR2h
-bQz1xw9gF01VAL/48oKEr4V7Hm0ZsSGXTd8f71k9P9u+dBXcTwq1odxlUc5yI6V2
-SdhKUAUTneDOx6dXzgZ/
-=JjBb
------END PGP SIGNATURE-----
+I may have misunderstood some parts but it nonetheless seems broken.
 
---=-ppKgAYr7ioo9OZRV35nc--
+> The smp_wmb() in tx function combined with the smp_rmb() in tx_clean ensures
+> that the CPU running tx_clean sees consistent values for info, data and skb 
+> (thus no need to check for validity of all three values any more).
+> The mb() fulfills several tasks:
+> 1. makes sure that DMA writes to descriptor are completed before the HW is
+>     informed.
+
+"DMA writes" == "CPU writes" ?
+
+> 2. On multi processor systems: ensures that txbd_curr is updated (this is paired
+>     with the smp_mb() at the end of tx_clean).
+
+Smells like using barrier side-effects to control smp coherency. It isn't
+the recommended style.
+
+> 3. Ensure we see the most recent value for tx_dirty. With this we do not have to
+>     recheck after we stopped the tx queue.
+> 
+> 
+> --- a/drivers/net/ethernet/arc/emac_main.c
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -162,8 +162,13 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+>  		struct sk_buff *skb = tx_buff->skb;
+>  		unsigned int info = le32_to_cpu(txbd->info);
+>  
+> -		if ((info & FOR_EMAC) || !txbd->data || !skb)
+> +		if (info & FOR_EMAC) {
+> +			/* Make sure we see consistent values for info, skb
+> +			 * and data.
+> +			 */
+> +			smp_rmb();
+>  			break;
+> +		}
+
+?
+
+smp_rmb should appear before the variables you want coherency for.
+
+>  
+>  		if (unlikely(info & (DROP | DEFR | LTCL | UFLO))) {
+>  			stats->tx_errors++;
+> @@ -679,36 +684,33 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+>  	dma_unmap_addr_set(&priv->tx_buff[*txbd_curr], addr, addr);
+>  	dma_unmap_len_set(&priv->tx_buff[*txbd_curr], len, len);
+>  
+> -	priv->txbd[*txbd_curr].data = cpu_to_le32(addr);
+>  
+> -	/* Make sure pointer to data buffer is set */
+> -	wmb();
+> +	priv->txbd[*txbd_curr].data = cpu_to_le32(addr);
+> +	priv->tx_buff[*txbd_curr].skb = skb;
+>  
+> -	skb_tx_timestamp(skb);
+> +	/* Make sure info is set after data and skb with respect to
+> +	 * other tx_clean().
+> +	 */
+> +	smp_wmb();
+>  
+>  	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+
+Afaik smp_wmb() does not imply wmb(). So priv->txbd[*txbd_curr].data and
+*info (aka priv->txbd[*txbd_curr].info) are not necessarily written in
+an orderly manner.
+
+>  
+> -	/* Make sure info word is set */
+> -	wmb();
+> -
+> -	priv->tx_buff[*txbd_curr].skb = skb;
+> -
+>  	/* Increment index to point to the next BD */
+>  	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
+
+With this change it's possible that tx_clean() reads new value for
+tx_curr and old value (0) for *info.
+
+>  
+> -	/* Ensure that tx_clean() sees the new txbd_curr before
+> +	/* 1.Ensure that tx_clean() sees the new txbd_curr before
+>  	 * checking the queue status. This prevents an unneeded wake
+>  	 * of the queue in tx_clean().
+> +	 * 2.Ensure that all values are written to RAM and to DMA
+> +	 * before hardware is informed.
+
+(I am not sure what "DMA" is supposed to mean here.)
+
+> +	 * 3.Ensure we see the most recent value for tx_dirty.
+>  	 */
+> -	smp_mb();
+> +	mb();
+>  
+> -	if (!arc_emac_tx_avail(priv)) {
+> +	if (!arc_emac_tx_avail(priv))
+>  		netif_stop_queue(ndev);
+> -		/* Refresh tx_dirty */
+> -		smp_mb();
+> -		if (arc_emac_tx_avail(priv))
+> -			netif_start_queue(ndev);
+> -	}
+
+Xmit thread                        | Clean thread
+
+mb();
+
+arc_emac_tx_avail() test with old
+tx_dirty - tx_clean has not issued
+any mb yet - and new tx_curr
+
+                                     smp_mb();
+
+                                     if (netif_queue_stopped(ndev) && ...
+                                             netif_wake_queue(ndev);
+
+netif_stop_queue()
+
+-> queue stopped.
+
+You can't remove the revalidation step.
+
+arc_emac_tx_avail() is essentially pessimistic. Even if arc_emac_tx_avail()
+was "right", there would be a tx_clean window between arc_emac_tx_avail()
+and netif_stop_queue().
+
+> +
+> +	skb_tx_timestamp(skb);
+
+You don't want to issue skb_tx_timestamp after releasing control of the
+descriptor (*info = ...): skb may be long gone.
+
+-- 
+Ueimor
