@@ -1,75 +1,87 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] net: suppress warnings on dev_alloc_skb
-Date: Wed, 18 May 2016 11:25:24 -0400
-Message-ID: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net: sock: move ->sk_shutdown out of bitfields.
+Date: Wed, 18 May 2016 08:31:11 -0700
+Message-ID: <1463585471.18194.123.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463582171-24083-1-git-send-email-aryabinin@virtuozzo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52757 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753465AbcERPZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:25:47 -0400
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33308 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932634AbcERPbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:31:13 -0400
+In-Reply-To: <1463582171-24083-1-git-send-email-aryabinin@virtuozzo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Noticed an allocation failure in a network driver the other day on a 32 bit
-system:
+On Wed, 2016-05-18 at 17:36 +0300, Andrey Ryabinin wrote:
+> ->sk_shutdown bits share one bitfield with some other bits in sock struct,
+> such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
+> sock_setsockopt() may write to these bits, while holding the socket lock.
+> 
+> In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
+> unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
+> to corrupting these bits.
+> 
+> Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
+> This will not change the 'struct sock' size since ->sk_shutdown moved into
+> previously unused 16-bit hole.
+> 
+> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> 
+> Changes since v1:
+>  - move sk_shutdown into a separate byte instead of locking
+> 	AF_UNIX sockets.
+> 
+> Changes since v2:
+>  - reorder bitfields, so that sk_type/sk_protocol still fit in
+>     separate 2-bytes/byte.
+> 	
 
-DMA-API: debugging out of memory - disabling
-bnx2fc: adapter_lookup: hba NULL
-lldpad: page allocation failure. order:0, mode:0x4120
-Pid: 4556, comm: lldpad Not tainted 2.6.32-639.el6.i686.debug #1
-Call Trace:
- [<c08a4086>] ? printk+0x19/0x23
- [<c05166a4>] ? __alloc_pages_nodemask+0x664/0x830
- [<c0649d02>] ? free_object+0x82/0xa0
- [<fb4e2c9b>] ? ixgbe_alloc_rx_buffers+0x10b/0x1d0 [ixgbe]
- [<fb4e2fff>] ? ixgbe_configure_rx_ring+0x29f/0x420 [ixgbe]
- [<fb4e228c>] ? ixgbe_configure_tx_ring+0x15c/0x220 [ixgbe]
- [<fb4e3709>] ? ixgbe_configure+0x589/0xc00 [ixgbe]
- [<fb4e7be7>] ? ixgbe_open+0xa7/0x5c0 [ixgbe]
- [<fb503ce6>] ? ixgbe_init_interrupt_scheme+0x5b6/0x970 [ixgbe]
- [<fb4e8e54>] ? ixgbe_setup_tc+0x1a4/0x260 [ixgbe]
- [<fb505a9f>] ? ixgbe_dcbnl_set_state+0x7f/0x90 [ixgbe]
- [<c088d80d>] ? dcb_doit+0x10ed/0x16d0
-...
+I suggested to use an explicit padding, to clearly show that two bits
+are available there. You also could add a comment to remind the rules.
 
-Thought that perhaps the big splat in the logs wasn't really necessecary, as
-all call sites for dev_alloc_skb:
+Something like :
 
-a) check the return code for the function
-
-and
-
-b) either print their own error message or have a recovery path that makes the
-warning moot.
-
-So, I added __GFP_NOWARN to the gfp_flags, to be added unless DEBUG was enabled,
-in which case getting the splat makes a bit more sense
-
-applies to the net tree
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- include/linux/skbuff.h | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 15d0df9..8e61fe7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2452,6 +2452,10 @@ static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
- 	 */
- 	gfp_mask |= __GFP_COLD | __GFP_COMP | __GFP_MEMALLOC;
- 
-+#ifndef DEBUG
-+	gfp_mask |= __GFP_NOWARN;
-+#endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index c9c8b19df27c558354687119db60c0716909ea3f..4e239a7ef4f67b1988fe119d81566d1465a2b596 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -382,8 +382,10 @@ struct sock {
+ 	atomic_t		sk_omem_alloc;
+ 	int			sk_sndbuf;
+ 	struct sk_buff_head	sk_write_queue;
 +
- 	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
- }
- 
--- 
-2.5.5
++	/* because of non atomicity rules, all changes are protected by socket lock */
+ 	kmemcheck_bitfield_begin(flags);
+-	unsigned int		sk_shutdown  : 2,
++	unsigned int		sk_padding   : 2,
+ 				sk_no_check_tx : 1,
+ 				sk_no_check_rx : 1,
+ 				sk_userlocks : 4,
+@@ -391,6 +393,7 @@ struct sock {
+ 				sk_type      : 16;
+ #define SK_PROTOCOL_MAX U8_MAX
+ 	kmemcheck_bitfield_end(flags);
++
+ 	int			sk_wmem_queued;
+ 	gfp_t			sk_allocation;
+ 	u32			sk_pacing_rate; /* bytes per second */
+@@ -418,6 +421,7 @@ struct sock {
+ 	struct timer_list	sk_timer;
+ 	ktime_t			sk_stamp;
+ 	u16			sk_tsflags;
++	u8			sk_shutdown;
+ 	u32			sk_tskey;
+ 	struct socket		*sk_socket;
+ 	void			*sk_user_data;
