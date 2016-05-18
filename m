@@ -1,54 +1,76 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] rtlwifi: rtl8192ee: simplify coding
-Date: Wed, 18 May 2016 02:43:58 +0200
-Message-ID: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
-Cc: Wu Fengguang <fengguang.wu@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 4/4] tipc: block BH in TCP callbacks
+Date: Tue, 17 May 2016 17:44:09 -0700
+Message-ID: <1463532249-20850-5-git-send-email-edumazet@google.com>
+References: <1463532249-20850-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Venkatesh Srinivas <venkateshs@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:59399 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755424AbcERAo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2016 20:44:28 -0400
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36725 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755174AbcERAo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2016 20:44:28 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bt5so11625085pac.3
+        for <netdev@vger.kernel.org>; Tue, 17 May 2016 17:44:28 -0700 (PDT)
+In-Reply-To: <1463532249-20850-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simplify _rtl92ee_phy_path_adda_on.
+TCP stack can now run from process context.
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Use read_lock_bh(&sk->sk_callback_lock) variant to restore previous
+assumption.
+
+Fixes: 5413d1babe8f ("net: do not block BH while processing socket backlog")
+Fixes: d41a69f1d390 ("tcp: make tcp_sendmsg() aware of socket backlog")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Ying Xue <ying.xue@windriver.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+ net/tipc/server.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-index 018340a..c2bf8d1 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-@@ -2414,19 +2414,10 @@ static void _rtl92ee_phy_reload_mac_registers(struct ieee80211_hw *hw,
- static void _rtl92ee_phy_path_adda_on(struct ieee80211_hw *hw, u32 *addareg,
- 				      bool is_patha_on, bool is2t)
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index 7a0af2dc0406..272d20a795d5 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -138,28 +138,28 @@ static void sock_data_ready(struct sock *sk)
  {
--	u32 pathon;
- 	u32 i;
+ 	struct tipc_conn *con;
  
--	pathon = is_patha_on ? 0x0fc01616 : 0x0fc01616;
--	if (!is2t) {
--		pathon = 0x0fc01616;
--		rtl_set_bbreg(hw, addareg[0], MASKDWORD, 0x0fc01616);
--	} else {
--		rtl_set_bbreg(hw, addareg[0], MASKDWORD, pathon);
--	}
--
--	for (i = 1; i < IQK_ADDA_REG_NUM; i++)
--		rtl_set_bbreg(hw, addareg[i], MASKDWORD, pathon);
-+	for (i = 0; i < IQK_ADDA_REG_NUM; i++)
-+		rtl_set_bbreg(hw, addareg[i], MASKDWORD, 0x0fc01616);
+-	read_lock(&sk->sk_callback_lock);
++	read_lock_bh(&sk->sk_callback_lock);
+ 	con = sock2con(sk);
+ 	if (con && test_bit(CF_CONNECTED, &con->flags)) {
+ 		conn_get(con);
+ 		if (!queue_work(con->server->rcv_wq, &con->rwork))
+ 			conn_put(con);
+ 	}
+-	read_unlock(&sk->sk_callback_lock);
++	read_unlock_bh(&sk->sk_callback_lock);
  }
  
- static void _rtl92ee_phy_mac_setting_calibration(struct ieee80211_hw *hw,
+ static void sock_write_space(struct sock *sk)
+ {
+ 	struct tipc_conn *con;
+ 
+-	read_lock(&sk->sk_callback_lock);
++	read_lock_bh(&sk->sk_callback_lock);
+ 	con = sock2con(sk);
+ 	if (con && test_bit(CF_CONNECTED, &con->flags)) {
+ 		conn_get(con);
+ 		if (!queue_work(con->server->send_wq, &con->swork))
+ 			conn_put(con);
+ 	}
+-	read_unlock(&sk->sk_callback_lock);
++	read_unlock_bh(&sk->sk_callback_lock);
+ }
+ 
+ static void tipc_register_callbacks(struct socket *sock, struct tipc_conn *con)
 -- 
-2.1.4
+2.8.0.rc3.226.g39d4020
