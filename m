@@ -1,84 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH 0/2] Follow-ups for GUEoIPv6 patches
-Date: Wed, 18 May 2016 14:27:58 -0700
-Message-ID: <1463606878.2713.68.camel@intel.com>
-References: <20160518173605.2608.42484.stgit@localhost.localdomain>
+From: Michael Richardson <mcr@sandelman.ca>
+Subject: Re: [PATCHv2 bluetooth-next 04/10] ndisc: add addr_len parameter to ndisc_opt_addr_space
+Date: Wed, 18 May 2016 17:39:39 -0400
+Message-ID: <21520.1463607579@obiwan.sandelman.ca>
+References: <1461140382-4784-1-git-send-email-aar@pengutronix.de> <1461140382-4784-5-git-send-email-aar@pengutronix.de> <109698cb-18ae-abdb-34a5-1db5a2e8dc6b@stressinduktion.org> <800c5c08-c2c8-3b44-d457-cdcf6374f280@pengutronix.de> <240084aa-2751-6f24-c07b-662b19a74475@stressinduktion.org> <cdf01ed0-2cc1-667d-40ef-34dcaddce099@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-wXFCKciWEnuWgY2BZ2G6"
-To: Alexander Duyck <aduyck@mirantis.com>, tom@herbertland.com,
-	alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, kernel-team@fb.com, davem@davemloft.net
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: Alexander Aring <aar@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:18142 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752009AbcERV2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 17:28:06 -0400
-In-Reply-To: <20160518173605.2608.42484.stgit@localhost.localdomain>
+Received: from tuna.sandelman.ca ([209.87.249.19]:60837 "EHLO
+	tuna.sandelman.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932197AbcERVjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 17:39:43 -0400
+In-Reply-To: <cdf01ed0-2cc1-667d-40ef-34dcaddce099@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=-=-=
+Content-Type: text/plain
 
---=-wXFCKciWEnuWgY2BZ2G6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2016-05-18 at 10:44 -0700, Alexander Duyck wrote:
-> This patch series is meant to be applied after:
-> [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes for v6
-> tunneling
->=20
-> The first patch addresses an issue we already resolved in the GREv4 and
-> is
-> now present in GREv6 with the introduction of FOU/GUE for IPv6 based GRE
-> tunnels.
->=20
-> The second patch goes through and enables IPv6 tunnel offloads for the
-> Intel
-> NICs that already support the IPv4 based IP-in-IP tunnel offloads.=C2=A0 =
-I
-> have
-> only done a bit of touch testing but have seen ~20 Gb/s over an i40e
-> interface using a v4-in-v6 tunnel, and I have verified IPv6 GRE is still
-> passing traffic at around the same rate.=C2=A0 I plan to do further testi=
-ng
-> but
-> with these patches present it should enable a wider audience to be able
-> to
-> test the new features introduced in Tom's patchset with hardware
-> offloads.
->=20
-> ---
->=20
-> Alexander Duyck (2):
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ip6_gre: Do not allow segmentation offload=
-s GRE_CSUM is enabled
-> with FOU/GUE
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 intel: Add support for IPv6 IP-in-IP offlo=
-ad
+Alexander Aring <aar@pengutronix.de> wrote:
+    > What I did in the patch series to store short address in neighbour
+    > private data, which makes everything 802.15.4 6lowpan specific.
 
-Dave, I have this series added to my queue.
---=-wXFCKciWEnuWgY2BZ2G6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+FYI: there are a whole family of network types which have multiple
+addresses (long/short).  This includes:
+1) BTLE - RFC 7668 IPv6 over BLUETOOTH(R) Low Energy
+2) G.9959 - RFC 7428 Transmission of IPv6 Packets over ITU-T G.9959 Networks
+3) BACnet and DECT will be defined.  Some of these have 1 byte short
+addresses...
+4) the various LPWAN people might be able to do IPv6... we'll see.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXPN5eAAoJEOVv75VaS+3O7EwP/itwEdAWlXzikXH50qKzbc7M
-hEKw/1ghJ3aZtp2QxLD/wbfrp3aXiGqGXXZSeOPJ/WgRQnnPv8lx2rKwsQvODYcU
-My9xmTDyvFSTDNnTq4+jBG63kTB2y9UZTFm3mjGlNVW8jMmLUAyC/RkJSj3peXyl
-On415HKJ8ehq/6Hpu2e902iMnnZRA/M39pYy5GEl0AKu1jM1vw6vS26j5V1ysonC
-CLvHvmn+IQ2DWcGQAwbhs4kKtlaj7qOa2xZlD0BkG382E0Cy7SKFwqTPnsvwHmJ6
-gHsFmFFzUt17KfuXiuqHwP2KTgpXjIPWaNqZKtmD5lS8iWWS8l+4L5DW4fDMfCq4
-2cyAtHUeKN6ODR05d/dHpDnGPCVE1TUhYcZaSETZmZrUUxDeQppR4S3ZFHOqqo88
-JDReRdgvqU3tAH0AuBtJ7SUld/AWK7rpWuiVSKM5iJ51LoabnfChYxZyFnd/jPD4
-i+CDzA8WwSjL9+/R0IqCaDZeCe4ZeYljSdrsJ95isiGhGHWwpbRzXxnGeUVbBgjj
-TWPDL+YrqOu+Ee/ZYg9HUmR8BoeT6Bosz17PIQWQeBZ5Vwm+IWaJSRz3zPiRhzBX
-aYAZxN7UQ7hvFRHIRbK2OJPFXXQ91B/BqjJt7AWZRrH/m/M9WtpqZDupOYArC6rz
-7Mh6PxRKl7vuU8vLSWML
-=GV1A
------END PGP SIGNATURE-----
-
---=-wXFCKciWEnuWgY2BZ2G6--
+I think that we the 802.15.4 specific stuff is fine for now, and we can
+figure out it might need generalization later on.
+--=-=-=--
