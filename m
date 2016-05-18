@@ -1,56 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/3] mlxsw: spectrum: Reduce number of supported
- 802.1D bridges
-Date: Wed, 18 May 2016 14:40:50 +0200
-Message-ID: <20160518124050.GA3889@nanopsycho.orion>
-References: <1459844404-4698-1-git-send-email-jiri@resnulli.us>
- <1459844404-4698-2-git-send-email-jiri@resnulli.us>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] tuntap: correctly wake up process during uninit
+Date: Wed, 18 May 2016 15:41:06 +0300
+Message-ID: <20160518140003-mutt-send-email-mst@redhat.com>
+References: <1463569097-3528-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	corbet@lwn.net, sfeldma@gmail.com, nicolas.dichtel@6wind.com,
-	vivien.didelot@savoirfairelinux.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33127 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753031AbcERMkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 08:40:53 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r12so12573280wme.0
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 05:40:52 -0700 (PDT)
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Xi Wang <xii@google.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1459844404-4698-2-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1463569097-3528-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Apr 05, 2016 at 10:20:02AM CEST, jiri@resnulli.us wrote:
->From: Ido Schimmel <idosch@mellanox.com>
->
->Resources allocated for these bridges at init time cannot be later used
->for other purposes. While current number is supported by the device,
->it's mostly theoretical with regards to any real use case, which leads
->to poor utilization of device's resources. Solve that by reducing the
->number.
->
->The long term plan is to make this value (along with others) user
->configurable via devlink and write it to NVRAM, so that it can be used
->during the next init. Until then we must hardcode such values.
->
->Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+On Wed, May 18, 2016 at 06:58:17PM +0800, Jason Wang wrote:
+> We used to check dev->reg_state against NETREG_REGISTERED after each
+> time we are woke up. But after commit 9e641bdcfa4e ("net-tun:
+> restructure tun_do_read for better sleep/wakeup efficiency"), it uses
+> skb_recv_datagram() which does not check dev->reg_state. This will
+> result if we delete a tun/tap device after a process is blocked in the
+> reading. The device will wait for the reference count which was held
+> by that process for ever.
+> 
+> Fixes this by using RCV_SHUTDOWN which will be checked during
+> sk_recv_datagram() before trying to wake up the process during uninit.
+> 
+> Fixes: 9e641bdcfa4e ("net-tun: restructure tun_do_read for better
+> sleep/wakeup efficiency")
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Xi Wang <xii@google.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Hi Dave.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-This patch, commit b555cf4a50c17a9714715a2d7c8574dca1a7b356 ("mlxsw: spectrum:
-Reduce number of supported 802.1D bridges") reduced the resources the
-device allocates during init. Newer firmware versions now force a hard
-limit on these resources and thus require this patch.
+> ---
+> The patch is needed for -stable.
+> ---
+>  drivers/net/tun.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 425e983..752d849 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -580,11 +580,13 @@ static void tun_detach_all(struct net_device *dev)
+>  	for (i = 0; i < n; i++) {
+>  		tfile = rtnl_dereference(tun->tfiles[i]);
+>  		BUG_ON(!tfile);
+> +		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
+>  		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
+>  		RCU_INIT_POINTER(tfile->tun, NULL);
+>  		--tun->numqueues;
+>  	}
+>  	list_for_each_entry(tfile, &tun->disabled, next) {
+> +		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
+>  		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
+>  		RCU_INIT_POINTER(tfile->tun, NULL);
+>  	}
+> @@ -641,6 +643,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
+>  			goto out;
+>  	}
+>  	tfile->queue_index = tun->numqueues;
+> +	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
+>  	rcu_assign_pointer(tfile->tun, tun);
+>  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
+>  	tun->numqueues++;
 
-We would like to ask this commit be backported to stable kernels, so
-that they can be used with newer firmware versions.
+By the way I wonder: at the moment interface goes down
+each time userspace disconnects, even if it was persistent
+and brought up manually (as opposed to on file open).
+Should we maybe track manual link up status and keep
+persistent device up on userspace disconnect?
 
-Thanks!
 
-Jiri
+> -- 
+> 2.7.4
