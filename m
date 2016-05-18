@@ -1,77 +1,71 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
-Date: Wed, 18 May 2016 11:21:29 +0200
-Message-ID: <20160518112129.0472b5dc@redhat.com>
-References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
-	<20160516070012-mutt-send-email-mst@redhat.com>
-	<57397C2B.7000603@redhat.com>
-	<20160516105434-mutt-send-email-mst@redhat.com>
-	<573A761D.8080909@redhat.com>
-	<20160518101631.368e3447@redhat.com>
-	<20160518112045-mutt-send-email-mst@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RESEND PATCH v6 0/6] Add Ethernet support on STM32F429
+Date: Wed, 18 May 2016 11:31:17 +0200
+Message-ID: <2535270.dCFPoM2olB@wuerfel>
+References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
+ <20160517.122527.1937360418899371800.davem@davemloft.net>
+ <CALszF6AE7jkRX3sSNm=PCvEmkmZM-Sv5LxFSj7J3vMbvi8M5Cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160518112045-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ Kevin Hilman <khilman@kernel.org>, netdev@vger.kernel.org,
+ Joachim Eastwood <manabian@gmail.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Chen-Yu Tsai <wens@csie.org>, Alexandre Torgue <alexandre.torgue@gmail.com>,
+ Olof Johansson <olof@lixom.net>, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Maxime Coquelin <mcoquelin.stm32@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CALszF6AE7jkRX3sSNm=PCvEmkmZM-Sv5LxFSj7J3vMbvi8M5Cg@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 May 2016 11:21:59 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
-
-> On Wed, May 18, 2016 at 10:16:31AM +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > On Tue, 17 May 2016 09:38:37 +0800 Jason Wang <jasowang@redhat.com> wrote:
-> >   
-> > > >> And if tx_queue_length is not power of 2,
-> > > >> we probably need modulus to calculate the capacity.    
-> > > > Is that really that important for speed?    
-> > > 
-> > > Not sure, I can test.  
-> > 
-> > In my experience, yes, adding a modulus does affect performance.  
+On Wednesday 18 May 2016 09:48:53 Maxime Coquelin wrote:
+> 2016-05-17 18:25 GMT+02:00 David Miller <davem@davemloft.net>:
+> > From: Maxime Coquelin <mcoquelin.stm32@gmail.com>
+> > Date: Tue, 17 May 2016 11:20:16 +0200
+> >
+> >> Hi David,
+> >>
+> >> 2016-05-09 21:06 GMT+02:00 David Miller <davem@davemloft.net>:
+> >>> From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+> >>> Date: Mon,  9 May 2016 12:31:33 +0200
+> >>>
+> >>>> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+> >>>> This series:
+> >>>>  -enhance current stmmac driver to control it (code already
+> >>>> available) and adds basic glue for STM32F429 chip.
+> >>>>  -Enable basic Net config in kernel.
+> >>>
+> >>> I assume this will go via the ARM tree, for the networking bits:
+> >> I would expect patches 1, 2 & 3 to got via your tree, to avoid conflicts.
+> >
+> > I don't think putting them all via the ARM tree is going to create much
+> > in the way of conflicts, and right now during the merge window offloading
+> > that work from me would really help my backlog a lot.
 > 
-> How about simple
-> 	if (unlikely(++idx > size))
-> 		idx = 0;
-
-So, you are exchanging an AND-operation with a mask, for a
-branch-operation.  If the branch predictor is good enough in the CPU
-and code-"size" use-case, then I could be just as fast.
-
-I've actually played with a lot of different approaches:
- https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/include/linux/alf_queue_helpers.h
-
-I cannot remember the exact results. I do remember micro benchmarking
-showed good results with the advanced "unroll" approach, but IPv4
-forwarding, where I know I-cache is getting evicted, showed best
-results with the more simpler implementations.
-
-
-> > > 
-> > > Right, this sounds a good solution.  
-> > 
-> > Good idea.  
+> Ok, I understand this is not the best time to pick it.
 > 
-> I'm not that sure - it's clearly wasting memory.
+> Arnd, Olof & Kevin, would you accept to pick the series in your tree?
+> 
 
-Rounding up to power of two.  In this case I don't think the memory
-wast is too high.  As we are talking about max 16 bytes elements.
+It's too late for v4.7 for us too, please pick up the arch/arm patches
+in your normal stm32 tree and send them to us along with any other changes
+you may have, and resend the driver by itself to netdev time after the
+merge window.
 
-I am concerned about memory in another way. We need to keep these
-arrays/rings small, due to data cache usage.  A 4096 ring queue is bad
-because e.g. 16*4096=65536 bytes, and typical L1 cache is 32K-64K. As
-this is a circular buffer, we walk over this memory all the time, thus
-evicting the L1 cache.
+The binding document can go either way, with the dts changes or with
+the driver. I see no dependencies between the patches, so we just need
+to land them all in v4.8.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+	Arnd
