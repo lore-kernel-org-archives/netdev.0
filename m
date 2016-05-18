@@ -1,39 +1,41 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH] wifi: ath6kl: simplify logical condition
-Date: Wed, 18 May 2016 02:24:17 +0200
-Message-ID: <1463531057-12917-1-git-send-email-xypron.glpk@gmx.de>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:50560 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752116AbcERAYa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2016 20:24:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: QRTR merge conflict resolution
+Date: Wed, 18 May 2016 10:43:20 +1000
+Message-ID: <20160518104320.23ae8557@canb.auug.org.au>
+References: <20160510183934.GJ1256@tuxbot>
+	<2606282.lG9qK7uBW0@wuerfel>
+	<20160513221909.GC1256@tuxbot>
+	<20160517.141154.1511755950068252376.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bjorn.andersson@linaro.org, arnd@arndb.de,
+	linux-arm-kernel@lists.infradead.org, andy.gross@linaro.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, olof@lixom.net
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160517.141154.1511755950068252376.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-x <= 7 implies x < 8.
+Hi David,
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
----
- drivers/net/wireless/ath/ath6kl/wmi.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On Tue, 17 May 2016 14:11:54 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>
+> From: Bjorn Andersson <bjorn.andersson@linaro.org>
+> Date: Fri, 13 May 2016 15:19:09 -0700
+> 
+> > I have prepared the merge of net-next and the conflicting tag from the
+> > Qualcomm SOC, please include this in your pull towards Linus to avoid
+> > the merge conflict.  
+> 
+> Pulled, thanks.
 
-diff --git a/drivers/net/wireless/ath/ath6kl/wmi.c b/drivers/net/wireless/ath/ath6kl/wmi.c
-index 631c3a0..b8cf04d 100644
---- a/drivers/net/wireless/ath/ath6kl/wmi.c
-+++ b/drivers/net/wireless/ath/ath6kl/wmi.c
-@@ -2544,8 +2544,7 @@ int ath6kl_wmi_create_pstream_cmd(struct wmi *wmi, u8 if_idx,
- 	s32 nominal_phy = 0;
- 	int ret;
- 
--	if (!((params->user_pri < 8) &&
--	      (params->user_pri <= 0x7) &&
-+	if (!((params->user_pri <= 0x7) &&
- 	      (up_to_ac[params->user_pri & 0x7] == params->traffic_class) &&
- 	      (params->traffic_direc == UPLINK_TRAFFIC ||
- 	       params->traffic_direc == DNLINK_TRAFFIC ||
+Except in the merge resolution, the 2 new functions added to
+include/linux/soc/qcom/smd.h (qcom_smd_get_drvdata and
+qcom_smd_set_drvdata) were not marked "static inline" :-(
+
 -- 
-2.1.4
+Cheers,
+Stephen Rothwell
