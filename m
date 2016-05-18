@@ -1,101 +1,44 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH next-queue] ixgbe: netdev->vlan_features shouldn't have the vlan related flag
-Date: Wed, 18 May 2016 16:55:28 +0800
-Message-ID: <f27abd7ea63660b4f9ba880af16c8395fd340668.1463561728.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>
-To: network dev <netdev@vger.kernel.org>,
-	intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36765 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752621AbcERIzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 04:55:33 -0400
-Received: by mail-pf0-f195.google.com with SMTP id g132so4433294pfb.3
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 01:55:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 1/1] brcm80211: simplify assignment
+Date: Wed, 18 May 2016 11:02:51 +0200
+Message-ID: <573C2FBB.2010809@broadcom.com>
+References: <1463533033-13336-1-git-send-email-xypron.glpk@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463533033-13336-1-git-send-email-xypron.glpk@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-vlan_features is used to set the vlan_dev->features when we create
-a vlan device. it shouldn't have the vlan related flag, like
-NETIF_F_HW_VLAN_CTAG_FILTER, which will cause vlan_dev create fail.
-the call trace is as follow:
+On 18-5-2016 2:57, Heinrich Schuchardt wrote:
+> Simplify assignment in wlc_phy_rxcal_gainctrl_nphy_rev5.
 
-[ 5604.264429] Call Trace:
-[ 5604.278980]  [<ffffffff8133ef0f>] dump_stack+0x63/0x84
-[ 5604.341499]  [<ffffffff810883c1>] __warn+0xd1/0xf0
-[ 5604.382004]  [<ffffffff8108843f>] warn_slowpath_fmt+0x5f/0x80
-[ 5604.454602]  [<ffffffff81354359>] ? find_next_bit+0x19/0x20
-[ 5604.541940]  [<ffffffff815a93d2>] register_netdevice+0x3c2/0x490
-[ 5604.631744]  [<ffffffffa048bb43>] register_vlan_dev+0x133/0x290 [8021q]
-[ 5604.710346]  [<ffffffffa048d44c>] vlan_newlink+0xbc/0xf0 [8021q]
-[ 5604.789945]  [<ffffffff815b8e22>] rtnl_newlink+0x6c2/0x880
-[ 5604.854000]  [<ffffffff8136ab93>] ? nla_parse+0xa3/0x100
-[ 5604.889974]  [<ffffffff815b88bc>] ? rtnl_newlink+0x15c/0x880
-[ 5604.951987]  [<ffffffff815b61b4>] rtnetlink_rcv_msg+0xa4/0x240
-[ 5605.017614]  [<ffffffff812c4390>] ? sock_has_perm+0x70/0x90
-[ 5605.083120]  [<ffffffff81590b8d>] ? __alloc_skb+0x8d/0x2b0
-[ 5605.147939]  [<ffffffff815b6110>] ? rtnetlink_rcv+0x30/0x30
-[ 5605.194973]  [<ffffffff815d9d77>] netlink_rcv_skb+0xa7/0xc0
-[ 5605.246380]  [<ffffffff815b6108>] rtnetlink_rcv+0x28/0x30
-[ 5605.308998]  [<ffffffff815d9728>] netlink_unicast+0x178/0x240
-[ 5605.375020]  [<ffffffff815d9b1e>] netlink_sendmsg+0x32e/0x3b0
-[ 5605.463066]  [<ffffffff81587b68>] sock_sendmsg+0x38/0x50
-[ 5605.523910]  [<ffffffff815884b9>] ___sys_sendmsg+0x279/0x290
-[ 5605.574178]  [<ffffffff8118d172>] ? filemap_map_pages+0x252/0x2d0
-[ 5605.675281]  [<ffffffff81206005>] ? mem_cgroup_commit_charge+0x85/0x100
-[ 5605.748882]  [<ffffffff81588ec4>] __sys_sendmsg+0x54/0x90
-[ 5605.811931]  [<ffffffff81588f12>] SyS_sendmsg+0x12/0x20
-[ 5605.873955]  [<ffffffff81003b12>] do_syscall_64+0x62/0x110
-[ 5605.931006]  [<ffffffff816b62a1>] entry_SYSCALL64_slow_path+0x25/0x25
-[ 5606.012017] ---[ end trace 11d7fa6a696c0c02 ]---
-
-it's from register_netdevice:
-
-	if (((dev->hw_features | dev->features) &
-	     NETIF_F_HW_VLAN_CTAG_FILTER) &&
-	    (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
-	     !dev->netdev_ops->ndo_vlan_rx_kill_vid)) {
-		netdev_WARN(dev, "Buggy VLAN acceleration in driver!\n");
-		ret = -EINVAL;
-		goto err_uninit;
-	}
-
-the reason is vlan dev's features has NETIF_F_HW_VLAN_CTAG_FILTER flag,
-but no ndo_vlan_rx_add_vid nor ndo_vlan_rx_kill_vid.
-
-we will fix it by put setting netdev->features' vlan related flags behind
-using features to set netdev->vlan_features.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d08fbcf..38974ba 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9508,15 +9508,15 @@ skip_sriov:
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
-+	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
-+	netdev->hw_enc_features |= netdev->vlan_features;
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+
- 	/* set this bit last since it cannot be part of vlan_features */
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
- 			    NETIF_F_HW_VLAN_CTAG_RX |
- 			    NETIF_F_HW_VLAN_CTAG_TX;
- 
--	netdev->vlan_features |= netdev->features | NETIF_F_TSO_MANGLEID;
--	netdev->hw_enc_features |= netdev->vlan_features;
--	netdev->mpls_features |= NETIF_F_HW_CSUM;
--
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
- 
--- 
-2.1.0
+Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> ---
+>  drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
+> index 99dac9b..b3aab2f 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c
+> @@ -27017,7 +27017,7 @@ wlc_phy_rxcal_gainctrl_nphy_rev5(struct brcms_phy *pi, u8 rx_core,
+>  		tx_core = 1 - rx_core;
+>  
+>  	num_samps = 1024;
+> -	desired_log2_pwr = (cal_type == 0) ? 13 : 13;
+> +	desired_log2_pwr = 13;
+>  
+>  	wlc_phy_rx_iq_coeffs_nphy(pi, 0, &save_comp);
+>  	zero_comp.a0 = zero_comp.b0 = zero_comp.a1 = zero_comp.b1 = 0x0;
+> 
