@@ -1,59 +1,67 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -master] f_bpf: fix filling of handle when no further arg is provided
-Date: Wed, 18 May 2016 11:58:41 +0200
-Message-ID: <55bce23c05c03def46a6b5fd385766bcd5351dd7.1463565059.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41091 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667AbcERJ6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 05:58:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH 1/2] ip6_gre: Fix MTU setting for ip6gretap
+Date: Wed, 18 May 2016 18:05:51 +0800
+Message-ID: <1463565952-8781-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We need to fill handle when provided by the user, even if no further
-argument is provided. Thus, move the test for arg to the correct location,
-so that it works correctly:
+When creat an ip6gretap interface with an unreachable route,
+the MTU is about 14 bytes larger than what was needed.
 
-  # tc filter show dev foo egress
-  filter protocol all pref 1 bpf
-  filter protocol all pref 1 bpf handle 0x1 bpf.o:[classifier] direct-action
-  filter protocol all pref 1 bpf handle 0x2 bpf.o:[classifier] direct-action
-  # tc filter del dev foo egress prio 1 handle 2 bpf
-  # tc filter show dev foo egress
-  filter protocol all pref 1 bpf
-  filter protocol all pref 1 bpf handle 0x1 bpf.o:[classifier] direct-action
+If the remote address is reachable:
+ping6 2001:0:130::1 -c 2
+PING 2001:0:130::1(2001:0:130::1) 56 data bytes
+64 bytes from 2001:0:130::1: icmp_seq=1 ttl=64 time=1.46 ms
+64 bytes from 2001:0:130::1: icmp_seq=2 ttl=64 time=81.1 ms
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+--- 2001:0:130::1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 1.465/41.316/81.167/39.851 ms
+
+ip link add ip6gretap1 type ip6gretap\
+ local 2001:0:130::2 remote 2001:0:130::1
+ip link show ip6gretap1
+11: ip6gretap1@NONE: <BROADCAST,MULTICAST> mtu 1434 ...
+    link/ether c2:f3:f8:c1:2c:bf brd ff:ff:ff:ff:ff:ff
+
+The MTU value 1434 is right. But if we delete the direct route:
+ip -6 route del 2001:0:130::/64
+ping6 2001:0:130::1 -c 2
+connect: Network is unreachable
+ip link add ip6gretap1 type ip6gretap\
+ local 2001:0:130::2 remote 2001:0:130::1
+ip link show ip6gretap1
+12: ip6gretap1@NONE: <BROADCAST,MULTICAST> mtu 1448 ...
+    link/ether 7e:e1:d2:c4:06:5e brd ff:ff:ff:ff:ff:ff
+
+Now, the MTU value 1448 is larger than what was needed.
+
+This patch fix the issue in this situation.
+
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 ---
- tc/f_bpf.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/ipv6/ip6_gre.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/tc/f_bpf.c b/tc/f_bpf.c
-index afc2e58..5c97c86 100644
---- a/tc/f_bpf.c
-+++ b/tc/f_bpf.c
-@@ -71,9 +71,6 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
- 	struct rtattr *tail;
- 	int ret = 0;
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 4541fa5..8ea5a4d 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1029,6 +1029,8 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
  
--	if (argc == 0)
--		return 0;
--
- 	if (handle) {
- 		if (get_u32(&t->tcm_handle, handle, 0)) {
- 			fprintf(stderr, "Illegal \"handle\"\n");
-@@ -81,6 +78,9 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
- 		}
- 	}
- 
-+	if (argc == 0)
-+		return 0;
-+
- 	tail = (struct rtattr *)(((void *)n) + NLMSG_ALIGN(n->nlmsg_len));
- 	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
+ 	dev->hard_header_len = LL_MAX_HEADER + t_hlen;
+ 	dev->mtu = ETH_DATA_LEN - t_hlen;
++	if (dev->type == ARPHRD_ETHER)
++		dev->mtu -= ETH_HLEN;
+ 	if (!(tunnel->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+ 		dev->mtu -= 8;
  
 -- 
-1.9.3
+1.8.3.1
