@@ -1,54 +1,54 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH 1/1] rtlwifi: rtl8723be: avoid undefined behavior
-Date: Wed, 18 May 2016 07:12:08 -0500
-Message-ID: <573C5C18.8030300@lwfinger.net>
-References: <1463525183-11483-1-git-send-email-xypron.glpk@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1463525183-11483-1-git-send-email-xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: rather use get_random_int for randomizations
+Date: Wed, 18 May 2016 14:14:28 +0200
+Message-ID: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
+Cc: hannes@stressinduktion.org, alexei.starovoitov@gmail.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57807 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbcERMOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 08:14:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/17/2016 05:46 PM, Heinrich Schuchardt wrote:
-> Do not return undefined value for transmission power
-> if the rate is invalid.
->
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
-> ---
->   drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
-> index 445f681..c5ca9df 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
-> @@ -1019,7 +1019,7 @@ static u8 _rtl8723be_get_txpower_index(struct ieee80211_hw *hw, u8 path,
->   	struct rtl_priv *rtlpriv = rtl_priv(hw);
->   	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
->   	u8 index = (channel - 1);
-> -	u8 txpower;
-> +	u8 txpower = 0;
->   	u8 power_diff_byrate = 0;
->
->   	if (channel > 14 || channel < 1) {
+Start address randomization and blinding in BPF currently use
+prandom_u32(). prandom_u32() values are not exposed to unpriviledged
+user space to my knowledge, but given other kernel facilities such as
+ASLR, stack canaries, etc make use of stronger get_random_int(), we
+better make use of it here as well given blinding requests successively
+new random values. get_random_int() has minimal entropy pool depletion,
+is not cryptographically secure, but doesn't need to be for our use
+cases here.
 
-Did gcc give you a warning about this variable not being initialized? Mine does 
-not. In any case, this change is appropriate.
+Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/bpf/core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-
-Thanks,
-
-Larry
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index f1e8a0d..b94a365 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -231,7 +231,7 @@ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
+ 	hdr->pages = size / PAGE_SIZE;
+ 	hole = min_t(unsigned int, size - (proglen + sizeof(*hdr)),
+ 		     PAGE_SIZE - sizeof(*hdr));
+-	start = (prandom_u32() % hole) & ~(alignment - 1);
++	start = (get_random_int() % hole) & ~(alignment - 1);
+ 
+ 	/* Leave a random number of instructions before BPF code. */
+ 	*image_ptr = &hdr->image[start];
+@@ -251,7 +251,7 @@ static int bpf_jit_blind_insn(const struct bpf_insn *from,
+ 			      struct bpf_insn *to_buff)
+ {
+ 	struct bpf_insn *to = to_buff;
+-	u32 imm_rnd = prandom_u32();
++	u32 imm_rnd = get_random_int();
+ 	s16 off;
+ 
+ 	BUILD_BUG_ON(BPF_REG_AX  + 1 != MAX_BPF_JIT_REG);
+-- 
+1.9.3
