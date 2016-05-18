@@ -1,49 +1,31 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net 1/2] RDS: TCP: rds_tcp_accept_worker() must exit gracefully when terminating rds-tcp
-Date: Wed, 18 May 2016 10:06:23 -0700
-Message-ID: <73ccad462f8f54dfa9c71576c3f5d48ea2b1dc12.1463579486.git.sowmini.varadhan@oracle.com>
-References: <cover.1463579486.git.sowmini.varadhan@oracle.com>
-Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, sowmini.varadhan@oracle.com,
-	santosh.shilimkar@oracle.com
-To: netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] fou: avoid using sk_user_data before it is initialised
+Date: Wed, 18 May 2016 10:07:13 -0700
+Message-ID: <CAM_iQpWJ1BXk9wSypFSacVbHtF2xUEscYByD=qp56rO_5bXAeA@mail.gmail.com>
+References: <1463560216-26616-1-git-send-email-simon.horman@netronome.com> <CALx6S35yHpUk2NQe+JAUYcY7mMBLWRuy75egsDCCB3dmhrC1Ng@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Simon Horman <simon.horman@netronome.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38440 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932251AbcERRG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:06:56 -0400
-In-Reply-To: <cover.1463579486.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1463579486.git.sowmini.varadhan@oracle.com>
-References: <cover.1463579486.git.sowmini.varadhan@oracle.com>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:36387 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932264AbcERRHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:07:34 -0400
+Received: by mail-yw0-f196.google.com with SMTP id u62so7400871ywe.3
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 10:07:34 -0700 (PDT)
+In-Reply-To: <CALx6S35yHpUk2NQe+JAUYcY7mMBLWRuy75egsDCCB3dmhrC1Ng@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two instances where we want to terminate RDS-TCP: when
-exiting the netns or during module unload. In either case, the
-termination sequence is to stop the listen socket, mark the
-rtn->rds_tcp_listen_sock as null, and flush any accept workqs.
-Thus any workqs that get flushed at this point will encounter a
-null rds_tcp_listen_sock, and must exit gracefully to allow
-the RDS-TCP termination to complete successfully.
+On Wed, May 18, 2016 at 9:30 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Wed, May 18, 2016 at 1:30 AM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+>> During initialisation sk->sk_user_data should be initialised before
+>> it is referenced via a call to gue_encap_init().
+>>
+> I think this is should be fixed by proposed patch "fou:
+> Call-setup_udp_tunnel_sock".
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/tcp_listen.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
-index be263cd..e10b422 100644
---- a/net/rds/tcp_listen.c
-+++ b/net/rds/tcp_listen.c
-@@ -80,6 +80,9 @@ int rds_tcp_accept_one(struct socket *sock)
- 	int conn_state;
- 	struct sock *nsk;
- 
-+	if (!sock) /* module unload or netns delete in progress */
-+		return -ENETUNREACH;
-+
- 	ret = sock_create_kern(sock_net(sock->sk), sock->sk->sk_family,
- 			       sock->sk->sk_type, sock->sk->sk_protocol,
- 			       &new_sock);
--- 
-1.7.1
+That is 6/16, do you have a fix for stable to backport?
