@@ -1,68 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Make TCP work better with re-ordered frames?
-Date: Wed, 18 May 2016 08:25:33 -0700
-Message-ID: <1463585133.18194.119.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <573C758E.9050008@candelatech.com>
-	 <1463581760.18194.114.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <573C8547.3020709@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] net: suppress warnings on dev_alloc_skb
+Date: Wed, 18 May 2016 11:25:24 -0400
+Message-ID: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35619 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753149AbcERPZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:25:35 -0400
-Received: by mail-pf0-f179.google.com with SMTP id 77so19609871pfv.2
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 08:25:35 -0700 (PDT)
-In-Reply-To: <573C8547.3020709@candelatech.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52757 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753465AbcERPZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:25:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-18 at 08:07 -0700, Ben Greear wrote:
-> 
-> On 05/18/2016 07:29 AM, Eric Dumazet wrote:
-> > On Wed, 2016-05-18 at 07:00 -0700, Ben Greear wrote:
-> >> We are investigating a system that has fairly poor TCP throughput
-> >> with the 3.17 and 4.0 kernels, but evidently it worked pretty well
-> >> with 3.14 (I should be able to verify 3.14 later today).
-> >>
-> >> One thing I notice is that a UDP download test shows lots of reordered
-> >> frames, so I am thinking maybe TCP is running slow because of this.
-> >>
-> >> (We see about 800Mbps UDP download, but only 500Mbps TCP, even when
-> >>    using 100 concurrent TCP streams.)
-> >>
-> >> Is there some way to tune the TCP stack to better handle reordered frames?
-> >
-> > Nothing yet. Are you the sender or the receiver ?
-> >
-> > You really want to avoid reorders as much as possible.
-> >
-> > Are you telling us something broke in networking layers between 3.14 and
-> > 3.17 leadings to reorders ?
-> 
-> I am both sender and receiver, through an access-controller and wifi AP as DUT.
-> The sender is Intel 1G NIC, so I suspect it is not causing reordering, which
-> indicates most likely DUT is to blame.
-> 
-> Using several off-the-shelf APs in our lab we do not see this problem.
-> 
-> I am not certain yet what is the difference, but customer reports 600+Mbps
-> with their older code, and best I can get is around 500Mbps with newer stuff.
-> 
-> Lots of stuff changed though (ath10k firmware, user-space at least slightly,
-> kernel, etc), so possibly the regression is elsewhere.
-> 
+Noticed an allocation failure in a network driver the other day on a 32 bit
+system:
 
-You possibly could send me some pcap (limited to the headers, using -s
-128 for example) and limited to few flows, not the whole of them ;)
+DMA-API: debugging out of memory - disabling
+bnx2fc: adapter_lookup: hba NULL
+lldpad: page allocation failure. order:0, mode:0x4120
+Pid: 4556, comm: lldpad Not tainted 2.6.32-639.el6.i686.debug #1
+Call Trace:
+ [<c08a4086>] ? printk+0x19/0x23
+ [<c05166a4>] ? __alloc_pages_nodemask+0x664/0x830
+ [<c0649d02>] ? free_object+0x82/0xa0
+ [<fb4e2c9b>] ? ixgbe_alloc_rx_buffers+0x10b/0x1d0 [ixgbe]
+ [<fb4e2fff>] ? ixgbe_configure_rx_ring+0x29f/0x420 [ixgbe]
+ [<fb4e228c>] ? ixgbe_configure_tx_ring+0x15c/0x220 [ixgbe]
+ [<fb4e3709>] ? ixgbe_configure+0x589/0xc00 [ixgbe]
+ [<fb4e7be7>] ? ixgbe_open+0xa7/0x5c0 [ixgbe]
+ [<fb503ce6>] ? ixgbe_init_interrupt_scheme+0x5b6/0x970 [ixgbe]
+ [<fb4e8e54>] ? ixgbe_setup_tc+0x1a4/0x260 [ixgbe]
+ [<fb505a9f>] ? ixgbe_dcbnl_set_state+0x7f/0x90 [ixgbe]
+ [<c088d80d>] ? dcb_doit+0x10ed/0x16d0
+...
 
-TCP reorders are tricky for the receiver : It sends a lot of SACK (one
-for every incoming packet, instead of the normal rule of sending one ACK
-for two incoming packets)
+Thought that perhaps the big splat in the logs wasn't really necessecary, as
+all call sites for dev_alloc_skb:
 
-Increasing number of ACK might impact half-duplex networks, but also
-considerably increase cpu processing time.
+a) check the return code for the function
+
+and
+
+b) either print their own error message or have a recovery path that makes the
+warning moot.
+
+So, I added __GFP_NOWARN to the gfp_flags, to be added unless DEBUG was enabled,
+in which case getting the splat makes a bit more sense
+
+applies to the net tree
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ include/linux/skbuff.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 15d0df9..8e61fe7 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2452,6 +2452,10 @@ static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
+ 	 */
+ 	gfp_mask |= __GFP_COLD | __GFP_COMP | __GFP_MEMALLOC;
+ 
++#ifndef DEBUG
++	gfp_mask |= __GFP_NOWARN;
++#endif
++
+ 	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
+ }
+ 
+-- 
+2.5.5
