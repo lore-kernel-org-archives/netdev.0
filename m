@@ -1,33 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/4] scsi_tcp: block BH in TCP callbacks
-Date: Wed, 18 May 2016 14:48:02 -0700
-Message-ID: <1463608082.18194.143.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463532249-20850-1-git-send-email-edumazet@google.com>
-	 <1463532249-20850-2-git-send-email-edumazet@google.com>
-	 <573CD513.3090501@cs.wisc.edu>
+From: Jeff Kirsher <tarbal@gmail.com>
+Subject: Re: [PATCH v7 net-next 02/16] net: define gso types for IPx over
+ IPv4 and IPv6
+Date: Wed, 18 May 2016 15:03:24 -0700
+Message-ID: <1463609004.2713.81.camel@gmail.com>
+References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
+	 <1463587584-2315623-3-git-send-email-tom@herbertland.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Venkatesh Srinivas <venkateshs@google.com>
-To: Mike Christie <michaelc@cs.wisc.edu>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ppKgAYr7ioo9OZRV35nc"
+Cc: kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:36672 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669AbcERVsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 17:48:04 -0400
-Received: by mail-pf0-f182.google.com with SMTP id c189so23149470pfb.3
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 14:48:03 -0700 (PDT)
-In-Reply-To: <573CD513.3090501@cs.wisc.edu>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34786 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbcERWDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 18:03:32 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 145so6136323pfz.1
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 15:03:32 -0700 (PDT)
+In-Reply-To: <1463587584-2315623-3-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-18 at 15:48 -0500, Mike Christie wrote:
 
-> Reviewed and tested. Thanks
-> 
-> Acked-by: Mike Christie <michaelc@cs.wisc.edu>
+--=-ppKgAYr7ioo9OZRV35nc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
-Excellent, thanks Mike !
+T24gV2VkLCAyMDE2LTA1LTE4IGF0IDA5OjA2IC0wNzAwLCBUb20gSGVyYmVydCB3cm90ZToKPiBU
+aGlzIHBhdGNoIGRlZmluZXMgdHdvIG5ldyBHU08gZGVmaW5pdGlvbnMgU0tCX0dTT19JUFhJUDQg
+YW5kCj4gU0tCX0dTT19JUFhJUDYgYWxvbmcgd2l0aCBjb3JyZXNwb25kaW5nIE5FVElGX0ZfR1NP
+X0lQWElQNCBhbmQKPiBORVRJRl9GX0dTT19JUFhJUDYuIFRoZXNlIGFyZSB1c2VkIHRvIGRlc2Ny
+aWJlZCBJUCBpbiBJUAo+IHR1bm5lbCBhbmQgd2hhdCB0aGUgb3V0ZXIgcHJvdG9jb2wgaXMuIFRo
+ZSBpbm5lciBwcm90b2NvbAo+IGNhbiBiZSBkZWR1Y2VkIGZyb20gb3RoZXIgR1NPIHR5cGVzIChl
+LmcuIFNLQl9HU09fVENQVjQgYW5kCj4gU0tCX0dTT19UQ1BWNikuIFRoZSBHU08gdHlwZXMgb2Yg
+U0tCX0dTT19JUElQIGFuZCBTS0JfR1NPX1NJVAo+IGFyZSByZW1vdmVkICh0aGVzZSBhcmUgYm90
+aCBpbnN0YW5jZXMgb2YgU0tCX0dTT19JUFhJUDQpLgo+IFNLQl9HU09fSVBYSVA2IHdpbGwgYmUg
+dXNlZCB3aGVuIHN1cHBvcnQgZm9yIEdTTyB3aXRoIElQCj4gZW5jYXBzdWxhdGlvbiBvdmVyIElQ
+djYgaXMgYWRkZWQuCj4gCj4gU2lnbmVkLW9mZi1ieTogVG9tIEhlcmJlcnQgPHRvbUBoZXJiZXJ0
+bGFuZC5jb20+CgpBY2tlZC1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRl
+bC5jb20+CkZvciB0aGUgSW50ZWwgRXRoZXJuZXQgZHJpdmVyIGNoYW5nZXMuLi4KCj4gLS0tCj4g
+wqBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmPCoCB8wqAg
+NSArKy0tLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54dC9ibnh0LmPCoMKg
+wqDCoMKgwqDCoMKgIHzCoCA1ICsrLS0tCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
+NDBlL2k0MGVfbWFpbi5jwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguY8KgwqDCoMKgwqDCoCB8wqAgMyArLS0KPiDCoGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGV2Zi9pNDBlX3R4cnguY8KgwqDCoMKgIHzCoCAz
+ICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGV2Zl9tYWluLmPC
+oMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWlu
+LmPCoMKgwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
+ZWwvaWdidmYvbmV0ZGV2LmPCoMKgwqDCoMKgwqDCoMKgIHzCoCAzICstLQo+IMKgZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jwqDCoMKgwqAgfMKgIDMgKy0tCj4g
+wqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jIHzCoCAz
+ICstLQo+IMKgaW5jbHVkZS9saW51eC9uZXRkZXZfZmVhdHVyZXMuaMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoCB8IDEyICsrKysrKy0tLS0tLQo+IMKgaW5jbHVkZS9saW51eC9u
+ZXRkZXZpY2UuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oCB8wqAgNCArKy0tCj4gwqBpbmNsdWRlL2xpbnV4L3NrYnVmZi5owqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHzCoCA0ICsrLS0KPiDCoG5ldC9j
+b3JlL2V0aHRvb2wuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgIHzCoCA0ICsrLS0KPiDCoG5ldC9pcHY0L2FmX2luZXQuY8KgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+IHzCoCAyICstCj4gwqBuZXQvaXB2NC9pcGlwLmPCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8wqAgMiArLQo+IMKgbmV0
+L2lwdjYvaXA2X29mZmxvYWQuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoCB8wqAgNCArKy0tCj4gwqBuZXQvaXB2Ni9zaXQuY8KgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqAgfMKgIDQgKystLQo+IMKgbmV0L25ldGZpbHRlci9pcHZzL2lwX3ZzX3htaXQuY8KgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IDE3ICsrKysrKystLS0tLS0tLS0tCj4gwqAx
+OSBmaWxlcyBjaGFuZ2VkLCAzNyBpbnNlcnRpb25zKCspLCA1MCBkZWxldGlvbnMoLSkK
+
+
+--=-ppKgAYr7ioo9OZRV35nc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXPOasAAoJEOVv75VaS+3Opy4P/ih+6LJcsSDpeABIuNPihN+d
+LeL8gYR2BDQ7eailtV6l1gVRmwLmwzM02qYpdL5UaEWf2Z8EzMPaOjOvHap0QcDx
+WEokN43Rz0xywJBiV+2m7fSyYvfMOYx0U7VntkYwjd/ZqRAQ/mcZz5DcT5VX9kuL
+PEtXuhASzf/bf/AL8GaDJs1ojO8Yc5YVnz0z8auFqQiu64ey7NBIdKUEbks1VPJm
+xLW/8p53MPElH8mJ9aibrOJAHBwvfMGXc3k0/YXkOIuCm4i5U8++xCeeovK6PqNx
+gaU4SEMa++6XyLmBh/6iC0TJy0Q6RQ8uFOqBoZ6uwwJUpx/mXBS48GYlgHjHJ/uj
+pUYq+v2QFqGG3xf6UOvHE6umUiy+BJSDVgOb/+SypNKrLjsilPcgUiu5cYFWFxjM
+f7wqZ5NwztFIqhJerubXGtv4OVO+7omXXQgjuQUohKAVz8uBlabIb7YP5z3abocg
+lR99tEH2bUSZKTou4jY0b/gUlAaKSZRlgW4EUE2yI+f8MJvZEggPiP5eYLPHTKhc
+xvR2/7FulQ6dMK2Whu9qqEIaNCmxlIrchfLOPnAcUgj2fwQUvzMIo0glJND4WR2h
+bQz1xw9gF01VAL/48oKEr4V7Hm0ZsSGXTd8f71k9P9u+dBXcTwq1odxlUc5yI6V2
+SdhKUAUTneDOx6dXzgZ/
+=JjBb
+-----END PGP SIGNATURE-----
+
+--=-ppKgAYr7ioo9OZRV35nc--
