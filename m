@@ -1,72 +1,127 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Wed, 18 May 2016 16:21:37 +0930
-Message-ID: <20160518065137.GJ27564@marvin.atrad.com.au>
-References: <20151120024616.GL7136@marvin.atrad.com.au>
- <20151120224534.GA25025@electric-eye.fr.zoreil.com>
- <20151121223627.GA3493@electric-eye.fr.zoreil.com>
- <20151122225039.GE2957@marvin.atrad.com.au>
- <20151122230244.GA12249@electric-eye.fr.zoreil.com>
- <20151130064255.GL5537@marvin.atrad.com.au>
- <20151201235852.GA16429@electric-eye.fr.zoreil.com>
- <20160208023318.GJ9174@marvin.atrad.com.au>
- <20160407024417.GE17921@marvin.atrad.com.au>
- <20160517065231.GO30050@marvin.atrad.com.au>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: Crashes in -next due to 'phy: add support for a reset-gpio
+ specification'
+Date: Tue, 17 May 2016 23:52:34 -0700
+Message-ID: <573C1132.8080000@roeck-us.net>
+References: <573BF177.6090507@roeck-us.net> <573BF731.4090002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:35975 "EHLO
-	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925AbcERGvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 02:51:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20160517065231.GO30050@marvin.atrad.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <573BF731.4090002@gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 07, 2016 at 12:14:18PM +0930, Jonathan Woithe wrote:
-> On Mon, Feb 08, 2016 at 01:03:19PM +1030, Jonathan Woithe wrote:
-> > On Wed, Dec 02, 2015 at 12:58:52AM +0100, Francois Romieu wrote:
-> > > Jonathan Woithe <jwoithe@atrad.com.au> :
-> > > [...]
-> > > > Any thoughts or progress at this stage?  Are there further tests you need me
-> > > > to do ?
-> > > 
-> > > Yes but you should expect two more days without signal.
-> > 
-> > FYI I am now back from annual leave and linux.conf.au.  This means I am in
-> > a position to test possible solutions to this problem once you are able to
-> > make them available.
-> 
-> Has there been any further progress on this problem?  I still have access to
-> the hardware and systems if further tests are required.
+On 05/17/2016 10:01 PM, Florian Fainelli wrote:
+> Le 17/05/2016 21:37, Guenter Roeck a =C3=A9crit :
+>> Hi,
+>>
+>> my xtensa qemu tests crash in -next as follows.
+>>
+>> [ ... ]
+>>
+>> [    9.366256] libphy: ethoc-mdio: probed
+>> [    9.367389]  (null): could not attach to PHY
+>> [    9.368555]  (null): failed to probe MDIO bus
+>> [    9.371540] Unable to handle kernel paging request at virtual add=
+ress
+>> 0000001c
+>> [    9.371540]  pc =3D d0320926, ra =3D 903209d1
+>> [    9.375358] Oops: sig: 11 [#1]
+>> [    9.376081] PREEMPT
+>> [    9.377080] CPU: 0 PID: 1 Comm: swapper Not tainted
+>> 4.6.0-next-20160517 #1
+>> [    9.378397] task: d7c2c000 ti: d7c30000 task.ti: d7c30000
+>> [    9.379394] a00: 903209d1 d7c31bd0 d7fb5810 00000001 00000000
+>> 00000000 d7f45c00 d7c31bd0
+>> [    9.382298] a08: 00000000 00000000 00000000 00000000 00060100
+>> d04b0c10 d7f45dfc d7c31bb0
+>> [    9.385732] pc: d0320926, ps: 00060110, depc: 00000018, excvaddr:
+>> 0000001c
+>> [    9.387061] lbeg: d0322e35, lend: d0322e57 lcount: 00000000, sar:
+>> 00000011
+>> [    9.388173]
+>> Stack: d7c31be0 00060700 d7f45c00 d7c31bd0 9021d509 d7c31c30 d7f45c0=
+0
+>> 00000000
+>>         d0485dcc d0485dcc d7fb5810 d7c2c000 00000000 d7c31c30 d7f45c=
+00
+>> d025befc
+>>         d0485dcc d7c30000 d7f45c34 d7c31bf0 9021c985 d7c31c50 d7f45c=
+00
+>> d7f45c34
+>> [    9.396652] Call Trace:
+>> [    9.397469]  [<d021d4d9>] __device_release_driver+0x7d/0x98
+>> [    9.398869]  [<d021d509>] device_release_driver+0x15/0x20
+>> [    9.400247]  [<d021c985>] bus_remove_device+0xc1/0xd4
+>> [    9.401569]  [<d021a935>] device_del+0x109/0x15c
+>> [    9.402794]  [<d025c3f9>] phy_mdio_device_remove+0xd/0x18
+>> [    9.404124]  [<d025d264>] mdiobus_unregister+0x40/0x5c
+>> [    9.405444]  [<d025ff44>] ethoc_probe+0x534/0x5b8
+>> [    9.406742]  [<d021e2e0>] platform_drv_probe+0x28/0x48
+>> [    9.408122]  [<d021d1e5>] driver_probe_device+0x101/0x234
+>> [    9.409499]  [<d021d395>] __driver_attach+0x7d/0x98
+>> [    9.410809]  [<d021bd80>] bus_for_each_dev+0x30/0x5c
+>> [    9.412104]  [<d021cdf0>] driver_attach+0x14/0x18
+>> [    9.413385]  [<d021ca61>] bus_add_driver+0xc9/0x198
+>> [    9.414686]  [<d021d7d4>] driver_register+0x70/0xa0
+>> [    9.416001]  [<d021e2b4>] __platform_driver_register+0x24/0x28
+>> [    9.417463]  [<d04a1d34>] ethoc_driver_init+0x10/0x14
+>> [    9.418824]  [<d00032c8>] do_one_initcall+0x80/0x1ac
+>> [    9.420083]  [<d049386d>] kernel_init_freeable+0x131/0x198
+>> [    9.421504]  [<d03236e8>] kernel_init+0xc/0xb0
+>> [    9.422693]  [<d000482c>] ret_from_kernel_thread+0x8/0xc
+>>
+>> Bisect points to commit da47b4572056 ("phy: add support for a reset-=
+gpio
+>> specification").
+>> Bisect log is attached. Reverting the patch fixes the problem.
+>
+> Aside from what you pointed out, this patch was still in dicussion wh=
+en
+> it got merged, since we got a concurrent patch from Sergei which trie=
+s
+> to deal with the same kind of problem.
+>
+> Do you mind sending a revert, or I can do that first thing in the mor=
+ning.
+>
+>>
+>> I think there may be a number of problems, all of them exposed by th=
+e patch
+>> but really separate.
+>>
+>> GPIOLIB is not configured in my test case, meaning gpiod_get_optiona=
+l()
+>> returns -ENOSYS, and phy_probe() thus returns an error. Question her=
+e is if
+>> it is really appropriate for the XXX_optional() gpiolib functions to=
+ return
+>> an error if GPIOLIB is not configured. Either case, result is that p=
+retty
+>> much all phy registrations will now fail if GPIOLIB is not configure=
+d.
+>>
 
-To assist in picking up this issue I thought I'd summarise where things are
-at from my perspective.
+Coincidentally, turns out that Uwe had objected to having gpiod_get_opt=
+ional()
+return NULL if GPIOLIB is not configured [1], meaning gpiod_get_optiona=
+l()
+and friends are intentionally not really optional, and the patch breaks
+non-GPIOLIB configurations for good.
 
-The problem is that small low-speed UDP packets are being dropped by the
-r8169-based network card in our systems.  Git bisect showed that the
-regression started with commit da78dbff2e05630921c551dbbc70a4b7981a8fff.
+With that in mind, I agree, the patch should be reverted. It would be g=
+reat if
+you can do it; too late for me tonight.
 
-On 23 Nov 2015 Francois Romieu requested:
+Guenter
 
-> If you can crash your system at will, you may apply the patch below to
-> da78dbff2e05630921c551dbbc70a4b7981a8fff ("r8169: remove work from irq
-> handler.") parent (aka 1e874e041fc7c222cbd85b20c4406070be1f687a) and
-> build it in a current tree (say 4.2).
-
-I did this (in a 4.3 tree) and the regression was resolved.  Following the
-communuication on 2 Dec 2015 indicating there would be further news in a
-couple of days, I haven't head anything else on the subject.
-
-I am keen to resolve this problem as soon as possible as it will allow us to
-move systems away from the ancient 2.6 kernel we are currently forced to use
-as a result of this UDP regression (changing the network card for something
-based on another chipset is not an option).  If there are further tests
-needed to progress a fix please let me know as I still have an offline
-system I can use for testing.
-
-Regards
-  jonathan
+---
+[1] https://patchwork.ozlabs.org/patch/441801/
