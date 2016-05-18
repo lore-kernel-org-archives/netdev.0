@@ -1,225 +1,125 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v7 net-next 05/16] net: Cleanup encap items in ip_tunnels.h
-Date: Wed, 18 May 2016 09:06:13 -0700
-Message-ID: <1463587584-2315623-6-git-send-email-tom@herbertland.com>
+Subject: [PATCH v7 net-next 06/16] fou: Call setup_udp_tunnel_sock
+Date: Wed, 18 May 2016 09:06:14 -0700
+Message-ID: <1463587584-2315623-7-git-send-email-tom@herbertland.com>
 References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:15783 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35870 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932745AbcERQGl (ORCPT
+	by vger.kernel.org with ESMTP id S932747AbcERQGl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:06:41 -0400
 Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4IG2UPL005300
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4IG2UPN005300
 	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:40 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 230sbg0mv1-3
+	by mx0a-00082601.pphosted.com with ESMTP id 230sbg0mv1-5
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
 	for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:06:40 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 80d8b8a41d1211e689100002c99293a0-3fbf2c50 for <netdev@vger.kernel.org>;	Wed,
- 18 May 2016 09:06:39 -0700
+ 8172d0f61d1211e689100002c99293a0-3fbf2c50 for <netdev@vger.kernel.org>;	Wed,
+ 18 May 2016 09:06:40 -0700
 In-Reply-To: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consolidate all the ip_tunnel_encap definitions in one spot in the
-header file. Also, move ip_encap_hlen and ip_tunnel_encap from
-ip_tunnel.c to ip_tunnels.h so they call be called without a dependency
-on ip_tunnel module. Similarly, move iptun_encaps to ip_tunnel_core.c.
+Use helper function to set up UDP tunnel related information for a fou
+socket.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/ip_tunnels.h  | 76 ++++++++++++++++++++++++++++++++++++-----------
- net/ipv4/ip_tunnel.c      | 45 ----------------------------
- net/ipv4/ip_tunnel_core.c |  4 +++
- 3 files changed, 62 insertions(+), 63 deletions(-)
+ net/ipv4/fou.c | 50 ++++++++++++++++----------------------------------
+ 1 file changed, 16 insertions(+), 34 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index d916b43..dbf4444 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -171,22 +171,6 @@ struct ip_tunnel_net {
- 	struct ip_tunnel __rcu *collect_md_tun;
- };
- 
--struct ip_tunnel_encap_ops {
--	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
--	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
--			    u8 *protocol, struct flowi4 *fl4);
--};
--
--#define MAX_IPTUN_ENCAP_OPS 8
--
--extern const struct ip_tunnel_encap_ops __rcu *
--		iptun_encaps[MAX_IPTUN_ENCAP_OPS];
--
--int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *op,
--			    unsigned int num);
--int ip_tunnel_encap_del_ops(const struct ip_tunnel_encap_ops *op,
--			    unsigned int num);
--
- static inline void ip_tunnel_key_init(struct ip_tunnel_key *key,
- 				      __be32 saddr, __be32 daddr,
- 				      u8 tos, u8 ttl, __be32 label,
-@@ -251,8 +235,6 @@ void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
- void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		    const struct iphdr *tnl_params, const u8 protocol);
- int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd);
--int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
--		    u8 *protocol, struct flowi4 *fl4);
- int __ip_tunnel_change_mtu(struct net_device *dev, int new_mtu, bool strict);
- int ip_tunnel_change_mtu(struct net_device *dev, int new_mtu);
- 
-@@ -271,9 +253,67 @@ int ip_tunnel_changelink(struct net_device *dev, struct nlattr *tb[],
- int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
- 		      struct ip_tunnel_parm *p);
- void ip_tunnel_setup(struct net_device *dev, int net_id);
-+
-+struct ip_tunnel_encap_ops {
-+	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
-+	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
-+			    u8 *protocol, struct flowi4 *fl4);
-+};
-+
-+#define MAX_IPTUN_ENCAP_OPS 8
-+
-+extern const struct ip_tunnel_encap_ops __rcu *
-+		iptun_encaps[MAX_IPTUN_ENCAP_OPS];
-+
-+int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *op,
-+			    unsigned int num);
-+int ip_tunnel_encap_del_ops(const struct ip_tunnel_encap_ops *op,
-+			    unsigned int num);
-+
- int ip_tunnel_encap_setup(struct ip_tunnel *t,
- 			  struct ip_tunnel_encap *ipencap);
- 
-+static inline int ip_encap_hlen(struct ip_tunnel_encap *e)
-+{
-+	const struct ip_tunnel_encap_ops *ops;
-+	int hlen = -EINVAL;
-+
-+	if (e->type == TUNNEL_ENCAP_NONE)
-+		return 0;
-+
-+	if (e->type >= MAX_IPTUN_ENCAP_OPS)
-+		return -EINVAL;
-+
-+	rcu_read_lock();
-+	ops = rcu_dereference(iptun_encaps[e->type]);
-+	if (likely(ops && ops->encap_hlen))
-+		hlen = ops->encap_hlen(e);
-+	rcu_read_unlock();
-+
-+	return hlen;
-+}
-+
-+static inline int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
-+				  u8 *protocol, struct flowi4 *fl4)
-+{
-+	const struct ip_tunnel_encap_ops *ops;
-+	int ret = -EINVAL;
-+
-+	if (t->encap.type == TUNNEL_ENCAP_NONE)
-+		return 0;
-+
-+	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
-+		return -EINVAL;
-+
-+	rcu_read_lock();
-+	ops = rcu_dereference(iptun_encaps[t->encap.type]);
-+	if (likely(ops && ops->build_header))
-+		ret = ops->build_header(skb, &t->encap, protocol, fl4);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
- /* Extract dsfield from inner protocol */
- static inline u8 ip_tunnel_get_dsfield(const struct iphdr *iph,
- 				       const struct sk_buff *skb)
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index a69ed94..d8f5e0a 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -443,29 +443,6 @@ drop:
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index eeec7d6..6cbc725 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -448,31 +448,13 @@ static void fou_release(struct fou *fou)
+ 	kfree_rcu(fou, rcu);
  }
- EXPORT_SYMBOL_GPL(ip_tunnel_rcv);
  
--static int ip_encap_hlen(struct ip_tunnel_encap *e)
+-static int fou_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
 -{
--	const struct ip_tunnel_encap_ops *ops;
--	int hlen = -EINVAL;
+-	udp_sk(sk)->encap_rcv = fou_udp_recv;
+-	udp_sk(sk)->gro_receive = fou_gro_receive;
+-	udp_sk(sk)->gro_complete = fou_gro_complete;
+-	fou_from_sock(sk)->protocol = cfg->protocol;
 -
--	if (e->type == TUNNEL_ENCAP_NONE)
--		return 0;
--
--	if (e->type >= MAX_IPTUN_ENCAP_OPS)
--		return -EINVAL;
--
--	rcu_read_lock();
--	ops = rcu_dereference(iptun_encaps[e->type]);
--	if (likely(ops && ops->encap_hlen))
--		hlen = ops->encap_hlen(e);
--	rcu_read_unlock();
--
--	return hlen;
+-	return 0;
 -}
 -
--const struct ip_tunnel_encap_ops __rcu *
--		iptun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
+-static int gue_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
+-{
+-	udp_sk(sk)->encap_rcv = gue_udp_recv;
+-	udp_sk(sk)->gro_receive = gue_gro_receive;
+-	udp_sk(sk)->gro_complete = gue_gro_complete;
 -
- int ip_tunnel_encap_add_ops(const struct ip_tunnel_encap_ops *ops,
- 			    unsigned int num)
+-	return 0;
+-}
+-
+ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 		      struct socket **sockp)
  {
-@@ -519,28 +496,6 @@ int ip_tunnel_encap_setup(struct ip_tunnel *t,
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
+ 	struct socket *sock = NULL;
+ 	struct fou *fou = NULL;
+ 	struct sock *sk;
++	struct udp_tunnel_sock_cfg tunnel_cfg;
+ 	int err;
  
--int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
--		    u8 *protocol, struct flowi4 *fl4)
--{
--	const struct ip_tunnel_encap_ops *ops;
--	int ret = -EINVAL;
--
--	if (t->encap.type == TUNNEL_ENCAP_NONE)
--		return 0;
--
--	if (t->encap.type >= MAX_IPTUN_ENCAP_OPS)
--		return -EINVAL;
--
--	rcu_read_lock();
--	ops = rcu_dereference(iptun_encaps[t->encap.type]);
--	if (likely(ops && ops->build_header))
--		ret = ops->build_header(skb, &t->encap, protocol, fl4);
--	rcu_read_unlock();
--
--	return ret;
--}
--EXPORT_SYMBOL(ip_tunnel_encap);
--
- static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
- 			    struct rtable *rt, __be16 df,
- 			    const struct iphdr *inner_iph)
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 9118b0e..cc66a20 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -47,6 +47,10 @@
- #include <net/rtnetlink.h>
- #include <net/dst_metadata.h>
+ 	/* Open UDP socket */
+@@ -491,33 +473,33 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
  
-+const struct ip_tunnel_encap_ops __rcu *
-+		iptun_encaps[MAX_IPTUN_ENCAP_OPS] __read_mostly;
-+EXPORT_SYMBOL(iptun_encaps);
+ 	fou->flags = cfg->flags;
+ 	fou->port = cfg->udp_config.local_udp_port;
++	fou->type = cfg->type;
++	fou->sock = sock;
 +
- void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		   __be32 src, __be32 dst, __u8 proto,
- 		   __u8 tos, __u8 ttl, __be16 df, bool xnet)
++	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
++	tunnel_cfg.encap_type = 1;
++	tunnel_cfg.sk_user_data = fou;
++	tunnel_cfg.encap_destroy = NULL;
+ 
+ 	/* Initial for fou type */
+ 	switch (cfg->type) {
+ 	case FOU_ENCAP_DIRECT:
+-		err = fou_encap_init(sk, fou, cfg);
+-		if (err)
+-			goto error;
++		tunnel_cfg.encap_rcv = fou_udp_recv;
++		tunnel_cfg.gro_receive = fou_gro_receive;
++		tunnel_cfg.gro_complete = fou_gro_complete;
++		fou->protocol = cfg->protocol;
+ 		break;
+ 	case FOU_ENCAP_GUE:
+-		err = gue_encap_init(sk, fou, cfg);
+-		if (err)
+-			goto error;
++		tunnel_cfg.encap_rcv = gue_udp_recv;
++		tunnel_cfg.gro_receive = gue_gro_receive;
++		tunnel_cfg.gro_complete = gue_gro_complete;
+ 		break;
+ 	default:
+ 		err = -EINVAL;
+ 		goto error;
+ 	}
+ 
+-	fou->type = cfg->type;
+-
+-	udp_sk(sk)->encap_type = 1;
+-	udp_encap_enable();
+-
+-	sk->sk_user_data = fou;
+-	fou->sock = sock;
+-
+-	inet_inc_convert_csum(sk);
++	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
+ 
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
 -- 
 2.8.0.rc2
