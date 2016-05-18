@@ -1,79 +1,94 @@
-From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RESEND PATCH v6 0/6] Add Ethernet support on STM32F429
-Date: Wed, 18 May 2016 11:49:44 +0200
-Message-ID: <CALszF6AP52EAN68qH8Pup9uxqTnhoT8wigiKaZzgHns3m+NCgQ@mail.gmail.com>
-References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
-	<20160517.122527.1937360418899371800.davem@davemloft.net>
-	<CALszF6AE7jkRX3sSNm=PCvEmkmZM-Sv5LxFSj7J3vMbvi8M5Cg@mail.gmail.com>
-	<2535270.dCFPoM2olB@wuerfel>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
+Date: Wed, 18 May 2016 12:55:17 +0300
+Message-ID: <20160518124655-mutt-send-email-mst@redhat.com>
+References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
+ <20160516070012-mutt-send-email-mst@redhat.com>
+ <57397C2B.7000603@redhat.com>
+ <20160516105434-mutt-send-email-mst@redhat.com>
+ <573A761D.8080909@redhat.com>
+ <20160518101631.368e3447@redhat.com>
+ <20160518112045-mutt-send-email-mst@redhat.com>
+ <20160518112129.0472b5dc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org>,
-	Kevin Hilman <khilman-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2535270.dCFPoM2olB@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50657 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752233AbcERJzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 05:55:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20160518112129.0472b5dc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2016-05-18 11:31 GMT+02:00 Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>:
-> On Wednesday 18 May 2016 09:48:53 Maxime Coquelin wrote:
->> 2016-05-17 18:25 GMT+02:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
->> > From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> > Date: Tue, 17 May 2016 11:20:16 +0200
->> >
->> >> Hi David,
->> >>
->> >> 2016-05-09 21:06 GMT+02:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
->> >>> From: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> >>> Date: Mon,  9 May 2016 12:31:33 +0200
->> >>>
->> >>>> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
->> >>>> This series:
->> >>>>  -enhance current stmmac driver to control it (code already
->> >>>> available) and adds basic glue for STM32F429 chip.
->> >>>>  -Enable basic Net config in kernel.
->> >>>
->> >>> I assume this will go via the ARM tree, for the networking bits:
->> >> I would expect patches 1, 2 & 3 to got via your tree, to avoid conflicts.
->> >
->> > I don't think putting them all via the ARM tree is going to create much
->> > in the way of conflicts, and right now during the merge window offloading
->> > that work from me would really help my backlog a lot.
->>
->> Ok, I understand this is not the best time to pick it.
->>
->> Arnd, Olof & Kevin, would you accept to pick the series in your tree?
->>
->
-> It's too late for v4.7 for us too, please pick up the arch/arm patches
-> in your normal stm32 tree and send them to us along with any other changes
-> you may have, and resend the driver by itself to netdev time after the
-> merge window.
->
-> The binding document can go either way, with the dts changes or with
-> the driver. I see no dependencies between the patches, so we just need
-> to land them all in v4.8.
+On Wed, May 18, 2016 at 11:21:29AM +0200, Jesper Dangaard Brouer wrote:
+> On Wed, 18 May 2016 11:21:59 +0300
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > On Wed, May 18, 2016 at 10:16:31AM +0200, Jesper Dangaard Brouer wrote:
+> > > 
+> > > On Tue, 17 May 2016 09:38:37 +0800 Jason Wang <jasowang@redhat.com> wrote:
+> > >   
+> > > > >> And if tx_queue_length is not power of 2,
+> > > > >> we probably need modulus to calculate the capacity.    
+> > > > > Is that really that important for speed?    
+> > > > 
+> > > > Not sure, I can test.  
+> > > 
+> > > In my experience, yes, adding a modulus does affect performance.  
+> > 
+> > How about simple
+> > 	if (unlikely(++idx > size))
+> > 		idx = 0;
+> 
+> So, you are exchanging an AND-operation with a mask, for a
+> branch-operation.  If the branch predictor is good enough in the CPU
+> and code-"size" use-case, then I could be just as fast.
+> 
+> I've actually played with a lot of different approaches:
+>  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/include/linux/alf_queue_helpers.h
+> 
+> I cannot remember the exact results. I do remember micro benchmarking
+> showed good results with the advanced "unroll" approach, but IPv4
+> forwarding, where I know I-cache is getting evicted, showed best
+> results with the more simpler implementations.
 
-Ok, this is good for me.
-No problem to wait for v4.8.
-I will take the arch/arm patches, and David the drivers/net/ ones once
-v4.7-rc1 is out.
+This is all assuming you can somehow batch operations.
+We can do this for transmit sometimes (when linux
+is the source of the packets) but not always.
 
-Thanks for your time,
-Maxime
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> > > > 
+> > > > Right, this sounds a good solution.  
+> > > 
+> > > Good idea.  
+> > 
+> > I'm not that sure - it's clearly wasting memory.
+> 
+> Rounding up to power of two.  In this case I don't think the memory
+> wast is too high.  As we are talking about max 16 bytes elements.
+
+It almost doubles it.
+E.g. queue size of 10000 (rather common) will become 16K, wasting 6K.
+
+> I am concerned about memory in another way. We need to keep these
+> arrays/rings small, due to data cache usage.  A 4096 ring queue is bad
+> because e.g. 16*4096=65536 bytes, and typical L1 cache is 32K-64K. As
+> this is a circular buffer, we walk over this memory all the time, thus
+> evicting the L1 cache.
+
+Depends on the usage I guess.
+Entries pointed to are much bigger, and you are
+going to access them - is this really an issue?
+If yes this shouldn't be that hard to fix ...
+
+> -- 
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
