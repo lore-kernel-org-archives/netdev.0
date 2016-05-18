@@ -1,66 +1,79 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: correct length checks on hash
- copy_ops
-Date: Wed, 18 May 2016 10:42:03 +0100
-Message-ID: <20160518094203.GY8974@citrix.com>
-References: <1463557981-17294-1-git-send-email-paul.durrant@citrix.com>
+From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RESEND PATCH v6 0/6] Add Ethernet support on STM32F429
+Date: Wed, 18 May 2016 11:49:44 +0200
+Message-ID: <CALszF6AP52EAN68qH8Pup9uxqTnhoT8wigiKaZzgHns3m+NCgQ@mail.gmail.com>
+References: <1462789899-13153-1-git-send-email-alexandre.torgue@gmail.com>
+	<20160517.122527.1937360418899371800.davem@davemloft.net>
+	<CALszF6AE7jkRX3sSNm=PCvEmkmZM-Sv5LxFSj7J3vMbvi8M5Cg@mail.gmail.com>
+	<2535270.dCFPoM2olB@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:36343 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751767AbcERJmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 05:42:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1463557981-17294-1-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org>,
+	Kevin Hilman <khilman-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2535270.dCFPoM2olB@wuerfel>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2016 at 08:53:01AM +0100, Paul Durrant wrote:
-> The length checks on the grant table copy_ops for setting hash key and
-> hash mapping are checking the local 'len' value which is correct in
-> the case of the former but not the latter. This was picked up by
-> static analysis checks.
-> 
-> This patch replaces checks of 'len' with 'copy_op.len' in both cases
-> to correct the incorrect check, keep the two checks consistent, and to
-> make it clear what the checks are for.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
+2016-05-18 11:31 GMT+02:00 Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>:
+> On Wednesday 18 May 2016 09:48:53 Maxime Coquelin wrote:
+>> 2016-05-17 18:25 GMT+02:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
+>> > From: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> > Date: Tue, 17 May 2016 11:20:16 +0200
+>> >
+>> >> Hi David,
+>> >>
+>> >> 2016-05-09 21:06 GMT+02:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
+>> >>> From: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> >>> Date: Mon,  9 May 2016 12:31:33 +0200
+>> >>>
+>> >>>> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+>> >>>> This series:
+>> >>>>  -enhance current stmmac driver to control it (code already
+>> >>>> available) and adds basic glue for STM32F429 chip.
+>> >>>>  -Enable basic Net config in kernel.
+>> >>>
+>> >>> I assume this will go via the ARM tree, for the networking bits:
+>> >> I would expect patches 1, 2 & 3 to got via your tree, to avoid conflicts.
+>> >
+>> > I don't think putting them all via the ARM tree is going to create much
+>> > in the way of conflicts, and right now during the merge window offloading
+>> > that work from me would really help my backlog a lot.
+>>
+>> Ok, I understand this is not the best time to pick it.
+>>
+>> Arnd, Olof & Kevin, would you accept to pick the series in your tree?
+>>
+>
+> It's too late for v4.7 for us too, please pick up the arch/arm patches
+> in your normal stm32 tree and send them to us along with any other changes
+> you may have, and resend the driver by itself to netdev time after the
+> merge window.
+>
+> The binding document can go either way, with the dts changes or with
+> the driver. I see no dependencies between the patches, so we just need
+> to land them all in v4.8.
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+Ok, this is good for me.
+No problem to wait for v4.8.
+I will take the arch/arm patches, and David the drivers/net/ ones once
+v4.7-rc1 is out.
 
-> ---
->  drivers/net/xen-netback/hash.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/hash.c b/drivers/net/xen-netback/hash.c
-> index 392e392..fb87cb3 100644
-> --- a/drivers/net/xen-netback/hash.c
-> +++ b/drivers/net/xen-netback/hash.c
-> @@ -311,7 +311,7 @@ u32 xenvif_set_hash_key(struct xenvif *vif, u32 gref, u32 len)
->  	if (len > XEN_NETBK_MAX_HASH_KEY_SIZE)
->  		return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
->  
-> -	if (len != 0) {
-> +	if (copy_op.len != 0) {
->  		gnttab_batch_copy(&copy_op, 1);
->  
->  		if (copy_op.status != GNTST_okay)
-> @@ -359,7 +359,7 @@ u32 xenvif_set_hash_mapping(struct xenvif *vif, u32 gref, u32 len,
->  		if (mapping[off++] >= vif->num_queues)
->  			return XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER;
->  
-> -	if (len != 0) {
-> +	if (copy_op.len != 0) {
->  		gnttab_batch_copy(&copy_op, 1);
->  
->  		if (copy_op.status != GNTST_okay)
-> -- 
-> 2.1.4
-> 
+Thanks for your time,
+Maxime
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
