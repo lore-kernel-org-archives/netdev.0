@@ -1,60 +1,62 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: [PATCH v2] net: sock: move ->sk_shutdown out of bitfields.
-Date: Wed, 18 May 2016 15:03:15 +0300
-Message-ID: <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
-References: <a070f6f7-ed85-c909-ce8b-748210402211@stressinduktion.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/1] rtlwifi: rtl8192ee: simplify coding
+Date: Wed, 18 May 2016 07:02:49 -0500
+Message-ID: <573C59E9.8090902@lwfinger.net>
+References: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Andrey Ryabinin <aryabinin@virtuozzo.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a070f6f7-ed85-c909-ce8b-748210402211@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wu Fengguang <fengguang.wu@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
+	Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36447 "EHLO
+	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753115AbcERMC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 08:02:57 -0400
+In-Reply-To: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-->sk_shutdown bits share one bitfield with some other bits in sock struct,
-such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
-sock_setsockopt() may write to these bits, while holding the socket lock.
+On 05/17/2016 07:43 PM, Heinrich Schuchardt wrote:
+> Simplify _rtl92ee_phy_path_adda_on.
+>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> ---
+>   drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c | 13 ++-----------
+>   1 file changed, 2 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
+> index 018340a..c2bf8d1 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
+> @@ -2414,19 +2414,10 @@ static void _rtl92ee_phy_reload_mac_registers(struct ieee80211_hw *hw,
+>   static void _rtl92ee_phy_path_adda_on(struct ieee80211_hw *hw, u32 *addareg,
+>   				      bool is_patha_on, bool is2t)
+>   {
+> -	u32 pathon;
+>   	u32 i;
+>
+> -	pathon = is_patha_on ? 0x0fc01616 : 0x0fc01616;
+> -	if (!is2t) {
+> -		pathon = 0x0fc01616;
+> -		rtl_set_bbreg(hw, addareg[0], MASKDWORD, 0x0fc01616);
+> -	} else {
+> -		rtl_set_bbreg(hw, addareg[0], MASKDWORD, pathon);
+> -	}
+> -
+> -	for (i = 1; i < IQK_ADDA_REG_NUM; i++)
+> -		rtl_set_bbreg(hw, addareg[i], MASKDWORD, pathon);
+> +	for (i = 0; i < IQK_ADDA_REG_NUM; i++)
+> +		rtl_set_bbreg(hw, addareg[i], MASKDWORD, 0x0fc01616);
+>   }
+>
+>   static void _rtl92ee_phy_mac_setting_calibration(struct ieee80211_hw *hw,
 
-In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
-unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
-to corrupting these bits.
+Initially the thought was that addareg[0] would need to be set differently for 
+devices with 2 TX paths. For that reason, this routine was coded as shown. As 
+that assumption is no longer valid, this change should be made.
 
-Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
-This will not change the 'struct sock' size since ->sk_shutdown moved into
-previously unused 16-bit hole.
-
-Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/sock.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index c9c8b19..04dc131 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -383,8 +383,7 @@ struct sock {
- 	int			sk_sndbuf;
- 	struct sk_buff_head	sk_write_queue;
- 	kmemcheck_bitfield_begin(flags);
--	unsigned int		sk_shutdown  : 2,
--				sk_no_check_tx : 1,
-+	unsigned int		sk_no_check_tx : 1,
- 				sk_no_check_rx : 1,
- 				sk_userlocks : 4,
- 				sk_protocol  : 8,
-@@ -418,6 +417,7 @@ struct sock {
- 	struct timer_list	sk_timer;
- 	ktime_t			sk_stamp;
- 	u16			sk_tsflags;
-+	u8			sk_shutdown;
- 	u32			sk_tskey;
- 	struct socket		*sk_socket;
- 	void			*sk_user_data;
--- 
-2.7.3
+Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
