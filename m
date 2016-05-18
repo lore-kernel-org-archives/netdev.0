@@ -1,87 +1,148 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net: sock: move ->sk_shutdown out of bitfields.
-Date: Wed, 18 May 2016 08:31:11 -0700
-Message-ID: <1463585471.18194.123.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1463582171-24083-1-git-send-email-aryabinin@virtuozzo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH iproute2 v3 4/5] utils: provide get_hex to read a hex digit from a char
+Date: Wed, 18 May 2016 17:35:12 +0200
+Message-ID: <4a63812460a832e99cd9266b9d97c16df145bb3d.1463585050.git.sd@queasysnail.net>
+References: <cover.1463585050.git.sd@queasysnail.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Phil Sutter <phil@nwl.cc>, Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33308 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932634AbcERPbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:31:13 -0400
-In-Reply-To: <1463582171-24083-1-git-send-email-aryabinin@virtuozzo.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33552 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932359AbcERPgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 11:36:17 -0400
+In-Reply-To: <cover.1463585050.git.sd@queasysnail.net>
+In-Reply-To: <cover.1463585050.git.sd@queasysnail.net>
+References: <cover.1463585050.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-18 at 17:36 +0300, Andrey Ryabinin wrote:
-> ->sk_shutdown bits share one bitfield with some other bits in sock struct,
-> such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
-> sock_setsockopt() may write to these bits, while holding the socket lock.
-> 
-> In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
-> unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
-> to corrupting these bits.
-> 
-> Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
-> This will not change the 'struct sock' size since ->sk_shutdown moved into
-> previously unused 16-bit hole.
-> 
-> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
-> 
-> Changes since v1:
->  - move sk_shutdown into a separate byte instead of locking
-> 	AF_UNIX sockets.
-> 
-> Changes since v2:
->  - reorder bitfields, so that sk_type/sk_protocol still fit in
->     separate 2-bytes/byte.
-> 	
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Acked-by: Phil Sutter <phil@nwl.cc>
+---
+ include/utils.h |  1 +
+ ip/ipl2tp.c     | 15 ++-------------
+ lib/ipx_pton.c  | 18 +++---------------
+ lib/utils.c     | 12 ++++++++++++
+ 4 files changed, 18 insertions(+), 28 deletions(-)
 
-I suggested to use an explicit padding, to clearly show that two bits
-are available there. You also could add a comment to remind the rules.
-
-Something like :
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index c9c8b19df27c558354687119db60c0716909ea3f..4e239a7ef4f67b1988fe119d81566d1465a2b596 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -382,8 +382,10 @@ struct sock {
- 	atomic_t		sk_omem_alloc;
- 	int			sk_sndbuf;
- 	struct sk_buff_head	sk_write_queue;
+diff --git a/include/utils.h b/include/utils.h
+index a9aa89162950..27562a1c949c 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -99,6 +99,7 @@ int get_prefix(inet_prefix *dst, char *arg, int family);
+ int mask2bits(__u32 netmask);
+ int get_addr_ila(__u64 *val, const char *arg);
+ 
++int get_hex(char c);
+ int get_integer(int *val, const char *arg, int base);
+ int get_unsigned(unsigned *val, const char *arg, int base);
+ int get_time_rtt(unsigned *val, const char *arg, int *raw);
+diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
+index 3c8ee9355439..1f84c6149f39 100644
+--- a/ip/ipl2tp.c
++++ b/ip/ipl2tp.c
+@@ -425,30 +425,19 @@ static int get_tunnel(struct l2tp_data *p)
+  * Command parser
+  *****************************************************************************/
+ 
+-static int hex(char ch)
+-{
+-	if ((ch >= 'a') && (ch <= 'f'))
+-		return ch - 'a' + 10;
+-	if ((ch >= '0') && (ch <= '9'))
+-		return ch - '0';
+-	if ((ch >= 'A') && (ch <= 'F'))
+-		return ch - 'A' + 10;
+-	return -1;
+-}
+-
+ static int hex2mem(const char *buf, uint8_t *mem, int count)
+ {
+ 	int i, j;
+ 	int c;
+ 
+ 	for (i = 0, j = 0; i < count; i++, j += 2) {
+-		c = hex(buf[j]);
++		c = get_hex(buf[j]);
+ 		if (c < 0)
+ 			goto err;
+ 
+ 		mem[i] = c << 4;
+ 
+-		c = hex(buf[j + 1]);
++		c = get_hex(buf[j + 1]);
+ 		if (c < 0)
+ 			goto err;
+ 
+diff --git a/lib/ipx_pton.c b/lib/ipx_pton.c
+index 3dca2713719a..071a775e7437 100644
+--- a/lib/ipx_pton.c
++++ b/lib/ipx_pton.c
+@@ -6,18 +6,6 @@
+ 
+ #include "utils.h"
+ 
+-static u_int32_t hexget(char c)
+-{
+-	if (c >= 'A' && c <= 'F')
+-		return c - 'A' + 10;
+-	if (c >= 'a' && c <= 'f')
+-		return c - 'a' + 10;
+-	if (c >= '0' && c <= '9')
+-		return c - '0';
+-
+-	return 0xf0;
+-}
+-
+ static int ipx_getnet(u_int32_t *net, const char *str)
+ {
+ 	int i;
+@@ -25,7 +13,7 @@ static int ipx_getnet(u_int32_t *net, const char *str)
+ 
+ 	for(i = 0; *str && (i < 8); i++) {
+ 
+-		if ((tmp = hexget(*str)) & 0xf0) {
++		if ((tmp = get_hex(*str)) == -1) {
+ 			if (*str == '.')
+ 				return 0;
+ 			else
+@@ -49,11 +37,11 @@ static int ipx_getnode(u_int8_t *node, const char *str)
+ 	u_int32_t tmp;
+ 
+ 	for(i = 0; i < 6; i++) {
+-		if ((tmp = hexget(*str++)) & 0xf0)
++		if ((tmp = get_hex(*str++)) == -1)
+ 			return -1;
+ 		node[i] = (u_int8_t)tmp;
+ 		node[i] <<= 4;
+-		if ((tmp = hexget(*str++)) & 0xf0)
++		if ((tmp = get_hex(*str++)) == -1)
+ 			return -1;
+ 		node[i] |= (u_int8_t)tmp;
+ 		if (*str == ':')
+diff --git a/lib/utils.c b/lib/utils.c
+index e0cee5e9dc56..70e85b75b8da 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -37,6 +37,18 @@
+ 
+ int timestamp_short = 0;
+ 
++int get_hex(char c)
++{
++	if (c >= 'A' && c <= 'F')
++		return c - 'A' + 10;
++	if (c >= 'a' && c <= 'f')
++		return c - 'a' + 10;
++	if (c >= '0' && c <= '9')
++		return c - '0';
 +
-+	/* because of non atomicity rules, all changes are protected by socket lock */
- 	kmemcheck_bitfield_begin(flags);
--	unsigned int		sk_shutdown  : 2,
-+	unsigned int		sk_padding   : 2,
- 				sk_no_check_tx : 1,
- 				sk_no_check_rx : 1,
- 				sk_userlocks : 4,
-@@ -391,6 +393,7 @@ struct sock {
- 				sk_type      : 16;
- #define SK_PROTOCOL_MAX U8_MAX
- 	kmemcheck_bitfield_end(flags);
++	return -1;
++}
 +
- 	int			sk_wmem_queued;
- 	gfp_t			sk_allocation;
- 	u32			sk_pacing_rate; /* bytes per second */
-@@ -418,6 +421,7 @@ struct sock {
- 	struct timer_list	sk_timer;
- 	ktime_t			sk_stamp;
- 	u16			sk_tsflags;
-+	u8			sk_shutdown;
- 	u32			sk_tskey;
- 	struct socket		*sk_socket;
- 	void			*sk_user_data;
+ int get_integer(int *val, const char *arg, int base)
+ {
+ 	long res;
+-- 
+2.8.2
