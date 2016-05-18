@@ -1,89 +1,110 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] net: suppress warnings on dev_alloc_skb
-Date: Wed, 18 May 2016 10:57:21 -0700
-Message-ID: <CAKgT0Uct2FPuVHER=p-kpb2nbnVMG7ya1Cy67iJDRV7ZUE=jVg@mail.gmail.com>
-References: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
-	<1463587298.18194.129.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH net-next 1/4] scsi_tcp: block BH in TCP callbacks
+Date: Wed, 18 May 2016 12:21:03 -0500
+Message-ID: <573CA47F.10304@cs.wisc.edu>
+References: <1463532249-20850-1-git-send-email-edumazet@google.com>
+ <1463532249-20850-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Venkatesh Srinivas <venkateshs@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34902 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817AbcERR5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:57:22 -0400
-Received: by mail-io0-f194.google.com with SMTP id i75so10853948ioa.2
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 10:57:22 -0700 (PDT)
-In-Reply-To: <1463587298.18194.129.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:34768 "EHLO sabe.cs.wisc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752008AbcERSAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 14:00:00 -0400
+In-Reply-To: <1463532249-20850-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2016 at 9:01 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-05-18 at 11:25 -0400, Neil Horman wrote:
->> Noticed an allocation failure in a network driver the other day on a 32 bit
->> system:
->>
->> DMA-API: debugging out of memory - disabling
->> bnx2fc: adapter_lookup: hba NULL
->> lldpad: page allocation failure. order:0, mode:0x4120
->> Pid: 4556, comm: lldpad Not tainted 2.6.32-639.el6.i686.debug #1
->> Call Trace:
->>  [<c08a4086>] ? printk+0x19/0x23
->>  [<c05166a4>] ? __alloc_pages_nodemask+0x664/0x830
->>  [<c0649d02>] ? free_object+0x82/0xa0
->>  [<fb4e2c9b>] ? ixgbe_alloc_rx_buffers+0x10b/0x1d0 [ixgbe]
->>  [<fb4e2fff>] ? ixgbe_configure_rx_ring+0x29f/0x420 [ixgbe]
->>  [<fb4e228c>] ? ixgbe_configure_tx_ring+0x15c/0x220 [ixgbe]
->>  [<fb4e3709>] ? ixgbe_configure+0x589/0xc00 [ixgbe]
->>  [<fb4e7be7>] ? ixgbe_open+0xa7/0x5c0 [ixgbe]
->>  [<fb503ce6>] ? ixgbe_init_interrupt_scheme+0x5b6/0x970 [ixgbe]
->>  [<fb4e8e54>] ? ixgbe_setup_tc+0x1a4/0x260 [ixgbe]
->>  [<fb505a9f>] ? ixgbe_dcbnl_set_state+0x7f/0x90 [ixgbe]
->>  [<c088d80d>] ? dcb_doit+0x10ed/0x16d0
->> ...
->
->
-> Well, maybe this call site (via ixgbe_configure_rx_ring()) should be
-> using GFP_KERNEL instead of GFP_ATOMIC.
-
-The problem is the ixgbe driver is using the same function for
-allocating memory in the softirq and in the init.  As such it has to
-default to GFP_ATOMIC so that it doesn't screw up the NAPI allocation
-case.
-
-> Otherwise, if you are unlucky, not a single page would be allocated and
-> RX ring buffer would be empty.
->
-> So the 'fix' could be limited to GFP_ATOMIC callers ?
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index c413c588a24f854be9e4df78d8a6872b6b1ff9f3..61b923f1520845145a5470d752b278d283cbb348 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2467,7 +2467,7 @@ static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
->
->  static inline struct page *dev_alloc_pages(unsigned int order)
->  {
-> -       return __dev_alloc_pages(GFP_ATOMIC, order);
-> +       return __dev_alloc_pages(GFP_ATOMIC | __GFP_NOWARN, order);
+On 05/17/2016 07:44 PM, Eric Dumazet wrote:
+> iscsi_sw_tcp_data_ready() and iscsi_sw_tcp_state_change() were
+> using read_lock(&sk->sk_callback_lock) which is fine if caller
+> disabled BH.
+> 
+> TCP stack no longer has this requirement and can run from
+> process context.
+> 
+> Use read_lock_bh() variant to restore previous assumption.
+> 
+> Ideally this code could use RCU instead...
+> 
+> Fixes: 5413d1babe8f ("net: do not block BH while processing socket backlog")
+> Fixes: d41a69f1d390 ("tcp: make tcp_sendmsg() aware of socket backlog")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Mike Christie <michaelc@cs.wisc.edu>
+> Cc: Venkatesh Srinivas <venkateshs@google.com>
+> ---
+>  drivers/scsi/iscsi_tcp.c | 12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/scsi/iscsi_tcp.c b/drivers/scsi/iscsi_tcp.c
+> index 2e4c82f8329c..ace4f1f41b8e 100644
+> --- a/drivers/scsi/iscsi_tcp.c
+> +++ b/drivers/scsi/iscsi_tcp.c
+> @@ -131,10 +131,10 @@ static void iscsi_sw_tcp_data_ready(struct sock *sk)
+>  	struct iscsi_tcp_conn *tcp_conn;
+>  	read_descriptor_t rd_desc;
+>  
+> -	read_lock(&sk->sk_callback_lock);
+> +	read_lock_bh(&sk->sk_callback_lock);
+>  	conn = sk->sk_user_data;
+>  	if (!conn) {
+> -		read_unlock(&sk->sk_callback_lock);
+> +		read_unlock_bh(&sk->sk_callback_lock);
+>  		return;
+>  	}
+>  	tcp_conn = conn->dd_data;
+> @@ -154,7 +154,7 @@ static void iscsi_sw_tcp_data_ready(struct sock *sk)
+>  	/* If we had to (atomically) map a highmem page,
+>  	 * unmap it now. */
+>  	iscsi_tcp_segment_unmap(&tcp_conn->in.segment);
+> -	read_unlock(&sk->sk_callback_lock);
+> +	read_unlock_bh(&sk->sk_callback_lock);
 >  }
->
->  /**
-> @@ -2485,7 +2485,7 @@ static inline struct page *__dev_alloc_page(gfp_t gfp_mask)
->
->  static inline struct page *dev_alloc_page(void)
->  {
-> -       return __dev_alloc_page(GFP_ATOMIC);
-> +       return dev_alloc_pages(0);
+>  
+>  static void iscsi_sw_tcp_state_change(struct sock *sk)
+> @@ -165,10 +165,10 @@ static void iscsi_sw_tcp_state_change(struct sock *sk)
+>  	struct iscsi_session *session;
+>  	void (*old_state_change)(struct sock *);
+>  
+> -	read_lock(&sk->sk_callback_lock);
+> +	read_lock_bh(&sk->sk_callback_lock);
+>  	conn = sk->sk_user_data;
+>  	if (!conn) {
+> -		read_unlock(&sk->sk_callback_lock);
+> +		read_unlock_bh(&sk->sk_callback_lock);
+>  		return;
+>  	}
+>  	session = conn->session;
+> @@ -179,7 +179,7 @@ static void iscsi_sw_tcp_state_change(struct sock *sk)
+>  	tcp_sw_conn = tcp_conn->dd_data;
+>  	old_state_change = tcp_sw_conn->old_state_change;
+>  
+> -	read_unlock(&sk->sk_callback_lock);
+> +	read_unlock_bh(&sk->sk_callback_lock);
+>  
+>  	old_state_change(sk);
 >  }
->
->  /**
->
->
 
-I agree.  This is likely a much better way to go.
+Can I just confirm that nested bh lock calls like:
 
-- Alex
+spin_lock_bh(lock1);
+spin_lock_bh(lock2);
+
+do something
+
+spin_unlock_bh(lock2);
+spin_unlock_bh(lock1);
+
+is ok? It seems smatch sometimes warns about this.
+
+I found this thread
+
+https://lkml.org/lkml/2011/1/25/232
+
+which says it is ok.
