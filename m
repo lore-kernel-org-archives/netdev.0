@@ -1,39 +1,68 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Make TCP work better with re-ordered frames?
-Date: Wed, 18 May 2016 07:00:46 -0700
-Message-ID: <573C758E.9050008@candelatech.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: rather use get_random_int for randomizations
+Date: Wed, 18 May 2016 16:14:16 +0200
+Message-ID: <573C78B8.2050400@iogearbox.net>
+References: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net> <1463577634.18194.100.camel@edumazet-glaptop3.roam.corp.google.com> <e478c91f-28ec-e07a-6afd-0757ac72d1f3@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
+	netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:55143 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752494AbcEROAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 10:00:48 -0400
-Received: from [50.34.199.106] (unknown [50.34.199.106])
-	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail2.candelatech.com (Postfix) with ESMTPSA id 77B6540A79A
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 07:00:47 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:42758 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932107AbcEROOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 10:14:23 -0400
+In-Reply-To: <e478c91f-28ec-e07a-6afd-0757ac72d1f3@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are investigating a system that has fairly poor TCP throughput
-with the 3.17 and 4.0 kernels, but evidently it worked pretty well
-with 3.14 (I should be able to verify 3.14 later today).
+On 05/18/2016 03:28 PM, Hannes Frederic Sowa wrote:
+> On 18.05.2016 15:20, Eric Dumazet wrote:
+>> On Wed, 2016-05-18 at 14:14 +0200, Daniel Borkmann wrote:
+>>> Start address randomization and blinding in BPF currently use
+>>> prandom_u32(). prandom_u32() values are not exposed to unpriviledged
+>>> user space to my knowledge, but given other kernel facilities such as
+>>> ASLR, stack canaries, etc make use of stronger get_random_int(), we
+>>> better make use of it here as well given blinding requests successively
+>>> new random values. get_random_int() has minimal entropy pool depletion,
+>>> is not cryptographically secure, but doesn't need to be for our use
+>>> cases here.
+>>
+>> Well, if it is not crypto secure, what is the point using it instead of
+>> prandom_u32() ?
+>
+> Leaks of prandom_u32 allows an attacker to find the whole sequence of
+> generated random numbers or the other way around.
+>
+>> I do not think changing this is fundamentally changing something, it
+>> looks like code churn or magic incantation to me.
+>
+> I saw this during the review of the blinding patches. I was afraid, that
+> by extracting or dumping the ebpf program, a user could find out the
+> blinding constant and after some retries could find out the coefficients
+> to the taus rng, thus being able to infer the whole sequence generated
+> by prandom_u32.
 
-One thing I notice is that a UDP download test shows lots of reordered
-frames, so I am thinking maybe TCP is running slow because of this.
+Note that dumping/extraction is normally not possible: cBPF progs hold the
+original insns before they were even transformed into eBPF, and eBPF cannot
+be dumped back today, so the rewrites stay kernel internal. Only when an
+admin is not careful and accidentally sets things like bpf_jit_enable > 1,
+where we have JIT debug mode and the generated image goes to dmesg (I don't
+consider this the case normally, but what do I know).
 
-(We see about 800Mbps UDP download, but only 500Mbps TCP, even when
-  using 100 concurrent TCP streams.)
+>> There is little amount of entropy since the hole is constrained by
+>> PAGE_SIZE.
+>
+> True.
+>
+> I don't consider this a big thing, I just mentioned that we probably
+> shouldn't use prandom_u32 if the value somehow could leak to user space
+> and should be used for security.
 
-Is there some way to tune the TCP stack to better handle reordered frames?
+Agree here which is why I decided to send it.
 
 Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Daniel
