@@ -1,89 +1,181 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH next-queue] ixgbe: netdev->vlan_features
- shouldn't have the vlan related flag
-Date: Thu, 19 May 2016 00:42:01 +0800
-Message-ID: <CADvbK_dC8_EOu1uM44pUg87j==dS85AGecJ7nk24zn7cNrG54w@mail.gmail.com>
-References: <f27abd7ea63660b4f9ba880af16c8395fd340668.1463561728.git.lucien.xin@gmail.com>
-	<CAKgT0UeDWfcLgvji41x2Q-_aNGs_jYPoo15Aervb+mMgdQjdpg@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
+Date: Wed, 18 May 2016 19:46:19 +0300
+Message-ID: <20160518194334-mutt-send-email-mst@redhat.com>
+References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
+ <1463370998.18194.74.camel@edumazet-glaptop3.roam.corp.google.com>
+ <57397C14.1080701@redhat.com>
+ <20160518101359.37f5343b@redhat.com>
+ <20160518191148-mutt-send-email-mst@redhat.com>
+ <1463589663.18194.134.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33566 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752664AbcERQmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:42:03 -0400
-Received: by mail-oi0-f66.google.com with SMTP id t140so11003372oie.0
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:42:02 -0700 (PDT)
-In-Reply-To: <CAKgT0UeDWfcLgvji41x2Q-_aNGs_jYPoo15Aervb+mMgdQjdpg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1463589663.18194.134.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2016 at 11:07 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Wed, May 18, 2016 at 1:55 AM, Xin Long <lucien.xin@gmail.com> wrote:
->> vlan_features is used to set the vlan_dev->features when we create
->> a vlan device. it shouldn't have the vlan related flag, like
->> NETIF_F_HW_VLAN_CTAG_FILTER, which will cause vlan_dev create fail.
->> the call trace is as follow:
->>
->> [ 5604.264429] Call Trace:
->> [ 5604.278980]  [<ffffffff8133ef0f>] dump_stack+0x63/0x84
->> [ 5604.341499]  [<ffffffff810883c1>] __warn+0xd1/0xf0
->> [ 5604.382004]  [<ffffffff8108843f>] warn_slowpath_fmt+0x5f/0x80
->> [ 5604.454602]  [<ffffffff81354359>] ? find_next_bit+0x19/0x20
->> [ 5604.541940]  [<ffffffff815a93d2>] register_netdevice+0x3c2/0x490
->> [ 5604.631744]  [<ffffffffa048bb43>] register_vlan_dev+0x133/0x290 [8021q]
->> [ 5604.710346]  [<ffffffffa048d44c>] vlan_newlink+0xbc/0xf0 [8021q]
->> [ 5604.789945]  [<ffffffff815b8e22>] rtnl_newlink+0x6c2/0x880
->> [ 5604.854000]  [<ffffffff8136ab93>] ? nla_parse+0xa3/0x100
->> [ 5604.889974]  [<ffffffff815b88bc>] ? rtnl_newlink+0x15c/0x880
->> [ 5604.951987]  [<ffffffff815b61b4>] rtnetlink_rcv_msg+0xa4/0x240
->> [ 5605.017614]  [<ffffffff812c4390>] ? sock_has_perm+0x70/0x90
->> [ 5605.083120]  [<ffffffff81590b8d>] ? __alloc_skb+0x8d/0x2b0
->> [ 5605.147939]  [<ffffffff815b6110>] ? rtnetlink_rcv+0x30/0x30
->> [ 5605.194973]  [<ffffffff815d9d77>] netlink_rcv_skb+0xa7/0xc0
->> [ 5605.246380]  [<ffffffff815b6108>] rtnetlink_rcv+0x28/0x30
->> [ 5605.308998]  [<ffffffff815d9728>] netlink_unicast+0x178/0x240
->> [ 5605.375020]  [<ffffffff815d9b1e>] netlink_sendmsg+0x32e/0x3b0
->> [ 5605.463066]  [<ffffffff81587b68>] sock_sendmsg+0x38/0x50
->> [ 5605.523910]  [<ffffffff815884b9>] ___sys_sendmsg+0x279/0x290
->> [ 5605.574178]  [<ffffffff8118d172>] ? filemap_map_pages+0x252/0x2d0
->> [ 5605.675281]  [<ffffffff81206005>] ? mem_cgroup_commit_charge+0x85/0x100
->> [ 5605.748882]  [<ffffffff81588ec4>] __sys_sendmsg+0x54/0x90
->> [ 5605.811931]  [<ffffffff81588f12>] SyS_sendmsg+0x12/0x20
->> [ 5605.873955]  [<ffffffff81003b12>] do_syscall_64+0x62/0x110
->> [ 5605.931006]  [<ffffffff816b62a1>] entry_SYSCALL64_slow_path+0x25/0x25
->> [ 5606.012017] ---[ end trace 11d7fa6a696c0c02 ]---
->>
->> it's from register_netdevice:
->>
->>         if (((dev->hw_features | dev->features) &
->>              NETIF_F_HW_VLAN_CTAG_FILTER) &&
->>             (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
->>              !dev->netdev_ops->ndo_vlan_rx_kill_vid)) {
->>                 netdev_WARN(dev, "Buggy VLAN acceleration in driver!\n");
->>                 ret = -EINVAL;
->>                 goto err_uninit;
->>         }
->>
->> the reason is vlan dev's features has NETIF_F_HW_VLAN_CTAG_FILTER flag,
->> but no ndo_vlan_rx_add_vid nor ndo_vlan_rx_kill_vid.
->>
->> we will fix it by put setting netdev->features' vlan related flags behind
->> using features to set netdev->vlan_features.
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->
-> There is already a fix for this in Dave Miller's net-next tree.  Take
-> a look at commit 5eee87cd51df "ixgbe: Fix VLAN features error".
-Ah, yes, just saw it, same patch. ;)
-Thanks, Alex
+On Wed, May 18, 2016 at 09:41:03AM -0700, Eric Dumazet wrote:
+> On Wed, 2016-05-18 at 19:26 +0300, Michael S. Tsirkin wrote:
+> > On Wed, May 18, 2016 at 10:13:59AM +0200, Jesper Dangaard Brouer wrote:
+> > > I agree. It is sad to see everybody is implementing the same thing,
+> > > open coding an array/circular based ring buffer.  This kind of code is
+> > > hard to maintain and get right with barriers etc.  We can achieve the
+> > > same performance with a generic implementation, by inlining the help
+> > > function calls.
+> > 
+> > So my testing seems to show that at least for the common usecase
+> > in networking, which isn't lockless, circular buffer
+> > with indices does not perform that well, because
+> > each index access causes a cache line to bounce between
+> > CPUs, and index access causes stalls due to the dependency.
+> 
+> 
+> Yes.
+> 
+> > 
+> > By comparison, an array of pointers where NULL means invalid
+> > and !NULL means valid, can be updated without messing up barriers
+> > at all and does not have this issue.
+> 
+> Right but then you need appropriate barriers.
+> 
+> > 
+> > You also mentioned cache pressure caused by using large queues, and I
+> > think it's a significant issue. tun has a queue of 1000 entries by
+> > default and that's 8K already.
+> > 
+> > So, I had an idea: with an array of pointers we could actually use
+> > only part of the ring as long as it stays mostly empty.
+> > We do want to fill at least two cache lines to prevent producer
+> > and consumer from writing over the same cache line all the time.
+> > This is SKB_ARRAY_MIN_SIZE logic below.
+> > 
+> > Pls take a look at the implementation below.  It's a straight port from virtio
+> > unit test, so should work fine, except the SKB_ARRAY_MIN_SIZE hack that
+> > I added.  Today I run out of time for testing this.  Posting for early
+> > flames/feedback.
+> > 
+> > It's using skb pointers but we switching to void * would be easy at cost
+> > of type safety, though it appears that people want lockless  push
+> > etc so I'm not sure of the value.
+> > 
+> > --->
+> > skb_array: array based FIFO for skbs
+> > 
+> > A simple array based FIFO of pointers.
+> > Intended for net stack so uses skbs for type
+> > safety, but we can replace with with void *
+> > if others find it useful outside of net stack.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > 
+> > ---
+> > 
+> > diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+> > new file mode 100644
+> > index 0000000..a67cc8b
+> > --- /dev/null
+> > +++ b/include/linux/skb_array.h
+> > @@ -0,0 +1,116 @@
+> > +/*
+> > + * See Documentation/skbular-buffers.txt for more information.
+> > + */
+> > +
+> > +#ifndef _LINUX_SKB_ARRAY_H
+> > +#define _LINUX_SKB_ARRAY_H 1
+> > +
+> > +#include <linux/spinlock.h>
+> > +#include <linux/cache.h>
+> > +#include <linux/types.h>
+> > +#include <linux/compiler.h>
+> > +#include <linux/cache.h>
+> > +#include <linux/slab.h>
+> > +#include <asm/errno.h>
+> > +
+> > +struct sk_buff;
+> > +
+> > +struct skb_array {
+> > +	int producer ____cacheline_aligned_in_smp;
+> > +	spinlock_t producer_lock;
+> > +	int consumer ____cacheline_aligned_in_smp;
+> > +	spinlock_t consumer_lock;
+> > +	/* Shared consumer/producer data */
+> > +	int size ____cacheline_aligned_in_smp; /* max entries in queue */
+> > +	struct sk_buff **queue;
+> > +};
+> > +
+> > +#define SKB_ARRAY_MIN_SIZE (2 * (0x1 << cache_line_size()) / \
+> > +			    sizeof (struct sk_buff *))
+> > +
+> > +static inline int __skb_array_produce(struct skb_array *a,
+> > +				       struct sk_buff *skb)
+> > +{
+> > +	/* Try to start from beginning: good for cache utilization as we'll
+> > +	 * keep reusing the same cache line.
+> > +	 * Produce at least SKB_ARRAY_MIN_SIZE entries before trying to do this,
+> > +	 * to reduce bouncing cache lines between them.
+> > +	 */
+> > +	if (a->producer >= SKB_ARRAY_MIN_SIZE && !a->queue[0])
+> 
+> a->queue[0] might be set by consumer, you probably need a barrier.
 
->
-> Thanks.
->
-> - Alex
+I think not - we write to the same place below and two accesses to
+same address are never reordered.
+
+> > +		a->producer = 0;
+> > +	if (a->queue[a->producer])
+> > +		return -ENOSPC;
+> > +	a->queue[a->producer] = skb;
+> > +	if (unlikely(++a->producer > a->size))
+> > +		a->producer = 0;
+> > +	return 0;
+> > +}
+> > +
+> > +static inline int skb_array_produce_bh(struct skb_array *a,
+> > +				       struct sk_buff *skb)
+> > +{
+> > +	int ret;
+> > +
+> > +	spin_lock_bh(&a->producer_lock);
+> > +	ret = __skb_array_produce(a, skb);
+> > +	spin_unlock_bh(&a->producer_lock);
+> > +
+> > +	return ret;
+> > +}
+> > +
+> > +static inline struct sk_buff *__skb_array_peek(struct skb_array *a)
+> > +{
+> > +	if (a->queue[a->consumer])
+> > +		return a->queue[a->consumer];
+> > +
+> > +	/* Check whether producer started at the beginning. */
+> > +	if (unlikely(a->consumer >= SKB_ARRAY_MIN_SIZE && a->queue[0])) {
+> > +		a->consumer = 0;
+> > +		return a->queue[0];
+> > +	}
+> > +
+> > +	return NULL;
+> > +}
+> > +
+> > +static inline void __skb_array_consume(struct skb_array *a)
+> > +{
+> > +	a->queue[a->consumer++] = NULL;
+> > +	if (unlikely(++a->consumer > a->size))
+> 
+> a->consumer is incremented twice ?
+
+Oops.
+
+> > +		a->consumer = 0;
+> > +}
+> > +
+> 
+> 
+> 
