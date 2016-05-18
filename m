@@ -1,34 +1,51 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Make TCP work better with re-ordered frames?
-Date: Wed, 18 May 2016 11:17:14 -0700
-Message-ID: <CAK6E8=fTB+AAL+pAonTY57f9VSfgVbijVdc0QT=+R_X3e_-Hzg@mail.gmail.com>
-References: <573C758E.9050008@candelatech.com> <1463581760.18194.114.camel@edumazet-glaptop3.roam.corp.google.com>
- <573C8547.3020709@candelatech.com> <1463585133.18194.119.camel@edumazet-glaptop3.roam.corp.google.com>
- <573C8E42.8090102@candelatech.com> <1463587366.18194.130.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net 1/2] RDS: TCP: rds_tcp_accept_worker() must exit
+ gracefully when terminating rds-tcp
+Date: Wed, 18 May 2016 11:33:19 -0700
+Message-ID: <1b519ce2-89f2-3b98-e00b-73d453e1e53e@oracle.com>
+References: <cover.1463579486.git.sowmini.varadhan@oracle.com>
+ <73ccad462f8f54dfa9c71576c3f5d48ea2b1dc12.1463579486.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Greear <greearb@candelatech.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35014 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736AbcERSRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 14:17:55 -0400
-Received: by mail-wm0-f48.google.com with SMTP id r12so47135439wme.0
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 11:17:55 -0700 (PDT)
-In-Reply-To: <1463587366.18194.130.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:45711 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751899AbcERSdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 14:33:40 -0400
+In-Reply-To: <73ccad462f8f54dfa9c71576c3f5d48ea2b1dc12.1463579486.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2016 at 9:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 5/18/2016 10:06 AM, Sowmini Varadhan wrote:
+> There are two instances where we want to terminate RDS-TCP: when
+> exiting the netns or during module unload. In either case, the
+> termination sequence is to stop the listen socket, mark the
+> rtn->rds_tcp_listen_sock as null, and flush any accept workqs.
+> Thus any workqs that get flushed at this point will encounter a
+> null rds_tcp_listen_sock, and must exit gracefully to allow
+> the RDS-TCP termination to complete successfully.
 >
-> On Wed, 2016-05-18 at 08:46 -0700, Ben Greear wrote:
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+>  net/rds/tcp_listen.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
 >
-> > I will work on captures...do you care if it is from transmitter or receiver's perspective?
+> diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+> index be263cd..e10b422 100644
+> --- a/net/rds/tcp_listen.c
+> +++ b/net/rds/tcp_listen.c
+> @@ -80,6 +80,9 @@ int rds_tcp_accept_one(struct socket *sock)
+>  	int conn_state;
+>  	struct sock *nsk;
 >
-> Receiver would probably be more useful.
-Can I get sender side traces too? I am working on improving TCP
-reordering at the sender side. Thanks.
->
->
+> +	if (!sock) /* module unload or netns delete in progress */
+> +		return -ENETUNREACH;
+> +
+New error code type in RDS but seems appropriate :-)
+Patch looks good to me.
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
