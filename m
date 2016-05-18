@@ -1,300 +1,1561 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH iproute2 v3 3/5] utils: add get_be{16,32,64}, use them where possible
-Date: Wed, 18 May 2016 17:35:11 +0200
-Message-ID: <e27a849fd0c95c662771ce3ad42fab6517df5631.1463585050.git.sd@queasysnail.net>
+Subject: [PATCH iproute2 v3 5/5] ip: add MACsec support
+Date: Wed, 18 May 2016 17:35:13 +0200
+Message-ID: <3e4dce017d424cfbd7558a82ddcaf6edf1d03312.1463585050.git.sd@queasysnail.net>
 References: <cover.1463585050.git.sd@queasysnail.net>
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	Phil Sutter <phil@nwl.cc>, Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33546 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33560 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932563AbcERPgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 11:36:16 -0400
+	id S932359AbcERPgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 11:36:20 -0400
 In-Reply-To: <cover.1463585050.git.sd@queasysnail.net>
 In-Reply-To: <cover.1463585050.git.sd@queasysnail.net>
 References: <cover.1463585050.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Extend ip-link to create MACsec devices
+
+  ip link add link <master> <macsec> type macsec [options]
+
+Add `ip macsec` command to configure receive-side secure channels and
+secure associations within a macsec netdevice.
+
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Acked-by: Phil Sutter <phil@nwl.cc>
 ---
- include/utils.h       |  3 +++
- ip/ipfou.c            |  3 +--
- ip/iplink_vxlan.c     |  8 ++------
- ip/iproute_lwtunnel.c |  8 ++++----
- ip/ipxfrm.c           | 13 +++----------
- ip/xfrm_state.c       | 10 +++-------
- lib/ll_proto.c        |  3 +--
- lib/utils.c           | 33 +++++++++++++++++++++++++++++++++
- tc/f_flower.c         |  4 ++--
- tc/f_u32.c            | 10 ++--------
- 10 files changed, 54 insertions(+), 41 deletions(-)
+Changes since v1:
+ - use new utils
+ - adapt to new netlink API
+ - clean up stats printing
+ - make commands and output symmetrical
 
-diff --git a/include/utils.h b/include/utils.h
-index aef28ce732ab..a9aa89162950 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -112,6 +112,9 @@ int get_u16(__u16 *val, const char *arg, int base);
- int get_s16(__s16 *val, const char *arg, int base);
- int get_u8(__u8 *val, const char *arg, int base);
- int get_s8(__s8 *val, const char *arg, int base);
-+int get_be64(__be64 *val, const char *arg, int base);
-+int get_be32(__be32 *val, const char *arg, int base);
-+int get_be16(__be16 *val, const char *arg, int base);
- int get_addr64(__u64 *ap, const char *cp);
+Changes since v2:
+ - modified uAPI
+ - cleaned up some unused struct fields
+ - manpage syntax cleanup from Phil Sutter
+---
+ ip/Makefile           |    2 +-
+ ip/ip.c               |    3 +-
+ ip/ip_common.h        |    1 +
+ ip/ipmacsec.c         | 1236 +++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/Makefile     |    2 +-
+ man/man8/ip-link.8.in |   85 ++++
+ man/man8/ip-macsec.8  |   98 ++++
+ 7 files changed, 1424 insertions(+), 3 deletions(-)
+ create mode 100644 ip/ipmacsec.c
+ create mode 100644 man/man8/ip-macsec.8
+
+diff --git a/ip/Makefile b/ip/Makefile
+index f3d298739cac..fe59ea8bdc76 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -7,7 +7,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
+     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
+     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
+     iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
+-    iplink_geneve.o iplink_vrf.o iproute_lwtunnel.o
++    iplink_geneve.o iplink_vrf.o iproute_lwtunnel.o ipmacsec.o
  
- char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
-diff --git a/ip/ipfou.c b/ip/ipfou.c
-index 8a86b18fc284..2a6ae1755d3e 100644
---- a/ip/ipfou.c
-+++ b/ip/ipfou.c
-@@ -55,9 +55,8 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
- 		if (!matches(*argv, "port")) {
- 			NEXT_ARG();
+ RTMONOBJ=rtmon.o
  
--			if (get_u16(&port, *argv, 0) || port == 0)
-+			if (get_be16(&port, *argv, 0) || port == 0)
- 				invarg("invalid port", *argv);
--			port = htons(port);
- 			port_set = 1;
- 		} else if (!matches(*argv, "ipproto")) {
- 			struct protoent *servptr;
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index e3bbea0031df..b3ef487b083f 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -171,16 +171,12 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				invarg("max addresses", *argv);
- 		} else if (!matches(*argv, "port") ||
- 			   !matches(*argv, "srcport")) {
--			__u16 minport, maxport;
--
- 			NEXT_ARG();
--			if (get_u16(&minport, *argv, 0))
-+			if (get_be16(&range.low, *argv, 0))
- 				invarg("min port", *argv);
- 			NEXT_ARG();
--			if (get_u16(&maxport, *argv, 0))
-+			if (get_be16(&range.high, *argv, 0))
- 				invarg("max port", *argv);
--			range.low = htons(minport);
--			range.high = htons(maxport);
- 		} else if (!matches(*argv, "dstport")) {
- 			NEXT_ARG();
- 			if (get_u16(&dstport, *argv, 0))
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 3baac7720816..bdbb15d2b746 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -190,9 +190,9 @@ static int parse_encap_ip(struct rtattr *rta, size_t len, int *argcp, char ***ar
- 			NEXT_ARG();
- 			if (id_ok++)
- 				duparg2("id", *argv);
--			if (get_u64(&id, *argv, 0))
-+			if (get_be64(&id, *argv, 0))
- 				invarg("\"id\" value is invalid\n", *argv);
--			rta_addattr64(rta, len, LWTUNNEL_IP_ID, htonll(id));
-+			rta_addattr64(rta, len, LWTUNNEL_IP_ID, id);
- 		} else if (strcmp(*argv, "dst") == 0) {
- 			inet_prefix addr;
- 
-@@ -267,9 +267,9 @@ static int parse_encap_ip6(struct rtattr *rta, size_t len, int *argcp, char ***a
- 			NEXT_ARG();
- 			if (id_ok++)
- 				duparg2("id", *argv);
--			if (get_u64(&id, *argv, 0))
-+			if (get_be64(&id, *argv, 0))
- 				invarg("\"id\" value is invalid\n", *argv);
--			rta_addattr64(rta, len, LWTUNNEL_IP6_ID, htonll(id));
-+			rta_addattr64(rta, len, LWTUNNEL_IP6_ID, id);
- 		} else if (strcmp(*argv, "dst") == 0) {
- 			inet_prefix addr;
- 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 8741ff3b302a..8d786d1334df 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -1109,15 +1109,10 @@ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
- 			filter.id_proto_mask = XFRM_FILTER_MASK_FULL;
- 
- 		} else if (strcmp(*argv, "spi") == 0) {
--			__u32 spi;
--
- 			NEXT_ARG();
--			if (get_u32(&spi, *argv, 0))
-+			if (get_be32(&id->spi, *argv, 0))
- 				invarg("SPI value is invalid", *argv);
- 
--			spi = htonl(spi);
--			id->spi = spi;
--
- 			filter.id_spi_mask = XFRM_FILTER_MASK_FULL;
- 
- 		} else {
-@@ -1252,9 +1247,8 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
- 
- 			NEXT_ARG();
- 
--			if (get_u16(&sel->sport, *argv, 0))
-+			if (get_be16(&sel->sport, *argv, 0))
- 				invarg("value after \"sport\" is invalid", *argv);
--			sel->sport = htons(sel->sport);
- 			if (sel->sport)
- 				sel->sport_mask = ~((__u16)0);
- 
-@@ -1265,9 +1259,8 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
- 
- 			NEXT_ARG();
- 
--			if (get_u16(&sel->dport, *argv, 0))
-+			if (get_be16(&sel->dport, *argv, 0))
- 				invarg("value after \"dport\" is invalid", *argv);
--			sel->dport = htons(sel->dport);
- 			if (sel->dport)
- 				sel->dport_mask = ~((__u16)0);
- 
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 5e2b641959bf..21ada3647ba4 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -175,11 +175,9 @@ static int xfrm_seq_parse(__u32 *seq, int *argcp, char ***argvp)
- 	int argc = *argcp;
- 	char **argv = *argvp;
- 
--	if (get_u32(seq, *argv, 0))
-+	if (get_be32(seq, *argv, 0))
- 		invarg("SEQ value is invalid", *argv);
- 
--	*seq = htonl(*seq);
--
- 	*argcp = argc;
- 	*argvp = argv;
- 
-@@ -359,13 +357,11 @@ static int xfrm_state_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			NEXT_ARG();
- 			xfrm_encap_type_parse(&encap.encap_type, &argc, &argv);
- 			NEXT_ARG();
--			if (get_u16(&encap.encap_sport, *argv, 0))
-+			if (get_be16(&encap.encap_sport, *argv, 0))
- 				invarg("SPORT value after \"encap\" is invalid", *argv);
--			encap.encap_sport = htons(encap.encap_sport);
- 			NEXT_ARG();
--			if (get_u16(&encap.encap_dport, *argv, 0))
-+			if (get_be16(&encap.encap_dport, *argv, 0))
- 				invarg("DPORT value after \"encap\" is invalid", *argv);
--			encap.encap_dport = htons(encap.encap_dport);
- 			NEXT_ARG();
- 			get_addr(&oa, *argv, AF_UNSPEC);
- 			memcpy(&encap.encap_oa, &oa.data, sizeof(encap.encap_oa));
-diff --git a/lib/ll_proto.c b/lib/ll_proto.c
-index d8df68c110b0..e094d9f81ccc 100644
---- a/lib/ll_proto.c
-+++ b/lib/ll_proto.c
-@@ -111,8 +111,7 @@ int ll_proto_a2n(unsigned short *id, const char *buf)
- 			 return 0;
- 		 }
- 	}
--	if (get_u16(id, buf, 0))
-+	if (get_be16(id, buf, 0))
- 		return -1;
--	*id = htons(*id);
- 	return 0;
- }
-diff --git a/lib/utils.c b/lib/utils.c
-index bd10c0d71718..e0cee5e9dc56 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -353,6 +353,39 @@ int get_s8(__s8 *val, const char *arg, int base)
- 	return 0;
- }
- 
-+int get_be64(__be64 *val, const char *arg, int base)
+diff --git a/ip/ip.c b/ip/ip.c
+index 123f18133a2e..166ef17499d4 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -51,7 +51,7 @@ static void usage(void)
+ "       ip [ -force ] -batch filename\n"
+ "where  OBJECT := { link | address | addrlabel | route | rule | neigh | ntable |\n"
+ "                   tunnel | tuntap | maddress | mroute | mrule | monitor | xfrm |\n"
+-"                   netns | l2tp | fou | tcp_metrics | token | netconf }\n"
++"                   netns | l2tp | fou | macsec | tcp_metrics | token | netconf }\n"
+ "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
+ "                    -h[uman-readable] | -iec |\n"
+ "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
+@@ -84,6 +84,7 @@ static const struct cmd {
+ 	{ "link",	do_iplink },
+ 	{ "l2tp",	do_ipl2tp },
+ 	{ "fou",	do_ipfou },
++	{ "macsec",	do_ipmacsec },
+ 	{ "tunnel",	do_iptunnel },
+ 	{ "tunl",	do_iptunnel },
+ 	{ "tuntap",	do_iptuntap },
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index b7361a8fc65d..3a7a2a9d0e00 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -43,6 +43,7 @@ int do_iptunnel(int argc, char **argv);
+ int do_ip6tunnel(int argc, char **argv);
+ int do_iptuntap(int argc, char **argv);
+ int do_iplink(int argc, char **argv);
++int do_ipmacsec(int argc, char **argv);
+ int do_ipmonitor(int argc, char **argv);
+ int do_multiaddr(int argc, char **argv);
+ int do_multiroute(int argc, char **argv);
+diff --git a/ip/ipmacsec.c b/ip/ipmacsec.c
+new file mode 100644
+index 000000000000..a8d98f524d01
+--- /dev/null
++++ b/ip/ipmacsec.c
+@@ -0,0 +1,1236 @@
++/*
++ * ipmacsec.c		"ip macsec".
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Sabrina Dubroca <sd@queasysnail.net>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <linux/genetlink.h>
++#include <linux/if_ether.h>
++#include <linux/if_macsec.h>
++
++#include "rt_names.h"
++#include "utils.h"
++#include "ip_common.h"
++#include "ll_map.h"
++#include "libgenl.h"
++
++static const char *values_on_off[] = { "on", "off" };
++
++static const char *VALIDATE_STR[] = {
++	[MACSEC_VALIDATE_DISABLED] = "disabled",
++	[MACSEC_VALIDATE_CHECK] = "check",
++	[MACSEC_VALIDATE_STRICT] = "strict",
++};
++
++struct sci {
++	__u64 sci;
++	__u16 port;
++	char abuf[6];
++};
++
++struct sa_desc {
++	__u8 an;
++	__u32 pn;
++	__u8 key_id[MACSEC_KEYID_LEN];
++	__u32 key_len;
++	__u8 key[MACSEC_MAX_KEY_LEN];
++	__u8 active;
++};
++
++struct cipher_args {
++	__u64 id;
++	__u8 icv_len;
++};
++
++struct txsc_desc {
++	int ifindex;
++	__u64 sci;
++	__be16 port;
++	struct cipher_args cipher;
++	__u32 window;
++	enum macsec_validation_type validate;
++	__u8 encoding_sa;
++};
++
++struct rxsc_desc {
++	int ifindex;
++	__u64 sci;
++	__u8 active;
++};
++
++#define MACSEC_BUFLEN 1024
++
++
++/* netlink socket */
++static struct rtnl_handle genl_rth;
++static int genl_family = -1;
++
++#define MACSEC_GENL_REQ(_req, _bufsiz, _cmd, _flags) \
++	GENL_REQUEST(_req, _bufsiz, genl_family, 0, MACSEC_GENL_VERSION, _cmd, _flags)
++
++
++static void init_genl(void)
 +{
-+	__u64 v;
-+	int ret = get_u64(&v, arg, base);
++	if (genl_family >= 0)
++		return;
 +
-+	if (!ret)
-+		*val = htonll(v);
++	if (rtnl_open_byproto(&genl_rth, 0, NETLINK_GENERIC) < 0) {
++		fprintf(stderr, "Cannot open generic netlink socket\n");
++		exit(1);
++	}
 +
-+	return ret;
++	genl_family = genl_resolve_family(&genl_rth, MACSEC_GENL_NAME);
++	if (genl_family < 0)
++		exit(1);
 +}
 +
-+int get_be32(__be32 *val, const char *arg, int base)
++static void ipmacsec_usage(void)
 +{
-+	__u32 v;
-+	int ret = get_u32(&v, arg, base);
++	fprintf(stderr, "Usage: ip macsec add DEV tx sa { 0..3 } [ OPTS ] key ID KEY\n");
++	fprintf(stderr, "       ip macsec set DEV tx sa { 0..3 } [ OPTS ]\n");
++	fprintf(stderr, "       ip macsec del DEV tx sa { 0..3 }\n");
++	fprintf(stderr, "       ip macsec add DEV rx SCI [ on | off ]\n");
++	fprintf(stderr, "       ip macsec set DEV rx SCI [ on | off ]\n");
++	fprintf(stderr, "       ip macsec del DEV rx SCI\n");
++	fprintf(stderr, "       ip macsec add DEV rx SCI sa { 0..3 } [ OPTS ] key ID KEY\n");
++	fprintf(stderr, "       ip macsec set DEV rx SCI sa { 0..3 } [ OPTS ]\n");
++	fprintf(stderr, "       ip macsec del DEV rx SCI sa { 0..3 }\n");
++	fprintf(stderr, "       ip macsec show\n");
++	fprintf(stderr, "       ip macsec show DEV\n");
++	fprintf(stderr, "where  OPTS := [ pn <u32> ] [ on | off ]\n");
++	fprintf(stderr, "       ID   := 128-bit hex string\n");
++	fprintf(stderr, "       KEY  := 128-bit hex string\n");
++	fprintf(stderr, "       SCI  := { sci <u64> | port <u16> address <lladdr> }\n");
 +
-+	if (!ret)
-+		*val = htonl(v);
-+
-+	return ret;
++	exit(-1);
 +}
 +
-+int get_be16(__be16 *val, const char *arg, int base)
++static int one_of(const char *msg, const char *realval, const char **list,
++		  size_t len, int *index)
 +{
-+	__u16 v;
-+	int ret = get_u16(&v, arg, base);
++	int i;
 +
-+	if (!ret)
-+		*val = htons(v);
++	for (i = 0; i < len; i++) {
++		if (matches(realval, list[i]) == 0) {
++			*index = i;
++			return 0;
++		}
++	}
 +
-+	return ret;
++	fprintf(stderr, "Error: argument of \"%s\" must be one of ", msg);
++	for (i = 0; i < len; i++)
++		fprintf(stderr, "\"%s\", ", list[i]);
++	fprintf(stderr, "not \"%s\"\n", realval);
++	return -1;
 +}
 +
- /* This uses a non-standard parsing (ie not inet_aton, or inet_pton)
-  * because of legacy choice to parse 10.8 as 10.8.0.0 not 10.0.0.8
-  */
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 306f056c1b66..fd2014b374a1 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -150,11 +150,11 @@ static int flower_parse_port(char *str, __u8 ip_port,
- 		return -1;
- 	}
++static int get_an(__u8 *val, const char *arg)
++{
++	int ret = get_u8(val, arg, 0);
++
++	if (ret)
++		return ret;
++
++	if (*val > 3)
++		return -1;
++
++	return 0;
++}
++
++static int get_sci(__u64 *sci, const char *arg)
++{
++	return get_u64(sci, arg, 16);
++}
++
++static int get_port(__be16 *port, const char *arg)
++{
++	return get_be16(port, arg, 10);
++}
++
++#define _STR(a) #a
++#define STR(a) _STR(a)
++
++static void get_icvlen(__u8 *icvlen, char *arg)
++{
++	int ret = get_u8(icvlen, arg, 10);
++
++	if (ret)
++		invarg("expected ICV length", arg);
++
++	if (*icvlen < MACSEC_MIN_ICV_LEN || *icvlen > MACSEC_MAX_ICV_LEN)
++		invarg("ICV length must be in the range {"
++		       STR(MACSEC_MIN_ICV_LEN) ".." STR(MACSEC_MAX_ICV_LEN)
++		       "}", arg);
++}
++
++static bool get_sa(int *argcp, char ***argvp, __u8 *an)
++{
++	int argc = *argcp;
++	char **argv = *argvp;
++	int ret;
++
++	if (argc <= 0 || strcmp(*argv, "sa") != 0)
++		return false;
++
++	NEXT_ARG();
++	ret = get_an(an, *argv);
++	if (ret)
++		invarg("expected an { 0..3 }", *argv);
++	argc--; argv++;
++
++	*argvp = argv;
++	*argcp = argc;
++	return true;
++}
++
++static int parse_sa_args(int *argcp, char ***argvp, struct sa_desc *sa)
++{
++	int argc = *argcp;
++	char **argv = *argvp;
++	int ret;
++	bool active_set = false;
++
++	while (argc > 0) {
++		if (strcmp(*argv, "pn") == 0) {
++			if (sa->pn != 0)
++				duparg2("pn", "pn");
++			NEXT_ARG();
++			ret = get_u32(&sa->pn, *argv, 0);
++			if (ret)
++				invarg("expected pn", *argv);
++			if (sa->pn == 0)
++				invarg("expected pn != 0", *argv);
++		} else if (strcmp(*argv, "key") == 0) {
++			unsigned int len;
++			NEXT_ARG();
++			if (!hexstring_a2n(*argv, sa->key_id, MACSEC_KEYID_LEN, &len))
++				invarg("expected key id", *argv);
++			NEXT_ARG();
++			if (!hexstring_a2n(*argv, sa->key, MACSEC_MAX_KEY_LEN, &sa->key_len))
++				invarg("expected key", *argv);
++		} else if (strcmp(*argv, "on") == 0) {
++			if (active_set)
++				duparg2("on/off", "on");
++			sa->active = true;
++			active_set = true;
++		} else if (strcmp(*argv, "off") == 0) {
++			if (active_set)
++				duparg2("on/off", "off");
++			sa->active = false;
++			active_set = true;
++		} else {
++			fprintf(stderr, "macsec: unknown command \"%s\"?\n",
++				*argv);
++			ipmacsec_usage();
++		}
++
++		argv++; argc--;
++	}
++
++	*argvp = argv;
++	*argcp = argc;
++	return 0;
++}
++
++static __u64 make_sci(char *addr, __be16 port)
++{
++	__u64 sci;
++
++	memcpy(&sci, addr, ETH_ALEN);
++	memcpy(((char *)&sci) + ETH_ALEN, &port, sizeof(port));
++
++	return sci;
++}
++
++static bool sci_complete(bool sci, bool port, bool addr, bool port_only)
++{
++	return sci || (port && (addr || port_only));
++}
++
++static int get_sci_portaddr(struct sci *sci, int *argcp, char ***argvp,
++			    bool port_only, bool optional)
++{
++	int argc = *argcp;
++	char **argv = *argvp;
++	int ret;
++	bool p = false, a = false, s = false;
++
++	while (argc > 0) {
++		if (strcmp(*argv, "sci") == 0) {
++			if (p)
++				invarg("expected address", *argv);
++			if (a)
++				invarg("expected port", *argv);
++			NEXT_ARG();
++			ret = get_sci(&sci->sci, *argv);
++			if (ret)
++				invarg("expected sci", *argv);
++			s = true;
++		} else if (strcmp(*argv, "port") == 0) {
++			NEXT_ARG();
++			ret = get_port(&sci->port, *argv);
++			if (ret)
++				invarg("expected port", *argv);
++			if (sci->port == 0)
++				invarg("expected port != 0", *argv);
++			p = true;
++		} else if (strcmp(*argv, "address") == 0) {
++			NEXT_ARG();
++			ret = ll_addr_a2n(sci->abuf, sizeof(sci->abuf), *argv);
++			if (ret < 0)
++				invarg("expected lladdr", *argv);
++			a = true;
++		} else if (optional) {
++			break;
++		} else {
++			invarg("expected sci, port, or address", *argv);
++		}
++
++		argv++; argc--;
++
++		if (sci_complete(s, p, a, port_only))
++			break;
++	}
++
++	if (!optional && !sci_complete(s, p, a, port_only))
++		return -1;
++
++	if (p && a)
++		sci->sci = make_sci(sci->abuf, sci->port);
++
++	*argvp = argv;
++	*argcp = argc;
++
++	return p || a || s;
++}
++
++static bool parse_rxsci(int *argcp, char ***argvp, struct rxsc_desc *rxsc,
++			struct sa_desc *rxsa)
++{
++	struct sci sci = { 0 };
++
++	if (*argcp == 0 ||
++	    get_sci_portaddr(&sci, argcp, argvp, false, false) < 0) {
++		fprintf(stderr, "expected sci\n");
++		ipmacsec_usage();
++	}
++
++	rxsc->sci = sci.sci;
++
++	return get_sa(argcp, argvp, &rxsa->an);
++}
++
++static int parse_rxsci_args(int *argcp, char ***argvp, struct rxsc_desc *rxsc)
++{
++	int argc = *argcp;
++	char **argv = *argvp;
++	bool active_set = false;
++
++	while (argc > 0) {
++		if (strcmp(*argv, "on") == 0) {
++			if (active_set)
++				duparg2("on/off", "on");
++			rxsc->active = true;
++			active_set = true;
++		} else if (strcmp(*argv, "off") == 0) {
++			if (active_set)
++				duparg2("on/off", "off");
++			rxsc->active = false;
++			active_set = true;
++		} else {
++			fprintf(stderr, "macsec: unknown command \"%s\"?\n",
++				*argv);
++			ipmacsec_usage();
++		}
++
++		argv++; argc--;
++	}
++
++	*argvp = argv;
++	*argcp = argc;
++	return 0;
++}
++
++enum cmd {
++	CMD_ADD,
++	CMD_DEL,
++	CMD_UPD,
++	__CMD_MAX
++};
++
++static const enum macsec_nl_commands macsec_commands[__CMD_MAX][2][2] = {
++	[CMD_ADD] = {
++		[0] = {-1, MACSEC_CMD_ADD_RXSC},
++		[1] = {MACSEC_CMD_ADD_TXSA, MACSEC_CMD_ADD_RXSA},
++	},
++	[CMD_UPD] = {
++		[0] = {-1, MACSEC_CMD_UPD_RXSC},
++		[1] = {MACSEC_CMD_UPD_TXSA, MACSEC_CMD_UPD_RXSA},
++	},
++	[CMD_DEL] = {
++		[0] = {-1, MACSEC_CMD_DEL_RXSC},
++		[1] = {MACSEC_CMD_DEL_TXSA, MACSEC_CMD_DEL_RXSA},
++	},
++};
++
++static int do_modify_nl(enum cmd c, enum macsec_nl_commands cmd, int ifindex,
++			struct rxsc_desc *rxsc, struct sa_desc *sa)
++{
++	struct rtattr *attr_sa;
++
++	MACSEC_GENL_REQ(req, MACSEC_BUFLEN, cmd, NLM_F_REQUEST);
++
++	addattr32(&req.n, MACSEC_BUFLEN, MACSEC_ATTR_IFINDEX, ifindex);
++	if (rxsc) {
++		struct rtattr *attr_rxsc = addattr_nest(&req.n, MACSEC_BUFLEN, MACSEC_ATTR_RXSC_CONFIG);
++
++		addattr64(&req.n, MACSEC_BUFLEN, MACSEC_RXSC_ATTR_SCI, rxsc->sci);
++		if (c != CMD_DEL && rxsc->active != 0xff)
++			addattr8(&req.n, MACSEC_BUFLEN, MACSEC_RXSC_ATTR_ACTIVE, rxsc->active);
++
++		addattr_nest_end(&req.n, attr_rxsc);
++	}
++
++	if (sa->an == 0xff)
++		goto talk;
++
++	attr_sa = addattr_nest(&req.n, MACSEC_BUFLEN, MACSEC_ATTR_SA_CONFIG);
++
++	addattr8(&req.n, MACSEC_BUFLEN, MACSEC_SA_ATTR_AN, sa->an);
++
++	if (c != CMD_DEL) {
++		if (sa->pn)
++			addattr32(&req.n, MACSEC_BUFLEN, MACSEC_SA_ATTR_PN,
++				  sa->pn);
++
++		if (sa->key_len) {
++			addattr_l(&req.n, MACSEC_BUFLEN, MACSEC_SA_ATTR_KEYID,
++				  sa->key_id, MACSEC_KEYID_LEN);
++			addattr_l(&req.n, MACSEC_BUFLEN, MACSEC_SA_ATTR_KEY,
++				  sa->key, sa->key_len);
++		}
++
++		if (sa->active != 0xff)
++			addattr8(&req.n, MACSEC_BUFLEN, MACSEC_SA_ATTR_ACTIVE, sa->active);
++	}
++
++	addattr_nest_end(&req.n, attr_sa);
++
++talk:
++	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
++		return -2;
++
++	return 0;
++}
++
++static bool check_sa_args(enum cmd c, struct sa_desc *sa)
++{
++	if (c == CMD_ADD) {
++		if (!sa->key_len) {
++			fprintf(stderr, "cannot create SA without key\n");
++			return -1;
++		}
++
++		if (sa->pn == 0) {
++			fprintf(stderr, "must specify a packet number != 0\n");
++			return -1;
++		}
++	} else if (c == CMD_UPD) {
++		if (sa->key_len) {
++			fprintf(stderr, "cannot change key on SA\n");
++			return -1;
++		}
++	}
++
++	return 0;
++}
++
++static int do_modify_txsa(enum cmd c, int argc, char **argv, int ifindex)
++{
++	struct sa_desc txsa = {0};
++	enum macsec_nl_commands cmd;
++
++	txsa.an = 0xff;
++	txsa.active = 0xff;
++
++	if (argc == 0 || !get_sa(&argc, &argv, &txsa.an))
++		ipmacsec_usage();
++
++	if (c == CMD_DEL)
++		goto modify;
++
++	if (parse_sa_args(&argc, &argv, &txsa))
++		return -1;
++
++	if (check_sa_args(c, &txsa))
++		return -1;
++
++modify:
++	cmd = macsec_commands[c][1][0];
++	return do_modify_nl(c, cmd, ifindex, NULL, &txsa);
++}
++
++static int do_modify_rxsci(enum cmd c, int argc, char **argv, int ifindex)
++{
++	struct rxsc_desc rxsc = {0};
++	struct sa_desc rxsa = {0};
++	bool sa_set;
++	enum macsec_nl_commands cmd;
++
++	rxsc.ifindex = ifindex;
++	rxsc.active = 0xff;
++	rxsa.an = 0xff;
++	rxsa.active = 0xff;
++
++	sa_set = parse_rxsci(&argc, &argv, &rxsc, &rxsa);
++
++	if (c == CMD_DEL)
++		goto modify;
++
++	if (sa_set && (parse_sa_args(&argc, &argv, &rxsa) ||
++		       check_sa_args(c, &rxsa)))
++		return -1;
++	if (!sa_set && parse_rxsci_args(&argc, &argv, &rxsc))
++		return -1;
++
++modify:
++	cmd = macsec_commands[c][sa_set][1];
++	return do_modify_nl(c, cmd, rxsc.ifindex, &rxsc, &rxsa);
++}
++
++static int do_modify(enum cmd c, int argc, char **argv)
++{
++	int ifindex;
++
++	if (argc == 0)
++		ipmacsec_usage();
++
++	ifindex = ll_name_to_index(*argv);
++	if (!ifindex) {
++		fprintf(stderr, "Device \"%s\" does not exist.\n", *argv);
++		return -1;
++	}
++	argc--; argv++;
++
++	if (argc == 0)
++		ipmacsec_usage();
++
++	if (strcmp(*argv, "tx") == 0)
++		return do_modify_txsa(c, argc-1, argv+1, ifindex);
++	if (strcmp(*argv, "rx") == 0)
++		return do_modify_rxsci(c, argc-1, argv+1, ifindex);
++
++	ipmacsec_usage();
++	return -1;
++}
++
++/* dump/show */
++static struct {
++	int ifindex;
++	__u64 sci;
++} filter;
++
++static int validate_dump(struct rtattr **attrs)
++{
++	return attrs[MACSEC_ATTR_IFINDEX] && attrs[MACSEC_ATTR_SECY] &&
++	       attrs[MACSEC_ATTR_TXSA_LIST] && attrs[MACSEC_ATTR_RXSC_LIST] &&
++	       attrs[MACSEC_ATTR_TXSC_STATS] && attrs[MACSEC_ATTR_SECY_STATS];
++
++}
++
++static int validate_secy_dump(struct rtattr **attrs)
++{
++	return attrs[MACSEC_SECY_ATTR_SCI] &&
++	       attrs[MACSEC_SECY_ATTR_ENCODING_SA] &&
++	       attrs[MACSEC_SECY_ATTR_CIPHER_SUITE] &&
++	       attrs[MACSEC_SECY_ATTR_ICV_LEN] &&
++	       attrs[MACSEC_SECY_ATTR_PROTECT] &&
++	       attrs[MACSEC_SECY_ATTR_REPLAY] &&
++	       attrs[MACSEC_SECY_ATTR_OPER] &&
++	       attrs[MACSEC_SECY_ATTR_VALIDATE] &&
++	       attrs[MACSEC_SECY_ATTR_ENCRYPT] &&
++	       attrs[MACSEC_SECY_ATTR_INC_SCI] &&
++	       attrs[MACSEC_SECY_ATTR_ES] &&
++	       attrs[MACSEC_SECY_ATTR_SCB];
++}
++
++static void print_flag(FILE *f, struct rtattr *attrs[], const char *desc,
++		       int field)
++{
++	if (attrs[field])
++		fprintf(f, "%s %s ", desc,
++			rta_getattr_u8(attrs[field]) ? "on" : "off");
++}
++
++#define DEFAULT_CIPHER_NAME "GCM-AES-128"
++
++static const char *cs_id_to_name(__u64 cid)
++{
++	switch (cid) {
++	case MACSEC_DEFAULT_CIPHER_ID:
++	case MACSEC_DEFAULT_CIPHER_ALT:
++		return DEFAULT_CIPHER_NAME;
++	default:
++		return "(unknown)";
++	}
++}
++
++static void print_cipher_suite(const char *prefix, __u64 cid, __u8 icv_len)
++{
++	printf("%scipher suite: %s, using ICV length %d\n", prefix,
++	       cs_id_to_name(cid), icv_len);
++}
++
++static void print_attrs(const char *prefix, struct rtattr *attrs[])
++{
++	print_flag(stdout, attrs, "protect", MACSEC_SECY_ATTR_PROTECT);
++
++	if (attrs[MACSEC_SECY_ATTR_VALIDATE]) {
++		printf("validate %s ",
++		       VALIDATE_STR[rta_getattr_u8(attrs[MACSEC_SECY_ATTR_VALIDATE])]);
++	}
++
++	print_flag(stdout, attrs, "sc", MACSEC_RXSC_ATTR_ACTIVE);
++	print_flag(stdout, attrs, "sa", MACSEC_SA_ATTR_ACTIVE);
++	print_flag(stdout, attrs, "encrypt", MACSEC_SECY_ATTR_ENCRYPT);
++	print_flag(stdout, attrs, "send_sci", MACSEC_SECY_ATTR_INC_SCI);
++	print_flag(stdout, attrs, "end_station", MACSEC_SECY_ATTR_ES);
++	print_flag(stdout, attrs, "scb", MACSEC_SECY_ATTR_SCB);
++
++	print_flag(stdout, attrs, "replay", MACSEC_SECY_ATTR_REPLAY);
++	if (attrs[MACSEC_SECY_ATTR_WINDOW]) {
++		printf("window %d ",
++		       rta_getattr_u32(attrs[MACSEC_SECY_ATTR_WINDOW]));
++	}
++
++	if (attrs[MACSEC_SECY_ATTR_CIPHER_SUITE] && attrs[MACSEC_SECY_ATTR_ICV_LEN]) {
++		printf("\n");
++		print_cipher_suite(prefix,
++			rta_getattr_u64(attrs[MACSEC_SECY_ATTR_CIPHER_SUITE]),
++			rta_getattr_u8(attrs[MACSEC_SECY_ATTR_ICV_LEN]));
++	}
++
++}
++
++static void print_one_stat(const char **names, struct rtattr **attr, int idx, bool long_stat)
++{
++	int pad = strlen(names[idx]) + 1;
++
++	if (attr[idx]) {
++		if (long_stat)
++			printf("%*llu", pad, rta_getattr_u64(attr[idx]));
++		else
++			printf("%*u", pad, rta_getattr_u32(attr[idx]));
++	} else {
++		printf("%*c", pad, '-');
++	}
++}
++
++static const char *txsc_stats_names[] = {
++	[MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = "OutOctetsProtected",
++	[MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = "OutOctetsEncrypted",
++	[MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = "OutPktsProtected",
++	[MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = "OutPktsEncrypted",
++};
++
++static void print_txsc_stats(const char *prefix, struct rtattr *attr)
++{
++	struct rtattr *stats[MACSEC_TXSC_STATS_ATTR_MAX + 1];
++	int i;
++
++	if (!attr || show_stats == 0)
++		return;
++
++	parse_rtattr_nested(stats, MACSEC_TXSC_STATS_ATTR_MAX + 1, attr);
++	printf("%sstats:", prefix);
++
++	for (i = 1; i < NUM_MACSEC_TXSC_STATS_ATTR; i++)
++		printf(" %s", txsc_stats_names[i]);
++
++	printf("\n%s      ", prefix);
++
++	for (i = 1; i < NUM_MACSEC_TXSC_STATS_ATTR; i++)
++		print_one_stat(txsc_stats_names, stats, i, true);
++
++	printf("\n");
++}
++
++static const char *secy_stats_names[] = {
++	[MACSEC_SECY_STATS_ATTR_OUT_PKTS_UNTAGGED] = "OutPktsUntagged",
++	[MACSEC_SECY_STATS_ATTR_IN_PKTS_UNTAGGED] = "InPktsUntagged",
++	[MACSEC_SECY_STATS_ATTR_OUT_PKTS_TOO_LONG] = "OutPktsTooLong",
++	[MACSEC_SECY_STATS_ATTR_IN_PKTS_NO_TAG] = "InPktsNoTag",
++	[MACSEC_SECY_STATS_ATTR_IN_PKTS_BAD_TAG] = "InPktsBadTag",
++	[MACSEC_SECY_STATS_ATTR_IN_PKTS_UNKNOWN_SCI] = "InPktsUnknownSCI",
++	[MACSEC_SECY_STATS_ATTR_IN_PKTS_NO_SCI] = "InPktsNoSCI",
++	[MACSEC_SECY_STATS_ATTR_IN_PKTS_OVERRUN] = "InPktsOverrun",
++};
++
++static void print_secy_stats(const char *prefix, struct rtattr *attr)
++{
++	struct rtattr *stats[MACSEC_SECY_STATS_ATTR_MAX + 1];
++	int i;
++
++	if (!attr || show_stats == 0)
++		return;
++
++	parse_rtattr_nested(stats, MACSEC_SECY_STATS_ATTR_MAX + 1, attr);
++	printf("%sstats:", prefix);
++
++	for (i = 1; i < NUM_MACSEC_SECY_STATS_ATTR; i++)
++		printf(" %s", secy_stats_names[i]);
++
++	printf("\n%s      ", prefix);
++
++	for (i = 1; i < NUM_MACSEC_SECY_STATS_ATTR; i++)
++		print_one_stat(secy_stats_names, stats, i, true);
++
++	printf("\n");
++}
++
++static const char *rxsa_stats_names[] = {
++	[MACSEC_SA_STATS_ATTR_IN_PKTS_OK] = "InPktsOK",
++	[MACSEC_SA_STATS_ATTR_IN_PKTS_INVALID] = "InPktsInvalid",
++	[MACSEC_SA_STATS_ATTR_IN_PKTS_NOT_VALID] = "InPktsNotValid",
++	[MACSEC_SA_STATS_ATTR_IN_PKTS_NOT_USING_SA] = "InPktsNotUsingSA",
++	[MACSEC_SA_STATS_ATTR_IN_PKTS_UNUSED_SA] = "InPktsUnusedSA",
++};
++
++static void print_rxsa_stats(const char *prefix, struct rtattr *attr)
++{
++	struct rtattr *stats[MACSEC_SA_STATS_ATTR_MAX + 1];
++	int i;
++
++	if (!attr || show_stats == 0)
++		return;
++
++	parse_rtattr_nested(stats, MACSEC_SA_STATS_ATTR_MAX + 1, attr);
++	printf("%s%s  ", prefix, prefix);
++
++	for (i = 1; i <= MACSEC_SA_STATS_ATTR_IN_PKTS_UNUSED_SA; i++)
++		printf(" %s", rxsa_stats_names[i]);
++
++	printf("\n%s%s  ", prefix, prefix);
++
++	for (i = 1; i <= MACSEC_SA_STATS_ATTR_IN_PKTS_UNUSED_SA; i++)
++		print_one_stat(rxsa_stats_names, stats, i, false);
++
++	printf("\n");
++}
++
++static const char *txsa_stats_names[] = {
++	[MACSEC_SA_STATS_ATTR_OUT_PKTS_PROTECTED] = "OutPktsProtected",
++	[MACSEC_SA_STATS_ATTR_OUT_PKTS_ENCRYPTED] = "OutPktsEncrypted",
++};
++
++static void print_txsa_stats(const char *prefix, struct rtattr *attr)
++{
++	struct rtattr *stats[MACSEC_SA_STATS_ATTR_MAX + 1];
++
++	if (!attr || show_stats == 0)
++		return;
++
++	parse_rtattr_nested(stats, MACSEC_SA_STATS_ATTR_MAX + 1, attr);
++	printf("%s%s   %s %s\n", prefix, prefix,
++	       txsa_stats_names[MACSEC_SA_STATS_ATTR_OUT_PKTS_PROTECTED],
++	       txsa_stats_names[MACSEC_SA_STATS_ATTR_OUT_PKTS_ENCRYPTED]);
++	printf("%s%s  ", prefix, prefix);
++
++	print_one_stat(txsa_stats_names, stats, MACSEC_SA_STATS_ATTR_OUT_PKTS_PROTECTED, false);
++	print_one_stat(txsa_stats_names, stats, MACSEC_SA_STATS_ATTR_OUT_PKTS_ENCRYPTED, false);
++	printf("\n");
++}
++
++static void print_tx_sc(const char *prefix, __u64 sci, __u8 encoding_sa,
++			struct rtattr *txsc_stats, struct rtattr *secy_stats,
++			struct rtattr *sa)
++{
++	struct rtattr *sa_attr[MACSEC_SA_ATTR_MAX + 1];
++	struct rtattr *a;
++	int rem;
++
++	printf("%sTXSC: %016llx on SA %d\n", prefix, sci, encoding_sa);
++	print_secy_stats(prefix, secy_stats);
++	print_txsc_stats(prefix, txsc_stats);
++
++	rem = RTA_PAYLOAD(sa);
++	for (a = RTA_DATA(sa); RTA_OK(a, rem); a = RTA_NEXT(a, rem)) {
++		SPRINT_BUF(keyid);
++		parse_rtattr_nested(sa_attr, MACSEC_SA_ATTR_MAX + 1, a);
++		printf("%s%s%d: PN %u, state %s, key %s\n", prefix, prefix,
++			rta_getattr_u8(sa_attr[MACSEC_SA_ATTR_AN]),
++			rta_getattr_u32(sa_attr[MACSEC_SA_ATTR_PN]),
++			rta_getattr_u8(sa_attr[MACSEC_SA_ATTR_ACTIVE]) ? "on" :
++									 "off",
++			hexstring_n2a(RTA_DATA(sa_attr[MACSEC_SA_ATTR_KEYID]),
++				      RTA_PAYLOAD(sa_attr[MACSEC_SA_ATTR_KEYID]),
++				      keyid, sizeof(keyid)));
++		print_txsa_stats(prefix, sa_attr[MACSEC_SA_ATTR_STATS]);
++	}
++}
++
++static const char *rxsc_stats_names[] = {
++	[MACSEC_RXSC_STATS_ATTR_IN_OCTETS_VALIDATED] = "InOctetsValidated",
++	[MACSEC_RXSC_STATS_ATTR_IN_OCTETS_DECRYPTED] = "InOctetsDecrypted",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_UNCHECKED] = "InPktsUnchecked",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_DELAYED] = "InPktsDelayed",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_OK] = "InPktsOK",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_INVALID] = "InPktsInvalid",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_LATE] = "InPktsLate",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_NOT_VALID] = "InPktsNotValid",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_NOT_USING_SA] = "InPktsNotUsingSA",
++	[MACSEC_RXSC_STATS_ATTR_IN_PKTS_UNUSED_SA] = "InPktsUnusedSA",
++};
++
++static void print_rxsc_stats(const char *prefix, struct rtattr *attr)
++{
++	struct rtattr *stats[MACSEC_RXSC_STATS_ATTR_MAX + 1];
++	int i;
++
++	if (!attr || show_stats == 0)
++		return;
++
++	parse_rtattr_nested(stats, MACSEC_RXSC_STATS_ATTR_MAX + 1, attr);
++	printf("%sstats:", prefix);
++	for (i = 1; i < NUM_MACSEC_RXSC_STATS_ATTR; i++)
++		printf(" %s", rxsc_stats_names[i]);
++
++	printf("\n%s      ", prefix);
++
++	for (i = 1; i < NUM_MACSEC_RXSC_STATS_ATTR; i++)
++		print_one_stat(rxsc_stats_names, stats, i, true);
++
++	printf("\n");
++}
++
++static void print_rx_sc(const char *prefix, __u64 sci, __u8 active, struct rtattr *rxsc_stats, struct rtattr *sa)
++{
++	struct rtattr *sa_attr[MACSEC_SA_ATTR_MAX + 1];
++	struct rtattr *a;
++	int rem;
++
++	printf("%sRXSC: %016llx, state %s\n", prefix, sci, active ? "on" :
++								    "off");
++	print_rxsc_stats(prefix, rxsc_stats);
++
++	rem = RTA_PAYLOAD(sa);
++	for (a = RTA_DATA(sa); RTA_OK(a, rem); a = RTA_NEXT(a, rem)) {
++		SPRINT_BUF(keyid);
++		parse_rtattr_nested(sa_attr, MACSEC_SA_ATTR_MAX + 1, a);
++		printf("%s%s%d: PN %u, state %s, key %s\n", prefix, prefix,
++			rta_getattr_u8(sa_attr[MACSEC_SA_ATTR_AN]),
++			rta_getattr_u32(sa_attr[MACSEC_SA_ATTR_PN]),
++			rta_getattr_u8(sa_attr[MACSEC_SA_ATTR_ACTIVE]) ? "on" :
++									 "off",
++			hexstring_n2a(RTA_DATA(sa_attr[MACSEC_SA_ATTR_KEYID]),
++				      RTA_PAYLOAD(sa_attr[MACSEC_SA_ATTR_KEYID]),
++				      keyid, sizeof(keyid)));
++		print_rxsa_stats(prefix, sa_attr[MACSEC_SA_ATTR_STATS]);
++	}
++}
++
++static int process(const struct sockaddr_nl *who, struct nlmsghdr *n,
++		   void *arg)
++{
++	struct genlmsghdr *ghdr;
++	struct rtattr *attrs[MACSEC_ATTR_MAX + 1], *sc, *c;
++	struct rtattr *attrs_secy[MACSEC_SECY_ATTR_MAX + 1];
++	int len = n->nlmsg_len;
++	int ifindex;
++	__u64 sci;
++	__u8 encoding_sa;
++	int rem;
++
++	if (n->nlmsg_type != genl_family)
++		return -1;
++
++	len -= NLMSG_LENGTH(GENL_HDRLEN);
++	if (len < 0)
++		return -1;
++
++	ghdr = NLMSG_DATA(n);
++	if (ghdr->cmd != MACSEC_CMD_GET_TXSC)
++		return 0;
++
++	parse_rtattr(attrs, MACSEC_ATTR_MAX, (void *) ghdr + GENL_HDRLEN, len);
++	if (!validate_dump(attrs)) {
++		printf("incomplete dump message\n");
++		return -1;
++	}
++
++	ifindex = rta_getattr_u32(attrs[MACSEC_ATTR_IFINDEX]);
++	parse_rtattr_nested(attrs_secy, MACSEC_SECY_ATTR_MAX + 1, attrs[MACSEC_ATTR_SECY]);
++
++	if (!validate_secy_dump(attrs_secy)) {
++		printf("incomplete dump message\n");
++		return -1;
++	}
++
++	sci = rta_getattr_u64(attrs_secy[MACSEC_SECY_ATTR_SCI]);
++	encoding_sa = rta_getattr_u8(attrs_secy[MACSEC_SECY_ATTR_ENCODING_SA]);
++
++	if (filter.ifindex && ifindex != filter.ifindex)
++		return 0;
++
++	if (filter.sci && sci != filter.sci)
++		return 0;
++
++	printf("%d: %s: ", ifindex, ll_index_to_name(ifindex));
++	print_attrs("    ", attrs_secy);
++
++	print_tx_sc("    ", sci, encoding_sa, attrs[MACSEC_ATTR_TXSC_STATS],
++		    attrs[MACSEC_ATTR_SECY_STATS], attrs[MACSEC_ATTR_TXSA_LIST]);
++
++	if (!attrs[MACSEC_ATTR_RXSC_LIST])
++		return 0;
++
++	sc = attrs[MACSEC_ATTR_RXSC_LIST];
++	rem = RTA_PAYLOAD(sc);
++	for (c = RTA_DATA(sc); RTA_OK(c, rem); c = RTA_NEXT(c, rem)) {
++		struct rtattr *sc_attr[MACSEC_RXSC_ATTR_MAX + 1];
++
++		parse_rtattr_nested(sc_attr, MACSEC_RXSC_ATTR_MAX + 1, c);
++		print_rx_sc("    ",
++			    rta_getattr_u64(sc_attr[MACSEC_RXSC_ATTR_SCI]),
++			    rta_getattr_u32(sc_attr[MACSEC_RXSC_ATTR_ACTIVE]),
++			    sc_attr[MACSEC_RXSC_ATTR_STATS],
++			    sc_attr[MACSEC_RXSC_ATTR_SA_LIST]);
++	}
++
++	return 0;
++}
++
++static int do_dump(int ifindex)
++{
++	MACSEC_GENL_REQ(req, MACSEC_BUFLEN, MACSEC_CMD_GET_TXSC,
++			NLM_F_REQUEST | NLM_F_DUMP);
++
++	memset(&filter, 0, sizeof(filter));
++	filter.ifindex = ifindex;
++
++	req.n.nlmsg_seq = genl_rth.dump = ++genl_rth.seq;
++	if (rtnl_send(&genl_rth, &req, req.n.nlmsg_len) < 0) {
++		perror("Failed to send dump request");
++		exit(1);
++	}
++
++	if (rtnl_dump_filter(&genl_rth, process, stdout) < 0) {
++		fprintf(stderr, "Dump terminated\n");
++		exit(1);
++	}
++
++	return 0;
++}
++
++static int do_show(int argc, char **argv)
++{
++	int ifindex;
++
++	if (argc == 0)
++		return do_dump(0);
++
++	ifindex = ll_name_to_index(*argv);
++	if (ifindex == 0) {
++		fprintf(stderr, "Device \"%s\" does not exist.\n", *argv);
++		return -1;
++	}
++
++	argc--, argv++;
++	if (argc == 0)
++		return do_dump(ifindex);
++
++	ipmacsec_usage();
++	return -1;
++}
++
++int do_ipmacsec(int argc, char **argv)
++{
++	init_genl();
++
++	if (argc < 1)
++		ipmacsec_usage();
++
++	if (matches(*argv, "help") == 0)
++		ipmacsec_usage();
++
++	if (matches(*argv, "show") == 0)
++		return do_show(argc-1, argv+1);
++
++	if (matches(*argv, "add") == 0)
++		return do_modify(CMD_ADD, argc-1, argv+1);
++	if (matches(*argv, "set") == 0)
++		return do_modify(CMD_UPD, argc-1, argv+1);
++	if (matches(*argv, "delete") == 0)
++		return do_modify(CMD_DEL, argc-1, argv+1);
++
++	fprintf(stderr, "Command \"%s\" is unknown, try \"ip macsec help\".\n",
++		*argv);
++	exit(-1);
++}
++
++/* device creation */
++static void macsec_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++{
++	if (!tb)
++		return;
++
++	if (tb[IFLA_MACSEC_SCI])
++		fprintf(f, "sci %016llx ", rta_getattr_u64(tb[IFLA_MACSEC_SCI]));
++
++	print_flag(f, tb, "protect", IFLA_MACSEC_PROTECT);
++
++	if (tb[IFLA_MACSEC_CIPHER_SUITE])
++		fprintf(f, "cipher %s ", cs_id_to_name(rta_getattr_u64(tb[IFLA_MACSEC_CIPHER_SUITE])));
++
++	if (tb[IFLA_MACSEC_ICV_LEN])
++		fprintf(f, "icvlen %d ", rta_getattr_u8(tb[IFLA_MACSEC_ICV_LEN]));
++
++	if (tb[IFLA_MACSEC_ENCODING_SA])
++		fprintf(f, "encodingsa %d ", rta_getattr_u8(tb[IFLA_MACSEC_ENCODING_SA]));
++
++	if (tb[IFLA_MACSEC_VALIDATION])
++		fprintf(f, "validate %s ", VALIDATE_STR[rta_getattr_u8(tb[IFLA_MACSEC_VALIDATION])]);
++
++	print_flag(f, tb, "encrypt", IFLA_MACSEC_ENCRYPT);
++	print_flag(f, tb, "send_sci", IFLA_MACSEC_INC_SCI);
++	print_flag(f, tb, "end_station", IFLA_MACSEC_ES);
++	print_flag(f, tb, "scb", IFLA_MACSEC_SCB);
++
++	print_flag(f, tb, "replay", IFLA_MACSEC_REPLAY_PROTECT);
++	if (tb[IFLA_MACSEC_WINDOW])
++		fprintf(f, "window %d ", rta_getattr_u32(tb[IFLA_MACSEC_WINDOW]));
++}
++
++
++static int do_cipher_suite(struct cipher_args *cipher, int *argcp,
++			   char ***argvp)
++{
++	char **argv = *argvp;
++	int argc = *argcp;
++
++	if (argc == 0)
++		return -1;
++
++	if (strcmp(*argv, "default") == 0 ||
++	    strcmp(*argv, "gcm-aes-128") == 0 ||
++	    strcmp(*argv, "GCM-AES-128") == 0)
++		cipher->id = MACSEC_DEFAULT_CIPHER_ID;
++	NEXT_ARG();
++
++	if (strcmp(*argv, "icvlen") == 0) {
++		NEXT_ARG();
++		if (cipher->icv_len != 0)
++			duparg2("icvlen", "icvlen");
++		get_icvlen(&cipher->icv_len, *argv);
++	}
++	*argcp = argc;
++	*argvp = argv;
++
++	return 0;
++}
++
++static bool check_txsc_flags(bool es, bool scb, bool sci)
++{
++	if (sci && (es || scb))
++		return false;
++	if (es && scb)
++		return false;
++	return true;
++}
++
++static void usage(FILE *f)
++{
++	fprintf(f,
++		"Usage: ... macsec [ port PORT | sci SCI ]\n"
++		"                  [ cipher CIPHER_SUITE ]\n"
++		"                  [ encrypt { on | off } ]\n"
++		"                  [ send_sci { on | off } ]\n"
++		"                  [ end_station { on | off } ]\n"
++		"                  [ scb { on | off } ]\n"
++		"                  [ protect { on | off } ]\n"
++		"                  [ replay { on | off} window { 0..2^32-1 } ]\n"
++		"                  [ validate { strict | check | disabled } ]\n"
++		"                  [ encodingsa { 0..3 } ]\n"
++		);
++	fprintf(f, "CIPHER_SUITE := [ default = gcm-aes-128 ] icvlen { 8..32 }\n");
++}
++
++static int macsec_parse_opt(struct link_util *lu, int argc, char **argv,
++			    struct nlmsghdr *hdr)
++{
++	int ret;
++	__u8 encoding_sa = 0xff;
++	__u32 window = -1;
++	struct cipher_args cipher = {0};
++	enum macsec_validation_type validate;
++	bool es = false, scb = false, send_sci = false;
++	int replay_protect = -1;
++	struct sci sci = { 0 };
++
++	ret = get_sci_portaddr(&sci, &argc, &argv, true, true);
++	if (ret < 0) {
++		fprintf(stderr, "expected sci\n");
++		return -1;
++	}
++
++	if (ret > 0) {
++		if (sci.sci)
++			addattr_l(hdr, MACSEC_BUFLEN, IFLA_MACSEC_SCI,
++				  &sci.sci, sizeof(sci.sci));
++		else
++			addattr_l(hdr, MACSEC_BUFLEN, IFLA_MACSEC_PORT,
++				  &sci.port, sizeof(sci.port));
++	}
++
++	while (argc > 0) {
++		if (strcmp(*argv, "cipher") == 0) {
++			if (cipher.id)
++				duparg2("cipher", "cipher");
++			NEXT_ARG();
++			if (do_cipher_suite(&cipher, &argc, &argv))
++				return -1;
++		} else if (strcmp(*argv, "encrypt") == 0) {
++			NEXT_ARG();
++			int i;
++
++			ret = one_of("encrypt", *argv, values_on_off,
++				     ARRAY_SIZE(values_on_off), &i);
++			if (ret != 0)
++				return ret;
++			addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_ENCRYPT, !i);
++		} else if (strcmp(*argv, "send_sci") == 0) {
++			NEXT_ARG();
++			int i;
++
++			ret = one_of("send_sci", *argv, values_on_off,
++				     ARRAY_SIZE(values_on_off), &i);
++			if (ret != 0)
++				return ret;
++			send_sci = !i;
++			addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_INC_SCI, send_sci);
++		} else if (strcmp(*argv, "end_station") == 0) {
++			NEXT_ARG();
++			int i;
++
++			ret = one_of("end_station", *argv, values_on_off,
++				     ARRAY_SIZE(values_on_off), &i);
++			if (ret != 0)
++				return ret;
++			es = !i;
++			addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_ES, es);
++		} else if (strcmp(*argv, "scb") == 0) {
++			NEXT_ARG();
++			int i;
++
++			ret = one_of("scb", *argv, values_on_off,
++				     ARRAY_SIZE(values_on_off), &i);
++			if (ret != 0)
++				return ret;
++			scb = !i;
++			addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_SCB, scb);
++		} else if (strcmp(*argv, "protect") == 0) {
++			NEXT_ARG();
++			int i;
++
++			ret = one_of("protect", *argv, values_on_off,
++				     ARRAY_SIZE(values_on_off), &i);
++			if (ret != 0)
++				return ret;
++			addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_PROTECT, !i);
++		} else if (strcmp(*argv, "replay") == 0) {
++			NEXT_ARG();
++			int i;
++
++			ret = one_of("replay", *argv, values_on_off,
++				     ARRAY_SIZE(values_on_off), &i);
++			if (ret != 0)
++				return ret;
++			replay_protect = !i;
++		} else if (strcmp(*argv, "window") == 0) {
++			NEXT_ARG();
++			ret = get_u32(&window, *argv, 0);
++			if (ret)
++				invarg("expected replay window size", *argv);
++		} else if (strcmp(*argv, "validate") == 0) {
++			NEXT_ARG();
++			ret = one_of("validate", *argv,
++				     VALIDATE_STR, ARRAY_SIZE(VALIDATE_STR),
++				     (int *)&validate);
++			if (ret != 0)
++				return ret;
++			addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_VALIDATION,
++				 validate);
++		} else if (strcmp(*argv, "encodingsa") == 0) {
++			if (encoding_sa != 0xff)
++				duparg2("encodingsa", "encodingsa");
++			NEXT_ARG();
++			ret = get_an(&encoding_sa, *argv);
++			if (ret)
++				invarg("expected an { 0..3 }", *argv);
++		} else {
++			fprintf(stderr, "macsec: unknown command \"%s\"?\n",
++				*argv);
++			usage(stderr);
++			return -1;
++		}
++
++		argv++; argc--;
++	}
++
++	if (!check_txsc_flags(es, scb, send_sci)) {
++		fprintf(stderr, "invalid combination of send_sci/end_station/scb\n");
++		return -1;
++	}
++
++	if (window != -1 && replay_protect == -1) {
++		fprintf(stderr, "replay window set, but replay protection not enabled. did you mean 'replay on window %u'?\n", window);
++		return -1;
++	} else if (window == -1 && replay_protect == 1) {
++		fprintf(stderr, "replay protection enabled, but no window set. did you mean 'replay on window VALUE'?\n");
++		return -1;
++	}
++
++	if (cipher.id) {
++		addattr_l(hdr, MACSEC_BUFLEN, IFLA_MACSEC_CIPHER_SUITE,
++			  &cipher.id, sizeof(cipher.id));
++		addattr_l(hdr, MACSEC_BUFLEN, IFLA_MACSEC_ICV_LEN,
++			  &cipher.icv_len, sizeof(cipher.icv_len));
++	}
++
++	if (replay_protect != -1) {
++		addattr32(hdr, MACSEC_BUFLEN, IFLA_MACSEC_WINDOW, window);
++		addattr8(hdr, MACSEC_BUFLEN, IFLA_MACSEC_REPLAY_PROTECT,
++			 replay_protect);
++	}
++
++	if (encoding_sa != 0xff) {
++		addattr_l(hdr, MACSEC_BUFLEN, IFLA_MACSEC_ENCODING_SA,
++			  &encoding_sa, sizeof(encoding_sa));
++	}
++
++	return 0;
++}
++
++static void macsec_print_help(struct link_util *lu, int argc, char **argv,
++			      FILE *f)
++{
++	usage(f);
++}
++
++struct link_util macsec_link_util = {
++	.id = "macsec",
++	.maxattr = IFLA_MACSEC_MAX,
++	.parse_opt = macsec_parse_opt,
++	.print_help = macsec_print_help,
++	.print_opt = macsec_print_opt,
++	.slave = false,
++};
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index d3fdf66ab11d..929826ecb56c 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -7,7 +7,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
+ 	tc-mqprio.8 tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
+ 	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+-	ip-addrlabel.8 ip-fou.8 ip-gue.8 ip-l2tp.8 \
++	ip-addrlabel.8 ip-fou.8 ip-gue.8 ip-l2tp.8 ip-macsec.8 \
+ 	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
+ 	ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
+ 	ip-tcp_metrics.8 ip-netconf.8 ip-token.8 \
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 805511423ef2..8f2cdec5f263 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -258,6 +258,9 @@ Link types:
+ .sp
+ .BR geneve
+ - GEneric NEtwork Virtualization Encapsulation
++.sp
++.BR macsec
++- Interface for IEEE 802.1AE MAC Security (MACsec)
+ .in -8
  
--	ret = get_u16(&port, str, 10);
-+	ret = get_be16(&port, str, 10);
- 	if (ret)
- 		return -1;
+ .TP
+@@ -829,6 +832,88 @@ forces the underlying interface into promiscuous mode. Passing the
+ using standard tools.
+ .in -8
  
--	addattr16(n, MAX_MSG, type, htons(port));
-+	addattr16(n, MAX_MSG, type, port);
++.TP
++MACsec Type Support
++For a link of type
++.I MACsec
++the following additional arguments are supported:
++
++.BI "ip link add link " DEVICE " name " NAME " type macsec"
++[
++.BI port " PORT"
++|
++.BI sci " SCI"
++] [
++.BI cipher " CIPHER_SUITE"
++] [
++.BR encrypt " {"
++.BR on " | " off " } ] [ "
++.BR send_sci " { " on " | " off " } ] ["
++.BR es " { " on " | " off " } ] ["
++.BR scb " { " on " | " off " } ] ["
++.BR protect " { " on " | " off " } ] ["
++.BR replay " { " on " | " off " }"
++.BR window " { "
++.IR 0..2^32-1 " } ] ["
++.BR validate " { " strict " | " check " | " disabled " } ] ["
++.BR encoding " { "
++.IR 0..3 " } ]"
++
++.in +8
++.sp
++.BI  port " PORT "
++- sets the port number for this MACsec device.
++
++.sp
++.BI sci " SCI "
++- sets the SCI for this MACsec device.
++
++.sp
++.BI cipher " CIPHER_SUITE "
++- defines the cipher suite to use.
++
++.sp
++.BR "encrypt on " or " encrypt off"
++- switches between authenticated encryption, or authenticity mode only.
++
++.sp
++.BR "send_sci on " or " send_sci off"
++- specifies whether the SCI is included in every packet, or only when it is necessary.
++
++.sp
++.BR "es on " or " es off"
++- sets the End Station bit.
++
++.sp
++.BR "scb on " or " scb off"
++- sets the Single Copy Broadcast bit.
++
++.sp
++.BR "protect on " or " protect off"
++- enables MACsec protection on the device.
++
++.sp
++.BR "replay on " or " replay off"
++- enables replay protection on the device.
++
++.in +8
++
++.sp
++.BI window " SIZE "
++- sets the size of the replay window.
++
++.in -8
++
++.sp
++.BR "validate strict " or " validate check " or " validate disabled"
++- sets the validation mode on the device.
++
++.sp
++.BI encoding " AN "
++- sets the active secure association for transmission.
++
++.in -8
++
+ .SS ip link delete - delete virtual link
  
- 	return 0;
- }
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index 62995153923a..e2d39b3d52fe 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -766,12 +766,9 @@ static int parse_offset(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
- 			}
- 			sel->flags |= TC_U32_VAROFFSET;
- 		} else if (matches(*argv, "mask") == 0) {
--			__u16 mask;
--
- 			NEXT_ARG();
--			if (get_u16(&mask, *argv, 16))
-+			if (get_be16(&sel->offmask, *argv, 16))
- 				return -1;
--			sel->offmask = htons(mask);
- 			sel->flags |= TC_U32_VAROFFSET;
- 		} else if (matches(*argv, "shift") == 0) {
- 			int shift;
-@@ -801,12 +798,9 @@ static int parse_hashkey(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
- 
- 	while (argc > 0) {
- 		if (matches(*argv, "mask") == 0) {
--			__u32 mask;
--
- 			NEXT_ARG();
--			if (get_u32(&mask, *argv, 16))
-+			if (get_be32(&sel->hmask, *argv, 16))
- 				return -1;
--			sel->hmask = htonl(mask);
- 		} else if (matches(*argv, "at") == 0) {
- 			int num;
- 
+ .TP
+diff --git a/man/man8/ip-macsec.8 b/man/man8/ip-macsec.8
+new file mode 100644
+index 000000000000..e8455d77ed96
+--- /dev/null
++++ b/man/man8/ip-macsec.8
+@@ -0,0 +1,98 @@
++.TH IP\-MACSEC 8 "07 Mar 2016" "iproute" "Linux"
++.SH NAME
++ip-macsec \- MACsec device configuration
++.SH "SYNOPSIS"
++.BI "ip link add link " DEVICE " name " NAME " type macsec "
++[ [
++.BR cipher " { " default " | " gcm-aes-128 " } ] "
++.BI icvlen " ICVLEN"
++] [ [
++.BR encrypt " { " on " | " off " } ] ["
++.BR send_sci " { " on " | " off " } ] ["
++.BR end_station " { " on " | " off " } ] ["
++.BR scb " { " on " | " off " } ] ["
++.BR protect " { " on " | " off " } ] ["
++.BR replay " { " on " | " off " } ] ["
++.BI window " WINDOW"
++] [
++.BI encodingsa " SA"
++]
++
++.BI "ip macsec add " DEV " tx sa"
++.RI "{ " 0..3 " } [ " OPTS " ]"
++.BI key " ID KEY"
++.br
++.BI "ip macsec set " DEV " tx sa"
++.RI "{ " 0..3 " } [ " OPTS " ]"
++.br
++.BI "ip macsec del " DEV " tx sa"
++.RI "{ " 0..3 " }"
++
++.BI "ip macsec add " DEV " rx " SCI
++.RB [ " on " | " off " ]
++.br
++.BI "ip macsec set " DEV " rx " SCI
++.RB [ " on " | " off " ]
++.br
++.BI "ip macsec del " DEV " rx " SCI
++
++.BI "ip macsec add " DEV " rx " SCI " sa"
++.RI "{ " 0..3 " } [ " OPTS " ]"
++.BI key " ID KEY"
++.br
++.BI "ip macsec set " DEV " rx " SCI " sa"
++.RI "{ " 0..3 " } [ " OPTS " ]"
++.br
++.BI "ip macsec del " DEV " rx " SCI " sa"
++.RI "{ " 0..3 " }"
++
++.B ip macsec show
++.RI [ " DEV " ]
++
++.IR OPTS " := [ "
++.BR pn " { "
++.IR 1..2^32-1 " } ] ["
++.BR on " | " off " ]"
++.br
++.IR SCI " := { "
++.B sci
++.IR <u64> " | "
++.BI port " <u16> " address " <lladdr> "
++}
++
++
++.SH DESCRIPTION
++The
++.B ip macsec
++commands are used to configure transmit secure associations and receive secure channels and their secure associations on a MACsec device created with the
++.B ip link add
++command using the
++.I macsec
++type.
++
++.SH EXAMPLES
++.PP
++.SS Create a MACsec device on link eth0
++.nf
++# ip link add device eth0 macsec0 type macsec port 11 encrypt on
++.PP
++.SS Configure a secure association on that device
++.nf
++# ip macsec add macsec0 tx sa 0 pn 1024 on key 01 81818181818181818181818181818181
++.PP
++.SS Configure a receive channel
++.nf
++# ip macsec add macsec0 rx port 1234 address c6:19:52:8f:e6:a0
++.PP
++.SS Configure a receive association
++.nf
++# ip macsec add macsec0 rx port 1234 address c6:19:52:8f:e6:a0 sa 0 pn 1 on key 00 82828282828282828282828282828282
++.PP
++.SS Display MACsec configuration
++.nf
++# ip macsec show
++.SH SEE ALSO
++.br
++.BR ip-link (8)
++.SH AUTHOR
++Sabrina Dubroca <sd@queasysnail.net>
 -- 
 2.8.2
