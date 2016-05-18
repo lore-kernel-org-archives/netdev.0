@@ -1,82 +1,75 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Make TCP work better with re-ordered frames?
-Date: Wed, 18 May 2016 08:46:10 -0700
-Message-ID: <573C8E42.8090102@candelatech.com>
-References: <573C758E.9050008@candelatech.com>
- <1463581760.18194.114.camel@edumazet-glaptop3.roam.corp.google.com>
- <573C8547.3020709@candelatech.com>
- <1463585133.18194.119.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: suppress warnings on dev_alloc_skb
+Date: Wed, 18 May 2016 09:01:38 -0700
+Message-ID: <1463587298.18194.129.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:57126 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753591AbcERPqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 11:46:17 -0400
-In-Reply-To: <1463585133.18194.119.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33442 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753187AbcERQBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:01:40 -0400
+Received: by mail-pa0-f66.google.com with SMTP id gh9so5268106pac.0
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:01:40 -0700 (PDT)
+In-Reply-To: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2016 08:25 AM, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 08:07 -0700, Ben Greear wrote:
->>
->> On 05/18/2016 07:29 AM, Eric Dumazet wrote:
->>> On Wed, 2016-05-18 at 07:00 -0700, Ben Greear wrote:
->>>> We are investigating a system that has fairly poor TCP throughput
->>>> with the 3.17 and 4.0 kernels, but evidently it worked pretty well
->>>> with 3.14 (I should be able to verify 3.14 later today).
->>>>
->>>> One thing I notice is that a UDP download test shows lots of reordered
->>>> frames, so I am thinking maybe TCP is running slow because of this.
->>>>
->>>> (We see about 800Mbps UDP download, but only 500Mbps TCP, even when
->>>>     using 100 concurrent TCP streams.)
->>>>
->>>> Is there some way to tune the TCP stack to better handle reordered frames?
->>>
->>> Nothing yet. Are you the sender or the receiver ?
->>>
->>> You really want to avoid reorders as much as possible.
->>>
->>> Are you telling us something broke in networking layers between 3.14 and
->>> 3.17 leadings to reorders ?
->>
->> I am both sender and receiver, through an access-controller and wifi AP as DUT.
->> The sender is Intel 1G NIC, so I suspect it is not causing reordering, which
->> indicates most likely DUT is to blame.
->>
->> Using several off-the-shelf APs in our lab we do not see this problem.
->>
->> I am not certain yet what is the difference, but customer reports 600+Mbps
->> with their older code, and best I can get is around 500Mbps with newer stuff.
->>
->> Lots of stuff changed though (ath10k firmware, user-space at least slightly,
->> kernel, etc), so possibly the regression is elsewhere.
->>
->
-> You possibly could send me some pcap (limited to the headers, using -s
-> 128 for example) and limited to few flows, not the whole of them ;)
->
-> TCP reorders are tricky for the receiver : It sends a lot of SACK (one
-> for every incoming packet, instead of the normal rule of sending one ACK
-> for two incoming packets)
->
-> Increasing number of ACK might impact half-duplex networks, but also
-> considerably increase cpu processing time.
-
-I will work on captures...do you care if it is from transmitter or receiver's perspective?
-
-Thanks,
-Ben
-
->
->
->
+On Wed, 2016-05-18 at 11:25 -0400, Neil Horman wrote:
+> Noticed an allocation failure in a network driver the other day on a 32 bit
+> system:
+> 
+> DMA-API: debugging out of memory - disabling
+> bnx2fc: adapter_lookup: hba NULL
+> lldpad: page allocation failure. order:0, mode:0x4120
+> Pid: 4556, comm: lldpad Not tainted 2.6.32-639.el6.i686.debug #1
+> Call Trace:
+>  [<c08a4086>] ? printk+0x19/0x23
+>  [<c05166a4>] ? __alloc_pages_nodemask+0x664/0x830
+>  [<c0649d02>] ? free_object+0x82/0xa0
+>  [<fb4e2c9b>] ? ixgbe_alloc_rx_buffers+0x10b/0x1d0 [ixgbe]
+>  [<fb4e2fff>] ? ixgbe_configure_rx_ring+0x29f/0x420 [ixgbe]
+>  [<fb4e228c>] ? ixgbe_configure_tx_ring+0x15c/0x220 [ixgbe]
+>  [<fb4e3709>] ? ixgbe_configure+0x589/0xc00 [ixgbe]
+>  [<fb4e7be7>] ? ixgbe_open+0xa7/0x5c0 [ixgbe]
+>  [<fb503ce6>] ? ixgbe_init_interrupt_scheme+0x5b6/0x970 [ixgbe]
+>  [<fb4e8e54>] ? ixgbe_setup_tc+0x1a4/0x260 [ixgbe]
+>  [<fb505a9f>] ? ixgbe_dcbnl_set_state+0x7f/0x90 [ixgbe]
+>  [<c088d80d>] ? dcb_doit+0x10ed/0x16d0
+> ...
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Well, maybe this call site (via ixgbe_configure_rx_ring()) should be
+using GFP_KERNEL instead of GFP_ATOMIC.
+
+Otherwise, if you are unlucky, not a single page would be allocated and
+RX ring buffer would be empty.
+
+So the 'fix' could be limited to GFP_ATOMIC callers ?
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c413c588a24f854be9e4df78d8a6872b6b1ff9f3..61b923f1520845145a5470d752b278d283cbb348 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2467,7 +2467,7 @@ static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
+ 
+ static inline struct page *dev_alloc_pages(unsigned int order)
+ {
+-	return __dev_alloc_pages(GFP_ATOMIC, order);
++	return __dev_alloc_pages(GFP_ATOMIC | __GFP_NOWARN, order);
+ }
+ 
+ /**
+@@ -2485,7 +2485,7 @@ static inline struct page *__dev_alloc_page(gfp_t gfp_mask)
+ 
+ static inline struct page *dev_alloc_page(void)
+ {
+-	return __dev_alloc_page(GFP_ATOMIC);
++	return dev_alloc_pages(0);
+ }
+ 
+ /**
