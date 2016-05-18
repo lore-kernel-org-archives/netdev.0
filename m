@@ -1,190 +1,106 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] tuntap: introduce tx skb ring
-Date: Wed, 18 May 2016 19:26:38 +0300
-Message-ID: <20160518191148-mutt-send-email-mst@redhat.com>
-References: <1463361421-4397-1-git-send-email-jasowang@redhat.com>
- <1463370998.18194.74.camel@edumazet-glaptop3.roam.corp.google.com>
- <57397C14.1080701@redhat.com>
- <20160518101359.37f5343b@redhat.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net] fou: avoid using sk_user_data before it is initialised
+Date: Wed, 18 May 2016 09:30:55 -0700
+Message-ID: <CALx6S35yHpUk2NQe+JAUYcY7mMBLWRuy75egsDCCB3dmhrC1Ng@mail.gmail.com>
+References: <1463560216-26616-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160518101359.37f5343b@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:33561 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752763AbcERQa4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 12:30:56 -0400
+Received: by mail-io0-f196.google.com with SMTP id x35so10403526ioi.0
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 09:30:55 -0700 (PDT)
+In-Reply-To: <1463560216-26616-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2016 at 10:13:59AM +0200, Jesper Dangaard Brouer wrote:
-> I agree. It is sad to see everybody is implementing the same thing,
-> open coding an array/circular based ring buffer.  This kind of code is
-> hard to maintain and get right with barriers etc.  We can achieve the
-> same performance with a generic implementation, by inlining the help
-> function calls.
+On Wed, May 18, 2016 at 1:30 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> During initialisation sk->sk_user_data should be initialised before
+> it is referenced via a call to gue_encap_init().
+>
+I think this is should be fixed by proposed patch "fou:
+Call-setup_udp_tunnel_sock".
 
-So my testing seems to show that at least for the common usecase
-in networking, which isn't lockless, circular buffer
-with indices does not perform that well, because
-each index access causes a cache line to bounce between
-CPUs, and index access causes stalls due to the dependency.
+Thanks,
+Tom
 
-By comparison, an array of pointers where NULL means invalid
-and !NULL means valid, can be updated without messing up barriers
-at all and does not have this issue.
-
-You also mentioned cache pressure caused by using large queues, and I
-think it's a significant issue. tun has a queue of 1000 entries by
-default and that's 8K already.
-
-So, I had an idea: with an array of pointers we could actually use
-only part of the ring as long as it stays mostly empty.
-We do want to fill at least two cache lines to prevent producer
-and consumer from writing over the same cache line all the time.
-This is SKB_ARRAY_MIN_SIZE logic below.
-
-Pls take a look at the implementation below.  It's a straight port from virtio
-unit test, so should work fine, except the SKB_ARRAY_MIN_SIZE hack that
-I added.  Today I run out of time for testing this.  Posting for early
-flames/feedback.
-
-It's using skb pointers but we switching to void * would be easy at cost
-of type safety, though it appears that people want lockless  push
-etc so I'm not sure of the value.
-
---->
-skb_array: array based FIFO for skbs
-
-A simple array based FIFO of pointers.
-Intended for net stack so uses skbs for type
-safety, but we can replace with with void *
-if others find it useful outside of net stack.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
----
-
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-new file mode 100644
-index 0000000..a67cc8b
---- /dev/null
-+++ b/include/linux/skb_array.h
-@@ -0,0 +1,116 @@
-+/*
-+ * See Documentation/skbular-buffers.txt for more information.
-+ */
-+
-+#ifndef _LINUX_SKB_ARRAY_H
-+#define _LINUX_SKB_ARRAY_H 1
-+
-+#include <linux/spinlock.h>
-+#include <linux/cache.h>
-+#include <linux/types.h>
-+#include <linux/compiler.h>
-+#include <linux/cache.h>
-+#include <linux/slab.h>
-+#include <asm/errno.h>
-+
-+struct sk_buff;
-+
-+struct skb_array {
-+	int producer ____cacheline_aligned_in_smp;
-+	spinlock_t producer_lock;
-+	int consumer ____cacheline_aligned_in_smp;
-+	spinlock_t consumer_lock;
-+	/* Shared consumer/producer data */
-+	int size ____cacheline_aligned_in_smp; /* max entries in queue */
-+	struct sk_buff **queue;
-+};
-+
-+#define SKB_ARRAY_MIN_SIZE (2 * (0x1 << cache_line_size()) / \
-+			    sizeof (struct sk_buff *))
-+
-+static inline int __skb_array_produce(struct skb_array *a,
-+				       struct sk_buff *skb)
-+{
-+	/* Try to start from beginning: good for cache utilization as we'll
-+	 * keep reusing the same cache line.
-+	 * Produce at least SKB_ARRAY_MIN_SIZE entries before trying to do this,
-+	 * to reduce bouncing cache lines between them.
-+	 */
-+	if (a->producer >= SKB_ARRAY_MIN_SIZE && !a->queue[0])
-+		a->producer = 0;
-+	if (a->queue[a->producer])
-+		return -ENOSPC;
-+	a->queue[a->producer] = skb;
-+	if (unlikely(++a->producer > a->size))
-+		a->producer = 0;
-+	return 0;
-+}
-+
-+static inline int skb_array_produce_bh(struct skb_array *a,
-+				       struct sk_buff *skb)
-+{
-+	int ret;
-+
-+	spin_lock_bh(&a->producer_lock);
-+	ret = __skb_array_produce(a, skb);
-+	spin_unlock_bh(&a->producer_lock);
-+
-+	return ret;
-+}
-+
-+static inline struct sk_buff *__skb_array_peek(struct skb_array *a)
-+{
-+	if (a->queue[a->consumer])
-+		return a->queue[a->consumer];
-+
-+	/* Check whether producer started at the beginning. */
-+	if (unlikely(a->consumer >= SKB_ARRAY_MIN_SIZE && a->queue[0])) {
-+		a->consumer = 0;
-+		return a->queue[0];
-+	}
-+
-+	return NULL;
-+}
-+
-+static inline void __skb_array_consume(struct skb_array *a)
-+{
-+	a->queue[a->consumer++] = NULL;
-+	if (unlikely(++a->consumer > a->size))
-+		a->consumer = 0;
-+}
-+
-+static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
-+{
-+	struct sk_buff *skb;
-+
-+	spin_lock_bh(&a->producer_lock);
-+	skb = __skb_array_peek(a);
-+	if (skb)
-+		__skb_array_consume(a);
-+	spin_unlock_bh(&a->producer_lock);
-+
-+	return skb;
-+}
-+
-+static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
-+{
-+	a->queue = kmalloc(ALIGN(size * sizeof *(a->queue), SMP_CACHE_BYTES),
-+			   gfp);
-+	if (!a->queue)
-+		return -ENOMEM;
-+
-+	a->size = size;
-+	a->producer = a->consumer = 0;
-+	spin_lock_init(&a->producer_lock);
-+	spin_lock_init(&a->consumer_lock);
-+
-+	return 0;
-+}
-+
-+static inline void skb_array_cleanup(struct skb_array *a)
-+{
-+	kfree(a->queue);
-+}
-+
-+#endif /* _LINUX_SKB_ARRAY_H  */
+> Found by bisection after noticing the following:
+>
+> $ ip fou add port 8888 ipproto 47
+> [    0.383417] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+> [    0.384132] IP: [<ffffffff81327691>] fou_nl_cmd_add_port+0x1e1/0x230
+> [    0.384707] PGD 1fafc067 PUD 1fb72067 PMD 0
+> [    0.385110] Oops: 0002 [#1] SMP
+> [    0.385387] Modules linked in:
+> [    0.385667] CPU: 0 PID: 55 Comm: ip Not tainted 4.6.0-03623-g0b7962a6c4a3 #430
+> [    0.386244] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+> [    0.386244] task: ffff88001fb9cac0 ti: ffff88001fbc8000 task.ti: ffff88001fbc8000
+> [    0.386244] RIP: 0010:[<ffffffff81327691>]  [<ffffffff81327691>] fou_nl_cmd_add_port+0x1e1/0x230
+> [    0.386244] RSP: 0018:ffff88001fbcbb78  EFLAGS: 00010246
+> [    0.386244] RAX: 0000000000000001 RBX: ffff88001fb8eb40 RCX: 000000000000002f
+> [    0.386244] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff880019fcafc0
+> [    0.386244] RBP: ffff880019fcaf80 R08: ffffffff8130c370 R09: ffff880019fcaf80
+> [    0.386244] R10: ffff880019e12b8c R11: 0000000000000000 R12: 0000000000000004
+> [    0.386244] R13: 0000000000000014 R14: ffff88001fb1a300 R15: ffffffff816634c0
+> [    0.386244] FS:  00007f016eb4d700(0000) GS:ffff88001a200000(0000) knlGS:0000000000000000
+> [    0.386244] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [    0.386244] CR2: 0000000000000008 CR3: 000000001fb69000 CR4: 00000000000006b0
+> [    0.386244] Stack:
+> [    0.386244]  ffff88001faaea24 ffff8800192426c0 00000002002f0001 0000000000000000
+> [    0.386244]  0000000000000000 0000000000000000 0000000000000000 000000000000b822
+> [    0.386244]  ffffffff81461480 ffff88001faaea14 0000000000000004 ffffffff812b0e17
+> [    0.386244] Call Trace:
+> [    0.386244]  [<ffffffff812b0e17>] ? genl_family_rcv_msg+0x197/0x320
+> [    0.386244]  [<ffffffff812b0fa0>] ? genl_family_rcv_msg+0x320/0x320
+> [    0.386244]  [<ffffffff812b1010>] ? genl_rcv_msg+0x70/0xb0
+> [    0.386244]  [<ffffffff812b01c1>] ? netlink_rcv_skb+0xa1/0xc0
+> [    0.386244]  [<ffffffff812b0c64>] ? genl_rcv+0x24/0x40
+> [    0.386244]  [<ffffffff812afb33>] ? netlink_unicast+0x143/0x1d0
+> [    0.386244]  [<ffffffff812affd6>] ? netlink_sendmsg+0x366/0x390
+> [    0.386244]  [<ffffffff8110a2a8>] ? rw_copy_check_uvector+0x68/0x110
+> [    0.386244]  [<ffffffff8126a030>] ? sock_sendmsg+0x10/0x20
+> [    0.386244]  [<ffffffff8126a661>] ? ___sys_sendmsg+0x1f1/0x200
+> [    0.386244]  [<ffffffff81110000>] ? pipe_write+0x1a0/0x420
+> [    0.386244]  [<ffffffff81116c32>] ? do_filp_open+0x92/0xe0
+> [    0.386244]  [<ffffffff8126b541>] ? __sys_sendmsg+0x41/0x70
+> [    0.386244]  [<ffffffff8139c81b>] ? entry_SYSCALL_64_fastpath+0x13/0x8f
+> [    0.386244] Code: 4c 24 12 48 8b 93 28 02 00 00 48 c7 83 68 03 00 00 e0 76 32 81 48 c7 83 78 03 00 00 50 61 32 81 48 c7 83 80 03 00 00 e0 64 32 81 <88> 4a 08 e9 20 ff ff ff 4c 89 e7 bb 8e ff ff ff e8 1a 34 07 00
+> [    0.386244] RIP  [<ffffffff81327691>] fou_nl_cmd_add_port+0x1e1/0x230
+> [    0.386244]  RSP <ffff88001fbcbb78>
+> [    0.386244] CR2: 0000000000000008
+> [    0.407176] ---[ end trace 13bf0d24a4b7f9c3 ]---
+>
+> Fixes: d92283e338f6 ("fou: change to use UDP socket GRO")
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  net/ipv4/fou.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+> index eeec7d60e5fd..5f9634915cf2 100644
+> --- a/net/ipv4/fou.c
+> +++ b/net/ipv4/fou.c
+> @@ -488,6 +488,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+>         }
+>
+>         sk = sock->sk;
+> +       sk->sk_user_data = fou;
+>
+>         fou->flags = cfg->flags;
+>         fou->port = cfg->udp_config.local_udp_port;
+> @@ -514,7 +515,6 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+>         udp_sk(sk)->encap_type = 1;
+>         udp_encap_enable();
+>
+> -       sk->sk_user_data = fou;
+>         fou->sock = sock;
+>
+>         inet_inc_convert_csum(sk);
+> --
+> 2.1.4
+>
