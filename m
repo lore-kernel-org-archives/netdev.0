@@ -1,97 +1,48 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [1/1] net: pegasus: remove dead coding
-Date: Tue, 17 May 2016 23:30:24 -0700
-Message-ID: <20160518063024.GA29326@roeck-us.net>
-References: <1463530410-12772-1-git-send-email-xypron.glpk@gmx.de>
+From: Michael Hennerich <michael.hennerich@analog.com>
+Subject: Re: [PATCH 1/1] net: ieee802154/adf7242: syntax error ifdef DEBUG
+Date: Wed, 18 May 2016 08:35:14 +0200
+Message-ID: <573C0D22.6060505@analog.com>
+References: <1463522320-10964-1-git-send-email-xypron.glpk@gmx.de>
+Reply-To: <michael.hennerich@analog.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Petko Manolov <petkan@nucleusys.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-wpan@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
+	Alexander Aring <aar@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1463530410-12772-1-git-send-email-xypron.glpk@gmx.de>
+In-Reply-To: <1463522320-10964-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2016 at 02:13:30AM +0200, Heinrich Schuchardt wrote:
-> (!count || count < 4) is always true.
-
-Even if count >= 4 ?
-
-Guenter
-
-> So let's remove the coding which is dead at least since 2005.
-> 
+On 05/17/2016 11:58 PM, Heinrich Schuchardt wrote:
+> If DEBUG is defined, a superfluous closing brace
+> is introduced.
+>
 > Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-> 
+
+Acked-by: Michael Hennerich <michael.hennerich@analog.com>
+
 > ---
-> drivers/net/usb/pegasus.c | 53 -----------------------------------------------
->  1 file changed, 53 deletions(-)
-> 
-> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-> index 36cd7f0..1903d2e 100644
-> --- a/drivers/net/usb/pegasus.c
-> +++ b/drivers/net/usb/pegasus.c
-> @@ -470,61 +470,8 @@ static void read_bulk_callback(struct urb *urb)
->  		return;
->  	default:
->  		netif_dbg(pegasus, rx_err, net, "RX status %d\n", status);
-> -		goto goon;
->  	}
->  
-> -	if (!count || count < 4)
-> -		goto goon;
-> -
-> -	rx_status = buf[count - 2];
-> -	if (rx_status & 0x1e) {
-> -		netif_dbg(pegasus, rx_err, net,
-> -			  "RX packet error %x\n", rx_status);
-> -		pegasus->stats.rx_errors++;
-> -		if (rx_status & 0x06)	/* long or runt	*/
-> -			pegasus->stats.rx_length_errors++;
-> -		if (rx_status & 0x08)
-> -			pegasus->stats.rx_crc_errors++;
-> -		if (rx_status & 0x10)	/* extra bits	*/
-> -			pegasus->stats.rx_frame_errors++;
-> -		goto goon;
+>   drivers/net/ieee802154/adf7242.c | 1 -
+>   1 file changed, 1 deletion(-)
+>
+> diff --git a/drivers/net/ieee802154/adf7242.c b/drivers/net/ieee802154/adf7242.c
+> index b82e39d..9fa7ac9 100644
+> --- a/drivers/net/ieee802154/adf7242.c
+> +++ b/drivers/net/ieee802154/adf7242.c
+> @@ -915,7 +915,6 @@ static void adf7242_debug(u8 irq1)
+>   		(stat & 0xf) == RC_STATUS_PHY_RDY ? "RC_STATUS_PHY_RDY" : "",
+>   		(stat & 0xf) == RC_STATUS_RX ? "RC_STATUS_RX" : "",
+>   		(stat & 0xf) == RC_STATUS_TX ? "RC_STATUS_TX" : "");
 > -	}
-> -	if (pegasus->chip == 0x8513) {
-> -		pkt_len = le32_to_cpu(*(__le32 *)urb->transfer_buffer);
-> -		pkt_len &= 0x0fff;
-> -		pegasus->rx_skb->data += 2;
-> -	} else {
-> -		pkt_len = buf[count - 3] << 8;
-> -		pkt_len += buf[count - 4];
-> -		pkt_len &= 0xfff;
-> -		pkt_len -= 4;
-> -	}
-> -
-> -	/*
-> -	 * If the packet is unreasonably long, quietly drop it rather than
-> -	 * kernel panicing by calling skb_put.
-> -	 */
-> -	if (pkt_len > PEGASUS_MTU)
-> -		goto goon;
-> -
-> -	/*
-> -	 * at this point we are sure pegasus->rx_skb != NULL
-> -	 * so we go ahead and pass up the packet.
-> -	 */
-> -	skb_put(pegasus->rx_skb, pkt_len);
-> -	pegasus->rx_skb->protocol = eth_type_trans(pegasus->rx_skb, net);
-> -	netif_rx(pegasus->rx_skb);
-> -	pegasus->stats.rx_packets++;
-> -	pegasus->stats.rx_bytes += pkt_len;
-> -
-> -	if (pegasus->flags & PEGASUS_UNPLUG)
-> -		return;
-> -
-> -	pegasus->rx_skb = __netdev_alloc_skb_ip_align(pegasus->net, PEGASUS_MTU,
-> -						      GFP_ATOMIC);
-> -
-> -	if (pegasus->rx_skb == NULL)
-> -		goto tl_sched;
->  goon:
->  	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
->  			  usb_rcvbulkpipe(pegasus->usb, 1),
+>   #endif
+>   }
+>
+>
+
+
+-- 
+Greetings,
+Michael
