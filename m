@@ -1,68 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: sock: move ->sk_shutdown out of bitfields.
-Date: Wed, 18 May 2016 06:03:41 -0700
-Message-ID: <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <a070f6f7-ed85-c909-ce8b-748210402211@stressinduktion.org>
-	 <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
+Subject: Re: [PATCH net] bpf: rather use get_random_int for randomizations
+Date: Wed, 18 May 2016 06:20:34 -0700
+Message-ID: <1463577634.18194.100.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34461 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbcERNUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 09:20:37 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 145so5106467pfz.1
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 06:20:36 -0700 (PDT)
+In-Reply-To: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-05-18 at 15:03 +0300, Andrey Ryabinin wrote:
-> ->sk_shutdown bits share one bitfield with some other bits in sock struct,
-> such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
-> sock_setsockopt() may write to these bits, while holding the socket lock.
-> 
-> In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
-> unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
-> to corrupting these bits.
-> 
-> Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
-> This will not change the 'struct sock' size since ->sk_shutdown moved into
-> previously unused 16-bit hole.
-> 
-> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  include/net/sock.h | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index c9c8b19..04dc131 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -383,8 +383,7 @@ struct sock {
->  	int			sk_sndbuf;
->  	struct sk_buff_head	sk_write_queue;
->  	kmemcheck_bitfield_begin(flags);
-> -	unsigned int		sk_shutdown  : 2,
+On Wed, 2016-05-18 at 14:14 +0200, Daniel Borkmann wrote:
+> Start address randomization and blinding in BPF currently use
+> prandom_u32(). prandom_u32() values are not exposed to unpriviledged
+> user space to my knowledge, but given other kernel facilities such as
+> ASLR, stack canaries, etc make use of stronger get_random_int(), we
+> better make use of it here as well given blinding requests successively
+> new random values. get_random_int() has minimal entropy pool depletion,
+> is not cryptographically secure, but doesn't need to be for our use
+> cases here.
 
+Well, if it is not crypto secure, what is the point using it instead of
+prandom_u32() ?
 
-Please replace by a padding, so that sk_protocol is sill a byte,
-not 8 bits spaning 2 bytes in memory.
+I do not think changing this is fundamentally changing something, it
+looks like code churn or magic incantation to me.
 
-> -				sk_no_check_tx : 1,
-> +	unsigned int		sk_no_check_tx : 1,
->  				sk_no_check_rx : 1,
->  				sk_userlocks : 4,
->  				sk_protocol  : 8,
-> @@ -418,6 +417,7 @@ struct sock {
->  	struct timer_list	sk_timer;
->  	ktime_t			sk_stamp;
->  	u16			sk_tsflags;
-> +	u8			sk_shutdown;
->  	u32			sk_tskey;
->  	struct socket		*sk_socket;
->  	void			*sk_user_data;
+There is little amount of entropy since the hole is constrained by
+PAGE_SIZE. 
 
-Thanks.
+Have you had any report of an actual attack ?
+
+If yes, we seriously need to reconsider this whole schem.
