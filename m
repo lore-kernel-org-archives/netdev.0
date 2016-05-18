@@ -1,60 +1,73 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 4/8] batman-adv: Fix unexpected free of bcast_own on add_if error
-Date: Wed, 18 May 2016 13:04:48 +0800
-Message-ID: <1463547892-11290-5-git-send-email-a@unstable.cc>
+Subject: [PATCH 5/8] batman-adv: make sure ELP/OGM orig MAC is updated on address change
+Date: Wed, 18 May 2016 13:04:49 +0800
+Message-ID: <1463547892-11290-6-git-send-email-a@unstable.cc>
 References: <1463547892-11290-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:19075 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:25643 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751899AbcERFGR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 01:06:17 -0400
+	id S1751899AbcERFGV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 01:06:21 -0400
 In-Reply-To: <1463547892-11290-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+When the MAC address of the primary interface is changed,
+update the originator address in the ELP and OGM skb buffers as
+well in order to reflect the change.
 
-The function batadv_iv_ogm_orig_add_if allocates new buffers for bcast_own
-and bcast_own_sum. It is expected that these buffers are unchanged in case
-either bcast_own or bcast_own_sum couldn't be resized.
-
-But the error handling of this function frees the already resized buffer
-for bcast_own when the allocation of the new bcast_own_sum buffer failed.
-This will lead to an invalid memory access when some code will try to
-access bcast_own.
-
-Instead the resized new bcast_own buffer has to be kept. This will not lead
-to problems because the size of the buffer was only increased and therefore
-no user of the buffer will try to access bytes outside of the new buffer.
-
-Fixes: d0015fdd3d2c ("batman-adv: provide orig_node routing API")
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Fixes: d6f94d91f766 ("batman-adv: ELP - adding basic infrastructure")
+Reported-by: Marek Lindner <marek@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/bat_iv_ogm.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/batman-adv/bat_v.c | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 7f98a9d39883..1b5bbafc0fa3 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -157,10 +157,8 @@ static int batadv_iv_ogm_orig_add_if(struct batadv_orig_node *orig_node,
- 	orig_node->bat_iv.bcast_own = data_ptr;
+diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
+index 4f626a6b8ebd..31bc57e2a944 100644
+--- a/net/batman-adv/bat_v.c
++++ b/net/batman-adv/bat_v.c
+@@ -73,16 +73,34 @@ static void batadv_v_iface_disable(struct batadv_hard_iface *hard_iface)
+ 	batadv_v_elp_iface_disable(hard_iface);
+ }
  
- 	data_ptr = kmalloc_array(max_if_num, sizeof(u8), GFP_ATOMIC);
--	if (!data_ptr) {
--		kfree(orig_node->bat_iv.bcast_own);
-+	if (!data_ptr)
- 		goto unlock;
--	}
+-static void batadv_v_iface_update_mac(struct batadv_hard_iface *hard_iface)
+-{
+-}
+-
+ static void batadv_v_primary_iface_set(struct batadv_hard_iface *hard_iface)
+ {
+ 	batadv_v_elp_primary_iface_set(hard_iface);
+ 	batadv_v_ogm_primary_iface_set(hard_iface);
+ }
  
- 	memcpy(data_ptr, orig_node->bat_iv.bcast_own_sum,
- 	       (max_if_num - 1) * sizeof(u8));
++/**
++ * batadv_v_iface_update_mac - react to hard-interface MAC address change
++ * @hard_iface: the modified interface
++ *
++ * If the modified interface is the primary one, update the originator
++ * address in the ELP and OGM messages to reflect the new MAC address.
++ */
++static void batadv_v_iface_update_mac(struct batadv_hard_iface *hard_iface)
++{
++	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
++	struct batadv_hard_iface *primary_if;
++
++	primary_if = batadv_primary_if_get_selected(bat_priv);
++	if (primary_if != hard_iface)
++		goto out;
++
++	batadv_v_primary_iface_set(hard_iface);
++out:
++	if (primary_if)
++		batadv_hardif_put(primary_if);
++}
++
+ static void
+ batadv_v_hardif_neigh_init(struct batadv_hardif_neigh_node *hardif_neigh)
+ {
 -- 
 2.8.2
