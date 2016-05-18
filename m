@@ -1,71 +1,47 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: Re: [PATCH v2] net: sock: move ->sk_shutdown out of bitfields.
-Date: Wed, 18 May 2016 16:14:36 +0300
-Message-ID: <573C6ABC.3090008@virtuozzo.com>
-References: <a070f6f7-ed85-c909-ce8b-748210402211@stressinduktion.org>
- <1463572995-17432-1-git-send-email-aryabinin@virtuozzo.com>
- <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCHv3] phy: fix crash in fixed_phy_add()
+Date: Wed, 18 May 2016 15:38:43 +0200
+Message-ID: <20160518133843.GB25448@lunn.ch>
+References: <1463568451-9385-1-git-send-email-rabin.vincent@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, Rabin Vincent <rabinv@axis.com>
+To: Rabin Vincent <rabin.vincent@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0122.outbound.protection.outlook.com ([157.55.234.122]:26349
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751120AbcERN3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 09:29:39 -0400
-In-Reply-To: <1463576621.18194.96.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:41120 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752805AbcERNis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 09:38:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1463568451-9385-1-git-send-email-rabin.vincent@axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 05/18/2016 04:03 PM, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 15:03 +0300, Andrey Ryabinin wrote:
->> ->sk_shutdown bits share one bitfield with some other bits in sock struct,
->> such as ->sk_no_check_[r,t]x, ->sk_userlocks ...
->> sock_setsockopt() may write to these bits, while holding the socket lock.
->>
->> In case of AF_UNIX sockets, we change ->sk_shutdown bits while holding only
->> unix_state_lock(). So concurrent setsockopt() and shutdown() may lead
->> to corrupting these bits.
->>
->> Fix this by moving ->sk_shutdown bits out of bitfield into a separate byte.
->> This will not change the 'struct sock' size since ->sk_shutdown moved into
->> previously unused 16-bit hole.
->>
->> Signed-off-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
->> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> ---
->>  include/net/sock.h | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index c9c8b19..04dc131 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -383,8 +383,7 @@ struct sock {
->>  	int			sk_sndbuf;
->>  	struct sk_buff_head	sk_write_queue;
->>  	kmemcheck_bitfield_begin(flags);
->> -	unsigned int		sk_shutdown  : 2,
+On Wed, May 18, 2016 at 12:47:31PM +0200, Rabin Vincent wrote:
+> From: Rabin Vincent <rabinv@axis.com>
 > 
+> Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
+> platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
+> called (for example, because the platform code and the fixed_phy driver
+> use the same initcall level) crash in fixed_phy_add() since the
+> ->mii_bus is not allocated.
 > 
-> Please replace by a padding, so that sk_protocol is sill a byte,
-> not 8 bits spaning 2 bytes in memory.
+> Also since e7f4dc3536a, these interrupts are initalized to polling by
+> default.  The few (old) platforms which directly use fixed_phy_add()
+> from their platform code all pass PHY_POLL for the irq argument, so we
+> can keep these platforms not crashing by simply not attempting to set
+> the irq if PHY_POLL is passed.
+> 
+> Also, even if problems have not been reported on more modern platforms
+> which used fixed_phy_register() from drivers' probe functions, we return
+> -EPROBE_DEFER if the MDIO bus is not yet registered so that the probe is
+> retried later.
+> 
+> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+> Signed-off-by: Rabin Vincent <rabinv@axis.com>
 
-I think, it would be better to have something like this:
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-	u16 sk_type;
-	u8 sk_protocol;
-	kmemcheck_bitfield_begin(flags);
-	u8			sk_no_check_tx : 1,
-				sk_no_check_rx : 1,
-				sk_userlocks : 4,
-	kmemcheck_bitfield_end(flags);
+Thanks
+	Andrew
