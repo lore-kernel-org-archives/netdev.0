@@ -1,153 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 4.6
-Date: Wed, 18 May 2016 12:01:56 -0700
-Message-ID: <20160518120156.3ab0e3d1@xeon-e3>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: [GIT] Networking
+Date: Wed, 18 May 2016 19:03:45 +0000
+Message-ID: <1463598225.29999.18.camel@intel.com>
+References: <20160517.151113.367799295750703003.davem@davemloft.net>
+	 <CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
+	 <CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
+	 <1463568714.13625.18.camel@intel.com>
+	 <CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
+	 <1463575273.13625.23.camel@intel.com>
+	 <CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
+	 <1463581411.29999.1.camel@intel.com>
+	 <CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
+	 <1463597411.29999.16.camel@intel.com> <87zirnnqgy.fsf@purkki.adurom.net>
+	 <CA+55aFxmMEB7v_K9j7+4DUj5nUendM=pz7JQE9XATQfe6xzdMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, lkml@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35791 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752006AbcERTBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 15:01:44 -0400
-Received: by mail-pa0-f45.google.com with SMTP id tb2so3030254pac.2
-        for <netdev@vger.kernel.org>; Wed, 18 May 2016 12:01:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxwifi <linuxwifi@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"egrumbach@gmail.com" <egrumbach@gmail.com>,
+	"reinoudkoornstra@gmail.com" <reinoudkoornstra@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxmMEB7v_K9j7+4DUj5nUendM=pz7JQE9XATQfe6xzdMA@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <3BE2DFD43331AF42A7DF8CFB20626465@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Update to iproute2 utility to support new features in Linux 4.5.
-Major things are improvements to bridg mdb management, and bpf.
-Also, support for new devlink infrastructure
-
-Source:
-  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.6.0.tar.gz
-
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
-
----
-Daniel Borkmann (5):
-      vxlan: add support to set flow label
-      geneve: add support to set flow label
-      tc, bpf: add new csum and tunnel signatures
-      tc, bpf: further improve error reporting
-      tc, bpf: add support for map pre/allocation
-
-David Ahern (2):
-      vrf: Add support for slave_info
-      ip link: Add support for kernel side filtering
-
-Edward Cree (1):
-      geneve: fix IPv6 remote address reporting
-
-Elad Raz (1):
-      bridge: mdb: add support for offloaded mdb entries
-
-Eric Dumazet (2):
-      iplink: display number of rx/tx queues
-      ss: take care of unknown min_rtt
-
-Gustavo Zacarias (1):
-      iproute2: tc_bpf.c: fix building with musl libc
-
-Jamal Hadi Salim (3):
-      tc: introduce IFE action
-      tc: don't ignore ok as an action branch
-      tc simple action update and breakage
-
-Jeff Harris (1):
-      ip: neigh: Fix leftover attributes message during flush
-
-Jesse Gross (2):
-      vxlan: Follow kernel defaults for outer UDP checksum.
-      geneve: Add support for configuring UDP checksums.
-
-Jiri Benc (2):
-      ip link gre: create interfaces in external mode correctly
-      ip link gre: print only relevant info in external mode
-
-Jiri Pirko (13):
-      include: add linked list implementation from kernel
-      add devlink tool
-      devlink: fix "devlink port" help message
-      list: add list_for_each_entry_reverse macro
-      list: add list_add_tail helper
-      devlink: introduce pr_out_port_handle helper
-      devlink: introduce helper to print out nice names (ifnames)
-      devlink: split dl_argv_parse_put to parse and put parts
-      devlink: introduce dump filtering function
-      devlink: allow to parse both devlink and port handle in the same time
-      devlink: add manpage for shared buffer
-
-Luca Lemmo (3):
-      tc: f_u32: add missing spaces around operators
-      tc: f_u32: trivial coding style cleanups
-      tc: q_{codel,fq_codel}: add missing space in help text
-
-Marco Varlese (1):
-      fix get_addr() and get_prefix() error messages
-
-Nicolas Dichtel (1):
-      iplink: display IFLA_PHYS_PORT_NAME
-
-Nikolay Aleksandrov (5):
-      bridge: mdb: add user-space support for extended attributes
-      bridge: mdb: add support for extended router port information
-      bridge: fdb: add support to filter by vlan id
-      bridge: mdb: add support to filter by vlan id
-      bridge: vlan: add support to filter by vlan id
-
-Phil Sutter (22):
-      tc/p_ip.c: Minor coding style cleanup
-      tc: pedit: Fix for big-endian systems
-      tc: pedit: Fix raw op
-      testsuite: add a test for tc pedit action
-      doc/tc-filters.tex: Drop overly subjective paragraphs
-      tc: connmark, pedit: Rename BRANCH to CONTROL
-      man: tc-csum.8: Add an example
-      man: tc-mirred.8: Reword man page a bit, add generic mirror example
-      man: tc-police.8: Emphasize on the two rate control mechanisms
-      man: tc-skbedit.8: Elaborate a bit on TX queues
-      tc/m_vlan.c: mention CONTROL option in help text
-      man: tc-vlan.8: Describe CONTROL option
-      color: introduce color helpers and COLOR_CLEAR
-      ipaddress: colorize peer, broadcast and anycast addresses as well
-      make format_host non-reentrant by default
-      utils: make rt_addr_n2a() non-reentrant by default
-      lib/utils: introduce format_host_rta()
-      lib/utils: introduce rt_addr_n2a_rta()
-      lib/ll_addr: improve ll_addr_n2a() a bit
-      ip-link: Support printing VF trust setting
-      ss: Drop silly assignment
-      ss: Fix accidental state filter override
-
-Quentin Monnet (1):
-      tc: add bash-completion function
-
-Stephen Hemminger (22):
-      Update header files from net-next
-      iplink: display rx nohandler stats
-      ss: display not_sent and min_rtt info
-      tc: code cleanup
-      ip: code cleanup
-      bridge: code cleanup
-      misc: fix style issues
-      update kernel headers to 4.6 (pre rc1)
-      netconf: replace macro with a function
-      scrub out whitespace issues
-      devlink: ignore build result
-      ip: only display phys attributes with details option
-      ip: whitespace cleanup
-      devlink: remove unused code
-      devlink: remove more unused code
-      vv4.6.0
-
-Zhang Shengju (2):
-      man: update netconf manual for new attributes
-      netconf: add support for ignore route attribute
-
-subashab@codeaurora.org (1):
-      ss: Remove unused argument from kill_inet_sock
+T24gV2VkLCAyMDE2LTA1LTE4IGF0IDEyOjAwIC0wNzAwLCBMaW51cyBUb3J2YWxkcyB3cm90ZToN
+Cj4gT24gV2VkLCBNYXkgMTgsIDIwMTYgYXQgMTE6NTggQU0sIEthbGxlIFZhbG8gPGt2YWxvQGNv
+ZGVhdXJvcmEub3JnPg0KPiB3cm90ZToNCj4gPiANCj4gPiANCj4gPiBJdCB3b3VsZCBiZSBiZXN0
+IGlmIHlvdSBjb3VsZCBzZW5kIGEgcGF0Y2ggZWl0aGVyIGRpcmVjdGx5IHRvIERhdmUNCj4gPiBv
+cg0KPiA+IExpbnVzIHRvIHJlc29sdmUgdGhpcyBxdWlja2x5Lg0KPiBJJ20gY29tbWl0dGluZyBt
+eSBwYXRjaCBteXNlbGYgcmlnaHQgbm93LCBzaW5jZSB0aGlzIGJ1ZyBtYWtlcyBteQ0KPiBsYXB0
+b3AgdXNlbGVzcywgYW5kIEkgd2lsbCB0YWtlIGNyZWRpdCBmb3IgZmluZGluZyBhbmQgdGVzdGlu
+ZyBpdCBvbg0KPiBteSBvd24gZXZlbiBpZiBpdCB3YXMgYXBwYXJlbnRseSBhbHNvIGRpc2N1c3Nl
+ZCBpbmRlcGVuZGVudGx5IG9uIHRoZQ0KPiBuZXR3b3JraW5nIGxpc3QgOykNCg0KR3JlYXQhIDop
+DQoNCllvdSBiZWF0IG1lIGJ5IGEgZmV3IG1pbnV0ZXMsIGV2ZW4gdGhvdWdoIEkgaGFkIHRoZSB3
+aG9sZSBkYXkgdG8gcGxheQ0Kd2l0aCBpdC4gOlwNCg0KLS0NCkNoZWVycywNCkx1Y2Eu
