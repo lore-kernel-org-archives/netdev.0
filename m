@@ -1,7 +1,7 @@
-From: Petko Manolov <petkan@mip-labs.com>
-Subject: Re: [PATCH 1/1] net: pegasus: remove dead coding
-Date: Wed, 18 May 2016 09:25:46 +0300
-Message-ID: <20160518062546.GB4388@p310>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [1/1] net: pegasus: remove dead coding
+Date: Tue, 17 May 2016 23:30:24 -0700
+Message-ID: <20160518063024.GA29326@roeck-us.net>
 References: <1463530410-12772-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,20 +14,19 @@ In-Reply-To: <1463530410-12772-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16-05-18 02:13:30, Heinrich Schuchardt wrote:
+On Wed, May 18, 2016 at 02:13:30AM +0200, Heinrich Schuchardt wrote:
 > (!count || count < 4) is always true.
+
+Even if count >= 4 ?
+
+Guenter
+
 > So let's remove the coding which is dead at least since 2005.
-
-You may want to reconsider the above statement.  Just assume that 'count' is 
-typically between 56 and 1514 bytes.
-
-
-		Petko
-
-
+> 
 > Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> 
 > ---
->  drivers/net/usb/pegasus.c | 53 -----------------------------------------------
+> drivers/net/usb/pegasus.c | 53 -----------------------------------------------
 >  1 file changed, 53 deletions(-)
 > 
 > diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
@@ -96,7 +95,3 @@ typically between 56 and 1514 bytes.
 >  goon:
 >  	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
 >  			  usb_rcvbulkpipe(pegasus->usb, 1),
-> -- 
-> 2.1.4
-> 
-> 
