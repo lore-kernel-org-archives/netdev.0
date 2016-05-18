@@ -1,76 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC][PATCH net] bpf: Use mount_nodev not mount_ns to mount the
- bpf filesystem
-Date: Wed, 18 May 2016 22:46:57 +0200
-Message-ID: <bbb5386f-b7ea-a256-5dfd-c8c8681061c6@stressinduktion.org>
-References: <87oa84wa6h.fsf@x220.int.ebiederm.org>
- <79e26212-3b09-1be3-0fbf-30de1b265045@stressinduktion.org>
- <87inybv2hv.fsf@x220.int.ebiederm.org> <573CD3D8.3030308@iogearbox.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] net: suppress warnings on dev_alloc_skb
+Date: Wed, 18 May 2016 13:48:15 -0700
+Message-ID: <CAKgT0Ue6iRY0=i0OV3V51+3jWaOa7-pjHe7tQz22oK8qYX+irg@mail.gmail.com>
+References: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
+	<1463587298.18194.129.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAKgT0Uct2FPuVHER=p-kpb2nbnVMG7ya1Cy67iJDRV7ZUE=jVg@mail.gmail.com>
+	<20160518192934.GD29900@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:37761 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754041AbcERUrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 16:47:02 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 2986220CB8
-	for <netdev@vger.kernel.org>; Wed, 18 May 2016 16:47:01 -0400 (EDT)
-In-Reply-To: <573CD3D8.3030308@iogearbox.net>
+Received: from mail-ig0-f194.google.com ([209.85.213.194]:34358 "EHLO
+	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751513AbcERUsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 16:48:16 -0400
+Received: by mail-ig0-f194.google.com with SMTP id kj7so5740936igb.1
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 13:48:16 -0700 (PDT)
+In-Reply-To: <20160518192934.GD29900@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18.05.2016 22:43, Daniel Borkmann wrote:
-> On 05/18/2016 04:56 PM, Eric W. Biederman wrote:
->> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
->>> On 18.05.2016 01:12, Eric W. Biederman wrote:
->>>>
->>>> While reviewing the filesystems that set FS_USERNS_MOUNT I spotted the
->>>> bpf filesystem.  Looking at the code I saw a broken usage of mount_ns
->>>> with current->nsproxy->mnt_ns. As the code does not acquire a reference
->>>> to the mount namespace it can not possibly be correct to store the
->>>> mount
->>>> namespace on the superblock as it does.
->>>>
->>>> Replace mount_ns with mount_nodev so that each mount of the bpf
->>>> filesystem returns a distinct instance, and the code is not utterly
->>>> broken.
->>>>
->>>> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
->>>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->>>> ---
->>>>
->>>> No one should care about this change, as userspace typically only
->>>> mounts
->>>> things once and does not depend on things in one mount do not
->>>> showing up
->>>> in another.  Can someone who actually uses the bpf filesystem please
->>>> verify this.
-> [...]
-> 
-> LGTM.
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> 
->>> The idea is to have the bpf filesystem as a singeleton per mnt-namespace
->>> to prevent endless instances being created and kernel resources being
->>> hogged by pinning them to hard to discover bpf mounts.
-> 
-> Eric, please send the patch officially and feel free to add my Ack. Given
-> the circumstances, moving to mount_nodev() seems the best way forward. To
-> also address above mentioned concern from Hannes, we need to remove the
-> FS_USERNS_MOUNT flag along with the change. It looks like the fix is best
-> addressed in a single patch if you want to include it. If not, we can
-> otherwise send it separately as well, I don't mind.
+On Wed, May 18, 2016 at 12:29 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> On Wed, May 18, 2016 at 10:57:21AM -0700, Alexander Duyck wrote:
+>> On Wed, May 18, 2016 at 9:01 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Wed, 2016-05-18 at 11:25 -0400, Neil Horman wrote:
+>> >> Noticed an allocation failure in a network driver the other day on a 32 bit
+>> >> system:
+>> >>
+>> >> DMA-API: debugging out of memory - disabling
+>> >> bnx2fc: adapter_lookup: hba NULL
+>> >> lldpad: page allocation failure. order:0, mode:0x4120
+>> >> Pid: 4556, comm: lldpad Not tainted 2.6.32-639.el6.i686.debug #1
+>> >> Call Trace:
+>> >>  [<c08a4086>] ? printk+0x19/0x23
+>> >>  [<c05166a4>] ? __alloc_pages_nodemask+0x664/0x830
+>> >>  [<c0649d02>] ? free_object+0x82/0xa0
+>> >>  [<fb4e2c9b>] ? ixgbe_alloc_rx_buffers+0x10b/0x1d0 [ixgbe]
+>> >>  [<fb4e2fff>] ? ixgbe_configure_rx_ring+0x29f/0x420 [ixgbe]
+>> >>  [<fb4e228c>] ? ixgbe_configure_tx_ring+0x15c/0x220 [ixgbe]
+>> >>  [<fb4e3709>] ? ixgbe_configure+0x589/0xc00 [ixgbe]
+>> >>  [<fb4e7be7>] ? ixgbe_open+0xa7/0x5c0 [ixgbe]
+>> >>  [<fb503ce6>] ? ixgbe_init_interrupt_scheme+0x5b6/0x970 [ixgbe]
+>> >>  [<fb4e8e54>] ? ixgbe_setup_tc+0x1a4/0x260 [ixgbe]
+>> >>  [<fb505a9f>] ? ixgbe_dcbnl_set_state+0x7f/0x90 [ixgbe]
+>> >>  [<c088d80d>] ? dcb_doit+0x10ed/0x16d0
+>> >> ...
+>> >
+>> >
+>> > Well, maybe this call site (via ixgbe_configure_rx_ring()) should be
+>> > using GFP_KERNEL instead of GFP_ATOMIC.
+>>
+>> The problem is the ixgbe driver is using the same function for
+>> allocating memory in the softirq and in the init.  As such it has to
+>> default to GFP_ATOMIC so that it doesn't screw up the NAPI allocation
+>> case.
+>>
+>
+> I suppose a happy medium would be to extend dev_alloc_pages to accept a gfp
+> argument, and then have the function itself only set __GFP_NOWARN, if ATOMIC is
+> also set?
 
-I agree. Would make most sense to make the change in one patch. Later on
-we can reason about if it makes sense to use the net namespace to split
-bpf maps and programs or maybe even introduce a new primitive for that.
+Why bother?  I really think Eric's patch is the way to go.
 
-Thanks,
-Hannes
+We can already pass gfp flags to __dev_alloc_pages so if we need to
+pass flags we can use that.  Otherwise for the users of dev_alloc_page
+and dev_alloc_pages we can just pass GFP_ATOMIC | __GFP_NOWARN like
+Eric did in his example patch.
+
+- Alex
