@@ -1,35 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/1 RFC] net/phy: Add Lantiq PHY driver
-Date: Wed, 18 May 2016 19:01:09 +0200
-Message-ID: <20160518170109.GE25448@lunn.ch>
-References: <1463587403-26809-1-git-send-email-alexander.stein@systec-electronic.com>
- <573C9738.4040402@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Stein <alexander.stein@systec-electronic.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john@phrozen.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <573C9738.4040402@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net 0/2] RDS: TCP: connection spamming fixes
+Date: Wed, 18 May 2016 10:06:22 -0700
+Message-ID: <cover.1463579486.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com, sowmini.varadhan@oracle.com,
+	santosh.shilimkar@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:38420 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbcERRGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 13:06:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> For LEDs, we had a patch series floating around adding LED triggers [1],
-> and it seems to me like the LEDs class subsystem would be a good fit for
-> controlling PHY LEDs, possibly with the help of PHYLIB when it comes to
-> doing the low-level work of registering LEDs and their names with the
-> LEDS subsystem.
-> 
-> [1]: http://lists.openwall.net/netdev/2016/03/23/61
+We have been testing the RDS-TCP code with a connection spammer
+that sends incoming SYNs to the RDS listen port well after 
+an rds-tcp connection has been established, and found a few 
+race-windows that are fixed by this patch series.
 
-That patch fizzled out. I got the feeling it was pushing the
-capabilities of the coder. I do however think it is a reasonable path
-to follow for PHY LEDs.
+Patch 1 avoids a null pointer deref when an incoming SYN 
+shows up when a netns is being dismantled, or when the 
+rds-tcp module is being unloaded. 
 
-I took a quick look at the datasheet and the controlling of the LEDs
-is very flexible. It should not be a problem to expose some of that
-functionality via LED triggers.
+Patch 2 addresses the case when a SYN is received after the
+connection arbitration algorithm has converged: the incoming
+SYN should not needlessly quiesce the transmit path, and it
+should not result in needless TCP connection resets due to
+re-execution of the connection arbitration logic.
 
-      Andrew
+Sowmini Varadhan (2):
+  RDS: TCP: rds_tcp_accept_worker() must exit gracefully when
+    terminating rds-tcp
+  RDS: TCP: Avoid rds connection churn from rogue SYNs
+
+ net/rds/tcp_listen.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
