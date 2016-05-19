@@ -1,31 +1,52 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH linux-firmware] qed: Add FW 8.10.5.0
-Date: Thu, 19 May 2016 05:52:47 +0000
-Message-ID: <CO2PR11MB00881CEEAA7D12AC944952D4974A0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1463435402-9458-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Petko Manolov <petkan@mip-labs.com>
+Subject: Re: [PATCH 1/1] net: pegasus: simplify logical constraint
+Date: Thu, 19 May 2016 08:57:55 +0300
+Message-ID: <20160519055755.GE21813@p310>
+References: <1463555740.22748.0.camel@suse.com>
+ <1463596851-3581-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: "linux-firmware@kernel.org" <linux-firmware@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0107.outbound.protection.outlook.com ([157.56.111.107]:26177
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751399AbcESFwv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 01:52:51 -0400
-In-Reply-To: <1463435402-9458-1-git-send-email-Yuval.Mintz@qlogic.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Petko Manolov <petkan@nucleusys.com>,
+	Oliver Neukum <oneukum@suse.com>,
+	Guenter Roeck <linux@roeck-us.net>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1463596851-3581-1-git-send-email-xypron.glpk@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Hi,
-> 
-> Please consider applying this to `linux-firmware'.
-> 
-> Thanks,
-> Yuval
+On 16-05-18 20:40:51, Heinrich Schuchardt wrote:
+> If !count is true, count < 4 is also true.
 
-I don't like to nag [and surely not so early after sending this], but do
-you have an ETA for when you're going to flush the linux-firmware pipe?
-[Asking as last time due to the holidays it took ~3 weeks]
+Yep, you're right.  However, gcc optimizes away the first condition.  What you 
+really got me to think about is whether 4 is the right number.  I guess i shall 
+refer to the HW documentation.
+
+
+		Petko
+
+
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> ---
+>  drivers/net/usb/pegasus.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+> index 36cd7f0..9bbe0161 100644
+> --- a/drivers/net/usb/pegasus.c
+> +++ b/drivers/net/usb/pegasus.c
+> @@ -473,7 +473,7 @@ static void read_bulk_callback(struct urb *urb)
+>  		goto goon;
+>  	}
+>  
+> -	if (!count || count < 4)
+> +	if (count < 4)
+>  		goto goon;
+>  
+>  	rx_status = buf[count - 2];
+> -- 
+> 2.1.4
+> 
+> 
