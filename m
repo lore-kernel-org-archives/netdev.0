@@ -1,61 +1,46 @@
-From: Robert Dobrowolski <robert.dobrowolski@linux.intel.com>
-Subject: [PATCH net,stable v2] net: cdc_ncm: update datagram size after changing mtu
-Date: Thu, 19 May 2016 11:56:09 +0200
-Message-ID: <1463651769-27513-1-git-send-email-robert.dobrowolski@linux.intel.com>
-Cc: robert.dobrowolski@linux.intel.com, stable@vger.kernel.org,
-	oliver@neukum.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Rafal Redzimski <rafal.f.redzimski@intel.com>
-To: linux-usb@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:34775 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754095AbcESJ64 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2016 05:58:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mathias Kresin <openwrt@kresin.me>
+Subject: Re: [PATCH 1/1 RFC] net/phy: Add Lantiq PHY driver
+Date: Thu, 19 May 2016 12:03:10 +0200
+Message-ID: <CABwW5nm9itJUrfP6yNEgQPDcPojKvsPbxv6tdoJ0DFPDY9XrSw@mail.gmail.com>
+References: <1463587403-26809-1-git-send-email-alexander.stein@systec-electronic.com>
+	<573C9738.4040402@gmail.com>
+	<2a059454-279b-4ade-6f0e-837013bb323f@phrozen.org>
+	<1712340.89M2Ezzzk6@ws-stein>
+	<5f2d9a6d-bcf1-5aa1-7c45-f8cfd723bc3a@phrozen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Stein <alexander.stein@systec-electronic.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	andrew@lunn.ch, "Mehrtens, Hauke" <hauke.mehrtens@intel.com>
+To: John Crispin <john@phrozen.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5f2d9a6d-bcf1-5aa1-7c45-f8cfd723bc3a@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rafal Redzimski <rafal.f.redzimski@intel.com>
+2016-05-19 9:03 GMT+02:00 John Crispin <john@phrozen.org>:
+> On 19/05/2016 08:57, Alexander Stein wrote:
+>> Thanks for the link, I wasn't aware of that patch. I like it in general, but
+>> there are some things I'd like to get addressed first:
+>> * vr9_gphy_of_reg_init() writes uncoditionally to led3h and led3l even on
+>>   PEf7071 which does not have this register at all
+>
+> we use this driver mainly on the 11g and 22f version. mathias recently
+> added the led3 handling.
+>
+> @Mathias, can you have a look at this and fix it inside the lede tree ?
 
-Current implementation updates the mtu size and notify cdc_ncm
-device using USB_CDC_SET_MAX_DATAGRAM_SIZE request about datagram
-size change instead of changing rx_urb_size.
+Well, I haven't added the led3 handling, I've only changed the initial
+value (function) of led3.
 
-Whenever mtu is being changed, datagram size should also be
-updated. Also updating maxmtu formula so it takes max_datagram_size with
-use of cdc_ncm_max_dgram_size() and not ctx.
+Maybe it's cleaner to not use a default value for the led function and
+completely rely on the device tree bindings. But by adjusting the
+initial values, I had to change only the led function of one board in
+the openwrt xrx200 subtarget instead of touching all dts files.
 
-Signed-off-by: Robert Dobrowolski <robert.dobrowolski@linux.intel.com>
-Signed-off-by: Rafal Redzimski <rafal.f.redzimski@intel.com>
----
-Changes in v2:
-- Changed the way maxmtu is being calculated. Its now based
-on cdc_ncm_max_dgram_size and not on ctx->max_datagram_size.
-New datagram size is calculated correctly.
+I know that the LTQ Datasheet for the PEF 7071 Version 1.5 mentions
+the led3 control register albeit there is no pin for a forth led. So I
+guess it's safe to write to the led3 register even for the PEF 7071.
 
- drivers/net/usb/cdc_ncm.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 2fb31ed..53759c3 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -740,12 +740,14 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
- int cdc_ncm_change_mtu(struct net_device *net, int new_mtu)
- {
- 	struct usbnet *dev = netdev_priv(net);
--	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
--	int maxmtu = ctx->max_datagram_size - cdc_ncm_eth_hlen(dev);
-+	int maxmtu = cdc_ncm_max_dgram_size(dev) - cdc_ncm_eth_hlen(dev);
- 
- 	if (new_mtu <= 0 || new_mtu > maxmtu)
- 		return -EINVAL;
-+
- 	net->mtu = new_mtu;
-+	cdc_ncm_set_dgram_size(dev, new_mtu + cdc_ncm_eth_hlen(dev));
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(cdc_ncm_change_mtu);
--- 
-1.9.1
+Mathias
