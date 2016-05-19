@@ -1,50 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next RFC 1/1] net sched actions: introduce timestamp for
- first time used
-Date: Thu, 19 May 2016 09:38:46 -0700
-Message-ID: <CAM_iQpW7LQ40XX5G+creyHjQbgdRcKCCJ1f5CbWHjdJdxJPPRA@mail.gmail.com>
-References: <1463528337-4986-1-git-send-email-jhs@emojatatu.com>
- <CAM_iQpWXgncANS5MrBzrZiEVSbGzNptrAjisg_K2NTA-PsAMKg@mail.gmail.com>
- <573DA960.8070102@mojatatu.com> <573DAE70.4000504@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next] net: sched: do not acquire qdisc spinlock in
+ qdisc/class stats dump
+Date: Thu, 19 May 2016 10:02:19 -0700
+Message-ID: <1463677339.18194.197.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463661320.18194.178.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160519160803.GA70549@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Felix Fietkau <nbd@nbd.name>, baronchon@n7mm.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Kevin Athey <kda@google.com>,
+	Xiaotian Pei <xiaotian@google.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:34125 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754980AbcESQjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 12:39:08 -0400
-Received: by mail-yw0-f177.google.com with SMTP id j74so83797175ywg.1
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 09:39:07 -0700 (PDT)
-In-Reply-To: <573DAE70.4000504@mojatatu.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36656 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754321AbcESRC2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 13:02:28 -0400
+Received: by mail-pa0-f67.google.com with SMTP id xm6so8402404pab.3
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 10:02:28 -0700 (PDT)
+In-Reply-To: <20160519160803.GA70549@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2016 at 5:15 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-05-19 07:54 AM, Jamal Hadi Salim wrote:
->>
->> On 16-05-18 01:17 PM, Cong Wang wrote:
->
->
->>> I think it is the time to add a wrapper for these tm.XX =
->>> jiffies_to_clock_t(XXX).
->>>
->>
->> Agreed. Will send a patch.
->> Actually I will resend the firstuse as well without RFC tag
->> and the wrapper one as separate patch.
->>
->
-> Something like attached - compiles but untested.
-> I will test later and do formal submission.
+On Thu, 2016-05-19 at 09:08 -0700, Alexei Starovoitov wrote:
 
-Looks good.
+> initially I thought that above line could have been qdisc_root_sleeping_lock()
+> but then realized that moving out ASSERT_RTNL makes more sense. Good call.
+> The only thing not clear to me is why '!defined(CONFIG_LOCKDEP)' ?
+> Just extra caution? I think should be fine without it.
+
+I believe it is better to exercise this code path (using spinlock) even
+on 64bit kernel for kernels with LOCKDEP.
+
+This could avoid some hard to debug bugs occurring on 32bit builds.
