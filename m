@@ -1,45 +1,44 @@
-From: Rick Jones <rick.jones2@hpe.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC] net: remove busylock
-Date: Thu, 19 May 2016 11:41:39 -0700
-Message-ID: <573E08E3.3020200@hpe.com>
+Date: Thu, 19 May 2016 11:44:10 -0700
+Message-ID: <1463683450.18194.220.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+	 <20160519.111208.1949769629804288508.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <aduyck@mirantis.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, aduyck@mirantis.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t5008.houston.hp.com ([15.240.92.66]:40808 "EHLO
-	g9t5008.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933423AbcESSlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 14:41:42 -0400
-In-Reply-To: <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33853 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932811AbcESSoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 14:44:13 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 145so8940631pfz.1
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 11:44:13 -0700 (PDT)
+In-Reply-To: <20160519.111208.1949769629804288508.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/19/2016 11:03 AM, Alexander Duyck wrote:
-> On Thu, May 19, 2016 at 10:08 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> With HTB qdisc, here are the numbers for 200 concurrent TCP_RR, on a host with 48 hyperthreads.
-...
->>
->> That would be a 8 % increase.
->
-> The main point of the busy lock is to deal with the bulk throughput
-> case, not the latency case which would be relatively well behaved.
-> The problem wasn't really related to lock bouncing slowing things
-> down.  It was the fairness between the threads that was killing us
-> because the dequeue needs to have priority.
+On Thu, 2016-05-19 at 11:12 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 19 May 2016 10:08:36 -0700
+> 
+> > busylock was added at the time we had expensive ticket spinlocks
+> > 
+> > (commit 79640a4ca6955e3ebdb7038508fa7a0cd7fa5527 ("net: add additional
+> > lock to qdisc to increase throughput")
+> > 
+> > Now kernel spinlocks are MCS, this busylock things is no longer
+> > relevant. It is slowing down things a bit.
+>  ...
+> > That would be a 8 % increase.
+> 
+> Presumably only for x86-64 and other platforms that actually are using
+> the ticket spinlocks.
+> 
+> For others it would be a regression.
 
-Quibbledrift... While the origins of the netperf TCP_RR test center on 
-measuring latency, I'm not sure I'd call 200 of them running 
-concurrently a latency test.  Indeed it may be neither fish nor fowl, 
-but it will certainly be exercising the basic packet send/receive path 
-rather fully and is likely a reasonable proxy for aggregate small packet 
-performance.
+Ticket spinlocks are actually gone, these are now MCS.
 
-happy benchmarking,
-
-rick jones
+But yes, point taken ;)
