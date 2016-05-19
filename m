@@ -1,75 +1,68 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net V2] tuntap: correctly wake up process during uninit
-Date: Thu, 19 May 2016 13:36:51 +0800
-Message-ID: <1463636211-3573-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>, Xi Wang <xii@google.com>,
-	"Michael S . Tsirkin" <mst@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v11 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+Date: Thu, 19 May 2016 05:41:55 +0000
+Message-ID: <BLUPR03MB141050990AB0D651168EA8EFBF4A0@BLUPR03MB1410.namprd03.prod.outlook.com>
+References: <20160515.131606.1794366975297405715.davem@davemloft.net>
+	<BLUPR03MB141097E05C16CB619E942AA2BF480@BLUPR03MB1410.namprd03.prod.outlook.com>
+	<BLUPR03MB1410BB9D04D0758840F6685CBF4A0@BLUPR03MB1410.namprd03.prod.outlook.com>
+ <20160518.211242.1326033872866679163.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"joe@perches.com" <joe@perches.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0145.outbound.protection.outlook.com ([207.46.100.145]:7239
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750790AbcESFmA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 01:42:00 -0400
+In-Reply-To: <20160518.211242.1326033872866679163.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We used to check dev->reg_state against NETREG_REGISTERED after each
-time we are woke up. But after commit 9e641bdcfa4e ("net-tun:
-restructure tun_do_read for better sleep/wakeup efficiency"), it uses
-skb_recv_datagram() which does not check dev->reg_state. This will
-result if we delete a tun/tap device after a process is blocked in the
-reading. The device will wait for the reference count which was held
-by that process for ever.
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, May 19, 2016 12:13
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: KY Srinivasan <kys@microsoft.com>; olaf@aepfle.de;
+> gregkh@linuxfoundation.org; jasowang@redhat.com; linux-
+> kernel@vger.kernel.org; joe@perches.com; netdev@vger.kernel.org;
+> apw@canonical.com; devel@linuxdriverproject.org; Haiyang Zhang
+> <haiyangz@microsoft.com>
+> Subject: Re: [PATCH v11 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+> 
+> 
+> I'm travelling and very busy with the merge window.  So sorry I won't be able
+> to think about this for some time.
 
-Fixes this by using RCV_SHUTDOWN which will be checked during
-sk_recv_datagram() before trying to wake up the process during uninit.
+David, 
+Sure, I understand.
 
-Fixes: 9e641bdcfa4e ("net-tun: restructure tun_do_read for better
-sleep/wakeup efficiency")
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Xi Wang <xii@google.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-- The patch is needed for -stable.
-- Changes from v1: remove unnecessary NETREG_REGISTERED check in tun_do_read()
----
- drivers/net/tun.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Please let me recap my last mail:
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 425e983..e16487c 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -580,11 +580,13 @@ static void tun_detach_all(struct net_device *dev)
- 	for (i = 0; i < n; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
- 		BUG_ON(!tfile);
-+		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
- 		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
- 		--tun->numqueues;
- 	}
- 	list_for_each_entry(tfile, &tun->disabled, next) {
-+		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
- 		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
- 	}
-@@ -641,6 +643,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 			goto out;
- 	}
- 	tfile->queue_index = tun->numqueues;
-+	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
- 	rcu_assign_pointer(tfile->tun, tun);
- 	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
- 	tun->numqueues++;
-@@ -1491,9 +1494,6 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 	if (!iov_iter_count(to))
- 		return 0;
- 
--	if (tun->dev->reg_state != NETREG_REGISTERED)
--		return -EIO;
--
- 	/* Read frames from queue */
- 	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
- 				  &peeked, &off, &err);
--- 
-2.7.4
+1)  I'll replace my statically-allocated per-connection "send/recv bufs" with
+dynamically ones, so no buf is used when there is no traffic.
+
+2) Another kind of bufs i.e., the  multi-page "VMBus send/recv ringbuffer", is
+a must IMO due to the host side's design of the feature: every connection needs
+its own ringbuffer, which takes several pages (2~3 pages at least. And, 5 pages
+should suffice for good performance). The ringbuffer can be accessed by the
+host at any time, so IMO the pages can't be swappable.
+
+I understand net-next is closed now. I'm going to post the next version
+after 4.7-rc1 is out in several weeks.
+
+If you could give me some suggestions, I would be definitely happy to take.
+
+Thanks!
+-- Dexuan
