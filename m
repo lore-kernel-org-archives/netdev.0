@@ -1,111 +1,98 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH 0/2] Follow-ups for GUEoIPv6 patches
-Date: Wed, 18 May 2016 16:31:46 -0700
-Message-ID: <1463614306.2713.101.camel@intel.com>
-References: <20160518173605.2608.42484.stgit@localhost.localdomain>
-	 <1463606878.2713.68.camel@intel.com>
-	 <CAKgT0UexDWi0axSiR7GWz5jz91oLbjqqz7zPNWL+jyPf4bfLew@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-/Dg8YstmWMiEyxsh8RMM"
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] net/atm: sk_err_soft must be positive
+Date: Wed, 18 May 2016 17:42:13 -0700
+Message-ID: <1463618533-7098-1-git-send-email-stefanha@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2241 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60130 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751386AbcERXbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 19:31:53 -0400
-In-Reply-To: <CAKgT0UexDWi0axSiR7GWz5jz91oLbjqqz7zPNWL+jyPf4bfLew@mail.gmail.com>
+	id S1750736AbcESAmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2016 20:42:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The sk_err and sk_err_soft fields are positive errno values and
+userspace applications rely on this when using getsockopt(SO_ERROR).
 
---=-/Dg8YstmWMiEyxsh8RMM
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+ATM code places an -errno into sk_err_soft in sigd_send() and returns it
+from svc_addparty()/svc_dropparty().
 
-On Wed, 2016-05-18 at 16:19 -0700, Alexander Duyck wrote:
-> On Wed, May 18, 2016 at 2:27 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > On Wed, 2016-05-18 at 10:44 -0700, Alexander Duyck wrote:
-> >> This patch series is meant to be applied after:
-> >> [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes for v6
-> >> tunneling
-> >>
-> >> The first patch addresses an issue we already resolved in the GREv4
-> and
-> >> is
-> >> now present in GREv6 with the introduction of FOU/GUE for IPv6 based
-> GRE
-> >> tunnels.
-> >>
-> >> The second patch goes through and enables IPv6 tunnel offloads for the
-> >> Intel
-> >> NICs that already support the IPv4 based IP-in-IP tunnel offloads.=C2=
-=A0 I
-> >> have
-> >> only done a bit of touch testing but have seen ~20 Gb/s over an i40e
-> >> interface using a v4-in-v6 tunnel, and I have verified IPv6 GRE is
-> still
-> >> passing traffic at around the same rate.=C2=A0 I plan to do further te=
-sting
-> >> but
-> >> with these patches present it should enable a wider audience to be
-> able
-> >> to
-> >> test the new features introduced in Tom's patchset with hardware
-> >> offloads.
-> >>
-> >> ---
-> >>
-> >> Alexander Duyck (2):
-> >>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ip6_gre: Do not allow segmentation=
- offloads GRE_CSUM is enabled
-> >> with FOU/GUE
-> >>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 intel: Add support for IPv6 IP-in-=
-IP offload
-> >
-> > Dave, I have this series added to my queue.
->=20
-> Jeff,
->=20
-> If Tom's patches make it in for 4.7, then I would like to see if we
-> could push these patches for "net" since essentially the first patch
-> is a fix for Tom's earlier patches and the second is needed in order
-> to really be able to test Tom's patches with a driver that actually
-> supports a hardware offload.
+Although I am not familiar with ATM code I came to this conclusion
+because:
 
-Yeah, I was thinking that very same thing. =C2=A0I will wait to see if Dave
-sucks this into 4.7 or not and plan accordingly. =C2=A0I also figured out t=
-hat
-your two patch series needs to have Tom's series applied before hand, so I
-will be adding Tom's series to my tree just for testing purposes.
---=-/Dg8YstmWMiEyxsh8RMM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+1. sigd_send() msg->type cases as_okay and as_error both have:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+   sk->sk_err = -msg->reply;
 
-iQIcBAABCgAGBQJXPPtiAAoJEOVv75VaS+3OMfQP/0eQcvSYWZ68Cb+3lNy/htHZ
-1/4A8FzzzvrecaIyZUB1IahJit0lnqRVtcPKEEfwpj+QpZnX9k4WUhRlBBhw5J8+
-tHNkZPK5tMfxOO51VV2nPg/4R7XwYw6wQFk/x5d2qOeaY3TUfEOFGGEsr7dNNCnP
-rb2OvpExUphXLTmWviBWCwBRPQqNeiX+4PI23LiXRBT/giBs+9Pnt6bZvEv03Gux
-Of4Pr8c4BSsTkRw5nBDVgoVDHG0PoF8+KPbThpJ+FTExOoAODE+riY3C5DzUHNqu
-MNY5tSnr2v6t3n5zLvhevRTb4Unmoc0duo+EsN4HfE0dRkAQE7+eALIbMuLHNBFs
-0LhdYVEom/jOd8CiEoAupljpZGZvF59ZAXG4aGXeNip4Om2x6FQgtmY8b16LcaoD
-aaeHH8IHXA7IUh5dkDukxZHxSd9C78l+qUmeUjAqHEA37FLzVPhJglESJjSsekmq
-EoYtPNaJ0nJqBx6vaO/xn7cGoZdBIc4HUVBNBvwR/21/cYULX645274U8F1s6qn4
-+AiKL0kDrMRYbaOM7//nRBXLL+CwjgBG77rtPZwLQ7S7wFmRHf7CzhdXk5hdjM47
-UWegaOebc2FCYag7v2crurunG/n1HnUcy3/uKPmWnow1LmWFutsT5iOhVoFFigt1
-0jGms+Cn7Ks1EXLeXOeg
-=9oeV
------END PGP SIGNATURE-----
+   while the as_addparty and as_dropparty cases have:
 
---=-/Dg8YstmWMiEyxsh8RMM--
+   sk->sk_err_soft = msg->reply;
+
+   This is the source of the inconsistency.
+
+2. svc_addparty() returns an -errno and assumes sk_err_soft is also an
+   -errno:
+
+       if (flags & O_NONBLOCK) {
+           error = -EINPROGRESS;
+           goto out;
+       }
+       ...
+       error = xchg(&sk->sk_err_soft, 0);
+   out:
+       release_sock(sk);
+       return error;
+
+   This shows that sk_err_soft is indeed being treated as an -errno.
+
+This patch ensures that sk_err_soft is always a positive errno.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+This patch is untested and potentially affects the getsockopt(SO_ERROR) ABI for
+a specific case in ATM.  I leave it to the maintainer to decide whether this
+inconsistency should be fixed or not.
+
+ net/atm/signaling.c | 2 +-
+ net/atm/svc.c       | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/atm/signaling.c b/net/atm/signaling.c
+index 4fd6af4..adb6e3d 100644
+--- a/net/atm/signaling.c
++++ b/net/atm/signaling.c
+@@ -124,7 +124,7 @@ as_indicate_complete:
+ 		break;
+ 	case as_addparty:
+ 	case as_dropparty:
+-		sk->sk_err_soft = msg->reply;
++		sk->sk_err_soft = -msg->reply;
+ 					/* < 0 failure, otherwise ep_ref */
+ 		clear_bit(ATM_VF_WAITING, &vcc->flags);
+ 		break;
+diff --git a/net/atm/svc.c b/net/atm/svc.c
+index 3fa0a9e..878563a 100644
+--- a/net/atm/svc.c
++++ b/net/atm/svc.c
+@@ -546,7 +546,7 @@ static int svc_addparty(struct socket *sock, struct sockaddr *sockaddr,
+ 		schedule();
+ 	}
+ 	finish_wait(sk_sleep(sk), &wait);
+-	error = xchg(&sk->sk_err_soft, 0);
++	error = -xchg(&sk->sk_err_soft, 0);
+ out:
+ 	release_sock(sk);
+ 	return error;
+@@ -573,7 +573,7 @@ static int svc_dropparty(struct socket *sock, int ep_ref)
+ 		error = -EUNATCH;
+ 		goto out;
+ 	}
+-	error = xchg(&sk->sk_err_soft, 0);
++	error = -xchg(&sk->sk_err_soft, 0);
+ out:
+ 	release_sock(sk);
+ 	return error;
+-- 
+2.5.5
