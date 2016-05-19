@@ -1,306 +1,357 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: rtk8168 driver help needed
-Date: Thu, 19 May 2016 17:38:26 -0400
-Message-ID: <573E3252.6000207@ti.com>
-References: <572D147C.8020203@ti.com>
- <20160507083511.GA18421@electric-eye.fr.zoreil.com>
+From: Reinoud Koornstra <reinoudkoornstra@gmail.com>
+Subject: Re: pull-request: wireless-drivers-next 2016-05-13 (take two)
+Date: Thu, 19 May 2016 16:20:42 -0600
+Message-ID: <CAAA5faH9wt3AU=aJLPh=ksg3+s7YwSwuh7_mYJ734yd3tuRTQg@mail.gmail.com>
+References: <87eg8yfc8b.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:54157 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751297AbcESVi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2016 17:38:29 -0400
-In-Reply-To: <20160507083511.GA18421@electric-eye.fr.zoreil.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35396 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753824AbcESWUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 18:20:44 -0400
+In-Reply-To: <87eg8yfc8b.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/07/2016 04:35 AM, Francois Romieu wrote:
-> Murali Karicheri <m-karicheri2@ti.com> :
-> [...]
->> I am trying to integrate the rtl8168 PCIe card to have Ethernet functional
->> on my Keystone EVM.
-> 
-> Which (EVM) one ?
-> 
->> I purchased the rtl8111c Gib card from Amazon. The Card is detected
->> by the RC and I can see it is enumerated and show up when doing lspci command.
-> 
-> What does "the RC" mean ? A different PC ?
-> 
->> However I can't get the Ethernet port functional.
-> 
->> Does this need MSI interrupt ?
-> 
-> No.
-> 
->> I can't see it has requested any.
-> 
-> Yes, something went really, really wrong. See below.
-> 
-I have figured out why I was getting all zeros over the PCIe bus. The PCIe 
-address range used by the CPU to access the PCI space is wrong. Once that
-is fixed, I was able to test few PCIe EP devices such as Intel e1000e, Broadcom
-tg3, Marvel SATA etc. But the rtk8168 driver still don't work. I have following
-log now.
+On Thu, May 19, 2016 at 6:45 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Hi Dave,
+>
+> this the second version of the last pull request to net-next for 4.7,
+> which got postponed due to the recent iwlwifi merge conflict. Now that
+> Linus fixed the merge problem in his tree I actually didn't have to fix
+> anything in my tree anymore. So that's why I still use the same tag as
+> in my previous pull request.
+>
+> The only dependency is that you need Linus' iwlwifi fix in your tree
+> before you pull this:
+>
+> 0e034f5c4bc4 iwlwifi: fix mis-merge that breaks the driver
+>
+> So if you could pull latest Linus' tree to net-next that would solve
+> that. I just did a test merge of that on your net-next tree and didn't
+> see any conflicts, so this pull should go smoothly. Also these patches
+> have been in linux-next at least a week now. But please let me know if
+> you see any issues.
+>
+> And I think a lesson learned from this is that I need to immediately
+> merge wireless-drivers to wireless-drivers-next if there are any
+> conflicts between the trees. Or how do you suggest to handle cases like
+> that?
+>
+> Kalle
+>
+>
+> The following changes since commit ede00a5ceb4d903a8c137a52bb77d574baaef8bd:
+>
+>   Merge tag 'wireless-drivers-next-for-davem-2016-05-02' of git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next (2016-05-03 00:35:16 -0400)
+>
+> are available in the git repository at:
+>
+>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git tags/wireless-drivers-next-for-davem-2016-05-13
+>
+> for you to fetch changes up to 52776a700b53969345a3cc5daed1c797d016a188:
+>
+>   Merge ath-next from ath.git (2016-05-11 23:23:51 +0300)
+>
+> ----------------------------------------------------------------
+>
+> wireless-drivers patches for 4.7
+>
+> Major changes:
+>
+> iwlwifi
+>
+> * remove IWLWIFI_DEBUG_EXPERIMENTAL_UCODE kconfig option
+> * work for RX multiqueue continues
+> * dynamic queue allocation work continues
+> * add Luca as maintainer
+> * a bunch of fixes and improvements all over
 
-[    2.372877] pci_bus 0000:00: root bus resource [bus 00-ff]
-[    2.378362] pci_bus 0000:00: root bus resource [io  0x0000-0x3fff]
-[    2.384609] pci_bus 0000:00: root bus resource [mem 0x70000000-0x7fffffff]
-[    2.392155] PCI: bus0: Fast back to back transfers disabled
-[    2.411222] PCI: bus1: Fast back to back transfers disabled
-[    2.416964] pci 0000:00:00.0: BAR 8: assigned [mem 0x70000000-0x700fffff]
-[    2.423927] pci 0000:00:00.0: BAR 9: assigned [mem 0x70100000-0x701fffff
-pref]
-[    2.431217] pci 0000:00:00.0: BAR 7: assigned [io  0x1000-0x1fff]
-[    2.437315] pci 0000:01:00.0: BAR 6: assigned [mem 0x70100000-0x7011ffff
-pref]
-[    2.444597] pci 0000:01:00.0: BAR 4: assigned [mem 0x70120000-0x7012ffff
-64bit pref]
-[    2.452383] pci 0000:01:00.0: BAR 2: assigned [mem 0x70000000-0x70000fff
-64bit]
-[    2.459705] pci 0000:01:00.0: BAR 0: assigned [io  0x1000-0x10ff]
-[    2.465825] pci 0000:00:00.0: PCI bridge to [bus 01]
-[    2.470788] pci 0000:00:00.0:   bridge window [io  0x1000-0x1fff]
-[    2.476905] pci 0000:00:00.0:   bridge window [mem 0x70000000-0x700fffff]
-[    2.483711] pci 0000:00:00.0:   bridge window [mem 0x70100000-0x701fffff
-pref]
+Can you let me know when this is merged in 4.6+, then I'll try it right away.
+Thanks,
 
+Reinoud.
 
-And then 
-
-root@k2g-evm:~# lspci -v
-00:00.0 PCI bridge: Texas Instruments Device b00b (rev 01) (prog-if 00 [Normal
-decode])
-        Flags: bus master, fast devsel, latency 0, IRQ 287
-        Memory at <ignored> (32-bit, non-prefetchable)
-        Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
-        I/O behind bridge: 00001000-00001fff
-        Memory behind bridge: 70000000-700fffff
-        Prefetchable memory behind bridge: 70100000-701fffff
-        Capabilities: [40] Power Management version 3
-        Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
-        Capabilities: [70] Express Root Port (Slot-), MSI 00
-        Capabilities: [100] Advanced Error Reporting
-        Kernel driver in use: pcieport
-lspci: Unable to load libkmod resources: error -12
-
-01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411
-PCI Express Gigabit Ethernet Controller (rev 02)
-        Subsystem: Realtek Semiconductor Co., Ltd. Device 0123
-        Flags: fast devsel, IRQ 319
-        I/O ports at 1000 [disabled] [size=256]
-        Memory at 70000000 (64-bit, non-prefetchable) [disabled] [size=4K]
-        Memory at 70120000 (64-bit, prefetchable) [disabled] [size=64K]
-        [virtual] Expansion ROM at 70100000 [disabled] [size=128K]
-        Capabilities: [40] Power Management version 0
-        Capabilities: [50] MSI: Enable- Count=1/1 Maskable- 64bit+
-        Capabilities: [70] Express Endpoint, MSI 01
-        Capabilities: [b0] MSI-X: Enable- Count=2 Masked-
-        Capabilities: [d0] Vital Product Data
-        Capabilities: [100] Advanced Error Reporting
-        Capabilities: [140] Virtual Channel
-        Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
-
-
-And then
-
-root@k2g-evm:/# insmod r8169.ko
-[   43.980877] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[   43.986609] r8169 0000:01:00.0: enabling device (0140 -> 0143)
-[   43.993132] r8169 0000:01:00.0: limiting MRRS to 256
-[   44.004152] r8169 0000:01:00.0 eth1: RTL8168c/8111c at 0xf0f56000,
-00:e0:4c:21:16:2c, XID 1c4000c0 IRQ 288
-[   44.024167] r8169 0000:01:00.0 eth1: jumbo features [frames: 6128 bytes, tx
-checksumming: ko]
-root@k2g-evm:/# ifup eth1
-[   51.782650] r8169 0000:01:00.0 eth1: link down
-[   51.787121] r8169 0000:01:00.0 eth1: link down
-[   51.792348] IPv6: ADDRCONF(NETDEV_UP): eth1: link is not ready
-udhcpc (v1.23.1) started
-Sending discover...
-[   54.158011] r8169 0000:01:00.0 eth1: link up
-[   54.162344] IPv6: ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
-Sending discover...
-Sending discover...
-No lease, forking to background
-root@k2g-evm:/# ifconfig
-eth0      Link encap:Ethernet  HWaddr 50:72:24:D6:DE:ED
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-
-eth1      Link encap:Ethernet  HWaddr 00:E0:4C:21:16:2C
-          inet6 addr: fe80::2e0:4cff:fe21:162c/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-
-
-Looks like there is nothing transmitted.
-
-
-For Broadcom tg3, I get
-
-[    2.353188] pci_bus 0000:00: root bus resource [bus 00-ff]
-[    2.358673] pci_bus 0000:00: root bus resource [io  0x0000-0x3fff]
-[    2.364924] pci_bus 0000:00: root bus resource [mem 0x70000000-0x7fffffff]
-[    2.372468] PCI: bus0: Fast back to back transfers disabled
-[    2.378612] pci 0000:01:00.0: reg 0x10: can't handle BAR above 4GB (bus
-address 0x2400460302000000)
-[    2.388393] pci 0000:01:00.0: disabling ASPM on pre-1.1 PCIe device.  You can
-enable it with 'pcie_aspm=force'
-[    2.398565] PCI: bus1: Fast back to back transfers disabled
-[    2.404437] pci 0000:00:00.0: BAR 8: assigned [mem 0x70000000-0x700fffff]
-[    2.411322] pci 0000:01:00.0: BAR 0: assigned [mem 0x70000000-0x7000ffff
-64bit]
-[    2.418648] pci 0000:00:00.0: PCI bridge to [bus 01]
-[    2.423682] pci 0000:00:00.0:   bridge window [mem 0x70000000-0x700fffff]
-[    2.430978] pcieport 0000:00:00.0: Signaling PME through PCIe PME interrupt
-[    2.438106] pci 0000:01:00.0: Signaling PME through PCIe PME interrupt
-[    2.445532] keystone-navigator-qmss soc:qmss@4020000: qmgr start queue 0,
-number of queues 128
-[    2.454489] keystone-navigator-qmss soc:qmss@4020000: added qmgr start queue
-
-And then
-
-root@k2g-evm:~# lspci -v
-00:00.0 PCI bridge: Texas Instruments Device b00b (rev 01) (prog-if 00 [Normal
-decode])
-        Flags: bus master, fast devsel, latency 0, IRQ 287
-        Memory at <ignored> (32-bit, non-prefetchable)
-        Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
-        Memory behind bridge: 70000000-700fffff
-        Capabilities: [40] Power Management version 3
-        Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
-        Capabilities: [70] Express Root Port (Slot-), MSI 00
-        Capabilities: [100] Advanced Error Reporting
-        Kernel driver in use: pcieport
-lspci: Unable to load libkmod resources: error -12
-
-01:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5721 Gigabit
-Ethernet PCI Express (rev 21)
-        Subsystem: Broadcom Corporation NetXtreme BCM5721 Gigabit Ethernet PCI
-Express
-        Flags: fast devsel, IRQ 319
-        Memory at 70000000 (64-bit, non-prefetchable) [disabled] [size=64K]
-        Capabilities: [48] Power Management version 2
-        Capabilities: [50] Vital Product Data
-        Capabilities: [58] MSI: Enable- Count=1/8 Maskable- 64bit+
-        Capabilities: [d0] Express Endpoint, MSI 00
-        Capabilities: [100] Advanced Error Reporting
-        Capabilities: [13c] Virtual Channel
-        Capabilities: [160] Device Serial Number 00-10-18-ff-fe-27-cc-c0
-        Capabilities: [16c] Power Budgeting <?>
-
-
-And then
-
-root@k2g-evm:/# insmod tg3.ko
-[   49.615358] tg3.c:v3.137 (May 11, 2014)
-[   49.619223] tg3 0000:01:00.0: enabling device (0140 -> 0142)
-[   49.625590] tg3 0000:01:00.0: limiting MRRS to 256
-[   49.654559] tg3 0000:01:00.0 eth1: Tigon3 [partno(BCM95721A211F) rev 4201]
-(PCI Express) MAC address 00:10:18:27:cc:c0
-[   49.675314] tg3 0000:01:00.0 eth1: attached PHY is 5750 (10/100/1000Base-T
-Ethernet) (WireSpeed[1], EEE[0])
-[   49.698863] tg3 0000:01:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0]
-TSOcap[1]
-[   49.715708] tg3 0000:01:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
-root@k2g-evm:/#
-root@k2g-evm:/#
-root@k2g-evm:/#
-root@k2g-evm:/# ifp eth1
--sh: ifp: command not found
-root@k2g-evm:/# ifup eth1
-[   59.207581] IPv6: ADDRCONF(NETDEV_UP): eth1: link is not ready
-udhcpc (v1.23.1) started
-Sending discover...
-Sending discover...
-[   62.361817] tg3 0000:01:00.0 eth1: Link is up at 1000 Mbps, full duplex
-[   62.368436] tg3 0000:01:00.0 eth1: Flow control is on for TX and on for RX
-[   62.376029] IPv6: ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
-Sending select for 192.168.0.27...
-Lease of 192.168.0.27 obtained, lease time 864000
-/etc/udhcpc.d/50default: Adding DNS 192.168.0.2
-/etc/udhcpc.d/50default: Adding DNS 192.168.0.10
-root@k2g-evm:/#
-root@k2g-evm:/#
-root@k2g-evm:/#
-root@k2g-evm:/# ping 192.168.0.21
-PING 192.168.0.21 (192.168.0.21): 56 data bytes
-64 bytes from 192.168.0.21: seq=0 ttl=64 time=0.752 ms
-64 bytes from 192.168.0.21: seq=1 ttl=64 time=0.384 ms
-64 bytes from 192.168.0.21: seq=2 ttl=64 time=0.341 ms
-64 bytes from 192.168.0.21: seq=3 ttl=64 time=0.277 ms
-
-Do you what could be wrong with rtk8168?
-
-Murali
-
-
-> [...]
->> [    2.303965] PCI host bridge /soc/pcie@21800000 ranges:
->> [    2.309108]   No bus range found for /soc/pcie@21800000, using [bus 00-ff]
->> [    2.316269]    IO 0x23250000..0x23253fff -> 0x00000000
->> [    2.321499]   MEM 0x50000000..0x5fffffff -> 0x50000000
->> [    2.331666] keystone-pcie 21801000.pcie: PCI host bridge to bus 0000:00
->> [    2.338283] pci_bus 0000:00: root bus resource [bus 00-ff]
->> [    2.343937] pci_bus 0000:00: root bus resource [io  0x0000-0x3fff]
->> [    2.350114] pci_bus 0000:00: root bus resource [mem 0x50000000-0x5fffffff]
->> [    2.357095] pci 0000:00:00.0: [104c:b00b] type 01 class 0x060400
->> [    2.357665] PCI: bus0: Fast back to back transfers disabled
->> [    2.363717] pci 0000:01:00.0: [10ec:8168] type 00 class 0x020000
->> [    2.363809] pci 0000:01:00.0: reg 0x10: [io  0x0000-0x00ff]
->> [    2.363867] pci 0000:01:00.0: reg 0x18: [mem 0x00000000-0x00000fff 64bit]
->> [    2.363909] pci 0000:01:00.0: reg 0x20: [mem 0x00000000-0x0000ffff 64bit pref]
->> [    2.363939] pci 0000:01:00.0: reg 0x30: [mem 0x00000000-0x0001ffff pref]
->> [    2.364099] pci 0000:01:00.0: supports D1 D2
->> [    2.364116] pci 0000:01:00.0: PME# supported from D0 D1 D2 D3hot D3cold
->> [    2.381251] PCI: bus1: Fast back to back transfers disabled
->> [    2.386989] pci 0000:00:00.0: BAR 8: assigned [mem 0x50000000-0x500fffff]
->> [    2.393937] pci 0000:00:00.0: BAR 9: assigned [mem 0x50100000-0x501fffff pref]
->> [    2.401221] pci 0000:00:00.0: BAR 7: assigned [io  0x1000-0x1fff]
->> [    2.407320] pci 0000:01:00.0: BAR 6: assigned [mem 0x50100000-0x5011ffff pref]
->> [    2.414597] pci 0000:01:00.0: BAR 4: assigned [mem 0x50120000-0x5012ffff 64bit pref]
->> [    2.422380] pci 0000:01:00.0: BAR 2: assigned [mem 0x50000000-0x50000fff 64bit]
->> [    2.429702] pci 0000:01:00.0: BAR 0: assigned [io  0x1000-0x10ff]
->> [    2.435821] pci 0000:00:00.0: PCI bridge to [bus 01]
->> [    2.440783] pci 0000:00:00.0:   bridge window [io  0x1000-0x1fff]
->> [    2.446896] pci 0000:00:00.0:   bridge window [mem 0x50000000-0x500fffff]
->> [    2.453699] pci 0000:00:00.0:   bridge window [mem 0x50100000-0x501fffff pref]
->> [    2.461453] pcieport 0000:00:00.0: Signaling PME through PCIe PME interrupt
->> [    2.468411] pci 0000:01:00.0: Signaling PME through PCIe PME interrupt
->> [    2.475075] pcie_pme 0000:00:00.0:pcie01: service driver pcie_pme loaded
->> [    2.475392] aer 0000:00:00.0:pcie02: service driver aer loaded
->> [    2.475652] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->> [    2.481419] r8169 0000:01:00.0: enabling device (0140 -> 0143)
->> [    2.488865] r8169 0000:01:00.0 eth0: RTL8169 at 0xf0d6a000, 00:00:00:00:00:00, XID 00000000 IRQ 286
-> 
-> No need to go further, there is a serious problem here.
-> 
-> Most of the XID bits are read from a mapped register. They're definitely not
-> expected to be null as the driver requires it to identify a proper chipset
-> (the common PCI configuration registers only tell that you aren't dealing
-> with a coffee machine).
-> 
-> Any read returning zeroes would not surprize me.
-> 
-> [...]
->> Can someone help me figure out what is missing ?
-> 
-> Hardly at this point. I can only suggest to switch power off, plug
-> the 8168 device in a x86 (32 or 64 bits) system and check how it behaves.
-> 
-
-
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+>
+> brcmfmac
+>
+> * add 4356 sdio support
+>
+> ath6kl
+>
+> * add ability to set debug uart baud rate with a module parameter
+>
+> wil6210
+>
+> * add debugfs file to configure firmware led functionality
+>
+> ----------------------------------------------------------------
+> Alan Liu (1):
+>       ath10k: add max_tx_power for QCA6174 WLAN.RM.2.0 firmware
+>
+> Anilkumar Kolli (1):
+>       ath10k: fix kernel panic, move arvifs list head init before htt init
+>
+> Bjorn Andersson (1):
+>       wcn36xx: Set SMD timeout to 10 seconds
+>
+> Christian Daudt (1):
+>       brcmfmac: Add 4356 sdio support
+>
+> Dan Carpenter (3):
+>       rtlwifi: rtl818x: silence uninitialized variable warning
+>       airo: prevent potential underflow in airo_set_freq()
+>       atmel: potential underflow in atmel_set_freq()
+>
+> Denys Vlasenko (1):
+>       rtlwifi: rtl818x: Deinline indexed IO functions, save 21568 bytes
+>
+> Emmanuel Grumbach (5):
+>       iwlwifi: mvm: don't override the rate with the AMSDU len
+>       iwlwifi: mvm: allow a debug knob for Tx A-MSDU even if rate control forbids it
+>       iwlwifi: remove IWLWIFI_DEBUG_EXPERIMENTAL_UCODE
+>       iwlwifi: don't access a nonexistent register upon assert
+>       iwlwifi: add default value to disable_11ac mod param description
+>
+> Golan Ben-Ami (1):
+>       iwlwifi: mvm: add more registers to dump upon error
+>
+> Gregory Greenman (2):
+>       iwlwifi: consider VHT 160MHz while parsing NVM
+>       iwlwifi: turn on SGI support for VHT 160MHz
+>
+> Guy Mishol (1):
+>       wlcore/wl12xx: Fix fw logger over sdio
+>
+> Haim Dreyfuss (4):
+>       iwlwifi: Rename 9560 to 9260 and add new PCI IDs for it
+>       iwlwifi: allow combining different phy images with mac images
+>       iwlwifi: Fix firmware name maximum length definition
+>       iwlwifi: pcie: don't wake up the NIC when writing CSRs in MSIX mode
+>
+> Helmut Schaa (4):
+>       ath9k: reuse ar9003_hw_tx_power_regwrite for tx99 setup
+>       ath9k: Move TX99 config option under ath9k debugging
+>       ath9k: Simplify ar9003_hw_tx99_set_txpower
+>       ath9k: Fix symbol overlap window for half/quarter channels
+>
+> Jes Sorensen (11):
+>       rtl8xxxu: Rename rtl8xxxu.c to rtl8xxxu_core.c
+>       rtl8xxxu: move rtl8192e related code into rtl8xxxu_8192e.c
+>       rtl8xxxu: move rtl8723b related code into rtl8xxxu_8723b.c
+>       rtl8xxxu: move rtl8723a related code into rtl8xxxu_8723a.c
+>       rtl8xxxu: move rtl8188[cr] and rtl8192c related code into rtl8xxxu_8192c.c
+>       rtl8xxxu: Rename rtl8723a_stop_tx_beacon() to rtl8xxxu_stop_tx_beacon()
+>       rtl8xxxu: rename rtl8723a_channel_group() to rtl8xxxu_gen1_channel_to_group()
+>       rtl8xxxu: Rename rtl8723a_disabled_to_emu() to rtl8xxxu_disabled_to_emu()
+>       rtl8xxxu: Split rtl8723a_h2c_cmd() into a gen1 and a gen2 version
+>       rtl8xxxu: rtl8xxxu_prepare_calibrate() is never used on gen1
+>       rtl8xxxu: Remove the now obsolete mbox_ext_reg info from rtl8xxxu_fileops
+>
+> Johannes Berg (7):
+>       ath10k: remove VHT capabilities from 2.4GHz
+>       iwlwifi: mvm: add firmware API name comment
+>       iwlwifi: mvm: advertise RSS queue usage
+>       iwlwifi: mvm: pass station to mac80211 RX where known
+>       iwlwifi: make configuration structs smaller
+>       iwlwifi: pcie: extend device reset delay
+>       iwlwifi: pcie: avoid msleep() with short timeout
+>
+> Julia Lawall (1):
+>       rtlwifi: rtl818x: constify rtl_intf_ops structures
+>
+> Kalle Valo (2):
+>       Merge tag 'iwlwifi-next-for-kalle-2016-05-10' of git://git.kernel.org/.../iwlwifi/iwlwifi-next
+>       Merge ath-next from ath.git
+>
+> Liad Kaufman (4):
+>       iwlwifi: mvm: allocate queue for probe response in dqa mode
+>       iwlwifi: mvm: support p2p device frames tx on dqa queue #2
+>       iwlwifi: mvm: support queue removal in ADD_STA hcmd
+>       iwlwifi: mvm: support dqa-mode agg on non-shared queue
+>
+> Lior David (1):
+>       wil6210: support regular scan on P2P_DEVICE interface
+>
+> Luca Coelho (6):
+>       Merge tag 'mac80211-next-for-davem-2016-04-13' of git://git.kernel.org/.../jberg/mac80211-next into master
+>       Merge tag 'iwlwifi-for-kalle-2016-05-04' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+>       iwlwifi: trans: don't call the trans-specific ref/unref directly
+>       iwlwifi: wake from runtime suspend before sending sync commands
+>       iwlwifi: mvm: add a new mvm reference type for RX data
+>       MAINTAINERS: add myself as co-maintainer of the iwlwifi driver
+>
+> Lukas Wunner (1):
+>       mwifiex: Drop unnecessary include pcieport_if.h
+>
+> Maya Erez (6):
+>       wil6210: add function name to wil log macros
+>       wil6210: change RX_HTRSH interrupt print level to debug
+>       wil6210: print debug message when transmitting while disconnected
+>       wil6210: unmask RX_HTRSH interrupt only when connected
+>       wil6210: prevent deep sleep of 60G device in critical paths
+>       wil6210: add support for device led configuration
+>
+> Mohammed Shafi Shajakhan (2):
+>       ath10k: fix a typo in ath10k_start()
+>       ath10k: move spectral related structures under ath10k debugfs
+>
+> Mordechai Goodstein (1):
+>       iwlwifi: Edit the 8265 SDIO ID
+>
+> Rajkumar Manoharan (5):
+>       ath10k: add pdev bss channel info wmi definitions
+>       ath10k: implement wmi_pdev_bss_chan_info_request
+>       ath10k: handle pdev_chan_info wmi event
+>       ath10k: update bss channel survey information
+>       ath10k: release pre_cal_file while unloading driver
+>
+> Sara Sharon (15):
+>       iwlwifi: mvm: implement driver RX queues sync command
+>       iwlwifi: mvm: change RX sync notification to be an attribute and not a type
+>       iwlwifi: mvm: add infrastructure for tracking BA session in driver
+>       iwlwifi: mvm: add reorder buffer per queue
+>       iwlwifi: mvm: add reorder timeout per frame
+>       iwlwifi: mvm: utilize the frame release infrastructure
+>       iwlwifi: mvm: add a flag to disable checksum
+>       iwlwifi: mvm: don't allow negative reference count
+>       iwlwifi: mvm: loosen nssn comparison to reorder buffer head
+>       iwlwifi: mvm: set correct vht capability
+>       iwlwifi: mvm: make phy_db size dynamic
+>       iwlwifi: mvm: remove redundant alloc_ctx parameter
+>       iwlwifi: mvm: use helpers to get iwl_mvm_sta
+>       iwlwifi: pcie: use shadow registers for updating write pointer
+>       iwlwifi: pcie: grab NIC access only once on RX init
+>
+> Shengzhen Li (1):
+>       mwifiex: change sleep cookie poll count
+>
+> Steve deRosier (2):
+>       ath6kl: fix missing uart debug pin for 6004 HW 3.0
+>       ath6kl: add ability to set debug uart baud rate
+>
+> Vasanthakumar Thiagarajan (2):
+>       ath10k: suppress warnings when getting wmi peer_rate_code_list event
+>       ath10k: Fix survey reporting with QCA4019
+>
+> Wei-Ning Huang (1):
+>       mwifiex: fixup error messages
+>
+> wang yanqing (3):
+>       rtlwifi: Fix logic error in enter/exit power-save mode
+>       rtlwifi: Remove double check for cnt_after_linked
+>       rtlwifi: pci: use dev_kfree_skb_irq instead of kfree_skb in rtl_pci_reset_trx_ring
+>
+>  MAINTAINERS                                        |    1 +
+>  drivers/net/wireless/ath/ath10k/core.c             |   18 +-
+>  drivers/net/wireless/ath/ath10k/core.h             |    4 +-
+>  drivers/net/wireless/ath/ath10k/mac.c              |   40 +-
+>  drivers/net/wireless/ath/ath10k/wmi-ops.h          |   21 +
+>  drivers/net/wireless/ath/ath10k/wmi.c              |   88 +-
+>  drivers/net/wireless/ath/ath10k/wmi.h              |   26 +
+>  drivers/net/wireless/ath/ath6kl/core.c             |    3 +
+>  drivers/net/wireless/ath/ath6kl/core.h             |    1 +
+>  drivers/net/wireless/ath/ath6kl/init.c             |    9 +
+>  drivers/net/wireless/ath/ath9k/Kconfig             |   40 +-
+>  drivers/net/wireless/ath/ath9k/ar9003_eeprom.c     |    2 +-
+>  drivers/net/wireless/ath/ath9k/ar9003_eeprom.h     |    1 +
+>  drivers/net/wireless/ath/ath9k/ar9003_phy.c        |   72 +-
+>  drivers/net/wireless/ath/wcn36xx/smd.h             |    2 +-
+>  drivers/net/wireless/ath/wil6210/cfg80211.c        |    5 +-
+>  drivers/net/wireless/ath/wil6210/debug.c           |   22 +-
+>  drivers/net/wireless/ath/wil6210/debugfs.c         |  137 +-
+>  drivers/net/wireless/ath/wil6210/interrupt.c       |   93 +-
+>  drivers/net/wireless/ath/wil6210/main.c            |   95 +-
+>  drivers/net/wireless/ath/wil6210/p2p.c             |    6 +
+>  drivers/net/wireless/ath/wil6210/txrx.c            |    2 +-
+>  drivers/net/wireless/ath/wil6210/wil6210.h         |   67 +-
+>  drivers/net/wireless/ath/wil6210/wmi.c             |   97 +-
+>  drivers/net/wireless/ath/wil6210/wmi.h             |   61 +
+>  drivers/net/wireless/atmel/atmel.c                 |    2 +-
+>  .../wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c  |    1 +
+>  .../wireless/broadcom/brcm80211/brcmfmac/chip.c    |    1 +
+>  .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |    4 +-
+>  drivers/net/wireless/cisco/airo.c                  |    2 +-
+>  drivers/net/wireless/intel/iwlwifi/Kconfig         |    6 -
+>  drivers/net/wireless/intel/iwlwifi/iwl-1000.c      |    2 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-2000.c      |    2 -
+>  drivers/net/wireless/intel/iwlwifi/iwl-5000.c      |    2 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-6000.c      |    3 -
+>  drivers/net/wireless/intel/iwlwifi/iwl-7000.c      |    1 -
+>  drivers/net/wireless/intel/iwlwifi/iwl-8000.c      |   17 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-9000.c      |   34 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-config.h    |  122 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-csr.h       |   15 +
+>  drivers/net/wireless/intel/iwlwifi/iwl-drv.c       |   52 +-
+>  .../net/wireless/intel/iwlwifi/iwl-eeprom-parse.h  |    1 +
+>  drivers/net/wireless/intel/iwlwifi/iwl-fh.h        |    3 +
+>  drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c |   16 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c    |   68 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-phy-db.h    |    4 +-
+>  drivers/net/wireless/intel/iwlwifi/iwl-trans.h     |    2 +
+>  drivers/net/wireless/intel/iwlwifi/mvm/constants.h |    1 +
+>  drivers/net/wireless/intel/iwlwifi/mvm/d3.c        |    8 +-
+>  .../net/wireless/intel/iwlwifi/mvm/debugfs-vif.c   |    9 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c   |    2 +
+>  drivers/net/wireless/intel/iwlwifi/mvm/fw-api-d3.h |    2 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/fw-api-rx.h |    9 +-
+>  .../net/wireless/intel/iwlwifi/mvm/fw-api-sta.h    |   10 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/fw-api.h    |    5 +
+>  drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.c    |   66 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/fw.c        |    4 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c  |   22 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |   74 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |  106 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/ops.c       |   21 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/rx.c        |   26 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |  356 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/sta.c       |  410 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/sta.h       |   13 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/tt.c        |    8 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/tx.c        |  134 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/utils.c     |   45 +-
+>  drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |   41 +-
+>  drivers/net/wireless/intel/iwlwifi/pcie/internal.h |    3 -
+>  drivers/net/wireless/intel/iwlwifi/pcie/rx.c       |  111 +-
+>  drivers/net/wireless/intel/iwlwifi/pcie/trans.c    |   29 +-
+>  drivers/net/wireless/intel/iwlwifi/pcie/tx.c       |   21 +-
+>  drivers/net/wireless/marvell/mwifiex/pcie.h        |    3 +-
+>  drivers/net/wireless/marvell/mwifiex/sdio.c        |    5 +-
+>  .../net/wireless/realtek/rtl818x/rtl8187/rtl8187.h |   99 +-
+>  .../net/wireless/realtek/rtl818x/rtl8187/rtl8225.c |   93 +
+>  drivers/net/wireless/realtek/rtl8xxxu/Makefile     |    3 +
+>  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.h   |   81 +-
+>  .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192c.c |  586 +++
+>  .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 1525 ++++++
+>  .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8723a.c |  397 ++
+>  .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8723b.c | 1682 ++++++
+>  .../rtl8xxxu/{rtl8xxxu.c => rtl8xxxu_core.c}       | 5334 +++-----------------
+>  drivers/net/wireless/realtek/rtlwifi/base.c        |    4 +-
+>  drivers/net/wireless/realtek/rtlwifi/pci.c         |    4 +-
+>  drivers/net/wireless/realtek/rtlwifi/pci.h         |    2 +-
+>  drivers/net/wireless/realtek/rtlwifi/ps.c          |   12 +-
+>  .../net/wireless/realtek/rtlwifi/rtl8192se/rf.c    |    3 +-
+>  drivers/net/wireless/realtek/rtlwifi/usb.c         |    2 +-
+>  drivers/net/wireless/realtek/rtlwifi/wifi.h        |    2 +-
+>  drivers/net/wireless/ti/wl12xx/main.c              |    4 +-
+>  drivers/net/wireless/ti/wlcore/io.c                |   17 +-
+>  drivers/net/wireless/ti/wlcore/io.h                |    3 +-
+>  include/linux/mmc/sdio_ids.h                       |    1 +
+>  95 files changed, 7335 insertions(+), 5336 deletions(-)
+>  create mode 100644 drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192c.c
+>  create mode 100644 drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
+>  create mode 100644 drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8723a.c
+>  create mode 100644 drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8723b.c
+>  rename drivers/net/wireless/realtek/rtl8xxxu/{rtl8xxxu.c => rtl8xxxu_core.c} (56%)
+>
+> --
+> Kalle Valo
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
