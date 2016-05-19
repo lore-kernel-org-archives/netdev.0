@@ -1,62 +1,45 @@
-From: Reinoud Koornstra <reinoudkoornstra@gmail.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 19 May 2016 02:20:03 -0600
-Message-ID: <CAAA5faEoCDkgHmoGtFamS2G5KaUZ5j=pVc6tsPj2dG80ZFNedQ@mail.gmail.com>
-References: <20160517.151113.367799295750703003.davem@davemloft.net>
-	<CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
-	<CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
-	<1463568714.13625.18.camel@intel.com>
-	<CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
-	<1463575273.13625.23.camel@intel.com>
-	<CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
-	<1463581411.29999.1.camel@intel.com>
-	<CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
-	<CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: [PATCH 1/1] iwlwifi: rs: remove superfluous check
+Date: Thu, 19 May 2016 08:27:13 +0000
+Message-ID: <1463646433.29999.50.camel@intel.com>
+References: <1463527868-12226-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Coelho, Luciano" <luciano.coelho@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"egrumbach@gmail.com" <egrumbach@gmail.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linuxwifi <linuxwifi@intel.com>,
+	"eyal@wizery.com" <eyal@wizery.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Greenman, Gregory" <gregory.greenman@intel.com>,
+	"Bondar, Alexander" <alexander.bondar@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
 	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
+In-Reply-To: <1463527868-12226-1-git-send-email-xypron.glpk@gmx.de>
+Content-Language: en-US
+Content-ID: <563BCFB089518847B5367C0C20B37A64@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2016 at 12:51 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Wed, May 18, 2016 at 11:45 AM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> From what I can tell, there's a merge bug in commit 909b27f70643,
->> where David seems to have lost some of the changes to
->> iwl_mvm_set_tx_cmd().
->>
->> I do not know if that's the reason for the problem I see. But I will test.
->
-> Yes. The attached patch that fixes the incorrect merge seems to fix
-> things for me.
->
-> That should mean that the assumption that this problem existed in v4.6
-> too was wrong, because the incorrect merge came in later. I think
-> Luciano mis-understood "v4.6+" to mean plain v4.6.
->
-> Reinoud Koornstra, does this patch fix things for you too?
-
-Indeed, I meant 4.6+, not 4.6.
-The patch you attached doesn't change existing code for me in 4.6+ as
-these two lines are already in there.
-Thanks,
-
-Reinoud.
-
->
->                        Linus
+T24gV2VkLCAyMDE2LTA1LTE4IGF0IDAxOjMxICswMjAwLCBIZWlucmljaCBTY2h1Y2hhcmR0IHdy
+b3RlOg0KPiBJZiB3ZSBkZXJlZmVyZW5jZSBhIHZhcmlhYmxlIGFueXdheSBpbiBvdGhlciBwYXJ0
+cyBvZiB0aGUgY29kZSwNCj4gdGhlcmUgaXMgbm8gbmVlZCB0byBjaGVjayBhZ2FpbnN0IE5VTEwg
+aW4gYSBzaW5nbGUgcGxhY2UuDQoNCk5BQ0suIMKgVGhpcyBpcyBub3QgdHJ1ZS4NCg0KSWYgbHFf
+c3RhIGlzIE5VTEwsIGl0IG1lYW5zIHRoYXQgbXZtX3N0YSBpcyBhbHNvIE5VTEwuwqDCoFRoZW4g
+d2UgY2FsbA0KdGhlIHJhdGVfY29udHJvbF9zZW5kIHdpdGggbXZtX3N0YSA9PSBOVUxMOg0KDQoJ
+aWYgKHJhdGVfY29udHJvbF9zZW5kX2xvdyhzdGEsIG12bV9zdGEsIHR4cmMpKQ0KCQlyZXR1cm47
+DQoNClRoZSByYXRlX2NvbnRyb2xfc2VuZF9sb3coKSBmdW5jdGlvbiBsb29rcyBsaWtlIHRoaXM6
+DQoNCg0KYm9vbCByYXRlX2NvbnRyb2xfc2VuZF9sb3coc3RydWN0IGllZWU4MDIxMV9zdGEgKnB1
+YnN0YSwNCgkJCcKgwqDCoHZvaWQgKnByaXZfc3RhLA0KCQkJwqDCoMKgc3RydWN0IGllZWU4MDIx
+MV90eF9yYXRlX2NvbnRyb2wgKnR4cmMpDQp7DQpbLi4uXQ0KCWlmICghcHVic3RhIHx8ICFwcml2
+X3N0YSB8fCByY19ub19kYXRhX29yX25vX2Fja191c2VfbWluKHR4cmMpKSB7DQpbLi4uXQ0KCQly
+ZXR1cm4gdHJ1ZTsNCgl9DQpbLi4uXQ0KfQ0KDQoNCldoaWNoIG1lYW5zIHRoYXQgaWYgcHJpdl9z
+dGEgKGFrYSBtdm1fc3RhKSBpcyBOVUxMLCB3ZSB3aWxsIHJldHVybg0Kd2l0aG91dCBydW5uaW5n
+IHRoZSByZXN0IG9mIHJzX2dldF9yYXRlKCkgd2hlcmUgbHFfc3RhIGlzIGFjY2Vzc2VkDQp3aXRo
+b3V0IGNoZWNrcy4NCg0KSSBhZG1pdCB0aGF0IHRoZSByc19nZXRfcmF0ZSgpIGZ1bmN0aW9uIGlz
+IGEgYml0IGhhcmQgdG8gcmVhZCwgYnV0DQpyZW1vdmluZyB0aGUgbHFfc3RhIGNoZWNrIGFzIHlv
+dSBkaWQgZG9lc24ndCBoZWxwLCBidXQgbWFrZXMgdGhpbmdzDQp3b3JzZS4NCg0KLS0NCkNoZWVy
+cywNCkx1Y2Eu
