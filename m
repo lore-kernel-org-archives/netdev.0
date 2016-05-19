@@ -1,194 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4] skb_array: array based FIFO for skbs
-Date: Thu, 19 May 2016 17:08:19 +0300
-Message-ID: <1463666513-21583-1-git-send-email-mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for
+ SOCK_DESTROY
+Date: Thu, 19 May 2016 08:19:40 -0700
+Message-ID: <1463671180.18194.187.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
+	 <CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
+	 <bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
+	 <CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com>
+	 <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
+	 <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
+	 <3d0fd83a-fa88-8ceb-a44d-237f5a005eb4@cumulusnetworks.com>
+	 <CAKD1Yr0E9i0s0ocSyYhEjODnVVQVBPOfbepvORAhT9gi9Qqz6A@mail.gmail.com>
+	 <a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
+	 <CAKD1Yr1u-p8hyjd_e672kYrXw+-Mkmj_Cxai=WUYM-9QQG=DQg@mail.gmail.com>
+	 <4ca62c9f-4d19-4dd1-0d8c-c2cfe17c0443@cumulusnetworks.com>
+	 <1463629667.18194.150.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <7b91db2e-9e27-48e3-e080-00037bc1a9c3@cumulusnetworks.com>
+	 <1463631168.18194.153.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <2ad9d070-8326-a720-39d7-2e46db98ff7a@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>, brouer@redhat.com
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34000 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754603AbcESPTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 11:19:43 -0400
+In-Reply-To: <2ad9d070-8326-a720-39d7-2e46db98ff7a@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A simple array based FIFO of pointers.  Intended for net stack so uses
-skbs for type safety, but we can replace with with void * if others find
-it useful outside of net stack.
+On Thu, 2016-05-19 at 08:06 -0600, David Ahern wrote:
+> On 5/18/16 10:12 PM, Eric Dumazet wrote:
+> > On Wed, 2016-05-18 at 22:05 -0600, David Ahern wrote:
+> >
+> >> You think it is ok to send a request to the kernel, the kernel says "I
+> >> can't do it" and the command says nothing to the user? That is current
+> >> behavior. How on Earth is that acceptable?
+> >
+> > I don't know. Tell me what is acceptable on a 'dump many sockets' and
+> > some of them can be killed, but not all of them.
+> >
+> > What I do know is that you sent totally buggy patches.
+> 
+> buggy patches? not silently dropping a failure makes for a buggy patch?
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+You sent one kernel patch that was useless, then an iproute2 patch that
+was simply aborting the dump.
 
-Still untested.
-Posting since several people expressed interest in
-helping test this.
+Really, if you want fix things, do this properly instead of simply
+ranting about work done by others, even if they are working for Google.
 
-I think this code works fine without any extra memory barriers since we
-always read and write the same location, so the accesses can not be
-reordered.
-We don't need ACCESS_ONCE either - it's fine to access array any number
-of times.
-The only issue is with calls within a loop using the __skb_array_XXX
-accessors - in theory compiler could hoist accesses out of the loop.
-Following volatile-considered-harmful.txt I merely
-documented that callers that busy-poll should invoke cpu_relax().
-Most people will use the external skb_array_XXX APIs with a spinlock,
-so this should not be an issue for them.
-
-changes since v2:
-        fixed integer overflow pointed out by Eric.
-	added some comments.
-
-changes since v1:
-        fixed bug pointed out by Eric.
-
-TODO:
-either actually write Documentation/skb-array.txt or document the API
-better.
-
-Note: SKB_ARRAY_MIN_SIZE is a heuristic. It can be increased
-to more than 2 cache lines, or even to INT_MAX to disable
-the heuristic completely.
-
-
- include/linux/skb_array.h | 127 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 127 insertions(+)
- create mode 100644 include/linux/skb_array.h
-
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-new file mode 100644
-index 0000000..24fda31
---- /dev/null
-+++ b/include/linux/skb_array.h
-@@ -0,0 +1,127 @@
-+/*
-+ * See Documentation/skb-array.txt for more information.
-+ */
-+
-+#ifndef _LINUX_SKB_ARRAY_H
-+#define _LINUX_SKB_ARRAY_H 1
-+
-+#include <linux/spinlock.h>
-+#include <linux/cache.h>
-+#include <linux/types.h>
-+#include <linux/compiler.h>
-+#include <linux/cache.h>
-+#include <linux/slab.h>
-+#include <asm/errno.h>
-+
-+struct sk_buff;
-+
-+struct skb_array {
-+	int producer ____cacheline_aligned_in_smp;
-+	spinlock_t producer_lock;
-+	int consumer ____cacheline_aligned_in_smp;
-+	spinlock_t consumer_lock;
-+	/* Shared consumer/producer data */
-+	int size ____cacheline_aligned_in_smp; /* max entries in queue */
-+	struct sk_buff **queue;
-+};
-+
-+/*
-+ * Fill several (currently 2) cache lines before producer tries to wrap around,
-+ * to avoid sharing a cache line between producer and consumer.  The bigger the
-+ * value, the less chance of a contention but the more cache pressure we put on
-+ * other users.  Change SKB_ARRAY_MIN_SIZE to INT_MAX to disable the heuristic
-+ * and wrap around only when we reach end of queue.
-+ */
-+#define SKB_ARRAY_MIN_SIZE (2 * cache_line_size() / sizeof (struct sk_buff *))
-+
-+/* Note: callers invoking this in a loop must use a compiler barrier,
-+ * for example cpu_relax().
-+ */
-+static inline int __skb_array_produce(struct skb_array *a,
-+				       struct sk_buff *skb)
-+{
-+	/* Try to start from beginning: good for cache utilization as we'll
-+	 * keep reusing the same cache line.
-+	 * Produce at least SKB_ARRAY_MIN_SIZE entries before trying to do this,
-+	 * to reduce bouncing cache lines between them.
-+	 */
-+	if (a->producer >= SKB_ARRAY_MIN_SIZE && !a->queue[0])
-+		a->producer = 0;
-+	if (a->queue[a->producer])
-+		return -ENOSPC;
-+	a->queue[a->producer] = skb;
-+	if (unlikely(++a->producer > a->size))
-+		a->producer = 0;
-+	return 0;
-+}
-+
-+static inline int skb_array_produce_bh(struct skb_array *a,
-+				       struct sk_buff *skb)
-+{
-+	int ret;
-+
-+	spin_lock_bh(&a->producer_lock);
-+	ret = __skb_array_produce(a, skb);
-+	spin_unlock_bh(&a->producer_lock);
-+
-+	return ret;
-+}
-+
-+/* Note: callers invoking this in a loop must use a compiler barrier,
-+ * for example cpu_relax().
-+ */
-+static inline struct sk_buff *__skb_array_peek(struct skb_array *a)
-+{
-+	if (a->queue[a->consumer])
-+		return a->queue[a->consumer];
-+
-+	/* Check whether producer started at the beginning. */
-+	if (unlikely(a->consumer >= SKB_ARRAY_MIN_SIZE && a->queue[0])) {
-+		a->consumer = 0;
-+		return a->queue[0];
-+	}
-+
-+	return NULL;
-+}
-+
-+static inline void __skb_array_consume(struct skb_array *a)
-+{
-+	a->queue[a->consumer++] = NULL;
-+	if (unlikely(a->consumer > a->size))
-+		a->consumer = 0;
-+}
-+
-+static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
-+{
-+	struct sk_buff *skb;
-+
-+	spin_lock_bh(&a->producer_lock);
-+	skb = __skb_array_peek(a);
-+	if (skb)
-+		__skb_array_consume(a);
-+	spin_unlock_bh(&a->producer_lock);
-+
-+	return skb;
-+}
-+
-+static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
-+{
-+	a->queue = kmalloc(ALIGN(size * sizeof *(a->queue), SMP_CACHE_BYTES),
-+			   gfp);
-+	if (!a->queue)
-+		return -ENOMEM;
-+
-+	a->size = size;
-+	a->producer = a->consumer = 0;
-+	spin_lock_init(&a->producer_lock);
-+	spin_lock_init(&a->consumer_lock);
-+
-+	return 0;
-+}
-+
-+static inline void skb_array_cleanup(struct skb_array *a)
-+{
-+	kfree(a->queue);
-+}
-+
-+#endif /* _LINUX_SKB_ARRAY_H  */
--- 
-MST
+Thank you.
