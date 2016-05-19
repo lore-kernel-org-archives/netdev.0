@@ -1,60 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/1] net: hns: avoid null pointer dereference
-Date: Thu, 19 May 2016 11:14:58 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4C22D9@AcuExch.aculab.com>
-References: <1463515275-9836-1-git-send-email-xypron.glpk@gmx.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net V2] tuntap: correctly wake up process during uninit
+Date: Thu, 19 May 2016 04:25:04 -0700
+Message-ID: <1463657104.18194.154.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463636211-3573-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Yisen Zhuang <Yisen.Zhuang@huawei.com>,
-	Kejian Yan <yankejian@huawei.com>,
-	Lisheng <lisheng011@huawei.com>,
-	Kenneth Lee <liguozhu@huawei.com>,
-	"Andrew Lunn" <andrew@lunn.ch>, Salil <salil.mehta@huawei.com>,
-	Qianqian Xie <xieqianqian@huawei.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	Chenny Xu <chenny.xu@huawei.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Heinrich Schuchardt' <xypron.glpk@gmx.de>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Xi Wang <xii@google.com>,
+	"Michael S . Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463515275-9836-1-git-send-email-xypron.glpk@gmx.de>
-Content-Language: en-US
+In-Reply-To: <1463636211-3573-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Heinrich Schuchardt
-> Sent: 17 May 2016 21:01
-> In the statement
->   assert(priv || priv->ae_handle);
-> the right side of || is only evaluated if priv is null.
+On Thu, 2016-05-19 at 13:36 +0800, Jason Wang wrote:
+> We used to check dev->reg_state against NETREG_REGISTERED after each
+> time we are woke up. But after commit 9e641bdcfa4e ("net-tun:
+> restructure tun_do_read for better sleep/wakeup efficiency"), it uses
+> skb_recv_datagram() which does not check dev->reg_state. This will
+> result if we delete a tun/tap device after a process is blocked in the
+> reading. The device will wait for the reference count which was held
+> by that process for ever.
 > 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> Fixes this by using RCV_SHUTDOWN which will be checked during
+> sk_recv_datagram() before trying to wake up the process during uninit.
+> 
+> Fixes: 9e641bdcfa4e ("net-tun: restructure tun_do_read for better
+> sleep/wakeup efficiency")
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Xi Wang <xii@google.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> index 3d746c8..834a50a 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> @@ -720,7 +720,7 @@ static int hns_set_pauseparam(struct net_device *net_dev,
->  	struct hnae_handle *h;
->  	struct hnae_ae_ops *ops;
-> 
-> -	assert(priv || priv->ae_handle);
-> +	assert(priv && priv->ae_handle);
-> 
->  	h = priv->ae_handle;
->  	ops = h->dev->ops;
-...
 
-Personally I'd just delete the assert().
-It is probably easier to debug the 'oops' from the NULL pointer dereference
-that that of the assert().
-If either value can be NULL (without a coding error) then you'd want to
-return an error.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-	David
+Thanks !
