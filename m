@@ -1,72 +1,74 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC] net: remove busylock
-Date: Thu, 19 May 2016 11:03:32 -0700
-Message-ID: <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
-References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] Revert "phy: add support for a reset-gpio specification"
+Date: Thu, 19 May 2016 11:09:49 -0700
+Message-ID: <20160519180949.GB606@roeck-us.net>
+References: <1463587500-12293-1-git-send-email-fabio.estevam@nxp.com>
+ <b2763da7-575a-4d73-2997-4236173761bf@cogentembedded.com>
+ <573DBFD6.2050508@roeck-us.net>
+ <35f32e86-09f4-7e7d-6cf1-49805407e068@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <aduyck@mirantis.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Fabio Estevam <fabio.estevam@nxp.com>, davem@davemloft.net,
+	u.kleine-koenig@pengutronix.de, f.fainelli@gmail.com,
+	netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35823 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932247AbcESSDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 14:03:33 -0400
-Received: by mail-io0-f181.google.com with SMTP id p64so26064388ioi.2
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 11:03:33 -0700 (PDT)
-In-Reply-To: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:57008 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933065AbcESSKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 14:10:07 -0400
+Content-Disposition: inline
+In-Reply-To: <35f32e86-09f4-7e7d-6cf1-49805407e068@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2016 at 10:08 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> busylock was added at the time we had expensive ticket spinlocks
->
-> (commit 79640a4ca6955e3ebdb7038508fa7a0cd7fa5527 ("net: add additional
-> lock to qdisc to increase throughput")
->
-> Now kernel spinlocks are MCS, this busylock things is no longer
-> relevant. It is slowing down things a bit.
->
->
-> With HTB qdisc, here are the numbers for 200 concurrent TCP_RR, on a host with 48 hyperthreads.
->
-> lpaa5:~# sar -n DEV 4 4 |grep eth0
-> 10:05:44         eth0 798951.25 798951.75  52276.22  52275.26      0.00      0.00      0.50
-> 10:05:48         eth0 798576.00 798572.75  52251.24  52250.39      0.00      0.00      0.75
-> 10:05:52         eth0 798746.00 798748.75  52262.89  52262.13      0.00      0.00      0.50
-> 10:05:56         eth0 798303.25 798291.50  52235.22  52233.10      0.00      0.00      0.50
-> Average:         eth0 798644.12 798641.19  52256.39  52255.22      0.00      0.00      0.56
->
-> Disabling busylock (by using a local sysctl)
->
-> lpaa5:~# sar -n DEV 4 4 |grep eth0
-> 10:05:14         eth0 864085.75 864091.50  56538.09  56537.46      0.00      0.00      0.50
-> 10:05:18         eth0 864734.75 864729.25  56580.35  56579.05      0.00      0.00      0.75
-> 10:05:22         eth0 864366.00 864361.50  56556.74  56555.00      0.00      0.00      0.50
-> 10:05:26         eth0 864246.50 864248.75  56549.19  56547.65      0.00      0.00      0.50
-> Average:         eth0 864358.25 864357.75  56556.09  56554.79      0.00      0.00      0.56
->
-> That would be a 8 % increase.
+On Thu, May 19, 2016 at 08:11:22PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 05/19/2016 04:29 PM, Guenter Roeck wrote:
+> 
+> >>>Commit da47b4572056 ("phy: add support for a reset-gpio specification")
+> >>>causes the following xtensa qemu crash according to Guenter Roeck:
+> >>>
+> >>>[    9.366256] libphy: ethoc-mdio: probed
+> >>>[    9.367389]  (null): could not attach to PHY
+> >>>[    9.368555]  (null): failed to probe MDIO bus
+> >>>[    9.371540] Unable to handle kernel paging request at virtual address
+> >>>0000001c
+> >>>[    9.371540]  pc = d0320926, ra = 903209d1
+> >>>[    9.375358] Oops: sig: 11 [#1]
+> >>
+> >>    Of course, I'd like this patch to be reverted (as it was applied
+> >>erroneously instead of my patches)... but where's the backtrace? It's not
+> >>immediately clear how this code can cause kernel oops...
+> >>
+> >See http://www.spinics.net/lists/kernel/msg2258611.html.
+> 
+>    OK, I'll try to comment on your analysis posted there:
+> 
+> >GPIOLIB is not configured in my test case, meaning gpiod_get_optional()
+> >returns -ENOSYS, and phy_probe() thus returns an error. Question here is if
+> >it is really appropriate for the XXX_optional() gpiolib functions to return
+> >an error if GPIOLIB is not configured. Either case, result is that pretty
+> >much all phy registrations will now fail if GPIOLIB is not configured.
+> 
+>    Yes, that's the primary issue. That's what needs to be fixed...
+> 
+As I pointed out, Uwe (who had submitted the offending patch) had objected
+to a patch trying to do that last year. I think the problem is quite deep
+in the gpio infrastructure: If GPIOLIB is not configured, the infrastructure
+needs to do more than just return -ENOSYS. It should check if the property
+exists, and only return -ENOSYS if that is the case, but NULL otherwise.
 
-The main point of the busy lock is to deal with the bulk throughput
-case, not the latency case which would be relatively well behaved.
-The problem wasn't really related to lock bouncing slowing things
-down.  It was the fairness between the threads that was killing us
-because the dequeue needs to have priority.
+Unfortunately, that would not be easy to implement. It would have to evaluate
+devicetree data, ACPI data, and platform data. Today that code is spread around
+all over the gpio subsystem, so getting the semantics straight would be a
+challenge, and it would be vulnerable to code changes in gpiolib. It would also
+be too complex (or at least I think so) to be implemented as as static inline
+functions, so some kind of basic gpiolib core code would be required.
 
-The main problem that the busy lock solved was the fact that you could
-start a number of stream tests equal to the number of CPUs in a given
-system and the result was that the performance would drop off a cliff
-and you would drop almost all the packets for almost all the streams
-because the qdisc never had a chance to drain because it would be CPU
-- 1 enqueues, followed by 1 dequeue.
+Overall, state of the art is that XXX_optional() gpiolib functions simply
+can not be used if the calling code must also work if GPIOLIB is not
+configured.
 
-What we need if we are going to get rid of busy lock would be some
-sort of priority locking mechanism that would allow the dequeue thread
-to jump to the head of the line if it is attempting to take the lock.
-Otherwise you end up spending all your time enqueuing packets into
-oblivion because the qdiscs just overflow without the busy lock in
-place.
-
-- Alex
+Guenter 
