@@ -1,52 +1,62 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] iwlegacy: avoid warning about missing braces
-Date: Thu, 19 May 2016 09:58:49 +0200
-Message-ID: <1463644741-529379-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Reinoud Koornstra <reinoudkoornstra@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 19 May 2016 02:20:03 -0600
+Message-ID: <CAAA5faEoCDkgHmoGtFamS2G5KaUZ5j=pVc6tsPj2dG80ZFNedQ@mail.gmail.com>
+References: <20160517.151113.367799295750703003.davem@davemloft.net>
+	<CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
+	<CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
+	<1463568714.13625.18.camel@intel.com>
+	<CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
+	<1463575273.13625.23.camel@intel.com>
+	<CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
+	<1463581411.29999.1.camel@intel.com>
+	<CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
+	<CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Coelho, Luciano" <luciano.coelho@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxwifi <linuxwifi@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"egrumbach@gmail.com" <egrumbach@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gcc-6 warns about code in il3945_hw_txq_ctx_free() being
-somewhat ambiguous:
+On Wed, May 18, 2016 at 12:51 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Wed, May 18, 2016 at 11:45 AM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>>
+>> From what I can tell, there's a merge bug in commit 909b27f70643,
+>> where David seems to have lost some of the changes to
+>> iwl_mvm_set_tx_cmd().
+>>
+>> I do not know if that's the reason for the problem I see. But I will test.
+>
+> Yes. The attached patch that fixes the incorrect merge seems to fix
+> things for me.
+>
+> That should mean that the assumption that this problem existed in v4.6
+> too was wrong, because the incorrect merge came in later. I think
+> Luciano mis-understood "v4.6+" to mean plain v4.6.
+>
+> Reinoud Koornstra, does this patch fix things for you too?
 
-drivers/net/wireless/intel/iwlegacy/3945.c:1022:5: warning: suggest explicit braces to avoid ambiguous 'else' [-Wparentheses]
+Indeed, I meant 4.6+, not 4.6.
+The patch you attached doesn't change existing code for me in 4.6+ as
+these two lines are already in there.
+Thanks,
 
-This adds a set of curly braces to avoid the warning.
+Reinoud.
 
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
----
- drivers/net/wireless/intel/iwlegacy/3945.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/intel/iwlegacy/3945.c b/drivers/net/wireless/intel/iwlegacy/3945.c
-index 7bcedbb53d94..209dc9988455 100644
---- a/drivers/net/wireless/intel/iwlegacy/3945.c
-+++ b/drivers/net/wireless/intel/iwlegacy/3945.c
-@@ -1019,12 +1019,13 @@ il3945_hw_txq_ctx_free(struct il_priv *il)
- 	int txq_id;
- 
- 	/* Tx queues */
--	if (il->txq)
-+	if (il->txq) {
- 		for (txq_id = 0; txq_id < il->hw_params.max_txq_num; txq_id++)
- 			if (txq_id == IL39_CMD_QUEUE_NUM)
- 				il_cmd_queue_free(il);
- 			else
- 				il_tx_queue_free(il, txq_id);
-+	}
- 
- 	/* free tx queue structure */
- 	il_free_txq_mem(il);
--- 
-2.7.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>                        Linus
