@@ -1,121 +1,93 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 3.12 30/76] cpuset: Fix potential deadlock w/ set_mems_allowed
-Date: Thu, 19 May 2016 11:07:52 +0200
-Message-ID: <d9aa9f580cb2c2e79ea9573447c807607b195123.1463648873.git.jslaby@suse.cz>
-References: <c4ec97c341630e22e546c1a628a3664f17f7ffc8.1463648873.git.jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.cz>
-To: stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c4ec97c341630e22e546c1a628a3664f17f7ffc8.1463648873.git.jslaby@suse.cz>
-In-Reply-To: <cover.1463648873.git.jslaby@suse.cz>
-References: <cover.1463648873.git.jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 19 May 2016 11:40:23 +0200
+Message-ID: <CA+icZUVc+CEV4R3jnSpTQYSxqyQX-cwx77c18P5rmRVrJrXZmQ@mail.gmail.com>
+References: <20160517.151113.367799295750703003.davem@davemloft.net>
+	<CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
+	<CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
+	<1463568714.13625.18.camel@intel.com>
+	<CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
+	<1463575273.13625.23.camel@intel.com>
+	<CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
+	<1463581411.29999.1.camel@intel.com>
+	<CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
+	<CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
+	<CAAA5faEoCDkgHmoGtFamS2G5KaUZ5j=pVc6tsPj2dG80ZFNedQ@mail.gmail.com>
+	<CAAA5faFWPCrk0C3sjT==VMVCq1jcR8_HANV=RRE-Ummv4_psHA@mail.gmail.com>
+Reply-To: sedat.dilek@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Coelho, Luciano" <luciano.coelho@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxwifi <linuxwifi@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"egrumbach@gmail.com" <egrumbach@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: Reinoud Koornstra <reinoudkoornstra@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f65.google.com ([209.85.213.65]:33572 "EHLO
+	mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753433AbcESJkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 05:40:25 -0400
+In-Reply-To: <CAAA5faFWPCrk0C3sjT==VMVCq1jcR8_HANV=RRE-Ummv4_psHA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Stultz <john.stultz@linaro.org>
+On 5/19/16, Reinoud Koornstra <reinoudkoornstra@gmail.com> wrote:
+> On Thu, May 19, 2016 at 2:20 AM, Reinoud Koornstra
+> <reinoudkoornstra@gmail.com> wrote:
+>> On Wed, May 18, 2016 at 12:51 PM, Linus Torvalds
+>> <torvalds@linux-foundation.org> wrote:
+>>> On Wed, May 18, 2016 at 11:45 AM, Linus Torvalds
+>>> <torvalds@linux-foundation.org> wrote:
+>>>>
+>>>> From what I can tell, there's a merge bug in commit 909b27f70643,
+>>>> where David seems to have lost some of the changes to
+>>>> iwl_mvm_set_tx_cmd().
+>>>>
+>>>> I do not know if that's the reason for the problem I see. But I will
+>>>> test.
+>>>
+>>> Yes. The attached patch that fixes the incorrect merge seems to fix
+>>> things for me.
+>>>
+>>> That should mean that the assumption that this problem existed in v4.6
+>>> too was wrong, because the incorrect merge came in later. I think
+>>> Luciano mis-understood "v4.6+" to mean plain v4.6.
+>>>
+>>> Reinoud Koornstra, does this patch fix things for you too?
+>>
+>> Indeed, I meant 4.6+, not 4.6.
+>> The patch you attached doesn't change existing code for me in 4.6+ as
+>> these two lines are already in there.
+>> Thanks,
+>>
+>> Reinoud.
+>>
+>
+> In the 4.6+ code from today I reverted commit 5c08b0f5026f.
+> Now iwlwifi works fine for me again.
+> So it's as the Intel guys suspected.
+> I'll attached my revert compared to the current 4.6+ development code.
+> Thanks,
+>
 
-3.12-stable review patch.  If anyone has any objections, please let me know.
+I am not affected by any of these iwlwifi issues.
 
-===============
+Can you next time add the commit-subject together with the commit-id,
+like this...
 
-commit db751fe3ea6880ff5ac5abe60cb7b80deb5a4140 upstream.
+commit 5c08b0f5026fcc13efb947c4d1f2ca3558145f68
+"iwlwifi: mvm: don't override the rate with the AMSDU len"
 
-After adding lockdep support to seqlock/seqcount structures,
-I started seeing the following warning:
+...it's easier for followers of this thread.
 
-[    1.070907] ======================================================
-[    1.072015] [ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
-[    1.073181] 3.11.0+ #67 Not tainted
-[    1.073801] ------------------------------------------------------
-[    1.074882] kworker/u4:2/708 [HC0[0]:SC0[0]:HE0:SE1] is trying to acquire:
-[    1.076088]  (&p->mems_allowed_seq){+.+...}, at: [<ffffffff81187d7f>] new_slab+0x5f/0x280
-[    1.077572]
-[    1.077572] and this task is already holding:
-[    1.078593]  (&(&q->__queue_lock)->rlock){..-...}, at: [<ffffffff81339f03>] blk_execute_rq_nowait+0x53/0xf0
-[    1.080042] which would create a new lock dependency:
-[    1.080042]  (&(&q->__queue_lock)->rlock){..-...} -> (&p->mems_allowed_seq){+.+...}
-[    1.080042]
-[    1.080042] but this new dependency connects a SOFTIRQ-irq-safe lock:
-[    1.080042]  (&(&q->__queue_lock)->rlock){..-...}
-[    1.080042] ... which became SOFTIRQ-irq-safe at:
-[    1.080042]   [<ffffffff810ec179>] __lock_acquire+0x5b9/0x1db0
-[    1.080042]   [<ffffffff810edfe5>] lock_acquire+0x95/0x130
-[    1.080042]   [<ffffffff818968a1>] _raw_spin_lock+0x41/0x80
-[    1.080042]   [<ffffffff81560c9e>] scsi_device_unbusy+0x7e/0xd0
-[    1.080042]   [<ffffffff8155a612>] scsi_finish_command+0x32/0xf0
-[    1.080042]   [<ffffffff81560e91>] scsi_softirq_done+0xa1/0x130
-[    1.080042]   [<ffffffff8133b0f3>] blk_done_softirq+0x73/0x90
-[    1.080042]   [<ffffffff81095dc0>] __do_softirq+0x110/0x2f0
-[    1.080042]   [<ffffffff81095fcd>] run_ksoftirqd+0x2d/0x60
-[    1.080042]   [<ffffffff810bc506>] smpboot_thread_fn+0x156/0x1e0
-[    1.080042]   [<ffffffff810b3916>] kthread+0xd6/0xe0
-[    1.080042]   [<ffffffff818980ac>] ret_from_fork+0x7c/0xb0
-[    1.080042]
-[    1.080042] to a SOFTIRQ-irq-unsafe lock:
-[    1.080042]  (&p->mems_allowed_seq){+.+...}
-[    1.080042] ... which became SOFTIRQ-irq-unsafe at:
-[    1.080042] ...  [<ffffffff810ec1d3>] __lock_acquire+0x613/0x1db0
-[    1.080042]   [<ffffffff810edfe5>] lock_acquire+0x95/0x130
-[    1.080042]   [<ffffffff810b3df2>] kthreadd+0x82/0x180
-[    1.080042]   [<ffffffff818980ac>] ret_from_fork+0x7c/0xb0
-[    1.080042]
-[    1.080042] other info that might help us debug this:
-[    1.080042]
-[    1.080042]  Possible interrupt unsafe locking scenario:
-[    1.080042]
-[    1.080042]        CPU0                    CPU1
-[    1.080042]        ----                    ----
-[    1.080042]   lock(&p->mems_allowed_seq);
-[    1.080042]                                local_irq_disable();
-[    1.080042]                                lock(&(&q->__queue_lock)->rlock);
-[    1.080042]                                lock(&p->mems_allowed_seq);
-[    1.080042]   <Interrupt>
-[    1.080042]     lock(&(&q->__queue_lock)->rlock);
-[    1.080042]
-[    1.080042]  *** DEADLOCK ***
+- Sedat -
 
-The issue stems from the kthreadd() function calling set_mems_allowed
-with irqs enabled. While its possibly unlikely for the actual deadlock
-to trigger, a fix is fairly simple: disable irqs before taking the
-mems_allowed_seq lock.
-
-Signed-off-by: John Stultz <john.stultz@linaro.org>
-Signed-off-by: Peter Zijlstra <peterz@infradead.org>
-Acked-by: Li Zefan <lizefan@huawei.com>
-Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/1381186321-4906-4-git-send-email-john.stultz@linaro.org
-Signed-off-by: Ingo Molnar <mingo@kernel.org>
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
----
- include/linux/cpuset.h | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/include/linux/cpuset.h b/include/linux/cpuset.h
-index a7ebb89ae9fb..ade2390ffe92 100644
---- a/include/linux/cpuset.h
-+++ b/include/linux/cpuset.h
-@@ -132,10 +132,14 @@ static inline bool read_mems_allowed_retry(unsigned int seq)
- 
- static inline void set_mems_allowed(nodemask_t nodemask)
- {
-+	unsigned long flags;
-+
- 	task_lock(current);
-+	local_irq_save(flags);
- 	write_seqcount_begin(&current->mems_allowed_seq);
- 	current->mems_allowed = nodemask;
- 	write_seqcount_end(&current->mems_allowed_seq);
-+	local_irq_restore(flags);
- 	task_unlock(current);
- }
- 
--- 
-2.8.2
+[1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=5c08b0f5026fcc13efb947c4d1f2ca3558145f68
