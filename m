@@ -1,234 +1,246 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next RFC 1/1] net sched actions: introduce timestamp for
- first time used
-Date: Thu, 19 May 2016 08:15:44 -0400
-Message-ID: <573DAE70.4000504@mojatatu.com>
-References: <1463528337-4986-1-git-send-email-jhs@emojatatu.com>
- <CAM_iQpWXgncANS5MrBzrZiEVSbGzNptrAjisg_K2NTA-PsAMKg@mail.gmail.com>
- <573DA960.8070102@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC net-next] net: sched: do not acquire qdisc spinlock in
+ qdisc/class stats dump
+Date: Thu, 19 May 2016 05:35:20 -0700
+Message-ID: <1463661320.18194.178.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010709000307030406020403"
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, nbd@nbd.name,
-	baronchon@n7mm.org, Alexander Duyck <alexander.duyck@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Kevin Athey <kda@google.com>,
+	Xiaotian Pei <xiaotian@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:36198 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754801AbcESMPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 08:15:47 -0400
-Received: by mail-io0-f176.google.com with SMTP id i75so104152838ioa.3
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 05:15:47 -0700 (PDT)
-In-Reply-To: <573DA960.8070102@mojatatu.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35179 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399AbcESMfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 08:35:23 -0400
+Received: by mail-pa0-f68.google.com with SMTP id rw9so7790506pab.2
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 05:35:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010709000307030406020403
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Eric Dumazet <edumazet@google.com>
 
-On 16-05-19 07:54 AM, Jamal Hadi Salim wrote:
-> On 16-05-18 01:17 PM, Cong Wang wrote:
+Large tc dumps (tc -s {qdisc|class} sh dev ethX) done by Google BwE host
+agent [1] are problematic at scale :
+    
+For each qdisc/class found in the dump, we currently lock the root qdisc
+spinlock in order to get stats. Sampling stats every 5 seconds from
+thousands of HTB classes is a challenge when the root qdisc spinlock is
+under high pressure.
 
->> I think it is the time to add a wrapper for these tm.XX =
->> jiffies_to_clock_t(XXX).
->>
->
-> Agreed. Will send a patch.
-> Actually I will resend the firstuse as well without RFC tag
-> and the wrapper one as separate patch.
->
+These stats are using u64 or u32 fields, so reading integral values
+should not prevent writers from doing concurrent updates if the kernel
+arch is a 64bit one.
 
-Something like attached - compiles but untested.
-I will test later and do formal submission.
+Being able to atomically fetch all counters like packets and bytes sent
+at the expense of interfering in fast path (queue and dequeue packets)
+is simply not worth the pain, as the values are generally stale after 1
+usec.
 
-cheers,
-jamal
-> cheers,
-> jamal
+These lock acquisitions slow down the fast path by 10 to 20 %
 
+An audit of existing qdiscs showed that sch_fq_codel is the only qdisc
+that might need the qdisc lock in fq_codel_dump_stats() and
+fq_codel_dump_class_stats()
 
---------------010709000307030406020403
-Content-Type: text/plain; charset=UTF-8;
- name="patch-aggreg-tmdump"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="patch-aggreg-tmdump"
+gnet_dump_force_lock() call is added there and could be added to other
+qdisc stat handlers if needed.
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2FjdF9hcGkuaCBiL2luY2x1ZGUvbmV0L2FjdF9h
-cGkuaAppbmRleCBlMTVlMjM2Li4xMmIyZDhmIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9h
-Y3RfYXBpLmgKKysrIGIvaW5jbHVkZS9uZXQvYWN0X2FwaS5oCkBAIC04MCw2ICs4MCwxNCBA
-QCBzdGF0aWMgaW5saW5lIHZvaWQgdGNmX2xhc3R1c2VfdXBkYXRlKHN0cnVjdCB0Y2ZfdCAq
-dG0pCiAJCXRtLT5maXJzdHVzZSA9IG5vdzsKIH0KIAorc3RhdGljIGlubGluZSB2b2lkIHRj
-Zl90bV9kdW1wKHN0cnVjdCB0Y2ZfdCAqc3RtLCBzdHJ1Y3QgdGNmX3QgKmR0bSkKK3sKKwlk
-dG0tPmluc3RhbGwgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIHN0bS0+aW5zdGFs
-bCk7CisJZHRtLT5sYXN0dXNlID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBzdG0t
-Pmxhc3R1c2UpOworCWR0bS0+Zmlyc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmll
-cyAtIHN0bS0+Zmlyc3R1c2UpOworCWR0bS0+ZXhwaXJlcyA9IGppZmZpZXNfdG9fY2xvY2tf
-dChzdG0tPmV4cGlyZXMpOworfQorCiBzdHJ1Y3QgdGNfYWN0aW9uIHsKIAl2b2lkCQkJKnBy
-aXY7CiAJY29uc3Qgc3RydWN0IHRjX2FjdGlvbl9vcHMJKm9wczsKZGlmZiAtLWdpdCBhL25l
-dC9zY2hlZC9hY3RfYnBmLmMgYi9uZXQvc2NoZWQvYWN0X2JwZi5jCmluZGV4IGY1ODFlMDEu
-LjAxZjk3MDYgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3RfYnBmLmMKKysrIGIvbmV0L3Nj
-aGVkL2FjdF9icGYuYwpAQCAtMTU0LDExICsxNTQsNyBAQCBzdGF0aWMgaW50IHRjZl9icGZf
-ZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgdGNfYWN0aW9uICphY3QsCiAJaWYg
-KHJldCkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7CiAKLQl0bS5pbnN0YWxsID0gamlmZmll
-c190b19jbG9ja190KGppZmZpZXMgLSBwcm9nLT50Y2ZfdG0uaW5zdGFsbCk7Ci0JdG0ubGFz
-dHVzZSA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gcHJvZy0+dGNmX3RtLmxhc3R1
-c2UpOwotCXRtLmZpcnN0dXNlID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBwcm9n
-LT50Y2ZfdG0uZmlyc3R1c2UpOwotCXRtLmV4cGlyZXMgPSBqaWZmaWVzX3RvX2Nsb2NrX3Qo
-cHJvZy0+dGNmX3RtLmV4cGlyZXMpOwotCisJdGNmX3RtX2R1bXAoJnByb2ctPnRjZl90bSwg
-JnRtKTsKIAlpZiAobmxhX3B1dF82NGJpdChza2IsIFRDQV9BQ1RfQlBGX1RNLCBzaXplb2Yo
-dG0pLCAmdG0sCiAJCQkgIFRDQV9BQ1RfQlBGX1BBRCkpCiAJCWdvdG8gbmxhX3B1dF9mYWls
-dXJlOwpkaWZmIC0tZ2l0IGEvbmV0L3NjaGVkL2FjdF9jb25ubWFyay5jIGIvbmV0L3NjaGVk
-L2FjdF9jb25ubWFyay5jCmluZGV4IGUzZjY0ZjIuLjUxNDUwMjYgMTAwNjQ0Ci0tLSBhL25l
-dC9zY2hlZC9hY3RfY29ubm1hcmsuYworKysgYi9uZXQvc2NoZWQvYWN0X2Nvbm5tYXJrLmMK
-QEAgLTE2MCwxMCArMTYwLDcgQEAgc3RhdGljIGlubGluZSBpbnQgdGNmX2Nvbm5tYXJrX2R1
-bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHRjX2FjdGlvbiAqYSwKIAlpZiAobmxh
-X3B1dChza2IsIFRDQV9DT05OTUFSS19QQVJNUywgc2l6ZW9mKG9wdCksICZvcHQpKQogCQln
-b3RvIG5sYV9wdXRfZmFpbHVyZTsKIAotCXQuaW5zdGFsbCA9IGppZmZpZXNfdG9fY2xvY2tf
-dChqaWZmaWVzIC0gY2ktPnRjZl90bS5pbnN0YWxsKTsKLQl0Lmxhc3R1c2UgPSBqaWZmaWVz
-X3RvX2Nsb2NrX3QoamlmZmllcyAtIGNpLT50Y2ZfdG0ubGFzdHVzZSk7Ci0JdC5leHBpcmVz
-ID0gamlmZmllc190b19jbG9ja190KGNpLT50Y2ZfdG0uZXhwaXJlcyk7Ci0JdC5maXJzdHVz
-ZSA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gY2ktPnRjZl90bS5maXJzdHVzZSk7
-CisJdGNmX3RtX2R1bXAoJmNpLT50Y2ZfdG0sICZ0KTsKIAlpZiAobmxhX3B1dF82NGJpdChz
-a2IsIFRDQV9DT05OTUFSS19UTSwgc2l6ZW9mKHQpLCAmdCwKIAkJCSAgVENBX0NPTk5NQVJL
-X1BBRCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwpkaWZmIC0tZ2l0IGEvbmV0L3NjaGVk
-L2FjdF9jc3VtLmMgYi9uZXQvc2NoZWQvYWN0X2NzdW0uYwppbmRleCA3NzI1ZWFmYi4uZWYy
-MWQwYiAxMDA2NDQKLS0tIGEvbmV0L3NjaGVkL2FjdF9jc3VtLmMKKysrIGIvbmV0L3NjaGVk
-L2FjdF9jc3VtLmMKQEAgLTU0NiwxMCArNTQ2LDggQEAgc3RhdGljIGludCB0Y2ZfY3N1bV9k
-dW1wKHN0cnVjdCBza19idWZmICpza2IsCiAKIAlpZiAobmxhX3B1dChza2IsIFRDQV9DU1VN
-X1BBUk1TLCBzaXplb2Yob3B0KSwgJm9wdCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwot
-CXQuaW5zdGFsbCA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gcC0+dGNmX3RtLmlu
-c3RhbGwpOwotCXQubGFzdHVzZSA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gcC0+
-dGNmX3RtLmxhc3R1c2UpOwotCXQuZmlyc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3Qoamlm
-ZmllcyAtIHAtPnRjZl90bS5maXJzdHVzZSk7Ci0JdC5leHBpcmVzID0gamlmZmllc190b19j
-bG9ja190KHAtPnRjZl90bS5leHBpcmVzKTsKKworCXRjZl90bV9kdW1wKCZwLT50Y2ZfdG0s
-ICZ0KTsKIAlpZiAobmxhX3B1dF82NGJpdChza2IsIFRDQV9DU1VNX1RNLCBzaXplb2YodCks
-ICZ0LCBUQ0FfQ1NVTV9QQUQpKQogCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKIApkaWZmIC0t
-Z2l0IGEvbmV0L3NjaGVkL2FjdF9nYWN0LmMgYi9uZXQvc2NoZWQvYWN0X2dhY3QuYwppbmRl
-eCAxZjNiYWVjLi40NzI4M2Y3IDEwMDY0NAotLS0gYS9uZXQvc2NoZWQvYWN0X2dhY3QuYwor
-KysgYi9uZXQvc2NoZWQvYWN0X2dhY3QuYwpAQCAtMTc1LDEwICsxNzUsNyBAQCBzdGF0aWMg
-aW50IHRjZl9nYWN0X2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHRjX2FjdGlv
-biAqYSwKIAkJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwogCX0KICNlbmRpZgotCXQuaW5zdGFs
-bCA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gZ2FjdC0+dGNmX3RtLmluc3RhbGwp
-OwotCXQubGFzdHVzZSA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gZ2FjdC0+dGNm
-X3RtLmxhc3R1c2UpOwotCXQuZmlyc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmll
-cyAtIGdhY3QtPnRjZl90bS5maXJzdHVzZSk7Ci0JdC5leHBpcmVzID0gamlmZmllc190b19j
-bG9ja190KGdhY3QtPnRjZl90bS5leHBpcmVzKTsKKwl0Y2ZfdG1fZHVtcCgmZ2FjdC0+dGNm
-X3RtLCAmdCk7CiAJaWYgKG5sYV9wdXRfNjRiaXQoc2tiLCBUQ0FfR0FDVF9UTSwgc2l6ZW9m
-KHQpLCAmdCwgVENBX0dBQ1RfUEFEKSkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7CiAJcmV0
-dXJuIHNrYi0+bGVuOwpkaWZmIC0tZ2l0IGEvbmV0L3NjaGVkL2FjdF9pZmUuYyBiL25ldC9z
-Y2hlZC9hY3RfaWZlLmMKaW5kZXggNWRhZWFiNi4uNGJjMzM4NiAxMDA2NDQKLS0tIGEvbmV0
-L3NjaGVkL2FjdF9pZmUuYworKysgYi9uZXQvc2NoZWQvYWN0X2lmZS5jCkBAIC01NTMsOSAr
-NTUzLDcgQEAgc3RhdGljIGludCB0Y2ZfaWZlX2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwg
-c3RydWN0IHRjX2FjdGlvbiAqYSwgaW50IGJpbmQsCiAJaWYgKG5sYV9wdXQoc2tiLCBUQ0Ff
-SUZFX1BBUk1TLCBzaXplb2Yob3B0KSwgJm9wdCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJl
-OwogCi0JdC5pbnN0YWxsID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBpZmUtPnRj
-Zl90bS5pbnN0YWxsKTsKLQl0Lmxhc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmll
-cyAtIGlmZS0+dGNmX3RtLmxhc3R1c2UpOwotCXQuZXhwaXJlcyA9IGppZmZpZXNfdG9fY2xv
-Y2tfdChpZmUtPnRjZl90bS5leHBpcmVzKTsKKwl0Y2ZfdG1fZHVtcCgmaWZlLT50Y2ZfdG0s
-ICZ0KTsKIAlpZiAobmxhX3B1dF82NGJpdChza2IsIFRDQV9JRkVfVE0sIHNpemVvZih0KSwg
-JnQsIFRDQV9JRkVfUEFEKSkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7CiAKZGlmZiAtLWdp
-dCBhL25ldC9zY2hlZC9hY3RfaXB0LmMgYi9uZXQvc2NoZWQvYWN0X2lwdC5jCmluZGV4IDQz
-YmY4ZmYuLjZjOWJlY2UgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3RfaXB0LmMKKysrIGIv
-bmV0L3NjaGVkL2FjdF9pcHQuYwpAQCAtMjc5LDEyICsyNzksMTEgQEAgc3RhdGljIGludCB0
-Y2ZfaXB0X2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHRjX2FjdGlvbiAqYSwg
-aW50IGJpbmQsCiAJICAgIG5sYV9wdXQoc2tiLCBUQ0FfSVBUX0NOVCwgc2l6ZW9mKHN0cnVj
-dCB0Y19jbnQpLCAmYykgfHwKIAkgICAgbmxhX3B1dF9zdHJpbmcoc2tiLCBUQ0FfSVBUX1RB
-QkxFLCBpcHQtPnRjZmlfdG5hbWUpKQogCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKLQl0bS5p
-bnN0YWxsID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBpcHQtPnRjZl90bS5pbnN0
-YWxsKTsKLQl0bS5sYXN0dXNlID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBpcHQt
-PnRjZl90bS5sYXN0dXNlKTsKLQl0bS5maXJzdHVzZSA9IGppZmZpZXNfdG9fY2xvY2tfdChq
-aWZmaWVzIC0gaXB0LT50Y2ZfdG0uZmlyc3R1c2UpOwotCXRtLmV4cGlyZXMgPSBqaWZmaWVz
-X3RvX2Nsb2NrX3QoaXB0LT50Y2ZfdG0uZXhwaXJlcyk7CisKKwl0Y2ZfdG1fZHVtcCgmaXB0
-LT50Y2ZfdG0sICZ0bSk7CiAJaWYgKG5sYV9wdXRfNjRiaXQoc2tiLCBUQ0FfSVBUX1RNLCBz
-aXplb2YodG0pLCAmdG0sIFRDQV9JUFRfUEFEKSkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7
-CisKIAlrZnJlZSh0KTsKIAlyZXR1cm4gc2tiLT5sZW47CiAKZGlmZiAtLWdpdCBhL25ldC9z
-Y2hlZC9hY3RfbWlycmVkLmMgYi9uZXQvc2NoZWQvYWN0X21pcnJlZC5jCmluZGV4IDViMTQy
-M2YuLjQzNWRmNjUgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3RfbWlycmVkLmMKKysrIGIv
-bmV0L3NjaGVkL2FjdF9taXJyZWQuYwpAQCAtMjE4LDEwICsyMTgsOCBAQCBzdGF0aWMgaW50
-IHRjZl9taXJyZWRfZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgdGNfYWN0aW9u
-ICphLCBpbnQgYmluZCwKIAogCWlmIChubGFfcHV0KHNrYiwgVENBX01JUlJFRF9QQVJNUywg
-c2l6ZW9mKG9wdCksICZvcHQpKQogCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKLQl0Lmluc3Rh
-bGwgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIG0tPnRjZl90bS5pbnN0YWxsKTsK
-LQl0Lmxhc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIG0tPnRjZl90bS5s
-YXN0dXNlKTsKLQl0LmZpcnN0dXNlID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBt
-LT50Y2ZfdG0uZmlyc3R1c2UpOwotCXQuZXhwaXJlcyA9IGppZmZpZXNfdG9fY2xvY2tfdCht
-LT50Y2ZfdG0uZXhwaXJlcyk7CisKKwl0Y2ZfdG1fZHVtcCgmbS0+dGNmX3RtLCAmdCk7CiAJ
-aWYgKG5sYV9wdXRfNjRiaXQoc2tiLCBUQ0FfTUlSUkVEX1RNLCBzaXplb2YodCksICZ0LCBU
-Q0FfTUlSUkVEX1BBRCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwogCXJldHVybiBza2It
-PmxlbjsKZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9hY3RfbmF0LmMgYi9uZXQvc2NoZWQvYWN0
-X25hdC5jCmluZGV4IDlmYmY3ODAuLmNhOTFmNTcgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9h
-Y3RfbmF0LmMKKysrIGIvbmV0L3NjaGVkL2FjdF9uYXQuYwpAQCAtMjY0LDEwICsyNjQsOCBA
-QCBzdGF0aWMgaW50IHRjZl9uYXRfZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
-dGNfYWN0aW9uICphLAogCiAJaWYgKG5sYV9wdXQoc2tiLCBUQ0FfTkFUX1BBUk1TLCBzaXpl
-b2Yob3B0KSwgJm9wdCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwotCXQuaW5zdGFsbCA9
-IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gcC0+dGNmX3RtLmluc3RhbGwpOwotCXQu
-bGFzdHVzZSA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gcC0+dGNmX3RtLmxhc3R1
-c2UpOwotCXQuZmlyc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIHAtPnRj
-Zl90bS5maXJzdHVzZSk7Ci0JdC5leHBpcmVzID0gamlmZmllc190b19jbG9ja190KHAtPnRj
-Zl90bS5leHBpcmVzKTsKKworCXRjZl90bV9kdW1wKCZwLT50Y2ZfdG0sICZ0KTsKIAlpZiAo
-bmxhX3B1dF82NGJpdChza2IsIFRDQV9OQVRfVE0sIHNpemVvZih0KSwgJnQsIFRDQV9OQVRf
-UEFEKSkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7CiAKZGlmZiAtLWdpdCBhL25ldC9zY2hl
-ZC9hY3RfcGVkaXQuYyBiL25ldC9zY2hlZC9hY3RfcGVkaXQuYwppbmRleCBmYjg5Mjc1Li4w
-ZjUzODE0IDEwMDY0NAotLS0gYS9uZXQvc2NoZWQvYWN0X3BlZGl0LmMKKysrIGIvbmV0L3Nj
-aGVkL2FjdF9wZWRpdC5jCkBAIC0yMDAsMTIgKzIwMCwxMSBAQCBzdGF0aWMgaW50IHRjZl9w
-ZWRpdF9kdW1wKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCB0Y19hY3Rpb24gKmEsCiAK
-IAlpZiAobmxhX3B1dChza2IsIFRDQV9QRURJVF9QQVJNUywgcywgb3B0KSkKIAkJZ290byBu
-bGFfcHV0X2ZhaWx1cmU7Ci0JdC5pbnN0YWxsID0gamlmZmllc190b19jbG9ja190KGppZmZp
-ZXMgLSBwLT50Y2ZfdG0uaW5zdGFsbCk7Ci0JdC5sYXN0dXNlID0gamlmZmllc190b19jbG9j
-a190KGppZmZpZXMgLSBwLT50Y2ZfdG0ubGFzdHVzZSk7Ci0JdC5maXJzdHVzZSA9IGppZmZp
-ZXNfdG9fY2xvY2tfdChqaWZmaWVzIC0gcC0+dGNmX3RtLmZpcnN0dXNlKTsKLQl0LmV4cGly
-ZXMgPSBqaWZmaWVzX3RvX2Nsb2NrX3QocC0+dGNmX3RtLmV4cGlyZXMpOworCisJdGNmX3Rt
-X2R1bXAoJnAtPnRjZl90bSwgJnQpOwogCWlmIChubGFfcHV0XzY0Yml0KHNrYiwgVENBX1BF
-RElUX1RNLCBzaXplb2YodCksICZ0LCBUQ0FfUEVESVRfUEFEKSkKIAkJZ290byBubGFfcHV0
-X2ZhaWx1cmU7CisKIAlrZnJlZShvcHQpOwogCXJldHVybiBza2ItPmxlbjsKIApkaWZmIC0t
-Z2l0IGEvbmV0L3NjaGVkL2FjdF9zaW1wbGUuYyBiL25ldC9zY2hlZC9hY3Rfc2ltcGxlLmMK
-aW5kZXggOWQ5ODkyYy4uOTMwNjQ3ZiAxMDA2NDQKLS0tIGEvbmV0L3NjaGVkL2FjdF9zaW1w
-bGUuYworKysgYi9uZXQvc2NoZWQvYWN0X3NpbXBsZS5jCkBAIC0xNTgsMTAgKzE1OCw4IEBA
-IHN0YXRpYyBpbnQgdGNmX3NpbXBfZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
-dGNfYWN0aW9uICphLAogCWlmIChubGFfcHV0KHNrYiwgVENBX0RFRl9QQVJNUywgc2l6ZW9m
-KG9wdCksICZvcHQpIHx8CiAJICAgIG5sYV9wdXRfc3RyaW5nKHNrYiwgVENBX0RFRl9EQVRB
-LCBkLT50Y2ZkX2RlZmRhdGEpKQogCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKLQl0Lmluc3Rh
-bGwgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIGQtPnRjZl90bS5pbnN0YWxsKTsK
-LQl0Lmxhc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIGQtPnRjZl90bS5s
-YXN0dXNlKTsKLQl0LmZpcnN0dXNlID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMgLSBk
-LT50Y2ZfdG0uZmlyc3R1c2UpOwotCXQuZXhwaXJlcyA9IGppZmZpZXNfdG9fY2xvY2tfdChk
-LT50Y2ZfdG0uZXhwaXJlcyk7CisKKwl0Y2ZfdG1fZHVtcCgmZC0+dGNmX3RtLCAmdCk7CiAJ
-aWYgKG5sYV9wdXRfNjRiaXQoc2tiLCBUQ0FfREVGX1RNLCBzaXplb2YodCksICZ0LCBUQ0Ff
-REVGX1BBRCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwogCXJldHVybiBza2ItPmxlbjsK
-ZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9hY3Rfc2tiZWRpdC5jIGIvbmV0L3NjaGVkL2FjdF9z
-a2JlZGl0LmMKaW5kZXggN2QzMjE2Yy4uM2ExZWU0NSAxMDA2NDQKLS0tIGEvbmV0L3NjaGVk
-L2FjdF9za2JlZGl0LmMKKysrIGIvbmV0L3NjaGVkL2FjdF9za2JlZGl0LmMKQEAgLTE3Miwx
-MCArMTcyLDggQEAgc3RhdGljIGludCB0Y2Zfc2tiZWRpdF9kdW1wKHN0cnVjdCBza19idWZm
-ICpza2IsIHN0cnVjdCB0Y19hY3Rpb24gKmEsCiAJICAgIG5sYV9wdXQoc2tiLCBUQ0FfU0tC
-RURJVF9NQVJLLCBzaXplb2YoZC0+bWFyayksCiAJCSAgICAmZC0+bWFyaykpCiAJCWdvdG8g
-bmxhX3B1dF9mYWlsdXJlOwotCXQuaW5zdGFsbCA9IGppZmZpZXNfdG9fY2xvY2tfdChqaWZm
-aWVzIC0gZC0+dGNmX3RtLmluc3RhbGwpOwotCXQubGFzdHVzZSA9IGppZmZpZXNfdG9fY2xv
-Y2tfdChqaWZmaWVzIC0gZC0+dGNmX3RtLmxhc3R1c2UpOwotCXQuZmlyc3R1c2UgPSBqaWZm
-aWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIGQtPnRjZl90bS5maXJzdHVzZSk7Ci0JdC5leHBp
-cmVzID0gamlmZmllc190b19jbG9ja190KGQtPnRjZl90bS5leHBpcmVzKTsKKworCXRjZl90
-bV9kdW1wKCZkLT50Y2ZfdG0sICZ0KTsKIAlpZiAobmxhX3B1dF82NGJpdChza2IsIFRDQV9T
-S0JFRElUX1RNLCBzaXplb2YodCksICZ0LCBUQ0FfU0tCRURJVF9QQUQpKQogCQlnb3RvIG5s
-YV9wdXRfZmFpbHVyZTsKIAlyZXR1cm4gc2tiLT5sZW47CmRpZmYgLS1naXQgYS9uZXQvc2No
-ZWQvYWN0X3ZsYW4uYyBiL25ldC9zY2hlZC9hY3Rfdmxhbi5jCmluZGV4IDRiMWMyYzAuLmQ1
-OTZhOGIgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3Rfdmxhbi5jCisrKyBiL25ldC9zY2hl
-ZC9hY3Rfdmxhbi5jCkBAIC0xODMsMTAgKzE4Myw3IEBAIHN0YXRpYyBpbnQgdGNmX3ZsYW5f
-ZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgdGNfYWN0aW9uICphLAogCQkJICB2
-LT50Y2Z2X3B1c2hfcHJvdG8pKSkKIAkJZ290byBubGFfcHV0X2ZhaWx1cmU7CiAKLQl0Lmlu
-c3RhbGwgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIHYtPnRjZl90bS5pbnN0YWxs
-KTsKLQl0Lmxhc3R1c2UgPSBqaWZmaWVzX3RvX2Nsb2NrX3QoamlmZmllcyAtIHYtPnRjZl90
-bS5sYXN0dXNlKTsKLQl0LmZpcnN0dXNlID0gamlmZmllc190b19jbG9ja190KGppZmZpZXMg
-LSB2LT50Y2ZfdG0uZmlyc3R1c2UpOwotCXQuZXhwaXJlcyA9IGppZmZpZXNfdG9fY2xvY2tf
-dCh2LT50Y2ZfdG0uZXhwaXJlcyk7CisJdGNmX3RtX2R1bXAoJnYtPnRjZl90bSwgJnQpOwog
-CWlmIChubGFfcHV0XzY0Yml0KHNrYiwgVENBX1ZMQU5fVE0sIHNpemVvZih0KSwgJnQsIFRD
-QV9WTEFOX1BBRCkpCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwogCXJldHVybiBza2ItPmxl
-bjsK
---------------010709000307030406020403--
+[1]
+http://static.googleusercontent.com/media/research.google.com/en//pubs/archive/43838.pdf
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: John Fastabend <john.fastabend@gmail.com>
+Cc: Kevin Athey <kda@google.com>
+Cc: Xiaotian Pei <xiaotian@google.com>
+---
+ include/net/sch_generic.h |   23 +++++++++++++++++++++++
+ net/core/gen_stats.c      |   16 ++++++++++------
+ net/sched/sch_api.c       |    4 ++--
+ net/sched/sch_fq_codel.c  |   13 +++++++++----
+ net/sched/sch_mqprio.c    |    6 ++++--
+ 5 files changed, 48 insertions(+), 14 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index a1fd76c22a59..87f39fafb770 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -321,6 +321,29 @@ static inline spinlock_t *qdisc_root_sleeping_lock(const struct Qdisc *qdisc)
+ 	return qdisc_lock(root);
+ }
+ 
++static inline spinlock_t *qdisc_stats_lock(const struct Qdisc *qdisc)
++{
++	ASSERT_RTNL();
++#if defined(CONFIG_64BIT) && !defined(CONFIG_LOCKDEP)
++	/* With u32/u64 bytes counter, there is no real issue on 64bit arches */
++	return NULL;
++#else
++	return qdisc_lock(qdisc_root_sleeping(qdisc));
++#endif
++}
++
++/* Some qdisc dump_stat() methods might need to run while qdisc lock is held.
++ * They can call gnet_dump_force_lock() in case qdisc_stats_lock()
++ * returned NULL and qdisc spinlock was not acquired.
++ */
++static inline void gnet_dump_force_lock(struct Qdisc *sch, struct gnet_dump *d)
++{
++	if (!d->lock) {
++		d->lock = qdisc_root_sleeping_lock(sch);
++		spin_lock_bh(d->lock);
++	}
++}
++
+ static inline struct net_device *qdisc_dev(const struct Qdisc *qdisc)
+ {
+ 	return qdisc->dev_queue->dev;
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index f96ee8b9478d..c5469d0377c8 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -32,10 +32,11 @@ gnet_stats_copy(struct gnet_dump *d, int type, void *buf, int size, int padattr)
+ 	return 0;
+ 
+ nla_put_failure:
++	if (d->lock)
++		spin_unlock_bh(d->lock);
+ 	kfree(d->xstats);
+ 	d->xstats = NULL;
+ 	d->xstats_len = 0;
+-	spin_unlock_bh(d->lock);
+ 	return -1;
+ }
+ 
+@@ -65,15 +66,16 @@ gnet_stats_start_copy_compat(struct sk_buff *skb, int type, int tc_stats_type,
+ {
+ 	memset(d, 0, sizeof(*d));
+ 
+-	spin_lock_bh(lock);
+-	d->lock = lock;
+ 	if (type)
+ 		d->tail = (struct nlattr *)skb_tail_pointer(skb);
+ 	d->skb = skb;
+ 	d->compat_tc_stats = tc_stats_type;
+ 	d->compat_xstats = xstats_type;
+ 	d->padattr = padattr;
+-
++	if (lock) {
++		d->lock = lock;
++		spin_lock_bh(lock);
++	}
+ 	if (d->tail)
+ 		return gnet_stats_copy(d, type, NULL, 0, padattr);
+ 
+@@ -328,8 +330,9 @@ gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+ 	return 0;
+ 
+ err_out:
++	if (d->lock)
++		spin_unlock_bh(d->lock);
+ 	d->xstats_len = 0;
+-	spin_unlock_bh(d->lock);
+ 	return -1;
+ }
+ EXPORT_SYMBOL(gnet_stats_copy_app);
+@@ -363,10 +366,11 @@ gnet_stats_finish_copy(struct gnet_dump *d)
+ 			return -1;
+ 	}
+ 
++	if (d->lock)
++		spin_unlock_bh(d->lock);
+ 	kfree(d->xstats);
+ 	d->xstats = NULL;
+ 	d->xstats_len = 0;
+-	spin_unlock_bh(d->lock);
+ 	return 0;
+ }
+ EXPORT_SYMBOL(gnet_stats_finish_copy);
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 64f71a2155f3..466fe32f2862 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1365,7 +1365,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 		goto nla_put_failure;
+ 
+ 	if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS, TCA_XSTATS,
+-					 qdisc_root_sleeping_lock(q), &d,
++					 qdisc_stats_lock(q), &d,
+ 					 TCA_PAD) < 0)
+ 		goto nla_put_failure;
+ 
+@@ -1680,7 +1680,7 @@ static int tc_fill_tclass(struct sk_buff *skb, struct Qdisc *q,
+ 		goto nla_put_failure;
+ 
+ 	if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS, TCA_XSTATS,
+-					 qdisc_root_sleeping_lock(q), &d,
++					 qdisc_stats_lock(q), &d,
+ 					 TCA_PAD) < 0)
+ 		goto nla_put_failure;
+ 
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 6883a8971562..9e887df9650b 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -566,6 +566,7 @@ static int fq_codel_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
+ 	st.qdisc_stats.memory_usage  = q->memory_usage;
+ 	st.qdisc_stats.drop_overmemory = q->drop_overmemory;
+ 
++	gnet_dump_force_lock(sch, d);
+ 	list_for_each(pos, &q->new_flows)
+ 		st.qdisc_stats.new_flows_len++;
+ 
+@@ -624,7 +625,7 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 
+ 	if (idx < q->flows_cnt) {
+ 		const struct fq_codel_flow *flow = &q->flows[idx];
+-		const struct sk_buff *skb = flow->head;
++		const struct sk_buff *skb;
+ 
+ 		memset(&xstats, 0, sizeof(xstats));
+ 		xstats.type = TCA_FQ_CODEL_XSTATS_CLASS;
+@@ -642,9 +643,13 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 				codel_time_to_us(delta) :
+ 				-codel_time_to_us(-delta);
+ 		}
+-		while (skb) {
+-			qs.qlen++;
+-			skb = skb->next;
++		if (flow->head) {
++			gnet_dump_force_lock(sch, d);
++			skb = flow->head;
++			while (skb) {
++				qs.qlen++;
++				skb = skb->next;
++			}
+ 		}
+ 		qs.backlog = q->backlogs[idx];
+ 		qs.drops = flow->dropped;
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index b8002ce3d010..15d0210f5747 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -342,7 +342,8 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 		 * hold here is the look on dev_queue->qdisc_sleeping
+ 		 * also acquired below.
+ 		 */
+-		spin_unlock_bh(d->lock);
++		if (d->lock)
++			spin_unlock_bh(d->lock);
+ 
+ 		for (i = tc.offset; i < tc.offset + tc.count; i++) {
+ 			struct netdev_queue *q = netdev_get_tx_queue(dev, i);
+@@ -359,7 +360,8 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 			spin_unlock_bh(qdisc_lock(qdisc));
+ 		}
+ 		/* Reclaim root sleeping lock before completing stats */
+-		spin_lock_bh(d->lock);
++		if (d->lock)
++			spin_lock_bh(d->lock);
+ 		if (gnet_stats_copy_basic(d, NULL, &bstats) < 0 ||
+ 		    gnet_stats_copy_queue(d, NULL, &qstats, qlen) < 0)
+ 			return -1;
