@@ -1,50 +1,60 @@
-From: Muhammad Falak R Wani <falakreyaz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] brcmfmac: use kmemdup
-Date: Thu, 19 May 2016 19:29:03 +0530
-Message-ID: <1463666357-16719-1-git-send-email-falakreyaz@gmail.com>
-Cc: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for SOCK_DESTROY
+Date: Thu, 19 May 2016 08:06:15 -0600
+Message-ID: <2ad9d070-8326-a720-39d7-2e46db98ff7a@cumulusnetworks.com>
+References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
+ <1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
+ <CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
+ <bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
+ <CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com>
+ <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
+ <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
+ <3d0fd83a-fa88-8ceb-a44d-237f5a005eb4@cumulusnetworks.com>
+ <CAKD1Yr0E9i0s0ocSyYhEjODnVVQVBPOfbepvORAhT9gi9Qqz6A@mail.gmail.com>
+ <a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
+ <CAKD1Yr1u-p8hyjd_e672kYrXw+-Mkmj_Cxai=WUYM-9QQG=DQg@mail.gmail.com>
+ <4ca62c9f-4d19-4dd1-0d8c-c2cfe17c0443@cumulusnetworks.com>
+ <1463629667.18194.150.camel@edumazet-glaptop3.roam.corp.google.com>
+ <7b91db2e-9e27-48e3-e080-00037bc1a9c3@cumulusnetworks.com>
+ <1463631168.18194.153.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org, David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33312 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751760AbcESOGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 10:06:20 -0400
+Received: by mail-io0-f177.google.com with SMTP id t40so15959714ioi.0
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 07:06:19 -0700 (PDT)
+In-Reply-To: <1463631168.18194.153.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use kmemdup when some other buffer is immediately copied into allocated
-region. It replaces call to allocation followed by memcpy, by a single
-call to kmemdup.
+On 5/18/16 10:12 PM, Eric Dumazet wrote:
+> On Wed, 2016-05-18 at 22:05 -0600, David Ahern wrote:
+>
+>> You think it is ok to send a request to the kernel, the kernel says "I
+>> can't do it" and the command says nothing to the user? That is current
+>> behavior. How on Earth is that acceptable?
+>
+> I don't know. Tell me what is acceptable on a 'dump many sockets' and
+> some of them can be killed, but not all of them.
+>
+> What I do know is that you sent totally buggy patches.
 
-Signed-off-by: Muhammad Falak R Wani <falakreyaz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+buggy patches? not silently dropping a failure makes for a buggy patch?
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-index d0631b6..705adaa 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-@@ -6699,11 +6699,10 @@ struct brcmf_cfg80211_info *brcmf_cfg80211_attach(struct brcmf_pub *drvr,
- 		return NULL;
- 	}
- 
--	ops = kzalloc(sizeof(*ops), GFP_KERNEL);
-+	ops = kmemdup(&brcmf_cfg80211_ops, sizeof(*ops), GFP_KERNEL);
- 	if (!ops)
- 		return NULL;
- 
--	memcpy(ops, &brcmf_cfg80211_ops, sizeof(*ops));
- 	ifp = netdev_priv(ndev);
- #ifdef CONFIG_PM
- 	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_WOWL_GTK))
--- 
-1.9.1
+>
+> If you want to 'fix' something, please send a patch that we can agree
+> on, ie not breaking existing scripts.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+got it. Google does not care about users; don't un-suppress failures.
