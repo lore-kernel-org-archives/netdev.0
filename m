@@ -1,42 +1,57 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: suppress warnings on dev_alloc_skb
-Date: Thu, 19 May 2016 09:34:21 -0400
-Message-ID: <20160519133421.GF4128@hmsreliant.think-freely.org>
-References: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
- <1463587298.18194.129.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Uct2FPuVHER=p-kpb2nbnVMG7ya1Cy67iJDRV7ZUE=jVg@mail.gmail.com>
- <20160518192934.GD29900@hmsreliant.think-freely.org>
- <CAKgT0Ue6iRY0=i0OV3V51+3jWaOa7-pjHe7tQz22oK8qYX+irg@mail.gmail.com>
- <20160518210943.GA771@hmsreliant.think-freely.org>
- <1463608025.18194.142.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Thu, 19 May 2016 16:40:06 +0300
+Message-ID: <9d09a39b-de72-1148-4b5d-6cfaee8da604@cogentembedded.com>
+References: <3641492.klKRrvS8tr@wasted.cogentembedded.com>
+ <20160512184233.GJ30822@pengutronix.de> <5735995B.8030802@ti.com>
+ <b9bcc192-f97b-304e-77b2-894c4528ddb6@cogentembedded.com>
+ <20160513204436.GC7600@lunn.ch>
+ <1a44a737-2b81-625b-8edf-d1c3dfcdd619@cogentembedded.com>
+ <20160513234410.GE7600@lunn.ch>
+ <cc232c9e-ef25-482d-0978-cbdfe03bad22@cogentembedded.com>
+ <20160514195016.GC26220@lunn.ch>
+ <34922ff9-e566-4829-a631-54ce07cbb325@cogentembedded.com>
+ <20160515152339.GA9021@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36979 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753942AbcESNef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 09:34:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1463608025.18194.142.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roger Quadros <rogerq-l0cyMroinI0@public.gmane.org>,
+	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160515152339.GA9021-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2016 at 02:47:05PM -0700, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 17:09 -0400, Neil Horman wrote:
-> 
-> > Oh, my bad, I misread what he was saying.  Yeah, thats the way to go.
-> 
-> Please submit a v2 ;)
-> 
-> Thanks
-> 
-Will do shortly :)
-Neil
+Hello.
 
-> 
-> 
-> 
+On 5/15/2016 6:23 PM, Andrew Lunn wrote:
+
+>>> I think there could be similar code one layer above to handle one gpio
+>>> line for multiple phys.
+>>
+>>    Ah, you want me to recognize some MAC/MDIO bound prop (e.g.
+>> "mdio-reset-gpios") in of_mdiobus_register()? I'll think about it
+>> now that my patch needs fixing anyway...
+>
+> Hi Sergi
+>
+> It does not need to be you implementing this, your hardware does not
+> need it. However, if you do feel like doing it, great.
+
+    It would cover my "single PHY" case anyway.
+
+>      Andrew
+
+MBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
