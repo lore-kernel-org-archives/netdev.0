@@ -1,90 +1,254 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC] net: remove busylock
-Date: Thu, 19 May 2016 13:39:22 -0700
-Message-ID: <CAKgT0Udd+8PtOfZzR3VqEGyUPLifEjDzK0x3cezxcN9Ltq_KzQ@mail.gmail.com>
-References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
-	<1463684190.18194.228.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1463686523.18194.232.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Thu, 19 May 2016 23:15:56 +0200
+Message-ID: <573E2D0C.604@gmx.de>
+References: <20160517152520.GA2750@debian-dorm>
+ <20160517.142456.2247845107325931733.davem@davemloft.net>
+ <20160518000153.GA21757@electric-eye.fr.zoreil.com> <573CD09D.1060307@gmx.de>
+ <20160518225529.GA18671@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:36133 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753942AbcESUjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 16:39:23 -0400
-Received: by mail-io0-f181.google.com with SMTP id b78so5990707ioj.3
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 13:39:23 -0700 (PDT)
-In-Reply-To: <1463686523.18194.232.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20160518225529.GA18671-lmTtMILVy1jWQcoT9B9Ug5SCg42XY1Uw0E9HWUfgJXw@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 19, 2016 at 12:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-05-19 at 11:56 -0700, Eric Dumazet wrote:
->
->> Removing busylock helped in all cases I tested. (at least on x86 as
->> David pointed out)
->>
->> As I said, we need to revisit busylock now that spinlocks are different.
->>
->> In one case (20 concurrent UDP netperf), I even got a 500 % increase.
->>
->> With busylock :
->>
->> lpaa5:~# sar -n DEV 4 4|grep eth0
->> Average:         eth0     12.19 112797.12      1.95  37672.28      0.00      0.00      0.69
->>
->
->
-> Hmpf, my sysctl logic was inverted. Really these results made little
-> sense.
->
-> Sorry for the noise. At least we have 8% confirmed gain with this
-> stuff ;)
+Hi Francois,
 
-Unfortunately I see a 21% regression when you place the qdisc under
-load from multiple CPUs/nodes.  In my testing I dropped from around
-1.05 Mpps to around 827 Kpps when I removed the busylock.
+On 19.05.2016 00:55, Francois Romieu wrote:
 
-My test setup is pretty straight forward and the results I have seen
-are consistent between runs.  I have a system with 32 threads / 16
-cores spread over 2 NUMA nodes.  I reduce the number of queues on a
-10Gb/s NIC to 1.  I kill irqbalance and disable CPU power states.  I
-then start a quick "for" loop that will schedule one UDP_STREAM
-netperf session on each CPU using a small payload size like 32.
+>> The smp_wmb() in tx function combined with the smp_rmb() in tx_clean ensures
+>> that the CPU running tx_clean sees consistent values for info, data and skb 
+>> (thus no need to check for validity of all three values any more).
+>> The mb() fulfills several tasks:
+>> 1. makes sure that DMA writes to descriptor are completed before the HW is
+>>     informed.
+> 
+> "DMA writes" == "CPU writes" ?
+> 
 
-On a side note, if I move everything onto one node I can push about
-2.4 Mpps and the busylock doesn't seem to really impact things, but if
-I go to both nodes then I see the performance regression as described
-above.  I was thinking about it and I don't think the MCS type locks
-would have that much of an impact.  If anything I think that xmit_more
-probably has a bigger effect given that it allows us to grab multiple
-frames with each fetch and thereby reduce the lock contention on the
-dequeue side.
+I admit that phrasing was unfortunate. What I meant was, that we have to make sure that
+the writes to the descriptors which reside in DMA memory have to be completed before
+we inform the hardware. This is since the write to the mmio (arc_reg_set(R_STATUS, TXPL_MASK))
+may otherwise overtake the writes to the desriptors in DMA and thus the hardware find an
+incompletely set up descriptor.
+You can find a barrier for this reason in quite a lot drivers. Normally a dma_rmb() would
+be sufficient for this, e.g here
 
->> Presumably it would tremendously help if the actual kfree_skb()
->> was done after qdisc lock is released, ie not from the qdisc->enqueue()
->> method.
->>
->
-> This part is still valid.
->
-> We could have a per cpu storage of one skb pointer, so that we do not
-> have to change all ->enqueue() prototypes.
+http://lxr.free-electrons.com/source/drivers/net/ethernet/marvell/sky2.c#L1139
 
-I fully agree with that.
+or here
 
-One thought I had is if we could move to a lockless dequeue path for
-the qdisc then we could also get rid of the busy lock.  I know there
-has been talk about doing away with qdisc locks or changing the inner
-mechanics of the qdisc itself in the past, I'm CCing Jesper and John
-for that reason.  Maybe it is time for us to start looking into that
-so we can start cleaning out some of the old cruft we have in this
-path.
+http://lxr.free-electrons.com/source/drivers/net/ethernet/intel/ixgb/ixgb_main.c#L1468
 
-- Alex
+but we have to use the mb() instead, because we also have to solve issues 2. and 3.:
+
+2. requires a smp_wmb, while 3. requires a rmb(). AFAIK the mb() implies all we need, 
+the dma_rmb() for 1., the smp_wmb() for 2. and the rmb() for 3. 
+
+>> 2. On multi processor systems: ensures that txbd_curr is updated (this is paired
+>>     with the smp_mb() at the end of tx_clean).
+> 
+> Smells like using barrier side-effects to control smp coherency. It isn't
+> the recommended style.
+> 
+
+As I wrote above, the mb() implies the smp_wmb() so this is a regular pairing
+of smp_wmb() in xmit and smb_mb() in tx_clean, nothing uncommon.
+
+>> -		if ((info & FOR_EMAC) || !txbd->data || !skb)
+>> +		if (info & FOR_EMAC) {
+>> +			/* Make sure we see consistent values for info, skb
+>> +			 * and data.
+>> +			 */
+>> +			smp_rmb();
+>>  			break;
+>> +		}
+> 
+> ?
+> 
+> smp_rmb should appear before the variables you want coherency for.
+
+I dont think so. Please take a look into the memory barriers documentation.
+There is an example that is pretty close to the situation that we have in this driver:
+
+http://lxr.free-electrons.com/source/Documentation/memory-barriers.txt#L1819
+
+In that example the barrier is also _between_ the variables that are to be ordered, not 
+before. 
+Also in the example a dma_rmb() is sufficient, because in the sample code only reads to DMA
+memory have to be ordered. In our case we want to order between DMA (info) and RAM ("data" and the skb).
+However smp barriers are not sufficient (as I used it in the former patch), since we do not only
+want to sync CPU-CPU but also CPU-DMA. Please see the new patch I attached in which mandatory 
+barriers are used instead. 
+
+
+>> -	skb_tx_timestamp(skb);
+>> +	/* Make sure info is set after data and skb with respect to
+>> +	 * other tx_clean().
+>> +	 */
+>> +	smp_wmb();
+>>  
+>>  	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+> 
+> Afaik smp_wmb() does not imply wmb(). So priv->txbd[*txbd_curr].data and
+> *info (aka priv->txbd[*txbd_curr].info) are not necessarily written in
+> an orderly manner.
+
+Right, as I already wrote above I changed the smp barriers to mandatory ones.
+
+> 
+>>  
+>> -	/* Make sure info word is set */
+>> -	wmb();
+>> -
+>> -	priv->tx_buff[*txbd_curr].skb = skb;
+>> -
+>>  	/* Increment index to point to the next BD */
+>>  	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
+> 
+> With this change it's possible that tx_clean() reads new value for
+> tx_curr and old value (0) for *info.
+
+Even if this could happen, what is the problem? I cant see an issue
+that results from such a scenario.
+
+>>  	 * of the queue in tx_clean().
+>> +	 * 2.Ensure that all values are written to RAM and to DMA
+>> +	 * before hardware is informed.
+> 
+> (I am not sure what "DMA" is supposed to mean here.)
+> 
+
+This is about the DMA/mmio race I described above.
+
+>> +	 * 3.Ensure we see the most recent value for tx_dirty.
+>>  	 */
+>> -	smp_mb();
+>> +	mb();
+>>  
+>> -	if (!arc_emac_tx_avail(priv)) {
+>> +	if (!arc_emac_tx_avail(priv))
+>>  		netif_stop_queue(ndev);
+>> -		/* Refresh tx_dirty */
+>> -		smp_mb();
+>> -		if (arc_emac_tx_avail(priv))
+>> -			netif_start_queue(ndev);
+>> -	}
+> 
+> Xmit thread                        | Clean thread
+> 
+> mb();
+> 
+> arc_emac_tx_avail() test with old
+> tx_dirty - tx_clean has not issued
+> any mb yet - and new tx_curr
+> 
+>                                      smp_mb();
+> 
+>                                      if (netif_queue_stopped(ndev) && ...
+>                                              netif_wake_queue(ndev);
+> 
+> netif_stop_queue()
+> 
+> -> queue stopped.
+> 
+
+Again, the mb() we have now implies the smb_mb() we had before. So nothing changed
+except that we can be sure to see the new value for tx_dirty at our first attempt.
+
+>> +
+>> +	skb_tx_timestamp(skb);
+> 
+> You don't want to issue skb_tx_timestamp after releasing control of the
+> descriptor (*info = ...): skb may be long gone.
+> 
+
+Youre right, I replaced the call to skb_tx_timestamp so that should be ok now, too.
+New patch is below. 
+
+Regards,
+Lino
+
+---
+ drivers/net/ethernet/arc/emac_main.c | 33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index a3a9392..b986499 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -162,8 +162,13 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+ 		struct sk_buff *skb = tx_buff->skb;
+ 		unsigned int info = le32_to_cpu(txbd->info);
+ 
+-		if ((info & FOR_EMAC) || !txbd->data || !skb)
++		if (info & FOR_EMAC) {
++			/* Make sure we see consistent values for info, skb
++			 * and data.
++			 */
++			rmb();
+ 			break;
++		}
+ 
+ 		if (unlikely(info & (DROP | DEFR | LTCL | UFLO))) {
+ 			stats->tx_errors++;
+@@ -680,35 +685,31 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+ 	dma_unmap_len_set(&priv->tx_buff[*txbd_curr], len, len);
+ 
+ 	priv->txbd[*txbd_curr].data = cpu_to_le32(addr);
+-
+-	/* Make sure pointer to data buffer is set */
+-	wmb();
++	priv->tx_buff[*txbd_curr].skb = skb;
+ 
+ 	skb_tx_timestamp(skb);
+ 
+-	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+-
+-	/* Make sure info word is set */
++	/* Make sure info is set after data and skb with respect to
++	 * tx_clean().
++	 */
+ 	wmb();
+ 
+-	priv->tx_buff[*txbd_curr].skb = skb;
++	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+ 
+ 	/* Increment index to point to the next BD */
+ 	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
+ 
+-	/* Ensure that tx_clean() sees the new txbd_curr before
++	/* 1.Ensure that tx_clean() sees the new txbd_curr before
+ 	 * checking the queue status. This prevents an unneeded wake
+ 	 * of the queue in tx_clean().
++	 * 2.Ensure that all values are written to RAM and to DMA
++	 * before hardware is informed.
++	 * 3.Ensure we see the most recent value for tx_dirty.
+ 	 */
+-	smp_mb();
++	mb();
+ 
+-	if (!arc_emac_tx_avail(priv)) {
++	if (!arc_emac_tx_avail(priv))
+ 		netif_stop_queue(ndev);
+-		/* Refresh tx_dirty */
+-		smp_mb();
+-		if (arc_emac_tx_avail(priv))
+-			netif_start_queue(ndev);
+-	}
+ 
+ 	arc_reg_set(priv, R_STATUS, TXPL_MASK);
