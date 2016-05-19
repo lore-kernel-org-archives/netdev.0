@@ -1,45 +1,92 @@
-From: "Coelho, Luciano" <luciano.coelho@intel.com>
-Subject: Re: [PATCH 1/1] iwlwifi: rs: remove superfluous check
-Date: Thu, 19 May 2016 08:27:13 +0000
-Message-ID: <1463646433.29999.50.camel@intel.com>
-References: <1463527868-12226-1-git-send-email-xypron.glpk@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxwifi <linuxwifi@intel.com>,
-	"eyal@wizery.com" <eyal@wizery.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Greenman, Gregory" <gregory.greenman@intel.com>,
-	"Bondar, Alexander" <alexander.bondar@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 3.12 70/76] VSOCK: do not disconnect socket when peer has shutdown SEND only
+Date: Thu, 19 May 2016 11:08:32 +0200
+Message-ID: <fa9ba455d380badcb2688846048a65a55811f264.1463648873.git.jslaby@suse.cz>
+References: <c4ec97c341630e22e546c1a628a3664f17f7ffc8.1463648873.git.jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org,
+	Ian Campbell <ian.campbell@docker.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
+	Jiri Slaby <jslaby@suse.cz>
+To: stable@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463527868-12226-1-git-send-email-xypron.glpk@gmx.de>
-Content-Language: en-US
-Content-ID: <563BCFB089518847B5367C0C20B37A64@intel.com>
+In-Reply-To: <c4ec97c341630e22e546c1a628a3664f17f7ffc8.1463648873.git.jslaby@suse.cz>
+In-Reply-To: <cover.1463648873.git.jslaby@suse.cz>
+References: <cover.1463648873.git.jslaby@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE2LTA1LTE4IGF0IDAxOjMxICswMjAwLCBIZWlucmljaCBTY2h1Y2hhcmR0IHdy
-b3RlOg0KPiBJZiB3ZSBkZXJlZmVyZW5jZSBhIHZhcmlhYmxlIGFueXdheSBpbiBvdGhlciBwYXJ0
-cyBvZiB0aGUgY29kZSwNCj4gdGhlcmUgaXMgbm8gbmVlZCB0byBjaGVjayBhZ2FpbnN0IE5VTEwg
-aW4gYSBzaW5nbGUgcGxhY2UuDQoNCk5BQ0suIMKgVGhpcyBpcyBub3QgdHJ1ZS4NCg0KSWYgbHFf
-c3RhIGlzIE5VTEwsIGl0IG1lYW5zIHRoYXQgbXZtX3N0YSBpcyBhbHNvIE5VTEwuwqDCoFRoZW4g
-d2UgY2FsbA0KdGhlIHJhdGVfY29udHJvbF9zZW5kIHdpdGggbXZtX3N0YSA9PSBOVUxMOg0KDQoJ
-aWYgKHJhdGVfY29udHJvbF9zZW5kX2xvdyhzdGEsIG12bV9zdGEsIHR4cmMpKQ0KCQlyZXR1cm47
-DQoNClRoZSByYXRlX2NvbnRyb2xfc2VuZF9sb3coKSBmdW5jdGlvbiBsb29rcyBsaWtlIHRoaXM6
-DQoNCg0KYm9vbCByYXRlX2NvbnRyb2xfc2VuZF9sb3coc3RydWN0IGllZWU4MDIxMV9zdGEgKnB1
-YnN0YSwNCgkJCcKgwqDCoHZvaWQgKnByaXZfc3RhLA0KCQkJwqDCoMKgc3RydWN0IGllZWU4MDIx
-MV90eF9yYXRlX2NvbnRyb2wgKnR4cmMpDQp7DQpbLi4uXQ0KCWlmICghcHVic3RhIHx8ICFwcml2
-X3N0YSB8fCByY19ub19kYXRhX29yX25vX2Fja191c2VfbWluKHR4cmMpKSB7DQpbLi4uXQ0KCQly
-ZXR1cm4gdHJ1ZTsNCgl9DQpbLi4uXQ0KfQ0KDQoNCldoaWNoIG1lYW5zIHRoYXQgaWYgcHJpdl9z
-dGEgKGFrYSBtdm1fc3RhKSBpcyBOVUxMLCB3ZSB3aWxsIHJldHVybg0Kd2l0aG91dCBydW5uaW5n
-IHRoZSByZXN0IG9mIHJzX2dldF9yYXRlKCkgd2hlcmUgbHFfc3RhIGlzIGFjY2Vzc2VkDQp3aXRo
-b3V0IGNoZWNrcy4NCg0KSSBhZG1pdCB0aGF0IHRoZSByc19nZXRfcmF0ZSgpIGZ1bmN0aW9uIGlz
-IGEgYml0IGhhcmQgdG8gcmVhZCwgYnV0DQpyZW1vdmluZyB0aGUgbHFfc3RhIGNoZWNrIGFzIHlv
-dSBkaWQgZG9lc24ndCBoZWxwLCBidXQgbWFrZXMgdGhpbmdzDQp3b3JzZS4NCg0KLS0NCkNoZWVy
-cywNCkx1Y2Eu
+From: Ian Campbell <ian.campbell@docker.com>
+
+3.12-stable review patch.  If anyone has any objections, please let me know.
+
+===============
+
+[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
+
+The peer may be expecting a reply having sent a request and then done a
+shutdown(SHUT_WR), so tearing down the whole socket at this point seems
+wrong and breaks for me with a client which does a SHUT_WR.
+
+Looking at other socket family's stream_recvmsg callbacks doing a shutdown
+here does not seem to be the norm and removing it does not seem to have
+had any adverse effects that I can see.
+
+I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
+on the vmci transport.
+
+Signed-off-by: Ian Campbell <ian.campbell@docker.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+Cc: Andy King <acking@vmware.com>
+Cc: Dmitry Torokhov <dtor@vmware.com>
+Cc: Jorgen Hansen <jhansen@vmware.com>
+Cc: Adit Ranadive <aditr@vmware.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+---
+ net/vmw_vsock/af_vsock.c | 21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
+
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 85d232bed87d..e8d3313ea2c9 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1796,27 +1796,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
+ 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		err = 0;
+ 
+-	if (copied > 0) {
+-		/* We only do these additional bookkeeping/notification steps
+-		 * if we actually copied something out of the queue pair
+-		 * instead of just peeking ahead.
+-		 */
+-
+-		if (!(flags & MSG_PEEK)) {
+-			/* If the other side has shutdown for sending and there
+-			 * is nothing more to read, then modify the socket
+-			 * state.
+-			 */
+-			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
+-				if (vsock_stream_has_data(vsk) <= 0) {
+-					sk->sk_state = SS_UNCONNECTED;
+-					sock_set_flag(sk, SOCK_DONE);
+-					sk->sk_state_change(sk);
+-				}
+-			}
+-		}
++	if (copied > 0)
+ 		err = copied;
+-	}
+ 
+ out_wait:
+ 	finish_wait(sk_sleep(sk), &wait);
+-- 
+2.8.2
