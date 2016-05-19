@@ -1,96 +1,55 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH v2 1/1] net: hns: avoid null pointer dereference
-Date: Thu, 19 May 2016 21:20:55 +0200
-Message-ID: <1463685655-3277-1-git-send-email-xypron.glpk@gmx.de>
-References: <063D6719AE5E284EB5DD2968C1650D6D5F4C22D9@AcuExch.aculab.com>
-Cc: David Laight <David.Laight@aculab.com>,
-	Yisen Zhuang <Yisen.Zhuang@huawei.com>,
-	Kejian Yan <yankejian@huawei.com>,
-	Lisheng <lisheng011@huawei.com>, Andrew Lunn <andrew@lunn.ch>,
-	Salil <salil.mehta@huawei.com>, Ivan Vecera <ivecera@redhat.com>,
-	Chenny Xu <chenny.xu@huawei.com>,
-	huangdaode <huangdaode@hisilicon.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: remove busylock
+Date: Thu, 19 May 2016 12:35:23 -0700
+Message-ID: <1463686523.18194.232.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+	 <1463684190.18194.228.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <aduyck@mirantis.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:62709 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752727AbcESTXl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2016 15:23:41 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4C22D9@AcuExch.aculab.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33872 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753910AbcESTf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 15:35:27 -0400
+Received: by mail-pa0-f66.google.com with SMTP id yl2so8726267pac.1
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 12:35:26 -0700 (PDT)
+In-Reply-To: <1463684190.18194.228.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the statement
-  assert(priv || priv->ae_handle);
-the right side of || is only evaluated if priv is null.
+On Thu, 2016-05-19 at 11:56 -0700, Eric Dumazet wrote:
 
-v2:
-	As suggested by David Leight and David Miller the assert
-	statements are removed.
+> Removing busylock helped in all cases I tested. (at least on x86 as
+> David pointed out)
+> 
+> As I said, we need to revisit busylock now that spinlocks are different.
+> 
+> In one case (20 concurrent UDP netperf), I even got a 500 % increase.
+> 
+> With busylock :
+> 
+> lpaa5:~# sar -n DEV 4 4|grep eth0
+> Average:         eth0     12.19 112797.12      1.95  37672.28      0.00      0.00      0.69
+> 
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
----
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 11 -----------
- 1 file changed, 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 3d746c8..67a648c 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -46,7 +46,6 @@ static u32 hns_nic_get_link(struct net_device *net_dev)
- 	u32 link_stat = priv->link;
- 	struct hnae_handle *h;
- 
--	assert(priv && priv->ae_handle);
- 	h = priv->ae_handle;
- 
- 	if (priv->phy) {
-@@ -646,8 +645,6 @@ static void hns_nic_get_drvinfo(struct net_device *net_dev,
- {
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
- 
--	assert(priv);
--
- 	strncpy(drvinfo->version, HNAE_DRIVER_VERSION,
- 		sizeof(drvinfo->version));
- 	drvinfo->version[sizeof(drvinfo->version) - 1] = '\0';
-@@ -720,8 +717,6 @@ static int hns_set_pauseparam(struct net_device *net_dev,
- 	struct hnae_handle *h;
- 	struct hnae_ae_ops *ops;
- 
--	assert(priv || priv->ae_handle);
--
- 	h = priv->ae_handle;
- 	ops = h->dev->ops;
- 
-@@ -780,8 +775,6 @@ static int hns_set_coalesce(struct net_device *net_dev,
- 	struct hnae_ae_ops *ops;
- 	int ret;
- 
--	assert(priv || priv->ae_handle);
--
- 	ops = priv->ae_handle->dev->ops;
- 
- 	if (ec->tx_coalesce_usecs != ec->rx_coalesce_usecs)
-@@ -1111,8 +1104,6 @@ void hns_get_regs(struct net_device *net_dev, struct ethtool_regs *cmd,
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
- 	struct hnae_ae_ops *ops;
- 
--	assert(priv || priv->ae_handle);
--
- 	ops = priv->ae_handle->dev->ops;
- 
- 	cmd->version = HNS_CHIP_VERSION;
-@@ -1135,8 +1126,6 @@ static int hns_get_regs_len(struct net_device *net_dev)
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
- 	struct hnae_ae_ops *ops;
- 
--	assert(priv || priv->ae_handle);
--
- 	ops = priv->ae_handle->dev->ops;
- 	if (!ops->get_regs_len) {
- 		netdev_err(net_dev, "ops->get_regs_len is null!\n");
--- 
-2.1.4
+Hmpf, my sysctl logic was inverted. Really these results made little
+sense.
+
+Sorry for the noise. At least we have 8% confirmed gain with this
+stuff ;)
+
+> Presumably it would tremendously help if the actual kfree_skb()
+> was done after qdisc lock is released, ie not from the qdisc->enqueue()
+> method.
+> 
+
+This part is still valid.
+
+We could have a per cpu storage of one skb pointer, so that we do not
+have to change all ->enqueue() prototypes.
