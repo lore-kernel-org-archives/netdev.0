@@ -1,93 +1,61 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 19 May 2016 11:40:23 +0200
-Message-ID: <CA+icZUVc+CEV4R3jnSpTQYSxqyQX-cwx77c18P5rmRVrJrXZmQ@mail.gmail.com>
-References: <20160517.151113.367799295750703003.davem@davemloft.net>
-	<CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
-	<CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
-	<1463568714.13625.18.camel@intel.com>
-	<CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
-	<1463575273.13625.23.camel@intel.com>
-	<CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
-	<1463581411.29999.1.camel@intel.com>
-	<CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
-	<CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
-	<CAAA5faEoCDkgHmoGtFamS2G5KaUZ5j=pVc6tsPj2dG80ZFNedQ@mail.gmail.com>
-	<CAAA5faFWPCrk0C3sjT==VMVCq1jcR8_HANV=RRE-Ummv4_psHA@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	"Coelho, Luciano" <luciano.coelho@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"egrumbach@gmail.com" <egrumbach@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-To: Reinoud Koornstra <reinoudkoornstra@gmail.com>
+From: Robert Dobrowolski <robert.dobrowolski@linux.intel.com>
+Subject: [PATCH net,stable v2] net: cdc_ncm: update datagram size after changing mtu
+Date: Thu, 19 May 2016 11:56:09 +0200
+Message-ID: <1463651769-27513-1-git-send-email-robert.dobrowolski@linux.intel.com>
+Cc: robert.dobrowolski@linux.intel.com, stable@vger.kernel.org,
+	oliver@neukum.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Rafal Redzimski <rafal.f.redzimski@intel.com>
+To: linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:33572 "EHLO
-	mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753433AbcESJkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 05:40:25 -0400
-In-Reply-To: <CAAA5faFWPCrk0C3sjT==VMVCq1jcR8_HANV=RRE-Ummv4_psHA@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:34775 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754095AbcESJ64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 May 2016 05:58:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/19/16, Reinoud Koornstra <reinoudkoornstra@gmail.com> wrote:
-> On Thu, May 19, 2016 at 2:20 AM, Reinoud Koornstra
-> <reinoudkoornstra@gmail.com> wrote:
->> On Wed, May 18, 2016 at 12:51 PM, Linus Torvalds
->> <torvalds@linux-foundation.org> wrote:
->>> On Wed, May 18, 2016 at 11:45 AM, Linus Torvalds
->>> <torvalds@linux-foundation.org> wrote:
->>>>
->>>> From what I can tell, there's a merge bug in commit 909b27f70643,
->>>> where David seems to have lost some of the changes to
->>>> iwl_mvm_set_tx_cmd().
->>>>
->>>> I do not know if that's the reason for the problem I see. But I will
->>>> test.
->>>
->>> Yes. The attached patch that fixes the incorrect merge seems to fix
->>> things for me.
->>>
->>> That should mean that the assumption that this problem existed in v4.6
->>> too was wrong, because the incorrect merge came in later. I think
->>> Luciano mis-understood "v4.6+" to mean plain v4.6.
->>>
->>> Reinoud Koornstra, does this patch fix things for you too?
->>
->> Indeed, I meant 4.6+, not 4.6.
->> The patch you attached doesn't change existing code for me in 4.6+ as
->> these two lines are already in there.
->> Thanks,
->>
->> Reinoud.
->>
->
-> In the 4.6+ code from today I reverted commit 5c08b0f5026f.
-> Now iwlwifi works fine for me again.
-> So it's as the Intel guys suspected.
-> I'll attached my revert compared to the current 4.6+ development code.
-> Thanks,
->
+From: Rafal Redzimski <rafal.f.redzimski@intel.com>
 
-I am not affected by any of these iwlwifi issues.
+Current implementation updates the mtu size and notify cdc_ncm
+device using USB_CDC_SET_MAX_DATAGRAM_SIZE request about datagram
+size change instead of changing rx_urb_size.
 
-Can you next time add the commit-subject together with the commit-id,
-like this...
+Whenever mtu is being changed, datagram size should also be
+updated. Also updating maxmtu formula so it takes max_datagram_size with
+use of cdc_ncm_max_dgram_size() and not ctx.
 
-commit 5c08b0f5026fcc13efb947c4d1f2ca3558145f68
-"iwlwifi: mvm: don't override the rate with the AMSDU len"
+Signed-off-by: Robert Dobrowolski <robert.dobrowolski@linux.intel.com>
+Signed-off-by: Rafal Redzimski <rafal.f.redzimski@intel.com>
+---
+Changes in v2:
+- Changed the way maxmtu is being calculated. Its now based
+on cdc_ncm_max_dgram_size and not on ctx->max_datagram_size.
+New datagram size is calculated correctly.
 
-...it's easier for followers of this thread.
+ drivers/net/usb/cdc_ncm.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-- Sedat -
-
-[1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=5c08b0f5026fcc13efb947c4d1f2ca3558145f68
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 2fb31ed..53759c3 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -740,12 +740,14 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
+ int cdc_ncm_change_mtu(struct net_device *net, int new_mtu)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+-	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
+-	int maxmtu = ctx->max_datagram_size - cdc_ncm_eth_hlen(dev);
++	int maxmtu = cdc_ncm_max_dgram_size(dev) - cdc_ncm_eth_hlen(dev);
+ 
+ 	if (new_mtu <= 0 || new_mtu > maxmtu)
+ 		return -EINVAL;
++
+ 	net->mtu = new_mtu;
++	cdc_ncm_set_dgram_size(dev, new_mtu + cdc_ncm_eth_hlen(dev));
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(cdc_ncm_change_mtu);
+-- 
+1.9.1
