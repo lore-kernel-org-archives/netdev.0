@@ -1,265 +1,121 @@
-From: Reinoud Koornstra <reinoudkoornstra@gmail.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 19 May 2016 03:14:55 -0600
-Message-ID: <CAAA5faFWPCrk0C3sjT==VMVCq1jcR8_HANV=RRE-Ummv4_psHA@mail.gmail.com>
-References: <20160517.151113.367799295750703003.davem@davemloft.net>
-	<CA+55aFw_JRGNo3HYP3c=3VoGw_uYBP_h2OmxOMcUGsU=L43btw@mail.gmail.com>
-	<CANUX_P3n0ZkTw0fY8wD3biu2mLzrwyX7n=bo1otw9m0bpfS07Q@mail.gmail.com>
-	<1463568714.13625.18.camel@intel.com>
-	<CAAA5faF=SxqCt0yDTbPyUoc3gFD--_co+fRj2Jfuy=whEQvcBQ@mail.gmail.com>
-	<1463575273.13625.23.camel@intel.com>
-	<CAAA5faHtbt8oyKEQOJ+NMBKR24b7Nvm6uJ2qZid1sWY58e7f+A@mail.gmail.com>
-	<1463581411.29999.1.camel@intel.com>
-	<CA+55aFxThzV3myrHv0XZbubEdGhg5=rGE6dK=+L1ddc9sufdCQ@mail.gmail.com>
-	<CA+55aFxTXem=w71Q4pJCgeypqLzt+zk6KqoPM547usNDYxAjpg@mail.gmail.com>
-	<CAAA5faEoCDkgHmoGtFamS2G5KaUZ5j=pVc6tsPj2dG80ZFNedQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=94eb2c083bc051c03505332e684a
-Cc: "Coelho, Luciano" <luciano.coelho@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"egrumbach@gmail.com" <egrumbach@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 3.12 30/76] cpuset: Fix potential deadlock w/ set_mems_allowed
+Date: Thu, 19 May 2016 11:07:52 +0200
+Message-ID: <d9aa9f580cb2c2e79ea9573447c807607b195123.1463648873.git.jslaby@suse.cz>
+References: <c4ec97c341630e22e546c1a628a3664f17f7ffc8.1463648873.git.jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.cz>
+To: stable@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAA5faEoCDkgHmoGtFamS2G5KaUZ5j=pVc6tsPj2dG80ZFNedQ@mail.gmail.com>
+In-Reply-To: <c4ec97c341630e22e546c1a628a3664f17f7ffc8.1463648873.git.jslaby@suse.cz>
+In-Reply-To: <cover.1463648873.git.jslaby@suse.cz>
+References: <cover.1463648873.git.jslaby@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---94eb2c083bc051c03505332e684a
-Content-Type: text/plain; charset=UTF-8
+From: John Stultz <john.stultz@linaro.org>
 
-On Thu, May 19, 2016 at 2:20 AM, Reinoud Koornstra
-<reinoudkoornstra@gmail.com> wrote:
-> On Wed, May 18, 2016 at 12:51 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->> On Wed, May 18, 2016 at 11:45 AM, Linus Torvalds
->> <torvalds@linux-foundation.org> wrote:
->>>
->>> From what I can tell, there's a merge bug in commit 909b27f70643,
->>> where David seems to have lost some of the changes to
->>> iwl_mvm_set_tx_cmd().
->>>
->>> I do not know if that's the reason for the problem I see. But I will test.
->>
->> Yes. The attached patch that fixes the incorrect merge seems to fix
->> things for me.
->>
->> That should mean that the assumption that this problem existed in v4.6
->> too was wrong, because the incorrect merge came in later. I think
->> Luciano mis-understood "v4.6+" to mean plain v4.6.
->>
->> Reinoud Koornstra, does this patch fix things for you too?
->
-> Indeed, I meant 4.6+, not 4.6.
-> The patch you attached doesn't change existing code for me in 4.6+ as
-> these two lines are already in there.
-> Thanks,
->
-> Reinoud.
->
+3.12-stable review patch.  If anyone has any objections, please let me know.
 
-In the 4.6+ code from today I reverted commit 5c08b0f5026f.
-Now iwlwifi works fine for me again.
-So it's as the Intel guys suspected.
-I'll attached my revert compared to the current 4.6+ development code.
-Thanks,
+===============
 
-Reinoud.
+commit db751fe3ea6880ff5ac5abe60cb7b80deb5a4140 upstream.
 
+After adding lockdep support to seqlock/seqcount structures,
+I started seeing the following warning:
 
+[    1.070907] ======================================================
+[    1.072015] [ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
+[    1.073181] 3.11.0+ #67 Not tainted
+[    1.073801] ------------------------------------------------------
+[    1.074882] kworker/u4:2/708 [HC0[0]:SC0[0]:HE0:SE1] is trying to acquire:
+[    1.076088]  (&p->mems_allowed_seq){+.+...}, at: [<ffffffff81187d7f>] new_slab+0x5f/0x280
+[    1.077572]
+[    1.077572] and this task is already holding:
+[    1.078593]  (&(&q->__queue_lock)->rlock){..-...}, at: [<ffffffff81339f03>] blk_execute_rq_nowait+0x53/0xf0
+[    1.080042] which would create a new lock dependency:
+[    1.080042]  (&(&q->__queue_lock)->rlock){..-...} -> (&p->mems_allowed_seq){+.+...}
+[    1.080042]
+[    1.080042] but this new dependency connects a SOFTIRQ-irq-safe lock:
+[    1.080042]  (&(&q->__queue_lock)->rlock){..-...}
+[    1.080042] ... which became SOFTIRQ-irq-safe at:
+[    1.080042]   [<ffffffff810ec179>] __lock_acquire+0x5b9/0x1db0
+[    1.080042]   [<ffffffff810edfe5>] lock_acquire+0x95/0x130
+[    1.080042]   [<ffffffff818968a1>] _raw_spin_lock+0x41/0x80
+[    1.080042]   [<ffffffff81560c9e>] scsi_device_unbusy+0x7e/0xd0
+[    1.080042]   [<ffffffff8155a612>] scsi_finish_command+0x32/0xf0
+[    1.080042]   [<ffffffff81560e91>] scsi_softirq_done+0xa1/0x130
+[    1.080042]   [<ffffffff8133b0f3>] blk_done_softirq+0x73/0x90
+[    1.080042]   [<ffffffff81095dc0>] __do_softirq+0x110/0x2f0
+[    1.080042]   [<ffffffff81095fcd>] run_ksoftirqd+0x2d/0x60
+[    1.080042]   [<ffffffff810bc506>] smpboot_thread_fn+0x156/0x1e0
+[    1.080042]   [<ffffffff810b3916>] kthread+0xd6/0xe0
+[    1.080042]   [<ffffffff818980ac>] ret_from_fork+0x7c/0xb0
+[    1.080042]
+[    1.080042] to a SOFTIRQ-irq-unsafe lock:
+[    1.080042]  (&p->mems_allowed_seq){+.+...}
+[    1.080042] ... which became SOFTIRQ-irq-unsafe at:
+[    1.080042] ...  [<ffffffff810ec1d3>] __lock_acquire+0x613/0x1db0
+[    1.080042]   [<ffffffff810edfe5>] lock_acquire+0x95/0x130
+[    1.080042]   [<ffffffff810b3df2>] kthreadd+0x82/0x180
+[    1.080042]   [<ffffffff818980ac>] ret_from_fork+0x7c/0xb0
+[    1.080042]
+[    1.080042] other info that might help us debug this:
+[    1.080042]
+[    1.080042]  Possible interrupt unsafe locking scenario:
+[    1.080042]
+[    1.080042]        CPU0                    CPU1
+[    1.080042]        ----                    ----
+[    1.080042]   lock(&p->mems_allowed_seq);
+[    1.080042]                                local_irq_disable();
+[    1.080042]                                lock(&(&q->__queue_lock)->rlock);
+[    1.080042]                                lock(&p->mems_allowed_seq);
+[    1.080042]   <Interrupt>
+[    1.080042]     lock(&(&q->__queue_lock)->rlock);
+[    1.080042]
+[    1.080042]  *** DEADLOCK ***
 
->>
->>                        Linus
+The issue stems from the kthreadd() function calling set_mems_allowed
+with irqs enabled. While its possibly unlikely for the actual deadlock
+to trigger, a fix is fairly simple: disable irqs before taking the
+mems_allowed_seq lock.
 
---94eb2c083bc051c03505332e684a
-Content-Type: text/plain; charset=US-ASCII; name="iwlwifi.diff"
-Content-Disposition: attachment; filename="iwlwifi.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ioe2zclx0
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: Peter Zijlstra <peterz@infradead.org>
+Acked-by: Li Zefan <lizefan@huawei.com>
+Cc: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Link: http://lkml.kernel.org/r/1381186321-4906-4-git-send-email-john.stultz@linaro.org
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+---
+ include/linux/cpuset.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL3R4LmMg
-Yi9kcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL212bS90eC5jCmluZGV4IGM1M2Fh
-MGYuLjAwYzkyOTggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdp
-ZmkvbXZtL3R4LmMKKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9tdm0v
-dHguYwpAQCAtMjExLDcgKzIxMSw2IEBAIHZvaWQgaXdsX212bV9zZXRfdHhfY21kKHN0cnVjdCBp
-d2xfbXZtICptdm0sIHN0cnVjdCBza19idWZmICpza2IsCiAJCQlzdHJ1Y3QgaXdsX3R4X2NtZCAq
-dHhfY21kLAogCQkJc3RydWN0IGllZWU4MDIxMV90eF9pbmZvICppbmZvLCB1OCBzdGFfaWQpCiB7
-Ci0Jc3RydWN0IGllZWU4MDIxMV90eF9pbmZvICpza2JfaW5mbyA9IElFRUU4MDIxMV9TS0JfQ0Io
-c2tiKTsKIAlzdHJ1Y3QgaWVlZTgwMjExX2hkciAqaGRyID0gKHZvaWQgKilza2ItPmRhdGE7CiAJ
-X19sZTE2IGZjID0gaGRyLT5mcmFtZV9jb250cm9sOwogCXUzMiB0eF9mbGFncyA9IGxlMzJfdG9f
-Y3B1KHR4X2NtZC0+dHhfZmxhZ3MpOwpAQCAtMjk1LDcgKzI5NCw3IEBAIHZvaWQgaXdsX212bV9z
-ZXRfdHhfY21kKHN0cnVjdCBpd2xfbXZtICptdm0sIHN0cnVjdCBza19idWZmICpza2IsCiAJdHhf
-Y21kLT50eF9mbGFncyA9IGNwdV90b19sZTMyKHR4X2ZsYWdzKTsKIAkvKiBUb3RhbCAjIGJ5dGVz
-IHRvIGJlIHRyYW5zbWl0dGVkICovCiAJdHhfY21kLT5sZW4gPSBjcHVfdG9fbGUxNigodTE2KXNr
-Yi0+bGVuICsKLQkJKHVpbnRwdHJfdClza2JfaW5mby0+ZHJpdmVyX2RhdGFbMF0pOworCQkodWlu
-dHB0cl90KWluZm8tPmRyaXZlcl9kYXRhWzBdKTsKIAl0eF9jbWQtPmxpZmVfdGltZSA9IGNwdV90
-b19sZTMyKFRYX0NNRF9MSUZFX1RJTUVfSU5GSU5JVEUpOwogCXR4X2NtZC0+c3RhX2lkID0gc3Rh
-X2lkOwogCkBAIC00NDMsMTEgKzQ0MiwxMCBAQCBzdGF0aWMgdm9pZCBpd2xfbXZtX3NldF90eF9j
-bWRfY3J5cHRvKHN0cnVjdCBpd2xfbXZtICptdm0sCiAgKi8KIHN0YXRpYyBzdHJ1Y3QgaXdsX2Rl
-dmljZV9jbWQgKgogaXdsX212bV9zZXRfdHhfcGFyYW1zKHN0cnVjdCBpd2xfbXZtICptdm0sIHN0
-cnVjdCBza19idWZmICpza2IsCi0JCSAgICAgIHN0cnVjdCBpZWVlODAyMTFfdHhfaW5mbyAqaW5m
-bywgaW50IGhkcmxlbiwKLQkJICAgICAgc3RydWN0IGllZWU4MDIxMV9zdGEgKnN0YSwgdTggc3Rh
-X2lkKQorCQkgICAgICBpbnQgaGRybGVuLCBzdHJ1Y3QgaWVlZTgwMjExX3N0YSAqc3RhLCB1OCBz
-dGFfaWQpCiB7CiAJc3RydWN0IGllZWU4MDIxMV9oZHIgKmhkciA9IChzdHJ1Y3QgaWVlZTgwMjEx
-X2hkciAqKXNrYi0+ZGF0YTsKLQlzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gKnNrYl9pbmZvID0g
-SUVFRTgwMjExX1NLQl9DQihza2IpOworCXN0cnVjdCBpZWVlODAyMTFfdHhfaW5mbyAqaW5mbyA9
-IElFRUU4MDIxMV9TS0JfQ0Ioc2tiKTsKIAlzdHJ1Y3QgaXdsX2RldmljZV9jbWQgKmRldl9jbWQ7
-CiAJc3RydWN0IGl3bF90eF9jbWQgKnR4X2NtZDsKIApAQCAtNDY3LDEwICs0NjUsMTAgQEAgaXds
-X212bV9zZXRfdHhfcGFyYW1zKHN0cnVjdCBpd2xfbXZtICptdm0sIHN0cnVjdCBza19idWZmICpz
-a2IsCiAKIAlpd2xfbXZtX3NldF90eF9jbWRfcmF0ZShtdm0sIHR4X2NtZCwgaW5mbywgc3RhLCBo
-ZHItPmZyYW1lX2NvbnRyb2wpOwogCi0JbWVtc2V0KCZza2JfaW5mby0+c3RhdHVzLCAwLCBzaXpl
-b2Yoc2tiX2luZm8tPnN0YXR1cykpOwotCW1lbXNldChza2JfaW5mby0+ZHJpdmVyX2RhdGEsIDAs
-IHNpemVvZihza2JfaW5mby0+ZHJpdmVyX2RhdGEpKTsKKwltZW1zZXQoJmluZm8tPnN0YXR1cywg
-MCwgc2l6ZW9mKGluZm8tPnN0YXR1cykpOworCW1lbXNldChpbmZvLT5kcml2ZXJfZGF0YSwgMCwg
-c2l6ZW9mKGluZm8tPmRyaXZlcl9kYXRhKSk7CiAKLQlza2JfaW5mby0+ZHJpdmVyX2RhdGFbMV0g
-PSBkZXZfY21kOworCWluZm8tPmRyaXZlcl9kYXRhWzFdID0gZGV2X2NtZDsKIAogCXJldHVybiBk
-ZXZfY21kOwogfQpAQCAtNDc4LDI1ICs0NzYsMjIgQEAgaXdsX212bV9zZXRfdHhfcGFyYW1zKHN0
-cnVjdCBpd2xfbXZtICptdm0sIHN0cnVjdCBza19idWZmICpza2IsCiBpbnQgaXdsX212bV90eF9z
-a2Jfbm9uX3N0YShzdHJ1Y3QgaXdsX212bSAqbXZtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewog
-CXN0cnVjdCBpZWVlODAyMTFfaGRyICpoZHIgPSAoc3RydWN0IGllZWU4MDIxMV9oZHIgKilza2It
-PmRhdGE7Ci0Jc3RydWN0IGllZWU4MDIxMV90eF9pbmZvICpza2JfaW5mbyA9IElFRUU4MDIxMV9T
-S0JfQ0Ioc2tiKTsKLQlzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gaW5mbzsKKwlzdHJ1Y3QgaWVl
-ZTgwMjExX3R4X2luZm8gKmluZm8gPSBJRUVFODAyMTFfU0tCX0NCKHNrYik7CiAJc3RydWN0IGl3
-bF9kZXZpY2VfY21kICpkZXZfY21kOwogCXN0cnVjdCBpd2xfdHhfY21kICp0eF9jbWQ7CiAJdTgg
-c3RhX2lkOwogCWludCBoZHJsZW4gPSBpZWVlODAyMTFfaGRybGVuKGhkci0+ZnJhbWVfY29udHJv
-bCk7CiAKLQltZW1jcHkoJmluZm8sIHNrYi0+Y2IsIHNpemVvZihpbmZvKSk7Ci0KLQlpZiAoV0FS
-Tl9PTl9PTkNFKGluZm8uZmxhZ3MgJiBJRUVFODAyMTFfVFhfQ1RMX0FNUERVKSkKKwlpZiAoV0FS
-Tl9PTl9PTkNFKGluZm8tPmZsYWdzICYgSUVFRTgwMjExX1RYX0NUTF9BTVBEVSkpCiAJCXJldHVy
-biAtMTsKIAotCWlmIChXQVJOX09OX09OQ0UoaW5mby5mbGFncyAmIElFRUU4MDIxMV9UWF9DVExf
-U0VORF9BRlRFUl9EVElNICYmCi0JCQkgKCFpbmZvLmNvbnRyb2wudmlmIHx8Ci0JCQkgIGluZm8u
-aHdfcXVldWUgIT0gaW5mby5jb250cm9sLnZpZi0+Y2FiX3F1ZXVlKSkpCisJaWYgKFdBUk5fT05f
-T05DRShpbmZvLT5mbGFncyAmIElFRUU4MDIxMV9UWF9DVExfU0VORF9BRlRFUl9EVElNICYmCisJ
-CQkgKCFpbmZvLT5jb250cm9sLnZpZiB8fAorCQkJICBpbmZvLT5od19xdWV1ZSAhPSBpbmZvLT5j
-b250cm9sLnZpZi0+Y2FiX3F1ZXVlKSkpCiAJCXJldHVybiAtMTsKIAogCS8qIFRoaXMgaG9sZHMg
-dGhlIGFtc2R1IGhlYWRlcnMgbGVuZ3RoICovCi0Jc2tiX2luZm8tPmRyaXZlcl9kYXRhWzBdID0g
-KHZvaWQgKikodWludHB0cl90KTA7CisJaW5mby0+ZHJpdmVyX2RhdGFbMF0gPSAodm9pZCAqKSh1
-aW50cHRyX3QpMDsKIAogCS8qCiAJICogSVdMX01WTV9PRkZDSEFOTkVMX1FVRVVFIGlzIHVzZWQg
-Zm9yIFJPQyBwYWNrZXRzIHRoYXQgY2FuIGJlIHVzZWQKQEAgLTUwNSw3ICs1MDAsNyBAQCBpbnQg
-aXdsX212bV90eF9za2Jfbm9uX3N0YShzdHJ1Y3QgaXdsX212bSAqbXZtLCBzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiKQogCSAqIGFuZCBoZW5jZSBuZWVkcyB0byBiZSBzZW50IG9uIHRoZSBhdXggcXVldWUK
-IAkgKi8KIAlpZiAoSUVFRTgwMjExX1NLQl9DQihza2IpLT5od19xdWV1ZSA9PSBJV0xfTVZNX09G
-RkNIQU5ORUxfUVVFVUUgJiYKLQkgICAgaW5mby5jb250cm9sLnZpZi0+dHlwZSA9PSBOTDgwMjEx
-X0lGVFlQRV9TVEFUSU9OKQorCSAgICBpbmZvLT5jb250cm9sLnZpZi0+dHlwZSA9PSBOTDgwMjEx
-X0lGVFlQRV9TVEFUSU9OKQogCQlJRUVFODAyMTFfU0tCX0NCKHNrYiktPmh3X3F1ZXVlID0gbXZt
-LT5hdXhfcXVldWU7CiAKIAkvKgpAQCAtNTE4LDE0ICs1MTMsMTQgQEAgaW50IGl3bF9tdm1fdHhf
-c2tiX25vbl9zdGEoc3RydWN0IGl3bF9tdm0gKm12bSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkg
-KiBBVVggc3RhdGlvbi4KIAkgKi8KIAlzdGFfaWQgPSBtdm0tPmF1eF9zdGEuc3RhX2lkOwotCWlm
-IChpbmZvLmNvbnRyb2wudmlmKSB7CisJaWYgKGluZm8tPmNvbnRyb2wudmlmKSB7CiAJCXN0cnVj
-dCBpd2xfbXZtX3ZpZiAqbXZtdmlmID0KLQkJCWl3bF9tdm1fdmlmX2Zyb21fbWFjODAyMTEoaW5m
-by5jb250cm9sLnZpZik7CisJCQlpd2xfbXZtX3ZpZl9mcm9tX21hYzgwMjExKGluZm8tPmNvbnRy
-b2wudmlmKTsKIAotCQlpZiAoaW5mby5jb250cm9sLnZpZi0+dHlwZSA9PSBOTDgwMjExX0lGVFlQ
-RV9QMlBfREVWSUNFIHx8Ci0JCSAgICBpbmZvLmNvbnRyb2wudmlmLT50eXBlID09IE5MODAyMTFf
-SUZUWVBFX0FQKQorCQlpZiAoaW5mby0+Y29udHJvbC52aWYtPnR5cGUgPT0gTkw4MDIxMV9JRlRZ
-UEVfUDJQX0RFVklDRSB8fAorCQkgICAgaW5mby0+Y29udHJvbC52aWYtPnR5cGUgPT0gTkw4MDIx
-MV9JRlRZUEVfQVApCiAJCQlzdGFfaWQgPSBtdm12aWYtPmJjYXN0X3N0YS5zdGFfaWQ7Ci0JCWVs
-c2UgaWYgKGluZm8uY29udHJvbC52aWYtPnR5cGUgPT0gTkw4MDIxMV9JRlRZUEVfU1RBVElPTiAm
-JgorCQllbHNlIGlmIChpbmZvLT5jb250cm9sLnZpZi0+dHlwZSA9PSBOTDgwMjExX0lGVFlQRV9T
-VEFUSU9OICYmCiAJCQkgaXNfbXVsdGljYXN0X2V0aGVyX2FkZHIoaGRyLT5hZGRyMSkpIHsKIAkJ
-CXU4IGFwX3N0YV9pZCA9IEFDQ0VTU19PTkNFKG12bXZpZi0+YXBfc3RhX2lkKTsKIApAQCAtNTM0
-LDE4ICs1MjksMTkgQEAgaW50IGl3bF9tdm1fdHhfc2tiX25vbl9zdGEoc3RydWN0IGl3bF9tdm0g
-Km12bSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJfQogCX0KIAotCUlXTF9ERUJVR19UWChtdm0s
-ICJzdGF0aW9uIElkICVkLCBxdWV1ZT0lZFxuIiwgc3RhX2lkLCBpbmZvLmh3X3F1ZXVlKTsKKwlJ
-V0xfREVCVUdfVFgobXZtLCAic3RhdGlvbiBJZCAlZCwgcXVldWU9JWRcbiIsIHN0YV9pZCwgaW5m
-by0+aHdfcXVldWUpOwogCi0JZGV2X2NtZCA9IGl3bF9tdm1fc2V0X3R4X3BhcmFtcyhtdm0sIHNr
-YiwgJmluZm8sIGhkcmxlbiwgTlVMTCwgc3RhX2lkKTsKKwlkZXZfY21kID0gaXdsX212bV9zZXRf
-dHhfcGFyYW1zKG12bSwgc2tiLCBoZHJsZW4sIE5VTEwsIHN0YV9pZCk7CiAJaWYgKCFkZXZfY21k
-KQogCQlyZXR1cm4gLTE7CiAKKwkvKiBGcm9tIG5vdyBvbiwgd2UgY2Fubm90IGFjY2VzcyBpbmZv
-LT5jb250cm9sICovCiAJdHhfY21kID0gKHN0cnVjdCBpd2xfdHhfY21kICopZGV2X2NtZC0+cGF5
-bG9hZDsKIAogCS8qIENvcHkgTUFDIGhlYWRlciBmcm9tIHNrYiBpbnRvIGNvbW1hbmQgYnVmZmVy
-ICovCiAJbWVtY3B5KHR4X2NtZC0+aGRyLCBoZHIsIGhkcmxlbik7CiAKLQlpZiAoaXdsX3RyYW5z
-X3R4KG12bS0+dHJhbnMsIHNrYiwgZGV2X2NtZCwgaW5mby5od19xdWV1ZSkpIHsKKwlpZiAoaXds
-X3RyYW5zX3R4KG12bS0+dHJhbnMsIHNrYiwgZGV2X2NtZCwgaW5mby0+aHdfcXVldWUpKSB7CiAJ
-CWl3bF90cmFuc19mcmVlX3R4X2NtZChtdm0tPnRyYW5zLCBkZXZfY21kKTsKIAkJcmV0dXJuIC0x
-OwogCX0KQEAgLTU2NCwxMSArNTYwLDExIEBAIGludCBpd2xfbXZtX3R4X3NrYl9ub25fc3RhKHN0
-cnVjdCBpd2xfbXZtICptdm0sIHN0cnVjdCBza19idWZmICpza2IpCiAKICNpZmRlZiBDT05GSUdf
-SU5FVAogc3RhdGljIGludCBpd2xfbXZtX3R4X3RzbyhzdHJ1Y3QgaXdsX212bSAqbXZtLCBzdHJ1
-Y3Qgc2tfYnVmZiAqc2tiLAotCQkJICBzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gKmluZm8sCiAJ
-CQkgIHN0cnVjdCBpZWVlODAyMTFfc3RhICpzdGEsCiAJCQkgIHN0cnVjdCBza19idWZmX2hlYWQg
-Km1wZHVzX3NrYikKIHsKIAlzdHJ1Y3QgaXdsX212bV9zdGEgKm12bXN0YSA9IGl3bF9tdm1fc3Rh
-X2Zyb21fbWFjODAyMTEoc3RhKTsKKwlzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gKmluZm8gPSBJ
-RUVFODAyMTFfU0tCX0NCKHNrYik7CiAJc3RydWN0IGllZWU4MDIxMV9oZHIgKmhkciA9ICh2b2lk
-ICopc2tiLT5kYXRhOwogCXVuc2lnbmVkIGludCBtc3MgPSBza2Jfc2hpbmZvKHNrYiktPmdzb19z
-aXplOwogCXN0cnVjdCBza19idWZmICp0bXAsICpuZXh0OwpAQCAtNjc3LDggKzY3Myw2IEBAIHN0
-YXRpYyBpbnQgaXdsX212bV90eF90c28oc3RydWN0IGl3bF9tdm0gKm12bSwgc3RydWN0IHNrX2J1
-ZmYgKnNrYiwKIAogCS8qIFRoaXMgc2tiIGZpdHMgaW4gb25lIHNpbmdsZSBBLU1TRFUgKi8KIAlp
-ZiAobnVtX3N1YmZyYW1lcyAqIG1zcyA+PSB0Y3BfcGF5bG9hZF9sZW4pIHsKLQkJc3RydWN0IGll
-ZWU4MDIxMV90eF9pbmZvICpza2JfaW5mbyA9IElFRUU4MDIxMV9TS0JfQ0Ioc2tiKTsKLQogCQkv
-KgogCQkgKiBDb21wdXRlIHRoZSBsZW5ndGggb2YgYWxsIHRoZSBkYXRhIGFkZGVkIGZvciB0aGUg
-QS1NU0RVLgogCQkgKiBUaGlzIHdpbGwgYmUgdXNlZCB0byBjb21wdXRlIHRoZSBsZW5ndGggdG8g
-d3JpdGUgaW4gdGhlIFRYCkBAIC02ODcsMTAgKzY4MSwxMSBAQCBzdGF0aWMgaW50IGl3bF9tdm1f
-dHhfdHNvKHN0cnVjdCBpd2xfbXZtICptdm0sIHN0cnVjdCBza19idWZmICpza2IsCiAJCSAqIGFs
-cmVhZHkgaGFkIG9uZSBzZXQgb2YgU05BUCAvIElQIC8gVENQIGhlYWRlcnMuCiAJCSAqLwogCQlu
-dW1fc3ViZnJhbWVzID0gRElWX1JPVU5EX1VQKHRjcF9wYXlsb2FkX2xlbiwgbXNzKTsKKwkJaW5m
-byA9IElFRUU4MDIxMV9TS0JfQ0Ioc2tiKTsKIAkJYW1zZHVfYWRkID0gbnVtX3N1YmZyYW1lcyAq
-IHNpemVvZihzdHJ1Y3QgZXRoaGRyKSArCiAJCQkobnVtX3N1YmZyYW1lcyAtIDEpICogKHNuYXBf
-aXBfdGNwICsgcGFkKTsKIAkJLyogVGhpcyBob2xkcyB0aGUgYW1zZHUgaGVhZGVycyBsZW5ndGgg
-Ki8KLQkJc2tiX2luZm8tPmRyaXZlcl9kYXRhWzBdID0gKHZvaWQgKikodWludHB0cl90KWFtc2R1
-X2FkZDsKKwkJaW5mby0+ZHJpdmVyX2RhdGFbMF0gPSAodm9pZCAqKSh1aW50cHRyX3QpYW1zZHVf
-YWRkOwogCiAJCV9fc2tiX3F1ZXVlX3RhaWwobXBkdXNfc2tiLCBza2IpOwogCQlyZXR1cm4gMDsK
-QEAgLTczMCwxNCArNzI1LDEyIEBAIHNlZ21lbnQ6CiAJCQlpcF9oZHIodG1wKS0+aWQgPSBodG9u
-cyhpcF9iYXNlX2lkICsgaSAqIG51bV9zdWJmcmFtZXMpOwogCiAJCWlmICh0Y3BfcGF5bG9hZF9s
-ZW4gPiBtc3MpIHsKLQkJCXN0cnVjdCBpZWVlODAyMTFfdHhfaW5mbyAqc2tiX2luZm8gPQotCQkJ
-CUlFRUU4MDIxMV9TS0JfQ0IodG1wKTsKIAogCQkJbnVtX3N1YmZyYW1lcyA9IERJVl9ST1VORF9V
-UCh0Y3BfcGF5bG9hZF9sZW4sIG1zcyk7CisJCQlpbmZvID0gSUVFRTgwMjExX1NLQl9DQih0bXAp
-OwogCQkJYW1zZHVfYWRkID0gbnVtX3N1YmZyYW1lcyAqIHNpemVvZihzdHJ1Y3QgZXRoaGRyKSAr
-CiAJCQkJKG51bV9zdWJmcmFtZXMgLSAxKSAqIChzbmFwX2lwX3RjcCArIHBhZCk7Ci0JCQlza2Jf
-aW5mby0+ZHJpdmVyX2RhdGFbMF0gPQotCQkJCSh2b2lkICopKHVpbnRwdHJfdClhbXNkdV9hZGQ7
-CisJCQlpbmZvLT5kcml2ZXJfZGF0YVswXSA9ICh2b2lkICopKHVpbnRwdHJfdClhbXNkdV9hZGQ7
-CiAJCQlza2Jfc2hpbmZvKHRtcCktPmdzb19zaXplID0gbXNzOwogCQl9IGVsc2UgewogCQkJcWMg
-PSBpZWVlODAyMTFfZ2V0X3Fvc19jdGwoKHZvaWQgKil0bXAtPmRhdGEpOwpAQCAtNzU5LDcgKzc1
-Miw2IEBAIHNlZ21lbnQ6CiB9CiAjZWxzZSAvKiBDT05GSUdfSU5FVCAqLwogc3RhdGljIGludCBp
-d2xfbXZtX3R4X3RzbyhzdHJ1Y3QgaXdsX212bSAqbXZtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAot
-CQkJICBzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gKmluZm8sCiAJCQkgIHN0cnVjdCBpZWVlODAy
-MTFfc3RhICpzdGEsCiAJCQkgIHN0cnVjdCBza19idWZmX2hlYWQgKm1wZHVzX3NrYikKIHsKQEAg
-LTgwMywxMCArNzk1LDEwIEBAIHN0YXRpYyB2b2lkIGl3bF9tdm1fdHhfYWRkX3N0cmVhbShzdHJ1
-Y3QgaXdsX212bSAqbXZtLAogICogU2V0cyB0aGUgZmllbGRzIGluIHRoZSBUeCBjbWQgdGhhdCBh
-cmUgY3J5cHRvIHJlbGF0ZWQKICAqLwogc3RhdGljIGludCBpd2xfbXZtX3R4X21wZHUoc3RydWN0
-IGl3bF9tdm0gKm12bSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgIHN0cnVjdCBpZWVlODAy
-MTFfdHhfaW5mbyAqaW5mbywKIAkJCSAgIHN0cnVjdCBpZWVlODAyMTFfc3RhICpzdGEpCiB7CiAJ
-c3RydWN0IGllZWU4MDIxMV9oZHIgKmhkciA9IChzdHJ1Y3QgaWVlZTgwMjExX2hkciAqKXNrYi0+
-ZGF0YTsKKwlzdHJ1Y3QgaWVlZTgwMjExX3R4X2luZm8gKmluZm8gPSBJRUVFODAyMTFfU0tCX0NC
-KHNrYik7CiAJc3RydWN0IGl3bF9tdm1fc3RhICptdm1zdGE7CiAJc3RydWN0IGl3bF9kZXZpY2Vf
-Y21kICpkZXZfY21kOwogCXN0cnVjdCBpd2xfdHhfY21kICp0eF9jbWQ7CkBAIC04MjcsOCArODE5
-LDcgQEAgc3RhdGljIGludCBpd2xfbXZtX3R4X21wZHUoc3RydWN0IGl3bF9tdm0gKm12bSwgc3Ry
-dWN0IHNrX2J1ZmYgKnNrYiwKIAlpZiAoV0FSTl9PTl9PTkNFKG12bXN0YS0+c3RhX2lkID09IElX
-TF9NVk1fU1RBVElPTl9DT1VOVCkpCiAJCXJldHVybiAtMTsKIAotCWRldl9jbWQgPSBpd2xfbXZt
-X3NldF90eF9wYXJhbXMobXZtLCBza2IsIGluZm8sIGhkcmxlbiwKLQkJCQkJc3RhLCBtdm1zdGEt
-PnN0YV9pZCk7CisJZGV2X2NtZCA9IGl3bF9tdm1fc2V0X3R4X3BhcmFtcyhtdm0sIHNrYiwgaGRy
-bGVuLCBzdGEsIG12bXN0YS0+c3RhX2lkKTsKIAlpZiAoIWRldl9jbWQpCiAJCWdvdG8gZHJvcDsK
-IApAQCAtOTI4LDggKzkxOSw3IEBAIGludCBpd2xfbXZtX3R4X3NrYihzdHJ1Y3QgaXdsX212bSAq
-bXZtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkgICBzdHJ1Y3QgaWVlZTgwMjExX3N0YSAqc3Rh
-KQogewogCXN0cnVjdCBpd2xfbXZtX3N0YSAqbXZtc3RhID0gaXdsX212bV9zdGFfZnJvbV9tYWM4
-MDIxMShzdGEpOwotCXN0cnVjdCBpZWVlODAyMTFfdHhfaW5mbyAqc2tiX2luZm8gPSBJRUVFODAy
-MTFfU0tCX0NCKHNrYik7Ci0Jc3RydWN0IGllZWU4MDIxMV90eF9pbmZvIGluZm87CisJc3RydWN0
-IGllZWU4MDIxMV90eF9pbmZvICppbmZvID0gSUVFRTgwMjExX1NLQl9DQihza2IpOwogCXN0cnVj
-dCBza19idWZmX2hlYWQgbXBkdXNfc2ticzsKIAl1bnNpZ25lZCBpbnQgcGF5bG9hZF9sZW47CiAJ
-aW50IHJldDsKQEAgLTk0MCwyMyArOTMwLDIxIEBAIGludCBpd2xfbXZtX3R4X3NrYihzdHJ1Y3Qg
-aXdsX212bSAqbXZtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCWlmIChXQVJOX09OX09OQ0UobXZt
-c3RhLT5zdGFfaWQgPT0gSVdMX01WTV9TVEFUSU9OX0NPVU5UKSkKIAkJcmV0dXJuIC0xOwogCi0J
-bWVtY3B5KCZpbmZvLCBza2ItPmNiLCBzaXplb2YoaW5mbykpOwotCiAJLyogVGhpcyBob2xkcyB0
-aGUgYW1zZHUgaGVhZGVycyBsZW5ndGggKi8KLQlza2JfaW5mby0+ZHJpdmVyX2RhdGFbMF0gPSAo
-dm9pZCAqKSh1aW50cHRyX3QpMDsKKwlpbmZvLT5kcml2ZXJfZGF0YVswXSA9ICh2b2lkICopKHVp
-bnRwdHJfdCkwOwogCiAJaWYgKCFza2JfaXNfZ3NvKHNrYikpCi0JCXJldHVybiBpd2xfbXZtX3R4
-X21wZHUobXZtLCBza2IsICZpbmZvLCBzdGEpOworCQlyZXR1cm4gaXdsX212bV90eF9tcGR1KG12
-bSwgc2tiLCBzdGEpOwogCiAJcGF5bG9hZF9sZW4gPSBza2JfdGFpbF9wb2ludGVyKHNrYikgLSBz
-a2JfdHJhbnNwb3J0X2hlYWRlcihza2IpIC0KIAkJdGNwX2hkcmxlbihza2IpICsgc2tiLT5kYXRh
-X2xlbjsKIAogCWlmIChwYXlsb2FkX2xlbiA8PSBza2Jfc2hpbmZvKHNrYiktPmdzb19zaXplKQot
-CQlyZXR1cm4gaXdsX212bV90eF9tcGR1KG12bSwgc2tiLCAmaW5mbywgc3RhKTsKKwkJcmV0dXJu
-IGl3bF9tdm1fdHhfbXBkdShtdm0sIHNrYiwgc3RhKTsKIAogCV9fc2tiX3F1ZXVlX2hlYWRfaW5p
-dCgmbXBkdXNfc2ticyk7CiAKLQlyZXQgPSBpd2xfbXZtX3R4X3Rzbyhtdm0sIHNrYiwgJmluZm8s
-IHN0YSwgJm1wZHVzX3NrYnMpOworCXJldCA9IGl3bF9tdm1fdHhfdHNvKG12bSwgc2tiLCBzdGEs
-ICZtcGR1c19za2JzKTsKIAlpZiAocmV0KQogCQlyZXR1cm4gcmV0OwogCkBAIC05NjYsNyArOTU0
-LDcgQEAgaW50IGl3bF9tdm1fdHhfc2tiKHN0cnVjdCBpd2xfbXZtICptdm0sIHN0cnVjdCBza19i
-dWZmICpza2IsCiAJd2hpbGUgKCFza2JfcXVldWVfZW1wdHkoJm1wZHVzX3NrYnMpKSB7CiAJCXNr
-YiA9IF9fc2tiX2RlcXVldWUoJm1wZHVzX3NrYnMpOwogCi0JCXJldCA9IGl3bF9tdm1fdHhfbXBk
-dShtdm0sIHNrYiwgJmluZm8sIHN0YSk7CisJCXJldCA9IGl3bF9tdm1fdHhfbXBkdShtdm0sIHNr
-Yiwgc3RhKTsKIAkJaWYgKHJldCkgewogCQkJX19za2JfcXVldWVfcHVyZ2UoJm1wZHVzX3NrYnMp
-OwogCQkJcmV0dXJuIHJldDsK
---94eb2c083bc051c03505332e684a--
+diff --git a/include/linux/cpuset.h b/include/linux/cpuset.h
+index a7ebb89ae9fb..ade2390ffe92 100644
+--- a/include/linux/cpuset.h
++++ b/include/linux/cpuset.h
+@@ -132,10 +132,14 @@ static inline bool read_mems_allowed_retry(unsigned int seq)
+ 
+ static inline void set_mems_allowed(nodemask_t nodemask)
+ {
++	unsigned long flags;
++
+ 	task_lock(current);
++	local_irq_save(flags);
+ 	write_seqcount_begin(&current->mems_allowed_seq);
+ 	current->mems_allowed = nodemask;
+ 	write_seqcount_end(&current->mems_allowed_seq);
++	local_irq_restore(flags);
+ 	task_unlock(current);
+ }
+ 
+-- 
+2.8.2
