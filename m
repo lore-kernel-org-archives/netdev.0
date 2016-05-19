@@ -1,98 +1,66 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH] net/atm: sk_err_soft must be positive
-Date: Wed, 18 May 2016 17:42:13 -0700
-Message-ID: <1463618533-7098-1-git-send-email-stefanha@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for SOCK_DESTROY
+Date: Thu, 19 May 2016 09:55:10 +0900
+Message-ID: <CAKD1Yr1u-p8hyjd_e672kYrXw+-Mkmj_Cxai=WUYM-9QQG=DQg@mail.gmail.com>
+References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
+ <1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
+ <CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
+ <bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
+ <CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com>
+ <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
+ <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
+ <3d0fd83a-fa88-8ceb-a44d-237f5a005eb4@cumulusnetworks.com>
+ <CAKD1Yr0E9i0s0ocSyYhEjODnVVQVBPOfbepvORAhT9gi9Qqz6A@mail.gmail.com> <a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60130 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750736AbcESAmS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2016 20:42:18 -0400
+Received: from mail-yw0-f174.google.com ([209.85.161.174]:36486 "EHLO
+	mail-yw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbcESAzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2016 20:55:31 -0400
+Received: by mail-yw0-f174.google.com with SMTP id x189so63326545ywe.3
+        for <netdev@vger.kernel.org>; Wed, 18 May 2016 17:55:30 -0700 (PDT)
+In-Reply-To: <a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sk_err and sk_err_soft fields are positive errno values and
-userspace applications rely on this when using getsockopt(SO_ERROR).
+On Wed, May 18, 2016 at 3:35 AM, <subashab@codeaurora.org> wrote:
+> Would it be acceptable to have a separate column which displays the result of the sock destroy operation per socket.
+> State    ... Killed
+> ESTAB         Y
+> TIME_WAIT     N
 
-ATM code places an -errno into sk_err_soft in sigd_send() and returns it
-from svc_addparty()/svc_dropparty().
+Fine by me, but... what problem are we trying to address? People who
+compile their own kernels and don't turn CONFIG_INET_DIAG_DESTROY, and
+then are confused why it doesn't work? Seems like we could fix that by
+turning CONFIG_INET_DIAG_DESTROY on by default. CCing the people who
+commented on the original SOCK_DESTROY patch to see if they have
+opinions.
 
-Although I am not familiar with ATM code I came to this conclusion
-because:
+> If it is not supported from kernel, maybe print U (unsupported) for this.
 
-1. sigd_send() msg->type cases as_okay and as_error both have:
+In current code there is no way to distinguish U from N because in
+both cases the error will be EOPNOTSUPP. It's certainly possible to
+change SOCK_DESTROY to return something else (e.g., EBADFD) to
+indicate "kernel supports closing this type of socket, but it can't be
+closed due to the state it's in". In hindsight, perhaps I should have
+done that from the start.
 
-   sk->sk_err = -msg->reply;
+Regardless, we still have the problem of what to do if the user says
+"ss -K dport = :443" and we encounter a UDP socket connected to port
+443. Options:
 
-   while the as_addparty and as_dropparty cases have:
+1. Silently skip. if the tool prints something, it means it closed it.
+2. Abort with an error message.
+3. Skip the socket and print an error every time this happens.
+4. Skip the socket and print an error the first time this happens.
 
-   sk->sk_err_soft = msg->reply;
-
-   This is the source of the inconsistency.
-
-2. svc_addparty() returns an -errno and assumes sk_err_soft is also an
-   -errno:
-
-       if (flags & O_NONBLOCK) {
-           error = -EINPROGRESS;
-           goto out;
-       }
-       ...
-       error = xchg(&sk->sk_err_soft, 0);
-   out:
-       release_sock(sk);
-       return error;
-
-   This shows that sk_err_soft is indeed being treated as an -errno.
-
-This patch ensures that sk_err_soft is always a positive errno.
-
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
-This patch is untested and potentially affects the getsockopt(SO_ERROR) ABI for
-a specific case in ATM.  I leave it to the maintainer to decide whether this
-inconsistency should be fixed or not.
-
- net/atm/signaling.c | 2 +-
- net/atm/svc.c       | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/atm/signaling.c b/net/atm/signaling.c
-index 4fd6af4..adb6e3d 100644
---- a/net/atm/signaling.c
-+++ b/net/atm/signaling.c
-@@ -124,7 +124,7 @@ as_indicate_complete:
- 		break;
- 	case as_addparty:
- 	case as_dropparty:
--		sk->sk_err_soft = msg->reply;
-+		sk->sk_err_soft = -msg->reply;
- 					/* < 0 failure, otherwise ep_ref */
- 		clear_bit(ATM_VF_WAITING, &vcc->flags);
- 		break;
-diff --git a/net/atm/svc.c b/net/atm/svc.c
-index 3fa0a9e..878563a 100644
---- a/net/atm/svc.c
-+++ b/net/atm/svc.c
-@@ -546,7 +546,7 @@ static int svc_addparty(struct socket *sock, struct sockaddr *sockaddr,
- 		schedule();
- 	}
- 	finish_wait(sk_sleep(sk), &wait);
--	error = xchg(&sk->sk_err_soft, 0);
-+	error = -xchg(&sk->sk_err_soft, 0);
- out:
- 	release_sock(sk);
- 	return error;
-@@ -573,7 +573,7 @@ static int svc_dropparty(struct socket *sock, int ep_ref)
- 		error = -EUNATCH;
- 		goto out;
- 	}
--	error = xchg(&sk->sk_err_soft, 0);
-+	error = -xchg(&sk->sk_err_soft, 0);
- out:
- 	release_sock(sk);
- 	return error;
--- 
-2.5.5
+Personally I still think #1 is the best option.
