@@ -1,41 +1,41 @@
-From: CITY FINANCE =?utf-8?Q?LIMITED=C2=AE?=
-	<zico.yudhi@kalstaronline.com>
-Subject: =?utf-8?Q?l=C3=A5ne?=
-Date: Fri, 20 May 2016 04:59:36 +0700 (WIT)
-Message-ID: <1597035241.295574.1463695176408.JavaMail.zimbra@kalstaronline.com>
-Reply-To: "royally_bnk_ltd@webadicta.org" <royally_bnk_ltd@webadicta.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] udp: prevent skbs lingering in tunnel socket queues
+Date: Thu, 19 May 2016 15:33:34 -0700
+Message-ID: <CAM_iQpXOxcT+P2mxF9okdeD2d-=mXXxba6c-AQk-hgv7qian2A@mail.gmail.com>
+References: <1463666313-12743-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.kalstaronline.com ([202.43.163.170]:48861 "EHLO
-	mail2.kalstaronline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932132AbcESWbW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 18:31:22 -0400
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:33961 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932132AbcESWdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 18:33:55 -0400
+Received: by mail-yw0-f196.google.com with SMTP id i22so12513555ywc.1
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 15:33:54 -0700 (PDT)
+In-Reply-To: <1463666313-12743-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hilsener herr / fru:
+On Thu, May 19, 2016 at 6:58 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 2e3ebfe5549ef5..d56c0559b477cb 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1565,7 +1565,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>
+>                 /* if we're overly short, let UDP handle it */
+>                 encap_rcv = ACCESS_ONCE(up->encap_rcv);
+> -               if (skb->len > sizeof(struct udphdr) && encap_rcv) {
+> +               if (encap_rcv) {
 
-=C2=A0 Jeg er Justins Morgam, fra private l=C3=A5n selskapet CITY FINAN=
-CE, som ligger i Storbritannia.
-Vi tilbyr alle typer l=C3=A5n til enkeltpersoner og bedrifter, Gj=C3=B8=
-r deg selv =C3=B8konomisk
-stabil ved =C3=A5 skaffe et l=C3=A5n fra CITY FINANCE p=C3=A5 3% Rente =
-som kort og
-Langsiktig l=C3=A5n, firma l=C3=A5n, hus l=C3=A5n. bil l=C3=A5n etc.
 
-=C2=A0=C2=A0 Vennligst fyll l=C3=A5nes=C3=B8knad skjemaet nedenfor hvis=
- du er interessert i l=C3=A5net,
-* Navn:
-* Kj=C3=B8nn:
-* Land / adresse:
-* Bel=C3=B8p er n=C3=B8dvendig:
-* Varighet av l=C3=A5n:
-* Form=C3=A5let med l=C3=A5n:
-* Tel:
+I don't think you can just remove it here, l2tp_udp_recv_core() still
+relies on it:
 
-Kontakt oss via e-post royally_bnk_ltd@webadicta.org / +447053857786
-Takk og vennlig hilsen.
-Justins Morgam.
+        /* UDP has verifed checksum */
+
+        /* UDP always verifies the packet length. */
+        __skb_pull(skb, sizeof(struct udphdr));
