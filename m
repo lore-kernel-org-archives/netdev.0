@@ -1,37 +1,39 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v2] net: Fix coding style warnings and errors.
-Date: Thu, 19 May 2016 11:48:59 -0700 (PDT)
-Message-ID: <20160519.114859.762858537783024404.davem@redhat.com>
-References: <1463534190-3327-1-git-send-email-amitg.b14@gmail.com>
+Subject: Re: [PATCH net-next 0/2] tcp: add NV congestion control
+Date: Thu, 19 May 2016 11:50:02 -0700 (PDT)
+Message-ID: <20160519.115002.2299349000280786986.davem@redhat.com>
+References: <1463534736-2739015-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: amitg.b14@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463534190-3327-1-git-send-email-amitg.b14@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, ncardwell@google.com,
+	eric.dumazet@gmail.com, ycheng@google.com,
+	stephen@networkplumber.org, kennetkl@ifi.uio.no
+To: brakmo@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58725 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754527AbcESSuF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 May 2016 14:50:05 -0400
+In-Reply-To: <1463534736-2739015-1-git-send-email-brakmo@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amit Ghadge <amitg.b14@gmail.com>
-Date: Wed, 18 May 2016 06:46:30 +0530
+From: Lawrence Brakmo <brakmo@fb.com>
+Date: Tue, 17 May 2016 18:25:34 -0700
 
-> This is a patch to clean checkpatch warnings and errors
-> in the Space.c file.
-> Clean up the following warnings and errors.
+> This patchset adds support for NV congestion control.
 > 
-> WARNING :
-> * Block comments use * on subsequent lines
-> * Missing a blank line after declarations
-> * networking block comments don't use an empty /* line, use /*
-> * please, no space before tabs
-> * please, no spaces at the start of a line
-> * line over 80 characters
+> This version of NV does much better than previous versions when things are
+> very congested. 
 > 
-> ERROR :
-> * code indent should use tabs where possible
-> * space prohibited after that open parenthesis '('
+> Tested in a rack using between 1 and 380 active TCP-NV flows.
 > 
-> Signed-off-by: Amit Ghadge <amitg.b14@gmail.com>
+> Consists of the following patches:
+> [PATCH net-next 1/2] tcp: add in_flight to tcp_skb_cb
+> [PATCH net-next 2/2] tcp: add NV congestion control
+> 
+> Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 
-Applied.
+Sorry this is too late for the current merge window, please resubmit when
+the net-next tree opens back up.
