@@ -1,36 +1,35 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCHv2] net: suppress warnings on dev_alloc_skb
-Date: Thu, 19 May 2016 13:34:12 -0400
-Message-ID: <20160519173412.GG4128@hmsreliant.think-freely.org>
-References: <1463585124-13086-1-git-send-email-nhorman@tuxdriver.com>
- <1463671854-26829-1-git-send-email-nhorman@tuxdriver.com>
- <1463672936.18194.195.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Subject: [PATCH iproute2] ipaddress: needs to include <sys/param.h>
+Date: Thu, 19 May 2016 14:29:46 -0300
+Message-ID: <1463678986-3732-1-git-send-email-gustavo@zacarias.com.ar>
+Cc: Gustavo Zacarias <gustavo@zacarias.com.ar>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40818 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646AbcESRed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 13:34:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1463672936.18194.195.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www.zacarias.com.ar ([176.9.42.171]:51952 "EHLO
+	www.zacarias.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754342AbcESRkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 13:40:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2016 at 08:48:56AM -0700, Eric Dumazet wrote:
-> On Thu, 2016-05-19 at 11:30 -0400, Neil Horman wrote:
-> > Noticed an allocation failure in a network driver the other day on a 32 bit
-> > system:
-> 
-> Presumably driver could fall back to HIGH memory allocation for the page
-> frag.
-> 
-Is that safe on a 32 bit system?
-Neil
+It's using MIN() now, otherwise it breaks for musl libc.
 
-> 
-> 
-> 
+Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
+---
+ ip/ipaddress.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 0692fba..df363b0 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -19,6 +19,7 @@
+ #include <sys/ioctl.h>
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
++#include <sys/param.h>
+ #include <errno.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+-- 
+2.7.3
