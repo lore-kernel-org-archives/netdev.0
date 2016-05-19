@@ -1,60 +1,121 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] ss: Tell user about -EOPNOTSUPP for SOCK_DESTROY
-Date: Thu, 19 May 2016 08:06:15 -0600
-Message-ID: <2ad9d070-8326-a720-39d7-2e46db98ff7a@cumulusnetworks.com>
-References: <1463442791-2399-1-git-send-email-dsa@cumulusnetworks.com>
- <1463442791-2399-2-git-send-email-dsa@cumulusnetworks.com>
- <CAKD1Yr08Zm55=oxMWUxL5-=D-gt4Hg5nfKSH7KRi38Ki=VyqcQ@mail.gmail.com>
- <bf9bfd17-9b96-dac4-a429-5470a44aa66c@cumulusnetworks.com>
- <CAKD1Yr2tzVATZLYV86KmvPvAohW2-49J+6Wc6PuP+xmLwBz9Qg@mail.gmail.com>
- <39db6a27-9dfa-1c9a-2699-2f01a0e64a66@cumulusnetworks.com>
- <CAKD1Yr3itVp4UgWF1uFSVRKzQm_vaLEQT=FnfBNjUJJVTj2Z+Q@mail.gmail.com>
- <3d0fd83a-fa88-8ceb-a44d-237f5a005eb4@cumulusnetworks.com>
- <CAKD1Yr0E9i0s0ocSyYhEjODnVVQVBPOfbepvORAhT9gi9Qqz6A@mail.gmail.com>
- <a3cafb2342fa6a754fc389947f77f248@codeaurora.org>
- <CAKD1Yr1u-p8hyjd_e672kYrXw+-Mkmj_Cxai=WUYM-9QQG=DQg@mail.gmail.com>
- <4ca62c9f-4d19-4dd1-0d8c-c2cfe17c0443@cumulusnetworks.com>
- <1463629667.18194.150.camel@edumazet-glaptop3.roam.corp.google.com>
- <7b91db2e-9e27-48e3-e080-00037bc1a9c3@cumulusnetworks.com>
- <1463631168.18194.153.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-	Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org, David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] udp: prevent skbs lingering in tunnel socket queues
+Date: Thu, 19 May 2016 15:58:33 +0200
+Message-ID: <1463666313-12743-1-git-send-email-hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33312 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751760AbcESOGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 10:06:20 -0400
-Received: by mail-io0-f177.google.com with SMTP id t40so15959714ioi.0
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 07:06:19 -0700 (PDT)
-In-Reply-To: <1463631168.18194.153.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:33984 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754283AbcESOGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 10:06:25 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 671A220C82
+	for <netdev@vger.kernel.org>; Thu, 19 May 2016 09:58:39 -0400 (EDT)
+Received: from z.localhost.localdomain (unknown [217.192.177.51])
+	by mail.messagingengine.com (Postfix) with ESMTPA id B2083C00014
+	for <netdev@vger.kernel.org>; Thu, 19 May 2016 09:58:38 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/18/16 10:12 PM, Eric Dumazet wrote:
-> On Wed, 2016-05-18 at 22:05 -0600, David Ahern wrote:
->
->> You think it is ok to send a request to the kernel, the kernel says "I
->> can't do it" and the command says nothing to the user? That is current
->> behavior. How on Earth is that acceptable?
->
-> I don't know. Tell me what is acceptable on a 'dump many sockets' and
-> some of them can be killed, but not all of them.
->
-> What I do know is that you sent totally buggy patches.
+In case we find a socket with encapsulation enabled we should call
+the encap_recv function even if just a udp header without payload is
+available. The callbacks are responsible for correctly verifying and
+dropping the packets.
 
-buggy patches? not silently dropping a failure makes for a buggy patch?
+Also, in case the header validation fails for geneve and vxlan we
+shouldn't put the skb back into the socket queue, no one will pick
+them up there.  Instead we can simply discard them in the respective
+encap_recv functions.
 
->
-> If you want to 'fix' something, please send a patch that we can agree
-> on, ie not breaking existing scripts.
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ drivers/net/geneve.c | 10 +++-------
+ drivers/net/vxlan.c  |  4 ++--
+ net/ipv4/udp.c       |  2 +-
+ net/ipv6/udp.c       |  2 +-
+ 4 files changed, 7 insertions(+), 11 deletions(-)
 
-got it. Google does not care about users; don't un-suppress failures.
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index a6dc11ce497f5c..cadefe4fdaa2aa 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -335,15 +335,15 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	/* Need Geneve and inner Ethernet header to be present */
+ 	if (unlikely(!pskb_may_pull(skb, GENEVE_BASE_HLEN)))
+-		goto error;
++		goto drop;
+ 
+ 	/* Return packets with reserved bits set */
+ 	geneveh = geneve_hdr(skb);
+ 	if (unlikely(geneveh->ver != GENEVE_VER))
+-		goto error;
++		goto drop;
+ 
+ 	if (unlikely(geneveh->proto_type != htons(ETH_P_TEB)))
+-		goto error;
++		goto drop;
+ 
+ 	gs = rcu_dereference_sk_user_data(sk);
+ 	if (!gs)
+@@ -366,10 +366,6 @@ drop:
+ 	/* Consume bad packet */
+ 	kfree_skb(skb);
+ 	return 0;
+-
+-error:
+-	/* Let the UDP layer deal with the skb */
+-	return 1;
+ }
+ 
+ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 25ab6bf013c4d2..8ff30c3bdfceab 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1304,7 +1304,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	/* Need UDP and VXLAN header to be present */
+ 	if (!pskb_may_pull(skb, VXLAN_HLEN))
+-		return 1;
++		goto drop;
+ 
+ 	unparsed = *vxlan_hdr(skb);
+ 	/* VNI flag always required to be set */
+@@ -1313,7 +1313,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+ 			   ntohl(vxlan_hdr(skb)->vx_flags),
+ 			   ntohl(vxlan_hdr(skb)->vx_vni));
+ 		/* Return non vxlan pkt */
+-		return 1;
++		goto drop;
+ 	}
+ 	unparsed.vx_flags &= ~VXLAN_HF_VNI;
+ 	unparsed.vx_vni &= ~VXLAN_VNI_MASK;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 2e3ebfe5549ef5..d56c0559b477cb 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1565,7 +1565,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 		/* if we're overly short, let UDP handle it */
+ 		encap_rcv = ACCESS_ONCE(up->encap_rcv);
+-		if (skb->len > sizeof(struct udphdr) && encap_rcv) {
++		if (encap_rcv) {
+ 			int ret;
+ 
+ 			/* Verify checksum before giving to encap */
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 2ba6a77a881532..2da1896af93496 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -617,7 +617,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 		/* if we're overly short, let UDP handle it */
+ 		encap_rcv = ACCESS_ONCE(up->encap_rcv);
+-		if (skb->len > sizeof(struct udphdr) && encap_rcv) {
++		if (encap_rcv) {
+ 			int ret;
+ 
+ 			/* Verify checksum before giving to encap */
+-- 
+2.5.5
