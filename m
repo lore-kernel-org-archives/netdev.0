@@ -1,101 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] skb_array: array based FIFO for skbs
-Date: Thu, 19 May 2016 05:49:54 -0700
-Message-ID: <1463662194.18194.185.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463659932-14570-1-git-send-email-mst@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] Revert "phy: add support for a reset-gpio specification"
+Date: Thu, 19 May 2016 16:11:44 +0300
+Message-ID: <b2763da7-575a-4d73-2997-4236173761bf@cogentembedded.com>
+References: <1463587500-12293-1-git-send-email-fabio.estevam@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463659932-14570-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: u.kleine-koenig@pengutronix.de, linux@roeck-us.net,
+	f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Fabio Estevam <fabio.estevam@nxp.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:36533 "EHLO
+	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753942AbcESNLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 09:11:48 -0400
+Received: by mail-lf0-f43.google.com with SMTP id e130so2086465lfe.3
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 06:11:47 -0700 (PDT)
+In-Reply-To: <1463587500-12293-1-git-send-email-fabio.estevam@nxp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-05-19 at 15:15 +0300, Michael S. Tsirkin wrote:
-> A simple array based FIFO of pointers.  Intended for net stack so uses
-> skbs for type safety, but we can replace with with void * if others find
-> it useful outside of net stack.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-> 
-> Still untested, fixed the bug pointed out by Eric.
-> Posting since several people expressed interest in
-> helping test this.
-> 
-> Note: SKB_ARRAY_MIN_SIZE is a heuristic. It can be increased
-> to more than 2 cache lines, or even to INT_MAX to disable
-> the heuristic completely.
-> 
->  include/linux/skb_array.h | 115 ++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 115 insertions(+)
->  create mode 100644 include/linux/skb_array.h
-> 
-> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-> new file mode 100644
-> index 0000000..fd4ff23
-> --- /dev/null
-> +++ b/include/linux/skb_array.h
-> @@ -0,0 +1,115 @@
-> +/*
-> + * See Documentation/skb-array.txt for more information.
-> + */
-> +
-> +#ifndef _LINUX_SKB_ARRAY_H
-> +#define _LINUX_SKB_ARRAY_H 1
-> +
-> +#include <linux/spinlock.h>
-> +#include <linux/cache.h>
-> +#include <linux/types.h>
-> +#include <linux/compiler.h>
-> +#include <linux/cache.h>
-> +#include <linux/slab.h>
-> +#include <asm/errno.h>
-> +
-> +struct sk_buff;
-> +
-> +struct skb_array {
-> +	int producer ____cacheline_aligned_in_smp;
-> +	spinlock_t producer_lock;
-> +	int consumer ____cacheline_aligned_in_smp;
-> +	spinlock_t consumer_lock;
-> +	/* Shared consumer/producer data */
-> +	int size ____cacheline_aligned_in_smp; /* max entries in queue */
-> +	struct sk_buff **queue;
-> +};
-> +
-> +#define SKB_ARRAY_MIN_SIZE (2 * (0x1 << cache_line_size()) / \
-> +			    sizeof (struct sk_buff *))
-> +
+Hello.
 
-0x1 << cache_line_size() is overflowing when cache_line_size() is 64
-bytes.
+On 5/18/2016 7:05 PM, Fabio Estevam wrote:
 
+> Commit da47b4572056 ("phy: add support for a reset-gpio specification")
+> causes the following xtensa qemu crash according to Guenter Roeck:
+>
+> [    9.366256] libphy: ethoc-mdio: probed
+> [    9.367389]  (null): could not attach to PHY
+> [    9.368555]  (null): failed to probe MDIO bus
+> [    9.371540] Unable to handle kernel paging request at virtual address 0000001c
+> [    9.371540]  pc = d0320926, ra = 903209d1
+> [    9.375358] Oops: sig: 11 [#1]
 
-> +static inline int __skb_array_produce(struct skb_array *a,
-> +				       struct sk_buff *skb)
-> +{
-> +	/* Try to start from beginning: good for cache utilization as we'll
-> +	 * keep reusing the same cache line.
-> +	 * Produce at least SKB_ARRAY_MIN_SIZE entries before trying to do this,
-> +	 * to reduce bouncing cache lines between them.
-> +	 */
-> +	if (a->producer >= SKB_ARRAY_MIN_SIZE && !a->queue[0])
-> +		a->producer = 0;
+    Of course, I'd like this patch to be reverted (as it was applied 
+erroneously instead of my patches)... but where's the backtrace? It's not 
+immediately clear how this code can cause kernel oops...
 
-I really do not see how this works. reading first cache line every time
-is not going to help stress load.
+> This reverts commit da47b4572056487fd7941c26f73b3e8815ff712a.
+>
+> Reported-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+[...]
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 307f72a..e977ba9 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+[...]
+> @@ -1571,16 +1570,9 @@ static int phy_probe(struct device *dev)
+>  	struct device_driver *drv = phydev->mdio.dev.driver;
+>  	struct phy_driver *phydrv = to_phy_driver(drv);
+>  	int err = 0;
+> -	struct gpio_descs *reset_gpios;
+>
+>  	phydev->drv = phydrv;
+>
+> -	/* take phy out of reset */
+> -	reset_gpios = devm_gpiod_get_array_optional(dev, "reset",
+> -						    GPIOD_OUT_LOW);
+> -	if (IS_ERR(reset_gpios))
+> -		return PTR_ERR(reset_gpios);
+> -
+>  	/* Disable the interrupt if the PHY doesn't support it
+>  	 * but the interrupt is still a valid one
+>  	 */
 
-Then, say you queued 100 skbs, and consumer removes the first one,
-you set a->producer to 0 here.
-
-Then next __skb_array_produce() will look at queue[1] and find it busy.
-No more packet can be queued, even if the queue contains 99 skbs only.
-
-Could we be very basic and not add heuristics like that ?
-
-Then, if we really need to optimize further, add an incremental patch.
+MBR, Sergei
