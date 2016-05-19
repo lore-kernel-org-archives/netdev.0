@@ -1,12 +1,14 @@
 From: Muhammad Falak R Wani <falakreyaz@gmail.com>
-Subject: [PATCH] net:liquidio: use kmemdup
-Date: Thu, 19 May 2016 19:22:49 +0530
-Message-ID: <1463665972-16451-1-git-send-email-falakreyaz@gmail.com>
-Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>
+Subject: [PATCH] ps3_gelic: use kmemdup
+Date: Thu, 19 May 2016 19:24:41 +0530
+Message-ID: <1463666090-16540-1-git-send-email-falakreyaz@gmail.com>
+Cc: Paul Mackerras <paulus@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Christophe Jaillet <christophe.jaillet@wanadoo.fr>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -17,26 +19,28 @@ call to kmemdup.
 
 Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
 ---
- drivers/net/ethernet/cavium/liquidio/octeon_device.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/toshiba/ps3_gelic_wireless.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index f67641a..8e23e3f 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -602,12 +602,10 @@ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
- 	snprintf(oct->fw_info.liquidio_firmware_version, 32, "LIQUIDIO: %s",
- 		 h->version);
+diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
+index 743b182..446ea58 100644
+--- a/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
++++ b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
+@@ -1616,13 +1616,13 @@ static void gelic_wl_scan_complete_event(struct gelic_wl_info *wl)
+ 		target->valid = 1;
+ 		target->eurus_index = i;
+ 		kfree(target->hwinfo);
+-		target->hwinfo = kzalloc(be16_to_cpu(scan_info->size),
++		target->hwinfo = kmemdup(scan_info,
++					 be16_to_cpu(scan_info->size),
+ 					 GFP_KERNEL);
+ 		if (!target->hwinfo)
+ 			continue;
  
--	buffer = kmalloc(size, GFP_KERNEL);
-+	buffer = kmemdup(data, size, GFP_KERNEL);
- 	if (!buffer)
- 		return -ENOMEM;
- 
--	memcpy(buffer, data, size);
--
- 	p = buffer + sizeof(struct octeon_firmware_file_header);
- 
- 	/* load all images */
+ 		/* copy hw scan info */
+-		memcpy(target->hwinfo, scan_info, be16_to_cpu(scan_info->size));
+ 		target->essid_len = strnlen(scan_info->essid,
+ 					    sizeof(scan_info->essid));
+ 		target->rate_len = 0;
 -- 
 1.9.1
