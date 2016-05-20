@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: ch9200: use kmemdup
-Date: Fri, 20 May 2016 19:50:57 -0400 (EDT)
-Message-ID: <20160520.195057.1961722108962914882.davem@davemloft.net>
-References: <1463666221-16631-1-git-send-email-falakreyaz@gmail.com>
+Subject: Re: [PATCH net-next 0/2] bpf: verifier fixes
+Date: Fri, 20 May 2016 19:53:43 -0400 (EDT)
+Message-ID: <20160520.195343.1961687828776386095.davem@davemloft.net>
+References: <1463707034-2372430-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, mjg59@srcf.ucam.org,
-	tklauser@distanz.ch, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: falakreyaz@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463666221-16631-1-git-send-email-falakreyaz@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53563 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbcETXxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 19:53:46 -0400
+In-Reply-To: <1463707034-2372430-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Muhammad Falak R Wani <falakreyaz@gmail.com>
-Date: Thu, 19 May 2016 19:26:50 +0530
+From: Alexei Starovoitov <ast@fb.com>
+Date: Thu, 19 May 2016 18:17:12 -0700
 
-> Use kmemdup when some other buffer is immediately copied into allocated
-> region. It replaces call to allocation followed by memcpy, by a single
-> call to kmemdup.
-> 
-> Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
+> Further testing of 'direct packet access' uncovered
+> several usability issues. Fix them.
 
-Applied.
+Series applied, thanks Alexei.
