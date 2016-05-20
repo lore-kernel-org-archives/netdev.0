@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,stable v2] net: cdc_ncm: update datagram size after
- changing mtu
-Date: Fri, 20 May 2016 19:32:02 -0400 (EDT)
-Message-ID: <20160520.193202.1451120008648712255.davem@davemloft.net>
-References: <1463651769-27513-1-git-send-email-robert.dobrowolski@linux.intel.com>
+Subject: Re: [PATCH net V2] tuntap: correctly wake up process during uninit
+Date: Fri, 20 May 2016 19:38:06 -0400 (EDT)
+Message-ID: <20160520.193806.543505636945844730.davem@davemloft.net>
+References: <1463636211-3573-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, stable@vger.kernel.org,
-	oliver@neukum.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rafal.f.redzimski@intel.com
-To: robert.dobrowolski@linux.intel.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1463651769-27513-1-git-send-email-robert.dobrowolski@linux.intel.com>
-Sender: stable-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	edumazet@google.com, xii@google.com, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463636211-3573-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Dobrowolski <robert.dobrowolski@linux.intel.com>
-Date: Thu, 19 May 2016 11:56:09 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 19 May 2016 13:36:51 +0800
 
-> From: Rafal Redzimski <rafal.f.redzimski@intel.com>
+> We used to check dev->reg_state against NETREG_REGISTERED after each
+> time we are woke up. But after commit 9e641bdcfa4e ("net-tun:
+> restructure tun_do_read for better sleep/wakeup efficiency"), it uses
+> skb_recv_datagram() which does not check dev->reg_state. This will
+> result if we delete a tun/tap device after a process is blocked in the
+> reading. The device will wait for the reference count which was held
+> by that process for ever.
 > 
-> Current implementation updates the mtu size and notify cdc_ncm
-> device using USB_CDC_SET_MAX_DATAGRAM_SIZE request about datagram
-> size change instead of changing rx_urb_size.
+> Fixes this by using RCV_SHUTDOWN which will be checked during
+> sk_recv_datagram() before trying to wake up the process during uninit.
 > 
-> Whenever mtu is being changed, datagram size should also be
-> updated. Also updating maxmtu formula so it takes max_datagram_size with
-> use of cdc_ncm_max_dgram_size() and not ctx.
-> 
-> Signed-off-by: Robert Dobrowolski <robert.dobrowolski@linux.intel.com>
-> Signed-off-by: Rafal Redzimski <rafal.f.redzimski@intel.com>
+> Fixes: 9e641bdcfa4e ("net-tun: restructure tun_do_read for better
+> sleep/wakeup efficiency")
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Xi Wang <xii@google.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> - The patch is needed for -stable.
+> - Changes from v1: remove unnecessary NETREG_REGISTERED check in tun_do_read()
 
-Appied, thanks.
+Applied and queued up for -stable.
