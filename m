@@ -1,60 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next] net: sched: do not acquire qdisc spinlock in
- qdisc/class stats dump
-Date: Thu, 19 May 2016 19:45:30 -0700
-Message-ID: <1463712330.18194.261.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463661320.18194.178.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpUj9u4bgG+7Tc06z0_wSRhAWCVSz5KsydrhcmpoJf39tg@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warnings after merge of the net tree
+Date: Fri, 20 May 2016 13:33:30 +1000
+Message-ID: <20160520133330.12a1aa65@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Kevin Athey <kda@google.com>,
-	Xiaotian Pei <xiaotian@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36103 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753693AbcETCpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 22:45:34 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g132so9844798pfb.3
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 19:45:33 -0700 (PDT)
-In-Reply-To: <CAM_iQpUj9u4bgG+7Tc06z0_wSRhAWCVSz5KsydrhcmpoJf39tg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-05-19 at 18:50 -0700, Cong Wang wrote:
-> On Thu, May 19, 2016 at 5:35 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > These stats are using u64 or u32 fields, so reading integral values
-> > should not prevent writers from doing concurrent updates if the kernel
-> > arch is a 64bit one.
-> >
-> > Being able to atomically fetch all counters like packets and bytes sent
-> > at the expense of interfering in fast path (queue and dequeue packets)
-> > is simply not worth the pain, as the values are generally stale after 1
-> > usec.
-> 
-> I think one purpose of this lock is to make sure we have an atomic
-> snapshot of these counters as a whole. IOW, we may need another
-> lock rather than the qdisc root lock to guarantee this.
+Hi all,
 
-Right, this was stated in the changelog.
+After merging the net tree, today's linux-next build (arm
+multi_v7_defconfig) produced these warnings:
 
-I played a bit at changing qdisc->__state to a seqcount.
+drivers/net/usb/pegasus.c: In function 'read_bulk_callback':
+drivers/net/usb/pegasus.c:475:1: warning: label 'goon' defined but not used [-Wunused-label]
+ goon:
+ ^
+drivers/net/usb/pegasus.c:446:8: warning: unused variable 'pkt_len' [-Wunused-variable]
+  __u16 pkt_len;
+        ^
+drivers/net/usb/pegasus.c:445:6: warning: unused variable 'buf' [-Wunused-variable]
+  u8 *buf = urb->transfer_buffer;
+      ^
+drivers/net/usb/pegasus.c:443:17: warning: unused variable 'count' [-Wunused-variable]
+  int rx_status, count = urb->actual_length;
+                 ^
 
-But this would add 2 additional smp_wmb() barriers.
+Introduced by commit
 
-Not sure if any application would actually care if it reads
+  e00be9e4d0ff ("net: pegasus: remove dead coding")
 
-Sent 22954160104777 bytes 1808585171 pkt (dropped 0, overlimits 0
-requeues 26021)
 
-Instead of 
 
-Sent 22954160104777 bytes 1808585172 pkt (dropped 0, overlimits 0
-requeues 26021)
-
-?
+-- 
+Cheers,
+Stephen Rothwell
