@@ -1,49 +1,53 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
- flow/port support
-Date: Fri, 20 May 2016 17:11:23 +0900
-Message-ID: <20160520081120.GA17561@vergenet.net>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <20160517163250.7ead555e@griffin>
- <20160520052858.GA15505@vergenet.net>
- <20160520100028.0065a2ef@griffin>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V1 0/3] net: enable use of
+ kmem_cache_alloc_bulk in network stack
+Date: Fri, 20 May 2016 10:14:46 +0200
+Message-ID: <20160520101446.64416d2b@redhat.com>
+References: <20160509134352.3573.37044.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160520100028.0065a2ef@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: saeedm@mellanox.com, gerlitz.or@gmail.com, eugenia@mellanox.com,
+	Alexander Duyck <alexander.duyck@gmail.com>, brouer@redhat.com
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57393 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932381AbcETIOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 May 2016 04:14:52 -0400
+In-Reply-To: <20160509134352.3573.37044.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBNYXkgMjAsIDIwMTYgYXQgMTA6MDA6MjhBTSArMDIwMCwgSmlyaSBCZW5jIHdyb3Rl
-Ogo+IE9uIEZyaSwgMjAgTWF5IDIwMTYgMTQ6Mjk6MDEgKzA5MDAsIFNpbW9uIEhvcm1hbiB3cm90
-ZToKPiA+IFRoZSBzZWNvbmQgb3B0aW9uIGRvZXMgc2VlbSByYXRoZXIgdGVtcHRpbmcgYWx0aG91
-Z2ggSSdtIG5vdCBzdXJlCj4gPiB0aGF0IGl0IGFjdHVhbGx5IHBsYXlzIG91dCBpbiB0aGUgYWNj
-ZXNzLXBvcnQgc2NlbmFyaW8gYXQgdGhpcyB0aW1lLgo+IAo+IFdlIHN1cHBvcnQgZ3JlIHBvcnRz
-IHRvIGJlIGFjY2VzcyBwb3J0cyBjdXJyZW50bHkuIFdpdGggY29udmVyc2lvbiB0bwo+IGlwZ3Jl
-LCB0aGlzIG5lZWRzIHRvIGNvbnRpbnVlIHdvcmtpbmcuIEl0J3Mgbm8gcHJvYmxlbSBmb3IgZnJh
-bWVzIHdpdGgKPiB0aGUgRXRoZXJuZXQgaGVhZGVyIGJ1dCBub3cgd2UgaGF2ZSBhIHNpdHVhdGlv
-biB3aGVyZSBhIHBvcnQgaXMgdGFnZ2VkLAo+IHRodXMgdGhlIHVzZXIgZXhwZWN0cyB0aGF0IHBh
-Y2tldHMgcmVjZWl2ZWQgb24gdGhhdCBwb3J0IHdpbGwgYmVoYXZlCj4gYWNjb3JkaW5nbHkuIEkg
-ZG9uJ3QgdGhpbmsgd2UgY2FuIG1ha2Ugc29tZSBwYWNrZXRzIGhvbm9yIHRoaXMgYW5kIHNvbWUK
-PiBpZ25vcmUgdGhpczsgYW5kIHdlIGNhbid0IGRpc2FsbG93IGdyZSB0byBiZSBhbiBhY2Nlc3Mg
-cG9ydC4KPiAKPiBIb3cgZG8geW91IHBsYW4gdG8gc29sdmUgdGhpcz8gQnkgdXNlciBzcGFjZSBh
-bHdheXMgcHVzaGluZyBhbiBldGhlcm5ldAo+IGhlYWRlciBiZWZvcmUgcHVzaF92bGFuPwoKWWVz
-LiBUaGF0IGlzIG15IHVuZGVyc3RhbmRpbmcgb2YgaG93IE92UyBjdXJyZW50bHkgaGFuZGxlcyBh
-Y2Nlc3MgcG9ydHMgYnV0CkkgaGF2ZSBhIGZlZWxpbmcgdGhhdCBlaXRoZXIgSSBhbSBtaXN0YWtl
-biBvciB0aGF0IHlvdSBhcmUgcmVmZXJyaW5nIHRvIGEKc2xpZ2h0bHkgZGlmZmVyZW50IHNjZW5h
-cmlvLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYg
-bWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9t
-YWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Mon, 09 May 2016 15:44:24 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+
+> This patchset enables use of the slab/kmem_cache bulk alloc API, and
+> completes the use the slab/kmem_cache bulking API in the network stack.
+> 
+> I've not included the patches that introduce a SKB bulk hint, which
+> would beneficial for drivers like mlx5.  Lets see if we can agree on
+> this patchset first.
+
+Conclusion: Guess we could not agree on this patchset.
+
+The main problem seems to be that the patch always bulk allocated 8
+SKBs, without knowing if we actually need them.  My earlier patchset
+also included a "hint" interface, as mlx5 driver knows after processing
+the RX queue, how many SKBs it needs, thus it can request to bulk alloc
+the needed amount. (The only problem with mlx5 is that preallocating
+SKBs into it's RX ring is a broken scheme).
+
+A better scheme would be, if the driver on RX knows how many packets
+are available in the RX queue.  Then we can bulk alloc the needed
+amount of SKBs.  Thus, we can circle back to this once the driver can
+provide this information. (This goes nicely hand-in-hand with my idea
+of pulling out avail RX packet-pages from the RX ring, and start
+prefetch'es to hide the cache-misses).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
