@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: rather use get_random_int for randomizations
-Date: Fri, 20 May 2016 11:24:06 -0700 (PDT)
-Message-ID: <20160520.112406.286390667027285394.davem@davemloft.net>
-References: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
+Subject: Re: [PATCH] mlx5: avoid unused variable warning
+Date: Fri, 20 May 2016 11:24:21 -0700 (PDT)
+Message-ID: <20160520.112421.2148726893293404256.davem@davemloft.net>
+References: <1463581293-1069553-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, alexei.starovoitov@gmail.com,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: jiri@mellanox.com, john.r.fastabend@intel.com, amirva@mellanox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51727 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51732 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750893AbcETSYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 14:24:07 -0400
-In-Reply-To: <24461974e8402395c12b3e36b9ac7935b88ef1c2.1463572456.git.daniel@iogearbox.net>
+	with ESMTP id S1750800AbcETSYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 14:24:22 -0400
+In-Reply-To: <1463581293-1069553-1-git-send-email-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 18 May 2016 14:14:28 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 18 May 2016 16:21:07 +0200
 
-> Start address randomization and blinding in BPF currently use
-> prandom_u32(). prandom_u32() values are not exposed to unpriviledged
-> user space to my knowledge, but given other kernel facilities such as
-> ASLR, stack canaries, etc make use of stronger get_random_int(), we
-> better make use of it here as well given blinding requests successively
-> new random values. get_random_int() has minimal entropy pool depletion,
-> is not cryptographically secure, but doesn't need to be for our use
-> cases here.
+> When CONFIG_NET_CLS_ACT is disabled, we get a new warning in the mlx5
+> ethernet driver because the tc_for_each_action() loop never references
+> the iterator:
 > 
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> mellanox/mlx5/core/en_tc.c: In function 'mlx5e_stats_flower':
+> mellanox/mlx5/core/en_tc.c:431:20: error: unused variable 'a' [-Werror=unused-variable]
+>   struct tc_action *a;
+> 
+> This changes the dummy tc_for_each_action() macro by adding a
+> cast to void, letting the compiler know that the variable is
+> intentionally declared but not used here. I could not come up
+> with a nicer workaround, but this seems to do the trick.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: aad7e08d39bd ("net/mlx5e: Hardware offloaded flower filter statistics support")
+> Fixes: 00175aec941e ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
 
-Ok, applied, thanks Daniel.
+Applied, thanks Arnd.
