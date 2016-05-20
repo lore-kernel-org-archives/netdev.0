@@ -1,30 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] liquidio updates and features
-Date: Thu, 19 May 2016 16:03:32 -0700 (PDT)
-Message-ID: <20160519.160332.576319366453623973.davem@davemloft.net>
-References: <1463684193-25264-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: rtk8168 driver help needed
+Date: Fri, 20 May 2016 02:31:52 +0200
+Message-ID: <20160520003152.GB22420@electric-eye.fr.zoreil.com>
+References: <572D147C.8020203@ti.com>
+ <20160507083511.GA18421@electric-eye.fr.zoreil.com>
+ <573E3252.6000207@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43914 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753809AbcESXDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 19:03:36 -0400
-In-Reply-To: <1463684193-25264-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48286 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754103AbcETAgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 20:36:41 -0400
+Content-Disposition: inline
+In-Reply-To: <573E3252.6000207@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Murali Karicheri <m-karicheri2@ti.com> :
+[...]
+> Do you what could be wrong with rtk8168?
 
-Is this a patch that stands on it's own or is this a combination of all of
-the other patches?
+Hardly.
 
-In any event, you need to resubmit this properly and break up the large
-patches into extremely smaller, logical pieces.
+What do the device registers (ethtool -d) and device stats (ethtool -S)
+look like ?
 
-You also need to post a proper "[PATCH 0/4] ..." header posting.
+(please trim useless material from previous mail)
+
+-- 
+Ueimor
