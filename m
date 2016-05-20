@@ -1,83 +1,154 @@
-From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
-Subject: [PATCH] ipv4: Fix non-initialized TTL when CONFIG_SYSCTL=n
-Date: Fri, 20 May 2016 13:21:10 -0300
-Message-ID: <1463761270-8955-1-git-send-email-ezequiel@vanguardiasur.com.ar>
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
-To: <netdev@vger.kernel.org>, Nikolay Borisov <kernel@kyup.com>
+From: Mateusz Bajorski <mateusz.bajorski@nokia.com>
+Subject: ip rule duplicates
+Date: Fri, 20 May 2016 14:54:54 +0200
+Message-ID: <573F091E.9050205@nokia.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="------------000107050001000901070705"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36365 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755845AbcETQVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 12:21:34 -0400
-Received: by mail-qk0-f177.google.com with SMTP id x7so69378277qkd.3
-        for <netdev@vger.kernel.org>; Fri, 20 May 2016 09:21:33 -0700 (PDT)
+Received: from mail-db3on0111.outbound.protection.outlook.com ([157.55.234.111]:44843
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754743AbcETQ0H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 May 2016 12:26:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit fa50d974d104 ("ipv4: Namespaceify ip_default_ttl sysctl knob")
-moves the default TTL assignment, and as side-effect IPv4 TTL now
-has a default value only if sysctl support is enabled (CONFIG_SYSCTL=y).
+--------------000107050001000901070705
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The sysctl_ip_default_ttl is fundamental for IP to work properly,
-as it provides the TTL to be used as default. The defautl TTL may be
-used in ip_selected_ttl, through the following flow:
+Hi,
 
-  ip_select_ttl
-    ip4_dst_hoplimit
-      net->ipv4.sysctl_ip_default_ttl
+When we add the same rule again with flag NLM_F_EXCL we expect that we 
+receive error:
+RTNETLINK answers: File exists
+This behaviour is already in ip routing part.
 
-This commit fixes the issue by assigning net->ipv4.sysctl_ip_default_ttl
-in net_init_net, called during ipv4's initialization.
+I have noticed that iproute2 when adds new rule it attach flag 
+NLM_F_EXCL to call.
+(see 
+http://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/ip/iprule.c#n334)
 
-Without this commit, a kernel built without sysctl support will send
-all IP packets with zero TTL (unless a TTL is explicitly set, e.g.
-with setsockopt).
+Next thing what I found is that this flag is not handled from kernel side.
 
-Given a similar issue might appear on the other knobs that were
-namespaceify, this commit also moves them.
+I implemented this feature and I tested this with qemu x86 on:
+linux-4.5.4
+linux (git)
+linux-stable (git)
+Tested with ipv4 and ipv6.
 
-Fixes: fa50d974d104 ("ipv4: Namespaceify ip_default_ttl sysctl knob")
-Signed-off-by: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
----
- net/ipv4/af_inet.c         | 8 ++++++++
- net/ipv4/sysctl_net_ipv4.c | 4 ----
- 2 files changed, 8 insertions(+), 4 deletions(-)
+current behaviour with ipv4:
+localhost ~ # ip rule
+0: from all lookup local
+32766: from all lookup main
+32767: from all lookup default
+localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
+localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
+localhost ~ # ip rule
+0: from all lookup local
+1005: from 10.46.177.97 lookup 104
+1005: from 10.46.177.97 lookup 104
+32766: from all lookup main
+32767: from all lookup default
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 2e6e65fc4d20..8d334816f89d 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1697,6 +1697,14 @@ static __net_init int inet_init_net(struct net *net)
- 	 */
- 	net->ipv4.ping_group_range.range[0] = make_kgid(&init_user_ns, 1);
- 	net->ipv4.ping_group_range.range[1] = make_kgid(&init_user_ns, 0);
-+
-+	/* Default values for sysctl-controlled parameters.
-+	 * We set them here, in case sysctl is not compiled.
-+	 */
-+	net->ipv4.sysctl_ip_default_ttl = IPDEFTTL;
-+	net->ipv4.sysctl_ip_dynaddr = 0;
-+	net->ipv4.sysctl_ip_early_demux = 1;
-+
- 	return 0;
- }
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index bb0419582b8d..1cb67de106fe 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -999,10 +999,6 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 	if (!net->ipv4.sysctl_local_reserved_ports)
- 		goto err_ports;
- 
--	net->ipv4.sysctl_ip_default_ttl = IPDEFTTL;
--	net->ipv4.sysctl_ip_dynaddr = 0;
--	net->ipv4.sysctl_ip_early_demux = 1;
--
- 	return 0;
- 
- err_ports:
+expected behavior after patch:
+localhost ~ # ip rule
+0:    from all lookup local
+32766:    from all lookup main
+32767:    from all lookup default
+localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
+localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
+RTNETLINK answers: File exists
+localhost ~ # ip rule
+0:    from all lookup local
+1005:    from 10.46.177.97 lookup 104
+32766:    from all lookup main
+32767:    from all lookup default
+
+
+There was already topic regarding this but I don't see any changes 
+merged and problem still occurs.
+(see http://marc.info/?l=linux-netdev&m=113577886110391&w=2)
+
 -- 
-2.7.0
+
+Best regards,
+
+Mateusz Bajorski
+
+--------------000107050001000901070705
+Content-Type: text/x-patch;
+	name="0001-Added-NLM_F_EXCL-support-to-fib_nl_newrule.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="0001-Added-NLM_F_EXCL-support-to-fib_nl_newrule.patch"
+
+>From 9c3f80dceec414ff31d0c38d0107dec279fc9894 Mon Sep 17 00:00:00 2001
+From: Mateusz Bajorski <mateusz.bajorski@nokia.com>
+Date: Fri, 20 May 2016 14:29:56 +0200
+Subject: [PATCH] Added NLM_F_EXCL support to fib_nl_newrule
+
+Signed-off-by: Mateusz Bajorski <mateusz.bajorski@nokia.com>
+---
+ net/core/fib_rules.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 840aceb..c1bc07cd 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -291,6 +291,47 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	if (err < 0)
+ 		goto errout;
+ 
++	if (nlh->nlmsg_flags & NLM_F_EXCL) {
++		list_for_each_entry(rule, &ops->rules_list, list) {
++			if (frh->action && (frh->action != rule->action))
++				continue;
++
++			if (frh_get_table(frh, tb) &&
++				(frh_get_table(frh, tb) != rule->table))
++				continue;
++
++			if (tb[FRA_PRIORITY] &&
++				(rule->pref != nla_get_u32(tb[FRA_PRIORITY])))
++				continue;
++
++			if (tb[FRA_IIFNAME] &&
++				nla_strcmp(tb[FRA_IIFNAME], rule->iifname))
++				continue;
++
++			if (tb[FRA_OIFNAME] &&
++				nla_strcmp(tb[FRA_OIFNAME], rule->oifname))
++				continue;
++
++			if (tb[FRA_FWMARK] &&
++				(rule->mark != nla_get_u32(tb[FRA_FWMARK])))
++				continue;
++
++			if (tb[FRA_FWMASK] &&
++				(rule->mark_mask != nla_get_u32(tb[FRA_FWMASK])))
++				continue;
++
++			if (tb[FRA_TUN_ID] &&
++				(rule->tun_id != nla_get_be64(tb[FRA_TUN_ID])))
++				continue;
++
++			if (!ops->compare(rule, frh, tb))
++				continue;
++
++			err = -EEXIST;
++			goto errout;
++		}
++	}
++
+ 	rule = kzalloc(ops->rule_size, GFP_KERNEL);
+ 	if (rule == NULL) {
+ 		err = -ENOMEM;
+-- 
+2.6.4
+
+
+--------------000107050001000901070705--
