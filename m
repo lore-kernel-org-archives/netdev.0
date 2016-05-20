@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macsec: fix netlink attribute for key id
-Date: Fri, 20 May 2016 11:14:47 -0700 (PDT)
-Message-ID: <20160520.111447.207901690034578510.davem@davemloft.net>
-References: <fdff01d3a343b5ee16cd034d743b62a543befcf4.1463570397.git.sd@queasysnail.net>
+Subject: Re: [PATCH net 1/1] qede: Fix DMA address APIs usage
+Date: Fri, 20 May 2016 11:16:03 -0700 (PDT)
+Message-ID: <20160520.111603.545404329493208707.davem@davemloft.net>
+References: <1463571837-8146-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: manish.chopra@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51680 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51689 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbcETSOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 14:14:49 -0400
-In-Reply-To: <fdff01d3a343b5ee16cd034d743b62a543befcf4.1463570397.git.sd@queasysnail.net>
+	with ESMTP id S1750869AbcETSQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 14:16:04 -0400
+In-Reply-To: <1463571837-8146-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Wed, 18 May 2016 13:34:40 +0200
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Wed, 18 May 2016 07:43:57 -0400
 
-> In my last commit I replaced MACSEC_SA_ATTR_KEYID by
-> MACSEC_SA_ATTR_KEY.
+> Driver incorrectly uses dma_unmap_addr_set() to set
+> a variable which is in truth a dma_addr_t
+> [i.e not defined using DEFINE_DMA_UNMAP_ADDR()] and is
+> being used by the driver flows other than unmapping
+> physical addresses. This patch fixes driver fastpath
+> where CONFIG_NEED_DMA_MAP_STATE is not set.
 > 
-> Fixes: 8acca6acebd0 ("macsec: key identifier is 128 bits, not 64")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
