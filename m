@@ -1,60 +1,48 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: Re: [PATCH net-next 5/7] Driver: Vmxnet3: Add support for get_coalesce,
- set_coalesce ethtool operations
-Date: Fri, 20 May 2016 11:46:33 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1605201114420.14228@shri-linux.eng.vmware.com>
-References: <1462576336-83513-1-git-send-email-skhare@vmware.com>   <1462576336-83513-6-git-send-email-skhare@vmware.com>  <1462622686.19332.33.camel@decadent.org.uk>  <alpine.DEB.2.10.1605081335140.13942@shri-linux.eng.vmware.com>
- <1462753040.9308.11.camel@decadent.org.uk>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 1/3] netfilter: ipset: use setup_timer() and
+ mod_timer().
+Date: Fri, 20 May 2016 22:40:47 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1605202238420.16031@blackhole.kfki.hu>
+References: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="554307656-1241437366-1463769994=:14228"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, Keyong Sun <sunk@vmware.com>,
-	Manoj Tammali <tammalim@vmware.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1462753040.9308.11.camel@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Vishwanath Pai <vpai@akamai.com>,
+	Joshua Hunt <johunt@akamai.com>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1463173145-16167-1-git-send-email-falakreyaz@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Sat, 14 May 2016, Muhammad Falak R Wani wrote:
 
---554307656-1241437366-1463769994=:14228
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-
-
-
-On Sun, 8 May 2016, Ben Hutchings wrote:
-
-> > Would a patch that maps 0 to 'no coalescing' be acceptable? That is:
-> > 
-> > rx-usecs = 0 -> coalescing disabled.
-> > rx-usecs = 1 -> default (chosen by the device).
-> > rx-usecs = 2 -> adaptive coalescing.
-> > rx-usecs = 3 -> static coalescing.
+> Use setup_timer() and instead of init_timer(), being the preferred way
+> of setting up a timer.
 > 
-> I still don't like it much.  For the 3 special values (0 isn't really
-> special):
+> Also, quoting the mod_timer() function comment:
+> -> mod_timer() is a more efficient way to update the expire field of an
+>    active timer (if the timer is inactive it will be activated).
 > 
-> 1 = default: When the driver sets the virtual device to this mode, can it then read back what the actual settings are, or are they hidden?  If it can, then userland can also read the defaults and explicitly return to them later.  But I do see the usefulness of an explicit request to reset to defaults.
+> Use setup_timer() and mod_timer() to setup and arm a timer, making the
+> code compact and easier to read.
 > 
-> 2 = adaptive coalescing: There are already fields to request adaptive coalescing; you should support them.
-> 
-> 3 = static coalescing: I don't understand what this means.
+> Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
+> ---
+>  net/netfilter/ipset/ip_set_bitmap_gen.h | 7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
 
-static refers to the number of packets to batch before raising an 
-interrupt - which maps to existing tx_max_coaleced_frames.
+The patch and the other too in the series as well are applied in the ipset 
+git repository and will be submitted for kernel inclusion. Thanks.
 
-Have sent out v2 of the patch that no longer uses special values of 
-rx-usecs to distinguish between the coalescing modes. Existing 
-ethtool_coalesce fields are used as appropriate instead.
-
-In v2, driver can no longer issue "revert to defaults" command 
-(think such a mechanism might be useful addition but belongs to ethtool 
-framework).
-
-
-Thanks,
-Shri
---554307656-1241437366-1463769994=:14228--
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
