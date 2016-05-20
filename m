@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "phy: add support for a reset-gpio
- specification"
-Date: Fri, 20 May 2016 17:57:26 -0400 (EDT)
-Message-ID: <20160520.175726.1939152379956607230.davem@davemloft.net>
-References: <1463587500-12293-1-git-send-email-fabio.estevam@nxp.com>
+Subject: Re: [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes
+ for v6 tunneling
+Date: Fri, 20 May 2016 18:03:46 -0400 (EDT)
+Message-ID: <20160520.180346.718819364943098831.davem@davemloft.net>
+References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: u.kleine-koenig@pengutronix.de, linux@roeck-us.net,
-	f.fainelli@gmail.com, netdev@vger.kernel.org
-To: fabio.estevam@nxp.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52959 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52994 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbcETV53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 17:57:29 -0400
-In-Reply-To: <1463587500-12293-1-git-send-email-fabio.estevam@nxp.com>
+	with ESMTP id S1750782AbcETWDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 18:03:48 -0400
+In-Reply-To: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@nxp.com>
-Date: Wed, 18 May 2016 13:05:00 -0300
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 18 May 2016 09:06:08 -0700
 
-> Commit da47b4572056 ("phy: add support for a reset-gpio specification")
-> causes the following xtensa qemu crash according to Guenter Roeck:
- ...
-> This reverts commit da47b4572056487fd7941c26f73b3e8815ff712a.
-> 
-> Reported-by: Guenter Roeck <linux@roeck-us.net>
-> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+> This patch set:
+>   - Fixes GRE6 to process translate flags correctly from configuration
+>   - Adds support for GSO and GRO for ip6ip6 and ip4ip6
+>   - Add support for FOU and GUE in IPv6
+>   - Support GRE, ip6ip6 and ip4ip6 over FOU/GUE
+>   - Fixes ip6_input to deal with UDP encapsulations
+>   - Some other minor fixes
 
-Applied, thanks.
+Series applied, thanks Tom.
