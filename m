@@ -1,199 +1,119 @@
-From: Feng Tang <feng.tang@intel.com>
-Subject: Re: [PATCH] net: alx: use custom skb allocator
-Date: Fri, 20 May 2016 15:56:23 +0800
-Message-ID: <20160520075623.GA14140@shbuild888>
-References: <1463722863-31241-1-git-send-email-feng.tang@intel.com>
+From: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
+ stmmac-0:ffffffff not found (regression from rc7)
+Date: Fri, 20 May 2016 08:56:45 +0100
+Message-ID: <573EC33D.2010209@arm.com>
+References: <56E9413D.9010902@a20.net> <56E945FF.6080005@arm.com>
+ <56E94CF4.2060607@arm.com> <56E95B57.1090100@suse.de>
+ <56E9776F.3070102@a20.net> <56E99B0C.2070609@arm.com>
+ <56E9F2B8.1030605@a20.net> <20160317075202.16b14ed6@arm.com>
+ <CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA@mail.gmail.com>
+Reply-To: marc.zyngier-5wv7dgnIgG8@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarod Wilson <jarod@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1463722863-31241-1-git-send-email-feng.tang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+ Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>, =?UTF-8?Q?Andreas_F=c3=a4rber?=
+ <afaerber-l3A5Bk7waGM@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Andre Heider <a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+ Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-sunxi+bncBCPZR5X4TYBBBQEG7O4QKGQEV6W7GDQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On 20/05/16 06:44, Andre Heider wrote:
+> Giuseppe, Alexandre, et al.,
+>=20
+> On Thu, Mar 17, 2016 at 8:52 AM, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org> wrot=
+e:
+>> On Thu, 17 Mar 2016 00:56:40 +0100
+>> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+>>> On 2016-03-16 18:42, Marc Zyngier wrote:
+>>>> On 16/03/16 15:10, Bert Lindner wrote:
+>>>>> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
+>>>>>> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
+>>>>>>> On 16/03/16 11:39, Marc Zyngier wrote:
+>>>>>>>> On 16/03/16 11:19, Bert Lindner wrote:
+> ...
+>>>>>>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a prob=
+lem
+>>>>>>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed since
+>>>>>>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
+> ...
+>>>>>>>>> [    9.767125] NET: Registered protocol family 10
+>>>>>>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
+>>>>>>>>> [   10.362382] eth0: Could not attach to PHY
+>>>>>>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
+> ...
+>>>>>> v4 fixes for 4.5 are here:
+>>>>>>
+>>>>>> https://patchwork.ozlabs.org/patch/598195/ (revert)
+>>>>>> https://patchwork.ozlabs.org/patch/598196/
+> ...
+>>>> Good to know, thanks. Could you also give the potential fix a go (as
+>>>> mentioned by Andreas)? Just to make sure that whatever gets merged nex=
+t
+>>>> will actually fix the issue.
+>>>
+>>> Yes sure, it took a while because I had to travel. Confirmed, the
+>>> v4-for-4.5 fix works well for me, on sun7i-a20-olinuxino-lime2:
+>>>
+>>> root@lime2-079f:~# cat /proc/version
+>>> Linux version 4.5.0-598195-598196-v4 (root@lime2-079f) (gcc version
+>>> 4.9.1 (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Wed Mar 16 16:44:22 UTC =
+2016
+>>>
+>>> dmesg:
+>>> [    8.245273] NET: Registered protocol family 10
+>>> [    9.297406]  RX IPC Checksum Offload disabled
+>>> [    9.297460]  No MAC Management Counters available
+>>> [    9.297951] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>> [   16.285658] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+>>> 1Gbps/Full - flow control rx/tx
+>>> [   16.285798] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>>>
+>>> The board is connected to my laptop rather than to a switch, so that
+>>> might be where the flow control message comes from (not sure). Anyway
+>>> ethernet works.
+>>
+>> Cool, many thanks for taking the time to test and report.
+>>
+>> Hopefully Giuseppe will get this merged quickly enough in mainline, and
+>> it should then trickle into a 4.5-stable release (cc-ing stable on
+>> these patches would probably be a good idea, BTW).
+>=20
+> stmmac is broken on at least Lime2, BananaPi and Cubieboard2 since
+> v4.5 [0], including all five stable releases :(
 
-Please ignore this patch. 
+All the A20 platforms are dead, actually.
 
-I found the problem and made the patch with kernel 4.4 with Ubuntu 12.04
-on Lenovo Y580. 
+> The v4.5 patches quoted above are already +4 weeks old, could we
+> please get them into stable?
 
-After submitting the patch, I tried to google the datasheet for
-Atheros 8161 dev, and found there was already a kernel bugzilla 
-https://bugzilla.kernel.org/show_bug.cgi?id=70761
-that had a fix from Jarod Wilson which get merged in v4.5 (commit c406700cd) 
-
-Per my test, the new 4.6.0 kernel works fine with Jarod's patch. 
+For that, the maintainer would have needed to CC stable, which he
+didn't. I'd expect someone who cares to send these patches to stable.
+It'd be better if the maintainer would do it himself though.
 
 Thanks,
-Feng
 
-On Fri, May 20, 2016 at 01:41:03PM +0800, Feng Tang wrote:
-> This patch follows Eric Dumazet's commit 7b70176421 to fix one
-> exactly same bug in alx driver, that the network link will
-> be lost in 1-5 minutes after the device is up.
-> 
-> Following is a git log from Eric's 7b70176421:
-> 
-> "We had reports ( https://bugzilla.kernel.org/show_bug.cgi?id=54021 )
-> that using high order pages for skb allocations is problematic for atl1c
-> 
-> We do not know exactly what the problem is, but we suspect that crossing
-> 4K pages is not well supported by this hardware.
-> 
-> Use a custom allocator, using page allocator and 2K fragments for
-> optimal stack behavior. We might make this allocator generic
->  in future kernels."
-> 
-> And my debug shows the same suspect, most of the errors happen
-> when there is a RX buffer address with 0x......f80, hopefully
-> this will get noticed and fixed from silicon side.
-> 
-> My victim is a Lenovo Y580 Laptop with Atheros ALX AR8161 etherenet
-> device(PCI ID 1969:1091), with this patch the ethernet dev
-> works just fine
-> 
-> Signed-off-by: Feng Tang <feng.tang@intel.com>
-> ---
->  drivers/net/ethernet/atheros/alx/alx.h  |  4 +++
->  drivers/net/ethernet/atheros/alx/main.c | 48 ++++++++++++++++++++++++++++++++-
->  2 files changed, 51 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/atheros/alx/alx.h b/drivers/net/ethernet/atheros/alx/alx.h
-> index 8fc93c5..d02c424 100644
-> --- a/drivers/net/ethernet/atheros/alx/alx.h
-> +++ b/drivers/net/ethernet/atheros/alx/alx.h
-> @@ -96,6 +96,10 @@ struct alx_priv {
->  	unsigned int rx_ringsz;
->  	unsigned int rxbuf_size;
->  
-> +	struct page  *rx_page;
-> +	unsigned int rx_page_offset;
-> +	unsigned int rx_frag_size;
-> +
->  	struct napi_struct napi;
->  	struct alx_tx_queue txq;
->  	struct alx_rx_queue rxq;
-> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-> index 9fe8b5e..c98acdc 100644
-> --- a/drivers/net/ethernet/atheros/alx/main.c
-> +++ b/drivers/net/ethernet/atheros/alx/main.c
-> @@ -70,6 +70,35 @@ static void alx_free_txbuf(struct alx_priv *alx, int entry)
->  	}
->  }
->  
-> +static struct sk_buff *alx_alloc_skb(struct alx_priv *alx, gfp_t gfp)
-> +{
-> +	struct sk_buff *skb;
-> +	struct page *page;
-> +
-> +	if (alx->rx_frag_size > PAGE_SIZE)
-> +		return __netdev_alloc_skb(alx->dev, alx->rxbuf_size, gfp);
-> +
-> +	page = alx->rx_page;
-> +	if (!page) {
-> +		alx->rx_page = page = alloc_page(gfp);
-> +		if (unlikely(!page))
-> +			return NULL;
-> +		alx->rx_page_offset = 0;
-> +	}
-> +
-> +	skb = build_skb(page_address(page) + alx->rx_page_offset,
-> +			alx->rx_frag_size);
-> +	if (likely(skb)) {
-> +		alx->rx_page_offset += alx->rx_frag_size;
-> +		if (alx->rx_page_offset >= PAGE_SIZE)
-> +			alx->rx_page = NULL;
-> +		else
-> +			get_page(page);
-> +	}
-> +	return skb;
-> +}
-> +
-> +
->  static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
->  {
->  	struct alx_rx_queue *rxq = &alx->rxq;
-> @@ -86,7 +115,7 @@ static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
->  	while (!cur_buf->skb && next != rxq->read_idx) {
->  		struct alx_rfd *rfd = &rxq->rfd[cur];
->  
-> -		skb = __netdev_alloc_skb(alx->dev, alx->rxbuf_size, gfp);
-> +		skb = alx_alloc_skb(alx, gfp);
->  		if (!skb)
->  			break;
->  		dma = dma_map_single(&alx->hw.pdev->dev,
-> @@ -124,6 +153,7 @@ static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
->  		alx_write_mem16(&alx->hw, ALX_RFD_PIDX, cur);
->  	}
->  
-> +
->  	return count;
->  }
->  
-> @@ -592,6 +622,11 @@ static void alx_free_rings(struct alx_priv *alx)
->  	kfree(alx->txq.bufs);
->  	kfree(alx->rxq.bufs);
->  
-> +	if (alx->rx_page) {
-> +		put_page(alx->rx_page);
-> +		alx->rx_page = NULL;
-> +	}
-> +
->  	dma_free_coherent(&alx->hw.pdev->dev,
->  			  alx->descmem.size,
->  			  alx->descmem.virt,
-> @@ -646,6 +681,7 @@ static int alx_request_irq(struct alx_priv *alx)
->  				  alx->dev->name, alx);
->  		if (!err)
->  			goto out;
-> +
->  		/* fall back to legacy interrupt */
->  		pci_disable_msi(alx->hw.pdev);
->  	}
-> @@ -689,6 +725,7 @@ static int alx_init_sw(struct alx_priv *alx)
->  	struct pci_dev *pdev = alx->hw.pdev;
->  	struct alx_hw *hw = &alx->hw;
->  	int err;
-> +	unsigned int head_size;
->  
->  	err = alx_identify_hw(alx);
->  	if (err) {
-> @@ -704,7 +741,12 @@ static int alx_init_sw(struct alx_priv *alx)
->  
->  	hw->smb_timer = 400;
->  	hw->mtu = alx->dev->mtu;
-> +
->  	alx->rxbuf_size = ALX_MAX_FRAME_LEN(hw->mtu);
-> +	head_size = SKB_DATA_ALIGN(alx->rxbuf_size + NET_SKB_PAD) +
-> +		    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	alx->rx_frag_size = roundup_pow_of_two(head_size);
-> +
->  	alx->tx_ringsz = 256;
->  	alx->rx_ringsz = 512;
->  	hw->imt = 200;
-> @@ -806,6 +848,7 @@ static int alx_change_mtu(struct net_device *netdev, int mtu)
->  {
->  	struct alx_priv *alx = netdev_priv(netdev);
->  	int max_frame = ALX_MAX_FRAME_LEN(mtu);
-> +	unsigned int head_size;
->  
->  	if ((max_frame < ALX_MIN_FRAME_SIZE) ||
->  	    (max_frame > ALX_MAX_FRAME_SIZE))
-> @@ -817,6 +860,9 @@ static int alx_change_mtu(struct net_device *netdev, int mtu)
->  	netdev->mtu = mtu;
->  	alx->hw.mtu = mtu;
->  	alx->rxbuf_size = max(max_frame, ALX_DEF_RXBUF_SIZE);
-> +	head_size = SKB_DATA_ALIGN(alx->rxbuf_size + NET_SKB_PAD) +
-> +		    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	alx->rx_frag_size = roundup_pow_of_two(head_size);
->  	netdev_update_features(netdev);
->  	if (netif_running(netdev))
->  		alx_reinit(alx);
-> -- 
-> 2.5.0
+	M.
+--=20
+Jazz is not dead. It just smells funny...
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
