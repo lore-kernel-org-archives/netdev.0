@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: pegasus: remove dead coding
-Date: Fri, 20 May 2016 09:38:58 -0700 (PDT)
-Message-ID: <20160520.093858.1566933431001472526.davem@davemloft.net>
-References: <1463530410-12772-1-git-send-email-xypron.glpk@gmx.de>
-	<20160519.113542.960620764938295044.davem@davemloft.net>
-	<20160520073347.GH21813@p310>
+Subject: Re: [PATCH] net: pegasus: remove unused variables and labels
+Date: Fri, 20 May 2016 09:40:31 -0700 (PDT)
+Message-ID: <20160520.094031.1022047118545506778.davem@davemloft.net>
+References: <1463732595-3149399-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xypron.glpk@gmx.de, petkan@nucleusys.com,
+Cc: petkan@nucleusys.com, xypron.glpk@gmx.de,
 	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: petkan@mip-labs.com
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160520073347.GH21813@p310>
+In-Reply-To: <1463732595-3149399-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Petko Manolov <petkan@mip-labs.com>
-Date: Fri, 20 May 2016 10:33:47 +0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 20 May 2016 10:22:30 +0200
 
-> On 16-05-19 11:35:42, David Miller wrote:
->> From: Heinrich Schuchardt <xypron.glpk@gmx.de>
->> Date: Wed, 18 May 2016 02:13:30 +0200
->> 
->> > (!count || count < 4) is always true.
->> > So let's remove the coding which is dead at least since 2005.
->> > 
->> > Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
->> 
->> Applied.
+> The latest dead-code removal was slightly incomplete and
+> left a few things behind that we now get compiler warnings
+> for:
 > 
-> David, the patch you applied is broken.  It seems that you didn't follow the 
-> discussion from the past couple of days.  Please revert it.
+> drivers/net/usb/pegasus.c: In function 'read_bulk_callback':
+> drivers/net/usb/pegasus.c:475:1: error: label 'goon' defined but not used [-Werror=unused-label]
+> drivers/net/usb/pegasus.c:446:8: error: unused variable 'pkt_len' [-Werror=unused-variable]
+> drivers/net/usb/pegasus.c:445:6: error: unused variable 'buf' [-Werror=unused-variable]
+> drivers/net/usb/pegasus.c:443:17: error: unused variable 'count' [-Werror=unused-variable]
+> 
+> This removes them as well.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: e00be9e4d0ff ("net: pegasus: remove dead coding")
 
-I did.
+The patch in question was broken and has been reverted.
