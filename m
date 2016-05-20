@@ -1,32 +1,60 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: for stable: vxlan, gre, geneve: Set a large MTU on ovs-created tunnel devices
-Date: Thu, 19 May 2016 21:53:33 -0400
-Message-ID: <CAOZ2QJM1F4HDYESBSbyhf9=20H7Z7v3fCxo=Q5U9CMUnjnURMA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] udp: prevent skbs lingering in tunnel socket queues
+Date: Thu, 19 May 2016 18:56:00 -0700
+Message-ID: <CAM_iQpWKXeYyxsRkRFGde1YzHys-FuZt4eO+FF=+RUyRA=YdtQ@mail.gmail.com>
+References: <1463666313-12743-1-git-send-email-hannes@stressinduktion.org>
+ <CAM_iQpXOxcT+P2mxF9okdeD2d-=mXXxba6c-AQk-hgv7qian2A@mail.gmail.com> <1463698234.591755.613149449.668265D8@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:35024 "EHLO
-	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753900AbcETByO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 21:54:14 -0400
-Received: by mail-yw0-f178.google.com with SMTP id g133so96476738ywb.2
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 18:54:13 -0700 (PDT)
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:36724 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753334AbcETB4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2016 21:56:20 -0400
+Received: by mail-yw0-f195.google.com with SMTP id u62so12982753ywe.3
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 18:56:20 -0700 (PDT)
+In-Reply-To: <1463698234.591755.613149449.668265D8@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Can you queue this 3-commit patch series for stable?
+On Thu, May 19, 2016 at 3:50 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Cong,
+>
+> On Fri, May 20, 2016, at 00:33, Cong Wang wrote:
+>> On Thu, May 19, 2016 at 6:58 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+>> > index 2e3ebfe5549ef5..d56c0559b477cb 100644
+>> > --- a/net/ipv4/udp.c
+>> > +++ b/net/ipv4/udp.c
+>> > @@ -1565,7 +1565,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>> >
+>> >                 /* if we're overly short, let UDP handle it */
+>> >                 encap_rcv = ACCESS_ONCE(up->encap_rcv);
+>> > -               if (skb->len > sizeof(struct udphdr) && encap_rcv) {
+>> > +               if (encap_rcv) {
+>>
+>>
+>> I don't think you can just remove it here, l2tp_udp_recv_core() still
+>> relies on it:
+>>
+>>         /* UDP has verifed checksum */
+>>
+>>         /* UDP always verifies the packet length. */
+>>         __skb_pull(skb, sizeof(struct udphdr));
+>
+> I think this is fine, we check on every entrance to udp that we may pull
+> (pskb_may_pull) an udphdr but we really never pull the header. At this
+> point we are guaranteed to have skb->len of at least sizeof(struct
+> udphdr).
 
-7e059158d57b79159eaf1f504825d19866ef2c42 ("vxlan, gre, geneve: Set a
-large MTU on ovs-created tunnel devices")
-55e5bfb53cff286c1c1ff49f51325dc15c7fea63 ("geneve: Relax MTU constraints")
-72564b59ffc438ea103b0727a921aaddce766728 ("vxlan: Relax MTU constraints")
+Ah, yeah, __udp4_lib_rcv().
 
-Without them certain ovs-created tunnels have mtus that are too low
-and can't be increased past 1500, even if both endpoints of the tunnel
-have larger mtus, causing silently dropped large packets.
+BTW, this part (the second half) of your patch is an optimization,
+the rest (the first half) is a real bug fix. It makes sense to split
+them if you plan to backport it to -stable.
 
-They fix:
-b2acd1dc3949cd60c571844d495594f05f0351f4 (for gre),
-614732eaa12dd462c0ab274700bed14f36afea5e (for ovs vxlan), and
-2d07dc79fe04a43d82a346ced6bbf07bdb523f1b (for geneve).
+Thanks.
