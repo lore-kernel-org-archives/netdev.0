@@ -1,53 +1,132 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH V1 0/3] net: enable use of
- kmem_cache_alloc_bulk in network stack
-Date: Fri, 20 May 2016 10:14:46 +0200
-Message-ID: <20160520101446.64416d2b@redhat.com>
-References: <20160509134352.3573.37044.stgit@firesoul>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
+ stmmac-0:ffffffff not found (regression from rc7)
+Date: Fri, 20 May 2016 10:14:50 +0200
+Message-ID: <573EC77A.2000800@st.com>
+References: <56E9413D.9010902@a20.net> <56E945FF.6080005@arm.com> <56E94CF4.2060607@arm.com> <56E95B57.1090100@suse.de> <56E9776F.3070102@a20.net> <56E99B0C.2070609@arm.com> <56E9F2B8.1030605@a20.net> <20160317075202.16b14ed6@arm.com> <CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA@mail.gmail.com> <573EC33D.2010209@arm.com>
+Reply-To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, gerlitz.or@gmail.com, eugenia@mellanox.com,
-	Alexander Duyck <alexander.duyck@gmail.com>, brouer@redhat.com
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57393 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932381AbcETIOw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 May 2016 04:14:52 -0400
-In-Reply-To: <20160509134352.3573.37044.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>,
+        Maxime Ripard
+	<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>,
+        =?UTF-8?B?QW5kcmVhcyBGw6RyYmVy?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+To: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, Andre Heider <a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-sunxi+bncBDB4X24GTMHRBBMP7O4QKGQEQRNOXMY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <573EC33D.2010209-5wv7dgnIgG8@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Mon, 09 May 2016 15:44:24 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+Hello
 
-> This patchset enables use of the slab/kmem_cache bulk alloc API, and
-> completes the use the slab/kmem_cache bulking API in the network stack.
-> 
-> I've not included the patches that introduce a SKB bulk hint, which
-> would beneficial for drivers like mlx5.  Lets see if we can agree on
-> this patchset first.
+On 5/20/2016 9:56 AM, Marc Zyngier wrote:
+> On 20/05/16 06:44, Andre Heider wrote:
+>> Giuseppe, Alexandre, et al.,
+>>
+>> On Thu, Mar 17, 2016 at 8:52 AM, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org> wro=
+te:
+>>> On Thu, 17 Mar 2016 00:56:40 +0100
+>>> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+>>>> On 2016-03-16 18:42, Marc Zyngier wrote:
+>>>>> On 16/03/16 15:10, Bert Lindner wrote:
+>>>>>> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
+>>>>>>> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
+>>>>>>>> On 16/03/16 11:39, Marc Zyngier wrote:
+>>>>>>>>> On 16/03/16 11:19, Bert Lindner wrote:
+>> ...
+>>>>>>>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a pro=
+blem
+>>>>>>>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed since
+>>>>>>>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
+>> ...
+>>>>>>>>>> [    9.767125] NET: Registered protocol family 10
+>>>>>>>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
+>>>>>>>>>> [   10.362382] eth0: Could not attach to PHY
+>>>>>>>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
+>> ...
+>>>>>>> v4 fixes for 4.5 are here:
+>>>>>>>
+>>>>>>> https://patchwork.ozlabs.org/patch/598195/ (revert)
+>>>>>>> https://patchwork.ozlabs.org/patch/598196/
+>> ...
+>>>>> Good to know, thanks. Could you also give the potential fix a go (as
+>>>>> mentioned by Andreas)? Just to make sure that whatever gets merged ne=
+xt
+>>>>> will actually fix the issue.
+>>>>
+>>>> Yes sure, it took a while because I had to travel. Confirmed, the
+>>>> v4-for-4.5 fix works well for me, on sun7i-a20-olinuxino-lime2:
+>>>>
+>>>> root@lime2-079f:~# cat /proc/version
+>>>> Linux version 4.5.0-598195-598196-v4 (root@lime2-079f) (gcc version
+>>>> 4.9.1 (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Wed Mar 16 16:44:22 UTC=
+ 2016
+>>>>
+>>>> dmesg:
+>>>> [    8.245273] NET: Registered protocol family 10
+>>>> [    9.297406]  RX IPC Checksum Offload disabled
+>>>> [    9.297460]  No MAC Management Counters available
+>>>> [    9.297951] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>> [   16.285658] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+>>>> 1Gbps/Full - flow control rx/tx
+>>>> [   16.285798] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>>>>
+>>>> The board is connected to my laptop rather than to a switch, so that
+>>>> might be where the flow control message comes from (not sure). Anyway
+>>>> ethernet works.
+>>>
+>>> Cool, many thanks for taking the time to test and report.
+>>>
+>>> Hopefully Giuseppe will get this merged quickly enough in mainline, and
+>>> it should then trickle into a 4.5-stable release (cc-ing stable on
+>>> these patches would probably be a good idea, BTW).
+>>
+>> stmmac is broken on at least Lime2, BananaPi and Cubieboard2 since
+>> v4.5 [0], including all five stable releases :(
+>
+> All the A20 platforms are dead, actually.
+>
+>> The v4.5 patches quoted above are already +4 weeks old, could we
+>> please get them into stable?
+>
+> For that, the maintainer would have needed to CC stable, which he
+> didn't. I'd expect someone who cares to send these patches to stable.
+> It'd be better if the maintainer would do it himself though.
 
-Conclusion: Guess we could not agree on this patchset.
+sure, I can send the patches to stable (sorry if I missed to add
+stable ML on CC).
 
-The main problem seems to be that the patch always bulk allocated 8
-SKBs, without knowing if we actually need them.  My earlier patchset
-also included a "hint" interface, as mlx5 driver knows after processing
-the RX queue, how many SKBs it needs, thus it can request to bulk alloc
-the needed amount. (The only problem with mlx5 is that preallocating
-SKBs into it's RX ring is a broken scheme).
+Andre, I have not clear if the train of patches actually fix the
+issue or if you need my support to fix something else. In that case
+I need some input for debugging (e.g. kernel log).
 
-A better scheme would be, if the driver on RX knows how many packets
-are available in the RX queue.  Then we can bulk alloc the needed
-amount of SKBs.  Thus, we can circle back to this once the driver can
-provide this information. (This goes nicely hand-in-hand with my idea
-of pulling out avail RX packet-pages from the RX ring, and start
-prefetch'es to hide the cache-misses).
+let me know, is it enough to re-send the patches only?
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Regards
+Peppe
+
+>
+> Thanks,
+>
+> 	M.
+>
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
