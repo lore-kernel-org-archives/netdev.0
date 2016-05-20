@@ -1,48 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] phy: fix crash in fixed_phy_add()
-Date: Fri, 20 May 2016 10:50:32 -0700 (PDT)
-Message-ID: <20160520.105032.1917286986199018607.davem@davemloft.net>
-References: <1463568451-9385-1-git-send-email-rabin.vincent@axis.com>
+Subject: Re: [PATCH net-next] xen-netback: correct length checks on hash
+ copy_ops
+Date: Fri, 20 May 2016 10:51:22 -0700 (PDT)
+Message-ID: <20160520.105122.1212595607418214946.davem@davemloft.net>
+References: <1463557981-17294-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	rabinv@axis.com
-To: rabin.vincent@axis.com
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com
+To: paul.durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51432 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51444 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbcETRud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 13:50:33 -0400
-In-Reply-To: <1463568451-9385-1-git-send-email-rabin.vincent@axis.com>
+	with ESMTP id S1751886AbcETRvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 13:51:24 -0400
+In-Reply-To: <1463557981-17294-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rabin Vincent <rabin.vincent@axis.com>
-Date: Wed, 18 May 2016 12:47:31 +0200
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Wed, 18 May 2016 08:53:01 +0100
 
-> From: Rabin Vincent <rabinv@axis.com>
+> The length checks on the grant table copy_ops for setting hash key and
+> hash mapping are checking the local 'len' value which is correct in
+> the case of the former but not the latter. This was picked up by
+> static analysis checks.
 > 
-> Since e7f4dc3536a ("mdio: Move allocation of interrupts into core"),
-> platforms which call fixed_phy_add() before fixed_mdio_bus_init() is
-> called (for example, because the platform code and the fixed_phy driver
-> use the same initcall level) crash in fixed_phy_add() since the
-> ->mii_bus is not allocated.
+> This patch replaces checks of 'len' with 'copy_op.len' in both cases
+> to correct the incorrect check, keep the two checks consistent, and to
+> make it clear what the checks are for.
 > 
-> Also since e7f4dc3536a, these interrupts are initalized to polling by
-> default.  The few (old) platforms which directly use fixed_phy_add()
-> from their platform code all pass PHY_POLL for the irq argument, so we
-> can keep these platforms not crashing by simply not attempting to set
-> the irq if PHY_POLL is passed.
-> 
-> Also, even if problems have not been reported on more modern platforms
-> which used fixed_phy_register() from drivers' probe functions, we return
-> -EPROBE_DEFER if the MDIO bus is not yet registered so that the probe is
-> retried later.
-> 
-> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
-> Signed-off-by: Rabin Vincent <rabinv@axis.com>
-> ---
-> v3: One more suggestion from Andrew: check mii bus state
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied.
