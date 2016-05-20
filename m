@@ -1,54 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH net] bpf: Use mount_nodev not mount_ns to mount the bpf filesystem
-Date: Fri, 20 May 2016 17:31:24 -0500
-Message-ID: <8737pce4zn.fsf@x220.int.ebiederm.org>
-References: <87oa84wa6h.fsf@x220.int.ebiederm.org>
-	<79e26212-3b09-1be3-0fbf-30de1b265045@stressinduktion.org>
-	<87inybv2hv.fsf@x220.int.ebiederm.org>
-	<573CD3D8.3030308@iogearbox.net>
-	<bbb5386f-b7ea-a256-5dfd-c8c8681061c6@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] RDS: TCP: connection spamming fixes
+Date: Fri, 20 May 2016 19:20:32 -0400 (EDT)
+Message-ID: <20160520.192032.1207007536147387597.davem@davemloft.net>
+References: <cover.1463579486.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com, santosh.shilimkar@oracle.com
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:48448 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbcETWmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 18:42:24 -0400
-In-Reply-To: <bbb5386f-b7ea-a256-5dfd-c8c8681061c6@stressinduktion.org>
-	(Hannes Frederic Sowa's message of "Wed, 18 May 2016 22:46:57 +0200")
+Received: from shards.monkeyblade.net ([149.20.54.216]:53336 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751094AbcETXUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 19:20:36 -0400
+In-Reply-To: <cover.1463579486.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 18 May 2016 10:06:22 -0700
 
-> On 18.05.2016 22:43, Daniel Borkmann wrote:
->> Eric, please send the patch officially and feel free to add my Ack.
+> We have been testing the RDS-TCP code with a connection spammer
+> that sends incoming SYNs to the RDS listen port well after 
+> an rds-tcp connection has been established, and found a few 
+> race-windows that are fixed by this patch series.
+> 
+> Patch 1 avoids a null pointer deref when an incoming SYN 
+> shows up when a netns is being dismantled, or when the 
+> rds-tcp module is being unloaded. 
+> 
+> Patch 2 addresses the case when a SYN is received after the
+> connection arbitration algorithm has converged: the incoming
+> SYN should not needlessly quiesce the transmit path, and it
+> should not result in needless TCP connection resets due to
+> re-execution of the connection arbitration logic.
 
-Done.
-
->> Given
->> the circumstances, moving to mount_nodev() seems the best way forward. To
->> also address above mentioned concern from Hannes, we need to remove the
->> FS_USERNS_MOUNT flag along with the change. It looks like the fix is best
->> addressed in a single patch if you want to include it. If not, we can
->> otherwise send it separately as well, I don't mind.
->
-> I agree. Would make most sense to make the change in one patch. Later on
-> we can reason about if it makes sense to use the net namespace to split
-> bpf maps and programs or maybe even introduce a new primitive for that.
-
-I will let you two take care of the FS_USERNS_MOUNT flag.
-
-Removal of the FS_USERNS_MOUNT flag because it was added prematurely is
-a completely different analysis of consequences and possible regressions
-in userspace.  The two changes should be kept separate to make it easy
-to handle the unlikely case that either of them cause a regression.
-
-But I have not objections to removing the FS_USERNS_MOUNT flag from the
-bpf filesystem.
-
-Eric
+Series applied, thanks.
