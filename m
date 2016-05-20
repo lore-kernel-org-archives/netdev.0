@@ -1,36 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: pegasus: remove unused variables and labels
-Date: Fri, 20 May 2016 09:40:31 -0700 (PDT)
-Message-ID: <20160520.094031.1022047118545506778.davem@davemloft.net>
-References: <1463732595-3149399-1-git-send-email-arnd@arndb.de>
+Subject: Re: [PATCH] net: sock: Add option for memory optimized hints.
+Date: Fri, 20 May 2016 09:48:12 -0700 (PDT)
+Message-ID: <20160520.094812.525569716364549745.davem@davemloft.net>
+References: <573F12F5.7050704@sonymobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: petkan@nucleusys.com, xypron.glpk@gmx.de,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463732595-3149399-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: peter.enderborg@sonymobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50856 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467AbcETQsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 12:48:13 -0400
+In-Reply-To: <573F12F5.7050704@sonymobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 20 May 2016 10:22:30 +0200
 
-> The latest dead-code removal was slightly incomplete and
-> left a few things behind that we now get compiler warnings
-> for:
-> 
-> drivers/net/usb/pegasus.c: In function 'read_bulk_callback':
-> drivers/net/usb/pegasus.c:475:1: error: label 'goon' defined but not used [-Werror=unused-label]
-> drivers/net/usb/pegasus.c:446:8: error: unused variable 'pkt_len' [-Werror=unused-variable]
-> drivers/net/usb/pegasus.c:445:6: error: unused variable 'buf' [-Werror=unused-variable]
-> drivers/net/usb/pegasus.c:443:17: error: unused variable 'count' [-Werror=unused-variable]
-> 
-> This removes them as well.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: e00be9e4d0ff ("net: pegasus: remove dead coding")
+It is not appropriate to submit new features at this time as we are in
+the merge window and we are only bug fixes.
 
-The patch in question was broken and has been reverted.
+Please resubmit this when the net-next tree opens back up.
