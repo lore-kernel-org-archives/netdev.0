@@ -1,52 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] net: remove busylock
-Date: Fri, 20 May 2016 06:11:49 -0700
-Message-ID: <1463749909.18194.291.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
-	 <20160520092903.38620c60@redhat.com>
+From: peter enderborg <peter.enderborg@sonymobile.com>
+Subject: [PATCH] net: sock: Add option for memory optimized hints.
+Date: Fri, 20 May 2016 15:36:53 +0200
+Message-ID: <573F12F5.7050704@sonymobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36414 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754978AbcETNLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 09:11:51 -0400
-Received: by mail-pf0-f194.google.com with SMTP id g132so11316280pfb.3
-        for <netdev@vger.kernel.org>; Fri, 20 May 2016 06:11:51 -0700 (PDT)
-In-Reply-To: <20160520092903.38620c60@redhat.com>
+Received: from seldsegrel01.sonyericsson.com ([37.139.156.29]:16078 "EHLO
+	SELDSEGREL01.sonyericsson.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752668AbcETNq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 09:46:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-05-20 at 09:29 +0200, Jesper Dangaard Brouer wrote:
+From: Peter Enderborg <peter.enderborg@sonymobile.com>
 
+When sending data the socket allocates memory for
+payload on a cache or a page alloc. The page alloc
+then might trigger compation that takes long time.
+This can be avoided with smaller chunks. But
+userspace can not know what is the right size for
+the smaller sends. For this we add a SIZEHINT
+getsocketopt where the userspace can get the size
+for send that will fit into one page (order 0) or
+the max for a slab cache allocation.
 
-> The hole idea behind allowing bulk qdisc dequeue, was to mitigate this,
-> by allowing dequeue to do more work, while holding the lock.
-> 
-> You mention HTB.  Notice HTB does not take advantage of bulk dequeue.
-> Have you tried to enable/allow HTB to bulk dequeue?
-> 
+Signed-off-by: Peter Enderborg <peter.enderborg@sonymobile.com>
+---
+  include/uapi/asm-generic/socket.h |  2 ++
+  include/uapi/linux/socket.h       |  9 +++++++++
+  net/core/sock.c                   | 17 +++++++++++++++++
+  3 files changed, 28 insertions(+)
 
-Well, __QDISC___STATE_RUNNING means exactly that : one cpu is dequeueing
-many packets from the qdisc and tx them to the device.
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 67d632f..f6a4921 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -92,4 +92,6 @@
 
-It is generic for any kind of qdisc.
+  #define SO_CNX_ADVICE          53
 
-HTB bulk dequeue would have to call ->dequeue() mutiple times. If you do
-this while holding qdisc spinlock, you block other cpus from doing
-concurrent ->enqueue(), adding latencies (always the same trade off...)
++#define SO_SIZEHINT            54
++
+  #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/include/uapi/linux/socket.h b/include/uapi/linux/socket.h
+index 76ab0c6..16db7e8 100644
+--- a/include/uapi/linux/socket.h
++++ b/include/uapi/linux/socket.h
+@@ -1,6 +1,8 @@
+  #ifndef _UAPI_LINUX_SOCKET_H
+  #define _UAPI_LINUX_SOCKET_H
 
-HTB wont be anytime soon have separate protections for the ->enqueue()
-and the ->dequeue(). Have you looked at this monster ? I did, many
-times...
++#include <linux/types.h>
++
+  /*
+   * Desired design of maximum size and alignment (see RFC2553)
+   */
+@@ -18,4 +20,11 @@ struct __kernel_sockaddr_storage {
+                                 /* _SS_MAXSIZE value minus size of ss_family */
+  } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));  /* force desired alignment */
 
-Note that I am working on a patch to transform __QDISC___STATE_RUNNING
-to a seqcount do that we can grab stats without holding the qdisc lock.
++struct sock_sizehint {
++       __u32   order_zero_size;
++               /* max payload size that can fit into one page in kernel */
++       __u32   cache_size;
++               /* max payload size that can fit in socket slab cache */
++};
++
+  #endif /* _UAPI_LINUX_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 7e73c26..4c9cd92 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1254,6 +1254,23 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+                 v.val = sk->sk_incoming_cpu;
+                 break;
+
++       case SO_SIZEHINT:
++       {
++               struct sock_sizehint hint;
++
++               if (len > sizeof(hint))
++                       len = sizeof(hint);
++
++               hint.order_zero_size = PAGE_SIZE -
++                       SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++               hint.cache_size =  KMALLOC_MAX_CACHE_SIZE -
++                       SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++
++               if (copy_to_user(optval, &hint, len))
++                       return -EFAULT;
++               goto lenout;
++       }
++
+         default:
+                 /* We implement the SO_SNDLOWAT etc to not be settable
+                  * (1003.1g 7).
+-- 
+2.4.2
