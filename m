@@ -1,9 +1,10 @@
 From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next v2 7/7] Driver: Vmxnet3: Update to Version 3
-Date: Thu, 19 May 2016 23:53:12 -0700
-Message-ID: <1463727192-4543-8-git-send-email-skhare@vmware.com>
+Subject: [PATCH net-next v2 2/7] Driver: Vmxnet3: Introduce generic command interface to configure the device
+Date: Thu, 19 May 2016 23:53:07 -0700
+Message-ID: <1463727192-4543-3-git-send-email-skhare@vmware.com>
 References: <1463727192-4543-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Guolin Yang <gyang@vmware.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	pv-drivers@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -11,46 +12,58 @@ In-Reply-To: <1463727192-4543-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Guolin Yang <gyang@vmware.com>
 Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 7 ++++++-
- drivers/net/vmxnet3/vmxnet3_int.h | 4 ++--
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_defs.h | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 86965cd..71ce4be 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -3346,7 +3346,12 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 		goto err_alloc_pci;
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index 8345e0c..a26a69d 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -79,6 +79,7 @@ enum {
+ 	VMXNET3_CMD_RESERVED1,
+ 	VMXNET3_CMD_LOAD_PLUGIN,
+ 	VMXNET3_CMD_RESERVED2,
++	VMXNET3_CMD_RESERVED3,
  
- 	ver = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_VRRS);
--	if (ver & (1 << VMXNET3_REV_2)) {
-+	if (ver & (1 << VMXNET3_REV_3)) {
-+		VMXNET3_WRITE_BAR1_REG(adapter,
-+				       VMXNET3_REG_VRRS,
-+				       1 << VMXNET3_REV_3);
-+		adapter->version = VMXNET3_REV_3 + 1;
-+	} else if (ver & (1 << VMXNET3_REV_2)) {
- 		VMXNET3_WRITE_BAR1_REG(adapter,
- 				       VMXNET3_REG_VRRS,
- 				       1 << VMXNET3_REV_2);
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 29f087f..63df4f2 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.4.7.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.4.8.0-k"
+ 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
+ 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
+@@ -612,6 +613,18 @@ struct Vmxnet3_RxQueueDesc {
+ 	u8				      __pad[88]; /* 128 aligned */
+ };
  
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01040700
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01040800
++struct Vmxnet3_SetPolling {
++	u8					enablePolling;
++};
++
++/* If the command data <= 16 bytes, use the shared memory directly.
++ * otherwise, use variable length configuration descriptor.
++ */
++union Vmxnet3_CmdInfo {
++	struct Vmxnet3_VariableLenConfDesc	varConf;
++	struct Vmxnet3_SetPolling		setPolling;
++	__le64					data[2];
++};
  
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
+ struct Vmxnet3_DSDevRead {
+ 	/* read-only region for device, read by dev in response to a SET cmd */
+@@ -630,7 +643,14 @@ struct Vmxnet3_DriverShared {
+ 	__le32				pad;
+ 	struct Vmxnet3_DSDevRead	devRead;
+ 	__le32				ecr;
+-	__le32				reserved[5];
++	__le32				reserved;
++	union {
++		__le32			reserved1[4];
++		union Vmxnet3_CmdInfo	cmdInfo; /* only valid in the context of
++						  * executing the relevant
++						  * command
++						  */
++	} cu;
+ };
+ 
+ 
 -- 
 2.8.2
