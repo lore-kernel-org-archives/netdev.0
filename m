@@ -1,54 +1,39 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next RFC 1/1] net sched actions: introduce timestamp for
- first time used
-Date: Thu, 19 May 2016 22:16:47 -0700
-Message-ID: <CAM_iQpVP3MPAEBVn0buzkAaLzuYpba0Z5Va-V0CN_+G77eJhQQ@mail.gmail.com>
-References: <1463528337-4986-1-git-send-email-jhs@emojatatu.com>
- <CAM_iQpWXgncANS5MrBzrZiEVSbGzNptrAjisg_K2NTA-PsAMKg@mail.gmail.com>
- <573DA960.8070102@mojatatu.com> <573DAE70.4000504@mojatatu.com> <CAM_iQpW7LQ40XX5G+creyHjQbgdRcKCCJ1f5CbWHjdJdxJPPRA@mail.gmail.com>
+Subject: Re: [PATCH net] fou: avoid using sk_user_data before it is initialised
+Date: Thu, 19 May 2016 22:17:40 -0700
+Message-ID: <CAM_iQpW2TMHjch6F959LZ171HgeV5Bz-b2sCwtGde1Haw6PyPA@mail.gmail.com>
+References: <1463560216-26616-1-git-send-email-simon.horman@netronome.com>
+ <CALx6S35yHpUk2NQe+JAUYcY7mMBLWRuy75egsDCCB3dmhrC1Ng@mail.gmail.com>
+ <CAM_iQpWJ1BXk9wSypFSacVbHtF2xUEscYByD=qp56rO_5bXAeA@mail.gmail.com> <CALx6S35_owy-0ani--u5H=jQ1PTAcNprbZWNh+QBmHVgCe98NQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Felix Fietkau <nbd@nbd.name>, baronchon@n7mm.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Simon Horman <simon.horman@netronome.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:35871 "EHLO
-	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754140AbcETFRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 01:17:08 -0400
-Received: by mail-yw0-f171.google.com with SMTP id x189so99406194ywe.3
-        for <netdev@vger.kernel.org>; Thu, 19 May 2016 22:17:07 -0700 (PDT)
-In-Reply-To: <CAM_iQpW7LQ40XX5G+creyHjQbgdRcKCCJ1f5CbWHjdJdxJPPRA@mail.gmail.com>
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:34532 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752727AbcETFSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 01:18:00 -0400
+Received: by mail-yw0-f173.google.com with SMTP id j74so99575789ywg.1
+        for <netdev@vger.kernel.org>; Thu, 19 May 2016 22:18:00 -0700 (PDT)
+In-Reply-To: <CALx6S35_owy-0ani--u5H=jQ1PTAcNprbZWNh+QBmHVgCe98NQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2016 at 9:38 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, May 19, 2016 at 5:15 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 16-05-19 07:54 AM, Jamal Hadi Salim wrote:
->>>
->>> On 16-05-18 01:17 PM, Cong Wang wrote:
->>
->>
->>>> I think it is the time to add a wrapper for these tm.XX =
->>>> jiffies_to_clock_t(XXX).
+On Wed, May 18, 2016 at 10:16 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Wed, May 18, 2016 at 10:07 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Wed, May 18, 2016 at 9:30 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Wed, May 18, 2016 at 1:30 AM, Simon Horman
+>>> <simon.horman@netronome.com> wrote:
+>>>> During initialisation sk->sk_user_data should be initialised before
+>>>> it is referenced via a call to gue_encap_init().
 >>>>
->>>
->>> Agreed. Will send a patch.
->>> Actually I will resend the firstuse as well without RFC tag
->>> and the wrapper one as separate patch.
->>>
+>>> I think this is should be fixed by proposed patch "fou:
+>>> Call-setup_udp_tunnel_sock".
 >>
->> Something like attached - compiles but untested.
->> I will test later and do formal submission.
+>> That is 6/16, do you have a fix for stable to backport?
 >
-> Looks good.
+> Your patch to use fou directly is good.
 
-One nit: It is better if you can swap 'stm' with 'dtm',
-it looks odd to put destination on the right side.
+Note, I am waiting for Simon to update his patch if he agrees.
