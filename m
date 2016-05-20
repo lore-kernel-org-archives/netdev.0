@@ -1,19 +1,23 @@
 From: Joseph Salisbury <joseph.salisbury@canonical.com>
 Subject: [PATCH][3.13.y-ckt][PATCH 1/1] bridge: Fix the way to find old local fdb entries in br_fdb_changeaddr
 Date: Fri, 20 May 2016 12:59:37 -0400
-Message-ID: <903d05de6310fe2491c160713e918f87f32a4090.1463760264.git.joseph.salisbury__45513.5806966156$1463763838$gmane$org@canonical.com>
+Message-ID: <903d05de6310fe2491c160713e918f87f32a4090.1463760264.git.joseph.salisbury__29466.6953305297$1463764138$gmane$org@canonical.com>
 References: <cover.1463760264.git.joseph.salisbury@canonical.com>
 Cc: stable@vger.kernel.org, jmaxwell37@gmail.com, jiri@resnulli.us,
 	makita.toshiaki@lab.ntt.co.jp, stephen@networkplumber.org,
 	davem@davemloft.net, bridge@lists.linux-foundation.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: kamal.mostafa@canonical.com
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:43453 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754819AbcETQ7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 12:59:49 -0400
 In-Reply-To: <cover.1463760264.git.joseph.salisbury@canonical.com>
 In-Reply-To: <cover.1463760264.git.joseph.salisbury@canonical.com>
 References: <cover.1463760264.git.joseph.salisbury@canonical.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
