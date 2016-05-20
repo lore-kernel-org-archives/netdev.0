@@ -1,54 +1,164 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
- flow/port support
-Date: Fri, 20 May 2016 19:14:20 +0900
-Message-ID: <20160520101417.GA24509@penelope.isobedori.kobe.vergenet.net>
-References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
- <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
- <20160517163250.7ead555e@griffin>
- <20160520052858.GA15505@vergenet.net>
- <20160520100028.0065a2ef@griffin>
- <20160520081120.GA17561@vergenet.net>
- <20160520081611.GB17561@vergenet.net>
- <20160520103939.723f2a42@griffin>
- <20160520091202.GC17561@vergenet.net>
- <20160520112004.4f0a54e7@griffin>
+From: Andre Heider <a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
+ stmmac-0:ffffffff not found (regression from rc7)
+Date: Fri, 20 May 2016 12:30:30 +0200
+Message-ID: <CAHsu+b9BrqBLdCpsPpetc_4_EaFVGBdDHtoeeCqqzsCG3Wpsig@mail.gmail.com>
+References: <56E9413D.9010902@a20.net>
+	<56E945FF.6080005@arm.com>
+	<56E94CF4.2060607@arm.com>
+	<56E95B57.1090100@suse.de>
+	<56E9776F.3070102@a20.net>
+	<56E99B0C.2070609@arm.com>
+	<56E9F2B8.1030605@a20.net>
+	<20160317075202.16b14ed6@arm.com>
+	<CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA@mail.gmail.com>
+	<573EC33D.2010209@arm.com>
+	<573EC77A.2000800@st.com>
+Reply-To: a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160520112004.4f0a54e7@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+	Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>, Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>, =?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-sunxi+bncBCSM7XXJ54DBBRWO7O4QKGQEKQYFUGQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <573EC77A.2000800-qxv4g6HH51o@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBNYXkgMjAsIDIwMTYgYXQgMTE6MjA6MDRBTSArMDIwMCwgSmlyaSBCZW5jIHdyb3Rl
-Ogo+IE9uIEZyaSwgMjAgTWF5IDIwMTYgMTg6MTI6MDUgKzA5MDAsIFNpbW9uIEhvcm1hbiB3cm90
-ZToKClsuLi5dCgo+ID4gMy4gV2l0aCByZWdhcmRzIHRvIHRoZSBtaXJyb3JpbmcgcGFydCBvZiB5
-b3VyIHF1ZXN0aW9uLCBJIG5lZWQgdG8gY2hlY2sKPiA+ICAgIG9uIHRoYXQgYW5kIHBvc3NpYmx5
-IGl0cyBicm9rZW4uIEJ1dCBteSB0aGlua2luZyBpcyB0aGF0IGEgbWlycm9yaW5nCj4gPiAgICB2
-cG9ydCB3b3VsZCByZWdhcmRlZCBpbiB0aGUgc2FtZSB3YXkgYXMgYW55IG90aGVyIHZwb3J0IGlu
-IHRoaXMgcmVzcGVjdAo+ID4gICAgYW5kIHRoZSBwcmVzZW5jZSBvZiB0aGUgImxheWVyMyIgZmxh
-ZyB3b3VsZCBjb250cm9sIHdoZXRoZXIgYW4gRXRoZXJuZXQKPiA+ICAgIGhlYWRlciBpcyBwcmVz
-ZW50IG9yIG5vdC4KPiA+IAo+ID4gICAgSXQgbWF5IGJlIHRoZSBjYXNlIHRoYXQgaXRzIG5vdCBw
-b3NzaWJsZSB0byB1c2UgYSB0dW5uZWwgdnBvcnQgYXMgYQo+ID4gICAgbWlycm9yaW5nIHZwb3J0
-LiBBbmQgYXMgYWxsIG90aGVyIHZwb3J0cyBjdXJyZW50bHkgZG8gbm90IHN1cHBvcnQKPiA+ICAg
-ICJsYXllcjMiIHRoZW4gY3VycmVudGx5IGFuIEV0aGVybmV0IGhlYWRlciB3b3VsZCBhbHdheXMg
-YmUgcHJlc2VudAo+ID4gICAgb24gb3V0cHV0IHRvIGEgbWlycm9yLgo+IAo+IFdlIGNhbiBqdXN0
-IHJlcXVpcmUgYSBtaXJyb3IgcG9ydCB0byBiZSBhbHdheXMgTDIgYW5kIG91dHB1dCB0aGUgTDMK
-PiBwYWNrZXRzIHdpdGggemVybyBFdGhlcm5ldCBhZGRyZXNzZXMuIEZvciBtaXJyb3JpbmcsIHRo
-aXMgc2hvdWxkIGJlCj4gb2theSg/KQoKWWVzLCBJIGV4cGVjdCB0aGF0IGlzIGEgZ29vZCBhcHBy
-b2FjaC4KCkknbGwgbG9vayBvdmVyIHRoZSBjb2RlIHRvIHNlZSBhYm91dCBtYWtpbmcgdGhhdCBz
-byBpZiBpdHMgbm90IGFscmVhZHkgdGhlCmNhc2UuCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9y
-ZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Hi,
+
+On Fri, May 20, 2016 at 10:14 AM, Giuseppe CAVALLARO
+<peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
+> On 5/20/2016 9:56 AM, Marc Zyngier wrote:
+>>
+>> On 20/05/16 06:44, Andre Heider wrote:
+>>>
+>>> Giuseppe, Alexandre, et al.,
+>>>
+>>> On Thu, Mar 17, 2016 at 8:52 AM, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+>>> wrote:
+>>>>
+>>>> On Thu, 17 Mar 2016 00:56:40 +0100
+>>>> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+>>>>>
+>>>>> On 2016-03-16 18:42, Marc Zyngier wrote:
+>>>>>>
+>>>>>> On 16/03/16 15:10, Bert Lindner wrote:
+>>>>>>>
+>>>>>>> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
+>>>>>>>>
+>>>>>>>> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
+>>>>>>>>>
+>>>>>>>>> On 16/03/16 11:39, Marc Zyngier wrote:
+>>>>>>>>>>
+>>>>>>>>>> On 16/03/16 11:19, Bert Lindner wrote:
+>>>
+>>> ...
+>>>>>>>>>>>
+>>>>>>>>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a
+>>>>>>>>>>> problem
+>>>>>>>>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed since
+>>>>>>>>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
+>>>
+>>> ...
+>>>>>>>>>>>
+>>>>>>>>>>> [    9.767125] NET: Registered protocol family 10
+>>>>>>>>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
+>>>>>>>>>>> [   10.362382] eth0: Could not attach to PHY
+>>>>>>>>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
+>>>
+>>> ...
+>>>>>>>>
+>>>>>>>> v4 fixes for 4.5 are here:
+>>>>>>>>
+>>>>>>>> https://patchwork.ozlabs.org/patch/598195/ (revert)
+>>>>>>>> https://patchwork.ozlabs.org/patch/598196/
+>>>
+>>> ...
+>>>>>>
+>>>>>> Good to know, thanks. Could you also give the potential fix a go (as
+>>>>>> mentioned by Andreas)? Just to make sure that whatever gets merged
+>>>>>> next
+>>>>>> will actually fix the issue.
+>>>>>
+>>>>>
+>>>>> Yes sure, it took a while because I had to travel. Confirmed, the
+>>>>> v4-for-4.5 fix works well for me, on sun7i-a20-olinuxino-lime2:
+>>>>>
+>>>>> root@lime2-079f:~# cat /proc/version
+>>>>> Linux version 4.5.0-598195-598196-v4 (root@lime2-079f) (gcc version
+>>>>> 4.9.1 (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Wed Mar 16 16:44:22 UT=
+C
+>>>>> 2016
+>>>>>
+>>>>> dmesg:
+>>>>> [    8.245273] NET: Registered protocol family 10
+>>>>> [    9.297406]  RX IPC Checksum Offload disabled
+>>>>> [    9.297460]  No MAC Management Counters available
+>>>>> [    9.297951] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>>> [   16.285658] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+>>>>> 1Gbps/Full - flow control rx/tx
+>>>>> [   16.285798] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes read=
+y
+>>>>>
+>>>>> The board is connected to my laptop rather than to a switch, so that
+>>>>> might be where the flow control message comes from (not sure). Anyway
+>>>>> ethernet works.
+>>>>
+>>>>
+>>>> Cool, many thanks for taking the time to test and report.
+>>>>
+>>>> Hopefully Giuseppe will get this merged quickly enough in mainline, an=
+d
+>>>> it should then trickle into a 4.5-stable release (cc-ing stable on
+>>>> these patches would probably be a good idea, BTW).
+>>>
+>>>
+>>> stmmac is broken on at least Lime2, BananaPi and Cubieboard2 since
+>>> v4.5 [0], including all five stable releases :(
+>>
+>>
+>> All the A20 platforms are dead, actually.
+>>
+>>> The v4.5 patches quoted above are already +4 weeks old, could we
+>>> please get them into stable?
+>>
+>>
+>> For that, the maintainer would have needed to CC stable, which he
+>> didn't. I'd expect someone who cares to send these patches to stable.
+>> It'd be better if the maintainer would do it himself though.
+>
+>
+> sure, I can send the patches to stable (sorry if I missed to add
+> stable ML on CC).
+>
+> Andre, I have not clear if the train of patches actually fix the
+> issue or if you need my support to fix something else. In that case
+> I need some input for debugging (e.g. kernel log).
+
+Bert already confirmed that those two patches fixes stmmac on his
+Lime2, so I assume that it fixes the issue for all A20 platforms.
+
+> let me know, is it enough to re-send the patches only?
+
+Just a resend with cc:stable :)
+
+Thanks!
+Andre
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
