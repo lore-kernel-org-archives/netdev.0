@@ -1,49 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers-next 2016-05-13 (take two)
-Date: Fri, 20 May 2016 19:41:48 -0400 (EDT)
-Message-ID: <20160520.194148.1467687685270353684.davem@davemloft.net>
-References: <87eg8yfc8b.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH net] bpf: Use mount_nodev not mount_ns to mount the bpf
+ filesystem
+Date: Fri, 20 May 2016 19:46:55 -0400 (EDT)
+Message-ID: <20160520.194655.1996549847813859589.davem@davemloft.net>
+References: <573CD3D8.3030308@iogearbox.net>
+	<bbb5386f-b7ea-a256-5dfd-c8c8681061c6@stressinduktion.org>
+	<874m9sfjyf.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
+Cc: hannes@stressinduktion.org, daniel@iogearbox.net, ast@kernel.org,
+	netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53481 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53505 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751009AbcETXlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 19:41:50 -0400
-In-Reply-To: <87eg8yfc8b.fsf@kamboji.qca.qualcomm.com>
+	with ESMTP id S1751094AbcETXq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 19:46:57 -0400
+In-Reply-To: <874m9sfjyf.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Thu, 19 May 2016 15:45:08 +0300
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 20 May 2016 17:22:48 -0500
 
-> this the second version of the last pull request to net-next for 4.7,
-> which got postponed due to the recent iwlwifi merge conflict. Now that
-> Linus fixed the merge problem in his tree I actually didn't have to fix
-> anything in my tree anymore. So that's why I still use the same tag as
-> in my previous pull request.
 > 
-> The only dependency is that you need Linus' iwlwifi fix in your tree
-> before you pull this:
+> While reviewing the filesystems that set FS_USERNS_MOUNT I spotted the
+> bpf filesystem.  Looking at the code I saw a broken usage of mount_ns
+> with current->nsproxy->mnt_ns. As the code does not acquire a
+> reference to the mount namespace it can not possibly be correct to
+> store the mount namespace on the superblock as it does.
 > 
-> 0e034f5c4bc4 iwlwifi: fix mis-merge that breaks the driver
+> Replace mount_ns with mount_nodev so that each mount of the bpf
+> filesystem returns a distinct instance, and the code is not buggy.
 > 
-> So if you could pull latest Linus' tree to net-next that would solve
-> that. I just did a test merge of that on your net-next tree and didn't
-> see any conflicts, so this pull should go smoothly. Also these patches
-> have been in linux-next at least a week now. But please let me know if
-> you see any issues.
+> In discussion with Hannes Frederic Sowa it was reported that the use
+> of mount_ns was an attempt to have one bpf instance per mount
+> namespace, in an attempt to keep resources that pin resources from
+> hiding.  That intent simply does not work, the vfs is not built to
+> allow that kind of behavior.  Which means that the bpf filesystem
+> really is buggy both semantically and in it's implemenation as it does
+> not nor can it implement the original intent.
+> 
+> This change is userspace visible, but my experience with similar
+> filesystems leads me to believe nothing will break with a model of each
+> mount of the bpf filesystem is distinct from all others.
+> 
+> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Done, pulled, thanks a lot!
-
-> And I think a lesson learned from this is that I need to immediately
-> merge wireless-drivers to wireless-drivers-next if there are any
-> conflicts between the trees. Or how do you suggest to handle cases like
-> that?
-
-You shouldn't have to worry about this kind of stuff at all, and let's
-just hope I handle the conflict better next time. :-)
+Applied and queued up for -stable, thanks everyone.
