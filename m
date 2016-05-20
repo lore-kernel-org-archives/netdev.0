@@ -1,14 +1,14 @@
 From: Joseph Salisbury <joseph.salisbury@canonical.com>
 Subject: [PATCH][v3.13.y-ckt][PATCH 0/1] bridge: notify user space after fdb update
 Date: Fri, 20 May 2016 12:59:36 -0400
-Message-ID: <cover.1463760264.git.joseph.salisbury__42279.556222684$1463764252$gmane$org@canonical.com>
+Message-ID: <cover.1463760264.git.joseph.salisbury__31624.7315182865$1463764262$gmane$org@canonical.com>
 Cc: stable@vger.kernel.org, jmaxwell37@gmail.com, jiri@resnulli.us,
 	makita.toshiaki@lab.ntt.co.jp, stephen@networkplumber.org,
 	davem@davemloft.net, bridge@lists.linux-foundation.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: kamal.mostafa@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 BugLink: http://bugs.launchpad.net/bugs/1581585
