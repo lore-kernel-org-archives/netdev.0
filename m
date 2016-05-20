@@ -1,40 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sock: Add option for memory optimized hints.
-Date: Fri, 20 May 2016 10:33:14 -0700
-Message-ID: <1463765594.18194.301.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <573F12F5.7050704@sonymobile.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ip6_gre: Fix MTU setting for ip6gretap
+Date: Fri, 20 May 2016 10:47:48 -0700 (PDT)
+Message-ID: <20160520.104748.14485785092408851.davem@davemloft.net>
+References: <1463565952-8781-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: peter enderborg <peter.enderborg@sonymobile.com>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <573F12F5.7050704@sonymobile.com>
+In-Reply-To: <1463565952-8781-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-05-20 at 15:36 +0200, peter enderborg wrote:
-> From: Peter Enderborg <peter.enderborg@sonymobile.com>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Wed, 18 May 2016 18:05:51 +0800
+
+> When creat an ip6gretap interface with an unreachable route,
+> the MTU is about 14 bytes larger than what was needed.
 > 
-> When sending data the socket allocates memory for
-> payload on a cache or a page alloc. The page alloc
-> then might trigger compation that takes long time.
-> This can be avoided with smaller chunks. But
-> userspace can not know what is the right size for
-> the smaller sends. For this we add a SIZEHINT
-> getsocketopt where the userspace can get the size
-> for send that will fit into one page (order 0) or
-> the max for a slab cache allocation.
+> If the remote address is reachable:
+> ping6 2001:0:130::1 -c 2
+> PING 2001:0:130::1(2001:0:130::1) 56 data bytes
+> 64 bytes from 2001:0:130::1: icmp_seq=1 ttl=64 time=1.46 ms
+> 64 bytes from 2001:0:130::1: icmp_seq=2 ttl=64 time=81.1 ms
+> 
+> --- 2001:0:130::1 ping statistics ---
+> 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+> rtt min/avg/max/mdev = 1.465/41.316/81.167/39.851 ms
+> 
+> ip link add ip6gretap1 type ip6gretap\
+>  local 2001:0:130::2 remote 2001:0:130::1
+> ip link show ip6gretap1
+> 11: ip6gretap1@NONE: <BROADCAST,MULTICAST> mtu 1434 ...
+>     link/ether c2:f3:f8:c1:2c:bf brd ff:ff:ff:ff:ff:ff
+> 
+> The MTU value 1434 is right. But if we delete the direct route:
+> ip -6 route del 2001:0:130::/64
+> ping6 2001:0:130::1 -c 2
+> connect: Network is unreachable
+> ip link add ip6gretap1 type ip6gretap\
+>  local 2001:0:130::2 remote 2001:0:130::1
+> ip link show ip6gretap1
+> 12: ip6gretap1@NONE: <BROADCAST,MULTICAST> mtu 1448 ...
+>     link/ether 7e:e1:d2:c4:06:5e brd ff:ff:ff:ff:ff:ff
+> 
+> Now, the MTU value 1448 is larger than what was needed.
+> 
+> This patch fix the issue in this situation.
+> 
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
+It's great that you have provided precise examples of how to reproduce
+the problem.
 
-Very obscure thing if you ask me. Exposing kernel internals like that
-seems to work around a more serious issue.
-
-What kind of sockets would ever use KMALLOC_MAX_CACHE_SIZE  allocations
-exactly ?
-
-af_unix and tcp are definitely clean.
-
-28d6427109d13b0f447cba5761f88d3548e83605 net: attempt high order allocations in sock_alloc_send_pskb()
-e370a7236321773245c5522d8bb299380830d3b2 af_unix: improve STREAM behavior with fragmented memory
-eb6a24816b247c0be6b2e97e68933072874bbe54 af_unix: reduce high order page allocations
+But you need to explain in your commit message how your fix works.
+Why does simply checking the device type and subtracting the ethernet
+header length work here?  What is the full context for your fix and
+why does it work?
