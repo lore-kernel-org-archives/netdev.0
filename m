@@ -1,58 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: pegasus: remove unused variables and labels
-Date: Fri, 20 May 2016 10:22:30 +0200
-Message-ID: <1463732595-3149399-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Petko Manolov <petkan@nucleusys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 4/7] openvswitch: add layer 3
+ flow/port support
+Date: Fri, 20 May 2016 10:39:39 +0200
+Message-ID: <20160520103939.723f2a42@griffin>
+References: <1462347393-22354-1-git-send-email-simon.horman@netronome.com>
+ <1462347393-22354-5-git-send-email-simon.horman@netronome.com>
+ <20160517163250.7ead555e@griffin>
+ <20160520052858.GA15505@vergenet.net>
+ <20160520100028.0065a2ef@griffin>
+ <20160520081120.GA17561@vergenet.net>
+ <20160520081611.GB17561@vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160520081611.GB17561-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The latest dead-code removal was slightly incomplete and
-left a few things behind that we now get compiler warnings
-for:
-
-drivers/net/usb/pegasus.c: In function 'read_bulk_callback':
-drivers/net/usb/pegasus.c:475:1: error: label 'goon' defined but not used [-Werror=unused-label]
-drivers/net/usb/pegasus.c:446:8: error: unused variable 'pkt_len' [-Werror=unused-variable]
-drivers/net/usb/pegasus.c:445:6: error: unused variable 'buf' [-Werror=unused-variable]
-drivers/net/usb/pegasus.c:443:17: error: unused variable 'count' [-Werror=unused-variable]
-
-This removes them as well.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: e00be9e4d0ff ("net: pegasus: remove dead coding")
----
- drivers/net/usb/pegasus.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index 1903d2e2b62d..df6d90ab7ca7 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -440,10 +440,8 @@ static void read_bulk_callback(struct urb *urb)
- {
- 	pegasus_t *pegasus = urb->context;
- 	struct net_device *net;
--	int rx_status, count = urb->actual_length;
-+	int rx_status;
- 	int status = urb->status;
--	u8 *buf = urb->transfer_buffer;
--	__u16 pkt_len;
- 
- 	if (!pegasus)
- 		return;
-@@ -472,7 +470,6 @@ static void read_bulk_callback(struct urb *urb)
- 		netif_dbg(pegasus, rx_err, net, "RX status %d\n", status);
- 	}
- 
--goon:
- 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
- 			  usb_rcvbulkpipe(pegasus->usb, 1),
- 			  pegasus->rx_skb->data, PEGASUS_MTU,
--- 
-2.7.0
+T24gRnJpLCAyMCBNYXkgMjAxNiAxNzoxNjoxMyArMDkwMCwgU2ltb24gSG9ybWFuIHdyb3RlOgo+
+IE15IHVuZGVyc3RhbmRpbmcgaXMgdGhhdCBjdXJyZW50bHkgT3ZTIGhhbmRsZXMgYWNjZXNzIHBv
+cnRzIHVzaW5nIGEKPiBwdXNoX3ZsYW4gYWN0aW9uLgoKV2hlbiBuZWVkZWQgKGkuZS4gd2hlbiB0
+aGUgcGFja2V0IGdvZXMgdG8gYSBub24tYWNjZXNzIHBvcnQpLCB5ZXMuCgo+IEFuZCB0aGF0IHRo
+aXMgcGF0Y2ggc2V0IGluIGNvbmp1bmN0aW9uIHdpdGggaXRzCj4gdXNlci1zcGFjZSBjb3VudGVy
+cGFydCBzaG91bGQgZW5zdXJlIHRoYXQgYSBwdXNoX2V0aCBhY3Rpb24gb2NjdXJzIGZpcnN0Lgo+
+IFRoaXMgaXMgdGhlIGNvbnRleHQgb2YgbXkgcmVtYXJrcyBhYm92ZS4KCk9rYXksIHdvcmtzIGZv
+ciBtZSBwcmluY2lwYWxseS4gSWYgaXQncyBsYXRlciBmb3VuZCBpbnN1ZmZpY2llbnQsCnJlbGF4
+aW5nIHB1c2hfdmxhbiBhbmQgcG9wX3ZsYW4gdG8gd29yayBhbHNvIGZvciBMMyBmcmFtZXMgaXMg
+c3RpbGwKZWFzaWx5IHBvc3NpYmxlIHdpdGhvdXQgYnJlYWtpbmcgY29tcGF0aWJpbGl0eS4KCk91
+dCBvZiBjdXJpb3NpdHkgKGFuZCB3aXRob3V0IGxvb2tpbmcgYXQgdGhlIHVzZXIgc3BhY2UgcGF0
+Y2hzZXQpLCB3aGF0CndpbGwgdGhlIHB1c2hlZCBFdGhlcm5ldCBoZWFkZXIgY29udGFpbj8gRS5n
+LiwgY29uc2lkZXIgdGhlIGZvbGxvd2luZwpzY2VuYXJpbzogdHdvIEdSRSBwb3J0cywgYm90aCBz
+ZXQgYXMgYWNjZXNzIHBvcnRzIHdpdGggdGhlIHNhbWUgdGFnLAphbmQgYSBtaXJyb3IgcG9ydCBt
+aXJyb3JpbmcgZXZlcnl0aGluZy4gTm93IGFuIElQIHBhY2tldCB3aXRob3V0IGlubmVyCkV0aGVy
+bmV0IGhlYWRlciBpcyByZWNlaXZlZCBvbiBvbmUgb2YgdGhlIEdSRSBpbnRlcmZhY2VzLgoKV2ls
+bCB0aGUgcGFja2V0IGJlIG91dHB1dCB0byB0aGUgc2Vjb25kIEdSRSBwb3J0PyBXaWxsIGl0IGJl
+IHNlbnQgb3V0CndpdGhvdXQgdGhlIGlubmVyIEV0aGVybmV0IGhlYWRlcj8gQXJlIGN1c3RvbSBy
+dWxlcyBuZWNlc3NhcnksIG9yIHdpbGwKTk9STUFMIHRha2UgY2FyZSBvZiB0aGlzPyBXaGF0IHdp
+bGwgYmUgc2VudCB0byB0aGUgbWlycm9yIHBvcnQ/CgpUaGFua3MhCgogSmlyaQpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRl
+dkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZv
+L2Rldgo=
