@@ -1,40 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/2] Follow-ups for GUEoIPv6 patches
-Date: Fri, 20 May 2016 19:26:17 -0400 (EDT)
-Message-ID: <20160520.192617.407123677086722342.davem@davemloft.net>
-References: <20160518173605.2608.42484.stgit@localhost.localdomain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] bpf: Use mount_nodev not mount_ns to mount the bpf
+ filesystem
+Date: Sat, 21 May 2016 01:27:42 +0200
+Message-ID: <4f11914a-f5cc-3df4-5b9d-0946f9f31ec2@stressinduktion.org>
+References: <87oa84wa6h.fsf@x220.int.ebiederm.org>
+ <79e26212-3b09-1be3-0fbf-30de1b265045@stressinduktion.org>
+ <87inybv2hv.fsf@x220.int.ebiederm.org> <573CD3D8.3030308@iogearbox.net>
+ <bbb5386f-b7ea-a256-5dfd-c8c8681061c6@stressinduktion.org>
+ <874m9sfjyf.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, alexander.duyck@gmail.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, kernel-team@fb.com
-To: aduyck@mirantis.com
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53371 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751215AbcETX0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 19:26:19 -0400
-In-Reply-To: <20160518173605.2608.42484.stgit@localhost.localdomain>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52193 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751196AbcETX1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 19:27:47 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0785920AC2
+	for <netdev@vger.kernel.org>; Fri, 20 May 2016 19:27:46 -0400 (EDT)
+In-Reply-To: <874m9sfjyf.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Wed, 18 May 2016 10:44:40 -0700
-
-> This patch series is meant to be applied after:
-> [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes for v6 tunneling
+On 21.05.2016 00:22, Eric W. Biederman wrote:
 > 
-> The first patch addresses an issue we already resolved in the GREv4 and is
-> now present in GREv6 with the introduction of FOU/GUE for IPv6 based GRE
-> tunnels.
+> While reviewing the filesystems that set FS_USERNS_MOUNT I spotted the
+> bpf filesystem.  Looking at the code I saw a broken usage of mount_ns
+> with current->nsproxy->mnt_ns. As the code does not acquire a
+> reference to the mount namespace it can not possibly be correct to
+> store the mount namespace on the superblock as it does.
 > 
-> The second patch goes through and enables IPv6 tunnel offloads for the Intel
-> NICs that already support the IPv4 based IP-in-IP tunnel offloads.  I have
-> only done a bit of touch testing but have seen ~20 Gb/s over an i40e
-> interface using a v4-in-v6 tunnel, and I have verified IPv6 GRE is still
-> passing traffic at around the same rate.  I plan to do further testing but
-> with these patches present it should enable a wider audience to be able to
-> test the new features introduced in Tom's patchset with hardware offloads.
+> Replace mount_ns with mount_nodev so that each mount of the bpf
+> filesystem returns a distinct instance, and the code is not buggy.
+> 
+> In discussion with Hannes Frederic Sowa it was reported that the use
+> of mount_ns was an attempt to have one bpf instance per mount
+> namespace, in an attempt to keep resources that pin resources from
+> hiding.  That intent simply does not work, the vfs is not built to
+> allow that kind of behavior.  Which means that the bpf filesystem
+> really is buggy both semantically and in it's implemenation as it does
+> not nor can it implement the original intent.
+> 
+> This change is userspace visible, but my experience with similar
+> filesystems leads me to believe nothing will break with a model of each
+> mount of the bpf filesystem is distinct from all others.
+> 
+> Fixes: b2197755b263 ("bpf: add support for persistent maps/progs")
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Series applied, thanks Alex.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks Eric!
