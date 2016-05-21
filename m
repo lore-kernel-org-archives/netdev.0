@@ -1,35 +1,49 @@
-From: Andrea Gelmini <andrea.gelmini@gelma.net>
-Subject: [PATCH 0051/1529] Fix typo
-Date: Sat, 21 May 2016 13:43:40 +0200
-Message-ID: <20160521114340.1693-1-andrea.gelmini@gelma.net>
-Cc: trivial@kernel.org, klassert@mathematik.tu-chemnitz.de,
-	corbet@lwn.net, netdev@vger.kernel.org, linux-doc@vger.kernel.org
-To: andrea.gelmini@gelma.net
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Missing INET6_PROTO_FINAL in l2tp_ip6_protocol?
+Date: Sat, 21 May 2016 15:50:03 +0300
+Message-ID: <20160521155003.1410579f@halley>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34760 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbcEULns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 07:43:48 -0400
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37081 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752172AbcEUMuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 08:50:18 -0400
+Received: by mail-wm0-f54.google.com with SMTP id v200so16888384wmv.0
+        for <netdev@vger.kernel.org>; Sat, 21 May 2016 05:50:17 -0700 (PDT)
+Received: from halley ([5.102.254.121])
+        by smtp.gmail.com with ESMTPSA id yr1sm24881492wjc.9.2016.05.21.05.50.15
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sat, 21 May 2016 05:50:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
----
- Documentation/networking/vortex.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi,
 
-diff --git a/Documentation/networking/vortex.txt b/Documentation/networking/vortex.txt
-index 97282da..40f1ab2 100644
---- a/Documentation/networking/vortex.txt
-+++ b/Documentation/networking/vortex.txt
-@@ -243,7 +243,7 @@ Media selection
- A number of the older NICs such as the 3c590 and 3c900 series have
- 10base2 and AUI interfaces.
- 
--Prior to January, 2001 this driver would autoeselect the 10base2 or AUI
-+Prior to January, 2001 this driver would autoselect the 10base2 or AUI
- port if it didn't detect activity on the 10baseT port.  It would then
- get stuck on the 10base2 port and a driver reload was necessary to
- switch back to 10baseT.  This behaviour could not be prevented with a
--- 
-2.8.2.534.g1f66975
+inet6_protocol's INET6_PROTO_FINAL flag denotes handler is expected not
+to request resubmission for local delivery.
+
+For an INET6_PROTO_FINAL handler, the following actions gets executed
+prior delivery, in ip6_input_finish:
+
+			nf_reset(skb);
+
+			skb_postpull_rcsum(skb, skb_network_header(skb),
+					   skb_network_header_len(skb));
+
+For some reason, l2tp_ip6_protocol handler is NOT marked as
+INET6_PROTO_FINAL. Probably an oversight.
+
+Since 'l2tp_ip6_recv' never results in a resubmission, the above actions
+are not applied to skbs passed to l2tp_ip6.
+
+Any reason why l2tp_ip6_protocol should NOT be marked INET6_PROTO_FINAL?
+
+What's the consequences not executing the above actions for l2tp_ip6
+packets?
+
+Thanks,
+Shmulik
