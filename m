@@ -1,54 +1,44 @@
-From: Toby DiPasquale <toby@cbcg.net>
-Subject: Re: off-by-one in DecodeQ931
-Date: Fri, 20 May 2016 20:20:58 -0400
-Message-ID: <CAML0wpFxARgZyrSvbwfk_=VpQZfEmAa0zK8t9w99SNyTUMA3cQ@mail.gmail.com>
-References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
-	<20160425152905.GA8621@strlen.de>
-	<CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v7 net-next 01/16] gso: Remove arbitrary checks for
+ unsupported GSO
+Date: Sat, 21 May 2016 03:02:30 +0200
+Message-ID: <cc2e026a-6ab0-8d52-5c3d-29843c6ddf40@stressinduktion.org>
+References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
+ <1463587584-2315623-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kernel-team@fb.com, "Michael S. Tsirkin" <mst@redhat.com>
+To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:44131 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751591AbcEUBCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 21:02:34 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id D95A020969
+	for <netdev@vger.kernel.org>; Fri, 20 May 2016 21:02:33 -0400 (EDT)
+In-Reply-To: <1463587584-2315623-2-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm a bit new to this; is this patch OK?
+Hello,
 
-On Tue, May 3, 2016 at 1:12 AM, Toby DiPasquale <toby@cbcg.net> wrote:
-> On Mon, Apr 25, 2016 at 11:29 AM, Florian Westphal <fw@strlen.de> wrote:
->> -> sz (size_t) will underflow here
->>
->> I'd suggest to change the if (sz < 1) to if (sz < 2) to
->> resolve this, the while loop below has to be taken anyway.
->
-> Thanks, Florian! Updated patch below:
->
-> Signed-off-by: Toby DiPasquale <toby@cbcg.net>
->
-> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c
-> b/net/netfilter/nf_conntrack_h323_asn1.c
-> index bcd5ed6..89b2e46 100644
-> --- a/net/netfilter/nf_conntrack_h323_asn1.c
-> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
-> @@ -846,9 +846,10 @@ int DecodeQ931(unsigned char *buf, size_t sz, Q931 *q931)
->         sz -= len;
->
->         /* Message Type */
-> -       if (sz < 1)
-> +       if (sz < 2)
->                 return H323_ERROR_BOUND;
->         q931->MessageType = *p++;
-> +       sz--;
->         PRINT("MessageType = %02X\n", q931->MessageType);
->         if (*p & 0x80) {
->                 p++;
+On 18.05.2016 18:06, Tom Herbert wrote:
+> In several gso_segment functions there are checks of gso_type against
+> a seemingly arbitrary list of SKB_GSO_* flags. This seems like an
+> attempt to identify unsupported GSO types, but since the stack is
+> the one that set these GSO types in the first place this seems
+> unnecessary to do. If a combination isn't valid in the first
+> place that stack should not allow setting it.
+> 
+> This is a code simplication especially for add new GSO types.
 
+I couldn't still wrap my head around this.
 
+I wonder if this is safe in case of if the packet is generated from an
+untrusted virtual machine over virtio_net?
 
--- 
-Toby DiPasquale
+Bye,
+Hannes
