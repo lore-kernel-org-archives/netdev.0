@@ -1,63 +1,80 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: IPv6 extension header privileges
-Date: Sat, 21 May 2016 13:46:56 -0400
-Message-ID: <20160521174438.GA27990@oracle.com>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
- <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
- <20160521015604.GD2452@oracle.com>
- <1463823275.2335717.614453105.5011B2EE@webmail.messagingengine.com>
- <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
- <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
- <CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
- <f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: Re: [PATCH net] uapi glibc compat: fix compilation when !__USE_MISC
+ in glibc
+Date: Sat, 21 May 2016 21:52:32 +0300
+Message-ID: <20160521185232.GA26774@lakka.kapsi.fi>
+References: <1463671589-21327-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Tom Herbert <tom@herbertland.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jan Engelhardt <jengelh@inai.de>,
+	Josh Boyer <jwboyer@fedoraproject.org>,
+	Stephen Hemminger <shemming@brocade.com>,
+	Waldemar Brodkorb <mail@waldemar-brodkorb.de>,
+	Gabriel Laskar <gabriel@lse.epita.fr>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48394 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496AbcEURrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 13:47:11 -0400
+Received: from mail.kapsi.fi ([217.30.184.167]:54772 "EHLO mail.kapsi.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750941AbcEUSwk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 May 2016 14:52:40 -0400
 Content-Disposition: inline
-In-Reply-To: <f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
+In-Reply-To: <1463671589-21327-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert wrote:
-> >>> If you don't mind I'll change this to make specific options are
-> >>> privileged and not all hbh and destopt. There is talk in IETF about
-> >>> reinventing IP extensibility within UDP since the kernel APIs don't
-> >>> allow setting EH. I would like to avoid that :-)
+On Thu, May 19, 2016 at 05:26:29PM +0200, Nicolas Dichtel wrote:
+> These structures are defined only if __USE_MISC is set in glibc net/if.h
+> headers, ie when _BSD_SOURCE or _SVID_SOURCE are defined.
 
-Do you mean this
-  http://www.ietf.org/mail-archive/web/spud/current/msg00365.html
+Also, reading /usr/include/features.h from Debian glibc 2.22-4:
 
-Maybe I misunderstood that rather long thread, but the author of that
-draft seems to be arguing for reinventing tcp congavoid and windowing 
-on top of udp to bypass kernel? ;-)
+...
+   The `-ansi' switch to the GNU C compiler, and standards conformance
+   options such as `-std=c99', define __STRICT_ANSI__.  If none of
+   these are defined, or if _DEFAULT_SOURCE is defined, the default is
+   to have _POSIX_SOURCE set to one and _POSIX_C_SOURCE set to
+   200809L, as well as enabling miscellaneous functions from BSD and
+   SVID.  If more than one of these are defined, they accumulate.  For
+   example __STRICT_ANSI__, _POSIX_SOURCE and _POSIX_C_SOURCE together
+   give you ISO C, 1003.1, and 1003.2, but nothing else.
+...
+/* _BSD_SOURCE and _SVID_SOURCE are deprecated aliases for
+   _DEFAULT_SOURCE.
+...
 
-Hannes Frederic Sowa wrote:
-> >> A white list of certain registered IPv6 IANA-options for non-priv whould
+In the compile test I go with the defaults. I guess I should test all
+of these feature variants and in the future check deeper into the glibc
+ifdefs.
 
-Problem is that APIs are not IANA'ed. 
-Even RFC 3542 is just Informationaal. 
+> CC: Jan Engelhardt <jengelh@inai.de>
+> CC: Josh Boyer <jwboyer@fedoraproject.org>
+> CC: Stephen Hemminger <shemming@brocade.com>
+> CC: Waldemar Brodkorb <mail@waldemar-brodkorb.de>
+> CC: Gabriel Laskar <gabriel@lse.epita.fr>
+> CC: Mikko Rapeli <mikko.rapeli@iki.fi>
+> Fixes: 4a91cb61bb99 ("uapi glibc compat: fix compile errors when glibc net/if.h included before linux/if.h")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-And even the classic socket API's that come down from BSD are not 
-ietf'ed or iana'ed.
+Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
 
-Hannes Frederic Sowa wrote:
-> Can you give some more details about the planned new options? I think we
-> can also open the API up for all options where the fourth bit is set,
-> which AFAIK denotes the experimental option space. And only have a
-> blacklist for the fourth bit == 0 case. Otherwise this is something IETF
-> people probably know more about what an impact this change could have.
-
-I think it would be ok for some options to be privileged, others to not.
-We certainly have precedent for that from the classic socket APIs..
-and man pages etc can document any restrictions, as we do with other
-ioctls/sockopts etc.
-
---Sowmini
+> ---
+>  include/uapi/linux/libc-compat.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
+> index d5e38c73377c..e4f048ee7043 100644
+> --- a/include/uapi/linux/libc-compat.h
+> +++ b/include/uapi/linux/libc-compat.h
+> @@ -52,7 +52,7 @@
+>  #if defined(__GLIBC__)
+>  
+>  /* Coordinate with glibc net/if.h header. */
+> -#if defined(_NET_IF_H)
+> +#if defined(_NET_IF_H) && defined(__USE_MISC)
+>  
+>  /* GLIBC headers included first so don't define anything
+>   * that would already be defined. */
+> -- 
+> 2.8.1
+> 
