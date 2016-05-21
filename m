@@ -1,48 +1,67 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
-Date: Sat, 21 May 2016 21:47:33 +0200
-Message-ID: <20160521194733.GA30557@electric-eye.fr.zoreil.com>
-References: <20160517152520.GA2750@debian-dorm>
- <20160517.142456.2247845107325931733.davem@davemloft.net>
- <20160518000153.GA21757@electric-eye.fr.zoreil.com>
- <573CD09D.1060307@gmx.de>
- <20160518225529.GA18671@electric-eye.fr.zoreil.com>
- <573E2D0C.604@gmx.de>
- <20160520003145.GA22420@electric-eye.fr.zoreil.com>
- <20160521160910.GA14945@debian-dorm>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: Missing INET6_PROTO_FINAL in l2tp_ip6_protocol?
+Date: Sat, 21 May 2016 23:02:52 +0300
+Message-ID: <20160521230252.27931eee@halley>
+References: <20160521155003.1410579f@halley>
+	<9bd1a821-17ea-778a-b0c7-4e9e35f9fcc1@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-	David Miller <davem@davemloft.net>, wxt@rock-chips.com,
-	heiko@sntech.de, linux-rockchip@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Shuyu Wei <wsy2220@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52720 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbcEUTsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 15:48:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20160521160910.GA14945@debian-dorm>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35610 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbcEUUC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 16:02:58 -0400
+Received: by mail-wm0-f51.google.com with SMTP id i142so25684456wmf.0
+        for <netdev@vger.kernel.org>; Sat, 21 May 2016 13:02:58 -0700 (PDT)
+In-Reply-To: <9bd1a821-17ea-778a-b0c7-4e9e35f9fcc1@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shuyu Wei <wsy2220@gmail.com> :
-[...]
-> diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-> index a3a9392..c2447b0 100644
-> --- a/drivers/net/ethernet/arc/emac_main.c
-> +++ b/drivers/net/ethernet/arc/emac_main.c
-> @@ -686,6 +686,9 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
->  
->         skb_tx_timestamp(skb);
->  
-> +       /* Make sure timestamp is set */
-> +       smp_wmb();
+On Sat, 21 May 2016 17:55:59 +0200 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On 21.05.2016 14:50, Shmulik Ladkani wrote:
+> > Hi,
+> > 
+> > inet6_protocol's INET6_PROTO_FINAL flag denotes handler is expected not
+> > to request resubmission for local delivery.
+> > 
+> > For an INET6_PROTO_FINAL handler, the following actions gets executed
+> > prior delivery, in ip6_input_finish:
+> > 
+> > 			nf_reset(skb);
+> > 
+> > 			skb_postpull_rcsum(skb, skb_network_header(skb),
+> > 					   skb_network_header_len(skb));
+> > 
+> > For some reason, l2tp_ip6_protocol handler is NOT marked as
+> > INET6_PROTO_FINAL. Probably an oversight.
+> > 
+> > Since 'l2tp_ip6_recv' never results in a resubmission, the above actions
+> > are not applied to skbs passed to l2tp_ip6.
+> > 
+> > Any reason why l2tp_ip6_protocol should NOT be marked INET6_PROTO_FINAL?  
+> 
+> I don't see any specific reason why it shouldn't be a INET6_PROTO_FINAL.
+> Anyway, receive path of L2TPv3 without UDP encapsulation doesn't deal
+> with checksums anyway, as far as I know.
+> 
+> > What's the consequences not executing the above actions for l2tp_ip6
+> > packets?  
+> 
+> Probably not a whole lot in this case.
 
-Should be dma_wmb() (see davem's message).
+OK, so the skb_postpull_rcsum is irrelevant for IPPROTO_L2TP over ipv6.
 
-It's completely unrelated to SMP.
+However, one more thing WRT to INET6_PROTO_FINAL not being set - we're
+also missing the multicast filtering of 'ip6_input_finish':
 
--- 
-Ueimor
+			if (ipv6_addr_is_multicast(&hdr->daddr) &&
+			    !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
+			    &hdr->saddr) &&
+			    !ipv6_is_mld(skb, nexthdr, skb_network_header_len(skb)))
+				goto discard;
+
+I assume no reason to allow multicast daddr which aren't in the mc_list
+(or saddr excluded) to pass up into 'l2tp_ip6_recv'?
