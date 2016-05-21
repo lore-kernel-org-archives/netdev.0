@@ -1,48 +1,42 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: IPv6 extension header privileges
-Date: Fri, 20 May 2016 21:56:04 -0400
-Message-ID: <20160521015604.GD2452@oracle.com>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
- <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
-Mime-Version: 1.0
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH 2/2] ip6_gre: Set flowi6_proto as IPPROTO_GRE in xmit path.
+Date: Sat, 21 May 2016 11:46:29 +0800
+Message-ID: <757BA329-0E68-4D1F-8F7C-A9082B323CA8@cmss.chinamobile.com>
+References: <1463565952-8781-1-git-send-email-yanhaishuang@cmss.chinamobile.com> <1463565952-8781-2-git-send-email-yanhaishuang@cmss.chinamobile.com> <20160520.104835.678619743450630862.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:18794 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbcEUB4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 21:56:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:5365 "EHLO
+	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbcEUDqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 23:46:35 -0400
+In-Reply-To: <20160520.104835.678619743450630862.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (05/21/16 02:20), Hannes Frederic Sowa wrote:
+
+> On May 21, 2016, at 1:48 AM, David Miller <davem@davemloft.net> wrote:
 > 
-> There are some options inherently protocol depending like the jumbo
-> payload option, which should be under control of the kernel, or the
-> router alert option for igmp, which causes packets to be steered towards
-> the slow/software path of routers, which can be used for DoS attacks.
+> From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Date: Wed, 18 May 2016 18:05:52 +0800
 > 
-> Setting CALIPSO options in IPv6 on packets as users would defeat the
-> whole CALIPSO model, etc.
+>> In gre6 xmit path, we are sending a GRE packet, so set fl6 proto
+>> to IPPROTO_GRE properly.
+>> 
+>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 > 
-> The RFC3542 requires at least some of the options in dst/hop-by-hop
-
-"requires" is a strong word. 3542 declares it as a  "may" (lower case).
-The only thing required strongly is IPV6_NEXTHOP itself.
-
-I suspect 3542 was written at a time when hbh and dst opt were loosely
-defined and the "may" is just a place-holder (i.e., it's not even a MAY)
-
+> I think it would be a lot better to initialize the flow protocol field
+> properly in ip6gre_tnl_link_config() instead of fixing it up every
+> single transmit.
 > 
-> AFAIK people worried about the parsing overhead and thus decided to
-> block it for ordinary users.
+> 
 
-That's probably more likely, esp for hbh options. It may also be 
-interesting to find out what BSD does in these cases. 
+I agree, I will modify the changes in v2.
 
---Sowmini 
+Thanks
+
+Haishuang
