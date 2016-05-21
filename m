@@ -1,85 +1,69 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: IPv6 extension header privileges
-Date: Sat, 21 May 2016 09:00:36 -0700
-Message-ID: <CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
-	<1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
-	<20160521015604.GD2452@oracle.com>
-	<1463823275.2335717.614453105.5011B2EE@webmail.messagingengine.com>
-	<CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
-	<6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
+From: Shuyu Wei <wsy2220@gmail.com>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Sun, 22 May 2016 00:09:10 +0800
+Message-ID: <20160521160910.GA14945@debian-dorm>
+References: <20160517152520.GA2750@debian-dorm>
+ <20160517.142456.2247845107325931733.davem@davemloft.net>
+ <20160518000153.GA21757@electric-eye.fr.zoreil.com>
+ <573CD09D.1060307@gmx.de>
+ <20160518225529.GA18671@electric-eye.fr.zoreil.com>
+ <573E2D0C.604@gmx.de>
+ <20160520003145.GA22420@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	David Miller <davem@davemloft.net>, wxt@rock-chips.com,
+	heiko@sntech.de, linux-rockchip@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:36397 "EHLO
-	mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752256AbcEUQFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 12:05:41 -0400
-Received: by mail-it0-f49.google.com with SMTP id e62so9472333ita.1
-        for <netdev@vger.kernel.org>; Sat, 21 May 2016 09:05:40 -0700 (PDT)
-In-Reply-To: <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:34568 "EHLO
+	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbcEUQJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 12:09:19 -0400
+Received: by mail-qk0-f194.google.com with SMTP id i7so13668527qkd.1
+        for <netdev@vger.kernel.org>; Sat, 21 May 2016 09:09:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160520003145.GA22420@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 21, 2016 at 8:33 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 21.05.2016 17:19, Tom Herbert wrote:
->> On Sat, May 21, 2016 at 2:34 AM, Hannes Frederic Sowa
->> <hannes@stressinduktion.org> wrote:
->>> On Sat, May 21, 2016, at 03:56, Sowmini Varadhan wrote:
->>>> On (05/21/16 02:20), Hannes Frederic Sowa wrote:
->>>>>
->>>>> There are some options inherently protocol depending like the jumbo
->>>>> payload option, which should be under control of the kernel, or the
->>>>> router alert option for igmp, which causes packets to be steered towards
->>>>> the slow/software path of routers, which can be used for DoS attacks.
->>>>>
->>>>> Setting CALIPSO options in IPv6 on packets as users would defeat the
->>>>> whole CALIPSO model, etc.
->>>>>
->>>>> The RFC3542 requires at least some of the options in dst/hop-by-hop
->>>>
->>>> "requires" is a strong word. 3542 declares it as a  "may" (lower case).
->>>> The only thing required strongly is IPV6_NEXTHOP itself.
->>>>
->>>> I suspect 3542 was written at a time when hbh and dst opt were loosely
->>>> defined and the "may" is just a place-holder (i.e., it's not even a MAY)
->>>
->>> My wording directly from the RFC was too strong, true, but given that
->>> there is a CALIPSO patch already floating around for the kernel and
->>> those options are strictly controlled by selinux policy and build the
->>> foundation for the networking separation we can't make it simply
->>> non-priv.
->>>
->> If you don't mind I'll change this to make specific options are
->> privileged and not all hbh and destopt. There is talk in IETF about
->> reinventing IP extensibility within UDP since the kernel APIs don't
->> allow setting EH. I would like to avoid that :-)
->
-> Hehe, certainly.
->
-> A white list of certain registered IPv6 IANA-options for non-priv whould
-> certainly fly in my opinion. That is what I meant with "More
-> fine-grained parsing and setting of those options has never been
-> implemented." from my first mail.
->
-> I am not that certain about a blacklist though, but haven't thought
-> about that enough. I didn't yet get around to review other options, but
-> basically people could use private options in some proprietary settings
-> and we could break their assumptions by such a change.
->
-> Would a white list be sufficient?
->
-Probably not. The "kernel is the problem" community always seem to be
-looking for even the slightest API or implementation deficiency to
-justify bypassing the kernel entirely. :-(
+Looks like I got it wrong in the first place.
 
-Tom
+priv->tx_buff is not for the device, so there's no need to move it.
+The race has been fixed by commit c278c253f3d9, I forgot to check
+it out. That's my fault.
 
-> Bye,
-> Hannes
->
+I do find another problem. We need to use a barrier to make sure
+skb_tx_timestamp() is called before setting the FOR_EMAC flag.
+
+According to the comment(include/linux/skbuff.h):
+>/**
+> * skb_tx_timestamp() - Driver hook for transmit timestamping
+> *
+> * Ethernet MAC Drivers should call this function in their hard_xmit()
+> * function immediately before giving the sk_buff to the MAC hardware.
+> *
+> * Specifically, one should make absolutely sure that this function is
+> * called before TX completion of this packet can trigger.  Otherwise
+> * the packet could potentially already be freed.
+> *
+> * @skb: A socket buffer.
+> */
+
+---
+
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index a3a9392..c2447b0 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -686,6 +686,9 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+ 
+        skb_tx_timestamp(skb);
+ 
++       /* Make sure timestamp is set */
++       smp_wmb();
++
+        *info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+ 
+        /* Make sure info word is set */
