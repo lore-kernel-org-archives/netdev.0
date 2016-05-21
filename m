@@ -1,77 +1,180 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 extension header privileges
-Date: Sat, 21 May 2016 17:33:08 +0200
-Message-ID: <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
- <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
- <20160521015604.GD2452@oracle.com>
- <1463823275.2335717.614453105.5011B2EE@webmail.messagingengine.com>
- <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
+From: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>
+Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
+ stmmac-0:ffffffff not found (regression from rc7)
+Date: Sat, 21 May 2016 17:47:05 +0200
+Message-ID: <574082F9.7010702@a20.net>
+References: <56E9413D.9010902@a20.net> <56E945FF.6080005@arm.com>
+ <56E94CF4.2060607@arm.com> <56E95B57.1090100@suse.de>
+ <56E9776F.3070102@a20.net> <56E99B0C.2070609@arm.com>
+ <56E9F2B8.1030605@a20.net> <20160317075202.16b14ed6@arm.com>
+ <CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA@mail.gmail.com>
+ <573EC33D.2010209@arm.com> <573EC77A.2000800@st.com>
+ <CAHsu+b9BrqBLdCpsPpetc_4_EaFVGBdDHtoeeCqqzsCG3Wpsig@mail.gmail.com>
+ <573EE8B4.1050701@arm.com>
+Reply-To: bert-phGP8mJ4Mqk@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:34782 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752090AbcEUPdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 11:33:13 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 090FF20577
-	for <netdev@vger.kernel.org>; Sat, 21 May 2016 11:33:12 -0400 (EDT)
-In-Reply-To: <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+ Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>, =?UTF-8?Q?Andreas_F=c3=a4rber?=
+ <afaerber-l3A5Bk7waGM@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, Andre Heider <a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-sunxi+bncBCTZ7SVI4EMBBBMGQK5AKGQE3MBNLSY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <573EE8B4.1050701-5wv7dgnIgG8@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On 21.05.2016 17:19, Tom Herbert wrote:
-> On Sat, May 21, 2016 at 2:34 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> On Sat, May 21, 2016, at 03:56, Sowmini Varadhan wrote:
->>> On (05/21/16 02:20), Hannes Frederic Sowa wrote:
->>>>
->>>> There are some options inherently protocol depending like the jumbo
->>>> payload option, which should be under control of the kernel, or the
->>>> router alert option for igmp, which causes packets to be steered towards
->>>> the slow/software path of routers, which can be used for DoS attacks.
->>>>
->>>> Setting CALIPSO options in IPv6 on packets as users would defeat the
->>>> whole CALIPSO model, etc.
->>>>
->>>> The RFC3542 requires at least some of the options in dst/hop-by-hop
->>>
->>> "requires" is a strong word. 3542 declares it as a  "may" (lower case).
->>> The only thing required strongly is IPV6_NEXTHOP itself.
->>>
->>> I suspect 3542 was written at a time when hbh and dst opt were loosely
->>> defined and the "may" is just a place-holder (i.e., it's not even a MAY)
+Hi,
+
+On 2016-05-20 12:36, Marc Zyngier wrote:
+> On 20/05/16 11:30, Andre Heider wrote:
+>> Hi,
 >>
->> My wording directly from the RFC was too strong, true, but given that
->> there is a CALIPSO patch already floating around for the kernel and
->> those options are strictly controlled by selinux policy and build the
->> foundation for the networking separation we can't make it simply
->> non-priv.
+>> On Fri, May 20, 2016 at 10:14 AM, Giuseppe CAVALLARO
+>> <peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
+>>> On 5/20/2016 9:56 AM, Marc Zyngier wrote:
+>>>>
+>>>> On 20/05/16 06:44, Andre Heider wrote:
+>>>>>
+>>>>> Giuseppe, Alexandre, et al.,
+>>>>>
+>>>>> On Thu, Mar 17, 2016 at 8:52 AM, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+>>>>> wrote:
+>>>>>>
+>>>>>> On Thu, 17 Mar 2016 00:56:40 +0100
+>>>>>> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+>>>>>>>
+>>>>>>> On 2016-03-16 18:42, Marc Zyngier wrote:
+>>>>>>>>
+>>>>>>>> On 16/03/16 15:10, Bert Lindner wrote:
+>>>>>>>>>
+>>>>>>>>> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
+>>>>>>>>>>
+>>>>>>>>>> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
+>>>>>>>>>>>
+>>>>>>>>>>> On 16/03/16 11:39, Marc Zyngier wrote:
+>>>>>>>>>>>>
+>>>>>>>>>>>> On 16/03/16 11:19, Bert Lindner wrote:
+>>>>>
+>>>>> ...
+>>>>>>>>>>>>>
+>>>>>>>>>>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a
+>>>>>>>>>>>>> problem
+>>>>>>>>>>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed sin=
+ce
+>>>>>>>>>>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
+>>>>>
+>>>>> ...
+>>>>>>>>>>>>>
+>>>>>>>>>>>>> [    9.767125] NET: Registered protocol family 10
+>>>>>>>>>>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
+>>>>>>>>>>>>> [   10.362382] eth0: Could not attach to PHY
+>>>>>>>>>>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
+>>>>>
+>>>>> ...
+>>>>>>>>>>
+>>>>>>>>>> v4 fixes for 4.5 are here:
+>>>>>>>>>>
+>>>>>>>>>> https://patchwork.ozlabs.org/patch/598195/ (revert)
+>>>>>>>>>> https://patchwork.ozlabs.org/patch/598196/
+>>>>>
+>>>>> ...
+>>>>>>>>
+>>>>>>>> Good to know, thanks. Could you also give the potential fix a go (=
+as
+>>>>>>>> mentioned by Andreas)? Just to make sure that whatever gets merged
+>>>>>>>> next
+>>>>>>>> will actually fix the issue.
+>>>>>>>
+>>>>>>>
+>>>>>>> Yes sure, it took a while because I had to travel. Confirmed, the
+>>>>>>> v4-for-4.5 fix works well for me, on sun7i-a20-olinuxino-lime2:
+>>>>>>>
+>>>>>>> root@lime2-079f:~# cat /proc/version
+>>>>>>> Linux version 4.5.0-598195-598196-v4 (root@lime2-079f) (gcc version
+>>>>>>> 4.9.1 (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Wed Mar 16 16:44:22 =
+UTC
+>>>>>>> 2016
+>>>>>>>
+>>>>>>> dmesg:
+>>>>>>> [    8.245273] NET: Registered protocol family 10
+>>>>>>> [    9.297406]  RX IPC Checksum Offload disabled
+>>>>>>> [    9.297460]  No MAC Management Counters available
+>>>>>>> [    9.297951] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>>>>> [   16.285658] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+>>>>>>> 1Gbps/Full - flow control rx/tx
+>>>>>>> [   16.285798] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes re=
+ady
+>>>>>>>
+>>>>>>> The board is connected to my laptop rather than to a switch, so tha=
+t
+>>>>>>> might be where the flow control message comes from (not sure). Anyw=
+ay
+>>>>>>> ethernet works.
+>>>>>>
+>>>>>>
+>>>>>> Cool, many thanks for taking the time to test and report.
+>>>>>>
+>>>>>> Hopefully Giuseppe will get this merged quickly enough in mainline, =
+and
+>>>>>> it should then trickle into a 4.5-stable release (cc-ing stable on
+>>>>>> these patches would probably be a good idea, BTW).
+>>>>>
+>>>>>
+>>>>> stmmac is broken on at least Lime2, BananaPi and Cubieboard2 since
+>>>>> v4.5 [0], including all five stable releases :(
+>>>>
+>>>>
+>>>> All the A20 platforms are dead, actually.
+>>>>
+>>>>> The v4.5 patches quoted above are already +4 weeks old, could we
+>>>>> please get them into stable?
+>>>>
+>>>>
+>>>> For that, the maintainer would have needed to CC stable, which he
+>>>> didn't. I'd expect someone who cares to send these patches to stable.
+>>>> It'd be better if the maintainer would do it himself though.
+>>>
+>>>
+>>> sure, I can send the patches to stable (sorry if I missed to add
+>>> stable ML on CC).
+>>>
+>>> Andre, I have not clear if the train of patches actually fix the
+>>> issue or if you need my support to fix something else. In that case
+>>> I need some input for debugging (e.g. kernel log).
 >>
-> If you don't mind I'll change this to make specific options are
-> privileged and not all hbh and destopt. There is talk in IETF about
-> reinventing IP extensibility within UDP since the kernel APIs don't
-> allow setting EH. I would like to avoid that :-)
+>> Bert already confirmed that those two patches fixes stmmac on his
+>> Lime2, so I assume that it fixes the issue for all A20 platforms.
+>>
+>>> let me know, is it enough to re-send the patches only?
+>>
+>> Just a resend with cc:stable :)
+>
+> Not quite. Please read Documentation/stable_kernel_rules.txt, and the
+> section that concerns networking patches (and then consult
+> Documentation/networking/netdev-FAQ.txt which has all the details).
 
-Hehe, certainly.
+FWIW, recent 4.6-rc series and 4.6.0 have worked fine for me and the=20
+lime2. Had not tried 4.5.x again.
 
-A white list of certain registered IPv6 IANA-options for non-priv whould
-certainly fly in my opinion. That is what I meant with "More
-fine-grained parsing and setting of those options has never been
-implemented." from my first mail.
+Best,
 
-I am not that certain about a blacklist though, but haven't thought
-about that enough. I didn't yet get around to review other options, but
-basically people could use private options in some proprietary settings
-and we could break their assumptions by such a change.
+	-bert
 
-Would a white list be sufficient?
 
-Bye,
-Hannes
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
