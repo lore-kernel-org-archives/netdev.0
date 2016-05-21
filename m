@@ -1,42 +1,59 @@
-From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH 2/2] ip6_gre: Set flowi6_proto as IPPROTO_GRE in xmit path.
-Date: Sat, 21 May 2016 11:46:29 +0800
-Message-ID: <757BA329-0E68-4D1F-8F7C-A9082B323CA8@cmss.chinamobile.com>
-References: <1463565952-8781-1-git-send-email-yanhaishuang@cmss.chinamobile.com> <1463565952-8781-2-git-send-email-yanhaishuang@cmss.chinamobile.com> <20160520.104835.678619743450630862.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v7 net-next 01/16] gso: Remove arbitrary checks for
+ unsupported GSO
+Date: Fri, 20 May 2016 20:56:34 -0700
+Message-ID: <CAKgT0Uc9eqYtXB=HVVitF1BWkoVZv8tqppwbQdnhKbfJ-VA_ew@mail.gmail.com>
+References: <1463587584-2315623-1-git-send-email-tom@herbertland.com>
+	<1463587584-2315623-2-git-send-email-tom@herbertland.com>
+	<cc2e026a-6ab0-8d52-5c3d-29843c6ddf40@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:5365 "EHLO
-	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbcEUDqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 23:46:35 -0400
-In-Reply-To: <20160520.104835.678619743450630862.davem@davemloft.net>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:35287 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751703AbcEUD4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 23:56:36 -0400
+Received: by mail-ig0-f173.google.com with SMTP id bi2so4200852igb.0
+        for <netdev@vger.kernel.org>; Fri, 20 May 2016 20:56:35 -0700 (PDT)
+In-Reply-To: <cc2e026a-6ab0-8d52-5c3d-29843c6ddf40@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, May 20, 2016 at 6:02 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello,
+>
+> On 18.05.2016 18:06, Tom Herbert wrote:
+>> In several gso_segment functions there are checks of gso_type against
+>> a seemingly arbitrary list of SKB_GSO_* flags. This seems like an
+>> attempt to identify unsupported GSO types, but since the stack is
+>> the one that set these GSO types in the first place this seems
+>> unnecessary to do. If a combination isn't valid in the first
+>> place that stack should not allow setting it.
+>>
+>> This is a code simplication especially for add new GSO types.
+>
+> I couldn't still wrap my head around this.
+>
+> I wonder if this is safe in case of if the packet is generated from an
+> untrusted virtual machine over virtio_net?
 
-> On May 21, 2016, at 1:48 AM, David Miller <davem@davemloft.net> wrote:
-> 
-> From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-> Date: Wed, 18 May 2016 18:05:52 +0800
-> 
->> In gre6 xmit path, we are sending a GRE packet, so set fl6 proto
->> to IPPROTO_GRE properly.
->> 
->> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-> 
-> I think it would be a lot better to initialize the flow protocol field
-> properly in ip6gre_tnl_link_config() instead of fixing it up every
-> single transmit.
-> 
-> 
+The problem is the test is kind of pointless.  I think the original
+point of the tests was to prevent the case of IPIP and TSO6 or SIT and
+TSO4.  However since we dropped IPIP and SIT and instead replaced them
+with the IPXIP6 and IPXIP4 there shouldn't be any combinations that
+don't work now other than UDP being combined with TCP segmentation.
 
-I agree, I will modify the changes in v2.
+If we are wanting to prevent that case we might place something
+earlier in the segmentation code that would perform an and with all
+the L4 GSO types that should be mutually exclusive, verify that value
+is non-zero, and then and that value with itself - 1 to verify that
+exactly 1 bit is set in that grouping and no more than that.
 
-Thanks
-
-Haishuang
+- Alex
