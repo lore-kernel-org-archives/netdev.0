@@ -1,49 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 extension header privileges
-Date: Sat, 21 May 2016 02:20:54 +0200
-Message-ID: <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
+From: Toby DiPasquale <toby@cbcg.net>
+Subject: Re: off-by-one in DecodeQ931
+Date: Fri, 20 May 2016 20:20:58 -0400
+Message-ID: <CAML0wpFxARgZyrSvbwfk_=VpQZfEmAa0zK8t9w99SNyTUMA3cQ@mail.gmail.com>
+References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
+	<20160425152905.GA8621@strlen.de>
+	<CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35395 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751422AbcEUAU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2016 20:20:58 -0400
-In-Reply-To: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21.05.2016 00:37, Tom Herbert wrote:
-> Hi,
-> 
-> In ipv6_sockglue.c I noticed:
-> 
-> /* hop-by-hop / destination options are privileged option */
-> retv = -EPERM;
-> if (optname != IPV6_RTHDR && !ns_capable(net->user_ns, CAP_NET_RAW))
->            break;
-> 
-> Can anyone provide that rationale as to why these are privileged ops?
+I'm a bit new to this; is this patch OK?
 
-There are some options inherently protocol depending like the jumbo
-payload option, which should be under control of the kernel, or the
-router alert option for igmp, which causes packets to be steered towards
-the slow/software path of routers, which can be used for DoS attacks.
+On Tue, May 3, 2016 at 1:12 AM, Toby DiPasquale <toby@cbcg.net> wrote:
+> On Mon, Apr 25, 2016 at 11:29 AM, Florian Westphal <fw@strlen.de> wrote:
+>> -> sz (size_t) will underflow here
+>>
+>> I'd suggest to change the if (sz < 1) to if (sz < 2) to
+>> resolve this, the while loop below has to be taken anyway.
+>
+> Thanks, Florian! Updated patch below:
+>
+> Signed-off-by: Toby DiPasquale <toby@cbcg.net>
+>
+> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c
+> b/net/netfilter/nf_conntrack_h323_asn1.c
+> index bcd5ed6..89b2e46 100644
+> --- a/net/netfilter/nf_conntrack_h323_asn1.c
+> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
+> @@ -846,9 +846,10 @@ int DecodeQ931(unsigned char *buf, size_t sz, Q931 *q931)
+>         sz -= len;
+>
+>         /* Message Type */
+> -       if (sz < 1)
+> +       if (sz < 2)
+>                 return H323_ERROR_BOUND;
+>         q931->MessageType = *p++;
+> +       sz--;
+>         PRINT("MessageType = %02X\n", q931->MessageType);
+>         if (*p & 0x80) {
+>                 p++;
 
-Setting CALIPSO options in IPv6 on packets as users would defeat the
-whole CALIPSO model, etc.
 
-The RFC3542 requires at least some of the options in dst/hop-by-hop
-extensions to be only be settable by privileged users. More fine-grained
-parsing and setting of those options has never been implemented.
 
-AFAIK people worried about the parsing overhead and thus decided to
-block it for ordinary users.
-
-Bye,
-Hannes
+-- 
+Toby DiPasquale
