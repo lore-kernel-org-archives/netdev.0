@@ -1,111 +1,166 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: Crashes in -next due to 'phy: add support for a reset-gpio
- specification'
-Date: Sun, 22 May 2016 12:10:51 +0200
-Message-ID: <20160522101051.GA23704@pengutronix.de>
-References: <573BF177.6090507@roeck-us.net>
+From: Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Sun, 22 May 2016 13:30:27 +0200
+Message-ID: <57419853.9050701@gmx.de>
+References: <20160517152520.GA2750@debian-dorm>
+ <20160517.142456.2247845107325931733.davem@davemloft.net>
+ <20160518000153.GA21757@electric-eye.fr.zoreil.com> <573CD09D.1060307@gmx.de>
+ <20160518225529.GA18671@electric-eye.fr.zoreil.com> <573E2D0C.604@gmx.de>
+ <20160520003145.GA22420@electric-eye.fr.zoreil.com>
+ <20160521160910.GA14945@debian-dorm> <5740E82F.8040903@gmx.de>
+ <20160522091742.GA8681@debian-dorm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <573BF177.6090507@roeck-us.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, al.kochet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Shuyu Wei <wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20160522091742.GA8681@debian-dorm>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On 22.05.2016 11:17, Shuyu Wei wrote:
 
-On Tue, May 17, 2016 at 09:37:11PM -0700, Guenter Roeck wrote:
-> [    9.366256] libphy: ethoc-mdio: probed
-> [    9.367389]  (null): could not attach to PHY
-> [    9.368555]  (null): failed to probe MDIO bus
-> [    9.371540] Unable to handle kernel paging request at virtual addr=
-ess 0000001c
-> [    9.371540]  pc =3D d0320926, ra =3D 903209d1
-> [    9.375358] Oops: sig: 11 [#1]
-> [    9.376081] PREEMPT
-> [    9.377080] CPU: 0 PID: 1 Comm: swapper Not tainted 4.6.0-next-201=
-60517 #1
-> [    9.378397] task: d7c2c000 ti: d7c30000 task.ti: d7c30000
-> [    9.379394] a00: 903209d1 d7c31bd0 d7fb5810 00000001 00000000 0000=
-0000 d7f45c00 d7c31bd0
-> [    9.382298] a08: 00000000 00000000 00000000 00000000 00060100 d04b=
-0c10 d7f45dfc d7c31bb0
-> [    9.385732] pc: d0320926, ps: 00060110, depc: 00000018, excvaddr: =
-0000001c
-> [    9.387061] lbeg: d0322e35, lend: d0322e57 lcount: 00000000, sar: =
-00000011
-> [    9.388173]
-> Stack: d7c31be0 00060700 d7f45c00 d7c31bd0 9021d509 d7c31c30 d7f45c00=
- 00000000
->        d0485dcc d0485dcc d7fb5810 d7c2c000 00000000 d7c31c30 d7f45c00=
- d025befc
->        d0485dcc d7c30000 d7f45c34 d7c31bf0 9021c985 d7c31c50 d7f45c00=
- d7f45c34
-> [    9.396652] Call Trace:
-> [    9.397469]  [<d021d4d9>] __device_release_driver+0x7d/0x98
-> [    9.398869]  [<d021d509>] device_release_driver+0x15/0x20
-> [    9.400247]  [<d021c985>] bus_remove_device+0xc1/0xd4
-> [    9.401569]  [<d021a935>] device_del+0x109/0x15c
-> [    9.402794]  [<d025c3f9>] phy_mdio_device_remove+0xd/0x18
-> [    9.404124]  [<d025d264>] mdiobus_unregister+0x40/0x5c
-> [    9.405444]  [<d025ff44>] ethoc_probe+0x534/0x5b8
-> [    9.406742]  [<d021e2e0>] platform_drv_probe+0x28/0x48
-> [    9.408122]  [<d021d1e5>] driver_probe_device+0x101/0x234
-> [    9.409499]  [<d021d395>] __driver_attach+0x7d/0x98
-> [    9.410809]  [<d021bd80>] bus_for_each_dev+0x30/0x5c
-> [    9.412104]  [<d021cdf0>] driver_attach+0x14/0x18
-> [    9.413385]  [<d021ca61>] bus_add_driver+0xc9/0x198
-> [    9.414686]  [<d021d7d4>] driver_register+0x70/0xa0
-> [    9.416001]  [<d021e2b4>] __platform_driver_register+0x24/0x28
-> [    9.417463]  [<d04a1d34>] ethoc_driver_init+0x10/0x14
-> [    9.418824]  [<d00032c8>] do_one_initcall+0x80/0x1ac
-> [    9.420083]  [<d049386d>] kernel_init_freeable+0x131/0x198
-> [    9.421504]  [<d03236e8>] kernel_init+0xc/0xb0
-> [    9.422693]  [<d000482c>] ret_from_kernel_thread+0x8/0xc
+> Hi Lino,
+> 
+> I tested this patch, it still got panic under stress.
+> Just wget 2 large files simultaneously and it failed.
+> 
+> Looks like the problem comes from the if statement in tx_clean().
+> I changed your patch to use 
+> 
+> -               if (info & FOR_EMAC)
+> +               if ((info & FOR_EMAC) || !txbd->data || !skb)
+> 
+> and it worked. 
 
-Guenter, can you please test if the following patch fixes your setup:
+Thanks for testing. However that extra check for skb not being NULL should not be
+necessary if the code were correct. The changes I suggested were all about having
+skb and info consistent with txbd_curr.
+But I just realized that there is still a big flaw in the last changes. While
+tx() looks correct now (we first set up the descriptor and assign the skb and _then_
+advance txbd_curr) tx_clean still is not:
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.=
-c
-index 307f72a0f2e2..efa85fb31574 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1573,14 +1573,14 @@ static int phy_probe(struct device *dev)
- 	int err =3D 0;
- 	struct gpio_descs *reset_gpios;
-=20
--	phydev->drv =3D phydrv;
--
- 	/* take phy out of reset */
- 	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
- 						    GPIOD_OUT_LOW);
- 	if (IS_ERR(reset_gpios))
- 		return PTR_ERR(reset_gpios);
-=20
-+	phydev->drv =3D phydrv;
+We _first_ have to read tx_curr and _then_ read the corresponding descriptor and its skb.
+(The last patch implemented just the reverse - and thus wrong - order, first get skb and 
+descriptor and then read tx_curr).
+
+So the patch below hopefully handles also tx_clean correctly. Could you please do once more a test
+with this one?
+
+
+> 
+> After further test, my patch to barrier timestamp() didn't work.
+> Just like the original code in the tree, the emac still got stuck under
+> high load, even if I changed the smp_wmb() to dma_wmb(). So the original
+> code do have race somewhere.
+
+So to make this clear: with the current code in net-next you still see a problem (lockup), right?
+
+> 
+> I'm new to kernel development, and still trying to understand how memory
+> barrier works
+
+Its an interresting topic and thats what I am trying to understand, too :)
+
+
+> ... and why Francois' fix worked. Please be patient with me :-).
+
+So which fix(es) exactly work for you and solve your lockup issue?
+
+
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -159,12 +159,22 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+ 		unsigned int *txbd_dirty = &priv->txbd_dirty;
+ 		struct arc_emac_bd *txbd = &priv->txbd[*txbd_dirty];
+ 		struct buffer_state *tx_buff = &priv->tx_buff[*txbd_dirty];
+-		struct sk_buff *skb = tx_buff->skb;
+ 		unsigned int info = le32_to_cpu(txbd->info);
++		struct sk_buff *skb;
+ 
+-		if ((info & FOR_EMAC) || !txbd->data || !skb)
++		if (*txbd_dirty == priv->txbd_curr)
+ 			break;
+ 
++		/* Make sure curr pointer is consistent with info */
++		rmb();
 +
- 	/* Disable the interrupt if the PHY doesn't support it
- 	 * but the interrupt is still a valid one
++		info = le32_to_cpu(txbd->info);
++
++		if (info & FOR_EMAC)
++			break;
++
++		skb = tx_buff->skb;
++
+ 		if (unlikely(info & (DROP | DEFR | LTCL | UFLO))) {
+ 			stats->tx_errors++;
+ 			stats->tx_dropped++;
+@@ -195,8 +205,8 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+ 		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
+ 	}
+ 
+-	/* Ensure that txbd_dirty is visible to tx() before checking
+-	 * for queue stopped.
++	/* Ensure that txbd_dirty is visible to tx() and we see the most recent
++	 * value for txbd_curr.
  	 */
-
-This doesn't make your ethernet work, but at least the driver should
-fail in a clean way.
-
-Together with enabling GPIOLIB this should put ethernet in a working
-state again.
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+ 	smp_mb();
+ 
+@@ -680,35 +690,29 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+ 	dma_unmap_len_set(&priv->tx_buff[*txbd_curr], len, len);
+ 
+ 	priv->txbd[*txbd_curr].data = cpu_to_le32(addr);
+-
+-	/* Make sure pointer to data buffer is set */
+-	wmb();
++	priv->tx_buff[*txbd_curr].skb = skb;
+ 
+ 	skb_tx_timestamp(skb);
+ 
+ 	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+ 
+-	/* Make sure info word is set */
++	/* 1. Make sure that with respect to tx_clean everything is set up
++	 * properly before we advance txbd_curr.
++	 * 2. Make sure writes to DMA descriptors are completed before we inform
++	 * the hardware.
++	 */
+ 	wmb();
+ 
+-	priv->tx_buff[*txbd_curr].skb = skb;
+-
+ 	/* Increment index to point to the next BD */
+ 	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
+ 
+-	/* Ensure that tx_clean() sees the new txbd_curr before
+-	 * checking the queue status. This prevents an unneeded wake
+-	 * of the queue in tx_clean().
++	/* Ensure we see the most recent value of txbd_dirty and tx_clean() sees
++	 * the updated value of txbd_curr.
+ 	 */
+ 	smp_mb();
+ 
+-	if (!arc_emac_tx_avail(priv)) {
++	if (!arc_emac_tx_avail(priv))
+ 		netif_stop_queue(ndev);
+-		/* Refresh tx_dirty */
+-		smp_mb();
+-		if (arc_emac_tx_avail(priv))
+-			netif_start_queue(ndev);
+-	}
+ 
+ 	arc_reg_set(priv, R_STATUS, TXPL_MASK);
+ 
+-- 
+1.9.1
