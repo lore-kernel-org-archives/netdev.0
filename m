@@ -1,203 +1,111 @@
-From: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
-Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
- stmmac-0:ffffffff not found (regression from rc7)
-Date: Sun, 22 May 2016 10:30:56 +0100
-Message-ID: <20160522103056.2fa86293@arm.com>
-References: <56E9413D.9010902@a20.net>
-	<56E945FF.6080005@arm.com>
-	<56E94CF4.2060607@arm.com>
-	<56E95B57.1090100@suse.de>
-	<56E9776F.3070102@a20.net>
-	<56E99B0C.2070609@arm.com>
-	<56E9F2B8.1030605@a20.net>
-	<20160317075202.16b14ed6@arm.com>
-	<CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA@mail.gmail.com>
-	<573EC33D.2010209@arm.com>
-	<573EC77A.2000800@st.com>
-	<CAHsu+b9BrqBLdCpsPpetc_4_EaFVGBdDHtoeeCqqzsCG3Wpsig@mail.gmail.com>
-	<573EE8B4.1050701@arm.com>
-	<574082F9.7010702@a20.net>
-Reply-To: marc.zyngier-5wv7dgnIgG8@public.gmane.org
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: Crashes in -next due to 'phy: add support for a reset-gpio
+ specification'
+Date: Sun, 22 May 2016 12:10:51 +0200
+Message-ID: <20160522101051.GA23704@pengutronix.de>
+References: <573BF177.6090507@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Andre Heider <a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Giuseppe CAVALLARO
- <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
- Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Robin Murphy
- <robin.murphy-5wv7dgnIgG8@public.gmane.org>, Andreas =?ISO-8859-1?Q?F=E4rber?=
- <afaerber-l3A5Bk7waGM@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-To: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>
-Return-path: <linux-sunxi+bncBCPZR5X4TYBBBWHYQW5AKGQEUEAGVGQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <574082F9.7010702-phGP8mJ4Mqk@public.gmane.org>
-Sender: marc.zyngier-VeJGdqYn5oNWk0Htik3J/w@public.gmane.org
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <573BF177.6090507@roeck-us.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 21 May 2016 17:47:05 +0200
-Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+Hello,
 
-> Hi,
->=20
-> On 2016-05-20 12:36, Marc Zyngier wrote:
-> > On 20/05/16 11:30, Andre Heider wrote:
-> >> Hi,
-> >>
-> >> On Fri, May 20, 2016 at 10:14 AM, Giuseppe CAVALLARO
-> >> <peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
-> >>> On 5/20/2016 9:56 AM, Marc Zyngier wrote:
-> >>>>
-> >>>> On 20/05/16 06:44, Andre Heider wrote:
-> >>>>>
-> >>>>> Giuseppe, Alexandre, et al.,
-> >>>>>
-> >>>>> On Thu, Mar 17, 2016 at 8:52 AM, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org=
->
-> >>>>> wrote:
-> >>>>>>
-> >>>>>> On Thu, 17 Mar 2016 00:56:40 +0100
-> >>>>>> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
-> >>>>>>>
-> >>>>>>> On 2016-03-16 18:42, Marc Zyngier wrote:
-> >>>>>>>>
-> >>>>>>>> On 16/03/16 15:10, Bert Lindner wrote:
-> >>>>>>>>>
-> >>>>>>>>> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
-> >>>>>>>>>>
-> >>>>>>>>>> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
-> >>>>>>>>>>>
-> >>>>>>>>>>> On 16/03/16 11:39, Marc Zyngier wrote:
-> >>>>>>>>>>>>
-> >>>>>>>>>>>> On 16/03/16 11:19, Bert Lindner wrote:
-> >>>>>
-> >>>>> ...
-> >>>>>>>>>>>>>
-> >>>>>>>>>>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be =
-a
-> >>>>>>>>>>>>> problem
-> >>>>>>>>>>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed s=
-ince
-> >>>>>>>>>>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reporte=
-d:
-> >>>>>
-> >>>>> ...
-> >>>>>>>>>>>>>
-> >>>>>>>>>>>>> [    9.767125] NET: Registered protocol family 10
-> >>>>>>>>>>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
-> >>>>>>>>>>>>> [   10.362382] eth0: Could not attach to PHY
-> >>>>>>>>>>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -1=
-9)
-> >>>>>
-> >>>>> ...
-> >>>>>>>>>>
-> >>>>>>>>>> v4 fixes for 4.5 are here:
-> >>>>>>>>>>
-> >>>>>>>>>> https://patchwork.ozlabs.org/patch/598195/ (revert)
-> >>>>>>>>>> https://patchwork.ozlabs.org/patch/598196/
-> >>>>>
-> >>>>> ...
-> >>>>>>>>
-> >>>>>>>> Good to know, thanks. Could you also give the potential fix a go=
- (as
-> >>>>>>>> mentioned by Andreas)? Just to make sure that whatever gets merg=
-ed
-> >>>>>>>> next
-> >>>>>>>> will actually fix the issue.
-> >>>>>>>
-> >>>>>>>
-> >>>>>>> Yes sure, it took a while because I had to travel. Confirmed, the
-> >>>>>>> v4-for-4.5 fix works well for me, on sun7i-a20-olinuxino-lime2:
-> >>>>>>>
-> >>>>>>> root@lime2-079f:~# cat /proc/version
-> >>>>>>> Linux version 4.5.0-598195-598196-v4 (root@lime2-079f) (gcc versi=
-on
-> >>>>>>> 4.9.1 (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Wed Mar 16 16:44:2=
-2 UTC
-> >>>>>>> 2016
-> >>>>>>>
-> >>>>>>> dmesg:
-> >>>>>>> [    8.245273] NET: Registered protocol family 10
-> >>>>>>> [    9.297406]  RX IPC Checksum Offload disabled
-> >>>>>>> [    9.297460]  No MAC Management Counters available
-> >>>>>>> [    9.297951] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-> >>>>>>> [   16.285658] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
-> >>>>>>> 1Gbps/Full - flow control rx/tx
-> >>>>>>> [   16.285798] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes =
-ready
-> >>>>>>>
-> >>>>>>> The board is connected to my laptop rather than to a switch, so t=
-hat
-> >>>>>>> might be where the flow control message comes from (not sure). An=
-yway
-> >>>>>>> ethernet works.
-> >>>>>>
-> >>>>>>
-> >>>>>> Cool, many thanks for taking the time to test and report.
-> >>>>>>
-> >>>>>> Hopefully Giuseppe will get this merged quickly enough in mainline=
-, and
-> >>>>>> it should then trickle into a 4.5-stable release (cc-ing stable on
-> >>>>>> these patches would probably be a good idea, BTW).
-> >>>>>
-> >>>>>
-> >>>>> stmmac is broken on at least Lime2, BananaPi and Cubieboard2 since
-> >>>>> v4.5 [0], including all five stable releases :(
-> >>>>
-> >>>>
-> >>>> All the A20 platforms are dead, actually.
-> >>>>
-> >>>>> The v4.5 patches quoted above are already +4 weeks old, could we
-> >>>>> please get them into stable?
-> >>>>
-> >>>>
-> >>>> For that, the maintainer would have needed to CC stable, which he
-> >>>> didn't. I'd expect someone who cares to send these patches to stable=
-.
-> >>>> It'd be better if the maintainer would do it himself though.
-> >>>
-> >>>
-> >>> sure, I can send the patches to stable (sorry if I missed to add
-> >>> stable ML on CC).
-> >>>
-> >>> Andre, I have not clear if the train of patches actually fix the
-> >>> issue or if you need my support to fix something else. In that case
-> >>> I need some input for debugging (e.g. kernel log).
-> >>
-> >> Bert already confirmed that those two patches fixes stmmac on his
-> >> Lime2, so I assume that it fixes the issue for all A20 platforms.
-> >>
-> >>> let me know, is it enough to re-send the patches only?
-> >>
-> >> Just a resend with cc:stable :)
-> >
-> > Not quite. Please read Documentation/stable_kernel_rules.txt, and the
-> > section that concerns networking patches (and then consult
-> > Documentation/networking/netdev-FAQ.txt which has all the details).
->=20
-> FWIW, recent 4.6-rc series and 4.6.0 have worked fine for me and the=20
-> lime2. Had not tried 4.5.x again.
+On Tue, May 17, 2016 at 09:37:11PM -0700, Guenter Roeck wrote:
+> [    9.366256] libphy: ethoc-mdio: probed
+> [    9.367389]  (null): could not attach to PHY
+> [    9.368555]  (null): failed to probe MDIO bus
+> [    9.371540] Unable to handle kernel paging request at virtual addr=
+ess 0000001c
+> [    9.371540]  pc =3D d0320926, ra =3D 903209d1
+> [    9.375358] Oops: sig: 11 [#1]
+> [    9.376081] PREEMPT
+> [    9.377080] CPU: 0 PID: 1 Comm: swapper Not tainted 4.6.0-next-201=
+60517 #1
+> [    9.378397] task: d7c2c000 ti: d7c30000 task.ti: d7c30000
+> [    9.379394] a00: 903209d1 d7c31bd0 d7fb5810 00000001 00000000 0000=
+0000 d7f45c00 d7c31bd0
+> [    9.382298] a08: 00000000 00000000 00000000 00000000 00060100 d04b=
+0c10 d7f45dfc d7c31bb0
+> [    9.385732] pc: d0320926, ps: 00060110, depc: 00000018, excvaddr: =
+0000001c
+> [    9.387061] lbeg: d0322e35, lend: d0322e57 lcount: 00000000, sar: =
+00000011
+> [    9.388173]
+> Stack: d7c31be0 00060700 d7f45c00 d7c31bd0 9021d509 d7c31c30 d7f45c00=
+ 00000000
+>        d0485dcc d0485dcc d7fb5810 d7c2c000 00000000 d7c31c30 d7f45c00=
+ d025befc
+>        d0485dcc d7c30000 d7f45c34 d7c31bf0 9021c985 d7c31c50 d7f45c00=
+ d7f45c34
+> [    9.396652] Call Trace:
+> [    9.397469]  [<d021d4d9>] __device_release_driver+0x7d/0x98
+> [    9.398869]  [<d021d509>] device_release_driver+0x15/0x20
+> [    9.400247]  [<d021c985>] bus_remove_device+0xc1/0xd4
+> [    9.401569]  [<d021a935>] device_del+0x109/0x15c
+> [    9.402794]  [<d025c3f9>] phy_mdio_device_remove+0xd/0x18
+> [    9.404124]  [<d025d264>] mdiobus_unregister+0x40/0x5c
+> [    9.405444]  [<d025ff44>] ethoc_probe+0x534/0x5b8
+> [    9.406742]  [<d021e2e0>] platform_drv_probe+0x28/0x48
+> [    9.408122]  [<d021d1e5>] driver_probe_device+0x101/0x234
+> [    9.409499]  [<d021d395>] __driver_attach+0x7d/0x98
+> [    9.410809]  [<d021bd80>] bus_for_each_dev+0x30/0x5c
+> [    9.412104]  [<d021cdf0>] driver_attach+0x14/0x18
+> [    9.413385]  [<d021ca61>] bus_add_driver+0xc9/0x198
+> [    9.414686]  [<d021d7d4>] driver_register+0x70/0xa0
+> [    9.416001]  [<d021e2b4>] __platform_driver_register+0x24/0x28
+> [    9.417463]  [<d04a1d34>] ethoc_driver_init+0x10/0x14
+> [    9.418824]  [<d00032c8>] do_one_initcall+0x80/0x1ac
+> [    9.420083]  [<d049386d>] kernel_init_freeable+0x131/0x198
+> [    9.421504]  [<d03236e8>] kernel_init+0xc/0xb0
+> [    9.422693]  [<d000482c>] ret_from_kernel_thread+0x8/0xc
 
-We've already established this. This is a 4.5-specific regression (both
-4.4 and 4.6 are fine). One major issue is that Debian Stretch is
-currently shipping with 4.5, and upgrading to it results in a system
-without networking. Should this patch make it into stable, the fix would
-quickly percolate into distro kernels, and we could forget about it.
+Guenter, can you please test if the following patch fixes your setup:
 
-Thanks,
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.=
+c
+index 307f72a0f2e2..efa85fb31574 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1573,14 +1573,14 @@ static int phy_probe(struct device *dev)
+ 	int err =3D 0;
+ 	struct gpio_descs *reset_gpios;
+=20
+-	phydev->drv =3D phydrv;
+-
+ 	/* take phy out of reset */
+ 	reset_gpios =3D devm_gpiod_get_array_optional(dev, "reset",
+ 						    GPIOD_OUT_LOW);
+ 	if (IS_ERR(reset_gpios))
+ 		return PTR_ERR(reset_gpios);
+=20
++	phydev->drv =3D phydrv;
++
+ 	/* Disable the interrupt if the PHY doesn't support it
+ 	 * but the interrupt is still a valid one
+ 	 */
 
-	M.
---=20
-Jazz is not dead. It just smells funny.
+This doesn't make your ethernet work, but at least the driver should
+fail in a clean way.
+
+Together with enabling GPIOLIB this should put ethernet in a working
+state again.
+
+Best regards
+Uwe
 
 --=20
-You received this message because you are subscribed to the Google Groups "=
-linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
