@@ -1,43 +1,30 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] ip_tunnel: enclose a code block in macro IS_ENABLED(CONFIG_IPV6)
-Date: Mon, 23 May 2016 06:53:51 +0800
-Message-ID: <1463957631-11760-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fatima Zahra & Co <fz96@mylawyer.com>
+Subject: Investment
+Date: Mon, 23 May 2016 07:41:35 +0800
+Message-ID: <0O7L00M19R3ST300@relay1.stonline.sk>
+Reply-To: fzahra3@aol.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+To: Recipients <fz96@mylawyer.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from winter.telekom.sk ([213.81.152.92]:51725 "EHLO smtp.t-com.sk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752739AbcEWAmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 May 2016 20:42:52 -0400
+Received: from [10.1.1.4] ([unknown] [120.140.77.202])
+ by relay1.stonline.sk (STOnline ESMTP Server)
+ with ESMTPSA id <0O7L00M14R2QT300@relay1.stonline.sk> for
+ netdev@vger.kernel.org; Mon, 23 May 2016 01:41:08 +0200 (CEST)
+Content-description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For ipv6 case, enclose the code block in macro IS_ENABLED(CONFIG_IPV6).
+Date: 5/23/2016
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/ipv4/ip_tunnel.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+I hope this mail meet you enjoying the best of health. I am Fatima Zahra & Co. attorney at law from Johor-MALAYSIA and I wish to bring to your notice an investment overture with full financial benefit for both of us. I shall give you a comprehensive detail of what I propose as soon as I get a word from you.
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index a69ed94..5f3c8de 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -665,10 +665,13 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		if (skb->protocol == htons(ETH_P_IP)) {
- 			tos = inner_iph->tos;
- 			connected = false;
--		} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		}
-+#if IS_ENABLED(CONFIG_IPV6)
-+		else if (skb->protocol == htons(ETH_P_IPV6)) {
- 			tos = ipv6_get_dsfield((const struct ipv6hdr *)inner_iph);
- 			connected = false;
- 		}
-+#endif
- 	}
- 
- 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
--- 
-1.8.3.1
+If we can be of one accord, send your reply to my private Email: (fzahra3@aol.com) to enable us commence this line of discussion.
+
+Regards,
+Fatima Zahra & Co.
