@@ -1,52 +1,50 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: [PATCH][v3.13.y-ckt][PATCH 0/1] bridge: notify user space
-	after fdb update
-Date: Fri, 20 May 2016 12:59:36 -0400
-Message-ID: <cover.1463760264.git.joseph.salisbury__41629.54737335$1463943561$gmane$org@canonical.com>
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	jmaxwell37@gmail.com, davem@davemloft.net
-To: kamal.mostafa@canonical.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net/ethoc: fix null dereference on error exit path
+Date: Sun, 22 May 2016 20:08:18 +0100
+Message-ID: <1463944098-7061-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Max Filippov <jcmvbkbc@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BugLink: http://bugs.launchpad.net/bugs/1581585
+From: Colin Ian King <colin.king@canonical.com>
 
-Hello,
+priv is assigned to NULL however all the error exit paths to label 'free'
+dereference priv, causing a null pointer dereference.
 
-Please consider including upstream commit c65c7a306610ee7c13669a8f5601b472c19dc6f1
-in the next v3.13.y-ckt release.  It was included in the mainline tree as of 
-v3.14-rc3.  It has been tested and confirmed to resolve
-http://bugs.launchpad.net/bugs/1581585 .
+Examination of the code shows that all error exits via the 'free'
+label path occur before priv is assigned to netdev_priv(netdev), hence
+there is no need to call clk_disable_unprepare and so the location of
+the label should be moved to free_netdev statement to avoid this null
+dereference on priv.
 
-This commit also reques commit a5642ab4744 as a prereq.  Commit  a5642ab4744 
-does not apply cleanly to v3.13-y.ckt, so I performed a backport, which is
-in email 1/1
+Fixes issue found by CoverityScan, CID#113260
 
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/ethoc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Prereq:
-commit a5642ab4744bc8c5a8c7ce7c6e30c01bd6bbc691
-Author: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date:   Fri Feb 7 16:48:18 2014 +0900
-
-    bridge: Fix the way to find old local fdb entries in br_fdb_changeaddr
-
-Real fix:
-commit c65c7a306610ee7c13669a8f5601b472c19dc6f1
-Author: Jon Maxwell <jmaxwell37@gmail.com>
-Date:   Thu May 29 17:27:16 2014 +1000
-
-    bridge: notify user space after fdb update
-
-Regards,
-
-Joe Salisbury
+diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+index 41b0106..96403a4 100644
+--- a/drivers/net/ethernet/ethoc.c
++++ b/drivers/net/ethernet/ethoc.c
+@@ -1241,9 +1241,10 @@ error2:
+ error:
+ 	mdiobus_unregister(priv->mdio);
+ 	mdiobus_free(priv->mdio);
+-free:
++
+ 	if (priv->clk)
+ 		clk_disable_unprepare(priv->clk);
++free:
+ 	free_netdev(netdev);
+ out:
+ 	return ret;
+-- 
+2.8.1
