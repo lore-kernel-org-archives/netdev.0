@@ -1,98 +1,241 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 extension header privileges
-Date: Sun, 22 May 2016 03:08:10 +0200
-Message-ID: <82086299-ddb2-8acc-1286-5a1a7b2bf311@stressinduktion.org>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
- <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
- <20160521015604.GD2452@oracle.com>
- <1463823275.2335717.614453105.5011B2EE@webmail.messagingengine.com>
- <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
- <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
- <CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
- <f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
- <20160521174438.GA27990@oracle.com>
+From: Baozeng Ding <sploving1@gmail.com>
+Subject: [PATCH net] tipc: fix potential null pointer dereference in some
+ compat, functions
+Date: Sun, 22 May 2016 12:22:03 +0800
+Message-ID: <e454acaf-f737-38cc-590e-b5e929cf2e2e@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Tom Herbert <tom@herbertland.com>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com, ying.xue@windriver.com,
+	davem@davemloft.net, sploving1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52021 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751886AbcEVBIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2016 21:08:15 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id ED88920313
-	for <netdev@vger.kernel.org>; Sat, 21 May 2016 21:08:13 -0400 (EDT)
-In-Reply-To: <20160521174438.GA27990@oracle.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36815 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751383AbcEVEWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2016 00:22:13 -0400
+Received: by mail-pa0-f65.google.com with SMTP id xm6so14606037pab.3
+        for <netdev@vger.kernel.org>; Sat, 21 May 2016 21:22:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21.05.2016 19:46, Sowmini Varadhan wrote:
-> Tom Herbert wrote:
->>>>> If you don't mind I'll change this to make specific options are
->>>>> privileged and not all hbh and destopt. There is talk in IETF about
->>>>> reinventing IP extensibility within UDP since the kernel APIs don't
->>>>> allow setting EH. I would like to avoid that :-)
-> 
-> Do you mean this
->   http://www.ietf.org/mail-archive/web/spud/current/msg00365.html
-> 
-> Maybe I misunderstood that rather long thread, but the author of that
-> draft seems to be arguing for reinventing tcp congavoid and windowing 
-> on top of udp to bypass kernel? ;-)
+Before calling the nla_parse_nested function, make sure the pointer to
+the attribute is not null. This patch fixes several potential null
+pointer dereference vulnerabilities in the tipc netlink functions.
 
-Hmm, haven't read carefully but isn't that just plain TCP in UDP? I saw
-extension headers mentioned but haven't grasped why they deem necessary.
+Signed-off-by: Baozeng Ding <sploving1@gmail.com>
+---
+ net/tipc/netlink_compat.c | 111 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 93 insertions(+), 18 deletions(-)
 
-> Hannes Frederic Sowa wrote:
->>>> A white list of certain registered IPv6 IANA-options for non-priv whould
-> 
-> Problem is that APIs are not IANA'ed. 
-> Even RFC 3542 is just Informationaal. 
-> 
-> And even the classic socket API's that come down from BSD are not 
-> ietf'ed or iana'ed.
-
-I think I don't completely understand this. IANA is numbering registry
-and if we have the proper option number allocated we can make sensible
-decisions and put options on the white list or provide a more complete
-sensible implementation of the specification in the kernel.
-
-E.g. if an option for encapsulation is going to be specified, normal
-users should not be able to set those, like with CALIPSO or some VNI
-inside hop-by-hop options. That should probably be controlled by a
-routing table or a flow matching subsystem, in the kernel.
-
-Congestion and windowing information need to be settable and receivable
-from user space.
-
-Unassigned option, we don't know anything about them so far and should
-probably being blocked for the time being, as we don't know which spec
-would use the number.
-
-I think it is also in favor of the IETF to get those numbers specified
-and allocated in a proper way, otherwise security won't be manageable at
-all any more.
-
-> Hannes Frederic Sowa wrote:
->> Can you give some more details about the planned new options? I think we
->> can also open the API up for all options where the fourth bit is set,
->> which AFAIK denotes the experimental option space. And only have a
->> blacklist for the fourth bit == 0 case. Otherwise this is something IETF
->> people probably know more about what an impact this change could have.
-> 
-> I think it would be ok for some options to be privileged, others to not.
-> We certainly have precedent for that from the classic socket APIs..
-> and man pages etc can document any restrictions, as we do with other
-> ioctls/sockopts etc.
-
-Sure, we can make options unprivileged, we just need to know which one
-and find out the details how they mix with each other. Also user space
-should only be allowed to query the options it is allowed to set, too,
-and not the whole option blocks.
-
-Bye,
-Hannes
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index 4dfc5c1..1e18b78 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -345,10 +345,16 @@ static int tipc_nl_compat_doit(struct tipc_nl_compat_cmd_doit *cmd,
+ static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
+ 				      struct nlattr **attrs)
+ {
++	int err;
+ 	struct nlattr *bearer[TIPC_NLA_BEARER_MAX + 1];
+ 
+-	nla_parse_nested(bearer, TIPC_NLA_BEARER_MAX, attrs[TIPC_NLA_BEARER],
+-			 NULL);
++	if (!attrs[TIPC_NLA_BEARER])
++		return -EINVAL;
++
++	err = nla_parse_nested(bearer, TIPC_NLA_BEARER_MAX,
++			       attrs[TIPC_NLA_BEARER], NULL);
++	if (err)
++		return err;
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_BEARER_NAME,
+ 			    nla_data(bearer[TIPC_NLA_BEARER_NAME]),
+@@ -456,18 +462,35 @@ static void __fill_bc_link_stat(struct tipc_nl_compat_msg *msg,
+ static int tipc_nl_compat_link_stat_dump(struct tipc_nl_compat_msg *msg,
+ 					 struct nlattr **attrs)
+ {
++	int err;
+ 	char *name;
+ 	struct nlattr *link[TIPC_NLA_LINK_MAX + 1];
+ 	struct nlattr *prop[TIPC_NLA_PROP_MAX + 1];
+ 	struct nlattr *stats[TIPC_NLA_STATS_MAX + 1];
+ 
+-	nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK], NULL);
++	if (!attrs[TIPC_NLA_LINK])
++		return -EINVAL;
+ 
+-	nla_parse_nested(prop, TIPC_NLA_PROP_MAX, link[TIPC_NLA_LINK_PROP],
+-			 NULL);
++	err = nla_parse_nested(link, TIPC_NLA_LINK_MAX,
++			       attrs[TIPC_NLA_LINK], NULL);
++	if (err)
++		return err;
++
++	if (!link[TIPC_NLA_LINK_PROP])
++		return -EINVAL;
+ 
+-	nla_parse_nested(stats, TIPC_NLA_STATS_MAX, link[TIPC_NLA_LINK_STATS],
+-			 NULL);
++	err = nla_parse_nested(prop, TIPC_NLA_PROP_MAX,
++			       link[TIPC_NLA_LINK_PROP], NULL);
++	if (err)
++		return err;
++
++	if (!link[TIPC_NLA_LINK_STATS])
++		return -EINVAL;
++
++	err = nla_parse_nested(stats, TIPC_NLA_STATS_MAX,
++			       link[TIPC_NLA_LINK_STATS], NULL);
++	if (err)
++		return err;
+ 
+ 	name = (char *)TLV_DATA(msg->req);
+ 	if (strcmp(name, nla_data(link[TIPC_NLA_LINK_NAME])) != 0)
+@@ -567,10 +590,17 @@ static int tipc_nl_compat_link_stat_dump(struct tipc_nl_compat_msg *msg,
+ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
+ 				    struct nlattr **attrs)
+ {
++	int err;
+ 	struct nlattr *link[TIPC_NLA_LINK_MAX + 1];
+ 	struct tipc_link_info link_info;
+ 
+-	nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK], NULL);
++	if (!attrs[TIPC_NLA_LINK])
++		return -EINVAL;
++
++	err = nla_parse_nested(link, TIPC_NLA_LINK_MAX,
++			       attrs[TIPC_NLA_LINK], NULL);
++	if (err)
++		return err;
+ 
+ 	link_info.dest = nla_get_flag(link[TIPC_NLA_LINK_DEST]);
+ 	link_info.up = htonl(nla_get_flag(link[TIPC_NLA_LINK_UP]));
+@@ -751,6 +781,7 @@ static int tipc_nl_compat_name_table_dump_header(struct tipc_nl_compat_msg *msg)
+ static int tipc_nl_compat_name_table_dump(struct tipc_nl_compat_msg *msg,
+ 					  struct nlattr **attrs)
+ {
++	int err;
+ 	char port_str[27];
+ 	struct tipc_name_table_query *ntq;
+ 	struct nlattr *nt[TIPC_NLA_NAME_TABLE_MAX + 1];
+@@ -759,11 +790,21 @@ static int tipc_nl_compat_name_table_dump(struct tipc_nl_compat_msg *msg,
+ 	static const char * const scope_str[] = {"", " zone", " cluster",
+ 						 " node"};
+ 
+-	nla_parse_nested(nt, TIPC_NLA_NAME_TABLE_MAX,
+-			 attrs[TIPC_NLA_NAME_TABLE], NULL);
++	if (!attrs[TIPC_NLA_NAME_TABLE])
++		return -EINVAL;
+ 
+-	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, nt[TIPC_NLA_NAME_TABLE_PUBL],
+-			 NULL);
++	err = nla_parse_nested(nt, TIPC_NLA_NAME_TABLE_MAX,
++			       attrs[TIPC_NLA_NAME_TABLE], NULL);
++	if (err)
++		return err;
++
++	if (!nt[TIPC_NLA_NAME_TABLE_PUBL])
++		return -EINVAL;
++
++	err = nla_parse_nested(publ, TIPC_NLA_PUBL_MAX,
++			       nt[TIPC_NLA_NAME_TABLE_PUBL], NULL);
++	if (err)
++		return err;
+ 
+ 	ntq = (struct tipc_name_table_query *)TLV_DATA(msg->req);
+ 
+@@ -813,10 +854,17 @@ out:
+ static int __tipc_nl_compat_publ_dump(struct tipc_nl_compat_msg *msg,
+ 				      struct nlattr **attrs)
+ {
++	int err;
+ 	u32 type, lower, upper;
+ 	struct nlattr *publ[TIPC_NLA_PUBL_MAX + 1];
+ 
+-	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, attrs[TIPC_NLA_PUBL], NULL);
++	if (!attrs[TIPC_NLA_PUBL])
++		return -EINVAL;
++
++	err = nla_parse_nested(publ, TIPC_NLA_PUBL_MAX,
++			       attrs[TIPC_NLA_PUBL], NULL);
++	if (err)
++		return err;
+ 
+ 	type = nla_get_u32(publ[TIPC_NLA_PUBL_TYPE]);
+ 	lower = nla_get_u32(publ[TIPC_NLA_PUBL_LOWER]);
+@@ -876,7 +924,13 @@ static int tipc_nl_compat_sk_dump(struct tipc_nl_compat_msg *msg,
+ 	u32 sock_ref;
+ 	struct nlattr *sock[TIPC_NLA_SOCK_MAX + 1];
+ 
+-	nla_parse_nested(sock, TIPC_NLA_SOCK_MAX, attrs[TIPC_NLA_SOCK], NULL);
++	if (!attrs[TIPC_NLA_SOCK])
++		return -EINVAL;
++
++	err = nla_parse_nested(sock, TIPC_NLA_SOCK_MAX,
++			       attrs[TIPC_NLA_SOCK], NULL);
++	if (err)
++		return err;
+ 
+ 	sock_ref = nla_get_u32(sock[TIPC_NLA_SOCK_REF]);
+ 	tipc_tlv_sprintf(msg->rep, "%u:", sock_ref);
+@@ -916,10 +970,16 @@ static int tipc_nl_compat_sk_dump(struct tipc_nl_compat_msg *msg,
+ static int tipc_nl_compat_media_dump(struct tipc_nl_compat_msg *msg,
+ 				     struct nlattr **attrs)
+ {
++	int err;
+ 	struct nlattr *media[TIPC_NLA_MEDIA_MAX + 1];
+ 
+-	nla_parse_nested(media, TIPC_NLA_MEDIA_MAX, attrs[TIPC_NLA_MEDIA],
+-			 NULL);
++	if (!attrs[TIPC_NLA_MEDIA])
++		return -EINVAL;
++
++	err = nla_parse_nested(media, TIPC_NLA_MEDIA_MAX, attrs[TIPC_NLA_MEDIA],
++			       NULL);
++	if (err)
++		return err;
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_MEDIA_NAME,
+ 			    nla_data(media[TIPC_NLA_MEDIA_NAME]),
+@@ -929,10 +989,17 @@ static int tipc_nl_compat_media_dump(struct tipc_nl_compat_msg *msg,
+ static int tipc_nl_compat_node_dump(struct tipc_nl_compat_msg *msg,
+ 				    struct nlattr **attrs)
+ {
++	int err;
+ 	struct tipc_node_info node_info;
+ 	struct nlattr *node[TIPC_NLA_NODE_MAX + 1];
+ 
+-	nla_parse_nested(node, TIPC_NLA_NODE_MAX, attrs[TIPC_NLA_NODE], NULL);
++	if (!attrs[TIPC_NLA_NODE])
++		return -EINVAL;
++
++	err = nla_parse_nested(node, TIPC_NLA_NODE_MAX,
++			       attrs[TIPC_NLA_NODE], NULL);
++	if (err)
++		return err;
+ 
+ 	node_info.addr = htonl(nla_get_u32(node[TIPC_NLA_NODE_ADDR]));
+ 	node_info.up = htonl(nla_get_flag(node[TIPC_NLA_NODE_UP]));
+@@ -969,10 +1036,18 @@ static int tipc_nl_compat_net_set(struct tipc_nl_compat_cmd_doit *cmd,
+ static int tipc_nl_compat_net_dump(struct tipc_nl_compat_msg *msg,
+ 				   struct nlattr **attrs)
+ {
++	int err;
+ 	__be32 id;
+ 	struct nlattr *net[TIPC_NLA_NET_MAX + 1];
+ 
+-	nla_parse_nested(net, TIPC_NLA_NET_MAX, attrs[TIPC_NLA_NET], NULL);
++	if (!attrs[TIPC_NLA_NET])
++		return -EINVAL;
++
++	err = nla_parse_nested(net, TIPC_NLA_NET_MAX,
++			       attrs[TIPC_NLA_NET], NULL);
++	if (err)
++		return err;
++
+ 	id = htonl(nla_get_u32(net[TIPC_NLA_NET_ID]));
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_UNSIGNED, &id, sizeof(id));
+-- 
+2.7.4
