@@ -1,64 +1,44 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC net-next] net: sched: do not acquire qdisc spinlock in
- qdisc/class stats dump
-Date: Sun, 22 May 2016 12:30:11 -0400
-Message-ID: <5741DE93.7090202@mojatatu.com>
-References: <1463661320.18194.178.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [net-next RFC 1/1] net sched actions: introduce timestamp for
+ first time used
+Date: Sun, 22 May 2016 12:32:33 -0400
+Message-ID: <5741DF21.2020008@mojatatu.com>
+References: <1463528337-4986-1-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpWXgncANS5MrBzrZiEVSbGzNptrAjisg_K2NTA-PsAMKg@mail.gmail.com>
+ <573DA960.8070102@mojatatu.com> <573DAE70.4000504@mojatatu.com>
+ <CAM_iQpW7LQ40XX5G+creyHjQbgdRcKCCJ1f5CbWHjdJdxJPPRA@mail.gmail.com>
+ <CAM_iQpVP3MPAEBVn0buzkAaLzuYpba0Z5Va-V0CN_+G77eJhQQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Kevin Athey <kda@google.com>,
-	Xiaotian Pei <xiaotian@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Felix Fietkau <nbd@nbd.name>, baronchon@n7mm.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36463 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214AbcEVQa2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2016 12:30:28 -0400
-Received: by mail-io0-f194.google.com with SMTP id a79so15083468ioe.3
-        for <netdev@vger.kernel.org>; Sun, 22 May 2016 09:30:28 -0700 (PDT)
-In-Reply-To: <1463661320.18194.178.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33955 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752389AbcEVQcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2016 12:32:36 -0400
+Received: by mail-io0-f177.google.com with SMTP id 190so179149904iow.1
+        for <netdev@vger.kernel.org>; Sun, 22 May 2016 09:32:36 -0700 (PDT)
+In-Reply-To: <CAM_iQpVP3MPAEBVn0buzkAaLzuYpba0Z5Va-V0CN_+G77eJhQQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-05-19 08:35 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Large tc dumps (tc -s {qdisc|class} sh dev ethX) done by Google BwE host
-> agent [1] are problematic at scale :
->
-> For each qdisc/class found in the dump, we currently lock the root qdisc
-> spinlock in order to get stats. Sampling stats every 5 seconds from
-> thousands of HTB classes is a challenge when the root qdisc spinlock is
-> under high pressure.
+On 16-05-20 01:16 AM, Cong Wang wrote:
+
+> One nit: It is better if you can swap 'stm' with 'dtm',
+> it looks odd to put destination on the right side.
 >
 
-Good stuff.
-There are other optimization we could do in such large scale dumps
-(such as not dumping something that hasnt been updated)
-Could we have changed it to be rcu?
-
-> These stats are using u64 or u32 fields, so reading integral values
-> should not prevent writers from doing concurrent updates if the kernel
-> arch is a 64bit one.
->
-
-Meaning it wont work on other archs? is atomic read not dependable
-on other setups?
-
-
-> Being able to atomically fetch all counters like packets and bytes sent
-> at the expense of interfering in fast path (queue and dequeue packets)
-> is simply not worth the pain, as the values are generally stale after 1
-> usec.
->
-> These lock acquisitions slow down the fast path by 10 to 20 %
->
-
-
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Will make the change for when net-next opens up.
 
 cheers,
 jamal
