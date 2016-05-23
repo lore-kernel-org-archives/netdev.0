@@ -1,32 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] hv_netvsc: cleanup after untangling the
- pointer mess
-Date: Mon, 23 May 2016 15:13:23 -0700 (PDT)
-Message-ID: <20160523.151323.522872084486431802.davem@davemloft.net>
-References: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: bpf: use-after-free in array_map_alloc
+Date: Mon, 23 May 2016 15:13:58 -0700
+Message-ID: <20160523221356.GA35044@ast-mbp.thefacebook.com>
+References: <5713C0AD.3020102@oracle.com>
+ <20160417172943.GA83672@ast-mbp.thefacebook.com>
+ <5742F127.6080000@suse.cz>
+ <5742F267.3000309@suse.cz>
+ <20160523213501.GA5383@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org, haiyangz@microsoft.com,
-	kys@microsoft.com
-To: vkuznets@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlastimil Babka <vbabka@suse.cz>, Sasha Levin <sasha.levin@oracle.com>,
+	ast@kernel.org, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <cl@linux.com>,
+	Linux-MM layout <linux-mm@kvack.org>,
+	Marco Grassi <marco.gra@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160523213501.GA5383@mtj.duckdns.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Mon, 23 May 2016 17:50:33 +0200
-
-> After we made traveling through our internal structures explicit it became
-> obvious that some functions take arguments they don't need just to do
-> redundant pointer travel and get to what they really need while their
-> callers already have the required information.
+On Mon, May 23, 2016 at 05:35:01PM -0400, Tejun Heo wrote:
+> Hello,
 > 
-> This is just a cleanup series with no functional changes intended. It
-> doesn't pretend to be complete, additional cleanup of other functions may
-> follow.
+> Can you please test whether this patch resolves the issue?  While
+> adding support for atomic allocations, I reduced alloc_mutex covered
+> region too much.
 
-Cleanups and new features should not be submitted at this time since the
-net-next tree is closed.
+after the patch the use-after-free is no longer seen.
+Tested-by: Alexei Starovoitov <ast@kernel.org>
+
+> 
+> Thanks.
+> 
+> diff --git a/mm/percpu.c b/mm/percpu.c
+> index 0c59684..bd2df70 100644
+> --- a/mm/percpu.c
+> +++ b/mm/percpu.c
+> @@ -162,7 +162,7 @@ static struct pcpu_chunk *pcpu_reserved_chunk;
+>  static int pcpu_reserved_chunk_limit;
+>  
+>  static DEFINE_SPINLOCK(pcpu_lock);	/* all internal data structures */
+> -static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop */
+> +static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop, map extension */
+>  
+>  static struct list_head *pcpu_slot __read_mostly; /* chunk list slots */
+>  
+> @@ -435,6 +435,8 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk, int new_alloc)
+>  	size_t old_size = 0, new_size = new_alloc * sizeof(new[0]);
+>  	unsigned long flags;
+>  
+> +	lockdep_assert_held(&pcpu_alloc_mutex);
+> +
+>  	new = pcpu_mem_zalloc(new_size);
+>  	if (!new)
+>  		return -ENOMEM;
+> @@ -895,6 +897,9 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  		return NULL;
+>  	}
+>  
+> +	if (!is_atomic)
+> +		mutex_lock(&pcpu_alloc_mutex);
+> +
+>  	spin_lock_irqsave(&pcpu_lock, flags);
+>  
+>  	/* serve reserved allocations from the reserved chunk if available */
+> @@ -967,12 +972,11 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  	if (is_atomic)
+>  		goto fail;
+>  
+> -	mutex_lock(&pcpu_alloc_mutex);
+> +	lockdep_assert_held(&pcpu_alloc_mutex);
+>  
+>  	if (list_empty(&pcpu_slot[pcpu_nr_slots - 1])) {
+>  		chunk = pcpu_create_chunk();
+>  		if (!chunk) {
+> -			mutex_unlock(&pcpu_alloc_mutex);
+>  			err = "failed to allocate new chunk";
+>  			goto fail;
+>  		}
+> @@ -983,7 +987,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  		spin_lock_irqsave(&pcpu_lock, flags);
+>  	}
+>  
+> -	mutex_unlock(&pcpu_alloc_mutex);
+>  	goto restart;
+>  
+>  area_found:
+> @@ -993,8 +996,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  	if (!is_atomic) {
+>  		int page_start, page_end, rs, re;
+>  
+> -		mutex_lock(&pcpu_alloc_mutex);
+> -
+>  		page_start = PFN_DOWN(off);
+>  		page_end = PFN_UP(off + size);
+>  
+> @@ -1005,7 +1006,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  
+>  			spin_lock_irqsave(&pcpu_lock, flags);
+>  			if (ret) {
+> -				mutex_unlock(&pcpu_alloc_mutex);
+>  				pcpu_free_area(chunk, off, &occ_pages);
+>  				err = "failed to populate";
+>  				goto fail_unlock;
+> @@ -1045,6 +1045,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  		/* see the flag handling in pcpu_blance_workfn() */
+>  		pcpu_atomic_alloc_failed = true;
+>  		pcpu_schedule_balance_work();
+> +	} else {
+> +		mutex_unlock(&pcpu_alloc_mutex);
+>  	}
+>  	return NULL;
+>  }
+> @@ -1137,6 +1139,8 @@ static void pcpu_balance_workfn(struct work_struct *work)
+>  	list_for_each_entry_safe(chunk, next, &to_free, list) {
+>  		int rs, re;
+>  
+> +		cancel_work_sync(&chunk->map_extend_work);
+> +
+>  		pcpu_for_each_pop_region(chunk, rs, re, 0, pcpu_unit_pages) {
+>  			pcpu_depopulate_chunk(chunk, rs, re);
+>  			spin_lock_irq(&pcpu_lock);
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
