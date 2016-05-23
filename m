@@ -1,123 +1,259 @@
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [RFC 00/12] 6lowpan: introduce 6lowpan-nd
-Date: Mon, 23 May 2016 21:21:56 +0200
-Message-ID: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <aar@pengutronix.de>
+Subject: [RFC 07/12] addrconf: put prefix address add in an own function
+Date: Mon, 23 May 2016 21:22:03 +0200
+Message-ID: <1464031328-17524-8-git-send-email-aar@pengutronix.de>
+References: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
+Cc: kernel@pengutronix.de, marcel@holtmann.org,
+	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
+	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	Alexander Aring <aar@pengutronix.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:34728 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751429AbcEWTXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 15:23:11 -0400
+In-Reply-To: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch moves the functionality to add a RA PIO prefix generated
+address in an own function. This move prepares to add a hook for
+adding a second address for a second link-layer address. E.g. short
+address for 802.15.4 6LoWPAN.
 
-this patch series introduces the ndisc ops callback structure to add different
-handling for IPv6 neighbour discovery cache functionality. It implements at first
-the two following use-cases:
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Alexander Aring <aar@pengutronix.de>
+---
+ net/ipv6/addrconf.c | 191 ++++++++++++++++++++++++++++------------------------
+ 1 file changed, 102 insertions(+), 89 deletions(-)
 
- - 6CO handling as userspace option (For all 6LoWPAN layers, BTLE/802.15.4) [0]
- - short address handling for 802.15.4 6LoWPAN only [1]
-
-Since my last patch series, I completely changed the whole ndisc_ops callback
-structure to not replace the whole ndisc functionality at recv/send level of
-NS/NA/RS/RA which I send in my previous patch-series "6lowpan: introduce basic
-6lowpan-nd". I changed it now to add different handling in a very low-level way
-of ndisc functionality.
-
-The ndisc_ops don't must be registered to dev->ndisc_ops anymore, if they are not
-set, then no additional ipv6 ndisc handling will be done.
-
-This patch series now introduce a complete handling of short address for
-802.15.4 6LoWPAN in case of send/recv of NA/NS/RS and RA. In case of RA
-(receive only) and PIO we also need a second prefix + short-address based
-address.
-
-This callback structure can be used later (I hope) for RFC 6775 [0]. This RFC
-defines some new option fields and messages for 6LoWPAN-ND. This patch series
-does not implement RFC 6775 (except we decide now to handle 6CO in userspace).
-
-Additional we can use the current ops for parse/fill ndisc options for kernel
-handled ndisc messages to add 6CIO, see [2].
-
-I tested RA/NS/NA/RS messages with short address which seems to work, what I
-didn't test is the redirect messages since I don't know how to generate them.
-The short address for redirect messages are also some special case here, because
-the short address by a L3 target address need to be added.
-
-btw:
-According to [3] sending redirect messages should be also disabled by default
-on 6lowpan interfaces, but can be activated afterwards. This is maybe
-something for the ipv6_devconf structure. There is a "accept_redirects" but
-no "disable_redirects".
-
-- Alex
-
-[0] https://tools.ietf.org/html/rfc6775
-[1] https://tools.ietf.org/html/rfc4944#section-8
-[2] https://tools.ietf.org/html/rfc7400#section-3.3
-[3] https://tools.ietf.org/html/rfc6775#section-6.1
-
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-
-changes since "PATCHv2 6lowpan: introduce basic 6lowpan-nd":
- - change EXPORT_SYMBOL to EXPORT_SYMBOL_GPL
- - rework ndisc_ops to be very low-level (not replacing
-   full ndisc handling) and add full short address handling
-   now.
- - added comments for ndisc_ops.
- - make ndisc_opt_addr_space, ndisc_opt_addr_data and
-   ndisc_fill_addr_option completely independent from
-   net_device dev argument. Instead add ndisc_dev helpers
-   for do it for the normal case.
- - remove lowpan_neigh and add a 802.15.4 6lowpan private data
-   for now only.
- - remove empty ndisc_ops inline functions
- - add tmp debugfs UAPI to get 6lowpan short address, necessary
-   for e.g. radvd to put short address as sllao in RA.
-
-Alexander Aring (12):
-  6lowpan: add private neighbour data
-  6lowpan: add 802.15.4 short addr slaac
-  6lowpan: remove ipv6 module request
-  ndisc: get rid off dev parameter in ndisc_opt_addr_space
-  ndisc: get rid off dev parameter in ndisc_opt_addr_data
-  ndisc: get rid off dev parameter in ndisc_fill_addr_option
-  addrconf: put prefix address add in an own function
-  ipv6: introduce neighbour discovery ops
-  ipv6: export several functions
-  6lowpan: introduce 6lowpan-nd
-  6lowpan: add support for getting short address
-  6lowpan: add support for 802.15.4 short addr handling
-
- include/linux/netdevice.h     |   8 +-
- include/net/6lowpan.h         |  10 ++
- include/net/addrconf.h        |  10 ++
- include/net/ndisc.h           | 229 +++++++++++++++++++++++++++++++++++++++---
- net/6lowpan/6lowpan_i.h       |   4 +
- net/6lowpan/Makefile          |   2 +-
- net/6lowpan/core.c            |  50 ++++++++-
- net/6lowpan/debugfs.c         |  35 +++++++
- net/6lowpan/iphc.c            | 167 ++++++++++++++++++++++++------
- net/6lowpan/ndisc.c           | 223 ++++++++++++++++++++++++++++++++++++++++
- net/ieee802154/6lowpan/core.c |  12 +++
- net/ieee802154/6lowpan/tx.c   | 113 ++++++++++-----------
- net/ipv6/addrconf.c           | 204 ++++++++++++++++++++-----------------
- net/ipv6/ndisc.c              | 178 +++++++++++++++++++-------------
- net/ipv6/route.c              |  18 ++--
- 15 files changed, 990 insertions(+), 273 deletions(-)
- create mode 100644 net/6lowpan/ndisc.c
-
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index beaad49..393cdbf 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2333,6 +2333,104 @@ static bool is_addr_mode_generate_stable(struct inet6_dev *idev)
+ 	       idev->addr_gen_mode == IN6_ADDR_GEN_MODE_RANDOM;
+ }
+ 
++static void addrconf_prefix_rcv_add_addr(struct net *net,
++					 struct net_device *dev,
++					 const struct prefix_info *pinfo,
++					 struct inet6_dev *in6_dev,
++					 const struct in6_addr *addr,
++					 int addr_type, u32 addr_flags,
++					 bool sllao, bool tokenized,
++					 __u32 valid_lft, u32 prefered_lft)
++{
++	struct inet6_ifaddr *ifp = ipv6_get_ifaddr(net, addr, dev, 1);
++	int create = 0, update_lft = 0;
++
++	if (!ifp && valid_lft) {
++		int max_addresses = in6_dev->cnf.max_addresses;
++
++#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
++		if (in6_dev->cnf.optimistic_dad &&
++		    !net->ipv6.devconf_all->forwarding && sllao)
++			addr_flags |= IFA_F_OPTIMISTIC;
++#endif
++
++		/* Do not allow to create too much of autoconfigured
++		 * addresses; this would be too easy way to crash kernel.
++		 */
++		if (!max_addresses ||
++		    ipv6_count_addresses(in6_dev) < max_addresses)
++			ifp = ipv6_add_addr(in6_dev, addr, NULL,
++					    pinfo->prefix_len,
++					    addr_type&IPV6_ADDR_SCOPE_MASK,
++					    addr_flags, valid_lft,
++					    prefered_lft);
++
++		if (IS_ERR_OR_NULL(ifp)) {
++			in6_dev_put(in6_dev);
++			return;
++		}
++
++		update_lft = 0;
++		create = 1;
++		spin_lock_bh(&ifp->lock);
++		ifp->flags |= IFA_F_MANAGETEMPADDR;
++		ifp->cstamp = jiffies;
++		ifp->tokenized = tokenized;
++		spin_unlock_bh(&ifp->lock);
++		addrconf_dad_start(ifp);
++	}
++
++	if (ifp) {
++		u32 flags;
++		unsigned long now;
++		u32 stored_lft;
++
++		/* update lifetime (RFC2462 5.5.3 e) */
++		spin_lock_bh(&ifp->lock);
++		now = jiffies;
++		if (ifp->valid_lft > (now - ifp->tstamp) / HZ)
++			stored_lft = ifp->valid_lft - (now - ifp->tstamp) / HZ;
++		else
++			stored_lft = 0;
++		if (!update_lft && !create && stored_lft) {
++			const u32 minimum_lft = min_t(u32,
++				stored_lft, MIN_VALID_LIFETIME);
++			valid_lft = max(valid_lft, minimum_lft);
++
++			/* RFC4862 Section 5.5.3e:
++			 * "Note that the preferred lifetime of the
++			 *  corresponding address is always reset to
++			 *  the Preferred Lifetime in the received
++			 *  Prefix Information option, regardless of
++			 *  whether the valid lifetime is also reset or
++			 *  ignored."
++			 *
++			 * So we should always update prefered_lft here.
++			 */
++			update_lft = 1;
++		}
++
++		if (update_lft) {
++			ifp->valid_lft = valid_lft;
++			ifp->prefered_lft = prefered_lft;
++			ifp->tstamp = now;
++			flags = ifp->flags;
++			ifp->flags &= ~IFA_F_DEPRECATED;
++			spin_unlock_bh(&ifp->lock);
++
++			if (!(flags&IFA_F_TENTATIVE))
++				ipv6_ifa_notify(0, ifp);
++		} else
++			spin_unlock_bh(&ifp->lock);
++
++		manage_tempaddrs(in6_dev, ifp, valid_lft, prefered_lft,
++				 create, now);
++
++		in6_ifa_put(ifp);
++		addrconf_verify();
++	}
++}
++
+ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
+ {
+ 	struct prefix_info *pinfo;
+@@ -2432,9 +2530,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
+ 	/* Try to figure out our local address for this prefix */
+ 
+ 	if (pinfo->autoconf && in6_dev->cnf.autoconf) {
+-		struct inet6_ifaddr *ifp;
+ 		struct in6_addr addr;
+-		int create = 0, update_lft = 0;
+ 		bool tokenized = false;
+ 
+ 		if (pinfo->prefix_len == 64) {
+@@ -2464,93 +2560,10 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
+ 		return;
+ 
+ ok:
+-
+-		ifp = ipv6_get_ifaddr(net, &addr, dev, 1);
+-
+-		if (!ifp && valid_lft) {
+-			int max_addresses = in6_dev->cnf.max_addresses;
+-
+-#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+-			if (in6_dev->cnf.optimistic_dad &&
+-			    !net->ipv6.devconf_all->forwarding && sllao)
+-				addr_flags |= IFA_F_OPTIMISTIC;
+-#endif
+-
+-			/* Do not allow to create too much of autoconfigured
+-			 * addresses; this would be too easy way to crash kernel.
+-			 */
+-			if (!max_addresses ||
+-			    ipv6_count_addresses(in6_dev) < max_addresses)
+-				ifp = ipv6_add_addr(in6_dev, &addr, NULL,
+-						    pinfo->prefix_len,
+-						    addr_type&IPV6_ADDR_SCOPE_MASK,
+-						    addr_flags, valid_lft,
+-						    prefered_lft);
+-
+-			if (IS_ERR_OR_NULL(ifp)) {
+-				in6_dev_put(in6_dev);
+-				return;
+-			}
+-
+-			update_lft = 0;
+-			create = 1;
+-			spin_lock_bh(&ifp->lock);
+-			ifp->flags |= IFA_F_MANAGETEMPADDR;
+-			ifp->cstamp = jiffies;
+-			ifp->tokenized = tokenized;
+-			spin_unlock_bh(&ifp->lock);
+-			addrconf_dad_start(ifp);
+-		}
+-
+-		if (ifp) {
+-			u32 flags;
+-			unsigned long now;
+-			u32 stored_lft;
+-
+-			/* update lifetime (RFC2462 5.5.3 e) */
+-			spin_lock_bh(&ifp->lock);
+-			now = jiffies;
+-			if (ifp->valid_lft > (now - ifp->tstamp) / HZ)
+-				stored_lft = ifp->valid_lft - (now - ifp->tstamp) / HZ;
+-			else
+-				stored_lft = 0;
+-			if (!update_lft && !create && stored_lft) {
+-				const u32 minimum_lft = min_t(u32,
+-					stored_lft, MIN_VALID_LIFETIME);
+-				valid_lft = max(valid_lft, minimum_lft);
+-
+-				/* RFC4862 Section 5.5.3e:
+-				 * "Note that the preferred lifetime of the
+-				 *  corresponding address is always reset to
+-				 *  the Preferred Lifetime in the received
+-				 *  Prefix Information option, regardless of
+-				 *  whether the valid lifetime is also reset or
+-				 *  ignored."
+-				 *
+-				 * So we should always update prefered_lft here.
+-				 */
+-				update_lft = 1;
+-			}
+-
+-			if (update_lft) {
+-				ifp->valid_lft = valid_lft;
+-				ifp->prefered_lft = prefered_lft;
+-				ifp->tstamp = now;
+-				flags = ifp->flags;
+-				ifp->flags &= ~IFA_F_DEPRECATED;
+-				spin_unlock_bh(&ifp->lock);
+-
+-				if (!(flags&IFA_F_TENTATIVE))
+-					ipv6_ifa_notify(0, ifp);
+-			} else
+-				spin_unlock_bh(&ifp->lock);
+-
+-			manage_tempaddrs(in6_dev, ifp, valid_lft, prefered_lft,
+-					 create, now);
+-
+-			in6_ifa_put(ifp);
+-			addrconf_verify();
+-		}
++		addrconf_prefix_rcv_add_addr(net, dev, pinfo, in6_dev, &addr,
++					     addr_type, addr_flags, sllao,
++					     tokenized, valid_lft,
++					     prefered_lft);
+ 	}
+ 	inet6_prefix_notify(RTM_NEWPREFIX, in6_dev, pinfo);
+ 	in6_dev_put(in6_dev);
 -- 
 2.8.2
