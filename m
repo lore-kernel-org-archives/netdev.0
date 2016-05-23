@@ -1,120 +1,64 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: bpf: use-after-free in array_map_alloc
-Date: Mon, 23 May 2016 17:35:01 -0400
-Message-ID: <20160523213501.GA5383@mtj.duckdns.org>
-References: <5713C0AD.3020102@oracle.com>
- <20160417172943.GA83672@ast-mbp.thefacebook.com>
- <5742F127.6080000@suse.cz>
- <5742F267.3000309@suse.cz>
+From: Aaro Koskinen <aaro.koskinen@iki.fi>
+Subject: Re: __napi_alloc_skb failures locking up the box
+Date: Tue, 24 May 2016 00:36:04 +0300
+Message-ID: <20160523213604.GB1253@raspberrypi.musicnaut.iki.fi>
+References: <20160430192402.GA8366@raspberrypi.musicnaut.iki.fi>
+ <1462046052.5535.190.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Sasha Levin <sasha.levin@oracle.com>, ast@kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <cl@linux.com>,
-	Linux-MM layout <linux-mm@kvack.org>
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <5742F267.3000309@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1462046052.5535.190.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi,
 
-Can you please test whether this patch resolves the issue?  While
-adding support for atomic allocations, I reduced alloc_mutex covered
-region too much.
+On Sat, Apr 30, 2016 at 12:54:12PM -0700, Eric Dumazet wrote:
+> On Sat, 2016-04-30 at 22:24 +0300, Aaro Koskinen wrote:
+> > Hi,
+> > 
+> > I have old NAS box (Thecus N2100) with 512 MB RAM, where rsync from NFS ->
+> > disk reliably results in temporary out-of-memory conditions.
+> > 
+> > When this happens the dmesg gets flooded with below logs. If the serial
+> > console logging is enabled, this will lock up the box completely and
+> > the backup is not making any progress.
+> > 
+> > Shouldn't these allocation failures be ratelimited somehow (or even made
+> > silent)? It doesn't sound right if I can lock up the system simply by
+> > copying files...
+> 
+> Agreed.
+> 
+> All napi_alloc_skb() callers handle failure just fine.
+> 
+> If they did not, a NULL deref would produce a proper stack dump.
+> 
+> When memory gets this tight, other traces will be dumped anyway.
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 15d0df943466..0652709fe81a 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2423,7 +2423,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi,
+>  static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
+>  					     unsigned int length)
+>  {
+> -	return __napi_alloc_skb(napi, length, GFP_ATOMIC);
+> +	return __napi_alloc_skb(napi, length, GFP_ATOMIC | __GFP_NOWARN);
+>  }
+>  void napi_consume_skb(struct sk_buff *skb, int budget);
 
-Thanks.
+Care to send this as a formal patch, so I can reply with my Tested-by?
 
-diff --git a/mm/percpu.c b/mm/percpu.c
-index 0c59684..bd2df70 100644
---- a/mm/percpu.c
-+++ b/mm/percpu.c
-@@ -162,7 +162,7 @@ static struct pcpu_chunk *pcpu_reserved_chunk;
- static int pcpu_reserved_chunk_limit;
- 
- static DEFINE_SPINLOCK(pcpu_lock);	/* all internal data structures */
--static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop */
-+static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop, map extension */
- 
- static struct list_head *pcpu_slot __read_mostly; /* chunk list slots */
- 
-@@ -435,6 +435,8 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk, int new_alloc)
- 	size_t old_size = 0, new_size = new_alloc * sizeof(new[0]);
- 	unsigned long flags;
- 
-+	lockdep_assert_held(&pcpu_alloc_mutex);
-+
- 	new = pcpu_mem_zalloc(new_size);
- 	if (!new)
- 		return -ENOMEM;
-@@ -895,6 +897,9 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
- 		return NULL;
- 	}
- 
-+	if (!is_atomic)
-+		mutex_lock(&pcpu_alloc_mutex);
-+
- 	spin_lock_irqsave(&pcpu_lock, flags);
- 
- 	/* serve reserved allocations from the reserved chunk if available */
-@@ -967,12 +972,11 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
- 	if (is_atomic)
- 		goto fail;
- 
--	mutex_lock(&pcpu_alloc_mutex);
-+	lockdep_assert_held(&pcpu_alloc_mutex);
- 
- 	if (list_empty(&pcpu_slot[pcpu_nr_slots - 1])) {
- 		chunk = pcpu_create_chunk();
- 		if (!chunk) {
--			mutex_unlock(&pcpu_alloc_mutex);
- 			err = "failed to allocate new chunk";
- 			goto fail;
- 		}
-@@ -983,7 +987,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
- 		spin_lock_irqsave(&pcpu_lock, flags);
- 	}
- 
--	mutex_unlock(&pcpu_alloc_mutex);
- 	goto restart;
- 
- area_found:
-@@ -993,8 +996,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
- 	if (!is_atomic) {
- 		int page_start, page_end, rs, re;
- 
--		mutex_lock(&pcpu_alloc_mutex);
--
- 		page_start = PFN_DOWN(off);
- 		page_end = PFN_UP(off + size);
- 
-@@ -1005,7 +1006,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
- 
- 			spin_lock_irqsave(&pcpu_lock, flags);
- 			if (ret) {
--				mutex_unlock(&pcpu_alloc_mutex);
- 				pcpu_free_area(chunk, off, &occ_pages);
- 				err = "failed to populate";
- 				goto fail_unlock;
-@@ -1045,6 +1045,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
- 		/* see the flag handling in pcpu_blance_workfn() */
- 		pcpu_atomic_alloc_failed = true;
- 		pcpu_schedule_balance_work();
-+	} else {
-+		mutex_unlock(&pcpu_alloc_mutex);
- 	}
- 	return NULL;
- }
-@@ -1137,6 +1139,8 @@ static void pcpu_balance_workfn(struct work_struct *work)
- 	list_for_each_entry_safe(chunk, next, &to_free, list) {
- 		int rs, re;
- 
-+		cancel_work_sync(&chunk->map_extend_work);
-+
- 		pcpu_for_each_pop_region(chunk, rs, re, 0, pcpu_unit_pages) {
- 			pcpu_depopulate_chunk(chunk, rs, re);
- 			spin_lock_irq(&pcpu_lock);
+A.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
