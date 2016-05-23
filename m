@@ -1,30 +1,47 @@
-From: David Binderman <linuxdev.baldrick@gmail.com>
-Subject: drivers/net/ethernet/qlogic/qed/qed_dcbx.c:210: pointless test ?
-Date: Mon, 23 May 2016 12:11:30 +0100
-Message-ID: <CAMzoamY7fh8Lyzm0njDy0fUqTZSjwDrDbZ60kZ=1XpupSBfG3A@mail.gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: Missing INET6_PROTO_FINAL in l2tp_ip6_protocol?
+Date: Mon, 23 May 2016 14:25:21 +0300
+Message-ID: <20160523142521.6d0d018c@pixies>
+References: <20160521155003.1410579f@halley>
+	<9bd1a821-17ea-778a-b0c7-4e9e35f9fcc1@stressinduktion.org>
+	<20160521230252.27931eee@halley>
+	<da054ee9-66bf-5038-b78b-18ce1c362014@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dcb314@hotmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36667 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbcEWLZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 07:25:31 -0400
+Received: by mail-wm0-f49.google.com with SMTP id n129so73094816wmn.1
+        for <netdev@vger.kernel.org>; Mon, 23 May 2016 04:25:30 -0700 (PDT)
+In-Reply-To: <da054ee9-66bf-5038-b78b-18ce1c362014@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello there,
+Hi,
 
-drivers/net/ethernet/qlogic/qed/qed_dcbx.c:210:16: warning: comparison
-is always false due to limited range of data type [-Wtype-limits]
+On Mon, 23 May 2016 13:05:50 +0200, hannes@stressinduktion.org wrote:
+> > However, one more thing WRT to INET6_PROTO_FINAL not being set - we're
+> > also missing the multicast filtering of 'ip6_input_finish':
+> > 
+> > 			if (ipv6_addr_is_multicast(&hdr->daddr) &&
+> > 			    !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
+> > 			    &hdr->saddr) &&
+> > 			    !ipv6_is_mld(skb, nexthdr, skb_network_header_len(skb)))
+> > 				goto discard;
+> > 
+> > I assume no reason to allow multicast daddr which aren't in the mc_list
+> > (or saddr excluded) to pass up into 'l2tp_ip6_recv'?
+> > 
+> 
+> Good point, seems we would benefit of the addition of the PROTO_FINAL
+> flag. Could you test and send a patch?
 
-Source code is
+Will do.
 
-       if (priority < 0) {
-
-but
-
-    u8 tc, priority, priority_map;
-
-
-Regards
-
-David Binderman
+Regards,
+Shmulik
