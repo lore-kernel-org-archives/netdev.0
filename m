@@ -1,133 +1,75 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: bpf: use-after-free in array_map_alloc
-Date: Mon, 23 May 2016 15:13:58 -0700
-Message-ID: <20160523221356.GA35044@ast-mbp.thefacebook.com>
-References: <5713C0AD.3020102@oracle.com>
- <20160417172943.GA83672@ast-mbp.thefacebook.com>
- <5742F127.6080000@suse.cz>
- <5742F267.3000309@suse.cz>
- <20160523213501.GA5383@mtj.duckdns.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [iproute2 PATCH v2 1/1] tc simple action update and breakage
+Date: Tue, 24 May 2016 00:39:19 +0200
+Message-ID: <57438697.8030801@iogearbox.net>
+References: <1462719726-7598-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlastimil Babka <vbabka@suse.cz>, Sasha Levin <sasha.levin@oracle.com>,
-	ast@kernel.org, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <cl@linux.com>,
-	Linux-MM layout <linux-mm@kvack.org>,
-	Marco Grassi <marco.gra@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160523213501.GA5383@mtj.duckdns.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38072 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888AbcEWWjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 18:39:23 -0400
+In-Reply-To: <1462719726-7598-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 23, 2016 at 05:35:01PM -0400, Tejun Heo wrote:
-> Hello,
-> 
-> Can you please test whether this patch resolves the issue?  While
-> adding support for atomic allocations, I reduced alloc_mutex covered
-> region too much.
+On 05/08/2016 05:02 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> Brings it closer to more serious actions (adding branching
+> and allowing for late binding)
+>
+> Unfortunately this breaks old syntax of the simple action.
+> But because simple is a pedagogical example unlikely to be used
+> in production environments (i.e its role is to serve as an example
+> on how to write actions), then this is ok.
+>
+> New syntax for simple has new keyword "sdata". Example usage is:
+>
+> sudo tc actions add action simple sdata "foobar" index 1
+> or
+> tc filter add dev $DEV parent ffff: protocol ip prio 1 u32\
+> match ip dst 17.0.0.1/32 flowid 1:10 action simple sdata "foobar"
+>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+[...]
 
-after the patch the use-after-free is no longer seen.
-Tested-by: Alexei Starovoitov <ast@kernel.org>
+>   static void usage(void)
+> @@ -99,56 +100,85 @@ parse_simple(struct action_util *a, int *argc_p,=
+ char ***argv_p, int tca_id,
+>   	struct tc_defact sel =3D {};
+>   	int argc =3D *argc_p;
+>   	char **argv =3D *argv_p;
+> -	int ok =3D 0;
+> +	int ok =3D 0, maybe_bind =3D 0;
+>   	struct rtattr *tail;
+>   	char *simpdata =3D NULL;
+>
+[...]
 
-> 
-> Thanks.
-> 
-> diff --git a/mm/percpu.c b/mm/percpu.c
-> index 0c59684..bd2df70 100644
-> --- a/mm/percpu.c
-> +++ b/mm/percpu.c
-> @@ -162,7 +162,7 @@ static struct pcpu_chunk *pcpu_reserved_chunk;
->  static int pcpu_reserved_chunk_limit;
->  
->  static DEFINE_SPINLOCK(pcpu_lock);	/* all internal data structures */
-> -static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop */
-> +static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop, map extension */
->  
->  static struct list_head *pcpu_slot __read_mostly; /* chunk list slots */
->  
-> @@ -435,6 +435,8 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk, int new_alloc)
->  	size_t old_size = 0, new_size = new_alloc * sizeof(new[0]);
->  	unsigned long flags;
->  
-> +	lockdep_assert_held(&pcpu_alloc_mutex);
-> +
->  	new = pcpu_mem_zalloc(new_size);
->  	if (!new)
->  		return -ENOMEM;
-> @@ -895,6 +897,9 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->  		return NULL;
->  	}
->  
-> +	if (!is_atomic)
-> +		mutex_lock(&pcpu_alloc_mutex);
-> +
->  	spin_lock_irqsave(&pcpu_lock, flags);
->  
->  	/* serve reserved allocations from the reserved chunk if available */
-> @@ -967,12 +972,11 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->  	if (is_atomic)
->  		goto fail;
->  
-> -	mutex_lock(&pcpu_alloc_mutex);
-> +	lockdep_assert_held(&pcpu_alloc_mutex);
->  
->  	if (list_empty(&pcpu_slot[pcpu_nr_slots - 1])) {
->  		chunk = pcpu_create_chunk();
->  		if (!chunk) {
-> -			mutex_unlock(&pcpu_alloc_mutex);
->  			err = "failed to allocate new chunk";
->  			goto fail;
->  		}
-> @@ -983,7 +987,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->  		spin_lock_irqsave(&pcpu_lock, flags);
->  	}
->  
-> -	mutex_unlock(&pcpu_alloc_mutex);
->  	goto restart;
->  
->  area_found:
-> @@ -993,8 +996,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->  	if (!is_atomic) {
->  		int page_start, page_end, rs, re;
->  
-> -		mutex_lock(&pcpu_alloc_mutex);
-> -
->  		page_start = PFN_DOWN(off);
->  		page_end = PFN_UP(off + size);
->  
-> @@ -1005,7 +1006,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->  
->  			spin_lock_irqsave(&pcpu_lock, flags);
->  			if (ret) {
-> -				mutex_unlock(&pcpu_alloc_mutex);
->  				pcpu_free_area(chunk, off, &occ_pages);
->  				err = "failed to populate";
->  				goto fail_unlock;
-> @@ -1045,6 +1045,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->  		/* see the flag handling in pcpu_blance_workfn() */
->  		pcpu_atomic_alloc_failed = true;
->  		pcpu_schedule_balance_work();
-> +	} else {
-> +		mutex_unlock(&pcpu_alloc_mutex);
->  	}
->  	return NULL;
->  }
-> @@ -1137,6 +1139,8 @@ static void pcpu_balance_workfn(struct work_struct *work)
->  	list_for_each_entry_safe(chunk, next, &to_free, list) {
->  		int rs, re;
->  
-> +		cancel_work_sync(&chunk->map_extend_work);
-> +
->  		pcpu_for_each_pop_region(chunk, rs, re, 0, pcpu_unit_pages) {
->  			pcpu_depopulate_chunk(chunk, rs, re);
->  			spin_lock_irq(&pcpu_lock);
+>   	if (argc) {
+>   		if (matches(*argv, "index") =3D=3D 0) {
+>   			NEXT_ARG();
+>   			if (get_u32(&sel.index, *argv, 10)) {
+> -				fprintf(stderr, "simple: Illegal \"index\"\n");
+> +				fprintf(stderr, "simple: Illegal \"index\"\n",
+> +					*argv);
+>   				return -1;
+>   			}
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Btw, this causes:
+
+m_simple.c: In function =91parse_simple=92:
+m_simple.c:154:6: warning: too many arguments for format [-Wformat-extr=
+a-args]
+       *argv);
+       ^
+m_simple.c:103:14: warning: unused variable =91maybe_bind=92 [-Wunused-=
+variable]
+   int ok =3D 0, maybe_bind =3D 0;
+               ^
