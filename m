@@ -1,40 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/atm: sk_err_soft must be positive
-Date: Mon, 23 May 2016 13:51:36 -0700 (PDT)
-Message-ID: <20160523.135136.1639061056251132017.davem@davemloft.net>
-References: <1463618533-7098-1-git-send-email-stefanha@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net PATCH 1/1] net sched actions: policer missing timestamp processing
+Date: Mon, 23 May 2016 13:52:07 -0700
+Message-ID: <CAM_iQpWhRRqJWNaRXbFSPEVu+CTSb++z8A5Y3SB-vjmk1-gXmw@mail.gmail.com>
+References: <1463935423-8918-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stefanha@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50157 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbcEWUvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 16:51:38 -0400
-In-Reply-To: <1463618533-7098-1-git-send-email-stefanha@redhat.com>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:34647 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751719AbcEWUw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 16:52:28 -0400
+Received: by mail-yw0-f193.google.com with SMTP id j74so6398333ywg.1
+        for <netdev@vger.kernel.org>; Mon, 23 May 2016 13:52:27 -0700 (PDT)
+In-Reply-To: <1463935423-8918-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Wed, 18 May 2016 17:42:13 -0700
+On Sun, May 22, 2016 at 9:43 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> @@ -340,6 +345,11 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+>         if (police->tcfp_ewma_rate &&
+>             nla_put_u32(skb, TCA_POLICE_AVRATE, police->tcfp_ewma_rate))
+>                 goto nla_put_failure;
+> +
+> +       tcf_tm_dump(&t, &police->tcf_tm);
 
-> The sk_err and sk_err_soft fields are positive errno values and
-> userspace applications rely on this when using getsockopt(SO_ERROR).
-> 
-> ATM code places an -errno into sk_err_soft in sigd_send() and returns it
-> from svc_addparty()/svc_dropparty().
-> 
-> Although I am not familiar with ATM code I came to this conclusion
-> because:
- ...
-> This patch ensures that sk_err_soft is always a positive errno.
-> 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
-> ---
-> This patch is untested and potentially affects the getsockopt(SO_ERROR) ABI for
-> a specific case in ATM.  I leave it to the maintainer to decide whether this
-> inconsistency should be fixed or not.
-
-This looks fine, applied, thanks.
+This depends on a previous patch you sent, right?
