@@ -1,47 +1,34 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: Missing INET6_PROTO_FINAL in l2tp_ip6_protocol?
-Date: Mon, 23 May 2016 14:25:21 +0300
-Message-ID: <20160523142521.6d0d018c@pixies>
-References: <20160521155003.1410579f@halley>
-	<9bd1a821-17ea-778a-b0c7-4e9e35f9fcc1@stressinduktion.org>
-	<20160521230252.27931eee@halley>
-	<da054ee9-66bf-5038-b78b-18ce1c362014@stressinduktion.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: drivers/net/ethernet/qlogic/qed/qed_dcbx.c:210: pointless test ?
+Date: Mon, 23 May 2016 11:26:21 +0000
+Message-ID: <CO2PR11MB008830D87FE83267215E5F79974E0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <CAMzoamY7fh8Lyzm0njDy0fUqTZSjwDrDbZ60kZ=1XpupSBfG3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: David Binderman <linuxdev.baldrick@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"dcb314@hotmail.com" <dcb314@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36667 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753546AbcEWLZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 07:25:31 -0400
-Received: by mail-wm0-f49.google.com with SMTP id n129so73094816wmn.1
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 04:25:30 -0700 (PDT)
-In-Reply-To: <da054ee9-66bf-5038-b78b-18ce1c362014@stressinduktion.org>
+Received: from mail-by2on0140.outbound.protection.outlook.com ([207.46.100.140]:10970
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753475AbcEWL0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 May 2016 07:26:25 -0400
+In-Reply-To: <CAMzoamY7fh8Lyzm0njDy0fUqTZSjwDrDbZ60kZ=1XpupSBfG3A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Mon, 23 May 2016 13:05:50 +0200, hannes@stressinduktion.org wrote:
-> > However, one more thing WRT to INET6_PROTO_FINAL not being set - we're
-> > also missing the multicast filtering of 'ip6_input_finish':
-> > 
-> > 			if (ipv6_addr_is_multicast(&hdr->daddr) &&
-> > 			    !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
-> > 			    &hdr->saddr) &&
-> > 			    !ipv6_is_mld(skb, nexthdr, skb_network_header_len(skb)))
-> > 				goto discard;
-> > 
-> > I assume no reason to allow multicast daddr which aren't in the mc_list
-> > (or saddr excluded) to pass up into 'l2tp_ip6_recv'?
-> > 
-> 
-> Good point, seems we would benefit of the addition of the PROTO_FINAL
-> flag. Could you test and send a patch?
-
-Will do.
-
-Regards,
-Shmulik
+PiBIZWxsbyB0aGVyZSwNCj4gDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xZWQvcWVk
+X2RjYnguYzoyMTA6MTY6IHdhcm5pbmc6IGNvbXBhcmlzb24gaXMNCj4gYWx3YXlzIGZhbHNlIGR1
+ZSB0byBsaW1pdGVkIHJhbmdlIG9mIGRhdGEgdHlwZSBbLVd0eXBlLWxpbWl0c10NCj4gDQo+IFNv
+dXJjZSBjb2RlIGlzDQo+IA0KPiAgICAgICAgaWYgKHByaW9yaXR5IDwgMCkgew0KPiANCj4gYnV0
+DQo+IA0KPiAgICAgdTggdGMsIHByaW9yaXR5LCBwcmlvcml0eV9tYXA7DQo+IA0KPiANCj4gUmVn
+YXJkcw0KPiANCj4gRGF2aWQgQmluZGVybWFuDQoNCkhpIERhdmlkLA0KDQpEYW4gQ2FycGVudGVy
+IGhhcyBhbHJlYWR5IHNlbnQgYSBmaXggZm9yIHRoaXMgb25lIH5hbiBob3VyIGFnby4NCltodHRw
+czovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzYyNTExNC9dDQoNClRoYW5rcywNCll1dmFs
+DQo=
