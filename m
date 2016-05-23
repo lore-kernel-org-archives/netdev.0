@@ -1,34 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] qed/qede support for dcbnl.
-Date: Mon, 23 May 2016 15:10:30 -0700 (PDT)
-Message-ID: <20160523.151030.1894885342946093486.davem@davemloft.net>
-References: <1463995063-25560-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Subject: Re: [patch] qed: signedness bug in qed_dcbx_process_tlv()
+Date: Mon, 23 May 2016 15:11:41 -0700 (PDT)
+Message-ID: <20160523.151141.2041940312643695129.davem@davemloft.net>
+References: <20160523101935.GA10712@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
-To: sudarsana.kalluru@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50749 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752944AbcEWWKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 18:10:32 -0400
-In-Reply-To: <1463995063-25560-1-git-send-email-sudarsana.kalluru@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Yuval.Mintz@qlogic.com, sudarsana.kalluru@qlogic.com,
+	Ariel.Elior@qlogic.com, everest-linux-l2@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20160523101935.GA10712@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Date: Mon, 23 May 2016 05:17:39 -0400
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 23 May 2016 13:19:35 +0300
 
-> This series adds the dcbnl functionality to the driver. Patch (1) fixes a
-> coding issue in earlier submission. Patch (2) adds the qed infrastucture
-> for querying/configuring the dcbx parameters. Patch (3) adds the qed
-> infrastructure for dcbnl APIs. And patch (4) adds the qede support for
-> dcbnl.
+> "priority" needs to be signed for the error handling to work.
 > 
-> Please consider applying this series to "net-next".
+> Fixes: 39651abd2814 ('qed: add support for dcbx.')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-net-next is closed, therefore it is not appropriate to submit new features
-at this time.
-
-Thank you.
+Applied.
