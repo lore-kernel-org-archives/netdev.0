@@ -1,7 +1,7 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next 4/5] hv_netvsc: pass struct net_device to rndis_filter_set_device_mac()
-Date: Mon, 23 May 2016 17:50:37 +0200
-Message-ID: <1464018638-22000-5-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH net-next 5/5] hv_netvsc: pass struct net_device to rndis_filter_set_offload_params()
+Date: Mon, 23 May 2016 17:50:38 +0200
+Message-ID: <1464018638-22000-6-git-send-email-vkuznets@redhat.com>
 References: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
 Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
 	Haiyang Zhang <haiyangz@microsoft.com>,
@@ -12,66 +12,38 @@ In-Reply-To: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We unpack 'struct net_device' in netvsc_set_mac_addr() to get to
-'struct hv_device' pointer which we use in rndis_filter_set_device_mac()
-to get back to 'struct net_device'.
+The only caller rndis_filter_device_add() has 'struct net_device' pointer
+already.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- drivers/net/hyperv/hyperv_net.h   | 2 +-
- drivers/net/hyperv/netvsc_drv.c   | 4 +---
- drivers/net/hyperv/rndis_filter.c | 3 +--
- 3 files changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/hyperv/rndis_filter.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index f650ec1..467fb8b 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -201,7 +201,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 			struct vmbus_channel *channel);
- 
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
--int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
-+int rndis_filter_set_device_mac(struct net_device *ndev, char *mac);
- 
- void netvsc_switch_datapath(struct net_device *nv_dev, bool vf);
- 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 591ab58..733dea1 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -982,8 +982,6 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
- 
- static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- {
--	struct net_device_context *ndevctx = netdev_priv(ndev);
--	struct hv_device *hdev =  ndevctx->device_ctx;
- 	struct sockaddr *addr = p;
- 	char save_adr[ETH_ALEN];
- 	unsigned char save_aatype;
-@@ -996,7 +994,7 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	if (err != 0)
- 		return err;
- 
--	err = rndis_filter_set_device_mac(hdev, addr->sa_data);
-+	err = rndis_filter_set_device_mac(ndev, addr->sa_data);
- 	if (err != 0) {
- 		/* roll back to saved MAC */
- 		memcpy(ndev->dev_addr, save_adr, ETH_ALEN);
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 2c2f3b9..f1692bc 100644
+index f1692bc..979fa44 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -543,9 +543,8 @@ static int rndis_filter_query_device_mac(struct rndis_device *dev)
- #define NWADR_STR "NetworkAddress"
- #define NWADR_STRLEN 14
+@@ -620,10 +620,9 @@ cleanup:
+ }
  
--int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
-+int rndis_filter_set_device_mac(struct net_device *ndev, char *mac)
+ static int
+-rndis_filter_set_offload_params(struct hv_device *hdev,
++rndis_filter_set_offload_params(struct net_device *ndev,
+ 				struct ndis_offload_params *req_offloads)
  {
 -	struct net_device *ndev = hv_get_drvdata(hdev);
  	struct netvsc_device *nvdev = net_device_to_netvsc_device(ndev);
  	struct rndis_device *rdev = nvdev->extension;
  	struct rndis_request *request;
+@@ -1083,7 +1082,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
+ 
+ 
+-	ret = rndis_filter_set_offload_params(dev, &offloads);
++	ret = rndis_filter_set_offload_params(net, &offloads);
+ 	if (ret)
+ 		goto err_dev_remv;
+ 
 -- 
 2.5.5
