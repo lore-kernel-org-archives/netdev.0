@@ -1,231 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v5 2/2] skb_array: ring test
-Date: Mon, 23 May 2016 13:43:46 +0300
-Message-ID: <1464000201-15560-3-git-send-email-mst@redhat.com>
-References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Missing INET6_PROTO_FINAL in l2tp_ip6_protocol?
+Date: Mon, 23 May 2016 13:05:50 +0200
+Message-ID: <da054ee9-66bf-5038-b78b-18ce1c362014@stressinduktion.org>
+References: <20160521155003.1410579f@halley>
+ <9bd1a821-17ea-778a-b0c7-4e9e35f9fcc1@stressinduktion.org>
+ <20160521230252.27931eee@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	brouer@redhat.com
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464000201-15560-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:44407 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753017AbcEWLFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 07:05:53 -0400
+In-Reply-To: <20160521230252.27931eee@halley>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add ringtest based unit test for skb array.
+On 21.05.2016 22:02, Shmulik Ladkani wrote:
+> On Sat, 21 May 2016 17:55:59 +0200 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+>> On 21.05.2016 14:50, Shmulik Ladkani wrote:
+>>> Hi,
+>>>
+>>> inet6_protocol's INET6_PROTO_FINAL flag denotes handler is expected not
+>>> to request resubmission for local delivery.
+>>>
+>>> For an INET6_PROTO_FINAL handler, the following actions gets executed
+>>> prior delivery, in ip6_input_finish:
+>>>
+>>> 			nf_reset(skb);
+>>>
+>>> 			skb_postpull_rcsum(skb, skb_network_header(skb),
+>>> 					   skb_network_header_len(skb));
+>>>
+>>> For some reason, l2tp_ip6_protocol handler is NOT marked as
+>>> INET6_PROTO_FINAL. Probably an oversight.
+>>>
+>>> Since 'l2tp_ip6_recv' never results in a resubmission, the above actions
+>>> are not applied to skbs passed to l2tp_ip6.
+>>>
+>>> Any reason why l2tp_ip6_protocol should NOT be marked INET6_PROTO_FINAL?  
+>>
+>> I don't see any specific reason why it shouldn't be a INET6_PROTO_FINAL.
+>> Anyway, receive path of L2TPv3 without UDP encapsulation doesn't deal
+>> with checksums anyway, as far as I know.
+>>
+>>> What's the consequences not executing the above actions for l2tp_ip6
+>>> packets?  
+>>
+>> Probably not a whole lot in this case.
+> 
+> OK, so the skb_postpull_rcsum is irrelevant for IPPROTO_L2TP over ipv6.
+> 
+> However, one more thing WRT to INET6_PROTO_FINAL not being set - we're
+> also missing the multicast filtering of 'ip6_input_finish':
+> 
+> 			if (ipv6_addr_is_multicast(&hdr->daddr) &&
+> 			    !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
+> 			    &hdr->saddr) &&
+> 			    !ipv6_is_mld(skb, nexthdr, skb_network_header_len(skb)))
+> 				goto discard;
+> 
+> I assume no reason to allow multicast daddr which aren't in the mc_list
+> (or saddr excluded) to pass up into 'l2tp_ip6_recv'?
+> 
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- tools/virtio/ringtest/skb_array.c | 167 ++++++++++++++++++++++++++++++++++++++
- tools/virtio/ringtest/Makefile    |   4 +-
- 2 files changed, 170 insertions(+), 1 deletion(-)
- create mode 100644 tools/virtio/ringtest/skb_array.c
+Good point, seems we would benefit of the addition of the PROTO_FINAL
+flag. Could you test and send a patch?
 
-diff --git a/tools/virtio/ringtest/skb_array.c b/tools/virtio/ringtest/skb_array.c
-new file mode 100644
-index 0000000..4ab7e31
---- /dev/null
-+++ b/tools/virtio/ringtest/skb_array.c
-@@ -0,0 +1,167 @@
-+#define _GNU_SOURCE
-+#include "main.h"
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <string.h>
-+#include <pthread.h>
-+#include <malloc.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <limits.h>
-+
-+struct sk_buff;
-+#define SMP_CACHE_BYTES 64
-+#define cache_line_size() SMP_CACHE_BYTES
-+#define ____cacheline_aligned_in_smp __attribute__ ((aligned (SMP_CACHE_BYTES)))
-+#define unlikely(x)    (__builtin_expect(!!(x), 0))
-+#define ALIGN(x, a) (((x) + (a) - 1) / (a) * (a))
-+typedef pthread_spinlock_t  spinlock_t;
-+
-+typedef int gfp_t;
-+static void *kzalloc(unsigned size, gfp_t gfp)
-+{
-+	void *p = memalign(64, size);
-+	if (!p)
-+		return p;
-+	memset(p, 0, size);
-+
-+	return p;
-+}
-+
-+static void kfree(void *p)
-+{
-+	if (p)
-+		free(p);
-+}
-+
-+static void spin_lock_init(spinlock_t *lock)
-+{
-+	int r = pthread_spin_init(lock, 0);
-+	assert(!r);
-+}
-+
-+static void spin_lock_bh(spinlock_t *lock)
-+{
-+	int ret = pthread_spin_lock(lock);
-+	assert(!ret);
-+}
-+
-+static void spin_unlock_bh(spinlock_t *lock)
-+{
-+	int ret = pthread_spin_unlock(lock);
-+	assert(!ret);
-+}
-+
-+#include "../../../include/linux/skb_array.h"
-+
-+static unsigned long long headcnt, tailcnt;
-+static struct skb_array array ____cacheline_aligned_in_smp;
-+
-+/* implemented by ring */
-+void alloc_ring(void)
-+{
-+	int ret = skb_array_init(&array, ring_size, 0);
-+	assert(!ret);
-+}
-+
-+/* guest side */
-+int add_inbuf(unsigned len, void *buf, void *datap)
-+{
-+	int ret;
-+	
-+	assert(headcnt - tailcnt <= ring_size);
-+	ret = __skb_array_produce(&array, buf);
-+	if (ret >= 0) {
-+		ret = 0;
-+		headcnt++;
-+	}
-+
-+	return ret;
-+}
-+
-+/*
-+ * skb_array API provides no way for producer to find out whether a given
-+ * buffer was consumed.  Our tests merely require that a successful get_buf
-+ * implies that add_inbuf succeed in the past, and that add_inbuf will succeed,
-+ * fake it accordingly.
-+ */
-+void *get_buf(unsigned *lenp, void **bufp)
-+{
-+	void *datap;
-+
-+	if (tailcnt == headcnt || __skb_array_full(&array))
-+		datap = NULL;
-+	else {
-+		datap = "Buffer\n";
-+		++tailcnt;
-+	}
-+
-+	return datap;
-+}
-+
-+void poll_used(void)
-+{
-+	void *b;
-+
-+	do {
-+		if (tailcnt == headcnt || __skb_array_full(&array)) {
-+			b = NULL;
-+			barrier();
-+		} else {
-+			b = "Buffer\n";
-+		}
-+	} while (!b);
-+}
-+
-+void disable_call()
-+{
-+	assert(0);
-+}
-+
-+bool enable_call()
-+{
-+	assert(0);
-+}
-+
-+void kick_available(void)
-+{
-+	assert(0);
-+}
-+
-+/* host side */
-+void disable_kick()
-+{
-+	assert(0);
-+}
-+
-+bool enable_kick()
-+{
-+	assert(0);
-+}
-+
-+void poll_avail(void)
-+{
-+	void *b;
-+
-+	do {
-+		b = __skb_array_peek(&array);
-+		barrier();
-+	} while (!b);
-+}
-+
-+bool use_buf(unsigned *lenp, void **bufp)
-+{
-+	struct sk_buff *skb;
-+
-+	skb = __skb_array_peek(&array);
-+	if (skb) {
-+		__skb_array_consume(&array);
-+	}
-+
-+	return skb;
-+}
-+
-+void call_used(void)
-+{
-+	assert(0);
-+}
-diff --git a/tools/virtio/ringtest/Makefile b/tools/virtio/ringtest/Makefile
-index 6ba7455..87e58cf 100644
---- a/tools/virtio/ringtest/Makefile
-+++ b/tools/virtio/ringtest/Makefile
-@@ -1,6 +1,6 @@
- all:
- 
--all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder
-+all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder skb_array
- 
- CFLAGS += -Wall
- CFLAGS += -pthread -O2 -ggdb
-@@ -8,6 +8,7 @@ LDFLAGS += -pthread -O2 -ggdb
- 
- main.o: main.c main.h
- ring.o: ring.c main.h
-+skb_array.o: skb_array.c main.h ../../../include/linux/skb_array.h
- virtio_ring_0_9.o: virtio_ring_0_9.c main.h
- virtio_ring_poll.o: virtio_ring_poll.c virtio_ring_0_9.c main.h
- virtio_ring_inorder.o: virtio_ring_inorder.c virtio_ring_0_9.c main.h
-@@ -15,6 +16,7 @@ ring: ring.o main.o
- virtio_ring_0_9: virtio_ring_0_9.o main.o
- virtio_ring_poll: virtio_ring_poll.o main.o
- virtio_ring_inorder: virtio_ring_inorder.o main.o
-+skb_array: skb_array.o main.o
- clean:
- 	-rm main.o
- 	-rm ring.o ring
--- 
-MST
+Thanks,
+Hannes
