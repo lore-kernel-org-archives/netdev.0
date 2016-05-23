@@ -1,47 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5 0/2] skb_array: array based FIFO for skbs
-Date: Mon, 23 May 2016 06:31:46 -0700
-Message-ID: <1464010306.5939.13.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 0/2 (linux-stable-4.5.y)] net: stmmac: MDIO fixes
+Date: Mon, 23 May 2016 08:36:19 -0700
+Message-ID: <20160523153619.GA30179@kroah.com>
+References: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464000201-15560-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, robin.murphy@arm.com, marc.zyngier@arm.com,
+	afaerber@suse.de, bert@a20.net, linux-sunxi@googlegroups.com,
+	maxime.ripard@free-electrons.com
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-05-23 at 13:43 +0300, Michael S. Tsirkin wrote:
-> This is in response to the proposal by Jason to make tun
-> rx packet queue lockless using a circular buffer.
-> My testing seems to show that at least for the common usecase
-> in networking, which isn't lockless, circular buffer
-> with indices does not perform that well, because
-> each index access causes a cache line to bounce between
-> CPUs, and index access causes stalls due to the dependency.
+On Mon, May 23, 2016 at 03:17:41PM +0200, Giuseppe Cavallaro wrote:
+> These patches port some recent fixes for linux-4.5.y stable branch.
+> They fix the MDIO settings trying to cover the all possible scenario
+> when the stmmac is connected to a real transceiver or a switch.
 > 
-> By comparison, an array of pointers where NULL means invalid
-> and !NULL means valid, can be updated without messing up barriers
-> at all and does not have this issue.
+> These patches are needed for Kernel 4.5 where Lime2, BananaPi and Cubieboard2
+> show problems when use the stmmac:
+> 
+> https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=823493
 
-Note that both consumers and producers write in the array, so in light
-load (like TCP_RR), there are 2 cache line used byt the producers, and 2
-cache line used for consumers, with potential bouncing.
+What are the git commit id for these patches in Linus's tree?
 
-In the other hand, the traditional sk_buff_head has one cache line,
-holding the spinlock and list head/tail.
+thanks,
 
-We might use the 'shared cache line' :
-
-+       /* Shared consumer/producer data */
-+       int size ____cacheline_aligned_in_smp; /* max entries in queue
-*/
-+       struct sk_buff **queue;
-
-
-To put here some fast path involving a single cache line access when
-queue has 0 or 1 item.
+greg k-h
