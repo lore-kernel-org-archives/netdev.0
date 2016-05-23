@@ -1,57 +1,46 @@
-From: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
-Subject: RE: [patch] qed: signedness bug in qed_dcbx_process_tlv()
-Date: Mon, 23 May 2016 11:06:05 +0000
-Message-ID: <BY2PR1101MB11429E95A017F91699293F7A904E0@BY2PR1101MB1142.namprd11.prod.outlook.com>
-References: <20160523101935.GA10712@mwanda>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC] NET: PHY: adds driver for Lantiq PHY11G
+Date: Mon, 23 May 2016 13:53:16 +0200
+Message-ID: <20160523115316.GA17916@lunn.ch>
+References: <1463945631-29273-1-git-send-email-hauke@hauke-m.de>
+ <20160523024217.GB20405@lunn.ch>
+ <9231D502B07C5E4A8B32D5115C9F19991E917475@IRSMSX101.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	Dept-Eng Everest Linux L2 <everest-linux-l2@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"alexander.stein@systec-electronic.com"
+	<alexander.stein@systec-electronic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"john@phrozen.org" <john@phrozen.org>,
+	"openwrt@kresin.me" <openwrt@kresin.me>
+To: "Mehrtens, Hauke" <hauke.mehrtens@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0136.outbound.protection.outlook.com ([65.55.169.136]:62176
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932395AbcEWLj2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 07:39:28 -0400
-In-Reply-To: <20160523101935.GA10712@mwanda>
-Content-Language: en-US
+Received: from vps0.lunn.ch ([178.209.37.122]:47858 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751771AbcEWLxX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 May 2016 07:53:23 -0400
+Content-Disposition: inline
+In-Reply-To: <9231D502B07C5E4A8B32D5115C9F19991E917475@IRSMSX101.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks, Dan.
-Acked-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+> > I doubt the device tree maintainers will accept this. You don't normally put
+> > register values in device tree.
+> 
+> Me too ;-)
+> 
 
------Original Message-----
-From: Dan Carpenter [mailto:dan.carpenter@oracle.com] 
-Sent: 23 May 2016 15:50
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>; Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>; Dept-Eng Everest Linux L2 <everest-linux-l2@qlogic.com>; netdev <netdev@vger.kernel.org>; kernel-janitors@vger.kernel.org
-Subject: [patch] qed: signedness bug in qed_dcbx_process_tlv()
+> I will look into this:
+> http://lists.openwall.net/netdev/2016/03/23/61 and also try to make
+> the device tree interface more generic.
 
-"priority" needs to be signed for the error handling to work.
+Please take more notice of my emails than what was submitted.
 
-Fixes: 39651abd2814 ('qed: add support for dcbx.')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Applies to the main net tree.
+> Should I first send a patch without the led configuration so this led stuff is a separate topic?
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index cbf58e1..a06d19a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -192,9 +192,10 @@ qed_dcbx_process_tlv(struct qed_hwfn *p_hwfn,
- 		     struct dcbx_app_priority_entry *p_tbl,
- 		     u32 pri_tc_tbl, int count, bool dcbx_enabled)  {
--	u8 tc, priority, priority_map;
-+	u8 tc, priority_map;
- 	enum dcbx_protocol_type type;
- 	u16 protocol_id;
-+	int priority;
- 	bool enable;
- 	int i;
- 
+Yes, you can do that. If you go the direction i suggests, that it a
+big piece of work, and does not need to hold up the rest of the
+driver.
+
+	Andrew
