@@ -1,76 +1,57 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v5 2/2] skb_array: ring test
-Date: Mon, 23 May 2016 15:09:18 +0200
-Message-ID: <20160523150918.2c58fa7d@redhat.com>
-References: <1464000201-15560-1-git-send-email-mst@redhat.com>
-	<1464000201-15560-3-git-send-email-mst@redhat.com>
+From: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: [PATCH 0/2 (linux-stable-4.5.y)] net: stmmac: MDIO fixes
+Date: Mon, 23 May 2016 15:17:41 +0200
+Message-ID: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
+Reply-To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464000201-15560-3-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <robin.murphy-5wv7dgnIgG8@public.gmane.org>, <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, <afaerber-l3A5Bk7waGM@public.gmane.org>,
+        <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, <bert-phGP8mJ4Mqk@public.gmane.org>,
+        <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-sunxi+bncBDB4X24GTMHRBU4JRS5AKGQENTXNXJQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 May 2016 13:43:46 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+These patches port some recent fixes for linux-4.5.y stable branch.
+They fix the MDIO settings trying to cover the all possible scenario
+when the stmmac is connected to a real transceiver or a switch.
 
-> Add ringtest based unit test for skb array.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  tools/virtio/ringtest/skb_array.c | 167 ++++++++++++++++++++++++++++++++++++++
->  tools/virtio/ringtest/Makefile    |   4 +-
+These patches are needed for Kernel 4.5 where Lime2, BananaPi and Cubieboard2
+show problems when use the stmmac:
 
-Patch didn't apply cleanly to Makefile, as you also seems to have
-"virtio_ring_inorder", I manually applied it.
+https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=823493
 
-I chdir to tools/virtio/ringtest/ and I could compile "skb_array",
-BUT how do I use it??? (the README is not helpful)
+Additional Note:
 
-What is the "output", are there any performance measurement results?
+ o The 4.4.y branch has a previous version of the stmmac;
+   that is not including the development that introduced
+   the regressions for MDIO bus.
 
+ o The 4.5.y kernel has "March_2013" stmmac version plus the
+   patch that introduce some MDIO configuration problems
+   so the regressions.
 
-> diff --git a/tools/virtio/ringtest/Makefile b/tools/virtio/ringtest/Makefile
-> index 6ba7455..87e58cf 100644
-> --- a/tools/virtio/ringtest/Makefile
-> +++ b/tools/virtio/ringtest/Makefile
-> @@ -1,6 +1,6 @@
->  all:
->  
-> -all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder
-> +all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder skb_array
-                                              ^^^^^^^^^^^^^^^^^^^
->  
->  CFLAGS += -Wall
->  CFLAGS += -pthread -O2 -ggdb
-> @@ -8,6 +8,7 @@ LDFLAGS += -pthread -O2 -ggdb
->  
->  main.o: main.c main.h
->  ring.o: ring.c main.h
-> +skb_array.o: skb_array.c main.h ../../../include/linux/skb_array.h
->  virtio_ring_0_9.o: virtio_ring_0_9.c main.h
->  virtio_ring_poll.o: virtio_ring_poll.c virtio_ring_0_9.c main.h
->  virtio_ring_inorder.o: virtio_ring_inorder.c virtio_ring_0_9.c main.h
-> @@ -15,6 +16,7 @@ ring: ring.o main.o
->  virtio_ring_0_9: virtio_ring_0_9.o main.o
->  virtio_ring_poll: virtio_ring_poll.o main.o
->  virtio_ring_inorder: virtio_ring_inorder.o main.o
-   ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
-> +skb_array: skb_array.o main.o
->  clean:
->  	-rm main.o
->  	-rm ring.o ring
+ o The 4.6.y has all the fixes on top of the "Oct_2015"
+   stmmac version.
 
+Giuseppe CAVALLARO (1):
+  Revert "stmmac: Fix 'eth0: No PHY found' regression"
+
+Giuseppe Cavallaro (1):
+  stmmac: fix MDIO settings
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 11 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 10 +--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 91 ++++++++++++++++------
+ 3 files changed, 70 insertions(+), 42 deletions(-)
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.7.4
