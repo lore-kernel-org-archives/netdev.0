@@ -1,131 +1,199 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [RFC PATCH 0/7] tou: Transports over UDP - part I
-Date: Mon, 23 May 2016 15:48:19 -0700
-Message-ID: <1464043706-2843932-1-git-send-email-tom@herbertland.com>
+Subject: [RFC PATCH 3/7] ipv4: Support TOU
+Date: Mon, 23 May 2016 15:48:22 -0700
+Message-ID: <1464043706-2843932-4-git-send-email-tom@herbertland.com>
+References: <1464043706-2843932-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:65139 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:61185 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750973AbcEWWsh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 18:48:37 -0400
+	by vger.kernel.org with ESMTP id S1751369AbcEWWsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 18:48:41 -0400
 Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4NMl2jJ024410
-	for <netdev@vger.kernel.org>; Mon, 23 May 2016 15:48:36 -0700
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u4NMl215024411
+	for <netdev@vger.kernel.org>; Mon, 23 May 2016 15:48:40 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 234ann83c2-1
+	by mx0a-00082601.pphosted.com with ESMTP id 234ann83ch-2
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 23 May 2016 15:48:36 -0700
+	for <netdev@vger.kernel.org>; Mon, 23 May 2016 15:48:40 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.103.99.97) with ESMTP	id
- 7b5e42a2213811e697a70002c9931860-31cbd6d0 for <netdev@vger.kernel.org>;	Mon,
- 23 May 2016 15:48:35 -0700
+ 7e5f07d4213811e697a70002c9931860-31cbd6d0 for <netdev@vger.kernel.org>;	Mon,
+ 23 May 2016 15:48:40 -0700
+In-Reply-To: <1464043706-2843932-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Transports over UDP is intended to encapsulate TCP and other transport
-protocols directly and securely in UDP.
+Add tou_encap structure to inet_sock. In transmit path (ip_queue_xmit)
+check if encapsulation is enabled and call the build header op
+if it is. Add IP_TOU_ENCAP setsockopt for IPv4 sockets.
 
-The goal of this work is twofold:
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/net/inet_sock.h |  1 +
+ include/uapi/linux/in.h |  1 +
+ net/ipv4/ip_output.c    | 40 ++++++++++++++++++++++++++++++++++------
+ net/ipv4/ip_sockglue.c  |  7 +++++++
+ net/ipv4/tou.c          |  2 +-
+ 5 files changed, 44 insertions(+), 7 deletions(-)
 
-1) Allow applications to run their own transport layer stack (i.e.from
-   userspace). This eliminates dependencies on the OS (e.g. solves a
-   major dependency issue for Facebook on clients).
-
-2) Make transport layer headers (all of L4) invisible to the network
-   so that they can't do intrusive actions at L4. This will be enforced
-   with DTLS in use.
-
-Note that #1 is really about running a transport stack in userspace
-applications in clients, not necessarily servers. For servers we
-intend to modified the kernel stack in order to leverage existing
-implementation for building scalable serves (hence these patches).
-
-This is described in more detail in the Internet Draft:
-https://tools.ietf.org/html/draft-herbert-transports-over-udp-00
-
-In Part I we implement a straightforward encapsulation of TCP in GUE.
-The implements the basic mechanics of TOU encapsulation for TCP,
-however does not yet implement the IP addressing interactions so
-therefore so this is not robust to use in the presence of NAT.
-TOU is enabled per socket with a new socket option. This
-implementation includes GSO, GRO, and RCO support.
-
-These patches also establish the baseline performance of TOU
-and isolate the performance cost of UDP encapsulation. Performance
-results are below.
-
-Tested: Various cases of TOU with IPv4, IPv6 using TCP_STREAM and
-TCP_RR. Also, tested IPIP for comparing TOU encapsulation to IP
-tunneling.
-
-    - IPv6 native
-      1 TCP_STREAM
-	8394 tps
-      200 TCP_RR
-	1726825 tps
-	100/177/361 90/95/99% latencies
-
-    - IPv6 TOU with RCO
-      1 TCP_STREAM
-	7410 tps
-      200 TCP_RR
-	1445603 tps
-	121/211/395 90/95/99% latencies
-
-    - IPv4 native
-      1 TCP_STREAM
-	8525 tps
-      200 TCP_RR
-	1826729 tps
-	94/166/345 90/95/99% latencies
-
-    - IPv4 TOU with RCO
-      1 TCP_STREAM
-	7624 tps
-      200 TCP_RR
-	1599642 tps
-	108/190/377 90/95/99% latencies
-
-    - IPIP with GUE and RCO
-      1 TCP_STREAM
-	5092 tps
-      200 TCP_RR
-	1276716 tps
-	137/237/445 90/95/99% latencies
-
-
-Tom Herbert (7):
-  fou: Get net from sock_net if dev_net unavailable
-  tou: Base infrastructure for Transport over UDP
-  ipv4: Support TOU
-  tcp: Support for TOU
-  ipv6: Support TOU
-  tcp6: Support for TOU
-  tou: Support for GSO
-
- include/linux/skbuff.h           |   2 +
- include/net/inet_sock.h          |   1 +
- include/net/udp.h                |   2 +
- include/uapi/linux/if_tunnel.h   |  10 +++
- include/uapi/linux/in.h          |   1 +
- include/uapi/linux/in6.h         |   1 +
- net/ipv4/Makefile                |   3 +-
- net/ipv4/af_inet.c               |   4 +
- net/ipv4/fou.c                   |  24 +++++-
- net/ipv4/ip_output.c             |  42 ++++++++--
- net/ipv4/ip_sockglue.c           |   7 ++
- net/ipv4/tcp_ipv4.c              |   9 ++-
- net/ipv4/tou.c                   | 132 +++++++++++++++++++++++++++++++
- net/ipv4/udp_offload.c           | 164 +++++++++++++++++++++++++++++++++++++--
- net/ipv6/inet6_connection_sock.c |  59 ++++++++++++--
- net/ipv6/ipv6_sockglue.c         |   7 ++
- net/ipv6/tcp_ipv6.c              |  11 +--
- net/ipv6/udp_offload.c           | 128 +++++++++++++++---------------
- 18 files changed, 512 insertions(+), 95 deletions(-)
- create mode 100644 net/ipv4/tou.c
-
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 012b1f9..ce22bc9 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -209,6 +209,7 @@ struct inet_sock {
+ 	__be32			mc_addr;
+ 	struct ip_mc_socklist __rcu	*mc_list;
+ 	struct inet_cork_full	cork;
++	struct ip_tunnel_encap	*tou_encap;
+ };
+ 
+ #define IPCORK_OPT	1	/* ip-options has been held in ipcork.opt */
+diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
+index eaf9491..9827bff 100644
+--- a/include/uapi/linux/in.h
++++ b/include/uapi/linux/in.h
+@@ -152,6 +152,7 @@ struct in_addr {
+ #define MCAST_MSFILTER			48
+ #define IP_MULTICAST_ALL		49
+ #define IP_UNICAST_IF			50
++#define IP_TOU_ENCAP			51
+ 
+ #define MCAST_EXCLUDE	0
+ #define MCAST_INCLUDE	1
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 124bf0a..e7dbded 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -78,6 +78,7 @@
+ #include <linux/netfilter_bridge.h>
+ #include <linux/netlink.h>
+ #include <linux/tcp.h>
++#include <net/ip_tunnels.h>
+ 
+ static int
+ ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+@@ -382,11 +383,36 @@ int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
+ 	struct rtable *rt;
+ 	struct iphdr *iph;
+ 	int res;
++	__be16 dport, sport;
++	u8 protocol = sk->sk_protocol;
+ 
+ 	/* Skip all of this if the packet is already routed,
+ 	 * f.e. by something like SCTP.
+ 	 */
+ 	rcu_read_lock();
++
++	if (inet->tou_encap) {
++		struct ip_tunnel_encap *e = inet->tou_encap;
++		const struct ip_tunnel_encap_ops *ops;
++
++		/* Transport layer protocol over UDP enapsulation */
++		dport = e->dport;
++		sport = e->sport;
++		ops = rcu_dereference(iptun_encaps[e->type]);
++		if (likely(ops && ops->build_header)) {
++			res = ops->build_header(skb, e, &protocol,
++						(struct flowi4 *)fl);
++			if (res < 0)
++				goto fail;
++		} else {
++			res = -EINVAL;
++			goto fail;
++		}
++	} else {
++		dport = inet->inet_dport;
++		sport = inet->inet_sport;
++	}
++
+ 	inet_opt = rcu_dereference(inet->inet_opt);
+ 	fl4 = &fl->u.ip4;
+ 	rt = skb_rtable(skb);
+@@ -409,9 +435,9 @@ int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
+ 		 */
+ 		rt = ip_route_output_ports(net, fl4, sk,
+ 					   daddr, inet->inet_saddr,
+-					   inet->inet_dport,
+-					   inet->inet_sport,
+-					   sk->sk_protocol,
++					   dport,
++					   sport,
++					   protocol,
+ 					   RT_CONN_FLAGS(sk),
+ 					   sk->sk_bound_dev_if);
+ 		if (IS_ERR(rt))
+@@ -434,7 +460,7 @@ packet_routed:
+ 	else
+ 		iph->frag_off = 0;
+ 	iph->ttl      = ip_select_ttl(inet, &rt->dst);
+-	iph->protocol = sk->sk_protocol;
++	iph->protocol = protocol;
+ 	ip_copy_addrs(iph, fl4);
+ 
+ 	/* Transport layer set skb->h.foo itself. */
+@@ -456,10 +482,12 @@ packet_routed:
+ 	return res;
+ 
+ no_route:
+-	rcu_read_unlock();
+ 	IP_INC_STATS(net, IPSTATS_MIB_OUTNOROUTES);
++	res = -EHOSTUNREACH;
++fail:
++	rcu_read_unlock();
+ 	kfree_skb(skb);
+-	return -EHOSTUNREACH;
++	return res;
+ }
+ EXPORT_SYMBOL(ip_queue_xmit);
+ 
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 71a52f4..0c9d3f0 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -42,6 +42,7 @@
+ #include <net/transp_v6.h>
+ #endif
+ #include <net/ip_fib.h>
++#include <net/tou.h>
+ 
+ #include <linux/errqueue.h>
+ #include <asm/uaccess.h>
+@@ -1162,6 +1163,10 @@ mc_msf_out:
+ 		inet->min_ttl = val;
+ 		break;
+ 
++	case IP_TOU_ENCAP:
++		err = tou_encap_setsockopt(sk, optval, optlen, false);
++		break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 		break;
+@@ -1493,6 +1498,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_MINTTL:
+ 		val = inet->min_ttl;
+ 		break;
++	case IPV6_TOU_ENCAP:
++		return tou_encap_getsockopt(sk, optval, len, optlen, false);
+ 	default:
+ 		release_sock(sk);
+ 		return -ENOPROTOOPT;
+diff --git a/net/ipv4/tou.c b/net/ipv4/tou.c
+index 601466a..bbb44b6 100644
+--- a/net/ipv4/tou.c
++++ b/net/ipv4/tou.c
+@@ -61,7 +61,7 @@ int tou_encap_setsockopt(struct sock *sk, char __user *optval, int optlen,
+ 	encap.dport = te.dport;
+ 	encap.flags = te.flags;
+ 
+-	hlen = is_ipv6 ? ip6_encap_hlen(e) : ip_encap_hlen(e);
++	hlen = is_ipv6 ? ip6_encap_hlen(&encap) : ip_encap_hlen(&encap);
+ 	if (hlen < 0)
+ 		return hlen;
+ 
 -- 
 2.8.0.rc2
