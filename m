@@ -1,67 +1,79 @@
-From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RESEND PATCH v7 00/21] Add HiSilicon RoCE driver
-Date: Mon, 23 May 2016 09:06:22 +0800
-Message-ID: <5742578E.5070601@huawei.com>
-References: <1462849483-67927-1-git-send-email-oulijun@huawei.com>
- <ee4fe6df-e9b0-28da-c960-c288d6617025@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <ee4fe6df-e9b0-28da-c960-c288d6617025-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: [PATCH] net/qlge: Avoids recursive EEH error
+Date: Mon, 23 May 2016 11:58:28 +1000
+Message-ID: <1463968708-28368-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Cc: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
+	davem@davemloft.net, shriyakul@in.ibm.com,
+	Gavin Shan <gwshan@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp01.au.ibm.com ([202.81.31.143]:37459 "EHLO
+	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752740AbcEWB7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2016 21:59:32 -0400
+Received: from localhost
+	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+	Mon, 23 May 2016 11:59:29 +1000
+Received: from d23relay07.au.ibm.com (d23relay07.au.ibm.com [9.190.26.37])
+	by d23dlp03.au.ibm.com (Postfix) with ESMTP id 5E6773578057
+	for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:59:28 +1000 (EST)
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u4N1xKLC45613084
+	for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:59:28 +1000
+Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u4N1wtOY011838
+	for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:58:56 +1000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Doug Ledford
+One timer, whose handler keeps reading on MMIO register for EEH
+core to detect error in time, is started when the PCI device driver
+is loaded. MMIO register can't be accessed during PE reset in EEH
+recovery. Otherwise, the unexpected recursive error is triggered.
+The timer isn't closed that time if the interface isn't brought
+up. So the unexpected recursive error is seen during EEH recovery
+when the interface is down.
 
-We will modify the license description of the beginning of the code file 
-in  patch v8.
-Thanks
+This avoids the unexpected recursive EEH error by closing the timer
+in qlge_io_error_detected() before EEH PE reset unconditionally. The
+timer is started unconditionally after EEH PE reset in qlge_io_resume().
+Also, the timer should be closed unconditionally when the device is
+removed from the system permanently in qlge_io_error_detected().
 
-Regards
-Wei Hu
+Reported-by: Shriya R. Kulkarni <shriyakul@in.ibm.com>
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-On 2016/5/14 5:09, Doug Ledford wrote:
-> On 05/09/2016 11:04 PM, Lijun Ou wrote:
->> The HiSilicon Network Substem is a long term evolution IP which is
->> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
->> Sybsystem) also has a hardware support of performing RDMA with
->> RoCEE.
->> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
->> will support mulitple versions of SOCs in future. This version of driver
->> is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
->> specifications).
->>
->> Changes v6 -> v7:
->> 1. modify some type of parameter, use bool replace the original type.
->> 2. add the Signed-off-by signatures in the first patch.
->> 3. delete the improper print sentence in hns_roce_create_eq.
-> One thing you should be aware of (but which you may not care about,
-> which is fine) is that if you want your driver to be available as part
-> of the OpenFabric Alliances OFED distribution, the license on the files
-> would need to be "GPL or BSD" (see the remainder of the RDMA stack for
-> examples).  If you don't want that license on your files, I'm fine with
-> that, and I won't hold up your submission based on the license.  If,
-> however, you *do* want your code to be shipable as part of OFED, it is
-> much easier to update the license on the files before you submit them
-> and third parties modify them.  If you want to change the license later,
-> you have to get every person that has made any substantive change to the
-> file to agree to the license change.
->
->
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 83d7210..fd5d1c9 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -4846,7 +4846,6 @@ static void ql_eeh_close(struct net_device *ndev)
+ 	}
+ 
+ 	/* Disabling the timer */
+-	del_timer_sync(&qdev->timer);
+ 	ql_cancel_all_work_sync(qdev);
+ 
+ 	for (i = 0; i < qdev->rss_ring_count; i++)
+@@ -4873,6 +4872,7 @@ static pci_ers_result_t qlge_io_error_detected(struct pci_dev *pdev,
+ 		return PCI_ERS_RESULT_CAN_RECOVER;
+ 	case pci_channel_io_frozen:
+ 		netif_device_detach(ndev);
++		del_timer_sync(&qdev->timer);
+ 		if (netif_running(ndev))
+ 			ql_eeh_close(ndev);
+ 		pci_disable_device(pdev);
+@@ -4880,6 +4880,7 @@ static pci_ers_result_t qlge_io_error_detected(struct pci_dev *pdev,
+ 	case pci_channel_io_perm_failure:
+ 		dev_err(&pdev->dev,
+ 			"%s: pci_channel_io_perm_failure.\n", __func__);
++		del_timer_sync(&qdev->timer);
+ 		ql_eeh_close(ndev);
+ 		set_bit(QL_EEH_FATAL, &qdev->flags);
+ 		return PCI_ERS_RESULT_DISCONNECT;
+-- 
+2.1.0
