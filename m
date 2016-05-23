@@ -1,79 +1,146 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH] net/qlge: Avoids recursive EEH error
-Date: Mon, 23 May 2016 11:58:28 +1000
-Message-ID: <1463968708-28368-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Cc: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
-	davem@davemloft.net, shriyakul@in.ibm.com,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC] NET: PHY: adds driver for Lantiq PHY11G
+Date: Mon, 23 May 2016 04:42:17 +0200
+Message-ID: <20160523024217.GB20405@lunn.ch>
+References: <1463945631-29273-1-git-send-email-hauke@hauke-m.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, alexander.stein@systec-electronic.com,
+	netdev@vger.kernel.org, john@phrozen.org, openwrt@kresin.me,
+	hauke.mehrtens@intel.com
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp01.au.ibm.com ([202.81.31.143]:37459 "EHLO
-	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740AbcEWB7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2016 21:59:32 -0400
-Received: from localhost
-	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Mon, 23 May 2016 11:59:29 +1000
-Received: from d23relay07.au.ibm.com (d23relay07.au.ibm.com [9.190.26.37])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id 5E6773578057
-	for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:59:28 +1000 (EST)
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u4N1xKLC45613084
-	for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:59:28 +1000
-Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u4N1wtOY011838
-	for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:58:56 +1000
+Received: from vps0.lunn.ch ([178.209.37.122]:47699 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752672AbcEWCmY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 May 2016 22:42:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1463945631-29273-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One timer, whose handler keeps reading on MMIO register for EEH
-core to detect error in time, is started when the PCI device driver
-is loaded. MMIO register can't be accessed during PE reset in EEH
-recovery. Otherwise, the unexpected recursive error is triggered.
-The timer isn't closed that time if the interface isn't brought
-up. So the unexpected recursive error is seen during EEH recovery
-when the interface is down.
+On Sun, May 22, 2016 at 09:33:51PM +0200, Hauke Mehrtens wrote:
+> Supports the Lantiq / Intel CHD 11G and 22E PHYs.
+> These PHYs are also named PEF 7061, PEF 7071, PEF 7072
+> 
+> Signed-off-by: John Crispin <john@phrozen.org>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+> 
+> This is based on a driver from OpenWrt / LEDE. This is send as a RFC
+> because the merge window is open now and it adds a new driver. This
+> patch was cleaned up on request of Alexander.
+> 
+> 
+>  .../devicetree/bindings/phy/phy-lanitq.txt         | 216 +++++++++++++++++
+>  drivers/net/phy/Kconfig                            |   6 +
+>  drivers/net/phy/Makefile                           |   1 +
+>  drivers/net/phy/lantiq.c                           | 269 +++++++++++++++++++++
+>  4 files changed, 492 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/phy/phy-lanitq.txt
+>  create mode 100644 drivers/net/phy/lantiq.c
+> 
+> diff --git a/Documentation/devicetree/bindings/phy/phy-lanitq.txt b/Documentation/devicetree/bindings/phy/phy-lanitq.txt
+> new file mode 100644
+> index 0000000..d9746e8
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/phy/phy-lanitq.txt
+> @@ -0,0 +1,216 @@
+> +Lanitq PHY binding
+> +============================================
+> +
+> +This devicetree binding controls the lantiq ethernet phys led functionality.
 
-This avoids the unexpected recursive EEH error by closing the timer
-in qlge_io_error_detected() before EEH PE reset unconditionally. The
-timer is started unconditionally after EEH PE reset in qlge_io_resume().
-Also, the timer should be closed unconditionally when the device is
-removed from the system permanently in qlge_io_error_detected().
+Hi Hauke
 
-Reported-by: Shriya R. Kulkarni <shriyakul@in.ibm.com>
-Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+You should CC: the device tree list.
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 83d7210..fd5d1c9 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -4846,7 +4846,6 @@ static void ql_eeh_close(struct net_device *ndev)
- 	}
- 
- 	/* Disabling the timer */
--	del_timer_sync(&qdev->timer);
- 	ql_cancel_all_work_sync(qdev);
- 
- 	for (i = 0; i < qdev->rss_ring_count; i++)
-@@ -4873,6 +4872,7 @@ static pci_ers_result_t qlge_io_error_detected(struct pci_dev *pdev,
- 		return PCI_ERS_RESULT_CAN_RECOVER;
- 	case pci_channel_io_frozen:
- 		netif_device_detach(ndev);
-+		del_timer_sync(&qdev->timer);
- 		if (netif_running(ndev))
- 			ql_eeh_close(ndev);
- 		pci_disable_device(pdev);
-@@ -4880,6 +4880,7 @@ static pci_ers_result_t qlge_io_error_detected(struct pci_dev *pdev,
- 	case pci_channel_io_perm_failure:
- 		dev_err(&pdev->dev,
- 			"%s: pci_channel_io_perm_failure.\n", __func__);
-+		del_timer_sync(&qdev->timer);
- 		ql_eeh_close(ndev);
- 		set_bit(QL_EEH_FATAL, &qdev->flags);
- 		return PCI_ERS_RESULT_DISCONNECT;
--- 
-2.1.0
+> +
+> +Example:
+> +	mdio@0 {
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		compatible = "lantiq,xrx200-mdio";
+> +			phy5: ethernet-phy@5 {
+> +			reg = <0x1>;
+> +			compatible = "lantiq,phy11g", "ethernet-phy-ieee802.3-c22";
+> +		};
+> +		phy11: ethernet-phy@11 {
+> +			reg = <0x11>;
+> +			compatible = "lantiq,phy22f", "ethernet-phy-ieee802.3-c22";
+> +			lantiq,led2h = <0x00>;
+> +			lantiq,led2l = <0x03>;
+> +		};
+> +		phy12: ethernet-phy@12 {
+> +			reg = <0x12>;
+> +			compatible = "lantiq,phy22f", "ethernet-phy-ieee802.3-c22";
+> +			lantiq,led1h = <0x00>;
+> +			lantiq,led1l = <0x03>;
+> +		};
+> +		phy13: ethernet-phy@13 {
+> +			reg = <0x13>;
+> +			compatible = "lantiq,phy22f", "ethernet-phy-ieee802.3-c22";
+> +			lantiq,led2h = <0x00>;
+> +			lantiq,led2l = <0x03>;
+> +		};
+> +		phy14: ethernet-phy@14 {
+> +			reg = <0x14>;
+> +			compatible = "lantiq,phy22f", "ethernet-phy-ieee802.3-c22";
+> +			lantiq,led1h = <0x00>;
+> +			lantiq,led1l = <0x03>;
+> +		};
+> +	};
+> +
+> +Register Description
+> +============================================
+> +
+> +LEDCH:
+> +
+> +Name	Hardware Reset Value
+> +LEDCH	0x00C5
+> +
+> +| 15 |    |    |    |    |    |    |  8 |
+> +=========================================
+> +|		RES			|
+> +=========================================
+> +
+> +|  7 |    |    |    |    |    |    |  0 |
+> +=========================================
+> +|   FBF   |   SBF   |RES |     NACS     |
+> +=========================================
+> +
+> +Field	Bits	Type	Description
+> +FBC	7:6	RW	Fast Blink Frequency
+> +			---
+> +			0x0 (00b) F02HZ 2 Hz blinking frequency
+> +			0x1 (01b) F04HZ 4 Hz blinking frequency
+> +			0x2 (10b) F08HZ 8 Hz blinking frequency
+> +			0x3 (11b) F16HZ 16 Hz blinking frequency
+> +
+> +SBF	5:4	RW	Slow Blink Frequency
+> +			---
+> +			0x0 (00b) F02HZ 2 Hz blinking frequency
+> +			0x1 (01b) F04HZ 4 Hz blinking frequency
+> +			0x2 (10b) F08HZ 8 Hz blinking frequency
+> +			0x3 (11b) F16HZ 16 Hz blinking frequency
+> +
+> +NACS	2:0	RW	Inverse of Scan Function
+> +			---
+> +			0x0 (000b) NONE No Function
+> +			0x1 (001b) LINK Complex function enabled when link is up
+> +			0x2 (010b) PDOWN Complex function enabled when device is powered-down
+> +			0x3 (011b) EEE Complex function enabled when device is in EEE mode
+> +			0x4 (100b) ANEG Complex function enabled when auto-negotiation is running
+> +			0x5 (101b) ABIST Complex function enabled when analog self-test is running
+> +			0x6 (110b) CDIAG Complex function enabled when cable diagnostics are running
+> +			0x7 (111b) TEST Complex function enabled when test mode is running
+> +
+> +LEDCL:
+
+I doubt the device tree maintainers will accept this. You don't
+normally put register values in device tree.
+
+This patch should not be merged until it gets an ACK from the device
+tree people.
+
+     Andrew
