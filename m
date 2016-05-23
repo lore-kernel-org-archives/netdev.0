@@ -1,41 +1,34 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -master] f_bpf: fix filling of handle when no
- further arg is provided
-Date: Mon, 23 May 2016 16:15:08 -0700
-Message-ID: <20160523161508.5523fe83@xeon-e3>
-References: <55bce23c05c03def46a6b5fd385766bcd5351dd7.1463565059.git.daniel@iogearbox.net>
+Subject: Re: [iproute2 PATCH 1/1] tc fix ife late binding
+Date: Mon, 23 May 2016 16:16:06 -0700
+Message-ID: <20160523161606.71cd3c6c@xeon-e3>
+References: <1463937076-31395-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34146 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbcEWXO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 19:14:56 -0400
-Received: by mail-pa0-f45.google.com with SMTP id qo8so72059pab.1
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 16:14:55 -0700 (PDT)
-In-Reply-To: <55bce23c05c03def46a6b5fd385766bcd5351dd7.1463565059.git.daniel@iogearbox.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35782 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbcEWXPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 19:15:53 -0400
+Received: by mail-pf0-f182.google.com with SMTP id g64so70100pfb.2
+        for <netdev@vger.kernel.org>; Mon, 23 May 2016 16:15:53 -0700 (PDT)
+In-Reply-To: <1463937076-31395-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 May 2016 11:58:41 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+On Sun, 22 May 2016 13:11:16 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> We need to fill handle when provided by the user, even if no further
-> argument is provided. Thus, move the test for arg to the correct location,
-> so that it works correctly:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
->   # tc filter show dev foo egress
->   filter protocol all pref 1 bpf
->   filter protocol all pref 1 bpf handle 0x1 bpf.o:[classifier] direct-action
->   filter protocol all pref 1 bpf handle 0x2 bpf.o:[classifier] direct-action
->   # tc filter del dev foo egress prio 1 handle 2 bpf
->   # tc filter show dev foo egress
->   filter protocol all pref 1 bpf
->   filter protocol all pref 1 bpf handle 0x1 bpf.o:[classifier] direct-action
+> following late binding didn't work
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> sudo tc actions add action ife encode \
+> type 0xDEAD allow mark dst 02:15:15:15:15:15 index 1
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
 Applied
