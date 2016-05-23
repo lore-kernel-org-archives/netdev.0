@@ -1,7 +1,7 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next 3/5] hv_netvsc: pass struct netvsc_device to rndis_filter_{open,close}()
-Date: Mon, 23 May 2016 17:50:36 +0200
-Message-ID: <1464018638-22000-4-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH net-next 4/5] hv_netvsc: pass struct net_device to rndis_filter_set_device_mac()
+Date: Mon, 23 May 2016 17:50:37 +0200
+Message-ID: <1464018638-22000-5-git-send-email-vkuznets@redhat.com>
 References: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
 Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
 	Haiyang Zhang <haiyangz@microsoft.com>,
@@ -12,131 +12,66 @@ In-Reply-To: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both rndis_filter_open()/rndis_filter_close() use struct hv_device to
-reach to struct netvsc_device only and all callers have it already.
-While on it, rename net_device to nvdev in rndis_filter_open() as
-net_device is misleading.
+We unpack 'struct net_device' in netvsc_set_mac_addr() to get to
+'struct hv_device' pointer which we use in rndis_filter_set_device_mac()
+to get back to 'struct net_device'.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |  5 +++--
- drivers/net/hyperv/netvsc_drv.c   | 13 +++++--------
- drivers/net/hyperv/rndis_filter.c | 14 +++++---------
- 3 files changed, 13 insertions(+), 19 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   | 2 +-
+ drivers/net/hyperv/netvsc_drv.c   | 4 +---
+ drivers/net/hyperv/rndis_filter.c | 3 +--
+ 3 files changed, 3 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 952cbc8..f650ec1 100644
+index f650ec1..467fb8b 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -173,6 +173,7 @@ struct rndis_device {
+@@ -201,7 +201,7 @@ int rndis_filter_receive(struct hv_device *dev,
+ 			struct vmbus_channel *channel);
  
- /* Interface */
- struct rndis_message;
-+struct netvsc_device;
- int netvsc_device_add(struct hv_device *device, void *additional_info);
- int netvsc_device_remove(struct hv_device *device);
- int netvsc_send(struct hv_device *device,
-@@ -189,8 +190,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 			struct vmbus_channel *channel,
- 			u16 vlan_tci);
- void netvsc_channel_cb(void *context);
--int rndis_filter_open(struct hv_device *dev);
--int rndis_filter_close(struct hv_device *dev);
-+int rndis_filter_open(struct netvsc_device *nvdev);
-+int rndis_filter_close(struct netvsc_device *nvdev);
- int rndis_filter_device_add(struct hv_device *dev,
- 			void *additional_info);
- void rndis_filter_device_remove(struct hv_device *dev);
+ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
+-int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
++int rndis_filter_set_device_mac(struct net_device *ndev, char *mac);
+ 
+ void netvsc_switch_datapath(struct net_device *nv_dev, bool vf);
+ 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index db8fedf..591ab58 100644
+index 591ab58..733dea1 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -98,16 +98,14 @@ static void netvsc_set_multicast_list(struct net_device *net)
+@@ -982,8 +982,6 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
  
- static int netvsc_open(struct net_device *net)
+ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
  {
--	struct net_device_context *net_device_ctx = netdev_priv(net);
--	struct hv_device *device_obj = net_device_ctx->device_ctx;
--	struct netvsc_device *nvdev = net_device_ctx->nvdev;
-+	struct netvsc_device *nvdev = net_device_to_netvsc_device(net);
- 	struct rndis_device *rdev;
- 	int ret = 0;
+-	struct net_device_context *ndevctx = netdev_priv(ndev);
+-	struct hv_device *hdev =  ndevctx->device_ctx;
+ 	struct sockaddr *addr = p;
+ 	char save_adr[ETH_ALEN];
+ 	unsigned char save_aatype;
+@@ -996,7 +994,7 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+ 	if (err != 0)
+ 		return err;
  
- 	netif_carrier_off(net);
- 
- 	/* Open up the device */
--	ret = rndis_filter_open(device_obj);
-+	ret = rndis_filter_open(nvdev);
- 	if (ret != 0) {
- 		netdev_err(net, "unable to open device (ret %d).\n", ret);
- 		return ret;
-@@ -125,7 +123,6 @@ static int netvsc_open(struct net_device *net)
- static int netvsc_close(struct net_device *net)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
--	struct hv_device *device_obj = net_device_ctx->device_ctx;
- 	struct netvsc_device *nvdev = net_device_ctx->nvdev;
- 	int ret;
- 	u32 aread, awrite, i, msec = 10, retry = 0, retry_max = 20;
-@@ -135,7 +132,7 @@ static int netvsc_close(struct net_device *net)
- 
- 	/* Make sure netvsc_set_multicast_list doesn't re-enable filter! */
- 	cancel_work_sync(&net_device_ctx->work);
--	ret = rndis_filter_close(device_obj);
-+	ret = rndis_filter_close(nvdev);
- 	if (ret != 0) {
- 		netdev_err(net, "unable to close device (ret %d).\n", ret);
- 		return ret;
-@@ -1247,7 +1244,7 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 	/*
- 	 * Open the device before switching data path.
- 	 */
--	rndis_filter_open(net_device_ctx->device_ctx);
-+	rndis_filter_open(netvsc_dev);
- 
- 	/*
- 	 * notify the host to switch the data path.
-@@ -1302,7 +1299,7 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 		udelay(50);
- 	netvsc_switch_datapath(ndev, false);
- 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
--	rndis_filter_close(net_device_ctx->device_ctx);
-+	rndis_filter_close(netvsc_dev);
- 	netif_carrier_on(ndev);
- 	/*
- 	 * Notify peers.
+-	err = rndis_filter_set_device_mac(hdev, addr->sa_data);
++	err = rndis_filter_set_device_mac(ndev, addr->sa_data);
+ 	if (err != 0) {
+ 		/* roll back to saved MAC */
+ 		memcpy(ndev->dev_addr, save_adr, ETH_ALEN);
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 42c652e..2c2f3b9 100644
+index 2c2f3b9..f1692bc 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1216,23 +1216,19 @@ void rndis_filter_device_remove(struct hv_device *dev)
- }
+@@ -543,9 +543,8 @@ static int rndis_filter_query_device_mac(struct rndis_device *dev)
+ #define NWADR_STR "NetworkAddress"
+ #define NWADR_STRLEN 14
  
- 
--int rndis_filter_open(struct hv_device *dev)
-+int rndis_filter_open(struct netvsc_device *nvdev)
+-int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
++int rndis_filter_set_device_mac(struct net_device *ndev, char *mac)
  {
--	struct netvsc_device *net_device = hv_device_to_netvsc_device(dev);
--
--	if (!net_device)
-+	if (!nvdev)
- 		return -EINVAL;
- 
--	if (atomic_inc_return(&net_device->open_cnt) != 1)
-+	if (atomic_inc_return(&nvdev->open_cnt) != 1)
- 		return 0;
- 
--	return rndis_filter_open_device(net_device->extension);
-+	return rndis_filter_open_device(nvdev->extension);
- }
- 
--int rndis_filter_close(struct hv_device *dev)
-+int rndis_filter_close(struct netvsc_device *nvdev)
- {
--	struct netvsc_device *nvdev = hv_device_to_netvsc_device(dev);
--
- 	if (!nvdev)
- 		return -EINVAL;
- 
+-	struct net_device *ndev = hv_get_drvdata(hdev);
+ 	struct netvsc_device *nvdev = net_device_to_netvsc_device(ndev);
+ 	struct rndis_device *rdev = nvdev->extension;
+ 	struct rndis_request *request;
 -- 
 2.5.5
