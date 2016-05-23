@@ -1,25 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ptp: use memdup_user().
-Date: Mon, 23 May 2016 14:05:47 -0700 (PDT)
-Message-ID: <20160523.140547.194027000303214592.davem@davemloft.net>
-References: <1463746862-23815-1-git-send-email-falakreyaz@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net_sched: avoid too many hrtimer_start() calls
+Date: Mon, 23 May 2016 14:24:56 -0700
+Message-ID: <1464038696.5939.29.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+	 <20160520092903.38620c60@redhat.com>
+	 <1463749909.18194.291.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463752069.18194.294.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463753815.18194.298.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160520194951.6354fba1@redhat.com>
+	 <1463779960.5939.7.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160523115000.40e25fab@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: falakreyaz@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463746862-23815-1-git-send-email-falakreyaz@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36062 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751242AbcEWVY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 17:24:59 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g132so20062218pfb.3
+        for <netdev@vger.kernel.org>; Mon, 23 May 2016 14:24:59 -0700 (PDT)
+In-Reply-To: <20160523115000.40e25fab@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Muhammad Falak R Wani <falakreyaz@gmail.com>
-Date: Fri, 20 May 2016 17:51:02 +0530
+From: Eric Dumazet <edumazet@google.com>
 
-> Use memdup_user to duplicate a memory region from user-space to
-> kernel-space, instead of open coding using kmalloc & copy_from_user.
-> 
-> Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
+I found a serious performance bug in packet schedulers using hrtimers.
 
-Applied.
+sch_htb and sch_fq are definitely impacted by this problem.
+
+We constantly rearm high resolution timers if some packets are throttled
+in one (or more) class, and other packets are flying through qdisc on
+another (non throttled) class.
+
+hrtimer_start() does not have the mod_timer() trick of doing nothing if
+expires value does not change :
+
+	if (timer_pending(timer) &&
+            timer->expires == expires)
+                return 1;
+
+This issue is particularly visible when multiple cpus can queue/dequeue
+packets on the same qdisc, as hrtimer code has to lock a remote base.
+
+I used following fix :
+
+1) Change htb to use qdisc_watchdog_schedule_ns() instead of open-coding
+it.
+
+2) Cache watchdog prior expiration. hrtimer might provide this, but I
+prefer to not rely on some hrtimer internal.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/pkt_sched.h |    1 +
+ net/sched/sch_api.c     |    4 ++++
+ net/sched/sch_htb.c     |   13 +++----------
+ 3 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 401038d2f9b8..fea53f4d92ca 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -61,6 +61,7 @@ psched_tdiff_bounded(psched_time_t tv1, psched_time_t tv2, psched_time_t bound)
+ }
+ 
+ struct qdisc_watchdog {
++	u64		last_expires;
+ 	struct hrtimer	timer;
+ 	struct Qdisc	*qdisc;
+ };
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 64f71a2155f3..ddf047df5361 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -607,6 +607,10 @@ void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires, bool thr
+ 	if (throttle)
+ 		qdisc_throttled(wd->qdisc);
+ 
++	if (wd->last_expires == expires)
++		return;
++
++	wd->last_expires = expires;
+ 	hrtimer_start(&wd->timer,
+ 		      ns_to_ktime(expires),
+ 		      HRTIMER_MODE_ABS_PINNED);
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index f6bf5818ed4d..d4b4218af6b1 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -928,17 +928,10 @@ ok:
+ 		}
+ 	}
+ 	qdisc_qstats_overlimit(sch);
+-	if (likely(next_event > q->now)) {
+-		if (!test_bit(__QDISC_STATE_DEACTIVATED,
+-			      &qdisc_root_sleeping(q->watchdog.qdisc)->state)) {
+-			ktime_t time = ns_to_ktime(next_event);
+-			qdisc_throttled(q->watchdog.qdisc);
+-			hrtimer_start(&q->watchdog.timer, time,
+-				      HRTIMER_MODE_ABS_PINNED);
+-		}
+-	} else {
++	if (likely(next_event > q->now))
++		qdisc_watchdog_schedule_ns(&q->watchdog, next_event, true);
++	else
+ 		schedule_work(&q->work);
+-	}
+ fin:
+ 	return skb;
+ }
