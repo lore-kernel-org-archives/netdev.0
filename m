@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tools: hv: Add a script for bonding synthetic
- and VF NICs
-Date: Mon, 23 May 2016 13:53:31 -0700 (PDT)
-Message-ID: <20160523.135331.946508716675076086.davem@davemloft.net>
-References: <1463678618-26049-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH v2 1/1] net: hns: avoid null pointer dereference
+Date: Mon, 23 May 2016 13:55:10 -0700 (PDT)
+Message-ID: <20160523.135510.281587414446265876.davem@davemloft.net>
+References: <063D6719AE5E284EB5DD2968C1650D6D5F4C22D9@AcuExch.aculab.com>
+	<1463685655-3277-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-	vkuznets@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
+Cc: David.Laight@aculab.com, Yisen.Zhuang@huawei.com,
+	yankejian@huawei.com, lisheng011@huawei.com, andrew@lunn.ch,
+	salil.mehta@huawei.com, ivecera@redhat.com, chenny.xu@huawei.com,
+	huangdaode@hisilicon.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: xypron.glpk@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463678618-26049-1-git-send-email-haiyangz@microsoft.com>
+In-Reply-To: <1463685655-3277-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 19 May 2016 10:23:38 -0700
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Date: Thu, 19 May 2016 21:20:55 +0200
 
-> This example script creates bonding network devices based on synthetic NIC
-> (the virtual network adapter usually provided by Hyper-V) and the matching
-> VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
-> function as one network device, and fail over to the synthetic NIC if VF is
-> down.
+> In the statement
+>   assert(priv || priv->ae_handle);
+> the right side of || is only evaluated if priv is null.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> v2:
+> 	As suggested by David Leight and David Miller the assert
+> 	statements are removed.
+> 
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 
-Anything added like this to the tree should be distro neutral.
-
-Furthermore, net-next is closed and no new features should be submitted
-at this time.
+Applied.
