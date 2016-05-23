@@ -1,77 +1,146 @@
-From: Alexander Stein <alexander.stein@systec-electronic.com>
-Subject: Re: [PATCH 1/1 RFC] net/phy: Add Lantiq PHY driver
-Date: Mon, 23 May 2016 11:49:36 +0200
-Message-ID: <8983627.qbi7VGpM7G@ws-stein>
-References: <1463587403-26809-1-git-send-email-alexander.stein@systec-electronic.com> <6103030.g2sqFmaRhG@ws-stein> <9231D502B07C5E4A8B32D5115C9F19991E917469@IRSMSX101.ger.corp.intel.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC] net: remove busylock
+Date: Mon, 23 May 2016 11:50:00 +0200
+Message-ID: <20160523115000.40e25fab@redhat.com>
+References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+	<20160520092903.38620c60@redhat.com>
+	<1463749909.18194.291.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1463752069.18194.294.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1463753815.18194.298.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160520194951.6354fba1@redhat.com>
+	<1463779960.5939.7.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Mathias Kresin <openwrt@kresin.me>,
-	John Crispin <john@phrozen.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: "Mehrtens, Hauke" <hauke.mehrtens@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9231D502B07C5E4A8B32D5115C9F19991E917469@IRSMSX101.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58764 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753370AbcEWJuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 May 2016 05:50:10 -0400
+In-Reply-To: <1463779960.5939.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hauke,
+On Fri, 20 May 2016 14:32:40 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-On Monday 23 May 2016 09:12:54, Mehrtens, Hauke wrote:
-> > On Thursday 19 May 2016 12:03:10, Mathias Kresin wrote:
-> > > 2016-05-19 9:03 GMT+02:00 John Crispin <john@phrozen.org>:
-> > > > On 19/05/2016 08:57, Alexander Stein wrote:
-> > > >> Thanks for the link, I wasn't aware of that patch. I like it in
-> > > >> general, but there are some things I'd like to get addressed first:
-> > > >> * vr9_gphy_of_reg_init() writes uncoditionally to led3h and led3l
-> > > >> even on
-> > > >> 
-> > > >>   PEf7071 which does not have this register at all
-> > > > 
-> > > > we use this driver mainly on the 11g and 22f version. mathias
-> > > > recently added the led3 handling.
-> > > > 
-> > > > @Mathias, can you have a look at this and fix it inside the lede tree
-> > > > ?
-> > > 
-> > > Well, I haven't added the led3 handling, I've only changed the initial
-> > > value (function) of led3.
-> > > 
-> > > Maybe it's cleaner to not use a default value for the led function and
-> > > completely rely on the device tree bindings. But by adjusting the
-> > > initial values, I had to change only the led function of one board in
-> > > the openwrt xrx200 subtarget instead of touching all dts files.
+> On Fri, 2016-05-20 at 19:49 +0200, Jesper Dangaard Brouer wrote:
+> > On Fri, 20 May 2016 07:16:55 -0700
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >   
+> > > Since bonding pretends to be multiqueue, TCQ_F_ONETXQUEUE is not set
+> > > on sch->flags when HTB is installed at the bonding device root.  
 > > 
-> > I think setting default values is good.
+> > If would be cool if you could run a test with removed busylock and
+> > allow HTB to bulk dequeue.  
 > 
-> The registers are set to some reset values after the chip is coming out of
-> reset, but we should set  them all to the same value, Mathias said that all
-> except for one board he knows are using only one LED per port, but they are
-> often using different LED pins, I will change my patch.
-
-One LED per port? I would think of using one RJ45 socket per port which 
-usually have 2 LEDs.
-
-> > > I know that the LTQ Datasheet for the PEF 7071 Version 1.5 mentions
-> > > the led3 control register albeit there is no pin for a forth led. So I
-> > > guess it's safe to write to the led3 register even for the PEF 7071.
-> > 
-> > Mh, my PEF 7071 User Manual (Version 2.0, 2012-10-17) doesn't mention
-> > LED3x registers. There is LED3DA and LED3EN in PHY_LED but was removed in
-> > 1.6 manual.
+> I added a /sys/class/net/eth0/tx_bulk_limit to tune the number of
+> packets that we could bulk dequeue from a virtual device 
+> (no BQL on them)
 > 
-> LED3x is only available in PEF 7072 which is a different package with more
-> pins for the LED3 and some other interfaces.
-> > I think, some flag if the PHY supports LED3 and depend on that is just
-> > fine.
-> I do not know how to distinguish between PEF 7071 and PEF 7072.
+> 200 TCP_RR through HTB on eth0 (bonding device)
+> 
+> 1) busylock enabled
+> --------------------
+> 
+> With tx_bulk_limit set to 8, we get 12.7 % increase.
 
-I expected that PEF 7072 would have a different PHY ID, but apparently this is 
-not the case, though I don't have a datasheet for 7072. Is there really no way 
-to distinguish those two?
+That is actually a quite good performance increase for this workload.
 
-Alexander
+
+> lpaa23:~# for f in `seq 1 16`; do echo $f|tee /sys/class/net/eth0/tx_bulk_limit; sar -n DEV 3 3|grep eth0|grep Average; done
+> 1
+> Average:         eth0 868625.67 868487.44  57055.69  56826.37      0.00      0.00      0.56
+> 2
+> Average:         eth0 927081.67 926920.78  60923.83  60649.90      0.00      0.00      0.44
+> 3
+> Average:         eth0 957678.11 957554.00  62877.04  62653.89      0.00      0.00      0.56
+> 4
+> Average:         eth0 966912.44 966747.33  63532.72  63255.51      0.00      0.00      0.56
+> 5
+> Average:         eth0 973137.56 972950.44  63958.31  63661.39      0.00      0.00      0.44
+> 6
+> Average:         eth0 958589.22 958449.44  62961.79  62712.56      0.00      0.00      0.67
+> 7
+> Average:         eth0 960737.67 960672.22  62968.34  62857.97      0.00      0.00      0.44
+> 8
+> Average:         eth0 979271.78 979201.67  64199.47  64070.84      0.00      0.00      0.56
+> 9
+> Average:         eth0 982464.33 982390.33  64418.42  64278.93      0.00      0.00      0.56
+> 10
+> Average:         eth0 982698.00 982578.22  64495.25  64291.28      0.00      0.00      0.44
+> 11
+> Average:         eth0 981862.22 981746.00  64438.16  64236.31      0.00      0.00      0.56
+> 12
+> Average:         eth0 983277.44 983096.33  64632.79  64327.79      0.00      0.00      0.44
+> 13
+> Average:         eth0 981221.11 981018.00  64521.82  64189.26      0.00      0.00      0.67
+> 14
+> Average:         eth0 981754.11 981555.89  64553.19  64224.39      0.00      0.00      0.44
+> 15
+> Average:         eth0 982484.33 982301.67  64572.00  64273.38      0.00      0.00      0.44
+> 16
+> Average:         eth0 978529.56 978326.67  64350.89  64013.39      0.00      0.00      0.67
+> 
+> 
+> 2) busylock disabled
+> --------------------
+> 
+> Well, bulk dequeue helps, but does not close the gap. 
+> (busylock is needed)
+
+Interesting observation, that busylock trick is still needed.  I would
+have liked to see this getting cleaned up, but I guess it is not that
+trivial to "fix"/remove.
+
+
+> lpaa23:~# for f in `seq 1 16`; do echo $f|tee /sys/class/net/eth0/tx_bulk_limit; sar -n DEV 3 3|grep eth0|grep Average; done
+> 1
+> Average:         eth0 795408.44 795407.67  52044.66  52045.93      0.00      0.00      0.56
+> 2
+> Average:         eth0 843411.78 843415.11  55185.23  55184.51      0.00      0.00      0.56
+> 3
+> Average:         eth0 876175.89 876175.00  57329.50  57327.98      0.00      0.00      0.44
+> 4
+> Average:         eth0 890631.22 890629.44  58274.58  58274.25      0.00      0.00      0.67
+> 5
+> Average:         eth0 900672.00 900668.89  58931.29  58930.54      0.00      0.00      0.44
+> 6
+> Average:         eth0 908325.78 908328.22  59432.97  59431.76      0.00      0.00      0.56
+> 7
+> Average:         eth0 913895.33 913885.11  59796.89  59795.46      0.00      0.00      0.56
+> 8
+> Average:         eth0 914429.11 914433.56  59832.26  59831.23      0.00      0.00      0.67
+> 9
+> Average:         eth0 918701.11 918699.67  60110.68  60110.36      0.00      0.00      0.55
+> 10
+> Average:         eth0 920382.33 920376.56  60223.31  60220.54      0.00      0.00      0.67
+> 11
+> Average:         eth0 914341.67 914344.67  59826.25  59825.90      0.00      0.00      0.67
+> 12
+> Average:         eth0 912697.00 912693.78  59718.77  59717.44      0.00      0.00      0.44
+> 13
+> Average:         eth0 917392.56 917385.00  60025.79  60024.34      0.00      0.00      0.44
+> 14
+> Average:         eth0 918232.89 918233.78  60081.04  60079.94      0.00      0.00      0.67
+> 15
+> Average:         eth0 918377.11 918381.00  60091.14  60089.79      0.00      0.00      0.44
+> 16
+> Average:         eth0 913817.56 913812.33  59792.09  59790.66      0.00      0.00      0.56
+> 
+
+Thanks for doing the experiment.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
