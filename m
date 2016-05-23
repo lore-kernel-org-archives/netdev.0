@@ -1,129 +1,105 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: IPv6 extension header privileges
-Date: Mon, 23 May 2016 11:11:30 -0700
-Message-ID: <CALx6S358LkPTz9kzWDuveZgDFjaL7AbgwgcVLP4iyC6Bvd3yBg@mail.gmail.com>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
-	<1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
-	<20160521015604.GD2452@oracle.com>
-	<1463823275.2335717.614453105.5011B2EE@webmail.messagingengine.com>
-	<CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
-	<6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
-	<CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
-	<f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
-	<20160521174438.GA27990@oracle.com>
-	<82086299-ddb2-8acc-1286-5a1a7b2bf311@stressinduktion.org>
-	<20160522115605.GA30516@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:33784 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbcEWSLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 14:11:31 -0400
-Received: by mail-io0-f176.google.com with SMTP id t40so106475686ioi.0
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 11:11:31 -0700 (PDT)
-In-Reply-To: <20160522115605.GA30516@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [RFC 01/12] 6lowpan: add private neighbour data
+Date: Mon, 23 May 2016 21:21:57 +0200
+Message-ID: <1464031328-17524-2-git-send-email-aar@pengutronix.de>
+References: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1464031328-17524-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 22, 2016 at 4:56 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
->
->> > Tom Herbert wrote:
->> >>>>> If you don't mind I'll change this to make specific options are
->> >>>>> privileged and not all hbh and destopt. There is talk in IETF about
->> >>>>> reinventing IP extensibility within UDP since the kernel APIs don't
->> >>>>> allow setting EH. I would like to avoid that :-)
->
->> On 21.05.2016 19:46, Sowmini Varadhan wrote:
->> > Do you mean this
->> >   http://www.ietf.org/mail-archive/web/spud/current/msg00365.html
->
-> On (05/22/16 03:08), Hannes Frederic Sowa wrote:
->> Hmm, haven't read carefully but isn't that just plain TCP in UDP? I saw
->> extension headers mentioned but haven't grasped why they deem necessary.
->
-> Tom should clarify what he meant, but perhaps he was referring to other
-> threads discussing v6 EH. In any case, I dont think the way least-privileges
-> for EH are implemented in an OS is directly relevant or causational for
-> whether or not the kernel should be bypassed - looks like there are a lot
-> of other drafts floating around, arguing for implementing various tcp/ip
-> protocols in uspace and beyond, motivated by various reasons.
->
-It's a deployment conundrum. Suppose tomorrow that IANA registers some
-new hpb option that would be useful to the network, but is of no
-interest to the kernel other than it needs to be set in packets when
-the user requests it. In the white list model, there is no problem
-getting support for such a thing into the upstream kernel, the time
-frame for that is one release cycle. Neither is there any problem
-updating the apps to set the option, for instance we can update FB app
-to do this within a week. The problem is that getting something into
-the kernel does not make it useful, the kernel needs to actually be
-deployed which is mostly out of our control (for those of us who don't
-own the client platform). So get the options deployed on clients
-(particularly Android), this takes much, much longer. And if the
-feature requires explicit action do be enabled, like turning a sysctl,
-it is going to take even longer possibly an indeterminate amount of
-time to ever get enabled.
+This patch will introduce a 6lowpan neighbour private data. Like the
+interface private data we handle private data for generic 6lowpan and
+for link-layer specific 6lowpan.
 
-Tom
+The current first use case if to save the short address for a 802.15.4
+6lowpan neighbour.
 
-> Moving back to the topic here:
->
->> > Hannes Frederic Sowa wrote:
->> >>>> A white list of certain registered IPv6 IANA-options for non-priv whould
->
->> On 21.05.2016 19:46, Sowmini Varadhan wrote:
->> > Problem is that APIs are not IANA'ed.
->> > Even RFC 3542 is just Informationaal.
->> >
->> > And even the classic socket API's that come down from BSD are not
->> > ietf'ed or iana'ed.
->
-> On (05/22/16 03:08), Hannes Frederic Sowa wrote:
->> Hmm, haven't read carefully but isn't that just plain TCP in UDP? I saw
->> I think I don't completely understand this. IANA is numbering registry
->> and if we have the proper option number allocated we can make sensible
->> decisions and put options on the white list or provide a more complete
->> sensible implementation of the specification in the kernel.
->
-> IANA registers internet protocol (and related) numbers. so, e.g.,
-> So, for example, IP_TOS value is not really documented in iana,
-> and it ends up being 1 on linux, 3 on freebsd.  Or, to take another example,
-> IP_PKTINFO is "8" on linux, 0x1a on solaris and 25 in netbsd.
->
-> But TOS, and the various code-points (which actually go out
-> in the packet, and are needed for proper interop in the network)
-> are documented in iana/ietf etc.
->
->> E.g. if an option for encapsulation is going to be specified, normal
->> users should not be able to set those, like with CALIPSO or some VNI
->> inside hop-by-hop options. That should probably be controlled by a
->> routing table or a flow matching subsystem, in the kernel.
->
-> sure, I completely agree with that. And I strongly suspect that's why
-> rfc3542 puts down a wildcard "may" - so that some options may be privileged,
-> others not. Which options are "privileged" (and even the definition
-> of "privileged") are entirely up to the OS implementation. (and even *how*
-> least priviliges/RBAC are implemented, can vary from OS to OS).
->
->> I think it is also in favor of the IETF to get those numbers specified
->> and allocated in a proper way, otherwise security won't be manageable at
->> all any more.
->
-> see above.. Even rfc793 actually does not talk about POSIX APIs
-> but speaks in generalities, since the focus is on what goes on the wire.
-> In theory an implementation of a tcp/ip stack does not even have
-> to use the POSIX socket api, thus how can iana/ietf manadate
-> specific socket options and numbers, or the rbac model that they
-> should use?
->
-> but that should not stop the linux kernel (or other OS) from trying
-> to figure out the granularity of the rbac for these options and documenting
-> them in some helpful way for apps.
->
-> --Sowmini
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ include/linux/netdevice.h     |  3 +--
+ include/net/6lowpan.h         | 10 ++++++++++
+ net/ieee802154/6lowpan/core.c | 12 ++++++++++++
+ 3 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c148edf..42737c4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1484,8 +1484,7 @@ enum netdev_priv_flags {
+  * 	@perm_addr:		Permanent hw address
+  * 	@addr_assign_type:	Hw address assignment type
+  * 	@addr_len:		Hardware address length
+- * 	@neigh_priv_len;	Used in neigh_alloc(),
+- * 				initialized only in atm/clip.c
++ *	@neigh_priv_len:	Used in neigh_alloc()
+  * 	@dev_id:		Used to differentiate devices that share
+  * 				the same link layer address
+  * 	@dev_port:		Used to differentiate devices that share
+diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+index da84cf9..2d9b9d3 100644
+--- a/include/net/6lowpan.h
++++ b/include/net/6lowpan.h
+@@ -141,6 +141,16 @@ struct lowpan_dev {
+ 	u8 priv[0] __aligned(sizeof(void *));
+ };
+ 
++struct lowpan_802154_neigh {
++	__le16 short_addr;
++};
++
++static inline
++struct lowpan_802154_neigh *lowpan_802154_neigh(void *neigh_priv)
++{
++	return neigh_priv;
++}
++
+ static inline
+ struct lowpan_dev *lowpan_dev(const struct net_device *dev)
+ {
+diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
+index dd085db..dcc0d59 100644
+--- a/net/ieee802154/6lowpan/core.c
++++ b/net/ieee802154/6lowpan/core.c
+@@ -92,11 +92,21 @@ static int lowpan_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int lowpan_neigh_construct(struct neighbour *n)
++{
++	struct lowpan_802154_neigh *neigh = lowpan_802154_neigh(neighbour_priv(n));
++
++	/* default no short_addr is available for a neighbour */
++	neigh->short_addr = cpu_to_le16(IEEE802154_ADDR_SHORT_UNSPEC);
++	return 0;
++}
++
+ static const struct net_device_ops lowpan_netdev_ops = {
+ 	.ndo_init		= lowpan_dev_init,
+ 	.ndo_start_xmit		= lowpan_xmit,
+ 	.ndo_open		= lowpan_open,
+ 	.ndo_stop		= lowpan_stop,
++	.ndo_neigh_construct    = lowpan_neigh_construct,
+ };
+ 
+ static void lowpan_setup(struct net_device *ldev)
+@@ -161,6 +171,8 @@ static int lowpan_newlink(struct net *src_net, struct net_device *ldev,
+ 				wdev->needed_headroom;
+ 	ldev->needed_tailroom = wdev->needed_tailroom;
+ 
++	ldev->neigh_priv_len = sizeof(struct lowpan_802154_neigh);
++
+ 	ret = lowpan_register_netdevice(ldev, LOWPAN_LLTYPE_IEEE802154);
+ 	if (ret < 0) {
+ 		dev_put(wdev);
+-- 
+2.8.2
