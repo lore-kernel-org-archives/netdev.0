@@ -1,78 +1,179 @@
 From: "Mehrtens, Hauke" <hauke.mehrtens@intel.com>
-Subject: RE: [PATCH 1/1 RFC] net/phy: Add Lantiq PHY driver
-Date: Mon, 23 May 2016 09:12:54 +0000
-Message-ID: <9231D502B07C5E4A8B32D5115C9F19991E917469@IRSMSX101.ger.corp.intel.com>
-References: <1463587403-26809-1-git-send-email-alexander.stein@systec-electronic.com>
- <5f2d9a6d-bcf1-5aa1-7c45-f8cfd723bc3a@phrozen.org>
- <CABwW5nm9itJUrfP6yNEgQPDcPojKvsPbxv6tdoJ0DFPDY9XrSw@mail.gmail.com>
- <6103030.g2sqFmaRhG@ws-stein>
+Subject: RE: [RFC] NET: PHY: adds driver for Lantiq PHY11G
+Date: Mon, 23 May 2016 09:16:15 +0000
+Message-ID: <9231D502B07C5E4A8B32D5115C9F19991E917475@IRSMSX101.ger.corp.intel.com>
+References: <1463945631-29273-1-git-send-email-hauke@hauke-m.de>
+ <20160523024217.GB20405@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: John Crispin <john@phrozen.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
+Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"alexander.stein@systec-electronic.com"
+	<alexander.stein@systec-electronic.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Alexander Stein <alexander.stein@systec-electronic.com>,
-	Mathias Kresin <openwrt@kresin.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6103030.g2sqFmaRhG@ws-stein>
+	"john@phrozen.org" <john@phrozen.org>,
+	"openwrt@kresin.me" <openwrt@kresin.me>
+To: Andrew Lunn <andrew@lunn.ch>, Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:22760 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752084AbcEWJQS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 05:16:18 -0400
+In-Reply-To: <20160523024217.GB20405@lunn.ch>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexander,
+
 
 > -----Original Message-----
-> From: Alexander Stein [mailto:alexander.stein@systec-electronic.com]
-> Sent: Thursday, May 19, 2016 12:22 PM
-> To: Mathias Kresin <openwrt@kresin.me>
-> Cc: John Crispin <john@phrozen.org>; Florian Fainelli <f.fainelli@gmail.com>;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; andrew@lunn.ch;
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Monday, May 23, 2016 4:42 AM
+> To: Hauke Mehrtens <hauke@hauke-m.de>
+> Cc: f.fainelli@gmail.com; alexander.stein@systec-electronic.com;
+> netdev@vger.kernel.org; john@phrozen.org; openwrt@kresin.me;
 > Mehrtens, Hauke <hauke.mehrtens@intel.com>
-> Subject: Re: [PATCH 1/1 RFC] net/phy: Add Lantiq PHY driver
+> Subject: Re: [RFC] NET: PHY: adds driver for Lantiq PHY11G
 > 
-> On Thursday 19 May 2016 12:03:10, Mathias Kresin wrote:
-> > 2016-05-19 9:03 GMT+02:00 John Crispin <john@phrozen.org>:
-> > > On 19/05/2016 08:57, Alexander Stein wrote:
-> > >> Thanks for the link, I wasn't aware of that patch. I like it in
-> > >> general, but there are some things I'd like to get addressed first:
-> > >> * vr9_gphy_of_reg_init() writes uncoditionally to led3h and led3l
-> > >> even on
-> > >>
-> > >>   PEf7071 which does not have this register at all
-> > >
-> > > we use this driver mainly on the 11g and 22f version. mathias
-> > > recently added the led3 handling.
-> > >
-> > > @Mathias, can you have a look at this and fix it inside the lede tree ?
+> On Sun, May 22, 2016 at 09:33:51PM +0200, Hauke Mehrtens wrote:
+> > Supports the Lantiq / Intel CHD 11G and 22E PHYs.
+> > These PHYs are also named PEF 7061, PEF 7071, PEF 7072
 > >
-> > Well, I haven't added the led3 handling, I've only changed the initial
-> > value (function) of led3.
+> > Signed-off-by: John Crispin <john@phrozen.org>
+> > Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> > ---
 > >
-> > Maybe it's cleaner to not use a default value for the led function and
-> > completely rely on the device tree bindings. But by adjusting the
-> > initial values, I had to change only the led function of one board in
-> > the openwrt xrx200 subtarget instead of touching all dts files.
+> > This is based on a driver from OpenWrt / LEDE. This is send as a RFC
+> > because the merge window is open now and it adds a new driver. This
+> > patch was cleaned up on request of Alexander.
+> >
+> >
+> >  .../devicetree/bindings/phy/phy-lanitq.txt         | 216 +++++++++++++++++
+> >  drivers/net/phy/Kconfig                            |   6 +
+> >  drivers/net/phy/Makefile                           |   1 +
+> >  drivers/net/phy/lantiq.c                           | 269 +++++++++++++++++++++
+> >  4 files changed, 492 insertions(+)
+> >  create mode 100644
+> > Documentation/devicetree/bindings/phy/phy-lanitq.txt
+> >  create mode 100644 drivers/net/phy/lantiq.c
+> >
+> > diff --git a/Documentation/devicetree/bindings/phy/phy-lanitq.txt
+> > b/Documentation/devicetree/bindings/phy/phy-lanitq.txt
+> > new file mode 100644
+> > index 0000000..d9746e8
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/phy/phy-lanitq.txt
+> > @@ -0,0 +1,216 @@
+> > +Lanitq PHY binding
+> > +============================================
+> > +
+> > +This devicetree binding controls the lantiq ethernet phys led functionality.
 > 
-> I think setting default values is good.
-
-The registers are set to some reset values after the chip is coming out of reset, but we should set  them all to the same value, Mathias said that all except for one board he knows are using only one LED per port, but they are often using different LED pins, I will change my patch.
-
-> > I know that the LTQ Datasheet for the PEF 7071 Version 1.5 mentions
-> > the led3 control register albeit there is no pin for a forth led. So I
-> > guess it's safe to write to the led3 register even for the PEF 7071.
+> Hi Hauke
 > 
-> Mh, my PEF 7071 User Manual (Version 2.0, 2012-10-17) doesn't mention
-> LED3x registers. There is LED3DA and LED3EN in PHY_LED but was removed in
-> 1.6 manual.
+> You should CC: the device tree list.
+> 
+> > +
+> > +Example:
+> > +	mdio@0 {
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +		compatible = "lantiq,xrx200-mdio";
+> > +			phy5: ethernet-phy@5 {
+> > +			reg = <0x1>;
+> > +			compatible = "lantiq,phy11g", "ethernet-phy-
+> ieee802.3-c22";
+> > +		};
+> > +		phy11: ethernet-phy@11 {
+> > +			reg = <0x11>;
+> > +			compatible = "lantiq,phy22f", "ethernet-phy-
+> ieee802.3-c22";
+> > +			lantiq,led2h = <0x00>;
+> > +			lantiq,led2l = <0x03>;
+> > +		};
+> > +		phy12: ethernet-phy@12 {
+> > +			reg = <0x12>;
+> > +			compatible = "lantiq,phy22f", "ethernet-phy-
+> ieee802.3-c22";
+> > +			lantiq,led1h = <0x00>;
+> > +			lantiq,led1l = <0x03>;
+> > +		};
+> > +		phy13: ethernet-phy@13 {
+> > +			reg = <0x13>;
+> > +			compatible = "lantiq,phy22f", "ethernet-phy-
+> ieee802.3-c22";
+> > +			lantiq,led2h = <0x00>;
+> > +			lantiq,led2l = <0x03>;
+> > +		};
+> > +		phy14: ethernet-phy@14 {
+> > +			reg = <0x14>;
+> > +			compatible = "lantiq,phy22f", "ethernet-phy-
+> ieee802.3-c22";
+> > +			lantiq,led1h = <0x00>;
+> > +			lantiq,led1l = <0x03>;
+> > +		};
+> > +	};
+> > +
+> > +Register Description
+> > +============================================
+> > +
+> > +LEDCH:
+> > +
+> > +Name	Hardware Reset Value
+> > +LEDCH	0x00C5
+> > +
+> > +| 15 |    |    |    |    |    |    |  8 |
+> > +=========================================
+> > +|		RES			|
+> > +=========================================
+> > +
+> > +|  7 |    |    |    |    |    |    |  0 |
+> > +=========================================
+> > +|   FBF   |   SBF   |RES |     NACS     |
+> > +=========================================
+> > +
+> > +Field	Bits	Type	Description
+> > +FBC	7:6	RW	Fast Blink Frequency
+> > +			---
+> > +			0x0 (00b) F02HZ 2 Hz blinking frequency
+> > +			0x1 (01b) F04HZ 4 Hz blinking frequency
+> > +			0x2 (10b) F08HZ 8 Hz blinking frequency
+> > +			0x3 (11b) F16HZ 16 Hz blinking frequency
+> > +
+> > +SBF	5:4	RW	Slow Blink Frequency
+> > +			---
+> > +			0x0 (00b) F02HZ 2 Hz blinking frequency
+> > +			0x1 (01b) F04HZ 4 Hz blinking frequency
+> > +			0x2 (10b) F08HZ 8 Hz blinking frequency
+> > +			0x3 (11b) F16HZ 16 Hz blinking frequency
+> > +
+> > +NACS	2:0	RW	Inverse of Scan Function
+> > +			---
+> > +			0x0 (000b) NONE No Function
+> > +			0x1 (001b) LINK Complex function enabled when link
+> is up
+> > +			0x2 (010b) PDOWN Complex function enabled when
+> device is powered-down
+> > +			0x3 (011b) EEE Complex function enabled when
+> device is in EEE mode
+> > +			0x4 (100b) ANEG Complex function enabled when
+> auto-negotiation is running
+> > +			0x5 (101b) ABIST Complex function enabled when
+> analog self-test is running
+> > +			0x6 (110b) CDIAG Complex function enabled when
+> cable diagnostics are running
+> > +			0x7 (111b) TEST Complex function enabled when test
+> mode is running
+> > +
+> > +LEDCL:
+> 
+> I doubt the device tree maintainers will accept this. You don't normally put
+> register values in device tree.
 
-LED3x is only available in PEF 7072 which is a different package with more pins for the LED3 and some other interfaces.
+Me too ;-)
 
-> I think, some flag if the PHY supports LED3 and depend on that is just fine.
+I will look into this: http://lists.openwall.net/netdev/2016/03/23/61 and also try to make the device tree interface more generic.
 
-I do not know how to distinguish between PEF 7071 and PEF 7072.
+Should I first send a patch without the led configuration so this led stuff is a separate topic?
 
 Hauke
