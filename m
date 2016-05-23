@@ -1,49 +1,120 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Fix non-initialized TTL when CONFIG_SYSCTL=n
-Date: Mon, 23 May 2016 14:33:18 -0700 (PDT)
-Message-ID: <20160523.143318.293951661657795088.davem@davemloft.net>
-References: <1463761270-8955-1-git-send-email-ezequiel@vanguardiasur.com.ar>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: bpf: use-after-free in array_map_alloc
+Date: Mon, 23 May 2016 17:35:01 -0400
+Message-ID: <20160523213501.GA5383@mtj.duckdns.org>
+References: <5713C0AD.3020102@oracle.com>
+ <20160417172943.GA83672@ast-mbp.thefacebook.com>
+ <5742F127.6080000@suse.cz>
+ <5742F267.3000309@suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@kyup.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: ezequiel@vanguardiasur.com.ar
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50517 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750882AbcEWVdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 17:33:20 -0400
-In-Reply-To: <1463761270-8955-1-git-send-email-ezequiel@vanguardiasur.com.ar>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Sasha Levin <sasha.levin@oracle.com>, ast@kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <cl@linux.com>,
+	Linux-MM layout <linux-mm@kvack.org>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5742F267.3000309@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
-Date: Fri, 20 May 2016 13:21:10 -0300
+Hello,
 
-> Commit fa50d974d104 ("ipv4: Namespaceify ip_default_ttl sysctl knob")
-> moves the default TTL assignment, and as side-effect IPv4 TTL now
-> has a default value only if sysctl support is enabled (CONFIG_SYSCTL=y).
-> 
-> The sysctl_ip_default_ttl is fundamental for IP to work properly,
-> as it provides the TTL to be used as default. The defautl TTL may be
-> used in ip_selected_ttl, through the following flow:
-> 
->   ip_select_ttl
->     ip4_dst_hoplimit
->       net->ipv4.sysctl_ip_default_ttl
-> 
-> This commit fixes the issue by assigning net->ipv4.sysctl_ip_default_ttl
-> in net_init_net, called during ipv4's initialization.
-> 
-> Without this commit, a kernel built without sysctl support will send
-> all IP packets with zero TTL (unless a TTL is explicitly set, e.g.
-> with setsockopt).
-> 
-> Given a similar issue might appear on the other knobs that were
-> namespaceify, this commit also moves them.
-> 
-> Fixes: fa50d974d104 ("ipv4: Namespaceify ip_default_ttl sysctl knob")
-> Signed-off-by: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
+Can you please test whether this patch resolves the issue?  While
+adding support for atomic allocations, I reduced alloc_mutex covered
+region too much.
 
-Applied and queued up for -stable, thanks.
+Thanks.
+
+diff --git a/mm/percpu.c b/mm/percpu.c
+index 0c59684..bd2df70 100644
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -162,7 +162,7 @@ static struct pcpu_chunk *pcpu_reserved_chunk;
+ static int pcpu_reserved_chunk_limit;
+ 
+ static DEFINE_SPINLOCK(pcpu_lock);	/* all internal data structures */
+-static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop */
++static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop, map extension */
+ 
+ static struct list_head *pcpu_slot __read_mostly; /* chunk list slots */
+ 
+@@ -435,6 +435,8 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk, int new_alloc)
+ 	size_t old_size = 0, new_size = new_alloc * sizeof(new[0]);
+ 	unsigned long flags;
+ 
++	lockdep_assert_held(&pcpu_alloc_mutex);
++
+ 	new = pcpu_mem_zalloc(new_size);
+ 	if (!new)
+ 		return -ENOMEM;
+@@ -895,6 +897,9 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+ 		return NULL;
+ 	}
+ 
++	if (!is_atomic)
++		mutex_lock(&pcpu_alloc_mutex);
++
+ 	spin_lock_irqsave(&pcpu_lock, flags);
+ 
+ 	/* serve reserved allocations from the reserved chunk if available */
+@@ -967,12 +972,11 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+ 	if (is_atomic)
+ 		goto fail;
+ 
+-	mutex_lock(&pcpu_alloc_mutex);
++	lockdep_assert_held(&pcpu_alloc_mutex);
+ 
+ 	if (list_empty(&pcpu_slot[pcpu_nr_slots - 1])) {
+ 		chunk = pcpu_create_chunk();
+ 		if (!chunk) {
+-			mutex_unlock(&pcpu_alloc_mutex);
+ 			err = "failed to allocate new chunk";
+ 			goto fail;
+ 		}
+@@ -983,7 +987,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+ 		spin_lock_irqsave(&pcpu_lock, flags);
+ 	}
+ 
+-	mutex_unlock(&pcpu_alloc_mutex);
+ 	goto restart;
+ 
+ area_found:
+@@ -993,8 +996,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+ 	if (!is_atomic) {
+ 		int page_start, page_end, rs, re;
+ 
+-		mutex_lock(&pcpu_alloc_mutex);
+-
+ 		page_start = PFN_DOWN(off);
+ 		page_end = PFN_UP(off + size);
+ 
+@@ -1005,7 +1006,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+ 
+ 			spin_lock_irqsave(&pcpu_lock, flags);
+ 			if (ret) {
+-				mutex_unlock(&pcpu_alloc_mutex);
+ 				pcpu_free_area(chunk, off, &occ_pages);
+ 				err = "failed to populate";
+ 				goto fail_unlock;
+@@ -1045,6 +1045,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+ 		/* see the flag handling in pcpu_blance_workfn() */
+ 		pcpu_atomic_alloc_failed = true;
+ 		pcpu_schedule_balance_work();
++	} else {
++		mutex_unlock(&pcpu_alloc_mutex);
+ 	}
+ 	return NULL;
+ }
+@@ -1137,6 +1139,8 @@ static void pcpu_balance_workfn(struct work_struct *work)
+ 	list_for_each_entry_safe(chunk, next, &to_free, list) {
+ 		int rs, re;
+ 
++		cancel_work_sync(&chunk->map_extend_work);
++
+ 		pcpu_for_each_pop_region(chunk, rs, re, 0, pcpu_unit_pages) {
+ 			pcpu_depopulate_chunk(chunk, rs, re);
+ 			spin_lock_irq(&pcpu_lock);
