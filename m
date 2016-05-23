@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v5 1/2] skb_array: array based FIFO for skbs
-Date: Mon, 23 May 2016 13:43:43 +0300
-Message-ID: <1464000201-15560-2-git-send-email-mst@redhat.com>
+Subject: [PATCH v5 2/2] skb_array: ring test
+Date: Mon, 23 May 2016 13:43:46 +0300
+Message-ID: <1464000201-15560-3-git-send-email-mst@redhat.com>
 References: <1464000201-15560-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,158 +11,221 @@ Cc: "Michael S. Tsirkin" <mst@redhat.com>,
 	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
 	brouer@redhat.com
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38878 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754142AbcEWKnr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 May 2016 06:43:47 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1464000201-15560-1-git-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A simple array based FIFO of pointers.  Intended for net stack so uses
-skbs for type safety, but we can replace with with void * if others find
-it useful outside of net stack.
+Add ringtest based unit test for skb array.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/linux/skb_array.h | 127 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 127 insertions(+)
- create mode 100644 include/linux/skb_array.h
+ tools/virtio/ringtest/skb_array.c | 167 ++++++++++++++++++++++++++++++++++++++
+ tools/virtio/ringtest/Makefile    |   4 +-
+ 2 files changed, 170 insertions(+), 1 deletion(-)
+ create mode 100644 tools/virtio/ringtest/skb_array.c
 
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+diff --git a/tools/virtio/ringtest/skb_array.c b/tools/virtio/ringtest/skb_array.c
 new file mode 100644
-index 0000000..d2535ad
+index 0000000..4ab7e31
 --- /dev/null
-+++ b/include/linux/skb_array.h
-@@ -0,0 +1,127 @@
-+/*
-+ *	Author:
-+ *		Michael S. Tsirkin <mst@redhat.com>
-+ *
-+ *	This program is free software; you can redistribute it and/or modify it
-+ *	under the terms of the GNU General Public License as published by the
-+ *	Free Software Foundation; either version 2 of the License, or (at your
-+ *	option) any later version.
-+ *
-+ *	This is a limited-size FIFO maintaining sk_buff structures in FIFO
-+ *	order, with one CPU producing entries and another consuming entries
-+ *	from a FIFO.
-+ *
-+ *	This implementation tries to minimize cache-contention when there is a
-+ *	single producer and a single consumer CPU.
-+ */
-+
-+#ifndef _LINUX_SKB_ARRAY_H
-+#define _LINUX_SKB_ARRAY_H 1
-+
-+#ifdef __KERNEL__
-+#include <linux/spinlock.h>
-+#include <linux/cache.h>
-+#include <linux/types.h>
-+#include <linux/compiler.h>
-+#include <linux/cache.h>
-+#include <linux/slab.h>
-+#include <asm/errno.h>
-+#endif
++++ b/tools/virtio/ringtest/skb_array.c
+@@ -0,0 +1,167 @@
++#define _GNU_SOURCE
++#include "main.h"
++#include <stdlib.h>
++#include <stdio.h>
++#include <string.h>
++#include <pthread.h>
++#include <malloc.h>
++#include <assert.h>
++#include <errno.h>
++#include <limits.h>
 +
 +struct sk_buff;
++#define SMP_CACHE_BYTES 64
++#define cache_line_size() SMP_CACHE_BYTES
++#define ____cacheline_aligned_in_smp __attribute__ ((aligned (SMP_CACHE_BYTES)))
++#define unlikely(x)    (__builtin_expect(!!(x), 0))
++#define ALIGN(x, a) (((x) + (a) - 1) / (a) * (a))
++typedef pthread_spinlock_t  spinlock_t;
 +
-+struct skb_array {
-+	int producer ____cacheline_aligned_in_smp;
-+	spinlock_t producer_lock;
-+	int consumer ____cacheline_aligned_in_smp;
-+	spinlock_t consumer_lock;
-+	/* Shared consumer/producer data */
-+	int size ____cacheline_aligned_in_smp; /* max entries in queue */
-+	struct sk_buff **queue;
-+};
-+
-+/* Note: callers invoking this in a loop must use a compiler barrier,
-+ * for example cpu_relax().
-+ */
-+static inline bool __skb_array_full(struct skb_array *a)
++typedef int gfp_t;
++static void *kzalloc(unsigned size, gfp_t gfp)
 +{
-+	return a->queue[a->producer];
++	void *p = memalign(64, size);
++	if (!p)
++		return p;
++	memset(p, 0, size);
++
++	return p;
 +}
 +
-+/* Note: callers invoking this in a loop must use a compiler barrier,
-+ * for example cpu_relax().
-+ */
-+static inline int __skb_array_produce(struct skb_array *a,
-+				       struct sk_buff *skb)
++static void kfree(void *p)
 +{
-+	if (__skb_array_full(a))
-+		return -ENOSPC;
-+
-+	a->queue[a->producer++] = skb;
-+	if (unlikely(a->producer >= a->size))
-+		a->producer = 0;
-+	return 0;
++	if (p)
++		free(p);
 +}
 +
-+static inline int skb_array_produce_bh(struct skb_array *a,
-+				       struct sk_buff *skb)
++static void spin_lock_init(spinlock_t *lock)
++{
++	int r = pthread_spin_init(lock, 0);
++	assert(!r);
++}
++
++static void spin_lock_bh(spinlock_t *lock)
++{
++	int ret = pthread_spin_lock(lock);
++	assert(!ret);
++}
++
++static void spin_unlock_bh(spinlock_t *lock)
++{
++	int ret = pthread_spin_unlock(lock);
++	assert(!ret);
++}
++
++#include "../../../include/linux/skb_array.h"
++
++static unsigned long long headcnt, tailcnt;
++static struct skb_array array ____cacheline_aligned_in_smp;
++
++/* implemented by ring */
++void alloc_ring(void)
++{
++	int ret = skb_array_init(&array, ring_size, 0);
++	assert(!ret);
++}
++
++/* guest side */
++int add_inbuf(unsigned len, void *buf, void *datap)
 +{
 +	int ret;
-+
-+	spin_lock_bh(&a->producer_lock);
-+	ret = __skb_array_produce(a, skb);
-+	spin_unlock_bh(&a->producer_lock);
++	
++	assert(headcnt - tailcnt <= ring_size);
++	ret = __skb_array_produce(&array, buf);
++	if (ret >= 0) {
++		ret = 0;
++		headcnt++;
++	}
 +
 +	return ret;
 +}
 +
-+/* Note: callers invoking this in a loop must use a compiler barrier,
-+ * for example cpu_relax().
++/*
++ * skb_array API provides no way for producer to find out whether a given
++ * buffer was consumed.  Our tests merely require that a successful get_buf
++ * implies that add_inbuf succeed in the past, and that add_inbuf will succeed,
++ * fake it accordingly.
 + */
-+static inline struct sk_buff *__skb_array_peek(struct skb_array *a)
++void *get_buf(unsigned *lenp, void **bufp)
 +{
-+	return a->queue[a->consumer];
++	void *datap;
++
++	if (tailcnt == headcnt || __skb_array_full(&array))
++		datap = NULL;
++	else {
++		datap = "Buffer\n";
++		++tailcnt;
++	}
++
++	return datap;
 +}
 +
-+/* Must only be called after __skb_array_peek returned !NULL */
-+static inline void __skb_array_consume(struct skb_array *a)
++void poll_used(void)
 +{
-+	a->queue[a->consumer++] = NULL;
-+	if (unlikely(a->consumer >= a->size))
-+		a->consumer = 0;
++	void *b;
++
++	do {
++		if (tailcnt == headcnt || __skb_array_full(&array)) {
++			b = NULL;
++			barrier();
++		} else {
++			b = "Buffer\n";
++		}
++	} while (!b);
 +}
 +
-+static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
++void disable_call()
++{
++	assert(0);
++}
++
++bool enable_call()
++{
++	assert(0);
++}
++
++void kick_available(void)
++{
++	assert(0);
++}
++
++/* host side */
++void disable_kick()
++{
++	assert(0);
++}
++
++bool enable_kick()
++{
++	assert(0);
++}
++
++void poll_avail(void)
++{
++	void *b;
++
++	do {
++		b = __skb_array_peek(&array);
++		barrier();
++	} while (!b);
++}
++
++bool use_buf(unsigned *lenp, void **bufp)
 +{
 +	struct sk_buff *skb;
 +
-+	spin_lock_bh(&a->consumer_lock);
-+	skb = __skb_array_peek(a);
-+	if (skb)
-+		__skb_array_consume(a);
-+	spin_unlock_bh(&a->consumer_lock);
++	skb = __skb_array_peek(&array);
++	if (skb) {
++		__skb_array_consume(&array);
++	}
 +
 +	return skb;
 +}
 +
-+static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
++void call_used(void)
 +{
-+	a->queue = kzalloc(ALIGN(size * sizeof *(a->queue), SMP_CACHE_BYTES),
-+			   gfp);
-+	if (!a->queue)
-+		return -ENOMEM;
-+
-+	a->size = size;
-+	a->producer = a->consumer = 0;
-+	spin_lock_init(&a->producer_lock);
-+	spin_lock_init(&a->consumer_lock);
-+
-+	return 0;
++	assert(0);
 +}
-+
-+static inline void skb_array_cleanup(struct skb_array *a)
-+{
-+	kfree(a->queue);
-+}
-+
-+#endif /* _LINUX_SKB_ARRAY_H  */
+diff --git a/tools/virtio/ringtest/Makefile b/tools/virtio/ringtest/Makefile
+index 6ba7455..87e58cf 100644
+--- a/tools/virtio/ringtest/Makefile
++++ b/tools/virtio/ringtest/Makefile
+@@ -1,6 +1,6 @@
+ all:
+ 
+-all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder
++all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder skb_array
+ 
+ CFLAGS += -Wall
+ CFLAGS += -pthread -O2 -ggdb
+@@ -8,6 +8,7 @@ LDFLAGS += -pthread -O2 -ggdb
+ 
+ main.o: main.c main.h
+ ring.o: ring.c main.h
++skb_array.o: skb_array.c main.h ../../../include/linux/skb_array.h
+ virtio_ring_0_9.o: virtio_ring_0_9.c main.h
+ virtio_ring_poll.o: virtio_ring_poll.c virtio_ring_0_9.c main.h
+ virtio_ring_inorder.o: virtio_ring_inorder.c virtio_ring_0_9.c main.h
+@@ -15,6 +16,7 @@ ring: ring.o main.o
+ virtio_ring_0_9: virtio_ring_0_9.o main.o
+ virtio_ring_poll: virtio_ring_poll.o main.o
+ virtio_ring_inorder: virtio_ring_inorder.o main.o
++skb_array: skb_array.o main.o
+ clean:
+ 	-rm main.o
+ 	-rm ring.o ring
 -- 
 MST
