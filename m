@@ -1,54 +1,42 @@
-From: Mathias Kresin <openwrt@kresin.me>
-Subject: Re: [PATCH 1/1 RFC] net/phy: Add Lantiq PHY driver
-Date: Mon, 23 May 2016 12:07:31 +0200
-Message-ID: <CABwW5n=M3HNxT=5556fRfx4_yup3FwbaLBY5AkDOoa0EPSyK_A@mail.gmail.com>
-References: <1463587403-26809-1-git-send-email-alexander.stein@systec-electronic.com>
-	<6103030.g2sqFmaRhG@ws-stein>
-	<9231D502B07C5E4A8B32D5115C9F19991E917469@IRSMSX101.ger.corp.intel.com>
-	<8983627.qbi7VGpM7G@ws-stein>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] qed: signedness bug in qed_dcbx_process_tlv()
+Date: Mon, 23 May 2016 13:19:35 +0300
+Message-ID: <20160523101935.GA10712@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Mehrtens, Hauke" <hauke.mehrtens@intel.com>,
-	John Crispin <john@phrozen.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Alexander Stein <alexander.stein@systec-electronic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>, everest-linux-l2@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:35107 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963AbcEWKHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 06:07:33 -0400
-Received: by mail-io0-f173.google.com with SMTP id p64so98951931ioi.2
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 03:07:32 -0700 (PDT)
-Received: from mail-io0-f182.google.com (mail-io0-f182.google.com. [209.85.223.182])
-        by smtp.gmail.com with ESMTPSA id l123sm3146022ita.1.2016.05.23.03.07.31
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 23 May 2016 03:07:31 -0700 (PDT)
-Received: by mail-io0-f182.google.com with SMTP id 190so190382615iow.1
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 03:07:31 -0700 (PDT)
-In-Reply-To: <8983627.qbi7VGpM7G@ws-stein>
+Received: from aserp1040.oracle.com ([141.146.126.69]:21638 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752329AbcEWKTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 06:19:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-05-23 11:49 GMT+02:00 Alexander Stein
-<alexander.stein@systec-electronic.com>:
+"priority" needs to be signed for the error handling to work.
 
->> The registers are set to some reset values after the chip is coming out of
->> reset, but we should set  them all to the same value, Mathias said that all
->> except for one board he knows are using only one LED per port, but they are
->> often using different LED pins, I will change my patch.
->
-> One LED per port? I would think of using one RJ45 socket per port which
-> usually have 2 LEDs.
+Fixes: 39651abd2814 ('qed: add support for dcbx.')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Applies to the main net tree.
 
-The majority of the CPEs I'm talking about, do not have any leds at
-the back side RJ45 socket. They are using a single led at the front
-for status indication.
-
-I'm only aware of one CPE that has two LEDs at the RJ45 socket.
-
-Mathias
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+index cbf58e1..a06d19a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
+@@ -192,9 +192,10 @@ qed_dcbx_process_tlv(struct qed_hwfn *p_hwfn,
+ 		     struct dcbx_app_priority_entry *p_tbl,
+ 		     u32 pri_tc_tbl, int count, bool dcbx_enabled)
+ {
+-	u8 tc, priority, priority_map;
++	u8 tc, priority_map;
+ 	enum dcbx_protocol_type type;
+ 	u16 protocol_id;
++	int priority;
+ 	bool enable;
+ 	int i;
+ 
