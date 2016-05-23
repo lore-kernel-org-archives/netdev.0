@@ -1,54 +1,63 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: pktgen issue with "Observe needed_headroom of the device"
-Date: Mon, 23 May 2016 12:44:56 -0700
-Message-ID: <57435DB8.6090807@candelatech.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v5 0/2] skb_array: array based FIFO for skbs
+Date: Mon, 23 May 2016 23:35:04 +0300
+Message-ID: <20160523232743-mutt-send-email-mst@redhat.com>
+References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+ <1464010306.5939.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, bogdan.hamciuc@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:53689 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753796AbcEWTo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 15:44:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464010306.5939.13.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Regarding this commit:
+On Mon, May 23, 2016 at 06:31:46AM -0700, Eric Dumazet wrote:
+> On Mon, 2016-05-23 at 13:43 +0300, Michael S. Tsirkin wrote:
+> > This is in response to the proposal by Jason to make tun
+> > rx packet queue lockless using a circular buffer.
+> > My testing seems to show that at least for the common usecase
+> > in networking, which isn't lockless, circular buffer
+> > with indices does not perform that well, because
+> > each index access causes a cache line to bounce between
+> > CPUs, and index access causes stalls due to the dependency.
+> > 
+> > By comparison, an array of pointers where NULL means invalid
+> > and !NULL means valid, can be updated without messing up barriers
+> > at all and does not have this issue.
+> 
+> Note that both consumers and producers write in the array, so in light
+> load (like TCP_RR), there are 2 cache line used byt the producers, and 2
+> cache line used for consumers, with potential bouncing.
 
-879c7220e828af8bd82ea9d774c7e45c46b976e4
+The shared part is RO by producer and consumer both,
+so it's not bouncing - it can be shared in both caches.
 
-net: pktgen: Observe needed_headroom of the device
+Clearly memory footprint for this data structure is bigger
+so it might cause more misses.
 
-     Allocate enough space so as not to force the outgoing net device to do
-     skb_realloc_headroom().
+> In the other hand, the traditional sk_buff_head has one cache line,
+> holding the spinlock and list head/tail.
+>
+> We might use the 'shared cache line' :
+> 
+> +       /* Shared consumer/producer data */
+> +       int size ____cacheline_aligned_in_smp; /* max entries in queue
+> */
+> +       struct sk_buff **queue;
+> 
+> 
+> To put here some fast path involving a single cache line access when
+> queue has 0 or 1 item.
+> 
 
-     Signed-off-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
-     Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-I think it may be incorrect.  It seems that pkt_overhead is meant to be
-the data-portion of the skb, not lower-level padding?
-
-For instance:
-
-	int pkt_overhead;	/* overhead for MPLS, VLANs, IPSEC etc */
-...
-
-	/* Eth + IPh + UDPh + mpls */
-	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
-		  pkt_dev->pkt_overhead;
-
-So, maybe we need to add that LL_RESERVED_SPACE to the size when allocating
-the skb in pktgen_alloc_skb and leave it out of pkt_overhead?
-
-And for that matter, what is that '+ 64 +' for in the size calculation?
-Looks a lot like some fudge factor from long ago?
-
-Thanks,
-Ben
-
+I will try to experiment with it, but pls note that
+this cache line is RO by producer and consumer currently,
+if we make it writeable it will be bouncing.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+MST
