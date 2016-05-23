@@ -1,33 +1,36 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 0/2 (linux-stable-4.5.y)] net: stmmac: MDIO fixes
-Date: Mon, 23 May 2016 08:36:19 -0700
-Message-ID: <20160523153619.GA30179@kroah.com>
-References: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, robin.murphy@arm.com, marc.zyngier@arm.com,
-	afaerber@suse.de, bert@a20.net, linux-sunxi@googlegroups.com,
-	maxime.ripard@free-electrons.com
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
-Sender: stable-owner@vger.kernel.org
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net-next 0/5] hv_netvsc: cleanup after untangling the pointer mess
+Date: Mon, 23 May 2016 17:50:33 +0200
+Message-ID: <1464018638-22000-1-git-send-email-vkuznets@redhat.com>
+Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"K. Y. Srinivasan" <kys@microsoft.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 23, 2016 at 03:17:41PM +0200, Giuseppe Cavallaro wrote:
-> These patches port some recent fixes for linux-4.5.y stable branch.
-> They fix the MDIO settings trying to cover the all possible scenario
-> when the stmmac is connected to a real transceiver or a switch.
-> 
-> These patches are needed for Kernel 4.5 where Lime2, BananaPi and Cubieboard2
-> show problems when use the stmmac:
-> 
-> https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=823493
+After we made traveling through our internal structures explicit it became
+obvious that some functions take arguments they don't need just to do
+redundant pointer travel and get to what they really need while their
+callers already have the required information.
 
-What are the git commit id for these patches in Linus's tree?
+This is just a cleanup series with no functional changes intended. It
+doesn't pretend to be complete, additional cleanup of other functions may
+follow.
 
-thanks,
+Vitaly Kuznetsov (5):
+  hv_netvsc: remove redundant assignment in netvsc_recv_callback()
+  hv_netvsc: introduce {net,hv}_device_to_netvsc_device() helpers
+  hv_netvsc: pass struct netvsc_device to rndis_filter_{open,close}()
+  hv_netvsc: pass struct net_device to rndis_filter_set_device_mac()
+  hv_netvsc: pass struct net_device to rndis_filter_set_offload_params()
 
-greg k-h
+ drivers/net/hyperv/hyperv_net.h   | 19 +++++++++++++++---
+ drivers/net/hyperv/netvsc.c       | 11 +++-------
+ drivers/net/hyperv/netvsc_drv.c   | 18 ++++++-----------
+ drivers/net/hyperv/rndis_filter.c | 42 ++++++++++++---------------------------
+ 4 files changed, 38 insertions(+), 52 deletions(-)
+
+-- 
+2.5.5
