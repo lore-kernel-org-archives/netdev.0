@@ -1,26 +1,27 @@
-From: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: [PATCH 2/2 (linux-stable-4.5.y)] stmmac: fix MDIO settings
-Date: Mon, 23 May 2016 15:17:43 +0200
-Message-ID: <1464009463-23654-3-git-send-email-peppe.cavallaro@st.com>
-References: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
+ stmmac-0:ffffffff not found (regression from rc7)
+Date: Mon, 23 May 2016 15:28:04 +0200
+Message-ID: <57430564.9050305@st.com>
+References: <56E9413D.9010902@a20.net>	<56E945FF.6080005@arm.com>	<56E94CF4.2060607@arm.com>	<56E95B57.1090100@suse.de>	<56E9776F.3070102@a20.net>	<56E99B0C.2070609@arm.com>	<56E9F2B8.1030605@a20.net>	<20160317075202.16b14ed6@arm.com>	<CAHsu+b-t_r93XKLJTUcin6xjhOrFVn3_60vwHkbRt3iHK28CbA@mail.gmail.com>	<573EC33D.2010209@arm.com>	<573EC77A.2000800@st.com>	<CAHsu+b9BrqBLdCpsPpetc_4_EaFVGBdDHtoeeCqqzsCG3Wpsig@mail.gmail.com>	<573EE8B4.1050701@arm.com>	<574082F9.7010702@a20.net> <20160522103056.2fa86293@arm.com>
 Reply-To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: quoted-printable
-Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <robin.murphy-5wv7dgnIgG8@public.gmane.org>, <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, <afaerber-l3A5Bk7waGM@public.gmane.org>,
-        <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, <bert-phGP8mJ4Mqk@public.gmane.org>,
-        <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Gabriel Fernandez
-	<gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S
- . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
-To: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-sunxi+bncBDB4X24GTMHRBYUJRS5AKGQEX3WLTFI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Cc: Andre Heider <a.heider-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Alexandre Torgue
+	<alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>,
+        =?UTF-8?B?QW5kcmVhcyBGw6RyYmVy?=
+	<afaerber-l3A5Bk7waGM@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>
+Return-path: <linux-sunxi+bncBDB4X24GTMHRB24KRS5AKGQEBNSOSJA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <1464009463-23654-1-git-send-email-peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+In-Reply-To: <20160522103056.2fa86293-5wv7dgnIgG8@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -29,221 +30,172 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Initially the phy_bus_name was added to manipulate the
-driver name but it was recently just used to manage the
-fixed-link and then to take some decision at run-time.
-So the patch uses the is_pseudo_fixed_link and removes
-the phy_bus_name variable not necessary anymore.
+Hello
 
-The driver can manage the mdio registration by using phy-handle,
-dwmac-mdio and own parameter e.g. snps,phy-addr.
-This patch takes care about all these possible configurations
-and fixes the mdio registration in case of there is a real
-transceiver or a switch (that needs to be managed by using
-fixed-link).
+On 5/22/2016 11:30 AM, Marc Zyngier wrote:
+> On Sat, 21 May 2016 17:47:05 +0200
+> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+>
+>> Hi,
+>>
+>> On 2016-05-20 12:36, Marc Zyngier wrote:
+>>> On 20/05/16 11:30, Andre Heider wrote:
+>>>> Hi,
+>>>>
+>>>> On Fri, May 20, 2016 at 10:14 AM, Giuseppe CAVALLARO
+>>>> <peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
+>>>>> On 5/20/2016 9:56 AM, Marc Zyngier wrote:
+>>>>>>
+>>>>>> On 20/05/16 06:44, Andre Heider wrote:
+>>>>>>>
+>>>>>>> Giuseppe, Alexandre, et al.,
+>>>>>>>
+>>>>>>> On Thu, Mar 17, 2016 at 8:52 AM, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org=
+>
+>>>>>>> wrote:
+>>>>>>>>
+>>>>>>>> On Thu, 17 Mar 2016 00:56:40 +0100
+>>>>>>>> Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org> wrote:
+>>>>>>>>>
+>>>>>>>>> On 2016-03-16 18:42, Marc Zyngier wrote:
+>>>>>>>>>>
+>>>>>>>>>> On 16/03/16 15:10, Bert Lindner wrote:
+>>>>>>>>>>>
+>>>>>>>>>>> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
+>>>>>>>>>>>>
+>>>>>>>>>>>> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
+>>>>>>>>>>>>>
+>>>>>>>>>>>>> On 16/03/16 11:39, Marc Zyngier wrote:
+>>>>>>>>>>>>>>
+>>>>>>>>>>>>>> On 16/03/16 11:19, Bert Lindner wrote:
+>>>>>>>
+>>>>>>> ...
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be =
+a
+>>>>>>>>>>>>>>> problem
+>>>>>>>>>>>>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed s=
+ince
+>>>>>>>>>>>>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reporte=
+d:
+>>>>>>>
+>>>>>>> ...
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> [    9.767125] NET: Registered protocol family 10
+>>>>>>>>>>>>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
+>>>>>>>>>>>>>>> [   10.362382] eth0: Could not attach to PHY
+>>>>>>>>>>>>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -1=
+9)
+>>>>>>>
+>>>>>>> ...
+>>>>>>>>>>>>
+>>>>>>>>>>>> v4 fixes for 4.5 are here:
+>>>>>>>>>>>>
+>>>>>>>>>>>> https://patchwork.ozlabs.org/patch/598195/ (revert)
+>>>>>>>>>>>> https://patchwork.ozlabs.org/patch/598196/
+>>>>>>>
+>>>>>>> ...
+>>>>>>>>>>
+>>>>>>>>>> Good to know, thanks. Could you also give the potential fix a go=
+ (as
+>>>>>>>>>> mentioned by Andreas)? Just to make sure that whatever gets merg=
+ed
+>>>>>>>>>> next
+>>>>>>>>>> will actually fix the issue.
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> Yes sure, it took a while because I had to travel. Confirmed, the
+>>>>>>>>> v4-for-4.5 fix works well for me, on sun7i-a20-olinuxino-lime2:
+>>>>>>>>>
+>>>>>>>>> root@lime2-079f:~# cat /proc/version
+>>>>>>>>> Linux version 4.5.0-598195-598196-v4 (root@lime2-079f) (gcc versi=
+on
+>>>>>>>>> 4.9.1 (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Wed Mar 16 16:44:2=
+2 UTC
+>>>>>>>>> 2016
+>>>>>>>>>
+>>>>>>>>> dmesg:
+>>>>>>>>> [    8.245273] NET: Registered protocol family 10
+>>>>>>>>> [    9.297406]  RX IPC Checksum Offload disabled
+>>>>>>>>> [    9.297460]  No MAC Management Counters available
+>>>>>>>>> [    9.297951] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>>>>>>> [   16.285658] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+>>>>>>>>> 1Gbps/Full - flow control rx/tx
+>>>>>>>>> [   16.285798] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes =
+ready
+>>>>>>>>>
+>>>>>>>>> The board is connected to my laptop rather than to a switch, so t=
+hat
+>>>>>>>>> might be where the flow control message comes from (not sure). An=
+yway
+>>>>>>>>> ethernet works.
+>>>>>>>>
+>>>>>>>>
+>>>>>>>> Cool, many thanks for taking the time to test and report.
+>>>>>>>>
+>>>>>>>> Hopefully Giuseppe will get this merged quickly enough in mainline=
+, and
+>>>>>>>> it should then trickle into a 4.5-stable release (cc-ing stable on
+>>>>>>>> these patches would probably be a good idea, BTW).
+>>>>>>>
+>>>>>>>
+>>>>>>> stmmac is broken on at least Lime2, BananaPi and Cubieboard2 since
+>>>>>>> v4.5 [0], including all five stable releases :(
+>>>>>>
+>>>>>>
+>>>>>> All the A20 platforms are dead, actually.
+>>>>>>
+>>>>>>> The v4.5 patches quoted above are already +4 weeks old, could we
+>>>>>>> please get them into stable?
+>>>>>>
+>>>>>>
+>>>>>> For that, the maintainer would have needed to CC stable, which he
+>>>>>> didn't. I'd expect someone who cares to send these patches to stable=
+.
+>>>>>> It'd be better if the maintainer would do it himself though.
+>>>>>
+>>>>>
+>>>>> sure, I can send the patches to stable (sorry if I missed to add
+>>>>> stable ML on CC).
+>>>>>
+>>>>> Andre, I have not clear if the train of patches actually fix the
+>>>>> issue or if you need my support to fix something else. In that case
+>>>>> I need some input for debugging (e.g. kernel log).
+>>>>
+>>>> Bert already confirmed that those two patches fixes stmmac on his
+>>>> Lime2, so I assume that it fixes the issue for all A20 platforms.
+>>>>
+>>>>> let me know, is it enough to re-send the patches only?
+>>>>
+>>>> Just a resend with cc:stable :)
+>>>
+>>> Not quite. Please read Documentation/stable_kernel_rules.txt, and the
+>>> section that concerns networking patches (and then consult
+>>> Documentation/networking/netdev-FAQ.txt which has all the details).
+>>
+>> FWIW, recent 4.6-rc series and 4.6.0 have worked fine for me and the
+>> lime2. Had not tried 4.5.x again.
+>
+> We've already established this. This is a 4.5-specific regression (both
+> 4.4 and 4.6 are fine). One major issue is that Debian Stretch is
+> currently shipping with 4.5, and upgrading to it results in a system
+> without networking. Should this patch make it into stable, the fix would
+> quickly percolate into distro kernels, and we could forget about it.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Reviewed-by: Andreas F=C3=A4rber <afaerber-l3A5Bk7waGM@public.gmane.org>
-Tested-by: Frank Sch=C3=A4fer <fschaefer.oss-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Cc: Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Cc: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 11 +--
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 19 +----
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 84 +++++++++++++++++-=
-----
- 3 files changed, 70 insertions(+), 44 deletions(-)
+I have just ported and sent the patches to stable list.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
-t/ethernet/stmicro/stmmac/stmmac_main.c
-index c21015b..389d7d0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -271,7 +271,6 @@ static void stmmac_eee_ctrl_timer(unsigned long arg)
-  */
- bool stmmac_eee_init(struct stmmac_priv *priv)
- {
--	char *phy_bus_name =3D priv->plat->phy_bus_name;
- 	unsigned long flags;
- 	bool ret =3D false;
-=20
-@@ -283,7 +282,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 		goto out;
-=20
- 	/* Never init EEE in case of a switch is attached */
--	if (phy_bus_name && (!strcmp(phy_bus_name, "fixed")))
-+	if (priv->phydev->is_pseudo_fixed_link)
- 		goto out;
-=20
- 	/* MAC core supports the EEE feature. */
-@@ -820,12 +819,8 @@ static int stmmac_init_phy(struct net_device *dev)
- 		phydev =3D of_phy_connect(dev, priv->plat->phy_node,
- 					&stmmac_adjust_link, 0, interface);
- 	} else {
--		if (priv->plat->phy_bus_name)
--			snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
--				 priv->plat->phy_bus_name, priv->plat->bus_id);
--		else
--			snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
--				 priv->plat->bus_id);
-+		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-+			 priv->plat->bus_id);
-=20
- 		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 			 priv->plat->phy_addr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/ne=
-t/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 0faf163..3f5512f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -198,29 +198,12 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct mii_bus *new_bus;
- 	struct stmmac_priv *priv =3D netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data =3D priv->plat->mdio_bus_data;
-+	struct device_node *mdio_node =3D priv->plat->mdio_node;
- 	int addr, found;
--	struct device_node *mdio_node =3D NULL;
--	struct device_node *child_node =3D NULL;
-=20
- 	if (!mdio_bus_data)
- 		return 0;
-=20
--	if (IS_ENABLED(CONFIG_OF)) {
--		for_each_child_of_node(priv->device->of_node, child_node) {
--			if (of_device_is_compatible(child_node,
--						    "snps,dwmac-mdio")) {
--				mdio_node =3D child_node;
--				break;
--			}
--		}
--
--		if (mdio_node) {
--			netdev_dbg(ndev, "FOUND MDIO subnode\n");
--		} else {
--			netdev_warn(ndev, "No MDIO subnode found\n");
--		}
--	}
--
- 	new_bus =3D mdiobus_alloc();
- 	if (new_bus =3D=3D NULL)
- 		return -ENOMEM;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/driver=
-s/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6a52fa1..190fb6d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -96,6 +96,69 @@ static int dwmac1000_validate_ucast_entries(int ucast_en=
-tries)
- }
-=20
- /**
-+ * stmmac_dt_phy - parse device-tree driver parameters to allocate PHY res=
-ources
-+ * @plat: driver data platform structure
-+ * @np: device tree node
-+ * @dev: device pointer
-+ * Description:
-+ * The mdio bus will be allocated in case of a phy transceiver is on board=
-;
-+ * it will be NULL if the fixed-link is configured.
-+ * If there is the "snps,dwmac-mdio" sub-node the mdio will be allocated
-+ * in any case (for DSA, mdio must be registered even if fixed-link).
-+ * The table below sums the supported configurations:
-+ *	-------------------------------
-+ *	snps,phy-addr	|     Y
-+ *	-------------------------------
-+ *	phy-handle	|     Y
-+ *	-------------------------------
-+ *	fixed-link	|     N
-+ *	-------------------------------
-+ *	snps,dwmac-mdio	|
-+ *	  even if	|     Y
-+ *	fixed-link	|
-+ *	-------------------------------
-+ *
-+ * It returns 0 in case of success otherwise -ENODEV.
-+ */
-+static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
-+			 struct device_node *np, struct device *dev)
-+{
-+	bool mdio =3D true;
-+
-+	/* If phy-handle property is passed from DT, use it as the PHY */
-+	plat->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
-+	if (plat->phy_node)
-+		dev_dbg(dev, "Found phy-handle subnode\n");
-+
-+	/* If phy-handle is not specified, check if we have a fixed-phy */
-+	if (!plat->phy_node && of_phy_is_fixed_link(np)) {
-+		if ((of_phy_register_fixed_link(np) < 0))
-+			return -ENODEV;
-+
-+		dev_dbg(dev, "Found fixed-link subnode\n");
-+		plat->phy_node =3D of_node_get(np);
-+		mdio =3D false;
-+	}
-+
-+	/* If snps,dwmac-mdio is passed from DT, always register the MDIO */
-+	for_each_child_of_node(np, plat->mdio_node) {
-+		if (of_device_is_compatible(plat->mdio_node, "snps,dwmac-mdio"))
-+			break;
-+	}
-+
-+	if (plat->mdio_node) {
-+		dev_dbg(dev, "Found MDIO subnode\n");
-+		mdio =3D true;
-+	}
-+
-+	if (mdio)
-+		plat->mdio_bus_data =3D
-+			devm_kzalloc(dev, sizeof(struct stmmac_mdio_bus_data),
-+				     GFP_KERNEL);
-+	return 0;
-+}
-+
-+/**
-  * stmmac_probe_config_dt - parse device-tree driver parameters
-  * @pdev: platform_device structure
-  * @plat: driver data platform structure
-@@ -129,30 +192,15 @@ stmmac_probe_config_dt(struct platform_device *pdev, =
-const char **mac)
- 	/* Default to phy auto-detection */
- 	plat->phy_addr =3D -1;
-=20
--	/* If we find a phy-handle property, use it as the PHY */
--	plat->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
--
--	/* If phy-handle is not specified, check if we have a fixed-phy */
--	if (!plat->phy_node && of_phy_is_fixed_link(np)) {
--		if ((of_phy_register_fixed_link(np) < 0))
--			return ERR_PTR(-ENODEV);
--
--		plat->phy_node =3D of_node_get(np);
--	}
--
- 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
- 	 * and warn of its use. Remove this when phy node support is added.
- 	 */
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=3D 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
-=20
--	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_name)
--		plat->mdio_bus_data =3D NULL;
--	else
--		plat->mdio_bus_data =3D
--			devm_kzalloc(&pdev->dev,
--				     sizeof(struct stmmac_mdio_bus_data),
--				     GFP_KERNEL);
-+	/* To Configure PHY by using all device-tree supported properties */
-+	if (stmmac_dt_phy(plat, np, &pdev->dev))
-+		return ERR_PTR(-ENODEV);
-=20
- 	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
-=20
---=20
-2.7.4
+   [PATCH 0/2 (linux-stable-4.5.y)] net: stmmac: MDIO fixes
+
+Please, let me know if it is ok for you.
+
+Peppe
+
+
+
+> Thanks,
+>
+> 	M.
+>
 
 --=20
 You received this message because you are subscribed to the Google Groups "=
