@@ -1,87 +1,126 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [ethtool 0/3][pull request] Intel Wired LAN Driver Updates
- 2016-05-03
-Date: Tue, 24 May 2016 16:47:11 -0700
-Message-ID: <1464133631.2631.35.camel@intel.com>
-References: <1462380293-4132-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Wed, 25 May 2016 01:56:20 +0200
+Message-ID: <5744EA24.7060806@gmx.de>
+References: <20160517.142456.2247845107325931733.davem@davemloft.net>
+ <20160518000153.GA21757@electric-eye.fr.zoreil.com> <573CD09D.1060307@gmx.de>
+ <20160518225529.GA18671@electric-eye.fr.zoreil.com> <573E2D0C.604@gmx.de>
+ <20160520003145.GA22420@electric-eye.fr.zoreil.com>
+ <20160521160910.GA14945@debian-dorm> <5740E82F.8040903@gmx.de>
+ <20160522091742.GA8681@debian-dorm> <57419853.9050701@gmx.de>
+ <20160522223659.GB5086@electric-eye.fr.zoreil.com> <5743A9DD.8010202@gmx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o0AX7mYwP7+oVVmFWRre"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: davem@davemloft.net, Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:36028 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752580AbcEXXsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2016 19:48:16 -0400
-In-Reply-To: <1462380293-4132-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-o0AX7mYwP7+oVVmFWRre
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2016-05-04 at 09:44 -0700, Jeff Kirsher wrote:
-> This series contains updates to ixgbe in ethtool.
->=20
-> Preethi adds missing device IDs and mac_type definitions, also updated
-> the display registers for x550, x550em_x/a.=C2=A0=C2=A0Cleaned up the for=
-mat string
-> storage by taking advantage of "for" loops.
->=20
-> The following are changes since commit
-> deb1c6613ec14fd828d321e38c7bea45fe559bd5:
-> =C2=A0 Release version 4.5.
-> and are available in the git repository at:
-> =C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/ethtool mas=
-ter
->=20
-> Preethi Banala (3):
-> =C2=A0 ethtool/ixgbe: Add device ID and mac_type definitions
-> =C2=A0 ethtool/ixgbe: Correct offsets and support x550, x550em_x, x550em_=
-a
-> =C2=A0 ethtool/ixgbe: Reduce format string storage
->=20
-> =C2=A0ixgbe.c | 173 +++++++++++++++++++++++++++++++++++------------------=
------
-> ------
-> =C2=A01 file changed, 95 insertions(+), 78 deletions(-)
->=20
-
-Is Ben still maintaining ethtool? =C2=A0I ask because I have this series wh=
-ich I
-sent out earlier this month, with no word and I know there is at least one
-other ethtool patch series that has had no response or committal from who
-ever is maintaining ethtool.
-
-I know we discussed last netconf that we should look at possibly a new tool
-to address the shortcomings of ethtool, but I was not aware we had
-abandoned maintaining the current ethtool already before any replacement
-tool has been developed.
---=-o0AX7mYwP7+oVVmFWRre
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: Shuyu Wei <wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, al.kochet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5743A9DD.8010202-Mmb7MZpHnFY@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Francois, Shuyu,
 
-iQIcBAABCgAGBQJXROf/AAoJEOVv75VaS+3O6MkQAKebikkeSpfjapDe9MeYvlGt
-BzYU/SoMzI1cPjVRdtfK7iz1zOBxvtsqQ28/CMFNB1If+7wosJEtWGRWh2WZYgQd
-pLuyoYn8u/HmDv/u+l53I+fmmOk9HybyCFTmF9ezwMVrKhf1uv58CrSOqaW0SkM3
-JPnwymbRaNyLhzBOVYqWR+E3Odg5SKE/QelQO8faKQUiZO0tDauk2kR7UbOmlVcS
-7AWj+fxhALryWaannleBsdJB0Sfk/WoCfBfU/Wp57T+q4CjWW437xO38vpcMNmo9
-raHXyPfBSJDxShcYfh5iH55iN47DMegKBdoS3XtQPUAOtd3FLqr9muEMNoWPdz5U
-ZsBjIVjHI37ZFt5JGukasoDDu3/HamYTSpze1U+2Mdh8/ggpGGzZ/uT9D84jxAEp
-NmQt7uUlS9ET/3C9ATKEqCG97w1AigtneCfSvUPTQxScyBjDLc/0s2eC9YK/WAfH
-23ZazpFI84ia01bB9ZzV//qkictida9cIcyVum+JdQu36XpCKSLiGxM2Xy7jsVQK
-iTlpHVT7vVGhgpwFlUKFFRcLhqY8AMpdWIDbC9tXjF3l16o1t2vNAWXbLrfnekpr
-J1KGDsN9Tijg+/zFz1SnKS/oXgbjnpxus1OufXTzTVxTVr+SLRY6Sx4601OhlefY
-6oZhoxsvBZln19duA28u
-=Zz0q
------END PGP SIGNATURE-----
+this is the patch with the discussed changes.
 
---=-o0AX7mYwP7+oVVmFWRre--
+Shuyu it would be great if you could test this one. If it passes
+and there are no further objections I will resend it as a regular patch
+(including commit message, etc.) to the mailing list.
+
+
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index a3a9392..ec656b3 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -153,18 +153,29 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+ {
+ 	struct arc_emac_priv *priv = netdev_priv(ndev);
+ 	struct net_device_stats *stats = &ndev->stats;
++	unsigned int curr = priv->txbd_curr;
+ 	unsigned int i;
+ 
++	/* Make sure buffers and txbd_curr are consistent */
++	smp_rmb();
++
+ 	for (i = 0; i < TX_BD_NUM; i++) {
+ 		unsigned int *txbd_dirty = &priv->txbd_dirty;
+ 		struct arc_emac_bd *txbd = &priv->txbd[*txbd_dirty];
+ 		struct buffer_state *tx_buff = &priv->tx_buff[*txbd_dirty];
+-		struct sk_buff *skb = tx_buff->skb;
+-		unsigned int info = le32_to_cpu(txbd->info);
++		unsigned int info;
++		struct sk_buff *skb;
+ 
+-		if ((info & FOR_EMAC) || !txbd->data || !skb)
++		if (*txbd_dirty == curr)
+ 			break;
+ 
++		info = le32_to_cpu(txbd->info);
++
++		if (info & FOR_EMAC)
++			break;
++
++		skb = tx_buff->skb;
++
+ 		if (unlikely(info & (DROP | DEFR | LTCL | UFLO))) {
+ 			stats->tx_errors++;
+ 			stats->tx_dropped++;
+@@ -195,8 +206,8 @@ static void arc_emac_tx_clean(struct net_device *ndev)
+ 		*txbd_dirty = (*txbd_dirty + 1) % TX_BD_NUM;
+ 	}
+ 
+-	/* Ensure that txbd_dirty is visible to tx() before checking
+-	 * for queue stopped.
++	/* Ensure that txbd_dirty is visible to tx() and we see the most recent
++	 * value for txbd_curr.
+ 	 */
+ 	smp_mb();
+ 
+@@ -680,27 +691,24 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+ 	dma_unmap_len_set(&priv->tx_buff[*txbd_curr], len, len);
+ 
+ 	priv->txbd[*txbd_curr].data = cpu_to_le32(addr);
+-
+-	/* Make sure pointer to data buffer is set */
+-	wmb();
++	priv->tx_buff[*txbd_curr].skb = skb;
+ 
+ 	skb_tx_timestamp(skb);
+ 
+ 	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+ 
+-	/* Make sure info word is set */
++	/* 1. Make sure that with respect to tx_clean everything is set up
++	 * properly before we advance txbd_curr.
++	 * 2. Make sure writes to DMA descriptors are completed before we inform
++	 * the hardware.
++	 */
+ 	wmb();
+ 
+-	priv->tx_buff[*txbd_curr].skb = skb;
+-
+ 	/* Increment index to point to the next BD */
+ 	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
+ 
+-	/* Ensure that tx_clean() sees the new txbd_curr before
+-	 * checking the queue status. This prevents an unneeded wake
+-	 * of the queue in tx_clean().
+-	 */
+-	smp_mb();
++	/* Ensure tx_clean() sees the updated value of txbd_curr */
++	smp_wmb();
+ 
+ 	if (!arc_emac_tx_avail(priv)) {
+ 		netif_stop_queue(ndev);
+-- 
+1.9.1
