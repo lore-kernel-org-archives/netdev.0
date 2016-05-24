@@ -1,149 +1,116 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: bpf: use-after-free in array_map_alloc
-Date: Tue, 24 May 2016 10:40:54 +0200
-Message-ID: <57441396.2050607@suse.cz>
-References: <5713C0AD.3020102@oracle.com>
- <20160417172943.GA83672@ast-mbp.thefacebook.com> <5742F127.6080000@suse.cz>
- <5742F267.3000309@suse.cz> <20160523213501.GA5383@mtj.duckdns.org>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: [PATCH RESEND 1/8] mm: remove pointless struct in struct page definition
+Date: Tue, 24 May 2016 11:49:23 +0300
+Message-ID: <f34ffe70fce2b0b9220856437f77972d67c14275.1464079537.git.vdavydov@virtuozzo.com>
+References: <cover.1464079537.git.vdavydov@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
- Sasha Levin <sasha.levin@oracle.com>, ast@kernel.org,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, Christoph Lameter <cl@linux.com>,
- Linux-MM layout <linux-mm@kvack.org>, marco.gra@gmail.com
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain
+Cc: Johannes Weiner <hannes@cmpxchg.org>, Michal Hocko <mhocko@kernel.org>,
+	<linux-mm@kvack.org>, <linux-fsdevel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <x86@kernel.org>, <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160523213501.GA5383@mtj.duckdns.org>
+In-Reply-To: <cover.1464079537.git.vdavydov@virtuozzo.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-[+CC Marco who reported the CVE, forgot that earlier]
+... to reduce indentation level thus leaving more space for comments.
 
-On 05/23/2016 11:35 PM, Tejun Heo wrote:
-> Hello,
->
-> Can you please test whether this patch resolves the issue?  While
-> adding support for atomic allocations, I reduced alloc_mutex covered
-> region too much.
->
-> Thanks.
+Signed-off-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+---
+ include/linux/mm_types.h | 68 +++++++++++++++++++++++-------------------------
+ 1 file changed, 32 insertions(+), 36 deletions(-)
 
-Ugh, this makes the code even more head-spinning than it was.
-
-> diff --git a/mm/percpu.c b/mm/percpu.c
-> index 0c59684..bd2df70 100644
-> --- a/mm/percpu.c
-> +++ b/mm/percpu.c
-> @@ -162,7 +162,7 @@ static struct pcpu_chunk *pcpu_reserved_chunk;
->   static int pcpu_reserved_chunk_limit;
->
->   static DEFINE_SPINLOCK(pcpu_lock);	/* all internal data structures */
-> -static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop */
-> +static DEFINE_MUTEX(pcpu_alloc_mutex);	/* chunk create/destroy, [de]pop, map extension */
->
->   static struct list_head *pcpu_slot __read_mostly; /* chunk list slots */
->
-> @@ -435,6 +435,8 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk, int new_alloc)
->   	size_t old_size = 0, new_size = new_alloc * sizeof(new[0]);
->   	unsigned long flags;
->
-> +	lockdep_assert_held(&pcpu_alloc_mutex);
-
-I don't see where the mutex gets locked when called via 
-pcpu_map_extend_workfn? (except via the new cancel_work_sync() call below?)
-
-Also what protects chunks with scheduled work items from being removed?
-
-> +
->   	new = pcpu_mem_zalloc(new_size);
->   	if (!new)
->   		return -ENOMEM;
-> @@ -895,6 +897,9 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->   		return NULL;
->   	}
->
-> +	if (!is_atomic)
-> +		mutex_lock(&pcpu_alloc_mutex);
-
-BTW I noticed that
-	bool is_atomic = (gfp & GFP_KERNEL) != GFP_KERNEL;
-
-this is too pessimistic IMHO. Reclaim is possible even without __GFP_FS 
-and __GFP_IO. Could you just use gfpflags_allow_blocking(gfp) here?
-
-> +
->   	spin_lock_irqsave(&pcpu_lock, flags);
->
->   	/* serve reserved allocations from the reserved chunk if available */
-> @@ -967,12 +972,11 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->   	if (is_atomic)
->   		goto fail;
->
-> -	mutex_lock(&pcpu_alloc_mutex);
-> +	lockdep_assert_held(&pcpu_alloc_mutex);
->
->   	if (list_empty(&pcpu_slot[pcpu_nr_slots - 1])) {
->   		chunk = pcpu_create_chunk();
->   		if (!chunk) {
-> -			mutex_unlock(&pcpu_alloc_mutex);
->   			err = "failed to allocate new chunk";
->   			goto fail;
->   		}
-> @@ -983,7 +987,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->   		spin_lock_irqsave(&pcpu_lock, flags);
->   	}
->
-> -	mutex_unlock(&pcpu_alloc_mutex);
->   	goto restart;
->
->   area_found:
-> @@ -993,8 +996,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->   	if (!is_atomic) {
->   		int page_start, page_end, rs, re;
->
-> -		mutex_lock(&pcpu_alloc_mutex);
-> -
->   		page_start = PFN_DOWN(off);
->   		page_end = PFN_UP(off + size);
->
-> @@ -1005,7 +1006,6 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->
->   			spin_lock_irqsave(&pcpu_lock, flags);
->   			if (ret) {
-> -				mutex_unlock(&pcpu_alloc_mutex);
->   				pcpu_free_area(chunk, off, &occ_pages);
->   				err = "failed to populate";
->   				goto fail_unlock;
-> @@ -1045,6 +1045,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
->   		/* see the flag handling in pcpu_blance_workfn() */
->   		pcpu_atomic_alloc_failed = true;
->   		pcpu_schedule_balance_work();
-> +	} else {
-> +		mutex_unlock(&pcpu_alloc_mutex);
->   	}
->   	return NULL;
->   }
-> @@ -1137,6 +1139,8 @@ static void pcpu_balance_workfn(struct work_struct *work)
->   	list_for_each_entry_safe(chunk, next, &to_free, list) {
->   		int rs, re;
->
-> +		cancel_work_sync(&chunk->map_extend_work);
-
-This deserves some comment?
-
-> +
->   		pcpu_for_each_pop_region(chunk, rs, re, 0, pcpu_unit_pages) {
->   			pcpu_depopulate_chunk(chunk, rs, re);
->   			spin_lock_irq(&pcpu_lock);
->
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
->
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index d553855503e6..3cc5977a9cab 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -60,51 +60,47 @@ struct page {
+ 	};
+ 
+ 	/* Second double word */
+-	struct {
+-		union {
+-			pgoff_t index;		/* Our offset within mapping. */
+-			void *freelist;		/* sl[aou]b first free object */
+-			/* page_deferred_list().prev	-- second tail page */
+-		};
++	union {
++		pgoff_t index;		/* Our offset within mapping. */
++		void *freelist;		/* sl[aou]b first free object */
++		/* page_deferred_list().prev	-- second tail page */
++	};
+ 
+-		union {
++	union {
+ #if defined(CONFIG_HAVE_CMPXCHG_DOUBLE) && \
+ 	defined(CONFIG_HAVE_ALIGNED_STRUCT_PAGE)
+-			/* Used for cmpxchg_double in slub */
+-			unsigned long counters;
++		/* Used for cmpxchg_double in slub */
++		unsigned long counters;
+ #else
+-			/*
+-			 * Keep _refcount separate from slub cmpxchg_double
+-			 * data.  As the rest of the double word is protected by
+-			 * slab_lock but _refcount is not.
+-			 */
+-			unsigned counters;
++		/*
++		 * Keep _refcount separate from slub cmpxchg_double data.
++		 * As the rest of the double word is protected by slab_lock
++		 * but _refcount is not.
++		 */
++		unsigned counters;
+ #endif
++		struct {
+ 
+-			struct {
+-
+-				union {
+-					/*
+-					 * Count of ptes mapped in mms, to show
+-					 * when page is mapped & limit reverse
+-					 * map searches.
+-					 */
+-					atomic_t _mapcount;
+-
+-					struct { /* SLUB */
+-						unsigned inuse:16;
+-						unsigned objects:15;
+-						unsigned frozen:1;
+-					};
+-					int units;	/* SLOB */
+-				};
++			union {
+ 				/*
+-				 * Usage count, *USE WRAPPER FUNCTION*
+-				 * when manual accounting. See page_ref.h
++				 * Count of ptes mapped in mms, to show when
++				 * page is mapped & limit reverse map searches.
+ 				 */
+-				atomic_t _refcount;
++				atomic_t _mapcount;
++
++				unsigned int active;		/* SLAB */
++				struct {			/* SLUB */
++					unsigned inuse:16;
++					unsigned objects:15;
++					unsigned frozen:1;
++				};
++				int units;			/* SLOB */
+ 			};
+-			unsigned int active;	/* SLAB */
++			/*
++			 * Usage count, *USE WRAPPER FUNCTION* when manual
++			 * accounting. See page_ref.h
++			 */
++			atomic_t _refcount;
+ 		};
+ 	};
+ 
+-- 
+2.1.4
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
