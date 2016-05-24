@@ -1,37 +1,40 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net PATCH 1/1] net sched actions: policer missing timestamp
- processing
-Date: Mon, 23 May 2016 20:56:17 -0400
-Message-ID: <5743A6B1.3070702@mojatatu.com>
-References: <1463935423-8918-1-git-send-email-jhs@emojatatu.com>
- <CAM_iQpWhRRqJWNaRXbFSPEVu+CTSb++z8A5Y3SB-vjmk1-gXmw@mail.gmail.com>
+Subject: Re: [iproute2 PATCH v2 1/1] tc simple action update and breakage
+Date: Mon, 23 May 2016 20:59:23 -0400
+Message-ID: <5743A76B.2010803@mojatatu.com>
+References: <1462719726-7598-1-git-send-email-jhs@emojatatu.com>
+ <57438697.8030801@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:35822 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892AbcEXA4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 20:56:20 -0400
-Received: by mail-ig0-f171.google.com with SMTP id bi2so43757041igb.0
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 17:56:20 -0700 (PDT)
-In-Reply-To: <CAM_iQpWhRRqJWNaRXbFSPEVu+CTSb++z8A5Y3SB-vjmk1-gXmw@mail.gmail.com>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:36018 "EHLO
+	mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892AbcEXA70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 20:59:26 -0400
+Received: by mail-it0-f45.google.com with SMTP id e62so41944485ita.1
+        for <netdev@vger.kernel.org>; Mon, 23 May 2016 17:59:26 -0700 (PDT)
+In-Reply-To: <57438697.8030801@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-05-23 04:52 PM, Cong Wang wrote:
+On 16-05-23 06:39 PM, Daniel Borkmann wrote:
 
->> +       tcf_tm_dump(&t, &police->tcf_tm);
 >
-> This depends on a previous patch you sent, right?
->
+> m_simple.c: In function =91parse_simple=92:
+> m_simple.c:154:6: warning: too many arguments for format
+> [-Wformat-extra-args]
+>        *argv);
+>        ^
+> m_simple.c:103:14: warning: unused variable =91maybe_bind=92
+> [-Wunused-variable]
+>    int ok =3D 0, maybe_bind =3D 0;
+>                ^
 
-Sigh. There goes my git foo.
-Will resubmit an updated version.
-
+Will send a fix. Thanks Daniel.
 
 cheers,
 jamal
