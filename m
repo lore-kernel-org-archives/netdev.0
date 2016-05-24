@@ -1,121 +1,45 @@
 From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: [PATCH RESEND 5/8] mm: memcontrol: teach uncharge_list to deal with kmem pages
-Date: Tue, 24 May 2016 11:49:27 +0300
-Message-ID: <18d5c09e97f80074ed25b97a7d0f32b95d875717.1464079538.git.vdavydov@virtuozzo.com>
+Subject: [PATCH RESEND 8/8] af_unix: charge buffers to kmemcg
+Date: Tue, 24 May 2016 11:49:30 +0300
+Message-ID: <fcfe6cae27a59fbc5e40145664b3cf085a560c68.1464079538.git.vdavydov@virtuozzo.com>
 References: <cover.1464079537.git.vdavydov@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Johannes Weiner <hannes@cmpxchg.org>, Michal Hocko <mhocko@kernel.org>,
-	<linux-mm@kvack.org>, <linux-fsdevel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <x86@kernel.org>, <linux-kernel@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, Johannes Weiner
+	<hannes@cmpxchg.org>, Michal Hocko <mhocko@kernel.org>, <linux-mm@kvack.org>,
+	<linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>, <x86@kernel.org>,
+	<linux-kernel@vger.kernel.org>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <cover.1464079537.git.vdavydov@virtuozzo.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Page table pages are batched-freed in release_pages on most
-architectures. If we want to charge them to kmemcg (this is what is done
-later in this series), we need to teach mem_cgroup_uncharge_list to
-handle kmem pages.
+Unix sockets can consume a significant amount of system memory, hence
+they should be accounted to kmemcg.
+
+Since unix socket buffers are always allocated from process context,
+all we need to do to charge them to kmemcg is set __GFP_ACCOUNT in
+sock->sk_allocation mask.
 
 Signed-off-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 ---
- mm/memcontrol.c | 42 ++++++++++++++++++++++++------------------
- 1 file changed, 24 insertions(+), 18 deletions(-)
+ net/unix/af_unix.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 482b4a0c97e4..89a421ee4713 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -5432,15 +5432,18 @@ void mem_cgroup_cancel_charge(struct page *page, struct mem_cgroup *memcg,
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 80aa6a3e6817..022bdd3ab7d9 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -769,6 +769,7 @@ static struct sock *unix_create1(struct net *net, struct socket *sock, int kern)
+ 	lockdep_set_class(&sk->sk_receive_queue.lock,
+ 				&af_unix_sk_receive_queue_lock_key);
  
- static void uncharge_batch(struct mem_cgroup *memcg, unsigned long pgpgout,
- 			   unsigned long nr_anon, unsigned long nr_file,
--			   unsigned long nr_huge, struct page *dummy_page)
-+			   unsigned long nr_huge, unsigned long nr_kmem,
-+			   struct page *dummy_page)
- {
--	unsigned long nr_pages = nr_anon + nr_file;
-+	unsigned long nr_pages = nr_anon + nr_file + nr_kmem;
- 	unsigned long flags;
- 
- 	if (!mem_cgroup_is_root(memcg)) {
- 		page_counter_uncharge(&memcg->memory, nr_pages);
- 		if (do_memsw_account())
- 			page_counter_uncharge(&memcg->memsw, nr_pages);
-+		if (!cgroup_subsys_on_dfl(memory_cgrp_subsys) && nr_kmem)
-+			page_counter_uncharge(&memcg->kmem, nr_kmem);
- 		memcg_oom_recover(memcg);
- 	}
- 
-@@ -5463,6 +5466,7 @@ static void uncharge_list(struct list_head *page_list)
- 	unsigned long nr_anon = 0;
- 	unsigned long nr_file = 0;
- 	unsigned long nr_huge = 0;
-+	unsigned long nr_kmem = 0;
- 	unsigned long pgpgout = 0;
- 	struct list_head *next;
- 	struct page *page;
-@@ -5473,8 +5477,6 @@ static void uncharge_list(struct list_head *page_list)
- 	 */
- 	next = page_list->next;
- 	do {
--		unsigned int nr_pages = 1;
--
- 		page = list_entry(next, struct page, lru);
- 		next = page->lru.next;
- 
-@@ -5493,31 +5495,35 @@ static void uncharge_list(struct list_head *page_list)
- 		if (memcg != page->mem_cgroup) {
- 			if (memcg) {
- 				uncharge_batch(memcg, pgpgout, nr_anon, nr_file,
--					       nr_huge, page);
--				pgpgout = nr_anon = nr_file = nr_huge = 0;
-+					       nr_huge, nr_kmem, page);
-+				pgpgout = nr_anon = nr_file =
-+					nr_huge = nr_kmem = 0;
- 			}
- 			memcg = page->mem_cgroup;
- 		}
- 
--		if (PageTransHuge(page)) {
--			nr_pages <<= compound_order(page);
--			VM_BUG_ON_PAGE(!PageTransHuge(page), page);
--			nr_huge += nr_pages;
--		}
-+		if (!PageKmemcg(page)) {
-+			unsigned int nr_pages = 1;
- 
--		if (PageAnon(page))
--			nr_anon += nr_pages;
--		else
--			nr_file += nr_pages;
-+			if (PageTransHuge(page)) {
-+				nr_pages <<= compound_order(page);
-+				VM_BUG_ON_PAGE(!PageTransHuge(page), page);
-+				nr_huge += nr_pages;
-+			}
-+			if (PageAnon(page))
-+				nr_anon += nr_pages;
-+			else
-+				nr_file += nr_pages;
-+			pgpgout++;
-+		} else
-+			nr_kmem += 1 << compound_order(page);
- 
- 		page->mem_cgroup = NULL;
--
--		pgpgout++;
- 	} while (next != page_list);
- 
- 	if (memcg)
- 		uncharge_batch(memcg, pgpgout, nr_anon, nr_file,
--			       nr_huge, page);
-+			       nr_huge, nr_kmem, page);
- }
- 
- /**
++	sk->sk_allocation	= GFP_KERNEL_ACCOUNT;
+ 	sk->sk_write_space	= unix_write_space;
+ 	sk->sk_max_ack_backlog	= net->unx.sysctl_max_dgram_qlen;
+ 	sk->sk_destruct		= unix_sock_destructor;
 -- 
 2.1.4
 
