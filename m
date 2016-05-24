@@ -1,81 +1,52 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: ixgbe: ksoftirqd consumes 100% CPU w/ ~50 TCP conns
-Date: Tue, 24 May 2016 12:46:56 -0700
-Message-ID: <CAKgT0UdCH=4MzwAjPTpPt2BXcxMxQbzkRPpB9_TJd10_6x9kTg@mail.gmail.com>
-References: <CAEm7KtxXapo-9OevQtFAnuZo5h4FH8RQ-Nm3in4A0uJh0KqYKQ@mail.gmail.com>
-	<CAEm7KtxaUC0uBM9sAQSqBeT7AhyEBK=950AxT7N4imgcQ1TnwQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RESEND 7/8] pipe: account to kmemcg
+Date: Tue, 24 May 2016 13:04:33 -0700
+Message-ID: <1464120273.5939.53.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1464079537.git.vdavydov@virtuozzo.com>
+	 <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
+	 <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160524161336.GA11150@esperanza>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Matthew Garrett <mjg59@srcf.ucam.org>
-To: Brandon Philips <brandon@ifup.co>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36669 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170AbcEXTq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 15:46:57 -0400
-Received: by mail-io0-f180.google.com with SMTP id f8so18920867ioe.3
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 12:46:57 -0700 (PDT)
-In-Reply-To: <CAEm7KtxaUC0uBM9sAQSqBeT7AhyEBK=950AxT7N4imgcQ1TnwQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, Alexander Viro
+ <viro@zeniv.linux.org.uk>, Johannes Weiner <hannes@cmpxchg.org>, Michal
+ Hocko <mhocko@kernel.org>, linux-mm@kvack.org,
+ linux-fsdevel@vger.kernel.org,  netdev@vger.kernel.org, x86@kernel.org,
+ linux-kernel@vger.kernel.org
+To: Vladimir Davydov <vdavydov@virtuozzo.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160524161336.GA11150@esperanza>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-I'm guessing the issue is lock contention on the IOMMU resource table.
-I resolved most of that for the Rx side back when we implemented the
-Rx page reuse but the Tx side still has to perform a DMA mapping for
-each individual buffer.  Depending on the needs of the user if they
-still need the IOMMU enabled for use with something like KVM one thing
-they may try doing is use the kernel parameter "iommu=pt" to allow
-host devices to access memory without the penalty for having to
-allocate/free resources and still provide guests with IOMMU isolation.
+On Tue, 2016-05-24 at 19:13 +0300, Vladimir Davydov wrote:
+> On Tue, May 24, 2016 at 05:59:02AM -0700, Eric Dumazet wrote:
+> ...
+> > > +static int anon_pipe_buf_steal(struct pipe_inode_info *pipe,
+> > > +			       struct pipe_buffer *buf)
+> > > +{
+> > > +	struct page *page = buf->page;
+> > > +
+> > > +	if (page_count(page) == 1) {
+> > 
+> > This looks racy : some cpu could have temporarily elevated page count.
+> 
+> All pipe operations (pipe_buf_operations->get, ->release, ->steal) are
+> supposed to be called under pipe_lock. So, if we see a pipe_buffer->page
+> with refcount of 1 in ->steal, that means that we are the only its user
+> and it can't be spliced to another pipe.
+> 
+> In fact, I just copied the code from generic_pipe_buf_steal, adding
+> kmemcg related checks along the way, so it should be fine.
 
-- Alex
+So you guarantee that no other cpu might have done
+get_page_unless_zero() right before this test ?
 
-On Tue, May 24, 2016 at 9:40 AM, Brandon Philips <brandon@ifup.co> wrote:
-> Hello Everyone-
->
-> So we tracked it down to IOMMU causing CPU affinity getting broken[1].
-> Can we provide any further details or is this a known issue?
->
-> Thank You,
->
-> Brandon
->
-> [1] https://github.com/coreos/bugs/issues/1275#issuecomment-219866601
->
-> On Tue, May 17, 2016 at 12:44 PM, Brandon Philips <brandon@ifup.co> wrote:
->> Hello ixgbe team-
->>
->> With Linux v4.6 and the ixgbe driver (details below) a user is reporting
->> ksoftirqd consuming 100% of the CPU on all cores after a moderate  ~20-50
->> number of TCP connections. They are unable to reproduce this issue with
->> Cisco hardware.
->>
->> With Kernel v3.19 they cannot reproduce[1] the issue. Disabling IOMMU
->> (intel_iommu=off) does "fix" the issue[2].
->>
->> Thank You,
->>
->> Brandon
->>
->> [1] https://github.com/coreos/bugs/issues/1275#issuecomment-219157803
->> [2] https://github.com/coreos/bugs/issues/1275#issuecomment-219819986
->>
->> Intel Corporation 82599ES 10-Gigabit SFI/SFP+ Network Connection (rev 01)
->> ethtool -i eno1
->> driver: ixgbe
->> version: 4.0.1-k
->> firmware-version: 0x800004e0
->> bus-info: 0000:06:00.0
->> supports-statistics: yes
->> supports-test: yes
->> supports-eeprom-access: yes
->> supports-register-dump: yes
->> supports-priv-flags: no
->>
->> CPU
->> Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
