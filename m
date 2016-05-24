@@ -1,43 +1,73 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Davicom DM9162 PHY supported in the kernel?
-Date: Tue, 24 May 2016 18:30:47 +0200
-Message-ID: <20160524163047.GF8897@lunn.ch>
-References: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
- <5717C45F.30205@gmail.com>
- <CAOLz05pidfdJXR58a+xjvp02EyPhUJnz9odpM-VFtkCQ2bhtNQ@mail.gmail.com>
- <20160503153659.GA29815@lunn.ch>
- <CAOLz05r-JEk2JV7PONsPhkaxCUankB6XThFgo4DO+gCf1p9c4g@mail.gmail.com>
- <20160509120634.GQ7972@lunn.ch>
- <CAOLz05o5SELBH6LovChQrFXQWXOZANhrYrTNcuktM_nKnp10VQ@mail.gmail.com>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH RESEND 8/8] af_unix: charge buffers to kmemcg
+Date: Tue, 24 May 2016 19:36:06 +0300
+Message-ID: <20160524163606.GB11150@esperanza>
+References: <cover.1464079537.git.vdavydov@virtuozzo.com>
+ <fcfe6cae27a59fbc5e40145664b3cf085a560c68.1464079538.git.vdavydov@virtuozzo.com>
+ <1464094926.5939.48.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Amr Bekhit <amrbekhit@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48981 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756003AbcEXQau (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2016 12:30:50 -0400
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Morton <akpm@linux-foundation.org>, "David S. Miller"
+	<davem@davemloft.net>, Johannes Weiner <hannes@cmpxchg.org>, Michal Hocko
+	<mhocko@kernel.org>, <linux-mm@kvack.org>, <linux-fsdevel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <x86@kernel.org>, <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <CAOLz05o5SELBH6LovChQrFXQWXOZANhrYrTNcuktM_nKnp10VQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1464094926.5939.48.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 24, 2016 at 05:09:35PM +0100, Amr Bekhit wrote:
-> Hi Andrew,
+On Tue, May 24, 2016 at 06:02:06AM -0700, Eric Dumazet wrote:
+> On Tue, 2016-05-24 at 11:49 +0300, Vladimir Davydov wrote:
+> > Unix sockets can consume a significant amount of system memory, hence
+> > they should be accounted to kmemcg.
+> > 
+> > Since unix socket buffers are always allocated from process context,
+> > all we need to do to charge them to kmemcg is set __GFP_ACCOUNT in
+> > sock->sk_allocation mask.
 > 
-> > How about adding a printk() in genphy_read_status().
+> I have two questions : 
 > 
-> Would you be able to point me to some more information about these
-> status bits, please?
+> 1) What happens when a buffer, allocated from socket <A> lands in a
+> different socket <B>, maybe owned by another user/process.
+> 
+> Who owns it now, in term of kmemcg accounting ?
 
-You can get the datasheet from here:
+We never move memcg charges. E.g. if two processes from different
+cgroups are sharing a memory region, each page will be charged to the
+process which touched it first. Or if two processes are working with the
+same directory tree, inodes and dentries will be charged to the first
+user. The same is fair for unix socket buffers - they will be charged to
+the sender.
 
-http://www.davicom.com.tw/userfile/24247/DM9162_DM9162I-12-MCO-DS-F01_08062014.pdf
+> 
+> 2) Has performance impact been evaluated ?
 
-I would start by looking at the BMCR register. The
-genphy_read_status() function should get called about once per second,
-so that is an O.K. place to add debug prints, and there is example
-code for reading MII_BMCR.
+I ran netperf STREAM_STREAM with default options in a kmemcg on
+a 4 core x 2 HT box. The results are below:
 
-     Andrew
+ # clients            bandwidth (10^6bits/sec)
+                    base              patched
+         1      67643 +-  725      64874 +-  353    - 4.0 %
+         4     193585 +- 2516     186715 +- 1460    - 3.5 %
+         8     194820 +-  377     187443 +- 1229    - 3.7 %
+
+So the accounting doesn't come for free - it takes ~4% of performance.
+I believe we could optimize it by using per cpu batching not only on
+charge, but also on uncharge in memcg core, but that's beyond the scope
+of this patch set - I'll take a look at this later.
+
+Anyway, if performance impact is found to be unacceptable, it is always
+possible to disable kmem accounting at boot time (cgroup.memory=nokmem)
+or not use memory cgroups at runtime at all (thanks to jump labels
+there'll be no overhead even if they are compiled in).
+
+Thanks,
+Vladimir
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
