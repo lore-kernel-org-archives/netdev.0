@@ -1,87 +1,66 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v5 2/2] skb_array: ring test
-Date: Tue, 24 May 2016 19:03:20 +0200
-Message-ID: <20160524190320.69761a67@redhat.com>
-References: <1464000201-15560-1-git-send-email-mst@redhat.com>
-	<1464000201-15560-3-git-send-email-mst@redhat.com>
-	<20160523150918.2c58fa7d@redhat.com>
-	<20160523235014-mutt-send-email-mst@redhat.com>
-	<20160524122809.140f7020@redhat.com>
+From: Brandon Philips <brandon@ifup.co>
+Subject: Re: ixgbe: ksoftirqd consumes 100% CPU w/ ~50 TCP conns
+Date: Tue, 24 May 2016 09:40:14 -0700
+Message-ID: <CAEm7KtxaUC0uBM9sAQSqBeT7AhyEBK=950AxT7N4imgcQ1TnwQ@mail.gmail.com>
+References: <CAEm7KtxXapo-9OevQtFAnuZo5h4FH8RQ-Nm3in4A0uJh0KqYKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160524122809.140f7020@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Matthew Garrett <mjg59@srcf.ucam.org>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Mark Rustad <mark.d.rustad@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f72.google.com ([209.85.213.72]:36148 "EHLO
+	mail-vk0-f72.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932553AbcEXRG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 13:06:28 -0400
+Received: by mail-vk0-f72.google.com with SMTP id c67so51202416vkh.3
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 10:06:27 -0700 (PDT)
+In-Reply-To: <CAEm7KtxXapo-9OevQtFAnuZo5h4FH8RQ-Nm3in4A0uJh0KqYKQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello Everyone-
 
-On Tue, 24 May 2016 12:28:09 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+So we tracked it down to IOMMU causing CPU affinity getting broken[1].
+Can we provide any further details or is this a known issue?
 
-> I do like perf, but it does not answer my questions about the
-> performance of this queue. I will code something up in my own
-> framework[2] to answer my own performance questions.
-> 
-> Like what is be minimum overhead (in cycles) achievable with this type
-> of queue, in the most optimal situation (e.g. same CPU enq+deq cache hot)
-> for fastpath usage.
+Thank You,
 
-Coded it up here:
- https://github.com/netoptimizer/prototype-kernel/commit/b16a3332184
- https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_bench01.c
+Brandon
 
-This is a really fake benchmark, but it sort of shows the minimum
-overhead achievable with this type of queue, where it is the same
-CPU enqueuing and dequeuing, and cache is guaranteed to be hot.
+[1] https://github.com/coreos/bugs/issues/1275#issuecomment-219866601
 
-Measured on a i7-4790K CPU @ 4.00GHz, the average cost of
-enqueue+dequeue of a single object is around 102 cycles(tsc).
-
-To compare this with below, where enq and deq is measured separately:
- 102 / 2 = 51 cycles
-
- 
-> Then I also want to know how this performs when two CPUs are involved.
-> As this is also a primary use-case, for you when sending packets into a
-> guest.
-
-Coded it up here:
- https://github.com/netoptimizer/prototype-kernel/commit/75fe31ef62e
- https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
- 
-This parallel benchmark try to keep two (or more) CPUs busy enqueuing or
-dequeuing on the same skb_array queue.  It prefills the queue,
-and stops the test as soon as queue is empty or full, or
-completes a number of "loops"/cycles.
-
-For two CPUs the results are really good:
- enqueue: 54 cycles(tsc)
- dequeue: 53 cycles(tsc)
-
-Going to 4 CPUs, things break down (but it was not primary use-case?):
- CPU(0) 927 cycles(tsc) enqueue
- CPU(1) 921 cycles(tsc) dequeue
- CPU(2) 927 cycles(tsc) enqueue
- CPU(3) 898 cycles(tsc) dequeue
-
-
-Next on my todo-list is to implement same tests for e.g. alf_queue, so
-we can compare the concurrency part (which is the important part).
-But FYI I'll be busy the next days at conf http://fosd2016.itu.dk/
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
-[1] https://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git/log/?h=vhost
-[2] https://github.com/netoptimizer/prototype-kernel
+On Tue, May 17, 2016 at 12:44 PM, Brandon Philips <brandon@ifup.co> wrote:
+> Hello ixgbe team-
+>
+> With Linux v4.6 and the ixgbe driver (details below) a user is reporting
+> ksoftirqd consuming 100% of the CPU on all cores after a moderate  ~20-50
+> number of TCP connections. They are unable to reproduce this issue with
+> Cisco hardware.
+>
+> With Kernel v3.19 they cannot reproduce[1] the issue. Disabling IOMMU
+> (intel_iommu=off) does "fix" the issue[2].
+>
+> Thank You,
+>
+> Brandon
+>
+> [1] https://github.com/coreos/bugs/issues/1275#issuecomment-219157803
+> [2] https://github.com/coreos/bugs/issues/1275#issuecomment-219819986
+>
+> Intel Corporation 82599ES 10-Gigabit SFI/SFP+ Network Connection (rev 01)
+> ethtool -i eno1
+> driver: ixgbe
+> version: 4.0.1-k
+> firmware-version: 0x800004e0
+> bus-info: 0000:06:00.0
+> supports-statistics: yes
+> supports-test: yes
+> supports-eeprom-access: yes
+> supports-register-dump: yes
+> supports-priv-flags: no
+>
+> CPU
+> Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz
