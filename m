@@ -1,56 +1,224 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net 3/3] Documentation: networking: dsa: Describe port_vlan_filtering
-Date: Tue, 24 May 2016 10:32:33 -0400
-Message-ID: <871t4rsf0e.fsf@ketchup.mtl.sfl>
-References: <1464064337-8743-1-git-send-email-f.fainelli@gmail.com> <1464064337-8743-4-git-send-email-f.fainelli@gmail.com>
+From: Baozeng Ding <sploving1@gmail.com>
+Subject: [PATCH v2] tipc: fix potential null pointer dereferences in some
+ compat functions
+Date: Tue, 24 May 2016 22:33:24 +0800
+Message-ID: <4b00b274-d144-2809-fa86-1ea38d913fd5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: sploving1@gmail.com, jon.maloy@ericsson.com,
+	ying.xue@windriver.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50414 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbcEXOch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 10:32:37 -0400
-In-Reply-To: <1464064337-8743-4-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33447 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752836AbcEXOdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 10:33:35 -0400
+Received: by mail-pa0-f67.google.com with SMTP id f8so2287090pag.0
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 07:33:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Before calling the nla_parse_nested function, make sure the pointer to the
+attribute is not null. This patch fixes several potential null pointer
+dereference vulnerabilities in the tipc netlink functions.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+Signed-off-by: Baozeng Ding <sploving1@gmail.com>
+---
+v2: declare local variable as reverse christmas tree format and make the commit
+log fit in 80 columns
+---
+ net/tipc/netlink_compat.c | 111 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 93 insertions(+), 18 deletions(-)
 
-> Described what the port_vlan_filtering function is supposed to
-> accomplish.
->
-> Fixes: fb2dabad69f0 ("net: dsa: support VLAN filtering switchdev attr")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  Documentation/networking/dsa/dsa.txt | 6 ++++++
->  1 file changed, 6 insertions(+)
->
-> diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-> index 411b57fd73aa..a42fd2ec32a5 100644
-> --- a/Documentation/networking/dsa/dsa.txt
-> +++ b/Documentation/networking/dsa/dsa.txt
-> @@ -535,6 +535,12 @@ Bridge layer
->  Bridge VLAN filtering
->  ---------------------
->  
-> +- port_vlan_filtering: bridge layer function invoked when the bridge gets
-> +  configured for turning on or off VLAN filtering. If nothing specific needs to
-> +  be done at the hardware level, 0 must be returned. When VLAN filtering is
-> +  turned on, the hardware must be programmed with rejecting non-802.1Q frames,
-> +  when turned off the switch must accept any 802.1Q frames.
-
-Note that port_vlan_filtering is optional so a driver don't need to
-implement it if nothing specific needs to be done at the hardware level.
-
-Also I'd think that with VLAN filtering on, the hardware must not reject
-untagged frames, only 802.1Q frames which don't respect the programmed
-VLAN rules.
-
-Thanks,
-
-        Vivien
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index d7d050f..72a1c8f 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -346,9 +346,15 @@ static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
+ 				      struct nlattr **attrs)
+ {
+ 	struct nlattr *bearer[TIPC_NLA_BEARER_MAX + 1];
++	int err;
++
++	if (!attrs[TIPC_NLA_BEARER])
++		return -EINVAL;
+ 
+-	nla_parse_nested(bearer, TIPC_NLA_BEARER_MAX, attrs[TIPC_NLA_BEARER],
+-			 NULL);
++	err = nla_parse_nested(bearer, TIPC_NLA_BEARER_MAX,
++			       attrs[TIPC_NLA_BEARER], NULL);
++	if (err)
++		return err;
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_BEARER_NAME,
+ 			    nla_data(bearer[TIPC_NLA_BEARER_NAME]),
+@@ -460,14 +466,31 @@ static int tipc_nl_compat_link_stat_dump(struct tipc_nl_compat_msg *msg,
+ 	struct nlattr *link[TIPC_NLA_LINK_MAX + 1];
+ 	struct nlattr *prop[TIPC_NLA_PROP_MAX + 1];
+ 	struct nlattr *stats[TIPC_NLA_STATS_MAX + 1];
++	int err;
+ 
+-	nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK], NULL);
++	if (!attrs[TIPC_NLA_LINK])
++		return -EINVAL;
+ 
+-	nla_parse_nested(prop, TIPC_NLA_PROP_MAX, link[TIPC_NLA_LINK_PROP],
+-			 NULL);
++	err = nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK],
++			       NULL);
++	if (err)
++		return err;
++
++	if (!link[TIPC_NLA_LINK_PROP])
++		return -EINVAL;
+ 
+-	nla_parse_nested(stats, TIPC_NLA_STATS_MAX, link[TIPC_NLA_LINK_STATS],
+-			 NULL);
++	err = nla_parse_nested(prop, TIPC_NLA_PROP_MAX,
++			       link[TIPC_NLA_LINK_PROP], NULL);
++	if (err)
++		return err;
++
++	if (!link[TIPC_NLA_LINK_STATS])
++		return -EINVAL;
++
++	err = nla_parse_nested(stats, TIPC_NLA_STATS_MAX,
++			       link[TIPC_NLA_LINK_STATS], NULL);
++	if (err)
++		return err;
+ 
+ 	name = (char *)TLV_DATA(msg->req);
+ 	if (strcmp(name, nla_data(link[TIPC_NLA_LINK_NAME])) != 0)
+@@ -569,8 +592,15 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
+ {
+ 	struct nlattr *link[TIPC_NLA_LINK_MAX + 1];
+ 	struct tipc_link_info link_info;
++	int err;
+ 
+-	nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK], NULL);
++	if (!attrs[TIPC_NLA_LINK])
++		return -EINVAL;
++
++	err = nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK],
++			       NULL);
++	if (err)
++		return err;
+ 
+ 	link_info.dest = nla_get_flag(link[TIPC_NLA_LINK_DEST]);
+ 	link_info.up = htonl(nla_get_flag(link[TIPC_NLA_LINK_UP]));
+@@ -758,12 +788,23 @@ static int tipc_nl_compat_name_table_dump(struct tipc_nl_compat_msg *msg,
+ 	u32 node, depth, type, lowbound, upbound;
+ 	static const char * const scope_str[] = {"", " zone", " cluster",
+ 						 " node"};
++	int err;
+ 
+-	nla_parse_nested(nt, TIPC_NLA_NAME_TABLE_MAX,
+-			 attrs[TIPC_NLA_NAME_TABLE], NULL);
++	if (!attrs[TIPC_NLA_NAME_TABLE])
++		return -EINVAL;
+ 
+-	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, nt[TIPC_NLA_NAME_TABLE_PUBL],
+-			 NULL);
++	err = nla_parse_nested(nt, TIPC_NLA_NAME_TABLE_MAX,
++			       attrs[TIPC_NLA_NAME_TABLE], NULL);
++	if (err)
++		return err;
++
++	if (!nt[TIPC_NLA_NAME_TABLE_PUBL])
++		return -EINVAL;
++
++	err = nla_parse_nested(publ, TIPC_NLA_PUBL_MAX,
++			       nt[TIPC_NLA_NAME_TABLE_PUBL], NULL);
++	if (err)
++		return err;
+ 
+ 	ntq = (struct tipc_name_table_query *)TLV_DATA(msg->req);
+ 
+@@ -815,8 +856,15 @@ static int __tipc_nl_compat_publ_dump(struct tipc_nl_compat_msg *msg,
+ {
+ 	u32 type, lower, upper;
+ 	struct nlattr *publ[TIPC_NLA_PUBL_MAX + 1];
++	int err;
+ 
+-	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, attrs[TIPC_NLA_PUBL], NULL);
++	if (!attrs[TIPC_NLA_PUBL])
++		return -EINVAL;
++
++	err = nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, attrs[TIPC_NLA_PUBL],
++			       NULL);
++	if (err)
++		return err;
+ 
+ 	type = nla_get_u32(publ[TIPC_NLA_PUBL_TYPE]);
+ 	lower = nla_get_u32(publ[TIPC_NLA_PUBL_LOWER]);
+@@ -876,7 +924,13 @@ static int tipc_nl_compat_sk_dump(struct tipc_nl_compat_msg *msg,
+ 	u32 sock_ref;
+ 	struct nlattr *sock[TIPC_NLA_SOCK_MAX + 1];
+ 
+-	nla_parse_nested(sock, TIPC_NLA_SOCK_MAX, attrs[TIPC_NLA_SOCK], NULL);
++	if (!attrs[TIPC_NLA_SOCK])
++		return -EINVAL;
++
++	err = nla_parse_nested(sock, TIPC_NLA_SOCK_MAX, attrs[TIPC_NLA_SOCK],
++			       NULL);
++	if (err)
++		return err;
+ 
+ 	sock_ref = nla_get_u32(sock[TIPC_NLA_SOCK_REF]);
+ 	tipc_tlv_sprintf(msg->rep, "%u:", sock_ref);
+@@ -917,9 +971,15 @@ static int tipc_nl_compat_media_dump(struct tipc_nl_compat_msg *msg,
+ 				     struct nlattr **attrs)
+ {
+ 	struct nlattr *media[TIPC_NLA_MEDIA_MAX + 1];
++	int err;
++
++	if (!attrs[TIPC_NLA_MEDIA])
++		return -EINVAL;
+ 
+-	nla_parse_nested(media, TIPC_NLA_MEDIA_MAX, attrs[TIPC_NLA_MEDIA],
+-			 NULL);
++	err = nla_parse_nested(media, TIPC_NLA_MEDIA_MAX, attrs[TIPC_NLA_MEDIA],
++			       NULL);
++	if (err)
++		return err;
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_MEDIA_NAME,
+ 			    nla_data(media[TIPC_NLA_MEDIA_NAME]),
+@@ -931,8 +991,15 @@ static int tipc_nl_compat_node_dump(struct tipc_nl_compat_msg *msg,
+ {
+ 	struct tipc_node_info node_info;
+ 	struct nlattr *node[TIPC_NLA_NODE_MAX + 1];
++	int err;
+ 
+-	nla_parse_nested(node, TIPC_NLA_NODE_MAX, attrs[TIPC_NLA_NODE], NULL);
++	if (!attrs[TIPC_NLA_NODE])
++		return -EINVAL;
++
++	err = nla_parse_nested(node, TIPC_NLA_NODE_MAX, attrs[TIPC_NLA_NODE],
++			       NULL);
++	if (err)
++		return err;
+ 
+ 	node_info.addr = htonl(nla_get_u32(node[TIPC_NLA_NODE_ADDR]));
+ 	node_info.up = htonl(nla_get_flag(node[TIPC_NLA_NODE_UP]));
+@@ -971,8 +1038,16 @@ static int tipc_nl_compat_net_dump(struct tipc_nl_compat_msg *msg,
+ {
+ 	__be32 id;
+ 	struct nlattr *net[TIPC_NLA_NET_MAX + 1];
++	int err;
++
++	if (!attrs[TIPC_NLA_NET])
++		return -EINVAL;
++
++	err = nla_parse_nested(net, TIPC_NLA_NET_MAX, attrs[TIPC_NLA_NET],
++			       NULL);
++	if (err)
++		return err;
+ 
+-	nla_parse_nested(net, TIPC_NLA_NET_MAX, attrs[TIPC_NLA_NET], NULL);
+ 	id = htonl(nla_get_u32(net[TIPC_NLA_NET_ID]));
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_UNSIGNED, &id, sizeof(id));
+-- 
+1.9.1
