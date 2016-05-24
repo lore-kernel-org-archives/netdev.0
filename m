@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net 2/2] net: hwbm: Fix unbalanced spinlock in error case
-Date: Tue, 24 May 2016 18:03:26 +0200
-Message-ID: <1464105806-439-3-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH net 1/2] net: mvneta: Fix lacking spinlock initialization
+Date: Tue, 24 May 2016 18:03:25 +0200
+Message-ID: <1464105806-439-2-git-send-email-gregory.clement@free-electrons.com>
 References: <1464105806-439-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
 	Jean-Jacques Hiblot <jjhiblot@traphandler.com>,
@@ -13,51 +13,56 @@ Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
 	<stable@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:41794 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752768AbcEXQEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 12:04:07 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1464105806-439-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When hwbm_pool_add exited in error the spinlock was not released. This
-patch fixes this issue.
+The spinlock used by the hwbm functions must be initialized by the
+network driver. This commit fixes this lack and the following erros when
+lockdep is enabled:
 
-Fixes: 8cb2d8bf57e6 ("net: add a hardware buffer management helper API")
-Reported-by: Jean-Jacques Hiblot <jjhiblot@traphandler.com>
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+[<c010ff80>] (unwind_backtrace) from [<c010bd08>] (show_stack+0x10/0x14)
+[<c010bd08>] (show_stack) from [<c032913c>] (dump_stack+0xb4/0xe0)
+[<c032913c>] (dump_stack) from [<c01670e4>] (__lock_acquire+0x1f58/0x2060)
+[<c01670e4>] (__lock_acquire) from [<c0167dec>] (lock_acquire+0xa4/0xd0)
+[<c0167dec>] (lock_acquire) from [<c06f6650>] (_raw_spin_lock_irqsave+0x54/0x68)
+[<c06f6650>] (_raw_spin_lock_irqsave) from [<c058e830>] (hwbm_pool_add+0x1c/0xdc)
+[<c058e830>] (hwbm_pool_add) from [<c043f4e8>] (mvneta_bm_pool_use+0x338/0x490)
+[<c043f4e8>] (mvneta_bm_pool_use) from [<c0443198>] (mvneta_probe+0x654/0x1284)
+[<c0443198>] (mvneta_probe) from [<c03b894c>] (platform_drv_probe+0x4c/0xb0)
+[<c03b894c>] (platform_drv_probe) from [<c03b7158>] (driver_probe_device+0x214/0x2c0)
+[<c03b7158>] (driver_probe_device) from [<c03b72c4>] (__driver_attach+0xc0/0xc4)
+[<c03b72c4>] (__driver_attach) from [<c03b5440>] (bus_for_each_dev+0x68/0x9c)
+[<c03b5440>] (bus_for_each_dev) from [<c03b65b8>] (bus_add_driver+0x1a0/0x218)
+[<c03b65b8>] (bus_add_driver) from [<c03b79cc>] (driver_register+0x78/0xf8)
+[<c03b79cc>] (driver_register) from [<c01018f4>] (do_one_initcall+0x90/0x1dc)
+[<c01018f4>] (do_one_initcall) from [<c0900de4>] (kernel_init_freeable+0x15c/0x1fc)
+[<c0900de4>] (kernel_init_freeable) from [<c06eed90>] (kernel_init+0x8/0x114)
+[<c06eed90>] (kernel_init) from [<c0107910>] (ret_from_fork+0x14/0x24)
+
+Fixes: baa11ebc0c76 ("net: mvneta: Use the new hwbm framework")
+Reported-by: Russell King <rmk+kernel@armlinux.org.uk>
 Cc: <stable@vger.kernel.org>
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- net/core/hwbm.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/marvell/mvneta_bm.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/core/hwbm.c b/net/core/hwbm.c
-index 941c28486896..2cab489ae62e 100644
---- a/net/core/hwbm.c
-+++ b/net/core/hwbm.c
-@@ -55,18 +55,21 @@ int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
- 	spin_lock_irqsave(&bm_pool->lock, flags);
- 	if (bm_pool->buf_num == bm_pool->size) {
- 		pr_warn("pool already filled\n");
-+		spin_unlock_irqrestore(&bm_pool->lock, flags);
- 		return bm_pool->buf_num;
- 	}
+diff --git a/drivers/net/ethernet/marvell/mvneta_bm.c b/drivers/net/ethernet/marvell/mvneta_bm.c
+index 01fccec632ec..466939f8f0cf 100644
+--- a/drivers/net/ethernet/marvell/mvneta_bm.c
++++ b/drivers/net/ethernet/marvell/mvneta_bm.c
+@@ -189,6 +189,7 @@ struct mvneta_bm_pool *mvneta_bm_pool_use(struct mvneta_bm *priv, u8 pool_id,
+ 			SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 		hwbm_pool->construct = mvneta_bm_construct;
+ 		hwbm_pool->priv = new_pool;
++		spin_lock_init(&hwbm_pool->lock);
  
- 	if (buf_num + bm_pool->buf_num > bm_pool->size) {
- 		pr_warn("cannot allocate %d buffers for pool\n",
- 			buf_num);
-+		spin_unlock_irqrestore(&bm_pool->lock, flags);
- 		return 0;
- 	}
- 
- 	if ((buf_num + bm_pool->buf_num) < bm_pool->buf_num) {
- 		pr_warn("Adding %d buffers to the %d current buffers will overflow\n",
- 			buf_num,  bm_pool->buf_num);
-+		spin_unlock_irqrestore(&bm_pool->lock, flags);
- 		return 0;
- 	}
- 
+ 		/* Create new pool */
+ 		err = mvneta_bm_pool_create(priv, new_pool);
 -- 
 2.5.0
