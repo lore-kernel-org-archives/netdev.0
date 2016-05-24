@@ -1,34 +1,65 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [iproute2 PATCH v2 1/1] vv4.6.0
-Date: Tue, 24 May 2016 07:52:49 -0400
-Message-ID: <1464090769-29763-2-git-send-email-jhs@emojatatu.com>
-References: <1464090769-29763-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	Stephen Hemminger <shemming@brocade.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f194.google.com ([209.85.213.194]:33314 "EHLO
-	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752336AbcEXLxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 07:53:03 -0400
-Received: by mail-ig0-f194.google.com with SMTP id l10so1674982igk.0
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 04:53:02 -0700 (PDT)
-In-Reply-To: <1464090769-29763-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v5 2/2] skb_array: ring test
+Date: Tue, 24 May 2016 14:54:37 +0300
+Message-ID: <20160524145333-mutt-send-email-mst@redhat.com>
+References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+ <1464000201-15560-3-git-send-email-mst@redhat.com>
+ <20160523150918.2c58fa7d@redhat.com>
+ <20160523235014-mutt-send-email-mst@redhat.com>
+ <20160524122809.140f7020@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160524122809.140f7020@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemming@brocade.com>
+On Tue, May 24, 2016 at 12:28:09PM +0200, Jesper Dangaard Brouer wrote:
+> On Mon, 23 May 2016 23:52:47 +0300
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > On Mon, May 23, 2016 at 03:09:18PM +0200, Jesper Dangaard Brouer wrote:
+> > > On Mon, 23 May 2016 13:43:46 +0300
+> > > "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > >   
+> > > > Add ringtest based unit test for skb array.
+> > > >
+> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > > ---
+> > > >  tools/virtio/ringtest/skb_array.c | 167 ++++++++++++++++++++++++++++++++++++++
+> > > >  tools/virtio/ringtest/Makefile    |   4 +-  
+> > > 
+> > > Patch didn't apply cleanly to Makefile, as you also seems to have
+> > > "virtio_ring_inorder", I manually applied it.
+> > > 
+> > > I chdir to tools/virtio/ringtest/ and I could compile "skb_array",
+> > > BUT how do I use it??? (the README is not helpful)
+> > > 
+> > > What is the "output", are there any performance measurement results?  
+> > 
+> > First, if it completes successfully this means it completed
+> > a ton of cycles without errors. It caches any missing barriers
+> > which aren't nops on your system.
+> 
+> I applied these patches on net-next (at commit 07b75260e) and the
+> skb_array test program never terminates.   Strangely if I use your git
+> tree[1] (on branch vhost) the program does terminate... I didn't spot
+> the difference.
 
----
- include/SNAPSHOT.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Oh, that's my bad. You need
 
-diff --git a/include/SNAPSHOT.h b/include/SNAPSHOT.h
-index 9220f77..cc67058 100644
---- a/include/SNAPSHOT.h
-+++ b/include/SNAPSHOT.h
-@@ -1 +1 @@
--static const char SNAPSHOT[] = "160314";
-+static const char SNAPSHOT[] = "160518";
+    ringtest: pass buf != NULL
+    
+    just a stub pointer for now.
+    
+    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+from my tree.
+
 -- 
-1.9.1
+MST
