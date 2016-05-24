@@ -1,73 +1,87 @@
-From: Vladimir Davydov <vdavydov@virtuozzo.com>
-Subject: Re: [PATCH RESEND 8/8] af_unix: charge buffers to kmemcg
-Date: Tue, 24 May 2016 19:36:06 +0300
-Message-ID: <20160524163606.GB11150@esperanza>
-References: <cover.1464079537.git.vdavydov@virtuozzo.com>
- <fcfe6cae27a59fbc5e40145664b3cf085a560c68.1464079538.git.vdavydov@virtuozzo.com>
- <1464094926.5939.48.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v5 2/2] skb_array: ring test
+Date: Tue, 24 May 2016 19:03:20 +0200
+Message-ID: <20160524190320.69761a67@redhat.com>
+References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+	<1464000201-15560-3-git-send-email-mst@redhat.com>
+	<20160523150918.2c58fa7d@redhat.com>
+	<20160523235014-mutt-send-email-mst@redhat.com>
+	<20160524122809.140f7020@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andrew Morton <akpm@linux-foundation.org>, "David S. Miller"
-	<davem@davemloft.net>, Johannes Weiner <hannes@cmpxchg.org>, Michal Hocko
-	<mhocko@kernel.org>, <linux-mm@kvack.org>, <linux-fsdevel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <x86@kernel.org>, <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1464094926.5939.48.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	brouer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160524122809.140f7020@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 24, 2016 at 06:02:06AM -0700, Eric Dumazet wrote:
-> On Tue, 2016-05-24 at 11:49 +0300, Vladimir Davydov wrote:
-> > Unix sockets can consume a significant amount of system memory, hence
-> > they should be accounted to kmemcg.
-> > 
-> > Since unix socket buffers are always allocated from process context,
-> > all we need to do to charge them to kmemcg is set __GFP_ACCOUNT in
-> > sock->sk_allocation mask.
+
+On Tue, 24 May 2016 12:28:09 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+
+> I do like perf, but it does not answer my questions about the
+> performance of this queue. I will code something up in my own
+> framework[2] to answer my own performance questions.
 > 
-> I have two questions : 
-> 
-> 1) What happens when a buffer, allocated from socket <A> lands in a
-> different socket <B>, maybe owned by another user/process.
-> 
-> Who owns it now, in term of kmemcg accounting ?
+> Like what is be minimum overhead (in cycles) achievable with this type
+> of queue, in the most optimal situation (e.g. same CPU enq+deq cache hot)
+> for fastpath usage.
 
-We never move memcg charges. E.g. if two processes from different
-cgroups are sharing a memory region, each page will be charged to the
-process which touched it first. Or if two processes are working with the
-same directory tree, inodes and dentries will be charged to the first
-user. The same is fair for unix socket buffers - they will be charged to
-the sender.
+Coded it up here:
+ https://github.com/netoptimizer/prototype-kernel/commit/b16a3332184
+ https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_bench01.c
 
-> 
-> 2) Has performance impact been evaluated ?
+This is a really fake benchmark, but it sort of shows the minimum
+overhead achievable with this type of queue, where it is the same
+CPU enqueuing and dequeuing, and cache is guaranteed to be hot.
 
-I ran netperf STREAM_STREAM with default options in a kmemcg on
-a 4 core x 2 HT box. The results are below:
+Measured on a i7-4790K CPU @ 4.00GHz, the average cost of
+enqueue+dequeue of a single object is around 102 cycles(tsc).
 
- # clients            bandwidth (10^6bits/sec)
-                    base              patched
-         1      67643 +-  725      64874 +-  353    - 4.0 %
-         4     193585 +- 2516     186715 +- 1460    - 3.5 %
-         8     194820 +-  377     187443 +- 1229    - 3.7 %
+To compare this with below, where enq and deq is measured separately:
+ 102 / 2 = 51 cycles
 
-So the accounting doesn't come for free - it takes ~4% of performance.
-I believe we could optimize it by using per cpu batching not only on
-charge, but also on uncharge in memcg core, but that's beyond the scope
-of this patch set - I'll take a look at this later.
+ 
+> Then I also want to know how this performs when two CPUs are involved.
+> As this is also a primary use-case, for you when sending packets into a
+> guest.
 
-Anyway, if performance impact is found to be unacceptable, it is always
-possible to disable kmem accounting at boot time (cgroup.memory=nokmem)
-or not use memory cgroups at runtime at all (thanks to jump labels
-there'll be no overhead even if they are compiled in).
+Coded it up here:
+ https://github.com/netoptimizer/prototype-kernel/commit/75fe31ef62e
+ https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
+ 
+This parallel benchmark try to keep two (or more) CPUs busy enqueuing or
+dequeuing on the same skb_array queue.  It prefills the queue,
+and stops the test as soon as queue is empty or full, or
+completes a number of "loops"/cycles.
 
-Thanks,
-Vladimir
+For two CPUs the results are really good:
+ enqueue: 54 cycles(tsc)
+ dequeue: 53 cycles(tsc)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Going to 4 CPUs, things break down (but it was not primary use-case?):
+ CPU(0) 927 cycles(tsc) enqueue
+ CPU(1) 921 cycles(tsc) dequeue
+ CPU(2) 927 cycles(tsc) enqueue
+ CPU(3) 898 cycles(tsc) dequeue
+
+
+Next on my todo-list is to implement same tests for e.g. alf_queue, so
+we can compare the concurrency part (which is the important part).
+But FYI I'll be busy the next days at conf http://fosd2016.itu.dk/
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
+[1] https://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git/log/?h=vhost
+[2] https://github.com/netoptimizer/prototype-kernel
