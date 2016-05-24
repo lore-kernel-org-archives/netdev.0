@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ip_tunnel: enclose a code block in macro
- IS_ENABLED(CONFIG_IPV6)
-Date: Mon, 23 May 2016 21:09:11 -0700 (PDT)
-Message-ID: <20160523.210911.2013008845670427252.davem@davemloft.net>
-References: <1464057597-3648-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-	<1464059658.5939.40.camel@edumazet-glaptop3.roam.corp.google.com>
-	<4A265D43-913E-449E-8BA0-80A2B6930AD6@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4A265D43-913E-449E-8BA0-80A2B6930AD6@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 1/3] Documentation: networking: dsa: Remove poll_link description
+Date: Mon, 23 May 2016 21:32:15 -0700
+Message-ID: <1464064337-8743-2-git-send-email-f.fainelli@gmail.com>
+References: <1464064337-8743-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+	andrew@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33527 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751119AbcEXEca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 00:32:30 -0400
+Received: by mail-oi0-f68.google.com with SMTP id m198so1314217oig.0
+        for <netdev@vger.kernel.org>; Mon, 23 May 2016 21:32:30 -0700 (PDT)
+In-Reply-To: <1464064337-8743-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTog5Lil5rW35Y+MIDx5YW5oYWlzaHVhbmdAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
-OiBUdWUsIDI0IE1heSAyMDE2IDExOjU1OjMxICswODAwDQoNCj4gDQo+PiBPbiBNYXkgMjQsIDIw
-MTYsIGF0IDExOjE0IEFNLCBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+IHdy
-b3RlOg0KPj4gDQo+PiBPbiBUdWUsIDIwMTYtMDUtMjQgYXQgMTA6MzkgKzA4MDAsIEhhaXNodWFu
-ZyBZYW4gd3JvdGU6DQo+Pj4gRm9yIGlwdjYgY2FzZSwgZW5jbG9zZSB0aGUgY29kZSBibG9jayBp
-biBtYWNybyBJU19FTkFCTEVEKENPTkZJR19JUFY2KS4NCj4+PiANCj4+PiAtLS0NCj4+PiBDaGFu
-Z2VzIGluIHYyOg0KPj4+ICAtIFBsYWNlIHRoZSAiI2lmIElTX0VOQUJMRUQiIGJsb2NrIGJlZm9y
-ZSB0aGUgIn0gZWxzZSBpZg0KPj4+ICguLikgeyIgcGllY2UgYW5kIHRoZSAiI2VuZGlmIiBiZWZv
-cmUgdGhlIGNsb3NpbmcgYnJhY2UgYW5kIHRoaXMNCj4+PiBiZWNvbWVzIG11Y2ggZWFzaWVyIHRv
-IGxvb2sgYXQuDQo+PiANCj4+IF9XaHlfIGlzIHRoaXMgcGF0Y2ggbmVlZGVkID8NCj4+IA0KPj4g
-UGxlYXNlIGRlc2NyaWJlIGluIHRoZSBjaGFuZ2Vsb2cgd2hhdCBfYWN0dWFsXyBwcm9ibGVtIHlv
-dSBhcmUgdHJ5aW5nIHRvDQo+PiBhZGRyZXNzLg0KPj4gDQo+PiBXZSBoYXZlIG1hbnkgcG9pbnRz
-IGluIHRoZSBrZXJuZWwgdXNpbmcgaXB2Nl9nZXRfZHNmaWVsZCgpIGV2ZW4gaWYNCj4+IENPTkZJ
-R19JUFY2PW4sIGFuZCBpdCBzZWVtcyBmaW5lIHRvIG1lIGF0IGxlYXN0Lg0KPj4gDQo+PiBUaGFu
-a3MuDQo+PiANCj4+IA0KPj4gDQo+IA0KPiBZZXMsIHlvdeKAmXJlIHJpZ2h0LCBidXQgSSB0aGlu
-ayBhZGQgdGhpcyBwYXRjaCBzZWVtcyBtb3JlIHJlYXNvbmFibGUgaW4gY29kaW5nLg0KDQpObywg
-aXQgaXNuJ3QgbW9yZSByZWFzb25hYmxlIGF0IGFsbC4NCg0KV2UgaGF2ZSB0aGUgYmFja3VwIGlt
-cGxlbWVudGF0aW9ucyB3aGVuIENPTkZJR19JUFY2IGlzIGRpc2FibGVkDQpfRVhBQ1RMWV8gdG8g
-YXZvaWQgaWZkZWYgY3JhcCBsaWtlIHRoaXMgaW4gQyBmaWxlcy4NCg==
+This function has been removed in 4baee937b8d5 ("net: dsa: remove DSA
+link polling") in favor of using the PHYLIB polling mechanism.
+
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ Documentation/networking/dsa/dsa.txt | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index 631b0f7ae16f..8303eb8ced79 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -416,11 +416,6 @@ PHY devices and link management
+   to the switch port MDIO registers. If unavailable return a negative error
+   code.
+ 
+-- poll_link: Function invoked by DSA to query the link state of the switch
+-  builtin Ethernet PHYs, per port. This function is responsible for calling
+-  netif_carrier_{on,off} when appropriate, and can be used to poll all ports in a
+-  single call. Executes from workqueue context.
+-
+ - adjust_link: Function invoked by the PHY library when a slave network device
+   is attached to a PHY device. This function is responsible for appropriately
+   configuring the switch port link parameters: speed, duplex, pause based on
+-- 
+2.7.4
