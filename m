@@ -1,109 +1,68 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH] brcmfmac: fix setting AP channel with new firmwares
-Date: Tue, 24 May 2016 11:09:24 +0200
-Message-ID: <1464080979-12150-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [RFC PATCH V3 0/3] basic device IOTLB support
+Date: Tue, 24 May 2016 17:36:22 +0800
+Message-ID: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+Cc: wexu@redhat.com, peterx@redhat.com, vkaplans@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46irmware for new chipsets is based on a new major version of code
-internally maintained at Broadcom. E.g. brcmfmac4366b-pcie.bin (used fo=
-r
-BCM4366B1) is based on 10.10.69.3309 while brcmfmac43602-pcie.ap.bin wa=
-s
-based on 7.35.177.56.
+This patch tries to implement an device IOTLB for vhost. This could be
+used with for co-operation with userspace IOMMU implementation (qemu)
+for a secure DMA environment (DMAR) in guest.
 
-Currently setting AP 5 GHz channel doesn't work reliably with BCM4366B1=
-=2E
-When setting e.g. 36 control channel with VHT80 (center channel 42)
-firmware may randomly pick one of:
-1) 52 control channel with 58 as center one
-2) 100 control channel with 106 as center one
-3) 116 control channel with 122 as center one
-4) 149 control channel with 155 as center one
+The idea is simple. When vhost meets an IOTLB miss, it will request
+the assistance of userspace to do the translation, this is done
+through:
 
-It seems new firmwares require setting AP mode (BRCMF_C_SET_AP) before
-specifying a channel. Changing an order of firmware calls fixes the
-problem.
+- when there's a IOTLB miss, it will notify userspace through
+  vhost_net fd and then userspace read the fault address, size and
+  access from vhost fd.
+- userspace write the translation result back to vhost fd, vhost can
+  then update its IOTLB.
 
-This fix was verified with BCM4366B1 and tested for regressions on
-BCM43602. It's unclear if it's needed (or correct at all) for P2P
-interfaces so it leaves this code unaffected.
+The codes were optimized for fixed mapping users e.g dpdk in guest. It
+will be slow if dynamic mappings were used in guest. We could do
+optimizations on top.
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
- .../net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c  | 16 ++++++++=
-++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+The codes were designed to be architecture independent. It should be
+easily ported to any architecture.
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.=
-c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-index 299a404..3d09d23 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-@@ -4423,7 +4423,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, stru=
-ct net_device *ndev,
- 	struct brcmf_join_params join_params;
- 	enum nl80211_iftype dev_role;
- 	struct brcmf_fil_bss_enable_le bss_enable;
--	u16 chanspec;
-+	u16 chanspec =3D chandef_to_chanspec(&cfg->d11inf, &settings->chandef=
-);
- 	bool mbss;
- 	int is_11d;
-=20
-@@ -4499,16 +4499,16 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, st=
-ruct net_device *ndev,
-=20
- 	brcmf_config_ap_mgmt_ie(ifp->vif, &settings->beacon);
-=20
--	if (!mbss) {
--		chanspec =3D chandef_to_chanspec(&cfg->d11inf,
--					       &settings->chandef);
-+	if (dev_role =3D=3D NL80211_IFTYPE_P2P_GO) {
- 		err =3D brcmf_fil_iovar_int_set(ifp, "chanspec", chanspec);
- 		if (err < 0) {
- 			brcmf_err("Set Channel failed: chspec=3D%d, %d\n",
- 				  chanspec, err);
- 			goto exit;
- 		}
-+	}
-=20
-+	if (!mbss) {
- 		if (is_11d !=3D ifp->vif->is_11d) {
- 			err =3D brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_REGULATORY,
- 						    is_11d);
-@@ -4565,6 +4565,14 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, str=
-uct net_device *ndev,
- 			brcmf_err("setting AP mode failed %d\n", err);
- 			goto exit;
- 		}
-+		if (!mbss) {
-+			err =3D brcmf_fil_iovar_int_set(ifp, "chanspec", chanspec);
-+			if (err < 0) {
-+				brcmf_err("Set Channel failed: chspec=3D%d, %d\n",
-+					  chanspec, err);
-+				goto exit;
-+			}
-+		}
- 		err =3D brcmf_fil_cmd_int_set(ifp, BRCMF_C_UP, 1);
- 		if (err < 0) {
- 			brcmf_err("BRCMF_C_UP error (%d)\n", err);
---=20
-1.8.4.5
+Stress tested with l2fwd/vfio in guest with 4K/2M/1G page size. On 1G
+hugepage case, 100% TLB hit rate were noticed.
+
+Changes from V2:
+- introduce memory accessors for vhost
+- switch from ioctls to oridinary file read/write for iotlb miss and
+  updating
+- do not assume virtqueue were virtually mapped contiguously, all
+  virtqueue access were done throug IOTLB
+- verify memory access during IOTLB update and fail early
+- introduce a module parameter for the size of IOTLB
+
+Changes from V1:
+- support any size/range of updating and invalidation through
+  introducing the interval tree.
+- convert from per device iotlb request to per virtqueue iotlb
+  request, this solves the possible deadlock in V1.
+- read/write permission check support.
+
+Please review.
+
+Jason Wang (3):
+  vhost: introduce vhost memory accessors
+  vhost: convert pre sorted vhost memory array to interval tree
+  vhost: device IOTLB API
+
+ drivers/vhost/net.c        |  63 +++-
+ drivers/vhost/vhost.c      | 760 ++++++++++++++++++++++++++++++++++++++-------
+ drivers/vhost/vhost.h      |  60 +++-
+ include/uapi/linux/vhost.h |  28 ++
+ 4 files changed, 790 insertions(+), 121 deletions(-)
+
+-- 
+2.7.4
