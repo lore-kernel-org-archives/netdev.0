@@ -1,7 +1,8 @@
 From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH] brcmfmac: print error in p2p_ifadd firmware command fails
-Date: Tue, 24 May 2016 23:01:49 +0200
-Message-ID: <1464123728-7555-1-git-send-email-zajec5@gmail.com>
+Subject: [PATCH V2] brcmfmac: print error if p2p_ifadd firmware command fails
+Date: Tue, 24 May 2016 23:05:07 +0200
+Message-ID: <1464123910-8281-1-git-send-email-zajec5@gmail.com>
+References: <1464123728-7555-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -19,6 +20,7 @@ Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
 	linux-kernel@vger.kernel.org (open list)
 To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464123728-7555-1-git-send-email-zajec5@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -27,6 +29,8 @@ command on device with BCM43602 was:
 > command failed: Too many open files in system (-23)
 
 Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+V2: s/in/if/ in commit message
 ---
  drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
