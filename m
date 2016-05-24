@@ -1,70 +1,63 @@
-From: Patrick Schaaf <netdev@bof.de>
-Subject: kernel panic with kernel 3.14.70, LVS on keepalived restart
-Date: Tue, 24 May 2016 17:44:13 +0200
-Message-ID: <2116485.usCtNS6d1V@rofl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: NETDEV <netdev@vger.kernel.org>, lvs-users@linuxvirtualserver.org
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH net 2/2] net: hwbm: Fix unbalanced spinlock in error case
+Date: Tue, 24 May 2016 18:03:26 +0200
+Message-ID: <1464105806-439-3-git-send-email-gregory.clement@free-electrons.com>
+References: <1464105806-439-1-git-send-email-gregory.clement@free-electrons.com>
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jean-Jacques Hiblot <jjhiblot@traphandler.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	<stable@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mars.intermailgate.com ([80.242.145.70]:51352 "EHLO
-	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466AbcEXPoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 11:44:18 -0400
+Received: from down.free-electrons.com ([37.187.137.238]:41794 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752768AbcEXQEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 12:04:07 -0400
+In-Reply-To: <1464105806-439-1-git-send-email-gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear LVS users / netdev readers,
+When hwbm_pool_add exited in error the spinlock was not released. This
+patch fixes this issue.
 
-today I've got a pretty peculiar problem.
+Fixes: 8cb2d8bf57e6 ("net: add a hardware buffer management helper API")
+Reported-by: Jean-Jacques Hiblot <jjhiblot@traphandler.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ net/core/hwbm.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-I've been running 3.14.48 (and some earlier 3.14 kernels) for a long time now 
-in an LVS / keepalived driven loadbalancing cluster. See below for more detail 
-on the setup.
-
-Today I started to upgrade to the current 3.14.70 kernel. At first glance 
-everything seems fine, I can failover _to_ the box with the new kernel, and 
-traffic is flowing fine.
-
-However, when I then switch BACK to a different box, the 3.14.70 kernel 
-crashes. I've got an incomplete console dump (IPMI avi capture, single 
-frame...) you can see here:
-
- https://plus.google.com/u/0/photos/photo/114613285248943487324/6288270822391242162
-
-I usually manually failover by (having some automation) fiddle with 
-keepalived.conf VRRP priority settings, then restart the daemon.
-
-The issue / reboot only manifests when I RESTART the ACTIVE keepalived. It 
-always happens, then, with 3.14.70. That never happened before.
-
-On the other hand just reloading keepalived, with the prio-modified config, 
-works fine!
-
-As I don't remember why I restarted instead of reloading, I can for now change 
-my automation easily - but the issue is weird anyway.
-
-More info on the setup:
-
-1) kernel is vanilla 3.14.70 (and was vanilla 3.14.48 without the issue), with 
-a single (self written) patch to bonding applied (see 
-http://permalink.gmane.org/gmane.linux.network/316758). Unfortunately I cannot 
-live without that patch, i.e. can't try to reproduce with a pure vanilla 
-vanilla kernel.
-
-2) keepalived is 1.2.13
-
-3) config uses "use_vmac" / "vmac_xmit_base", on multiple interfaces, i.e. 
-MACVLAN interfaces on top of:
-
-4) "normal" interfaces are both bridge-over-VLAN-over-LACP-bond-over-eth and 
-ARP-bond-over-VLAN-over-eth
-
-5) there is active conntracking including conntrackd (but excluding LVS 
-state), LVS loadbalancing of some 15k pps, LVS sync, and heavy iptables use 
-including ipset matching, going on. Just for completeness.
-
-Anybody got any idea what the root cause might be?
-
-best regards
-  Patrick
+diff --git a/net/core/hwbm.c b/net/core/hwbm.c
+index 941c28486896..2cab489ae62e 100644
+--- a/net/core/hwbm.c
++++ b/net/core/hwbm.c
+@@ -55,18 +55,21 @@ int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
+ 	spin_lock_irqsave(&bm_pool->lock, flags);
+ 	if (bm_pool->buf_num == bm_pool->size) {
+ 		pr_warn("pool already filled\n");
++		spin_unlock_irqrestore(&bm_pool->lock, flags);
+ 		return bm_pool->buf_num;
+ 	}
+ 
+ 	if (buf_num + bm_pool->buf_num > bm_pool->size) {
+ 		pr_warn("cannot allocate %d buffers for pool\n",
+ 			buf_num);
++		spin_unlock_irqrestore(&bm_pool->lock, flags);
+ 		return 0;
+ 	}
+ 
+ 	if ((buf_num + bm_pool->buf_num) < bm_pool->buf_num) {
+ 		pr_warn("Adding %d buffers to the %d current buffers will overflow\n",
+ 			buf_num,  bm_pool->buf_num);
++		spin_unlock_irqrestore(&bm_pool->lock, flags);
+ 		return 0;
+ 	}
+ 
+-- 
+2.5.0
