@@ -1,224 +1,56 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: [PATCH v2] tipc: fix potential null pointer dereferences in some
- compat functions
-Date: Tue, 24 May 2016 22:33:24 +0800
-Message-ID: <4b00b274-d144-2809-fa86-1ea38d913fd5@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: remove busylock
+Date: Tue, 24 May 2016 07:37:26 -0700
+Message-ID: <1464100646.5939.50.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+	 <20160520092903.38620c60@redhat.com>
+	 <1463749909.18194.291.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463752069.18194.294.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1463753815.18194.298.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160520194951.6354fba1@redhat.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D5F4C5166@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: sploving1@gmail.com, jon.maloy@ericsson.com,
-	ying.xue@windriver.com, davem@davemloft.net
+Cc: 'Jesper Dangaard Brouer' <brouer@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:33447 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836AbcEXOdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 10:33:35 -0400
-Received: by mail-pa0-f67.google.com with SMTP id f8so2287090pag.0
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 07:33:35 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35345 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754233AbcEXOh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 10:37:28 -0400
+Received: by mail-pa0-f54.google.com with SMTP id tb2so7370242pac.2
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 07:37:28 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4C5166@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before calling the nla_parse_nested function, make sure the pointer to the
-attribute is not null. This patch fixes several potential null pointer
-dereference vulnerabilities in the tipc netlink functions.
+On Tue, 2016-05-24 at 13:50 +0000, David Laight wrote:
+> From: Jesper Dangaard Brouer
+> > Sent: 20 May 2016 18:50
+> ...
+> > If would be cool if you could run a test with removed busylock and
+> > allow HTB to bulk dequeue.
+> 
+> (Without having looked ....)
+> Could you have two queues and separate queue and dequeue locks.
+> 
+> The enqueue code would acquire the enqueue lock and add the packet
+> to the first queue.
+> 
+> The dequeue code would acquire the dequeue lock and try to remove
+> a packet from the 2nd queue, if nothing present it would acquire
+> the enqueue lock and move the entire 1st queue to the 2nd queue.
+> 
+> The obvious downside is two lock/unlocks for single packet dequeue.
+> If you can guarantee a single dequeue thread the 2nd lock isn't needed.
+> 
 
-Signed-off-by: Baozeng Ding <sploving1@gmail.com>
----
-v2: declare local variable as reverse christmas tree format and make the commit
-log fit in 80 columns
----
- net/tipc/netlink_compat.c | 111 ++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 93 insertions(+), 18 deletions(-)
-
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index d7d050f..72a1c8f 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -346,9 +346,15 @@ static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
- 				      struct nlattr **attrs)
- {
- 	struct nlattr *bearer[TIPC_NLA_BEARER_MAX + 1];
-+	int err;
-+
-+	if (!attrs[TIPC_NLA_BEARER])
-+		return -EINVAL;
- 
--	nla_parse_nested(bearer, TIPC_NLA_BEARER_MAX, attrs[TIPC_NLA_BEARER],
--			 NULL);
-+	err = nla_parse_nested(bearer, TIPC_NLA_BEARER_MAX,
-+			       attrs[TIPC_NLA_BEARER], NULL);
-+	if (err)
-+		return err;
- 
- 	return tipc_add_tlv(msg->rep, TIPC_TLV_BEARER_NAME,
- 			    nla_data(bearer[TIPC_NLA_BEARER_NAME]),
-@@ -460,14 +466,31 @@ static int tipc_nl_compat_link_stat_dump(struct tipc_nl_compat_msg *msg,
- 	struct nlattr *link[TIPC_NLA_LINK_MAX + 1];
- 	struct nlattr *prop[TIPC_NLA_PROP_MAX + 1];
- 	struct nlattr *stats[TIPC_NLA_STATS_MAX + 1];
-+	int err;
- 
--	nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK], NULL);
-+	if (!attrs[TIPC_NLA_LINK])
-+		return -EINVAL;
- 
--	nla_parse_nested(prop, TIPC_NLA_PROP_MAX, link[TIPC_NLA_LINK_PROP],
--			 NULL);
-+	err = nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK],
-+			       NULL);
-+	if (err)
-+		return err;
-+
-+	if (!link[TIPC_NLA_LINK_PROP])
-+		return -EINVAL;
- 
--	nla_parse_nested(stats, TIPC_NLA_STATS_MAX, link[TIPC_NLA_LINK_STATS],
--			 NULL);
-+	err = nla_parse_nested(prop, TIPC_NLA_PROP_MAX,
-+			       link[TIPC_NLA_LINK_PROP], NULL);
-+	if (err)
-+		return err;
-+
-+	if (!link[TIPC_NLA_LINK_STATS])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(stats, TIPC_NLA_STATS_MAX,
-+			       link[TIPC_NLA_LINK_STATS], NULL);
-+	if (err)
-+		return err;
- 
- 	name = (char *)TLV_DATA(msg->req);
- 	if (strcmp(name, nla_data(link[TIPC_NLA_LINK_NAME])) != 0)
-@@ -569,8 +592,15 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
- {
- 	struct nlattr *link[TIPC_NLA_LINK_MAX + 1];
- 	struct tipc_link_info link_info;
-+	int err;
- 
--	nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK], NULL);
-+	if (!attrs[TIPC_NLA_LINK])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(link, TIPC_NLA_LINK_MAX, attrs[TIPC_NLA_LINK],
-+			       NULL);
-+	if (err)
-+		return err;
- 
- 	link_info.dest = nla_get_flag(link[TIPC_NLA_LINK_DEST]);
- 	link_info.up = htonl(nla_get_flag(link[TIPC_NLA_LINK_UP]));
-@@ -758,12 +788,23 @@ static int tipc_nl_compat_name_table_dump(struct tipc_nl_compat_msg *msg,
- 	u32 node, depth, type, lowbound, upbound;
- 	static const char * const scope_str[] = {"", " zone", " cluster",
- 						 " node"};
-+	int err;
- 
--	nla_parse_nested(nt, TIPC_NLA_NAME_TABLE_MAX,
--			 attrs[TIPC_NLA_NAME_TABLE], NULL);
-+	if (!attrs[TIPC_NLA_NAME_TABLE])
-+		return -EINVAL;
- 
--	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, nt[TIPC_NLA_NAME_TABLE_PUBL],
--			 NULL);
-+	err = nla_parse_nested(nt, TIPC_NLA_NAME_TABLE_MAX,
-+			       attrs[TIPC_NLA_NAME_TABLE], NULL);
-+	if (err)
-+		return err;
-+
-+	if (!nt[TIPC_NLA_NAME_TABLE_PUBL])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(publ, TIPC_NLA_PUBL_MAX,
-+			       nt[TIPC_NLA_NAME_TABLE_PUBL], NULL);
-+	if (err)
-+		return err;
- 
- 	ntq = (struct tipc_name_table_query *)TLV_DATA(msg->req);
- 
-@@ -815,8 +856,15 @@ static int __tipc_nl_compat_publ_dump(struct tipc_nl_compat_msg *msg,
- {
- 	u32 type, lower, upper;
- 	struct nlattr *publ[TIPC_NLA_PUBL_MAX + 1];
-+	int err;
- 
--	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, attrs[TIPC_NLA_PUBL], NULL);
-+	if (!attrs[TIPC_NLA_PUBL])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, attrs[TIPC_NLA_PUBL],
-+			       NULL);
-+	if (err)
-+		return err;
- 
- 	type = nla_get_u32(publ[TIPC_NLA_PUBL_TYPE]);
- 	lower = nla_get_u32(publ[TIPC_NLA_PUBL_LOWER]);
-@@ -876,7 +924,13 @@ static int tipc_nl_compat_sk_dump(struct tipc_nl_compat_msg *msg,
- 	u32 sock_ref;
- 	struct nlattr *sock[TIPC_NLA_SOCK_MAX + 1];
- 
--	nla_parse_nested(sock, TIPC_NLA_SOCK_MAX, attrs[TIPC_NLA_SOCK], NULL);
-+	if (!attrs[TIPC_NLA_SOCK])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(sock, TIPC_NLA_SOCK_MAX, attrs[TIPC_NLA_SOCK],
-+			       NULL);
-+	if (err)
-+		return err;
- 
- 	sock_ref = nla_get_u32(sock[TIPC_NLA_SOCK_REF]);
- 	tipc_tlv_sprintf(msg->rep, "%u:", sock_ref);
-@@ -917,9 +971,15 @@ static int tipc_nl_compat_media_dump(struct tipc_nl_compat_msg *msg,
- 				     struct nlattr **attrs)
- {
- 	struct nlattr *media[TIPC_NLA_MEDIA_MAX + 1];
-+	int err;
-+
-+	if (!attrs[TIPC_NLA_MEDIA])
-+		return -EINVAL;
- 
--	nla_parse_nested(media, TIPC_NLA_MEDIA_MAX, attrs[TIPC_NLA_MEDIA],
--			 NULL);
-+	err = nla_parse_nested(media, TIPC_NLA_MEDIA_MAX, attrs[TIPC_NLA_MEDIA],
-+			       NULL);
-+	if (err)
-+		return err;
- 
- 	return tipc_add_tlv(msg->rep, TIPC_TLV_MEDIA_NAME,
- 			    nla_data(media[TIPC_NLA_MEDIA_NAME]),
-@@ -931,8 +991,15 @@ static int tipc_nl_compat_node_dump(struct tipc_nl_compat_msg *msg,
- {
- 	struct tipc_node_info node_info;
- 	struct nlattr *node[TIPC_NLA_NODE_MAX + 1];
-+	int err;
- 
--	nla_parse_nested(node, TIPC_NLA_NODE_MAX, attrs[TIPC_NLA_NODE], NULL);
-+	if (!attrs[TIPC_NLA_NODE])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(node, TIPC_NLA_NODE_MAX, attrs[TIPC_NLA_NODE],
-+			       NULL);
-+	if (err)
-+		return err;
- 
- 	node_info.addr = htonl(nla_get_u32(node[TIPC_NLA_NODE_ADDR]));
- 	node_info.up = htonl(nla_get_flag(node[TIPC_NLA_NODE_UP]));
-@@ -971,8 +1038,16 @@ static int tipc_nl_compat_net_dump(struct tipc_nl_compat_msg *msg,
- {
- 	__be32 id;
- 	struct nlattr *net[TIPC_NLA_NET_MAX + 1];
-+	int err;
-+
-+	if (!attrs[TIPC_NLA_NET])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(net, TIPC_NLA_NET_MAX, attrs[TIPC_NLA_NET],
-+			       NULL);
-+	if (err)
-+		return err;
- 
--	nla_parse_nested(net, TIPC_NLA_NET_MAX, attrs[TIPC_NLA_NET], NULL);
- 	id = htonl(nla_get_u32(net[TIPC_NLA_NET_ID]));
- 
- 	return tipc_add_tlv(msg->rep, TIPC_TLV_UNSIGNED, &id, sizeof(id));
--- 
-1.9.1
+Not with HTB or any 'complex' qdisc hierarchy, where we have many
+'queues' and strict limits (packets per qdisc)
