@@ -1,44 +1,81 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [iproute2 PATCH v2 1/1] vv4.6.0
-Date: Tue, 24 May 2016 08:16:17 -0400
-Message-ID: <57444611.2090402@mojatatu.com>
-References: <1464090769-29763-1-git-send-email-jhs@emojatatu.com>
- <1464090769-29763-2-git-send-email-jhs@emojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RESEND 7/8] pipe: account to kmemcg
+Date: Tue, 24 May 2016 05:59:02 -0700
+Message-ID: <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1464079537.git.vdavydov@virtuozzo.com>
+	 <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	Stephen Hemminger <shemming@brocade.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f196.google.com ([209.85.213.196]:33511 "EHLO
-	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753821AbcEXMQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 08:16:20 -0400
-Received: by mail-ig0-f196.google.com with SMTP id l10so1735446igk.0
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 05:16:20 -0700 (PDT)
-In-Reply-To: <1464090769-29763-2-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Alexander Viro
+ <viro@zeniv.linux.org.uk>, Johannes Weiner <hannes@cmpxchg.org>, Michal
+ Hocko <mhocko@kernel.org>, linux-mm@kvack.org,
+ linux-fsdevel@vger.kernel.org,  netdev@vger.kernel.org, x86@kernel.org,
+ linux-kernel@vger.kernel.org
+To: Vladimir Davydov <vdavydov@virtuozzo.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-More git foo. I have no idea how this went out ;->
-Please ignore this but not the other.
-
-cheers,
-jamal
-
-On 16-05-24 07:52 AM, Jamal Hadi Salim wrote:
-> From: Stephen Hemminger <shemming@brocade.com>
->
+On Tue, 2016-05-24 at 11:49 +0300, Vladimir Davydov wrote:
+> Pipes can consume a significant amount of system memory, hence they
+> should be accounted to kmemcg.
+> 
+> This patch marks pipe_inode_info and anonymous pipe buffer page
+> allocations as __GFP_ACCOUNT so that they would be charged to kmemcg.
+> Note, since a pipe buffer page can be "stolen" and get reused for other
+> purposes, including mapping to userspace, we clear PageKmemcg thus
+> resetting page->_mapcount and uncharge it in anon_pipe_buf_steal, which
+> is introduced by this patch.
+> 
+> Signed-off-by: Vladimir Davydov <vdavydov@virtuozzo.com>
+> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
 > ---
->   include/SNAPSHOT.h | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/SNAPSHOT.h b/include/SNAPSHOT.h
-> index 9220f77..cc67058 100644
-> --- a/include/SNAPSHOT.h
-> +++ b/include/SNAPSHOT.h
-> @@ -1 +1 @@
-> -static const char SNAPSHOT[] = "160314";
-> +static const char SNAPSHOT[] = "160518";
->
+>  fs/pipe.c | 32 ++++++++++++++++++++++++++------
+>  1 file changed, 26 insertions(+), 6 deletions(-)
+> 
+> diff --git a/fs/pipe.c b/fs/pipe.c
+> index 0d3f5165cb0b..4b32928f5426 100644
+> --- a/fs/pipe.c
+> +++ b/fs/pipe.c
+> @@ -21,6 +21,7 @@
+>  #include <linux/audit.h>
+>  #include <linux/syscalls.h>
+>  #include <linux/fcntl.h>
+> +#include <linux/memcontrol.h>
+>  
+>  #include <asm/uaccess.h>
+>  #include <asm/ioctls.h>
+> @@ -137,6 +138,22 @@ static void anon_pipe_buf_release(struct pipe_inode_info *pipe,
+>  		put_page(page);
+>  }
+>  
+> +static int anon_pipe_buf_steal(struct pipe_inode_info *pipe,
+> +			       struct pipe_buffer *buf)
+> +{
+> +	struct page *page = buf->page;
+> +
+> +	if (page_count(page) == 1) {
+
+This looks racy : some cpu could have temporarily elevated page count.
+
+> +		if (memcg_kmem_enabled()) {
+> +			memcg_kmem_uncharge(page, 0);
+> +			__ClearPageKmemcg(page);
+> +		}
+> +		__SetPageLocked(page);
+> +		return 0;
+> +	}
+> +	return 1;
+> +}
+> +
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
