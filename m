@@ -1,102 +1,287 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH 0/2] Follow-ups for GUEoIPv6 patches
-Date: Tue, 24 May 2016 10:14:32 -0700
-Message-ID: <1464110072.2631.13.camel@intel.com>
-References: <20160518173605.2608.42484.stgit@localhost.localdomain>
-	 <1463606878.2713.68.camel@intel.com>
-	 <20160518.211043.773402183440053556.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-hf3+QYiNU+uYzQpR39ht"
-Cc: aduyck@mirantis.com, tom@herbertland.com,
-	alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] Make builds default to quiet mode
+Date: Tue, 24 May 2016 10:27:38 -0700
+Message-ID: <1464110858-30718-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:49202 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750769AbcEXROr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2016 13:14:47 -0400
-In-Reply-To: <20160518.211043.773402183440053556.davem@davemloft.net>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34003 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755606AbcEXR1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 13:27:45 -0400
+Received: by mail-pa0-f52.google.com with SMTP id qo8so8655821pab.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 10:27:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Similar to the Linux kernel and perf add infrastructure to reduce the
+amount of output tossed to a user during a build. Full build output
+can be obtained with 'make V=1'
 
---=-hf3+QYiNU+uYzQpR39ht
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Builds go from:
 
-On Wed, 2016-05-18 at 21:10 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 18 May 2016 14:27:58 -0700
->=20
-> > On Wed, 2016-05-18 at 10:44 -0700, Alexander Duyck wrote:
-> >> This patch series is meant to be applied after:
-> >> [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes for v6
-> >> tunneling
-> >>=C2=A0
-> >> The first patch addresses an issue we already resolved in the GREv4
-> and
-> >> is
-> >> now present in GREv6 with the introduction of FOU/GUE for IPv6 based
-> GRE
-> >> tunnels.
-> >>=C2=A0
-> >> The second patch goes through and enables IPv6 tunnel offloads for the
-> >> Intel
-> >> NICs that already support the IPv4 based IP-in-IP tunnel offloads.=C2=
-=A0 I
-> >> have
-> >> only done a bit of touch testing but have seen ~20 Gb/s over an i40e
-> >> interface using a v4-in-v6 tunnel, and I have verified IPv6 GRE is
-> still
-> >> passing traffic at around the same rate.=C2=A0 I plan to do further te=
-sting
-> >> but
-> >> with these patches present it should enable a wider audience to be
-> able
-> >> to
-> >> test the new features introduced in Tom's patchset with hardware
-> >> offloads.
-> >>=C2=A0
-> >> ---
-> >>=C2=A0
-> >> Alexander Duyck (2):
-> >> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ip6_gre: Do not allow segmentation offl=
-oads GRE_CSUM is enabled
-> >> with FOU/GUE
-> >> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 intel: Add support for IPv6 IP-in-IP of=
-fload
-> >=C2=A0
-> > Dave, I have this series added to my queue.
->=20
-> Why would you if it depends upon Tom's series, as mentioned above, which
-> isn't even in my tree yet?
+make[1]: Leaving directory `/home/dsa/iproute2.git/lib'
+make[1]: Entering directory `/home/dsa/iproute2.git/ip'
+gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declarations -Wold-style-definition -Wformat=2 -O2 -I../include -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\" -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE    -c -o ip.o ip.c
+gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declarations -Wold-style-definition -Wformat=2 -O2 -I../include -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\" -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE    -c -o ipaddress.o ipaddress.c
 
-I was not able to apply his patches to my dev-queue due to conflicts and
-from discussion with Alex, I made the mistake in assuming the issues I saw
-was because it did not have Tom's driver changes.
---=-hf3+QYiNU+uYzQpR39ht
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+to:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+...
+    AR       libutil.a
 
-iQIcBAABCgAGBQJXRIv4AAoJEOVv75VaS+3Ory4P/AjSaguGw9xt5bKo4kxp5mxo
-j/n8vYjo/3PjW/TPZ37A3LRI7t8jEhZYDRbGhtlJG+bodqtr/0KuNRoAgJzMRMuX
-SL7P4dXLwgLcVqyBxSE2uw9cyphXUbKDKSv8Hsxchl5wrPtEp67edRN7/idboRTv
-MKl0vrzucuhhvRwaia84Nh0YzXLiUVgX80HDYn4PH4pCCybPo/Tbj/Agwr2N20SR
-F3o4VA5wPwIQ+Q7f2F45R2uSAkIQipATE30JSAKgRRWkpQVollHULlMw319P3hkL
-+rsyx6GKK/KXLgQgc8cfST2xTpudvSLTnrHoPbY+nv9wJbUPBb7VSK3SkLdFi8a9
-mSUBQbEFZNbcVDvwlqp506qRVvXdwKPnh96PjuDGPAkuFle9wvvqnEEX52wQg5da
-04aPgar4RgHN08CFnzwoU8La2rAfgKnBNlcvP+myH9+uyCP0eQDN3AFyP0d35wzT
-8YG8jdtW+SJwLrrKiKussBczd8nfq43kQ+cJfMIuS2diY1wDle8iGu1CE1R4r9db
-3ByHZadGGPkbzUSACde27iirNFUUQ7Ja8PdtIAprC1o9w4lE/Ckt/SlAUsaGcDBN
-pXIIL4VxXDMtWMPC2NFisR6olGn1SmdgQ69uzgJe/ZFtCUTyF1Tp9h/Twg9ME/jr
-HT5+h+mS1foLGlv654Ok
-=4vek
------END PGP SIGNATURE-----
+ip
+    CC       ip.o
+    CC       ipaddress.o
+...
 
---=-hf3+QYiNU+uYzQpR39ht--
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ Makefile         |  6 +++++-
+ bridge/Makefile  |  1 +
+ configure        | 32 ++++++++++++++++++++++++++++++++
+ devlink/Makefile |  1 +
+ genl/Makefile    |  1 +
+ ip/Makefile      |  2 ++
+ lib/Makefile     |  4 ++--
+ misc/Makefile    | 12 +++++++-----
+ tc/Makefile      | 15 ++++++++-------
+ tipc/Makefile    |  1 +
+ 10 files changed, 60 insertions(+), 15 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 7f79cdd67f2d..99a1a6f31c0d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,3 +1,7 @@
++ifndef VERBOSE
++MAKEFLAGS += --no-print-directory
++endif
++
+ PREFIX?=/usr
+ LIBDIR?=$(PREFIX)/lib
+ SBINDIR?=/sbin
+@@ -50,7 +54,7 @@ LDLIBS += $(LIBNETLINK)
+ all: Config
+ 	@set -e; \
+ 	for i in $(SUBDIRS); \
+-	do $(MAKE) $(MFLAGS) -C $$i; done
++	do echo "\n$$i"; $(MAKE) $(MFLAGS) -C $$i; done
+ 
+ Config:
+ 	sh configure $(KERNEL_INCLUDE)
+diff --git a/bridge/Makefile b/bridge/Makefile
+index 98007530240a..7203f70bc510 100644
+--- a/bridge/Makefile
++++ b/bridge/Makefile
+@@ -9,6 +9,7 @@ endif
+ all: bridge
+ 
+ bridge: $(BROBJ) $(LIBNETLINK) 
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ install: all
+ 	install -m 0755 bridge $(DESTDIR)$(SBINDIR)
+diff --git a/configure b/configure
+index d2540b0d3219..60eb6b51a571 100755
+--- a/configure
++++ b/configure
+@@ -317,7 +317,35 @@ EOF
+     rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
+ }
+ 
++quiet_config()
++{
++	cat <<EOF
++# user can control verbosity similar to kernel builds (e.g., V=1)
++ifeq ("\$(origin V)", "command line")
++  VERBOSE = \$(V)
++endif
++ifndef VERBOSE
++  VERBOSE = 0
++endif
++ifeq (\$(VERBOSE),1)
++  Q =
++else
++  Q = @
++endif
++
++ifeq (\$(VERBOSE), 0)
++    QUIET_CC       = @echo '    CC       '\$@;
++    QUIET_AR       = @echo '    AR       '\$@;
++    QUIET_LINK     = @echo '    LINK     '\$@;
++    QUIET_YACC     = @echo '    YACC     '\$@;
++    QUIET_LEX      = @echo '    LEX      '\$@;
++endif
++EOF
++}
++
+ echo "# Generated config based on" $INCLUDE >Config
++quiet_config >> Config
++
+ check_toolchain
+ 
+ echo "TC schedulers"
+@@ -357,3 +385,7 @@ echo
+ echo -n "docs:"
+ check_docs
+ echo
++
++echo >> Config
++echo "%.o: %.c" >> Config
++echo '	$(QUIET_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<' >> Config
+diff --git a/devlink/Makefile b/devlink/Makefile
+index 3fdaa6904ee1..7256c28708eb 100644
+--- a/devlink/Makefile
++++ b/devlink/Makefile
+@@ -12,6 +12,7 @@ endif
+ all: $(TARGETS) $(LIBS)
+ 
+ devlink: $(DEVLINKOBJ)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+diff --git a/genl/Makefile b/genl/Makefile
+index 03d1f26a1cee..f5a0bfe42aff 100644
+--- a/genl/Makefile
++++ b/genl/Makefile
+@@ -20,6 +20,7 @@ endif
+ all: genl
+ 
+ genl: $(GENLOBJ) $(LIBNETLINK) $(LIBUTIL) $(GENLLIB)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ install: all
+ 	install -m 0755 genl $(DESTDIR)$(SBINDIR)
+diff --git a/ip/Makefile b/ip/Makefile
+index 2194ed9642eb..bb85fe3e6610 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -24,8 +24,10 @@ TARGETS=ip rtmon
+ all: $(TARGETS) $(SCRIPTS)
+ 
+ ip: $(IPOBJ) $(LIBNETLINK)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ rtmon: $(RTMONOBJ)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+diff --git a/lib/Makefile b/lib/Makefile
+index 9d1307dd4df2..52e016db50b6 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -15,10 +15,10 @@ NLOBJ=libgenl.o ll_map.o libnetlink.o
+ all: libnetlink.a libutil.a
+ 
+ libnetlink.a: $(NLOBJ)
+-	$(AR) rcs $@ $(NLOBJ)
++	$(QUIET_AR)$(AR) rcs $@ $^
+ 
+ libutil.a: $(UTILOBJ) $(ADDLIB)
+-	$(AR) rcs $@ $(UTILOBJ) $(ADDLIB)
++	$(QUIET_AR)$(AR) rcs $@ $^
+ 
+ install:
+ 
+diff --git a/misc/Makefile b/misc/Makefile
+index f50e7403a33b..72807678054b 100644
+--- a/misc/Makefile
++++ b/misc/Makefile
+@@ -21,23 +21,25 @@ endif
+ all: $(TARGETS)
+ 
+ ss: $(SSOBJ)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ nstat: nstat.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o nstat nstat.c $(LIBNETLINK) -lm
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -o nstat nstat.c $(LIBNETLINK) -lm
+ 
+ ifstat: ifstat.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o ifstat ifstat.c $(LIBNETLINK) -lm
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -o ifstat ifstat.c $(LIBNETLINK) -lm
+ 
+ rtacct: rtacct.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o rtacct rtacct.c $(LIBNETLINK) -lm
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -o rtacct rtacct.c $(LIBNETLINK) -lm
+ 
+ arpd: arpd.c
+-	$(CC) $(CFLAGS) -I$(DBM_INCLUDE) $(LDFLAGS) -o arpd arpd.c $(LIBNETLINK) -ldb -lpthread
++	$(QUIET_CC)$(CC) $(CFLAGS) -I$(DBM_INCLUDE) $(LDFLAGS) -o arpd arpd.c $(LIBNETLINK) -ldb -lpthread
+ 
+ ssfilter.c: ssfilter.y
+-	bison ssfilter.y -o ssfilter.c
++	$(QUIET_YACC)bison ssfilter.y -o ssfilter.c
+ 
+ lnstat: $(LNSTATOBJ)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+diff --git a/tc/Makefile b/tc/Makefile
+index 20f51100047a..42747c517ee1 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -125,15 +125,16 @@ CFLAGS += -DYY_NO_INPUT
+ MODDESTDIR := $(DESTDIR)$(LIBDIR)/tc
+ 
+ %.so: %.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic $< -o $@
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic $< -o $@
+ 
+ 
+ all: libtc.a tc $(TCSO)
+ 
+ tc: $(TCOBJ) $(TCLIB)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ libtc.a: $(TCLIB)
+-	$(AR) rcs $@ $(TCLIB)
++	$(QUIET_AR)$(AR) rcs $@ $(TCLIB)
+ 
+ install: all
+ 	mkdir -p $(MODDESTDIR)
+@@ -154,21 +155,21 @@ install: all
+ 	rm -f emp_ematch.yacc.*
+ 
+ q_atm.so: q_atm.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o q_atm.so q_atm.c -latm
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o q_atm.so q_atm.c -latm
+ 
+ m_xt.so: m_xt.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o m_xt.so m_xt.c $$($(PKG_CONFIG) xtables --cflags --libs)
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o m_xt.so m_xt.c $$($(PKG_CONFIG) xtables --cflags --libs)
+ 
+ m_xt_old.so: m_xt_old.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o m_xt_old.so m_xt_old.c $$($(PKG_CONFIG) xtables --cflags --libs)
++	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o m_xt_old.so m_xt_old.c $$($(PKG_CONFIG) xtables --cflags --libs)
+ 
+ em_ipset.o: CFLAGS += $$($(PKG_CONFIG) xtables --cflags)
+ 
+ %.yacc.c: %.y
+-	$(YACC) $(YACCFLAGS) -o $@ $<
++	$(QUIET_YACC)$(YACC) $(YACCFLAGS) -o $@ $<
+ 
+ %.lex.c: %.l
+-	$(LEX) $(LEXFLAGS) -o$@ $<
++	$(QUIET_LEX)$(LEX) $(LEXFLAGS) -o$@ $<
+ 
+ # our lexer includes the header from yacc, so make sure
+ # we don't attempt to compile it before the header has
+diff --git a/tipc/Makefile b/tipc/Makefile
+index bc5ecfd37518..868d13abf511 100644
+--- a/tipc/Makefile
++++ b/tipc/Makefile
+@@ -19,6 +19,7 @@ endif
+ all: $(TARGETS) $(LIBS)
+ 
+ tipc: $(TIPCOBJ)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+-- 
+2.1.4
