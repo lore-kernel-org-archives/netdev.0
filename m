@@ -1,70 +1,102 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH 7/7] tou: Support for GSO
-Date: Tue, 24 May 2016 10:07:07 -0700
-Message-ID: <CALx6S35Hzf35myKq-c=jwg7Fzwdsu_SYtKYDD9SuVnG=Db4obQ@mail.gmail.com>
-References: <1464043706-2843932-1-git-send-email-tom@herbertland.com>
-	<1464043706-2843932-8-git-send-email-tom@herbertland.com>
-	<CAKgT0Udjj=_7-Ye5yGUkie9o5AVN0+mvi1D1dEJRkcbzKm35sA@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH 0/2] Follow-ups for GUEoIPv6 patches
+Date: Tue, 24 May 2016 10:14:32 -0700
+Message-ID: <1464110072.2631.13.camel@intel.com>
+References: <20160518173605.2608.42484.stgit@localhost.localdomain>
+	 <1463606878.2713.68.camel@intel.com>
+	 <20160518.211043.773402183440053556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-hf3+QYiNU+uYzQpR39ht"
+Cc: aduyck@mirantis.com, tom@herbertland.com,
+	alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36456 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997AbcEXRHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 13:07:08 -0400
-Received: by mail-io0-f196.google.com with SMTP id m17so2019377ioi.3
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 10:07:07 -0700 (PDT)
-In-Reply-To: <CAKgT0Udjj=_7-Ye5yGUkie9o5AVN0+mvi1D1dEJRkcbzKm35sA@mail.gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:49202 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750769AbcEXROr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2016 13:14:47 -0400
+In-Reply-To: <20160518.211043.773402183440053556.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2016 at 7:59 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Mon, May 23, 2016 at 3:48 PM, Tom Herbert <tom@herbertland.com> wrote:
->> Add SKB_GSO_TOU. In udp[64]_ufo_fragment check for SKB_GSO_TOU. If this
->> is set call skb_udp_tou_segment. skb_udp_tou_segment is very similar
->> to skb_udp_tunnel_segment except that we only need to deal with the
->> L4 headers.
->>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
->> ---
->>  include/linux/skbuff.h           |   2 +
->>  include/net/udp.h                |   2 +
->>  net/ipv4/fou.c                   |   2 +
->>  net/ipv4/ip_output.c             |   2 +
->>  net/ipv4/udp_offload.c           | 164 +++++++++++++++++++++++++++++++++++++--
->>  net/ipv6/inet6_connection_sock.c |   3 +
->>  net/ipv6/udp_offload.c           | 128 +++++++++++++++---------------
->>  7 files changed, 236 insertions(+), 67 deletions(-)
->>
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index 65968a9..b57e484 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -482,6 +482,8 @@ enum {
->>         SKB_GSO_PARTIAL = 1 << 13,
->>
->>         SKB_GSO_TUNNEL_REMCSUM = 1 << 14,
->> +
->> +       SKB_GSO_TOU = 1 << 15,
->>  };
->>
->
-> So where do you add the netdev feature bit?  From what I can tell that
-> was overlooked and as a result devices that support FCoE CRC will end
-> up corrupting TOU frames because netif_gso_ok currently ands the two
-> together.
->
-An obvious omission, thanks for pointing it out.
 
-> Also I am pretty sure we can offload this on the Intel NICs using the
-> GSO partial approach as we can just stuff the UDP header into the
-> space that we would use for IPv4 options or IPv6 extension headers and
-> it shouldn't complain.
->
-That would be cool!
+--=-hf3+QYiNU+uYzQpR39ht
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> - Alex
+On Wed, 2016-05-18 at 21:10 -0700, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 18 May 2016 14:27:58 -0700
+>=20
+> > On Wed, 2016-05-18 at 10:44 -0700, Alexander Duyck wrote:
+> >> This patch series is meant to be applied after:
+> >> [PATCH v7 net-next 00/16] ipv6: Enable GUEoIPv6 and more fixes for v6
+> >> tunneling
+> >>=C2=A0
+> >> The first patch addresses an issue we already resolved in the GREv4
+> and
+> >> is
+> >> now present in GREv6 with the introduction of FOU/GUE for IPv6 based
+> GRE
+> >> tunnels.
+> >>=C2=A0
+> >> The second patch goes through and enables IPv6 tunnel offloads for the
+> >> Intel
+> >> NICs that already support the IPv4 based IP-in-IP tunnel offloads.=C2=
+=A0 I
+> >> have
+> >> only done a bit of touch testing but have seen ~20 Gb/s over an i40e
+> >> interface using a v4-in-v6 tunnel, and I have verified IPv6 GRE is
+> still
+> >> passing traffic at around the same rate.=C2=A0 I plan to do further te=
+sting
+> >> but
+> >> with these patches present it should enable a wider audience to be
+> able
+> >> to
+> >> test the new features introduced in Tom's patchset with hardware
+> >> offloads.
+> >>=C2=A0
+> >> ---
+> >>=C2=A0
+> >> Alexander Duyck (2):
+> >> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ip6_gre: Do not allow segmentation offl=
+oads GRE_CSUM is enabled
+> >> with FOU/GUE
+> >> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 intel: Add support for IPv6 IP-in-IP of=
+fload
+> >=C2=A0
+> > Dave, I have this series added to my queue.
+>=20
+> Why would you if it depends upon Tom's series, as mentioned above, which
+> isn't even in my tree yet?
+
+I was not able to apply his patches to my dev-queue due to conflicts and
+from discussion with Alex, I made the mistake in assuming the issues I saw
+was because it did not have Tom's driver changes.
+--=-hf3+QYiNU+uYzQpR39ht
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXRIv4AAoJEOVv75VaS+3Ory4P/AjSaguGw9xt5bKo4kxp5mxo
+j/n8vYjo/3PjW/TPZ37A3LRI7t8jEhZYDRbGhtlJG+bodqtr/0KuNRoAgJzMRMuX
+SL7P4dXLwgLcVqyBxSE2uw9cyphXUbKDKSv8Hsxchl5wrPtEp67edRN7/idboRTv
+MKl0vrzucuhhvRwaia84Nh0YzXLiUVgX80HDYn4PH4pCCybPo/Tbj/Agwr2N20SR
+F3o4VA5wPwIQ+Q7f2F45R2uSAkIQipATE30JSAKgRRWkpQVollHULlMw319P3hkL
++rsyx6GKK/KXLgQgc8cfST2xTpudvSLTnrHoPbY+nv9wJbUPBb7VSK3SkLdFi8a9
+mSUBQbEFZNbcVDvwlqp506qRVvXdwKPnh96PjuDGPAkuFle9wvvqnEEX52wQg5da
+04aPgar4RgHN08CFnzwoU8La2rAfgKnBNlcvP+myH9+uyCP0eQDN3AFyP0d35wzT
+8YG8jdtW+SJwLrrKiKussBczd8nfq43kQ+cJfMIuS2diY1wDle8iGu1CE1R4r9db
+3ByHZadGGPkbzUSACde27iirNFUUQ7Ja8PdtIAprC1o9w4lE/Ckt/SlAUsaGcDBN
+pXIIL4VxXDMtWMPC2NFisR6olGn1SmdgQ69uzgJe/ZFtCUTyF1Tp9h/Twg9ME/jr
+HT5+h+mS1foLGlv654Ok
+=4vek
+-----END PGP SIGNATURE-----
+
+--=-hf3+QYiNU+uYzQpR39ht--
