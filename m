@@ -1,52 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RESEND 7/8] pipe: account to kmemcg
-Date: Tue, 24 May 2016 13:04:33 -0700
-Message-ID: <1464120273.5939.53.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1464079537.git.vdavydov@virtuozzo.com>
-	 <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
-	 <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160524161336.GA11150@esperanza>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v5 2/2] skb_array: ring test
+Date: Tue, 24 May 2016 23:34:14 +0300
+Message-ID: <20160524224710-mutt-send-email-mst@redhat.com>
+References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+ <1464000201-15560-3-git-send-email-mst@redhat.com>
+ <20160523150918.2c58fa7d@redhat.com>
+ <20160523235014-mutt-send-email-mst@redhat.com>
+ <20160524122809.140f7020@redhat.com>
+ <20160524190320.69761a67@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Alexander Viro
- <viro@zeniv.linux.org.uk>, Johannes Weiner <hannes@cmpxchg.org>, Michal
- Hocko <mhocko@kernel.org>, linux-mm@kvack.org,
- linux-fsdevel@vger.kernel.org,  netdev@vger.kernel.org, x86@kernel.org,
- linux-kernel@vger.kernel.org
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160524161336.GA11150@esperanza>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160524190320.69761a67@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-05-24 at 19:13 +0300, Vladimir Davydov wrote:
-> On Tue, May 24, 2016 at 05:59:02AM -0700, Eric Dumazet wrote:
-> ...
-> > > +static int anon_pipe_buf_steal(struct pipe_inode_info *pipe,
-> > > +			       struct pipe_buffer *buf)
-> > > +{
-> > > +	struct page *page = buf->page;
-> > > +
-> > > +	if (page_count(page) == 1) {
+On Tue, May 24, 2016 at 07:03:20PM +0200, Jesper Dangaard Brouer wrote:
+> 
+> On Tue, 24 May 2016 12:28:09 +0200
+> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> 
+> > I do like perf, but it does not answer my questions about the
+> > performance of this queue. I will code something up in my own
+> > framework[2] to answer my own performance questions.
 > > 
-> > This looks racy : some cpu could have temporarily elevated page count.
+> > Like what is be minimum overhead (in cycles) achievable with this type
+> > of queue, in the most optimal situation (e.g. same CPU enq+deq cache hot)
+> > for fastpath usage.
 > 
-> All pipe operations (pipe_buf_operations->get, ->release, ->steal) are
-> supposed to be called under pipe_lock. So, if we see a pipe_buffer->page
-> with refcount of 1 in ->steal, that means that we are the only its user
-> and it can't be spliced to another pipe.
+> Coded it up here:
+>  https://github.com/netoptimizer/prototype-kernel/commit/b16a3332184
+>  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_bench01.c
 > 
-> In fact, I just copied the code from generic_pipe_buf_steal, adding
-> kmemcg related checks along the way, so it should be fine.
+> This is a really fake benchmark, but it sort of shows the minimum
+> overhead achievable with this type of queue, where it is the same
+> CPU enqueuing and dequeuing, and cache is guaranteed to be hot.
+> 
+> Measured on a i7-4790K CPU @ 4.00GHz, the average cost of
+> enqueue+dequeue of a single object is around 102 cycles(tsc).
+> 
+> To compare this with below, where enq and deq is measured separately:
+>  102 / 2 = 51 cycles
+> 
+>  
+> > Then I also want to know how this performs when two CPUs are involved.
+> > As this is also a primary use-case, for you when sending packets into a
+> > guest.
+> 
+> Coded it up here:
+>  https://github.com/netoptimizer/prototype-kernel/commit/75fe31ef62e
+>  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
+>  
+> This parallel benchmark try to keep two (or more) CPUs busy enqueuing or
+> dequeuing on the same skb_array queue.  It prefills the queue,
+> and stops the test as soon as queue is empty or full, or
+> completes a number of "loops"/cycles.
+> 
+> For two CPUs the results are really good:
+>  enqueue: 54 cycles(tsc)
+>  dequeue: 53 cycles(tsc)
+> 
+> Going to 4 CPUs, things break down (but it was not primary use-case?):
+>  CPU(0) 927 cycles(tsc) enqueue
+>  CPU(1) 921 cycles(tsc) dequeue
+>  CPU(2) 927 cycles(tsc) enqueue
+>  CPU(3) 898 cycles(tsc) dequeue
 
-So you guarantee that no other cpu might have done
-get_page_unless_zero() right before this test ?
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+It's mostly the spinlock contention I guess.
+Maybe we don't need fair spinlocks in this case.
+Try replacing spinlocks with simple cmpxchg
+and see what happens?
