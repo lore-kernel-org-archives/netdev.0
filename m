@@ -1,45 +1,51 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH iproute2 v3 5/5] ip: add MACsec support
-Date: Tue, 24 May 2016 15:12:35 +0200
-Message-ID: <20160524131235.GB23050@bistromath.localdomain>
-References: <cover.1463585050.git.sd@queasysnail.net>
- <3e4dce017d424cfbd7558a82ddcaf6edf1d03312.1463585050.git.sd@queasysnail.net>
- <20160523162142.0da12bfa@xeon-e3>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC] net: remove busylock
+Date: Tue, 24 May 2016 13:50:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4C5166@AcuExch.aculab.com>
+References: <1463677716.18194.203.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAKgT0UfBxW=KpqJux+tjyNpHQUHhZ5Laiqnt5FPs=jpkBJWrHA@mail.gmail.com>
+	<20160520092903.38620c60@redhat.com>
+	<1463749909.18194.291.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1463752069.18194.294.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1463753815.18194.298.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160520194951.6354fba1@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	"John Fastabend" <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: 'Jesper Dangaard Brouer' <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42614 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752841AbcEXNMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2016 09:12:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20160523162142.0da12bfa@xeon-e3>
+Received: from smtp-out4.electric.net ([192.162.216.186]:56856 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752419AbcEXNvy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 09:51:54 -0400
+In-Reply-To: <20160520194951.6354fba1@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Stephen,
+From: Jesper Dangaard Brouer
+> Sent: 20 May 2016 18:50
+...
+> If would be cool if you could run a test with removed busylock and
+> allow HTB to bulk dequeue.
 
-2016-05-23, 16:21:42 -0700, Stephen Hemminger wrote:
-> On Wed, 18 May 2016 17:35:13 +0200
-> Sabrina Dubroca <sd@queasysnail.net> wrote:
-> 
-> > +
-> > +static void print_rx_sc(const char *prefix, __u64 sci, __u8 active, struct rtattr *rxsc_stats, struct rtattr *sa)
-> > +{
-> 
-> Overall, this looks fine, but could you break some of the really long lines.
-> In general, I like iproute2 to follow kernel style, and in general stick to
-> the 80 column recommendation where it makes sense.  Spliting strings or 
-> stuff in loops may not make sense. There are several places in this code
-> longer than 100 chars.
+(Without having looked ....)
+Could you have two queues and separate queue and dequeue locks.
 
-Ugh, yeah, I forgot to clean this up, sorry.
-I'll do that and resend.
+The enqueue code would acquire the enqueue lock and add the packet
+to the first queue.
 
+The dequeue code would acquire the dequeue lock and try to remove
+a packet from the 2nd queue, if nothing present it would acquire
+the enqueue lock and move the entire 1st queue to the 2nd queue.
 
-Thanks,
+The obvious downside is two lock/unlocks for single packet dequeue.
+If you can guarantee a single dequeue thread the 2nd lock isn't needed.
 
--- 
-Sabrina
+	David
