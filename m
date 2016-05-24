@@ -1,94 +1,70 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: bpf: use-after-free in array_map_alloc
-Date: Tue, 24 May 2016 11:30:29 -0400
-Message-ID: <20160524153029.GA3354@mtj.duckdns.org>
-References: <5713C0AD.3020102@oracle.com>
- <20160417172943.GA83672@ast-mbp.thefacebook.com>
- <5742F127.6080000@suse.cz>
- <5742F267.3000309@suse.cz>
- <20160523213501.GA5383@mtj.duckdns.org>
- <57441396.2050607@suse.cz>
+From: Patrick Schaaf <netdev@bof.de>
+Subject: kernel panic with kernel 3.14.70, LVS on keepalived restart
+Date: Tue, 24 May 2016 17:44:13 +0200
+Message-ID: <2116485.usCtNS6d1V@rofl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Sasha Levin <sasha.levin@oracle.com>, ast@kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Christoph Lameter <cl@linux.com>,
-	Linux-MM layout <linux-mm@kvack.org>, marco.gra@gmail.com
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <57441396.2050607@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: NETDEV <netdev@vger.kernel.org>, lvs-users@linuxvirtualserver.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mars.intermailgate.com ([80.242.145.70]:51352 "EHLO
+	mars.intermailgate.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752466AbcEXPoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 11:44:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Dear LVS users / netdev readers,
 
-On Tue, May 24, 2016 at 10:40:54AM +0200, Vlastimil Babka wrote:
-> [+CC Marco who reported the CVE, forgot that earlier]
-> 
-> On 05/23/2016 11:35 PM, Tejun Heo wrote:
-> > Hello,
-> > 
-> > Can you please test whether this patch resolves the issue?  While
-> > adding support for atomic allocations, I reduced alloc_mutex covered
-> > region too much.
-> > 
-> > Thanks.
-> 
-> Ugh, this makes the code even more head-spinning than it was.
+today I've got a pretty peculiar problem.
 
-Locking-wise, it isn't complicated.  It used to be a single mutex
-protecting everything.  Atomic alloc support required putting core
-allocation parts under spinlock.  It is messy because the two paths
-are mixed in the same function.  If we break out the core part to a
-separate function and let the sleepable path call into that, it should
-look okay, but that's for another patch.
+I've been running 3.14.48 (and some earlier 3.14 kernels) for a long time now 
+in an LVS / keepalived driven loadbalancing cluster. See below for more detail 
+on the setup.
 
-Also, I think protecting chunk's lifetime w/ alloc_mutex is making it
-a bit nasty.  Maybe we should do per-chunk "extending" completion and
-let pcpu_alloc_mutex just protect populating chunks.
+Today I started to upgrade to the current 3.14.70 kernel. At first glance 
+everything seems fine, I can failover _to_ the box with the new kernel, and 
+traffic is flowing fine.
 
-> > @@ -435,6 +435,8 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk, int new_alloc)
-> >   	size_t old_size = 0, new_size = new_alloc * sizeof(new[0]);
-> >   	unsigned long flags;
-> > 
-> > +	lockdep_assert_held(&pcpu_alloc_mutex);
-> 
-> I don't see where the mutex gets locked when called via
-> pcpu_map_extend_workfn? (except via the new cancel_work_sync() call below?)
+However, when I then switch BACK to a different box, the 3.14.70 kernel 
+crashes. I've got an incomplete console dump (IPMI avi capture, single 
+frame...) you can see here:
 
-Ah, right.
+ https://plus.google.com/u/0/photos/photo/114613285248943487324/6288270822391242162
 
-> Also what protects chunks with scheduled work items from being removed?
+I usually manually failover by (having some automation) fiddle with 
+keepalived.conf VRRP priority settings, then restart the daemon.
 
-cancel_work_sync(), which now obviously should be called outside
-alloc_mutex.
+The issue / reboot only manifests when I RESTART the ACTIVE keepalived. It 
+always happens, then, with 3.14.70. That never happened before.
 
-> > @@ -895,6 +897,9 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
-> >   		return NULL;
-> >   	}
-> > 
-> > +	if (!is_atomic)
-> > +		mutex_lock(&pcpu_alloc_mutex);
-> 
-> BTW I noticed that
-> 	bool is_atomic = (gfp & GFP_KERNEL) != GFP_KERNEL;
-> 
-> this is too pessimistic IMHO. Reclaim is possible even without __GFP_FS and
-> __GFP_IO. Could you just use gfpflags_allow_blocking(gfp) here?
+On the other hand just reloading keepalived, with the prio-modified config, 
+works fine!
 
-vmalloc hardcodes GFP_KERNEL, so getting more relaxed doesn't buy us
-much.
+As I don't remember why I restarted instead of reloading, I can for now change 
+my automation easily - but the issue is weird anyway.
 
-Thanks.
+More info on the setup:
 
--- 
-tejun
+1) kernel is vanilla 3.14.70 (and was vanilla 3.14.48 without the issue), with 
+a single (self written) patch to bonding applied (see 
+http://permalink.gmane.org/gmane.linux.network/316758). Unfortunately I cannot 
+live without that patch, i.e. can't try to reproduce with a pure vanilla 
+vanilla kernel.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2) keepalived is 1.2.13
+
+3) config uses "use_vmac" / "vmac_xmit_base", on multiple interfaces, i.e. 
+MACVLAN interfaces on top of:
+
+4) "normal" interfaces are both bridge-over-VLAN-over-LACP-bond-over-eth and 
+ARP-bond-over-VLAN-over-eth
+
+5) there is active conntracking including conntrackd (but excluding LVS 
+state), LVS loadbalancing of some 15k pps, LVS sync, and heavy iptables use 
+including ipset matching, going on. Just for completeness.
+
+Anybody got any idea what the root cause might be?
+
+best regards
+  Patrick
