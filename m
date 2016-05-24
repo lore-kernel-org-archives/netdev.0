@@ -1,110 +1,67 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [4.2.y-ckt stable] Patch "VSOCK: do not disconnect socket when peer has shutdown SEND only" has been added to the 4.2.y-ckt tree
-Date: Tue, 24 May 2016 10:53:39 -0700
-Message-ID: <1464112419-1595-1-git-send-email-kamal@canonical.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	Andy King <acking@vmware.com>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Jorgen Hansen <jhansen@vmware.com>,
-	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
-	Kamal Mostafa <kamal@canonical.com>,
-	kernel-team@lists.ubuntu.com
-To: Ian Campbell <ian.campbell@docker.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net] sfc: on MC reset, clear PIO buffer linkage in TXQs
+Date: Tue, 24 May 2016 18:53:36 +0100
+Message-ID: <57449520.5070205@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:37741 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932351AbcEXRxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 13:53:49 -0400
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:52672 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932813AbcEXRx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 13:53:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a note to let you know that I have just added a patch titled
+Otherwise, if we fail to allocate new PIO buffers, our TXQs will try to
+use the old ones, which aren't there any more.
 
-    VSOCK: do not disconnect socket when peer has shutdown SEND only
-
-to the linux-4.2.y-queue branch of the 4.2.y-ckt extended stable tree 
-which can be found at:
-
-    https://git.launchpad.net/~canonical-kernel/linux/+git/linux-stable-ckt/log/?h=linux-4.2.y-queue
-
-This patch is scheduled to be released in version 4.2.8-ckt11.
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 4.2.y-ckt tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Kamal
-
----8<------------------------------------------------------------
-
->From 89cf2ec58bee58f349e0cf4c1b77dc53490e6949 Mon Sep 17 00:00:00 2001
-From: Ian Campbell <ian.campbell@docker.com>
-Date: Wed, 4 May 2016 14:21:53 +0100
-Subject: VSOCK: do not disconnect socket when peer has shutdown SEND only
-
-[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
-
-The peer may be expecting a reply having sent a request and then done a
-shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-wrong and breaks for me with a client which does a SHUT_WR.
-
-Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-here does not seem to be the norm and removing it does not seem to have
-had any adverse effects that I can see.
-
-I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-on the vmci transport.
-
-Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Cc: Andy King <acking@vmware.com>
-Cc: Dmitry Torokhov <dtor@vmware.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Cc: Adit Ranadive <aditr@vmware.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+Fixes: 183233bec810 "sfc: Allocate and link PIO buffers; map them with write-combining"
+Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- net/vmw_vsock/af_vsock.c | 21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index df5fc6b..d68716c 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1795,27 +1795,8 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		err = 0;
-
--	if (copied > 0) {
--		/* We only do these additional bookkeeping/notification steps
--		 * if we actually copied something out of the queue pair
--		 * instead of just peeking ahead.
--		 */
--
--		if (!(flags & MSG_PEEK)) {
--			/* If the other side has shutdown for sending and there
--			 * is nothing more to read, then modify the socket
--			 * state.
--			 */
--			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
--				if (vsock_stream_has_data(vsk) <= 0) {
--					sk->sk_state = SS_UNCONNECTED;
--					sock_set_flag(sk, SOCK_DONE);
--					sk->sk_state_change(sk);
--				}
--			}
--		}
-+	if (copied > 0)
- 		err = copied;
--	}
-
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 1681084..1f30912 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -619,6 +619,17 @@ fail:
+ 	return rc;
+ }
+ 
++static void efx_ef10_forget_old_piobufs(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++	struct efx_tx_queue *tx_queue;
++
++	/* All our existing PIO buffers went away */
++	efx_for_each_channel(channel, efx)
++		efx_for_each_channel_tx_queue(tx_queue, channel)
++			tx_queue->piobuf = NULL;
++}
++
+ #else /* !EFX_USE_PIO */
+ 
+ static int efx_ef10_alloc_piobufs(struct efx_nic *efx, unsigned int n)
+@@ -635,6 +646,10 @@ static void efx_ef10_free_piobufs(struct efx_nic *efx)
+ {
+ }
+ 
++static void efx_ef10_forget_old_piobufs(struct efx_nic *efx)
++{
++}
++
+ #endif /* EFX_USE_PIO */
+ 
+ static void efx_ef10_remove(struct efx_nic *efx)
+@@ -1018,6 +1033,7 @@ static void efx_ef10_reset_mc_allocations(struct efx_nic *efx)
+ 	nic_data->must_realloc_vis = true;
+ 	nic_data->must_restore_filters = true;
+ 	nic_data->must_restore_piobufs = true;
++	efx_ef10_forget_old_piobufs(efx);
+ 	nic_data->rx_rss_context = EFX_EF10_RSS_CONTEXT_INVALID;
+ 
+ 	/* Driver-created vswitches and vports must be re-created */
