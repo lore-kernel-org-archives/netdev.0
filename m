@@ -1,32 +1,58 @@
-From: Amr Bekhit <amrbekhit@gmail.com>
-Subject: Re: Davicom DM9162 PHY supported in the kernel?
-Date: Tue, 24 May 2016 17:09:35 +0100
-Message-ID: <CAOLz05o5SELBH6LovChQrFXQWXOZANhrYrTNcuktM_nKnp10VQ@mail.gmail.com>
-References: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
- <5717C45F.30205@gmail.com> <CAOLz05pidfdJXR58a+xjvp02EyPhUJnz9odpM-VFtkCQ2bhtNQ@mail.gmail.com>
- <20160503153659.GA29815@lunn.ch> <CAOLz05r-JEk2JV7PONsPhkaxCUankB6XThFgo4DO+gCf1p9c4g@mail.gmail.com>
- <20160509120634.GQ7972@lunn.ch>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH RESEND 7/8] pipe: account to kmemcg
+Date: Tue, 24 May 2016 19:13:36 +0300
+Message-ID: <20160524161336.GA11150@esperanza>
+References: <cover.1464079537.git.vdavydov@virtuozzo.com>
+ <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
+ <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35872 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbcEXQJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 12:09:56 -0400
-Received: by mail-wm0-f48.google.com with SMTP id n129so138637376wmn.1
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 09:09:55 -0700 (PDT)
-In-Reply-To: <20160509120634.GQ7972@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Morton <akpm@linux-foundation.org>, Alexander Viro
+	<viro@zeniv.linux.org.uk>, Johannes Weiner <hannes@cmpxchg.org>, Michal Hocko
+	<mhocko@kernel.org>, <linux-mm@kvack.org>, <linux-fsdevel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <x86@kernel.org>, <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Tue, May 24, 2016 at 05:59:02AM -0700, Eric Dumazet wrote:
+...
+> > +static int anon_pipe_buf_steal(struct pipe_inode_info *pipe,
+> > +			       struct pipe_buffer *buf)
+> > +{
+> > +	struct page *page = buf->page;
+> > +
+> > +	if (page_count(page) == 1) {
+> 
+> This looks racy : some cpu could have temporarily elevated page count.
 
-> How about adding a printk() in genphy_read_status().
+All pipe operations (pipe_buf_operations->get, ->release, ->steal) are
+supposed to be called under pipe_lock. So, if we see a pipe_buffer->page
+with refcount of 1 in ->steal, that means that we are the only its user
+and it can't be spliced to another pipe.
 
-Would you be able to point me to some more information about these
-status bits, please? I'm struggling to find information about what
-they are, where I read them from, etc. I'm happy to write some debug
-printk's in the code, I just don't know where to get information about
-these status bits.
+In fact, I just copied the code from generic_pipe_buf_steal, adding
+kmemcg related checks along the way, so it should be fine.
+
+Thanks,
+Vladimir
+
+> 
+> > +		if (memcg_kmem_enabled()) {
+> > +			memcg_kmem_uncharge(page, 0);
+> > +			__ClearPageKmemcg(page);
+> > +		}
+> > +		__SetPageLocked(page);
+> > +		return 0;
+> > +	}
+> > +	return 1;
+> > +}
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
