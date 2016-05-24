@@ -1,68 +1,191 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC PATCH V3 0/3] basic device IOTLB support
-Date: Tue, 24 May 2016 17:36:22 +0800
-Message-ID: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+Subject: [RFC PATCH V3 1/3] vhost: introduce vhost memory accessors
+Date: Tue, 24 May 2016 17:36:23 +0800
+Message-ID: <1464082585-13049-2-git-send-email-jasowang@redhat.com>
+References: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
 Cc: wexu@redhat.com, peterx@redhat.com, vkaplans@redhat.com,
 	Jason Wang <jasowang@redhat.com>
 To: mst@redhat.com, kvm@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch tries to implement an device IOTLB for vhost. This could be
-used with for co-operation with userspace IOMMU implementation (qemu)
-for a secure DMA environment (DMAR) in guest.
+This patch introduces vhost memory accessors which were just wrappers
+for userspace address access helpers. This is a requirement for vhost
+device iotlb implementation which will add iotlb translations in those
+accessors.
 
-The idea is simple. When vhost meets an IOTLB miss, it will request
-the assistance of userspace to do the translation, this is done
-through:
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/net.c   |  1 +
+ drivers/vhost/vhost.c | 50 +++++++++++++++++++++++++++++++++++---------------
+ 2 files changed, 36 insertions(+), 15 deletions(-)
 
-- when there's a IOTLB miss, it will notify userspace through
-  vhost_net fd and then userspace read the fault address, size and
-  access from vhost fd.
-- userspace write the translation result back to vhost fd, vhost can
-  then update its IOTLB.
-
-The codes were optimized for fixed mapping users e.g dpdk in guest. It
-will be slow if dynamic mappings were used in guest. We could do
-optimizations on top.
-
-The codes were designed to be architecture independent. It should be
-easily ported to any architecture.
-
-Stress tested with l2fwd/vfio in guest with 4K/2M/1G page size. On 1G
-hugepage case, 100% TLB hit rate were noticed.
-
-Changes from V2:
-- introduce memory accessors for vhost
-- switch from ioctls to oridinary file read/write for iotlb miss and
-  updating
-- do not assume virtqueue were virtually mapped contiguously, all
-  virtqueue access were done throug IOTLB
-- verify memory access during IOTLB update and fail early
-- introduce a module parameter for the size of IOTLB
-
-Changes from V1:
-- support any size/range of updating and invalidation through
-  introducing the interval tree.
-- convert from per device iotlb request to per virtqueue iotlb
-  request, this solves the possible deadlock in V1.
-- read/write permission check support.
-
-Please review.
-
-Jason Wang (3):
-  vhost: introduce vhost memory accessors
-  vhost: convert pre sorted vhost memory array to interval tree
-  vhost: device IOTLB API
-
- drivers/vhost/net.c        |  63 +++-
- drivers/vhost/vhost.c      | 760 ++++++++++++++++++++++++++++++++++++++-------
- drivers/vhost/vhost.h      |  60 +++-
- include/uapi/linux/vhost.h |  28 ++
- 4 files changed, 790 insertions(+), 121 deletions(-)
-
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index f744eeb..beaeb17 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -985,6 +985,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 
+ 		vhost_net_disable_vq(n, vq);
+ 		vq->private_data = sock;
++		/* FIXME: iotlb prefetch here? */
+ 		r = vhost_vq_init_access(vq);
+ 		if (r)
+ 			goto err_used;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 669fef1..9f2a63a 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -651,6 +651,22 @@ static int memory_access_ok(struct vhost_dev *d, struct vhost_memory *mem,
+ 	return 1;
+ }
+ 
++#define vhost_put_user(vq, x, ptr)  __put_user(x, ptr)
++
++static int vhost_copy_to_user(struct vhost_virtqueue *vq, void *to,
++			      const void *from, unsigned size)
++{
++	return __copy_to_user(to, from, size);
++}
++
++#define vhost_get_user(vq, x, ptr) __get_user(x, ptr)
++
++static int vhost_copy_from_user(struct vhost_virtqueue *vq, void *to,
++				void *from, unsigned size)
++{
++	return __copy_from_user(to, from, size);
++}
++
+ static int vq_access_ok(struct vhost_virtqueue *vq, unsigned int num,
+ 			struct vring_desc __user *desc,
+ 			struct vring_avail __user *avail,
+@@ -1156,7 +1172,8 @@ EXPORT_SYMBOL_GPL(vhost_log_write);
+ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ {
+ 	void __user *used;
+-	if (__put_user(cpu_to_vhost16(vq, vq->used_flags), &vq->used->flags) < 0)
++	if (vhost_put_user(vq, cpu_to_vhost16(vq, vq->used_flags),
++			   &vq->used->flags) < 0)
+ 		return -EFAULT;
+ 	if (unlikely(vq->log_used)) {
+ 		/* Make sure the flag is seen before log. */
+@@ -1174,7 +1191,8 @@ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ 
+ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+ {
+-	if (__put_user(cpu_to_vhost16(vq, vq->avail_idx), vhost_avail_event(vq)))
++	if (vhost_put_user(vq, cpu_to_vhost16(vq, vq->avail_idx),
++			   vhost_avail_event(vq)))
+ 		return -EFAULT;
+ 	if (unlikely(vq->log_used)) {
+ 		void __user *used;
+@@ -1212,7 +1230,7 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
+ 		r = -EFAULT;
+ 		goto err;
+ 	}
+-	r = __get_user(last_used_idx, &vq->used->idx);
++	r = vhost_get_user(vq, last_used_idx, &vq->used->idx);
+ 	if (r)
+ 		goto err;
+ 	vq->last_used_idx = vhost16_to_cpu(vq, last_used_idx);
+@@ -1392,7 +1410,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 
+ 	/* Check it isn't doing very strange things with descriptor numbers. */
+ 	last_avail_idx = vq->last_avail_idx;
+-	if (unlikely(__get_user(avail_idx, &vq->avail->idx))) {
++	if (unlikely(vhost_get_user(vq, avail_idx, &vq->avail->idx))) {
+ 		vq_err(vq, "Failed to access avail idx at %p\n",
+ 		       &vq->avail->idx);
+ 		return -EFAULT;
+@@ -1414,8 +1432,8 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 
+ 	/* Grab the next descriptor number they're advertising, and increment
+ 	 * the index we've seen. */
+-	if (unlikely(__get_user(ring_head,
+-				&vq->avail->ring[last_avail_idx & (vq->num - 1)]))) {
++	if (unlikely(vhost_get_user(vq, ring_head,
++		     &vq->avail->ring[last_avail_idx & (vq->num - 1)]))) {
+ 		vq_err(vq, "Failed to read head: idx %d address %p\n",
+ 		       last_avail_idx,
+ 		       &vq->avail->ring[last_avail_idx % vq->num]);
+@@ -1450,7 +1468,8 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 			       i, vq->num, head);
+ 			return -EINVAL;
+ 		}
+-		ret = __copy_from_user(&desc, vq->desc + i, sizeof desc);
++		ret = vhost_copy_from_user(vq, &desc, vq->desc + i,
++					   sizeof desc);
+ 		if (unlikely(ret)) {
+ 			vq_err(vq, "Failed to get descriptor: idx %d addr %p\n",
+ 			       i, vq->desc + i);
+@@ -1538,15 +1557,15 @@ static int __vhost_add_used_n(struct vhost_virtqueue *vq,
+ 	start = vq->last_used_idx & (vq->num - 1);
+ 	used = vq->used->ring + start;
+ 	if (count == 1) {
+-		if (__put_user(heads[0].id, &used->id)) {
++		if (vhost_put_user(vq, heads[0].id, &used->id)) {
+ 			vq_err(vq, "Failed to write used id");
+ 			return -EFAULT;
+ 		}
+-		if (__put_user(heads[0].len, &used->len)) {
++		if (vhost_put_user(vq, heads[0].len, &used->len)) {
+ 			vq_err(vq, "Failed to write used len");
+ 			return -EFAULT;
+ 		}
+-	} else if (__copy_to_user(used, heads, count * sizeof *used)) {
++	} else if (vhost_copy_to_user(vq, used, heads, count * sizeof *used)) {
+ 		vq_err(vq, "Failed to write used");
+ 		return -EFAULT;
+ 	}
+@@ -1590,7 +1609,8 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 
+ 	/* Make sure buffer is written before we update index. */
+ 	smp_wmb();
+-	if (__put_user(cpu_to_vhost16(vq, vq->last_used_idx), &vq->used->idx)) {
++	if (vhost_put_user(vq, cpu_to_vhost16(vq, vq->last_used_idx),
++			   &vq->used->idx)) {
+ 		vq_err(vq, "Failed to increment used idx");
+ 		return -EFAULT;
+ 	}
+@@ -1622,7 +1642,7 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 
+ 	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
+ 		__virtio16 flags;
+-		if (__get_user(flags, &vq->avail->flags)) {
++		if (vhost_get_user(vq, flags, &vq->avail->flags)) {
+ 			vq_err(vq, "Failed to get flags");
+ 			return true;
+ 		}
+@@ -1636,7 +1656,7 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	if (unlikely(!v))
+ 		return true;
+ 
+-	if (__get_user(event, vhost_used_event(vq))) {
++	if (vhost_get_user(vq, event, vhost_used_event(vq))) {
+ 		vq_err(vq, "Failed to get used event idx");
+ 		return true;
+ 	}
+@@ -1678,7 +1698,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	__virtio16 avail_idx;
+ 	int r;
+ 
+-	r = __get_user(avail_idx, &vq->avail->idx);
++	r = vhost_get_user(vq, avail_idx, &vq->avail->idx);
+ 	if (r)
+ 		return false;
+ 
+@@ -1713,7 +1733,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 	/* They could have slipped one in as we were doing that: make
+ 	 * sure it's written, then check again. */
+ 	smp_mb();
+-	r = __get_user(avail_idx, &vq->avail->idx);
++	r = vhost_get_user(vq, avail_idx, &vq->avail->idx);
+ 	if (r) {
+ 		vq_err(vq, "Failed to check avail idx at %p: %d\n",
+ 		       &vq->avail->idx, r);
 -- 
 2.7.4
