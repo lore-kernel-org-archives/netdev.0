@@ -1,90 +1,57 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [PATCH 4.2.y-ckt 48/53] VSOCK: do not disconnect socket when peer has shutdown SEND only
-Date: Tue, 24 May 2016 10:55:18 -0700
-Message-ID: <1464112523-3701-49-git-send-email-kamal@canonical.com>
-References: <1464112523-3701-1-git-send-email-kamal@canonical.com>
-Cc: Ian Campbell <ian.campbell@docker.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	Andy King <acking@vmware.com>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Jorgen Hansen <jhansen@vmware.com>,
-	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
-	Kamal Mostafa <kamal@canonical.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464112523-3701-1-git-send-email-kamal@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Tue, 24 May 2016 21:02:35 +0200
+Message-ID: <20160524190235.GA31006@electric-eye.fr.zoreil.com>
+References: <573CD09D.1060307@gmx.de>
+ <20160518225529.GA18671@electric-eye.fr.zoreil.com>
+ <573E2D0C.604@gmx.de>
+ <20160520003145.GA22420@electric-eye.fr.zoreil.com>
+ <20160521160910.GA14945@debian-dorm> <5740E82F.8040903@gmx.de>
+ <20160522091742.GA8681@debian-dorm> <57419853.9050701@gmx.de>
+ <20160522223659.GB5086@electric-eye.fr.zoreil.com>
+ <5743A9DD.8010202@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Shuyu Wei <wsy2220-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, al.kochet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5743A9DD.8010202-Mmb7MZpHnFY@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-4.2.8-ckt11 -stable review patch.  If anyone has any objections, please let me know.
+Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org> :
+[...]
+> I dont agree here. A dma_wmb would have an effect to "data" and "info", yes,
+> but it would have absolutely no effect to skb_tx_timestamp(), since there
+> is no dma access involved here. In fact skb_tx_timestamp() could probably
+> be even reordered to appear after the dma_wmb.
+>
+> Anyway, there is the wmb() directly after the assignment to "info". _This_
+> barrier  should ensure that skb_tx_timestamp() (along with a flush of data
+> and info to DMA) is executed before "txbd_curr" is advanced.
+> This means that the corresponding skb cant be freed prematurely by tx_clean().
 
----8<------------------------------------------------------------
+The concern here is about sending adequate PTP payload on the network.
 
-From: Ian Campbell <ian.campbell@docker.com>
+skb_tx_timestamp() is used for network clock synchronization. Some extra
+information must be transmitted. Be it through direct payload change
+or through indirect control, it _is_ related to dma.
 
-[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
+Several (most ?) skb_tx_timestamp() misuses blur the picture: CPU vs device
+sync is of course way below the radar when the driver crashes because of
+plain use-after-free skb_tx_timestamp() :o/
 
-The peer may be expecting a reply having sent a request and then done a
-shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-wrong and breaks for me with a client which does a SHUT_WR.
-
-Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-here does not seem to be the norm and removing it does not seem to have
-had any adverse effects that I can see.
-
-I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-on the vmci transport.
-
-Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Cc: Andy King <acking@vmware.com>
-Cc: Dmitry Torokhov <dtor@vmware.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Cc: Adit Ranadive <aditr@vmware.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
----
- net/vmw_vsock/af_vsock.c | 21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
-
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index df5fc6b..d68716c 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1795,27 +1795,8 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		err = 0;
- 
--	if (copied > 0) {
--		/* We only do these additional bookkeeping/notification steps
--		 * if we actually copied something out of the queue pair
--		 * instead of just peeking ahead.
--		 */
--
--		if (!(flags & MSG_PEEK)) {
--			/* If the other side has shutdown for sending and there
--			 * is nothing more to read, then modify the socket
--			 * state.
--			 */
--			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
--				if (vsock_stream_has_data(vsk) <= 0) {
--					sk->sk_state = SS_UNCONNECTED;
--					sock_set_flag(sk, SOCK_DONE);
--					sk->sk_state_change(sk);
--				}
--			}
--		}
-+	if (copied > 0)
- 		err = copied;
--	}
- 
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
 -- 
-2.7.4
+Ueimor
