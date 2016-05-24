@@ -1,45 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RESEND 8/8] af_unix: charge buffers to kmemcg
-Date: Tue, 24 May 2016 06:02:06 -0700
-Message-ID: <1464094926.5939.48.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1464079537.git.vdavydov@virtuozzo.com>
-	 <fcfe6cae27a59fbc5e40145664b3cf085a560c68.1464079538.git.vdavydov@virtuozzo.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH iproute2 v3 1/5] add missing if_macsec.h header from
+ kernel
+Date: Tue, 24 May 2016 15:10:23 +0200
+Message-ID: <20160524131023.GA23050@bistromath.localdomain>
+References: <cover.1463585050.git.sd@queasysnail.net>
+ <87b1f9795592d29be689943e2b8ec9712bda056b.1463585050.git.sd@queasysnail.net>
+ <20160523160720.69bcd2ef@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, "David S. Miller"
-	 <davem@davemloft.net>, Johannes Weiner <hannes@cmpxchg.org>, Michal Hocko
-	 <mhocko@kernel.org>, linux-mm@kvack.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <fcfe6cae27a59fbc5e40145664b3cf085a560c68.1464079538.git.vdavydov@virtuozzo.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41905 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751627AbcEXNK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2016 09:10:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20160523160720.69bcd2ef@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-05-24 at 11:49 +0300, Vladimir Davydov wrote:
-> Unix sockets can consume a significant amount of system memory, hence
-> they should be accounted to kmemcg.
+2016-05-23, 16:07:20 -0700, Stephen Hemminger wrote:
+> On Wed, 18 May 2016 17:35:09 +0200
+> Sabrina Dubroca <sd@queasysnail.net> wrote:
 > 
-> Since unix socket buffers are always allocated from process context,
-> all we need to do to charge them to kmemcg is set __GFP_ACCOUNT in
-> sock->sk_allocation mask.
+> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > Acked-by: Phil Sutter <phil@nwl.cc>
+> 
+> This header already exists in master branch of iproute2, with current version
+> from upstream kernel (with PAD values).
 
-I have two questions : 
-
-1) What happens when a buffer, allocated from socket <A> lands in a
-different socket <B>, maybe owned by another user/process.
-
-Who owns it now, in term of kmemcg accounting ?
-
-2) Has performance impact been evaluated ?
-
-Thanks.
+It wasn't when I posted this ;)
+Excellent, I'll drop this patch from v4.
 
 
+Thanks,
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Sabrina
