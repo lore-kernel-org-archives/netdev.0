@@ -1,64 +1,63 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net 3/3] Documentation: networking: dsa: Describe
- port_vlan_filtering
-Date: Tue, 24 May 2016 18:09:59 +0300
-Message-ID: <20160524150959.GB13430@colbert.mtl.com>
-References: <1464064337-8743-1-git-send-email-f.fainelli@gmail.com>
- <1464064337-8743-4-git-send-email-f.fainelli@gmail.com>
- <871t4rsf0e.fsf@ketchup.mtl.sfl>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 7/7] tou: Support for GSO
+Date: Tue, 24 May 2016 07:59:16 -0700
+Message-ID: <CAKgT0Udjj=_7-Ye5yGUkie9o5AVN0+mvi1D1dEJRkcbzKm35sA@mail.gmail.com>
+References: <1464043706-2843932-1-git-send-email-tom@herbertland.com>
+	<1464043706-2843932-8-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0081.outbound.protection.outlook.com ([157.55.234.81]:18944
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751497AbcEXPLy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2016 11:11:54 -0400
-Content-Disposition: inline
-In-Reply-To: <871t4rsf0e.fsf@ketchup.mtl.sfl>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36732 "EHLO
+	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755544AbcEXPRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 11:17:37 -0400
+Received: by mail-it0-f67.google.com with SMTP id p81so2256349itd.3
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 08:17:36 -0700 (PDT)
+In-Reply-To: <1464043706-2843932-8-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien, Florian,
+On Mon, May 23, 2016 at 3:48 PM, Tom Herbert <tom@herbertland.com> wrote:
+> Add SKB_GSO_TOU. In udp[64]_ufo_fragment check for SKB_GSO_TOU. If this
+> is set call skb_udp_tou_segment. skb_udp_tou_segment is very similar
+> to skb_udp_tunnel_segment except that we only need to deal with the
+> L4 headers.
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  include/linux/skbuff.h           |   2 +
+>  include/net/udp.h                |   2 +
+>  net/ipv4/fou.c                   |   2 +
+>  net/ipv4/ip_output.c             |   2 +
+>  net/ipv4/udp_offload.c           | 164 +++++++++++++++++++++++++++++++++++++--
+>  net/ipv6/inet6_connection_sock.c |   3 +
+>  net/ipv6/udp_offload.c           | 128 +++++++++++++++---------------
+>  7 files changed, 236 insertions(+), 67 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 65968a9..b57e484 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -482,6 +482,8 @@ enum {
+>         SKB_GSO_PARTIAL = 1 << 13,
+>
+>         SKB_GSO_TUNNEL_REMCSUM = 1 << 14,
+> +
+> +       SKB_GSO_TOU = 1 << 15,
+>  };
+>
 
-Tue, May 24, 2016 at 05:32:33PM IDT, vivien.didelot@savoirfairelinux.com wrote:
->Hi Florian,
->
->Florian Fainelli <f.fainelli@gmail.com> writes:
->
->> Described what the port_vlan_filtering function is supposed to
->> accomplish.
->>
->> Fixes: fb2dabad69f0 ("net: dsa: support VLAN filtering switchdev attr")
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  Documentation/networking/dsa/dsa.txt | 6 ++++++
->>  1 file changed, 6 insertions(+)
->>
->> diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
->> index 411b57fd73aa..a42fd2ec32a5 100644
->> --- a/Documentation/networking/dsa/dsa.txt
->> +++ b/Documentation/networking/dsa/dsa.txt
->> @@ -535,6 +535,12 @@ Bridge layer
->>  Bridge VLAN filtering
->>  ---------------------
->>  
->> +- port_vlan_filtering: bridge layer function invoked when the bridge gets
->> +  configured for turning on or off VLAN filtering. If nothing specific needs to
->> +  be done at the hardware level, 0 must be returned. When VLAN filtering is
->> +  turned on, the hardware must be programmed with rejecting non-802.1Q frames,
->> +  when turned off the switch must accept any 802.1Q frames.
->
->Note that port_vlan_filtering is optional so a driver don't need to
->implement it if nothing specific needs to be done at the hardware level.
->
->Also I'd think that with VLAN filtering on, the hardware must not reject
->untagged frames, only 802.1Q frames which don't respect the programmed
->VLAN rules.
+So where do you add the netdev feature bit?  From what I can tell that
+was overlooked and as a result devices that support FCoE CRC will end
+up corrupting TOU frames because netif_gso_ok currently ands the two
+together.
 
-With VLAN filtering on I believe you only need to reject untagged frames
-when there's no PVID on the port. See __allowed_ingress() in
-net/bridge/br_vlan.c
+Also I am pretty sure we can offload this on the Intel NICs using the
+GSO partial approach as we can just stuff the UDP header into the
+space that we would use for IPv4 options or IPv6 extension headers and
+it shouldn't complain.
+
+- Alex
