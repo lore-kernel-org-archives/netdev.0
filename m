@@ -1,60 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 3/7] ipv4: Support TOU
-Date: Mon, 23 May 2016 20:16:24 -0700
-Message-ID: <1464059784.5939.41.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1464043706-2843932-1-git-send-email-tom@herbertland.com>
-	 <1464043706-2843932-4-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35098 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751280AbcEXDQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2016 23:16:27 -0400
-Received: by mail-pa0-f68.google.com with SMTP id gp3so593673pac.2
-        for <netdev@vger.kernel.org>; Mon, 23 May 2016 20:16:27 -0700 (PDT)
-In-Reply-To: <1464043706-2843932-4-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Mon, 2016-05-23 at 15:48 -0700, Tom Herbert wrote:
-
-...
-
->  static int
->  ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
-> @@ -382,11 +383,36 @@ int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
->  	struct rtable *rt;
->  	struct iphdr *iph;
->  	int res;
-> +	__be16 dport, sport;
-> +	u8 protocol = sk->sk_protocol;
->  
->  	/* Skip all of this if the packet is already routed,
->  	 * f.e. by something like SCTP.
->  	 */
->  	rcu_read_lock();
-> +
-> +	if (inet->tou_encap) {
-> +		struct ip_tunnel_encap *e = inet->tou_encap;
-
-You seem to rely on RCU, in spirit at least.
-
-But ...
-
-1) You read inet->tou_encap twice, so the second time could read a NULL
-and then crash on a NULL dereference.
-
-2) No RCU grace period is respected in tou_encap_setsockopt(), so use
-after free is possible.
-
-> +		const struct ip_tunnel_encap_ops *ops;
-> +
-> +		/* Transport layer protocol over UDP enapsulation */
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v2] ip_tunnel: enclose a code block in macro IS_ENABLED(CONFIG_IPV6)
+Date: Tue, 24 May 2016 11:55:31 +0800
+Message-ID: <4A265D43-913E-449E-8BA0-80A2B6930AD6@cmss.chinamobile.com>
+References: <1464057597-3648-1-git-send-email-yanhaishuang@cmss.chinamobile.com> <1464059658.5939.40.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464059658.5939.40.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> +		dport = e->dport;
-> +		sport = e->sport;
+> On May 24, 2016, at 11:14 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+>=20
+> On Tue, 2016-05-24 at 10:39 +0800, Haishuang Yan wrote:
+>> For ipv6 case, enclose the code block in macro IS_ENABLED(CONFIG_IPV=
+6).
+>>=20
+>> ---
+>> Changes in v2:
+>>  - Place the "#if IS_ENABLED" block before the "} else if
+>> (..) {" piece and the "#endif" before the closing brace and this
+>> becomes much easier to look at.
+>=20
+> _Why_ is this patch needed ?
+>=20
+> Please describe in the changelog what _actual_ problem you are trying=
+ to
+> address.
+>=20
+> We have many points in the kernel using ipv6_get_dsfield() even if
+> CONFIG_IPV6=3Dn, and it seems fine to me at least.
+>=20
+> Thanks.
+>=20
+>=20
+>=20
+
+Yes, you=A1=AFre right, but I think add this patch seems more reasonabl=
+e in coding.
+
+Thanks for your reviewing.
