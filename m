@@ -1,36 +1,32 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net 0/2] Fix spinlock usage in HWBM
-Date: Tue, 24 May 2016 18:03:24 +0200
-Message-ID: <1464105806-439-1-git-send-email-gregory.clement@free-electrons.com>
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jean-Jacques Hiblot <jjhiblot@traphandler.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amr Bekhit <amrbekhit@gmail.com>
+Subject: Re: Davicom DM9162 PHY supported in the kernel?
+Date: Tue, 24 May 2016 17:09:35 +0100
+Message-ID: <CAOLz05o5SELBH6LovChQrFXQWXOZANhrYrTNcuktM_nKnp10VQ@mail.gmail.com>
+References: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
+ <5717C45F.30205@gmail.com> <CAOLz05pidfdJXR58a+xjvp02EyPhUJnz9odpM-VFtkCQ2bhtNQ@mail.gmail.com>
+ <20160503153659.GA29815@lunn.ch> <CAOLz05r-JEk2JV7PONsPhkaxCUankB6XThFgo4DO+gCf1p9c4g@mail.gmail.com>
+ <20160509120634.GQ7972@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35872 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425AbcEXQJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 12:09:56 -0400
+Received: by mail-wm0-f48.google.com with SMTP id n129so138637376wmn.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 09:09:55 -0700 (PDT)
+In-Reply-To: <20160509120634.GQ7972@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Andrew,
 
-these two patches fix spinlock related issues introduced in v4.6. They
-have been reported by Russell King and Jean-Jacques Hiblot.
+> How about adding a printk() in genphy_read_status().
 
-Thanks to them,
-
-Gregory
-
-Gregory CLEMENT (2):
-  net: mvneta: Fix lacking spinlock initialization
-  net: hwbm: Fix unbalanced spinlock in error case
-
- drivers/net/ethernet/marvell/mvneta_bm.c | 1 +
- net/core/hwbm.c                          | 3 +++
- 2 files changed, 4 insertions(+)
-
--- 
-2.5.0
+Would you be able to point me to some more information about these
+status bits, please? I'm struggling to find information about what
+they are, where I read them from, etc. I'm happy to write some debug
+printk's in the code, I just don't know where to get information about
+these status bits.
