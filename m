@@ -1,33 +1,101 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [iproute2 1/1] tc simple action: bug fix
-Date: Tue, 24 May 2016 12:30:24 +0200
-Message-ID: <57442D40.4040905@iogearbox.net>
-References: <1464051893-25680-1-git-send-email-jhs@emojatatu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v5 2/2] skb_array: ring test
+Date: Tue, 24 May 2016 13:33:57 +0300
+Message-ID: <20160524132930-mutt-send-email-mst@redhat.com>
+References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+ <1464000201-15560-3-git-send-email-mst@redhat.com>
+ <20160523150918.2c58fa7d@redhat.com>
+ <20160523235014-mutt-send-email-mst@redhat.com>
+ <20160524122809.140f7020@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50298 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753253AbcEXKa2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2016 06:30:28 -0400
-In-Reply-To: <1464051893-25680-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160524122809.140f7020@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/24/2016 03:04 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Failed compile
-> m_simple.c: In function =E2=80=98parse_simple=E2=80=99:
-> m_simple.c:154:6: warning: too many arguments for format [-Wformat-ex=
-tra-args]
->        *argv);
->        ^
-> m_simple.c:103:14: warning: unused variable =E2=80=98maybe_bind=E2=80=
-=99 [-Wunused-variable]
+On Tue, May 24, 2016 at 12:28:09PM +0200, Jesper Dangaard Brouer wrote:
+> On Mon, 23 May 2016 23:52:47 +0300
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > On Mon, May 23, 2016 at 03:09:18PM +0200, Jesper Dangaard Brouer wrote:
+> > > On Mon, 23 May 2016 13:43:46 +0300
+> > > "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > >   
+> > > > Add ringtest based unit test for skb array.
+> > > >
+> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > > ---
+> > > >  tools/virtio/ringtest/skb_array.c | 167 ++++++++++++++++++++++++++++++++++++++
+> > > >  tools/virtio/ringtest/Makefile    |   4 +-  
+> > > 
+> > > Patch didn't apply cleanly to Makefile, as you also seems to have
+> > > "virtio_ring_inorder", I manually applied it.
+> > > 
+> > > I chdir to tools/virtio/ringtest/ and I could compile "skb_array",
+> > > BUT how do I use it??? (the README is not helpful)
+> > > 
+> > > What is the "output", are there any performance measurement results?  
+> > 
+> > First, if it completes successfully this means it completed
+> > a ton of cycles without errors. It caches any missing barriers
+> > which aren't nops on your system.
+> 
+> I applied these patches on net-next (at commit 07b75260e) and the
+> skb_array test program never terminates.   Strangely if I use your git
+> tree[1] (on branch vhost) the program does terminate... I didn't spot
+> the difference.
 
-Btw, that last one is still not addressed.
+Disassemble the binaries and compare? Should be identical.
+Or attach gdb and look at array.producer and array.consumer.
+
+> > Second - use perf.
+> 
+> I do like perf, but it does not answer my questions about the
+> performance of this queue. I will code something up in my own
+> framework[2] to answer my own performance questions.
+
+Sounds good.
+
+> Like what is be minimum overhead (in cycles) achievable with this type
+> of queue, in the most optimal situation (e.g. same CPU enq+deq cache hot)
+> for fastpath usage.
+
+Interesting.
+
+> Then I also want to know how this performs when two CPUs are involved.
+
+This has flags to pin threads to different CPUs.
+
+
+> As this is also a primary use-case, for you when sending packets into a
+> guest.
+> 
+
+That's absolutely the primary usecase.
+Was designed with this in mind.
+
+> 
+> > E.g. simple perf stat will measure how long does it take to execute.
+> > there's a script that runs it on different CPUs,
+> > so I normally do:
+> >
+> > sh run-on-all.sh perf stat -r 5 ./skb_array
+> 
+> I recommend documenting this in the README file in the same dir ;-)
+
+Good idea.  Will do.
+
+> [1] https://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git/log/?h=vhost
+> [2] https://github.com/netoptimizer/prototype-kernel
+> -- 
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
