@@ -1,52 +1,176 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH v8 22/22] MAINTAINERS: Add maintainers for HiSilicon
- RoCE driver
-Date: Wed, 25 May 2016 08:19:40 -0700
-Message-ID: <1464189580.16344.17.camel@perches.com>
-References: <1464188725-42805-1-git-send-email-oulijun@huawei.com>
-	 <1464188725-42805-23-git-send-email-oulijun@huawei.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH percpu/for-4.7-fixes 1/2] percpu: fix synchronization between
+ chunk->map_extend_work and chunk destruction
+Date: Wed, 25 May 2016 11:44:19 -0400
+Message-ID: <20160525154419.GE3354@mtj.duckdns.org>
+References: <5713C0AD.3020102@oracle.com>
+ <20160417172943.GA83672@ast-mbp.thefacebook.com>
+ <5742F127.6080000@suse.cz>
+ <5742F267.3000309@suse.cz>
+ <20160523213501.GA5383@mtj.duckdns.org>
+ <57441396.2050607@suse.cz>
+ <20160524153029.GA3354@mtj.duckdns.org>
+ <20160524190433.GC3354@mtj.duckdns.org>
+ <CAADnVQ+GprFZJkvCKHVN1gmBMO6uORimsNZ4tE-jgPPOcZhCfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464188725-42805-23-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlastimil Babka <vbabka@suse.cz>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <cl@linux.com>,
+	Linux-MM layout <linux-mm@kvack.org>,
+	Marco Grassi <marco.gra@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAADnVQ+GprFZJkvCKHVN1gmBMO6uORimsNZ4tE-jgPPOcZhCfA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-05-25 at 23:05 +0800, Lijun Ou wrote:
-> This patch added maintainers for RoCE driver.
+Atomic allocations can trigger async map extensions which is serviced
+by chunk->map_extend_work.  pcpu_balance_work which is responsible for
+destroying idle chunks wasn't synchronizing properly against
+chunk->map_extend_work and may end up freeing the chunk while the work
+item is still in flight.
 
-Please add sections in alphabetic order.
+This patch fixes the bug by rolling async map extension operations
+into pcpu_balance_work.
 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-[]
-> @@ -10121,6 +10121,14 @@ W:	http://www.emulex.com
-> =A0S:	Supported
-> =A0F:	drivers/infiniband/hw/ocrdma/
-> =A0
-> +HISILICON ROCE DRIVER
-> +M:	Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> +M:	Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> +L:	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> +S:	Maintained
-> +F:	drivers/infiniband/hw/hns/
-> +F:	Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.t=
-xt
-> +
-> =A0SFC NETWORK DRIVER
-> =A0M:	Solarflare linux maintainers=20
-> =A0M:	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Reported-and-tested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Reported-by: Vlastimil Babka <vbabka@suse.cz>
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Cc: stable@vger.kernel.org # v3.18+
+Fixes: 9c824b6a172c ("percpu: make sure chunk->map array has available space")
+---
+ mm/percpu.c |   57 ++++++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 36 insertions(+), 21 deletions(-)
+
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -112,7 +112,7 @@ struct pcpu_chunk {
+ 	int			map_used;	/* # of map entries used before the sentry */
+ 	int			map_alloc;	/* # of map entries allocated */
+ 	int			*map;		/* allocation map */
+-	struct work_struct	map_extend_work;/* async ->map[] extension */
++	struct list_head	map_extend_list;/* on pcpu_map_extend_chunks */
+ 
+ 	void			*data;		/* chunk data */
+ 	int			first_free;	/* no free below this */
+@@ -166,6 +166,9 @@ static DEFINE_MUTEX(pcpu_alloc_mutex);	/
+ 
+ static struct list_head *pcpu_slot __read_mostly; /* chunk list slots */
+ 
++/* chunks which need their map areas extended, protected by pcpu_lock */
++static LIST_HEAD(pcpu_map_extend_chunks);
++
+ /*
+  * The number of empty populated pages, protected by pcpu_lock.  The
+  * reserved chunk doesn't contribute to the count.
+@@ -395,13 +398,19 @@ static int pcpu_need_to_extend(struct pc
+ {
+ 	int margin, new_alloc;
+ 
++	lockdep_assert_held(&pcpu_lock);
++
+ 	if (is_atomic) {
+ 		margin = 3;
+ 
+ 		if (chunk->map_alloc <
+-		    chunk->map_used + PCPU_ATOMIC_MAP_MARGIN_LOW &&
+-		    pcpu_async_enabled)
+-			schedule_work(&chunk->map_extend_work);
++		    chunk->map_used + PCPU_ATOMIC_MAP_MARGIN_LOW) {
++			if (list_empty(&chunk->map_extend_list)) {
++				list_add_tail(&chunk->map_extend_list,
++					      &pcpu_map_extend_chunks);
++				pcpu_schedule_balance_work();
++			}
++		}
+ 	} else {
+ 		margin = PCPU_ATOMIC_MAP_MARGIN_HIGH;
+ 	}
+@@ -467,20 +476,6 @@ out_unlock:
+ 	return 0;
+ }
+ 
+-static void pcpu_map_extend_workfn(struct work_struct *work)
+-{
+-	struct pcpu_chunk *chunk = container_of(work, struct pcpu_chunk,
+-						map_extend_work);
+-	int new_alloc;
+-
+-	spin_lock_irq(&pcpu_lock);
+-	new_alloc = pcpu_need_to_extend(chunk, false);
+-	spin_unlock_irq(&pcpu_lock);
+-
+-	if (new_alloc)
+-		pcpu_extend_area_map(chunk, new_alloc);
+-}
+-
+ /**
+  * pcpu_fit_in_area - try to fit the requested allocation in a candidate area
+  * @chunk: chunk the candidate area belongs to
+@@ -740,7 +735,7 @@ static struct pcpu_chunk *pcpu_alloc_chu
+ 	chunk->map_used = 1;
+ 
+ 	INIT_LIST_HEAD(&chunk->list);
+-	INIT_WORK(&chunk->map_extend_work, pcpu_map_extend_workfn);
++	INIT_LIST_HEAD(&chunk->map_extend_list);
+ 	chunk->free_size = pcpu_unit_size;
+ 	chunk->contig_hint = pcpu_unit_size;
+ 
+@@ -1129,6 +1124,7 @@ static void pcpu_balance_workfn(struct w
+ 		if (chunk == list_first_entry(free_head, struct pcpu_chunk, list))
+ 			continue;
+ 
++		list_del_init(&chunk->map_extend_list);
+ 		list_move(&chunk->list, &to_free);
+ 	}
+ 
+@@ -1146,6 +1142,25 @@ static void pcpu_balance_workfn(struct w
+ 		pcpu_destroy_chunk(chunk);
+ 	}
+ 
++	/* service chunks which requested async area map extension */
++	do {
++		int new_alloc = 0;
++
++		spin_lock_irq(&pcpu_lock);
++
++		chunk = list_first_entry_or_null(&pcpu_map_extend_chunks,
++					struct pcpu_chunk, map_extend_list);
++		if (chunk) {
++			list_del_init(&chunk->map_extend_list);
++			new_alloc = pcpu_need_to_extend(chunk, false);
++		}
++
++		spin_unlock_irq(&pcpu_lock);
++
++		if (new_alloc)
++			pcpu_extend_area_map(chunk, new_alloc);
++	} while (chunk);
++
+ 	/*
+ 	 * Ensure there are certain number of free populated pages for
+ 	 * atomic allocs.  Fill up from the most packed so that atomic
+@@ -1644,7 +1659,7 @@ int __init pcpu_setup_first_chunk(const
+ 	 */
+ 	schunk = memblock_virt_alloc(pcpu_chunk_struct_size, 0);
+ 	INIT_LIST_HEAD(&schunk->list);
+-	INIT_WORK(&schunk->map_extend_work, pcpu_map_extend_workfn);
++	INIT_LIST_HEAD(&schunk->map_extend_list);
+ 	schunk->base_addr = base_addr;
+ 	schunk->map = smap;
+ 	schunk->map_alloc = ARRAY_SIZE(smap);
+@@ -1673,7 +1688,7 @@ int __init pcpu_setup_first_chunk(const
+ 	if (dyn_size) {
+ 		dchunk = memblock_virt_alloc(pcpu_chunk_struct_size, 0);
+ 		INIT_LIST_HEAD(&dchunk->list);
+-		INIT_WORK(&dchunk->map_extend_work, pcpu_map_extend_workfn);
++		INIT_LIST_HEAD(&dchunk->map_extend_list);
+ 		dchunk->base_addr = base_addr;
+ 		dchunk->map = dmap;
+ 		dchunk->map_alloc = ARRAY_SIZE(dmap);
