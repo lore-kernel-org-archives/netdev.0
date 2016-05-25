@@ -1,10 +1,8 @@
 From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH V2] brcmfmac: print error if p2p_ifadd firmware command
- fails
-Date: Wed, 25 May 2016 23:05:17 +0200
-Message-ID: <5746138D.2090700@broadcom.com>
-References: <1464123728-7555-1-git-send-email-zajec5@gmail.com>
- <1464123910-8281-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH] brcmfmac: fix setting AP channel with new firmwares
+Date: Wed, 25 May 2016 23:08:05 +0200
+Message-ID: <57461435.9080708@broadcom.com>
+References: <1464080979-12150-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,7 +10,7 @@ Cc: Brett Rudley <brudley@broadcom.com>,
 	Arend van Spriel <arend@broadcom.com>,
 	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
 	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
 	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
 	<linux-wireless@vger.kernel.org>,
 	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
@@ -22,43 +20,43 @@ Cc: Brett Rudley <brudley@broadcom.com>,
 To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
 	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464123910-8281-1-git-send-email-zajec5@gmail.com>
+In-Reply-To: <1464080979-12150-1-git-send-email-zajec5@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 24-05-16 23:05, Rafa=C5=82 Mi=C5=82ecki wrote:
-> This is helpful for debugging, without this all I was getting from "i=
-w"
-> command on device with BCM43602 was:
->> command failed: Too many open files in system (-23)
+
+
+On 24-05-16 11:09, Rafa=C5=82 Mi=C5=82ecki wrote:
+> Firmware for new chipsets is based on a new major version of code
+> internally maintained at Broadcom. E.g. brcmfmac4366b-pcie.bin (used =
+for
+> BCM4366B1) is based on 10.10.69.3309 while brcmfmac43602-pcie.ap.bin =
+was
+> based on 7.35.177.56.
 >=20
+> Currently setting AP 5 GHz channel doesn't work reliably with BCM4366=
+B1.
+> When setting e.g. 36 control channel with VHT80 (center channel 42)
+> firmware may randomly pick one of:
+> 1) 52 control channel with 58 as center one
+> 2) 100 control channel with 106 as center one
+> 3) 116 control channel with 122 as center one
+> 4) 149 control channel with 155 as center one
+>=20
+> It seems new firmwares require setting AP mode (BRCMF_C_SET_AP) befor=
+e
+> specifying a channel. Changing an order of firmware calls fixes the
+> problem.
+>=20
+> This fix was verified with BCM4366B1 and tested for regressions on
+> BCM43602. It's unclear if it's needed (or correct at all) for P2P
+> interfaces so it leaves this code unaffected.
+
+In doing so the code reads a bit awkward so if P2P-GO works with the
+changed order that would be preferable.
+
 > Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 > ---
-> V2: s/in/if/ in commit message
-> ---
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c b=
-/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-> index 1652a48..f7b7e29 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-> @@ -2031,7 +2031,7 @@ static int brcmf_p2p_request_p2p_if(struct brcm=
-f_p2p_info *p2p,
->  	err =3D brcmf_fil_iovar_data_set(ifp, "p2p_ifadd", &if_request,
->  				       sizeof(if_request));
->  	if (err)
-> -		return err;
-> +		brcmf_err("p2p_ifadd failed %d\n", err);
-
-I would prefer adding a more generic failure message including ifname
-and type in brcmf_cfg80211_add_iface() in cfg80211.c.
-
-Regards,
-Arend
-
-> =20
->  	return err;
->  }
->=20
+>  .../net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c  | 16 ++++++=
+++++++----
+>  1 file changed, 12 insertions(+), 4 deletions(-)
