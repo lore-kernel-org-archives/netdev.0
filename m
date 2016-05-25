@@ -1,70 +1,57 @@
-From: Amr Bekhit <amrbekhit@gmail.com>
-Subject: Re: Davicom DM9162 PHY supported in the kernel?
-Date: Wed, 25 May 2016 11:28:37 +0100
-Message-ID: <CAOLz05rwjEUpeSgUxc9oJYsPaYvmTV96YESc5=yxQtwHRFww6w@mail.gmail.com>
-References: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
- <5717C45F.30205@gmail.com> <CAOLz05pidfdJXR58a+xjvp02EyPhUJnz9odpM-VFtkCQ2bhtNQ@mail.gmail.com>
- <20160503153659.GA29815@lunn.ch> <CAOLz05r-JEk2JV7PONsPhkaxCUankB6XThFgo4DO+gCf1p9c4g@mail.gmail.com>
- <20160509120634.GQ7972@lunn.ch> <CAOLz05o5SELBH6LovChQrFXQWXOZANhrYrTNcuktM_nKnp10VQ@mail.gmail.com>
- <20160524163047.GF8897@lunn.ch>
+From: Vladimir Davydov <vdavydov@virtuozzo.com>
+Subject: Re: [PATCH RESEND 7/8] pipe: account to kmemcg
+Date: Wed, 25 May 2016 13:30:11 +0300
+Message-ID: <20160525103011.GF11150@esperanza>
+References: <cover.1464079537.git.vdavydov@virtuozzo.com>
+ <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
+ <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160524161336.GA11150@esperanza>
+ <1464120273.5939.53.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37145 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751100AbcEYK26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 06:28:58 -0400
-Received: by mail-wm0-f50.google.com with SMTP id z87so56622481wmh.0
-        for <netdev@vger.kernel.org>; Wed, 25 May 2016 03:28:57 -0700 (PDT)
-In-Reply-To: <20160524163047.GF8897@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Michal Hocko <mhocko@kernel.org>, <linux-mm@kvack.org>,
+	<linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<x86@kernel.org>, <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464120273.5939.53.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Tue, May 24, 2016 at 01:04:33PM -0700, Eric Dumazet wrote:
+> On Tue, 2016-05-24 at 19:13 +0300, Vladimir Davydov wrote:
+> > On Tue, May 24, 2016 at 05:59:02AM -0700, Eric Dumazet wrote:
+> > ...
+> > > > +static int anon_pipe_buf_steal(struct pipe_inode_info *pipe,
+> > > > +			       struct pipe_buffer *buf)
+> > > > +{
+> > > > +	struct page *page = buf->page;
+> > > > +
+> > > > +	if (page_count(page) == 1) {
+> > > 
+> > > This looks racy : some cpu could have temporarily elevated page count.
+> > 
+> > All pipe operations (pipe_buf_operations->get, ->release, ->steal) are
+> > supposed to be called under pipe_lock. So, if we see a pipe_buffer->page
+> > with refcount of 1 in ->steal, that means that we are the only its user
+> > and it can't be spliced to another pipe.
+> > 
+> > In fact, I just copied the code from generic_pipe_buf_steal, adding
+> > kmemcg related checks along the way, so it should be fine.
+> 
+> So you guarantee that no other cpu might have done
+> get_page_unless_zero() right before this test ?
 
-I added the following line to genphy_read_status to print out the value of BMCR:
+Each pipe_buffer holds a reference to its page. If we find page's
+refcount to be 1 here, then it can be referenced only by our
+pipe_buffer. And the refcount cannot be increased by a parallel thread,
+because we hold pipe_lock, which rules out splice, and otherwise it's
+impossible to reach the page as it is not on lru. That said, I think I
+guarantee that this should be safe.
 
- phydev->lp_advertising = 0;
-
-+printk(KERN_DEBUG "MII_BMCR: 0x%04X\n", phy_read(phydev, MII_BMCR));
-
- if (AUTONEG_ENABLE == phydev->autoneg) {
-
-After booting up the kernel and running ifconfig eth0 up, I get the
-following in kernel log:
-
-[   83.890625] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-[   85.328125] MII_BMCR: 0x1000
-[   86.328125] MII_BMCR: 0x1000
-[   87.328125] MII_BMCR: 0x3100
-[   87.328125] macb f802c000.ethernet eth0: link up (100/Full)
-[   87.328125] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-[   88.328125] MII_BMCR: 0x3100
-[   89.328125] MII_BMCR: 0x3100
-[   90.328125] MII_BMCR: 0x3100
-
-So it appears that after bringing the interface up, the PHY is
-configured for 100Mbps, autoneg enabled and duplex mode. The PHY is
-not isolated or powered down.
-
-On 24 May 2016 at 17:30, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Tue, May 24, 2016 at 05:09:35PM +0100, Amr Bekhit wrote:
->> Hi Andrew,
->>
->> > How about adding a printk() in genphy_read_status().
->>
->> Would you be able to point me to some more information about these
->> status bits, please?
->
-> You can get the datasheet from here:
->
-> http://www.davicom.com.tw/userfile/24247/DM9162_DM9162I-12-MCO-DS-F01_08062014.pdf
->
-> I would start by looking at the BMCR register. The
-> genphy_read_status() function should get called about once per second,
-> so that is an O.K. place to add debug prints, and there is example
-> code for reading MII_BMCR.
->
->      Andrew
+Thanks,
+Vladimir
