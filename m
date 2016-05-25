@@ -1,55 +1,56 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: fix double EPs display in sctp_diag
-Date: Thu, 26 May 2016 03:09:23 +0800
-Message-ID: <738ddd5de8d4c5fb8a99cee15de3305215e04962.1464203363.git.lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: sctp_diag should dump sctp socket type
+Date: Thu, 26 May 2016 03:14:28 +0800
+Message-ID: <53ebf63eb6de080418949f52d0d3556af2a371e1.1464203668.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
 	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
 	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
 	phil@nwl.cc
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:36740 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbcEYTJ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:09:29 -0400
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35859 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbcEYTOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:14:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have this situation: that EP hash table, contains only the EPs
-that are listening, while the transports one, has the opposite.
-We have to traverse both to dump all.
+Now we cannot distinguish that one sk is a udp or sctp style when
+we use ss to dump sctp_info. it's necessary to dump it as well.
 
-But when we traverse the transports one we will also get EPs that are
-in the EP hash if they are listening. In this case, the EP is dumped
-twice.
-
-We will fix it by checking if the endpoint that is in the endpoint
-hash table contains any ep->asoc in there, as it means we will also
-find it via transport hash, and thus we can/should skip it, depending
-on the filters used, like 'ss -l'.
-
-Still, we should NOT skip it if the user is listing only listening
-endpoints, because then we are not traversing the transport hash.
-so we have to check idiag_states there also.
+For sctp_diag, ss support is not officially available, thus there
+are no official users of this yet, so we can add this field in the
+middle of sctp_info without breaking user API.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sctp/sctp_diag.c | 3 +++
- 1 file changed, 3 insertions(+)
+ include/linux/sctp.h | 1 +
+ net/sctp/socket.c    | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-index 8e3e769..1ce724b 100644
---- a/net/sctp/sctp_diag.c
-+++ b/net/sctp/sctp_diag.c
-@@ -356,6 +356,9 @@ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
- 	if (cb->args[4] < cb->args[1])
- 		goto next;
- 
-+	if ((r->idiag_states & ~TCPF_LISTEN) && !list_empty(&ep->asocs))
-+		goto next;
-+
- 	if (r->sdiag_family != AF_UNSPEC &&
- 	    sk->sk_family != r->sdiag_family)
- 		goto next;
+diff --git a/include/linux/sctp.h b/include/linux/sctp.h
+index dacb5e7..3a406af 100644
+--- a/include/linux/sctp.h
++++ b/include/linux/sctp.h
+@@ -761,6 +761,7 @@ struct sctp_info {
+ 	__u32	sctpi_s_autoclose;
+ 	__u32	sctpi_s_adaptation_ind;
+ 	__u32	sctpi_s_pd_point;
++	__u32	sctpi_s_type;
+ 	__u8	sctpi_s_nodelay;
+ 	__u8	sctpi_s_disable_fragments;
+ 	__u8	sctpi_s_v4mapped;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 777d032..ebb8e41 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4216,6 +4216,7 @@ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
+ 		info->sctpi_s_autoclose = sp->autoclose;
+ 		info->sctpi_s_adaptation_ind = sp->adaptation_ind;
+ 		info->sctpi_s_pd_point = sp->pd_point;
++		info->sctpi_s_type = sp->type;
+ 		info->sctpi_s_nodelay = sp->nodelay;
+ 		info->sctpi_s_disable_fragments = sp->disable_fragments;
+ 		info->sctpi_s_v4mapped = sp->v4mapped;
 -- 
 2.1.0
