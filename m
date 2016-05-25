@@ -1,51 +1,29 @@
 From: Kamal Mostafa <kamal@canonical.com>
-Subject: [3.19.y-ckt stable] Patch "VSOCK: do not disconnect socket when peer has shutdown SEND only" has been added to the 3.19.y-ckt tree
-Date: Wed, 25 May 2016 10:28:22 -0700
-Message-ID: <1464197302-17847-1-git-send-email-kamal@canonical.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
+Subject: [PATCH 3.19.y-ckt 38/40] VSOCK: do not disconnect socket when peer has shutdown SEND only
+Date: Wed, 25 May 2016 10:30:41 -0700
+Message-ID: <1464197443-20056-39-git-send-email-kamal@canonical.com>
+References: <1464197443-20056-1-git-send-email-kamal@canonical.com>
+Cc: Ian Campbell <ian.campbell@docker.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Stefan Hajnoczi <stefanha@redhat.com>,
 	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
 	Andy King <acking@vmware.com>,
 	Dmitry Torokhov <dtor@vmware.com>,
 	Jorgen Hansen <jhansen@vmware.com>,
 	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
-	Kamal Mostafa <kamal@canonical.com>,
+	Kamal Mostafa <kamal@canonical.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
 	kernel-team@lists.ubuntu.com
-To: Ian Campbell <ian.campbell@docker.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:51178 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754229AbcEYR2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 13:28:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464197443-20056-1-git-send-email-kamal@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a note to let you know that I have just added a patch titled
-
-    VSOCK: do not disconnect socket when peer has shutdown SEND only
-
-to the linux-3.19.y-queue branch of the 3.19.y-ckt extended stable tree 
-which can be found at:
-
-    https://git.launchpad.net/~canonical-kernel/linux/+git/linux-stable-ckt/log/?h=linux-3.19.y-queue
-
-This patch is scheduled to be released in version 3.19.8-ckt22.
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 3.19.y-ckt tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Kamal
+3.19.8-ckt22 -stable review patch.  If anyone has any objections, please let me know.
 
 ---8<------------------------------------------------------------
 
->From 5175ed6b780a668391e00dba063cdf5ae175c4df Mon Sep 17 00:00:00 2001
 From: Ian Campbell <ian.campbell@docker.com>
-Date: Wed, 4 May 2016 14:21:53 +0100
-Subject: VSOCK: do not disconnect socket when peer has shutdown SEND only
 
 [ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
 
@@ -82,7 +60,7 @@ index 1d0e39c..316e856 100644
 @@ -1796,27 +1796,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
  	else if (sk->sk_shutdown & RCV_SHUTDOWN)
  		err = 0;
-
+ 
 -	if (copied > 0) {
 -		/* We only do these additional bookkeeping/notification steps
 -		 * if we actually copied something out of the queue pair
@@ -105,6 +83,8 @@ index 1d0e39c..316e856 100644
 +	if (copied > 0)
  		err = copied;
 -	}
-
+ 
  out_wait:
  	finish_wait(sk_sleep(sk), &wait);
+-- 
+2.7.4
