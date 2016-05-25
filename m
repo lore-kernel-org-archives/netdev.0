@@ -1,69 +1,64 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix double EPs display in sctp_diag
-Date: Wed, 25 May 2016 17:23:01 -0300
-Message-ID: <20160525202301.GO7313@localhost.localdomain>
-References: <738ddd5de8d4c5fb8a99cee15de3305215e04962.1464203363.git.lucien.xin@gmail.com>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH V2] brcmfmac: print error if p2p_ifadd firmware command
+ fails
+Date: Wed, 25 May 2016 23:05:17 +0200
+Message-ID: <5746138D.2090700@broadcom.com>
+References: <1464123728-7555-1-git-send-email-zajec5@gmail.com>
+ <1464123910-8281-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
-	daniel@iogearbox.net, phil@nwl.cc
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33290 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840AbcEYUXF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 May 2016 16:23:05 -0400
-Content-Disposition: inline
-In-Reply-To: <738ddd5de8d4c5fb8a99cee15de3305215e04962.1464203363.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<linux-wireless@vger.kernel.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list@broadcom.com>,
+	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464123910-8281-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 26, 2016 at 03:09:23AM +0800, Xin Long wrote:
-> We have this situation: that EP hash table, contains only the EPs
-> that are listening, while the transports one, has the opposite.
-> We have to traverse both to dump all.
-> 
-> But when we traverse the transports one we will also get EPs that are
-> in the EP hash if they are listening. In this case, the EP is dumped
-> twice.
-> 
-> We will fix it by checking if the endpoint that is in the endpoint
-> hash table contains any ep->asoc in there, as it means we will also
-> find it via transport hash, and thus we can/should skip it, depending
-> on the filters used, like 'ss -l'.
-> 
-> Still, we should NOT skip it if the user is listing only listening
-> endpoints, because then we are not traversing the transport hash.
-> so we have to check idiag_states there also.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-
+On 24-05-16 23:05, Rafa=C5=82 Mi=C5=82ecki wrote:
+> This is helpful for debugging, without this all I was getting from "i=
+w"
+> command on device with BCM43602 was:
+>> command failed: Too many open files in system (-23)
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 > ---
->  net/sctp/sctp_diag.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> index 8e3e769..1ce724b 100644
-> --- a/net/sctp/sctp_diag.c
-> +++ b/net/sctp/sctp_diag.c
-> @@ -356,6 +356,9 @@ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
->  	if (cb->args[4] < cb->args[1])
->  		goto next;
->  
-> +	if ((r->idiag_states & ~TCPF_LISTEN) && !list_empty(&ep->asocs))
-> +		goto next;
-> +
->  	if (r->sdiag_family != AF_UNSPEC &&
->  	    sk->sk_family != r->sdiag_family)
->  		goto next;
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> V2: s/in/if/ in commit message
+> ---
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c b=
+/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+> index 1652a48..f7b7e29 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+> @@ -2031,7 +2031,7 @@ static int brcmf_p2p_request_p2p_if(struct brcm=
+f_p2p_info *p2p,
+>  	err =3D brcmf_fil_iovar_data_set(ifp, "p2p_ifadd", &if_request,
+>  				       sizeof(if_request));
+>  	if (err)
+> -		return err;
+> +		brcmf_err("p2p_ifadd failed %d\n", err);
+
+I would prefer adding a more generic failure message including ifname
+and type in brcmf_cfg80211_add_iface() in cfg80211.c.
+
+Regards,
+Arend
+
+> =20
+>  	return err;
+>  }
+>=20
