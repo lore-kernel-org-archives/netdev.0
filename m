@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] ethtool: add support for 25G/50G/100G speed modes
-Date: Wed, 25 May 2016 12:27:09 -0700 (PDT)
-Message-ID: <20160525.122709.1290746918369838901.davem@davemloft.net>
-References: <1463986740-17572-1-git-send-email-vidya@cumulusnetworks.com>
+Subject: Re: [PATCH net 1/1] qed: Reset the enable flag for eth protocol.
+Date: Wed, 25 May 2016 12:32:56 -0700 (PDT)
+Message-ID: <20160525.123256.230057350325928594.davem@davemloft.net>
+References: <1464081923-29368-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, ben@decadent.org.uk, ddecotig@gmail.com,
-	roopa@cumulusnetworks.com, netdev@vger.kernel.org
-To: vidya@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
+To: sudarsana.kalluru@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42307 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42395 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbcEYT1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:27:12 -0400
-In-Reply-To: <1463986740-17572-1-git-send-email-vidya@cumulusnetworks.com>
+	with ESMTP id S1750918AbcEYTc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:32:58 -0400
+In-Reply-To: <1464081923-29368-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: vidya@cumulusnetworks.com
-Date: Sun, 22 May 2016 23:59:00 -0700
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Date: Tue, 24 May 2016 05:25:23 -0400
 
-> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> This patch fixes the coding error in determining the enable flag for
+> the application/protocol. The enable flag should be set for all protocols
+> but the eth.
 > 
-> This patch enhances ethtool link mode bitmap to include
-> 25G/50G/100G speed along with interface modes
-> 
-> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-This looks fine, applied, thanks.
+Applied.
