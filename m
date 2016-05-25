@@ -1,44 +1,55 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC PATCH 00/29] net: VRF support
-Date: Wed, 25 May 2016 13:04:38 -0600
-Message-ID: <2b0cb64c-8ac8-938e-4b62-f9851fc6a8c1@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
- <loom.20160525T180336-546@post.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Chenna <chenna.reboot@gmail.com>, netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: fix double EPs display in sctp_diag
+Date: Thu, 26 May 2016 03:09:23 +0800
+Message-ID: <738ddd5de8d4c5fb8a99cee15de3305215e04962.1464203363.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	phil@nwl.cc
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:33757 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750924AbcEYTEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:04:46 -0400
-Received: by mail-io0-f195.google.com with SMTP id s67so6178381ios.0
-        for <netdev@vger.kernel.org>; Wed, 25 May 2016 12:04:46 -0700 (PDT)
-In-Reply-To: <loom.20160525T180336-546@post.gmane.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:36740 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751117AbcEYTJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:09:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/25/16 10:04 AM, Chenna wrote:
-> David Ahern <dsahern <at> gmail.com> writes:
->
->>
->> Kernel patches are also available here:
->>     https://github.com/dsahern/linux.git vrf-3.19
->>
->> iproute2 patches are also available here:
->>     https://github.com/dsahern/iproute2 vrf-3.19
->>
->
->
-> Hello David,
->
-> Do we have the similar support package for 3.10 kernel?
+We have this situation: that EP hash table, contains only the EPs
+that are listening, while the transports one, has the opposite.
+We have to traverse both to dump all.
 
-The VRF patches referenced above were not accepted upstream. An 
-alternative implementation was accepted for the 4.3 kernel with various 
-updates in all of the kernel versions since.
+But when we traverse the transports one we will also get EPs that are
+in the EP hash if they are listening. In this case, the EP is dumped
+twice.
 
-Users that want the VRF implementation in an older kernel (e.g., 3.10) 
-will need to backport the kernel patches. Top of tree iproute2 can be 
-used as is with older kernels.
+We will fix it by checking if the endpoint that is in the endpoint
+hash table contains any ep->asoc in there, as it means we will also
+find it via transport hash, and thus we can/should skip it, depending
+on the filters used, like 'ss -l'.
+
+Still, we should NOT skip it if the user is listing only listening
+endpoints, because then we are not traversing the transport hash.
+so we have to check idiag_states there also.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sctp_diag.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index 8e3e769..1ce724b 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -356,6 +356,9 @@ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
+ 	if (cb->args[4] < cb->args[1])
+ 		goto next;
+ 
++	if ((r->idiag_states & ~TCPF_LISTEN) && !list_empty(&ep->asocs))
++		goto next;
++
+ 	if (r->sdiag_family != AF_UNSPEC &&
+ 	    sk->sk_family != r->sdiag_family)
+ 		goto next;
+-- 
+2.1.0
