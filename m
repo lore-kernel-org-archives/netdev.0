@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: sctp_diag should dump sctp socket type
-Date: Wed, 25 May 2016 12:24:21 -0700 (PDT)
-Message-ID: <20160525.122421.1141954704190813920.davem@davemloft.net>
-References: <53ebf63eb6de080418949f52d0d3556af2a371e1.1464203668.git.lucien.xin@gmail.com>
+Subject: Re: [RFC PATCH] ethtool: add support for 25G/50G/100G speed modes
+Date: Wed, 25 May 2016 12:27:09 -0700 (PDT)
+Message-ID: <20160525.122709.1290746918369838901.davem@davemloft.net>
+References: <1463986740-17572-1-git-send-email-vidya@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net, phil@nwl.cc
-To: lucien.xin@gmail.com
+Cc: jiri@resnulli.us, ben@decadent.org.uk, ddecotig@gmail.com,
+	roopa@cumulusnetworks.com, netdev@vger.kernel.org
+To: vidya@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42278 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42307 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbcEYTYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:24:24 -0400
-In-Reply-To: <53ebf63eb6de080418949f52d0d3556af2a371e1.1464203668.git.lucien.xin@gmail.com>
+	with ESMTP id S1751232AbcEYT1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 15:27:12 -0400
+In-Reply-To: <1463986740-17572-1-git-send-email-vidya@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 26 May 2016 03:14:28 +0800
+From: vidya@cumulusnetworks.com
+Date: Sun, 22 May 2016 23:59:00 -0700
 
-> For sctp_diag, ss support is not officially available, thus there
-> are no official users of this yet, so we can add this field in the
-> middle of sctp_info without breaking user API.
+> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> 
+> This patch enhances ethtool link mode bitmap to include
+> 25G/50G/100G speed along with interface modes
+> 
+> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-This is not what matters.
-
-What matters is if a released kernel went out with the existing API.
+This looks fine, applied, thanks.
