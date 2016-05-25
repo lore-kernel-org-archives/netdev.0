@@ -1,45 +1,110 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] net: vrf: Fix dst reference counting
-Date: Wed, 25 May 2016 11:02:55 -0600
-Message-ID: <e0df6d2f-f3f3-9938-658a-58d97cb6ab09@cumulusnetworks.com>
-References: <1464194131-3457-1-git-send-email-dsa@cumulusnetworks.com>
- <1464194131-3457-2-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: [3.19.y-ckt stable] Patch "VSOCK: do not disconnect socket when peer has shutdown SEND only" has been added to the 3.19.y-ckt tree
+Date: Wed, 25 May 2016 10:28:22 -0700
+Message-ID: <1464197302-17847-1-git-send-email-kamal@canonical.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
+	Kamal Mostafa <kamal@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Ian Campbell <ian.campbell@docker.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:37079 "EHLO
-	mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753648AbcEYRIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 13:08:38 -0400
-Received: by mail-it0-f47.google.com with SMTP id z123so32133207itg.0
-        for <netdev@vger.kernel.org>; Wed, 25 May 2016 10:08:37 -0700 (PDT)
-In-Reply-To: <1464194131-3457-2-git-send-email-dsa@cumulusnetworks.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:51178 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754229AbcEYR2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 13:28:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I failed to update the auto-generated subject prefix in the patches. 
-Both of these are for 4.5 stable not net-next.
+This is a note to let you know that I have just added a patch titled
 
-On 5/25/16 10:35 AM, David Ahern wrote:
-> commit 9ab179d83b4e31ea277a123492e419067c2f129a upstream
->
-> Vivek reported a kernel exception deleting a VRF with an active
-> connection through it. The root cause is that the socket has a cached
-> reference to a dst that is destroyed. Converting the dst_destroy to
-> dst_release and letting proper reference counting kick in does not
-> work as the dst has a reference to the device which needs to be released
-> as well.
->
-> I talked to Hannes about this at netdev and he pointed out the ipv4 and
-> ipv6 dst handling has dst_ifdown for just this scenario. Rather than
-> continuing with the reinvented dst wheel in VRF just remove it and
-> leverage the ipv4 and ipv6 versions.
->
-> Fixes: 193125dbd8eb2 ("net: Introduce VRF device driver")
-> Fixes: 35402e3136634 ("net: Add IPv6 support to VRF device")
->
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+    VSOCK: do not disconnect socket when peer has shutdown SEND only
+
+to the linux-3.19.y-queue branch of the 3.19.y-ckt extended stable tree 
+which can be found at:
+
+    https://git.launchpad.net/~canonical-kernel/linux/+git/linux-stable-ckt/log/?h=linux-3.19.y-queue
+
+This patch is scheduled to be released in version 3.19.8-ckt22.
+
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 3.19.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Kamal
+
+---8<------------------------------------------------------------
+
+>From 5175ed6b780a668391e00dba063cdf5ae175c4df Mon Sep 17 00:00:00 2001
+From: Ian Campbell <ian.campbell@docker.com>
+Date: Wed, 4 May 2016 14:21:53 +0100
+Subject: VSOCK: do not disconnect socket when peer has shutdown SEND only
+
+[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
+
+The peer may be expecting a reply having sent a request and then done a
+shutdown(SHUT_WR), so tearing down the whole socket at this point seems
+wrong and breaks for me with a client which does a SHUT_WR.
+
+Looking at other socket family's stream_recvmsg callbacks doing a shutdown
+here does not seem to be the norm and removing it does not seem to have
+had any adverse effects that I can see.
+
+I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
+on the vmci transport.
+
+Signed-off-by: Ian Campbell <ian.campbell@docker.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+Cc: Andy King <acking@vmware.com>
+Cc: Dmitry Torokhov <dtor@vmware.com>
+Cc: Jorgen Hansen <jhansen@vmware.com>
+Cc: Adit Ranadive <aditr@vmware.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+---
+ net/vmw_vsock/af_vsock.c | 21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
+
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 1d0e39c..316e856 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1796,27 +1796,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
+ 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		err = 0;
+
+-	if (copied > 0) {
+-		/* We only do these additional bookkeeping/notification steps
+-		 * if we actually copied something out of the queue pair
+-		 * instead of just peeking ahead.
+-		 */
+-
+-		if (!(flags & MSG_PEEK)) {
+-			/* If the other side has shutdown for sending and there
+-			 * is nothing more to read, then modify the socket
+-			 * state.
+-			 */
+-			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
+-				if (vsock_stream_has_data(vsk) <= 0) {
+-					sk->sk_state = SS_UNCONNECTED;
+-					sock_set_flag(sk, SOCK_DONE);
+-					sk->sk_state_change(sk);
+-				}
+-			}
+-		}
++	if (copied > 0)
+ 		err = copied;
+-	}
+
+ out_wait:
+ 	finish_wait(sk_sleep(sk), &wait);
