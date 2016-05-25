@@ -1,102 +1,149 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [ethtool 0/3][pull request] Intel Wired LAN Driver Updates
- 2016-05-03
-Date: Wed, 25 May 2016 15:12:47 +0100
-Message-ID: <1464185567.2762.3.camel@decadent.org.uk>
-References: <1462380293-4132-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1464133631.2631.35.camel@intel.com>
+Subject: Re: [RESEND] Re: updating carl9170-1.fw in linux-firmware.git
+Date: Wed, 25 May 2016 15:51:14 +0100
+Message-ID: <1464187874.2762.18.camel@decadent.org.uk>
+References: <20160416113312.8de2266358165182bb4b4a15@gmx.com>
+	 <11418613.XH7h8m2RjK@debian64> <87a8koiubz.fsf@kamboji.qca.qualcomm.com>
+	 <2185358.G319l0XIJC@debian64>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-coc1RkJ2nBHPzdzVajGo"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39091 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751762AbcEYOM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 10:12:59 -0400
-In-Reply-To: <1464133631.2631.35.camel@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-aVguvMqGs0TR7FTSzLqi"
+Cc: Lauri Kasanen <cand@gmx.com>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linux Firmware Maintainers <linux-firmware@kernel.org>,
+	Xose Vazquez Perez <xose.vazquez@gmail.com>
+To: Christian Lamparter <chunkeey@googlemail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2185358.G319l0XIJC@debian64>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-coc1RkJ2nBHPzdzVajGo
+--=-aVguvMqGs0TR7FTSzLqi
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2016-05-24 at 16:47 -0700, Jeff Kirsher wrote:
-> On Wed, 2016-05-04 at 09:44 -0700, Jeff Kirsher wrote:
-> > This series contains updates to ixgbe in ethtool.
+On Wed, 2016-04-20 at 23:11 +0200, Christian Lamparter wrote:
+> On Wednesday, April 20, 2016 10:59:44 AM Kalle Valo wrote:
+> > Christian Lamparter <chunkeey@googlemail.com> writes:
 > >=20
-> > Preethi adds missing device IDs and mac_type definitions, also updated
-> > the display registers for x550, x550em_x/a.=C2=A0=C2=A0Cleaned up the f=
-ormat string
-> > storage by taking advantage of "for" loops.
+> > > On Monday, April 18, 2016 07:42:05 PM Kalle Valo wrote:
+> > > > Christian Lamparter <chunkeey@googlemail.com> writes:
+> > > >=20
+> > > > > On Monday, April 18, 2016 06:45:09 PM Kalle Valo wrote:
+> > > > >=20
+> > > > > > Why even mention anything about a "special firmware" as the fir=
+mware is
+> > > > > > already available from linux-firmware.git?=C2=A0
+> > > > >=20
+> > > > > Yes and no. 1.9.6 is in linux-firmware.git. I've tried to add 1.9=
+.9 too
+> > > > > but that failed.
+> > > > >=20
+> > > >=20
+> > > > Rick's comment makes sense to me, better just to provide the latest
+> > > > version. No need to unnecessary confuse the users. And if someone r=
+eally
+> > > > wants to use an older version that she can retrieve it from the git
+> > > > history.
+> > >=20
+> > > Part of the fun here is that firmware is GPLv2. The linux-firmware.gi=
+t has
+> > > to point to or add the firmware source to their tree. They have added=
+ every
+> > > single source file to it.... instead of "packaging" it in a tar.bz2/g=
+z/xz
+> > > like you normally do for release sources.
+> > >=20
+> > > If you want to read more about it:
+> > > <http://www.spinics.net/lists/linux-wireless/msg101868.html>
 > >=20
-> > The following are changes since commit
-> > deb1c6613ec14fd828d321e38c7bea45fe559bd5:
-> > =C2=A0 Release version 4.5.
-> > and are available in the git repository at:
-> > =C2=A0 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/ethtool m=
-aster
-> >=20
-> > Preethi Banala (3):
-> > =C2=A0 ethtool/ixgbe: Add device ID and mac_type definitions
-> > =C2=A0 ethtool/ixgbe: Correct offsets and support x550, x550em_x, x550e=
-m_a
-> > =C2=A0 ethtool/ixgbe: Reduce format string storage
-> >=20
-> > =C2=A0ixgbe.c | 173 +++++++++++++++++++++++++++++++++++----------------=
--------
-> > ------
-> > =C2=A01 file changed, 95 insertions(+), 78 deletions(-)
-> >=20
+> > Yeah, that's more work. I get that. But I'm still not understanding
+> > what's the actual problem which prevents us from updating carl9170
+> > firmware in linux-firmware.
+> I'm not sure, but why not ask? I've added the cc'ed Linux Firmware
+> Maintainers. So for those people reading the fw list:
 >=20
-> Is Ben still maintaining ethtool?
+> What would it take to update the carl9170-1.fw firmware file in your
+> repository to the latest version?
+>=20
+> Who has to sent the firmware update. Does it have to be the person who
+> sent the first request? (Xose)? The maintainer of the firmware (me)?
+> someone from Qualcomm Atheros? Or someone else (specific)? (the=C2=A0
+> firmware is licensed as GPLv2 - in theory anyone should be able to
+> do that)
 
-I am - barely.
+Given the licence, I don't particularly care.
 
-> I ask because I have this series which I
-> sent out earlier this month, with no word and I know there is at least on=
-e
-> other ethtool patch series that has had no response or committal from who
-> ever is maintaining ethtool.
+> How should the firmware source update be handled? Currently the latest
+> .tar.xz of the firmware has ~130kb. The formated patches from 1.9.6 to
+> latest are about ~100kb (182 individual patches).
 
-I'm going to do one more release and then look for a new maintainer.
+Either patches that 'git am' can handle, or a git branch.
+
+> How does linux-firmware handle new binary firmware images and new=C2=A0
+> sources? What if carl9170fw-2.bin is added. Do we need another
+> source directory for this in the current tree then? Because=C2=A0
+> carl9170fw-1.bin will still be needed for backwards compatibility
+> so we basically need to duplicate parts of the source?
+
+We still need to include the old binary for compatibility, and the old
+source for GPL compliance. =C2=A0(If there was a source version that could
+build firmware for both ABI versions, then we could update both
+binaries and have one set of source files. =C2=A0But it doesn't sound like
+that's the case.)
+
+> Also, how's the situation with ath9k_htc? The 1.4.0 image contains
+> some GPLv2 code as well?
+
+I didn't realise that.
+
+> So, why is there no source in the tree, but=C2=A0just the link to it?
+
+An oversight which we need to fix.
+
+> Because, I would like to do basically the same
+> for carl9170fw and just add a link to the carl9170fw repository and
+> save everyone this source update "song and dance".
+
+Merely linking to upstream source doesn't satisfy GPLv2 source
+requirements, at least not in case of commercial distribution. =C2=A0Linux
+distributors should be able to use a snapshot of linux-firmware as the
+upstream source for a package, without worrying about whether there are
+extra sources they need to include.
+
+(I'm aware that there are several files that don't actually have clear
+licences for. =C2=A0But those are at least called out in WHENCE, and were
+previously distributed as part of the kernel sources for years.)
 
 Ben.
 
-> I know we discussed last netconf that we should look at possibly a new to=
-ol
-> to address the shortcomings of ethtool, but I was not aware we had
-> abandoned maintaining the current ethtool already before any replacement
-> tool has been developed.
 --=20
 Ben Hutchings
 Time is nature's way of making sure that everything doesn't happen at
 once.
 
---=-coc1RkJ2nBHPzdzVajGo
+--=-aVguvMqGs0TR7FTSzLqi
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJXRbLfAAoJEOe/yOyVhhEJ+9kP/Ru0kL4o/L5DKSpeFVrFsGJe
-hMBpwddUdFJjNotgNl8Fmtr7yxf61VhmgSfEM767fRJNgeMbdM0GZTUsdVyq4KD9
-/oGjjplwtzIzEa+8rAj9W40rbhY7Qp6KsaKF1NcBwCLgAXA1n7e9hOYUZLS4lO8E
-c2nnY4sPRUbqxAZMCx7FsfhoYzyAoQGP+df9ctqQeVsVQtbx3kyrTGvZ2kMLv+1g
-6bahTU2QWZqYlQOdBEa2oXHphmyPIV48fq+hunhNlKapK2e1NOddQer0pDXG5jpO
-gHhGaYh1AHvXHC2Zah3Z6yo8Fx5N3GKH5xfT0cOTpUwjN38F24aUKzPmBwsCaL81
-QAUBJIzU6yS0OLg/byzJfjACaI7z9m3FiDCqf8BUOIXD2NgepT/11/4iq4BoIcRA
-2MZFDaWmowmn4rvO7it6giYfcIP+3lVy5vdcv8qN33+KPsCmUa7ZDVj5gQ95FHvE
-l8gnMpV+6HQoAWRm4m5J2byKt6TKu3Gw6U34n4XdoOa0O8+DE3uLMnggVvBL9kGC
-sWJBCo/0doujGaYZlAOAWymp70++CjAmKuLDgL4KpL80gZ6lHVk7GZ3RZxe/b1CP
-8PC8L8zkYLF0WSvcxvXBc1jaSjsvE3E3okbeWkNTpXSsnxBUkzU/fJNB2qWFYD6F
-lOPBehq4OI50npyd5/1Y
-=Tw0W
+iQIcBAABCgAGBQJXRbviAAoJEOe/yOyVhhEJKU0P/0KwlFF1GiMaJM03AnQxhJnY
+Rf2GbVfIwy1T6vNF+iL+XOnNVI6lpxoyIi5kwa9lMW6IK9eDsD4PckpYIWvCgPSk
+Q96YuOpsF5G0MUIkJSJQeyY4E29+RS3uh9Nh9mF2Bjm1nbZdHVlY+ZU4sdCrVfLu
+lc2t+xhGw+97Mmk6w8jnvdaWNH9nBT6OcIBZ9ZUJUYmNysee4B5NzCRuzUq2fDBI
+AjcQqgHPJo95AAbLv56xny79Ecxv+p1tSIvQ5CFevYude7frbDBH/+QaIxgnrJtW
+otAFuNoJ090qYF54mOUgCMwqft0Ji2qlBxKiapIUIzZ+2T/M6n3e3n7r2Q00RaKf
+UCRtJ0B9HujSDeGNftzq+V4YDsTNG5WQ6K0rCiqZTYc81xi3bMKszzhT7ZDbSsHF
+9c0KFP6d6ZvOKl4olsWANKqBLuu7gTOi/BkZQbqNKKS7VcveyPq9XfJwNTB/9F6/
+tS+Eux0nsvh77J6ahI/1FwstPUDu7ssFFzWdPhytWDrcankM/V+J1XqPom3j/xUv
+A2cXW67Lm3FqKzcmbNvAMRevV9HkhoDRcx9fFvb0ca7nYTGcWNM55qV9FUqgYC4V
+9/rGdkIg0gzH1g0RB7I+UzBQXPmvQGPIAZWF/t5r8Sh3/wiJEvjHsrlNAcIK7BnI
+gCsIDmJhDzi7dj84HsD9
+=lKd7
 -----END PGP SIGNATURE-----
 
---=-coc1RkJ2nBHPzdzVajGo--
+--=-aVguvMqGs0TR7FTSzLqi--
