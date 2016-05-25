@@ -1,7 +1,8 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 1/2] ipv6: hide ip6_encap_hlen/ip6_tnl_encap definitions
-Date: Wed, 25 May 2016 16:50:45 +0200
-Message-ID: <1464187873-219087-1-git-send-email-arnd@arndb.de>
+Subject: [PATCH 2/2] fou: add Kconfig options for IPv6 support
+Date: Wed, 25 May 2016 16:50:46 +0200
+Message-ID: <1464187873-219087-2-git-send-email-arnd@arndb.de>
+References: <1464187873-219087-1-git-send-email-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
@@ -10,55 +11,96 @@ Cc: Arnd Bergmann <arnd@arndb.de>,
 	linux-kernel@vger.kernel.org
 To: Tom Herbert <tom@herbertland.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:65076 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754551AbcEYOv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 10:51:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464187873-219087-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A recent cleanup moved MAX_IPTUN_ENCAP_OPS along with some other
-definitions, but it is now invisible when CONFIG_INET is
-not defined, but still referenced from ip6_tunnel.h:
+A previous patch added the fou6.ko module, but that failed to link
+in a couple of configurations:
 
-In file included from net/xfrm/xfrm_input.c:17:0:
-include/net/ip6_tunnel.h:67:17: error: 'MAX_IPTUN_ENCAP_OPS' undeclared here (not in a function)
-   ip6tun_encaps[MAX_IPTUN_ENCAP_OPS];
-                 ^~~~~~~~~~~~~~~~~~~
+net/built-in.o: In function `ip6_tnl_encap_add_fou_ops':
+net/ipv6/fou6.c:88: undefined reference to `ip6_tnl_encap_add_ops'
+net/ipv6/fou6.c:94: undefined reference to `ip6_tnl_encap_add_ops'
+net/ipv6/fou6.c:97: undefined reference to `ip6_tnl_encap_del_ops'
+net/built-in.o: In function `ip6_tnl_encap_del_fou_ops':
+net/ipv6/fou6.c:106: undefined reference to `ip6_tnl_encap_del_ops'
+net/ipv6/fou6.c:107: undefined reference to `ip6_tnl_encap_del_ops'
 
-This hides the ip6_encap_hlen and ip6_tnl_encap functions inside
-of CONFIG_INET so we don't run into the the problem.
+If CONFIG_IPV6=m, ip6_tnl_encap_add_ops/ip6_tnl_encap_del_ops
+are in a module, but fou6.c can still be built-in, and that
+obviously fails to link.
 
-Alternatively we could move the macro out of the #ifdef again to
-restore the previous behavior
+Also, if CONFIG_IPV6=y, but CONFIG_IPV6_TUNNEL=m or
+CONFIG_IPV6_TUNNEL=n, the same problem happens for a different
+reason.
+
+This adds two new silent Kconfig symbols to work around both
+problems:
+
+- CONFIG_IPV6_FOU is now always set to 'm' if either CONFIG_NET_FOU=m
+  or CONFIG_IPV6=m
+- CONFIG_IPV6_FOU_TUNNEL is set implicitly when IPV6_FOU is enabled
+  and NET_FOU_IP_TUNNELS is also turned out, and it will ensure
+  that CONFIG_IPV6_TUNNEL is also available.
+
+The options could be made user-visible as well, to give additional
+room for configuration, but it seems easier not to bother users
+with more choice here.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 55c2bc143224 ("net: Cleanup encap items in ip_tunnels.h")
+Fixes: aa3463d65e7b ("fou: Add encap ops for IPv6 tunnels")
 ---
- include/net/ip6_tunnel.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv6/Kconfig  | 9 +++++++++
+ net/ipv6/Makefile | 2 +-
+ net/ipv6/fou6.c   | 2 +-
+ 3 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index d325c81332e3..43a5a0e4524c 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -63,6 +63,8 @@ struct ip6_tnl_encap_ops {
- 			    u8 *protocol, struct flowi6 *fl6);
- };
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 3f8411328de5..994608263260 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -232,6 +232,15 @@ config IPV6_GRE
  
-+#ifdef CONFIG_INET
+ 	  Saying M here will produce a module called ip6_gre. If unsure, say N.
+ 
++config IPV6_FOU
++	tristate
++	default NET_FOU && IPV6
 +
- extern const struct ip6_tnl_encap_ops __rcu *
- 		ip6tun_encaps[MAX_IPTUN_ENCAP_OPS];
++config IPV6_FOU_TUNNEL
++	tristate
++	default NET_FOU_IP_TUNNELS && IPV6_FOU
++	select INET6_TUNNEL
++
+ config IPV6_MULTIPLE_TABLES
+ 	bool "IPv6: Multiple Routing Tables"
+ 	select FIB_RULES
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 7ec3129c9ace..d42ca3d1197f 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -42,7 +42,7 @@ obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
+ obj-$(CONFIG_IPV6_SIT) += sit.o
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+ obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
+-obj-$(CONFIG_NET_FOU) += fou6.o
++obj-$(CONFIG_NET_FOU_IPV6_TUNNELS) += fou6.o
  
-@@ -138,7 +140,6 @@ struct net *ip6_tnl_get_link_net(const struct net_device *dev);
- int ip6_tnl_get_iflink(const struct net_device *dev);
- int ip6_tnl_change_mtu(struct net_device *dev, int new_mtu);
+ obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
+ obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
+diff --git a/net/ipv6/fou6.c b/net/ipv6/fou6.c
+index c972d0b52579..9ea249b9451e 100644
+--- a/net/ipv6/fou6.c
++++ b/net/ipv6/fou6.c
+@@ -69,7 +69,7 @@ int gue6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+ }
+ EXPORT_SYMBOL(gue6_build_header);
  
--#ifdef CONFIG_INET
- static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
- 				  struct net_device *dev)
- {
+-#ifdef CONFIG_NET_FOU_IP_TUNNELS
++#if IS_ENABLED(CONFIG_IPV6_FOU_TUNNEL)
+ 
+ static const struct ip6_tnl_encap_ops fou_ip6tun_ops = {
+ 	.encap_hlen = fou_encap_hlen,
 -- 
 2.7.0
