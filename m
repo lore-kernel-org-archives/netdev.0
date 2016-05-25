@@ -1,52 +1,47 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2 3/3] Documentation: networking: dsa: Describe port_vlan_filtering
-Date: Tue, 24 May 2016 21:26:41 -0700
-Message-ID: <1464150401-2318-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net v2 1/3] Documentation: networking: dsa: Remove poll_link description
+Date: Tue, 24 May 2016 21:26:39 -0700
+Message-ID: <1464150401-2318-2-git-send-email-f.fainelli@gmail.com>
 References: <1464150401-2318-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
 	andrew@lunn.ch, idosch@mellanox.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33367 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbcEYE0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 00:26:51 -0400
-Received: by mail-oi0-f68.google.com with SMTP id m198so8616823oig.0
-        for <netdev@vger.kernel.org>; Tue, 24 May 2016 21:26:51 -0700 (PDT)
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33350 "EHLO
+	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbcEYE0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2016 00:26:49 -0400
+Received: by mail-oi0-f67.google.com with SMTP id m198so8616719oig.0
+        for <netdev@vger.kernel.org>; Tue, 24 May 2016 21:26:49 -0700 (PDT)
 In-Reply-To: <1464150401-2318-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Described what the port_vlan_filtering function is supposed to
-accomplish.
+This function has been removed in 4baee937b8d5 ("net: dsa: remove DSA
+link polling") in favor of using the PHYLIB polling mechanism.
 
-Fixes: fb2dabad69f0 ("net: dsa: support VLAN filtering switchdev attr")
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/networking/dsa/dsa.txt | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ Documentation/networking/dsa/dsa.txt | 5 -----
+ 1 file changed, 5 deletions(-)
 
 diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 411b57fd73aa..9d05ed7f7da5 100644
+index 631b0f7ae16f..8303eb8ced79 100644
 --- a/Documentation/networking/dsa/dsa.txt
 +++ b/Documentation/networking/dsa/dsa.txt
-@@ -535,6 +535,16 @@ Bridge layer
- Bridge VLAN filtering
- ---------------------
+@@ -416,11 +416,6 @@ PHY devices and link management
+   to the switch port MDIO registers. If unavailable return a negative error
+   code.
  
-+- port_vlan_filtering: bridge layer function invoked when the bridge gets
-+  configured for turning on or off VLAN filtering. If nothing specific needs to
-+  be done at the hardware level, this callback does not need to be implemented.
-+  When VLAN filtering is turned on, the hardware must be programmed with
-+  rejecting 802.1Q frames which have VLAN IDs outside of the programmed allowed
-+  VLAN ID map/rules.  If there is no PVID programmed into the switch port,
-+  untagged frames must be rejected as well. When turned off the switch must
-+  accept any 802.1Q frames irrespective of their VLAN ID, and untagged frames are
-+  allowed.
-+
- - port_vlan_prepare: bridge layer function invoked when the bridge prepares the
-   configuration of a VLAN on the given port. If the operation is not supported
-   by the hardware, this function should return -EOPNOTSUPP to inform the bridge
+-- poll_link: Function invoked by DSA to query the link state of the switch
+-  builtin Ethernet PHYs, per port. This function is responsible for calling
+-  netif_carrier_{on,off} when appropriate, and can be used to poll all ports in a
+-  single call. Executes from workqueue context.
+-
+ - adjust_link: Function invoked by the PHY library when a slave network device
+   is attached to a PHY device. This function is responsible for appropriately
+   configuring the switch port link parameters: speed, duplex, pause based on
 -- 
 2.7.4
