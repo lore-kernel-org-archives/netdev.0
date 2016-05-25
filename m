@@ -1,90 +1,91 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v8 21/22] IB/hns: Kconfig and Makefile for RoCE module
-Date: Wed, 25 May 2016 23:05:24 +0800
-Message-ID: <1464188725-42805-22-git-send-email-oulijun@huawei.com>
-References: <1464188725-42805-1-git-send-email-oulijun@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464188725-42805-1-git-send-email-oulijun@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] team: don't call netdev_change_features under team->lock
+Date: Wed, 25 May 2016 16:55:49 +0200
+Message-ID: <1464188149-9383-1-git-send-email-ivecera@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41976 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754972AbcEYOzw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 May 2016 10:55:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch added Kconfig and Makefile for building RoCE module.
+The team_device_event() notifier calls team_compute_features() to fix
+vlan_features under team->lock to protect team->port_list. The problem is
+that subsequent __team_compute_features() calls netdev_change_features()
+to propagate vlan_features to upper vlan devices while team->lock is still
+taken. This can lead to deadlock when NETIF_F_LRO is modified on lower
+devices or team device itself.
 
-Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
-Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
-Signed-off-by: Lijun Ou <oulijun@huawei.com>
+Example:
+The team0 as active backup with eth0 and eth1 NICs. Both eth0 & eth1 are
+LRO capable and LRO is enabled. Thus LRO is also enabled on team0.
+
+The command 'ethtool -K team0 lro off' now hangs due to this deadlock:
+
+dev_ethtool()
+-> ethtool_set_features()
+ -> __netdev_update_features(team)
+  -> netdev_sync_lower_features()
+   -> netdev_update_features(lower_1)
+    -> __netdev_update_features(lower_1)
+    -> netdev_features_change(lower_1)
+     -> call_netdevice_notifiers(...)
+      -> team_device_event(lower_1)
+       -> team_compute_features(team) [TAKES team->lock]
+        -> netdev_change_features(team)
+         -> __netdev_update_features(team)
+          -> netdev_sync_lower_features()
+           -> netdev_update_features(lower_2)
+            -> __netdev_update_features(lower_2)
+            -> netdev_features_change(lower_2)
+             -> call_netdevice_notifiers(...)
+              -> team_device_event(lower_2)
+               -> team_compute_features(team) [DEADLOCK]
+
+Cc: Jiri Pirko <jiri@resnulli.us>
+
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 ---
- drivers/infiniband/Kconfig         |  1 +
- drivers/infiniband/hw/Makefile     |  1 +
- drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
- drivers/infiniband/hw/hns/Makefile |  9 +++++++++
- 4 files changed, 21 insertions(+)
- create mode 100644 drivers/infiniband/hw/hns/Kconfig
- create mode 100644 drivers/infiniband/hw/hns/Makefile
+ drivers/net/team/team.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
-index 6425c0e..726a4ca 100644
---- a/drivers/infiniband/Kconfig
-+++ b/drivers/infiniband/Kconfig
-@@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
- source "drivers/infiniband/hw/nes/Kconfig"
- source "drivers/infiniband/hw/ocrdma/Kconfig"
- source "drivers/infiniband/hw/usnic/Kconfig"
-+source "drivers/infiniband/hw/hns/Kconfig"
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 718ceea..800a449 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -988,7 +988,7 @@ static void team_port_disable(struct team *team,
+ #define TEAM_ENC_FEATURES	(NETIF_F_HW_CSUM | NETIF_F_SG | \
+ 				 NETIF_F_RXCSUM | NETIF_F_ALL_TSO)
  
- source "drivers/infiniband/ulp/ipoib/Kconfig"
+-static void __team_compute_features(struct team *team)
++static void ___team_compute_features(struct team *team)
+ {
+ 	struct team_port *port;
+ 	u32 vlan_features = TEAM_VLAN_FEATURES & NETIF_F_ALL_FOR_ALL;
+@@ -1019,15 +1019,20 @@ static void __team_compute_features(struct team *team)
+ 	team->dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+ 	if (dst_release_flag == (IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM))
+ 		team->dev->priv_flags |= IFF_XMIT_DST_RELEASE;
++}
  
-diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
-index c7ad0a4..223eb78 100644
---- a/drivers/infiniband/hw/Makefile
-+++ b/drivers/infiniband/hw/Makefile
-@@ -8,3 +8,4 @@ obj-$(CONFIG_MLX5_INFINIBAND)		+= mlx5/
- obj-$(CONFIG_INFINIBAND_NES)		+= nes/
- obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
- obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
-+obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+= hns/
-diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hns/Kconfig
-new file mode 100644
-index 0000000..c47c168
---- /dev/null
-+++ b/drivers/infiniband/hw/hns/Kconfig
-@@ -0,0 +1,10 @@
-+config INFINIBAND_HISILICON_HNS
-+	tristate "Hisilicon Hns ROCE Driver"
-+	depends on NET_VENDOR_HISILICON
-+	depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
-+	---help---
-+	  This is a ROCE/RDMA driver for the Hisilicon RoCE engine. The engine
-+	  is used in Hisilicon Hi1610 and more further ICT SoC.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called hns-roce.
-diff --git a/drivers/infiniband/hw/hns/Makefile b/drivers/infiniband/hw/hns/Makefile
-new file mode 100644
-index 0000000..404a700
---- /dev/null
-+++ b/drivers/infiniband/hw/hns/Makefile
-@@ -0,0 +1,9 @@
-+#
-+# Makefile for the HISILICON RoCE drivers.
-+#
-+
-+obj-$(CONFIG_INFINIBAND_HISILICON_HNS) += hns-roce.o
-+hns-roce-objs := hns_roce_main.o hns_roce_cmd.o hns_roce_eq.o hns_roce_pd.o \
-+	hns_roce_ah.o hns_roce_icm.o hns_roce_mr.o hns_roce_qp.o \
-+	hns_roce_cq.o hns_roce_alloc.o hns_roce_hw_v1.o
-+
++static void __team_compute_features(struct team *team)
++{
++	___team_compute_features(team);
+ 	netdev_change_features(team->dev);
+ }
+ 
+ static void team_compute_features(struct team *team)
+ {
+ 	mutex_lock(&team->lock);
+-	__team_compute_features(team);
++	___team_compute_features(team);
+ 	mutex_unlock(&team->lock);
++	netdev_change_features(team->dev);
+ }
+ 
+ static int team_port_enter(struct team *team, struct team_port *port)
 -- 
-1.9.1
+2.7.3
