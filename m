@@ -1,51 +1,42 @@
-From: Alan Davey <alan.davey@metaswitch.com>
-Subject: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is set.
-Date: Mon, 23 May 2016 15:23:45 +0100
-Message-ID: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
+From: Uni Credit =?utf-8?Q?Loans=C2=AE?= <audrey.moody@policenet.bz>
+Subject: =?utf-8?Q?Sch=C3=B6nen_Tag?=
+Date: Thu, 26 May 2016 06:42:27 -0600 (CST)
+Message-ID: <627580870.766367.1464266547799.JavaMail.root@mail.policenet.bz>
+References: <684791788.765905.1464266331405.JavaMail.root@mail.policenet.bz>
+Reply-To: Uni Credit =?utf-8?Q?Loans=C2=AE?=
+	  <credituni.unicredit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
-	<jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	Alan Davey <alan.davey@metaswitch.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0102.outbound.protection.outlook.com ([157.56.110.102]:35233
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753662AbcEZOYK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 May 2016 10:24:10 -0400
+Received: from mail.policenet.bz ([200.32.229.168]:35893 "EHLO
+	mail.policenet.bz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753813AbcEZObP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 10:31:15 -0400
+In-Reply-To: <684791788.765905.1464266331405.JavaMail.root@mail.policenet.bz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One of the bugs documented in the raw(7) man page is as follows: When the
-IP_HDRINCL option is set, datagrams will not be fragmented and are limited to
-the interface MTU.
+Sch=C3=B6nen Tag
 
-This patch fixes the bug by removing the check for "length > rt->dst.dev->mtu"
-in raw_send_hdrinc() (net/ipv4/raw.c).  Datagrams are no longer limited to the
-interface MTU size if the IP_HDRINCL option is set, but are fragmented, if
-necessary, in the same way as all other datagrams.
+Dies ist die Unicredit Darlehen. Zuverl=C3=A4ssige und glaubw=C3=BCrdig=
+e Darlehen zu 3% f=C3=BCr beide Unternehmen und Investitionen, Projekte=
+ und individuelle Bed=C3=BCrfnisse, ist UniCredit in der besten Positio=
+n, die Sie mit Darlehen zur Verf=C3=BCgung zu stellen.
 
-Signed-off-by: Alan Davey <alan.davey@metaswitch.com>
----
- net/ipv4/raw.c | 5 -----
- 1 file changed, 5 deletions(-)
+=46=C3=BCllen Sie das Formular aus, wenn Sie daran interessiert sind,
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 8d22de7..de690b3 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -351,11 +351,6 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 	struct rtable *rt = *rtp;
- 	int hlen, tlen;
- 
--	if (length > rt->dst.dev->mtu) {
--		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
--			       rt->dst.dev->mtu);
--		return -EMSGSIZE;
--	}
- 	if (flags&MSG_PROBE)
- 		goto out;
- 
--- 
-1.8.3.1
+Vollst=C3=A4ndiger Name:
+Geschlecht:
+Land:
+Die erforderliche Menge des Darlehens:
+Dauer:
+Zweck des Darlehens:
+
+Hochgeschwindigkeitsantwort erforderlich ist
+
+=46reundliche Gr=C3=BC=C3=9Fe
+
+
+Bill Waters
