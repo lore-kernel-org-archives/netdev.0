@@ -1,126 +1,70 @@
 From: wangyunjian <wangyunjian@huawei.com>
-Subject: =?utf-8?B?562U5aSNOiBbUEFUQ0hdIHZpcnRpb19uZXQ6IGZpeCB2aXJ0bmV0X29wZW4g?=
- =?utf-8?B?YW5kIHZpcnRuZXRfcHJvYmUgY29tcGV0aW5nIGZvciB0cnlfZmlsbF9yZWN2?=
-Date: Thu, 26 May 2016 06:26:34 +0000
-Message-ID: <34EFBCA9F01B0748BEB6B629CE643AE60AFE2A87@szxeml561-mbx.china.huawei.com>
-References: <57459BB0.2000108@huawei.com> <57465415.3020801@redhat.com>
+Subject: [PATCH net v2] virtio_net: fix virtnet_open and virtnet_probe competing
+ for try_fill_recv
+Date: Thu, 26 May 2016 14:27:59 +0800
+Message-ID: <5746976F.60306@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Liuyongan <liuyongan@huawei.com>
-To: Jason Wang <jasowang@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <liuyongan@huawei.com>
+To: <davem@davemloft.net>, <jasowang@redhat.com>, <mst@redhat.com>,
+	<rusty@rustcorp.com.au>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:60093 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:61998 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbcEZGb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 02:31:56 -0400
-In-Reply-To: <57465415.3020801@redhat.com>
-Content-Language: zh-CN
+	with ESMTP id S1750904AbcEZGf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 02:35:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SmFzb24gV2FuZywNCg0KCVRoYW5rcyBmb3IgeW91ciBjb21tZW50cy4NCg0KCUkgbWFrZSBuZXcg
-cGF0Y2gsIGFjY29yZGluZyB0byB5b3VyIGNvbW1lbnRzLg0KCQ0KDQotLS0tLemCruS7tuWOn+S7
-ti0tLS0tDQrlj5Hku7bkuro6IEphc29uIFdhbmcgW21haWx0bzpqYXNvd2FuZ0ByZWRoYXQuY29t
-XSANCuWPkemAgeaXtumXtDogMjAxNuW5tDXmnIgyNuaXpSA5OjQxDQrmlLbku7bkuro6IHdhbmd5
-dW5qaWFuOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBtc3RA
-cmVkaGF0LmNvbTsgTGl1eW9uZ2FuDQrkuLvpopg6IFJlOiBbUEFUQ0hdIHZpcnRpb19uZXQ6IGZp
-eCB2aXJ0bmV0X29wZW4gYW5kIHZpcnRuZXRfcHJvYmUgY29tcGV0aW5nIGZvciB0cnlfZmlsbF9y
-ZWN2DQoNCg0KDQpPbiAyMDE25bm0MDXmnIgyNeaXpSAyMDozMywgd2FuZ3l1bmppYW4gd3JvdGU6
-DQo+IEluIGZ1bmN0aW9uIHZpcnRuZXRfb3BlbigpIGFuZCB2aXJ0bmV0X3Byb2JlKCksIGZ1bmMg
-dHJ5X2ZpbGxfcmVjdigpIHdpbGwgYmUgZXhlY3V0ZWQgYXQgdGhlIHNhbWUgdGltZS4gVlEgaW4g
-dmlydHF1ZXVlX2FkZCgpIGlzIG5vdCBwcm90ZWN0ZWQgd2VsbCBhbmQgQlVHX09OIHdpbGwgYmUg
-dHJpZ2dlcmVkIHdoZW4gdmlyaXRvX25ldC5rbyBiZWluZyByZW1vdmVkLg0KPg0KPiBUZXN0IFNj
-cmlwdDoNCj4gZm9yICgoIGk9MDsgaTw1MDAwMDAwOyBpPWkrMSApKTsgZG8NCj4gCXJtbW9kIHZp
-cnRpb19uZXQNCj4gCW1vZHByb2JlIHZpcnRpb19uZXQNCj4gCWlmY29uZmlnIGV0aDAgdXANCj4g
-ZG9uZQ0KPg0KPiBbICAzMDIuMzM2OTk2XSAtLS0tLS0tLS0tLS1bIGN1dCBoZXJlIF0tLS0tLS0t
-LS0tLS0gWyAgMzAyLjMzODc5NF0gDQo+IGtlcm5lbCBCVUcgYXQgdmlydGlvX3JpbmcuYzo3NTAh
-DQo+IFsgIDMwMi4zNDAwMTNdIGludmFsaWQgb3Bjb2RlOiAwMDAwIFsjMV0gU01QIFsgIDMwMi4z
-NDAwMTNdIGxhc3Qgc3lzZnMgDQo+IGZpbGU6IC9zeXMvZGV2aWNlcy9wY2kwMDAwOjAwLzAwMDA6
-MDA6MDMuMC92aXJ0aW8wL2RldmljZQ0KPiBbICAzMDIuMzQwMDEzXSBDUFUgMA0KPiBbICAzMDIu
-MzQwMDEzXSBNb2R1bGVzIGxpbmtlZCBpbjogdmlydGlvX2JhbGxvb24gdmlydGlvX25ldCgtKSAN
-Cj4gdmlydGlvX3BjaSB2aXJ0aW9fcmluZyB2aXJ0aW8gaXB2NiBhZl9wYWNrZXQgbWljcm9jb2Rl
-IGFjcGlwaHAgDQo+IHBjaV9ob3RwbHVnIGZ1c2UgbG9vcCBkbV9tb2QgcnRjX2Ntb3MgdHBtX3Rp
-cyBydGNfY29yZSB0cG0gaTJjX3BpaXg0IA0KPiBydGNfbGliIGNvbnRhaW5lciBidXR0b24gZmxv
-cHB5IHBjc3BrciB0cG1fYmlvcyBpMmNfY29yZSBqb3lkZXYgc2cgDQo+IHVzYmhpZCBoaWQgdWhj
-aV9oY2QgZWhjaV9oY2QgdXNiY29yZSBlZGQgZXh0MyBtYmNhY2hlIGpiZCBmYW4gDQo+IHByb2Nl
-c3NvciBpZGVfcGNpX2dlbmVyaWMgcGlpeCBpZGVfY29yZSBhdGFfZ2VuZXJpYyBhdCBhX3BpaXgg
-bGliYXRhIA0KPiB0aGVybWFsIHRoZXJtYWxfc3lzIGh3bW9uIHNkX21vZCBjcmNfdDEwZGlmIGt2
-bV9pdnNobWVtKE4pIHNjc2lfbW9kIA0KPiBwdl9jaGFubmVsKE4pIFtsYXN0IHVubG9hZGVkOiB2
-aXJ0aW9dIFsgIDMwMi4zNDAwMTNdIFN1cHBvcnRlZDogWWVzIFsgIA0KPiAzMDIuMzQwMDEzXSBQ
-aWQ6IDg0MTAsIGNvbW06IHJtbW9kIFRhaW50ZWQ6IEdOICAyLjYuMzIuMTItMC43LWRlZmF1bHQg
-DQo+ICMxIFN0YW5kYXJkIFBDIChpNDQwRlggKyBQSUlYLCAxOTk2KSBbICAzMDIuMzQwMDEzXSBS
-SVA6IA0KPiAwMDEwOls8ZmZmZmZmZmZhMDMyMzQxOT5dICBbPGZmZmZmZmZmYTAzMjM0MTk+XSAN
-Cj4gdmlydHF1ZXVlX2RldGFjaF91bnVzZWRfYnVmKzB4YjkvMHhjMCBbdmlydGlvX3JpbmddIFsg
-IDMwMi4zNDAwMTNdIA0KPiBSU1A6IDAwMTg6ZmZmZjg4MDAwYzdhOWUwOCAgRUZMQUdTOiAwMDAx
-MDI4MyBbICAzMDIuMzQwMDEzXSBSQVg6IA0KPiAwMDAwMDAwMDAwMDAwMGY0IFJCWDogMDAwMDAw
-MDAwMDAwMDEwMCBSQ1g6IDAwMDAwMDAwMDAwMDRkOGUgWyAgDQo+IDMwMi4zNDAwMTNdIFJEWDog
-ZmZmZjg4MDAwMWUwMDAwMCBSU0k6IDAwMDAwMDAwMDAwMDAwNDYgUkRJOiANCj4gZmZmZmZmZmY4
-MWE3MTU3MCBbICAzMDIuMzQwMDEzXSBSQlA6IGZmZmY4ODAwMGM5ODcwMDAgUjA4OiANCj4gMDAw
-MDAwMDAwMDAwMDAwMCBSMDk6IDAwMDAwMDAwMDAwMDAwMGEgWyAgMzAyLjM0MDAxM10gUjEwOiAw
-MDAwMDAwMDAwMDAwMDAwIFIxMTogMDAwMDAwMDAwMDAwMDAwMCBSMTI6IDAwMDAwMDAwMDAwMDA0
-MDAgWyAgMzAyLjM0MDAxM10gUjEzOiAwMDAwMDAwMDAwMDAwMDAwIFIxNDogMDAwMDdmZmY5MmJj
-MTc1OCBSMTU6IDAwMDAwMDAwMDAwMDAwMDEgWyAgMzAyLjM0MDAxM10gRlM6ICAwMDAwN2Y4YjM5
-OTVkNzAwKDAwMDApIEdTOmZmZmY4ODAwMDFlMDAwMDAoMDAwMCkga25sR1M6MDAwMDAwMDAwMDAw
-MDAwMCBbICAzMDIuMzQwMDEzXSBDUzogIDAwMTAgRFM6IDAwMDAgRVM6IDAwMDAgQ1IwOiAwMDAw
-MDAwMDgwMDUwMDNiIFsgIDMwMi4zNDAwMTNdIENSMjogMDAwMDdmZmYxOTY0MzNlMCBDUjM6IDAw
-MDAwMDAwMGQwN2UwMDAgQ1I0OiAwMDAwMDAwMDAwMDAwNmYwIFsgIDMwMi4zNDAwMTNdIERSMDog
-MDAwMDAwMDAwMDAwMDAwMCBEUjE6IDAwMDAwMDAwMDAwMDAwMDAgRFIyOiAwMDAwMDAwMDAwMDAw
-MDAwIFsgIDMwMi4zNDAwMTNdIERSMzogMDAwMDAwMDAwMDAwMDAwMCBEUjY6IDAwMDAwMDAwZmZm
-ZjBmZjAgRFI3OiAwMDAwMDAwMDAwMDAwNDAwIFsgIDMwMi4zNDAwMTNdIFByb2Nlc3Mgcm1tb2Qg
-KHBpZDogODQxMCwgdGhyZWFkaW5mbyBmZmZmODgwMDBjN2E4MDAwLCB0YXNrIGZmZmY4ODAwMGM3
-YWEyMDApIFsgIDMwMi4zNDAwMTNdIFN0YWNrOg0KPiBbICAzMDIuMzQwMDEzXSAgZmZmZjg4MDAw
-ZmJiMzc4MCAwMDAwMDAwMDAwMDAwMDAwIGZmZmY4ODAwMGM5ODcwMDAgDQo+IGZmZmZmZmZmYTAz
-NGIxNzggWyAgMzAyLjM0MDAxM10gPDA+IGZmZmY4ODAwMGZiYjM4NTAgZmZmZjg4MDAwZmJiMzc4
-MCANCj4gZmZmZmZmZmZhMDM0ZWZjMCBmZmZmODgwMDBmYmIzODUwIFsgIDMwMi4zNDAwMTNdIDww
-PiAwMDAwMDAwMDAwMDAwMDAwIA0KPiBmZmZmZmZmZmEwMzRiMjk5IGZmZmY4ODAwMGZiYjM3ODAg
-ZmZmZmZmZmZhMDM0YjQwNiBbICAzMDIuMzQwMDEzXSBDYWxsIFRyYWNlOg0KPiBbICAzMDIuMzQw
-MDEzXSAgWzxmZmZmZmZmZmEwMzRiMTc4Pl0gZnJlZV91bnVzZWRfYnVmcysweDg4LzB4MTIwIA0K
-PiBbdmlydGlvX25ldF0gWyAgMzAyLjM0MDAxM10gIFs8ZmZmZmZmZmZhMDM0YjI5OT5dIA0KPiBy
-ZW1vdmVfdnFfY29tbW9uKzB4MTkvMHgzMCBbdmlydGlvX25ldF0gWyAgMzAyLjM0MDAxM10gIA0K
-PiBbPGZmZmZmZmZmYTAzNGI0MDY+XSB2aXJ0bmV0X3JlbW92ZSsweDQ2LzB4ODAgW3ZpcnRpb19u
-ZXRdIFsgIA0KPiAzMDIuMzQwMDEzXSAgWzxmZmZmZmZmZmEwMjE5MjQ1Pl0gdmlydGlvX2Rldl9y
-ZW1vdmUrMHgxNS8weDYwIFt2aXJ0aW9dIA0KPiBbICAzMDIuMzQwMDEzXSAgWzxmZmZmZmZmZjgx
-Mjk0NTUxPl0gDQo+IF9fZGV2aWNlX3JlbGVhc2VfZHJpdmVyKzB4OTEvMHgxMTANCj4gWyAgMzAy
-LjM0MDAxM10gIFs8ZmZmZmZmZmY4MTI5NDY3OD5dIGRyaXZlcl9kZXRhY2grMHhhOC8weGIwIFsg
-IA0KPiAzMDIuMzQwMDEzXSAgWzxmZmZmZmZmZjgxMjkzNTYyPl0gYnVzX3JlbW92ZV9kcml2ZXIr
-MHg4Mi8weDExMCBbICANCj4gMzAyLjM0MDAxM10gIFs8ZmZmZmZmZmY4MTA3YWVhND5dIHN5c19k
-ZWxldGVfbW9kdWxlKzB4MWM0LzB4MjkwIFsgIA0KPiAzMDIuMzQwMDEzXSAgWzxmZmZmZmZmZjgx
-MDAyZjdiPl0gc3lzdGVtX2NhbGxfZmFzdHBhdGgrMHgxNi8weDFiIFsgIA0KPiAzMDIuMzQwMDEz
-XSAgWzwwMDAwN2Y4YjM5NGM3ZGU3Pl0gMHg3ZjhiMzk0YzdkZTcgWyAgMzAyLjM0MDAxM10gQ29k
-ZTogDQo+IGMzIDAxIDQ5IDgzIGM0IDA0IGU4IDMwIDEwIDA3IGUxIDhiIDU1IDM4IDM5IGRhIDc3
-IGQwIDhiIDc1IDJjIDMxIGMwIA0KPiA0OCBjNyBjNyBiYSA0YiAzMiBhMCBlOCAxOCAxMCAwNyBl
-MSA4YiA0NSAyYyAzYiA0NSAzOCA3NCA4MiA8MGY+IDBiIGViIA0KPiBmZSAwZiAxZiAwMCA0OCA4
-MyBlYyAyOCA0OCA4OSA2YyAyNCAwOCA0OCA4OSAxYyAyNCA0OCBbICAzMDIuMzQwMDEzXSANCj4g
-UklQICBbPGZmZmZmZmZmYTAzMjM0MTk+XSB2aXJ0cXVldWVfZGV0YWNoX3VudXNlZF9idWYrMHhi
-OS8weGMwIA0KPiBbdmlydGlvX3JpbmddIFsgIDMwMi4zNDAwMTNdICBSU1AgPGZmZmY4ODAwMGM3
-YTllMDg+IFsgIDMwMi40Mzg1NzldIA0KPiAtLS1bIGVuZCB0cmFjZSAxZTU4M2JkYjViMjY0NGYx
-IF0tLS0NCj4NCj4NCj4gU2lnbmVkLW9mZi1ieTogWXVuamlhbiBXYW5nIDx3YW5neXVuamlhbkBo
-dWF3ZWkuY29tPg0KPiAtLS0NCj4gICBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgfCA0IC0tLS0N
-Cj4gICAxIGZpbGUgY2hhbmdlZCwgNCBkZWxldGlvbnMoLSkNCj4NCj4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBpbmRleCAN
-Cj4gNDlkODRlNS4uNDUyOGVmOCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25l
-dC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYw0KPiBAQCAtODE4LDEwICs4MTgs
-NiBAQCBzdGF0aWMgaW50IHZpcnRuZXRfb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiAg
-ICAgICAgICBpbnQgaTsNCj4NCj4gICAgICAgICAgZm9yIChpID0gMDsgaSA8IHZpLT5tYXhfcXVl
-dWVfcGFpcnM7IGkrKykgew0KPiAtICAgICAgICAgICAgICAgaWYgKGkgPCB2aS0+Y3Vycl9xdWV1
-ZV9wYWlycykNCj4gLSAgICAgICAgICAgICAgICAgICAgICAgLyogTWFrZSBzdXJlIHdlIGhhdmUg
-c29tZSBidWZmZXJzOiBpZiBvb20gdXNlIHdxLiAqLw0KPiAtICAgICAgICAgICAgICAgICAgICAg
-ICBpZiAoIXRyeV9maWxsX3JlY3YodmksICZ2aS0+cnFbaV0sIEdGUF9LRVJORUwpKQ0KPiAtICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNjaGVkdWxlX2RlbGF5ZWRfd29yaygmdmktPnJl
-ZmlsbCwgMCk7DQo+ICAgICAgICAgICAgICAgICAgdmlydG5ldF9uYXBpX2VuYWJsZSgmdmktPnJx
-W2ldKTsNCj4gICAgICAgICAgfQ0KPg0KPiAtLQ0KPiAxLjcuMTIuNA0KPg0KDQpUaGFua3MgYSBs
-b3QgZm9yIHNwb3R0aW5nIHRoZSBpc3N1ZS4NCg0KQnV0IHRoZSBmaXggbG9va3MgcXVlc3Rpb25h
-YmxlLCB3aGF0IGlmIHdlIGluY3JlYXNlIHRoZSBudW1iZXIgb2YgcXVldWVzIGJlZm9yZSB3ZSBv
-cGVuIGl0PyBJIGNhbiB0aGluIHR3byBzb2x1dGlvbnM6DQoNCi0gc2luY2UgbmRvX29wZW4oKSBp
-cyBwcm90ZWN0ZWQgYnkgcnRubF9sb2NrLCBob3cgYWJvdXQgcHJvdGVjdCB0aGUgcmVmaWxsIGlu
-IHZpcnRuZXRfcHJvYmUoKSB3aXRoIHJ0bmxfbG9jaz8NCi0gb3IgbG9va3MgbGlrZSB3ZSBjYW4g
-cmVtb3ZlIHRoZSByZWZpbGxzIGluIHZpcnRuZXRfcHJvYmUoKSBzaW5jZSB3ZSB3aWxsIGRvIGl0
-IGluIC5uZG9fb3BlbigpID8NCg0KQnR3LCB3ZSB1c3VhbGx5IHVzZSBuZXQgb3IgbmV0LW5leHQg
-cHJlZml4IGluIHRoZSBwYXRjaC4gRm9yIHRoZSBwYXRjaCBsaWtlIHRoaXMsIGl0IHNob3VsZCBo
-YXZlIHNvbWV0aGluZyBsaWtlICJQQVRDSCBuZXQiIGFzIGEgcHJlZml4LiBBbmQgc2luY2UgaXQg
-bmVlZHMgZ28gdG8gLXN0YWJsZSwgYmV0dGVyIGFkZCBhIHNob3J0IGRlc2NyaXB0b3IgYWZ0ZXIg
-Ii0tLSIgDQpmb3IgbGV0dGluZyBEYXZpZCB0byBrbm93IGFib3V0IHRoaXMuDQo=
+In function virtnet_open() and virtnet_probe(), func try_fill_recv()
+will be executed at the same time. VQ in virtqueue_add() is not protected
+well and BUG_ON will be triggered when virito_net.ko being removed.
+
+Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
+---
+ drivers/net/virtio_net.c | 18 ++----------------
+ 1 file changed, 2 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 49d84e5..e0638e5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1925,24 +1925,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+
+        virtio_device_ready(vdev);
+
+-       /* Last of all, set up some receive buffers. */
+-       for (i = 0; i < vi->curr_queue_pairs; i++) {
+-               try_fill_recv(vi, &vi->rq[i], GFP_KERNEL);
+-
+-               /* If we didn't even get one input buffer, we're useless. */
+-               if (vi->rq[i].vq->num_free ==
+-                   virtqueue_get_vring_size(vi->rq[i].vq)) {
+-                       free_unused_bufs(vi);
+-                       err = -ENOMEM;
+-                       goto free_recv_bufs;
+-               }
+-       }
+-
+        vi->nb.notifier_call = &virtnet_cpu_callback;
+        err = register_hotcpu_notifier(&vi->nb);
+        if (err) {
+                pr_debug("virtio_net: registering cpu notifier failed\n");
+-               goto free_recv_bufs;
++               goto free_unregister_netdev;
+        }
+
+        /* Assume link up if device can't report link status,
+@@ -1960,10 +1947,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+
+        return 0;
+
+-free_recv_bufs:
++free_unregister_netdev:
+        vi->vdev->config->reset(vdev);
+
+-       free_receive_bufs(vi);
+        unregister_netdev(dev);
+ free_vqs:
+        cancel_delayed_work_sync(&vi->refill);
