@@ -1,18 +1,18 @@
 From: Baozeng Ding <sploving1@gmail.com>
-Subject: [PATCH net] ieee802154: fix logic error in,
+Subject: [PATCH net] ieee802154: fix logic error in
  ieee802154_llsec_parse_dev_addr
-Date: Thu, 26 May 2016 21:00:08 +0800
-Message-ID: <f98e76a6-bd5d-36b2-02f8-489ce2502d16@gmail.com>
+Date: Thu, 26 May 2016 21:07:42 +0800
+Message-ID: <7c36848d-28b5-87cc-f998-53cc2428a0a6@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org
 To: aar@pengutronix.de, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36342 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753499AbcEZNAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 09:00:22 -0400
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33979 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753499AbcEZNHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 09:07:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
