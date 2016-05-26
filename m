@@ -1,34 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/8] qed*: Bug fixes
-Date: Thu, 26 May 2016 12:30:56 -0700 (PDT)
-Message-ID: <20160526.123056.1476006204775720640.davem@davemloft.net>
-References: <1464249684-976-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH v2] net: alx: use custom skb allocator
+Date: Thu, 26 May 2016 12:31:46 -0700 (PDT)
+Message-ID: <20160526.123146.100585580858934133.davem@davemloft.net>
+References: <1464158994-7725-1-git-send-email-feng.tang@intel.com>
+	<20160525.195341.342679643310465817.davem@davemloft.net>
+	<20160526084155.GB11823@shbuild888>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53701 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753637AbcEZTbA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 15:31:00 -0400
-In-Reply-To: <1464249684-976-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: edumazet@google.com, johannes@sipsolutions.net, jarod@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: feng.tang@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160526084155.GB11823@shbuild888>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Thu, 26 May 2016 11:01:16 +0300
+From: Feng Tang <feng.tang@intel.com>
+Date: Thu, 26 May 2016 16:41:55 +0800
 
-> This series contain several small fixes, most of which deal with
-> either 100g support, sriov or bandwidth configurations.
+> Maybe the driver maintainer from Atheros could take a look, as they
+> can reach all the real HWs :)
 
-Series applied, but in future the GFP_KERNEL fix should be done
-differently.
-
-Instead of passing a boolean sleepable state around, pass a "gfp_t"
-which makes it clear at the call sites what that argument is
-controlling.
-
-That way you wouldn't have that mess of "sleepable ? GFP_X : GFP_Y"
-constructs all over the place.
+Don't hold your breath.
