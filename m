@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 4/8] qed: Fix allocation in interrupt context
-Date: Thu, 26 May 2016 11:01:20 +0300
-Message-ID: <1464249684-976-5-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 7/8] qed: Prevent 100g from working in MSI
+Date: Thu, 26 May 2016 11:01:23 +0300
+Message-ID: <1464249684-976-8-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1464249684-976-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,94 +9,70 @@ Cc: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>,
 	Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:60332 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753242AbcEZIBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 04:01:45 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:7578 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753242AbcEZIBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 04:01:53 -0400
 In-Reply-To: <1464249684-976-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 
-Commit 39651abd2814 ("qed: add support for dcbx") is re-configuring
-the QM hw-block as part of its sequence. This is done in attention
-handling context which is non-sleepable, yet memory is allocated in
-this flow using GFP_KERNEL.
+Adapter can support 100g in both MSIx and INTa, but not in MSI.
 
 Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 27 ++++++++++++++++-----------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c  |  5 +++++
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 18 ++++++++++--------
+ 2 files changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 089016f..7aeed2f 100644
+index 2a7c875..579c6d5 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -155,7 +155,7 @@ void qed_resc_free(struct qed_dev *cdev)
- 	}
- }
+@@ -835,6 +835,11 @@ int qed_hw_init(struct qed_dev *cdev,
+ 	u32 load_code, param;
+ 	int rc, mfw_rc, i;
  
--static int qed_init_qm_info(struct qed_hwfn *p_hwfn)
-+static int qed_init_qm_info(struct qed_hwfn *p_hwfn, bool b_sleepable)
- {
- 	u8 num_vports, vf_offset = 0, i, vport_id, num_ports, curr_queue = 0;
- 	struct qed_qm_info *qm_info = &p_hwfn->qm_info;
-@@ -182,23 +182,28 @@ static int qed_init_qm_info(struct qed_hwfn *p_hwfn)
++	if ((int_mode == QED_INT_MODE_MSI) && (cdev->num_hwfns > 1)) {
++		DP_NOTICE(cdev, "MSI mode is not supported for CMT devices\n");
++		return -EINVAL;
++	}
++
+ 	if (IS_PF(cdev)) {
+ 		rc = qed_init_fw_data(cdev, bin_fw_data);
+ 		if (rc != 0)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 8b22f87..7530646 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -413,15 +413,17 @@ static int qed_set_int_mode(struct qed_dev *cdev, bool force_mode)
+ 		/* Fallthrough */
  
- 	/* PQs will be arranged as follows: First per-TC PQ then pure-LB quete.
- 	 */
--	qm_info->qm_pq_params = kzalloc(sizeof(*qm_info->qm_pq_params) *
--					num_pqs, GFP_KERNEL);
-+	qm_info->qm_pq_params = kcalloc(num_pqs,
-+					sizeof(struct init_qm_pq_params),
-+					b_sleepable ? GFP_KERNEL : GFP_ATOMIC);
- 	if (!qm_info->qm_pq_params)
- 		goto alloc_err;
+ 	case QED_INT_MODE_MSI:
+-		rc = pci_enable_msi(cdev->pdev);
+-		if (!rc) {
+-			int_params->out.int_mode = QED_INT_MODE_MSI;
+-			goto out;
+-		}
++		if (cdev->num_hwfns == 1) {
++			rc = pci_enable_msi(cdev->pdev);
++			if (!rc) {
++				int_params->out.int_mode = QED_INT_MODE_MSI;
++				goto out;
++			}
  
--	qm_info->qm_vport_params = kzalloc(sizeof(*qm_info->qm_vport_params) *
--					   num_vports, GFP_KERNEL);
-+	qm_info->qm_vport_params = kcalloc(num_vports,
-+					   sizeof(struct init_qm_vport_params),
-+					   b_sleepable ? GFP_KERNEL
-+						       : GFP_ATOMIC);
- 	if (!qm_info->qm_vport_params)
- 		goto alloc_err;
+-		DP_NOTICE(cdev, "Failed to enable MSI\n");
+-		if (force_mode)
+-			goto out;
++			DP_NOTICE(cdev, "Failed to enable MSI\n");
++			if (force_mode)
++				goto out;
++		}
+ 		/* Fallthrough */
  
--	qm_info->qm_port_params = kzalloc(sizeof(*qm_info->qm_port_params) *
--					  MAX_NUM_PORTS, GFP_KERNEL);
-+	qm_info->qm_port_params = kcalloc(MAX_NUM_PORTS,
-+					  sizeof(struct init_qm_port_params),
-+					  b_sleepable ? GFP_KERNEL
-+						      : GFP_ATOMIC);
- 	if (!qm_info->qm_port_params)
- 		goto alloc_err;
- 
--	qm_info->wfq_data = kcalloc(num_vports, sizeof(*qm_info->wfq_data),
--				    GFP_KERNEL);
-+	qm_info->wfq_data = kcalloc(num_vports, sizeof(struct qed_wfq_data),
-+				    b_sleepable ? GFP_KERNEL : GFP_ATOMIC);
- 	if (!qm_info->wfq_data)
- 		goto alloc_err;
- 
-@@ -299,7 +304,7 @@ int qed_qm_reconf(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 	qed_qm_info_free(p_hwfn);
- 
- 	/* initialize qed's qm data structure */
--	rc = qed_init_qm_info(p_hwfn);
-+	rc = qed_init_qm_info(p_hwfn, false);
- 	if (rc)
- 		return rc;
- 
-@@ -388,7 +393,7 @@ int qed_resc_alloc(struct qed_dev *cdev)
- 			goto alloc_err;
- 
- 		/* Prepare and process QM requirements */
--		rc = qed_init_qm_info(p_hwfn);
-+		rc = qed_init_qm_info(p_hwfn, true);
- 		if (rc)
- 			goto alloc_err;
- 
+ 	case QED_INT_MODE_INTA:
 -- 
 1.9.3
