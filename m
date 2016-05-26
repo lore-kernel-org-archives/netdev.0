@@ -1,98 +1,56 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH] net: l2tp: Make l2tp_ip6 namespace aware
-Date: Thu, 26 May 2016 20:16:36 +0300
-Message-ID: <1464282996-9323-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chris Elston <celston@katalix.com>,
-	James Chapman <jchapman@katalix.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 0/4] net/mlx4_en: fix stats
+Date: Thu, 26 May 2016 10:24:59 -0700
+Message-ID: <1464283499.5939.100.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1464195039-5098-1-git-send-email-edumazet@google.com>
+	 <271107bf-61b4-78ec-3c9a-4d57e88fad90@gmail.com>
+	 <1464267431.5939.81.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAJ3xEMjoJPSzMp5eOwK6htRAtQHVn-dz6Jn9n9-=TFBW78ChEA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34088 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753612AbcEZRRQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 13:17:16 -0400
-Received: by mail-wm0-f67.google.com with SMTP id n129so6862716wmn.1
-        for <netdev@vger.kernel.org>; Thu, 26 May 2016 10:17:16 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:32962 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752175AbcEZRZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 13:25:03 -0400
+Received: by mail-pf0-f177.google.com with SMTP id b124so32856340pfb.0
+        for <netdev@vger.kernel.org>; Thu, 26 May 2016 10:25:02 -0700 (PDT)
+In-Reply-To: <CAJ3xEMjoJPSzMp5eOwK6htRAtQHVn-dz6Jn9n9-=TFBW78ChEA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_ip6 tunnel and session lookups were still using init_net, although
-the l2tp core infrastructure already supports lookups keyed by 'net'.
+On Thu, 2016-05-26 at 18:19 +0300, Or Gerlitz wrote:
+> On Thu, May 26, 2016 at 3:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Thu, 2016-05-26 at 12:44 +0300, Tariq Toukan wrote:
+> >> Hi Eric,
+> >>
+> >> > mlx4 has various bugs in its ndo_get_stats() and related functions.
+> >> > This patch series address the obvious issues.
+> >> > Remaining ones will be discussed later.
+> >> >
+> >> Thanks for the fixes.
+> >> I see they were already applied.
+> >> I reviewed them all and replied to patch 4/4, the rest look good to me.
+> >> Please CC me as the maintainer of mlx4_en on future patches.
+> >
+> > If you are mlx4_en maintainer, please submit an official patch so that
+> > non Mellanox employees can get this information using the normal way ?
+> 
+> Eric, sure, we were on a transition period and Tariq was not fully
+> familiar with that practice,
+> I'd like to make sure the move is finalized internally and then we'll
+> send the patch..
 
-As a result, l2tp_ip6_recv discarded packets for tunnels/sessions
-created in namespaces other than the init_net.
+Sure ! Please note I gave a polite answer, I am sorry if you felt any
+hidden intent from my side.
 
-Fix, by using dev_net(skb->dev) or sock_net(sk) where appropriate.
-
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- net/l2tp/l2tp_ip6.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index c6f5df1bed..6c54e03fe9 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -128,6 +128,7 @@ static inline struct sock *l2tp_ip6_bind_lookup(struct net *net,
-  */
- static int l2tp_ip6_recv(struct sk_buff *skb)
- {
-+	struct net *net = dev_net(skb->dev);
- 	struct sock *sk;
- 	u32 session_id;
- 	u32 tunnel_id;
-@@ -154,7 +155,7 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
- 	}
- 
- 	/* Ok, this is a data packet. Lookup the session. */
--	session = l2tp_session_find(&init_net, NULL, session_id);
-+	session = l2tp_session_find(net, NULL, session_id);
- 	if (session == NULL)
- 		goto discard;
- 
-@@ -188,14 +189,14 @@ pass_up:
- 		goto discard;
- 
- 	tunnel_id = ntohl(*(__be32 *) &skb->data[4]);
--	tunnel = l2tp_tunnel_find(&init_net, tunnel_id);
-+	tunnel = l2tp_tunnel_find(net, tunnel_id);
- 	if (tunnel != NULL)
- 		sk = tunnel->sock;
- 	else {
- 		struct ipv6hdr *iph = ipv6_hdr(skb);
- 
- 		read_lock_bh(&l2tp_ip6_lock);
--		sk = __l2tp_ip6_bind_lookup(&init_net, &iph->daddr,
-+		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr,
- 					    0, tunnel_id);
- 		read_unlock_bh(&l2tp_ip6_lock);
- 	}
-@@ -263,6 +264,7 @@ static int l2tp_ip6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct sockaddr_l2tpip6 *addr = (struct sockaddr_l2tpip6 *) uaddr;
-+	struct net *net = sock_net(sk);
- 	__be32 v4addr = 0;
- 	int addr_type;
- 	int err;
-@@ -286,7 +288,7 @@ static int l2tp_ip6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 
- 	err = -EADDRINUSE;
- 	read_lock_bh(&l2tp_ip6_lock);
--	if (__l2tp_ip6_bind_lookup(&init_net, &addr->l2tp_addr,
-+	if (__l2tp_ip6_bind_lookup(net, &addr->l2tp_addr,
- 				   sk->sk_bound_dev_if, addr->l2tp_conn_id))
- 		goto out_in_use;
- 	read_unlock_bh(&l2tp_ip6_lock);
-@@ -456,7 +458,7 @@ static int l2tp_ip6_backlog_recv(struct sock *sk, struct sk_buff *skb)
- 	return 0;
- 
- drop:
--	IP_INC_STATS(&init_net, IPSTATS_MIB_INDISCARDS);
-+	IP_INC_STATS(sock_net(sk), IPSTATS_MIB_INDISCARDS);
- 	kfree_skb(skb);
- 	return -1;
- }
--- 
-2.7.4
+I did CC the official mlx4_en maintainer on this patch series, by simply
+looking at MAINTAINERS file.
