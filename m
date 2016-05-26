@@ -1,102 +1,166 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RESEND 7/8] pipe: account to kmemcg
-Date: Thu, 26 May 2016 07:15:49 -0700
-Message-ID: <1464272149.5939.92.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1464079537.git.vdavydov@virtuozzo.com>
-	 <2c2545563b6201f118946f96dd8cfc90e564aff6.1464079538.git.vdavydov@virtuozzo.com>
-	 <1464094742.5939.46.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160524161336.GA11150@esperanza>
-	 <1464120273.5939.53.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160525103011.GF11150@esperanza> <20160526070455.GF9661@bbox>
-	 <20160526135930.GA26059@esperanza>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [RFC net-next 1/1] ethtool: Add support for set eeprom metadata.
+Date: Thu, 26 May 2016 09:33:35 -0400
+Message-ID: <1464269615-4937-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Michal Hocko <mhocko@kernel.org>, linux-mm@kvack.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	x86@kernel.org, linux-kernel@vger.kernel.org
-To: Vladimir Davydov <vdavydov@virtuozzo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160526135930.GA26059@esperanza>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:15035 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754069AbcEZOQs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2016 10:16:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-05-26 at 16:59 +0300, Vladimir Davydov wrote:
-> On Thu, May 26, 2016 at 04:04:55PM +0900, Minchan Kim wrote:
-> > On Wed, May 25, 2016 at 01:30:11PM +0300, Vladimir Davydov wrote:
-> > > On Tue, May 24, 2016 at 01:04:33PM -0700, Eric Dumazet wrote:
-> > > > On Tue, 2016-05-24 at 19:13 +0300, Vladimir Davydov wrote:
-> > > > > On Tue, May 24, 2016 at 05:59:02AM -0700, Eric Dumazet wrote:
-> > > > > ...
-> > > > > > > +static int anon_pipe_buf_steal(struct pipe_inode_info *pipe,
-> > > > > > > +			       struct pipe_buffer *buf)
-> > > > > > > +{
-> > > > > > > +	struct page *page = buf->page;
-> > > > > > > +
-> > > > > > > +	if (page_count(page) == 1) {
-> > > > > > 
-> > > > > > This looks racy : some cpu could have temporarily elevated page count.
-> > > > > 
-> > > > > All pipe operations (pipe_buf_operations->get, ->release, ->steal) are
-> > > > > supposed to be called under pipe_lock. So, if we see a pipe_buffer->page
-> > > > > with refcount of 1 in ->steal, that means that we are the only its user
-> > > > > and it can't be spliced to another pipe.
-> > > > > 
-> > > > > In fact, I just copied the code from generic_pipe_buf_steal, adding
-> > > > > kmemcg related checks along the way, so it should be fine.
-> > > > 
-> > > > So you guarantee that no other cpu might have done
-> > > > get_page_unless_zero() right before this test ?
-> > > 
-> > > Each pipe_buffer holds a reference to its page. If we find page's
-> > > refcount to be 1 here, then it can be referenced only by our
-> > > pipe_buffer. And the refcount cannot be increased by a parallel thread,
-> > > because we hold pipe_lock, which rules out splice, and otherwise it's
-> > > impossible to reach the page as it is not on lru. That said, I think I
-> > > guarantee that this should be safe.
-> > 
-> > I don't know kmemcg internal and pipe stuff so my comment might be
-> > totally crap.
-> > 
-> > No one cannot guarantee any CPU cannot held a reference of a page.
-> > Look at get_page_unless_zero usecases.
-> > 
-> > 1. balloon_page_isolate
-> > 
-> > It can hold a reference in random page and then verify the page
-> > is balloon page. Otherwise, just put.
-> > 
-> > 2. page_idle_get_page
-> > 
-> > It has PageLRU check but it's racy so it can hold a reference
-> > of randome page and then verify within zone->lru_lock. If it's
-> > not LRU page, just put.
-> 
-> Well, I see your concern now - even if a page is not on lru and we
-> locked all structs pointing to it, it can always get accessed by pfn in
-> a completely unrelated thread, like in examples you gave above. That's a
-> fair point.
-> 
-> However, I still think that it's OK in case of pipe buffers. What can
-> happen if somebody takes a transient reference to a pipe buffer page? At
-> worst, we'll see page_count > 1 due to temporary ref and abort stealing,
-> falling back on copying instead. That's OK, because stealing is not
-> guaranteed. Can a function that takes a transient ref to page by pfn
-> mistakenly assume that this is a page it's interested in? I don't think
-> so, because this page has no marks on it except special _mapcount value,
-> which should only be set on kmemcg pages.
+Currently ethtool implementation does not have a way to pass the metada=
+ta
+for eeprom related operations. Some adapters have a complicated
+non-volatile memory implementation that requires additional information=
+ =E2=80=93
+there are drivers [bnx2x and bnxt] that use the =E2=80=98magic=E2=80=99=
+ field in the
+{G,S}EEPROM  for that purpose, although that=E2=80=99s not its intended=
+ usage.
 
-Well, all this information deserve to be in the changelog.
+This patch adds a provision to pass the eeprom metadata for
+%ETHTOOL_SEEPROM/%ETHTOOL_GEEPROM implementations. User provided metada=
+ta
+will be cached by the driver and assigns a magic value which the
+application need to use for the subsequent {G,S}EEPROM command.
+---
+ include/linux/ethtool.h      |  1 +
+ include/uapi/linux/ethtool.h | 29 +++++++++++++++++++++++++++++
+ net/core/ethtool.c           | 25 +++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+)
 
-Maybe in 6 months, this will be incredibly useful for bug hunting.
-
-pipes can be used to exchange data (or pages) between processes in
-different domains.
-
-If kmemcg is not precise, this could be used by some attackers to force
-some processes to consume all their budget and eventually not be able to
-allocate new pages.
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 9ded8c6..6f98c2a 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -316,6 +316,7 @@ struct ethtool_ops {
+ 			      struct ethtool_eeprom *, u8 *);
+ 	int	(*set_eeprom)(struct net_device *,
+ 			      struct ethtool_eeprom *, u8 *);
++	int	(*set_meeprom)(struct net_device *, struct ethtool_meeprom *);
+ 	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
+ 	int	(*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
+ 	void	(*get_ringparam)(struct net_device *,
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.=
+h
+index 9222db8..f0f28a8 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -279,6 +279,13 @@ struct ethtool_regs {
+  *	The value passed in to %ETHTOOL_SEEPROM must match the value
+  *	returned by %ETHTOOL_GEEPROM for the same device.  This is
+  *	unused when @cmd is %ETHTOOL_GMODULEEEPROM.
++ *	Depending on @cmd, the value passed must match:
++ *	- For %ETHTOOL_GMODULEEEPROM, no requirements.
++ *	- For %ETHTOOL_GEEPROM, must match the value returned by the
++ *		previous %ETHTOOL_SEEPROMMETA in case device supports it.
++ *	- For %ETHTOOL_SEEPROM, must match value returned by the previous
++ *		%ETHTOOL_SEEPROMMETA in case device supports it, or by
++ *		previous %ETHTOOL_GEEPROM otherwise.
+  * @offset: Offset within the EEPROM to begin reading/writing, in byte=
+s
+  * @len: On entry, number of bytes to read/write.  On successful
+  *	return, number of bytes actually read/written.  In case of
+@@ -298,6 +305,27 @@ struct ethtool_eeprom {
+ };
+=20
+ /**
++ * struct ethtool_meeprom - Set EEPROM metadata
++ * @cmd: Command number =3D %ETHTOOL_SEEPROMMETA
++ * @metadata: eeprom metadata corresponds to the successive %ETHTOOL_S=
+EEPROM or
++ * 	%ETHTOOL_GEEPROM command.
++ * @magic: A 'magic cookie' value to be used by the successive %ETHTOO=
+L_SEEPROM/
++ * 	%ETHTOOL_GEEPROM command. User provided eeprom metadata will be
++ *	assoicated with a magic value. The value passed in to %ETHTOOL_SEEP=
+ROM
++ * 	or %ETHTOOL_GEEPROM must match with the value returned by
++ * 	%ETHTOOL_SEEPROMMETA for the same device.
++ *	Essentialy user will send eeprom meta data, followed by %ETHTOOL_SE=
+EPROM
++ *	or %ETHTOOL_GEEPROM command. It's driver's responsibility to map th=
+e
++ *	metadata to the subsequent eeprom command, using the magic to valid=
+ate
++ *	correctness.
++ */
++struct ethtool_meeprom {
++	__u32 cmd;
++	__u32 metadata;
++	__u32 magic;
++};
++
++/**
+  * struct ethtool_eee - Energy Efficient Ethernet information
+  * @cmd: ETHTOOL_{G,S}EEE
+  * @supported: Mask of %SUPPORTED_* flags for the speed/duplex combina=
+tions
+@@ -1315,6 +1343,7 @@ struct ethtool_per_queue_op {
+ #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings =
+*/
+ #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings =
+*/
+=20
++#define ETHTOOL_SEEPROMMETA	0x0000004e /* Set eeprom metadata */
+=20
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index bdb4013..c5efadd 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -2421,6 +2421,28 @@ static int ethtool_set_per_queue(struct net_devi=
+ce *dev, void __user *useraddr)
+ 	};
+ }
+=20
++static int ethtool_set_meeprom(struct net_device *dev, void __user *us=
+eraddr)
++{
++	const struct ethtool_ops *ops =3D dev->ethtool_ops;
++	struct ethtool_meeprom meeprom;
++	int ret;
++
++	if (!ops->set_meeprom)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&meeprom, useraddr, sizeof(meeprom)))
++		return -EFAULT;
++
++	ret =3D ops->set_meeprom(dev, &meeprom);
++	if (ret)
++		return ret;
++
++	if (copy_to_user(useraddr, &meeprom, sizeof(meeprom)))
++		return -EFAULT;
++
++	return 0;
++}
++
+ /* The main entry point in this file.  Called from net/core/dev_ioctl.=
+c */
+=20
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -2683,6 +2705,9 @@ int dev_ethtool(struct net *net, struct ifreq *if=
+r)
+ 	case ETHTOOL_SLINKSETTINGS:
+ 		rc =3D ethtool_set_link_ksettings(dev, useraddr);
+ 		break;
++	case ETHTOOL_SEEPROMMETA:
++		rc =3D ethtool_set_meeprom(dev, useraddr);
++		break;
+ 	default:
+ 		rc =3D -EOPNOTSUPP;
+ 	}
+--=20
+1.8.3.1
