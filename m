@@ -1,145 +1,66 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net] sfc: use flow dissector helpers for aRFS
-Date: Thu, 26 May 2016 21:46:05 +0100
-Message-ID: <5747608D.1090509@solarflare.com>
-References: <1464281796.5939.96.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH percpu/for-4.7-fixes 1/2] percpu: fix synchronization
+ between chunk->map_extend_work and chunk destruction
+Date: Thu, 26 May 2016 22:48:54 +0200
+Message-ID: <63b00b52-6e1f-0c9d-365b-075b821f6487@suse.cz>
+References: <20160417172943.GA83672@ast-mbp.thefacebook.com>
+ <5742F127.6080000@suse.cz> <5742F267.3000309@suse.cz>
+ <20160523213501.GA5383@mtj.duckdns.org> <57441396.2050607@suse.cz>
+ <20160524153029.GA3354@mtj.duckdns.org>
+ <20160524190433.GC3354@mtj.duckdns.org>
+ <CAADnVQ+GprFZJkvCKHVN1gmBMO6uORimsNZ4tE-jgPPOcZhCfA@mail.gmail.com>
+ <20160525154419.GE3354@mtj.duckdns.org>
+ <ced75777-583e-9444-c59f-6cdeb468f1bf@suse.cz>
+ <20160526192154.GC23194@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:51605 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754467AbcEZUqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 16:46:21 -0400
-In-Reply-To: <1464281796.5939.96.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+ Sasha Levin <sasha.levin@oracle.com>, Alexei Starovoitov <ast@kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>, Christoph Lameter <cl@linux.com>,
+ Linux-MM layout <linux-mm@kvack.org>, Marco Grassi <marco.gra@gmail.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160526192154.GC23194@mtj.duckdns.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
-This seems to work in my testing, but I first looked at the flow dissector
-API less than four hours ago, so I might be doing it wrong.
+On 26.5.2016 21:21, Tejun Heo wrote:
+> Hello,
+> 
+> On Thu, May 26, 2016 at 11:19:06AM +0200, Vlastimil Babka wrote:
+>>>  	if (is_atomic) {
+>>>  		margin = 3;
+>>>
+>>>  		if (chunk->map_alloc <
+>>> -		    chunk->map_used + PCPU_ATOMIC_MAP_MARGIN_LOW &&
+>>> -		    pcpu_async_enabled)
+>>> -			schedule_work(&chunk->map_extend_work);
+>>> +		    chunk->map_used + PCPU_ATOMIC_MAP_MARGIN_LOW) {
+>>> +			if (list_empty(&chunk->map_extend_list)) {
+> 
+>> So why this list_empty condition? Doesn't it deserve a comment then? And
+> 
+> Because doing list_add() twice corrupts the list.  I'm not sure that
+> deserves a comment.  We can do list_move() instead but that isn't
+> necessarily better.
 
-I still think that this is too big a change for 'net' and that it's better
-to take the original fix now and then I'll respin this patch for net-next
-when it opens up.  But I'm also happy for you to take this now in which
-case I'll respin Jon's patch 2/2 on top of the result.  Your choice.
+Ugh, right, somehow I thought it was testing &pcpu_map_extend_chunks.
+My second question was based on the assumption that the list can have only one
+item. Sorry about the noise.
 
- drivers/net/ethernet/sfc/rx.c | 76 +++++++++++++------------------------------
- 1 file changed, 23 insertions(+), 53 deletions(-)
+>> isn't using a list an overkill in that case?
+> 
+> That would require rebalance work to scan all chunks whenever it's
+> scheduled and if a lot of atomic allocations are taking place, it has
+> some possibility to become expensive with a lot of chunks.
+> 
+> Thanks.
+> 
 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 8956995..adbce33 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -842,33 +842,15 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_channel *channel;
- 	struct efx_filter_spec spec;
--	const __be16 *ports;
--	__be16 ether_type;
--	int nhoff;
-+	struct flow_keys fk;
- 	int rc;
- 
--	/* The core RPS/RFS code has already parsed and validated
--	 * VLAN, IP and transport headers.  We assume they are in the
--	 * header area.
--	 */
--
--	if (skb->protocol == htons(ETH_P_8021Q)) {
--		const struct vlan_hdr *vh =
--			(const struct vlan_hdr *)skb->data;
--
--		/* We can't filter on the IP 5-tuple and the vlan
--		 * together, so just strip the vlan header and filter
--		 * on the IP part.
--		 */
--		EFX_BUG_ON_PARANOID(skb_headlen(skb) < sizeof(*vh));
--		ether_type = vh->h_vlan_encapsulated_proto;
--		nhoff = sizeof(struct vlan_hdr);
--	} else {
--		ether_type = skb->protocol;
--		nhoff = 0;
--	}
-+	if (!skb_flow_dissect_flow_keys(skb, &fk, 0))
-+		return -EPROTONOSUPPORT;
- 
--	if (ether_type != htons(ETH_P_IP) && ether_type != htons(ETH_P_IPV6))
-+	if (fk.basic.n_proto != htons(ETH_P_IP) && fk.basic.n_proto != htons(ETH_P_IPV6))
-+		return -EPROTONOSUPPORT;
-+	if (fk.control.flags & FLOW_DIS_IS_FRAGMENT)
- 		return -EPROTONOSUPPORT;
- 
- 	efx_filter_init_rx(&spec, EFX_FILTER_PRI_HINT,
-@@ -878,34 +863,19 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 		EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_IP_PROTO |
- 		EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_LOC_PORT |
- 		EFX_FILTER_MATCH_REM_HOST | EFX_FILTER_MATCH_REM_PORT;
--	spec.ether_type = ether_type;
--
--	if (ether_type == htons(ETH_P_IP)) {
--		const struct iphdr *ip =
--			(const struct iphdr *)(skb->data + nhoff);
--
--		EFX_BUG_ON_PARANOID(skb_headlen(skb) < nhoff + sizeof(*ip));
--		if (ip_is_fragment(ip))
--			return -EPROTONOSUPPORT;
--		spec.ip_proto = ip->protocol;
--		spec.rem_host[0] = ip->saddr;
--		spec.loc_host[0] = ip->daddr;
--		EFX_BUG_ON_PARANOID(skb_headlen(skb) < nhoff + 4 * ip->ihl + 4);
--		ports = (const __be16 *)(skb->data + nhoff + 4 * ip->ihl);
-+	spec.ether_type = fk.basic.n_proto;
-+	spec.ip_proto = fk.basic.ip_proto;
-+
-+	if (fk.basic.n_proto == htons(ETH_P_IP)) {
-+		spec.rem_host[0] = fk.addrs.v4addrs.src;
-+		spec.loc_host[0] = fk.addrs.v4addrs.dst;
- 	} else {
--		const struct ipv6hdr *ip6 =
--			(const struct ipv6hdr *)(skb->data + nhoff);
--
--		EFX_BUG_ON_PARANOID(skb_headlen(skb) <
--				    nhoff + sizeof(*ip6) + 4);
--		spec.ip_proto = ip6->nexthdr;
--		memcpy(spec.rem_host, &ip6->saddr, sizeof(ip6->saddr));
--		memcpy(spec.loc_host, &ip6->daddr, sizeof(ip6->daddr));
--		ports = (const __be16 *)(ip6 + 1);
-+		memcpy(spec.rem_host, &fk.addrs.v6addrs.src, sizeof(struct in6_addr));
-+		memcpy(spec.loc_host, &fk.addrs.v6addrs.dst, sizeof(struct in6_addr));
- 	}
- 
--	spec.rem_port = ports[0];
--	spec.loc_port = ports[1];
-+	spec.rem_port = fk.ports.src;
-+	spec.loc_port = fk.ports.dst;
- 
- 	rc = efx->type->filter_rfs_insert(efx, &spec);
- 	if (rc < 0)
-@@ -916,18 +886,18 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 	channel = efx_get_channel(efx, skb_get_rx_queue(skb));
- 	++channel->rfs_filters_added;
- 
--	if (ether_type == htons(ETH_P_IP))
-+	if (spec.ether_type == htons(ETH_P_IP))
- 		netif_info(efx, rx_status, efx->net_dev,
- 			   "steering %s %pI4:%u:%pI4:%u to queue %u [flow %u filter %d]\n",
- 			   (spec.ip_proto == IPPROTO_TCP) ? "TCP" : "UDP",
--			   spec.rem_host, ntohs(ports[0]), spec.loc_host,
--			   ntohs(ports[1]), rxq_index, flow_id, rc);
-+			   spec.rem_host, ntohs(spec.rem_port), spec.loc_host,
-+			   ntohs(spec.loc_port), rxq_index, flow_id, rc);
- 	else
- 		netif_info(efx, rx_status, efx->net_dev,
- 			   "steering %s [%pI6]:%u:[%pI6]:%u to queue %u [flow %u filter %d]\n",
- 			   (spec.ip_proto == IPPROTO_TCP) ? "TCP" : "UDP",
--			   spec.rem_host, ntohs(ports[0]), spec.loc_host,
--			   ntohs(ports[1]), rxq_index, flow_id, rc);
-+			   spec.rem_host, ntohs(spec.rem_port), spec.loc_host,
-+			   ntohs(spec.loc_port), rxq_index, flow_id, rc);
- 
- 	return rc;
- }
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
