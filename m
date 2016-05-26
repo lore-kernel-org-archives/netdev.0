@@ -1,73 +1,68 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH V3] brcmfmac: print error if p2p_ifadd firmware command
- fails
-Date: Thu, 26 May 2016 10:07:06 +0200
-Message-ID: <434b808f-0433-2b01-29b9-24331a773e7c@broadcom.com>
-References: <1464123910-8281-1-git-send-email-zajec5@gmail.com>
- <1464216299-25232-1-git-send-email-zajec5@gmail.com>
+From: Feng Tang <feng.tang@intel.com>
+Subject: Re: [PATCH v2] net: alx: use custom skb allocator
+Date: Thu, 26 May 2016 16:41:55 +0800
+Message-ID: <20160526084155.GB11823@shbuild888>
+References: <1464158994-7725-1-git-send-email-feng.tang@intel.com>
+ <20160525.195341.342679643310465817.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<linux-wireless@vger.kernel.org>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list@broadcom.com>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: edumazet@google.com, johannes@sipsolutions.net, jarod@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464216299-25232-1-git-send-email-zajec5@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20160525.195341.342679643310465817.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26-5-2016 0:44, Rafa=C5=82 Mi=C5=82ecki wrote:
-> This is helpful for debugging, without this all I was getting from "i=
-w"
-> command on device with BCM43602 was:
->> command failed: Too many open files in system (-23)
->=20
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> ---
-> V2: s/in/if/ in commit message
-> V3: Add one more error message as suggested by Arend
-> ---
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c b=
-/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-> index 1652a48..bc26aec 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-> @@ -2031,7 +2031,7 @@ static int brcmf_p2p_request_p2p_if(struct brcm=
-f_p2p_info *p2p,
->  	err =3D brcmf_fil_iovar_data_set(ifp, "p2p_ifadd", &if_request,
->  				       sizeof(if_request));
->  	if (err)
-> -		return err;
-> +		brcmf_err("p2p_ifadd failed %d\n", err);
-> =20
->  	return err;
->  }
-> @@ -2185,6 +2185,7 @@ struct wireless_dev *brcmf_p2p_add_vif(struct w=
-iphy *wiphy, const char *name,
->  	err =3D brcmf_p2p_request_p2p_if(&cfg->p2p, ifp, cfg->p2p.int_addr,
->  				       iftype);
->  	if (err) {
-> +		brcmf_err("Failed to request P2P virtual interface %s\n", name);
->  		brcmf_cfg80211_arm_vif_event(cfg, NULL);
->  		goto fail;
->  	}
+On Wed, May 25, 2016 at 07:53:41PM -0400, David Miller wrote:
+> From: Feng Tang <feng.tang@intel.com>
+> Date: Wed, 25 May 2016 14:49:54 +0800
+> 
+> > This patch follows Eric Dumazet's commit 7b70176421 for Atheros
+> > atl1c driver to fix one exactly same bug in alx driver, that the
+> > network link will be lost in 1-5 minutes after the device is up.
+> > 
+> > My laptop Lenovo Y580 with Atheros AR8161 ethernet device hit the
+> > same problem with kernel 4.4, and it will be cured by Jarod Wilson's
+> > commit c406700c for alx driver which get merged in 4.5. But there
+> > are still some alx devices can't function well even with Jarod's
+> > patch, while this patch could make them work fine. More details on
+> > 	https://bugzilla.kernel.org/show_bug.cgi?id=70761
+> > 
+> > The debug shows the issue is very likely to be related with the RX
+> > DMA address, specifically 0x...f80, if RX buffer get 0x...f80 several
+> > times, their will be RX overflow error and device will stop working.
+> > 
+> > For kernel 4.5.0 with Jarod's patch which works fine with my
+> > AR8161/Lennov Y580, if I made some change to the
+> > 	__netdev_alloc_skb
+> > 		--> __alloc_page_frag()
+> > to make the allocated buffer can get an address with 0x...f80,
+> > then the same error happens. If I make it to 0x...f40 or 0x....fc0,
+> > everything will be still fine. So I tend to believe that the
+> > 0x..f80 address cause the silicon to behave abnormally.
+> > 
+> > Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=70761
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Cc: Johannes Berg <johannes@sipsolutions.net>
+> > Cc: Jarod Wilson <jarod@redhat.com>
+> > Signed-off-by: Feng Tang <feng.tang@intel.com>
+> > Tested-by: Ole Lukoie <olelukoie@mail.ru>
+> 
+> Looks good, applied, thanks.
 
-Not exactly what I meant. I meant instead of and the function I would
-like the error message in is brcmf_cfg80211_add_iface() so you also get
-an error message when AP interface creation fails.
+Thanks for reviewing and taking it.
 
-Regards,
-Arend
+> 
+> But now that we have at least two instances of this code we really
+> need to put a common version somewhere. :-/
+
+I agree, and furthermore I noticed there are some similar routines
+in the 4 individual Atheros drivers atlx/alx/atl1c/atl1e, which may
+be unified by a simple framework for them all. Maybe the driver
+maintainer from Atheros could take a look, as they can reach all
+the real HWs :)
+
+Thanks,
+Feng
