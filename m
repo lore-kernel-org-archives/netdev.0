@@ -1,48 +1,78 @@
-From: Elad Kanfi <eladkan@mellanox.com>
-Subject: [PATCH 1/1] net: nps_enet: Disable interrupts before napi reschedule
-Date: Thu, 26 May 2016 15:00:06 +0300
-Message-ID: <1464264006-26627-1-git-send-email-eladkan@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
-	<abrodkin@synopsys.com>, <eladkan@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Brian Neu <david@wdi.cz>
+Subject: Re: (no subject)
+Date: Wed, 26 May 2016 12:04:46 +0000
+Message-ID: <5ABE1352-0849-4DBC-B423-48D829FA6DC8@wdi.cz>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: multipart/mixed; boundary="===============5226327039467479379=="
+To: "David Smith" <dsmith2001@cinci.rr.com>, "Taylor" <socrbaby15@aol.com>,
+	"ehart test" <ehart@thejamesgroupinc.com>,
+	"Theresa" <kittensama31@aol.com>, "Bind Users" <bind-users@lists.isc.org>,
+	"Juliette Vara" <lady_leo_05@yahoo.com>,
+	"Jennifer Waller" <Jennifer_Waller@acordia.com>,
+	"Polly Waters" <travelingchic02@yahoo.com>,
+	"oreilly" <oreilly@foxnews.com>,
+	"e1000 devel" <e1000-devel@lists.sourceforge.net>,
+	"Carolyn" <carolyn.wyborny@intel.com>, "netdev" <netdev@vger.kernel.org>,
+	"Majordomo" <Majordomo@vger.kernel.org>,
+	"Majordomo" <Majordomo@cloud9.net>, "Chris Mason" <chris.mason@oracle.com>,
+	"linux btrfs" <linux-btrfs@vger.kernel.org>,
+	"pgsql novice" <pgsql-novice@postgresql.org>,
+	"Tom Lane" <tgl@sss.pgh.pa.us>, "majordomo" <majordomo@postgresql.org>,
+	"backuppc users" <backuppc-users@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Elad Kanfi <eladkan@mellanox.com>
 
-Since NAPI works by shutting down event interrupts when theres
-work and turning them on when theres none, the net driver must
-make sure that interrupts are disabled when it reschedules polling.
-By calling napi_reschedule, the driver switches to polling mode,
-therefor there should be no interrupt interference.
-Any received packets will be handled in nps_enet_poll by polling the HW
-indication of received packet until all packets are handled.
+--===============5226327039467479379==
+Content-Type: multipart/alternative;
+	boundary="Apple-Mail-302B3CBA-CEDC-405B-B1D2-82A3E8B52DFE"
 
-Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
-Acked-by: Noam Camus <noamca@mellanox.com>
----
- drivers/net/ethernet/ezchip/nps_enet.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 085f912..06f0317 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.c
-+++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -205,8 +205,10 @@ static int nps_enet_poll(struct napi_struct *napi, int budget)
- 		 * re-adding ourselves to the poll list.
- 		 */
- 
--		if (priv->tx_skb && !tx_ctrl_ct)
-+		if (priv->tx_skb && !tx_ctrl_ct) {
-+			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
- 			napi_reschedule(napi);
-+		}
- 	}
- 
- 	return work_done;
--- 
-1.7.1
+--Apple-Mail-302B3CBA-CEDC-405B-B1D2-82A3E8B52DFE
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=us-ascii
+
+
+http://zefipago.aquasportsclub.com/wish <http://zefipago.aquasportsclub.com/wish>
+
+
+Brian Neu
+
+
+--Apple-Mail-302B3CBA-CEDC-405B-B1D2-82A3E8B52DFE--
+
+
+--===============5226327039467479379==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Mobile security can be enabling, not merely restricting. Employees who
+bring their own devices (BYOD) to work are irked by the imposition of MDM
+restrictions. Mobile Device Manager Plus allows you to control only the
+apps on BYO-devices by containerizing them, leaving personal data untouched!
+https://ad.doubleclick.net/ddm/clk/304595813;131938128;j
+--===============5226327039467479379==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============5226327039467479379==--
