@@ -1,78 +1,62 @@
-From: Brian Neu <david@wdi.cz>
-Subject: Re: (no subject)
-Date: Wed, 26 May 2016 12:04:46 +0000
-Message-ID: <5ABE1352-0849-4DBC-B423-48D829FA6DC8@wdi.cz>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: multipart/mixed; boundary="===============5226327039467479379=="
-To: "David Smith" <dsmith2001@cinci.rr.com>, "Taylor" <socrbaby15@aol.com>,
-	"ehart test" <ehart@thejamesgroupinc.com>,
-	"Theresa" <kittensama31@aol.com>, "Bind Users" <bind-users@lists.isc.org>,
-	"Juliette Vara" <lady_leo_05@yahoo.com>,
-	"Jennifer Waller" <Jennifer_Waller@acordia.com>,
-	"Polly Waters" <travelingchic02@yahoo.com>,
-	"oreilly" <oreilly@foxnews.com>,
-	"e1000 devel" <e1000-devel@lists.sourceforge.net>,
-	"Carolyn" <carolyn.wyborny@intel.com>, "netdev" <netdev@vger.kernel.org>,
-	"Majordomo" <Majordomo@vger.kernel.org>,
-	"Majordomo" <Majordomo@cloud9.net>, "Chris Mason" <chris.mason@oracle.com>,
-	"linux btrfs" <linux-btrfs@vger.kernel.org>,
-	"pgsql novice" <pgsql-novice@postgresql.org>,
-	"Tom Lane" <tgl@sss.pgh.pa.us>, "majordomo" <majordomo@postgresql.org>,
-	"backuppc users" <backuppc-users@lists.sourceforge.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-
---===============5226327039467479379==
-Content-Type: multipart/alternative;
-	boundary="Apple-Mail-302B3CBA-CEDC-405B-B1D2-82A3E8B52DFE"
-
-
---Apple-Mail-302B3CBA-CEDC-405B-B1D2-82A3E8B52DFE
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 4/4] net/mlx4_en: get rid of private net_device_stats
+Date: Thu, 26 May 2016 05:54:10 -0700
+Message-ID: <1464267250.5939.78.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1464195039-5098-1-git-send-email-edumazet@google.com>
+	 <1464195039-5098-5-git-send-email-edumazet@google.com>
+	 <6320ccdc-d369-c08c-c959-6c8ed9b88d10@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Tariq Toukan <ttoukan.linux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36639 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262AbcEZMyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 08:54:12 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g132so2269347pfb.3
+        for <netdev@vger.kernel.org>; Thu, 26 May 2016 05:54:12 -0700 (PDT)
+In-Reply-To: <6320ccdc-d369-c08c-c959-6c8ed9b88d10@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2016-05-26 at 12:38 +0300, Tariq Toukan wrote:
+> Hi Eric,
+> 
+> Thanks for the fix.
+> 
+> > We do not need to clear fields that are already 0.
+> Why is it always true that dev->stats is already 0 at the point ndo_open 
+> is called?
+> Is it true also in a flow of open -> stop -> open? I searched the kernel 
+> stack for this but couldn't find.
+> > @@ -1877,7 +1877,6 @@ static void mlx4_en_clear_stats(struct net_device *dev)
+> >   	if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
+> >   		en_dbg(HW, priv, "Failed dumping statistics\n");
+> >   
+> > -	memset(&priv->stats, 0, sizeof(priv->stats));
+> >   	memset(&priv->pstats, 0, sizeof(priv->pstats));
+> >   	memset(&priv->pkstats, 0, sizeof(priv->pkstats));
+> >   	memset(&priv->port_stats, 0, sizeof(priv->port_stats));
+> The role of this function is to clear the stats, no matter when and 
+> where it is called.
+> I am aware that clearing the stats structure might be redundant today, 
+> as the function is called only within mlx4_en_open, but we might want to 
+> call the function in other flows in the future.
 
-http://zefipago.aquasportsclub.com/wish <http://zefipago.aquasportsclub.com/wish>
+This is the ' non obvious fix' we need to discuss for net-next
 
+When we enslave a mlx4 NIC in a bonding driver, we sometime get
+incorrect bond stats because mlx4 stats are reset.
 
-Brian Neu
+These stats being computed using deltas, this can not work as is.
 
+I believe the rule is to not clear the netdev stats at open()
 
---Apple-Mail-302B3CBA-CEDC-405B-B1D2-82A3E8B52DFE--
-
-
---===============5226327039467479379==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Mobile security can be enabling, not merely restricting. Employees who
-bring their own devices (BYOD) to work are irked by the imposition of MDM
-restrictions. Mobile Device Manager Plus allows you to control only the
-apps on BYO-devices by containerizing them, leaving personal data untouched!
-https://ad.doubleclick.net/ddm/clk/304595813;131938128;j
---===============5226327039467479379==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============5226327039467479379==--
+Anyway, for this particular path, it does not matter, as
+mlx4_en_DUMP_ETH_STATS() will set all the fields to their value.
