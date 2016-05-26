@@ -1,48 +1,46 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 6/8] qed: Add missing 100g init mode
-Date: Thu, 26 May 2016 11:01:22 +0300
-Message-ID: <1464249684-976-7-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 3/8] qede: Don't expose self-test for VFs
+Date: Thu, 26 May 2016 11:01:19 +0300
+Message-ID: <1464249684-976-4-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1464249684-976-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:60337 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753322AbcEZIBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 04:01:50 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32771 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753202AbcEZIBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 04:01:42 -0400
 In-Reply-To: <1464249684-976-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the HW configurations are currently missing for 100g devices.
-This can cause various classification issues, as well as prevent device
-from fully reaching line-rate.
+PFs and VFs differ in their registered ethtool operations,
+but they're using a common function for get_sset_count().
+As a result, `ethtool -i' for a VF would indicate it supports
+selftest, although that's not the case.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 920eadd..2a7c875 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -588,7 +588,14 @@ static void qed_calc_hw_mode(struct qed_hwfn *p_hwfn)
- 
- 	hw_mode |= 1 << MODE_ASIC;
- 
-+	if (p_hwfn->cdev->num_hwfns > 1)
-+		hw_mode |= 1 << MODE_100G;
-+
- 	p_hwfn->hw_info.hw_mode = hw_mode;
-+
-+	DP_VERBOSE(p_hwfn, (NETIF_MSG_PROBE | NETIF_MSG_IFUP),
-+		   "Configuring function for hw_mode: 0x%08x\n",
-+		   p_hwfn->hw_info.hw_mode);
- }
- 
- /* Init run time data for all PFs on an engine. */
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 1bc7535..ad3cae3 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -230,7 +230,10 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
+ 	case ETH_SS_PRIV_FLAGS:
+ 		return QEDE_PRI_FLAG_LEN;
+ 	case ETH_SS_TEST:
+-		return QEDE_ETHTOOL_TEST_MAX;
++		if (!IS_VF(edev))
++			return QEDE_ETHTOOL_TEST_MAX;
++		else
++			return 0;
+ 	default:
+ 		DP_VERBOSE(edev, QED_MSG_DEBUG,
+ 			   "Unsupported stringset 0x%08x\n", stringset);
 -- 
 1.9.3
