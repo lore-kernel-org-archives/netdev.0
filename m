@@ -1,76 +1,67 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Thu, 26 May 2016 21:00:00 +0200
-Message-ID: <20160526190000.GE3331@pengutronix.de>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3641492.klKRrvS8tr@wasted.cogentembedded.com>
- <20160512184233.GJ30822@pengutronix.de>
- <CACRpkdY3kmOiqVsnBWq8DyDDm-gLjcH4wQ+TTr1+Rp+jYLz+SQ@mail.gmail.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH percpu/for-4.7-fixes 1/2] percpu: fix synchronization
+ between chunk->map_extend_work and chunk destruction
+Date: Thu, 26 May 2016 15:21:54 -0400
+Message-ID: <20160526192154.GC23194@mtj.duckdns.org>
+References: <20160417172943.GA83672@ast-mbp.thefacebook.com>
+ <5742F127.6080000@suse.cz>
+ <5742F267.3000309@suse.cz>
+ <20160523213501.GA5383@mtj.duckdns.org>
+ <57441396.2050607@suse.cz>
+ <20160524153029.GA3354@mtj.duckdns.org>
+ <20160524190433.GC3354@mtj.duckdns.org>
+ <CAADnVQ+GprFZJkvCKHVN1gmBMO6uORimsNZ4tE-jgPPOcZhCfA@mail.gmail.com>
+ <20160525154419.GE3354@mtj.duckdns.org>
+ <ced75777-583e-9444-c59f-6cdeb468f1bf@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Alexei Starovoitov <ast@kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Frank Rowand <frowand.list@gmail.com>,
-	=?utf-8?B?UGF3ZcWC?= Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Linus Walleij <linus.walleij@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	LKML <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <cl@linux.com>,
+	Linux-MM layout <linux-mm@kvack.org>,
+	Marco Grassi <marco.gra@gmail.com>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <CACRpkdY3kmOiqVsnBWq8DyDDm-gLjcH4wQ+TTr1+Rp+jYLz+SQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <ced75777-583e-9444-c59f-6cdeb468f1bf@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 26, 2016 at 11:00:55AM +0200, Linus Walleij wrote:
-> On Thu, May 12, 2016 at 8:42 PM, Uwe Kleine-K=F6nig
-> <u.kleine-koenig@pengutronix.de> wrote:
->=20
-> > [added Linus Walleij to Cc, there is a question for you/him below]
-> (...)
-> >> +void mdio_device_reset(struct mdio_device *mdiodev, int value)
-> >> +{
-> >> +     if (mdiodev->reset)
-> >> +             gpiod_set_value(mdiodev->reset, value);
-> >
-> > Before v4.6-rc1~108^2~91 it was not necessary to check for the firs=
-t
-> > parameter being non-NULL before calling gpiod_set_value. Linus, did=
- you
-> > change this on purpose?
->=20
-> Not really. And AFAICT it is still not necessary: what changed is tha=
-t
-> an error message will be printed by VALIDATE_DESC() if you do that.
-> And that is proper I guess? I think it's sloppy code to randomly pass=
- in
-> NULL to a call and just expect it to bail out, it seems more like
-> exercising the error path than something you'd normally rely on.
->=20
-> Or am I getting things wrong?
+Hello,
 
-is the following sloppy?:
+On Thu, May 26, 2016 at 11:19:06AM +0200, Vlastimil Babka wrote:
+> >  	if (is_atomic) {
+> >  		margin = 3;
+> > 
+> >  		if (chunk->map_alloc <
+> > -		    chunk->map_used + PCPU_ATOMIC_MAP_MARGIN_LOW &&
+> > -		    pcpu_async_enabled)
+> > -			schedule_work(&chunk->map_extend_work);
+> > +		    chunk->map_used + PCPU_ATOMIC_MAP_MARGIN_LOW) {
+> > +			if (list_empty(&chunk->map_extend_list)) {
 
-	somegpio =3D gpiod_get_optional(dev, "some", GPIOD_OUT_LOW);
-	if (IS_ERR(somegpio))
-		return PTR_ERR(somegpio);
-	gpiod_set_value(somegpio, 1);
+> So why this list_empty condition? Doesn't it deserve a comment then? And
 
-If not (as I assume) you really changed something as this might trigger
-the warning.
+Because doing list_add() twice corrupts the list.  I'm not sure that
+deserves a comment.  We can do list_move() instead but that isn't
+necessarily better.
 
-Best regards
-Uwe
+> isn't using a list an overkill in that case?
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+That would require rebalance work to scan all chunks whenever it's
+scheduled and if a lot of atomic allocations are taking place, it has
+some possibility to become expensive with a lot of chunks.
+
+Thanks.
+
+-- 
+tejun
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
