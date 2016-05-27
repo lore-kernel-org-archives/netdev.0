@@ -1,105 +1,49 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] wl3501_cs: avoid bogus gcc-6 warning
-Date: Fri, 27 May 2016 17:08:33 +0200
-Message-ID: <4731273.LDpWBaOjNT@wuerfel>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH 12/16] dsa: Make mdio bus optional
+Date: Fri, 27 May 2016 17:18:51 +0200
+Message-ID: <20160527151851.GD20214@lunn.ch>
+References: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
+ <1464312050-23023-13-git-send-email-andrew@lunn.ch>
+ <87inxz5z4e.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Crispin <john@phrozen.org>, Bryan.Whitehead@microchip.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52884 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754154AbcE0PSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 May 2016 11:18:53 -0400
+Content-Disposition: inline
+In-Reply-To: <87inxz5z4e.fsf@ketchup.mtl.sfl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-gcc-6 on x86 started warning about wl3501_get_encode when building
-with -O2:
+On Fri, May 27, 2016 at 10:55:45AM -0400, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+> > -	mdiobus_unregister(ds->slave_mii_bus);
+> > +	if (ds->slave_mii_bus && ds->drv->phy_read)
+> > +		mdiobus_unregister(ds->slave_mii_bus);
+> 
+> So if a driver registered the slave MII bus itself, it may have
+> unregistered it itself as well, so checking ds->slave_mii_bus is OK
+> (assuming the driver correctly zero'ed it).
+> 
+> But is it necessary to check ds->drv->phy_read?
 
-drivers/net/wireless/wl3501_cs.c: In function =E2=80=98wl3501_get_encod=
-e=E2=80=99:
-drivers/net/wireless/wl3501_cs.c:1769:5: warning: =E2=80=98implemented=E2=
-=80=99 may be used uninitialized in this function
-drivers/net/wireless/wl3501_cs.c:1686:19: warning: =E2=80=98threshold=E2=
-=80=99 may be used uninitialized in this function
-drivers/net/wireless/wl3501_cs.c:1702:20: warning: =E2=80=98threshold=E2=
-=80=99 may be used uninitialized in this function
-drivers/net/wireless/wl3501_cs.c:1719:23: warning: =E2=80=98txpow=E2=80=
-=99 may be used uninitialized in this function
-drivers/net/wireless/wl3501_cs.c:1752:20: warning: =E2=80=98retry=E2=80=
-=99 may be used uninitialized in this function
-drivers/net/wireless/wl3501_cs.c:1806:25: warning: =E2=80=98pwr_state=E2=
-=80=99 may be used uninitialized in this function
-drivers/net/wireless/wl3501_cs.c:1383:24: warning: =E2=80=98value=E2=80=
-=99 may be used uninitialized in this function
+It makes the code symmetrical to the register code, which makes the
+same check. My experience is that keeping the code symmetrical results
+in less surprises late on.
 
-I could not figure out what exactly confuses gcc here, but splitting th=
-e
-wl3501_get_mib_value function into two helps the compiler to figure out
-that the variables are not actually used uninitialized, and makes it
-slightly clearer to a human reader what the function actually does and
-which parts of it are under the spinlock.
+One such surprise could be a driver that does not zero
+ds->slave_mii_bus. In fact, mv88e6xxx does not zero it. So we would
+get a double unregister happening. We also don't want the core
+unregistering it, since we have other cleanup work to do, we have an
+of_node_put() to call.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl=
-3501_cs.c
-index 13fd734b61ec..82d94f83b6b4 100644
---- a/drivers/net/wireless/wl3501_cs.c
-+++ b/drivers/net/wireless/wl3501_cs.c
-@@ -378,8 +378,7 @@ static int wl3501_esbq_exec(struct wl3501_card *thi=
-s, void *sig, int sig_size)
- 	return rc;
- }
-=20
--static int wl3501_get_mib_value(struct wl3501_card *this, u8 index,
--				void *bf, int size)
-+static int wl3501_request_mib(struct wl3501_card *this, u8 index, void=
- *bf)
- {
- 	struct wl3501_get_req sig =3D {
- 		.sig_id	    =3D WL3501_SIG_GET_REQ,
-@@ -395,20 +394,32 @@ static int wl3501_get_mib_value(struct wl3501_car=
-d *this, u8 index,
- 			wl3501_set_to_wla(this, ptr, &sig, sizeof(sig));
- 			wl3501_esbq_req(this, &ptr);
- 			this->sig_get_confirm.mib_status =3D 255;
--			spin_unlock_irqrestore(&this->lock, flags);
--			rc =3D wait_event_interruptible(this->wait,
--				this->sig_get_confirm.mib_status !=3D 255);
--			if (!rc)
--				memcpy(bf, this->sig_get_confirm.mib_value,
--				       size);
--			goto out;
-+			rc =3D 0;
- 		}
- 	}
- 	spin_unlock_irqrestore(&this->lock, flags);
--out:
-+
- 	return rc;
- }
-=20
-+static int wl3501_get_mib_value(struct wl3501_card *this, u8 index,
-+				void *bf, int size)
-+{
-+	int rc;
-+
-+	rc =3D wl3501_request_mib(this, index, bf);
-+	if (rc)
-+		return rc;
-+
-+	rc =3D wait_event_interruptible(this->wait,
-+		this->sig_get_confirm.mib_status !=3D 255);
-+	if (rc)
-+		return rc;
-+
-+	memcpy(bf, this->sig_get_confirm.mib_value, size);
-+	return 0;
-+}
-+
- static int wl3501_pwr_mgmt(struct wl3501_card *this, int suspend)
- {
- 	struct wl3501_pwr_mgmt_req sig =3D {
+	Andrew
