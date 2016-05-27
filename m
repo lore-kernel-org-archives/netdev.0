@@ -1,69 +1,176 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net v2 1/1] net: fec: update dirty_tx even if no skb
-Date: Fri, 27 May 2016 13:30:40 -0700
-Message-ID: <1464381040-19896-1-git-send-email-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
-	tremyfr@gmail.com, gerg@uclinux.org, johannes@sipsolutions.net,
-	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
-	arnd@arndb.de, holgerschurig@gmail.com,
-	Troy Kisky <troy.kisky@boundarydevices.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
-	lznuaa@gmail.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC PATCH 14/16] net: dsa: Add new binding implementation
+Date: Fri, 27 May 2016 16:39:05 -0400
+Message-ID: <8737p3z15i.fsf@ketchup.mtl.sfl>
+References: <1464312050-23023-1-git-send-email-andrew@lunn.ch> <1464312050-23023-15-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	John Crispin <john@phrozen.org>, Bryan.Whitehead@microchip.com,
+	Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34207 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753485AbcE0Uat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 16:30:49 -0400
-Received: by mail-pa0-f44.google.com with SMTP id bz2so13414183pad.1
-        for <netdev@vger.kernel.org>; Fri, 27 May 2016 13:30:49 -0700 (PDT)
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:38724 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933156AbcE0UjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 16:39:11 -0400
+In-Reply-To: <1464312050-23023-15-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If dirty_tx isn't updated, then dma_unmap_single
-can be called twice.
 
-This fixes a
-[   58.420980] ------------[ cut here ]------------
-[   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
-[   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA memory it has not allocated [device address=0x0000000000000000] [size=66 bytes]
+Hi Andrew, Florian,
 
-encountered by Holger
+Here again, I'd suggested an implicit namespace for functions taking a
+dsa_switch_tree structure as first argument, i.e. dsa_tree_do_foo().
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-Tested-by: <holgerschurig@gmail.com>
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+Since we are likely to spend some time in net/dsa, it'd be great to
+introduce the new bindings and an intuitive API at the same time ;-)
 
----
-v2: add ack
----
- drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+Examples below.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ca2cccc..3c0255e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- 					 fec16_to_cpu(bdp->cbd_datlen),
- 					 DMA_TO_DEVICE);
- 		bdp->cbd_bufaddr = cpu_to_fec32(0);
--		if (!skb) {
--			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
--			continue;
--		}
-+		if (!skb)
-+			goto skb_done;
- 
- 		/* Check for errors. */
- 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
-@@ -1239,7 +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- 
- 		/* Free the sk buffer associated with this last transmit */
- 		dev_kfree_skb_any(skb);
--
-+skb_done:
- 		/* Make sure the update to bdp and tx_skbuff are performed
- 		 * before dirty_tx
- 		 */
--- 
-2.5.0
+> +void dsa_unregister_switch(struct dsa_switch *ds);
+> +int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
+
+    void dsa_switch_unregister(struct dsa_switch *ds);
+    int dsa_switch_register(struct dsa_switch *ds, struct device_node *np);
+
+> +static struct dsa_switch_tree *dsa_get_dst(u32 tree)
+> +static void dsa_free_dst(struct kref *ref)
+
+static struct dsa_switch_tree *dsa_get_tree(u32 tree)
+dsa_free_tree()
+
+> +static void dsa_put_dst(struct dsa_switch_tree *dst)
+
+static void dsa_tree_put(struct dsa_switch_tree *dst)
+
+> +static struct dsa_switch_tree *dsa_add_dst(u32 tree)
+
+dsa_add_tree(u32 tree)
+
+> +static void dsa_dst_add_ds(struct dsa_switch_tree *dst,
+> +			   struct dsa_switch *ds, u32 index)
+
+static void dsa_tree_add_switch(struct dsa_switch_tree *dst, u32 index,
+			        struct dsa_switch *ds)
+
+> +static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
+> +			   struct dsa_switch *ds, u32 index)
+
+static void dsa_tree_del_switch(struct dsa_switch_tree *dst, u32 index)
+
+> +static bool dsa_port_is_dsa(struct device_node *port)
+> +static bool dsa_port_is_cpu(struct device_node *port)
+
+It would be consistent to have public helpers like:
+
+    bool dsa_port_is_cpu(struct dsa_port *dp);
+    bool dsa_port_is_dsa(struct dsa_port *dp);
+
+> +static bool dsa_ds_find_port(struct dsa_switch *ds,
+> +			     struct device_node *port)
+
+dsa_switch_find_port_node()
+
+> +static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+> +					    struct device_node *port)
+
+dsa_tree_find_port_node()
+
+> +static int dsa_port_complete(struct dsa_switch_tree *dst,
+> +			     struct dsa_switch *src_ds,
+> +			     struct device_node *port,
+> +			     u32 src_port)
+
+> +static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+
+> +static int dsa_dst_complete(struct dsa_switch_tree *dst)
+
+static int dsa_tree_complete_port(struct dsa_switch_tree *dst,
+                                  struct dsa_port *dp)
+
+static int dsa_tree_complete_switch(struct dsa_switch_tree *dst,
+                                    struct dsa_switch *ds)
+
+static int dsa_tree_complete(struct dsa_switch_tree *dst)
+
+> +static int dsa_dsa_port_apply(struct device_node *port, u32 index,
+> +			      struct dsa_switch *ds)
+> +static void dsa_dsa_port_unapply(struct device_node *port, u32 index,
+> +				 struct dsa_switch *ds)
+> +static int dsa_cpu_port_apply(struct device_node *port, u32 index,
+> +			      struct dsa_switch *ds)
+> +static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
+> +				 struct dsa_switch *ds)
+> +static int dsa_user_port_apply(struct device_node *port, u32 index,
+> +			       struct dsa_switch *ds)
+> +static void dsa_user_port_unapply(struct device_node *port, u32 index,
+> +				  struct dsa_switch *ds)
+
+dsa_switch_{un,}apply_{cpu,dsa,user}_port(struct dsa_switch *ds,
+                                          struct dsa_port *dp)
+
+> +static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+> +static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+
+dsa_tree_{un,}apply_switch(dst, ds)
+
+> +static int dsa_dst_apply(struct dsa_switch_tree *dst)
+> +static void dsa_dst_unapply(struct dsa_switch_tree *dst)
+
+dsa_tree_{un,}apply(dst)
+
+> +static int dsa_cpu_parse(struct device_node *port, u32 index,
+> +			 struct dsa_switch_tree *dst,
+> +			 struct dsa_switch *ds)
+> +static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+> +static int dsa_dst_parse(struct dsa_switch_tree *dst)
+
+dsa_tree_parse(dst)
+dsa_tree_parse_switch(dst, ds)
+dsa_tree_parse_cpu_port(dst, dp)
+
+> +static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+
+dsa_switch_parse_port_nodes(struct dsa_switch *ds, struct device_node *ports)
+
+> +static struct device_node *dsa_get_ports(struct dsa_switch *ds,
+> +					 struct device_node *np)
+
+dsa_switch_get_port_nodes(struct dsa_switch *ds, struct device_node *np)
+
+> +static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+
+
+                                                     
+I think it would be great to introduce the following in
+include/net/dsa.h:
+
+    enum dsa_port_type {
+        DSA_PORT_TYPE_CPU,
+        DSA_PORT_TYPE_DSA,
+        DSA_PORT_TYPE_USER,
+    };
+
+    struct dsa_port {
+        struct dsa_switch       *ds;
+        unsigned int            index;
+        enum dsa_port_type      type;
+        ...
+    };
+
+and have port helpers and simpler functions for the framework like:
+
+    bool dsa_port_is_{cpu,dsa,user}(struct dsa_port *dp);
+    int dsa_switch_{apply,setup}_port(struct dsa_switch *ds,
+                                      struct dsa_port *dp);
+
+Also, since most of the content of this file is tree-wide, why not name
+it net/dsa/tree.c instead of dsa2.c?
+
+These are just suggestions. What do you think?
+
+Thanks,
+
+        Vivien
