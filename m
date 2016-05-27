@@ -1,111 +1,284 @@
 From: Alexander Aring <aar@pengutronix.de>
-Subject: Re: [RFC 11/12] 6lowpan: add support for getting short address
-Date: Fri, 27 May 2016 13:03:59 +0200
-Message-ID: <b25a477f-0bb1-979e-1bfe-a8b35dc0d289@pengutronix.de>
+Subject: Re: [RFC 07/12] addrconf: put prefix address add in an own function
+Date: Fri, 27 May 2016 13:41:44 +0200
+Message-ID: <7833ba52-9527-479e-135a-7ec392960fc1@pengutronix.de>
 References: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
- <1464031328-17524-12-git-send-email-aar@pengutronix.de>
- <57481BEB.6050105@osg.samsung.com>
+ <1464031328-17524-8-git-send-email-aar@pengutronix.de>
+ <5748174A.4080309@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
 Cc: kernel@pengutronix.de, marcel@holtmann.org,
 	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
 	mcr@sandelman.ca, werner@almesberger.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: Stefan Schmidt <stefan@osg.samsung.com>, linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:59890 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35645 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750714AbcE0LEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 07:04:06 -0400
-In-Reply-To: <57481BEB.6050105@osg.samsung.com>
+	by vger.kernel.org with ESMTP id S1750822AbcE0LmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 07:42:05 -0400
+In-Reply-To: <5748174A.4080309@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Hi,
 
-On 05/27/2016 12:05 PM, Stefan Schmidt wrote:
+On 05/27/2016 11:45 AM, Stefan Schmidt wrote:
 > Hello.
 > 
+
+sorry, again I will change something on this patch which is buggy.
+
 > On 23/05/16 21:22, Alexander Aring wrote:
->> In case of sending RA messages we need some way to get the short address
->> from an 802.15.4 6LoWPAN interface. This patch will add a temporary
->> debugfs entry for experimental userspace api.
+>> This patch moves the functionality to add a RA PIO prefix generated
+>> address in an own function. This move prepares to add a hook for
+>> adding a second address for a second link-layer address. E.g. short
+>> address for 802.15.4 6LoWPAN.
 >>
+>> Cc: David S. Miller<davem@davemloft.net>
+>> Cc: Alexey Kuznetsov<kuznet@ms2.inr.ac.ru>
+>> Cc: James Morris<jmorris@namei.org>
+>> Cc: Hideaki YOSHIFUJI<yoshfuji@linux-ipv6.org>
+>> Cc: Patrick McHardy<kaber@trash.net>
 >> Signed-off-by: Alexander Aring<aar@pengutronix.de>
 >> ---
->>   net/6lowpan/debugfs.c | 35 +++++++++++++++++++++++++++++++++++
->>   1 file changed, 35 insertions(+)
+>>   net/ipv6/addrconf.c | 191 ++++++++++++++++++++++++++++------------------------
+>>   1 file changed, 102 insertions(+), 89 deletions(-)
 >>
->> diff --git a/net/6lowpan/debugfs.c b/net/6lowpan/debugfs.c
->> index acbaa3d..638ae59 100644
->> --- a/net/6lowpan/debugfs.c
->> +++ b/net/6lowpan/debugfs.c
->> @@ -245,6 +245,37 @@ static const struct file_operations lowpan_context_fops = {
->>       .release    = single_release,
->>   };
->>   +static int lowpan_short_addr_get(void *data, u64 *val)
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index beaad49..393cdbf 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -2333,6 +2333,104 @@ static bool is_addr_mode_generate_stable(struct inet6_dev *idev)
+>>              idev->addr_gen_mode == IN6_ADDR_GEN_MODE_RANDOM;
+>>   }
+>>   +static void addrconf_prefix_rcv_add_addr(struct net *net,
+
+will change to return int here to indicates errors.
+
+>> +                     struct net_device *dev,
+>> +                     const struct prefix_info *pinfo,
+>> +                     struct inet6_dev *in6_dev,
+>> +                     const struct in6_addr *addr,
+>> +                     int addr_type, u32 addr_flags,
+>> +                     bool sllao, bool tokenized,
+>> +                     __u32 valid_lft, u32 prefered_lft)
 >> +{
->> +    struct wpan_dev *wdev = data;
+>> +    struct inet6_ifaddr *ifp = ipv6_get_ifaddr(net, addr, dev, 1);
+>> +    int create = 0, update_lft = 0;
 >> +
->> +    rtnl_lock();
->> +    *val = le16_to_cpu(wdev->short_addr);
->> +    rtnl_unlock();
+>> +    if (!ifp && valid_lft) {
+>> +        int max_addresses = in6_dev->cnf.max_addresses;
 >> +
->> +    return 0;
+>> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+>> +        if (in6_dev->cnf.optimistic_dad &&
+>> +            !net->ipv6.devconf_all->forwarding && sllao)
+>> +            addr_flags |= IFA_F_OPTIMISTIC;
+>> +#endif
+>> +
+>> +        /* Do not allow to create too much of autoconfigured
+>> +         * addresses; this would be too easy way to crash kernel.
+>> +         */
+>> +        if (!max_addresses ||
+>> +            ipv6_count_addresses(in6_dev) < max_addresses)
+>> +            ifp = ipv6_add_addr(in6_dev, addr, NULL,
+>> +                        pinfo->prefix_len,
+>> +                        addr_type&IPV6_ADDR_SCOPE_MASK,
+>> +                        addr_flags, valid_lft,
+>> +                        prefered_lft);
+>> +
+>> +        if (IS_ERR_OR_NULL(ifp)) {
+>> +            in6_dev_put(in6_dev);
+>> +            return;
+
+return -1; and remove in6_dev_put stuff.
+
+>> +        }
+>> +
+>> +        update_lft = 0;
+>> +        create = 1;
+>> +        spin_lock_bh(&ifp->lock);
+>> +        ifp->flags |= IFA_F_MANAGETEMPADDR;
+>> +        ifp->cstamp = jiffies;
+>> +        ifp->tokenized = tokenized;
+>> +        spin_unlock_bh(&ifp->lock);
+>> +        addrconf_dad_start(ifp);
+>> +    }
+>> +
+>> +    if (ifp) {
+>> +        u32 flags;
+>> +        unsigned long now;
+>> +        u32 stored_lft;
+>> +
+>> +        /* update lifetime (RFC2462 5.5.3 e) */
+>> +        spin_lock_bh(&ifp->lock);
+>> +        now = jiffies;
+>> +        if (ifp->valid_lft > (now - ifp->tstamp) / HZ)
+>> +            stored_lft = ifp->valid_lft - (now - ifp->tstamp) / HZ;
+>> +        else
+>> +            stored_lft = 0;
+>> +        if (!update_lft && !create && stored_lft) {
+>> +            const u32 minimum_lft = min_t(u32,
+>> +                stored_lft, MIN_VALID_LIFETIME);
+>> +            valid_lft = max(valid_lft, minimum_lft);
+>> +
+>> +            /* RFC4862 Section 5.5.3e:
+>> +             * "Note that the preferred lifetime of the
+>> +             *  corresponding address is always reset to
+>> +             *  the Preferred Lifetime in the received
+>> +             *  Prefix Information option, regardless of
+>> +             *  whether the valid lifetime is also reset or
+>> +             *  ignored."
+>> +             *
+>> +             * So we should always update prefered_lft here.
+>> +             */
+>> +            update_lft = 1;
+>> +        }
+>> +
+>> +        if (update_lft) {
+>> +            ifp->valid_lft = valid_lft;
+>> +            ifp->prefered_lft = prefered_lft;
+>> +            ifp->tstamp = now;
+>> +            flags = ifp->flags;
+>> +            ifp->flags &= ~IFA_F_DEPRECATED;
+>> +            spin_unlock_bh(&ifp->lock);
+>> +
+>> +            if (!(flags&IFA_F_TENTATIVE))
+>> +                ipv6_ifa_notify(0, ifp);
+>> +        } else
+>> +            spin_unlock_bh(&ifp->lock);
+>> +
+>> +        manage_tempaddrs(in6_dev, ifp, valid_lft, prefered_lft,
+>> +                 create, now);
+>> +
+>> +        in6_ifa_put(ifp);
+>> +        addrconf_verify();
+>> +    }
 >> +}
 >> +
->> +DEFINE_SIMPLE_ATTRIBUTE(lowpan_short_addr_fops, lowpan_short_addr_get,
->> +            NULL, "0x%04llx\n");
->> +
->> +static int lowpan_dev_debugfs_802154_init(const struct net_device *dev,
->> +                      struct lowpan_dev *ldev)
->> +{
->> +    struct dentry *dentry;
->> +
->> +    if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
->> +        return 0;
->> +
->> +    dentry = debugfs_create_file("short_addr", 0444, ldev->iface_debugfs,
->> +                     lowpan_802154_dev(dev)->wdev->ieee802154_ptr,
->> +                     &lowpan_short_addr_fops);
->> +    if (!dentry)
->> +        return -EINVAL;
->> +
->> +    return 0;
->> +}
->> +
->>   int lowpan_dev_debugfs_init(struct net_device *dev)
+>>   void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
 >>   {
->>       struct lowpan_dev *ldev = lowpan_dev(dev);
->> @@ -272,6 +303,10 @@ int lowpan_dev_debugfs_init(struct net_device *dev)
->>               goto remove_root;
+>>       struct prefix_info *pinfo;
+>> @@ -2432,9 +2530,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
+>>       /* Try to figure out our local address for this prefix */
+>>         if (pinfo->autoconf && in6_dev->cnf.autoconf) {
+>> -        struct inet6_ifaddr *ifp;
+>>           struct in6_addr addr;
+>> -        int create = 0, update_lft = 0;
+>>           bool tokenized = false;
+>>             if (pinfo->prefix_len == 64) {
+>> @@ -2464,93 +2560,10 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
+>>           return;
+>>     ok:
+>> -
+>> -        ifp = ipv6_get_ifaddr(net, &addr, dev, 1);
+>> -
+>> -        if (!ifp && valid_lft) {
+>> -            int max_addresses = in6_dev->cnf.max_addresses;
+>> -
+>> -#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+>> -            if (in6_dev->cnf.optimistic_dad &&
+>> -                !net->ipv6.devconf_all->forwarding && sllao)
+>> -                addr_flags |= IFA_F_OPTIMISTIC;
+>> -#endif
+>> -
+>> -            /* Do not allow to create too much of autoconfigured
+>> -             * addresses; this would be too easy way to crash kernel.
+>> -             */
+>> -            if (!max_addresses ||
+>> -                ipv6_count_addresses(in6_dev) < max_addresses)
+>> -                ifp = ipv6_add_addr(in6_dev, &addr, NULL,
+>> -                            pinfo->prefix_len,
+>> -                            addr_type&IPV6_ADDR_SCOPE_MASK,
+>> -                            addr_flags, valid_lft,
+>> -                            prefered_lft);
+>> -
+>> -            if (IS_ERR_OR_NULL(ifp)) {
+>> -                in6_dev_put(in6_dev);
+>> -                return;
+>> -            }
+>> -
+>> -            update_lft = 0;
+>> -            create = 1;
+>> -            spin_lock_bh(&ifp->lock);
+>> -            ifp->flags |= IFA_F_MANAGETEMPADDR;
+>> -            ifp->cstamp = jiffies;
+>> -            ifp->tokenized = tokenized;
+>> -            spin_unlock_bh(&ifp->lock);
+>> -            addrconf_dad_start(ifp);
+>> -        }
+>> -
+>> -        if (ifp) {
+>> -            u32 flags;
+>> -            unsigned long now;
+>> -            u32 stored_lft;
+>> -
+>> -            /* update lifetime (RFC2462 5.5.3 e) */
+>> -            spin_lock_bh(&ifp->lock);
+>> -            now = jiffies;
+>> -            if (ifp->valid_lft > (now - ifp->tstamp) / HZ)
+>> -                stored_lft = ifp->valid_lft - (now - ifp->tstamp) / HZ;
+>> -            else
+>> -                stored_lft = 0;
+>> -            if (!update_lft && !create && stored_lft) {
+>> -                const u32 minimum_lft = min_t(u32,
+>> -                    stored_lft, MIN_VALID_LIFETIME);
+>> -                valid_lft = max(valid_lft, minimum_lft);
+>> -
+>> -                /* RFC4862 Section 5.5.3e:
+>> -                 * "Note that the preferred lifetime of the
+>> -                 *  corresponding address is always reset to
+>> -                 *  the Preferred Lifetime in the received
+>> -                 *  Prefix Information option, regardless of
+>> -                 *  whether the valid lifetime is also reset or
+>> -                 *  ignored."
+>> -                 *
+>> -                 * So we should always update prefered_lft here.
+>> -                 */
+>> -                update_lft = 1;
+>> -            }
+>> -
+>> -            if (update_lft) {
+>> -                ifp->valid_lft = valid_lft;
+>> -                ifp->prefered_lft = prefered_lft;
+>> -                ifp->tstamp = now;
+>> -                flags = ifp->flags;
+>> -                ifp->flags &= ~IFA_F_DEPRECATED;
+>> -                spin_unlock_bh(&ifp->lock);
+>> -
+>> -                if (!(flags&IFA_F_TENTATIVE))
+>> -                    ipv6_ifa_notify(0, ifp);
+>> -            } else
+>> -                spin_unlock_bh(&ifp->lock);
+>> -
+>> -            manage_tempaddrs(in6_dev, ifp, valid_lft, prefered_lft,
+>> -                     create, now);
+>> -
+>> -            in6_ifa_put(ifp);
+>> -            addrconf_verify();
+>> -        }
+>> +        addrconf_prefix_rcv_add_addr(net, dev, pinfo, in6_dev, &addr,
+>> +                         addr_type, addr_flags, sllao,
+>> +                         tokenized, valid_lft,
+>> +                         prefered_lft);
+
+check error here and goto in6_dev_put stuff. Oderwise
+inet6_prefix_notify will call on error.
+
 >>       }
->>   +    ret = lowpan_dev_debugfs_802154_init(dev, ldev);
->> +    if (ret < 0)
->> +        goto remove_root;
->> +
->>       return 0;
->>     remove_root:
+>>       inet6_prefix_notify(RTM_NEWPREFIX, in6_dev, pinfo);
+>>       in6_dev_put(in6_dev);
 > 
 > Reviewed-by: Stefan Schmidt<stefan@osg.samsung.com>
 > 
 
-grml, I changed this patch now to have an 802154/short_addr directory
-inside the root of 6lowpan debugfs entry.
-
-This is because Michael Richardson wrote that other L2 has also
-short_addr (any kind of second L2 address type), see [0].
-
-Each of them has their own "constraints" e.g. 802.15.4 2-byte length, or
-sometimes 1-byte. This constraint depends on L2, so I added 802154
-subdir.
-
-Nevertheless it's debugfs and we can still change it when introduce real
-UAPI, but it will remind me to introduce it as setting which has some
-kind of L2 dependency naming.
+I hope this fits to your review by tag, I simple add it then in RFCv2.
 
 - Alex
-
-[0] http://marc.info/?l=linux-netdev&m=146360758922131&w=4
