@@ -1,124 +1,111 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: Re: FWD: [PATCH v2] Marvell phy: add fiber status check for some
- components
-Date: Fri, 27 May 2016 11:23:22 +0200
-Message-ID: <9dd03fd9-1241-fc7d-ead3-feb7e918d4c3@nexvision.fr>
-References: <20160404132552.GH21828@lunn.ch> <570BFF50.6060909@gmail.com>
- <d3b31c38-a15c-bf49-d787-1a7dcd11849d@nexvision.fr>
+From: Alexander Aring <aar@pengutronix.de>
+Subject: Re: [RFC 11/12] 6lowpan: add support for getting short address
+Date: Fri, 27 May 2016 13:03:59 +0200
+Message-ID: <b25a477f-0bb1-979e-1bfe-a8b35dc0d289@pengutronix.de>
+References: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
+ <1464031328-17524-12-git-send-email-aar@pengutronix.de>
+ <57481BEB.6050105@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kernel@pengutronix.de, marcel@holtmann.org,
+	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
+	mcr@sandelman.ca, werner@almesberger.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: Stefan Schmidt <stefan@osg.samsung.com>, linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 8.mo178.mail-out.ovh.net ([46.105.74.227]:52577 "EHLO
-	8.mo178.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148AbcE0Kim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 06:38:42 -0400
-Received: from player169.ha.ovh.net (b9.ovh.net [213.186.33.59])
-	by mo178.mail-out.ovh.net (Postfix) with ESMTP id A70CCFFC086
-	for <netdev@vger.kernel.org>; Fri, 27 May 2016 11:23:24 +0200 (CEST)
-In-Reply-To: <d3b31c38-a15c-bf49-d787-1a7dcd11849d@nexvision.fr>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:59890 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750714AbcE0LEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 07:04:06 -0400
+In-Reply-To: <57481BEB.6050105@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hello,
-I'm sorry to repost that, but after one month, I need a answer to conti=
-nue to imrpove my patch in the right direction. :)
+Hi,
 
-Thank you in advance.
-Regards.
-Charles-Antoine Couret
+On 05/27/2016 12:05 PM, Stefan Schmidt wrote:
+> Hello.
+> 
+> On 23/05/16 21:22, Alexander Aring wrote:
+>> In case of sending RA messages we need some way to get the short address
+>> from an 802.15.4 6LoWPAN interface. This patch will add a temporary
+>> debugfs entry for experimental userspace api.
+>>
+>> Signed-off-by: Alexander Aring<aar@pengutronix.de>
+>> ---
+>>   net/6lowpan/debugfs.c | 35 +++++++++++++++++++++++++++++++++++
+>>   1 file changed, 35 insertions(+)
+>>
+>> diff --git a/net/6lowpan/debugfs.c b/net/6lowpan/debugfs.c
+>> index acbaa3d..638ae59 100644
+>> --- a/net/6lowpan/debugfs.c
+>> +++ b/net/6lowpan/debugfs.c
+>> @@ -245,6 +245,37 @@ static const struct file_operations lowpan_context_fops = {
+>>       .release    = single_release,
+>>   };
+>>   +static int lowpan_short_addr_get(void *data, u64 *val)
+>> +{
+>> +    struct wpan_dev *wdev = data;
+>> +
+>> +    rtnl_lock();
+>> +    *val = le16_to_cpu(wdev->short_addr);
+>> +    rtnl_unlock();
+>> +
+>> +    return 0;
+>> +}
+>> +
+>> +DEFINE_SIMPLE_ATTRIBUTE(lowpan_short_addr_fops, lowpan_short_addr_get,
+>> +            NULL, "0x%04llx\n");
+>> +
+>> +static int lowpan_dev_debugfs_802154_init(const struct net_device *dev,
+>> +                      struct lowpan_dev *ldev)
+>> +{
+>> +    struct dentry *dentry;
+>> +
+>> +    if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
+>> +        return 0;
+>> +
+>> +    dentry = debugfs_create_file("short_addr", 0444, ldev->iface_debugfs,
+>> +                     lowpan_802154_dev(dev)->wdev->ieee802154_ptr,
+>> +                     &lowpan_short_addr_fops);
+>> +    if (!dentry)
+>> +        return -EINVAL;
+>> +
+>> +    return 0;
+>> +}
+>> +
+>>   int lowpan_dev_debugfs_init(struct net_device *dev)
+>>   {
+>>       struct lowpan_dev *ldev = lowpan_dev(dev);
+>> @@ -272,6 +303,10 @@ int lowpan_dev_debugfs_init(struct net_device *dev)
+>>               goto remove_root;
+>>       }
+>>   +    ret = lowpan_dev_debugfs_802154_init(dev, ldev);
+>> +    if (ret < 0)
+>> +        goto remove_root;
+>> +
+>>       return 0;
+>>     remove_root:
+> 
+> Reviewed-by: Stefan Schmidt<stefan@osg.samsung.com>
+> 
 
-Le 29/04/2016 =C3=A0 10:28, Charles-Antoine Couret a =C3=A9crit :
-> Le 11/04/2016 =C3=A0 21:47, Florian Fainelli a =C3=A9crit :
->>> Do we actually need to stay on page 1 if fibre is in use? How do we
->>> initially change to page 1 when the fibre link is still down?
->>
->> I also do not feel very comfortable with reading the fiber status fi=
-rst,
->> and then copper and then combine these two. At the very best, could =
-we
->> do something like:
->>
->> - identify if the PHY is configured for fiber in drv->probe or
->> drv->config_init, retain that information
->=20
-> But, how configure in runtime the user choice? Add a driver option?
-> Else, a default choice should be added in init/probe function and the=
- user should change by ethtool or driver recompilation.
->=20
->> - have two paths in drv->read_status which take care of reading one
->> status or the other?
->=20
-> I worked for a solution around that.
-> But the Marvell's datasheet seems to agree with my previous method:
->=20
-> Extract:
-> "Notes on Determining which Media Linked Up
->=20
-> Since there are two sets of IEEE registers (one for copper and the ot=
-her for fiber) the software needs
-> to be aware of register 22.7:0 so that the correct set of registers a=
-re selected. In general the
-> sequence is as follows.
->=20
-> 1-Set the Auto-Negotiation registers of the copper medium. (This step=
- may not be necessary if the
-> hardware configuration defaults are acceptable).
->=20
-> 2-Set the Auto-Negotiation registers of the fiber medium. (This step =
-may not be necessary if the
-> hardware configuration defaults are acceptable).
->=20
-> 3-Poll for link status.Go to step 4 if there is link.
->=20
-> 4-Once there is link determine whether the link is copper or fiber me=
-dium.
->=20
-> 5-Look at the Auto-Negotiation results for the medium that establishe=
-d link.
->=20
-> 6-Poll for link status. If link status goes down then go back to step=
- 3."
->=20
-> By default, the phy is configured to be connected on both interfaces =
-with any preference. The first connected was selected.
-> A preference could be added, but it is not a force mode.
->=20
-> Extract:
-> "Preferred Media
->=20
-> The device can be programmed to give one media priority over the othe=
-r. In other words if the
-> non-preferred media establishes link first and subsequently energy is=
- detected on the preferred
-> media, the PHY will drop link on the non-preferred media for 4 second=
-s and give the preferred media
-> a chance to establish link."
->=20
-> We don't have registers to know really if Copper or Fiber is selected=
-=2E We can know only by checking status registers as in my commit.
->=20
->=20
->>> Should we be using the old mechanism to swap between TP, BNC and AU=
-I
->>> to swap between copper and fibre?
->>
->> Did you mean using ethtool -s <iface> port fibre for instance?
->=20
-> So, to implement that I have to renable the port change in phy_ethtoo=
-l_sset function.
-> But, the datasheet seems to disagree with this method.
->=20
-> Finally, what do I have to do? I continue my previous way or your sug=
-gestion?
-> I prefer to respect the datasheet, but if it's better for you to foll=
-ow the other way, I will implement that.
->=20
-> Thank you in advance and have a nice day.
-> Regards,
-> Charles-Antoine Couret
->=20
+grml, I changed this patch now to have an 802154/short_addr directory
+inside the root of 6lowpan debugfs entry.
+
+This is because Michael Richardson wrote that other L2 has also
+short_addr (any kind of second L2 address type), see [0].
+
+Each of them has their own "constraints" e.g. 802.15.4 2-byte length, or
+sometimes 1-byte. This constraint depends on L2, so I added 802154
+subdir.
+
+Nevertheless it's debugfs and we can still change it when introduce real
+UAPI, but it will remind me to introduce it as setting which has some
+kind of L2 dependency naming.
+
+- Alex
+
+[0] http://marc.info/?l=linux-netdev&m=146360758922131&w=4
