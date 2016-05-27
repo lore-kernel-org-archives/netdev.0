@@ -1,7 +1,7 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 2/8] mwifiex: propagate sdio_enable_func() errno code in mwifiex_sdio_probe()
-Date: Fri, 27 May 2016 10:18:16 -0400
-Message-ID: <1464358702-19083-3-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 6/8] mwifiex: check if mwifiex_sdio_probe_of() fails and return error
+Date: Fri, 27 May 2016 10:18:20 -0400
+Message-ID: <1464358702-19083-7-git-send-email-javier@osg.samsung.com>
 References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Cc: Xinming Hu <huxm@marvell.com>,
 	Javier Martinez Canillas <javier@osg.samsung.com>,
@@ -15,31 +15,34 @@ In-Reply-To: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the sdio_enable_func() function fails on .probe, the -EIO errno code
-is always returned but that could make more difficult to debug and find
-the cause of why the function actually failed.
-
-Since the driver/device core prints the value returned by .probe in its
-error message propagate what was returned by sdio_enable_func() at fail.
+The function can fail so the returned value should be checked
+and the error propagated to the caller in case of a failure.
 
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 ---
 
- drivers/net/wireless/marvell/mwifiex/sdio.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/marvell/mwifiex/sdio.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
-index 285b1b68f7e9..ab64507c84e1 100644
+index 1ffbb972318f..1c17e624547a 100644
 --- a/drivers/net/wireless/marvell/mwifiex/sdio.c
 +++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-@@ -184,7 +184,7 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
- 	if (ret) {
- 		pr_err("%s: failed to enable function\n", __func__);
- 		kfree(card);
--		return -EIO;
-+		return ret;
+@@ -187,8 +187,13 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
  	}
  
  	/* device tree node parsing and platform specific configuration*/
+-	if (func->dev.of_node)
+-		mwifiex_sdio_probe_of(&func->dev, card);
++	if (func->dev.of_node) {
++		ret = mwifiex_sdio_probe_of(&func->dev, card);
++		if (ret) {
++			dev_err(&func->dev, "SDIO dt node parse failed\n");
++			goto err_disable;
++		}
++	}
+ 
+ 	ret = mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
+ 			       MWIFIEX_SDIO);
 -- 
 2.5.5
