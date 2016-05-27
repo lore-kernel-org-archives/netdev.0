@@ -1,105 +1,137 @@
-From: Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v1 1/6] drivers: net: xgene: MAC and PHY configuration
- changes
-Date: Fri, 27 May 2016 19:07:26 +0200
-Message-ID: <57487ECE.7010309@gmail.com>
-References: <1464333768-26150-1-git-send-email-isubramanian@apm.com>
- <1464333768-26150-2-git-send-email-isubramanian@apm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 extension header privileges
+Date: Fri, 27 May 2016 19:14:42 +0200
+Message-ID: <4ef3d8a6-2340-60fc-0dfd-f69f5c869270@stressinduktion.org>
+References: <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
+ <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
+ <CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
+ <f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
+ <20160521174438.GA27990@oracle.com>
+ <82086299-ddb2-8acc-1286-5a1a7b2bf311@stressinduktion.org>
+ <20160522115605.GA30516@oracle.com>
+ <CALx6S358LkPTz9kzWDuveZgDFjaL7AbgwgcVLP4iyC6Bvd3yBg@mail.gmail.com>
+ <CALx6S3580cJPWskNYD_xYbveXTdOzPVB8axXh471jDVzm94PhA@mail.gmail.com>
+ <614c9a42-02c1-052a-52b6-289818bf757b@stressinduktion.org>
+ <20160527150318.GA25040@oracle.com>
+ <CALx6S35G2CWexCn=1o4YwbELF=_ic+e_qmgqh5q4EJQYtoV0mg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464333768-26150-2-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Tom Herbert <tom@herbertland.com>,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:45925 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932496AbcE0ROr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 13:14:47 -0400
+In-Reply-To: <CALx6S35G2CWexCn=1o4YwbELF=_ic+e_qmgqh5q4EJQYtoV0mg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27/05/16 09:22, Iyappan Subramanian wrote:
-> This patch fixes MAC configuration to support 10/100GbE for SGMII and
-> link_state call back. It also sets pdata->mdio_driver flag based on
-> ethernet mdio subnode and prepare for MDIO driver support.
->
-> In summary, following are the changes,
->
-> - Added set_speed function pointer in mac_ops
-> - Changed link_state to call the set_speed
-> - Add 10/100 support for SGMII based 1G
-> - Fixed mac_init for 1G
->
-> - Call mac_ops rx_enable/disable and tx_enable/disable function pointers
+Hi,
 
-This is just a code clean-up, right? If so, this should be a patch apart.
+On 27.05.2016 18:59, Tom Herbert wrote:
+> On Fri, May 27, 2016 at 8:03 AM, Sowmini Varadhan
+> <sowmini.varadhan@oracle.com> wrote:
+>> On (05/27/16 11:53), Hannes Frederic Sowa wrote:
+>>>> Thinking about this some more, the per option white list is a better
+>>>> approach. If we allow an open ended mechanism for applications to
+>>>> signal the network with arbitrary data (like user specified hbp
+>>>> options would be), then use of that mechanism will inevitably
+>>>> exploited by some authorities to force user to hand over private data
+>>>> about their communications. It's better to not build in back doors to
+>>>> security...
+>>>
+>>> Sorry, Tom, can you try to explain again, I think I might not have
+>>> understood you correctly.
+>>
+> Option whitelists are the right approach, applications should not be
+> able to set random options in IP extension headers.
+> 
+>> yes, me too. Might help to discuss this by looking at an instance
+>> of the type of option we are talking about.
+>>
+>> Usually hbh options are handled in the forwarding path (and thus
+>> as unpopular as ip options, since they derail the packet to the
+>> slow path). Are you suggesting some type of AAA to vet the hbh
+>> option itself?
+>>
+> The issue that came up in IETF is that network operators (particularly
+> radio networks) are concerned about the loss of visibility into the
+> content since TLS became widely deployed. Unfortunately from the
+> operators point of view at least, we are likely to see transport layer
+> headers also being encrypted in the Internet (like Transports over
+> UDP) which means they will have even less information. There is
+> discussion now about rather applications can "give back" information
+> that network operators previously deduced from inspecting clear text
+> transport headers and payload. This would be accomplished with some
+> sort of signaling to the network from applications. IP ext. headers
+> are the standard mechanism for such signaling, although are a lot of
+> people don't want to use them because they need to go through the
+> kernel to set them-- because kernel takes too long deploy, bad
+> interfaces, has too much control, etc.
 
-> - Add acpi_phy_find_device to find PHY using phy-handle reference object
-> - Changing phy_start and phy_stop calls based on phy_dev object existence
-> - Calling phy_connect based on pdata->mdio_driver flag
->
-> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-> Tested-by: Fushen Chen <fchen-qTEPVZfXA3Y@public.gmane.org>
-> Tested-by: Toan Le <toanle-qTEPVZfXA3Y@public.gmane.org>
-> ---
->   drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 189 +++++++++++++---------
->   drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |   4 +
->   drivers/net/ethernet/apm/xgene/xgene_enet_main.c  |  40 +++--
->   drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |   2 +
->   drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 106 +++++++++++-
->   drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.h |   8 +
->   drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |   4 +
->   7 files changed, 256 insertions(+), 97 deletions(-)
->
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-> index 2f5638f..6bc8360 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-> @@ -512,14 +512,11 @@ static void xgene_enet_configure_clock(struct xgene_enet_pdata *pdata)
+I also wonder how helpful TCP middleboxes are nowadays. I haven't done
+any kind of tests for example over satellite connections with TCP. A TCP
+frame cache probably helps a lot getting a faster connection but at the
+same time messes with the RTT. I could imagine network operators wanting
+control over the data stream.
 
-[...]
+Your proposal with DTLS also leaks a lot of information. E.g. I remember
+that certificates are always send in clear text and I currently don't
+know if TLS 1.3 solves this (DTLS is basically TLS split on record
+boundaries to UDP frames). Sequence numbers ensure that e.g. no reply
+attack can happen. The DTLS "connection establishment" and "teardown"
+also provides the necessary information to handle the UDP flow stateful,
+thus connection tracking is not completely circumvented. (D)TLS also
+provides extensions which could be used for signaling and keeping state
+in the network.
 
->   static void xgene_sgmac_init(struct xgene_enet_pdata *p)
->   {
->   	u32 data, loop = 10;
-> -	u32 offset = p->port_id * 4;
-> +	u32 offset = 0;
->   	u32 enet_spare_cfg_reg, rsif_config_reg;
->   	u32 cfg_bypass_reg, rx_dv_gate_reg;
->
->   	xgene_sgmac_reset(p);
->
->   	/* Enable auto-negotiation */
-> -	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_CONTROL_ADDR >> 2, 0x1000);
-> +	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_TBI_CONTROL_ADDR >> 2,
-> +			    0x8000);
-> +	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_CONTROL_ADDR >> 2, 0x9000);
->   	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_TBI_CONTROL_ADDR >> 2, 0);
->
->   	while (loop--) {
-> @@ -256,16 +343,14 @@ static void xgene_sgmac_init(struct xgene_enet_pdata *p)
->   	if (!(data & AUTO_NEG_COMPLETE) || !(data & LINK_STATUS))
->   		netdev_err(p->ndev, "Auto-negotiation failed\n");
->
-> -	data = xgene_enet_rd_mac(p, MAC_CONFIG_2_ADDR);
-> -	ENET_INTERFACE_MODE2_SET(&data, 2);
-> -	xgene_enet_wr_mac(p, MAC_CONFIG_2_ADDR, data | FULL_DUPLEX2);
-> -	xgene_enet_wr_mac(p, INTERFACE_CONTROL_ADDR, ENET_GHD_MODE);
-> +	xgene_sgmac_set_speed(p);
->
->   	if (p->enet_id == XGENE_ENET1) {
->   		enet_spare_cfg_reg = ENET_SPARE_CFG_REG_ADDR;
->   		rsif_config_reg = RSIF_CONFIG_REG_ADDR;
->   		cfg_bypass_reg = CFG_BYPASS_ADDR;
->   		rx_dv_gate_reg = SG_RX_DV_GATE_REG_0_ADDR;
-> +		offset = p->port_id * 4;
+Otherwise my problem with DTLS is that it is much less deployed. E.g. I
+remember from the mosh paper [1] that no current implementation of DTLS
+actually supports roaming of "DTLS connections".
 
-At least for me it is not clear where the "4" comes from. Maybe you can 
-add a comment or declare a constant for that.
-Anyway this looks like it fixes the driver for xgene2-sgnet and therefor 
-should go into a separate patch, or am I wrong?
+[1] https://mosh.mit.edu/mosh-paper-draft.pdf
 
-Regards,
-Matthias
+> Hop by hop are open ended options defined as "The Hop-by-Hop Options
+> header is used to carry optional information that must be examined by
+> every node along a packet's delivery path.". If we allow applications
+> to set arbitrary hbh options then the danger is that their network
+> operator or local authority may require their own defined options.
+> There's no reason to believe that this would be benevolent, such a
+> mechanism could be used to force applications to leak private
+> information about encrypted content which would diminish security or
+> net neutrality. For instance a network provider could require its
+> users to mark packets that are for cat videos, or want the URLs being
+> accessed in http requests (described in a accord BOF @IETF), and there
+> are even going to be authorities that demand they have access to
+> crypto keys. Obviously there are always going to be attempts to force
+> users to give up private information, but I don't think we (neither
+> Linux nor IETF) should be building mechanisms that make it easy to do
+> that.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sounds like solving social problems with technology. :)
+
+In general I agree, but it seems to me that the provider edges are
+already capable of doing so, adding headers at the edge and transporting
+them over the backbone and removing them add the edge again. They could
+as well also be tunneled in geneve completely to provide arbitrary TLV
+options.
+
+Another questions about your approach:
+
+Do you expect e.g. Facebook deploying TLS inside DTLS or is the DTLS
+connection in the long run a way to defeat end-to-end crypto, as only
+the tunnel themselves will be encrypted? Adding encryption in encryption
+might be a huge performance loss?
+
+And another addendum: did you look into using ALPN (RFC 7301) instead of
+using payload transformers in GUE?
+
+All in all, I agree, maybe not because of the same reasons but it would
+be hard to come up with a blacklist of possible options.
+
+Bye,
+Hannes
