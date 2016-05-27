@@ -1,45 +1,92 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 extension header privileges
-Date: Fri, 27 May 2016 18:46:45 +0200
-Message-ID: <1464367605.681310.620746281.74E342B0@webmail.messagingengine.com>
-References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
- <1e22f140-920e-0d1c-4a43-03780fb380a8@stressinduktion.org>
- <20160521015604.GD2452@oracle.com>
- <1463823275.2335717.614453105.5011B2EE@webmail.messagingengine.com>
- <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
- <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
- <CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
- <f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
- <20160521174438.GA27990@oracle.com>
- <82086299-ddb2-8acc-1286-5a1a7b2bf311@stressinduktion.org>
- <20160522115605.GA30516@oracle.com>
- <CALx6S358LkPTz9kzWDuveZgDFjaL7AbgwgcVLP4iyC6Bvd3yBg@mail.gmail.com>
- <CALx6S3580cJPWskNYD_xYbveXTdOzPVB8axXh471jDVzm94PhA@mail.gmail.com>
+Subject: Re: [RFC 04/12] ndisc: get rid off dev parameter in
+ ndisc_opt_addr_space
+Date: Fri, 27 May 2016 18:56:08 +0200
+Message-ID: <0f311957-d645-422a-bf58-9aa3412b0bb4@stressinduktion.org>
+References: <1464031328-17524-1-git-send-email-aar@pengutronix.de>
+ <1464031328-17524-5-git-send-email-aar@pengutronix.de>
+ <574534F8.20308@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Tom Herbert <tom@herbertland.com>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Cc: kernel@pengutronix.de, marcel@holtmann.org,
+	jukka.rissanen@linux.intel.com, stefan@osg.samsung.com,
+	mcr@sandelman.ca, werner@almesberger.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	Alexander Aring <aar@pengutronix.de>,
+	linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:33647 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:34454 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751307AbcE0Qqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 12:46:46 -0400
-In-Reply-To: <CALx6S3580cJPWskNYD_xYbveXTdOzPVB8axXh471jDVzm94PhA@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751307AbcE0Q4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 12:56:15 -0400
+In-Reply-To: <574534F8.20308@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 26, 2016, at 20:42, Tom Herbert wrote:
-> Thinking about this some more, the per option white list is a better
-> approach. If we allow an open ended mechanism for applications to
-> signal the network with arbitrary data (like user specified hbp
-> options would be), then use of that mechanism will inevitably
-> exploited by some authorities to force user to hand over private data
-> about their communications. It's better to not build in back doors to
-> security...
+On 25.05.2016 07:15, YOSHIFUJI Hideaki wrote:
+> 
+> 
+> Alexander Aring wrote:
+>> This patch removes the net_device parameter from ndisc_opt_addr_space
+>> function. This can be useful for calling such functionality which
+>> doesn't depends on dev parameter. For current existing functionality
+>> which depends on dev parameter, we introduce ndisc_dev_opt_addr_space to have
+>> an easy replacement for the ndisc_opt_addr_space function.
+>>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+>> Cc: James Morris <jmorris@namei.org>
+>> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+>> Cc: Patrick McHardy <kaber@trash.net>
+>> Signed-off-by: Alexander Aring <aar@pengutronix.de>
+>> ---
+>>  include/net/ndisc.h | 13 +++++++++----
+>>  net/ipv6/ndisc.c    | 12 ++++++------
+>>  2 files changed, 15 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+>> index 2d8edaa..dbc8d01 100644
+>> --- a/include/net/ndisc.h
+>> +++ b/include/net/ndisc.h
+>> @@ -127,10 +127,15 @@ static inline int ndisc_addr_option_pad(unsigned short type)
+>>  	}
+>>  }
+>>  
+>> -static inline int ndisc_opt_addr_space(struct net_device *dev)
+>> +static inline int ndisc_opt_addr_space(unsigned char addr_len, int pad)
+>>  {
+>> -	return NDISC_OPT_SPACE(dev->addr_len +
+>> -			       ndisc_addr_option_pad(dev->type));
+>> +	return NDISC_OPT_SPACE(addr_len + pad);
+>> +}
+>> +
+>> +static inline int ndisc_dev_opt_addr_space(const struct net_device *dev)
+>> +{
+>> +	return ndisc_opt_addr_space(dev->addr_len,
+>> +				    ndisc_addr_option_pad(dev->type));
+>>  }
+>>  
+> 
+> I prefer not to change existing functions such as ndisc_opt_addr_space(),
+> and name new function __ndisc_opt_addr_space() etc.
+> 
+> Plus, my original thought (when I implement these functions) was to
+> have per-net_device ndisc_opt_addr_spece(), ndisc_opt_adr_data() etc.
+> 
+> What do you think of that?
 
-Also I don't think that HbH options form some kind of hidden covert
-channel. They mostly appear by unused fields which cannot be verified by
-the other (receiving) side in any way.
+As I understood it 6lowpan devices need to handle both, non-compressed
+and compressed options/addresses. Probably one can make them
+per-interface, but a change to the arguments has still to happen.
+
+Alex?
+
+Thanks,
+Hannes
