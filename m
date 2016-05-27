@@ -1,8 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC PATCH 09/16] dsa: dsa: Split up creating/destroying of DSA and CPU ports
-Date: Fri, 27 May 2016 15:25:47 -0400
-Message-ID: <87bn3rz4jo.fsf@ketchup.mtl.sfl>
-References: <1464312050-23023-1-git-send-email-andrew@lunn.ch> <1464312050-23023-10-git-send-email-andrew@lunn.ch>
+Subject: Re: [RFC PATCH 11/16] net: dsa: Refactor selection of tag ops into a function
+Date: Fri, 27 May 2016 15:35:57 -0400
+Message-ID: <878tyvz42q.fsf@ketchup.mtl.sfl>
+References: <1464312050-23023-1-git-send-email-andrew@lunn.ch> <1464312050-23023-12-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,75 +10,84 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:35983 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36309 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102AbcE0TZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 15:25:51 -0400
-In-Reply-To: <1464312050-23023-10-git-send-email-andrew@lunn.ch>
+	with ESMTP id S1751017AbcE0TgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 15:36:02 -0400
+In-Reply-To: <1464312050-23023-12-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew, Florian,
-
-I suggest to use this RFC to agree on a consistent and robust API for
-the DSA layer. Some functions have non-intuitive names or signatures.
-
-What about:
-
-    <namespace>_<action>[_<object>]
-
-where <namespace> matches the first argument. So instead of
-dsa_cpu_dsa_setup, we would have:
-
-    dsa_switch_setup_cpu_dsa_port(struct dsa_switch *ds, ...)
-
-[...]
+Hi Andrew,
 
 Andrew Lunn <andrew@lunn.ch> writes:
 
->  /* basic switch operations **************************************************/
-> -static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
-> +int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
-> +		      struct device_node *port_dn, int port)
->  {
+> @@ -26,6 +26,7 @@ enum dsa_tag_protocol {
+>  	DSA_TAG_PROTO_TRAILER,
+>  	DSA_TAG_PROTO_EDSA,
+>  	DSA_TAG_PROTO_BRCM,
+> +	_DSA_TAG_LAST,
+>  };
 
-We will need the port number in the struct dsa_port at some point. The
-device_node is already a member of this structure.
+I would avoid _ prefixed functions or symbols, we've seen in mv88e6xxx
+that it doesn't make the code really readable.
 
-I suggest to add the port index before this patch and change this
-function for a more logical:
-
-    dsa_switch_setup_cpu_dsa_port(struct dsa_switch *ds, struct dsa_port *dp)
+There's already an implicit "DSA_TAG_PROTO" namespace, so I suggest
+"DSA_MAX_TAGS" to keep it consistent with DSA_MAX_{PORTS,SWITCHES}.
 
 [...]
 
->  	/* Perform configuration of the CPU and DSA ports */
-> -	ret = dsa_cpu_dsa_setup(ds, dst->master_netdev);
-> +	ret = dsa_cpu_dsa_setups(ds, parent);
->  	if (ret < 0) {
->  		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
->  			   index);
+> +	/*
+> +	 * Tagging protocol operations for adding and removing an
+> +	 * encapsulation tag.
+> +	 */
+> +	const struct dsa_device_ops *tag_ops;
 
-dsa_cpu_dsa_setups is not really meaningful and doesn't add much
-value. At least I'd call it dsa_switch_setup_cpu_dsa_ports(), or better,
-move the loop directly where it is needed so we know which port sucked:
+dsa_device_ops seems too generic for the xmit/rcv tag-related pair. That
+being said, I don't really have better suggestions. Any idea?
 
-dsa_switch_setup_one:
+[...]
 
-        /* Perform configuration of the CPU and DSA ports */
-        for (port = 0; port < DSA_MAX_PORTS; port++) {
-                if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
-                        continue;
+> +const struct dsa_device_ops *dsa_device_ops[_DSA_TAG_LAST] = {
+> +#ifdef CONFIG_NET_DSA_TAG_DSA
+> +	[DSA_TAG_PROTO_DSA] = &dsa_netdev_ops,
+> +#endif
+> +#ifdef CONFIG_NET_DSA_TAG_EDSA
+> +	[DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
+> +#endif
+> +#ifdef CONFIG_NET_DSA_TAG_TRAILER
+> +	[DSA_TAG_PROTO_TRAILER] = &trailer_netdev_ops,
+> +#endif
+> +#ifdef CONFIG_NET_DSA_TAG_BRCM
+> +	[DSA_TAG_PROTO_BRCM] = &brcm_netdev_ops,
+> +#endif
+> +	[DSA_TAG_PROTO_NONE] = &none_ops,
+> +};
+>  
+>  /* switch driver registration ***********************************************/
+>  static DEFINE_MUTEX(dsa_switch_drivers_mutex);
+> @@ -225,6 +252,20 @@ static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
+>  	return 0;
+>  }
+>  
+> +const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol)
+> +{
+> +	const struct dsa_device_ops *ops;
+> +
+> +	if (tag_protocol >= _DSA_TAG_LAST)
+> +		return ERR_PTR(-EINVAL);
+> +	ops = dsa_device_ops[tag_protocol];
+> +
+> +	if (!ops)
+> +		return ERR_PTR(-ENOPROTOOPT);
+> +
+> +	return ops;
+> +}
 
-                ret = dsa_switch_setup_cpu_dsa_port(ds, dev, ds->ports[port]);
-                if (ret) {
-                        netdev_err(dst->master_netdev,
-                                   "[%d] : can't configure port %d\n",
-                                   index, ds->ports[port]->index);
-                        break;
-                }
-        }
-        
+I don't see the need to add a dsa_device_ops array. I'd keep the switch
+case on tag_protocol within this new dsa_resolve_tag_protocol function,
+to make it more readable (no value checking necessary).
+
 Thanks,
 
         Vivien
