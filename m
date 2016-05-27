@@ -1,51 +1,92 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: IPv6 extension header privileges
-Date: Fri, 27 May 2016 11:03:18 -0400
-Message-ID: <20160527150318.GA25040@oracle.com>
-References: <CALx6S36V8Bv1R+rKWB7u=Y8371aT7JybDdkEErrRtw_bsHrMaA@mail.gmail.com>
- <6a889c73-efb1-7d4c-ba33-8b076378fcb7@stressinduktion.org>
- <CALx6S36scChuaS+uygAu4zk9gEz_qA=BSwX4f=kC_YXurTpMqw@mail.gmail.com>
- <f007389f-4ed1-2b67-69b5-28cd999264b9@stressinduktion.org>
- <20160521174438.GA27990@oracle.com>
- <82086299-ddb2-8acc-1286-5a1a7b2bf311@stressinduktion.org>
- <20160522115605.GA30516@oracle.com>
- <CALx6S358LkPTz9kzWDuveZgDFjaL7AbgwgcVLP4iyC6Bvd3yBg@mail.gmail.com>
- <CALx6S3580cJPWskNYD_xYbveXTdOzPVB8axXh471jDVzm94PhA@mail.gmail.com>
- <614c9a42-02c1-052a-52b6-289818bf757b@stressinduktion.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH 09/16] dsa: dsa: Split up creating/destroying of DSA
+ and CPU ports
+Date: Fri, 27 May 2016 17:07:44 +0200
+Message-ID: <20160527150744.GC20214@lunn.ch>
+References: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
+ <1464312050-23023-10-git-send-email-andrew@lunn.ch>
+ <87lh2v604y.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Crispin <john@phrozen.org>, Bryan.Whitehead@microchip.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:35317 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755222AbcE0PDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 11:03:33 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:52875 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755337AbcE0PHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 May 2016 11:07:48 -0400
 Content-Disposition: inline
-In-Reply-To: <614c9a42-02c1-052a-52b6-289818bf757b@stressinduktion.org>
+In-Reply-To: <87lh2v604y.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (05/27/16 11:53), Hannes Frederic Sowa wrote:
-> > Thinking about this some more, the per option white list is a better
-> > approach. If we allow an open ended mechanism for applications to
-> > signal the network with arbitrary data (like user specified hbp
-> > options would be), then use of that mechanism will inevitably
-> > exploited by some authorities to force user to hand over private data
-> > about their communications. It's better to not build in back doors to
-> > security...
+On Fri, May 27, 2016 at 10:33:49AM -0400, Vivien Didelot wrote:
+> Hi Andrew,
 > 
-> Sorry, Tom, can you try to explain again, I think I might not have
-> understood you correctly.
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+> > -static void dsa_switch_destroy(struct dsa_switch *ds)
+> > +void dsa_cpu_dsa_destroy(struct device_node *port_dn)
+> >  {
+> > -	struct device_node *port_dn;
+> >  	struct phy_device *phydev;
+> > +
+> > +	if (of_phy_is_fixed_link(port_dn)) {
+> > +		phydev = of_phy_find_device(port_dn);
+> > +		if (phydev) {
+> > +			phy_device_free(phydev);
+> > +			fixed_phy_unregister(phydev);
+> > +		}
+> > +	}
+> > +}
+> > +
+> > +static void dsa_switch_destroy(struct dsa_switch *ds)
+> > +{
+> >  	int port;
+> >  
+> >  #ifdef CONFIG_NET_DSA_HWMON
+> > @@ -445,17 +467,11 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+> >  		dsa_slave_destroy(ds->ports[port].netdev);
+> >  	}
+> >  
+> > -	/* Remove any fixed link PHYs */
+> > +	/* Disable configuration of the CPU and DSA ports */
+> >  	for (port = 0; port < DSA_MAX_PORTS; port++) {
+> > -		port_dn = ds->ports[port].dn;
+> > -		if (of_phy_is_fixed_link(port_dn)) {
+> > -			phydev = of_phy_find_device(port_dn);
+> > -			if (phydev) {
+> > -				phy_device_free(phydev);
+> > -				of_node_put(port_dn);
+> 
+> Why does dsa_cpu_dsa_destroy drop that of_node_put call?
 
-yes, me too. Might help to discuss this by looking at an instance
-of the type of option we are talking about. 
+The of node reference counting is broken. The DT maintainers actually
+say not to care, the whole reference counting scheme is broken. Which
+is a bit sad really. There was a discussion about this a couple of
+months ago.
 
-Usually hbh options are handled in the forwarding path (and thus
-as unpopular as ip options, since they derail the packet to the 
-slow path). Are you suggesting some type of AAA to vet the hbh 
-option itself?
+Anyway, the reference is taken in dsa_of_probe() as part of the
+or_each_available_child_of_node(child, port). This reference has
+nothing to do with the port being a fixed link or not. So freeing it
+here is inappropriate. The correct place to free it would probably be
+in dsa_of_remove.
+ 
+> > -				fixed_phy_unregister(phydev);
+> > -			}
+> > -		}
+> > +		if ((dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
+> > +			continue;
+> 
+> Why do we skip DSA and CPU ports here? The previous code didn't.
+> 
+> > +		dsa_cpu_dsa_destroy(ds->ports[port].dn);
 
---Sowmini
+They are now destroyed by the newly added dsa_cpu_dsa_destroy().  I'm
+making the code more symmetrical and easier to re-use. The inverse of
+this function is dsa_switch_setup_one() and it also uses a helper
+function to setup the dsa and cpu ports, dsa_cpu_dsa_setups().
+
+	 Andrew
