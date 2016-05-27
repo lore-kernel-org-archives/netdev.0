@@ -1,56 +1,38 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] atm: firestream: add more reserved strings
-Date: Fri, 27 May 2016 13:33:50 +0300
-Message-ID: <20160527103350.GA3255@mwanda>
+Subject: [patch] atm: iphase: off by one in rx_pkt()
+Date: Fri, 27 May 2016 13:34:35 +0300
+Message-ID: <20160527103435.GB3255@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Chas Williams <3chas3@gmail.com>,
-	Patrick van de Lageweg <patrick@bitwizard.nl>
+To: Chas Williams <3chas3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34179 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:34486 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752520AbcE0KeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 06:34:16 -0400
+	with ESMTP id S1752520AbcE0Ke7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 06:34:59 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This bug was there when the driver was first added in back in year 2000.
-It causes a Smatch warning:
-
-    drivers/atm/firestream.c:849 process_incoming()
-    error: buffer overflow 'res_strings' 60 <= 63
-
-There are supposed to be 64 entries in this array and the missing
-strings are clearly in the 30 40 range.  I added them as reserved 37 to
-reserved 40.  It's possible that strings are really supposed to be added
-in the middle instead of at the end, but this approach is safe, in that
-it fixes the bug and doesn't break anything that wasn't already broken.
+The iadev->rx_open[] array holds "iadev->num_vc" pointers (this code
+assumes that pointers are 32 bits).  So the > here should be >= or else
+we could end up reading a garbage pointer from one element beyond the
+end of the array.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-index a969a7e..4777064 100644
---- a/drivers/atm/firestream.c
-+++ b/drivers/atm/firestream.c
-@@ -181,13 +181,17 @@ static char *res_strings[] = {
- 	"reserved 27", 
- 	"reserved 28", 
- 	"reserved 29", 
--	"reserved 30", 
-+	"reserved 30", /* FIXME: The strings between 30-40 might be wrong. */
- 	"reassembly abort: no buffers", 
- 	"receive buffer overflow", 
- 	"change in GFC", 
- 	"receive buffer full", 
- 	"low priority discard - no receive descriptor", 
- 	"low priority discard - missing end of packet", 
-+	"reserved 37",
-+	"reserved 38",
-+	"reserved 39",
-+	"reseverd 40",
- 	"reserved 41", 
- 	"reserved 42", 
- 	"reserved 43", 
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 7d00f29..f86e318 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -1128,7 +1128,7 @@ static int rx_pkt(struct atm_dev *dev)
+ 	/* make the ptr point to the corresponding buffer desc entry */  
+ 	buf_desc_ptr += desc;	  
+         if (!desc || (desc > iadev->num_rx_desc) || 
+-                      ((buf_desc_ptr->vc_index & 0xffff) > iadev->num_vc)) { 
++                      ((buf_desc_ptr->vc_index & 0xffff) >= iadev->num_vc)) { 
+             free_desc(dev, desc);
+             IF_ERR(printk("IA: bad descriptor desc = %d \n", desc);)
+             return -1;
