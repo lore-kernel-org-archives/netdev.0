@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [RFC PATCH 09/16] dsa: dsa: Split up creating/destroying of DSA and CPU ports
-Date: Fri, 27 May 2016 03:20:43 +0200
-Message-ID: <1464312050-23023-10-git-send-email-andrew@lunn.ch>
+Subject: [RFC PATCH 16/16] dsa: Document new binding
+Date: Fri, 27 May 2016 03:20:50 +0200
+Message-ID: <1464312050-23023-17-git-send-email-andrew@lunn.ch>
 References: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,167 +9,308 @@ Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52534 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:52540 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755774AbcE0BXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 May 2016 21:23:43 -0400
+	id S1755774AbcE0BX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2016 21:23:59 -0400
 In-Reply-To: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactor the code to setup a single DSA/CPU port into a function of
-its own, and export it, so it can be used by the new binding.
-
-Similarly, refactor the destroy code into a function.
+Add the new binding to the documentation of the existing binding.
+Mark the old binding as deprecated.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa.c      | 86 ++++++++++++++++++++++++++++++++----------------------
- net/dsa/dsa_priv.h |  3 ++
- 2 files changed, 54 insertions(+), 35 deletions(-)
+ Documentation/devicetree/bindings/net/dsa/dsa.txt | 278 +++++++++++++++++++++-
+ 1 file changed, 276 insertions(+), 2 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index bfe1d03d4730..20eede3facf5 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -180,36 +180,47 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
- #endif /* CONFIG_NET_DSA_HWMON */
- 
- /* basic switch operations **************************************************/
--static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
-+int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
-+		      struct device_node *port_dn, int port)
- {
--	struct device_node *port_dn;
- 	struct phy_device *phydev;
--	int ret, port, mode;
-+	int ret, mode;
+diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+index 9f4807f90c31..8c9e1b80cb65 100644
+--- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
++++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+@@ -1,5 +1,279 @@
+-Marvell Distributed Switch Architecture Device Tree Bindings
+-------------------------------------------------------------
++Distributed Switch Architecture Device Tree Bindings
++----------------------------------------------------
 +
-+	if (of_phy_is_fixed_link(port_dn)) {
-+		ret = of_phy_register_fixed_link(port_dn);
-+		if (ret) {
-+			dev_err(dev, "failed to register fixed PHY\n");
-+			return ret;
-+		}
-+		phydev = of_phy_find_device(port_dn);
++Two bindings exist, one of which has been deprecated due to
++limitations.
 +
-+		mode = of_get_phy_mode(port_dn);
-+		if (mode < 0)
-+			mode = PHY_INTERFACE_MODE_NA;
-+		phydev->interface = mode;
++Current Binding
++---------------
 +
-+		genphy_config_init(phydev);
-+		genphy_read_status(phydev);
-+		if (ds->drv->adjust_link)
-+			ds->drv->adjust_link(ds, port, phydev);
-+	}
++Switches are true Linux devices and can be probes by any means. Once
++probed, they register to the DSA framework, passing a node
++pointer. This node is expected to fulfil the following binding, and
++may contain additional properties as required by the device it is
++embedded within.
 +
-+	return 0;
-+}
++Required properties:
 +
-+static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
-+{
-+	struct device_node *port_dn;
-+	int ret, port;
- 
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
- 		port_dn = ds->ports[port].dn;
--		if (of_phy_is_fixed_link(port_dn)) {
--			ret = of_phy_register_fixed_link(port_dn);
--			if (ret) {
--				netdev_err(master,
--					   "failed to register fixed PHY\n");
--				return ret;
--			}
--			phydev = of_phy_find_device(port_dn);
--
--			mode = of_get_phy_mode(port_dn);
--			if (mode < 0)
--				mode = PHY_INTERFACE_MODE_NA;
--			phydev->interface = mode;
--
--			genphy_config_init(phydev);
--			genphy_read_status(phydev);
--			if (ds->drv->adjust_link)
--				ds->drv->adjust_link(ds, port, phydev);
--		}
-+		ret = dsa_cpu_dsa_setup(ds, dev, port_dn, port);
-+		if (ret)
-+			return ret;
- 	}
- 	return 0;
- }
-@@ -340,7 +351,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	}
- 
- 	/* Perform configuration of the CPU and DSA ports */
--	ret = dsa_cpu_dsa_setup(ds, dst->master_netdev);
-+	ret = dsa_cpu_dsa_setups(ds, parent);
- 	if (ret < 0) {
- 		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
- 			   index);
-@@ -423,10 +434,21 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	return ds;
- }
- 
--static void dsa_switch_destroy(struct dsa_switch *ds)
-+void dsa_cpu_dsa_destroy(struct device_node *port_dn)
- {
--	struct device_node *port_dn;
- 	struct phy_device *phydev;
++- ports		: A container for child nodes representing switch ports.
 +
-+	if (of_phy_is_fixed_link(port_dn)) {
-+		phydev = of_phy_find_device(port_dn);
-+		if (phydev) {
-+			phy_device_free(phydev);
-+			fixed_phy_unregister(phydev);
-+		}
-+	}
-+}
++Optional properties:
 +
-+static void dsa_switch_destroy(struct dsa_switch *ds)
-+{
- 	int port;
++- dsa,member	: A two element list indicates which DSA cluster, and position
++		  within the cluster a switch takes. <0 0> is cluster 0,
++		  switch 0. <0 1> is cluster 0, switch 1. <1 0> is cluster 1,
++		  switch 0. A switch not part of any cluster (single device
++		  hanging off a CPU port) must not specify this property
++
++The ports container has the following properties
++
++Required properties:
++
++- #address-cells	: Must be 1
++- #size-cells		: Must be 0
++
++Each port children node must have the following mandatory properties:
++- reg			: Describes the port address in the switch
++- label			: Describes the label associated with this port, which
++                          will become the netdev name. Special labels are
++			  "cpu" to indicate a CPU port and "dsa" to
++			  indicate an uplink/downlink port between switches in
++			  the cluster.
++
++A port labelled "dsa" has the following mandatory property:
++
++- link			: Should be a list of phandles to other switch's DSA
++  			  port. This port is used as the outgoing port
++			  towards the phandle ports. The full routing
++			  information must be given, not just the one hop
++			  routes to neighbouring switches.
++
++A port labelled "cpu" has the following mandatory property:
++
++- ethernet		: Should be a phandle to a valid Ethernet device node.
++                          This host device is what the switch port is
++			  connected to.
++
++Port child nodes may also contain the following optional standardised
++properties, described in binding documents:
++
++- phy-handle		: Phandle to a PHY on an MDIO bus. See
++			  Documentation/devicetree/bindings/net/ethernet.txt
++			  for details.
++
++- phy-mode		: See
++			  Documentation/devicetree/bindings/net/ethernet.txt
++			  for details.
++
++- fixed-link		: Fixed-link subnode describing a link to a non-MDIO
++			  managed entity. See
++			  Documentation/devicetree/bindings/net/fixed-link.txt
++			  for details.
++
++Example
++
++The following example shows three switches on three MDIO busses,
++linked into one DSA cluster.
++
++&mdio1 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	switch0: switch0@0 {
++		compatible = "marvell,mv88e6085";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		dsa,member = <0 0>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				label = "lan0";
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan1";
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan2";
++			};
++
++			switch0port5: port@5 {
++				reg = <5>;
++				label = "dsa";
++				phy-mode = "rgmii-txid";
++				link = <&switch1port6
++					&switch2port9>;
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++
++			port@6 {
++				reg = <6>;
++				label = "cpu";
++				ethernet = <&fec1>;
++				fixed-link {
++					speed = <100>;
++					full-duplex;
++				};
++			};
++		};
++	};
++};
++
++&mdio2 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	switch1: switch1@0 {
++		compatible = "marvell,mv88e6085";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		dsa,member = <0 1>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				label = "lan3";
++				phy-handle = <&switch1phy0>;
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan4";
++				phy-handle = <&switch1phy1>;
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan5";
++				phy-handle = <&switch1phy2>;
++			};
++
++			switch1port5: port@5 {
++				reg = <5>;
++				label = "dsa";
++				link = <&switch2port9>;
++				phy-mode = "rgmii-txid";
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++
++			switch1port6: port@6 {
++				reg = <6>;
++				label = "dsa";
++				phy-mode = "rgmii-txid";
++				link = <&switch0port5>;
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++		};
++		mdio-bus {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			switch1phy0: switch1phy0@0 {
++				reg = <0>;
++			};
++			switch1phy1: switch1phy0@1 {
++				reg = <1>;
++			};
++			switch1phy2: switch1phy0@2 {
++				reg = <2>;
++			};
++		};
++	 };
++};
++
++&mdio4 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	switch2: switch2@0 {
++		compatible = "marvell,mv88e6085";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		dsa,member = <0 2>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				label = "lan6";
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan7";
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan8";
++			};
++
++			port@3 {
++				reg = <3>;
++				label = "optical3";
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++					link-gpios = <&gpio6 2
++					      GPIO_ACTIVE_HIGH>;
++				};
++			};
++
++			port@4 {
++				reg = <4>;
++				label = "optical4";
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++					link-gpios = <&gpio6 3
++					      GPIO_ACTIVE_HIGH>;
++				};
++			};
++
++			switch2port9: port@9 {
++				reg = <9>;
++				label = "dsa";
++				phy-mode = "rgmii-txid";
++				link = <&switch1port5
++					&switch0port5>;
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++		};
++	};
++};
++
++Deprecated Binding
++------------------
++
++The deprecated binding makes use of a platform device to represent the
++switches. The switches themselves are not Linux devices, and make use
++of an MDIO bus for management.
  
- #ifdef CONFIG_NET_DSA_HWMON
-@@ -445,17 +467,11 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 		dsa_slave_destroy(ds->ports[port].netdev);
- 	}
- 
--	/* Remove any fixed link PHYs */
-+	/* Disable configuration of the CPU and DSA ports */
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
--		port_dn = ds->ports[port].dn;
--		if (of_phy_is_fixed_link(port_dn)) {
--			phydev = of_phy_find_device(port_dn);
--			if (phydev) {
--				phy_device_free(phydev);
--				of_node_put(port_dn);
--				fixed_phy_unregister(phydev);
--			}
--		}
-+		if ((dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
-+			continue;
-+		dsa_cpu_dsa_destroy(ds->ports[port].dn);
- 	}
- 
- 	mdiobus_unregister(ds->slave_mii_bus);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index dfa33779d49c..dbea5d9e7f75 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -50,6 +50,9 @@ struct dsa_slave_priv {
- 
- /* dsa.c */
- extern char dsa_driver_version[];
-+int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
-+		      struct device_node *port_dn, int port);
-+void dsa_cpu_dsa_destroy(struct device_node *port_dn);
- 
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
+ Required properties:
+ - compatible		: Should be "marvell,dsa"
 -- 
 2.8.1
