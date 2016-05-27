@@ -1,65 +1,52 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: sctp_diag should dump sctp socket type
-Date: Sat, 28 May 2016 00:06:27 +0800
-Message-ID: <CADvbK_cucfLqF1_2MEeQN9Ljwx79jbW-0bFVeNWx2xBYU2j1PQ@mail.gmail.com>
-References: <53ebf63eb6de080418949f52d0d3556af2a371e1.1464203668.git.lucien.xin@gmail.com>
-	<1464207719.5939.73.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] vxlan: Accept user specified MTU value when create new
+ vxlan link
+Date: Fri, 27 May 2016 09:09:01 -0700
+Message-ID: <CAM_iQpULCyju9vor74ygcv5FcqFeoq9KthRuCYfo4=tF0ieHrg@mail.gmail.com>
+References: <1464317351-22316-1-git-send-email-oc@yunify.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	davem <davem@davemloft.net>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	Phil Sutter <phil@nwl.cc>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Chen Haiquan <oc@yunify.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:34849 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755824AbcE0QGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 12:06:33 -0400
-In-Reply-To: <1464207719.5939.73.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:33323 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307AbcE0QJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 12:09:21 -0400
+Received: by mail-yw0-f193.google.com with SMTP id y6so6856163ywe.0
+        for <netdev@vger.kernel.org>; Fri, 27 May 2016 09:09:21 -0700 (PDT)
+In-Reply-To: <1464317351-22316-1-git-send-email-oc@yunify.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 26, 2016 at 4:21 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-05-26 at 03:14 +0800, Xin Long wrote:
->> Now we cannot distinguish that one sk is a udp or sctp style when
->> we use ss to dump sctp_info. it's necessary to dump it as well.
->>
->> For sctp_diag, ss support is not officially available, thus there
->> are no official users of this yet, so we can add this field in the
->> middle of sctp_info without breaking user API.
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  include/linux/sctp.h | 1 +
->>  net/sctp/socket.c    | 1 +
->>  2 files changed, 2 insertions(+)
->>
->> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
->> index dacb5e7..3a406af 100644
->> --- a/include/linux/sctp.h
->> +++ b/include/linux/sctp.h
->> @@ -761,6 +761,7 @@ struct sctp_info {
->>       __u32   sctpi_s_autoclose;
->>       __u32   sctpi_s_adaptation_ind;
->>       __u32   sctpi_s_pd_point;
->> +     __u32   sctpi_s_type;
+On Thu, May 26, 2016 at 7:49 PM, Chen Haiquan <oc@yunify.com> wrote:
+> When create a new vxlan link, example:
+>   ip link add vtap mtu 1440 type vxlan vni 1 dev eth0
 >
-> Well, this is also adding a 4-byte padding at the end of the structure.
+> The argument "mtu" has no effect, because it is not set to conf->mtu. The
+> default value is used in vxlan_dev_configure function.
 >
+> This problem was introduced by commit 0dfbdf4102b9 (vxlan: Factor out device
+> configuration).
 >
-> Basically, because of the 8-byte alignment cause by the __u64 fields,
-> adding a single __u32 adds a padding.
+> Fixes: 0dfbdf4102b9 (vxlan: Factor out device configuration)
 >
-> Don't you have another u32 info you'd like to publish ?
+> Signed-off-by:  Chen Haiquan <oc@yunify.com>
+> ---
+>  drivers/net/vxlan.c | 3 +++
+>  1 file changed, 3 insertions(+)
 >
-these days, I was trying to find an right u32 one for here, but no good
-one, so I will put a __u32   __reserved3; there.
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 8ff30c3..f999db2 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -3086,6 +3086,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+>         if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
+>                 conf.flags |= VXLAN_F_REMCSUM_NOPARTIAL;
+>
+> +       if (tb[IFLA_MTU])
+> +               conf.mtu = nla_get_u32(tb[IFLA_MTU]);
+> +
 
-sctp still have some feature haven't yet been implemented, maybe
-after that, we will find a good one. :)
-
-
->
->
+IFLA_MTU is already parsed in rtnl_create_link(),
+so just use dev->mtu here? conf.mtu = dev->mtu?
