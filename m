@@ -1,7 +1,7 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 3/8] mwifiex: propagate mwifiex_add_card() errno code in mwifiex_sdio_probe()
-Date: Fri, 27 May 2016 10:18:17 -0400
-Message-ID: <1464358702-19083-4-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 1/8] mwifiex: only call mwifiex_sdio_probe_of() if dev has an OF node
+Date: Fri, 27 May 2016 10:18:15 -0400
+Message-ID: <1464358702-19083-2-git-send-email-javier@osg.samsung.com>
 References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Cc: Xinming Hu <huxm@marvell.com>,
 	Javier Martinez Canillas <javier@osg.samsung.com>,
@@ -15,43 +15,50 @@ In-Reply-To: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There's only a check if mwifiex_add_card() returned a nonzero value, but
-the actual error code is neither stored nor propagated to the caller. So
-instead of always returning -1 (which is -EPERM and not a suitable errno
-code in this case), propagate the value returned by mwifiex_add_card().
+SDIO is an auto enumerable bus so the SDIO devices are matched using the
+sdio_device_id table and not using compatible strings from a OF id table.
 
-Patch also removes the assignment of sdio_disable_func() returned value
-since it was overwritten anyways and what matters is to know the error
-value returned by the first function that failed.
+However, commit ce4f6f0c353b ("mwifiex: add platform specific wakeup
+interrupt support") allowed to match nodes defined as child of the SDIO
+host controller in the probe function using a compatible string to setup
+platform specific parameters in the DT.
+
+The problem is that the OF parse function is always called regardless if
+the SDIO dev has an OF node associated or not, and prints an error if it
+is not found. So, on a platform that doesn't have a node for a SDIO dev,
+the following misleading error message will be printed:
+
+[  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
 
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 ---
 
- drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/wireless/marvell/mwifiex/sdio.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
-index ab64507c84e1..81003fbe5025 100644
+index bdc51ffd43ec..285b1b68f7e9 100644
 --- a/drivers/net/wireless/marvell/mwifiex/sdio.c
 +++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-@@ -191,14 +191,14 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
- 	if (func->dev.of_node)
- 		mwifiex_sdio_probe_of(&func->dev, card);
+@@ -102,8 +102,7 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
+ 	struct mwifiex_plt_wake_cfg *cfg;
+ 	int ret;
  
--	if (mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
--			     MWIFIEX_SDIO)) {
-+	ret = mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
-+			       MWIFIEX_SDIO);
-+	if (ret) {
- 		pr_err("%s: add card failed\n", __func__);
- 		kfree(card);
- 		sdio_claim_host(func);
--		ret = sdio_disable_func(func);
-+		sdio_disable_func(func);
- 		sdio_release_host(func);
--		ret = -1;
+-	if (!dev->of_node ||
+-	    !of_match_node(mwifiex_sdio_of_match_table, dev->of_node)) {
++	if (!of_match_node(mwifiex_sdio_of_match_table, dev->of_node)) {
+ 		dev_err(dev, "sdio platform data not available\n");
+ 		return -1;
+ 	}
+@@ -189,7 +188,8 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
  	}
  
- 	return ret;
+ 	/* device tree node parsing and platform specific configuration*/
+-	mwifiex_sdio_probe_of(&func->dev, card);
++	if (func->dev.of_node)
++		mwifiex_sdio_probe_of(&func->dev, card);
+ 
+ 	if (mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
+ 			     MWIFIEX_SDIO)) {
 -- 
 2.5.5
