@@ -1,60 +1,59 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net] openvswitch: update checksum in {push,pop}_mpls
-Date: Fri, 27 May 2016 15:58:58 +0900
-Message-ID: <1464332338-12382-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Pravin Shelar <pshelar@nicira.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v1 0/6] drivers: net: xgene: Fix 1G hot-plug and module support
+Date: Fri, 27 May 2016 00:22:42 -0700
+Message-ID: <1464333768-26150-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:32857 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754505AbcE0G7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 02:59:08 -0400
-Received: by mail-pa0-f54.google.com with SMTP id xk12so37338013pac.0
-        for <netdev@vger.kernel.org>; Thu, 26 May 2016 23:59:08 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33630 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbcE0HXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 03:23:07 -0400
+Received: by mail-pa0-f46.google.com with SMTP id xk12so37539739pac.0
+        for <netdev@vger.kernel.org>; Fri, 27 May 2016 00:23:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case of CHECKSUM_COMPLETE the skb checksum should be updated in
-{push,pop}_mpls() as they the type in the ethernet header.
+This patchset addresses the following issues,
 
-As suggested by Pravin Shelar.
+1. hot-plug issue on the SGMII 1G interface
+	- by adding a driver for MDIO management
+2. fixes the kernel crash when the driver loaded as an kernel module
+	- by fixing hardware cleanups and rearrange kernel API calls
 
-Cc: Pravin Shelar <pshelar@nicira.com>
-Fixes: 25cd9ba0abc0 ("openvswitch: Add basic MPLS support to kernel")
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- net/openvswitch/actions.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 879185fe183f..d6010b44d423 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -161,6 +161,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
- 
- 	hdr = eth_hdr(skb);
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		__be16 diff[] = { ~(hdr->h_proto), mpls->mpls_ethertype };
-+
-+		skb->csum = ~csum_partial((char *)diff, sizeof(diff),
-+					~skb->csum);
-+	}
- 	hdr->h_proto = mpls->mpls_ethertype;
- 
- 	if (!skb->inner_protocol)
-@@ -193,6 +199,12 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	 * field correctly in the presence of VLAN tags.
- 	 */
- 	hdr = (struct ethhdr *)(skb_mpls_header(skb) - ETH_HLEN);
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		__be16 diff[] = { ~(hdr->h_proto), ethertype };
-+
-+		skb->csum = ~csum_partial((char *)diff, sizeof(diff),
-+					~skb->csum);
-+	}
- 	hdr->h_proto = ethertype;
- 	if (eth_p_mpls(skb->protocol))
- 		skb->protocol = ethertype;
+Iyappan Subramanian (6):
+  drivers: net: xgene: MAC and PHY configuration changes
+  drivers: net: xgene: Backward compatibility with older firmware
+  drivers: net: phy: Add MDIO driver
+  dtb: xgene: Add MDIO node
+  dtb: xgene: Remove clock nodes
+  drivers: net: xgene: Fix module load/unload crash
+
+ arch/arm64/boot/dts/apm/apm-merlin.dts            |  10 +
+ arch/arm64/boot/dts/apm/apm-mustang.dts           |  12 +
+ arch/arm64/boot/dts/apm/apm-shadowcat.dtsi        |  23 +-
+ arch/arm64/boot/dts/apm/apm-storm.dtsi            |  38 +-
+ drivers/net/ethernet/apm/xgene/Kconfig            |   1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 241 ++++++----
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  18 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 325 ++++++++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  36 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 191 +++++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.h |   8 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  66 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |   4 +
+ drivers/net/phy/Kconfig                           |   7 +
+ drivers/net/phy/Makefile                          |   1 +
+ drivers/net/phy/mdio-xgene.c                      | 531 ++++++++++++++++++++++
+ drivers/net/phy/mdio-xgene.h                      | 140 ++++++
+ 17 files changed, 1373 insertions(+), 279 deletions(-)
+ create mode 100644 drivers/net/phy/mdio-xgene.c
+ create mode 100644 drivers/net/phy/mdio-xgene.h
+
 -- 
-2.1.4
+1.9.1
