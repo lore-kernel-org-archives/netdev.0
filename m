@@ -1,167 +1,52 @@
-From: Sam Patton <sam@enhancedip.org>
-Subject: BUG: netfilter hooks: problems porting to 4.4.6
-Date: Fri, 27 May 2016 13:53:07 -0400
-Message-ID: <CABvMDUemp8Zb8dv2vcQ_Mm5Wk5u5LorLc3z+hRp5HoLk-R=tjw@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH,RFC] macvlan: Handle broadcasts inline if we have only a
+ few macvlans.
+Date: Fri, 27 May 2016 10:56:44 -0700
+Message-ID: <CAM_iQpWwX_tJVk-96v2Xjwrm+Nijk1AkRhe+aoNU6o_3bQh_BA@mail.gmail.com>
+References: <20160526234433.GU8402@wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Did something change in Netfilter on the 4.4.6 kernel that would affect my
-
-Netfilter hook driver?  I have a driver that works in 2.6.38, 3.10.49 and
-
-3.15.3.   I started porting the driver to the 4.4.6 kernel and
-
-can't get it to work.  Specifically, apply_eip_snat() in the driver never gets
-
-called and it should get called as packets leave the NAT.  The
-
-print statement below  where I print out maniptype is always returning 1.
-
-e.g. NF_NAT_MANIP_DST.
-
-
-Here's my iptables command:
-
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-
-
-Here's relevant code snippets.
-
-static struct nf_hook_ops nf_nat_ops[] __read_mostly = {
-
-      // Before packet filtering, change destination
-
-      {
-
-              .hook           = nf_eipnat_in,
-
-              .owner          = THIS_MODULE,
-
-              .pf             = PF_INET,
-
-              .hooknum        = NF_INET_PRE_ROUTING,
-
-              .priority       = NF_IP_PRI_NAT_DST,
-
-      },
-
-      // After packet filtering, change source
-
-      {
-
-              .hook           = nf_eipnat_out,
-
-              .owner          = THIS_MODULE,
-
-              .pf             = PF_INET,
-
-              .hooknum        = NF_INET_POST_ROUTING,
-
-              .priority       = NF_IP_PRI_NAT_SRC,
-
-      },
-
-};
-
-
-
-nf_eipnat_in(unsigned int hooknum,
-
-        struct sk_buff *skb,
-
-        const struct net_device *in,
-
-        const struct net_device *out,
-
-        int (*okfn)(struct sk_buff *))
-
-{
-
-      printk("nf_eipnat_in\n");
-
-      return nf_nat_fn("dnat in prerouting", hooknum, skb, in, out, okfn);
-
-}
-
-
-
-static unsigned int
-
-nf_eipnat_out(unsigned int hooknum,
-
-         struct sk_buff *skb,
-
-         const struct net_device *in,
-
-         const struct net_device *out,
-
-         int (*okfn)(struct sk_buff *))
-
-{
-
-      printk("nf_eipnat_out\n");
-
-      return nf_nat_fn("snat out postrouting", hooknum, skb, in, out, okfn);
-
-}
-
-
-static unsigned int
-
-nf_nat_fn(char *instring,
-
-        unsigned int hooknum,
-
-        struct sk_buff *skb,
-
-        const struct net_device *in,
-
-        const struct net_device *out,
-
-        int (*okfn)(struct sk_buff *))
-
-{
-
-      unsigned int retval = 0;
-
-
-      /* maniptype == SRC for postrouting. */
-
-      enum nf_nat_manip_type maniptype = HOOK2MANIP(hooknum);
-
-      printk("maniptype = %d\n", maniptype);
-
-
-      /* We never see fragments: conntrack defrags on pre-routing
-
-         and local-out, and nf_nat_out protects post-routing. */
-
-      NF_CT_ASSERT(!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)));
-
-
-      //printskb(instring, skb, in, out);
-
-      if(maniptype == NF_NAT_MANIP_DST){
-
-              retval = apply_eip_dnat(in, skb);
-
-      }
-
-      else{
-
-              retval = apply_eip_snat(out, skb);
-
-      }
-
-
-      return retval;
-
-}
-
-Thanks!
-
--Sam
+Cc: Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:32931 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932516AbcE0R5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 13:57:05 -0400
+Received: by mail-yw0-f193.google.com with SMTP id y6so7238188ywe.0
+        for <netdev@vger.kernel.org>; Fri, 27 May 2016 10:57:04 -0700 (PDT)
+In-Reply-To: <20160526234433.GU8402@wantstofly.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Thu, May 26, 2016 at 4:44 PM, Lennert Buytenhek
+<buytenh@wantstofly.org> wrote:
+> Commit 412ca1550cbecb2c ("macvlan: Move broadcasts into a work queue")
+> moved processing of all macvlan multicasts into a work queue.  This
+> causes a noticable performance regression when there is heavy multicast
+> traffic on the underlying interface for multicast groups that the
+> macvlan subinterfaces are not members of, in which case we end up
+> cloning all those packets and then freeing them again from a work queue
+> without really doing any useful work with them in between.
+
+But we only queue up to 1000 packets in our backlog.
+
+How about adding a quick check before cloning it?
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index cb01023..1c73d0f 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -315,6 +315,9 @@ static void macvlan_broadcast_enqueue(struct
+macvlan_port *port,
+        struct sk_buff *nskb;
+        int err = -ENOMEM;
+
++       if (skb_queue_len(&port->bc_queue) >= MACVLAN_BC_QUEUE_LEN)
++               return;
++
+        nskb = skb_clone(skb, GFP_ATOMIC);
+        if (!nskb)
+                goto err;
