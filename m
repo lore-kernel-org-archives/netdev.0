@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [RFC PATCH 08/16] dsa: Copy the routing table into the switch structure
-Date: Fri, 27 May 2016 03:20:42 +0200
-Message-ID: <1464312050-23023-9-git-send-email-andrew@lunn.ch>
+Subject: [RFC PATCH 07/16] dsa: Remove dynamic allocate of routing table
+Date: Fri, 27 May 2016 03:20:41 +0200
+Message-ID: <1464312050-23023-8-git-send-email-andrew@lunn.ch>
 References: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,81 +9,89 @@ Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52498 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:52504 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755771AbcE0BWI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 May 2016 21:22:08 -0400
+	id S1755771AbcE0BWX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2016 21:22:23 -0400
 In-Reply-To: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new binding will not have a chip data structure, it will place the
-routing directly into the switch structure. To enable backwards
-compatibility, copy the routing from the chip data into the switch
-structure.
+With a maximum of four switches, the size of the routing table is the
+same as the pointer to it. Removing it makes the code simpler.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c |  4 ++--
- include/net/dsa.h           | 10 +++++++++-
- net/dsa/dsa.c               |  2 ++
- 3 files changed, 13 insertions(+), 3 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c |  3 +--
+ include/net/dsa.h           | 10 +++++-----
+ net/dsa/dsa.c               | 12 ------------
+ 3 files changed, 6 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index d622c0fb76cc..492801a6398c 100644
+index 85332d9a245a..d622c0fb76cc 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3024,8 +3024,8 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
+@@ -3024,8 +3024,7 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_priv_state *ps)
  	for (i = 0; i < 32; i++) {
  		int nexthop = 0x1f;
  
--		if (i != ps->ds->index && i < ps->ds->dst->pd->nr_chips)
--			nexthop = ps->ds->cd->rtable[i] & 0x1f;
-+		if (i != ds->index && i < DSA_MAX_SWITCHES)
-+			nexthop = ds->rtable[i] & 0x1f;
+-		if (ps->ds->cd->rtable &&
+-		    i != ps->ds->index && i < ps->ds->dst->pd->nr_chips)
++		if (i != ps->ds->index && i < ps->ds->dst->pd->nr_chips)
+ 			nexthop = ps->ds->cd->rtable[i] & 0x1f;
  
  		err = _mv88e6xxx_reg_write(
- 			ps, REG_GLOBAL2,
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 37e8e179d85a..ea0e7d30342b 100644
+index 8314197d028f..37e8e179d85a 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -149,6 +149,14 @@ struct dsa_switch {
- 	 */
- 	struct dsa_switch_driver	*drv;
+@@ -58,12 +58,12 @@ struct dsa_chip_data {
+ 	struct device_node *port_dn[DSA_MAX_PORTS];
  
-+	/*
+ 	/*
+-	 * An array (with nr_chips elements) of which element [a]
+-	 * indicates which port on this switch should be used to
+-	 * send packets to that are destined for switch a.  Can be
+-	 * NULL if there is only one switch chip.
 +	 * An array of which element [a] indicates which port on this
 +	 * switch should be used to send packets to that are destined
 +	 * for switch a.  Can be NULL if there is only one switch
 +	 * chip.
-+	 */
+ 	 */
+-	s8		*rtable;
 +	s8		rtable[DSA_MAX_SWITCHES];
-+
- #ifdef CONFIG_NET_DSA_HWMON
- 	/*
- 	 * Hardware monitoring information
-@@ -195,7 +203,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- 	if (dst->cpu_switch == ds->index)
- 		return dst->cpu_port;
- 	else
--		return ds->cd->rtable[dst->cpu_switch];
-+		return ds->rtable[dst->cpu_switch];
- }
+ };
  
- struct switchdev_trans;
+ struct dsa_platform_data {
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 6177dd750847..bfe1d03d4730 100644
+index 5907f8cd13b6..6177dd750847 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -297,6 +297,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 		dst->tag_protocol = drv->tag_protocol;
- 	}
+@@ -587,17 +587,6 @@ static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
+ 	if (link_sw_addr >= pd->nr_chips)
+ 		return -EINVAL;
  
-+	memcpy(ds->rtable, cd->rtable, sizeof(ds->rtable));
-+
- 	/*
- 	 * Do basic register setup.
- 	 */
+-	/* First time routing table allocation */
+-	if (!cd->rtable) {
+-		cd->rtable = kmalloc_array(pd->nr_chips, sizeof(s8),
+-					   GFP_KERNEL);
+-		if (!cd->rtable)
+-			return -ENOMEM;
+-
+-		/* default to no valid uplink/downlink */
+-		memset(cd->rtable, -1, pd->nr_chips * sizeof(s8));
+-	}
+-
+ 	cd->rtable[link_sw_addr] = port_index;
+ 
+ 	return 0;
+@@ -639,7 +628,6 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
+ 			kfree(pd->chip[i].port_names[port_index]);
+ 			port_index++;
+ 		}
+-		kfree(pd->chip[i].rtable);
+ 
+ 		/* Drop our reference to the MDIO bus device */
+ 		if (pd->chip[i].host_dev)
 -- 
 2.8.1
