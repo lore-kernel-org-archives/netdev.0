@@ -1,92 +1,105 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH 09/16] dsa: dsa: Split up creating/destroying of DSA
- and CPU ports
-Date: Fri, 27 May 2016 17:07:44 +0200
-Message-ID: <20160527150744.GC20214@lunn.ch>
-References: <1464312050-23023-1-git-send-email-andrew@lunn.ch>
- <1464312050-23023-10-git-send-email-andrew@lunn.ch>
- <87lh2v604y.fsf@ketchup.mtl.sfl>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] wl3501_cs: avoid bogus gcc-6 warning
+Date: Fri, 27 May 2016 17:08:33 +0200
+Message-ID: <4731273.LDpWBaOjNT@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	John Crispin <john@phrozen.org>, Bryan.Whitehead@microchip.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52875 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755337AbcE0PHs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 May 2016 11:07:48 -0400
-Content-Disposition: inline
-In-Reply-To: <87lh2v604y.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes.berg@intel.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 27, 2016 at 10:33:49AM -0400, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > -static void dsa_switch_destroy(struct dsa_switch *ds)
-> > +void dsa_cpu_dsa_destroy(struct device_node *port_dn)
-> >  {
-> > -	struct device_node *port_dn;
-> >  	struct phy_device *phydev;
-> > +
-> > +	if (of_phy_is_fixed_link(port_dn)) {
-> > +		phydev = of_phy_find_device(port_dn);
-> > +		if (phydev) {
-> > +			phy_device_free(phydev);
-> > +			fixed_phy_unregister(phydev);
-> > +		}
-> > +	}
-> > +}
-> > +
-> > +static void dsa_switch_destroy(struct dsa_switch *ds)
-> > +{
-> >  	int port;
-> >  
-> >  #ifdef CONFIG_NET_DSA_HWMON
-> > @@ -445,17 +467,11 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
-> >  		dsa_slave_destroy(ds->ports[port].netdev);
-> >  	}
-> >  
-> > -	/* Remove any fixed link PHYs */
-> > +	/* Disable configuration of the CPU and DSA ports */
-> >  	for (port = 0; port < DSA_MAX_PORTS; port++) {
-> > -		port_dn = ds->ports[port].dn;
-> > -		if (of_phy_is_fixed_link(port_dn)) {
-> > -			phydev = of_phy_find_device(port_dn);
-> > -			if (phydev) {
-> > -				phy_device_free(phydev);
-> > -				of_node_put(port_dn);
-> 
-> Why does dsa_cpu_dsa_destroy drop that of_node_put call?
+gcc-6 on x86 started warning about wl3501_get_encode when building
+with -O2:
 
-The of node reference counting is broken. The DT maintainers actually
-say not to care, the whole reference counting scheme is broken. Which
-is a bit sad really. There was a discussion about this a couple of
-months ago.
+drivers/net/wireless/wl3501_cs.c: In function =E2=80=98wl3501_get_encod=
+e=E2=80=99:
+drivers/net/wireless/wl3501_cs.c:1769:5: warning: =E2=80=98implemented=E2=
+=80=99 may be used uninitialized in this function
+drivers/net/wireless/wl3501_cs.c:1686:19: warning: =E2=80=98threshold=E2=
+=80=99 may be used uninitialized in this function
+drivers/net/wireless/wl3501_cs.c:1702:20: warning: =E2=80=98threshold=E2=
+=80=99 may be used uninitialized in this function
+drivers/net/wireless/wl3501_cs.c:1719:23: warning: =E2=80=98txpow=E2=80=
+=99 may be used uninitialized in this function
+drivers/net/wireless/wl3501_cs.c:1752:20: warning: =E2=80=98retry=E2=80=
+=99 may be used uninitialized in this function
+drivers/net/wireless/wl3501_cs.c:1806:25: warning: =E2=80=98pwr_state=E2=
+=80=99 may be used uninitialized in this function
+drivers/net/wireless/wl3501_cs.c:1383:24: warning: =E2=80=98value=E2=80=
+=99 may be used uninitialized in this function
 
-Anyway, the reference is taken in dsa_of_probe() as part of the
-or_each_available_child_of_node(child, port). This reference has
-nothing to do with the port being a fixed link or not. So freeing it
-here is inappropriate. The correct place to free it would probably be
-in dsa_of_remove.
- 
-> > -				fixed_phy_unregister(phydev);
-> > -			}
-> > -		}
-> > +		if ((dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
-> > +			continue;
-> 
-> Why do we skip DSA and CPU ports here? The previous code didn't.
-> 
-> > +		dsa_cpu_dsa_destroy(ds->ports[port].dn);
+I could not figure out what exactly confuses gcc here, but splitting th=
+e
+wl3501_get_mib_value function into two helps the compiler to figure out
+that the variables are not actually used uninitialized, and makes it
+slightly clearer to a human reader what the function actually does and
+which parts of it are under the spinlock.
 
-They are now destroyed by the newly added dsa_cpu_dsa_destroy().  I'm
-making the code more symmetrical and easier to re-use. The inverse of
-this function is dsa_switch_setup_one() and it also uses a helper
-function to setup the dsa and cpu ports, dsa_cpu_dsa_setups().
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-	 Andrew
+diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl=
+3501_cs.c
+index 13fd734b61ec..82d94f83b6b4 100644
+--- a/drivers/net/wireless/wl3501_cs.c
++++ b/drivers/net/wireless/wl3501_cs.c
+@@ -378,8 +378,7 @@ static int wl3501_esbq_exec(struct wl3501_card *thi=
+s, void *sig, int sig_size)
+ 	return rc;
+ }
+=20
+-static int wl3501_get_mib_value(struct wl3501_card *this, u8 index,
+-				void *bf, int size)
++static int wl3501_request_mib(struct wl3501_card *this, u8 index, void=
+ *bf)
+ {
+ 	struct wl3501_get_req sig =3D {
+ 		.sig_id	    =3D WL3501_SIG_GET_REQ,
+@@ -395,20 +394,32 @@ static int wl3501_get_mib_value(struct wl3501_car=
+d *this, u8 index,
+ 			wl3501_set_to_wla(this, ptr, &sig, sizeof(sig));
+ 			wl3501_esbq_req(this, &ptr);
+ 			this->sig_get_confirm.mib_status =3D 255;
+-			spin_unlock_irqrestore(&this->lock, flags);
+-			rc =3D wait_event_interruptible(this->wait,
+-				this->sig_get_confirm.mib_status !=3D 255);
+-			if (!rc)
+-				memcpy(bf, this->sig_get_confirm.mib_value,
+-				       size);
+-			goto out;
++			rc =3D 0;
+ 		}
+ 	}
+ 	spin_unlock_irqrestore(&this->lock, flags);
+-out:
++
+ 	return rc;
+ }
+=20
++static int wl3501_get_mib_value(struct wl3501_card *this, u8 index,
++				void *bf, int size)
++{
++	int rc;
++
++	rc =3D wl3501_request_mib(this, index, bf);
++	if (rc)
++		return rc;
++
++	rc =3D wait_event_interruptible(this->wait,
++		this->sig_get_confirm.mib_status !=3D 255);
++	if (rc)
++		return rc;
++
++	memcpy(bf, this->sig_get_confirm.mib_value, size);
++	return 0;
++}
++
+ static int wl3501_pwr_mgmt(struct wl3501_card *this, int suspend)
+ {
+ 	struct wl3501_pwr_mgmt_req sig =3D {
