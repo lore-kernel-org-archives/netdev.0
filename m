@@ -1,46 +1,51 @@
-From: Chen Haiquan <oc@yunify.com>
-Subject: [PATCH] vxlan: Accept user specified MTU value when create new vxlan link
-Date: Fri, 27 May 2016 10:49:11 +0800
-Message-ID: <1464317351-22316-1-git-send-email-oc@yunify.com>
-Cc: netdev@vger.kernel.org, Chen Haiquan <oc@yunify.com>
-To: unlisted-recipients:; (no To-header on input)
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: IPv6 extension header privileges
+Date: Fri, 27 May 2016 12:37:47 +0900
+Message-ID: <5747C10B.1000006@miraclelinux.com>
+References: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com
+To: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-212.qiye.163.com ([123.125.50.212]:46366 "EHLO
-	m50-212.qiye.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932168AbcE0Cym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 22:54:42 -0400
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35846 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932168AbcE0Dhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2016 23:37:52 -0400
+Received: by mail-pa0-f45.google.com with SMTP id eu11so26620104pad.3
+        for <netdev@vger.kernel.org>; Thu, 26 May 2016 20:37:51 -0700 (PDT)
+In-Reply-To: <CALx6S36x2+HBLSYVBi0+rQAgejbVvvFF7fr0P13cTspxpJQCLg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When create a new vxlan link, example:
-  ip link add vtap mtu 1440 type vxlan vni 1 dev eth0
+Hi,
 
-The argument "mtu" has no effect, because it is not set to conf->mtu. The
-default value is used in vxlan_dev_configure function.
+Tom Herbert wrote:
+> Hi,
+> 
+> In ipv6_sockglue.c I noticed:
+> 
+> /* hop-by-hop / destination options are privileged option */
+> retv = -EPERM;
+> if (optname != IPV6_RTHDR && !ns_capable(net->user_ns, CAP_NET_RAW))
+>            break;
+> 
+> Can anyone provide that rationale as to why these are privileged ops?
 
-This problem was introduced by commit 0dfbdf4102b9 (vxlan: Factor out device 
-configuration).
+It is better to disallow by default for security.
+FreeBSD does this in the same way.
+We may have sysctl bitmaps, of course.
 
-Fixes: 0dfbdf4102b9 (vxlan: Factor out device configuration) 
+--yoshfuji
 
-Signed-off-by:  Chen Haiquan <oc@yunify.com>
----
- drivers/net/vxlan.c | 3 +++
- 1 file changed, 3 insertions(+)
+> 
+> Thanks,
+> Tom
+> 
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 8ff30c3..f999db2 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -3086,6 +3086,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
- 		conf.flags |= VXLAN_F_REMCSUM_NOPARTIAL;
- 
-+	if (tb[IFLA_MTU])
-+		conf.mtu = nla_get_u32(tb[IFLA_MTU]);
-+
- 	err = vxlan_dev_configure(src_net, dev, &conf);
- 	switch (err) {
- 	case -ENODEV:
 -- 
-2.7.4
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
