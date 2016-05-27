@@ -1,64 +1,43 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] remove lots of IS_ERR_VALUE abuses
-Date: Fri, 27 May 2016 23:04:58 +0100
-Message-ID: <20160527220458.GV14480@ZenIV.linux.org.uk>
-References: <1464384685-347275-1-git-send-email-arnd@arndb.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: BUG: net/netlink: KASAN: use-after-free in netlink_sock_destruct
+Date: Sat, 28 May 2016 06:58:11 +0800
+Message-ID: <20160527225811.GA23817@gondor.apana.org.au>
+References: <e1e236d9-11c1-02c6-b18b-7961fc3fd584@gmail.com>
+ <1464275215.5939.93.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVqJhQb4ywYbMd4s4u0yAu0b5kdAtS2PTyBYAzqqZ0xAA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrzej Hajda <a.hajda@samsung.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	David Airlie <airlied@linux.ie>,
-	Robin Murphy <robin.murphy@arm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
-	Russell King <linux@armlinux.org.uk>,
-	Bob Peterson <rpeterso@redhat.com>, linux-acpi@vger.kernel.org,
-	iommu@lists.linux-foundation.org, linux-media@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	v9fs-developer@lists.sourceforge.net
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Baozeng Ding <sploving1@gmail.com>,
+	David Miller <davem@davemloft.net>, chamaken@gmail.com,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>, dh.herrmann@gmail.com,
+	christophe.ricard@gmail.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:49830 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753979AbcE0W6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 18:58:31 -0400
 Content-Disposition: inline
-In-Reply-To: <1464384685-347275-1-git-send-email-arnd@arndb.de>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAM_iQpVqJhQb4ywYbMd4s4u0yAu0b5kdAtS2PTyBYAzqqZ0xAA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 27, 2016 at 11:23:25PM +0200, Arnd Bergmann wrote:
+On Fri, May 27, 2016 at 09:19:48AM -0700, Cong Wang wrote:
+>
+> This one looks different though, this time the bug is
+> triggered in netlink_sock_destruct(), where all the sock
+> ref should be gone, which means it is impossible to refer
+> nlk->cb anywhere else. Hmm... I have no idea how
+> could this happen.
 
-> @@ -837,7 +837,7 @@ static int load_flat_shared_library(int id, struct lib_info *libs)
->  
->  	res = prepare_binprm(&bprm);
->  
-> -	if (!IS_ERR_VALUE(res))
-> +	if (res >= 0)
+netlink_sock_destruct is one of the two exit paths for cb->skb
+so this is consistent with the previous trace.
 
-	if (res == 0), please - prepare_binprm() returns 0 or -E...
-
-> --- a/net/9p/client.c
-> +++ b/net/9p/client.c
-> @@ -521,7 +521,7 @@ static int p9_check_errors(struct p9_client *c, struct p9_req_t *req)
->  		if (p9_is_proto_dotu(c))
->  			err = -ecode;
->  
-> -		if (!err || !IS_ERR_VALUE(err)) {
-> +		if (!err || !IS_ERR_VALUE((unsigned long)err)) {
-
-Not really - it's actually
-		if (p9_is_proto_dotu(c) && ecode < 512)
-			err = -ecode;
-
-		if (!err) {
-			...
-> @@ -608,7 +608,7 @@ static int p9_check_zc_errors(struct p9_client *c, struct p9_req_t *req,
->  		if (p9_is_proto_dotu(c))
->  			err = -ecode;
->  
-> -		if (!err || !IS_ERR_VALUE(err)) {
-> +		if (!err || !IS_ERR_VALUE((unsigned long)err)) {
-
-Ditto.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
