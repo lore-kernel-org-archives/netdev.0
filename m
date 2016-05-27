@@ -1,53 +1,56 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [PATCH net] ieee802154: fix logic error in
- ieee802154_llsec_parse_dev_addr
-Date: Fri, 27 May 2016 12:24:23 +0200
-Message-ID: <57482057.1070909@osg.samsung.com>
-References: <7c36848d-28b5-87cc-f998-53cc2428a0a6@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] atm: firestream: add more reserved strings
+Date: Fri, 27 May 2016 13:33:50 +0300
+Message-ID: <20160527103350.GA3255@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-To: Baozeng Ding <sploving1@gmail.com>, aar@pengutronix.de,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Chas Williams <3chas3@gmail.com>,
+	Patrick van de Lageweg <patrick@bitwizard.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:54209 "EHLO lists.s-osg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751130AbcE0KY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 May 2016 06:24:27 -0400
-In-Reply-To: <7c36848d-28b5-87cc-f998-53cc2428a0a6@gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:34179 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752520AbcE0KeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 06:34:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This bug was there when the driver was first added in back in year 2000.
+It causes a Smatch warning:
 
-On 26/05/16 15:07, Baozeng Ding wrote:
-> Fix a logic error to avoid potential null pointer dereference.
->
-> Signed-off-by: Baozeng Ding<sploving1@gmail.com>
-> ---
->   net/ieee802154/nl802154.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ieee802154/nl802154.c b/net/ieee802154/nl802154.c
-> index ca207db..116187b 100644
-> --- a/net/ieee802154/nl802154.c
-> +++ b/net/ieee802154/nl802154.c
-> @@ -1289,8 +1289,8 @@ ieee802154_llsec_parse_dev_addr(struct nlattr *nla,
->   				     nl802154_dev_addr_policy))
->   		return -EINVAL;
->   
-> -	if (!attrs[NL802154_DEV_ADDR_ATTR_PAN_ID] &&
-> -	    !attrs[NL802154_DEV_ADDR_ATTR_MODE] &&
-> +	if (!attrs[NL802154_DEV_ADDR_ATTR_PAN_ID] ||
-> +	    !attrs[NL802154_DEV_ADDR_ATTR_MODE] ||
->   	    !(attrs[NL802154_DEV_ADDR_ATTR_SHORT] ||
->   	      attrs[NL802154_DEV_ADDR_ATTR_EXTENDED]))
->   		return -EINVAL;
+    drivers/atm/firestream.c:849 process_incoming()
+    error: buffer overflow 'res_strings' 60 <= 63
 
-Good catch!
+There are supposed to be 64 entries in this array and the missing
+strings are clearly in the 30 40 range.  I added them as reserved 37 to
+reserved 40.  It's possible that strings are really supposed to be added
+in the middle instead of at the end, but this approach is safe, in that
+it fixes the bug and doesn't break anything that wasn't already broken.
 
-Reviewed-by: Stefan Schmidt<stefan@osg.samsung.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-regards
-Stefan Schmidt
+diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+index a969a7e..4777064 100644
+--- a/drivers/atm/firestream.c
++++ b/drivers/atm/firestream.c
+@@ -181,13 +181,17 @@ static char *res_strings[] = {
+ 	"reserved 27", 
+ 	"reserved 28", 
+ 	"reserved 29", 
+-	"reserved 30", 
++	"reserved 30", /* FIXME: The strings between 30-40 might be wrong. */
+ 	"reassembly abort: no buffers", 
+ 	"receive buffer overflow", 
+ 	"change in GFC", 
+ 	"receive buffer full", 
+ 	"low priority discard - no receive descriptor", 
+ 	"low priority discard - missing end of packet", 
++	"reserved 37",
++	"reserved 38",
++	"reserved 39",
++	"reseverd 40",
+ 	"reserved 41", 
+ 	"reserved 42", 
+ 	"reserved 43", 
