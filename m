@@ -1,7 +1,8 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 0/8] mwifiex: Fix some error handling issues in mwifiex_sdio_probe() function
-Date: Fri, 27 May 2016 10:18:14 -0400
-Message-ID: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 3/8] mwifiex: propagate mwifiex_add_card() errno code in mwifiex_sdio_probe()
+Date: Fri, 27 May 2016 10:18:17 -0400
+Message-ID: <1464358702-19083-4-git-send-email-javier@osg.samsung.com>
+References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Cc: Xinming Hu <huxm@marvell.com>,
 	Javier Martinez Canillas <javier@osg.samsung.com>,
 	Amitkumar Karwar <akarwar@marvell.com>,
@@ -10,41 +11,47 @@ Cc: Xinming Hu <huxm@marvell.com>,
 	Nishant Sarmukadam <nishants@marvell.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+There's only a check if mwifiex_add_card() returned a nonzero value, but
+the actual error code is neither stored nor propagated to the caller. So
+instead of always returning -1 (which is -EPERM and not a suitable errno
+code in this case), propagate the value returned by mwifiex_add_card().
 
-While booting a system with a mwifiex WiFi card, I noticed the following
-missleading error message:
+Patch also removes the assignment of sdio_disable_func() returned value
+since it was overwritten anyways and what matters is to know the error
+value returned by the first function that failed.
 
-[  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
+Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+---
 
-This error only applies to platforms that define a child node for the SDIO
-device, but it's currently shown even in platforms that don't have a child
-node defined.
+ drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-So this series fixes this issue and others I found in the .probe function
-(mostly related to error handling and the error path) while looking at it.
-
-Best regards,
-Javier
-
-
-Javier Martinez Canillas (8):
-  mwifiex: only call mwifiex_sdio_probe_of() if dev has an OF node
-  mwifiex: propagate sdio_enable_func() errno code in
-    mwifiex_sdio_probe()
-  mwifiex: propagate mwifiex_add_card() errno code in
-    mwifiex_sdio_probe()
-  mwifiex: consolidate mwifiex_sdio_probe() error paths
-  mwifiex: use dev_err() instead of pr_err() in mwifiex_sdio_probe()
-  mwifiex: check if mwifiex_sdio_probe_of() fails and return error
-  mwifiex: don't print an error if an optional DT property is missing
-  mwifiex: use better message and error code when OF node doesn't match
-
- drivers/net/wireless/marvell/mwifiex/sdio.c | 46 ++++++++++++++++++-----------
- 1 file changed, 28 insertions(+), 18 deletions(-)
-
+diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
+index ab64507c84e1..81003fbe5025 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sdio.c
++++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
+@@ -191,14 +191,14 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
+ 	if (func->dev.of_node)
+ 		mwifiex_sdio_probe_of(&func->dev, card);
+ 
+-	if (mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
+-			     MWIFIEX_SDIO)) {
++	ret = mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
++			       MWIFIEX_SDIO);
++	if (ret) {
+ 		pr_err("%s: add card failed\n", __func__);
+ 		kfree(card);
+ 		sdio_claim_host(func);
+-		ret = sdio_disable_func(func);
++		sdio_disable_func(func);
+ 		sdio_release_host(func);
+-		ret = -1;
+ 	}
+ 
+ 	return ret;
 -- 
 2.5.5
