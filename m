@@ -1,47 +1,283 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next 0/5] bridge: json support for fdb and vlan show
-Date: Fri, 27 May 2016 21:37:11 -0700
-Message-ID: <1464410236-65044-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next 2/5] bridge: add json support for bridge vlan show
+Date: Fri, 27 May 2016 21:37:13 -0700
+Message-ID: <1464410236-65044-3-git-send-email-roopa@cumulusnetworks.com>
 Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
 	julien@cumulusnetworks.com
 To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35375 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750955AbcE1Eh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2016 00:37:26 -0400
-Received: by mail-pa0-f41.google.com with SMTP id fy7so29136419pac.2
-        for <netdev@vger.kernel.org>; Fri, 27 May 2016 21:37:26 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35957 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145AbcE1Eh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2016 00:37:28 -0400
+Received: by mail-pf0-f171.google.com with SMTP id f144so34551939pfa.3
+        for <netdev@vger.kernel.org>; Fri, 27 May 2016 21:37:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch series adds json support for a few bridge show commands.
-We plan to follow up with json support for additional commands soon.
+$bridge -c vlan show
+port	vlan ids
+swp1	 1 PVID Egress Untagged
+	 10-13
 
-Anuradha Karuppiah (3):
-  json_writer: allow base json data type to be array or object
-  bridge: add json support for bridge fdb show
-  bridge: add json schema for bridge fdb show
+swp2	 1 PVID Egress Untagged
+	 10-13
 
-Roopa Prabhu (2):
-  bridge: add json support for bridge vlan show
-  bridge: update man page
+br0	 1 PVID Egress Untagged
 
- bridge/br_common.h            |   1 +
- bridge/bridge.c               |   3 +
- bridge/fdb.c                  | 201 +++++++++++++++++++++++++++++++++---------
- bridge/vlan.c                 |  93 ++++++++++++++++++-
- include/json_writer.h         |   5 +-
- lib/json_writer.c             |  39 +++++++-
- man/man8/bridge.8             |   9 +-
- misc/ifstat.c                 |   6 +-
- misc/lnstat.c                 |   2 +-
- misc/nstat.c                  |   4 +-
- schema/bridge_fdb_schema.json |  62 +++++++++++++
- 11 files changed, 365 insertions(+), 60 deletions(-)
- create mode 100644 schema/bridge_fdb_schema.json
+$bridge -j vlan show
+{
+    "swp1": [{
+            "vlan": 1,
+            "flags": "PVID Egress Untagged"
+        },{
+            "vlan": 10
+        },{
+            "vlan": 11
+        },{
+            "vlan": 12
+        },{
+            "vlan": 13
+        }
+    ],
+    "swp2": [{
+            "vlan": 1,
+            "flags": "PVID Egress Untagged"
+        },{
+            "vlan": 10
+        },{
+            "vlan": 11
+        },{
+            "vlan": 12
+        },{
+            "vlan": 13
+        }
+    ],
+    "br0": [{
+            "vlan": 1,
+            "flags": "PVID Egress Untagged"
+        }
+    ]
+    }
 
+$bridge -c -j vlan show
+{
+    "swp1": [{
+            "vlan": 1,
+            "flags": "PVID Egress Untagged"
+        },{
+            "vlan": 10,
+            "vlanEnd": 13
+        }
+    ],
+    "swp2": [{
+            "vlan": 1,
+            "flags": "PVID Egress Untagged"
+        },{
+            "vlan": 10,
+            "vlanEnd": 13
+        }
+    ],
+    "br0": [{
+            "vlan": 1,
+            "flags": "PVID Egress Untagged"
+        }
+    ]
+    }
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ bridge/br_common.h |  1 +
+ bridge/bridge.c    |  5 +++-
+ bridge/vlan.c      | 83 ++++++++++++++++++++++++++++++++++++++++++++++--------
+ 3 files changed, 76 insertions(+), 13 deletions(-)
+
+diff --git a/bridge/br_common.h b/bridge/br_common.h
+index 5ea45c9..c649e7d 100644
+--- a/bridge/br_common.h
++++ b/bridge/br_common.h
+@@ -23,4 +23,5 @@ extern int show_stats;
+ extern int show_details;
+ extern int timestamp;
+ extern int compress_vlans;
++extern int json_output;
+ extern struct rtnl_handle rth;
+diff --git a/bridge/bridge.c b/bridge/bridge.c
+index 72f153f..5ff038d 100644
+--- a/bridge/bridge.c
++++ b/bridge/bridge.c
+@@ -23,6 +23,7 @@ int oneline;
+ int show_stats;
+ int show_details;
+ int compress_vlans;
++int json_output;
+ int timestamp;
+ char *batch_file;
+ int force;
+@@ -38,7 +39,7 @@ static void usage(void)
+ "where	OBJECT := { link | fdb | mdb | vlan | monitor }\n"
+ "	OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
+ "		     -o[neline] | -t[imestamp] | -n[etns] name |\n"
+-"		     -c[ompressvlans] }\n");
++"		     -c[ompressvlans] -j{son} }\n");
+ 	exit(-1);
+ }
+ 
+@@ -173,6 +174,8 @@ main(int argc, char **argv)
+ 			++compress_vlans;
+ 		} else if (matches(opt, "-force") == 0) {
+ 			++force;
++		} else if (matches(opt, "-json") == 0) {
++			++json_output;
+ 		} else if (matches(opt, "-batch") == 0) {
+ 			argc--;
+ 			argv++;
+diff --git a/bridge/vlan.c b/bridge/vlan.c
+index 717025a..722d0af 100644
+--- a/bridge/vlan.c
++++ b/bridge/vlan.c
+@@ -7,6 +7,7 @@
+ #include <netinet/in.h>
+ #include <linux/if_bridge.h>
+ #include <linux/if_ether.h>
++#include <json_writer.h>
+ #include <string.h>
+ 
+ #include "libnetlink.h"
+@@ -15,6 +16,8 @@
+ 
+ static unsigned int filter_index, filter_vlan;
+ 
++json_writer_t *jw_global = NULL;
++
+ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: bridge vlan { add | del } vid VLAN_ID dev DEV [ pvid] [ untagged ]\n");
+@@ -158,6 +161,19 @@ static int filter_vlan_check(struct bridge_vlan_info *vinfo)
+ 	return 1;
+ }
+ 
++static int print_vlan_port(FILE *fp, int ifi_index)
++{
++	if (jw_global) {
++		jsonw_pretty(jw_global, 1);
++		jsonw_name(jw_global,
++			   ll_index_to_name(ifi_index));
++		jsonw_start_array(jw_global);
++	} else {
++		fprintf(fp, "%s",
++			ll_index_to_name(ifi_index));
++	}
++}
++
+ static int print_vlan(const struct sockaddr_nl *who,
+ 		      struct nlmsghdr *n,
+ 		      void *arg)
+@@ -166,6 +182,7 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 	struct ifinfomsg *ifm = NLMSG_DATA(n);
+ 	int len = n->nlmsg_len;
+ 	struct rtattr *tb[IFLA_MAX+1];
++	char flags[80];
+ 
+ 	if (n->nlmsg_type != RTM_NEWLINK) {
+ 		fprintf(stderr, "Not RTM_NEWLINK: %08x %08x %08x\n",
+@@ -199,7 +216,8 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 		__u16 last_vid_start = 0;
+ 
+ 		if (!filter_vlan)
+-			fprintf(fp, "%s", ll_index_to_name(ifm->ifi_index));
++			print_vlan_port(fp, ifm->ifi_index);
++
+ 		for (i = RTA_DATA(list); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+ 			struct bridge_vlan_info *vinfo;
+ 			int vcheck_ret;
+@@ -218,20 +236,49 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 				continue;
+ 
+ 			if (filter_vlan)
+-				fprintf(fp, "%s",
+-					ll_index_to_name(ifm->ifi_index));
+-			fprintf(fp, "\t %hu", last_vid_start);
+-			if (last_vid_start != vinfo->vid)
+-				fprintf(fp, "-%hu", vinfo->vid);
++				print_vlan_port(fp, ifm->ifi_index);
++			if (jw_global) {
++				jsonw_start_object(jw_global);
++				jsonw_uint_field(jw_global, "vlan",
++						 last_vid_start);
++				if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN)
++					continue;
++			} else {
++				fprintf(fp, "\t %hu", last_vid_start);
++			}
++			if (last_vid_start != vinfo->vid) {
++				if (jw_global)
++					jsonw_uint_field(jw_global, "vlanEnd",
++							 vinfo->vid);
++				else
++					fprintf(fp, "-%hu", vinfo->vid);
++			}
++			memset(flags, 0, sizeof(flags));
+ 			if (vinfo->flags & BRIDGE_VLAN_INFO_PVID)
+-				fprintf(fp, " PVID");
++				strncat(flags, "PVID", sizeof(flags));
+ 			if (vinfo->flags & BRIDGE_VLAN_INFO_UNTAGGED)
+-				fprintf(fp, " Egress Untagged");
+-			fprintf(fp, "\n");
++				strncat(flags, " Egress Untagged",
++					sizeof(flags));
++			if (flags[0]) {
++				if (jw_global)
++					jsonw_string_field(jw_global,
++							   "flags", flags);
++				else
++					fprintf(fp, " %s", flags);
++			}
++			if (jw_global)
++				jsonw_end_object(jw_global);
++			else
++				fprintf(fp, "\n");
+ 		}
+ 	}
+-	if (!filter_vlan)
+-		fprintf(fp, "\n");
++	if (!filter_vlan) {
++		if (jw_global)
++			jsonw_end_array(jw_global);
++		else
++			fprintf(fp, "\n");
++
++	}
+ 	fflush(fp);
+ 	return 0;
+ }
+@@ -271,12 +318,24 @@ static int vlan_show(int argc, char **argv)
+ 		exit(1);
+ 	}
+ 
+-	printf("port\tvlan ids\n");
++	if (json_output) {
++		jw_global = jsonw_new_object(stdout);
++		if (!jw_global) {
++			fprintf(stderr, "Error allocation json object\n");
++			exit(1);
++		}
++	} else {
++		printf("port\tvlan ids\n");
++	}
++
+ 	if (rtnl_dump_filter(&rth, print_vlan, stdout) < 0) {
+ 		fprintf(stderr, "Dump ternminated\n");
+ 		exit(1);
+ 	}
+ 
++	if (jw_global)
++		jsonw_destroy(&jw_global);
++
+ 	return 0;
+ }
+ 
 -- 
 1.9.1
