@@ -1,32 +1,47 @@
-From: Mr Kamal Ali Mohamed <mrkamalalimohamed@gmail.com>
-Subject: Confidential And Very Urgent Attention.
-Date: Sat, 28 May 2016 01:53:05 +0000 (UTC)
-Message-ID: <949968118.998760.1464400385594.JavaMail.yahoo@mail.yahoo.com>
-References: <949968118.998760.1464400385594.JavaMail.yahoo.ref@mail.yahoo.com>
-Reply-To: Mr Kamal Ali Mohamed <kamalalimohamed@yandex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next 0/5] bridge: json support for fdb and vlan show
+Date: Fri, 27 May 2016 21:37:11 -0700
+Message-ID: <1464410236-65044-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	julien@cumulusnetworks.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm33-vm8.bullet.mail.ir2.yahoo.com ([212.82.97.113]:46165 "EHLO
-	nm33-vm8.bullet.mail.ir2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753336AbcE1CAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2016 22:00:34 -0400
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35375 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955AbcE1Eh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2016 00:37:26 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fy7so29136419pac.2
+        for <netdev@vger.kernel.org>; Fri, 27 May 2016 21:37:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
+This patch series adds json support for a few bridge show commands.
+We plan to follow up with json support for additional commands soon.
 
-Dear friend,
+Anuradha Karuppiah (3):
+  json_writer: allow base json data type to be array or object
+  bridge: add json support for bridge fdb show
+  bridge: add json schema for bridge fdb show
 
-My name is Mr Kamal Ali Mohamed . I am working with one of the prime banks here in Burkina Faso. Here in this bank existed a dormant account for many years, which belong to one of our late foreign customer.
+Roopa Prabhu (2):
+  bridge: add json support for bridge vlan show
+  bridge: update man page
 
-When I discovered that there had been neither deposits nor withdrawals from this account for this long period, I decided to carry out a system investigation and discovered that none of the family member or relations of the late person are aware of this account, which means nobody will come to take it. The amount in this account stands at $8, 500, 000.00 (Eight Million Five Hundred Thousand USA Dollars).
+ bridge/br_common.h            |   1 +
+ bridge/bridge.c               |   3 +
+ bridge/fdb.c                  | 201 +++++++++++++++++++++++++++++++++---------
+ bridge/vlan.c                 |  93 ++++++++++++++++++-
+ include/json_writer.h         |   5 +-
+ lib/json_writer.c             |  39 +++++++-
+ man/man8/bridge.8             |   9 +-
+ misc/ifstat.c                 |   6 +-
+ misc/lnstat.c                 |   2 +-
+ misc/nstat.c                  |   4 +-
+ schema/bridge_fdb_schema.json |  62 +++++++++++++
+ 11 files changed, 365 insertions(+), 60 deletions(-)
+ create mode 100644 schema/bridge_fdb_schema.json
 
-I want a foreign account where the bank will transfer this fund. I will front you in the bank as the Next of Kin to the late customer and back you up with relevant information. What the bank need is proof and information about the late customer which I will assist you on. This is a genuine, risk free and legal business transaction.
-
-All details shall be sent to you once I hear from you. The information as contained herein be accorded the necessary attention, urgency as well as the secrecy it deserves. If you are really sure of your integrity, trustworthy and confidentiality, Sorry if you received this letter in your spam, Due to recent connection error here in my country. Looking forward for your immediate response to me.Through my private e-mail id: (kamalalimohamed@terra.com)
-
-Best Regards,
-Mr. Kamal Ali Mohamed.
+-- 
+1.9.1
