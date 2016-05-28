@@ -1,7 +1,8 @@
 From: ggarcia@abra.uab.cat
-Subject: [RFC 0/3] vsockmon: virtual device to monitor AF_VSOCK sockets.
-Date: Sat, 28 May 2016 18:29:04 +0200
-Message-ID: <20160528162907.14809-1-ggarcia@deic.uab.cat>
+Subject: [RFC 1/3] vsockmon: Add tap functions.
+Date: Sat, 28 May 2016 18:29:05 +0200
+Message-ID: <20160528162907.14809-2-ggarcia@deic.uab.cat>
+References: <20160528162907.14809-1-ggarcia@deic.uab.cat>
 Content-Transfer-Encoding: 7BIT
 Cc: jhansen@vmware.com, stefanha@redhat.com,
 	Gerard Garcia <ggarcia@abra.uab.cat>
@@ -9,50 +10,185 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from damascus.uab.es ([158.109.168.135]:19939 "EHLO damascus.uab.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750738AbcE1R3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 May 2016 13:29:19 -0400
+	id S1750738AbcE1R3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 May 2016 13:29:21 -0400
 Received: from damascus.uab.es ([127.0.0.1])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0O7W00JQ7B4RILR0@damascus.uab.es> for
+ Jan  6 2005)) with ESMTP id <0O7W00JXHB4RF5R0@damascus.uab.es> for
  netdev@vger.kernel.org; Sat, 28 May 2016 18:29:15 +0200 (CEST)
 Received: from abra.uab.es ([158.109.79.4])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0O7W00JVRB4QXQO0@damascus.uab.es> for
- netdev@vger.kernel.org; Sat, 28 May 2016 18:29:14 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0O7W00JLMB4RXTO0@damascus.uab.es> for
+ netdev@vger.kernel.org; Sat, 28 May 2016 18:29:15 +0200 (CEST)
+In-reply-to: <20160528162907.14809-1-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerard Garcia <ggarcia@deic.uab.cat>
 
-Virtual socket transports operate at kernel level therefore, there is no easy way to see the traffic exchanged between virtual machines and hypervisors that communicate using AF_VSOCK sockets. In addition, being able to see the control messages exchanged by the transports may be useful for debugging and optimization purposes. This patch adds a virtual device that may be used to see the traffic exchanged between virtual machines and hypervisors through AF_VSOCK sockets.
+Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+---
+ include/net/af_vsock.h      |  13 ++++++
+ include/uapi/linux/if_arp.h |   1 +
+ net/vmw_vsock/af_vsock.c    | 105 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 119 insertions(+)
 
-Its structure is based on the nlmon device and this version just targets the virtio transport, but support for the VMCI transport can be easily implemented. The vsockmon header consists of two structs: a generic header and a header specific to the transport. The generic header allows to follow an AF_VSOCK stream without having to understand the details of the transport while the transport header gives more detail which may be useful for troubleshooting and debugging.
-
-The repository https://github.com/GerardGarcia/linux/tree/vsockmon implements these patches over the Stefan Hajnoczi vsock-next repository https://github.com/stefanha/linux/tree/vsock-next where the virtio trasnport is implemented. In the repository there is also a simple program that shows the traffic from a vsockmon device: https://github.com/GerardGarcia/linux/blob/vsockmon/vsockmon.c that can be used for testing.
-
-Any thoughts and comments will be greatly appreciated.
-
-Thanks to Stefan Hajnoczi for his help.
-
-Gerard
-
-Gerard Garcia (3):
-  vsockmon: Add tap functions.
-  vsockmon: Add vsockmon device
-  vsockmon: Add vsock hooks
-
- drivers/net/Kconfig           |   8 ++
- drivers/net/Makefile          |   1 +
- drivers/net/vsockmon.c        | 171 ++++++++++++++++++++++++++++++++++++++++++
- drivers/vhost/vsock.c         |  71 ++++++++++++++++++
- include/net/af_vsock.h        |  13 ++++
- include/uapi/linux/Kbuild     |   1 +
- include/uapi/linux/if_arp.h   |   1 +
- include/uapi/linux/vsockmon.h |  37 +++++++++
- net/vmw_vsock/af_vsock.c      | 105 ++++++++++++++++++++++++++
- 9 files changed, 408 insertions(+)
- create mode 100644 drivers/net/vsockmon.c
- create mode 100644 include/uapi/linux/vsockmon.h
-
+diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
+index 15694c9..c4593d8 100644
+--- a/include/net/af_vsock.h
++++ b/include/net/af_vsock.h
+@@ -187,4 +187,17 @@ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
+ 					 struct sockaddr_vm *dst);
+ void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
+ 
++/**** TAP ****/
++
++struct vsock_tap {
++	struct net_device *dev;
++	struct module *module;
++	struct list_head list;
++};
++
++extern int vsock_init_tap(void);
++extern int vsock_add_tap(struct vsock_tap *vt);
++extern int vsock_remove_tap(struct vsock_tap *vt);
++extern void vsock_deliver_tap(struct sk_buff *skb);
++
+ #endif /* __AF_VSOCK_H__ */
+diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
+index 4d024d7..869262a 100644
+--- a/include/uapi/linux/if_arp.h
++++ b/include/uapi/linux/if_arp.h
+@@ -95,6 +95,7 @@
+ #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
+ #define ARPHRD_NETLINK	824		/* Netlink header		*/
+ #define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
++#define ARPHRD_VSOCKMON 826		/* Vsock monitor header		*/
+ 
+ #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
+ #define ARPHRD_NONE	  0xFFFE	/* zero header length */
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 6b158ab..ec7a05d 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -96,6 +96,7 @@
+ #include <linux/unistd.h>
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
++#include <linux/if_arp.h>
+ #include <net/sock.h>
+ #include <net/af_vsock.h>
+ 
+@@ -2012,6 +2013,110 @@ const struct vsock_transport *vsock_core_get_transport(void)
+ }
+ EXPORT_SYMBOL_GPL(vsock_core_get_transport);
+ 
++/**** TAP ****/
++static DEFINE_SPINLOCK(vsock_tap_lock);
++static struct list_head vsock_tap_all __read_mostly;
++
++int vsock_init_tap(void) {
++	INIT_LIST_HEAD(&vsock_tap_all);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(vsock_init_tap);
++
++int vsock_add_tap(struct vsock_tap *vt) {
++	if (unlikely(vt->dev->type != ARPHRD_VSOCKMON))
++		return -EINVAL;
++
++	spin_lock(&vsock_tap_lock);
++	list_add_rcu(&vt->list, &vsock_tap_all);
++	spin_unlock(&vsock_tap_lock);
++
++	__module_get(vt->module);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(vsock_add_tap);
++
++int __vsock_remove_tap(struct vsock_tap *vt) {
++	bool found = false;
++	struct vsock_tap *tmp;
++
++	spin_lock(&vsock_tap_lock);
++
++	list_for_each_entry(tmp, &vsock_tap_all, list) {
++		if (vt == tmp) {
++			list_del_rcu(&vt->list);
++			found = true;
++			goto out;
++		}
++	}
++
++	pr_warn("__vsock_remove_tap: %p not found\n", vt);
++out:
++	spin_unlock(&vsock_tap_lock);
++
++	if (found)
++		module_put(vt->module);
++
++	return found ? 0 : -ENODEV;
++}
++
++int vsock_remove_tap(struct vsock_tap *vt)
++{
++	int ret;
++
++	ret = __vsock_remove_tap(vt);
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(vsock_remove_tap);
++
++static int __vsock_deliver_tap_skb(struct sk_buff *skb,
++				     struct net_device *dev)
++{
++	struct sk_buff *vskb;
++	int ret = 0;
++
++	if (skb) {
++		dev_hold(dev);
++		vskb = skb_clone(skb, GFP_ATOMIC);
++		vskb->dev = dev;
++		vskb->pkt_type = PACKET_USER;
++		ret = dev_queue_xmit(vskb);
++		if (unlikely(ret > 0))
++			ret = net_xmit_errno(ret);
++
++		dev_put(dev);
++	}
++
++	return ret;
++}
++
++static void __vsock_deliver_tap(struct sk_buff *skb)
++{
++	int ret;
++	struct vsock_tap *tmp;
++
++	list_for_each_entry_rcu(tmp, &vsock_tap_all, list) {
++		ret = __vsock_deliver_tap_skb(skb, tmp->dev);
++		if (unlikely(ret))
++			break;
++	}
++}
++
++void vsock_deliver_tap(struct sk_buff *skb)
++{
++	rcu_read_lock();
++
++	if (unlikely(!list_empty(&vsock_tap_all)))
++		__vsock_deliver_tap(skb);
++
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL_GPL(vsock_deliver_tap);
++
+ MODULE_AUTHOR("VMware, Inc.");
+ MODULE_DESCRIPTION("VMware Virtual Socket Family");
+ MODULE_VERSION("1.0.1.0-k");
 -- 
 2.8.3
