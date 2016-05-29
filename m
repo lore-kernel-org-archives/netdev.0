@@ -1,7 +1,7 @@
 From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH net-next] ravb: Add ESF in RCR for enabling separation filter
-Date: Mon, 30 May 2016 05:25:00 +0900
-Message-ID: <1464553500-19043-1-git-send-email-ykaneko0929@gmail.com>
+Subject: [PATCH net-next] ravb: Add SET_RUNTIME_PM_OPS macro
+Date: Mon, 30 May 2016 05:25:43 +0900
+Message-ID: <1464553543-19091-1-git-send-email-ykaneko0929@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Simon Horman <horms@verge.net.au>,
@@ -12,15 +12,11 @@ Return-path: <linux-renesas-soc-owner@vger.kernel.org>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masaru Nagai <masaru.nagai.vx@renesas.com>
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-This patch adds enabling separation filter(ESF) is setting value of B'11.
-This setting filter for separating AVB stream frames from non-AVB stream
-frames is enabled. Non-matching frames from a stream are processed in
-queue 0(best effort). H/W manual recommends B'11 or B'10.
-When B'10 is setting, Non-mating frames are discarded.
+Use SET_RUNTIME_PM_OPS macro instead of assigning a member of
+dev_pm_ops directly.
 
-Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
 Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 ---
@@ -28,22 +24,22 @@ Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 This patch is based on the master branch of David Miller's next networking
 tree.
 
- drivers/net/ethernet/renesas/ravb_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/renesas/ravb_main.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 867caf6..1ceadbf 100644
+index 867caf6..da8da86 100644
 --- a/drivers/net/ethernet/renesas/ravb_main.c
 +++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -402,7 +402,8 @@ static int ravb_dmac_init(struct net_device *ndev)
- #endif
+@@ -2111,8 +2111,7 @@ static int ravb_runtime_nop(struct device *dev)
+ }
  
- 	/* Set AVB RX */
--	ravb_write(ndev, RCR_EFFS | RCR_ENCF | RCR_ETS0 | 0x18000000, RCR);
-+	ravb_write(ndev,
-+		   RCR_EFFS | RCR_ENCF | RCR_ETS0 | RCR_ESF | 0x18000000, RCR);
+ static const struct dev_pm_ops ravb_dev_pm_ops = {
+-	.runtime_suspend = ravb_runtime_nop,
+-	.runtime_resume = ravb_runtime_nop,
++	SET_RUNTIME_PM_OPS(ravb_runtime_nop, ravb_runtime_nop, NULL)
+ };
  
- 	/* Set FIFO size */
- 	ravb_write(ndev, TGC_TQP_AVBMODE1 | 0x00222200, TGC);
+ #define RAVB_PM_OPS (&ravb_dev_pm_ops)
 -- 
 1.9.1
