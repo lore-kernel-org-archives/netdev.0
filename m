@@ -1,64 +1,66 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] sctp: sctp_diag should dump sctp socket type
-Date: Sun, 29 May 2016 17:42:13 +0800
-Message-ID: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	phil@nwl.cc
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Vincent Bernat <vincent@bernat.im>
+Subject: [PATCH] veth: delay peer link configuration after interfaces are tied
+Date: Sun, 29 May 2016 13:17:17 +0200
+Message-ID: <1464520637-19784-1-git-send-email-vincent@bernat.im>
+Cc: Vincent Bernat <vincent@bernat.im>
+To: "David S. Miller" <davem@davemloft.net>,
+	Vijay Pandurangan <vijayp@vijayp.ca>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36765 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932075AbcE2JmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2016 05:42:18 -0400
+Received: from bart.luffy.cx ([78.47.78.131]:60164 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932135AbcE2LWx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 May 2016 07:22:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now we cannot distinguish that one sk is a udp or sctp style when
-we use ss to dump sctp_info. it's necessary to dump it as well.
+When the peer link is created, its "iflink" information is not
+advertised through netlink. If a user is maintaining a cache from all
+updates, it will miss this information:
 
-For sctp_diag, ss support is not officially available, thus there
-are no official users of this yet, so we can add this field in the
-middle of sctp_info without breaking user API.
+    2: veth0@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
+        link/ether ae:0e:08:af:fb:a0 brd ff:ff:ff:ff:ff:ff
+    3: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN group default
+        link/ether 3a:31:f1:36:2e:e5 brd ff:ff:ff:ff:ff:ff
 
-v1->v2:
-  - move 'sctpi_s_type' field to the end of struct sctp_info, so
-    that it won't cause incompatibility with applications already
-    built.
-  - add __reserved3 in sctp_info to make sure sctp_info is 8-byte
-    alignment.
+To avoid this situation, the peer link is only configured after both
+interfaces are tied together:
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+    3: veth0@veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
+        link/ether ee:0d:80:46:36:fe brd ff:ff:ff:ff:ff:ff
+    4: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN group default
+        link/ether ba:25:bc:7a:0d:c8 brd ff:ff:ff:ff:ff:ff
+
+Signed-off-by: Vincent Bernat <vincent@bernat.im>
 ---
- include/linux/sctp.h | 2 ++
- net/sctp/socket.c    | 1 +
- 2 files changed, 3 insertions(+)
+ drivers/net/veth.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index dacb5e7..de1f643 100644
---- a/include/linux/sctp.h
-+++ b/include/linux/sctp.h
-@@ -765,6 +765,8 @@ struct sctp_info {
- 	__u8	sctpi_s_disable_fragments;
- 	__u8	sctpi_s_v4mapped;
- 	__u8	sctpi_s_frag_interleave;
-+	__u32	sctpi_s_type;
-+	__u32	__reserved3;
- };
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index f37a6e61d4ad..9726c4dbf659 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -432,10 +432,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
  
- struct sctp_infox {
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 777d032..67154b8 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4220,6 +4220,7 @@ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
- 		info->sctpi_s_disable_fragments = sp->disable_fragments;
- 		info->sctpi_s_v4mapped = sp->v4mapped;
- 		info->sctpi_s_frag_interleave = sp->frag_interleave;
-+		info->sctpi_s_type = sp->type;
+ 	netif_carrier_off(peer);
  
- 		return 0;
- 	}
+-	err = rtnl_configure_link(peer, ifmp);
+-	if (err < 0)
+-		goto err_configure_peer;
+-
+ 	/*
+ 	 * register dev last
+ 	 *
+@@ -466,6 +462,10 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	priv = netdev_priv(peer);
+ 	rcu_assign_pointer(priv->peer, dev);
++
++	err = rtnl_configure_link(peer, ifmp);
++	if (err < 0)
++		goto err_configure_peer;
+ 	return 0;
+ 
+ err_register_dev:
 -- 
-2.1.0
+2.8.1
