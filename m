@@ -1,45 +1,80 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH net-next] ravb: Add SET_RUNTIME_PM_OPS macro
-Date: Mon, 30 May 2016 05:25:43 +0900
-Message-ID: <1464553543-19091-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH next] brcmfmac: don't remove interface on link down firmware event
+Date: Sun, 29 May 2016 23:39:28 +0200
+Message-ID: <1464557989-20003-1-git-send-email-zajec5@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+There are two firmware events we handle similarly in brcmfmac:
+BRCMF_E_LINK and BRCMF_E_IF. The difference from firmware point of view
+is that the first one means BSS remains present in the firmware. Trying
+to (re)create it (e.g. when adding new virtual interface) will result i=
+n
+an error.
 
-Use SET_RUNTIME_PM_OPS macro instead of assigning a member of
-dev_pm_ops directly.
+Current code treats both events in a similar way. It removes Linux
+interface for each of them. It works OK with e.g. BCM43602. Its firmwar=
+e
+generates both events for each interface. It means we get BRCMF_E_LINK
+and remove interface. That is soon followed by BRCMF_E_IF which means
+BSS was also removed in a firmware. The only downside of this is a
+harmless error like:
+[  208.643180] brcmfmac: brcmf_fweh_call_event_handler: no interface ob=
+ject
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Unfortunately BCM4366 firmware doesn't automatically remove BSS and so
+it doesn't generate BRCMF_E_IF. In such case we incorrectly remove Linu=
+x
+interface on BRCMF_E_LINK as BSS is still present in the firmware. It
+results in an error when trying to re-create virtual interface, e.g.:
+> iw phy phy1 interface add wlan1-1 type __ap
+[ 3602.929199] brcmfmac: brcmf_ap_add_vif: timeout occurred
+command failed: I/O error (-5)
+
+With this patch we don't remove Linux interface while firmware keeps
+BSS. Thanks to this we keep a consistent states of host driver and
+device firmware.
+
+=46urther improvement should be to mark BSS as disabled and remove
+interface on BRCMF_E_LINK. Then we should add support for reusing
+BSS-es.
+
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 ---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-This patch is based on the master branch of David Miller's next networking
-tree.
-
- drivers/net/ethernet/renesas/ravb_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 867caf6..da8da86 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -2111,8 +2111,7 @@ static int ravb_runtime_nop(struct device *dev)
- }
- 
- static const struct dev_pm_ops ravb_dev_pm_ops = {
--	.runtime_suspend = ravb_runtime_nop,
--	.runtime_resume = ravb_runtime_nop,
-+	SET_RUNTIME_PM_OPS(ravb_runtime_nop, ravb_runtime_nop, NULL)
- };
- 
- #define RAVB_PM_OPS (&ravb_dev_pm_ops)
--- 
-1.9.1
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.=
+c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+index 38df1be..26ff0f4 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+@@ -5439,8 +5439,6 @@ brcmf_notify_connect_status_ap(struct brcmf_cfg80=
+211_info *cfg,
+ 	    ndev !=3D cfg_to_ndev(cfg)) {
+ 		brcmf_dbg(CONN, "AP mode link down\n");
+ 		complete(&cfg->vif_disabled);
+-		if (ifp->vif->mbss)
+-			brcmf_remove_interface(ifp);
+ 		return 0;
+ 	}
+=20
+--=20
+1.8.4.5
