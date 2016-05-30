@@ -1,75 +1,39 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH v2 05/10] nl80211: Fix checkpatch.pl NULL comparison warning
-Date: Mon, 30 May 2016 15:22:25 +1000
-Message-ID: <CAGRGNgVq-QcoofQtnOG19Xh=yK61N1oVuq2XSNyjJA65kL1wtQ@mail.gmail.com>
-References: <cover.1464576022.git.kirtika.ruchandani@gmail.com> <cc580aa7b55b9546c71185b6b4e07aba00367e72.1464576022.git.kirtika.ruchandani@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ipv6: hide ip6_encap_hlen/ip6_tnl_encap definitions
+Date: Sun, 29 May 2016 22:24:34 -0700 (PDT)
+Message-ID: <20160529.222434.161537875469088214.davem@davemloft.net>
+References: <1464187873-219087-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Tina Ruchandani <ruchandani.tina@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34951 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbcE3FWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 01:22:46 -0400
-In-Reply-To: <cc580aa7b55b9546c71185b6b4e07aba00367e72.1464576022.git.kirtika.ruchandani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464187873-219087-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 25 May 2016 16:50:45 +0200
 
-On Mon, May 30, 2016 at 12:52 PM, Kirtika Ruchandani
-<kirtika.ruchandani@gmail.com> wrote:
-> This patch fixes the warning - "comparison to NULL (foo == NULL)
-> could be written as (!foo)"
->
-> Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+> A recent cleanup moved MAX_IPTUN_ENCAP_OPS along with some other
+> definitions, but it is now invisible when CONFIG_INET is
+> not defined, but still referenced from ip6_tunnel.h:
+> 
+> In file included from net/xfrm/xfrm_input.c:17:0:
+> include/net/ip6_tunnel.h:67:17: error: 'MAX_IPTUN_ENCAP_OPS' undeclared here (not in a function)
+>    ip6tun_encaps[MAX_IPTUN_ENCAP_OPS];
+>                  ^~~~~~~~~~~~~~~~~~~
+> 
+> This hides the ip6_encap_hlen and ip6_tnl_encap functions inside
+> of CONFIG_INET so we don't run into the the problem.
+> 
+> Alternatively we could move the macro out of the #ifdef again to
+> restore the previous behavior
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 55c2bc143224 ("net: Cleanup encap items in ip_tunnels.h")
 
-Looks right to me.
-
-Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
-
-Thanks,
-
-Julian Calaby
-
-> ---
->  net/wireless/nl80211.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-> index 945405d..11cbf0b 100644
-> --- a/net/wireless/nl80211.c
-> +++ b/net/wireless/nl80211.c
-> @@ -928,7 +928,7 @@ static struct ieee80211_channel *nl80211_get_valid_chan(struct wiphy *wiphy,
->  {
->         struct ieee80211_channel *chan;
->
-> -       if (tb == NULL)
-> +       if (!tb)
->                 return NULL;
->         chan = ieee80211_get_channel(wiphy, nla_get_u32(tb));
->         if (!chan || chan->flags & IEEE80211_CHAN_DISABLED)
-> @@ -8575,7 +8575,7 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
->                 if (band < 0 || band >= NUM_NL80211_BANDS)
->                         return -EINVAL;
->                 sband = rdev->wiphy.bands[band];
-> -               if (sband == NULL)
-> +               if (!sband)
->                         return -EINVAL;
->                 err = nla_parse(tb, NL80211_TXRATE_MAX, nla_data(tx_rates),
->                                 nla_len(tx_rates), nl80211_txattr_policy);
-> --
-> 2.8.0.rc3.226.g39d4020
->
-
-
-
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+Applied.
