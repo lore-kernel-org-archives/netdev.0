@@ -1,7 +1,7 @@
 From: Kejian Yan <yankejian@huawei.com>
-Subject: [patch v2 net-next 05/13] net: hns: use device_* APIs instead of of_* APIs
-Date: Mon, 30 May 2016 10:10:14 +0800
-Message-ID: <1464574222-69608-6-git-send-email-yankejian@huawei.com>
+Subject: [patch v2 net-next 03/13] net: hisilicon: cleanup to prepare for other cases
+Date: Mon, 30 May 2016 10:10:12 +0800
+Message-ID: <1464574222-69608-4-git-send-email-yankejian@huawei.com>
 References: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,92 +11,122 @@ Cc: <fengguang.wu@intel.com>, <andriy.shevchenko@linux.intel.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linux-acpi@vger.kernel.org>, <linuxarm@huawei.com>
 To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:16208 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753395AbcE3B6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2016 21:58:36 -0400
 In-Reply-To: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OF series functions can be used only for DT case. Use unified
-device property function instead to support both DT and ACPI.
+Hns-mdio only supports DT case now. do some cleanup to prepare
+for introducing other cases later, no functional change.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  9 +++++----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 11 +++--------
- 2 files changed, 8 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 46 +++++++++++++++----------------
+ 1 file changed, 23 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 1c2ddb2..9afc5e6 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -50,7 +50,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	else
- 		dsaf_dev->dsaf_ver = AE_VERSION_2;
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 765ddb3..381cf0a 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -354,6 +354,9 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
+ 	int ret;
  
--	ret = of_property_read_string(np, "mode", &mode_str);
-+	ret = device_property_read_string(dsaf_dev->dev, "mode", &mode_str);
- 	if (ret) {
- 		dev_err(dsaf_dev->dev, "get dsaf mode fail, ret=%d!\n", ret);
- 		return ret;
-@@ -142,7 +142,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 		}
- 	}
- 
--	ret = of_property_read_u32(np, "desc-num", &desc_num);
-+	ret = device_property_read_u32(dsaf_dev->dev, "desc-num", &desc_num);
- 	if (ret < 0 || desc_num < HNS_DSAF_MIN_DESC_CNT ||
- 	    desc_num > HNS_DSAF_MAX_DESC_CNT) {
- 		dev_err(dsaf_dev->dev, "get desc-num(%d) fail, ret=%d!\n",
-@@ -151,14 +151,15 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	}
- 	dsaf_dev->desc_num = desc_num;
- 
--	ret = of_property_read_u32(np, "reset-field-offset", &reset_offset);
-+	ret = device_property_read_u32(dsaf_dev->dev, "reset-field-offset",
-+				       &reset_offset);
- 	if (ret < 0) {
- 		dev_dbg(dsaf_dev->dev,
- 			"get reset-field-offset fail, ret=%d!\r\n", ret);
- 	}
- 	dsaf_dev->reset_offset = reset_offset;
- 
--	ret = of_property_read_u32(np, "buf-size", &buf_size);
-+	ret = device_property_read_u32(dsaf_dev->dev, "buf-size", &buf_size);
- 	if (ret < 0) {
- 		dev_err(dsaf_dev->dev,
- 			"get buf-size fail, ret=%d!\r\n", ret);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index e621636..8851420 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1067,13 +1067,8 @@ void hns_nic_update_stats(struct net_device *netdev)
- static void hns_init_mac_addr(struct net_device *ndev)
++	if (!dev_of_node(bus->parent))
++		return -ENOTSUPP;
++
+ 	if (!mdio_dev->subctrl_vbase) {
+ 		dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
+ 		return -ENODEV;
+@@ -399,19 +402,12 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ /**
+  * hns_mdio_bus_name - get mdio bus name
+  * @name: mdio bus name
+- * @np: mdio device node pointer
++ * @addr: mdio physical address
+  */
+-static void hns_mdio_bus_name(char *name, struct device_node *np)
++static void hns_mdio_bus_name(char *name, phys_addr_t addr)
  {
- 	struct hns_nic_priv *priv = netdev_priv(ndev);
--	struct device_node *node = priv->dev->of_node;
--	const void *mac_addr_temp;
+-	const u32 *addr;
+-	u64 taddr = OF_BAD_ADDR;
+-
+-	addr = of_get_address(np, 0, NULL, NULL);
+-	if (addr)
+-		taddr = of_translate_address(np, addr);
+-
+-	snprintf(name, MII_BUS_ID_SIZE, "%s@%llx", np->name,
+-		 (unsigned long long)taddr);
++	snprintf(name, MII_BUS_ID_SIZE,
++		 "hns-mdio@%llx", (unsigned long long)addr);
+ }
  
--	mac_addr_temp = of_get_mac_address(node);
--	if (mac_addr_temp && is_valid_ether_addr(mac_addr_temp)) {
--		memcpy(ndev->dev_addr, mac_addr_temp, ndev->addr_len);
--	} else {
-+	if (!device_get_mac_address(priv->dev, ndev->dev_addr, ETH_ALEN)) {
- 		eth_hw_addr_random(ndev);
- 		dev_warn(priv->dev, "No valid mac, use random mac %pM",
- 			 ndev->dev_addr);
-@@ -1898,10 +1893,10 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
- 		goto out_read_prop_fail;
+ /**
+@@ -422,17 +418,16 @@ static void hns_mdio_bus_name(char *name, struct device_node *np)
+  */
+ static int hns_mdio_probe(struct platform_device *pdev)
+ {
+-	struct device_node *np;
+ 	struct hns_mdio_device *mdio_dev;
+ 	struct mii_bus *new_bus;
+ 	struct resource *res;
+-	int ret;
++	int ret = -ENODEV;
+ 
+ 	if (!pdev) {
+ 		dev_err(NULL, "pdev is NULL!\r\n");
+ 		return -ENODEV;
  	}
- 	/* try to find port-idx-in-ae first */
--	ret = of_property_read_u32(node, "port-idx-in-ae", &port_id);
-+	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
+-	np = pdev->dev.of_node;
++
+ 	mdio_dev = devm_kzalloc(&pdev->dev, sizeof(*mdio_dev), GFP_KERNEL);
+ 	if (!mdio_dev)
+ 		return -ENOMEM;
+@@ -448,7 +443,7 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 	new_bus->write = hns_mdio_write;
+ 	new_bus->reset = hns_mdio_reset;
+ 	new_bus->priv = mdio_dev;
+-	hns_mdio_bus_name(new_bus->id, np);
++	new_bus->parent = &pdev->dev;
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	mdio_dev->vbase = devm_ioremap_resource(&pdev->dev, res);
+@@ -457,18 +452,23 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
+-	mdio_dev->subctrl_vbase =
+-		syscon_node_to_regmap(of_parse_phandle(np, "subctrl-vbase", 0));
+-	if (IS_ERR(mdio_dev->subctrl_vbase)) {
+-		dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
+-		mdio_dev->subctrl_vbase = NULL;
+-	}
+-	new_bus->parent = &pdev->dev;
+ 	platform_set_drvdata(pdev, new_bus);
+ 
+-	ret = of_mdiobus_register(new_bus, np);
++	hns_mdio_bus_name(new_bus->id, res->start);
++	if (dev_of_node(&pdev->dev)) {
++		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
++			of_parse_phandle(pdev->dev.of_node,
++					 "subctrl-vbase", 0));
++		if (IS_ERR(mdio_dev->subctrl_vbase)) {
++			dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
++			mdio_dev->subctrl_vbase = NULL;
++		}
++		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
++	}
++
  	if (ret) {
- 		/* only for old code compatible */
--		ret = of_property_read_u32(node, "port-id", &port_id);
-+		ret = device_property_read_u32(dev, "port-id", &port_id);
- 		if (ret)
- 			goto out_read_prop_fail;
- 		/* for old dts, we need to caculate the port offset */
+ 		dev_err(&pdev->dev, "Cannot register as MDIO bus!\n");
++
+ 		platform_set_drvdata(pdev, NULL);
+ 		return ret;
+ 	}
 -- 
 1.9.1
