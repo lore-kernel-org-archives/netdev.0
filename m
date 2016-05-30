@@ -1,13 +1,12 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH 7/7] phy: Add Northstar2 PCI Phy support
-Date: Mon, 30 May 2016 12:40:51 +0530
-Message-ID: <1464592251-2688-8-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH 5/7] net:mdio-mux: Add MDIO mux driver for iProc SoCs
+Date: Mon, 30 May 2016 12:40:49 +0530
+Message-ID: <1464592251-2688-6-git-send-email-pramod.kumar@broadcom.com>
 References: <1464592251-2688-1-git-send-email-pramod.kumar@broadcom.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	bcm-kernel-feedback-list@broadcom.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pramod Kumar <pramod.kumar@broadcom.com>,
-	Jon Mason <jonmason@broadcom.com>
+	Pramod Kumar <pramod.kumar@broadcom.com>
 To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
 	Mark Rutland <mark.rutland@arm.com>,
 	Ian Campbell <ijc+devicetree@hellion.org.uk>,
@@ -21,165 +20,324 @@ In-Reply-To: <1464592251-2688-1-git-send-email-pramod.kumar@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add PCI Phy support for Broadcom Northstar2 SoCs.  This driver uses the
-interface from the iproc mdio mux driver to enable the devices
-respective phys.
+iProc based SoCs supports the integrated mdio multiplexer which
+has the bus selection as well as mdio transaction generation logic
+inside.
 
-Signed-off-by: Jon Mason <jonmason@broadcom.com>
+This mutiplexer has child buses for PCIe, SATA, USB and ETH. These
+buses could be internal or external to SOC where PHYs are attached.
+These buses could use C-45 or C-22 mdio transaction.
+
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 ---
- drivers/phy/Kconfig            |   8 +++
- drivers/phy/Makefile           |   1 +
- drivers/phy/phy-bcm-ns2-pcie.c | 115 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 124 insertions(+)
- create mode 100644 drivers/phy/phy-bcm-ns2-pcie.c
+ drivers/net/phy/Kconfig              |  11 ++
+ drivers/net/phy/Makefile             |   1 +
+ drivers/net/phy/mdio-mux-bcm-iproc.c | 263 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 275 insertions(+)
+ create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
 
-diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
-index 26566db..5ff60b2 100644
---- a/drivers/phy/Kconfig
-+++ b/drivers/phy/Kconfig
-@@ -421,4 +421,12 @@ config PHY_CYGNUS_PCIE
- 	  Enable this to support the Broadcom Cygnus PCIe PHY.
- 	  If unsure, say N.
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 6dad9a9..38faecf 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -254,6 +254,17 @@ config MDIO_BUS_MUX_MMIOREG
  
-+config PHY_NS2_PCIE
-+	tristate "Broadcom Northstar2 PCIe PHY driver"
-+	depends on OF && MDIO_BUS_MUX_BCM_IPROC
-+	select GENERIC_PHY
+ 	  Currently, only 8-bit registers are supported.
+ 
++config MDIO_BUS_MUX_BCM_IPROC
++	tristate "Support for iProc based MDIO bus multiplexers"
++	depends on OF && OF_MDIO && (ARCH_BCM_IPROC || COMPILE_TEST)
++	select MDIO_BUS_MUX
 +	default ARCH_BCM_IPROC
 +	help
-+	  Enable this to support the Broadcom Northstar2 PCIe PHY.
-+	  If unsure, say N.
- endmenu
-diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
-index 24596a9..77d51ff 100644
---- a/drivers/phy/Makefile
-+++ b/drivers/phy/Makefile
-@@ -52,3 +52,4 @@ obj-$(CONFIG_PHY_TUSB1210)		+= phy-tusb1210.o
- obj-$(CONFIG_PHY_BRCMSTB_SATA)		+= phy-brcmstb-sata.o
- obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
- obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
-+obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
-diff --git a/drivers/phy/phy-bcm-ns2-pcie.c b/drivers/phy/phy-bcm-ns2-pcie.c
++	  This module provides a driver for MDIO bus multiplexers found in
++	  iProc based Broadcom SoCs. This mulitplexer connects one of several
++	  child MDIO bus to a parent bus. Buses could be interal as well as
++	  external and selection logic lies inside the same multiplexer.
++
+ config MDIO_BCM_UNIMAC
+ 	tristate "Broadcom UniMAC MDIO bus controller"
+ 	depends on HAS_IOMEM
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index fcdbb92..f5951d5a 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -39,6 +39,7 @@ obj-$(CONFIG_AMD_PHY)		+= amd.o
+ obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+ obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
++obj-$(CONFIG_MDIO_BUS_MUX_BCM_IPROC)	+= mdio-mux-bcm-iproc.o
+ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
+diff --git a/drivers/net/phy/mdio-mux-bcm-iproc.c b/drivers/net/phy/mdio-mux-bcm-iproc.c
 new file mode 100644
-index 0000000..65c3870
+index 0000000..40c32ee
 --- /dev/null
-+++ b/drivers/phy/phy-bcm-ns2-pcie.c
-@@ -0,0 +1,115 @@
++++ b/drivers/net/phy/mdio-mux-bcm-iproc.c
+@@ -0,0 +1,263 @@
 +/*
-+ * Copyright (C) 2016 Broadcom
++ * Copyright 2016 Broadcom
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, version 2, as
++ * published by the Free Software Foundation (the "GPL").
 + *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License version 2 (GPLv2) for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * version 2 (GPLv2) along with this source code.
 + */
 +
++#include <linux/platform_device.h>
 +#include <linux/device.h>
-+#include <linux/module.h>
 +#include <linux/of_mdio.h>
-+#include <linux/mdio.h>
++#include <linux/module.h>
 +#include <linux/phy.h>
-+#include <linux/phy/phy.h>
++#include <linux/mdio-mux.h>
++#include <linux/delay.h>
 +
-+struct ns2_pci_phy {
-+	struct mdio_device *mdiodev;
-+	struct phy *phy;
++#define MDIO_PARAM_OFFSET		0x00
++#define MDIO_PARAM_MIIM_CYCLE		29
++#define MDIO_PARAM_INTERNAL_SEL		25
++#define MDIO_PARAM_BUS_ID		22
++#define MDIO_PARAM_C45_SEL		21
++#define MDIO_PARAM_PHY_ID		16
++#define MDIO_PARAM_PHY_DATA		0
++
++#define MDIO_READ_OFFSET		0x04
++#define MDIO_READ_DATA_MASK		0xffff
++#define MDIO_ADDR_OFFSET		0x08
++
++#define MDIO_CTRL_OFFSET		0x0C
++#define MDIO_CTRL_WRITE_OP		0x1
++#define MDIO_CTRL_READ_OP		0x2
++
++#define MDIO_STAT_OFFSET		0x10
++#define MDIO_STAT_DONE			1
++
++#define BUS_MAX_ADDR			32
++#define EXT_BUS_START_ADDR		16
++
++struct mdiomux_bus_param {
++	bool is_c45;
 +};
 +
-+#define BLK_ADDR_REG_OFFSET	0x1f
-+#define PLL_AFE1_100MHZ_BLK	0x2100
-+#define PLL_CLK_AMP_OFFSET	0x03
-+#define PLL_CLK_AMP_2P05V	0x2b18
++struct iproc_mdiomux_desc {
++	void *mux_handle;
++	void __iomem *base;
++	struct device *dev;
++	struct mii_bus *mii_bus;
++	struct mdiomux_bus_param bus_param[BUS_MAX_ADDR];
++};
 +
-+static int ns2_pci_phy_init(struct phy *p)
++static int iproc_mdio_wait_for_idle(void __iomem *base, bool result)
 +{
-+	struct ns2_pci_phy *phy = phy_get_drvdata(p);
-+	int rc;
++	u32 val;
++	unsigned int timeout = 1000; /* loop for 1s */
 +
-+	/* select the AFE 100MHz block page */
-+	rc = mdiobus_write(phy->mdiodev->bus, phy->mdiodev->addr,
-+			   BLK_ADDR_REG_OFFSET, PLL_AFE1_100MHZ_BLK);
-+	if (rc)
++	do {
++		val = readl(base + MDIO_STAT_OFFSET);
++		if ((val & MDIO_STAT_DONE) == result)
++			return 0;
++
++		usleep_range(1000, 2000);
++	} while (timeout--);
++
++	return -ETIMEDOUT;
++}
++
++/* start_miim_ops- Program and start MDIO transaction over mdio bus.
++ * @base: Base address
++ * @phyid: phyid of the selected bus.
++ * @reg: register offset to be read/written.
++ * @val :0 if read op else value to be written in @reg;
++ * @op: Operation that need to be carried out.
++ *      MDIO_CTRL_READ_OP: Read transaction.
++ *      MDIO_CTRL_WRITE_OP: Write transaction.
++ *
++ * Return value: Successful Read operation returns read reg values and write
++ *      operation returns 0. Failure operation returns negative error code.
++ */
++static int start_miim_ops(void __iomem *base,
++			  u16 phyid, u32 reg, u16 val, u32 op)
++{
++	int ret;
++	u32 param;
++
++	writel(0, base + MDIO_CTRL_OFFSET);
++	ret = iproc_mdio_wait_for_idle(base, 0);
++	if (ret)
 +		goto err;
 +
-+	/* set the 100 MHz reference clock amplitude to 2.05 v */
-+	rc = mdiobus_write(phy->mdiodev->bus, phy->mdiodev->addr,
-+			   PLL_CLK_AMP_OFFSET, PLL_CLK_AMP_2P05V);
-+	if (rc)
++	param = readl(base + MDIO_PARAM_OFFSET);
++	param |= phyid << MDIO_PARAM_PHY_ID;
++	param |= val << MDIO_PARAM_PHY_DATA;
++
++	writel(param, base + MDIO_PARAM_OFFSET);
++
++	writel(reg, base + MDIO_ADDR_OFFSET);
++
++	writel(op, base + MDIO_CTRL_OFFSET);
++
++	ret = iproc_mdio_wait_for_idle(base, 1);
++	if (ret)
 +		goto err;
 +
-+	return 0;
-+
++	if (op == MDIO_CTRL_READ_OP)
++		ret = readl(base + MDIO_READ_OFFSET) & MDIO_READ_DATA_MASK;
 +err:
-+	dev_err(&phy->mdiodev->dev, "Error %d writing to phy\n", rc);
++	return ret;
++}
++
++static int iproc_mdiomux_read(struct mii_bus *bus, int phyid, int reg)
++{
++	int ret;
++	struct iproc_mdiomux_desc *md = bus->priv;
++
++	ret = start_miim_ops(md->base, phyid, reg, 0, MDIO_CTRL_READ_OP);
++	if (ret < 0)
++		dev_err(&bus->dev, "mdiomux read operation failed!!!");
++
++	return ret;
++}
++
++static int iproc_mdiomux_write(struct mii_bus *bus,
++			       int phyid, int reg, u16 val)
++{
++	int ret;
++	struct iproc_mdiomux_desc *md = bus->priv;
++
++	/* Write val at reg offset */
++	ret = start_miim_ops(md->base, phyid, reg, val, MDIO_CTRL_WRITE_OP);
++	if (ret < 0)
++		dev_err(&bus->dev, "mdiomux write operation failed!!!");
++
++	return ret;
++}
++
++static int mdio_mux_iproc_switch_fn(int current_child, int desired_child,
++				    void *data)
++{
++	struct iproc_mdiomux_desc *md = data;
++	struct mdiomux_bus_param *bp = &md->bus_param[desired_child];
++	u32 param, bus_id;
++	bool bus_dir;
++
++	/* select bus and its properties */
++	bus_dir = (desired_child < EXT_BUS_START_ADDR);
++	bus_id = bus_dir ? desired_child : (desired_child - EXT_BUS_START_ADDR);
++
++	param = (bus_dir ? 1 : 0) << MDIO_PARAM_INTERNAL_SEL;
++	param |= (bp->is_c45 ? 1 : 0) << MDIO_PARAM_C45_SEL;
++	param |= (bus_id << MDIO_PARAM_BUS_ID);
++
++	writel(param, md->base + MDIO_PARAM_OFFSET);
++	return 0;
++}
++
++static int mdio_mux_iproc_probe(struct platform_device *pdev)
++{
++	struct iproc_mdiomux_desc *md;
++	struct mii_bus *bus;
++	struct resource *res;
++	struct mdiomux_bus_param *bp;
++	struct device_node *child;
++	int rc;
++	u32 busid;
++
++	md = devm_kzalloc(&pdev->dev, sizeof(*md), GFP_KERNEL);
++	if (!md)
++		return -ENOMEM;
++	md->dev = &pdev->dev;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	md->base = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(md->base)) {
++		dev_err(&pdev->dev, "failed to ioremap register\n");
++		return PTR_ERR(md->base);
++	}
++
++	md->mii_bus = mdiobus_alloc();
++	if (!md->mii_bus) {
++		dev_err(&pdev->dev, "mdiomux bus alloc failed\n");
++		return -ENOMEM;
++	}
++
++	bus = md->mii_bus;
++	bus->priv = md;
++	bus->name = "iProc MDIO mux bus";
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
++	bus->parent = &pdev->dev;
++	bus->read = iproc_mdiomux_read;
++	bus->write = iproc_mdiomux_write;
++
++	rc = of_mdiobus_register(bus, pdev->dev.of_node);
++	if (rc) {
++		dev_err(&pdev->dev, "mdiomux registration failed\n");
++		goto out;
++	}
++
++	platform_set_drvdata(pdev, md);
++
++	for_each_available_child_of_node(md->dev->of_node, child) {
++		rc = of_property_read_u32(child, "reg", &busid);
++		if (rc)
++			continue;
++
++		if (busid >= BUS_MAX_ADDR) {
++			dev_err(md->dev, "invalid mdiomux busid :%d\n", busid);
++			goto out;
++		}
++
++		bp = &md->bus_param[busid];
++		bp->is_c45 = of_property_read_bool(child, "brcm,is-c45");
++	}
++
++	rc = mdio_mux_init(md->dev, mdio_mux_iproc_switch_fn,
++			   &md->mux_handle, md, md->mii_bus);
++	if (!rc) {
++		dev_info(md->dev, "mdiomux registered\n");
++		goto out;
++	}
++
++out:
++	mdiobus_free(bus);
 +	return rc;
 +}
 +
-+static struct phy_ops ns2_pci_phy_ops = {
-+	.init = ns2_pci_phy_init,
-+};
-+
-+static int ns2_pci_phy_probe(struct mdio_device *mdiodev)
++static int mdio_mux_iproc_remove(struct platform_device *pdev)
 +{
-+	struct device *dev = &mdiodev->dev;
-+	struct phy_provider *provider;
-+	struct ns2_pci_phy *p;
-+	struct phy *phy;
++	struct iproc_mdiomux_desc *md = dev_get_platdata(&pdev->dev);
 +
-+	phy = devm_phy_create(dev, dev->of_node, &ns2_pci_phy_ops);
-+	if (IS_ERR_OR_NULL(phy)) {
-+		dev_err(dev, "failed to create Phy\n");
-+		return PTR_ERR(phy);
-+	}
-+
-+	p = devm_kmalloc(dev, sizeof(struct ns2_pci_phy),
-+			 GFP_KERNEL);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	p->mdiodev = mdiodev;
-+	dev_set_drvdata(dev, p);
-+
-+	p->phy = phy;
-+	phy_set_drvdata(phy, p);
-+
-+	provider = devm_of_phy_provider_register(&phy->dev,
-+						 of_phy_simple_xlate);
-+	if (IS_ERR(provider)) {
-+		dev_err(dev, "failed to register Phy provider\n");
-+		return PTR_ERR(provider);
-+	}
-+
-+	dev_info(dev, "%s PHY registered\n", dev_name(dev));
-+
++	mdio_mux_uninit(md->mux_handle);
 +	return 0;
 +}
 +
-+static const struct of_device_id ns2_pci_phy_of_match[] = {
-+	{ .compatible = "brcm,ns2-pcie-phy", },
-+	{ /* sentinel */ },
-+};
-+MODULE_DEVICE_TABLE(of, ns2_pci_phy_of_match);
-+
-+static struct mdio_driver ns2_pci_phy_driver = {
-+	.mdiodrv = {
-+		.driver = {
-+			.name = "phy-bcm-ns2-pci",
-+			.of_match_table = ns2_pci_phy_of_match,
-+		},
++static const struct of_device_id mdio_mux_iproc_match[] = {
++	{
++		.compatible = "brcm,mdio-mux-iproc",
 +	},
-+	.probe = ns2_pci_phy_probe,
++	{},
 +};
-+mdio_module_driver(ns2_pci_phy_driver);
++MODULE_DEVICE_TABLE(of, mdio_mux_iproc_match);
 +
-+MODULE_AUTHOR("Broadcom");
-+MODULE_DESCRIPTION("Broadcom Northstar2 PCI Phy driver");
++static struct platform_driver mdiomux_iproc_driver = {
++	.driver = {
++		.name		= "mdio-mux-iproc",
++		.of_match_table = mdio_mux_iproc_match,
++	},
++	.probe		= mdio_mux_iproc_probe,
++	.remove		= mdio_mux_iproc_remove,
++};
++
++module_platform_driver(mdiomux_iproc_driver);
++
++MODULE_DESCRIPTION("iProc MDIO Mux Bus Driver");
++MODULE_AUTHOR("Pramod Kumar <pramod.kumar@broadcom.com>");
 +MODULE_LICENSE("GPL v2");
-+MODULE_ALIAS("platform:phy-bcm-ns2-pci");
 -- 
 1.9.1
