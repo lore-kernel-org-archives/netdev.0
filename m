@@ -1,31 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: usbnet: smsc95xx: fix link detection for disabled
- autonegotiation
-Date: Sun, 29 May 2016 22:30:10 -0700 (PDT)
-Message-ID: <20160529.223010.1702681088925445499.davem@davemloft.net>
-References: <1464228407.5421.34.camel@googlemail.com>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 07/10] nl80211: Avoid multiple assignments on same line
+Date: Mon, 30 May 2016 15:30:59 +1000
+Message-ID: <CAGRGNgX0B-Px5r4-Ad7f4B3Q6UrY=aGLn9g4Xd+=kJoXWt-_dQ@mail.gmail.com>
+References: <cover.1464576022.git.kirtika.ruchandani@gmail.com> <637c25b980379d1a98d7c57cc247d49ef295cbc5.1464576022.git.kirtika.ruchandani@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org
-To: chf.fritz@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49607 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121AbcE3FaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 01:30:11 -0400
-In-Reply-To: <1464228407.5421.34.camel@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tina Ruchandani <ruchandani.tina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <637c25b980379d1a98d7c57cc247d49ef295cbc5.1464576022.git.kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Date: Thu, 26 May 2016 04:06:47 +0200
+Hi All,
 
-> @@ -1695,6 +1745,7 @@ static int smsc95xx_resume(struct usb_interface *intf)
->  
->  	/* do this first to ensure it's cleared even in error case */
->  	pdata->suspend_flags = 0;
-> +	schedule_delayed_work(&pdata->carrier_check, CARRIER_CHECK_DELAY);
+On Mon, May 30, 2016 at 12:53 PM, Kirtika Ruchandani
+<kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> This patch fixes the checkpatch.pl warning "multiple assignments
+> should be avoided."
+>
+> Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Why are you not cancelling this delayed work in the suspend routine of
-the driver?
+I'm not sure I agree with checkpatch here, but this looks right to me.
+
+Reviewed-by: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+Thanks,
+
+Julian Calaby
+
+
+> ---
+>  net/wireless/nl80211.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+> index ad7cdce..6f8e2a7 100644
+> --- a/net/wireless/nl80211.c
+> +++ b/net/wireless/nl80211.c
+> @@ -2603,7 +2603,8 @@ static int nl80211_set_interface(struct sk_buff *skb, struct genl_info *info)
+>
+>         memset(&params, 0, sizeof(params));
+>
+> -       otype = ntype = dev->ieee80211_ptr->iftype;
+> +       otype = dev->ieee80211_ptr->iftype;
+> +       ntype = dev->ieee80211_ptr->iftype;
+>
+>         if (info->attrs[NL80211_ATTR_IFTYPE]) {
+>                 ntype = nla_get_u32(info->attrs[NL80211_ATTR_IFTYPE]);
+> --
+> 2.8.0.rc3.226.g39d4020
+>
+
+
+
+-- 
+Julian Calaby
+
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Profile: http://www.google.com/profiles/julian.calaby/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
