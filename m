@@ -1,95 +1,55 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net] bnx2x: avoid leaking memory on bnx2x_init_one() failures
-Date: Mon, 30 May 2016 15:00:54 +0200
-Message-ID: <1464613254-13640-1-git-send-email-vkuznets@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Ariel Elior <ariel.elior@qlogic.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [v10, 7/7] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+Date: Mon, 30 May 2016 15:13:39 +0200
+Message-ID: <11214004.Ypipe5qZMl@wuerfel>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com> <HE1PR04MB0889852B7809A1CCFF8922ACF8410@HE1PR04MB0889.eurprd04.prod.outlook.com> <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Yangbo Lu <yangbo.lu@nxp.com>, Scott Wood <oss@buserror.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Joerg Roedel <joro@8bytes.org>,
+	Kumar Gala <galak@codeaurora.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Yang-Leo Li <leoyang.li@nxp.com>,
+	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Santosh
+To: Ulf Hansson <ulf.hansson@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.10]:52408 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161029AbcE3NOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 09:14:21 -0400
+In-Reply-To: <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bnx2x_init_bp() allocates memory with bnx2x_alloc_mem_bp() so if we
-fail later in bnx2x_init_one() we need to free this memory
-with bnx2x_free_mem_bp() to avoid leakages. E.g. I'm observing memory
-leaks reported by kmemleak when a failure (unrelated) happens in
-bnx2x_vfpf_acquire().
+On Thursday, May 26, 2016 9:44:10 AM CEST Ulf Hansson wrote:
+> On 26 May 2016 at 06:05, Yangbo Lu <yangbo.lu@nxp.com> wrote:
+> > Hi Uffe,
+> >
+> > Could we merge this patchset? ...
+> > It has been a long time to wait for Arnd's response...
+> >
+> > Thanks a lot.
+> >
+> >
+> 
+> As we are still in the merge window I won't queue anything but fixes.
+> Let's give Arnd another week or so to respond.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+I've got a patch series now that implements a method for matching
+the soc ID, see the following emails.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 0a5b770..c5fe9158 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13941,14 +13941,14 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 		bp->doorbells = bnx2x_vf_doorbells(bp);
- 		rc = bnx2x_vf_pci_alloc(bp);
- 		if (rc)
--			goto init_one_exit;
-+			goto init_one_freemem;
- 	} else {
- 		doorbell_size = BNX2X_L2_MAX_CID(bp) * (1 << BNX2X_DB_SHIFT);
- 		if (doorbell_size > pci_resource_len(pdev, 2)) {
- 			dev_err(&bp->pdev->dev,
- 				"Cannot map doorbells, bar size too small, aborting\n");
- 			rc = -ENOMEM;
--			goto init_one_exit;
-+			goto init_one_freemem;
- 		}
- 		bp->doorbells = ioremap_nocache(pci_resource_start(pdev, 2),
- 						doorbell_size);
-@@ -13957,19 +13957,19 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 		dev_err(&bp->pdev->dev,
- 			"Cannot map doorbell space, aborting\n");
- 		rc = -ENOMEM;
--		goto init_one_exit;
-+		goto init_one_freemem;
- 	}
- 
- 	if (IS_VF(bp)) {
- 		rc = bnx2x_vfpf_acquire(bp, tx_count, rx_count);
- 		if (rc)
--			goto init_one_exit;
-+			goto init_one_freemem;
- 	}
- 
- 	/* Enable SRIOV if capability found in configuration space */
- 	rc = bnx2x_iov_init_one(bp, int_mode, BNX2X_MAX_NUM_OF_VFS);
- 	if (rc)
--		goto init_one_exit;
-+		goto init_one_freemem;
- 
- 	/* calc qm_cid_count */
- 	bp->qm_cid_count = bnx2x_set_qm_cid_count(bp);
-@@ -13988,7 +13988,7 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 	rc = bnx2x_set_int_mode(bp);
- 	if (rc) {
- 		dev_err(&pdev->dev, "Cannot set interrupts\n");
--		goto init_one_exit;
-+		goto init_one_freemem;
- 	}
- 	BNX2X_DEV_INFO("set interrupts successfully\n");
- 
-@@ -13996,7 +13996,7 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 	rc = register_netdev(dev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "Cannot register net device\n");
--		goto init_one_exit;
-+		goto init_one_freemem;
- 	}
- 	BNX2X_DEV_INFO("device name after netdev register %s\n", dev->name);
- 
-@@ -14029,6 +14029,9 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 
- 	return 0;
- 
-+init_one_freemem:
-+	bnx2x_free_mem_bp(bp);
-+
- init_one_exit:
- 	bnx2x_disable_pcie_error_reporting(bp);
- 
--- 
-2.5.5
+	Arnd
