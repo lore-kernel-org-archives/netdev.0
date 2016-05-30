@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 1/2] vhost_net: stop polling socket during rx processing
-Date: Mon, 30 May 2016 02:47:53 -0400
-Message-ID: <1464590874-39539-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH V2 2/2] vhost_net: conditionally enable tx polling
+Date: Mon, 30 May 2016 02:47:54 -0400
+Message-ID: <1464590874-39539-3-git-send-email-jasowang@redhat.com>
 References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,113 +22,50 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-We don't stop rx polling socket during rx processing, this will lead
-unnecessary wakeups from under layer net devices (E.g
-sock_def_readable() form tun). Rx will be slowed down in this
-way. This patch avoids this by stop polling socket during rx
-processing. A small drawback is that this introduces some overheads in
-light load case because of the extra start/stop polling, but single
-netperf TCP_RR does not notice any change. In a super heavy load case,
-e.g using pktgen to inject packet to guest, we get about ~8.8%
-improvement on pps:
+We always poll tx for socket, this is sub optimal since:
 
-before: ~1240000 pkt/s
-after:  ~1350000 pkt/s
+- it will be only used when we exceed the sndbuf of the socket.
+- since we use two independent polls for tx and vq, this will slightly
+  increase the waitqueue traversing time and more important, vhost
+  could not benefit from commit
+  9e641bdcfa4ef4d6e2fbaa59c1be0ad5d1551fd5 ("net-tun: restructure
+  tun_do_read for better sleep/wakeup efficiency") even if we've
+  stopped rx polling during handle_rx since tx poll were still left in
+  the waitqueue.
+
+Fix this by conditionally enable tx polling only when -EAGAIN were
+met.
+
+Test shows about 8% improvement on guest rx pps.
+
+Before: ~1350000
+After:  ~1460000
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/net.c | 56 +++++++++++++++++++++++++++--------------------------
- 1 file changed, 29 insertions(+), 27 deletions(-)
+ drivers/vhost/net.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 10ff494..e91603b 100644
+index e91603b..5a05fa0 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -301,6 +301,32 @@ static bool vhost_can_busy_poll(struct vhost_dev *dev,
- 	       !vhost_has_work(dev);
- }
- 
-+static void vhost_net_disable_vq(struct vhost_net *n,
-+				 struct vhost_virtqueue *vq)
-+{
-+	struct vhost_net_virtqueue *nvq =
-+		container_of(vq, struct vhost_net_virtqueue, vq);
-+	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
-+	if (!vq->private_data)
-+		return;
-+	vhost_poll_stop(poll);
-+}
-+
-+static int vhost_net_enable_vq(struct vhost_net *n,
-+				struct vhost_virtqueue *vq)
-+{
-+	struct vhost_net_virtqueue *nvq =
-+		container_of(vq, struct vhost_net_virtqueue, vq);
-+	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
-+	struct socket *sock;
-+
-+	sock = vq->private_data;
-+	if (!sock)
-+		return 0;
-+
-+	return vhost_poll_start(poll, sock->file);
-+}
-+
- static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
- 				    struct vhost_virtqueue *vq,
- 				    struct iovec iov[], unsigned int iov_size,
-@@ -627,6 +653,7 @@ static void handle_rx(struct vhost_net *net)
- 	if (!sock)
+@@ -378,6 +378,7 @@ static void handle_tx(struct vhost_net *net)
  		goto out;
+ 
  	vhost_disable_notify(&net->dev, vq);
 +	vhost_net_disable_vq(net, vq);
  
- 	vhost_hlen = nvq->vhost_hlen;
- 	sock_hlen = nvq->sock_hlen;
-@@ -715,9 +742,10 @@ static void handle_rx(struct vhost_net *net)
- 		total_len += vhost_len;
- 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
- 			vhost_poll_queue(&vq->poll);
--			break;
-+			goto out;
+ 	hdr_size = nvq->vhost_hlen;
+ 	zcopy = nvq->ubufs;
+@@ -459,6 +460,8 @@ static void handle_tx(struct vhost_net *net)
+ 					% UIO_MAXIOV;
+ 			}
+ 			vhost_discard_vq_desc(vq, 1);
++			if (err == -EAGAIN)
++				vhost_net_enable_vq(net, vq);
+ 			break;
  		}
- 	}
-+	vhost_net_enable_vq(net, vq);
- out:
- 	mutex_unlock(&vq->mutex);
- }
-@@ -796,32 +824,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 	return 0;
- }
- 
--static void vhost_net_disable_vq(struct vhost_net *n,
--				 struct vhost_virtqueue *vq)
--{
--	struct vhost_net_virtqueue *nvq =
--		container_of(vq, struct vhost_net_virtqueue, vq);
--	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
--	if (!vq->private_data)
--		return;
--	vhost_poll_stop(poll);
--}
--
--static int vhost_net_enable_vq(struct vhost_net *n,
--				struct vhost_virtqueue *vq)
--{
--	struct vhost_net_virtqueue *nvq =
--		container_of(vq, struct vhost_net_virtqueue, vq);
--	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
--	struct socket *sock;
--
--	sock = vq->private_data;
--	if (!sock)
--		return 0;
--
--	return vhost_poll_start(poll, sock->file);
--}
--
- static struct socket *vhost_net_stop_vq(struct vhost_net *n,
- 					struct vhost_virtqueue *vq)
- {
+ 		if (err != len)
 -- 
 1.8.3.1
