@@ -1,103 +1,150 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] qed: fix qed_fill_link() error handling
-Date: Mon, 30 May 2016 17:46:12 +0200
-Message-ID: <1464623197-2084229-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	everest-linux-l2@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2 1/2] vhost_net: stop polling socket during rx processing
+Date: Mon, 30 May 2016 18:47:11 +0300
+Message-ID: <20160530184211-mutt-send-email-mst@redhat.com>
+References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
+	<1464590874-39539-2-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1464590874-39539-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-gcc warns about qed_fill_link possibly accessing uninitialized data:
+On Mon, May 30, 2016 at 02:47:53AM -0400, Jason Wang wrote:
+> We don't stop rx polling socket during rx processing, this will lead
+> unnecessary wakeups from under layer net devices (E.g
+> sock_def_readable() form tun). Rx will be slowed down in this
+> way. This patch avoids this by stop polling socket during rx
+> processing. A small drawback is that this introduces some overheads in
+> light load case because of the extra start/stop polling, but single
+> netperf TCP_RR does not notice any change. In a super heavy load case,
+> e.g using pktgen to inject packet to guest, we get about ~8.8%
+> improvement on pps:
+> 
+> before: ~1240000 pkt/s
+> after:  ~1350000 pkt/s
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/net.c | 56 +++++++++++++++++++++++++++--------------------------
+>  1 file changed, 29 insertions(+), 27 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 10ff494..e91603b 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -301,6 +301,32 @@ static bool vhost_can_busy_poll(struct vhost_dev *dev,
+>  	       !vhost_has_work(dev);
+>  }
+>  
+> +static void vhost_net_disable_vq(struct vhost_net *n,
+> +				 struct vhost_virtqueue *vq)
+> +{
+> +	struct vhost_net_virtqueue *nvq =
+> +		container_of(vq, struct vhost_net_virtqueue, vq);
+> +	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
+> +	if (!vq->private_data)
+> +		return;
+> +	vhost_poll_stop(poll);
+> +}
+> +
+> +static int vhost_net_enable_vq(struct vhost_net *n,
+> +				struct vhost_virtqueue *vq)
+> +{
+> +	struct vhost_net_virtqueue *nvq =
+> +		container_of(vq, struct vhost_net_virtqueue, vq);
+> +	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
+> +	struct socket *sock;
+> +
+> +	sock = vq->private_data;
+> +	if (!sock)
+> +		return 0;
+> +
+> +	return vhost_poll_start(poll, sock->file);
+> +}
+> +
+>  static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
+>  				    struct vhost_virtqueue *vq,
+>  				    struct iovec iov[], unsigned int iov_size,
 
-drivers/net/ethernet/qlogic/qed/qed_main.c: In function 'qed_fill_link':
-drivers/net/ethernet/qlogic/qed/qed_main.c:1170:35: error: 'link_caps' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+BTW we might want to rename these functions, name no longer
+reflects function ...
 
-While this warning is only about the specific case of CONFIG_QED_SRIOV
-being disabled but the function getting called for a VF (which should
-never happen), another possibility is that qed_mcp_get_*() fails without
-returning data.
 
-This rearranges the code so we bail out in either of the two cases
-and print a warning instead of accessing the uninitialized data.
+> @@ -627,6 +653,7 @@ static void handle_rx(struct vhost_net *net)
+>  	if (!sock)
+>  		goto out;
+>  	vhost_disable_notify(&net->dev, vq);
+> +	vhost_net_disable_vq(net, vq);
+>  
+>  	vhost_hlen = nvq->vhost_hlen;
+>  	sock_hlen = nvq->sock_hlen;
+> @@ -715,9 +742,10 @@ static void handle_rx(struct vhost_net *net)
+>  		total_len += vhost_len;
+>  		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+>  			vhost_poll_queue(&vq->poll);
+> -			break;
+> +			goto out;
+>  		}
+>  	}
+> +	vhost_net_enable_vq(net, vq);
 
-The qed_link_output structure remains untouched in this case, but
-all callers first call memset() on it, so at least we are not leaking
-stack data then.
+OK so if sock is readable but RX VQ is empty, this will
+immediately schedule another round of handle_rx and so ad
+infinitum,
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/qlogic/qed/qed_main.c | 45 ++++++++++++++++++++++++------
- 1 file changed, 36 insertions(+), 9 deletions(-)
+Looks like a bug.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 753064679bde..68f87a4f9316 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1105,6 +1105,39 @@ static int qed_get_port_type(u32 media_type)
- 	return port_type;
- }
- 
-+static int qed_get_link_data(struct qed_hwfn *hwfn,
-+			     struct qed_mcp_link_params *params,
-+			     struct qed_mcp_link_state *link,
-+			     struct qed_mcp_link_capabilities *link_caps)
-+{
-+	void *p;
-+
-+	if (IS_ENABLED(CONFIG_QED_SRIOV) && !IS_PF(hwfn->cdev)) {
-+		qed_vf_get_link_params(hwfn, params);
-+		qed_vf_get_link_state(hwfn, link);
-+		qed_vf_get_link_caps(hwfn, link_caps);
-+
-+		return 0;
-+	}
-+
-+	p = qed_mcp_get_link_params(hwfn);
-+	if (!p)
-+		return -ENXIO;
-+	memcpy(params, p, sizeof(*params));
-+
-+	p = qed_mcp_get_link_state(hwfn);
-+	if (!p)
-+		return -ENXIO;
-+	memcpy(link, p, sizeof(*link));
-+
-+	p = qed_mcp_get_link_capabilities(hwfn);
-+	if (!p)
-+		return -ENXIO;
-+	memcpy(link_caps, p, sizeof(*link_caps));
-+
-+	return 0;
-+}
-+
- static void qed_fill_link(struct qed_hwfn *hwfn,
- 			  struct qed_link_output *if_link)
- {
-@@ -1116,15 +1149,9 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
- 	memset(if_link, 0, sizeof(*if_link));
- 
- 	/* Prepare source inputs */
--	if (IS_PF(hwfn->cdev)) {
--		memcpy(&params, qed_mcp_get_link_params(hwfn), sizeof(params));
--		memcpy(&link, qed_mcp_get_link_state(hwfn), sizeof(link));
--		memcpy(&link_caps, qed_mcp_get_link_capabilities(hwfn),
--		       sizeof(link_caps));
--	} else {
--		qed_vf_get_link_params(hwfn, &params);
--		qed_vf_get_link_state(hwfn, &link);
--		qed_vf_get_link_caps(hwfn, &link_caps);
-+	if (qed_get_link_data(hwfn, &params, &link, &link_caps)) {
-+		dev_warn(&hwfn->cdev->pdev->dev, "no link data available\n");
-+		return;
- 	}
- 
- 	/* Set the link parameters to pass to protocol driver */
--- 
-2.7.0
+
+>  out:
+>  	mutex_unlock(&vq->mutex);
+>  }
+> @@ -796,32 +824,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>  	return 0;
+>  }
+>  
+> -static void vhost_net_disable_vq(struct vhost_net *n,
+> -				 struct vhost_virtqueue *vq)
+> -{
+> -	struct vhost_net_virtqueue *nvq =
+> -		container_of(vq, struct vhost_net_virtqueue, vq);
+> -	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
+> -	if (!vq->private_data)
+> -		return;
+> -	vhost_poll_stop(poll);
+> -}
+> -
+> -static int vhost_net_enable_vq(struct vhost_net *n,
+> -				struct vhost_virtqueue *vq)
+> -{
+> -	struct vhost_net_virtqueue *nvq =
+> -		container_of(vq, struct vhost_net_virtqueue, vq);
+> -	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
+> -	struct socket *sock;
+> -
+> -	sock = vq->private_data;
+> -	if (!sock)
+> -		return 0;
+> -
+> -	return vhost_poll_start(poll, sock->file);
+> -}
+> -
+>  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
+>  					struct vhost_virtqueue *vq)
+>  {
+> -- 
+> 1.8.3.1
