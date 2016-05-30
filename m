@@ -1,38 +1,35 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [net v3] veth: advertise peer link once both links are tied
- together
-Date: Mon, 30 May 2016 18:27:10 +0200
-Message-ID: <574C69DE.3050305@6wind.com>
-References: <574C6095.9050804@6wind.com>
- <1464623917-11536-1-git-send-email-vincent@bernat.im>
- <87bn3n358j.fsf@zoro.exoscale.ch>
-Reply-To: nicolas.dichtel@6wind.com
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 0/2] macvlan: Avoid unnecessary multicast cloning
+Date: Mon, 30 May 2016 19:27:59 +0300
+Message-ID: <20160530162759.GD8402@wantstofly.org>
+References: <20160526234433.GU8402@wantstofly.org>
+ <20160530081752.GA4956@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vijay Pandurangan <vijayp@vijayp.ca>,
-	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
-To: Vincent Bernat <vincent@bernat.im>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34984 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933000AbcE3Q1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 12:27:14 -0400
-Received: by mail-wm0-f45.google.com with SMTP id a136so93927245wme.0
-        for <netdev@vger.kernel.org>; Mon, 30 May 2016 09:27:13 -0700 (PDT)
-In-Reply-To: <87bn3n358j.fsf@zoro.exoscale.ch>
+Received: from hmm.wantstofly.org ([138.201.34.84]:53482 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161417AbcE3Q2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 12:28:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20160530081752.GA4956@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 30/05/2016 18:01, Vincent Bernat a =C3=A9crit :
->  =E2=9D=A6 30 mai 2016 17:58 CEST, Vincent Bernat <vincent@bernat.im>=
- :
->=20
->> +
->> +	rtmsg_ifinfo(RTM_NEWLINK, peer, IFF_SLAVE, GFP_KERNEL);
->=20
-> Maybe ~0U would be better than hijacking IFF_SLAVE?
-IFF_SLAVE is wrong. It's a flag here, that will be put in the ifi_chang=
-e field
-not an attribute number.
+On Mon, May 30, 2016 at 04:17:52PM +0800, Herbert Xu wrote:
+
+> > Commit 412ca1550cbecb2c ("macvlan: Move broadcasts into a work queue")
+> > moved processing of all macvlan multicasts into a work queue.  This
+> > causes a noticable performance regression when there is heavy multicast
+> > traffic on the underlying interface for multicast groups that the
+> > macvlan subinterfaces are not members of, in which case we end up
+> > cloning all those packets and then freeing them again from a work queue
+> > without really doing any useful work with them in between.
+> 
+> OK so your motivation is to get rid of the unnecessary memory
+> allocation, right?
+
+That and stack switches to kworker threads and serialisation on
+the bc_queue queue lock.
