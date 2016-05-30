@@ -1,113 +1,50 @@
-From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 04/10] nl80211: Fix checkpatch.pl warning about braces
-Date: Sun, 29 May 2016 19:52:28 -0700
-Message-ID: <aef84fd2cf9f2e8fc81b366c83cb38402513f5b1.1464576022.git.kirtika.ruchandani@gmail.com>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: [PATCH v2 05/10] nl80211: Fix checkpatch.pl NULL comparison warning
+Date: Sun, 29 May 2016 19:52:48 -0700
+Message-ID: <cc580aa7b55b9546c71185b6b4e07aba00367e72.1464576022.git.kirtika.ruchandani@gmail.com>
 References: <cover.1464576022.git.kirtika.ruchandani@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ruchandani.tina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Julian.Calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, ruchandani.tina@gmail.com,
+	netdev@vger.kernel.org, Julian.Calaby@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36639 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753188AbcE3Cwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2016 22:52:55 -0400
 Content-Disposition: inline
-In-Reply-To: <cover.1464576022.git.kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <cover.1464576022.git.kirtika.ruchandani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following checkpatch,pl warning -
-- braces {} should be used on all arms of this statement.
+This patch fixes the warning - "comparison to NULL (foo == NULL)
+could be written as (!foo)"
 
-Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
 ---
- net/wireless/nl80211.c | 23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+ net/wireless/nl80211.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 34b8fbe..945405d 100644
+index 945405d..11cbf0b 100644
 --- a/net/wireless/nl80211.c
 +++ b/net/wireless/nl80211.c
-@@ -870,8 +870,9 @@ nl80211_parse_connkeys(struct cfg80211_registered_device *rdev,
- 			result->def = parse.idx;
- 			if (!parse.def_uni || !parse.def_multi)
- 				goto error;
--		} else if (parse.defmgmt)
-+		} else if (parse.defmgmt) {
- 			goto error;
-+		}
- 		err = cfg80211_validate_key_settings(rdev, &parse.p,
- 						     parse.idx, false, NULL);
- 		if (err)
-@@ -1401,8 +1402,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
- 			break;
- 	case 2:
- 		if (nl80211_put_iftypes(msg, NL80211_ATTR_SUPPORTED_IFTYPES,
--					rdev->wiphy.interface_modes))
--				goto nla_put_failure;
-+					rdev->wiphy.interface_modes)) {
-+			goto nla_put_failure;
-+		}
- 		state->split_start++;
- 		if (state->split)
- 			break;
-@@ -2155,8 +2157,9 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 		wdev = NULL;
- 		netdev = NULL;
- 		result = 0;
--	} else
-+	} else {
- 		wdev = netdev->ieee80211_ptr;
-+	}
+@@ -928,7 +928,7 @@ static struct ieee80211_channel *nl80211_get_valid_chan(struct wiphy *wiphy,
+ {
+ 	struct ieee80211_channel *chan;
 
- 	/* end workaround code, by now the rdev is available
- 	 * and locked, and wdev may or may not be NULL.
-@@ -3403,8 +3406,9 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
- 		if (!nl80211_valid_auth_type(rdev, params.auth_type,
- 					     NL80211_CMD_START_AP))
+-	if (tb == NULL)
++	if (!tb)
+ 		return NULL;
+ 	chan = ieee80211_get_channel(wiphy, nla_get_u32(tb));
+ 	if (!chan || chan->flags & IEEE80211_CHAN_DISABLED)
+@@ -8575,7 +8575,7 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
+ 		if (band < 0 || band >= NUM_NL80211_BANDS)
  			return -EINVAL;
--	} else
-+	} else {
- 		params.auth_type = NL80211_AUTHTYPE_AUTOMATIC;
-+	}
-
- 	err = nl80211_crypto_settings(rdev, info, &params.crypto,
- 				      NL80211_MAX_NR_CIPHER_SUITES);
-@@ -3450,8 +3454,9 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
- 			return err;
- 	} else if (wdev->preset_chandef.chan) {
- 		params.chandef = wdev->preset_chandef;
--	} else if (!nl80211_get_ap_channel(rdev, &params))
-+	} else if (!nl80211_get_ap_channel(rdev, &params)) {
- 		return -EINVAL;
-+	}
-
- 	if (!cfg80211_reg_can_beacon_relax(&rdev->wiphy, &params.chandef,
- 					   wdev->iftype))
-@@ -7262,8 +7267,9 @@ static int nl80211_crypto_settings(struct cfg80211_registered_device *rdev,
+ 		sband = rdev->wiphy.bands[band];
+-		if (sband == NULL)
++		if (!sband)
  			return -EINVAL;
- 		if (info->attrs[NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT])
- 			settings->control_port_no_encrypt = true;
--	} else
-+	} else {
- 		settings->control_port_ethertype = cpu_to_be16(ETH_P_PAE);
-+	}
-
- 	if (info->attrs[NL80211_ATTR_CIPHER_SUITES_PAIRWISE]) {
- 		void *data;
-@@ -7997,8 +8003,9 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
- 		if (!nl80211_valid_auth_type(rdev, connect.auth_type,
- 					     NL80211_CMD_CONNECT))
- 			return -EINVAL;
--	} else
-+	} else {
- 		connect.auth_type = NL80211_AUTHTYPE_AUTOMATIC;
-+	}
-
- 	connect.privacy = info->attrs[NL80211_ATTR_PRIVACY];
-
---
-2.8.0.rc3.226.g39d4020
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 		err = nla_parse(tb, NL80211_TXRATE_MAX, nla_data(tx_rates),
+ 				nla_len(tx_rates), nl80211_txattr_policy);
