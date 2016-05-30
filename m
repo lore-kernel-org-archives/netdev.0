@@ -1,52 +1,107 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
-Date: Mon, 30 May 2016 23:41:22 +0200
-Message-ID: <574CB382.7030102@gmx.de>
-References: <20160518225529.GA18671@electric-eye.fr.zoreil.com>
- <573E2D0C.604@gmx.de> <20160520003145.GA22420@electric-eye.fr.zoreil.com>
- <20160521160910.GA14945@debian-dorm> <5740E82F.8040903@gmx.de>
- <20160522091742.GA8681@debian-dorm> <57419853.9050701@gmx.de>
- <20160522223659.GB5086@electric-eye.fr.zoreil.com> <5743A9DD.8010202@gmx.de>
- <5744EA24.7060806@gmx.de> <20160528064348.GA19649@debian-dorm>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.5 15/87] asix: Fix offset calculation in asix_rx_fixup() causing slow transmissions
+Date: Mon, 30 May 2016 13:49:13 -0700
+Message-ID: <20160530204933.911128024@linuxfoundation.org>
+References: <20160530204933.149873142@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, wxt@rock-chips.com,
-	heiko@sntech.de, linux-rockchip@lists.infradead.org,
-	netdev@vger.kernel.org, al.kochet@gmail.com
-To: Shuyu Wei <wsy2220@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:63102 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161768AbcE3VmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 May 2016 17:42:13 -0400
-In-Reply-To: <20160528064348.GA19649@debian-dorm>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Dean Jenkins <Dean_Jenkins@mentor.com>,
+	"David B. Robins" <linux@davidrobins.net>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	Emil Goode <emilgoode@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	Guodong Xu <guodong.xu@linaro.org>,
+	Ivan Vecera <ivecera@redhat.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, John Stultz <john.stultz@linaro.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160530204933.149873142@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Shuyu,
+4.5-stable review patch.  If anyone has any objections, please let me know.
 
-On 28.05.2016 08:43, Shuyu Wei wrote:
-> 
-> After some stress testing, it worked well most of the time.
-> But there is a chance that it may get stuck when I use 2 nc process
-> to send TCP packects at full speed.  Only when a new rx packet 
-> arrive can trigger it to run again. This happens only once per several
-> hours. No problem in UDP mode.  I'm not sure if it's related to tx code in
-> the driver.
-> 
+------------------
 
-This sounds strange. One reason I could imagine for such an issue is that 
-occassionally tx completion interrupts get lost: 
-In this case skbs may not be freed (or be freed too late) which may result in a TCP
-stream getting stuck, because each skb belongs to a socket and there is a limit for
-the allowed number of skbs per socket. TCP would only proceed if the number of pending 
-skbs falls under this limit again but since the tx completion irq is lost, the only thing 
-that could trigger the tx completion handler is another irq, e.g for a received packet.
-At least this could explain what you observed.
+From: John Stultz <john.stultz@linaro.org>
 
-Did you see the same issues with the patch before (the one that, as you wrote,
-survived a whole night of stress testing)?
+commit cd9e2e5d3ff148be9ea210f622ce3e8e8292fcd6 upstream.
 
-Lino
+In testing with HiKey, we found that since
+commit 3f30b158eba5 ("asix: On RX avoid creating bad Ethernet
+frames"),
+we're seeing lots of noise during network transfers:
+
+[  239.027993] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
+[  239.037310] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x54ebb5ec, offset 4
+[  239.045519] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0xcdffe7a2, offset 4
+[  239.275044] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
+[  239.284355] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x1d36f59d, offset 4
+[  239.292541] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0xaef3c1e9, offset 4
+[  239.518996] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
+[  239.528300] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x2881912, offset 4
+[  239.536413] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x5638f7e2, offset 4
+
+And network throughput ends up being pretty bursty and slow with
+a overall throughput of at best ~30kB/s (where as previously we
+got 1.1MB/s with the slower USB1.1 "full speed" host).
+
+We found the issue also was reproducible on a x86_64 system,
+using a "high-speed" USB2.0 port but the throughput did not
+measurably drop (possibly due to the scp transfer being cpu
+bound on my slow test hardware).
+
+After lots of debugging, I found the check added in the
+problematic commit seems to be calculating the offset
+incorrectly.
+
+In the normal case, in the main loop of the function, we do:
+(where offset is zero, or set to "offset += (copy_length + 1) &
+0xfffe" in the previous loop)
+    rx->header = get_unaligned_le32(skb->data +
+                                    offset);
+    offset += sizeof(u32);
+
+But the problematic patch calculates:
+    offset = ((rx->remaining + 1) & 0xfffe) + sizeof(u32);
+    rx->header = get_unaligned_le32(skb->data + offset);
+
+Adding some debug logic to check those offset calculation used
+to find rx->header, the one in problematic code is always too
+large by sizeof(u32).
+
+Thus, this patch removes the incorrect " + sizeof(u32)" addition
+in the problematic calculation, and resolves the issue.
+
+Cc: Dean Jenkins <Dean_Jenkins@mentor.com>
+Cc: "David B. Robins" <linux@davidrobins.net>
+Cc: Mark Craske <Mark_Craske@mentor.com>
+Cc: Emil Goode <emilgoode@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: YongQin Liu <yongqin.liu@linaro.org>
+Cc: Guodong Xu <guodong.xu@linaro.org>
+Cc: Ivan Vecera <ivecera@redhat.com>
+Cc: linux-usb@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Reported-by: Yongqin Liu <yongqin.liu@linaro.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ drivers/net/usb/asix_common.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -66,7 +66,7 @@ int asix_rx_fixup_internal(struct usbnet
+ 	 * buffer.
+ 	 */
+ 	if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
+-		offset = ((rx->remaining + 1) & 0xfffe) + sizeof(u32);
++		offset = ((rx->remaining + 1) & 0xfffe);
+ 		rx->header = get_unaligned_le32(skb->data + offset);
+ 		offset = 0;
+ 
