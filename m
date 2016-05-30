@@ -1,64 +1,78 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] veth: delay peer link configuration after interfaces are
- tied
-Date: Mon, 30 May 2016 17:47:33 +0200
-Message-ID: <574C6095.9050804@6wind.com>
-References: <1464520637-19784-1-git-send-email-vincent@bernat.im>
- <574C0697.6060506@6wind.com> <878tyr4zzc.fsf@zoro.exoscale.ch>
- <574C59F1.80403@6wind.com> <87fusz36tg.fsf@zoro.exoscale.ch>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2 2/2] vhost_net: conditionally enable tx polling
+Date: Mon, 30 May 2016 18:55:21 +0300
+Message-ID: <20160530155521.GA5427@redhat.com>
+References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
+ <1464590874-39539-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Vijay Pandurangan <vijayp@vijayp.ca>,
-	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
-To: Vincent Bernat <vincent@bernat.im>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:34393 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161419AbcE3Prg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 11:47:36 -0400
-Received: by mail-wm0-f46.google.com with SMTP id z87so16794355wmh.1
-        for <netdev@vger.kernel.org>; Mon, 30 May 2016 08:47:36 -0700 (PDT)
-In-Reply-To: <87fusz36tg.fsf@zoro.exoscale.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464590874-39539-3-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 30/05/2016 17:26, Vincent Bernat a =C3=A9crit :
->  =E2=9D=A6 30 mai 2016 17:19 CEST, Nicolas Dichtel <nicolas.dichtel@6=
-wind.com> :
->=20
->>>>>  	priv =3D netdev_priv(peer);
->>>>>  	rcu_assign_pointer(priv->peer, dev);
->>>>> +
->>>>> +	err =3D rtnl_configure_link(peer, ifmp);
->>>>> +	if (err < 0)
->>>>> +		goto err_configure_peer;
->>>
->>>> You should fix the error path. 'unregister_netdevice(dev)' is miss=
-ing.
->>>
->>> I am sending another patch to fix that. I am quite unsure if I do t=
-he
->>> right thing here.
->>>
->> A less intrusive fix is to call 'rtmsg_ifinfo(RTM_NEWLINK, peer, ~0U=
-,
->> GFP_KERNEL);' a the end of veth_newlink().
->=20
-> I did that at first. Maybe this would make more sense to do
-> that. Otherwise, the first message contains an iflink value that we
-> cannot resolve with just the received netlink messages (since the
-> information is in the next netlink message). "ip monitor" seems to be
-> able to get the info, but I suppose it does an additional
-> lookup.
->=20
-Yes, it's a chicken and egg problem ;-)
-I think that the first message with an iflink set to '0' is not a probl=
-em if a
-second one update this value. Daemons that listen to those rtnl message=
-s must
-always update their caches. When the peer is put in another netns, its =
-ifindex
-may change again.
+On Mon, May 30, 2016 at 02:47:54AM -0400, Jason Wang wrote:
+> We always poll tx for socket, this is sub optimal since:
+> 
+> - it will be only used when we exceed the sndbuf of the socket.
+> - since we use two independent polls for tx and vq, this will slightly
+>   increase the waitqueue traversing time and more important, vhost
+>   could not benefit from commit
+>   9e641bdcfa4ef4d6e2fbaa59c1be0ad5d1551fd5 ("net-tun: restructure
+>   tun_do_read for better sleep/wakeup efficiency") even if we've
+>   stopped rx polling during handle_rx since tx poll were still left in
+>   the waitqueue.
+
+Why is this an issue?
+sock_def_write_space only wakes up when queue is half empty,
+not on each packet.
+        if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf)
+
+I suspect the issue is with your previous patch,
+it now pokes at the spinlock on data path
+where it used not to.
+
+Is that right?
+
+
+> 
+> Fix this by conditionally enable tx polling only when -EAGAIN were
+> met.
+> 
+> Test shows about 8% improvement on guest rx pps.
+> 
+> Before: ~1350000
+> After:  ~1460000
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/net.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index e91603b..5a05fa0 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -378,6 +378,7 @@ static void handle_tx(struct vhost_net *net)
+>  		goto out;
+>  
+>  	vhost_disable_notify(&net->dev, vq);
+> +	vhost_net_disable_vq(net, vq);
+>  
+>  	hdr_size = nvq->vhost_hlen;
+>  	zcopy = nvq->ubufs;
+> @@ -459,6 +460,8 @@ static void handle_tx(struct vhost_net *net)
+>  					% UIO_MAXIOV;
+>  			}
+>  			vhost_discard_vq_desc(vq, 1);
+> +			if (err == -EAGAIN)
+> +				vhost_net_enable_vq(net, vq);
+>  			break;
+>  		}
+>  		if (err != len)
+> -- 
+> 1.8.3.1
