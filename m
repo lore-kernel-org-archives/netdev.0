@@ -1,60 +1,80 @@
-From: Nicole Rice <nrice@contactmaxima.com>
-Subject: Hiking Enthusiasts
-Date: Mon, 30 May 2016 10:03:40 -0400
-Message-ID: <574C483C.5090307@contactmaxima.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Mon, 30 May 2016 16:57:19 +0200
+Message-ID: <CACRpkdYNuRauAqU76Q_b97QO2XtquTAszGJnzNZ7E3ZkEV1_Vg@mail.gmail.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+	<3641492.klKRrvS8tr@wasted.cogentembedded.com>
+	<20160512184233.GJ30822@pengutronix.de>
+	<CACRpkdY3kmOiqVsnBWq8DyDDm-gLjcH4wQ+TTr1+Rp+jYLz+SQ@mail.gmail.com>
+	<20160526190000.GE3331@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33885 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754704AbcE3OpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 10:45:09 -0400
-Received: by mail-pa0-f53.google.com with SMTP id bz2so33067326pad.1
-        for <netdev@vger.kernel.org>; Mon, 30 May 2016 07:45:08 -0700 (PDT)
-Received: from [127.0.0.1] ([103.6.157.159])
-        by smtp.gmail.com with ESMTPSA id 17sm33581950pfa.59.2016.05.30.07.45.06
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 30 May 2016 07:45:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Frank Rowand <frowand.list@gmail.com>,
+	=?UTF-8?Q?Pawe=C5=82_Moll?= <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160526190000.GE3331@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, May 26, 2016 at 9:00 PM, Uwe Kleine-K=C3=B6nig
+<u.kleine-koenig@pengutronix.de> wrote:
+> On Thu, May 26, 2016 at 11:00:55AM +0200, Linus Walleij wrote:
+>> On Thu, May 12, 2016 at 8:42 PM, Uwe Kleine-K=C3=B6nig
+>> <u.kleine-koenig@pengutronix.de> wrote:
+>>
+>> > [added Linus Walleij to Cc, there is a question for you/him below]
+>> (...)
+>> >> +void mdio_device_reset(struct mdio_device *mdiodev, int value)
+>> >> +{
+>> >> +     if (mdiodev->reset)
+>> >> +             gpiod_set_value(mdiodev->reset, value);
+>> >
+>> > Before v4.6-rc1~108^2~91 it was not necessary to check for the fir=
+st
+>> > parameter being non-NULL before calling gpiod_set_value. Linus, di=
+d you
+>> > change this on purpose?
+>>
+>> Not really. And AFAICT it is still not necessary: what changed is th=
+at
+>> an error message will be printed by VALIDATE_DESC() if you do that.
+>> And that is proper I guess? I think it's sloppy code to randomly pas=
+s in
+>> NULL to a call and just expect it to bail out, it seems more like
+>> exercising the error path than something you'd normally rely on.
+>>
+>> Or am I getting things wrong?
+>
+> is the following sloppy?:
+>
+>         somegpio =3D gpiod_get_optional(dev, "some", GPIOD_OUT_LOW);
+>         if (IS_ERR(somegpio))
+>                 return PTR_ERR(somegpio);
+>         gpiod_set_value(somegpio, 1);
 
-Hi,
+Grrr OK I see, it's explicit from the _optional() call that it may be N=
+ULL
+and then it should be ignored. So subsequent functions should ignore
+that and bail out. My bad, sorry.
 
-I'm Nicole,
+> If not (as I assume) you really changed something as this might trigg=
+er
+> the warning.
 
-Would you be interested in acquiring an email list of "Hiking Enthusias=
-ts" from USA?
+Making a patch.
 
-We also have data for Health and Fitness Enthusiasts, Apparel Buyers, C=
-amping Enthusiasts, Golfers, Skiers, Horse Racing Enthusiasts, Soccer E=
-nthusiasts, Baseball Enthusiasts, Home Owners, Real Estate Investors, T=
-ime-share Owners, RV Owners, Baby Boomers, and many more...
-
-Each record in the list contains Contact Name (First, Middle and Last N=
-ame), Mailing Address, List type and Opt-in email address.
-
-All the contacts are opt-in verified, 100% permission based and can be =
-used for unlimited multi-channel marketing.
-
-Please let me know your thoughts towards procuring the "Hiking Enthusia=
-sts".
-
-Look forward to your prompt response.
-
-Best Regards,
-Nicole Rice
-Research Analyst
-
-We respect your privacy, if you do not wish to receive any further emai=
-ls from our end, please reply with a subject =E2=80=9CLeave Out=E2=80=9D=
-=2E
-
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Yours,
+Linus Walleij
