@@ -1,8 +1,8 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.5 15/87] asix: Fix offset calculation in asix_rx_fixup() causing slow transmissions
-Date: Mon, 30 May 2016 13:49:13 -0700
-Message-ID: <20160530204933.911128024@linuxfoundation.org>
-References: <20160530204933.149873142@linuxfoundation.org>
+Subject: [PATCH 4.4 18/86] asix: Fix offset calculation in asix_rx_fixup() causing slow transmissions
+Date: Mon, 30 May 2016 13:49:07 -0700
+Message-ID: <20160530204937.960765272@linuxfoundation.org>
+References: <20160530204937.379068148@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
@@ -16,12 +16,16 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Ivan Vecera <ivecera@redhat.com>, linux-usb@vger.kernel.org,
 	netdev@vger.kernel.org, John Stultz <john.stultz@linaro.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160530204933.149873142@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:52416 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1162119AbcE3UuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 16:50:20 -0400
+In-Reply-To: <20160530204937.379068148@linuxfoundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-4.5-stable review patch.  If anyone has any objections, please let me know.
+4.4-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
 
