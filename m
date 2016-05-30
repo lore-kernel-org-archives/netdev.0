@@ -1,53 +1,51 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH] veth: delay peer link configuration after interfaces are tied
-Date: Mon, 30 May 2016 17:26:51 +0200
-Message-ID: <87fusz36tg.fsf@zoro.exoscale.ch>
-References: <1464520637-19784-1-git-send-email-vincent@bernat.im>
-	<574C0697.6060506@6wind.com> <878tyr4zzc.fsf@zoro.exoscale.ch>
-	<574C59F1.80403@6wind.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v5 0/2] skb_array: array based FIFO for skbs
+Date: Mon, 30 May 2016 18:37:05 +0300
+Message-ID: <20160530183455-mutt-send-email-mst@redhat.com>
+References: <1464000201-15560-1-git-send-email-mst@redhat.com>
+ <574C0F05.1040500@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Vijay Pandurangan <vijayp@vijayp.ca>,
-	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:40226 "EHLO bart.luffy.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932508AbcE3P0y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 11:26:54 -0400
-In-Reply-To: <574C59F1.80403@6wind.com> (Nicolas Dichtel's message of "Mon, 30
-	May 2016 17:19:13 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	brouer@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <574C0F05.1040500@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 30 mai 2016 17:19 CEST, Nicolas Dichtel <nicolas.dichtel@6wi=
-nd.com>=C2=A0:
+On Mon, May 30, 2016 at 05:59:33PM +0800, Jason Wang wrote:
+>=20
+>=20
+> On 2016=E5=B9=B405=E6=9C=8823=E6=97=A5 18:43, Michael S. Tsirkin wrot=
+e:
+> >This is in response to the proposal by Jason to make tun
+> >rx packet queue lockless using a circular buffer.
+> >My testing seems to show that at least for the common usecase
+> >in networking, which isn't lockless, circular buffer
+> >with indices does not perform that well, because
+> >each index access causes a cache line to bounce between
+> >CPUs, and index access causes stalls due to the dependency.
+>=20
+> I change tun to use skb array, looks like it can give about 5% more f=
+aster
+> than skb ring.
 
->>>>  	priv =3D netdev_priv(peer);
->>>>  	rcu_assign_pointer(priv->peer, dev);
->>>> +
->>>> +	err =3D rtnl_configure_link(peer, ifmp);
->>>> +	if (err < 0)
->>>> +		goto err_configure_peer;
->>=20
->>> You should fix the error path. 'unregister_netdevice(dev)' is missi=
-ng.
->>=20
->> I am sending another patch to fix that. I am quite unsure if I do th=
-e
->> right thing here.
->>=20
-> A less intrusive fix is to call 'rtmsg_ifinfo(RTM_NEWLINK, peer, ~0U,
-> GFP_KERNEL);' a the end of veth_newlink().
+OK and skb ring is 9% faster than the linked list, so together
+this is a 14% speedup?
 
-I did that at first. Maybe this would make more sense to do
-that. Otherwise, the first message contains an iflink value that we
-cannot resolve with just the received netlink messages (since the
-information is in the next netlink message). "ip monitor" seems to be
-able to get the info, but I suppose it does an additional
-lookup.
+> And we usually don't need touch bhs during consume and produce (e.g f=
+or the
+> case of tun).
+>=20
+> Thanks
+
+Maybe I'll drop it in v6 then ...
+Could you post the full tun patchset please?
+
 --=20
-Make sure every module hides something.
-            - The Elements of Programming Style (Kernighan & Plauger)
+MST
