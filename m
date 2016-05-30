@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v3 net-next 02/13] ACPI: bus: add stub acpi_evaluate_dsm() to linux/acpi.h
-Date: Mon, 30 May 2016 20:34:13 +0800
-Message-ID: <1464611664-93775-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v3 net-next 04/13] net: hisilicon: add support of acpi for hns-mdio
+Date: Mon, 30 May 2016 20:34:15 +0800
+Message-ID: <1464611664-93775-5-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1464611664-93775-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,43 +11,215 @@ Cc: <fengguang.wu@intel.com>, <andriy.shevchenko@linux.intel.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linux-acpi@vger.kernel.org>, <linuxarm@huawei.com>
 To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 In-Reply-To: <1464611664-93775-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-acpi_evaluate_dsm() will be used to handle the _DSM method in ACPI case.
-It will be compiled in non-ACPI case, but the function is in acpi_bus.h
-and acpi_bus.h can only be used in ACPI case, so this patch add the stub
-function to linux/acpi.h to make compiled successfully in non-ACPI cases.
+hns-mdio needs to register itself to mii-bus. The info of the device can
+be read by both DT and ACPI.
+HNS tries to call Linux PHY driver to help access PHY-devices, the HNS
+hardware topology is as below. The MDIO controller may control several
+PHY-devices, and each PHY-device connects to a MAC device. The MDIO will
+be registered to mdiobus, then PHY-devices will register when each mac
+find PHY device.
+                       cpu
+                        |
+                        |
+     -------------------------------------------
+    |                   |                       |
+    |                   |                       |
+    |                  dsaf                     |
+   MDIO                 |                      MDIO
+    |      ---------------------------          |
+    |     |         |         |       |         |
+    |     |         |         |       |         |
+    |    MAC       MAC       MAC     MAC        |
+    |     |         |         |       |         |
+     ---- |-------- |-------- |       | --------
+         ||        ||        ||       ||
+         PHY       PHY       PHY     PHY
 
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+And the driver can handle reset sequence by _RST method in DSDT in ACPI
+case.
+
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- include/linux/acpi.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+change log:
+ v3:
+        add Reviewed-by: Andy Shevchenko
+ v2:
+        1. use dev_of_node instead of IS_ENABLED macro
+        2. Add ACPI bits
+    Link: https://lkml.org/lkml/2016/5/29/185
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 3025d19..4d4bb49 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -659,6 +659,14 @@ static inline bool acpi_driver_match_device(struct device *dev,
- 	return false;
+ v1: first submit
+    Link: https://lkml.org/lkml/2016/5/13/93
+---
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 107 +++++++++++++++++++-----------
+ 1 file changed, 69 insertions(+), 38 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 381cf0a..f78286c 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -7,6 +7,7 @@
+  * (at your option) any later version.
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/errno.h>
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+@@ -354,48 +355,60 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
+ 	int ret;
+ 
+-	if (!dev_of_node(bus->parent))
+-		return -ENOTSUPP;
++	if (dev_of_node(bus->parent)) {
++		if (!mdio_dev->subctrl_vbase) {
++			dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
++			return -ENODEV;
++		}
+ 
+-	if (!mdio_dev->subctrl_vbase) {
+-		dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
+-		return -ENODEV;
+-	}
++		/* 1. reset req, and read reset st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
++					    MDIO_SC_RESET_ST, 0x1,
++					    MDIO_CHECK_SET_ST);
++		if (ret) {
++			dev_err(&bus->dev, "MDIO reset fail\n");
++			return ret;
++		}
+ 
+-	/*1. reset req, and read reset st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
+-				    MDIO_SC_RESET_ST, 0x1,
+-				    MDIO_CHECK_SET_ST);
+-	if (ret) {
+-		dev_err(&bus->dev, "MDIO reset fail\n");
+-		return ret;
+-	}
++		/* 2. dis clk, and read clk st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
++					    0x1, MDIO_SC_CLK_ST, 0x1,
++					    MDIO_CHECK_CLR_ST);
++		if (ret) {
++			dev_err(&bus->dev, "MDIO dis clk fail\n");
++			return ret;
++		}
+ 
+-	/*2. dis clk, and read clk st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
+-				    0x1, MDIO_SC_CLK_ST, 0x1,
+-				    MDIO_CHECK_CLR_ST);
+-	if (ret) {
+-		dev_err(&bus->dev, "MDIO dis clk fail\n");
+-		return ret;
+-	}
++		/* 3. reset dreq, and read reset st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
++					    MDIO_SC_RESET_ST, 0x1,
++					    MDIO_CHECK_CLR_ST);
++		if (ret) {
++			dev_err(&bus->dev, "MDIO dis clk fail\n");
++			return ret;
++		}
+ 
+-	/*3. reset dreq, and read reset st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
+-				    MDIO_SC_RESET_ST, 0x1,
+-				    MDIO_CHECK_CLR_ST);
+-	if (ret) {
+-		dev_err(&bus->dev, "MDIO dis clk fail\n");
+-		return ret;
++		/* 4. en clk, and read clk st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
++					    0x1, MDIO_SC_CLK_ST, 0x1,
++					    MDIO_CHECK_SET_ST);
++		if (ret)
++			dev_err(&bus->dev, "MDIO en clk fail\n");
++	} else if (is_acpi_node(bus->parent->fwnode)) {
++		acpi_status s;
++
++		s = acpi_evaluate_object(ACPI_HANDLE(bus->parent),
++					 "_RST", NULL, NULL);
++		if (ACPI_FAILURE(s)) {
++			dev_err(&bus->dev, "Reset failed, return:%#x\n", s);
++			ret = -EBUSY;
++		} else {
++			ret = 0;
++		}
++	} else {
++		dev_err(&bus->dev, "Can not get cfg data from DT or ACPI\n");
++		ret = -ENXIO;
+ 	}
+-
+-	/*4. en clk, and read clk st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
+-				    0x1, MDIO_SC_CLK_ST, 0x1,
+-				    MDIO_CHECK_SET_ST);
+-	if (ret)
+-		dev_err(&bus->dev, "MDIO en clk fail\n");
+-
+ 	return ret;
  }
  
-+static inline union acpi_object *acpi_evaluate_dsm(acpi_handle handle,
-+						   const u8 *uuid,
-+						   int rev, int func,
-+						   union acpi_object *argv4)
-+{
-+	return NULL;
-+}
+@@ -453,7 +466,6 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	platform_set_drvdata(pdev, new_bus);
+-
+ 	hns_mdio_bus_name(new_bus->id, res->start);
+ 	if (dev_of_node(&pdev->dev)) {
+ 		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
+@@ -464,6 +476,18 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 			mdio_dev->subctrl_vbase = NULL;
+ 		}
+ 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
++	} else if (is_acpi_node(pdev->dev.fwnode)) {
++		/* Clear all the IRQ properties */
++		memset(new_bus->irq, PHY_POLL, 4 * PHY_MAX_ADDR);
 +
- static inline int acpi_device_uevent_modalias(struct device *dev,
- 				struct kobj_uevent_env *env)
- {
++		/* Mask out all PHYs from auto probing. */
++		new_bus->phy_mask = ~0;
++
++		/* Register the MDIO bus */
++		ret = mdiobus_register(new_bus);
++	} else {
++		dev_err(&pdev->dev, "Can not get cfg data from DT or ACPI\n");
++		ret = -ENXIO;
+ 	}
+ 
+ 	if (ret) {
+@@ -499,12 +523,19 @@ static const struct of_device_id hns_mdio_match[] = {
+ 	{}
+ };
+ 
++static const struct acpi_device_id hns_mdio_acpi_match[] = {
++	{ "HISI0141", 0 },
++	{ },
++};
++MODULE_DEVICE_TABLE(acpi, hns_mdio_acpi_match);
++
+ static struct platform_driver hns_mdio_driver = {
+ 	.probe = hns_mdio_probe,
+ 	.remove = hns_mdio_remove,
+ 	.driver = {
+ 		   .name = MDIO_DRV_NAME,
+ 		   .of_match_table = hns_mdio_match,
++		   .acpi_match_table = ACPI_PTR(hns_mdio_acpi_match),
+ 		   },
+ };
+ 
 -- 
 1.9.1
+
