@@ -1,7 +1,7 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH 1/7] mdio:mux: Enhanced MDIO mux framework for integrated multiplexers
-Date: Mon, 30 May 2016 12:40:45 +0530
-Message-ID: <1464592251-2688-2-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH 2/7] DT: phy.txt: Add mdio-integrated-mux property
+Date: Mon, 30 May 2016 12:40:46 +0530
+Message-ID: <1464592251-2688-3-git-send-email-pramod.kumar@broadcom.com>
 References: <1464592251-2688-1-git-send-email-pramod.kumar@broadcom.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	bcm-kernel-feedback-list@broadcom.com,
@@ -20,151 +20,40 @@ In-Reply-To: <1464592251-2688-1-git-send-email-pramod.kumar@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-An integrated multiplexer uses same address space for
-"muxed bus selection" and "generation of mdio transaction"
-hence its good to register parent bus from mux driver.
-
-Hence added a mechanism where mux driver could register a
-parent bus and pass it down to framework via mdio_mux_init api.
-
-Below changes are required to make this happen-
-
-1. When mdio-mux parent bus is registered, mdio framework should not
-parse for child as it will be muxed bus node not PHYs.
-
--created a new property "mdio-mux-bus-parent". if this property is present,
-of_mdiobus_register will not scan for phys.
-
-2. Passed down parent bus to mdio mux framework via mdio-mux-init api.
+This property is used by integrated MDIO multiplexer
+which has bus selection and mdio transaction generation logic,
+integrated inside.
 
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 ---
- drivers/net/phy/mdio-mux-gpio.c    |  2 +-
- drivers/net/phy/mdio-mux-mmioreg.c |  2 +-
- drivers/net/phy/mdio-mux.c         | 28 ++++++++++++++++++----------
- drivers/of/of_mdio.c               |  3 +++
- include/linux/mdio-mux.h           |  4 +++-
- 5 files changed, 26 insertions(+), 13 deletions(-)
+ Documentation/devicetree/bindings/net/mdio-mux.txt | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
-index 7ddb1ab..9199499 100644
---- a/drivers/net/phy/mdio-mux-gpio.c
-+++ b/drivers/net/phy/mdio-mux-gpio.c
-@@ -55,7 +55,7 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
- 		return PTR_ERR(s->gpios);
+diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
+index 491f5bd..b5ad83e 100644
+--- a/Documentation/devicetree/bindings/net/mdio-mux.txt
++++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
+@@ -5,13 +5,20 @@ numbered uniquely in a device dependent manner.  The nodes for an MDIO
+ bus multiplexer/switch will have one child node for each child bus.
  
- 	r = mdio_mux_init(&pdev->dev,
--			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
-+			  mdio_mux_gpio_switch_fn, &s->mux_handle, s, NULL);
+ Required properties:
+-- mdio-parent-bus : phandle to the parent MDIO bus.
+ - #address-cells = <1>;
+ - #size-cells = <0>;
  
- 	if (r != 0) {
- 		gpiod_put_array(s->gpios);
-diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
-index 7fde454..d0bed52 100644
---- a/drivers/net/phy/mdio-mux-mmioreg.c
-+++ b/drivers/net/phy/mdio-mux-mmioreg.c
-@@ -126,7 +126,7 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
- 	}
+ Optional properties:
++- mdio-parent-bus : phandle to the parent MDIO bus. Should be used
++		if parent mdio bus is not part of multiplexer.
++- mdio-integrated-mux: boolean property indicateing that the hardware
++		is an integrated multiplex supporting muxed bus selection
++		and MDIO transaction logic generation.
+ - Other properties specific to the multiplexer/switch hardware.
  
- 	ret = mdio_mux_init(&pdev->dev, mdio_mux_mmioreg_switch_fn,
--			    &s->mux_handle, s);
-+			    &s->mux_handle, s, NULL);
- 	if (ret) {
- 		dev_err(&pdev->dev, "failed to register mdio-mux bus %s\n",
- 			np->full_name);
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 308ade0..521ab90 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -95,7 +95,8 @@ static int parent_count;
- int mdio_mux_init(struct device *dev,
- 		  int (*switch_fn)(int cur, int desired, void *data),
- 		  void **mux_handle,
--		  void *data)
-+		  void *data,
-+		  struct mii_bus *mux_bus)
- {
- 	struct device_node *parent_bus_node;
- 	struct device_node *child_bus_node;
-@@ -107,10 +108,21 @@ int mdio_mux_init(struct device *dev,
- 	if (!dev->of_node)
- 		return -ENODEV;
- 
--	parent_bus_node = of_parse_phandle(dev->of_node, "mdio-parent-bus", 0);
-+	if (!mux_bus) {
-+		parent_bus_node = of_parse_phandle(dev->of_node,
-+						   "mdio-parent-bus", 0);
- 
--	if (!parent_bus_node)
--		return -ENODEV;
-+		if (!parent_bus_node)
-+			return -ENODEV;
++Note: one of mdio-parent-bus and mdio-integrated-mux is mandatory to
++get parent bus regsitered.
 +
-+		parent_bus = of_mdio_find_bus(parent_bus_node);
-+		if (!parent_bus) {
-+			ret_val = -EPROBE_DEFER;
-+			goto err_parent_bus;
-+		}
-+	} else {
-+		parent_bus = mux_bus;
-+	}
- 
- 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
- 	if (pb == NULL) {
-@@ -118,11 +130,6 @@ int mdio_mux_init(struct device *dev,
- 		goto err_parent_bus;
- 	}
- 
--	parent_bus = of_mdio_find_bus(parent_bus_node);
--	if (parent_bus == NULL) {
--		ret_val = -EPROBE_DEFER;
--		goto err_parent_bus;
--	}
- 
- 	pb->switch_data = data;
- 	pb->switch_fn = switch_fn;
-@@ -183,7 +190,8 @@ int mdio_mux_init(struct device *dev,
- 	put_device(&pb->mii_bus->dev);
- 
- err_parent_bus:
--	of_node_put(parent_bus_node);
-+	if (!mux_bus)
-+		of_node_put(parent_bus_node);
- 	return ret_val;
- }
- EXPORT_SYMBOL_GPL(mdio_mux_init);
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 8453f08..cf40e7a 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -225,6 +225,9 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 	if (rc)
- 		return rc;
- 
-+	if (of_property_read_bool(np, "mdio-integrated-mux"))
-+		return 0;
-+
- 	/* Loop over the child nodes and register a phy_device for each phy */
- 	for_each_available_child_of_node(np, child) {
- 		addr = of_mdio_parse_addr(&mdio->dev, child);
-diff --git a/include/linux/mdio-mux.h b/include/linux/mdio-mux.h
-index a243dbb..61f5b21 100644
---- a/include/linux/mdio-mux.h
-+++ b/include/linux/mdio-mux.h
-@@ -10,11 +10,13 @@
- #ifndef __LINUX_MDIO_MUX_H
- #define __LINUX_MDIO_MUX_H
- #include <linux/device.h>
-+#include <linux/phy.h>
- 
- int mdio_mux_init(struct device *dev,
- 		  int (*switch_fn) (int cur, int desired, void *data),
- 		  void **mux_handle,
--		  void *data);
-+		  void *data,
-+		  struct mii_bus *mux_bus);
- 
- void mdio_mux_uninit(void *mux_handle);
- 
+ Required properties for child nodes:
+ - #address-cells = <1>;
+ - #size-cells = <0>;
 -- 
 1.9.1
