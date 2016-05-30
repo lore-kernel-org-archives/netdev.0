@@ -1,99 +1,83 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH V2 next] brcmfmac: don't remove interface on link down firmware event
-Date: Mon, 30 May 2016 06:40:54 +0200
-Message-ID: <1464583269-30255-1-git-send-email-zajec5@gmail.com>
-References: <1464557989-20003-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net v2] openvswitch: update checksum in {push,pop}_mpls
+Date: Mon, 30 May 2016 14:04:25 +0900
+Message-ID: <1464584665-8512-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>,
+	Pravin Shelar <pshelar@nicira.com>
+To: pravin shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f193.google.com ([209.85.217.193]:32819 "EHLO
-	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbcE3ElV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 00:41:21 -0400
-In-Reply-To: <1464557989-20003-1-git-send-email-zajec5@gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36418 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751093AbcE3FEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 01:04:32 -0400
+Received: by mail-pa0-f43.google.com with SMTP id eu11so49384203pad.3
+        for <netdev@vger.kernel.org>; Sun, 29 May 2016 22:04:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two firmware events we handle similarly in brcmfmac:
-BRCMF_E_LINK and BRCMF_E_IF. The difference from firmware point of view
-is that the first one means BSS remains present in the firmware. Trying
-to (re)create it (e.g. when adding new virtual interface) will result i=
-n
-an error.
+In the case of CHECKSUM_COMPLETE the skb checksum should be updated in
+{push,pop}_mpls() as they the type in the ethernet header.
 
-Current code treats both events in a similar way. It removes Linux
-interface for each of them. It works OK with e.g. BCM43602. Its firmwar=
-e
-generates both events for each interface. It means we get BRCMF_E_LINK
-and remove interface. That is soon followed by BRCMF_E_IF which means
-BSS was also removed in a firmware. The only downside of this is a
-harmless error like:
-[  208.643180] brcmfmac: brcmf_fweh_call_event_handler: no interface ob=
-ject
+As suggested by Pravin Shelar.
 
-Unfortunately BCM4366 firmware doesn't automatically remove BSS and so
-it doesn't generate BRCMF_E_IF. In such case we incorrectly remove Linu=
-x
-interface on BRCMF_E_LINK as BSS is still present in the firmware. It
-results in an error when trying to re-create virtual interface, e.g.:
-> iw phy phy1 interface add wlan1-1 type __ap
-[ 3602.929199] brcmfmac: brcmf_ap_add_vif: timeout occurred
-command failed: I/O error (-5)
-
-With this patch we don't remove Linux interface while firmware keeps
-BSS. Thanks to this we keep a consistent states of host driver and
-device firmware.
-
-=46urther improvement should be to mark BSS as disabled and remove
-interface on BRCMF_E_LINK. Then we should add support for reusing
-BSS-es.
-
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Cc: Pravin Shelar <pshelar@nicira.com>
+Fixes: 25cd9ba0abc0 ("openvswitch: Add basic MPLS support to kernel")
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
-V2: Fix drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c:543=
-1:19: warning: unused variable =E2=80=98ifp=E2=80=99 [-Wunused-variable=
-]
+v2
+* Use helper to reduce duplicated code.
 ---
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/openvswitch/actions.c | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.=
-c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-index 38df1be..d23b95e 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-@@ -5428,7 +5428,6 @@ brcmf_notify_connect_status_ap(struct brcmf_cfg80=
-211_info *cfg,
- 			       struct net_device *ndev,
- 			       const struct brcmf_event_msg *e, void *data)
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 879185fe183f..9a3eb7a0ebf4 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -137,11 +137,23 @@ static bool is_flow_key_valid(const struct sw_flow_key *key)
+ 	return !!key->eth.type;
+ }
+ 
++static void update_ethertype(struct sk_buff *skb, struct ethhdr *hdr,
++			     __be16 ethertype)
++{
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		__be16 diff[] = { ~(hdr->h_proto), ethertype };
++
++		skb->csum = ~csum_partial((char *)diff, sizeof(diff),
++					~skb->csum);
++	}
++
++	hdr->h_proto = ethertype;
++}
++
+ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 		     const struct ovs_action_push_mpls *mpls)
  {
--	struct brcmf_if *ifp =3D netdev_priv(ndev);
- 	static int generation;
- 	u32 event =3D e->event_code;
- 	u32 reason =3D e->reason;
-@@ -5439,8 +5438,6 @@ brcmf_notify_connect_status_ap(struct brcmf_cfg80=
-211_info *cfg,
- 	    ndev !=3D cfg_to_ndev(cfg)) {
- 		brcmf_dbg(CONN, "AP mode link down\n");
- 		complete(&cfg->vif_disabled);
--		if (ifp->vif->mbss)
--			brcmf_remove_interface(ifp);
- 		return 0;
- 	}
-=20
---=20
-1.8.4.5
+ 	__be32 *new_mpls_lse;
+-	struct ethhdr *hdr;
+ 
+ 	/* Networking stack do not allow simultaneous Tunnel and MPLS GSO. */
+ 	if (skb->encapsulation)
+@@ -160,9 +172,7 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 
+ 	skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
+ 
+-	hdr = eth_hdr(skb);
+-	hdr->h_proto = mpls->mpls_ethertype;
+-
++	update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+ 	if (!skb->inner_protocol)
+ 		skb_set_inner_protocol(skb, skb->protocol);
+ 	skb->protocol = mpls->mpls_ethertype;
+@@ -193,7 +203,7 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	 * field correctly in the presence of VLAN tags.
+ 	 */
+ 	hdr = (struct ethhdr *)(skb_mpls_header(skb) - ETH_HLEN);
+-	hdr->h_proto = ethertype;
++	update_ethertype(skb, hdr, ethertype);
+ 	if (eth_p_mpls(skb->protocol))
+ 		skb->protocol = ethertype;
+ 
+-- 
+2.1.4
