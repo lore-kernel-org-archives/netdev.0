@@ -1,7 +1,7 @@
 From: Kejian Yan <yankejian@huawei.com>
-Subject: [patch v2 net-next 12/13] net: hns: implement the miscellaneous operation by asl
-Date: Mon, 30 May 2016 10:10:21 +0800
-Message-ID: <1464574222-69608-13-git-send-email-yankejian@huawei.com>
+Subject: [patch v2 net-next 13/13] net: hns: net: hns: enet adds support of acpi
+Date: Mon, 30 May 2016 10:10:22 +0800
+Message-ID: <1464574222-69608-14-git-send-email-yankejian@huawei.com>
 References: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,272 +11,121 @@ Cc: <fengguang.wu@intel.com>, <andriy.shevchenko@linux.intel.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linux-acpi@vger.kernel.org>, <linuxarm@huawei.com>
 To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 In-Reply-To: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The miscellaneous operation is implemented in BIOS, the kernel can call
-_DSM method help to call the implementation in ACPI case. Here is a patch
-to do that.
+Enet needs to get configration parameter by acpi. This patch
+adds support of ACPI for enet. The configuration parameter will
+be configed in BIOS.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
 change log:
- v2: use a serial function to implement the reset sequence
+ v2:
+     1. use acpi_dev_found() instead of acpi_match_device_ids()
+     2. use is_acpi_node() to check if it works by ACPI case
+     3. use dev_of_node() to check if it works by DT case
 
  v1: first submit
-  link: https://lkml.org/lkml/2016/5/13/94
+  link: https://lkml.org/lkml/2016/5/13/99
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 167 +++++++++++++++++++++
- 1 file changed, 167 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 56 +++++++++++++++++++++------
+ 1 file changed, 44 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index f21177b..96cb628 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -12,6 +12,27 @@
- #include "hns_dsaf_ppe.h"
- #include "hns_dsaf_reg.h"
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 3ec3c27..ad742a6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -132,6 +132,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	ring_ptr_move_fw(ring, next_to_use);
+ }
  
-+enum _dsm_op_index {
-+	HNS_OP_RESET_FUNC               = 0x1,
-+	HNS_OP_SERDES_LP_FUNC           = 0x2,
-+	HNS_OP_LED_SET_FUNC             = 0x3,
-+	HNS_OP_GET_PORT_TYPE_FUNC       = 0x4,
-+	HNS_OP_GET_SFP_STAT_FUNC        = 0x5,
++static const struct acpi_device_id hns_enet_acpi_match[] = {
++	{ "HISI00C1", 0 },
++	{ "HISI00C2", 0 },
++	{ },
 +};
++MODULE_DEVICE_TABLE(acpi, hns_enet_acpi_match);
 +
-+enum _dsm_rst_type {
-+	HNS_DSAF_RESET_FUNC     = 0x1,
-+	HNS_PPE_RESET_FUNC      = 0x2,
-+	HNS_XGE_CORE_RESET_FUNC = 0x3,
-+	HNS_XGE_RESET_FUNC      = 0x4,
-+	HNS_GE_RESET_FUNC       = 0x5,
-+};
-+
-+const u8 hns_dsaf_acpi_dsm_uuid[] = {
-+	0x1A, 0xAA, 0x85, 0x1A, 0x93, 0xE2, 0x5E, 0x41,
-+	0x8E, 0x28, 0x8D, 0x69, 0x0A, 0x0F, 0x82, 0x0A
-+};
-+
- static void dsaf_write_sub(struct dsaf_device *dsaf_dev, u32 reg, u32 val)
- {
- 	if (dsaf_dev->sub_ctrl)
-@@ -109,6 +130,34 @@ static int cpld_set_led_id(struct hns_mac_cb *mac_cb,
+ static void fill_desc(struct hnae_ring *ring, void *priv,
+ 		      int size, dma_addr_t dma, int frag_end,
+ 		      int buf_num, enum hns_desc_type type, int mtu)
+@@ -1870,7 +1877,6 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct net_device *ndev;
+ 	struct hns_nic_priv *priv;
+-	struct device_node *ae_node;
+ 	u32 port_id;
+ 	int ret;
  
- #define RESET_REQ_OR_DREQ 1
+@@ -1884,20 +1890,45 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	priv->dev = dev;
+ 	priv->netdev = ndev;
  
-+static void hns_dsaf_acpi_srst_by_port(struct dsaf_device *dsaf_dev, u8 op_type,
-+				       u32 port_type, u32 port, u32 val)
-+{
-+	union acpi_object *obj;
-+	union acpi_object obj_args[3], argv4;
-+
-+	obj_args[0].integer.type = ACPI_TYPE_INTEGER;
-+	obj_args[0].integer.value = port_type;
-+	obj_args[1].integer.type = ACPI_TYPE_INTEGER;
-+	obj_args[1].integer.value = port;
-+	obj_args[2].integer.type = ACPI_TYPE_INTEGER;
-+	obj_args[2].integer.value = val;
-+
-+	argv4.type = ACPI_TYPE_PACKAGE;
-+	argv4.package.count = 3;
-+	argv4.package.elements = obj_args;
-+
-+	obj = acpi_evaluate_dsm(ACPI_HANDLE(dsaf_dev->dev),
-+				hns_dsaf_acpi_dsm_uuid, 0, op_type, &argv4);
-+	if (!obj) {
-+		dev_warn(dsaf_dev->dev, "reset port_type%d port%d fail!",
-+			 port_type, port);
-+		return;
-+	}
-+
-+	ACPI_FREE(obj);
-+}
-+
- static void hns_dsaf_rst(struct dsaf_device *dsaf_dev, bool dereset)
- {
- 	u32 xbar_reg_addr;
-@@ -126,6 +175,13 @@ static void hns_dsaf_rst(struct dsaf_device *dsaf_dev, bool dereset)
- 	dsaf_write_sub(dsaf_dev, nt_reg_addr, RESET_REQ_OR_DREQ);
- }
+-	if (of_device_is_compatible(dev->of_node, "hisilicon,hns-nic-v1"))
+-		priv->enet_ver = AE_VERSION_1;
+-	else
+-		priv->enet_ver = AE_VERSION_2;
++	if (dev_of_node(dev)) {
++		struct device_node *ae_node;
  
-+static void hns_dsaf_rst_acpi(struct dsaf_device *dsaf_dev, bool dereset)
-+{
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_DSAF_RESET_FUNC,
-+				   0, dereset);
-+}
+-	ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
+-	if (IS_ERR_OR_NULL(ae_node)) {
+-		ret = PTR_ERR(ae_node);
+-		dev_err(dev, "not find ae-handle\n");
+-		goto out_read_prop_fail;
++		if (of_device_is_compatible(dev->of_node,
++					    "hisilicon,hns-nic-v1"))
++			priv->enet_ver = AE_VERSION_1;
++		else
++			priv->enet_ver = AE_VERSION_2;
 +
- static void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 				      bool dereset)
- {
-@@ -146,6 +202,13 @@ static void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
-+static void hns_dsaf_xge_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
-+					   u32 port, bool dereset)
-+{
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_XGE_RESET_FUNC, port, dereset);
-+}
++		ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
++		if (IS_ERR_OR_NULL(ae_node)) {
++			ret = PTR_ERR(ae_node);
++			dev_err(dev, "not find ae-handle\n");
++			goto out_read_prop_fail;
++		}
++		priv->fwnode = &ae_node->fwnode;
++	} else if (is_acpi_node(dev->fwnode)) {
++		struct acpi_reference_args args;
 +
- static void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 					   u32 port, bool dereset)
- {
-@@ -166,6 +229,14 @@ static void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
-+static void
-+hns_dsaf_xge_core_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
-+				    u32 port, bool dereset)
-+{
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_XGE_CORE_RESET_FUNC, port, dereset);
-+}
++		if (acpi_dev_found(hns_enet_acpi_match[0].id))
++			priv->enet_ver = AE_VERSION_1;
++		else if (acpi_dev_found(hns_enet_acpi_match[1].id))
++			priv->enet_ver = AE_VERSION_2;
++		else
++			return -ENXIO;
 +
- static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 				     bool dereset)
- {
-@@ -218,6 +289,13 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 	}
- }
- 
-+static void hns_dsaf_ge_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
-+					  u32 port, bool dereset)
-+{
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_GE_RESET_FUNC, port, dereset);
-+}
-+
- static void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 				 bool dereset)
- {
-@@ -234,11 +312,21 @@ static void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
- }
- 
-+static void
-+hns_ppe_srst_by_port_acpi(struct dsaf_device *dsaf_dev, u32 port, bool dereset)
-+{
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_PPE_RESET_FUNC, port, dereset);
-+}
-+
- static void hns_ppe_com_srst(struct dsaf_device *dsaf_dev, bool dereset)
- {
- 	u32 reg_val;
- 	u32 reg_addr;
- 
-+	if (!(dev_of_node(dsaf_dev->dev)))
-+		return;
-+
- 	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
- 		reg_val = RESET_REQ_OR_DREQ;
- 		if (!dereset)
-@@ -295,6 +383,36 @@ static phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
- 	return phy_if;
- }
- 
-+static phy_interface_t hns_mac_get_phy_if_acpi(struct hns_mac_cb *mac_cb)
-+{
-+	phy_interface_t phy_if = PHY_INTERFACE_MODE_NA;
-+	union acpi_object *obj;
-+	union acpi_object obj_args, argv4;
-+
-+	obj_args.integer.type = ACPI_TYPE_INTEGER;
-+	obj_args.integer.value = mac_cb->mac_id;
-+
-+	argv4.type = ACPI_TYPE_PACKAGE,
-+	argv4.package.count = 1,
-+	argv4.package.elements = &obj_args,
-+
-+	obj = acpi_evaluate_dsm(ACPI_HANDLE(mac_cb->dev),
-+				hns_dsaf_acpi_dsm_uuid, 0,
-+				HNS_OP_GET_PORT_TYPE_FUNC, &argv4);
-+
-+	if (!obj || obj->type != ACPI_TYPE_INTEGER)
-+		return phy_if;
-+
-+	phy_if = obj->integer.value ?
-+		PHY_INTERFACE_MODE_XGMII : PHY_INTERFACE_MODE_SGMII;
-+
-+	dev_dbg(mac_cb->dev, "mac_id=%d, phy_if=%d\n", mac_cb->mac_id, phy_if);
-+
-+	ACPI_FREE(obj);
-+
-+	return phy_if;
-+}
-+
- int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
- {
- 	if (!mac_cb->cpld_ctrl)
-@@ -354,6 +472,36 @@ static int hns_mac_config_sds_loopback(struct hns_mac_cb *mac_cb, bool en)
- 	return 0;
- }
- 
-+static int
-+hns_mac_config_sds_loopback_acpi(struct hns_mac_cb *mac_cb, bool en)
-+{
-+	union acpi_object *obj;
-+	union acpi_object obj_args[3], argv4;
-+
-+	obj_args[0].integer.type = ACPI_TYPE_INTEGER;
-+	obj_args[0].integer.value = mac_cb->mac_id;
-+	obj_args[1].integer.type = ACPI_TYPE_INTEGER;
-+	obj_args[1].integer.value = !!en;
-+
-+	argv4.type = ACPI_TYPE_PACKAGE;
-+	argv4.package.count = 2;
-+	argv4.package.elements = obj_args;
-+
-+	obj = acpi_evaluate_dsm(ACPI_HANDLE(mac_cb->dsaf_dev->dev),
-+				hns_dsaf_acpi_dsm_uuid, 0,
-+				HNS_OP_SERDES_LP_FUNC, &argv4);
-+	if (!obj) {
-+		dev_warn(mac_cb->dsaf_dev->dev, "set port%d serdes lp fail!",
-+			 mac_cb->mac_id);
-+
-+		return -ENOTSUPP;
-+	}
-+
-+	ACPI_FREE(obj);
-+
-+	return 0;
-+}
-+
- struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
- {
- 	struct dsaf_misc_op *misc_op;
-@@ -378,6 +526,25 @@ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
- 		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
- 
- 		misc_op->cfg_serdes_loopback = hns_mac_config_sds_loopback;
-+	} else if (is_acpi_node(dsaf_dev->dev->fwnode)) {
-+		misc_op->cpld_set_led = hns_cpld_set_led;
-+		misc_op->cpld_reset_led = cpld_led_reset;
-+		misc_op->cpld_set_led_id = cpld_set_led_id;
-+
-+		misc_op->dsaf_reset = hns_dsaf_rst_acpi;
-+		misc_op->xge_srst = hns_dsaf_xge_srst_by_port_acpi;
-+		misc_op->xge_core_srst = hns_dsaf_xge_core_srst_by_port_acpi;
-+		misc_op->ge_srst = hns_dsaf_ge_srst_by_port_acpi;
-+		misc_op->ppe_srst = hns_ppe_srst_by_port_acpi;
-+		misc_op->ppe_comm_srst = hns_ppe_com_srst;
-+
-+		misc_op->get_phy_if = hns_mac_get_phy_if_acpi;
-+		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
-+
-+		misc_op->cfg_serdes_loopback = hns_mac_config_sds_loopback_acpi;
++		/* try to find port-idx-in-ae first */
++		ret = acpi_node_get_property_reference(dev->fwnode,
++						       "ae-handle", 0, &args);
++		if (ret) {
++			dev_err(dev, "not find ae-handle\n");
++			goto out_read_prop_fail;
++		}
++		priv->fwnode = acpi_fwnode_handle(args.adev);
 +	} else {
-+		devm_kfree(dsaf_dev->dev, (void *)misc_op);
-+		misc_op = NULL;
++		dev_err(dev, "cannot read cfg data from OF or acpi\n");
++		return -ENXIO;
  	}
+-	priv->fwnode = &ae_node->fwnode;
  
- 	return (void *)misc_op;
+-	/* try to find port-idx-in-ae first */
+ 	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
+ 	if (ret) {
+ 		/* only for old code compatible */
+@@ -2014,6 +2045,7 @@ static struct platform_driver hns_nic_dev_driver = {
+ 	.driver = {
+ 		.name = "hns-nic",
+ 		.of_match_table = hns_enet_of_match,
++		.acpi_match_table = ACPI_PTR(hns_enet_acpi_match),
+ 	},
+ 	.probe = hns_nic_dev_probe,
+ 	.remove = hns_nic_dev_remove,
 -- 
 1.9.1
+
