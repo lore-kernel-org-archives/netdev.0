@@ -1,74 +1,45 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: ip, ip-link: Fix ip option location
-Date: Mon, 30 May 2016 20:46:27 +0200
-Message-ID: <1464633987-2977-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Christoph Fritz <chf.fritz@googlemail.com>
+Subject: Re: usbnet: smsc95xx: fix link detection for disabled
+ autonegotiation
+Date: Mon, 30 May 2016 22:07:42 +0200
+Message-ID: <1464638862.1883.31.camel@googlemail.com>
+References: <1464228407.5421.34.camel@googlemail.com>
+	 <20160529.223010.1702681088925445499.davem@davemloft.net>
+Reply-To: chf.fritz@googlemail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:44902 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161869AbcE3Sql (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 May 2016 14:46:41 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36553 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933361AbcE3UHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 16:07:45 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q62so25868803wmg.3
+        for <netdev@vger.kernel.org>; Mon, 30 May 2016 13:07:45 -0700 (PDT)
+In-Reply-To: <20160529.223010.1702681088925445499.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch drops the redundant description of some of ip's options in
-ip-link.8's description of the 'show' subcommand, preserving the
-description of -iec (but appending it to the list in ip.8 with minor
-fixes).
+On Sun, 2016-05-29 at 22:30 -0700, David Miller wrote:
+> From: Christoph Fritz <chf.fritz@googlemail.com>
+> Date: Thu, 26 May 2016 04:06:47 +0200
+> 
+> > @@ -1695,6 +1745,7 @@ static int smsc95xx_resume(struct usb_interface *intf)
+> >  
+> >  	/* do this first to ensure it's cleared even in error case */
+> >  	pdata->suspend_flags = 0;
+> > +	schedule_delayed_work(&pdata->carrier_check, CARRIER_CHECK_DELAY);
+> 
+> Why are you not cancelling this delayed work in the suspend routine of
+> the driver?
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/ip-link.8.in | 21 ---------------------
- man/man8/ip.8         |  4 ++++
- 2 files changed, 4 insertions(+), 21 deletions(-)
+I'm doing this:
++       if (pdata->suspend_flags != 0)
++               return;
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 984fb2eb0d63a..d3881e55d73c0 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -1119,27 +1119,6 @@ specifies the master device which enslaves devices to show.
- .I TYPE
- specifies the type of devices to show.
- 
--.TP
--The show command has additional formatting options:
--
--.RS
--.TP
--.BR "\-s" , " \-stats", " \-statistics"
--output more statistics about packet usage.
--
--.TP
--.BR "\-d", " \-details"
--output more detailed information.
--
--.TP
--.BR "\-h", " \-human", " \-human-readable"
--output statistics with human readable values number followed by suffix
--
--.TP
--.BR "\-iec"
--print human readable rates in IEC units (ie. 1K = 1024).
--.RE
--
- .SS  ip link help - display help
- 
- .PP
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index aa2bc68c81ab6..f11fc0b9cf444 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -201,6 +201,10 @@ but use shorter format.
- .BR "\-rc" , " \-rcvbuf" <SIZE>
- Set the netlink socket receive buffer size, defaults to 1MB.
- 
-+.TP
-+.BR "\-iec"
-+print human readable rates in IEC units (e.g. 1Ki = 1024).
-+
- .SH IP - COMMAND SYNTAX
- 
- .SS
--- 
-2.8.2
+inside the "worker-function" so that schedule_delayed_work() is not
+called again.
+
+Should I explicitly cancel_delayed_work() inside suspend() too?
