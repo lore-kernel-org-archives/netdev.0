@@ -1,71 +1,47 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 2/2] vhost_net: conditionally enable tx polling
-Date: Mon, 30 May 2016 02:47:54 -0400
-Message-ID: <1464590874-39539-3-git-send-email-jasowang@redhat.com>
-References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: Re: [PATCH v2 03/10] nl80211: Prefer ether_addr_copy
+Date: Sun, 29 May 2016 23:50:18 -0700
+Message-ID: <CAA-b7a8v8q5VnPxWw+o6Vj96KxeVhgfmZbre8+9rLRcB7-emyg@mail.gmail.com>
+References: <cover.1464576022.git.kirtika.ruchandani@gmail.com>
+	<49c03996365360077fe7317d108072c30354b555.1464576022.git.kirtika.ruchandani@gmail.com>
+	<CAGRGNgVRJm3zSokQ2wxb8Kwd4UEzx7ZjRCHAmnA02cB89Usy-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Tina Ruchandani <ruchandani.tina@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:36426 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753988AbcE3GuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 02:50:20 -0400
+In-Reply-To: <CAGRGNgVRJm3zSokQ2wxb8Kwd4UEzx7ZjRCHAmnA02cB89Usy-A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We always poll tx for socket, this is sub optimal since:
+> This looks right to me, but doesn't ether_addr_copy() have alignment
+> requirements? Could someone more familiar with that review these
+> changes to ensure they're met?
 
-- it will be only used when we exceed the sndbuf of the socket.
-- since we use two independent polls for tx and vq, this will slightly
-  increase the waitqueue traversing time and more important, vhost
-  could not benefit from commit
-  9e641bdcfa4ef4d6e2fbaa59c1be0ad5d1551fd5 ("net-tun: restructure
-  tun_do_read for better sleep/wakeup efficiency") even if we've
-  stopped rx polling during handle_rx since tx poll were still left in
-  the waitqueue.
+Thanks for catching this.
+The requirement is to be __aligned(2). I've added 4 instances of
+ether_addr_copy with 8 addresses as arguments.  Of these, the 4
+src arguments are really the same type (i.e. nla_data acting on a
+const nlattr*), so I'll try to reason about the 5 total cases below -
+1. cfg->dst_mac should be 16-bit aligned due to the layout of
+struct cfg80211_wowlan_tcp. Its offset is 10 or 12 bytes in the
+structure depending on the system.
+2 and 3. For mac_addr and mac_addr_mask, nl80211_parse_random_mac
+takes these in as u8* (and hence does not guarantee alignment?)
+Both the callers of this function today pass in arguments that are
+explicitly __aligned(2). But this cannot be said of future potential callers
+- so perhaps my patch introduces a bug?
+4. Based on struct cfg80211_acl_data, acl->mac_addrs[i] should be not
+guaranteed to be __aligned(2).
+5. For all the nla_data src arguments, the nla_data function returns
+((char*) foo + 5) for pointer foo. So likely not __aligned(2).
 
-Fix this by conditionally enable tx polling only when -EAGAIN were
-met.
-
-Test shows about 8% improvement on guest rx pps.
-
-Before: ~1350000
-After:  ~1460000
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index e91603b..5a05fa0 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -378,6 +378,7 @@ static void handle_tx(struct vhost_net *net)
- 		goto out;
- 
- 	vhost_disable_notify(&net->dev, vq);
-+	vhost_net_disable_vq(net, vq);
- 
- 	hdr_size = nvq->vhost_hlen;
- 	zcopy = nvq->ubufs;
-@@ -459,6 +460,8 @@ static void handle_tx(struct vhost_net *net)
- 					% UIO_MAXIOV;
- 			}
- 			vhost_discard_vq_desc(vq, 1);
-+			if (err == -EAGAIN)
-+				vhost_net_enable_vq(net, vq);
- 			break;
- 		}
- 		if (err != len)
--- 
-1.8.3.1
+Based on 3, 4 and 5, this patch should be revoked, but it would be nice
+to have a confirmation from someone else.
