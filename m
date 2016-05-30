@@ -1,67 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/7] binding: mdio-mux: Add DT binding doc for Broadcom
- MDIO bus mutiplexer
-Date: Mon, 30 May 2016 17:24:26 +0200
-Message-ID: <20160530152426.GM6027@lunn.ch>
-References: <1464592251-2688-1-git-send-email-pramod.kumar@broadcom.com>
- <1464592251-2688-4-git-send-email-pramod.kumar@broadcom.com>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [PATCH] veth: delay peer link configuration after interfaces are tied
+Date: Mon, 30 May 2016 17:26:51 +0200
+Message-ID: <87fusz36tg.fsf@zoro.exoscale.ch>
+References: <1464520637-19784-1-git-send-email-vincent@bernat.im>
+	<574C0697.6060506@6wind.com> <878tyr4zzc.fsf@zoro.exoscale.ch>
+	<574C59F1.80403@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-arm-kernel@lists.infradead.org
-To: Pramod Kumar <pramod.kumar@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464592251-2688-4-git-send-email-pramod.kumar@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Vijay Pandurangan <vijayp@vijayp.ca>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:40226 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932508AbcE3P0y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 11:26:54 -0400
+In-Reply-To: <574C59F1.80403@6wind.com> (Nicolas Dichtel's message of "Mon, 30
+	May 2016 17:19:13 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 30, 2016 at 12:40:47PM +0530, Pramod Kumar wrote:
-> Add DT binding doc for Broadcom MDIO bus mutiplexer driver.
-> 
-> Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-> ---
->  .../bindings/net/brcm,mdio-mux-iproc.txt           | 64 ++++++++++++++++++++++
->  1 file changed, 64 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
-> new file mode 100644
-> index 0000000..dd74ee0
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
-> @@ -0,0 +1,64 @@
-> +Properties for an MDIO bus mutiplexer found in Broadcom iProc based SoCs.
-> +
-> +This MDIO bus multiplexer defines buses that could be internal as well as
-> +external to SoCs and could accept MDIO transaction compatible to C-22 or
-> +C-45 Clause. When Child bus is selected, one need to select these two
-> +properties as well to generate desired MDIO trascation on appropriate bus.
-> +
-> +Required properties in addition to the generic multiplexer properties:
-> +
-> +MDIO multiplexer node:
-> +- complatible: brcm,mdio-mux-iproc.
-> +
-> +Child bus node:
-> +-brcm,is-c45: Boolean property indicating PHYs attached to this bus supports
-> +	      C-45 mdio transaction.
+ =E2=9D=A6 30 mai 2016 17:19 CEST, Nicolas Dichtel <nicolas.dichtel@6wi=
+nd.com>=C2=A0:
 
-This is-c45 seems to be at the wrong level. As far as i know, you can
-mix C22 and C45 devices on a bus. It is a property of the individual
-MDIO device if it uses C45 or not.
+>>>>  	priv =3D netdev_priv(peer);
+>>>>  	rcu_assign_pointer(priv->peer, dev);
+>>>> +
+>>>> +	err =3D rtnl_configure_link(peer, ifmp);
+>>>> +	if (err < 0)
+>>>> +		goto err_configure_peer;
+>>=20
+>>> You should fix the error path. 'unregister_netdevice(dev)' is missi=
+ng.
+>>=20
+>> I am sending another patch to fix that. I am quite unsure if I do th=
+e
+>> right thing here.
+>>=20
+> A less intrusive fix is to call 'rtmsg_ifinfo(RTM_NEWLINK, peer, ~0U,
+> GFP_KERNEL);' a the end of veth_newlink().
 
-I would expect your MDIO device PHY drivers to logically OR
-MII_ADDR_C45 into the address when doing an MDIO read/write using C45.
-
-	     Andrew
+I did that at first. Maybe this would make more sense to do
+that. Otherwise, the first message contains an iflink value that we
+cannot resolve with just the received netlink messages (since the
+information is in the next netlink message). "ip monitor" seems to be
+able to get the info, but I suppose it does an additional
+lookup.
+--=20
+Make sure every module hides something.
+            - The Elements of Programming Style (Kernighan & Plauger)
