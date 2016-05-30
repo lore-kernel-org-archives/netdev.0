@@ -1,80 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] nf_queue: Make the queue_handler pernet
-Date: Mon, 30 May 2016 11:31:19 +0200
-Message-ID: <20160530093119.GA27929@salvia>
-References: <1462981273-21676-1-git-send-email-fw@strlen.de>
- <20160512094725.GB1777@salvia>
- <87twi3qmlf.fsf@x220.int.ebiederm.org>
- <20160512164000.GA9815@breakpoint.cc>
- <87a8jtrbk3.fsf@x220.int.ebiederm.org>
- <20160513200442.GA29941@breakpoint.cc>
- <87zirtofgp.fsf@x220.int.ebiederm.org>
- <20160513212029.GC29941@breakpoint.cc>
- <87bn49nzzn.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, dale.4d@gmail.com,
-	netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Wojciech Dubowik <Wojciech.Dubowik@neratec.com>
+Subject: [PATCH net] net: dsa: mv88e6xxx: Fix port forwarding mask
+Date: Mon, 30 May 2016 11:35:44 +0200
+Message-ID: <1464600944-30782-1-git-send-email-Wojciech.Dubowik@neratec.com>
+Cc: netdev@vger.kernel.org,
+	Wojciech Dubowik <Wojciech.Dubowik@neratec.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36809 "EHLO mail.us.es"
+Received: from mail.neratec.com ([46.140.151.2]:32564 "EHLO mail.neratec.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751754AbcE3Jbc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 May 2016 05:31:32 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 1E1B41C0966
-	for <netdev@vger.kernel.org>; Mon, 30 May 2016 11:31:31 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 0C8F111FE80
-	for <netdev@vger.kernel.org>; Mon, 30 May 2016 11:31:31 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id F01EA15D63A
-	for <netdev@vger.kernel.org>; Mon, 30 May 2016 11:31:27 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <87bn49nzzn.fsf_-_@x220.int.ebiederm.org>
+	id S1754609AbcE3Jpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 May 2016 05:45:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 13, 2016 at 09:18:52PM -0500, Eric W. Biederman wrote:
-> 
-> Florian Weber reported:
-> > Under full load (unshare() in loop -> OOM conditions) we can
-> > get kernel panic:
-> >
-> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-> > IP: [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
-> > [..]
-> > task: ffff88012dfa3840 ti: ffff88012dffc000 task.ti: ffff88012dffc000
-> > RIP: 0010:[<ffffffff81476c85>]  [<ffffffff81476c85>] nfqnl_nf_hook_drop+0x35/0x70
-> > RSP: 0000:ffff88012dfffd80  EFLAGS: 00010206
-> > RAX: 0000000000000008 RBX: ffffffff81add0c0 RCX: ffff88013fd80000
-> > [..]
-> > Call Trace:
-> >  [<ffffffff81474d98>] nf_queue_nf_hook_drop+0x18/0x20
-> >  [<ffffffff814738eb>] nf_unregister_net_hook+0xdb/0x150
-> >  [<ffffffff8147398f>] netfilter_net_exit+0x2f/0x60
-> >  [<ffffffff8141b088>] ops_exit_list.isra.4+0x38/0x60
-> >  [<ffffffff8141b652>] setup_net+0xc2/0x120
-> >  [<ffffffff8141bd09>] copy_net_ns+0x79/0x120
-> >  [<ffffffff8106965b>] create_new_namespaces+0x11b/0x1e0
-> >  [<ffffffff810698a7>] unshare_nsproxy_namespaces+0x57/0xa0
-> >  [<ffffffff8104baa2>] SyS_unshare+0x1b2/0x340
-> >  [<ffffffff81608276>] entry_SYSCALL_64_fastpath+0x1e/0xa8
-> > Code: 65 00 48 89 e5 41 56 41 55 41 54 53 83 e8 01 48 8b 97 70 12 00 00 48 98 49 89 f4 4c 8b 74 c2 18 4d 8d 6e 08 49 81 c6 88 00 00 00 <49> 8b 5d 00 48 85 db 74 1a 48 89 df 4c 89 e2 48 c7 c6 90 68 47
-> >
-> 
-> The simple fix for this requires a new pernet variable for struct
-> nf_queue that indicates when it is safe to use the dynamically
-> allocated nf_queue state.
-> 
-> As we need a variable anyway make nf_register_queue_handler and
-> nf_unregister_queue_handler pernet.  This allows the existing logic of
-> when it is safe to use the state from the nfnetlink_queue module to be
-> reused with no changes except for making it per net.
-> 
-> The syncrhonize_rcu from nf_unregister_queue_handler is moved to a new
-> function nfnl_queue_net_exit_batch so that the worst case of having a
-> syncrhonize_rcu in the pernet exit path is not experienced in batch
-> mode.
+Port's vlan table is specified by bit mask and not by number.
+Only 4.4.x kernels are affected.
 
-Applied, thanks.
+Signed-off-by: Wojciech Dubowik <Wojciech.Dubowik@neratec.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 2dea39b..3e074d4 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2150,7 +2150,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	 * database, and allow every port to egress frames on all other ports.
+ 	 */
+ 	reg = BIT(ps->num_ports) - 1; /* all ports */
+-	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg & ~port);
++	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg & ~BIT(port));
+ 	if (ret)
+ 		goto abort;
+ 
+-- 
+1.9.1
