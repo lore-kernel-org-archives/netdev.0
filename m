@@ -1,78 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/2] macvlan: Fix potential use-after free for broadcasts
-Date: Mon, 30 May 2016 16:23:08 +0800
-Message-ID: <20160530082308.GA5106@gondor.apana.org.au>
-References: <20160526234433.GU8402@wantstofly.org>
- <20160530081752.GA4956@gondor.apana.org.au>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [patch v2 net-next 12/13] net: hns: implement the miscellaneous
+ operation by asl
+Date: Mon, 30 May 2016 11:25:56 +0300
+Message-ID: <1464596756.27624.51.camel@linux.intel.com>
+References: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
+	 <1464574222-69608-13-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:39157 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137AbcE3IXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 04:23:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20160530081752.GA4956@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fengguang.wu@intel.com, andrew@lunn.ch, ivecera@redhat.com,
+	f.fainelli@gmail.com, haifeng.wei@huawei.com,
+	charles.chenxin@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org,
+	linuxarm@huawei.com
+To: Kejian Yan <yankejian@huawei.com>, rjw@rjwysocki.net,
+	lenb@kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464574222-69608-13-git-send-email-yankejian@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When we postpone a broadcast packet we save the source port in
-the skb if it is local.  However, the source port can disappear
-before we get a chance to process the packet.
+On Mon, 2016-05-30 at 10:10 +0800, Kejian Yan wrote:
+> The miscellaneous operation is implemented in BIOS, the kernel can
+> call
+> _DSM method help to call the implementation in ACPI case. Here is a
+> patch
+> to do that.
+>=20
 
-This patch fixes this by holding a ref count on the netdev.
 
-It also delays the skb->cb modification until after we allocate
-the new skb as you should not modify shared skbs.
+> +static phy_interface_t hns_mac_get_phy_if_acpi(struct hns_mac_cb
+> *mac_cb)
+> +{
+> +	phy_interface_t phy_if =3D PHY_INTERFACE_MODE_NA;
+> +	union acpi_object *obj;
+> +	union acpi_object obj_args, argv4;
+> +
+> +	obj_args.integer.type =3D ACPI_TYPE_INTEGER;
+> +	obj_args.integer.value =3D mac_cb->mac_id;
+> +
+> +	argv4.type =3D ACPI_TYPE_PACKAGE,
+> +	argv4.package.count =3D 1,
+> +	argv4.package.elements =3D &obj_args,
+> +
+> +	obj =3D acpi_evaluate_dsm(ACPI_HANDLE(mac_cb->dev),
+> +				hns_dsaf_acpi_dsm_uuid, 0,
+> +				HNS_OP_GET_PORT_TYPE_FUNC, &argv4);
+> +
+> +	if (!obj || obj->type !=3D ACPI_TYPE_INTEGER)
 
-Fixes: 412ca1550cbe ("macvlan: Move broadcasts into a work queue")
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Seems you have potential memory leak here
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 2bcf1f3..78a00e3 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -305,11 +305,14 @@ static void macvlan_process_broadcast(struct work_struct *w)
- 
- 		rcu_read_unlock();
- 
-+		if (src)
-+			dev_put(src->dev);
- 		kfree_skb(skb);
- 	}
- }
- 
- static void macvlan_broadcast_enqueue(struct macvlan_port *port,
-+				      const struct macvlan_dev *src,
- 				      struct sk_buff *skb)
- {
- 	struct sk_buff *nskb;
-@@ -319,8 +322,12 @@ static void macvlan_broadcast_enqueue(struct macvlan_port *port,
- 	if (!nskb)
- 		goto err;
- 
-+	MACVLAN_SKB_CB(nskb)->src = src;
-+
- 	spin_lock(&port->bc_queue.lock);
- 	if (skb_queue_len(&port->bc_queue) < MACVLAN_BC_QUEUE_LEN) {
-+		if (src)
-+			dev_hold(src->dev);
- 		__skb_queue_tail(&port->bc_queue, nskb);
- 		err = 0;
- 	}
-@@ -429,8 +436,7 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 			goto out;
- 		}
- 
--		MACVLAN_SKB_CB(skb)->src = src;
--		macvlan_broadcast_enqueue(port, skb);
-+		macvlan_broadcast_enqueue(port, src, skb);
- 
- 		return RX_HANDLER_PASS;
- 	}
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+if (!obj)
+=C2=A0return phy_if;
+
+if (obj->...)
+=C2=A0goto exit_free;
+
+
+> +		return phy_if;
+> +
+> +	phy_if =3D obj->integer.value ?
+> +		PHY_INTERFACE_MODE_XGMII : PHY_INTERFACE_MODE_SGMII;
+> +
+> +	dev_dbg(mac_cb->dev, "mac_id=3D%d, phy_if=3D%d\n", mac_cb-
+> >mac_id, phy_if);
+> +
+
++ exit_free:
+
+> +	ACPI_FREE(obj);
+> +
+> +	return phy_if;
+> +}
+>=20
+
+--=20
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
