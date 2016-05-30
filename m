@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ieee802154: fix logic error in
- ieee802154_llsec_parse_dev_addr
-Date: Sun, 29 May 2016 22:36:36 -0700 (PDT)
-Message-ID: <20160529.223636.1598569609362802677.davem@davemloft.net>
-References: <7c36848d-28b5-87cc-f998-53cc2428a0a6@gmail.com>
+Subject: Re: [PATCH net] sfc: use flow dissector helpers for aRFS
+Date: Sun, 29 May 2016 22:39:58 -0700 (PDT)
+Message-ID: <20160529.223958.493298847764781570.davem@davemloft.net>
+References: <1464281796.5939.96.camel@edumazet-glaptop3.roam.corp.google.com>
+	<5747608D.1090509@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aar@pengutronix.de, linux-wpan@vger.kernel.org,
-	netdev@vger.kernel.org
-To: sploving1@gmail.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49638 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49661 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753773AbcE3Fgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 01:36:37 -0400
-In-Reply-To: <7c36848d-28b5-87cc-f998-53cc2428a0a6@gmail.com>
+	with ESMTP id S1751137AbcE3Fj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 01:39:59 -0400
+In-Reply-To: <5747608D.1090509@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Baozeng Ding <sploving1@gmail.com>
-Date: Thu, 26 May 2016 21:07:42 +0800
+From: Edward Cree <ecree@solarflare.com>
+Date: Thu, 26 May 2016 21:46:05 +0100
 
-> Fix a logic error to avoid potential null pointer dereference.
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+> This seems to work in my testing, but I first looked at the flow dissector
+> API less than four hours ago, so I might be doing it wrong.
 > 
-> Signed-off-by: Baozeng Ding <sploving1@gmail.com>
+> I still think that this is too big a change for 'net' and that it's better
+> to take the original fix now and then I'll respin this patch for net-next
+> when it opens up.  But I'm also happy for you to take this now in which
+> case I'll respin Jon's patch 2/2 on top of the result.  Your choice.
 
-Applied.
+I definitely prefer this and have applied it, please respin Jon's patch.
+
+Thanks!
