@@ -1,53 +1,40 @@
-From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 09/10] nl80211: Fix checkpatch.pl warning
-Date: Sun, 29 May 2016 19:54:28 -0700
-Message-ID: <2b42b54b8128bb953569021ddadce77499859a79.1464576022.git.kirtika.ruchandani@gmail.com>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: [PATCH v2 10/10] nl80211: Prefer kcalloc over kzalloc
+Date: Sun, 29 May 2016 19:54:52 -0700
+Message-ID: <ca13e9bde679512a872e5136c177676d0238dc25.1464576022.git.kirtika.ruchandani@gmail.com>
 References: <cover.1464576022.git.kirtika.ruchandani@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ruchandani.tina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Julian.Calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, ruchandani.tina@gmail.com,
+	netdev@vger.kernel.org, Julian.Calaby@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35998 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753423AbcE3CzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2016 22:55:02 -0400
 Content-Disposition: inline
-In-Reply-To: <cover.1464576022.git.kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <cover.1464576022.git.kirtika.ruchandani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the checkpatch.pl warning "foo * bar should be
-foo *bar"
+This patch fixes the checkpatch.pl warning -
+"prefer kcalloc over kzalloc with multiply"
 
-Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
 ---
- net/wireless/nl80211.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/wireless/nl80211.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index c6d870e..46757af 100644
+index 46757af..2964406 100644
 --- a/net/wireless/nl80211.c
 +++ b/net/wireless/nl80211.c
-@@ -12214,7 +12214,7 @@ void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,
- }
+@@ -9482,7 +9482,7 @@ static int nl80211_parse_wowlan_nd(struct cfg80211_registered_device *rdev,
+ 	struct nlattr **tb;
+ 	int err;
 
- void cfg80211_notify_new_peer_candidate(struct net_device *dev, const u8 *addr,
--					const u8* ie, u8 ie_len, gfp_t gfp)
-+					const u8 *ie, u8 ie_len, gfp_t gfp)
- {
- 	struct wireless_dev *wdev = dev->ieee80211_ptr;
- 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wdev->wiphy);
-@@ -13362,7 +13362,7 @@ void cfg80211_tdls_oper_request(struct net_device *dev, const u8 *peer,
- }
- EXPORT_SYMBOL(cfg80211_tdls_oper_request);
-
--static int nl80211_netlink_notify(struct notifier_block * nb,
-+static int nl80211_netlink_notify(struct notifier_block *nb,
- 				  unsigned long state,
- 				  void *_notify)
- {
---
-2.8.0.rc3.226.g39d4020
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-	tb = kzalloc(NUM_NL80211_ATTR * sizeof(*tb), GFP_KERNEL);
++	tb = kcalloc(NUM_NL80211_ATTR, sizeof(*tb), GFP_KERNEL);
+ 	if (!tb)
+ 		return -ENOMEM;
