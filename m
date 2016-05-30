@@ -1,27 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: ip-sysctl.txt: clarify secure_redirects
-Date: Sun, 29 May 2016 22:41:04 -0700 (PDT)
-Message-ID: <20160529.224104.1831820277837751575.davem@davemloft.net>
-References: <1464280085-21851-1-git-send-email-e@erig.me>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: Re: [PATCH v2 06/10] nl80211: Various checkpatch.pl spacing fixes
+Date: Sun, 29 May 2016 23:04:48 -0700
+Message-ID: <CAA-b7a_X=-Nk0CUD4ayssKB6nzDF9e7iWwD2gandxar-G35ZzA@mail.gmail.com>
+References: <cover.1464576022.git.kirtika.ruchandani@gmail.com>
+	<80c4512b4c5ca1f26ecda9785a456c4d0cf4f937.1464576022.git.kirtika.ruchandani@gmail.com>
+	<CAGRGNgWYuEVnF7OG4GKJrnNNkn8DWaAor=ebbiwRbTZBP8qn5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: e@erig.me
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Tina Ruchandani <ruchandani.tina@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49668 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161092AbcE3FlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 01:41:05 -0400
-In-Reply-To: <1464280085-21851-1-git-send-email-e@erig.me>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33193 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751093AbcE3GEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 02:04:50 -0400
+In-Reply-To: <CAGRGNgWYuEVnF7OG4GKJrnNNkn8DWaAor=ebbiwRbTZBP8qn5Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Garver <e@erig.me>
-Date: Thu, 26 May 2016 12:28:05 -0400
+> Adding the brackets around the & expression doesn't look spacing
+> related to me. What's the exact warning this is fixing?
 
-> Clarify how secure_redirects works. Mention that RFC1122 always applies.
-> 
-> Signed-off-by: Eric Garver <e@erig.me>
-
-Applied, thanks.
+>From the commit message - "This patch also contains two hunks to fix
+'line over 80 characters',
+that are spacing related". This is the second hunk, the first being
+the comments in the nl80211_fam
+definition. Should I resend with these two hunks omitted, or fix my wording?
