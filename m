@@ -1,55 +1,107 @@
-From: "Coelho, Luciano" <luciano.coelho@intel.com>
-Subject: Re: [PATCH] iwlwifi: mvm: avoid harmless -Wmaybe-uninialized warning
-Date: Mon, 30 May 2016 20:37:02 +0000
-Message-ID: <1464640622.19317.54.camel@intel.com>
-References: <1464354462-1940949-1-git-send-email-arnd@arndb.de>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.6 014/100] asix: Fix offset calculation in asix_rx_fixup() causing slow transmissions
+Date: Mon, 30 May 2016 13:49:09 -0700
+Message-ID: <20160530204908.903169941@linuxfoundation.org>
+References: <20160530204908.422037419@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"Harel, Moshe" <moshe.harel@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: "Gottlieb, Matti" <matti.gottlieb@intel.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28103 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752176AbcE3UhK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 May 2016 16:37:10 -0400
-In-Reply-To: <1464354462-1940949-1-git-send-email-arnd@arndb.de>
-Content-Language: en-US
-Content-ID: <13CC8AB7B6DAAE4297FE3E682CC24901@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Dean Jenkins <Dean_Jenkins@mentor.com>,
+	"David B. Robins" <linux@davidrobins.net>,
+	Mark Craske <Mark_Craske@mentor.com>,
+	Emil Goode <emilgoode@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	YongQin Liu <yongqin.liu@linaro.org>,
+	Guodong Xu <guodong.xu@linaro.org>,
+	Ivan Vecera <ivecera@redhat.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, John Stultz <john.stultz@linaro.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20160530204908.422037419@linuxfoundation.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCAyMDE2LTA1LTI3IGF0IDE1OjA3ICswMjAwLCBBcm5kIEJlcmdtYW5uIHdyb3RlOg0K
-PiBnY2MgaXMgYXBwYXJlbnRseSB1bmFibGVsIHRvIHRyYWNrIHRoZSBzdGF0ZSBvZiB0aGUgbG9j
-YWwgJ3Jlc3BfdjInDQo+IHZhcmlhYmxlIGFjcm9zcyB0aGUga3phbGxvYygpIGZ1bmN0aW9uLCBh
-bmQgd2FybnMgYWJvdXQgdGhlIHJlc3BvbnNlDQo+IHZhcmlhYmxlIGJlaW5nIHVzZWQgd2l0aG91
-dCBhbiBpbml0aWFsaXphdGlvbjoNCj4gDQo+IGRyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3
-bHdpZmkvbXZtL252bS5jOiBJbiBmdW5jdGlvbg0KPiDigJhpd2xfbXZtX3VwZGF0ZV9tY2PigJk6
-DQo+IGRyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL252bS5jOjcyNzozNjog
-d2FybmluZzoNCj4g4oCYbWNjX3Jlc3BfdjHigJkgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBp
-biB0aGlzIGZ1bmN0aW9uIFstV21heWJlLQ0KPiB1bmluaXRpYWxpemVkXQ0KPiDCoMKgwqByZXNw
-X2NwLT5uX2NoYW5uZWxzID0gbWNjX3Jlc3BfdjEtPm5fY2hhbm5lbHM7DQo+IGRyaXZlcnMvbmV0
-L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL252bS5jOjcyMTozOiB3YXJuaW5nOg0KPiDigJht
-Y2NfcmVzcOKAmSBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1X
-bWF5YmUtDQo+IHVuaW5pdGlhbGl6ZWRdDQo+IMKgwqDCoG1lbWNweShyZXNwX2NwLCBtY2NfcmVz
-cCwgcmVzcF9sZW4pOw0KPiANCj4gVGhlIHdhcm5pbmcgc2hvd2VkIHVwIGluIHg4NiBhbGxtb2Rj
-b25maWcgYWZ0ZXIgbXkgcGF0Y2ggdG8NCj4gdW5oaWRlIC1XbWF5YmUtdW5pbml0aWFsaXplZCB3
-YXJuaW5ncyBieSBkZWZhdWx0IHdhcyBtZXJnZWQsDQo+IHRob3VnaCBpdCBhbHdheXMgZXhpc3Rl
-ZCBpbiByYW5kY29uZmlnIGJ1aWxkcy4gSSBkaWQgbm90DQo+IGNhdGNoIHRoZSB3YXJuaW5nIGVh
-cmxpZXIgYmVjYXVzZSBJIHdhcyB0ZXN0aW5nIG9uIEFSTSwgd2hpY2gNCj4gbmV2ZXIgcHJvZHVj
-ZWQgdGhlIHdhcm5pbmcuDQo+IA0KPiBUaGlzIHJlYXJyYW5nZXMgdGhlIGNvZGUgaW4gYSB3YXkg
-dGhhdCBpbXByb3ZlcyByZWFkYWJpbGl0eSBmb3INCj4gYm90aCBodW1hbnMgYW5kIHRoZSBjb21w
-aWxlciwgYW5kIHRoYXQgYXZvaWRzIHRoZSB3YXJuaW5nLg0KPiANCj4gU2lnbmVkLW9mZi1ieTog
-QXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCj4gRml4ZXM6IDZmYTUyNDMwZjBiMyAoIml3
-bHdpZmk6IG12bTogY2hhbmdlIG1jYyB1cGRhdGUgQVBJIikNCj4gLS0tDQoNClRoYW5rcywgQXJu
-ZCEgSSBxdWV1ZWQgdGhpcyB2aWEgb3VyIGludGVybmFsIHRyZWUuDQoNCi0tDQpDaGVlcnMsDQpM
-dWNhLg==
+4.6-stable review patch.  If anyone has any objections, please let me know.
+
+------------------
+
+From: John Stultz <john.stultz@linaro.org>
+
+commit cd9e2e5d3ff148be9ea210f622ce3e8e8292fcd6 upstream.
+
+In testing with HiKey, we found that since
+commit 3f30b158eba5 ("asix: On RX avoid creating bad Ethernet
+frames"),
+we're seeing lots of noise during network transfers:
+
+[  239.027993] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
+[  239.037310] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x54ebb5ec, offset 4
+[  239.045519] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0xcdffe7a2, offset 4
+[  239.275044] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
+[  239.284355] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x1d36f59d, offset 4
+[  239.292541] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0xaef3c1e9, offset 4
+[  239.518996] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
+[  239.528300] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x2881912, offset 4
+[  239.536413] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x5638f7e2, offset 4
+
+And network throughput ends up being pretty bursty and slow with
+a overall throughput of at best ~30kB/s (where as previously we
+got 1.1MB/s with the slower USB1.1 "full speed" host).
+
+We found the issue also was reproducible on a x86_64 system,
+using a "high-speed" USB2.0 port but the throughput did not
+measurably drop (possibly due to the scp transfer being cpu
+bound on my slow test hardware).
+
+After lots of debugging, I found the check added in the
+problematic commit seems to be calculating the offset
+incorrectly.
+
+In the normal case, in the main loop of the function, we do:
+(where offset is zero, or set to "offset += (copy_length + 1) &
+0xfffe" in the previous loop)
+    rx->header = get_unaligned_le32(skb->data +
+                                    offset);
+    offset += sizeof(u32);
+
+But the problematic patch calculates:
+    offset = ((rx->remaining + 1) & 0xfffe) + sizeof(u32);
+    rx->header = get_unaligned_le32(skb->data + offset);
+
+Adding some debug logic to check those offset calculation used
+to find rx->header, the one in problematic code is always too
+large by sizeof(u32).
+
+Thus, this patch removes the incorrect " + sizeof(u32)" addition
+in the problematic calculation, and resolves the issue.
+
+Cc: Dean Jenkins <Dean_Jenkins@mentor.com>
+Cc: "David B. Robins" <linux@davidrobins.net>
+Cc: Mark Craske <Mark_Craske@mentor.com>
+Cc: Emil Goode <emilgoode@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: YongQin Liu <yongqin.liu@linaro.org>
+Cc: Guodong Xu <guodong.xu@linaro.org>
+Cc: Ivan Vecera <ivecera@redhat.com>
+Cc: linux-usb@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Reported-by: Yongqin Liu <yongqin.liu@linaro.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ drivers/net/usb/asix_common.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -66,7 +66,7 @@ int asix_rx_fixup_internal(struct usbnet
+ 	 * buffer.
+ 	 */
+ 	if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
+-		offset = ((rx->remaining + 1) & 0xfffe) + sizeof(u32);
++		offset = ((rx->remaining + 1) & 0xfffe);
+ 		rx->header = get_unaligned_le32(skb->data + offset);
+ 		offset = 0;
+ 
