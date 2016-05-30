@@ -1,117 +1,100 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/2] macvlan: Avoid unnecessary multicast cloning
-Date: Mon, 30 May 2016 16:28:28 +0800
-Message-ID: <20160530082828.GB5106@gondor.apana.org.au>
-References: <20160526234433.GU8402@wantstofly.org>
- <20160530081752.GA4956@gondor.apana.org.au>
+From: Mateusz Bajorski <mateusz.bajorski@nokia.com>
+Subject: [PATCH v2] fib_rules: Added NLM_F_EXCL support to fib_nl_newrule
+Date: Mon, 30 May 2016 11:17:15 +0200
+Message-ID: <574C051B.90706@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:49841 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932141AbcE3I2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 04:28:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20160530081752.GA4956@gondor.apana.org.au>
+Received: from mail-db3on0132.outbound.protection.outlook.com ([157.55.234.132]:4532
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932210AbcE3JPr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 May 2016 05:15:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we always queue a multicast packet for further processing,
-even if none of the macvlan devices are subscribed to the address.
+When adding rule with NLM_F_EXCL flag then check if the same rule exist.
+If yes then exit with -EEXIST.
 
-This patch optimises this by adding a global multicast filter for
-a macvlan_port.
+This is already implemented in iproute2:
+	if (cmd == RTM_NEWRULE) {
+		req.n.nlmsg_flags |= NLM_F_CREATE|NLM_F_EXCL;
+		req.r.rtm_type = RTN_UNICAST;
+	}
 
-Note that this patch doesn't handle the broadcast addresses of the
-individual macvlan devices correctly, if they are not all identical.
-However, this is already broken because there is no mechanism in
-place to update the individual multicast filters when you change
-the broadcast address.
+Tested ipv4 and ipv6 with net-next linux on qemu x86
 
-If someone cares enough they should fix this by collecting all
-broadcast addresses for a macvlan as we do for multicast and unicast.
+expected behavior after patch:
+localhost ~ # ip rule
+0:    from all lookup local
+32766:    from all lookup main
+32767:    from all lookup default
+localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
+localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
+RTNETLINK answers: File exists
+localhost ~ # ip rule
+0:    from all lookup local
+1005:    from 10.46.177.97 lookup 104
+32766:    from all lookup main
+32767:    from all lookup default
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+There was already topic regarding this but I don't see any changes
+merged and problem still occurs.
+https://lkml.kernel.org/r/1135778809.5944.7.camel+%28%29+localhost+%21+localdomain
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index f55fe21..9fa4532 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -49,6 +49,7 @@ struct macvlan_port {
- 	bool 			passthru;
- 	int			count;
- 	struct hlist_head	vlan_source_hash[MACVLAN_HASH_SIZE];
-+	DECLARE_BITMAP(mc_filter, MACVLAN_MC_FILTER_SZ);
- };
+Signed-off-by: Mateusz Bajorski <mateusz.bajorski@nokia.com>
+---
+Changes in v2: section moved to new place where new rule is already built
+
+ net/core/fib_rules.c | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 840aceb..5bc1d27 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -371,6 +371,40 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	} else if (rule->action == FR_ACT_GOTO)
+ 		goto errout_free;
  
- struct macvlan_source_entry {
-@@ -418,6 +419,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 
- 	port = macvlan_port_get_rcu(skb->dev);
- 	if (is_multicast_ether_addr(eth->h_dest)) {
-+		unsigned int hash;
++	if (nlh->nlmsg_flags & NLM_F_EXCL) {
++		list_for_each_entry(r, &ops->rules_list, list) {
++			if (r->action != rule->action)
++				continue;
 +
- 		skb = ip_check_defrag(dev_net(skb->dev), skb, IP_DEFRAG_MACVLAN);
- 		if (!skb)
- 			return RX_HANDLER_CONSUMED;
-@@ -435,7 +438,9 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 			goto out;
- 		}
- 
--		macvlan_broadcast_enqueue(port, src, skb);
-+		hash = mc_hash(NULL, eth->h_dest);
-+		if (test_bit(hash, port->mc_filter))
-+			macvlan_broadcast_enqueue(port, src, skb);
- 
- 		return RX_HANDLER_PASS;
- 	}
-@@ -725,6 +730,8 @@ static void macvlan_set_mac_lists(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 
-+	dev_uc_sync(vlan->lowerdev, dev);
-+	dev_mc_sync(vlan->lowerdev, dev);
- 	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
- 		bitmap_fill(vlan->mc_filter, MACVLAN_MC_FILTER_SZ);
- 	} else {
-@@ -739,9 +746,31 @@ static void macvlan_set_mac_lists(struct net_device *dev)
- 		__set_bit(mc_hash(vlan, dev->broadcast), filter);
- 
- 		bitmap_copy(vlan->mc_filter, filter, MACVLAN_MC_FILTER_SZ);
++			if (r->table != rule->table)
++				continue;
 +
-+		/* This is slightly inaccurate as we're including
-+		 * the subscription list of vlan->lowerdev too.
-+		 */
-+		bitmap_zero(filter, MACVLAN_MC_FILTER_SZ);
-+		netdev_for_each_mc_addr(ha, vlan->lowerdev) {
-+			__set_bit(mc_hash(NULL, ha->addr), filter);
++			if (r->pref != rule->pref)
++				continue;
++
++			if (memcmp(r->iifname, rule->iifname, IFNAMSIZ))
++				continue;
++
++			if (memcmp(r->oifname, rule->oifname, IFNAMSIZ))
++				continue;
++
++			if (r->mark != rule->mark)
++				continue;
++
++			if (r->mark_mask != rule->mark_mask)
++				continue;
++
++			if (r->tun_id != rule->tun_id)
++				continue;
++
++			if (!ops->compare(r, frh, tb))
++				continue;
++
++			err = -EEXIST;
++			goto errout_free;
 +		}
++	}
 +
-+		/* Bug alert: This only works if everyone has the
-+		 * same broadcast address.  As soon as someone
-+		 * changes theirs this will break.
-+		 *
-+		 * However, this is already broken as when you
-+		 * change your broadcast address we don't get
-+		 * called.
-+		 *
-+		 * The solution is to maintain a list of broadcast
-+		 * addresses like we do for uc/mc, if you care.
-+		 */
-+		__set_bit(mc_hash(NULL, dev->broadcast), filter);
-+
-+		bitmap_copy(vlan->port->mc_filter, filter,
-+			    MACVLAN_MC_FILTER_SZ);
- 	}
--	dev_uc_sync(vlan->lowerdev, dev);
--	dev_mc_sync(vlan->lowerdev, dev);
- }
- 
- static int macvlan_change_mtu(struct net_device *dev, int new_mtu)
+ 	err = ops->configure(rule, skb, frh, tb);
+ 	if (err < 0)
+ 		goto errout_free;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.6.4
