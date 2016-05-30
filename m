@@ -1,78 +1,66 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 2/2] vhost_net: conditionally enable tx polling
-Date: Mon, 30 May 2016 18:55:21 +0300
-Message-ID: <20160530155521.GA5427@redhat.com>
-References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
- <1464590874-39539-3-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464590874-39539-3-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vincent Bernat <vincent@bernat.im>
+Subject: [net v3] veth: advertise peer link once both links are tied together
+Date: Mon, 30 May 2016 17:58:37 +0200
+Message-ID: <1464623917-11536-1-git-send-email-vincent@bernat.im>
+References: <574C6095.9050804@6wind.com>
+Cc: Vincent Bernat <vincent@bernat.im>
+To: "David S. Miller" <davem@davemloft.net>,
+	Vijay Pandurangan <vijayp@vijayp.ca>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:40362 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161301AbcE3P6q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 May 2016 11:58:46 -0400
+In-Reply-To: <574C6095.9050804@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 30, 2016 at 02:47:54AM -0400, Jason Wang wrote:
-> We always poll tx for socket, this is sub optimal since:
-> 
-> - it will be only used when we exceed the sndbuf of the socket.
-> - since we use two independent polls for tx and vq, this will slightly
->   increase the waitqueue traversing time and more important, vhost
->   could not benefit from commit
->   9e641bdcfa4ef4d6e2fbaa59c1be0ad5d1551fd5 ("net-tun: restructure
->   tun_do_read for better sleep/wakeup efficiency") even if we've
->   stopped rx polling during handle_rx since tx poll were still left in
->   the waitqueue.
+When the peer link is created, its "iflink" information is not
+advertised through Netlink. Once created, the local device is advertised
+with this information but if a user is maintaining a cache from all
+updates, it will still miss the iflink for the peer link:
 
-Why is this an issue?
-sock_def_write_space only wakes up when queue is half empty,
-not on each packet.
-        if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf)
+    2: veth0@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
+        link/ether ae:0e:08:af:fb:a0 brd ff:ff:ff:ff:ff:ff
+    3: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN group default
+        link/ether 3a:31:f1:36:2e:e5 brd ff:ff:ff:ff:ff:ff
 
-I suspect the issue is with your previous patch,
-it now pokes at the spinlock on data path
-where it used not to.
+With this patch, we advertise again the peer link to let any user pick
+the appropriate iflink information:
 
-Is that right?
+    3: veth0@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
+        link/ether fa:ba:12:26:99:00 brd ff:ff:ff:ff:ff:ff
+    3: veth0@veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default
+        link/ether fa:ba:12:26:99:00 brd ff:ff:ff:ff:ff:ff
+    4: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN group default
+        link/ether ea:e4:e2:26:3c:87 brd ff:ff:ff:ff:ff:ff
 
+Signed-off-by: Vincent Bernat <vincent@bernat.im>
+---
+v3:
+ - send an additional netlink messages once the peer link is tied to
+   avoid any chicken/egg problem
 
-> 
-> Fix this by conditionally enable tx polling only when -EAGAIN were
-> met.
-> 
-> Test shows about 8% improvement on guest rx pps.
-> 
-> Before: ~1350000
-> After:  ~1460000
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/net.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index e91603b..5a05fa0 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -378,6 +378,7 @@ static void handle_tx(struct vhost_net *net)
->  		goto out;
->  
->  	vhost_disable_notify(&net->dev, vq);
-> +	vhost_net_disable_vq(net, vq);
->  
->  	hdr_size = nvq->vhost_hlen;
->  	zcopy = nvq->ubufs;
-> @@ -459,6 +460,8 @@ static void handle_tx(struct vhost_net *net)
->  					% UIO_MAXIOV;
->  			}
->  			vhost_discard_vq_desc(vq, 1);
-> +			if (err == -EAGAIN)
-> +				vhost_net_enable_vq(net, vq);
->  			break;
->  		}
->  		if (err != len)
-> -- 
-> 1.8.3.1
+v2:
+ - ensure the device is unregistered in case of link configuration failure
+
+ drivers/net/veth.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index f37a6e61d4ad..2376d17b8f53 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -466,6 +466,8 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	priv = netdev_priv(peer);
+ 	rcu_assign_pointer(priv->peer, dev);
++
++	rtmsg_ifinfo(RTM_NEWLINK, peer, IFF_SLAVE, GFP_KERNEL);
+ 	return 0;
+ 
+ err_register_dev:
+-- 
+2.8.1
