@@ -1,35 +1,33 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 0/2] macvlan: Avoid unnecessary multicast cloning
-Date: Mon, 30 May 2016 19:27:59 +0300
-Message-ID: <20160530162759.GD8402@wantstofly.org>
-References: <20160526234433.GU8402@wantstofly.org>
- <20160530081752.GA4956@gondor.apana.org.au>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH] qed: fix qed_fill_link() error handling
+Date: Mon, 30 May 2016 16:24:07 +0000
+Message-ID: <CO2PR11MB00881A57063B9AB617359A9097450@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1464623197-2084229-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hmm.wantstofly.org ([138.201.34.84]:53482 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161417AbcE3Q2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 12:28:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20160530081752.GA4956@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464623197-2084229-1-git-send-email-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 30, 2016 at 04:17:52PM +0800, Herbert Xu wrote:
+> +	if (IS_ENABLED(CONFIG_QED_SRIOV) && !IS_PF(hwfn->cdev)) {
+> +		qed_vf_get_link_params(hwfn, params);
+> +		qed_vf_get_link_state(hwfn, link);
+> +		qed_vf_get_link_caps(hwfn, link_caps);
+> +
+> +		return 0;
+> +	}
 
-> > Commit 412ca1550cbecb2c ("macvlan: Move broadcasts into a work queue")
-> > moved processing of all macvlan multicasts into a work queue.  This
-> > causes a noticable performance regression when there is heavy multicast
-> > traffic on the underlying interface for multicast groups that the
-> > macvlan subinterfaces are not members of, in which case we end up
-> > cloning all those packets and then freeing them again from a work queue
-> > without really doing any useful work with them in between.
-> 
-> OK so your motivation is to get rid of the unnecessary memory
-> allocation, right?
-
-That and stack switches to kworker threads and serialisation on
-the bc_queue queue lock.
+The IS_ENABLED here seems a bit wasteful to me - we have empty implementation
+under qed_vf.h just for this case [I.e., that SRIOV isn't enabled for qed].
+If all we're trying achieve is removing these gcc warnings, I think we can simply
+memset the structs in the currently-empty qed_vf_get_link_* functions.
