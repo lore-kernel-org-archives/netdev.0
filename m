@@ -1,46 +1,50 @@
-From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/3] nl80211: Various checkpatch.pl fixes
-Date: Mon, 30 May 2016 10:47:18 +1000
-Message-ID: <CAGRGNgU9sxYbMp0SaHwoZnDuLJs9yy_wsPKxPCED=E27zU5Hfw@mail.gmail.com>
-References: <cover.1464492195.git.kirtika.ruchandani@gmail.com>
- <5c2861995f05d456b3ce16e29ceae7e578b1456f.1464492195.git.kirtika.ruchandani@gmail.com>
- <CAGRGNgWMxU3qBsr0eu5cdAstu+s-0b9p1r-z5ZvkYejv2GtQLA@mail.gmail.com>
- <CAA-b7a9QS+GqxrYhDFDbYmLGKPt=z_fP02KbsUfMPWLrqih76w@mail.gmail.com> <CAA-b7a8XwUqRLdvL2EFJWmNnD11+bdV856xYXFKSGNAwSbYwKg@mail.gmail.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH iproute2 net-next 2/5] bridge: add json support for bridge
+ vlan show
+Date: Mon, 30 May 2016 09:43:07 +0900
+Message-ID: <92ec8efe-8627-2d3a-736d-4fadce3a8bd8@lab.ntt.co.jp>
+References: <1464410236-65044-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tina Ruchandani <ruchandani.tina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA-b7a8XwUqRLdvL2EFJWmNnD11+bdV856xYXFKSGNAwSbYwKg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	julien@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:59618 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbcE3BIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2016 21:08:07 -0400
+In-Reply-To: <1464410236-65044-3-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Kirtika,
+On 2016/05/28 13:37, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> $bridge -c vlan show
+> port	vlan ids
+> swp1	 1 PVID Egress Untagged
+> 	 10-13
+> 
+> swp2	 1 PVID Egress Untagged
+> 	 10-13
+> 
+> br0	 1 PVID Egress Untagged
+> 
+> $bridge -j vlan show
+> {
+>     "swp1": [{
+>             "vlan": 1,
+>             "flags": "PVID Egress Untagged"
 
-On Mon, May 30, 2016 at 10:44 AM, Kirtika Ruchandani
-<kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> There's too much stuff here to quickly review, it'd be nice if you
->>> could split this up into patches that do the following:
->
-> Is it preferable to resend the whole patch-set or just patch 3/3 in
-> this one as a separate set?
+Shouldn't we split flags?
 
-Re-send the entire set, make sure you mark it as v2, include a
-changelog in the cover letter or below the "---" in the patches
-themselves, and don't forget to include the reviewed-bys for any
-unchanged patches.
-
-Thanks,
-
--- 
-Julian Calaby
-
-Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Profile: http://www.google.com/profiles/julian.calaby/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    "swp1": [{
+            "vlan": 1,
+            "flags": [
+                "PVID",
+                "Egress Untagged"
+            ]
+        }
