@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 1/4]  base: soc: introduce soc_device_match() interface
-Date: Mon, 30 May 2016 15:14:38 +0200
-Message-ID: <6032641.cjSseEG2PF@wuerfel>
+Subject: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Mon, 30 May 2016 15:15:25 +0200
+Message-ID: <5339448.D8rpq4ofAC@wuerfel>
 References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com> <HE1PR04MB0889852B7809A1CCFF8922ACF8410@HE1PR04MB0889.eurprd04.prod.outlook.com> <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,144 +33,198 @@ In-Reply-To: <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com
 Sender: linux-clk-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We keep running into cases where device drivers want to know the exact
-version of the SoC a they are currently running on. In the past, this
-has usually been done through a vendor specific API that can be called
-by a driver, or by directly accessing some kind of version register
-that is not part of the device itself but that belongs to a global
-register area of the chip.
+From: Yangbo Lu <yangbo.lu@nxp.com>
 
-Common reasons for doing this include:
+The global utilities block controls power management, I/O device
+enabling, power-onreset(POR) configuration monitoring, alternate
+function selection for multiplexed signals,and clock control.
 
-- A machine is not using devicetree or similar for passing data
-  about on-chip devices, but just announces their presence using
-  boot-time platform devices, and the machine code itself does
-  not care about the revision.
+This patch adds GUTS driver to manage and access global utilities
+block.
 
-- There is existing firmware or boot loaders with existing DT
-  binaries with generic compatible strings that do not identify
-  the particular revision of each device, but the driver knows
-  which SoC revisions include which part
+[arnd turned this into a platform_driver registering a soc_device
+ rather than providing an ad-hoc interface for soc-id]
 
-- A prerelease version of a chip has some quirks and we are
-  using the same version of the bootloader and the DT blob
-  on both the prerelease and the final version. An update of
-  the DT binding seems inappropriate because that would involve
-  maintaining multiple copies of the dts and/or bootloader.
-
-This introduces the soc_device_match() interface that is meant
-to work like of_match_node() but instead of identifying the
-version of a device, it identifies the SoC itself using a
-vendor-agnostic interface.
-
-Unlike soc_device_match(), we do not do an exact string compare
-but instead use glob_match() to allow wildcards in strings.
-
+Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-diff --git a/drivers/base/Kconfig b/drivers/base/Kconfig
-index 246acdafedb6..fc7613cc7fd5 100644
---- a/drivers/base/Kconfig
-+++ b/drivers/base/Kconfig
-@@ -225,6 +225,7 @@ config GENERIC_CPU_AUTOPROBE
+diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
+index cb58ef0d9b2c..7106463f118e 100644
+--- a/drivers/soc/Kconfig
++++ b/drivers/soc/Kconfig
+@@ -2,7 +2,7 @@ menu "SOC (System On Chip) specific Drivers"
  
- config SOC_BUS
- 	bool
-+	select GLOB
- 
- source "drivers/base/regmap/Kconfig"
- 
-diff --git a/drivers/base/soc.c b/drivers/base/soc.c
-index 75b98aad6faf..e9623c6674a5 100644
---- a/drivers/base/soc.c
-+++ b/drivers/base/soc.c
-@@ -14,6 +14,7 @@
- #include <linux/spinlock.h>
- #include <linux/sys_soc.h>
- #include <linux/err.h>
-+#include <linux/glob.h>
- 
- static DEFINE_IDA(soc_ida);
- 
-@@ -168,3 +169,60 @@ static void __exit soc_bus_unregister(void)
- 	bus_unregister(&soc_bus_type);
- }
- module_exit(soc_bus_unregister);
+ source "drivers/soc/bcm/Kconfig"
+ source "drivers/soc/brcmstb/Kconfig"
+-source "drivers/soc/fsl/qe/Kconfig"
++source "drivers/soc/fsl/Kconfig"
+ source "drivers/soc/mediatek/Kconfig"
+ source "drivers/soc/qcom/Kconfig"
+ source "drivers/soc/rockchip/Kconfig"
+diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
+new file mode 100644
+index 000000000000..33d331cac8d6
+--- /dev/null
++++ b/drivers/soc/fsl/Kconfig
+@@ -0,0 +1,15 @@
++#
++# Freescale SOC drivers
++#
 +
-+static int soc_device_match_one(struct device *dev, void *arg)
++source "drivers/soc/fsl/qe/Kconfig"
++
++config FSL_GUTS
++	bool "NXP Layerscale SoC identification"
++	depends on PPC_FSL || SOC_LS1021A || ARCH_LAYERSCAPE || COMPILE_TEST
++	default PPC_FSL || SOC_LS1021A || ARCH_LAYERSCAPE
++	select SOC_BUS
++	help
++	  This registers a SoC device for NXP (formerly Freescale)
++	  Layerscape devices, making information about the system
++	  available in /sys/devices/soc/
+diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
+index 203307fd92c1..02afb7f980f6 100644
+--- a/drivers/soc/fsl/Makefile
++++ b/drivers/soc/fsl/Makefile
+@@ -4,3 +4,4 @@
+ 
+ obj-$(CONFIG_QUICC_ENGINE)		+= qe/
+ obj-$(CONFIG_CPM)			+= qe/
++obj-$(CONFIG_FSL_GUTS)			+= guts.o
+diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c
+new file mode 100644
+index 000000000000..2f30698f5bcf
+--- /dev/null
++++ b/drivers/soc/fsl/guts.c
+@@ -0,0 +1,130 @@
++/*
++ * Freescale QorIQ Platforms GUTS Driver
++ *
++ * Copyright (C) 2016 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/io.h>
++#include <linux/platform_device.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/of_address.h>
++#include <linux/of_platform.h>
++#include <linux/sys_soc.h>
++
++#define GUTS_PVR	0x0a0
++#define GUTS_SVR	0x0a4
++
++struct guts {
++	void __iomem *regs;
++	bool little_endian;
++	struct soc_device_attribute soc;
++};
++
++static u32 fsl_guts_get_svr(struct guts *guts)
 +{
-+	struct soc_device *soc_dev = container_of(dev, struct soc_device, dev);
-+	struct soc_device_attribute *match = arg;
++	if (guts->little_endian)
++		return ioread32(guts->regs + GUTS_SVR);
++	else
++		return ioread32be(guts->regs + GUTS_SVR);
++}
 +
-+	if (match->machine && !glob_match(match->machine, soc_dev->attr->machine))
-+		return 0;
-+
-+	if (match->family && !glob_match(match->family, soc_dev->attr->family))
-+		return 0;
-+
-+	if (match->revision && !glob_match(match->revision, soc_dev->attr->revision))
-+		return 0;
-+
-+	if (match->soc_id && !glob_match(match->soc_id, soc_dev->attr->revision))
-+		return 0;
-+
-+	return 1;
++static u32 fsl_guts_get_pvr(struct guts *guts)
++{
++	if (guts->little_endian)
++		return ioread32(guts->regs + GUTS_PVR);
++	else
++		return ioread32be(guts->regs + GUTS_PVR);
 +}
 +
 +/*
-+ * soc_device_match - identify the SoC in the machine
-+ * @matches: zero-terminated array of possible matches
-+ *
-+ * returns the first matching entry of the argument array, or NULL
-+ * if none of them match.
-+ *
-+ * This function is meant as a helper in place of of_match_node()
-+ * in cases where either no device tree is available or the information
-+ * in a device node is insufficient to identify a particular variant
-+ * by its compatible strings or other properties. For new devices,
-+ * the DT binding should always provide unique compatible strings
-+ * that allow the use of of_match_node() instead.
-+ *
-+ * The calling function can use the .data entry of the
-+ * soc_device_attribute to pass a structure or function pointer for
-+ * each entry.
++ * Table for matching compatible strings, for device tree
++ * guts node, for Freescale QorIQ SOCs.
 + */
-+struct soc_device_attribute *soc_device_match(struct soc_device_attribute *matches)
++static const struct of_device_id fsl_guts_of_match[] = {
++	/* For T4 & B4 Series SOCs */
++	{ .compatible = "fsl,qoriq-device-config-1.0", .data = "T4/B4 series" },
++	/* For P Series SOCs */
++	{ .compatible = "fsl,p1010-guts", .data = "P1010/P1014" },
++	{ .compatible = "fsl,p1020-guts", .data = "P1020/P1011" },
++	{ .compatible = "fsl,p1021-guts", .data = "P1021/P1012" },
++	{ .compatible = "fsl,p1022-guts", .data = "P1022/P1013" },
++	{ .compatible = "fsl,p1023-guts", .data = "P1013/P1017" },
++	{ .compatible = "fsl,p2020-guts", .data = "P2010/P2020" },
++	{ .compatible = "fsl,qoriq-device-config-2.0", .data = "P series" },
++	/* For BSC Series SOCs */
++	{ .compatible = "fsl,bsc9131-guts", .data = "BSC9131 Qonverge" },
++	{ .compatible = "fsl,bsc9132-guts", .data = "BSC9132 Qonverge" },
++	/* For MPC85xx Series SOCs */
++	{ .compatible = "fsl,mpc8536-guts", .data = "PowerPC MPC8536" },
++	{ .compatible = "fsl,mpc8544-guts", .data = "PowerPC MPC8544" },
++	{ .compatible = "fsl,mpc8548-guts", .data = "PowerPC MPC8548" },
++	{ .compatible = "fsl,mpc8568-guts", .data = "PowerPC MPC8568" },
++	{ .compatible = "fsl,mpc8569-guts", .data = "PowerPC MPC8569" },
++	{ .compatible = "fsl,mpc8572-guts", .data = "PowerPC MPC8572" },
++	/* For Layerscape Series SOCs */
++	{ .compatible = "fsl,ls1021a-dcfg", .data = "Layerscape LS1021A" },
++	{ .compatible = "fsl,ls1043a-dcfg", .data = "Layerscape LS1043A" },
++	{ .compatible = "fsl,ls2080a-dcfg", .data = "Layerscape LS2080A" },
++	{}
++};
++
++static void fsl_guts_init(struct device *dev, struct guts *guts)
 +{
-+	struct device *dev;
++	const struct of_device_id *id;
++	u32 svr = fsl_guts_get_svr(guts);
++
++	guts->soc.family = "NXP QorIQ";
++	id = of_match_node(fsl_guts_of_match, dev->of_node);
++	guts->soc.soc_id = devm_kasprintf(dev, "%s (ver 0x%06x)" id->data,
++					  svr >> 8;
++	guts->soc.revision = devm_kasprintf(dev, GFP_KERNEL, "0x%02x",
++					    svr & 0xff);
++}
++
++static int fsl_guts_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct guts *guts;
 +	int ret;
 +
-+	for (ret = 0; ret == 0; matches++) {
-+		if (matches->machine || matches->family ||
-+		    matches->revision || matches->soc_id)
-+			return NULL;
++	guts = devm_kzalloc(dev, sizeof(*guts), GFP_KERNEL);
++	if (!guts) {
++		ret = -ENOMEM;
++		goto out;
 +
-+		dev = NULL;
-+		ret = bus_for_each_dev(&soc_bus_type, dev, matches,
-+					 soc_device_match_one);
 +	}
 +
-+	return matches;
++	/*
++	 * syscon devices default to little-endian, but on powerpc we have
++	 * existing device trees with big-endian maps and an absent endianess
++	 * "big-property"
++	 */
++	if (!IS_ENABLED(CONFIG_POWERPC) &&
++	    !of_property_read_bool(dev->of_node, "big-endian"))
++		guts->little_endian = true;
++
++	guts->regs = devm_ioremap_resource(dev, 0);
++	if (!guts->regs) {
++		ret = -ENOMEM;
++		kfree(guts);
++		goto out;
++	}
++
++	fsl_guts_init(dev, guts);
++	ret = 0;
++out:
++	return ret;
 +}
-+EXPORT_SYMBOL_GPL(soc_device_match);
-diff --git a/include/linux/sys_soc.h b/include/linux/sys_soc.h
-index 2739ccb69571..02c48c76052b 100644
---- a/include/linux/sys_soc.h
-+++ b/include/linux/sys_soc.h
-@@ -13,6 +13,8 @@ struct soc_device_attribute {
- 	const char *family;
- 	const char *revision;
- 	const char *soc_id;
 +
-+	const void *data;
- };
- 
- /**
-@@ -34,4 +36,6 @@ void soc_device_unregister(struct soc_device *soc_dev);
-  */
- struct device *soc_device_to_device(struct soc_device *soc);
- 
-+struct soc_device_attribute *soc_device_match(struct soc_device_attribute *matches);
++static struct platform_driver fsl_soc_guts = {
++	.probe = fsl_guts_probe,
++	.driver.of_match_table = fsl_guts_of_match,
++};
 +
- #endif /* __SOC_BUS_H */
++module_platform_driver(fsl_soc_guts);
 
