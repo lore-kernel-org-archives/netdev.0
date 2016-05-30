@@ -1,78 +1,75 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv2 net] sctp: sctp_diag should dump sctp socket type
-Date: Mon, 30 May 2016 13:44:08 -0300
-Message-ID: <20160530164408.GA22693@localhost.localdomain>
-References: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: linux-next: Tree for May 30
+Date: Mon, 30 May 2016 19:34:01 +0530
+Message-ID: <574C4851.9090201@gmail.com>
+References: <20160530132225.4d297678@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
-	daniel@iogearbox.net, phil@nwl.cc
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37895 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161420AbcE3QoN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 May 2016 12:44:13 -0400
-Content-Disposition: inline
-In-Reply-To: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160530132225.4d297678@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 29, 2016 at 05:42:13PM +0800, Xin Long wrote:
-> Now we cannot distinguish that one sk is a udp or sctp style when
-> we use ss to dump sctp_info. it's necessary to dump it as well.
-> 
-> For sctp_diag, ss support is not officially available, thus there
-> are no official users of this yet, so we can add this field in the
-> middle of sctp_info without breaking user API.
-> 
-> v1->v2:
->   - move 'sctpi_s_type' field to the end of struct sctp_info, so
->     that it won't cause incompatibility with applications already
->     built.
->   - add __reserved3 in sctp_info to make sure sctp_info is 8-byte
->     alignment.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+On Monday 30 May 2016 08:52 AM, Stephen Rothwell wrote:
+> Hi all,
+>
+> Changes since 20160527:
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Hi All,
+I have just built and booted with next-20160530 and my dmesg is full of 
+warnings from ath9k. Last kernel tested was v4.6 and there was no 
+problem with that.
 
-> ---
->  include/linux/sctp.h | 2 ++
->  net/sctp/socket.c    | 1 +
->  2 files changed, 3 insertions(+)
-> 
-> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-> index dacb5e7..de1f643 100644
-> --- a/include/linux/sctp.h
-> +++ b/include/linux/sctp.h
-> @@ -765,6 +765,8 @@ struct sctp_info {
->  	__u8	sctpi_s_disable_fragments;
->  	__u8	sctpi_s_v4mapped;
->  	__u8	sctpi_s_frag_interleave;
-> +	__u32	sctpi_s_type;
-> +	__u32	__reserved3;
->  };
->  
->  struct sctp_infox {
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 777d032..67154b8 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4220,6 +4220,7 @@ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
->  		info->sctpi_s_disable_fragments = sp->disable_fragments;
->  		info->sctpi_s_v4mapped = sp->v4mapped;
->  		info->sctpi_s_frag_interleave = sp->frag_interleave;
-> +		info->sctpi_s_type = sp->type;
->  
->  		return 0;
->  	}
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+The traces are like:
+Call Trace:
+  [<ffffffff813b8ddc>] dump_stack+0x63/0x87
+  [<ffffffff8107a331>] __warn+0xd1/0xf0
+  [<ffffffff8107a41d>] warn_slowpath_null+0x1d/0x20
+  [<ffffffffc095801f>] ath9k_hw_gpio_request+0x6f/0x320 [ath9k_hw]
+  [<ffffffffc095ac24>] ath9k_hw_reset+0xfe4/0x12e0 [ath9k_hw]
+  [<ffffffffc03d45d4>] ath_reset_internal+0x104/0x1f0 [ath9k]
+  [<ffffffffc03d46fd>] ath_reset+0x3d/0x60 [ath9k]
+  [<ffffffffc03dd1c6>] ath_chanctx_set_channel+0x1b6/0x300 [ath9k]
+  [<ffffffffc03d36b6>] ath9k_config+0xc6/0x1f0 [ath9k]
+  [<ffffffff817d6e92>] ? mutex_lock+0x12/0x2f
+  [<ffffffffc05a7923>] ieee80211_hw_config+0x63/0x350 [mac80211]
+  [<ffffffffc05b3041>] ieee80211_scan_work+0x161/0x480 [mac80211]
+  [<ffffffff81093183>] process_one_work+0x153/0x3f0
+  [<ffffffff8109393b>] worker_thread+0x12b/0x4b0
+  [<ffffffff81093810>] ? rescuer_thread+0x340/0x340
+  [<ffffffff81099129>] kthread+0xc9/0xe0
+  [<ffffffff817d8f1f>] ret_from_fork+0x1f/0x40
+  [<ffffffff81099060>] ? kthread_park+0x60/0x60
+---[ end trace 27eb5094a52869ea ]---
+
+Call Trace:
+  [<ffffffff813b8ddc>] dump_stack+0x63/0x87
+  [<ffffffff8107a331>] __warn+0xd1/0xf0
+  [<ffffffff8107a41d>] warn_slowpath_null+0x1d/0x20
+  [<ffffffffc0956b19>] ath9k_hw_gpio_get+0x1a9/0x1b0 [ath9k_hw]
+  [<ffffffffc03d03e4>] ath9k_rfkill_poll_state+0x34/0x60 [ath9k]
+  [<ffffffffc05c4b53>] ieee80211_rfkill_poll+0x33/0x40 [mac80211]
+  [<ffffffffc049d65a>] cfg80211_rfkill_poll+0x2a/0xc0 [cfg80211]
+  [<ffffffff817c5514>] rfkill_poll+0x24/0x50
+  [<ffffffff81093183>] process_one_work+0x153/0x3f0
+  [<ffffffff8109393b>] worker_thread+0x12b/0x4b0
+  [<ffffffff81093810>] ? rescuer_thread+0x340/0x340
+  [<ffffffff81099129>] kthread+0xc9/0xe0
+  [<ffffffff817d8f1f>] ret_from_fork+0x1f/0x40
+  [<ffffffff81099060>] ? kthread_park+0x60/0x60
+---[ end trace 27eb5094a5286a3d ]---
+
+
+If it is a known problem then great.. else i can debug and see what the 
+problem is. There are only few patches added for GPIO, so should not be 
+a problem to find out what is causing the error.
+
+Regards
+Sudip
