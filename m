@@ -1,7 +1,7 @@
 From: Kejian Yan <yankejian@huawei.com>
-Subject: [patch v2 net-next 04/13] net: hisilicon: add support of acpi for hns-mdio
-Date: Mon, 30 May 2016 10:10:13 +0800
-Message-ID: <1464574222-69608-5-git-send-email-yankejian@huawei.com>
+Subject: [patch v2 net-next 12/13] net: hns: implement the miscellaneous operation by asl
+Date: Mon, 30 May 2016 10:10:21 +0800
+Message-ID: <1464574222-69608-13-git-send-email-yankejian@huawei.com>
 References: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,202 +16,267 @@ In-Reply-To: <1464574222-69608-1-git-send-email-yankejian@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hns-mdio needs to register itself to mii-bus. The info of the device can
-be read by both DT and ACPI.
-HNS tries to call Linux PHY driver to help access PHY-devices, the HNS
-hardware topology is as below. The MDIO controller may control several
-PHY-devices, and each PHY-device connects to a MAC device. The MDIO will
-be registered to mdiobus, then PHY-devices will register when each mac
-find PHY device.
-                       cpu
-                        |
-                        |
-     -------------------------------------------
-    |                   |                       |
-    |                   |                       |
-    |                  dsaf                     |
-   MDIO                 |                      MDIO
-    |      ---------------------------          |
-    |     |         |         |       |         |
-    |     |         |         |       |         |
-    |    MAC       MAC       MAC     MAC        |
-    |     |         |         |       |         |
-     ---- |-------- |-------- |       | --------
-         ||        ||        ||       ||
-         PHY       PHY       PHY     PHY
-
-And the driver can handle reset sequence by _RST method in DSDT in ACPI
-case.
+The miscellaneous operation is implemented in BIOS, the kernel can call
+_DSM method help to call the implementation in ACPI case. Here is a patch
+to do that.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
 change log:
- v2:
-        1. use dev_of_node instead of IS_ENABLED macro
-        2. Add ACPI bits
- v1: first submit
-    Link: https://lkml.org/lkml/2016/5/13/93
----
- drivers/net/ethernet/hisilicon/hns_mdio.c | 107 +++++++++++++++++++-----------
- 1 file changed, 69 insertions(+), 38 deletions(-)
+ v2: use a serial function to implement the reset sequence
 
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index 381cf0a..f78286c 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -7,6 +7,7 @@
-  * (at your option) any later version.
-  */
+ v1: first submit
+  link: https://lkml.org/lkml/2016/5/13/94
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 167 +++++++++++++++++++++
+ 1 file changed, 167 insertions(+)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index f21177b..96cb628 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -12,6 +12,27 @@
+ #include "hns_dsaf_ppe.h"
+ #include "hns_dsaf_reg.h"
  
-+#include <linux/acpi.h>
- #include <linux/errno.h>
- #include <linux/etherdevice.h>
- #include <linux/init.h>
-@@ -354,48 +355,60 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
- 	int ret;
- 
--	if (!dev_of_node(bus->parent))
--		return -ENOTSUPP;
-+	if (dev_of_node(bus->parent)) {
-+		if (!mdio_dev->subctrl_vbase) {
-+			dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
-+			return -ENODEV;
-+		}
- 
--	if (!mdio_dev->subctrl_vbase) {
--		dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
--		return -ENODEV;
--	}
-+		/* 1. reset req, and read reset st check */
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
-+					    MDIO_SC_RESET_ST, 0x1,
-+					    MDIO_CHECK_SET_ST);
-+		if (ret) {
-+			dev_err(&bus->dev, "MDIO reset fail\n");
-+			return ret;
-+		}
- 
--	/*1. reset req, and read reset st check*/
--	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
--				    MDIO_SC_RESET_ST, 0x1,
--				    MDIO_CHECK_SET_ST);
--	if (ret) {
--		dev_err(&bus->dev, "MDIO reset fail\n");
--		return ret;
--	}
-+		/* 2. dis clk, and read clk st check */
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
-+					    0x1, MDIO_SC_CLK_ST, 0x1,
-+					    MDIO_CHECK_CLR_ST);
-+		if (ret) {
-+			dev_err(&bus->dev, "MDIO dis clk fail\n");
-+			return ret;
-+		}
- 
--	/*2. dis clk, and read clk st check*/
--	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
--				    0x1, MDIO_SC_CLK_ST, 0x1,
--				    MDIO_CHECK_CLR_ST);
--	if (ret) {
--		dev_err(&bus->dev, "MDIO dis clk fail\n");
--		return ret;
--	}
-+		/* 3. reset dreq, and read reset st check */
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
-+					    MDIO_SC_RESET_ST, 0x1,
-+					    MDIO_CHECK_CLR_ST);
-+		if (ret) {
-+			dev_err(&bus->dev, "MDIO dis clk fail\n");
-+			return ret;
-+		}
- 
--	/*3. reset dreq, and read reset st check*/
--	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
--				    MDIO_SC_RESET_ST, 0x1,
--				    MDIO_CHECK_CLR_ST);
--	if (ret) {
--		dev_err(&bus->dev, "MDIO dis clk fail\n");
--		return ret;
-+		/* 4. en clk, and read clk st check */
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
-+					    0x1, MDIO_SC_CLK_ST, 0x1,
-+					    MDIO_CHECK_SET_ST);
-+		if (ret)
-+			dev_err(&bus->dev, "MDIO en clk fail\n");
-+	} else if (is_acpi_node(bus->parent->fwnode)) {
-+		acpi_status s;
++enum _dsm_op_index {
++	HNS_OP_RESET_FUNC               = 0x1,
++	HNS_OP_SERDES_LP_FUNC           = 0x2,
++	HNS_OP_LED_SET_FUNC             = 0x3,
++	HNS_OP_GET_PORT_TYPE_FUNC       = 0x4,
++	HNS_OP_GET_SFP_STAT_FUNC        = 0x5,
++};
 +
-+		s = acpi_evaluate_object(ACPI_HANDLE(bus->parent),
-+					 "_RST", NULL, NULL);
-+		if (ACPI_FAILURE(s)) {
-+			dev_err(&bus->dev, "Reset failed, return:%#x\n", s);
-+			ret = -EBUSY;
-+		} else {
-+			ret = 0;
-+		}
-+	} else {
-+		dev_err(&bus->dev, "Can not get cfg data from DT or ACPI\n");
-+		ret = -ENXIO;
- 	}
--
--	/*4. en clk, and read clk st check*/
--	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
--				    0x1, MDIO_SC_CLK_ST, 0x1,
--				    MDIO_CHECK_SET_ST);
--	if (ret)
--		dev_err(&bus->dev, "MDIO en clk fail\n");
--
- 	return ret;
++enum _dsm_rst_type {
++	HNS_DSAF_RESET_FUNC     = 0x1,
++	HNS_PPE_RESET_FUNC      = 0x2,
++	HNS_XGE_CORE_RESET_FUNC = 0x3,
++	HNS_XGE_RESET_FUNC      = 0x4,
++	HNS_GE_RESET_FUNC       = 0x5,
++};
++
++const u8 hns_dsaf_acpi_dsm_uuid[] = {
++	0x1A, 0xAA, 0x85, 0x1A, 0x93, 0xE2, 0x5E, 0x41,
++	0x8E, 0x28, 0x8D, 0x69, 0x0A, 0x0F, 0x82, 0x0A
++};
++
+ static void dsaf_write_sub(struct dsaf_device *dsaf_dev, u32 reg, u32 val)
+ {
+ 	if (dsaf_dev->sub_ctrl)
+@@ -109,6 +130,34 @@ static int cpld_set_led_id(struct hns_mac_cb *mac_cb,
+ 
+ #define RESET_REQ_OR_DREQ 1
+ 
++static void hns_dsaf_acpi_srst_by_port(struct dsaf_device *dsaf_dev, u8 op_type,
++				       u32 port_type, u32 port, u32 val)
++{
++	union acpi_object *obj;
++	union acpi_object obj_args[3], argv4;
++
++	obj_args[0].integer.type = ACPI_TYPE_INTEGER;
++	obj_args[0].integer.value = port_type;
++	obj_args[1].integer.type = ACPI_TYPE_INTEGER;
++	obj_args[1].integer.value = port;
++	obj_args[2].integer.type = ACPI_TYPE_INTEGER;
++	obj_args[2].integer.value = val;
++
++	argv4.type = ACPI_TYPE_PACKAGE;
++	argv4.package.count = 3;
++	argv4.package.elements = obj_args;
++
++	obj = acpi_evaluate_dsm(ACPI_HANDLE(dsaf_dev->dev),
++				hns_dsaf_acpi_dsm_uuid, 0, op_type, &argv4);
++	if (!obj) {
++		dev_warn(dsaf_dev->dev, "reset port_type%d port%d fail!",
++			 port_type, port);
++		return;
++	}
++
++	ACPI_FREE(obj);
++}
++
+ static void hns_dsaf_rst(struct dsaf_device *dsaf_dev, bool dereset)
+ {
+ 	u32 xbar_reg_addr;
+@@ -126,6 +175,13 @@ static void hns_dsaf_rst(struct dsaf_device *dsaf_dev, bool dereset)
+ 	dsaf_write_sub(dsaf_dev, nt_reg_addr, RESET_REQ_OR_DREQ);
  }
  
-@@ -453,7 +466,6 @@ static int hns_mdio_probe(struct platform_device *pdev)
- 	}
++static void hns_dsaf_rst_acpi(struct dsaf_device *dsaf_dev, bool dereset)
++{
++	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
++				   HNS_DSAF_RESET_FUNC,
++				   0, dereset);
++}
++
+ static void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 				      bool dereset)
+ {
+@@ -146,6 +202,13 @@ static void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
+ }
  
- 	platform_set_drvdata(pdev, new_bus);
--
- 	hns_mdio_bus_name(new_bus->id, res->start);
- 	if (dev_of_node(&pdev->dev)) {
- 		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
-@@ -464,6 +476,18 @@ static int hns_mdio_probe(struct platform_device *pdev)
- 			mdio_dev->subctrl_vbase = NULL;
- 		}
- 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
-+	} else if (is_acpi_node(pdev->dev.fwnode)) {
-+		/* Clear all the IRQ properties */
-+		memset(new_bus->irq, PHY_POLL, 4 * PHY_MAX_ADDR);
++static void hns_dsaf_xge_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
++					   u32 port, bool dereset)
++{
++	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
++				   HNS_XGE_RESET_FUNC, port, dereset);
++}
 +
-+		/* Mask out all PHYs from auto probing. */
-+		new_bus->phy_mask = ~0;
+ static void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
+ 					   u32 port, bool dereset)
+ {
+@@ -166,6 +229,14 @@ static void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
+ 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
+ }
+ 
++static void
++hns_dsaf_xge_core_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
++				    u32 port, bool dereset)
++{
++	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
++				   HNS_XGE_CORE_RESET_FUNC, port, dereset);
++}
 +
-+		/* Register the MDIO bus */
-+		ret = mdiobus_register(new_bus);
+ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 				     bool dereset)
+ {
+@@ -218,6 +289,13 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 	}
+ }
+ 
++static void hns_dsaf_ge_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
++					  u32 port, bool dereset)
++{
++	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
++				   HNS_GE_RESET_FUNC, port, dereset);
++}
++
+ static void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 				 bool dereset)
+ {
+@@ -234,11 +312,21 @@ static void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
+ }
+ 
++static void
++hns_ppe_srst_by_port_acpi(struct dsaf_device *dsaf_dev, u32 port, bool dereset)
++{
++	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
++				   HNS_PPE_RESET_FUNC, port, dereset);
++}
++
+ static void hns_ppe_com_srst(struct dsaf_device *dsaf_dev, bool dereset)
+ {
+ 	u32 reg_val;
+ 	u32 reg_addr;
+ 
++	if (!(dev_of_node(dsaf_dev->dev)))
++		return;
++
+ 	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		reg_val = RESET_REQ_OR_DREQ;
+ 		if (!dereset)
+@@ -295,6 +383,36 @@ static phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
+ 	return phy_if;
+ }
+ 
++static phy_interface_t hns_mac_get_phy_if_acpi(struct hns_mac_cb *mac_cb)
++{
++	phy_interface_t phy_if = PHY_INTERFACE_MODE_NA;
++	union acpi_object *obj;
++	union acpi_object obj_args, argv4;
++
++	obj_args.integer.type = ACPI_TYPE_INTEGER;
++	obj_args.integer.value = mac_cb->mac_id;
++
++	argv4.type = ACPI_TYPE_PACKAGE,
++	argv4.package.count = 1,
++	argv4.package.elements = &obj_args,
++
++	obj = acpi_evaluate_dsm(ACPI_HANDLE(mac_cb->dev),
++				hns_dsaf_acpi_dsm_uuid, 0,
++				HNS_OP_GET_PORT_TYPE_FUNC, &argv4);
++
++	if (!obj || obj->type != ACPI_TYPE_INTEGER)
++		return phy_if;
++
++	phy_if = obj->integer.value ?
++		PHY_INTERFACE_MODE_XGMII : PHY_INTERFACE_MODE_SGMII;
++
++	dev_dbg(mac_cb->dev, "mac_id=%d, phy_if=%d\n", mac_cb->mac_id, phy_if);
++
++	ACPI_FREE(obj);
++
++	return phy_if;
++}
++
+ int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
+ {
+ 	if (!mac_cb->cpld_ctrl)
+@@ -354,6 +472,36 @@ static int hns_mac_config_sds_loopback(struct hns_mac_cb *mac_cb, bool en)
+ 	return 0;
+ }
+ 
++static int
++hns_mac_config_sds_loopback_acpi(struct hns_mac_cb *mac_cb, bool en)
++{
++	union acpi_object *obj;
++	union acpi_object obj_args[3], argv4;
++
++	obj_args[0].integer.type = ACPI_TYPE_INTEGER;
++	obj_args[0].integer.value = mac_cb->mac_id;
++	obj_args[1].integer.type = ACPI_TYPE_INTEGER;
++	obj_args[1].integer.value = !!en;
++
++	argv4.type = ACPI_TYPE_PACKAGE;
++	argv4.package.count = 2;
++	argv4.package.elements = obj_args;
++
++	obj = acpi_evaluate_dsm(ACPI_HANDLE(mac_cb->dsaf_dev->dev),
++				hns_dsaf_acpi_dsm_uuid, 0,
++				HNS_OP_SERDES_LP_FUNC, &argv4);
++	if (!obj) {
++		dev_warn(mac_cb->dsaf_dev->dev, "set port%d serdes lp fail!",
++			 mac_cb->mac_id);
++
++		return -ENOTSUPP;
++	}
++
++	ACPI_FREE(obj);
++
++	return 0;
++}
++
+ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
+ {
+ 	struct dsaf_misc_op *misc_op;
+@@ -378,6 +526,25 @@ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
+ 		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
+ 
+ 		misc_op->cfg_serdes_loopback = hns_mac_config_sds_loopback;
++	} else if (is_acpi_node(dsaf_dev->dev->fwnode)) {
++		misc_op->cpld_set_led = hns_cpld_set_led;
++		misc_op->cpld_reset_led = cpld_led_reset;
++		misc_op->cpld_set_led_id = cpld_set_led_id;
++
++		misc_op->dsaf_reset = hns_dsaf_rst_acpi;
++		misc_op->xge_srst = hns_dsaf_xge_srst_by_port_acpi;
++		misc_op->xge_core_srst = hns_dsaf_xge_core_srst_by_port_acpi;
++		misc_op->ge_srst = hns_dsaf_ge_srst_by_port_acpi;
++		misc_op->ppe_srst = hns_ppe_srst_by_port_acpi;
++		misc_op->ppe_comm_srst = hns_ppe_com_srst;
++
++		misc_op->get_phy_if = hns_mac_get_phy_if_acpi;
++		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
++
++		misc_op->cfg_serdes_loopback = hns_mac_config_sds_loopback_acpi;
 +	} else {
-+		dev_err(&pdev->dev, "Can not get cfg data from DT or ACPI\n");
-+		ret = -ENXIO;
++		devm_kfree(dsaf_dev->dev, (void *)misc_op);
++		misc_op = NULL;
  	}
  
- 	if (ret) {
-@@ -499,12 +523,19 @@ static const struct of_device_id hns_mdio_match[] = {
- 	{}
- };
- 
-+static const struct acpi_device_id hns_mdio_acpi_match[] = {
-+	{ "HISI0141", 0 },
-+	{ },
-+};
-+MODULE_DEVICE_TABLE(acpi, hns_mdio_acpi_match);
-+
- static struct platform_driver hns_mdio_driver = {
- 	.probe = hns_mdio_probe,
- 	.remove = hns_mdio_remove,
- 	.driver = {
- 		   .name = MDIO_DRV_NAME,
- 		   .of_match_table = hns_mdio_match,
-+		   .acpi_match_table = ACPI_PTR(hns_mdio_acpi_match),
- 		   },
- };
- 
+ 	return (void *)misc_op;
 -- 
 1.9.1
