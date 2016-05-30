@@ -1,34 +1,43 @@
-From: David Binderman <linuxdev.baldrick@gmail.com>
-Subject: linux-4.7-rc1/drivers/isdn/capi/capidrv.c:1707]: (style) Redundant condition
-Date: Mon, 30 May 2016 08:52:32 +0100
-Message-ID: <CAMzoamZCXdzoxzuv_KfQsdtRa5Cc0+64N-Vodb62bJgdZeZqPQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 0/2] macvlan: Avoid unnecessary multicast cloning
+Date: Mon, 30 May 2016 16:17:52 +0800
+Message-ID: <20160530081752.GA4956@gondor.apana.org.au>
+References: <20160526234433.GU8402@wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: isdn@linux-pingi.de, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:37997 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137AbcE3Hwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 03:52:33 -0400
-Received: by mail-ig0-f171.google.com with SMTP id ph1so8465899igb.1
-        for <netdev@vger.kernel.org>; Mon, 30 May 2016 00:52:33 -0700 (PDT)
+Received: from helcar.hengli.com.au ([209.40.204.226]:57139 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751137AbcE3ISR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 04:18:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20160526234433.GU8402@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello there,
+On Fri, May 27, 2016 at 02:44:33AM +0300, Lennert Buytenhek wrote:
+> Commit 412ca1550cbecb2c ("macvlan: Move broadcasts into a work queue")
+> moved processing of all macvlan multicasts into a work queue.  This
+> causes a noticable performance regression when there is heavy multicast
+> traffic on the underlying interface for multicast groups that the
+> macvlan subinterfaces are not members of, in which case we end up
+> cloning all those packets and then freeing them again from a work queue
+> without really doing any useful work with them in between.
 
-linux-4.7-rc1/drivers/isdn/capi/capidrv.c:1707]: (style) Redundant
-condition: If 'EXPR == ' '', the comparison 'EXPR' is always true.
+OK so your motivation is to get rid of the unnecessary memory
+allocation, right?
 
-Source code is
+Here's my totally untested patch, it tries to resolve your problem
+by maintaining a filter hash at the macvlan_port level so that we
+can quickly determine whether a given packet is needed or not.
 
-   while (*s && *s == ' ') s++;
+It is preceded by a patch that fixes a potential use-after-free
+bug that I discovered while looking over this.
 
-Suggest new code
-
-   while (*s == ' ') s++;
-
-
-Regards
-
-David Binderman
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
