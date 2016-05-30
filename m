@@ -1,150 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 1/2] vhost_net: stop polling socket during rx processing
-Date: Mon, 30 May 2016 18:47:11 +0300
-Message-ID: <20160530184211-mutt-send-email-mst@redhat.com>
-References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
-	<1464590874-39539-2-git-send-email-jasowang@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] veth: delay peer link configuration after interfaces are
+ tied
+Date: Mon, 30 May 2016 17:47:33 +0200
+Message-ID: <574C6095.9050804@6wind.com>
+References: <1464520637-19784-1-git-send-email-vincent@bernat.im>
+ <574C0697.6060506@6wind.com> <878tyr4zzc.fsf@zoro.exoscale.ch>
+ <574C59F1.80403@6wind.com> <87fusz36tg.fsf@zoro.exoscale.ch>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1464590874-39539-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Vijay Pandurangan <vijayp@vijayp.ca>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+To: Vincent Bernat <vincent@bernat.im>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:34393 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161419AbcE3Prg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 11:47:36 -0400
+Received: by mail-wm0-f46.google.com with SMTP id z87so16794355wmh.1
+        for <netdev@vger.kernel.org>; Mon, 30 May 2016 08:47:36 -0700 (PDT)
+In-Reply-To: <87fusz36tg.fsf@zoro.exoscale.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 30, 2016 at 02:47:53AM -0400, Jason Wang wrote:
-> We don't stop rx polling socket during rx processing, this will lead
-> unnecessary wakeups from under layer net devices (E.g
-> sock_def_readable() form tun). Rx will be slowed down in this
-> way. This patch avoids this by stop polling socket during rx
-> processing. A small drawback is that this introduces some overheads in
-> light load case because of the extra start/stop polling, but single
-> netperf TCP_RR does not notice any change. In a super heavy load case,
-> e.g using pktgen to inject packet to guest, we get about ~8.8%
-> improvement on pps:
-> 
-> before: ~1240000 pkt/s
-> after:  ~1350000 pkt/s
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/vhost/net.c | 56 +++++++++++++++++++++++++++--------------------------
->  1 file changed, 29 insertions(+), 27 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 10ff494..e91603b 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -301,6 +301,32 @@ static bool vhost_can_busy_poll(struct vhost_dev *dev,
->  	       !vhost_has_work(dev);
->  }
->  
-> +static void vhost_net_disable_vq(struct vhost_net *n,
-> +				 struct vhost_virtqueue *vq)
-> +{
-> +	struct vhost_net_virtqueue *nvq =
-> +		container_of(vq, struct vhost_net_virtqueue, vq);
-> +	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
-> +	if (!vq->private_data)
-> +		return;
-> +	vhost_poll_stop(poll);
-> +}
-> +
-> +static int vhost_net_enable_vq(struct vhost_net *n,
-> +				struct vhost_virtqueue *vq)
-> +{
-> +	struct vhost_net_virtqueue *nvq =
-> +		container_of(vq, struct vhost_net_virtqueue, vq);
-> +	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
-> +	struct socket *sock;
-> +
-> +	sock = vq->private_data;
-> +	if (!sock)
-> +		return 0;
-> +
-> +	return vhost_poll_start(poll, sock->file);
-> +}
-> +
->  static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
->  				    struct vhost_virtqueue *vq,
->  				    struct iovec iov[], unsigned int iov_size,
-
-BTW we might want to rename these functions, name no longer
-reflects function ...
-
-
-> @@ -627,6 +653,7 @@ static void handle_rx(struct vhost_net *net)
->  	if (!sock)
->  		goto out;
->  	vhost_disable_notify(&net->dev, vq);
-> +	vhost_net_disable_vq(net, vq);
->  
->  	vhost_hlen = nvq->vhost_hlen;
->  	sock_hlen = nvq->sock_hlen;
-> @@ -715,9 +742,10 @@ static void handle_rx(struct vhost_net *net)
->  		total_len += vhost_len;
->  		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
->  			vhost_poll_queue(&vq->poll);
-> -			break;
-> +			goto out;
->  		}
->  	}
-> +	vhost_net_enable_vq(net, vq);
-
-OK so if sock is readable but RX VQ is empty, this will
-immediately schedule another round of handle_rx and so ad
-infinitum,
-
-Looks like a bug.
-
-
->  out:
->  	mutex_unlock(&vq->mutex);
->  }
-> @@ -796,32 +824,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->  	return 0;
->  }
->  
-> -static void vhost_net_disable_vq(struct vhost_net *n,
-> -				 struct vhost_virtqueue *vq)
-> -{
-> -	struct vhost_net_virtqueue *nvq =
-> -		container_of(vq, struct vhost_net_virtqueue, vq);
-> -	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
-> -	if (!vq->private_data)
-> -		return;
-> -	vhost_poll_stop(poll);
-> -}
-> -
-> -static int vhost_net_enable_vq(struct vhost_net *n,
-> -				struct vhost_virtqueue *vq)
-> -{
-> -	struct vhost_net_virtqueue *nvq =
-> -		container_of(vq, struct vhost_net_virtqueue, vq);
-> -	struct vhost_poll *poll = n->poll + (nvq - n->vqs);
-> -	struct socket *sock;
-> -
-> -	sock = vq->private_data;
-> -	if (!sock)
-> -		return 0;
-> -
-> -	return vhost_poll_start(poll, sock->file);
-> -}
-> -
->  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
->  					struct vhost_virtqueue *vq)
->  {
-> -- 
-> 1.8.3.1
+Le 30/05/2016 17:26, Vincent Bernat a =C3=A9crit :
+>  =E2=9D=A6 30 mai 2016 17:19 CEST, Nicolas Dichtel <nicolas.dichtel@6=
+wind.com> :
+>=20
+>>>>>  	priv =3D netdev_priv(peer);
+>>>>>  	rcu_assign_pointer(priv->peer, dev);
+>>>>> +
+>>>>> +	err =3D rtnl_configure_link(peer, ifmp);
+>>>>> +	if (err < 0)
+>>>>> +		goto err_configure_peer;
+>>>
+>>>> You should fix the error path. 'unregister_netdevice(dev)' is miss=
+ing.
+>>>
+>>> I am sending another patch to fix that. I am quite unsure if I do t=
+he
+>>> right thing here.
+>>>
+>> A less intrusive fix is to call 'rtmsg_ifinfo(RTM_NEWLINK, peer, ~0U=
+,
+>> GFP_KERNEL);' a the end of veth_newlink().
+>=20
+> I did that at first. Maybe this would make more sense to do
+> that. Otherwise, the first message contains an iflink value that we
+> cannot resolve with just the received netlink messages (since the
+> information is in the next netlink message). "ip monitor" seems to be
+> able to get the info, but I suppose it does an additional
+> lookup.
+>=20
+Yes, it's a chicken and egg problem ;-)
+I think that the first message with an iflink set to '0' is not a probl=
+em if a
+second one update this value. Daemons that listen to those rtnl message=
+s must
+always update their caches. When the peer is put in another netns, its =
+ifindex
+may change again.
