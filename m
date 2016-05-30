@@ -1,66 +1,74 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 5/7] net:mdio-mux: Add MDIO mux driver for iProc SoCs
-Date: Mon, 30 May 2016 15:34:42 +0200
-Message-ID: <20160530133442.GK6027@lunn.ch>
-References: <1464592251-2688-1-git-send-email-pramod.kumar@broadcom.com>
- <1464592251-2688-6-git-send-email-pramod.kumar@broadcom.com>
+From: Peter Heise <mail@pheise.de>
+Subject: [PATCH iproute2] Added support for selection of new HSR version
+Date: Mon, 30 May 2016 15:32:07 +0200
+Message-ID: <20160530133207.GA5071@aircraft-controller>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: peter.heise@airbus.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pheise.de ([81.88.24.24]:56853 "EHLO ghost.pheise.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754468AbcE3Nkc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 May 2016 09:40:32 -0400
 Content-Disposition: inline
-In-Reply-To: <1464592251-2688-6-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 30, 2016 at 12:40:49PM +0530, Pramod Kumar wrote:
-> iProc based SoCs supports the integrated mdio multiplexer which
-> has the bus selection as well as mdio transaction generation logic
-> inside.
+A new HSR version was added in 4.7 that can be enabled
+via iproute2. Per default the old version is selected,
+however, with "ip link add [..] type hsr [..] version 1"
+the newer version can be enabled.
 
-Hi Pramod
+Signed-off-by: Peter Heise <peter.heise@airbus.com>
+---
+ ip/iplink_hsr.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-Great to see you using the existing MDIO framework. Thanks.
-
-> +static int mdio_mux_iproc_switch_fn(int current_child, int desired_child,
-> +				    void *data)
-> +{
-> +	struct iproc_mdiomux_desc *md = data;
-> +	struct mdiomux_bus_param *bp = &md->bus_param[desired_child];
-> +	u32 param, bus_id;
-> +	bool bus_dir;
-> +
-> +	/* select bus and its properties */
-> +	bus_dir = (desired_child < EXT_BUS_START_ADDR);
-> +	bus_id = bus_dir ? desired_child : (desired_child - EXT_BUS_START_ADDR);
-> +
-> +	param = (bus_dir ? 1 : 0) << MDIO_PARAM_INTERNAL_SEL;
-> +	param |= (bp->is_c45 ? 1 : 0) << MDIO_PARAM_C45_SEL;
-> +	param |= (bus_id << MDIO_PARAM_BUS_ID);
-> +
-> +	writel(param, md->base + MDIO_PARAM_OFFSET);
-> +	return 0;
-> +}
-
-What i don't yet see is why you went for the concept of an integrated
-MDIO and MUX. This function above is the mux function, and it looks
-like it could be used to implement a standard mdio-mux driver.
-
-Thanks
-     Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/ip/iplink_hsr.c b/ip/iplink_hsr.c
+index 65fbec8..84d3a65 100644
+--- a/ip/iplink_hsr.c
++++ b/ip/iplink_hsr.c
+@@ -25,7 +25,7 @@ static void print_usage(FILE *f)
+ {
+ 	fprintf(f,
+ "Usage:\tip link add name NAME type hsr slave1 SLAVE1-IF slave2 SLAVE2-IF\n"
+-"\t[ supervision ADDR-BYTE ]\n"
++"\t[ supervision ADDR-BYTE ] [version VERSION]\n"
+ "\n"
+ "NAME\n"
+ "	name of new hsr device (e.g. hsr0)\n"
+@@ -33,7 +33,9 @@ static void print_usage(FILE *f)
+ "	the two slave devices bound to the HSR device\n"
+ "ADDR-BYTE\n"
+ "	0-255; the last byte of the multicast address used for HSR supervision\n"
+-"	frames (default = 0)\n");
++"	frames (default = 0)\n"
++"VERSION\n"
++"	0,1; the protocol version to be used. (default = 0)\n");
+ }
+ 
+ static void usage(void)
+@@ -46,6 +48,7 @@ static int hsr_parse_opt(struct link_util *lu, int argc, char **argv,
+ {
+ 	int ifindex;
+ 	unsigned char multicast_spec;
++	unsigned char protocol_version;
+ 
+ 	while (argc > 0) {
+ 		if (matches(*argv, "supervision") == 0) {
+@@ -54,6 +57,12 @@ static int hsr_parse_opt(struct link_util *lu, int argc, char **argv,
+ 				invarg("ADDR-BYTE is invalid", *argv);
+ 			addattr_l(n, 1024, IFLA_HSR_MULTICAST_SPEC,
+ 				  &multicast_spec, 1);
++		} else if (matches(*argv, "version") == 0) {
++				NEXT_ARG();
++				if (!(get_u8(&protocol_version, *argv, 0) == 0 || get_u8(&protocol_version, *argv, 0) == 1))
++					invarg("VERSION is invalid", *argv);
++				addattr_l(n, 1024, IFLA_HSR_VERSION,
++					  &protocol_version, 1);
+ 		} else if (matches(*argv, "slave1") == 0) {
+ 			NEXT_ARG();
+ 			ifindex = ll_name_to_index(*argv);
+-- 
+2.7.4
