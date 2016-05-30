@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
-Date: Mon, 30 May 2016 15:15:25 +0200
-Message-ID: <5339448.D8rpq4ofAC@wuerfel>
+Subject: [PATCH 3/4] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+Date: Mon, 30 May 2016 15:16:03 +0200
+Message-ID: <6110875.0k1HlSKhzn@wuerfel>
 References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com> <HE1PR04MB0889852B7809A1CCFF8922ACF8410@HE1PR04MB0889.eurprd04.prod.outlook.com> <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,203 +28,77 @@ Cc: Ulf Hansson <ulf.hansson@linaro.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Yang-Leo
 To: linuxppc-dev@lists.ozlabs.org
-Return-path: <linux-clk-owner@vger.kernel.org>
+Return-path: <linux-i2c-owner@vger.kernel.org>
 In-Reply-To: <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com>
-Sender: linux-clk-owner@vger.kernel.org
+Sender: linux-i2c-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yangbo Lu <yangbo.lu@nxp.com>
+This is a rewrite of an earlier patch from Yangbo Lu, adding a quirk
+for the NXP QorIQ T4240 in the detection of the host device version.
 
-The global utilities block controls power management, I/O device
-enabling, power-onreset(POR) configuration monitoring, alternate
-function selection for multiplexed signals,and clock control.
+Unfortunately, this device cannot be detected using the compatible
+string, as we have to support existing DTS files that use the generic
+"fsl,t4240-esdhc" identifier but that have other host versions that
+are correctly detected.
 
-This patch adds GUTS driver to manage and access global utilities
-block.
-
-[arnd turned this into a platform_driver registering a soc_device
- rather than providing an ad-hoc interface for soc-id]
-
-Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
-index cb58ef0d9b2c..7106463f118e 100644
---- a/drivers/soc/Kconfig
-+++ b/drivers/soc/Kconfig
-@@ -2,7 +2,7 @@ menu "SOC (System On Chip) specific Drivers"
+diff --git a/drivers/mmc/host/sdhci-of-esdhc.c b/drivers/mmc/host/sdhci-of-esdhc.c
+index 3f34d354f1fc..1d4814fe4cb2 100644
+--- a/drivers/mmc/host/sdhci-of-esdhc.c
++++ b/drivers/mmc/host/sdhci-of-esdhc.c
+@@ -73,14 +73,16 @@ static u32 esdhc_readl_fixup(struct sdhci_host *host,
+ static u16 esdhc_readw_fixup(struct sdhci_host *host,
+ 				     int spec_reg, u32 value)
+ {
++	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
++	struct sdhci_esdhc *esdhc = sdhci_pltfm_priv(pltfm_host);
+ 	u16 ret;
+ 	int shift = (spec_reg & 0x2) * 8;
  
- source "drivers/soc/bcm/Kconfig"
- source "drivers/soc/brcmstb/Kconfig"
--source "drivers/soc/fsl/qe/Kconfig"
-+source "drivers/soc/fsl/Kconfig"
- source "drivers/soc/mediatek/Kconfig"
- source "drivers/soc/qcom/Kconfig"
- source "drivers/soc/rockchip/Kconfig"
-diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
-new file mode 100644
-index 000000000000..33d331cac8d6
---- /dev/null
-+++ b/drivers/soc/fsl/Kconfig
-@@ -0,0 +1,15 @@
-+#
-+# Freescale SOC drivers
-+#
+ 	if (spec_reg == SDHCI_HOST_VERSION)
+-		ret = value & 0xffff;
+-	else
+-		ret = (value >> shift) & 0xffff;
+-	return ret;
++		return esdhc->vendor_ver << SDHCI_VENDOR_VER_SHIFT |
++		       esdhc->spec_ver;
 +
-+source "drivers/soc/fsl/qe/Kconfig"
-+
-+config FSL_GUTS
-+	bool "NXP Layerscale SoC identification"
-+	depends on PPC_FSL || SOC_LS1021A || ARCH_LAYERSCAPE || COMPILE_TEST
-+	default PPC_FSL || SOC_LS1021A || ARCH_LAYERSCAPE
-+	select SOC_BUS
-+	help
-+	  This registers a SoC device for NXP (formerly Freescale)
-+	  Layerscape devices, making information about the system
-+	  available in /sys/devices/soc/
-diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
-index 203307fd92c1..02afb7f980f6 100644
---- a/drivers/soc/fsl/Makefile
-+++ b/drivers/soc/fsl/Makefile
-@@ -4,3 +4,4 @@
++	return (value >> shift) & 0xffff;
+ }
  
- obj-$(CONFIG_QUICC_ENGINE)		+= qe/
- obj-$(CONFIG_CPM)			+= qe/
-+obj-$(CONFIG_FSL_GUTS)			+= guts.o
-diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c
-new file mode 100644
-index 000000000000..2f30698f5bcf
---- /dev/null
-+++ b/drivers/soc/fsl/guts.c
-@@ -0,0 +1,130 @@
-+/*
-+ * Freescale QorIQ Platforms GUTS Driver
-+ *
-+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/io.h>
-+#include <linux/platform_device.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <linux/of_address.h>
-+#include <linux/of_platform.h>
-+#include <linux/sys_soc.h>
-+
-+#define GUTS_PVR	0x0a0
-+#define GUTS_SVR	0x0a4
-+
-+struct guts {
-+	void __iomem *regs;
-+	bool little_endian;
-+	struct soc_device_attribute soc;
+ static u8 esdhc_readb_fixup(struct sdhci_host *host,
+@@ -562,16 +564,32 @@ static const struct sdhci_pltfm_data sdhci_esdhc_le_pdata = {
+ 	.ops = &sdhci_esdhc_le_ops,
+ };
+ 
++#define T4240_HOST_VER ((VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) | SDHCI_SPEC_200)
++static const struct soc_device_attribute esdhc_t4240_quirk = {
++	/* T4240 revision < 0x20 uses vendor version 23, SDHCI version 200 */
++	{ .soc_id = "T4*(0x824000)", .revision = "0x[01]?",
++	  .data = (void *)(uintptr_t)(T4240_HOST_VER) },
++	{ },
 +};
 +
-+static u32 fsl_guts_get_svr(struct guts *guts)
-+{
-+	if (guts->little_endian)
-+		return ioread32(guts->regs + GUTS_SVR);
-+	else
-+		return ioread32be(guts->regs + GUTS_SVR);
-+}
+ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
+ {
+ 	struct sdhci_pltfm_host *pltfm_host;
+ 	struct sdhci_esdhc *esdhc;
+-	u16 host_ver;
+ 
+ 	pltfm_host = sdhci_priv(host);
+ 	esdhc = sdhci_pltfm_priv(pltfm_host);
+ 
+ 	host_ver = sdhci_readw(host, SDHCI_HOST_VERSION);
 +
-+static u32 fsl_guts_get_pvr(struct guts *guts)
-+{
-+	if (guts->little_endian)
-+		return ioread32(guts->regs + GUTS_PVR);
-+	else
-+		return ioread32be(guts->regs + GUTS_PVR);
-+}
++	if (of_device_is_compatible(pdev->dev.of_node, "fsl,t4240-esdhc")) {
++		struct soc_device_attribute *match;
 +
-+/*
-+ * Table for matching compatible strings, for device tree
-+ * guts node, for Freescale QorIQ SOCs.
-+ */
-+static const struct of_device_id fsl_guts_of_match[] = {
-+	/* For T4 & B4 Series SOCs */
-+	{ .compatible = "fsl,qoriq-device-config-1.0", .data = "T4/B4 series" },
-+	/* For P Series SOCs */
-+	{ .compatible = "fsl,p1010-guts", .data = "P1010/P1014" },
-+	{ .compatible = "fsl,p1020-guts", .data = "P1020/P1011" },
-+	{ .compatible = "fsl,p1021-guts", .data = "P1021/P1012" },
-+	{ .compatible = "fsl,p1022-guts", .data = "P1022/P1013" },
-+	{ .compatible = "fsl,p1023-guts", .data = "P1013/P1017" },
-+	{ .compatible = "fsl,p2020-guts", .data = "P2010/P2020" },
-+	{ .compatible = "fsl,qoriq-device-config-2.0", .data = "P series" },
-+	/* For BSC Series SOCs */
-+	{ .compatible = "fsl,bsc9131-guts", .data = "BSC9131 Qonverge" },
-+	{ .compatible = "fsl,bsc9132-guts", .data = "BSC9132 Qonverge" },
-+	/* For MPC85xx Series SOCs */
-+	{ .compatible = "fsl,mpc8536-guts", .data = "PowerPC MPC8536" },
-+	{ .compatible = "fsl,mpc8544-guts", .data = "PowerPC MPC8544" },
-+	{ .compatible = "fsl,mpc8548-guts", .data = "PowerPC MPC8548" },
-+	{ .compatible = "fsl,mpc8568-guts", .data = "PowerPC MPC8568" },
-+	{ .compatible = "fsl,mpc8569-guts", .data = "PowerPC MPC8569" },
-+	{ .compatible = "fsl,mpc8572-guts", .data = "PowerPC MPC8572" },
-+	/* For Layerscape Series SOCs */
-+	{ .compatible = "fsl,ls1021a-dcfg", .data = "Layerscape LS1021A" },
-+	{ .compatible = "fsl,ls1043a-dcfg", .data = "Layerscape LS1043A" },
-+	{ .compatible = "fsl,ls2080a-dcfg", .data = "Layerscape LS2080A" },
-+	{}
-+};
-+
-+static void fsl_guts_init(struct device *dev, struct guts *guts)
-+{
-+	const struct of_device_id *id;
-+	u32 svr = fsl_guts_get_svr(guts);
-+
-+	guts->soc.family = "NXP QorIQ";
-+	id = of_match_node(fsl_guts_of_match, dev->of_node);
-+	guts->soc.soc_id = devm_kasprintf(dev, "%s (ver 0x%06x)" id->data,
-+					  svr >> 8;
-+	guts->soc.revision = devm_kasprintf(dev, GFP_KERNEL, "0x%02x",
-+					    svr & 0xff);
-+}
-+
-+static int fsl_guts_probe(struct platform_device *pdev)
-+{
-+	struct device *dev = &pdev->dev;
-+	struct guts *guts;
-+	int ret;
-+
-+	guts = devm_kzalloc(dev, sizeof(*guts), GFP_KERNEL);
-+	if (!guts) {
-+		ret = -ENOMEM;
-+		goto out;
-+
++		match = soc_device_match(&esdhc_t4240_quirk);
++		if (match)
++			host_ver = (uintptr_t)match->data;
 +	}
 +
-+	/*
-+	 * syscon devices default to little-endian, but on powerpc we have
-+	 * existing device trees with big-endian maps and an absent endianess
-+	 * "big-property"
-+	 */
-+	if (!IS_ENABLED(CONFIG_POWERPC) &&
-+	    !of_property_read_bool(dev->of_node, "big-endian"))
-+		guts->little_endian = true;
-+
-+	guts->regs = devm_ioremap_resource(dev, 0);
-+	if (!guts->regs) {
-+		ret = -ENOMEM;
-+		kfree(guts);
-+		goto out;
-+	}
-+
-+	fsl_guts_init(dev, guts);
-+	ret = 0;
-+out:
-+	return ret;
-+}
-+
-+static struct platform_driver fsl_soc_guts = {
-+	.probe = fsl_guts_probe,
-+	.driver.of_match_table = fsl_guts_of_match,
-+};
-+
-+module_platform_driver(fsl_soc_guts);
-
+ 	esdhc->vendor_ver = (host_ver & SDHCI_VENDOR_VER_MASK) >>
+ 			     SDHCI_VENDOR_VER_SHIFT;
+ 	esdhc->spec_ver = host_ver & SDHCI_SPEC_VER_MASK;
