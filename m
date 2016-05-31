@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] fib_rules: Added NLM_F_EXCL support to
- fib_nl_newrule
-Date: Tue, 31 May 2016 14:09:26 -0700 (PDT)
-Message-ID: <20160531.140926.656960580778250121.davem@davemloft.net>
-References: <574C051B.90706@nokia.com>
-	<7ef40a87-2b63-dfee-e019-4a2f0aec5507@cumulusnetworks.com>
+Subject: Re: [PATCH net] bnx2x: avoid leaking memory on bnx2x_init_one()
+ failures
+Date: Tue, 31 May 2016 14:11:11 -0700 (PDT)
+Message-ID: <20160531.141111.2242150565551090751.davem@davemloft.net>
+References: <1464613254-13640-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mateusz.bajorski@nokia.com, netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37523 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbcEaVJ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 17:09:28 -0400
-In-Reply-To: <7ef40a87-2b63-dfee-e019-4a2f0aec5507@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ariel.elior@qlogic.com
+To: vkuznets@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464613254-13640-1-git-send-email-vkuznets@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 30 May 2016 20:21:29 -0600
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Mon, 30 May 2016 15:00:54 +0200
 
-> missing a namespace (fr_net) compare. Everything else is relative to
-> it.
+> bnx2x_init_bp() allocates memory with bnx2x_alloc_mem_bp() so if we
+> fail later in bnx2x_init_one() we need to free this memory
+> with bnx2x_free_mem_bp() to avoid leakages. E.g. I'm observing memory
+> leaks reported by kmemleak when a failure (unrelated) happens in
+> bnx2x_vfpf_acquire().
 > 
-> I suggest making the rule compare a helper function.
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 
-I also explicitly asked the submitted to use a helper function.
+Applied.
