@@ -1,54 +1,48 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Update on XDP
-Date: Tue, 31 May 2016 14:22:08 -0700
-Message-ID: <CALx6S37q7RFJgLtKDNB6EuOBZaVJ03-Lp8eEZBRcgvJgBbyNVA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: usbnet: smsc95xx: fix link detection for disabled
+ autonegotiation
+Date: Tue, 31 May 2016 14:22:45 -0700 (PDT)
+Message-ID: <20160531.142245.1824632159286621339.davem@davemloft.net>
+References: <1464228407.5421.34.camel@googlemail.com>
+	<20160529.223010.1702681088925445499.davem@davemloft.net>
+	<1464638862.1883.31.camel@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org
+To: chf.fritz@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34319 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753652AbcEaVWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 17:22:09 -0400
-Received: by mail-io0-f193.google.com with SMTP id l9so499910ioe.1
-        for <netdev@vger.kernel.org>; Tue, 31 May 2016 14:22:08 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:37616 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652AbcEaVWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 17:22:46 -0400
+In-Reply-To: <1464638862.1883.31.camel@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello netdev,
+From: Christoph Fritz <chf.fritz@googlemail.com>
+Date: Mon, 30 May 2016 22:07:42 +0200
 
-XDP (eXpress Data Path) is a high performance, programmable network
-data path that is being developed as a community effort (initially
-within IO-visor). XDP will be useful for packet processing in
-forwarding, load balancing, DOS mitigation, firewalls, etc. See
-https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
-for a description.
+> On Sun, 2016-05-29 at 22:30 -0700, David Miller wrote:
+>> From: Christoph Fritz <chf.fritz@googlemail.com>
+>> Date: Thu, 26 May 2016 04:06:47 +0200
+>> 
+>> > @@ -1695,6 +1745,7 @@ static int smsc95xx_resume(struct usb_interface *intf)
+>> >  
+>> >  	/* do this first to ensure it's cleared even in error case */
+>> >  	pdata->suspend_flags = 0;
+>> > +	schedule_delayed_work(&pdata->carrier_check, CARRIER_CHECK_DELAY);
+>> 
+>> Why are you not cancelling this delayed work in the suspend routine of
+>> the driver?
+> 
+> I'm doing this:
+> +       if (pdata->suspend_flags != 0)
+> +               return;
+> 
+> inside the "worker-function" so that schedule_delayed_work() is not
+> called again.
 
-To achieve high performance, XDP runs as a thin layer at this lowest
-levels of the stack with minimal infrastructure. For instance, in
-Linux, XDP runs directly of the device drivers and operates directly
-on receive buffers and an abstracted receive descriptor instead of
-skbufs. XDP does not require specialized hardware, but does allow
-leveraging various advanced HW features.
+Aha, I didn't catch that.
 
-Programmability in XDP is provided by BPF,  a small set of helper
-functions, and a well defined input-output API. XDP is intended to be
-platform agnostic following the principle of "write once, run
-anywhere", so we are expecting that XDP programs can run in the OS
-(Linux and others), HW (via offload), or in userspace (over DPDK for
-instance).
-
-We have made some good progress in the Linux implementation and are
-able to demonstrate single CPU packet drop performance in excess of
-14M pps, and packet forwarding in excess of 10M pps. Work on real
-world use cases is commencing-- L4 load balancer, DOS mitigation, and
-an ILA router. We hope to have patches posted and a more detailed
-introduction of XDP for netdev 1.2.
-
-If you are interested in XDP development and discussion please join
-the iovisor-dev mailing list. Also, we will be holding an XDP summit
-on June 23-- if you are actively working on XDP right now, or believe
-that work on XDP is imminent, please contact me about an invitation.
-
-Thanks,
-Tom
+Applied, thanks.
