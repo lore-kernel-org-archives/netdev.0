@@ -1,53 +1,98 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next v2 5/5] bridge: update man page
-Date: Mon, 30 May 2016 19:17:16 -0700
-Message-ID: <1464661036-35532-6-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next v2 4/5] bridge: add json schema for bridge fdb show
+Date: Mon, 30 May 2016 19:17:15 -0700
+Message-ID: <1464661036-35532-5-git-send-email-roopa@cumulusnetworks.com>
 Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
 	julien@cumulusnetworks.com
 To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34828 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422983AbcEaCRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 22:17:25 -0400
-Received: by mail-pf0-f171.google.com with SMTP id g64so69387824pfb.2
-        for <netdev@vger.kernel.org>; Mon, 30 May 2016 19:17:25 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34382 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423110AbcEaCRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 22:17:24 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 62so24716274pfd.1
+        for <netdev@vger.kernel.org>; Mon, 30 May 2016 19:17:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+we think storing the schema file for the json
+format will be useful.
+
+Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 ---
- man/man8/bridge.8 | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ schema/bridge_fdb_schema.json | 62 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
+ create mode 100644 schema/bridge_fdb_schema.json
 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 08e8a5b..abaee63 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -20,8 +20,9 @@ bridge \- show / manipulate bridge addresses and devices
- .IR OPTIONS " := { "
- \fB\-V\fR[\fIersion\fR] |
- \fB\-s\fR[\fItatistics\fR] |
--\fB\-n\fR[\fIetns\fR] name }
--\fB\-b\fR[\fIatch\fR] filename }
-+\fB\-n\fR[\fIetns\fR] name |
-+\fB\-b\fR[\fIatch\fR] filename |
-+\fB\-j\fR[\fIson\fR] }
- 
- .ti -8
- .BR "bridge link set"
-@@ -153,6 +154,10 @@ Don't terminate bridge command on errors in batch mode.
- If there were any errors during execution of the commands, the application
- return code will be non zero.
- 
-+.TP
-+.BR "\-json"
-+Display results in JSON format. Currently available for vlan and fdb.
-+
- .SH BRIDGE - COMMAND SYNTAX
- 
- .SS
+diff --git a/schema/bridge_fdb_schema.json b/schema/bridge_fdb_schema.json
+new file mode 100644
+index 0000000..3e5be8d
+--- /dev/null
++++ b/schema/bridge_fdb_schema.json
+@@ -0,0 +1,62 @@
++{
++    "$schema": "http://json-schema.org/draft-04/schema#",
++    "description": "bridge fdb show",
++    "type": "array",
++    "items": {
++        "type": "object",
++        "properties": {
++            "dev": {
++                "type": "string"
++            },
++            "dst": {
++                "description" : "host name or ip address",
++                "type": "string"
++            },
++            "flags": {
++                "type": "array",
++                "items": {
++                    "enum": ["self", "master", "router", "offload"]
++                },
++                "uniqueItems": true
++            },
++            "linkNetNsId": {
++                "type": "integer"
++            },
++            "mac": {
++                "type": "string"
++            },
++            "master": {
++                "type": "string"
++            },
++            "opCode": {
++                "description" : "used to indicate fdb entry del",
++                "enum": ["deleted"]
++            },
++            "port": {
++                "type": "integer"
++            },
++            "state": {
++                "description" : "permanent, static, stale, state=#x",
++                "type": "string"
++            },
++            "updated": {
++                "type": "integer"
++            },
++            "used": {
++                "type": "integer"
++            },
++            "viaIf": {
++                "type": "string"
++            },
++            "viaIfIndex": {
++                "type": "integer"
++            },
++            "vlan": {
++                "type": "integer"
++            },
++            "vni": {
++                "type": "integer"
++            }
++        }
++    }
++}
 -- 
 1.9.1
