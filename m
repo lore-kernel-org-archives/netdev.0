@@ -1,7 +1,7 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v2 4/7] DT:mdio-mux: Add mdio multiplexer driver node
-Date: Tue, 31 May 2016 19:06:38 +0530
-Message-ID: <1464701801-17243-5-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH v2 5/7] net:mdio-mux: Add MDIO mux driver for iProc SoCs
+Date: Tue, 31 May 2016 19:06:39 +0530
+Message-ID: <1464701801-17243-6-git-send-email-pramod.kumar@broadcom.com>
 References: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	bcm-kernel-feedback-list@broadcom.com,
@@ -15,83 +15,315 @@ To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
 	Will Deacon <will.deacon@arm.com>,
 	Kishon Vijay Abraham I <kishon@ti.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34102 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932253AbcEaNgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 09:36:41 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bz2so42022685pad.1
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 06:36:40 -0700 (PDT)
 In-Reply-To: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add integrated MDIO multiplexer driver node which contains
-two mux PCIe bus and one ethernet bus along with phys
-lying on these bus.
+iProc based SoCs supports the integrated mdio multiplexer which
+has the bus selection as well as mdio transaction generation logic
+inside.
+
+This mutiplexer has child buses for PCIe, SATA, USB and ETH. These
+buses could be internal or external to SOC where PHYs are attached.
+These buses could use C-45 or C-22 mdio transaction.
 
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 ---
- arch/arm64/boot/dts/broadcom/ns2-svk.dts | 12 ++++++++++++
- arch/arm64/boot/dts/broadcom/ns2.dtsi    | 32 ++++++++++++++++++++++++++++++++
- 2 files changed, 44 insertions(+)
+ drivers/net/phy/Kconfig              |  11 ++
+ drivers/net/phy/Makefile             |   1 +
+ drivers/net/phy/mdio-mux-bcm-iproc.c | 243 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 255 insertions(+)
+ create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
 
-diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-index ce0ab84..8f6a6cc 100644
---- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-+++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-@@ -87,3 +87,15 @@
- 		#size-cells = <1>;
- 	};
- };
-+
-+&mdio_mux_iproc {
-+	mdio@10 {
-+		reg = <0x10>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		gphy0: eth-phy@10 {
-+			reg = <0x10>;
-+		};
-+	};
-+};
-diff --git a/arch/arm64/boot/dts/broadcom/ns2.dtsi b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-index 6f81c9d..efc320a 100644
---- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
-+++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-@@ -330,6 +330,38 @@
- 			      <0x65260000 0x1000>;
- 		};
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 6dad9a9..38faecf 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -254,6 +254,17 @@ config MDIO_BUS_MUX_MMIOREG
  
-+		mdio_mux_iproc: mdio_mux_iproc@6602023c {
-+			compatible = "brcm,mdio-mux-iproc";
-+			reg = <0x6602023c 0x14>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			mdio-integrated-mux;
+ 	  Currently, only 8-bit registers are supported.
+ 
++config MDIO_BUS_MUX_BCM_IPROC
++	tristate "Support for iProc based MDIO bus multiplexers"
++	depends on OF && OF_MDIO && (ARCH_BCM_IPROC || COMPILE_TEST)
++	select MDIO_BUS_MUX
++	default ARCH_BCM_IPROC
++	help
++	  This module provides a driver for MDIO bus multiplexers found in
++	  iProc based Broadcom SoCs. This mulitplexer connects one of several
++	  child MDIO bus to a parent bus. Buses could be interal as well as
++	  external and selection logic lies inside the same multiplexer.
 +
-+			mdio@0 {
-+				reg = <0x0>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
+ config MDIO_BCM_UNIMAC
+ 	tristate "Broadcom UniMAC MDIO bus controller"
+ 	depends on HAS_IOMEM
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index fcdbb92..f5951d5a 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -39,6 +39,7 @@ obj-$(CONFIG_AMD_PHY)		+= amd.o
+ obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+ obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
++obj-$(CONFIG_MDIO_BUS_MUX_BCM_IPROC)	+= mdio-mux-bcm-iproc.o
+ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
+diff --git a/drivers/net/phy/mdio-mux-bcm-iproc.c b/drivers/net/phy/mdio-mux-bcm-iproc.c
+new file mode 100644
+index 0000000..f047be6
+--- /dev/null
++++ b/drivers/net/phy/mdio-mux-bcm-iproc.c
+@@ -0,0 +1,243 @@
++/*
++ * Copyright 2016 Broadcom
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, version 2, as
++ * published by the Free Software Foundation (the "GPL").
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License version 2 (GPLv2) for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * version 2 (GPLv2) along with this source code.
++ */
 +
-+				pci_phy0: pci-phy@0 {
-+					compatible = "brcm,ns2-pcie-phy";
-+					reg = <0x0>;
-+					#phy-cells = <0>;
-+				};
-+			};
++#include <linux/platform_device.h>
++#include <linux/device.h>
++#include <linux/of_mdio.h>
++#include <linux/module.h>
++#include <linux/phy.h>
++#include <linux/mdio-mux.h>
++#include <linux/delay.h>
 +
-+			mdio@7 {
-+				reg = <0x7>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
++#define MDIO_PARAM_OFFSET		0x00
++#define MDIO_PARAM_MIIM_CYCLE		29
++#define MDIO_PARAM_INTERNAL_SEL		25
++#define MDIO_PARAM_BUS_ID		22
++#define MDIO_PARAM_C45_SEL		21
++#define MDIO_PARAM_PHY_ID		16
++#define MDIO_PARAM_PHY_DATA		0
 +
-+				pci_phy1: pci-phy@0 {
-+					compatible = "brcm,ns2-pcie-phy";
-+					reg = <0x0>;
-+					#phy-cells = <0>;
-+				};
-+			};
-+		};
++#define MDIO_READ_OFFSET		0x04
++#define MDIO_READ_DATA_MASK		0xffff
++#define MDIO_ADDR_OFFSET		0x08
 +
- 		timer0: timer@66030000 {
- 			compatible = "arm,sp804", "arm,primecell";
- 			reg = <0x66030000 0x1000>;
++#define MDIO_CTRL_OFFSET		0x0C
++#define MDIO_CTRL_WRITE_OP		0x1
++#define MDIO_CTRL_READ_OP		0x2
++
++#define MDIO_STAT_OFFSET		0x10
++#define MDIO_STAT_DONE			1
++
++#define BUS_MAX_ADDR			32
++#define EXT_BUS_START_ADDR		16
++
++struct iproc_mdiomux_desc {
++	void *mux_handle;
++	void __iomem *base;
++	struct device *dev;
++	struct mii_bus *mii_bus;
++};
++
++static int iproc_mdio_wait_for_idle(void __iomem *base, bool result)
++{
++	u32 val;
++	unsigned int timeout = 1000; /* loop for 1s */
++
++	do {
++		val = readl(base + MDIO_STAT_OFFSET);
++		if ((val & MDIO_STAT_DONE) == result)
++			return 0;
++
++		usleep_range(1000, 2000);
++	} while (timeout--);
++
++	return -ETIMEDOUT;
++}
++
++/* start_miim_ops- Program and start MDIO transaction over mdio bus.
++ * @base: Base address
++ * @phyid: phyid of the selected bus.
++ * @reg: register offset to be read/written.
++ * @val :0 if read op else value to be written in @reg;
++ * @op: Operation that need to be carried out.
++ *      MDIO_CTRL_READ_OP: Read transaction.
++ *      MDIO_CTRL_WRITE_OP: Write transaction.
++ *
++ * Return value: Successful Read operation returns read reg values and write
++ *      operation returns 0. Failure operation returns negative error code.
++ */
++static int start_miim_ops(void __iomem *base,
++			  u16 phyid, u32 reg, u16 val, u32 op)
++{
++	int ret;
++	u32 param;
++
++	writel(0, base + MDIO_CTRL_OFFSET);
++	ret = iproc_mdio_wait_for_idle(base, 0);
++	if (ret)
++		goto err;
++
++	param = readl(base + MDIO_PARAM_OFFSET);
++	param |= phyid << MDIO_PARAM_PHY_ID;
++	param |= val << MDIO_PARAM_PHY_DATA;
++	if (reg & MII_ADDR_C45)
++		param |= (1 << MDIO_PARAM_C45_SEL);
++
++	writel(param, base + MDIO_PARAM_OFFSET);
++
++	writel(reg, base + MDIO_ADDR_OFFSET);
++
++	writel(op, base + MDIO_CTRL_OFFSET);
++
++	ret = iproc_mdio_wait_for_idle(base, 1);
++	if (ret)
++		goto err;
++
++	if (op == MDIO_CTRL_READ_OP)
++		ret = readl(base + MDIO_READ_OFFSET) & MDIO_READ_DATA_MASK;
++err:
++	return ret;
++}
++
++static int iproc_mdiomux_read(struct mii_bus *bus, int phyid, int reg)
++{
++	int ret;
++	struct iproc_mdiomux_desc *md = bus->priv;
++
++	ret = start_miim_ops(md->base, phyid, reg, 0, MDIO_CTRL_READ_OP);
++	if (ret < 0)
++		dev_err(&bus->dev, "mdiomux read operation failed!!!");
++
++	return ret;
++}
++
++static int iproc_mdiomux_write(struct mii_bus *bus,
++			       int phyid, int reg, u16 val)
++{
++	int ret;
++	struct iproc_mdiomux_desc *md = bus->priv;
++
++	/* Write val at reg offset */
++	ret = start_miim_ops(md->base, phyid, reg, val, MDIO_CTRL_WRITE_OP);
++	if (ret < 0)
++		dev_err(&bus->dev, "mdiomux write operation failed!!!");
++
++	return ret;
++}
++
++static int mdio_mux_iproc_switch_fn(int current_child, int desired_child,
++				    void *data)
++{
++	struct iproc_mdiomux_desc *md = data;
++	u32 param, bus_id;
++	bool bus_dir;
++
++	/* select bus and its properties */
++	bus_dir = (desired_child < EXT_BUS_START_ADDR);
++	bus_id = bus_dir ? desired_child : (desired_child - EXT_BUS_START_ADDR);
++
++	param = (bus_dir ? 1 : 0) << MDIO_PARAM_INTERNAL_SEL;
++	param |= (bus_id << MDIO_PARAM_BUS_ID);
++
++	writel(param, md->base + MDIO_PARAM_OFFSET);
++	return 0;
++}
++
++static int mdio_mux_iproc_probe(struct platform_device *pdev)
++{
++	struct iproc_mdiomux_desc *md;
++	struct mii_bus *bus;
++	struct resource *res;
++	int rc;
++
++	md = devm_kzalloc(&pdev->dev, sizeof(*md), GFP_KERNEL);
++	if (!md)
++		return -ENOMEM;
++	md->dev = &pdev->dev;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	md->base = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(md->base)) {
++		dev_err(&pdev->dev, "failed to ioremap register\n");
++		return PTR_ERR(md->base);
++	}
++
++	md->mii_bus = mdiobus_alloc();
++	if (!md->mii_bus) {
++		dev_err(&pdev->dev, "mdiomux bus alloc failed\n");
++		return -ENOMEM;
++	}
++
++	bus = md->mii_bus;
++	bus->priv = md;
++	bus->name = "iProc MDIO mux bus";
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
++	bus->parent = &pdev->dev;
++	bus->read = iproc_mdiomux_read;
++	bus->write = iproc_mdiomux_write;
++
++	rc = of_mdiobus_register(bus, pdev->dev.of_node);
++	if (rc) {
++		dev_err(&pdev->dev, "mdiomux registration failed\n");
++		goto out;
++	}
++
++	platform_set_drvdata(pdev, md);
++
++	rc = mdio_mux_init(md->dev, mdio_mux_iproc_switch_fn,
++			   &md->mux_handle, md, md->mii_bus);
++	if (rc) {
++		dev_info(md->dev, "mdiomux initialization failed\n");
++		goto out;
++	}
++
++	dev_info(md->dev, "iProc mdiomux registered\n");
++	return 0;
++out:
++	mdiobus_free(bus);
++	return rc;
++}
++
++static int mdio_mux_iproc_remove(struct platform_device *pdev)
++{
++	struct iproc_mdiomux_desc *md = dev_get_platdata(&pdev->dev);
++
++	mdio_mux_uninit(md->mux_handle);
++	return 0;
++}
++
++static const struct of_device_id mdio_mux_iproc_match[] = {
++	{
++		.compatible = "brcm,mdio-mux-iproc",
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(of, mdio_mux_iproc_match);
++
++static struct platform_driver mdiomux_iproc_driver = {
++	.driver = {
++		.name		= "mdio-mux-iproc",
++		.of_match_table = mdio_mux_iproc_match,
++	},
++	.probe		= mdio_mux_iproc_probe,
++	.remove		= mdio_mux_iproc_remove,
++};
++
++module_platform_driver(mdiomux_iproc_driver);
++
++MODULE_DESCRIPTION("iProc MDIO Mux Bus Driver");
++MODULE_AUTHOR("Pramod Kumar <pramod.kumar@broadcom.com>");
++MODULE_LICENSE("GPL v2");
 -- 
 1.9.1
