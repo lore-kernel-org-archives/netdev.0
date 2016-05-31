@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: avoid leaking memory on bnx2x_init_one()
- failures
-Date: Tue, 31 May 2016 14:11:11 -0700 (PDT)
-Message-ID: <20160531.141111.2242150565551090751.davem@davemloft.net>
-References: <1464613254-13640-1-git-send-email-vkuznets@redhat.com>
+Subject: Re: [PATCH] qed: fix qed_fill_link() error handling
+Date: Tue, 31 May 2016 14:20:46 -0700 (PDT)
+Message-ID: <20160531.142046.2026659803711147043.davem@davemloft.net>
+References: <1464623197-2084229-1-git-send-email-arnd@arndb.de>
+	<CO2PR11MB00881A57063B9AB617359A9097450@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ariel.elior@qlogic.com
-To: vkuznets@redhat.com
+Cc: arnd@arndb.de, manish.chopra@qlogic.com,
+	Sudarsana.Kalluru@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464613254-13640-1-git-send-email-vkuznets@redhat.com>
+In-Reply-To: <CO2PR11MB00881A57063B9AB617359A9097450@CO2PR11MB0088.namprd11.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Mon, 30 May 2016 15:00:54 +0200
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 30 May 2016 16:24:07 +0000
 
-> bnx2x_init_bp() allocates memory with bnx2x_alloc_mem_bp() so if we
-> fail later in bnx2x_init_one() we need to free this memory
-> with bnx2x_free_mem_bp() to avoid leakages. E.g. I'm observing memory
-> leaks reported by kmemleak when a failure (unrelated) happens in
-> bnx2x_vfpf_acquire().
+>> +	if (IS_ENABLED(CONFIG_QED_SRIOV) && !IS_PF(hwfn->cdev)) {
+>> +		qed_vf_get_link_params(hwfn, params);
+>> +		qed_vf_get_link_state(hwfn, link);
+>> +		qed_vf_get_link_caps(hwfn, link_caps);
+>> +
+>> +		return 0;
+>> +	}
 > 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> The IS_ENABLED here seems a bit wasteful to me - we have empty implementation
+> under qed_vf.h just for this case [I.e., that SRIOV isn't enabled for qed].
+> If all we're trying achieve is removing these gcc warnings, I think we can simply
+> memset the structs in the currently-empty qed_vf_get_link_* functions.
 
-Applied.
+I think both solutions are equally valid/elegant.
+
+Arnd?
