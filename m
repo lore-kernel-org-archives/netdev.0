@@ -1,203 +1,310 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next v2 1/5] json_writer: allow base json data type to be array or object
-Date: Mon, 30 May 2016 19:17:12 -0700
-Message-ID: <1464661036-35532-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next v2 2/5] bridge: add json support for bridge vlan show
+Date: Mon, 30 May 2016 19:17:13 -0700
+Message-ID: <1464661036-35532-3-git-send-email-roopa@cumulusnetworks.com>
 Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
 	julien@cumulusnetworks.com
 To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34376 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422983AbcEaCRW (ORCPT
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33100 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423003AbcEaCRW (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 22:17:22 -0400
-Received: by mail-pf0-f175.google.com with SMTP id 62so24715937pfd.1
+Received: by mail-pf0-f176.google.com with SMTP id b124so69070820pfb.0
         for <netdev@vger.kernel.org>; Mon, 30 May 2016 19:17:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds a type qualifier to json_writer. Type can be a
-json object or array. This can be extended to other types like
-json-string, json-number etc in the future.
+$bridge -c vlan show
+port	vlan ids
+swp1	 1 PVID Egress Untagged
+	 10-13
 
-Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+swp2	 1 PVID Egress Untagged
+	 10-13
+
+br0	 1 PVID Egress Untagged
+
+$bridge  -json vlan show
+{
+    "swp1": [{
+            "vlan": 1,
+            "flags": ["PVID","Egress Untagged"
+            ]
+        },{
+            "vlan": 10
+        },{
+            "vlan": 11
+        },{
+            "vlan": 12
+        },{
+            "vlan": 13
+        }
+    ],
+    "swp2": [{
+            "vlan": 1,
+            "flags": ["PVID","Egress Untagged"
+            ]
+        },{
+            "vlan": 10
+        },{
+            "vlan": 11
+        },{
+            "vlan": 12
+        },{
+            "vlan": 13
+        }
+    ],
+    "br0": [{
+            "vlan": 1,
+            "flags": ["PVID","Egress Untagged"
+            ]
+        }
+    ]
+    }
+
+$bridge -c -json vlan show
+{
+    "swp1": [{
+            "vlan": 1,
+            "flags": ["PVID","Egress Untagged"
+            ]
+        },{
+            "vlan": 10,
+            "vlanEnd": 13
+        }
+    ],
+    "swp2": [{
+            "vlan": 1,
+            "flags": ["PVID","Egress Untagged"
+            ]
+        },{
+            "vlan": 10,
+            "vlanEnd": 13
+        }
+    ],
+    "br0": [{
+            "vlan": 1,
+            "flags": ["PVID","Egress Untagged"
+            ]
+        }
+    ]
+    }
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/json_writer.h |  5 +++--
- lib/json_writer.c     | 39 +++++++++++++++++++++++++++++++++++----
- misc/ifstat.c         |  6 +++---
- misc/lnstat.c         |  2 +-
- misc/nstat.c          |  4 ++--
- 5 files changed, 44 insertions(+), 12 deletions(-)
+ bridge/br_common.h |   1 +
+ bridge/bridge.c    |   5 ++-
+ bridge/vlan.c      | 106 ++++++++++++++++++++++++++++++++++++++++++++++-------
+ 3 files changed, 97 insertions(+), 15 deletions(-)
 
-diff --git a/include/json_writer.h b/include/json_writer.h
-index ab9a008..e04a40a 100644
---- a/include/json_writer.h
-+++ b/include/json_writer.h
-@@ -21,8 +21,9 @@
- /* Opaque class structure */
- typedef struct json_writer json_writer_t;
- 
--/* Create a new JSON stream */
--json_writer_t *jsonw_new(FILE *f);
-+/* Create a new JSON stream with data type */
-+json_writer_t *jsonw_new_object(FILE *f);
-+json_writer_t *jsonw_new_array(FILE *f);
- /* End output to JSON stream */
- void jsonw_destroy(json_writer_t **self_p);
- 
-diff --git a/lib/json_writer.c b/lib/json_writer.c
-index 2af16e1..420cd87 100644
---- a/lib/json_writer.c
-+++ b/lib/json_writer.c
-@@ -22,11 +22,17 @@
- 
- #include "json_writer.h"
- 
-+enum jsonw_data_type {
-+	JSONW_TYPE_OBJECT,
-+	JSONW_TYPE_ARRAY
-+};
-+
- struct json_writer {
- 	FILE		*out;	/* output file */
- 	unsigned	depth;  /* nesting */
- 	bool		pretty; /* optional whitepace */
- 	char		sep;	/* either nul or comma */
-+	int		type;	/* currently either object or array */
- };
- 
- /* indentation for pretty print */
-@@ -94,7 +100,7 @@ static void jsonw_puts(json_writer_t *self, const char *str)
+diff --git a/bridge/br_common.h b/bridge/br_common.h
+index 5ea45c9..c649e7d 100644
+--- a/bridge/br_common.h
++++ b/bridge/br_common.h
+@@ -23,4 +23,5 @@ extern int show_stats;
+ extern int show_details;
+ extern int timestamp;
+ extern int compress_vlans;
++extern int json_output;
+ extern struct rtnl_handle rth;
+diff --git a/bridge/bridge.c b/bridge/bridge.c
+index 72f153f..5ff038d 100644
+--- a/bridge/bridge.c
++++ b/bridge/bridge.c
+@@ -23,6 +23,7 @@ int oneline;
+ int show_stats;
+ int show_details;
+ int compress_vlans;
++int json_output;
+ int timestamp;
+ char *batch_file;
+ int force;
+@@ -38,7 +39,7 @@ static void usage(void)
+ "where	OBJECT := { link | fdb | mdb | vlan | monitor }\n"
+ "	OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
+ "		     -o[neline] | -t[imestamp] | -n[etns] name |\n"
+-"		     -c[ompressvlans] }\n");
++"		     -c[ompressvlans] -j{son} }\n");
+ 	exit(-1);
  }
  
- /* Create a new JSON stream */
--json_writer_t *jsonw_new(FILE *f)
-+static json_writer_t *jsonw_new(FILE *f, int type)
+@@ -173,6 +174,8 @@ main(int argc, char **argv)
+ 			++compress_vlans;
+ 		} else if (matches(opt, "-force") == 0) {
+ 			++force;
++		} else if (matches(opt, "-json") == 0) {
++			++json_output;
+ 		} else if (matches(opt, "-batch") == 0) {
+ 			argc--;
+ 			argv++;
+diff --git a/bridge/vlan.c b/bridge/vlan.c
+index 717025a..fbf14c8 100644
+--- a/bridge/vlan.c
++++ b/bridge/vlan.c
+@@ -7,6 +7,7 @@
+ #include <netinet/in.h>
+ #include <linux/if_bridge.h>
+ #include <linux/if_ether.h>
++#include <json_writer.h>
+ #include <string.h>
+ 
+ #include "libnetlink.h"
+@@ -15,6 +16,8 @@
+ 
+ static unsigned int filter_index, filter_vlan;
+ 
++json_writer_t *jw_global = NULL;
++
+ static void usage(void)
  {
- 	json_writer_t *self = malloc(sizeof(*self));
- 	if (self) {
-@@ -102,11 +108,29 @@ json_writer_t *jsonw_new(FILE *f)
- 		self->depth = 0;
- 		self->pretty = false;
- 		self->sep = '\0';
--		putc('{', self->out);
-+		self->type = type;
-+		switch (self->type) {
-+		case JSONW_TYPE_OBJECT:
-+			putc('{', self->out);
-+			break;
-+		case JSONW_TYPE_ARRAY:
-+			putc('[', self->out);
-+			break;
-+		}
- 	}
- 	return self;
+ 	fprintf(stderr, "Usage: bridge vlan { add | del } vid VLAN_ID dev DEV [ pvid] [ untagged ]\n");
+@@ -158,6 +161,28 @@ static int filter_vlan_check(struct bridge_vlan_info *vinfo)
+ 	return 1;
  }
  
-+json_writer_t *jsonw_new_object(FILE *f)
++static void print_vlan_port(FILE *fp, int ifi_index)
 +{
-+	return jsonw_new(f, JSONW_TYPE_OBJECT);
-+}
-+
-+json_writer_t *jsonw_new_array(FILE *f)
-+{
-+	return jsonw_new(f, JSONW_TYPE_ARRAY);
-+}
-+
- /* End output to JSON stream */
- void jsonw_destroy(json_writer_t **self_p)
- {
-@@ -114,7 +138,14 @@ void jsonw_destroy(json_writer_t **self_p)
- 
- 	assert(self->depth == 0);
- 	jsonw_eol(self);
--	fputs("}\n", self->out);
-+	switch (self->type) {
-+	case JSONW_TYPE_OBJECT:
-+		fputs("}\n", self->out);
-+		break;
-+	case JSONW_TYPE_ARRAY:
-+		fputs("]\n", self->out);
-+		break;
++	if (jw_global) {
++		jsonw_pretty(jw_global, 1);
++		jsonw_name(jw_global,
++			   ll_index_to_name(ifi_index));
++		jsonw_start_array(jw_global);
++	} else {
++		fprintf(fp, "%s",
++			ll_index_to_name(ifi_index));
 +	}
- 	fflush(self->out);
- 	free(self);
- 	*self_p = NULL;
-@@ -267,7 +298,7 @@ void jsonw_null_field(json_writer_t *self, const char *prop)
- #ifdef TEST
- int main(int argc, char **argv)
- {
--	json_writer_t *wr = jsonw_new(stdout);
-+	json_writer_t *wr = jsonw_new_object(stdout);
++}
++
++static void start_json_vlan_flags_array(bool *vlan_flags)
++{
++	if (*vlan_flags)
++		return;
++	jsonw_name(jw_global, "flags");
++	jsonw_start_array(jw_global);
++	*vlan_flags = true;
++}
++
+ static int print_vlan(const struct sockaddr_nl *who,
+ 		      struct nlmsghdr *n,
+ 		      void *arg)
+@@ -166,6 +191,8 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 	struct ifinfomsg *ifm = NLMSG_DATA(n);
+ 	int len = n->nlmsg_len;
+ 	struct rtattr *tb[IFLA_MAX+1];
++	bool vlan_flags;
++	char flags[80];
  
- 	jsonw_pretty(wr, true);
- 	jsonw_name(wr, "Vyatta");
-diff --git a/misc/ifstat.c b/misc/ifstat.c
-index abbb4e7..29aa63c 100644
---- a/misc/ifstat.c
-+++ b/misc/ifstat.c
-@@ -240,7 +240,7 @@ static void load_raw_table(FILE *fp)
+ 	if (n->nlmsg_type != RTM_NEWLINK) {
+ 		fprintf(stderr, "Not RTM_NEWLINK: %08x %08x %08x\n",
+@@ -199,7 +226,8 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 		__u16 last_vid_start = 0;
  
- static void dump_raw_db(FILE *fp, int to_hist)
- {
--	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
-+	json_writer_t *jw = json_output ? jsonw_new_object(fp) : NULL;
- 	struct ifstat_ent *n, *h;
+ 		if (!filter_vlan)
+-			fprintf(fp, "%s", ll_index_to_name(ifm->ifi_index));
++			print_vlan_port(fp, ifm->ifi_index);
++
+ 		for (i = RTA_DATA(list); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+ 			struct bridge_vlan_info *vinfo;
+ 			int vcheck_ret;
+@@ -218,20 +246,58 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 				continue;
  
- 	h = hist_db;
-@@ -447,7 +447,7 @@ static void print_one_if(FILE *fp, const struct ifstat_ent *n,
+ 			if (filter_vlan)
+-				fprintf(fp, "%s",
+-					ll_index_to_name(ifm->ifi_index));
+-			fprintf(fp, "\t %hu", last_vid_start);
+-			if (last_vid_start != vinfo->vid)
+-				fprintf(fp, "-%hu", vinfo->vid);
+-			if (vinfo->flags & BRIDGE_VLAN_INFO_PVID)
+-				fprintf(fp, " PVID");
+-			if (vinfo->flags & BRIDGE_VLAN_INFO_UNTAGGED)
+-				fprintf(fp, " Egress Untagged");
+-			fprintf(fp, "\n");
++				print_vlan_port(fp, ifm->ifi_index);
++			if (jw_global) {
++				jsonw_start_object(jw_global);
++				jsonw_uint_field(jw_global, "vlan",
++						 last_vid_start);
++				if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN)
++					continue;
++			} else {
++				fprintf(fp, "\t %hu", last_vid_start);
++			}
++			if (last_vid_start != vinfo->vid) {
++				if (jw_global)
++					jsonw_uint_field(jw_global, "vlanEnd",
++							 vinfo->vid);
++				else
++					fprintf(fp, "-%hu", vinfo->vid);
++			}
++			if (vinfo->flags & BRIDGE_VLAN_INFO_PVID) {
++				if (jw_global) {
++					start_json_vlan_flags_array(&vlan_flags);
++					jsonw_string(jw_global, "PVID");
++				} else {
++					fprintf(fp, " PVID");
++				}
++			}
++			if (vinfo->flags & BRIDGE_VLAN_INFO_UNTAGGED) {
++				if (jw_global) {
++					start_json_vlan_flags_array(&vlan_flags);
++					jsonw_string(jw_global,
++						     "Egress Untagged");
++				} else {
++					fprintf(fp, " Egress Untagged");
++				}
++			}
++			if (vlan_flags) {
++				jsonw_end_array(jw_global);
++				vlan_flags = false;
++			}
++
++			if (jw_global)
++				jsonw_end_object(jw_global);
++			else
++				fprintf(fp, "\n");
+ 		}
+ 	}
+-	if (!filter_vlan)
+-		fprintf(fp, "\n");
++	if (!filter_vlan) {
++		if (jw_global)
++			jsonw_end_array(jw_global);
++		else
++			fprintf(fp, "\n");
++
++	}
+ 	fflush(fp);
+ 	return 0;
+ }
+@@ -271,12 +337,24 @@ static int vlan_show(int argc, char **argv)
+ 		exit(1);
+ 	}
  
- static void dump_kern_db(FILE *fp)
- {
--	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
-+	json_writer_t *jw = json_output ? jsonw_new_object(fp) : NULL;
- 	struct ifstat_ent *n;
+-	printf("port\tvlan ids\n");
++	if (json_output) {
++		jw_global = jsonw_new_object(stdout);
++		if (!jw_global) {
++			fprintf(stderr, "Error allocation json object\n");
++			exit(1);
++		}
++	} else {
++		printf("port\tvlan ids\n");
++	}
++
+ 	if (rtnl_dump_filter(&rth, print_vlan, stdout) < 0) {
+ 		fprintf(stderr, "Dump ternminated\n");
+ 		exit(1);
+ 	}
  
- 	if (jw) {
-@@ -473,7 +473,7 @@ static void dump_kern_db(FILE *fp)
- static void dump_incr_db(FILE *fp)
- {
- 	struct ifstat_ent *n, *h;
--	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
-+	json_writer_t *jw = json_output ? jsonw_new_object(fp) : NULL;
++	if (jw_global)
++		jsonw_destroy(&jw_global);
++
+ 	return 0;
+ }
  
- 	h = hist_db;
- 	if (jw) {
-diff --git a/misc/lnstat.c b/misc/lnstat.c
-index 659a01b..2988e9e 100644
---- a/misc/lnstat.c
-+++ b/misc/lnstat.c
-@@ -110,7 +110,7 @@ static void print_line(FILE *of, const struct lnstat_file *lnstat_files,
- static void print_json(FILE *of, const struct lnstat_file *lnstat_files,
- 		       const struct field_params *fp)
- {
--	json_writer_t *jw = jsonw_new(of);
-+	json_writer_t *jw = jsonw_new_object(of);
- 	int i;
- 
- 	jsonw_start_object(jw);
-diff --git a/misc/nstat.c b/misc/nstat.c
-index a9e0f20..7ca6204 100644
---- a/misc/nstat.c
-+++ b/misc/nstat.c
-@@ -279,7 +279,7 @@ static void load_netstat(void)
- 
- static void dump_kern_db(FILE *fp, int to_hist)
- {
--	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
-+	json_writer_t *jw = json_output ? jsonw_new_object(fp) : NULL;
- 	struct nstat_ent *n, *h;
- 
- 	h = hist_db;
-@@ -323,7 +323,7 @@ static void dump_kern_db(FILE *fp, int to_hist)
- 
- static void dump_incr_db(FILE *fp)
- {
--	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
-+	json_writer_t *jw = json_output ? jsonw_new_object(fp) : NULL;
- 	struct nstat_ent *n, *h;
- 
- 	h = hist_db;
 -- 
 1.9.1
