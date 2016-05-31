@@ -1,76 +1,56 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] hfsc: ensure class is added to eltree exactly once
-Date: Tue, 31 May 2016 12:12:19 +0200
-Message-ID: <1464689539-15162-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Miroslav Kratochvil <exa.exa@gmail.com>
-To: netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/3] nl80211: Fix checkpatch warnings
+Date: Tue, 31 May 2016 12:29:42 +0200
+Message-ID: <1464690582.3076.21.camel@sipsolutions.net>
+References: <cover.1464492195.git.kirtika.ruchandani@gmail.com>
+	 <487a841acb1098e96104f2671399274e82aafeba.1464492195.git.kirtika.ruchandani@gmail.com>
+	 <CAGRGNgXuE3smks0pYoMQ5NxqjUN0PJ7i6LgBDjkq_uWyfPHQkA@mail.gmail.com>
+	 (sfid-20160530_023028_641313_76E294B4)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Kirtika Ruchandani <kirtika.ruchandani@gmail.com>,
+	ruchandani.tina@gmail.com, netdev <netdev@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40101 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750813AbcEaKME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 06:12:04 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:40623 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751249AbcEaK3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2016 06:29:46 -0400
+In-Reply-To: <CAGRGNgXuE3smks0pYoMQ5NxqjUN0PJ7i6LgBDjkq_uWyfPHQkA@mail.gmail.com> (sfid-20160530_023028_641313_76E294B4)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Intent is to insert the class into the eligible tree when first packet
-is enqueued (its removed from list when class becomes empty again).
+On Mon, 2016-05-30 at 10:30 +1000, Julian Calaby wrote:
+> Hi All,
+> 
+> On Sun, May 29, 2016 at 1:30 PM, Kirtika Ruchandani
+> <kirtika.ruchandani@gmail.com> wrote:
+> > 
+> > This patch fixes the following checkpatch.pl warnings about
+> > comments in nl80211.c :
+> > - networking block comments don't use an empty '/*' line
+> > - block comments use a trailing '*/' on a separate line
+> > 
+> > Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+> The change and logic behind it are sound, so it gets my:
+> 
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+> 
+> however I'm concerned that this file is a deliberate exception to the
+> networking comment rules.
+> 
 
-Checking for a size of 1 is problematic:
+It's kinda mixed, I never really enforced one style or the other ...
+I'm kinda taking both now, with a slight preference towards the
+networking style perhaps (to please davem :) )
 
-1. child qdisc might have segmented the skb, in which backlog can transition
-from 0 to a value > 1.
+That said, in general I'm not really sure of the value of all of these
+patches - perhaps the kcalloc() one makes sense, not for checkpatch
+reasons but rather for size limit/integer overflow reasons, and the
+ether address assign for general readability, but overall ...
 
-In this case we can't dequeue anymore as this class is not in the tree.
+I'll have to make up my mind :)
 
-2. some qdiscs like fq_codel can purge their backlogs when internal
-limits are hit and update the parent qlen via qdisc_tree_reduce_backlog(),
-so its possible that we end up with a length of 1 after enqueue for a class
-that was already on the active list.
-
-If this happens, we add the same class twice (which then results
-in qdisc dequeue soft lockup).
-
-Fix it by testing the length before we attempt to enqueue to child qdisc,
-if enqueue operation is successful and old qlen was 0, then the
-class was not yet inserted into eltree.
-
-Cc: Miroslav Kratochvil <exa.exa@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- This was found while looking at Miroslav Kratochvil bug report
- but I don't think this fixes his case (I could trigger the 2nd case
- above w. fq_codel+really_stupid_config_knobs but I got softlockup
- which did not match his report).
-
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index d783d7c..0854be3 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1583,6 +1583,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct hfsc_class *cl;
- 	int uninitialized_var(err);
-+	unsigned int qlen;
- 
- 	cl = hfsc_classify(skb, sch, &err);
- 	if (cl == NULL) {
-@@ -1592,6 +1593,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		return err;
- 	}
- 
-+	qlen = cl->qdisc->q.qlen;
- 	err = qdisc_enqueue(skb, cl->qdisc);
- 	if (unlikely(err != NET_XMIT_SUCCESS)) {
- 		if (net_xmit_drop_count(err)) {
-@@ -1601,7 +1603,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		return err;
- 	}
- 
--	if (cl->qdisc->q.qlen == 1)
-+	if (qlen == 0)
- 		set_active(cl, qdisc_pkt_len(skb));
- 
- 	sch->q.qlen++;
--- 
-2.7.3
+johannes
