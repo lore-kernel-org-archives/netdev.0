@@ -1,39 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] atm: firestream: add more reserved strings
-Date: Tue, 31 May 2016 11:53:12 -0700 (PDT)
-Message-ID: <20160531.115312.2224370646479410237.davem@davemloft.net>
-References: <20160527103350.GA3255@mwanda>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, patrick@bitwizard.nl,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2 1/7] loopback: make use of NETIF_F_GSO_SOFTWARE
+Date: Tue, 31 May 2016 15:55:44 -0300
+Message-ID: <b26a8c8d62ee7eb245517eb097076eb806b064b8.1464718103.git.marcelo.leitner@gmail.com>
+References: <cover.1464718103.git.marcelo.leitner@gmail.com>
+Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36644 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750744AbcEaSxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:53:13 -0400
-In-Reply-To: <20160527103350.GA3255@mwanda>
+Received: from mx1.redhat.com ([209.132.183.28]:34043 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755337AbcEaS4N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2016 14:56:13 -0400
+In-Reply-To: <cover.1464718103.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 27 May 2016 13:33:50 +0300
+NETIF_F_GSO_SOFTWARE was defined to list all GSO software types, so lets
+make use of it in loopback code. Note that veth/vxlan/others already
+uses it.
 
-> This bug was there when the driver was first added in back in year 2000.
-> It causes a Smatch warning:
-> 
->     drivers/atm/firestream.c:849 process_incoming()
->     error: buffer overflow 'res_strings' 60 <= 63
-> 
-> There are supposed to be 64 entries in this array and the missing
-> strings are clearly in the 30 40 range.  I added them as reserved 37 to
-> reserved 40.  It's possible that strings are really supposed to be added
-> in the middle instead of at the end, but this approach is safe, in that
-> it fixes the bug and doesn't break anything that wasn't already broken.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Within this patch series, this patch causes lo to pick up SCTP GSO feature
+automatically (as it's added to NETIF_F_GSO_SOFTWARE) and thus avoiding
+segmentation if possible.
 
-Applied.
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Tested-by: Xin Long <lucien.xin@gmail.com>
+---
+ drivers/net/loopback.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index a400288cb37b9bfb6190f1bd7c64d02e97713956..6255973e3dda35fd41464ce51f0f9fb9f0b8364b 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -169,10 +169,9 @@ static void loopback_setup(struct net_device *dev)
+ 	dev->flags		= IFF_LOOPBACK;
+ 	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
+ 	netif_keep_dst(dev);
+-	dev->hw_features	= NETIF_F_ALL_TSO | NETIF_F_UFO;
++	dev->hw_features	= NETIF_F_GSO_SOFTWARE;
+ 	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
+-		| NETIF_F_ALL_TSO
+-		| NETIF_F_UFO
++		| NETIF_F_GSO_SOFTWARE
+ 		| NETIF_F_HW_CSUM
+ 		| NETIF_F_RXCSUM
+ 		| NETIF_F_SCTP_CRC
+-- 
+2.5.5
