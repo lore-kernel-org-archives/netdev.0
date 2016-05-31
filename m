@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: fix qed_fill_link() error handling
-Date: Tue, 31 May 2016 14:20:46 -0700 (PDT)
-Message-ID: <20160531.142046.2026659803711147043.davem@davemloft.net>
-References: <1464623197-2084229-1-git-send-email-arnd@arndb.de>
-	<CO2PR11MB00881A57063B9AB617359A9097450@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Update on XDP
+Date: Tue, 31 May 2016 14:22:08 -0700
+Message-ID: <CALx6S37q7RFJgLtKDNB6EuOBZaVJ03-Lp8eEZBRcgvJgBbyNVA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, manish.chopra@qlogic.com,
-	Sudarsana.Kalluru@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CO2PR11MB00881A57063B9AB617359A9097450@CO2PR11MB0088.namprd11.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34319 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652AbcEaVWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 17:22:09 -0400
+Received: by mail-io0-f193.google.com with SMTP id l9so499910ioe.1
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 14:22:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Mon, 30 May 2016 16:24:07 +0000
+Hello netdev,
 
->> +	if (IS_ENABLED(CONFIG_QED_SRIOV) && !IS_PF(hwfn->cdev)) {
->> +		qed_vf_get_link_params(hwfn, params);
->> +		qed_vf_get_link_state(hwfn, link);
->> +		qed_vf_get_link_caps(hwfn, link_caps);
->> +
->> +		return 0;
->> +	}
-> 
-> The IS_ENABLED here seems a bit wasteful to me - we have empty implementation
-> under qed_vf.h just for this case [I.e., that SRIOV isn't enabled for qed].
-> If all we're trying achieve is removing these gcc warnings, I think we can simply
-> memset the structs in the currently-empty qed_vf_get_link_* functions.
+XDP (eXpress Data Path) is a high performance, programmable network
+data path that is being developed as a community effort (initially
+within IO-visor). XDP will be useful for packet processing in
+forwarding, load balancing, DOS mitigation, firewalls, etc. See
+https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
+for a description.
 
-I think both solutions are equally valid/elegant.
+To achieve high performance, XDP runs as a thin layer at this lowest
+levels of the stack with minimal infrastructure. For instance, in
+Linux, XDP runs directly of the device drivers and operates directly
+on receive buffers and an abstracted receive descriptor instead of
+skbufs. XDP does not require specialized hardware, but does allow
+leveraging various advanced HW features.
 
-Arnd?
+Programmability in XDP is provided by BPF,  a small set of helper
+functions, and a well defined input-output API. XDP is intended to be
+platform agnostic following the principle of "write once, run
+anywhere", so we are expecting that XDP programs can run in the OS
+(Linux and others), HW (via offload), or in userspace (over DPDK for
+instance).
+
+We have made some good progress in the Linux implementation and are
+able to demonstrate single CPU packet drop performance in excess of
+14M pps, and packet forwarding in excess of 10M pps. Work on real
+world use cases is commencing-- L4 load balancer, DOS mitigation, and
+an ILA router. We hope to have patches posted and a more detailed
+introduction of XDP for netdev 1.2.
+
+If you are interested in XDP development and discussion please join
+the iovisor-dev mailing list. Also, we will be holding an XDP summit
+on June 23-- if you are actively working on XDP right now, or believe
+that work on XDP is imminent, please contact me about an invitation.
+
+Thanks,
+Tom
