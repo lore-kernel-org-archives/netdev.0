@@ -1,41 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] sctp: sctp_diag should dump sctp socket type
-Date: Tue, 31 May 2016 11:59:34 -0700 (PDT)
-Message-ID: <20160531.115934.448180712677695713.davem@davemloft.net>
-References: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next 3/5] bridge: add json support for
+ bridge fdb show
+Date: Tue, 31 May 2016 11:59:55 -0700
+Message-ID: <20160531115955.4a45ff67@xeon-e3>
+References: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net, phil@nwl.cc
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, anuradhak@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, julien@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36705 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750997AbcEaS7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:59:36 -0400
-In-Reply-To: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34146 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751857AbcEaS7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:59:42 -0400
+Received: by mail-pa0-f43.google.com with SMTP id bz2so44368245pad.1
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 11:59:41 -0700 (PDT)
+In-Reply-To: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun, 29 May 2016 17:42:13 +0800
+On Fri, 27 May 2016 21:37:14 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-> Now we cannot distinguish that one sk is a udp or sctp style when
-> we use ss to dump sctp_info. it's necessary to dump it as well.
-> 
-> For sctp_diag, ss support is not officially available, thus there
-> are no official users of this yet, so we can add this field in the
-> middle of sctp_info without breaking user API.
-> 
-> v1->v2:
->   - move 'sctpi_s_type' field to the end of struct sctp_info, so
->     that it won't cause incompatibility with applications already
->     built.
->   - add __reserved3 in sctp_info to make sure sctp_info is 8-byte
->     alignment.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Sample output:
+> $bridge -j fdb show
+> [{
+>         "mac": "44:38:39:00:69:88",
+>         "dev": "swp2s0",
+>         "vlan": 2,
+>         "master": "br0",
+>         "state": "permanent"
+>     },{
+>         "mac": "00:02:00:00:00:01",
+>         "dev": "swp2s0",
+>         "vlan": 2,
+>         "master": "br0"
+>     },{
+>         "mac": "00:02:00:00:00:02",
+>         "dev": "swp2s1",
+>         "vlan": 2,
+>         "master": "br0"
+>     },{
+>         "mac": "44:38:39:00:69:89",
+>         "dev": "swp2s1",
+>         "master": "br0",
+>         "state": "permanent"
+>     },{
+>         "mac": "44:38:39:00:69:89",
+>         "dev": "swp2s1",
+>         "vlan": 2,
+>         "master": "br0",
+>         "state": "permanent"
+>     },{
+>         "mac": "44:38:39:00:69:88",
+>         "dev": "br0",
+>         "master": "br0",
+>         "state": "permanent"
+>     }
+>     ]
 
-Applied.
+In most JSON I have seen, the output would be:
+
+{
+  "fdb" : [
+     {
+         "mac": "44:38:39:00:69:88",
+         "dev": "swp2s0",
+         "vlan": 2,
+         "master": "br0",
+         "state": "permanent"
+     },
+...
+   ]
+}
+
+I.e never a bare array.
