@@ -1,30 +1,72 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] vxlan: Accept user specified MTU value when create new
- vxlan link
-Date: Mon, 30 May 2016 20:27:48 -0700
-Message-ID: <CAM_iQpWbEFetqtn8f_eZjvyRdmTEcHPF4Fs-ZRgeNd0HykjUAQ@mail.gmail.com>
-References: <1464317351-22316-1-git-send-email-oc@yunify.com>
- <CAM_iQpULCyju9vor74ygcv5FcqFeoq9KthRuCYfo4=tF0ieHrg@mail.gmail.com> <5749B7B4.60600@yunify.com>
+From: Yunjian Wang <wangyunjian@huawei.com>
+Subject: [PATCH net v3] virtio_net: fix virtnet_open and virtnet_probe competing for try_fill_recv
+Date: Tue, 31 May 2016 11:52:43 +0800
+Message-ID: <1464666763-12136-1-git-send-email-wangyunjian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: oc <oc@yunify.com>
+Content-Type: text/plain
+Cc: <liuyongan@huawei.com>, Yunjian Wang <wangyunjian@huawei.com>
+To: <davem@davemloft.net>, <jasowang@redhat.com>, <mst@redhat.com>,
+	<rusty@rustcorp.com.au>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:33360 "EHLO
-	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161420AbcEaD2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 23:28:08 -0400
-Received: by mail-yw0-f196.google.com with SMTP id y6so17138585ywe.0
-        for <netdev@vger.kernel.org>; Mon, 30 May 2016 20:28:08 -0700 (PDT)
-In-Reply-To: <5749B7B4.60600@yunify.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:16124 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161792AbcEaDxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 23:53:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 28, 2016 at 8:22 AM, oc <oc@yunify.com> wrote:
-> 1. vxlan_dev_configure function check conf->mtu to determine if it need to
-> change value of dev->mtu.
-> The logical looks better to get conf->mtu from IFLA_MTU directly.
+In function virtnet_open() and virtnet_probe(), func try_fill_recv() may
+be executed at the same time. VQ in virtqueue_add() has not been protected
+well and BUG_ON will be triggered when virito_net.ko being removed.
 
-Fair enough,
+Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
+Acked-by: Jason Wang <jasowang@redhat.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 18 ++----------------
+ 1 file changed, 2 insertions(+), 16 deletions(-)
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 49d84e5..e0638e5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1925,24 +1925,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 
+ 	virtio_device_ready(vdev);
+ 
+-	/* Last of all, set up some receive buffers. */
+-	for (i = 0; i < vi->curr_queue_pairs; i++) {
+-		try_fill_recv(vi, &vi->rq[i], GFP_KERNEL);
+-
+-		/* If we didn't even get one input buffer, we're useless. */
+-		if (vi->rq[i].vq->num_free ==
+-		    virtqueue_get_vring_size(vi->rq[i].vq)) {
+-			free_unused_bufs(vi);
+-			err = -ENOMEM;
+-			goto free_recv_bufs;
+-		}
+-	}
+-
+ 	vi->nb.notifier_call = &virtnet_cpu_callback;
+ 	err = register_hotcpu_notifier(&vi->nb);
+ 	if (err) {
+ 		pr_debug("virtio_net: registering cpu notifier failed\n");
+-		goto free_recv_bufs;
++		goto free_unregister_netdev;
+ 	}
+ 
+ 	/* Assume link up if device can't report link status,
+@@ -1960,10 +1947,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 
+ 	return 0;
+ 
+-free_recv_bufs:
++free_unregister_netdev:
+ 	vi->vdev->config->reset(vdev);
+ 
+-	free_receive_bufs(vi);
+ 	unregister_netdev(dev);
+ free_vqs:
+ 	cancel_delayed_work_sync(&vi->refill);
+-- 
+1.7.12.4
