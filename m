@@ -1,194 +1,56 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH v2 net] sfc: Track RPS flow IDs per channel instead of per
- function
-Date: Tue, 31 May 2016 19:12:32 +0100
-Message-ID: <574DD410.1070209@solarflare.com>
+From: "George G. Davis" <george_davis@mentor.com>
+Subject: Re: [PATCH] net: fec: dt: convert phy-reset-gpios to use GPIOD API
+Date: Tue, 31 May 2016 14:24:50 -0400
+Message-ID: <20160531182450.GA20696@gandalf.middle.earth.net>
+References: <1464715071-56012-1-git-send-email-george_davis@mentor.com>
+ <CAOMZO5C7nMsV6LtjtO7AZdj8H4248YBr-DYMQ77z-h9rJhURbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:2469 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755658AbcEaSND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:13:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Fugang Duan <fugang.duan@nxp.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Shawn Guo <shawnguo@kernel.org>,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Russell King <linux@armlinux.org.uk>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <gnurou@gmail.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAOMZO5C7nMsV6LtjtO7AZdj8H4248YBr-DYMQ77z-h9rJhURbg@mail.gmail.com>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Cooper <jcooper@solarflare.com>
+Hello Fabio,
 
-Otherwise we get confused when two flows on different channels get the
- same flow ID.
+On Tue, May 31, 2016 at 02:26:54PM -0300, Fabio Estevam wrote:
+> On Tue, May 31, 2016 at 2:17 PM, George G. Davis
+> <george_davis@mentor.com> wrote:
+> > Convert the i.MX FEC driver and DT files to use the GPIOD API
+> > which automatically handles GPIO polarity.
+> >
+> > Signed-off-by: George G. Davis <george_davis@mentor.com>
+> 
+> In order to avoid breaking old dtb's a property called
+> 'phy-reset-active-high' has been introduced.
+> 
+> Check: 962d8cdc3133435a ("net: fec: Rename "phy-reset-active-low"
+> property") and 64f10f6ebf5a6d3ae ("net: fec: Add
+> "phy-reset-active-low" property to DT").
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c        | 32 +++++++++++++++++++++++++++-----
- drivers/net/ethernet/sfc/net_driver.h | 12 ++++++++----
- drivers/net/ethernet/sfc/rx.c         | 29 +++++++++++++++++++++--------
- 3 files changed, 56 insertions(+), 17 deletions(-)
+The GPIOD API handles GPIO active assertion levels as defined by the 
+DT binding. So the phy-reset-active-high and/or phy-reset-active-low
+property is not needed when using the GPIOD API - just define
+GPIO_ACTIVE_LOW or GPIO_ACTIVE_HIGH as required for the board and the
+GPIOD API will handle active assert/deassert level as needed.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 0705ec86..097f363 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1726,14 +1726,33 @@ static int efx_probe_filters(struct efx_nic *efx)
- 
- #ifdef CONFIG_RFS_ACCEL
- 	if (efx->type->offload_features & NETIF_F_NTUPLE) {
--		efx->rps_flow_id = kcalloc(efx->type->max_rx_ip_filters,
--					   sizeof(*efx->rps_flow_id),
--					   GFP_KERNEL);
--		if (!efx->rps_flow_id) {
-+		struct efx_channel *channel;
-+		int i, success = 1;
-+
-+		efx_for_each_channel(channel, efx) {
-+			channel->rps_flow_id =
-+				kcalloc(efx->type->max_rx_ip_filters,
-+					sizeof(*channel->rps_flow_id),
-+					GFP_KERNEL);
-+			if (!channel->rps_flow_id)
-+				success = 0;
-+			else
-+				for (i = 0;
-+				     i < efx->type->max_rx_ip_filters;
-+				     ++i)
-+					channel->rps_flow_id[i] =
-+						RPS_FLOW_ID_INVALID;
-+		}
-+
-+		if (!success) {
-+			efx_for_each_channel(channel, efx)
-+				kfree(channel->rps_flow_id);
- 			efx->type->filter_table_remove(efx);
- 			rc = -ENOMEM;
- 			goto out_unlock;
- 		}
-+
-+		efx->rps_expire_index = efx->rps_expire_channel = 0;
- 	}
- #endif
- out_unlock:
-@@ -1744,7 +1763,10 @@ out_unlock:
- static void efx_remove_filters(struct efx_nic *efx)
- {
- #ifdef CONFIG_RFS_ACCEL
--	kfree(efx->rps_flow_id);
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel(channel, efx)
-+		kfree(channel->rps_flow_id);
- #endif
- 	down_write(&efx->filter_sem);
- 	efx->type->filter_table_remove(efx);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 38c4223..d13ddf9 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -403,6 +403,8 @@ enum efx_sync_events_state {
-  * @event_test_cpu: Last CPU to handle interrupt or test event for this channel
-  * @irq_count: Number of IRQs since last adaptive moderation decision
-  * @irq_mod_score: IRQ moderation score
-+ * @rps_flow_id: Flow IDs of filters allocated for accelerated RFS,
-+ *      indexed by filter ID
-  * @n_rx_tobe_disc: Count of RX_TOBE_DISC errors
-  * @n_rx_ip_hdr_chksum_err: Count of RX IP header checksum errors
-  * @n_rx_tcp_udp_chksum_err: Count of RX TCP and UDP checksum errors
-@@ -446,6 +448,8 @@ struct efx_channel {
- 	unsigned int irq_mod_score;
- #ifdef CONFIG_RFS_ACCEL
- 	unsigned int rfs_filters_added;
-+#define RPS_FLOW_ID_INVALID 0xFFFFFFFF
-+	u32 *rps_flow_id;
- #endif
- 
- 	unsigned n_rx_tobe_disc;
-@@ -889,9 +893,9 @@ struct vfdi_status;
-  * @filter_sem: Filter table rw_semaphore, for freeing the table
-  * @filter_lock: Filter table lock, for mere content changes
-  * @filter_state: Architecture-dependent filter table state
-- * @rps_flow_id: Flow IDs of filters allocated for accelerated RFS,
-- *	indexed by filter ID
-- * @rps_expire_index: Next index to check for expiry in @rps_flow_id
-+ * @rps_expire_channel: Next channel to check for expiry
-+ * @rps_expire_index: Next index to check for expiry in
-+ *	@rps_expire_channel's @rps_flow_id
-  * @active_queues: Count of RX and TX queues that haven't been flushed and drained.
-  * @rxq_flush_pending: Count of number of receive queues that need to be flushed.
-  *	Decremented when the efx_flush_rx_queue() is called.
-@@ -1035,7 +1039,7 @@ struct efx_nic {
- 	spinlock_t filter_lock;
- 	void *filter_state;
- #ifdef CONFIG_RFS_ACCEL
--	u32 *rps_flow_id;
-+	unsigned int rps_expire_channel;
- 	unsigned int rps_expire_index;
- #endif
- 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 9d6cc8b..02b0b527 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -845,6 +845,9 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 	struct flow_keys fk;
- 	int rc;
- 
-+	if (flow_id == RPS_FLOW_ID_INVALID)
-+		return -EINVAL;
-+
- 	if (!skb_flow_dissect_flow_keys(skb, &fk, 0))
- 		return -EPROTONOSUPPORT;
- 
-@@ -879,8 +882,8 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 		return rc;
- 
- 	/* Remember this so we can check whether to expire the filter later */
--	efx->rps_flow_id[rc] = flow_id;
--	channel = efx_get_channel(efx, skb_get_rx_queue(skb));
-+	channel = efx_get_channel(efx, rxq_index);
-+	channel->rps_flow_id[rc] = flow_id;
- 	++channel->rfs_filters_added;
- 
- 	if (spec.ether_type == htons(ETH_P_IP))
-@@ -902,24 +905,34 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- bool __efx_filter_rfs_expire(struct efx_nic *efx, unsigned int quota)
- {
- 	bool (*expire_one)(struct efx_nic *efx, u32 flow_id, unsigned int index);
--	unsigned int index, size;
-+	unsigned int channel_idx, index, size;
- 	u32 flow_id;
- 
- 	if (!spin_trylock_bh(&efx->filter_lock))
- 		return false;
- 
- 	expire_one = efx->type->filter_rfs_expire_one;
-+	channel_idx = efx->rps_expire_channel;
- 	index = efx->rps_expire_index;
- 	size = efx->type->max_rx_ip_filters;
- 	while (quota--) {
--		flow_id = efx->rps_flow_id[index];
--		if (expire_one(efx, flow_id, index))
-+		struct efx_channel *channel = efx_get_channel(efx, channel_idx);
-+		flow_id = channel->rps_flow_id[index];
-+
-+		if (flow_id != RPS_FLOW_ID_INVALID &&
-+		    expire_one(efx, flow_id, index)) {
- 			netif_info(efx, rx_status, efx->net_dev,
--				   "expired filter %d [flow %u]\n",
--				   index, flow_id);
--		if (++index == size)
-+				   "expired filter %d [queue %u flow %u]\n",
-+				   index, channel_idx, flow_id);
-+			channel->rps_flow_id[index] = RPS_FLOW_ID_INVALID;
-+		}
-+		if (++index == size) {
-+			if (++channel_idx == efx->n_channels)
-+				channel_idx = 0;
- 			index = 0;
-+		}
- 	}
-+	efx->rps_expire_channel = channel_idx;
- 	efx->rps_expire_index = index;
- 
- 	spin_unlock_bh(&efx->filter_lock);
+-- 
+Regards,
+George
