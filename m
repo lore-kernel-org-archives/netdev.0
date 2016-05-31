@@ -1,104 +1,97 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2 4/7] skbuff: introduce skb_gso_validate_mtu
-Date: Tue, 31 May 2016 12:07:54 -0700
-Message-ID: <CAKgT0UfZceZ9UuzWEYVsNUSSybv514mAaN+e_3AxsQO0K2bMMw@mail.gmail.com>
-References: <cover.1464718103.git.marcelo.leitner@gmail.com>
-	<e88d8905cf03bac8995be6d722f8b5abfc7afcc5.1464718103.git.marcelo.leitner@gmail.com>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next 3/5] bridge: add json support for bridge
+ fdb show
+Date: Tue, 31 May 2016 12:22:36 -0700
+Message-ID: <CACcJQnT6i-zcJrVeow4TWRU7q5pLeo+JBo38LK9Ptjj=G7O3Mw@mail.gmail.com>
+References: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com> <20160531115955.4a45ff67@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Xin Long <lucien.xin@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Laight <David.Laight@aculab.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	julien@cumulusnetworks.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35676 "EHLO
-	mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755908AbcEaTHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 15:07:55 -0400
-In-Reply-To: <e88d8905cf03bac8995be6d722f8b5abfc7afcc5.1464718103.git.marcelo.leitner@gmail.com>
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:34527 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbcEaTXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 15:23:16 -0400
+Received: by mail-qg0-f51.google.com with SMTP id p34so27067964qgp.1
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 12:23:16 -0700 (PDT)
+In-Reply-To: <20160531115955.4a45ff67@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 31, 2016 at 11:55 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> skb_gso_network_seglen is not enough for checking fragment sizes if
-> skb is using GSO_BY_FRAGS as we have to check frag per frag.
+On Tue, May 31, 2016 at 11:59 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Fri, 27 May 2016 21:37:14 -0700
+> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 >
-> This patch introduces skb_gso_validate_mtu, based on the former, which
-> will wrap the use case inside it as all calls to skb_gso_network_seglen
-> were to validate if it fits on a given TMU, and improve the check.
+>> Sample output:
+>> $bridge -j fdb show
+>> [{
+>>         "mac": "44:38:39:00:69:88",
+>>         "dev": "swp2s0",
+>>         "vlan": 2,
+>>         "master": "br0",
+>>         "state": "permanent"
+>>     },{
+>>         "mac": "00:02:00:00:00:01",
+>>         "dev": "swp2s0",
+>>         "vlan": 2,
+>>         "master": "br0"
+>>     },{
+>>         "mac": "00:02:00:00:00:02",
+>>         "dev": "swp2s1",
+>>         "vlan": 2,
+>>         "master": "br0"
+>>     },{
+>>         "mac": "44:38:39:00:69:89",
+>>         "dev": "swp2s1",
+>>         "master": "br0",
+>>         "state": "permanent"
+>>     },{
+>>         "mac": "44:38:39:00:69:89",
+>>         "dev": "swp2s1",
+>>         "vlan": 2,
+>>         "master": "br0",
+>>         "state": "permanent"
+>>     },{
+>>         "mac": "44:38:39:00:69:88",
+>>         "dev": "br0",
+>>         "master": "br0",
+>>         "state": "permanent"
+>>     }
+>>     ]
 >
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Tested-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  include/linux/skbuff.h |  1 +
->  net/core/skbuff.c      | 31 +++++++++++++++++++++++++++++++
->  net/ipv4/ip_forward.c  |  2 +-
->  net/ipv4/ip_output.c   |  2 +-
->  net/ipv6/ip6_output.c  |  2 +-
->  net/mpls/af_mpls.c     |  2 +-
->  6 files changed, 36 insertions(+), 4 deletions(-)
+> In most JSON I have seen, the output would be:
 >
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 1f713541cb2fc232cb0e8417232cb9942409c9fc..2109c2dc9767d454b2cd08696af039b6bcd1ace7 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2992,6 +2992,7 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
->  int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
->  void skb_scrub_packet(struct sk_buff *skb, bool xnet);
->  unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
-> +bool skb_gso_validate_mtu(const struct sk_buff *skb, unsigned int mtu);
->  struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
->  struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
->  int skb_ensure_writable(struct sk_buff *skb, int write_len);
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 97c32c75e704af1f31b064e8f1e0475ff1505d67..5ca562b56ec39d39e1225d96547e242732518ffe 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4392,6 +4392,37 @@ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
->  }
->  EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+> {
+>   "fdb" : [
+>      {
+>          "mac": "44:38:39:00:69:88",
+>          "dev": "swp2s0",
+>          "vlan": 2,
+>          "master": "br0",
+>          "state": "permanent"
+>      },
+> ...
+>    ]
+> }
 >
-> +/**
-> + * skb_gso_validate_mtu - Return in case such skb fits a given MTU
-> + *
-> + * @skb: GSO skb
-> + *
-> + * skb_gso_validate_mtu validates if a given skb will fit a wanted MTU
-> + * once split.
-> + */
-> +bool skb_gso_validate_mtu(const struct sk_buff *skb, unsigned int mtu)
-> +{
-> +       const struct skb_shared_info *shinfo = skb_shinfo(skb);
-> +       const struct sk_buff *iter;
-> +       unsigned int hlen;
-> +
-> +       hlen = skb_gso_network_seglen(skb);
-> +
-> +       if (shinfo->gso_size != GSO_BY_FRAGS)
-> +               return hlen <= mtu;
-> +
-> +       /* Undo this so we can re-use header sizes */
-> +       hlen -= GSO_BY_FRAGS;
+> I.e never a bare array.
+>
+Yes Stephen, Adding an extra level would be one way to force the
+format to json-object. And that would definitely be the way to do it
+if we ever added a top level json dump - something like - "bridge -j
+show".
 
-Isn't this just "hlen = 0"?  If so you could probably just remove this
-line and the references to hlen below and instead just loop through
-verifying skb_headlen() instead of adding a value that should be 0.
+But in the case of "bridge -j fdb show" that level is redundant. To be
+consistent we would have to add that extra level to all json dumps
+(even if they were already objects; such as the "bridge -j vlan
+show").The google json style guide recommends against adding hierarchy
+unless needed. And it is not that uncommon in java to have a
+json-array of objects for e.g. http://json-schema.org/example1.html
+talks about a schema that is an "array of products".
 
-> +       skb_walk_frags(skb, iter) {
-> +               if (hlen + skb_headlen(iter) > mtu)
-> +                       return false;
-> +       }
-> +
-> +       return true;
-> +}
-> +EXPORT_SYMBOL_GPL(skb_gso_validate_mtu);
-> +
->  static struct sk_buff *skb_reorder_vlan_header(struct sk_buff *skb)
->  {
->         if (skb_cow(skb, skb_headroom(skb)) < 0) {
+What do you recommend?
