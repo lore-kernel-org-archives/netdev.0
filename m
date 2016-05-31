@@ -1,97 +1,46 @@
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 net-next 3/5] bridge: add json support for bridge
- fdb show
-Date: Tue, 31 May 2016 12:22:36 -0700
-Message-ID: <CACcJQnT6i-zcJrVeow4TWRU7q5pLeo+JBo38LK9Ptjj=G7O3Mw@mail.gmail.com>
-References: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com> <20160531115955.4a45ff67@xeon-e3>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net v2] openvswitch: update checksum in {push,pop}_mpls
+Date: Tue, 31 May 2016 12:28:48 -0700
+Message-ID: <CAOrHB_Ce91ue5HP+eqJGkLPNKRe10JXKXxs7=nshi36b7iCNdw@mail.gmail.com>
+References: <1464584665-8512-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	julien@cumulusnetworks.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f51.google.com ([209.85.192.51]:34527 "EHLO
-	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750813AbcEaTXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 15:23:16 -0400
-Received: by mail-qg0-f51.google.com with SMTP id p34so27067964qgp.1
-        for <netdev@vger.kernel.org>; Tue, 31 May 2016 12:23:16 -0700 (PDT)
-In-Reply-To: <20160531115955.4a45ff67@xeon-e3>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:56283 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752045AbcEaT2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 15:28:53 -0400
+Received: from mfilter41-d.gandi.net (mfilter41-d.gandi.net [217.70.178.173])
+	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 46AA61720AC
+	for <netdev@vger.kernel.org>; Tue, 31 May 2016 21:28:51 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+	by mfilter41-d.gandi.net (mfilter41-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id EXlzfx-TF9pI for <netdev@vger.kernel.org>;
+	Tue, 31 May 2016 21:28:50 +0200 (CEST)
+Received: from mail-io0-f171.google.com (mail-io0-f171.google.com [209.85.223.171])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id EB90A172097
+	for <netdev@vger.kernel.org>; Tue, 31 May 2016 21:28:49 +0200 (CEST)
+Received: by mail-io0-f171.google.com with SMTP id t40so935753ioi.0
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 12:28:49 -0700 (PDT)
+In-Reply-To: <1464584665-8512-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 31, 2016 at 11:59 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Fri, 27 May 2016 21:37:14 -0700
-> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+On Sun, May 29, 2016 at 10:04 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> In the case of CHECKSUM_COMPLETE the skb checksum should be updated in
+> {push,pop}_mpls() as they the type in the ethernet header.
 >
->> Sample output:
->> $bridge -j fdb show
->> [{
->>         "mac": "44:38:39:00:69:88",
->>         "dev": "swp2s0",
->>         "vlan": 2,
->>         "master": "br0",
->>         "state": "permanent"
->>     },{
->>         "mac": "00:02:00:00:00:01",
->>         "dev": "swp2s0",
->>         "vlan": 2,
->>         "master": "br0"
->>     },{
->>         "mac": "00:02:00:00:00:02",
->>         "dev": "swp2s1",
->>         "vlan": 2,
->>         "master": "br0"
->>     },{
->>         "mac": "44:38:39:00:69:89",
->>         "dev": "swp2s1",
->>         "master": "br0",
->>         "state": "permanent"
->>     },{
->>         "mac": "44:38:39:00:69:89",
->>         "dev": "swp2s1",
->>         "vlan": 2,
->>         "master": "br0",
->>         "state": "permanent"
->>     },{
->>         "mac": "44:38:39:00:69:88",
->>         "dev": "br0",
->>         "master": "br0",
->>         "state": "permanent"
->>     }
->>     ]
+> As suggested by Pravin Shelar.
 >
-> In most JSON I have seen, the output would be:
->
-> {
->   "fdb" : [
->      {
->          "mac": "44:38:39:00:69:88",
->          "dev": "swp2s0",
->          "vlan": 2,
->          "master": "br0",
->          "state": "permanent"
->      },
-> ...
->    ]
-> }
->
-> I.e never a bare array.
->
-Yes Stephen, Adding an extra level would be one way to force the
-format to json-object. And that would definitely be the way to do it
-if we ever added a top level json dump - something like - "bridge -j
-show".
+> Cc: Pravin Shelar <pshelar@nicira.com>
+> Fixes: 25cd9ba0abc0 ("openvswitch: Add basic MPLS support to kernel")
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-But in the case of "bridge -j fdb show" that level is redundant. To be
-consistent we would have to add that extra level to all json dumps
-(even if they were already objects; such as the "bridge -j vlan
-show").The google json style guide recommends against adding hierarchy
-unless needed. And it is not that uncommon in java to have a
-json-array of objects for e.g. http://json-schema.org/example1.html
-talks about a schema that is an "array of products".
+Looks good to me.
 
-What do you recommend?
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
