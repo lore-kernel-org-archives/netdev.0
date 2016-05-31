@@ -1,70 +1,42 @@
-From: "George G. Davis" <george_davis@mentor.com>
-Subject: Re: [PATCH] net: fec: dt: convert phy-reset-gpios to use GPIOD API
-Date: Tue, 31 May 2016 14:33:01 -0400
-Message-ID: <20160531183301.GA56552@gandalf.middle.earth.net>
-References: <1464715071-56012-1-git-send-email-george_davis@mentor.com>
- <CAOMZO5C7nMsV6LtjtO7AZdj8H4248YBr-DYMQ77z-h9rJhURbg@mail.gmail.com>
- <20160531182450.GA20696@gandalf.middle.earth.net>
- <20160531182642.GY19428@n2100.arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
+ set.
+Date: Tue, 31 May 2016 11:39:13 -0700 (PDT)
+Message-ID: <20160531.113913.1477085966766110028.davem@davemloft.net>
+References: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Fabio Estevam <festevam@gmail.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fugang Duan <fugang.duan@nxp.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Shawn Guo <shawnguo@kernel.org>,
-	Sascha Hauer <kernel@pengutronix.de>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Alexandre Courbot <gnurou@gmail.com>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160531182642.GY19428@n2100.arm.linux.org.uk>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: alan.davey@metaswitch.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36494 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750997AbcEaSjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:39:17 -0400
+In-Reply-To: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Russell,
+From: Alan Davey <alan.davey@metaswitch.com>
+Date: Mon, 23 May 2016 15:23:45 +0100
 
-On Tue, May 31, 2016 at 07:26:42PM +0100, Russell King - ARM Linux wrote:
-> On Tue, May 31, 2016 at 02:24:50PM -0400, George G. Davis wrote:
-> > Hello Fabio,
-> > 
-> > On Tue, May 31, 2016 at 02:26:54PM -0300, Fabio Estevam wrote:
-> > > On Tue, May 31, 2016 at 2:17 PM, George G. Davis
-> > > <george_davis@mentor.com> wrote:
-> > > > Convert the i.MX FEC driver and DT files to use the GPIOD API
-> > > > which automatically handles GPIO polarity.
-> > > >
-> > > > Signed-off-by: George G. Davis <george_davis@mentor.com>
-> > > 
-> > > In order to avoid breaking old dtb's a property called
-> > > 'phy-reset-active-high' has been introduced.
-> > > 
-> > > Check: 962d8cdc3133435a ("net: fec: Rename "phy-reset-active-low"
-> > > property") and 64f10f6ebf5a6d3ae ("net: fec: Add
-> > > "phy-reset-active-low" property to DT").
-> > 
-> > The GPIOD API handles GPIO active assertion levels as defined by the 
-> > DT binding. So the phy-reset-active-high and/or phy-reset-active-low
-> > property is not needed when using the GPIOD API - just define
-> > GPIO_ACTIVE_LOW or GPIO_ACTIVE_HIGH as required for the board and the
-> > GPIOD API will handle active assert/deassert level as needed.
+> One of the bugs documented in the raw(7) man page is as follows: When the
+> IP_HDRINCL option is set, datagrams will not be fragmented and are limited to
+> the interface MTU.
 > 
-> You must retain compatibility with _existing_ DT files.  Hence,
-> while you can convert to using the gpiod API, you still need to
-> be compatible with the old way of specifying this - iow, you must
-> support the old properties in the code.
+> This patch fixes the bug by removing the check for "length > rt->dst.dev->mtu"
+> in raw_send_hdrinc() (net/ipv4/raw.c).  Datagrams are no longer limited to the
+> interface MTU size if the IP_HDRINCL option is set, but are fragmented, if
+> necessary, in the same way as all other datagrams.
+> 
+> Signed-off-by: Alan Davey <alan.davey@metaswitch.com>
 
-Sigh, thanks for the ClueBat. Got it. I'll rework the patch to retain
-compatibility with existing DT files.
+This is not a bug, it's a feature and it's how RAW ipv4 sockets have behaved
+for two decades.
 
--- 
-Regards,
-George
+If the user wants to use hdr inclusion, he can send multiple frames and set
+the fragmentation bits appropriately.
+
+I'm not applying this patch.
