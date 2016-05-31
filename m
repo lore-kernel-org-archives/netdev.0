@@ -1,55 +1,116 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v5 0/2] skb_array: array based FIFO for skbs
-Date: Tue, 31 May 2016 10:29:23 +0800
-Message-ID: <574CF703.9030200@redhat.com>
-References: <1464000201-15560-1-git-send-email-mst@redhat.com>
- <574C0F05.1040500@redhat.com> <20160530183455-mutt-send-email-mst@redhat.com>
+Subject: Re: [PATCH V2 1/2] vhost_net: stop polling socket during rx processing
+Date: Tue, 31 May 2016 11:14:10 +0800
+Message-ID: <574D0182.9020701@redhat.com>
+References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
+	<1464590874-39539-2-git-send-email-jasowang@redhat.com>
+	<20160530184211-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	brouer@redhat.com
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160530183455-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160530184211-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2016=E5=B9=B405=E6=9C=8830=E6=97=A5 23:37, Michael S. Tsirkin wrote:
-> On Mon, May 30, 2016 at 05:59:33PM +0800, Jason Wang wrote:
->>
->> On 2016=E5=B9=B405=E6=9C=8823=E6=97=A5 18:43, Michael S. Tsirkin wro=
-te:
->>> This is in response to the proposal by Jason to make tun
->>> rx packet queue lockless using a circular buffer.
->>> My testing seems to show that at least for the common usecase
->>> in networking, which isn't lockless, circular buffer
->>> with indices does not perform that well, because
->>> each index access causes a cache line to bounce between
->>> CPUs, and index access causes stalls due to the dependency.
->> I change tun to use skb array, looks like it can give about 5% more =
-faster
->> than skb ring.
-> OK and skb ring is 9% faster than the linked list, so together
-> this is a 14% speedup?
-
-Right.
-
->
->> And we usually don't need touch bhs during consume and produce (e.g =
-for the
->> case of tun).
->>
->> Thanks
-> Maybe I'll drop it in v6 then ...
-> Could you post the full tun patchset please?
->
-
-Since it needs no bh versions of produce/consume, maybe you can post v6=
-=20
-first, then I can post the tun patches?
+CgpPbiAyMDE25bm0MDXmnIgzMOaXpSAyMzo0NywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIE1vbiwgTWF5IDMwLCAyMDE2IGF0IDAyOjQ3OjUzQU0gLTA0MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IFdlIGRvbid0IHN0b3AgcnggcG9sbGluZyBzb2NrZXQgZHVyaW5nIHJ4IHByb2Nlc3Np
+bmcsIHRoaXMgd2lsbCBsZWFkCj4+IHVubmVjZXNzYXJ5IHdha2V1cHMgZnJvbSB1bmRlciBsYXll
+ciBuZXQgZGV2aWNlcyAoRS5nCj4+IHNvY2tfZGVmX3JlYWRhYmxlKCkgZm9ybSB0dW4pLiBSeCB3
+aWxsIGJlIHNsb3dlZCBkb3duIGluIHRoaXMKPj4gd2F5LiBUaGlzIHBhdGNoIGF2b2lkcyB0aGlz
+IGJ5IHN0b3AgcG9sbGluZyBzb2NrZXQgZHVyaW5nIHJ4Cj4+IHByb2Nlc3NpbmcuIEEgc21hbGwg
+ZHJhd2JhY2sgaXMgdGhhdCB0aGlzIGludHJvZHVjZXMgc29tZSBvdmVyaGVhZHMgaW4KPj4gbGln
+aHQgbG9hZCBjYXNlIGJlY2F1c2Ugb2YgdGhlIGV4dHJhIHN0YXJ0L3N0b3AgcG9sbGluZywgYnV0
+IHNpbmdsZQo+PiBuZXRwZXJmIFRDUF9SUiBkb2VzIG5vdCBub3RpY2UgYW55IGNoYW5nZS4gSW4g
+YSBzdXBlciBoZWF2eSBsb2FkIGNhc2UsCj4+IGUuZyB1c2luZyBwa3RnZW4gdG8gaW5qZWN0IHBh
+Y2tldCB0byBndWVzdCwgd2UgZ2V0IGFib3V0IH44LjglCj4+IGltcHJvdmVtZW50IG9uIHBwczoK
+Pj4KPj4gYmVmb3JlOiB+MTI0MDAwMCBwa3Qvcwo+PiBhZnRlcjogIH4xMzUwMDAwIHBrdC9zCj4+
+Cj4+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4+IC0t
+LQo+PiAgIGRyaXZlcnMvdmhvc3QvbmV0LmMgfCA1NiArKysrKysrKysrKysrKysrKysrKysrKysr
+KystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+PiAgIDEgZmlsZSBjaGFuZ2VkLCAyOSBpbnNl
+cnRpb25zKCspLCAyNyBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvdmhv
+c3QvbmV0LmMgYi9kcml2ZXJzL3Zob3N0L25ldC5jCj4+IGluZGV4IDEwZmY0OTQuLmU5MTYwM2Ig
+MTAwNjQ0Cj4+IC0tLSBhL2RyaXZlcnMvdmhvc3QvbmV0LmMKPj4gKysrIGIvZHJpdmVycy92aG9z
+dC9uZXQuYwo+PiBAQCAtMzAxLDYgKzMwMSwzMiBAQCBzdGF0aWMgYm9vbCB2aG9zdF9jYW5fYnVz
+eV9wb2xsKHN0cnVjdCB2aG9zdF9kZXYgKmRldiwKPj4gICAJICAgICAgICF2aG9zdF9oYXNfd29y
+ayhkZXYpOwo+PiAgIH0KPj4gICAKPj4gK3N0YXRpYyB2b2lkIHZob3N0X25ldF9kaXNhYmxlX3Zx
+KHN0cnVjdCB2aG9zdF9uZXQgKm4sCj4+ICsJCQkJIHN0cnVjdCB2aG9zdF92aXJ0cXVldWUgKnZx
+KQo+PiArewo+PiArCXN0cnVjdCB2aG9zdF9uZXRfdmlydHF1ZXVlICpudnEgPQo+PiArCQljb250
+YWluZXJfb2YodnEsIHN0cnVjdCB2aG9zdF9uZXRfdmlydHF1ZXVlLCB2cSk7Cj4+ICsJc3RydWN0
+IHZob3N0X3BvbGwgKnBvbGwgPSBuLT5wb2xsICsgKG52cSAtIG4tPnZxcyk7Cj4+ICsJaWYgKCF2
+cS0+cHJpdmF0ZV9kYXRhKQo+PiArCQlyZXR1cm47Cj4+ICsJdmhvc3RfcG9sbF9zdG9wKHBvbGwp
+Owo+PiArfQo+PiArCj4+ICtzdGF0aWMgaW50IHZob3N0X25ldF9lbmFibGVfdnEoc3RydWN0IHZo
+b3N0X25ldCAqbiwKPj4gKwkJCQlzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSkKPj4gK3sKPj4g
+KwlzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSAqbnZxID0KPj4gKwkJY29udGFpbmVyX29mKHZx
+LCBzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSwgdnEpOwo+PiArCXN0cnVjdCB2aG9zdF9wb2xs
+ICpwb2xsID0gbi0+cG9sbCArIChudnEgLSBuLT52cXMpOwo+PiArCXN0cnVjdCBzb2NrZXQgKnNv
+Y2s7Cj4+ICsKPj4gKwlzb2NrID0gdnEtPnByaXZhdGVfZGF0YTsKPj4gKwlpZiAoIXNvY2spCj4+
+ICsJCXJldHVybiAwOwo+PiArCj4+ICsJcmV0dXJuIHZob3N0X3BvbGxfc3RhcnQocG9sbCwgc29j
+ay0+ZmlsZSk7Cj4+ICt9Cj4+ICsKPj4gICBzdGF0aWMgaW50IHZob3N0X25ldF90eF9nZXRfdnFf
+ZGVzYyhzdHJ1Y3Qgdmhvc3RfbmV0ICpuZXQsCj4+ICAgCQkJCSAgICBzdHJ1Y3Qgdmhvc3Rfdmly
+dHF1ZXVlICp2cSwKPj4gICAJCQkJICAgIHN0cnVjdCBpb3ZlYyBpb3ZbXSwgdW5zaWduZWQgaW50
+IGlvdl9zaXplLAo+IEJUVyB3ZSBtaWdodCB3YW50IHRvIHJlbmFtZSB0aGVzZSBmdW5jdGlvbnMs
+IG5hbWUgbm8gbG9uZ2VyCj4gcmVmbGVjdHMgZnVuY3Rpb24gLi4uCgpEbyB5b3UgbWVhbiBhZGRp
+bmcgc29tZXRoaW5nIHJlZmxlY3QgYnVzeSBwb2xsaW5nIGluIHRoZSBuYW1lPyBUaGVuIHRoZSAK
+bmFtZSBtYXkgYmUgdG9vIGxvbmcgb3IgaGF2ZSBzdWdnZXN0aW9uIG9uIHRoZSBuYW1lPwoKPgo+
+Cj4+IEBAIC02MjcsNiArNjUzLDcgQEAgc3RhdGljIHZvaWQgaGFuZGxlX3J4KHN0cnVjdCB2aG9z
+dF9uZXQgKm5ldCkKPj4gICAJaWYgKCFzb2NrKQo+PiAgIAkJZ290byBvdXQ7Cj4+ICAgCXZob3N0
+X2Rpc2FibGVfbm90aWZ5KCZuZXQtPmRldiwgdnEpOwo+PiArCXZob3N0X25ldF9kaXNhYmxlX3Zx
+KG5ldCwgdnEpOwo+PiAgIAo+PiAgIAl2aG9zdF9obGVuID0gbnZxLT52aG9zdF9obGVuOwo+PiAg
+IAlzb2NrX2hsZW4gPSBudnEtPnNvY2tfaGxlbjsKPj4gQEAgLTcxNSw5ICs3NDIsMTAgQEAgc3Rh
+dGljIHZvaWQgaGFuZGxlX3J4KHN0cnVjdCB2aG9zdF9uZXQgKm5ldCkKPj4gICAJCXRvdGFsX2xl
+biArPSB2aG9zdF9sZW47Cj4+ICAgCQlpZiAodW5saWtlbHkodG90YWxfbGVuID49IFZIT1NUX05F
+VF9XRUlHSFQpKSB7Cj4+ICAgCQkJdmhvc3RfcG9sbF9xdWV1ZSgmdnEtPnBvbGwpOwo+PiAtCQkJ
+YnJlYWs7Cj4+ICsJCQlnb3RvIG91dDsKPj4gICAJCX0KPj4gICAJfQo+PiArCXZob3N0X25ldF9l
+bmFibGVfdnEobmV0LCB2cSk7Cj4gT0sgc28gaWYgc29jayBpcyByZWFkYWJsZSBidXQgUlggVlEg
+aXMgZW1wdHksIHRoaXMgd2lsbAo+IGltbWVkaWF0ZWx5IHNjaGVkdWxlIGFub3RoZXIgcm91bmQg
+b2YgaGFuZGxlX3J4IGFuZCBzbyBhZAo+IGluZmluaXR1bSwKPgo+IExvb2tzIGxpa2UgYSBidWcu
+CgpZZXMgaXQgaXMsIHdpbGwgY2hhbmdlIHRoZSBhYm92ZSBoZWFkY291bnQgY2hlY2sgdG86Cgog
+ICAgICAgICAgICAgICAgIC8qIE9LLCBub3cgd2UgbmVlZCB0byBrbm93IGFib3V0IGFkZGVkIGRl
+c2NyaXB0b3JzLiAqLwogICAgICAgICAgICAgICAgIGlmICghaGVhZGNvdW50KSB7CiAgICAgICAg
+ICAgICAgICAgICAgICAgICBpZiAodW5saWtlbHkodmhvc3RfZW5hYmxlX25vdGlmeSgmbmV0LT5k
+ZXYsIHZxKSkpIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLyogVGhleSBoYXZl
+IHNsaXBwZWQgb25lIGluIGFzIHdlIHdlcmUKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICogZG9pbmcgdGhhdDogY2hlY2sgYWdhaW4uICovCnZob3N0X2Rpc2FibGVfbm90aWZ5KCZu
+ZXQtPmRldiwgdnEpOwogICAgICAgICAgICAgICAgIGNvbnRpbnVlOwogICAgICAgICAgICAgICAg
+ICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgICAgICAgLyogTm90aGluZyBuZXc/ICBXYWl0
+IGZvciBldmVudGZkIHRvIHRlbGwgdXMKICAgICAgICAgICAgICAgICAgICAgICAgICAqIHRoZXkg
+cmVmaWxsZWQuICovCiAgICAgICAgICAgICAgICAgICAgICAgICBnb3RvIG91dDsKICAgICAgICAg
+ICAgICAgICB9CgoKPgo+Cj4+ICAgb3V0Ogo+PiAgIAltdXRleF91bmxvY2soJnZxLT5tdXRleCk7
+Cj4+ICAgfQo+PiBAQCAtNzk2LDMyICs4MjQsNiBAQCBzdGF0aWMgaW50IHZob3N0X25ldF9vcGVu
+KHN0cnVjdCBpbm9kZSAqaW5vZGUsIHN0cnVjdCBmaWxlICpmKQo+PiAgIAlyZXR1cm4gMDsKPj4g
+ICB9Cj4+ICAgCj4+IC1zdGF0aWMgdm9pZCB2aG9zdF9uZXRfZGlzYWJsZV92cShzdHJ1Y3Qgdmhv
+c3RfbmV0ICpuLAo+PiAtCQkJCSBzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSkKPj4gLXsKPj4g
+LQlzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSAqbnZxID0KPj4gLQkJY29udGFpbmVyX29mKHZx
+LCBzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSwgdnEpOwo+PiAtCXN0cnVjdCB2aG9zdF9wb2xs
+ICpwb2xsID0gbi0+cG9sbCArIChudnEgLSBuLT52cXMpOwo+PiAtCWlmICghdnEtPnByaXZhdGVf
+ZGF0YSkKPj4gLQkJcmV0dXJuOwo+PiAtCXZob3N0X3BvbGxfc3RvcChwb2xsKTsKPj4gLX0KPj4g
+LQo+PiAtc3RhdGljIGludCB2aG9zdF9uZXRfZW5hYmxlX3ZxKHN0cnVjdCB2aG9zdF9uZXQgKm4s
+Cj4+IC0JCQkJc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAqdnEpCj4+IC17Cj4+IC0Jc3RydWN0IHZo
+b3N0X25ldF92aXJ0cXVldWUgKm52cSA9Cj4+IC0JCWNvbnRhaW5lcl9vZih2cSwgc3RydWN0IHZo
+b3N0X25ldF92aXJ0cXVldWUsIHZxKTsKPj4gLQlzdHJ1Y3Qgdmhvc3RfcG9sbCAqcG9sbCA9IG4t
+PnBvbGwgKyAobnZxIC0gbi0+dnFzKTsKPj4gLQlzdHJ1Y3Qgc29ja2V0ICpzb2NrOwo+PiAtCj4+
+IC0Jc29jayA9IHZxLT5wcml2YXRlX2RhdGE7Cj4+IC0JaWYgKCFzb2NrKQo+PiAtCQlyZXR1cm4g
+MDsKPj4gLQo+PiAtCXJldHVybiB2aG9zdF9wb2xsX3N0YXJ0KHBvbGwsIHNvY2stPmZpbGUpOwo+
+PiAtfQo+PiAtCj4+ICAgc3RhdGljIHN0cnVjdCBzb2NrZXQgKnZob3N0X25ldF9zdG9wX3ZxKHN0
+cnVjdCB2aG9zdF9uZXQgKm4sCj4+ICAgCQkJCQlzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSkK
+Pj4gICB7Cj4+IC0tIAo+PiAxLjguMy4xCj4gLS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMg
+bGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUga3ZtIiBpbgo+IHRoZSBib2R5IG9mIGEg
+bWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5m
+byBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sCgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
+cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
+YXRpb24=
