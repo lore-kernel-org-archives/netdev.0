@@ -1,111 +1,34 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.4 18/86] asix: Fix offset calculation in asix_rx_fixup() causing slow transmissions
-Date: Mon, 30 May 2016 13:49:07 -0700
-Message-ID: <20160530204937.960765272@linuxfoundation.org>
-References: <20160530204937.379068148@linuxfoundation.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/2] macvlan: Avoid unnecessary multicast cloning
+Date: Tue, 31 May 2016 08:49:45 +0800
+Message-ID: <20160531004945.GA11422@gondor.apana.org.au>
+References: <20160526234433.GU8402@wantstofly.org>
+ <20160530081752.GA4956@gondor.apana.org.au>
+ <20160530162759.GD8402@wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, Dean Jenkins <Dean_Jenkins@mentor.com>,
-	"David B. Robins" <linux@davidrobins.net>,
-	Mark Craske <Mark_Craske@mentor.com>,
-	Emil Goode <emilgoode@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	YongQin Liu <yongqin.liu@linaro.org>,
-	Guodong Xu <guodong.xu@linaro.org>,
-	Ivan Vecera <ivecera@redhat.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, John Stultz <john.stultz@linaro.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:52416 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1162119AbcE3UuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 16:50:20 -0400
-In-Reply-To: <20160530204937.379068148@linuxfoundation.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:55302 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161685AbcEaAty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 20:49:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20160530162759.GD8402@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-4.4-stable review patch.  If anyone has any objections, please let me know.
+On Mon, May 30, 2016 at 07:27:59PM +0300, Lennert Buytenhek wrote:
+>
+> That and stack switches to kworker threads and serialisation on
+> the bc_queue queue lock.
 
-------------------
+My patch should resolve these problems too since the packet is
+discarded if nobody is interested in it.
 
-From: John Stultz <john.stultz@linaro.org>
-
-commit cd9e2e5d3ff148be9ea210f622ce3e8e8292fcd6 upstream.
-
-In testing with HiKey, we found that since
-commit 3f30b158eba5 ("asix: On RX avoid creating bad Ethernet
-frames"),
-we're seeing lots of noise during network transfers:
-
-[  239.027993] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
-[  239.037310] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x54ebb5ec, offset 4
-[  239.045519] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0xcdffe7a2, offset 4
-[  239.275044] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
-[  239.284355] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x1d36f59d, offset 4
-[  239.292541] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0xaef3c1e9, offset 4
-[  239.518996] asix 1-1.1:1.0 eth0: asix_rx_fixup() Data Header synchronisation was lost, remaining 988
-[  239.528300] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x2881912, offset 4
-[  239.536413] asix 1-1.1:1.0 eth0: asix_rx_fixup() Bad Header Length 0x5638f7e2, offset 4
-
-And network throughput ends up being pretty bursty and slow with
-a overall throughput of at best ~30kB/s (where as previously we
-got 1.1MB/s with the slower USB1.1 "full speed" host).
-
-We found the issue also was reproducible on a x86_64 system,
-using a "high-speed" USB2.0 port but the throughput did not
-measurably drop (possibly due to the scp transfer being cpu
-bound on my slow test hardware).
-
-After lots of debugging, I found the check added in the
-problematic commit seems to be calculating the offset
-incorrectly.
-
-In the normal case, in the main loop of the function, we do:
-(where offset is zero, or set to "offset += (copy_length + 1) &
-0xfffe" in the previous loop)
-    rx->header = get_unaligned_le32(skb->data +
-                                    offset);
-    offset += sizeof(u32);
-
-But the problematic patch calculates:
-    offset = ((rx->remaining + 1) & 0xfffe) + sizeof(u32);
-    rx->header = get_unaligned_le32(skb->data + offset);
-
-Adding some debug logic to check those offset calculation used
-to find rx->header, the one in problematic code is always too
-large by sizeof(u32).
-
-Thus, this patch removes the incorrect " + sizeof(u32)" addition
-in the problematic calculation, and resolves the issue.
-
-Cc: Dean Jenkins <Dean_Jenkins@mentor.com>
-Cc: "David B. Robins" <linux@davidrobins.net>
-Cc: Mark Craske <Mark_Craske@mentor.com>
-Cc: Emil Goode <emilgoode@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: YongQin Liu <yongqin.liu@linaro.org>
-Cc: Guodong Xu <guodong.xu@linaro.org>
-Cc: Ivan Vecera <ivecera@redhat.com>
-Cc: linux-usb@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Reported-by: Yongqin Liu <yongqin.liu@linaro.org>
-Signed-off-by: John Stultz <john.stultz@linaro.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- drivers/net/usb/asix_common.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -66,7 +66,7 @@ int asix_rx_fixup_internal(struct usbnet
- 	 * buffer.
- 	 */
- 	if (rx->remaining && (rx->remaining + sizeof(u32) <= skb->len)) {
--		offset = ((rx->remaining + 1) & 0xfffe) + sizeof(u32);
-+		offset = ((rx->remaining + 1) & 0xfffe);
- 		rx->header = get_unaligned_le32(skb->data + offset);
- 		offset = 0;
- 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
