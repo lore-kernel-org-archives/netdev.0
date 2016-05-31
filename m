@@ -1,41 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 1/1] net: fec: update dirty_tx even if no skb
-Date: Tue, 31 May 2016 11:58:28 -0700 (PDT)
-Message-ID: <20160531.115828.1504167795656808366.davem@davemloft.net>
-References: <1464381040-19896-1-git-send-email-troy.kisky@boundarydevices.com>
+Subject: Re: [PATCHv2 net] sctp: sctp_diag should dump sctp socket type
+Date: Tue, 31 May 2016 11:59:34 -0700 (PDT)
+Message-ID: <20160531.115934.448180712677695713.davem@davemloft.net>
+References: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fugang.duan@nxp.com, lznuaa@gmail.com,
-	fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
-	tremyfr@gmail.com, gerg@uclinux.org, johannes@sipsolutions.net,
-	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
-	arnd@arndb.de, holgerschurig@gmail.com
-To: troy.kisky@boundarydevices.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net, phil@nwl.cc
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36692 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36705 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755295AbcEaS63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:58:29 -0400
-In-Reply-To: <1464381040-19896-1-git-send-email-troy.kisky@boundarydevices.com>
+	with ESMTP id S1750997AbcEaS7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:59:36 -0400
+In-Reply-To: <56c3ecedbc132e8501fd7cfbe056525155a1f915.1464514933.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Date: Fri, 27 May 2016 13:30:40 -0700
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun, 29 May 2016 17:42:13 +0800
 
-> If dirty_tx isn't updated, then dma_unmap_single
-> can be called twice.
+> Now we cannot distinguish that one sk is a udp or sctp style when
+> we use ss to dump sctp_info. it's necessary to dump it as well.
 > 
-> This fixes a
-> [   58.420980] ------------[ cut here ]------------
-> [   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
-> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA memory it has not allocated [device address=0x0000000000000000] [size=66 bytes]
+> For sctp_diag, ss support is not officially available, thus there
+> are no official users of this yet, so we can add this field in the
+> middle of sctp_info without breaking user API.
 > 
-> encountered by Holger
+> v1->v2:
+>   - move 'sctpi_s_type' field to the end of struct sctp_info, so
+>     that it won't cause incompatibility with applications already
+>     built.
+>   - add __reserved3 in sctp_info to make sure sctp_info is 8-byte
+>     alignment.
 > 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> Tested-by: <holgerschurig@gmail.com>
-> Acked-by: Fugang Duan <fugang.duan@nxp.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Applied.
