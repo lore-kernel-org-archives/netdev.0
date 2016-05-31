@@ -1,79 +1,32 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next 3/5] bridge: add json support for
- bridge fdb show
-Date: Tue, 31 May 2016 11:59:55 -0700
-Message-ID: <20160531115955.4a45ff67@xeon-e3>
-References: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] Added support for selection of new HSR version
+Date: Tue, 31 May 2016 12:04:19 -0700
+Message-ID: <20160531120419.7a7c9479@xeon-e3>
+References: <20160530133207.GA5071@aircraft-controller>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anuradhak@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, julien@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, peter.heise@airbus.com
+To: Peter Heise <mail@pheise.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34146 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857AbcEaS7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:59:42 -0400
-Received: by mail-pa0-f43.google.com with SMTP id bz2so44368245pad.1
-        for <netdev@vger.kernel.org>; Tue, 31 May 2016 11:59:41 -0700 (PDT)
-In-Reply-To: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35923 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753247AbcEaTEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 15:04:06 -0400
+Received: by mail-pa0-f41.google.com with SMTP id eu11so65077109pad.3
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 12:04:04 -0700 (PDT)
+In-Reply-To: <20160530133207.GA5071@aircraft-controller>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 May 2016 21:37:14 -0700
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+On Mon, 30 May 2016 15:32:07 +0200
+Peter Heise <mail@pheise.de> wrote:
 
-> Sample output:
-> $bridge -j fdb show
-> [{
->         "mac": "44:38:39:00:69:88",
->         "dev": "swp2s0",
->         "vlan": 2,
->         "master": "br0",
->         "state": "permanent"
->     },{
->         "mac": "00:02:00:00:00:01",
->         "dev": "swp2s0",
->         "vlan": 2,
->         "master": "br0"
->     },{
->         "mac": "00:02:00:00:00:02",
->         "dev": "swp2s1",
->         "vlan": 2,
->         "master": "br0"
->     },{
->         "mac": "44:38:39:00:69:89",
->         "dev": "swp2s1",
->         "master": "br0",
->         "state": "permanent"
->     },{
->         "mac": "44:38:39:00:69:89",
->         "dev": "swp2s1",
->         "vlan": 2,
->         "master": "br0",
->         "state": "permanent"
->     },{
->         "mac": "44:38:39:00:69:88",
->         "dev": "br0",
->         "master": "br0",
->         "state": "permanent"
->     }
->     ]
+> A new HSR version was added in 4.7 that can be enabled
+> via iproute2. Per default the old version is selected,
+> however, with "ip link add [..] type hsr [..] version 1"
+> the newer version can be enabled.
+> 
+> Signed-off-by: Peter Heise <peter.heise@airbus.com>
 
-In most JSON I have seen, the output would be:
-
-{
-  "fdb" : [
-     {
-         "mac": "44:38:39:00:69:88",
-         "dev": "swp2s0",
-         "vlan": 2,
-         "master": "br0",
-         "state": "permanent"
-     },
-...
-   ]
-}
-
-I.e never a bare array.
+Sure, applied. What about man page?
