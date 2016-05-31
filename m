@@ -1,70 +1,30 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V2 2/2] vhost_net: conditionally enable tx polling
-Date: Tue, 31 May 2016 11:23:10 +0800
-Message-ID: <574D039E.5020101@redhat.com>
-References: <1464590874-39539-1-git-send-email-jasowang@redhat.com>
-	<1464590874-39539-3-git-send-email-jasowang@redhat.com>
-	<20160530155521.GA5427@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] vxlan: Accept user specified MTU value when create new
+ vxlan link
+Date: Mon, 30 May 2016 20:27:48 -0700
+Message-ID: <CAM_iQpWbEFetqtn8f_eZjvyRdmTEcHPF4Fs-ZRgeNd0HykjUAQ@mail.gmail.com>
+References: <1464317351-22316-1-git-send-email-oc@yunify.com>
+ <CAM_iQpULCyju9vor74ygcv5FcqFeoq9KthRuCYfo4=tF0ieHrg@mail.gmail.com> <5749B7B4.60600@yunify.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160530155521.GA5427@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: oc <oc@yunify.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:33360 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161420AbcEaD2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2016 23:28:08 -0400
+Received: by mail-yw0-f196.google.com with SMTP id y6so17138585ywe.0
+        for <netdev@vger.kernel.org>; Mon, 30 May 2016 20:28:08 -0700 (PDT)
+In-Reply-To: <5749B7B4.60600@yunify.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE25bm0MDXmnIgzMOaXpSAyMzo1NSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIE1vbiwgTWF5IDMwLCAyMDE2IGF0IDAyOjQ3OjU0QU0gLTA0MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+IFdlIGFsd2F5cyBwb2xsIHR4IGZvciBzb2NrZXQsIHRoaXMgaXMgc3ViIG9wdGltYWwg
-c2luY2U6Cj4+Cj4+IC0gaXQgd2lsbCBiZSBvbmx5IHVzZWQgd2hlbiB3ZSBleGNlZWQgdGhlIHNu
-ZGJ1ZiBvZiB0aGUgc29ja2V0Lgo+PiAtIHNpbmNlIHdlIHVzZSB0d28gaW5kZXBlbmRlbnQgcG9s
-bHMgZm9yIHR4IGFuZCB2cSwgdGhpcyB3aWxsIHNsaWdodGx5Cj4+ICAgIGluY3JlYXNlIHRoZSB3
-YWl0cXVldWUgdHJhdmVyc2luZyB0aW1lIGFuZCBtb3JlIGltcG9ydGFudCwgdmhvc3QKPj4gICAg
-Y291bGQgbm90IGJlbmVmaXQgZnJvbSBjb21taXQKPj4gICAgOWU2NDFiZGNmYTRlZjRkNmUyZmJh
-YTU5YzFiZTBhZDVkMTU1MWZkNSAoIm5ldC10dW46IHJlc3RydWN0dXJlCj4+ICAgIHR1bl9kb19y
-ZWFkIGZvciBiZXR0ZXIgc2xlZXAvd2FrZXVwIGVmZmljaWVuY3kiKSBldmVuIGlmIHdlJ3ZlCj4+
-ICAgIHN0b3BwZWQgcnggcG9sbGluZyBkdXJpbmcgaGFuZGxlX3J4IHNpbmNlIHR4IHBvbGwgd2Vy
-ZSBzdGlsbCBsZWZ0IGluCj4+ICAgIHRoZSB3YWl0cXVldWUuCj4gV2h5IGlzIHRoaXMgYW4gaXNz
-dWU/Cj4gc29ja19kZWZfd3JpdGVfc3BhY2Ugb25seSB3YWtlcyB1cCB3aGVuIHF1ZXVlIGlzIGhh
-bGYgZW1wdHksCj4gbm90IG9uIGVhY2ggcGFja2V0Lgo+ICAgICAgICAgIGlmICgoYXRvbWljX3Jl
-YWQoJnNrLT5za193bWVtX2FsbG9jKSA8PCAxKSA8PSBzay0+c2tfc25kYnVmKQo+Cj4gSSBzdXNw
-ZWN0IHRoZSBpc3N1ZSBpcyB3aXRoIHlvdXIgcHJldmlvdXMgcGF0Y2gsCj4gaXQgbm93IHBva2Vz
-IGF0IHRoZSBzcGlubG9jayBvbiBkYXRhIHBhdGgKPiB3aGVyZSBpdCB1c2VkIG5vdCB0by4KPgo+
-IElzIHRoYXQgcmlnaHQ/CgpUaGUgcHJvYmxlbSBpcyBub3QgdHggd2FrZSB1cCBidXQgc3RpbGwg
-cnggd2FrZSB1cC4gUGF0Y2ggMSByZW1vdmVzIHJ4IApwb2xsLCBidXQgc3RpbGwgbGVmdCB0eCBw
-b2xsLiBTbyBpbiBzb2NrX2RlZl9yZWFkYWJsZSgpLCAKc2t3cV9oYXNfc2xlZXBlcigpIHJldHVy
-bnMgdHJ1ZSwgd2Ugc3RpbGwgbmVlZCB0byB0cmF2ZXJzZSB3YWl0cXVldWUgYW5kIAp0b3VjaCBz
-cGlubG9ja3MuIFdpdGggdGhpcyBwYXRjaCwgdW5sZXNzIGEgaGVhdnkgdHggbG9hZCwgdHggcG9s
-bCB3ZXJlIApkaXNhYmxlZCwgc29ja19kZWZfcmVhZGFibGUoKSBjYW4gcmV0dXJuIGZpbmlzaCB2
-ZXJ5IHNvb24uCgo+Cj4KPj4gRml4IHRoaXMgYnkgY29uZGl0aW9uYWxseSBlbmFibGUgdHggcG9s
-bGluZyBvbmx5IHdoZW4gLUVBR0FJTiB3ZXJlCj4+IG1ldC4KPj4KPj4gVGVzdCBzaG93cyBhYm91
-dCA4JSBpbXByb3ZlbWVudCBvbiBndWVzdCByeCBwcHMuCj4+Cj4+IEJlZm9yZTogfjEzNTAwMDAK
-Pj4gQWZ0ZXI6ICB+MTQ2MDAwMAo+Pgo+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNv
-d2FuZ0ByZWRoYXQuY29tPgo+PiAtLS0KPj4gICBkcml2ZXJzL3Zob3N0L25ldC5jIHwgMyArKysK
-Pj4gICAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspCj4+Cj4+IGRpZmYgLS1naXQgYS9k
-cml2ZXJzL3Zob3N0L25ldC5jIGIvZHJpdmVycy92aG9zdC9uZXQuYwo+PiBpbmRleCBlOTE2MDNi
-Li41YTA1ZmEwIDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL3Zob3N0L25ldC5jCj4+ICsrKyBiL2Ry
-aXZlcnMvdmhvc3QvbmV0LmMKPj4gQEAgLTM3OCw2ICszNzgsNyBAQCBzdGF0aWMgdm9pZCBoYW5k
-bGVfdHgoc3RydWN0IHZob3N0X25ldCAqbmV0KQo+PiAgIAkJZ290byBvdXQ7Cj4+ICAgCj4+ICAg
-CXZob3N0X2Rpc2FibGVfbm90aWZ5KCZuZXQtPmRldiwgdnEpOwo+PiArCXZob3N0X25ldF9kaXNh
-YmxlX3ZxKG5ldCwgdnEpOwo+PiAgIAo+PiAgIAloZHJfc2l6ZSA9IG52cS0+dmhvc3RfaGxlbjsK
-Pj4gICAJemNvcHkgPSBudnEtPnVidWZzOwo+PiBAQCAtNDU5LDYgKzQ2MCw4IEBAIHN0YXRpYyB2
-b2lkIGhhbmRsZV90eChzdHJ1Y3Qgdmhvc3RfbmV0ICpuZXQpCj4+ICAgCQkJCQklIFVJT19NQVhJ
-T1Y7Cj4+ICAgCQkJfQo+PiAgIAkJCXZob3N0X2Rpc2NhcmRfdnFfZGVzYyh2cSwgMSk7Cj4+ICsJ
-CQlpZiAoZXJyID09IC1FQUdBSU4pCj4+ICsJCQkJdmhvc3RfbmV0X2VuYWJsZV92cShuZXQsIHZx
-KTsKPj4gICAJCQlicmVhazsKPj4gICAJCX0KPj4gICAJCWlmIChlcnIgIT0gbGVuKQo+PiAtLSAK
-Pj4gMS44LjMuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4
-LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+On Sat, May 28, 2016 at 8:22 AM, oc <oc@yunify.com> wrote:
+> 1. vxlan_dev_configure function check conf->mtu to determine if it need to
+> change value of dev->mtu.
+> The logical looks better to get conf->mtu from IFLA_MTU directly.
+
+Fair enough,
+
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
