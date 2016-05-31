@@ -1,7 +1,7 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2 1/7] loopback: make use of NETIF_F_GSO_SOFTWARE
-Date: Tue, 31 May 2016 15:55:44 -0300
-Message-ID: <b26a8c8d62ee7eb245517eb097076eb806b064b8.1464718103.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v2 3/7] sk_buff: allow segmenting based on frag sizes
+Date: Tue, 31 May 2016 15:55:46 -0300
+Message-ID: <e5c12d2bba1cb7f1c199c04d52e481cdd39107e7.1464718103.git.marcelo.leitner@gmail.com>
 References: <cover.1464718103.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
@@ -13,44 +13,60 @@ Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34043 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54493 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755337AbcEaS4N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 May 2016 14:56:13 -0400
+	id S1755958AbcEaS4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2016 14:56:18 -0400
 In-Reply-To: <cover.1464718103.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NETIF_F_GSO_SOFTWARE was defined to list all GSO software types, so lets
-make use of it in loopback code. Note that veth/vxlan/others already
-uses it.
-
-Within this patch series, this patch causes lo to pick up SCTP GSO feature
-automatically (as it's added to NETIF_F_GSO_SOFTWARE) and thus avoiding
-segmentation if possible.
+This patch allows segmenting a skb based on its frags sizes instead of
+based on a fixed value.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Tested-by: Xin Long <lucien.xin@gmail.com>
 ---
- drivers/net/loopback.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ include/linux/skbuff.h |  5 +++++
+ net/core/skbuff.c      | 10 +++++++---
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index a400288cb37b9bfb6190f1bd7c64d02e97713956..6255973e3dda35fd41464ce51f0f9fb9f0b8364b 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -169,10 +169,9 @@ static void loopback_setup(struct net_device *dev)
- 	dev->flags		= IFF_LOOPBACK;
- 	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
- 	netif_keep_dst(dev);
--	dev->hw_features	= NETIF_F_ALL_TSO | NETIF_F_UFO;
-+	dev->hw_features	= NETIF_F_GSO_SOFTWARE;
- 	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
--		| NETIF_F_ALL_TSO
--		| NETIF_F_UFO
-+		| NETIF_F_GSO_SOFTWARE
- 		| NETIF_F_HW_CSUM
- 		| NETIF_F_RXCSUM
- 		| NETIF_F_SCTP_CRC
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c413c588a24f854be9e4df78d8a6872b6b1ff9f3..1f713541cb2fc232cb0e8417232cb9942409c9fc 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -301,6 +301,11 @@ struct sk_buff;
+ #endif
+ extern int sysctl_max_skb_frags;
+ 
++/* Set skb_shinfo(skb)->gso_size to this in case you want skb_segment to
++ * segment using its current segmentation instead.
++ */
++#define GSO_BY_FRAGS	0xFFFF
++
+ typedef struct skb_frag_struct skb_frag_t;
+ 
+ struct skb_frag_struct {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4724bcf9b0cae1cecbe5bc2c04e308bb70b3232a..97c32c75e704af1f31b064e8f1e0475ff1505d67 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3116,9 +3116,13 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 		int hsize;
+ 		int size;
+ 
+-		len = head_skb->len - offset;
+-		if (len > mss)
+-			len = mss;
++		if (unlikely(mss == GSO_BY_FRAGS)) {
++			len = list_skb->len;
++		} else {
++			len = head_skb->len - offset;
++			if (len > mss)
++				len = mss;
++		}
+ 
+ 		hsize = skb_headlen(head_skb) - offset;
+ 		if (hsize < 0)
 -- 
 2.5.5
