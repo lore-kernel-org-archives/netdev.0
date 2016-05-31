@@ -1,36 +1,58 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] ovs: set name assign type of internal port
-Date: Tue, 31 May 2016 13:41:02 +0000
-Message-ID: <1464702062-7220-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2883 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247AbcEaMzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 08:55:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] net/wireless: Fix 'multiple blank lines' check
+Date: Tue, 31 May 2016 23:01:06 +1000
+Message-ID: <CAGRGNgWXq076qnu9ucFR9d60i2BzMcREd8AeTrDMmC33kEeQ=A@mail.gmail.com>
+References: <20160531055858.GA32239@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160531055858.GA32239@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Set name_assign_type of internal port to NET_NAME_USER.
+Hi All,
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/openvswitch/vport-internal_dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Tue, May 31, 2016 at 3:58 PM, Kirtika Ruchandani
+<kirtika.ruchandani@gmail.com> wrote:
+> This patch fixes the checkpatch.pl check "Please don't use multiple
+> blank lines" for all files in net/wireless, except nl80211.c which
+> is covered in a separated patch.
+>
+> Signed-off-by: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
 
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 2ee48e4..434e04c 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -195,7 +195,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
- 	}
- 
- 	vport->dev = alloc_netdev(sizeof(struct internal_dev),
--				  parms->name, NET_NAME_UNKNOWN, do_setup);
-+				  parms->name, NET_NAME_USER, do_setup);
- 	if (!vport->dev) {
- 		err = -ENOMEM;
- 		goto error_free_vport;
+Looks right to me.
+
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+
+> ---
+>  net/wireless/ap.c          | 1 -
+>  net/wireless/chan.c        | 3 ---
+>  net/wireless/core.h        | 2 --
+>  net/wireless/ibss.c        | 1 -
+>  net/wireless/mlme.c        | 2 --
+>  net/wireless/radiotap.c    | 2 --
+>  net/wireless/rdev-ops.h    | 2 --
+>  net/wireless/reg.c         | 3 ---
+>  net/wireless/scan.c        | 1 -
+>  net/wireless/sme.c         | 1 -
+>  net/wireless/util.c        | 2 --
+>  net/wireless/wext-compat.c | 3 ---
+>  net/wireless/wext-compat.h | 2 --
+>  net/wireless/wext-core.c   | 6 ------
+>  net/wireless/wext-proc.c   | 1 -
+>  net/wireless/wext-sme.c    | 1 -
+>  16 files changed, 33 deletions(-)
+
+Thanks,
+
 -- 
-1.8.3.1
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
