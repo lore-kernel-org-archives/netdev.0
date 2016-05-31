@@ -1,45 +1,67 @@
-From: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Subject: Re: [PATCH] net: fec: dt: convert phy-reset-gpios to use GPIOD API
-Date: Tue, 31 May 2016 14:26:54 -0300
-Message-ID: <CAOMZO5C7nMsV6LtjtO7AZdj8H4248YBr-DYMQ77z-h9rJhURbg@mail.gmail.com>
+Date: Tue, 31 May 2016 19:47:48 +0200
+Message-ID: <20160531174748.GI26768@pengutronix.de>
 References: <1464715071-56012-1-git-send-email-george_davis@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Fugang Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Shawn Guo <shawnguo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sascha Hauer <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "George G. Davis" <george_davis-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464715071-56012-1-git-send-email-george_davis-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-gpio@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	Mark Rutland <mark.rutland@arm.com>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Fugang Duan <fugang.duan@nxp.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Russell King <linux@armlinux.org.uk>,
+	Rob Herring <robh+dt@kernel.org>,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Kumar Gala <galak@codeaurora.org>,
+	Shawn Guo <shawnguo@kernel.org>
+To: "George G. Davis" <george_davis@mentor.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464715071-56012-1-git-send-email-george_davis@mentor.com>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 31, 2016 at 2:17 PM, George G. Davis
-<george_davis-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org> wrote:
+Hello George,
+
+On Tue, May 31, 2016 at 01:17:51PM -0400, George G. Davis wrote:
 > Convert the i.MX FEC driver and DT files to use the GPIOD API
 > which automatically handles GPIO polarity.
->
-> Signed-off-by: George G. Davis <george_davis-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
 
-In order to avoid breaking old dtb's a property called
-'phy-reset-active-high' has been introduced.
+additionally to what Fabio said, there is also a nicer approach in the
+making. The resulting dts would look as follows:
 
-Check: 962d8cdc3133435a ("net: fec: Rename "phy-reset-active-low"
-property") and 64f10f6ebf5a6d3ae ("net: fec: Add
-"phy-reset-active-low" property to DT").
+	&fec {
+		phy-handle =3D <&ethphy>;
+		...
+
+		mdio {
+			#address-cells =3D <1>;
+			#size-cells =3D <0>;
+
+			ethphy: ethernet-phy@7 {
+				...
+
+				reset-gpios =3D <&gpio1 25 GPIO_ACTIVE_LOW>;
+			};
+		};
+	};
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To unsubscribe from this list: send the line "unsubscribe linux-gpio" i=
+n
+the body of a message to majordomo@vger.kernel.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
