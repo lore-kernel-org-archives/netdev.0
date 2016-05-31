@@ -1,53 +1,115 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] tcp: extend window to fit all restored unacked data in a send queue
-Date: Tue, 31 May 2016 08:02:36 -0700
-Message-ID: <1464706956-29291-1-git-send-email-avagin@openvz.org>
-Cc: linux-kernel@vger.kernel.org, criu@openvz.org,
-	Andrey Vagin <avagin@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
+ SACK block
+Date: Tue, 31 May 2016 08:12:43 -0700
+Message-ID: <1464707563.5939.114.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pau Espin Pedrol <pau.espin@tessares.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35162 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750738AbcEaPMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 11:12:45 -0400
+Received: by mail-pa0-f66.google.com with SMTP id gp3so18394240pac.2
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 08:12:45 -0700 (PDT)
+In-Reply-To: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Data from a send queue is sent only if there is enough space in a
-window, so when we restore unacked data, we need to expand a window to
-fit this data.
+On Tue, 2016-05-31 at 13:38 +0200, Pau Espin Pedrol wrote:
+> RFC 5961 advises to only accept RST packets containing a seq number
+> matching the next expected seq number instead of the whole receive
+> window in order to avoid spoofing attacks.
+> 
+> However, this situation is not optimal in the case SACK is in use at the
+> time the RST is sent. I recently run into a scenario in which packet
+> losses were high while uploading data to a server, and userspace was
+> willing to frequently terminate connections by sending a RST. In
+> this case, the ACK sent on the receiver side is frozen waiting for a lost
+> packet retransmission and a SACK block is used to let the client
+> continue uploading data. At some point later on, the client sends the
+> RST, which matches the next expected seq number of the SACK block on the
+> receiver side which is going forward receiving data.
+> 
+> In this scenario, as RFC 5961 defines, the SEQ doesn't match the frozen
+> main ACK at receiver side and thus gets dropped and a challenge ACK is
+> sent, which gets usually lost due to network conditions. The main
+> consequence is that the connection stays alive for a while even if it
+> made sense to accept the RST. This can get really bad if lots of
+> connections like this one are created in few seconds, allocating all the
+> resources of the server easily.
+> 
+> From security point of view: the maximum number of SACK blocks for a TCP
+> connection is limited to 4 due to options field maximum length, and that
+> means we match at maximum against 5 seq numbers, which should make it
+> still difficult for attackers to inject a valid RST message.
+> 
+> This patch was tested in a 3.18 kernel and probed to improve the
+> situation in the scenario described above.
+> 
+> Signed-off-by: Pau Espin Pedrol <pau.espin@tessares.net>
+> ---
+>  net/ipv4/tcp_input.c | 18 +++++++++++++++++-
+>  1 file changed, 17 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index d6c8f4cd0..4727dc8 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -5159,6 +5159,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+>  				  const struct tcphdr *th, int syn_inerr)
+>  {
+>  	struct tcp_sock *tp = tcp_sk(sk);
+> +	bool rst_seq_match = false;
+>  
+>  	/* RFC1323: H1. Apply PAWS check first. */
+>  	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
+> @@ -5195,13 +5196,28 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+>  
+>  	/* Step 2: check RST bit */
+>  	if (th->rst) {
+> -		/* RFC 5961 3.2 :
+> +		/* RFC 5961 3.2 (extended to match against SACK too if available):
+>  		 * If sequence number exactly matches RCV.NXT, then
+>  		 *     RESET the connection
+>  		 * else
+>  		 *     Send a challenge ACK
+>  		 */
+>  		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt)
+> +			rst_seq_match = true;
+> +		else if (tcp_is_sack(tp)) {
+> +			int this_sack;
+> +			struct tcp_sack_block *sp = tp->rx_opt.dsack ?
+> +					tp->duplicate_sack : tp->selective_acks;
+> +
+> +			for (this_sack = 0; this_sack < tp->rx_opt.num_sacks; ++this_sack) {
+> +				if (TCP_SKB_CB(skb)->seq == sp[this_sack].end_seq) {
+> +					rst_seq_match = true;
+> +					break;
+> +				}
+> +			}
+> +		}
+> +
+> +		if (rst_seq_match)
+>  			tcp_reset(sk);
+>  		else
+>  			tcp_send_challenge_ack(sk, skb);
+> -- 
+> 2.5.0
 
-Currently we don't do this and tcp_acceptable_seq() returns
-tcp_wnd_end(tp) instead of tp->snd_nxt. The other side drops packets
-with this seq, becuse tcp_sequence() returns false (seq < tp->rcv_nxt).
+It looks like you want to seriously relax RFC 5961 ...
 
-Cc: Pavel Emelyanov <xemul@parallels.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- net/ipv4/tcp_output.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Could you have a problem because of the host-wide RFC 5961 rate limit ?
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 79a03b8..b36f968 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -75,6 +75,10 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
- 	tcp_advance_send_head(sk, skb);
- 	tp->snd_nxt = TCP_SKB_CB(skb)->end_seq;
- 
-+	/* All sent data have to fit into the window */
-+	if (unlikely(tp->repair) && before(tcp_wnd_end(tp), tp->snd_nxt))
-+		tp->snd_wnd = tp->snd_nxt - tp->snd_una;
-+
- 	tp->packets_out += tcp_skb_pcount(skb);
- 	if (!prior_packets || icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
- 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
--- 
-2.5.5
+Have you contacted RFC authors ?
+
+If the peer sends the RST, presumably it should answer to the challenge
+ACK right away, since it does not care of the SACK blocks anymore.
+
+A packetdrill test demonstrating the issue would be nice.
+
+Thanks.
