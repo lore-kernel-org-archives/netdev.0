@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
- set.
-Date: Tue, 31 May 2016 11:39:13 -0700 (PDT)
-Message-ID: <20160531.113913.1477085966766110028.davem@davemloft.net>
-References: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
+Subject: Re: [PATCH 0/2] macvlan: Avoid unnecessary multicast cloning
+Date: Tue, 31 May 2016 11:40:54 -0700 (PDT)
+Message-ID: <20160531.114054.1989795898313360011.davem@davemloft.net>
+References: <20160530081752.GA4956@gondor.apana.org.au>
+	<20160530162759.GD8402@wantstofly.org>
+	<20160531004945.GA11422@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: alan.davey@metaswitch.com
+Cc: buytenh@wantstofly.org, kaber@trash.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36494 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36512 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750997AbcEaSjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:39:17 -0400
-In-Reply-To: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
+	with ESMTP id S1751960AbcEaSkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 14:40:55 -0400
+In-Reply-To: <20160531004945.GA11422@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Davey <alan.davey@metaswitch.com>
-Date: Mon, 23 May 2016 15:23:45 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 31 May 2016 08:49:45 +0800
 
-> One of the bugs documented in the raw(7) man page is as follows: When the
-> IP_HDRINCL option is set, datagrams will not be fragmented and are limited to
-> the interface MTU.
+> On Mon, May 30, 2016 at 07:27:59PM +0300, Lennert Buytenhek wrote:
+>>
+>> That and stack switches to kworker threads and serialisation on
+>> the bc_queue queue lock.
 > 
-> This patch fixes the bug by removing the check for "length > rt->dst.dev->mtu"
-> in raw_send_hdrinc() (net/ipv4/raw.c).  Datagrams are no longer limited to the
-> interface MTU size if the IP_HDRINCL option is set, but are fragmented, if
-> necessary, in the same way as all other datagrams.
-> 
-> Signed-off-by: Alan Davey <alan.davey@metaswitch.com>
+> My patch should resolve these problems too since the packet is
+> discarded if nobody is interested in it.
 
-This is not a bug, it's a feature and it's how RAW ipv4 sockets have behaved
-for two decades.
-
-If the user wants to use hdr inclusion, he can send multiple frames and set
-the fragmentation bits appropriately.
-
-I'm not applying this patch.
++1
