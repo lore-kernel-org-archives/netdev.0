@@ -1,51 +1,44 @@
-From: Xiubo Li <lixiubo@cmss.chinamobile.com>
-Subject: [PATCH] netfilter: fix possible ZERO_SIZE_PTR pointer dereferencing error.
-Date: Wed,  1 Jun 2016 16:34:28 +0800
-Message-ID: <1464770068-7508-1-git-send-email-lixiubo@cmss.chinamobile.com>
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	Xiubo Li <lixiubo@cmss.chinamobile.com>
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
+From: Johannes Thumshirn <jthumshirn@suse.de>
+Subject: Re: [PATCH 5/5] ethernet: Use pci_(request|release)_mem_regions
+Date: Wed, 1 Jun 2016 10:51:12 +0200
+Message-ID: <20160601085112.ve6k7bzspapjsswf@c203.arch.suse.de>
+References: <cover.1464694724.git.jthumshirn@suse.de>
+ <3f24b687c31dea31a03cd3a529de790e942dd5bb.1464694724.git.jthumshirn@suse.de>
+ <20160601075956.GD11923@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160601075956.GD11923@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since we cannot make sure the 'hook_mask' will always be none zero
-here. If it equals to zero, the num_hooks will be zero too, and then
-kmalloc() will return ZERO_SIZE_PTR, which is (void *)16.
+On Wed, Jun 01, 2016 at 12:59:56AM -0700, Christoph Hellwig wrote:
+> On Tue, May 31, 2016 at 02:05:13PM +0200, Johannes Thumshirn wrote:
+> > Now that we do have pci_request_mem_regions() and pci_release_mem_r=
+egions() at
+> > hand, use it in the ethernet drivers.
+>=20
+> This should probably be one patch per driver.
 
-Then the following error check will fails:
-  ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
-  if (ops == NULL)
-          return ERR_PTR(-ENOMEM);
+I though if I do one patch per subsystem it'll be less a hassle for the
+individual maintainers, but if the netdev people want it as split up, I=
+'ll be
+doing it of cause.
 
-So this patch fix this with just doing the zero check before calling
-kmalloc() is called.
-
-Maybe the case above will never happen here, but in theory.
-
-Signed-off-by: Xiubo Li <lixiubo@cmss.chinamobile.com>
----
- net/netfilter/x_tables.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index c8a0b7d..4df8e38 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -1185,6 +1185,9 @@ struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
- 	struct nf_hook_ops *ops;
- 	int ret;
- 
-+	if (!num_hooks)
-+		return ERR_PTR(-EINVAL);
-+
- 	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
- 	if (ops == NULL)
- 		return ERR_PTR(-ENOMEM);
--- 
-1.8.3.1
-
-
-
+	Johannes
+--=20
+Johannes Thumshirn                                          Storage
+jthumshirn@suse.de                                +49 911 74053 689
+SUSE LINUX GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
+GF: Felix Imend=F6rffer, Jane Smithard, Graham Norton
+HRB 21284 (AG N=FCrnberg)
+Key fingerprint =3D EC38 9CAB C2C4 F25D 8600 D0D0 0393 969D 2D76 0850
