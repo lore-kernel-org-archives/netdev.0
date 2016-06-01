@@ -1,32 +1,51 @@
-From: Mr Kamal Ali Mohamed <mrkamalalimohamed@gmail.com>
-Subject: Dear Friend
-Date: Wed, 1 Jun 2016 08:02:03 +0000 (UTC)
-Message-ID: <530873610.2973805.1464768123115.JavaMail.yahoo@mail.yahoo.com>
-References: <530873610.2973805.1464768123115.JavaMail.yahoo.ref@mail.yahoo.com>
-Reply-To: Mr Kamal Ali Mohamed <kamalalimohamed@terra.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm4.bullet.mail.bf1.yahoo.com ([98.139.212.163]:33214 "EHLO
-	nm4.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757661AbcFAIHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 04:07:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xiubo Li <lixiubo@cmss.chinamobile.com>
+Subject: [PATCH] netfilter: fix possible ZERO_SIZE_PTR pointer dereferencing error.
+Date: Wed,  1 Jun 2016 16:34:28 +0800
+Message-ID: <1464770068-7508-1-git-send-email-lixiubo@cmss.chinamobile.com>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	Xiubo Li <lixiubo@cmss.chinamobile.com>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Since we cannot make sure the 'hook_mask' will always be none zero
+here. If it equals to zero, the num_hooks will be zero too, and then
+kmalloc() will return ZERO_SIZE_PTR, which is (void *)16.
+
+Then the following error check will fails:
+  ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+  if (ops == NULL)
+          return ERR_PTR(-ENOMEM);
+
+So this patch fix this with just doing the zero check before calling
+kmalloc() is called.
+
+Maybe the case above will never happen here, but in theory.
+
+Signed-off-by: Xiubo Li <lixiubo@cmss.chinamobile.com>
+---
+ net/netfilter/x_tables.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index c8a0b7d..4df8e38 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -1185,6 +1185,9 @@ struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
+ 	struct nf_hook_ops *ops;
+ 	int ret;
+ 
++	if (!num_hooks)
++		return ERR_PTR(-EINVAL);
++
+ 	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+ 	if (ops == NULL)
+ 		return ERR_PTR(-ENOMEM);
+-- 
+1.8.3.1
 
 
 
-Dear friend,
-
-My name is Mr Kamal Ali Mohamed . I am working with one of the prime banks here in Burkina Faso. Here in this bank existed a dormant account for many years, which belong to one of our late foreign customer.
-
-When I discovered that there had been neither deposits nor withdrawals from this account for this long period, I decided to carry out a system investigation and discovered that none of the family member or relations of the late person are aware of this account, which means nobody will come to take it. The amount in this account stands at $8, 500, 000.00 (Eight Million Five Hundred Thousand USA Dollars).
-
-I want a foreign account where the bank will transfer this fund. I will front you in the bank as the Next of Kin to the late customer and back you up with relevant information. What the bank need is proof and information about the late customer which I will assist you on. This is a genuine, risk free and legal business transaction.
-
-All details shall be sent to you once I hear from you. The information as contained herein be accorded the necessary attention, urgency as well as the secrecy it deserves. If you are really sure of your integrity, trustworthy and confidentiality, Sorry if you received this letter in your spam, Due to recent connection error here in my country. Looking forward for your immediate response to me.Through my private e-mail id: (kamalalimohamed@terra.com)
-
-Best Regards,
-Mr. Kamal Ali Mohamed.
