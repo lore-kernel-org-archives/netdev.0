@@ -1,162 +1,83 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] act_police: fix a crash during removal
-Date: Wed,  1 Jun 2016 16:15:20 -0700
-Message-ID: <1464822920-14205-6-git-send-email-xiyou.wangcong@gmail.com>
-References: <1464822920-14205-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net] sch_hfsc: always keep backlog updated
+Date: Wed,  1 Jun 2016 16:15:15 -0700
+Message-ID: <1464822920-14205-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: stasn77@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35319 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377AbcFAXPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 19:15:40 -0400
-Received: by mail-pf0-f195.google.com with SMTP id f144so5627335pfa.2
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35587 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbcFAXPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 19:15:41 -0400
+Received: by mail-pa0-f68.google.com with SMTP id gp3so1587849pac.2
         for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 16:15:40 -0700 (PDT)
-In-Reply-To: <1464822920-14205-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The police action is using its own code to initialize tcf hash
-info, which makes us to forgot to initialize a->hinfo correctly.
-Fix this by calling the helper function tcf_hash_create() directly.
+hfsc updates backlog lazily, that is only when we
+dump the stats. This is problematic after we begin to
+update backlog in qdisc_tree_reduce_backlog().
 
-This patch fixed the following crash:
-
- BUG: unable to handle kernel NULL pointer dereference at 0000000000000028
- IP: [<ffffffff810c099f>] __lock_acquire+0xd3/0xf91
- PGD d3c34067 PUD d3e18067 PMD 0
- Oops: 0000 [#1] SMP
- CPU: 2 PID: 853 Comm: tc Not tainted 4.6.0+ #87
- Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
- task: ffff8800d3e28040 ti: ffff8800d3f6c000 task.ti: ffff8800d3f6c000
- RIP: 0010:[<ffffffff810c099f>]  [<ffffffff810c099f>] __lock_acquire+0xd3/0xf91
- RSP: 0000:ffff88011b203c80  EFLAGS: 00010002
- RAX: 0000000000000046 RBX: 0000000000000000 RCX: 0000000000000000
- RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000028
- RBP: ffff88011b203d40 R08: 0000000000000001 R09: 0000000000000000
- R10: ffff88011b203d58 R11: ffff88011b208000 R12: 0000000000000001
- R13: ffff8800d3e28040 R14: 0000000000000028 R15: 0000000000000000
- FS:  0000000000000000(0000) GS:ffff88011b200000(0000) knlGS:0000000000000000
- CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
- CR2: 0000000000000028 CR3: 00000000d4be1000 CR4: 00000000000006e0
- Stack:
-  ffff8800d3e289c0 0000000000000046 000000001b203d60 ffffffff00000000
-  0000000000000000 ffff880000000000 0000000000000000 ffffffff00000000
-  ffffffff8187142c ffff88011b203ce8 ffff88011b203ce8 ffffffff8101dbfc
- Call Trace:
-  <IRQ>
-  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
-  [<ffffffff8101dbfc>] ? native_sched_clock+0x1a/0x35
-  [<ffffffff8101dbfc>] ? native_sched_clock+0x1a/0x35
-  [<ffffffff810a9604>] ? sched_clock_local+0x11/0x78
-  [<ffffffff810bf6a1>] ? mark_lock+0x24/0x201
-  [<ffffffff810c1dbd>] lock_acquire+0x120/0x1b4
-  [<ffffffff810c1dbd>] ? lock_acquire+0x120/0x1b4
-  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
-  [<ffffffff81aad89f>] _raw_spin_lock_bh+0x3c/0x72
-  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
-  [<ffffffff8187142c>] __tcf_hash_release+0x77/0xd1
-  [<ffffffff81871a27>] tcf_action_destroy+0x49/0x7c
-  [<ffffffff81870b1c>] tcf_exts_destroy+0x20/0x2d
-  [<ffffffff8189273b>] u32_destroy_key+0x1b/0x4d
-  [<ffffffff81892788>] u32_delete_key_freepf_rcu+0x1b/0x1d
-  [<ffffffff810de3b8>] rcu_process_callbacks+0x610/0x82e
-  [<ffffffff8189276d>] ? u32_destroy_key+0x4d/0x4d
-  [<ffffffff81ab0bc1>] __do_softirq+0x191/0x3f4
-
-Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
+Reported-by: Stas Nichiporovich <stasn77@gmail.com>
+Tested-by: Stas Nichiporovich <stasn77@gmail.com>
+Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/act_police.c | 31 ++++++++++---------------------
- 1 file changed, 10 insertions(+), 21 deletions(-)
+ net/sched/sch_hfsc.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index b884dae..e2a38c2 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -38,7 +38,7 @@ struct tcf_police {
- 	bool			peak_present;
- };
- #define to_police(pc)	\
--	container_of(pc, struct tcf_police, common)
-+	container_of(pc->priv, struct tcf_police, common)
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index d783d7c..1ac9f9f 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1529,6 +1529,7 @@ hfsc_reset_qdisc(struct Qdisc *sch)
+ 	q->eligible = RB_ROOT;
+ 	INIT_LIST_HEAD(&q->droplist);
+ 	qdisc_watchdog_cancel(&q->watchdog);
++	sch->qstats.backlog = 0;
+ 	sch->q.qlen = 0;
+ }
  
- #define POL_TAB_MASK     15
+@@ -1559,14 +1560,6 @@ hfsc_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
+ 	struct hfsc_sched *q = qdisc_priv(sch);
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tc_hfsc_qopt qopt;
+-	struct hfsc_class *cl;
+-	unsigned int i;
+-
+-	sch->qstats.backlog = 0;
+-	for (i = 0; i < q->clhash.hashsize; i++) {
+-		hlist_for_each_entry(cl, &q->clhash.hash[i], cl_common.hnode)
+-			sch->qstats.backlog += cl->qdisc->qstats.backlog;
+-	}
  
-@@ -119,14 +119,12 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 				 struct nlattr *est, struct tc_action *a,
- 				 int ovr, int bind)
- {
--	unsigned int h;
- 	int ret = 0, err;
- 	struct nlattr *tb[TCA_POLICE_MAX + 1];
- 	struct tc_police *parm;
- 	struct tcf_police *police;
- 	struct qdisc_rate_table *R_tab = NULL, *P_tab = NULL;
- 	struct tc_action_net *tn = net_generic(net, police_net_id);
--	struct tcf_hashinfo *hinfo = tn->hinfo;
- 	int size;
+ 	qopt.defcls = q->defcls;
+ 	if (nla_put(skb, TCA_OPTIONS, sizeof(qopt), &qopt))
+@@ -1604,6 +1597,7 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	if (cl->qdisc->q.qlen == 1)
+ 		set_active(cl, qdisc_pkt_len(skb));
  
- 	if (nla == NULL)
-@@ -145,7 +143,7 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
++	qdisc_qstats_backlog_inc(sch, skb);
+ 	sch->q.qlen++;
  
- 	if (parm->index) {
- 		if (tcf_hash_search(tn, a, parm->index)) {
--			police = to_police(a->priv);
-+			police = to_police(a);
- 			if (bind) {
- 				police->tcf_bindcnt += 1;
- 				police->tcf_refcnt += 1;
-@@ -156,16 +154,14 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 			/* not replacing */
- 			return -EEXIST;
+ 	return NET_XMIT_SUCCESS;
+@@ -1672,6 +1666,7 @@ hfsc_dequeue(struct Qdisc *sch)
+ 
+ 	qdisc_unthrottled(sch);
+ 	qdisc_bstats_update(sch, skb);
++	qdisc_qstats_backlog_dec(sch, skb);
+ 	sch->q.qlen--;
+ 
+ 	return skb;
+@@ -1695,6 +1690,7 @@ hfsc_drop(struct Qdisc *sch)
+ 			}
+ 			cl->qstats.drops++;
+ 			qdisc_qstats_drop(sch);
++			sch->qstats.backlog -= len;
+ 			sch->q.qlen--;
+ 			return len;
  		}
-+	} else {
-+		ret = tcf_hash_create(tn, parm->index, NULL, a,
-+				      sizeof(*police), bind, false);
-+		if (ret)
-+			return ret;
-+		ret = ACT_P_CREATED;
- 	}
- 
--	police = kzalloc(sizeof(*police), GFP_KERNEL);
--	if (police == NULL)
--		return -ENOMEM;
--	ret = ACT_P_CREATED;
--	police->tcf_refcnt = 1;
--	spin_lock_init(&police->tcf_lock);
--	if (bind)
--		police->tcf_bindcnt = 1;
- override:
- 	if (parm->rate.rate) {
- 		err = -ENOMEM;
-@@ -181,6 +177,7 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 		}
- 	}
- 
-+	police = to_police(a);
- 	spin_lock_bh(&police->tcf_lock);
- 	if (est) {
- 		err = gen_replace_estimator(&police->tcf_bstats, NULL,
-@@ -237,16 +234,8 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 		return ret;
- 
- 	police->tcfp_t_c = ktime_get_ns();
--	police->tcf_index = parm->index ? parm->index :
--		tcf_hash_new_index(tn);
--	police->tcf_tm.install = jiffies;
--	police->tcf_tm.lastuse = jiffies;
--	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
--	spin_lock_bh(&hinfo->lock);
--	hlist_add_head(&police->tcf_head, &hinfo->htab[h]);
--	spin_unlock_bh(&hinfo->lock);
-+	tcf_hash_insert(tn, a);
- 
--	a->priv = police;
- 	return ret;
- 
- failure_unlock:
 -- 
 2.1.0
