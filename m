@@ -1,61 +1,71 @@
-From: "Pan, Miaoqing" <miaoqing@qti.qualcomm.com>
-Subject: Re: ath9k gpio request
-Date: Wed, 1 Jun 2016 06:54:01 +0000
-Message-ID: <1464764036580.70506@qti.qualcomm.com>
-References: <20160530132225.4d297678@canb.auug.org.au>
-	<574C4851.9090201@gmail.com>
- <87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>,<574D3EAA.3060102@gmail.com>
+From: Peter Heise <mail@pheise.de>
+Subject: [PATCH iproute2] man: ip-link: Added HSR part
+Date: Wed, 1 Jun 2016 09:43:15 +0200
+Message-ID: <20160601074315.GA34365@aircraft-controller>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	ath9k-devel <ath9k-devel@qualcomm.com>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Miaoqing Pan <miaoqing@codeaurora.org>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <574D3EAA.3060102@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: peter.heise@airbus.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pheise.de ([81.88.24.24]:40494 "EHLO ghost.pheise.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750697AbcFAHnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2016 03:43:17 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-which chip ?  And what's the GPIO number ?
+Added HSR part to manpage as follow-up to last commit's
+feedback.
 
-Thanks,
-Miaoqing
+Signed-off-by: Peter Heise <peter.heise@airbus.com>
+---
+ man/man8/ip-link.8.in | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
 
-________________________________________
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Sent: Tuesday, May 31, 2016 3:35 PM
-To: Kalle Valo
-Cc: Stephen Rothwell; ath9k-devel; linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; linux-wireless@vger.kernel.org; ath9k-devel@lists.ath9k.org; netdev@vger.kernel.org; Miaoqing Pan
-Subject: Re: ath9k gpio request
-
-On Tuesday 31 May 2016 01:01 PM, Kalle Valo wrote:
-> (Changing subject to a more descriptive one, was "Re: linux-next: Tree
-> for May 30")
->
-> Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
->
->> Hi All,
->> I have just built and booted with next-20160530 and my dmesg is full
->> of warnings from ath9k. Last kernel tested was v4.6 and there was no
->> problem with that.
->>
-
-<snip>
-
-
-> The traces look incomplete to me, is there anything more before the
-> "Call Trace:" line? Full unedited logs are usually the best.
-
-sure, its attached. those two warnings are recursively going on and
-there is nothing else left in dmesg to see what started it.
-
-Regards
-Sudip
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index d3881e5..7aeb5f4 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -846,6 +846,39 @@ forces the underlying interface into promiscuous mode. Passing the
+ using standard tools.
+ .in -8
+ 
++.TP
++High-availability Seamless Redundancy (HSR) Support
++For a link of type
++.I HSR
++the following additional arguments are supported:
++
++.BI "ip link add link " DEVICE " name " NAME
++.BI type " hsr "
++.BI slave1 " SLAVE1-IF " slave2 " SLAVE2-IF "
++.BR " [ supervision " ADDR-BYTE "  ] "
++.BR " [ version  { " 0 " | " 1 " } ] "
++
++.in +8
++.sp
++.BR type " hsr "
++- specifies the link type to use, here HSR.
++
++.BI slave1 " SLAVE1-IF "
++- Specifies the physical device used for the first of the two ring ports.
++
++.BI slave2 " SLAVE2-IF "
++- Specifies the physical device used for the second of the two ring ports.
++
++.BR "supervision ADDR-BYTE "
++- The last byte of the multicast address used for HSR supervision frames. 
++Default option is "0", possible values 0-255.
++
++.BR "version { 0 | 1 }"
++- Selects the protocol version of the interface. Default option is "0", which 
++corresponds to the 2010 version of the HSR standard. Option "1" activates the 
++2012 version.
++.in -8
++
+ .SS ip link delete - delete virtual link
+ 
+ .TP
+-- 
+2.7.4
