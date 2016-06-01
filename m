@@ -1,107 +1,60 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH iputils 3/6] ping6: allow disabling of openssl support
-Date: Tue, 31 May 2016 23:48:22 -0400
-Message-ID: <1464752905-10347-3-git-send-email-vapier@gentoo.org>
-References: <1464752905-10347-1-git-send-email-vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:58830 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757120AbcFADsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 May 2016 23:48:30 -0400
-In-Reply-To: <1464752905-10347-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/8] mwifiex: only call mwifiex_sdio_probe_of() if dev has
+ an OF node
+Date: Wed, 1 Jun 2016 14:14:25 +1000
+Message-ID: <CAGRGNgWHGR_KJW1SExte-YSG1ynxy-GrtKjO-GRKEadUx4HpWA@mail.gmail.com>
+References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com> <1464358702-19083-2-git-send-email-javier@osg.samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+To: Javier Martinez Canillas <javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1464358702-19083-2-git-send-email-javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- Makefile         |  5 ++++-
- iputils_md5dig.h |  4 +++-
- ping6.c          | 10 ++++++++++
- 3 files changed, 17 insertions(+), 2 deletions(-)
+Hi All,
 
-diff --git a/Makefile b/Makefile
-index 54e5a6d..7147f08 100644
---- a/Makefile
-+++ b/Makefile
-@@ -36,7 +36,7 @@ ARPING_DEFAULT_DEVICE=
- 
- # Libgcrypt (for MD5) for ping6 [yes|no|static]
- USE_GCRYPT=yes
--# Crypto library for ping6 [shared|static]
-+# Crypto library for ping6 [shared|static|no]
- USE_CRYPTO=shared
- # Resolv library for ping6 [yes|static]
- USE_RESOLV=yes
-@@ -63,7 +63,10 @@ ifneq ($(USE_GCRYPT),no)
- 	LIB_CRYPTO = $(call FUNC_LIB,$(USE_GCRYPT),$(LDFLAG_GCRYPT))
- 	DEF_CRYPTO = -DUSE_GCRYPT
- else
-+ifneq ($(USE_CRYPTO),no)
- 	LIB_CRYPTO = $(call FUNC_LIB,$(USE_CRYPTO),$(LDFLAG_CRYPTO))
-+	DEF_CRYPTO = -DUSE_OPENSSL
-+endif
- endif
- 
- # USE_RESOLV: LIB_RESOLV
-diff --git a/iputils_md5dig.h b/iputils_md5dig.h
-index 4cec866..d6c4d46 100644
---- a/iputils_md5dig.h
-+++ b/iputils_md5dig.h
-@@ -5,8 +5,10 @@
- # include <stdlib.h>
- # include <gcrypt.h>
- # define IPUTILS_MD5DIG_LEN	16
--#else
-+# define USE_CRYPTO
-+#elif defined(USE_OPENSSL)
- # include <openssl/md5.h>
-+# define USE_CRYPTO
- #endif
- 
- #ifdef USE_GCRYPT
-diff --git a/ping6.c b/ping6.c
-index 6d1a6db..cd140e2 100644
---- a/ping6.c
-+++ b/ping6.c
-@@ -324,6 +324,7 @@ static void niquery_init_nonce(void)
- #if !PING6_NONCE_MEMORY
- static int niquery_nonce(__u8 *nonce, int fill)
- {
-+# ifdef USE_CRYPTO
- 	static __u8 digest[MD5_DIGEST_LENGTH];
- 	static int seq = -1;
- 
-@@ -346,6 +347,10 @@ static int niquery_nonce(__u8 *nonce, int fill)
- 			return -1;
- 		return ntohsp((__u16 *)nonce);
- 	}
-+# else
-+	fprintf(stderr, "ping6: function not available; crypto disabled\n");
-+	exit(3);
-+# endif
- }
- #endif
- 
-@@ -500,6 +505,7 @@ static int niquery_option_subject_addr_handler(int index, const char *arg)
- 
- static int niquery_option_subject_name_handler(int index, const char *arg)
- {
-+#ifdef USE_CRYPTO
- 	static char nigroup_buf[INET6_ADDRSTRLEN + 1 + IFNAMSIZ];
- 	unsigned char *dnptrs[2], **dpp, **lastdnptr;
- 	int n;
-@@ -625,6 +631,10 @@ errexit:
- 	free(idn);
- 	free(name);
- 	exit(1);
-+#else
-+	fprintf(stderr, "ping6: function not available; crypto disabled\n");
-+	exit(3);
-+#endif
- }
- 
- int niquery_option_help_handler(int index, const char *arg)
+On Sat, May 28, 2016 at 12:18 AM, Javier Martinez Canillas
+<javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org> wrote:
+> SDIO is an auto enumerable bus so the SDIO devices are matched using the
+> sdio_device_id table and not using compatible strings from a OF id table.
+>
+> However, commit ce4f6f0c353b ("mwifiex: add platform specific wakeup
+> interrupt support") allowed to match nodes defined as child of the SDIO
+> host controller in the probe function using a compatible string to setup
+> platform specific parameters in the DT.
+>
+> The problem is that the OF parse function is always called regardless if
+> the SDIO dev has an OF node associated or not, and prints an error if it
+> is not found. So, on a platform that doesn't have a node for a SDIO dev,
+> the following misleading error message will be printed:
+>
+> [  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
+>
+> Signed-off-by: Javier Martinez Canillas <javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+
+This looks sensible to me.
+
+Reviewed-by: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+>  drivers/net/wireless/marvell/mwifiex/sdio.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+
+Thanks,
+
 -- 
-2.8.2
+Julian Calaby
+
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Profile: http://www.google.com/profiles/julian.calaby/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
