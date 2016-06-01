@@ -1,129 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 2/2] macvlan: Avoid unnecessary multicast cloning
-Date: Wed, 1 Jun 2016 11:45:44 +0800
-Message-ID: <20160601034544.GC31335@gondor.apana.org.au>
-References: <20160526234433.GU8402@wantstofly.org>
- <20160530081752.GA4956@gondor.apana.org.au>
- <20160530082828.GB5106@gondor.apana.org.au>
- <20160531.140713.2187659962450926738.davem@davemloft.net>
- <20160601034218.GA31335@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: buytenh@wantstofly.org, kaber@trash.net, netdev@vger.kernel.org,
-	jpirko@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH iputils 2/6] doc: fix parallel build of html/man pages
+Date: Tue, 31 May 2016 23:48:21 -0400
+Message-ID: <1464752905-10347-2-git-send-email-vapier@gentoo.org>
+References: <1464752905-10347-1-git-send-email-vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:43831 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756726AbcFADpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 23:45:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20160601034218.GA31335@gondor.apana.org.au>
+Received: from smtp.gentoo.org ([140.211.166.183]:58828 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755697AbcFADs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2016 23:48:29 -0400
+In-Reply-To: <1464752905-10347-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we always queue a multicast packet for further processing,
-even if none of the macvlan devices are subscribed to the address.
+The use of the same tempdir prevents building of these files in parallel.
+So build all of them in unique tempdirs so we can do them in parallel.
 
-This patch optimises this by adding a global multicast filter for
-a macvlan_port.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ doc/Makefile | 37 ++++++++++++++++++++++++-------------
+ 1 file changed, 24 insertions(+), 13 deletions(-)
 
-Note that this patch doesn't handle the broadcast addresses of the
-individual macvlan devices correctly, if they are not all identical
-to vlan->lowerdev.  However, this is already broken because there
-is no mechanism in place to update the individual multicast filters
-when you change the broadcast address.
-
-If someone cares enough they should fix this by collecting all
-broadcast addresses for a macvlan as we do for multicast and unicast.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index a71fa59..0c65bd9 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -49,6 +49,7 @@ struct macvlan_port {
- 	bool 			passthru;
- 	int			count;
- 	struct hlist_head	vlan_source_hash[MACVLAN_HASH_SIZE];
-+	DECLARE_BITMAP(mc_filter, MACVLAN_MC_FILTER_SZ);
- };
+diff --git a/doc/Makefile b/doc/Makefile
+index 7ec4f1c..4f930a3 100644
+--- a/doc/Makefile
++++ b/doc/Makefile
+@@ -12,29 +12,40 @@ man: $(MANFILES)
+ # lots of some strange temporary junk directories and files.
+ # So, scope it to a temporary dir and clean all after each run.
  
- struct macvlan_source_entry {
-@@ -419,6 +420,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 
- 	port = macvlan_port_get_rcu(skb->dev);
- 	if (is_multicast_ether_addr(eth->h_dest)) {
-+		unsigned int hash;
+-$(HTMLFILES): index.db
+-	@-rm -rf tmp.db2html
+-	@mkdir tmp.db2html
+-	@set -e; cd tmp.db2html; docbook2html ../$< ; mv *.html ..
+-	@-rm -rf tmp.db2html
++SETUP_TMPDIR = \
++	t="tmp.db2html.$@"; \
++	rm -rf $$t; \
++	mkdir $$t; \
++	cd $$t
++CLEAN_TMPDIR = \
++	cd ..; \
++	rm -rf $$t
 +
- 		skb = ip_check_defrag(dev_net(skb->dev), skb, IP_DEFRAG_MACVLAN);
- 		if (!skb)
- 			return RX_HANDLER_CONSUMED;
-@@ -436,7 +439,9 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 			goto out;
- 		}
++MAKE_HTML = \
++	@set -e; \
++	$(SETUP_TMPDIR); \
++	docbook2html ../$<; \
++	mv *.html ..; \
++	$(CLEAN_TMPDIR)
  
--		macvlan_broadcast_enqueue(port, src, skb);
-+		hash = mc_hash(NULL, eth->h_dest);
-+		if (test_bit(hash, port->mc_filter))
-+			macvlan_broadcast_enqueue(port, src, skb);
++$(HTMLFILES): index.db
++	$(MAKE_HTML)
+ iputils.html: iputils.db
+-	@-rm -rf tmp.db2html
+-	@mkdir tmp.db2html
+-	@set -e; cd tmp.db2html; docbook2html -u -o html ../$< ; mv html/$@ ..
+-	@-rm -rf tmp.db2html
++	$(MAKE_HTML)
  
- 		return RX_HANDLER_PASS;
- 	}
-@@ -722,12 +727,12 @@ static void macvlan_change_rx_flags(struct net_device *dev, int change)
- 	}
- }
+ # docbook2man produces utterly ugly output and I did not find
+ # any way to customize this but hacking backend perl script a little.
+ # Well, hence...
  
--static void macvlan_set_mac_lists(struct net_device *dev)
-+static void macvlan_compute_filter(unsigned long *mc_filter,
-+				   struct net_device *dev,
-+				   struct macvlan_dev *vlan)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
--
- 	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
--		bitmap_fill(vlan->mc_filter, MACVLAN_MC_FILTER_SZ);
-+		bitmap_fill(mc_filter, MACVLAN_MC_FILTER_SZ);
- 	} else {
- 		struct netdev_hw_addr *ha;
- 		DECLARE_BITMAP(filter, MACVLAN_MC_FILTER_SZ);
-@@ -739,10 +744,33 @@ static void macvlan_set_mac_lists(struct net_device *dev)
+ $(MANFILES): index.db
+-	@-mkdir tmp.db2man
+-	@set -e; cd tmp.db2man; nsgmls ../$< | sgmlspl ../docbook2man-spec.pl ;	mv $@ ..
+-	@-rm -rf tmp.db2man
++	@set -e; \
++	$(SETUP_TMPDIR); \
++	nsgmls ../$< | sgmlspl ../docbook2man-spec.pl; \
++	mv $@ ..; \
++	$(CLEAN_TMPDIR)
  
- 		__set_bit(mc_hash(vlan, dev->broadcast), filter);
+ clean:
+-	@rm -rf $(MANFILES) $(HTMLFILES) iputils.html tmp.db2html tmp.db2man
++	@rm -rf $(MANFILES) $(HTMLFILES) iputils.html tmp.db2html* tmp.db2man*
  
--		bitmap_copy(vlan->mc_filter, filter, MACVLAN_MC_FILTER_SZ);
-+		bitmap_copy(mc_filter, filter, MACVLAN_MC_FILTER_SZ);
- 	}
-+}
-+
-+static void macvlan_set_mac_lists(struct net_device *dev)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	macvlan_compute_filter(vlan->mc_filter, dev, vlan);
-+
- 	dev_uc_sync(vlan->lowerdev, dev);
- 	dev_mc_sync(vlan->lowerdev, dev);
-+
-+	/* This is slightly inaccurate as we're including the subscription
-+	 * list of vlan->lowerdev too.
-+	 *
-+	 * Bug alert: This only works if everyone has the same broadcast
-+	 * address as lowerdev.  As soon as someone changes theirs this
-+	 * will break.
-+	 *
-+	 * However, this is already broken as when you change your broadcast
-+	 * address we don't get called.
-+	 *
-+	 * The solution is to maintain a list of broadcast addresses like
-+	 * we do for uc/mc, if you care.
-+	 */
-+	macvlan_compute_filter(vlan->port->mc_filter, vlan->lowerdev, NULL);
- }
- 
- static int macvlan_change_mtu(struct net_device *dev, int new_mtu)
+ snapshot:
+ 	@date "+%y%m%d" > snapshot.db
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.8.2
