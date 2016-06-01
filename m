@@ -1,104 +1,166 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC 00/12] BPF hardware offload via cls_bpf
-Date: Wed,  1 Jun 2016 17:50:02 +0100
-Message-ID: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: [RFC 01/12] add basic register-field manipulation macros
+Date: Wed,  1 Jun 2016 17:50:03 +0100
+Message-ID: <1464799814-4453-2-git-send-email-jakub.kicinski@netronome.com>
+References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
 	dinan.gunawardena@netronome.com,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
+	Jakub Kicinski <jakub.kicinski@netronome.com>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Felix Fietkau <nbd@openwrt.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:34421 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157AbcFAQvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:51:43 -0400
-Received: by mail-wm0-f42.google.com with SMTP id z87so29624003wmh.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 09:51:42 -0700 (PDT)
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:37699 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753052AbcFAQvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:51:44 -0400
+Received: by mail-wm0-f49.google.com with SMTP id z87so37551007wmh.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 09:51:43 -0700 (PDT)
+In-Reply-To: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+C bitfields are problematic and best avoided.  Developers
+interacting with hardware registers find themselves searching
+for easy-to-use alternatives.  Common approach is to define
+structures or sets of macros containing mask and shift pair.
+Operation on the register are then performed as follows:
 
-In recent months a lot of progress have been made on offloading
-simpler TC classifiers.  There is also growing interest in using
-BPF for generic high-speed packet processing in the kernel.
-It seems beneficial to tie those two trends together and think
-about hardware offloads of BPF programs.  This patch set presents
-such offload to Netronome smart NICs.  cls_bpf is extended with
-hardware offload capabilities and NFP driver gets a JIT translator
-which in presence of capable firmware can be used to offload
-the BPF program onto the card.
+ field = (reg >> shift) & mask;
 
-BPF JIT implementation is not 100% complete (e.g. missing instructions)
-but it is functional - in fact I implemented only bits which clang/cBPF
-used in my test programs.  Encouragingly it should be possible to
-offload most (if not all) advanced BPF features onto the NIC - 
-including packet modification, maps, tunnel encap/decap etc.
+ reg &= ~(mask << shift);
+ reg |= (field & mask) << shift;
 
-Examples of tests I used:
+Defining shift and mask separately is tedious.  Ivo van Doorn
+came up with an idea of computing them at compilation time
+based on a single shifted mask (later refined by Felix) which
+can be used like this:
 
-Basic eBPF/C/clang apps:
-  __section_cls_entry
-  int cls_entry(struct __sk_buff *skb)
-  {
-	if (load_byte(skb, 0) != 0x0)
-		return 0;
+ field = FIELD_GET(REG_FIELD, reg);
 
-	if (load_byte(skb, 4) != 0x1)
-		return 0;
+ reg &= ~REG_FIELD;
+ reg |= FIELD_PUT(REG_FIELD, field);
 
-	skb->mark = 0xcafe;
+FIELD_{GET,PUT} macros take care of finding out what the
+appropriate shift is based on compilation time ffs operation.
 
-	if (load_byte(skb, 50) != 0xff)
-		return 0;
+GENMASK can be used to define registers (which is usually
+less error-prone and easier to match with datasheets).
 
-	return ~0U;
-  }
+This approach is the most convenient I've seen so to limit code
+multiplication let's move the macros to a global header file.
 
-tcpdump generated filters, for instance:
-  dst 10.1.255.255 and \
-  tcp and \
-  (port 90 or port 91) and \
-  tcp[tcpflags] & tcp-syn != 0
+Compared to Felix Fietkau's version I:
+ - edited the comments a bit;
+ - gave auxiliary macros _bf_ prefix;
+ - dropped the UL specifier from 1 in _bf_low_bits,
+ - renamed the FIELD_SET to FIELD_PUT;
+ - added 64bit versions.
 
-
-First patch is not really related but others depend on it, I hope to
-post it separately soon.
-
-
-Jakub Kicinski (12):
-  add basic register-field manipulation macros
-  net: cls_bpf: add hardware offload
-  net: cls_bpf: limit hardware offload by software-only flag
-  net: cls_bpf: add support for marking filters as hardware-only
-  nfp: add BPF to NFP code translator
-  nfp: add hardware cls_bpf offload
-  nfp: add skb mark support to the bpf offload
-  net: cls_bpf: allow offloaded filters to update stats
-  nfp: report statistics of offloaded filters
-  nfp: bpf: optimize register init
-  nfp: bpf: add register rename
-  nfp: bpf: add denser mode of execution
-
- drivers/net/ethernet/netronome/nfp/Makefile        |    4 +-
- drivers/net/ethernet/netronome/nfp/nfp_asm.h       |  191 ++++
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  136 +++
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 1027 ++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |   34 +-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |   41 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   21 +-
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |    3 +
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  256 +++++
- include/linux/bitfield.h                           |   89 ++
- include/linux/netdevice.h                          |    2 +
- include/net/pkt_cls.h                              |   16 +
- include/uapi/linux/pkt_cls.h                       |    1 +
- net/sched/cls_bpf.c                                |  115 ++-
- 14 files changed, 1928 insertions(+), 8 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_asm.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+CC: Ivo van Doorn <IvDoorn@gmail.com>
+CC: Felix Fietkau <nbd@openwrt.org>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
+---
+ include/linux/bitfield.h | 89 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 89 insertions(+)
  create mode 100644 include/linux/bitfield.h
 
+diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
+new file mode 100644
+index 000000000000..3815c81f5b10
+--- /dev/null
++++ b/include/linux/bitfield.h
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
++ * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#ifndef _LINUX_BITFIELD_H
++#define _LINUX_BITFIELD_H
++
++#include <asm/types.h>
++
++/*
++ * Macros to find first set bit in a variable.
++ * These macros behave the same as the __ffs() functions but the most important
++ * difference that this is done during compile-time rather than run-time.
++ */
++#define compile_ffs2(__x) \
++	__builtin_choose_expr(((__x) & 0x1), 0, 1)
++
++#define compile_ffs4(__x) \
++	__builtin_choose_expr(((__x) & 0x3), \
++			      (compile_ffs2((__x))), \
++			      (compile_ffs2((__x) >> 2) + 2))
++
++#define compile_ffs8(__x) \
++	__builtin_choose_expr(((__x) & 0xf), \
++			      (compile_ffs4((__x))), \
++			      (compile_ffs4((__x) >> 4) + 4))
++
++#define compile_ffs16(__x) \
++	__builtin_choose_expr(((__x) & 0xff), \
++			      (compile_ffs8((__x))), \
++			      (compile_ffs8((__x) >> 8) + 8))
++
++#define compile_ffs32(__x) \
++	__builtin_choose_expr(((__x) & 0xffff), \
++			      (compile_ffs16((__x))), \
++			      (compile_ffs16((__x) >> 16) + 16))
++
++#define compile_ffs64(__x) \
++	__builtin_choose_expr(((__x) & 0xffffffff), \
++			      (compile_ffs32((__x))), \
++			      (compile_ffs32(((__x) >> 16) >> 16) + 32))
++
++/*
++ * Macros to validate that the mask given contains a contiguous set of bits.
++ * Note that we cannot use the is_power_of_2() function since this check
++ * must be done at compile-time.
++ */
++#define _bf_is_power_of_two(x)	( !((x) & ((x) - 1)) )
++#define _bf_low_bits(x)		( ((x) - 1) & ~(x) )
++#define _bf_is_valid_mask(x)	_bf_is_power_of_two(1U + (x) + _bf_low_bits(x))
++
++#define _BF_FIELD_CHECK(_mask)						\
++	BUILD_BUG_ON(!(_mask) || !_bf_is_valid_mask(_mask))
++
++#define FIELD_PUT(_mask, _val)						\
++	({								\
++		_BF_FIELD_CHECK(_mask);					\
++		(((u32)(_val)) << compile_ffs32(_mask)) & _mask;	\
++	})
++
++#define FIELD_GET(_mask, _val)						\
++	({								\
++		_BF_FIELD_CHECK(_mask);					\
++		(u32)(((_val) & _mask) >> compile_ffs32(_mask));	\
++	})
++
++#define FIELD_PUT64(_mask, _val)					\
++	({								\
++		_BF_FIELD_CHECK(_mask);					\
++		(((u64)(_val)) << compile_ffs64(_mask)) & _mask;	\
++	})
++
++#define FIELD_GET64(_mask, _val)					\
++	({								\
++		_BF_FIELD_CHECK(_mask);					\
++		(u64)(((_val) & _mask) >> compile_ffs64(_mask));	\
++	})
++
++#endif
 -- 
 1.9.1
