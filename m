@@ -1,266 +1,338 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [RFC 1/3] vsockmon: Add tap functions.
-Date: Wed, 1 Jun 2016 14:07:03 -0700
-Message-ID: <20160601210703.GF15594@stefanha-x1.localdomain>
+Subject: Re: [RFC 2/3] vsockmon: Add vsockmon device
+Date: Wed, 1 Jun 2016 14:15:54 -0700
+Message-ID: <20160601211554.GG15594@stefanha-x1.localdomain>
 References: <20160528162907.14809-1-ggarcia@deic.uab.cat>
- <20160528162907.14809-2-ggarcia@deic.uab.cat>
+ <20160528162907.14809-3-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MZf7D3rAEoQgPanC"
+	protocol="application/pgp-signature"; boundary="MiFvc8Vo6wRSORdP"
 Cc: netdev@vger.kernel.org, jhansen@vmware.com
 To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41753 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49908 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750855AbcFAVHK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2016 17:07:10 -0400
+	id S1750967AbcFAVQA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2016 17:16:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20160528162907.14809-2-ggarcia@deic.uab.cat>
+In-Reply-To: <20160528162907.14809-3-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---MZf7D3rAEoQgPanC
+--MiFvc8Vo6wRSORdP
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, May 28, 2016 at 06:29:05PM +0200, ggarcia@abra.uab.cat wrote:
+On Sat, May 28, 2016 at 06:29:06PM +0200, ggarcia@abra.uab.cat wrote:
 > From: Gerard Garcia <ggarcia@deic.uab.cat>
 >=20
 > Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
 > ---
->  include/net/af_vsock.h      |  13 ++++++
->  include/uapi/linux/if_arp.h |   1 +
->  net/vmw_vsock/af_vsock.c    | 105 ++++++++++++++++++++++++++++++++++++++=
+>  drivers/net/Kconfig           |   8 ++
+>  drivers/net/Makefile          |   1 +
+>  drivers/net/vsockmon.c        | 171 ++++++++++++++++++++++++++++++++++++=
 ++++++
->  3 files changed, 119 insertions(+)
+>  include/uapi/linux/Kbuild     |   1 +
+>  include/uapi/linux/vsockmon.h |  37 +++++++++
+>  5 files changed, 218 insertions(+)
+>  create mode 100644 drivers/net/vsockmon.c
+>  create mode 100644 include/uapi/linux/vsockmon.h
 >=20
-> diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
-> index 15694c9..c4593d8 100644
-> --- a/include/net/af_vsock.h
-> +++ b/include/net/af_vsock.h
-> @@ -187,4 +187,17 @@ struct sock *vsock_find_connected_socket(struct sock=
-addr_vm *src,
->  					 struct sockaddr_vm *dst);
->  void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 0c5415b..42c43b6 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -330,6 +330,14 @@ config NET_VRF
+>  	  This option enables the support for mapping interfaces into VRF's. The
+>  	  support enables VRF devices.
 > =20
-> +/**** TAP ****/
+> +config VSOCKMON
+> +    tristate "Virtual vsock monitoring device"
+> +    depends on VHOST_VSOCK
+> +    ---help---
+> +     This option enables a monitoring net device for vsock sockets. It is
+> +     mostly intended for developers or support to debug vsock issues. If
+> +     unsure, say N.
 > +
-> +struct vsock_tap {
-> +	struct net_device *dev;
-> +	struct module *module;
-> +	struct list_head list;
+>  endif # NET_CORE
+> =20
+>  config SUNGEM_PHY
+> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> index 7336cbd..e2188d4 100644
+> --- a/drivers/net/Makefile
+> +++ b/drivers/net/Makefile
+> @@ -28,6 +28,7 @@ obj-$(CONFIG_GENEVE) +=3D geneve.o
+>  obj-$(CONFIG_GTP) +=3D gtp.o
+>  obj-$(CONFIG_NLMON) +=3D nlmon.o
+>  obj-$(CONFIG_NET_VRF) +=3D vrf.o
+> +obj-$(CONFIG_VSOCKMON) +=3D vsockmon.o
+> =20
+>  #
+>  # Networking Drivers
+> diff --git a/drivers/net/vsockmon.c b/drivers/net/vsockmon.c
+> new file mode 100644
+> index 0000000..becddc9
+> --- /dev/null
+> +++ b/drivers/net/vsockmon.c
+> @@ -0,0 +1,171 @@
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <linux/if_arp.h>
+> +#include <net/rtnetlink.h>
+> +#include <net/sock.h>
+> +#include <net/af_vsock.h>
+> +#include <uapi/linux/vsockmon.h>
+> +
+> +/* Virtio transport max packet size plus header */
+> +#define DEFAULT_MTU 1024 * 64 + sizeof(struct af_vsockmon_hdr);
+> +
+> +struct pcpu_lstats {
+> +	u64 rx_packets;
+> +	u64 rx_bytes;
+> +	struct u64_stats_sync syncp;
 > +};
 > +
-> +extern int vsock_init_tap(void);
-> +extern int vsock_add_tap(struct vsock_tap *vt);
-> +extern int vsock_remove_tap(struct vsock_tap *vt);
-> +extern void vsock_deliver_tap(struct sk_buff *skb);
-
-The other function prototypes in this header don't use "extern" either.
-Please drop for consistency.
-
-> +
->  #endif /* __AF_VSOCK_H__ */
-> diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-> index 4d024d7..869262a 100644
-> --- a/include/uapi/linux/if_arp.h
-> +++ b/include/uapi/linux/if_arp.h
-> @@ -95,6 +95,7 @@
->  #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
->  #define ARPHRD_NETLINK	824		/* Netlink header		*/
->  #define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
-> +#define ARPHRD_VSOCKMON 826		/* Vsock monitor header		*/
-
-Previous lines use a tab character (^I) before the numeric constant.
-Please follow that style for consistency.
-
-I suggest calling it just ARPHRD_VSOCK.  Netlink also uses
-ARPHRD_NETLINK instead of ARPHRD_NLMON.
-
-> =20
->  #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
->  #define ARPHRD_NONE	  0xFFFE	/* zero header length */
-> diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-> index 6b158ab..ec7a05d 100644
-> --- a/net/vmw_vsock/af_vsock.c
-> +++ b/net/vmw_vsock/af_vsock.c
-> @@ -96,6 +96,7 @@
->  #include <linux/unistd.h>
->  #include <linux/wait.h>
->  #include <linux/workqueue.h>
-> +#include <linux/if_arp.h>
->  #include <net/sock.h>
->  #include <net/af_vsock.h>
-> =20
-> @@ -2012,6 +2013,110 @@ const struct vsock_transport *vsock_core_get_tran=
-sport(void)
->  }
->  EXPORT_SYMBOL_GPL(vsock_core_get_transport);
-> =20
-> +/**** TAP ****/
-
-Feel free to put this in a separate source file.  The Kbuild can link
-multiple objects into a single kernel module.  That would be cleaner
-than using a big comment to separate it from af_vsock.c code.
-
-I wonder whether this tap mechanism should be generic so that netlink,
-vsock, and other address families can reuse the code.  This is basically
-copied from netlink.
-
-> +static DEFINE_SPINLOCK(vsock_tap_lock);
-> +static struct list_head vsock_tap_all __read_mostly;
-> +
-> +int vsock_init_tap(void) {
-> +	INIT_LIST_HEAD(&vsock_tap_all);
-> +
-> +	return 0;
+> +static int vsockmon_dev_init(struct net_device *dev)
+> +{
+> +	dev->lstats =3D netdev_alloc_pcpu_stats(struct pcpu_lstats);
+> +	return dev->lstats =3D=3D NULL ? -ENOMEM : 0;
 > +}
-> +EXPORT_SYMBOL_GPL(vsock_init_tap);
-
-Can you use LIST_HEAD_INIT() on the vsock_tap_all declaration line to
-eliminate the need for vsock_init_tap() completely?
-
 > +
-> +int vsock_add_tap(struct vsock_tap *vt) {
-> +	if (unlikely(vt->dev->type !=3D ARPHRD_VSOCKMON))
+> +static void vsockmon_dev_uninit(struct net_device *dev)
+> +{
+> +	free_percpu(dev->lstats);
+> +}
+> +
+> +struct vsockmon {
+> +	struct vsock_tap vt;
+> +};
+> +
+> +static int vsockmon_open(struct net_device *dev)
+> +{
+> +	struct vsockmon *vsockmon =3D netdev_priv(dev);
+> +
+> +	vsockmon->vt.dev =3D dev;
+> +	vsockmon->vt.module =3D THIS_MODULE;
+> +	return vsock_add_tap(&vsockmon->vt);
+> +}
+> +
+> +static int vsockmon_close(struct net_device *dev) {
+> +	struct vsockmon *vsockmon =3D netdev_priv(dev);
+> +
+> +	return vsock_remove_tap(&vsockmon->vt);
+> +}
+> +
+> +static netdev_tx_t vsockmon_xmit(struct sk_buff *skb, struct net_device =
+*dev)
+> +{
+> +	int len =3D skb->len;
+> +	struct pcpu_lstats *stats =3D this_cpu_ptr(dev->lstats);
+> +
+> +	u64_stats_update_begin(&stats->syncp);
+> +	stats->rx_bytes +=3D len;
+> +	stats->rx_packets++;
+> +	u64_stats_update_end(&stats->syncp);
+> +
+> +	dev_kfree_skb(skb);
+> +
+> +	return NETDEV_TX_OK;
+> +}
+> +
+> +static struct rtnl_link_stats64 *
+> +vsockmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *s=
+tats)
+> +{
+> +	int i;
+> +	u64 bytes =3D 0, packets =3D 0;
+> +
+> +	for_each_possible_cpu(i) {
+> +		const struct pcpu_lstats *vstats;
+> +		u64 tbytes, tpackets;
+> +		unsigned int start;
+> +
+> +		vstats =3D per_cpu_ptr(dev->lstats, i);
+> +
+> +		do {
+> +			start =3D u64_stats_fetch_begin_irq(&vstats->syncp);
+> +			tbytes =3D vstats->rx_bytes;
+> +			tpackets =3D vstats->rx_packets;
+> +		} while (u64_stats_fetch_retry_irq(&vstats->syncp, start));
+> +
+> +		packets +=3D tpackets;
+> +		bytes +=3D tbytes;
+> +	}
+> +
+> +	stats->rx_packets =3D packets;
+> +	stats->tx_packets =3D 0;
+> +
+> +	stats->rx_bytes =3D bytes;
+> +	stats->tx_bytes =3D 0;
+> +
+> +	return stats;
+> +}
+> +
+> +static int vsockmon_is_valid_mtu(int new_mtu)
+> +{
+> +	return new_mtu >=3D (int) sizeof(struct af_vsockmon_hdr);
+> +}
+> +
+> +static int vsockmon_change_mtu(struct net_device *dev, int new_mtu)
+> +{
+> +	if (!vsockmon_is_valid_mtu(new_mtu))
 > +		return -EINVAL;
 > +
-> +	spin_lock(&vsock_tap_lock);
-> +	list_add_rcu(&vt->list, &vsock_tap_all);
-> +	spin_unlock(&vsock_tap_lock);
-> +
-> +	__module_get(vt->module);
-
-It's slightly safer to get the module before publishing it on the list.
-But in practice I guess the caller is the module so the module won't
-disappear underneath us.
-
-> +
+> +	dev->mtu =3D new_mtu;
 > +	return 0;
 > +}
-> +EXPORT_SYMBOL_GPL(vsock_add_tap);
+
+I wonder if the mtu serves any purpose.  What happens when you change it
+=66rom the default value?
+
 > +
-> +int __vsock_remove_tap(struct vsock_tap *vt) {
-> +	bool found =3D false;
-> +	struct vsock_tap *tmp;
+> +static const struct net_device_ops vsockmon_ops =3D {
+> +	.ndo_init =3D vsockmon_dev_init,
+> +	.ndo_uninit =3D vsockmon_dev_uninit,
+> +	.ndo_open =3D vsockmon_open,
+> +	.ndo_stop =3D vsockmon_close,
+> +	.ndo_start_xmit =3D vsockmon_xmit,
+> +	.ndo_get_stats64 =3D vsockmon_get_stats64,
+> +	.ndo_change_mtu =3D vsockmon_change_mtu,
+> +};
 > +
-> +	spin_lock(&vsock_tap_lock);
-> +
-> +	list_for_each_entry(tmp, &vsock_tap_all, list) {
-> +		if (vt =3D=3D tmp) {
-> +			list_del_rcu(&vt->list);
-> +			found =3D true;
-> +			goto out;
-> +		}
-> +	}
-> +
-> +	pr_warn("__vsock_remove_tap: %p not found\n", vt);
-> +out:
-> +	spin_unlock(&vsock_tap_lock);
-> +
-> +	if (found)
-> +		module_put(vt->module);
-> +
-> +	return found ? 0 : -ENODEV;
+> +static u32 always_on(struct net_device *dev)
+> +{
+> +	return 1;
 > +}
 > +
-> +int vsock_remove_tap(struct vsock_tap *vt)
+> +static const struct ethtool_ops vsockmon_ethtool_ops =3D {
+> +	.get_link =3D always_on,
+> +};
+> +
+> +static void vsockmon_setup(struct net_device *dev)
 > +{
-> +	int ret;
+> +	dev->type =3D ARPHRD_VSOCKMON;
+> +	dev->priv_flags |=3D IFF_NO_QUEUE;
 > +
-> +	ret =3D __vsock_remove_tap(vt);
-> +	synchronize_net();
-
-module_put() should be called after synchronize_net().  That way we
-guarantee that no one is still accessing vt when the module is put.  The
-caller is probably the module though, so maybe there is an implicit
-reference...
-
+> +	dev->netdev_ops	=3D &vsockmon_ops;
+> +	dev->ethtool_ops =3D &vsockmon_ethtool_ops;
+> +	dev->destructor	=3D free_netdev;
 > +
-> +	return ret;
+> +	dev->features =3D NETIF_F_SG | NETIF_F_FRAGLIST |
+> +			NETIF_F_HIGHDMA | NETIF_F_LLTX;
+> +
+> +	dev->flags =3D IFF_NOARP;
+> +
+> +	dev->mtu =3D DEFAULT_MTU;
 > +}
-> +EXPORT_SYMBOL_GPL(vsock_remove_tap);
 > +
-> +static int __vsock_deliver_tap_skb(struct sk_buff *skb,
-> +				     struct net_device *dev)
+> +static struct rtnl_link_ops vsockmon_link_ops __read_mostly =3D {
+> +	.kind			=3D "vsockmon",
+> +	.priv_size		=3D sizeof(struct vsockmon),
+> +	.setup			=3D vsockmon_setup,
+> +};
+> +
+> +static __init int vsockmon_register(void)
 > +{
-> +	struct sk_buff *vskb;
-> +	int ret =3D 0;
-> +
-> +	if (skb) {
-> +		dev_hold(dev);
-> +		vskb =3D skb_clone(skb, GFP_ATOMIC);
-
-You must handle the case where skb_clone() returns NULL.  In other
-words, we don't have enough memory to capture the packet and just return
--ENOMEM.
-
-> +		vskb->dev =3D dev;
-> +		vskb->pkt_type =3D PACKET_USER;
-
-I'm not sure if PACKET_USER is correct (or if pkt_type matters at all).
-
-PACKET_USER/PACKET_KERNEL seems to be purely a netlink concept to
-distinguish netlink packets originating from the kernel or userspace.
-
-AF_VSOCK is more like Ethernet where packets come from the host itself
-or from a VM.  I would consider PACKET_HOST and PACKET_OTHERHOST.
-
-> +		ret =3D dev_queue_xmit(vskb);
-> +		if (unlikely(ret > 0))
-> +			ret =3D net_xmit_errno(ret);
-> +
-> +		dev_put(dev);
-> +	}
+> +	int ret =3D rtnl_link_register(&vsockmon_link_ops);
+> +	if (!ret)
+> +		vsock_init_tap();
 > +
 > +	return ret;
 > +}
 > +
-> +static void __vsock_deliver_tap(struct sk_buff *skb)
+> +static __exit void vsockmon_unregister(void)
 > +{
-> +	int ret;
-> +	struct vsock_tap *tmp;
-> +
-> +	list_for_each_entry_rcu(tmp, &vsock_tap_all, list) {
-> +		ret =3D __vsock_deliver_tap_skb(skb, tmp->dev);
-> +		if (unlikely(ret))
-> +			break;
-> +	}
+> +	rtnl_link_unregister(&vsockmon_link_ops);
 > +}
 > +
-> +void vsock_deliver_tap(struct sk_buff *skb)
-> +{
-> +	rcu_read_lock();
+> +module_init(vsockmon_register);
+> +module_exit(vsockmon_unregister);
 > +
-> +	if (unlikely(!list_empty(&vsock_tap_all)))
-> +		__vsock_deliver_tap(skb);
+> +MODULE_LICENSE("GPL v2");
+> +MODULE_AUTHOR("Gerard Garcia <ggarcia@deic.uab.cat>");
+> +MODULE_DESCRIPTION("Vsock monitoring device");
+> +MODULE_ALIAS_RTNL_LINK("vsockmon");
+
+there should be some mention that this is derived from nlmon.c.
+
+> diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+> index 5f047d2..b1836cc 100644
+> --- a/include/uapi/linux/Kbuild
+> +++ b/include/uapi/linux/Kbuild
+> @@ -454,6 +454,7 @@ header-y +=3D virtio_scsi.h
+>  header-y +=3D virtio_types.h
+>  header-y +=3D virtio_vsock.h
+>  header-y +=3D vm_sockets.h
+> +header-y +=3D vsockmon.h
+>  header-y +=3D vt.h
+>  header-y +=3D wait.h
+>  header-y +=3D wanrouter.h
+> diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
+> new file mode 100644
+> index 0000000..c73166f
+> --- /dev/null
+> +++ b/include/uapi/linux/vsockmon.h
+> @@ -0,0 +1,37 @@
+> +#ifndef _UAPI_VSOCKMON_H
+> +#define _UAPI_VSOCKMON_H
 > +
-> +	rcu_read_unlock();
-> +}
-> +EXPORT_SYMBOL_GPL(vsock_deliver_tap);
+> +#include <linux/virtio_vsock.h>
 > +
->  MODULE_AUTHOR("VMware, Inc.");
->  MODULE_DESCRIPTION("VMware Virtual Socket Family");
->  MODULE_VERSION("1.0.1.0-k");
+> +/* Packet structure of packets received from the vsockmon device. */
+> +
+> +struct af_vsockmon_g {
+> +	unsigned short op; /* enum af_vsock_g_ops */
+> +	unsigned int src_cid;
+> +	unsigned int src_port;
+> +	unsigned int dst_cid;
+> +	unsigned int dst_port;
+> +};
+> +
+> +struct af_vsockmon_hdr {
+> +	unsigned short type;  /* enum af_vosck_type */
+> +	struct af_vsockmon_g g_hdr;
+> +	union {
+> +		struct virtio_vsock_hdr virtio_hdr;
+> +	} t_hdr;
+> +};
+
+How does endianness work?  virtio_hdr uses little-endian fields on the
+wire.  I guess that af_vsockmon_g is always CPU-endian.
+
+> +
+> +enum af_vsockmon_type {
+> +	AF_VSOCK_GENERIC =3D 1, /* No transport header */
+> +	AF_VSOCK_VIRTIO =3D 2,  /* Addtional virtio transport header */
+> +};
+> +
+> +enum af_vsockmon_g_ops {
+> +	AF_VSOCK_G_OP_UNKNOWN =3D 0,
+> +	AF_VSOCK_G_OP_CONNECT =3D 1,
+> +	AF_VSOCK_G_OP_DISCONNECT =3D 2,
+> +	AF_VSOCK_G_OP_CONTROL =3D 3,
+> +	AF_VSOCK_G_OP_PAYLOAD =3D 4,
+> +};
+> +
+> +#endif
 > --=20
 > 2.8.3
 >=20
 
---MZf7D3rAEoQgPanC
+--MiFvc8Vo6wRSORdP
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQEcBAEBAgAGBQJXT053AAoJEJykq7OBq3PIFHsH/RjRdIeRJ2xKUgl2eZ4gZEzr
-ocYD0gyMCtkYUD7MfmddXk0gCSQxj5NsigTV08SBzjd8FRuxvp31YC6zMGrp5lxg
-tT3VXKpzQjVrlHqPAreytg2MlMVf6RI0QZTXUeBm6EFNaBVV3ELiqOX1IOiu7om0
-YN56e3BUZjmHRLiYMUgffU93Y5tnx5MCaRaXyQmwoDdDRV1jYsVhnmEb6KuHCnDt
-nAdMlBAFn/HGd1d1QEut54FAN1fO6XNzc1mE9liSslzWG0sgUi+ZFLd3bbjWuz+p
-erl8VXppf+2zLg5hwTZMo5nBiRnspmGSu559PRDeEBJpO0QrM0TVVHBuCWsMNTc=
-=+7ZD
+iQEcBAEBAgAGBQJXT1CKAAoJEJykq7OBq3PIKm8IAKlSIvdDnY2k4qlPCKyDUbzN
+IGox2gwb0Q4WpgiPmv6Mqw2ubXvz4HQbrkXj3gfm/OKfCYs0jYHf7Ss1v5rj8COr
+eJfp/4/mpIZC/IsHnQiR4w4oGmvqxHm84h0CrFvuJ7CUe8uRyMCFvROY+4cbg09b
+vwLCRLQWqo4RA2nOJHpKKPHZ7Wq9bseCfyJuXAkZIVI0Mot6ju8g8wjGcKYwx9Fh
+/vNFetqaKpF3fW+/C7os1QNznhjA6y9rOyitJzsJX9dgMfeI2/lzPY+3Jv+NorFk
+G1PeRzEGdB5OvNF0wx4zNDAq60mpeas3cL7X+ZITdumyM0D/FcDlvjcCjIMSCDw=
+=heE8
 -----END PGP SIGNATURE-----
 
---MZf7D3rAEoQgPanC--
+--MiFvc8Vo6wRSORdP--
