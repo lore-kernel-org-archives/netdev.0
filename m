@@ -1,58 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Thu, 2 Jun 2016 00:27:03 +0200
-Message-ID: <20160601222703.GJ31982@lunn.ch>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Wed, 1 Jun 2016 17:27:52 -0500
+Message-ID: <574F6168.3020802@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang@realtek.com, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux USB <linux-usb@vger.kernel.org>, pali.rohar@gmail.com,
-	anthony.wong@canonical.com
-To: Mario Limonciello <mario_limonciello@dell.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+In-Reply-To: <570EC541.6080603@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 01, 2016 at 04:50:44PM -0500, Mario Limonciello wrote:
-> Dell systems with Type-C ports have support for a persistent system
-> specific MAC address when used with Dell Type-C docks and dongles.
-> This means a dock plugged into two different systems will show different
-> (but persistent) MAC addresses.  Dell Type-C docks and dongles use the
-> r8152 driver.
-> 
-> This information for the system's persistent MAC address is burned in when
-> the HW is built and avilable under _SB\AMAC in the DSDT at runtime.
-> 
-> More information about the technology is available here:
-> http://www.dell.com/support/article/us/en/04/SLN301147
-> 
-> Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
-> ---
->  drivers/net/usb/Kconfig |  1 +
->  drivers/net/usb/r8152.c | 37 +++++++++++++++++++++++++++++++++++++
->  2 files changed, 38 insertions(+)
-> 
-> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> index cdde590..c320930 100644
-> --- a/drivers/net/usb/Kconfig
-> +++ b/drivers/net/usb/Kconfig
-> @@ -98,6 +98,7 @@ config USB_RTL8150
->  config USB_RTL8152
->  	tristate "Realtek RTL8152/RTL8153 Based USB Ethernet Adapters"
->  	select MII
-> +	depends on ACPI
+Florian Fainelli wrote:
+>> +/* Transmit the packet */
+>> >+static int emac_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+>> >+{
+>> >+	struct emac_adapter *adpt = netdev_priv(netdev);
+>> >+
+>> >+	return emac_mac_tx_buf_send(adpt, &adpt->tx_q, skb);
 
-Hi Mario
+> I would inline emac_mac_tx_buf_send()'s body here to make it much easier
+> to read and audit...
 
-That seems a bit heavy handed. What about ARM or MIPS machines which
-don't use ACPI but do have USB ports where i could plug in a USB
-dongle with this chipset.
+I'm close to submitting a v5 of this patchset.  The change to phylib has 
+resulted in significant other changes.  I'm sure it's still not quite 
+right, so I ask your patience in reviewing it.
 
-I think it would be better to make use of ACPI if it is available, but
-don't require it in order the build the driver.
+However, I'm not sure inlining emac_mac_tx_buf_send() into 
+emac_start_xmit() is good idea.  That would result in moving several 
+functions from emac-mac.c into emac.c.  I'm concerned about maintaining 
+the functional split between the two files.
 
-      Andrew
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
