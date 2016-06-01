@@ -1,60 +1,49 @@
-From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/8] mwifiex: only call mwifiex_sdio_probe_of() if dev has
- an OF node
-Date: Wed, 1 Jun 2016 14:14:25 +1000
-Message-ID: <CAGRGNgWHGR_KJW1SExte-YSG1ynxy-GrtKjO-GRKEadUx4HpWA@mail.gmail.com>
-References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com> <1464358702-19083-2-git-send-email-javier@osg.samsung.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 2/8] mwifiex: propagate sdio_enable_func() errno code in mwifiex_sdio_probe()
+Date: Wed, 1 Jun 2016 14:15:12 +1000
+Message-ID: <CAGRGNgW_Re_bHnhkLW1wUGANOheoizm-zNK996nJQqBZJ=XY4w@mail.gmail.com>
+References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com> <1464358702-19083-3-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-To: Javier Martinez Canillas <javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464358702-19083-2-git-send-email-javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Xinming Hu <huxm@marvell.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464358702-19083-3-git-send-email-javier@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi All,
 
 On Sat, May 28, 2016 at 12:18 AM, Javier Martinez Canillas
-<javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org> wrote:
-> SDIO is an auto enumerable bus so the SDIO devices are matched using the
-> sdio_device_id table and not using compatible strings from a OF id table.
+<javier@osg.samsung.com> wrote:
+> If the sdio_enable_func() function fails on .probe, the -EIO errno code
+> is always returned but that could make more difficult to debug and find
+> the cause of why the function actually failed.
 >
-> However, commit ce4f6f0c353b ("mwifiex: add platform specific wakeup
-> interrupt support") allowed to match nodes defined as child of the SDIO
-> host controller in the probe function using a compatible string to setup
-> platform specific parameters in the DT.
+> Since the driver/device core prints the value returned by .probe in its
+> error message propagate what was returned by sdio_enable_func() at fail.
 >
-> The problem is that the OF parse function is always called regardless if
-> the SDIO dev has an OF node associated or not, and prints an error if it
-> is not found. So, on a platform that doesn't have a node for a SDIO dev,
-> the following misleading error message will be printed:
->
-> [  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
->
-> Signed-off-by: Javier Martinez Canillas <javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 
 This looks sensible to me.
 
-Reviewed-by: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
->  drivers/net/wireless/marvell/mwifiex/sdio.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+> ---
+>
+>  drivers/net/wireless/marvell/mwifiex/sdio.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
 Thanks,
 
 -- 
 Julian Calaby
 
-Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Email: julian.calaby@gmail.com
 Profile: http://www.google.com/profiles/julian.calaby/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
