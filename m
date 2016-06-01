@@ -1,87 +1,48 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Wed, 1 Jun 2016 16:06:51 -0700
-Message-ID: <20160601230651.GA29439@kroah.com>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
- <20160601222703.GJ31982@lunn.ch>
- <b1ca1d7d97ee4abb9691963488a27480@ausx13mpc124.AMER.DELL.COM>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 03/13] net: hisilicon: cleanup to prepare
+ for other cases
+Date: Wed, 01 Jun 2016 16:07:06 -0700 (PDT)
+Message-ID: <20160601.160706.1959937095056503271.davem@davemloft.net>
+References: <1464611664-93775-1-git-send-email-Yisen.Zhuang@huawei.com>
+	<1464611664-93775-4-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andrew@lunn.ch, hayeswang@realtek.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, pali.rohar@gmail.com,
-	anthony.wong@canonical.com
-To: Mario_Limonciello@Dell.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rjw@rjwysocki.net, lenb@kernel.org, fengguang.wu@intel.com,
+	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
+	ivecera@redhat.com, f.fainelli@gmail.com, haifeng.wei@huawei.com,
+	charles.chenxin@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org,
+	linuxarm@huawei.com
+To: Yisen.Zhuang@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b1ca1d7d97ee4abb9691963488a27480@ausx13mpc124.AMER.DELL.COM>
+In-Reply-To: <1464611664-93775-4-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 01, 2016 at 10:31:52PM +0000, Mario_Limonciello@Dell.com wrote:
-> > -----Original Message-----
-> > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> > Sent: Wednesday, June 1, 2016 5:27 PM
-> > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> > Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>; Netdev
-> > <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
-> > pali.rohar@gmail.com; anthony.wong@canonical.com
-> > Subject: Re: [PATCH] r8152: Add support for setting MAC to system's
-> > Auxiliary MAC address
-> > 
-> > On Wed, Jun 01, 2016 at 04:50:44PM -0500, Mario Limonciello wrote:
-> > > Dell systems with Type-C ports have support for a persistent system
-> > > specific MAC address when used with Dell Type-C docks and dongles.
-> > > This means a dock plugged into two different systems will show
-> > > different (but persistent) MAC addresses.  Dell Type-C docks and
-> > > dongles use the
-> > > r8152 driver.
-> > >
-> > > This information for the system's persistent MAC address is burned in
-> > > when the HW is built and avilable under _SB\AMAC in the DSDT at runtime.
-> > >
-> > > More information about the technology is available here:
-> > > http://www.dell.com/support/article/us/en/04/SLN301147
-> > >
-> > > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
-> > > ---
-> > >  drivers/net/usb/Kconfig |  1 +
-> > >  drivers/net/usb/r8152.c | 37
-> > +++++++++++++++++++++++++++++++++++++
-> > >  2 files changed, 38 insertions(+)
-> > >
-> > > diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig index
-> > > cdde590..c320930 100644
-> > > --- a/drivers/net/usb/Kconfig
-> > > +++ b/drivers/net/usb/Kconfig
-> > > @@ -98,6 +98,7 @@ config USB_RTL8150
-> > >  config USB_RTL8152
-> > >  	tristate "Realtek RTL8152/RTL8153 Based USB Ethernet Adapters"
-> > >  	select MII
-> > > +	depends on ACPI
-> > 
-> > Hi Mario
-> > 
-> > That seems a bit heavy handed. What about ARM or MIPS machines which
-> > don't use ACPI but do have USB ports where i could plug in a USB dongle with
-> > this chipset.
-> > 
-> > I think it would be better to make use of ACPI if it is available, but don't
-> > require it in order the build the driver.
-> > 
-> >       Andrew
-> 
-> Hi Andrew,
-> 
-> Thanks for that feedback.  I'll adjust that to look for CONFIG_ACPI in
-> the code instead in V2 after I get some additional comments for the
-> implementation.
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Date: Mon, 30 May 2016 20:34:14 +0800
 
-No need to do that, the acpi functions should be "stubbed out" if that
-option is not enabled, right?  You don't want #ifdefs in .c code if at
-all possible.
+> -static void hns_mdio_bus_name(char *name, struct device_node *np)
+> +static void hns_mdio_bus_name(char *name, phys_addr_t addr)
+>  {
+> -	const u32 *addr;
+> -	u64 taddr = OF_BAD_ADDR;
+> -
+> -	addr = of_get_address(np, 0, NULL, NULL);
+> -	if (addr)
+> -		taddr = of_translate_address(np, addr);
+> -
+> -	snprintf(name, MII_BUS_ID_SIZE, "%s@%llx", np->name,
+> -		 (unsigned long long)taddr);
+> +	snprintf(name, MII_BUS_ID_SIZE,
+> +		 "hns-mdio@%llx", (unsigned long long)addr);
 
-thanks,
+This is a really bad idea.
 
-greg k-h
+You're passing in the resource address in here, which can be a bus
+address.
+
+And on a machine with multiple bus domains, the same address can be
+used multiple times.  They are not unique at all in a multi-domain
+system.
