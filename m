@@ -1,59 +1,324 @@
-From: Johannes Thumshirn <jthumshirn@suse.de>
-Subject: Re: [PATCH 5/5] ethernet: Use pci_(request|release)_mem_regions
-Date: Wed, 1 Jun 2016 17:26:40 +0200
-Message-ID: <20160601152640.tzhn5itms73q5fbw@c203.arch.suse.de>
-References: <cover.1464694724.git.jthumshirn@suse.de>
- <3f24b687c31dea31a03cd3a529de790e942dd5bb.1464694724.git.jthumshirn@suse.de>
- <20160601075956.GD11923@infradead.org>
- <20160601085112.ve6k7bzspapjsswf@c203.arch.suse.de>
- <1464793005.2960.3.camel@intel.com>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [PATCH v9 06/22] IB/hns: Add initial cmd operation
+Date: Wed, 1 Jun 2016 23:37:48 +0800
+Message-ID: <1464795484-77395-7-git-send-email-oulijun@huawei.com>
+References: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464793005.2960.3.camel@intel.com>
+In-Reply-To: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 01, 2016 at 07:56:45AM -0700, Jeff Kirsher wrote:
-> On Wed, 2016-06-01 at 10:51 +0200, Johannes Thumshirn wrote:
-> > On Wed, Jun 01, 2016 at 12:59:56AM -0700, Christoph Hellwig wrote:
-> > > On Tue, May 31, 2016 at 02:05:13PM +0200, Johannes Thumshirn wrot=
-e:
-> > > > Now that we do have pci_request_mem_regions() and
-> > pci_release_mem_regions() at
-> > > > hand, use it in the ethernet drivers.
-> > >=A0
-> > > This should probably be one patch per driver.
-> >=20
-> > I though if I do one patch per subsystem it'll be less a hassle for=
- the
-> > individual maintainers, but if the netdev people want it as split u=
-p,
-> > I'll be
-> > doing it of cause.
->=20
-> Since almost all the changes are to Intel wired LAN drivers, if you j=
-ust
-> split off the atheros change into a separate patch, I would be happy.=
- =A0Then
-> you could keep just one patch to change all the Intel drivers.
+This patch added the operation for cmd, and added some functions
+for initializing eq table and selecting cmd mode.
 
-That should be doable. I'll send a v2 with all requested changes tomorr=
-ow.
+Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
+---
+ drivers/infiniband/hw/hns/hns_roce_cmd.c    | 117 ++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hns/hns_roce_cmd.h    |  42 ++++++++++
+ drivers/infiniband/hw/hns/hns_roce_common.h |   2 +
+ drivers/infiniband/hw/hns/hns_roce_device.h |  41 ++++++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   |  13 ++++
+ 5 files changed, 215 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.c
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.h
 
---=20
-Johannes Thumshirn                                          Storage
-jthumshirn@suse.de                                +49 911 74053 689
-SUSE LINUX GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
-GF: Felix Imend=F6rffer, Jane Smithard, Graham Norton
-HRB 21284 (AG N=FCrnberg)
-Key fingerprint =3D EC38 9CAB C2C4 F25D 8600 D0D0 0393 969D 2D76 0850
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cmd.c b/drivers/infiniband/hw/hns/hns_roce_cmd.c
+new file mode 100644
+index 0000000..64e84fe
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_cmd.c
+@@ -0,0 +1,117 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/dma-mapping.h>
++#include <linux/dmapool.h>
++#include <linux/errno.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/list.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include "hns_roce_common.h"
++#include "hns_roce_device.h"
++#include "hns_roce_cmd.h"
++
++#define CMD_MAX_NUM		32
++
++int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++
++	mutex_init(&hr_dev->cmd.hcr_mutex);
++	sema_init(&hr_dev->cmd.poll_sem, 1);
++	hr_dev->cmd.use_events = 0;
++	hr_dev->cmd.toggle = 1;
++	hr_dev->cmd.max_cmds = CMD_MAX_NUM;
++	hr_dev->cmd.hcr = hr_dev->reg_base + ROCEE_MB1_REG;
++	hr_dev->cmd.pool = dma_pool_create("hns_roce_cmd", dev,
++					   HNS_ROCE_MAILBOX_SIZE,
++					   HNS_ROCE_MAILBOX_SIZE, 0);
++	if (!hr_dev->cmd.pool)
++		return -ENOMEM;
++
++	return 0;
++}
++
++void hns_roce_cmd_cleanup(struct hns_roce_dev *hr_dev)
++{
++	dma_pool_destroy(hr_dev->cmd.pool);
++}
++
++int hns_roce_cmd_use_events(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_cmdq *hr_cmd = &hr_dev->cmd;
++	int i;
++
++	hr_cmd->context = kmalloc(hr_cmd->max_cmds *
++				  sizeof(struct hns_roce_cmd_context),
++				  GFP_KERNEL);
++	if (!hr_cmd->context)
++		return -ENOMEM;
++
++	for (i = 0; i < hr_cmd->max_cmds; ++i) {
++		hr_cmd->context[i].token = i;
++		hr_cmd->context[i].next = i + 1;
++	}
++
++	hr_cmd->context[hr_cmd->max_cmds - 1].next = -1;
++	hr_cmd->free_head = 0;
++
++	sema_init(&hr_cmd->event_sem, hr_cmd->max_cmds);
++	spin_lock_init(&hr_cmd->context_lock);
++
++	for (hr_cmd->token_mask = 1; hr_cmd->token_mask < hr_cmd->max_cmds;
++	     hr_cmd->token_mask <<= 1)
++		;
++	--hr_cmd->token_mask;
++	hr_cmd->use_events = 1;
++
++	down(&hr_cmd->poll_sem);
++
++	return 0;
++}
++
++void hns_roce_cmd_use_polling(struct hns_roce_dev *hr_dev)
++{
++	struct hns_roce_cmdq *hr_cmd = &hr_dev->cmd;
++	int i;
++
++	hr_cmd->use_events = 0;
++
++	for (i = 0; i < hr_cmd->max_cmds; ++i)
++		down(&hr_cmd->event_sem);
++
++	kfree(hr_cmd->context);
++	up(&hr_cmd->poll_sem);
++}
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cmd.h b/drivers/infiniband/hw/hns/hns_roce_cmd.h
+new file mode 100644
+index 0000000..ff8e62d
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/hns_roce_cmd.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef _HNS_ROCE_CMD_H
++#define _HNS_ROCE_CMD_H
++
++#include <linux/dma-mapping.h>
++
++enum {
++	HNS_ROCE_MAILBOX_SIZE		= 4096,
++};
++
++#endif /* _HNS_ROCE_CMD_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
+index 4cc4761..595cda9 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_common.h
++++ b/drivers/infiniband/hw/hns/hns_roce_common.h
+@@ -46,4 +46,6 @@
+ 
+ #define ROCEE_ACK_DELAY_REG			0x14
+ 
++#define ROCEE_MB1_REG				0x210
++
+ #endif /* _HNS_ROCE_COMMON_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+index 5a93670..94f26e7 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
++++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+@@ -53,6 +53,40 @@
+ 
+ #define HNS_ROCE_MAX_PORTS			6
+ 
++struct hns_roce_cmd_context {
++	int			next;
++	u16			token;
++};
++
++struct hns_roce_cmdq {
++	struct dma_pool		*pool;
++	u8 __iomem		*hcr;
++	struct mutex		hcr_mutex;
++	struct semaphore	poll_sem;
++	/*
++	* Event mode: cmd register mutex protection,
++	* ensure to not exceed max_cmds and user use limit region
++	*/
++	struct semaphore	event_sem;
++	int			max_cmds;
++	spinlock_t		context_lock;
++	int			free_head;
++	struct hns_roce_cmd_context *context;
++	/*
++	* Result of get integer part
++	* which max_comds compute according a power of 2
++	*/
++	u16			token_mask;
++	/*
++	* Process whether use event mode, init default non-zero
++	* After the event queue of cmd event ready,
++	* can switch into event mode
++	* close device, switch into poll mode(non event mode)
++	*/
++	u8			use_events;
++	u8			toggle;
++};
++
+ struct hns_roce_ib_iboe {
+ 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
+ 	u8			phy_port[HNS_ROCE_MAX_PORTS];
+@@ -122,11 +156,18 @@ struct hns_roce_dev {
+ 	u32                     vendor_part_id;
+ 	u32                     hw_rev;
+ 
++	struct hns_roce_cmdq	cmd;
++
+ 	int			cmd_mod;
+ 	int			loop_idc;
+ 	struct hns_roce_hw	*hw;
+ };
+ 
++int hns_roce_cmd_init(struct hns_roce_dev *hr_dev);
++void hns_roce_cmd_cleanup(struct hns_roce_dev *hr_dev);
++int hns_roce_cmd_use_events(struct hns_roce_dev *hr_dev);
++void hns_roce_cmd_use_polling(struct hns_roce_dev *hr_dev);
++
+ extern struct hns_roce_hw hns_roce_hw_v1;
+ 
+ #endif /* _HNS_ROCE_DEVICE_H */
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index 705c01d..6906565 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -58,6 +58,7 @@
+ #include <rdma/ib_umem.h>
+ #include <rdma/ib_user_verbs.h>
+ #include <rdma/ib_verbs.h>
++#include "hns_roce_common.h"
+ #include "hns_roce_device.h"
+ 
+ int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+@@ -173,6 +174,17 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 
+ 	hns_roce_profile_init(hr_dev);
+ 
++	ret = hns_roce_cmd_init(hr_dev);
++	if (ret) {
++		dev_err(dev, "cmd init failed!\n");
++		goto error_failed_cmd_init;
++	}
++
++error_failed_cmd_init:
++	ret = hns_roce_engine_reset(hr_dev, false);
++	if (ret)
++		dev_err(&hr_dev->pdev->dev, "roce_engine reset fail\n");
++
+ error_failed_get_cfg:
+ 	ib_dealloc_device(&hr_dev->ib_dev);
+ 
+@@ -187,6 +199,7 @@ static int hns_roce_remove(struct platform_device *pdev)
+ {
+ 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
+ 
++	hns_roce_cmd_cleanup(hr_dev);
+ 	(void)hns_roce_engine_reset(hr_dev, false);
+ 
+ 	ib_dealloc_device(&hr_dev->ib_dev);
+-- 
+1.9.1
