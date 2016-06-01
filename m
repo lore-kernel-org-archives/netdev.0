@@ -1,53 +1,78 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 03/12] net: cls_bpf: limit hardware offload by software-only
- flag
-Date: Wed, 01 Jun 2016 23:31:25 +0200
-Message-ID: <574F542D.5020400@iogearbox.net>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>	<1464799814-4453-4-git-send-email-jakub.kicinski@netronome.com>	<574F3A27.5050208@iogearbox.net>	<20160601220520.717fb5f8@jkicinski-Precision-T1700>	<574F51E4.2020504@iogearbox.net> <20160601222608.04c7b707@jkicinski-Precision-T1700>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC 06/12] nfp: add hardware cls_bpf offload
+Date: Wed, 1 Jun 2016 14:36:48 -0700
+Message-ID: <574F5570.2070107@gmail.com>
+References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
+ <1464799814-4453-7-git-send-email-jakub.kicinski@netronome.com>
+ <574F43A6.7000804@iogearbox.net>
+ <20160601205159.GB22759@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org,
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+	netdev@vger.kernel.org, ast@kernel.org,
 	dinan.gunawardena@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35707 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbcFAVb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:31:27 -0400
-In-Reply-To: <20160601222608.04c7b707@jkicinski-Precision-T1700>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36047 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824AbcFAVhF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:37:05 -0400
+Received: by mail-pa0-f65.google.com with SMTP id fg1so1424900pad.3
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:37:04 -0700 (PDT)
+In-Reply-To: <20160601205159.GB22759@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2016 11:26 PM, Jakub Kicinski wrote:
-> On Wed, 01 Jun 2016 23:21:40 +0200, Daniel Borkmann wrote:
->> On 06/01/2016 11:05 PM, Jakub Kicinski wrote:
->>> On Wed, 01 Jun 2016 21:40:23 +0200, Daniel Borkmann wrote:
->> [...]
->>>>> @@ -400,8 +406,11 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
->>>>>
->>>>>     		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
->>>>>     	}
->>>>> +	if (tb[TCA_BPF_GEN_TCA_FLAGS])
->>>>> +		gen_flags = nla_get_u32(tb[TCA_BPF_GEN_TCA_FLAGS]);
->>>>>
->>>>>     	prog->exts_integrated = have_exts;
->>>>> +	prog->gen_flags = gen_flags & CLS_BPF_SUPPORTED_GEN_FLAGS;
->>>>
->>>> Invalid flags should probably be rejected here with -EINVAL or something.
+On 16-06-01 01:52 PM, Alexei Starovoitov wrote:
+> On Wed, Jun 01, 2016 at 10:20:54PM +0200, Daniel Borkmann wrote:
+>> On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
+>>> Add hardware cls_bpf offload on our smart NICs.  Detect if
+>>> capable firmware is loaded and use it to load the code JITed
+>>> with just added translator onto programmable engines.
 >>>
->>> Indeed, that would be more in line with what is done for "the other"
->>> flags attribute, but not so much with how flower and u32 handles
->>> flags. I like the stricter approach better, though, so unless someone
->>> speaks up I'll do as you suggest.
+>>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+>>> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+>>> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+>> [...]
+>>> +static int
+>>> +nfp_net_bpf_offload_prepare(struct nfp_net *nn,
+>>> +			    struct tc_cls_bpf_offload *cls_bpf,
+>>> +			    struct nfp_bpf_result *res,
+>>> +			    void **code, dma_addr_t *dma_addr, u16 max_instr)
+>>> +{
+>>> +	unsigned int code_sz = max_instr * sizeof(u64);
+>>> +	u16 start_off, tgt_out, tgt_abort;
+>>> +	const struct tc_action *a;
+>>> +	int err;
+>>> +
+>>> +	if (tc_no_actions(cls_bpf->exts))
+>>> +		return -EINVAL;
+>>> +
+>>> +	tc_for_each_action(a, cls_bpf->exts) {
+>>> +		if (!is_tcf_gact_shot(a))
+>>> +			return -EINVAL;
+>>> +	}
+>>> +
+>>> +	if (cls_bpf->exts_integrated)
+>>> +		return -EINVAL;
 >>
->> If I see this correctly, in patch 4 you're already following up on that
->> with the tc_flags_valid() check, it's probably okay to leave it as-is then.
->
-> My concern was that if someone adds a new flag for u32/flower
-> tc_flags_valid() will have to accept it but cls_bpf will ignore it.  So
-> I went with clearing things we don't support so that the user can at
-> least see in tc show that the flags he thrown at us did not stick...
+>> So cls_bpf has two working modes as mentioned: da (direct-action) and non-da.
+>> Direct-action is I would say the most typical way to run cls_bpf as it allows
+>> you to more naturally and efficiently code programs in the sense that classification
+>> and action is already combined in a single program, so there's no additional
+>> overhead of a linear action chain required, and a single program can already
+>> have multiple action code outcomes (TC_ACT_OK, TC_ACT_SHOT, ...), so that it is
+>> usually enough to run a single cls_bpf instance, for example, on sch_clsact
+>> ingress or egress parent, nothing more than that to get the job done. I think
+>> the cls_bpf->exts_integrated test could probably come first and if it's false,
+>> we'd need to walk the actions?
+> 
+> I think it makes sense to offload da mode only. Doing tc_for_each_action
+> walk like above is ok, but the number of bpf programs with only separate
+> gact is diminishingly small and we don't recommend to use it anymore.
+> That's the stuff we used when da wasn't available.
+> 
 
-Ok, then doing so is fine. You could probably add that as a comment there
-for the rejection.
++1 I've been using da mode only as well.
