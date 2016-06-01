@@ -1,77 +1,55 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Wed, 1 Jun 2016 22:31:52 +0000
-Message-ID: <b1ca1d7d97ee4abb9691963488a27480@ausx13mpc124.AMER.DELL.COM>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
- <20160601222703.GJ31982@lunn.ch>
+From: Greg Rose <gvrose8192@gmail.com>
+Subject: Re: [iproute PATCH 1/2] ipaddress: Simplify vf_info parsing
+Date: Wed, 1 Jun 2016 15:36:09 -0700
+Message-ID: <CALgkqUq8uDErRPMxyDx-M5UQB3v5+tHMyxXpAmK381W_z9KXPg@mail.gmail.com>
+References: <1464811430-19415-1-git-send-email-phil@nwl.cc>
+	<1464811430-19415-2-git-send-email-phil@nwl.cc>
+	<CALgkqUq5nedx+wjEur9WVjvYr0pzvL7CMQmHiVtuuB_1PtOZ2Q@mail.gmail.com>
+	<20160601220750.GC2729@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
-To: <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160601222703.GJ31982@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Phil Sutter <phil@nwl.cc>, Greg Rose <gvrose8192@gmail.com>,
+	Stephen Hemminger <shemming@brocade.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34087 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbcFAWgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 18:36:11 -0400
+Received: by mail-io0-f196.google.com with SMTP id l9so4346681ioe.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 15:36:11 -0700 (PDT)
+In-Reply-To: <20160601220750.GC2729@orbyte.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Wednesday, June 1, 2016 5:27 PM
-> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>; Netdev
-> <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
-> pali.rohar@gmail.com; anthony.wong@canonical.com
-> Subject: Re: [PATCH] r8152: Add support for setting MAC to system's
-> Auxiliary MAC address
-> 
-> On Wed, Jun 01, 2016 at 04:50:44PM -0500, Mario Limonciello wrote:
-> > Dell systems with Type-C ports have support for a persistent system
-> > specific MAC address when used with Dell Type-C docks and dongles.
-> > This means a dock plugged into two different systems will show
-> > different (but persistent) MAC addresses.  Dell Type-C docks and
-> > dongles use the
-> > r8152 driver.
-> >
-> > This information for the system's persistent MAC address is burned in
-> > when the HW is built and avilable under _SB\AMAC in the DSDT at runtime.
-> >
-> > More information about the technology is available here:
-> > http://www.dell.com/support/article/us/en/04/SLN301147
-> >
-> > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
-> > ---
-> >  drivers/net/usb/Kconfig |  1 +
-> >  drivers/net/usb/r8152.c | 37
-> +++++++++++++++++++++++++++++++++++++
-> >  2 files changed, 38 insertions(+)
-> >
-> > diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig index
-> > cdde590..c320930 100644
-> > --- a/drivers/net/usb/Kconfig
-> > +++ b/drivers/net/usb/Kconfig
-> > @@ -98,6 +98,7 @@ config USB_RTL8150
-> >  config USB_RTL8152
-> >  	tristate "Realtek RTL8152/RTL8153 Based USB Ethernet Adapters"
-> >  	select MII
-> > +	depends on ACPI
-> 
-> Hi Mario
-> 
-> That seems a bit heavy handed. What about ARM or MIPS machines which
-> don't use ACPI but do have USB ports where i could plug in a USB dongle with
-> this chipset.
-> 
-> I think it would be better to make use of ACPI if it is available, but don't
-> require it in order the build the driver.
-> 
->       Andrew
+On Wed, Jun 1, 2016 at 3:07 PM, Phil Sutter <phil@nwl.cc> wrote:
+> On Wed, Jun 01, 2016 at 03:00:08PM -0700, Greg Rose wrote:
+>> On Wed, Jun 1, 2016 at 1:03 PM, Phil Sutter <phil@nwl.cc> wrote:
+>> > Not sure whether I misinterpret commit 7b8179c780a1a, but it looks
+>> > overly complicated. Instead rely upon parse_rtattr_nested() to assign
+>> > the relevant pointer if requested rtattr fields are present.
+>>
+>> I'm not sure if newer iproute2 utilities are supposed to work on older
+>> kernels but if it is you may want to check this against a 2.6.32
+>> kernel.
+>
+> Yes, it is supposed to. Actually I tried, but the old RHEL6 kernel I
+> used didn't export the VF list at all and then I lost motivation.
+>
+> I didn't check all earlier versions of 7b8179c780a1a, was there a stage
+> when it looked like what I'm changing it to?
 
-Hi Andrew,
+I don't think so but your patch looks correct - I mean it looks like
+it should work.
 
-Thanks for that feedback.  I'll adjust that to look for CONFIG_ACPI in the code instead in V2 after I get some additional comments for the implementation.
+It's been 5 years since I wrote that original patch and my memory
+isn't so great as to why I didn't just do as your patch does but I
+think it had something to do with not all drivers reporting a spoof
+check value.  However, your patch should handle that case so I see no
+reason not to accept it.  Unfortunately I don't have time or the
+resources at the moment to check it on an older kernel.
 
-Thanks,
+- Greg
+
+>
+> Cheers, Phil
