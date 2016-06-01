@@ -1,35 +1,50 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [v2 PATCH 1/2] macvlan: Fix potential use-after free for broadcasts
-Date: Tue, 31 May 2016 21:19:37 -0700
-Message-ID: <CAM_iQpVbo7cfuura=FC4gJimnjLx1gy=4HWe9QmSwzEZT9254Q@mail.gmail.com>
-References: <20160526234433.GU8402@wantstofly.org> <20160530081752.GA4956@gondor.apana.org.au>
- <20160530082828.GB5106@gondor.apana.org.au> <20160531.140713.2187659962450926738.davem@davemloft.net>
- <20160601034218.GA31335@gondor.apana.org.au> <20160601034300.GB31335@gondor.apana.org.au>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 7/8] mwifiex: don't print an error if an optional DT
+ property is missing
+Date: Wed, 1 Jun 2016 14:20:55 +1000
+Message-ID: <CAGRGNgUZ+mG_KzhiOzquB3qd-V_Pdbazag=nrFpG87mRQGmXLg@mail.gmail.com>
+References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com> <1464358702-19083-8-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f179.google.com ([209.85.161.179]:34122 "EHLO
-	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755805AbcFAET5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 00:19:57 -0400
-Received: by mail-yw0-f179.google.com with SMTP id c127so7699288ywb.1
-        for <netdev@vger.kernel.org>; Tue, 31 May 2016 21:19:57 -0700 (PDT)
-In-Reply-To: <20160601034300.GB31335@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Xinming Hu <huxm@marvell.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464358702-19083-8-git-send-email-javier@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 31, 2016 at 8:43 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> When we postpone a broadcast packet we save the source port in
-> the skb if it is local.  However, the source port can disappear
-> before we get a chance to process the packet.
+Hi All,
+
+On Sat, May 28, 2016 at 12:18 AM, Javier Martinez Canillas
+<javier@osg.samsung.com> wrote:
+> The Documentation/devicetree/bindings/net/wireless/marvell-sd8xxx.txt DT
+> binding document say that the "interrupts" property in the child node is
+> optional. So the property being missed shouldn't be treated as an error.
+
+Have you checked whether it is truly optional? I.e. nothing else
+breaks if this property isn't set?
+
+> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+
+Other than that, this looks sensible to me.
+
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+
+> ---
 >
+>  drivers/net/wireless/marvell/mwifiex/sdio.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hmm, why could this happen? The upper device should be linked
-with the lower device, where a refcount is already held.
-Also, the work is cancelled in ->uninit().
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
