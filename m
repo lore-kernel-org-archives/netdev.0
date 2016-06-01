@@ -1,99 +1,57 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 1/2] ipaddress: Simplify vf_info parsing
-Date: Wed,  1 Jun 2016 22:03:49 +0200
-Message-ID: <1464811430-19415-2-git-send-email-phil@nwl.cc>
-References: <1464811430-19415-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC 05/12] nfp: add BPF to NFP code translator
+Date: Wed, 1 Jun 2016 13:09:17 -0700
+Message-ID: <574F40ED.7060601@gmail.com>
+References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
+ <1464799814-4453-6-git-send-email-jakub.kicinski@netronome.com>
+ <574F3F78.1010606@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, dinan.gunawardena@netronome.com
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Jakub Kicinski <jakub.kicinski@netronome.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43416 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750765AbcFAUEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2016 16:04:21 -0400
-In-Reply-To: <1464811430-19415-1-git-send-email-phil@nwl.cc>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35547 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742AbcFAUJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 16:09:33 -0400
+Received: by mail-pf0-f195.google.com with SMTP id f144so5175968pfa.2
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 13:09:32 -0700 (PDT)
+In-Reply-To: <574F3F78.1010606@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not sure whether I misinterpret commit 7b8179c780a1a, but it looks
-overly complicated. Instead rely upon parse_rtattr_nested() to assign
-the relevant pointer if requested rtattr fields are present.
+On 16-06-01 01:03 PM, Daniel Borkmann wrote:
+> On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
+>> Add translator for JITing eBPF to operations which
+>> can be executed on NFP's programmable engines.
+>>
+>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+>> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+>> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> [...]
+>> +int
+>> +nfp_bpf_jit(struct bpf_prog *filter, void *prog_mem, unsigned int
+>> prog_start,
+>> +        unsigned int tgt_out, unsigned int tgt_abort,
+>> +        unsigned int prog_sz, struct nfp_bpf_result *res)
+>> +{
+>> +    struct nfp_prog *nfp_prog;
+>> +    int ret;
+>> +
+>> +    /* TODO: maybe make this dependent on bpf_jit_enable? */
+> 
+> Probably makes sense to leave it independent from this.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 44 ++++++++++----------------------------------
- 1 file changed, 10 insertions(+), 34 deletions(-)
+Agreed we have an ethtool flag for the other offloads I think this
+should just follow the same semantics and get offloaded if the flag
+is set.
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index df363b070d5de..9ac077459f136 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -305,10 +305,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	struct ifla_vf_mac *vf_mac;
- 	struct ifla_vf_vlan *vf_vlan;
- 	struct ifla_vf_tx_rate *vf_tx_rate;
--	struct ifla_vf_spoofchk *vf_spoofchk;
--	struct ifla_vf_link_state *vf_linkstate;
- 	struct rtattr *vf[IFLA_VF_MAX + 1] = {};
--	struct rtattr *tmp;
- 
- 	SPRINT_BUF(b1);
- 
-@@ -323,31 +320,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	vf_vlan = RTA_DATA(vf[IFLA_VF_VLAN]);
- 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
- 
--	/* Check if the spoof checking vf info type is supported by
--	 * this kernel.
--	 */
--	tmp = (struct rtattr *)((char *)vf[IFLA_VF_TX_RATE] +
--				vf[IFLA_VF_TX_RATE]->rta_len);
--
--	if (tmp->rta_type != IFLA_VF_SPOOFCHK)
--		vf_spoofchk = NULL;
--	else
--		vf_spoofchk = RTA_DATA(vf[IFLA_VF_SPOOFCHK]);
--
--	if (vf_spoofchk) {
--		/* Check if the link state vf info type is supported by
--		 * this kernel.
--		 */
--		tmp = (struct rtattr *)((char *)vf[IFLA_VF_SPOOFCHK] +
--					vf[IFLA_VF_SPOOFCHK]->rta_len);
--
--		if (tmp->rta_type != IFLA_VF_LINK_STATE)
--			vf_linkstate = NULL;
--		else
--			vf_linkstate = RTA_DATA(vf[IFLA_VF_LINK_STATE]);
--	} else
--		vf_linkstate = NULL;
--
- 	fprintf(fp, "%s    vf %d MAC %s", _SL_, vf_mac->vf,
- 		ll_addr_n2a((unsigned char *)&vf_mac->mac,
- 			    ETH_ALEN, 0, b1, sizeof(b1)));
-@@ -366,14 +338,18 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 		if (vf_rate->min_tx_rate)
- 			fprintf(fp, ", min_tx_rate %dMbps", vf_rate->min_tx_rate);
- 	}
-+	if (vf[IFLA_VF_SPOOFCHK]) {
-+		struct ifla_vf_spoofchk *vf_spoofchk =
-+			RTA_DATA(vf[IFLA_VF_SPOOFCHK]);
- 
--	if (vf_spoofchk && vf_spoofchk->setting != -1) {
--		if (vf_spoofchk->setting)
--			fprintf(fp, ", spoof checking on");
--		else
--			fprintf(fp, ", spoof checking off");
-+		if (vf_spoofchk->setting != -1)
-+			fprintf(fp, ", spoof checking %s",
-+			        vf_spoofchk->setting ? "on" : "off");
- 	}
--	if (vf_linkstate) {
-+	if (vf[IFLA_VF_LINK_STATE]) {
-+		struct ifla_vf_link_state *vf_linkstate =
-+			RTA_DATA(vf[IFLA_VF_LINK_STATE]);
-+
- 		if (vf_linkstate->link_state == IFLA_VF_LINK_STATE_AUTO)
- 			fprintf(fp, ", link-state auto");
- 		else if (vf_linkstate->link_state == IFLA_VF_LINK_STATE_ENABLE)
--- 
-2.8.2
+> 
+> Maybe that would rather be an ethtool flag/setting?
+> 
+
+I would think using the same flag as we did for u32 and flower
+should be fine.
