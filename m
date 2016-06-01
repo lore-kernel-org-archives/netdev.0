@@ -1,57 +1,202 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC 05/12] nfp: add BPF to NFP code translator
-Date: Wed, 1 Jun 2016 13:09:17 -0700
-Message-ID: <574F40ED.7060601@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC 01/12] add basic register-field manipulation macros
+Date: Wed, 01 Jun 2016 22:15:36 +0200
+Message-ID: <1464812136.3398400.625159769.6BB5E8D7@webmail.messagingengine.com>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
- <1464799814-4453-6-git-send-email-jakub.kicinski@netronome.com>
- <574F3F78.1010606@iogearbox.net>
+ <1464799814-4453-2-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, dinan.gunawardena@netronome.com
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Jakub Kicinski <jakub.kicinski@netronome.com>,
+Cc: ast@kernel.org, daniel@iogearbox.net,
+	dinan.gunawardena@netronome.com, Ivo van Doorn <IvDoorn@gmail.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35547 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbcFAUJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 16:09:33 -0400
-Received: by mail-pf0-f195.google.com with SMTP id f144so5175968pfa.2
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 13:09:32 -0700 (PDT)
-In-Reply-To: <574F3F78.1010606@iogearbox.net>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:37836 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750749AbcFAUPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 16:15:37 -0400
+In-Reply-To: <1464799814-4453-2-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-01 01:03 PM, Daniel Borkmann wrote:
-> On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
->> Add translator for JITing eBPF to operations which
->> can be executed on NFP's programmable engines.
->>
->> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
->> Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> [...]
->> +int
->> +nfp_bpf_jit(struct bpf_prog *filter, void *prog_mem, unsigned int
->> prog_start,
->> +        unsigned int tgt_out, unsigned int tgt_abort,
->> +        unsigned int prog_sz, struct nfp_bpf_result *res)
->> +{
->> +    struct nfp_prog *nfp_prog;
->> +    int ret;
->> +
->> +    /* TODO: maybe make this dependent on bpf_jit_enable? */
-> 
-> Probably makes sense to leave it independent from this.
+Hello,
 
-Agreed we have an ethtool flag for the other offloads I think this
-should just follow the same semantics and get offloaded if the flag
-is set.
-
+On Wed, Jun 1, 2016, at 18:50, Jakub Kicinski wrote:
+> C bitfields are problematic and best avoided.  Developers
+> interacting with hardware registers find themselves searching
+> for easy-to-use alternatives.  Common approach is to define
+> structures or sets of macros containing mask and shift pair.
+> Operation on the register are then performed as follows:
 > 
-> Maybe that would rather be an ethtool flag/setting?
+>  field = (reg >> shift) & mask;
 > 
+>  reg &= ~(mask << shift);
+>  reg |= (field & mask) << shift;
+> 
+> Defining shift and mask separately is tedious.  Ivo van Doorn
+> came up with an idea of computing them at compilation time
+> based on a single shifted mask (later refined by Felix) which
+> can be used like this:
+> 
+>  field = FIELD_GET(REG_FIELD, reg);
+> 
+>  reg &= ~REG_FIELD;
+>  reg |= FIELD_PUT(REG_FIELD, field);
+> 
+> FIELD_{GET,PUT} macros take care of finding out what the
+> appropriate shift is based on compilation time ffs operation.
+> 
+> GENMASK can be used to define registers (which is usually
+> less error-prone and easier to match with datasheets).
+> 
+> This approach is the most convenient I've seen so to limit code
+> multiplication let's move the macros to a global header file.
+> 
+> Compared to Felix Fietkau's version I:
+>  - edited the comments a bit;
+>  - gave auxiliary macros _bf_ prefix;
+>  - dropped the UL specifier from 1 in _bf_low_bits,
+>  - renamed the FIELD_SET to FIELD_PUT;
+>  - added 64bit versions.
+> 
+> CC: Ivo van Doorn <IvDoorn@gmail.com>
+> CC: Felix Fietkau <nbd@openwrt.org>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  include/linux/bitfield.h | 89
+>  ++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 89 insertions(+)
+>  create mode 100644 include/linux/bitfield.h
+> 
+> diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
+> new file mode 100644
+> index 000000000000..3815c81f5b10
+> --- /dev/null
+> +++ b/include/linux/bitfield.h
+> @@ -0,0 +1,89 @@
+> +/*
+> + * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
+> + * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2
+> + * as published by the Free Software Foundation
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#ifndef _LINUX_BITFIELD_H
+> +#define _LINUX_BITFIELD_H
+> +
+> +#include <asm/types.h>
+> +
+> +/*
+> + * Macros to find first set bit in a variable.
+> + * These macros behave the same as the __ffs() functions but the most
+> important
+> + * difference that this is done during compile-time rather than
+> run-time.
+> + */
+> +#define compile_ffs2(__x) \
+> +       __builtin_choose_expr(((__x) & 0x1), 0, 1)
+> +
+> +#define compile_ffs4(__x) \
+> +       __builtin_choose_expr(((__x) & 0x3), \
+> +                             (compile_ffs2((__x))), \
+> +                             (compile_ffs2((__x) >> 2) + 2))
+> +
+> +#define compile_ffs8(__x) \
+> +       __builtin_choose_expr(((__x) & 0xf), \
+> +                             (compile_ffs4((__x))), \
+> +                             (compile_ffs4((__x) >> 4) + 4))
+> +
+> +#define compile_ffs16(__x) \
+> +       __builtin_choose_expr(((__x) & 0xff), \
+> +                             (compile_ffs8((__x))), \
+> +                             (compile_ffs8((__x) >> 8) + 8))
+> +
+> +#define compile_ffs32(__x) \
+> +       __builtin_choose_expr(((__x) & 0xffff), \
+> +                             (compile_ffs16((__x))), \
+> +                             (compile_ffs16((__x) >> 16) + 16))
+> +
+> +#define compile_ffs64(__x) \
+> +       __builtin_choose_expr(((__x) & 0xffffffff), \
+> +                             (compile_ffs32((__x))), \
+> +                             (compile_ffs32(((__x) >> 16) >> 16) + 32))
 
-I would think using the same flag as we did for u32 and flower
-should be fine.
+I wonder if this can already be done with __builtin_ffs/__builtin_ffsl.
+
+So the macro would only need to do:
+
+__builtin_choose_expr(__builtin_types_compatible_p(typeof(x), long,
+__builtin_ffsl(x),
+__builtin_choose_expr(__builtin_types_compatible_p(typeof(x), int,
+__builtin_ffs(x), (void)0)
+
+Probably you can get away with the long version only.
+
+Probably adding ffs and ffsl to the generic headers and using them would
+also be worthwhile.
+
+Otherwise you should be able to express all of this via ilog2 in nearly
+one line?
+
+> +
+> +/*
+> + * Macros to validate that the mask given contains a contiguous set of
+> bits.
+> + * Note that we cannot use the is_power_of_2() function since this check
+> + * must be done at compile-time.
+> + */
+> +#define _bf_is_power_of_two(x) ( !((x) & ((x) - 1)) )
+
+We already provide a macro is_power_of_2.
+
+> +#define _bf_low_bits(x)                ( ((x) - 1) & ~(x) )
+
+GENMASK?
+
+> +#define _bf_is_valid_mask(x)   _bf_is_power_of_two(1U + (x) +
+> _bf_low_bits(x))
+> +
+> +#define _BF_FIELD_CHECK(_mask)                                         \
+> +       BUILD_BUG_ON(!(_mask) || !_bf_is_valid_mask(_mask))
+> +
+> +#define FIELD_PUT(_mask, _val)                                         \
+> +       ({                                                              \
+> +               _BF_FIELD_CHECK(_mask);                                 \
+> +               (((u32)(_val)) << compile_ffs32(_mask)) & _mask;        \
+> +       })
+> +
+> +#define FIELD_GET(_mask, _val)                                         \
+> +       ({                                                              \
+> +               _BF_FIELD_CHECK(_mask);                                 \
+> +               (u32)(((_val) & _mask) >> compile_ffs32(_mask));        \
+> +       })
+> +
+> +#define FIELD_PUT64(_mask, _val)                                       \
+> +       ({                                                              \
+> +               _BF_FIELD_CHECK(_mask);                                 \
+> +               (((u64)(_val)) << compile_ffs64(_mask)) & _mask;        \
+> +       })
+> +
+> +#define FIELD_GET64(_mask, _val)                                       \
+> +       ({                                                              \
+> +               _BF_FIELD_CHECK(_mask);                                 \
+> +               (u64)(((_val) & _mask) >> compile_ffs64(_mask));        \
+> +       })
+> +
+> +#endif
+
+Looks good!
+
+Thanks,
+Hannes
