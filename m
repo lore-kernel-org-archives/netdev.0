@@ -1,92 +1,74 @@
-From: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
-Subject: RE: [Intel-wired-lan] [RFC PATCH net] e1000e: keep vlan interfaces
- functional after rxvlan off
-Date: Wed, 1 Jun 2016 08:56:34 +0000
-Message-ID: <36CDDD56DDB4D44E911123902EFC26B05B53DC0B@HASMSX110.ger.corp.intel.com>
-References: <1463511831-13684-1-git-send-email-jarod@redhat.com>
- <1463607599.2713.70.camel@intel.com>
- <309B89C4C689E141A5FF6A0C5FB2118B81F104AC@ORSMSX101.amr.corp.intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: fix possible ZERO_SIZE_PTR pointer
+ dereferencing error.
+Date: Wed, 1 Jun 2016 11:27:11 +0200
+Message-ID: <20160601092711.GB2711@salvia>
+References: <1464770068-7508-1-git-send-email-lixiubo@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Avargil, Raanan" <raanan.avargil@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B81F104AC@ORSMSX101.amr.corp.intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org
+To: Xiubo Li <lixiubo@cmss.chinamobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49028 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757404AbcFAJ1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2016 05:27:18 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id CA2F65B2CC5
+	for <netdev@vger.kernel.org>; Wed,  1 Jun 2016 11:27:16 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id BA3E49EBBD
+	for <netdev@vger.kernel.org>; Wed,  1 Jun 2016 11:27:16 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id E80F99EBA0
+	for <netdev@vger.kernel.org>; Wed,  1 Jun 2016 11:27:13 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1464770068-7508-1-git-send-email-lixiubo@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWls
-dG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24NCj5CZWhhbGYg
-T2YgQnJvd24sIEFhcm9uIEYNCj5TZW50OiBGcmlkYXksIDI3IE1heSwgMjAxNiAwNDozMQ0KPlRv
-OiBLaXJzaGVyLCBKZWZmcmV5IFQ7IEphcm9kIFdpbHNvbjsgbGludXgta2VybmVsQHZnZXIua2Vy
-bmVsLm9yZzsgQXZhcmdpbCwNCj5SYWFuYW4NCj5DYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
-aW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj5TdWJqZWN0OiBSZTogW0ludGVsLXdp
-cmVkLWxhbl0gW1JGQyBQQVRDSCBuZXRdIGUxMDAwZToga2VlcCB2bGFuIGludGVyZmFjZXMNCj5m
-dW5jdGlvbmFsIGFmdGVyIHJ4dmxhbiBvZmYNCj4NCj4+IEZyb206IEludGVsLXdpcmVkLWxhbg0K
-Pj4gW21haWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0BsaXN0cy5vc3Vvc2wub3JnXSBPbiBC
-ZWhhbGYgT2YgSmVmZg0KPj4gS2lyc2hlcg0KPj4gU2VudDogV2VkbmVzZGF5LCBNYXkgMTgsIDIw
-MTYgMjo0MCBQTQ0KPj4gVG86IEphcm9kIFdpbHNvbiA8amFyb2RAcmVkaGF0LmNvbT47IGxpbnV4
-LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+PiBBdmFyZ2lsLCBSYWFuYW4gPHJhYW5hbi5hdmFy
-Z2lsQGludGVsLmNvbT4NCj4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBpbnRlbC13aXJl
-ZC1sYW5AbGlzdHMub3N1b3NsLm9yZw0KPj4gU3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5d
-IFtSRkMgUEFUQ0ggbmV0XSBlMTAwMGU6IGtlZXAgdmxhbg0KPj4gaW50ZXJmYWNlcyBmdW5jdGlv
-bmFsIGFmdGVyIHJ4dmxhbiBvZmYNCj4+DQo+PiBPbiBUdWUsIDIwMTYtMDUtMTcgYXQgMTU6MDMg
-LTA0MDAsIEphcm9kIFdpbHNvbiB3cm90ZToNCj4+ID4gSSd2ZSBnb3QgYSBidWcgcmVwb3J0IGFi
-b3V0IGFuIGUxMDAwZSBpbnRlcmZhY2UsIHdoZXJlIGEgdmxhbg0KPj4gPiBpbnRlcmZhY2UgaXMg
-c2V0IHVwIG9uIHRvcCBvZiBpdDoNCj4+ID4NCj4+ID4gJCBpcCBsaW5rIGFkZCBsaW5rIGVuczFm
-MCBuYW1lIGVuczFmMC45OSB0eXBlIHZsYW4gaWQgOTkgJCBpcCBsaW5rDQo+PiA+IHNldCBlbnMx
-ZjAgdXAgJCBpcCBsaW5rIHNldCBlbnMxZjAuOTkgdXAgJCBpcCBhZGRyIGFkZCAxOTIuMTY4Ljk5
-LjkyDQo+PiA+IGRldiBlbnMxZjAuOTkNCj4+ID4NCj4+ID4gQXQgdGhpcyBwb2ludCwgSSBjYW4g
-cGluZyBhbm90aGVyIGhvc3Qgb24gdmxhbiA5OSwgaXAgMTkyLjE2OC45OS45MS4NCj4+ID4gSG93
-ZXZlciwgaWYgSSBkbyB0aGUgZm9sbG93aW5nOg0KPj4gPg0KPj4gPiAkIGV0aHRvb2wgLUsgZW5z
-MWYwIHJ4dmxhbiBvZmYNCj4+ID4NCj4+ID4gVGhlbiBubyB0cmFmZmljIHBhc3NlcyBvbiBlbnMx
-ZjAuOTkuIEl0IGNvbWVzIGJhY2sgaWYgSSB0b2dnbGUNCj4+ID4gcnh2bGFuIG9uIGFnYWluLiBJ
-J20gbm90IHN1cmUgaWYgdGhpcyBpcyBhY3R1YWxseSBpbnRlbmRlZCBiZWhhdmlvciwNCj4+ID4g
-b3IgaWYgdGhlcmUncyBhIGxhY2sgb2Ygc29mdHdhcmUgdmxhbiBzdHJpcHBpbmcgZmFsbGJhY2ss
-IG9yIHdoYXQsDQo+PiA+IGJ1dCB0aGluZ3MgY29udGludWUgdG8gd29yayBpZiBJIHNpbXBseSBk
-b24ndCBjYWxsDQo+PiA+IGUxMDAwZV92bGFuX3N0cmlwX2Rpc2FibGUoKSBpZiB0aGVyZSBhcmUg
-YWN0aXZlIHZsYW5zIChwbGFnaWFyaXppbmcNCj4+ID4gYSBmdW5jdGlvbiBmcm9tIHRoZSBlMTAw
-MCBkcml2ZXIgaGVyZSkgb24gdGhlIGludGVyZmFjZS4NCj4+ID4NCj4+ID4gQWxzbyBzbGlwcGVk
-IGEgcmVsYXRlZC1pc2ggZml4IHRvIHRoZSBrZXJuZWxkb2MgdGV4dCBmb3INCj4+ID4gZTEwMDBl
-X3ZsYW5fc3RyaXBfZGlzYWJsZSBoZXJlLi4uDQo+PiA+DQo+PiA+IENDOiBKZWZmIEtpcnNoZXIg
-PGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4+ID4gQ0M6IGludGVsLXdpcmVkLWxhbkBs
-aXN0cy5vc3Vvc2wub3JnDQo+PiA+IENDOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+PiA+IFNp
-Z25lZC1vZmYtYnk6IEphcm9kIFdpbHNvbiA8amFyb2RAcmVkaGF0LmNvbT4NCj4+ID4gLS0tDQo+
-PiA+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRldi5jIHwgMTUgKysr
-KysrKysrKysrKy0tDQo+PiA+IMKgMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKyksIDIg
-ZGVsZXRpb25zKC0pDQo+Pg0KPj4gUmFhbmFuLCBwbGVhc2UgcmV2aWV3IHRoaXMgcGF0Y2guIMKg
-RXZlbiB0aG91Z2ggaXQgaXMgYW4gUkZDIEkgd2lsbCBiZQ0KPj4gYWRkaW5nIGl0IHRvIG15IHF1
-ZXVlIGZvciB0ZXN0aW5nLg0KPj4gaHR0cDovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzYy
-MzIzOC8NCj4NCj5ZdXAsIHdpdGhvdXQgdGhpcyBwYXRjaCBkaXNhYmxpbmcgcnh2bGFuIG9mZmxv
-YWQgZG9lcyBpbmRlZWQgYnJlYWsgdmxhbg0KPmNvbm5lY3Rpdml0eSBhbmQgd2l0aCB0aGUgcGF0
-Y2ggSSBjYW4gZGlzYWJsZSBhbmQgcmUtZW5hYmxlIHJ4dmxhbiBvZmZsb2FkcyBhcw0KPm11Y2gg
-YXMgSSBjYXJlIHRvLiAgSXQgYWxzbyBtYWtlcyBpdCB0aHJvdWdoIG15IHJlZ3Jlc3Npb24gdGVz
-dHMgd2l0aG91dA0KPnByb2JsZW1zLg0KDQpXZWxsLCB3aGF0IHRoZSBwYXRjaCBlc3NlbnRpYWxs
-eSBkb2VzIGlzIGJsb2NrIGRpc2FibGluZyBSWCBWTEFOIHN0cmlwcGluZw0KaWYgYW55IFZMQU5z
-IGFyZSBhY3RpdmUsIHNvIHRoZXJlIGlzIG5vdGhpbmcgc3VycHJpc2luZyB0aGVyZS4gWW91IGFy
-ZQ0KZXNzZW50aWFsbHkgcnVubmluZyB3aXRoIFZMQU4gb2ZmbG9hZHMgZW5hYmxlZCBhbGwgdGhl
-IHRpbWUuIDopDQoNCj4NCj5UZXN0ZWQtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3duQGlu
-dGVsLmNvbT4NCj4NCj5UaGlzIGlzIGZyb20gZnVuY3Rpb25hbCAtIGRvZXMgaXQgd29yayAtIHRl
-c3RpbmcgcGVyc3BlY3RpdmUgc28gcmV2aWV3IGlzDQo+cHJvYmFibHkgc3RpbGwgaW4gb3JkZXIu
-DQoNCkkgYW0gbm90IHN1cmUgaWYgdGhpcyBiZWhhdmlvciBpcyBieSBkZXNpZ24gb3Igbm90LCBh
-bmQgd2hldGhlciB1bi1zdHJpcHBlZA0KVkxBTiB0cmFmZmljIGlzIGJlaW5nIGJsb2NrZWQgYnkg
-dGhlIEhXLCB0aGUgZHJpdmVyIG9yIHRoZSBzdGFjay4NCg0KSSBoYXZlIHR3byBxdWVzdGlvbnM6
-DQoxKSBEb2VzIHRoZSB1bnBhdGNoZWQgYmVoYXZpb3IgY2hhbmdlIGlmIHByb21pc2N1b3VzIFJY
-IGlzIHNldCBpbiB0aGUgSFc/DQoyKSBJcyB0aGUgYmVoYXZpb3IgZGlmZmVyZW50IGluIG90aGVy
-IGRldmljZXMgKGlnYiwgaXhnYmUpPw0KRG8gdGhleSBhbGxvdyBWTEFOIHRyYWZmaWMgdG8gcGFz
-cyBldmVuIGlmIFZMQU4gb2ZmbG9hZHMgYXJlIGRpc2FibGVkPw0KDQpJIGJlbGlldmUgdGhhdCB0
-aGUgZTEwMDBlIGJlaGF2aW9yIHNob3VsZCBiZSBjb25zaXN0ZW50IHdpdGggb3RoZXIgZGV2aWNl
-cywNCndoYXRldmVyIHRoYXQgYmVoYXZpb3IgaXMuDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KSW50ZWwgSXNyYWVs
-ICg3NCkgTGltaXRlZAoKVGhpcyBlLW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBtYXkgY29udGFp
-biBjb25maWRlbnRpYWwgbWF0ZXJpYWwgZm9yCnRoZSBzb2xlIHVzZSBvZiB0aGUgaW50ZW5kZWQg
-cmVjaXBpZW50KHMpLiBBbnkgcmV2aWV3IG9yIGRpc3RyaWJ1dGlvbgpieSBvdGhlcnMgaXMgc3Ry
-aWN0bHkgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkCnJlY2lwaWVudCwg
-cGxlYXNlIGNvbnRhY3QgdGhlIHNlbmRlciBhbmQgZGVsZXRlIGFsbCBjb3BpZXMuCg==
+On Wed, Jun 01, 2016 at 04:34:28PM +0800, Xiubo Li wrote:
+> Since we cannot make sure the 'hook_mask' will always be none zero
+> here. If it equals to zero, the num_hooks will be zero too, and then
+> kmalloc() will return ZERO_SIZE_PTR, which is (void *)16.
+> 
+> Then the following error check will fails:
+>   ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+>   if (ops == NULL)
+>           return ERR_PTR(-ENOMEM);
+> 
+> So this patch fix this with just doing the zero check before calling
+> kmalloc() is called.
+> 
+> Maybe the case above will never happen here, but in theory.
+> 
+> Signed-off-by: Xiubo Li <lixiubo@cmss.chinamobile.com>
+> ---
+>  net/netfilter/x_tables.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index c8a0b7d..4df8e38 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -1185,6 +1185,9 @@ struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
+
+What kernel version are you using? I don't see xt_hook_link() in the
+development tree.
+
+>  	struct nf_hook_ops *ops;
+>  	int ret;
+>  
+> +	if (!num_hooks)
+> +		return ERR_PTR(-EINVAL);
+> +
+>  	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+>  	if (ops == NULL)
+>  		return ERR_PTR(-ENOMEM);
+> -- 
+> 1.8.3.1
+> 
+> 
+> 
