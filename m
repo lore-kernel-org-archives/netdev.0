@@ -1,49 +1,56 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [RFC 02/12] net: cls_bpf: add hardware offload
-Date: Wed, 1 Jun 2016 21:59:47 +0100
-Message-ID: <20160601215947.23820510@jkicinski-Precision-T1700>
+Subject: Re: [RFC 03/12] net: cls_bpf: limit hardware offload by
+ software-only flag
+Date: Wed, 1 Jun 2016 22:05:20 +0100
+Message-ID: <20160601220520.717fb5f8@jkicinski-Precision-T1700>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
-	<1464799814-4453-3-git-send-email-jakub.kicinski@netronome.com>
-	<574F17CC.8020704@gmail.com>
+	<1464799814-4453-4-git-send-email-jakub.kicinski@netronome.com>
+	<574F3A27.5050208@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
+Cc: netdev@vger.kernel.org, ast@kernel.org,
 	dinan.gunawardena@netronome.com
-To: John Fastabend <john.fastabend@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:33991 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbcFAU74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 16:59:56 -0400
-Received: by mail-wm0-f54.google.com with SMTP id z87so309666wmh.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 13:59:55 -0700 (PDT)
-In-Reply-To: <574F17CC.8020704@gmail.com>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:33791 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720AbcFAVFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:05:25 -0400
+Received: by mail-wm0-f48.google.com with SMTP id s131so347884wme.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:05:25 -0700 (PDT)
+In-Reply-To: <574F3A27.5050208@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Jun 2016 10:13:48 -0700, John Fastabend wrote:
-> > +static void cls_bpf_stop_offload(struct tcf_proto *tp,
-> > +				 struct cls_bpf_prog *prog)
-> > +{
-> > +	struct net_device *dev = tp->q->dev_queue->dev;
-> > +
-> > +	if (!prog->offloaded)
-> > +		return;
-> > +	if (WARN_ON(!tc_should_offload(dev, 0)))
-> > +		return;  
+On Wed, 01 Jun 2016 21:40:23 +0200, Daniel Borkmann wrote:
+> > diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+> > index f4297c8a42fe..93a86edf3bd8 100644
+> > --- a/include/uapi/linux/pkt_cls.h
+> > +++ b/include/uapi/linux/pkt_cls.h
+> > @@ -395,6 +395,7 @@ enum {
+> >   	TCA_BPF_FD,
+> >   	TCA_BPF_NAME,
+> >   	TCA_BPF_FLAGS,
+> > +	TCA_BPF_GEN_TCA_FLAGS,  
 > 
-> This warn on is a bit concerning it looks like you can get
-> a program stuck in hardware but removed from the software
-> stack. Any idea why this could happen? I think it is better
-> to solve the root problem or just remove this if its dbg code.
-> 
-> One thought is you need to block disabling the ethtool flag
-> if the hardware has running ebpf codes. Haven't got to the
-> driver patches yet though so not sure if you did this or not.
-> And now that I think about it I better go check the other
-> drivers.
+> Small nit for the non-RFC set: I'd simply name that TCA_BPF_FLAGS_GEN.
 
-Yes, I do refuse clearing the ethtool flag if offload is active.
-I put the warning there in an attempt to document that "this should
-never happen".  I'll drop it in the next revision.
+OK!
+
+> > @@ -400,8 +406,11 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+> >
+> >   		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
+> >   	}
+> > +	if (tb[TCA_BPF_GEN_TCA_FLAGS])
+> > +		gen_flags = nla_get_u32(tb[TCA_BPF_GEN_TCA_FLAGS]);
+> >
+> >   	prog->exts_integrated = have_exts;
+> > +	prog->gen_flags = gen_flags & CLS_BPF_SUPPORTED_GEN_FLAGS;  
+> 
+> Invalid flags should probably be rejected here with -EINVAL or something.
+
+Indeed, that would be more in line with what is done for "the other"
+flags attribute, but not so much with how flower and u32 handles
+flags. I like the stricter approach better, though, so unless someone
+speaks up I'll do as you suggest.
