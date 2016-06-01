@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 1/2] macvlan: Fix potential use-after free for broadcasts
-Date: Wed, 1 Jun 2016 11:43:00 +0800
-Message-ID: <20160601034300.GB31335@gondor.apana.org.au>
+Subject: [v2 PATCH 2/2] macvlan: Avoid unnecessary multicast cloning
+Date: Wed, 1 Jun 2016 11:45:44 +0800
+Message-ID: <20160601034544.GC31335@gondor.apana.org.au>
 References: <20160526234433.GU8402@wantstofly.org>
  <20160530081752.GA4956@gondor.apana.org.au>
  <20160530082828.GB5106@gondor.apana.org.au>
@@ -13,69 +13,116 @@ Cc: buytenh@wantstofly.org, kaber@trash.net, netdev@vger.kernel.org,
 	jpirko@redhat.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:36414 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:43831 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756857AbcFADnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 23:43:06 -0400
+	with ESMTP id S1756726AbcFADpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 23:45:54 -0400
 Content-Disposition: inline
 In-Reply-To: <20160601034218.GA31335@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we postpone a broadcast packet we save the source port in
-the skb if it is local.  However, the source port can disappear
-before we get a chance to process the packet.
+Currently we always queue a multicast packet for further processing,
+even if none of the macvlan devices are subscribed to the address.
 
-This patch fixes this by holding a ref count on the netdev.
+This patch optimises this by adding a global multicast filter for
+a macvlan_port.
 
-It also delays the skb->cb modification until after we allocate
-the new skb as you should not modify shared skbs.
+Note that this patch doesn't handle the broadcast addresses of the
+individual macvlan devices correctly, if they are not all identical
+to vlan->lowerdev.  However, this is already broken because there
+is no mechanism in place to update the individual multicast filters
+when you change the broadcast address.
 
-Fixes: 412ca1550cbe ("macvlan: Move broadcasts into a work queue")
+If someone cares enough they should fix this by collecting all
+broadcast addresses for a macvlan as we do for multicast and unicast.
+
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 2bcf1f3..78a00e3 100644
+index a71fa59..0c65bd9 100644
 --- a/drivers/net/macvlan.c
 +++ b/drivers/net/macvlan.c
-@@ -305,11 +305,14 @@ static void macvlan_process_broadcast(struct work_struct *w)
+@@ -49,6 +49,7 @@ struct macvlan_port {
+ 	bool 			passthru;
+ 	int			count;
+ 	struct hlist_head	vlan_source_hash[MACVLAN_HASH_SIZE];
++	DECLARE_BITMAP(mc_filter, MACVLAN_MC_FILTER_SZ);
+ };
  
- 		rcu_read_unlock();
+ struct macvlan_source_entry {
+@@ -419,6 +420,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
  
-+		if (src)
-+			dev_put(src->dev);
- 		kfree_skb(skb);
- 	}
- }
- 
- static void macvlan_broadcast_enqueue(struct macvlan_port *port,
-+				      const struct macvlan_dev *src,
- 				      struct sk_buff *skb)
- {
- 	struct sk_buff *nskb;
-@@ -319,8 +322,12 @@ static void macvlan_broadcast_enqueue(struct macvlan_port *port,
- 	if (!nskb)
- 		goto err;
- 
-+	MACVLAN_SKB_CB(nskb)->src = src;
+ 	port = macvlan_port_get_rcu(skb->dev);
+ 	if (is_multicast_ether_addr(eth->h_dest)) {
++		unsigned int hash;
 +
- 	spin_lock(&port->bc_queue.lock);
- 	if (skb_queue_len(&port->bc_queue) < MACVLAN_BC_QUEUE_LEN) {
-+		if (src)
-+			dev_hold(src->dev);
- 		__skb_queue_tail(&port->bc_queue, nskb);
- 		err = 0;
- 	}
-@@ -429,8 +436,7 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+ 		skb = ip_check_defrag(dev_net(skb->dev), skb, IP_DEFRAG_MACVLAN);
+ 		if (!skb)
+ 			return RX_HANDLER_CONSUMED;
+@@ -436,7 +439,9 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
  			goto out;
  		}
  
--		MACVLAN_SKB_CB(skb)->src = src;
--		macvlan_broadcast_enqueue(port, skb);
-+		macvlan_broadcast_enqueue(port, src, skb);
+-		macvlan_broadcast_enqueue(port, src, skb);
++		hash = mc_hash(NULL, eth->h_dest);
++		if (test_bit(hash, port->mc_filter))
++			macvlan_broadcast_enqueue(port, src, skb);
  
  		return RX_HANDLER_PASS;
  	}
+@@ -722,12 +727,12 @@ static void macvlan_change_rx_flags(struct net_device *dev, int change)
+ 	}
+ }
+ 
+-static void macvlan_set_mac_lists(struct net_device *dev)
++static void macvlan_compute_filter(unsigned long *mc_filter,
++				   struct net_device *dev,
++				   struct macvlan_dev *vlan)
+ {
+-	struct macvlan_dev *vlan = netdev_priv(dev);
+-
+ 	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
+-		bitmap_fill(vlan->mc_filter, MACVLAN_MC_FILTER_SZ);
++		bitmap_fill(mc_filter, MACVLAN_MC_FILTER_SZ);
+ 	} else {
+ 		struct netdev_hw_addr *ha;
+ 		DECLARE_BITMAP(filter, MACVLAN_MC_FILTER_SZ);
+@@ -739,10 +744,33 @@ static void macvlan_set_mac_lists(struct net_device *dev)
+ 
+ 		__set_bit(mc_hash(vlan, dev->broadcast), filter);
+ 
+-		bitmap_copy(vlan->mc_filter, filter, MACVLAN_MC_FILTER_SZ);
++		bitmap_copy(mc_filter, filter, MACVLAN_MC_FILTER_SZ);
+ 	}
++}
++
++static void macvlan_set_mac_lists(struct net_device *dev)
++{
++	struct macvlan_dev *vlan = netdev_priv(dev);
++
++	macvlan_compute_filter(vlan->mc_filter, dev, vlan);
++
+ 	dev_uc_sync(vlan->lowerdev, dev);
+ 	dev_mc_sync(vlan->lowerdev, dev);
++
++	/* This is slightly inaccurate as we're including the subscription
++	 * list of vlan->lowerdev too.
++	 *
++	 * Bug alert: This only works if everyone has the same broadcast
++	 * address as lowerdev.  As soon as someone changes theirs this
++	 * will break.
++	 *
++	 * However, this is already broken as when you change your broadcast
++	 * address we don't get called.
++	 *
++	 * The solution is to maintain a list of broadcast addresses like
++	 * we do for uc/mc, if you care.
++	 */
++	macvlan_compute_filter(vlan->port->mc_filter, vlan->lowerdev, NULL);
+ }
+ 
+ static int macvlan_change_mtu(struct net_device *dev, int new_mtu)
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
