@@ -1,166 +1,187 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC 01/12] add basic register-field manipulation macros
-Date: Wed,  1 Jun 2016 17:50:03 +0100
-Message-ID: <1464799814-4453-2-git-send-email-jakub.kicinski@netronome.com>
+Subject: [RFC 02/12] net: cls_bpf: add hardware offload
+Date: Wed,  1 Jun 2016 17:50:04 +0100
+Message-ID: <1464799814-4453-3-git-send-email-jakub.kicinski@netronome.com>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
 	dinan.gunawardena@netronome.com,
-	Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Ivo van Doorn <IvDoorn@gmail.com>,
-	Felix Fietkau <nbd@openwrt.org>
+	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37699 "EHLO
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:38139 "EHLO
 	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753052AbcFAQvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:51:44 -0400
-Received: by mail-wm0-f49.google.com with SMTP id z87so37551007wmh.0
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 09:51:43 -0700 (PDT)
+	with ESMTP id S1752157AbcFAQvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:51:45 -0400
+Received: by mail-wm0-f49.google.com with SMTP id a20so35117819wma.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 09:51:44 -0700 (PDT)
 In-Reply-To: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-C bitfields are problematic and best avoided.  Developers
-interacting with hardware registers find themselves searching
-for easy-to-use alternatives.  Common approach is to define
-structures or sets of macros containing mask and shift pair.
-Operation on the register are then performed as follows:
+This patch adds hardware offload capability to cls_bpf classifier,
+similar to what have been done with U32 and flower.
 
- field = (reg >> shift) & mask;
-
- reg &= ~(mask << shift);
- reg |= (field & mask) << shift;
-
-Defining shift and mask separately is tedious.  Ivo van Doorn
-came up with an idea of computing them at compilation time
-based on a single shifted mask (later refined by Felix) which
-can be used like this:
-
- field = FIELD_GET(REG_FIELD, reg);
-
- reg &= ~REG_FIELD;
- reg |= FIELD_PUT(REG_FIELD, field);
-
-FIELD_{GET,PUT} macros take care of finding out what the
-appropriate shift is based on compilation time ffs operation.
-
-GENMASK can be used to define registers (which is usually
-less error-prone and easier to match with datasheets).
-
-This approach is the most convenient I've seen so to limit code
-multiplication let's move the macros to a global header file.
-
-Compared to Felix Fietkau's version I:
- - edited the comments a bit;
- - gave auxiliary macros _bf_ prefix;
- - dropped the UL specifier from 1 in _bf_low_bits,
- - renamed the FIELD_SET to FIELD_PUT;
- - added 64bit versions.
-
-CC: Ivo van Doorn <IvDoorn@gmail.com>
-CC: Felix Fietkau <nbd@openwrt.org>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- include/linux/bitfield.h | 89 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 89 insertions(+)
- create mode 100644 include/linux/bitfield.h
+ include/linux/netdevice.h |  2 ++
+ include/net/pkt_cls.h     | 14 ++++++++++
+ net/sched/cls_bpf.c       | 71 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 87 insertions(+)
 
-diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
-new file mode 100644
-index 000000000000..3815c81f5b10
---- /dev/null
-+++ b/include/linux/bitfield.h
-@@ -0,0 +1,89 @@
-+/*
-+ * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
-+ * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f45929ce8157..6c8364b8aae9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -785,6 +785,7 @@ enum {
+ 	TC_SETUP_MQPRIO,
+ 	TC_SETUP_CLSU32,
+ 	TC_SETUP_CLSFLOWER,
++	TC_SETUP_CLSBPF,
+ };
+ 
+ struct tc_cls_u32_offload;
+@@ -795,6 +796,7 @@ struct tc_to_netdev {
+ 		u8 tc;
+ 		struct tc_cls_u32_offload *cls_u32;
+ 		struct tc_cls_flower_offload *cls_flower;
++		struct tc_cls_bpf_offload *cls_bpf;
+ 	};
+ };
+ 
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 0f7efa88f210..10b7e8cdc98c 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -438,4 +438,18 @@ struct tc_cls_flower_offload {
+ 	struct tcf_exts *exts;
+ };
+ 
++enum tc_clsbpf_command {
++	TC_CLSBPF_ADD,
++	TC_CLSBPF_REPLACE,
++	TC_CLSBPF_DESTROY,
++};
 +
-+#ifndef _LINUX_BITFIELD_H
-+#define _LINUX_BITFIELD_H
++struct tc_cls_bpf_offload {
++	enum tc_clsbpf_command command;
++	struct tcf_exts *exts;
++	struct bpf_prog *filter;
++	const char *name;
++	bool exts_integrated;
++};
 +
-+#include <asm/types.h>
+ #endif
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 7b342c779da7..b7c4c6dd6ad6 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -39,6 +39,7 @@ struct cls_bpf_prog {
+ 	struct list_head link;
+ 	struct tcf_result res;
+ 	bool exts_integrated;
++	bool offloaded;
+ 	struct tcf_exts exts;
+ 	u32 handle;
+ 	union {
+@@ -140,6 +141,72 @@ static bool cls_bpf_is_ebpf(const struct cls_bpf_prog *prog)
+ 	return !prog->bpf_ops;
+ }
+ 
++static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
++			       enum tc_clsbpf_command cmd)
++{
++	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tc_cls_bpf_offload bpf_offload = {};
++	struct tc_to_netdev offload;
 +
-+/*
-+ * Macros to find first set bit in a variable.
-+ * These macros behave the same as the __ffs() functions but the most important
-+ * difference that this is done during compile-time rather than run-time.
-+ */
-+#define compile_ffs2(__x) \
-+	__builtin_choose_expr(((__x) & 0x1), 0, 1)
++	offload.type = TC_SETUP_CLSBPF;
++	offload.cls_bpf = &bpf_offload;
 +
-+#define compile_ffs4(__x) \
-+	__builtin_choose_expr(((__x) & 0x3), \
-+			      (compile_ffs2((__x))), \
-+			      (compile_ffs2((__x) >> 2) + 2))
++	bpf_offload.command = cmd;
++	bpf_offload.exts = &prog->exts;
++	bpf_offload.filter = prog->filter;
++	bpf_offload.name = prog->bpf_name;
++	bpf_offload.exts_integrated = prog->exts_integrated;
 +
-+#define compile_ffs8(__x) \
-+	__builtin_choose_expr(((__x) & 0xf), \
-+			      (compile_ffs4((__x))), \
-+			      (compile_ffs4((__x) >> 4) + 4))
++	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
++					     tp->protocol, &offload);
++}
 +
-+#define compile_ffs16(__x) \
-+	__builtin_choose_expr(((__x) & 0xff), \
-+			      (compile_ffs8((__x))), \
-+			      (compile_ffs8((__x) >> 8) + 8))
++static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
++			    struct cls_bpf_prog *oldprog)
++{
++	struct net_device *dev = tp->q->dev_queue->dev;
++	struct cls_bpf_prog *obj = prog;
++	enum tc_clsbpf_command cmd;
 +
-+#define compile_ffs32(__x) \
-+	__builtin_choose_expr(((__x) & 0xffff), \
-+			      (compile_ffs16((__x))), \
-+			      (compile_ffs16((__x) >> 16) + 16))
++	if (oldprog && oldprog->offloaded) {
++		if (tc_should_offload(dev, 0)) {
++			cmd = TC_CLSBPF_REPLACE;
++		} else {
++			obj = oldprog;
++			cmd = TC_CLSBPF_DESTROY;
++		}
++	} else {
++		if (!tc_should_offload(dev, 0))
++			return;
++		cmd = TC_CLSBPF_ADD;
++	}
 +
-+#define compile_ffs64(__x) \
-+	__builtin_choose_expr(((__x) & 0xffffffff), \
-+			      (compile_ffs32((__x))), \
-+			      (compile_ffs32(((__x) >> 16) >> 16) + 32))
++	if (cls_bpf_offload_cmd(tp, obj, cmd))
++		return;
 +
-+/*
-+ * Macros to validate that the mask given contains a contiguous set of bits.
-+ * Note that we cannot use the is_power_of_2() function since this check
-+ * must be done at compile-time.
-+ */
-+#define _bf_is_power_of_two(x)	( !((x) & ((x) - 1)) )
-+#define _bf_low_bits(x)		( ((x) - 1) & ~(x) )
-+#define _bf_is_valid_mask(x)	_bf_is_power_of_two(1U + (x) + _bf_low_bits(x))
++	obj->offloaded = true;
++	if (oldprog)
++		oldprog->offloaded = false;
++}
 +
-+#define _BF_FIELD_CHECK(_mask)						\
-+	BUILD_BUG_ON(!(_mask) || !_bf_is_valid_mask(_mask))
++static void cls_bpf_stop_offload(struct tcf_proto *tp,
++				 struct cls_bpf_prog *prog)
++{
++	struct net_device *dev = tp->q->dev_queue->dev;
 +
-+#define FIELD_PUT(_mask, _val)						\
-+	({								\
-+		_BF_FIELD_CHECK(_mask);					\
-+		(((u32)(_val)) << compile_ffs32(_mask)) & _mask;	\
-+	})
++	if (!prog->offloaded)
++		return;
++	if (WARN_ON(!tc_should_offload(dev, 0)))
++		return;
 +
-+#define FIELD_GET(_mask, _val)						\
-+	({								\
-+		_BF_FIELD_CHECK(_mask);					\
-+		(u32)(((_val) & _mask) >> compile_ffs32(_mask));	\
-+	})
++	if (cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY)) {
++		pr_err("Stopping hardware offload failed!\n");
++		return;
++	}
 +
-+#define FIELD_PUT64(_mask, _val)					\
-+	({								\
-+		_BF_FIELD_CHECK(_mask);					\
-+		(((u64)(_val)) << compile_ffs64(_mask)) & _mask;	\
-+	})
++	prog->offloaded = false;
++}
 +
-+#define FIELD_GET64(_mask, _val)					\
-+	({								\
-+		_BF_FIELD_CHECK(_mask);					\
-+		(u64)(((_val) & _mask) >> compile_ffs64(_mask));	\
-+	})
+ static int cls_bpf_init(struct tcf_proto *tp)
+ {
+ 	struct cls_bpf_head *head;
+@@ -179,6 +246,7 @@ static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
+ {
+ 	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) arg;
+ 
++	cls_bpf_stop_offload(tp, prog);
+ 	list_del_rcu(&prog->link);
+ 	tcf_unbind_filter(tp, &prog->res);
+ 	call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+@@ -195,6 +263,7 @@ static bool cls_bpf_destroy(struct tcf_proto *tp, bool force)
+ 		return false;
+ 
+ 	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
++		cls_bpf_stop_offload(tp, prog);
+ 		list_del_rcu(&prog->link);
+ 		tcf_unbind_filter(tp, &prog->res);
+ 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+@@ -415,6 +484,8 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 	if (ret < 0)
+ 		goto errout;
+ 
++	cls_bpf_offload(tp, prog, oldprog);
 +
-+#endif
+ 	if (oldprog) {
+ 		list_replace_rcu(&oldprog->link, &prog->link);
+ 		tcf_unbind_filter(tp, &oldprog->res);
 -- 
 1.9.1
