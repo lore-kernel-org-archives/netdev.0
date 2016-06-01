@@ -1,33 +1,75 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 02/12] net: cls_bpf: add hardware offload
-Date: Wed, 01 Jun 2016 21:34:55 +0200
-Message-ID: <574F38DF.1000408@iogearbox.net>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com> <1464799814-4453-3-git-send-email-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, dinan.gunawardena@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: sctp should change socket state when shutdown is received
+Date: Thu,  2 Jun 2016 03:38:45 +0800
+Message-ID: <42953bb341d78d8b83dfccebb0beaa9387d8e1af.1464809925.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53967 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750697AbcFATe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 15:34:58 -0400
-In-Reply-To: <1464799814-4453-3-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33773 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbcFATiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 15:38:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
-> This patch adds hardware offload capability to cls_bpf classifier,
-> similar to what have been done with U32 and flower.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Now sctp doesn't change socket state upon shutdown reception. It changes
+just the assoc state, even though it's a TCP-style socket.
 
-Nice! This is truly awesome to see this work progressing!
+For some cases, if we really need to check sk->sk_state, it's necessary to
+fix this issue, at least when we use ss or netstat to dump, we can get a
+more exact information.
 
-Apart from John's comment made earlier:
+As an improvement, we will change sk->sk_state when we change asoc->state
+to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+sctp_close.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sm_sideeffect.c | 4 +++-
+ net/sctp/socket.c        | 5 ++++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index aa37122..12d4519 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+ 
+ 		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+ 		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+-		    sctp_sstate(sk, ESTABLISHED))
++		    sctp_sstate(sk, ESTABLISHED)) {
++			sk->sk_state = SCTP_SS_CLOSING;
+ 			sk->sk_shutdown |= RCV_SHUTDOWN;
++		}
+ 	}
+ 
+ 	if (sctp_state(asoc, COOKIE_WAIT)) {
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 67154b8..c20199a 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+ 		return;
+ 
+ 	if (how & SEND_SHUTDOWN) {
++		sk->sk_state = SCTP_SS_CLOSING;
+ 		ep = sctp_sk(sk)->ep;
+ 		if (!list_empty(&ep->asocs)) {
+ 			asoc = list_entry(ep->asocs.next,
+@@ -7564,8 +7565,10 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	/* If the association on the newsk is already closed before accept()
+ 	 * is called, set RCV_SHUTDOWN flag.
+ 	 */
+-	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
++	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
++		newsk->sk_state = SCTP_SS_CLOSING;
+ 		newsk->sk_shutdown |= RCV_SHUTDOWN;
++	}
+ 
+ 	newsk->sk_state = SCTP_SS_ESTABLISHED;
+ 	release_sock(newsk);
+-- 
+2.1.0
