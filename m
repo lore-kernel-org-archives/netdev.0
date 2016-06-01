@@ -1,187 +1,146 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC 02/12] net: cls_bpf: add hardware offload
-Date: Wed,  1 Jun 2016 17:50:04 +0100
-Message-ID: <1464799814-4453-3-git-send-email-jakub.kicinski@netronome.com>
+Subject: [RFC 03/12] net: cls_bpf: limit hardware offload by software-only flag
+Date: Wed,  1 Jun 2016 17:50:05 +0100
+Message-ID: <1464799814-4453-4-git-send-email-jakub.kicinski@netronome.com>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
 	dinan.gunawardena@netronome.com,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:38139 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157AbcFAQvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:51:45 -0400
-Received: by mail-wm0-f49.google.com with SMTP id a20so35117819wma.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 09:51:44 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38150 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756148AbcFAQvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:51:46 -0400
+Received: by mail-wm0-f52.google.com with SMTP id a20so35118457wma.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 09:51:45 -0700 (PDT)
 In-Reply-To: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds hardware offload capability to cls_bpf classifier,
-similar to what have been done with U32 and flower.
+Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_HW flag.
+Unlike U32 and flower cls_bpf already has some netlink
+flags defined.  I chose to create a new attribute to be
+able to use the same flag values as the above.
+
+Unknown flags are ignored and not reported upon dump.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- include/linux/netdevice.h |  2 ++
- include/net/pkt_cls.h     | 14 ++++++++++
- net/sched/cls_bpf.c       | 71 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 87 insertions(+)
+ include/net/pkt_cls.h        |  1 +
+ include/uapi/linux/pkt_cls.h |  1 +
+ net/sched/cls_bpf.c          | 16 ++++++++++++++--
+ 3 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f45929ce8157..6c8364b8aae9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -785,6 +785,7 @@ enum {
- 	TC_SETUP_MQPRIO,
- 	TC_SETUP_CLSU32,
- 	TC_SETUP_CLSFLOWER,
-+	TC_SETUP_CLSBPF,
- };
- 
- struct tc_cls_u32_offload;
-@@ -795,6 +796,7 @@ struct tc_to_netdev {
- 		u8 tc;
- 		struct tc_cls_u32_offload *cls_u32;
- 		struct tc_cls_flower_offload *cls_flower;
-+		struct tc_cls_bpf_offload *cls_bpf;
- 	};
- };
- 
 diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 0f7efa88f210..10b7e8cdc98c 100644
+index 10b7e8cdc98c..e6b3dfb3159b 100644
 --- a/include/net/pkt_cls.h
 +++ b/include/net/pkt_cls.h
-@@ -438,4 +438,18 @@ struct tc_cls_flower_offload {
- 	struct tcf_exts *exts;
+@@ -450,6 +450,7 @@ struct tc_cls_bpf_offload {
+ 	struct bpf_prog *filter;
+ 	const char *name;
+ 	bool exts_integrated;
++	u32 gen_flags;
  };
  
-+enum tc_clsbpf_command {
-+	TC_CLSBPF_ADD,
-+	TC_CLSBPF_REPLACE,
-+	TC_CLSBPF_DESTROY,
-+};
-+
-+struct tc_cls_bpf_offload {
-+	enum tc_clsbpf_command command;
-+	struct tcf_exts *exts;
-+	struct bpf_prog *filter;
-+	const char *name;
-+	bool exts_integrated;
-+};
-+
  #endif
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index f4297c8a42fe..93a86edf3bd8 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -395,6 +395,7 @@ enum {
+ 	TCA_BPF_FD,
+ 	TCA_BPF_NAME,
+ 	TCA_BPF_FLAGS,
++	TCA_BPF_GEN_TCA_FLAGS,
+ 	__TCA_BPF_MAX,
+ };
+ 
 diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 7b342c779da7..b7c4c6dd6ad6 100644
+index b7c4c6dd6ad6..9f1bc37dcbbc 100644
 --- a/net/sched/cls_bpf.c
 +++ b/net/sched/cls_bpf.c
-@@ -39,6 +39,7 @@ struct cls_bpf_prog {
- 	struct list_head link;
+@@ -27,6 +27,8 @@ MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
+ MODULE_DESCRIPTION("TC BPF based classifier");
+ 
+ #define CLS_BPF_NAME_LEN	256
++#define CLS_BPF_SUPPORTED_GEN_FLAGS		\
++	TCA_CLS_FLAGS_SKIP_HW
+ 
+ struct cls_bpf_head {
+ 	struct list_head plist;
+@@ -40,6 +42,7 @@ struct cls_bpf_prog {
  	struct tcf_result res;
  	bool exts_integrated;
-+	bool offloaded;
+ 	bool offloaded;
++	u32 gen_flags;
  	struct tcf_exts exts;
  	u32 handle;
  	union {
-@@ -140,6 +141,72 @@ static bool cls_bpf_is_ebpf(const struct cls_bpf_prog *prog)
- 	return !prog->bpf_ops;
- }
+@@ -55,6 +58,7 @@ struct cls_bpf_prog {
+ static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
+ 	[TCA_BPF_CLASSID]	= { .type = NLA_U32 },
+ 	[TCA_BPF_FLAGS]		= { .type = NLA_U32 },
++	[TCA_BPF_GEN_TCA_FLAGS]	= { .type = NLA_U32 },
+ 	[TCA_BPF_FD]		= { .type = NLA_U32 },
+ 	[TCA_BPF_NAME]		= { .type = NLA_NUL_STRING, .len = CLS_BPF_NAME_LEN },
+ 	[TCA_BPF_OPS_LEN]	= { .type = NLA_U16 },
+@@ -156,6 +160,7 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	bpf_offload.filter = prog->filter;
+ 	bpf_offload.name = prog->bpf_name;
+ 	bpf_offload.exts_integrated = prog->exts_integrated;
++	bpf_offload.gen_flags = prog->gen_flags;
  
-+static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
-+			       enum tc_clsbpf_command cmd)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_bpf_offload bpf_offload = {};
-+	struct tc_to_netdev offload;
-+
-+	offload.type = TC_SETUP_CLSBPF;
-+	offload.cls_bpf = &bpf_offload;
-+
-+	bpf_offload.command = cmd;
-+	bpf_offload.exts = &prog->exts;
-+	bpf_offload.filter = prog->filter;
-+	bpf_offload.name = prog->bpf_name;
-+	bpf_offload.exts_integrated = prog->exts_integrated;
-+
-+	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					     tp->protocol, &offload);
-+}
-+
-+static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
-+			    struct cls_bpf_prog *oldprog)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct cls_bpf_prog *obj = prog;
-+	enum tc_clsbpf_command cmd;
-+
-+	if (oldprog && oldprog->offloaded) {
-+		if (tc_should_offload(dev, 0)) {
-+			cmd = TC_CLSBPF_REPLACE;
-+		} else {
-+			obj = oldprog;
-+			cmd = TC_CLSBPF_DESTROY;
-+		}
-+	} else {
-+		if (!tc_should_offload(dev, 0))
-+			return;
-+		cmd = TC_CLSBPF_ADD;
-+	}
-+
-+	if (cls_bpf_offload_cmd(tp, obj, cmd))
-+		return;
-+
-+	obj->offloaded = true;
-+	if (oldprog)
-+		oldprog->offloaded = false;
-+}
-+
-+static void cls_bpf_stop_offload(struct tcf_proto *tp,
-+				 struct cls_bpf_prog *prog)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+
-+	if (!prog->offloaded)
-+		return;
-+	if (WARN_ON(!tc_should_offload(dev, 0)))
-+		return;
-+
-+	if (cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY)) {
-+		pr_err("Stopping hardware offload failed!\n");
-+		return;
-+	}
-+
-+	prog->offloaded = false;
-+}
-+
- static int cls_bpf_init(struct tcf_proto *tp)
+ 	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+ 					     tp->protocol, &offload);
+@@ -169,14 +174,14 @@ static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	enum tc_clsbpf_command cmd;
+ 
+ 	if (oldprog && oldprog->offloaded) {
+-		if (tc_should_offload(dev, 0)) {
++		if (tc_should_offload(dev, prog->gen_flags)) {
+ 			cmd = TC_CLSBPF_REPLACE;
+ 		} else {
+ 			obj = oldprog;
+ 			cmd = TC_CLSBPF_DESTROY;
+ 		}
+ 	} else {
+-		if (!tc_should_offload(dev, 0))
++		if (!tc_should_offload(dev, prog->gen_flags))
+ 			return;
+ 		cmd = TC_CLSBPF_ADD;
+ 	}
+@@ -378,6 +383,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
  {
- 	struct cls_bpf_head *head;
-@@ -179,6 +246,7 @@ static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
- {
- 	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) arg;
+ 	bool is_bpf, is_ebpf, have_exts = false;
+ 	struct tcf_exts exts;
++	u32 gen_flags = 0;
+ 	int ret;
  
-+	cls_bpf_stop_offload(tp, prog);
- 	list_del_rcu(&prog->link);
- 	tcf_unbind_filter(tp, &prog->res);
- 	call_rcu(&prog->rcu, __cls_bpf_delete_prog);
-@@ -195,6 +263,7 @@ static bool cls_bpf_destroy(struct tcf_proto *tp, bool force)
- 		return false;
+ 	is_bpf = tb[TCA_BPF_OPS_LEN] && tb[TCA_BPF_OPS];
+@@ -400,8 +406,11 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
  
- 	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
-+		cls_bpf_stop_offload(tp, prog);
- 		list_del_rcu(&prog->link);
- 		tcf_unbind_filter(tp, &prog->res);
- 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
-@@ -415,6 +484,8 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	if (ret < 0)
- 		goto errout;
+ 		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
+ 	}
++	if (tb[TCA_BPF_GEN_TCA_FLAGS])
++		gen_flags = nla_get_u32(tb[TCA_BPF_GEN_TCA_FLAGS]);
  
-+	cls_bpf_offload(tp, prog, oldprog);
-+
- 	if (oldprog) {
- 		list_replace_rcu(&oldprog->link, &prog->link);
- 		tcf_unbind_filter(tp, &oldprog->res);
+ 	prog->exts_integrated = have_exts;
++	prog->gen_flags = gen_flags & CLS_BPF_SUPPORTED_GEN_FLAGS;
+ 
+ 	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog) :
+ 		       cls_bpf_prog_from_efd(tb, prog, tp);
+@@ -568,6 +577,9 @@ static int cls_bpf_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 		bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
+ 	if (bpf_flags && nla_put_u32(skb, TCA_BPF_FLAGS, bpf_flags))
+ 		goto nla_put_failure;
++	if (prog->gen_flags &&
++	    nla_put_u32(skb, TCA_BPF_GEN_TCA_FLAGS, prog->gen_flags))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+ 
 -- 
 1.9.1
