@@ -1,56 +1,101 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [RFC 12/12] nfp: bpf: add denser mode of execution
-Date: Wed, 1 Jun 2016 23:47:23 +0100
-Message-ID: <20160601234723.098ef2af@jkicinski-Precision-T1700>
+Subject: Re: [RFC 07/12] nfp: add skb mark support to the bpf offload
+Date: Thu, 2 Jun 2016 00:01:03 +0100
+Message-ID: <20160602000103.2e6d7292@jkicinski-Precision-T1700>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
-	<1464799814-4453-13-git-send-email-jakub.kicinski@netronome.com>
-	<20160601220114.GC24671@ast-mbp.thefacebook.com>
+	<1464799814-4453-8-git-send-email-jakub.kicinski@netronome.com>
+	<20160601215624.GB24671@ast-mbp.thefacebook.com>
+	<20160601231936.63c53f69@jkicinski-Precision-T1700>
+	<574F61EF.4000300@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	netdev@vger.kernel.org, ast@kernel.org,
 	dinan.gunawardena@netronome.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35214 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175AbcFAWr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 18:47:28 -0400
-Received: by mail-wm0-f43.google.com with SMTP id a136so204013228wme.0
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 15:47:28 -0700 (PDT)
-In-Reply-To: <20160601220114.GC24671@ast-mbp.thefacebook.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:38399 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850AbcFAXBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 19:01:08 -0400
+Received: by mail-wm0-f49.google.com with SMTP id a20so45604556wma.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 16:01:07 -0700 (PDT)
+In-Reply-To: <574F61EF.4000300@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Jun 2016 15:01:16 -0700, Alexei Starovoitov wrote:
-> On Wed, Jun 01, 2016 at 05:50:14PM +0100, Jakub Kicinski wrote:
-> > If BPF uses less than 7 registers programmable engines
-> > can process twice as many packets in parallel.  Signal
-> > this denser mode of operation to FW by setting the lowest
-> > bit in DMA address of the machine code buffer.
-> > 
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> > Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-> > Reviewed-by: Simon Horman <simon.horman@netronome.com>  
+On Thu, 02 Jun 2016 00:30:07 +0200, Daniel Borkmann wrote:
+> On 06/02/2016 12:19 AM, Jakub Kicinski wrote:
+> > On Wed, 1 Jun 2016 14:56:26 -0700, Alexei Starovoitov wrote:  
+> >> On Wed, Jun 01, 2016 at 05:50:09PM +0100, Jakub Kicinski wrote:  
+> >>> Skb marking should be set in designated register, FW will
+> >>> prepend it to the packet for us.
+> >>>
+> >>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> >>> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+> >>> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> >>> ---
+> >>>   drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c    | 20 ++++++++++++++++++++
+> >>>   drivers/net/ethernet/netronome/nfp/nfp_net.h        |  2 +-
+> >>>   drivers/net/ethernet/netronome/nfp/nfp_net_common.c |  8 +++++++-
+> >>>   3 files changed, 28 insertions(+), 2 deletions(-)
+> >>>
+> >>> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+> >>> index d7eecfceba5c..b31e673a6fe8 100644
+> >>> --- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+> >>> +++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+> >>> @@ -46,6 +46,8 @@
+> >>>
+> >>>   #define REG_IMM0_N	30 /* Bank AB */
+> >>>   #define REG_QNUM	29 /* Bank AB */
+> >>> +#define REG_MARK	28 /* Bank A */
+> >>> +#define REG_MARK_STS	28 /* Bank B */
+> >>>
+> >>>   /* --- NFP prog --- */
+> >>>   /* Foreach "multiple" entries macros provide pos and next<n> pointers.
+> >>> @@ -416,6 +418,15 @@ static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
+> >>>   	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
+> >>>   }
+> >>>
+> >>> +static int wrp_skb_mark(struct nfp_prog *nfp_prog, u16 src)
+> >>> +{
+> >>> +	__emit_alu(nfp_prog, REG_MARK, ALU_DST_A, REG_NONE, ALU_OP_NONE, src,
+> >>> +		   false, false);
+> >>> +	__emit_immed(nfp_prog, REG_MARK_STS, ALU_DST_B, 1, false);
+> >>> +
+> >>> +	return 0;
+> >>> +}
+> >>> +
+> >>>   static int
+> >>>   construct_br_imm(struct nfp_prog *nfp_prog, u32 imm, u16 dst, u8 br, u16 off,
+> >>>   		 enum alu_op alu_op, bool sw)
+> >>> @@ -538,6 +549,14 @@ static int imm_ld8(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+> >>>   	return 0;
+> >>>   }
+> >>>
+> >>> +static int mem_stx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+> >>> +{
+> >>> +	if (meta->insn.off == offsetof(struct sk_buff, mark))
+> >>> +		return wrp_skb_mark(nfp_prog, meta->insn.src_reg * 2);  
+> >>
+> >> couldn't figure out from the diff or commit log...
+> >> what is the meaning of 'skb->mark' for nfp?
+> >> Looks like it's writing into magic register and fw will do something
+> >> with that register?
+> >> 'mark' is packet metadata. Could you explain how it's passing
+> >> this metadata? Is it on the wire as well or somehow in the wire
+> >> only between two nfps?
+> >> Looks like interesting feature.  
+> >
+> > Oh, it's not a magic register, it just an "API" I have between the BPF
+> > and the datapath firmware.  Whatever is put in that register will be
+> > prepended to the packet (if the mark status register is set).  
 > 
-> wow. that sounds pretty cool.
-> I was about to ask whether we can help HW to be more efficient
-> by doing something on bpf side like annotating the registers or
-> adding 'hw_only' registers...
-> but looks like less registers is actually good, since NFP jit
-> can parallelize it? Truly wow.
-> if you can share the hw architecture details and explain more
-> on how this 'dense_mode' works, would be awesome.
- 
-I think the best resource of information about the card and its
-internals would be the open-nfp website [1].  Regarding optimizations
-there are definitely things which could be done.  The most obvious is 
-helping 32bit JITs in general.  Annotations which registers are
-32bit-only, which operations need zero-extending etc.  There is some
-state in the verifier that would be useful here as well.  Knowing which
-registers contain the skb pointer for instance would help to ignore any
-operations on them (since as exemplified by simple optimization in
-patch 10 the skb pointer has no meaning for the HW).  I'm sure more
-such things will come up with time.
+> That is very useful indeed!
+> 
+> Btw, do you later on plan to also add something similar like TC_ACT_REDIRECT,
+> f.e. to push the packet same or different NIC port out again w/o leaving the
+> HW?
 
-[1] http://open-nfp.org/resources/
+I don't see any reason why we wouldn't be able to do that :)
