@@ -1,92 +1,120 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 07/12] nfp: add skb mark support to the bpf offload
-Date: Thu, 02 Jun 2016 00:30:07 +0200
-Message-ID: <574F61EF.4000300@iogearbox.net>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>	<1464799814-4453-8-git-send-email-jakub.kicinski@netronome.com>	<20160601215624.GB24671@ast-mbp.thefacebook.com> <20160601231936.63c53f69@jkicinski-Precision-T1700>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH net] e1000e: keep vlan interfaces
+ functional after rxvlan off
+Date: Wed, 1 Jun 2016 15:31:46 -0700
+Message-ID: <CAKgT0UdXyHt1tbFijqiN57H49TBxSrJ4VcT4A7uKS0oXUouWTA@mail.gmail.com>
+References: <1463511831-13684-1-git-send-email-jarod@redhat.com>
+	<CAKgT0UfKV23p18L=wCoyy7WXa7s7pQQRVVK8F_mVea0dOJKekA@mail.gmail.com>
+	<20160601192724.GA56933@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org,
-	dinan.gunawardena@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39440 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbcFAWaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 18:30:10 -0400
-In-Reply-To: <20160601231936.63c53f69@jkicinski-Precision-T1700>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160601192724.GA56933@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/02/2016 12:19 AM, Jakub Kicinski wrote:
-> On Wed, 1 Jun 2016 14:56:26 -0700, Alexei Starovoitov wrote:
->> On Wed, Jun 01, 2016 at 05:50:09PM +0100, Jakub Kicinski wrote:
->>> Skb marking should be set in designated register, FW will
->>> prepend it to the packet for us.
->>>
->>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->>> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
->>> Reviewed-by: Simon Horman <simon.horman@netronome.com>
->>> ---
->>>   drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c    | 20 ++++++++++++++++++++
->>>   drivers/net/ethernet/netronome/nfp/nfp_net.h        |  2 +-
->>>   drivers/net/ethernet/netronome/nfp/nfp_net_common.c |  8 +++++++-
->>>   3 files changed, 28 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
->>> index d7eecfceba5c..b31e673a6fe8 100644
->>> --- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
->>> +++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
->>> @@ -46,6 +46,8 @@
->>>
->>>   #define REG_IMM0_N	30 /* Bank AB */
->>>   #define REG_QNUM	29 /* Bank AB */
->>> +#define REG_MARK	28 /* Bank A */
->>> +#define REG_MARK_STS	28 /* Bank B */
->>>
->>>   /* --- NFP prog --- */
->>>   /* Foreach "multiple" entries macros provide pos and next<n> pointers.
->>> @@ -416,6 +418,15 @@ static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
->>>   	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
->>>   }
->>>
->>> +static int wrp_skb_mark(struct nfp_prog *nfp_prog, u16 src)
->>> +{
->>> +	__emit_alu(nfp_prog, REG_MARK, ALU_DST_A, REG_NONE, ALU_OP_NONE, src,
->>> +		   false, false);
->>> +	__emit_immed(nfp_prog, REG_MARK_STS, ALU_DST_B, 1, false);
->>> +
->>> +	return 0;
->>> +}
->>> +
->>>   static int
->>>   construct_br_imm(struct nfp_prog *nfp_prog, u32 imm, u16 dst, u8 br, u16 off,
->>>   		 enum alu_op alu_op, bool sw)
->>> @@ -538,6 +549,14 @@ static int imm_ld8(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
->>>   	return 0;
->>>   }
->>>
->>> +static int mem_stx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
->>> +{
->>> +	if (meta->insn.off == offsetof(struct sk_buff, mark))
->>> +		return wrp_skb_mark(nfp_prog, meta->insn.src_reg * 2);
+On Wed, Jun 1, 2016 at 12:27 PM, Jarod Wilson <jarod@redhat.com> wrote:
+> On Wed, Jun 01, 2016 at 07:31:53AM -0700, Alexander Duyck wrote:
+>> On Tue, May 17, 2016 at 12:03 PM, Jarod Wilson <jarod@redhat.com> wrote:
+>> > I've got a bug report about an e1000e interface, where a vlan interface is
+>> > set up on top of it:
+>> >
+>> > $ ip link add link ens1f0 name ens1f0.99 type vlan id 99
+>> > $ ip link set ens1f0 up
+>> > $ ip link set ens1f0.99 up
+>> > $ ip addr add 192.168.99.92 dev ens1f0.99
+>> >
+>> > At this point, I can ping another host on vlan 99, ip 192.168.99.91.
+>> > However, if I do the following:
+>> >
+>> > $ ethtool -K ens1f0 rxvlan off
+>> >
+>> > Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
+>> > again. I'm not sure if this is actually intended behavior, or if there's a
+>> > lack of software vlan stripping fallback, or what, but things continue to
+>> > work if I simply don't call e1000e_vlan_strip_disable() if there are
+>> > active vlans (plagiarizing a function from the e1000 driver here) on the
+>> > interface.
+>> >
+>> > Also slipped a related-ish fix to the kerneldoc text for
+>> > e1000e_vlan_strip_disable here...
+>> >
+>> > CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> > CC: intel-wired-lan@lists.osuosl.org
+>> > CC: netdev@vger.kernel.org
+>> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>> > ---
+>> >  drivers/net/ethernet/intel/e1000e/netdev.c | 15 +++++++++++++--
+>> >  1 file changed, 13 insertions(+), 2 deletions(-)
+>> >
+>> > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+>> > index 75e6089..73f7452 100644
+>> > --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>> > +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>> > @@ -154,6 +154,16 @@ void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+>> >         writel(val, hw->hw_addr + reg);
+>> >  }
+>> >
+>> > +static bool e1000e_vlan_used(struct e1000_adapter *adapter)
+>> > +{
+>> > +       u16 vid;
+>> > +
+>> > +       for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
+>> > +               return true;
+>> > +
 >>
->> couldn't figure out from the diff or commit log...
->> what is the meaning of 'skb->mark' for nfp?
->> Looks like it's writing into magic register and fw will do something
->> with that register?
->> 'mark' is packet metadata. Could you explain how it's passing
->> this metadata? Is it on the wire as well or somehow in the wire
->> only between two nfps?
->> Looks like interesting feature.
+>> I'm pretty sure this is always going to return true if 8021q is loaded
+>> because VLAN 0 is always added to the device even if no other VLANs
+>> are in use.
 >
-> Oh, it's not a magic register, it just an "API" I have between the BPF
-> and the datapath firmware.  Whatever is put in that register will be
-> prepended to the packet (if the mark status register is set).
+> Ah, hadn't considered that, I just plucked it straight from e1000.
+>
+>> > +       return false;
+>> > +}
+>> > +
+>> >  /**
+>> >   * e1000_regdump - register printout routine
+>> >   * @hw: pointer to the HW structure
+>> > @@ -2789,7 +2799,7 @@ static void e1000e_vlan_filter_enable(struct e1000_adapter *adapter)
+>> >  }
+>> >
+>> >  /**
+>> > - * e1000e_vlan_strip_enable - helper to disable HW VLAN stripping
+>> > + * e1000e_vlan_strip_disable - helper to disable HW VLAN stripping
+>> >   * @adapter: board private structure to initialize
+>> >   **/
+>> >  static void e1000e_vlan_strip_disable(struct e1000_adapter *adapter)
+>> > @@ -3443,7 +3453,8 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
+>> >
+>> >         ew32(RCTL, rctl);
+>> >
+>> > -       if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
+>> > +       if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX ||
+>> > +           e1000e_vlan_used(adapter))
+>> >                 e1000e_vlan_strip_enable(adapter);
+>> >         else
+>> >                 e1000e_vlan_strip_disable(adapter);
+>>
+>> So if the VLAN tag stripping is disabled what happens that is causing
+>> the VLAN test to fail?  It sounds like this might be working around a
+>> kernel bug where a VLAN created on a device that supports hardware tag
+>> stripping only supports hardware tag stripping.  Maybe a better fix
+>> would be to add a fall back so if the VLAN tag is in the frame instead
+>> of stripped it still makes it to the correct spot.
+>
+> That's the main reason I labeled it as an RFC -- I wasn't sure exactly how
+> things were intended to work when the hardware stripping was disabled. It
+> seems quite plausible to me that this patch simply papers over the real
+> bug: lack of a functional software fallback. I'm not particularly up on
+> the vlan code just yet though, so I'm not yet sure where to poke next.
+> Suggestions welcomed. :)
 
-That is very useful indeed!
+Well the software fallback should be the call to skb_vlan_untag in
+__netif_receive_skb_core.  If that isn't being triggered then we
+should probably be fixing the files in the core code then.
 
-Btw, do you later on plan to also add something similar like TC_ACT_REDIRECT,
-f.e. to push the packet same or different NIC port out again w/o leaving the
-HW?
+- Alex
