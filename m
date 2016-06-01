@@ -1,75 +1,64 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH 7/8] mwifiex: don't print an error if an optional DT
- property is missing
-Date: Thu, 2 Jun 2016 09:13:35 +1000
-Message-ID: <CAGRGNgUaNAxhhvnVJDx73yABvp3HXfqK5JFKCKvOgkM0DyFuPA@mail.gmail.com>
-References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
- <1464358702-19083-8-git-send-email-javier@osg.samsung.com>
- <CAGRGNgUZ+mG_KzhiOzquB3qd-V_Pdbazag=nrFpG87mRQGmXLg@mail.gmail.com> <ec09757e-302a-b341-6bf0-46737abb7976@osg.samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Nishant Sarmukadam <nishants@marvell.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>,
-	Xinming Hu <huxm@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ec09757e-302a-b341-6bf0-46737abb7976@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] sch_red: update backlog as well
+Date: Wed,  1 Jun 2016 16:15:18 -0700
+Message-ID: <1464822920-14205-4-git-send-email-xiyou.wangcong@gmail.com>
+References: <1464822920-14205-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: stasn77@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33259 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbcFAXPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 19:15:38 -0400
+Received: by mail-pa0-f68.google.com with SMTP id di3so1593861pab.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 16:15:38 -0700 (PDT)
+In-Reply-To: <1464822920-14205-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Javier,
+Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/sch_red.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-On Wed, Jun 1, 2016 at 11:51 PM, Javier Martinez Canillas
-<javier@osg.samsung.com> wrote:
-> Hello Julian,
->
-> Thanks a lot for your feedback and reviews.
->
-> On 06/01/2016 12:20 AM, Julian Calaby wrote:
->> Hi All,
->>
->> On Sat, May 28, 2016 at 12:18 AM, Javier Martinez Canillas
->> <javier@osg.samsung.com> wrote:
->>> The Documentation/devicetree/bindings/net/wireless/marvell-sd8xxx.txt DT
->>> binding document say that the "interrupts" property in the child node is
->>> optional. So the property being missed shouldn't be treated as an error.
->>
->> Have you checked whether it is truly optional? I.e. nothing else
->> breaks if this property isn't set?
->>
->
-> That's what the DT binding says and the IRQ is only used as a wakeup source
-> during system suspend, it is not used during runtime. And that is why the
-> mwifiex_sdio_probe_of() function does not fail if the IRQ is missing.
-
-Awesome, that's what I wanted to know.
-
-> Now, I just got to that conclusion by reading the binding docs, the message
-> in the commits that introduced this and the driver code. Xinming Hu should
-> comment on how critical this feature is for systems that needs to be wakeup.
-
-Xinming, could you review this also?
-
-> In any case I think that the code should be consistent with what the binding
-> doc says and also the function does (i.e: dev_err only if returns an error).
->
->>> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
->>
->> Other than that, this looks sensible to me.
->>
->> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
->>
->
-> Best regards,
-
-Thanks,
-
+diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
+index 8c0508c..91578bd 100644
+--- a/net/sched/sch_red.c
++++ b/net/sched/sch_red.c
+@@ -97,6 +97,7 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	ret = qdisc_enqueue(skb, child);
+ 	if (likely(ret == NET_XMIT_SUCCESS)) {
++		qdisc_qstats_backlog_inc(sch, skb);
+ 		sch->q.qlen++;
+ 	} else if (net_xmit_drop_count(ret)) {
+ 		q->stats.pdrop++;
+@@ -118,6 +119,7 @@ static struct sk_buff *red_dequeue(struct Qdisc *sch)
+ 	skb = child->dequeue(child);
+ 	if (skb) {
+ 		qdisc_bstats_update(sch, skb);
++		qdisc_qstats_backlog_dec(sch, skb);
+ 		sch->q.qlen--;
+ 	} else {
+ 		if (!red_is_idling(&q->vars))
+@@ -143,6 +145,7 @@ static unsigned int red_drop(struct Qdisc *sch)
+ 	if (child->ops->drop && (len = child->ops->drop(child)) > 0) {
+ 		q->stats.other++;
+ 		qdisc_qstats_drop(sch);
++		sch->qstats.backlog -= len;
+ 		sch->q.qlen--;
+ 		return len;
+ 	}
+@@ -158,6 +161,7 @@ static void red_reset(struct Qdisc *sch)
+ 	struct red_sched_data *q = qdisc_priv(sch);
+ 
+ 	qdisc_reset(q->qdisc);
++	sch->qstats.backlog = 0;
+ 	sch->q.qlen = 0;
+ 	red_restart(&q->vars);
+ }
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+2.1.0
