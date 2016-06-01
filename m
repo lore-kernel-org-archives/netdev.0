@@ -1,83 +1,82 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC 06/12] nfp: add hardware cls_bpf offload
-Date: Wed, 1 Jun 2016 14:51:48 -0700
-Message-ID: <20160601215146.GA24671@ast-mbp.thefacebook.com>
+Subject: Re: [RFC 07/12] nfp: add skb mark support to the bpf offload
+Date: Wed, 1 Jun 2016 14:56:26 -0700
+Message-ID: <20160601215624.GB24671@ast-mbp.thefacebook.com>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
- <1464799814-4453-7-git-send-email-jakub.kicinski@netronome.com>
- <574F43A6.7000804@iogearbox.net>
- <20160601205159.GB22759@ast-mbp.thefacebook.com>
- <20160601221557.3772482d@jkicinski-Precision-T1700>
+ <1464799814-4453-8-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	ast@kernel.org, dinan.gunawardena@netronome.com
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
+	dinan.gunawardena@netronome.com
 To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34592 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932119AbcFAVvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:51:55 -0400
-Received: by mail-pf0-f196.google.com with SMTP id c84so5420038pfc.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:51:54 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33736 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753230AbcFAV4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:56:35 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b124so5445912pfb.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:56:35 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160601221557.3772482d@jkicinski-Precision-T1700>
+In-Reply-To: <1464799814-4453-8-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2016 at 10:15:57PM +0100, Jakub Kicinski wrote:
-> On Wed, 1 Jun 2016 13:52:01 -0700, Alexei Starovoitov wrote:
-> > On Wed, Jun 01, 2016 at 10:20:54PM +0200, Daniel Borkmann wrote:
-> > > On 06/01/2016 06:50 PM, Jakub Kicinski wrote:  
-> > > >Add hardware cls_bpf offload on our smart NICs.  Detect if
-> > > >capable firmware is loaded and use it to load the code JITed
-> > > >with just added translator onto programmable engines.
-> > > >
-> > > >Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> > > >Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-> > > >Reviewed-by: Simon Horman <simon.horman@netronome.com>  
-> > > [...]  
-> > > >+static int
-> > > >+nfp_net_bpf_offload_prepare(struct nfp_net *nn,
-> > > >+			    struct tc_cls_bpf_offload *cls_bpf,
-> > > >+			    struct nfp_bpf_result *res,
-> > > >+			    void **code, dma_addr_t *dma_addr, u16 max_instr)
-> > > >+{
-> > > >+	unsigned int code_sz = max_instr * sizeof(u64);
-> > > >+	u16 start_off, tgt_out, tgt_abort;
-> > > >+	const struct tc_action *a;
-> > > >+	int err;
-> > > >+
-> > > >+	if (tc_no_actions(cls_bpf->exts))
-> > > >+		return -EINVAL;
-> > > >+
-> > > >+	tc_for_each_action(a, cls_bpf->exts) {
-> > > >+		if (!is_tcf_gact_shot(a))
-> > > >+			return -EINVAL;
-> > > >+	}
-> > > >+
-> > > >+	if (cls_bpf->exts_integrated)
-> > > >+		return -EINVAL;  
-> > > 
-> > > So cls_bpf has two working modes as mentioned: da (direct-action) and non-da.
-> > > Direct-action is I would say the most typical way to run cls_bpf as it allows
-> > > you to more naturally and efficiently code programs in the sense that classification
-> > > and action is already combined in a single program, so there's no additional
-> > > overhead of a linear action chain required, and a single program can already
-> > > have multiple action code outcomes (TC_ACT_OK, TC_ACT_SHOT, ...), so that it is
-> > > usually enough to run a single cls_bpf instance, for example, on sch_clsact
-> > > ingress or egress parent, nothing more than that to get the job done. I think
-> > > the cls_bpf->exts_integrated test could probably come first and if it's false,
-> > > we'd need to walk the actions?  
-> > 
-> > I think it makes sense to offload da mode only. Doing tc_for_each_action
-> > walk like above is ok, but the number of bpf programs with only separate
-> > gact is diminishingly small and we don't recommend to use it anymore.
-> > That's the stuff we used when da wasn't available.
+On Wed, Jun 01, 2016 at 05:50:09PM +0100, Jakub Kicinski wrote:
+> Skb marking should be set in designated register, FW will
+> prepend it to the packet for us.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c    | 20 ++++++++++++++++++++
+>  drivers/net/ethernet/netronome/nfp/nfp_net.h        |  2 +-
+>  drivers/net/ethernet/netronome/nfp/nfp_net_common.c |  8 +++++++-
+>  3 files changed, 28 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+> index d7eecfceba5c..b31e673a6fe8 100644
+> --- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+> +++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+> @@ -46,6 +46,8 @@
 >  
-> Let me make sure I understand - to get da offloaded I would have to
-> check that all return values are either OK or SHOT?  That was my
+>  #define REG_IMM0_N	30 /* Bank AB */
+>  #define REG_QNUM	29 /* Bank AB */
+> +#define REG_MARK	28 /* Bank A */
+> +#define REG_MARK_STS	28 /* Bank B */
+>  
+>  /* --- NFP prog --- */
+>  /* Foreach "multiple" entries macros provide pos and next<n> pointers.
+> @@ -416,6 +418,15 @@ static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
+>  	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
+>  }
+>  
+> +static int wrp_skb_mark(struct nfp_prog *nfp_prog, u16 src)
+> +{
+> +	__emit_alu(nfp_prog, REG_MARK, ALU_DST_A, REG_NONE, ALU_OP_NONE, src,
+> +		   false, false);
+> +	__emit_immed(nfp_prog, REG_MARK_STS, ALU_DST_B, 1, false);
+> +
+> +	return 0;
+> +}
+> +
+>  static int
+>  construct_br_imm(struct nfp_prog *nfp_prog, u32 imm, u16 dst, u8 br, u16 off,
+>  		 enum alu_op alu_op, bool sw)
+> @@ -538,6 +549,14 @@ static int imm_ld8(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+>  	return 0;
+>  }
+>  
+> +static int mem_stx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+> +{
+> +	if (meta->insn.off == offsetof(struct sk_buff, mark))
+> +		return wrp_skb_mark(nfp_prog, meta->insn.src_reg * 2);
 
-yes, but jit need to check all return values anyway and do even
-more checks depending on how actions are configured, what is default
-result, then re-jit the whole thing if default and/or act is changed, etc.
-imo da is actually much simpler to jit.
+couldn't figure out from the diff or commit log...
+what is the meaning of 'skb->mark' for nfp?
+Looks like it's writing into magic register and fw will do something
+with that register?
+'mark' is packet metadata. Could you explain how it's passing
+this metadata? Is it on the wire as well or somehow in the wire
+only between two nfps?
+Looks like interesting feature.
