@@ -1,82 +1,53 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC 07/12] nfp: add skb mark support to the bpf offload
-Date: Wed, 1 Jun 2016 14:56:26 -0700
-Message-ID: <20160601215624.GB24671@ast-mbp.thefacebook.com>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
- <1464799814-4453-8-git-send-email-jakub.kicinski@netronome.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [iproute PATCH] ipaddress: Allow listing addresses by type
+Date: Thu, 2 Jun 2016 00:50:01 +0300
+Message-ID: <20160601215001.GA13978@angus-think.lan>
+References: <1464811047-18642-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-	dinan.gunawardena@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33736 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbcFAV4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:56:35 -0400
-Received: by mail-pf0-f193.google.com with SMTP id b124so5445912pfb.0
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:56:35 -0700 (PDT)
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33871 "EHLO
+	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753074AbcFAV6S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:58:18 -0400
+Received: by mail-lf0-f65.google.com with SMTP id 65so3315043lfq.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:58:16 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1464799814-4453-8-git-send-email-jakub.kicinski@netronome.com>
+In-Reply-To: <1464811047-18642-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2016 at 05:50:09PM +0100, Jakub Kicinski wrote:
-> Skb marking should be set in designated register, FW will
-> prepend it to the packet for us.
+On Wed, Jun 01, 2016 at 09:57:27PM +0200, Phil Sutter wrote:
+> Not sure why this was limited to ip-link before. It is semantically
+> equal to the 'master' keyword, which is not restricted at all.
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> ---
->  drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c    | 20 ++++++++++++++++++++
->  drivers/net/ethernet/netronome/nfp/nfp_net.h        |  2 +-
->  drivers/net/ethernet/netronome/nfp/nfp_net_common.c |  8 +++++++-
->  3 files changed, 28 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-> index d7eecfceba5c..b31e673a6fe8 100644
-> --- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-> +++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-> @@ -46,6 +46,8 @@
->  
->  #define REG_IMM0_N	30 /* Bank AB */
->  #define REG_QNUM	29 /* Bank AB */
-> +#define REG_MARK	28 /* Bank A */
-> +#define REG_MARK_STS	28 /* Bank B */
->  
->  /* --- NFP prog --- */
->  /* Foreach "multiple" entries macros provide pos and next<n> pointers.
-> @@ -416,6 +418,15 @@ static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
->  	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
->  }
->  
-> +static int wrp_skb_mark(struct nfp_prog *nfp_prog, u16 src)
-> +{
-> +	__emit_alu(nfp_prog, REG_MARK, ALU_DST_A, REG_NONE, ALU_OP_NONE, src,
-> +		   false, false);
-> +	__emit_immed(nfp_prog, REG_MARK_STS, ALU_DST_B, 1, false);
-> +
-> +	return 0;
-> +}
-> +
->  static int
->  construct_br_imm(struct nfp_prog *nfp_prog, u32 imm, u16 dst, u8 br, u16 off,
->  		 enum alu_op alu_op, bool sw)
-> @@ -538,6 +549,14 @@ static int imm_ld8(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
->  	return 0;
->  }
->  
-> +static int mem_stx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-> +{
-> +	if (meta->insn.off == offsetof(struct sk_buff, mark))
-> +		return wrp_skb_mark(nfp_prog, meta->insn.src_reg * 2);
+Hi Phil,
 
-couldn't figure out from the diff or commit log...
-what is the meaning of 'skb->mark' for nfp?
-Looks like it's writing into magic register and fw will do something
-with that register?
-'mark' is packet metadata. Could you explain how it's passing
-this metadata? Is it on the wire as well or somehow in the wire
-only between two nfps?
-Looks like interesting feature.
+I don't remember why I did so, but you are right, it might be
+used for 'ip addr' too.
+
+> Cc: Vadim Kochan <vadim4j@gmail.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  ip/ipaddress.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index df363b070d5de..1b5ee838ef3fe 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -1613,7 +1613,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+>  			if (!ifindex)
+>  				invarg("Device does not exist\n", *argv);
+>  			filter.master = ifindex;
+> -		} else if (do_link && strcmp(*argv, "type") == 0) {
+> +		} else if (strcmp(*argv, "type") == 0) {
+>  			NEXT_ARG();
+>  			filter.kind = *argv;
+>  		} else {
+> -- 
+> 2.8.2
+> 
