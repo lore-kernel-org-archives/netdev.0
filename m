@@ -1,97 +1,101 @@
-From: Peter Robinson <pbrobinson@gmail.com>
-Subject: [PATCH] stmmac: make platform drivers depend on their associated SoC
-Date: Wed,  1 Jun 2016 13:28:58 +0100
-Message-ID: <1464784138-27103-1-git-send-email-pbrobinson@gmail.com>
-Cc: Peter Robinson <pbrobinson@gmail.com>
-To: George Spelvin <linux@sciencehorizons.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Alexandre Torgue <alexandre.torgue@st.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34520 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbcFAM3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 08:29:16 -0400
-Received: by mail-wm0-f68.google.com with SMTP id n184so5781679wmn.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 05:29:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v6 0/3] skb_array: array based FIFO for skbs
+Date: Wed, 1 Jun 2016 15:54:34 +0300
+Message-ID: <1464785601-3074-1-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	brouer@redhat.com, kvm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There's not much point, except compile test, enabling the stmmac
-platform drivers unless their actual SoC is enabled. They're not
-useful without it.
+This is in response to the proposal by Jason to make tun
+rx packet queue lockless using a circular buffer.
+My testing seems to show that at least for the common usecase
+in networking, which isn't lockless, circular buffer
+with indices does not perform that well, because
+each index access causes a cache line to bounce between
+CPUs, and index access causes stalls due to the dependency.
 
-Signed-off-by: Peter Robinson <pbrobinson@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/Kconfig | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+By comparison, an array of pointers where NULL means invalid
+and !NULL means valid, can be updated without messing up barriers
+at all and does not have this issue.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index cec147d..8f06a66 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -40,7 +40,7 @@ config DWMAC_GENERIC
- config DWMAC_IPQ806X
- 	tristate "QCA IPQ806x DWMAC support"
- 	default ARCH_QCOM
--	depends on OF
-+	depends on OF && (ARCH_QCOM || COMPILE_TEST)
- 	select MFD_SYSCON
- 	help
- 	  Support for QCA IPQ806X DWMAC Ethernet.
-@@ -53,7 +53,7 @@ config DWMAC_IPQ806X
- config DWMAC_LPC18XX
- 	tristate "NXP LPC18xx/43xx DWMAC support"
- 	default ARCH_LPC18XX
--	depends on OF
-+	depends on OF && (ARCH_LPC18XX || COMPILE_TEST)
- 	select MFD_SYSCON
- 	---help---
- 	  Support for NXP LPC18xx/43xx DWMAC Ethernet.
-@@ -61,7 +61,7 @@ config DWMAC_LPC18XX
- config DWMAC_MESON
- 	tristate "Amlogic Meson dwmac support"
- 	default ARCH_MESON
--	depends on OF
-+	depends on OF && (ARCH_MESON || COMPILE_TEST)
- 	help
- 	  Support for Ethernet controller on Amlogic Meson SoCs.
- 
-@@ -72,7 +72,7 @@ config DWMAC_MESON
- config DWMAC_ROCKCHIP
- 	tristate "Rockchip dwmac support"
- 	default ARCH_ROCKCHIP
--	depends on OF
-+	depends on OF && (ARCH_ROCKCHIP || COMPILE_TEST)
- 	select MFD_SYSCON
- 	help
- 	  Support for Ethernet controller on Rockchip RK3288 SoC.
-@@ -83,7 +83,7 @@ config DWMAC_ROCKCHIP
- config DWMAC_SOCFPGA
- 	tristate "SOCFPGA dwmac support"
- 	default ARCH_SOCFPGA
--	depends on OF
-+	depends on OF && (ARCH_SOCFPGA || COMPILE_TEST)
- 	select MFD_SYSCON
- 	help
- 	  Support for ethernet controller on Altera SOCFPGA
-@@ -95,7 +95,7 @@ config DWMAC_SOCFPGA
- config DWMAC_STI
- 	tristate "STi GMAC support"
- 	default ARCH_STI
--	depends on OF
-+	depends on OF && (ARCH_STI || COMPILE_TEST)
- 	select MFD_SYSCON
- 	---help---
- 	  Support for ethernet controller on STi SOCs.
-@@ -107,7 +107,7 @@ config DWMAC_STI
- config DWMAC_SUNXI
- 	tristate "Allwinner GMAC support"
- 	default ARCH_SUNXI
--	depends on OF
-+	depends on OF && (ARCH_SUNXI || COMPILE_TEST)
- 	---help---
- 	  Support for Allwinner A20/A31 GMAC ethernet controllers.
- 
+On the flip side, cache pressure may be caused by using large queues.
+tun has a queue of 1000 entries by default and that's 8K.
+At this point I'm not sure this can be solved efficiently.
+The correct solution might be sizing the queues appropriately.
+
+Here's an implementation of this idea: it can be used more
+or less whenever sk_buff_head can be used, except you need
+to know the queue size in advance.
+
+As this might be useful outside of networking, I implemented
+a generic array of void pointers, with a type-safe wrapper for skbs.
+
+I didn't implement resizing but it's possible to resize it by holding both
+consumer and producer locks.
+
+I think this code works fine without any extra memory barriers since we
+always read and write the same location, so the accesses can not be
+reordered.
+Multiple writes of the same value into memory would mess things up
+for us, I don't think compilers would do it though.
+But if people feel it's better to be safe wrt compiler optimizations,
+specifying queue as volatile would probably do it in a cleaner way
+than converting all accesses to READ_ONCE/WRITE_ONCE. Thoughts?
+
+The only issue is with calls within a loop using the __ptr_ring_XXX
+accessors - in theory compiler could hoist accesses out of the loop.
+
+Following volatile-considered-harmful.txt I merely
+documented that callers that busy-poll should invoke cpu_relax().
+Most people will use the external skb_array_XXX APIs with a spinlock,
+so this should not be an issue for them.
+
+Eric Dumazet suggested adding an extra pointer to skb for when
+we have a single outstanding packet. I could not figure out
+a way to implement this without a shared consumer/producer lock
+though, which would cause cache line bounces by itself.
+
+changes since v5
+	implemented a generic ptr_ring api, and
+		made skb_array a type-safe wrapper
+	apis for taking the spinlock in different contexts
+		following expected usecase in tun
+
+changes since v4 (v3 was never posted)
+	documentation
+	dropped SKB_ARRAY_MIN_SIZE heuristic
+	unit test (in userspace, included as patch 2)
+
+changes since v2:
+        fixed integer overflow pointed out by Eric.
+        added some comments.
+
+changes since v1:
+        fixed bug pointed out by Eric.
+
+
+Michael S. Tsirkin (3):
+  ptr_ring: array based FIFO for pointers
+  ptr_ring: ring test
+  skb_array: array based FIFO for skbs
+
+ include/linux/ptr_ring.h         | 263 +++++++++++++++++++++++++++++++++++++++
+ include/linux/skb_array.h        | 125 +++++++++++++++++++
+ tools/virtio/ringtest/ptr_ring.c | 192 ++++++++++++++++++++++++++++
+ tools/virtio/ringtest/Makefile   |   5 +-
+ 4 files changed, 584 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/ptr_ring.h
+ create mode 100644 include/linux/skb_array.h
+ create mode 100644 tools/virtio/ringtest/ptr_ring.c
+
 -- 
-2.7.4
+MST
