@@ -1,78 +1,88 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC 06/12] nfp: add hardware cls_bpf offload
-Date: Wed, 1 Jun 2016 14:36:48 -0700
-Message-ID: <574F5570.2070107@gmail.com>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
- <1464799814-4453-7-git-send-email-jakub.kicinski@netronome.com>
- <574F43A6.7000804@iogearbox.net>
- <20160601205159.GB22759@ast-mbp.thefacebook.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Wed, 1 Jun 2016 18:40:32 -0300
+Message-ID: <20160601214032.GB29509@localhost.localdomain>
+References: <42953bb341d78d8b83dfccebb0beaa9387d8e1af.1464809925.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	netdev@vger.kernel.org, ast@kernel.org,
-	dinan.gunawardena@netronome.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36047 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbcFAVhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:37:05 -0400
-Received: by mail-pa0-f65.google.com with SMTP id fg1so1424900pad.3
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:37:04 -0700 (PDT)
-In-Reply-To: <20160601205159.GB22759@ast-mbp.thefacebook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35726 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750744AbcFAVkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2016 17:40:35 -0400
+Content-Disposition: inline
+In-Reply-To: <42953bb341d78d8b83dfccebb0beaa9387d8e1af.1464809925.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-01 01:52 PM, Alexei Starovoitov wrote:
-> On Wed, Jun 01, 2016 at 10:20:54PM +0200, Daniel Borkmann wrote:
->> On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
->>> Add hardware cls_bpf offload on our smart NICs.  Detect if
->>> capable firmware is loaded and use it to load the code JITed
->>> with just added translator onto programmable engines.
->>>
->>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->>> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
->>> Reviewed-by: Simon Horman <simon.horman@netronome.com>
->> [...]
->>> +static int
->>> +nfp_net_bpf_offload_prepare(struct nfp_net *nn,
->>> +			    struct tc_cls_bpf_offload *cls_bpf,
->>> +			    struct nfp_bpf_result *res,
->>> +			    void **code, dma_addr_t *dma_addr, u16 max_instr)
->>> +{
->>> +	unsigned int code_sz = max_instr * sizeof(u64);
->>> +	u16 start_off, tgt_out, tgt_abort;
->>> +	const struct tc_action *a;
->>> +	int err;
->>> +
->>> +	if (tc_no_actions(cls_bpf->exts))
->>> +		return -EINVAL;
->>> +
->>> +	tc_for_each_action(a, cls_bpf->exts) {
->>> +		if (!is_tcf_gact_shot(a))
->>> +			return -EINVAL;
->>> +	}
->>> +
->>> +	if (cls_bpf->exts_integrated)
->>> +		return -EINVAL;
->>
->> So cls_bpf has two working modes as mentioned: da (direct-action) and non-da.
->> Direct-action is I would say the most typical way to run cls_bpf as it allows
->> you to more naturally and efficiently code programs in the sense that classification
->> and action is already combined in a single program, so there's no additional
->> overhead of a linear action chain required, and a single program can already
->> have multiple action code outcomes (TC_ACT_OK, TC_ACT_SHOT, ...), so that it is
->> usually enough to run a single cls_bpf instance, for example, on sch_clsact
->> ingress or egress parent, nothing more than that to get the job done. I think
->> the cls_bpf->exts_integrated test could probably come first and if it's false,
->> we'd need to walk the actions?
+On Thu, Jun 02, 2016 at 03:38:45AM +0800, Xin Long wrote:
+> Now sctp doesn't change socket state upon shutdown reception. It changes
+> just the assoc state, even though it's a TCP-style socket.
 > 
-> I think it makes sense to offload da mode only. Doing tc_for_each_action
-> walk like above is ok, but the number of bpf programs with only separate
-> gact is diminishingly small and we don't recommend to use it anymore.
-> That's the stuff we used when da wasn't available.
+> For some cases, if we really need to check sk->sk_state, it's necessary to
+> fix this issue, at least when we use ss or netstat to dump, we can get a
+> more exact information.
 > 
+> As an improvement, we will change sk->sk_state when we change asoc->state
+> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+> sctp_close.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_sideeffect.c | 4 +++-
+>  net/sctp/socket.c        | 5 ++++-
+>  2 files changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index aa37122..12d4519 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+>  
+>  		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+>  		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+> -		    sctp_sstate(sk, ESTABLISHED))
+> +		    sctp_sstate(sk, ESTABLISHED)) {
+> +			sk->sk_state = SCTP_SS_CLOSING;
+>  			sk->sk_shutdown |= RCV_SHUTDOWN;
+> +		}
+>  	}
+>  
+>  	if (sctp_state(asoc, COOKIE_WAIT)) {
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 67154b8..c20199a 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+>  		return;
+>  
+>  	if (how & SEND_SHUTDOWN) {
+> +		sk->sk_state = SCTP_SS_CLOSING;
+>  		ep = sctp_sk(sk)->ep;
+>  		if (!list_empty(&ep->asocs)) {
+>  			asoc = list_entry(ep->asocs.next,
+> @@ -7564,8 +7565,10 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+>  	/* If the association on the newsk is already closed before accept()
+>  	 * is called, set RCV_SHUTDOWN flag.
+>  	 */
+> -	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
+> +	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
+> +		newsk->sk_state = SCTP_SS_CLOSING;
+                    ^^^^
+>  		newsk->sk_shutdown |= RCV_SHUTDOWN;
+> +	}
+>  
+>  	newsk->sk_state = SCTP_SS_ESTABLISHED;
+                      ^^^^^
+This will overwrite the above
+Otherwise patch looks good to me
 
-+1 I've been using da mode only as well.
+>  	release_sock(newsk);
+> -- 
+> 2.1.0
+> 
