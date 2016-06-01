@@ -1,72 +1,49 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC 06/12] nfp: add hardware cls_bpf offload
-Date: Wed, 1 Jun 2016 13:52:01 -0700
-Message-ID: <20160601205159.GB22759@ast-mbp.thefacebook.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC 02/12] net: cls_bpf: add hardware offload
+Date: Wed, 1 Jun 2016 21:59:47 +0100
+Message-ID: <20160601215947.23820510@jkicinski-Precision-T1700>
 References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
- <1464799814-4453-7-git-send-email-jakub.kicinski@netronome.com>
- <574F43A6.7000804@iogearbox.net>
+	<1464799814-4453-3-git-send-email-jakub.kicinski@netronome.com>
+	<574F17CC.8020704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	netdev@vger.kernel.org, ast@kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
 	dinan.gunawardena@netronome.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34433 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750744AbcFAUwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 16:52:06 -0400
-Received: by mail-pf0-f194.google.com with SMTP id c84so5280578pfc.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 13:52:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <574F43A6.7000804@iogearbox.net>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:33991 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035AbcFAU74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 16:59:56 -0400
+Received: by mail-wm0-f54.google.com with SMTP id z87so309666wmh.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 13:59:55 -0700 (PDT)
+In-Reply-To: <574F17CC.8020704@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2016 at 10:20:54PM +0200, Daniel Borkmann wrote:
-> On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
-> >Add hardware cls_bpf offload on our smart NICs.  Detect if
-> >capable firmware is loaded and use it to load the code JITed
-> >with just added translator onto programmable engines.
-> >
-> >Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> >Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-> >Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> [...]
-> >+static int
-> >+nfp_net_bpf_offload_prepare(struct nfp_net *nn,
-> >+			    struct tc_cls_bpf_offload *cls_bpf,
-> >+			    struct nfp_bpf_result *res,
-> >+			    void **code, dma_addr_t *dma_addr, u16 max_instr)
-> >+{
-> >+	unsigned int code_sz = max_instr * sizeof(u64);
-> >+	u16 start_off, tgt_out, tgt_abort;
-> >+	const struct tc_action *a;
-> >+	int err;
-> >+
-> >+	if (tc_no_actions(cls_bpf->exts))
-> >+		return -EINVAL;
-> >+
-> >+	tc_for_each_action(a, cls_bpf->exts) {
-> >+		if (!is_tcf_gact_shot(a))
-> >+			return -EINVAL;
-> >+	}
-> >+
-> >+	if (cls_bpf->exts_integrated)
-> >+		return -EINVAL;
+On Wed, 1 Jun 2016 10:13:48 -0700, John Fastabend wrote:
+> > +static void cls_bpf_stop_offload(struct tcf_proto *tp,
+> > +				 struct cls_bpf_prog *prog)
+> > +{
+> > +	struct net_device *dev = tp->q->dev_queue->dev;
+> > +
+> > +	if (!prog->offloaded)
+> > +		return;
+> > +	if (WARN_ON(!tc_should_offload(dev, 0)))
+> > +		return;  
 > 
-> So cls_bpf has two working modes as mentioned: da (direct-action) and non-da.
-> Direct-action is I would say the most typical way to run cls_bpf as it allows
-> you to more naturally and efficiently code programs in the sense that classification
-> and action is already combined in a single program, so there's no additional
-> overhead of a linear action chain required, and a single program can already
-> have multiple action code outcomes (TC_ACT_OK, TC_ACT_SHOT, ...), so that it is
-> usually enough to run a single cls_bpf instance, for example, on sch_clsact
-> ingress or egress parent, nothing more than that to get the job done. I think
-> the cls_bpf->exts_integrated test could probably come first and if it's false,
-> we'd need to walk the actions?
+> This warn on is a bit concerning it looks like you can get
+> a program stuck in hardware but removed from the software
+> stack. Any idea why this could happen? I think it is better
+> to solve the root problem or just remove this if its dbg code.
+> 
+> One thought is you need to block disabling the ethtool flag
+> if the hardware has running ebpf codes. Haven't got to the
+> driver patches yet though so not sure if you did this or not.
+> And now that I think about it I better go check the other
+> drivers.
 
-I think it makes sense to offload da mode only. Doing tc_for_each_action
-walk like above is ok, but the number of bpf programs with only separate
-gact is diminishingly small and we don't recommend to use it anymore.
-That's the stuff we used when da wasn't available.
+Yes, I do refuse clearing the ethtool flag if offload is active.
+I put the warning there in an attempt to document that "this should
+never happen".  I'll drop it in the next revision.
