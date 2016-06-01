@@ -1,35 +1,50 @@
-From: Kangjie Lu <kangjielu@gmail.com>
-Subject: [PATCH] tipc: fix an infoleak in tipc_nl_compat_link_dump
-Date: Wed,  1 Jun 2016 12:34:55 -0400
-Message-ID: <1464798895-26870-1-git-send-email-kjlu@gatech.edu>
-Cc: ying.xue@windriver.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	taesoo@gatech.edu, csong84@gatech.edu, Kangjie Lu <kjlu@gatech.edu>
-To: jon.maloy@ericsson.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH net-next] ravb: Remove manual pause frame transmit
+Date: Thu,  2 Jun 2016 01:41:05 +0900
+Message-ID: <1464799265-27431-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33959 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932337AbcFAQmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 12:42:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-link_info.str is a char array of size 60. Memory after the NULL
-byte is not initialized. Sending the whole object out can cause
-a leak.
+From: Masaru Nagai <masaru.nagai.vx@renesas.com>
 
-Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
+Writing a non-zero value to the manual PAUSE frame register (MPR) starts
+the transmission of a PAUSE frame.
+A PAUSE frame is sent in ravb_emac_init(), but it is not expected behavior.
+
+Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 ---
- net/tipc/netlink_compat.c | 1 +
- 1 file changed, 1 insertion(+)
 
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index f795b1d..115aafa 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -604,6 +604,7 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
+This patch is based on the master branch of David Miller's next networking
+tree.
+
+ drivers/net/ethernet/renesas/ravb_main.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 867caf6..37dd068 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -362,8 +362,6 @@ static void ravb_emac_init(struct net_device *ndev)
+ 	ravb_write(ndev,
+ 		   (ndev->dev_addr[4] << 8)  | (ndev->dev_addr[5]), MALR);
  
- 	link_info.dest = nla_get_flag(link[TIPC_NLA_LINK_DEST]);
- 	link_info.up = htonl(nla_get_flag(link[TIPC_NLA_LINK_UP]));
-+	memset((void *)link_info.str, 0, TIPC_MAX_LINK_NAME);
- 	strcpy(link_info.str, nla_data(link[TIPC_NLA_LINK_NAME]));
+-	ravb_write(ndev, 1, MPR);
+-
+ 	/* E-MAC status register clear */
+ 	ravb_write(ndev, ECSR_ICD | ECSR_MPD, ECSR);
  
- 	return tipc_add_tlv(msg->rep, TIPC_TLV_LINK_INFO,
 -- 
-2.7.4
+1.9.1
