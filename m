@@ -1,41 +1,55 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: Re: [PATCH][V2] net/ethoc: fix null dereference on error exit path
-Date: Thu, 2 Jun 2016 00:25:37 +0300
-Message-ID: <20160601212537.GA14527@octofox.metropolis>
-References: <1464787010-3089-1-git-send-email-colin.king@canonical.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC 03/12] net: cls_bpf: limit hardware offload by
+ software-only flag
+Date: Wed, 1 Jun 2016 22:26:08 +0100
+Message-ID: <20160601222608.04c7b707@jkicinski-Precision-T1700>
+References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
+	<1464799814-4453-4-git-send-email-jakub.kicinski@netronome.com>
+	<574F3A27.5050208@iogearbox.net>
+	<20160601220520.717fb5f8@jkicinski-Precision-T1700>
+	<574F51E4.2020504@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Tobias Klauser <tklauser@distanz.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464787010-3089-1-git-send-email-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@kernel.org,
+	dinan.gunawardena@netronome.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:34878 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545AbcFAV0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 17:26:13 -0400
+Received: by mail-wm0-f53.google.com with SMTP id a136so201843323wme.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 14:26:12 -0700 (PDT)
+In-Reply-To: <574F51E4.2020504@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2016 at 02:16:50PM +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Wed, 01 Jun 2016 23:21:40 +0200, Daniel Borkmann wrote:
+> On 06/01/2016 11:05 PM, Jakub Kicinski wrote:
+> > On Wed, 01 Jun 2016 21:40:23 +0200, Daniel Borkmann wrote:  
+> [...]
+> >>> @@ -400,8 +406,11 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+> >>>
+> >>>    		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
+> >>>    	}
+> >>> +	if (tb[TCA_BPF_GEN_TCA_FLAGS])
+> >>> +		gen_flags = nla_get_u32(tb[TCA_BPF_GEN_TCA_FLAGS]);
+> >>>
+> >>>    	prog->exts_integrated = have_exts;
+> >>> +	prog->gen_flags = gen_flags & CLS_BPF_SUPPORTED_GEN_FLAGS;  
+> >>
+> >> Invalid flags should probably be rejected here with -EINVAL or something.  
+> >
+> > Indeed, that would be more in line with what is done for "the other"
+> > flags attribute, but not so much with how flower and u32 handles
+> > flags. I like the stricter approach better, though, so unless someone
+> > speaks up I'll do as you suggest.  
 > 
-> priv is assigned to NULL however some of the early error exit paths to
-> label 'free' dereference priv, causing a null pointer dereference.
-> 
-> Move the label 'free' to just the free_netdev statement, and add a new
-> exit path 'free2' for the error cases were clk_disable_unprepare needs
-> calling before the final free.
-> 
-> Fixes issue found by CoverityScan, CID#113260
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/ethoc.c | 7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
+> If I see this correctly, in patch 4 you're already following up on that
+> with the tc_flags_valid() check, it's probably okay to leave it as-is then.
 
-Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
-
--- 
-Thanks.
--- Max
+My concern was that if someone adds a new flag for u32/flower
+tc_flags_valid() will have to accept it but cls_bpf will ignore it.  So
+I went with clearing things we don't support so that the user can at
+least see in tc show that the flags he thrown at us did not stick...
