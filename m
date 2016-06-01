@@ -1,46 +1,63 @@
-From: Xiubo Li <lixiubo@cmss.chinamobile.com>
-Subject: Re: [PATCH] netfilter: fix possible ZERO_SIZE_PTR pointerdereferencing
- error.
-Date: Wed, 01 Jun 2016 17:52:59 +0800
-Message-ID: <574EB07B.3060307@cmss.chinamobile.com>
-References: <1464770068-7508-1-git-send-email-lixiubo@cmss.chinamobile.com> <20160601092711.GB2711@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3387 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757150AbcFAJxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 05:53:06 -0400
-In-Reply-To: <20160601092711.GB2711@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2016-06-01
+Date: Wed,  1 Jun 2016 12:11:14 +0200
+Message-ID: <1464775875-10494-1-git-send-email-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->>   net/netfilter/x_tables.c | 3 +++
->>   1 file changed, 3 insertions(+)
->>
->> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
->> index c8a0b7d..4df8e38 100644
->> --- a/net/netfilter/x_tables.c
->> +++ b/net/netfilter/x_tables.c
->> @@ -1185,6 +1185,9 @@ struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
->
-> What kernel version are you using? I don't see xt_hook_link() in the
-> development tree.
+Hi Dave,
 
-Sorry, in the wrong tree, i just work on linux-next tree, forget to 
-checkout the newest tags.
+For now, I have just three fixes for the current cycle.
 
-Should I will use nf.git tree or others instead ?
+One of them, the hwsim one, becomes interesting with some pending
+work to make hwsim work for unprivileged users in namespaces, and
+I don't want to allow them to crash the system ... I'll thus wait
+with that patch until you pull this into net-next also, so I can
+pull it back for mac80211-next.
 
->
+Let me know if there's any problem.
+
+Thanks,
+johannes
 
 
-Thanks very much.
 
-BRs
-Xiubo Li
+The following changes since commit 0e6b5259824e97a0f7e7b450421ff12865d3b0e2:
+
+  net: l2tp: Make l2tp_ip6 namespace aware (2016-05-30 00:03:53 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-06-01
+
+for you to fetch changes up to 6fe04128f158c5ad27e7504bfdf1b12e63331bc9:
+
+  mac80211: fix fast_tx header alignment (2016-05-31 12:14:04 +0200)
+
+----------------------------------------------------------------
+Three small fixes for the current cycle:
+ * missing netlink attribute check in hwsim wmediumd (Martin)
+ * fast xmit structure alignment fix (Felix)
+ * mesh path flush/synchronisation fix (Bob)
+
+----------------------------------------------------------------
+Bob Copeland (1):
+      mac80211: mesh: flush mesh paths unconditionally
+
+Felix Fietkau (1):
+      mac80211: fix fast_tx header alignment
+
+Martin Willi (1):
+      mac80211_hwsim: Add missing check for HWSIM_ATTR_SIGNAL
+
+ drivers/net/wireless/mac80211_hwsim.c | 1 +
+ net/mac80211/mesh.c                   | 4 ++++
+ net/mac80211/sta_info.h               | 2 +-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
