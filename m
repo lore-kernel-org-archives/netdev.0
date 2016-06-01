@@ -1,108 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] fq_codel: add per queue memory limit
-Date: Wed, 01 Jun 2016 07:23:31 -0700
-Message-ID: <1464791011.5939.150.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH net] e1000e: keep vlan interfaces
+ functional after rxvlan off
+Date: Wed, 1 Jun 2016 07:31:53 -0700
+Message-ID: <CAKgT0UfKV23p18L=wCoyy7WXa7s7pQQRVVK8F_mVea0dOJKekA@mail.gmail.com>
+References: <1463511831-13684-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33942 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753052AbcFAOXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 10:23:35 -0400
-Received: by mail-pf0-f194.google.com with SMTP id c84so4027972pfc.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 07:23:35 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463511831-13684-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, May 17, 2016 at 12:03 PM, Jarod Wilson <jarod@redhat.com> wrote:
+> I've got a bug report about an e1000e interface, where a vlan interface is
+> set up on top of it:
+>
+> $ ip link add link ens1f0 name ens1f0.99 type vlan id 99
+> $ ip link set ens1f0 up
+> $ ip link set ens1f0.99 up
+> $ ip addr add 192.168.99.92 dev ens1f0.99
+>
+> At this point, I can ping another host on vlan 99, ip 192.168.99.91.
+> However, if I do the following:
+>
+> $ ethtool -K ens1f0 rxvlan off
+>
+> Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
+> again. I'm not sure if this is actually intended behavior, or if there's a
+> lack of software vlan stripping fallback, or what, but things continue to
+> work if I simply don't call e1000e_vlan_strip_disable() if there are
+> active vlans (plagiarizing a function from the e1000 driver here) on the
+> interface.
+>
+> Also slipped a related-ish fix to the kerneldoc text for
+> e1000e_vlan_strip_disable here...
+>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: intel-wired-lan@lists.osuosl.org
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 15 +++++++++++++--
+>  1 file changed, 13 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> index 75e6089..73f7452 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -154,6 +154,16 @@ void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+>         writel(val, hw->hw_addr + reg);
+>  }
+>
+> +static bool e1000e_vlan_used(struct e1000_adapter *adapter)
+> +{
+> +       u16 vid;
+> +
+> +       for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
+> +               return true;
+> +
 
-This patch adds support for TCA_FQ_CODEL_MEMORY_LIMIT attribute.
+I'm pretty sure this is always going to return true if 8021q is loaded
+because VLAN 0 is always added to the device even if no other VLANs
+are in use.
 
-# tc qd replace dev eth1 root est 1sec 4sec fq_codel memory_limit 4M
-..
-# tc -s -d qd sh dev eth1
-qdisc fq_codel 8008: root refcnt 257 limit 10240p flows 1024
- quantum 1514 target 5.0ms interval 100.0ms memory_limit 4Mb ecn
- Sent 2083566791363 bytes 1376214889 pkt (dropped 4994406, overlimits 0
-requeues 21705223)
- rate 9841Mbit 812549pps backlog 3906120b 376p requeues 21705223
-  maxpacket 68130 drop_overlimit 4994406 new_flow_count 28855414
-  ecn_mark 0 memory_used 4190048 drop_overmemory 4994406
-new_flows_len 1 old_flows_len 177
+> +       return false;
+> +}
+> +
+>  /**
+>   * e1000_regdump - register printout routine
+>   * @hw: pointer to the HW structure
+> @@ -2789,7 +2799,7 @@ static void e1000e_vlan_filter_enable(struct e1000_adapter *adapter)
+>  }
+>
+>  /**
+> - * e1000e_vlan_strip_enable - helper to disable HW VLAN stripping
+> + * e1000e_vlan_strip_disable - helper to disable HW VLAN stripping
+>   * @adapter: board private structure to initialize
+>   **/
+>  static void e1000e_vlan_strip_disable(struct e1000_adapter *adapter)
+> @@ -3443,7 +3453,8 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
+>
+>         ew32(RCTL, rctl);
+>
+> -       if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
+> +       if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX ||
+> +           e1000e_vlan_used(adapter))
+>                 e1000e_vlan_strip_enable(adapter);
+>         else
+>                 e1000e_vlan_strip_disable(adapter);
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- tc/q_fq_codel.c |   22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+So if the VLAN tag stripping is disabled what happens that is causing
+the VLAN test to fail?  It sounds like this might be working around a
+kernel bug where a VLAN created on a device that supports hardware tag
+stripping only supports hardware tag stripping.  Maybe a better fix
+would be to add a fall back so if the VLAN tag is in the frame instead
+of stripped it still makes it to the correct spot.
 
-diff --git a/tc/q_fq_codel.c b/tc/q_fq_codel.c
-index 4f747eb..c0137a7 100644
---- a/tc/q_fq_codel.c
-+++ b/tc/q_fq_codel.c
-@@ -65,6 +65,7 @@ static int fq_codel_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 	unsigned interval = 0;
- 	unsigned quantum = 0;
- 	unsigned ce_threshold = ~0U;
-+	unsigned memory = ~0U;
- 	int ecn = -1;
- 	struct rtattr *tail;
- 
-@@ -99,6 +100,12 @@ static int fq_codel_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 				fprintf(stderr, "Illegal \"ce_threshold\"\n");
- 				return -1;
- 			}
-+		} else if (strcmp(*argv, "memory_limit") == 0) {
-+			NEXT_ARG();
-+			if (get_size(&memory, *argv)) {
-+				fprintf(stderr, "Illegal \"memory_limit\"\n");
-+				return -1;
-+			}
- 		} else if (strcmp(*argv, "interval") == 0) {
- 			NEXT_ARG();
- 			if (get_time(&interval, *argv)) {
-@@ -137,6 +144,10 @@ static int fq_codel_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 	if (ce_threshold != ~0U)
- 		addattr_l(n, 1024, TCA_FQ_CODEL_CE_THRESHOLD,
- 			  &ce_threshold, sizeof(ce_threshold));
-+	if (memory != ~0U)
-+		addattr_l(n, 1024, TCA_FQ_CODEL_MEMORY_LIMIT,
-+			  &memory, sizeof(memory));
-+
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
- 	return 0;
- }
-@@ -151,6 +162,7 @@ static int fq_codel_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt
- 	unsigned ecn;
- 	unsigned quantum;
- 	unsigned ce_threshold;
-+	unsigned memory_limit;
- 	SPRINT_BUF(b1);
- 
- 	if (opt == NULL)
-@@ -188,6 +200,12 @@ static int fq_codel_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt
- 		interval = rta_getattr_u32(tb[TCA_FQ_CODEL_INTERVAL]);
- 		fprintf(f, "interval %s ", sprint_time(interval, b1));
- 	}
-+	if (tb[TCA_FQ_CODEL_MEMORY_LIMIT] &&
-+	    RTA_PAYLOAD(tb[TCA_FQ_CODEL_MEMORY_LIMIT]) >= sizeof(__u32)) {
-+		memory_limit = rta_getattr_u32(tb[TCA_FQ_CODEL_MEMORY_LIMIT]);
-+
-+		fprintf(f, "memory_limit %s ", sprint_size(memory_limit, b1));
-+	}
- 	if (tb[TCA_FQ_CODEL_ECN] &&
- 	    RTA_PAYLOAD(tb[TCA_FQ_CODEL_ECN]) >= sizeof(__u32)) {
- 		ecn = rta_getattr_u32(tb[TCA_FQ_CODEL_ECN]);
-@@ -221,6 +239,10 @@ static int fq_codel_print_xstats(struct qdisc_util *qu, FILE *f,
- 			st->qdisc_stats.ecn_mark);
- 		if (st->qdisc_stats.ce_mark)
- 			fprintf(f, " ce_mark %u", st->qdisc_stats.ce_mark);
-+		if (st->qdisc_stats.memory_usage)
-+			fprintf(f, " memory_used %u", st->qdisc_stats.memory_usage);
-+		if (st->qdisc_stats.drop_overmemory)
-+			fprintf(f, " drop_overmemory %u", st->qdisc_stats.drop_overmemory);
- 		fprintf(f, "\n  new_flows_len %u old_flows_len %u",
- 			st->qdisc_stats.new_flows_len,
- 			st->qdisc_stats.old_flows_len);
+- Alex
