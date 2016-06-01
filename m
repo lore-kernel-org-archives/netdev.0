@@ -1,71 +1,64 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH v2] qed: fix qed_fill_link() error handling
-Date: Wed, 1 Jun 2016 13:36:38 +0000
-Message-ID: <CO2PR11MB0088CD4139A272FEB3947EF897470@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1464623197-2084229-1-git-send-email-arnd@arndb.de>
- <8209894.K472MDjuEr@wuerfel>
- <CO2PR11MB00885CC1028BFEAD9CD85E8397470@CO2PR11MB0088.namprd11.prod.outlook.com>
- <11393820.LSE4DkNrNd@wuerfel>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: [PATCH 7/8] mwifiex: don't print an error if an optional DT
+ property is missing
+Date: Wed, 1 Jun 2016 09:51:30 -0400
+Message-ID: <ec09757e-302a-b341-6bf0-46737abb7976@osg.samsung.com>
+References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
+ <1464358702-19083-8-git-send-email-javier@osg.samsung.com>
+ <CAGRGNgUZ+mG_KzhiOzquB3qd-V_Pdbazag=nrFpG87mRQGmXLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Manish Chopra <manish.chopra@qlogic.com>,
-	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Xinming Hu <huxm@marvell.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
 	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Julian Calaby <julian.calaby@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <11393820.LSE4DkNrNd@wuerfel>
-Content-Language: en-US
+In-Reply-To: <CAGRGNgUZ+mG_KzhiOzquB3qd-V_Pdbazag=nrFpG87mRQGmXLg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> gcc warns about qed_fill_link possibly accessing uninitialized data:
-> 
-> drivers/net/ethernet/qlogic/qed/qed_main.c: In function 'qed_fill_link':
-> drivers/net/ethernet/qlogic/qed/qed_main.c:1170:35: error: 'link_caps' may be
-> used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> While this warning is only about the specific case of CONFIG_QED_SRIOV being
-> disabled but the function getting called for a VF (which should never happen),
-> another possibility is that qed_mcp_get_*() fails without returning data.
-> 
-> This rearranges the code so we bail out in either of the two cases and print a
-> warning instead of accessing the uninitialized data.
-> 
-> The qed_link_output structure remains untouched in this case, but all callers first
-> call memset() on it, so at least we are not leaking stack data then.
-> 
-> As discussed, we also use a compile-time check to ensure we never use any of
-> the VF code if CONFIG_QED_SRIOV is disabled, and the PCI device table is
-> updated to no longer bind to virtual functions in that configuration.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> ---
-> On Wednesday, June 1, 2016 11:10:30 AM CEST Yuval Mintz wrote:
-> > Actually, I think VF probe should gracefully fail in that case, as
-> > qed_vf_hw_prepare() would simply return -EINVAL.
-> > But I can honestly say I've never tested this flow, and I agree
-> > there's no reason to allow VF probe in case we're not supporting SRIOV.
-> 
-> ok
-> 
-> > So I guess removing the PCI ID and defining IS_PF to be true in case
-> > CONFIG_QED_SRIOV isn't set is the right way to go.
-> > Do you want to revise your patch, or do you want me to do it?
-> 
-> I've done the patch below now, please either Ack or modify it the way you like
-> and forward it.
-> 
-> Thanks,
-> 
-> 	Arnd
+Hello Julian,
 
-Perhaps it would have made more sense as a 2-part series; But I'm content with
-the changes themselves. I'd let Dave decide whether he wants it split.
+Thanks a lot for your feedback and reviews.
 
-Thanks for taking the time fixing this.
+On 06/01/2016 12:20 AM, Julian Calaby wrote:
+> Hi All,
+> 
+> On Sat, May 28, 2016 at 12:18 AM, Javier Martinez Canillas
+> <javier@osg.samsung.com> wrote:
+>> The Documentation/devicetree/bindings/net/wireless/marvell-sd8xxx.txt DT
+>> binding document say that the "interrupts" property in the child node is
+>> optional. So the property being missed shouldn't be treated as an error.
+> 
+> Have you checked whether it is truly optional? I.e. nothing else
+> breaks if this property isn't set?
+>
 
-Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+That's what the DT binding says and the IRQ is only used as a wakeup source
+during system suspend, it is not used during runtime. And that is why the
+mwifiex_sdio_probe_of() function does not fail if the IRQ is missing.
+
+Now, I just got to that conclusion by reading the binding docs, the message
+in the commits that introduced this and the driver code. Xinming Hu should
+comment on how critical this feature is for systems that needs to be wakeup.
+
+In any case I think that the code should be consistent with what the binding
+doc says and also the function does (i.e: dev_err only if returns an error).
+ 
+>> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+> 
+> Other than that, this looks sensible to me.
+> 
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+> 
+
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
