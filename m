@@ -1,98 +1,58 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v9 11/22] IB/hns: Add IB device registration
-Date: Wed, 1 Jun 2016 23:37:53 +0800
-Message-ID: <1464795484-77395-12-git-send-email-oulijun@huawei.com>
-References: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] net: ethernet: intel: fm10k: Remove create_workqueue
+Date: Wed, 1 Jun 2016 21:10:09 +0530
+Message-ID: <20160601154009.GA31043@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch registered IB device when loaded, and unregistered
-IB device when removed.
+alloc_workqueue replaces deprecated create_workqueue().
 
-Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
-Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
-Signed-off-by: Lijun Ou <oulijun@huawei.com>
+A dedicated workqueue has been used since the workitem (viz
+fm10k_service_task, which manages and runs other subtasks) is involved in
+normal device operation and requires forward progress under memory
+pressure.
+
+create_workqueue has been replaced with alloc_workqueue with max_active
+as 0 since there is no need for throttling the number of active work
+items.
+
+Since network devices may be used in memory reclaim path,
+WQ_MEM_RECLAIM has been set to guarantee forward progress.
+
+flush_workqueue is unnecessary since destroy_workqueue() itself calls
+drain_workqueue() which flushes repeatedly till the workqueue
+becomes empty. Hence the call to flush_workqueue() has been dropped.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_main.c | 46 +++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index 7fb0d34..f179a7f 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -62,6 +62,41 @@
- #include "hns_roce_device.h"
- #include "hns_roce_icm.h"
- 
-+void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
-+{
-+	ib_unregister_device(&hr_dev->ib_dev);
-+}
-+
-+int hns_roce_register_device(struct hns_roce_dev *hr_dev)
-+{
-+	int ret;
-+	struct hns_roce_ib_iboe *iboe = NULL;
-+	struct ib_device *ib_dev = NULL;
-+	struct device *dev = &hr_dev->pdev->dev;
-+
-+	iboe = &hr_dev->iboe;
-+
-+	ib_dev = &hr_dev->ib_dev;
-+	strlcpy(ib_dev->name, "hisi_%d", IB_DEVICE_NAME_MAX);
-+
-+	ib_dev->owner			= THIS_MODULE;
-+	ib_dev->node_type		= RDMA_NODE_IB_CA;
-+	ib_dev->dma_device		= dev;
-+
-+	ib_dev->phys_port_cnt		= hr_dev->caps.num_ports;
-+	ib_dev->local_dma_lkey		= hr_dev->caps.reserved_lkey;
-+	ib_dev->num_comp_vectors	= hr_dev->caps.num_comp_vectors;
-+	ib_dev->uverbs_abi_ver		= 1;
-+
-+	ret = ib_register_device(ib_dev, NULL);
-+	if (ret) {
-+		dev_err(dev, "ib_register_device failed!\n");
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+
- int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
- {
- 	int i;
-@@ -363,6 +398,17 @@ static int hns_roce_probe(struct platform_device *pdev)
- 		goto error_failed_engine_init;
- 	}
- 
-+	ret = hns_roce_register_device(hr_dev);
-+	if (ret) {
-+		dev_err(dev, "register_device failed!\n");
-+		goto error_failed_register_device;
-+	}
-+
-+	return 0;
-+
-+error_failed_register_device:
-+	hns_roce_engine_exit(hr_dev);
-+
- error_failed_engine_init:
- 	hns_roce_cleanup_bitmap(hr_dev);
- 
--- 
-1.9.1
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 0e166e9..add9166 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -56,7 +56,7 @@ static int __init fm10k_init_module(void)
+ 	pr_info("%s\n", fm10k_copyright);
+
+ 	/* create driver workqueue */
+-	fm10k_workqueue = create_workqueue("fm10k");
++	fm10k_workqueue = alloc_workqueue("fm10k", WQ_MEM_RECLAIM, 0);
+
+ 	fm10k_dbg_init();
+
+@@ -77,7 +77,6 @@ static void __exit fm10k_exit_module(void)
+ 	fm10k_dbg_exit();
+
+ 	/* destroy driver workqueue */
+-	flush_workqueue(fm10k_workqueue);
+ 	destroy_workqueue(fm10k_workqueue);
+ }
+ module_exit(fm10k_exit_module);
