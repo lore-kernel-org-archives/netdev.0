@@ -1,68 +1,69 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] hfsc: ensure class is added to eltree exactly once
-Date: Wed, 1 Jun 2016 01:49:55 +0200
-Message-ID: <20160531234955.GB26552@breakpoint.cc>
-References: <1464689539-15162-1-git-send-email-fw@strlen.de>
- <1464706554.5939.105.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160531230048.GA26552@breakpoint.cc>
- <1464737614.5939.142.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Miroslav Kratochvil <exa.exa@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 0/5] drivers: net: xgene: Fix 1G hot-plug and module support
+Date: Tue, 31 May 2016 17:10:35 -0700
+Message-ID: <1464739840-21971-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	matthias.bgg@gmail.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41937 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750750AbcEaXt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 19:49:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1464737614.5939.142.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36731 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751857AbcFAALC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2016 20:11:02 -0400
+Received: by mail-pf0-f170.google.com with SMTP id f144so2448345pfa.3
+        for <netdev@vger.kernel.org>; Tue, 31 May 2016 17:11:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-06-01 at 01:00 +0200, Florian Westphal wrote:
-> Generally speaking, a non work conserving qdisc could return NULL if it
-> decides to drop all packet(s) that were sitting in the queue.
-> 
-> Say we add a 'max sojourn time' on skbs, as yet another anti-bloat
-> features, in a Codel variant/extension.
->
-> HFSC does check this and eventually complains ( qdisc_warn_nonwc()),
-> but all its precise computations are probably wrong.
+This patchset addresses the following issues,
 
-Right, this is already a problem when using hfsc with silly fq_codel config
-(we can end up with underflow on sch->q.qlen, i.e. hfsc
-ends up thinking it has 0xffffffff packets in class while fq_codel has 0).
+1. hot-plug issue on the SGMII 1G interface
+	- by adding a driver for MDIO management
+2. fixes the kernel crash when the driver loaded as an kernel module
+	- by fixing hardware cleanups and rearrange kernel API calls
 
-> > > If you want to make HFSC generic, you would need a lot more changes.
-> > 
-> > Could you elaborate?
-> 
-> HFSC is based on packet lengths and realtime/deadline constraints.
-> 
-> With lazy packet lengths (if the attached children qdisc reorder
-> packets), this all becomes fuzzy. Which might be OK or not.
-> 
-> We are not helping users by silently making such decisions.
-> Maybe they prefer to be warned so that they can fix their setup.
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Tested-by: Matthias Brugger <mbrugger@suse.com>
+---
 
-Seems that limits us to pfifo or prio+pfifo only...
+v2: Address review comments from v1
+	- Fixed patch 1 compilation error
+	- Fixed mdio@1f610000 xge0clk reference
+	- Squashed dtb patches
+	- Added PORT_OFFSET macro
 
-> > I'm not interested in e.g. tbf leaves (makes no sense to me), but I
-> > think it should play nice with netem, sfq, codel, fq_codel, fq, ...
-> > 
-> > I don't see any problems with fq_codel + hfsc unless I deliberately
-> > misconfigure fq_codel (setting extremely low mem limit, e.g. 32kbyte).
-> 
-> That is pure luck, then. I would not be surprised that HTB + nonwc qdisc
-> would actually crash in some cases.
+v1:
+	- Initial version
+---
 
-Ugh.  I think that using codel, sfq, fq_codel etc. should just work
-when used with htb or hfsc.
+Iyappan Subramanian (5):
+  drivers: net: xgene: MAC and PHY configuration changes
+  drivers: net: xgene: Backward compatibility with older firmware
+  drivers: net: phy: Add MDIO driver
+  dtb: xgene: Add MDIO node
+  drivers: net: xgene: Fix module load/unload crash
 
-Using tbf and friends should at least not crash kernel (it would
-be nice if we could complain and/or reject at config time though).
+ arch/arm64/boot/dts/apm/apm-merlin.dts            |   9 +
+ arch/arm64/boot/dts/apm/apm-mustang.dts           |  12 +
+ arch/arm64/boot/dts/apm/apm-shadowcat.dtsi        |  11 +
+ arch/arm64/boot/dts/apm/apm-storm.dtsi            |  38 +-
+ drivers/net/ethernet/apm/xgene/Kconfig            |   1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 241 ++++++----
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  19 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 325 ++++++++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  36 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 191 +++++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.h |   8 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  66 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |   4 +
+ drivers/net/phy/Kconfig                           |   7 +
+ drivers/net/phy/Makefile                          |   1 +
+ drivers/net/phy/mdio-xgene.c                      | 531 ++++++++++++++++++++++
+ drivers/net/phy/mdio-xgene.h                      | 140 ++++++
+ 17 files changed, 1373 insertions(+), 267 deletions(-)
+ create mode 100644 drivers/net/phy/mdio-xgene.c
+ create mode 100644 drivers/net/phy/mdio-xgene.h
 
-Thanks for your input, I see this isn't easy to resolve.
+-- 
+1.9.1
