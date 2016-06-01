@@ -1,53 +1,51 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH 8/8] mwifiex: use better message and error code when OF
- node doesn't match
-Date: Wed, 1 Jun 2016 14:23:11 +1000
-Message-ID: <CAGRGNgV+7wzboLKLupfwF+1KT=MGEuarHLQFQrZBy3YVk6ghMQ@mail.gmail.com>
-References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com> <1464358702-19083-9-git-send-email-javier@osg.samsung.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v2 PATCH 1/2] macvlan: Fix potential use-after free for
+ broadcasts
+Date: Wed, 1 Jun 2016 12:27:19 +0800
+Message-ID: <20160601042719.GA31691@gondor.apana.org.au>
+References: <20160526234433.GU8402@wantstofly.org>
+ <20160530081752.GA4956@gondor.apana.org.au>
+ <20160530082828.GB5106@gondor.apana.org.au>
+ <20160531.140713.2187659962450926738.davem@davemloft.net>
+ <20160601034218.GA31335@gondor.apana.org.au>
+ <20160601034300.GB31335@gondor.apana.org.au>
+ <CAM_iQpVbo7cfuura=FC4gJimnjLx1gy=4HWe9QmSwzEZT9254Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Xinming Hu <huxm@marvell.com>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Nishant Sarmukadam <nishants@marvell.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464358702-19083-9-git-send-email-javier@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:43813 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750788AbcFAE13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 00:27:29 -0400
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpVbo7cfuura=FC4gJimnjLx1gy=4HWe9QmSwzEZT9254Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
-
-On Sat, May 28, 2016 at 12:18 AM, Javier Martinez Canillas
-<javier@osg.samsung.com> wrote:
-> The Documentation/devicetree/bindings/net/wireless/marvell-sd8xxx.txt DT
-> binding document lists the possible compatible strings that a SDIO child
-> node can have, so the driver checks if the defined in the node matches.
+On Tue, May 31, 2016 at 09:19:37PM -0700, Cong Wang wrote:
 >
-> But the error message when that's not the case is misleading, so change
-> for one that makes clear what the error really is. Also, returning a -1
-> as errno code is not correct since that's -EPERM. A -EINVAL seems to be
-> a more appropriate one.
->
-> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+> Hmm, why could this happen? The upper device should be linked
+> with the lower device, where a refcount is already held.
+> Also, the work is cancelled in ->uninit().
 
-This looks sensible to me.
+Of course it can happen.  We are talking about the source macvlan
+device that we just looked up using the Ethernet address.  That
+device has nothing to do with the packet now so it may be deleted
+at any time.
 
-Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+We do flush the work but only when the all macvlan devices on a
+port have been deleted.  Perhaps you're confusing the source
+device with vlan->lowerdev which is confusingly the actual
+hardware device?
 
->
-> ---
->
->  drivers/net/wireless/marvell/mwifiex/sdio.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-
-Thanks,
-
+Cheers,
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
