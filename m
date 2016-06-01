@@ -1,9 +1,9 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 03/12] net: cls_bpf: limit hardware offload by software-only
- flag
-Date: Wed, 01 Jun 2016 21:40:23 +0200
-Message-ID: <574F3A27.5050208@iogearbox.net>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com> <1464799814-4453-4-git-send-email-jakub.kicinski@netronome.com>
+Subject: Re: [RFC 04/12] net: cls_bpf: add support for marking filters as
+ hardware-only
+Date: Wed, 01 Jun 2016 21:57:01 +0200
+Message-ID: <574F3E0D.70103@iogearbox.net>
+References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com> <1464799814-4453-5-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,71 +11,71 @@ Cc: ast@kernel.org, dinan.gunawardena@netronome.com
 To: Jakub Kicinski <jakub.kicinski@netronome.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54478 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:56213 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbcFATkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 15:40:25 -0400
-In-Reply-To: <1464799814-4453-4-git-send-email-jakub.kicinski@netronome.com>
+	with ESMTP id S1750742AbcFAT5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 15:57:04 -0400
+In-Reply-To: <1464799814-4453-5-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
-> Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_HW flag.
-> Unlike U32 and flower cls_bpf already has some netlink
-> flags defined.  I chose to create a new attribute to be
-> able to use the same flag values as the above.
-
-Yeah, that's totally fine to make it a new flag attribute.
-
-> Unknown flags are ignored and not reported upon dump.
+> Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_SW flag.
 >
 > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 > Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
 > Reviewed-by: Simon Horman <simon.horman@netronome.com>
-
-[...]
-> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-> index f4297c8a42fe..93a86edf3bd8 100644
-> --- a/include/uapi/linux/pkt_cls.h
-> +++ b/include/uapi/linux/pkt_cls.h
-> @@ -395,6 +395,7 @@ enum {
->   	TCA_BPF_FD,
->   	TCA_BPF_NAME,
->   	TCA_BPF_FLAGS,
-> +	TCA_BPF_GEN_TCA_FLAGS,
-
-Small nit for the non-RFC set: I'd simply name that TCA_BPF_FLAGS_GEN.
-
->   	__TCA_BPF_MAX,
->   };
+> ---
+>   net/sched/cls_bpf.c | 39 +++++++++++++++++++++++++++++----------
+>   1 file changed, 29 insertions(+), 10 deletions(-)
 >
+> diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+> index 9f1bc37dcbbc..1083910cebaf 100644
+> --- a/net/sched/cls_bpf.c
+> +++ b/net/sched/cls_bpf.c
+> @@ -28,7 +28,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
+>
+>   #define CLS_BPF_NAME_LEN	256
+>   #define CLS_BPF_SUPPORTED_GEN_FLAGS		\
+> -	TCA_CLS_FLAGS_SKIP_HW
+> +	(TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW)
+>
+>   struct cls_bpf_head {
+>   	struct list_head plist;
+> @@ -98,7 +98,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>
+>   		qdisc_skb_cb(skb)->tc_classid = prog->res.classid;
+>
+> -		if (at_ingress) {
+> +		if (tc_skip_sw(prog->gen_flags)) {
+> +			filter_res = 0;
+
+Seems okay to me, depending on the working mode of cls_bpf (da or non-da),
+this either means TC_ACT_OK (== 0) or 'not classified'.
+
+> +		} else if (at_ingress) {
+>   			/* It is safe to push/pull even if skb_shared() */
+>   			__skb_push(skb, skb->mac_len);
+>   			bpf_compute_data_end(skb);
+
 [...]
-> @@ -400,8 +406,11 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+> @@ -406,8 +418,11 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
 >
 >   		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
 >   	}
-> +	if (tb[TCA_BPF_GEN_TCA_FLAGS])
-> +		gen_flags = nla_get_u32(tb[TCA_BPF_GEN_TCA_FLAGS]);
->
+> -	if (tb[TCA_BPF_GEN_TCA_FLAGS])
+> +	if (tb[TCA_BPF_GEN_TCA_FLAGS]) {
+>   		gen_flags = nla_get_u32(tb[TCA_BPF_GEN_TCA_FLAGS]);
+> +		if (!tc_flags_valid(gen_flags))
+> +			return -EINVAL;
+> +	}
+
+Resolves my earlier comment, okay to put it here after supporting all flags.
+
 >   	prog->exts_integrated = have_exts;
-> +	prog->gen_flags = gen_flags & CLS_BPF_SUPPORTED_GEN_FLAGS;
-
-Invalid flags should probably be rejected here with -EINVAL or something.
-
->   	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog) :
->   		       cls_bpf_prog_from_efd(tb, prog, tp);
-> @@ -568,6 +577,9 @@ static int cls_bpf_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->   		bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
->   	if (bpf_flags && nla_put_u32(skb, TCA_BPF_FLAGS, bpf_flags))
->   		goto nla_put_failure;
-> +	if (prog->gen_flags &&
-> +	    nla_put_u32(skb, TCA_BPF_GEN_TCA_FLAGS, prog->gen_flags))
-> +		goto nla_put_failure;
->
->   	nla_nest_end(skb, nest);
->
->
-
-Otherwise looks good:
+>   	prog->gen_flags = gen_flags & CLS_BPF_SUPPORTED_GEN_FLAGS;
+> @@ -493,7 +508,11 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+>   	if (ret < 0)
+>   		goto errout;
 
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
