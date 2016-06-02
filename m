@@ -1,57 +1,93 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb
- protocol and mac_len when receiving on internal device
-Date: Thu, 2 Jun 2016 15:01:47 -0700
-Message-ID: <CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v10 3/5] openvswitch: add support to push and pop
+ mpls for layer3 packets
+Date: Thu, 2 Jun 2016 15:02:00 -0700
+Message-ID: <CAOrHB_D0XoGUjSXztNMdektGgTMPxeVfbNF0WcTZuTbR4VYz5g@mail.gmail.com>
 References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
- <1464848686-7656-3-git-send-email-simon.horman@netronome.com>
+	<1464848686-7656-4-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1464848686-7656-3-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:48284 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932259AbcFBWCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 18:02:05 -0400
+Received: from mfilter23-d.gandi.net (mfilter23-d.gandi.net [217.70.178.151])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 0294741C080
+	for <netdev@vger.kernel.org>; Fri,  3 Jun 2016 00:02:03 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter23-d.gandi.net (mfilter23-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id LrdGnSHOPJoH for <netdev@vger.kernel.org>;
+	Fri,  3 Jun 2016 00:02:01 +0200 (CEST)
+Received: from mail-it0-f49.google.com (mail-it0-f49.google.com [209.85.214.49])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 7740141C08B
+	for <netdev@vger.kernel.org>; Fri,  3 Jun 2016 00:02:01 +0200 (CEST)
+Received: by mail-it0-f49.google.com with SMTP id z123so63801288itg.0
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 15:02:01 -0700 (PDT)
+In-Reply-To: <1464848686-7656-4-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBKdW4gMSwgMjAxNiBhdCAxMToyNCBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gKiBTZXQgc2tiIHByb3RvY29sIGJhc2VkIG9uIGNv
-bnRlbnRzIG9mIHBhY2tldC4gSSBoYXZlIG9ic2VydmVkIHRoaXMgaXMKPiAgIG5lY2Vzc2FyeSB0
-byBnZXQgYWN0dWFsIHByb3RvY29sIG9mIGEgcGFja2V0IHdoZW4gaXQgaXMgaW5qZWN0ZWQgaW50
-byBhbgo+ICAgaW50ZXJuYWwgZGV2aWNlIGUuZy4gYnkgbGlibmV0IGluIHdoaWNoIGNhc2Ugc2ti
-IHByb3RvY29sIHdpbGwgYmUgc2V0IHRvCj4gICBFVEhfQUxMLgo+Cj4gKiBTZXQgdGhlIG1hY19s
-ZW4gd2hpY2ggaGFzIGJlZW4gb2JzZXJ2ZWQgdG8gbm90IGJlIHNldCB1cCBjb3JyZWN0bHkgd2hl
-bgo+ICAgYW4gQVJQIHBhY2tldCBpcyBnZW5lcmF0ZWQgYW5kIHNlbnQgdmlhIGFuIG9wZW52c3dp
-dGNoIGJyaWRnZS4KPiAgIE15IHRlc3QgY2FzZSBpcyBhIHNjZW5hcmlvIHdoZXJlIHRoZXJlIGFy
-ZSB0d28gb3BlbiB2c3d0aWNoIGJyaWRnZXMuCj4gICBPbmUgb3V0cHV0cyB0byBhIHR1bm5lbCBw
-b3J0IHdoaWNoIGVncmVzc2VzIG9uIHRoZSBvdGhlci4KPgo+IFRoZSBtb3RpdmF0aW9uIGZvciB0
-aGlzIGlzIHRoYXQgc3VwcG9ydCBmb3Igb3V0cHV0dGluZyB0byBsYXllciAzIChub24tdGFwKQo+
-IEdSRSB0dW5uZWxzIGFzIGltcGxlbWVudGVkIGJ5IGEgc3Vic2VxdWVudCBwYXRjaCBkZXBlbmRz
-IG9uIHByb3RvY29sIGFuZAo+IG1hY19sZW4gYmVpbmcgc2V0IGNvcnJlY3RseSBvbiByZWNlaXZl
-Lgo+Cj4gU2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21l
-LmNvbT4KPgo+IC0tLQo+IHYxMAo+ICogU2V0IG1hY19sZW4KPgo+IHY5Cj4gKiBOZXcgcGF0Y2gK
-PiAtLS0KPiAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LWludGVybmFsX2Rldi5jIHwgNCArKysrCj4g
-IDEgZmlsZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKykKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
-bnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50
-ZXJuYWxfZGV2LmMKPiBpbmRleCAyZWU0OGU0NDdiNzIuLmY4OWIxZWZhODhmMSAxMDA2NDQKPiAt
-LS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMKPiArKysgYi9uZXQvb3Bl
-bnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMKPiBAQCAtNDgsNiArNDgsMTAgQEAgc3RhdGlj
-IGludCBpbnRlcm5hbF9kZXZfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rl
-dmljZSAqbmV0ZGV2KQo+ICB7Cj4gICAgICAgICBpbnQgbGVuLCBlcnI7Cj4KPiArICAgICAgIHNr
-Yi0+cHJvdG9jb2wgPSBldGhfdHlwZV90cmFucyhza2IsIG5ldGRldik7Cj4gKyAgICAgICBza2Jf
-cHVzaChza2IsIEVUSF9ITEVOKTsKPiArICAgICAgIHNrYl9yZXNldF9tYWNfbGVuKHNrYik7Cj4g
-KwpyZXNldHRpbmcgbWFjLWxlbiBicmVha3MgdGhlIGFzc3VtcHRpb24gYWJvdXQgbWFjX2xlbiBm
-b3IgcmVmZXJlbmNpbmcKTVBMUyBoZWFkZXIgcmVmOiBza2JfbXBsc19oZWFkZXIoKS4KX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlz
-dApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0
-aW5mby9kZXYK
+On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> Allow push and pop mpls actions to act on layer 3 packets by teaching
+> them not to access non-existent L2 headers of such packets.
+>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+> v10
+> * Limit scope of hdr in {push,pop}_mpls()
+>
+> v9
+> * New Patch
+> ---
+>  net/openvswitch/actions.c | 19 ++++++++++++-------
+>  1 file changed, 12 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+> index 9a3eb7a0ebf4..15f130e4c22b 100644
+> --- a/net/openvswitch/actions.c
+> +++ b/net/openvswitch/actions.c
+> @@ -172,7 +172,8 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+>
+>         skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
+>
+> -       update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+> +       if (skb->mac_len)
+> +               update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+We can move all ethernet related code in this if block. for example memmove().
+
+>         if (!skb->inner_protocol)
+>                 skb_set_inner_protocol(skb, skb->protocol);
+>         skb->protocol = mpls->mpls_ethertype;
+> @@ -184,7 +185,6 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+>  static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+>                     const __be16 ethertype)
+>  {
+> -       struct ethhdr *hdr;
+>         int err;
+>
+>         err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
+> @@ -199,11 +199,16 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+>         __skb_pull(skb, MPLS_HLEN);
+>         skb_reset_mac_header(skb);
+>
+> -       /* skb_mpls_header() is used to locate the ethertype
+> -        * field correctly in the presence of VLAN tags.
+> -        */
+> -       hdr = (struct ethhdr *)(skb_mpls_header(skb) - ETH_HLEN);
+> -       update_ethertype(skb, hdr, ethertype);
+> +       if (skb->mac_len) {
+> +               struct ethhdr *hdr;
+> +
+> +               /* skb_mpls_header() is used to locate the ethertype
+> +                * field correctly in the presence of VLAN tags.
+> +                */
+> +               hdr = (struct ethhdr *)(skb_mpls_header(skb) - ETH_HLEN);
+> +               update_ethertype(skb, hdr, ethertype);
+> +       }
+same here.
