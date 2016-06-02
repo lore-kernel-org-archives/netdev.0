@@ -1,38 +1,19 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 6/7] Binding:PHY: Binding doc for NS2 PCIe PHYs.
-Date: Thu, 2 Jun 2016 20:44:45 -0500
-Message-ID: <20160603014445.GA13873@rob-hp-laptop>
-References: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
- <1464701801-17243-7-git-send-email-pramod.kumar@broadcom.com>
+From: Pedro Quezada <donation@foi.hr>
+Subject: Offer
+Date: Fri, 03 Jun 2016 00:56:24 +0100
+Message-ID: <20160603015123.B1281640BE9@barok.foi.hr>
+Reply-To: qpedro431@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jon Mason <jonmason@broadcom.com>
-To: Pramod Kumar <pramod.kumar@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464701801-17243-7-git-send-email-pramod.kumar@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <donation@foi.hr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barok.foi.hr ([161.53.120.3]:35612 "EHLO barok.foi.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750747AbcFCB5p convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 21:57:45 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 31, 2016 at 07:06:40PM +0530, Pramod Kumar wrote:
-> Binding doc for NS2 PCIe PHYs.
-> 
-> Signed-off-by: Jon Mason <jonmason@broadcom.com>
-> Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-> ---
->  .../bindings/phy/brcm,mdio-mux-bus-pci.txt         | 27 ++++++++++++++++++++++
->  1 file changed, 27 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
-
-Acked-by: Rob Herring <robh@kernel.org>
+You are a recipient to Mr Pedro Quezada Donation of 2M USD. Contact (qpedro431@gmail.com) for claims.
