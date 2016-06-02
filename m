@@ -1,88 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/4] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
-Date: Thu, 02 Jun 2016 10:52:48 +0200
-Message-ID: <3851136.KiJNtFycNm@wuerfel>
-References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com> <6110875.0k1HlSKhzn@wuerfel> <1464829874.16584.163.camel@buserror.net>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH iputils 1/6] start gitignore files
+Date: Thu, 2 Jun 2016 17:57:01 +0900
+Message-ID: <574FF4DD.8030006@miraclelinux.com>
+References: <1464752905-10347-1-git-send-email-vapier@gentoo.org>
+ <574F94B5.5040100@miraclelinux.com> <20160602044250.GN7717@vapier.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Scott Wood <oss@buserror.net>, Mark Rutland <mark.rutland@arm.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Ulf Hansson <ulf.hansson@linaro.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Joerg Roedel <joro@8bytes.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Yangbo Lu <yangbo.lu@nxp.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Yang-Leo Li <leoyang.li@nxp.com>,
-	"linux-clk@vger.kernel.org" <linux-clk@vg
-To: linuxppc-dev@lists.ozlabs.org
-Return-path: <linux-clk-owner@vger.kernel.org>
-In-Reply-To: <1464829874.16584.163.camel@buserror.net>
-Sender: linux-clk-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33017 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689AbcFBI5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 04:57:05 -0400
+Received: by mail-pf0-f182.google.com with SMTP id b124so29098358pfb.0
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 01:57:05 -0700 (PDT)
+In-Reply-To: <20160602044250.GN7717@vapier.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, June 1, 2016 8:11:14 PM CEST Scott Wood wrote:
-> > +#define T4240_HOST_VER ((VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) |
-> > SDHCI_SPEC_200)
-> > +static const struct soc_device_attribute esdhc_t4240_quirk = {
-> > +     /* T4240 revision < 0x20 uses vendor version 23, SDHCI version 200
-> > */
-> > +     { .soc_id = "T4*(0x824000)", .revision = "0x[01]?",
-> > +       .data = (void *)(uintptr_t)(T4240_HOST_VER) },
+Hi,
+
+Mike Frysinger wrote:
+> On 02 Jun 2016 11:06, YOSHIFUJI Hideaki wrote:
+>> Mike Frysinger wrote:
+>>> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+>>> ---
+>>>  .gitignore     | 22 ++++++++++++++++++++++
+>>>  doc/.gitignore |  2 ++
+>>>  2 files changed, 24 insertions(+)
+>>>  create mode 100644 .gitignore
+>>>  create mode 100644 doc/.gitignore
+>>>
+>>
+>> files under ninfod/ as well, maybe?
 > 
-> Why should this code need to care that the string begins with "T4"?  This
-> creates dual maintenance if that were to change.  It's also broken because
-> T4240 has compatible = "fsl,t4240-device-config", "fsl,qoriq-device-config
-> -2.0" and thus with these patches it would incorrectly show up as "P series
-> (0x824000)".  The compatible string of this node was never meant to be a key
-> for choosing a string to describe the system to userspace.
-
-This is an artifact of not knowing the specific SoC name, and we can change
-that by looking up the name from the SVR value in the soc_device driver.
- 
-> 0x824000 is a magic number which should be represented symbolically.
-
-Sure, feel free to change the format of the soc_device string in any
-name, I just converted the information I had available in the comments.
-The only thing that is important here is that the string matches what
-the soc_device driver calls it.
-
-> If T4240 is affected, then so are the reduced-core variants T4160 and T4080,
-> but 0x824000 doesn't match them (Yangbo's patch had the same problem).  And
-> please don't respond with "0x824*"
+> perhaps ... i've never seen this dir before.  it has generated files
+> committed to the git repo though which kind on conflicts with using
+> gitignore.
 > 
-> You also didn't strip out the E bit of SVR which indicates encryption
-> capability and nothing else (Yangbo's patch did not have this problem because
-> it used SVR_SOC_VER).
+> maybe merge this and then wait for someone who actually builds/tests
+> ninfod to submit an update ?
+> -mike
+> 
 
-Ok, that should be easy enough to fix in the soc_device driver.
+Okay, applied.  Thanks.
 
-> What happens if the revision condition is more complicated, such as <= 0x20
-> with 0x21 being fine?  Multiple quirk entries where before we had as simple
-> comparison?
-
-I guess yes. I would really hope that there is no need to use this interface
-pervasively, it's really just to work around the cases where there is no
-way to pass the information in DT otherwise.
-
-> I fail to see how this approach is an improvement (much less one that needs to
-> hold up a patchset that is fixing a problem and is not touching any generic
-> code).  Why does this need to be a string?
-
-A string is what user space gets in /sys/devices/soc/*, and we already have
-code that does the same things there to work around quirks, here we just
-use the same interface in a completely generic way. Note that not every
-SoC family uses numbers in the same way, some have multiple subrevisions,
-some have names etc.
-
-	Arnd
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
