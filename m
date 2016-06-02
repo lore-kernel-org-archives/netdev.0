@@ -1,48 +1,57 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v10 1/5] net: add skb_vlan_accel helper
-Date: Thu, 2 Jun 2016 15:01:32 -0700
-Message-ID: <CAOrHB_Bx9Jr0K-obY8Rtz=Gy7Zot8v+hipj-kiM841PNnsZAaQ@mail.gmail.com>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb
+ protocol and mac_len when receiving on internal device
+Date: Thu, 2 Jun 2016 15:01:47 -0700
+Message-ID: <CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
 References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
-	<1464848686-7656-2-git-send-email-simon.horman@netronome.com>
+ <1464848686-7656-3-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:38532 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932259AbcFBWBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 18:01:37 -0400
-Received: from mfilter24-d.gandi.net (mfilter24-d.gandi.net [217.70.178.152])
-	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 8B3E917209B
-	for <netdev@vger.kernel.org>; Fri,  3 Jun 2016 00:01:35 +0200 (CEST)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-	by mfilter24-d.gandi.net (mfilter24-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id Ou8D3m_tpx_z for <netdev@vger.kernel.org>;
-	Fri,  3 Jun 2016 00:01:34 +0200 (CEST)
-Received: from mail-it0-f44.google.com (mail-it0-f44.google.com [209.85.214.44])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 1B7F61720B2
-	for <netdev@vger.kernel.org>; Fri,  3 Jun 2016 00:01:34 +0200 (CEST)
-Received: by mail-it0-f44.google.com with SMTP id e62so139120908ita.1
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 15:01:33 -0700 (PDT)
-In-Reply-To: <1464848686-7656-2-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1464848686-7656-3-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> This breaks out some of of skb_vlan_pop into a separate helper.
-> This new helper moves the outer-most vlan tag present in packet data
-> into metadata.
->
-> The motivation is to allow acceleration VLAN tags without adding a new
-> one. This is in preparation for a push ethernet header support in Open
-> vSwitch.
->
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
->
-
-I am not sure we need this function at this point. I will post comment
-on patch 4 where it is used.
+T24gV2VkLCBKdW4gMSwgMjAxNiBhdCAxMToyNCBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gKiBTZXQgc2tiIHByb3RvY29sIGJhc2VkIG9uIGNv
+bnRlbnRzIG9mIHBhY2tldC4gSSBoYXZlIG9ic2VydmVkIHRoaXMgaXMKPiAgIG5lY2Vzc2FyeSB0
+byBnZXQgYWN0dWFsIHByb3RvY29sIG9mIGEgcGFja2V0IHdoZW4gaXQgaXMgaW5qZWN0ZWQgaW50
+byBhbgo+ICAgaW50ZXJuYWwgZGV2aWNlIGUuZy4gYnkgbGlibmV0IGluIHdoaWNoIGNhc2Ugc2ti
+IHByb3RvY29sIHdpbGwgYmUgc2V0IHRvCj4gICBFVEhfQUxMLgo+Cj4gKiBTZXQgdGhlIG1hY19s
+ZW4gd2hpY2ggaGFzIGJlZW4gb2JzZXJ2ZWQgdG8gbm90IGJlIHNldCB1cCBjb3JyZWN0bHkgd2hl
+bgo+ICAgYW4gQVJQIHBhY2tldCBpcyBnZW5lcmF0ZWQgYW5kIHNlbnQgdmlhIGFuIG9wZW52c3dp
+dGNoIGJyaWRnZS4KPiAgIE15IHRlc3QgY2FzZSBpcyBhIHNjZW5hcmlvIHdoZXJlIHRoZXJlIGFy
+ZSB0d28gb3BlbiB2c3d0aWNoIGJyaWRnZXMuCj4gICBPbmUgb3V0cHV0cyB0byBhIHR1bm5lbCBw
+b3J0IHdoaWNoIGVncmVzc2VzIG9uIHRoZSBvdGhlci4KPgo+IFRoZSBtb3RpdmF0aW9uIGZvciB0
+aGlzIGlzIHRoYXQgc3VwcG9ydCBmb3Igb3V0cHV0dGluZyB0byBsYXllciAzIChub24tdGFwKQo+
+IEdSRSB0dW5uZWxzIGFzIGltcGxlbWVudGVkIGJ5IGEgc3Vic2VxdWVudCBwYXRjaCBkZXBlbmRz
+IG9uIHByb3RvY29sIGFuZAo+IG1hY19sZW4gYmVpbmcgc2V0IGNvcnJlY3RseSBvbiByZWNlaXZl
+Lgo+Cj4gU2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21l
+LmNvbT4KPgo+IC0tLQo+IHYxMAo+ICogU2V0IG1hY19sZW4KPgo+IHY5Cj4gKiBOZXcgcGF0Y2gK
+PiAtLS0KPiAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LWludGVybmFsX2Rldi5jIHwgNCArKysrCj4g
+IDEgZmlsZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKykKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
+bnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50
+ZXJuYWxfZGV2LmMKPiBpbmRleCAyZWU0OGU0NDdiNzIuLmY4OWIxZWZhODhmMSAxMDA2NDQKPiAt
+LS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMKPiArKysgYi9uZXQvb3Bl
+bnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMKPiBAQCAtNDgsNiArNDgsMTAgQEAgc3RhdGlj
+IGludCBpbnRlcm5hbF9kZXZfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rl
+dmljZSAqbmV0ZGV2KQo+ICB7Cj4gICAgICAgICBpbnQgbGVuLCBlcnI7Cj4KPiArICAgICAgIHNr
+Yi0+cHJvdG9jb2wgPSBldGhfdHlwZV90cmFucyhza2IsIG5ldGRldik7Cj4gKyAgICAgICBza2Jf
+cHVzaChza2IsIEVUSF9ITEVOKTsKPiArICAgICAgIHNrYl9yZXNldF9tYWNfbGVuKHNrYik7Cj4g
+KwpyZXNldHRpbmcgbWFjLWxlbiBicmVha3MgdGhlIGFzc3VtcHRpb24gYWJvdXQgbWFjX2xlbiBm
+b3IgcmVmZXJlbmNpbmcKTVBMUyBoZWFkZXIgcmVmOiBza2JfbXBsc19oZWFkZXIoKS4KX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlz
+dApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0
+aW5mby9kZXYK
