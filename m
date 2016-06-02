@@ -1,83 +1,89 @@
-From: Johannes Thumshirn <jthumshirn@suse.de>
-Subject: [PATCH v2 6/6] alx: Use pci_(request|release)_mem_regions
-Date: Thu,  2 Jun 2016 09:30:34 +0200
-Message-ID: <d23546e4a87cfd23082fdfbe648bd5269ba89df7.1464795082.git.jthumshirn@suse.de>
-References: <cover.1464795082.git.jthumshirn@suse.de>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Johannes Thumshirn <jthumshirn@suse.de>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-To: Bjorn Helgaas <bhelgaas@google.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
+ MAC address
+Date: Thu, 2 Jun 2016 09:46:56 +0200
+Message-ID: <20160602074656.GM29844@pali>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hayeswang@realtek.com, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux USB <linux-usb@vger.kernel.org>,
+	anthony.wong@canonical.com
+To: Mario Limonciello <mario_limonciello@dell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1464795082.git.jthumshirn@suse.de>
-In-Reply-To: <cover.1464795082.git.jthumshirn@suse.de>
-References: <cover.1464795082.git.jthumshirn@suse.de>
+Content-Disposition: inline
+In-Reply-To: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that we do have pci_request_mem_regions() and pci_release_mem_regions() at
-hand, use it in the ethernet drivers.
+Hi! As ACPI bytecode is untrusted for me and also for running kernel, w=
+e
+should not expect that it does not contain any bugs or other problems.
+So I would propose these checks to prevent something wrong...
 
-Suggested-by: Christoph Hellwig <hch@infradead.org>
-Signed-off-by: Johannes Thumshirn <jthumshirn@suse.de>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: intel-wired-lan@lists.osuosl.org
----
- drivers/net/ethernet/atheros/alx/main.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+On Wednesday 01 June 2016 16:50:44 Mario Limonciello wrote:
+> +static void set_auxiliary_addr(struct sockaddr *sa)
+> +{
+> +	acpi_status status;
+> +	acpi_handle handle;
+> +	struct acpi_buffer buffer =3D { ACPI_ALLOCATE_BUFFER, NULL };
+> +	union acpi_object *obj;
+> +	int i;
+> +	char *ptr;
+> +
+> +	acpi_get_handle(NULL, "\\_SB", &handle);
 
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 55b118e..d2363de 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1238,7 +1238,7 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct alx_priv *alx;
- 	struct alx_hw *hw;
- 	bool phy_configured;
--	int bars, err;
-+	int err;
- 
- 	err = pci_enable_device_mem(pdev);
- 	if (err)
-@@ -1258,11 +1258,10 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		}
- 	}
- 
--	bars = pci_select_bars(pdev, IORESOURCE_MEM);
--	err = pci_request_selected_regions(pdev, bars, alx_drv_name);
-+	err = pci_request_mem_regions(pdev, alx_drv_name);
- 	if (err) {
- 		dev_err(&pdev->dev,
--			"pci_request_selected_regions failed(bars:%d)\n", bars);
-+			"pci_request_mem_regions failed\n");
- 		goto out_pci_disable;
- 	}
- 
-@@ -1388,7 +1387,7 @@ out_unmap:
- out_free_netdev:
- 	free_netdev(netdev);
- out_pci_release:
--	pci_release_selected_regions(pdev, bars);
-+	pci_release_mem_regions(pdev);
- out_pci_disable:
- 	pci_disable_device(pdev);
- 	return err;
-@@ -1407,8 +1406,7 @@ static void alx_remove(struct pci_dev *pdev)
- 
- 	unregister_netdev(alx->dev);
- 	iounmap(hw->hw_addr);
--	pci_release_selected_regions(pdev,
--				     pci_select_bars(pdev, IORESOURCE_MEM));
-+	pci_release_mem_regions(pdev);
- 
- 	pci_disable_pcie_error_reporting(pdev);
- 	pci_disable_device(pdev);
--- 
-1.8.5.6
+Check return value of acpi_get_handle
+
+> +	status =3D acpi_evaluate_object(handle, "AMAC", NULL, &buffer);
+
+This is question for ACPI devs, it is not possible to call directly?
+
+  acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
+
+And what happen if we try to evaluate objects which do not exist? Does
+not it show some warning or error in dmesg about non existent object?
+Such errors should be silent here.
+
+> +	obj =3D (union acpi_object *)buffer.pointer;
+
+Check buffer.type
+
+> +	if (ACPI_SUCCESS(status) && (obj->string.length =3D=3D 0x17)) {
+> +		/* returns _AUXMAC_#AABBCCDDEEFF#
+> +		 * this pulls out _AUXMAC# from start and # from end
+> +		 */
+> +		ptr =3D obj->string.pointer + 9;
+
+Verify that string really contains that _AUXMAX# prefix. This is really
+obscure and nonstandard format for specifying MAC address and in my
+opinion it should be properly checked. Nonstandard formats can be
+changed in future and we could have problems.
+
+> +		pr_info("r8152: Using system auxiliary MAC address");
+
+It would be great to write also mac address into that pr_info
+
+> +		for (i =3D 0; i < 6; i++, ptr +=3D 2)
+> +			sa->sa_data[i] =3D amac_ascii_to_hex(*ptr) << 4 |
+> +					 amac_ascii_to_hex(*(ptr + 1));
+> +	}
+
+In case of some acpi check fails throw warning (or error).
+
+And there is memory leak, you allocated buffer with ACPI_ALLOCATE_BUFFE=
+R
+but you did not free it.
+
+> +}
+
+And my last question is: Are really all Dell docks comes with this one
+realtek chip? I'm pessimist in this, because I see how other components
+(like HDD vendor, touchpad type, smardcard chips, motherboards, display
+panels, wifi chips) can be different in two laptops of same Dell model.
+
+--=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
