@@ -1,643 +1,713 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] nftables 0.6 release
-Date: Thu, 2 Jun 2016 18:59:40 +0200
-Message-ID: <20160602165940.GA1874@salvia>
+From: Pau Espin <pau.espin@tessares.net>
+Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
+ SACK block
+Date: Thu, 2 Jun 2016 19:05:12 +0200
+Message-ID: <CALCp7mmd+XbFsYBnUG-U54J5LaKTDhYBeZQiSt+aVUYDN9y6ug@mail.gmail.com>
+References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
+	<1464707563.5939.114.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALCp7mkPCFESn1a8mG3v17v5AQgn2m+xcq17PBWRVewABZkBig@mail.gmail.com>
+	<CAK6E8=e+cn60PjMAz1B3qk9Z0tnRe4r67HM+CmQPRVg7u_iCoA@mail.gmail.com>
+	<9A5E8677-D012-4CEA-87AA-C4B6674A700A@netflix.com>
+	<CALCp7m=kVidPi6LkeZ525FxwuZHW1hotzDUyw=nV-zb_E=yacw@mail.gmail.com>
+	<3C9243BB-8A7C-40CA-A3C8-16B40084C87C@netflix.com>
+	<CALCp7mnpbUHK45GmHPOGn6-qroQpm1dCK4apceVbkjbrsF63mQ@mail.gmail.com>
+	<B4ACE4BD-4ACC-42C5-8B94-728D15777CA5@netflix.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="W/nzBZO5zC0uMSeA"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, mdalal@cisco.com
+To: Randall Stewart <rrs@netflix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45126 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030190AbcFBQ7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 12:59:53 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 53A961153126
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2016 18:59:51 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 3F3859EBA4
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2016 18:59:51 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 1145F9EBAB
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2016 18:59:46 +0200 (CEST)
-Content-Disposition: inline
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:33738 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161147AbcFBRFO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 13:05:14 -0400
+Received: by mail-qk0-f180.google.com with SMTP id n63so40688395qkf.0
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 10:05:14 -0700 (PDT)
+In-Reply-To: <B4ACE4BD-4ACC-42C5-8B94-728D15777CA5@netflix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---W/nzBZO5zC0uMSeA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi!
-
-The Netfilter project proudly presents:
-
-	nftables 0.6
-
-This release contains many accumulated bug fixes and new features
-availale up to the Linux 4.7-rc1 kernel release.
-
-New features
-============
-
-* Rule replacement: You can replace any rule from the unique 64-bits
-  handle. You have to retrieve the handle from the ruleset listing.
-
-  # nft list ruleset -a
-  table ip filter {
-        chain input {
-                ...
-                ct state new tcp dport ssh accept counter packets 0 bytes 0 # handle 4
-        }
-  }
-
-  Then, indicate this handle from the new rule that you want to
-  replace, eg.
-
-  # nft replace rule filter input handle 4 ct state new \
-        tcp dport { 22, 80} counter accept
-
-* Flow table support: This provides a native replacement for the
-  hashlimit match in iptables. The rule below creates a 'ssh' flow table
-  declares a ratelimit of 10 packets per second for each source IP address:
-
-  # nft add rule filter input tcp dport 22 ct state new \
-        flow table ssh { ip saddr limit rate 10/second } accept
-
-  This is actually way more than hashlimit since you can use any selector
-  and build your own tuple of selectors through concatenations, eg.
-
-  # nft add rule filter input \
-        flow table acct { iif . ip saddr timeout 60s counter }
-
-  Then, if you want to list the content of the 'acct' flow table:
-
-  # nft list flow table acct
-  table ip filter {
-        flow table acct {
-                type iface_index . ipv4_addr
-                flags timeout
-                elements = { eth0 . 218.68.110.274 expires 3m56s : counter packets 1 bytes 98, eth0 . 180.29.103.19 expires 3m57s : counter packets 2 bytes 80, eth0 . 8.8.8.8 expires 3m44s : counter packets 1 bytes 84}
-        }
-  }
-
-  Note that this listing format is still unstable though, so don't make
-  tools to parse this output yet. Commands to empty flow tables and remove
-  specific entries are still missing.
-
-  Moreover, flow tables require a Linux kernel >= 4.3.
-
-* New tracing infrastructure: Useful for ruleset debugging, you have
-  to enable tracing via:
-
-    # nft filter input tcp dport 10000 nftrace set 1
-    # nft filter input icmp type echo-request nftrace set 1
-
-  Then, you can monitor traces through:
-
-    # nft -nn monitor trace
-
-  That generates the following outputs:
-
-    trace id e1f5055f ip filter input packet: iif eth0 ether saddr
-63:f6:4b:00:54:52 ether daddr c9:4b:a9:00:54:52 ip saddr 192.168.122.1
-ip daddr 192.168.122.83 ip tos 0 ip ttl 64 ip id 32315 ip length 84
-icmp type echo-request icmp code 0 icmp id 10087 icmp sequence 1
-    trace id e1f5055f ip filter input rule icmp type echo-request
-nftrace set 1 (verdict continue)
-    trace id e1f5055f ip filter input verdict continue
-    trace id e1f5055f ip filter input
-    trace id 74e47ad2 ip filter input packet: iif vlan0 ether saddr
-63:f6:4b:00:54:52 ether daddr c9:4b:a9:00:54:52 vlan pcp 0 vlan cfi 1
-vlan id 1000 ip saddr 10.0.0.1 ip daddr 10.0.0.2 ip tos 0 ip ttl 64 ip
-id 49030 ip length 84 icmp type echo-request icmp code 0 icmp id 10095
-icmp sequence 1
-    trace id 74e47ad2 ip filter input rule icmp type echo-request
-nftrace set 1 (verdict continue)
-    trace id 74e47ad2 ip filter input verdict continue
-    trace id 74e47ad2 ip filter input
-    trace id 3030de23 ip filter input packet: iif vlan0 ether saddr
-63:f6:4b:00:54:52 ether daddr c9:4b:a9:00:54:52 vlan pcp 0 vlan cfi 1
-vlan id 1000 ip saddr 10.0.0.1 ip daddr 10.0.0.2 ip tos 16 ip ttl 64
-ip id 59062 ip length 60 tcp sport 55438 tcp dport 10000 tcp flags ==
-syn tcp window 29200
-    trace id 3030de23 ip filter input rule tcp dport 10000 nftrace set
-1 (verdict continue)
-    trace id 3030de23 ip filter input verdict continue
-    trace id 3030de23 ip filter input
-
-  The trace id is unique for each packet, there above you can see the
-  travel of this packet through the nft packet classifier.
-
-* Ratelimiting enhancements: You can now specify ratelimits in terms
-  of bytes/second, eg.
-
-  # nft add rule filter forward \
-        limit rate 1024 mbytes/second counter accept
-
-  The rule above matches packets under the specified ratelimit. This
-  requires a Linux kernel >= 4.3 btw.
-
-  You can also indicate the amount of traffic that can go over the
-  threshold via 'burst', eg.
-
-  # nft add rule filter forward \
-        limit rate 1024 mbytes/second burst 10240 bytes counter accept
-
-  You may also need to match based on inverted logic, eg.
-
-  # nft add rule filter forward \
-        limit rate over 1024 mbytes/second log prefix "OVERLIMIT: " drop
-
-* VLAN matching: You can match any vlan header field and combine this
-  with any of the existing upper layer header selectors, eg.
-
-  # nft add rule bridge filter prerouting vlan id 24 \
-              ip saddr 192.168.1.0/24 counter accept
-
-* Packet duplication: When used from any of the supported layer 3 families,
-  this allows you to clone packets to a given destination address, eg.
-  duplicate all packets whose mark is 0xffff:
-
-  # nft add rule filter forward \
-        meta mark 0xffff dup to 172.20.0.2 counter
-
-  You can actually combine this new feature with maps:
-
-  # nft add rule filter forward meta mark 0xffff \
-        dup to meta mark map { \
-                0xffff : 172.20.0.2, \
-                0xeeee : 172.20.0.3 } counter
-
-  So the destination for the duplicated packet depends on the packet
-  mark.
-
-  You can also use this from layer 2 ingress, eg.
-
-  # nft add table netdev filter
-  # nft add chain netdev filter ingress { \
-        type filter hook ingress device eth0 priority 0\; }
-  # nft add rule netdev filter ingress dup to dummy0
-
-  In this case, you specify the nic that is used to transmit the
-  duplicated packet.
-
-* Packet forwarding from the new ingress family, eg.
-
-  # nft add rule netdev filter ingress iif eth0 fwd to eth1
-
-  To forward packets that enter from eth0, then make them go through
-  eth1.
-
-* String prefix matching through '*' (asterisk), eg.
-
-  # nft add filter forward iifname eth\* ...
-
-  This is equivalent to iptables ... -i eth+
-
-* DSCP and ECN matching, eg.
-
-  # nft add rule filter forward ip dscp cs1 counter
-  # nft add rule ip6 filter forward ip6 dscp cs4 counter
-  # nft add rule ip filter forward ip ecn ce counter
-  # nft add rule ip6 filter forward ip6 ecn ce counter
-
-* Stateless payload mangling, eg.
-
-  # nft add rule filter forward tcp dport 8080 tcp dport set 80
-
-  This rule above mangles the destination port from 8080 to 80. Beware
-  of interactions with conntrack, flows whose traffic is mangled must
-  be untracked. However, we don't support NOTRACK yet though in nft.
-
-* Conntrack direction-based matching, eg. ct original saddr 1.2.3.4.
-
-* Support for ICMP router advertisement and solicitation, eg.
-
-  # nft add rule ip filter input \
-        icmp type {router-advertisement, router-solicitation} counter accept
-
-* Better listing support: You can perform selective listing of
-  objects, eg.
-
-  To display the existing declararation tables (without no content).
-
-  # nft list tables ip
-     table ip filter
-  # nft list tables ip6
-     table ip6 filter
-  # nft list tables
-     table ip filter
-     table ip6 filter
-
-  List existing chains, eg.
-
-  # nft list chains
-  table ip filter {
-         chain test1 {
-         }
-         chain test2 {
-         }
-         chain input {
-              type filter hook input priority 0; policy accept;
-         }
-  }
-
-  List existing set declaration, eg.
-
-  # nft list sets
-  table ip filter {
-         set libssh {
-              type ipv4_addr
-         }
-  }
-
-  Note the listing above shows no elements, to see the set content,
-  you must specify set name, eg.
-
-  # nft list set ip filter libssh
-  table ip filter {
-        set libssh {
-                type ipv4_addr
-                elements = { 163.123.166.2}
-        }
-  }
-
-  You can also list existing maps, eg.
-
-  # nft list map ip6 filter test
-  table ip6 filter {
-        map test {
-                type ipv6_addr : inet_service
-                elements = { 2001:db8::ff00:42:8329 : http}
-        }
-  }
-
-  In general, the same logic applies for every nft object, ie. generic
-  listing shows declarations, then if the object name is specified, the
-  its content is shown.
-
-* Masquerading port range selection: Allows us to restricts the ports
-  that will be used in the masquerading.
-
-  # nft add rule nat postrouting ip protocol tcp masquerade to :1024-10024
-
-* A new shell-based testsuite, to complement the existing python-based
-  unitary tests. Nothing fancy for users, but useful for us developers :)
-
-
-Bugfixes
-========
-
-Not strictly limited to this list below, but some highlights:
-
-* Resolve problems with prefixes in named sets, eg.
-
-  # nft add set filter blacklist { type ipv4_addr\; flags interval\; }
-  # nft add element filter blacklist { 192.168.1.0/24 }
-  # nft add element filter blacklist { 192.168.5.0/24, 192.168.7.0/24 }
-  # nft delete element filter blacklist { 192.168.5.0/24, 192.168.7.0/24 }
-
-  Note: this requires a couple of patches in Linux >= 4.7-rc1, I will
-  request submission to -stable asap.
-
-* Resolve dynamic map evaluation problems, so this below now works:
-
-  # cat ruleset.file
-  table ip mangle {
-        map CLASS05 {
-                type ipv4_addr : mark
-                elements = { 192.168.0.10 : 0x00000001}
-        }
-
-        chain OUTPUT {
-                type route hook output priority 0; policy accept;
-                mark set ip saddr map @CLASS05
-        }
-  }
-  # nft -f ruleset.file
-
-* Filtering based on layer 2 header selectors from the in inet family,
-  eg.
-
-  # nft add rule inet filter forward ether saddr 00:0f:54:0c:11:40 \
-        tcp dport 22 counter accept
-
-* Fix wrong dependency handling, eg. ip protocol != tcp udp dport ssh
-
-* Enforce ip6 proto with exthdr expression.
-
-* Generate the correct bytecode on NAT redirection where ports are
-  specified, eg.
-
-  # nft add rule ip nat prerouting tcp dport 80 redirect to 1025-2048
-
-* Printing of rule comments where misplace when listing the rule
-  handle, the example below shows the right output:
-
-  # nft list ruleset -a
-  table filter {
-        chain input {
-             ...
-             iifname eth0 comment "test" # handle 1
-        }
-  }
-
-* Restore matching of icmp redirect type and ct status snat and dnat.
-
-Resources
-=========
-
-The nftables code can be obtained from:
-
-* http://netfilter.org/projects/nftables/downloads.html
-* ftp://ftp.netfilter.org/pub/nftables
-* git://git.netfilter.org/nftables
-
-To build the code, libnftnl 1.0.6 and libmnl >= 1.0.2 are required:
-
-* http://netfilter.org/projects/libnftnl/index.html
-* http://netfilter.org/projects/libmnl/index.html
-
-Visit our wikipage for user documentation at:
-
-* http://wiki.nftables.org
-
-For the manpage reference, check man(8) nft.
-
-In case of bugs and feature request, file them via:
-
-* https://bugzilla.netfilter.org
-
-Make sure you create no duplicates already, thanks!
-
-Happy testing!
-
-
---W/nzBZO5zC0uMSeA
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: attachment; filename="changes-nftables-0.6.txt"
-Content-Transfer-Encoding: 8bit
-
-Arturo Borrero (27):
-      tests/: rearrange tests directory
-      tests/: add shell test-suite
-      tests/shell: add maps tests cases
-      tests/shell: add test case for cache bug
-      tests/shell: add tests for handles and comments
-      rule: don't list anonymous sets
-      rule: delete extra space in sets printing
-      tests/shell: add first `nft -f' tests
-      tests/listing: add some listing tests
-      tests/shell: unload modules between tests
-      tests/shell/run-tests.sh: tune kernel cleanup
-      tests/shell: add chain validations tests
-      rule: don't print trailing statement whitespace
-      tests/shell: add new testcases for commit/rollback
-      tests/shell: add some tests for network namespaces
-      evaluate: improve rule management checks
-      test: shell: also unload NAT modules
-      tests/shell: add testcases for Netfilter bug #965
-      tests/shell: delete tempfile failover in testcases
-      tests: shell: add testcases for named sets with intervals
-      tests: py: allow to run tests with other nft binaries
-      dist: include tests/ directory and files in tarball
-      evaluate: check for NULL datatype in rhs in lookup expr
-      tests/shell: add testcase for 'nft -f' load with actions
-      tests/shell: add testcase to catch segfault if invalid syntax was used
-      tests/shell/run-tests.sh: execute tests in sorted order
-      tests/shell/run-tests.sh: print hint about testcase being executed
-
-Arturo Borrero Gonzalez (1):
-      rule: fix printing of rule comments
-
-Carlos Falgueras García (6):
-      src: Add command "replace" for rules
-      rule: Use libnftnl user data TLV infrastructure
-      netlink_linearize: do not duplicate user data when linearizing user data
-      set_elem: Use libnftnl/udata to store set element comment
-      parser: Consolidate comment production
-      parser: cap comment length to 128 bytes
-
-Florian Westphal (54):
-      tests: don't depend on set element order
-      nft: allow stacking vlan header on top of ethernet
-      payload: disable payload merge if offsets are not on byte boundary.
-      src: netlink_linearize: handle sub-byte lengths
-      src: netlink: don't truncate set key lengths
-      nft: fill in doff and fix ihl/version template entries
-      netlink: cmp: shift rhs constant if lhs offset doesn't start on byte boundary
-      tests: add tests for ip version/hdrlength/tcp doff
-      nft: support listing expressions that use non-byte header fields
-      tests: vlan tests
-      vlan: make != tests work
-      expression: provide clone operation for set element ops
-      src: allow filtering on L2 header in inet family
-      tests: add tests matching on ether saddr for inet, bridge, ip, ip6
-      rule: don't reorder protocol payload expressions when merging
-      tests: add test cases for ethernet header matching
-      tests: add inet test for ip/ether concatenation
-      tests: regression: fix arp.t expected payload
-      doc: update meta and ct expression keyword lists
-      ct: add support for directional keys
-      netlink: don't handle lhs zero-length expression as concat type
-      netlink: only drop mask if it matches left known-size operand
-      src: ct: make ct l3proto work
-      tests: add ct tests for ip family
-      nft: swap key and direction in ct_dir syntax
-      ct: add packet/byte counter support
-      netlink_linearize: use u64 conversion for 64bit quantities
-      ct regression tests for bytes, packets
-      tests: ct: remove BUG cases that work with current master
-      doc: update ct expression
-      netlink: move binop postprocess to extra function
-      tests: add two map test cases
-      netlink: do binop postprocessing also for map lookups
-      netlink_delinearize: only remove protocol if equal cmp is used
-      meta: fix error checks in tc handle parser
-      examples: use current type names
-      evaluate: reject set references in set elements
-      evaluate: enforce ip6 proto with exthdr expression
-      netlink: split generic part of netlink_gen_payload_mask into helper
-      netlink: add and use netlink_gen_exthdr_mask
-      payload: move payload_gen_dependency generic part to helper
-      exthdr: generate dependencies for inet/bridge/netdev family
-      tests: add/fix inet+exthdr tests
-      exthdr: remove implicit dependencies
-      exthdr: store offset for later use
-      netlink_delinearize: prepare binop_postprocess for exthdr demux
-      netlink_delinearize: handle extension header templates with odd sizes
-      tests: frag: enable more tests
-      netlink_delinearize: fix bogus offset w exthdr expressions
-      nft-test: don't zap remainder of rule after handling a set
-      netlink_delinarize: shift constant for ranges too
-      tests: frag: enable more tests
-      payload: only merge if adjacent and combined size fits into a register
-      netlink_delinerize: don't use meta_match_postprocess for ct pp
-
-Laura Garcia Liebana (3):
-      proto: Add router advertisement and solicitation icmp types
-      doc: fix compression parameter index
-      doc: fix old parameters and update datatypes
-
-Liping Zhang (4):
-      evaluate: fix crash if we add an error format rule
-      meta: fix endianness in priority
-      meta: fix a format error display when we set priority to root or none
-      parser: fix crash if we add a chain with an error chain type
-
-Magnus Öberg (1):
-      build: include/mini-gmp.h is not included at "make dist"
-
-Pablo M. Bermudo Garay (16):
-      tests: regression: homogenize indentation style
-      tests: regression: allow to run tests from anywhere
-      tests: add *.got files to .gitignore
-      tests: remove useless logic
-      tests: fix crash when rule test is malformed
-      tests/py: remove unused variables
-      tests/py: fix style
-      tests/py: simplify use of globals
-      tests/py: convert chains and tables to objects
-      tests/py: modify supported test file syntax
-      tests/py: update test files syntax
-      rule: add 'list flow tables' support
-      rule: add support for display flow tables content
-      src: add 'list maps' support
-      src: add support for display maps content
-      evaluate: fix "list set" unexpected behaviour
-
-Pablo Neira Ayuso (96):
-      src: add per-bytes limit
-      src: add burst parameter to limit
-      tests: limit: extend them to validate new bytes/second and burst parameters
-      rule: filter out tables depending on family
-      parser: show all tables via list tables with no family
-      src: add dup statement support
-      tests: add tests for dup
-      rule: display table when listing sets
-      src: add `list chains' command
-      rule: display table when listing one set
-      evaluate: check if set exists before listing it
-      rule: `list sets' only displays declaration, not definition
-      rule: rework list chain
-      parser_bison: show all sets via list sets with no family
-      evaluate: check if table and chain exists when adding rules
-      netlink_linearize: factor out prefix generation
-      evaluate: fix mapping evaluation
-      src: add interface wildcard matching
-      evaluate: fix string matching on big endian
-      netlink_delinearize: fix use-after-free
-      tests: vlan pcp and cfi are located in the first byte
-      src: fix sub-byte protocol header definitions
-      netlink_delinearize: postprocess expression before range merge
-      netlink_delinearize: add previous statement to rule_pp_ctx
-      src: add new netdev protocol description
-      tests: py: check set value from selector and map
-      parser: restrict relational rhs expression recursion
-      parser: add redirect constant to rhs_expr rule
-      parser: get rid of multiton_expr from lhs relational expression
-      parser: rename multiton_expr to multiton_rhs_expr
-      parser: restore bitwise operations from the rhs of relational expressions
-      parser_bison: initializer_expr must use rhs_expr
-      tests/py: don't test log statement from protocol match
-      tests/py: test udp from ip and ip6 families
-      tests/py: netdev family with ingress chain
-      src: support limit rate over value
-      src: add dup statement for netdev
-      src: add fwd statement for netdev
-      tests/py: test port ranges and maps for redirect
-      evaluate: resolve_protocol_conflict() should return int
-      evaluate: move inet/netdev protocol context supersede logic to supersede_dep()
-      evaluate: check if we have to resolve a conflict in first place
-      evaluate: don't adjust offset from resolve_protocol_conflict()
-      evaluate: only try to replace dummy protocol from link-layer context
-      evaluate: assert on invalid base in resolve_protocol_conflict()
-      evaluate: wrap protocol context debunk into function
-      evaluate: generate ether type payload after meta iiftype
-      proto: proto_dev_type() returns interface type for base protocols too
-      src: annotate follow up dependency just after killing another
-      tests/py: test vlan on ingress
-      netlink_delinearize: prune implicit binop before payload_match_postprocess()
-      proto: use parameter-problem for icmpv6 type
-      tests/py: extend masquerade to cover ports too
-      rule: simplify ("rule: delete extra space in sets printing")
-      parser: remove 'reset' as reserve keyword
-      tests/py: enable tests for dccp types
-      parser_bison: allow 'snat' and 'dnat' keywords from the right-hand side
-      tests/py: add tests for router-advertisement and router-solicitation icmp types
-      src: revisit cache population logic
-      evaluate: use table_lookup_global() from expr_evaluate_symbol()
-      parser_bison: simplify hook_spec rule
-      parser_bison: duplicate string returned by chain_type_name_lookup()
-      parser_bison: release parsed type and hook name strings
-      src: store parser location for handle and position specifiers
-      segtree: perform stricter expression type validation from expr_value()
-      segtree: clone full expression from interval_map_decompose()
-      segtree: handle adjacent interval nodes from expr_value_cmp()
-      segtree: explicit initialization via set_to_intervals()
-      rule: support for incremental set interval element updates
-      segtree: special handling for the first non-matching segment
-      evaluate: bail out on prefix or range to non-interval set
-      segtree: set expr->len for prefix expression from interval_map_decompose()
-      segtree: add expr_to_intervals()
-      segtree: rename set expression set_to_segtree()
-      segtree: add interval overlap detection for dynamic updates
-      tests/py: add more interval tests for anonymous sets
-      tests/py: explicitly indication of set type and flags from test definitions
-      tests/py: add interval tests
-      evaluate: transfer right shifts to range side
-      evaluate: transfer right shifts to set reference side
-      src: move payload sub-byte matching to the evaluation step
-      evaluate: handle payload matching split in two bytes
-      proto: update IPv6 flowlabel offset and length according to RFC2460
-      proto: remove priority field definition from IPv6 header
-      src: add dscp support
-      src: add ecn support
-      tests/py: add missing netdev ip dscp payload tests
-      tests/py: fix fragment-offset field
-      tests/py: fix payload of dccp type in set elements
-      netlink: several function constifications
-      src: declare interval_map_decompose() from header file
-      tests/py: update for changed set name in payload
-      parser_bison: update flow table syntax
-      include: constify nlexpr field in location structure
-      tests/py: add tests for frag more-fragments and frag reserved2
-      Bump version to v0.6
-
-Patrick McHardy (17):
-      rule: move comment out of handle
-      proto: add checksum key information to struct proto_desc
-      payload: add payload statement
-      proto: fix arpop symbol table endianess
-      netlink: fix up indentation damage
-      payload: fix stacked headers protocol context tracking
-      nft: resync kernel header files
-      payload: move payload depedency tracking to payload.c
-      payload: add payload_is_stacked()
-      proto: add protocol header fields filter and ordering for packet decoding
-      nft monitor [ trace ]
-      evaluate: transfer right shifts to constant side
-      set: allow non-constant implicit set declarations
-      set: explicitly supply name to implicit set declarations
-      netlink_delinearize: support parsing statements not contained within a rule
-      stmt: support generating stateful statements outside of rule context
-      src: add flow statement
-
-Piyush Pangtey (3):
-      doc: nft: Fixed a typo and added/changed punctuation
-      nft: Modified punctuation used in nft's show_help
-      rule: Remove memory leak
-
-Shivani Bhardwaj (5):
-      src: datatype: Modify symbol table for icmpv6 packet types
-      ip6: Add tests for icmpv6 packet types
-      src: netlink_linearize: Fix bug for redirect target
-      src: Add support for masquerade port selection
-      src: evaluate: Show error for fanout without balance
-
-
---W/nzBZO5zC0uMSeA--
+On Thu, Jun 2, 2016 at 3:14 PM, Randall Stewart <rrs@netflix.com> wrote=
+:
+>
+> Pau:
+>
+> Hopefully me setting the =E2=80=9Cplain text=E2=80=9D in my Mac-Mail =
+preferences will make this
+> plain text :-)
+>
+>
+> >>
+> >>
+> >> Well yes the probability is increased but definitely not assured :=
+-)
+> >> Your scenario is specific to a very high loss path. Which is why
+> >> the challenge ack is lost...
+> >>
+> >
+> > Correct. But still an improvement in this particular situation with
+> > the only drawback of checking against 5 (4+1) SEQ numbers instead o=
+f
+> > 1.
+> >
+> >
+> >>
+> >>
+> >> Possibly another alternative is to change the client where when se=
+nding a
+> >> RST
+> >> with a TCB instead of using snd_nxt you could use snd_una. Of cour=
+se that
+> >> could
+> >> also result in a challenge ACK if the receiver has not yet receive=
+d a
+> >> ACK that is in flight (that was the whole purpose of the challenge=
+ ack). I
+> >> think overall
+> >> you will always have this problem i.e. the sender of the RST may n=
+ot know
+> >> precisely
+> >> the state of the receiver.
+> >>
+> >>
+> >> Indeed, I guess there will still be same problem in other scenario=
+s.
+> >> On top of that, it seems a bit weird to me to send a RST packet us=
+ing
+> >> a SEQ number which was already used to send a different packet (th=
+at's
+> >> what would happen in this case right?).
+> >>
+> >>
+> >> Why the trick here is you want to RST the connection. You need to =
+use
+> >> a seq number that is valid.. the seq numbers once a RST is being s=
+ent
+> >> mean nothing the app will get the same thing.
+> >>
+> >> In fact snd_nxt in the scenario above is *also* a re-used sequence=
+ number.
+> >> You
+> >> retransmitted from snd_una for one segment, snd_nxt got left 1 seg=
+ment up,
+> >> so
+> >> when you sent the RST it would be snd_nxt which was previously a d=
+ata
+> >> segment being marked with RST.
+> >>
+> >> If you wanted to assure that no other segment had been sent with t=
+hat
+> >> sequence you would have to put snd_max as the value, but of course
+> >> that *would* return a challenge ack for sure.
+> >>
+> >> The trick here is you are trying to =E2=80=9Cguess=E2=80=9D where =
+the peer is. The only
+> >> thing you know for sure is snd_una. Anything else in flight won=E2=
+=80=99t  reset
+> >> the peer. In fact in your scenario if you had sent snd_una instead=
+ of
+> >> snd_nxt it would have worked. If you changed the sender to use
+> >> snd_una then it would be interesting to see if that also gave you
+> >> similar results...
+> >>
+> >>
+> >>
+> >>
+> >> Your fix happens to work since the receiver happens to have the SA=
+CK blocks
+> >> in question.. this is fine and if you don=E2=80=99t mind *weakenin=
+g the security* of
+> >> the
+> >> RST you could do that. I think for stack I am working on for FreeB=
+SD I will
+> >> change
+> >> the stack I am working on to recognize the RST going out and use s=
+nd_una.
+> >>
+> >>
+> >> You mean here you are always going to use snd_una or that you are
+> >> going to try to figure out some heuristics to use either snd_next =
+or
+> >> snd_una depending on the scenario?
+> >>
+> >>
+> >> For this scenario I will always use snd_una I am not sure you can =
+reliably
+> >> develop any heuristics to tell you to use snd_una/snd_nxt or some =
+other
+> >> block that as been sent :-)
+> >>
+> >> snd_una is actually the most actuate as to what you know at the ti=
+me not
+> >> snd_nxt. I am sure using snd_nxt is a hold over from before the RF=
+C got
+> >> implemented.
+> >>
+> >
+> > As, as far as I understand now, it could be useful to improve the
+> > situation in the sender too by checking if we recently received SAC=
+K
+> > blocks from the receiver and in that case sending the RST using
+> > snd_una instead of snd_nxt because in that case we will almost sure=
+ly
+> > receive a challenge_ack if we use snd_nxt as SEQ for the RST.
+> >
+>
+> Checking the scoreboard and using snd_una instead of snd_nxt
+> might help things.
+>
+> > On the other hand, using  always snd_una as SEQ for the RST would
+> > cause other (even more usual) cases to be discarded or answered wit=
+h a
+> > challenge ACK which are accepted right now. I'm thinking for instan=
+ce
+> > any case in which you send packets (so in flight packets
+> > sender->receiver) just before the RST is sent (with the snd_una).
+> > Packets are received by the receiver and RCV_NXT is updated and the=
+n
+> > you receive the RST which is < than RCV_NXT just updated. Am I miss=
+ing
+> > something? Please correct me if I'm wrong.
+> >
+>
+> I think if packets are in flight either way you are taking a gamble o=
+n what
+> you are sending, snd_nxt/snd_una and snd_max.
+>
+> If you are idle and send a RST then those should all be the same and
+> you will win :)
+>
+> snd_nxt will be questionable if you are in the middle of retransmitti=
+ng (your case)
+> since you really don=E2=80=99t know where it is.
+>
+> I do like your idea of using the scoreboard to tell if you need to us=
+e
+> snd_una or snd_nxt. In theory if the scoreboard is empty using
+> snd_nxt should be the equivalent to using snd_max.. but if they
+> are not equal then you are doing a retransmit and it becomes a crap
+> shoot what you should use here.
+>
+> All of this IMO is only relevant if you are having high packet loss. =
+If that
+> is not the case having to go through a challenge ack to remove a TCB
+> does not hurt anything.
+>
+> > Even in my case (SACK on), I guess it could even happen that due to
+> > fast retransmit the first unacked packet (snd_una) is sent and then
+> > the sender also sends the RST, and the receiver received the data
+> > packet, updates RCV_NXT and the RST packet is discarded.
+>
+> And the challenge ack is sent back.
+>
+No, it's not, that why I think so far using snd_una is probably not a
+better idea than using snd_nxt. Becasue you still have the same
+problems (sometimes the RST is not accepted), plus sometimes, on top
+of that, the receiver doesn't send  a challenge_ack or a dupack.
+
+If I understood snd_una correctly, it can happen if sender sends a
+packet, and before receiving the ACK for it (which was already
+processed by the receiver), it sends a RST.
+
+I use this packetdrill test to emulate the scenario:
+
+0  socket(..., SOCK_STREAM, IPPROTO_TCP) =3D 3
++0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
++0 bind(3, {sa_family =3D AF_INET, sin_port =3D htons(13000), sin_addr =
+=3D
+inet_addr("192.168.0.1")}, ...) =3D 0
++0 listen(3, 1) =3D 0
+
++0 < S 0:0(0) win 500 <mss 1460,sackOK,nop,nop,nop,wscale 7> sock(3)
++0 > S. 0:0(0) ack 1 win 29200 <mss 1460,nop,nop,sackOK,nop,wscale 7> s=
+ock(3)
++0 < . 1:1(0) ack 1 win 500 sock(3)
++0 accept(3, ..., ...) =3D 4
+
+// First roundtrip of data client->server (upload)
++0 < P. 1:1001(1000) win 500 sock(4)
++0 > . 1:1(0) ack 1001 <...> sock(4)
+
+//In here we assume the case in which 1 packet is sent and then the
+RST (using snd_una) is generated before seeing the ACK which is in
+flight from receiver->sender:
++0 < P. 1001:2001(1000) win 500 sock(4)
++0 > . 1:1(0) ack 2001 <...>
++0 < R. 1001:1001(0) win 500 sock(4)
+// No extra ACK after the RST is generated
+
+// To clearly differentiate closing connections around the same time
+due to packetdrill finishing
++0 `sleep 10`
+
+That's basically because it fails in a prior check to the SEQ=3D=3DRCV_=
+NXT
+in the receiver.
+The check is actually:
+if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)) =
+{
+
+then, inside the if, as the packet is a RST, it is discarded without
+sending any packet back.
+The fail inside tcp_sequence is because this condition is true:
+"before(end_seq, tp->rcv_wup)"
+
+That's the case in which 1 packets before the RST has been already
+acked but it didn't arrive yet to the client when it decided to reset
+the connection. I guess it can be quite a common scenario.
+
+Maybe the logic in BSD-alike hosts is different, I don't know.
+
+> >
+> > So, as a summary I think we should still keep the patch in the
+> > receiver to improve the situation in any case, and also do further
+> > work to improve the situation in the sender.
+> >
+> > All that being said, it's OK for me to add a sysctl to configure it=
+=2E
+> > More opinions on whether it's needed or not for the patch are welco=
+me.
+>
+> I can=E2=80=99t say whats best for linux.. since I am really not invo=
+lved in that
+> community :-) But I do like the ideas of sysctl=E2=80=99s to control =
+behavior. That
+> way the sysadmin can cater the system to his/or/her environment :-D
+>
+> R
+>
+> >
+> >> I don=E2=80=99t like the idea of weakening the security, I know as=
+ you propose below
+> >> its
+> >> just 5 in 2^^32 instead of 1 in 2^^32 but depending on how you imp=
+lement it
+> >> you could stretch that to be the number of sack blocks the receive=
+r holds.
+> >>
+> >>
+> >> As stated above, I think it would probably be enough to check for
+> >> those 4-5 seq numbers and not for all of them, which would on top =
+not
+> >> hit on security that much (but still maybe too much for somebody).
+> >>
+> >>
+> >> I would think if you implement it that way I would have an option =
+of sysctl
+> >> to turn
+> >> it off. But I still think snd_una is a better alternative ;-)
+> >>
+> >> R
+> >>
+> >>
+> >>
+> >> R
+> >>
+> >>
+> >> On Jun 1, 2016, at 1:41 AM, Yuchung Cheng <ycheng@google.com> wrot=
+e:
+> >>
+> >> On Tue, May 31, 2016 at 9:50 AM, Pau Espin <pau.espin@tessares.net=
+> wrote:
+> >>
+> >>
+> >> Hi, sorry re-sending because I didn't have plain text mode enabled=
+ and
+> >> message didn't arrive to the mailing list. Also dropping some mail
+> >> addresses from RFC authors which probed to be unavailable anymore.
+> >>
+> >> The problem is not caused by the host-wide rate limit.
+> >> I analyzed the scenario with tcpdump and I see the challenge ACKs =
+are
+> >> being sent, but due to network conditions sometimes they can be lo=
+st.
+> >> On top of that, the RST being sent from the client to the server a=
+fter
+> >> receiving the challenge ACK can also sometimes be lost. I even fou=
+nd
+> >> the client/router had a problem with iptables setup and was actual=
+ly
+> >> not sending back RST for incoming TCP packets without an existing
+> >> connection established (should be the one already closed before wi=
+th
+> >> the first RST sent by the client and which originated the challeng=
+e
+> >> ACK).
+> >>
+> >> In my test scenario I'm using MultiPathTCP and I'm recreating (des=
+troy
+> >> with RST, then create with SYN)  the subflow on one of the interfa=
+ces
+> >> every aprox 5 seconds while uploading a big file. Due to network
+> >> conditions and/or router stopping the RSTs, after less than 5 min,=
+ I
+> >> have more than 32 subflow connections created for that MPTCP
+> >> connection, which is the hardcoded maximum, and from that point I'=
+m
+> >> unable to create/use new subflows until some of them are closed, w=
+hich
+> >> can take quite a lot of time. After this patch is applied, the num=
+ber
+> >> of subflows is kind of stable at 4-5 subflows during the whole upl=
+oad.
+> >> It's still not 2 (one permanent in iface1 and the recreated one in
+> >> iface2) because sometimes due to network problems the packet befor=
+e
+> >> the RST is lost and thus the RST which arrives is not equal to nex=
+t
+> >> expected seq number from the right edge of the SACK block. But sti=
+ll,
+> >> it makes the situation quite better, specially from user point of
+> >> view.
+> >>
+> >> Here's an example of the issue without my patch (challenge ACK is =
+sent
+> >> although the RST is in current place). It shows server acknowledgi=
+ng
+> >> data with SACK in first line. Then, on 2nd line, client decides to
+> >> terminate the connexion and uses his next SEQ number available. On=
+ 3rd
+> >> line, server answers with the challenge ACK. Then no answer comes =
+from
+> >> that challenge ack and the TCP conn is left opened.
+> >>
+> >> 14202    73.086360    10.0.4.2    443    10.67.15.100    53755    =
+TCP
+> >> 94    [TCP Dup ACK 14192#4] 443=E2=86=9253755 [ACK] Seq=3D35518069=
+92
+> >> Ack=3D1240653972 Win=3D1573120 Len=3D0 TSval=3D4022818 TSecr=3D110=
+6789
+> >> SLE=3D1240836636 SRE=3D1240942836 SLE=3D1240770084 SRE=3D124083522=
+0
+> >> 14203    73.086363    10.67.15.100    53755    10.0.4.2    443    =
+TCP
+> >> 74    53755=E2=86=92443 [RST, ACK] Seq=3D1240942836 Ack=3D35518069=
+92 Win=3D90240
+> >> Len=3D0 TSval=3D1106847 TSecr=3D4022536
+> >> 14204    73.086368    10.0.4.2    443    10.67.15.100    53755    =
+TCP
+> >> 94    [TCP Dup ACK 14192#5] 443=E2=86=9253755 [ACK] Seq=3D35518069=
+92
+> >> Ack=3D1240653972 Win=3D1573120 Len=3D0 TSval=3D4022818 TSecr=3D110=
+6789
+> >> SLE=3D1240836636 SRE=3D1240942836 SLE=3D1240770084 SRE=3D124083522=
+0
+> >>
+> >> So, the main point in here is trying to improve the situation to c=
+lose
+> >> the connections and free resources in some specific cases without
+> >> actually going pre RFC5961 state. That would mean when a RST is
+> >> received, up to 4-5 SEQs are checked to match instead of 1.
+> >>
+> >> I didn't contact the authors of the RFC. I CC them in this e-mail.=
+ I
+> >> hope that's the right thing to do in this case and that they don't
+> >> mind it in case they want to follow the topic.
+> >>
+> >> I will have a look at packetdrill to try to reproduce it somehow t=
+here.
+> >>
+> >> On Tue, May 31, 2016 at 5:12 PM, Eric Dumazet <eric.dumazet@gmail.=
+com>
+> >> wrote:
+> >>
+> >> On Tue, 2016-05-31 at 13:38 +0200, Pau Espin Pedrol wrote:
+> >>
+> >> RFC 5961 advises to only accept RST packets containing a seq numbe=
+r
+> >> matching the next expected seq number instead of the whole receive
+> >> window in order to avoid spoofing attacks.
+> >>
+> >> However, this situation is not optimal in the case SACK is in use =
+at the
+> >> time the RST is sent. I recently run into a scenario in which pack=
+et
+> >> losses were high while uploading data to a server, and userspace w=
+as
+> >> willing to frequently terminate connections by sending a RST. In
+> >> this case, the ACK sent on the receiver side is frozen waiting for=
+ a lost
+> >> packet retransmission and a SACK block is used to let the client
+> >> continue uploading data. At some point later on, the client sends =
+the
+> >> RST, which matches the next expected seq number of the SACK block =
+on the
+> >> receiver side which is going forward receiving data.
+> >>
+> >> In this scenario, as RFC 5961 defines, the SEQ doesn't match the f=
+rozen
+> >> main ACK at receiver side and thus gets dropped and a challenge AC=
+K is
+> >> sent, which gets usually lost due to network conditions. The main
+> >> consequence is that the connection stays alive for a while even if=
+ it
+> >> made sense to accept the RST. This can get really bad if lots of
+> >> connections like this one are created in few seconds, allocating a=
+ll the
+> >> resources of the server easily.
+> >>
+> >> From security point of view: the maximum number of SACK blocks for=
+ a TCP
+> >> connection is limited to 4 due to options field maximum length, an=
+d that
+> >>
+> >> This is not true. The maximum number of SACK blocks for a TCP "pac=
+ket"
+> >> is limited to 4. But a TCP connection can keep an arbitrary amount=
+ of
+> >> SACK blocks.
+> >>
+> >> means we match at maximum against 5 seq numbers, which should make=
+ it
+> >> still difficult for attackers to inject a valid RST message.
+> >>
+> >> This patch was tested in a 3.18 kernel and probed to improve the
+> >> situation in the scenario described above.
+> >>
+> >> Signed-off-by: Pau Espin Pedrol <pau.espin@tessares.net>
+> >> ---
+> >> net/ipv4/tcp_input.c | 18 +++++++++++++++++-
+> >> 1 file changed, 17 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> >> index d6c8f4cd0..4727dc8 100644
+> >> --- a/net/ipv4/tcp_input.c
+> >> +++ b/net/ipv4/tcp_input.c
+> >> @@ -5159,6 +5159,7 @@ static bool tcp_validate_incoming(struct soc=
+k *sk,
+> >> struct sk_buff *skb,
+> >>                              const struct tcphdr *th, int syn_iner=
+r)
+> >> {
+> >>    struct tcp_sock *tp =3D tcp_sk(sk);
+> >> +     bool rst_seq_match =3D false;
+> >>
+> >>    /* RFC1323: H1. Apply PAWS check first. */
+> >>    if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstam=
+p &&
+> >> @@ -5195,13 +5196,28 @@ static bool tcp_validate_incoming(struct s=
+ock *sk,
+> >> struct sk_buff *skb,
+> >>
+> >>    /* Step 2: check RST bit */
+> >>    if (th->rst) {
+> >> -             /* RFC 5961 3.2 :
+> >> +             /* RFC 5961 3.2 (extended to match against SACK too =
+if
+> >> available):
+> >>             * If sequence number exactly matches RCV.NXT, then
+> >>             *     RESET the connection
+> >>             * else
+> >>             *     Send a challenge ACK
+> >>             */
+> >>            if (TCP_SKB_CB(skb)->seq =3D=3D tp->rcv_nxt)
+> >> +                     rst_seq_match =3D true;
+> >> +             else if (tcp_is_sack(tp)) {
+> >> +                     int this_sack;
+> >> +                     struct tcp_sack_block *sp =3D tp->rx_opt.dsa=
+ck ?
+> >> +                                     tp->duplicate_sack :
+> >> tp->selective_acks;
+> >> +
+> >> +                     for (this_sack =3D 0; this_sack < tp->rx_opt=
+=2Enum_sacks;
+> >> ++this_sack) {
+> >> +                             if (TCP_SKB_CB(skb)->seq =3D=3D
+> >> sp[this_sack].end_seq) {
+> >> +                                     rst_seq_match =3D true;
+> >> +                                     break;
+> >> +                             }
+> >> +                     }
+> >> +             }
+> >> +
+> >> +             if (rst_seq_match)
+> >>                    tcp_reset(sk);
+> >>            else
+> >>                    tcp_send_challenge_ack(sk, skb);
+> >> --
+> >> 2.5.0
+> >>
+> >>
+> >> It looks like you want to seriously relax RFC 5961 ...
+> >>
+> >> Could you have a problem because of the host-wide RFC 5961 rate li=
+mit ?
+> >>
+> >> Have you contacted RFC authors ?
+> >>
+> >> If the peer sends the RST, presumably it should answer to the chal=
+lenge
+> >> ACK right away, since it does not care of the SACK blocks anymore.
+> >>
+> >> A packetdrill test demonstrating the issue would be nice.
+> >>
+> >> Thanks.
+> >>
+> >>
+> >>
+> >>
+> >>
+> >>
+> >> --
+> >> Pau Espin Pedrol | R&D Engineer - External
+> >> pau.espin@tessares.net | +32 487 43 36 50
+> >> Tessares SA | Hybrid Access Solutions
+> >> www.tessares.net
+> >> 6 Rue Louis de Geer, 1348 Louvain-la-Neuve, Belgium
+> >>
+> >> --
+> >>
+> >> ------------------------------
+> >> DISCLAIMER.
+> >> This email and any files transmitted with it are confidential and =
+intended
+> >> solely for the use of the individual or entity to whom they are ad=
+dressed.
+> >> If you have received this email in error please notify the system =
+manager.
+> >> This message contains confidential information and is intended onl=
+y for the
+> >> individual named. If you are not the named addressee you should no=
+t
+> >> disseminate, distribute or copy this e-mail. Please notify the sen=
+der
+> >> immediately by e-mail if you have received this e-mail by mistake =
+and
+> >> delete this e-mail from your system. If you are not the intended r=
+ecipient
+> >> you are notified that disclosing, copying, distributing or taking =
+any
+> >> action in reliance on the contents of this information is strictly
+> >> prohibited.
+> >>
+> >>
+> >> --------
+> >> Randall Stewart
+> >> rrs@netflix.com
+> >> 803-317-4952
+> >>
+> >>
+> >>
+> >>
+> >>
+> >>
+> >>
+> >>
+> >> --
+> >> Pau Espin Pedrol | R&D Engineer - External
+> >> pau.espin@tessares.net | +32 487 43 36 50
+> >> Tessares SA | Hybrid Access Solutions
+> >> www.tessares.net
+> >> 6 Rue Louis de Geer, 1348 Louvain-la-Neuve, Belgium
+> >>
+> >> --
+> >>
+> >> ------------------------------
+> >> DISCLAIMER.
+> >> This email and any files transmitted with it are confidential and =
+intended
+> >> solely for the use of the individual or entity to whom they are ad=
+dressed.
+> >> If you have received this email in error please notify the system =
+manager.
+> >> This message contains confidential information and is intended onl=
+y for the
+> >> individual named. If you are not the named addressee you should no=
+t
+> >> disseminate, distribute or copy this e-mail. Please notify the sen=
+der
+> >> immediately by e-mail if you have received this e-mail by mistake =
+and
+> >> delete this e-mail from your system. If you are not the intended r=
+ecipient
+> >> you are notified that disclosing, copying, distributing or taking =
+any
+> >> action in reliance on the contents of this information is strictly
+> >> prohibited.
+> >>
+> >>
+> >> --------
+> >> Randall Stewart
+> >> rrs@netflix.com
+> >> 803-317-4952
+> >>
+> >>
+> >>
+> >>
+> >>
+> >
+> >
+> >
+> > --
+> > Pau Espin Pedrol | R&D Engineer - External
+> > pau.espin@tessares.net | +32 487 43 36 50
+> > Tessares SA | Hybrid Access Solutions
+> > www.tessares.net
+> > 6 Rue Louis de Geer, 1348 Louvain-la-Neuve, Belgium
+> >
+> > --
+> >
+> > ------------------------------
+> > DISCLAIMER.
+> > This email and any files transmitted with it are confidential and i=
+ntended
+> > solely for the use of the individual or entity to whom they are add=
+ressed.
+> > If you have received this email in error please notify the system m=
+anager.
+> > This message contains confidential information and is intended only=
+ for the
+> > individual named. If you are not the named addressee you should not
+> > disseminate, distribute or copy this e-mail. Please notify the send=
+er
+> > immediately by e-mail if you have received this e-mail by mistake a=
+nd
+> > delete this e-mail from your system. If you are not the intended re=
+cipient
+> > you are notified that disclosing, copying, distributing or taking a=
+ny
+> > action in reliance on the contents of this information is strictly
+> > prohibited.
+>
+> --------
+> Randall Stewart
+> rrs@netflix.com
+> 803-317-4952
+>
+>
+>
+>
+>
+
+
+
+--=20
+Pau Espin Pedrol | R&D Engineer - External
+pau.espin@tessares.net | +32 487 43 36 50
+Tessares SA | Hybrid Access Solutions
+www.tessares.net
+6 Rue Louis de Geer, 1348 Louvain-la-Neuve, Belgium
+
+--=20
+
+------------------------------
+DISCLAIMER.
+This email and any files transmitted with it are confidential and inten=
+ded=20
+solely for the use of the individual or entity to whom they are address=
+ed.=20
+If you have received this email in error please notify the system manag=
+er.=20
+This message contains confidential information and is intended only for=
+ the=20
+individual named. If you are not the named addressee you should not=20
+disseminate, distribute or copy this e-mail. Please notify the sender=20
+immediately by e-mail if you have received this e-mail by mistake and=20
+delete this e-mail from your system. If you are not the intended recipi=
+ent=20
+you are notified that disclosing, copying, distributing or taking any=20
+action in reliance on the contents of this information is strictly=20
+prohibited.
