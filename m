@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: do not sleep in atomic context for mdio_reset
-Date: Thu, 02 Jun 2016 12:12:45 -0700 (PDT)
-Message-ID: <20160602.121245.1302730459604436490.davem@davemloft.net>
-References: <1464796428-25623-1-git-send-email-vpalatin@chromium.org>
+Subject: Re: [PATCH] net: ethernet: wiznet: Remove create_workqueue
+Date: Thu, 02 Jun 2016 12:15:41 -0700 (PDT)
+Message-ID: <20160602.121541.1591890175711948513.davem@davemloft.net>
+References: <20160601175914.GA5169@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alexandre.torgue@st.com, peppe.cavallaro@st.com
-To: vpalatin@chromium.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57997 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161368AbcFBTMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 15:12:47 -0400
-In-Reply-To: <1464796428-25623-1-git-send-email-vpalatin@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akinobu.mita@gmail.com, a@unstable.cc,
+	felipe.balbi@linux.intel.com, fw@strlen.de, tj@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bhaktipriya96@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160601175914.GA5169@Karyakshetra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vincent Palatin <vpalatin@chromium.org>
-Date: Wed,  1 Jun 2016 08:53:48 -0700
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Date: Wed, 1 Jun 2016 23:29:15 +0530
 
-> stmmac_mdio_reset() has been updated to use msleep rather udelay
-> (as some PHY requires a one second delay there).
-> It called from stmmac_resume() within the spin_lock_irqsave block
-> atomic context triggering 'scheduling while atomic'.
+> alloc_workqueue replaces deprecated create_workqueue().
 > 
-> The stmmac_priv lock usage is not fully documented, but it seems
-> to protect the access to the MAC registers / DMA structures rather
-> than the MDIO bus or the PHY (which have separate locking),
-> so we can push the spin_lock after the stmmac_mdio_reset call.
+> A dedicated workqueue has been used since the workitems are involved
+> in normal device operation. Workitems &priv->rx_work and &priv->tx_work,
+> map to w5100_rx_work and w5100_tx_work respectively and are involved in
+> receiving and transmitting packets. Forward progress under
+> memory pressure is a requirement here.
 > 
-> Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
+> create_workqueue has been replaced with alloc_workqueue with max_active
+> as 0 since there is no need for throttling the number of active work
+> items.
+> 
+> Since the driver may be used in memory reclaim path,
+> WQ_MEM_RECLAIM has been set to guarantee forward progress.
+> 
+> flush_workqueue is unnecessary since destroy_workqueue() itself calls
+> drain_workqueue() which flushes repeatedly till the workqueue
+> becomes empty. Hence the call to flush_workqueue() has been dropped.
+> 
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
