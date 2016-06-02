@@ -1,94 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible problem with e6afc8ac ("udp: remove headers from UDP
- packets before queueing")
-Date: Thu, 02 Jun 2016 14:52:43 -0700
-Message-ID: <1464904363.5939.185.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAHC9VhS0oH8p55_3yOcQGJWx8WmokHW=kSrKOM6tKPM1XoPjGA@mail.gmail.com>
-	 <1464808695.5939.167.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <0b1fde4f-57ef-8c5e-147f-10c4a51fb2b0@tycho.nsa.gov>
-	 <CAHC9VhQAiTRWMN-vNDXgAni2MhsyEYP8f2mZDY63xrx=5SxenQ@mail.gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v10 1/5] net: add skb_vlan_accel helper
+Date: Thu, 2 Jun 2016 15:01:32 -0700
+Message-ID: <CAOrHB_Bx9Jr0K-obY8Rtz=Gy7Zot8v+hipj-kiM841PNnsZAaQ@mail.gmail.com>
+References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
+	<1464848686-7656-2-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: samanthakumar@google.com, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	samanthakumar <samanthakumar@google.com>
-To: Paul Moore <paul@paul-moore.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:36434 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932240AbcFBVwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 17:52:46 -0400
-In-Reply-To: <CAHC9VhQAiTRWMN-vNDXgAni2MhsyEYP8f2mZDY63xrx=5SxenQ@mail.gmail.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:38532 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932259AbcFBWBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 18:01:37 -0400
+Received: from mfilter24-d.gandi.net (mfilter24-d.gandi.net [217.70.178.152])
+	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 8B3E917209B
+	for <netdev@vger.kernel.org>; Fri,  3 Jun 2016 00:01:35 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+	by mfilter24-d.gandi.net (mfilter24-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id Ou8D3m_tpx_z for <netdev@vger.kernel.org>;
+	Fri,  3 Jun 2016 00:01:34 +0200 (CEST)
+Received: from mail-it0-f44.google.com (mail-it0-f44.google.com [209.85.214.44])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 1B7F61720B2
+	for <netdev@vger.kernel.org>; Fri,  3 Jun 2016 00:01:34 +0200 (CEST)
+Received: by mail-it0-f44.google.com with SMTP id e62so139120908ita.1
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 15:01:33 -0700 (PDT)
+In-Reply-To: <1464848686-7656-2-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> This breaks out some of of skb_vlan_pop into a separate helper.
+> This new helper moves the outer-most vlan tag present in packet data
+> into metadata.
+>
+> The motivation is to allow acceleration VLAN tags without adding a new
+> one. This is in preparation for a push ethernet header support in Open
+> vSwitch.
+>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>
 
-Paul Moore tracked a regression caused by a recent commit, which
-mistakenly assumed that sk_filter() could be avoided if socket
-had no current BPF filter.
-
-The intent was to avoid udp_lib_checksum_complete() overhead.
-
-But sk_filter() also checks skb_pfmemalloc() and
-security_sock_rcv_skb(), so better call it.
-
-Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Paul Moore <paul@paul-moore.com>
-Tested-by: Paul Moore <paul@paul-moore.com>
-Tested-by: Stephen Smalley <sds@tycho.nsa.gov>
-Cc: samanthakumar <samanthakumar@google.com>
----
- net/ipv4/udp.c |   10 +++++-----
- net/ipv6/udp.c |   12 ++++++------
- 2 files changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d56c0559b477..0ff31d97d485 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1618,12 +1618,12 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	if (rcu_access_pointer(sk->sk_filter)) {
--		if (udp_lib_checksum_complete(skb))
-+	if (rcu_access_pointer(sk->sk_filter) &&
-+	    udp_lib_checksum_complete(skb))
- 			goto csum_error;
--		if (sk_filter(sk, skb))
--			goto drop;
--	}
-+
-+	if (sk_filter(sk, skb))
-+		goto drop;
- 
- 	udp_csum_pull_header(skb);
- 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 2da1896af934..f421c9f23c5b 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -653,12 +653,12 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	if (rcu_access_pointer(sk->sk_filter)) {
--		if (udp_lib_checksum_complete(skb))
--			goto csum_error;
--		if (sk_filter(sk, skb))
--			goto drop;
--	}
-+	if (rcu_access_pointer(sk->sk_filter) &&
-+	    udp_lib_checksum_complete(skb))
-+		goto csum_error;
-+
-+	if (sk_filter(sk, skb))
-+		goto drop;
- 
- 	udp_csum_pull_header(skb);
- 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+I am not sure we need this function at this point. I will post comment
+on patch 4 where it is used.
