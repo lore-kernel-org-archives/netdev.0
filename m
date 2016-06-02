@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IOV iterator bug in net tree
-Date: Wed, 01 Jun 2016 17:42:25 -0700 (PDT)
-Message-ID: <20160601.174225.2184872288386003765.davem@davemloft.net>
-References: <CAKgT0UfZFpUVNHnAjem3yCvf6n-EezqLnZerduQi3jQe76RK7Q@mail.gmail.com>
+Subject: Re: [v2 PATCH 0/2] macvlan: Avoid unnecessary multicast cloning
+Date: Wed, 01 Jun 2016 17:49:22 -0700 (PDT)
+Message-ID: <20160601.174922.190841350350542759.davem@davemloft.net>
+References: <20160530082828.GB5106@gondor.apana.org.au>
+	<20160531.140713.2187659962450926738.davem@davemloft.net>
+	<20160601034218.GA31335@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alexander.duyck@gmail.com
+Cc: buytenh@wantstofly.org, kaber@trash.net, netdev@vger.kernel.org,
+	jpirko@redhat.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49920 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49939 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbcFBAm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 20:42:27 -0400
-In-Reply-To: <CAKgT0UfZFpUVNHnAjem3yCvf6n-EezqLnZerduQi3jQe76RK7Q@mail.gmail.com>
+	with ESMTP id S1751164AbcFBAtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 20:49:24 -0400
+In-Reply-To: <20160601034218.GA31335@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Fri, 27 May 2016 21:32:39 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 1 Jun 2016 11:42:18 +0800
 
-> On Fri, May 27, 2016 at 11:21 AM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> I started out this morning by trying to run DevStack on the latest
->> "net' kernel and it looks like I am hanging on some sort of locking
->> problem with RabbitMQ.  Specifically I am seeing one CPU jump to 100%
->> with perf showing that I am spinning on a lock.
->>
->> I'm working to bisect it now, but just thought I would put it out
->> there if anybody had already root caused this issue.  Below is a few
->> traces to the spin lock call on the spinning CPU:
+> This patch tries to improve macvlan multicast performance by
+> maintaining a filter hash at the macvlan_port level so that we
+> can quickly determine whether a given packet is needed or not.
 > 
-> I misread the perf trace.  I wasn't spinning on a lock I was spinning
-> on the IOV iterator.  It just happened to push the lock to the top of
-> the perf trace.  I bisected it down to the recent change in
-> iterate_and_advance which was already fixed in Linus's tree in commit
-> 19f18459330f "do 'fold checks into iterate_and_advance()" right'.
+> It is preceded by a patch that fixes a potential use-after-free
+> bug that I discovered while looking over this.
+> 
+> v2 fixed a bug where promiscuous/allmulti settings weren't handled
+> correctly.
 
-Since I resynced both of my trees with Linus's, this should be resolved
-now, right?
+Series applied to net-next, thanks Herbert.
