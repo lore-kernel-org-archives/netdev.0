@@ -1,131 +1,204 @@
-From: Janusz Dziedzic <janusz.dziedzic@tieto.com>
-Subject: Re: ath9k gpio request
-Date: Thu, 2 Jun 2016 11:01:53 +0200
-Message-ID: <CALhHN=q=pK8vzEnr4YfDsGaRqXegzEJh8GRzwRMMVMBkWAB6=w@mail.gmail.com>
-References: <20160530132225.4d297678@canb.auug.org.au>
-	<574C4851.9090201@gmail.com>
-	<87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>
-	<574D3EAA.3060102@gmail.com>
-	<1464764036580.70506@qti.qualcomm.com>
-	<574EC331.1080901@gmail.com>
-	<574ED297.4080004@gmail.com>
-	<1464854569880.79341@qti.qualcomm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v6 3/3] skb_array: array based FIFO for skbs
+Date: Thu, 2 Jun 2016 12:27:06 +0300
+Message-ID: <20160602122442-mutt-send-email-mst@redhat.com>
+References: <1464785601-3074-1-git-send-email-mst@redhat.com>
+ <1464785601-3074-4-git-send-email-mst@redhat.com>
+ <574FEB7E.8060902@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Miaoqing Pan <miaoqing@codeaurora.org>
-To: "Pan, Miaoqing" <miaoqing@qti.qualcomm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	brouer@redhat.com, kvm@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464854569880.79341@qti.qualcomm.com>
+Content-Disposition: inline
+In-Reply-To: <574FEB7E.8060902@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2 June 2016 at 10:02, Pan, Miaoqing <miaoqing@qti.qualcomm.com> wrote:
-> Seems there are something wrong in the datasheet,  try
->
-> --- a/drivers/net/wireless/ath/ath9k/reg.h
-> +++ b/drivers/net/wireless/ath/ath9k/reg.h
-> @@ -1122,8 +1122,8 @@ enum {
->  #define AR9300_NUM_GPIO                          16
->  #define AR9330_NUM_GPIO                                 16
->  #define AR9340_NUM_GPIO                                 23
-> -#define AR9462_NUM_GPIO                                 10
-> -#define AR9485_NUM_GPIO                                 12
-> +#define AR9462_NUM_GPIO                                 14
-> +#define AR9485_NUM_GPIO                                 11
->  #define AR9531_NUM_GPIO                                 18
->  #define AR9550_NUM_GPIO                                 24
->  #define AR9561_NUM_GPIO                                 23
-> @@ -1139,8 +1139,8 @@ enum {
->  #define AR9300_GPIO_MASK                        0x0000F4FF
->  #define AR9330_GPIO_MASK                        0x0000F4FF
->  #define AR9340_GPIO_MASK                        0x0000000F
-> -#define AR9462_GPIO_MASK                        0x000003FF
-> -#define AR9485_GPIO_MASK                        0x00000FFF
-> +#define AR9462_GPIO_MASK                        0x00003FFF
-> +#define AR9485_GPIO_MASK                        0x000007FF
->  #define AR9531_GPIO_MASK                        0x0000000F
->  #define AR9550_GPIO_MASK                        0x0000000F
->  #define AR9561_GPIO_MASK                        0x0000000F
->
+On Thu, Jun 02, 2016 at 04:17:02PM +0800, Jason Wang wrote:
+>=20
+>=20
+> On 2016=E5=B9=B406=E6=9C=8801=E6=97=A5 20:54, Michael S. Tsirkin wrot=
+e:
+> >A simple array based FIFO of pointers.  Intended for net stack so us=
+es
+> >skbs for type safety. Implemented as a set of wrappers around ptr_ar=
+ray.
+> >
+> >Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> >---
+> >  include/linux/skb_array.h | 129 ++++++++++++++++++++++++++++++++++=
+++++++++++++
+> >  1 file changed, 129 insertions(+)
+> >  create mode 100644 include/linux/skb_array.h
+> >
+> >diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+> >new file mode 100644
+> >index 0000000..cb67076
+> >--- /dev/null
+> >+++ b/include/linux/skb_array.h
+> >@@ -0,0 +1,129 @@
+> >+/*
+> >+ *	Definitions for the 'struct skb_array' datastructure.
+> >+ *
+> >+ *	Author:
+> >+ *		Michael S. Tsirkin <mst@redhat.com>
+> >+ *
+> >+ *	Copyright (C) 2016 Red Hat, Inc.
+> >+ *
+> >+ *	This program is free software; you can redistribute it and/or mo=
+dify it
+> >+ *	under the terms of the GNU General Public License as published b=
+y the
+> >+ *	Free Software Foundation; either version 2 of the License, or (a=
+t your
+> >+ *	option) any later version.
+> >+ *
+> >+ *	Limited-size FIFO of skbs. Can be used more or less whenever
+> >+ *	sk_buff_head can be used, except you need to know the queue size=
+ in
+> >+ *	advance.
+> >+ *	Implemented as a type-safe wrapper around ptr_ring.
+> >+ */
+> >+
+> >+#ifndef _LINUX_SKB_ARRAY_H
+> >+#define _LINUX_SKB_ARRAY_H 1
+> >+
+> >+#ifdef __KERNEL__
+> >+#include <linux/ptr_ring.h>
+> >+#include <linux/skbuff.h>
+> >+#endif
+> >+
+> >+struct skb_array {
+> >+	struct ptr_ring ring;
+> >+};
+> >+
+> >+/* Might be slightly faster than skb_array_full below, but callers =
+invoking
+> >+ * this in a loop must use a compiler barrier, for example cpu_rela=
+x().
+> >+ */
+> >+static inline bool __skb_array_full(struct skb_array *a)
+> >+{
+> >+	return __ptr_ring_full(&a->ring);
+> >+}
+> >+
+> >+static inline bool skb_array_full(struct skb_array *a)
+> >+{
+> >+	return ptr_ring_full(&a->ring);
+> >+}
+> >+
+> >+static inline int skb_array_produce(struct skb_array *a, struct sk_=
+buff *skb)
+> >+{
+> >+	return ptr_ring_produce(&a->ring, skb);
+> >+}
+> >+
+> >+static inline int skb_array_produce_irq(struct skb_array *a, struct=
+ sk_buff *skb)
+> >+{
+> >+	return ptr_ring_produce_irq(&a->ring, skb);
+> >+}
+> >+
+> >+static inline int skb_array_produce_bh(struct skb_array *a, struct =
+sk_buff *skb)
+> >+{
+> >+	return ptr_ring_produce_bh(&a->ring, skb);
+> >+}
+> >+
+> >+static inline int skb_array_produce_any(struct skb_array *a, struct=
+ sk_buff *skb)
+> >+{
+> >+	return ptr_ring_produce_any(&a->ring, skb);
+> >+}
+> >+
+> >+/* Might be slightly faster than skb_array_empty below, but callers=
+ invoking
+> >+ * this in a loop must take care to use a compiler barrier, for exa=
+mple
+> >+ * cpu_relax().
+> >+ */
+> >+static inline bool __skb_array_empty(struct skb_array *a)
+> >+{
+> >+	return !__ptr_ring_peek(&a->ring);
+> >+}
+> >+
+> >+static inline bool skb_array_empty(struct skb_array *a)
+> >+{
+> >+	return ptr_ring_empty(&a->ring);
+> >+}
+> >+
+> >+static inline struct sk_buff *skb_array_consume(struct skb_array *a=
+)
+> >+{
+> >+	return ptr_ring_consume(&a->ring);
+> >+}
+> >+
+> >+static inline struct sk_buff *skb_array_consume_irq(struct skb_arra=
+y *a)
+> >+{
+> >+	return ptr_ring_consume_irq(&a->ring);
+> >+}
+> >+
+> >+static inline struct sk_buff *skb_array_consume_any(struct skb_arra=
+y *a)
+> >+{
+> >+	return ptr_ring_consume_any(&a->ring);
+> >+}
+> >+
+> >+static inline struct sk_buff *skb_array_consume_bh(struct skb_array=
+ *a)
+> >+{
+> >+	return ptr_ring_consume_bh(&a->ring);
+> >+}
+> >+
+> >+static inline int skb_array_peek_len(struct skb_array *a)
+> >+{
+> >+	return PTR_RING_PEEK_FIELD(&a->ring, struct sk_buff, len, 0);
+> >+}
+>=20
+> An interesting case for tun is peek the length of a tagged packet. In=
+ this
+> case, len should be increased accordingly. So this simple filed peeki=
+ng
+> won't work.
+>=20
+> Do we need a callback here?
 
-Thanks, changes in reg.h solve the problem (my card AR9462 rev 01).
+I'd say let's just make it do the right thing wrt vlans.
+I'll post v7 with this change.
 
-BR
-Janusz
 
-> Thanks,
-> Miaoqing
->
-> ________________________________________
-> From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-> Sent: Wednesday, June 1, 2016 8:18 PM
-> To: Pan, Miaoqing; Kalle Valo
-> Cc: Stephen Rothwell; ath9k-devel; linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; linux-wireless@vger.kernel.org; ath9k-devel@lists.ath9k.org; netdev@vger.kernel.org; Miaoqing Pan
-> Subject: Re: ath9k gpio request
->
-> On Wednesday 01 June 2016 04:42 PM, Sudip Mukherjee wrote:
->> On Wednesday 01 June 2016 12:24 PM, Pan, Miaoqing wrote:
->>> which chip ?  And what's the GPIO number ?
->>
->> lspci -v reports:
->> 09:00.0 Network controller: Qualcomm Atheros AR9462 Wireless Network
->> Adapter (rev 01)
->>      Subsystem: Foxconn International, Inc. Device e052
->>      Flags: bus master, fast devsel, latency 0, IRQ 19
->>      Memory at c0500000 (64-bit, non-prefetchable) [size=512K]
->>      Expansion ROM at c0580000 [disabled] [size=64K]
->>      Capabilities: [40] Power Management version 2
->>      Capabilities: [50] MSI: Enable- Count=1/4 Maskable+ 64bit+
->>      Capabilities: [70] Express Endpoint, MSI 00
->>      Capabilities: [100] Advanced Error Reporting
->>      Capabilities: [140] Virtual Channel
->>      Capabilities: [160] Device Serial Number 00-00-00-00-00-00-00-00
->>      Kernel driver in use: ath9k
->>
->> Any easy way to find out the gpio number or i can modify the module to
->> find that out.
->
-> Its trying for GPIO 11 with label ath9k-rfkill.
->
-> The attached dmesg is with some modification as below.
->
-> diff --git a/drivers/net/wireless/ath/ath9k/hw.c
-> b/drivers/net/wireless/ath/ath9k/hw.c
-> index 8b2895f9..23deea7 100644
-> --- a/drivers/net/wireless/ath/ath9k/hw.c
-> +++ b/drivers/net/wireless/ath/ath9k/hw.c
-> @@ -2729,14 +2729,16 @@ static void ath9k_hw_gpio_cfg_wmac(struct ath_hw
-> *ah, u32 gpio, bool out,
->   static void ath9k_hw_gpio_request(struct ath_hw *ah, u32 gpio, bool out,
->                                    const char *label, u32 ah_signal_type)
->   {
-> -       WARN_ON(gpio >= ah->caps.num_gpio_pins);
-> +//     WARN_ON(gpio >= ah->caps.num_gpio_pins);
-> +
-> +       pr_err("sudip: %d %s\n", gpio, label);
->
->          if (BIT(gpio) & ah->caps.gpio_mask)
->                  ath9k_hw_gpio_cfg_wmac(ah, gpio, out, ah_signal_type);
->          else if (AR_SREV_SOC(ah))
->                  ath9k_hw_gpio_cfg_soc(ah, gpio, out, label);
-> -       else
-> -               WARN_ON(1);
-> +//     else
-> +//             WARN_ON(1);
->   }
->
-> Regards
-> Sudip
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> >+
+> >+static inline int skb_array_peek_len_irq(struct skb_array *a)
+> >+{
+> >+	return PTR_RING_PEEK_FIELD_IRQ(&a->ring, struct sk_buff, len, 0);
+> >+}
+> >+
+> >+static inline int skb_array_peek_len_bh(struct skb_array *a)
+> >+{
+> >+	return PTR_RING_PEEK_FIELD_BH(&a->ring, struct sk_buff, len, 0);
+> >+}
+> >+
+> >+static inline int skb_array_peek_len_any(struct skb_array *a)
+> >+{
+> >+	return PTR_RING_PEEK_FIELD_ANY(&a->ring, struct sk_buff, len, 0);
+> >+}
+> >+
+> >+static inline int skb_array_init(struct skb_array *a, int size, gfp=
+_t gfp)
+> >+{
+> >+	return ptr_ring_init(&a->ring, size, gfp);
+> >+}
+> >+
+> >+static inline void skb_array_cleanup(struct skb_array *a)
+> >+{
+> >+	ptr_ring_cleanup(&a->ring);
+> >+}
+> >+
+> >+#endif /* _LINUX_SKB_ARRAY_H  */
