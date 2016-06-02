@@ -1,42 +1,94 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary MAC address
-Date: Thu, 2 Jun 2016 06:10:26 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2FECCF4@RTITMBSV03.realtek.com.tw>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Thu, 2 Jun 2016 14:09:23 +0800
+Message-ID: <CADvbK_e6hNRigHP9WCc-zb5Tg3zWBuxgjuioacR-nWYStvNOAQ@mail.gmail.com>
+References: <42953bb341d78d8b83dfccebb0beaa9387d8e1af.1464809925.git.lucien.xin@gmail.com>
+	<20160601214032.GB29509@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux USB <linux-usb@vger.kernel.org>,
-	"pali.rohar@gmail.com" <pali.rohar@gmail.com>,
-	"anthony.wong@canonical.com" <anthony.wong@canonical.com>
-To: Mario Limonciello <mario_limonciello@dell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34372 "EHLO
+	mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbcFBGX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 02:23:57 -0400
+In-Reply-To: <20160601214032.GB29509@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mario Limonciello [mailto:mario_limonciello@dell.com]
-[...]
->  static int set_ethernet_addr(struct r8152 *tp)
->  {
->  	struct net_device *dev = tp->netdev;
-> @@ -1041,6 +1075,9 @@ static int set_ethernet_addr(struct r8152 *tp)
->  	else
->  		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
-> 
-> +	/* if system provides auxiliary MAC address */
-> +	set_auxiliary_addr(&sa);
-> +
->  	if (ret < 0) {
->  		netif_err(tp, probe, dev, "Get ether addr fail\n");
->  	} else if (!is_valid_ether_addr(sa.sa_data)) {
+On Thu, Jun 2, 2016 at 5:40 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Thu, Jun 02, 2016 at 03:38:45AM +0800, Xin Long wrote:
+>> Now sctp doesn't change socket state upon shutdown reception. It changes
+>> just the assoc state, even though it's a TCP-style socket.
+>>
+>> For some cases, if we really need to check sk->sk_state, it's necessary to
+>> fix this issue, at least when we use ss or netstat to dump, we can get a
+>> more exact information.
+>>
+>> As an improvement, we will change sk->sk_state when we change asoc->state
+>> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+>> sctp_close.
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  net/sctp/sm_sideeffect.c | 4 +++-
+>>  net/sctp/socket.c        | 5 ++++-
+>>  2 files changed, 7 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>> index aa37122..12d4519 100644
+>> --- a/net/sctp/sm_sideeffect.c
+>> +++ b/net/sctp/sm_sideeffect.c
+>> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+>>
+>>               /* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+>>               if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+>> -                 sctp_sstate(sk, ESTABLISHED))
+>> +                 sctp_sstate(sk, ESTABLISHED)) {
+>> +                     sk->sk_state = SCTP_SS_CLOSING;
+>>                       sk->sk_shutdown |= RCV_SHUTDOWN;
+>> +             }
+>>       }
+>>
+>>       if (sctp_state(asoc, COOKIE_WAIT)) {
+>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>> index 67154b8..c20199a 100644
+>> --- a/net/sctp/socket.c
+>> +++ b/net/sctp/socket.c
+>> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+>>               return;
+>>
+>>       if (how & SEND_SHUTDOWN) {
+>> +             sk->sk_state = SCTP_SS_CLOSING;
+>>               ep = sctp_sk(sk)->ep;
+>>               if (!list_empty(&ep->asocs)) {
+>>                       asoc = list_entry(ep->asocs.next,
+>> @@ -7564,8 +7565,10 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+>>       /* If the association on the newsk is already closed before accept()
+>>        * is called, set RCV_SHUTDOWN flag.
+>>        */
+>> -     if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
+>> +     if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
+>> +             newsk->sk_state = SCTP_SS_CLOSING;
+>                     ^^^^
+>>               newsk->sk_shutdown |= RCV_SHUTDOWN;
+>> +     }
+>>
+>>       newsk->sk_state = SCTP_SS_ESTABLISHED;
+>                       ^^^^^
+> This will overwrite the above
+> Otherwise patch looks good to me
+OK , seems no need to change sk_state to  SCTP_SS_CLOSING  in
+sctp_sock_migrate(). :)
 
-When tp->version == RTL_VER_01, you would have different MAC address
-between SW and HW. You may use the MAC address from ACPI for dev_addr.
-However, the device uses another one, because you don't set it to the device.
-
-Best Regards,
-Hayes
+>
+>>       release_sock(newsk);
+>> --
+>> 2.1.0
+>>
