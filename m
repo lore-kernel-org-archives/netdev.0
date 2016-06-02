@@ -1,55 +1,84 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [net-next] ovs: set name assign type of internal port
-Date: Thu, 2 Jun 2016 12:49:36 -0700
-Message-ID: <CAOrHB_DaQonV04JT1TKRz7+dNEp810eyL8K-QEFWWFBa=-Xggg@mail.gmail.com>
-References: <1464702062-7220-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/3] net: vrf: Add support for local traffic to local addresses
+Date: Thu,  2 Jun 2016 13:15:09 -0700
+Message-ID: <1464898512-5157-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:53341 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932378AbcFBTtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 15:49:40 -0400
-Received: from mfilter19-d.gandi.net (mfilter19-d.gandi.net [217.70.178.147])
-	by relay3-d.mail.gandi.net (Postfix) with ESMTP id BDC65A80CB
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2016 21:49:38 +0200 (CEST)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-	by mfilter19-d.gandi.net (mfilter19-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id OlAeOM_EQiJQ for <netdev@vger.kernel.org>;
-	Thu,  2 Jun 2016 21:49:37 +0200 (CEST)
-Received: from mail-it0-f44.google.com (mail-it0-f44.google.com [209.85.214.44])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 57DE3A80D2
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2016 21:49:37 +0200 (CEST)
-Received: by mail-it0-f44.google.com with SMTP id z189so119947172itg.0
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 12:49:37 -0700 (PDT)
-In-Reply-To: <1464702062-7220-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33757 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932220AbcFBUQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 16:16:41 -0400
+Received: by mail-pf0-f182.google.com with SMTP id b124so35099791pfb.0
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 13:16:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 31, 2016 at 6:41 AM, Zhang Shengju
-<zhangshengju@cmss.chinamobile.com> wrote:
-> Set name_assign_type of internal port to NET_NAME_USER.
->
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  net/openvswitch/vport-internal_dev.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-> index 2ee48e4..434e04c 100644
-> --- a/net/openvswitch/vport-internal_dev.c
-> +++ b/net/openvswitch/vport-internal_dev.c
-> @@ -195,7 +195,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
->         }
->
->         vport->dev = alloc_netdev(sizeof(struct internal_dev),
-> -                                 parms->name, NET_NAME_UNKNOWN, do_setup);
-> +                                 parms->name, NET_NAME_USER, do_setup);
+Add support for locally originated traffic to VRF-local addresses,
+be it addresses on enslaved devices or addresses on the VRF device:
 
-Looks good.
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+$ ip addr show dev red
+33: red: <NOARP,MASTER,UP,LOWER_UP> mtu 65536 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether be:00:53:b5:e4:25 brd ff:ff:ff:ff:ff:ff
+    inet 1.1.1.1/32 scope global red
+       valid_lft forever preferred_lft forever
+    inet6 1111:1::1/128 scope global
+       valid_lft forever preferred_lft forever
+
+$ ip addr show dev eth1
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master red state UP group default qlen 1000
+    link/ether 02:e0:f9:79:34:bd brd ff:ff:ff:ff:ff:ff
+    inet 10.100.1.1/24 brd 10.100.1.255 scope global eth1
+       valid_lft forever preferred_lft forever
+    inet6 2100:1::1/120 scope global
+       valid_lft forever preferred_lft forever
+    inet6 fe80::e0:f9ff:fe79:34bd/64 scope link
+       valid_lft forever preferred_lft forever
+
+$ ping -c1 -I red 10.100.1.1
+    ping: Warning: source address might be selected on device other than red.
+    PING 10.100.1.1 (10.100.1.1) from 10.100.1.1 red: 56(84) bytes of data.
+    64 bytes from 10.100.1.1: icmp_seq=1 ttl=64 time=0.057 ms
+
+$ ping -c1 -I red 1.1.1.1
+PING 1.1.1.1 (1.1.1.1) from 1.1.1.1 red: 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=64 time=0.136 ms
+
+--- 1.1.1.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.136/0.136/0.136/0.000 ms
+
+$ ping6 -c1 -I red  2100:1::1
+ping6: Warning: source address might be selected on device other than red.
+PING 2100:1::1(2100:1::1) from 2100:1::1 red: 56 data bytes
+64 bytes from 2100:1::1: icmp_seq=1 ttl=64 time=0.167 ms
+
+--- 2100:1::1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.167/0.167/0.167/0.000 ms
+
+$ ping6 -c1 -I red 1111::1
+PING 1111::1(1111::1) from 1111:1::1 red: 56 data bytes
+64 bytes from 1111::1: icmp_seq=1 ttl=64 time=0.187 ms
+
+--- 1111::1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.187/0.187/0.187/0.000 ms
+
+This change also enables use of loopback address on the VRF device:
+$ ip addr add dev red 127.0.0.1/8
+
+$ ping -c1 -I red 127.0.0.1
+PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 red: 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.058 ms
+
+David Ahern (3):
+  net: vrf: Minor refactoring for local address patches
+  net: vrf: ipv4 support for local traffic to local addresses
+  net: vrf: ipv6 support for local traffic to local addresses
+
+ drivers/net/vrf.c | 234 ++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 201 insertions(+), 33 deletions(-)
+
+-- 
+2.1.4
