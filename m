@@ -1,60 +1,46 @@
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Subject: [PATCH] net: fjes: fjes_main: Remove create_workqueue
-Date: Thu, 2 Jun 2016 15:00:57 +0530
-Message-ID: <20160602093057.GA15351@Karyakshetra>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 4.7 FIX] brcmfmac: fix lockup when removing P2P interface after event timeout
+Date: Thu, 02 Jun 2016 12:42:55 +0300
+Message-ID: <87eg8glye8.fsf@purkki.adurom.net>
+References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Taku Izumi <izumi.taku@jp.fujitsu.com>,
-	Florian Westphal <fw@strlen.de>,
-	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brett Rudley <brudley@broadcom.com>,
+	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Arend van Spriel <arend@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
+ (=?utf-8?Q?=22Rafa=C5=82=09Mi=C5=82ecki=22's?= message of "Fri, 27 May 2016
+ 21:53:14 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-alloc_workqueue replaces deprecated create_workqueue().
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
 
-The workqueue adapter->txrx_wq has workitem
-&adapter->raise_intr_rxdata_task per adapter. Extended Socket Network
-Device is shared memory based, so someone's transmission denotes other's
-reception.  raise_intr_rxdata_task raises interruption of receivers from
-the sender in order to notify receivers.
+> Removing P2P interface is handled by sending a proper request to the
+> firmware. On success firmware triggers an event and driver's handler
+> removes a matching interface.
+>
+> However on event timeout we remove interface directly from the cfg802=
+11
+> callback. Current code doesn't handle this case correctly as it alway=
+s
+> assumes rtnl to be unlocked.
+>
+> Fix it by adding an extra rtnl_locked parameter to functions and call=
+ing
+> unregister_netdevice when needed.
+>
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-The workqueue adapter->control_wq has workitem
-&adapter->interrupt_watch_task per adapter. interrupt_watch_task is used
-to prevent delay of interrupts.
+Arend, are you ok to push this to 4.7?
 
-Dedicated workqueues have been used in both cases since the workitems
-on the workqueues are involved in normal device operation and require
-forward progress under memory pressure.
-
-max_active has been set to 0 since there is no need for throttling
-the number of active work items.
-
-Since network devices  may be used for memory reclaim,
-WQ_MEM_RECLAIM has been set to guarantee forward progress.
-
-Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
----
- drivers/net/fjes/fjes_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 86c331b..9006877 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -1187,8 +1187,9 @@ static int fjes_probe(struct platform_device *plat_dev)
- 	adapter->force_reset = false;
- 	adapter->open_guard = false;
-
--	adapter->txrx_wq = create_workqueue(DRV_NAME "/txrx");
--	adapter->control_wq = create_workqueue(DRV_NAME "/control");
-+	adapter->txrx_wq = alloc_workqueue(DRV_NAME "/txrx", WQ_MEM_RECLAIM, 0);
-+	adapter->control_wq = alloc_workqueue(DRV_NAME "/control",
-+					      WQ_MEM_RECLAIM, 0);
-
- 	INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
- 	INIT_WORK(&adapter->raise_intr_rxdata_task,
+--=20
+Kalle Valo
