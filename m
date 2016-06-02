@@ -1,101 +1,88 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH iputils v2] ping6: allow disabling of openssl/libgcrypt
- support
-Date: Thu, 2 Jun 2016 17:49:18 +0900
-Message-ID: <574FF30E.5000805@miraclelinux.com>
-References: <1464752905-10347-3-git-send-email-vapier@gentoo.org>
- <1464843561-31856-1-git-send-email-vapier@gentoo.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/4] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+Date: Thu, 02 Jun 2016 10:52:48 +0200
+Message-ID: <3851136.KiJNtFycNm@wuerfel>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com> <6110875.0k1HlSKhzn@wuerfel> <1464829874.16584.163.camel@buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34815 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752766AbcFBItW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 04:49:22 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bz2so4276114pad.1
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 01:49:22 -0700 (PDT)
-In-Reply-To: <1464843561-31856-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Scott Wood <oss@buserror.net>, Mark Rutland <mark.rutland@arm.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Ulf Hansson <ulf.hansson@linaro.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Joerg Roedel <joro@8bytes.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Yangbo Lu <yangbo.lu@nxp.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Yang-Leo Li <leoyang.li@nxp.com>,
+	"linux-clk@vger.kernel.org" <linux-clk@vg
+To: linuxppc-dev@lists.ozlabs.org
+Return-path: <linux-clk-owner@vger.kernel.org>
+In-Reply-To: <1464829874.16584.163.camel@buserror.net>
+Sender: linux-clk-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Mike Frysinger wrote:
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  Makefile         |  5 ++++-
->  iputils_md5dig.h |  4 +++-
->  ping6.c          | 19 ++++++++++++++++++-
->  3 files changed, 25 insertions(+), 3 deletions(-)
+On Wednesday, June 1, 2016 8:11:14 PM CEST Scott Wood wrote:
+> > +#define T4240_HOST_VER ((VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) |
+> > SDHCI_SPEC_200)
+> > +static const struct soc_device_attribute esdhc_t4240_quirk = {
+> > +     /* T4240 revision < 0x20 uses vendor version 23, SDHCI version 200
+> > */
+> > +     { .soc_id = "T4*(0x824000)", .revision = "0x[01]?",
+> > +       .data = (void *)(uintptr_t)(T4240_HOST_VER) },
 > 
-> diff --git a/Makefile b/Makefile
-> index b6cf512..8b9e2aa 100644
-> --- a/Makefile
-> +++ b/Makefile
-> @@ -36,7 +36,7 @@ ARPING_DEFAULT_DEVICE=
->  
->  # Libgcrypt (for MD5) for ping6 [yes|no|static]
->  USE_GCRYPT=yes
-> -# Crypto library for ping6 [shared|static]
-> +# Crypto library for ping6 [shared|static|no]
->  USE_CRYPTO=shared
->  # Resolv library for ping6 [yes|static]
->  USE_RESOLV=yes
-> @@ -66,7 +66,10 @@ ifneq ($(USE_GCRYPT),no)
->  	LIB_CRYPTO = $(call FUNC_LIB,$(USE_GCRYPT),$(LDFLAG_GCRYPT))
->  	DEF_CRYPTO = -DUSE_GCRYPT
->  else
-> +ifneq ($(USE_CRYPTO),no)
->  	LIB_CRYPTO = $(call FUNC_LIB,$(USE_CRYPTO),$(LDFLAG_CRYPTO))
-> +	DEF_CRYPTO = -DUSE_OPENSSL
-> +endif
->  endif
->  
->  # USE_RESOLV: LIB_RESOLV
-> diff --git a/iputils_md5dig.h b/iputils_md5dig.h
-> index 4cec866..d6c4d46 100644
-> --- a/iputils_md5dig.h
-> +++ b/iputils_md5dig.h
-> @@ -5,8 +5,10 @@
->  # include <stdlib.h>
->  # include <gcrypt.h>
->  # define IPUTILS_MD5DIG_LEN	16
-> -#else
-> +# define USE_CRYPTO
-> +#elif defined(USE_OPENSSL)
->  # include <openssl/md5.h>
-> +# define USE_CRYPTO
->  #endif
->  
->  #ifdef USE_GCRYPT
+> Why should this code need to care that the string begins with "T4"?  This
+> creates dual maintenance if that were to change.  It's also broken because
+> T4240 has compatible = "fsl,t4240-device-config", "fsl,qoriq-device-config
+> -2.0" and thus with these patches it would incorrectly show up as "P series
+> (0x824000)".  The compatible string of this node was never meant to be a key
+> for choosing a string to describe the system to userspace.
 
-Please define ENABLE_NIQUERY (or something else) for
-USE_GCRYPT || USE_CRYPTO case and use it in sources.
+This is an artifact of not knowing the specific SoC name, and we can change
+that by looking up the name from the SVR value in the soc_device driver.
+ 
+> 0x824000 is a magic number which should be represented symbolically.
 
-> diff --git a/ping6.c b/ping6.c
-> index 6d1a6db..db7ec4a 100644
-> --- a/ping6.c
-> +++ b/ping6.c
+Sure, feel free to change the format of the soc_device string in any
+name, I just converted the information I had available in the comments.
+The only thing that is important here is that the string matches what
+the soc_device driver calls it.
 
+> If T4240 is affected, then so are the reduced-core variants T4160 and T4080,
+> but 0x824000 doesn't match them (Yangbo's patch had the same problem).  And
+> please don't respond with "0x824*"
+> 
+> You also didn't strip out the E bit of SVR which indicates encryption
+> capability and nothing else (Yangbo's patch did not have this problem because
+> it used SVR_SOC_VER).
 
-> @@ -891,6 +899,7 @@ int main(int argc, char *argv[])
->  	}
->  #endif
->  
-> +#ifdef USE_CRYPTO
->  	if (niquery_is_enabled()) {
->  		niquery_init_nonce();
->  
+Ok, that should be easy enough to fix in the soc_device driver.
 
-Make niquery_is_enabled() returns 0 without ENABLE_NIQUERY
-and reduce #ifdefs.
+> What happens if the revision condition is more complicated, such as <= 0x20
+> with 0x21 being fine?  Multiple quirk entries where before we had as simple
+> comparison?
 
-Thank you.
+I guess yes. I would really hope that there is no need to use this interface
+pervasively, it's really just to work around the cases where there is no
+way to pass the information in DT otherwise.
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+> I fail to see how this approach is an improvement (much less one that needs to
+> hold up a patchset that is fixing a problem and is not touching any generic
+> code).  Why does this need to be a string?
+
+A string is what user space gets in /sys/devices/soc/*, and we already have
+code that does the same things there to work around quirks, here we just
+use the same interface in a completely generic way. Note that not every
+SoC family uses numbers in the same way, some have multiple subrevisions,
+some have names etc.
+
+	Arnd
