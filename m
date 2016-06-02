@@ -1,83 +1,163 @@
 From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Thu, 2 Jun 2016 18:28:33 +0000
-Message-ID: <e94f28f69ee14610892125f67d9dae03@ausx13mpc124.AMER.DELL.COM>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
-	<20160601230535.GA29279@kroah.com>
-	<0bdb98b72b884682b936c0587f965629@ausx13mpc124.AMER.DELL.COM>
-	<20160602152244.GA26494@kroah.com>
-	<6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM>
- <87vb1rwjql.fsf@nemi.mork.no>
+Subject: RE: [PATCH v2] r8152: Add support for setting MAC to system's
+ Auxiliary MAC address
+Date: Thu, 2 Jun 2016 18:32:42 +0000
+Message-ID: <2d81e70165b8447d92b873eafeaeded7@ausx13mpc124.AMER.DELL.COM>
+References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
+ <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
+ <20160602174808.GA32131@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <gregkh@linuxfoundation.org>, <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
 	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
 	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
-To: <bjorn@mork.no>, <hayeswang@realtek.com>
+To: <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87vb1rwjql.fsf@nemi.mork.no>
+In-Reply-To: <20160602174808.GA32131@kroah.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCasO4cm4gTW9yayBbbWFpbHRv
-OmJqb3JuQG1vcmsubm9dDQo+IFNlbnQ6IFRodXJzZGF5LCBKdW5lIDIsIDIwMTYgMTowNCBQTQ0K
-PiBUbzogTGltb25jaWVsbG8sIE1hcmlvIDxNYXJpb19MaW1vbmNpZWxsb0BEZWxsLmNvbT4NCj4g
-Q2M6IGdyZWdraEBsaW51eGZvdW5kYXRpb24ub3JnOyBoYXllc3dhbmdAcmVhbHRlay5jb207IGxp
-bnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBs
-aW51eC0NCj4gdXNiQHZnZXIua2VybmVsLm9yZzsgcGFsaS5yb2hhckBnbWFpbC5jb207IGFudGhv
-bnkud29uZ0BjYW5vbmljYWwuY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIHI4MTUyOiBBZGQg
-c3VwcG9ydCBmb3Igc2V0dGluZyBNQUMgdG8gc3lzdGVtJ3MNCj4gQXV4aWxpYXJ5IE1BQyBhZGRy
-ZXNzDQo+IA0KPiA8TWFyaW9fTGltb25jaWVsbG9ARGVsbC5jb20+IHdyaXRlczoNCj4gDQo+ID4+
-ID4gMikgVHJhY2sgd2hldGhlciB0aGlzIGlzIHRoZSBmaXJzdCBvciBzZWNvbmQgVVNCIE5JQyBw
-bHVnZ2VkIGluLiAgT25seQ0KPiBvZmZlciBpdA0KPiA+PiBvbiB0aGUgZmlyc3QgTklDIGRldGVj
-dGVkIGJ5IHI4MTUyLiAgV2hlbiB0aGUgc2Vjb25kIE5JQyBpcyBwbHVnZ2VkIGluDQo+IGRvbid0
-DQo+ID4+IG1hdGNoIGZyb20gQUNQSS4NCj4gPj4gPiBUaGVyZSB3b3VsZCBiZSBhIHF1ZXN0aW9u
-IG9mIHdoYXQgdG8gZG8gaWYgdGhlIGZpcnN0IE5JQyBpcyByZW1vdmVkIGFuZA0KPiA+PiBhZGRl
-ZCBiYWNrIGlmIGl0IHNob3VsZCBnZXQgdGhlIHBlcnNpc3RlbnQgc3lzdGVtIE1BQyBvciBub3Qu
-DQo+ID4+ID4gSSdkIHNheSB5ZXMsIGp1c3QgbWFrZSBzdXJlIHRoYXQgb25seSBvbmUgTklDIGNh
-biBoYXZlIGl0IGF0IGEgdGltZS4NCj4gPj4NCj4gPj4gWW91IGFyZSBnb2luZyB0byBnZXQgdGhp
-bmdzIHZlcnkgY29tcGxleCB2ZXJ5IHF1aWNrbHkgaWYgeW91IHRyeSB0byBkbyB0aGlzLg0KPiA+
-DQo+ID4gSXQncyByZWFsbHkgbm90IHRoYXQgaGFyZCwgdHJhY2sgYSBtb2R1bGUgd2lkZSBzdGF0
-aWMgdmFyaWFibGUgd2hldGhlcg0KPiA+IHRoZSBmZWF0dXJlIGlzIGluIHVzZS4gIFRyYWNrIGlu
-IGVhY2ggZGV2aWNlIHdoZXRoZXIgdGhlIGZlYXR1cmUgd2FzDQo+ID4gaW4gdXNlLiAgSWYgaXQg
-aW4gdXNlLCBkb24ndCBhc3NpZ24gdGhlIG5leHQgZGV2aWNlIHBsdWdnZWQgaW4gdmlhIHRoZQ0K
-PiA+IEFDUEkgc3RyaW5nLiAgSWYgYSBkZXZpY2UgaXMgcmVtb3ZlZCB0aGF0IGhhcyB0aGUgZmVh
-dHVyZSBhY3RpdmF0ZWQsDQo+ID4gY2hhbmdlIHRoZSBtb2R1bGUgd2lkZSBzdGF0aWMgdmFyaWFi
-bGUuDQo+IA0KPiBIYXZpbmcgdGhlIG1hYyBhZGRyZXNzIGp1bXAgYXJvdW5kIGluIGFuIGFyYml0
-cmFyeSB3YXkgbGlrZSB0aGlzIGlzDQo+IGdvaW5nIHRvIGNvbmZ1c2UgdGhlIGhlbGwgb3V0IG9m
-IHlvdXIgdXNlcnMuICBDb25zaWRlciB3aGF0IGhhcHBlbnMgaWYNCj4gdGhlIHVzZXIgZG9ja3Mg
-YSBsYXB0b3Agd2l0aCBhbiByODE1MiB1c2IgZG9uZ2xlIGFscmVhZHkgcGx1Z2dlZCBpbi4uLg0K
-PiBIb3cgYXJlIHlvdSBnb2luZyB0byBleHBsYWluIHRoYXQgdGhlIGRvY2sgZ2V0cyBzb21lIG90
-aGVyIG1hYyBhZGRyZXNzDQo+IGluIHRoaXMgY2FzZT8gSG93IGFyZSB5b3UgZ29pbmcgdG8gZXhw
-bGFpbiB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHVzaW5nDQo+IGFuIHI4MTUyIGJhc2VkIGRvbmds
-ZSBhbmQgc29tZSBvdGhlciBldGhlcm5ldCB1c2IgZG9uZ2xlIHdpdGggeW91cg0KPiBzeXN0ZW1z
-Pw0KDQpZZWFoIEkgdW5kZXJzdGFuZCB0aGUgY29uY2Vybi4gIEkgYWdyZWUgdGhhdCB3b3VsZCBi
-ZSB2ZXJ5IGNvbmZ1c2luZw0KdG8gYSB1c2VyLiAgVGhpcyBkb2VzIG5lZWQgdG8gbWF0Y2ggb25s
-eSBvbiBEZWxsIGRvY2tzIHRoZW4uDQoNCj4gDQo+IE1ha2UgaXQgYmVoYXZlIGNvbnNpc3RlbnRs
-eSBpZiB5b3UncmUgZ29pbmcgdG8gYWRkIHRoaXMuICBXaGljaCBjYW4gYmUNCj4gZG9uZSBieSBz
-cGVjaWZpY2FsbHkgbWF0Y2hpbmcgdGhlIERlbGwgZG9jayAoZG9lc24ndCBpdCBoYXZlIGFuIHVu
-aXF1ZQ0KPiBEZWxsIGRldmljZSBJRD8pIGFuZCBpZ25vcmluZyBhbnkgb3RoZXIgcjgxNTIgZGV2
-aWNlLiAgWW91IGNvdWxkIGFsc28NCj4gY2hvb3NlIHRvIHNldCB0aGUgc2FtZSBtYWMgZm9yIGFs
-bCByODE1MiBkZXZpY2VzLiAgV2hpY2ggaXMgZmluZSwgYnV0DQo+IHdpbGwgcHJvYmFibHkgY29u
-ZnVzZSBtYW55IHVzZXJzLg0KDQpVbmZvcnR1bmF0ZWx5IHRoZXJlIGlzIG5vIERlbGwgc3BlY2lm
-aWMgVklEL1BJRC4gIEkgY2hlY2tlZCBhIG5vLW5hbWUgZG9uZ2xlDQp0aGF0IHVzZWQgcjgxNTIg
-YW5kIGl0IHdhcyB0aGUgc2FtZSAoMGJkYTo4MTUzKS4gIE1heWJlIEhheWVzIFdhbmcgY2FuIA0K
-Y2hlY2sgd2l0aCBoaXMgV2luZG93cyBkcml2ZXIgY29sbGVhZ3VlcyBpZiB0aGVyZSB3YXMgYW55
-dGhpbmcgZWxzZSB0byBrZXkNCm9mZiB3aGVuIHRoaXMgd2FzIGltcGxlbWVudGVkIG9uIHRoZSBX
-aW5kb3dzIFJlYWx0ZWsgZHJpdmVyLiAgSWYgdGhlcmUgDQppcyBzb21ldGhpbmcgZWxzZSB0byBr
-ZXkgb2ZmIG9mLCBJJ20gbm90IGF3YXJlIHdoYXQgaXQgaXMuICBJJ2xsIGNoZWNrIHdpdGggDQpz
-b21lIG9mIG15IGNvbGxlYWd1ZXMgdG9vLg0KDQpJIGRvIGhhdmUgYSB3YXkgdG8gcXVlcnkgaWYg
-YSBkb2NrIGlzIHBsdWdnZWQgaW4gdmlhIFNNTSwgYnV0IEkgZG91YnQgdGhhdCdzDQp3aGF0IFJl
-YWx0ZWsgaXMgdXNpbmcgb24gdGhlIFdpbmRvd3Mgc2lkZS4gIEknZCBsZWF2ZSB0aGF0IGFzIGEg
-c2Vjb25kIHRvDQpsYXN0IHJlc29ydCAobGFzdCByZXNvcnQgYmVpbmcgbW92ZSBiYWNrIHRvIHVz
-ZXJzcGFjZSBhZ2FpbikuDQoNCj4gDQo+IFdoYXQgeW91IGRlZmluaXRlbHkgc2hvdWxkIG5vdCBk
-byBpcyB0byBjaGFuZ2UgdGhlIG1hYyBmb3Igc29tZQ0KPiBhcmJpdHJhcnkgImZpcnN0IiBkZXZp
-Y2UuICBUaGVuIHlvdSBhcmUgYmV0dGVyIG9mZiB3aXRoIHRoZSB1c2Vyc3BhY2UNCj4gcHJvcG9z
-YWwgd2hlcmUgeW91IGFuZCB5b3VyIHVzZXJzIGhhdmUgc29tZSBjaGFuY2UgdG8gaW1wbGVtZW50
-IGENCj4gc2Vuc2libGUgcG9saWN5IGJhc2VkIG9uIGUuZy4gdXNiIHBvcnQgbnVtYmVycy4NCg0K
-T0ssIGlmIEkgY2FuJ3QgY29tZSB1cCB3aXRoIGEgd2F5IHRvIGtleSBvbiB0aGUgZGV2aWNlIGJl
-aW5nIGEgRGVsbCBkb2NrIA0KSSdsbCBzY3JhcCB0aGlzIGVudGlyZWx5IGtlcm5lbCBhcHByb2Fj
-aC4NCg0K
+> -----Original Message-----
+> From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> Sent: Thursday, June 2, 2016 12:48 PM
+> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
+> Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>; Netdev
+> <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
+> pali.rohar@gmail.com; anthony.wong@canonical.com
+> Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
+> Auxiliary MAC address
+> 
+> On Thu, Jun 02, 2016 at 11:58:07AM -0500, Mario Limonciello wrote:
+> > Dell systems with Type-C ports have support for a persistent system
+> > specific MAC address when used with Dell Type-C docks and dongles.
+> > This means a dock plugged into two different systems will show different
+> > (but persistent) MAC addresses.  Dell Type-C docks and dongles use the
+> > r8152 driver.
+> >
+> > This information for the system's persistent MAC address is burned in
+> when
+> > the HW is built and available under _SB\AMAC in the DSDT at runtime.
+> >
+> > More information about the technology is available here:
+> > http://www.dell.com/support/article/us/en/04/SLN301147
+> >
+> > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> > ---
+> >  drivers/net/usb/r8152.c | 53
+> +++++++++++++++++++++++++++++++++++++++++++++++++
+> >  1 file changed, 53 insertions(+)
+> >
+> > diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> > index 3f9f6ed..6dea542 100644
+> > --- a/drivers/net/usb/r8152.c
+> > +++ b/drivers/net/usb/r8152.c
+> > @@ -26,6 +26,8 @@
+> >  #include <linux/mdio.h>
+> >  #include <linux/usb/cdc.h>
+> >  #include <linux/suspend.h>
+> > +#include <linux/acpi.h>
+> > +#include <linux/dmi.h>
+> >
+> >  /* Information for net-next */
+> >  #define NETNEXT_VERSION		"08"
+> > @@ -500,6 +502,7 @@ enum rtl8152_flags {
+> >  	SELECTIVE_SUSPEND,
+> >  	PHY_RESET,
+> >  	SCHEDULE_NAPI,
+> > +	MAC_PASSTHRU = 0,
+> 
+> Does setting that to 0 really work?  You just did this for two enum
+> values, what is the compiler supposed to do?
+
+Very silly of me.  I was rushing to send a v2.  
+I'm surprised this worked.  Shouldn't be assigned to anything.
+
+> 
+> >  };
+> >
+> >  /* Define these values to match your device */
+> > @@ -653,6 +656,7 @@ enum tx_csum_stat {
+> >   */
+> >  static const int multicast_filter_limit = 32;
+> >  static unsigned int agg_buf_sz = 16384;
+> > +static bool mac_passthru_active;
+> 
+> very generic name for a platform-specific feature :(
+
+Once this is broken up into an x86 platform provided method I'll rename this 
+to platform_mac_active (or something similar).
+
+> 
+> 
+> >
+> >  #define RTL_LIMITED_TSO_SIZE	(agg_buf_sz - sizeof(struct tx_desc) -
+> \
+> >  				 VLAN_ETH_HLEN - VLAN_HLEN)
+> > @@ -1030,6 +1034,49 @@ out1:
+> >  	return ret;
+> >  }
+> >
+> > +static int get_auxiliary_addr(struct r8152 *tp, struct sockaddr *sa)
+> 
+> What about the platform mac address api that was pointed out?
+
+I mentioned this in the cover letter - I haven't gotten a chance to move it over there yet.
+I sent v2 before I did so that you can see what I've been doing as it was relevant to your
+other comments.
+
+> 
+> > +{
+> > +	acpi_status status;
+> > +	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+> > +	union acpi_object *obj;
+> > +	int ret = -1;
+> > +	unsigned char buf[6];
+> > +
+> > +	if (!dmi_name_in_vendors("Dell Inc.") || mac_passthru_active)
+> > +		return -1;
+> 
+> Don't make up random error values, please use "real" ones.
+
+OK.
+
+> 
+> And you want to check this for all Dell devices?  Please be model
+> specific, I doubt a bunch of Dell servers wants to run this code...
+> 
+
+Tracking model specific is really going to turn into a giant list never ending list.
+To drill down more specifically, I can match on chassis too.
+
+> > +
+> > +	/* returns _AUXMAC_#AABBCCDDEEFF# */
+> > +	status = acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
+> > +	obj = (union acpi_object *)buffer.pointer;
+> > +	if (ACPI_SUCCESS(status)) {
+> > +		if (obj->type != ACPI_TYPE_BUFFER ||
+> > +		    obj->string.length != 0x17) {
+> > +			pr_warn("r8152: get_auxiliary_addr: Invalid buffer");
+> > +			goto amacout;
+> > +		}
+> > +		if (strncmp(obj->string.pointer, "_AUXMAC_#", 9) != 0) {
+> > +			pr_warn("r8152: get_auxiliary_addr: Invalid header");
+> > +			goto amacout;
+> > +		}
+> > +		ret = hex2bin(buf, obj->string.pointer + 9, 6);
+> > +		if (ret < 0) {
+> > +			pr_warn("r8152: get_auxiliary_addr: Invalid MAC");
+> > +			goto amacout;
+> > +		}
+> > +		memcpy(sa->sa_data, buf, 6);
+> > +		ether_addr_copy(tp->netdev->dev_addr, sa->sa_data);
+> > +		netdev_info(tp->netdev, "Using system MAC address
+> %pM\n",
+> > +			    sa->sa_data);
+> > +		set_bit(MAC_PASSTHRU, &tp->flags);
+> > +		mac_passthru_active = true;
+> > +		ret = 1;
+> 
+> 1 is not a "all is good" return value.
+
+OK will switch to 0.
