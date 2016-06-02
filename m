@@ -1,7 +1,7 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v3 5/7] sctp: delay as much as possible skb_linearize
-Date: Thu,  2 Jun 2016 15:05:42 -0300
-Message-ID: <3e8e113c5166e958f63e618758413e82777c71e4.1464888549.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v3 4/7] skbuff: introduce skb_gso_validate_mtu
+Date: Thu,  2 Jun 2016 15:05:41 -0300
+Message-ID: <af52b9c59c838f2f0af394c96855261a3f08cef1.1464888549.git.marcelo.leitner@gmail.com>
 References: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
@@ -13,206 +13,137 @@ Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53376 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55969 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161516AbcFBSGM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 14:06:12 -0400
+	id S1161516AbcFBSGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2016 14:06:09 -0400
 In-Reply-To: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is a preparation for the GSO one. In order to successfully
-handle GSO packets on rx path we must not call skb_linearize, otherwise
-it defeats any gain GSO may have had.
+skb_gso_network_seglen is not enough for checking fragment sizes if
+skb is using GSO_BY_FRAGS as we have to check frag per frag.
 
-This patch thus delays as much as possible the call to skb_linearize,
-leaving it to sctp_inq_pop() moment. For that the sanity checks
-performed now know how to deal with fragments.
-
-One positive side-effect of this is that if the socket is backlogged it
-will have the chance of doing it on backlog processing instead of
-during softirq.
-
-With this move, it's evident that a check for non-linearity in
-sctp_inq_pop was ineffective and is now removed. Note that a similar
-check is performed a bit below this one.
+This patch introduces skb_gso_validate_mtu, based on the former, which
+will wrap the use case inside it as all calls to skb_gso_network_seglen
+were to validate if it fits on a given TMU, and improve the check.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Tested-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sctp/input.c   | 45 +++++++++++++++++++++++++--------------------
- net/sctp/inqueue.c | 29 ++++++++++++++++++-----------
- 2 files changed, 43 insertions(+), 31 deletions(-)
+ include/linux/skbuff.h |  1 +
+ net/core/skbuff.c      | 31 +++++++++++++++++++++++++++++++
+ net/ipv4/ip_forward.c  |  2 +-
+ net/ipv4/ip_output.c   |  2 +-
+ net/ipv6/ip6_output.c  |  2 +-
+ net/mpls/af_mpls.c     |  2 +-
+ 6 files changed, 36 insertions(+), 4 deletions(-)
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index a701527a9480faff1b8d91257e1dbf3c0f09ed68..5cff2546c3dd6d3823b5a28bac1e72880cd57756 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -112,7 +112,6 @@ int sctp_rcv(struct sk_buff *skb)
- 	struct sctp_ep_common *rcvr;
- 	struct sctp_transport *transport = NULL;
- 	struct sctp_chunk *chunk;
--	struct sctphdr *sh;
- 	union sctp_addr src;
- 	union sctp_addr dest;
- 	int family;
-@@ -124,15 +123,18 @@ int sctp_rcv(struct sk_buff *skb)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 329a0a9ef67115cae03b7c1304de031116384148..aa3f9d7e8d5ca455387efa22d4a9d3a079a56f0c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2992,6 +2992,7 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
+ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
+ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
+ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
++bool skb_gso_validate_mtu(const struct sk_buff *skb, unsigned int mtu);
+ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
+ struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
+ int skb_ensure_writable(struct sk_buff *skb, int write_len);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 97c32c75e704af1f31b064e8f1e0475ff1505d67..5ca562b56ec39d39e1225d96547e242732518ffe 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4392,6 +4392,37 @@ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
  
- 	__SCTP_INC_STATS(net, SCTP_MIB_INSCTPPACKS);
- 
--	if (skb_linearize(skb))
-+	/* If packet is too small to contain a single chunk, let's not
-+	 * waste time on it anymore.
-+	 */
-+	if (skb->len < sizeof(struct sctphdr) + sizeof(struct sctp_chunkhdr) +
-+		       skb_transport_offset(skb))
- 		goto discard_it;
- 
--	sh = sctp_hdr(skb);
-+	if (!pskb_may_pull(skb, sizeof(struct sctphdr)))
-+		goto discard_it;
- 
--	/* Pull up the IP and SCTP headers. */
-+	/* Pull up the IP header. */
- 	__skb_pull(skb, skb_transport_offset(skb));
--	if (skb->len < sizeof(struct sctphdr))
--		goto discard_it;
- 
- 	skb->csum_valid = 0; /* Previous value not applicable */
- 	if (skb_csum_unnecessary(skb))
-@@ -141,11 +143,7 @@ int sctp_rcv(struct sk_buff *skb)
- 		goto discard_it;
- 	skb->csum_valid = 1;
- 
--	skb_pull(skb, sizeof(struct sctphdr));
--
--	/* Make sure we at least have chunk headers worth of data left. */
--	if (skb->len < sizeof(struct sctp_chunkhdr))
--		goto discard_it;
-+	__skb_pull(skb, sizeof(struct sctphdr));
- 
- 	family = ipver2af(ip_hdr(skb)->version);
- 	af = sctp_get_af_specific(family);
-@@ -230,7 +228,7 @@ int sctp_rcv(struct sk_buff *skb)
- 	chunk->rcvr = rcvr;
- 
- 	/* Remember the SCTP header. */
--	chunk->sctp_hdr = sh;
-+	chunk->sctp_hdr = sctp_hdr(skb);
- 
- 	/* Set the source and destination addresses of the incoming chunk.  */
- 	sctp_init_addrs(chunk, &src, &dest);
-@@ -660,19 +658,23 @@ out_unlock:
-  */
- static int sctp_rcv_ootb(struct sk_buff *skb)
++/**
++ * skb_gso_validate_mtu - Return in case such skb fits a given MTU
++ *
++ * @skb: GSO skb
++ *
++ * skb_gso_validate_mtu validates if a given skb will fit a wanted MTU
++ * once split.
++ */
++bool skb_gso_validate_mtu(const struct sk_buff *skb, unsigned int mtu)
++{
++	const struct skb_shared_info *shinfo = skb_shinfo(skb);
++	const struct sk_buff *iter;
++	unsigned int hlen;
++
++	hlen = skb_gso_network_seglen(skb);
++
++	if (shinfo->gso_size != GSO_BY_FRAGS)
++		return hlen <= mtu;
++
++	/* Undo this so we can re-use header sizes */
++	hlen -= GSO_BY_FRAGS;
++
++	skb_walk_frags(skb, iter) {
++		if (hlen + skb_headlen(iter) > mtu)
++			return false;
++	}
++
++	return true;
++}
++EXPORT_SYMBOL_GPL(skb_gso_validate_mtu);
++
+ static struct sk_buff *skb_reorder_vlan_header(struct sk_buff *skb)
  {
--	sctp_chunkhdr_t *ch;
--	__u8 *ch_end;
--
--	ch = (sctp_chunkhdr_t *) skb->data;
-+	sctp_chunkhdr_t *ch, _ch;
-+	int ch_end, offset = 0;
+ 	if (skb_cow(skb, skb_headroom(skb)) < 0) {
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index cbfb1808fcc490b94dc0bbdab6142acb8fa37815..9f0a7b96646f368021d9cd51bc3f728ba49eed0d 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -54,7 +54,7 @@ static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
+ 	if (skb->ignore_df)
+ 		return false;
  
- 	/* Scan through all the chunks in the packet.  */
- 	do {
-+		/* Make sure we have at least the header there */
-+		if (offset + sizeof(sctp_chunkhdr_t) > skb->len)
-+			break;
-+
-+		ch = skb_header_pointer(skb, offset, sizeof(*ch), &_ch);
-+
- 		/* Break out if chunk length is less then minimal. */
- 		if (ntohs(ch->length) < sizeof(sctp_chunkhdr_t))
- 			break;
+-	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
++	if (skb_is_gso(skb) && skb_gso_validate_mtu(skb, mtu))
+ 		return false;
  
--		ch_end = ((__u8 *)ch) + WORD_ROUND(ntohs(ch->length));
--		if (ch_end > skb_tail_pointer(skb))
-+		ch_end = offset + WORD_ROUND(ntohs(ch->length));
-+		if (ch_end > skb->len)
- 			break;
+ 	return true;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 124bf0a663283502deb03397343160d493a378b1..cbac493c913ac37b57a97314f9e7099b14b8246c 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -225,7 +225,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
  
- 		/* RFC 8.4, 2) If the OOTB packet contains an ABORT chunk, the
-@@ -697,8 +699,8 @@ static int sctp_rcv_ootb(struct sk_buff *skb)
- 		if (SCTP_CID_INIT == ch->type && (void *)ch != skb->data)
- 			goto discard;
+ 	/* common case: locally created skb or seglen is <= mtu */
+ 	if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
+-	      skb_gso_network_seglen(skb) <= mtu)
++	      skb_gso_validate_mtu(skb, mtu))
+ 		return ip_finish_output2(net, sk, skb);
  
--		ch = (sctp_chunkhdr_t *) ch_end;
--	} while (ch_end < skb_tail_pointer(skb));
-+		offset = ch_end;
-+	} while (ch_end < skb->len);
+ 	/* Slowpath -  GSO segment length is exceeding the dst MTU.
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index cbf127ae7c676650cc626cbf12cd61b6b570ea43..6b2f60a5c1de3063bb65c07b2b77c13f33890af8 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -368,7 +368,7 @@ static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ 	if (skb->ignore_df)
+ 		return false;
  
- 	return 0;
+-	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
++	if (skb_is_gso(skb) && skb_gso_validate_mtu(skb, mtu))
+ 		return false;
  
-@@ -1173,6 +1175,9 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct net *net,
- {
- 	sctp_chunkhdr_t *ch;
+ 	return true;
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 0b80a7140cc494d8c39bd3efba2423272d1b8844..7a4aa3450dd71039e73516bd711ba7392493eb5e 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -91,7 +91,7 @@ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ 	if (skb->len <= mtu)
+ 		return false;
  
-+	if (skb_linearize(skb))
-+		return NULL;
-+
- 	ch = (sctp_chunkhdr_t *) skb->data;
+-	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
++	if (skb_is_gso(skb) && skb_gso_validate_mtu(skb, mtu))
+ 		return false;
  
- 	/* The code below will attempt to walk the chunk and extract
-diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
-index 9d87bba0ff1d34134093f34e4db3dc1b7e3dafd6..5ba08ceda3ab6cf61eb64c58bffb9ccd589e8664 100644
---- a/net/sctp/inqueue.c
-+++ b/net/sctp/inqueue.c
-@@ -130,7 +130,8 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
- 	 * at this time.
- 	 */
- 
--	if ((chunk = queue->in_progress)) {
-+	chunk = queue->in_progress;
-+	if (chunk) {
- 		/* There is a packet that we have been working on.
- 		 * Any post processing work to do before we move on?
- 		 */
-@@ -152,15 +153,29 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
- 	if (!chunk) {
- 		struct list_head *entry;
- 
-+next_chunk:
- 		/* Is the queue empty?  */
- 		if (list_empty(&queue->in_chunk_list))
- 			return NULL;
- 
- 		entry = queue->in_chunk_list.next;
--		chunk = queue->in_progress =
--			list_entry(entry, struct sctp_chunk, list);
-+		chunk = list_entry(entry, struct sctp_chunk, list);
- 		list_del_init(entry);
- 
-+		/* Linearize if it's not GSO */
-+		if (skb_is_nonlinear(chunk->skb)) {
-+			if (skb_linearize(chunk->skb)) {
-+				__SCTP_INC_STATS(dev_net(chunk->skb->dev), SCTP_MIB_IN_PKT_DISCARDS);
-+				sctp_chunk_free(chunk);
-+				goto next_chunk;
-+			}
-+
-+			/* Update sctp_hdr as it probably changed */
-+			chunk->sctp_hdr = sctp_hdr(chunk->skb);
-+		}
-+
-+		queue->in_progress = chunk;
-+
- 		/* This is the first chunk in the packet.  */
- 		chunk->singleton = 1;
- 		ch = (sctp_chunkhdr_t *) chunk->skb->data;
-@@ -172,14 +187,6 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
- 
- 	chunk->chunk_hdr = ch;
- 	chunk->chunk_end = ((__u8 *)ch) + WORD_ROUND(ntohs(ch->length));
--	/* In the unlikely case of an IP reassembly, the skb could be
--	 * non-linear. If so, update chunk_end so that it doesn't go past
--	 * the skb->tail.
--	 */
--	if (unlikely(skb_is_nonlinear(chunk->skb))) {
--		if (chunk->chunk_end > skb_tail_pointer(chunk->skb))
--			chunk->chunk_end = skb_tail_pointer(chunk->skb);
--	}
- 	skb_pull(chunk->skb, sizeof(sctp_chunkhdr_t));
- 	chunk->subh.v = NULL; /* Subheader is no longer valid.  */
- 
+ 	return true;
 -- 
 2.5.5
