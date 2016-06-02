@@ -1,29 +1,70 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH][RT] netpoll: Always take poll_lock when doing polling
-Date: Thu, 2 Jun 2016 18:12:35 +0200
-Message-ID: <20160602161235.GA12971@linutronix.de>
-References: <20160526195641.6c26e979@gandalf.local.home>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH -next 2/2] virtio_net: Read the advised MTU
+Date: Thu, 2 Jun 2016 19:16:57 +0300
+Message-ID: <20160602191632-mutt-send-email-mst@redhat.com>
+References: <1464882211-18723-1-git-send-email-aconole@redhat.com>
+	<1464882211-18723-3-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	linux-rt-users <linux-rt-users@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Clark Williams <williams@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Steven Rostedt <rostedt@goodmis.org>, alison@peloton-tech.com
-Return-path: <linux-rt-users-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Aaron Conole <aconole@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20160526195641.6c26e979@gandalf.local.home>
-Sender: linux-rt-users-owner@vger.kernel.org
+In-Reply-To: <1464882211-18723-3-git-send-email-aconole@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-* Steven Rostedt | 2016-05-26 19:56:41 [-0400]:
+On Thu, Jun 02, 2016 at 11:43:31AM -0400, Aaron Conole wrote:
+> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
+> exists, read the advised MTU and use it.
+> 
+> No proper error handling is provided for the case where a user changes the
+> negotiated MTU. A future commit will add proper error handling. Instead, a
+> warning is emitted if the guest changes the device MTU after previously
+> being given advice.
 
->[ Alison, can you try this patch ]
+I don't see a warning and I don't think it's needed.
+Patch is ok commit log isn't.
 
-Alison, did you try it?
-
-Sebastian
+> Signed-off-by: Aaron Conole <aconole@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index e0638e5..ef5ee01 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1896,6 +1896,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+>  
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
+> +		dev->mtu = virtio_cread16(vdev,
+> +					  offsetof(struct virtio_net_config,
+> +						   mtu));
+> +	}
+> +
+>  	if (vi->any_header_sg)
+>  		dev->needed_headroom = vi->hdr_len;
+>  
+> @@ -2067,6 +2073,7 @@ static unsigned int features[] = {
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+>  	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>  	VIRTIO_F_ANY_LAYOUT,
+> +	VIRTIO_NET_F_MTU,
+>  };
+>  
+>  static struct virtio_driver virtio_net_driver = {
+> -- 
+> 2.5.5
