@@ -1,65 +1,49 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH iputils v2] ping: always accept . delimiter with -i number parsing
-Date: Thu,  2 Jun 2016 00:46:54 -0400
-Message-ID: <1464842814-30690-1-git-send-email-vapier@gentoo.org>
-References: <1464752905-10347-6-git-send-email-vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:57118 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750978AbcFBEq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 00:46:58 -0400
-In-Reply-To: <1464752905-10347-6-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6 0/3] skb_array: array based FIFO for skbs
+Date: Wed, 01 Jun 2016 21:51:12 -0700 (PDT)
+Message-ID: <20160601.215112.20935437120251822.davem@davemloft.net>
+References: <1464785601-3074-1-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, jasowang@redhat.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	rostedt@goodmis.org, brouer@redhat.com, kvm@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464785601-3074-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Always allow #.# format for the -i flag even when the current locale
-uses a different separator.  Locale de_DE which uses #,# normally.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 1 Jun 2016 15:54:34 +0300
 
-Simple testcase:
-$ make USE_IDN=1
-$ LANG=de_DE.UTF8 ./ping -i 0.5 localhost
-$ LANG=de_DE.UTF8 ./ping -i 0,5 localhost
+> This is in response to the proposal by Jason to make tun
+> rx packet queue lockless using a circular buffer.
+> My testing seems to show that at least for the common usecase
+> in networking, which isn't lockless, circular buffer
+> with indices does not perform that well, because
+> each index access causes a cache line to bounce between
+> CPUs, and index access causes stalls due to the dependency.
+> 
+> By comparison, an array of pointers where NULL means invalid
+> and !NULL means valid, can be updated without messing up barriers
+> at all and does not have this issue.
+> 
+> On the flip side, cache pressure may be caused by using large queues.
+> tun has a queue of 1000 entries by default and that's 8K.
+> At this point I'm not sure this can be solved efficiently.
+> The correct solution might be sizing the queues appropriately.
+> 
+> Here's an implementation of this idea: it can be used more
+> or less whenever sk_buff_head can be used, except you need
+> to know the queue size in advance.
+ ...
 
-Reported-by: Sergey Fionov <fionov@gmail.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- ping_common.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+I have no fundamental issues with this piece of infrastructure, but when
+it gets included I want this series to include at least one use case.
 
-diff --git a/ping_common.c b/ping_common.c
-index 62f53a6..6054a91 100644
---- a/ping_common.c
-+++ b/ping_common.c
-@@ -269,11 +269,28 @@ void common_options(int ch)
- 		double dbl;
- 		char *ep;
- 
-+#ifdef USE_IDN
-+		int try_c_loc = 0;
-+ retry_c_loc:
-+#endif
-+
- 		errno = 0;
- 		dbl = strtod(optarg, &ep);
- 
-+#ifdef USE_IDN
-+		if (try_c_loc)
-+			setlocale(LC_ALL, "");
-+#endif
-+
- 		if (errno || *ep != '\0' ||
- 		    !finite(dbl) || dbl < 0.0 || dbl >= (double)INT_MAX / 1000 - 1.0) {
-+#ifdef USE_IDN
-+			if (!try_c_loc) {
-+				try_c_loc = 1;
-+				setlocale(LC_ALL, "C");
-+				goto retry_c_loc;
-+			}
-+#endif
- 			fprintf(stderr, "ping: bad timing interval\n");
- 			exit(2);
- 		}
--- 
-2.8.2
+This can be an adaptation of Jason's tun rx packet queue changes, or
+similar.
+
+Thanks.
