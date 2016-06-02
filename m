@@ -1,7 +1,7 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v3 2/7] skbuff: export skb_gro_receive
-Date: Thu,  2 Jun 2016 15:05:39 -0300
-Message-ID: <9b2b6cbbca69e1dd2b66d7207f63105f508e43b4.1464888549.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v3 7/7] sctp: improve debug message to also log curr pkt and new chunk size
+Date: Thu,  2 Jun 2016 15:05:44 -0300
+Message-ID: <b77fec5ed91323dcad8e56fbaeae62e6e1326d01.1464888550.git.marcelo.leitner@gmail.com>
 References: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
@@ -13,34 +13,35 @@ Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59404 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36327 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161414AbcFBSGE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 14:06:04 -0400
+	id S1161516AbcFBSGS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2016 14:06:18 -0400
 In-Reply-To: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp GSO requires it and sctp can be compiled as a module, so we need to
-export this function.
+This is useful for debugging packet sizes.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Tested-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/core/skbuff.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/sctp/output.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f2b77e549c03a771909cd9c87c40ec2b7826cd31..4724bcf9b0cae1cecbe5bc2c04e308bb70b3232a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3438,6 +3438,7 @@ done:
- 	NAPI_GRO_CB(skb)->same_flow = 1;
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(skb_gro_receive);
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 60499a69179d255c47da1fa19b73147917a050bf..90d2e125c2f5e0e1ecb33a7eab10772e5b39567c 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -182,7 +182,8 @@ sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
+ 	sctp_xmit_t retval;
+ 	int error = 0;
  
- void __init skb_init(void)
- {
+-	pr_debug("%s: packet:%p chunk:%p\n", __func__, packet, chunk);
++	pr_debug("%s: packet:%p size:%lu chunk:%p size:%d\n", __func__,
++		 packet, packet->size, chunk, chunk->skb ? chunk->skb->len : -1);
+ 
+ 	switch ((retval = (sctp_packet_append_chunk(packet, chunk)))) {
+ 	case SCTP_XMIT_PMTU_FULL:
 -- 
 2.5.5
