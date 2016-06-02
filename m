@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC v7 5/5] skb_array: resize support
-Date: Thu, 2 Jun 2016 19:08:34 +0300
-Message-ID: <1464883305-32368-6-git-send-email-mst@redhat.com>
+Subject: [PATCH RFC v7 3/5] skb_array: array based FIFO for skbs
+Date: Thu, 2 Jun 2016 19:08:26 +0300
+Message-ID: <1464883305-32368-4-git-send-email-mst@redhat.com>
 References: <1464883305-32368-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,82 +11,169 @@ Cc: "Michael S. Tsirkin" <mst@redhat.com>,
 	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
 	brouer@redhat.com, kvm@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55677 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161185AbcFBQIi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 12:08:38 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1464883305-32368-1-git-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Update skb_array after ptr_ring API changes.
+A simple array based FIFO of pointers.  Intended for net stack so uses
+skbs for type safety. Implemented as a set of wrappers around ptr_array.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/linux/skb_array.h | 33 +++++++++++++++++++++++++++++----
- 1 file changed, 29 insertions(+), 4 deletions(-)
+ include/linux/skb_array.h | 143 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 143 insertions(+)
+ create mode 100644 include/linux/skb_array.h
 
 diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index ed6a2b5..c9bad35 100644
---- a/include/linux/skb_array.h
+new file mode 100644
+index 0000000..ed6a2b5
+--- /dev/null
 +++ b/include/linux/skb_array.h
-@@ -62,9 +62,9 @@ static inline int skb_array_produce_any(struct skb_array *a, struct sk_buff *skb
- 	return ptr_ring_produce_any(&a->ring, skb);
- }
- 
--/* Might be slightly faster than skb_array_empty below, but callers invoking
-- * this in a loop must take care to use a compiler barrier, for example
-- * cpu_relax().
-+/* Might be slightly faster than skb_array_empty below, but only safe if the
-+ * array is never resized. Also, callers invoking this in a loop must take care
-+ * to use a compiler barrier, for example cpu_relax().
-  */
- static inline bool __skb_array_empty(struct skb_array *a)
- {
-@@ -76,6 +76,21 @@ static inline bool skb_array_empty(struct skb_array *a)
- 	return ptr_ring_empty(&a->ring);
- }
- 
-+static inline bool skb_array_empty_bh(struct skb_array *a)
+@@ -0,0 +1,143 @@
++/*
++ *	Definitions for the 'struct skb_array' datastructure.
++ *
++ *	Author:
++ *		Michael S. Tsirkin <mst@redhat.com>
++ *
++ *	Copyright (C) 2016 Red Hat, Inc.
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License as published by the
++ *	Free Software Foundation; either version 2 of the License, or (at your
++ *	option) any later version.
++ *
++ *	Limited-size FIFO of skbs. Can be used more or less whenever
++ *	sk_buff_head can be used, except you need to know the queue size in
++ *	advance.
++ *	Implemented as a type-safe wrapper around ptr_ring.
++ */
++
++#ifndef _LINUX_SKB_ARRAY_H
++#define _LINUX_SKB_ARRAY_H 1
++
++#ifdef __KERNEL__
++#include <linux/ptr_ring.h>
++#include <linux/skbuff.h>
++#endif
++
++struct skb_array {
++	struct ptr_ring ring;
++};
++
++/* Might be slightly faster than skb_array_full below, but callers invoking
++ * this in a loop must use a compiler barrier, for example cpu_relax().
++ */
++static inline bool __skb_array_full(struct skb_array *a)
 +{
-+	return ptr_ring_empty_bh(&a->ring);
++	return __ptr_ring_full(&a->ring);
 +}
 +
-+static inline bool skb_array_empty_irq(struct skb_array *a)
++static inline bool skb_array_full(struct skb_array *a)
 +{
-+	return ptr_ring_empty_irq(&a->ring);
++	return ptr_ring_full(&a->ring);
 +}
 +
-+static inline bool skb_array_empty_any(struct skb_array *a)
++static inline int skb_array_produce(struct skb_array *a, struct sk_buff *skb)
 +{
-+	return ptr_ring_empty_any(&a->ring);
++	return ptr_ring_produce(&a->ring, skb);
 +}
 +
- static inline struct sk_buff *skb_array_consume(struct skb_array *a)
- {
- 	return ptr_ring_consume(&a->ring);
-@@ -135,9 +150,19 @@ static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
- 	return ptr_ring_init(&a->ring, size, gfp);
- }
- 
-+void __skb_array_destroy_skb(void *ptr)
++static inline int skb_array_produce_irq(struct skb_array *a, struct sk_buff *skb)
 +{
-+	kfree_skb(ptr);
++	return ptr_ring_produce_irq(&a->ring, skb);
 +}
 +
-+int skb_array_resize(struct skb_array *a, int size, gfp_t gfp)
++static inline int skb_array_produce_bh(struct skb_array *a, struct sk_buff *skb)
 +{
-+	return ptr_ring_resize(&a->ring, size, gfp, __skb_array_destroy_skb);
++	return ptr_ring_produce_bh(&a->ring, skb);
 +}
 +
- static inline void skb_array_cleanup(struct skb_array *a)
- {
--	ptr_ring_cleanup(&a->ring);
-+	ptr_ring_cleanup(&a->ring, __skb_array_destroy_skb);
- }
- 
- #endif /* _LINUX_SKB_ARRAY_H  */
++static inline int skb_array_produce_any(struct skb_array *a, struct sk_buff *skb)
++{
++	return ptr_ring_produce_any(&a->ring, skb);
++}
++
++/* Might be slightly faster than skb_array_empty below, but callers invoking
++ * this in a loop must take care to use a compiler barrier, for example
++ * cpu_relax().
++ */
++static inline bool __skb_array_empty(struct skb_array *a)
++{
++	return !__ptr_ring_peek(&a->ring);
++}
++
++static inline bool skb_array_empty(struct skb_array *a)
++{
++	return ptr_ring_empty(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume(struct skb_array *a)
++{
++	return ptr_ring_consume(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume_irq(struct skb_array *a)
++{
++	return ptr_ring_consume_irq(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume_any(struct skb_array *a)
++{
++	return ptr_ring_consume_any(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
++{
++	return ptr_ring_consume_bh(&a->ring);
++}
++
++static inline int __skb_array_len_with_tag(struct sk_buff *skb)
++{
++	if (likely(skb)) {
++		int len = skb->len;
++
++		if (skb_vlan_tag_present(skb))
++			len += VLAN_HLEN;
++
++		return len;
++	} else {
++		return 0;
++	}
++}
++
++static inline int skb_array_peek_len(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_peek_len_irq(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL_IRQ(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_peek_len_bh(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL_BH(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_peek_len_any(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL_ANY(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
++{
++	return ptr_ring_init(&a->ring, size, gfp);
++}
++
++static inline void skb_array_cleanup(struct skb_array *a)
++{
++	ptr_ring_cleanup(&a->ring);
++}
++
++#endif /* _LINUX_SKB_ARRAY_H  */
 -- 
 MST
