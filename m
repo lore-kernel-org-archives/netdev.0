@@ -1,75 +1,98 @@
 From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: [RESEND PATCH v5 0/2] Add CAN FD driver support to r8a7795 SoC
-Date: Thu,  2 Jun 2016 10:45:00 +0100
-Message-ID: <1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Subject: [RESEND PATCH v5 2/2] can: rcar_can: Move Renesas CAN driver to rcar dir
+Date: Thu,  2 Jun 2016 10:45:02 +0100
+Message-ID: <1464860702-46087-3-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
 	chris.paterson2@renesas.com, horms@verge.net.au,
 	magnus.damm@gmail.com, ulrich.hecht@gmail.com,
 	Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
 To: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+In-Reply-To: <1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---------------------------
-Resend of patch set [1] posted on Apr 28th 2016
+This patch clubs the Renesas controller drivers in one rcar dir.
 
-[1] https://www.mail-archive.com/linux-renesas-soc%40vger.kernel.org/msg03352.html
---------------------------
-
-Hi All,
-
-   This patch is based on commit "885cc17abad6" of can-next/testing branch
-
-Changes since v4:
-	* Rebased to latest can-next/testing branch
-	* Addressed Marc K review comments on v2 patch
-	* Use clk_get_rate() to find ext clock availability. Refer thread
-	(https://lkml.org/lkml/2016/4/8/203)
-
-Changes since v3:
-	* Split v3 patch into two (Marc K)
-	  (1) Introduce rcar_canfd.c driver in drivers/net/can/rcar dir
-	  (2) Move rcar_can.c driver to new drivers/net/can/rcar dir
-	* Added Acked-by Rob H for the bindings
-	* Added comments on CAN FD only mode in driver & Kconfig (Oliver H)
-
-Changes since v2:
-	* Rebased to latest tag (linux-can-next-for-4.6-20160310)
-	* Cleaned up leftover debugfs code (Thanks Oliver H)
-	* Revised devicetree documentation text (as suggested by Rob H)
-	  (https://www.mail-archive.com/linux-renesas-soc@vger.kernel.org/msg01597.html)
-	* Used new can subsystem api to set static configuration & removed check in rcar_canfd_start (as suggested by Oliver H)
-	  (Refer: http://comments.gmane.org/gmane.linux.can/9126 &
-	   https://www.mail-archive.com/linux-renesas-soc@vger.kernel.org/msg01867.html)
-	* Clubbed Renesas controller drivers to driver/net/can/rcar dir (as suggested by Oliver H)
-	* Updated commit message
-
-Changes since v1:
-	* Removed testmodes & debugfs code (suggested by Oliver H)
-	* Fixed tx path race issue by introducing lock (suggested by Marc K)
-	* Removed __maybe_unused attribute of rcar_canfd_of_table
-
-Ramesh Shanmugasundaram (2):
-  can: rcar_canfd: Add Renesas R-Car CAN FD driver
-  can: rcar_can: Move Renesas CAN driver to rcar dir
-
- .../devicetree/bindings/net/can/rcar_canfd.txt     |   89 ++
- drivers/net/can/Kconfig                            |   11 +-
- drivers/net/can/Makefile                           |    2 +-
- drivers/net/can/rcar/Kconfig                       |   21 +
- drivers/net/can/rcar/Makefile                      |    6 +
- drivers/net/can/{ => rcar}/rcar_can.c              |    0
- drivers/net/can/rcar/rcar_canfd.c                  | 1624 ++++++++++++++++++++
- 7 files changed, 1742 insertions(+), 11 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/can/rcar_canfd.txt
- create mode 100644 drivers/net/can/rcar/Kconfig
- create mode 100644 drivers/net/can/rcar/Makefile
+Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+---
+ drivers/net/can/Kconfig               | 10 ----------
+ drivers/net/can/Makefile              |  1 -
+ drivers/net/can/rcar/Kconfig          | 10 ++++++++++
+ drivers/net/can/rcar/Makefile         |  3 ++-
+ drivers/net/can/{ => rcar}/rcar_can.c |  0
+ 5 files changed, 12 insertions(+), 12 deletions(-)
  rename drivers/net/can/{ => rcar}/rcar_can.c (100%)
- create mode 100644 drivers/net/can/rcar/rcar_canfd.c
 
+diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+index 13003a9..22570ea 100644
+--- a/drivers/net/can/Kconfig
++++ b/drivers/net/can/Kconfig
+@@ -104,16 +104,6 @@ config CAN_JANZ_ICAN3
+ 	  This driver can also be built as a module. If so, the module will be
+ 	  called janz-ican3.ko.
+ 
+-config CAN_RCAR
+-	tristate "Renesas R-Car CAN controller"
+-	depends on ARCH_RENESAS || ARM
+-	---help---
+-	  Say Y here if you want to use CAN controller found on Renesas R-Car
+-	  SoCs.
+-
+-	  To compile this driver as a module, choose M here: the module will
+-	  be called rcar_can.
+-
+ config CAN_SUN4I
+ 	tristate "Allwinner A10 CAN controller"
+ 	depends on MACH_SUN4I || MACH_SUN7I || COMPILE_TEST
+diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+index 226d5b5..26ba4b7 100644
+--- a/drivers/net/can/Makefile
++++ b/drivers/net/can/Makefile
+@@ -25,7 +25,6 @@ obj-$(CONFIG_CAN_IFI_CANFD)	+= ifi_canfd/
+ obj-$(CONFIG_CAN_JANZ_ICAN3)	+= janz-ican3.o
+ obj-$(CONFIG_CAN_MSCAN)		+= mscan/
+ obj-$(CONFIG_CAN_M_CAN)		+= m_can/
+-obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
+ obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
+ obj-$(CONFIG_CAN_SUN4I)		+= sun4i_can.o
+ obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
+diff --git a/drivers/net/can/rcar/Kconfig b/drivers/net/can/rcar/Kconfig
+index 6ea64d1..7b03a3a 100644
+--- a/drivers/net/can/rcar/Kconfig
++++ b/drivers/net/can/rcar/Kconfig
+@@ -1,3 +1,13 @@
++config CAN_RCAR
++	tristate "Renesas R-Car CAN controller"
++	depends on ARCH_RENESAS || ARM
++	---help---
++	  Say Y here if you want to use CAN controller found on Renesas R-Car
++	  SoCs.
++
++	  To compile this driver as a module, choose M here: the module will
++	  be called rcar_can.
++
+ config CAN_RCAR_CANFD
+ 	tristate "Renesas R-Car CAN FD controller"
+ 	depends on ARCH_RENESAS || ARM
+diff --git a/drivers/net/can/rcar/Makefile b/drivers/net/can/rcar/Makefile
+index cbaf498e..08de36a 100644
+--- a/drivers/net/can/rcar/Makefile
++++ b/drivers/net/can/rcar/Makefile
+@@ -1,5 +1,6 @@
+ #
+-#  Makefile for the Renesas R-Car CAN FD controller driver
++#  Makefile for the Renesas R-Car CAN & CAN FD controller drivers
+ #
+ 
++obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
+ obj-$(CONFIG_CAN_RCAR_CANFD)	+= rcar_canfd.o
+diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar/rcar_can.c
+similarity index 100%
+rename from drivers/net/can/rcar_can.c
+rename to drivers/net/can/rcar/rcar_can.c
 -- 
 1.9.1
 
