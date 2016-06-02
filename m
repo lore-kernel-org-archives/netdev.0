@@ -1,116 +1,103 @@
-From: <Mario_Limonciello-DYMqY+WieiM@public.gmane.org>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Thu, 2 Jun 2016 15:46:41 +0000
-Message-ID: <6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
- <20160601230535.GA29279@kroah.com>
- <0bdb98b72b884682b936c0587f965629@ausx13mpc124.AMER.DELL.COM>
- <20160602152244.GA26494@kroah.com>
+From: Ulrich Hecht <ulrich.hecht@gmail.com>
+Subject: Re: [RESEND PATCH v5 1/2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Thu, 2 Jun 2016 18:01:59 +0200
+Message-ID: <CAO3366wP+tBaGbrMceupcJu0agW5Euo3NBNwijNCmpM1XcDGmQ@mail.gmail.com>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+	<1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+	<1464860702-46087-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <anthony.wong-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160602152244.GA26494-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	chris.paterson2@renesas.com, Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1464860702-46087-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >
-> > This isn't something part of ACPI - it's been added specifically for a
-> > selection of Dell machines.
-> 
-> Ah, but isn't ACPI supposed to be a "standard"?  :)
-> 
+Thank you for your patch.
 
-Heh.
-It's also possible to get this from an SMM routine.  Lesser of two evils to fetch the information this way, right? :)
+On Thu, Jun 2, 2016 at 11:45 AM, Ramesh Shanmugasundaram
+<ramesh.shanmugasundaram@bp.renesas.com> wrote:
+[...]
+> diff --git a/drivers/net/can/rcar/rcar_canfd.c b/drivers/net/can/rcar/rcar_canfd.c
+> new file mode 100644
+> index 0000000..e198732
+> --- /dev/null
+> +++ b/drivers/net/can/rcar/rcar_canfd.c
+> @@ -0,0 +1,1624 @@
+> +/* Renesas R-Car CAN FD device driver
+> + *
+> + * Copyright (C) 2015 Renesas Electronics Corp.
+> + *
+> + * This program is free software; you can redistribute  it and/or modify it
+> + * under  the terms of  the GNU General  Public License as published by the
+> + * Free Software Foundation;  either version 2 of the  License, or (at your
+> + * option) any later version.
+> + */
+> +
+> +/* The R-Car CAN FD controller can operate in either one of the below two modes
+> + *  - CAN FD only mode
+> + *  - Classical CAN (CAN 2.0) only mode
+> + *
+> + * This driver puts the controller in CAN FD only mode by default. In this
+> + * mode, the controller acts as a CAN FD node that can also interoperate with
+> + * CAN 2.0 nodes.
+> + *
+> + * As of now, this driver does not support the Classical CAN (CAN 2.0) mode,
+> + * which is handled by a different register map compared to CAN FD only mode.
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/moduleparam.h>
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/interrupt.h>
+> +#include <linux/errno.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/can/led.h>
+> +#include <linux/can/dev.h>
+> +#include <linux/clk.h>
+> +#include <linux/of.h>
+> +#include <linux/of_device.h>
+> +#include <linux/bitmap.h>
+> +#include <linux/bitops.h>
+> +#include <linux/iopoll.h>
+> +
+> +#define RCANFD_DRV_NAME                        "rcar_canfd"
+> +
+> +#define RCANFD_FIFO_DEPTH              8       /* Tx FIFO depth */
+> +#define RCANFD_NAPI_WEIGHT             8       /* Rx poll quota */
+> +
+> +#define RCANFD_NUM_CHANNELS            2       /* Two channels max */
+> +#define RCANFD_CHANNELS_MASK           BIT((RCANFD_NUM_CHANNELS) - 1)
+> +
+> +/* Rx FIFO is a global resource of the controller. There are 8 such FIFOs
+> + * available. Each channel gets a dedicated Rx FIFO (i.e.) the channel
+> + * number is added to RFFIFO index.
+> + */
+> +#define RCANFD_RFFIFO_IDX              0
+> +
+> +/* Tx/Rx or Common FIFO is a per channel resource. Each channel has 3 Common
+> + * FIFOs dedicated to them. Use the first (index 0) FIFO out of the 3 for Tx.
+> + */
+> +#define RCANFD_CFFIFO_IDX              0
+> +
+> +/* Global register bits */
+> +#define RCANFD_GINTF_CANFD             BIT(0)
+> +
+> +#define RCANFD_GCFG_TPRI               BIT(0)
+> +#define RCANFD_GCFG_DCE                        BIT(1)
+> +#define RCANFD_GCFG_DCS                        BIT(4)
+> +#define RCANFD_GCFG_CMPOC              BIT(5)
 
-> And please wrap your email lines, there is a "standard" for that...
+What reference are the register layouts based on? This bit, for
+instance, is marked reserved in R-Car-Gen3-rev0.51e.pdf, and many are
+named differently.
 
-I'm unfortunately not limited to an evil mail client at my workplace since our mail server migration.   My apologies, I've got it set to wrap at 76 characters and I'm trying to make it as LKML friendly as possible.
-
-> 
-> > I would rather not hardcode to the specific DMI model strings of those
-> > Dell machines as it's certainly going to be a feature that expands to
-> > more machines.  Since it is Dell specific though, if you would rather
-> > me just match to the sys vendor Dell Inc., that seems like a pretty
-> > good compromise to me.
-> 
-> You need to only do this on machines you "know" have this set to a correct
-> value, otherwise if some other random BIOS happens to set that field to
-> some random value, you will have problems.
-
-Pali had recommended in another message to check the buffer header.  I was intending to do this along with check ACPI buffer output type, and output size in the next revision I submitted.  By switching to hex2bin, I'll also validate that the string has correct values (0-F or 0-f).  If somehow all of that fails, the set_ethernet_addr  checks if the address is valid.  If it's invalid it will generate a random one.
-
-> 
-> > > And finally, this seems odd overall given that a MAC address should
-> > > be associated with the specific network device, not the overall system.
-> >
-> > The whole reasoning behind this is to bring the behavior that E-Docks
-> > had to TBT docks.
-> 
-> What is "TBT"?
-
-Thunderbolt
-
-> 
-> > With E-docks they were really just extensions of the pins for the
-> > already onboard NIC of the system.  When you docked in an E-dock you
-> > inherently would use the same MAC everywhere you went.  If you had two
-> > cubes your network admin would see your same MAC in both.
-> >
-> > With TBT docks and this patch not present docking in different places
-> > will give you the MAC of the dock rather than something persistent
-> > that your network admin could identify.  Solving this was something
-> > that was explicitly asked for in case studies during conceptualization
-> > of these docks and is a feature present in the Realtek Windows driver.
-> 
-> But you are dealing with different "devices" here, thunderbolt is a PCI
-> device, not a "pin pass-through", and to treat it differently like you want to is
-> going to cause confusion as well.
-
-Is it not also going to be confusing if someone boots Windows and Linux on the same laptop and has a different behavior with their dock's MAC address?  I'm trying to get parity here for organizations that are supporting both Windows and Linux for their employees.
-
-> > In addition to limiting to Dell DMI system vendor string how about I do two
-> more things about this:
-> >
-> > 1) Add a module parameter to disable this behavior altogether in r8152 if
-> it's not desired by the user or admin (but leave it on by default).
-> 
-> No module parameters, this isn't the 1990's anymore, and you aren't going to
-> be modifying module config files for everyone, are you?
-> 
-> And this seems like a "default" that should be turned off anyway, as it goes
-> against the model of all of our other network devices in Linux.
-> 
-> > 2) Track whether this is the first or second USB NIC plugged in.  Only offer it
-> on the first NIC detected by r8152.  When the second NIC is plugged in don't
-> match from ACPI.
-> > There would be a question of what to do if the first NIC is removed and
-> added back if it should get the persistent system MAC or not.
-> > I'd say yes, just make sure that only one NIC can have it at a time.
-> 
-> You are going to get things very complex very quickly if you try to do this.
-
-It's really not that hard, track a module wide static variable whether the feature is in use.  Track in each device whether the feature was in use.  If it in use, don't assign the next device plugged in via the ACPI string.  If a device is removed that has the feature activated, change the module wide static variable.
-
-> 
-> What's wrong with a "simple" script to set the mac address from userspace if
-> the user wants something like this?  Provide it as a system package and then
-> no kernel changes are needed at all.  Much easier to support on your end
-> (you don't have to maintain this odd kernel code for
-> 10+ years), the default behavior is as Linux users expect, and your
-> limited number of people who want this crazy behaviour can install your
-> script if they want it.
-> 
-
-This was my original approach.  It involved a network manager script, network manager code changes to support this, and exposing this somewhere in a platform module (like dell-laptop).  I was told I'm better off doing it directly in the network module, so here I am.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+CU
+Uli
