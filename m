@@ -1,41 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: FWD: [PATCH v2] Marvell phy: add fiber status check for some
- components
-Date: Thu, 2 Jun 2016 16:56:36 +0200
-Message-ID: <20160602145636.GA15379@lunn.ch>
-References: <20160404132552.GH21828@lunn.ch>
- <570BFF50.6060909@gmail.com>
- <d3b31c38-a15c-bf49-d787-1a7dcd11849d@nexvision.fr>
- <9dd03fd9-1241-fc7d-ead3-feb7e918d4c3@nexvision.fr>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] net: fjes: fjes_main: Remove create_workqueue
+Date: Thu, 2 Jun 2016 10:57:29 -0400
+Message-ID: <20160602145729.GO14868@mtj.duckdns.org>
+References: <20160602093057.GA15351@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57643 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753276AbcFBO4k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 10:56:40 -0400
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Taku Izumi <izumi.taku@jp.fujitsu.com>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <9dd03fd9-1241-fc7d-ead3-feb7e918d4c3@nexvision.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160602093057.GA15351@Karyakshetra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 27, 2016 at 11:23:22AM +0200, Charles-Antoine Couret wrote:
+On Thu, Jun 02, 2016 at 03:00:57PM +0530, Bhaktipriya Shridhar wrote:
+> alloc_workqueue replaces deprecated create_workqueue().
 > 
-> Hello,
-> I'm sorry to repost that, but after one month, I need a answer to continue to imrpove my patch in the right direction. :)
+> The workqueue adapter->txrx_wq has workitem
+> &adapter->raise_intr_rxdata_task per adapter. Extended Socket Network
+> Device is shared memory based, so someone's transmission denotes other's
+> reception.  raise_intr_rxdata_task raises interruption of receivers from
+> the sender in order to notify receivers.
+> 
+> The workqueue adapter->control_wq has workitem
+> &adapter->interrupt_watch_task per adapter. interrupt_watch_task is used
+> to prevent delay of interrupts.
+> 
+> Dedicated workqueues have been used in both cases since the workitems
+> on the workqueues are involved in normal device operation and require
+> forward progress under memory pressure.
+> 
+> max_active has been set to 0 since there is no need for throttling
+> the number of active work items.
+> 
+> Since network devices  may be used for memory reclaim,
+> WQ_MEM_RECLAIM has been set to guarantee forward progress.
 
-Hi Charles-Aontine
+Patch looks good but ditto with the description.  I wish it were
+clearer.
 
-Florian and I had a quick discussion. We think going with the Marvell
-datasheet documentation is best.
+Thanks.
 
-Please just be careful to ensure the generic code does not try to
-unconditionally read the registers, only the Marvell driver. I'm
-talking about functions like genphy_config_advert(),
-genphy_setup_forced(), genphy_restart_aneg() etc. We need to ensure we
-are consistently using the correct page.
-
-      Andrew
+-- 
+tejun
