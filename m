@@ -1,93 +1,138 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH 0/4] Make inotify instance/watches be accounted per userns
-Date: Thu, 02 Jun 2016 11:19:23 -0500
-Message-ID: <87y46n36no.fsf@x220.int.ebiederm.org>
-References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
-	<8737ow7vcp.fsf@x220.int.ebiederm.org> <574FD1E4.8090109@kyup.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: john@johnmccutchan.com, eparis@redhat.com, jack@suse.cz,
-	linux-kernel@vger.kernel.org, gorcunov@openvz.org,
-	avagin@openvz.org, netdev@vger.kernel.org,
-	operations@siteground.com,
-	Linux Containers <containers@lists.linux-foundation.org>
-To: Nikolay Borisov <kernel@kyup.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <574FD1E4.8090109@kyup.com> (Nikolay Borisov's message of "Thu, 2
-	Jun 2016 09:27:48 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mario Limonciello <mario_limonciello@dell.com>
+Subject: [PATCH v2] r8152: Add support for setting MAC to system's Auxiliary MAC address
+Date: Thu,  2 Jun 2016 11:58:07 -0500
+Message-ID: <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
+References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux USB <linux-usb@vger.kernel.org>, pali.rohar@gmail.com,
+	anthony.wong@canonical.com, Greg KH <gregkh@linuxfoundation.org>,
+	Mario Limonciello <mario_limonciello@dell.com>
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from AUSXIPPS310.us.dell.com ([143.166.148.211]:36740 "EHLO
+	ausxipps310.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161332AbcFBQ6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 12:58:23 -0400
+In-Reply-To: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nikolay Borisov <kernel@kyup.com> writes:
+Dell systems with Type-C ports have support for a persistent system
+specific MAC address when used with Dell Type-C docks and dongles.
+This means a dock plugged into two different systems will show different
+(but persistent) MAC addresses.  Dell Type-C docks and dongles use the
+r8152 driver.
 
-> On 06/01/2016 07:00 PM, Eric W. Biederman wrote:
->> Cc'd the containers list.
->> 
->> 
->> Nikolay Borisov <kernel@kyup.com> writes:
->> 
->>> Currently the inotify instances/watches are being accounted in the 
->>> user_struct structure. This means that in setups where multiple 
->>> users in unprivileged containers map to the same underlying 
->>> real user (e.g. user_struct) the inotify limits are going to be 
->>> shared as well which can lead to unplesantries. This is a problem 
->>> since any user inside any of the containers can potentially exhaust 
->>> the instance/watches limit which in turn might prevent certain 
->>> services from other containers from starting.
->> 
->> On a high level this is a bit problematic as it appears to escapes the
->> current limits and allows anyone creating a user namespace to have their
->> own fresh set of limits.  Given that anyone should be able to create a
->> user namespace whenever they feel like escaping limits is a problem.
->> That however is solvable.
->
-> This is indeed a problem and the presented solution is rather dumb in
-> that regard. I'm happy to work with you on suggestions so that I arrive
-> at a solution that is upstreamable.
+This information for the system's persistent MAC address is burned in when
+the HW is built and available under _SB\AMAC in the DSDT at runtime.
 
-The one in kernel solution to hierarchical resource limits that I am
-aware of is the current include/linux/page_counter.h which evolved from
-include/linux/res_counter.h
+More information about the technology is available here:
+http://www.dell.com/support/article/us/en/04/SLN301147
 
->> A practical question.  What kind of limits are we looking at here?
->> 
->> Are these loose limits for detecting buggy programs that have gone
->> off their rails?
->
-> Loose limits.
->
->> 
->> Are these tight limits to ensure multitasking is possible?
->> 
->> 
->> 
->> For tight limits where something is actively controlling the limits you
->> probably want a cgroup base solution.
->> 
->> For loose limits that are the kind where you set a good default and
->> forget about I think a user namespace based solution is reasonable.
->
-> That's exactly the use case I had in mind.
->
->> 
->>> The solution I propose is rather simple, instead of accounting the 
->>> watches/instances per user_struct, start accounting them in a hashtable, 
->>> where the index used is the hashed pointer of the userns. This way
->>> the administrator needn't set the inotify limits very high and also 
->>> the risk of one container breaching the limits and affecting every 
->>> other container is alleviated.
->> 
->> I don't think this is the right data structure for a user namespace
->> based solution, at least in part because it does not account for users
->> escaping.
->
-> Admittedly this is a naive solution, what are you ideas on something
-> which achieves my initial aim of having limits per users, yet not
-> allowing them to just create another namespace and escape them. The
-> current namespace code has a hard-coded limit of 32 for nesting user
-> namespaces. So currently at the worst case one can escape the limits up
-> to 32 * current_limits.
+Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+---
+ drivers/net/usb/r8152.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 53 insertions(+)
 
-32 is the nesting depth not the width of the tree.  But see above.
-
-Eric
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 3f9f6ed..6dea542 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -26,6 +26,8 @@
+ #include <linux/mdio.h>
+ #include <linux/usb/cdc.h>
+ #include <linux/suspend.h>
++#include <linux/acpi.h>
++#include <linux/dmi.h>
+ 
+ /* Information for net-next */
+ #define NETNEXT_VERSION		"08"
+@@ -500,6 +502,7 @@ enum rtl8152_flags {
+ 	SELECTIVE_SUSPEND,
+ 	PHY_RESET,
+ 	SCHEDULE_NAPI,
++	MAC_PASSTHRU = 0,
+ };
+ 
+ /* Define these values to match your device */
+@@ -653,6 +656,7 @@ enum tx_csum_stat {
+  */
+ static const int multicast_filter_limit = 32;
+ static unsigned int agg_buf_sz = 16384;
++static bool mac_passthru_active;
+ 
+ #define RTL_LIMITED_TSO_SIZE	(agg_buf_sz - sizeof(struct tx_desc) - \
+ 				 VLAN_ETH_HLEN - VLAN_HLEN)
+@@ -1030,6 +1034,49 @@ out1:
+ 	return ret;
+ }
+ 
++static int get_auxiliary_addr(struct r8152 *tp, struct sockaddr *sa)
++{
++	acpi_status status;
++	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
++	union acpi_object *obj;
++	int ret = -1;
++	unsigned char buf[6];
++
++	if (!dmi_name_in_vendors("Dell Inc.") || mac_passthru_active)
++		return -1;
++
++	/* returns _AUXMAC_#AABBCCDDEEFF# */
++	status = acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
++	obj = (union acpi_object *)buffer.pointer;
++	if (ACPI_SUCCESS(status)) {
++		if (obj->type != ACPI_TYPE_BUFFER ||
++		    obj->string.length != 0x17) {
++			pr_warn("r8152: get_auxiliary_addr: Invalid buffer");
++			goto amacout;
++		}
++		if (strncmp(obj->string.pointer, "_AUXMAC_#", 9) != 0) {
++			pr_warn("r8152: get_auxiliary_addr: Invalid header");
++			goto amacout;
++		}
++		ret = hex2bin(buf, obj->string.pointer + 9, 6);
++		if (ret < 0) {
++			pr_warn("r8152: get_auxiliary_addr: Invalid MAC");
++			goto amacout;
++		}
++		memcpy(sa->sa_data, buf, 6);
++		ether_addr_copy(tp->netdev->dev_addr, sa->sa_data);
++		netdev_info(tp->netdev, "Using system MAC address %pM\n",
++			    sa->sa_data);
++		set_bit(MAC_PASSTHRU, &tp->flags);
++		mac_passthru_active = true;
++		ret = 1;
++	}
++
++amacout:
++	kfree(obj);
++	return ret;
++}
++
+ static int set_ethernet_addr(struct r8152 *tp)
+ {
+ 	struct net_device *dev = tp->netdev;
+@@ -1041,6 +1088,10 @@ static int set_ethernet_addr(struct r8152 *tp)
+ 	else
+ 		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+ 
++	/* if system provides auxiliary MAC address */
++	if (get_auxiliary_addr(tp, &sa))
++		ret = 0;
++
+ 	if (ret < 0) {
+ 		netif_err(tp, probe, dev, "Get ether addr fail\n");
+ 	} else if (!is_valid_ether_addr(sa.sa_data)) {
+@@ -4268,6 +4319,8 @@ static void rtl8152_disconnect(struct usb_interface *intf)
+ 		if (udev->state == USB_STATE_NOTATTACHED)
+ 			set_bit(RTL8152_UNPLUG, &tp->flags);
+ 
++		if (test_bit(MAC_PASSTHRU, &tp->flags))
++			mac_passthru_active = false;
+ 		netif_napi_del(&tp->napi);
+ 		unregister_netdev(tp->netdev);
+ 		tp->rtl_ops.unload(tp);
+-- 
+2.7.4
