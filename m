@@ -1,48 +1,30 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] net: fjes: fjes_main: Remove create_workqueue
-Date: Thu, 2 Jun 2016 10:57:29 -0400
-Message-ID: <20160602145729.GO14868@mtj.duckdns.org>
-References: <20160602093057.GA15351@Karyakshetra>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
+ MAC address
+Date: Thu, 2 Jun 2016 17:01:18 +0200
+Message-ID: <20160602150118.GB15379@lunn.ch>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+ <20160602074656.GM29844@pali>
+ <1fdac44606c74fc09bcb95cd0c7f5f87@ausx13mpc124.AMER.DELL.COM>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Taku Izumi <izumi.taku@jp.fujitsu.com>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Cc: pali.rohar@gmail.com, hayeswang@realtek.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, anthony.wong@canonical.com
+To: Mario_Limonciello@Dell.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160602093057.GA15351@Karyakshetra>
+In-Reply-To: <1fdac44606c74fc09bcb95cd0c7f5f87@ausx13mpc124.AMER.DELL.COM>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 02, 2016 at 03:00:57PM +0530, Bhaktipriya Shridhar wrote:
-> alloc_workqueue replaces deprecated create_workqueue().
-> 
-> The workqueue adapter->txrx_wq has workitem
-> &adapter->raise_intr_rxdata_task per adapter. Extended Socket Network
-> Device is shared memory based, so someone's transmission denotes other's
-> reception.  raise_intr_rxdata_task raises interruption of receivers from
-> the sender in order to notify receivers.
-> 
-> The workqueue adapter->control_wq has workitem
-> &adapter->interrupt_watch_task per adapter. interrupt_watch_task is used
-> to prevent delay of interrupts.
-> 
-> Dedicated workqueues have been used in both cases since the workitems
-> on the workqueues are involved in normal device operation and require
-> forward progress under memory pressure.
-> 
-> max_active has been set to 0 since there is no need for throttling
-> the number of active work items.
-> 
-> Since network devices  may be used for memory reclaim,
-> WQ_MEM_RECLAIM has been set to guarantee forward progress.
+> > 
+> > > +		pr_info("r8152: Using system auxiliary MAC address");
+> > 
+> > It would be great to write also mac address into that pr_info
 
-Patch looks good but ditto with the description.  I wish it were
-clearer.
+And since there could be multiple r8152 in the system, it would be
+good to indicate which of them is having its MAC changed. So
+netdev_info() or dev_info().
 
-Thanks.
-
--- 
-tejun
+      Andrew
