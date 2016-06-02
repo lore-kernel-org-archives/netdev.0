@@ -1,42 +1,56 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Thu, 2 Jun 2016 02:53:06 +0000
-Message-ID: <cfff846f3ca34b6a889f07f971b27271@ausx13mpc124.AMER.DELL.COM>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
- <20160601230535.GA29279@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160601230535.GA29279@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+From: Xiubo Li <lixiubo@cmss.chinamobile.com>
+Subject: [PATCH v2] netfilter: fix possible ZERO_SIZE_PTR pointer dereferencing error.
+Date: Thu,  2 Jun 2016 10:59:56 +0800
+Message-ID: <1464836396-15671-1-git-send-email-lixiubo@cmss.chinamobile.com>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	Xiubo Li <lixiubo@cmss.chinamobile.com>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > +static u8 amac_ascii_to_hex(int c)
-> > +{
-> > +	if (c <= 0x39)
-> > +		return (u8)(c - 0x30);
-> > +	else if (c <= 0x46)
-> > +		return (u8)(c - 0x37);
-> > +	return (u8)(c - 0x57);
-> > +}
-> 
+Since we cannot make sure that the 'hook_mask' will always be none
+zero here. If it equals to zero, the num_hooks will be zero too,
+and then kmalloc() will return ZERO_SIZE_PTR, which is (void *)16.
 
-Sorry forgot to address this.  
+Then the following error check will fails:
+  ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+  if (ops == NULL)
+          return ERR_PTR(-ENOMEM);
 
-> We really don't have such a function somewhere in the kernel already?
+So this patch will fix this with just doing the zero check before
+kmalloc() is called.
 
-There is a function in acpi/acpica/uthex.c that does this, but it doesn't seem to be used by anything outside of acpica so far.  Would it be OK style wise to 
-#include " ../../acpi/acpica/acutils.h" from r8152.c?  
+Maybe the case above will never happen here, but in theory.
 
-If not, then what is the proper thing to do here to re-use it from there?
+Signed-off-by: Xiubo Li <lixiubo@cmss.chinamobile.com>
+---
 
-> And why 'int', isn't "c" really a u8?
+Changes in V2:
+- Using the nf.git tree instead.
 
-Yeah I guess u8 should be fine there, and avoid the casting then too.
+
+ net/netfilter/x_tables.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 582c9cf..e117fd0 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -1221,6 +1221,9 @@ xt_hook_ops_alloc(const struct xt_table *table, nf_hookfn *fn)
+ 	uint8_t hooknum;
+ 	struct nf_hook_ops *ops;
+ 
++	if (!num_hooks)
++		return ERR_PTR(-EINVAL);
++
+ 	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+ 	if (ops == NULL)
+ 		return ERR_PTR(-ENOMEM);
+-- 
+1.8.3.1
+
+
+
