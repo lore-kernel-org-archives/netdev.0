@@ -1,7 +1,7 @@
 From: Aaron Conole <aconole@redhat.com>
-Subject: [PATCH -next 1/2] virtio: Start feature MTU support
-Date: Thu,  2 Jun 2016 11:43:30 -0400
-Message-ID: <1464882211-18723-2-git-send-email-aconole@redhat.com>
+Subject: [PATCH -next 2/2] virtio_net: Read the advised MTU
+Date: Thu,  2 Jun 2016 11:43:31 -0400
+Message-ID: <1464882211-18723-3-git-send-email-aconole@redhat.com>
 References: <1464882211-18723-1-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,27 +21,43 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This commit adds the feature bit and associated mtu device entry for the
-virtio network device. Future commits will make use of these bits to
-support negotiated MTU.
+This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
+exists, read the advised MTU and use it.
+
+No proper error handling is provided for the case where a user changes the
+negotiated MTU. A future commit will add proper error handling. Instead, a
+warning is emitted if the guest changes the device MTU after previously
+being given advice.
 
 Signed-off-by: Aaron Conole <aconole@redhat.com>
 ---
- include/uapi/linux/virtio_net.h | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/virtio_net.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index ec32293..751ff59 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -73,6 +73,8 @@ struct virtio_net_config {
- 	 * Legal values are between 1 and 0x8000
- 	 */
- 	__u16 max_virtqueue_pairs;
-+	/* Default maximum transmit unit advice */
-+	__u16 mtu;
- } __attribute__((packed));
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index e0638e5..ef5ee01 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1896,6 +1896,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+ 		vi->has_cvq = true;
  
- /*
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
++		dev->mtu = virtio_cread16(vdev,
++					  offsetof(struct virtio_net_config,
++						   mtu));
++	}
++
+ 	if (vi->any_header_sg)
+ 		dev->needed_headroom = vi->hdr_len;
+ 
+@@ -2067,6 +2073,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+ 	VIRTIO_NET_F_CTRL_MAC_ADDR,
+ 	VIRTIO_F_ANY_LAYOUT,
++	VIRTIO_NET_F_MTU,
+ };
+ 
+ static struct virtio_driver virtio_net_driver = {
 -- 
 2.5.5
