@@ -1,104 +1,56 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
- MAC address
-Date: Thu, 2 Jun 2016 01:54:47 +0000
-Message-ID: <047b23349a674f1fa9905f2f3ab0cec5@ausx13mpc124.AMER.DELL.COM>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
- <20160601222703.GJ31982@lunn.ch>
- <b1ca1d7d97ee4abb9691963488a27480@ausx13mpc124.AMER.DELL.COM>
- <20160601230651.GA29439@kroah.com>
+From: Zhao Qiang <qiang.zhao@nxp.com>
+Subject: [PATCH v2 1/5] fsl/qe: add rx_sync and tx_sync for TDM mode
+Date: Thu, 2 Jun 2016 09:44:57 +0800
+Message-ID: <1464831901-15913-1-git-send-email-qiang.zhao@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <hayeswang@realtek.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <pali.rohar@gmail.com>,
-	<anthony.wong@canonical.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160601230651.GA29439@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Zhao Qiang <qiang.zhao@nxp.com>,
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ xiaobo.xie@nxp.com
+To: <oss@buserror.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Greg KH [mailto:gregkh@linuxfoundation.org]
-> Sent: Wednesday, June 1, 2016 6:07 PM
-> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> Cc: andrew@lunn.ch; hayeswang@realtek.com; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org; linux-usb@vger.kernel.org; pali.rohar@gmail.com;
-> anthony.wong@canonical.com
-> Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
-> MAC address
-> 
-> On Wed, Jun 01, 2016 at 10:31:52PM +0000, Mario_Limonciello@Dell.com
-> wrote:
-> > > -----Original Message-----
-> > > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> > > Sent: Wednesday, June 1, 2016 5:27 PM
-> > > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> > > Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>;
-> > > Netdev <netdev@vger.kernel.org>; Linux USB
-> > > <linux-usb@vger.kernel.org>; pali.rohar@gmail.com;
-> > > anthony.wong@canonical.com
-> > > Subject: Re: [PATCH] r8152: Add support for setting MAC to system's
-> > > Auxiliary MAC address
-> > >
-> > > On Wed, Jun 01, 2016 at 04:50:44PM -0500, Mario Limonciello wrote:
-> > > > Dell systems with Type-C ports have support for a persistent
-> > > > system specific MAC address when used with Dell Type-C docks and
-> dongles.
-> > > > This means a dock plugged into two different systems will show
-> > > > different (but persistent) MAC addresses.  Dell Type-C docks and
-> > > > dongles use the
-> > > > r8152 driver.
-> > > >
-> > > > This information for the system's persistent MAC address is burned
-> > > > in when the HW is built and avilable under _SB\AMAC in the DSDT at
-> runtime.
-> > > >
-> > > > More information about the technology is available here:
-> > > > http://www.dell.com/support/article/us/en/04/SLN301147
-> > > >
-> > > > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
-> > > > ---
-> > > >  drivers/net/usb/Kconfig |  1 +
-> > > >  drivers/net/usb/r8152.c | 37
-> > > +++++++++++++++++++++++++++++++++++++
-> > > >  2 files changed, 38 insertions(+)
-> > > >
-> > > > diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> > > > index
-> > > > cdde590..c320930 100644
-> > > > --- a/drivers/net/usb/Kconfig
-> > > > +++ b/drivers/net/usb/Kconfig
-> > > > @@ -98,6 +98,7 @@ config USB_RTL8150  config USB_RTL8152
-> > > >  	tristate "Realtek RTL8152/RTL8153 Based USB Ethernet Adapters"
-> > > >  	select MII
-> > > > +	depends on ACPI
-> > >
-> > > Hi Mario
-> > >
-> > > That seems a bit heavy handed. What about ARM or MIPS machines which
-> > > don't use ACPI but do have USB ports where i could plug in a USB
-> > > dongle with this chipset.
-> > >
-> > > I think it would be better to make use of ACPI if it is available,
-> > > but don't require it in order the build the driver.
-> > >
-> > >       Andrew
-> >
-> > Hi Andrew,
-> >
-> > Thanks for that feedback.  I'll adjust that to look for CONFIG_ACPI in
-> > the code instead in V2 after I get some additional comments for the
-> > implementation.
-> 
-> No need to do that, the acpi functions should be "stubbed out" if that option is
-> not enabled, right?  You don't want #ifdefs in .c code if at all possible.
-> 
-> thanks,
-> 
-> greg k-h
-
-Thanks, yeah I do see them stubbed out, will skip #ifdefs and just drop the Kconfig dependency on ACPI.
+Unhfc3luYyBhbmQgdHhfc3luYyBhcmUgdXNlZCBieSBRRS1URE0gbW9kZSwKYWRkIHRoZW0gdG8g
+c3RydWN0IHVjY19mYXN0X2luZm8uCgpTaWduZWQtb2ZmLWJ5OiBaaGFvIFFpYW5nIDxxaWFuZy56
+aGFvQG54cC5jb20+Ci0tLQpDaGFuZ2VzIGZvciB2MjoKCS0gdXNlIHN0cmNtcCBpbnN0ZWFkIG9m
+IHN0cmNhc2VjbXAKCiBkcml2ZXJzL3NvYy9mc2wvcWUvcWUuYyAgICAgICB8IDYgKysrKysrCiBp
+bmNsdWRlL3NvYy9mc2wvcWUvcWUuaCAgICAgICB8IDIgKysKIGluY2x1ZGUvc29jL2ZzbC9xZS91
+Y2NfZmFzdC5oIHwgMiArKwogMyBmaWxlcyBjaGFuZ2VkLCAxMCBpbnNlcnRpb25zKCspCgpkaWZm
+IC0tZ2l0IGEvZHJpdmVycy9zb2MvZnNsL3FlL3FlLmMgYi9kcml2ZXJzL3NvYy9mc2wvcWUvcWUu
+YwppbmRleCA3MDlmYzYzLi43MDI2NTA3IDEwMDY0NAotLS0gYS9kcml2ZXJzL3NvYy9mc2wvcWUv
+cWUuYworKysgYi9kcml2ZXJzL3NvYy9mc2wvcWUvcWUuYwpAQCAtMjM5LDYgKzIzOSwxMiBAQCBl
+bnVtIHFlX2Nsb2NrIHFlX2Nsb2NrX3NvdXJjZShjb25zdCBjaGFyICpzb3VyY2UpCiAJaWYgKHN0
+cmNhc2VjbXAoc291cmNlLCAibm9uZSIpID09IDApCiAJCXJldHVybiBRRV9DTEtfTk9ORTsKIAor
+CWlmIChzdHJjbXAoc291cmNlLCAidHN5bmNfcGluIikgPT0gMCkKKwkJcmV0dXJuIFFFX1RTWU5D
+X1BJTjsKKworCWlmIChzdHJjbXAoc291cmNlLCAicnN5bmNfcGluIikgPT0gMCkKKwkJcmV0dXJu
+IFFFX1JTWU5DX1BJTjsKKwogCWlmIChzdHJuY2FzZWNtcChzb3VyY2UsICJicmciLCAzKSA9PSAw
+KSB7CiAJCWkgPSBzaW1wbGVfc3RydG91bChzb3VyY2UgKyAzLCBOVUxMLCAxMCk7CiAJCWlmICgo
+aSA+PSAxKSAmJiAoaSA8PSAxNikpCmRpZmYgLS1naXQgYS9pbmNsdWRlL3NvYy9mc2wvcWUvcWUu
+aCBiL2luY2x1ZGUvc29jL2ZzbC9xZS9xZS5oCmluZGV4IDMzYjI5ZWEuLmY5MTg3NDUgMTAwNjQ0
+Ci0tLSBhL2luY2x1ZGUvc29jL2ZzbC9xZS9xZS5oCisrKyBiL2luY2x1ZGUvc29jL2ZzbC9xZS9x
+ZS5oCkBAIC04MCw2ICs4MCw4IEBAIGVudW0gcWVfY2xvY2sgewogCVFFX0NMSzIyLAkJLyogQ2xv
+Y2sgMjIgKi8KIAlRRV9DTEsyMywJCS8qIENsb2NrIDIzICovCiAJUUVfQ0xLMjQsCQkvKiBDbG9j
+ayAyNCAqLworCVFFX1JTWU5DX1BJTiwJCS8qIFJTWU5DIGZyb20gcGluICovCisJUUVfVFNZTkNf
+UElOLAkJLyogVFNZTkMgZnJvbSBwaW4gKi8KIAlRRV9DTEtfRFVNTVkKIH07CiAKZGlmZiAtLWdp
+dCBhL2luY2x1ZGUvc29jL2ZzbC9xZS91Y2NfZmFzdC5oIGIvaW5jbHVkZS9zb2MvZnNsL3FlL3Vj
+Y19mYXN0LmgKaW5kZXggZGY4ZWE3OS4uMzE1NDhiNyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9zb2Mv
+ZnNsL3FlL3VjY19mYXN0LmgKKysrIGIvaW5jbHVkZS9zb2MvZnNsL3FlL3VjY19mYXN0LmgKQEAg
+LTEyMCw2ICsxMjAsOCBAQCBzdHJ1Y3QgdWNjX2Zhc3RfaW5mbyB7CiAJaW50IHVjY19udW07CiAJ
+ZW51bSBxZV9jbG9jayByeF9jbG9jazsKIAllbnVtIHFlX2Nsb2NrIHR4X2Nsb2NrOworCWVudW0g
+cWVfY2xvY2sgcnhfc3luYzsKKwllbnVtIHFlX2Nsb2NrIHR4X3N5bmM7CiAJdTMyIHJlZ3M7CiAJ
+aW50IGlycTsKIAl1MzIgdWNjbV9tYXNrOwotLSAKMi4xLjAuMjcuZzk2ZGIzMjQKCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWls
+aW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxh
+YnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
