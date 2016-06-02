@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: avoid csum_partial() for validated skb
-Date: Wed, 01 Jun 2016 17:41:51 -0700 (PDT)
-Message-ID: <20160601.174151.1773614070251060832.davem@davemloft.net>
-References: <1464733361.5939.130.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: IOV iterator bug in net tree
+Date: Wed, 01 Jun 2016 17:42:25 -0700 (PDT)
+Message-ID: <20160601.174225.2184872288386003765.davem@davemloft.net>
+References: <CAKgT0UfZFpUVNHnAjem3yCvf6n-EezqLnZerduQi3jQe76RK7Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samanthakumar@google.com, willemb@google.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49915 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49920 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbcFBAlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 20:41:55 -0400
-In-Reply-To: <1464733361.5939.130.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1751125AbcFBAm1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 20:42:27 -0400
+In-Reply-To: <CAKgT0UfZFpUVNHnAjem3yCvf6n-EezqLnZerduQi3jQe76RK7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 31 May 2016 15:22:41 -0700
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Fri, 27 May 2016 21:32:39 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> On Fri, May 27, 2016 at 11:21 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> I started out this morning by trying to run DevStack on the latest
+>> "net' kernel and it looks like I am hanging on some sort of locking
+>> problem with RabbitMQ.  Specifically I am seeing one CPU jump to 100%
+>> with perf showing that I am spinning on a lock.
+>>
+>> I'm working to bisect it now, but just thought I would put it out
+>> there if anybody had already root caused this issue.  Below is a few
+>> traces to the spin lock call on the spinning CPU:
 > 
-> In commit e6afc8ace6dd5 ("udp: remove headers from UDP packets before
-> queueing"), udp_csum_pull_header() helper was added but missed fact
-> that CHECKSUM_UNNECESSARY packets were now converted to CHECKSUM_NONE
-> and skb->csum_valid was set to 1 for them.
-> 
-> Since csum_partial() is quite expensive, even for 8-byte area, it is
-> worth adding a test.
-> 
-> We also can use skb->data instead of udp_hdr() as we are pulling
-> UDP headers, as it is sightly faster.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> I misread the perf trace.  I wasn't spinning on a lock I was spinning
+> on the IOV iterator.  It just happened to push the lock to the top of
+> the perf trace.  I bisected it down to the recent change in
+> iterate_and_advance which was already fixed in Linus's tree in commit
+> 19f18459330f "do 'fold checks into iterate_and_advance()" right'.
 
-Applied, thanks Eric.
+Since I resynced both of my trees with Linus's, this should be resolved
+now, right?
