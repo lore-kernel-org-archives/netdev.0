@@ -1,27 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] ovs: set name assign type of internal port
-Date: Thu, 02 Jun 2016 12:07:02 -0700 (PDT)
-Message-ID: <20160602.120702.377101963849653349.davem@davemloft.net>
-References: <1464702062-7220-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: Re: [PATCH V3 0/2] vhost_net polling optimization
+Date: Thu, 02 Jun 2016 12:08:06 -0700 (PDT)
+Message-ID: <20160602.120806.2233781548139724198.davem@davemloft.net>
+References: <1464760594-30326-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org
-To: zhangshengju@cmss.chinamobile.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57946 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161298AbcFBTHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 15:07:07 -0400
-In-Reply-To: <1464702062-7220-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1464760594-30326-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Date: Tue, 31 May 2016 13:41:02 +0000
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed,  1 Jun 2016 01:56:32 -0400
 
-> Set name_assign_type of internal port to NET_NAME_USER.
+> This series tries to optimize vhost_net polling at two points:
 > 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> - Stop rx polling for reduicng the unnecessary wakeups during
+>   handle_rx().
+> - Conditonally enable tx polling for reducing the unnecessary
+>   traversing and spinlock touching.
+> 
+> Test shows about 17% improvement on rx pps.
+> 
+> Please review
+> 
+> Changes from V2:
+> - Don't enable rx vq if we meet an err or rx vq is empty
+> Changes from V1:
+> - use vhost_net_disable_vq()/vhost_net_enable_vq() instead of open
+>   coding.
+> - Add a new patch for conditionally enable tx polling.
 
-Pravin or some other OVS expert, please review this.
+Michael, please review this patch series.
+
+Thanks.
