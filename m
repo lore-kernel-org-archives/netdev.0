@@ -1,8 +1,7 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v3 1/7] loopback: make use of NETIF_F_GSO_SOFTWARE
-Date: Thu,  2 Jun 2016 15:05:38 -0300
-Message-ID: <3a0c67d9d2c6ea0c0e06d161ceffafadb87fdead.1464888549.git.marcelo.leitner@gmail.com>
-References: <cover.1464888549.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v3 0/7] sctp: Add GSO support
+Date: Thu,  2 Jun 2016 15:05:37 -0300
+Message-ID: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	David Laight <David.Laight@ACULAB.COM>,
@@ -13,44 +12,62 @@ Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56131 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60623 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161414AbcFBSGC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 14:06:02 -0400
-In-Reply-To: <cover.1464888549.git.marcelo.leitner@gmail.com>
+	id S932188AbcFBSF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2016 14:05:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NETIF_F_GSO_SOFTWARE was defined to list all GSO software types, so lets
-make use of it in loopback code. Note that veth/vxlan/others already
-uses it.
+This patchset adds sctp GSO support.
 
-Within this patch series, this patch causes lo to pick up SCTP GSO feature
-automatically (as it's added to NETIF_F_GSO_SOFTWARE) and thus avoiding
-segmentation if possible.
+Performance tests indicates that increases throughput by 10% if using
+bigger chunk sizes, specially if bigger than MTU. For small chunks, it
+doesn't help much if not using heavy firewall rules.
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Tested-by: Xin Long <lucien.xin@gmail.com>
----
- drivers/net/loopback.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+For small chunks it will probably be of more use once we get something
+like MSG_MORE as David Laight had suggested.
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index a400288cb37b9bfb6190f1bd7c64d02e97713956..6255973e3dda35fd41464ce51f0f9fb9f0b8364b 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -169,10 +169,9 @@ static void loopback_setup(struct net_device *dev)
- 	dev->flags		= IFF_LOOPBACK;
- 	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
- 	netif_keep_dst(dev);
--	dev->hw_features	= NETIF_F_ALL_TSO | NETIF_F_UFO;
-+	dev->hw_features	= NETIF_F_GSO_SOFTWARE;
- 	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
--		| NETIF_F_ALL_TSO
--		| NETIF_F_UFO
-+		| NETIF_F_GSO_SOFTWARE
- 		| NETIF_F_HW_CSUM
- 		| NETIF_F_RXCSUM
- 		| NETIF_F_SCTP_CRC
+overall changes:
+v1->v2:
+Added support for receiving GSO frames on SCTP stack, as requested by
+Dave Miller.
+
+v2->v3:
+Consider sctphdr size in skb_gso_transport_seglen()
+rebased due to 5c7cdf339af5 ("gso: Remove arbitrary checks for
+unsupported GSO")
+
+Marcelo Ricardo Leitner (7):
+  loopback: make use of NETIF_F_GSO_SOFTWARE
+  skbuff: export skb_gro_receive
+  sk_buff: allow segmenting based on frag sizes
+  skbuff: introduce skb_gso_validate_mtu
+  sctp: delay as much as possible skb_linearize
+  sctp: Add GSO support
+  sctp: improve debug message to also log curr pkt and new chunk size
+
+ drivers/net/loopback.c          |   5 +-
+ include/linux/netdev_features.h |   7 +-
+ include/linux/netdevice.h       |   1 +
+ include/linux/skbuff.h          |   8 +
+ include/net/sctp/sctp.h         |   4 +
+ include/net/sctp/structs.h      |   5 +
+ net/core/ethtool.c              |   1 +
+ net/core/skbuff.c               |  45 ++++-
+ net/ipv4/ip_forward.c           |   2 +-
+ net/ipv4/ip_output.c            |   2 +-
+ net/ipv6/ip6_output.c           |   2 +-
+ net/mpls/af_mpls.c              |   2 +-
+ net/sctp/Makefile               |   3 +-
+ net/sctp/input.c                |  57 ++++---
+ net/sctp/inqueue.c              |  78 +++++++--
+ net/sctp/offload.c              |  98 +++++++++++
+ net/sctp/output.c               | 366 +++++++++++++++++++++++++++-------------
+ net/sctp/protocol.c             |   3 +
+ net/sctp/socket.c               |   2 +
+ 19 files changed, 524 insertions(+), 167 deletions(-)
+ create mode 100644 net/sctp/offload.c
+
 -- 
 2.5.5
