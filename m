@@ -1,7 +1,7 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v3 7/7] sctp: improve debug message to also log curr pkt and new chunk size
-Date: Thu,  2 Jun 2016 15:05:44 -0300
-Message-ID: <b77fec5ed91323dcad8e56fbaeae62e6e1326d01.1464888550.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v3 3/7] sk_buff: allow segmenting based on frag sizes
+Date: Thu,  2 Jun 2016 15:05:40 -0300
+Message-ID: <6a625144a5410e00dc4f27a0037622e5fc2a5e0f.1464888549.git.marcelo.leitner@gmail.com>
 References: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
@@ -13,35 +13,60 @@ Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36327 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53352 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161516AbcFBSGS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 14:06:18 -0400
+	id S1161485AbcFBSGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2016 14:06:07 -0400
 In-Reply-To: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is useful for debugging packet sizes.
+This patch allows segmenting a skb based on its frags sizes instead of
+based on a fixed value.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Tested-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sctp/output.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/linux/skbuff.h |  5 +++++
+ net/core/skbuff.c      | 10 +++++++---
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 60499a69179d255c47da1fa19b73147917a050bf..90d2e125c2f5e0e1ecb33a7eab10772e5b39567c 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -182,7 +182,8 @@ sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
- 	sctp_xmit_t retval;
- 	int error = 0;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ee38a41274759f279be1c0752a7fab63fac517c8..329a0a9ef67115cae03b7c1304de031116384148 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -301,6 +301,11 @@ struct sk_buff;
+ #endif
+ extern int sysctl_max_skb_frags;
  
--	pr_debug("%s: packet:%p chunk:%p\n", __func__, packet, chunk);
-+	pr_debug("%s: packet:%p size:%lu chunk:%p size:%d\n", __func__,
-+		 packet, packet->size, chunk, chunk->skb ? chunk->skb->len : -1);
++/* Set skb_shinfo(skb)->gso_size to this in case you want skb_segment to
++ * segment using its current segmentation instead.
++ */
++#define GSO_BY_FRAGS	0xFFFF
++
+ typedef struct skb_frag_struct skb_frag_t;
  
- 	switch ((retval = (sctp_packet_append_chunk(packet, chunk)))) {
- 	case SCTP_XMIT_PMTU_FULL:
+ struct skb_frag_struct {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4724bcf9b0cae1cecbe5bc2c04e308bb70b3232a..97c32c75e704af1f31b064e8f1e0475ff1505d67 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3116,9 +3116,13 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 		int hsize;
+ 		int size;
+ 
+-		len = head_skb->len - offset;
+-		if (len > mss)
+-			len = mss;
++		if (unlikely(mss == GSO_BY_FRAGS)) {
++			len = list_skb->len;
++		} else {
++			len = head_skb->len - offset;
++			if (len > mss)
++				len = mss;
++		}
+ 
+ 		hsize = skb_headlen(head_skb) - offset;
+ 		if (hsize < 0)
 -- 
 2.5.5
