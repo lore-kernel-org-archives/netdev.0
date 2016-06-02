@@ -1,122 +1,37 @@
-From: "Pan, Miaoqing" <miaoqing-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>
-Subject: Re: ath9k gpio request
-Date: Thu, 2 Jun 2016 08:02:50 +0000
-Message-ID: <1464854569880.79341@qti.qualcomm.com>
-References: <20160530132225.4d297678@canb.auug.org.au>
-	<574C4851.9090201@gmail.com>
- <87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>,<574D3EAA.3060102@gmail.com>
- <1464764036580.70506@qti.qualcomm.com>
- <574EC331.1080901@gmail.com>,<574ED297.4080004@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
-	ath9k-devel <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	"linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org" <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Miaoqing Pan <miaoqing-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <574ED297.4080004-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Kangjie Lu <kangjielu@gmail.com>
+Subject: [PATCH] tipc: fix an infoleak in tipc_nl_compat_link_dump
+Date: Thu,  2 Jun 2016 04:04:56 -0400
+Message-ID: <1464854696-29513-1-git-send-email-kjlu@gatech.edu>
+Cc: ying.xue@windriver.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	taesoo@gatech.edu, csong84@gatech.edu, Kangjie Lu <kjlu@gatech.edu>
+To: jon.maloy@ericsson.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Seems there are something wrong in the datasheet,  try
+link_info.str is a char array of size 60. Memory after the NULL
+byte is not initialized. Sending the whole object out can cause
+a leak.
 
---- a/drivers/net/wireless/ath/ath9k/reg.h
-+++ b/drivers/net/wireless/ath/ath9k/reg.h
-@@ -1122,8 +1122,8 @@ enum {
- #define AR9300_NUM_GPIO                          16
- #define AR9330_NUM_GPIO                                 16
- #define AR9340_NUM_GPIO                                 23
--#define AR9462_NUM_GPIO                                 10
--#define AR9485_NUM_GPIO                                 12
-+#define AR9462_NUM_GPIO                                 14
-+#define AR9485_NUM_GPIO                                 11
- #define AR9531_NUM_GPIO                                 18
- #define AR9550_NUM_GPIO                                 24
- #define AR9561_NUM_GPIO                                 23
-@@ -1139,8 +1139,8 @@ enum {
- #define AR9300_GPIO_MASK                        0x0000F4FF
- #define AR9330_GPIO_MASK                        0x0000F4FF
- #define AR9340_GPIO_MASK                        0x0000000F
--#define AR9462_GPIO_MASK                        0x000003FF
--#define AR9485_GPIO_MASK                        0x00000FFF
-+#define AR9462_GPIO_MASK                        0x00003FFF
-+#define AR9485_GPIO_MASK                        0x000007FF
- #define AR9531_GPIO_MASK                        0x0000000F
- #define AR9550_GPIO_MASK                        0x0000000F
- #define AR9561_GPIO_MASK                        0x0000000F
+Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
+---
+ net/tipc/netlink_compat.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-Miaoqing
-
-________________________________________
-From: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sent: Wednesday, June 1, 2016 8:18 PM
-To: Pan, Miaoqing; Kalle Valo
-Cc: Stephen Rothwell; ath9k-devel; linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Miaoqing Pan
-Subject: Re: ath9k gpio request
-
-On Wednesday 01 June 2016 04:42 PM, Sudip Mukherjee wrote:
-> On Wednesday 01 June 2016 12:24 PM, Pan, Miaoqing wrote:
->> which chip ?  And what's the GPIO number ?
->
-> lspci -v reports:
-> 09:00.0 Network controller: Qualcomm Atheros AR9462 Wireless Network
-> Adapter (rev 01)
->      Subsystem: Foxconn International, Inc. Device e052
->      Flags: bus master, fast devsel, latency 0, IRQ 19
->      Memory at c0500000 (64-bit, non-prefetchable) [size=512K]
->      Expansion ROM at c0580000 [disabled] [size=64K]
->      Capabilities: [40] Power Management version 2
->      Capabilities: [50] MSI: Enable- Count=1/4 Maskable+ 64bit+
->      Capabilities: [70] Express Endpoint, MSI 00
->      Capabilities: [100] Advanced Error Reporting
->      Capabilities: [140] Virtual Channel
->      Capabilities: [160] Device Serial Number 00-00-00-00-00-00-00-00
->      Kernel driver in use: ath9k
->
-> Any easy way to find out the gpio number or i can modify the module to
-> find that out.
-
-Its trying for GPIO 11 with label ath9k-rfkill.
-
-The attached dmesg is with some modification as below.
-
-diff --git a/drivers/net/wireless/ath/ath9k/hw.c
-b/drivers/net/wireless/ath/ath9k/hw.c
-index 8b2895f9..23deea7 100644
---- a/drivers/net/wireless/ath/ath9k/hw.c
-+++ b/drivers/net/wireless/ath/ath9k/hw.c
-@@ -2729,14 +2729,16 @@ static void ath9k_hw_gpio_cfg_wmac(struct ath_hw
-*ah, u32 gpio, bool out,
-  static void ath9k_hw_gpio_request(struct ath_hw *ah, u32 gpio, bool out,
-                                   const char *label, u32 ah_signal_type)
-  {
--       WARN_ON(gpio >= ah->caps.num_gpio_pins);
-+//     WARN_ON(gpio >= ah->caps.num_gpio_pins);
-+
-+       pr_err("sudip: %d %s\n", gpio, label);
-
-         if (BIT(gpio) & ah->caps.gpio_mask)
-                 ath9k_hw_gpio_cfg_wmac(ah, gpio, out, ah_signal_type);
-         else if (AR_SREV_SOC(ah))
-                 ath9k_hw_gpio_cfg_soc(ah, gpio, out, label);
--       else
--               WARN_ON(1);
-+//     else
-+//             WARN_ON(1);
-  }
-
-Regards
-Sudip
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index f795b1d..2518014 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -604,7 +604,8 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
+ 
+ 	link_info.dest = nla_get_flag(link[TIPC_NLA_LINK_DEST]);
+ 	link_info.up = htonl(nla_get_flag(link[TIPC_NLA_LINK_UP]));
+-	strcpy(link_info.str, nla_data(link[TIPC_NLA_LINK_NAME]));
++	nla_strlcpy(link_info.str, nla_data(link[TIPC_NLA_LINK_NAME]),
++		    TIPC_MAX_LINK_NAME);
+ 
+ 	return tipc_add_tlv(msg->rep, TIPC_TLV_LINK_INFO,
+ 			    &link_info, sizeof(link_info));
+-- 
+2.7.4
