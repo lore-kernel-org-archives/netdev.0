@@ -1,170 +1,78 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v10 5/5] openvswitch: use ipgre tunnel rather than gretap tunnel
-Date: Thu,  2 Jun 2016 15:24:46 +0900
-Message-ID: <1464848686-7656-6-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v10 3/5] openvswitch: add support to push and pop mpls for layer3 packets
+Date: Thu,  2 Jun 2016 15:24:44 +0900
+Message-ID: <1464848686-7656-4-git-send-email-simon.horman@netronome.com>
 References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
 Cc: dev@openvswitch.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:35223 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752414AbcFBGZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 02:25:09 -0400
-Received: by mail-pf0-f176.google.com with SMTP id g64so27511765pfb.2
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 23:25:08 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33210 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023AbcFBGZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 02:25:03 -0400
+Received: by mail-pa0-f45.google.com with SMTP id um11so3274415pab.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 23:25:02 -0700 (PDT)
 In-Reply-To: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows GRE tunnels to send and receive both
-layer 2 packets (packets with an ethernet header) and
-layer 3 packets (packets without an ethernet header).
+Allow push and pop mpls actions to act on layer 3 packets by teaching
+them not to access non-existent L2 headers of such packets.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
 v10
-* Handle case of l3 only packets on vport-netdev
-* Use ARPHRD_NONE for ipgre interfaces as per recent changes in mainline
-* Ensure skb->mac_len is set correctly in netdev_port_receive and
-  relay on this value to differentiate layer3 packets in
-  ovs_flow_key_extract()
+* Limit scope of hdr in {push,pop}_mpls()
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
+v9
+* New Patch
 ---
- include/net/gre.h              |  4 ++--
- net/ipv4/ip_gre.c              |  9 +++++----
- net/openvswitch/vport-gre.c    |  2 +-
- net/openvswitch/vport-netdev.c | 34 ++++++++++++++++++++++++++++------
- 4 files changed, 36 insertions(+), 13 deletions(-)
+ net/openvswitch/actions.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/gre.h b/include/net/gre.h
-index 5dce30a6abe3..aeb748a97e0d 100644
---- a/include/net/gre.h
-+++ b/include/net/gre.h
-@@ -23,8 +23,8 @@ struct gre_protocol {
- int gre_add_protocol(const struct gre_protocol *proto, u8 version);
- int gre_del_protocol(const struct gre_protocol *proto, u8 version);
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 9a3eb7a0ebf4..15f130e4c22b 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -172,7 +172,8 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
  
--struct net_device *gretap_fb_dev_create(struct net *net, const char *name,
--				       u8 name_assign_type);
-+struct net_device *gre_fb_dev_create(struct net *net, const char *name,
-+				     u8 name_assign_type);
- int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 		     bool *csum_err, __be16 proto);
+ 	skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
  
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 4d2025f7ec57..58d323289872 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1116,8 +1116,8 @@ static struct rtnl_link_ops ipgre_tap_ops __read_mostly = {
- 	.get_link_net	= ip_tunnel_get_link_net,
- };
- 
--struct net_device *gretap_fb_dev_create(struct net *net, const char *name,
--					u8 name_assign_type)
-+struct net_device *gre_fb_dev_create(struct net *net, const char *name,
-+				     u8 name_assign_type)
+-	update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
++	if (skb->mac_len)
++		update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+ 	if (!skb->inner_protocol)
+ 		skb_set_inner_protocol(skb, skb->protocol);
+ 	skb->protocol = mpls->mpls_ethertype;
+@@ -184,7 +185,6 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 		    const __be16 ethertype)
  {
- 	struct nlattr *tb[IFLA_MAX + 1];
- 	struct net_device *dev;
-@@ -1127,13 +1127,14 @@ struct net_device *gretap_fb_dev_create(struct net *net, const char *name,
- 	memset(&tb, 0, sizeof(tb));
+-	struct ethhdr *hdr;
+ 	int err;
  
- 	dev = rtnl_create_link(net, name, name_assign_type,
--			       &ipgre_tap_ops, tb);
-+			       &ipgre_link_ops, tb);
- 	if (IS_ERR(dev))
- 		return dev;
+ 	err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
+@@ -199,11 +199,16 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	__skb_pull(skb, MPLS_HLEN);
+ 	skb_reset_mac_header(skb);
  
- 	/* Configure flow based GRE device. */
- 	t = netdev_priv(dev);
- 	t->collect_md = true;
-+	dev->type = ARPHRD_NONE;
- 
- 	err = ipgre_newlink(net, dev, tb, NULL);
- 	if (err < 0)
-@@ -1151,7 +1152,7 @@ out:
- 	free_netdev(dev);
- 	return ERR_PTR(err);
- }
--EXPORT_SYMBOL_GPL(gretap_fb_dev_create);
-+EXPORT_SYMBOL_GPL(gre_fb_dev_create);
- 
- static int __net_init ipgre_tap_init_net(struct net *net)
- {
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index bcbc91b8b077..c1cab9dd392f 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -60,7 +60,7 @@ static struct vport *gre_tnl_create(const struct vport_parms *parms)
- 		return vport;
- 
- 	rtnl_lock();
--	dev = gretap_fb_dev_create(net, parms->name, NET_NAME_USER);
-+	dev = gre_fb_dev_create(net, parms->name, NET_NAME_USER);
- 	if (IS_ERR(dev)) {
- 		rtnl_unlock();
- 		ovs_vport_free(vport);
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 733e7914f6bd..3df36df62ee9 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -60,7 +60,24 @@ static void netdev_port_receive(struct sk_buff *skb)
- 	if (vport->dev->type == ARPHRD_ETHER) {
- 		skb_push(skb, ETH_HLEN);
- 		skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
-+	} else if (vport->dev->type == ARPHRD_NONE) {
-+		if (skb->protocol == htons(ETH_P_TEB)) {
-+			__be16 eth_type;
+-	/* skb_mpls_header() is used to locate the ethertype
+-	 * field correctly in the presence of VLAN tags.
+-	 */
+-	hdr = (struct ethhdr *)(skb_mpls_header(skb) - ETH_HLEN);
+-	update_ethertype(skb, hdr, ethertype);
++	if (skb->mac_len) {
++		struct ethhdr *hdr;
 +
-+			if (unlikely(skb->len < ETH_HLEN))
-+				goto error;
-+
-+			eth_type = eth_type_trans(skb, skb->dev);
-+			skb->mac_len = skb->data - skb_mac_header(skb);
-+			__skb_push(skb, skb->mac_len);
-+
-+			if (eth_type == htons(ETH_P_8021Q))
-+				skb->mac_len += VLAN_HLEN;
-+		} else {
-+			skb->mac_len = 0;
-+		}
- 	}
-+
- 	ovs_vport_receive(vport, skb, skb_tunnel_info(skb));
- 	return;
- error:
-@@ -99,7 +116,8 @@ struct vport *ovs_netdev_link(struct vport *vport, const char *name)
- 	}
- 
- 	if (vport->dev->flags & IFF_LOOPBACK ||
--	    vport->dev->type != ARPHRD_ETHER ||
-+	    (vport->dev->type != ARPHRD_ETHER &&
-+	     vport->dev->type != ARPHRD_NONE) ||
- 	    ovs_is_internal_dev(vport->dev)) {
- 		err = -EINVAL;
- 		goto error_put;
-@@ -198,12 +216,16 @@ EXPORT_SYMBOL_GPL(ovs_netdev_tunnel_destroy);
- 
- int ovs_netdev_send(struct sk_buff *skb)
- {
--	/* Only send L2 packets */
--	if (skb->mac_len)
--		return dev_queue_xmit(skb);
-+	struct net_device *dev = skb->dev;
- 
--	kfree_skb(skb);
--	return -EINVAL;
-+	if (dev->type != ARPHRD_ETHER && skb->mac_len) {
-+		skb->protocol = htons(ETH_P_TEB);
-+	} else if (dev->type == ARPHRD_ETHER && !skb->mac_len) {
-+		kfree_skb(skb);
-+		return -EINVAL;
++		/* skb_mpls_header() is used to locate the ethertype
++		 * field correctly in the presence of VLAN tags.
++		 */
++		hdr = (struct ethhdr *)(skb_mpls_header(skb) - ETH_HLEN);
++		update_ethertype(skb, hdr, ethertype);
 +	}
 +
-+	return dev_queue_xmit(skb);
- }
- EXPORT_SYMBOL_GPL(ovs_netdev_send);
+ 	if (eth_p_mpls(skb->protocol))
+ 		skb->protocol = ethertype;
  
 -- 
 2.1.4
