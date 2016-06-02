@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC v7 2/5] ptr_ring: ring test
-Date: Thu, 2 Jun 2016 19:08:22 +0300
-Message-ID: <1464883305-32368-3-git-send-email-mst@redhat.com>
+Subject: [PATCH RFC v7 4/5] ptr_ring: resize support
+Date: Thu, 2 Jun 2016 19:08:30 +0300
+Message-ID: <1464883305-32368-5-git-send-email-mst@redhat.com>
 References: <1464883305-32368-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -17,248 +17,241 @@ In-Reply-To: <1464883305-32368-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add ringtest based unit test for ptr ring.
+This adds ring resize support. Seems to be necessary as
+users such as tun allow userspace control over queue size.
+
+If resize is used, this costs us ability to peek at queue without
+consumer lock - should not be a big deal as peek and consumer are
+usually run on the same CPU.
+
+If ring is made bigger, ring contents is preserved.  If ring is made
+smaller, extra pointers are passed to an optional destructor callback.
+
+Cleanup function also gains destructor callback such that
+all pointers in queue can be cleaned up.
+
+This changes some APIs but we don't have any users yet,
+so it won't break bisect.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- tools/virtio/ringtest/ptr_ring.c | 192 +++++++++++++++++++++++++++++++++++++++
- tools/virtio/ringtest/Makefile   |   5 +-
- 2 files changed, 196 insertions(+), 1 deletion(-)
- create mode 100644 tools/virtio/ringtest/ptr_ring.c
+ include/linux/ptr_ring.h | 157 ++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 143 insertions(+), 14 deletions(-)
 
-diff --git a/tools/virtio/ringtest/ptr_ring.c b/tools/virtio/ringtest/ptr_ring.c
-new file mode 100644
-index 0000000..74abd74
---- /dev/null
-+++ b/tools/virtio/ringtest/ptr_ring.c
-@@ -0,0 +1,192 @@
-+#define _GNU_SOURCE
-+#include "main.h"
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <string.h>
-+#include <pthread.h>
-+#include <malloc.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <limits.h>
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+index d265d72..effb6d3 100644
+--- a/include/linux/ptr_ring.h
++++ b/include/linux/ptr_ring.h
+@@ -43,9 +43,9 @@ struct ptr_ring {
+ };
+ 
+ /* Note: callers invoking this in a loop must use a compiler barrier,
+- * for example cpu_relax().
+- * Callers don't need to take producer lock - if they don't
+- * the next call to __ptr_ring_produce may fail.
++ * for example cpu_relax().  If ring is ever resized, callers must hold
++ * producer_lock - see e.g. ptr_ring_full.  Otherwise, if callers don't hold
++ * producer_lock, the next call to __ptr_ring_produce may fail.
+  */
+ static inline bool __ptr_ring_full(struct ptr_ring *r)
+ {
+@@ -54,16 +54,55 @@ static inline bool __ptr_ring_full(struct ptr_ring *r)
+ 
+ static inline bool ptr_ring_full(struct ptr_ring *r)
+ {
+-	barrier();
+-	return __ptr_ring_full(r);
++	bool ret;
 +
-+#define SMP_CACHE_BYTES 64
-+#define cache_line_size() SMP_CACHE_BYTES
-+#define ____cacheline_aligned_in_smp __attribute__ ((aligned (SMP_CACHE_BYTES)))
-+#define unlikely(x)    (__builtin_expect(!!(x), 0))
-+#define ALIGN(x, a) (((x) + (a) - 1) / (a) * (a))
-+typedef pthread_spinlock_t  spinlock_t;
-+
-+typedef int gfp_t;
-+static void *kzalloc(unsigned size, gfp_t gfp)
-+{
-+	void *p = memalign(64, size);
-+	if (!p)
-+		return p;
-+	memset(p, 0, size);
-+
-+	return p;
-+}
-+
-+static void kfree(void *p)
-+{
-+	if (p)
-+		free(p);
-+}
-+
-+static void spin_lock_init(spinlock_t *lock)
-+{
-+	int r = pthread_spin_init(lock, 0);
-+	assert(!r);
-+}
-+
-+static void spin_lock(spinlock_t *lock)
-+{
-+	int ret = pthread_spin_lock(lock);
-+	assert(!ret);
-+}
-+
-+static void spin_unlock(spinlock_t *lock)
-+{
-+	int ret = pthread_spin_unlock(lock);
-+	assert(!ret);
-+}
-+
-+static void spin_lock_bh(spinlock_t *lock)
-+{
-+	spin_lock(lock);
-+}
-+
-+static void spin_unlock_bh(spinlock_t *lock)
-+{
-+	spin_unlock(lock);
-+}
-+
-+static void spin_lock_irq(spinlock_t *lock)
-+{
-+	spin_lock(lock);
-+}
-+
-+static void spin_unlock_irq(spinlock_t *lock)
-+{
-+	spin_unlock(lock);
-+}
-+
-+static void spin_lock_irqsave(spinlock_t *lock, unsigned long f)
-+{
-+	spin_lock(lock);
-+}
-+
-+static void spin_unlock_irqrestore(spinlock_t *lock, unsigned long f)
-+{
-+	spin_unlock(lock);
-+}
-+
-+#include "../../../include/linux/ptr_ring.h"
-+
-+static unsigned long long headcnt, tailcnt;
-+static struct ptr_ring array ____cacheline_aligned_in_smp;
-+
-+/* implemented by ring */
-+void alloc_ring(void)
-+{
-+	int ret = ptr_ring_init(&array, ring_size, 0);
-+	assert(!ret);
-+}
-+
-+/* guest side */
-+int add_inbuf(unsigned len, void *buf, void *datap)
-+{
-+	int ret;
-+
-+	ret = __ptr_ring_produce(&array, buf);
-+	if (ret >= 0) {
-+		ret = 0;
-+		headcnt++;
-+	}
++	spin_lock(&r->producer_lock);
++	ret = __ptr_ring_full(r);
++	spin_unlock(&r->producer_lock);
 +
 +	return ret;
 +}
 +
-+/*
-+ * ptr_ring API provides no way for producer to find out whether a given
-+ * buffer was consumed.  Our tests merely require that a successful get_buf
-+ * implies that add_inbuf succeed in the past, and that add_inbuf will succeed,
-+ * fake it accordingly.
++static inline bool ptr_ring_full_irq(struct ptr_ring *r)
++{
++	bool ret;
++
++	spin_lock_irq(&r->producer_lock);
++	ret = __ptr_ring_full(r);
++	spin_unlock_irq(&r->producer_lock);
++
++	return ret;
++}
++
++static inline bool ptr_ring_full_any(struct ptr_ring *r)
++{
++	unsigned long flags;
++	bool ret;
++
++	spin_lock_irqsave(&r->producer_lock, flags);
++	ret = __ptr_ring_full(r);
++	spin_unlock_irqrestore(&r->producer_lock, flags);
++
++	return ret;
++}
++
++static inline bool ptr_ring_full_bh(struct ptr_ring *r)
++{
++	bool ret;
++
++	spin_lock_bh(&r->producer_lock);
++	ret = __ptr_ring_full(r);
++	spin_unlock_bh(&r->producer_lock);
++
++	return ret;
+ }
+ 
+ /* Note: callers invoking this in a loop must use a compiler barrier,
+- * for example cpu_relax().
++ * for example cpu_relax(). Callers must hold producer_lock.
+  */
+ static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
+ {
+-	if (__ptr_ring_full(r))
++	if (r->queue[r->producer])
+ 		return -ENOSPC;
+ 
+ 	r->queue[r->producer++] = ptr;
+@@ -120,20 +159,68 @@ static inline int ptr_ring_produce_bh(struct ptr_ring *r, void *ptr)
+ /* Note: callers invoking this in a loop must use a compiler barrier,
+  * for example cpu_relax(). Callers must take consumer_lock
+  * if they dereference the pointer - see e.g. PTR_RING_PEEK_CALL.
+- * There's no need for a lock if pointer is merely tested - see e.g.
+- * ptr_ring_empty.
++ * If ring is never resized, and if the pointer is merely
++ * tested, there's no need to take the lock - see e.g.  __ptr_ring_empty.
+  */
+ static inline void *__ptr_ring_peek(struct ptr_ring *r)
+ {
+ 	return r->queue[r->consumer];
+ }
+ 
+-static inline bool ptr_ring_empty(struct ptr_ring *r)
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax(). Callers must take consumer_lock
++ * if the ring is ever resized - see e.g. ptr_ring_empty.
 + */
-+void *get_buf(unsigned *lenp, void **bufp)
++static inline bool __ptr_ring_empty(struct ptr_ring *r)
+ {
+-	barrier();
+ 	return !__ptr_ring_peek(r);
+ }
+ 
++static inline bool ptr_ring_empty(struct ptr_ring *r)
 +{
-+	void *datap;
++	bool ret;
 +
-+	if (tailcnt == headcnt || __ptr_ring_full(&array))
-+		datap = NULL;
-+	else {
-+		datap = "Buffer\n";
-+		++tailcnt;
-+	}
++	spin_lock(&r->consumer_lock);
++	ret = __ptr_ring_empty(r);
++	spin_unlock(&r->consumer_lock);
 +
-+	return datap;
++	return ret;
 +}
 +
-+void poll_used(void)
++static inline bool ptr_ring_empty_irq(struct ptr_ring *r)
 +{
-+	void *b;
++	bool ret;
 +
-+	do {
-+		if (tailcnt == headcnt || __ptr_ring_full(&array)) {
-+			b = NULL;
-+			barrier();
-+		} else {
-+			b = "Buffer\n";
-+		}
-+	} while (!b);
++	spin_lock_irq(&r->consumer_lock);
++	ret = __ptr_ring_empty(r);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ret;
 +}
 +
-+void disable_call()
++static inline bool ptr_ring_empty_any(struct ptr_ring *r)
 +{
-+	assert(0);
++	unsigned long flags;
++	bool ret;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ret = __ptr_ring_empty(r);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ret;
 +}
 +
-+bool enable_call()
++static inline bool ptr_ring_empty_bh(struct ptr_ring *r)
 +{
-+	assert(0);
++	bool ret;
++
++	spin_lock_bh(&r->consumer_lock);
++	ret = __ptr_ring_empty(r);
++	spin_unlock_bh(&r->consumer_lock);
++
++	return ret;
 +}
 +
-+void kick_available(void)
+ /* Must only be called after __ptr_ring_peek returned !NULL */
+ static inline void __ptr_ring_discard_one(struct ptr_ring *r)
+ {
+@@ -241,10 +328,14 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
+ 	__PTR_RING_PEEK_CALL_v; \
+ })
+ 
++static inline void **__ptr_ring_init_queue_alloc(int size, gfp_t gfp)
 +{
-+	assert(0);
++	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
 +}
 +
-+/* host side */
-+void disable_kick()
-+{
-+	assert(0);
+ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+ {
+-	r->queue = kzalloc(ALIGN(size * sizeof *(r->queue), SMP_CACHE_BYTES),
+-			   gfp);
++	r->queue = __ptr_ring_init_queue_alloc(size, gfp);
+ 	if (!r->queue)
+ 		return -ENOMEM;
+ 
+@@ -256,8 +347,46 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+ 	return 0;
+ }
+ 
+-static inline void ptr_ring_cleanup(struct ptr_ring *r)
++static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
++				  void (*destroy)(void *))
+ {
++	unsigned long flags;
++	int producer = 0;
++	void **queue = __ptr_ring_init_queue_alloc(size, gfp);
++	void **old;
++	void *ptr;
++
++	if (!queue)
++		return -ENOMEM;
++
++	spin_lock_irqsave(&(r)->producer_lock, flags);
++
++	while ((ptr = ptr_ring_consume(r)))
++		if (producer < size)
++			queue[producer++] = ptr;
++		else if (destroy)
++			destroy(ptr);
++
++	r->size = size;
++	r->producer = producer;
++	r->consumer = 0;
++	old = r->queue;
++	r->queue = queue;
++
++	spin_unlock_irqrestore(&(r)->producer_lock, flags);
++
++	kfree(old);
++
++	return 0;
 +}
 +
-+bool enable_kick()
-+{
-+	assert(0);
-+}
-+
-+void poll_avail(void)
-+{
-+	void *b;
-+
-+	do {
-+		barrier();
-+		b = __ptr_ring_peek(&array);
-+	} while (!b);
-+}
-+
-+bool use_buf(unsigned *lenp, void **bufp)
++static inline void ptr_ring_cleanup(struct ptr_ring *r, void (*destroy)(void *))
 +{
 +	void *ptr;
 +
-+	ptr = __ptr_ring_consume(&array);
-+
-+	return ptr;
-+}
-+
-+void call_used(void)
-+{
-+	assert(0);
-+}
-diff --git a/tools/virtio/ringtest/Makefile b/tools/virtio/ringtest/Makefile
-index 6173ada..877a8a4 100644
---- a/tools/virtio/ringtest/Makefile
-+++ b/tools/virtio/ringtest/Makefile
-@@ -1,6 +1,6 @@
- all:
++	if (destroy)
++		while ((ptr = ptr_ring_consume(r)))
++			destroy(ptr);
+ 	kfree(r->queue);
+ }
  
--all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder noring
-+all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder ptr_ring noring
- 
- CFLAGS += -Wall
- CFLAGS += -pthread -O2 -ggdb
-@@ -8,6 +8,7 @@ LDFLAGS += -pthread -O2 -ggdb
- 
- main.o: main.c main.h
- ring.o: ring.c main.h
-+ptr_ring.o: ptr_ring.c main.h ../../../include/linux/ptr_ring.h
- virtio_ring_0_9.o: virtio_ring_0_9.c main.h
- virtio_ring_poll.o: virtio_ring_poll.c virtio_ring_0_9.c main.h
- virtio_ring_inorder.o: virtio_ring_inorder.c virtio_ring_0_9.c main.h
-@@ -15,6 +16,7 @@ ring: ring.o main.o
- virtio_ring_0_9: virtio_ring_0_9.o main.o
- virtio_ring_poll: virtio_ring_poll.o main.o
- virtio_ring_inorder: virtio_ring_inorder.o main.o
-+ptr_ring: ptr_ring.o main.o
- noring: noring.o main.o
- clean:
- 	-rm main.o
-@@ -22,6 +24,7 @@ clean:
- 	-rm virtio_ring_0_9.o virtio_ring_0_9
- 	-rm virtio_ring_poll.o virtio_ring_poll
- 	-rm virtio_ring_inorder.o virtio_ring_inorder
-+	-rm ptr_ring.o ptr_ring
- 	-rm noring.o noring
- 
- .PHONY: all clean
 -- 
 MST
