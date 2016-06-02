@@ -1,103 +1,300 @@
-From: Ulrich Hecht <ulrich.hecht@gmail.com>
-Subject: Re: [RESEND PATCH v5 1/2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Thu, 2 Jun 2016 18:01:59 +0200
-Message-ID: <CAO3366wP+tBaGbrMceupcJu0agW5Euo3NBNwijNCmpM1XcDGmQ@mail.gmail.com>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-	<1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-	<1464860702-46087-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC v7 1/5] ptr_ring: array based FIFO for pointers
+Date: Thu, 2 Jun 2016 19:08:18 +0300
+Message-ID: <1464883305-32368-2-git-send-email-mst@redhat.com>
+References: <1464883305-32368-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	chris.paterson2@renesas.com, Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1464860702-46087-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	brouer@redhat.com, kvm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464883305-32368-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you for your patch.
+A simple array based FIFO of pointers.  Intended for net stack which
+commonly has a single consumer/producer.
 
-On Thu, Jun 2, 2016 at 11:45 AM, Ramesh Shanmugasundaram
-<ramesh.shanmugasundaram@bp.renesas.com> wrote:
-[...]
-> diff --git a/drivers/net/can/rcar/rcar_canfd.c b/drivers/net/can/rcar/rcar_canfd.c
-> new file mode 100644
-> index 0000000..e198732
-> --- /dev/null
-> +++ b/drivers/net/can/rcar/rcar_canfd.c
-> @@ -0,0 +1,1624 @@
-> +/* Renesas R-Car CAN FD device driver
-> + *
-> + * Copyright (C) 2015 Renesas Electronics Corp.
-> + *
-> + * This program is free software; you can redistribute  it and/or modify it
-> + * under  the terms of  the GNU General  Public License as published by the
-> + * Free Software Foundation;  either version 2 of the  License, or (at your
-> + * option) any later version.
-> + */
-> +
-> +/* The R-Car CAN FD controller can operate in either one of the below two modes
-> + *  - CAN FD only mode
-> + *  - Classical CAN (CAN 2.0) only mode
-> + *
-> + * This driver puts the controller in CAN FD only mode by default. In this
-> + * mode, the controller acts as a CAN FD node that can also interoperate with
-> + * CAN 2.0 nodes.
-> + *
-> + * As of now, this driver does not support the Classical CAN (CAN 2.0) mode,
-> + * which is handled by a different register map compared to CAN FD only mode.
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <linux/moduleparam.h>
-> +#include <linux/kernel.h>
-> +#include <linux/types.h>
-> +#include <linux/interrupt.h>
-> +#include <linux/errno.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/platform_device.h>
-> +#include <linux/can/led.h>
-> +#include <linux/can/dev.h>
-> +#include <linux/clk.h>
-> +#include <linux/of.h>
-> +#include <linux/of_device.h>
-> +#include <linux/bitmap.h>
-> +#include <linux/bitops.h>
-> +#include <linux/iopoll.h>
-> +
-> +#define RCANFD_DRV_NAME                        "rcar_canfd"
-> +
-> +#define RCANFD_FIFO_DEPTH              8       /* Tx FIFO depth */
-> +#define RCANFD_NAPI_WEIGHT             8       /* Rx poll quota */
-> +
-> +#define RCANFD_NUM_CHANNELS            2       /* Two channels max */
-> +#define RCANFD_CHANNELS_MASK           BIT((RCANFD_NUM_CHANNELS) - 1)
-> +
-> +/* Rx FIFO is a global resource of the controller. There are 8 such FIFOs
-> + * available. Each channel gets a dedicated Rx FIFO (i.e.) the channel
-> + * number is added to RFFIFO index.
-> + */
-> +#define RCANFD_RFFIFO_IDX              0
-> +
-> +/* Tx/Rx or Common FIFO is a per channel resource. Each channel has 3 Common
-> + * FIFOs dedicated to them. Use the first (index 0) FIFO out of the 3 for Tx.
-> + */
-> +#define RCANFD_CFFIFO_IDX              0
-> +
-> +/* Global register bits */
-> +#define RCANFD_GINTF_CANFD             BIT(0)
-> +
-> +#define RCANFD_GCFG_TPRI               BIT(0)
-> +#define RCANFD_GCFG_DCE                        BIT(1)
-> +#define RCANFD_GCFG_DCS                        BIT(4)
-> +#define RCANFD_GCFG_CMPOC              BIT(5)
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ include/linux/ptr_ring.h | 264 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 264 insertions(+)
+ create mode 100644 include/linux/ptr_ring.h
 
-What reference are the register layouts based on? This bit, for
-instance, is marked reserved in R-Car-Gen3-rev0.51e.pdf, and many are
-named differently.
-
-CU
-Uli
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
+new file mode 100644
+index 0000000..d265d72
+--- /dev/null
++++ b/include/linux/ptr_ring.h
+@@ -0,0 +1,264 @@
++/*
++ *	Definitions for the 'struct ptr_ring' datastructure.
++ *
++ *	Author:
++ *		Michael S. Tsirkin <mst@redhat.com>
++ *
++ *	Copyright (C) 2016 Red Hat, Inc.
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License as published by the
++ *	Free Software Foundation; either version 2 of the License, or (at your
++ *	option) any later version.
++ *
++ *	This is a limited-size FIFO maintaining pointers in FIFO order, with
++ *	one CPU producing entries and another consuming entries from a FIFO.
++ *
++ *	This implementation tries to minimize cache-contention when there is a
++ *	single producer and a single consumer CPU.
++ */
++
++#ifndef _LINUX_PTR_RING_H
++#define _LINUX_PTR_RING_H 1
++
++#ifdef __KERNEL__
++#include <linux/spinlock.h>
++#include <linux/cache.h>
++#include <linux/types.h>
++#include <linux/compiler.h>
++#include <linux/cache.h>
++#include <linux/slab.h>
++#include <asm/errno.h>
++#endif
++
++struct ptr_ring {
++	int producer ____cacheline_aligned_in_smp;
++	spinlock_t producer_lock;
++	int consumer ____cacheline_aligned_in_smp;
++	spinlock_t consumer_lock;
++	/* Shared consumer/producer data */
++	/* Read-only by both the producer and the consumer */
++	int size ____cacheline_aligned_in_smp; /* max entries in queue */
++	void **queue;
++};
++
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax().
++ * Callers don't need to take producer lock - if they don't
++ * the next call to __ptr_ring_produce may fail.
++ */
++static inline bool __ptr_ring_full(struct ptr_ring *r)
++{
++	return r->queue[r->producer];
++}
++
++static inline bool ptr_ring_full(struct ptr_ring *r)
++{
++	barrier();
++	return __ptr_ring_full(r);
++}
++
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax().
++ */
++static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
++{
++	if (__ptr_ring_full(r))
++		return -ENOSPC;
++
++	r->queue[r->producer++] = ptr;
++	if (unlikely(r->producer >= r->size))
++		r->producer = 0;
++	return 0;
++}
++
++static inline int ptr_ring_produce(struct ptr_ring *r, void *ptr)
++{
++	int ret;
++
++	spin_lock(&r->producer_lock);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock(&r->producer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_produce_irq(struct ptr_ring *r, void *ptr)
++{
++	int ret;
++
++	spin_lock_irq(&r->producer_lock);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock_irq(&r->producer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_produce_any(struct ptr_ring *r, void *ptr)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&r->producer_lock, flags);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock_irqrestore(&r->producer_lock, flags);
++
++	return ret;
++}
++
++static inline int ptr_ring_produce_bh(struct ptr_ring *r, void *ptr)
++{
++	int ret;
++
++	spin_lock_bh(&r->producer_lock);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock_bh(&r->producer_lock);
++
++	return ret;
++}
++
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax(). Callers must take consumer_lock
++ * if they dereference the pointer - see e.g. PTR_RING_PEEK_CALL.
++ * There's no need for a lock if pointer is merely tested - see e.g.
++ * ptr_ring_empty.
++ */
++static inline void *__ptr_ring_peek(struct ptr_ring *r)
++{
++	return r->queue[r->consumer];
++}
++
++static inline bool ptr_ring_empty(struct ptr_ring *r)
++{
++	barrier();
++	return !__ptr_ring_peek(r);
++}
++
++/* Must only be called after __ptr_ring_peek returned !NULL */
++static inline void __ptr_ring_discard_one(struct ptr_ring *r)
++{
++	r->queue[r->consumer++] = NULL;
++	if (unlikely(r->consumer >= r->size))
++		r->consumer = 0;
++}
++
++static inline void *__ptr_ring_consume(struct ptr_ring *r)
++{
++	void *ptr;
++
++	ptr = __ptr_ring_peek(r);
++	if (ptr)
++		__ptr_ring_discard_one(r);
++
++	return ptr;
++}
++
++static inline void *ptr_ring_consume(struct ptr_ring *r)
++{
++	void *ptr;
++
++	spin_lock(&r->consumer_lock);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock(&r->consumer_lock);
++
++	return ptr;
++}
++
++static inline void *ptr_ring_consume_irq(struct ptr_ring *r)
++{
++	void *ptr;
++
++	spin_lock_irq(&r->consumer_lock);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ptr;
++}
++
++static inline void *ptr_ring_consume_any(struct ptr_ring *r)
++{
++	unsigned long flags;
++	void *ptr;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ptr;
++}
++
++static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
++{
++	void *ptr;
++
++	spin_lock(&r->consumer_lock);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock(&r->consumer_lock);
++
++	return ptr;
++}
++
++/* Cast to structure type and call a function without discarding from FIFO.
++ * Function must return a value.
++ * Callers must take consumer_lock.
++ */
++#define __PTR_RING_PEEK_CALL(r, f) ((f)(__ptr_ring_peek(r)))
++
++#define PTR_RING_PEEK_CALL(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	\
++	spin_lock(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++#define PTR_RING_PEEK_CALL_IRQ(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	\
++	spin_lock_irq(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock_irq(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++#define PTR_RING_PEEK_CALL_BH(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	\
++	spin_lock_bh(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock_bh(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++#define PTR_RING_PEEK_CALL_ANY(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	unsigned long __PTR_RING_PEEK_CALL_f;\
++	\
++	spin_lock_irqsave(&(r)->consumer_lock, __PTR_RING_PEEK_CALL_f); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock_irqrestore(&(r)->consumer_lock, __PTR_RING_PEEK_CALL_f); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
++{
++	r->queue = kzalloc(ALIGN(size * sizeof *(r->queue), SMP_CACHE_BYTES),
++			   gfp);
++	if (!r->queue)
++		return -ENOMEM;
++
++	r->size = size;
++	r->producer = r->consumer = 0;
++	spin_lock_init(&r->producer_lock);
++	spin_lock_init(&r->consumer_lock);
++
++	return 0;
++}
++
++static inline void ptr_ring_cleanup(struct ptr_ring *r)
++{
++	kfree(r->queue);
++}
++
++#endif /* _LINUX_PTR_RING_H  */
+-- 
+MST
