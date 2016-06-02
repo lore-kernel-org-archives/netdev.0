@@ -1,35 +1,55 @@
-From: Kangjie Lu <kangjielu@gmail.com>
-Subject: [PATCH] rds: fix an infoleak in rds_inc_info_copy
-Date: Thu,  2 Jun 2016 04:11:20 -0400
-Message-ID: <1464855080-29671-1-git-send-email-kjlu@gatech.edu>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, taesoo@gatech.edu,
-	csong84@gatech.edu, Kangjie Lu <kjlu@gatech.edu>
-To: santosh.shilimkar@oracle.com
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary MAC address
+Date: Thu, 02 Jun 2016 10:11:10 +0200
+Message-ID: <8760tsypr5.fsf@nemi.mork.no>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+	<20160601230535.GA29279@kroah.com>
+	<cfff846f3ca34b6a889f07f971b27271@ausx13mpc124.AMER.DELL.COM>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <gregkh@linuxfoundation.org>, <hayeswang@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <pali.rohar@gmail.com>,
+	<anthony.wong@canonical.com>
+To: <Mario_Limonciello@Dell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cfff846f3ca34b6a889f07f971b27271@ausx13mpc124.AMER.DELL.COM>
+	(Mario Limonciello's message of "Thu, 2 Jun 2016 02:53:06 +0000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The last field "flags" of object "minfo" is not initialized.
-Copying this object out may leak kernel stack data.
-Assign 0 to it to avoid leak.
+<Mario_Limonciello@Dell.com> writes:
 
-Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
----
- net/rds/recv.c | 2 ++
- 1 file changed, 2 insertions(+)
+>> > +static u8 amac_ascii_to_hex(int c)
+>> > +{
+>> > +	if (c <=3D 0x39)
+>> > +		return (u8)(c - 0x30);
+>> > +	else if (c <=3D 0x46)
+>> > +		return (u8)(c - 0x37);
+>> > +	return (u8)(c - 0x57);
+>> > +}
+>>=20
+>
+> Sorry forgot to address this. =20
+>
+>> We really don't have such a function somewhere in the kernel already=
+?
+>
+> There is a function in acpi/acpica/uthex.c that does this, but it doe=
+sn't seem to be used by anything outside of acpica so far.  Would it be=
+ OK style wise to=20
+> #include " ../../acpi/acpica/acutils.h" from r8152.c? =20
 
-diff --git a/net/rds/recv.c b/net/rds/recv.c
-index c0be1ec..8413f6c 100644
---- a/net/rds/recv.c
-+++ b/net/rds/recv.c
-@@ -561,5 +561,7 @@ void rds_inc_info_copy(struct rds_incoming *inc,
- 		minfo.fport = inc->i_hdr.h_dport;
- 	}
- 
-+	minfo.flags = 0;
-+
- 	rds_info_copy(iter, &minfo, sizeof(minfo));
- }
--- 
-2.7.4
+Makes me wonder where you looked....  You have hex_to_bin() and
+hex2bin() in include/linux/kernel.h
+
+You could look at usbnet_get_ethernet_addr() for an example of how to d=
+o
+this properly.  It's pretty close to this driver in the tree, and shoul=
+d
+be a natural starting point before reinventing the wheel...
+
+
+
+Bj=C3=B8rn
