@@ -1,44 +1,44 @@
-From: Lucas Stach <l.stach-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] ARM: dts: imx6: tag boards that have the HW
- workaround for ERR006687
-Date: Thu, 02 Jun 2016 10:25:06 +0200
-Message-ID: <1464855906.9501.1.camel@pengutronix.de>
-References: <1464794983-31484-1-git-send-email-l.stach@pengutronix.de>
-	 <1464794983-31484-3-git-send-email-l.stach@pengutronix.de>
-	 <20160601161729.GB19428@n2100.arm.linux.org.uk>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH iputils v2] ping: always accept . delimiter with -i number
+ parsing
+Date: Thu, 2 Jun 2016 17:28:55 +0900
+Message-ID: <574FEE47.7030402@miraclelinux.com>
+References: <1464752905-10347-6-git-send-email-vapier@gentoo.org>
+ <1464842814-30690-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: Shawn Guo <shawnguo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Fugang Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patchwork-lst-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160601161729.GB19428-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36233 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474AbcFBI3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 04:29:00 -0400
+Received: by mail-pf0-f171.google.com with SMTP id f144so28815517pfa.3
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 01:29:00 -0700 (PDT)
+In-Reply-To: <1464842814-30690-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, den 01.06.2016, 17:17 +0100 schrieb Russell King - ARM
-Linux:
-> On Wed, Jun 01, 2016 at 05:29:43PM +0200, Lucas Stach wrote:
-> > @@ -97,6 +97,7 @@
-> >  	phy-reset-gpios = <&gpio3 31 0>;
-> >  	interrupts-extended = <&gpio1 6 IRQ_TYPE_LEVEL_HIGH>,
-> >  			      <&intc 0 119 IRQ_TYPE_LEVEL_HIGH>;
-> > +	fsl,err006687-war-present;
+Hi,
+
+Mike Frysinger wrote:
+> Always allow #.# format for the -i flag even when the current locale
+> uses a different separator.  Locale de_DE which uses #,# normally.
 > 
-> war?  Any reason not to spell it out, or use the more natural
-> abbreviation "wa"?
+> Simple testcase:
+> $ make USE_IDN=1
+> $ LANG=de_DE.UTF8 ./ping -i 0.5 localhost
+> $ LANG=de_DE.UTF8 ./ping -i 0,5 localhost
 > 
-Apparently I've read too many documents where WAR is the abbreviation
-for workaround, so it felt completely natural to me. I agree that it
-would make sense to just spell it out to avoid any confusion.
+> Reported-by: Sergey Fionov <fionov@gmail.com>
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> ---
 
-Regards,
-Lucas
+Applied, thanks.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
