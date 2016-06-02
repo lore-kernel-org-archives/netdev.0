@@ -1,72 +1,83 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v3 3/7] sk_buff: allow segmenting based on frag sizes
-Date: Thu,  2 Jun 2016 15:05:40 -0300
-Message-ID: <6a625144a5410e00dc4f27a0037622e5fc2a5e0f.1464888549.git.marcelo.leitner@gmail.com>
-References: <cover.1464888549.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53352 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161485AbcFBSGH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 14:06:07 -0400
-In-Reply-To: <cover.1464888549.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
+ MAC address
+Date: Thu, 2 Jun 2016 18:28:33 +0000
+Message-ID: <e94f28f69ee14610892125f67d9dae03@ausx13mpc124.AMER.DELL.COM>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+	<20160601230535.GA29279@kroah.com>
+	<0bdb98b72b884682b936c0587f965629@ausx13mpc124.AMER.DELL.COM>
+	<20160602152244.GA26494@kroah.com>
+	<6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM>
+ <87vb1rwjql.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <gregkh@linuxfoundation.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
+To: <bjorn@mork.no>, <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87vb1rwjql.fsf@nemi.mork.no>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch allows segmenting a skb based on its frags sizes instead of
-based on a fixed value.
-
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Tested-by: Xin Long <lucien.xin@gmail.com>
----
- include/linux/skbuff.h |  5 +++++
- net/core/skbuff.c      | 10 +++++++---
- 2 files changed, 12 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index ee38a41274759f279be1c0752a7fab63fac517c8..329a0a9ef67115cae03b7c1304de031116384148 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -301,6 +301,11 @@ struct sk_buff;
- #endif
- extern int sysctl_max_skb_frags;
- 
-+/* Set skb_shinfo(skb)->gso_size to this in case you want skb_segment to
-+ * segment using its current segmentation instead.
-+ */
-+#define GSO_BY_FRAGS	0xFFFF
-+
- typedef struct skb_frag_struct skb_frag_t;
- 
- struct skb_frag_struct {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 4724bcf9b0cae1cecbe5bc2c04e308bb70b3232a..97c32c75e704af1f31b064e8f1e0475ff1505d67 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3116,9 +3116,13 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 		int hsize;
- 		int size;
- 
--		len = head_skb->len - offset;
--		if (len > mss)
--			len = mss;
-+		if (unlikely(mss == GSO_BY_FRAGS)) {
-+			len = list_skb->len;
-+		} else {
-+			len = head_skb->len - offset;
-+			if (len > mss)
-+				len = mss;
-+		}
- 
- 		hsize = skb_headlen(head_skb) - offset;
- 		if (hsize < 0)
--- 
-2.5.5
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCasO4cm4gTW9yayBbbWFpbHRv
+OmJqb3JuQG1vcmsubm9dDQo+IFNlbnQ6IFRodXJzZGF5LCBKdW5lIDIsIDIwMTYgMTowNCBQTQ0K
+PiBUbzogTGltb25jaWVsbG8sIE1hcmlvIDxNYXJpb19MaW1vbmNpZWxsb0BEZWxsLmNvbT4NCj4g
+Q2M6IGdyZWdraEBsaW51eGZvdW5kYXRpb24ub3JnOyBoYXllc3dhbmdAcmVhbHRlay5jb207IGxp
+bnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBs
+aW51eC0NCj4gdXNiQHZnZXIua2VybmVsLm9yZzsgcGFsaS5yb2hhckBnbWFpbC5jb207IGFudGhv
+bnkud29uZ0BjYW5vbmljYWwuY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIHI4MTUyOiBBZGQg
+c3VwcG9ydCBmb3Igc2V0dGluZyBNQUMgdG8gc3lzdGVtJ3MNCj4gQXV4aWxpYXJ5IE1BQyBhZGRy
+ZXNzDQo+IA0KPiA8TWFyaW9fTGltb25jaWVsbG9ARGVsbC5jb20+IHdyaXRlczoNCj4gDQo+ID4+
+ID4gMikgVHJhY2sgd2hldGhlciB0aGlzIGlzIHRoZSBmaXJzdCBvciBzZWNvbmQgVVNCIE5JQyBw
+bHVnZ2VkIGluLiAgT25seQ0KPiBvZmZlciBpdA0KPiA+PiBvbiB0aGUgZmlyc3QgTklDIGRldGVj
+dGVkIGJ5IHI4MTUyLiAgV2hlbiB0aGUgc2Vjb25kIE5JQyBpcyBwbHVnZ2VkIGluDQo+IGRvbid0
+DQo+ID4+IG1hdGNoIGZyb20gQUNQSS4NCj4gPj4gPiBUaGVyZSB3b3VsZCBiZSBhIHF1ZXN0aW9u
+IG9mIHdoYXQgdG8gZG8gaWYgdGhlIGZpcnN0IE5JQyBpcyByZW1vdmVkIGFuZA0KPiA+PiBhZGRl
+ZCBiYWNrIGlmIGl0IHNob3VsZCBnZXQgdGhlIHBlcnNpc3RlbnQgc3lzdGVtIE1BQyBvciBub3Qu
+DQo+ID4+ID4gSSdkIHNheSB5ZXMsIGp1c3QgbWFrZSBzdXJlIHRoYXQgb25seSBvbmUgTklDIGNh
+biBoYXZlIGl0IGF0IGEgdGltZS4NCj4gPj4NCj4gPj4gWW91IGFyZSBnb2luZyB0byBnZXQgdGhp
+bmdzIHZlcnkgY29tcGxleCB2ZXJ5IHF1aWNrbHkgaWYgeW91IHRyeSB0byBkbyB0aGlzLg0KPiA+
+DQo+ID4gSXQncyByZWFsbHkgbm90IHRoYXQgaGFyZCwgdHJhY2sgYSBtb2R1bGUgd2lkZSBzdGF0
+aWMgdmFyaWFibGUgd2hldGhlcg0KPiA+IHRoZSBmZWF0dXJlIGlzIGluIHVzZS4gIFRyYWNrIGlu
+IGVhY2ggZGV2aWNlIHdoZXRoZXIgdGhlIGZlYXR1cmUgd2FzDQo+ID4gaW4gdXNlLiAgSWYgaXQg
+aW4gdXNlLCBkb24ndCBhc3NpZ24gdGhlIG5leHQgZGV2aWNlIHBsdWdnZWQgaW4gdmlhIHRoZQ0K
+PiA+IEFDUEkgc3RyaW5nLiAgSWYgYSBkZXZpY2UgaXMgcmVtb3ZlZCB0aGF0IGhhcyB0aGUgZmVh
+dHVyZSBhY3RpdmF0ZWQsDQo+ID4gY2hhbmdlIHRoZSBtb2R1bGUgd2lkZSBzdGF0aWMgdmFyaWFi
+bGUuDQo+IA0KPiBIYXZpbmcgdGhlIG1hYyBhZGRyZXNzIGp1bXAgYXJvdW5kIGluIGFuIGFyYml0
+cmFyeSB3YXkgbGlrZSB0aGlzIGlzDQo+IGdvaW5nIHRvIGNvbmZ1c2UgdGhlIGhlbGwgb3V0IG9m
+IHlvdXIgdXNlcnMuICBDb25zaWRlciB3aGF0IGhhcHBlbnMgaWYNCj4gdGhlIHVzZXIgZG9ja3Mg
+YSBsYXB0b3Agd2l0aCBhbiByODE1MiB1c2IgZG9uZ2xlIGFscmVhZHkgcGx1Z2dlZCBpbi4uLg0K
+PiBIb3cgYXJlIHlvdSBnb2luZyB0byBleHBsYWluIHRoYXQgdGhlIGRvY2sgZ2V0cyBzb21lIG90
+aGVyIG1hYyBhZGRyZXNzDQo+IGluIHRoaXMgY2FzZT8gSG93IGFyZSB5b3UgZ29pbmcgdG8gZXhw
+bGFpbiB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHVzaW5nDQo+IGFuIHI4MTUyIGJhc2VkIGRvbmds
+ZSBhbmQgc29tZSBvdGhlciBldGhlcm5ldCB1c2IgZG9uZ2xlIHdpdGggeW91cg0KPiBzeXN0ZW1z
+Pw0KDQpZZWFoIEkgdW5kZXJzdGFuZCB0aGUgY29uY2Vybi4gIEkgYWdyZWUgdGhhdCB3b3VsZCBi
+ZSB2ZXJ5IGNvbmZ1c2luZw0KdG8gYSB1c2VyLiAgVGhpcyBkb2VzIG5lZWQgdG8gbWF0Y2ggb25s
+eSBvbiBEZWxsIGRvY2tzIHRoZW4uDQoNCj4gDQo+IE1ha2UgaXQgYmVoYXZlIGNvbnNpc3RlbnRs
+eSBpZiB5b3UncmUgZ29pbmcgdG8gYWRkIHRoaXMuICBXaGljaCBjYW4gYmUNCj4gZG9uZSBieSBz
+cGVjaWZpY2FsbHkgbWF0Y2hpbmcgdGhlIERlbGwgZG9jayAoZG9lc24ndCBpdCBoYXZlIGFuIHVu
+aXF1ZQ0KPiBEZWxsIGRldmljZSBJRD8pIGFuZCBpZ25vcmluZyBhbnkgb3RoZXIgcjgxNTIgZGV2
+aWNlLiAgWW91IGNvdWxkIGFsc28NCj4gY2hvb3NlIHRvIHNldCB0aGUgc2FtZSBtYWMgZm9yIGFs
+bCByODE1MiBkZXZpY2VzLiAgV2hpY2ggaXMgZmluZSwgYnV0DQo+IHdpbGwgcHJvYmFibHkgY29u
+ZnVzZSBtYW55IHVzZXJzLg0KDQpVbmZvcnR1bmF0ZWx5IHRoZXJlIGlzIG5vIERlbGwgc3BlY2lm
+aWMgVklEL1BJRC4gIEkgY2hlY2tlZCBhIG5vLW5hbWUgZG9uZ2xlDQp0aGF0IHVzZWQgcjgxNTIg
+YW5kIGl0IHdhcyB0aGUgc2FtZSAoMGJkYTo4MTUzKS4gIE1heWJlIEhheWVzIFdhbmcgY2FuIA0K
+Y2hlY2sgd2l0aCBoaXMgV2luZG93cyBkcml2ZXIgY29sbGVhZ3VlcyBpZiB0aGVyZSB3YXMgYW55
+dGhpbmcgZWxzZSB0byBrZXkNCm9mZiB3aGVuIHRoaXMgd2FzIGltcGxlbWVudGVkIG9uIHRoZSBX
+aW5kb3dzIFJlYWx0ZWsgZHJpdmVyLiAgSWYgdGhlcmUgDQppcyBzb21ldGhpbmcgZWxzZSB0byBr
+ZXkgb2ZmIG9mLCBJJ20gbm90IGF3YXJlIHdoYXQgaXQgaXMuICBJJ2xsIGNoZWNrIHdpdGggDQpz
+b21lIG9mIG15IGNvbGxlYWd1ZXMgdG9vLg0KDQpJIGRvIGhhdmUgYSB3YXkgdG8gcXVlcnkgaWYg
+YSBkb2NrIGlzIHBsdWdnZWQgaW4gdmlhIFNNTSwgYnV0IEkgZG91YnQgdGhhdCdzDQp3aGF0IFJl
+YWx0ZWsgaXMgdXNpbmcgb24gdGhlIFdpbmRvd3Mgc2lkZS4gIEknZCBsZWF2ZSB0aGF0IGFzIGEg
+c2Vjb25kIHRvDQpsYXN0IHJlc29ydCAobGFzdCByZXNvcnQgYmVpbmcgbW92ZSBiYWNrIHRvIHVz
+ZXJzcGFjZSBhZ2FpbikuDQoNCj4gDQo+IFdoYXQgeW91IGRlZmluaXRlbHkgc2hvdWxkIG5vdCBk
+byBpcyB0byBjaGFuZ2UgdGhlIG1hYyBmb3Igc29tZQ0KPiBhcmJpdHJhcnkgImZpcnN0IiBkZXZp
+Y2UuICBUaGVuIHlvdSBhcmUgYmV0dGVyIG9mZiB3aXRoIHRoZSB1c2Vyc3BhY2UNCj4gcHJvcG9z
+YWwgd2hlcmUgeW91IGFuZCB5b3VyIHVzZXJzIGhhdmUgc29tZSBjaGFuY2UgdG8gaW1wbGVtZW50
+IGENCj4gc2Vuc2libGUgcG9saWN5IGJhc2VkIG9uIGUuZy4gdXNiIHBvcnQgbnVtYmVycy4NCg0K
+T0ssIGlmIEkgY2FuJ3QgY29tZSB1cCB3aXRoIGEgd2F5IHRvIGtleSBvbiB0aGUgZGV2aWNlIGJl
+aW5nIGEgRGVsbCBkb2NrIA0KSSdsbCBzY3JhcCB0aGlzIGVudGlyZWx5IGtlcm5lbCBhcHByb2Fj
+aC4NCg0K
