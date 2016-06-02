@@ -1,33 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2016-06-01
-Date: Wed, 01 Jun 2016 17:53:43 -0700 (PDT)
-Message-ID: <20160601.175343.1760786915246195795.davem@davemloft.net>
-References: <1464775875-10494-1-git-send-email-johannes@sipsolutions.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: IOV iterator bug in net tree
+Date: Wed, 1 Jun 2016 17:54:08 -0700
+Message-ID: <CAKgT0Ue8Uufpq+5oyCW7tKJzX1waDnPC+KEnjOeBbQi9wn2oWw@mail.gmail.com>
+References: <CAKgT0UfZFpUVNHnAjem3yCvf6n-EezqLnZerduQi3jQe76RK7Q@mail.gmail.com>
+	<20160601.174225.2184872288386003765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464775875-10494-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160601.174225.2184872288386003765.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed,  1 Jun 2016 12:11:14 +0200
+On Wed, Jun 1, 2016 at 5:42 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Fri, 27 May 2016 21:32:39 -0700
+>
+>> On Fri, May 27, 2016 at 11:21 AM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>>> I started out this morning by trying to run DevStack on the latest
+>>> "net' kernel and it looks like I am hanging on some sort of locking
+>>> problem with RabbitMQ.  Specifically I am seeing one CPU jump to 100%
+>>> with perf showing that I am spinning on a lock.
+>>>
+>>> I'm working to bisect it now, but just thought I would put it out
+>>> there if anybody had already root caused this issue.  Below is a few
+>>> traces to the spin lock call on the spinning CPU:
+>>
+>> I misread the perf trace.  I wasn't spinning on a lock I was spinning
+>> on the IOV iterator.  It just happened to push the lock to the top of
+>> the perf trace.  I bisected it down to the recent change in
+>> iterate_and_advance which was already fixed in Linus's tree in commit
+>> 19f18459330f "do 'fold checks into iterate_and_advance()" right'.
+>
+> Since I resynced both of my trees with Linus's, this should be resolved
+> now, right?
 
-> For now, I have just three fixes for the current cycle.
-> 
-> One of them, the hwsim one, becomes interesting with some pending
-> work to make hwsim work for unprivileged users in namespaces, and
-> I don't want to allow them to crash the system ... I'll thus wait
-> with that patch until you pull this into net-next also, so I can
-> pull it back for mac80211-next.
-> 
-> Let me know if there's any problem.
+Yes, I pulled the latest net tree a few hours ago and it is working
+without any issues.
 
-Pulled, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
+
+- Alex
