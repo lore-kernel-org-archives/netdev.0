@@ -1,163 +1,108 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v2] r8152: Add support for setting MAC to system's
- Auxiliary MAC address
-Date: Thu, 2 Jun 2016 18:32:42 +0000
-Message-ID: <2d81e70165b8447d92b873eafeaeded7@ausx13mpc124.AMER.DELL.COM>
-References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
- <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
- <20160602174808.GA32131@kroah.com>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary MAC address
+Date: Thu, 2 Jun 2016 20:44:42 +0200
+Message-ID: <201606022044.42420@pali>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com> <6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM> <87vb1rwjql.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
-To: <gregkh@linuxfoundation.org>
+Content-Type: multipart/signed;
+  boundary="nextPart2437573.deOtVt4VIv";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Mario_Limonciello@dell.com, gregkh@linuxfoundation.org,
+	hayeswang@realtek.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	anthony.wong@canonical.com
+To: =?utf-8?q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160602174808.GA32131@kroah.com>
-Content-Language: en-US
+In-Reply-To: <87vb1rwjql.fsf@nemi.mork.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Greg KH [mailto:gregkh@linuxfoundation.org]
-> Sent: Thursday, June 2, 2016 12:48 PM
-> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>; Netdev
-> <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
-> pali.rohar@gmail.com; anthony.wong@canonical.com
-> Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
-> Auxiliary MAC address
-> 
-> On Thu, Jun 02, 2016 at 11:58:07AM -0500, Mario Limonciello wrote:
-> > Dell systems with Type-C ports have support for a persistent system
-> > specific MAC address when used with Dell Type-C docks and dongles.
-> > This means a dock plugged into two different systems will show different
-> > (but persistent) MAC addresses.  Dell Type-C docks and dongles use the
-> > r8152 driver.
-> >
-> > This information for the system's persistent MAC address is burned in
-> when
-> > the HW is built and available under _SB\AMAC in the DSDT at runtime.
-> >
-> > More information about the technology is available here:
-> > http://www.dell.com/support/article/us/en/04/SLN301147
-> >
-> > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
-> > ---
-> >  drivers/net/usb/r8152.c | 53
-> +++++++++++++++++++++++++++++++++++++++++++++++++
-> >  1 file changed, 53 insertions(+)
-> >
-> > diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> > index 3f9f6ed..6dea542 100644
-> > --- a/drivers/net/usb/r8152.c
-> > +++ b/drivers/net/usb/r8152.c
-> > @@ -26,6 +26,8 @@
-> >  #include <linux/mdio.h>
-> >  #include <linux/usb/cdc.h>
-> >  #include <linux/suspend.h>
-> > +#include <linux/acpi.h>
-> > +#include <linux/dmi.h>
-> >
-> >  /* Information for net-next */
-> >  #define NETNEXT_VERSION		"08"
-> > @@ -500,6 +502,7 @@ enum rtl8152_flags {
-> >  	SELECTIVE_SUSPEND,
-> >  	PHY_RESET,
-> >  	SCHEDULE_NAPI,
-> > +	MAC_PASSTHRU = 0,
-> 
-> Does setting that to 0 really work?  You just did this for two enum
-> values, what is the compiler supposed to do?
+--nextPart2437573.deOtVt4VIv
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-Very silly of me.  I was rushing to send a v2.  
-I'm surprised this worked.  Shouldn't be assigned to anything.
+On Thursday 02 June 2016 20:04:02 Bj=C3=B8rn Mork wrote:
+> <Mario_Limonciello@Dell.com> writes:
+> >> > 2) Track whether this is the first or second USB NIC plugged in.
+> >> >  Only offer it
+> >>=20
+> >> on the first NIC detected by r8152.  When the second NIC is
+> >> plugged in don't match from ACPI.
+> >>=20
+> >> > There would be a question of what to do if the first NIC is
+> >> > removed and
+> >>=20
+> >> added back if it should get the persistent system MAC or not.
+> >>=20
+> >> > I'd say yes, just make sure that only one NIC can have it at a
+> >> > time.
+> >>=20
+> >> You are going to get things very complex very quickly if you try
+> >> to do this.
+> >=20
+> > It's really not that hard, track a module wide static variable
+> > whether the feature is in use.  Track in each device whether the
+> > feature was in use.  If it in use, don't assign the next device
+> > plugged in via the ACPI string.  If a device is removed that has
+> > the feature activated, change the module wide static variable.
+>=20
+> Having the mac address jump around in an arbitrary way like this is
+> going to confuse the hell out of your users.  Consider what happens
+> if the user docks a laptop with an r8152 usb dongle already plugged
+> in... How are you going to explain that the dock gets some other mac
+> address in this case? How are you going to explain the difference
+> between using an r8152 based dongle and some other ethernet usb
+> dongle with your systems?
+>=20
+> Make it behave consistently if you're going to add this.  Which can
+> be done by specifically matching the Dell dock (doesn't it have an
+> unique Dell device ID?) and ignoring any other r8152 device.  You
+> could also choose to set the same mac for all r8152 devices.  Which
+> is fine, but will probably confuse many users.
+>=20
+> What you definitely should not do is to change the mac for some
+> arbitrary "first" device.  Then you are better off with the userspace
+> proposal where you and your users have some chance to implement a
+> sensible policy based on e.g. usb port numbers.
 
-> 
-> >  };
-> >
-> >  /* Define these values to match your device */
-> > @@ -653,6 +656,7 @@ enum tx_csum_stat {
-> >   */
-> >  static const int multicast_filter_limit = 32;
-> >  static unsigned int agg_buf_sz = 16384;
-> > +static bool mac_passthru_active;
-> 
-> very generic name for a platform-specific feature :(
+This is exactly what I wanted to write, but you were faster :-)
 
-Once this is broken up into an x86 platform provided method I'll rename this 
-to platform_mac_active (or something similar).
+You can connect more Dell docks (with r8152 devices) and more non-Dell=20
+r8152 devices in random order into Dell laptop. In any case dependent on=20
+connect and disconnect order, devices always must have exactly same MAC=20
+addresses. Otherwise there will be problems! It confuse users and also=20
+admins of networks...
 
-> 
-> 
-> >
-> >  #define RTL_LIMITED_TSO_SIZE	(agg_buf_sz - sizeof(struct tx_desc) -
-> \
-> >  				 VLAN_ETH_HLEN - VLAN_HLEN)
-> > @@ -1030,6 +1034,49 @@ out1:
-> >  	return ret;
-> >  }
-> >
-> > +static int get_auxiliary_addr(struct r8152 *tp, struct sockaddr *sa)
-> 
-> What about the platform mac address api that was pointed out?
+So if kernel approach is chosen then I think there are only two solution=20
+those satisfy above conditions:
 
-I mentioned this in the cover letter - I haven't gotten a chance to move it over there yet.
-I sent v2 before I did so that you can see what I've been doing as it was relevant to your
-other comments.
+=46irst one is:
+* all non-Dell devices have own MAC address
+* all Dell devices have (one, same) AUX MAC address
 
-> 
-> > +{
-> > +	acpi_status status;
-> > +	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
-> > +	union acpi_object *obj;
-> > +	int ret = -1;
-> > +	unsigned char buf[6];
-> > +
-> > +	if (!dmi_name_in_vendors("Dell Inc.") || mac_passthru_active)
-> > +		return -1;
-> 
-> Don't make up random error values, please use "real" ones.
+Second one is:
+* all devices (Dell and also non-Dell) have own address
+* AUX MAC address is never used
 
-OK.
+So what do you (netdev maintainers) think about it?
 
-> 
-> And you want to check this for all Dell devices?  Please be model
-> specific, I doubt a bunch of Dell servers wants to run this code...
-> 
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
 
-Tracking model specific is really going to turn into a giant list never ending list.
-To drill down more specifically, I can match on chassis too.
+--nextPart2437573.deOtVt4VIv
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-> > +
-> > +	/* returns _AUXMAC_#AABBCCDDEEFF# */
-> > +	status = acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
-> > +	obj = (union acpi_object *)buffer.pointer;
-> > +	if (ACPI_SUCCESS(status)) {
-> > +		if (obj->type != ACPI_TYPE_BUFFER ||
-> > +		    obj->string.length != 0x17) {
-> > +			pr_warn("r8152: get_auxiliary_addr: Invalid buffer");
-> > +			goto amacout;
-> > +		}
-> > +		if (strncmp(obj->string.pointer, "_AUXMAC_#", 9) != 0) {
-> > +			pr_warn("r8152: get_auxiliary_addr: Invalid header");
-> > +			goto amacout;
-> > +		}
-> > +		ret = hex2bin(buf, obj->string.pointer + 9, 6);
-> > +		if (ret < 0) {
-> > +			pr_warn("r8152: get_auxiliary_addr: Invalid MAC");
-> > +			goto amacout;
-> > +		}
-> > +		memcpy(sa->sa_data, buf, 6);
-> > +		ether_addr_copy(tp->netdev->dev_addr, sa->sa_data);
-> > +		netdev_info(tp->netdev, "Using system MAC address
-> %pM\n",
-> > +			    sa->sa_data);
-> > +		set_bit(MAC_PASSTHRU, &tp->flags);
-> > +		mac_passthru_active = true;
-> > +		ret = 1;
-> 
-> 1 is not a "all is good" return value.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-OK will switch to 0.
+iEYEABECAAYFAldQfpoACgkQi/DJPQPkQ1JGBwCfd2dLVw7920L/rm54/k/YTyzQ
+4O0AoJzlU5B+kj4T27FS4m+UDE6AEwZE
+=owuf
+-----END PGP SIGNATURE-----
+
+--nextPart2437573.deOtVt4VIv--
