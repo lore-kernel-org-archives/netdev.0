@@ -1,76 +1,125 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 5/6] ethernet/intel: Use
- pci_(request|release)_mem_regions
-Date: Thu, 02 Jun 2016 14:01:35 -0700
-Message-ID: <1464901295.2736.29.camel@intel.com>
-References: <cover.1464795082.git.jthumshirn@suse.de>
-	 <e15aedde3b7d8b301b9ca6197f8d39d4076c9c86.1464795082.git.jthumshirn@suse.de>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: Possible problem with e6afc8ac ("udp: remove headers from UDP
+ packets before queueing")
+Date: Thu, 2 Jun 2016 17:36:42 -0400
+Message-ID: <CAHC9VhQAiTRWMN-vNDXgAni2MhsyEYP8f2mZDY63xrx=5SxenQ@mail.gmail.com>
+References: <CAHC9VhS0oH8p55_3yOcQGJWx8WmokHW=kSrKOM6tKPM1XoPjGA@mail.gmail.com>
+	<1464808695.5939.167.camel@edumazet-glaptop3.roam.corp.google.com>
+	<0b1fde4f-57ef-8c5e-147f-10c4a51fb2b0@tycho.nsa.gov>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-V2PqDfR0o+AxeTcExJxv"
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Christoph Hellwig <hch@infradead.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-To: Johannes Thumshirn <jthumshirn@suse.de>,
-	Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e15aedde3b7d8b301b9ca6197f8d39d4076c9c86.1464795082.git.jthumshirn@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: samanthakumar@google.com, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	Stephen Smalley <sds@tycho.nsa.gov>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:34853 "EHLO
+	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932565AbcFBVgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 17:36:43 -0400
+Received: by mail-oi0-f67.google.com with SMTP id h125so13563981oib.2
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 14:36:43 -0700 (PDT)
+In-Reply-To: <0b1fde4f-57ef-8c5e-147f-10c4a51fb2b0@tycho.nsa.gov>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 1, 2016 at 4:44 PM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> On 06/01/2016 03:18 PM, Eric Dumazet wrote:
+>> On Wed, 2016-06-01 at 15:01 -0400, Paul Moore wrote:
+>>> Hello,
+>>>
+>>> I'm currently trying to debug a problem with 4.7-rc1 and labeled
+>>> networking over UDP.  I'm having some difficulty with the latest
+>>> 4.7-rc1 builds on my test system at the moment so I haven't been able
+>>> to concisely identify the problem, but looking through the commits in
+>>> 4.7-rc1 I think there may be a problem with the following:
+>>>
+>>>   commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac
+>>>   Author: samanthakumar <samanthakumar@google.com>
+>>>   Date:   Tue Apr 5 12:41:15 2016 -0400
+>>>
+>>>    udp: remove headers from UDP packets before queueing
+>>>
+>>>    Remove UDP transport headers before queueing packets for reception.
+>>>    This change simplifies a follow-up patch to add MSG_PEEK support.
+>>>
+>>>    Signed-off-by: Sam Kumar <samanthakumar@google.com>
+>>>    Signed-off-by: Willem de Bruijn <willemb@google.com>
+>>>    Signed-off-by: David S. Miller <davem@davemloft.net>
+>>>
+>>> ... it appears that this commit changes things so that sk_filter() is
+>>> only called when sk->sk_filter is not NULL.  While this is fine for
+>>> the traditional socket filter case, it causes problems with LSMs that
+>>> make use of security_sock_rcv_skb() to enforce per-packet access
+>>> controls.
+>>>
+>>> Hopefully I'll get 4.7-rc1 booting soon and I can do a proper
+>>> bisection test around this patch, but I wanted to mention this now in
+>>> case others are seeing the same problem.
+>>
+>> Thanks for the report. Please try following fix.
+>>
+>> sk_filter() got additional features like the skb_pfmemalloc() things and
+>> security_sock_rcv_skb()
+>
+> This resolved the SELinux regression for me.
+>
+> Tested-by: Stephen Smalley <sds@tycho.nsa.gov>
 
---=-V2PqDfR0o+AxeTcExJxv
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The patch works for me too.  Eric, are you going to send this to DaveM
+(assuming he isn't listening in on this thread and picking it up
+himself)?
 
-On Thu, 2016-06-02 at 09:30 +0200, Johannes Thumshirn wrote:
-> Now that we do have pci_request_mem_regions() and
-> pci_release_mem_regions() at
-> hand, use it in the Intel ethernet drivers.
->=20
-> Suggested-by: Christoph Hellwig <hch@infradead.org>
-> Signed-off-by: Johannes Thumshirn <jthumshirn@suse.de>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: intel-wired-lan@lists.osuosl.org
+Tested-by: Paul Moore <paul@paul-moore.com>
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+>> index d56c0559b477..0ff31d97d485 100644
+>> --- a/net/ipv4/udp.c
+>> +++ b/net/ipv4/udp.c
+>> @@ -1618,12 +1618,12 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>>               }
+>>       }
+>>
+>> -     if (rcu_access_pointer(sk->sk_filter)) {
+>> -             if (udp_lib_checksum_complete(skb))
+>> +     if (rcu_access_pointer(sk->sk_filter) &&
+>> +         udp_lib_checksum_complete(skb))
+>>                       goto csum_error;
+>> -             if (sk_filter(sk, skb))
+>> -                     goto drop;
+>> -     }
+>> +
+>> +     if (sk_filter(sk, skb))
+>> +             goto drop;
+>>
+>>       udp_csum_pull_header(skb);
+>>       if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+>> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+>> index 2da1896af934..f421c9f23c5b 100644
+>> --- a/net/ipv6/udp.c
+>> +++ b/net/ipv6/udp.c
+>> @@ -653,12 +653,12 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>>               }
+>>       }
+>>
+>> -     if (rcu_access_pointer(sk->sk_filter)) {
+>> -             if (udp_lib_checksum_complete(skb))
+>> -                     goto csum_error;
+>> -             if (sk_filter(sk, skb))
+>> -                     goto drop;
+>> -     }
+>> +     if (rcu_access_pointer(sk->sk_filter) &&
+>> +         udp_lib_checksum_complete(skb))
+>> +             goto csum_error;
+>> +
+>> +     if (sk_filter(sk, skb))
+>> +             goto drop;
+>>
+>>       udp_csum_pull_header(skb);
+>>       if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+>>
+>>
 
-> ---
-> =C2=A0drivers/net/ethernet/intel/e1000e/netdev.c=C2=A0=C2=A0=C2=A0 |=C2=
-=A0 6 ++----
-> =C2=A0drivers/net/ethernet/intel/fm10k/fm10k_pci.c=C2=A0 | 11 +++--------
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c=C2=A0=C2=A0 |=C2=A0 9 +=
-++------
-> =C2=A0drivers/net/ethernet/intel/igb/igb_main.c=C2=A0=C2=A0=C2=A0=C2=A0 |=
- 10 +++-------
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |=C2=A0 9 +++------
-> =C2=A05 files changed, 14 insertions(+), 31 deletions(-)
-
---=-V2PqDfR0o+AxeTcExJxv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXUJ6vAAoJEOVv75VaS+3OAGQP/jXZHPJWhfwdV91AxtxXpMNV
-dJVvKKBCLY4j1EJBtcIE1ZzqLDLfVInQE8xVX6LwTh+dAg6nzLjir1RSrR4qkjFd
-u3JDIkdYzi4T2CE7Wh34Hn+fMtD+cLbwExpqnm7rY3nN9oLg6MSpfuftaxaQRvea
-VcffdWLjcz9nn+6d01LKa2k37i5/ijAbEcWOInUZ71fYvNh1v8ZYHYPKPgnhBsbJ
-8ZpT7miRtkBGX2e2DiwJZqvb/+byrB/NxhvyjeuN10ow8XkyvR1xPebHB87tI6M6
-qyQXolFcHUjQ1rncWpWGWFxbBa2cChENK5G+ni/Esdr1y9ebrja21gkHxD9UKnnT
-5XP1Bsb/n6KsdGMMSCfop+UWrtLtZteRYrGABvicQdo6aJXQCQ6O7ZsaQMBUakhw
-3ut5WMAwb/EhHsgpqOZHZU2qpj5FMmupIH2lM+1bX1GAIcJl4xbD2VU2+TtXAd6a
-Xi1RObsDElRop6ZA05H4DrI59nitxM9aAjonWG7mSvQJL8xAznb6sIYazjg7lF69
-OxePtJbtpWviWuf4MBVBFEa39zZcGhTivjxzkrYYq0+cYvfNdOVBL3AhW5g6c9c8
-8lh6cUcM/ZQpa4hoDB2wwLi9/JRI1OQCRiuBCmOdVMigxrjnOcyPlvp9WRbZ2Pvu
-Pcds1/QA+1E1Ow0QZL87
-=hp3V
------END PGP SIGNATURE-----
-
---=-V2PqDfR0o+AxeTcExJxv--
+-- 
+paul moore
+www.paul-moore.com
