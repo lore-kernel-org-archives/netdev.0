@@ -1,56 +1,39 @@
 From: Zhao Qiang <qiang.zhao@nxp.com>
-Subject: [PATCH v2 1/5] fsl/qe: add rx_sync and tx_sync for TDM mode
-Date: Thu, 2 Jun 2016 09:44:57 +0800
-Message-ID: <1464831901-15913-1-git-send-email-qiang.zhao@nxp.com>
+Subject: [PATCH v2 3/5] fsl/qe: Make regs resouce_size_t
+Date: Thu, 2 Jun 2016 09:44:59 +0800
+Message-ID: <1464831901-15913-3-git-send-email-qiang.zhao@nxp.com>
+References: <1464831901-15913-1-git-send-email-qiang.zhao@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Zhao Qiang <qiang.zhao@nxp.com>,
- linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
- xiaobo.xie@nxp.com
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <xiaobo.xie@nxp.com>,
+	Zhao Qiang <qiang.zhao@nxp.com>
 To: <oss@buserror.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464831901-15913-1-git-send-email-qiang.zhao@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Unhfc3luYyBhbmQgdHhfc3luYyBhcmUgdXNlZCBieSBRRS1URE0gbW9kZSwKYWRkIHRoZW0gdG8g
-c3RydWN0IHVjY19mYXN0X2luZm8uCgpTaWduZWQtb2ZmLWJ5OiBaaGFvIFFpYW5nIDxxaWFuZy56
-aGFvQG54cC5jb20+Ci0tLQpDaGFuZ2VzIGZvciB2MjoKCS0gdXNlIHN0cmNtcCBpbnN0ZWFkIG9m
-IHN0cmNhc2VjbXAKCiBkcml2ZXJzL3NvYy9mc2wvcWUvcWUuYyAgICAgICB8IDYgKysrKysrCiBp
-bmNsdWRlL3NvYy9mc2wvcWUvcWUuaCAgICAgICB8IDIgKysKIGluY2x1ZGUvc29jL2ZzbC9xZS91
-Y2NfZmFzdC5oIHwgMiArKwogMyBmaWxlcyBjaGFuZ2VkLCAxMCBpbnNlcnRpb25zKCspCgpkaWZm
-IC0tZ2l0IGEvZHJpdmVycy9zb2MvZnNsL3FlL3FlLmMgYi9kcml2ZXJzL3NvYy9mc2wvcWUvcWUu
-YwppbmRleCA3MDlmYzYzLi43MDI2NTA3IDEwMDY0NAotLS0gYS9kcml2ZXJzL3NvYy9mc2wvcWUv
-cWUuYworKysgYi9kcml2ZXJzL3NvYy9mc2wvcWUvcWUuYwpAQCAtMjM5LDYgKzIzOSwxMiBAQCBl
-bnVtIHFlX2Nsb2NrIHFlX2Nsb2NrX3NvdXJjZShjb25zdCBjaGFyICpzb3VyY2UpCiAJaWYgKHN0
-cmNhc2VjbXAoc291cmNlLCAibm9uZSIpID09IDApCiAJCXJldHVybiBRRV9DTEtfTk9ORTsKIAor
-CWlmIChzdHJjbXAoc291cmNlLCAidHN5bmNfcGluIikgPT0gMCkKKwkJcmV0dXJuIFFFX1RTWU5D
-X1BJTjsKKworCWlmIChzdHJjbXAoc291cmNlLCAicnN5bmNfcGluIikgPT0gMCkKKwkJcmV0dXJu
-IFFFX1JTWU5DX1BJTjsKKwogCWlmIChzdHJuY2FzZWNtcChzb3VyY2UsICJicmciLCAzKSA9PSAw
-KSB7CiAJCWkgPSBzaW1wbGVfc3RydG91bChzb3VyY2UgKyAzLCBOVUxMLCAxMCk7CiAJCWlmICgo
-aSA+PSAxKSAmJiAoaSA8PSAxNikpCmRpZmYgLS1naXQgYS9pbmNsdWRlL3NvYy9mc2wvcWUvcWUu
-aCBiL2luY2x1ZGUvc29jL2ZzbC9xZS9xZS5oCmluZGV4IDMzYjI5ZWEuLmY5MTg3NDUgMTAwNjQ0
-Ci0tLSBhL2luY2x1ZGUvc29jL2ZzbC9xZS9xZS5oCisrKyBiL2luY2x1ZGUvc29jL2ZzbC9xZS9x
-ZS5oCkBAIC04MCw2ICs4MCw4IEBAIGVudW0gcWVfY2xvY2sgewogCVFFX0NMSzIyLAkJLyogQ2xv
-Y2sgMjIgKi8KIAlRRV9DTEsyMywJCS8qIENsb2NrIDIzICovCiAJUUVfQ0xLMjQsCQkvKiBDbG9j
-ayAyNCAqLworCVFFX1JTWU5DX1BJTiwJCS8qIFJTWU5DIGZyb20gcGluICovCisJUUVfVFNZTkNf
-UElOLAkJLyogVFNZTkMgZnJvbSBwaW4gKi8KIAlRRV9DTEtfRFVNTVkKIH07CiAKZGlmZiAtLWdp
-dCBhL2luY2x1ZGUvc29jL2ZzbC9xZS91Y2NfZmFzdC5oIGIvaW5jbHVkZS9zb2MvZnNsL3FlL3Vj
-Y19mYXN0LmgKaW5kZXggZGY4ZWE3OS4uMzE1NDhiNyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9zb2Mv
-ZnNsL3FlL3VjY19mYXN0LmgKKysrIGIvaW5jbHVkZS9zb2MvZnNsL3FlL3VjY19mYXN0LmgKQEAg
-LTEyMCw2ICsxMjAsOCBAQCBzdHJ1Y3QgdWNjX2Zhc3RfaW5mbyB7CiAJaW50IHVjY19udW07CiAJ
-ZW51bSBxZV9jbG9jayByeF9jbG9jazsKIAllbnVtIHFlX2Nsb2NrIHR4X2Nsb2NrOworCWVudW0g
-cWVfY2xvY2sgcnhfc3luYzsKKwllbnVtIHFlX2Nsb2NrIHR4X3N5bmM7CiAJdTMyIHJlZ3M7CiAJ
-aW50IGlycTsKIAl1MzIgdWNjbV9tYXNrOwotLSAKMi4xLjAuMjcuZzk2ZGIzMjQKCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWls
-aW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxh
-YnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
+---
+Changes for v2:
+	- modify subject
+
+ include/soc/fsl/qe/ucc_fast.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/soc/fsl/qe/ucc_fast.h b/include/soc/fsl/qe/ucc_fast.h
+index b2633b7..e898895 100644
+--- a/include/soc/fsl/qe/ucc_fast.h
++++ b/include/soc/fsl/qe/ucc_fast.h
+@@ -123,7 +123,7 @@ struct ucc_fast_info {
+ 	enum qe_clock tx_clock;
+ 	enum qe_clock rx_sync;
+ 	enum qe_clock tx_sync;
+-	u32 regs;
++	resource_size_t regs;
+ 	int irq;
+ 	u32 uccm_mask;
+ 	int bd_mem_part;
+-- 
+2.1.0.27.g96db324
