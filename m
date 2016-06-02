@@ -1,86 +1,93 @@
-From: Tyler Hicks <tyhicks@canonical.com>
-Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
-Date: Thu, 2 Jun 2016 11:30:44 -0500
-Message-ID: <57505F34.5020609@canonical.com>
-References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
- <20160508.235620.333454221783238471.davem@davemloft.net>
- <573B271B.30202@canonical.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH 0/4] Make inotify instance/watches be accounted per userns
+Date: Thu, 02 Jun 2016 11:19:23 -0500
+Message-ID: <87y46n36no.fsf@x220.int.ebiederm.org>
+References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
+	<8737ow7vcp.fsf@x220.int.ebiederm.org> <574FD1E4.8090109@kyup.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO"
-Cc: David Miller <davem@davemloft.net>,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
-To: jmorris@namei.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <573B271B.30202@canonical.com>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain
+Cc: john@johnmccutchan.com, eparis@redhat.com, jack@suse.cz,
+	linux-kernel@vger.kernel.org, gorcunov@openvz.org,
+	avagin@openvz.org, netdev@vger.kernel.org,
+	operations@siteground.com,
+	Linux Containers <containers@lists.linux-foundation.org>
+To: Nikolay Borisov <kernel@kyup.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <574FD1E4.8090109@kyup.com> (Nikolay Borisov's message of "Thu, 2
+	Jun 2016 09:27:48 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO
-Content-Type: multipart/mixed; boundary="aGnvucPKK9vO8SEnIMxoMPqIHbgSshIK9"
-From: Tyler Hicks <tyhicks@canonical.com>
-To: jmorris@namei.org
-Cc: David Miller <davem@davemloft.net>,
- linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
-Message-ID: <57505F34.5020609@canonical.com>
-Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
-References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
- <20160508.235620.333454221783238471.davem@davemloft.net>
- <573B271B.30202@canonical.com>
-In-Reply-To: <573B271B.30202@canonical.com>
+Nikolay Borisov <kernel@kyup.com> writes:
 
---aGnvucPKK9vO8SEnIMxoMPqIHbgSshIK9
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+> On 06/01/2016 07:00 PM, Eric W. Biederman wrote:
+>> Cc'd the containers list.
+>> 
+>> 
+>> Nikolay Borisov <kernel@kyup.com> writes:
+>> 
+>>> Currently the inotify instances/watches are being accounted in the 
+>>> user_struct structure. This means that in setups where multiple 
+>>> users in unprivileged containers map to the same underlying 
+>>> real user (e.g. user_struct) the inotify limits are going to be 
+>>> shared as well which can lead to unplesantries. This is a problem 
+>>> since any user inside any of the containers can potentially exhaust 
+>>> the instance/watches limit which in turn might prevent certain 
+>>> services from other containers from starting.
+>> 
+>> On a high level this is a bit problematic as it appears to escapes the
+>> current limits and allows anyone creating a user namespace to have their
+>> own fresh set of limits.  Given that anyone should be able to create a
+>> user namespace whenever they feel like escaping limits is a problem.
+>> That however is solvable.
+>
+> This is indeed a problem and the presented solution is rather dumb in
+> that regard. I'm happy to work with you on suggestions so that I arrive
+> at a solution that is upstreamable.
 
-On 05/17/2016 09:13 AM, Tyler Hicks wrote:
-> On 05/08/2016 10:56 PM, David Miller wrote:
->> From: Tyler Hicks <tyhicks@canonical.com>
->> Date: Fri,  6 May 2016 18:04:12 -0500
->>
->>> This pair of patches does away with what I believe is a useless denia=
-l
->>> audit message when a privileged process initially accesses a net sysc=
-tl.
->>
->> The LSM folks can apply this if they agree with you.
->=20
-> Hi James - Could you pick up these two bug fix patches? Thanks!
+The one in kernel solution to hierarchical resource limits that I am
+aware of is the current include/linux/page_counter.h which evolved from
+include/linux/res_counter.h
 
-Hello - Just checking in again to see if you plan on taking these
-through the security tree?
+>> A practical question.  What kind of limits are we looking at here?
+>> 
+>> Are these loose limits for detecting buggy programs that have gone
+>> off their rails?
+>
+> Loose limits.
+>
+>> 
+>> Are these tight limits to ensure multitasking is possible?
+>> 
+>> 
+>> 
+>> For tight limits where something is actively controlling the limits you
+>> probably want a cgroup base solution.
+>> 
+>> For loose limits that are the kind where you set a good default and
+>> forget about I think a user namespace based solution is reasonable.
+>
+> That's exactly the use case I had in mind.
+>
+>> 
+>>> The solution I propose is rather simple, instead of accounting the 
+>>> watches/instances per user_struct, start accounting them in a hashtable, 
+>>> where the index used is the hashed pointer of the userns. This way
+>>> the administrator needn't set the inotify limits very high and also 
+>>> the risk of one container breaching the limits and affecting every 
+>>> other container is alleviated.
+>> 
+>> I don't think this is the right data structure for a user namespace
+>> based solution, at least in part because it does not account for users
+>> escaping.
+>
+> Admittedly this is a naive solution, what are you ideas on something
+> which achieves my initial aim of having limits per users, yet not
+> allowing them to just create another namespace and escape them. The
+> current namespace code has a hard-coded limit of 32 for nesting user
+> namespaces. So currently at the worst case one can escape the limits up
+> to 32 * current_limits.
 
-Tyler
+32 is the nesting depth not the width of the tree.  But see above.
 
-
-
---aGnvucPKK9vO8SEnIMxoMPqIHbgSshIK9--
-
---rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJXUF80AAoJENaSAD2qAscK8VIQALub8OK6kTN6n0orcjtU6Xkl
-YvVjzmGtcQAILqbVad2LO/3dPwn5wlz6LHOgw7mOpITNjWI9e+mwUJScQq7z7adz
-3CNiv3bXhm7pgO83sgDW3hcNyRom3wU6+AAgq8h3MWxinE+4KpZo0WwoTZSM2hms
-CPZb5ZxXQKMLPM74XbGerWohSWurjWhihWyj3K7tP0nrn8Bqp349BEPiRSVIwJN3
-zr2B0b9tZn10kCGGLwWM9S4PJUjVmxRds+VL/LRfc9JvrnHaKBZnUiegzmNTIJ31
-irFZHK4BXIc9pYeU7VCNMomquU+sxqGQQ/giZjdnDtSegVAYgSLlUEOnnLxY2yNI
-Zz9KGL+fa8d5RiZ5SFe/U9QQxT5q7Jb/seQ1OBnJ9oDGoENmm8jyV77YYwlDiH0j
-Yd9i8gdeM9DYwPebm3QNqhJZlzi7OyTsTU+10Lvnx8fS5490aZRC6uNLDJL9HACe
-aoje5QfP972D+04SANJR2zs/0nt1BX6kphK+R506EikhC74eWRBvTl0WafWerXz+
-3844AGr7qWuaKIso5pyYtHhKvr1DawMmlMrsHff3IK0CEjdP5KJf1BWTzJon6y5/
-U6MIAy8Z8j+0ZzgZpKMktLBeSk1fWvGrrYgNCtqEZmOC8Fu1TtEVKmm2griN5cOG
-XkUT8m1N2RVr/YlmBaEX
-=lVr0
------END PGP SIGNATURE-----
-
---rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO--
+Eric
