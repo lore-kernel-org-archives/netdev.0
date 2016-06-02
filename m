@@ -1,70 +1,44 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH -next 2/2] virtio_net: Read the advised MTU
-Date: Thu, 2 Jun 2016 19:16:57 +0300
-Message-ID: <20160602191632-mutt-send-email-mst@redhat.com>
+Subject: Re: [PATCH -next 1/2] virtio: Start feature MTU support
+Date: Thu, 2 Jun 2016 19:17:17 +0300
+Message-ID: <20160602191702-mutt-send-email-mst@redhat.com>
 References: <1464882211-18723-1-git-send-email-aconole@redhat.com>
-	<1464882211-18723-3-git-send-email-aconole@redhat.com>
+ <1464882211-18723-2-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Aaron Conole <aconole@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1464882211-18723-3-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <1464882211-18723-2-git-send-email-aconole@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 02, 2016 at 11:43:31AM -0400, Aaron Conole wrote:
-> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
-> exists, read the advised MTU and use it.
-> 
-> No proper error handling is provided for the case where a user changes the
-> negotiated MTU. A future commit will add proper error handling. Instead, a
-> warning is emitted if the guest changes the device MTU after previously
-> being given advice.
+On Thu, Jun 02, 2016 at 11:43:30AM -0400, Aaron Conole wrote:
+> This commit adds the feature bit and associated mtu device entry for the
+> virtio network device. Future commits will make use of these bits to
+> support negotiated MTU.
 
-I don't see a warning and I don't think it's needed.
-Patch is ok commit log isn't.
+why split it out? Pls squash with the next patch.
 
 > Signed-off-by: Aaron Conole <aconole@redhat.com>
 > ---
->  drivers/net/virtio_net.c | 7 +++++++
->  1 file changed, 7 insertions(+)
+>  include/uapi/linux/virtio_net.h | 2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index e0638e5..ef5ee01 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1896,6 +1896,12 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
+> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+> index ec32293..751ff59 100644
+> --- a/include/uapi/linux/virtio_net.h
+> +++ b/include/uapi/linux/virtio_net.h
+> @@ -73,6 +73,8 @@ struct virtio_net_config {
+>  	 * Legal values are between 1 and 0x8000
+>  	 */
+>  	__u16 max_virtqueue_pairs;
+> +	/* Default maximum transmit unit advice */
+> +	__u16 mtu;
+>  } __attribute__((packed));
 >  
-> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-> +		dev->mtu = virtio_cread16(vdev,
-> +					  offsetof(struct virtio_net_config,
-> +						   mtu));
-> +	}
-> +
->  	if (vi->any_header_sg)
->  		dev->needed_headroom = vi->hdr_len;
->  
-> @@ -2067,6 +2073,7 @@ static unsigned int features[] = {
->  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
->  	VIRTIO_NET_F_CTRL_MAC_ADDR,
->  	VIRTIO_F_ANY_LAYOUT,
-> +	VIRTIO_NET_F_MTU,
->  };
->  
->  static struct virtio_driver virtio_net_driver = {
+>  /*
 > -- 
 > 2.5.5
