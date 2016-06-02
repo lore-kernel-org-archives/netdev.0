@@ -1,86 +1,76 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: [PATCH v2 -next] virtio-net: Add initial MTU advice feature
-Date: Thu,  2 Jun 2016 17:10:59 -0400
-Message-ID: <1464901859-25906-1-git-send-email-aconole@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 5/6] ethernet/intel: Use
+ pci_(request|release)_mem_regions
+Date: Thu, 02 Jun 2016 14:01:35 -0700
+Message-ID: <1464901295.2736.29.camel@intel.com>
+References: <cover.1464795082.git.jthumshirn@suse.de>
+	 <e15aedde3b7d8b301b9ca6197f8d39d4076c9c86.1464795082.git.jthumshirn@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-V2PqDfR0o+AxeTcExJxv"
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Christoph Hellwig <hch@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org
+To: Johannes Thumshirn <jthumshirn@suse.de>,
+	Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e15aedde3b7d8b301b9ca6197f8d39d4076c9c86.1464795082.git.jthumshirn@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This commit adds the feature bit and associated mtu device entry for the
-virtio network device.  When a virtio device comes up, it checks the
-feature bit for the VIRTIO_NET_F_MTU feature.  If such feature bit is
-enabled, the driver will read the advised MTU and use it as the initial
-value.
 
-Signed-off-by: Aaron Conole <aconole@redhat.com>
----
-v1->v2:
-* Fixed omitted hunk from virtio_net.h
-* Squashed to a single commit
-* Fixed commit message.
+--=-V2PqDfR0o+AxeTcExJxv
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- drivers/net/virtio_net.c        | 7 +++++++
- include/uapi/linux/virtio_net.h | 3 +++
- 2 files changed, 10 insertions(+)
+On Thu, 2016-06-02 at 09:30 +0200, Johannes Thumshirn wrote:
+> Now that we do have pci_request_mem_regions() and
+> pci_release_mem_regions() at
+> hand, use it in the Intel ethernet drivers.
+>=20
+> Suggested-by: Christoph Hellwig <hch@infradead.org>
+> Signed-off-by: Johannes Thumshirn <jthumshirn@suse.de>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: intel-wired-lan@lists.osuosl.org
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e0638e5..ef5ee01 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1896,6 +1896,12 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
- 
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-+		dev->mtu = virtio_cread16(vdev,
-+					  offsetof(struct virtio_net_config,
-+						   mtu));
-+	}
-+
- 	if (vi->any_header_sg)
- 		dev->needed_headroom = vi->hdr_len;
- 
-@@ -2067,6 +2073,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
- 	VIRTIO_NET_F_CTRL_MAC_ADDR,
- 	VIRTIO_F_ANY_LAYOUT,
-+	VIRTIO_NET_F_MTU,
- };
- 
- static struct virtio_driver virtio_net_driver = {
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index ec32293..1ab4ea6 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -55,6 +55,7 @@
- #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
- 					 * Steering */
- #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
-+#define VIRTIO_NET_F_MTU 25	/* Initial MTU advice */
- 
- #ifndef VIRTIO_NET_NO_LEGACY
- #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-@@ -73,6 +74,8 @@ struct virtio_net_config {
- 	 * Legal values are between 1 and 0x8000
- 	 */
- 	__u16 max_virtqueue_pairs;
-+	/* Default maximum transmit unit advice */
-+	__u16 mtu;
- } __attribute__((packed));
- 
- /*
--- 
-2.5.5
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+> ---
+> =C2=A0drivers/net/ethernet/intel/e1000e/netdev.c=C2=A0=C2=A0=C2=A0 |=C2=
+=A0 6 ++----
+> =C2=A0drivers/net/ethernet/intel/fm10k/fm10k_pci.c=C2=A0 | 11 +++--------
+> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c=C2=A0=C2=A0 |=C2=A0 9 +=
+++------
+> =C2=A0drivers/net/ethernet/intel/igb/igb_main.c=C2=A0=C2=A0=C2=A0=C2=A0 |=
+ 10 +++-------
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |=C2=A0 9 +++------
+> =C2=A05 files changed, 14 insertions(+), 31 deletions(-)
+
+--=-V2PqDfR0o+AxeTcExJxv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXUJ6vAAoJEOVv75VaS+3OAGQP/jXZHPJWhfwdV91AxtxXpMNV
+dJVvKKBCLY4j1EJBtcIE1ZzqLDLfVInQE8xVX6LwTh+dAg6nzLjir1RSrR4qkjFd
+u3JDIkdYzi4T2CE7Wh34Hn+fMtD+cLbwExpqnm7rY3nN9oLg6MSpfuftaxaQRvea
+VcffdWLjcz9nn+6d01LKa2k37i5/ijAbEcWOInUZ71fYvNh1v8ZYHYPKPgnhBsbJ
+8ZpT7miRtkBGX2e2DiwJZqvb/+byrB/NxhvyjeuN10ow8XkyvR1xPebHB87tI6M6
+qyQXolFcHUjQ1rncWpWGWFxbBa2cChENK5G+ni/Esdr1y9ebrja21gkHxD9UKnnT
+5XP1Bsb/n6KsdGMMSCfop+UWrtLtZteRYrGABvicQdo6aJXQCQ6O7ZsaQMBUakhw
+3ut5WMAwb/EhHsgpqOZHZU2qpj5FMmupIH2lM+1bX1GAIcJl4xbD2VU2+TtXAd6a
+Xi1RObsDElRop6ZA05H4DrI59nitxM9aAjonWG7mSvQJL8xAznb6sIYazjg7lF69
+OxePtJbtpWviWuf4MBVBFEa39zZcGhTivjxzkrYYq0+cYvfNdOVBL3AhW5g6c9c8
+8lh6cUcM/ZQpa4hoDB2wwLi9/JRI1OQCRiuBCmOdVMigxrjnOcyPlvp9WRbZ2Pvu
+Pcds1/QA+1E1Ow0QZL87
+=hp3V
+-----END PGP SIGNATURE-----
+
+--=-V2PqDfR0o+AxeTcExJxv--
