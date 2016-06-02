@@ -1,77 +1,86 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC 05/12] nfp: add BPF to NFP code translator
-Date: Thu, 2 Jun 2016 09:21:42 -0700
-Message-ID: <57505D16.3030609@gmail.com>
-References: <1464799814-4453-1-git-send-email-jakub.kicinski@netronome.com>
- <1464799814-4453-6-git-send-email-jakub.kicinski@netronome.com>
- <574F3F78.1010606@iogearbox.net>
- <20160601201546.GA22759@ast-mbp.thefacebook.com>
+From: Tyler Hicks <tyhicks@canonical.com>
+Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
+Date: Thu, 2 Jun 2016 11:30:44 -0500
+Message-ID: <57505F34.5020609@canonical.com>
+References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
+ <20160508.235620.333454221783238471.davem@davemloft.net>
+ <573B271B.30202@canonical.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO"
+Cc: David Miller <davem@davemloft.net>,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
+To: jmorris@namei.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <573B271B.30202@canonical.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO
+Content-Type: multipart/mixed; boundary="aGnvucPKK9vO8SEnIMxoMPqIHbgSshIK9"
+From: Tyler Hicks <tyhicks@canonical.com>
+To: jmorris@namei.org
+Cc: David Miller <davem@davemloft.net>,
+ linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
+Message-ID: <57505F34.5020609@canonical.com>
+Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
+References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com>
+ <20160508.235620.333454221783238471.davem@davemloft.net>
+ <573B271B.30202@canonical.com>
+In-Reply-To: <573B271B.30202@canonical.com>
+
+--aGnvucPKK9vO8SEnIMxoMPqIHbgSshIK9
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	netdev@vger.kernel.org, ast@kernel.org,
-	dinan.gunawardena@netronome.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:32810 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932149AbcFBQWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 12:22:00 -0400
-Received: by mail-pa0-f66.google.com with SMTP id di3so3690519pab.0
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 09:21:59 -0700 (PDT)
-In-Reply-To: <20160601201546.GA22759@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On 16-06-01 01:15 PM, Alexei Starovoitov wrote:
-> On Wed, Jun 01, 2016 at 10:03:04PM +0200, Daniel Borkmann wrote:
->> On 06/01/2016 06:50 PM, Jakub Kicinski wrote:
->>> Add translator for JITing eBPF to operations which
->>> can be executed on NFP's programmable engines.
->>>
->>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->>> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
->>> Reviewed-by: Simon Horman <simon.horman@netronome.com>
->> [...]
->>> +int
->>> +nfp_bpf_jit(struct bpf_prog *filter, void *prog_mem, unsigned int prog_start,
->>> +	    unsigned int tgt_out, unsigned int tgt_abort,
->>> +	    unsigned int prog_sz, struct nfp_bpf_result *res)
->>> +{
->>> +	struct nfp_prog *nfp_prog;
->>> +	int ret;
->>> +
->>> +	/* TODO: maybe make this dependent on bpf_jit_enable? */
+On 05/17/2016 09:13 AM, Tyler Hicks wrote:
+> On 05/08/2016 10:56 PM, David Miller wrote:
+>> From: Tyler Hicks <tyhicks@canonical.com>
+>> Date: Fri,  6 May 2016 18:04:12 -0500
 >>
->> Probably makes sense to leave it independent from this.
+>>> This pair of patches does away with what I believe is a useless denia=
+l
+>>> audit message when a privileged process initially accesses a net sysc=
+tl.
 >>
->> Maybe that would rather be an ethtool flag/setting?
-> 
-> Agree that it should be independent of bpf_jit_enable,
-> since that's very different JIT. The whole point of hw offload
-> is that bpf is translated into something hw understand natively.
-> Gating it by sysctl or another flag doesn't make much sense to me.
-> In this case the user will say 'do offload tc+cls_bpf into a nic'
-> and nic should either do it or not. No need for ethtool flag either.
-> One can argue that that bpf_jit_enable=2 was useful for debugging
-> of JIT itself, but looks like it was only used by jit developers
-> like us, but we would be fine with temp printk while debugging.
-> At least there was never a case where jit had a bug and we would
-> ask a person reporting a bug to send us back jit_enable=2 output.
-> We cannot remove it now, but I wouldn't simply copy the behavior here.
-> So I'm suggesting not to use bpf_jit_enable either 1 or 2 at all.
-> 
+>> The LSM folks can apply this if they agree with you.
+>=20
+> Hi James - Could you pick up these two bug fix patches? Thanks!
 
-In the default case (no flags to the tc command) the tc filter
-tries to load itself in the hardware. The ethtool flag is there
-to enable/disable this default behavior. The alternative to the
-default load into hardware behavior is to specify it explicitly
-via userspace using the 'do offload tc+cls_bpf' as you note. This
-was the default behavior folks wanted at netdev conference so I
-added it even though for many of my use cases users specify explicitly
-if they want offload or not.
+Hello - Just checking in again to see if you plan on taking these
+through the security tree?
 
-Thanks,
-John
+Tyler
+
+
+
+--aGnvucPKK9vO8SEnIMxoMPqIHbgSshIK9--
+
+--rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJXUF80AAoJENaSAD2qAscK8VIQALub8OK6kTN6n0orcjtU6Xkl
+YvVjzmGtcQAILqbVad2LO/3dPwn5wlz6LHOgw7mOpITNjWI9e+mwUJScQq7z7adz
+3CNiv3bXhm7pgO83sgDW3hcNyRom3wU6+AAgq8h3MWxinE+4KpZo0WwoTZSM2hms
+CPZb5ZxXQKMLPM74XbGerWohSWurjWhihWyj3K7tP0nrn8Bqp349BEPiRSVIwJN3
+zr2B0b9tZn10kCGGLwWM9S4PJUjVmxRds+VL/LRfc9JvrnHaKBZnUiegzmNTIJ31
+irFZHK4BXIc9pYeU7VCNMomquU+sxqGQQ/giZjdnDtSegVAYgSLlUEOnnLxY2yNI
+Zz9KGL+fa8d5RiZ5SFe/U9QQxT5q7Jb/seQ1OBnJ9oDGoENmm8jyV77YYwlDiH0j
+Yd9i8gdeM9DYwPebm3QNqhJZlzi7OyTsTU+10Lvnx8fS5490aZRC6uNLDJL9HACe
+aoje5QfP972D+04SANJR2zs/0nt1BX6kphK+R506EikhC74eWRBvTl0WafWerXz+
+3844AGr7qWuaKIso5pyYtHhKvr1DawMmlMrsHff3IK0CEjdP5KJf1BWTzJon6y5/
+U6MIAy8Z8j+0ZzgZpKMktLBeSk1fWvGrrYgNCtqEZmOC8Fu1TtEVKmm2griN5cOG
+XkUT8m1N2RVr/YlmBaEX
+=lVr0
+-----END PGP SIGNATURE-----
+
+--rQHejdVnJgNVIT9g8JrHpiR2VrmJPmLrO--
