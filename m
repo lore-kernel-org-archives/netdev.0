@@ -1,52 +1,42 @@
-From: Xiubo Li <lixiubo@cmss.chinamobile.com>
-Subject: Re: [PATCH] netfilter: fix possible ZERO_SIZE_PTRpointerdereferencing
- error.
-Date: Thu, 02 Jun 2016 10:40:15 +0800
-Message-ID: <574F9C8F.4070609@cmss.chinamobile.com>
-References: <1464770068-7508-1-git-send-email-lixiubo@cmss.chinamobile.com> <20160601092711.GB2711@salvia> <574EB07B.3060307@cmss.chinamobile.com> <20160601110425.GA8276@salvia>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
+ MAC address
+Date: Thu, 2 Jun 2016 02:53:06 +0000
+Message-ID: <cfff846f3ca34b6a889f07f971b27271@ausx13mpc124.AMER.DELL.COM>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+ <20160601230535.GA29279@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3388 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752368AbcFBCkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 22:40:23 -0400
-In-Reply-To: <20160601110425.GA8276@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
+To: <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160601230535.GA29279@kroah.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> > +static u8 amac_ascii_to_hex(int c)
+> > +{
+> > +	if (c <= 0x39)
+> > +		return (u8)(c - 0x30);
+> > +	else if (c <= 0x46)
+> > +		return (u8)(c - 0x37);
+> > +	return (u8)(c - 0x57);
+> > +}
+> 
 
+Sorry forgot to address this.  
 
-On 01/06/2016 19:04, Pablo Neira Ayuso wrote:
-> On Wed, Jun 01, 2016 at 05:52:59PM +0800, Xiubo Li wrote:
->>>>   net/netfilter/x_tables.c | 3 +++
->>>>   1 file changed, 3 insertions(+)
->>>>
->>>> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
->>>> index c8a0b7d..4df8e38 100644
->>>> --- a/net/netfilter/x_tables.c
->>>> +++ b/net/netfilter/x_tables.c
->>>> @@ -1185,6 +1185,9 @@ struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
->>>
->>> What kernel version are you using? I don't see xt_hook_link() in the
->>> development tree.
->>
->> Sorry, in the wrong tree, i just work on linux-next tree, forget to checkout
->> the newest tags.
->>
->> Should I will use nf.git tree or others instead ?
->
-> Yes please, thanks.
->
+> We really don't have such a function somewhere in the kernel already?
 
-Okay.
+There is a function in acpi/acpica/uthex.c that does this, but it doesn't seem to be used by anything outside of acpica so far.  Would it be OK style wise to 
+#include " ../../acpi/acpica/acutils.h" from r8152.c?  
 
-Thanks,
+If not, then what is the proper thing to do here to re-use it from there?
 
-BRs
-Xiubo Li
+> And why 'int', isn't "c" really a u8?
+
+Yeah I guess u8 should be fine there, and avoid the casting then too.
