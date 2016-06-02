@@ -1,34 +1,77 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V2] net/ethoc: fix null dereference on error exit path
-Date: Wed, 01 Jun 2016 22:02:20 -0700 (PDT)
-Message-ID: <20160601.220220.760215551109095573.davem@davemloft.net>
-References: <1464787010-3089-1-git-send-email-colin.king@canonical.com>
+Subject: Re: [PATCH v2] qed: fix qed_fill_link() error handling
+Date: Wed, 01 Jun 2016 22:06:14 -0700 (PDT)
+Message-ID: <20160601.220614.2104618620006713727.davem@davemloft.net>
+References: <CO2PR11MB00885CC1028BFEAD9CD85E8397470@CO2PR11MB0088.namprd11.prod.outlook.com>
+	<11393820.LSE4DkNrNd@wuerfel>
+	<CO2PR11MB0088CD4139A272FEB3947EF897470@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, tklauser@distanz.ch,
-	jcmvbkbc@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: arnd@arndb.de, manish.chopra@qlogic.com,
+	Sudarsana.Kalluru@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464787010-3089-1-git-send-email-colin.king@canonical.com>
+In-Reply-To: <CO2PR11MB0088CD4139A272FEB3947EF897470@CO2PR11MB0088.namprd11.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed,  1 Jun 2016 14:16:50 +0100
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Wed, 1 Jun 2016 13:36:38 +0000
 
-> From: Colin Ian King <colin.king@canonical.com>
+>> gcc warns about qed_fill_link possibly accessing uninitialized data:
+>> 
+>> drivers/net/ethernet/qlogic/qed/qed_main.c: In function 'qed_fill_link':
+>> drivers/net/ethernet/qlogic/qed/qed_main.c:1170:35: error: 'link_caps' may be
+>> used uninitialized in this function [-Werror=maybe-uninitialized]
+>> 
+>> While this warning is only about the specific case of CONFIG_QED_SRIOV being
+>> disabled but the function getting called for a VF (which should never happen),
+>> another possibility is that qed_mcp_get_*() fails without returning data.
+>> 
+>> This rearranges the code so we bail out in either of the two cases and print a
+>> warning instead of accessing the uninitialized data.
+>> 
+>> The qed_link_output structure remains untouched in this case, but all callers first
+>> call memset() on it, so at least we are not leaking stack data then.
+>> 
+>> As discussed, we also use a compile-time check to ensure we never use any of
+>> the VF code if CONFIG_QED_SRIOV is disabled, and the PCI device table is
+>> updated to no longer bind to virtual functions in that configuration.
+>> 
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> 
+>> ---
+>> On Wednesday, June 1, 2016 11:10:30 AM CEST Yuval Mintz wrote:
+>> > Actually, I think VF probe should gracefully fail in that case, as
+>> > qed_vf_hw_prepare() would simply return -EINVAL.
+>> > But I can honestly say I've never tested this flow, and I agree
+>> > there's no reason to allow VF probe in case we're not supporting SRIOV.
+>> 
+>> ok
+>> 
+>> > So I guess removing the PCI ID and defining IS_PF to be true in case
+>> > CONFIG_QED_SRIOV isn't set is the right way to go.
+>> > Do you want to revise your patch, or do you want me to do it?
+>> 
+>> I've done the patch below now, please either Ack or modify it the way you like
+>> and forward it.
+>> 
+>> Thanks,
+>> 
+>> 	Arnd
 > 
-> priv is assigned to NULL however some of the early error exit paths to
-> label 'free' dereference priv, causing a null pointer dereference.
+> Perhaps it would have made more sense as a 2-part series; But I'm content with
+> the changes themselves. I'd let Dave decide whether he wants it split.
 > 
-> Move the label 'free' to just the free_netdev statement, and add a new
-> exit path 'free2' for the error cases were clk_disable_unprepare needs
-> calling before the final free.
+> Thanks for taking the time fixing this.
 > 
-> Fixes issue found by CoverityScan, CID#113260
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-Applied, thanks.
+I think this is fine as one change, because the two changes are
+inetricably linked together in my opinion.  Either you nop out these
+VF code paths and SRIOV is disabled and don't match the VF IDs, or you
+don't.  There really isn't a valid intermediate state.
+
+So, applied, thanks everyone.
