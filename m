@@ -1,98 +1,47 @@
-From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: [RESEND PATCH v5 2/2] can: rcar_can: Move Renesas CAN driver to rcar dir
-Date: Thu,  2 Jun 2016 10:45:02 +0100
-Message-ID: <1464860702-46087-3-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	chris.paterson2@renesas.com, horms@verge.net.au,
-	magnus.damm@gmail.com, ulrich.hecht@gmail.com,
-	Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-To: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1464860702-46087-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Sender: linux-can-owner@vger.kernel.org
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH 1/1] net: nps_enet: Disable interrupts before napi
+ reschedule
+Date: Thu, 2 Jun 2016 15:43:30 +0530
+Message-ID: <575006CA.6070705@synopsys.com>
+References: <1464264006-26627-1-git-send-email-eladkan@mellanox.com>
+ <20160529.223542.1386340561946869732.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <noamca@mellanox.com>, <linux-kernel@vger.kernel.org>,
+	<Alexey.Brodkin@synopsys.com>, <netdev@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <eladkan@mellanox.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20160529.223542.1386340561946869732.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch clubs the Renesas controller drivers in one rcar dir.
+On Monday 30 May 2016 11:05 AM, David Miller wrote:
+> From: Elad Kanfi <eladkan@mellanox.com>
+> Date: Thu, 26 May 2016 15:00:06 +0300
+> 
+>> From: Elad Kanfi <eladkan@mellanox.com>
+>>
+>> Since NAPI works by shutting down event interrupts when theres
+>> work and turning them on when theres none, the net driver must
+>> make sure that interrupts are disabled when it reschedules polling.
+>> By calling napi_reschedule, the driver switches to polling mode,
+>> therefor there should be no interrupt interference.
+>> Any received packets will be handled in nps_enet_poll by polling the HW
+>> indication of received packet until all packets are handled.
+>>
+>> Signed-off-by: Elad Kanfi <eladkan@mellanox.com>
+>> Acked-by: Noam Camus <noamca@mellanox.com>
+> 
+> Applied.
+> 
 
-Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
----
- drivers/net/can/Kconfig               | 10 ----------
- drivers/net/can/Makefile              |  1 -
- drivers/net/can/rcar/Kconfig          | 10 ++++++++++
- drivers/net/can/rcar/Makefile         |  3 ++-
- drivers/net/can/{ => rcar}/rcar_can.c |  0
- 5 files changed, 12 insertions(+), 12 deletions(-)
- rename drivers/net/can/{ => rcar}/rcar_can.c (100%)
+ARC osci platform in 4.6 currently have broken networking. This needs a stable
+backport to 4.6
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index 13003a9..22570ea 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -104,16 +104,6 @@ config CAN_JANZ_ICAN3
- 	  This driver can also be built as a module. If so, the module will be
- 	  called janz-ican3.ko.
- 
--config CAN_RCAR
--	tristate "Renesas R-Car CAN controller"
--	depends on ARCH_RENESAS || ARM
--	---help---
--	  Say Y here if you want to use CAN controller found on Renesas R-Car
--	  SoCs.
--
--	  To compile this driver as a module, choose M here: the module will
--	  be called rcar_can.
--
- config CAN_SUN4I
- 	tristate "Allwinner A10 CAN controller"
- 	depends on MACH_SUN4I || MACH_SUN7I || COMPILE_TEST
-diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-index 226d5b5..26ba4b7 100644
---- a/drivers/net/can/Makefile
-+++ b/drivers/net/can/Makefile
-@@ -25,7 +25,6 @@ obj-$(CONFIG_CAN_IFI_CANFD)	+= ifi_canfd/
- obj-$(CONFIG_CAN_JANZ_ICAN3)	+= janz-ican3.o
- obj-$(CONFIG_CAN_MSCAN)		+= mscan/
- obj-$(CONFIG_CAN_M_CAN)		+= m_can/
--obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
- obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
- obj-$(CONFIG_CAN_SUN4I)		+= sun4i_can.o
- obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
-diff --git a/drivers/net/can/rcar/Kconfig b/drivers/net/can/rcar/Kconfig
-index 6ea64d1..7b03a3a 100644
---- a/drivers/net/can/rcar/Kconfig
-+++ b/drivers/net/can/rcar/Kconfig
-@@ -1,3 +1,13 @@
-+config CAN_RCAR
-+	tristate "Renesas R-Car CAN controller"
-+	depends on ARCH_RENESAS || ARM
-+	---help---
-+	  Say Y here if you want to use CAN controller found on Renesas R-Car
-+	  SoCs.
-+
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called rcar_can.
-+
- config CAN_RCAR_CANFD
- 	tristate "Renesas R-Car CAN FD controller"
- 	depends on ARCH_RENESAS || ARM
-diff --git a/drivers/net/can/rcar/Makefile b/drivers/net/can/rcar/Makefile
-index cbaf498e..08de36a 100644
---- a/drivers/net/can/rcar/Makefile
-+++ b/drivers/net/can/rcar/Makefile
-@@ -1,5 +1,6 @@
- #
--#  Makefile for the Renesas R-Car CAN FD controller driver
-+#  Makefile for the Renesas R-Car CAN & CAN FD controller drivers
- #
- 
-+obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
- obj-$(CONFIG_CAN_RCAR_CANFD)	+= rcar_canfd.o
-diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar/rcar_can.c
-similarity index 100%
-rename from drivers/net/can/rcar_can.c
-rename to drivers/net/can/rcar/rcar_can.c
--- 
-1.9.1
+Upstream 86651650d16a359e4 ("net: nps_enet: Disable interrupts before napi
+reschedule")
 
+Thx,
+-Vineet
