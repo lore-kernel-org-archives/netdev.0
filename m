@@ -1,59 +1,36 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
- Auxiliary MAC address
-Date: Thu, 2 Jun 2016 21:09:46 +0200
-Message-ID: <20160602190946.GL15379@lunn.ch>
-References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
- <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
- <20160602174808.GA32131@kroah.com>
- <2d81e70165b8447d92b873eafeaeded7@ausx13mpc124.AMER.DELL.COM>
- <20160602190238.GK15379@lunn.ch>
- <ae0f974692814260bb9f2f2cf4af6450@ausx13mpc124.AMER.DELL.COM>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] stmmac: do not sleep in atomic context for mdio_reset
+Date: Thu, 02 Jun 2016 12:12:45 -0700 (PDT)
+Message-ID: <20160602.121245.1302730459604436490.davem@davemloft.net>
+References: <1464796428-25623-1-git-send-email-vpalatin@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, hayeswang@realtek.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, pali.rohar@gmail.com,
-	anthony.wong@canonical.com
-To: Mario_Limonciello@Dell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ae0f974692814260bb9f2f2cf4af6450@ausx13mpc124.AMER.DELL.COM>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	alexandre.torgue@st.com, peppe.cavallaro@st.com
+To: vpalatin@chromium.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57997 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161368AbcFBTMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 15:12:47 -0400
+In-Reply-To: <1464796428-25623-1-git-send-email-vpalatin@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2016 at 07:04:32PM +0000, Mario_Limonciello@Dell.com wrote:
-> > -----Original Message-----
-> > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> > Sent: Thursday, June 2, 2016 2:03 PM
-> > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> > Cc: gregkh@linuxfoundation.org; hayeswang@realtek.com; linux-
-> > kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
-> > usb@vger.kernel.org; pali.rohar@gmail.com; anthony.wong@canonical.com
-> > Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
-> > Auxiliary MAC address
-> > 
-> > > > And you want to check this for all Dell devices?  Please be model
-> > > > specific, I doubt a bunch of Dell servers wants to run this code...
-> > > >
-> > >
-> > > Tracking model specific is really going to turn into a giant list never ending
-> > list.
-> > > To drill down more specifically, I can match on chassis too.
-> > 
-> > Does Dell happen to use its own USB Vendor ID for the USB device in
-> > the dock? You could go at this problem from the other direction if it
-> > does have a unique vendor ID.
-> > 
-> >      Andrew
+From: Vincent Palatin <vpalatin@chromium.org>
+Date: Wed,  1 Jun 2016 08:53:48 -0700
+
+> stmmac_mdio_reset() has been updated to use msleep rather udelay
+> (as some PHY requires a one second delay there).
+> It called from stmmac_resume() within the spin_lock_irqsave block
+> atomic context triggering 'scheduling while atomic'.
 > 
-> Unfortunately it's not a Dell specific VID/PID.  I'm asking around to find out
-> if there is something else identifiable about this dock's NIC (maybe that r8152 
-> can query).
+> The stmmac_priv lock usage is not fully documented, but it seems
+> to protect the access to the MAC registers / DMA structures rather
+> than the MDIO bus or the PHY (which have separate locking),
+> so we can push the spin_lock after the stmmac_mdio_reset call.
+> 
+> Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
 
-lsusb -v
-
-I assume there is a USB hub in the dock, maybe that has a Dell VID?
-Going one level up the USB tree hierarchy should not be too hard.
-
-      Andrew
+Applied, thanks.
