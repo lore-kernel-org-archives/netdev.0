@@ -1,1495 +1,242 @@
 From: Zhao Qiang <qiang.zhao@nxp.com>
-Subject: [Patch v2 5/5] drivers/net: support hdlc function for QE-UCC
-Date: Thu, 2 Jun 2016 09:45:01 +0800
-Message-ID: <1464831901-15913-5-git-send-email-qiang.zhao@nxp.com>
+Subject: [PATCH v2 2/5] fsl/qe: setup clock source for TDM mode
+Date: Thu, 2 Jun 2016 09:44:58 +0800
+Message-ID: <1464831901-15913-2-git-send-email-qiang.zhao@nxp.com>
 References: <1464831901-15913-1-git-send-email-qiang.zhao@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <xiaobo.xie@nxp.com>,
-	Zhao Qiang <qiang.zhao@nxp.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Zhao Qiang <qiang.zhao@nxp.com>,
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ xiaobo.xie@nxp.com
 To: <oss@buserror.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1464831901-15913-1-git-send-email-qiang.zhao@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-The driver add hdlc support for Freescale QUICC Engine.
-It support NMSI and TSA mode.
-
-Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
----
-Changes for v2:
-	- remove useless code.
-	- remove Unnecessary casts
-	- return IRQ_NONE when there are no interrupt
-	- remove Useless comments
-
- MAINTAINERS                    |    7 +
- drivers/net/wan/Kconfig        |   11 +
- drivers/net/wan/Makefile       |    1 +
- drivers/net/wan/fsl_ucc_hdlc.c | 1189 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/wan/fsl_ucc_hdlc.h |  147 +++++
- include/soc/fsl/qe/qe.h        |    1 +
- include/soc/fsl/qe/ucc_fast.h  |   21 +-
- 7 files changed, 1375 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/wan/fsl_ucc_hdlc.c
- create mode 100644 drivers/net/wan/fsl_ucc_hdlc.h
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 74bbff3..bdada16 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4572,6 +4572,13 @@ F:	drivers/net/ethernet/freescale/gianfar*
- X:	drivers/net/ethernet/freescale/gianfar_ptp.c
- F:	Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
- 
-+FREESCALE QUICC ENGINE UCC HDLC DRIVER
-+M:	Zhao Qiang <qiang.zhao@nxp.com>
-+L:	netdev@vger.kernel.org
-+L:	linuxppc-dev@lists.ozlabs.org
-+S:	Maintained
-+F:	drivers/net/wan/fsl_ucc_hdlc*
-+
- FREESCALE QUICC ENGINE UCC UART DRIVER
- M:	Timur Tabi <timur@tabi.org>
- L:	linuxppc-dev@lists.ozlabs.org
-diff --git a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
-index a2fdd15..9e314b7 100644
---- a/drivers/net/wan/Kconfig
-+++ b/drivers/net/wan/Kconfig
-@@ -280,6 +280,17 @@ config DSCC4
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called dscc4.
- 
-+config FSL_UCC_HDLC
-+	tristate "Freescale QUICC Engine HDLC support"
-+	depends on HDLC
-+	depends on QUICC_ENGINE
-+	help
-+	  Driver for Freescale QUICC Engine HDLC controller. The driver
-+	  supports HDLC in NMSI and TDM mode.
-+
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called fsl_ucc_hdlc.
-+
- config DSCC4_PCISYNC
- 	bool "Etinc PCISYNC features"
- 	depends on DSCC4
-diff --git a/drivers/net/wan/Makefile b/drivers/net/wan/Makefile
-index c135ef4..25fec40 100644
---- a/drivers/net/wan/Makefile
-+++ b/drivers/net/wan/Makefile
-@@ -32,6 +32,7 @@ obj-$(CONFIG_WANXL)		+= wanxl.o
- obj-$(CONFIG_PCI200SYN)		+= pci200syn.o
- obj-$(CONFIG_PC300TOO)		+= pc300too.o
- obj-$(CONFIG_IXP4XX_HSS)	+= ixp4xx_hss.o
-+obj-$(CONFIG_FSL_UCC_HDLC)	+= fsl_ucc_hdlc.o
- 
- clean-files := wanxlfw.inc
- $(obj)/wanxl.o:	$(obj)/wanxlfw.inc
-diff --git a/drivers/net/wan/fsl_ucc_hdlc.c b/drivers/net/wan/fsl_ucc_hdlc.c
-new file mode 100644
-index 0000000..f72634d
---- /dev/null
-+++ b/drivers/net/wan/fsl_ucc_hdlc.c
-@@ -0,0 +1,1189 @@
-+/* Freescale QUICC Engine HDLC Device Driver
-+ *
-+ * Copyright 2016 Freescale Semiconductor Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/hdlc.h>
-+#include <linux/init.h>
-+#include <linux/interrupt.h>
-+#include <linux/io.h>
-+#include <linux/irq.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/of_address.h>
-+#include <linux/of_irq.h>
-+#include <linux/of_platform.h>
-+#include <linux/platform_device.h>
-+#include <linux/sched.h>
-+#include <linux/skbuff.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/stddef.h>
-+#include <soc/fsl/qe/qe_tdm.h>
-+#include <uapi/linux/if_arp.h>
-+
-+#include "fsl_ucc_hdlc.h"
-+
-+#define DRV_DESC "Freescale QE UCC HDLC Driver"
-+#define DRV_NAME "ucc_hdlc"
-+
-+#define TDM_PPPOHT_SLIC_MAXIN
-+#define BROKEN_FRAME_INFO
-+
-+static struct ucc_tdm_info utdm_primary_info = {
-+	.uf_info = {
-+		.tsa = 0,
-+		.cdp = 0,
-+		.cds = 1,
-+		.ctsp = 1,
-+		.ctss = 1,
-+		.revd = 0,
-+		.urfs = 256,
-+		.utfs = 256,
-+		.urfet = 128,
-+		.urfset = 192,
-+		.utfet = 128,
-+		.utftt = 0x40,
-+		.ufpt = 256,
-+		.mode = UCC_FAST_PROTOCOL_MODE_HDLC,
-+		.ttx_trx = UCC_FAST_GUMR_TRANSPARENT_TTX_TRX_NORMAL,
-+		.tenc = UCC_FAST_TX_ENCODING_NRZ,
-+		.renc = UCC_FAST_RX_ENCODING_NRZ,
-+		.tcrc = UCC_FAST_16_BIT_CRC,
-+		.synl = UCC_FAST_SYNC_LEN_NOT_USED,
-+	},
-+
-+	.si_info = {
-+#ifdef TDM_PPPOHT_SLIC_MAXIN
-+		.simr_rfsd = 1,
-+		.simr_tfsd = 2,
-+#else
-+		.simr_rfsd = 0,
-+		.simr_tfsd = 0,
-+#endif
-+		.simr_crt = 0,
-+		.simr_sl = 0,
-+		.simr_ce = 1,
-+		.simr_fe = 1,
-+		.simr_gm = 0,
-+	},
-+};
-+
-+static struct ucc_tdm_info utdm_info[MAX_HDLC_NUM];
-+
-+static int uhdlc_init(struct ucc_hdlc_private *priv)
-+{
-+	struct ucc_tdm_info *ut_info;
-+	struct ucc_fast_info *uf_info;
-+	u32 cecr_subblock;
-+	u16 bd_status;
-+	int ret, i;
-+	void *bd_buffer;
-+	dma_addr_t bd_dma_addr;
-+	u32 riptr;
-+	u32 tiptr;
-+	u32 gumr;
-+
-+	ut_info = priv->ut_info;
-+	uf_info = &ut_info->uf_info;
-+
-+	if (priv->tsa) {
-+		uf_info->tsa = 1;
-+		uf_info->ctsp = 1;
-+	}
-+	uf_info->uccm_mask = ((UCC_HDLC_UCCE_RXB | UCC_HDLC_UCCE_RXF |
-+				UCC_HDLC_UCCE_TXB) << 16);
-+
-+	ret = ucc_fast_init(uf_info, &priv->uccf);
-+	if (ret) {
-+		dev_err(priv->dev, "Failed to init uccf.");
-+		return ret;
-+	}
-+
-+	priv->uf_regs = priv->uccf->uf_regs;
-+	ucc_fast_disable(priv->uccf, COMM_DIR_RX | COMM_DIR_TX);
-+
-+	/* Loopback mode */
-+	if (priv->loopback) {
-+		dev_info(priv->dev, "Loopback Mode\n");
-+		gumr = ioread32be(&priv->uf_regs->gumr);
-+		gumr |= (UCC_FAST_GUMR_LOOPBACK | UCC_FAST_GUMR_CDS |
-+			 UCC_FAST_GUMR_TCI);
-+		gumr &= ~(UCC_FAST_GUMR_CTSP | UCC_FAST_GUMR_RSYN);
-+		iowrite32be(gumr, &priv->uf_regs->gumr);
-+	}
-+
-+	/* Initialize SI */
-+	if (priv->tsa)
-+		ucc_tdm_init(priv->utdm, priv->ut_info);
-+
-+	/* Write to QE CECR, UCCx channel to Stop Transmission */
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(uf_info->ucc_num);
-+	ret = qe_issue_cmd(QE_STOP_TX, cecr_subblock,
-+			   QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+	/* Set UPSMR normal mode (need fixed)*/
-+	iowrite32be(0, &priv->uf_regs->upsmr);
-+
-+	priv->rx_ring_size = RX_BD_RING_LEN;
-+	priv->tx_ring_size = TX_BD_RING_LEN;
-+	/* Alloc Rx BD */
-+	priv->rx_bd_base = dma_alloc_coherent(priv->dev,
-+			RX_BD_RING_LEN * sizeof(struct qe_bd *),
-+			&priv->dma_rx_bd, GFP_KERNEL);
-+
-+	if (!priv->rx_bd_base) {
-+		dev_err(priv->dev, "Cannot allocate MURAM memory for RxBDs\n");
-+		ret = -ENOMEM;
-+		goto rxbd_alloc_error;
-+	}
-+
-+	/* Alloc Tx BD */
-+	priv->tx_bd_base = dma_alloc_coherent(priv->dev,
-+			TX_BD_RING_LEN * sizeof(struct qe_bd *),
-+			&priv->dma_tx_bd, GFP_KERNEL);
-+
-+	if (!priv->tx_bd_base) {
-+		dev_err(priv->dev, "Cannot allocate MURAM memory for TxBDs\n");
-+		ret = -ENOMEM;
-+		goto txbd_alloc_error;
-+	}
-+
-+	/* Alloc parameter ram for ucc hdlc */
-+	priv->ucc_pram_offset = qe_muram_alloc(sizeof(priv->ucc_pram),
-+				ALIGNMENT_OF_UCC_HDLC_PRAM);
-+
-+	if (priv->ucc_pram_offset < 0) {
-+		dev_err(priv->dev, "Can not allocate MURAM for hdlc prameter.\n");
-+		ret = -ENOMEM;
-+		goto pram_alloc_error;
-+	}
-+
-+	priv->rx_skbuff = kzalloc(priv->rx_ring_size * sizeof(*priv->rx_skbuff),
-+				  GFP_KERNEL);
-+	if (!priv->rx_skbuff)
-+		goto rx_skb_alloc_error;
-+
-+	priv->tx_skbuff = kzalloc(priv->tx_ring_size * sizeof(*priv->tx_skbuff),
-+				  GFP_KERNEL);
-+	if (!priv->tx_skbuff)
-+		goto tx_skb_alloc_error;
-+
-+	priv->skb_curtx = 0;
-+	priv->skb_dirtytx = 0;
-+	priv->curtx_bd = priv->tx_bd_base;
-+	priv->dirty_tx = priv->tx_bd_base;
-+	priv->currx_bd = priv->rx_bd_base;
-+	priv->currx_bdnum = 0;
-+
-+	/* init parameter base */
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(uf_info->ucc_num);
-+	ret = qe_issue_cmd(QE_ASSIGN_PAGE_TO_DEVICE, cecr_subblock,
-+			   QE_CR_PROTOCOL_UNSPECIFIED, priv->ucc_pram_offset);
-+
-+	priv->ucc_pram = (struct ucc_hdlc_param __iomem *)
-+					qe_muram_addr(priv->ucc_pram_offset);
-+
-+	/* Zero out parameter ram */
-+	memset_io(priv->ucc_pram, 0, sizeof(struct ucc_hdlc_param));
-+
-+	/* Alloc riptr, tiptr */
-+	riptr = qe_muram_alloc(32, 32);
-+	if (riptr < 0) {
-+		dev_err(priv->dev, "Cannot allocate MURAM mem for Receive internal temp data pointer\n");
-+		ret = -ENOMEM;
-+		goto riptr_alloc_error;
-+	}
-+
-+	tiptr = qe_muram_alloc(32, 32);
-+	if (tiptr < 0) {
-+		dev_err(priv->dev, "Cannot allocate MURAM mem for Transmit internal temp data pointer\n");
-+		ret = -ENOMEM;
-+		goto tiptr_alloc_error;
-+	}
-+
-+	/* Set RIPTR, TIPTR */
-+	iowrite16be(riptr, &priv->ucc_pram->riptr);
-+	iowrite16be(tiptr, &priv->ucc_pram->tiptr);
-+
-+	/* Set MRBLR */
-+	iowrite16be(MAX_RX_BUF_LENGTH, &priv->ucc_pram->mrblr);
-+
-+	/* Set RBASE, TBASE */
-+	iowrite32be(priv->dma_rx_bd, &priv->ucc_pram->rbase);
-+	iowrite32be(priv->dma_tx_bd, &priv->ucc_pram->tbase);
-+
-+	/* Set RSTATE, TSTATE */
-+	iowrite32be(BMR_GBL | BMR_BIG_ENDIAN, &priv->ucc_pram->rstate);
-+	iowrite32be(BMR_GBL | BMR_BIG_ENDIAN, &priv->ucc_pram->tstate);
-+
-+	/* Set C_MASK, C_PRES for 16bit CRC */
-+	iowrite32be(CRC_16BIT_MASK, &priv->ucc_pram->c_mask);
-+	iowrite32be(CRC_16BIT_PRES, &priv->ucc_pram->c_pres);
-+
-+	iowrite16be(MAX_FRAME_LENGTH, &priv->ucc_pram->mflr);
-+	iowrite16be(DEFAULT_RFTHR, &priv->ucc_pram->rfthr);
-+	iowrite16be(DEFAULT_RFTHR, &priv->ucc_pram->rfcnt);
-+	iowrite16be(DEFAULT_ADDR_MASK, &priv->ucc_pram->hmask);
-+	iowrite16be(DEFAULT_HDLC_ADDR, &priv->ucc_pram->haddr1);
-+	iowrite16be(DEFAULT_HDLC_ADDR, &priv->ucc_pram->haddr2);
-+	iowrite16be(DEFAULT_HDLC_ADDR, &priv->ucc_pram->haddr3);
-+	iowrite16be(DEFAULT_HDLC_ADDR, &priv->ucc_pram->haddr4);
-+
-+	/* Get BD buffer */
-+	bd_buffer = dma_alloc_coherent(priv->dev,
-+				       (RX_BD_RING_LEN + TX_BD_RING_LEN) *
-+				       MAX_RX_BUF_LENGTH,
-+				       &bd_dma_addr, GFP_KERNEL);
-+
-+	if (!bd_buffer) {
-+		dev_err(priv->dev, "Could not allocate buffer descriptors\n");
-+		ret = -ENOMEM;
-+		goto bd_alloc_error;
-+	}
-+
-+	memset(bd_buffer, 0, (RX_BD_RING_LEN + TX_BD_RING_LEN)
-+			* MAX_RX_BUF_LENGTH);
-+
-+	priv->rx_buffer = bd_buffer;
-+	priv->tx_buffer = bd_buffer + RX_BD_RING_LEN * MAX_RX_BUF_LENGTH;
-+
-+	priv->dma_rx_addr = bd_dma_addr;
-+	priv->dma_tx_addr = bd_dma_addr + RX_BD_RING_LEN * MAX_RX_BUF_LENGTH;
-+
-+	for (i = 0; i < RX_BD_RING_LEN; i++) {
-+		if (i < (RX_BD_RING_LEN - 1))
-+			bd_status = R_E_S | R_I_S;
-+		else
-+			bd_status = R_E_S | R_I_S | R_W_S;
-+
-+		iowrite16be(bd_status, &priv->rx_bd_base[i].status);
-+		iowrite32be(priv->dma_rx_addr + i * MAX_RX_BUF_LENGTH,
-+			    &priv->rx_bd_base[i].buf);
-+	}
-+
-+	for (i = 0; i < TX_BD_RING_LEN; i++) {
-+		if (i < (TX_BD_RING_LEN - 1))
-+			bd_status =  T_I_S | T_TC_S;
-+		else
-+			bd_status =  T_I_S | T_TC_S | T_W_S;
-+
-+		iowrite16be(bd_status, &priv->tx_bd_base[i].status);
-+		iowrite32be(priv->dma_tx_addr + i * MAX_RX_BUF_LENGTH,
-+			    &priv->tx_bd_base[i].buf);
-+	}
-+
-+	return 0;
-+
-+bd_alloc_error:
-+	qe_muram_free(tiptr);
-+tiptr_alloc_error:
-+	qe_muram_free(riptr);
-+riptr_alloc_error:
-+	kfree(priv->tx_skbuff);
-+tx_skb_alloc_error:
-+	kfree(priv->rx_skbuff);
-+rx_skb_alloc_error:
-+	qe_muram_free(priv->ucc_pram_offset);
-+pram_alloc_error:
-+	dma_free_coherent(priv->dev,
-+			  TX_BD_RING_LEN * sizeof(struct qe_bd),
-+			  priv->tx_bd_base, priv->dma_tx_bd);
-+txbd_alloc_error:
-+	dma_free_coherent(priv->dev,
-+			  RX_BD_RING_LEN * sizeof(struct qe_bd),
-+			  priv->rx_bd_base, priv->dma_rx_bd);
-+rxbd_alloc_error:
-+	ucc_fast_free(priv->uccf);
-+
-+	return ret;
-+}
-+
-+static netdev_tx_t ucc_hdlc_tx(struct sk_buff *skb, struct net_device *dev)
-+{
-+	hdlc_device *hdlc = dev_to_hdlc(dev);
-+	struct ucc_hdlc_private *priv = (struct ucc_hdlc_private *)hdlc->priv;
-+	struct qe_bd __iomem *bd;
-+	u16 bd_status;
-+	unsigned long flags;
-+	u8 *send_buf;
-+	int i;
-+	u16 *proto_head;
-+
-+	switch (dev->type) {
-+	case ARPHRD_RAWHDLC:
-+		if (skb_headroom(skb) < HDLC_HEAD_LEN) {
-+			dev->stats.tx_dropped++;
-+			dev_kfree_skb(skb);
-+			netdev_err(dev, "No enough space for hdlc head\n");
-+			return -ENOMEM;
-+		}
-+
-+		skb_push(skb, HDLC_HEAD_LEN);
-+
-+		proto_head = (u16 *)skb->data;
-+		*proto_head = htons(DEFAULT_HDLC_HEAD);
-+
-+		dev->stats.tx_bytes += skb->len;
-+		break;
-+
-+	case ARPHRD_PPP:
-+		proto_head = (u16 *)skb->data;
-+		if (*proto_head != htons(DEFAULT_PPP_HEAD)) {
-+			dev->stats.tx_dropped++;
-+			dev_kfree_skb(skb);
-+			netdev_err(dev, "Wrong ppp header\n");
-+			return -ENOMEM;
-+		}
-+
-+		dev->stats.tx_bytes += skb->len;
-+		break;
-+
-+	default:
-+		dev->stats.tx_dropped++;
-+		dev_kfree_skb(skb);
-+		return -ENOMEM;
-+	}
-+
-+	pr_info("Tx data skb->len:%d ", skb->len);
-+	send_buf = (u8 *)skb->data;
-+	pr_info("\nTransmitted data:\n");
-+	for (i = 0; i < 16; i++) {
-+		if (i == skb->len)
-+			pr_info("++++");
-+		else
-+		pr_info("%02x\n", send_buf[i]);
-+	}
-+	spin_lock_irqsave(&priv->lock, flags);
-+
-+	/* Start from the next BD that should be filled */
-+	bd = priv->curtx_bd;
-+	bd_status = ioread16be(&bd->status);
-+	/* Save the skb pointer so we can free it later */
-+	priv->tx_skbuff[priv->skb_curtx] = skb;
-+
-+	/* Update the current skb pointer (wrapping if this was the last) */
-+	priv->skb_curtx =
-+	    (priv->skb_curtx + 1) & TX_RING_MOD_MASK(TX_BD_RING_LEN);
-+
-+	/* copy skb data to tx buffer for sdma processing */
-+	memcpy(priv->tx_buffer + (be32_to_cpu(bd->buf) - priv->dma_tx_addr),
-+	       skb->data, skb->len);
-+
-+	/* set bd status and length */
-+	bd_status = (bd_status & T_W_S) | T_R_S | T_I_S | T_L_S | T_TC_S;
-+
-+	iowrite16be(bd_status, &bd->status);
-+	iowrite16be(skb->len, &bd->length);
-+
-+	/* Move to next BD in the ring */
-+	if (!(bd_status & T_W_S))
-+		bd += 1;
-+	else
-+		bd = priv->tx_bd_base;
-+
-+	if (bd == priv->dirty_tx) {
-+		if (!netif_queue_stopped(dev))
-+			netif_stop_queue(dev);
-+	}
-+
-+	priv->curtx_bd = bd;
-+
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int hdlc_tx_done(struct ucc_hdlc_private *priv)
-+{
-+	/* Start from the next BD that should be filled */
-+	struct net_device *dev = priv->ndev;
-+	struct qe_bd *bd;		/* BD pointer */
-+	u16 bd_status;
-+
-+	bd = priv->dirty_tx;
-+	bd_status = ioread16be(&bd->status);
-+
-+	/* Normal processing. */
-+	while ((bd_status & T_R_S) == 0) {
-+		struct sk_buff *skb;
-+
-+		/* BD contains already transmitted buffer.   */
-+		/* Handle the transmitted buffer and release */
-+		/* the BD to be used with the current frame  */
-+
-+		skb = priv->tx_skbuff[priv->skb_dirtytx];
-+		if (!skb)
-+			break;
-+		pr_info("TxBD: %x\n", bd_status);
-+		dev->stats.tx_packets++;
-+		memset(priv->tx_buffer +
-+		       (be32_to_cpu(bd->buf) - priv->dma_tx_addr),
-+		       0, skb->len);
-+		dev_kfree_skb_irq(skb);
-+
-+		priv->tx_skbuff[priv->skb_dirtytx] = NULL;
-+		priv->skb_dirtytx =
-+		    (priv->skb_dirtytx +
-+		     1) & TX_RING_MOD_MASK(TX_BD_RING_LEN);
-+
-+		/* We freed a buffer, so now we can restart transmission */
-+		if (netif_queue_stopped(dev))
-+			netif_wake_queue(dev);
-+
-+		/* Advance the confirmation BD pointer */
-+		if (!(bd_status & T_W_S))
-+			bd += 1;
-+		else
-+			bd = priv->tx_bd_base;
-+		bd_status = ioread16be(&bd->status);
-+	}
-+	priv->dirty_tx = bd;
-+
-+	return 0;
-+}
-+
-+static int hdlc_rx_done(struct ucc_hdlc_private *priv, int rx_work_limit)
-+{
-+	struct net_device *dev = priv->ndev;
-+	struct sk_buff *skb;
-+	hdlc_device *hdlc = dev_to_hdlc(dev);
-+	struct qe_bd *bd;
-+	u32 bd_status;
-+	u16 length, howmany = 0;
-+	u8 *bdbuffer;
-+	int i;
-+	static int entry;
-+
-+	bd = priv->currx_bd;
-+	bd_status = ioread16be(&bd->status);
-+
-+	/* while there are received buffers and BD is full (~R_E) */
-+	while (!((bd_status & (R_E_S)) || (--rx_work_limit < 0))) {
-+		if (bd_status & R_CR_S) {
-+#ifdef BROKEN_FRAME_INFO
-+			pr_info("Broken Frame with RxBD: %x\n", bd_status);
-+#endif
-+			dev->stats.rx_dropped++;
-+			goto recycle;
-+		}
-+		bdbuffer = priv->rx_buffer +
-+			(priv->currx_bdnum * MAX_RX_BUF_LENGTH);
-+		length = ioread16be(&bd->length);
-+
-+		pr_info("Received data length:%d", length);
-+		pr_info("while entry times:%d", entry++);
-+
-+		pr_info("\nReceived data:\n");
-+		for (i = 0; (i < 16); i++) {
-+			if (i == length)
-+				pr_info("++++");
-+			else
-+			pr_info("%02x\n", bdbuffer[i]);
-+		}
-+
-+		switch (dev->type) {
-+		case ARPHRD_RAWHDLC:
-+			bdbuffer += HDLC_HEAD_LEN;
-+			length -= (HDLC_HEAD_LEN + HDLC_CRC_SIZE);
-+
-+			skb = dev_alloc_skb(length);
-+			if (!skb) {
-+				dev->stats.rx_dropped++;
-+				return -ENOMEM;
-+			}
-+
-+			skb_put(skb, length);
-+			skb->len = length;
-+			skb->dev = dev;
-+			memcpy(skb->data, bdbuffer, length);
-+			break;
-+
-+		case ARPHRD_PPP:
-+			length -= HDLC_CRC_SIZE;
-+
-+			skb = dev_alloc_skb(length);
-+			if (!skb) {
-+				dev->stats.rx_dropped++;
-+				return -ENOMEM;
-+			}
-+
-+			skb_put(skb, length);
-+			skb->len = length;
-+			skb->dev = dev;
-+			memcpy(skb->data, bdbuffer, length);
-+			break;
-+		}
-+
-+		dev->stats.rx_packets++;
-+		dev->stats.rx_bytes += skb->len;
-+		howmany++;
-+		if (hdlc->proto)
-+			skb->protocol = hdlc_type_trans(skb, dev);
-+		pr_info("skb->protocol:%x\n", skb->protocol);
-+		netif_receive_skb(skb);
-+
-+recycle:
-+		iowrite16be(bd_status | R_E_S | R_I_S, &bd->status);
-+
-+		/* update to point at the next bd */
-+		if (bd_status & R_W_S) {
-+			priv->currx_bdnum = 0;
-+			bd = priv->rx_bd_base;
-+		} else {
-+			if (priv->currx_bdnum < (RX_BD_RING_LEN - 1))
-+				priv->currx_bdnum += 1;
-+			else
-+				priv->currx_bdnum = RX_BD_RING_LEN - 1;
-+
-+			bd += 1;
-+		}
-+
-+		bd_status = ioread16be(&bd->status);
-+	}
-+
-+	priv->currx_bd = bd;
-+	return howmany;
-+}
-+
-+static int ucc_hdlc_poll(struct napi_struct *napi, int budget)
-+{
-+	struct ucc_hdlc_private *priv = container_of(napi,
-+						     struct ucc_hdlc_private,
-+						     napi);
-+	int howmany;
-+
-+	/* Tx event processing */
-+	spin_lock(&priv->lock);
-+		hdlc_tx_done(priv);
-+	spin_unlock(&priv->lock);
-+
-+	howmany = 0;
-+	howmany += hdlc_rx_done(priv, budget - howmany);
-+
-+	if (howmany < budget) {
-+		napi_complete(napi);
-+		qe_setbits32(priv->uccf->p_uccm,
-+			     (UCCE_HDLC_RX_EVENTS | UCCE_HDLC_TX_EVENTS) << 16);
-+	}
-+
-+	return howmany;
-+}
-+
-+static irqreturn_t ucc_hdlc_irq_handler(int irq, void *dev_id)
-+{
-+	struct ucc_hdlc_private *priv = (struct ucc_hdlc_private *)dev_id;
-+	struct net_device *dev = priv->ndev;
-+	struct ucc_fast_private *uccf;
-+	struct ucc_tdm_info *ut_info;
-+	u32 ucce;
-+	u32 uccm;
-+
-+	ut_info = priv->ut_info;
-+	uccf = priv->uccf;
-+
-+	ucce = ioread32be(uccf->p_ucce);
-+	uccm = ioread32be(uccf->p_uccm);
-+	ucce &= uccm;
-+	iowrite32be(ucce, uccf->p_ucce);
-+	pr_info("irq ucce:%x\n", ucce);
-+	if (!ucce)
-+		return IRQ_NONE;
-+
-+	if ((ucce >> 16) & (UCCE_HDLC_RX_EVENTS | UCCE_HDLC_TX_EVENTS)) {
-+		if (napi_schedule_prep(&priv->napi)) {
-+			uccm &= ~((UCCE_HDLC_RX_EVENTS | UCCE_HDLC_TX_EVENTS)
-+				  << 16);
-+			iowrite32be(uccm, uccf->p_uccm);
-+			__napi_schedule(&priv->napi);
-+		}
-+	}
-+
-+	/* Errors and other events */
-+	if (ucce >> 16 & UCC_HDLC_UCCE_BSY)
-+		dev->stats.rx_errors++;
-+	if (ucce >> 16 & UCC_HDLC_UCCE_TXE)
-+		dev->stats.tx_errors++;
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static int uhdlc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-+{
-+	const size_t size = sizeof(te1_settings);
-+	te1_settings line;
-+	struct ucc_hdlc_private *priv = netdev_priv(dev);
-+
-+	if (cmd != SIOCWANDEV)
-+		return hdlc_ioctl(dev, ifr, cmd);
-+
-+	switch (ifr->ifr_settings.type) {
-+	case IF_GET_IFACE:
-+		ifr->ifr_settings.type = IF_IFACE_E1;
-+		if (ifr->ifr_settings.size < size) {
-+			ifr->ifr_settings.size = size; /* data size wanted */
-+			return -ENOBUFS;
-+		}
-+		line.clock_type = priv->clocking;
-+		line.clock_rate = 0;
-+		line.loopback = 0;
-+
-+		if (copy_to_user(ifr->ifr_settings.ifs_ifsu.sync, &line, size))
-+			return -EFAULT;
-+		return 0;
-+
-+	default:
-+		return hdlc_ioctl(dev, ifr, cmd);
-+	}
-+}
-+
-+static int uhdlc_open(struct net_device *dev)
-+{
-+	u32 cecr_subblock;
-+	hdlc_device *hdlc = dev_to_hdlc(dev);
-+	struct ucc_hdlc_private *priv = hdlc->priv;
-+	struct ucc_tdm *utdm = priv->utdm;
-+
-+	if (priv->hdlc_busy != 1) {
-+		if (request_irq(priv->ut_info->uf_info.irq,
-+				ucc_hdlc_irq_handler, 0, "hdlc", priv))
-+			return -ENODEV;
-+
-+		cecr_subblock = ucc_fast_get_qe_cr_subblock(
-+					priv->ut_info->uf_info.ucc_num);
-+
-+		qe_issue_cmd(QE_INIT_TX_RX, cecr_subblock,
-+			     QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+		ucc_fast_enable(priv->uccf, COMM_DIR_RX | COMM_DIR_TX);
-+
-+		/* Enable the TDM port */
-+		if (priv->tsa)
-+			utdm->si_regs->siglmr1_h |= (0x1 << utdm->tdm_port);
-+
-+		priv->hdlc_busy = 1;
-+		netif_device_attach(priv->ndev);
-+		napi_enable(&priv->napi);
-+		netif_start_queue(dev);
-+		hdlc_open(dev);
-+	}
-+
-+	return 0;
-+}
-+
-+static void uhdlc_memclean(struct ucc_hdlc_private *priv)
-+{
-+	qe_muram_free(priv->ucc_pram->riptr);
-+	qe_muram_free(priv->ucc_pram->tiptr);
-+
-+	if (priv->rx_bd_base) {
-+		dma_free_coherent(priv->dev,
-+				  RX_BD_RING_LEN * sizeof(struct qe_bd),
-+				  priv->rx_bd_base, priv->dma_rx_bd);
-+
-+		priv->rx_bd_base = NULL;
-+		priv->dma_rx_bd = 0;
-+	}
-+
-+	if (priv->tx_bd_base) {
-+		dma_free_coherent(priv->dev,
-+				  TX_BD_RING_LEN * sizeof(struct qe_bd),
-+				  priv->tx_bd_base, priv->dma_tx_bd);
-+
-+		priv->tx_bd_base = NULL;
-+		priv->dma_tx_bd = 0;
-+	}
-+
-+	if (priv->ucc_pram) {
-+		qe_muram_free(priv->ucc_pram_offset);
-+		priv->ucc_pram = NULL;
-+		priv->ucc_pram_offset = 0;
-+	 }
-+
-+	kfree(priv->rx_skbuff);
-+	priv->rx_skbuff = NULL;
-+
-+	kfree(priv->tx_skbuff);
-+	priv->tx_skbuff = NULL;
-+
-+	if (priv->uf_regs) {
-+		iounmap(priv->uf_regs);
-+		priv->uf_regs = NULL;
-+	}
-+
-+	if (priv->uccf) {
-+		ucc_fast_free(priv->uccf);
-+		priv->uccf = NULL;
-+	}
-+
-+	if (priv->rx_buffer) {
-+		dma_free_coherent(priv->dev,
-+				  RX_BD_RING_LEN * MAX_RX_BUF_LENGTH,
-+				  priv->rx_buffer, priv->dma_rx_addr);
-+		priv->rx_buffer = NULL;
-+		priv->dma_rx_addr = 0;
-+	}
-+
-+	if (priv->tx_buffer) {
-+		dma_free_coherent(priv->dev,
-+				  TX_BD_RING_LEN * MAX_RX_BUF_LENGTH,
-+				  priv->tx_buffer, priv->dma_tx_addr);
-+		priv->tx_buffer = NULL;
-+		priv->dma_tx_addr = 0;
-+	}
-+}
-+
-+static int uhdlc_close(struct net_device *dev)
-+{
-+	struct ucc_hdlc_private *priv = dev_to_hdlc(dev)->priv;
-+	struct ucc_tdm *utdm = priv->utdm;
-+	u32 cecr_subblock;
-+
-+	napi_disable(&priv->napi);
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(
-+				priv->ut_info->uf_info.ucc_num);
-+
-+	qe_issue_cmd(QE_GRACEFUL_STOP_TX, cecr_subblock,
-+		     (u8)QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+	qe_issue_cmd(QE_CLOSE_RX_BD, cecr_subblock,
-+		     (u8)QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+	if (priv->tsa)
-+		utdm->si_regs->siglmr1_h &= ~(0x1 << utdm->tdm_port);
-+
-+	ucc_fast_disable(priv->uccf, COMM_DIR_RX | COMM_DIR_TX);
-+
-+	free_irq(priv->ut_info->uf_info.irq, priv);
-+	netif_stop_queue(dev);
-+	priv->hdlc_busy = 0;
-+
-+	return 0;
-+}
-+
-+static int ucc_hdlc_attach(struct net_device *dev, unsigned short encoding,
-+			   unsigned short parity)
-+{
-+	struct ucc_hdlc_private *priv = dev_to_hdlc(dev)->priv;
-+
-+	if (encoding != ENCODING_NRZ &&
-+	    encoding != ENCODING_NRZI)
-+		return -EINVAL;
-+
-+	if (parity != PARITY_NONE &&
-+	    parity != PARITY_CRC32_PR1_CCITT &&
-+	    parity != PARITY_CRC16_PR1_CCITT)
-+		return -EINVAL;
-+
-+	priv->encoding = encoding;
-+	priv->parity = parity;
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_PM
-+static void store_clk_config(struct ucc_hdlc_private *priv)
-+{
-+	struct qe_mux *qe_mux_reg = &qe_immr->qmx;
-+
-+	/* store si clk */
-+	priv->cmxsi1cr_h = ioread32be(&qe_mux_reg->cmxsi1cr_h);
-+	priv->cmxsi1cr_l = ioread32be(&qe_mux_reg->cmxsi1cr_l);
-+
-+	/* store si sync */
-+	priv->cmxsi1syr = ioread32be(&qe_mux_reg->cmxsi1syr);
-+
-+	/* store ucc clk */
-+	memcpy_fromio(priv->cmxucr, qe_mux_reg->cmxucr, 4 * sizeof(u32));
-+}
-+
-+static void resume_clk_config(struct ucc_hdlc_private *priv)
-+{
-+	struct qe_mux *qe_mux_reg = &qe_immr->qmx;
-+
-+	memcpy_toio(qe_mux_reg->cmxucr, priv->cmxucr, 4 * sizeof(u32));
-+
-+	iowrite32be(priv->cmxsi1cr_h, &qe_mux_reg->cmxsi1cr_h);
-+	iowrite32be(priv->cmxsi1cr_l, &qe_mux_reg->cmxsi1cr_l);
-+
-+	iowrite32be(priv->cmxsi1syr, &qe_mux_reg->cmxsi1syr);
-+}
-+
-+static int uhdlc_suspend(struct device *dev)
-+{
-+	struct ucc_hdlc_private *priv = dev_get_drvdata(dev);
-+	struct ucc_tdm_info *ut_info;
-+	struct ucc_fast __iomem *uf_regs;
-+
-+	if (!priv)
-+		return -EINVAL;
-+
-+	if (!netif_running(priv->ndev))
-+		return 0;
-+
-+	netif_device_detach(priv->ndev);
-+	napi_disable(&priv->napi);
-+
-+	ut_info = priv->ut_info;
-+	uf_regs = priv->uf_regs;
-+
-+	/* backup gumr guemr*/
-+	priv->gumr = ioread32be(&uf_regs->gumr);
-+	priv->guemr = ioread8(&uf_regs->guemr);
-+
-+	priv->ucc_pram_bak = kmalloc(sizeof(*priv->ucc_pram_bak),
-+					GFP_KERNEL);
-+	if (!priv->ucc_pram_bak)
-+		return -ENOMEM;
-+
-+	/* backup HDLC parameter */
-+	memcpy_fromio(priv->ucc_pram_bak, priv->ucc_pram,
-+		      sizeof(struct ucc_hdlc_param));
-+
-+	/* store the clk configuration */
-+	store_clk_config(priv);
-+
-+	/* save power */
-+	ucc_fast_disable(priv->uccf, COMM_DIR_RX | COMM_DIR_TX);
-+
-+	dev_dbg(dev, "ucc hdlc suspend\n");
-+	return 0;
-+}
-+
-+static int uhdlc_resume(struct device *dev)
-+{
-+	struct ucc_hdlc_private *priv = dev_get_drvdata(dev);
-+	struct ucc_tdm *utdm = priv->utdm;
-+	struct ucc_tdm_info *ut_info;
-+	struct ucc_fast __iomem *uf_regs;
-+	struct ucc_fast_private *uccf;
-+	struct ucc_fast_info *uf_info;
-+	int ret, i;
-+	u32 cecr_subblock;
-+	u16 bd_status;
-+
-+	if (!priv)
-+		return -EINVAL;
-+
-+	if (!netif_running(priv->ndev))
-+		return 0;
-+
-+	ut_info = priv->ut_info;
-+	uf_info = &ut_info->uf_info;
-+	uf_regs = priv->uf_regs;
-+	uccf = priv->uccf;
-+
-+	/* restore gumr guemr */
-+	iowrite8(priv->guemr, &uf_regs->guemr);
-+	iowrite32be(priv->gumr, &uf_regs->gumr);
-+
-+	/* Set Virtual Fifo registers */
-+	iowrite16be(uf_info->urfs, &uf_regs->urfs);
-+	iowrite16be(uf_info->urfet, &uf_regs->urfet);
-+	iowrite16be(uf_info->urfset, &uf_regs->urfset);
-+	iowrite16be(uf_info->utfs, &uf_regs->utfs);
-+	iowrite16be(uf_info->utfet, &uf_regs->utfet);
-+	iowrite16be(uf_info->utftt, &uf_regs->utftt);
-+	/* utfb, urfb are offsets from MURAM base */
-+	iowrite32be(uccf->ucc_fast_tx_virtual_fifo_base_offset, &uf_regs->utfb);
-+	iowrite32be(uccf->ucc_fast_rx_virtual_fifo_base_offset, &uf_regs->urfb);
-+
-+	/* Rx Tx and sync clock routing */
-+	resume_clk_config(priv);
-+
-+	iowrite32be(uf_info->uccm_mask, &uf_regs->uccm);
-+	iowrite32be(0xffffffff, &uf_regs->ucce);
-+
-+	ucc_fast_disable(priv->uccf, COMM_DIR_RX | COMM_DIR_TX);
-+
-+	/* rebuild SIRAM */
-+	if (priv->tsa)
-+		ucc_tdm_init(priv->utdm, priv->ut_info);
-+
-+	/* Write to QE CECR, UCCx channel to Stop Transmission */
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(uf_info->ucc_num);
-+	ret = qe_issue_cmd(QE_STOP_TX, cecr_subblock,
-+			   (u8)QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+	/* Set UPSMR normal mode */
-+	iowrite32be(0, &uf_regs->upsmr);
-+
-+	/* init parameter base */
-+	cecr_subblock = ucc_fast_get_qe_cr_subblock(uf_info->ucc_num);
-+	ret = qe_issue_cmd(QE_ASSIGN_PAGE_TO_DEVICE, cecr_subblock,
-+			   QE_CR_PROTOCOL_UNSPECIFIED, priv->ucc_pram_offset);
-+
-+	priv->ucc_pram = (struct ucc_hdlc_param __iomem *)
-+				qe_muram_addr(priv->ucc_pram_offset);
-+
-+	/* restore ucc parameter */
-+	memcpy_toio(priv->ucc_pram, priv->ucc_pram_bak,
-+		    sizeof(struct ucc_hdlc_param));
-+	kfree(priv->ucc_pram_bak);
-+
-+	/* rebuild BD entry */
-+	for (i = 0; i < RX_BD_RING_LEN; i++) {
-+		if (i < (RX_BD_RING_LEN - 1))
-+			bd_status = R_E_S | R_I_S;
-+		else
-+			bd_status = R_E_S | R_I_S | R_W_S;
-+
-+		iowrite16be(bd_status, &priv->rx_bd_base[i].status);
-+		iowrite32be(priv->dma_rx_addr + i * MAX_RX_BUF_LENGTH,
-+			    &priv->rx_bd_base[i].buf);
-+	}
-+
-+	for (i = 0; i < TX_BD_RING_LEN; i++) {
-+		if (i < (TX_BD_RING_LEN - 1))
-+			bd_status =  T_I_S | T_TC_S;
-+		else
-+			bd_status =  T_I_S | T_TC_S | T_W_S;
-+
-+		iowrite16be(bd_status, &priv->tx_bd_base[i].status);
-+		iowrite32be(priv->dma_tx_addr + i * MAX_RX_BUF_LENGTH,
-+			    &priv->tx_bd_base[i].buf);
-+	}
-+
-+	/* if hdlc is busy enable TX and RX */
-+	if (priv->hdlc_busy == 1) {
-+		cecr_subblock = ucc_fast_get_qe_cr_subblock(
-+					priv->ut_info->uf_info.ucc_num);
-+
-+		qe_issue_cmd(QE_INIT_TX_RX, cecr_subblock,
-+			     (u8)QE_CR_PROTOCOL_UNSPECIFIED, 0);
-+
-+		ucc_fast_enable(priv->uccf, COMM_DIR_RX | COMM_DIR_TX);
-+
-+		/* Enable the TDM port */
-+		if (priv->tsa)
-+			utdm->si_regs->siglmr1_h |= (0x1 << utdm->tdm_port);
-+	}
-+
-+	napi_enable(&priv->napi);
-+	netif_device_attach(priv->ndev);
-+
-+	return 0;
-+}
-+
-+static const struct dev_pm_ops uhdlc_pm_ops = {
-+	.suspend = uhdlc_suspend,
-+	.resume = uhdlc_resume,
-+	.freeze = uhdlc_suspend,
-+	.thaw = uhdlc_resume,
-+};
-+
-+#define HDLC_PM_OPS (&uhdlc_pm_ops)
-+
-+#else
-+
-+#define HDLC_PM_OPS NULL
-+
-+#endif
-+static const struct net_device_ops uhdlc_ops = {
-+	.ndo_open       = uhdlc_open,
-+	.ndo_stop       = uhdlc_close,
-+	.ndo_change_mtu = hdlc_change_mtu,
-+	.ndo_start_xmit = hdlc_start_xmit,
-+	.ndo_do_ioctl   = uhdlc_ioctl,
-+};
-+
-+static int ucc_hdlc_probe(struct platform_device *pdev)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	struct ucc_hdlc_private *uhdlc_priv = NULL;
-+	struct ucc_tdm_info *ut_info;
-+	struct ucc_tdm *utdm;
-+	struct resource res;
-+	struct net_device *dev;
-+	hdlc_device *hdlc;
-+	int ucc_num;
-+	const char *sprop;
-+	int ret;
-+	u32 val;
-+
-+	ret = of_property_read_u32_index(np, "cell-index", 0, &val);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Invalid ucc property\n");
-+		return -ENODEV;
-+	}
-+
-+	ucc_num = val - 1;
-+	if ((ucc_num > 3) || (ucc_num < 0)) {
-+		dev_err(&pdev->dev, ": Invalid UCC num\n");
-+		return -EINVAL;
-+	}
-+
-+	memcpy(&utdm_info[ucc_num], &utdm_primary_info,
-+	       sizeof(utdm_primary_info));
-+
-+	ut_info = &utdm_info[ucc_num];
-+	ut_info->uf_info.ucc_num = ucc_num;
-+
-+	sprop = of_get_property(np, "rx-clock-name", NULL);
-+	if (sprop) {
-+		ut_info->uf_info.rx_clock = qe_clock_source(sprop);
-+		if ((ut_info->uf_info.rx_clock < QE_CLK_NONE) ||
-+		    (ut_info->uf_info.rx_clock > QE_CLK24)) {
-+			dev_err(&pdev->dev, "Invalid rx-clock-name property\n");
-+			return -EINVAL;
-+		}
-+	} else {
-+		dev_err(&pdev->dev, "Invalid rx-clock-name property\n");
-+		return -EINVAL;
-+	}
-+
-+	sprop = of_get_property(np, "tx-clock-name", NULL);
-+	if (sprop) {
-+		ut_info->uf_info.tx_clock = qe_clock_source(sprop);
-+		if ((ut_info->uf_info.tx_clock < QE_CLK_NONE) ||
-+		    (ut_info->uf_info.tx_clock > QE_CLK24)) {
-+			dev_err(&pdev->dev, "Invalid tx-clock-name property\n");
-+			return -EINVAL;
-+		}
-+	} else {
-+		dev_err(&pdev->dev, "Invalid tx-clock-name property\n");
-+		return -EINVAL;
-+	}
-+
-+	/* use the same clock when work in loopback */
-+	if (ut_info->uf_info.rx_clock == ut_info->uf_info.tx_clock)
-+		qe_setbrg(ut_info->uf_info.rx_clock, 20000000, 1);
-+
-+	ret = of_address_to_resource(np, 0, &res);
-+	if (ret)
-+		return -EINVAL;
-+
-+	ut_info->uf_info.regs = res.start;
-+	ut_info->uf_info.irq = irq_of_parse_and_map(np, 0);
-+
-+	uhdlc_priv = kzalloc(sizeof(*uhdlc_priv), GFP_KERNEL);
-+	if (!uhdlc_priv) {
-+		ret = -ENOMEM;
-+		dev_err(&pdev->dev, "No mem to alloc hdlc private data\n");
-+		goto err_alloc_priv;
-+	}
-+
-+	dev_set_drvdata(&pdev->dev, uhdlc_priv);
-+	uhdlc_priv->dev = &pdev->dev;
-+	uhdlc_priv->ut_info = ut_info;
-+
-+	if (of_get_property(np, "fsl,tdm-interface", NULL))
-+		uhdlc_priv->tsa = 1;
-+
-+	if (of_get_property(np, "fsl,ucc-internal-loopback", NULL))
-+		uhdlc_priv->loopback = 1;
-+
-+	if (uhdlc_priv->tsa == 1) {
-+		utdm = kzalloc(sizeof(*utdm), GFP_KERNEL);
-+		if (!utdm) {
-+			ret = -ENOMEM;
-+			dev_err(&pdev->dev, "No mem to alloc ucc tdm data\n");
-+			goto err_alloc_utdm;
-+		}
-+		uhdlc_priv->utdm = utdm;
-+		ret = ucc_of_parse_tdm(np, utdm, ut_info);
-+		if (ret)
-+			goto err_miss_tsa_property;
-+	}
-+
-+	ret = uhdlc_init(uhdlc_priv);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Failed to init uhdlc\n");
-+		goto err_hdlc_init;
-+	}
-+
-+	dev = alloc_hdlcdev(uhdlc_priv);
-+	if (!dev) {
-+		ret = -ENOMEM;
-+		pr_err("ucc_hdlc: unable to allocate memory\n");
-+		goto err_hdlc_init;
-+	}
-+
-+	uhdlc_priv->ndev = dev;
-+	hdlc = dev_to_hdlc(dev);
-+	dev->tx_queue_len = 16;
-+	dev->netdev_ops = &uhdlc_ops;
-+	hdlc->attach = ucc_hdlc_attach;
-+	hdlc->xmit = ucc_hdlc_tx;
-+	netif_napi_add(dev, &uhdlc_priv->napi, ucc_hdlc_poll, 32);
-+	if (register_hdlc_device(dev)) {
-+		ret = -ENOBUFS;
-+		pr_err("ucc_hdlc: unable to register hdlc device\n");
-+		free_netdev(dev);
-+		goto err_hdlc_init;
-+	}
-+
-+	return 0;
-+
-+err_hdlc_init:
-+err_miss_tsa_property:
-+	kfree(uhdlc_priv);
-+	if (uhdlc_priv->tsa)
-+		kfree(utdm);
-+err_alloc_utdm:
-+	kfree(uhdlc_priv);
-+err_alloc_priv:
-+	return ret;
-+}
-+
-+static int ucc_hdlc_remove(struct platform_device *pdev)
-+{
-+	struct ucc_hdlc_private *priv = dev_get_drvdata(&pdev->dev);
-+
-+	uhdlc_memclean(priv);
-+
-+	if (priv->utdm->si_regs) {
-+		iounmap(priv->utdm->si_regs);
-+		priv->utdm->si_regs = NULL;
-+	}
-+
-+	if (priv->utdm->siram) {
-+		iounmap(priv->utdm->siram);
-+		priv->utdm->siram = NULL;
-+	}
-+	kfree(priv);
-+
-+	dev_info(&pdev->dev, "UCC based hdlc module removed\n");
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id fsl_ucc_hdlc_of_match[] = {
-+	{
-+	.compatible = "fsl,ucc-hdlc",
-+	},
-+	{},
-+};
-+
-+MODULE_DEVICE_TABLE(of, fsl_ucc_hdlc_of_match);
-+
-+static struct platform_driver ucc_hdlc_driver = {
-+	.probe	= ucc_hdlc_probe,
-+	.remove	= ucc_hdlc_remove,
-+	.driver	= {
-+		.owner		= THIS_MODULE,
-+		.name		= DRV_NAME,
-+		.pm		= HDLC_PM_OPS,
-+		.of_match_table	= fsl_ucc_hdlc_of_match,
-+	},
-+};
-+
-+static int __init ucc_hdlc_init(void)
-+{
-+	return platform_driver_register(&ucc_hdlc_driver);
-+}
-+
-+static void __exit ucc_hdlc_exit(void)
-+{
-+	platform_driver_unregister(&ucc_hdlc_driver);
-+}
-+
-+module_init(ucc_hdlc_init);
-+module_exit(ucc_hdlc_exit);
-diff --git a/drivers/net/wan/fsl_ucc_hdlc.h b/drivers/net/wan/fsl_ucc_hdlc.h
-new file mode 100644
-index 0000000..525786a
---- /dev/null
-+++ b/drivers/net/wan/fsl_ucc_hdlc.h
-@@ -0,0 +1,147 @@
-+/* Freescale QUICC Engine HDLC Device Driver
-+ *
-+ * Copyright 2014 Freescale Semiconductor Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ */
-+
-+#ifndef CONFIG_UCC_HDLC_H
-+#define CONFIG_UCC_HDLC_H
-+
-+#include <linux/kernel.h>
-+#include <linux/list.h>
-+
-+#include <soc/fsl/qe/immap_qe.h>
-+#include <soc/fsl/qe/qe.h>
-+
-+#include <soc/fsl/qe/ucc.h>
-+#include <soc/fsl/qe/ucc_fast.h>
-+
-+/* UCC HDLC event register */
-+#define UCCE_HDLC_RX_EVENTS	\
-+(UCC_HDLC_UCCE_RXF | UCC_HDLC_UCCE_RXB | UCC_HDLC_UCCE_BSY)
-+#define UCCE_HDLC_TX_EVENTS	(UCC_HDLC_UCCE_TXB | UCC_HDLC_UCCE_TXE)
-+
-+struct ucc_hdlc_param {
-+	__be16 riptr;
-+	__be16 tiptr;
-+	__be16 res0;
-+	__be16 mrblr;
-+	__be32 rstate;
-+	__be32 rbase;
-+	__be16 rbdstat;
-+	__be16 rbdlen;
-+	__be32 rdptr;
-+	__be32 tstate;
-+	__be32 tbase;
-+	__be16 tbdstat;
-+	__be16 tbdlen;
-+	__be32 tdptr;
-+	__be32 rbptr;
-+	__be32 tbptr;
-+	__be32 rcrc;
-+	__be32 res1;
-+	__be32 tcrc;
-+	__be32 res2;
-+	__be32 res3;
-+	__be32 c_mask;
-+	__be32 c_pres;
-+	__be16 disfc;
-+	__be16 crcec;
-+	__be16 abtsc;
-+	__be16 nmarc;
-+	__be32 max_cnt;
-+	__be16 mflr;
-+	__be16 rfthr;
-+	__be16 rfcnt;
-+	__be16 hmask;
-+	__be16 haddr1;
-+	__be16 haddr2;
-+	__be16 haddr3;
-+	__be16 haddr4;
-+	__be16 ts_tmp;
-+	__be16 tmp_mb;
-+};
-+
-+struct ucc_hdlc_private {
-+	struct ucc_tdm	*utdm;
-+	struct ucc_tdm_info *ut_info;
-+	struct ucc_fast_private *uccf;
-+	struct device *dev;
-+	struct net_device *ndev;
-+	struct napi_struct napi;
-+	struct ucc_fast __iomem *uf_regs;	/* UCC Fast registers */
-+	struct ucc_hdlc_param __iomem *ucc_pram;
-+	u16 tsa;
-+	bool hdlc_busy;
-+	bool loopback;
-+
-+	u8 *tx_buffer;
-+	u8 *rx_buffer;
-+	dma_addr_t dma_tx_addr;
-+	dma_addr_t dma_rx_addr;
-+
-+	struct qe_bd *tx_bd_base;
-+	struct qe_bd *rx_bd_base;
-+	dma_addr_t dma_tx_bd;
-+	dma_addr_t dma_rx_bd;
-+	struct qe_bd *curtx_bd;
-+	struct qe_bd *currx_bd;
-+	struct qe_bd *dirty_tx;
-+	u16 currx_bdnum;
-+
-+	struct sk_buff **tx_skbuff;
-+	struct sk_buff **rx_skbuff;
-+	u16 skb_curtx;
-+	u16 skb_currx;
-+	unsigned short skb_dirtytx;
-+
-+	unsigned short tx_ring_size;
-+	unsigned short rx_ring_size;
-+	u32 ucc_pram_offset;
-+
-+	unsigned short encoding;
-+	unsigned short parity;
-+	u32 clocking;
-+	spinlock_t lock;	/* lock for Tx BD and Tx buffer */
-+#ifdef CONFIG_PM
-+	struct ucc_hdlc_param *ucc_pram_bak;
-+	u32 gumr;
-+	u8 guemr;
-+	u32 cmxsi1cr_l, cmxsi1cr_h;
-+	u32 cmxsi1syr;
-+	u32 cmxucr[4];
-+#endif
-+};
-+
-+#define TX_BD_RING_LEN	0x10
-+#define RX_BD_RING_LEN	0x20
-+#define RX_CLEAN_MAX	0x10
-+#define NUM_OF_BUF	4
-+#define MAX_RX_BUF_LENGTH	(48 * 0x20)
-+#define MAX_FRAME_LENGTH	(MAX_RX_BUF_LENGTH + 8)
-+#define ALIGNMENT_OF_UCC_HDLC_PRAM	64
-+#define SI_BANK_SIZE	128
-+#define MAX_HDLC_NUM	4
-+#define HDLC_HEAD_LEN	2
-+#define HDLC_CRC_SIZE	2
-+#define TX_RING_MOD_MASK(size) (size - 1)
-+#define RX_RING_MOD_MASK(size) (size - 1)
-+
-+#define HDLC_HEAD_MASK		0x0000
-+#define DEFAULT_HDLC_HEAD	0xff44
-+#define DEFAULT_ADDR_MASK	0x00ff
-+#define DEFAULT_HDLC_ADDR	0x00ff
-+
-+#define BMR_GBL			0x20000000
-+#define BMR_BIG_ENDIAN		0x10000000
-+#define CRC_16BIT_MASK		0x0000F0B8
-+#define CRC_16BIT_PRES		0x0000FFFF
-+#define DEFAULT_RFTHR		1
-+
-+#define DEFAULT_PPP_HEAD    0xff03
-+
-+#endif
-diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
-index c3b1dc8..70339d7 100644
---- a/include/soc/fsl/qe/qe.h
-+++ b/include/soc/fsl/qe/qe.h
-@@ -657,6 +657,7 @@ struct ucc_slow_pram {
- #define UCC_SLOW_GUMR_L_MODE_QMC	0x00000002
- 
- /* General UCC FAST Mode Register */
-+#define UCC_FAST_GUMR_LOOPBACK	0x40000000
- #define UCC_FAST_GUMR_TCI	0x20000000
- #define UCC_FAST_GUMR_TRX	0x10000000
- #define UCC_FAST_GUMR_TTX	0x08000000
-diff --git a/include/soc/fsl/qe/ucc_fast.h b/include/soc/fsl/qe/ucc_fast.h
-index e898895..f55cd5a 100644
---- a/include/soc/fsl/qe/ucc_fast.h
-+++ b/include/soc/fsl/qe/ucc_fast.h
-@@ -21,19 +21,36 @@
- 
- #include <soc/fsl/qe/ucc.h>
- 
--/* Receive BD's status */
-+/* Receive BD's status and length*/
- #define R_E	0x80000000	/* buffer empty */
- #define R_W	0x20000000	/* wrap bit */
- #define R_I	0x10000000	/* interrupt on reception */
- #define R_L	0x08000000	/* last */
- #define R_F	0x04000000	/* first */
- 
--/* transmit BD's status */
-+/* transmit BD's status and length*/
- #define T_R	0x80000000	/* ready bit */
- #define T_W	0x20000000	/* wrap bit */
- #define T_I	0x10000000	/* interrupt on completion */
- #define T_L	0x08000000	/* last */
- 
-+/* Receive BD's status */
-+#define R_E_S	0x8000	/* buffer empty */
-+#define R_W_S	0x2000	/* wrap bit */
-+#define R_I_S	0x1000	/* interrupt on reception */
-+#define R_L_S	0x0800	/* last */
-+#define R_F_S	0x0400	/* first */
-+#define R_CM_S	0x0200	/* continuous mode */
-+#define R_CR_S	0x0004	/* crc */
-+
-+/* transmit BD's status */
-+#define T_R_S	0x8000	/* ready bit */
-+#define T_W_S	0x2000	/* wrap bit */
-+#define T_I_S	0x1000	/* interrupt on completion */
-+#define T_L_S	0x0800	/* last */
-+#define T_TC_S	0x0400	/* crc */
-+#define T_TM_S	0x0200	/* continuous mode */
-+
- /* Rx Data buffer must be 4 bytes aligned in most cases */
- #define UCC_FAST_RX_ALIGN			4
- #define UCC_FAST_MRBLR_ALIGNMENT		4
--- 
-2.1.0.27.g96db324
+QWRkIHRkbSBjbG9jayBjb25maWd1cmF0aW9uIGluIGJvdGggcWUgY2xvY2sgc3lzdGVtIGFuZCB1
+Y2MKZmFzdCBjb250cm9sbGVyLgoKU2lnbmVkLW9mZi1ieTogWmhhbyBRaWFuZyA8cWlhbmcuemhh
+b0BueHAuY29tPgotLS0KQ2hhbmdlcyBmb3IgdjI6CgktIGJyZWFrIGNvZGVzIGdldHRpbmcgY2xv
+Y2tfYml0cyBhbmQgc291cmNlIHRvIHNtYWxsZXIgZnVuY3Rpb25zLgoJLSBhZGQgX19pb21lbSB0
+byBxZV9tdXhfcmVnCgktIGFkZCBiaXRzIG9wZXJhdGlvbiBmdW5jdGlvbnMgZm9yIHFlIGFuZCB1
+c2UgaXQKCS0gcmV0cnVuIC1FSU5WQUwgd2hlbiBjbG9ja19iaXRzIGlzIGludmFsaWQKCiBkcml2
+ZXJzL3NvYy9mc2wvcWUvdWNjLmMgICAgICB8IDQ1MCArKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysKIGRyaXZlcnMvc29jL2ZzbC9xZS91Y2NfZmFzdC5jIHwgIDM2ICsr
+KysKIGluY2x1ZGUvc29jL2ZzbC9xZS9xZS5oICAgICAgIHwgIDE2ICsrCiBpbmNsdWRlL3NvYy9m
+c2wvcWUvdWNjLmggICAgICB8ICAgNCArCiBpbmNsdWRlL3NvYy9mc2wvcWUvdWNjX2Zhc3QuaCB8
+ICAgMSArCiA1IGZpbGVzIGNoYW5nZWQsIDUwNyBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9zb2MvZnNsL3FlL3VjYy5jIGIvZHJpdmVycy9zb2MvZnNsL3FlL3VjYy5jCmluZGV4
+IGI1OWQzMzUuLjVlMWE4NTAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvc29jL2ZzbC9xZS91Y2MuYwor
+KysgYi9kcml2ZXJzL3NvYy9mc2wvcWUvdWNjLmMKQEAgLTI1LDYgKzI1LDEyIEBACiAjaW5jbHVk
+ZSA8c29jL2ZzbC9xZS9xZS5oPgogI2luY2x1ZGUgPHNvYy9mc2wvcWUvdWNjLmg+CiAKKyNkZWZp
+bmUgVUNDX1RETV9OVU0gOAorI2RlZmluZSBSWF9TWU5DX1NISUZUX0JBU0UgMzAKKyNkZWZpbmUg
+VFhfU1lOQ19TSElGVF9CQVNFIDE0CisjZGVmaW5lIFJYX0NMS19TSElGVF9CQVNFIDI4CisjZGVm
+aW5lIFRYX0NMS19TSElGVF9CQVNFIDEyCisKIGludCB1Y2Nfc2V0X3FlX211eF9taWlfbW5nKHVu
+c2lnbmVkIGludCB1Y2NfbnVtKQogewogCXVuc2lnbmVkIGxvbmcgZmxhZ3M7CkBAIC0yMTAsMyAr
+MjE2LDQ0NyBAQCBpbnQgdWNjX3NldF9xZV9tdXhfcnh0eCh1bnNpZ25lZCBpbnQgdWNjX251bSwg
+ZW51bSBxZV9jbG9jayBjbG9jaywKIAogCXJldHVybiAwOwogfQorCitzdGF0aWMgaW50IHVjY19n
+ZXRfdGRtX2NvbW1vbl9jbGsodTMyIHRkbV9udW0sIGVudW0gcWVfY2xvY2sgY2xvY2spCit7CisJ
+aW50IGNsb2NrX2JpdHMgPSAtRUlOVkFMOworCisJLyoKKwkgKiBmb3IgVERNWzAsIDEsIDIsIDNd
+LCBUWCBhbmQgUlggdXNlICBjb21tb24KKwkgKiBjbG9jayBzb3VyY2UgQlJHMyw0IGFuZCBDTEsx
+LDIKKwkgKiBmb3IgVERNWzQsIDUsIDYsIDddLCBUWCBhbmQgUlggdXNlICBjb21tb24KKwkgKiBj
+bG9jayBzb3VyY2UgQlJHMTIsMTMgYW5kIENMSzIzLDI0CisJICovCisJc3dpdGNoICh0ZG1fbnVt
+KSB7CisJY2FzZSAwOgorCWNhc2UgMToKKwljYXNlIDI6CisJY2FzZSAzOgorCQlzd2l0Y2ggKGNs
+b2NrKSB7CisJCWNhc2UgUUVfQlJHMzoKKwkJCWNsb2NrX2JpdHMgPSAxOworCQkJYnJlYWs7CisJ
+CWNhc2UgUUVfQlJHNDoKKwkJCWNsb2NrX2JpdHMgPSAyOworCQkJYnJlYWs7CisJCWNhc2UgUUVf
+Q0xLMToKKwkJCWNsb2NrX2JpdHMgPSA0OworCQkJYnJlYWs7CisJCWNhc2UgUUVfQ0xLMjoKKwkJ
+CWNsb2NrX2JpdHMgPSA1OworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJfQor
+CQlicmVhazsKKwljYXNlIDQ6CisJY2FzZSA1OgorCWNhc2UgNjoKKwljYXNlIDc6CisJCXN3aXRj
+aCAoY2xvY2spIHsKKwkJY2FzZSBRRV9CUkcxMjoKKwkJCWNsb2NrX2JpdHMgPSAxOworCQkJYnJl
+YWs7CisJCWNhc2UgUUVfQlJHMTM6CisJCQljbG9ja19iaXRzID0gMjsKKwkJCWJyZWFrOworCQlj
+YXNlIFFFX0NMSzIzOgorCQkJY2xvY2tfYml0cyA9IDQ7CisJCQlicmVhazsKKwkJY2FzZSBRRV9D
+TEsyNDoKKwkJCWNsb2NrX2JpdHMgPSA1OworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVh
+azsKKwkJfQorCQlicmVhazsKKwlkZWZhdWx0OgorCQlicmVhazsKKwl9CisKKwlyZXR1cm4gY2xv
+Y2tfYml0czsKK30KKworc3RhdGljIGludCB1Y2NfZ2V0X3RkbV9yeF9jbGsodTMyIHRkbV9udW0s
+IGVudW0gcWVfY2xvY2sgY2xvY2spCit7CisJaW50IGNsb2NrX2JpdHMgPSAtRUlOVkFMOworCisJ
+c3dpdGNoICh0ZG1fbnVtKSB7CisJY2FzZSAwOgorCQlzd2l0Y2ggKGNsb2NrKSB7CisJCWNhc2Ug
+UUVfQ0xLMzoKKwkJCWNsb2NrX2JpdHMgPSA2OworCQkJYnJlYWs7CisJCWNhc2UgUUVfQ0xLODoK
+KwkJCWNsb2NrX2JpdHMgPSA3OworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJ
+fQorCQlicmVhazsKKwljYXNlIDE6CisJCXN3aXRjaCAoY2xvY2spIHsKKwkJY2FzZSBRRV9DTEs1
+OgorCQkJY2xvY2tfYml0cyA9IDY7CisJCQlicmVhazsKKwkJY2FzZSBRRV9DTEsxMDoKKwkJCWNs
+b2NrX2JpdHMgPSA3OworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJfQorCQli
+cmVhazsKKwljYXNlIDI6CisJCXN3aXRjaCAoY2xvY2spIHsKKwkJY2FzZSBRRV9DTEs3OgorCQkJ
+Y2xvY2tfYml0cyA9IDY7CisJCQlicmVhazsKKwkJY2FzZSBRRV9DTEsxMjoKKwkJCWNsb2NrX2Jp
+dHMgPSA3OworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJfQorCQlicmVhazsK
+KwljYXNlIDM6CisJCXN3aXRjaCAoY2xvY2spIHsKKwkJY2FzZSBRRV9DTEs5OgorCQkJY2xvY2tf
+Yml0cyA9IDY7CisJCQlicmVhazsKKwkJY2FzZSBRRV9DTEsxNDoKKwkJCWNsb2NrX2JpdHMgPSA3
+OworCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJfQorCQlicmVhazsKKwljYXNl
+IDQ6CisJCXN3aXRjaCAoY2xvY2spIHsKKwkJY2FzZSBRRV9DTEsxMToKKwkJCWNsb2NrX2JpdHMg
+PSA2OworCQkJYnJlYWs7CisJCWNhc2UgUUVfQ0xLMTY6CisJCQljbG9ja19iaXRzID0gNzsKKwkJ
+CWJyZWFrOworCQlkZWZhdWx0OgorCQkJYnJlYWs7CisJCX0KKwkJYnJlYWs7CisJY2FzZSA1Ogor
+CQlzd2l0Y2ggKGNsb2NrKSB7CisJCWNhc2UgUUVfQ0xLMTM6CisJCQljbG9ja19iaXRzID0gNjsK
+KwkJCWJyZWFrOworCQljYXNlIFFFX0NMSzE4OgorCQkJY2xvY2tfYml0cyA9IDc7CisJCQlicmVh
+azsKKwkJZGVmYXVsdDoKKwkJCWJyZWFrOworCQl9CisJCWJyZWFrOworCWNhc2UgNjoKKwkJc3dp
+dGNoIChjbG9jaykgeworCQljYXNlIFFFX0NMSzE1OgorCQkJY2xvY2tfYml0cyA9IDY7CisJCQli
+cmVhazsKKwkJY2FzZSBRRV9DTEsyMDoKKwkJCWNsb2NrX2JpdHMgPSA3OworCQkJYnJlYWs7CisJ
+CWRlZmF1bHQ6CisJCQlicmVhazsKKwkJfQorCQlicmVhazsKKwljYXNlIDc6CisJCXN3aXRjaCAo
+Y2xvY2spIHsKKwkJY2FzZSBRRV9DTEsxNzoKKwkJCWNsb2NrX2JpdHMgPSA2OworCQkJYnJlYWs7
+CisJCWNhc2UgUUVfQ0xLMjI6CisJCQljbG9ja19iaXRzID0gNzsKKwkJCWJyZWFrOworCQlkZWZh
+dWx0OgorCQkJYnJlYWs7CisJCX0KKwkJYnJlYWs7CisJfQorCisJcmV0dXJuIGNsb2NrX2JpdHM7
+Cit9CisKK3N0YXRpYyBpbnQgdWNjX2dldF90ZG1fdHhfY2xrKHUzMiB0ZG1fbnVtLCBlbnVtIHFl
+X2Nsb2NrIGNsb2NrKQoreworCWludCBjbG9ja19iaXRzID0gLUVJTlZBTDsKKworCXN3aXRjaCAo
+dGRtX251bSkgeworCWNhc2UgMDoKKwkJc3dpdGNoIChjbG9jaykgeworCQljYXNlIFFFX0NMSzQ6
+CisJCQljbG9ja19iaXRzID0gNjsKKwkJCWJyZWFrOworCQljYXNlIFFFX0NMSzk6CisJCQljbG9j
+a19iaXRzID0gNzsKKwkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJYnJlYWs7CisJCX0KKwkJYnJl
+YWs7CisJY2FzZSAxOgorCQlzd2l0Y2ggKGNsb2NrKSB7CisJCWNhc2UgUUVfQ0xLNjoKKwkJCWNs
+b2NrX2JpdHMgPSA2OworCQkJYnJlYWs7CisJCWNhc2UgUUVfQ0xLMTE6CisJCQljbG9ja19iaXRz
+ID0gNzsKKwkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJYnJlYWs7CisJCX0KKwkJYnJlYWs7CisJ
+Y2FzZSAyOgorCQlzd2l0Y2ggKGNsb2NrKSB7CisJCWNhc2UgUUVfQ0xLODoKKwkJCWNsb2NrX2Jp
+dHMgPSA2OworCQkJYnJlYWs7CisJCWNhc2UgUUVfQ0xLMTM6CisJCQljbG9ja19iaXRzID0gNzsK
+KwkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJYnJlYWs7CisJCX0KKwkJYnJlYWs7CisJY2FzZSAz
+OgorCQlzd2l0Y2ggKGNsb2NrKSB7CisJCWNhc2UgUUVfQ0xLMTA6CisJCQljbG9ja19iaXRzID0g
+NjsKKwkJCWJyZWFrOworCQljYXNlIFFFX0NMSzE1OgorCQkJY2xvY2tfYml0cyA9IDc7CisJCQli
+cmVhazsKKwkJZGVmYXVsdDoKKwkJCWJyZWFrOworCQl9CisJCWJyZWFrOworCWNhc2UgNDoKKwkJ
+c3dpdGNoIChjbG9jaykgeworCQljYXNlIFFFX0NMSzEyOgorCQkJY2xvY2tfYml0cyA9IDY7CisJ
+CQlicmVhazsKKwkJY2FzZSBRRV9DTEsxNzoKKwkJCWNsb2NrX2JpdHMgPSA3OworCQkJYnJlYWs7
+CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJfQorCQlicmVhazsKKwljYXNlIDU6CisJCXN3aXRj
+aCAoY2xvY2spIHsKKwkJY2FzZSBRRV9DTEsxNDoKKwkJCWNsb2NrX2JpdHMgPSA2OworCQkJYnJl
+YWs7CisJCWNhc2UgUUVfQ0xLMTk6CisJCQljbG9ja19iaXRzID0gNzsKKwkJCWJyZWFrOworCQlk
+ZWZhdWx0OgorCQkJYnJlYWs7CisJCX0KKwkJYnJlYWs7CisJY2FzZSA2OgorCQlzd2l0Y2ggKGNs
+b2NrKSB7CisJCWNhc2UgUUVfQ0xLMTY6CisJCQljbG9ja19iaXRzID0gNjsKKwkJCWJyZWFrOwor
+CQljYXNlIFFFX0NMSzIxOgorCQkJY2xvY2tfYml0cyA9IDc7CisJCQlicmVhazsKKwkJZGVmYXVs
+dDoKKwkJCWJyZWFrOworCQl9CisJCWJyZWFrOworCWNhc2UgNzoKKwkJc3dpdGNoIChjbG9jaykg
+eworCQljYXNlIFFFX0NMSzE4OgorCQkJY2xvY2tfYml0cyA9IDY7CisJCQlicmVhazsKKwkJY2Fz
+ZSBRRV9DTEszOgorCQkJY2xvY2tfYml0cyA9IDc7CisJCQlicmVhazsKKwkJZGVmYXVsdDoKKwkJ
+CWJyZWFrOworCQl9CisJCWJyZWFrOworCX0KKworCXJldHVybiBjbG9ja19iaXRzOworfQorCisv
+KiB0ZG1fbnVtOiBURE0gQS1IIHBvcnQgbnVtIGlzIDAtNyAqLworc3RhdGljIGludCB1Y2NfZ2V0
+X3RkbV9yeHR4X2NsayhlbnVtIGNvbW1fZGlyIG1vZGUsIHUzMiB0ZG1fbnVtLAorCQkJCWVudW0g
+cWVfY2xvY2sgY2xvY2spCit7CisJaW50IGNsb2NrX2JpdHM7CisKKwljbG9ja19iaXRzID0gdWNj
+X2dldF90ZG1fY29tbW9uX2Nsayh0ZG1fbnVtLCBjbG9jayk7CisJaWYgKGNsb2NrX2JpdHMgPiAw
+KQorCQlyZXR1cm4gY2xvY2tfYml0czsKKwlpZiAobW9kZSA9PSBDT01NX0RJUl9SWCkKKwkJY2xv
+Y2tfYml0cyA9IHVjY19nZXRfdGRtX3J4X2Nsayh0ZG1fbnVtLCBjbG9jayk7CisJaWYgKG1vZGUg
+PT0gQ09NTV9ESVJfVFgpCisJCWNsb2NrX2JpdHMgPSB1Y2NfZ2V0X3RkbV90eF9jbGsodGRtX251
+bSwgY2xvY2spOworCXJldHVybiBjbG9ja19iaXRzOworfQorCitzdGF0aWMgdTMyIHVjY19nZXRf
+dGRtX2Nsa19zaGlmdChlbnVtIGNvbW1fZGlyIG1vZGUsIHUzMiB0ZG1fbnVtKQoreworCXUzMiBz
+aGlmdDsKKworCXNoaWZ0ID0gKG1vZGUgPT0gQ09NTV9ESVJfUlgpID8gUlhfQ0xLX1NISUZUX0JB
+U0UgOiBUWF9DTEtfU0hJRlRfQkFTRTsKKwlpZiAodGRtX251bSA8IDQpCisJCXNoaWZ0IC09IHRk
+bV9udW0gKiA0OworCWVsc2UKKwkJc2hpZnQgLT0gKHRkbV9udW0gLSA0KSAqIDQ7CisKKwlyZXR1
+cm4gc2hpZnQ7Cit9CisKK2ludCB1Y2Nfc2V0X3RkbV9yeHR4X2Nsayh1MzIgdGRtX251bSwgZW51
+bSBxZV9jbG9jayBjbG9jaywKKwkJCSBlbnVtIGNvbW1fZGlyIG1vZGUpCit7CisJaW50IGNsb2Nr
+X2JpdHM7CisJdTMyIHNoaWZ0OworCXN0cnVjdCBxZV9tdXggX19pb21lbSAqcWVfbXV4X3JlZzsK
+KwkgX19iZTMyIF9faW9tZW0gKmNteHMxY3I7CisKKwlxZV9tdXhfcmVnID0gJnFlX2ltbXItPnFt
+eDsKKworCWlmICh0ZG1fbnVtID4gNyB8fCB0ZG1fbnVtIDwgMCkKKwkJcmV0dXJuIC1FSU5WQUw7
+CisKKwkvKiBUaGUgY29tbXVuaWNhdGlvbnMgZGlyZWN0aW9uIG11c3QgYmUgUlggb3IgVFggKi8K
+KwlpZiAobW9kZSAhPSBDT01NX0RJUl9SWCAmJiBtb2RlICE9IENPTU1fRElSX1RYKQorCQlyZXR1
+cm4gLUVJTlZBTDsKKworCWNsb2NrX2JpdHMgPSB1Y2NfZ2V0X3RkbV9yeHR4X2Nsayhtb2RlLCB0
+ZG1fbnVtLCBjbG9jayk7CisJaWYgKGNsb2NrX2JpdHMgPCAwKQorCQlyZXR1cm4gLUVJTlZBTDsK
+KworCXNoaWZ0ID0gdWNjX2dldF90ZG1fY2xrX3NoaWZ0KG1vZGUsIHRkbV9udW0pOworCisJY214
+czFjciA9ICh0ZG1fbnVtIDwgNCkgPyAmcWVfbXV4X3JlZy0+Y214c2kxY3JfbCA6CisJCQkJICAm
+cWVfbXV4X3JlZy0+Y214c2kxY3JfaDsKKworCXFlX2NscnNldGJpdHMzMihjbXhzMWNyLCBRRV9D
+TVhVQ1JfVFhfQ0xLX1NSQ19NQVNLIDw8IHNoaWZ0LAorCQkJY2xvY2tfYml0cyA8PCBzaGlmdCk7
+CisKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGludCB1Y2NfZ2V0X3RkbV9zeW5jX3NvdXJjZSh1
+MzIgdGRtX251bSwgZW51bSBxZV9jbG9jayBjbG9jaywKKwkJCQkgICBlbnVtIGNvbW1fZGlyIG1v
+ZGUpCit7CisJaW50IHNvdXJjZSA9IC1FSU5WQUw7CisKKwlpZiAobW9kZSA9PSBDT01NX0RJUl9S
+WCAmJiBjbG9jayA9PSBRRV9SU1lOQ19QSU4pIHsKKwkJc291cmNlID0gMDsKKwkJcmV0dXJuIHNv
+dXJjZTsKKwl9CisJaWYgKG1vZGUgPT0gQ09NTV9ESVJfVFggJiYgY2xvY2sgPT0gUUVfVFNZTkNf
+UElOKSB7CisJCXNvdXJjZSA9IDA7CisJCXJldHVybiBzb3VyY2U7CisJfQorCisJc3dpdGNoICh0
+ZG1fbnVtKSB7CisJY2FzZSAwOgorCWNhc2UgMToKKwkJc3dpdGNoIChjbG9jaykgeworCQljYXNl
+IFFFX0JSRzk6CisJCQkJc291cmNlID0gMTsKKwkJCQlicmVhazsKKwkJY2FzZSBRRV9CUkcxMDoK
+KwkJCQlzb3VyY2UgPSAyOworCQkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJYnJlYWs7CisJCX0K
+KwkJYnJlYWs7CisJY2FzZSAyOgorCWNhc2UgMzoKKwkJc3dpdGNoIChjbG9jaykgeworCQljYXNl
+IFFFX0JSRzk6CisJCQkJc291cmNlID0gMTsKKwkJCQlicmVhazsKKwkJY2FzZSBRRV9CUkcxMToK
+KwkJCQlzb3VyY2UgPSAyOworCQkJCWJyZWFrOworCQlkZWZhdWx0OgorCQkJYnJlYWs7CisJCX0K
+KwkJYnJlYWs7CisJY2FzZSA0OgorCWNhc2UgNToKKwkJc3dpdGNoIChjbG9jaykgeworCQljYXNl
+IFFFX0JSRzEzOgorCQkJCXNvdXJjZSA9IDE7CisJCQkJYnJlYWs7CisJCWNhc2UgUUVfQlJHMTQ6
+CisJCQkJc291cmNlID0gMjsKKwkJCQlicmVhazsKKwkJZGVmYXVsdDoKKwkJCWJyZWFrOworCQl9
+CisJCWJyZWFrOworCWNhc2UgNjoKKwljYXNlIDc6CisJCXN3aXRjaCAoY2xvY2spIHsKKwkJY2Fz
+ZSBRRV9CUkcxMzoKKwkJCQlzb3VyY2UgPSAxOworCQkJCWJyZWFrOworCQljYXNlIFFFX0JSRzE1
+OgorCQkJCXNvdXJjZSA9IDI7CisJCQkJYnJlYWs7CisJCWRlZmF1bHQ6CisJCQlicmVhazsKKwkJ
+fQorCQlicmVhazsKKwl9CisKKwlyZXR1cm4gc291cmNlOworfQorCitzdGF0aWMgdTMyIHVjY19n
+ZXRfdGRtX3N5bmNfc2hpZnQoZW51bSBjb21tX2RpciBtb2RlLCB1MzIgdGRtX251bSkKK3sKKwl1
+MzIgc2hpZnQ7CisKKwlzaGlmdCA9IChtb2RlID09IENPTU1fRElSX1JYKSA/IFJYX1NZTkNfU0hJ
+RlRfQkFTRSA6IFJYX1NZTkNfU0hJRlRfQkFTRTsKKwlzaGlmdCAtPSB0ZG1fbnVtICogMjsKKwor
+CXJldHVybiBzaGlmdDsKK30KKworaW50IHVjY19zZXRfdGRtX3J4dHhfc3luYyh1MzIgdGRtX251
+bSwgZW51bSBxZV9jbG9jayBjbG9jaywKKwkJCSAgZW51bSBjb21tX2RpciBtb2RlKQoreworCWlu
+dCBzb3VyY2U7CisJdTMyIHNoaWZ0OworCXN0cnVjdCBxZV9tdXggKnFlX211eF9yZWc7CisKKwlx
+ZV9tdXhfcmVnID0gJnFlX2ltbXItPnFteDsKKworCWlmICh0ZG1fbnVtID49IFVDQ19URE1fTlVN
+KQorCQlyZXR1cm4gLUVJTlZBTDsKKworCS8qIFRoZSBjb21tdW5pY2F0aW9ucyBkaXJlY3Rpb24g
+bXVzdCBiZSBSWCBvciBUWCAqLworCWlmIChtb2RlICE9IENPTU1fRElSX1JYICYmIG1vZGUgIT0g
+Q09NTV9ESVJfVFgpCisJCXJldHVybiAtRUlOVkFMOworCisJc291cmNlID0gdWNjX2dldF90ZG1f
+c3luY19zb3VyY2UodGRtX251bSwgY2xvY2ssIG1vZGUpOworCWlmIChzb3VyY2UgPCAwKQorCQly
+ZXR1cm4gLUVJTlZBTDsKKworCXNoaWZ0ID0gdWNjX2dldF90ZG1fc3luY19zaGlmdChtb2RlLCB0
+ZG1fbnVtKTsKKworCXFlX2NscnNldGJpdHMzMigmcWVfbXV4X3JlZy0+Y214c2kxc3lyLAorCQkJ
+UUVfQ01YVUNSX1RYX0NMS19TUkNfTUFTSyA8PCBzaGlmdCwKKwkJCXNvdXJjZSA8PCBzaGlmdCk7
+CisKKwlyZXR1cm4gMDsKK30KZGlmZiAtLWdpdCBhL2RyaXZlcnMvc29jL2ZzbC9xZS91Y2NfZmFz
+dC5jIGIvZHJpdmVycy9zb2MvZnNsL3FlL3VjY19mYXN0LmMKaW5kZXggYTc2ODkzMS4uODNkOGQx
+NiAxMDA2NDQKLS0tIGEvZHJpdmVycy9zb2MvZnNsL3FlL3VjY19mYXN0LmMKKysrIGIvZHJpdmVy
+cy9zb2MvZnNsL3FlL3VjY19mYXN0LmMKQEAgLTMyNyw2ICszMjcsNDIgQEAgaW50IHVjY19mYXN0
+X2luaXQoc3RydWN0IHVjY19mYXN0X2luZm8gKiB1Zl9pbmZvLCBzdHJ1Y3QgdWNjX2Zhc3RfcHJp
+dmF0ZSAqKiB1Y2MKIAkJCXVjY19mYXN0X2ZyZWUodWNjZik7CiAJCQlyZXR1cm4gLUVJTlZBTDsK
+IAkJfQorCX0gZWxzZSB7CisJCS8qIHRkbSBSeCBjbG9jayByb3V0aW5nICovCisJCWlmICgodWZf
+aW5mby0+cnhfY2xvY2sgIT0gUUVfQ0xLX05PTkUpICYmCisJCSAgICB1Y2Nfc2V0X3RkbV9yeHR4
+X2Nsayh1Zl9pbmZvLT50ZG1fbnVtLCB1Zl9pbmZvLT5yeF9jbG9jaywKKwkJCQkJIENPTU1fRElS
+X1JYKSkgeworCQkJcHJfZXJyKCIlczogaWxsZWdhbCB2YWx1ZSBmb3IgUlggY2xvY2siLCBfX2Z1
+bmNfXyk7CisJCQl1Y2NfZmFzdF9mcmVlKHVjY2YpOworCQkJcmV0dXJuIC1FSU5WQUw7CisJCX0K
+KworCQkvKiB0ZG0gVHggY2xvY2sgcm91dGluZyAqLworCQlpZiAoKHVmX2luZm8tPnR4X2Nsb2Nr
+ICE9IFFFX0NMS19OT05FKSAmJgorCQkgICAgdWNjX3NldF90ZG1fcnh0eF9jbGsodWZfaW5mby0+
+dGRtX251bSwgdWZfaW5mby0+dHhfY2xvY2ssCisJCQkJCSBDT01NX0RJUl9UWCkpIHsKKwkJCXBy
+X2VycigiJXM6IGlsbGVnYWwgdmFsdWUgZm9yIFRYIGNsb2NrIiwgX19mdW5jX18pOworCQkJdWNj
+X2Zhc3RfZnJlZSh1Y2NmKTsKKwkJCXJldHVybiAtRUlOVkFMOworCQl9CisKKwkJLyogdGRtIFJ4
+IHN5bmMgY2xvY2sgcm91dGluZyAqLworCQlpZiAoKHVmX2luZm8tPnJ4X3N5bmMgIT0gUUVfQ0xL
+X05PTkUpICYmCisJCSAgICB1Y2Nfc2V0X3RkbV9yeHR4X3N5bmModWZfaW5mby0+dGRtX251bSwg
+dWZfaW5mby0+cnhfc3luYywKKwkJCQkJICBDT01NX0RJUl9SWCkpIHsKKwkJCXByX2VycigiJXM6
+IGlsbGVnYWwgdmFsdWUgZm9yIFJYIGNsb2NrIiwgX19mdW5jX18pOworCQkJdWNjX2Zhc3RfZnJl
+ZSh1Y2NmKTsKKwkJCXJldHVybiAtRUlOVkFMOworCQl9CisKKwkJLyogdGRtIFR4IHN5bmMgY2xv
+Y2sgcm91dGluZyAqLworCQlpZiAoKHVmX2luZm8tPnR4X3N5bmMgIT0gUUVfQ0xLX05PTkUpICYm
+CisJCSAgICB1Y2Nfc2V0X3RkbV9yeHR4X3N5bmModWZfaW5mby0+dGRtX251bSwgdWZfaW5mby0+
+dHhfc3luYywKKwkJCQkJICBDT01NX0RJUl9UWCkpIHsKKwkJCXByX2VycigiJXM6IGlsbGVnYWwg
+dmFsdWUgZm9yIFRYIGNsb2NrIiwgX19mdW5jX18pOworCQkJdWNjX2Zhc3RfZnJlZSh1Y2NmKTsK
+KwkJCXJldHVybiAtRUlOVkFMOworCQl9CiAJfQogCiAJLyogU2V0IGludGVycnVwdCBtYXNrIHJl
+Z2lzdGVyIGF0IFVDQyBsZXZlbC4gKi8KZGlmZiAtLWdpdCBhL2luY2x1ZGUvc29jL2ZzbC9xZS9x
+ZS5oIGIvaW5jbHVkZS9zb2MvZnNsL3FlL3FlLmgKaW5kZXggZjkxODc0NS4uYzNiMWRjOCAxMDA2
+NDQKLS0tIGEvaW5jbHVkZS9zb2MvZnNsL3FlL3FlLmgKKysrIGIvaW5jbHVkZS9zb2MvZnNsL3Fl
+L3FlLmgKQEAgLTI0NCw2ICsyNDQsMjIgQEAgc3RhdGljIGlubGluZSBpbnQgcWVfYWxpdmVfZHVy
+aW5nX3NsZWVwKHZvaWQpCiAjZGVmaW5lIHFlX211cmFtX2FkZHIgY3BtX211cmFtX2FkZHIKICNk
+ZWZpbmUgcWVfbXVyYW1fb2Zmc2V0IGNwbV9tdXJhbV9vZmZzZXQKIAorI2RlZmluZSBxZV9zZXRi
+aXRzMzIoX2FkZHIsIF92KSBpb3dyaXRlMzJiZShpb3JlYWQzMmJlKF9hZGRyKSB8ICAoX3YpLCAo
+X2FkZHIpKQorI2RlZmluZSBxZV9jbHJiaXRzMzIoX2FkZHIsIF92KSBpb3dyaXRlMzJiZShpb3Jl
+YWQzMmJlKF9hZGRyKSAmIH4oX3YpLCAoX2FkZHIpKQorCisjZGVmaW5lIHFlX3NldGJpdHMxNihf
+YWRkciwgX3YpIGlvd3JpdGUxNmJlKGlvcmVhZDE2YmUoX2FkZHIpIHwgIChfdiksIChfYWRkcikp
+CisjZGVmaW5lIHFlX2NscmJpdHMxNihfYWRkciwgX3YpIGlvd3JpdGUxNmJlKGlvcmVhZDE2YmUo
+X2FkZHIpICYgfihfdiksIChfYWRkcikpCisKKyNkZWZpbmUgcWVfc2V0Yml0czgoX2FkZHIsIF92
+KSBpb3dyaXRlOChpb3JlYWQ4KF9hZGRyKSB8ICAoX3YpLCAoX2FkZHIpKQorI2RlZmluZSBxZV9j
+bHJiaXRzOChfYWRkciwgX3YpIGlvd3JpdGU4KGlvcmVhZDgoX2FkZHIpICYgfihfdiksIChfYWRk
+cikpCisKKyNkZWZpbmUgcWVfY2xyc2V0Yml0czMyKGFkZHIsIGNsZWFyLCBzZXQpIFwKKwlpb3dy
+aXRlMzJiZSgoaW9yZWFkMzJiZShhZGRyKSAmIH4oY2xlYXIpKSB8IChzZXQpLCAoYWRkcikpCisj
+ZGVmaW5lIHFlX2NscnNldGJpdHMxNihhZGRyLCBjbGVhciwgc2V0KSBcCisJaW93cml0ZTE2YmUo
+KGlvcmVhZDE2YmUoYWRkcikgJiB+KGNsZWFyKSkgfCAoc2V0KSwgKGFkZHIpKQorI2RlZmluZSBx
+ZV9jbHJzZXRiaXRzOChhZGRyLCBjbGVhciwgc2V0KSBcCisJaW93cml0ZTgoKGlvcmVhZDgoYWRk
+cikgJiB+KGNsZWFyKSkgfCAoc2V0KSwgKGFkZHIpKQorCiAvKiBTdHJ1Y3R1cmUgdGhhdCBkZWZp
+bmVzIFFFIGZpcm13YXJlIGJpbmFyeSBmaWxlcy4KICAqCiAgKiBTZWUgRG9jdW1lbnRhdGlvbi9w
+b3dlcnBjL3FlX2Zpcm13YXJlLnR4dCBmb3IgYSBkZXNjcmlwdGlvbiBvZiB0aGVzZQpkaWZmIC0t
+Z2l0IGEvaW5jbHVkZS9zb2MvZnNsL3FlL3VjYy5oIGIvaW5jbHVkZS9zb2MvZnNsL3FlL3VjYy5o
+CmluZGV4IDg5NGYxNGMuLjZiYmJiNTkgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvc29jL2ZzbC9xZS91
+Y2MuaAorKysgYi9pbmNsdWRlL3NvYy9mc2wvcWUvdWNjLmgKQEAgLTQxLDYgKzQxLDEwIEBAIGlu
+dCB1Y2Nfc2V0X3FlX211eF9taWlfbW5nKHVuc2lnbmVkIGludCB1Y2NfbnVtKTsKIAogaW50IHVj
+Y19zZXRfcWVfbXV4X3J4dHgodW5zaWduZWQgaW50IHVjY19udW0sIGVudW0gcWVfY2xvY2sgY2xv
+Y2ssCiAJZW51bSBjb21tX2RpciBtb2RlKTsKK2ludCB1Y2Nfc2V0X3RkbV9yeHR4X2Nsayh1bnNp
+Z25lZCBpbnQgdGRtX251bSwgZW51bSBxZV9jbG9jayBjbG9jaywKKwkJCSBlbnVtIGNvbW1fZGly
+IG1vZGUpOworaW50IHVjY19zZXRfdGRtX3J4dHhfc3luYyh1bnNpZ25lZCBpbnQgdGRtX251bSwg
+ZW51bSBxZV9jbG9jayBjbG9jaywKKwkJCSAgZW51bSBjb21tX2RpciBtb2RlKTsKIAogaW50IHVj
+Y19tdXhfc2V0X2dyYW50X3RzYV9ia3B0KHVuc2lnbmVkIGludCB1Y2NfbnVtLCBpbnQgc2V0LCB1
+MzIgbWFzayk7CiAKZGlmZiAtLWdpdCBhL2luY2x1ZGUvc29jL2ZzbC9xZS91Y2NfZmFzdC5oIGIv
+aW5jbHVkZS9zb2MvZnNsL3FlL3VjY19mYXN0LmgKaW5kZXggMzE1NDhiNy4uYjI2MzNiNyAxMDA2
+NDQKLS0tIGEvaW5jbHVkZS9zb2MvZnNsL3FlL3VjY19mYXN0LmgKKysrIGIvaW5jbHVkZS9zb2Mv
+ZnNsL3FlL3VjY19mYXN0LmgKQEAgLTExOCw2ICsxMTgsNyBAQCBlbnVtIHVjY19mYXN0X3RyYW5z
+cGFyZW50X3RjcmMgewogLyogRmFzdCBVQ0MgaW5pdGlhbGl6YXRpb24gc3RydWN0dXJlICovCiBz
+dHJ1Y3QgdWNjX2Zhc3RfaW5mbyB7CiAJaW50IHVjY19udW07CisJaW50IHRkbV9udW07CiAJZW51
+bSBxZV9jbG9jayByeF9jbG9jazsKIAllbnVtIHFlX2Nsb2NrIHR4X2Nsb2NrOwogCWVudW0gcWVf
+Y2xvY2sgcnhfc3luYzsKLS0gCjIuMS4wLjI3Lmc5NmRiMzI0CgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0Ckxp
+bnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0
+aW5mby9saW51eHBwYy1kZXY=
