@@ -1,45 +1,187 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 0/2] net: vrf: Improve use of FIB rules
-Date: Wed,  1 Jun 2016 21:14:52 -0700
-Message-ID: <1464840894-12697-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 2/2] net: vrf: Add l3mdev rules on first device create
+Date: Wed,  1 Jun 2016 21:14:54 -0700
+Message-ID: <1464840894-12697-3-git-send-email-dsa@cumulusnetworks.com>
+References: <1464840894-12697-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34852 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731AbcFBEPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 00:15:06 -0400
-Received: by mail-pf0-f181.google.com with SMTP id g64so26130160pfb.2
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 21:15:05 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33079 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750744AbcFBEPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 00:15:07 -0400
+Received: by mail-pa0-f43.google.com with SMTP id um11so2366692pab.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 21:15:07 -0700 (PDT)
+In-Reply-To: <1464840894-12697-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, VRFs require 1 oif and 1 iif rule per address family per
-VRF. As the number of VRF devices increases it brings scalability
-issues with the increasing rule list. All of the VRF rules have the
-same format with the exception of the specific table id to direct the
-lookup. Since the table id is available from the oif or iif in the
-loopup, the VRF rules can be consolidated to a single rule that pulls
-the table from the VRF device.
+Add l3mdev rule per address family when the first VRF device is
+created. Remove them when the last is deleted.
 
-This solution still allows a user to insert their own rules for VRFs,
-including rules with additional attributes. Accordingly, it is backwards
-compatible with existing setups and allows other policy routing as
-desired.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ drivers/net/vrf.c | 114 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 113 insertions(+), 1 deletion(-)
 
-David Ahern (2):
-  net: Add l3mdev rule
-  net: vrf: Add l3mdev rules on first device create
-
- drivers/net/vrf.c              | 114 ++++++++++++++++++++++++++++++++++++++++-
- include/net/fib_rules.h        |  24 ++++++++-
- include/net/l3mdev.h           |  12 +++++
- include/uapi/linux/fib_rules.h |   1 +
- net/core/fib_rules.c           |  33 ++++++++++--
- net/ipv4/fib_rules.c           |   5 +-
- net/ipv6/fib6_rules.c          |   5 +-
- net/l3mdev/l3mdev.c            |  38 ++++++++++++++
- 8 files changed, 220 insertions(+), 12 deletions(-)
-
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index dff08842f26d..b3cb80e84ea7 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -35,6 +35,7 @@
+ #include <net/route.h>
+ #include <net/addrconf.h>
+ #include <net/l3mdev.h>
++#include <net/fib_rules.h>
+ 
+ #define RT_FL_TOS(oldflp4) \
+ 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+@@ -42,6 +43,11 @@
+ #define DRV_NAME	"vrf"
+ #define DRV_VERSION	"1.0"
+ 
++static atomic_t num_vrfs;
++
++static u32 rule_pref = 1000;
++module_param(rule_pref, uint,  S_IRUGO);
++
+ struct net_vrf {
+ 	struct rtable __rcu	*rth;
+ 	struct rt6_info	__rcu	*rt6;
+@@ -723,6 +729,93 @@ static const struct ethtool_ops vrf_ethtool_ops = {
+ 	.get_drvinfo	= vrf_get_drvinfo,
+ };
+ 
++static inline size_t vrf_fib_rule_nl_size(void)
++{
++	size_t sz;
++
++	sz  = NLMSG_ALIGN(sizeof(struct fib_rule_hdr));
++	sz += nla_total_size(sizeof(u8));	/* FRA_L3MDEV */
++	sz += nla_total_size(sizeof(u32));	/* FRA_PRIORITY */
++
++	return sz;
++}
++
++static int vrf_fib_rule(const struct net_device *dev, __u8 family, bool add_it)
++{
++	struct fib_rule_hdr *frh;
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	int err;
++
++	skb = nlmsg_new(vrf_fib_rule_nl_size(), GFP_KERNEL);
++	if (!skb)
++		return -ENOMEM;
++
++	nlh = nlmsg_put(skb, 0, 0, 0, sizeof(*frh), 0);
++	if (!nlh)
++		goto nla_put_failure;
++
++	frh = nlmsg_data(nlh);
++	memset(frh, 0, sizeof(*frh));
++	frh->family = family;
++	frh->action = FR_ACT_TO_TBL;
++
++	if (nla_put_u32(skb, FRA_L3MDEV, 1))
++		goto nla_put_failure;
++
++	if (nla_put_u32(skb, FRA_PRIORITY, rule_pref))
++		goto nla_put_failure;
++
++	nlmsg_end(skb, nlh);
++
++	/* fib_nl_{new,del}rule handling looks for net from skb->sk */
++	skb->sk = dev_net(dev)->rtnl;
++	if (add_it) {
++		err = fib_nl_newrule(skb, nlh);
++	} else {
++		err = fib_nl_delrule(skb, nlh);
++		if (err == -ENOENT)
++			err = 0;
++	}
++	nlmsg_free(skb);
++
++	return err;
++
++nla_put_failure:
++	nlmsg_free(skb);
++
++	return -EMSGSIZE;
++}
++
++static void vrf_del_fib_rules(const struct net_device *dev)
++{
++	if (vrf_fib_rule(dev, AF_INET,  0) ||
++	    vrf_fib_rule(dev, AF_INET6, 0)) {
++		netdev_err(dev, "Failed to delete FIB rules.\n");
++	}
++}
++
++static int vrf_add_fib_rules(const struct net_device *dev)
++{
++	int err;
++
++	err = vrf_fib_rule(dev, AF_INET,  1);
++	if (err < 0)
++		goto out_err;
++
++	err = vrf_fib_rule(dev, AF_INET6, 1);
++	if (err < 0)
++		goto out_err;
++
++	return 0;
++
++out_err:
++	netdev_err(dev, "Failed to add FIB rules.\n");
++	vrf_del_fib_rules(dev);
++
++	return err;
++}
++
+ static void vrf_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -757,12 +850,17 @@ static int vrf_validate(struct nlattr *tb[], struct nlattr *data[])
+ static void vrf_dellink(struct net_device *dev, struct list_head *head)
+ {
+ 	unregister_netdevice_queue(dev, head);
++
++	atomic_dec(&num_vrfs);
++	if (!atomic_read(&num_vrfs))
++		vrf_del_fib_rules(dev);
+ }
+ 
+ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 		       struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct net_vrf *vrf = netdev_priv(dev);
++	int err;
+ 
+ 	if (!data || !data[IFLA_VRF_TABLE])
+ 		return -EINVAL;
+@@ -771,7 +869,21 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	dev->priv_flags |= IFF_L3MDEV_MASTER;
+ 
+-	return register_netdevice(dev);
++	err = register_netdevice(dev);
++	if (err)
++		goto out;
++
++	if (!atomic_read(&num_vrfs)) {
++		err = vrf_add_fib_rules(dev);
++		if (err) {
++			unregister_netdevice(dev);
++			goto out;
++		}
++	}
++
++	atomic_inc(&num_vrfs);
++out:
++	return err;
+ }
+ 
+ static size_t vrf_nl_getsize(const struct net_device *dev)
 -- 
 2.1.4
