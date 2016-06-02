@@ -1,47 +1,69 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH -next 2/2] virtio_net: Read the advised MTU
-Date: Thu, 2 Jun 2016 11:02:43 -0700
-Message-ID: <575074C3.8040908@hpe.com>
-References: <1464882211-18723-1-git-send-email-aconole@redhat.com>
-	<1464882211-18723-3-git-send-email-aconole@redhat.com>
-	<5750578E.4040406@hpe.com> <f7tmvn3sep3.fsf@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] r8152: Add support for setting MAC to system's Auxiliary MAC address
+Date: Thu, 02 Jun 2016 20:04:02 +0200
+Message-ID: <87vb1rwjql.fsf@nemi.mork.no>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+	<20160601230535.GA29279@kroah.com>
+	<0bdb98b72b884682b936c0587f965629@ausx13mpc124.AMER.DELL.COM>
+	<20160602152244.GA26494@kroah.com>
+	<6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Aaron Conole <aconole@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <f7tmvn3sep3.fsf@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <gregkh@linuxfoundation.org>, <hayeswang@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <pali.rohar@gmail.com>,
+	<anthony.wong@canonical.com>
+To: <Mario_Limonciello@Dell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM>
+	(Mario Limonciello's message of "Thu, 2 Jun 2016 15:46:41 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/02/2016 10:06 AM, Aaron Conole wrote:
-> Rick Jones <rick.jones2@hpe.com> writes:
->> One of the things I've been doing has been setting-up a cluster
->> (OpenStack) with JumboFrames, and then setting MTUs on instance vNICs
->> by hand to measure different MTU sizes.  It would be a shame if such a
->> thing were not possible in the future.  Keeping a warning if shrinking
->> the MTU would be good, leave the error (perhaps) to if an attempt is
->> made to go beyond the advised value.
+<Mario_Limonciello@Dell.com> writes:
+
+>> > 2) Track whether this is the first or second USB NIC plugged in.  =
+Only offer it
+>> on the first NIC detected by r8152.  When the second NIC is plugged =
+in don't
+>> match from ACPI.
+>> > There would be a question of what to do if the first NIC is remove=
+d and
+>> added back if it should get the persistent system MAC or not.
+>> > I'd say yes, just make sure that only one NIC can have it at a tim=
+e.
+>>=20
+>> You are going to get things very complex very quickly if you try to =
+do this.
 >
-> This was cut because it didn't make sense for such a warning to
-> be issued, but it seems like perhaps you may want such a feature?  I
-> agree with Michael, after thinking about it, that I don't know what sort
-> of use the warning would serve.  After all, if you're changing the MTU,
-> you must have wanted such a change to occur?
+> It's really not that hard, track a module wide static variable whethe=
+r
+> the feature is in use.  Track in each device whether the feature was
+> in use.  If it in use, don't assign the next device plugged in via th=
+e
+> ACPI string.  If a device is removed that has the feature activated,
+> change the module wide static variable.
 
-I don't need a warning, was simply willing to live with one when 
-shrinking the MTU.  Didn't want an error.
+Having the mac address jump around in an arbitrary way like this is
+going to confuse the hell out of your users.  Consider what happens if
+the user docks a laptop with an r8152 usb dongle already plugged in...
+How are you going to explain that the dock gets some other mac address
+in this case? How are you going to explain the difference between using
+an r8152 based dongle and some other ethernet usb dongle with your
+systems?
 
-happy benchmarking,
+Make it behave consistently if you're going to add this.  Which can be
+done by specifically matching the Dell dock (doesn't it have an unique
+Dell device ID?) and ignoring any other r8152 device.  You could also
+choose to set the same mac for all r8152 devices.  Which is fine, but
+will probably confuse many users.
 
-rick jones
+What you definitely should not do is to change the mac for some
+arbitrary "first" device.  Then you are better off with the userspace
+proposal where you and your users have some chance to implement a
+sensible policy based on e.g. usb port numbers.
+
+
+
+Bj=C3=B8rn
