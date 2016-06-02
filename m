@@ -1,307 +1,258 @@
 From: Vishwanath Pai <vpai@akamai.com>
-Subject: [PATCH 3/3] netfilter: iptables-restore does not work as expected
- with xt_hashlimit
-Date: Wed, 1 Jun 2016 20:12:36 -0400
-Message-ID: <20160602001236.GC1644@akamai.com>
+Subject: [PATCH iptables 1/3] libxt_hashlimit: Prepare libxt_hashlimit.c for
+ revision 2
+Date: Wed, 1 Jun 2016 20:16:28 -0400
+Message-ID: <20160602001628.GD1644@akamai.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: coreteam@netfilter.org, johunt@akamai.com, netdev@vger.kernel.org,
 	pai.vishwain@gmail.com
 To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
 	netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:34494 "EHLO
-	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752395AbcFBAMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 20:12:39 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netfilter: iptables-restore does not work as expected with xt_hashlimit
+libxt_hashlimit: Prepare libxt_hashlimit.c for revision 2
 
-Add the following iptables rule.
-
-$ iptables -A INPUT -m hashlimit --hashlimit-above 200/sec \
-  --hashlimit-burst 5 --hashlimit-mode srcip --hashlimit-name hashlimit1 \
-  --hashlimit-htable-expire 30000 -j DROP
-
-$ iptables-save > save.txt
-
-Edit save.txt and change the value of --hashlimit-above to 300:
-
--A INPUT -m hashlimit --hashlimit-above 300/sec --hashlimit-burst 5 \
---hashlimit-mode srcip --hashlimit-name hashlimit2 \
---hashlimit-htable-expire 30000 -j DROP
-
-Now restore save.txt
-
-$ iptables-restore < save.txt
-
-Now userspace thinks that the value of --hashlimit-above is 300 but it is
-actually 200 in the kernel. This happens because when we add multiple
-hash-limit rules with the same name they will share the same hashtable
-internally. The kernel module tries to re-use the old hashtable without
-updating the values.
-
-There are multiple problems here:
-1) We can add two iptables rules with the same name, but kernel does not
-   handle this well, one procfs file cannot work with two rules
-2) If the second rule has no effect because the hashtable has values from
-   rule 1
-3) hashtable-restore does not work (as described above)
-
-To fix this I have made the following design change:
-1) If a second rule is added with the same name as an existing rule,
-   append a number when we create the procfs, for example hashlimit_1,
-   hashlimit_2 etc
-2) Two rules will not share the same hashtable unless they are similar in
-   every possible way
-3) This behavior has to be forced with a new userspace flag:
-   --hashlimit-ehanced-procfs, if this flag is not passed we default to
-   the old behavior. This is to make sure we do not break existing scripts
-   that rely on the existing behavior.
+I am planning to add a revision 2 for the hashlimit xtables module to
+support higher packets per second rates. This patch renames all the
+functions and variables related to revision 1 by adding _v1 at the end of
+the names.
 
 Signed-off-by: Vishwanath Pai <vpai@akamai.com>
 
-diff --git a/include/uapi/linux/netfilter/xt_hashlimit.h b/include/uapi/linux/netfilter/xt_hashlimit.h
-index be5d2e1..74444c7 100644
---- a/include/uapi/linux/netfilter/xt_hashlimit.h
-+++ b/include/uapi/linux/netfilter/xt_hashlimit.h
-@@ -18,6 +18,10 @@
- struct xt_hashlimit_htable;
+diff --git a/extensions/libxt_hashlimit.c b/extensions/libxt_hashlimit.c
+index c5b8d77..ad7fb93 100644
+--- a/extensions/libxt_hashlimit.c
++++ b/extensions/libxt_hashlimit.c
+@@ -23,7 +23,7 @@
+ #include <linux/netfilter/xt_hashlimit.h>
  
- enum {
-+	XT_HASHLIMIT_FLAG_PROCFS = 1
-+};
-+
-+enum {
- 	XT_HASHLIMIT_HASH_DIP = 1 << 0,
- 	XT_HASHLIMIT_HASH_DPT = 1 << 1,
- 	XT_HASHLIMIT_HASH_SIP = 1 << 2,
-@@ -76,6 +80,9 @@ struct hashlimit_cfg2 {
- 	__u32 expire;	/* when do entries expire? */
+ #define XT_HASHLIMIT_BURST	5
+-#define XT_HASHLIMIT_BURST_MAX	10000
++#define XT_HASHLIMIT_BURST_MAX_v1	10000
  
- 	__u8 srcmask, dstmask;
-+
-+	__u8 procfs_suffix;
-+	__u32 flags;
- };
+ #define XT_HASHLIMIT_BYTE_EXPIRE	15
+ #define XT_HASHLIMIT_BYTE_EXPIRE_BURST	60
+@@ -98,7 +98,7 @@ static const struct xt_option_entry hashlimit_opts[] = {
+ 	{.name = "hashlimit", .id = O_UPTO, .excl = F_ABOVE,
+ 	 .type = XTTYPE_STRING},
+ 	{.name = "hashlimit-burst", .id = O_BURST, .type = XTTYPE_UINT32,
+-	 .min = 1, .max = XT_HASHLIMIT_BURST_MAX, .flags = XTOPT_PUT,
++	 .min = 1, .max = XT_HASHLIMIT_BURST_MAX_v1, .flags = XTOPT_PUT,
+ 	 XTOPT_POINTER(s, cfg.burst)},
+ 	{.name = "hashlimit-htable-size", .id = O_HTABLE_SIZE,
+ 	 .type = XTTYPE_UINT32, .flags = XTOPT_PUT,
+@@ -121,7 +121,7 @@ static const struct xt_option_entry hashlimit_opts[] = {
+ #undef s
  
- struct xt_hashlimit_mtinfo1 {
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 412e6ef..79d6745 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -238,6 +238,74 @@ dsthash_free(struct xt_hashlimit_htable *ht, struct dsthash_ent *ent)
+ #define s struct xt_hashlimit_mtinfo1
+-static const struct xt_option_entry hashlimit_mt_opts[] = {
++static const struct xt_option_entry hashlimit_mt_opts_v1[] = {
+ 	{.name = "hashlimit-upto", .id = O_UPTO, .excl = F_ABOVE,
+ 	 .type = XTTYPE_STRING, .flags = XTOPT_INVERT},
+ 	{.name = "hashlimit-above", .id = O_ABOVE, .excl = F_UPTO,
+@@ -174,10 +174,10 @@ static uint32_t get_factor(int chr)
+ 	return 1;
  }
- static void htable_gc(struct work_struct *work);
  
-+static int
-+generate_procfs_suffix(struct net *net, const char *name,
-+		       struct hashlimit_cfg2 *cfg, u_int8_t family)
-+{
-+	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
-+	struct xt_hashlimit_htable *hinfo;
-+	unsigned long bitarray = 0;
-+
-+	hlist_for_each_entry(hinfo, &hashlimit_net->htables, node) {
-+		if (!strcmp(name, hinfo->name) && hinfo->family == family)
-+			__set_bit(hinfo->cfg.procfs_suffix, &bitarray);
-+	}
-+
-+	/* Too many name clashes, bail out
-+	 */
-+	if (bitarray == ~0UL)
-+		return -1;
-+
-+	cfg->procfs_suffix = ffz(bitarray);
-+
-+	return 0;
-+}
-+
-+static bool
-+htable_compare(struct hashlimit_cfg2 *newcfg, const char *newname,
-+	       struct xt_hashlimit_htable *hinfo, u_int8_t family)
-+{
-+	struct hashlimit_cfg2 *oldcfg = &hinfo->cfg;
-+
-+	if (!(newcfg->flags & XT_HASHLIMIT_FLAG_PROCFS)) {
-+		return (!strcmp(newname, hinfo->name) &&
-+				family == hinfo->family);
-+	}
-+
-+	if (!strcmp(newname, hinfo->name) &&
-+		family == hinfo->family &&
-+		newcfg->mode == oldcfg->mode &&
-+		newcfg->avg == oldcfg->avg &&
-+		newcfg->burst == oldcfg->burst &&
-+		newcfg->size == oldcfg->size &&
-+		newcfg->max == oldcfg->max &&
-+		newcfg->gc_interval == oldcfg->gc_interval &&
-+		newcfg->expire == oldcfg->expire &&
-+		newcfg->srcmask == oldcfg->srcmask &&
-+		newcfg->dstmask == oldcfg->dstmask) {
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
-+static void
-+htable_cfg_init(struct hashlimit_cfg2 *cfg) {
-+	if (!cfg->size) {
-+		cfg->size = (totalram_pages << PAGE_SHIFT) / 16384 /
-+				sizeof(struct list_head);
-+		if (totalram_pages > 1024 * 1024 * 1024 / PAGE_SIZE)
-+			cfg->size = 8192;
-+		if (cfg->size < 16)
-+			cfg->size = 16;
-+	}
-+
-+	if (cfg->max == 0)
-+		cfg->max = 8 * cfg->size;
-+	else if (cfg->max < cfg->size)
-+		cfg->max = cfg->size;
-+}
-+
- static int htable_create(struct net *net, struct hashlimit_cfg2 *cfg,
- 			 const char *name, u_int8_t family,
- 			 struct xt_hashlimit_htable **out_hinfo,
-@@ -245,6 +313,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg2 *cfg,
+-static void burst_error(void)
++static void burst_error_v1(void)
  {
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
- 	struct xt_hashlimit_htable *hinfo;
-+	char newname[NAME_MAX];
- 	unsigned int size, i;
+ 	xtables_error(PARAMETER_PROBLEM, "bad value for option "
+-			"\"--hashlimit-burst\", or out of range (1-%u).", XT_HASHLIMIT_BURST_MAX);
++			"\"--hashlimit-burst\", or out of range (1-%u).", XT_HASHLIMIT_BURST_MAX_v1);
+ }
  
- 	if (cfg->size) {
-@@ -286,7 +355,13 @@ static int htable_create(struct net *net, struct hashlimit_cfg2 *cfg,
+ static uint32_t parse_burst(const char *burst, struct xt_hashlimit_mtinfo1 *info)
+@@ -186,8 +186,8 @@ static uint32_t parse_burst(const char *burst, struct xt_hashlimit_mtinfo1 *info
+ 	char *end;
+ 
+ 	if (!xtables_strtoul(burst, &end, &v, 1, UINT32_MAX) ||
+-	    (*end == 0 && v > XT_HASHLIMIT_BURST_MAX))
+-		burst_error();
++	    (*end == 0 && v > XT_HASHLIMIT_BURST_MAX_v1))
++		burst_error_v1();
+ 
+ 	v *= get_factor(*end);
+ 	if (v > UINT32_MAX)
+@@ -253,7 +253,7 @@ int parse_rate(const char *rate, uint32_t *val, struct hashlimit_mt_udata *ud)
+ 	if (!r)
+ 		return 0;
+ 
+-	*val = XT_HASHLIMIT_SCALE * ud->mult / r;
++	*val = XT_HASHLIMIT_SCALE_v1 * ud->mult / r;
+ 	if (*val == 0)
+ 		/*
+ 		 * The rate maps to infinity. (1/day is the minimum they can
+@@ -272,7 +272,7 @@ static void hashlimit_init(struct xt_entry_match *m)
+ 
+ }
+ 
+-static void hashlimit_mt4_init(struct xt_entry_match *match)
++static void hashlimit_mt4_init_v1(struct xt_entry_match *match)
+ {
+ 	struct xt_hashlimit_mtinfo1 *info = (void *)match->data;
+ 
+@@ -283,7 +283,7 @@ static void hashlimit_mt4_init(struct xt_entry_match *match)
+ 	info->cfg.dstmask     = 32;
+ }
+ 
+-static void hashlimit_mt6_init(struct xt_entry_match *match)
++static void hashlimit_mt6_init_v1(struct xt_entry_match *match)
+ {
+ 	struct xt_hashlimit_mtinfo1 *info = (void *)match->data;
+ 
+@@ -342,7 +342,7 @@ static void hashlimit_parse(struct xt_option_call *cb)
  	}
- 	spin_lock_init(&hinfo->lock);
- 
--	hinfo->pde = proc_create_data(name, 0,
-+	/* if procfs_suffix !=0 and flags then generate new name */
-+	if (cfg->procfs_suffix && (cfg->flags || true))
-+		snprintf(newname, NAME_MAX, "%s_%u", name, cfg->procfs_suffix);
-+	else
-+		strcpy(newname, name);
-+
-+	hinfo->pde = proc_create_data(newname, 0,
- 		(family == NFPROTO_IPV4) ?
- 		hashlimit_net->ipt_hashlimit : hashlimit_net->ip6t_hashlimit,
- 		(revision == 1) ? &dl_file_ops_v1 : &dl_file_ops,
-@@ -355,14 +430,47 @@ static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
- {
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(hinfo->net);
- 	struct proc_dir_entry *parent;
-+	char newname[NAME_MAX];
- 
- 	if (hinfo->family == NFPROTO_IPV4)
- 		parent = hashlimit_net->ipt_hashlimit;
- 	else
- 		parent = hashlimit_net->ip6t_hashlimit;
- 
-+	if (hinfo->cfg.procfs_suffix)
-+		snprintf(newname, NAME_MAX, "%s_%u", hinfo->name,
-+						hinfo->cfg.procfs_suffix);
-+	else
-+		strcpy(newname, hinfo->name);
-+
- 	if (parent != NULL)
--		remove_proc_entry(hinfo->name, parent);
-+		remove_proc_entry(newname, parent);
-+}
-+
-+static void htable_reorganize_procfs(const struct xt_mtdtor_param *par,
-+				     const char *name) {
-+	struct hashlimit_net *hashlimit_net = hashlimit_pernet(par->net);
-+	struct xt_hashlimit_htable *hinfo, *hinfo_rename;
-+	u_int8_t family = par->family;
-+	int count = 0;
-+
-+	hlist_for_each_entry(hinfo, &hashlimit_net->htables, node) {
-+		if (!strcmp(name, hinfo->name) && hinfo->family == family) {
-+			hinfo_rename = hinfo;
-+			count++;
-+		}
-+	}
-+
-+	if (count != 1 || hinfo_rename->cfg.procfs_suffix == 0)
-+		return;
-+
-+	htable_remove_proc_entry(hinfo_rename);
-+
-+	hinfo_rename->cfg.procfs_suffix = 0;
-+	hinfo_rename->pde = proc_create_data(name, 0,
-+		(family == NFPROTO_IPV4) ?
-+		hashlimit_net->ipt_hashlimit : hashlimit_net->ip6t_hashlimit,
-+		&dl_file_ops, hinfo_rename);
  }
  
- static void htable_destroy(struct xt_hashlimit_htable *hinfo)
-@@ -374,16 +482,18 @@ static void htable_destroy(struct xt_hashlimit_htable *hinfo)
- 	vfree(hinfo);
+-static void hashlimit_mt_parse(struct xt_option_call *cb)
++static void hashlimit_mt_parse_v1(struct xt_option_call *cb)
+ {
+ 	struct xt_hashlimit_mtinfo1 *info = cb->data;
+ 
+@@ -395,7 +395,7 @@ static void hashlimit_check(struct xt_fcheck_call *cb)
+ 		info->cfg.expire = udata->mult * 1000; /* from s to msec */
  }
  
--static struct xt_hashlimit_htable *htable_find_get(struct net *net,
--						   const char *name,
--						   u_int8_t family)
-+static struct
-+xt_hashlimit_htable *htable_find_get(struct net *net, const char *name,
-+				     struct hashlimit_cfg2 cfg,
-+				     u_int8_t family)
+-static void hashlimit_mt_check(struct xt_fcheck_call *cb)
++static void hashlimit_mt_check_v1(struct xt_fcheck_call *cb)
  {
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
- 	struct xt_hashlimit_htable *hinfo;
- 
-+	htable_cfg_init(&cfg);
-+
- 	hlist_for_each_entry(hinfo, &hashlimit_net->htables, node) {
--		if (!strcmp(name, hinfo->name) &&
--		    hinfo->family == family) {
-+		if (htable_compare(&cfg, name, hinfo, family)) {
- 			hinfo->use++;
- 			return hinfo;
+ 	const struct hashlimit_mt_udata *udata = cb->udata;
+ 	struct xt_hashlimit_mtinfo1 *info = cb->data;
+@@ -421,18 +421,18 @@ static void hashlimit_mt_check(struct xt_fcheck_call *cb)
+ 				info->cfg.expire = XT_HASHLIMIT_BYTE_EXPIRE_BURST * 1000;
  		}
-@@ -707,7 +817,7 @@ hashlimit_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
- 	struct xt_hashlimit_htable *hinfo = info->hinfo;
--	struct hashlimit_cfg2 cfg;
-+	struct hashlimit_cfg2 cfg = {};
- 
- 	cfg_copy(&cfg, (void *)&info->cfg, 1);
- 
-@@ -762,8 +872,12 @@ static int hashlimit_mt_check_common(const struct xt_mtchk_param *par,
- 	}
- 
- 	mutex_lock(&hashlimit_mutex);
--	*hinfo = htable_find_get(net, name, par->family);
-+	*hinfo = htable_find_get(net, name, *cfg, par->family);
- 	if (*hinfo == NULL) {
-+		if ((cfg->flags & XT_HASHLIMIT_FLAG_PROCFS) && revision == 2)
-+			if (generate_procfs_suffix(net, name, cfg, par->family))
-+				return -EINVAL;
-+
- 		ret = htable_create(net, cfg, name, par->family,
- 				    hinfo, revision);
- 		if (ret < 0) {
-@@ -779,7 +893,7 @@ static int hashlimit_mt_check_common(const struct xt_mtchk_param *par,
- static int hashlimit_mt_check_v1(const struct xt_mtchk_param *par)
- {
- 	struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
--	struct hashlimit_cfg2 cfg;
-+	struct hashlimit_cfg2 cfg = {};
- 
- 	if (info->name[sizeof(info->name) - 1] != '\0')
- 		return -EINVAL;
-@@ -813,6 +927,8 @@ static void hashlimit_mt_destroy(const struct xt_mtdtor_param *par)
- 	const struct xt_hashlimit_mtinfo2 *info = par->matchinfo;
- 
- 	htable_put(info->hinfo);
-+
-+	htable_reorganize_procfs(par, info->name);
+ 		info->cfg.burst = burst;
+-	} else if (info->cfg.burst > XT_HASHLIMIT_BURST_MAX)
+-		burst_error();
++	} else if (info->cfg.burst > XT_HASHLIMIT_BURST_MAX_v1)
++		burst_error_v1();
  }
  
- static struct xt_match hashlimit_mt_reg[] __read_mostly = {
+-static const struct rates
++static const struct rates_v1
+ {
+ 	const char *name;
+ 	uint32_t mult;
+-} rates[] = { { "day", XT_HASHLIMIT_SCALE*24*60*60 },
+-	      { "hour", XT_HASHLIMIT_SCALE*60*60 },
+-	      { "min", XT_HASHLIMIT_SCALE*60 },
+-	      { "sec", XT_HASHLIMIT_SCALE } };
++} rates_v1[] = { { "day", XT_HASHLIMIT_SCALE_v1*24*60*60 },
++		 { "hour", XT_HASHLIMIT_SCALE_v1*60*60 },
++		 { "min", XT_HASHLIMIT_SCALE_v1*60 },
++		 { "sec", XT_HASHLIMIT_SCALE_v1 } };
+ 
+ static uint32_t print_rate(uint32_t period)
+ {
+@@ -443,14 +443,14 @@ static uint32_t print_rate(uint32_t period)
+ 		return 0;
+ 	}
+ 
+-	for (i = 1; i < ARRAY_SIZE(rates); ++i)
+-		if (period > rates[i].mult
+-            || rates[i].mult/period < rates[i].mult%period)
++	for (i = 1; i < ARRAY_SIZE(rates_v1); ++i)
++		if (period > rates_v1[i].mult
++            || rates_v1[i].mult/period < rates_v1[i].mult%period)
+ 			break;
+ 
+-	printf(" %u/%s", rates[i-1].mult / period, rates[i-1].name);
++	printf(" %u/%s", rates_v1[i-1].mult / period, rates_v1[i-1].name);
+ 	/* return in msec */
+-	return rates[i-1].mult / XT_HASHLIMIT_SCALE * 1000;
++	return rates_v1[i-1].mult / XT_HASHLIMIT_SCALE_v1 * 1000;
+ }
+ 
+ static const struct {
+@@ -574,7 +574,7 @@ hashlimit_mt_print(const struct xt_hashlimit_mtinfo1 *info, unsigned int dmask)
+ }
+ 
+ static void
+-hashlimit_mt4_print(const void *ip, const struct xt_entry_match *match,
++hashlimit_mt4_print_v1(const void *ip, const struct xt_entry_match *match,
+                    int numeric)
+ {
+ 	const struct xt_hashlimit_mtinfo1 *info = (const void *)match->data;
+@@ -583,7 +583,7 @@ hashlimit_mt4_print(const void *ip, const struct xt_entry_match *match,
+ }
+ 
+ static void
+-hashlimit_mt6_print(const void *ip, const struct xt_entry_match *match,
++hashlimit_mt6_print_v1(const void *ip, const struct xt_entry_match *match,
+                    int numeric)
+ {
+ 	const struct xt_hashlimit_mtinfo1 *info = (const void *)match->data;
+@@ -656,7 +656,7 @@ hashlimit_mt_save(const struct xt_hashlimit_mtinfo1 *info, unsigned int dmask)
+ }
+ 
+ static void
+-hashlimit_mt4_save(const void *ip, const struct xt_entry_match *match)
++hashlimit_mt4_save_v1(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_hashlimit_mtinfo1 *info = (const void *)match->data;
+ 
+@@ -664,7 +664,7 @@ hashlimit_mt4_save(const void *ip, const struct xt_entry_match *match)
+ }
+ 
+ static void
+-hashlimit_mt6_save(const void *ip, const struct xt_entry_match *match)
++hashlimit_mt6_save_v1(const void *ip, const struct xt_entry_match *match)
+ {
+ 	const struct xt_hashlimit_mtinfo1 *info = (const void *)match->data;
+ 
+@@ -696,12 +696,12 @@ static struct xtables_match hashlimit_mt_reg[] = {
+ 		.size          = XT_ALIGN(sizeof(struct xt_hashlimit_mtinfo1)),
+ 		.userspacesize = offsetof(struct xt_hashlimit_mtinfo1, hinfo),
+ 		.help          = hashlimit_mt_help,
+-		.init          = hashlimit_mt4_init,
+-		.x6_parse      = hashlimit_mt_parse,
+-		.x6_fcheck     = hashlimit_mt_check,
+-		.print         = hashlimit_mt4_print,
+-		.save          = hashlimit_mt4_save,
+-		.x6_options    = hashlimit_mt_opts,
++		.init          = hashlimit_mt4_init_v1,
++		.x6_parse      = hashlimit_mt_parse_v1,
++		.x6_fcheck     = hashlimit_mt_check_v1,
++		.print         = hashlimit_mt4_print_v1,
++		.save          = hashlimit_mt4_save_v1,
++		.x6_options    = hashlimit_mt_opts_v1,
+ 		.udata_size    = sizeof(struct hashlimit_mt_udata),
+ 	},
+ 	{
+@@ -712,12 +712,12 @@ static struct xtables_match hashlimit_mt_reg[] = {
+ 		.size          = XT_ALIGN(sizeof(struct xt_hashlimit_mtinfo1)),
+ 		.userspacesize = offsetof(struct xt_hashlimit_mtinfo1, hinfo),
+ 		.help          = hashlimit_mt_help,
+-		.init          = hashlimit_mt6_init,
+-		.x6_parse      = hashlimit_mt_parse,
+-		.x6_fcheck     = hashlimit_mt_check,
+-		.print         = hashlimit_mt6_print,
+-		.save          = hashlimit_mt6_save,
+-		.x6_options    = hashlimit_mt_opts,
++		.init          = hashlimit_mt6_init_v1,
++		.x6_parse      = hashlimit_mt_parse_v1,
++		.x6_fcheck     = hashlimit_mt_check_v1,
++		.print         = hashlimit_mt6_print_v1,
++		.save          = hashlimit_mt6_save_v1,
++		.x6_options    = hashlimit_mt_opts_v1,
+ 		.udata_size    = sizeof(struct hashlimit_mt_udata),
+ 	},
+ };
+diff --git a/include/linux/netfilter/xt_hashlimit.h b/include/linux/netfilter/xt_hashlimit.h
+index 141efbd..0af5477 100644
+--- a/include/linux/netfilter/xt_hashlimit.h
++++ b/include/linux/netfilter/xt_hashlimit.h
+@@ -4,7 +4,7 @@
+ #include <linux/types.h>
+ 
+ /* timings are in milliseconds. */
+-#define XT_HASHLIMIT_SCALE 10000
++#define XT_HASHLIMIT_SCALE_v1 10000
+ /* 1/10,000 sec period => max of 10,000/sec.  Min rate is then 429490
+    seconds, or one packet every 59 hours. */
+ 
