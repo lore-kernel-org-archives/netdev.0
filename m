@@ -1,94 +1,76 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next] sctp: sctp should change socket state when
- shutdown is received
-Date: Thu, 2 Jun 2016 14:09:23 +0800
-Message-ID: <CADvbK_e6hNRigHP9WCc-zb5Tg3zWBuxgjuioacR-nWYStvNOAQ@mail.gmail.com>
-References: <42953bb341d78d8b83dfccebb0beaa9387d8e1af.1464809925.git.lucien.xin@gmail.com>
-	<20160601214032.GB29509@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next v10 0/5] openvswitch: support for layer 3 encapsulated packets
+Date: Thu,  2 Jun 2016 15:24:41 +0900
+Message-ID: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
+Cc: dev@openvswitch.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34372 "EHLO
-	mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbcFBGX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 02:23:57 -0400
-In-Reply-To: <20160601214032.GB29509@localhost.localdomain>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33538 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307AbcFBGYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 02:24:55 -0400
+Received: by mail-pf0-f182.google.com with SMTP id b124so27510252pfb.0
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 23:24:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 2, 2016 at 5:40 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Thu, Jun 02, 2016 at 03:38:45AM +0800, Xin Long wrote:
->> Now sctp doesn't change socket state upon shutdown reception. It changes
->> just the assoc state, even though it's a TCP-style socket.
->>
->> For some cases, if we really need to check sk->sk_state, it's necessary to
->> fix this issue, at least when we use ss or netstat to dump, we can get a
->> more exact information.
->>
->> As an improvement, we will change sk->sk_state when we change asoc->state
->> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
->> sctp_close.
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/sctp/sm_sideeffect.c | 4 +++-
->>  net/sctp/socket.c        | 5 ++++-
->>  2 files changed, 7 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
->> index aa37122..12d4519 100644
->> --- a/net/sctp/sm_sideeffect.c
->> +++ b/net/sctp/sm_sideeffect.c
->> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
->>
->>               /* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
->>               if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
->> -                 sctp_sstate(sk, ESTABLISHED))
->> +                 sctp_sstate(sk, ESTABLISHED)) {
->> +                     sk->sk_state = SCTP_SS_CLOSING;
->>                       sk->sk_shutdown |= RCV_SHUTDOWN;
->> +             }
->>       }
->>
->>       if (sctp_state(asoc, COOKIE_WAIT)) {
->> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->> index 67154b8..c20199a 100644
->> --- a/net/sctp/socket.c
->> +++ b/net/sctp/socket.c
->> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
->>               return;
->>
->>       if (how & SEND_SHUTDOWN) {
->> +             sk->sk_state = SCTP_SS_CLOSING;
->>               ep = sctp_sk(sk)->ep;
->>               if (!list_empty(&ep->asocs)) {
->>                       asoc = list_entry(ep->asocs.next,
->> @@ -7564,8 +7565,10 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
->>       /* If the association on the newsk is already closed before accept()
->>        * is called, set RCV_SHUTDOWN flag.
->>        */
->> -     if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
->> +     if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
->> +             newsk->sk_state = SCTP_SS_CLOSING;
->                     ^^^^
->>               newsk->sk_shutdown |= RCV_SHUTDOWN;
->> +     }
->>
->>       newsk->sk_state = SCTP_SS_ESTABLISHED;
->                       ^^^^^
-> This will overwrite the above
-> Otherwise patch looks good to me
-OK , seems no need to change sk_state to  SCTP_SS_CLOSING  in
-sctp_sock_migrate(). :)
+At the core of this patch set is removing the assumption in Open vSwitch
+datapath that all packets have Ethernet header. Support for layer 3 GRE
+tunnels is also added by this patchset.
 
->
->>       release_sock(newsk);
->> --
->> 2.1.0
->>
+The implementation relies on the presence of pop_eth and push_eth actions
+in datapath flows to facilitate adding and removing Ethernet headers as
+appropriate. The construction of such flows is left up to user-space.
+
+This series is based on work by Lorand Jakab, Thomas Morin and others.
+And it relies on recently merged work by Jiri Benc, much thanks to him for
+his help.
+
+This patch set is comprised of kernel patches against net-next.
+
+To aid review it and the above dependency is available at:
+
+    tree: https://github.com/horms/openvswitch
+    branch: me/l3-vpn
+    tag: l3-vpn-v10
+
+There is a companion patch set for the Open vSwitch user-space code
+which I will post separately to the dev@openvswitch.org mailing list as:
+
+    "[PATCH v11 0/5] userspace: Support for layer 3 encapsulated packets"
+
+
+Changes since the previous posting are noted in the changelogs
+of individual patches.
+
+
+Lorand Jakab (1):
+  openvswitch: add layer 3 flow/port support
+
+Simon Horman (4):
+  net: add skb_vlan_accel helper
+  openvswitch: set skb protocol and mac_len when receiving on internal
+    device
+  openvswitch: add support to push and pop mpls for layer3 packets
+  openvswitch: use ipgre tunnel rather than gretap tunnel
+
+ include/linux/skbuff.h               |   1 +
+ include/net/gre.h                    |   4 +-
+ include/uapi/linux/openvswitch.h     |  13 +++
+ net/core/skbuff.c                    |  28 +++--
+ net/ipv4/ip_gre.c                    |   9 +-
+ net/openvswitch/actions.c            |  72 +++++++++++--
+ net/openvswitch/datapath.c           |  13 +--
+ net/openvswitch/flow.c               |  57 ++++++----
+ net/openvswitch/flow.h               |   4 +-
+ net/openvswitch/flow_netlink.c       | 200 +++++++++++++++++++++++++----------
+ net/openvswitch/vport-geneve.c       |   2 +-
+ net/openvswitch/vport-gre.c          |   4 +-
+ net/openvswitch/vport-internal_dev.c |  10 ++
+ net/openvswitch/vport-netdev.c       |  43 +++++++-
+ net/openvswitch/vport-netdev.h       |   2 +
+ net/openvswitch/vport-vxlan.c        |   2 +-
+ 16 files changed, 344 insertions(+), 120 deletions(-)
+
+-- 
+2.1.4
