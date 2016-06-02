@@ -1,75 +1,69 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 1/2] net: Add function to allow configuration of RPS
-Date: Wed, 1 Jun 2016 18:23:07 -0700
-Message-ID: <CAKgT0UdXqzAPWwtn7z=2LEaiKvPNEjpd++MwNvytpqfUSQZoeg@mail.gmail.com>
-References: <20160602010741.9319.56926.stgit@localhost.localdomain>
-	<20160602011718.9319.31286.stgit@localhost.localdomain>
+From: Scott Wood <oss@buserror.net>
+Subject: Re: [PATCH 4/4] Revert "powerpc/fsl: Move fsl_guts.h out of
+ arch/powerpc"
+Date: Wed, 01 Jun 2016 20:24:20 -0500
+Message-ID: <1464830660.22191.6.camel@buserror.net>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+	 <HE1PR04MB0889852B7809A1CCFF8922ACF8410@HE1PR04MB0889.eurprd04.prod.outlook.com>
+	 <CAPDyKFqx2JMLzXoDxGCKFYMFV47+SegnkuWFXKvsQHK7L5w-1g@mail.gmail.com>
+	 <5513501.AmZs7h1vI2@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ulf Hansson <ulf.hansson@linaro.org>,
+	Yangbo Lu <yangbo.lu@nxp.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
+	Qiang Zhao <qiang.zhao@nxp.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Yang-Leo Li <leoyang.li@nxp.com>,
+	"iommu
+To: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33740 "EHLO
-	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751660AbcFBBXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 21:23:08 -0400
-Received: by mail-it0-f65.google.com with SMTP id v125so980972itc.0
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2016 18:23:08 -0700 (PDT)
-In-Reply-To: <20160602011718.9319.31286.stgit@localhost.localdomain>
+Received: from host.buserror.net ([209.198.135.123]:58218 "EHLO
+	host.buserror.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbcFBBYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2016 21:24:30 -0400
+In-Reply-To: <5513501.AmZs7h1vI2@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 1, 2016 at 6:17 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch gives drivers the ability to set their own default RPS
-> configuration.  The general idea is to allow drivers that might benefit
-> from enabling RPS an opportunity to configure it for themselves.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+On Mon, 2016-05-30 at 15:18 +0200, Arnd Bergmann wrote:
+> All users of this driver are PowerPC specific and the header file
+> has no business in the global include/linux/ hierarchy, so move
+> it back before anyone starts using it on ARM.
+> 
+> This reverts commit 948486544713492f00ac8a9572909101ea892cb0.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 > ---
->  include/linux/netdevice.h |    9 ++++++++
->  net/core/dev.c            |   51 ++++++++++++++++++++++++++++++++++++++++++++-
->  net/core/net-sysfs.c      |   45 +++++++---------------------------------
->  3 files changed, 67 insertions(+), 38 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index f45929ce8157..329d554c9219 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -684,6 +684,15 @@ static inline void rps_record_sock_flow(struct rps_sock_flow_table *table,
->  bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index, u32 flow_id,
->                          u16 filter_id);
->  #endif
-> +int netif_set_rps_cpus(struct net_device *dev, const struct cpumask *mask,
-> +                      u16 index);
-> +#else
-> +static inline int netif_set_rps_cpus(struct net_device *dev,
-> +                                    const struct cpumask *mask,
-> +                                    u16 index)
-> +{
-> +       return 0;
-> +}
->  #endif /* CONFIG_RPS */
->
->  /* This structure contains an instance of an RX queue. */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 904ff431d570..efdcc917cf02 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1934,7 +1934,7 @@ static void netif_setup_tc(struct net_device *dev, unsigned int txq)
->                 return;
->         }
->
-> -       /* Invalidated prio to tc mappings set to TC0 */
-> +       /* Invaldated prio to tc mappings set to TC0 */
->         for (i = 1; i < TC_BITMASK + 1; i++) {
->                 int q = netdev_get_prio_tc_map(dev, i);
->
+> This part of the series is not required for the eSDHC quirk,
+> but it restores the asm/fsl_guts.h header so it doesn't accidentally
+> get abused for this in the future. I found two drivers outside of
+> arch/powerpc that already accessed the registers directly, but the
+> functions look fairly contained, and can be easily hidden in an
+> #ifdef CONFIG_PPC
 
-I just noticed that I fat fingered this when doing some last edits on
-the patch.  So I will be submitting a v2.
+NACK
 
-For now I will leave this out here for review, and I will wait to see
-if there are any other changes needed after others have had a chance
-to look over the rest of this patch set.
+Besides adding ifdef pollution for no good reason, this register block is used
+on some ARM chips as well.  Why is it a problem if "anyone starts using it on
+ARM"?
 
-- Alex
+BTW, of all the mailing lists you included on this CC, you seem to have left
+off the PPC list (I've added it).
+
+-Scott
