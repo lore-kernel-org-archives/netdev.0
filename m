@@ -1,71 +1,51 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH iputils v2] ping6: allow disabling of openssl/libgcrypt
- support
-Date: Thu, 2 Jun 2016 09:38:29 -0400
-Message-ID: <20160602133829.GO7717@vapier.lan>
-References: <1464752905-10347-3-git-send-email-vapier@gentoo.org>
- <1464843561-31856-1-git-send-email-vapier@gentoo.org>
- <574FF30E.5000805@miraclelinux.com>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary
+ MAC address
+Date: Thu, 2 Jun 2016 14:29:41 +0000
+Message-ID: <19ff919663a2454a82645b9b0f4146dd@ausx13mpc124.AMER.DELL.COM>
+References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
+	<20160601230535.GA29279@kroah.com>
+	<cfff846f3ca34b6a889f07f971b27271@ausx13mpc124.AMER.DELL.COM>
+ <8760tsypr5.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="Jbyekxk18hnEXT0m"
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:39440 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932619AbcFBNib (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2016 09:38:31 -0400
-Content-Disposition: inline
-In-Reply-To: <574FF30E.5000805@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <gregkh@linuxfoundation.org>, <hayeswang@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <pali.rohar@gmail.com>,
+	<anthony.wong@canonical.com>
+To: <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760tsypr5.fsf@nemi.mork.no>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---Jbyekxk18hnEXT0m
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On 02 Jun 2016 17:49, YOSHIFUJI Hideaki wrote:
-> Mike Frysinger wrote:
-> > @@ -891,6 +899,7 @@ int main(int argc, char *argv[])
-> >  	}
-> >  #endif
-> > =20
-> > +#ifdef USE_CRYPTO
-> >  	if (niquery_is_enabled()) {
-> >  		niquery_init_nonce();
-> > =20
->=20
-> Make niquery_is_enabled() returns 0 without ENABLE_NIQUERY
-> and reduce #ifdefs.
-
-i did that originally, but it only reduces like one set.  you have to
-define other stubs like niquery_init_nonce too otherwise gcc will throw
-warnings & errors.
--mike
-
---Jbyekxk18hnEXT0m
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJXUDbVAAoJEEFjO5/oN/WB9zkQAIdOq97mKGhlmgktL0IBC6u9
-1v6d/A7AtTSz6imS3dkcBC0YcDh9kpe68OC8HXEdUsbKAQ/RvjH3caF3j8TnNKXQ
-FA9tJg8gbXqrOdVuQ7L/NKez36u4Zhcdd3U15dtyqnCAbincVZcNGXGNMSPqBOiM
-ViU5Mhuf8owE+0YnSYbIOZntBFf2WjyWodww94CfIel8cGcxNEGcYFnple/bakkC
-BnhNE+VH50jPhPfLpfSJPRJRAW05XrPwJdfXTnTmGagDUOYQpS4db0lbfEx8d3Hq
-hhp5Ua3pY1RiWLmt3B6+b7pLj24dOJ6PuvqvBTCZPZr6lwvaafrLf6X8rldWCB9q
-JsTfkOT7/1mVYvpFQVjS3IBM49IKTxY6wQHj4PXKyKVR3nZbwZWlbu/2Vz852saY
-iPh3MbIUP26regfXBo7XsKlQT2LN6pJ8LdMVWc9fnplokrL3AYa9eZ3zoMN3yVyE
-rXuDXmw0ayehKBOpmJZoTyTe0UICq7/EqInqL3eLLM5vOdRFOIivNtsRDnK5klqT
-aVsJmgOoHRXK7iGCwknyiWm9/5jRFwQw5MdCLCeeWDQAi8FvvHTSUOskJDUjSoV4
-DDhOBwwZFRL1SH0jMOuWeqgY6+yafF07dO0kB59bwZe2xa1uHfgPvi50m+z2Qhxp
-vtHosHpz5a98lY7gdAOP
-=k1QC
------END PGP SIGNATURE-----
-
---Jbyekxk18hnEXT0m--
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmrDuHJuIE1vcmsgW21h
+aWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUaHVyc2RheSwgSnVuZSAyLCAyMDE2IDM6MTEg
+QU0NCj4gVG86IExpbW9uY2llbGxvLCBNYXJpbyA8TWFyaW9fTGltb25jaWVsbG9ARGVsbC5jb20+
+DQo+IENjOiBncmVna2hAbGludXhmb3VuZGF0aW9uLm9yZzsgaGF5ZXN3YW5nQHJlYWx0ZWsuY29t
+OyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
+ZzsgbGludXgtDQo+IHVzYkB2Z2VyLmtlcm5lbC5vcmc7IHBhbGkucm9oYXJAZ21haWwuY29tOyBh
+bnRob255LndvbmdAY2Fub25pY2FsLmNvbQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSByODE1Mjog
+QWRkIHN1cHBvcnQgZm9yIHNldHRpbmcgTUFDIHRvIHN5c3RlbSdzDQo+IEF1eGlsaWFyeSBNQUMg
+YWRkcmVzcw0KPiANCj4gPE1hcmlvX0xpbW9uY2llbGxvQERlbGwuY29tPiB3cml0ZXM6DQo+IA0K
+PiA+PiA+ICtzdGF0aWMgdTggYW1hY19hc2NpaV90b19oZXgoaW50IGMpIHsNCj4gPj4gPiArCWlm
+IChjIDw9IDB4MzkpDQo+ID4+ID4gKwkJcmV0dXJuICh1OCkoYyAtIDB4MzApOw0KPiA+PiA+ICsJ
+ZWxzZSBpZiAoYyA8PSAweDQ2KQ0KPiA+PiA+ICsJCXJldHVybiAodTgpKGMgLSAweDM3KTsNCj4g
+Pj4gPiArCXJldHVybiAodTgpKGMgLSAweDU3KTsNCj4gPj4gPiArfQ0KPiA+Pg0KPiA+DQo+ID4g
+U29ycnkgZm9yZ290IHRvIGFkZHJlc3MgdGhpcy4NCj4gPg0KPiA+PiBXZSByZWFsbHkgZG9uJ3Qg
+aGF2ZSBzdWNoIGEgZnVuY3Rpb24gc29tZXdoZXJlIGluIHRoZSBrZXJuZWwgYWxyZWFkeT8NCj4g
+Pg0KPiA+IFRoZXJlIGlzIGEgZnVuY3Rpb24gaW4gYWNwaS9hY3BpY2EvdXRoZXguYyB0aGF0IGRv
+ZXMgdGhpcywgYnV0IGl0DQo+ID4gZG9lc24ndCBzZWVtIHRvIGJlIHVzZWQgYnkgYW55dGhpbmcg
+b3V0c2lkZSBvZiBhY3BpY2Egc28gZmFyLiAgV291bGQgaXQgYmUNCj4gT0sgc3R5bGUgd2lzZSB0
+byAjaW5jbHVkZSAiIC4uLy4uL2FjcGkvYWNwaWNhL2FjdXRpbHMuaCIgZnJvbSByODE1Mi5jPw0K
+PiANCj4gTWFrZXMgbWUgd29uZGVyIHdoZXJlIHlvdSBsb29rZWQuLi4uICBZb3UgaGF2ZSBoZXhf
+dG9fYmluKCkgYW5kDQo+IGhleDJiaW4oKSBpbiBpbmNsdWRlL2xpbnV4L2tlcm5lbC5oDQo+IA0K
+DQoNClRoYW5rIHlvdSwgSSBjb21wbGV0ZWx5IG1pc3NlZCB0aGF0LiAgSSB3YXNuJ3QgbG9va2lu
+ZyBmb3IgbGl0ZXJhbHMgaW4gbXkgZ3JlcHBpbmcuICBJJ2xsIHVzZSB0aGlzIGluc3RlYWQuDQoN
+Cj4gWW91IGNvdWxkIGxvb2sgYXQgdXNibmV0X2dldF9ldGhlcm5ldF9hZGRyKCkgZm9yIGFuIGV4
+YW1wbGUgb2YgaG93IHRvIGRvDQo+IHRoaXMgcHJvcGVybHkuICBJdCdzIHByZXR0eSBjbG9zZSB0
+byB0aGlzIGRyaXZlciBpbiB0aGUgdHJlZSwgYW5kIHNob3VsZCBiZSBhDQo+IG5hdHVyYWwgc3Rh
+cnRpbmcgcG9pbnQgYmVmb3JlIHJlaW52ZW50aW5nIHRoZSB3aGVlbC4uLg0KPiANCg0KT0sgd2ls
+bCBkby4NCg==
