@@ -1,46 +1,47 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 4.7 FIX] brcmfmac: fix lockup when removing P2P interface after event timeout
-Date: Thu, 02 Jun 2016 12:42:55 +0300
-Message-ID: <87eg8glye8.fsf@purkki.adurom.net>
-References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
+From: Yangbo Lu <yangbo.lu@nxp.com>
+Subject: [PATCH] gianfar: fix the last transmit buffer descriptor
+Date: Thu, 2 Jun 2016 17:36:28 +0800
+Message-ID: <1464860188-47854-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
- (=?utf-8?Q?=22Rafa=C5=82=09Mi=C5=82ecki=22's?= message of "Fri, 27 May 2016
- 21:53:14 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Yangbo Lu <yangbo.lu@nxp.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0085.outbound.protection.outlook.com ([65.55.169.85]:10688
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932440AbcFBJqr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2016 05:46:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
+When the transmit hardware timestamping is enabled, an additional
+TxBD would be added and would be set as the last TxBD with TXBD_LAST
+and TXBD_INTERRUPT. However this has been broken by a patch recently.
+This made the software couldn't get transmit hardware timestamps and
+resulted in call trace. So, this patch is to fix this issue.
 
-> Removing P2P interface is handled by sending a proper request to the
-> firmware. On success firmware triggers an event and driver's handler
-> removes a matching interface.
->
-> However on event timeout we remove interface directly from the cfg802=
-11
-> callback. Current code doesn't handle this case correctly as it alway=
-s
-> assumes rtnl to be unlocked.
->
-> Fix it by adding an extra rtnl_locked parameter to functions and call=
-ing
-> unregister_netdevice when needed.
->
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Fixes: 48963b4492e9 ("gianfar: Remove redundant ops for do_tstamp
+       from xmit()")
+Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Arend, are you ok to push this to 4.7?
-
---=20
-Kalle Valo
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 7615e06..2e6785b 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2440,7 +2440,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 						 tx_queue->tx_ring_size);
+ 
+ 	if (likely(!nr_frags)) {
+-		lstatus |= BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
++		if (likely(!do_tstamp))
++			lstatus |= BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
+ 	} else {
+ 		u32 lstatus_start = lstatus;
+ 
+-- 
+2.1.0.27.g96db324
