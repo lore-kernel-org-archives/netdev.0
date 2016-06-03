@@ -1,87 +1,75 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: [PATCH v3] virtio-net: Add initial MTU advice feature
-Date: Fri,  3 Jun 2016 16:57:12 -0400
-Message-ID: <1464987432-1458-1-git-send-email-aconole@redhat.com>
-To: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv2 net-next] net: igb: Only dma sync frame length
+Date: Fri,  3 Jun 2016 23:03:25 +0200
+Message-ID: <1464987805-17754-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53188 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:59025 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422702AbcFCU5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 16:57:15 -0400
+	id S1752897AbcFCVEC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 17:04:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds the feature bit and associated mtu device entry for the
-virtio network device.  When a virtio device comes up, it checks the
-feature bit for the VIRTIO_NET_F_MTU feature.  If such feature bit is
-enabled, the driver will read the advised MTU and use it as the initial
-value.
+On some platforms, syncing a buffer for DMA is expensive. Rather than
+sync the whole 2K receive buffer, only synchronise the length of the
+frame, which will typically be the MTU, or a much smaller TCP ACK.
 
-Signed-off-by: Aaron Conole <aconole@redhat.com>
+For an IMX6Q, this gives around 6% increased TCP receive performance,
+which is cache operations bound and reduces CPU load for TCP transmit.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
-v2->v3:
-* Added a check for the MTU, and a bit clear for it being out of range.
+v2:
+Christmas tree the local variables
+Pass size into igb_add_rx_frag() rather than repeating the endiness swap.
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
- drivers/net/virtio_net.c        | 10 ++++++++++
- include/uapi/linux/virtio_net.h |  3 +++
- 2 files changed, 13 insertions(+)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e0638e5..192f321 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1780,6 +1780,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	struct net_device *dev;
- 	struct virtnet_info *vi;
- 	u16 max_queue_pairs;
-+	int mtu;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 0a289dda604a..8fa9e6e8c3b0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6856,12 +6856,12 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
+  **/
+ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
+ 			    struct igb_rx_buffer *rx_buffer,
++			    unsigned int size,
+ 			    union e1000_adv_rx_desc *rx_desc,
+ 			    struct sk_buff *skb)
+ {
+ 	struct page *page = rx_buffer->page;
+ 	unsigned char *va = page_address(page) + rx_buffer->page_offset;
+-	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = IGB_RX_BUFSZ;
+ #else
+@@ -6913,6 +6913,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+ 					   union e1000_adv_rx_desc *rx_desc,
+ 					   struct sk_buff *skb)
+ {
++	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
+ 	struct igb_rx_buffer *rx_buffer;
+ 	struct page *page;
  
- 	if (!vdev->config->get) {
- 		dev_err(&vdev->dev, "%s failure: config access disabled\n",
-@@ -1896,6 +1897,14 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
+@@ -6948,11 +6949,11 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+ 	dma_sync_single_range_for_cpu(rx_ring->dev,
+ 				      rx_buffer->dma,
+ 				      rx_buffer->page_offset,
+-				      IGB_RX_BUFSZ,
++				      size,
+ 				      DMA_FROM_DEVICE);
  
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-+		mtu = virtio_cread16(vdev,
-+				     offsetof(struct virtio_net_config,
-+					      mtu));
-+		if (virtnet_change_mtu(dev, mtu))
-+			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
-+	}
-+
- 	if (vi->any_header_sg)
- 		dev->needed_headroom = vi->hdr_len;
- 
-@@ -2067,6 +2076,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
- 	VIRTIO_NET_F_CTRL_MAC_ADDR,
- 	VIRTIO_F_ANY_LAYOUT,
-+	VIRTIO_NET_F_MTU,
- };
- 
- static struct virtio_driver virtio_net_driver = {
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index ec32293..1ab4ea6 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -55,6 +55,7 @@
- #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
- 					 * Steering */
- #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
-+#define VIRTIO_NET_F_MTU 25	/* Initial MTU advice */
- 
- #ifndef VIRTIO_NET_NO_LEGACY
- #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-@@ -73,6 +74,8 @@ struct virtio_net_config {
- 	 * Legal values are between 1 and 0x8000
- 	 */
- 	__u16 max_virtqueue_pairs;
-+	/* Default maximum transmit unit advice */
-+	__u16 mtu;
- } __attribute__((packed));
- 
- /*
+ 	/* pull page into skb */
+-	if (igb_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
++	if (igb_add_rx_frag(rx_ring, rx_buffer, size, rx_desc, skb)) {
+ 		/* hand second half of page back to the ring */
+ 		igb_reuse_rx_page(rx_ring, rx_buffer);
+ 	} else {
 -- 
-2.5.5
+2.8.1
