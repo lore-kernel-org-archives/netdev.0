@@ -1,7 +1,8 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V4 3/4] net-next: mediatek: add fixed-phy support
-Date: Fri,  3 Jun 2016 10:17:08 +0200
-Message-ID: <1464941829-38712-4-git-send-email-john@phrozen.org>
+Subject: [PATCH V4 2/4] net-next: mediatek: fix gigabit and flow control
+ advertisement
+Date: Fri,  3 Jun 2016 10:17:07 +0200
+Message-ID: <1464941829-38712-3-git-send-email-john@phrozen.org>
 References: <1464941829-38712-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,30 +24,77 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The MT7623 SoC has a builtin gigabit switch. If we want to use it, GMAC1
-needs to be configured using a fixed link speed and flow control settings.
-The easiest way to do this is to used the fixed-phy driver, allowing us to
-reuse the existing mdio polling code to setup the MAC.
+The current code will not setup the PHYs advertisement features correctly.
+Fix this and properly advertise Gigabit features and properly handle
+asymmetric pause frames.
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Signed-off-by: Sean Wang <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +++
- 1 file changed, 3 insertions(+)
+Changes in V4
+* set SUPPORTED_Asym_Pause rather than clearing it
+* add debug code
+* only setup asym if we are in full duplex
+
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   30 +++++++++++++++++++++++----
+ 1 file changed, 26 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index b0652f6..231d284 100644
+index 28f169f..b0652f6 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -229,6 +229,9 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 	u32 val, ge_mode;
+@@ -133,6 +133,8 @@ static int mtk_mdio_read(struct mii_bus *bus, int phy_addr, int phy_reg)
+ static void mtk_phy_link_adjust(struct net_device *dev)
+ {
+ 	struct mtk_mac *mac = netdev_priv(dev);
++	u16 lcl_adv = 0, rmt_adv = 0;
++	u8 flowctrl;
+ 	u32 mcr = MAC_MCR_MAX_RX_1536 | MAC_MCR_IPG_CFG |
+ 		  MAC_MCR_FORCE_MODE | MAC_MCR_TX_EN |
+ 		  MAC_MCR_RX_EN | MAC_MCR_BACKOFF_EN |
+@@ -150,11 +152,30 @@ static void mtk_phy_link_adjust(struct net_device *dev)
+ 	if (mac->phy_dev->link)
+ 		mcr |= MAC_MCR_FORCE_LINK;
  
- 	np = of_parse_phandle(mac->of_node, "phy-handle", 0);
-+	if (!np && of_phy_is_fixed_link(mac->of_node))
-+		if (!of_phy_register_fixed_link(mac->of_node))
-+			np = of_node_get(mac->of_node);
- 	if (!np)
- 		return -ENODEV;
+-	if (mac->phy_dev->duplex)
++	if (mac->phy_dev->duplex) {
+ 		mcr |= MAC_MCR_FORCE_DPX;
  
+-	if (mac->phy_dev->pause)
+-		mcr |= MAC_MCR_FORCE_RX_FC | MAC_MCR_FORCE_TX_FC;
++		if (mac->phy_dev->pause)
++			rmt_adv = LPA_PAUSE_CAP;
++		if (mac->phy_dev->asym_pause)
++			rmt_adv |= LPA_PAUSE_ASYM;
++
++		if (mac->phy_dev->advertising & ADVERTISED_Pause)
++			lcl_adv |= ADVERTISE_PAUSE_CAP;
++		if (mac->phy_dev->advertising & ADVERTISED_Asym_Pause)
++			lcl_adv |= ADVERTISE_PAUSE_ASYM;
++
++		flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
++
++		if (flowctrl & FLOW_CTRL_TX)
++			mcr |= MAC_MCR_FORCE_TX_FC;
++		if (flowctrl & FLOW_CTRL_RX)
++			mcr |= MAC_MCR_FORCE_RX_FC;
++
++		netif_dbg(mac->hw, link, dev, "rx pause %s, tx pause %s\n",
++			  flowctrl & FLOW_CTRL_RX ? "enabled" : "disabled",
++			  flowctrl & FLOW_CTRL_TX ? "enabled" : "disabled");
++	}
+ 
+ 	mtk_w32(mac->hw, mcr, MTK_MAC_MCR(mac->id));
+ 
+@@ -236,7 +257,8 @@ static int mtk_phy_connect(struct mtk_mac *mac)
+ 	mac->phy_dev->autoneg = AUTONEG_ENABLE;
+ 	mac->phy_dev->speed = 0;
+ 	mac->phy_dev->duplex = 0;
+-	mac->phy_dev->supported &= PHY_BASIC_FEATURES;
++	mac->phy_dev->supported &= PHY_GBIT_FEATURES | SUPPORTED_Pause |
++				   SUPPORTED_Asym_Pause;
+ 	mac->phy_dev->advertising = mac->phy_dev->supported |
+ 				    ADVERTISED_Autoneg;
+ 	phy_start_aneg(mac->phy_dev);
 -- 
 1.7.10.4
