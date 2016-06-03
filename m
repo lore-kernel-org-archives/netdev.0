@@ -1,59 +1,137 @@
-From: Helge Deller <deller@gmx.de>
-Subject: Re: [PATCH] soreuseport: add compat case for setsockopt
- SO_ATTACH_REUSEPORT_CBPF
-Date: Fri, 3 Jun 2016 23:09:41 +0200
-Message-ID: <5751F215.6080207@gmx.de>
-References: <20160603171805.GA3664@ls3530.box>
- <4cec14e5-2950-be26-1ffa-8d604bdb2fb5@cogentembedded.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 02/17] net: dsa: mv88e6xxx: fix circular lock in
+ PPU work
+Date: Fri, 3 Jun 2016 14:11:03 -0700
+Message-ID: <5751F267.50803@gmail.com>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+ <1464972256-10408-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Craig Gallek <kraig@google.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <4cec14e5-2950-be26-1ffa-8d604bdb2fb5@cogentembedded.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35254 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752692AbcFCVLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 17:11:06 -0400
+Received: by mail-pf0-f196.google.com with SMTP id f144so12419183pfa.2
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 14:11:05 -0700 (PDT)
+In-Reply-To: <1464972256-10408-3-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03.06.2016 20:11, Sergei Shtylyov wrote:
-> Hello.
+On 06/03/2016 09:44 AM, Andrew Lunn wrote:
+> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 > 
-> On 06/03/2016 08:18 PM, Helge Deller wrote:
+> Lock debugging shows that there is a possible circular lock in the PPU
+> work code. Switch the lock order of smi_mutex and ppu_mutex to fix this.
 > 
->> Commit 538950a ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
+> Here's the full trace:
 > 
->    At least 12 digits must be specified for SHA1. checkpatch.pl should've caught this.
-
-Ok.
-
->> missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF
->> setsockoption() option.
->>
->> Since both SO_ATTACH_FILTER and SO_ATTACH_REUSEPORT_CBPF use a struct
->> sock_fprog let's combine the handling of both.
->>
->> Signed-off-by: Helge Deller <deller@gmx.de>
->>
->> diff --git a/net/compat.c b/net/compat.c
->> index 5cfd26a..7e2aac9 100644
->> --- a/net/compat.c
->> +++ b/net/compat.c
->> @@ -309,7 +309,7 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
->>      __scm_destroy(scm);
->>  }
->>
->> -static int do_set_attach_filter(struct socket *sock, int level, int optname,
->> +static int do_sockopt_fix_sock_fprog(struct socket *sock, int level, int optname,
->>                  char __user *optval, unsigned int optlen)
+>     [    4.341325] ======================================================
+>     [    4.347519] [ INFO: possible circular locking dependency detected ]
+>     [    4.353800] 4.6.0 #4 Not tainted
+>     [    4.357039] -------------------------------------------------------
+>     [    4.363315] kworker/0:1/328 is trying to acquire lock:
+>     [    4.368463]  (&ps->smi_mutex){+.+.+.}, at: [<8049c758>] mv88e6xxx_reg_read+0x30/0x54
+>     [    4.376313]
+>     [    4.376313] but task is already holding lock:
+>     [    4.382160]  (&ps->ppu_mutex){+.+...}, at: [<8049cac0>] mv88e6xxx_ppu_reenable_work+0x28/0xd4
+>     [    4.390772]
+>     [    4.390772] which lock already depends on the new lock.
+>     [    4.390772]
+>     [    4.398963]
+>     [    4.398963] the existing dependency chain (in reverse order) is:
+>     [    4.406461]
+>     [    4.406461] -> #1 (&ps->ppu_mutex){+.+...}:
+>     [    4.410897]        [<806d86bc>] mutex_lock_nested+0x54/0x360
+>     [    4.416606]        [<8049a800>] mv88e6xxx_ppu_access_get+0x28/0x100
+>     [    4.422906]        [<8049b778>] mv88e6xxx_phy_read+0x90/0xdc
+>     [    4.428599]        [<806a4534>] dsa_slave_phy_read+0x3c/0x40
+>     [    4.434300]        [<804943ec>] mdiobus_read+0x68/0x80
+>     [    4.439481]        [<804939d4>] get_phy_device+0x58/0x1d8
+>     [    4.444914]        [<80493ed0>] mdiobus_scan+0x24/0xf4
+>     [    4.450078]        [<8049409c>] __mdiobus_register+0xfc/0x1ac
+>     [    4.455857]        [<806a40b0>] dsa_probe+0x860/0xca8
+>     [    4.460934]        [<8043246c>] platform_drv_probe+0x5c/0xc0
+>     [    4.466627]        [<804305a0>] driver_probe_device+0x118/0x450
+>     [    4.472589]        [<80430b00>] __device_attach_driver+0xac/0x128
+>     [    4.478724]        [<8042e350>] bus_for_each_drv+0x74/0xa8
+>     [    4.484235]        [<804302d8>] __device_attach+0xc4/0x154
+>     [    4.489755]        [<80430cec>] device_initial_probe+0x1c/0x20
+>     [    4.495612]        [<8042f620>] bus_probe_device+0x98/0xa0
+>     [    4.501123]        [<8042fbd0>] deferred_probe_work_func+0x4c/0xd4
+>     [    4.507328]        [<8013a794>] process_one_work+0x1a8/0x604
+>     [    4.513030]        [<8013ac54>] worker_thread+0x64/0x528
+>     [    4.518367]        [<801409e8>] kthread+0xec/0x100
+>     [    4.523201]        [<80108f30>] ret_from_fork+0x14/0x24
+>     [    4.528462]
+>     [    4.528462] -> #0 (&ps->smi_mutex){+.+.+.}:
+>     [    4.532895]        [<8015ad5c>] lock_acquire+0xb4/0x1dc
+>     [    4.538154]        [<806d86bc>] mutex_lock_nested+0x54/0x360
+>     [    4.543856]        [<8049c758>] mv88e6xxx_reg_read+0x30/0x54
+>     [    4.549549]        [<8049cad8>] mv88e6xxx_ppu_reenable_work+0x40/0xd4
+>     [    4.556022]        [<8013a794>] process_one_work+0x1a8/0x604
+>     [    4.561707]        [<8013ac54>] worker_thread+0x64/0x528
+>     [    4.567053]        [<801409e8>] kthread+0xec/0x100
+>     [    4.571878]        [<80108f30>] ret_from_fork+0x14/0x24
+>     [    4.577139]
+>     [    4.577139] other info that might help us debug this:
+>     [    4.577139]
+>     [    4.585159]  Possible unsafe locking scenario:
+>     [    4.585159]
+>     [    4.591093]        CPU0                    CPU1
+>     [    4.595631]        ----                    ----
+>     [    4.600169]   lock(&ps->ppu_mutex);
+>     [    4.603693]                                lock(&ps->smi_mutex);
+>     [    4.609742]                                lock(&ps->ppu_mutex);
+>     [    4.615790]   lock(&ps->smi_mutex);
+>     [    4.619314]
+>     [    4.619314]  *** DEADLOCK ***
+>     [    4.619314]
+>     [    4.625256] 3 locks held by kworker/0:1/328:
+>     [    4.629537]  #0:  ("events"){.+.+..}, at: [<8013a704>] process_one_work+0x118/0x604
+>     [    4.637288]  #1:  ((&ps->ppu_work)){+.+...}, at: [<8013a704>] process_one_work+0x118/0x604
+>     [    4.645653]  #2:  (&ps->ppu_mutex){+.+...}, at: [<8049cac0>] mv88e6xxx_ppu_reenable_work+0x28/0xd4
+>     [    4.654714]
+>     [    4.654714] stack backtrace:
+>     [    4.659098] CPU: 0 PID: 328 Comm: kworker/0:1 Not tainted 4.6.0 #4
+>     [    4.665286] Hardware name: Freescale Vybrid VF5xx/VF6xx (Device Tree)
+>     [    4.671748] Workqueue: events mv88e6xxx_ppu_reenable_work
+>     [    4.677174] Backtrace:
+>     [    4.679674] [<8010d354>] (dump_backtrace) from [<8010d5a0>] (show_stack+0x20/0x24)
+>     [    4.687252]  r6:80fb3c88 r5:80fb3c88 r4:80fb4728 r3:00000002
+>     [    4.693003] [<8010d580>] (show_stack) from [<803b45e8>] (dump_stack+0x24/0x28)
+>     [    4.700246] [<803b45c4>] (dump_stack) from [<80157398>] (print_circular_bug+0x208/0x32c)
+>     [    4.708361] [<80157190>] (print_circular_bug) from [<8015a630>] (__lock_acquire+0x185c/0x1b80)
+>     [    4.716982]  r10:9ec22a00 r9:00000060 r8:8164b6bc r7:00000040 r6:00000003 r5:8163a5b4
+>     [    4.724905]  r4:00000003 r3:9ec22de8
+>     [    4.728537] [<80158dd4>] (__lock_acquire) from [<8015ad5c>] (lock_acquire+0xb4/0x1dc)
+>     [    4.736378]  r10:60000013 r9:00000000 r8:00000000 r7:00000000 r6:9e5e9c50 r5:80e618e0
+>     [    4.744301]  r4:00000000
+>     [    4.746879] [<8015aca8>] (lock_acquire) from [<806d86bc>] (mutex_lock_nested+0x54/0x360)
+>     [    4.754976]  r10:9e5e9c1c r9:80e616c4 r8:9f685ea0 r7:0000001b r6:9ec22a00 r5:8163a5b4
+>     [    4.762899]  r4:9e5e9c1c
+>     [    4.765477] [<806d8668>] (mutex_lock_nested) from [<8049c758>] (mv88e6xxx_reg_read+0x30/0x54)
+>     [    4.774008]  r10:80e60c5b r9:80e616c4 r8:9f685ea0 r7:0000001b r6:00000004 r5:9e5e9c10
+>     [    4.781930]  r4:9e5e9c1c
+>     [    4.784507] [<8049c728>] (mv88e6xxx_reg_read) from [<8049cad8>] (mv88e6xxx_ppu_reenable_work+0x40/0xd4)
+>     [    4.793907]  r7:9ffd5400 r6:9e5e9c68 r5:9e5e9cb0 r4:9e5e9c10
+>     [    4.799659] [<8049ca98>] (mv88e6xxx_ppu_reenable_work) from [<8013a794>] (process_one_work+0x1a8/0x604)
+>     [    4.809059]  r9:80e616c4 r8:9f685ea0 r7:9ffd5400 r6:80e0a1c8 r5:9f5f2e80 r4:9e5e9cb0
+>     [    4.816910] [<8013a5ec>] (process_one_work) from [<8013ac54>] (worker_thread+0x64/0x528)
+>     [    4.825010]  r10:9f5f2e80 r9:00000008 r8:80e0dc80 r7:80e0a1fc r6:80e0a1c8 r5:9f5f2e98
+>     [    4.832933]  r4:80e0a1c8
+>     [    4.835510] [<8013abf0>] (worker_thread) from [<801409e8>] (kthread+0xec/0x100)
+>     [    4.842827]  r10:00000000 r9:00000000 r8:00000000 r7:8013abf0 r6:9f5f2e80 r5:9ec15740
+>     [    4.850749]  r4:00000000
+>     [    4.853327] [<801408fc>] (kthread) from [<80108f30>] (ret_from_fork+0x14/0x24)
+>     [    4.860557]  r7:00000000 r6:00000000 r5:801408fc r4:9ec15740
 > 
->    You need to realign this line now.
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Sure, I will send an updated patch.
-
-Any idea for a better naming than "do_sockopt_fix_sock_fprog()" ?
-
-Helge
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
