@@ -1,50 +1,34 @@
-From: Helge Deller <deller@gmx.de>
-Subject: [PATCH] soreuseport: add compat case for setsockopt
- SO_ATTACH_REUSEPORT_CBPF
-Date: Fri, 3 Jun 2016 19:18:05 +0200
-Message-ID: <20160603171805.GA3664@ls3530.box>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 11/17] net: dsa: Refactor selection of tag ops
+ into a function
+Date: Fri, 3 Jun 2016 10:19:14 -0700
+Message-ID: <5751BC12.1090704@gmail.com>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+ <1464972256-10408-12-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-parisc@vger.kernel.org
-To: Craig Gallek <kraig@google.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35115 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751579AbcFCRTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 13:19:17 -0400
+Received: by mail-pf0-f196.google.com with SMTP id f144so12040786pfa.2
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 10:19:17 -0700 (PDT)
+In-Reply-To: <1464972256-10408-12-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 538950a ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
-missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF
-setsockoption() option.
+On 06/03/2016 09:44 AM, Andrew Lunn wrote:
+> Replace the two switch statements with an array lookup, and store the
+> result in the dsa tree structure. The drivers no longer need to know
+> the selected tag protocol, so remove it from the dsa switch structure.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Since both SO_ATTACH_FILTER and SO_ATTACH_REUSEPORT_CBPF use a struct
-sock_fprog let's combine the handling of both.
-
-Signed-off-by: Helge Deller <deller@gmx.de>
-
-diff --git a/net/compat.c b/net/compat.c
-index 5cfd26a..7e2aac9 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -309,7 +309,7 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
- 	__scm_destroy(scm);
- }
- 
--static int do_set_attach_filter(struct socket *sock, int level, int optname,
-+static int do_sockopt_fix_sock_fprog(struct socket *sock, int level, int optname,
- 				char __user *optval, unsigned int optlen)
- {
- 	struct compat_sock_fprog __user *fprog32 = (struct compat_sock_fprog __user *)optval;
-@@ -354,8 +354,9 @@ static int do_set_sock_timeout(struct socket *sock, int level,
- static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
- 				char __user *optval, unsigned int optlen)
- {
--	if (optname == SO_ATTACH_FILTER)
--		return do_set_attach_filter(sock, level, optname,
-+	if (optname == SO_ATTACH_FILTER ||
-+	    optname == SO_ATTACH_REUSEPORT_CBPF)
-+		return do_sockopt_fix_sock_fprog(sock, level, optname,
- 					    optval, optlen);
- 	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
- 		return do_set_sock_timeout(sock, level, optname, optval, optlen);
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
