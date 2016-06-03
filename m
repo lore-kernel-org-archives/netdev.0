@@ -1,91 +1,70 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v2] r8152: Add support for setting MAC to system's
- Auxiliary MAC address
-Date: Fri, 3 Jun 2016 14:44:55 +0000
-Message-ID: <b41e9c5664554909b7687fe745ed0312@ausx13mpc124.AMER.DELL.COM>
-References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
- <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
- <20160602174808.GA32131@kroah.com>
- <2d81e70165b8447d92b873eafeaeded7@ausx13mpc124.AMER.DELL.COM>
- <20160602190238.GK15379@lunn.ch>
- <ae0f974692814260bb9f2f2cf4af6450@ausx13mpc124.AMER.DELL.COM>
- <20160602190946.GL15379@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <gregkh@linuxfoundation.org>, <hayeswang@realtek.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <pali.rohar@gmail.com>,
-	<anthony.wong@canonical.com>
-To: <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160602190946.GL15379@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH iproute2 v4 1/4] utils: make hexstring_a2n provide the number of hex digits parsed
+Date: Fri,  3 Jun 2016 16:45:45 +0200
+Message-ID: <0564a03493948d47c4f9afbf1da413eabae5b7c6.1464963543.git.sd@queasysnail.net>
+References: <cover.1464963543.git.sd@queasysnail.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Phil Sutter <phil@nwl.cc>, Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41321 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932083AbcFCOqC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 10:46:02 -0400
+In-Reply-To: <cover.1464963543.git.sd@queasysnail.net>
+In-Reply-To: <cover.1464963543.git.sd@queasysnail.net>
+References: <cover.1464963543.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Thursday, June 2, 2016 2:10 PM
-> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> Cc: gregkh@linuxfoundation.org; hayeswang@realtek.com; linux-
-> kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
-> usb@vger.kernel.org; pali.rohar@gmail.com; anthony.wong@canonical.com
-> Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
-> Auxiliary MAC address
-> 
-> On Thu, Jun 02, 2016 at 07:04:32PM +0000, Mario_Limonciello@Dell.com
-> wrote:
-> > > -----Original Message-----
-> > > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> > > Sent: Thursday, June 2, 2016 2:03 PM
-> > > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> > > Cc: gregkh@linuxfoundation.org; hayeswang@realtek.com; linux-
-> > > kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
-> > > usb@vger.kernel.org; pali.rohar@gmail.com;
-> anthony.wong@canonical.com
-> > > Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
-> > > Auxiliary MAC address
-> > >
-> > > > > And you want to check this for all Dell devices?  Please be model
-> > > > > specific, I doubt a bunch of Dell servers wants to run this code...
-> > > > >
-> > > >
-> > > > Tracking model specific is really going to turn into a giant list never
-> ending
-> > > list.
-> > > > To drill down more specifically, I can match on chassis too.
-> > >
-> > > Does Dell happen to use its own USB Vendor ID for the USB device in
-> > > the dock? You could go at this problem from the other direction if it
-> > > does have a unique vendor ID.
-> > >
-> > >      Andrew
-> >
-> > Unfortunately it's not a Dell specific VID/PID.  I'm asking around to find out
-> > if there is something else identifiable about this dock's NIC (maybe that
-> r8152
-> > can query).
-> 
-> lsusb -v
-> 
-> I assume there is a USB hub in the dock, maybe that has a Dell VID?
-> Going one level up the USB tree hierarchy should not be too hard.
-> 
->       Andrew
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Acked-by: Phil Sutter <phil@nwl.cc>
+---
+ include/utils.h | 4 ++--
+ lib/utils.c     | 8 ++++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-I confirmed with some internal contacts a few extra bits about questions 
-about this from throughout the conversation.
-
-1) This feature IS in the general Realtek driver for Windows, not a special Dell driver.
-2) The feature only offered to the Realtek 8153-AD, no other Realtek chip will do it 
-(even Realtek 8153-VB won't).
-3) The feature is activated when a special "Docking" bit is set on the 8153-AD.
-4) The feature is activated on all Realtek 8153-AD's on the host system with the
-docking bit set.  So on Windows if two Dell docks were hooked up they would both 
-have the same AUX MAC. 
-
-So considering that I think it would make sense to only activate in those same
-special circumstances (RTL8153-AD, docking bit set, system has \\_SB.AMAC).  
-I also feel this should stay in the Realtek driver as this as this implementation is
-very Realtek specific.
+diff --git a/include/utils.h b/include/utils.h
+index ef81d00f3d70..aef28ce732ab 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -114,8 +114,8 @@ int get_u8(__u8 *val, const char *arg, int base);
+ int get_s8(__s8 *val, const char *arg, int base);
+ int get_addr64(__u64 *ap, const char *cp);
+ 
+-char* hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
+-__u8* hexstring_a2n(const char *str, __u8 *buf, int blen);
++char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
++__u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len);
+ #define ADDR64_BUF_SIZE sizeof("xxxx:xxxx:xxxx:xxxx")
+ int addr64_n2a(__u64 addr, char *buff, size_t len);
+ 
+diff --git a/lib/utils.c b/lib/utils.c
+index b93b1dc84315..bd10c0d71718 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -866,9 +866,9 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
+ 	return buf;
+ }
+ 
+-__u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
++__u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
+ {
+-	int cnt = 0;
++	unsigned int cnt = 0;
+ 	char *endptr;
+ 
+ 	if (strlen(str) % 2)
+@@ -885,6 +885,10 @@ __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
+ 		buf[cnt++] = tmp;
+ 		str += 2;
+ 	}
++
++	if (len)
++		*len = cnt;
++
+ 	return buf;
+ }
+ 
+-- 
+2.8.3
