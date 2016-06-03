@@ -1,80 +1,315 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 00/17] New DSA bind, switches as devices
-Date: Fri,  3 Jun 2016 18:43:59 +0200
-Message-ID: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 17/17] net: dsa: Document new binding
+Date: Fri,  3 Jun 2016 18:44:16 +0200
+Message-ID: <1464972256-10408-18-git-send-email-andrew@lunn.ch>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58737 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58742 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932822AbcFCQv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:51:56 -0400
+	id S932141AbcFCQwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 12:52:13 -0400
+In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The interesting patches here are the last three. They implement a new
-binding for DSA, which removes a few limitations of the current DSA
-binding. In particular, it allows switches to be true Linux devices.
-These devices can be on any type of bus, unlike the old DSA binding
-which assumes MDIO. See the commit log for more details. The second to
-last patch modifies an existing boards device tree to use the new
-binding, giving a good example of how switches can be true MDIO
-devices. The last patch documents the new binding.
+Add the new binding to the documentation of the existing binding.
+Mark the old binding as deprecated.
 
-I know both John Crispin and Bryan Whitehead are interesting in
-implementing DSA drivers, hence i have CC: you. Comments welcome.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ Documentation/devicetree/bindings/net/dsa/dsa.txt | 278 +++++++++++++++++++++-
+ 1 file changed, 276 insertions(+), 2 deletions(-)
 
-Thanks go to Florian and Vivien for reviewing, testing and bug fixing
-these patches.
-
-Since RFC:
-
-* Split the mv88e6xxx MDIO refactor into a rename patch and a refactor
-  patch.
-* Extend commit message with comment about wrong of_node_put()
-* Fix destroy of cpu and dsa ports.
-* Rename _DSA_TAG_LAST to DSA_TAG_LAST and add a comment.
-
-Andrew Lunn (16):
-  net: dsa: slave: chip data is optional, don't dereference NULL
-  net: dsa: slave: Remove MDIO address from switch MDIO bus name
-  net: dsa: tag_{e}dsa.c: Remove dependency on platform data
-  net: dsa: Add a ports structure and use it in the switch structure
-  net: dsa: Move port device node into port structure
-  net: dsa: Remove dynamic allocate of routing table
-  net: dsa: Copy the routing table into the switch structure
-  net: dsa: Split up creating/destroying of DSA and CPU ports
-  net: dsa: mv88e6xxx: Only support EDSA tagging
-  net: dsa: Refactor selection of tag ops into a function
-  net: dsa: Make mdio bus optional
-  net: dsa: mv88e6xxx: Rename _phy_ to _mdio_
-  net: dsa: mv88e6xxx: Refactor MDIO so driver registers mdio bus
-  net: dsa: Add new binding implementation
-  arm: dt: vf610-zii-devel-b: Make use of new DSA binding
-  net: dsa: Document new binding
-
-Vivien Didelot (1):
-  net: dsa: mv88e6xxx: fix circular lock in PPU work
-
- Documentation/devicetree/bindings/net/dsa/dsa.txt | 278 ++++++++-
- arch/arm/boot/dts/vf610-zii-dev-rev-b.dts         | 328 +++++------
- drivers/net/dsa/bcm_sf2.c                         |   4 +-
- drivers/net/dsa/mv88e6xxx.c                       | 267 ++++++---
- drivers/net/dsa/mv88e6xxx.h                       |   6 +
- include/net/dsa.h                                 |  56 +-
- net/dsa/Makefile                                  |   2 +-
- net/dsa/dsa.c                                     | 210 ++++---
- net/dsa/dsa2.c                                    | 653 ++++++++++++++++++++++
- net/dsa/dsa_priv.h                                |   6 +-
- net/dsa/slave.c                                   |  57 +-
- net/dsa/tag_brcm.c                                |   4 +-
- net/dsa/tag_dsa.c                                 |  10 +-
- net/dsa/tag_edsa.c                                |  10 +-
- net/dsa/tag_trailer.c                             |   4 +-
- 15 files changed, 1485 insertions(+), 410 deletions(-)
- create mode 100644 net/dsa/dsa2.c
-
+diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+index 9f4807f90c31..8c9e1b80cb65 100644
+--- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
++++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+@@ -1,5 +1,279 @@
+-Marvell Distributed Switch Architecture Device Tree Bindings
+-------------------------------------------------------------
++Distributed Switch Architecture Device Tree Bindings
++----------------------------------------------------
++
++Two bindings exist, one of which has been deprecated due to
++limitations.
++
++Current Binding
++---------------
++
++Switches are true Linux devices and can be probes by any means. Once
++probed, they register to the DSA framework, passing a node
++pointer. This node is expected to fulfil the following binding, and
++may contain additional properties as required by the device it is
++embedded within.
++
++Required properties:
++
++- ports		: A container for child nodes representing switch ports.
++
++Optional properties:
++
++- dsa,member	: A two element list indicates which DSA cluster, and position
++		  within the cluster a switch takes. <0 0> is cluster 0,
++		  switch 0. <0 1> is cluster 0, switch 1. <1 0> is cluster 1,
++		  switch 0. A switch not part of any cluster (single device
++		  hanging off a CPU port) must not specify this property
++
++The ports container has the following properties
++
++Required properties:
++
++- #address-cells	: Must be 1
++- #size-cells		: Must be 0
++
++Each port children node must have the following mandatory properties:
++- reg			: Describes the port address in the switch
++- label			: Describes the label associated with this port, which
++                          will become the netdev name. Special labels are
++			  "cpu" to indicate a CPU port and "dsa" to
++			  indicate an uplink/downlink port between switches in
++			  the cluster.
++
++A port labelled "dsa" has the following mandatory property:
++
++- link			: Should be a list of phandles to other switch's DSA
++  			  port. This port is used as the outgoing port
++			  towards the phandle ports. The full routing
++			  information must be given, not just the one hop
++			  routes to neighbouring switches.
++
++A port labelled "cpu" has the following mandatory property:
++
++- ethernet		: Should be a phandle to a valid Ethernet device node.
++                          This host device is what the switch port is
++			  connected to.
++
++Port child nodes may also contain the following optional standardised
++properties, described in binding documents:
++
++- phy-handle		: Phandle to a PHY on an MDIO bus. See
++			  Documentation/devicetree/bindings/net/ethernet.txt
++			  for details.
++
++- phy-mode		: See
++			  Documentation/devicetree/bindings/net/ethernet.txt
++			  for details.
++
++- fixed-link		: Fixed-link subnode describing a link to a non-MDIO
++			  managed entity. See
++			  Documentation/devicetree/bindings/net/fixed-link.txt
++			  for details.
++
++Example
++
++The following example shows three switches on three MDIO busses,
++linked into one DSA cluster.
++
++&mdio1 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	switch0: switch0@0 {
++		compatible = "marvell,mv88e6085";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		dsa,member = <0 0>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				label = "lan0";
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan1";
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan2";
++			};
++
++			switch0port5: port@5 {
++				reg = <5>;
++				label = "dsa";
++				phy-mode = "rgmii-txid";
++				link = <&switch1port6
++					&switch2port9>;
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++
++			port@6 {
++				reg = <6>;
++				label = "cpu";
++				ethernet = <&fec1>;
++				fixed-link {
++					speed = <100>;
++					full-duplex;
++				};
++			};
++		};
++	};
++};
++
++&mdio2 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	switch1: switch1@0 {
++		compatible = "marvell,mv88e6085";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		dsa,member = <0 1>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				label = "lan3";
++				phy-handle = <&switch1phy0>;
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan4";
++				phy-handle = <&switch1phy1>;
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan5";
++				phy-handle = <&switch1phy2>;
++			};
++
++			switch1port5: port@5 {
++				reg = <5>;
++				label = "dsa";
++				link = <&switch2port9>;
++				phy-mode = "rgmii-txid";
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++
++			switch1port6: port@6 {
++				reg = <6>;
++				label = "dsa";
++				phy-mode = "rgmii-txid";
++				link = <&switch0port5>;
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++		};
++		mdio-bus {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			switch1phy0: switch1phy0@0 {
++				reg = <0>;
++			};
++			switch1phy1: switch1phy0@1 {
++				reg = <1>;
++			};
++			switch1phy2: switch1phy0@2 {
++				reg = <2>;
++			};
++		};
++	 };
++};
++
++&mdio4 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	switch2: switch2@0 {
++		compatible = "marvell,mv88e6085";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		dsa,member = <0 2>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				label = "lan6";
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan7";
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan8";
++			};
++
++			port@3 {
++				reg = <3>;
++				label = "optical3";
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++					link-gpios = <&gpio6 2
++					      GPIO_ACTIVE_HIGH>;
++				};
++			};
++
++			port@4 {
++				reg = <4>;
++				label = "optical4";
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++					link-gpios = <&gpio6 3
++					      GPIO_ACTIVE_HIGH>;
++				};
++			};
++
++			switch2port9: port@9 {
++				reg = <9>;
++				label = "dsa";
++				phy-mode = "rgmii-txid";
++				link = <&switch1port5
++					&switch0port5>;
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++		};
++	};
++};
++
++Deprecated Binding
++------------------
++
++The deprecated binding makes use of a platform device to represent the
++switches. The switches themselves are not Linux devices, and make use
++of an MDIO bus for management.
+ 
+ Required properties:
+ - compatible		: Should be "marvell,dsa"
 -- 
 2.8.1
