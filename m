@@ -1,27 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rds: fix an infoleak in rds_inc_info_copy
-Date: Thu, 02 Jun 2016 21:33:03 -0700 (PDT)
-Message-ID: <20160602.213303.2184174899734544902.davem@davemloft.net>
-References: <1464855080-29671-1-git-send-email-kjlu@gatech.edu>
+From: Pedro Quezada <donation@foi.hr>
+Subject: Offer
+Date: Fri, 03 Jun 2016 01:42:58 +0100
+Message-ID: <20160603050822.99F006427E9__13214.772710535$1464930530$gmane$org@barok.foi.hr>
+Reply-To: qpedro431@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, taesoo@gatech.edu,
-	csong84@gatech.edu, kjlu@gatech.edu
-To: kangjielu@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464855080-29671-1-git-send-email-kjlu@gatech.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <donation@foi.hr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barok.foi.hr ([161.53.120.3]:39592 "EHLO barok.foi.hr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751076AbcFCFI1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 01:08:27 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kangjie Lu <kangjielu@gmail.com>
-Date: Thu,  2 Jun 2016 04:11:20 -0400
-
-> The last field "flags" of object "minfo" is not initialized.
-> Copying this object out may leak kernel stack data.
-> Assign 0 to it to avoid leak.
-> 
-> Signed-off-by: Kangjie Lu <kjlu@gatech.edu>
-
-Applied.
+You are a recipient to Mr Pedro Quezada Donation of 2M USD. Contact (qpedro431@gmail.com) for claims.
