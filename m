@@ -1,36 +1,80 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: Re: [PATCH stable] Set a large MTU on ovs-created tunnel devices
-Date: Fri, 3 Jun 2016 16:10:12 -0400
-Message-ID: <CAOZ2QJMO1xEpzS4RVb=ovpMjpDXN-bSjUYpbTvGVAULwsfOnPA@mail.gmail.com>
-References: <CAOZ2QJNufB+4ffEpaab6iWotM_4+PQKVcEorEN9Hckh3NiJaQA@mail.gmail.com>
- <20160603.114418.907250018461386490.davem@davemloft.net>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-next] cxgb4: Reduce resource allocation in kdump
+ kernel
+Date: Fri, 3 Jun 2016 20:07:57 +0000
+Message-ID: <BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
+References: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nirranjan Kirubaharan <nirranjan@chelsio.com>
+To: Hariprasad S <hariprasad@chelsio.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f179.google.com ([209.85.161.179]:34616 "EHLO
-	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932538AbcFCUKx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:10:53 -0400
-Received: by mail-yw0-f179.google.com with SMTP id c127so90624615ywb.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 13:10:52 -0700 (PDT)
-In-Reply-To: <20160603.114418.907250018461386490.davem@davemloft.net>
+Received: from mail-bn1bon0119.outbound.protection.outlook.com ([157.56.111.119]:39842
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752441AbcFCUXh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:23:37 -0400
+In-Reply-To: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 3, 2016 at 2:44 PM, David Miller <davem@davemloft.net> wrote:
-> From: Dan Streetman <dan.streetman@canonical.com>
-> Date: Fri, 3 Jun 2016 13:49:09 -0400
->
->> Can you queue up these commits for stable?
->
-> This stuff doesn't cleanly backport, I tried several times already.
+  Looks good to me.  Of course I came up with those changes so maybe we should get another reviewer? :-)  Also, don't forget to mention "Bug #29998" in the commit message ...
 
-ah sorry.  i'll get a backport.
+Casey
 
->
-> Therfore, someone knowledgable with OVS is going to have to do the
-> backport, test it, and post it for me to submit.
->
-> Thanks.
+________________________________________
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Sent: Friday, June 3, 2016 10:35:45 AM
+To: davem@davemloft.net
+Cc: netdev@vger.kernel.org; Casey Leedom; Nirranjan Kirubaharan; Hariprasad S
+Subject: [PATCH net-next] cxgb4: Reduce resource allocation in kdump kernel
+
+When is_kdump_kernel() is true, reduce our memory footprint by only using
+a single "Queue Set" and Forcing Master so we can reinitialize the
+Firmware/Chip.
+
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 477db477b133..5317187d0073 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -64,6 +64,7 @@
+ #include <net/bonding.h>
+ #include <net/addrconf.h>
+ #include <asm/uaccess.h>
++#include <linux/crash_dump.h>
+
+ #include "cxgb4.h"
+ #include "t4_regs.h"
+@@ -3735,7 +3736,8 @@ static int adap_init0(struct adapter *adap)
+                return ret;
+
+        /* Contact FW, advertising Master capability */
+-       ret = t4_fw_hello(adap, adap->mbox, adap->mbox, MASTER_MAY, &state);
++       ret = t4_fw_hello(adap, adap->mbox, adap->mbox,
++                         is_kdump_kernel() ? MASTER_MUST : MASTER_MAY, &state);
+        if (ret < 0) {
+                dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
+                        ret);
+@@ -4366,6 +4368,14 @@ static void cfg_queues(struct adapter *adap)
+        if (q10g > netif_get_num_default_rss_queues())
+                q10g = netif_get_num_default_rss_queues();
+
++       /* Reduce memory usage in kdump environment by using only one queue
++        * and disable all offload.
++        */
++       if (is_kdump_kernel()) {
++               q10g = 1;
++               adap->params.offload = 0;
++       }
++
+        for_each_port(adap, i) {
+                struct port_info *pi = adap2pinfo(adap, i);
