@@ -1,97 +1,66 @@
 From: Dan Streetman <dan.streetman@canonical.com>
-Subject: [PATCH 4.4-stable 1/3] vxlan: Relax MTU constraints
-Date: Fri,  3 Jun 2016 18:58:13 -0400
-Message-ID: <1464994695-25178-2-git-send-email-dan.streetman@canonical.com>
+Subject: [PATCH 4.4-stable 2/3] geneve: Relax MTU constraints
+Date: Fri,  3 Jun 2016 18:58:14 -0400
+Message-ID: <1464994695-25178-3-git-send-email-dan.streetman@canonical.com>
 References: <1464994695-25178-1-git-send-email-dan.streetman@canonical.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:56149 "EHLO
+Received: from youngberry.canonical.com ([91.189.89.112]:56151 "EHLO
 	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752435AbcFCXDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 19:03:44 -0400
+	with ESMTP id S1752416AbcFCXDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 19:03:45 -0400
 In-Reply-To: <1464994695-25178-1-git-send-email-dan.streetman@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David Wragg <david@weave.works>
 
-Allow the MTU of vxlan devices without an underlying device to be set
-to larger values (up to a maximum based on IP packet limits and vxlan
-overhead).
+Allow the MTU of geneve devices to be set to large values, in order to
+exploit underlying networks with larger frame sizes.
 
-Previously, their MTUs could not be set to higher than the
-conventional ethernet value of 1500.  This is a very arbitrary value
-in the context of vxlan, and prevented vxlan devices from being able
-to take advantage of jumbo frames etc.
-
-The default MTU remains 1500, for compatibility.
+GENEVE does not have a fixed encapsulation overhead (an openvswitch
+rule can add variable length options), so there is no relevant maximum
+MTU to enforce.  A maximum of IP_MAX_MTU is used instead.
+Encapsulated packets that are too big for the underlying network will
+get dropped on the floor.
 
 Signed-off-by: David Wragg <david@weave.works>
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/vxlan.c | 36 +++++++++++++++++++++++++-----------
- 1 file changed, 25 insertions(+), 11 deletions(-)
+ drivers/net/geneve.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 3c0df70..9a1a4ec 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2370,29 +2370,43 @@ static void vxlan_set_multicast_list(struct net_device *dev)
- {
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 58efdec..0fb2ced 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -998,6 +998,17 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return geneve_xmit_skb(skb, dev, info);
  }
  
--static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
-+static int __vxlan_change_mtu(struct net_device *dev,
-+			      struct net_device *lowerdev,
-+			      struct vxlan_rdst *dst, int new_mtu, bool strict)
- {
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct vxlan_rdst *dst = &vxlan->default_dst;
--	struct net_device *lowerdev;
--	int max_mtu;
-+	int max_mtu = IP_MAX_MTU;
- 
--	lowerdev = __dev_get_by_index(vxlan->net, dst->remote_ifindex);
--	if (lowerdev == NULL)
--		return eth_change_mtu(dev, new_mtu);
-+	if (lowerdev)
-+		max_mtu = lowerdev->mtu;
- 
- 	if (dst->remote_ip.sa.sa_family == AF_INET6)
--		max_mtu = lowerdev->mtu - VXLAN6_HEADROOM;
-+		max_mtu -= VXLAN6_HEADROOM;
- 	else
--		max_mtu = lowerdev->mtu - VXLAN_HEADROOM;
-+		max_mtu -= VXLAN_HEADROOM;
- 
--	if (new_mtu < 68 || new_mtu > max_mtu)
-+	if (new_mtu < 68)
- 		return -EINVAL;
- 
-+	if (new_mtu > max_mtu) {
-+		if (strict)
-+			return -EINVAL;
-+
-+		new_mtu = max_mtu;
-+	}
-+
- 	dev->mtu = new_mtu;
- 	return 0;
- }
- 
-+static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
++static int geneve_change_mtu(struct net_device *dev, int new_mtu)
 +{
-+	struct vxlan_dev *vxlan = netdev_priv(dev);
-+	struct vxlan_rdst *dst = &vxlan->default_dst;
-+	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
-+							 dst->remote_ifindex);
-+	return __vxlan_change_mtu(dev, lowerdev, dst, new_mtu, true);
++	/* GENEVE overhead is not fixed, so we can't enforce a more
++	 * precise max MTU.
++	 */
++	if (new_mtu < 68 || new_mtu > IP_MAX_MTU)
++		return -EINVAL;
++	dev->mtu = new_mtu;
++	return 0;
 +}
 +
- static int egress_ipv4_tun_info(struct net_device *dev, struct sk_buff *skb,
- 				struct ip_tunnel_info *info,
- 				__be16 sport, __be16 dport)
+ static int geneve_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct ip_tunnel_info *info = skb_tunnel_info(skb);
+@@ -1042,7 +1053,7 @@ static const struct net_device_ops geneve_netdev_ops = {
+ 	.ndo_stop		= geneve_stop,
+ 	.ndo_start_xmit		= geneve_xmit,
+ 	.ndo_get_stats64	= ip_tunnel_get_stats64,
+-	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_change_mtu		= geneve_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ 	.ndo_fill_metadata_dst	= geneve_fill_metadata_dst,
 -- 
 2.7.4
