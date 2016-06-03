@@ -1,75 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next] net: igb: Only dma sync frame length
-Date: Fri,  3 Jun 2016 23:03:25 +0200
-Message-ID: <1464987805-17754-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59025 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752897AbcFCVEC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 17:04:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Helge Deller <deller@gmx.de>
+Subject: Re: [PATCH] soreuseport: add compat case for setsockopt
+ SO_ATTACH_REUSEPORT_CBPF
+Date: Fri, 3 Jun 2016 23:09:41 +0200
+Message-ID: <5751F215.6080207@gmx.de>
+References: <20160603171805.GA3664@ls3530.box>
+ <4cec14e5-2950-be26-1ffa-8d604bdb2fb5@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Craig Gallek <kraig@google.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <4cec14e5-2950-be26-1ffa-8d604bdb2fb5@cogentembedded.com>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On some platforms, syncing a buffer for DMA is expensive. Rather than
-sync the whole 2K receive buffer, only synchronise the length of the
-frame, which will typically be the MTU, or a much smaller TCP ACK.
+On 03.06.2016 20:11, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 06/03/2016 08:18 PM, Helge Deller wrote:
+> 
+>> Commit 538950a ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
+> 
+>    At least 12 digits must be specified for SHA1. checkpatch.pl should've caught this.
 
-For an IMX6Q, this gives around 6% increased TCP receive performance,
-which is cache operations bound and reduces CPU load for TCP transmit.
+Ok.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
-v2:
-Christmas tree the local variables
-Pass size into igb_add_rx_frag() rather than repeating the endiness swap.
----
- drivers/net/ethernet/intel/igb/igb_main.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+>> missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF
+>> setsockoption() option.
+>>
+>> Since both SO_ATTACH_FILTER and SO_ATTACH_REUSEPORT_CBPF use a struct
+>> sock_fprog let's combine the handling of both.
+>>
+>> Signed-off-by: Helge Deller <deller@gmx.de>
+>>
+>> diff --git a/net/compat.c b/net/compat.c
+>> index 5cfd26a..7e2aac9 100644
+>> --- a/net/compat.c
+>> +++ b/net/compat.c
+>> @@ -309,7 +309,7 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
+>>      __scm_destroy(scm);
+>>  }
+>>
+>> -static int do_set_attach_filter(struct socket *sock, int level, int optname,
+>> +static int do_sockopt_fix_sock_fprog(struct socket *sock, int level, int optname,
+>>                  char __user *optval, unsigned int optlen)
+> 
+>    You need to realign this line now.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 0a289dda604a..8fa9e6e8c3b0 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6856,12 +6856,12 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
-  **/
- static bool igb_add_rx_frag(struct igb_ring *rx_ring,
- 			    struct igb_rx_buffer *rx_buffer,
-+			    unsigned int size,
- 			    union e1000_adv_rx_desc *rx_desc,
- 			    struct sk_buff *skb)
- {
- 	struct page *page = rx_buffer->page;
- 	unsigned char *va = page_address(page) + rx_buffer->page_offset;
--	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
- #if (PAGE_SIZE < 8192)
- 	unsigned int truesize = IGB_RX_BUFSZ;
- #else
-@@ -6913,6 +6913,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 					   union e1000_adv_rx_desc *rx_desc,
- 					   struct sk_buff *skb)
- {
-+	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
- 	struct igb_rx_buffer *rx_buffer;
- 	struct page *page;
- 
-@@ -6948,11 +6949,11 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 	dma_sync_single_range_for_cpu(rx_ring->dev,
- 				      rx_buffer->dma,
- 				      rx_buffer->page_offset,
--				      IGB_RX_BUFSZ,
-+				      size,
- 				      DMA_FROM_DEVICE);
- 
- 	/* pull page into skb */
--	if (igb_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
-+	if (igb_add_rx_frag(rx_ring, rx_buffer, size, rx_desc, skb)) {
- 		/* hand second half of page back to the ring */
- 		igb_reuse_rx_page(rx_ring, rx_buffer);
- 	} else {
--- 
-2.8.1
+Sure, I will send an updated patch.
+
+Any idea for a better naming than "do_sockopt_fix_sock_fprog()" ?
+
+Helge
