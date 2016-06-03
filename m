@@ -1,63 +1,97 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Reduce resource allocation in kdump kernel
-Date: Fri,  3 Jun 2016 23:05:45 +0530
-Message-ID: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 00/17] New DSA bind, switches as devices
+Date: Fri, 3 Jun 2016 10:33:42 -0700
+Message-ID: <5751BF76.9020301@gmail.com>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:49890 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752304AbcFCRao (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 13:30:44 -0400
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34300 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752375AbcFCRdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 13:33:45 -0400
+Received: by mail-pa0-f68.google.com with SMTP id x1so6417004pav.1
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 10:33:44 -0700 (PDT)
+In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When is_kdump_kernel() is true, reduce our memory footprint by only using
-a single "Queue Set" and Forcing Master so we can reinitialize the
-Firmware/Chip.
+On 06/03/2016 09:43 AM, Andrew Lunn wrote:
+> The interesting patches here are the last three. They implement a new
+> binding for DSA, which removes a few limitations of the current DSA
+> binding. In particular, it allows switches to be true Linux devices.
+> These devices can be on any type of bus, unlike the old DSA binding
+> which assumes MDIO. See the commit log for more details. The second to
+> last patch modifies an existing boards device tree to use the new
+> binding, giving a good example of how switches can be true MDIO
+> devices. The last patch documents the new binding.
+> 
+> I know both John Crispin and Bryan Whitehead are interesting in
+> implementing DSA drivers, hence i have CC: you. Comments welcome.
+> 
+> Thanks go to Florian and Vivien for reviewing, testing and bug fixing
+> these patches.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+Will keep reviewing patches by one, but a quick smoke test here on a
+BCM7445 with bcm_sf2 gives me all thumbs up.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 477db477b133..5317187d0073 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -64,6 +64,7 @@
- #include <net/bonding.h>
- #include <net/addrconf.h>
- #include <asm/uaccess.h>
-+#include <linux/crash_dump.h>
- 
- #include "cxgb4.h"
- #include "t4_regs.h"
-@@ -3735,7 +3736,8 @@ static int adap_init0(struct adapter *adap)
- 		return ret;
- 
- 	/* Contact FW, advertising Master capability */
--	ret = t4_fw_hello(adap, adap->mbox, adap->mbox, MASTER_MAY, &state);
-+	ret = t4_fw_hello(adap, adap->mbox, adap->mbox,
-+			  is_kdump_kernel() ? MASTER_MUST : MASTER_MAY, &state);
- 	if (ret < 0) {
- 		dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
- 			ret);
-@@ -4366,6 +4368,14 @@ static void cfg_queues(struct adapter *adap)
- 	if (q10g > netif_get_num_default_rss_queues())
- 		q10g = netif_get_num_default_rss_queues();
- 
-+	/* Reduce memory usage in kdump environment by using only one queue
-+	 * and disable all offload.
-+	 */
-+	if (is_kdump_kernel()) {
-+		q10g = 1;
-+		adap->params.offload = 0;
-+	}
-+
- 	for_each_port(adap, i) {
- 		struct port_info *pi = adap2pinfo(adap, i);
- 
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Thanks!
+
+> 
+> Since RFC:
+> 
+> * Split the mv88e6xxx MDIO refactor into a rename patch and a refactor
+>   patch.
+> * Extend commit message with comment about wrong of_node_put()
+> * Fix destroy of cpu and dsa ports.
+> * Rename _DSA_TAG_LAST to DSA_TAG_LAST and add a comment.
+> 
+> Andrew Lunn (16):
+>   net: dsa: slave: chip data is optional, don't dereference NULL
+>   net: dsa: slave: Remove MDIO address from switch MDIO bus name
+>   net: dsa: tag_{e}dsa.c: Remove dependency on platform data
+>   net: dsa: Add a ports structure and use it in the switch structure
+>   net: dsa: Move port device node into port structure
+>   net: dsa: Remove dynamic allocate of routing table
+>   net: dsa: Copy the routing table into the switch structure
+>   net: dsa: Split up creating/destroying of DSA and CPU ports
+>   net: dsa: mv88e6xxx: Only support EDSA tagging
+>   net: dsa: Refactor selection of tag ops into a function
+>   net: dsa: Make mdio bus optional
+>   net: dsa: mv88e6xxx: Rename _phy_ to _mdio_
+>   net: dsa: mv88e6xxx: Refactor MDIO so driver registers mdio bus
+>   net: dsa: Add new binding implementation
+>   arm: dt: vf610-zii-devel-b: Make use of new DSA binding
+>   net: dsa: Document new binding
+> 
+> Vivien Didelot (1):
+>   net: dsa: mv88e6xxx: fix circular lock in PPU work
+> 
+>  Documentation/devicetree/bindings/net/dsa/dsa.txt | 278 ++++++++-
+>  arch/arm/boot/dts/vf610-zii-dev-rev-b.dts         | 328 +++++------
+>  drivers/net/dsa/bcm_sf2.c                         |   4 +-
+>  drivers/net/dsa/mv88e6xxx.c                       | 267 ++++++---
+>  drivers/net/dsa/mv88e6xxx.h                       |   6 +
+>  include/net/dsa.h                                 |  56 +-
+>  net/dsa/Makefile                                  |   2 +-
+>  net/dsa/dsa.c                                     | 210 ++++---
+>  net/dsa/dsa2.c                                    | 653 ++++++++++++++++++++++
+>  net/dsa/dsa_priv.h                                |   6 +-
+>  net/dsa/slave.c                                   |  57 +-
+>  net/dsa/tag_brcm.c                                |   4 +-
+>  net/dsa/tag_dsa.c                                 |  10 +-
+>  net/dsa/tag_edsa.c                                |  10 +-
+>  net/dsa/tag_trailer.c                             |   4 +-
+>  15 files changed, 1485 insertions(+), 410 deletions(-)
+>  create mode 100644 net/dsa/dsa2.c
+> 
+
+
 -- 
-2.3.4
+Florian
