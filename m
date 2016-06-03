@@ -1,34 +1,53 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] soreuseport: add compat case for setsockopt
- SO_ATTACH_REUSEPORT_CBPF
-Date: Fri, 3 Jun 2016 14:40:04 -0700
-Message-ID: <20160603214002.GA58242@ast-mbp.thefacebook.com>
-References: <CAEfhGiwwvwf31Dj+s0zA0bpVAZ4x4=rLuU5g217u=wRrgm07Dg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Helge Deller <deller@gmx.de>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>
-To: Craig Gallek <kraigatgoog@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33076 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933034AbcFCVkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 17:40:08 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEfhGiwwvwf31Dj+s0zA0bpVAZ4x4=rLuU5g217u=wRrgm07Dg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] iwlwifi: Remove unused array 'iwlagn_loose_lookup'
+Date: Fri,  3 Jun 2016 14:39:19 -0700
+Message-ID: <1464989959-2021-1-git-send-email-linux@roeck-us.net>
+Cc: linuxwifi@intel.com, Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: Johannes Berg <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 03, 2016 at 05:33:09PM -0400, Craig Gallek wrote:
-> On Fri, Jun 3, 2016 at 5:09 PM, Helge Deller <deller@gmx.de> wrote:
-> > Any idea for a better naming than "do_sockopt_fix_sock_fprog()" ?
-> Thanks for catching and fixing this.  I'd suggest simply leaving the
-> function name as-is.  Your fix to the condition in that function is
-> sufficient to address the issue.
+gcc-6 reports the following error if -Werror=unused-const-variable
+is enabled.
 
-+1
-and thanks for the fixes!
+drivers/net/wireless/intel/iwlwifi/dvm/lib.c:210:21: error:
+	'iwlagn_loose_lookup' defined but not used
+
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/net/wireless/intel/iwlwifi/dvm/lib.c | 17 -----------------
+ 1 file changed, 17 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/lib.c b/drivers/net/wireless/intel/iwlwifi/dvm/lib.c
+index 8dda52ae3bb5..6c2d6da7eec6 100644
+--- a/drivers/net/wireless/intel/iwlwifi/dvm/lib.c
++++ b/drivers/net/wireless/intel/iwlwifi/dvm/lib.c
+@@ -205,23 +205,6 @@ static const __le32 iwlagn_def_3w_lookup[IWLAGN_BT_DECISION_LUT_SIZE] = {
+ 	cpu_to_le32(0xf0005000),
+ };
+ 
+-
+-/* Loose Coex */
+-static const __le32 iwlagn_loose_lookup[IWLAGN_BT_DECISION_LUT_SIZE] = {
+-	cpu_to_le32(0xaaaaaaaa),
+-	cpu_to_le32(0xaaaaaaaa),
+-	cpu_to_le32(0xaeaaaaaa),
+-	cpu_to_le32(0xaaaaaaaa),
+-	cpu_to_le32(0xcc00ff28),
+-	cpu_to_le32(0x0000aaaa),
+-	cpu_to_le32(0xcc00aaaa),
+-	cpu_to_le32(0x0000aaaa),
+-	cpu_to_le32(0x00000000),
+-	cpu_to_le32(0x00000000),
+-	cpu_to_le32(0xf0005000),
+-	cpu_to_le32(0xf0005000),
+-};
+-
+ /* Full concurrency */
+ static const __le32 iwlagn_concurrent_lookup[IWLAGN_BT_DECISION_LUT_SIZE] = {
+ 	cpu_to_le32(0xaaaaaaaa),
+-- 
+2.5.0
