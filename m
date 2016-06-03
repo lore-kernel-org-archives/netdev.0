@@ -1,55 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2] soreuseport: add compat case for setsockopt SO_ATTACH_REUSEPORT_CBPF
-Date: Sat, 04 Jun 2016 00:20:01 +0200
-Message-ID: <57520291.7090004@iogearbox.net>
-References: <CAEfhGiwwvwf31Dj+s0zA0bpVAZ4x4=rLuU5g217u=wRrgm07Dg@mail.gmail.com> <20160603214002.GA58242@ast-mbp.thefacebook.com> <20160603214917.GA12557@ls3530.box>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: latest net-next does not build on sparc?
+Date: Fri, 3 Jun 2016 18:39:25 -0400
+Message-ID: <20160603223925.GQ16616@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Craig Gallek <kraigatgoog@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: Helge Deller <deller@gmx.de>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60883 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750787AbcFCWUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 18:20:09 -0400
-In-Reply-To: <20160603214917.GA12557@ls3530.box>
+Received: from userp1040.oracle.com ([156.151.31.81]:39285 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbcFCWj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 18:39:29 -0400
+Received: from userv0021.oracle.com (userv0021.oracle.com [156.151.31.71])
+	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u53MdRkY011251
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 22:39:28 GMT
+Received: from userv0122.oracle.com (userv0122.oracle.com [156.151.31.75])
+	by userv0021.oracle.com (8.13.8/8.13.8) with ESMTP id u53MdR1E030170
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 22:39:27 GMT
+Received: from abhmp0002.oracle.com (abhmp0002.oracle.com [141.146.116.8])
+	by userv0122.oracle.com (8.14.4/8.14.4) with ESMTP id u53MdR4v016210
+	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 22:39:27 GMT
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/03/2016 11:49 PM, Helge Deller wrote:
-> Commit 538950a1b752 ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
-> missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF option.
->
-> Signed-off-by: Helge Deller <deller@gmx.de>
+Just pulled 4.7.0-rc1, and I find a build error
 
-LGTM, thanks!
+kernel/locking/rwsem.c: In function ?down_write_killable?:
+kernel/locking/rwsem.c:65: error: implicit declaration of function ?__down_write_killable?
+make[2]: *** [kernel/locking/rwsem.o] Error 1
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+I had to pull in this patch:
+  http://lkml.iu.edu/hypermail/linux/kernel/1602.3/04431.html
+to get it  to build- did I just miss something in my pull?
 
-[ Cc Willem: I believe we also need something similar for PACKET_FANOUT_DATA
-   when PACKET_FANOUT_CBPF is requested since we have the same issue with the
-   pointer in struct sock_fprog there, too. ]
-
-> diff --git a/net/compat.c b/net/compat.c
-> index 5cfd26a..1373947 100644
-> --- a/net/compat.c
-> +++ b/net/compat.c
-> @@ -354,7 +354,8 @@ static int do_set_sock_timeout(struct socket *sock, int level,
->   static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
->   				char __user *optval, unsigned int optlen)
->   {
-> -	if (optname == SO_ATTACH_FILTER)
-> +	if (optname == SO_ATTACH_FILTER ||
-> +	    optname == SO_ATTACH_REUSEPORT_CBPF)
->   		return do_set_attach_filter(sock, level, optname,
->   					    optval, optlen);
->   	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
->
+--Sowmini
