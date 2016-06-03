@@ -1,257 +1,73 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net] bnx2x: allow adding VLANs while interface is down
-Date: Fri,  3 Jun 2016 15:32:18 +0200
-Message-ID: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50152 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752558AbcFCNbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 09:31:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pramod Kumar <pramod.kumar@broadcom.com>
+Subject: RE: [PATCH v2 1/7] mdio:mux: Enhanced MDIO mux framework for
+ integrated multiplexers
+Date: Fri, 3 Jun 2016 19:11:44 +0530
+Message-ID: <722986e44cf0e0fbb8073605c8d8dcda@mail.gmail.com>
+References: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
+ <1464701801-17243-2-git-send-email-pramod.kumar@broadcom.com> <20160601130207.GE31982@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	bcm-kernel-feedback-list@broadcom.com,
+	linux-arm-kernel@lists.infradead.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160601130207.GE31982@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since implementing VLAN filtering in commit 05cc5a39ddb74
-("bnx2x: add vlan filtering offload") bnx2x refuses to add a VLAN while
-the interface is down:
+Hi Andrew,
 
-  # ip link add link enp3s0f0 enp3s0f0_10 type vlan id 10
-  RTNETLINK answers: Bad address
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: 01 June 2016 18:32
+> To: Pramod Kumar
+> Cc: Rob Herring; Pawel Moll; Mark Rutland; Ian Campbell; Kumar Gala;
+Catalin
+> Marinas; Will Deacon; Kishon Vijay Abraham I; David S. Miller;
+> devicetree@vger.kernel.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; bcm-kernel-feedback-list@broadcom.com;
+linux-arm-
+> kernel@lists.infradead.org
+> Subject: Re: [PATCH v2 1/7] mdio:mux: Enhanced MDIO mux framework for
+> integrated multiplexers
+>
+> > diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c index
+> > 8453f08..cf40e7a 100644
+> > --- a/drivers/of/of_mdio.c
+> > +++ b/drivers/of/of_mdio.c
+> > @@ -225,6 +225,9 @@ int of_mdiobus_register(struct mii_bus *mdio,
+struct
+> device_node *np)
+> >  	if (rc)
+> >  		return rc;
+> >
+> > +	if (of_property_read_bool(np, "mdio-integrated-mux"))
+> > +		return 0;
+> > +
+>
+> Hi
+>
+> Rather than doing this, did you try setting bus->phy_mask = 0 and
+calling
+> mdiobus_register(), rather than of_mdiobus_regsiter() for the parent
+bus?
+>
 
-and in dmesg (with bnx2x.debug=0x20):
-  bnx2x: [bnx2x_vlan_rx_add_vid:12941(enp3s0f0)]Ignoring VLAN
-  configuration the interface is down
+After setting bus->phy_mask = ~0 and using mdiobus_regsiter() I could get
+rid of newly added
+Property. It works for me as I find same has been done inside of
+of_mdiobus_regsiter().
 
-Other drivers have no problem with this.
-Fix this peculiar behavior in the following way:
- - Accept requests to add/kill VID regardless of the device state.
-   Maintain the requested list of VIDs in the bp->vlan_reg list.
- - If the device is up, try to configure the VID list into the hardware.
-   If we run out of VLAN credits or encounter a failure configuring an
-   entry, fall back to accepting all VLANs.
-   If we successfully configure all entries from the list, turn the
-   fallback off.
- - Use the same code for reconfiguring VLANs during NIC load.
+Thanks for pointing out this.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 151 ++++++++++-------------
- 1 file changed, 62 insertions(+), 89 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c5fe9158..a59d55e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12895,52 +12895,71 @@ static int __bnx2x_vlan_configure_vid(struct bnx2x *bp, u16 vid, bool add)
- 	return rc;
- }
- 
--int bnx2x_vlan_reconfigure_vid(struct bnx2x *bp)
-+static int bnx2x_vlan_configure_vid_list(struct bnx2x *bp)
- {
- 	struct bnx2x_vlan_entry *vlan;
- 	int rc = 0;
- 
--	if (!bp->vlan_cnt) {
--		DP(NETIF_MSG_IFUP, "No need to re-configure vlan filters\n");
--		return 0;
--	}
--
-+	/* Configure all non-configured entries */
- 	list_for_each_entry(vlan, &bp->vlan_reg, link) {
--		/* Prepare for cleanup in case of errors */
--		if (rc) {
--			vlan->hw = false;
--			continue;
--		}
--
--		if (!vlan->hw)
-+		if (vlan->hw)
- 			continue;
- 
--		DP(NETIF_MSG_IFUP, "Re-configuring vlan 0x%04x\n", vlan->vid);
-+		if (bp->vlan_cnt >= bp->vlan_credit)
-+			return -ENOBUFS;
- 
- 		rc = __bnx2x_vlan_configure_vid(bp, vlan->vid, true);
- 		if (rc) {
--			BNX2X_ERR("Unable to configure VLAN %d\n", vlan->vid);
--			vlan->hw = false;
--			rc = -EINVAL;
--			continue;
-+			BNX2X_ERR("Unable to config VLAN %d\n", vlan->vid);
-+			return rc;
- 		}
-+
-+		DP(NETIF_MSG_IFUP, "HW configured for VLAN %d\n", vlan->vid);
-+		vlan->hw = true;
-+		bp->vlan_cnt++;
- 	}
- 
--	return rc;
-+	return 0;
-+}
-+
-+static void bnx2x_vlan_configure(struct bnx2x *bp, bool set_rx_mode)
-+{
-+	bool need_accept_any_vlan;
-+
-+	need_accept_any_vlan = !!bnx2x_vlan_configure_vid_list(bp);
-+
-+	if (bp->accept_any_vlan != need_accept_any_vlan) {
-+		bp->accept_any_vlan = need_accept_any_vlan;
-+		DP(NETIF_MSG_IFUP, "Accept all VLAN %s\n",
-+		   bp->accept_any_vlan ? "raised" : "cleared");
-+		if (set_rx_mode) {
-+			if (IS_PF(bp))
-+				bnx2x_set_rx_mode_inner(bp);
-+			else
-+				bnx2x_vfpf_storm_rx_mode(bp);
-+		}
-+	}
-+}
-+
-+int bnx2x_vlan_reconfigure_vid(struct bnx2x *bp)
-+{
-+	struct bnx2x_vlan_entry *vlan;
-+
-+	/* The hw forgot all entries after reload */
-+	list_for_each_entry(vlan, &bp->vlan_reg, link)
-+		vlan->hw = false;
-+	bp->vlan_cnt = 0;
-+
-+	/* Don't set rx mode here. Our caller will do it. */
-+	bnx2x_vlan_configure(bp, false);
-+
-+	return 0;
- }
- 
- static int bnx2x_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	struct bnx2x_vlan_entry *vlan;
--	bool hw = false;
--	int rc = 0;
--
--	if (!netif_running(bp->dev)) {
--		DP(NETIF_MSG_IFUP,
--		   "Ignoring VLAN configuration the interface is down\n");
--		return -EFAULT;
--	}
- 
- 	DP(NETIF_MSG_IFUP, "Adding VLAN %d\n", vid);
- 
-@@ -12948,93 +12967,47 @@ static int bnx2x_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
- 	if (!vlan)
- 		return -ENOMEM;
- 
--	bp->vlan_cnt++;
--	if (bp->vlan_cnt > bp->vlan_credit && !bp->accept_any_vlan) {
--		DP(NETIF_MSG_IFUP, "Accept all VLAN raised\n");
--		bp->accept_any_vlan = true;
--		if (IS_PF(bp))
--			bnx2x_set_rx_mode_inner(bp);
--		else
--			bnx2x_vfpf_storm_rx_mode(bp);
--	} else if (bp->vlan_cnt <= bp->vlan_credit) {
--		rc = __bnx2x_vlan_configure_vid(bp, vid, true);
--		hw = true;
--	}
--
- 	vlan->vid = vid;
--	vlan->hw = hw;
-+	vlan->hw = false;
-+	list_add_tail(&vlan->link, &bp->vlan_reg);
- 
--	if (!rc) {
--		list_add(&vlan->link, &bp->vlan_reg);
--	} else {
--		bp->vlan_cnt--;
--		kfree(vlan);
--	}
--
--	DP(NETIF_MSG_IFUP, "Adding VLAN result %d\n", rc);
-+	if (netif_running(dev))
-+		bnx2x_vlan_configure(bp, true);
- 
--	return rc;
-+	return 0;
- }
- 
- static int bnx2x_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	struct bnx2x_vlan_entry *vlan;
-+	bool found = false;
- 	int rc = 0;
- 
--	if (!netif_running(bp->dev)) {
--		DP(NETIF_MSG_IFUP,
--		   "Ignoring VLAN configuration the interface is down\n");
--		return -EFAULT;
--	}
--
- 	DP(NETIF_MSG_IFUP, "Removing VLAN %d\n", vid);
- 
--	if (!bp->vlan_cnt) {
--		BNX2X_ERR("Unable to kill VLAN %d\n", vid);
--		return -EINVAL;
--	}
--
- 	list_for_each_entry(vlan, &bp->vlan_reg, link)
--		if (vlan->vid == vid)
-+		if (vlan->vid == vid) {
-+			found = true;
- 			break;
-+		}
- 
--	if (vlan->vid != vid) {
-+	if (!found) {
- 		BNX2X_ERR("Unable to kill VLAN %d - not found\n", vid);
- 		return -EINVAL;
- 	}
- 
--	if (vlan->hw)
-+	if (netif_running(dev) && vlan->hw) {
- 		rc = __bnx2x_vlan_configure_vid(bp, vid, false);
-+		DP(NETIF_MSG_IFUP, "HW deconfigured for VLAN %d\n", vid);
-+		bp->vlan_cnt--;
-+	}
- 
- 	list_del(&vlan->link);
- 	kfree(vlan);
- 
--	bp->vlan_cnt--;
--
--	if (bp->vlan_cnt <= bp->vlan_credit && bp->accept_any_vlan) {
--		/* Configure all non-configured entries */
--		list_for_each_entry(vlan, &bp->vlan_reg, link) {
--			if (vlan->hw)
--				continue;
--
--			rc = __bnx2x_vlan_configure_vid(bp, vlan->vid, true);
--			if (rc) {
--				BNX2X_ERR("Unable to config VLAN %d\n",
--					  vlan->vid);
--				continue;
--			}
--			DP(NETIF_MSG_IFUP, "HW configured for VLAN %d\n",
--			   vlan->vid);
--			vlan->hw = true;
--		}
--		DP(NETIF_MSG_IFUP, "Accept all VLAN Removed\n");
--		bp->accept_any_vlan = false;
--		if (IS_PF(bp))
--			bnx2x_set_rx_mode_inner(bp);
--		else
--			bnx2x_vfpf_storm_rx_mode(bp);
--	}
-+	if (netif_running(dev))
-+		bnx2x_vlan_configure(bp, true);
- 
- 	DP(NETIF_MSG_IFUP, "Removing VLAN result %d\n", rc);
- 
--- 
-2.5.5
+> 	Andrew
