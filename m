@@ -1,45 +1,55 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v3 3/7] binding: mdio-mux: Add DT binding doc for
- Broadcom MDIO bus mutiplexer
-Date: Fri, 3 Jun 2016 18:15:44 +0200
-Message-ID: <20160603161544.GF22120@lunn.ch>
-References: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
- <1464967568-27562-4-git-send-email-pramod.kumar@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
+ SACK block
+Date: Fri, 03 Jun 2016 09:24:54 -0700
+Message-ID: <1464971094.5939.192.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
+	 <1464796118.5939.156.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALCp7mne5OEU1hT-XHoQR33S7tzCRuDMzCu-deXx18QbdBgmYA@mail.gmail.com>
+	 <1464966836.5939.189.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1464967568-27562-4-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Pau Espin <pau.espin@tessares.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33941 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752172AbcFCQY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 12:24:57 -0400
+Received: by mail-pa0-f68.google.com with SMTP id x1so6316293pav.1
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 09:24:57 -0700 (PDT)
+In-Reply-To: <CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +Properties for an MDIO bus mutiplexer found in Broadcom iProc based SoCs.
-> +
-> +This MDIO bus multiplexer defines buses that could be internal as well as
-> +external to SoCs and could accept MDIO transaction compatible to C-22 or
-> +C-45 Clause. When child bus is selected, one needs to select these two
-> +properties as well to generate desired MDIO trascation on appropriate bus.
-> +
+On Fri, 2016-06-03 at 11:45 -0400, Neal Cardwell wrote:
+> On Fri, Jun 3, 2016 at 11:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > I have no strict opinion on this.
+> >
+> > It seems to me that checking at most 4 right edges (at least in current
+> > linux implementation) is not adding a huge risk, and allows for better
+> > interoperability.
+> >
+> > I vote for no extra sysctl.
+> 
+> I vote for no extra sysctl as well.
+> 
+> But I would also vote to tighten up the proposed logic slightly, and
+> only check the seq of the incoming RST against the right edge of the
+> *right-most* SACK block. That is, the code could loop through the
+> tp->selective_acks to find the right-most of the right edges of the
+> SACK blocks (the end_seq that has no other end_seq after() it). AFAICT
+> it makes sense to expect that a legitimate incoming RST might match
+> rcv_nxt, or might match the right-most edge of the right-most SACK.
+> But allowing a RST to match a sequence of some SACK in the middle of
+> the sequence range would seem to only increase the attack surface for
+> RST attacks.
 
-nit pick: transactions
+Well, the most recent info would be in [0], no need to iterate, right ?
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-
-	     Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So only look at the first sack block in the array, even if we have 3 or
+4 blocks there.
