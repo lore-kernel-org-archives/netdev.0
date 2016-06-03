@@ -1,33 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 12/17] net: dsa: Make mdio bus optional
-Date: Fri, 3 Jun 2016 10:21:03 -0700
-Message-ID: <5751BC7F.6050809@gmail.com>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
- <1464972256-10408-13-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33845 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937AbcFCRVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 13:21:06 -0400
-Received: by mail-pf0-f169.google.com with SMTP id 62so45590708pfd.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 10:21:05 -0700 (PDT)
-In-Reply-To: <1464972256-10408-13-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vincent Palatin <vpalatin@chromium.org>
+Subject: [PATCH] net: stmmac: dwmac-rk: keep PHY up for WoL
+Date: Fri,  3 Jun 2016 10:29:20 -0700
+Message-ID: <1464974960-26672-1-git-send-email-vpalatin@chromium.org>
+Cc: linux-kernel@vger.kernel.org,
+	Alexandre Torgue <alexandre.torgue@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	=?UTF-8?q?Heiko=20St=C3=BCbner?= <heiko@sntech.de>,
+	Vincent Palatin <vpalatin@chromium.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/03/2016 09:44 AM, Andrew Lunn wrote:
-> The switch may want to instantiate its own MDIO bus. Only do it
-> centrally if the switch has not already created one, and the read op
-> is implemented.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Do not shutdown the PHY if Wake-on-Lan is enabled, else it cannot wake
+us up.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 0cd3ecf..2e45e75 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -534,6 +534,10 @@ static int rk_gmac_init(struct platform_device *pdev, void *priv)
+ 	struct rk_priv_data *bsp_priv = priv;
+ 	int ret;
+ 
++	/* Keep the PHY up if we use Wake-on-Lan. */
++	if (device_may_wakeup(&pdev->dev))
++		return 0;
++
+ 	ret = phy_power_on(bsp_priv, true);
+ 	if (ret)
+ 		return ret;
+@@ -549,6 +553,10 @@ static void rk_gmac_exit(struct platform_device *pdev, void *priv)
+ {
+ 	struct rk_priv_data *gmac = priv;
+ 
++	/* The PHY was up for Wake-on-Lan. */
++	if (device_may_wakeup(&pdev->dev))
++		return;
++
+ 	phy_power_on(gmac, false);
+ 	gmac_clk_enable(gmac, false);
+ }
 -- 
-Florian
+2.8.0.rc3.226.g39d4020
