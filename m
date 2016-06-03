@@ -1,232 +1,180 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 11/17] net: dsa: Refactor selection of tag ops into a function
-Date: Fri,  3 Jun 2016 18:44:10 +0200
-Message-ID: <1464972256-10408-12-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 09/17] net: dsa: Split up creating/destroying of DSA and CPU ports
+Date: Fri,  3 Jun 2016 18:44:08 +0200
+Message-ID: <1464972256-10408-10-git-send-email-andrew@lunn.ch>
 References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58654 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58665 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752572AbcFCQpF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:45:05 -0400
+	id S932582AbcFCQpu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 12:45:50 -0400
 In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace the two switch statements with an array lookup, and store the
-result in the dsa tree structure. The drivers no longer need to know
-the selected tag protocol, so remove it from the dsa switch structure.
+Refactor the code to setup a single DSA/CPU port into a function of
+its own, and export it, so it can be used by the new binding.
+
+Similarly, refactor the destroy code into a function.  When destroying
+the ports, don't put the of node. They should be released at the end
+along with the normal ports.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
 rfc->v1:
-Rename _DSA_TAG_LAST to DSA_TAG_LAST and add a comment.
+* Extend commit message with comment about wrong of_node_put()
+* Fix destroy of cpu and dsa ports.
 ---
- include/net/dsa.h  |  8 +++++-
- net/dsa/dsa.c      | 71 ++++++++++++++++++++++++++++++++++--------------------
- net/dsa/dsa_priv.h |  1 +
- net/dsa/slave.c    | 35 +--------------------------
- 4 files changed, 54 insertions(+), 61 deletions(-)
+ net/dsa/dsa.c      | 86 ++++++++++++++++++++++++++++++++----------------------
+ net/dsa/dsa_priv.h |  3 ++
+ 2 files changed, 54 insertions(+), 35 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index a306a17b7f2e..11e8f09d32e3 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -26,6 +26,7 @@ enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_TRAILER,
- 	DSA_TAG_PROTO_EDSA,
- 	DSA_TAG_PROTO_BRCM,
-+	DSA_TAG_LAST,		/* MUST BE LAST */
- };
- 
- #define DSA_MAX_SWITCHES	4
-@@ -99,7 +100,6 @@ struct dsa_switch_tree {
- 				       struct net_device *dev,
- 				       struct packet_type *pt,
- 				       struct net_device *orig_dev);
--	enum dsa_tag_protocol	tag_protocol;
- 
- 	/*
- 	 * Original copy of the master netdev ethtool_ops
-@@ -116,6 +116,12 @@ struct dsa_switch_tree {
- 	 * Data for the individual switch chips.
- 	 */
- 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
-+
-+	/*
-+	 * Tagging protocol operations for adding and removing an
-+	 * encapsulation tag.
-+	 */
-+	const struct dsa_device_ops *tag_ops;
- };
- 
- struct dsa_port {
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 7140de475c07..221ebde4318d 100644
+index bfe1d03d4730..7140de475c07 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -29,6 +29,33 @@
+@@ -180,36 +180,47 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
+ #endif /* CONFIG_NET_DSA_HWMON */
  
- char dsa_driver_version[] = "0.1";
- 
-+static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
-+					    struct net_device *dev)
-+{
-+	/* Just return the original SKB */
-+	return skb;
+ /* basic switch operations **************************************************/
+-static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
++int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
++		      struct device_node *port_dn, int port)
+ {
+-	struct device_node *port_dn;
+ 	struct phy_device *phydev;
+-	int ret, port, mode;
++	int ret, mode;
++
++	if (of_phy_is_fixed_link(port_dn)) {
++		ret = of_phy_register_fixed_link(port_dn);
++		if (ret) {
++			dev_err(dev, "failed to register fixed PHY\n");
++			return ret;
++		}
++		phydev = of_phy_find_device(port_dn);
++
++		mode = of_get_phy_mode(port_dn);
++		if (mode < 0)
++			mode = PHY_INTERFACE_MODE_NA;
++		phydev->interface = mode;
++
++		genphy_config_init(phydev);
++		genphy_read_status(phydev);
++		if (ds->drv->adjust_link)
++			ds->drv->adjust_link(ds, port, phydev);
++	}
++
++	return 0;
 +}
 +
-+static const struct dsa_device_ops none_ops = {
-+	.xmit	= dsa_slave_notag_xmit,
-+	.rcv	= NULL,
-+};
-+
-+const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
-+#ifdef CONFIG_NET_DSA_TAG_DSA
-+	[DSA_TAG_PROTO_DSA] = &dsa_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_EDSA
-+	[DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_TRAILER
-+	[DSA_TAG_PROTO_TRAILER] = &trailer_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+	[DSA_TAG_PROTO_BRCM] = &brcm_netdev_ops,
-+#endif
-+	[DSA_TAG_PROTO_NONE] = &none_ops,
-+};
++static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
++{
++	struct device_node *port_dn;
++	int ret, port;
  
- /* switch driver registration ***********************************************/
- static DEFINE_MUTEX(dsa_switch_drivers_mutex);
-@@ -225,6 +252,20 @@ static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
+ 	for (port = 0; port < DSA_MAX_PORTS; port++) {
+ 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
+ 			continue;
+ 
+ 		port_dn = ds->ports[port].dn;
+-		if (of_phy_is_fixed_link(port_dn)) {
+-			ret = of_phy_register_fixed_link(port_dn);
+-			if (ret) {
+-				netdev_err(master,
+-					   "failed to register fixed PHY\n");
+-				return ret;
+-			}
+-			phydev = of_phy_find_device(port_dn);
+-
+-			mode = of_get_phy_mode(port_dn);
+-			if (mode < 0)
+-				mode = PHY_INTERFACE_MODE_NA;
+-			phydev->interface = mode;
+-
+-			genphy_config_init(phydev);
+-			genphy_read_status(phydev);
+-			if (ds->drv->adjust_link)
+-				ds->drv->adjust_link(ds, port, phydev);
+-		}
++		ret = dsa_cpu_dsa_setup(ds, dev, port_dn, port);
++		if (ret)
++			return ret;
+ 	}
  	return 0;
  }
- 
-+const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol)
-+{
-+	const struct dsa_device_ops *ops;
-+
-+	if (tag_protocol >= DSA_TAG_LAST)
-+		return ERR_PTR(-EINVAL);
-+	ops = dsa_device_ops[tag_protocol];
-+
-+	if (!ops)
-+		return ERR_PTR(-ENOPROTOOPT);
-+
-+	return ops;
-+}
-+
- static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- {
- 	struct dsa_switch_driver *drv = ds->drv;
-@@ -277,35 +318,13 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	 * switch.
- 	 */
- 	if (dst->cpu_switch == index) {
--		switch (drv->tag_protocol) {
--#ifdef CONFIG_NET_DSA_TAG_DSA
--		case DSA_TAG_PROTO_DSA:
--			dst->rcv = dsa_netdev_ops.rcv;
--			break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_EDSA
--		case DSA_TAG_PROTO_EDSA:
--			dst->rcv = edsa_netdev_ops.rcv;
--			break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_TRAILER
--		case DSA_TAG_PROTO_TRAILER:
--			dst->rcv = trailer_netdev_ops.rcv;
--			break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_BRCM
--		case DSA_TAG_PROTO_BRCM:
--			dst->rcv = brcm_netdev_ops.rcv;
--			break;
--#endif
--		case DSA_TAG_PROTO_NONE:
--			break;
--		default:
--			ret = -ENOPROTOOPT;
-+		dst->tag_ops = dsa_resolve_tag_protocol(drv->tag_protocol);
-+		if (IS_ERR(dst->tag_ops)) {
-+			ret = PTR_ERR(dst->tag_ops);
- 			goto out;
- 		}
- 
--		dst->tag_protocol = drv->tag_protocol;
-+		dst->rcv = dst->tag_ops->rcv;
+@@ -340,7 +351,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
  	}
  
- 	memcpy(ds->rtable, cd->rtable, sizeof(ds->rtable));
+ 	/* Perform configuration of the CPU and DSA ports */
+-	ret = dsa_cpu_dsa_setup(ds, dst->master_netdev);
++	ret = dsa_cpu_dsa_setups(ds, parent);
+ 	if (ret < 0) {
+ 		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
+ 			   index);
+@@ -423,10 +434,21 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	return ds;
+ }
+ 
+-static void dsa_switch_destroy(struct dsa_switch *ds)
++void dsa_cpu_dsa_destroy(struct device_node *port_dn)
+ {
+-	struct device_node *port_dn;
+ 	struct phy_device *phydev;
++
++	if (of_phy_is_fixed_link(port_dn)) {
++		phydev = of_phy_find_device(port_dn);
++		if (phydev) {
++			phy_device_free(phydev);
++			fixed_phy_unregister(phydev);
++		}
++	}
++}
++
++static void dsa_switch_destroy(struct dsa_switch *ds)
++{
+ 	int port;
+ 
+ #ifdef CONFIG_NET_DSA_HWMON
+@@ -445,17 +467,11 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		dsa_slave_destroy(ds->ports[port].netdev);
+ 	}
+ 
+-	/* Remove any fixed link PHYs */
++	/* Disable configuration of the CPU and DSA ports */
+ 	for (port = 0; port < DSA_MAX_PORTS; port++) {
+-		port_dn = ds->ports[port].dn;
+-		if (of_phy_is_fixed_link(port_dn)) {
+-			phydev = of_phy_find_device(port_dn);
+-			if (phydev) {
+-				phy_device_free(phydev);
+-				of_node_put(port_dn);
+-				fixed_phy_unregister(phydev);
+-			}
+-		}
++		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
++			continue;
++		dsa_cpu_dsa_destroy(ds->ports[port].dn);
+ 	}
+ 
+ 	mdiobus_unregister(ds->slave_mii_bus);
 diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index dbea5d9e7f75..72f7b8989cfb 100644
+index dfa33779d49c..dbea5d9e7f75 100644
 --- a/net/dsa/dsa_priv.h
 +++ b/net/dsa/dsa_priv.h
-@@ -53,6 +53,7 @@ extern char dsa_driver_version[];
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		      struct device_node *port_dn, int port);
- void dsa_cpu_dsa_destroy(struct device_node *port_dn);
-+const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
+@@ -50,6 +50,9 @@ struct dsa_slave_priv {
+ 
+ /* dsa.c */
+ extern char dsa_driver_version[];
++int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
++		      struct device_node *port_dn, int port);
++void dsa_cpu_dsa_destroy(struct device_node *port_dn);
  
  /* slave.c */
  extern const struct dsa_device_ops notag_netdev_ops;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 52f1183c42a0..35e5f0f6688b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -521,14 +521,6 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
--static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
--					    struct net_device *dev)
--{
--	/* Just return the original SKB */
--	return skb;
--}
--
--
- /* ethtool operations *******************************************************/
- static int
- dsa_slave_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-@@ -1151,32 +1143,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	p = netdev_priv(slave_dev);
- 	p->parent = ds;
- 	p->port = port;
--
--	switch (ds->dst->tag_protocol) {
--#ifdef CONFIG_NET_DSA_TAG_DSA
--	case DSA_TAG_PROTO_DSA:
--		p->xmit = dsa_netdev_ops.xmit;
--		break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_EDSA
--	case DSA_TAG_PROTO_EDSA:
--		p->xmit = edsa_netdev_ops.xmit;
--		break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_TRAILER
--	case DSA_TAG_PROTO_TRAILER:
--		p->xmit = trailer_netdev_ops.xmit;
--		break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_BRCM
--	case DSA_TAG_PROTO_BRCM:
--		p->xmit = brcm_netdev_ops.xmit;
--		break;
--#endif
--	default:
--		p->xmit	= dsa_slave_notag_xmit;
--		break;
--	}
-+	p->xmit = dst->tag_ops->xmit;
- 
- 	p->old_pause = -1;
- 	p->old_link = -1;
 -- 
 2.8.1
