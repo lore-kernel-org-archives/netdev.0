@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable] Set a large MTU on ovs-created tunnel devices
-Date: Fri, 03 Jun 2016 11:44:18 -0700 (PDT)
-Message-ID: <20160603.114418.907250018461386490.davem@davemloft.net>
-References: <CAOZ2QJNufB+4ffEpaab6iWotM_4+PQKVcEorEN9Hckh3NiJaQA@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 10/17] net: dsa: mv88e6xxx: Only support EDSA tagging
+Date: Fri, 03 Jun 2016 14:51:35 -0400
+Message-ID: <878tymnm14.fsf@ketchup.mtl.sfl>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch> <1464972256-10408-11-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dan.streetman@canonical.com
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39348 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932389AbcFCSoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 14:44:20 -0400
-In-Reply-To: <CAOZ2QJNufB+4ffEpaab6iWotM_4+PQKVcEorEN9Hckh3NiJaQA@mail.gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50757 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932296AbcFCSvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 14:51:39 -0400
+In-Reply-To: <1464972256-10408-11-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Streetman <dan.streetman@canonical.com>
-Date: Fri, 3 Jun 2016 13:49:09 -0400
+Andrew Lunn <andrew@lunn.ch> writes:
 
-> Can you queue up these commits for stable?
+> The merged driver no longer offers the option to use DSA tagging. So
+> remove the code to setup the switch to do DSA tagging and hard code
+> the use of EDSA.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-This stuff doesn't cleanly backport, I tried several times already.
-
-Therfore, someone knowledgable with OVS is going to have to do the
-backport, test it, and post it for me to submit.
-
-Thanks.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
