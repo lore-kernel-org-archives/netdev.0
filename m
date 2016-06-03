@@ -1,7 +1,8 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v3 0/7] Add MDIO bus multiplexer support for iProc SoCs
-Date: Fri,  3 Jun 2016 20:56:01 +0530
-Message-ID: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH v3 3/7] binding: mdio-mux: Add DT binding doc for Broadcom MDIO bus mutiplexer
+Date: Fri,  3 Jun 2016 20:56:04 +0530
+Message-ID: <1464967568-27562-4-git-send-email-pramod.kumar@broadcom.com>
+References: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	bcm-kernel-feedback-list@broadcom.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -14,70 +15,89 @@ To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
 	Will Deacon <will.deacon@arm.com>,
 	Kishon Vijay Abraham I <kishon@ti.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35557 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422656AbcFCP0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 11:26:48 -0400
+Received: by mail-pf0-f171.google.com with SMTP id g64so44785788pfb.2
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 08:26:47 -0700 (PDT)
+In-Reply-To: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Broadcom iProc based SoCs use a MDIO bus multiplexer where child buses
-could be internal as well external to SoCs. These buses could supports
-MDIO transaction compatible to C-22/C-45.
+Add DT binding doc for Broadcom MDIO bus mutiplexer driver.
 
-Broadcom MDIO bus mulitplexer is an integrated multiplexer where child bus
-selection and mdio transaction logic lies inside multiplexer itself.
-To accommodate this multiplexer in existing mux framework below changes
-were required-
-
-1. Passed MDIO parent bus via mdio_mux_init to MDIO mux framework.
-
-This patch set includes MDIO bus multiplexer driver along with above
-framework change. It includes one external bus node having Ethernet PHY
-attached and two internal bus node holding PCIe PHYs.
-
-This patch series is based on v4.6.0-rc1 and is available from github-
-repo: https://github.com/Broadcom/arm64-linux.git
-branch:mdio-mux-v3
-
-Changes from v2:
--Addressed Rob's comments in this patch regarding typo/grammers.
--Addressed David's comments regarding local variables order.
--Removed property "mdio-integrated-mux" and used mdiobus_register()
-in place of of_mdiobus_regsiter().
--removed usage of IS_ERR_OR_NULL to IS_ERR in PCIe PHY driver.
-
-Changes from v1:
-- stop using "brcm,is_c45" from bus node as suggested by Andrew. MDIO
-PHY driver will logically OR MII_ADDR_C45 into the address when issues
-any C45 MDIO read/write transaction.
-
-Pramod Kumar (7):
-  mdio:mux: Enhanced MDIO mux framework for integrated multiplexers
-  binding: Make "mdio-parent-bus" property from mandatory to optional
-  binding: mdio-mux: Add DT binding doc for Broadcom MDIO bus mutiplexer
-  dt:mdio-mux: Add mdio multiplexer driver node
-  net:mdio-mux: Add MDIO mux driver for iProc SoCs
-  Binding:PHY: Binding doc for NS2 PCIe PHYs.
-  phy: Add Northstar2 PCI Phy support
-
- .../bindings/net/brcm,mdio-mux-iproc.txt           |  59 +++++
- Documentation/devicetree/bindings/net/mdio-mux.txt |   3 +-
- .../bindings/phy/brcm,mdio-mux-bus-pci.txt         |  27 +++
- arch/arm64/boot/dts/broadcom/ns2-svk.dts           |  12 +
- arch/arm64/boot/dts/broadcom/ns2.dtsi              |  31 +++
- drivers/net/phy/Kconfig                            |  11 +
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/mdio-mux-bcm-iproc.c               | 246 +++++++++++++++++++++
- drivers/net/phy/mdio-mux-gpio.c                    |   2 +-
- drivers/net/phy/mdio-mux-mmioreg.c                 |   2 +-
- drivers/net/phy/mdio-mux.c                         |  28 ++-
- drivers/phy/Kconfig                                |   8 +
- drivers/phy/Makefile                               |   1 +
- drivers/phy/phy-bcm-ns2-pcie.c                     | 115 ++++++++++
- include/linux/mdio-mux.h                           |   4 +-
- 15 files changed, 536 insertions(+), 14 deletions(-)
+Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
+---
+ .../bindings/net/brcm,mdio-mux-iproc.txt           | 59 ++++++++++++++++++++++
+ 1 file changed, 59 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
- create mode 100644 Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
- create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
- create mode 100644 drivers/phy/phy-bcm-ns2-pcie.c
 
+diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+new file mode 100644
+index 0000000..7c53278
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+@@ -0,0 +1,59 @@
++Properties for an MDIO bus mutiplexer found in Broadcom iProc based SoCs.
++
++This MDIO bus multiplexer defines buses that could be internal as well as
++external to SoCs and could accept MDIO transaction compatible to C-22 or
++C-45 Clause. When child bus is selected, one needs to select these two
++properties as well to generate desired MDIO trascation on appropriate bus.
++
++Required properties in addition to the generic multiplexer properties:
++
++MDIO multiplexer node:
++- compatible: brcm,mdio-mux-iproc.
++
++Every non-ethernet PHY requires a compatible so that it could be probed based
++on this compatible string.
++
++Additional information regarding generic multiplexer properties can be found
++at- Documentation/devicetree/bindings/net/mdio-mux.txt
++
++
++for example:
++		mdio_mux_iproc: mdio-mux@6602023c {
++			compatible = "brcm,mdio-mux-iproc";
++			reg = <0x6602023c 0x14>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mdio@0 {
++				reg = <0x0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				pci_phy0: pci-phy@0 {
++					compatible = "brcm,ns2-pcie-phy";
++					reg = <0x0>;
++					#phy-cells = <0>;
++				};
++			};
++
++			mdio@7 {
++				reg = <0x7>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				pci_phy1: pci-phy@0 {
++					compatible = "brcm,ns2-pcie-phy";
++					reg = <0x0>;
++					#phy-cells = <0>;
++				};
++			};
++			mdio@10 {
++				reg = <0x10>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				gphy0: eth-phy@10 {
++					reg = <0x10>;
++				};
++			};
++		};
 -- 
 1.9.1
