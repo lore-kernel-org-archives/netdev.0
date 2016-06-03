@@ -1,32 +1,49 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 13/17] net: dsa: mv88e6xxx: Rename _phy_ to _mdio_
-Date: Fri, 03 Jun 2016 15:40:47 -0400
-Message-ID: <8737ounjr4.fsf@ketchup.mtl.sfl>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch> <1464972256-10408-14-git-send-email-andrew@lunn.ch>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
+ SACK block
+Date: Fri, 3 Jun 2016 15:44:29 -0400
+Message-ID: <CADVnQy=CewFYHhnRHcjLUwLGvc_1_geJrug0OeD0cEVePMwRqQ@mail.gmail.com>
+References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
+ <1464796118.5939.156.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCp7mne5OEU1hT-XHoQR33S7tzCRuDMzCu-deXx18QbdBgmYA@mail.gmail.com>
+ <1464966836.5939.189.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com> <1464971094.5939.192.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pau Espin <pau.espin@tessares.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:52470 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062AbcFCTkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 15:40:51 -0400
-In-Reply-To: <1464972256-10408-14-git-send-email-andrew@lunn.ch>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:36314 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752548AbcFCTob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 15:44:31 -0400
+Received: by mail-oi0-f42.google.com with SMTP id j1so142593578oih.3
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 12:44:31 -0700 (PDT)
+In-Reply-To: <1464971094.5939.192.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> The switch implements a generic MDIO bus, which could host more than
-> PHYs. It is conventional to use _mdio_ or _mii_ in the function name,
-> so rename them. Also postfix make the historically first read/write
-> function with _direct, to help distinguish it from _indirect and _ppu.
+On Fri, Jun 3, 2016 at 12:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-06-03 at 11:45 -0400, Neal Cardwell wrote:
+>> But I would also vote to tighten up the proposed logic slightly, and
+>> only check the seq of the incoming RST against the right edge of the
+>> *right-most* SACK block. That is, the code could loop through the
+>> tp->selective_acks to find the right-most of the right edges of the
+>> SACK blocks (the end_seq that has no other end_seq after() it). AFAICT
+>> it makes sense to expect that a legitimate incoming RST might match
+>> rcv_nxt, or might match the right-most edge of the right-most SACK.
+>> But allowing a RST to match a sequence of some SACK in the middle of
+>> the sequence range would seem to only increase the attack surface for
+>> RST attacks.
 >
-> While touching these functions, remove some of the _ prefixes, which
-> we are deprecating.
+> Well, the most recent info would be in [0], no need to iterate, right ?
 >
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> So only look at the first sack block in the array, even if we have 3 or
+> 4 blocks there.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Yes, good point. It should only need to check the first SACK block in
+the selective_acks  array.
+
+neal
