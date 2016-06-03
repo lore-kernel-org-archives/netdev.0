@@ -1,55 +1,72 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 10/17] net: dsa: mv88e6xxx: Only support EDSA tagging
-Date: Fri,  3 Jun 2016 18:44:09 +0200
-Message-ID: <1464972256-10408-11-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 12/17] net: dsa: Make mdio bus optional
+Date: Fri,  3 Jun 2016 18:44:11 +0200
+Message-ID: <1464972256-10408-13-git-send-email-andrew@lunn.ch>
 References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58649 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58659 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932259AbcFCQos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:44:48 -0400
+	id S932582AbcFCQpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 12:45:21 -0400
 In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The merged driver no longer offers the option to use DSA tagging. So
-remove the code to setup the switch to do DSA tagging and hard code
-the use of EDSA.
+The switch may want to instantiate its own MDIO bus. Only do it
+centrally if the switch has not already created one, and the read op
+is implemented.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ net/dsa/dsa.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 492801a6398c..11845eccf670 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2725,11 +2725,8 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_priv_state *ps, int port)
- 		if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
- 		    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
- 		    mv88e6xxx_6320_family(ps)) {
--			if (ds->dst->tag_protocol == DSA_TAG_PROTO_EDSA)
--				reg |= PORT_CONTROL_FRAME_ETHER_TYPE_DSA;
--			else
--				reg |= PORT_CONTROL_FRAME_MODE_DSA;
--			reg |= PORT_CONTROL_FORWARD_UNKNOWN |
-+			reg |= PORT_CONTROL_FRAME_ETHER_TYPE_DSA |
-+				PORT_CONTROL_FORWARD_UNKNOWN |
- 				PORT_CONTROL_FORWARD_UNKNOWN_MC;
- 		}
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 221ebde4318d..6c314f300424 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -340,17 +340,18 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+ 	if (ret < 0)
+ 		goto out;
  
-@@ -2737,7 +2734,6 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_priv_state *ps, int port)
- 		    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
- 		    mv88e6xxx_6095_family(ps) || mv88e6xxx_6065_family(ps) ||
- 		    mv88e6xxx_6185_family(ps) || mv88e6xxx_6320_family(ps)) {
--			if (ds->dst->tag_protocol == DSA_TAG_PROTO_EDSA)
- 				reg |= PORT_CONTROL_EGRESS_ADD_TAG;
- 		}
+-	ds->slave_mii_bus = devm_mdiobus_alloc(parent);
+-	if (ds->slave_mii_bus == NULL) {
+-		ret = -ENOMEM;
+-		goto out;
+-	}
+-	dsa_slave_mii_bus_init(ds);
+-
+-	ret = mdiobus_register(ds->slave_mii_bus);
+-	if (ret < 0)
+-		goto out;
++	if (!ds->slave_mii_bus && drv->phy_read) {
++		ds->slave_mii_bus = devm_mdiobus_alloc(parent);
++		if (!ds->slave_mii_bus) {
++			ret = -ENOMEM;
++			goto out;
++		}
++		dsa_slave_mii_bus_init(ds);
+ 
++		ret = mdiobus_register(ds->slave_mii_bus);
++		if (ret < 0)
++			goto out;
++	}
+ 
+ 	/*
+ 	 * Create network devices for physical switch ports.
+@@ -493,7 +494,8 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		dsa_cpu_dsa_destroy(ds->ports[port].dn);
  	}
+ 
+-	mdiobus_unregister(ds->slave_mii_bus);
++	if (ds->slave_mii_bus && ds->drv->phy_read)
++		mdiobus_unregister(ds->slave_mii_bus);
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
 -- 
 2.8.1
