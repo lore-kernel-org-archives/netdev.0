@@ -1,52 +1,58 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH] r8152: Add support for setting MAC to system's Auxiliary MAC address
-Date: Fri, 3 Jun 2016 09:23:29 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2FED973@RTITMBSV03.realtek.com.tw>
-References: <1464817844-27206-1-git-send-email-mario_limonciello@dell.com>
- <20160601230535.GA29279@kroah.com>
- <0bdb98b72b884682b936c0587f965629@ausx13mpc124.AMER.DELL.COM>
- <20160602152244.GA26494@kroah.com>
- <6d9575fd791c4e25b464b9a1b11daa83@ausx13mpc124.AMER.DELL.COM>
- <20160602160902.GA27948@kroah.com>
- <5a22a497af9e467582221cd3a10c90ff@ausx13mpc124.AMER.DELL.COM>
+From: Dongdong Liu <liudongdong3@huawei.com>
+Subject: [bug discuss] fjes driver call trace warning, "PNP0C02" used in fjes
+ seems like a bug,
+Date: Fri, 3 Jun 2016 17:38:12 +0800
+Message-ID: <57515004.1080301@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"pali.rohar@gmail.com" <pali.rohar@gmail.com>,
-	"anthony.wong@canonical.com" <anthony.wong@canonical.com>
-To: "Mario_Limonciello@Dell.com" <Mario_Limonciello@Dell.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5a22a497af9e467582221cd3a10c90ff@ausx13mpc124.AMER.DELL.COM>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="gbk"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linuxarm <linuxarm@huawei.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:13716 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751543AbcFCJib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 05:38:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mario_Limonciello@Dell.com [mailto:Mario_Limonciello@Dell.com]
-> Sent: Friday, June 03, 2016 12:58 AM
-[...]
-> > Why generate a random one and not just use the one that the network
-> > controler already provides?
-> 
-> That's how the flow works in r8152 already and I'm not overriding it.
-> Again, I'll send V2 and you'll see what I did.
+Hi all:
 
-The original flows are
-1. Read MAC address 1 from device.
-2. Check if the MAC address 1 is valid.
-3. Use random MAC address if MAC address 1 is invalid.
+The bug is recorded in https://bugs.linaro.org/show_bug.cgi?id=2292.
 
-However, your flow would be
-1. Read MAC address 1 from device.
-2. Read MAC address 2 from ACPI.
-3. Check if the MAC address 2 is valid.
-4. Use random MAC address if MAC address 2 is invalid.
+"PNP0C02" attached two modules drivers/pnp/system.c and drivers/net/fjes/fjes_main.c .
+"fjes" driver lead to the call trace.
 
-Although MAC address 2 may be invalid, MAC address 1 may be valid.
-For this situation, you have to use MAC address 1, not random one.
+system.c:
+static const struct pnp_device_id pnp_dev_table[] = {
+         /* General ID for reserving resources */
+         {"PNP0c02", 0},
+         /* memory controller */
+         {"PNP0c01", 0},
+         {"", 0}
+};
 
-Best Regards,
-Hayes
+jes_main.c:
+static const struct acpi_device_id fjes_acpi_ids[] = {
+         {"PNP0C02", 0},
+         {"", 0},
+};
+
+Both of the modules use id "PNP0C02" (case insensitive),
+
+I used "PNP0C02" to mark motherboard reserved resource as below in UEFI.
+Device (RES1)
+{
+	Name (_HID, "HISI0081") // HiSi PCIe RC config baseaddress
+	Name (_CID, "PNP0C02") // Motherboard reserved resource
+		Name (_CRS, ResourceTemplate (){
+			Memory32Fixed (ReadWrite, 0xb0080000 , 0x10000)
+		})
+}
+
+I think that "PNP0C02" should be used to mark any motherboard reserved resource and not a specific network driver.
+It seems like a bug in the "fjes" driver.
+
+Thanks
+
+Dongdong
