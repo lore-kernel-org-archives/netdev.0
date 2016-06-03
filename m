@@ -1,30 +1,42 @@
-From: Kalle Valo <kvalo@codeaurora.org>
+From: "Pan, Miaoqing" <miaoqing@qti.qualcomm.com>
 Subject: Re: ath9k gpio request
-Date: Fri, 03 Jun 2016 08:33:11 +0300
-Message-ID: <8760tqn8fc.fsf@purkki.adurom.net>
+Date: Fri, 3 Jun 2016 05:49:06 +0000
+Message-ID: <1464932944074.85131@qti.qualcomm.com>
 References: <20160530132225.4d297678@canb.auug.org.au>
-	<574C4851.9090201@gmail.com>
-	<87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>
+	<574C4851.9090201@gmail.com>	<87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>
 	<574D3EAA.3060102@gmail.com> <1464764036580.70506@qti.qualcomm.com>
 	<574EC331.1080901@gmail.com> <574ED297.4080004@gmail.com>
-	<1464854569880.79341@qti.qualcomm.com> <57501AE4.7080104@gmail.com>
+	<1464854569880.79341@qti.qualcomm.com>
+ <57501AE4.7080104@gmail.com>,<8760tqn8fc.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
 	Stephen Rothwell <sfr@canb.auug.org.au>,
-	ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-	"linux-next\@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ath9k-devel\@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	ath9k-devel <ath9k-devel@qualcomm.com>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Miaoqing Pan <miaoqing@codeaurora.org>
-To: "Pan\, Miaoqing" <miaoqing@qti.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57501AE4.7080104@gmail.com> (Sudip Mukherjee's message of "Thu,
-	02 Jun 2016 17:09:16 +0530")
-Sender: linux-kernel-owner@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <8760tqn8fc.fsf@purkki.adurom.net>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Done, https://patchwork.kernel.org/patch/9151847/.
+
+Thanks,
+Miaoqing
+________________________________________
+From: Kalle Valo <kvalo@codeaurora.org>
+Sent: Friday, June 3, 2016 1:33 PM
+To: Pan, Miaoqing
+Cc: Sudip Mukherjee; Stephen Rothwell; ath9k-devel; linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; linux-wireless@vger.kernel.org; ath9k-devel@lists.ath9k.org; netdev@vger.kernel.org; Miaoqing Pan
+Subject: Re: ath9k gpio request
 
 Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
 
@@ -63,5 +75,5 @@ Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
 Great, thanks for testing everyone. Miaoqing, please send a proper patch
 ASAP and I'll push it to 4.7.
 
--- 
+--
 Kalle Valo
