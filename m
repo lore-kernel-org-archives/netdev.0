@@ -1,8 +1,9 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next v2 0/5] hv_netvsc: cleanup after untangling the
- pointer mess
-Date: Fri,  3 Jun 2016 17:50:57 +0200
-Message-ID: <1464969062-22132-1-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH net-next v2 2/5] hv_netvsc: introduce {net,
+ hv}_device_to_netvsc_device() helpers
+Date: Fri,  3 Jun 2016 17:50:59 +0200
+Message-ID: <1464969062-22132-3-git-send-email-vkuznets@redhat.com>
+References: <1464969062-22132-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
  linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1464969062-22132-1-git-send-email-vkuznets@redhat.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -21,31 +23,151 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Changes since v1:
-- resend when net-next is open [David Miller]
-- rebased to current net-next.
+Make it easier to get 'struct netvsc_device' from 'struct net_device' and
+'struct hv_device' by introducing inline helpers.
 
-After we made traveling through our internal structures explicit it became
-obvious that some functions take arguments they don't need just to do
-redundant pointer travel and get to what they really need while their
-callers already have the required information.
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 12 ++++++++++++
+ drivers/net/hyperv/netvsc.c       | 11 +++--------
+ drivers/net/hyperv/rndis_filter.c | 24 +++++++-----------------
+ 3 files changed, 22 insertions(+), 25 deletions(-)
 
-This is just a cleanup series with no functional changes intended. It
-doesn't pretend to be complete, additional cleanup of other functions may
-follow.
-
-Vitaly Kuznetsov (5):
-  hv_netvsc: remove redundant assignment in netvsc_recv_callback()
-  hv_netvsc: introduce {net,hv}_device_to_netvsc_device() helpers
-  hv_netvsc: pass struct netvsc_device to rndis_filter_{open,close}()
-  hv_netvsc: pass struct net_device to rndis_filter_set_device_mac()
-  hv_netvsc: pass struct net_device to rndis_filter_set_offload_params()
-
- drivers/net/hyperv/hyperv_net.h   | 19 +++++++++++++++---
- drivers/net/hyperv/netvsc.c       | 11 +++-------
- drivers/net/hyperv/netvsc_drv.c   | 18 ++++++-----------
- drivers/net/hyperv/rndis_filter.c | 42 ++++++++++++---------------------------
- 4 files changed, 38 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index c270c5a..952cbc8 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -743,6 +743,18 @@ struct netvsc_device {
+ 	atomic_t vf_use_cnt;
+ };
+ 
++static inline struct netvsc_device *
++net_device_to_netvsc_device(struct net_device *ndev)
++{
++	return ((struct net_device_context *)netdev_priv(ndev))->nvdev;
++}
++
++static inline struct netvsc_device *
++hv_device_to_netvsc_device(struct hv_device *device)
++{
++	return net_device_to_netvsc_device(hv_get_drvdata(device));
++}
++
+ /* NdisInitialize message */
+ struct rndis_initialize_request {
+ 	u32 req_id;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 719cb35..96f00c0 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -95,9 +95,7 @@ static void free_netvsc_device(struct netvsc_device *nvdev)
+ 
+ static struct netvsc_device *get_outbound_net_device(struct hv_device *device)
+ {
+-	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_device = net_device_ctx->nvdev;
++	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
+ 
+ 	if (net_device && net_device->destroy)
+ 		net_device = NULL;
+@@ -107,9 +105,7 @@ static struct netvsc_device *get_outbound_net_device(struct hv_device *device)
+ 
+ static struct netvsc_device *get_inbound_net_device(struct hv_device *device)
+ {
+-	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_device = net_device_ctx->nvdev;
++	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
+ 
+ 	if (!net_device)
+ 		goto get_in_err;
+@@ -128,8 +124,7 @@ static int netvsc_destroy_buf(struct hv_device *device)
+ 	struct nvsp_message *revoke_packet;
+ 	int ret = 0;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_device = net_device_ctx->nvdev;
++	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
+ 
+ 	/*
+ 	 * If we got a section count, it means we received a
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 97c292b..42c652e 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -546,8 +546,7 @@ static int rndis_filter_query_device_mac(struct rndis_device *dev)
+ int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
+ {
+ 	struct net_device *ndev = hv_get_drvdata(hdev);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *nvdev = net_device_ctx->nvdev;
++	struct netvsc_device *nvdev = net_device_to_netvsc_device(ndev);
+ 	struct rndis_device *rdev = nvdev->extension;
+ 	struct rndis_request *request;
+ 	struct rndis_set_request *set;
+@@ -626,8 +625,7 @@ rndis_filter_set_offload_params(struct hv_device *hdev,
+ 				struct ndis_offload_params *req_offloads)
+ {
+ 	struct net_device *ndev = hv_get_drvdata(hdev);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *nvdev = net_device_ctx->nvdev;
++	struct netvsc_device *nvdev = net_device_to_netvsc_device(ndev);
+ 	struct rndis_device *rdev = nvdev->extension;
+ 	struct rndis_request *request;
+ 	struct rndis_set_request *set;
+@@ -851,8 +849,7 @@ static int rndis_filter_init_device(struct rndis_device *dev)
+ 	u32 status;
+ 	int ret;
+ 	unsigned long t;
+-	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
+-	struct netvsc_device *nvdev = net_device_ctx->nvdev;
++	struct netvsc_device *nvdev = net_device_to_netvsc_device(dev->ndev);
+ 
+ 	request = get_rndis_request(dev, RNDIS_MSG_INIT,
+ 			RNDIS_MESSAGE_SIZE(struct rndis_initialize_request));
+@@ -977,8 +974,7 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ {
+ 	struct net_device *ndev =
+ 		hv_get_drvdata(new_sc->primary_channel->device_obj);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *nvscdev = net_device_ctx->nvdev;
++	struct netvsc_device *nvscdev = net_device_to_netvsc_device(ndev);
+ 	u16 chn_index = new_sc->offermsg.offer.sub_channel_index;
+ 	int ret;
+ 	unsigned long flags;
+@@ -1196,9 +1192,7 @@ err_dev_remv:
+ 
+ void rndis_filter_device_remove(struct hv_device *dev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(dev);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_dev = net_device_ctx->nvdev;
++	struct netvsc_device *net_dev = hv_device_to_netvsc_device(dev);
+ 	struct rndis_device *rndis_dev = net_dev->extension;
+ 	unsigned long t;
+ 
+@@ -1224,9 +1218,7 @@ void rndis_filter_device_remove(struct hv_device *dev)
+ 
+ int rndis_filter_open(struct hv_device *dev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(dev);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_device = net_device_ctx->nvdev;
++	struct netvsc_device *net_device = hv_device_to_netvsc_device(dev);
+ 
+ 	if (!net_device)
+ 		return -EINVAL;
+@@ -1239,9 +1231,7 @@ int rndis_filter_open(struct hv_device *dev)
+ 
+ int rndis_filter_close(struct hv_device *dev)
+ {
+-	struct net_device *ndev = hv_get_drvdata(dev);
+-	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *nvdev = net_device_ctx->nvdev;
++	struct netvsc_device *nvdev = hv_device_to_netvsc_device(dev);
+ 
+ 	if (!nvdev)
+ 		return -EINVAL;
 -- 
 2.5.5
