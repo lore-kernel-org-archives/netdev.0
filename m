@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v4 net-next 02/13] ACPI: bus: add stub acpi_evaluate_dsm() to linux/acpi.h
-Date: Fri, 3 Jun 2016 10:55:10 +0800
-Message-ID: <1464922521-30928-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v4 net-next 05/13] net: hns: use device_* APIs instead of of_* APIs
+Date: Fri, 3 Jun 2016 10:55:13 +0800
+Message-ID: <1464922521-30928-6-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1464922521-30928-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,36 +18,87 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-acpi_evaluate_dsm() will be used to handle the _DSM method in ACPI case.
-It will be compiled in non-ACPI case, but the function is in acpi_bus.h
-and acpi_bus.h can only be used in ACPI case, so this patch add the stub
-function to linux/acpi.h to make compiled successfully in non-ACPI cases.
+OF series functions can be used only for DT case. Use unified
+device property function instead to support both DT and ACPI.
 
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- include/linux/acpi.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  9 +++++----
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 11 +++--------
+ 2 files changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 3025d19..4d4bb49 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -659,6 +659,14 @@ static inline bool acpi_driver_match_device(struct device *dev,
- 	return false;
- }
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 1c2ddb2..9afc5e6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -50,7 +50,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	else
+ 		dsaf_dev->dsaf_ver = AE_VERSION_2;
  
-+static inline union acpi_object *acpi_evaluate_dsm(acpi_handle handle,
-+						   const u8 *uuid,
-+						   int rev, int func,
-+						   union acpi_object *argv4)
-+{
-+	return NULL;
-+}
-+
- static inline int acpi_device_uevent_modalias(struct device *dev,
- 				struct kobj_uevent_env *env)
+-	ret = of_property_read_string(np, "mode", &mode_str);
++	ret = device_property_read_string(dsaf_dev->dev, "mode", &mode_str);
+ 	if (ret) {
+ 		dev_err(dsaf_dev->dev, "get dsaf mode fail, ret=%d!\n", ret);
+ 		return ret;
+@@ -142,7 +142,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 		}
+ 	}
+ 
+-	ret = of_property_read_u32(np, "desc-num", &desc_num);
++	ret = device_property_read_u32(dsaf_dev->dev, "desc-num", &desc_num);
+ 	if (ret < 0 || desc_num < HNS_DSAF_MIN_DESC_CNT ||
+ 	    desc_num > HNS_DSAF_MAX_DESC_CNT) {
+ 		dev_err(dsaf_dev->dev, "get desc-num(%d) fail, ret=%d!\n",
+@@ -151,14 +151,15 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 	}
+ 	dsaf_dev->desc_num = desc_num;
+ 
+-	ret = of_property_read_u32(np, "reset-field-offset", &reset_offset);
++	ret = device_property_read_u32(dsaf_dev->dev, "reset-field-offset",
++				       &reset_offset);
+ 	if (ret < 0) {
+ 		dev_dbg(dsaf_dev->dev,
+ 			"get reset-field-offset fail, ret=%d!\r\n", ret);
+ 	}
+ 	dsaf_dev->reset_offset = reset_offset;
+ 
+-	ret = of_property_read_u32(np, "buf-size", &buf_size);
++	ret = device_property_read_u32(dsaf_dev->dev, "buf-size", &buf_size);
+ 	if (ret < 0) {
+ 		dev_err(dsaf_dev->dev,
+ 			"get buf-size fail, ret=%d!\r\n", ret);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index e621636..8851420 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1067,13 +1067,8 @@ void hns_nic_update_stats(struct net_device *netdev)
+ static void hns_init_mac_addr(struct net_device *ndev)
  {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+-	struct device_node *node = priv->dev->of_node;
+-	const void *mac_addr_temp;
+ 
+-	mac_addr_temp = of_get_mac_address(node);
+-	if (mac_addr_temp && is_valid_ether_addr(mac_addr_temp)) {
+-		memcpy(ndev->dev_addr, mac_addr_temp, ndev->addr_len);
+-	} else {
++	if (!device_get_mac_address(priv->dev, ndev->dev_addr, ETH_ALEN)) {
+ 		eth_hw_addr_random(ndev);
+ 		dev_warn(priv->dev, "No valid mac, use random mac %pM",
+ 			 ndev->dev_addr);
+@@ -1898,10 +1893,10 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 		goto out_read_prop_fail;
+ 	}
+ 	/* try to find port-idx-in-ae first */
+-	ret = of_property_read_u32(node, "port-idx-in-ae", &port_id);
++	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
+ 	if (ret) {
+ 		/* only for old code compatible */
+-		ret = of_property_read_u32(node, "port-id", &port_id);
++		ret = device_property_read_u32(dev, "port-id", &port_id);
+ 		if (ret)
+ 			goto out_read_prop_fail;
+ 		/* for old dts, we need to caculate the port offset */
 -- 
 1.9.1
