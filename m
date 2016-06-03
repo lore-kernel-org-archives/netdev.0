@@ -1,33 +1,45 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH RFC v7 3/5] skb_array: array based FIFO for skbs
-Date: Fri, 3 Jun 2016 14:58:39 +0200
-Message-ID: <20160603145839.2de0ead9@redhat.com>
-References: <1464883305-32368-1-git-send-email-mst@redhat.com>
-	<1464883305-32368-4-git-send-email-mst@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V3 0/2] vhost_net polling optimization
+Date: Fri, 3 Jun 2016 16:03:25 +0300
+Message-ID: <20160603160259-mutt-send-email-mst@redhat.com>
+References: <1464760594-30326-1-git-send-email-jasowang@redhat.com>
+ <20160602.120806.2233781548139724198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	kvm@vger.kernel.org, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jasowang@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464883305-32368-4-git-send-email-mst@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20160602.120806.2233781548139724198.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jun 02, 2016 at 12:08:06PM -0700, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Wed,  1 Jun 2016 01:56:32 -0400
+> 
+> > This series tries to optimize vhost_net polling at two points:
+> > 
+> > - Stop rx polling for reduicng the unnecessary wakeups during
+> >   handle_rx().
+> > - Conditonally enable tx polling for reducing the unnecessary
+> >   traversing and spinlock touching.
+> > 
+> > Test shows about 17% improvement on rx pps.
+> > 
+> > Please review
+> > 
+> > Changes from V2:
+> > - Don't enable rx vq if we meet an err or rx vq is empty
+> > Changes from V1:
+> > - use vhost_net_disable_vq()/vhost_net_enable_vq() instead of open
+> >   coding.
+> > - Add a new patch for conditionally enable tx polling.
+> 
+> Michael, please review this patch series.
+> 
+> Thanks.
 
-On Thu, 2 Jun 2016 19:08:26 +0300 "Michael S. Tsirkin" <mst@redhat.com> wrote:
-
-> A simple array based FIFO of pointers.  Intended for net stack so uses
-> skbs for type safety. Implemented as a set of wrappers around ptr_array.
-                                                                ^^^^^^^^^
-It is called "ptr_ring" not "ptr_array".
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+thanks for the reminder, I plan to review next week.
