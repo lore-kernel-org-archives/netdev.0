@@ -1,51 +1,50 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 00/17] New DSA bind, switches as devices
-Date: Fri, 03 Jun 2016 16:38:34 -0400
-Message-ID: <8760tqj9dh.fsf@ketchup.mtl.sfl>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [PATCH net-next 0/2] tcp: add NV congestion control
+Date: Fri, 3 Jun 2016 13:37:56 -0700
+Message-ID: <1464986278-2096156-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Cc: Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:55143 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422688AbcFCUii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:38:38 -0400
-In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:63107 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932903AbcFCUiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:38:14 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u53KZu0h028597
+	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 13:38:13 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0089730.ppops.net with ESMTP id 23apaqxvd4-2
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 13:38:13 -0700
+Received: from facebook.com (2401:db00:11:d037:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 16d1cc7829cb11e6aa200002c9521c9e-dee52e0 for <netdev@vger.kernel.org>;	Fri,
+ 03 Jun 2016 13:38:12 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Lunn <andrew@lunn.ch> writes:
+This version of NV does much better than previous versions when things are
+very congested and also adds a couple of experimental features.
 
-> The interesting patches here are the last three. They implement a new
-> binding for DSA, which removes a few limitations of the current DSA
-> binding. In particular, it allows switches to be true Linux devices.
-> These devices can be on any type of bus, unlike the old DSA binding
-> which assumes MDIO. See the commit log for more details. The second to
-> last patch modifies an existing boards device tree to use the new
-> binding, giving a good example of how switches can be true MDIO
-> devices. The last patch documents the new binding.
->
-> I know both John Crispin and Bryan Whitehead are interesting in
-> implementing DSA drivers, hence i have CC: you. Comments welcome.
->
-> Thanks go to Florian and Vivien for reviewing, testing and bug fixing
-> these patches.
->
-> Since RFC:
->
-> * Split the mv88e6xxx MDIO refactor into a rename patch and a refactor
->   patch.
-> * Extend commit message with comment about wrong of_node_put()
-> * Fix destroy of cpu and dsa ports.
-> * Rename _DSA_TAG_LAST to DSA_TAG_LAST and add a comment.
+Tested in a rack using between 1 and 380 active TCP-NV flows.
 
-This patchset works fine on a 3-mv88e6xxx setup with the old bindings.
+Consists of the following patches:
+[PATCH net-next 1/2] tcp: add in_flight to tcp_skb_cb
+[PATCH net-next 2/2] tcp: add NV congestion control
 
-Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 
-Thanks,
-
-        Vivien
+include/net/tcp.h     |   2 +
+net/ipv4/Kconfig      |  16 ++
+net/ipv4/Makefile     |   1 +
+net/ipv4/tcp_input.c  |   5 +-
+net/ipv4/tcp_nv.c     | 597 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+net/ipv4/tcp_output.c |   4 +-
+6 files changed, 623 insertions(+), 2 deletions(-)
