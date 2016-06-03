@@ -1,8 +1,8 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next v2 1/5] hv_netvsc: remove redundant assignment in
- netvsc_recv_callback()
-Date: Fri,  3 Jun 2016 17:50:58 +0200
-Message-ID: <1464969062-22132-2-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH net-next v2 3/5] hv_netvsc: pass struct netvsc_device to
+ rndis_filter_{open, close}()
+Date: Fri,  3 Jun 2016 17:51:00 +0200
+Message-ID: <1464969062-22132-4-git-send-email-vkuznets@redhat.com>
 References: <1464969062-22132-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,25 +23,131 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-net_device_ctx is assigned in the very beginning of the function and 'net'
-pointer doesn't change.
+Both rndis_filter_open()/rndis_filter_close() use struct hv_device to
+reach to struct netvsc_device only and all callers have it already.
+While on it, rename net_device to nvdev in rndis_filter_open() as
+net_device is misleading.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/hyperv/hyperv_net.h   |  5 +++--
+ drivers/net/hyperv/netvsc_drv.c   | 13 +++++--------
+ drivers/net/hyperv/rndis_filter.c | 14 +++++---------
+ 3 files changed, 13 insertions(+), 19 deletions(-)
 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 952cbc8..f650ec1 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -173,6 +173,7 @@ struct rndis_device {
+ 
+ /* Interface */
+ struct rndis_message;
++struct netvsc_device;
+ int netvsc_device_add(struct hv_device *device, void *additional_info);
+ int netvsc_device_remove(struct hv_device *device);
+ int netvsc_send(struct hv_device *device,
+@@ -189,8 +190,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			struct vmbus_channel *channel,
+ 			u16 vlan_tci);
+ void netvsc_channel_cb(void *context);
+-int rndis_filter_open(struct hv_device *dev);
+-int rndis_filter_close(struct hv_device *dev);
++int rndis_filter_open(struct netvsc_device *nvdev);
++int rndis_filter_close(struct netvsc_device *nvdev);
+ int rndis_filter_device_add(struct hv_device *dev,
+ 			void *additional_info);
+ void rndis_filter_device_remove(struct hv_device *dev);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 6a69b5c..db8fedf 100644
+index db8fedf..591ab58 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -701,7 +701,6 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	}
+@@ -98,16 +98,14 @@ static void netvsc_set_multicast_list(struct net_device *net)
  
- vf_injection_done:
--	net_device_ctx = netdev_priv(net);
- 	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
+ static int netvsc_open(struct net_device *net)
+ {
+-	struct net_device_context *net_device_ctx = netdev_priv(net);
+-	struct hv_device *device_obj = net_device_ctx->device_ctx;
+-	struct netvsc_device *nvdev = net_device_ctx->nvdev;
++	struct netvsc_device *nvdev = net_device_to_netvsc_device(net);
+ 	struct rndis_device *rdev;
+ 	int ret = 0;
  
- 	/* Allocate a skb - TODO direct I/O to pages? */
+ 	netif_carrier_off(net);
+ 
+ 	/* Open up the device */
+-	ret = rndis_filter_open(device_obj);
++	ret = rndis_filter_open(nvdev);
+ 	if (ret != 0) {
+ 		netdev_err(net, "unable to open device (ret %d).\n", ret);
+ 		return ret;
+@@ -125,7 +123,6 @@ static int netvsc_open(struct net_device *net)
+ static int netvsc_close(struct net_device *net)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+-	struct hv_device *device_obj = net_device_ctx->device_ctx;
+ 	struct netvsc_device *nvdev = net_device_ctx->nvdev;
+ 	int ret;
+ 	u32 aread, awrite, i, msec = 10, retry = 0, retry_max = 20;
+@@ -135,7 +132,7 @@ static int netvsc_close(struct net_device *net)
+ 
+ 	/* Make sure netvsc_set_multicast_list doesn't re-enable filter! */
+ 	cancel_work_sync(&net_device_ctx->work);
+-	ret = rndis_filter_close(device_obj);
++	ret = rndis_filter_close(nvdev);
+ 	if (ret != 0) {
+ 		netdev_err(net, "unable to close device (ret %d).\n", ret);
+ 		return ret;
+@@ -1247,7 +1244,7 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 	/*
+ 	 * Open the device before switching data path.
+ 	 */
+-	rndis_filter_open(net_device_ctx->device_ctx);
++	rndis_filter_open(netvsc_dev);
+ 
+ 	/*
+ 	 * notify the host to switch the data path.
+@@ -1302,7 +1299,7 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 		udelay(50);
+ 	netvsc_switch_datapath(ndev, false);
+ 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
+-	rndis_filter_close(net_device_ctx->device_ctx);
++	rndis_filter_close(netvsc_dev);
+ 	netif_carrier_on(ndev);
+ 	/*
+ 	 * Notify peers.
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 42c652e..2c2f3b9 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1216,23 +1216,19 @@ void rndis_filter_device_remove(struct hv_device *dev)
+ }
+ 
+ 
+-int rndis_filter_open(struct hv_device *dev)
++int rndis_filter_open(struct netvsc_device *nvdev)
+ {
+-	struct netvsc_device *net_device = hv_device_to_netvsc_device(dev);
+-
+-	if (!net_device)
++	if (!nvdev)
+ 		return -EINVAL;
+ 
+-	if (atomic_inc_return(&net_device->open_cnt) != 1)
++	if (atomic_inc_return(&nvdev->open_cnt) != 1)
+ 		return 0;
+ 
+-	return rndis_filter_open_device(net_device->extension);
++	return rndis_filter_open_device(nvdev->extension);
+ }
+ 
+-int rndis_filter_close(struct hv_device *dev)
++int rndis_filter_close(struct netvsc_device *nvdev)
+ {
+-	struct netvsc_device *nvdev = hv_device_to_netvsc_device(dev);
+-
+ 	if (!nvdev)
+ 		return -EINVAL;
+ 
 -- 
 2.5.5
