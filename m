@@ -1,82 +1,86 @@
-From: Pau Espin <pau.espin@tessares.net>
-Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
- SACK block
-Date: Fri, 3 Jun 2016 17:59:27 +0200
-Message-ID: <CALCp7mkVeqxkg625HidKvaZ_8d9obp8mWBMVUs4sunZrs9pBFQ@mail.gmail.com>
-References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
-	<1464796118.5939.156.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALCp7mne5OEU1hT-XHoQR33S7tzCRuDMzCu-deXx18QbdBgmYA@mail.gmail.com>
-	<1464966836.5939.189.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:32775 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbcFCP72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 11:59:28 -0400
-Received: by mail-qg0-f48.google.com with SMTP id j96so4144981qge.0
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 08:59:28 -0700 (PDT)
-In-Reply-To: <CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pramod Kumar <pramod.kumar@broadcom.com>
+Subject: [PATCH v3 RESEND 0/7] Add MDIO bus multiplexer support for iProc SoCs
+Date: Fri,  3 Jun 2016 21:32:59 +0530
+Message-ID: <1464969786-22742-1-git-send-email-pramod.kumar@broadcom.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	bcm-kernel-feedback-list@broadcom.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pramod Kumar <pramod.kumar@broadcom.com>
+To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Neal,
-Sorry I saw your email just after sending the second version of the patch.
-Indeed, it could make sense to do it as you say. I'll try to do some
-tests in my environment and send a new version with those changes if I
-don't find any problem with it.
+Broadcom iProc based SoCs use a MDIO bus multiplexer where child buses
+could be internal as well external to SoCs. These buses could supports
+MDIO transaction compatible to C-22/C-45.
 
-On Fri, Jun 3, 2016 at 5:45 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Fri, Jun 3, 2016 at 11:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> I have no strict opinion on this.
->>
->> It seems to me that checking at most 4 right edges (at least in current
->> linux implementation) is not adding a huge risk, and allows for better
->> interoperability.
->>
->> I vote for no extra sysctl.
->
-> I vote for no extra sysctl as well.
->
-> But I would also vote to tighten up the proposed logic slightly, and
-> only check the seq of the incoming RST against the right edge of the
-> *right-most* SACK block. That is, the code could loop through the
-> tp->selective_acks to find the right-most of the right edges of the
-> SACK blocks (the end_seq that has no other end_seq after() it). AFAICT
-> it makes sense to expect that a legitimate incoming RST might match
-> rcv_nxt, or might match the right-most edge of the right-most SACK.
-> But allowing a RST to match a sequence of some SACK in the middle of
-> the sequence range would seem to only increase the attack surface for
-> RST attacks.
->
-> neal
+Broadcom MDIO bus mulitplexer is an integrated multiplexer where child bus
+selection and mdio transaction logic lies inside multiplexer itself.
+To accommodate this multiplexer in existing mux framework below changes
+were required-
 
+1. Passed MDIO parent bus via mdio_mux_init to MDIO mux framework.
 
+This patch set includes MDIO bus multiplexer driver along with above
+framework change. It includes one external bus node having Ethernet PHY
+attached and two internal bus node holding PCIe PHYs.
+
+This patch series is based on v4.7-rc1 and is available from github-
+repo: https://github.com/Broadcom/arm64-linux.git
+branch:mdio-mux-v3-resend
+
+Reason for resend:
+-Rebased on v4.7-rc1
+
+Changes from v2:
+-Addressed Rob's comments in this patch regarding typo/grammers.
+-Addressed David's comments regarding local variables order.
+-Removed property "mdio-integrated-mux" and used mdiobus_register()
+in place of of_mdiobus_regsiter().
+-removed usage of IS_ERR_OR_NULL to IS_ERR in PCIe PHY driver.
+
+Changes from v1:
+- stop using "brcm,is_c45" from bus node as suggested by Andrew. MDIO
+PHY driver will logically OR MII_ADDR_C45 into the address when issues
+any C45 MDIO read/write transaction.
+
+Pramod Kumar (7):
+  mdio:mux: Enhanced MDIO mux framework for integrated multiplexers
+  binding: Make "mdio-parent-bus" property from mandatory to optional
+  binding: mdio-mux: Add DT binding doc for Broadcom MDIO bus mutiplexer
+  dt:mdio-mux: Add mdio multiplexer driver node
+  net:mdio-mux: Add MDIO mux driver for iProc SoCs
+  Binding:PHY: Binding doc for NS2 PCIe PHYs.
+  phy: Add Northstar2 PCI Phy support
+
+ .../bindings/net/brcm,mdio-mux-iproc.txt           |  59 +++++
+ Documentation/devicetree/bindings/net/mdio-mux.txt |   3 +-
+ .../bindings/phy/brcm,mdio-mux-bus-pci.txt         |  27 +++
+ arch/arm64/boot/dts/broadcom/ns2-svk.dts           |  12 +
+ arch/arm64/boot/dts/broadcom/ns2.dtsi              |  31 +++
+ drivers/net/phy/Kconfig                            |  11 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/mdio-mux-bcm-iproc.c               | 246 +++++++++++++++++++++
+ drivers/net/phy/mdio-mux-gpio.c                    |   2 +-
+ drivers/net/phy/mdio-mux-mmioreg.c                 |   2 +-
+ drivers/net/phy/mdio-mux.c                         |  28 ++-
+ drivers/phy/Kconfig                                |   8 +
+ drivers/phy/Makefile                               |   2 +-
+ drivers/phy/phy-bcm-ns2-pcie.c                     | 115 ++++++++++
+ include/linux/mdio-mux.h                           |   4 +-
+ 15 files changed, 536 insertions(+), 15 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+ create mode 100644 Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
+ create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
+ create mode 100644 drivers/phy/phy-bcm-ns2-pcie.c
 
 -- 
-Pau Espin Pedrol | R&D Engineer - External
-pau.espin@tessares.net | +32 487 43 36 50
-Tessares SA | Hybrid Access Solutions
-www.tessares.net
-6 Rue Louis de Geer, 1348 Louvain-la-Neuve, Belgium
-
--- 
-
-------------------------------
-DISCLAIMER.
-This email and any files transmitted with it are confidential and intended 
-solely for the use of the individual or entity to whom they are addressed. 
-If you have received this email in error please notify the system manager. 
-This message contains confidential information and is intended only for the 
-individual named. If you are not the named addressee you should not 
-disseminate, distribute or copy this e-mail. Please notify the sender 
-immediately by e-mail if you have received this e-mail by mistake and 
-delete this e-mail from your system. If you are not the intended recipient 
-you are notified that disclosing, copying, distributing or taking any 
-action in reliance on the contents of this information is strictly 
-prohibited.
+1.9.1
