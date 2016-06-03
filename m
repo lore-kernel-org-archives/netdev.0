@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Possible problem with e6afc8ac ("udp: remove headers from UDP
- packets before queueing")
-Date: Thu, 02 Jun 2016 21:23:40 -0700 (PDT)
-Message-ID: <20160602.212340.551938578461360246.davem@davemloft.net>
-References: <1464904363.5939.185.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160602.183151.2030076167275348260.davem@davemloft.net>
-	<1464922706.5939.186.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] qed: Utilize FW 8.10.3.0
+Date: Thu, 02 Jun 2016 21:30:23 -0700 (PDT)
+Message-ID: <20160602.213023.482529740569317343.davem@davemloft.net>
+References: <1464852209-7175-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul@paul-moore.com, samanthakumar@google.com,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33174 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33209 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbcFCEXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 00:23:42 -0400
-In-Reply-To: <1464922706.5939.186.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1751143AbcFCEaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 00:30:24 -0400
+In-Reply-To: <1464852209-7175-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 02 Jun 2016 19:58:26 -0700
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Thu, 2 Jun 2016 10:23:29 +0300
 
-> Arg, I totally messed up the patch title :(
+> The New QED firmware contains several fixes, including:
+>   - Wrong classification of packets in 4-port devices.
+>   - Anti-spoof interoperability with encapsulated packets.
+>   - Tx-switching of encapsulated packets.
+> It also slightly improves Tx performance of the device.
+> 
+> In addition, this firmware contains the necessary logic for
+> supporting iscsi & rdma, for which we plan on pushing protocol
+> drivers in the imminent future.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-I noticed it was odd, but it's not a big deal.
+Applied, thanks.
