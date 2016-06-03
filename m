@@ -1,72 +1,63 @@
-From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: RE: [PATCH v2 5/7] net:mdio-mux: Add MDIO mux driver for iProc SoCs
-Date: Fri, 3 Jun 2016 19:17:38 +0530
-Message-ID: <373fd6e55d940c4cfd45951dc5bedce7@mail.gmail.com>
-References: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
-	<1464701801-17243-6-git-send-email-pramod.kumar@broadcom.com> <20160601.161805.1142999841225463527.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	catalin.marinas@arm.com, will.deacon@arm.com, kishon@ti.com,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv2 net-next] sctp: sctp should change socket state when shutdown is received
+Date: Fri,  3 Jun 2016 22:42:45 +0800
+Message-ID: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:34590 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932538AbcFCNrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 09:47:42 -0400
-Received: by mail-io0-f181.google.com with SMTP id p194so75320207iod.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 06:47:41 -0700 (PDT)
-In-Reply-To: <20160601.161805.1142999841225463527.davem@davemloft.net>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34420 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091AbcFCOmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 10:42:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Now sctp doesn't change socket state upon shutdown reception. It changes
+just the assoc state, even though it's a TCP-style socket.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 02 June 2016 04:48
-> To: pramod.kumar@broadcom.com
-> Cc: robh+dt@kernel.org; pawel.moll@arm.com; mark.rutland@arm.com;
-> ijc+devicetree@hellion.org.uk; galak@codeaurora.org;
-> catalin.marinas@arm.com; will.deacon@arm.com; kishon@ti.com;
-> devicetree@vger.kernel.org; linux-arm-kernel@lists.infradead.org;
-bcm-kernel-
-> feedback-list@broadcom.com; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH v2 5/7] net:mdio-mux: Add MDIO mux driver for iProc
-SoCs
->
-> From: Pramod Kumar <pramod.kumar@broadcom.com>
-> Date: Tue, 31 May 2016 19:06:39 +0530
->
-> > +static int iproc_mdio_wait_for_idle(void __iomem *base, bool result)
-> > +{
-> > +	u32 val;
-> > +	unsigned int timeout = 1000; /* loop for 1s */
->
-> Please order your local variable declarations from longest to shortest
-line.
->
-> > +static int start_miim_ops(void __iomem *base,
-> > +			  u16 phyid, u32 reg, u16 val, u32 op) {
-> > +	int ret;
-> > +	u32 param;
->
-> Likewise.
->
-Sure. I'll take care of this in next patch for all places.
+For some cases, if we really need to check sk->sk_state, it's necessary to
+fix this issue, at least when we use ss or netstat to dump, we can get a
+more exact information.
 
-> > +static int iproc_mdiomux_read(struct mii_bus *bus, int phyid, int
-> > +reg) {
-> > +	int ret;
-> > +	struct iproc_mdiomux_desc *md = bus->priv;
->
-> Likewise.
-Sure. I'll take care of this in next patch for all places.
+As an improvement, we will change sk->sk_state when we change asoc->state
+to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+sctp_close.
 
-Regards,
-Pramod
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sm_sideeffect.c | 4 +++-
+ net/sctp/socket.c        | 1 +
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index aa37122..12d4519 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+ 
+ 		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+ 		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+-		    sctp_sstate(sk, ESTABLISHED))
++		    sctp_sstate(sk, ESTABLISHED)) {
++			sk->sk_state = SCTP_SS_CLOSING;
+ 			sk->sk_shutdown |= RCV_SHUTDOWN;
++		}
+ 	}
+ 
+ 	if (sctp_state(asoc, COOKIE_WAIT)) {
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 67154b8..91a460d 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+ 		return;
+ 
+ 	if (how & SEND_SHUTDOWN) {
++		sk->sk_state = SCTP_SS_CLOSING;
+ 		ep = sctp_sk(sk)->ep;
+ 		if (!list_empty(&ep->asocs)) {
+ 			asoc = list_entry(ep->asocs.next,
+-- 
+2.1.0
