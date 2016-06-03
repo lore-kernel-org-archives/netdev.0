@@ -1,822 +1,579 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 02/15] smc: establish new socket family
-Date: Fri,  3 Jun 2016 17:27:01 +0200
-Message-ID: <201606031527.u53FQ009037283@mx0a-001b2d01.pphosted.com>
+Subject: [PATCH net-next 07/15] smc: remote memory buffers (RMBs)
+Date: Fri,  3 Jun 2016 17:27:06 +0200
+Message-ID: <201606031527.u53FQ73m045290@mx0a-001b2d01.pphosted.com>
 References: <cover.1464967161.git.ursula.braun@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
 	utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:26417 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752803AbcFCP1q (ORCPT
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:7216 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752290AbcFCP1q (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 11:27:46 -0400
-Received: from pps.filterd (m0048817.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u53FQ009037283
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 11:27:45 -0400
-Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 23bc7r8x56-1
+Received: from pps.filterd (m0082756.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u53FQ73m045290
+	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 11:27:46 -0400
+Received: from e06smtp05.uk.ibm.com (e06smtp05.uk.ibm.com [195.75.94.101])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 23b4m8q6bb-1
 	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 11:27:44 -0400
+	for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 11:27:45 -0400
 Received: from localhost
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp05.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Fri, 3 Jun 2016 16:27:41 +0100
+	Fri, 3 Jun 2016 16:27:42 +0100
 In-Reply-To: <cover.1464967161.git.ursula.braun@de.ibm.com>
 In-Reply-To: <cover.1464967161.git.ursula.braun@de.ibm.com>
 References: <cover.1464967161.git.ursula.braun@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- * enable smc module loading and unloading
- * register new socket family
- * basic smc socket creation and deletion
- * use backing TCP socket to run CLC (Connection Layer Control)
-   handshake of SMC protocol
- * Setup for infiniband traffic is implemented in follow-on patches.
-   For now fallback to TCP socket is always used.
+* allocate data RMB memory for sending and receiving
+* size depends on the maximum socket send and receive buffers
+* allocated RMBs are kept during life time of the owning link group
+* map the allocated RMBs to DMA
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Reviewed-by: Utz Bacher <utz.bacher@de.ibm.com>
 ---
- MAINTAINERS            |   7 +
- include/linux/socket.h |   7 +-
- net/Kconfig            |   1 +
- net/Makefile           |   1 +
- net/smc/Kconfig        |  11 +
- net/smc/Makefile       |   2 +
- net/smc/af_smc.c       | 623 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/smc/smc.h          |  36 +++
- 8 files changed, 687 insertions(+), 1 deletion(-)
- create mode 100644 net/smc/Kconfig
- create mode 100644 net/smc/Makefile
- create mode 100644 net/smc/af_smc.c
- create mode 100644 net/smc/smc.h
+ net/smc/af_smc.c   |  29 ++++++-
+ net/smc/smc.h      |  45 +++++++++++
+ net/smc/smc_clc.c  |   6 +-
+ net/smc/smc_core.c | 223 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ net/smc/smc_core.h |  20 +++++
+ net/smc/smc_ib.c   |  19 +++++
+ net/smc/smc_ib.h   |   5 ++
+ 7 files changed, 340 insertions(+), 7 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index f8d5a37..fb3c883 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -9983,6 +9983,13 @@ L:	linux-serial@vger.kernel.org
- S:	Maintained
- F:	drivers/tty/serial/
- 
-+SHARED MEMORY COMMUNICATIONS (SMC) SOCKETS
-+M:	Ursula Braun <ursula.braun@linux.vnet.ibm.com>
-+L:	linux-s390@vger.kernel.org
-+W:	http://www.ibm.com/developerworks/linux/linux390/
-+S:	Supported
-+F:	net/smc/
-+
- SYNOPSYS DESIGNWARE DMAC DRIVER
- M:	Viresh Kumar <vireshk@kernel.org>
- M:	Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index b5cc5a6..a4a1cc7 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -202,8 +202,12 @@ struct ucred {
- #define AF_VSOCK	40	/* vSockets			*/
- #define AF_KCM		41	/* Kernel Connection Multiplexor*/
- #define AF_QIPCRTR	42	/* Qualcomm IPC Router          */
-+#define AF_SMC		43	/* smc sockets: reserve number for
-+				 * PF_SMC protocol family that
-+				 * reuses AF_INET address family
-+				 */
- 
--#define AF_MAX		43	/* For now.. */
-+#define AF_MAX		44	/* For now.. */
- 
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
-@@ -251,6 +255,7 @@ struct ucred {
- #define PF_VSOCK	AF_VSOCK
- #define PF_KCM		AF_KCM
- #define PF_QIPCRTR	AF_QIPCRTR
-+#define PF_SMC		AF_SMC
- #define PF_MAX		AF_MAX
- 
- /* Maximum queue length specifiable by listen.  */
-diff --git a/net/Kconfig b/net/Kconfig
-index ff40562..1dfcb5e 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -57,6 +57,7 @@ source "net/packet/Kconfig"
- source "net/unix/Kconfig"
- source "net/xfrm/Kconfig"
- source "net/iucv/Kconfig"
-+source "net/smc/Kconfig"
- 
- config INET
- 	bool "TCP/IP networking"
-diff --git a/net/Makefile b/net/Makefile
-index bdd1455..9e2ff8e 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -50,6 +50,7 @@ obj-$(CONFIG_MAC80211)		+= mac80211/
- obj-$(CONFIG_TIPC)		+= tipc/
- obj-$(CONFIG_NETLABEL)		+= netlabel/
- obj-$(CONFIG_IUCV)		+= iucv/
-+obj-$(CONFIG_SMC)		+= smc/
- obj-$(CONFIG_RFKILL)		+= rfkill/
- obj-$(CONFIG_NET_9P)		+= 9p/
- obj-$(CONFIG_CAIF)		+= caif/
-diff --git a/net/smc/Kconfig b/net/smc/Kconfig
-new file mode 100644
-index 0000000..bc02980
---- /dev/null
-+++ b/net/smc/Kconfig
-@@ -0,0 +1,11 @@
-+config SMC
-+	tristate "SMC socket protocol family"
-+	depends on INET && INFINIBAND
-+	---help---
-+	  SMC-R provides a "sockets over RDMA" solution making use of
-+	  RDMA over Converged Ethernet (RoCE) technology to upgrade
-+	  AF_INET TCP connections transparently.
-+	  The Linux implementation of the SMC-R solution is designed as
-+	  a separate socket family SMC.
-+
-+	  Select this option if you want to run SMC socket applications
-diff --git a/net/smc/Makefile b/net/smc/Makefile
-new file mode 100644
-index 0000000..c285c86
---- /dev/null
-+++ b/net/smc/Makefile
-@@ -0,0 +1,2 @@
-+obj-$(CONFIG_SMC)	+= smc.o
-+smc-y := af_smc.o
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-new file mode 100644
-index 0000000..ae3332c
---- /dev/null
+index d1e9098..3481eea 100644
+--- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -0,0 +1,623 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  AF_SMC protocol family socket handler keeping the AF_INET sock address type
-+ *  applies to SOCK_STREAM sockets only
-+ *  offers an alternative communication option for TCP-protocol sockets
-+ *  applicable with RoCE-cards only
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ *              based on prototype from Frank Blaschka
-+ */
+@@ -256,6 +256,8 @@ static void smc_conn_save_peer_info(struct smc_sock *smc,
+ 				    struct smc_clc_msg_accept_confirm *clc)
+ {
+ 	smc->conn.peer_conn_idx = clc->conn_idx;
++	smc->conn.peer_rmbe_len = smc_uncompress_bufsize(clc->rmbe_size);
++	atomic_set(&smc->conn.peer_rmbe_space, smc->conn.peer_rmbe_len);
+ }
+ 
+ static void smc_link_save_peer_info(struct smc_link *link,
+@@ -334,6 +336,18 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 	link = &smc->conn.lgr->lnk[SMC_SINGLE_LINK];
+ 
+ 	smc_conn_save_peer_info(smc, &aclc);
 +
-+#define KMSG_COMPONENT "smc"
-+#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
-+
-+#include <linux/module.h>
-+#include <linux/socket.h>
-+#include <net/sock.h>
-+
-+#include "smc.h"
-+
-+static void smc_set_keepalive(struct sock *sk, int val)
-+{
-+	struct smc_sock *smc = smc_sk(sk);
-+
-+	smc->clcsock->sk->sk_prot->keepalive(smc->clcsock->sk, val);
-+}
-+
-+static struct proto smc_proto = {
-+	.name		= "SMC",
-+	.owner		= THIS_MODULE,
-+	.keepalive	= smc_set_keepalive,
-+	.obj_size	= sizeof(struct smc_sock),
-+	.slab_flags	= SLAB_DESTROY_BY_RCU,
-+};
-+
-+static int smc_release(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+
-+	if (!sk)
-+		goto out;
-+
-+	smc = smc_sk(sk);
-+	lock_sock(sk);
-+
-+	sk->sk_state = SMC_CLOSED;
-+	if (smc->clcsock) {
-+		sock_release(smc->clcsock);
-+		smc->clcsock = NULL;
++	rc = smc_sndbuf_create(smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma_unlock;
++	}
++	rc = smc_rmb_create(smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma_unlock;
 +	}
 +
-+	/* detach socket */
-+	sock_set_flag(sk, SOCK_ZAPPED);
-+	sock_orphan(sk);
-+	sock->sk = NULL;
-+	release_sock(sk);
+ 	if (local_contact == SMC_FIRST_CONTACT)
+ 		smc_link_save_peer_info(link, &aclc);
+ 	/* tbd in follow-on patch: more steps to setup RDMA communcication,
+@@ -609,9 +623,16 @@ static void smc_listen_work(struct work_struct *work)
+ 	}
+ 	link = &new_smc->conn.lgr->lnk[SMC_SINGLE_LINK];
+ 
+-	/* tbd in follow-on patch: more steps to setup RDMA communcication,
+-	 * create rmbs, map rmbs
+-	 */
++	rc = smc_sndbuf_create(new_smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma;
++	}
++	rc = smc_rmb_create(new_smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma;
++	}
+ 
+ 	rc = smc_clc_send_accept(new_smc, local_contact);
+ 	if (rc)
+@@ -1058,6 +1079,8 @@ static int smc_create(struct net *net, struct socket *sock, int protocol,
+ 			      IPPROTO_TCP, &smc->clcsock);
+ 	if (rc)
+ 		sk_common_release(sk);
++	smc->sk.sk_sndbuf = max(smc->clcsock->sk->sk_sndbuf, SMC_BUF_MIN_SIZE);
++	smc->sk.sk_rcvbuf = max(smc->clcsock->sk->sk_rcvbuf, SMC_BUF_MIN_SIZE);
+ 
+ out:
+ 	return rc;
+diff --git a/net/smc/smc.h b/net/smc/smc.h
+index 8736145..914f3da 100644
+--- a/net/smc/smc.h
++++ b/net/smc/smc.h
+@@ -32,6 +32,16 @@ struct smc_connection {
+ 	struct smc_link_group	*lgr;		/* link group of connection */
+ 	u32			alert_token_local; /* unique conn. id */
+ 	u8			peer_conn_idx;	/* from tcp handshake */
++	int			peer_rmbe_len;	/* size of peer rx buffer */
++	atomic_t		peer_rmbe_space;/* remaining free bytes in peer
++						 * rmbe
++						 */
 +
-+	sock_put(sk);
-+out:
-+	return 0;
++	struct smc_buf_desc	*sndbuf_desc;	/* send buffer descriptor */
++	int			sndbuf_size;	/* sndbuf size <== sock wmem */
++	struct smc_buf_desc	*rmb_desc;	/* RMBE descriptor */
++	int			rmbe_size;	/* RMBE size <== sock rmem */
++	int			rmbe_size_short;/* compressed notation */
+ };
+ 
+ struct smc_sock {				/* smc sock container */
+@@ -75,6 +85,41 @@ static inline u32 ntoh24(u8 *net)
+ 	return be32_to_cpu(t);
+ }
+ 
++#define SMC_BUF_MIN_SIZE 16384		/* minimum size of an RMB */
++
++#define SMC_RMBE_SIZES	16	/* number of distinct sizes for an RMBE */
++/* theoretically, the RFC states that largest size would be 512K,
++ * i.e. compressed 5 and thus 6 sizes (0..5), despite
++ * struct smc_clc_msg_accept_confirm.rmbe_size being a 4 bit value (0..15)
++ */
++
++/* convert the RMB size into the compressed notation - minimum 16K.
++ * In contrast to plain ilog2, this rounds towards the next power of 2,
++ * so the socket application gets at least its desired sndbuf / rcvbuf size.
++ */
++static inline u8 smc_compress_bufsize(int size)
++{
++	u8 compressed;
++
++	if (size <= SMC_BUF_MIN_SIZE)
++		return 0;
++
++	size = (size - 1) >> 14;
++	compressed = ilog2(size) + 1;
++	if (compressed >= SMC_RMBE_SIZES)
++		compressed = SMC_RMBE_SIZES - 1;
++	return compressed;
 +}
 +
-+static void smc_destruct(struct sock *sk)
++/* convert the RMB size from compressed notation into integer */
++static inline int smc_uncompress_bufsize(u8 compressed)
 +{
-+	if (sk->sk_state != SMC_CLOSED)
-+		return;
-+	if (!sock_flag(sk, SOCK_DEAD))
-+		return;
++	u32 size;
 +
-+	sk_refcnt_debug_dec(sk);
++	size = 0x00000001 << (((int)compressed) + 14);
++	return (int)size;
 +}
 +
-+static struct sock *smc_sock_alloc(struct net *net, struct socket *sock)
+ #ifdef CONFIG_XFRM
+ static inline bool using_ipsec(struct smc_sock *smc)
+ {
+diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
+index b1d0026..2360b8d 100644
+--- a/net/smc/smc_clc.c
++++ b/net/smc/smc_clc.c
+@@ -246,13 +246,13 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
+ 	       SMC_GID_SIZE);
+ 	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1],
+ 	       sizeof(link->smcibdev->mac[link->ibport - 1]));
+-
+-	/* tbd in follow-on patch: fill in rmb-related values */
+-
+ 	hton24(aclc.qpn, link->roce_qp->qp_num);
+ 	aclc.conn_idx = 1;			/* as long as 1 RMB = 1 RMBE */
+ 	aclc.rmbe_alert_token = htonl(conn->alert_token_local);
+ 	aclc.qp_mtu = link->path_mtu;
++	aclc.rmbe_size = conn->rmbe_size_short,
++	aclc.rmb_dma_addr =
++		cpu_to_be64((u64)conn->rmb_desc->dma_addr[SMC_SINGLE_LINK]);
+ 	hton24(aclc.psn, link->psn_initial);
+ 	memcpy(aclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
+ 
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index 33160ce..53d7fd9 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -132,6 +132,7 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	struct smc_link *lnk;
+ 	u8 rndvec[3];
+ 	int rc = 0;
++	int i;
+ 
+ 	lgr = kzalloc(sizeof(*lgr), GFP_KERNEL);
+ 	if (!lgr) {
+@@ -142,6 +143,12 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	lgr->daddr = peer_in_addr;
+ 	memcpy(lgr->peer_systemid, peer_systemid, SMC_SYSTEMID_LEN);
+ 	lgr->vlan_id = vlan_id;
++	rwlock_init(&lgr->sndbufs_lock);
++	rwlock_init(&lgr->rmbs_lock);
++	for (i = 0; i < SMC_RMBE_SIZES; i++) {
++		INIT_LIST_HEAD(&lgr->sndbufs[i]);
++		INIT_LIST_HEAD(&lgr->rmbs[i]);
++	}
+ 	INIT_DELAYED_WORK(&lgr->free_work, smc_lgr_free_work);
+ 
+ 	lnk = &lgr->lnk[SMC_SINGLE_LINK];
+@@ -161,6 +168,22 @@ out:
+ 	return rc;
+ }
+ 
++static void smc_sndbuf_unuse(struct smc_connection *conn)
 +{
-+	struct smc_sock *smc;
-+	struct sock *sk;
-+
-+	sk = sk_alloc(net, PF_SMC, GFP_KERNEL, &smc_proto, 0);
-+	if (!sk)
-+		return NULL;
-+
-+	sock_init_data(sock, sk); /* sets sk_refcnt to 1 */
-+	sk->sk_state = SMC_INIT;
-+	sk->sk_destruct = smc_destruct;
-+	sk->sk_protocol = SMCPROTO_SMC;
-+	sk_refcnt_debug_inc(sk);
-+
-+	smc = smc_sk(sk);
-+	smc->clcsock = NULL;
-+	smc->use_fallback = 0;
-+
-+	return sk;
++	if (conn->sndbuf_desc) {
++		xchg(&conn->sndbuf_desc->used, 0);
++		conn->sndbuf_size = 0;
++	}
 +}
 +
-+static int smc_bind(struct socket *sock, struct sockaddr *uaddr,
-+		    int addr_len)
++static void smc_rmb_unuse(struct smc_connection *conn)
 +{
-+	struct sockaddr_in *addr = (struct sockaddr_in *)uaddr;
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
++	if (conn->rmb_desc) {
++		xchg(&conn->rmb_desc->used, 0);
++		conn->rmbe_size = 0;
++	}
++}
++
+ /* remove a finished connection from its link group */
+ void smc_conn_free(struct smc_connection *conn)
+ {
+@@ -169,6 +192,8 @@ void smc_conn_free(struct smc_connection *conn)
+ 	if (!lgr)
+ 		return;
+ 	smc_lgr_unregister_conn(conn);
++	smc_rmb_unuse(conn);
++	smc_sndbuf_unuse(conn);
+ }
+ 
+ static void smc_link_clear(struct smc_link *lnk)
+@@ -176,9 +201,39 @@ static void smc_link_clear(struct smc_link *lnk)
+ 	lnk->peer_qpn = 0;
+ }
+ 
++static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
++{
++	struct smc_buf_desc *sndbuf_desc, *bf_desc;
++	int i;
++
++	for (i = 0; i < SMC_RMBE_SIZES; i++) {
++		list_for_each_entry_safe(sndbuf_desc, bf_desc, &lgr->sndbufs[i],
++					 list) {
++			kfree(sndbuf_desc->cpu_addr);
++			kfree(sndbuf_desc);
++		}
++	}
++}
++
++static void smc_lgr_free_rmbs(struct smc_link_group *lgr)
++{
++	struct smc_buf_desc *rmb_desc, *bf_desc;
++	int i;
++
++	for (i = 0; i < SMC_RMBE_SIZES; i++) {
++		list_for_each_entry_safe(rmb_desc, bf_desc, &lgr->rmbs[i],
++					 list) {
++			kfree(rmb_desc->cpu_addr);
++			kfree(rmb_desc);
++		}
++	}
++}
++
+ /* remove a link group */
+ void smc_lgr_free(struct smc_link_group *lgr)
+ {
++	smc_lgr_free_rmbs(lgr);
++	smc_lgr_free_sndbufs(lgr);
+ 	smc_link_clear(&lgr->lnk[SMC_SINGLE_LINK]);
+ 	kfree(lgr);
+ }
+@@ -323,7 +378,8 @@ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 		    !memcmp(lgr->lnk[SMC_SINGLE_LINK].peer_mac, lcl->mac,
+ 			    sizeof(lcl->mac)) &&
+ 		    (lgr->role == role) &&
+-		    (lgr->vlan_id == vlan_id)) {
++		    (lgr->vlan_id == vlan_id) &&
++		    (lgr->conns_num < SMC_RMBS_PER_LGR_MAX)) {
+ 			/* link group found */
+ 			local_contact = SMC_REUSE_CONTACT;
+ 			conn->lgr = lgr;
+@@ -356,3 +412,168 @@ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ out:
+ 	return rc ? rc : local_contact;
+ }
++
++/* try to reuse a sndbuf description slot of the sndbufs list for a certain
++ * buf_size; if not available, return NULL
++ */
++static inline
++struct smc_buf_desc *smc_sndbuf_get_slot(struct smc_link_group *lgr,
++					 int compressed_bufsize)
++{
++	struct smc_buf_desc *sndbuf_slot;
++
++	read_lock_bh(&lgr->sndbufs_lock);
++	list_for_each_entry(sndbuf_slot, &lgr->sndbufs[compressed_bufsize],
++			    list) {
++		if (cmpxchg(&sndbuf_slot->used, 0, 1) == 0) {
++			read_unlock_bh(&lgr->sndbufs_lock);
++			return sndbuf_slot;
++		}
++	}
++	read_unlock_bh(&lgr->sndbufs_lock);
++	return NULL;
++}
++
++/* try to reuse an rmb description slot of the rmbs list for a certain
++ * rmbe_size; if not available, return NULL
++ */
++static inline
++struct smc_buf_desc *smc_rmb_get_slot(struct smc_link_group *lgr,
++				      int compressed_bufsize)
++{
++	struct smc_buf_desc *rmb_slot;
++
++	read_lock_bh(&lgr->rmbs_lock);
++	list_for_each_entry(rmb_slot, &lgr->rmbs[compressed_bufsize],
++			    list) {
++		if (cmpxchg(&rmb_slot->used, 0, 1) == 0) {
++			read_unlock_bh(&lgr->rmbs_lock);
++			return rmb_slot;
++		}
++	}
++	read_unlock_bh(&lgr->rmbs_lock);
++	return NULL;
++}
++
++/* create the tx buffer for an SMC socket */
++int smc_sndbuf_create(struct smc_sock *smc)
++{
++	struct smc_connection *conn = &smc->conn;
++	struct smc_link_group *lgr = conn->lgr;
++	int tmp_bufsize, tmp_bufsize_short;
++	struct smc_buf_desc *sndbuf_desc;
 +	int rc;
 +
-+	smc = smc_sk(sk);
-+
-+	/* replicate tests from inet_bind(), to be safe wrt. future changes */
-+	rc = -EINVAL;
-+	if (addr_len < sizeof(struct sockaddr_in))
-+		goto out;
-+
-+	rc = -EAFNOSUPPORT;
-+	/* accept AF_UNSPEC (mapped to AF_INET) only if s_addr is INADDR_ANY */
-+	if ((addr->sin_family != AF_INET) &&
-+	    ((addr->sin_family != AF_UNSPEC) ||
-+	     (addr->sin_addr.s_addr != htonl(INADDR_ANY))))
-+		goto out;
-+
-+	lock_sock(sk);
-+
-+	/* Check if socket is already active */
-+	rc = -EINVAL;
-+	if (sk->sk_state != SMC_INIT)
-+		goto out_rel;
-+
-+	smc->clcsock->sk->sk_reuse = sk->sk_reuse;
-+	rc = kernel_bind(smc->clcsock, uaddr, addr_len);
-+
-+out_rel:
-+	release_sock(sk);
-+out:
-+	return rc;
-+}
-+
-+static void smc_copy_sock_settings(struct sock *nsk, struct sock *osk,
-+				   unsigned long mask)
-+{
-+	/* options we don't get control via setsockopt for */
-+	nsk->sk_type = osk->sk_type;
-+	nsk->sk_sndbuf = osk->sk_sndbuf;
-+	nsk->sk_rcvbuf = osk->sk_rcvbuf;
-+	nsk->sk_sndtimeo = osk->sk_sndtimeo;
-+	nsk->sk_rcvtimeo = osk->sk_rcvtimeo;
-+	nsk->sk_mark = osk->sk_mark;
-+	nsk->sk_priority = osk->sk_priority;
-+	nsk->sk_rcvlowat = osk->sk_rcvlowat;
-+	nsk->sk_bound_dev_if = osk->sk_bound_dev_if;
-+	nsk->sk_err = osk->sk_err;
-+
-+	nsk->sk_flags &= ~mask;
-+	nsk->sk_flags |= osk->sk_flags & mask;
-+}
-+
-+#define SK_FLAGS_SMC_TO_CLC ((1UL << SOCK_URGINLINE) | \
-+			     (1UL << SOCK_KEEPOPEN) | \
-+			     (1UL << SOCK_LINGER) | \
-+			     (1UL << SOCK_BROADCAST) | \
-+			     (1UL << SOCK_TIMESTAMP) | \
-+			     (1UL << SOCK_DBG) | \
-+			     (1UL << SOCK_RCVTSTAMP) | \
-+			     (1UL << SOCK_RCVTSTAMPNS) | \
-+			     (1UL << SOCK_LOCALROUTE) | \
-+			     (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE) | \
-+			     (1UL << SOCK_RXQ_OVFL) | \
-+			     (1UL << SOCK_WIFI_STATUS) | \
-+			     (1UL << SOCK_NOFCS) | \
-+			     (1UL << SOCK_FILTER_LOCKED))
-+/* copy only relevant settings and flags of SOL_SOCKET level from smc to
-+ * clc socket (since smc is not called for these options from net/core)
-+ */
-+static void smc_copy_sock_settings_to_clc(struct smc_sock *smc)
-+{
-+	smc_copy_sock_settings(smc->clcsock->sk, &smc->sk, SK_FLAGS_SMC_TO_CLC);
-+}
-+
-+#define SK_FLAGS_CLC_TO_SMC ((1UL << SOCK_URGINLINE) | \
-+			     (1UL << SOCK_KEEPOPEN) | \
-+			     (1UL << SOCK_LINGER) | \
-+			     (1UL << SOCK_DBG))
-+/* copy only settings and flags relevant for smc from clc to smc socket */
-+static void smc_copy_sock_settings_to_smc(struct smc_sock *smc)
-+{
-+	smc_copy_sock_settings(&smc->sk, smc->clcsock->sk, SK_FLAGS_CLC_TO_SMC);
-+}
-+
-+static int smc_connect(struct socket *sock, struct sockaddr *addr,
-+		       int alen, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc = -EINVAL;
-+
-+	smc = smc_sk(sk);
-+
-+	/* separate smc parameter checking to be safe */
-+	if (alen < sizeof(addr->sa_family))
-+		goto out_err;
-+	if (addr->sa_family != AF_INET)
-+		goto out_err;
-+
-+	lock_sock(sk);
-+	switch (sk->sk_state) {
-+	default:
-+		goto out;
-+	case SMC_ACTIVE:
-+		rc = -EISCONN;
-+		goto out;
-+	case SMC_INIT:
-+		rc = 0;
++	/* use socket send buffer size (w/o overhead) as start value */
++	for (tmp_bufsize_short = smc_compress_bufsize(smc->sk.sk_sndbuf / 2);
++	     tmp_bufsize_short >= 0; tmp_bufsize_short--) {
++		tmp_bufsize = smc_uncompress_bufsize(tmp_bufsize_short);
++		/* check for reusable sndbuf_slot in the link group */
++		sndbuf_desc = smc_sndbuf_get_slot(lgr, tmp_bufsize_short);
++		if (sndbuf_desc) {
++			memset(sndbuf_desc->cpu_addr, 0, tmp_bufsize);
++			break; /* found reusable slot */
++		}
++		/* try to alloc a new send buffer */
++		sndbuf_desc = kzalloc(sizeof(*sndbuf_desc), GFP_KERNEL);
++		if (!sndbuf_desc)
++			break; /* give up with -ENOMEM */
++		sndbuf_desc->cpu_addr = kzalloc(tmp_bufsize,
++						GFP_KERNEL | __GFP_NOWARN |
++						__GFP_NOMEMALLOC |
++						__GFP_NORETRY);
++		if (!sndbuf_desc->cpu_addr) {
++			kfree(sndbuf_desc);
++			/* if send buffer allocation has failed,
++			 * try a smaller one
++			 */
++			continue;
++		}
++		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++				    tmp_bufsize, sndbuf_desc,
++				    DMA_TO_DEVICE);
++		if (rc) {
++			kfree(sndbuf_desc->cpu_addr);
++			kfree(sndbuf_desc);
++			continue; /* if mapping failed, try smaller one */
++		}
++		sndbuf_desc->used = 1;
++		write_lock_bh(&lgr->sndbufs_lock);
++		list_add(&sndbuf_desc->list,
++			 &lgr->sndbufs[tmp_bufsize_short]);
++		write_unlock_bh(&lgr->sndbufs_lock);
 +		break;
 +	}
-+
-+	smc_copy_sock_settings_to_clc(smc);
-+	rc = kernel_connect(smc->clcsock, addr, alen, flags);
-+	if (rc)
-+		goto out;
-+
-+	sk->sk_state = SMC_ACTIVE;
-+
-+	/* always use TCP fallback as transport mechanism for now;
-+	 * This will change once RDMA transport is implemented
-+	 */
-+	smc->use_fallback = 1;
-+
-+out:
-+	release_sock(sk);
-+out_err:
-+	return rc;
-+}
-+
-+static int smc_clcsock_accept(struct smc_sock *lsmc, struct smc_sock **new_smc)
-+{
-+	struct sock *sk = &lsmc->sk;
-+	struct socket *new_clcsock;
-+	struct sock *new_sk;
-+	int rc;
-+
-+	new_sk = smc_sock_alloc(sock_net(sk), NULL);
-+	if (!new_sk) {
-+		rc = -ENOMEM;
-+		lsmc->sk.sk_err = ENOMEM;
-+		*new_smc = NULL;
-+		goto out;
-+	}
-+	*new_smc = smc_sk(new_sk);
-+
-+	rc = kernel_accept(lsmc->clcsock, &new_clcsock, 0);
-+	if (rc) {
-+		sock_put(new_sk);
-+		*new_smc = NULL;
-+		goto out;
-+	}
-+
-+	(*new_smc)->clcsock = new_clcsock;
-+out:
-+	return rc;
-+}
-+
-+static int smc_listen(struct socket *sock, int backlog)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc;
-+
-+	smc = smc_sk(sk);
-+	lock_sock(sk);
-+
-+	rc = -EINVAL;
-+	if ((sk->sk_state != SMC_INIT) && (sk->sk_state != SMC_LISTEN))
-+		goto out;
-+
-+	rc = 0;
-+	if (sk->sk_state == SMC_LISTEN) {
-+		sk->sk_max_ack_backlog = backlog;
-+		goto out;
-+	}
-+	/* some socket options are handled in core, so we could not apply
-+	 * them to the clc socket -- copy smc socket options to clc socket
-+	 */
-+	smc_copy_sock_settings_to_clc(smc);
-+
-+	rc = kernel_listen(smc->clcsock, backlog);
-+	if (rc)
-+		goto out;
-+	sk->sk_max_ack_backlog = backlog;
-+	sk->sk_ack_backlog = 0;
-+	sk->sk_state = SMC_LISTEN;
-+
-+out:
-+	release_sock(sk);
-+	return rc;
-+}
-+
-+static int smc_accept(struct socket *sock, struct socket *new_sock,
-+		      int flags)
-+{
-+	struct smc_sock *new_smc;
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *lsmc;
-+	int rc;
-+
-+	lsmc = smc_sk(sk);
-+	lock_sock(sk);
-+
-+	if (lsmc->sk.sk_state != SMC_LISTEN) {
-+		rc = -EINVAL;
-+		goto out;
-+	}
-+
-+	rc = smc_clcsock_accept(lsmc, &new_smc);
-+	if (rc)
-+		goto out;
-+	sock_graft(&new_smc->sk, new_sock);
-+	new_smc->sk.sk_state = SMC_ACTIVE;
-+
-+	smc_copy_sock_settings_to_smc(new_smc);
-+
-+	/* always use TCP fallback as transport mechanism for now;
-+	 * This will change once RDMA transport is implemented
-+	 */
-+	new_smc->use_fallback = 1;
-+
-+out:
-+	release_sock(sk);
-+	return rc;
-+}
-+
-+static int smc_getname(struct socket *sock, struct sockaddr *addr,
-+		       int *len, int peer)
-+{
-+	struct smc_sock *smc;
-+
-+	if (peer && (sock->sk->sk_state != SMC_ACTIVE))
-+		return -ENOTCONN;
-+
-+	smc = smc_sk(sock->sk);
-+
-+	return smc->clcsock->ops->getname(smc->clcsock, addr, len, peer);
-+}
-+
-+static int smc_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc = -EPIPE;
-+
-+	smc = smc_sk(sk);
-+	lock_sock(sk);
-+	if (sk->sk_state != SMC_ACTIVE)
-+		goto out;
-+	if (smc->use_fallback)
-+		rc = smc->clcsock->ops->sendmsg(smc->clcsock, msg, len);
-+	else
-+		rc = sock_no_sendmsg(sock, msg, len);
-+out:
-+	release_sock(sk);
-+	return rc;
-+}
-+
-+static int smc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
-+		       int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc = -ENOTCONN;
-+
-+	smc = smc_sk(sk);
-+	lock_sock(sk);
-+	if ((sk->sk_state != SMC_ACTIVE) && (sk->sk_state != SMC_CLOSED))
-+		goto out;
-+
-+	if (smc->use_fallback)
-+		rc = smc->clcsock->ops->recvmsg(smc->clcsock, msg, len, flags);
-+	else
-+		rc = sock_no_recvmsg(sock, msg, len, flags);
-+out:
-+	release_sock(sk);
-+	return rc;
-+}
-+
-+static unsigned int smc_poll(struct file *file, struct socket *sock,
-+			     poll_table *wait)
-+{
-+	struct sock *sk = sock->sk;
-+	unsigned int mask = 0;
-+	struct smc_sock *smc;
-+
-+	smc = smc_sk(sock->sk);
-+	if ((sk->sk_state == SMC_INIT) || (sk->sk_state == SMC_LISTEN) ||
-+	    smc->use_fallback) {
-+		mask = smc->clcsock->ops->poll(file, smc->clcsock, wait);
-+		/* if non-blocking connect finished ... */
-+		lock_sock(sk);
-+		if ((sk->sk_state == SMC_INIT) && (mask & POLLOUT)) {
-+			sk->sk_state = SMC_ACTIVE;
-+			/* always use TCP fallback as transport mechanism;
-+			 * This will change once RDMA transport is implemented
-+			 */
-+			smc->use_fallback = 1;
-+		}
-+		release_sock(sk);
++	if (sndbuf_desc && sndbuf_desc->cpu_addr) {
++		conn->sndbuf_desc = sndbuf_desc;
++		conn->sndbuf_size = tmp_bufsize;
++		smc->sk.sk_sndbuf = tmp_bufsize * 2;
++		return 0;
 +	} else {
-+		mask = sock_no_poll(file, sock, wait);
++		return -ENOMEM;
 +	}
-+
-+	return mask;
 +}
 +
-+static int smc_shutdown(struct socket *sock, int how)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc = -EINVAL;
-+
-+	smc = smc_sk(sk);
-+
-+	if ((how < SHUT_RD) || (how > SHUT_RDWR))
-+		goto out_err;
-+
-+	lock_sock(sk);
-+
-+	rc = -ENOTCONN;
-+	if (sk->sk_state == SMC_CLOSED)
-+		goto out;
-+	if (smc->use_fallback) {
-+		rc = kernel_sock_shutdown(smc->clcsock, how);
-+		sk->sk_shutdown = smc->clcsock->sk->sk_shutdown;
-+		if (sk->sk_shutdown == SHUTDOWN_MASK)
-+			sk->sk_state = SMC_CLOSED;
-+	} else {
-+		rc = sock_no_shutdown(sock, how);
-+	}
-+
-+out:
-+	release_sock(sk);
-+
-+out_err:
-+	return rc;
-+}
-+
-+static int smc_setsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, unsigned int optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+
-+	smc = smc_sk(sk);
-+
-+	/* generic setsockopts reaching us here always apply to the
-+	 * CLC socket
-+	 */
-+	return smc->clcsock->ops->setsockopt(smc->clcsock, level, optname,
-+					     optval, optlen);
-+}
-+
-+static int smc_getsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, int __user *optlen)
-+{
-+	struct smc_sock *smc;
-+
-+	smc = smc_sk(sock->sk);
-+	/* socket options apply to the CLC socket */
-+	return smc->clcsock->ops->getsockopt(smc->clcsock, level, optname,
-+					     optval, optlen);
-+}
-+
-+static int smc_ioctl(struct socket *sock, unsigned int cmd,
-+		     unsigned long arg)
-+{
-+	struct smc_sock *smc;
-+
-+	smc = smc_sk(sock->sk);
-+	if (smc->use_fallback)
-+		return smc->clcsock->ops->ioctl(smc->clcsock, cmd, arg);
-+	else
-+		return sock_no_ioctl(sock, cmd, arg);
-+}
-+
-+static ssize_t smc_sendpage(struct socket *sock, struct page *page,
-+			    int offset, size_t size, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc = -EPIPE;
-+
-+	smc = smc_sk(sk);
-+	lock_sock(sk);
-+	if (sk->sk_state != SMC_ACTIVE)
-+		goto out;
-+	if (smc->use_fallback)
-+		rc = kernel_sendpage(smc->clcsock, page, offset,
-+				     size, flags);
-+	else
-+		rc = sock_no_sendpage(sock, page, offset, size, flags);
-+
-+out:
-+	release_sock(sk);
-+	return rc;
-+}
-+
-+static ssize_t smc_splice_read(struct socket *sock, loff_t *ppos,
-+			       struct pipe_inode_info *pipe, size_t len,
-+				    unsigned int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct smc_sock *smc;
-+	int rc = -ENOTCONN;
-+
-+	smc = smc_sk(sk);
-+	lock_sock(sk);
-+	if ((sk->sk_state != SMC_ACTIVE) && (sk->sk_state != SMC_CLOSED))
-+		goto out;
-+	if (smc->use_fallback) {
-+		rc = smc->clcsock->ops->splice_read(smc->clcsock, ppos,
-+						    pipe, len, flags);
-+	} else {
-+		rc = -EOPNOTSUPP;
-+	}
-+out:
-+	release_sock(sk);
-+	return rc;
-+}
-+
-+/* must look like tcp */
-+static const struct proto_ops smc_sock_ops = {
-+	.family		= PF_SMC,
-+	.owner		= THIS_MODULE,
-+	.release	= smc_release,
-+	.bind		= smc_bind,
-+	.connect	= smc_connect,
-+	.socketpair	= sock_no_socketpair,
-+	.accept		= smc_accept,
-+	.getname	= smc_getname,
-+	.poll		= smc_poll,
-+	.ioctl		= smc_ioctl,
-+	.listen		= smc_listen,
-+	.shutdown	= smc_shutdown,
-+	.setsockopt	= smc_setsockopt,
-+	.getsockopt	= smc_getsockopt,
-+	.sendmsg	= smc_sendmsg,
-+	.recvmsg	= smc_recvmsg,
-+	.mmap		= sock_no_mmap,
-+	.sendpage	= smc_sendpage,
-+	.splice_read	= smc_splice_read,
-+};
-+
-+static int smc_create(struct net *net, struct socket *sock, int protocol,
-+		      int kern)
-+{
-+	struct smc_sock *smc;
-+	struct sock *sk;
-+	int rc;
-+
-+	rc = -ESOCKTNOSUPPORT;
-+	if (sock->type != SOCK_STREAM)
-+		goto out;
-+
-+	rc = -EPROTONOSUPPORT;
-+	if ((protocol != IPPROTO_IP) && (protocol != IPPROTO_TCP))
-+		goto out;
-+
-+	rc = -ENOBUFS;
-+	sock->ops = &smc_sock_ops;
-+	sk = smc_sock_alloc(net, sock);
-+	if (!sk)
-+		goto out;
-+
-+	/* create internal TCP socket for CLC handshake and fallback */
-+	smc = smc_sk(sk);
-+	rc = sock_create_kern(net, PF_INET, SOCK_STREAM,
-+			      IPPROTO_TCP, &smc->clcsock);
-+	if (rc)
-+		sk_common_release(sk);
-+
-+out:
-+	return rc;
-+}
-+
-+static const struct net_proto_family smc_sock_family_ops = {
-+	.family	= PF_SMC,
-+	.owner	= THIS_MODULE,
-+	.create	= smc_create,
-+};
-+
-+static int __init smc_init(void)
-+{
-+	int rc;
-+
-+	rc = proto_register(&smc_proto, 1);
-+	if (rc) {
-+		pr_err("%s: proto_register fails with %d\n", __func__, rc);
-+		goto out;
-+	}
-+
-+	rc = sock_register(&smc_sock_family_ops);
-+	if (rc) {
-+		pr_err("%s: sock_register fails with %d\n", __func__, rc);
-+		goto out_proto;
-+	}
-+
-+	return 0;
-+
-+out_proto:
-+	proto_unregister(&smc_proto);
-+out:
-+	return rc;
-+}
-+
-+static void __exit smc_exit(void)
-+{
-+	sock_unregister(PF_SMC);
-+	proto_unregister(&smc_proto);
-+}
-+
-+module_init(smc_init);
-+module_exit(smc_exit);
-+
-+MODULE_AUTHOR("Ursula Braun <ubraun@linux.vnet.ibm.com>");
-+MODULE_DESCRIPTION("smc socket address family");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NETPROTO(PF_SMC);
-diff --git a/net/smc/smc.h b/net/smc/smc.h
-new file mode 100644
-index 0000000..f282b27
---- /dev/null
-+++ b/net/smc/smc.h
-@@ -0,0 +1,36 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  Definitions for the SMC module (socket related)
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Ursula Braun <ursula.braun@linux.vnet.ibm.com>
++/* create the RMB for an SMC socket (even though the SMC protocol
++ * allows more than one RMB-element per RMB, the Linux implementation
++ * uses just one RMB-element per RMB, i.e. uses an extra RMB for every
++ * connection in a link group
 + */
-+#ifndef _SMC_H
-+#define _SMC_H
-+
-+#include <linux/socket.h>
-+#include <linux/types.h>
-+#include <net/sock.h>
-+
-+#define SMCPROTO_SMC		0	/* SMC protocol */
-+
-+enum smc_state {		/* possible states of an SMC socket */
-+	SMC_ACTIVE	= 1,
-+	SMC_INIT	= 2,
-+	SMC_CLOSED	= 7,
-+	SMC_LISTEN	= 10,
-+};
-+
-+struct smc_sock {				/* smc sock container */
-+	struct sock		sk;
-+	struct socket		*clcsock;	/* internal tcp socket */
-+	u8			use_fallback : 1; /* fallback to tcp */
-+};
-+
-+static inline struct smc_sock *smc_sk(const struct sock *sk)
++int smc_rmb_create(struct smc_sock *smc)
 +{
-+	return (struct smc_sock *)sk;
++	struct smc_connection *conn = &smc->conn;
++	struct smc_link_group *lgr = conn->lgr;
++	int tmp_bufsize, tmp_bufsize_short;
++	struct smc_buf_desc *rmb_desc;
++	int rc;
++
++	/* use socket recv buffer size (w/o overhead) as start value */
++	for (tmp_bufsize_short = smc_compress_bufsize(smc->sk.sk_rcvbuf / 2);
++	     tmp_bufsize_short >= 0; tmp_bufsize_short--) {
++		tmp_bufsize = smc_uncompress_bufsize(tmp_bufsize_short);
++		/* check for reusable rmb_slot in the link group */
++		rmb_desc = smc_rmb_get_slot(lgr, tmp_bufsize_short);
++		if (rmb_desc) {
++			memset(rmb_desc->cpu_addr, 0, tmp_bufsize);
++			break; /* found reusable slot */
++		}
++		/* try to alloc a new RMB */
++		rmb_desc = kzalloc(sizeof(*rmb_desc), GFP_KERNEL);
++		if (!rmb_desc)
++			break; /* give up with -ENOMEM */
++		rmb_desc->cpu_addr = kzalloc(tmp_bufsize,
++					     GFP_KERNEL | __GFP_NOWARN |
++					     __GFP_NOMEMALLOC |
++					     __GFP_NORETRY);
++		if (!rmb_desc->cpu_addr) {
++			kfree(rmb_desc);
++			/* if RMB allocation has failed,
++			 * try a smaller one
++			 */
++			continue;
++		}
++		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++				    tmp_bufsize, rmb_desc,
++				    DMA_FROM_DEVICE);
++		if (rc) {
++			kfree(rmb_desc->cpu_addr);
++			kfree(rmb_desc);
++			continue; /* if mapping failed, try smaller one */
++		}
++		rmb_desc->used = 1;
++		write_lock_bh(&lgr->rmbs_lock);
++		list_add(&rmb_desc->list,
++			 &lgr->rmbs[tmp_bufsize_short]);
++		write_unlock_bh(&lgr->rmbs_lock);
++		break;
++	}
++	if (rmb_desc && rmb_desc->cpu_addr) {
++		conn->rmb_desc = rmb_desc;
++		conn->rmbe_size = tmp_bufsize;
++		conn->rmbe_size_short = tmp_bufsize_short;
++		smc->sk.sk_rcvbuf = tmp_bufsize * 2;
++		return 0;
++	} else {
++		return -ENOMEM;
++	}
 +}
-+#endif	/* _SMC_H */
+diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
+index c43c6f5..ad9b16d 100644
+--- a/net/smc/smc_core.h
++++ b/net/smc/smc_core.h
+@@ -16,6 +16,8 @@
+ #include "smc.h"
+ #include "smc_ib.h"
+ 
++#define SMC_RMBS_PER_LGR_MAX	255	/* max. # of RMBs per link group */
++
+ struct smc_lgr_list {			/* list of link group definition */
+ 	struct list_head	list;
+ 	spinlock_t		lock;	/* protects list of link groups */
+@@ -52,6 +54,15 @@ struct smc_link {
+ #define SMC_FIRST_CONTACT	1		/* first contact to a peer */
+ #define SMC_REUSE_CONTACT	0		/* follow-on contact to a peer*/
+ 
++/* tx/rx buffer list element for sndbufs list and rmbs list of a lgr */
++struct smc_buf_desc {
++	struct list_head	list;
++	u64			dma_addr[SMC_LINKS_PER_LGR_MAX];
++						/* mapped address of buffer */
++	void			*cpu_addr;	/* virtual address of buffer */
++	u32			used;		/* currently used / unused */
++};
++
+ struct smc_link_group {
+ 	struct list_head	list;
+ 	enum smc_lgr_role	role;		/* client or server */
+@@ -63,6 +74,11 @@ struct smc_link_group {
+ 	rwlock_t		conns_lock;	/* protects conns_all */
+ 	unsigned int		conns_num;	/* current # of connections */
+ 	unsigned short		vlan_id;	/* vlan id of link group */
++
++	struct list_head	sndbufs[SMC_RMBE_SIZES];/* tx buffers */
++	rwlock_t		sndbufs_lock;	/* protects tx buffers */
++	struct list_head	rmbs[SMC_RMBE_SIZES];	/* rx buffers */
++	rwlock_t		rmbs_lock;	/* protects rx buffers */
+ 	struct delayed_work	free_work;	/* delayed freeing of an lgr */
+ };
+ 
+@@ -99,7 +115,11 @@ static inline struct smc_connection *smc_lgr_find_conn(
+ 	return res;
+ }
+ 
++struct smc_clc_msg_accept_confirm;
++
+ void smc_lgr_free(struct smc_link_group *);
+ void smc_lgr_terminate(struct smc_link_group *);
++int smc_sndbuf_create(struct smc_sock *);
++int smc_rmb_create(struct smc_sock *);
+ 
+ #endif
+diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
+index 8b6bb50..9ca1412 100644
+--- a/net/smc/smc_ib.c
++++ b/net/smc/smc_ib.c
+@@ -16,6 +16,7 @@
+ 
+ #include "smc_pnet.h"
+ #include "smc_ib.h"
++#include "smc_core.h"
+ #include "smc.h"
+ 
+ struct smc_ib_devices smc_ib_devices = {	/* smc-registered ib devices */
+@@ -29,6 +30,24 @@ u8 local_systemid[SMC_SYSTEMID_LEN] = SMC_LOCAL_SYSTEMID_RESET;	/* unique system
+ 								 * identifier
+ 								 */
+ 
++/* map a new TX or RX buffer to DMA */
++int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
++		   struct smc_buf_desc *buf_slot,
++		   enum dma_data_direction data_direction)
++{
++	int rc = 0;
++
++	if (buf_slot->dma_addr[SMC_SINGLE_LINK])
++		return rc; /* already mapped */
++	buf_slot->dma_addr[SMC_SINGLE_LINK] =
++		ib_dma_map_single(smcibdev->ibdev, buf_slot->cpu_addr,
++				  buf_size, data_direction);
++	if (ib_dma_mapping_error(smcibdev->ibdev,
++				 buf_slot->dma_addr[SMC_SINGLE_LINK]))
++		rc = -EIO;
++	return rc;
++}
++
+ static int smc_ib_fill_gid_and_mac(struct smc_ib_device *smcibdev, u8 ibport)
+ {
+ 	struct net_device *ndev;
+diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
+index a1ca04f..57167af 100644
+--- a/net/smc/smc_ib.h
++++ b/net/smc/smc_ib.h
+@@ -32,9 +32,14 @@ struct smc_ib_device {				/* ib-device infos for smc */
+ 	u8			initialized : 1; /* ib dev CQ, evthdl done */
+ };
+ 
++struct smc_sock;
++struct smc_buf_desc;
++
+ int smc_ib_register_client(void) __init;
+ void smc_ib_unregister_client(void);
+ bool smc_ib_port_active(struct smc_ib_device *, u8);
+ int smc_ib_remember_port_attr(struct smc_ib_device *, u8);
++int smc_ib_buf_map(struct smc_ib_device *, int, struct smc_buf_desc *,
++		   enum dma_data_direction);
+ 
+ #endif
 -- 
 2.6.6
