@@ -1,53 +1,30 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] soreuseport: add compat case for setsockopt
- SO_ATTACH_REUSEPORT_CBPF
-Date: Fri, 3 Jun 2016 21:11:24 +0300
-Message-ID: <4cec14e5-2950-be26-1ffa-8d604bdb2fb5@cogentembedded.com>
-References: <20160603171805.GA3664@ls3530.box>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 04/17] net: dsa: tag_{e}dsa.c: Remove dependency on platform data
+Date: Fri, 03 Jun 2016 14:12:45 -0400
+Message-ID: <87wpm66t0i.fsf@ketchup.mtl.sfl>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch> <1464972256-10408-5-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-parisc@vger.kernel.org
-To: Helge Deller <deller@gmx.de>, Craig Gallek <kraig@google.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20160603171805.GA3664@ls3530.box>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:49078 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbcFCSMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 14:12:48 -0400
+In-Reply-To: <1464972256-10408-5-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-On 06/03/2016 08:18 PM, Helge Deller wrote:
-
-> Commit 538950a ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
-
-    At least 12 digits must be specified for SHA1. checkpatch.pl should've 
-caught this.
-
-> missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF
-> setsockoption() option.
+> The platform data nr_chips is used when validating a received packet,
+> to ensure it comes from a know switch chip. The number of possible
+> switches is limited to DSA_MAX_SWITCHES, so use this as the first
+> validation step. The new binding allows holes in the dst->ds[] array,
+> so also ensure ensure there is a valid dsa_switch for this packet.
 >
-> Since both SO_ATTACH_FILTER and SO_ATTACH_REUSEPORT_CBPF use a struct
-> sock_fprog let's combine the handling of both.
->
-> Signed-off-by: Helge Deller <deller@gmx.de>
->
-> diff --git a/net/compat.c b/net/compat.c
-> index 5cfd26a..7e2aac9 100644
-> --- a/net/compat.c
-> +++ b/net/compat.c
-> @@ -309,7 +309,7 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
->  	__scm_destroy(scm);
->  }
->
-> -static int do_set_attach_filter(struct socket *sock, int level, int optname,
-> +static int do_sockopt_fix_sock_fprog(struct socket *sock, int level, int optname,
->  				char __user *optval, unsigned int optlen)
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-    You need to realign this line now.
-
-[...]
-
-WBR, Sergei
-
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
