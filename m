@@ -1,38 +1,35 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: latest net-next does not build on sparc?
-Date: Fri, 3 Jun 2016 18:39:25 -0400
-Message-ID: <20160603223925.GQ16616@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: [PATCH 4.4-stable 0/3] Set a large MTU on ovs-created tunnel devices
+Date: Fri,  3 Jun 2016 18:58:12 -0400
+Message-ID: <1464994695-25178-1-git-send-email-dan.streetman@canonical.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39285 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814AbcFCWj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 18:39:29 -0400
-Received: from userv0021.oracle.com (userv0021.oracle.com [156.151.31.71])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u53MdRkY011251
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 22:39:28 GMT
-Received: from userv0122.oracle.com (userv0122.oracle.com [156.151.31.75])
-	by userv0021.oracle.com (8.13.8/8.13.8) with ESMTP id u53MdR1E030170
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 22:39:27 GMT
-Received: from abhmp0002.oracle.com (abhmp0002.oracle.com [141.146.116.8])
-	by userv0122.oracle.com (8.14.4/8.14.4) with ESMTP id u53MdR4v016210
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2016 22:39:27 GMT
-Content-Disposition: inline
+Received: from youngberry.canonical.com ([91.189.89.112]:56146 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416AbcFCXDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 19:03:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just pulled 4.7.0-rc1, and I find a build error
+Can you queue these for 4.4 stable?  The first 2 are cherry-picked cleanly
+into 4.4, the last required only context changes to apply.
 
-kernel/locking/rwsem.c: In function ?down_write_killable?:
-kernel/locking/rwsem.c:65: error: implicit declaration of function ?__down_write_killable?
-make[2]: *** [kernel/locking/rwsem.o] Error 1
+The commits are only needed in 4.4, as the bugs they fix were introduced
+after 4.1.
 
-I had to pull in this patch:
-  http://lkml.iu.edu/hypermail/linux/kernel/1602.3/04431.html
-to get it  to build- did I just miss something in my pull?
+David Wragg (3):
+  vxlan: Relax MTU constraints
+  geneve: Relax MTU constraints
+  vxlan, gre, geneve: Set a large MTU on ovs-created tunnel devices
 
---Sowmini
+ drivers/net/geneve.c          | 31 +++++++++++++++++++++++-----
+ drivers/net/vxlan.c           | 47 ++++++++++++++++++++++++++++++-------------
+ include/net/ip_tunnels.h      |  1 +
+ net/ipv4/ip_gre.c             |  8 ++++++++
+ net/ipv4/ip_tunnel.c          | 20 +++++++++++++++---
+ net/openvswitch/vport-vxlan.c |  2 ++
+ 6 files changed, 87 insertions(+), 22 deletions(-)
+
+-- 
+2.7.4
