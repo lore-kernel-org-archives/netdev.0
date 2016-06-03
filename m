@@ -1,7 +1,7 @@
 From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 4/5] ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
-Date: Fri,  3 Jun 2016 11:56:29 +0200
-Message-ID: <1464947790-22991-5-git-send-email-clabbe.montjoie@gmail.com>
+Subject: [PATCH 2/5] MAINTAINERS: Add myself as maintainers of sun8i-emac
+Date: Fri,  3 Jun 2016 11:56:27 +0200
+Message-ID: <1464947790-22991-3-git-send-email-clabbe.montjoie@gmail.com>
 References: <1464947790-22991-1-git-send-email-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -21,7 +21,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	wens-jdAy2FN1RRM@public.gmane.org,
 	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
 	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBBNJYW5AKGQE5BSQ7UA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBAVJYW5AKGQEPGN25IQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <1464947790-22991-1-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,41 +32,27 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The sun8i-emac is an ethernet MAC hardware that support 10/100/1000
-speed.
-
-This patch enable the sun8i-emac on the Allwinner H3 SoC Device-tree.
-The SoC H3 have an internal PHY, so optionals syscon and ephy are set.
-
 Signed-off-by: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3.dtsi | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
-index 4a4926b..f5a95ff 100644
---- a/arch/arm/boot/dts/sun8i-h3.dtsi
-+++ b/arch/arm/boot/dts/sun8i-h3.dtsi
-@@ -626,6 +626,20 @@
- 			status = "disabled";
- 		};
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ed42cb6..d8f5c14 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -581,6 +581,12 @@ S:	Maintained
+ F:	Documentation/i2c/busses/i2c-ali1563
+ F:	drivers/i2c/busses/i2c-ali1563.c
  
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
-+			reg = <0x01c30000 0x104>, <0x01c00030 0x4>;
-+			reg-names = "emac", "syscon";
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			resets = <&ahb_rst 17>, <&ahb_rst 66>;
-+			reset-names = "ahb", "ephy";
-+			clocks = <&bus_gates 17>, <&bus_gates 128>;
-+			clock-names = "ahb", "ephy";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			status = "disabled";
-+		};
++ALLWINNER SUN8I-EMAC ETHERNET DRIVER
++M:	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
++S:	Maintained
++F:	drivers/net/ethernet/allwinner/sun8i-emac.c
 +
- 		gic: interrupt-controller@01c81000 {
- 			compatible = "arm,cortex-a7-gic", "arm,cortex-a15-gic";
- 			reg = <0x01c81000 0x1000>,
+ ALLWINNER SECURITY SYSTEM
+ M:	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+ L:	linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 -- 
 2.7.3
