@@ -1,83 +1,66 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net] bridge: Fix incorrect re-injection of STP
-	packets
-Date: Fri, 3 Jun 2016 12:39:45 +0300
-Message-ID: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH v2] r8152: Add support for setting MAC to system's Auxiliary MAC address
+Date: Fri, 3 Jun 2016 09:43:35 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2FED9B5@RTITMBSV03.realtek.com.tw>
+References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
+ <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: yotamg@mellanox.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, Florian Westphal <fw@strlen.de>,
-	Ido Schimmel <idosch@mellanox.com>, jiri@mellanox.com,
-	nogahf@mellanox.com, eladr@mellanox.com, ogerlitz@mellanox.com
-To: <stephen@networkplumber.org>, <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux USB <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"anthony.wong-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org" <anthony.wong-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Mario Limonciello <mario_limonciello-8PEkshWhKlo@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1464886687-16284-2-git-send-email-mario_limonciello-8PEkshWhKlo@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Commit 8626c56c8279 ("bridge: fix potential use-after-free when hook
-returns QUEUE or STOLEN verdict") fixed incorrect usage of NF_HOOK's
-return value by consuming packets in okfn via br_pass_frame_up().
+Mario Limonciello [mailto:mario_limonciello-8PEkshWhKlo@public.gmane.org]
+> Sent: Friday, June 03, 2016 12:58 AM
+[...]
+> @@ -500,6 +502,7 @@ enum rtl8152_flags {
+>  	SELECTIVE_SUSPEND,
+>  	PHY_RESET,
+>  	SCHEDULE_NAPI,
+> +	MAC_PASSTHRU = 0,
 
-However, this function re-injects packets to the Rx path with skb->dev
-set to the bridge device, which breaks kernel's STP, as all STP packets
-appear to originate from the bridge device itself.
+I don't think you have to give this a value.
 
-Instead, if okfn was called for a packet, make bridge's rx_handler
-re-inject it to the Rx path by returning RX_HANDLER_PASS. This is
-consistent with previous behavior.
+>  };
+> 
+[...]
+>  static int set_ethernet_addr(struct r8152 *tp)
+>  {
+>  	struct net_device *dev = tp->netdev;
+> @@ -1041,6 +1088,10 @@ static int set_ethernet_addr(struct r8152 *tp)
+>  	else
+>  		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+> 
+> +	/* if system provides auxiliary MAC address */
+> +	if (get_auxiliary_addr(tp, &sa))
+> +		ret = 0;
 
-Cc: Florian Westphal <fw@strlen.de>
-Fixes: 8626c56c8279 ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- net/bridge/br_input.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+It still has problem when tp->version == RTL_VER_01.
+First, you would read the current MAC address (MAC1) to sa.sa_data.
+Then sa.sa_data may be modified by MAC2 after get_auxiliary_addr().
+However, the MAC2 wouldn't be set to the device, because
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 1607977..c73ed44 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -223,9 +223,7 @@ static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_bu
- 	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
- 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
- 
--	BR_INPUT_SKB_CB(skb)->brdev = p->br->dev;
--	br_pass_frame_up(skb);
--	return 0;
-+	return RX_HANDLER_PASS;
- }
- 
- /*
-@@ -238,6 +236,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 	struct sk_buff *skb = *pskb;
- 	const unsigned char *dest = eth_hdr(skb)->h_dest;
- 	br_should_route_hook_t *rhook;
-+	int err;
- 
- 	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
- 		return RX_HANDLER_PASS;
-@@ -287,8 +286,11 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 		}
- 
- 		/* Deliver packet to local host only */
--		NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
--			NULL, skb, skb->dev, NULL, br_handle_local_finish);
-+		err = NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
-+			      NULL, skb, skb->dev, NULL,
-+			      br_handle_local_finish);
-+		if (err == RX_HANDLER_PASS)
-+			return RX_HANDLER_PASS;
- 		return RX_HANDLER_CONSUMED;
- 	}
- 
--- 
-2.4.3
+		if (tp->version == RTL_VER_01)
+			ether_addr_copy(dev->dev_addr, sa.sa_data);
+
+Therefore, you would find that dev_addr is MAC2, and the device
+uses MAC1.
+
+Best Regards,
+Hayes
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
