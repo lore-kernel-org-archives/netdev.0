@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 00/13] net: hns: add support of ACPI
-Date: Fri, 03 Jun 2016 19:49:51 -0400 (EDT)
-Message-ID: <20160603.194951.1703111522316735768.davem@davemloft.net>
-References: <1464922521-30928-1-git-send-email-Yisen.Zhuang@huawei.com>
-	<3949626.e0mVHh16br@vostro.rjw.lan>
+Subject: Re: [PATCH net] ethernet/sfc: report supported link speeds on SFP
+ connections
+Date: Fri, 03 Jun 2016 19:50:25 -0400 (EDT)
+Message-ID: <20160603.195025.58262557957007222.davem@davemloft.net>
+References: <1464917604-11596-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yisen.Zhuang@huawei.com, lenb@kernel.org, fengguang.wu@intel.com,
-	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-	ivecera@redhat.com, f.fainelli@gmail.com, haifeng.wei@huawei.com,
-	charles.chenxin@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org,
-	linuxarm@huawei.com
-To: rjw@rjwysocki.net
+Cc: linux-kernel@vger.kernel.org, linux-net-drivers@solarflare.com,
+	ecree@solarflare.com, bkenward@solarflare.com,
+	netdev@vger.kernel.org
+To: jarod@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3949626.e0mVHh16br@vostro.rjw.lan>
+In-Reply-To: <1464917604-11596-1-git-send-email-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Fri, 03 Jun 2016 23:34:50 +0200
+From: Jarod Wilson <jarod@redhat.com>
+Date: Thu,  2 Jun 2016 21:33:24 -0400
 
-> On Friday, June 03, 2016 10:55:08 AM Yisen Zhuang wrote:
->> From: Kejian Yan <yankejian@huawei.com>
+> My solarflare cards connected to a 10GbE switch with an SFP+ module/cable
+> don't currently report any supported link speeds:
  ...
->> Kejian Yan (13):
->>   ACPI: bus: add stub acpi_dev_found() to linux/acpi.h
->>   ACPI: bus: add stub acpi_evaluate_dsm() to linux/acpi.h
-> 
-> Which patches need these stubs?
+> CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+> CC: Edward Cree <ecree@solarflare.com>
+> CC: Bert Kenward <bkenward@solarflare.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
 
-10 and 12
+Solarflare maintainers, please review.
