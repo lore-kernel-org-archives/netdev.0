@@ -1,72 +1,62 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 12/17] net: dsa: Make mdio bus optional
-Date: Fri,  3 Jun 2016 18:44:11 +0200
-Message-ID: <1464972256-10408-13-git-send-email-andrew@lunn.ch>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58659 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932582AbcFCQpV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:45:21 -0400
-In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH] net: ethernet: ti: cpsw: remove unused priv lock
+Date: Fri, 3 Jun 2016 19:47:55 +0300
+Message-ID: <5751B4BB.5060005@ti.com>
+References: <1464907028-19622-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	<mugunthanvnm@ti.com>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464907028-19622-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The switch may want to instantiate its own MDIO bus. Only do it
-centrally if the switch has not already created one, and the read op
-is implemented.
+On 06/03/2016 01:37 AM, Ivan Khoronzhuk wrote:
+> There is no reason in this lock. At least for now.
+>
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> ---
+>
+> Based on master
+>
+>   drivers/net/ethernet/ti/cpsw.c | 3 ---
+>   1 file changed, 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 9919cb3..8d1d373 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -365,7 +365,6 @@ static inline void slave_write(struct cpsw_slave *slave, u32 val, u32 offset)
+>   }
+>
+>   struct cpsw_priv {
+> -	spinlock_t			lock;
+>   	struct platform_device		*pdev;
+>   	struct net_device		*ndev;
+>   	struct napi_struct		napi_rx;
+> @@ -2413,7 +2412,6 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+>   	}
+>
+>   	priv_sl2 = netdev_priv(ndev);
+> -	spin_lock_init(&priv_sl2->lock);
+>   	priv_sl2->data = *data;
+>   	priv_sl2->pdev = pdev;
+>   	priv_sl2->ndev = ndev;
+> @@ -2533,7 +2531,6 @@ static int cpsw_probe(struct platform_device *pdev)
+>
+>   	platform_set_drvdata(pdev, ndev);
+>   	priv = netdev_priv(ndev);
+> -	spin_lock_init(&priv->lock);
+>   	priv->pdev = pdev;
+>   	priv->ndev = ndev;
+>   	priv->dev  = &ndev->dev;
+>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- net/dsa/dsa.c | 24 +++++++++++++-----------
- 1 file changed, 13 insertions(+), 11 deletions(-)
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 221ebde4318d..6c314f300424 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -340,17 +340,18 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	if (ret < 0)
- 		goto out;
- 
--	ds->slave_mii_bus = devm_mdiobus_alloc(parent);
--	if (ds->slave_mii_bus == NULL) {
--		ret = -ENOMEM;
--		goto out;
--	}
--	dsa_slave_mii_bus_init(ds);
--
--	ret = mdiobus_register(ds->slave_mii_bus);
--	if (ret < 0)
--		goto out;
-+	if (!ds->slave_mii_bus && drv->phy_read) {
-+		ds->slave_mii_bus = devm_mdiobus_alloc(parent);
-+		if (!ds->slave_mii_bus) {
-+			ret = -ENOMEM;
-+			goto out;
-+		}
-+		dsa_slave_mii_bus_init(ds);
- 
-+		ret = mdiobus_register(ds->slave_mii_bus);
-+		if (ret < 0)
-+			goto out;
-+	}
- 
- 	/*
- 	 * Create network devices for physical switch ports.
-@@ -493,7 +494,8 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 		dsa_cpu_dsa_destroy(ds->ports[port].dn);
- 	}
- 
--	mdiobus_unregister(ds->slave_mii_bus);
-+	if (ds->slave_mii_bus && ds->drv->phy_read)
-+		mdiobus_unregister(ds->slave_mii_bus);
- }
- 
- #ifdef CONFIG_PM_SLEEP
 -- 
-2.8.1
+regards,
+-grygorii
