@@ -1,163 +1,124 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: remove rx_descs property
-Date: Fri, 3 Jun 2016 19:50:42 +0300
-Message-ID: <5751B562.8020708@ti.com>
-References: <1464907420-19694-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<mugunthanvnm-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464907420-19694-1-git-send-email-ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 06/17] net: dsa: Move port device node into port structure
+Date: Fri,  3 Jun 2016 18:44:05 +0200
+Message-ID: <1464972256-10408-7-git-send-email-andrew@lunn.ch>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58691 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932291AbcFCQsV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 12:48:21 -0400
+In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/03/2016 01:43 AM, Ivan Khoronzhuk wrote:
-> There is no reason to hold s/w dependent parameter in device tree.
-> Even more, there is no reason in this parameter because davinici_cpdma
-> driver splits pool of descriptors equally between tx and rx channels.
-> That is, if number of descriptors 256, 128 of them are for rx
-> channels. While receiving, the descriptor is freed to the pool and
-> then allocated with new skb. And if in DT the "rx_descs" is set to
-> 64, then 128 - 64 = 64 descriptors are always in the pool and cannot
-> be used, for tx, for instance. It's not correct resource usage,
-> better to set it to half of pool, then the rx pool can be used in
-> full. It will not have any impact on performance, as anyway, the
-> "redundant" descriptors were unused.
->
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> ---
->
-> Based on master
->
->   Documentation/devicetree/bindings/net/cpsw.txt |  3 ---
->   arch/arm/boot/dts/am33xx.dtsi                  |  1 -
->   arch/arm/boot/dts/am4372.dtsi                  |  1 -
->   arch/arm/boot/dts/dm814x.dtsi                  |  1 -
->   arch/arm/boot/dts/dra7.dtsi                    |  1 -
+Move the port device node structure into the port structure, from the
+chip data. This information is needed in the next step of implementing
+the new binding.
 
+The chip data structure is used while parsing the whole old binding,
+before the individual switch structures exist. With the new bindings,
+this is reversed, the switches exist first, and the interconnections
+between the switches is derived from the individual switch
+bindings. Thus this chip data structure becomes unneeded.
 
-Pls, split DT and non-DT changes, seems code changes should go first.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ include/net/dsa.h | 1 +
+ net/dsa/dsa.c     | 8 ++++----
+ net/dsa/slave.c   | 5 ++---
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
->   drivers/net/ethernet/ti/cpsw.c                 | 13 +++----------
->   drivers/net/ethernet/ti/cpsw.h                 |  1 -
->   drivers/net/ethernet/ti/davinci_cpdma.c        |  6 ++++++
->   drivers/net/ethernet/ti/davinci_cpdma.h        |  1 +
->   9 files changed, 10 insertions(+), 18 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-> index 0ae0649..5fe6239 100644
-> --- a/Documentation/devicetree/bindings/net/cpsw.txt
-> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
-> @@ -15,7 +15,6 @@ Required properties:
->   - cpdma_channels 	: Specifies number of channels in CPDMA
->   - ale_entries		: Specifies No of entries ALE can hold
->   - bd_ram_size		: Specifies internal descriptor RAM size
-> -- rx_descs		: Specifies number of Rx descriptors
->   - mac_control		: Specifies Default MAC control register content
->   			  for the specific platform
->   - slaves		: Specifies number for slaves
-> @@ -70,7 +69,6 @@ Examples:
-
-[....]
-
->   			slaves = <2>;
->   			active_slave = <0>;
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 4b08a2f..635be3e 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -1277,6 +1277,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->   				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->
->   	if (!cpsw_common_res_usage_state(priv)) {
-> +		int buf_num;
->   		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
->
->   		/* setup tx dma to fixed prio and zero offset */
-> @@ -1305,10 +1306,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
->   			enable_irq(priv->irqs_table[0]);
->   		}
->
-> -		if (WARN_ON(!priv->data.rx_descs))
-> -			priv->data.rx_descs = 128;
-> -
-> -		for (i = 0; i < priv->data.rx_descs; i++) {
-> +		buf_num = cpdma_chan_get_buf_num(priv->dma) / 2;
-
-Could you get rid of "/ 2", pls?
-
-> +		for (i = 0; i < buf_num; i++) {
->   			struct sk_buff *skb;
->
->   			ret = -ENOMEM;
-> @@ -1999,12 +1998,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
->   	}
->   	data->bd_ram_size = prop;
->
-> -	if (of_property_read_u32(node, "rx_descs", &prop)) {
-> -		dev_err(&pdev->dev, "Missing rx_descs property in the DT.\n");
-> -		return -EINVAL;
-> -	}
-> -	data->rx_descs = prop;
-> -
->   	if (of_property_read_u32(node, "mac_control", &prop)) {
->   		dev_err(&pdev->dev, "Missing mac_control property in the DT.\n");
->   		return -EINVAL;
-> diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
-> index e50afd1..16b54c6 100644
-> --- a/drivers/net/ethernet/ti/cpsw.h
-> +++ b/drivers/net/ethernet/ti/cpsw.h
-> @@ -35,7 +35,6 @@ struct cpsw_platform_data {
->   	u32	cpts_clock_shift; /* convert input clock ticks to nanoseconds */
->   	u32	ale_entries;	/* ale table size */
->   	u32	bd_ram_size;  /*buffer descriptor ram size */
-> -	u32	rx_descs;	/* Number of Rx Descriptios */
->   	u32	mac_control;	/* Mac control register */
->   	u16	default_vlan;	/* Def VLAN for ALE lookup in VLAN aware mode*/
->   	bool	dual_emac;	/* Enable Dual EMAC mode */
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 18bf3a8..395647c 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -543,6 +543,12 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
->   }
->   EXPORT_SYMBOL_GPL(cpdma_chan_create);
->
-> +int cpdma_chan_get_buf_num(struct cpdma_ctlr *ctlr)
-> +{
-> +	return ctlr->pool->num_desc;
-> +}
-> +EXPORT_SYMBOL_GPL(cpdma_chan_get_buf_num);
-> +
->   int cpdma_chan_destroy(struct cpdma_chan *chan)
->   {
->   	struct cpdma_ctlr *ctlr;
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-> index 86dee48..f059856 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.h
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-> @@ -81,6 +81,7 @@ int cpdma_ctlr_dump(struct cpdma_ctlr *ctlr);
->
->   struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
->   				     cpdma_handler_fn handler);
-> +int cpdma_chan_get_buf_num(struct cpdma_ctlr *ctlr);
->   int cpdma_chan_destroy(struct cpdma_chan *chan);
->   int cpdma_chan_start(struct cpdma_chan *chan);
->   int cpdma_chan_stop(struct cpdma_chan *chan);
->
-
-
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 9aed8572037c..8314197d028f 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -121,6 +121,7 @@ struct dsa_switch_tree {
+ 
+ struct dsa_port {
+ 	struct net_device	*netdev;
++	struct device_node	*dn;
+ };
+ 
+ struct dsa_switch {
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 18086e0cc617..5907f8cd13b6 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -182,7 +182,6 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
+ /* basic switch operations **************************************************/
+ static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
+ {
+-	struct dsa_chip_data *cd = ds->cd;
+ 	struct device_node *port_dn;
+ 	struct phy_device *phydev;
+ 	int ret, port, mode;
+@@ -191,7 +190,7 @@ static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
+ 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
+ 			continue;
+ 
+-		port_dn = cd->port_dn[port];
++		port_dn = ds->ports[port].dn;
+ 		if (of_phy_is_fixed_link(port_dn)) {
+ 			ret = of_phy_register_fixed_link(port_dn);
+ 			if (ret) {
+@@ -325,6 +324,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+ 	 * Create network devices for physical switch ports.
+ 	 */
+ 	for (i = 0; i < DSA_MAX_PORTS; i++) {
++		ds->ports[i].dn = cd->port_dn[i];
++
+ 		if (!(ds->enabled_port_mask & (1 << i)))
+ 			continue;
+ 
+@@ -424,7 +425,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ {
+ 	struct device_node *port_dn;
+ 	struct phy_device *phydev;
+-	struct dsa_chip_data *cd = ds->cd;
+ 	int port;
+ 
+ #ifdef CONFIG_NET_DSA_HWMON
+@@ -445,7 +445,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 
+ 	/* Remove any fixed link PHYs */
+ 	for (port = 0; port < DSA_MAX_PORTS; port++) {
+-		port_dn = cd->port_dn[port];
++		port_dn = ds->ports[port].dn;
+ 		if (of_phy_is_fixed_link(port_dn)) {
+ 			phydev = of_phy_find_device(port_dn);
+ 			if (phydev) {
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 169abacbc6ce..52f1183c42a0 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -998,13 +998,12 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 				struct net_device *slave_dev)
+ {
+ 	struct dsa_switch *ds = p->parent;
+-	struct dsa_chip_data *cd = ds->cd;
+ 	struct device_node *phy_dn, *port_dn;
+ 	bool phy_is_fixed = false;
+ 	u32 phy_flags = 0;
+ 	int mode, ret;
+ 
+-	port_dn = cd->port_dn[p->port];
++	port_dn = ds->ports[p->port].dn;
+ 	mode = of_get_phy_mode(port_dn);
+ 	if (mode < 0)
+ 		mode = PHY_INTERFACE_MODE_NA;
+@@ -1146,7 +1145,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 				 NULL);
+ 
+ 	SET_NETDEV_DEV(slave_dev, parent);
+-	slave_dev->dev.of_node = ds->cd->port_dn[port];
++	slave_dev->dev.of_node = ds->ports[port].dn;
+ 	slave_dev->vlan_features = master->vlan_features;
+ 
+ 	p = netdev_priv(slave_dev);
 -- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.8.1
