@@ -1,193 +1,95 @@
-From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v3 RESEND 7/7] phy: Add Northstar2 PCI Phy support
-Date: Fri,  3 Jun 2016 21:33:06 +0530
-Message-ID: <1464969786-22742-8-git-send-email-pramod.kumar@broadcom.com>
-References: <1464969786-22742-1-git-send-email-pramod.kumar@broadcom.com>
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pramod Kumar <pramod.kumar@broadcom.com>,
-	Jon Mason <jonmason@broadcom.com>
-To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33911 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161045AbcFCQD7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 12:03:59 -0400
-Received: by mail-pa0-f54.google.com with SMTP id bz2so15727846pad.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 09:03:59 -0700 (PDT)
-In-Reply-To: <1464969786-22742-1-git-send-email-pramod.kumar@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 -next] virtio-net: Add initial MTU advice feature
+Date: Fri, 3 Jun 2016 19:04:35 +0300
+Message-ID: <20160603190155-mutt-send-email-mst@redhat.com>
+References: <1464901859-25906-1-git-send-email-aconole@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Aaron Conole <aconole@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1464901859-25906-1-git-send-email-aconole@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Add PCI Phy support for Broadcom Northstar2 SoCs.  This driver uses the
-interface from the iproc mdio mux driver to enable the devices
-respective phys.
+On Thu, Jun 02, 2016 at 05:10:59PM -0400, Aaron Conole wrote:
+> This commit adds the feature bit and associated mtu device entry for the
+> virtio network device.  When a virtio device comes up, it checks the
+> feature bit for the VIRTIO_NET_F_MTU feature.  If such feature bit is
+> enabled, the driver will read the advised MTU and use it as the initial
+> value.
+> 
+> Signed-off-by: Aaron Conole <aconole@redhat.com>
+> ---
+> v1->v2:
+> * Fixed omitted hunk from virtio_net.h
+> * Squashed to a single commit
+> * Fixed commit message.
+> 
+>  drivers/net/virtio_net.c        | 7 +++++++
+>  include/uapi/linux/virtio_net.h | 3 +++
+>  2 files changed, 10 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index e0638e5..ef5ee01 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1896,6 +1896,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+>  
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
+> +		dev->mtu = virtio_cread16(vdev,
+> +					  offsetof(struct virtio_net_config,
+> +						   mtu));
+> +	}
+> +
+>  	if (vi->any_header_sg)
+>  		dev->needed_headroom = vi->hdr_len;
+>  
 
-Signed-off-by: Jon Mason <jonmason@broadcom.com>
-Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
----
- drivers/phy/Kconfig            |   8 +++
- drivers/phy/Makefile           |   2 +-
- drivers/phy/phy-bcm-ns2-pcie.c | 115 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 124 insertions(+), 1 deletion(-)
- create mode 100644 drivers/phy/phy-bcm-ns2-pcie.c
+One comment though: I think we should validate the mtu.
+If it's invalid, clear VIRTIO_NET_F_MTU and ignore.
 
-diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
-index b869b98..01fb93b 100644
---- a/drivers/phy/Kconfig
-+++ b/drivers/phy/Kconfig
-@@ -434,4 +434,12 @@ config PHY_CYGNUS_PCIE
- 
- source "drivers/phy/tegra/Kconfig"
- 
-+config PHY_NS2_PCIE
-+	tristate "Broadcom Northstar2 PCIe PHY driver"
-+	depends on OF && MDIO_BUS_MUX_BCM_IPROC
-+	select GENERIC_PHY
-+	default ARCH_BCM_IPROC
-+	help
-+	  Enable this to support the Broadcom Northstar2 PCIe PHY.
-+	  If unsure, say N.
- endmenu
-diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
-index 9c3e73c..7aea094 100644
---- a/drivers/phy/Makefile
-+++ b/drivers/phy/Makefile
-@@ -53,5 +53,5 @@ obj-$(CONFIG_PHY_TUSB1210)		+= phy-tusb1210.o
- obj-$(CONFIG_PHY_BRCM_SATA)		+= phy-brcm-sata.o
- obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
- obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
--
- obj-$(CONFIG_ARCH_TEGRA) += tegra/
-+obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
-diff --git a/drivers/phy/phy-bcm-ns2-pcie.c b/drivers/phy/phy-bcm-ns2-pcie.c
-new file mode 100644
-index 0000000..9513f7a
---- /dev/null
-+++ b/drivers/phy/phy-bcm-ns2-pcie.c
-@@ -0,0 +1,115 @@
-+/*
-+ * Copyright (C) 2016 Broadcom
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/device.h>
-+#include <linux/module.h>
-+#include <linux/of_mdio.h>
-+#include <linux/mdio.h>
-+#include <linux/phy.h>
-+#include <linux/phy/phy.h>
-+
-+struct ns2_pci_phy {
-+	struct mdio_device *mdiodev;
-+	struct phy *phy;
-+};
-+
-+#define BLK_ADDR_REG_OFFSET	0x1f
-+#define PLL_AFE1_100MHZ_BLK	0x2100
-+#define PLL_CLK_AMP_OFFSET	0x03
-+#define PLL_CLK_AMP_2P05V	0x2b18
-+
-+static int ns2_pci_phy_init(struct phy *p)
-+{
-+	struct ns2_pci_phy *phy = phy_get_drvdata(p);
-+	int rc;
-+
-+	/* select the AFE 100MHz block page */
-+	rc = mdiobus_write(phy->mdiodev->bus, phy->mdiodev->addr,
-+			   BLK_ADDR_REG_OFFSET, PLL_AFE1_100MHZ_BLK);
-+	if (rc)
-+		goto err;
-+
-+	/* set the 100 MHz reference clock amplitude to 2.05 v */
-+	rc = mdiobus_write(phy->mdiodev->bus, phy->mdiodev->addr,
-+			   PLL_CLK_AMP_OFFSET, PLL_CLK_AMP_2P05V);
-+	if (rc)
-+		goto err;
-+
-+	return 0;
-+
-+err:
-+	dev_err(&phy->mdiodev->dev, "Error %d writing to phy\n", rc);
-+	return rc;
-+}
-+
-+static struct phy_ops ns2_pci_phy_ops = {
-+	.init = ns2_pci_phy_init,
-+};
-+
-+static int ns2_pci_phy_probe(struct mdio_device *mdiodev)
-+{
-+	struct device *dev = &mdiodev->dev;
-+	struct phy_provider *provider;
-+	struct ns2_pci_phy *p;
-+	struct phy *phy;
-+
-+	phy = devm_phy_create(dev, dev->of_node, &ns2_pci_phy_ops);
-+	if (IS_ERR(phy)) {
-+		dev_err(dev, "failed to create Phy\n");
-+		return PTR_ERR(phy);
-+	}
-+
-+	p = devm_kmalloc(dev, sizeof(struct ns2_pci_phy),
-+			 GFP_KERNEL);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	p->mdiodev = mdiodev;
-+	dev_set_drvdata(dev, p);
-+
-+	p->phy = phy;
-+	phy_set_drvdata(phy, p);
-+
-+	provider = devm_of_phy_provider_register(&phy->dev,
-+						 of_phy_simple_xlate);
-+	if (IS_ERR(provider)) {
-+		dev_err(dev, "failed to register Phy provider\n");
-+		return PTR_ERR(provider);
-+	}
-+
-+	dev_info(dev, "%s PHY registered\n", dev_name(dev));
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id ns2_pci_phy_of_match[] = {
-+	{ .compatible = "brcm,ns2-pcie-phy", },
-+	{ /* sentinel */ },
-+};
-+MODULE_DEVICE_TABLE(of, ns2_pci_phy_of_match);
-+
-+static struct mdio_driver ns2_pci_phy_driver = {
-+	.mdiodrv = {
-+		.driver = {
-+			.name = "phy-bcm-ns2-pci",
-+			.of_match_table = ns2_pci_phy_of_match,
-+		},
-+	},
-+	.probe = ns2_pci_phy_probe,
-+};
-+mdio_module_driver(ns2_pci_phy_driver);
-+
-+MODULE_AUTHOR("Broadcom");
-+MODULE_DESCRIPTION("Broadcom Northstar2 PCI Phy driver");
-+MODULE_LICENSE("GPL v2");
-+MODULE_ALIAS("platform:phy-bcm-ns2-pci");
--- 
-1.9.1
+> @@ -2067,6 +2073,7 @@ static unsigned int features[] = {
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+>  	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>  	VIRTIO_F_ANY_LAYOUT,
+> +	VIRTIO_NET_F_MTU,
+>  };
+>  
+>  static struct virtio_driver virtio_net_driver = {
+> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+> index ec32293..1ab4ea6 100644
+> --- a/include/uapi/linux/virtio_net.h
+> +++ b/include/uapi/linux/virtio_net.h
+> @@ -55,6 +55,7 @@
+>  #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+>  					 * Steering */
+>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+> +#define VIRTIO_NET_F_MTU 25	/* Initial MTU advice */
+>  
+>  #ifndef VIRTIO_NET_NO_LEGACY
+>  #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+> @@ -73,6 +74,8 @@ struct virtio_net_config {
+>  	 * Legal values are between 1 and 0x8000
+>  	 */
+>  	__u16 max_virtqueue_pairs;
+> +	/* Default maximum transmit unit advice */
+> +	__u16 mtu;
+>  } __attribute__((packed));
+>  
+>  /*
+> -- 
+> 2.5.5
