@@ -1,36 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 04/17] net: dsa: tag_{e}dsa.c: Remove dependency
- on platform data
-Date: Fri, 3 Jun 2016 10:16:45 -0700
-Message-ID: <5751BB7D.70801@gmail.com>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
- <1464972256-10408-5-git-send-email-andrew@lunn.ch>
+From: Helge Deller <deller@gmx.de>
+Subject: [PATCH] soreuseport: add compat case for setsockopt
+ SO_ATTACH_REUSEPORT_CBPF
+Date: Fri, 3 Jun 2016 19:18:05 +0200
+Message-ID: <20160603171805.GA3664@ls3530.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:32996 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932505AbcFCRQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 13:16:48 -0400
-Received: by mail-pa0-f52.google.com with SMTP id ec8so10346117pac.0
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 10:16:48 -0700 (PDT)
-In-Reply-To: <1464972256-10408-5-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-parisc@vger.kernel.org
+To: Craig Gallek <kraig@google.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/03/2016 09:44 AM, Andrew Lunn wrote:
-> The platform data nr_chips is used when validating a received packet,
-> to ensure it comes from a know switch chip. The number of possible
-> switches is limited to DSA_MAX_SWITCHES, so use this as the first
-> validation step. The new binding allows holes in the dst->ds[] array,
-> so also ensure ensure there is a valid dsa_switch for this packet.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Commit 538950a ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
+missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF
+setsockoption() option.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Since both SO_ATTACH_FILTER and SO_ATTACH_REUSEPORT_CBPF use a struct
+sock_fprog let's combine the handling of both.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+
+diff --git a/net/compat.c b/net/compat.c
+index 5cfd26a..7e2aac9 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -309,7 +309,7 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
+ 	__scm_destroy(scm);
+ }
+ 
+-static int do_set_attach_filter(struct socket *sock, int level, int optname,
++static int do_sockopt_fix_sock_fprog(struct socket *sock, int level, int optname,
+ 				char __user *optval, unsigned int optlen)
+ {
+ 	struct compat_sock_fprog __user *fprog32 = (struct compat_sock_fprog __user *)optval;
+@@ -354,8 +354,9 @@ static int do_set_sock_timeout(struct socket *sock, int level,
+ static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
+ 				char __user *optval, unsigned int optlen)
+ {
+-	if (optname == SO_ATTACH_FILTER)
+-		return do_set_attach_filter(sock, level, optname,
++	if (optname == SO_ATTACH_FILTER ||
++	    optname == SO_ATTACH_REUSEPORT_CBPF)
++		return do_sockopt_fix_sock_fprog(sock, level, optname,
+ 					    optval, optlen);
+ 	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
+ 		return do_set_sock_timeout(sock, level, optname, optval, optlen);
