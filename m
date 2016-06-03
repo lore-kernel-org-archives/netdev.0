@@ -1,38 +1,45 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
-Date: Fri, 3 Jun 2016 11:00:36 +1000 (AEST)
-Message-ID: <alpine.LRH.2.20.1606031100260.18314@namei.org>
-References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com> <20160508.235620.333454221783238471.davem@davemloft.net> <573B271B.30202@canonical.com> <57505F34.5020609@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
-To: Tyler Hicks <tyhicks@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57505F34.5020609@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/2] net: vrf: Improve use of FIB rules
+Date: Thu,  2 Jun 2016 18:22:37 -0700
+Message-ID: <1464916959-4029-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36103 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbcFCBWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2016 21:22:46 -0400
+Received: by mail-pf0-f181.google.com with SMTP id f144so37736913pfa.3
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2016 18:22:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Jun 2016, Tyler Hicks wrote:
+Currently, VRFs require 1 oif and 1 iif rule per address family per
+VRF. As the number of VRF devices increases it brings scalability
+issues with the increasing rule list. All of the VRF rules have the
+same format with the exception of the specific table id to direct the
+lookup. Since the table id is available from the oif or iif in the
+loopup, the VRF rules can be consolidated to a single rule that pulls
+the table from the VRF device.
 
-> On 05/17/2016 09:13 AM, Tyler Hicks wrote:
-> > On 05/08/2016 10:56 PM, David Miller wrote:
-> >> From: Tyler Hicks <tyhicks@canonical.com>
-> >> Date: Fri,  6 May 2016 18:04:12 -0500
-> >>
-> >>> This pair of patches does away with what I believe is a useless denial
-> >>> audit message when a privileged process initially accesses a net sysctl.
-> >>
-> >> The LSM folks can apply this if they agree with you.
-> > 
-> > Hi James - Could you pick up these two bug fix patches? Thanks!
-> 
-> Hello - Just checking in again to see if you plan on taking these
-> through the security tree?
+This solution still allows a user to insert their own rules for VRFs,
+including rules with additional attributes. Accordingly, it is backwards
+compatible with existing setups and allows other policy routing as
+desired.
 
-Sure, please resend.
+David Ahern (2):
+  net: Add l3mdev rule
+  net: vrf: Add l3mdev rules on first device create
+
+ drivers/net/vrf.c              | 119 ++++++++++++++++++++++++++++++++++++++++-
+ include/net/fib_rules.h        |  24 ++++++++-
+ include/net/l3mdev.h           |  12 +++++
+ include/uapi/linux/fib_rules.h |   1 +
+ net/core/fib_rules.c           |  33 ++++++++++--
+ net/ipv4/fib_rules.c           |   6 ++-
+ net/ipv6/fib6_rules.c          |   6 ++-
+ net/l3mdev/l3mdev.c            |  38 +++++++++++++
+ 8 files changed, 227 insertions(+), 12 deletions(-)
 
 -- 
-James Morris
-<jmorris@namei.org>
+2.1.4
