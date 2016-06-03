@@ -1,180 +1,413 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 09/17] net: dsa: Split up creating/destroying of DSA and CPU ports
-Date: Fri,  3 Jun 2016 18:44:08 +0200
-Message-ID: <1464972256-10408-10-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 13/17] net: dsa: mv88e6xxx: Rename _phy_ to _mdio_
+Date: Fri,  3 Jun 2016 18:44:12 +0200
+Message-ID: <1464972256-10408-14-git-send-email-andrew@lunn.ch>
 References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58665 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58672 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932582AbcFCQpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:45:50 -0400
+	id S932582AbcFCQqd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 12:46:33 -0400
 In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactor the code to setup a single DSA/CPU port into a function of
-its own, and export it, so it can be used by the new binding.
+The switch implements a generic MDIO bus, which could host more than
+PHYs. It is conventional to use _mdio_ or _mii_ in the function name,
+so rename them. Also postfix make the historically first read/write
+function with _direct, to help distinguish it from _indirect and _ppu.
 
-Similarly, refactor the destroy code into a function.  When destroying
-the ports, don't put the of node. They should be released at the end
-along with the normal ports.
+While touching these functions, remove some of the _ prefixes, which
+we are deprecating.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
-rfc->v1:
-* Extend commit message with comment about wrong of_node_put()
-* Fix destroy of cpu and dsa ports.
----
- net/dsa/dsa.c      | 86 ++++++++++++++++++++++++++++++++----------------------
- net/dsa/dsa_priv.h |  3 ++
- 2 files changed, 54 insertions(+), 35 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 126 ++++++++++++++++++++++----------------------
+ 1 file changed, 63 insertions(+), 63 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index bfe1d03d4730..7140de475c07 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -180,36 +180,47 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
- #endif /* CONFIG_NET_DSA_HWMON */
- 
- /* basic switch operations **************************************************/
--static int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct net_device *master)
-+int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
-+		      struct device_node *port_dn, int port)
- {
--	struct device_node *port_dn;
- 	struct phy_device *phydev;
--	int ret, port, mode;
-+	int ret, mode;
-+
-+	if (of_phy_is_fixed_link(port_dn)) {
-+		ret = of_phy_register_fixed_link(port_dn);
-+		if (ret) {
-+			dev_err(dev, "failed to register fixed PHY\n");
-+			return ret;
-+		}
-+		phydev = of_phy_find_device(port_dn);
-+
-+		mode = of_get_phy_mode(port_dn);
-+		if (mode < 0)
-+			mode = PHY_INTERFACE_MODE_NA;
-+		phydev->interface = mode;
-+
-+		genphy_config_init(phydev);
-+		genphy_read_status(phydev);
-+		if (ds->drv->adjust_link)
-+			ds->drv->adjust_link(ds, port, phydev);
-+	}
-+
-+	return 0;
-+}
-+
-+static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
-+{
-+	struct device_node *port_dn;
-+	int ret, port;
- 
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
- 		port_dn = ds->ports[port].dn;
--		if (of_phy_is_fixed_link(port_dn)) {
--			ret = of_phy_register_fixed_link(port_dn);
--			if (ret) {
--				netdev_err(master,
--					   "failed to register fixed PHY\n");
--				return ret;
--			}
--			phydev = of_phy_find_device(port_dn);
--
--			mode = of_get_phy_mode(port_dn);
--			if (mode < 0)
--				mode = PHY_INTERFACE_MODE_NA;
--			phydev->interface = mode;
--
--			genphy_config_init(phydev);
--			genphy_read_status(phydev);
--			if (ds->drv->adjust_link)
--				ds->drv->adjust_link(ds, port, phydev);
--		}
-+		ret = dsa_cpu_dsa_setup(ds, dev, port_dn, port);
-+		if (ret)
-+			return ret;
- 	}
- 	return 0;
- }
-@@ -340,7 +351,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	}
- 
- 	/* Perform configuration of the CPU and DSA ports */
--	ret = dsa_cpu_dsa_setup(ds, dst->master_netdev);
-+	ret = dsa_cpu_dsa_setups(ds, parent);
- 	if (ret < 0) {
- 		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
- 			   index);
-@@ -423,10 +434,21 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	return ds;
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 11845eccf670..b8e65e604f75 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -238,16 +238,16 @@ int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
+ 		return mv88e6xxx_set_addr_direct(ds, addr);
  }
  
--static void dsa_switch_destroy(struct dsa_switch *ds)
-+void dsa_cpu_dsa_destroy(struct device_node *port_dn)
+-static int _mv88e6xxx_phy_read(struct mv88e6xxx_priv_state *ps, int addr,
+-			       int regnum)
++static int mv88e6xxx_mdio_read_direct(struct mv88e6xxx_priv_state *ps,
++				      int addr, int regnum)
  {
--	struct device_node *port_dn;
- 	struct phy_device *phydev;
-+
-+	if (of_phy_is_fixed_link(port_dn)) {
-+		phydev = of_phy_find_device(port_dn);
-+		if (phydev) {
-+			phy_device_free(phydev);
-+			fixed_phy_unregister(phydev);
-+		}
-+	}
-+}
-+
-+static void dsa_switch_destroy(struct dsa_switch *ds)
-+{
- 	int port;
+ 	if (addr >= 0)
+ 		return _mv88e6xxx_reg_read(ps, addr, regnum);
+ 	return 0xffff;
+ }
  
- #ifdef CONFIG_NET_DSA_HWMON
-@@ -445,17 +467,11 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 		dsa_slave_destroy(ds->ports[port].netdev);
+-static int _mv88e6xxx_phy_write(struct mv88e6xxx_priv_state *ps, int addr,
+-				int regnum, u16 val)
++static int mv88e6xxx_mdio_write_direct(struct mv88e6xxx_priv_state *ps,
++				       int addr, int regnum, u16 val)
+ {
+ 	if (addr >= 0)
+ 		return _mv88e6xxx_reg_write(ps, addr, regnum, val);
+@@ -378,8 +378,8 @@ void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
+ 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
+ }
+ 
+-static int mv88e6xxx_phy_read_ppu(struct mv88e6xxx_priv_state *ps, int addr,
+-				  int regnum)
++static int mv88e6xxx_mdio_read_ppu(struct mv88e6xxx_priv_state *ps, int addr,
++				   int regnum)
+ {
+ 	int ret;
+ 
+@@ -392,8 +392,8 @@ static int mv88e6xxx_phy_read_ppu(struct mv88e6xxx_priv_state *ps, int addr,
+ 	return ret;
+ }
+ 
+-static int mv88e6xxx_phy_write_ppu(struct mv88e6xxx_priv_state *ps, int addr,
+-				   int regnum, u16 val)
++static int mv88e6xxx_mdio_write_ppu(struct mv88e6xxx_priv_state *ps, int addr,
++				    int regnum, u16 val)
+ {
+ 	int ret;
+ 
+@@ -829,7 +829,7 @@ static int mv88e6xxx_wait(struct mv88e6xxx_priv_state *ps, int reg,
+ 	return ret;
+ }
+ 
+-static int _mv88e6xxx_phy_wait(struct mv88e6xxx_priv_state *ps)
++static int mv88e6xxx_mdio_wait(struct mv88e6xxx_priv_state *ps)
+ {
+ 	return _mv88e6xxx_wait(ps, REG_GLOBAL2, GLOBAL2_SMI_OP,
+ 			       GLOBAL2_SMI_OP_BUSY);
+@@ -1076,7 +1076,7 @@ static int _mv88e6xxx_atu_wait(struct mv88e6xxx_priv_state *ps)
+ 			       GLOBAL_ATU_OP_BUSY);
+ }
+ 
+-static int _mv88e6xxx_phy_read_indirect(struct mv88e6xxx_priv_state *ps,
++static int mv88e6xxx_mdio_read_indirect(struct mv88e6xxx_priv_state *ps,
+ 					int addr, int regnum)
+ {
+ 	int ret;
+@@ -1087,7 +1087,7 @@ static int _mv88e6xxx_phy_read_indirect(struct mv88e6xxx_priv_state *ps,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = _mv88e6xxx_phy_wait(ps);
++	ret = mv88e6xxx_mdio_wait(ps);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -1096,7 +1096,7 @@ static int _mv88e6xxx_phy_read_indirect(struct mv88e6xxx_priv_state *ps,
+ 	return ret;
+ }
+ 
+-static int _mv88e6xxx_phy_write_indirect(struct mv88e6xxx_priv_state *ps,
++static int mv88e6xxx_mdio_write_indirect(struct mv88e6xxx_priv_state *ps,
+ 					 int addr, int regnum, u16 val)
+ {
+ 	int ret;
+@@ -1109,7 +1109,7 @@ static int _mv88e6xxx_phy_write_indirect(struct mv88e6xxx_priv_state *ps,
+ 				   GLOBAL2_SMI_OP_22_WRITE | (addr << 5) |
+ 				   regnum);
+ 
+-	return _mv88e6xxx_phy_wait(ps);
++	return mv88e6xxx_mdio_wait(ps);
+ }
+ 
+ static int mv88e6xxx_get_eee(struct dsa_switch *ds, int port,
+@@ -1123,7 +1123,7 @@ static int mv88e6xxx_get_eee(struct dsa_switch *ds, int port,
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	reg = _mv88e6xxx_phy_read_indirect(ps, port, 16);
++	reg = mv88e6xxx_mdio_read_indirect(ps, port, 16);
+ 	if (reg < 0)
+ 		goto out;
+ 
+@@ -1154,7 +1154,7 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	ret = _mv88e6xxx_phy_read_indirect(ps, port, 16);
++	ret = mv88e6xxx_mdio_read_indirect(ps, port, 16);
+ 	if (ret < 0)
+ 		goto out;
+ 
+@@ -1164,7 +1164,7 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 	if (e->tx_lpi_enabled)
+ 		reg |= 0x0100;
+ 
+-	ret = _mv88e6xxx_phy_write_indirect(ps, port, 16, reg);
++	ret = mv88e6xxx_mdio_write_indirect(ps, port, 16, reg);
+ out:
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+@@ -2547,34 +2547,34 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+ 	mutex_unlock(&ps->smi_mutex);
+ }
+ 
+-static int _mv88e6xxx_phy_page_write(struct mv88e6xxx_priv_state *ps,
+-				     int port, int page, int reg, int val)
++static int _mv88e6xxx_mdio_page_write(struct mv88e6xxx_priv_state *ps,
++				      int port, int page, int reg, int val)
+ {
+ 	int ret;
+ 
+-	ret = _mv88e6xxx_phy_write_indirect(ps, port, 0x16, page);
++	ret = mv88e6xxx_mdio_write_indirect(ps, port, 0x16, page);
+ 	if (ret < 0)
+ 		goto restore_page_0;
+ 
+-	ret = _mv88e6xxx_phy_write_indirect(ps, port, reg, val);
++	ret = mv88e6xxx_mdio_write_indirect(ps, port, reg, val);
+ restore_page_0:
+-	_mv88e6xxx_phy_write_indirect(ps, port, 0x16, 0x0);
++	mv88e6xxx_mdio_write_indirect(ps, port, 0x16, 0x0);
+ 
+ 	return ret;
+ }
+ 
+-static int _mv88e6xxx_phy_page_read(struct mv88e6xxx_priv_state *ps,
+-				    int port, int page, int reg)
++static int _mv88e6xxx_mdio_page_read(struct mv88e6xxx_priv_state *ps,
++				     int port, int page, int reg)
+ {
+ 	int ret;
+ 
+-	ret = _mv88e6xxx_phy_write_indirect(ps, port, 0x16, page);
++	ret = mv88e6xxx_mdio_write_indirect(ps, port, 0x16, page);
+ 	if (ret < 0)
+ 		goto restore_page_0;
+ 
+-	ret = _mv88e6xxx_phy_read_indirect(ps, port, reg);
++	ret = mv88e6xxx_mdio_read_indirect(ps, port, reg);
+ restore_page_0:
+-	_mv88e6xxx_phy_write_indirect(ps, port, 0x16, 0x0);
++	mv88e6xxx_mdio_write_indirect(ps, port, 0x16, 0x0);
+ 
+ 	return ret;
+ }
+@@ -2645,16 +2645,16 @@ static int mv88e6xxx_power_on_serdes(struct mv88e6xxx_priv_state *ps)
+ {
+ 	int ret;
+ 
+-	ret = _mv88e6xxx_phy_page_read(ps, REG_FIBER_SERDES, PAGE_FIBER_SERDES,
+-				       MII_BMCR);
++	ret = _mv88e6xxx_mdio_page_read(ps, REG_FIBER_SERDES,
++					PAGE_FIBER_SERDES, MII_BMCR);
+ 	if (ret < 0)
+ 		return ret;
+ 
+ 	if (ret & BMCR_PDOWN) {
+ 		ret &= ~BMCR_PDOWN;
+-		ret = _mv88e6xxx_phy_page_write(ps, REG_FIBER_SERDES,
+-						PAGE_FIBER_SERDES, MII_BMCR,
+-						ret);
++		ret = _mv88e6xxx_mdio_page_write(ps, REG_FIBER_SERDES,
++						 PAGE_FIBER_SERDES, MII_BMCR,
++						 ret);
  	}
  
--	/* Remove any fixed link PHYs */
-+	/* Disable configuration of the CPU and DSA ports */
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
--		port_dn = ds->ports[port].dn;
--		if (of_phy_is_fixed_link(port_dn)) {
--			phydev = of_phy_find_device(port_dn);
--			if (phydev) {
--				phy_device_free(phydev);
--				of_node_put(port_dn);
--				fixed_phy_unregister(phydev);
--			}
--		}
-+		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
-+			continue;
-+		dsa_cpu_dsa_destroy(ds->ports[port].dn);
+ 	return ret;
+@@ -3159,43 +3159,43 @@ unlock:
+ 	return err;
+ }
+ 
+-int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
++int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page, int reg)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_page_read(ps, port, page, reg);
++	ret = _mv88e6xxx_mdio_page_read(ps, port, page, reg);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+ 	return ret;
+ }
+ 
+-int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+-			     int reg, int val)
++int mv88e6xxx_mdio_page_write(struct dsa_switch *ds, int port, int page,
++			      int reg, int val)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_page_write(ps, port, page, reg, val);
++	ret = _mv88e6xxx_mdio_page_write(ps, port, page, reg, val);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+ 	return ret;
+ }
+ 
+-static int mv88e6xxx_port_to_phy_addr(struct mv88e6xxx_priv_state *ps,
+-				      int port)
++static int mv88e6xxx_port_to_mdio_addr(struct mv88e6xxx_priv_state *ps,
++				       int port)
+ {
+ 	if (port >= 0 && port < ps->info->num_ports)
+ 		return port;
+ 	return -EINVAL;
+ }
+ 
+-static int mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
++static int mv88e6xxx_mdio_read(struct dsa_switch *ds, int port, int regnum)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
++	int addr = mv88e6xxx_port_to_mdio_addr(ps, port);
+ 	int ret;
+ 
+ 	if (addr < 0)
+@@ -3204,21 +3204,21 @@ static int mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+-		ret = mv88e6xxx_phy_read_ppu(ps, addr, regnum);
++		ret = mv88e6xxx_mdio_read_ppu(ps, addr, regnum);
+ 	else if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_SMI_PHY))
+-		ret = _mv88e6xxx_phy_read_indirect(ps, addr, regnum);
++		ret = mv88e6xxx_mdio_read_indirect(ps, addr, regnum);
+ 	else
+-		ret = _mv88e6xxx_phy_read(ps, addr, regnum);
++		ret = mv88e6xxx_mdio_read_direct(ps, addr, regnum);
+ 
+ 	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+ }
+ 
+-static int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum,
+-			       u16 val)
++static int mv88e6xxx_mdio_write(struct dsa_switch *ds, int port, int regnum,
++				u16 val)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int addr = mv88e6xxx_port_to_phy_addr(ps, port);
++	int addr = mv88e6xxx_port_to_mdio_addr(ps, port);
+ 	int ret;
+ 
+ 	if (addr < 0)
+@@ -3227,11 +3227,11 @@ static int mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum,
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+-		ret = mv88e6xxx_phy_write_ppu(ps, addr, regnum, val);
++		ret = mv88e6xxx_mdio_write_ppu(ps, addr, regnum, val);
+ 	else if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_SMI_PHY))
+-		ret = _mv88e6xxx_phy_write_indirect(ps, addr, regnum, val);
++		ret = mv88e6xxx_mdio_write_indirect(ps, addr, regnum, val);
+ 	else
+-		ret = _mv88e6xxx_phy_write(ps, addr, regnum, val);
++		ret = mv88e6xxx_mdio_write_direct(ps, addr, regnum, val);
+ 
+ 	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+@@ -3249,37 +3249,37 @@ static int mv88e61xx_get_temp(struct dsa_switch *ds, int *temp)
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	ret = _mv88e6xxx_phy_write(ps, 0x0, 0x16, 0x6);
++	ret = mv88e6xxx_mdio_write_direct(ps, 0x0, 0x16, 0x6);
+ 	if (ret < 0)
+ 		goto error;
+ 
+ 	/* Enable temperature sensor */
+-	ret = _mv88e6xxx_phy_read(ps, 0x0, 0x1a);
++	ret = mv88e6xxx_mdio_read_direct(ps, 0x0, 0x1a);
+ 	if (ret < 0)
+ 		goto error;
+ 
+-	ret = _mv88e6xxx_phy_write(ps, 0x0, 0x1a, ret | (1 << 5));
++	ret = mv88e6xxx_mdio_write_direct(ps, 0x0, 0x1a, ret | (1 << 5));
+ 	if (ret < 0)
+ 		goto error;
+ 
+ 	/* Wait for temperature to stabilize */
+ 	usleep_range(10000, 12000);
+ 
+-	val = _mv88e6xxx_phy_read(ps, 0x0, 0x1a);
++	val = mv88e6xxx_mdio_read_direct(ps, 0x0, 0x1a);
+ 	if (val < 0) {
+ 		ret = val;
+ 		goto error;
  	}
  
- 	mdiobus_unregister(ds->slave_mii_bus);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index dfa33779d49c..dbea5d9e7f75 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -50,6 +50,9 @@ struct dsa_slave_priv {
+ 	/* Disable temperature sensor */
+-	ret = _mv88e6xxx_phy_write(ps, 0x0, 0x1a, ret & ~(1 << 5));
++	ret = mv88e6xxx_mdio_write_direct(ps, 0x0, 0x1a, ret & ~(1 << 5));
+ 	if (ret < 0)
+ 		goto error;
  
- /* dsa.c */
- extern char dsa_driver_version[];
-+int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
-+		      struct device_node *port_dn, int port);
-+void dsa_cpu_dsa_destroy(struct device_node *port_dn);
+ 	*temp = ((val & 0x1f) - 5) * 5;
  
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
+ error:
+-	_mv88e6xxx_phy_write(ps, 0x0, 0x16, 0x0);
++	mv88e6xxx_mdio_write_direct(ps, 0x0, 0x16, 0x0);
+ 	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+ }
+@@ -3292,7 +3292,7 @@ static int mv88e63xx_get_temp(struct dsa_switch *ds, int *temp)
+ 
+ 	*temp = 0;
+ 
+-	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 27);
++	ret = mv88e6xxx_mdio_page_read(ds, phy, 6, 27);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -3325,7 +3325,7 @@ static int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp)
+ 
+ 	*temp = 0;
+ 
+-	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 26);
++	ret = mv88e6xxx_mdio_page_read(ds, phy, 6, 26);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -3343,12 +3343,12 @@ static int mv88e6xxx_set_temp_limit(struct dsa_switch *ds, int temp)
+ 	if (!mv88e6xxx_has(ps, MV88E6XXX_FLAG_TEMP_LIMIT))
+ 		return -EOPNOTSUPP;
+ 
+-	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 26);
++	ret = mv88e6xxx_mdio_page_read(ds, phy, 6, 26);
+ 	if (ret < 0)
+ 		return ret;
+ 	temp = clamp_val(DIV_ROUND_CLOSEST(temp, 5) + 5, 0, 0x1f);
+-	return mv88e6xxx_phy_page_write(ds, phy, 6, 26,
+-					(ret & 0xe0ff) | (temp << 8));
++	return mv88e6xxx_mdio_page_write(ds, phy, 6, 26,
++					 (ret & 0xe0ff) | (temp << 8));
+ }
+ 
+ static int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
+@@ -3362,7 +3362,7 @@ static int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
+ 
+ 	*alarm = false;
+ 
+-	ret = mv88e6xxx_phy_page_read(ds, phy, 6, 26);
++	ret = mv88e6xxx_mdio_page_read(ds, phy, 6, 26);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -3590,8 +3590,8 @@ struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.probe			= mv88e6xxx_drv_probe,
+ 	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+-	.phy_read		= mv88e6xxx_phy_read,
+-	.phy_write		= mv88e6xxx_phy_write,
++	.phy_read		= mv88e6xxx_mdio_read,
++	.phy_write		= mv88e6xxx_mdio_write,
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
 -- 
 2.8.1
