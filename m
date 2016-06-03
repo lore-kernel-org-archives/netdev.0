@@ -1,33 +1,36 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 15/17] net: dsa: Add new binding implementation
-Date: Fri, 03 Jun 2016 16:06:05 -0400
-Message-ID: <87wpm6m40i.fsf@ketchup.mtl.sfl>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch> <1464972256-10408-16-git-send-email-andrew@lunn.ch>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: Re: [PATCH stable] Set a large MTU on ovs-created tunnel devices
+Date: Fri, 3 Jun 2016 16:10:12 -0400
+Message-ID: <CAOZ2QJMO1xEpzS4RVb=ovpMjpDXN-bSjUYpbTvGVAULwsfOnPA@mail.gmail.com>
+References: <CAOZ2QJNufB+4ffEpaab6iWotM_4+PQKVcEorEN9Hckh3NiJaQA@mail.gmail.com>
+ <20160603.114418.907250018461386490.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:53830 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932741AbcFCUGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:06:09 -0400
-In-Reply-To: <1464972256-10408-16-git-send-email-andrew@lunn.ch>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:34616 "EHLO
+	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932538AbcFCUKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:10:53 -0400
+Received: by mail-yw0-f179.google.com with SMTP id c127so90624615ywb.1
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 13:10:52 -0700 (PDT)
+In-Reply-To: <20160603.114418.907250018461386490.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> The existing DSA binding has a number of limitations and problems. The
-> main problem is that it cannot represent a switch as a linux device,
-> hanging off some bus. It is limited to one CPU port. The DSA platform
-> device is artificial, and does not really represent hardware.
+On Fri, Jun 3, 2016 at 2:44 PM, David Miller <davem@davemloft.net> wrote:
+> From: Dan Streetman <dan.streetman@canonical.com>
+> Date: Fri, 3 Jun 2016 13:49:09 -0400
 >
-> Implement a new binding which can be embedded into any type of node on
-> a bus to represent one switch device, and its links to other switches.
+>> Can you queue up these commits for stable?
 >
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> This stuff doesn't cleanly backport, I tried several times already.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+ah sorry.  i'll get a backport.
+
+>
+> Therfore, someone knowledgable with OVS is going to have to do the
+> backport, test it, and post it for me to submit.
+>
+> Thanks.
