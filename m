@@ -1,104 +1,165 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 2/2] net: vrf: Add l3mdev rules on first device create
-Date: Fri, 3 Jun 2016 14:05:48 +0300
-Message-ID: <5D5BA326-86D8-4C53-B27C-0120397893ED@cumulusnetworks.com>
-References: <1464916959-4029-1-git-send-email-dsa@cumulusnetworks.com> <1464916959-4029-3-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36371 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932378AbcFCLFs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 07:05:48 -0400
-Received: by mail-wm0-f45.google.com with SMTP id n184so120488155wmn.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 04:05:47 -0700 (PDT)
-In-Reply-To: <1464916959-4029-3-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>
+Subject: Re: [RFC PATCH 0/4] Make inotify instance/watches be accounted per
+	userns
+Date: Fri, 3 Jun 2016 14:14:05 +0300
+Message-ID: <5751667D.7010207@kyup.com>
+References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
+	<8737ow7vcp.fsf@x220.int.ebiederm.org>
+	<20160602074920.GG19636@quack2.suse.cz>
+	<87bn3jy1cd.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>, avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	operations-/eCPMmvKun9pLGFMi4vTTA@public.gmane.org, gorcunov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, john-jueV0HHMeujJJrXXpGQQMAC/G2K4zDHf@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87bn3jy1cd.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-> On Jun 3, 2016, at 4:22 AM, David Ahern <dsa@cumulusnetworks.com> wro=
-te:
->=20
-> Add l3mdev rule per address family when the first VRF device is
-> created. Remove them when the last is deleted.
->=20
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - added EXCL flag and EEXISTS check. Appropriate once the exclude fib=
- rule
->  patch is accepted
-> - changed 3rd arg to vrf_fib_rule from 0/1 to false/true per Dave's c=
-omment
->=20
-> drivers/net/vrf.c | 119 +++++++++++++++++++++++++++++++++++++++++++++=
-++++++++-
-> 1 file changed, 118 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index d356f5d0f7b0..1d13c95cab97 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -35,6 +35,7 @@
-> #include <net/route.h>
-> #include <net/addrconf.h>
-> #include <net/l3mdev.h>
-> +#include <net/fib_rules.h>
->=20
-> #define RT_FL_TOS(oldflp4) \
-> 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
-> @@ -42,6 +43,11 @@
-> #define DRV_NAME	"vrf"
-> #define DRV_VERSION	"1.0"
->=20
-> +static atomic_t num_vrfs;
 
-num_vrfs seems to be used only with rtnl held, so it seems you can avoi=
-d the atomic ops altogether.
+On 06/02/2016 07:58 PM, Eric W. Biederman wrote:
+> 
+> Nikolay please see my question for you at the end.
+> 
+> Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org> writes:
+> 
+>> On Wed 01-06-16 11:00:06, Eric W. Biederman wrote:
+>>> Cc'd the containers list.
+>>>
+>>> Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org> writes:
+>>>
+>>>> Currently the inotify instances/watches are being accounted in the 
+>>>> user_struct structure. This means that in setups where multiple 
+>>>> users in unprivileged containers map to the same underlying 
+>>>> real user (e.g. user_struct) the inotify limits are going to be 
+>>>> shared as well which can lead to unplesantries. This is a problem 
+>>>> since any user inside any of the containers can potentially exhaust 
+>>>> the instance/watches limit which in turn might prevent certain 
+>>>> services from other containers from starting.
+>>>
+>>> On a high level this is a bit problematic as it appears to escapes the
+>>> current limits and allows anyone creating a user namespace to have their
+>>> own fresh set of limits.  Given that anyone should be able to create a
+>>> user namespace whenever they feel like escaping limits is a problem.
+>>> That however is solvable.
+>>>
+>>> A practical question.  What kind of limits are we looking at here?
+>>>
+>>> Are these loose limits for detecting buggy programs that have gone
+>>> off their rails?
+>>>
+>>> Are these tight limits to ensure multitasking is possible?
+>>
+>> The original motivation for these limits is to limit resource usage.  There
+>> is in-kernel data structure that is associated with each notification mark
+>> you create and we don't want users to be able to DoS the system by creating
+>> too many of them. Thus we limit number of notification marks for each user.
+>> There is also a limit on the number of notification instances - those are
+>> naturally limited by the number of open file descriptors but admin may want
+>> to limit them more...
+>>
+>> So cgroups would be probably the best fit for this but I'm not sure whether
+>> it is not an overkill...
+> 
+> There is some level of kernel memory accounting in the memory cgroup.
+> 
+> That said my experience with cgroups is that while they are good for
+> some things the semantics that derive from the userspace API are
+> problematic.
+> 
+> In the cgroup model objects in the kernel don't belong to a cgroup they
+> belong to a task/process.  Those processes belong to a cgroup.
+> Processes under control of a sufficiently privileged parent are allowed
+> to switch cgroups.  This causes implementation challenges and sematic
+> mismatch in a world where things are typically considered to have an
+> owner.
+> 
+> Right now fs_notify groups (upon which all of the rest of the inotify
+> accounting is built upon) belong to a user.  So there is a semantic
+> mismatch with cgroups right out of the gate.
+> 
+> Given that cgroups have not choosen to account for individual kernel
+> objects or give that level of control, I think it reasonable to look to
+> other possible solutions.  Assuming the overhead can be kept under
+> control.
+> 
+> The implementation of a hierarchical counter in mm/page_counter.c
+> strongly suggests to me that the overhead can be kept under control.
+> 
+> And yes.  I am thinking of the problem space where you have a limit
+> based on the problem domain where if an application consumes more than
+> the limit, the application is likely bonkers.  Which does prevent a DOS
+> situation in kernel memory.  But is different from the problem I have
+> seen cgroups solve.
+> 
+> The problem I have seen cgroups solve looks like.  Hmm.  I have 8GB of
+> ram.  I have 3 containers.  Container A can have 4GB, Container B can
+> have 1GB and container C can have 3GB.  Then I know one container won't
+> push the other containers into swap.
+> 
+> Perhaps that would tend to be a top down/vs a bottom up approach to
+> coming up with limits.  As DOS preventions limits like the inotify ones
+> are generally written from the perspective of if you have more than X
+> you are crazy.  While cgroup limits tend to be thought about top down
+> from a total system management point of view.
+> 
+> So I think there is definitely something to look at.
+> 
+> 
+> All of that said there is definitely a practical question that needs to
+> be asked.  Nikolay how did you get into this situation?  A typical user
+> namespace configuration will set up uid and gid maps with the help of a
+> privileged program and not map the uid of the user who created the user
+> namespace.  Thus avoiding exhausting the limits of the user who created
+> the container.
 
-> +
-> +static u32 rule_pref =3D 1000;
-> +module_param(rule_pref, uint,  S_IRUGO);
-> +
-> struct net_vrf {
-> 	struct rtable __rcu	*rth;
-> 	struct rt6_info	__rcu	*rt6;
-> @@ -729,6 +735,98 @@ static const struct ethtool_ops vrf_ethtool_ops =
-=3D {
-> 	.get_drvinfo	=3D vrf_get_drvinfo,
-> };
-[snip]
-> static void vrf_setup(struct net_device *dev)
-> {
-> 	ether_setup(dev);
-> @@ -763,12 +861,17 @@ static int vrf_validate(struct nlattr *tb[], st=
-ruct nlattr *data[])
-> static void vrf_dellink(struct net_device *dev, struct list_head *hea=
-d)
-> {
-> 	unregister_netdevice_queue(dev, head);
-> +
-> +	atomic_dec(&num_vrfs);
-> +	if (!atomic_read(&num_vrfs))
+Right but imagine having multiple containers with identical uid/gid maps
+for LXC-based setups imagine this:
 
-If you=E2=80=99re sticking with atomics, this looks like atomic_dec_and=
-_test().
+lxc.id_map = u 0 1337 65536
 
-> +		vrf_del_fib_rules(dev);
-> }
->=20
-> static int vrf_newlink(struct net *src_net, struct net_device *dev,
-> 		       struct nlattr *tb[], struct nlattr *data[])
-> {
-> 	struct net_vrf *vrf =3D netdev_priv(dev);
-> +	int err;
->=20
-> 	if (!data || !data[IFLA_VRF_TABLE])
-> 		return -EINVAL;
+Now all processes which are running with the same user on different
+containers will actually share the underlying user_struct thus the
+inotify limits. In such cases even running multiple instances of 'tail'
+in one container will eventually use all allowed inotify/mark instances.
+For this to happen you needn't also have complete overlap of the uid
+map, it's enough to have at least one UID between 2 containers overlap.
 
-Cheers,
- Nik
+
+So the risk of exhaustion doesn't apply to the privileged user that
+created the container and the uid mapping, but rather the users under
+which the various processes in the container are running. Does that make
+it clear?
+
+
+> 
+> Which makes me personally more worried about escaping the existing
+> limits than exhausting the limits of a particular user.
+
+So I thought bit about it and I guess a solution can be concocted which
+utilize the hierarchical nature of page counter, and the inotify limits
+are set per namespace if you have capable(CAP_SYS_ADMIN). That way the
+admin can set one fairly large on the init_user_ns and then in every
+namespace created one can set smaller limits. That way for a branch in
+the tree (in the nomenclature you used in your previous reply to me) you
+will really be upper-bound to the limit set in the namespace which have
+->level = 1. For the width of the tree, you will be bound by the
+"global" init_user_ns limits. How does that sound?
+
+
+> 
+> Eric
+> 
