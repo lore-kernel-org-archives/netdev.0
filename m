@@ -1,80 +1,69 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4: Reduce resource allocation in kdump
- kernel
-Date: Fri, 3 Jun 2016 20:07:57 +0000
-Message-ID: <BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
-References: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] net: igb: Only dma sync frame length
+Date: Fri, 3 Jun 2016 13:25:55 -0700
+Message-ID: <CAKgT0Uey1yT2p2T921K4EQ2w3NxUBOcRmwg66NHnQ2FHXGUWGA@mail.gmail.com>
+References: <1464975932-13301-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>
-To: Hariprasad S <hariprasad@chelsio.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0119.outbound.protection.outlook.com ([157.56.111.119]:39842
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752441AbcFCUXh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:23:37 -0400
-In-Reply-To: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
-Content-Language: en-US
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36577 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932457AbcFCUZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 16:25:57 -0400
+Received: by mail-io0-f195.google.com with SMTP id f128so758248iof.3
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 13:25:56 -0700 (PDT)
+In-Reply-To: <1464975932-13301-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  Looks good to me.  Of course I came up with those changes so maybe we should get another reviewer? :-)  Also, don't forget to mention "Bug #29998" in the commit message ...
+On Fri, Jun 3, 2016 at 10:45 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On some platforms, syncing a buffer for DMA is expensive. Rather than
+> sync the whole 2K receive buffer, only synchronise the length of the
+> frame, which will typically be the MTU, or a much smaller TCP ACK.
+>
+> For an IMX6Q, this gives around 6% increased TCP receive performance,
+> which is cache operations bound and reduces CPU load for TCP transmit.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index 0a289dda604a..670e3d612283 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -6915,6 +6915,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+>  {
+>         struct igb_rx_buffer *rx_buffer;
+>         struct page *page;
+> +       unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
+>
 
-Casey
+You should probably place this variable at the top of the declaration
+list.  The preference for the netdev tree is to have variables in a
+reverse xmas tree order where the longest declarations are at the top
+and the shortest are at the bottom.
 
-________________________________________
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Sent: Friday, June 3, 2016 10:35:45 AM
-To: davem@davemloft.net
-Cc: netdev@vger.kernel.org; Casey Leedom; Nirranjan Kirubaharan; Hariprasad S
-Subject: [PATCH net-next] cxgb4: Reduce resource allocation in kdump kernel
+>         rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
+>         page = rx_buffer->page;
+> @@ -6948,7 +6949,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+>         dma_sync_single_range_for_cpu(rx_ring->dev,
+>                                       rx_buffer->dma,
+>                                       rx_buffer->page_offset,
+> -                                     IGB_RX_BUFSZ,
+> +                                     size,
+>                                       DMA_FROM_DEVICE);
+>
+>         /* pull page into skb */
 
-When is_kdump_kernel() is true, reduce our memory footprint by only using
-a single "Queue Set" and Forcing Master so we can reinitialize the
-Firmware/Chip.
+You might also want to consider adding size as a variable to
+igb_add_rx_frag.  That way you don't have to worry about it being read
+and byte-swapped a second time.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 477db477b133..5317187d0073 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -64,6 +64,7 @@
- #include <net/bonding.h>
- #include <net/addrconf.h>
- #include <asm/uaccess.h>
-+#include <linux/crash_dump.h>
-
- #include "cxgb4.h"
- #include "t4_regs.h"
-@@ -3735,7 +3736,8 @@ static int adap_init0(struct adapter *adap)
-                return ret;
-
-        /* Contact FW, advertising Master capability */
--       ret = t4_fw_hello(adap, adap->mbox, adap->mbox, MASTER_MAY, &state);
-+       ret = t4_fw_hello(adap, adap->mbox, adap->mbox,
-+                         is_kdump_kernel() ? MASTER_MUST : MASTER_MAY, &state);
-        if (ret < 0) {
-                dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
-                        ret);
-@@ -4366,6 +4368,14 @@ static void cfg_queues(struct adapter *adap)
-        if (q10g > netif_get_num_default_rss_queues())
-                q10g = netif_get_num_default_rss_queues();
-
-+       /* Reduce memory usage in kdump environment by using only one queue
-+        * and disable all offload.
-+        */
-+       if (is_kdump_kernel()) {
-+               q10g = 1;
-+               adap->params.offload = 0;
-+       }
-+
-        for_each_port(adap, i) {
-                struct port_info *pi = adap2pinfo(adap, i);
+- Alex
