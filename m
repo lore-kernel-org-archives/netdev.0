@@ -1,175 +1,152 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v5 2/2] skb_array: ring test
-Date: Fri, 3 Jun 2016 14:15:55 +0200
-Message-ID: <20160603141555.7dad8fda@redhat.com>
-References: <1464000201-15560-1-git-send-email-mst@redhat.com>
-	<1464000201-15560-3-git-send-email-mst@redhat.com>
-	<20160523150918.2c58fa7d@redhat.com>
-	<20160523235014-mutt-send-email-mst@redhat.com>
-	<20160524122809.140f7020@redhat.com>
-	<20160524190320.69761a67@redhat.com>
-	<20160524224710-mutt-send-email-mst@redhat.com>
-	<20160602204725.7bcfd927@redhat.com>
+From: Pau Espin <pau.espin@tessares.net>
+Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
+ SACK block
+Date: Fri, 3 Jun 2016 14:16:34 +0200
+Message-ID: <CALCp7mne5OEU1hT-XHoQR33S7tzCRuDMzCu-deXx18QbdBgmYA@mail.gmail.com>
+References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
+	<1464796118.5939.156.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160602204725.7bcfd927@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:33664 "EHLO
+	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932601AbcFCMQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 08:16:36 -0400
+Received: by mail-qk0-f181.google.com with SMTP id n63so53562377qkf.0
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 05:16:35 -0700 (PDT)
+In-Reply-To: <1464796118.5939.156.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Jun 2016 20:47:25 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+I will provide a new patch as soon as I find some time to do it.
 
-> On Tue, 24 May 2016 23:34:14 +0300
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > On Tue, May 24, 2016 at 07:03:20PM +0200, Jesper Dangaard Brouer wrote:  
-> > > 
-> > > On Tue, 24 May 2016 12:28:09 +0200
-> > > Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > >     
-> > > > I do like perf, but it does not answer my questions about the
-> > > > performance of this queue. I will code something up in my own
-> > > > framework[2] to answer my own performance questions.
-> > > > 
-> > > > Like what is be minimum overhead (in cycles) achievable with this type
-> > > > of queue, in the most optimal situation (e.g. same CPU enq+deq cache hot)
-> > > > for fastpath usage.    
-> > > 
-> > > Coded it up here:
-> > >  https://github.com/netoptimizer/prototype-kernel/commit/b16a3332184
-> > >  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_bench01.c
-> > > 
-> > > This is a really fake benchmark, but it sort of shows the  
-> > > overhead achievable with this type of queue, where it is the same
-> > > CPU enqueuing and dequeuing, and cache is guaranteed to be hot.
-> > > 
-> > > Measured on a i7-4790K CPU @ 4.00GHz, the average cost of
-> > > enqueue+dequeue of a single object is around 102 cycles(tsc).
-> > > 
-> > > To compare this with below, where enq and deq is measured separately:
-> > >  102 / 2 = 51 cycles  
-> 
-> The alf_queue[1] baseline is 26 cycles in this minimum overhead
-> achievable benchmark with a MPMC (Multi-Producer/Multi-Consumer) queue
-> which use a locked cmpxchg.  (SPSC variant is 5 cycles, thus most cost
-> comes from locked cmpxchg).
-> 
-> [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/include/linux/alf_queue.h
-> 
-> > > > Then I also want to know how this performs when two CPUs are involved.
-> > > > As this is also a primary use-case, for you when sending packets into a
-> > > > guest.    
-> > > 
-> > > Coded it up here:
-> > >  https://github.com/netoptimizer/prototype-kernel/commit/75fe31ef62e
-> > >  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
-> > >  
-> > > This parallel benchmark try to keep two (or more) CPUs busy enqueuing or
-> > > dequeuing on the same skb_array queue.  It prefills the queue,
-> > > and stops the test as soon as queue is empty or full, or
-> > > completes a number of "loops"/cycles.
-> > > 
-> > > For two CPUs the results are really good:
-> > >  enqueue: 54 cycles(tsc)
-> > >  dequeue: 53 cycles(tsc)  
-> 
-> As MST points out, a scheme like the alf_queue[1] have the issue that it
-> "reads" the opposite cacheline of the consumer.tail/producer.tail to
-> determine if space-is-left/queue-is-empty.  This cause an expensive
-> transition for the cache coherency protocol.
-> 
-> Coded up similar test for alf_queue:
->  https://github.com/netoptimizer/prototype-kernel/commit/b3ff2624f1
->  https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/alf_queue_parallel01.c
-> 
-> For two CPUs MPMC results are, significantly worse, and demonstrate MSTs point:
->  enqueue: 227 cycles(tsc)
->  dequeue: 231 cycles(tsc)
-> 
-> Alf_queue also have a SPSC (Single-Producer/Single-Consumer) variant:
->  enqueue: 24 cycles(tsc)
->  dequeue: 23 cycles(tsc)
-> 
-> 
-> > > Going to 4 CPUs, things break down (but it was not primary use-case?):
-> > >  CPU(0) 927 cycles(tsc) enqueue
-> > >  CPU(1) 921 cycles(tsc) dequeue
-> > >  CPU(2) 927 cycles(tsc) enqueue
-> > >  CPU(3) 898 cycles(tsc) dequeue    
-> > 
-> > It's mostly the spinlock contention I guess.
-> > Maybe we don't need fair spinlocks in this case.
-> > Try replacing spinlocks with simple cmpxchg
-> > and see what happens?  
-> 
-> The alf_queue uses a cmpxchg scheme, and it does scale better when the
-> number of CPUs increase:
-> 
->  CPUs:4 Average: 586 cycles(tsc)
->  CPUs:6 Average: 744 cycles(tsc)
->  CPUs:8 Average: 1578 cycles(tsc)
-> 
-> Notice the alf_queue was designed with the purpose of bulking, to
-> mitigate the effect of this cacheline bouncing, but it was not covered
-> in this test.
+Indeed, I think there is no need to check duplicate_sack, I will remove it.
 
-Added bulking to the alf_queue test:
- https://github.com/netoptimizer/prototype-kernel/commit/e22a0d8745 
+I will also update the description.
 
-This does help significantly, but requires use-cases where there are
-packets to be bulk deq/enq.  On the other hand, the skb_array also
-requires that objects in the queue/array exceed one cacheline, before
-it starts to scale.
+Shall I also add a sysctl to disable this patch and still be able to
+stick strictly to RFC 5961 3.2 for the checks?
 
-For two CPUs we need bulk=4 before beating skb_array.  See benchmark
-adjusting bulk size:
- CPUs:2 bulk=step:1 Average: 231 cycles(tsc)
- CPUs:2 bulk=step:2 Average: 118 cycles(tsc)
- CPUs:2 bulk=step:3 Average: 65 cycles(tsc)
- CPUs:2 bulk=step:4 Average: 48 cycles(tsc)
- CPUs:2 bulk=step:5 Average: 40 cycles(tsc)
- CPUs:2 bulk=step:6 Average: 37 cycles(tsc)
- CPUs:2 bulk=step:7 Average: 29 cycles(tsc)
- CPUs:2 bulk=step:8 Average: 24 cycles(tsc)
- CPUs:2 bulk=step:9 Average: 23 cycles(tsc)
- CPUs:2 bulk=step:10 Average: 20 cycles(tsc)
+On Wed, Jun 1, 2016 at 5:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-05-31 at 13:38 +0200, Pau Espin Pedrol wrote:
+>> RFC 5961 advises to only accept RST packets containing a seq number
+>> matching the next expected seq number instead of the whole receive
+>> window in order to avoid spoofing attacks.
+>>
+>> However, this situation is not optimal in the case SACK is in use at the
+>> time the RST is sent. I recently run into a scenario in which packet
+>> losses were high while uploading data to a server, and userspace was
+>> willing to frequently terminate connections by sending a RST. In
+>> this case, the ACK sent on the receiver side is frozen waiting for a lost
+>> packet retransmission and a SACK block is used to let the client
+>> continue uploading data. At some point later on, the client sends the
+>> RST, which matches the next expected seq number of the SACK block on the
+>> receiver side which is going forward receiving data.
+>>
+>> In this scenario, as RFC 5961 defines, the SEQ doesn't match the frozen
+>> main ACK at receiver side and thus gets dropped and a challenge ACK is
+>> sent, which gets usually lost due to network conditions. The main
+>> consequence is that the connection stays alive for a while even if it
+>> made sense to accept the RST. This can get really bad if lots of
+>> connections like this one are created in few seconds, allocating all the
+>> resources of the server easily.
+>>
+>> From security point of view: the maximum number of SACK blocks for a TCP
+>> connection is limited to 4 due to options field maximum length, and that
+>> means we match at maximum against 5 seq numbers, which should make it
+>> still difficult for attackers to inject a valid RST message.
+>>
+>> This patch was tested in a 3.18 kernel and probed to improve the
+>> situation in the scenario described above.
+>>
+>> Signed-off-by: Pau Espin Pedrol <pau.espin@tessares.net>
+>> ---
+>>  net/ipv4/tcp_input.c | 18 +++++++++++++++++-
+>>  1 file changed, 17 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index d6c8f4cd0..4727dc8 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -5159,6 +5159,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+>>                                 const struct tcphdr *th, int syn_inerr)
+>>  {
+>>       struct tcp_sock *tp = tcp_sk(sk);
+>> +     bool rst_seq_match = false;
+>>
+>>       /* RFC1323: H1. Apply PAWS check first. */
+>>       if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
+>> @@ -5195,13 +5196,28 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+>>
+>>       /* Step 2: check RST bit */
+>>       if (th->rst) {
+>> -             /* RFC 5961 3.2 :
+>> +             /* RFC 5961 3.2 (extended to match against SACK too if available):
+>>                * If sequence number exactly matches RCV.NXT, then
+>>                *     RESET the connection
+>>                * else
+>>                *     Send a challenge ACK
+>>                */
+>>               if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt)
+>> +                     rst_seq_match = true;
+>> +             else if (tcp_is_sack(tp)) {
+>> +                     int this_sack;
+>> +                     struct tcp_sack_block *sp = tp->rx_opt.dsack ?
+>> +                                     tp->duplicate_sack : tp->selective_acks;
+>> +
+>
+> Please reorder your variables :
+>     long variable name foooooooooo;
+>     short var bar;
+>
+>
+> It not clear why we should use duplicate_sack[0] at all ?
+>
+> dsack should be 0 at this point anyway ?
+>
+>> +                     for (this_sack = 0; this_sack < tp->rx_opt.num_sacks; ++this_sack) {
+>> +                             if (TCP_SKB_CB(skb)->seq == sp[this_sack].end_seq) {
+>> +                                     rst_seq_match = true;
+>> +                                     break;
+>> +                             }
+>> +                     }
+>> +             }
+>> +
+>> +             if (rst_seq_match)
+>>                       tcp_reset(sk);
+>>               else
+>>                       tcp_send_challenge_ack(sk, skb);
+>> --
+>> 2.5.0
+>>
+>>
+>
+>
 
-Keeping bulk=8, and increasing the CPUs does show better scalability,
-due to bulking.
 
-This system (i7-4790K CPU @ 4.00GHz) only had 8-core CPUs:
- CPUs:2 bulk=step:8 Average: 25 cycles(tsc)
- CPUs:4 bulk=step:8 Average: 71 cycles(tsc)
- CPUs:6 bulk=step:8 Average: 100 cycles(tsc)
- CPUs:8 bulk=step:8 Average: 185 cycles(tsc)
-
-Found a (slower) 24-core CPU system (E5-2695v2-ES @ 2.50GHz):
- CPUs:2 bulk=step:8 Average: 50 cycles(tsc)
- CPUs:4 bulk=step:8 Average: 101 cycles(tsc)
- CPUs:6 bulk=step:8 Average: 214 cycles(tsc)
- CPUs:8 bulk=step:8 Average: 347 cycles(tsc)
- CPUs:10 bulk=step:8 Average: 468 cycles(tsc)
- CPUs:12 bulk=step:8 Average: 670 cycles(tsc)
- CPUs:14 bulk=step:8 Average: 698 cycles(tsc)
- CPUs:16 bulk=step:8 Average: 1149 cycles(tsc)
- CPUs:18 bulk=step:8 Average: 1094 cycles(tsc)
- CPUs:20 bulk=step:8 Average: 1349 cycles(tsc)
- CPUs:22 bulk=step:8 Average: 1406 cycles(tsc)
- CPUs:24 bulk=step:8 Average: 1553 cycles(tsc)
-
-I still think skb_array is the winner, when the normal use-case is two
-CPUs, and we cannot guarantee CPU pinning (thus cannot use SPSC).
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Pau Espin Pedrol | R&D Engineer - External
+pau.espin@tessares.net | +32 487 43 36 50
+Tessares SA | Hybrid Access Solutions
+www.tessares.net
+6 Rue Louis de Geer, 1348 Louvain-la-Neuve, Belgium
+
+-- 
+
+------------------------------
+DISCLAIMER.
+This email and any files transmitted with it are confidential and intended 
+solely for the use of the individual or entity to whom they are addressed. 
+If you have received this email in error please notify the system manager. 
+This message contains confidential information and is intended only for the 
+individual named. If you are not the named addressee you should not 
+disseminate, distribute or copy this e-mail. Please notify the sender 
+immediately by e-mail if you have received this e-mail by mistake and 
+delete this e-mail from your system. If you are not the intended recipient 
+you are notified that disclosing, copying, distributing or taking any 
+action in reliance on the contents of this information is strictly 
+prohibited.
