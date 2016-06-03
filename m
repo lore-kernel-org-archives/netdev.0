@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v4 net-next 10/13] net: hns: dsaf adds support of acpi
-Date: Fri, 3 Jun 2016 10:55:18 +0800
-Message-ID: <1464922521-30928-11-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v4 net-next 13/13] net: hns: net: hns: enet adds support of acpi
+Date: Fri, 3 Jun 2016 10:55:21 +0800
+Message-ID: <1464922521-30928-14-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1464922521-30928-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,300 +18,115 @@ List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-Dsaf needs to get configuration parameter by ACPI, so this patch add
-support of ACPI.
+Enet needs to get configration parameter by acpi. This patch
+adds support of ACPI for enet. The configuration parameter will
+be configed in BIOS.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
 change log:
  v2:
-  1. use dev_of_node() instead of IS_ENABLED() to check if it is in
-DT case,
-  2. split a new patch to implement misc operation method,
-  3. use acpi_dev_found() instead of acpi_match_device_ids() to
-check which hw version it is,
-  4. use is_acpi_node instead of ACPI_COMPANION to check if it is
-work in ACPI case.
+     1. use acpi_dev_found() instead of acpi_match_device_ids()
+     2. use is_acpi_node() to check if it works by ACPI case
+     3. use dev_of_node() to check if it works by DT case
 
  v1: first submit
-  link: https://lkml.org/lkml/2016/5/13/108
+  link: https://lkml.org/lkml/2016/5/13/99
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 80 ++++++++++----------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 85 +++++++++++++++-------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 32 ++++----
- 3 files changed, 114 insertions(+), 83 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 56 +++++++++++++++++++++------
+ 1 file changed, 44 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 2ebf14a..3ef0c9b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -689,9 +689,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
- 		return 0;
- 	}
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 3ec3c27..ad742a6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -132,6 +132,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	ring_ptr_move_fw(ring, next_to_use);
+ }
  
--	if (!is_of_node(mac_cb->fw_port))
--		return -EINVAL;
--
-+	if (is_of_node(mac_cb->fw_port)) {
- 	/* parse property from port subnode in dsaf */
- 	np = of_parse_phandle(to_of_node(mac_cb->fw_port), "phy-handle", 0);
- 	mac_cb->phy_dev = of_phy_find_device(np);
-@@ -701,47 +699,49 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
- 			mac_cb->mac_id, np->name);
- 		}
- 
--	syscon = syscon_node_to_regmap(
--			of_parse_phandle(to_of_node(mac_cb->fw_port),
--					 "serdes-syscon", 0));
--	if (IS_ERR_OR_NULL(syscon)) {
--		dev_err(mac_cb->dev, "serdes-syscon is needed!\n");
--		return -EINVAL;
--	}
--	mac_cb->serdes_ctrl = syscon;
--
--	ret = fwnode_property_read_u32(mac_cb->fw_port,
--				       "port-rst-offset",
--				       &mac_cb->port_rst_off);
--	if (ret) {
--		dev_dbg(mac_cb->dev,
--			"mac%d port-rst-offset not found, use default value.\n",
--			mac_cb->mac_id);
--	}
-+		syscon = syscon_node_to_regmap(
-+				of_parse_phandle(to_of_node(mac_cb->fw_port),
-+						 "serdes-syscon", 0));
-+		if (IS_ERR_OR_NULL(syscon)) {
-+			dev_err(mac_cb->dev, "serdes-syscon is needed!\n");
-+			return -EINVAL;
-+		}
-+		mac_cb->serdes_ctrl = syscon;
- 
--	ret = fwnode_property_read_u32(mac_cb->fw_port,
--				       "port-mode-offset",
--				       &mac_cb->port_mode_off);
--	if (ret) {
--		dev_dbg(mac_cb->dev,
--			"mac%d port-mode-offset not found, use default value.\n",
--			mac_cb->mac_id);
--	}
-+		ret = fwnode_property_read_u32(mac_cb->fw_port,
-+					       "port-rst-offset",
-+					       &mac_cb->port_rst_off);
-+		if (ret) {
-+			dev_dbg(mac_cb->dev,
-+				"mac%d port-rst-offset not found, use default value.\n",
-+				mac_cb->mac_id);
-+		}
- 
--	ret = of_parse_phandle_with_fixed_args(to_of_node(mac_cb->fw_port),
--					       "cpld-syscon", 1, 0, &cpld_args);
--	if (ret) {
--		dev_dbg(mac_cb->dev, "mac%d no cpld-syscon found.\n",
--			mac_cb->mac_id);
--		mac_cb->cpld_ctrl = NULL;
--	} else {
--		syscon = syscon_node_to_regmap(cpld_args.np);
--		if (IS_ERR_OR_NULL(syscon)) {
--			dev_dbg(mac_cb->dev, "no cpld-syscon found!\n");
-+		ret = fwnode_property_read_u32(mac_cb->fw_port,
-+					       "port-mode-offset",
-+					       &mac_cb->port_mode_off);
-+		if (ret) {
-+			dev_dbg(mac_cb->dev,
-+				"mac%d port-mode-offset not found, use default value.\n",
-+				mac_cb->mac_id);
-+		}
-+
-+		ret = of_parse_phandle_with_fixed_args(
-+			to_of_node(mac_cb->fw_port), "cpld-syscon", 1, 0,
-+			&cpld_args);
-+		if (ret) {
-+			dev_dbg(mac_cb->dev, "mac%d no cpld-syscon found.\n",
-+				mac_cb->mac_id);
- 			mac_cb->cpld_ctrl = NULL;
- 		} else {
--			mac_cb->cpld_ctrl = syscon;
--			mac_cb->cpld_ctrl_reg = cpld_args.args[0];
-+			syscon = syscon_node_to_regmap(cpld_args.np);
-+			if (IS_ERR_OR_NULL(syscon)) {
-+				dev_dbg(mac_cb->dev, "no cpld-syscon found!\n");
-+				mac_cb->cpld_ctrl = NULL;
-+			} else {
-+				mac_cb->cpld_ctrl = syscon;
-+				mac_cb->cpld_ctrl_reg = cpld_args.args[0];
-+			}
- 		}
- 	}
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 28bde08..ac03c4a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -7,6 +7,7 @@
-  * (at your option) any later version.
-  */
- 
-+#include <linux/acpi.h>
- #include <linux/device.h>
- #include <linux/init.h>
- #include <linux/interrupt.h>
-@@ -33,6 +34,13 @@ const char *g_dsaf_mode_match[DSAF_MODE_MAX] = {
- 	[DSAF_MODE_DISABLE_SP] = "single-port",
- };
- 
-+static const struct acpi_device_id hns_dsaf_acpi_match[] = {
-+	{ "HISI00B1", 0 },
-+	{ "HISI00B2", 0 },
++static const struct acpi_device_id hns_enet_acpi_match[] = {
++	{ "HISI00C1", 0 },
++	{ "HISI00C2", 0 },
 +	{ },
 +};
-+MODULE_DEVICE_TABLE(acpi, hns_dsaf_acpi_match);
++MODULE_DEVICE_TABLE(acpi, hns_enet_acpi_match);
 +
- int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- {
- 	int ret, i;
-@@ -46,10 +54,22 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	struct device_node *np = dsaf_dev->dev->of_node;
- 	struct platform_device *pdev = to_platform_device(dsaf_dev->dev);
+ static void fill_desc(struct hnae_ring *ring, void *priv,
+ 		      int size, dma_addr_t dma, int frag_end,
+ 		      int buf_num, enum hns_desc_type type, int mtu)
+@@ -1870,7 +1877,6 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct net_device *ndev;
+ 	struct hns_nic_priv *priv;
+-	struct device_node *ae_node;
+ 	u32 port_id;
+ 	int ret;
  
--	if (of_device_is_compatible(np, "hisilicon,hns-dsaf-v1"))
--		dsaf_dev->dsaf_ver = AE_VERSION_1;
+@@ -1884,20 +1890,45 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	priv->dev = dev;
+ 	priv->netdev = ndev;
+ 
+-	if (of_device_is_compatible(dev->of_node, "hisilicon,hns-nic-v1"))
+-		priv->enet_ver = AE_VERSION_1;
 -	else
--		dsaf_dev->dsaf_ver = AE_VERSION_2;
-+	if (dev_of_node(dsaf_dev->dev)) {
-+		if (of_device_is_compatible(np, "hisilicon,hns-dsaf-v1"))
-+			dsaf_dev->dsaf_ver = AE_VERSION_1;
+-		priv->enet_ver = AE_VERSION_2;
++	if (dev_of_node(dev)) {
++		struct device_node *ae_node;
+ 
+-	ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
+-	if (IS_ERR_OR_NULL(ae_node)) {
+-		ret = PTR_ERR(ae_node);
+-		dev_err(dev, "not find ae-handle\n");
+-		goto out_read_prop_fail;
++		if (of_device_is_compatible(dev->of_node,
++					    "hisilicon,hns-nic-v1"))
++			priv->enet_ver = AE_VERSION_1;
 +		else
-+			dsaf_dev->dsaf_ver = AE_VERSION_2;
-+	} else if (is_acpi_node(dsaf_dev->dev->fwnode)) {
-+		if (acpi_dev_found(hns_dsaf_acpi_match[0].id))
-+			dsaf_dev->dsaf_ver = AE_VERSION_1;
-+		else if (acpi_dev_found(hns_dsaf_acpi_match[1].id))
-+			dsaf_dev->dsaf_ver = AE_VERSION_2;
++			priv->enet_ver = AE_VERSION_2;
++
++		ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
++		if (IS_ERR_OR_NULL(ae_node)) {
++			ret = PTR_ERR(ae_node);
++			dev_err(dev, "not find ae-handle\n");
++			goto out_read_prop_fail;
++		}
++		priv->fwnode = &ae_node->fwnode;
++	} else if (is_acpi_node(dev->fwnode)) {
++		struct acpi_reference_args args;
++
++		if (acpi_dev_found(hns_enet_acpi_match[0].id))
++			priv->enet_ver = AE_VERSION_1;
++		else if (acpi_dev_found(hns_enet_acpi_match[1].id))
++			priv->enet_ver = AE_VERSION_2;
 +		else
 +			return -ENXIO;
++
++		/* try to find port-idx-in-ae first */
++		ret = acpi_node_get_property_reference(dev->fwnode,
++						       "ae-handle", 0, &args);
++		if (ret) {
++			dev_err(dev, "not find ae-handle\n");
++			goto out_read_prop_fail;
++		}
++		priv->fwnode = acpi_fwnode_handle(args.adev);
 +	} else {
-+		dev_err(dsaf_dev->dev, "cannot get cfg data from of or acpi\n");
++		dev_err(dev, "cannot read cfg data from OF or acpi\n");
 +		return -ENXIO;
-+	}
- 
- 	ret = device_property_read_string(dsaf_dev->dev, "mode", &mode_str);
- 	if (ret) {
-@@ -81,32 +101,40 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	else
- 		dsaf_dev->dsaf_tc_mode = HRD_DSAF_4TC_MODE;
- 
--	syscon = syscon_node_to_regmap(
--			of_parse_phandle(np, "subctrl-syscon", 0));
--	if (IS_ERR_OR_NULL(syscon)) {
--		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
--		if (!res) {
--			dev_err(dsaf_dev->dev, "subctrl info is needed!\n");
--			return -ENOMEM;
--		}
--		dsaf_dev->sc_base = devm_ioremap_resource(&pdev->dev, res);
--		if (!dsaf_dev->sc_base) {
--			dev_err(dsaf_dev->dev, "subctrl can not map!\n");
--			return -ENOMEM;
--		}
-+	if (dev_of_node(dsaf_dev->dev)) {
-+		syscon = syscon_node_to_regmap(
-+				of_parse_phandle(np, "subctrl-syscon", 0));
-+		if (IS_ERR_OR_NULL(syscon)) {
-+			res = platform_get_resource(pdev, IORESOURCE_MEM,
-+						    res_idx++);
-+			if (!res) {
-+				dev_err(dsaf_dev->dev, "subctrl info is needed!\n");
-+				return -ENOMEM;
-+			}
- 
--		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
--		if (!res) {
--			dev_err(dsaf_dev->dev, "serdes-ctrl info is needed!\n");
--			return -ENOMEM;
--		}
--		dsaf_dev->sds_base = devm_ioremap_resource(&pdev->dev, res);
--		if (!dsaf_dev->sds_base) {
--			dev_err(dsaf_dev->dev, "serdes-ctrl can not map!\n");
--			return -ENOMEM;
-+			dsaf_dev->sc_base = devm_ioremap_resource(&pdev->dev,
-+								  res);
-+			if (!dsaf_dev->sc_base) {
-+				dev_err(dsaf_dev->dev, "subctrl can not map!\n");
-+				return -ENOMEM;
-+			}
-+
-+			res = platform_get_resource(pdev, IORESOURCE_MEM,
-+						    res_idx++);
-+			if (!res) {
-+				dev_err(dsaf_dev->dev, "serdes-ctrl info is needed!\n");
-+				return -ENOMEM;
-+			}
-+
-+			dsaf_dev->sds_base = devm_ioremap_resource(&pdev->dev,
-+								   res);
-+			if (!dsaf_dev->sds_base) {
-+				dev_err(dsaf_dev->dev, "serdes-ctrl can not map!\n");
-+				return -ENOMEM;
-+			}
-+		} else {
-+			dsaf_dev->sub_ctrl = syscon;
- 		}
--	} else {
--		dsaf_dev->sub_ctrl = syscon;
  	}
+-	priv->fwnode = &ae_node->fwnode;
  
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ppe-base");
-@@ -2686,6 +2714,7 @@ static struct platform_driver g_dsaf_driver = {
+-	/* try to find port-idx-in-ae first */
+ 	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
+ 	if (ret) {
+ 		/* only for old code compatible */
+@@ -2014,6 +2045,7 @@ static struct platform_driver hns_nic_dev_driver = {
  	.driver = {
- 		.name = DSAF_DRV_NAME,
- 		.of_match_table = g_dsaf_match,
-+		.acpi_match_table = hns_dsaf_acpi_match,
+ 		.name = "hns-nic",
+ 		.of_match_table = hns_enet_of_match,
++		.acpi_match_table = ACPI_PTR(hns_enet_acpi_match),
  	},
- };
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index e1c3e0d..f21177b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -362,21 +362,23 @@ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
- 	if (!misc_op)
- 		return NULL;
- 
--	misc_op->cpld_set_led = hns_cpld_set_led;
--	misc_op->cpld_reset_led = cpld_led_reset;
--	misc_op->cpld_set_led_id = cpld_set_led_id;
--
--	misc_op->dsaf_reset = hns_dsaf_rst;
--	misc_op->xge_srst = hns_dsaf_xge_srst_by_port;
--	misc_op->xge_core_srst = hns_dsaf_xge_core_srst_by_port;
--	misc_op->ge_srst = hns_dsaf_ge_srst_by_port;
--	misc_op->ppe_srst = hns_ppe_srst_by_port;
--	misc_op->ppe_comm_srst = hns_ppe_com_srst;
--
--	misc_op->get_phy_if = hns_mac_get_phy_if;
--	misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
--
--	misc_op->cfg_serdes_loopback = hns_mac_config_sds_loopback;
-+	if (dev_of_node(dsaf_dev->dev)) {
-+		misc_op->cpld_set_led = hns_cpld_set_led;
-+		misc_op->cpld_reset_led = cpld_led_reset;
-+		misc_op->cpld_set_led_id = cpld_set_led_id;
-+
-+		misc_op->dsaf_reset = hns_dsaf_rst;
-+		misc_op->xge_srst = hns_dsaf_xge_srst_by_port;
-+		misc_op->xge_core_srst = hns_dsaf_xge_core_srst_by_port;
-+		misc_op->ge_srst = hns_dsaf_ge_srst_by_port;
-+		misc_op->ppe_srst = hns_ppe_srst_by_port;
-+		misc_op->ppe_comm_srst = hns_ppe_com_srst;
-+
-+		misc_op->get_phy_if = hns_mac_get_phy_if;
-+		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
-+
-+		misc_op->cfg_serdes_loopback = hns_mac_config_sds_loopback;
-+	}
- 
- 	return (void *)misc_op;
- }
+ 	.probe = hns_nic_dev_probe,
+ 	.remove = hns_nic_dev_remove,
 -- 
 1.9.1
