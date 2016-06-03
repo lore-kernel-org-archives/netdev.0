@@ -1,100 +1,121 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net] ethernet/sfc: report supported link speeds on SFP connections
-Date: Thu,  2 Jun 2016 21:33:24 -0400
-Message-ID: <1464917604-11596-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 3/7] binding: mdio-mux: Add DT binding doc for
+ Broadcom MDIO bus mutiplexer
+Date: Thu, 2 Jun 2016 20:43:23 -0500
+Message-ID: <20160603014323.GA12365@rob-hp-laptop>
+References: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
+ <1464701801-17243-4-git-send-email-pramod.kumar@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	bcm-kernel-feedback-list@broadcom.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Pramod Kumar <pramod.kumar@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464701801-17243-4-git-send-email-pramod.kumar@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My solarflare cards connected to a 10GbE switch with an SFP+ module/cable
-don't currently report any supported link speeds:
+On Tue, May 31, 2016 at 07:06:37PM +0530, Pramod Kumar wrote:
+> Add DT binding doc for Broadcom MDIO bus mutiplexer driver.
+> 
+> Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
+> ---
+>  .../bindings/net/brcm,mdio-mux-iproc.txt           | 60 ++++++++++++++++++++++
+>  1 file changed, 60 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+> new file mode 100644
+> index 0000000..f270b41
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+> @@ -0,0 +1,60 @@
+> +Properties for an MDIO bus mutiplexer found in Broadcom iProc based SoCs.
+> +
+> +This MDIO bus multiplexer defines buses that could be internal as well as
+> +external to SoCs and could accept MDIO transaction compatible to C-22 or
+> +C-45 Clause. When Child bus is selected, one need to select these two
 
-$ ethtool ens4f0
-Settings for ens4f0:
-	Supported ports: [ FIBRE ]
-	Supported link modes:   Not reported
-	Supported pause frame use: Symmetric Receive-only
-	Supports auto-negotiation: Yes
-	Advertised link modes:  Not reported
-	Advertised pause frame use: Symmetric
-	Advertised auto-negotiation: Yes
-	Link partner advertised link modes:  10000baseKX4/Full
-	Link partner advertised pause frame use: Symmetric
-	Link partner advertised auto-negotiation: No
-	Speed: 10000Mb/s
-	Duplex: Full
-	Port: FIBRE
-	PHYAD: 255
-	Transceiver: internal
-	Auto-negotiation: on
-Cannot get wake-on-lan settings: Operation not permitted
-	Current message level: 0x000020f7 (8439)
-			       drv probe link ifdown ifup rx_err tx_err hw
-	Link detected: yes
+s/Child/child/
 
-I've navigated my way through the sfc code down to mcdi_to_ethtool_cap's
-switch on media's MC_CMD_MEDIA_SFP_PLUS case, where no speeds are set.
-If we just do some cap checks similar to the MC_CMD_MEDIA_KX4 case, I get
-the expected output:
+s/need/needs/
 
-$ ethtool ens4f0
-Settings for ens4f0:
-	Supported ports: [ FIBRE ]
-	Supported link modes:   1000baseKX/Full
-	                        10000baseKX4/Full
-	Supported pause frame use: Symmetric Receive-only
-	Supports auto-negotiation: Yes
-	Advertised link modes:  Not reported
-	Advertised pause frame use: Symmetric
-	Advertised auto-negotiation: Yes
-	Link partner advertised link modes:  10000baseKX4/Full
-	Link partner advertised pause frame use: Symmetric
-	Link partner advertised auto-negotiation: No
-	Speed: 10000Mb/s
-	Duplex: Full
-	Port: FIBRE
-	PHYAD: 255
-	Transceiver: internal
-	Auto-negotiation: on
-Cannot get wake-on-lan settings: Operation not permitted
-	Current message level: 0x000020f7 (8439)
-			       drv probe link ifdown ifup rx_err tx_err hw
-	Link detected: yes
+> +properties as well to generate desired MDIO trascation on appropriate bus.
+> +
+> +Required properties in addition to the generic multiplexer properties:
+> +
+> +MDIO multiplexer node:
+> +- complatible: brcm,mdio-mux-iproc.
 
-This is from an sfc9120 interface here. It also applies to a 9140 with a
-10GbE breakout cable.
+typo
 
-Side note: wiring up Advertised by simply copying Supported seems to be a
-thing many other drivers do. Worth doing here?...
+> +
+> +Every non-ethernet PHY requires a compatible so that it could be probed based
+> +on this compatible string.
+> +
+> +Additional information regarding generic multiplexer properties could be found
 
-CC: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-CC: Edward Cree <ecree@solarflare.com>
-CC: Bert Kenward <bkenward@solarflare.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/ethernet/sfc/mcdi_port.c | 4 ++++
- 1 file changed, 4 insertions(+)
+s/could/can/
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
-index 7f295c4..6516471 100644
---- a/drivers/net/ethernet/sfc/mcdi_port.c
-+++ b/drivers/net/ethernet/sfc/mcdi_port.c
-@@ -189,6 +189,10 @@ static u32 mcdi_to_ethtool_cap(u32 media, u32 cap)
- 
- 	case MC_CMD_MEDIA_XFP:
- 	case MC_CMD_MEDIA_SFP_PLUS:
-+		if (cap & (1 << MC_CMD_PHY_CAP_1000FDX_LBN))
-+			result |= SUPPORTED_1000baseKX_Full;
-+		if (cap & (1 << MC_CMD_PHY_CAP_10000FDX_LBN))
-+			result |= SUPPORTED_10000baseKX4_Full;
- 		result |= SUPPORTED_FIBRE;
- 		break;
- 
--- 
-1.8.3.1
+> +at- Documentation/devicetree/bindings/net/mdio-mux.txt
+> +
+> +
+> +for example:
+> +		mdio_mux_iproc: mdio_mux_iproc@6602023c {
+
+No '_' in node names.
+
+mdio-mux@...
+
+> +			compatible = "brcm,mdio-mux-iproc";
+> +			reg = <0x6602023c 0x14>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			mdio-integrated-mux;
+> +
+> +			mdio@0 {
+> +				reg = <0x0>;
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +
+> +				pci_phy0: pci-phy@0 {
+> +					compatible = "brcm,ns2-pcie-phy";
+> +					reg = <0x0>;
+> +					#phy-cells = <0>;
+> +				};
+> +			};
+> +
+> +			mdio@7 {
+> +				reg = <0x7>;
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +
+> +				pci_phy1: pci-phy@0 {
+> +					compatible = "brcm,ns2-pcie-phy";
+> +					reg = <0x0>;
+> +					#phy-cells = <0>;
+> +				};
+> +			};
+> +			mdio@10 {
+> +				reg = <0x10>;
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +
+> +				gphy0: eth-phy@10 {
+> +					reg = <0x10>;
+> +				};
+> +			};
+> +		};
+> -- 
+> 1.9.1
+> 
