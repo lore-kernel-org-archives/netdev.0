@@ -1,63 +1,91 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next] sctp: sctp should change socket state when shutdown is received
-Date: Fri,  3 Jun 2016 22:42:45 +0800
-Message-ID: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net, eric.dumazet@gmail.com
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34420 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751091AbcFCOmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 10:42:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH v2] r8152: Add support for setting MAC to system's
+ Auxiliary MAC address
+Date: Fri, 3 Jun 2016 14:44:55 +0000
+Message-ID: <b41e9c5664554909b7687fe745ed0312@ausx13mpc124.AMER.DELL.COM>
+References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
+ <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
+ <20160602174808.GA32131@kroah.com>
+ <2d81e70165b8447d92b873eafeaeded7@ausx13mpc124.AMER.DELL.COM>
+ <20160602190238.GK15379@lunn.ch>
+ <ae0f974692814260bb9f2f2cf4af6450@ausx13mpc124.AMER.DELL.COM>
+ <20160602190946.GL15379@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <gregkh@linuxfoundation.org>, <hayeswang@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <pali.rohar@gmail.com>,
+	<anthony.wong@canonical.com>
+To: <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160602190946.GL15379@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now sctp doesn't change socket state upon shutdown reception. It changes
-just the assoc state, even though it's a TCP-style socket.
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Thursday, June 2, 2016 2:10 PM
+> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
+> Cc: gregkh@linuxfoundation.org; hayeswang@realtek.com; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
+> usb@vger.kernel.org; pali.rohar@gmail.com; anthony.wong@canonical.com
+> Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
+> Auxiliary MAC address
+> 
+> On Thu, Jun 02, 2016 at 07:04:32PM +0000, Mario_Limonciello@Dell.com
+> wrote:
+> > > -----Original Message-----
+> > > From: Andrew Lunn [mailto:andrew@lunn.ch]
+> > > Sent: Thursday, June 2, 2016 2:03 PM
+> > > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
+> > > Cc: gregkh@linuxfoundation.org; hayeswang@realtek.com; linux-
+> > > kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
+> > > usb@vger.kernel.org; pali.rohar@gmail.com;
+> anthony.wong@canonical.com
+> > > Subject: Re: [PATCH v2] r8152: Add support for setting MAC to system's
+> > > Auxiliary MAC address
+> > >
+> > > > > And you want to check this for all Dell devices?  Please be model
+> > > > > specific, I doubt a bunch of Dell servers wants to run this code...
+> > > > >
+> > > >
+> > > > Tracking model specific is really going to turn into a giant list never
+> ending
+> > > list.
+> > > > To drill down more specifically, I can match on chassis too.
+> > >
+> > > Does Dell happen to use its own USB Vendor ID for the USB device in
+> > > the dock? You could go at this problem from the other direction if it
+> > > does have a unique vendor ID.
+> > >
+> > >      Andrew
+> >
+> > Unfortunately it's not a Dell specific VID/PID.  I'm asking around to find out
+> > if there is something else identifiable about this dock's NIC (maybe that
+> r8152
+> > can query).
+> 
+> lsusb -v
+> 
+> I assume there is a USB hub in the dock, maybe that has a Dell VID?
+> Going one level up the USB tree hierarchy should not be too hard.
+> 
+>       Andrew
 
-For some cases, if we really need to check sk->sk_state, it's necessary to
-fix this issue, at least when we use ss or netstat to dump, we can get a
-more exact information.
+I confirmed with some internal contacts a few extra bits about questions 
+about this from throughout the conversation.
 
-As an improvement, we will change sk->sk_state when we change asoc->state
-to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
-sctp_close.
+1) This feature IS in the general Realtek driver for Windows, not a special Dell driver.
+2) The feature only offered to the Realtek 8153-AD, no other Realtek chip will do it 
+(even Realtek 8153-VB won't).
+3) The feature is activated when a special "Docking" bit is set on the 8153-AD.
+4) The feature is activated on all Realtek 8153-AD's on the host system with the
+docking bit set.  So on Windows if two Dell docks were hooked up they would both 
+have the same AUX MAC. 
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/sm_sideeffect.c | 4 +++-
- net/sctp/socket.c        | 1 +
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index aa37122..12d4519 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
- 
- 		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
- 		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
--		    sctp_sstate(sk, ESTABLISHED))
-+		    sctp_sstate(sk, ESTABLISHED)) {
-+			sk->sk_state = SCTP_SS_CLOSING;
- 			sk->sk_shutdown |= RCV_SHUTDOWN;
-+		}
- 	}
- 
- 	if (sctp_state(asoc, COOKIE_WAIT)) {
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 67154b8..91a460d 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
- 		return;
- 
- 	if (how & SEND_SHUTDOWN) {
-+		sk->sk_state = SCTP_SS_CLOSING;
- 		ep = sctp_sk(sk)->ep;
- 		if (!list_empty(&ep->asocs)) {
- 			asoc = list_entry(ep->asocs.next,
--- 
-2.1.0
+So considering that I think it would make sense to only activate in those same
+special circumstances (RTL8153-AD, docking bit set, system has \\_SB.AMAC).  
+I also feel this should stay in the Realtek driver as this as this implementation is
+very Realtek specific.
