@@ -1,51 +1,102 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] libertas_tf: Drop unused variable and define
-Date: Fri,  3 Jun 2016 13:48:55 -0700
-Message-ID: <1464986935-23361-1-git-send-email-linux@roeck-us.net>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [RFC PATCH 0/4] Make inotify instance/watches be accounted per
+	userns
+Date: Fri, 03 Jun 2016 15:41:55 -0500
+Message-ID: <87inxqovho.fsf@x220.int.ebiederm.org>
+References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
+	<8737ow7vcp.fsf@x220.int.ebiederm.org>
+	<20160602074920.GG19636@quack2.suse.cz>
+	<87bn3jy1cd.fsf@x220.int.ebiederm.org> <5751667D.7010207@kyup.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>, avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	operations-/eCPMmvKun9pLGFMi4vTTA@public.gmane.org, gorcunov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, john-jueV0HHMeujJJrXXpGQQMAC/G2K4zDHf@public.gmane.org
+To: Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <5751667D.7010207-6AxghH7DbtA@public.gmane.org> (Nikolay Borisov's message of "Fri, 3
+	Jun 2016 14:14:05 +0300")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-gcc-6 reports:
+Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org> writes:
 
-drivers/net/wireless/marvell/libertas_tf/main.c:30:19: error:
-	'lbtf_driver_version' defined but not used
+> On 06/02/2016 07:58 PM, Eric W. Biederman wrote:
+>> 
+>> Nikolay please see my question for you at the end.
+[snip] 
+>> All of that said there is definitely a practical question that needs to
+>> be asked.  Nikolay how did you get into this situation?  A typical user
+>> namespace configuration will set up uid and gid maps with the help of a
+>> privileged program and not map the uid of the user who created the user
+>> namespace.  Thus avoiding exhausting the limits of the user who created
+>> the container.
+>
+> Right but imagine having multiple containers with identical uid/gid maps
+> for LXC-based setups imagine this:
+>
+> lxc.id_map = u 0 1337 65536
 
-with -Werror=unused-const-variable=.
+So I am only moderately concerned when the containers have overlapping
+ids.  Because at some level overlapping ids means they are the same
+user.  This is certainly true for file permissions and for other
+permissions.  To isolate one container from another it fundamentally
+needs to have separate uids and gids on the host system.
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/wireless/marvell/libertas_tf/main.c | 7 -------
- 1 file changed, 7 deletions(-)
+> Now all processes which are running with the same user on different
+> containers will actually share the underlying user_struct thus the
+> inotify limits. In such cases even running multiple instances of 'tail'
+> in one container will eventually use all allowed inotify/mark instances.
+> For this to happen you needn't also have complete overlap of the uid
+> map, it's enough to have at least one UID between 2 containers overlap.
+>
+>
+> So the risk of exhaustion doesn't apply to the privileged user that
+> created the container and the uid mapping, but rather the users under
+> which the various processes in the container are running. Does that make
+> it clear?
 
-diff --git a/drivers/net/wireless/marvell/libertas_tf/main.c b/drivers/net/wireless/marvell/libertas_tf/main.c
-index 0bf8916a02cf..75bf0c8a2f6f 100644
---- a/drivers/net/wireless/marvell/libertas_tf/main.c
-+++ b/drivers/net/wireless/marvell/libertas_tf/main.c
-@@ -16,7 +16,6 @@
- #include <linux/module.h>
- #include "libertas_tf.h"
- 
--#define DRIVER_RELEASE_VERSION "004.p0"
- /* thinfirm version: 5.132.X.pX */
- #define LBTF_FW_VER_MIN		0x05840300
- #define LBTF_FW_VER_MAX		0x0584ffff
-@@ -27,12 +26,6 @@ unsigned int lbtf_debug;
- EXPORT_SYMBOL_GPL(lbtf_debug);
- module_param_named(libertas_tf_debug, lbtf_debug, int, 0644);
- 
--static const char lbtf_driver_version[] = "THINFIRM-USB8388-" DRIVER_RELEASE_VERSION
--#ifdef DEBUG
--	"-dbg"
--#endif
--	"";
--
- struct workqueue_struct *lbtf_wq;
- 
- static const struct ieee80211_channel lbtf_channels[] = {
--- 
-2.5.0
+Yes.  That is clear.
+
+>> Which makes me personally more worried about escaping the existing
+>> limits than exhausting the limits of a particular user.
+>
+> So I thought bit about it and I guess a solution can be concocted which
+> utilize the hierarchical nature of page counter, and the inotify limits
+> are set per namespace if you have capable(CAP_SYS_ADMIN). That way the
+> admin can set one fairly large on the init_user_ns and then in every
+> namespace created one can set smaller limits. That way for a branch in
+> the tree (in the nomenclature you used in your previous reply to me) you
+> will really be upper-bound to the limit set in the namespace which have
+> ->level = 1. For the width of the tree, you will be bound by the
+> "global" init_user_ns limits. How does that sound?
+
+As a addendum to that design.  I think there should be an additional
+sysctl or two that specifies how much the limit decreases when creating
+a new user namespace and when creating a new user in that user
+namespace.  That way with a good selection of limits and a limit
+decrease people can use the kernel defaults without needing to change
+them.
+
+Having default settings that are good enough 99% of the time and that
+people don't need to tune, would be my biggest requirement (aside from
+being light-weight) for merging something like this.
+
+If things are set and forget and even the continer case does not need to
+be aware then I think we have a design sufficiently robust and different
+from what cgroups is doing to make it worth while to have a userns based
+solution.
+
+I can see a lot of different limits implemented this way.
+
+Eric
