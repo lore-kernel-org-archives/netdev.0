@@ -1,58 +1,83 @@
-From: Dongdong Liu <liudongdong3@huawei.com>
-Subject: [bug discuss] fjes driver call trace warning, "PNP0C02" used in fjes
- seems like a bug,
-Date: Fri, 3 Jun 2016 17:38:12 +0800
-Message-ID: <57515004.1080301@huawei.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: [PATCH net] bridge: Fix incorrect re-injection of STP
+	packets
+Date: Fri, 3 Jun 2016 12:39:45 +0300
+Message-ID: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gbk"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linuxarm <linuxarm@huawei.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:13716 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543AbcFCJib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 05:38:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: yotamg@mellanox.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, Florian Westphal <fw@strlen.de>,
+	Ido Schimmel <idosch@mellanox.com>, jiri@mellanox.com,
+	nogahf@mellanox.com, eladr@mellanox.com, ogerlitz@mellanox.com
+To: <stephen@networkplumber.org>, <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi all:
+Commit 8626c56c8279 ("bridge: fix potential use-after-free when hook
+returns QUEUE or STOLEN verdict") fixed incorrect usage of NF_HOOK's
+return value by consuming packets in okfn via br_pass_frame_up().
 
-The bug is recorded in https://bugs.linaro.org/show_bug.cgi?id=2292.
+However, this function re-injects packets to the Rx path with skb->dev
+set to the bridge device, which breaks kernel's STP, as all STP packets
+appear to originate from the bridge device itself.
 
-"PNP0C02" attached two modules drivers/pnp/system.c and drivers/net/fjes/fjes_main.c .
-"fjes" driver lead to the call trace.
+Instead, if okfn was called for a packet, make bridge's rx_handler
+re-inject it to the Rx path by returning RX_HANDLER_PASS. This is
+consistent with previous behavior.
 
-system.c:
-static const struct pnp_device_id pnp_dev_table[] = {
-         /* General ID for reserving resources */
-         {"PNP0c02", 0},
-         /* memory controller */
-         {"PNP0c01", 0},
-         {"", 0}
-};
+Cc: Florian Westphal <fw@strlen.de>
+Fixes: 8626c56c8279 ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+---
+ net/bridge/br_input.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-jes_main.c:
-static const struct acpi_device_id fjes_acpi_ids[] = {
-         {"PNP0C02", 0},
-         {"", 0},
-};
-
-Both of the modules use id "PNP0C02" (case insensitive),
-
-I used "PNP0C02" to mark motherboard reserved resource as below in UEFI.
-Device (RES1)
-{
-	Name (_HID, "HISI0081") // HiSi PCIe RC config baseaddress
-	Name (_CID, "PNP0C02") // Motherboard reserved resource
-		Name (_CRS, ResourceTemplate (){
-			Memory32Fixed (ReadWrite, 0xb0080000 , 0x10000)
-		})
-}
-
-I think that "PNP0C02" should be used to mark any motherboard reserved resource and not a specific network driver.
-It seems like a bug in the "fjes" driver.
-
-Thanks
-
-Dongdong
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 1607977..c73ed44 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -223,9 +223,7 @@ static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_bu
+ 	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
+ 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
+ 
+-	BR_INPUT_SKB_CB(skb)->brdev = p->br->dev;
+-	br_pass_frame_up(skb);
+-	return 0;
++	return RX_HANDLER_PASS;
+ }
+ 
+ /*
+@@ -238,6 +236,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 	struct sk_buff *skb = *pskb;
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+ 	br_should_route_hook_t *rhook;
++	int err;
+ 
+ 	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+ 		return RX_HANDLER_PASS;
+@@ -287,8 +286,11 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 		}
+ 
+ 		/* Deliver packet to local host only */
+-		NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
+-			NULL, skb, skb->dev, NULL, br_handle_local_finish);
++		err = NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
++			      NULL, skb, skb->dev, NULL,
++			      br_handle_local_finish);
++		if (err == RX_HANDLER_PASS)
++			return RX_HANDLER_PASS;
+ 		return RX_HANDLER_CONSUMED;
+ 	}
+ 
+-- 
+2.4.3
