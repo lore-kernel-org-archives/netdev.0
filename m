@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v4 net-next 07/13] net: hns: enet specify a reference to dsaf by fwnode_handle
-Date: Fri, 3 Jun 2016 10:55:15 +0800
-Message-ID: <1464922521-30928-8-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v4 net-next 04/13] net: hisilicon: add support of acpi for hns-mdio
+Date: Fri, 3 Jun 2016 10:55:12 +0800
+Message-ID: <1464922521-30928-5-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1464922521-30928-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,146 +11,201 @@ Cc: <fengguang.wu@intel.com>, <andriy.shevchenko@linux.intel.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linux-acpi@vger.kernel.org>, <linuxarm@huawei.com>
 To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <davem@davemloft.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1464922521-30928-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Kejian Yan <yankejian@huawei.com>
 
-As device_node is only used by DT case, it is expected to find uniform
-ways. So fwnode_handle is the suitable method.
+hns-mdio needs to register itself to mii-bus. The info of the device can
+be read by both DT and ACPI.
+HNS tries to call Linux PHY driver to help access PHY-devices, the HNS
+hardware topology is as below. The MDIO controller may control several
+PHY-devices, and each PHY-device connects to a MAC device. The MDIO will
+be registered to mdiobus, then PHY-devices will register when each mac
+find PHY device.
+                       cpu
+                        |
+                        |
+     -------------------------------------------
+    |                   |                       |
+    |                   |                       |
+    |                  dsaf                     |
+   MDIO                 |                      MDIO
+    |      ---------------------------          |
+    |     |         |         |       |         |
+    |     |         |         |       |         |
+    |    MAC       MAC       MAC     MAC        |
+    |     |         |         |       |         |
+     ---- |-------- |-------- |       | --------
+         ||        ||        ||       ||
+         PHY       PHY       PHY     PHY
+
+And the driver can handle reset sequence by _RST method in DSDT in ACPI
+case.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
 change log:
- v2: remove the redundant line
-
+ v2:
+        1. use dev_of_node instead of IS_ENABLED macro
+        2. Add ACPI bits
  v1: first submit
- link: https://lkml.org/lkml/2016/5/13/98
+    Link: https://lkml.org/lkml/2016/5/13/93
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.c     | 12 ++++++------
- drivers/net/ethernet/hisilicon/hns/hnae.h     |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 14 ++++++++------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h |  2 +-
- 4 files changed, 16 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 106 +++++++++++++++++++-----------
+ 1 file changed, 69 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 3bfe36f..d630acd 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -96,16 +96,16 @@ static int __ae_match(struct device *dev, const void *data)
- {
- 	struct hnae_ae_dev *hdev = cls_to_ae_dev(dev);
- 
--	return hdev->dev->of_node == data;
-+	return (data == &hdev->dev->of_node->fwnode);
- }
- 
--static struct hnae_ae_dev *find_ae(const struct device_node *ae_node)
-+static struct hnae_ae_dev *find_ae(const struct fwnode_handle *fwnode)
- {
- 	struct device *dev;
- 
--	WARN_ON(!ae_node);
-+	WARN_ON(!fwnode);
- 
--	dev = class_find_device(hnae_class, NULL, ae_node, __ae_match);
-+	dev = class_find_device(hnae_class, NULL, fwnode, __ae_match);
- 
- 	return dev ? cls_to_ae_dev(dev) : NULL;
- }
-@@ -312,7 +312,7 @@ EXPORT_SYMBOL(hnae_reinit_handle);
-  * return handle ptr or ERR_PTR
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 297edc4..761a32f 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -7,6 +7,7 @@
+  * (at your option) any later version.
   */
- struct hnae_handle *hnae_get_handle(struct device *owner_dev,
--				    const struct device_node *ae_node,
-+				    const struct fwnode_handle	*fwnode,
- 				    u32 port_id,
- 				    struct hnae_buf_ops *bops)
- {
-@@ -321,7 +321,7 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
- 	int i, j;
+ 
++#include <linux/acpi.h>
+ #include <linux/errno.h>
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+@@ -354,48 +355,60 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
  	int ret;
  
--	dev = find_ae(ae_node);
-+	dev = find_ae(fwnode);
- 	if (!dev)
- 		return ERR_PTR(-ENODEV);
+-	if (!dev_of_node(bus->parent))
+-		return -ENOTSUPP;
++	if (dev_of_node(bus->parent)) {
++		if (!mdio_dev->subctrl_vbase) {
++			dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
++			return -ENODEV;
++		}
  
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index e8d36aa..f5f8140 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -528,7 +528,7 @@ struct hnae_handle {
- #define ring_to_dev(ring) ((ring)->q->dev->dev)
+-	if (!mdio_dev->subctrl_vbase) {
+-		dev_err(&bus->dev, "mdio sys ctl reg has not maped\n");
+-		return -ENODEV;
+-	}
++		/* 1. reset req, and read reset st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
++					    MDIO_SC_RESET_ST, 0x1,
++					    MDIO_CHECK_SET_ST);
++		if (ret) {
++			dev_err(&bus->dev, "MDIO reset fail\n");
++			return ret;
++		}
  
- struct hnae_handle *hnae_get_handle(struct device *owner_dev,
--				    const struct device_node *ae_node,
-+				    const struct fwnode_handle	*fwnode,
- 				    u32 port_id,
- 				    struct hnae_buf_ops *bops);
+-	/*1. reset req, and read reset st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
+-				    MDIO_SC_RESET_ST, 0x1,
+-				    MDIO_CHECK_SET_ST);
+-	if (ret) {
+-		dev_err(&bus->dev, "MDIO reset fail\n");
+-		return ret;
+-	}
++		/* 2. dis clk, and read clk st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
++					    0x1, MDIO_SC_CLK_ST, 0x1,
++					    MDIO_CHECK_CLR_ST);
++		if (ret) {
++			dev_err(&bus->dev, "MDIO dis clk fail\n");
++			return ret;
++		}
  
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 8851420..93f6ccb 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1807,7 +1807,7 @@ static int hns_nic_try_get_ae(struct net_device *ndev)
- 	int ret;
+-	/*2. dis clk, and read clk st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
+-				    0x1, MDIO_SC_CLK_ST, 0x1,
+-				    MDIO_CHECK_CLR_ST);
+-	if (ret) {
+-		dev_err(&bus->dev, "MDIO dis clk fail\n");
+-		return ret;
+-	}
++		/* 3. reset dreq, and read reset st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
++					    MDIO_SC_RESET_ST, 0x1,
++					    MDIO_CHECK_CLR_ST);
++		if (ret) {
++			dev_err(&bus->dev, "MDIO dis clk fail\n");
++			return ret;
++		}
  
- 	h = hnae_get_handle(&priv->netdev->dev,
--			    priv->ae_node, priv->port_id, NULL);
-+			    priv->fwnode, priv->port_id, NULL);
- 	if (IS_ERR_OR_NULL(h)) {
- 		ret = -ENODEV;
- 		dev_dbg(priv->dev, "has not handle, register notifier!\n");
-@@ -1867,7 +1867,7 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
- 	struct device *dev = &pdev->dev;
- 	struct net_device *ndev;
- 	struct hns_nic_priv *priv;
--	struct device_node *node = dev->of_node;
-+	struct device_node *ae_node;
- 	u32 port_id;
- 	int ret;
- 
-@@ -1881,17 +1881,19 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
- 	priv->dev = dev;
- 	priv->netdev = ndev;
- 
--	if (of_device_is_compatible(node, "hisilicon,hns-nic-v1"))
-+	if (of_device_is_compatible(dev->of_node, "hisilicon,hns-nic-v1"))
- 		priv->enet_ver = AE_VERSION_1;
- 	else
- 		priv->enet_ver = AE_VERSION_2;
- 
--	priv->ae_node = (void *)of_parse_phandle(node, "ae-handle", 0);
--	if (IS_ERR_OR_NULL(priv->ae_node)) {
--		ret = PTR_ERR(priv->ae_node);
-+	ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
-+	if (IS_ERR_OR_NULL(ae_node)) {
-+		ret = PTR_ERR(ae_node);
- 		dev_err(dev, "not find ae-handle\n");
- 		goto out_read_prop_fail;
- 	}
-+	priv->fwnode = &ae_node->fwnode;
+-	/*3. reset dreq, and read reset st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
+-				    MDIO_SC_RESET_ST, 0x1,
+-				    MDIO_CHECK_CLR_ST);
+-	if (ret) {
+-		dev_err(&bus->dev, "MDIO dis clk fail\n");
+-		return ret;
++		/* 4. en clk, and read clk st check */
++		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
++					    0x1, MDIO_SC_CLK_ST, 0x1,
++					    MDIO_CHECK_SET_ST);
++		if (ret)
++			dev_err(&bus->dev, "MDIO en clk fail\n");
++	} else if (is_acpi_node(bus->parent->fwnode)) {
++		acpi_status s;
 +
- 	/* try to find port-idx-in-ae first */
- 	ret = device_property_read_u32(dev, "port-idx-in-ae", &port_id);
++		s = acpi_evaluate_object(ACPI_HANDLE(bus->parent),
++					 "_RST", NULL, NULL);
++		if (ACPI_FAILURE(s)) {
++			dev_err(&bus->dev, "Reset failed, return:%#x\n", s);
++			ret = -EBUSY;
++		} else {
++			ret = 0;
++		}
++	} else {
++		dev_err(&bus->dev, "Can not get cfg data from DT or ACPI\n");
++		ret = -ENXIO;
+ 	}
+-
+-	/*4. en clk, and read clk st check*/
+-	ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
+-				    0x1, MDIO_SC_CLK_ST, 0x1,
+-				    MDIO_CHECK_SET_ST);
+-	if (ret)
+-		dev_err(&bus->dev, "MDIO en clk fail\n");
+-
+ 	return ret;
+ }
+ 
+@@ -453,6 +466,18 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 			mdio_dev->subctrl_vbase = NULL;
+ 		}
+ 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
++	} else if (is_acpi_node(pdev->dev.fwnode)) {
++		/* Clear all the IRQ properties */
++		memset(new_bus->irq, PHY_POLL, 4 * PHY_MAX_ADDR);
++
++		/* Mask out all PHYs from auto probing. */
++		new_bus->phy_mask = ~0;
++
++		/* Register the MDIO bus */
++		ret = mdiobus_register(new_bus);
++	} else {
++		dev_err(&pdev->dev, "Can not get cfg data from DT or ACPI\n");
++		ret = -ENXIO;
+ 	}
+ 
  	if (ret) {
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-index 337efa5..44bb301 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-@@ -54,7 +54,7 @@ struct hns_nic_ops {
+@@ -487,12 +512,19 @@ static const struct of_device_id hns_mdio_match[] = {
+ 	{}
  };
  
- struct hns_nic_priv {
--	const struct device_node *ae_node;
-+	const struct fwnode_handle      *fwnode;
- 	u32 enet_ver;
- 	u32 port_id;
- 	int phy_mode;
++static const struct acpi_device_id hns_mdio_acpi_match[] = {
++	{ "HISI0141", 0 },
++	{ },
++};
++MODULE_DEVICE_TABLE(acpi, hns_mdio_acpi_match);
++
+ static struct platform_driver hns_mdio_driver = {
+ 	.probe = hns_mdio_probe,
+ 	.remove = hns_mdio_remove,
+ 	.driver = {
+ 		   .name = MDIO_DRV_NAME,
+ 		   .of_match_table = hns_mdio_match,
++		   .acpi_match_table = ACPI_PTR(hns_mdio_acpi_match),
+ 		   },
+ };
+ 
 -- 
 1.9.1
-
