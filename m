@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: fix rx-usecs interrupt pacing
- consistency
-Date: Fri, 03 Jun 2016 19:35:34 -0400 (EDT)
-Message-ID: <20160603.193534.1267260598418078664.davem@davemloft.net>
-References: <1464873292-17011-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH v3 0/7] sctp: Add GSO support
+Date: Fri, 03 Jun 2016 19:37:50 -0400 (EDT)
+Message-ID: <20160603.193750.2212448136295973014.davem@davemloft.net>
+References: <cover.1464888549.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mugunthanvnm@ti.com,
-	grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ivan.khoronzhuk@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464873292-17011-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	lucien.xin@gmail.com, nhorman@tuxdriver.com,
+	David.Laight@ACULAB.COM, vyasevich@gmail.com,
+	alexander.duyck@gmail.com, daniel@iogearbox.net, fw@strlen.de,
+	eric.dumazet@gmail.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43241 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750747AbcFCXhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 19:37:53 -0400
+In-Reply-To: <cover.1464888549.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Thu,  2 Jun 2016 16:14:52 +0300
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Thu,  2 Jun 2016 15:05:37 -0300
 
-> The rx-usecs shouldn't be changed while interface down/up.
-> Currently, for instance, if it's set to 100us, after interface
-> down/up it's 500us. It's a hidden bug that can lead to lavish
-> interrupt pacing time increasing while "down/up" up to max value.
+> This patchset adds sctp GSO support.
 > 
-> Steps to reproduce:
-> - set rx-usecs to be 100us
-> - down/up interface
-> - read new unexpected rx-usecs
+> Performance tests indicates that increases throughput by 10% if using
+> bigger chunk sizes, specially if bigger than MTU. For small chunks, it
+> doesn't help much if not using heavy firewall rules.
 > 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> For small chunks it will probably be of more use once we get something
+> like MSG_MORE as David Laight had suggested.
+> 
+> overall changes:
+> v1->v2:
+> Added support for receiving GSO frames on SCTP stack, as requested by
+> Dave Miller.
+> 
+> v2->v3:
+> Consider sctphdr size in skb_gso_transport_seglen()
+> rebased due to 5c7cdf339af5 ("gso: Remove arbitrary checks for
+> unsupported GSO")
 
-Applied.
+Series applied, thanks Marcelo.
