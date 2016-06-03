@@ -1,120 +1,94 @@
-From: Pau Espin Pedrol <pau.espin@tessares.net>
-Subject: [PATCH net-next] tcp: accept RST if SEQ matches right edge of SACK block
-Date: Fri,  3 Jun 2016 17:51:11 +0200
-Message-ID: <1464969071-9947-1-git-send-email-pau.espin@tessares.net>
-References: <1464966836.5939.189.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Pau Espin Pedrol <pau.espin@tessares.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:36344 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093AbcFCPvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 11:51:32 -0400
-Received: by mail-wm0-f51.google.com with SMTP id n184so2198588wmn.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 08:51:31 -0700 (PDT)
-In-Reply-To: <1464966836.5939.189.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH ipvs-next] ipvs: count pre-established TCP states as active
+Date: Fri,  3 Jun 2016 17:56:50 +0200 (CEST)
+Message-ID: <20160603155650.292BEA0E60@unicorn.suse.cz>
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 5961 advises to only accept RST packets containing a seq number
-matching the next expected seq number instead of the whole receive
-window in order to avoid spoofing attacks.
+Some users observed that "least connection" distribution algorithm doesn't
+handle well bursts of TCP connections from reconnecting clients after
+a node or network failure.
 
-However, this situation is not optimal in the case SACK is in use at the
-time the RST is sent. I recently run into a scenario in which packet
-losses were high while uploading data to a server, and userspace was
-willing to frequently terminate connections by sending a RST. In
-this case, the ACK sent on the receiver side (rcv_nxt) is frozen waiting
-for a lost packet retransmission and a SACK block is used to let the
-client continue uploading data. At some point later on, the client sends
-the RST (snd_nxt), which matches the next expected seq number of the
-SACK block on the receiver side which is going forward receiving data.
+This is because the algorithm counts active connection as worth 256
+inactive ones where for TCP, "active" only means TCP connections in
+ESTABLISHED state. In case of a connection burst, new connections are
+handled before previous ones have finished the three way handshaking so
+that all are still counted as "inactive", i.e. cheap ones. The become
+"active" quickly but at that time, all of them are already assigned to one
+real server (or few), resulting in highly unbalanced distribution.
 
-In this scenario, as RFC 5961 defines, the RST SEQ doesn't match the
-frozen main ACK at receiver side and thus gets dropped and a challenge
-ACK is sent, which gets usually lost due to network conditions. The main
-consequence is that the connection stays alive for a while even if it
-made sense to accept the RST. This can get really bad if lots of
-connections like this one are created in few seconds, allocating all the
-resources of the server easily.
+Address this by counting the "pre-established" states as "active".
 
-For security reasons, not all SACK blocks are checked (there could be a
-big amount of SACK blocks => acceptable SEQ numbers). Only up to the 4
-most recently updated SACK blocks (selective_acks[4] field) are checked,
-which are usually the ones with bigger probability to receive a RST as
-next packet. This should make it still difficult for attackers to inject
-a valid RST message.
-
-This patch was tested in a 3.18 kernel and probed to improve the
-situation in the scenario described above.
-
-Signed-off-by: Pau Espin Pedrol <pau.espin@tessares.net>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- net/ipv4/tcp_input.c | 22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+ net/netfilter/ipvs/ip_vs_proto_tcp.c | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d6c8f4cd0..8c5712a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5159,6 +5159,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 				  const struct tcphdr *th, int syn_inerr)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	bool rst_seq_match = false;
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index d7024b2ed769..5117bcb7d2f0 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -395,6 +395,20 @@ static const char *const tcp_state_name_table[IP_VS_TCP_S_LAST+1] = {
+ 	[IP_VS_TCP_S_LAST]		=	"BUG!",
+ };
  
- 	/* RFC1323: H1. Apply PAWS check first. */
- 	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
-@@ -5195,13 +5196,28 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
++static const bool tcp_state_active_table[IP_VS_TCP_S_LAST] = {
++	[IP_VS_TCP_S_NONE]		=	false,
++	[IP_VS_TCP_S_ESTABLISHED]	=	true,
++	[IP_VS_TCP_S_SYN_SENT]		=	true,
++	[IP_VS_TCP_S_SYN_RECV]		=	true,
++	[IP_VS_TCP_S_FIN_WAIT]		=	false,
++	[IP_VS_TCP_S_TIME_WAIT]		=	false,
++	[IP_VS_TCP_S_CLOSE]		=	false,
++	[IP_VS_TCP_S_CLOSE_WAIT]	=	false,
++	[IP_VS_TCP_S_LAST_ACK]		=	false,
++	[IP_VS_TCP_S_LISTEN]		=	false,
++	[IP_VS_TCP_S_SYNACK]		=	true,
++};
++
+ #define sNO IP_VS_TCP_S_NONE
+ #define sES IP_VS_TCP_S_ESTABLISHED
+ #define sSS IP_VS_TCP_S_SYN_SENT
+@@ -418,6 +432,13 @@ static const char * tcp_state_name(int state)
+ 	return tcp_state_name_table[state] ? tcp_state_name_table[state] : "?";
+ }
  
- 	/* Step 2: check RST bit */
- 	if (th->rst) {
--		/* RFC 5961 3.2 :
--		 * If sequence number exactly matches RCV.NXT, then
-+		/* RFC 5961 3.2 (extended to match against SACK too if available):
-+		 * If seq num exactly matches RCV.NXT or a recently updated SACK block,
-+		 * then
- 		 *     RESET the connection
- 		 * else
- 		 *     Send a challenge ACK
- 		 */
--		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt)
-+		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
-+			rst_seq_match = true;
-+		} else if (tcp_is_sack(tp)) {
-+			struct tcp_sack_block *sp = &tp->selective_acks[0];
-+			int this_sack;
++static bool tcp_state_active(int state)
++{
++	if (state >= IP_VS_TCP_S_LAST)
++		return false;
++	return tcp_state_active_table[state];
++}
 +
-+			for (this_sack = 0; this_sack < tp->rx_opt.num_sacks; ++this_sack) {
-+				if (TCP_SKB_CB(skb)->seq == sp[this_sack].end_seq) {
-+					rst_seq_match = true;
-+					break;
-+				}
-+			}
-+		}
-+
-+		if (rst_seq_match)
- 			tcp_reset(sk);
- 		else
- 			tcp_send_challenge_ack(sk, skb);
+ static struct tcp_states_t tcp_states [] = {
+ /*	INPUT */
+ /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
+@@ -540,12 +561,12 @@ set_tcp_state(struct ip_vs_proto_data *pd, struct ip_vs_conn *cp,
+ 
+ 		if (dest) {
+ 			if (!(cp->flags & IP_VS_CONN_F_INACTIVE) &&
+-			    (new_state != IP_VS_TCP_S_ESTABLISHED)) {
++			    !tcp_state_active(new_state)) {
+ 				atomic_dec(&dest->activeconns);
+ 				atomic_inc(&dest->inactconns);
+ 				cp->flags |= IP_VS_CONN_F_INACTIVE;
+ 			} else if ((cp->flags & IP_VS_CONN_F_INACTIVE) &&
+-				   (new_state == IP_VS_TCP_S_ESTABLISHED)) {
++				   tcp_state_active(new_state)) {
+ 				atomic_inc(&dest->activeconns);
+ 				atomic_dec(&dest->inactconns);
+ 				cp->flags &= ~IP_VS_CONN_F_INACTIVE;
 -- 
-2.5.0
+2.8.3
 
-
--- 
-
-------------------------------
-DISCLAIMER.
-This email and any files transmitted with it are confidential and intended 
-solely for the use of the individual or entity to whom they are addressed. 
-If you have received this email in error please notify the system manager. 
-This message contains confidential information and is intended only for the 
-individual named. If you are not the named addressee you should not 
-disseminate, distribute or copy this e-mail. Please notify the sender 
-immediately by e-mail if you have received this e-mail by mistake and 
-delete this e-mail from your system. If you are not the intended recipient 
-you are notified that disclosing, copying, distributing or taking any 
-action in reliance on the contents of this information is strictly 
-prohibited.
