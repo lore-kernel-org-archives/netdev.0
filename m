@@ -1,7 +1,7 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v3 2/7] binding: Make "mdio-parent-bus" property from mandatory to optional
-Date: Fri,  3 Jun 2016 20:56:03 +0530
-Message-ID: <1464967568-27562-3-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH v3 5/7] net:mdio-mux: Add MDIO mux driver for iProc SoCs
+Date: Fri,  3 Jun 2016 20:56:06 +0530
+Message-ID: <1464967568-27562-6-git-send-email-pramod.kumar@broadcom.com>
 References: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	bcm-kernel-feedback-list@broadcom.com,
@@ -15,44 +15,312 @@ To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
 	Will Deacon <will.deacon@arm.com>,
 	Kishon Vijay Abraham I <kishon@ti.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34593 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161014AbcFCP0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 11:26:43 -0400
-Received: by mail-pa0-f46.google.com with SMTP id bz2so15490818pad.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 08:26:43 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change "mdio-parent-bus" from mandatory section to optional
-as it won't be required by integrated MDIO multiplexer
-which has bus selection and mdio transaction generation logic,
-integrated inside.
+iProc based SoCs supports the integrated mdio multiplexer which
+has the bus selection as well as mdio transaction generation logic
+inside.
+
+This mutiplexer has child buses for PCIe, SATA, USB and ETH. These
+buses could be internal or external to SOC where PHYs are attached.
+These buses could use C-45 or C-22 mdio transaction.
 
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 ---
- Documentation/devicetree/bindings/net/mdio-mux.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/phy/Kconfig              |  11 ++
+ drivers/net/phy/Makefile             |   1 +
+ drivers/net/phy/mdio-mux-bcm-iproc.c | 246 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 258 insertions(+)
+ create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
 
-diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
-index 491f5bd..f58571f 100644
---- a/Documentation/devicetree/bindings/net/mdio-mux.txt
-+++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
-@@ -5,11 +5,12 @@ numbered uniquely in a device dependent manner.  The nodes for an MDIO
- bus multiplexer/switch will have one child node for each child bus.
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 6dad9a9..38faecf 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -254,6 +254,17 @@ config MDIO_BUS_MUX_MMIOREG
  
- Required properties:
--- mdio-parent-bus : phandle to the parent MDIO bus.
- - #address-cells = <1>;
- - #size-cells = <0>;
+ 	  Currently, only 8-bit registers are supported.
  
- Optional properties:
-+- mdio-parent-bus : phandle to the parent MDIO bus.
++config MDIO_BUS_MUX_BCM_IPROC
++	tristate "Support for iProc based MDIO bus multiplexers"
++	depends on OF && OF_MDIO && (ARCH_BCM_IPROC || COMPILE_TEST)
++	select MDIO_BUS_MUX
++	default ARCH_BCM_IPROC
++	help
++	  This module provides a driver for MDIO bus multiplexers found in
++	  iProc based Broadcom SoCs. This mulitplexer connects one of several
++	  child MDIO bus to a parent bus. Buses could be interal as well as
++	  external and selection logic lies inside the same multiplexer.
 +
- - Other properties specific to the multiplexer/switch hardware.
- 
- Required properties for child nodes:
+ config MDIO_BCM_UNIMAC
+ 	tristate "Broadcom UniMAC MDIO bus controller"
+ 	depends on HAS_IOMEM
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index fcdbb92..f5951d5a 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -39,6 +39,7 @@ obj-$(CONFIG_AMD_PHY)		+= amd.o
+ obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+ obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
++obj-$(CONFIG_MDIO_BUS_MUX_BCM_IPROC)	+= mdio-mux-bcm-iproc.o
+ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
+diff --git a/drivers/net/phy/mdio-mux-bcm-iproc.c b/drivers/net/phy/mdio-mux-bcm-iproc.c
+new file mode 100644
+index 0000000..2ed0488
+--- /dev/null
++++ b/drivers/net/phy/mdio-mux-bcm-iproc.c
+@@ -0,0 +1,246 @@
++/*
++ * Copyright 2016 Broadcom
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, version 2, as
++ * published by the Free Software Foundation (the "GPL").
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License version 2 (GPLv2) for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * version 2 (GPLv2) along with this source code.
++ */
++
++#include <linux/platform_device.h>
++#include <linux/device.h>
++#include <linux/of_mdio.h>
++#include <linux/module.h>
++#include <linux/phy.h>
++#include <linux/mdio-mux.h>
++#include <linux/delay.h>
++
++#define MDIO_PARAM_OFFSET		0x00
++#define MDIO_PARAM_MIIM_CYCLE		29
++#define MDIO_PARAM_INTERNAL_SEL		25
++#define MDIO_PARAM_BUS_ID		22
++#define MDIO_PARAM_C45_SEL		21
++#define MDIO_PARAM_PHY_ID		16
++#define MDIO_PARAM_PHY_DATA		0
++
++#define MDIO_READ_OFFSET		0x04
++#define MDIO_READ_DATA_MASK		0xffff
++#define MDIO_ADDR_OFFSET		0x08
++
++#define MDIO_CTRL_OFFSET		0x0C
++#define MDIO_CTRL_WRITE_OP		0x1
++#define MDIO_CTRL_READ_OP		0x2
++
++#define MDIO_STAT_OFFSET		0x10
++#define MDIO_STAT_DONE			1
++
++#define BUS_MAX_ADDR			32
++#define EXT_BUS_START_ADDR		16
++
++struct iproc_mdiomux_desc {
++	void *mux_handle;
++	void __iomem *base;
++	struct device *dev;
++	struct mii_bus *mii_bus;
++};
++
++static int iproc_mdio_wait_for_idle(void __iomem *base, bool result)
++{
++	unsigned int timeout = 1000; /* loop for 1s */
++	u32 val;
++
++	do {
++		val = readl(base + MDIO_STAT_OFFSET);
++		if ((val & MDIO_STAT_DONE) == result)
++			return 0;
++
++		usleep_range(1000, 2000);
++	} while (timeout--);
++
++	return -ETIMEDOUT;
++}
++
++/* start_miim_ops- Program and start MDIO transaction over mdio bus.
++ * @base: Base address
++ * @phyid: phyid of the selected bus.
++ * @reg: register offset to be read/written.
++ * @val :0 if read op else value to be written in @reg;
++ * @op: Operation that need to be carried out.
++ *      MDIO_CTRL_READ_OP: Read transaction.
++ *      MDIO_CTRL_WRITE_OP: Write transaction.
++ *
++ * Return value: Successful Read operation returns read reg values and write
++ *      operation returns 0. Failure operation returns negative error code.
++ */
++static int start_miim_ops(void __iomem *base,
++			  u16 phyid, u32 reg, u16 val, u32 op)
++{
++	u32 param;
++	int ret;
++
++	writel(0, base + MDIO_CTRL_OFFSET);
++	ret = iproc_mdio_wait_for_idle(base, 0);
++	if (ret)
++		goto err;
++
++	param = readl(base + MDIO_PARAM_OFFSET);
++	param |= phyid << MDIO_PARAM_PHY_ID;
++	param |= val << MDIO_PARAM_PHY_DATA;
++	if (reg & MII_ADDR_C45)
++		param |= (1 << MDIO_PARAM_C45_SEL);
++
++	writel(param, base + MDIO_PARAM_OFFSET);
++
++	writel(reg, base + MDIO_ADDR_OFFSET);
++
++	writel(op, base + MDIO_CTRL_OFFSET);
++
++	ret = iproc_mdio_wait_for_idle(base, 1);
++	if (ret)
++		goto err;
++
++	if (op == MDIO_CTRL_READ_OP)
++		ret = readl(base + MDIO_READ_OFFSET) & MDIO_READ_DATA_MASK;
++err:
++	return ret;
++}
++
++static int iproc_mdiomux_read(struct mii_bus *bus, int phyid, int reg)
++{
++	struct iproc_mdiomux_desc *md = bus->priv;
++	int ret;
++
++	ret = start_miim_ops(md->base, phyid, reg, 0, MDIO_CTRL_READ_OP);
++	if (ret < 0)
++		dev_err(&bus->dev, "mdiomux read operation failed!!!");
++
++	return ret;
++}
++
++static int iproc_mdiomux_write(struct mii_bus *bus,
++			       int phyid, int reg, u16 val)
++{
++	struct iproc_mdiomux_desc *md = bus->priv;
++	int ret;
++
++	/* Write val at reg offset */
++	ret = start_miim_ops(md->base, phyid, reg, val, MDIO_CTRL_WRITE_OP);
++	if (ret < 0)
++		dev_err(&bus->dev, "mdiomux write operation failed!!!");
++
++	return ret;
++}
++
++static int mdio_mux_iproc_switch_fn(int current_child, int desired_child,
++				    void *data)
++{
++	struct iproc_mdiomux_desc *md = data;
++	u32 param, bus_id;
++	bool bus_dir;
++
++	/* select bus and its properties */
++	bus_dir = (desired_child < EXT_BUS_START_ADDR);
++	bus_id = bus_dir ? desired_child : (desired_child - EXT_BUS_START_ADDR);
++
++	param = (bus_dir ? 1 : 0) << MDIO_PARAM_INTERNAL_SEL;
++	param |= (bus_id << MDIO_PARAM_BUS_ID);
++
++	writel(param, md->base + MDIO_PARAM_OFFSET);
++	return 0;
++}
++
++static int mdio_mux_iproc_probe(struct platform_device *pdev)
++{
++	struct iproc_mdiomux_desc *md;
++	struct mii_bus *bus;
++	struct resource *res;
++	int rc;
++
++	md = devm_kzalloc(&pdev->dev, sizeof(*md), GFP_KERNEL);
++	if (!md)
++		return -ENOMEM;
++	md->dev = &pdev->dev;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	md->base = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(md->base)) {
++		dev_err(&pdev->dev, "failed to ioremap register\n");
++		return PTR_ERR(md->base);
++	}
++
++	md->mii_bus = mdiobus_alloc();
++	if (!md->mii_bus) {
++		dev_err(&pdev->dev, "mdiomux bus alloc failed\n");
++		return -ENOMEM;
++	}
++
++	bus = md->mii_bus;
++	bus->priv = md;
++	bus->name = "iProc MDIO mux bus";
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
++	bus->parent = &pdev->dev;
++	bus->read = iproc_mdiomux_read;
++	bus->write = iproc_mdiomux_write;
++
++	bus->phy_mask = ~0;
++	bus->dev.of_node = pdev->dev.of_node;
++	rc = mdiobus_register(bus);
++	if (rc) {
++		dev_err(&pdev->dev, "mdiomux registration failed\n");
++		goto out;
++	}
++
++	platform_set_drvdata(pdev, md);
++
++	rc = mdio_mux_init(md->dev, mdio_mux_iproc_switch_fn,
++			   &md->mux_handle, md, md->mii_bus);
++	if (rc) {
++		dev_info(md->dev, "mdiomux initialization failed\n");
++		goto out;
++	}
++
++	dev_info(md->dev, "iProc mdiomux registered\n");
++	return 0;
++out:
++	mdiobus_free(bus);
++	return rc;
++}
++
++static int mdio_mux_iproc_remove(struct platform_device *pdev)
++{
++	struct iproc_mdiomux_desc *md = dev_get_platdata(&pdev->dev);
++
++	mdio_mux_uninit(md->mux_handle);
++
++	return 0;
++}
++
++static const struct of_device_id mdio_mux_iproc_match[] = {
++	{
++		.compatible = "brcm,mdio-mux-iproc",
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(of, mdio_mux_iproc_match);
++
++static struct platform_driver mdiomux_iproc_driver = {
++	.driver = {
++		.name		= "mdio-mux-iproc",
++		.of_match_table = mdio_mux_iproc_match,
++	},
++	.probe		= mdio_mux_iproc_probe,
++	.remove		= mdio_mux_iproc_remove,
++};
++
++module_platform_driver(mdiomux_iproc_driver);
++
++MODULE_DESCRIPTION("iProc MDIO Mux Bus Driver");
++MODULE_AUTHOR("Pramod Kumar <pramod.kumar@broadcom.com>");
++MODULE_LICENSE("GPL v2");
 -- 
 1.9.1
