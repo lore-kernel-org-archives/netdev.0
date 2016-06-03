@@ -1,61 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/7] DT: phy.txt: Add mdio-integrated-mux property
-Date: Fri, 3 Jun 2016 02:46:32 +0200
-Message-ID: <20160603004632.GB12165@lunn.ch>
-References: <1464701801-17243-1-git-send-email-pramod.kumar@broadcom.com>
- <1464701801-17243-3-git-send-email-pramod.kumar@broadcom.com>
- <20160602232703.GA17619@rob-hp-laptop>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 0/2] Quiet noisy LSM denial when accessing net sysctl
+Date: Fri, 3 Jun 2016 11:00:36 +1000 (AEST)
+Message-ID: <alpine.LRH.2.20.1606031100260.18314@namei.org>
+References: <1462575854-4301-1-git-send-email-tyhicks@canonical.com> <20160508.235620.333454221783238471.davem@davemloft.net> <573B271B.30202@canonical.com> <57505F34.5020609@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pramod Kumar <pramod.kumar@broadcom.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	linux-kernel@vger.kernel.org,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	netdev@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
-	Kumar Gala <galak@codeaurora.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Rob Herring <robh@kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, serge.hallyn@canonical.com
+To: Tyler Hicks <tyhicks@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160602232703.GA17619@rob-hp-laptop>
+In-Reply-To: <57505F34.5020609@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 02, 2016 at 06:27:03PM -0500, Rob Herring wrote:
-> On Tue, May 31, 2016 at 07:06:36PM +0530, Pramod Kumar wrote:
-> > This property is used by integrated MDIO multiplexer
-> > which has bus selection and mdio transaction generation logic,
-> > integrated inside.
+On Thu, 2 Jun 2016, Tyler Hicks wrote:
+
+> On 05/17/2016 09:13 AM, Tyler Hicks wrote:
+> > On 05/08/2016 10:56 PM, David Miller wrote:
+> >> From: Tyler Hicks <tyhicks@canonical.com>
+> >> Date: Fri,  6 May 2016 18:04:12 -0500
+> >>
+> >>> This pair of patches does away with what I believe is a useless denial
+> >>> audit message when a privileged process initially accesses a net sysctl.
+> >>
+> >> The LSM folks can apply this if they agree with you.
 > > 
-> > Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-> > ---
-> >  Documentation/devicetree/bindings/net/mdio-mux.txt | 9 ++++++++-
-> >  1 file changed, 8 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
-> > index 491f5bd..b5ad83e 100644
-> > --- a/Documentation/devicetree/bindings/net/mdio-mux.txt
-> > +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
-> > @@ -5,13 +5,20 @@ numbered uniquely in a device dependent manner.  The nodes for an MDIO
-> >  bus multiplexer/switch will have one child node for each child bus.
-> >  
-> >  Required properties:
-> > -- mdio-parent-bus : phandle to the parent MDIO bus.
-> >  - #address-cells = <1>;
-> >  - #size-cells = <0>;
-> >  
-> >  Optional properties:
-> > +- mdio-parent-bus : phandle to the parent MDIO bus. Should be used
-> > +		if parent mdio bus is not part of multiplexer.
+> > Hi James - Could you pick up these two bug fix patches? Thanks!
 > 
-> You don't appear to be using this. When would you?
+> Hello - Just checking in again to see if you plan on taking these
+> through the security tree?
 
-He is moving it to optional. The mdio-mux-mmio and mdio-mux-gpio do
-however use it, which follow this binding.
+Sure, please resend.
 
-	Andrew
+-- 
+James Morris
+<jmorris@namei.org>
