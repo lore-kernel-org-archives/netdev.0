@@ -1,66 +1,77 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH v2] r8152: Add support for setting MAC to system's Auxiliary MAC address
-Date: Fri, 3 Jun 2016 09:43:35 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2FED9B5@RTITMBSV03.realtek.com.tw>
-References: <1464886687-16284-1-git-send-email-mario_limonciello@dell.com>
- <1464886687-16284-2-git-send-email-mario_limonciello@dell.com>
+From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/5] net-next: ethernet: add sun8i-emac driver
+Date: Fri,  3 Jun 2016 11:56:25 +0200
+Message-ID: <1464947790-22991-1-git-send-email-clabbe.montjoie@gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux USB <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"anthony.wong-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org" <anthony.wong-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Mario Limonciello <mario_limonciello-8PEkshWhKlo@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1464886687-16284-2-git-send-email-mario_limonciello-8PEkshWhKlo@public.gmane.org>
-Content-Language: zh-TW
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-sunxi+bncBD7YLCN32UNBB7VIYW5AKGQEI4OFQWY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Mario Limonciello [mailto:mario_limonciello-8PEkshWhKlo@public.gmane.org]
-> Sent: Friday, June 03, 2016 12:58 AM
-[...]
-> @@ -500,6 +502,7 @@ enum rtl8152_flags {
->  	SELECTIVE_SUSPEND,
->  	PHY_RESET,
->  	SCHEDULE_NAPI,
-> +	MAC_PASSTHRU = 0,
+Hello
 
-I don't think you have to give this a value.
+This patch series add the driver for sun8i-emac which handle the Ethernet MAC
+present on Allwinner H3/A83T/A64 SoCs.
 
->  };
-> 
-[...]
->  static int set_ethernet_addr(struct r8152 *tp)
->  {
->  	struct net_device *dev = tp->netdev;
-> @@ -1041,6 +1088,10 @@ static int set_ethernet_addr(struct r8152 *tp)
->  	else
->  		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
-> 
-> +	/* if system provides auxiliary MAC address */
-> +	if (get_auxiliary_addr(tp, &sa))
-> +		ret = 0;
+It supports 10/100/1000 Mbit/s speed with half/full duplex.
+It can use an internal PHY (MII 10/100) or an external PHY
+via RGMII/RMII.
 
-It still has problem when tp->version == RTL_VER_01.
-First, you would read the current MAC address (MAC1) to sa.sa_data.
-Then sa.sa_data may be modified by MAC2 after get_auxiliary_addr().
-However, the MAC2 wouldn't be set to the device, because
+This patch series enable the driver only for the H3 SoC since A83T and A64
+doesn't have the necessary clocks present in mainline.
 
-		if (tp->version == RTL_VER_01)
-			ether_addr_copy(dev->dev_addr, sa.sa_data);
+This patch series enable the driver only for the OrangePiPC board since other
+board with H3 use external PHY which need optional regulators that will be
+supported later.
 
-Therefore, you would find that dev_addr is MAC2, and the device
-uses MAC1.
+The driver have been tested on the following boards:
+- H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
+- A64 Pine64
+- A83T BananaPI-M3
 
-Best Regards,
-Hayes
+I would like to thanks Chen-Yu Tsai for his help on developing this driver.
 
+Regards
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+LABBE Corentin (5):
+  ethernet: add sun8i-emac driver
+  MAINTAINERS: Add myself as maintainers of sun8i-emac
+  ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
+  ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
+  ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
+
+ .../bindings/net/allwinner,sun8i-emac.txt          |   64 +
+ MAINTAINERS                                        |    6 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   11 +
+ arch/arm/boot/dts/sun8i-h3.dtsi                    |   14 +
+ drivers/net/ethernet/allwinner/Kconfig             |   13 +
+ drivers/net/ethernet/allwinner/Makefile            |    1 +
+ drivers/net/ethernet/allwinner/sun8i-emac.c        | 1943 ++++++++++++++++++++
+ 7 files changed, 2052 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+ create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
+
+-- 
+2.7.3
