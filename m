@@ -1,78 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net_sched: keep backlog updated with qlen
-Date: Fri,  3 Jun 2016 15:05:57 -0700
-Message-ID: <1464991557-5135-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: stasn77@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2] soreuseport: add compat case for setsockopt SO_ATTACH_REUSEPORT_CBPF
+Date: Sat, 04 Jun 2016 00:20:01 +0200
+Message-ID: <57520291.7090004@iogearbox.net>
+References: <CAEfhGiwwvwf31Dj+s0zA0bpVAZ4x4=rLuU5g217u=wRrgm07Dg@mail.gmail.com> <20160603214002.GA58242@ast-mbp.thefacebook.com> <20160603214917.GA12557@ls3530.box>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Craig Gallek <kraigatgoog@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: Helge Deller <deller@gmx.de>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35882 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932641AbcFCWGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 18:06:08 -0400
-Received: by mail-pf0-f194.google.com with SMTP id 62so12432009pfd.3
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 15:06:08 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:60883 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbcFCWUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 18:20:09 -0400
+In-Reply-To: <20160603214917.GA12557@ls3530.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For gso_skb we only update qlen, backlog should be updated too.
+On 06/03/2016 11:49 PM, Helge Deller wrote:
+> Commit 538950a1b752 ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
+> missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF option.
+>
+> Signed-off-by: Helge Deller <deller@gmx.de>
 
-Note, it is correct to just update these stats at one layer,
-because the gso_skb is cached there.
+LGTM, thanks!
 
-Reported-by: Stas Nichiporovich <stasn77@gmail.com>
-Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/sch_generic.h | 5 ++++-
- net/sched/sch_generic.c   | 2 ++
- 2 files changed, 6 insertions(+), 1 deletion(-)
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a1fd76c..6803af1 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -691,9 +691,11 @@ static inline struct sk_buff *qdisc_peek_dequeued(struct Qdisc *sch)
- 	/* we can reuse ->gso_skb because peek isn't called for root qdiscs */
- 	if (!sch->gso_skb) {
- 		sch->gso_skb = sch->dequeue(sch);
--		if (sch->gso_skb)
-+		if (sch->gso_skb) {
- 			/* it's still part of the queue */
-+			qdisc_qstats_backlog_inc(sch, sch->gso_skb);
- 			sch->q.qlen++;
-+		}
- 	}
- 
- 	return sch->gso_skb;
-@@ -706,6 +708,7 @@ static inline struct sk_buff *qdisc_dequeue_peeked(struct Qdisc *sch)
- 
- 	if (skb) {
- 		sch->gso_skb = NULL;
-+		qdisc_qstats_backlog_dec(sch, skb);
- 		sch->q.qlen--;
- 	} else {
- 		skb = sch->dequeue(sch);
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 269dd71..f9e0e9c 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -49,6 +49,7 @@ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
- 	q->gso_skb = skb;
- 	q->qstats.requeues++;
-+	qdisc_qstats_backlog_inc(q, skb);
- 	q->q.qlen++;	/* it's still part of the queue */
- 	__netif_schedule(q);
- 
-@@ -92,6 +93,7 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
- 		txq = skb_get_tx_queue(txq->dev, skb);
- 		if (!netif_xmit_frozen_or_stopped(txq)) {
- 			q->gso_skb = NULL;
-+			qdisc_qstats_backlog_dec(q, skb);
- 			q->q.qlen--;
- 		} else
- 			skb = NULL;
--- 
-2.1.0
+[ Cc Willem: I believe we also need something similar for PACKET_FANOUT_DATA
+   when PACKET_FANOUT_CBPF is requested since we have the same issue with the
+   pointer in struct sock_fprog there, too. ]
+
+> diff --git a/net/compat.c b/net/compat.c
+> index 5cfd26a..1373947 100644
+> --- a/net/compat.c
+> +++ b/net/compat.c
+> @@ -354,7 +354,8 @@ static int do_set_sock_timeout(struct socket *sock, int level,
+>   static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
+>   				char __user *optval, unsigned int optlen)
+>   {
+> -	if (optname == SO_ATTACH_FILTER)
+> +	if (optname == SO_ATTACH_FILTER ||
+> +	    optname == SO_ATTACH_REUSEPORT_CBPF)
+>   		return do_set_attach_filter(sock, level, optname,
+>   					    optval, optlen);
+>   	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
+>
