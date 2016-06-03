@@ -1,833 +1,219 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 15/17] net: dsa: Add new binding implementation
-Date: Fri,  3 Jun 2016 18:44:14 +0200
-Message-ID: <1464972256-10408-16-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 14/17] net: dsa: mv88e6xxx: Refactor MDIO so driver registers mdio bus
+Date: Fri,  3 Jun 2016 18:44:13 +0200
+Message-ID: <1464972256-10408-15-git-send-email-andrew@lunn.ch>
 References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58709 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58727 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544AbcFCQtv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:49:51 -0400
+	id S1751961AbcFCQvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 12:51:25 -0400
 In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing DSA binding has a number of limitations and problems. The
-main problem is that it cannot represent a switch as a linux device,
-hanging off some bus. It is limited to one CPU port. The DSA platform
-device is artificial, and does not really represent hardware.
-
-Implement a new binding which can be embedded into any type of node on
-a bus to represent one switch device, and its links to other switches.
+Have the switch driver register its own MDIO bus. This allows for an
+mdio property in the device tree, with child nodes for phys, which
+can be referenced via phandles, etc.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/mv88e6xxx.c |   7 +
- include/net/dsa.h           |  20 ++
- net/dsa/Makefile            |   2 +-
- net/dsa/dsa.c               |   1 +
- net/dsa/dsa2.c              | 653 ++++++++++++++++++++++++++++++++++++++++++++
- net/dsa/dsa_priv.h          |   2 +-
- net/dsa/slave.c             |   8 +-
- 7 files changed, 689 insertions(+), 4 deletions(-)
- create mode 100644 net/dsa/dsa2.c
+ drivers/net/dsa/mv88e6xxx.c | 89 ++++++++++++++++++++++++++++++++++++++++-----
+ drivers/net/dsa/mv88e6xxx.h |  6 +++
+ 2 files changed, 86 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 192b39cbdbcd..ee06055444f9 100644
+index b8e65e604f75..192b39cbdbcd 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3748,6 +3748,12 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev)
+@@ -21,6 +21,7 @@
+ #include <linux/list.h>
+ #include <linux/mdio.h>
+ #include <linux/module.h>
++#include <linux/of_mdio.h>
+ #include <linux/netdevice.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/phy.h>
+@@ -3130,13 +3131,11 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 	int i;
  
- 	dev_set_drvdata(dev, ds);
+ 	ps->ds = ds;
++	ds->slave_mii_bus = ps->mdio_bus;
  
-+	err = dsa_register_switch(ds, mdiodev->dev.of_node);
-+	if (err) {
-+		mv88e6xxx_mdio_unregister(ps);
-+		return err;
-+	}
-+
- 	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
- 		 prod_num, ps->info->name, rev);
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
+ 		mutex_init(&ps->eeprom_mutex);
  
-@@ -3759,6 +3765,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
- 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+-		mv88e6xxx_ppu_state_init(ps);
+-
+ 	mutex_lock(&ps->smi_mutex);
  
-+	dsa_unregister_switch(ds);
- 	put_device(&ps->bus->dev);
- 
- 	mv88e6xxx_mdio_unregister(ps);
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 11e8f09d32e3..d6ed5dee73e5 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -85,6 +85,17 @@ struct dsa_platform_data {
- struct packet_type;
- 
- struct dsa_switch_tree {
-+	struct list_head	list;
-+
-+	/* Tree identifier */
-+	u32 tree;
-+
-+	/* Number of switches attached to this tree */
-+	struct kref refcount;
-+
-+	/* Has this tree been applied to the hardware? */
-+	bool applied;
-+
- 	/*
- 	 * Configuration data for the platform device that owns
- 	 * this dsa switch tree instance.
-@@ -171,9 +182,15 @@ struct dsa_switch {
- #endif
- 
- 	/*
-+	 * The lower device this switch uses to talk to the host
-+	 */
-+	struct net_device *master_netdev;
-+
-+	/*
- 	 * Slave mii_bus and devices for the individual ports.
- 	 */
- 	u32			dsa_port_mask;
-+	u32			cpu_port_mask;
- 	u32			enabled_port_mask;
- 	u32			phys_mii_mask;
- 	struct dsa_port		ports[DSA_MAX_PORTS];
-@@ -362,4 +379,7 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
- {
- 	return dst->rcv != NULL;
- }
-+
-+void dsa_unregister_switch(struct dsa_switch *ds);
-+int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
- #endif
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index da06ed1df620..8af4ded70f1c 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -1,6 +1,6 @@
- # the core
- obj-$(CONFIG_NET_DSA) += dsa_core.o
--dsa_core-y += dsa.o slave.o
-+dsa_core-y += dsa.o slave.o dsa2.o
- 
- # tagging formats
- dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 6c314f300424..d8cb2acd4f0a 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -294,6 +294,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 			}
- 			dst->cpu_switch = index;
- 			dst->cpu_port = i;
-+			ds->cpu_port_mask |= 1 << i;
- 		} else if (!strcmp(name, "dsa")) {
- 			ds->dsa_port_mask |= 1 << i;
- 		} else {
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-new file mode 100644
-index 000000000000..4e5051bed643
---- /dev/null
-+++ b/net/dsa/dsa2.c
-@@ -0,0 +1,653 @@
-+/*
-+ * net/dsa/dsa2.c - Hardware switch handling, binding version 2
-+ * Copyright (c) 2008-2009 Marvell Semiconductor
-+ * Copyright (c) 2013 Florian Fainelli <florian@openwrt.org>
-+ * Copyright (c) 2016 Andrew Lunn <andrew@lunn.ch>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/device.h>
-+#include <linux/err.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/rtnetlink.h>
-+#include <net/dsa.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
-+#include "dsa_priv.h"
-+
-+static LIST_HEAD(dsa_switch_trees);
-+static DEFINE_MUTEX(dsa2_mutex);
-+
-+static struct dsa_switch_tree *dsa_get_dst(u32 tree)
-+{
-+	struct dsa_switch_tree *dst;
-+
-+	list_for_each_entry(dst, &dsa_switch_trees, list)
-+		if (dst->tree == tree)
-+			return dst;
-+	return NULL;
-+}
-+
-+static void dsa_free_dst(struct kref *ref)
-+{
-+	struct dsa_switch_tree *dst = container_of(ref, struct dsa_switch_tree,
-+						   refcount);
-+
-+	list_del(&dst->list);
-+	kfree(dst);
-+}
-+
-+static void dsa_put_dst(struct dsa_switch_tree *dst)
-+{
-+	kref_put(&dst->refcount, dsa_free_dst);
-+}
-+
-+static struct dsa_switch_tree *dsa_add_dst(u32 tree)
-+{
-+	struct dsa_switch_tree *dst;
-+
-+	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
-+	if (!dst)
-+		return NULL;
-+	dst->tree = tree;
-+	dst->cpu_switch = -1;
-+	INIT_LIST_HEAD(&dst->list);
-+	list_add_tail(&dsa_switch_trees, &dst->list);
-+	kref_init(&dst->refcount);
-+
-+	return dst;
-+}
-+
-+static void dsa_dst_add_ds(struct dsa_switch_tree *dst,
-+			   struct dsa_switch *ds, u32 index)
-+{
-+	kref_get(&dst->refcount);
-+	dst->ds[index] = ds;
-+}
-+
-+static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
-+			   struct dsa_switch *ds, u32 index)
-+{
-+	dst->ds[index] = NULL;
-+	kref_put(&dst->refcount, dsa_free_dst);
-+}
-+
-+static bool dsa_port_is_dsa(struct device_node *port)
-+{
-+	const char *name;
-+
-+	name = of_get_property(port, "label", NULL);
-+	if (!name)
-+		return false;
-+
-+	if (!strcmp(name, "dsa"))
-+		return true;
-+
-+	return false;
-+}
-+
-+static bool dsa_port_is_cpu(struct device_node *port)
-+{
-+	const char *name;
-+
-+	name = of_get_property(port, "label", NULL);
-+	if (!name)
-+		return false;
-+
-+	if (!strcmp(name, "cpu"))
-+		return true;
-+
-+	return false;
-+}
-+
-+static bool dsa_ds_find_port(struct dsa_switch *ds,
-+			     struct device_node *port)
-+{
-+	u32 index;
-+
-+	for (index = 0; index < DSA_MAX_PORTS; index++)
-+		if (ds->ports[index].dn == port)
-+			return true;
-+	return false;
-+}
-+
-+static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
-+					    struct device_node *port)
-+{
-+	struct dsa_switch *ds;
-+	u32 index;
-+
-+	for (index = 0; index < DSA_MAX_SWITCHES; index++) {
-+		ds = dst->ds[index];
-+		if (!ds)
-+			continue;
-+
-+		if (dsa_ds_find_port(ds, port))
-+			return ds;
-+	}
-+
-+	return NULL;
-+}
-+
-+static int dsa_port_complete(struct dsa_switch_tree *dst,
-+			     struct dsa_switch *src_ds,
-+			     struct device_node *port,
-+			     u32 src_port)
-+{
-+	struct device_node *link;
-+	int index;
-+	struct dsa_switch *dst_ds;
-+
-+	for (index = 0;; index++) {
-+		link = of_parse_phandle(port, "link", index);
-+		if (!link)
-+			break;
-+
-+		dst_ds = dsa_dst_find_port(dst, link);
-+		of_node_put(link);
-+
-+		if (!dst_ds)
-+			return 1;
-+
-+		src_ds->rtable[dst_ds->index] = src_port;
-+	}
-+
-+	return 0;
-+}
-+
-+/* A switch is complete if all the DSA ports phandles point to ports
-+ * known in the tree. A return value of 1 means the tree is not
-+ * complete. This is not an error condition. A value of 0 is
-+ * success.
-+ */
-+static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
-+{
-+	struct device_node *port;
-+	u32 index;
-+	int err;
-+
-+	for (index = 0; index < DSA_MAX_PORTS; index++) {
-+		port = ds->ports[index].dn;
-+		if (!port)
-+			continue;
-+
-+		if (!dsa_port_is_dsa(port))
-+			continue;
-+
-+		ds->dsa_port_mask |= 1 << index;
-+
-+		err = dsa_port_complete(dst, ds, port, index);
-+		if (err != 0)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+/* A tree is complete if all the DSA ports phandles point to ports
-+ * known in the tree. A return value of 1 means the tree is not
-+ * complete. This is not an error condition. A value of 0 is
-+ * success.
-+ */
-+static int dsa_dst_complete(struct dsa_switch_tree *dst)
-+{
-+	struct dsa_switch *ds;
-+	u32 index;
-+	int err;
-+
-+	for (index = 0; index < DSA_MAX_SWITCHES; index++) {
-+		ds = dst->ds[index];
-+		if (!ds)
-+			continue;
-+
-+		err = dsa_ds_complete(dst, ds);
-+		if (err != 0)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static int dsa_dsa_port_apply(struct device_node *port, u32 index,
-+			      struct dsa_switch *ds)
-+{
-+	int err;
-+
-+	err = dsa_cpu_dsa_setup(ds, ds->dev, port, index);
-+	if (err) {
-+		dev_warn(ds->dev, "Failed to setup dsa port %d: %d\n",
-+			 index, err);
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static void dsa_dsa_port_unapply(struct device_node *port, u32 index,
-+				 struct dsa_switch *ds)
-+{
-+	dsa_cpu_dsa_destroy(port);
-+}
-+
-+static int dsa_cpu_port_apply(struct device_node *port, u32 index,
-+			      struct dsa_switch *ds)
-+{
-+	int err;
-+
-+	err = dsa_cpu_dsa_setup(ds, ds->dev, port, index);
-+	if (err) {
-+		dev_warn(ds->dev, "Failed to setup cpu port %d: %d\n",
-+			 index, err);
-+		return err;
-+	}
-+
-+	ds->cpu_port_mask |= 1 << index;
-+
-+	return 0;
-+}
-+
-+static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
-+				 struct dsa_switch *ds)
-+{
-+	dsa_cpu_dsa_destroy(port);
-+}
-+
-+static int dsa_user_port_apply(struct device_node *port, u32 index,
-+			       struct dsa_switch *ds)
-+{
-+	const char *name;
-+	int err;
-+
-+	name = of_get_property(port, "label", NULL);
-+
-+	err = dsa_slave_create(ds, ds->dev, index, name);
-+	if (err) {
-+		dev_warn(ds->dev, "Failed to create slave %d: %d\n",
-+			 index, err);
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static void dsa_user_port_unapply(struct device_node *port, u32 index,
-+				  struct dsa_switch *ds)
-+{
-+	if (ds->ports[index].netdev) {
-+		dsa_slave_destroy(ds->ports[index].netdev);
-+		ds->ports[index].netdev = NULL;
-+	}
-+}
-+
-+static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
-+{
-+	struct device_node *port;
-+	u32 index;
-+	int err;
-+
-+	err = ds->drv->setup(ds);
-+	if (err < 0)
-+		return err;
-+
-+	err = ds->drv->set_addr(ds, dst->master_netdev->dev_addr);
-+	if (err < 0)
-+		return err;
-+
-+	err = ds->drv->set_addr(ds, dst->master_netdev->dev_addr);
-+	if (err < 0)
-+		return err;
-+
-+	for (index = 0; index < DSA_MAX_PORTS; index++) {
-+		port = ds->ports[index].dn;
-+		if (!port)
-+			continue;
-+
-+		if (dsa_port_is_dsa(port)) {
-+			err = dsa_dsa_port_apply(port, index, ds);
-+			if (err)
-+				return err;
-+			continue;
-+		}
-+
-+		if (dsa_port_is_cpu(port)) {
-+			err = dsa_cpu_port_apply(port, index, ds);
-+			if (err)
-+				return err;
-+			continue;
-+		}
-+
-+		err = dsa_user_port_apply(port, index, ds);
-+		if (err)
-+			continue;
-+	}
-+
-+	return 0;
-+}
-+
-+static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
-+{
-+	struct device_node *port;
-+	u32 index;
-+
-+	for (index = 0; index < DSA_MAX_PORTS; index++) {
-+		port = ds->ports[index].dn;
-+		if (!port)
-+			continue;
-+
-+		if (dsa_port_is_dsa(port)) {
-+			dsa_dsa_port_unapply(port, index, ds);
-+			continue;
-+		}
-+
-+		if (dsa_port_is_cpu(port)) {
-+			dsa_cpu_port_unapply(port, index, ds);
-+			continue;
-+		}
-+
-+		dsa_user_port_unapply(port, index, ds);
-+	}
-+}
-+
-+static int dsa_dst_apply(struct dsa_switch_tree *dst)
-+{
-+	struct dsa_switch *ds;
-+	u32 index;
-+	int err;
-+
-+	for (index = 0; index < DSA_MAX_SWITCHES; index++) {
-+		ds = dst->ds[index];
-+		if (!ds)
-+			continue;
-+
-+		err = dsa_ds_apply(dst, ds);
-+		if (err)
-+			return err;
-+	}
-+
-+	/* If we use a tagging format that doesn't have an ethertype
-+	 * field, make sure that all packets from this point on get
-+	 * sent to the tag format's receive function.
-+	 */
-+	wmb();
-+	dst->master_netdev->dsa_ptr = (void *)dst;
-+	dst->applied = true;
-+
-+	return 0;
-+}
-+
-+static void dsa_dst_unapply(struct dsa_switch_tree *dst)
-+{
-+	struct dsa_switch *ds;
-+	u32 index;
-+
-+	if (!dst->applied)
-+		return;
-+
-+	dst->master_netdev->dsa_ptr = NULL;
-+
-+	/* If we used a tagging format that doesn't have an ethertype
-+	 * field, make sure that all packets from this point get sent
-+	 * without the tag and go through the regular receive path.
-+	 */
-+	wmb();
-+
-+	for (index = 0; index < DSA_MAX_SWITCHES; index++) {
-+		ds = dst->ds[index];
-+		if (!ds)
-+			continue;
-+
-+		dsa_ds_unapply(dst, ds);
-+	}
-+
-+	pr_info("DSA: tree %d unapplied\n", dst->tree);
-+	dst->applied = false;
-+}
-+
-+static int dsa_cpu_parse(struct device_node *port, u32 index,
-+			 struct dsa_switch_tree *dst,
-+			 struct dsa_switch *ds)
-+{
-+	struct net_device *ethernet_dev;
-+	struct device_node *ethernet;
-+
-+	ethernet = of_parse_phandle(port, "ethernet", 0);
-+	if (!ethernet)
-+		return -EINVAL;
-+
-+	ethernet_dev = of_find_net_device_by_node(ethernet);
-+	if (!ethernet_dev)
-+		return -EPROBE_DEFER;
-+
-+	if (!ds->master_netdev)
-+		ds->master_netdev = ethernet_dev;
-+
-+	if (!dst->master_netdev)
-+		dst->master_netdev = ethernet_dev;
-+
-+	if (dst->cpu_switch == -1) {
-+		dst->cpu_switch = ds->index;
-+		dst->cpu_port = index;
-+	}
-+
-+	dst->tag_ops = dsa_resolve_tag_protocol(ds->drv->tag_protocol);
-+	if (IS_ERR(dst->tag_ops)) {
-+		dev_warn(ds->dev, "No tagger for this switch\n");
-+		return PTR_ERR(dst->tag_ops);
-+	}
-+
-+	dst->rcv = dst->tag_ops->rcv;
-+
-+	return 0;
-+}
-+
-+static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
-+{
-+	struct device_node *port;
-+	u32 index;
-+	int err;
-+
-+	for (index = 0; index < DSA_MAX_PORTS; index++) {
-+		port = ds->ports[index].dn;
-+		if (!port)
-+			continue;
-+
-+		if (dsa_port_is_cpu(port)) {
-+			err = dsa_cpu_parse(port, index, dst, ds);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	pr_info("DSA: switch %d %d parsed\n", dst->tree, ds->index);
-+
-+	return 0;
-+}
-+
-+static int dsa_dst_parse(struct dsa_switch_tree *dst)
-+{
-+	struct dsa_switch *ds;
-+	u32 index;
-+	int err;
-+
-+	for (index = 0; index < DSA_MAX_SWITCHES; index++) {
-+		ds = dst->ds[index];
-+		if (!ds)
-+			continue;
-+
-+		err = dsa_ds_parse(dst, ds);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (!dst->master_netdev) {
-+		pr_warn("Tree has no master device\n");
-+		return -EINVAL;
-+	}
-+
-+	pr_info("DSA: tree %d parsed\n", dst->tree);
-+
-+	return 0;
-+}
-+
-+static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
-+{
-+	struct device_node *port;
-+	int err;
-+	u32 reg;
-+
-+	for_each_available_child_of_node(ports, port) {
-+		err = of_property_read_u32(port, "reg", &reg);
-+		if (err)
-+			return err;
-+
-+		if (reg >= DSA_MAX_PORTS)
-+			return -EINVAL;
-+
-+		ds->ports[reg].dn = port;
-+	}
-+
-+	return 0;
-+}
-+
-+static int dsa_parse_member(struct device_node *np, u32 *tree, u32 *index)
-+{
-+	int err;
-+
-+	*tree = *index = 0;
-+
-+	err = of_property_read_u32_index(np, "dsa,member", 0, tree);
-+	if (err) {
-+		/* Does not exist, but it is optional */
-+		if (err == -EINVAL)
-+			return 0;
-+		return err;
-+	}
-+
-+	err = of_property_read_u32_index(np, "dsa,member", 1, index);
-+	if (err)
-+		return err;
-+
-+	if (*index >= DSA_MAX_SWITCHES)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static struct device_node *dsa_get_ports(struct dsa_switch *ds,
-+					 struct device_node *np)
-+{
-+	struct device_node *ports;
-+
-+	ports = of_get_child_by_name(np, "ports");
-+	if (!ports) {
-+		dev_err(ds->dev, "no ports child node found\n");
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	return ports;
-+}
-+
-+static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+{
-+	struct device_node *ports = dsa_get_ports(ds, np);
-+	struct dsa_switch_tree *dst;
-+	u32 tree, index;
-+	int err;
-+
-+	err = dsa_parse_member(np, &tree, &index);
-+	if (err)
-+		return err;
-+
-+	if (IS_ERR(ports))
-+		return PTR_ERR(ports);
-+
-+	err = dsa_parse_ports_dn(ports, ds);
-+	if (err)
-+		return err;
-+
-+	dst = dsa_get_dst(tree);
-+	if (!dst) {
-+		dst = dsa_add_dst(tree);
-+		if (!dst)
-+			return -ENOMEM;
-+	}
-+
-+	if (dst->ds[index]) {
-+		err = -EBUSY;
-+		goto out;
-+	}
-+
-+	ds->dst = dst;
-+	ds->index = index;
-+	dsa_dst_add_ds(dst, ds, index);
-+
-+	err = dsa_dst_complete(dst);
-+	if (err < 0)
-+		goto out_del_dst;
-+
-+	if (err == 1) {
-+		/* Not all switches registered yet */
-+		err = 0;
-+		goto out;
-+	}
-+
-+	if (dst->applied) {
-+		pr_info("DSA: Disjoint trees?\n");
-+		return -EINVAL;
-+	}
-+
-+	err = dsa_dst_parse(dst);
-+	if (err)
-+		goto out_del_dst;
-+
-+	err = dsa_dst_apply(dst);
-+	if (err) {
-+		dsa_dst_unapply(dst);
-+		goto out_del_dst;
-+	}
-+
-+	dsa_put_dst(dst);
-+	return 0;
-+
-+out_del_dst:
-+	dsa_dst_del_ds(dst, ds, ds->index);
-+out:
-+	dsa_put_dst(dst);
-+
-+	return err;
-+}
-+
-+int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+{
-+	int err;
-+
-+	mutex_lock(&dsa2_mutex);
-+	err = _dsa_register_switch(ds, np);
-+	mutex_unlock(&dsa2_mutex);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(dsa_register_switch);
-+
-+void _dsa_unregister_switch(struct dsa_switch *ds)
-+{
-+	struct dsa_switch_tree *dst = ds->dst;
-+
-+	dsa_dst_unapply(dst);
-+
-+	dsa_dst_del_ds(dst, ds, ds->index);
-+}
-+
-+void dsa_unregister_switch(struct dsa_switch *ds)
-+{
-+	mutex_lock(&dsa2_mutex);
-+	_dsa_unregister_switch(ds);
-+	mutex_unlock(&dsa2_mutex);
-+}
-+EXPORT_SYMBOL_GPL(dsa_unregister_switch);
-+
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 72f7b8989cfb..b42f1a5f95f3 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -59,7 +59,7 @@ const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
- int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
--		     int port, char *name);
-+		     int port, const char *name);
- void dsa_slave_destroy(struct net_device *slave_dev);
- int dsa_slave_suspend(struct net_device *slave_dev);
- int dsa_slave_resume(struct net_device *slave_dev);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 35e5f0f6688b..15a492261895 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1099,14 +1099,18 @@ int dsa_slave_resume(struct net_device *slave_dev)
+ 	err = mv88e6xxx_switch_reset(ps);
+@@ -3192,9 +3191,9 @@ static int mv88e6xxx_port_to_mdio_addr(struct mv88e6xxx_priv_state *ps,
+ 	return -EINVAL;
  }
  
- int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
--		     int port, char *name)
-+		     int port, const char *name)
+-static int mv88e6xxx_mdio_read(struct dsa_switch *ds, int port, int regnum)
++static int mv88e6xxx_mdio_read(struct mii_bus *bus, int port, int regnum)
  {
--	struct net_device *master = ds->dst->master_netdev;
- 	struct dsa_switch_tree *dst = ds->dst;
-+	struct net_device *master;
- 	struct net_device *slave_dev;
- 	struct dsa_slave_priv *p;
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_priv_state *ps = bus->priv;
+ 	int addr = mv88e6xxx_port_to_mdio_addr(ps, port);
  	int ret;
  
-+	master = ds->dst->master_netdev;
-+	if (ds->master_netdev)
-+		master = ds->master_netdev;
+@@ -3214,10 +3213,10 @@ static int mv88e6xxx_mdio_read(struct dsa_switch *ds, int port, int regnum)
+ 	return ret;
+ }
+ 
+-static int mv88e6xxx_mdio_write(struct dsa_switch *ds, int port, int regnum,
++static int mv88e6xxx_mdio_write(struct mii_bus *bus, int port, int regnum,
+ 				u16 val)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_priv_state *ps = bus->priv;
+ 	int addr = mv88e6xxx_port_to_mdio_addr(ps, port);
+ 	int ret;
+ 
+@@ -3237,6 +3236,66 @@ static int mv88e6xxx_mdio_write(struct dsa_switch *ds, int port, int regnum,
+ 	return ret;
+ }
+ 
++static int mv88e6xxx_mdio_register(struct mv88e6xxx_priv_state *ps,
++				   struct device_node *np)
++{
++	static int index;
++	struct mii_bus *bus;
++	int err;
 +
- 	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
- 				 NET_NAME_UNKNOWN, ether_setup);
- 	if (slave_dev == NULL)
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
++		mv88e6xxx_ppu_state_init(ps);
++
++	if (np)
++		ps->mdio_np = of_get_child_by_name(np, "mdio");
++
++	bus = devm_mdiobus_alloc(ps->dev);
++	if (!bus)
++		return -ENOMEM;
++
++	bus->priv = (void *)ps;
++	if (np) {
++		bus->name = np->full_name;
++		snprintf(bus->id, MII_BUS_ID_SIZE, "%s", np->full_name);
++	} else {
++		bus->name = "mv88e6xxx SMI";
++		snprintf(bus->id, MII_BUS_ID_SIZE, "mv88e6xxx-%d", index++);
++	}
++
++	bus->read = mv88e6xxx_mdio_read;
++	bus->write = mv88e6xxx_mdio_write;
++	bus->parent = ps->dev;
++
++	if (ps->mdio_np)
++		err = of_mdiobus_register(bus, ps->mdio_np);
++	else
++		err = mdiobus_register(bus);
++	if (err) {
++		dev_err(ps->dev, "Cannot register MDIO bus (%d)\n", err);
++		goto out;
++	}
++	ps->mdio_bus = bus;
++
++	return 0;
++
++out:
++	if (ps->mdio_np)
++		of_node_put(ps->mdio_np);
++
++	return err;
++}
++
++static void mv88e6xxx_mdio_unregister(struct mv88e6xxx_priv_state *ps)
++
++{
++	struct mii_bus *bus = ps->mdio_bus;
++
++	mdiobus_unregister(bus);
++
++	if (ps->mdio_np)
++		of_node_put(ps->mdio_np);
++}
++
+ #ifdef CONFIG_NET_DSA_HWMON
+ 
+ static int mv88e61xx_get_temp(struct dsa_switch *ds, int *temp)
+@@ -3549,6 +3608,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+ 	struct mii_bus *bus;
+ 	const char *name;
+ 	int id, prod_num, rev;
++	int err;
+ 
+ 	bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	if (!bus)
+@@ -3575,8 +3635,13 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+ 	ps->bus = bus;
+ 	ps->sw_addr = sw_addr;
+ 	ps->info = info;
++	ps->dev = dsa_dev;
+ 	mutex_init(&ps->smi_mutex);
+ 
++	err = mv88e6xxx_mdio_register(ps, NULL);
++	if (err)
++		return NULL;
++
+ 	*priv = ps;
+ 
+ 	dev_info(&ps->bus->dev, "switch 0x%x probed: %s, revision %u\n",
+@@ -3590,8 +3655,6 @@ struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.probe			= mv88e6xxx_drv_probe,
+ 	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+-	.phy_read		= mv88e6xxx_mdio_read,
+-	.phy_write		= mv88e6xxx_mdio_write,
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+@@ -3677,6 +3740,12 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	    !of_property_read_u32(np, "eeprom-length", &eeprom_len))
+ 		ps->eeprom_len = eeprom_len;
+ 
++	err = mv88e6xxx_mdio_register(ps, mdiodev->dev.of_node);
++	if (err)
++		return err;
++
++	ds->slave_mii_bus = ps->mdio_bus;
++
+ 	dev_set_drvdata(dev, ds);
+ 
+ 	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
+@@ -3691,6 +3760,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+ 	put_device(&ps->bus->dev);
++
++	mv88e6xxx_mdio_unregister(ps);
+ }
+ 
+ static const struct of_device_id mv88e6xxx_of_match[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 36d0e1504de1..8221c3c7ec5a 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -600,6 +600,12 @@ struct mv88e6xxx_priv_state {
+ 
+ 	/* set to size of eeprom if supported by the switch */
+ 	int		eeprom_len;
++
++	/* Device node for the MDIO bus */
++	struct device_node *mdio_np;
++
++	/* And the MDIO bus itself */
++	struct mii_bus *mdio_bus;
+ };
+ 
+ enum stat_type {
 -- 
 2.8.1
