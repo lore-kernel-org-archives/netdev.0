@@ -1,40 +1,28 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH] soreuseport: Fix reuseport_bpf testcase on 32bit architectures
-Date: Fri, 3 Jun 2016 17:29:38 -0400
-Message-ID: <CAEfhGiyS1Vk=etQcdu6n6NQDvOyc7zQC47PHi=0=8Z3HyvFxBQ@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 17/17] net: dsa: Document new binding
+Date: Fri, 03 Jun 2016 17:29:11 -0400
+Message-ID: <87lh2mvu54.fsf@ketchup.mtl.sfl>
+References: <1464972256-10408-1-git-send-email-andrew@lunn.ch> <1464972256-10408-18-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-parisc@vger.kernel.org
-To: Helge Deller <deller@gmx.de>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:36344 "EHLO
-	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752535AbcFCV3l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 17:29:41 -0400
-Received: by mail-lf0-f50.google.com with SMTP id b73so62260420lfb.3
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 14:29:40 -0700 (PDT)
-Received: from mail-lf0-f49.google.com (mail-lf0-f49.google.com. [209.85.215.49])
-        by smtp.gmail.com with ESMTPSA id c71sm626321lfe.27.2016.06.03.14.29.39
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 03 Jun 2016 14:29:39 -0700 (PDT)
-Received: by mail-lf0-f49.google.com with SMTP id b73so62260252lfb.3
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 14:29:39 -0700 (PDT)
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:57183 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932232AbcFCV3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 17:29:15 -0400
+In-Reply-To: <1464972256-10408-18-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 3, 2016 at 1:19 PM, Helge Deller <deller@gmx.de> wrote:
-> This fixes the following compiler warnings when compiling the
-> reuseport_bpf testcase on a 32 bit platform:
->
-> reuseport_bpf.c: In function =E2=80=98attach_ebpf=E2=80=99:
-> reuseport_bpf.c:114:15: warning: cast from pointer to integer of iffe=
-rent size [-Wpointer-to-int-cast]
->
-> Signed-off-by: Helge Deller <deller@gmx.de>
-Acked-by: Craig Gallek <kraig@google.com>
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Thanks!
+> Add the new binding to the documentation of the existing binding.
+> Mark the old binding as deprecated.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
