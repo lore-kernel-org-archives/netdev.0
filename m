@@ -1,70 +1,87 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 04/17] net: dsa: tag_{e}dsa.c: Remove dependency on platform data
-Date: Fri,  3 Jun 2016 18:44:03 +0200
-Message-ID: <1464972256-10408-5-git-send-email-andrew@lunn.ch>
-References: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58722 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932120AbcFCQvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 12:51:08 -0400
-In-Reply-To: <1464972256-10408-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH RFC v7 3/5] skb_array: array based FIFO for skbs
+Date: Fri, 3 Jun 2016 19:05:40 +0200
+Message-ID: <20160603190540.79421e54@redhat.com>
+References: <1464883305-32368-1-git-send-email-mst@redhat.com>
+	<1464883305-32368-4-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	kvm@vger.kernel.org, brouer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464883305-32368-4-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The platform data nr_chips is used when validating a received packet,
-to ensure it comes from a know switch chip. The number of possible
-switches is limited to DSA_MAX_SWITCHES, so use this as the first
-validation step. The new binding allows holes in the dst->ds[] array,
-so also ensure ensure there is a valid dsa_switch for this packet.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- net/dsa/tag_dsa.c  | 6 +++++-
- net/dsa/tag_edsa.c | 6 +++++-
- 2 files changed, 10 insertions(+), 2 deletions(-)
+Could not compile this new version of skb_array.h, it complains about
+implicit declaration of function 'skb_vlan_tag_present' and
+'VLAN_HLEN' being undeclared.
 
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index aa780e4ac0bd..f9832f097681 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -107,9 +107,13 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
- 	 * Check that the source device exists and that the source
- 	 * port is a registered DSA port.
- 	 */
--	if (source_device >= dst->pd->nr_chips)
-+	if (source_device >= DSA_MAX_SWITCHES)
- 		goto out_drop;
-+
- 	ds = dst->ds[source_device];
-+	if (!ds)
-+		goto out_drop;
-+
- 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
- 		goto out_drop;
- 
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 2288c8098c42..3890aac8190f 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -120,9 +120,13 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
- 	 * Check that the source device exists and that the source
- 	 * port is a registered DSA port.
- 	 */
--	if (source_device >= dst->pd->nr_chips)
-+	if (source_device >= DSA_MAX_SWITCHES)
- 		goto out_drop;
-+
- 	ds = dst->ds[source_device];
-+	if (!ds)
-+		goto out_drop;
-+
- 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
- 		goto out_drop;
- 
+Fix this by including linux/if_vlan.h, but is that correct?
+
+
+On Thu, 2 Jun 2016 19:08:26 +0300 "Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> A simple array based FIFO of pointers.  Intended for net stack so uses
+> skbs for type safety. Implemented as a set of wrappers around ptr_array.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  include/linux/skb_array.h | 143 ++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 143 insertions(+)
+>  create mode 100644 include/linux/skb_array.h
+> 
+> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+> new file mode 100644
+> index 0000000..ed6a2b5
+> --- /dev/null
+> +++ b/include/linux/skb_array.h
+> @@ -0,0 +1,143 @@
+[...]
+> +
+> +#ifndef _LINUX_SKB_ARRAY_H
+> +#define _LINUX_SKB_ARRAY_H 1
+> +
+> +#ifdef __KERNEL__
+> +#include <linux/ptr_ring.h>
+> +#include <linux/skbuff.h>
+
+Added:
++#include <linux/if_vlan.h>
+
+
+> +#endif
+
+[...]
+> +static inline int __skb_array_len_with_tag(struct sk_buff *skb)
+> +{
+> +	if (likely(skb)) {
+> +		int len = skb->len;
+> +
+> +		if (skb_vlan_tag_present(skb))
+> +			len += VLAN_HLEN;
+> +
+> +		return len;
+> +	} else {
+> +		return 0;
+> +	}
+> +}
+> +
+> +static inline int skb_array_peek_len(struct skb_array *a)
+> +{
+> +	return PTR_RING_PEEK_CALL(&a->ring, __skb_array_len_with_tag);
+> +}
+> +
+[...]
+
 -- 
-2.8.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
