@@ -1,55 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
- SACK block
-Date: Fri, 03 Jun 2016 09:24:54 -0700
-Message-ID: <1464971094.5939.192.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1464694717-22548-1-git-send-email-pau.espin@tessares.net>
-	 <1464796118.5939.156.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CALCp7mne5OEU1hT-XHoQR33S7tzCRuDMzCu-deXx18QbdBgmYA@mail.gmail.com>
-	 <1464966836.5939.189.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 5/7] net:mdio-mux: Add MDIO mux driver for iProc SoCs
+Date: Fri, 3 Jun 2016 18:27:15 +0200
+Message-ID: <20160603162715.GG22120@lunn.ch>
+References: <1464967568-27562-1-git-send-email-pramod.kumar@broadcom.com>
+ <1464967568-27562-6-git-send-email-pramod.kumar@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pau Espin <pau.espin@tessares.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33941 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752172AbcFCQY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 12:24:57 -0400
-Received: by mail-pa0-f68.google.com with SMTP id x1so6316293pav.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 09:24:57 -0700 (PDT)
-In-Reply-To: <CADVnQymK9FfSS26CemJ-powG5WrbBrBr4YcLwO_5iVA6OJ6sGw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	bcm-kernel-feedback-list@broadcom.com,
+	linux-arm-kernel@lists.infradead.org
+To: Pramod Kumar <pramod.kumar@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464967568-27562-6-git-send-email-pramod.kumar@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-06-03 at 11:45 -0400, Neal Cardwell wrote:
-> On Fri, Jun 3, 2016 at 11:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > I have no strict opinion on this.
-> >
-> > It seems to me that checking at most 4 right edges (at least in current
-> > linux implementation) is not adding a huge risk, and allows for better
-> > interoperability.
-> >
-> > I vote for no extra sysctl.
+On Fri, Jun 03, 2016 at 08:56:06PM +0530, Pramod Kumar wrote:
+> iProc based SoCs supports the integrated mdio multiplexer which
+> has the bus selection as well as mdio transaction generation logic
+> inside.
 > 
-> I vote for no extra sysctl as well.
+> This mutiplexer has child buses for PCIe, SATA, USB and ETH. These
+
+multiplexer 
+
+> buses could be internal or external to SOC where PHYs are attached.
+> These buses could use C-45 or C-22 mdio transaction.
 > 
-> But I would also vote to tighten up the proposed logic slightly, and
-> only check the seq of the incoming RST against the right edge of the
-> *right-most* SACK block. That is, the code could loop through the
-> tp->selective_acks to find the right-most of the right edges of the
-> SACK blocks (the end_seq that has no other end_seq after() it). AFAICT
-> it makes sense to expect that a legitimate incoming RST might match
-> rcv_nxt, or might match the right-most edge of the right-most SACK.
-> But allowing a RST to match a sequence of some SACK in the middle of
-> the sequence range would seem to only increase the attack surface for
-> RST attacks.
+> Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
+> ---
+>  drivers/net/phy/Kconfig              |  11 ++
+>  drivers/net/phy/Makefile             |   1 +
+>  drivers/net/phy/mdio-mux-bcm-iproc.c | 246 +++++++++++++++++++++++++++++++++++
+>  3 files changed, 258 insertions(+)
+>  create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 6dad9a9..38faecf 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -254,6 +254,17 @@ config MDIO_BUS_MUX_MMIOREG
+>  
+>  	  Currently, only 8-bit registers are supported.
+>  
+> +config MDIO_BUS_MUX_BCM_IPROC
+> +	tristate "Support for iProc based MDIO bus multiplexers"
+> +	depends on OF && OF_MDIO && (ARCH_BCM_IPROC || COMPILE_TEST)
+> +	select MDIO_BUS_MUX
+> +	default ARCH_BCM_IPROC
+> +	help
+> +	  This module provides a driver for MDIO bus multiplexers found in
+> +	  iProc based Broadcom SoCs. This mulitplexer connects one of several
 
-Well, the most recent info would be in [0], no need to iterate, right ?
+multiplexer
 
-So only look at the first sack block in the array, even if we have 3 or
-4 blocks there.
+
+> +	  child MDIO bus to a parent bus. Buses could be interal as well as
+
+internal
+
+Maybe you should turn on the spelling checker in your text editor?
+
+> +static int start_miim_ops(void __iomem *base,
+> +			  u16 phyid, u32 reg, u16 val, u32 op)
+> +{
+> +	u32 param;
+> +	int ret;
+> +
+> +	writel(0, base + MDIO_CTRL_OFFSET);
+> +	ret = iproc_mdio_wait_for_idle(base, 0);
+> +	if (ret)
+> +		goto err;
+> +
+> +	param = readl(base + MDIO_PARAM_OFFSET);
+> +	param |= phyid << MDIO_PARAM_PHY_ID;
+> +	param |= val << MDIO_PARAM_PHY_DATA;
+> +	if (reg & MII_ADDR_C45)
+> +		param |= (1 << MDIO_PARAM_C45_SEL);
+
+You could use BIT(MDIO_PARAM_C45_SEL) here
+
+> +static int mdio_mux_iproc_remove(struct platform_device *pdev)
+> +{
+> +	struct iproc_mdiomux_desc *md = dev_get_platdata(&pdev->dev);
+> +
+> +	mdio_mux_uninit(md->mux_handle);
+> +
+> +	return 0;
+
+You should unregister and free the parent MDIO device.
+
+    Andrew
